@@ -15,7 +15,7 @@ export async function fastSeed(ctx) {
     if (keyed?.ok === false) throw new Error(`the key was refused: ${keyed.error}`);
     if (openai) await window.pilot.saveSecret('OPENAI_API_KEY', openai);
     const connected = await window.pilot.notionConnect(token);
-    if (!connected?.ok) throw new Error(`Notion did not connect: ${connected?.error || 'unknown'}`);
+    if (!connected?.ok) throw new Error(`Notion did not connect: ${connected?.error || `missing ${JSON.stringify(connected?.missing || [])}, problems ${JSON.stringify((connected?.problems || []).map(p => p.title || p))}, found ${JSON.stringify(Object.keys(connected?.ids || {}))}`}`);   // no error text: say what the connect found
     if (engine === 'cli' || engine === 'codex') {
       const status = await (engine === 'cli' ? window.pilot.verifyClaudeCode() : window.pilot.verifyCodex());
       if (!status?.authenticated) throw new Error(`${engine === 'cli' ? 'Claude Code' : 'Codex'} is not ready on this Mac (${status?.error || 'not signed in'}): sign in with ${engine === 'cli' ? 'claude' : 'codex login'}`);

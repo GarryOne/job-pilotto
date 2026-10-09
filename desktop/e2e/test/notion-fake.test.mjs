@@ -86,3 +86,37 @@ test('an uploaded file keeps its bytes and reads back as a hosted file block', a
     assert.deepEqual([...Buffer.from(await got.arrayBuffer())], [0x25, 0x50, 0x44, 0x46, 0x0d, 0x0a, 0xff]);
   } finally { await fake.close(); }
 });
+
+test('a two-way relation gets its other side on the target, and a rename of that side is followed, as in Notion', () => {
+  const fake = createNotionFake();
+  const make = title => call(fake, 'POST', 'databases', {parent: {page_id: fake.root.id}, title: text(title), properties: {Name: {title: {}}}}).body;
+  const apps = make('Applications'), runs = make('Runs');
+  call(fake, 'PATCH', `databases/${apps.id}`, {properties: {Runs: {relation: {database_id: runs.id, type: 'dual_property', dual_property: {}}}}});
+  const other = 'Related to Applications (Runs)';
+  assert.equal(call(fake, 'GET', `databases/${runs.id}`).body.properties[other]?.relation.database_id, apps.id);
+  call(fake, 'PATCH', `databases/${runs.id}`, {properties: {[other]: {name: 'Application'}}});   // lib/schema.js names it after the schema
+  assert.equal(call(fake, 'GET', `databases/${apps.id}`).body.properties.Runs.relation.dual_property.synced_property_name, 'Application');
+  call(fake, 'PATCH', `databases/${apps.id}`, {properties: {Solo: {relation: {database_id: runs.id, type: 'single_property', single_property: {}}}}});
+  assert.equal(Object.keys(call(fake, 'GET', `databases/${runs.id}`).body.properties).length, 2, 'a one-way relation has no other side');
+});
+
+// The class, not the case: any second install (a second app, a relaunch on a new profile, another Mac) connects to what the first built.
+test('a second install of the app connects to the workspace the first one built on the stand-in', async () => {
+  const {startNotionFake} = await import('../lib/notion-fake.mjs');
+  const fake = await startNotionFake();
+  const before = {flag: process.env.JOB_PILOTTO_E2E, url: process.env.JOB_PILOTTO_E2E_NOTION_BASE_URL};
+  Object.assign(process.env, {JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_NOTION_BASE_URL: fake.url});   // read when the app's Notion module loads (lib/notion-core.js)
+  // Only the stand-in: a request anywhere else (real Notion) fails the test instead of leaving this computer.
+  const fetcher = (url, options) => { if (!String(url).startsWith(fake.url)) throw new Error(`the test reached ${url}`); return fetch(url, options); };
+  try {
+    const {connectWorkspace} = await import('../../lib/notion-workspace.js');
+    const first = await connectWorkspace('stand-in', {sleep: async () => {}, fetcher});
+    assert.ok(first.ok && first.built?.length, 'the first install builds the workspace');
+    const second = await connectWorkspace('stand-in', {sleep: async () => {}, fetcher});
+    assert.deepEqual({ok: second.ok, missing: second.missing, problems: second.problems}, {ok: true, missing: [], problems: []});
+    assert.deepEqual(second.ids, first.ids);
+  } finally {
+    for (const [name, value] of [['JOB_PILOTTO_E2E', before.flag], ['JOB_PILOTTO_E2E_NOTION_BASE_URL', before.url]]) if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    await fake.close();
+  }
+});

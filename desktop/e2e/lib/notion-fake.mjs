@@ -44,6 +44,17 @@ export function createNotionFake() {
   let base = '';   // the server's own URL (startNotionFake sets it): an uploaded file is served from there, as Notion serves it from its storage
   const stats = {calls: 0, writes: 0};
   const kids = id => { if (!children.has(id)) children.set(id, []); return children.get(id); };
+  // A two-way relation (type dual_property) gets its other side on the target database, as Notion does: "Related to <title> (<column>)" until the
+  // app renames it (lib/schema.js). Without it a second install's connect found the synced columns missing (9 Oct 2026, calendar's second app).
+  const pairOf = (db, name) => {
+    const column = db.properties[name], relation = column?.relation, target = objects.get(relation?.database_id || '');
+    if (column?.type !== 'relation' || relation.type !== 'dual_property' || relation.dual_property?.synced_property_id || target?.object !== 'database') return;
+    const other = `Related to ${plain(db.title)} (${name})`, id = uuid().slice(0, 4);
+    target.properties[other] = {id, name: other, type: 'relation', relation: {database_id: dashed(db.id), type: 'dual_property', dual_property: {synced_property_name: name, synced_property_id: column.id}}};
+    relation.database_id = dashed(target.id);
+    relation.dual_property = {synced_property_name: other, synced_property_id: id};
+    target.last_edited_time = now();
+  };
   const root = {object: 'page', id: uuid(), created_time: now(), last_edited_time: now(), archived: false, in_trash: false, parent: {type: 'workspace', workspace: true},
     properties: {title: {id: 'title', type: 'title', title: richOut([{text: {content: 'Job Pilotto E2E'}}])}}, url: ''};
   objects.set(root.id, root);
@@ -145,6 +156,7 @@ export function createNotionFake() {
       const db = {object: 'database', id, title: richOut(body.title), description: [], properties, parent: parentOut(body.parent), created_time: now(), last_edited_time: now(),
         archived: false, in_trash: false, is_inline: !!body.is_inline, url: `https://www.notion.so/${id.replace(/-/g, '')}`};
       objects.set(id, db);
+      for (const name of Object.keys(properties)) pairOf(db, name);
       const parentId = body.parent?.page_id;
       if (parentId) { const block = {object: 'block', id, parent: {type: 'page_id', page_id: dashed(parentId)}, type: 'child_database', child_database: {title: plain(db.title)}, has_children: false, archived: false}; kids(parentId).push(id); objects.set(`${id}#block`, block); }
       return {status: 200, body: db};
@@ -164,9 +176,15 @@ export function createNotionFake() {
         if (body.title) db.title = richOut(body.title);
         for (const [name, column] of Object.entries(body.properties || {})) {
           if (column === null) { delete db.properties[name]; continue; }
-          if (column.name && column.name !== name && db.properties[name]) { db.properties[column.name] = {...db.properties[name], name: column.name}; delete db.properties[name]; continue; }
+          if (column.name && column.name !== name && db.properties[name]) {
+            const renamed = db.properties[column.name] = {...db.properties[name], name: column.name}; delete db.properties[name];
+            const partner = renamed.relation?.dual_property && objects.get(renamed.relation.database_id || '')?.properties;   // the other side follows the new name
+            for (const other of Object.values(partner || {})) if (other.relation?.dual_property?.synced_property_id === renamed.id) other.relation.dual_property.synced_property_name = column.name;
+            continue;
+          }
           const type = typeOfWritten(column) || db.properties[name]?.type;
           db.properties[name] = {...(db.properties[name] || {id: uuid().slice(0, 4), name}), type, [type]: {...(db.properties[name]?.[type] || {}), ...(column[type] || {})}};
+          pairOf(db, name);
         }
         db.last_edited_time = now();
         return {status: 200, body: db};
