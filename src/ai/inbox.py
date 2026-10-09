@@ -19,6 +19,7 @@ import argparse
 import hashlib
 import re
 import sys
+from . import providers
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -75,8 +76,9 @@ def propose(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, s
         step('Reading your jobs in Notion')
         jobs = candidates(tracker)
         shots = len(images_of(image))
-        step(f"Claude is reading {shots} screenshots" if shots > 1 else 'Claude is reading the screenshot' if shots
-             else 'Claude is reading the message')
+        who = providers.who()
+        step(f"{who} is reading {shots} screenshots" if shots > 1 else f'{who} is reading the screenshot' if shots
+             else f'{who} is reading the message')
         item = read(client, model, text, image, jobs, stats)
     else:
         step('Reading your jobs in Notion')
@@ -197,7 +199,7 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
         for key in ('when', 'first_contact'):
             if mail._when(item.get(key) or ''):
                 item[key] = _this_year(item[key], now)
-    step(f"Claude found: {kind}{' · ' + (item.get('role') or item.get('title')) if (item.get('role') or item.get('title')) else ''}"
+    step(f"{providers.who()} found: {kind}{' · ' + (item.get('role') or item.get('title')) if (item.get('role') or item.get('title')) else ''}"
          " — updating the job in Notion")
     # Screening when you said yes: the explicit --talking (Telegram, the terminal), your answer in the app, or the
     # conversation showing it; an unanswered 'unclear' moves nothing (Telegram says to check it).

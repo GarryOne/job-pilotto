@@ -11,6 +11,7 @@ here reads and writes the user's own folder. Output is one JSON document on stdo
 """
 import argparse
 import json
+from .ai import providers
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
@@ -167,7 +168,7 @@ def main(argv=None):
             try:
                 planned = visit_unblock.plan_twice(page, load_search_config(matching=False), PREFERENCES)
             except Exception as error:  # noqa: BLE001 — said to the extension, which stops the site with this reason
-                print(json.dumps({'ok': False, 'error': f'Claude could not find a way to the jobs ({type(error).__name__})'}))
+                print(json.dumps({'ok': False, 'error': f'{providers.who()} could not find a way to the jobs ({type(error).__name__})'}))
                 return 0
             print(f"Visit unblock: {len(planned['steps'])} steps for {str(page.get('url') or '')[:80]}: "
                   + '; '.join(f"{s['action']} {s['label'][:40]}{' = ' + s['value'] if s['value'] else ''}" for s in planned['steps'])
@@ -183,7 +184,7 @@ def main(argv=None):
             try:
                 planned = visit_filters.plan(page, load_search_config(matching=False), PREFERENCES)
             except Exception as error:  # noqa: BLE001 — said to the extension, which then reads the page as it is
-                print(json.dumps({'ok': False, 'error': f'Claude could not choose the filters ({type(error).__name__})'}))
+                print(json.dumps({'ok': False, 'error': f'{providers.who()} could not choose the filters ({type(error).__name__})'}))
                 return 0
             print(f"Visit filters: {len(planned['steps'])} steps for {str(page.get('url') or '')[:80]}: "
                   + '; '.join(f"{s['action']} {s['label'][:40]}{' = ' + s['value'] if s['value'] else ''}" for s in planned['steps']), file=sys.stderr)
@@ -206,7 +207,7 @@ def main(argv=None):
                 elif not recipe and page.get('groups'):
                     print(f"Visit: no job list on {str(page.get('url') or '')[:80]}, by Haiku nor Sonnet", file=sys.stderr)
             except Exception as error:  # noqa: BLE001 — said; the extension reads what its quick guess found
-                print(json.dumps({'ok': False, 'error': f'Claude could not read this page ({type(error).__name__})'}))
+                print(json.dumps({'ok': False, 'error': f'{providers.who()} could not read this page ({type(error).__name__})'}))
                 return 0
             if recipe:
                 visits.save_recipe(page['url'], recipe)

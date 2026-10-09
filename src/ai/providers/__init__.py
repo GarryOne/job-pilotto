@@ -24,6 +24,7 @@ class Engine:
     label: str = ''      # how its calls are paid for, in words ("Billed to", a run's log)
     limit: str = ''      # its limit in a few words: "AI limit reached: <limit>"
     plan: str = ''       # a plan engine in words: "Claude Code, on your Claude plan"
+    who: str = 'Claude'  # who answers, in what the user reads ("Claude placed 240 locations"): the app says the same word
 
 
 ENGINES = {
@@ -34,10 +35,10 @@ ENGINES = {
                   limit='your Claude Code plan limit was reached (or it is signed out)',
                   missing='Claude Code is chosen but not found on this computer: install it (claude.com/claude-code) or switch to '
                           'an API key in Settings → AI.'),
-    'openai': Engine('openai', 'openai', API, key='OPENAI_API_KEY', label='OpenAI API',
+    'openai': Engine('openai', 'openai', API, key='OPENAI_API_KEY', label='OpenAI API', who='OpenAI',
                      limit='the OpenAI API credit or spending limit was reached (or the key was refused)',
                      missing='This needs your OpenAI API key (Settings → AI), or choose Codex there.'),
-    'codex': Engine('codex', 'openai', SUBSCRIPTION, local_only=True, fallback='openai', label='Codex (your ChatGPT plan)',
+    'codex': Engine('codex', 'openai', SUBSCRIPTION, local_only=True, fallback='openai', label='Codex (your ChatGPT plan)', who='Codex',
                     plan='Codex, on your ChatGPT plan',
                     limit='your Codex (ChatGPT plan) limit was reached (or it is signed out)',
                     missing='Codex is chosen but not found on this computer: install it (developers.openai.com/codex) or switch to '
@@ -55,6 +56,12 @@ def choice(env=None):
 
 def spec(env=None):
     return ENGINES[choice(env)]
+
+
+def who(env=None):
+    """Who answers, in words the user reads: 'Claude' (Anthropic key or Claude Code), 'OpenAI' or 'Codex'. Every engine-written line that names
+    the AI says this word (tests/test_engine_words.py), never a hard-coded "Claude"; Claude-only features (Apply with Claude) keep theirs."""
+    return spec(env).who
 
 
 def fallback_allowed(env=None):

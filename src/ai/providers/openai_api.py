@@ -43,12 +43,14 @@ def is_sdk_error(error):
 
 
 def error_of(error):
-    """An OpenAI SDK error as the contract's, by its HTTP status and name (stable across SDK versions)."""
+    """An OpenAI SDK error as the contract's, by its HTTP status and name (stable across SDK versions). A limit keeps OpenAI's own status and
+    code ("OpenAI said: 429 insufficient_quota"), never its message text: 9 Oct 2026, "no credit left" on an account showing $10 could not be told
+    apart from a model the key may not use."""
     text, name, status = str(error), type(error).__name__, getattr(error, 'status_code', None)
     if status in (401, 403):
-        return AiLimit(KEY_TEXT, final=True)
+        return AiLimit(f'{KEY_TEXT} (OpenAI said: {status} {code_of(error) or name})', final=True)
     if status == 429 and ('insufficient_quota' in text or code_of(error) == 'insufficient_quota'):
-        return AiLimit(LIMIT_TEXT, final=True)
+        return AiLimit(f'{LIMIT_TEXT} (OpenAI said: {status} {code_of(error) or name})', final=True)
     if name in UNREACHABLE or status == 429 or (status or 0) >= 500:
         return AiUnavailable(f'OpenAI unavailable ({name})')
     return AiError(f'OpenAI refused the call ({name}): {text[:300]}')

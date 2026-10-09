@@ -6,6 +6,7 @@ from ..notion import origin as origin_rule
 from . import mail, opportunity
 from .inbox_dates import _years
 from .inbox_reading import AGREE_QUESTION, AGREEMENT, APPLIED, KINDS, NOT_JOB
+from . import providers
 
 
 CHANNELS = ('LinkedIn', 'Email', 'Phone', 'Other')  # the app's "Where is this conversation from?"
@@ -118,5 +119,5 @@ def unchecked(item, kind):
     if seen.get('interview') == 'partial' and item.get('interview_at'):
         notes.append(f"call time guessed{_as_written(item.get('interview_text'))}")
     if kind != UPDATE:  # "Update on this job" follows from the job being tracked, not from Claude's reading
-        notes.append(f'kind "{kind}" read by Claude')
+        notes.append(f'kind "{kind}" read by {providers.who()}')
     return notes

@@ -7,6 +7,7 @@ import json
 
 from . import cost, engine
 from .models import SMALL_MODEL
+from . import providers
 
 MODEL = SMALL_MODEL
 BATCH = 40
@@ -82,5 +83,5 @@ def new_from_inbox(google, client, days, known, seen, stats=None):
     except Exception as error:  # noqa: BLE001 — the sender searches still ran; these wait for the next check
         print(f'Mail check: new inbox emails not sorted ({type(error).__name__}); they are read at the next check', flush=True)
         return [], []
-    print(f'Mail check: {len(keep)} of {len(ids)} new inbox email(s) are about your job search (Claude read sender, subject, first line)', flush=True)
+    print(f'Mail check: {len(keep)} of {len(ids)} new inbox email(s) are about your job search ({providers.who()} read sender, subject, first line)', flush=True)
     return [i for i in ids if i in keep], [i for i in ids if i not in keep]

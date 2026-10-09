@@ -44,7 +44,7 @@ def recipe_for(url, now=None):
         data = visits._load()
         data.setdefault('recipes', {})[visits.host_of(url)] = {'recipe': served, 'learned_at': (now or visits._now()).isoformat(timespec='seconds'), 'pooled': True}
         visits._save(data)
-    print(f"Visit: how to read {visits.host_of(url)} came from the pool (no Claude call)")
+    print(f"Visit: how to read {visits.host_of(url)} came from the pool (no AI call)")
     return served
 
 

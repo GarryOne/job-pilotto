@@ -43,7 +43,7 @@ def build_parser(description):
     parser.add_argument('--job-company', default='', help='add mode: the company, when the page can\'t be read')
     parser.add_argument('--job-text', default='', help='add mode: the job description, pasted (for the AI stages)')
     parser.add_argument('--target', default='', help="add mode without --job: 'new', or the URL of the job it's about "
-                                                      '(default: Claude decides)')
+                                                      '(default: the AI decides)')
     parser.add_argument('--propose', action='store_true',
                         help='add mode without --job: read the message and print the proposal (JSON) to confirm; '
                              'nothing is written to Notion (the app\'s confirmation step)')

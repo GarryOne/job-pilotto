@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 
 from ..paths import DATA, keyword_regex
 from .models import MAIN_MODEL, SMALL_MODEL
+from . import providers
 
 MODEL = MAIN_MODEL
 MAX_IDEAS = 8
@@ -114,7 +115,7 @@ def ideas(profile, search, titles, set_aside=(), client=None, today=None):
         kept = {'day': today, 'roles': roles, 'ideas': [{k: str(i.get(k) or '')[:120] for k in ('role', 'word', 'why')} for i in answer.get('ideas') or []][:MAX_IDEAS]}
         STORE.parent.mkdir(parents=True, exist_ok=True)
         STORE.write_text(json.dumps({key: kept}, ensure_ascii=False))   # this search's ideas only
-        print(f"Roles: Claude suggested {len(kept['ideas'])} role(s) for this search")
+        print(f"Roles: {providers.who()} suggested {len(kept['ideas'])} role(s) for this search")
     have = {str(w).lower() for w in search.get('role_keywords') or []}
     shown = [i for i in kept.get('ideas') or [] if i.get('word') and i['word'].lower() not in have and i['word'].lower() not in aside]
     # Counted by Claude once for these titles (kept with the day's ideas); the exact word when Claude cannot be asked
@@ -128,7 +129,7 @@ def ideas(profile, search, titles, set_aside=(), client=None, today=None):
             STORE.parent.mkdir(parents=True, exist_ok=True)
             STORE.write_text(json.dumps({key: data[key]}, ensure_ascii=False))
         except Exception as error:  # noqa: BLE001 — counted by their word this time
-            print(f'Roles: not counted by Claude ({type(error).__name__}); counting the title word', flush=True)
+            print(f'Roles: not counted by {providers.who()} ({type(error).__name__}); counting the title word', flush=True)
             counted = {}
     counts = counted.get('counts') or {}
     out = [{**i, 'count': counts[i['word']] if i['word'] in counts else count(i['word'], titles)} for i in shown]

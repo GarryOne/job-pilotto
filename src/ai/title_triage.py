@@ -13,6 +13,7 @@ import threading
 
 from ..paths import DATA
 from .models import SMALL_MODEL
+from . import providers
 
 MODEL = SMALL_MODEL
 BATCH = 30   # ~30 s a batch through Claude Code (100 took ~2 min): a 3-minute search can stop between them
@@ -67,7 +68,7 @@ def decide(titles, search, client=None):
     batches = [ask[start:start + BATCH] for start in range(0, len(ask), BATCH)]
     # Said before the first answer, then after each batch with the time left (owner, 7 Oct 2026: 6 batches ran ~2 min each with only
     # "Still running · no new output" on screen). Batches run side by side; Claude Code still takes engine.PARALLEL at a time.
-    print(f'Titles: asking Claude about {len(ask)} job title(s) your role words miss, in {len(batches)} batch(es) of up to {BATCH}', flush=True)
+    print(f'Titles: asking {providers.who()} about {len(ask)} job title(s) your role words miss, in {len(batches)} batch(es) of up to {BATCH}', flush=True)
     ticker, lock, sorted_ = Ticker('Sorting job titles with AI', len(ask), every=0), threading.Lock(), [0]
 
     late = [0]   # titles of batches not started: the search's time was up (src/time_budget.py); the next search asks about them
@@ -102,5 +103,5 @@ def decide(titles, search, client=None):
     asked = [t for t in ask if t in decided]
     if late[0]:
         print(budget.left_line('titles', late[0], 'title(s)'), flush=True)
-    print(f'Titles: Claude sorted {len(asked)} new title(s) in your places; {sum(1 for t in asked if decided[t])} could fit your search')
+    print(f'Titles: {providers.who()} sorted {len(asked)} new title(s) in your places; {sum(1 for t in asked if decided[t])} could fit your search')
     return decided

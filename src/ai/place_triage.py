@@ -14,6 +14,7 @@ import time
 
 from ..paths import DATA
 from .models import SMALL_MODEL
+from . import providers
 
 MODEL = SMALL_MODEL
 BATCH = 30   # one line of reasoning per location: 30 a call (7 Oct 2026: 60 at once misfiled Swiss towns)
@@ -97,7 +98,7 @@ def decide(locations, search, client=None):
     client = client or engine.client(action='place_triage')
     words = places_words(search, _preferences())
     batches = [ask[start:start + BATCH] for start in range(0, len(ask), BATCH)]
-    print(f'Places: asking Claude where {len(ask)} job location(s) are, in {len(batches)} batch(es) of up to {BATCH}', flush=True)
+    print(f'Places: asking {providers.who()} where {len(ask)} job location(s) are, in {len(batches)} batch(es) of up to {BATCH}', flush=True)
     from concurrent.futures import ThreadPoolExecutor
     from ..progress import Ticker
     ticker, lock, sorted_ = Ticker('Placing job locations with AI', len(ask), every=0), threading.Lock(), [0]
@@ -152,7 +153,7 @@ def decide(locations, search, client=None):
         STORE.parent.mkdir(parents=True, exist_ok=True)
         STORE.write_text(json.dumps(data, ensure_ascii=False))
     asked = [loc for loc in ask if loc in decided]
-    print(f'Places: Claude placed {len(asked)} location(s); {sum(1 for loc in asked if decided[loc] != "out")} are in your places', flush=True)
+    print(f'Places: {providers.who()} placed {len(asked)} location(s); {sum(1 for loc in asked if decided[loc] != "out")} are in your places', flush=True)
     return decided
 
 
