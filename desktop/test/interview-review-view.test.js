@@ -1,7 +1,7 @@
 // Interviews → Open review in the app (renderer/interview-review-view.js): the Notion page's content from the store's record.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {markdownGroups, reviewParts} from '../renderer/interview-review-view.js';
+import {callFactOf, markdownGroups, questionOf, reviewParts} from '../renderer/interview-review-view.js';
 
 test('the review: facts, the step and the weak spots first, then the review by its headings, then the transcript', () => {
   const parts = reviewParts({title: 'Acme · SRE', round: 'Technical', overall: 'Positive', questions: 7, at: '2026-10-08T14:00',
@@ -18,4 +18,11 @@ test('the review: facts, the step and the weak spots first, then the review by i
 test('nothing reviewed yet: no groups, and text stays text', () => {
   assert.deepEqual(reviewParts({title: 'x'}).groups, []);
   assert.deepEqual(markdownGroups('<b>bold</b>'), [{title: 'Review', lines: ['<b>bold</b>']}]);
+});
+
+test('a question or fact line that does not parse is kept as it is, with no verdict or mark', () => {
+  assert.deepEqual(questionOf('Q1: clear'), {verdict: '', tone: 'neutral', topic: '', question: 'Q1: clear', answer: '', better: ''});
+  assert.deepEqual(callFactOf('Notice: 3 months'), {text: 'Notice: 3 months', mark: '', current: ''});
+  assert.equal(questionOf('➖ [Team] Why us? — Growth').verdict, 'OK');
+  assert.deepEqual(reviewParts({review: '### Questions\n- ✅ [A] B — C'}).groups, []);   // drawn as its own section, not twice
 });

@@ -101,7 +101,7 @@ function saveOpenDraft() {
 async function openReview(id) {
   const record = await window.pilot.ivRecord(id);
   if (!record || record.error) { message('iv-message', `Review not read: ${record?.error || 'not found'}`, 'error'); return; }
-  showReview(record, {$, el});
+  showReview(record, {$, el, pill});
 }
 async function saveToNotion(andReview) {
   await saveOpenDraft();

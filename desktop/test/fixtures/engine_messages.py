@@ -65,4 +65,16 @@ outcome = mail.tgcard.block(mail._head(row, 'Rejected'), 'Application rejected a
 why = rejection.line(row, {'verdict': 'Hard skills', 'confidence': 'medium', 'summary': 'Staff-level role needing a deep data background (BigQuery, Spark); your experience is SRE/platform.'})
 out['mail_rejected'] = plain(mail.tgcard.card('Job emails & calendar', '2 updates', [outcome, why], emoji='📧'))
 out['mail_none'] = plain(mail.tgcard.card('Gmail checked', 'No new job emails', [], emoji='📧'))
+# An interview's review as the store keeps it (src/stores/notion_interviews.py: to_markdown of the page's analysis blocks): what the app's
+# review dialog reads (renderer/interview-review-view.js reviewParts): each question's verdict and the call's facts with their job marks.
+from src.ai import interviews_blocks
+from src.stores import notion_blocks
+review = {'summary': 'A friendly screen; salary came up early.', 'strengths': ['Clear on-call story'], 'weaknesses': ['Vague on Kafka'],
+          'signals': ['They want someone in the office twice a week'], 'red_flags': ['No Go experience'], 'practice': ['Prepare a Kafka example'],
+          'facts': [{'field': 'salary_ask', 'value': 'CHF 140k', 'quote': 'I am looking at 140'}, {'field': 'location', 'value': 'Zürich', 'quote': ''}],
+          'questions': [{'quality': 'strong', 'topic': 'On-call', 'question': 'Tell me about an incident', 'answer': 'The DNS outage', 'better': ''},
+                        {'quality': 'weak', 'topic': 'Kafka', 'question': 'How do you size partitions?', 'answer': 'By throughput', 'better': 'Name the consumer count'},
+                        {'quality': 'not_answered', 'topic': 'Go', 'question': 'Have you shipped Go?', 'answer': '', 'better': 'Say what you would learn first'}]}
+merged = {'filled': [{'field': 'salary_ask'}], 'differs': [{'field': 'location', 'current': 'Basel'}]}
+out['interview_review'] = notion_blocks.to_markdown(interviews_blocks.analysis_blocks(review, merged))
 print(json.dumps(out))

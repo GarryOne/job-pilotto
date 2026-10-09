@@ -11,6 +11,7 @@ import {parseWeekly} from '../renderer/weekly-card.js';
 import {parseInsight} from '../renderer/insight-card.js';
 import {parseKitsReady} from '../renderer/kits-ready.js';
 import {parseInterviewReview} from '../renderer/interview-review.js';
+import {reviewParts} from '../renderer/interview-review-view.js';
 import {mailResults, parseMailReport} from '../renderer/mail-report.js';
 import {parseRunMessage} from '../renderer/run-cards.js';
 
@@ -117,4 +118,17 @@ test('Gmail check: a newly recorded interview is an update on its job, not the i
 test('scout: the app\'s run summary reads the line the engine writes', async () => {
   const {taskSummary} = await import('../lib/pipeline.js');
   assert.equal(taskSummary('scout', said.scout.split('\n')), said.scout.split('\n')[1], lookAt('scout'));
+});
+
+test('an interview review as the store keeps it: every question with its verdict, the call facts with their job marks', () => {
+  const parts = reviewParts({title: 'Huxley · Recruiter screen', review: said.interview_review});
+  assert.deepEqual(parts.questions.map(q => [q.verdict, q.tone, q.topic, q.question, q.answer, q.better]), [
+    ['Strong', 'good', 'On-call', 'Tell me about an incident', 'The DNS outage', ''],
+    ['Weak', 'warn', 'Kafka', 'How do you size partitions?', 'By throughput', 'Name the consumer count'],
+    ['Not answered', 'bad', 'Go', 'Have you shipped Go?', '', 'Say what you would learn first']], lookAt('interview_review'));
+  assert.deepEqual(parts.callFacts.map(fact => [fact.mark, fact.current]), [['added', ''], ['differs', 'Basel']]);
+  assert.match(parts.callFacts[0].text, /^Your ask: CHF 140k/);
+  assert.equal(parts.callFacts[1].text, 'Location: Zürich');
+  // Every other section of the page is still a group, in the page's order; the two structured ones are not repeated as plain lines.
+  assert.deepEqual(parts.groups.map(g => g.title), ['Review', 'Strengths', 'Weak spots', 'Signals from them', 'Could count against you', 'Practise before the next round']);
 });
