@@ -106,7 +106,10 @@ const commands = {
   async press(text, why = '') {
     const app = await connect('cdp');
     const win = appWindow(app.pages);
-    const target = win.getByText(text, {exact: false}).filter({visible: true}).first();
+    // The control whose whole text is the words first, then one that contains them (9 Oct 2026: "OpenAI" pressed the AI row's
+    // "Claude or OpenAI: …" description instead of the switch's "OpenAI" half).
+    const exact = win.getByText(text, {exact: true}).filter({visible: true}).first();
+    const target = (await exact.count()) ? exact : win.getByText(text, {exact: false}).filter({visible: true}).first();
     if (!(await target.count())) { await app.close(); throw new Error(`nothing in the app shows "${text}"`); }
     if (looksLikeSubmit(await target.evaluate(el => el.textContent || ''), false)) { await app.close(); throw new Error('refused: that looks like a Submit'); }
     await win.bringToFront();
