@@ -1,4 +1,4 @@
-/* global document, window */
+/* global document */
 // What the storemove suite (suites/storemove.mjs) reads and drives: the seeded data's items on every screen, Settings → Your data, the native dialogs
 // export and import open (Playwright cannot press an OS window), the move's own Python process (killed halfway), and what the Notion stand-in holds.
 import {execFileSync} from 'node:child_process';

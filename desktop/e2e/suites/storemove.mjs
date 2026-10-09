@@ -1,4 +1,4 @@
-/* global window */
+/* global document, window */
 // "Move my data to Notion" and export/import, end to end (spec docs/superpowers/specs/2026-10-09-store-adapters.md, P4): an app on this Mac's store with
 // real-shaped data (lib/store_seed.py: applications with a kit and a file, events, an interview, a run, a match, an employer, the three texts) moves into
 // the in-memory Notion (no token) from Settings → Your data. The copy is killed halfway and moved again: nothing twice. A Profile Notion already had is
