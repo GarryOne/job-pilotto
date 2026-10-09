@@ -241,7 +241,7 @@ function handlers() {
       return {ok: false, error: error.status === 401 ? 'Notion rejected this token. Copy the API token of your Job Pilotto connection again (Developer tools → Connections).' : error.message};
     }
   }
-  registerStoreHandlers({ipcMain, storage, DEMO, log: appLog});   // lib/store-handlers.js: Settings → Your data
+  registerStoreHandlers({ipcMain, storage, DEMO, log: appLog, toWindow});   // lib/store-handlers.js: Settings → Your data
   registerContactHandlers({ipcMain, storage, DEMO, connected: () => notionGate.tracking(storage), needsNotion, log: appLog,   // lib/contact-handlers.js
     contactSaved: saved => server.contactSaved(storage, saved)});
   registerSetupHandlers({DEMO, connectNotion, dialog, handleImportant, ipcMain, licenseState, needsNotion, shell, storage, syncCv, getTelemetry: () => telemetry, track, trackSetup, getWindow: () => window,

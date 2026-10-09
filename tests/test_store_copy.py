@@ -83,6 +83,14 @@ class CopyTests(unittest.TestCase):
         copy.copy(source, target)
         self.assertEqual(len(target.applications.list()), 1)
 
+    def test_a_text_the_target_already_has_is_kept_and_named(self):
+        source, target = filled(), memory.open_store()
+        target.texts.set('profile', '# Written in Notion before')
+        counts = copy.copy(source, target)
+        self.assertEqual(target.texts.get('profile'), '# Written in Notion before')
+        self.assertEqual(target.texts.get('knowledge'), '- Workday wants a phone')
+        self.assertEqual(counts['kept'], ['profile'])
+
     def test_progress_is_reported_per_entity(self):
         seen = []
         copy.copy(filled(), memory.open_store(), progress=lambda entity, done, total: seen.append((entity, done, total)))

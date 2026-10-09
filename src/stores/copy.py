@@ -44,16 +44,21 @@ def _all(table, entity):
 
 
 def copy(source, target, journal=None, progress=lambda entity, done, total: None):
-    """Copy everything in `source` into `target`. Returns {entity: count copied this run}."""
+    """Copy everything in `source` into `target`. Returns {entity: count copied this run, 'kept': [texts the target already had]}."""
     journal = journal or Journal()
     counts = {}
 
     for name in base.TEXTS:
         text = source.texts.get(name)
         if text and not journal.target('texts', name):
-            target.texts.set(name, text)
+            # A text the target already has wins (a Notion workspace from before): the source's stays in the archive the
+            # caller keeps, and is named in `kept` so the person is told (rule of 3 Oct 2026, "an existing workspace wins").
+            if target.texts.get(name).strip():
+                counts.setdefault('kept', []).append(name)
+            else:
+                target.texts.set(name, text)
+                counts['texts'] = counts.get('texts', 0) + 1
             journal.note('texts', name, name)
-            counts['texts'] = counts.get('texts', 0) + 1
 
     apps = source.applications.list()
     for done, app in enumerate(apps, 1):

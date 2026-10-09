@@ -19,6 +19,7 @@ export const REASONS = {
   gmail: 'for Gmail checks', profile: 'to edit your details and answers',
   tune: 'to tune your strategy from your results', kits: 'to draft application kits',
   tailor: 'to tailor CVs for your top matches', telegramCloud: 'for Telegram buttons while your Mac is off',
+  move: 'to move your data there',
 };
 
 // {ok: false, needsNotion: true, reason, text, error}: the window opens the connect dialog on needsNotion (pages/core.js gated()).

@@ -167,6 +167,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/site-password.js` — The user's one job-site password (src/ai/passwords.py makes it, Keychain item job-pilotto.sites.password): Settings shows it,
 - `desktop/lib/storage.js` — Everything the app keeps lives in the user's own folder (~/Library/Application Support/Job Pilotto):
 - `desktop/lib/store-handlers.js` — Settings → Data & backup → "Your data": where the person's data lives (lib/store), choosing this Mac while trying, and
+- `desktop/lib/store-move.js` — "Move my data to Notion" (spec P4, docs/superpowers/specs/2026-10-09-store-adapters.md): the person's data goes from the store on this Mac
 - `desktop/lib/strategy-draft-handlers.js` — The strategy draft's IPC (moved out of main.js, 8 Oct 2026): drafting a Strategy from the CV, the cached draft and the edits kept on it, how a rebuild
 - `desktop/lib/strategy-edit.js` — Strategy, the "What you're targeting" lists edited in the app: which lists, cleaning the edits, applying them, editLists.
 - `desktop/lib/strategy-rebuild.js` — Strategy, rebuild from the CV: what a new draft changes, grouped by what each change triggers (and its cost). Re-exported by strategy.js.

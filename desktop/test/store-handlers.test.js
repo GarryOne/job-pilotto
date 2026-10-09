@@ -1,5 +1,5 @@
 // Settings → Your data (lib/store-handlers.js): the card's state from capabilities, keeping the data on this Mac only while trying
-// (the one switch made by hand; leaving a store is the one-way move), and "Move my data to Notion" a stub until P4.
+// (the one switch made by hand; leaving a store is the one-way move), and "Move my data to Notion" (lib/store-move.js, its own test).
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -14,10 +14,11 @@ const make = (settings = {}, token = '') => {
   if (token) storage.setSecret('NOTION_TOKEN', token);
   return storage;
 };
-const handlers = (storage, choice = true) => {
-  const map = {}, logged = [];
-  registerStoreHandlers({ipcMain: {handle: (name, fn) => { map[name] = fn; }}, storage, DEMO: false, log: (...line) => logged.push(line), choice});
-  return {map, logged};
+const handlers = (storage, choice = true, extra = {}) => {
+  const map = {}, logged = [], sent = [];
+  registerStoreHandlers({ipcMain: {handle: (name, fn) => { map[name] = fn; }}, storage, DEMO: false, log: (...line) => logged.push(line), choice,
+    toWindow: (...message) => sent.push(message), ...extra});
+  return {map, logged, sent};
 };
 
 test('the card\'s state: a label and capabilities, never an adapter name', () => {
@@ -39,8 +40,19 @@ test('keep it on this Mac: only while trying, and logged', async () => {
   assert.equal(connected.settings().store, undefined);
 });
 
-test('move my data to Notion: a stub that says so (P4 builds it)', async () => {
-  assert.deepEqual(await handlers(make({store: 'sqlite'})).map.moveToNotion(), {ok: false, text: 'Not built yet', error: 'Not built yet'});
+test('move my data to Notion: progress reaches the window, a second press waits for the first, the card gets the new state', async () => {
+  let calls = 0, finish;
+  const move = (storage, {onProgress}) => { calls++; onProgress({entity: 'applications', done: 1, total: 2}); return new Promise(done => { finish = done; }); };
+  const storage = make({store: 'sqlite'});
+  const {map, sent} = handlers(storage, true, {move});
+  const first = map.moveToNotion(), second = map.moveToNotion();
+  storage.saveSettings({store: 'notion'});
+  finish({ok: true, moved: {applications: 2}});
+  const [a, b] = await Promise.all([first, second]);
+  assert.equal(calls, 1);
+  assert.equal(a, b);
+  assert.equal(a.store.label, 'Notion');
+  assert.deepEqual(sent[0], ['storeMoveProgress', {entity: 'applications', done: 1, total: 2}]);
 });
 
 test('the choice is off until the engine side is done: no switch, and the default build hides it', async () => {

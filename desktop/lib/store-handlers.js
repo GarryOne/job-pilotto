@@ -1,8 +1,9 @@
 // Settings → Data & backup → "Your data": where the person's data lives (lib/store), choosing this Mac while trying, and
-// "Move my data to Notion" (spec P4, built by mac-e4: a stub until then). The window reads capabilities and a label, never an
+// "Move my data to Notion" (spec P4, lib/store-move.js). The window reads capabilities and a label, never an
 // adapter's name. Guarded by test/store-handlers.test.js.
 import * as notionGate from './notion-gate.js';
 import * as store from './store/index.js';
+import {moveToNotion} from './store-move.js';
 
 // Whether a person may choose where the data lives (here: "Keep it on this Mac"). Off until the engine's store callers are done
 // (spec P1/P2); mac-e4 flips it then. The e2e sets JOB_PILOTTO_STORE_CHOICE=1; the card's states render either way (shot --settings).
@@ -14,7 +15,7 @@ export function storeState(storage, {choice = STORE_CHOICE} = {}) {
   return {label: opened.label, caps: [...opened.caps], trying: store.trying(storage), notionConnected: notionGate.connected(storage), choice};
 }
 
-export function registerStoreHandlers({ipcMain, storage, DEMO, log, choice = STORE_CHOICE}) {
+export function registerStoreHandlers({ipcMain, storage, DEMO, log, choice = STORE_CHOICE, toWindow = () => {}, move = moveToNotion}) {
   ipcMain.handle('storeState', () => storeState(storage, {choice}));
   // Trying → this Mac: the one switch made by hand. Leaving a store is the move (one-way, spec D3/D4), never this.
   ipcMain.handle('keepOnThisMac', () => {
@@ -25,9 +26,14 @@ export function registerStoreHandlers({ipcMain, storage, DEMO, log, choice = STO
     log('store', 'chosen', {store: 'sqlite', from: 'trying'});
     return {ok: true, store: storeState(storage, {choice})};
   });
-  // "Move my data to Notion" (spec P4): the copy, its progress and the switch are not built yet.
-  ipcMain.handle('moveToNotion', () => {
-    log('store', 'move asked', {built: false});
-    return {ok: false, text: 'Not built yet', error: 'Not built yet'};
+  // "Move my data to Notion" (spec P4, lib/store-move.js): progress goes to the window as 'storeMoveProgress' {entity, done, total}.
+  let moving = null;
+  ipcMain.handle('moveToNotion', async () => {
+    if (DEMO) return {ok: false, error: 'Demo mode: nothing moves.'};
+    if (moving) return moving;   // one move at a time: a second press waits for the first
+    moving = move(storage, {log, onProgress: progress => toWindow('storeMoveProgress', progress)})
+      .then(result => (result.ok ? {...result, store: storeState(storage, {choice})} : result))
+      .finally(() => { moving = null; });
+    return moving;
   });
 }
