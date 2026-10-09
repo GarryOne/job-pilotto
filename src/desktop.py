@@ -300,28 +300,32 @@ def main(argv=None):
             print(json.dumps(strategy(db, tracker), ensure_ascii=False))
             return 0
         if args.command == 'jobs':
-            found = None
-            if tracker:
+            found, stores = None, None
+            # Notion only when it holds the data: a token can outlive a move to this Mac's store.
+            notion = tracker if os.environ.get('JOB_PILOTTO_STORE', 'notion') == 'notion' else None
+            if notion:
                 try:
-                    found = tracker.notion_jobs()  # the list, from Notion
+                    found = notion.notion_jobs()  # the list, from Notion
                 except Exception as error:  # the list still shows from the cache, marked as possibly out of date
                     print(f'Warning: Notion unavailable, showing the cached list: {type(error).__name__}: {error}',
                           file=__import__('sys').stderr)
             elif os.environ.get('JOB_PILOTTO_STORE', 'notion') != 'notion':  # the person chose a store on this Mac: the list is its rows
                 from .stores import open_stores
                 from .desktop_store_jobs import store_jobs
-                found = store_jobs(open_stores())
+                stores = open_stores()
+                found = store_jobs(stores)
             current = None  # the inputs a kit would be drafted from now: to tell current kits from earlier ones
             if found and any(_kit(job.get('stage'), job.get('next_step') or '') for job in found):
                 try:
                     from .ai import kit
-                    current = provenance.kit_inputs(tracker.page_text(), kit.standard_answers(tracker))
+                    current = provenance.kit_inputs(notion.page_text(), kit.standard_answers(notion)) if notion else \
+                        provenance.kit_inputs(stores.texts.get('profile'), kit.standard_answers(None, stores))  # as the kit drafts them
                 except Exception:  # noqa: BLE001 — kits then show as "inputs unknown"
                     pass
             from .ai import engine as ai_engine
             result = jobs(db, args.limit, notion_jobs=found, kit_inputs=current, hide_unscored=ai_engine.ready())
             fresh = found is not None
-            if tracker and not fresh:
+            if notion and not fresh:
                 result['stale'] = True
         else:
             from .stores import open_stores

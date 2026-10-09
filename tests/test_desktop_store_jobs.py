@@ -73,6 +73,29 @@ class StoreJobsTests(unittest.TestCase):
             os.environ.pop('JOB_PILOTTO_STORE', None)
             self.assertIsNone(listed({}), 'no store chosen: the list is the cache, as before')
 
+    def test_a_token_left_from_before_a_move_never_reaches_notion(self):
+        # The data moved to this Mac's store; a Notion token is still set. The list and a kit's current inputs are the store's own.
+        stores = self.stores()
+        stores.applications.set_stage({'url': 'https://jobs.test/kit', 'title': 'SRE', 'company': 'Delta'}, 'Kit ready')
+        stores.texts.set('profile', 'My profile')
+        stores.texts.set('answers', 'My answers')
+        tracker = mock.Mock(spec=client.Tracker)
+        for name in ('notion_jobs', 'page_text', '_request', 'query_database'):
+            getattr(tracker, name).side_effect = AssertionError(f'Notion read on this Mac\'s store: {name}')
+        seen, out = {}, io.StringIO()
+        def jobs(db, limit, notion_jobs=None, kit_inputs=None, **kw):
+            seen['inputs'] = kit_inputs
+            return {'jobs': notion_jobs}
+        with mock.patch.dict('os.environ', {'JOB_PILOTTO_STORE': 'sqlite'}), mock.patch.object(client.Tracker, 'from_env', return_value=tracker), \
+                mock.patch('src.stores.open_stores', return_value=stores), mock.patch.object(desktop, 'jobs', side_effect=jobs), \
+                mock.patch.object(desktop.store, 'connect', create=True), redirect_stdout(out):
+            desktop.main(['jobs'])
+        listed = json.loads(out.getvalue().strip().splitlines()[-1])
+        self.assertEqual(len(listed['jobs']), 4)
+        self.assertNotIn('stale', listed)
+        from src.ai import kit, provenance
+        self.assertEqual(seen['inputs'], provenance.kit_inputs('My profile', kit.standard_answers(None, stores)))
+
 
     def test_the_jobs_list_carries_each_applications_store_id(self):
         """The window finds a job by it (an interview's job, a meeting's Dismiss): on SQLite a job has no Notion page and its list `id`
