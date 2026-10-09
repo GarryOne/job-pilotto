@@ -140,7 +140,8 @@ def codex_run(events, returncode=0, seen=None, features='shell_tool stable true\
         if seen is not None:
             folder = Path(kwargs['cwd'])
             seen.append({'args': args, 'prompt': kwargs['input'], 'env': kwargs['env'], 'files': sorted(p.name for p in folder.iterdir()),
-                         'schema': json.loads((folder / 'answer-schema.json').read_text()) if (folder / 'answer-schema.json').exists() else None})
+                         'schema': json.loads((folder / 'answer-schema.json').read_text()) if (folder / 'answer-schema.json').exists() else None,
+                         'instructions': (folder / 'instructions.md').read_text() if (folder / 'instructions.md').exists() else None})
         return SimpleNamespace(stdout='\n'.join(json.dumps(e) for e in events), stderr='', returncode=returncode)
     return run
 
@@ -172,7 +173,9 @@ class CodexTests(unittest.TestCase):
         self.assertEqual(call['schema']['required'], ['answer', 'why', 'items'])     # strict, as OpenAI requires
         self.assertIn('image-1.png', call['files'])
         self.assertEqual(args[args.index('-i') + 1].rsplit('/', 1)[-1], 'image-1.png')
-        self.assertTrue(call['prompt'].startswith('Rules.\n\nProfile.\n\n---\n\n'))
+        self.assertEqual(call['instructions'], 'Rules.\n\nProfile.')                       # Codex's own instructions, from a file
+        self.assertIn(f'model_instructions_file={json.dumps(str(Path(args[args.index("-C") + 1]) / "instructions.md"))}', args)
+        self.assertNotIn('Rules.', call['prompt'])                                           # never on stdin in front of the question
         for key in ('OPENAI_API_KEY', 'CODEX_API_KEY'):
             self.assertNotIn(key, call['env'])                                  # the user's own sign-in, never the app's key
         self.assertEqual(json.loads(response.content[0].text), {'answer': 'no'})

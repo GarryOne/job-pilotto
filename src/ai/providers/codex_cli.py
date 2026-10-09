@@ -2,8 +2,8 @@
 
 One call is one `codex exec --json --ephemeral` in the call's own temp folder, read-only sandbox, the user's config and rules not loaded
 (their MCP servers, hooks and plugins stay out; their sign-in is still used), and every tool a text call does not need switched off by
-name, from the features this Codex lists (`codex features list`, once per binary), the shell included. The system prompt leads the prompt
-(no flag for it); a schema goes in --output-schema in OpenAI's strict form; images go in -i. A PDF is refused (reads_pdf False): the live
+name, from the features this Codex lists (`codex features list`, once per binary), the shell included. The system prompt becomes Codex's
+own instructions (model_instructions_file, a file in the call's folder); a schema goes in --output-schema in OpenAI's strict form; images go in -i. A PDF is refused (reads_pdf False): the live
 check of 9 Oct 2026 answered a CV question without opening the file, so a PDF reaches Codex only as page images + text. The model is the same tier in OpenAI's family (models.for_family). It drops the API keys the app gives Python,
 so Codex runs on the user's own sign-in; never signs in for them. Guarded by tests/test_ai_providers.py.
 """
@@ -127,7 +127,13 @@ class Codex(CliAdapter):
             args += ['-i', str(Path(folder) / name)]
         prompt = conversation(request, files)
         if request.system:
-            prompt = f'{request.system}\n\n---\n\n{prompt}'
+            # The system prompt as Codex's own instructions (model_instructions_file, a file in this call's folder: never on a command line,
+            # where any local process could read it), replacing Codex's coding-agent prompt. 9 Oct 2026: written in front of the user's
+            # prompt instead, under Codex's own agent prompt, the Gmail eval read an interview invitation as "Reply received" (14/17;
+            # the same model through the API: 16/17).
+            instructions = Path(folder) / 'instructions.md'
+            instructions.write_text(request.system)
+            args += ['-c', f'model_instructions_file={json.dumps(str(instructions))}']
         return args + ['-'], prompt, request.schema is not None
 
     def env(self, args):

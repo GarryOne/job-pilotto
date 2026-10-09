@@ -137,8 +137,15 @@ export class Codex extends CliAdapter {
       args.push('--output-schema', file);
     }
     for (const name of files) args.push('-i', path.join(folder, name));
-    let prompt = conversation(request, files);
-    if (request.system) prompt = `${request.system}\n\n---\n\n${prompt}`;
+    const prompt = conversation(request, files);
+    // The system prompt as Codex's own instructions (model_instructions_file: a file in this call's folder, never on a command line where any
+    // local process could read it), replacing Codex's coding-agent prompt. 9 Oct 2026: written in front of the question instead, the Gmail
+    // eval read an interview invitation as "Reply received" (src/ai/providers/codex_cli.py does the same).
+    if (request.system) {
+      const file = path.join(folder, 'instructions.md');
+      fs.writeFileSync(file, request.system);
+      args.push('-c', `model_instructions_file=${JSON.stringify(file)}`);
+    }
     return {args: [...args, '-'], prompt, native: !!request.schema};
   }
 

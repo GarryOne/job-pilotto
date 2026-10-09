@@ -149,7 +149,9 @@ test('Codex: its own folder, read-only, user config and the shell off, strict sc
   assert.deepEqual(call.files.filter(name => name.startsWith('image-')), ['image-1.png', 'image-2.png', 'image-3.png']);   // 2 pages + the PNG
   assert.equal(call.args.filter(arg => arg === '-i').length, 3);
   assert.equal(call.args.at(-1), '-');
-  assert.match(call.prompt, /^Be brief\.\n\n---\n\n\[attached PDF \.\/document-1\.pdf, its text:\]\nNine years at Acme/);
+  assert.match(call.prompt, /^\[attached PDF \.\/document-1\.pdf, its text:\]\nNine years at Acme/);   // the question only: the system prompt is a file
+  assert.ok(call.files.includes('instructions.md'));
+  assert.equal(call.args[call.args.lastIndexOf('-c') + 1], `model_instructions_file=${JSON.stringify(path.join(call.cwd, 'instructions.md'))}`);
   assert.ok(!fs.existsSync(call.cwd), 'the call folder is removed');
   // No PDF reader (a process without windows): the call fails before Codex runs, saying why.
   const none = fakeSpawn(() => ({stdout: codexEvents('x')}));

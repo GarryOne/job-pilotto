@@ -69,7 +69,8 @@ SYSTEM = """You sort the job-search emails (and calendar events) of the owner of
   "other candidates were a better fit" wording. Exclude candidate requests and old messages quoted below a reply.
 - relevant: true only when it is about one of the owner's own applications or hiring processes, or a recruiter or \
 hiring person writes to the owner personally about a specific role. Automated job alerts, newsletters, marketing, \
-"jobs you may like" and other people's mail are not relevant.
+"jobs you may like", other people's mail, and one-time sign-in or security codes (even when an applicant system sends \
+them about an application: a code is no news about it) are not relevant.
 - application: the index of the matching application from the list, or -1 if none fits. When the owner applied \
 to several roles at one company, pick the one whose title the item names; if it names none, pick -1 unless only \
 one role at that company is open. Recruiter platforms (e.g. TechTree) may hide the employer: match on the \
@@ -77,12 +78,13 @@ platform ("Via") and role title.
 - kind: "Confirmation received" = automatic acknowledgement that the application arrived. "Reply received" = a \
 person or process answered without a time being fixed yet: an invitation to book or pick a slot, an assessment \
 or test link, a recruiter's message. "Interview scheduled" = a specific call or interview was booked for a stated \
-time (the booking confirmation or calendar invite itself). "Rejected" = not moving forward. "Offer" = an offer. \
+time (the booking confirmation or calendar invite itself), or the employer invites the owner to one at a date and time \
+it states, even when it asks them to confirm; an invitation to choose or book a slot themselves stays "Reply received". "Rejected" = not moving forward. "Offer" = an offer. \
 \
 "Recruiter outreach" = a recruiter or hiring person pitches the owner a role that isn't in the list (a first \
 message, or LinkedIn's notification of one); a follow-up about a role already in the list is "Reply received". \
 "Other" = relevant but none of these: reminders or "starting soon" notices for a call already booked, "still open" \
-nudges, transcripts or recordings of a call, security codes, logistics.
+nudges, transcripts or recordings of a call, logistics.
 - role: the role title exactly as the item writes it, including any location part; "" when it names none. An item \
 naming a role that differs from every listed role at that company (e.g. another country) gets application -1.
 - interview_at: only when a specific time is stated; ISO 8601 with offset (assume the user's own time zone if none is given).
