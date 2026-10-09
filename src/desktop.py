@@ -264,6 +264,7 @@ def main(argv=None):
                 print(json.dumps({'ok': False, 'error': f'Notion could not be updated ({type(error).__name__}); nothing changed. Try again.'}))
                 return 0
             print(json.dumps({'ok': True, 'notion': outcome}))
+            return 0
         if args.command == 'not-submitted':
             # The owner says an Applied was wrong. Only a bare Applied is undone, and its false 📈 event goes with
             # it, so the application's timeline does not keep a submission that never happened (1 Oct 2026).
