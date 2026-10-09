@@ -116,6 +116,7 @@ export async function api(config, path, init = {}, retry = true) {
 }
 
 // Why a field was left that is the extension's fault, not missing data (desktop/lib/reports.js reports these).
+const PROPOSED = 'proposed for you to confirm';   // page/fill.js's reason for a question the AI proposed an answer for (worker/test/fill-trace-proposed.test.js keeps them equal)
 const MECHANICAL = [...MENU_REASONS.map(item => item.text), OLD_MENU_REASON,
   'answer given, but the field did not take it', 'question text not found on the page',
   'question on the page not read'];
@@ -327,7 +328,9 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
         debug.laterDropdowns = combos;
         summary.filled = (summary.filled || 0) + (more?.filled || 0) + combos.filter(c => c.picked).length;
         summary.unfilledRequired = more?.unfilledRequired ?? summary.unfilledRequired;
-        summary.trace = [...(summary.trace || []), ...(more?.trace || []).filter(row => row.source === 'Claude (on the page)')];
+        // Claude's rows from this pass win: its answers, and the questions it proposed an answer for (no source: shown, never typed; Coop, 9 Oct 2026:
+        // dropped here, the first pass's "no answer" stayed, and the site counted a proposal as declined).
+        summary.trace = [...(summary.trace || []), ...(more?.trace || []).filter(row => row.source === 'Claude (on the page)' || row.reason === PROPOSED)];
         step('filled Claude\'s answers');
       }
     } catch (error) {
