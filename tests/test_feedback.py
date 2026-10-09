@@ -102,13 +102,14 @@ class FeedbackTests(unittest.TestCase):
         events.append(event('a', feedback.RECEIVED, '2026-09-28'))
         self.assertEqual(focus.build([app], events, target=0, now=NOW)['items'][0]['kind'], 'feedback_review')
 
-    def test_failed_notion_write_does_not_change_cached_feedback(self):
-        app = notion_row('a', 'Acme', 'SRE', stage='Rejected')
-        tracker = FakeTracker([app])
-        tracker.update_page = mock.Mock(side_effect=RuntimeError('Notion refused'))
-        with self.assertRaises(RuntimeError):
-            feedback.receive(tracker, app, 'Show more concrete incident examples.')
-        self.assertNotIn('Employer feedback', app['properties'])
+    def test_a_failed_store_write_does_not_change_the_feedback(self):
+        from src.stores import memory
+        stores = memory.open_store()
+        app, _ = stores.applications.set_stage({'url': 'https://a/1', 'title': 'SRE', 'company': 'Acme'}, 'Rejected')
+        with mock.patch.object(stores.applications, 'update', side_effect=RuntimeError('the store refused')):
+            with self.assertRaises(RuntimeError):
+                feedback.save_received(stores, app, 'Show more concrete incident examples.')
+        self.assertEqual(stores.applications.by_id(app['id'])['employer_feedback'], '')
 
     def test_request_and_manual_feedback_have_distinct_events_and_keep_stage(self):
         stores = memory.open_store()

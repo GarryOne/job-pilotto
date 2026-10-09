@@ -3,6 +3,18 @@
 Status: decisions approved by the owner 9 Oct 2026 · interface: §4 (filled from the engine and desktop inventories) ·
 supersedes §1 of `2026-10-03-notion-later.md` (the "connect Notion to track" gate).
 
+> **Where it stands (9 Oct 2026, evening)** · branch `release/notion-optional` (owner: main gets no Notion work now)
+> - ✅ The scheduled search, the desktop's engine commands and the button modes run on any store: one `open_stores()`,
+>   the Notion tracker only while the store is Notion (no second copy in Notion beside SQLite).
+> - ✅ Job Matches, ledger, interview sweep, run history (`src/run_log.py`) and import/add-a-link go through the store.
+> - ⏳ **11 bridges** left (`desktop/test/bridge-registry.test.js` lists them): 9 wait on mail/inbox/opportunity/reassign
+>   and the added hook (mac-20), 1 goes with mac-4a's rejection change (queued), 1 is lane G's `stores_of` (mac-e3 removes
+>   it once lane H and mac-4a's apply_batch land: then no caller passes a tracker).
+> - ⏳ **56 direct Notion calls** outside `src/notion`, `src/stores` still to move (audit, lane H: 64, then import_url,
+>   add-a-link and feedback moved): rejection 11, opportunity 10, inbox 10, reassign 7, apply_run 7, inbox_notion 4,
+>   others ≤ 2. 18 more are Notion-only by design.
+> - Release gate: bridges 0 + `STORE_CHOICE` on (the registry test fails otherwise) + parity guard rows all `view`.
+
 ## 1. Decisions (owner, 9 Oct 2026; do not re-open)
 
 | # | Decision |
@@ -62,7 +74,7 @@ method must do; `src/stores/memory.py` is the reference adapter. Below: what eac
 |---|---|---|
 | applications | `list(stages)` `get(url)` `stages()` `create(job, stage)` `set_stage(job, stage, today)` → (record, created\|changed\|unchanged) `update(id, fields)` `delete(id)` `section/set_section(id, name, md)` `attach(id, name, bytes, type)` | `Tracker.find/url_rows/notion_jobs/url_stages/mark/_create_row/update_page/trash_page/read_kit/replace_section/upload_file` |
 | events | `list(app_id, kind, source_id)` `add(app_id, kind, at, **fields)` (idempotent per source_id) `archive(app_id, kind)` | `ledger.add_event/existing_event/events_of/archive_events` |
-| matches | `list(status)` `upsert(job)` `set_status(url, s)` `remove(url)` | `notion/matches.py write_one/sync` |
+| matches | `list(status)` `upsert(job)` `set_status(url, s)` `remove(url)` `sync(db, scored_jobs, applied, open, dismissed, partial)` (a search's whole pass; Notion: its own cached sync) | `notion/matches.py write_one/sync` |
 | interviews | `list(app_id)` `get(id)` `save(id\|None, fields)` `archive(id)`; transcript/review are whole Markdown | `ai/interviews*.py` |
 | insights | `list(since, category, limit)` `save(day, category, title, body, fields)` (one per day+category) | `ai/insights.py`, `interview_insights.py` |
 | employers | `list(active)` `add(employer)` (one per name) | `scout_notion.py` |

@@ -218,7 +218,10 @@ def set_stage(tracker, url, stage, source='CLI', note=''):
         changes = {'Stage': {'select': {'name': stage}}}
         if stage == 'Rejected' and not plain(row['properties'].get('Feedback status')):
             from .. import feedback
-            if plain(row['properties'].get('Stage')) in feedback.REACHED or feedback.eligible(row, feedback.history_for(tracker, row)):
+            history = [{'kind': plain(e['properties'].get('Kind')), 'at': plain(e['properties'].get('At'))}   # the row's own events
+                       for e in tracker.query_database(EVENTS_DATABASE_ID, {'property': 'Application', 'relation': {'contains': row['id']}})]
+            if plain(row['properties'].get('Stage')) in feedback.REACHED or \
+                    feedback.eligible_status(plain(row['properties'].get('Feedback status')), history):
                 changes['Feedback status'] = {'select': {'name': 'Not asked'}}
         tracker.update_page(row['id'], changes)
     add_event(tracker, row, stage, source, note=note)

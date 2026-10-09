@@ -1,14 +1,14 @@
 """Employer feedback loop. The store holds the status, verbatim feedback and timeline (events); no AI or email sending.
 
-act / save_received work on the active store (the app's buttons, `python -m src.feedback <id> <action>`); receive and
-history_for take a Notion tracker, for the Gmail check until it moves to the store. Guarded by tests/test_feedback.py.
+act / save_received work on the active store (the app's buttons, `python -m src.feedback <id> <action>`, the Gmail check).
+No Notion here: the Notion ledger reads a row's history itself (src/notion/ledger.py). Guarded by tests/test_feedback.py.
 """
 import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
 
-from .notion.ledger import EVENTS_DATABASE_ID, moment, plain
+from .notion.ledger import moment
 
 REACHED = {'Screening', 'Interview scheduled', 'Interviewing', 'Offer'}
 REQUESTED, RECEIVED, REVIEWED, SKIPPED = ('Feedback requested', 'Feedback received', 'Feedback reviewed', 'Feedback skipped')
@@ -18,11 +18,6 @@ STATUSES = {REQUESTED: 'Asked for feedback', RECEIVED: 'Received feedback',
 
 def _moment(value):
     return value.astimezone(timezone.utc) if isinstance(value, datetime) else moment(value)
-
-
-def eligible(row, history=()):
-    """A recorded Screening or later, before rejection, for a Notion row (eligible_status)."""
-    return eligible_status(plain(row['properties'].get('Feedback status')), history)
 
 
 def eligible_status(status, history=()):
@@ -38,38 +33,11 @@ def eligible_status(status, history=()):
     return any(e.get('kind') in REACHED and e.get('at') and _moment(e.get('at')) <= cutoff for e in history)
 
 
-def history_for(tracker, row):
-    return [{'kind': plain(e['properties'].get('Kind')), 'at': plain(e['properties'].get('At'))}
-            for e in tracker.query_database(EVENTS_DATABASE_ID, {'property': 'Application', 'relation': {'contains': row['id']}})]
-
-
 def draft(row):
     return ('Thank you for your time and consideration.\n\n'
             'Could you share what mainly influenced the decision? '
             'Compensation expectations, technical fit, communication, or something else?\n\n'
             'Even a few words would be really helpful.')
-
-
-def receive(tracker, row, text):
-    """Store employer words separately from AI guesses; preserve every reply, within Notion's limit."""
-    text = (text or '').strip()
-    from .features import disabled
-    if disabled('feedback'):
-        return
-    if not text:
-        raise ValueError('Paste the feedback you received first.')
-    previous = plain(row['properties'].get('Employer feedback')) or ''
-    combined = previous if text in previous else '\n\n'.join(filter(None, [previous, text]))
-    if len(combined) > 100_000:
-        raise ValueError('Feedback is too long; save a shorter excerpt.')
-    tracker.update_page(row['id'], {
-        'Employer feedback': {'rich_text': [{'text': {'content': combined[i:i + 1900]}} for i in range(0, len(combined), 1900)]},
-        'Feedback status': {'select': {'name': STATUSES[RECEIVED]}},
-        # A previous AI assessment must be reconsidered against the employer's actual words.
-        'Rejection reason': {'select': None}, 'Rejection lesson': {'rich_text': []},
-    })
-    row['properties']['Employer feedback'] = {'type': 'rich_text', 'rich_text': [{'plain_text': combined}]}
-    row['properties']['Feedback status'] = {'type': 'select', 'select': {'name': STATUSES[RECEIVED]}}
 
 
 def save_received(stores, app, text):
