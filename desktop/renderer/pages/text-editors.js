@@ -9,7 +9,11 @@ import {openInNotion} from './notion-connect.js';
 import {inNotion, storeName, syncStoreName} from '../store-words.js';
 
 export const NOTION_PAGES = {profile: 'NOTION_PROFILE_PAGE_ID', answers: 'NOTION_ANSWERS_PAGE_ID', knowledge: 'NOTION_KNOWLEDGE_PAGE'};
-const saved = {};   // name → the text as stored: Save and Revert follow what differs from it
+const saved = {};
+// Each panel's lead when its store's page is the editor (Notion): what it is, where it lives, and the link; index.html's lead (kept in
+// dataset.editLead) when it is edited here. One sentence per text, so the three panels say the same thing the same way.
+const READ_LEAD = {profile: 'Your Profile, as on its {store} page.', answers: 'The whole page of answers, as on its {store} page.',
+  knowledge: 'What Job Pilotto remembered from your forms, as on its {store} page.'};   // name → the text as stored: Save and Revert follow what differs from it
 
 // Every control that opens the store's own page shown or hidden, and every "Saved in …" said, from where the data is (store-words.js).
 export function showStoreParts() {
@@ -28,7 +32,12 @@ export async function loadTextEditor(name) {
   const result = await window.pilot.textGet(name).catch(error => ({ok: false, error: error.message}));
   if (!result.ok) { box.replaceChildren(el('p', 'message error', `Couldn't read it: ${result.error}`)); return; }
   saved[name] = result.markdown;
-  const area = Object.assign(el('textarea', ''), {rows: 16, value: result.markdown, readOnly: !result.editable, spellcheck: true,
+  // Read-only: sized to its text (at most the editor's 16 rows), not an empty editor's height.
+  const rows = result.editable ? 16 : Math.min(16, Math.max(3, String(result.markdown).split('\n').length + 1));
+  const lead = panel.querySelector('.panel-lead');
+  if (lead) lead.dataset.editLead ||= lead.textContent;
+  if (lead && result.editable) lead.textContent = lead.dataset.editLead;
+  const area = Object.assign(el('textarea', ''), {rows, value: result.markdown, readOnly: !result.editable, spellcheck: true,
     placeholder: result.editable ? 'Nothing here yet: type it, then Save.' : 'Nothing here yet.'});
   Object.assign(area.dataset, {textArea: name});
   const note = el('p', 'message');
@@ -49,13 +58,12 @@ export async function loadTextEditor(name) {
     });
     buttons.append(save, revert);
   } else {
-    // Read-only here, said first, with its link (the panel's lead and a link button, as "Open answers in Notion"): a read-only box looks like the
+    // Read-only here, said in the panel's own lead with its link (a link button, as "Open answers in Notion"): a read-only box looked like the
     // editor (mac-48's audit, 9 Oct 2026), and its button sat below the fold.
     const edit = Object.assign(el('button', 'link', `Edit in ${storeName()}`), {type: 'button'});
     edit.addEventListener('click', event => openInNotion(NOTION_PAGES[name], event));
-    const lead = el('p', 'muted panel-lead', `Shown as it is on its ${storeName()} page. `);
-    lead.append(edit);
-    box.replaceChildren(lead, area, note);
+    if (lead) { lead.textContent = `${READ_LEAD[name].replace('{store}', storeName())} `; lead.append(edit); }
+    box.replaceChildren(area, note);
     return;
   }
   box.replaceChildren(area, note, buttons);
