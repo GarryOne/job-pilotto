@@ -110,10 +110,13 @@ export function pageParts({sections = {}, kit = null, events = [], files = []} =
   const history = historyItems(events);
   // The job's images (a logged message's screenshots) belong with its messages; other files (a tailored CV) are not shown here.
   const shots = (files || []).filter(file => /^image\//.test(file?.type || ''));
+  // The other files the app keeps on the job (a tailored CV, lib/store/files.js attachToJob): listed with the kit, to open or save.
+  const documents = (files || []).filter(file => file && !/^image\//.test(file.type || ''));
   const has = {kit: !!kitView && !!(kitView.groups?.length || kitView.letter || kitView.answers?.length || kitView.check?.length),
     history: history.length > 0, ...Object.fromEntries(Object.entries(groups).map(([key, value]) => [key, value.length > 0]))};
   has.messages ||= shots.length > 0;
-  return {tabs: TABS.filter(([key]) => has[key]), kit: kitView, groups, history, shots};
+  has.kit ||= documents.length > 0;
+  return {tabs: TABS.filter(([key]) => has[key]), kit: kitView, groups, history, shots, documents};
 }
 
 // "Next interview 14 Oct 2026 · prep 13 Oct 2026" and the call's facts (Applications Next interview, Interview prep, Call facts).

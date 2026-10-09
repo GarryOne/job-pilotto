@@ -22,7 +22,22 @@ export async function jobPage(storage, url, {call = engine.call, links = false} 
   return {app, sections: sections || {}, kit: kitOf(sections?.[KIT_SECTION]), events: events || [], files, links};
 }
 
-export function registerJobPageHandlers({ipcMain, storage, DEMO, here, log, call = engine.call}) {
+// A file of the job's page saved where the person picks (its data: URL from lib/store/files.js): only data: URLs, only after the dialog.
+export function fileBytes(url) {
+  const found = /^data:[^;,]*;base64,(.*)$/.exec(String(url || ''));
+  return found ? Buffer.from(found[1], 'base64') : null;
+}
+
+export function registerJobPageHandlers({ipcMain, storage, DEMO, here, log, dialog, call = engine.call}) {
+  ipcMain.handle('jobFileSave', async (_, name, url) => {
+    const bytes = fileBytes(url);
+    if (!bytes || !dialog) return {ok: false};
+    const picked = await dialog.showSaveDialog({defaultPath: path.basename(String(name || 'file'))});
+    if (picked.canceled || !picked.filePath) return {ok: false};
+    fs.writeFileSync(picked.filePath, bytes);
+    log('jobs', 'job file saved', {bytes: bytes.length});
+    return {ok: true};
+  });
   ipcMain.handle('jobPage', async (_, url) => {
     if (DEMO) {
       const pages = JSON.parse(fs.readFileSync(path.join(here, 'demo', 'job-pages.json'), 'utf8'));

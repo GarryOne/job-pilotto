@@ -65,9 +65,15 @@ export async function syncCv(storage, fetcher) {
   return {uploaded: caption};
 }
 
-// The approved cover letter on the Profile page, once per approval (the user's text is in the PDF; Notion keeps every version).
-export const coverLetterToProfile = (storage, file, fetcher) => {
+// The approved cover letter on the Profile page, once per version (the user's text is in the PDF; Notion keeps every version):
+// settings.letterInNotion remembers which one is there, so a letter approved while the data was on this Mac reaches Notion after a
+// move to it (syncCv runs at every start, as it does for the CV).
+export async function coverLetterToProfile(storage, file, fetcher) {
   const token = storage.secret('NOTION_TOKEN'), profile = storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID;
-  if (!notionInUse(storage) || !token || !profile || !fs.existsSync(file)) return Promise.resolve(null);
-  return cvToProfile(token, profile, file, 'Cover letter.pdf', new Date(), fetcher, LETTER_HEADING);
-};
+  if (!notionInUse(storage) || !token || !profile || !fs.existsSync(file)) return null;
+  const print = fingerprint(file);
+  if (storage.settings().letterInNotion === print) return null;
+  const caption = await cvToProfile(token, profile, file, 'Cover letter.pdf', new Date(), fetcher, LETTER_HEADING);
+  storage.saveSettings({letterInNotion: print});
+  return caption;
+}

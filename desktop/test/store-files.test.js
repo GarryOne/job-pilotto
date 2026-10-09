@@ -26,3 +26,13 @@ test('the engine answer is read as the store CLI prints it', async () => {
   const [file] = await jobFiles({}, 'x', {call: (storage, entity, method, kwargs) => engine.call(storage, entity, method, kwargs, {run})});
   assert.equal(file.url, 'data:image/png;base64,AA==');
 });
+
+test('a file the app made goes on the job in the store, by its path; no application yet: nothing written', async () => {
+  const calls = [];
+  const call = async (_, entity, method, kwargs) => { calls.push([entity, method, kwargs]); return method === 'get' ? (kwargs.url === 'https://x/1' ? {id: 'a1'} : null) : 'kept'; };
+  const {attachToJob} = await import('../lib/store/files.js');
+  assert.equal(await attachToJob({}, 'https://x/1', '/app/cv/tailored/abc.pdf', {name: 'CV · Acme · SRE.pdf', call}), true);
+  assert.deepEqual(calls.at(-1), ['applications', 'attach', {app_id: 'a1', name: 'CV · Acme · SRE.pdf', content_type: 'application/pdf', path: '/app/cv/tailored/abc.pdf'}]);
+  assert.equal(await attachToJob({}, 'https://x/2', '/app/cv/tailored/def.pdf', {call}), false);
+  assert.equal(calls.filter(([, method]) => method === 'attach').length, 1);
+});

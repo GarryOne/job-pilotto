@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {jobPage, registerJobPageHandlers} from '../lib/job-page-handlers.js';
+import {fileBytes, jobPage, registerJobPageHandlers} from '../lib/job-page-handlers.js';
 
 const kitMarkdown = 'Drafted.\n\n### Machine-readable kit\n\n```json\n{"cover_letter": "Dear team", "answers": []}\n```';
 function fakeStore(app) {
@@ -47,4 +47,9 @@ test('the IPC: demo mode reads the fictional fixture; a store error is an answer
   registerJobPageHandlers({ipcMain, storage, DEMO: false, here, log: (...line) => lines.push(line), call: async () => { throw new Error('no engine'); }});
   assert.deepEqual(await handlers.jobPage(null, 'https://x/1'), {error: 'no engine'});
   assert.equal(lines[0][1], 'job page not read');
+});
+
+test('saving a job file: only a data: URL becomes bytes', () => {
+  assert.deepEqual([...fileBytes('data:application/pdf;base64,JVBERg==')], [...Buffer.from('%PDF')]);
+  for (const url of ['file:///etc/passwd', 'https://x/cv.pdf', '', 'data:text/plain,hello']) assert.equal(fileBytes(url), null, url);
 });

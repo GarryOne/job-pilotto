@@ -43,8 +43,14 @@ test('Markdown to words: links, marks, escapes, toggles and to-dos', () => {
 
 test('screenshots belong with the messages: an image alone shows the Messages tab; other files stay out', () => {
   const parts = pageParts({files: [{name: 'chat.png', type: 'image/png', url: 'data:image/png;base64,AA'}, {name: 'cv.pdf', type: 'application/pdf', url: 'data:x'}]});
-  assert.deepEqual(parts.tabs, [['messages', 'Messages']]);
+  assert.deepEqual(parts.tabs, [['kit', 'Kit'], ['messages', 'Messages']], 'the PDF goes with the kit');
   assert.deepEqual(parts.shots.map(shot => shot.name), ['chat.png']);
+});
+
+test('the job\'s other files (a tailored CV) are listed with the kit, even with no kit section', () => {
+  const parts = pageParts({files: [{name: 'CV · Acme.pdf', type: 'application/pdf', url: 'data:application/pdf;base64,AA'}]});
+  assert.deepEqual(parts.tabs, [['kit', 'Kit']]);
+  assert.deepEqual(parts.documents.map(file => file.name), ['CV · Acme.pdf']);
 });
 
 test('the header: stage, applied date, place and fit', () => {

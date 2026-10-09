@@ -61,6 +61,7 @@ import * as viewCache from './lib/view-cache.js';
 import * as migrate from './lib/migrate.js';
 import * as reset from './lib/reset.js';
 import * as files from './lib/files.js';
+import * as letters from './lib/cover-letter.js';
 import * as backup from './lib/backup.js';
 import * as notionGate from './lib/notion-gate.js';
 import * as notionWorkspace from './lib/notion-workspace.js';
@@ -252,7 +253,7 @@ function handlers() {
   registerSetupHandlers({DEMO, connectNotion, dialog, handleImportant, ipcMain, licenseState, needsNotion, shell, storage, syncCv, getTelemetry: () => telemetry, track, trackSetup, getWindow: () => window,
     setNotionFrom: value => { notionFrom = value; }});   // lib/setup-handlers.js
   registerStrategyDraftHandlers({DEMO, here, ipcMain, storage, syncCv, toWindow, trackSetup});   // lib/strategy-draft-handlers.js
-  registerJobPageHandlers({ipcMain, storage, DEMO, here, log: appLog});   // lib/job-page-handlers.js: Jobs → a job's page
+  registerJobPageHandlers({ipcMain, storage, DEMO, here, dialog, log: appLog});   // lib/job-page-handlers.js: Jobs → a job's page
   registerTextHandlers({ipcMain, storage, DEMO, log: appLog});   // lib/text-handlers.js: Settings → Profile's texts
   registerReportsHandlers({ipcMain, storage, DEMO, here, log: appLog});   // lib/reports-handlers.js: Reports → insights
   registerEmployersHandlers({ipcMain, storage, DEMO, here, log: appLog});   // lib/employers-handlers.js: the Employers page
@@ -299,6 +300,9 @@ function syncCv() {
   if (DEMO) return;
   files.syncCv(storage).then(done => done.uploaded && console.log(`CV saved to your Notion Profile (${done.uploaded})`))
     .catch(error => console.error(`CV not saved to Notion: ${error.message}`));
+  // The approved cover letter too, once per version (lib/files.js): one approved with the data on this Mac reaches Notion after a move.
+  files.coverLetterToProfile(storage, letters.pdfPath(storage)).then(caption => caption && appLog('cover-letter', 'PDF saved to the Notion Profile', {caption}))
+    .catch(error => appLog('cover-letter', 'PDF not saved to Notion', {error: error.message}));
 }
 function backupNow() {
   try { const done = backup.run(storage, {version: about?.label || ''}); console.log(`Backup saved: ${done.file}`); return {ok: true, ...done}; }

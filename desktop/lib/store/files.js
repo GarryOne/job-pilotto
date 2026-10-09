@@ -16,3 +16,13 @@ export async function jobFiles(storage, appId, {call = engine.call} = {}) {
 }
 
 export const isImage = file => /^image\//.test(file?.type || '');
+
+// A file the app made for a job (a tailored CV) kept on the job in the store (`applications attach`, read by the engine from `file`, which
+// must sit in the app's folder): on a store without its own file column, so the job keeps it and a move to Notion carries it
+// (src/stores/copy.py). -> true when kept, false when the store has no application for the job yet (the file stays on this Mac only).
+export async function attachToJob(storage, url, file, {name, type = 'application/pdf', call = engine.call} = {}) {
+  const app = await call(storage, 'applications', 'get', {url: String(url || '')});
+  if (!app?.id) return false;
+  await call(storage, 'applications', 'attach', {app_id: app.id, name: String(name || file.split('/').pop()), content_type: type, path: String(file)});
+  return true;
+}

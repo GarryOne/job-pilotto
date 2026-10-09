@@ -84,3 +84,14 @@ test('weekly backup: due after 7 days, keeps the last 4, never the keys', () => 
   assert.ok(!listing.includes('sk-secret'));
   assert.equal(backup.folder('/home/x', () => false), path.join('/home/x', 'Documents', 'Job Pilotto Backups'));  // \\ on Windows
 });
+
+test('the approved cover letter reaches the Notion Profile once per version, also one approved before a move to Notion', async () => {
+  const s = storage(), n = notion();
+  const pdf = path.join(s.dir, 'letter.pdf');
+  fs.writeFileSync(pdf, '%PDF letter v1');
+  assert.match(await files.coverLetterToProfile(s, pdf, n.fetcher), /^Cover letter\.pdf · /);
+  assert.equal(await files.coverLetterToProfile(s, pdf, n.fetcher), null, 'the same version: nothing sent again (every start runs it)');
+  fs.writeFileSync(pdf, '%PDF letter v2');
+  assert.ok(await files.coverLetterToProfile(s, pdf, n.fetcher));
+  assert.equal(n.calls.filter(([, route]) => route === 'file_uploads').length, 2);
+});

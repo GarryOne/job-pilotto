@@ -48,6 +48,44 @@ class StoreCliTests(unittest.TestCase):
             self.assertEqual((shot['name'], shot['content_type'], shot['size'], shot['too_large']), ('reply.png', 'image/png', 10, False))
             self.assertEqual(base64.b64decode(shot['data']), b'\x89PNG-bytes')
 
+    def test_a_file_the_app_made_is_attached_from_its_folder_only(self):
+        """The desktop keeps a tailored CV on the job (lib/store/files.js attachToJob): the bytes come from a file in the app's folder."""
+        app_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, app_dir, True)
+        data = app_dir / 'data'
+        (app_dir / 'cv' / 'tailored').mkdir(parents=True)
+        pdf = app_dir / 'cv' / 'tailored' / 'abc.pdf'
+        pdf.write_bytes(b'%PDF-tailored')
+        stores = sqlite.open_store({'JOB_PILOTTO_DATA_DIR': str(data)})
+        app = stores.applications.create({'url': 'https://x.example/cv', 'title': 'SRE', 'company': 'Acme'}, 'Saved')
+        kwargs = {'app_id': app['id'], 'name': 'CV · Acme · SRE.pdf', 'content_type': 'application/pdf', 'path': str(pdf)}
+        with mock.patch.dict(os.environ, {'JOB_PILOTTO_DATA_DIR': str(data)}):
+            code, _ = self.run_cli('call', 'applications', 'attach', json.dumps(kwargs), stores=stores)
+            self.assertEqual(code, 0)
+            self.assertEqual(stores.applications.files(app['id']), [('CV · Acme · SRE.pdf', b'%PDF-tailored', 'application/pdf')])
+            outside = Path(tempfile.mkdtemp()) / 'secret.txt'
+            outside.write_text('not the app\'s')
+            self.addCleanup(shutil.rmtree, outside.parent, True)
+            for path in (str(outside), str(app_dir / 'cv' / '..' / '..' / outside.name), str(app_dir / 'cv')):   # outside, climbing out, a folder
+                code, answer = self.run_cli('call', 'applications', 'attach', json.dumps({**kwargs, 'path': path}), stores=stores)
+                self.assertEqual(code, 2, path)
+            link = app_dir / 'cv' / 'tailored' / 'escape.pdf'   # a symlink inside the folder to a file outside it: refused after resolution
+            link.symlink_to(outside)
+            fifo = app_dir / 'cv' / 'tailored' / 'pipe'
+            os.mkfifo(fifo)                                      # not a regular file
+            for path in (link, fifo):
+                code, answer = self.run_cli('call', 'applications', 'attach', json.dumps({**kwargs, 'path': str(path)}), stores=stores)
+                self.assertEqual(code, 2, path)
+            with mock.patch.object(cli, 'FILE_CAP', 4):          # too big
+                code, answer = self.run_cli('call', 'applications', 'attach', json.dumps(kwargs), stores=stores)
+            self.assertEqual(code, 2)
+            self.assertIn('too large', answer['error'])
+            code, answer = self.run_cli('call', 'applications', 'attach', json.dumps({**kwargs, 'data': 'AAAA'}), stores=stores)
+            self.assertIn('not callable', answer['error'], 'raw bytes stay refused')
+        with mock.patch.dict(os.environ, {}, clear=True):
+            code, _ = self.run_cli('call', 'applications', 'attach', json.dumps(kwargs), stores=stores)
+        self.assertEqual(code, 2, 'without the app folder nothing is read')
+
     def test_a_file_over_the_cap_is_listed_without_its_bytes(self):
         stores = memory.open_store()
         app = stores.applications.create({'url': 'https://x.example/big'}, 'Saved')

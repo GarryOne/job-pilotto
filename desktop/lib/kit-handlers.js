@@ -5,6 +5,7 @@ import * as apply from './apply.js';
 import * as claudeCode from './claude-code.js';
 import * as cvlib from './cv.js';
 import * as files from './files.js';
+import * as storeFiles from './store/files.js';
 import * as notionGate from './notion-gate.js';
 import * as pipeline from './pipeline.js';
 import * as strategy from './strategy.js';
@@ -70,11 +71,17 @@ export function registerKitHandlers(ctx) {
       // Notion too, on the job's Applications row (the PDF isn't only on this Mac); no row yet -> said below.
       // With the data on this Mac (lib/store) the PDF is kept here only, and nothing is said about Notion.
       const notionStore = notionGate.notionInUse(storage);
-      let inNotion = false;
+      const fileName = `CV · ${job.company} · ${job.title}.pdf`.replace(/[/\\:]/g, '-');
+      let inNotion = false, kept = false;
       if (notionStore) try {
         inNotion = await files.tailoredToApplication(storage.secret('NOTION_TOKEN'), storage.settings().notionIds?.NOTION_APPLICATIONS_DB,
-          job.url, cvlib.pdfPath(storage, code), `CV · ${job.company} · ${job.title}.pdf`.replace(/[/\\:]/g, '-'));
+          job.url, cvlib.pdfPath(storage, code), fileName);
       } catch (error) { console.error(`Tailored CV not saved to Notion: ${error.message}`); }
+      // Any other store keeps it on the job itself (lib/store/files.js attachToJob), so the job page lists it and a move to Notion carries it.
+      else try {
+        kept = await storeFiles.attachToJob(storage, job.url, cvlib.pdfPath(storage, code), {name: fileName});
+        appLog('cv', kept ? 'tailored CV kept on the job' : 'tailored CV not on a job yet', {code});
+      } catch (error) { appLog('cv', 'tailored CV not kept on the job', {code, error: error.message}); }
       if (!quiet) notify('Tailored CV ready ✓', `${name}: ${result.changes.length} changes${applied.warnings.length ? `, ${applied.warnings.length} to check` : ''}.`
         + (!notionStore ? '' : inNotion ? ' Saved in Notion too.' : ' On this Mac only: save the job (☆) to keep it in Notion.'), {view: 'jobs', job: code});   // about Notion
       if (show) openTailoredCv(code);   // from the form's panel the window stays behind: the person is on the form, the notification says it is ready

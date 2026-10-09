@@ -88,8 +88,25 @@ function shotsView(shots) {
   }))];
 }
 
+// The job's documents (a tailored CV) as attachment rows: Save asks where and writes the store's copy (IPC jobFileSave); a file too large
+// to read here: its name only.
+function documentsView(documents) {
+  if (!documents.length) return [];
+  return [group('Files on this job', documents.map(file => {
+    const row = el('div', 'attachment');
+    row.append(el('span', 'attachment-name', file.name));
+    if (file.url) {
+      const save = Object.assign(el('button', 'soft-button', 'Save…'), {type: 'button'});
+      save.addEventListener('click', async () => { const done = await window.pilot.jobFileSave(file.name, file.url).catch(() => null); if (done?.ok) save.textContent = 'Saved ✓'; });
+      row.append(save);
+    }
+    else row.append(el('span', 'muted small', 'Too large to show here'));
+    return row;
+  }))];
+}
+
 function body(parts, tab) {
-  if (tab === 'kit') return kitView(parts.kit);
+  if (tab === 'kit') return [...(parts.kit ? kitView(parts.kit) : []), ...documentsView(parts.documents || [])];
   if (tab === 'messages') return [...(parts.groups.messages || []).map(part => group(part.title, part.lines)), ...shotsView(parts.shots)];
   if (tab === 'history') return historyView(parts.history);
   return (parts.groups[tab] || []).map(part => group(part.title, part.lines));

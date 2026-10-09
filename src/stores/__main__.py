@@ -2,14 +2,17 @@
 
 How the desktop reaches the active store without a second copy of any adapter (desktop/lib/store/*): the store is
 the one `open_stores()` picks from the environment (JOB_PILOTTO_STORE). Only data methods: the move (`put`) and
-writing bytes (`attach`) are refused. `applications files` reads a job's files as base64 ({name, content_type, size,
+writing raw bytes are refused; `applications attach` takes a `path` instead (attach_file: a file inside the app's own folder). `applications files` reads a job's files as base64 ({name, content_type, size,
 data}); a file over FILE_CAP (or past TOTAL_CAP for the job) comes with data null and too_large true, so a screen can
 say it is there. Exit 2 on a refused or unknown call, 1 when the method raised (its error as {"error": ...}).
 Guarded by tests/test_store_cli.py.
 """
 import base64
 import json
+import os
+import stat
 import sys
+from pathlib import Path
 
 from . import base, open_stores
 
@@ -32,7 +35,28 @@ def encoded_files(files):
     return found
 
 
+def attach_file(stores, kwargs, env=None):
+    """`applications attach` {app_id, name, content_type, path}: the bytes are read from `path`, which must be a file inside the app's
+    folder (the parent of JOB_PILOTTO_DATA_DIR, where the app keeps its tailored CVs), at most FILE_CAP. The desktop's way to keep a
+    file it made (lib/store/files.js attachToJob); no other path and no raw bytes."""
+    env = os.environ if env is None else env
+    data_dir = env.get('JOB_PILOTTO_DATA_DIR')
+    if not data_dir:
+        raise PermissionError('attach needs the app folder (JOB_PILOTTO_DATA_DIR)')
+    # Both resolved first (os.path.realpath: symlinks and ../ followed), then the file must still be inside the folder and a regular file.
+    root = Path(os.path.realpath(data_dir)).parent
+    path = Path(os.path.realpath(str(kwargs.get('path') or '')))
+    if root not in path.parents or not stat.S_ISREG(os.stat(path).st_mode if path.exists() else 0):
+        raise PermissionError('attach reads only a file inside the app folder')
+    if path.stat().st_size > FILE_CAP:
+        raise PermissionError(f'file too large to attach ({path.stat().st_size} bytes)')
+    return stores.applications.attach(str(kwargs['app_id']), str(kwargs.get('name') or path.name), path.read_bytes(),
+                                      str(kwargs.get('content_type') or 'application/octet-stream'))
+
+
 def call(stores, entity, method, kwargs):
+    if (entity, method) == ('applications', 'attach') and 'path' in kwargs and set(kwargs) <= {'app_id', 'name', 'content_type', 'path'}:
+        return attach_file(stores, kwargs)
     if entity not in ENTITIES or method.startswith('_') or method in REFUSED:
         raise PermissionError(f'not callable: {entity}.{method}')
     protocol = getattr(base, ''.join(part.title() for part in entity.split('_')))
