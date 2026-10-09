@@ -62,6 +62,7 @@ function pageShape(tabId) {
       anyFiles: document.querySelectorAll('input[type=file]').length,   // an upload behind a button ("Upload a CV"): its input is hidden
       textareas: controls.filter(el => el.tagName === 'TEXTAREA').length,
       nodes: document.getElementsByTagName('*').length,   // still growing: a page that renders its form after the load
+      frames: [...document.querySelectorAll('iframe')].filter(el => { const box = el.getBoundingClientRect(); return box.width > 40 && box.height > 40; }).length,   // a check drawn in a frame, often seconds after the load
     };
   }}).then(rows => rows?.[0]?.result || null).catch(() => null);
 }
@@ -213,16 +214,20 @@ const lookedAgain = new Set();
 async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => setTimeout(resolve, ms)), looks = 10) {
   const key = fillKey(tab.id, tab.url);
   if (lookedAgain.has(key)) return false;
+  const hadFrames = !!(await pageShape(tab.id))?.frames;   // a frame there from the start was already seen by the judgment
   for (let i = 0; i < looks; i++) {
     await wait(2000);
     const live = await chrome.tabs.get(tab.id).catch(() => null);
     if (!live || pageKey(live.url) !== pageKey(tab.url)) return false;   // moved on: the next page decides for itself
     const shape = await pageShape(tab.id);
-    if (!shape || shape.fields + shape.textareas + shape.files < 2) continue;
+    // Fields came (the form drew late), or a frame did on a page that had none (a bot check injected seconds after the load: SmartRecruiters,
+    // 9 Oct 2026): the page is judged again, now with what it shows (page-kind AI: bot_check).
+    const framed = !!shape?.frames && !hadFrames;
+    if (!shape || (shape.fields + shape.textareas + shape.files < 2 && !framed)) continue;
     lookedAgain.add(key);
     started.delete(key);
     let host = ''; try { host = new URL(live.url).hostname; } catch { /* no address */ }
-    decide('fill', 'fields appeared on a page judged without a form: looking again', {host, fields: shape.fields + shape.textareas + shape.files, after: (i + 1) * 2});
+    decide('fill', framed ? 'a frame appeared on a page judged without a form: looking again' : 'fields appeared on a page judged without a form: looking again', {host, fields: shape.fields + shape.textareas + shape.files, frames: shape.frames || 0, after: (i + 1) * 2});
     await arm(tab.id, 'fields appeared');
     await consider(live, jobUrl);
     return true;

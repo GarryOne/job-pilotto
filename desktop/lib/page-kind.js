@@ -26,7 +26,7 @@ const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 
   signin_control: {type: 'string', description: 'For a sign_up or choose page: the exact text of the listed control that leads to signing in to an existing account, else ""'},
   account_button: {type: 'string', description: 'For an account page: the exact text of the listed button that submits this sign-in or sign-up form, else ""'},
   confidence: {type: 'number', description: 'From 0 to 1: how sure, from this page alone.'},
-  bot_check: {type: 'boolean', description: 'true when a check that the visitor is human (a captcha, a verification step, a challenge in a frame) stands in front of the page'},
+  bot_check: {type: 'boolean', description: 'true when a check that the visitor is human (a puzzle or image test, a verification step, a challenge in a frame) stands in front of the page'},
 }};
 
 const INSTRUCTIONS = `You classify one page of a job application journey on any employer or job-board site, in any language.
@@ -38,7 +38,7 @@ Answer one kind:
 - posting: a job description or a step that leads on to the application (an Apply button or link, a "continue to apply" page).
 - other: anything else (an error, a list of jobs, a cookie or consent wall, a page that needs nothing from the candidate).
 Decide from what the page asks, not from words in one language. Give your confidence from 0 to 1.
-bot_check: true when a check that the visitor is human stands in front of what the page would show (a captcha, a "verify you are human" step, a
+bot_check: true when a check that the visitor is human stands in front of what the page would show (a puzzle or image test, a "verify you are human" step, a
 challenge drawn in a frame: the Frames line lists the hosts of the page's visible frames), in any language; the kind is then other.
 apply_button: for a posting, the exact text, copied from the Buttons list, of the one button that starts applying for this job, in whatever
 language; never sign in, sign up, submit, save, share, an alert, or applying through another site (LinkedIn, Indeed, "Easy Apply"); "" when
