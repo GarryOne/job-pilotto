@@ -112,7 +112,7 @@ export function registerInterviewHandlers(ctx) {
   ipcMain.handle('ivDelete', (_, pageId) => (DEMO ? {ok: true} : interviews.remove(storage, pageId)));
   // Interviews → Open review with no page to open (the data on this Mac): the interview's record from the store, for the app's own view.
   ipcMain.handle('ivRecord', async (_, id) => {
-    if (DEMO) return null;
+    if (DEMO) return demoInterviews().records?.[String(id)] || null;   // a fictional interview with no Notion page: its review in the app
     try { return await storeEngine.call(storage, 'interviews', 'get', {interview_id: String(id)}); } catch (error) { return {error: error.message}; }
   });
   ipcMain.handle('ivRecordings', () => {
