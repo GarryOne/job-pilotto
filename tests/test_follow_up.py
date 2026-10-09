@@ -82,7 +82,7 @@ class ResolveDayTest(unittest.TestCase):
 
 class ProposeTest(unittest.TestCase):
     def test_the_real_case_asks_nothing_about_dates_and_defaults_to_an_update(self):
-        proposal = inbox.propose(duvo_tracker(), image=SHOT, client=Client(duvo_chat()), now=NOW)
+        proposal = inbox.propose(stores_for(duvo_tracker()), image=SHOT, client=Client(duvo_chat()), now=NOW)
         fields = proposal['fields']
         self.assertEqual(proposal['kind'], inbox.UPDATE)
         self.assertEqual((fields['kind']['value'], fields['kind']['state']), (inbox.UPDATE, 'ok'))  # no "Please check"
@@ -92,27 +92,27 @@ class ProposeTest(unittest.TestCase):
         self.assertEqual({k: fields['last'][k] for k in ('value', 'state', 'from')}, {'value': '2026-09-28', 'state': 'ok', 'from': 'you'})
 
     def test_a_new_job_keeps_first_contact_and_has_no_update_choice(self):
-        proposal = inbox.propose(Inbox(), image=SHOT, client=Client(duvo_chat(match=-1)), now=NOW)
+        proposal = inbox.propose(stores_for(Inbox()), image=SHOT, client=Client(duvo_chat(match=-1)), now=NOW)
         self.assertEqual(proposal['fields']['kind']['value'], 'Recruiter outreach')
         self.assertNotIn(inbox.UPDATE, proposal['fields']['kind']['options'])
 
     def test_an_unreadable_last_day_is_asked_never_guessed(self):
         last = {'from': 'you', 'at': '2024-09-28T10:05:00Z', 'at_text': '10:05 AM', 'text_snippet': 'Thanks!'}
-        fields = inbox.propose(duvo_tracker(), image=SHOT, client=Client(duvo_chat(last=last)), now=NOW)['fields']
+        fields = inbox.propose(stores_for(duvo_tracker()), image=SHOT, client=Client(duvo_chat(last=last)), now=NOW)['fields']
         self.assertEqual((fields['last']['value'], fields['last']['state'], fields['last']['question']),
                          ('', 'ask', 'When was the last message?'))
 
     def test_the_day_you_give_is_used(self):
         last = {'from': 'you', 'at': '', 'at_text': '', 'text_snippet': 'Thanks!'}
-        proposal = inbox.propose(duvo_tracker(), image=SHOT, client=Client(duvo_chat(last=last)), now=NOW)
+        proposal = inbox.propose(stores_for(duvo_tracker()), image=SHOT, client=Client(duvo_chat(last=last)), now=NOW)
         confirmed = inbox.confirm(proposal, kind=inbox.UPDATE, last_at='2026-09-27')
         self.assertEqual(confirmed['item']['last_message']['resolved'], '2026-09-27')
 
 
 class LastMessageEventTest(unittest.TestCase):
     def log(self, tracker, answer=None):
-        proposal = inbox.propose(tracker, image=SHOT, client=Client(answer or duvo_chat()), now=NOW)
-        return inbox.log(tracker, image=SHOT, now=NOW, event_source='Job Pilotto app',
+        proposal = inbox.propose(stores_for(tracker), image=SHOT, client=Client(answer or duvo_chat()), now=NOW)
+        return inbox.log(stores_for(tracker), image=SHOT, now=NOW, event_source='Job Pilotto app',
                          proposal=inbox.confirm(proposal, kind=inbox.UPDATE, channel='LinkedIn'))
 
     def test_the_real_case_saves_your_last_message_for_focus(self):

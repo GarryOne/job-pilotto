@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import inbox
 from tests.test_mail import NOW, event_row
+from tests.mail_fakes import stores_for
 from tests.test_opportunity import EMAIL_LEAD, Client, Tracker
 
 SHOT = ('shot.png', b'\x89PNG fake screenshot bytes', 'image/png')
@@ -51,7 +52,7 @@ class Inbox(Tracker):
 def run(tracker, answer, **options):
     options.setdefault('text', '')
     options.setdefault('image', SHOT)
-    return inbox.log(tracker, client=Client(answer), now=NOW, **options)
+    return inbox.log(stores_for(tracker), client=Client(answer), now=NOW, **options)
 
 
 class InboxTests(unittest.TestCase):
@@ -138,7 +139,7 @@ class InboxTests(unittest.TestCase):
 
     def test_short_text_without_a_screenshot_is_refused(self):
         with self.assertRaisesRegex(ValueError, 'whole message or a screenshot'):
-            inbox.log(Inbox(), text='ok', client=Client())
+            inbox.log(stores_for(Inbox()), text='ok', client=Client())
 
     def test_screenshot_files(self):
         self.assertIsNone(inbox.load_image('notes.txt'))

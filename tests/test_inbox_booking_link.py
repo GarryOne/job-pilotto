@@ -4,6 +4,7 @@ import unittest
 
 from src.ai import inbox
 from tests.test_inbox import SHOT, job, reading, row, run
+from tests.mail_fakes import stores_for
 from tests.test_inbox import Inbox
 
 LINK = 'https://calendly.com/discussion_meeting/meeting'
@@ -28,7 +29,7 @@ class BookingLinkTests(unittest.TestCase):
         # "Update on this job": nothing new of its own kind, but their last message is the booking link.
         tracker = tracked()
         last = {'from': 'them', 'at': '2026-09-30T12:33:00+00:00', 'at_text': 'TODAY 12:33 PM', 'text_snippet': 'Thank you. https://calendly.com/…'}
-        inbox.log(tracker, image=SHOT, client=__import__('tests.test_opportunity', fromlist=['Client']).Client(
+        inbox.log(stores_for(tracker), image=SHOT, client=__import__('tests.test_opportunity', fromlist=['Client']).Client(
             reading(inbox.UPDATE, 0, booking_link=LINK, last_message=last, when='2026-09-30T12:33:00+00:00')), now=inbox.datetime(2026, 9, 30, 13, 0, tzinfo=inbox.timezone.utc))
         self.assertTrue(any(f'Booking link: {LINK}' in note for note in notes(tracker)), notes(tracker))
 

@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from src.ai import prep
-from src.stores import memory
+from src.stores import base, memory
 from src.stores.notion_blocks import to_blocks
 
 NOW = datetime(2026, 9, 29, 14, 0, tzinfo=timezone.utc)
@@ -56,6 +56,12 @@ def stats(value=None):
 
 
 class PrepTests(unittest.TestCase):
+    def test_the_messages_you_logged_on_the_job_are_part_of_what_prep_knows(self):
+        """A logged message (src/ai/inbox.py, base.LOGGED) tells prep about the role too, on every store."""
+        stores, record = job()
+        stores.applications.append_entry(record['id'], base.LOGGED, '📥 29 Sep 2026 · LinkedIn · Team and stack', '> Kubernetes, 6 SREs, on-call 1 week in 6.')
+        self.assertIn('on-call 1 week in 6', prep.role_text(stores, record))
+
     def test_an_invite_alone_is_not_a_role_it_asks_for_the_description(self):
         stores, record = job()
         client = Client()

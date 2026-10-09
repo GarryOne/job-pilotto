@@ -117,7 +117,7 @@ class WriterTests(unittest.TestCase):
                         'confirmed': True}
             with mock.patch.object(inbox.ledger, 'add_application', add), mock.patch.object(inbox, 'step', create=True):
                 with self.assertRaises(StopIteration):
-                    inbox.log(Fake(), text='Thanks, let us talk', proposal=proposal, source='Job Pilotto app')
+                    inbox.log(stores_for(Fake()), text='Thanks, let us talk', proposal=proposal, source='Job Pilotto app')
             self.assertEqual(seen['origin'], expected)
 
     def test_a_recruiter_lead_is_inbound(self):

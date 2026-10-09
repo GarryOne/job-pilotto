@@ -5,7 +5,8 @@ import hashlib
 import re
 from datetime import date
 
-from ..notion.ledger import REPLY, add_event, plain
+from ..notion.ledger import REPLY
+from ..stores import rules
 from . import added, mail, opportunity
 from .inbox_reading import OUTREACH
 
@@ -30,21 +31,21 @@ def _noted(text, item, limit=300):
     return text[:limit - len(suffix)] + suffix
 
 
-def _last_message(tracker, row, item, source, kind):
+def _last_message(stores, app, item, source, kind):
     """Who wrote last in the conversation, as an event on the job (📈 Application Events, idempotent): yours =
     "Replied" (Focus recommends a follow-up when it stays unanswered), theirs = "Reply received" (Focus: reply),
-    unless the log's own event already is their message. Nothing when the day is unknown (the app asks it). Returns
+    unless the log's own event already is their message (rules.add_event: a repeat is not saved twice). Nothing when the day is unknown (the app asks it). Returns
     the sentence for the reply, or '' when nothing new was saved."""
     last = item.get('last_message') or {}
     who, at = last.get('from'), last.get('resolved') or ''
     if who not in ('you', 'them') or not mail._when(at if 'T' in at else f'{at}T12:00:00') or (who == 'them' and kind in THEIRS):
         return ''
     snippet = re.sub(r'\s+', ' ', last.get('text_snippet') or '').strip()[:120]
-    event = add_event(tracker, row, mail.YOU_REPLIED if who == 'you' else REPLY, source, at=at,
+    _, existing = rules.add_event(stores, app, mail.YOU_REPLIED if who == 'you' else REPLY, source, at=at,
                       note=_noted((f'You wrote: {snippet}' if who == 'you' else f'They wrote: {snippet}') if snippet else
                                   ('Your last message' if who == 'you' else 'Their last message'), item if who == 'them' else {}),
                       source_id=last_message_id(last))
-    if (event or {}).get('_existing'):
+    if existing:
         return ''
     day = date.fromisoformat(at[:10])
     said = f'{day:%a} {day.day} {day:%b}'
@@ -56,11 +57,11 @@ def _check_line(check):
     return f" ⚠️ Check: {'; '.join(check)}." if check else ''
 
 
-def _rich(on_new, row, item, text):
+def _rich(on_new, app, item, text):
     """The AI stages for a job tracked here for the first time (see src/ai/added.py)."""
     if not on_new:
         return None
-    url = plain(row['properties'].get('Job URL'))
+    url = app.get('url') or ''
     job = {'title': opportunity.title(item), 'company': item.get('company') or '', 'location': item.get('location') or '',
            'work_mode': item.get('work_mode') or '', 'description': added.description_of(item, text)}
-    return on_new(url, job, row)
+    return on_new(url, job, app)

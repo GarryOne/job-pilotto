@@ -32,7 +32,7 @@ FILE_BLOCKS = ('file', 'pdf', 'image')
 # job description, the rejection review, the recruiter's message, the log): a new one is made the same way, so Notion users see
 # no change. Any other section (the kit, the application record, a new one) is a toggle heading with its body inside, which
 # also keeps a body's own ## headings in it.
-PLAIN_SECTIONS = {'🎤 Interview prep', '🧾 Job description', '🔎 Why it was rejected', '🤝 Recruiter message', '📥 Logged'}
+PLAIN_SECTIONS = {'🎤 Interview prep', '🧾 Job description', '🔎 Why it was rejected', '🤝 Recruiter message'}   # the log: append_entry
 FILE_DEPTH = 3  # files inside folded log entries and their columns (src/ai/prep.py screenshots read this deep)
 
 

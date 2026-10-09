@@ -2,6 +2,7 @@
 import unittest
 
 from src.ai import inbox
+from tests.mail_fakes import stores_for
 
 
 class FakeTracker:
@@ -185,7 +186,7 @@ class DescriptionTest(unittest.TestCase):
                 mock.patch.object(inbox, '_row_for', lambda t, url: row), \
                 mock.patch.object(inbox.mail, '_events_index', lambda t: (set(), {})), \
                 mock.patch.object(inbox.mail, 'record', lambda *a, **k: None):
-            line = inbox.log(Tracker(), text='x' * 50, client=object(), target='https://mail.google.com/mail/u/0/#all/h1',
+            line = inbox.log(stores_for(Tracker()), text='x' * 50, client=object(), target='https://mail.google.com/mail/u/0/#all/h1',
                              on_new=lambda url, job, r=None: scored.append(job['description']) or '78/100')
         self.assertEqual(saved[0][0], inbox.DESCRIPTION_HEADING)
         self.assertEqual(scored, [about])

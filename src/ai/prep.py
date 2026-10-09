@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 
 from ..notion import client as notion, ledger, titles
 from ..notion.ledger import _block
-from ..stores import open_stores
+from ..stores import base, open_stores
 from ..stores.notion_blocks import to_markdown
 from . import cost, engine, mail
 from .models import MAIN_MODEL, SMALL_MODEL
@@ -28,7 +28,7 @@ DEFAULT_MODEL = os.getenv('JOB_PILOTTO_PREP_MODEL', MAIN_MODEL)
 HEADING = '🎤 Interview prep'
 DESCRIPTION_HEADING = '🧾 Job description'
 MIN_ROLE = 400  # characters about the role before a kit is worth building
-SECTIONS = ('🧾 Job description', '🤝 Recruiter message', '📥 Logged')
+SECTIONS = ('🧾 Job description', '🤝 Recruiter message', base.LOGGED)   # base.LOGGED: the messages you logged (src/ai/inbox.py)
 
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
@@ -86,7 +86,8 @@ def _sections(text):
 
 
 def role_text(stores, record, db_path=None):
-    """What's known about the role: the job's description, the posting in the job cache, the recruiter's message."""
+    """What's known about the role: the job's description, the posting in the job cache, the recruiter's message and the
+    messages you logged on the job."""
     sections = stores.applications.sections(record['id'])
     known = [sections.get(name, '') for name in SECTIONS if sections.get(name)]
     url = record.get('url') or ''
