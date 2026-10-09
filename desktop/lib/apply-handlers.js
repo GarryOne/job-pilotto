@@ -11,6 +11,7 @@ import * as pipeline from './pipeline.js';
 import * as questions from './questions.js';
 import * as review from './review.js';
 import * as server from './server.js';
+import {extensionReady} from './extension-ready.js';
 import * as sitePassword from './site-password.js';
 import * as terminals from './terminals.js';
 import fs from 'node:fs';
@@ -78,6 +79,8 @@ export function registerApplyHandlers(ctx) {
       appLog('review', `show ${key}: tab in front, ${answered ? 'the page took the field' : 'the page did not answer'}`, {label: name.slice(0, 60), found: seen});
       return {taken: answered, went: 'tab', found: seen};
     }
+    const ready = await extensionReady(server.extensionSeen);   // just started: pages are known only after the extension's first tab report
+    if (ready.waited) appLog('review', `show ${key}: waited for the extension's first check-in`, {ms: ready.waited, seen: ready.seen});
     review.queueFocus(key, name);
     let taken = await review.delivered(key, 4000);  // the page checks in every 2 s
     if (!taken) {
