@@ -434,12 +434,12 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/interview_insights_text.py` — Interview insights' constants and its one AI call's words: limits, categories, the pattern kinds, DATA_VERSION, the output schema and the system prompt.
 - `src/ai/interview_insights.py` — Interview insights: what your reviewed interviews say together, for the Interviews page and 💡 Insights.
 - `src/ai/interviews_ai.py` — Interview analysis, the Claude call: the model names, the facts a call can reveal, the review's schema and prompt,
+- `src/ai/interviews_apps.py` — Interview analysis, the job an interview belongs to, on the store: finding it (by id, by URL), adding a job an interview
 - `src/ai/interviews_blocks.py` — Interview analysis, what is written: the Interviews page (job line, review blocks, transcript), its row properties and
 - `src/ai/interviews_facts.py` — Interview analysis, the call's facts about the job (salary, contract, place…): read from the review, merged with what the
 - `src/ai/interviews_input.py` — Interview analysis, the input: a Telegram file, a subtitle file stripped of its timing, a recording transcribed on the
 - `src/ai/interviews_review.py` — Interview analysis, replacing a review on an Interviews page: finding the blocks an earlier review wrote and swapping them.
 - `src/ai/interviews_stages.py` — Interview analysis, the stages: which stages an interview moves forward, which it never touches, and the stage a held
-- `src/ai/interviews_store.py` — Interview analysis, finding things in Notion: the application a job URL names, a saved transcript, linking and deleting
 - `src/ai/interviews.py` — Interview analysis: a recording, a transcript file or typed notes -> 🎤 Interviews.
 - `src/ai/kit.py` — Application kit: a drafted cover letter and form answers for one job, on request.
 - `src/ai/learning.py` — Cross-application learning evidence and conservative validation of global advice. No model calls."""

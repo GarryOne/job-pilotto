@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import interview_insights as ii
 from src.ai import insights, interviews
 from tests.model_stand_ins import rounds as setUpModule  # noqa: F401 (the model's answer)
-from tests.interview_insights_fakes import NOW, text, select, interview, FakeNotion, FakeClient, ONE, PAGES, RESULT, env
+from tests.interview_insights_fakes import NOW, text, select, interview, FakeNotion, FakeClient, ONE, PAGES, RESULT, env, of, recs
 
 
 class TakeTurns(unittest.TestCase):
@@ -68,28 +68,28 @@ class Ticks(unittest.TestCase):
         self.assertEqual(ii.step_key('  Practise a Postgres failover story, with RTO numbers! '), ii.step_key(self.STEP.lower()))
 
     def test_ticking_a_step_saves_it_in_the_row_and_saved_reads_it_back(self):
-        out = ii.set_step_done(self.fake, self.STEP, True)
+        out = ii.set_step_done(of(self.fake), self.STEP, True)
         self.assertEqual(out['done_steps'], [ii.step_key(self.STEP)])
         self.assertEqual(self.data()['done_steps'], [ii.step_key(self.STEP)])
         self.assertEqual(self.data()['patterns'][0]['interviews'], ['iv-1'])  # the rest of the row is untouched
-        self.assertEqual(ii.saved(self.fake)['done_steps'], [ii.step_key(self.STEP)])
-        ii.set_step_done(self.fake, self.STEP, False)
+        self.assertEqual(ii.saved(of(self.fake))['done_steps'], [ii.step_key(self.STEP)])
+        ii.set_step_done(of(self.fake), self.STEP, False)
         self.assertEqual(self.data()['done_steps'], [])
 
     def test_saved_marks_each_step_done_or_not_for_the_window(self):
-        self.assertEqual([step['done'] for step in ii.saved(self.fake)['next_steps']], [False])
-        ii.set_step_done(self.fake, self.STEP, True)
-        self.assertEqual([step['done'] for step in ii.saved(self.fake)['next_steps']], [True])
+        self.assertEqual([step['done'] for step in ii.saved(of(self.fake))['next_steps']], [False])
+        ii.set_step_done(of(self.fake), self.STEP, True)
+        self.assertEqual([step['done'] for step in ii.saved(of(self.fake))['next_steps']], [True])
 
     def test_ticking_twice_keeps_one_entry_and_an_unknown_step_is_refused(self):
-        ii.set_step_done(self.fake, self.STEP, True)
-        ii.set_step_done(self.fake, self.STEP, True)
+        ii.set_step_done(of(self.fake), self.STEP, True)
+        ii.set_step_done(of(self.fake), self.STEP, True)
         self.assertEqual(len(self.data()['done_steps']), 1)
         with self.assertRaisesRegex(ValueError, 'not a step'):
-            ii.set_step_done(self.fake, 'Something that is not there', True)
+            ii.set_step_done(of(self.fake), 'Something that is not there', True)
 
     def test_a_refresh_keeps_the_ticks_of_steps_that_are_still_there_and_drops_the_rest(self):
-        ii.set_step_done(self.fake, self.STEP, True)
+        ii.set_step_done(of(self.fake), self.STEP, True)
         self.fake.rows.append(interview('iv-2', 'Technical 2', 'negative', '2026-09-25'))
         again = dict(RESULT, next_steps=[RESULT['next_steps'][0], {'action': 'A brand new step', 'interviews': ['I1']}])
         ii.update(self.fake, client=FakeClient(again), now=NOW, budget_status=lambda t: {'level': 'ok'})
@@ -151,13 +151,13 @@ class Neighbours(unittest.TestCase):
         fake = Missing(list(ONE), PAGES)
         a, b = env()
         with a, b:
-            self.assertIsNone(ii.saved(fake))
+            self.assertIsNone(ii.saved(of(fake)))
             fake.insights.append({'id': 'daily', 'url': '', 'last_edited_time': NOW.isoformat(),
                                   'properties': {'Category': select('Skills')}})
-            self.assertIsNone(ii.existing(fake))
+            self.assertIsNone(ii.existing(of(fake)))
             fake.insights.append({'id': 'ins-9', 'url': '', 'last_edited_time': NOW.isoformat(),
                                   'properties': {'Category': select('Interview patterns'), 'Insight': text('h')}})
-            self.assertEqual(ii.existing(fake)['id'], 'ins-9')
+            self.assertEqual(ii.existing(of(fake))['id'], 'ins-9')
 
     def test_an_unreadable_insight_is_reported_with_the_list_never_instead_of_it(self):
         problems = []

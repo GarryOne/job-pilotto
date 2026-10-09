@@ -239,7 +239,8 @@ def interview_mode(args, tracker):
 
 
 def insight_mode(args, tracker):
-    if not tracker:
+    from .stores import chosen
+    if not tracker and chosen() == 'notion':  # on this Mac's store it runs without Notion
         raise SystemExit(f'--mode {args.mode} requires NOTION_TOKEN')
     sender = (lambda text, markup: telegram.send(text, *telegram.credentials(), markup)) if args.send else telegram.to_app
     with store.connect(args.db) as db:

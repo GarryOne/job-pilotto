@@ -43,12 +43,13 @@ class NotionInterviews:
 
     @staticmethod
     def _parts(blocks):
-        """(job line, review blocks, Transcript toggle) of a page. The review is everything else on it: the layout is
-        the job line first, then the review (or the placeholder), then the toggle; the placeholder is no review."""
+        """(job line, the blocks between it and the Transcript toggle, the toggle) of a page: its layout is the job line,
+        the review (or the placeholder), then the toggle. A note the owner put after the toggle is not the review."""
         job = next((b for b in blocks[:3] if b['type'] == 'paragraph' and review_blocks._plain_block(b).startswith('🔗 ')), None)
         toggle = next((b for b in blocks if b['type'] == 'heading_3' and review_blocks._plain_block(b) == 'Transcript'), None)
-        review = [b for b in blocks if b is not job and b is not toggle]
-        return job, review, toggle
+        start = blocks.index(job) + 1 if job else 0
+        end = blocks.index(toggle) if toggle else len(blocks)
+        return job, blocks[start:end], toggle
 
     def _body(self, page_id):
         """(transcript, review) of a page: the Transcript toggle's text, and the review blocks as Markdown."""
@@ -61,16 +62,26 @@ class NotionInterviews:
         return {'transcript': transcript, 'review': notion_blocks.to_markdown(shown, self.tracker._children)}
 
     def _set_review(self, page_id, markdown, app_id):
-        """The review replaced whole, right under the job line (added first, then the old blocks removed: a failed add
-        leaves the old review). No review: the placeholder."""
-        job, old, _ = self._parts(self.tracker._children(page_id))
-        if not job:  # a page from before the job line: put it first, so the review has its place
-            layout.ensure_job_line(self.tracker, page_id, self._app(app_id))
-            job, old, _ = self._parts(self.tracker._children(page_id))
+        """The review replaced. Today's review (found by its headings, wherever it is, duplicates too) is swapped where it is
+        and the rest of the page stays; no review yet: it takes the placeholder's place; else (a review of another shape)
+        the blocks between the job line and the toggle are swapped. The new blocks go in first, then the old ones go: a
+        failed add leaves the old review whole. No review: the placeholder."""
+        blocks = self.tracker._children(page_id)
         new = notion_blocks.to_blocks(markdown) or [layout._block('paragraph', review_blocks.PLACEHOLDER)]
-        self.tracker._request('PATCH', f'blocks/{page_id}/children', {'children': new, 'after': job['id']})
-        for block in old:
-            self.tracker._request('DELETE', f"blocks/{block['id']}")
+        old_ids = review_blocks.review_block_ids(blocks)
+        placeholder = [b['id'] for b in blocks if b['type'] == 'paragraph' and review_blocks._plain_block(b) == review_blocks.PLACEHOLDER]
+        if old_ids or placeholder:
+            old = old_ids + [i for i in placeholder if i not in old_ids]
+            after = old_ids[-1] if old_ids else placeholder[0]
+        else:
+            job, between, _ = self._parts(blocks)
+            if not job:  # a page from before the job line: put it first, so the review has its place
+                layout.ensure_job_line(self.tracker, page_id, self._app(app_id))
+                job, between, _ = self._parts(self.tracker._children(page_id))
+            old, after = [b['id'] for b in between], job['id']
+        self.tracker._request('PATCH', f'blocks/{page_id}/children', {'children': new, 'after': after})
+        for block_id in old:
+            self.tracker._request('DELETE', f'blocks/{block_id}')
 
     def _set_transcript(self, page_id, transcript):
         for block in self.tracker._children(page_id):

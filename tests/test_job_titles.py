@@ -217,7 +217,8 @@ class DisplayTests(unittest.TestCase):
         self.assertEqual(mail._label(job), 'Huxley — Principal SRE')
         line = interviews.job_line(job)['paragraph']['rich_text'][1]['text']['content']
         self.assertEqual(line, 'Huxley · Principal SRE')
-        self.assertEqual(interviews.interview_title('', 'Screening', job), 'Huxley · Screening')
+        record = {'id': 'a', 'title': 'Principal SRE · via Huxley', 'company': '', 'via': 'Huxley'}  # the store's application record
+        self.assertEqual(interviews.interview_title('', 'Screening', record), 'Huxley · Screening')
 
 
 if __name__ == '__main__':

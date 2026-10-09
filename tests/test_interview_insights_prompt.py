@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import interview_insights as ii
 from src.ai import interviews
 from tests.model_stand_ins import rounds as setUpModule  # noqa: F401 (the model's answer)
-from tests.interview_insights_fakes import NOW, interview, block, FakeNotion, FakeClient, ONE, PAGES, RESULT, env
+from tests.interview_insights_fakes import NOW, interview, block, FakeNotion, FakeClient, ONE, PAGES, RESULT, env, of, recs
 
 
 class SharpInsights(unittest.TestCase):
@@ -50,11 +50,11 @@ class FullInput(unittest.TestCase):
     def test_every_part_of_the_review_reaches_the_prompt(self):
         blocks, extra = self.page()
         fake = FakeNotion(list(ONE), {'iv-1': blocks, **extra})
-        review = ii.review_text(fake, 'iv-1')
+        review = ii.review_text(of(fake).interviews.get('iv-1')['review'])
         self.assertEqual(review['against'], ['Criticised the current employer to a recruiter'])
         self.assertEqual([q.startswith('➖ [Customer bridge calls]') for q in review['mixed_answers']], [True])
         self.assertEqual(len(review['signals']), 6)
-        view = ii.prompt_input(ii.gather(fake, list(ONE)))['by_round_type']['Technical'][0]
+        view = ii.prompt_input(ii.gather(of(fake), recs(fake, list(ONE))))['by_round_type']['Technical'][0]
         self.assertEqual(len(view['signals']), 6)  # never cut to two: the client's pain points came fourth
         self.assertIn('could_count_against', view)
         self.assertIn('mixed_answers', view)
@@ -62,7 +62,7 @@ class FullInput(unittest.TestCase):
     def test_the_transcript_is_read_and_a_quote_from_it_counts_as_evidence(self):
         blocks, extra = self.page('Recruiter: can you name one or two? Candidate: For the protocol, I think TCP.')
         fake = FakeNotion(list(ONE), {'iv-1': blocks, **extra})
-        items = ii.gather(fake, list(ONE))
+        items = ii.gather(of(fake), recs(fake, list(ONE)))
         self.assertIn('For the protocol, I think TCP', items[0]['transcript'])
         self.assertIn('transcript', ii.prompt_input(items)['by_round_type']['Technical'][0])
         self.assertIn(ii._norm('For the protocol, I think TCP'), ii._source(items[0]))
@@ -76,13 +76,13 @@ class FullInput(unittest.TestCase):
             extra = {f"{row['id']}-tr": extra['tr-1']}
             blocks[-1] = dict(blocks[-1], id=f"{row['id']}-tr")
             pages.update({row['id']: blocks, **extra})
-        items = ii.gather(FakeNotion(rows, pages), rows)
+        items = ii.gather(of(FakeNotion(rows, pages)), recs(None, rows))
         sizes = [len(item['transcript']) for item in items]
         self.assertLessEqual(max(sizes), ii.TRANSCRIPT_CHARS)
         self.assertLessEqual(sum(sizes), ii.TRANSCRIPT_BUDGET)
         self.assertGreater(sizes[-1], 0)  # the newest interview is always read
         self.assertEqual(sizes[0], 0)  # the oldest one waits when the budget is spent
-        self.assertEqual(ii.gather(FakeNotion(list(ONE), PAGES), list(ONE))[0]['transcript'], '')  # no transcript toggle
+        self.assertEqual(ii.gather(of(FakeNotion(list(ONE), PAGES)), recs(None, list(ONE)))[0]['transcript'], '')  # no transcript toggle
 
     def test_the_prompt_merges_only_the_same_behaviour_and_checks_the_client_s_needs(self):
         self.assertIn('same behaviour', ii.SYSTEM)
@@ -97,7 +97,7 @@ class FairPatterns(unittest.TestCase):
     the rest is the prompt's job."""
 
     def items(self):
-        return ii.gather(FakeNotion(list(ONE), PAGES), list(ONE))
+        return ii.gather(of(FakeNotion(list(ONE), PAGES)), recs(None, list(ONE)))
 
     def test_a_quote_backs_only_the_first_pattern_that_uses_it(self):
         quote = {'interview': 'I1', 'quote': 'Postgres failover answer lacked RTO numbers'}
@@ -127,9 +127,9 @@ class Staleness(unittest.TestCase):
         a, b = env()
         with a, b:
             ii.update(fake, client=FakeClient(RESULT), now=NOW, budget_status=lambda t: {'level': 'ok'})
-            self.assertFalse(ii.saved(fake)['outdated'])
+            self.assertFalse(ii.saved(of(fake))['outdated'])
             fake.rows[0]['properties']['Questions'] = {'type': 'number', 'number': 13}  # reviewed again: 13 questions now
-            self.assertTrue(ii.saved(fake)['outdated'])
+            self.assertTrue(ii.saved(of(fake))['outdated'])
 
 
 if __name__ == '__main__':
