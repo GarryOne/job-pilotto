@@ -103,7 +103,7 @@ export function registerBackgroundHandlers(ctx) {
     if (app.isPackaged && !DEMO) { setTimeout(() => checkForUpdate(), 20000); setInterval(() => checkForUpdate(), 10 * 60 * 1000); }
     // Interview reminders: a Mac notification 10 and 1 minute before each Next interview (from the last read of the Jobs list).
     const remind = () => {
-      if (DEMO || !storage.settings().setupDone || !reminders.on(storage) || !notionGate.connected(storage)) return;
+      if (DEMO || !storage.settings().setupDone || !reminders.on(storage) || !notionGate.tracking(storage)) return;
       const jobs = viewCache.recall(storage, 'jobs')?.result?.jobs || [];
       const sent = storage.settings().reminded || {};
       const items = reminders.due(jobs, sent);
@@ -142,7 +142,7 @@ export function registerBackgroundHandlers(ctx) {
     if (!isTwin()) startSchedule(storage, {   // a twin runs nothing on a schedule (lib/twin.js)
       // Their notifications come from announceRuns, like every run's (wherever it ran).
       search: () => pipeline.refresh(storage, log, 'scheduled', 'schedule'),
-      mail: () => (notionGate.connected(storage) ? pipeline.checkMail(storage, log, 'schedule') : skipUntilNotion('mail')),
+      mail: () => (notionGate.tracking(storage) ? pipeline.checkMail(storage, log, 'schedule') : skipUntilNotion('mail')),
       scout: () => pipeline.scout(storage, log, 'schedule'),
     }, powerMonitor, {soon: () => notify('Searching for new jobs in 1 minute', 'Your scheduled search for new jobs is about to run.', {activity: true})});
     setInterval(announceRuns, 5000);

@@ -5,10 +5,14 @@
 import * as claudeCode from './claude-code.js';
 import * as poolShare from './pool-share.js';
 import * as notionGate from './notion-gate.js';
+import {FILES as TEXT_FILES} from './store/sqlite.js';
 import * as requestLog from './request-log.js';
 import * as pageRender from './page-render.js';
 import fs from 'node:fs';
 import path from 'node:path';
+
+// The engine's variable for each text kept on this Mac (src/stores sqlite adapter).
+const LOCAL_TEXTS = {JOB_PILOTTO_PROFILE_FILE: TEXT_FILES.profile, JOB_PILOTTO_ANSWERS_FILE: TEXT_FILES.answers, JOB_PILOTTO_KNOWLEDGE_FILE: TEXT_FILES.knowledge};
 
 import {ROOT} from './root.js';
 import {isolatedFile} from './keychain.js';
@@ -78,10 +82,16 @@ export function pipelineEnv(storage, parent = process.env) {
     if (value) env[name] = value;
   }
   // Demo mode too: its "connected" Notion is fictional, and the Strategy page's goals come from the demo's own profile.md (desktop/demo/).
-  if (!notionGate.connected(storage) || demoMode) {
+  if (!notionGate.notionInUse(storage) || demoMode) {
     for (const [variable, name] of [['JOB_PILOTTO_PROFILE_FILE', 'profile.md'], ['JOB_PILOTTO_ANSWERS_FILE', 'answers.md']]) {
       if (fs.existsSync(storage.path(name))) env[variable] = storage.path(name);
     }
+  }
+  // The store the person chose (lib/store/index.js): the engine opens the same one (src/stores chosen()); unset, it decides as before.
+  // On this Mac the texts are the app's own files, read and written by the app and the engine alike (one copy).
+  if (settings.store) env.JOB_PILOTTO_STORE = settings.store;
+  if (settings.store === 'sqlite') {
+    for (const [variable, name] of Object.entries(LOCAL_TEXTS)) env[variable] = storage.path(name);
   }
   // The free AI credit (lib/ai-trial.js): the Python SDK follows ANTHROPIC_BASE_URL like the app's.
   if (settings.aiTrial) env.ANTHROPIC_BASE_URL = 'https://www.jobpilotto.workers.dev/api/ai'; else delete env.ANTHROPIC_BASE_URL;

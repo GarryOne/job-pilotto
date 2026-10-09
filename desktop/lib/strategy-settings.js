@@ -10,7 +10,7 @@ import * as notionGate from './notion-gate.js';
 // The Profile and standard answers: the Notion pages once Notion is connected (the only copy). Before that (Trying, see
 // lib/notion-gate.js) this Mac's profile.md / answers.md, which lib/migrate.js moves into Notion at connect.
 export async function profileTexts(storage) {
-  if (!notionGate.connected(storage)) return {profile: storage.readText('profile.md'), answers: storage.readText('answers.md')};
+  if (!notionGate.notionInUse(storage)) return {profile: storage.readText('profile.md'), answers: storage.readText('answers.md')};
   const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
   const [profile, answers] = await Promise.all([notion.pageText(token, ids.NOTION_PROFILE_PAGE_ID),
     ids.NOTION_ANSWERS_PAGE_ID ? notion.pageText(token, ids.NOTION_ANSWERS_PAGE_ID) : '']);  // kept pages (lib/notion.js)

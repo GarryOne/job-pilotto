@@ -112,7 +112,7 @@ export async function decideAccountJudge(storage, body, {judge = judgeAccount, c
 export async function decideEscalation(storage, body, {client, contact} = {}) {
   let answer = await escalate(storage, body, {client: client === undefined ? aiClient(storage) : client});
   if (answer.action === 'fill') {   // the value comes from the person's own contact details, here, and goes only to the extension: never to the model, never to the log
-    const details = await Promise.resolve(contact ? contact() : notionGate.connected(storage) ? contactDetails.read(storage) : {}).catch(() => ({})) || {};
+    const details = await Promise.resolve(contact ? contact() : notionGate.tracking(storage) ? contactDetails.read(storage) : {}).catch(() => ({})) || {};
     const value = String(details[answer.detail] || (answer.detail === 'full_name' ? [details.first_name, details.last_name].filter(Boolean).join(' ') : '') || '').trim();
     answer = value ? {...answer, value} : {ok: true, action: 'ask_person', why: 'that detail is not saved in Your details'};
   }

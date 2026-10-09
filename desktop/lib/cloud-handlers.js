@@ -54,7 +54,7 @@ export function registerCloudHandlers(ctx) {
     return {ok: true};
   });
   // Telegram buttons, always on: the user's own Cloudflare Worker (lib/telegram-cloud.js).
-  handleImportant('telegramCloudOn', 'Setting up the Telegram buttons', async (_, token) => { const gate = needsNotion('telegram'); if (gate) return gate; const result = await telegramCloud.turnOn(storage, token); restartTelegram(); return result; });
+  handleImportant('telegramCloudOn', 'Setting up the Telegram buttons', async (_, token) => { const gate = needsNotion('telegramCloud'); if (gate) return gate; const result = await telegramCloud.turnOn(storage, token); restartTelegram(); return result; });
   handleImportant('telegramCloudOff', 'Turning off the Telegram buttons', async () => { const result = await telegramCloud.turnOff(storage); restartTelegram(); return result; });
   // Settings → Telegram → ⋯ → Disconnect Telegram (owner, 7 Oct 2026, after Gmail's): the bot token and chat are forgotten, the Telegram
   // buttons' Worker goes (it answers for this bot), the app stops listening, and with Always on the repo's two Telegram secrets go too.
