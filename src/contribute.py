@@ -15,6 +15,7 @@ import urllib.request
 
 from .paths import DATA, load_search_config
 from .sources import ats
+from .stores import stores_of
 
 URL = 'https://www.jobpilotto.workers.dev/api/contribute'
 STAMP = DATA / 'contribution_sent.json'
@@ -252,7 +253,7 @@ def site_facts(limit=300):
     return out[:limit]
 
 
-def payload(feed_list, report, tracker=None, install=None, search=None, db=None, stages=None):
+def payload(feed_list, report, stores=None, install=None, search=None, db=None, stages=None):
     """What would be sent (v2): every feed this install's scout verified, the feeds that gave this user a job (`matched`) and the ones they
     added themselves (`own`), each with how it was found, jobs listed, jobs that matched in their places, its job site and a failed read
     (6 Oct 2026: only matched or own feeds went, without numbers, so most finds stayed on the Mac)."""
@@ -260,11 +261,11 @@ def payload(feed_list, report, tracker=None, install=None, search=None, db=None,
     matched = {s['company'] for s in report.get('sources', []) if s.get('ok') and s.get('matches')}
     read = {s['company']: s for s in report.get('sources', [])}
     found = found_here(db)
-    own = set()
-    if tracker:
+    own, stores = set(), stores_of(stores)
+    if stores:
         try:
-            own = {(system, slug) for _, system, slug in scout.notion_feeds(tracker)}
-        except Exception as error:  # noqa: BLE001 — Notion trouble just means no "own" flags today
+            own = {(system, slug) for _, system, slug in scout.own_feeds(stores)}
+        except Exception as error:  # noqa: BLE001 — store trouble (Notion down) just means no "own" flags today
             print(f'Warning: own employers not read for the pool: {type(error).__name__}')
     feeds = []
     for source in feed_list:
@@ -279,10 +280,10 @@ def payload(feed_list, report, tracker=None, install=None, search=None, db=None,
                           **({'jobs': int(seen.get('total') or 0), 'hits': int(seen.get('matches') or 0)} if seen.get('ok') else {}),
                           'failed': bool(seen) and not seen.get('ok')})
     feeds.sort(key=lambda f: (not (f['matched'] or f['own'] or f['how'] != 'index'), -(f.get('hits') or 0), -(f.get('jobs') or 0)))
-    if stages is None and tracker:
+    if stages is None and stores:
         try:
-            stages = tracker.url_stages()
-        except Exception as error:  # noqa: BLE001 — Notion trouble just means no outcomes this time
+            stages = {row['url'].strip(): row['stage'] for row in stores.applications.list() if row['url']}
+        except Exception as error:  # noqa: BLE001 — store trouble just means no outcomes this time
             print(f'Warning: outcomes not read for the pool: {type(error).__name__}')
     led = outcomes(db, stages)
     feeds = [_with_outcomes(feed, led.get(feed['company'])) for feed in feeds]
@@ -419,11 +420,11 @@ def mark_sent(db, marks, now=None):
     db.commit()
 
 
-def maybe_send(feed_list, report, tracker=None, **kwargs):
+def maybe_send(feed_list, report, stores=None, **kwargs):
     """Called after a full crawl and after a scout run: does nothing unless the user opted in, and at most every EVERY."""
     if not enabled() or not due(kwargs.get('now'), kwargs.get('stamp')):
         return False
-    body, marks = only_changed(kwargs.get('db'), payload(feed_list, report, tracker, search=kwargs.get('search'), db=kwargs.get('db'), stages=kwargs.get('stages')), kwargs.get('now'))
+    body, marks = only_changed(kwargs.get('db'), payload(feed_list, report, stores, search=kwargs.get('search'), db=kwargs.get('db'), stages=kwargs.get('stages')), kwargs.get('now'))
     if not body['feeds'] and not body.get('nofeed') and not body.get('boards') and not body.get('sites'):
         return False
     sent = send(body, url=kwargs.get('url'), post=kwargs.get('post'), now=kwargs.get('now'), stamp=kwargs.get('stamp'))
@@ -439,13 +440,12 @@ def main():
     parser.add_argument('--send', action='store_true', help='send it now (the app\'s catch-up at start), when sharing is on')
     args = parser.parse_args()
     from . import scout, store
-    from .notion import client as notion
     from .paths import CONFIG, JOBS_DB
-    tracker = notion.Tracker.from_env()
+    stores = scout.employer_store()
     with store.connect(JOBS_DB) as db:
-        feed_list = scout.active_sources(db, tracker, scout.starter_list())
+        feed_list = scout.active_sources(db, stores, scout.starter_list())
         # Without a crawl in hand: the feeds the scout verified and the user's own are shown; matched ones and counts join after a crawl.
-        body = payload(feed_list, {'sources': []}, tracker, db=db)
+        body = payload(feed_list, {'sources': []}, stores, db=db)
         if args.send:   # the app's catch-up at start: whatever a failed or cut-short share left behind (only what changed)
             body, marks = only_changed(db, body)
             sent = enabled() and (body['feeds'] or body.get('nofeed') or body.get('boards')) and send(body)

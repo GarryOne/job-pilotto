@@ -8,7 +8,7 @@ Each run
 2. probes a small batch of them for a public job feed (Greenhouse, Lever, Ashby,
    Workable, Recruitee, Personio, SmartRecruiters, plus Amazon and Netflix),
 3. scores every feed it finds for quality (0-100) against the owner's goals,
-4. registers useful feeds (Notion Employers & Sources + local table) so the
+4. registers useful feeds (the store's employers: Notion Employers & Sources, + local table) so the
    4-hourly crawl includes them, and
 5. sends one Telegram summary.
 
@@ -34,7 +34,8 @@ from .sources import ats, careers, feeds  # noqa: F401 -- `feeds` is also reache
 from .scout_candidates import harvest, skipped_origins, starter_list
 from .scout_core import DEFAULT_BATCH, IDEAS_PAUSE, RECHECK_DAYS, SEEDS, TABLES, TIER1_MIN_RELEVANT, batch_for, key_for, now, pending_count
 from .scout_index import board_stats, build_index, central_stats, dead_ends, fetch_boards, fetch_contributions, market_coverage, publish_index, publish_summary, record_unread, run_headline
-from .scout_notion import active_sources, export_sources, mark_synced, sync_notion, write_notion
+from .stores import stores_of
+from .scout_notion import active_sources, export_sources, mark_synced, not_updated, sync_employers, synced_key, write_employer
 from .scout_probe import READERS, find_feed, next_batch, quality, skipping
 from .scout_core import (  # noqa: F401 -- re-exported: other modules and tests use `scout.<name>`
     DEFAULT_BATCH, EMPLOYERS_DB, HN_THREADS, IDEAS_PAUSE, MAX_BATCH, RECHECK_DAYS, SEEDS, SEED_ORIGINS, SMALL_GUESS, TABLES, TECH_LIST_ORIGINS,
@@ -47,8 +48,8 @@ from .scout_probe import (  # noqa: F401 -- re-exported: other modules and tests
     JOB_SUBDOMAINS, JUDGES, READERS, READER_FILES, STACK, STOP_WORDS, SWISS_OR_ZURICH, belongs_to, board_url, find_feed, job_hosts,
     job_places, next_batch, quality, readers_version, relevant_roles, skipping, workday_url)
 from .scout_notion import (  # noqa: F401 -- re-exported: other modules and tests use `scout.<name>`
-    FEED_STATUS, _text, active_sources, excluded_companies, export_sources, mark_synced, notion_feeds, research_links, sync_notion,
-    write_notion)
+    FEED_STATUS, active_sources, employer_record, excluded_companies, export_sources, mark_synced, own_feeds, research_links,
+    sync_employers, write_employer)
 from .scout_index import (  # noqa: F401 -- re-exported: other modules and tests use `scout.<name>`
     FIT_MIN_INSTALLS, FIT_NAMES, MARKET_TERMS, MIN_INSTALLS, OWN_MIN_INSTALLS, POOL_MIN_INSTALLS, QUIET_DAYS, SWISS, board_stats,
     build_index, central_stats, dead_ends, fetch_boards, fetch_contributions, fits, health, market_coverage, pool_of, publish_index,
@@ -82,9 +83,11 @@ def ai_ideas(db, harvest_sources=None):
     return found
 
 
-def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harvest_sources=None, workers=6, static=None, budget=0):
+def run(db, batch=DEFAULT_BATCH, stores=None, seeds=None, probe=ats.probe, harvest_sources=None, workers=6, static=None, budget=0):
     """Harvest, probe one batch, register what is useful. Returns (summary dict, list of outcomes).
-    A board already crawled is a duplicate: the starter list (`static`, default config/sources.json), the feeds registered here and the Active Employers & Sources rows."""
+    A board already crawled is a duplicate: the starter list (`static`, default config/sources.json), the feeds registered here and the store's
+    active employers. stores: where each checked employer is written (None: only this computer's scout table)."""
+    stores = stores_of(stores)
     seeds = seeds or json.loads(SEEDS.read_text())
     if static is None:
         static = starter_list()
@@ -123,7 +126,7 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
     if left:
         print(f'Scout: {left} employer(s) left for 30 days: other installs found no readable job site there lately; others took their places.')
     print(f'Scout: checking {len(candidates)} employer(s)…')
-    active = {(s.get('ats', 'greenhouse'), s.get('slug') or s['board']) for s in active_sources(db, tracker, static)}
+    active = {(s.get('ats', 'greenhouse'), s.get('slug') or s['board']) for s in active_sources(db, stores, static)}
     active |= {(r['ats'], r['slug']) for r in db.execute('SELECT ats, slug FROM feed_sources')}   # also one switched off: it is not new
 
     # A web search for an employer's own job site, when a key allows it (web_search.py); never for the end-to-end journey's fixtures.
@@ -206,12 +209,12 @@ def run(db, batch=DEFAULT_BATCH, tracker=None, seeds=None, probe=ats.probe, harv
                 shared[outcome['status']].append(candidate['name'])
             elif contribute.enabled():
                 shared['failed'] += 1
-        if tracker and outcome['status'] != 'duplicate':
+        if stores and outcome['status'] != 'duplicate':
             try:
-                write_notion(tracker, candidate, outcome)
-                mark_synced(db, candidate['key'])
+                write_employer(stores, candidate, outcome)
+                mark_synced(db, candidate['key'], stores)
             except Exception as error:
-                print(f"Warning: Notion not updated for {candidate['name']}: {type(error).__name__}: {error}")
+                print(f"Warning: {not_updated(stores, candidate['name'])}: {type(error).__name__}: {error}")
 
 
     # Each employer is saved as soon as it is checked, here on this thread (the database is not shared across threads); a stop (SIGTERM)
@@ -325,6 +328,16 @@ def report_ai_cost(side):
         Path(target).write_text(json.dumps({'usd': round(usd, 6), 'calls': calls}))
 
 
+def employer_store(tracker=None):
+    """The active store (src/stores open_stores): Notion when the user is on it (the tracker this run already holds), else this Mac's."""
+    from .stores import open_stores
+    return open_stores(tracker=tracker) if tracker else open_stores()
+
+
+def where_of(stores):
+    return 'Notion' if stores.name == 'notion' else 'your employer list'
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--db', type=Path, default=JOBS_DB)
@@ -336,28 +349,25 @@ def main():
                         help='the central scout: after the run, verify every feed and upload the employer index '
                              '(needs INDEX_PUBLISH_KEY; URL: JOB_PILOTTO_INDEX_URL or the default)')
     parser.add_argument('--sync-notion', action='store_true',
-                        help='write the employers already checked on this computer that Employers & Sources lacks (the app runs it when '
-                             'Notion is connected), then stop')
+                        help='write the employers already checked on this computer that the active store lacks (Employers & Sources '
+                             'in Notion: the app runs it when Notion is connected), then stop')
     parser.add_argument('--export-sources', action='store_true',
                         help='write config/sources.json: the shared starter list of verified public feeds '
-                             '(sources.json + Active Employers & Sources rows); needs NOTION_TOKEN')
+                             '(sources.json + the active store\'s active employers with a feed)')
     args = parser.parse_args()
     if args.sync_notion:
-        tracker = notion.Tracker.from_env()
-        if not tracker or not scout_core.EMPLOYERS_DB:
+        stores = employer_store()
+        if not synced_key(stores):
             print('Employers: Notion is not connected; nothing to write.')
             return 0
         with store.connect(args.db) as db:
             db.executescript(TABLES)
-            written, failed = sync_notion(db, tracker)
-        print(f'Employers: {written} written to Notion')   # each one not written said so in its own Warning line
+            written, failed = sync_employers(db, stores)
+        print(f'Employers: {written} written to {where_of(stores)}')   # each one not written said so in its own Warning line
         return 1 if failed and not written else 0
     scout_core.CENTRAL = bool(args.publish_index)   # the central scout: its full lists, published to every install
     if args.export_sources:
-        tracker = notion.Tracker.from_env()
-        if not tracker:
-            raise SystemExit('--export-sources reads Employers & Sources: set NOTION_TOKEN')
-        kept, failed = export_sources(tracker)
+        kept, failed = export_sources(employer_store())
         print(f'Wrote {len(kept)} feeds ({sum(k["jobs"] for k in kept):,} open jobs) to config/sources.json')
         for item in failed:
             print(f"  left out {item['company']} ({item['ats']}:{item['slug']}): {item['error']}")
@@ -371,16 +381,17 @@ def main():
     if logged:
         cron_runs.auto_begin(tracker)  # the scout's ⏱️ Search runs row opens when it starts
     log = cron_runs.new_run('scout')
+    stores = employer_store(tracker)
     with store.connect(args.db) as db:
-        summary, results = run(db, args.batch, tracker, budget=args.budget)
-        if tracker:   # employers checked earlier without Notion, or whose write failed, catch up now
-            written, failed = sync_notion(db, tracker)
+        summary, results = run(db, args.batch, stores, budget=args.budget)
+        if synced_key(stores):   # employers checked earlier (before this store), or whose write failed, catch up now
+            written, failed = sync_employers(db, stores)
             if written or failed:
-                print(f'Employers: {written} checked earlier written to Notion')
+                print(f'Employers: {written} checked earlier written to {where_of(stores)}')
         if not scout_core.CENTRAL:   # what this run found goes to the central list right away (opt-in; src/contribute.py), not with the next jobs check
             try:
                 from . import contribute
-                contribute.maybe_send(active_sources(db, tracker, starter_list()), {'sources': []}, tracker, db=db)
+                contribute.maybe_send(active_sources(db, stores, starter_list()), {'sources': []}, stores, db=db)
             except Exception as error:  # noqa: BLE001 — the pool never affects a run
                 print(f'Warning: pool contribution skipped: {type(error).__name__}: {error}')
         if args.publish_index:

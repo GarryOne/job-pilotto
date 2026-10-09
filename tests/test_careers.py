@@ -435,7 +435,7 @@ class ReadMoreSitesTests(unittest.TestCase):
         db = sqlite3.connect(':memory:')
         db.row_factory = sqlite3.Row
         with mock.patch.object(scout, 'find_feed', return_value=('careers', 'acme.ch__karriere', [])):
-            summary, results = scout.run(db, batch=5, tracker=None, seeds={'excluded': []}, static=[], probe=lambda s, g: None,
+            summary, results = scout.run(db, batch=5, stores=None, seeds={'excluded': []}, static=[], probe=lambda s, g: None,
                                          harvest_sources=[lambda: [dict(name='Acme AG', origin='x', priority=50, website='https://acme.ch')]])
         row = db.execute('SELECT status, ats, slug, checked_at, next_check FROM scout_candidates').fetchone()
         self.assertEqual((row['status'], row['ats'], row['slug']), ('watch', 'careers', 'acme.ch__karriere'))

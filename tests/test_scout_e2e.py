@@ -55,7 +55,7 @@ class ScoutEndToEnd(unittest.TestCase):
         import io
         said = io.StringIO()
         with contextlib.redirect_stdout(said):
-            summary, results = scout.run(db, batch=5, tracker=None, seeds={'excluded': []}, static=[],
+            summary, results = scout.run(db, batch=5, stores=None, seeds={'excluded': []}, static=[],
                                          harvest_sources=[lambda: [dict(name='Acme AG', origin='SwissDevJobs employer', priority=88, website='https://acme.example')]])
         # The app streams these lines into Recent activity while the run works: a silent four-minute crawl showed "Nothing to show yet" (5 Oct 2026).
         for line in ('Scout: reading the employer lists', 'Scout: checking 1 employer', 'Scout: checked 1 of 1: Acme AG'):
@@ -77,7 +77,7 @@ class ScoutEndToEnd(unittest.TestCase):
         (Path(self.dir) / 'routes.json').write_text(json.dumps({'acme.example': 'home.html'}))
         db = sqlite3.connect(':memory:')
         db.row_factory = sqlite3.Row
-        scout.run(db, batch=5, tracker=None, seeds={'excluded': []}, static=[],
+        scout.run(db, batch=5, stores=None, seeds={'excluded': []}, static=[],
                   harvest_sources=[lambda: [dict(name='Acme AG', origin='x', priority=50, website='https://acme.example')]])
         row = db.execute('SELECT status, next_check FROM scout_candidates').fetchone()
         self.assertEqual(row['status'], 'none')

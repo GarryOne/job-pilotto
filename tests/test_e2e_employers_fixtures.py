@@ -31,8 +31,8 @@ print(json.dumps({'summary': summary, 'again': again, 'again_checked': len(again
     'results': [[c['name'], o['status'], o.get('quality'), o.get('stats')] for c, o in results],
     'registered': [r[0] for r in db.execute('select company from feed_sources order by company')],
     'rows': [{'Company': p['Company']['title'][0]['text']['content'], 'status': p['Feed status']['select']['name'], 'Active': p['Active']['checkbox'],
-              'Quality': p.get('Quality', {}).get('number'), 'Cities': (p.get('Cities') or {}).get('rich_text', [{}])[0].get('text', {}).get('content'),
-              'Notes': (p.get('Notes') or {}).get('rich_text', [{}])[0].get('text', {}).get('content')} for p in tracker.rows]}))
+              'Quality': p.get('Quality', {}).get('number'), 'Cities': ((p.get('Cities') or {}).get('rich_text') or [{}])[0].get('text', {}).get('content'),
+              'Notes': ((p.get('Notes') or {}).get('rich_text') or [{}])[0].get('text', {}).get('content')} for p in tracker.rows]}))
 '''
 
 

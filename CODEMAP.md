@@ -539,7 +539,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/scout_candidates.py` — Source scout, harvest: where candidate employers come from (seed lists, Hacker News "Who is hiring?", hiring-without-whiteboards,
 - `src/scout_core.py` — Shared base of the source scout (src/scout.py and its scout_*.py pieces): paths, tuning numbers, the candidate table's SQL,
 - `src/scout_index.py` — Source scout, central index: the lists the central scout publishes to every install (feeds, boards, health, market coverage, unread
-- `src/scout_notion.py` — Source scout, Notion registry: the Notion "Employers & Sources" database. Which feeds are active (`active_sources`, `notion_feeds`),
+- `src/scout_notion.py` — Source scout, the employers registry: the active store's employers (🌍 Employers & Sources in Notion, the employers table on this
 - `src/scout_probe.py` — Source scout, probing: which candidates are due (`next_batch`), whether a feed belongs to the company (`belongs_to`, `job_hosts`),
 - `src/scout.py` — Source scout: grow the list of employer job feeds a few companies per run.
 - `src/secret_store.py` — This computer's own secret store: the macOS Keychain (the `security` tool) or, on Windows, the
@@ -576,6 +576,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/stores/notion_agent_runs.py` — The notion store's AgentRuns: 🤖 Agent Runs rows (form fills and Apply sessions) as store records.
 - `src/stores/notion_blocks.py` — Markdown ↔ Notion blocks: how a store's Markdown fields (a job's sections, an interview's review, an insight's body)
 - `src/stores/notion_cron_runs.py` — The notion store's CronRuns: ⏱️ Search runs rows as store records, the one run history wherever a run happened.
+- `src/stores/notion_employers.py` — The notion store's Employers: 🌍 Employers & Sources rows as store records, one per employer (matched by name, any case).
 - `src/stores/notion_insights.py` — 💡 Insights in Notion as the store's insights (base.Insights): one database row per insight, plain dicts out.
 - `src/stores/notion_interviews.py` — 🎤 Interviews in Notion as the store's interviews (base.Interviews): one database row per interview, plain dicts out.
 - `src/stores/notion_matches.py` — The notion store's Matches: 🎯 Job Matches rows as store records, one per job (found by its URL, src/stores/base.url_key).

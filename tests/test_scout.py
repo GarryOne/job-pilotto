@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.sources import ats
 from src import store as job_store
 from src import scout, scout_candidates, scout_core
+from src.stores import memory
 
 SEEDS = {'excluded': ['Acme'], 'tier1_known': [{'name': 'Bigco', 'ats': 'lever', 'slug': 'bigco'}],
          'tier1': ['Farco'], 'manual_watch': [{'name': 'Walledco', 'careers': 'https://walled.test/jobs'}],
@@ -281,19 +282,14 @@ class ScoutTests(unittest.TestCase):
 
 
 
-def employer_row(name, system, slug, **props):
-    return {'properties': {'Company': {'title': [{'plain_text': name}]}, 'ATS': {'select': {'name': system}},
-                           'Slug': {'rich_text': [{'plain_text': slug}]}, **props}}
-
-
 class ExportSourcesTests(unittest.TestCase):
     def test_merges_verifies_and_keeps_only_public_facts(self):
-        tracker = FakeTracker()
-        tracker.query_database = lambda db, filter_=None: [
-            employer_row('Anthropic', 'greenhouse', 'anthropic', Notes={'rich_text': [{'plain_text': 'applied twice'}]}),
-            employer_row('Deadco', 'lever', 'deadco'),
-            employer_row('Cloudflare again', 'greenhouse', 'cloudflare'),   # already in the file: file name wins
-            employer_row('Custom site', 'taleo', 'x')]                    # not a crawlable feed type: skipped
+        stores = memory.open_store()
+        for name, system, slug, notes in (('Anthropic', 'greenhouse', 'anthropic', 'applied twice'), ('Deadco', 'lever', 'deadco', ''),
+                                          ('Cloudflare again', 'greenhouse', 'cloudflare', ''),   # already in the file: file name wins
+                                          ('Custom site', 'taleo', 'x', '')):                     # not a crawlable feed type: skipped
+            stores.employers.add({'name': name, 'ats': system, 'slug': slug, 'notes': notes})
+        stores.employers.add({'name': 'Switched off', 'ats': 'lever', 'slug': 'off', 'active': False})   # not active: not exported
 
         def fetch(system, slug):
             if slug == 'deadco':
@@ -302,7 +298,7 @@ class ExportSourcesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'sources.json'
             path.write_text(json.dumps([{'company': 'Cloudflare', 'board': 'cloudflare'}]))
-            kept, failed = scout.export_sources(tracker, path, fetch, today='2026-09-27')
+            kept, failed = scout.export_sources(stores, path, fetch, today='2026-09-27')
             written = json.loads(path.read_text())
         self.assertEqual(written, kept)
         self.assertEqual(written, [

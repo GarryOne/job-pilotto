@@ -1,7 +1,8 @@
 """The notion store: the user's data in their Notion workspace (today's databases and pages), behind src/stores/base.py.
 
 Rows ↔ records through src/stores/notion_rows.py (column names), page bodies through src/stores/notion_blocks.py
-(Markdown ↔ blocks). Interviews and insights are their own modules (notion_interviews.py, notion_insights.py).
+(Markdown ↔ blocks). Interviews, insights and employers are their own modules (notion_interviews.py, notion_insights.py,
+notion_employers.py).
 Every request goes through one `Tracker` (src/notion/client.py: retries, pacing, the request log).
 Guarded by tests/test_store_notion.py: the store contract against the Notion stand-in (desktop/e2e/lib/notion-fake.mjs).
 """
@@ -17,6 +18,7 @@ from .notion_insights import NotionInsights
 from .notion_interviews import NotionInterviews
 from .notion_agent_runs import NotionAgentRuns
 from .notion_cron_runs import NotionCronRuns
+from .notion_employers import NotionEmployers
 from .notion_matches import NotionMatches
 from .notion_texts import NotionTexts
 
@@ -343,7 +345,7 @@ class _NotYet:
         raise NotImplementedError(f'the notion store has no {self.entity} yet')
 
 
-PENDING = ('employers',)
+PENDING = ()
 
 
 class NotionStores(base.Stores):
@@ -371,5 +373,6 @@ def open_store(env=None, tracker=None):
                         insights=NotionInsights(tracker, ids['insights']), texts=NotionTexts(tracker, env),
                         cron_runs=NotionCronRuns(tracker, ids['cron_runs']),
                         agent_runs=NotionAgentRuns(tracker, ids['agent_runs']),
+                        employers=NotionEmployers(tracker, ids['employers']),
                         **{entity: _NotYet(entity) for entity in PENDING},
                         caps=frozenset({base.LINKS, base.CLOUD, base.FILES}))
