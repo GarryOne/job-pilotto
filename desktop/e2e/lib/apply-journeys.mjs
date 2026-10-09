@@ -1,6 +1,6 @@
 /* global document, window */
 // The apply suite's journey steps (moved out of suites/apply.mjs, 8 Oct 2026): a posting that opens a tab, side-by-side applications, sign-up, one page, a closed form tab, a wrong page kind. Guards the flows in docs/flows/applying.md.
-import {CHAIN, LATE, MISLABELLED, ONEPAGE, SCRIPTED, SIGNIN, SIGNIN_PASSWORD, SIGNIN_REFUSED, SIGNUP} from './forms.mjs';
+import {CHAIN, LATE, MENU_AGAIN, MENU_CHOICES, MENU_FIRST, MISLABELLED, NOTICE_CHOICES, ONEPAGE, PROPOSE, REVEAL, SCRIPTED, SIGNIN, SIGNIN_PASSWORD, SIGNIN_REFUSED, SIGNUP} from './forms.mjs';
 import {CONTACT, pause} from './apply-fixtures.mjs';
 import {appLogText} from './app-log.mjs';
 import {cvProblems, fillProblems, submitProblems} from './applycheck.mjs';
@@ -209,6 +209,110 @@ export async function runJourneys(ctx, h) {
     if (!/account result: refused/.test(log)) problems.push('the account AI\'s "refused" is not in the app log');
     if (!/account page: the extension could not finish it: Claude is offered/.test(log)) problems.push('Claude was not offered after the refused sign-in');
     fail(problems);
+  }, {needs: ctx.needs});
+
+  // A menu whose choices are not the answer's words (Coop, 8 Oct 2026: "+41" asked, country names listed). The fill cannot match it; the app asks the AI once
+  // for the choice that means the same, arms the menu with it, and remembers it for the site: the next form there gets "Suisse" at once, no AI call, no re-arm.
+  await ctx.run('a menu whose choices are not the answer\'s words: the choice that means the same is picked, then remembered for the next form on the site', async () => {
+    const problems = [];
+    const openForm = async fixture => {
+      await page.evaluate(([url, details]) => window.pilot.applyOne(url, details), [fixture.url, {title: fixture.title, company: fixture.company}]);
+      let tab = null;
+      for (let waited = 0; waited < 60000 && !tab; waited += 1000) { tab = ctx.browser.context.pages().find(item => item.url().startsWith(fixture.url)) || null; await pause(1000); }
+      if (!tab) throw new Error(`${fixture.title} never opened. Tabs: ${ctx.browser.context.pages().map(item => item.url()).join(' | ')}`);
+      let state = null;
+      for (let waited = 0; waited < 90000; waited += 500) { state = await fillState(tab).catch(() => null); if (state?.state === 'done' || state?.state === 'error') break; await pause(500); }
+      if (state?.state !== 'done') problems.push(`${fixture.title}: the fill did not finish (${JSON.stringify(state)})`);
+      return tab;
+    };
+    const menuOf = async (tab, within) => {
+      let value = '';
+      for (let waited = 0; waited <= within; waited += 500) { value = await tab.locator('#country_code').inputValue().catch(() => ''); if (value === 'Suisse') break; await pause(500); }
+      return value;
+    };
+    const asked = () => (ctx.optionPicks || []).filter(item => item.answer === '+41').length;
+    const first = await openForm(MENU_FIRST);
+    const value1 = await menuOf(first, 45000);
+    if (value1 !== 'Suisse') problems.push(`the first form's "Indicatif de pays" is "${value1}" (choices ${MENU_CHOICES.join(', ')}; the answer "+41" means Suisse)`);
+    if (asked() !== 1) problems.push(`the AI was asked ${asked()} time(s) for "+41" on the first form (once is right)`);
+    const kept = (() => { try { return JSON.parse(fs.readFileSync(path.join(ctx.profile, 'menu-choices.json'), 'utf8')); } catch { return null; } })();
+    if (!kept?.some(item => item.host === MENU_FIRST.host && item.value === '+41' && item.choice === 'Suisse')) problems.push(`the choice was not remembered for ${MENU_FIRST.host} (menu-choices.json: ${kept ? `${kept.length} item(s)` : 'missing'})`);
+    const logBefore = appLogText(ctx.profile).length;
+    const again = await openForm(MENU_AGAIN);
+    const value2 = await menuOf(again, 5000);
+    if (value2 !== 'Suisse') problems.push(`the next form on the site has "Indicatif de pays" "${value2}" a few seconds after its fill (the remembered choice is tried first)`);
+    if (asked() !== 1) problems.push(`the AI was asked again on the next form (${asked()} asks): the remembered choice needs none`);
+    if (/menu armed again/.test(appLogText(ctx.profile).slice(logBefore))) problems.push('the next form\'s menu was re-armed (a detour the remembered choice avoids)');
+    for (const tab of [first, again]) {
+      const read = await readForm(tab);
+      if (String(read.question_3001?.value ?? read.question_3001 ?? '') !== '6') problems.push(`${tab.url()}: Kubernetes years is not the kit's 6`);
+    }
+    fail([...problems, ...submitProblems(forms.fired, MENU_FIRST.path), ...submitProblems(forms.fired, MENU_AGAIN.path)]);
+  }, {needs: ctx.needs});
+
+  // "Needs your attention" fed by the extension's fill (owner, 8 Oct 2026: "we had this, it got overwritten"): the kit says "3 months", the menu offers none that
+  // means it. The fill leaves it and proposes it; the session page lists the field with the proposal and the form's own choices; the person picks one and presses
+  // Use; the form gets it through the extension, and the row says it is filled. Producer parity: the rows once came only from Claude's message.
+  await ctx.run('"Needs your attention" from the extension\'s fill: the left menu is listed with its proposal and choices, and Use fills the form', async () => {
+    const problems = [];
+    await page.evaluate(([url, details]) => window.pilot.applyOne(url, details), [PROPOSE.url, {title: PROPOSE.title, company: PROPOSE.company}]);
+    let tab = null;
+    for (let waited = 0; waited < 60000 && !tab; waited += 1000) { tab = ctx.browser.context.pages().find(item => item.url().startsWith(PROPOSE.url)) || null; await pause(1000); }
+    if (!tab) throw new Error(`the notice-period form never opened. Tabs: ${ctx.browser.context.pages().map(item => item.url()).join(' | ')}`);
+    let state = null;
+    for (let waited = 0; waited < 90000; waited += 500) { state = await fillState(tab).catch(() => null); if (state?.state === 'done' || state?.state === 'error') break; await pause(500); }
+    if (state?.state !== 'done') throw new Error(`the fill did not finish (${JSON.stringify(state)})`);
+    if (await tab.locator('#notice_period').inputValue() !== '') problems.push(`the fill put "${await tab.locator('#notice_period').inputValue()}" in a menu where no choice means "3 months"`);
+    await page.click('.nav[data-view="sessions"]');
+    await page.locator('.view[data-view="sessions"]').getByText(PROPOSE.company).first().click({timeout: 15000}).catch(() => { throw new Error(`no session for ${PROPOSE.company} on the Sessions page`); });
+    const row = page.locator('li.ss-need').filter({hasText: 'Notice period'}).first();
+    await row.waitFor({state: 'visible', timeout: 30000}).catch(async () => {
+      throw new Error(`"Needs your attention" does not list Notice period (rows: ${(await page.locator('li.ss-need').allInnerTexts().catch(() => [])).map(text => text.replace(/\s+/g, ' ').slice(0, 60)).join(' | ') || 'none'})`);
+    });
+    const choice = row.locator('select.ss-ask-input');
+    if (!await choice.count()) problems.push('the row has no menu of the form\'s choices (a bare row: the proposal was lost)');
+    else {
+      const offered = (await choice.locator('option').allInnerTexts()).filter(Boolean);   // read before Use: the row leaves once the form has the answer
+      if (NOTICE_CHOICES.some(option => !offered.includes(option))) problems.push(`the row offers ${offered.join(', ')}; the form's choices are ${NOTICE_CHOICES.join(', ')}`);
+      if (!/3 months/.test(await row.innerText({timeout: 5000}))) problems.push('the row does not say what the kit proposed ("3 months")');
+      await choice.selectOption('2 months', {timeout: 5000});
+      await row.getByRole('button', {name: 'Use'}).click({timeout: 5000});
+      let value = '';
+      for (let waited = 0; waited < 15000 && value !== '2 months'; waited += 500) { value = await tab.locator('#notice_period').inputValue().catch(() => ''); await pause(500); }
+      if (value !== '2 months') problems.push(`after Use the form's Notice period is "${value}", not the "2 months" picked in the app`);
+      // Then the row says it is filled, or leaves the list once the form reports the field filled (the session's count says all required fields are in).
+      let said = '', gone = false;
+      for (let waited = 0; waited < 15000 && !gone && !/Filled in the form/.test(said); waited += 500) {
+        const rows = page.locator('li.ss-need').filter({hasText: 'Notice period'});
+        gone = !(await rows.count());
+        said = gone ? '' : await rows.first().innerText({timeout: 1000}).catch(() => '');
+        await pause(500);
+      }
+      if (!gone && !/Filled in the form/.test(said)) problems.push(`after Use the row neither says it is filled nor leaves the list ("${said.replace(/\s+/g, ' ').slice(0, 120)}")`);
+    }
+    if (String((await readForm(tab)).question_3001?.value ?? '') !== '7') problems.push('Kubernetes years is not the kit\'s 7');
+    fail([...problems, ...submitProblems(forms.fired, PROPOSE.path)]);
+  }, {needs: ctx.needs});
+
+  // An upload slot that has no file input until its + is pressed (Coop on SuccessFactors, 8 Oct 2026): the app's CV goes through the whole chain into it
+  // (the shapes alone are guarded in test/upload-slot.test.mjs without the app). The slot says it got the CV; the rest of the form is filled; Submit untouched.
+  await ctx.run('an upload slot that appears only when + is pressed: the app\'s CV reaches it, the rest of the form is filled', async () => {
+    await page.evaluate(([url, details]) => window.pilot.applyOne(url, details), [REVEAL.url, {title: REVEAL.title, company: REVEAL.company}]);
+    let tab = null;
+    for (let waited = 0; waited < 60000 && !tab; waited += 1000) { tab = ctx.browser.context.pages().find(item => item.url().startsWith(REVEAL.url)) || null; await pause(1000); }
+    if (!tab) throw new Error(`the + upload form never opened. Tabs: ${ctx.browser.context.pages().map(item => item.url()).join(' | ')}`);
+    let state = null;
+    for (let waited = 0; waited < 90000; waited += 500) { state = await fillState(tab).catch(() => null); if (state?.state === 'done' || state?.state === 'error') break; await pause(500); }
+    const problems = [];
+    if (state?.state !== 'done') problems.push(`the fill did not finish (${JSON.stringify(state)})`);
+    let got = null;
+    for (let waited = 0; waited < 10000 && !got; waited += 500) { got = await tab.evaluate(() => window.got?.cv_plus || null).catch(() => null); await pause(500); }
+    if (!got) problems.push('the + slot never received a file (its input appears only after the + is pressed)');
+    else if (got.name !== cv.name || got.size !== cv.size) problems.push(`the + slot got ${got.name} (${got.size} bytes), expected the app's ${cv.name} (${cv.size} bytes)`);
+    const read = await readForm(tab);
+    if (String(read.first_name?.value ?? read.first_name ?? '') !== CONTACT.first_name) problems.push('the first name was not filled');
+    if (String(read.question_3001?.value ?? read.question_3001 ?? '') !== '8') problems.push('Kubernetes years is not the kit\'s 8');
+    fail([...problems, ...submitProblems(forms.fired, REVEAL.path)]);
   }, {needs: ctx.needs});
 
   // The account and the application on one page (Coop, 8 Oct 2026): a CV upload says it is the application. It is filled from the kit, the session is at the

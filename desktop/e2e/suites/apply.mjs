@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {cvProblems, fillProblems, highlightProblems, leftProblems, submitProblems} from '../lib/applycheck.mjs';
-import {CHAIN, FORMS, HOSTS, LATE, REAL_FORMS, SCRIPTED, SIGNIN, SIGNIN_REFUSED, SIGNUP, ONEPAGE, MISLABELLED, realFieldId} from '../lib/forms.mjs';
+import {CHAIN, FORMS, HOSTS, LATE, REAL_FORMS, SCRIPTED, SIGNIN, SIGNIN_REFUSED, SIGNUP, MENU_FIRST, MENU_AGAIN, PROPOSE, REVEAL, ONEPAGE, MISLABELLED, realFieldId} from '../lib/forms.mjs';
 import {launchBrowser, readForm, readPanel, fillState} from '../lib/extension.mjs';
 import {addKitJob, removeJobsByUrl, stageOf} from '../lib/notion.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
@@ -24,7 +24,7 @@ export const macos = true;   // runs on a macOS runner: the real Chrome extensio
 // What a step needs from an earlier one when E2E_STEPS picks it (lib/runner.mjs wantedWords): every form step needs the applicant, the kits and the proxy's answers.
 const SETUP = 'the app has an applicant';
 export const stepNeeds = {'form': [SETUP], 'session page says it too': [SETUP, 'multi-step form'], 'Tailor CV': [SETUP], 'tailored CV': [SETUP], 'without a kit': [SETUP],
-  'submits a form': [SETUP], 'I submitted it': [SETUP, 'Apply opens a new tab'], 'Apply opens a new tab': [SETUP], 'side by side': [SETUP], 'sign-up page': [SETUP], 'sign-in page': [SETUP], 'one page': [SETUP], 'tab is closed': [SETUP], 'second browser': [SETUP], 'wrong kind': [SETUP], 'cannot operate': [SETUP]};
+  'submits a form': [SETUP], 'I submitted it': [SETUP, 'Apply opens a new tab'], 'Apply opens a new tab': [SETUP], 'side by side': [SETUP], 'sign-up page': [SETUP], 'sign-in page': [SETUP], 'menu whose choices': [SETUP], 'Needs your attention" from': [SETUP], 'appears only when + is pressed': [SETUP], 'one page': [SETUP], 'tab is closed': [SETUP], 'second browser': [SETUP], 'wrong kind': [SETUP], 'cannot operate': [SETUP]};
 export const name = 'apply';
 
 
@@ -34,7 +34,7 @@ export const name = 'apply';
 // (suites/applyflows.mjs, manual) runs only the journeys, so the local scenario matrix runs forms and journeys in parallel. Each has its own Notion page and token.
 // The setup step and the final "Submit was never clicked" check run in all of them; each run seeds only the fixture jobs its steps use.
 const CV_STEPS = ['Tailor CV on a job', 'the form\'s panel offers a tailored CV', 'Tailor CVs for top matches', 'Apply on a saved job without a kit'];
-const FLOW_STEPS = ['a posting whose Apply opens a new tab', 'two applications side by side', 'a form drawn after a spinner', 'a sign-up page before the form', 'a sign-in page before the form', 'the account and the application on one page',
+const FLOW_STEPS = ['a posting whose Apply opens a new tab', 'two applications side by side', 'a form drawn after a spinner', 'a sign-up page before the form', 'a sign-in page before the form', 'a menu whose choices', '"Needs your attention" from the extension', 'an upload slot that appears only when + is pressed', 'the account and the application on one page',
   'the form tab is closed', 'a second browser with the extension', 'the AI gave a page the wrong kind', '"I submitted it"'];
 const SHARED_STEPS = ['the app is seeded', 'the app has an applicant', 'through all of it'];
 const LIVE_STEPS = ['a real posting, watched live'];
@@ -52,7 +52,7 @@ export async function runApply(ctx, parts) {
   const live = parts.includes('live') ? livePosting() : null;   // the live run: one real posting, read from this Mac's job list; the fixture checks do not apply to it
   ctx.run = (name, fn, options) => ((partOf(name) === 'both' && !(live && name.startsWith('through all of it'))) || parts.includes(partOf(name)) ? all(name, fn, options) : undefined);
   // The jobs this part seeds: the journeys use their own fixtures, the forms and the CV steps the form fixtures.
-  const fixtures = [...(live ? [live] : []), ...(parts.some(part => !['flows', 'live'].includes(part)) ? Object.values(FORMS) : []), ...(parts.includes('flows') ? [CHAIN, SCRIPTED, LATE, SIGNUP, SIGNIN, SIGNIN_REFUSED, ONEPAGE, MISLABELLED] : [])];
+  const fixtures = [...(live ? [live] : []), ...(parts.some(part => !['flows', 'live'].includes(part)) ? Object.values(FORMS) : []), ...(parts.includes('flows') ? [CHAIN, SCRIPTED, LATE, SIGNUP, SIGNIN, SIGNIN_REFUSED, MENU_FIRST, MENU_AGAIN, PROPOSE, REVEAL, ONEPAGE, MISLABELLED] : [])];
   const urls = fixtures.map(form => form.url);
   const cv = {name: 'cv.pdf', size: fs.statSync(path.join(ctx.profile, 'cv.pdf')).size};
 
@@ -68,6 +68,13 @@ export async function runApply(ctx, parts) {
       // The page after a Submit (lib/confirmation.js): the stand-in answers like a model that reads the words, so the suite proves the chain around it.
       const text = typeof content === 'string' ? content : (content || []).map(part => part.text || '').join('');
       if (/^URL path:/m.test(text) && /^Page:/m.test(text)) return JSON.stringify({confirmation: /successfully submitted|received your application/i.test(text) && !/must be completed|required/i.test(text)});
+      // The menu choice that means the same (lib/option-pick.js: {question, answer, choices} -> {choice}): the stand-in knows what a model would, for the menu
+      // fixture only ("+41" is Suisse); each ask is counted, so the remembered choice can be proven to need none (ctx.optionPicks).
+      if (typeof content === 'string' && content.startsWith('{"question"')) {
+        const ask = JSON.parse(content);
+        ctx.optionPicks = [...(ctx.optionPicks || []), {question: ask.question, answer: ask.answer}];
+        return JSON.stringify({choice: ask.answer === '+41' && ask.choices.includes('Suisse') ? 'Suisse' : ''});
+      }
       // The account AI (lib/account-judge.js; its sketch also has "Address path:" and "Controls", so it is matched first). On the sign-in fixtures the stand-in reads the
       // page like a model: "ready" once no required box is empty, "refused" when the page says the password is wrong, else "created". Elsewhere it is unsure (nothing pressed).
       if (/^Phase: (ready|result)$/m.test(text)) {

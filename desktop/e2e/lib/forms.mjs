@@ -209,6 +209,41 @@ ${script}
 </script></body></html>`;
 
 const ONEPAGE_HTML = () => page(ONEPAGE, `<p>Are you already registered? <a href="#login">Log in here.</a></p><form id="application_form"><div class="field"><button type="button" id="upload_cv" onclick="document.getElementById('cv_file').click()">Upload a CV</button><input id="cv_file" name="cv_file" type="file" style="display:none"></div>${field('email', 'Email', {type: 'email', required: true})}${field('email_again', 'Please re-enter your email address', {type: 'email', required: true})}<div class="field"><label for="password">Choose a password *</label><input id="password" name="password" type="password" required></div><div class="field"><label for="password_again">Confirm password *</label><input id="password_again" name="password_again" type="password" required></div>${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('city', 'City', {required: true})}${field('phone', 'Phone', {type: 'tel', required: true})}${field('question_3001', 'Years of experience with Kubernetes', {required: true})}<div class="field"><button type="submit" id="submit_app">Submit Application</button></div></form>`);
+// A menu whose choices are not the answer's words (8 Oct 2026, Coop's "Indicatif de pays": the answer "+41", the menu lists country names). The fill cannot match it;
+// the app asks the AI for the choice that means the same ("Suisse"), arms the menu with it and remembers it for this site and field, so the next form there gets it
+// at once with no AI call. Two postings on one site with the same form: the first proves the pick, the second the remembered choice.
+const menuFixture = (title, path) => ({title, company: 'E2E Menu Telecom', host: 'boards.greenhouse.io', path, url: `https://boards.greenhouse.io${path}`,
+  kit: [{field: 'country_code', question: 'Indicatif de pays', answer: '+41', needs_review: false}, {field: 'question_3001', question: 'Years of experience with Kubernetes', answer: '6', needs_review: false}]});
+export const MENU_FIRST = menuFixture('Network Engineer, Country Menu', '/e2e-menus/4001010');
+export const MENU_AGAIN = menuFixture('Network Engineer II, Country Menu', '/e2e-menus/4001011');
+// "Needs your attention" from the extension's fill (owner, 8 Oct 2026: the rows lost their proposed answers when Apply moved to the extension). The kit's answer
+// "3 months" is not one of the notice-period menu's choices and none means the same, so the fill leaves it empty and proposes it; the session page shows the
+// row with the proposal and the form's choices, the person picks one and presses Use, and the form gets it.
+export const PROPOSE = menuFixture('Cloud Engineer, Notice Period', '/e2e-propose/4001012');
+PROPOSE.company = 'E2E Notice Systems';
+PROPOSE.kit = [{field: 'notice_period', question: 'Notice period', answer: '3 months', needs_review: false}, {field: 'question_3001', question: 'Years of experience with Kubernetes', answer: '7', needs_review: false}];
+export const NOTICE_CHOICES = ['Immediately', '1 month', '2 months'];
+const PROPOSE_PAGE = fixture => page(fixture, `<form id="application_form">${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('email', 'E-mail', {type: 'email', required: true})}${select('notice_period', 'Notice period', NOTICE_CHOICES, {required: true})}${field('question_3001', 'Years of experience with Kubernetes', {required: true})}<div class="field"><button type="submit" id="submit_app">Submit Application</button></div></form>`);
+// An upload slot with no file input until its + is pressed (8 Oct 2026, Coop on SuccessFactors): the + opens a "Select a source" popup that creates the input.
+// The app's CV must reach it through the whole chain (app -> extension -> upload operator), the slot says it got the file, and Submit is never touched.
+export const REVEAL = {title: 'Platform Engineer, Plus-Button Upload', company: 'E2E Reveal Retail', host: 'jobs.lever.co', path: '/e2e-reveal/4001013',
+  kit: [{field: 'question_3001', question: 'Years of experience with Kubernetes', answer: '8', needs_review: false}]};
+REVEAL.url = `https://${REVEAL.host}${REVEAL.path}`;
+const REVEAL_PAGE = fixture => page(fixture, `<form id="application_form">${field('first_name', 'Vorname', {required: true})}${field('last_name', 'Nachname', {required: true})}${field('email', 'E-Mail', {type: 'email', required: true})}
+  <div class="field"><div class="lab">Lebenslauf *</div><div class="attachWrapper"><div class="box">Datei hinzufügen</div><span role="button" tabindex="0" class="addAttachments" id="cv_plus" onclick="openPopup('cv_plus')">+</span><div class="ok" id="cv_ok" hidden>hochgeladen</div></div></div>
+  ${field('question_3001', 'Years of experience with Kubernetes', {required: true})}<div class="field"><button type="submit" id="submit_app">Bewerbung absenden</button></div></form>
+  <div id="popup" hidden>Quelle wählen <button type="button">Vom Gerät</button></div><script>
+  window.got = {};
+  function openPopup(id) {
+    const popup = document.getElementById('popup'); popup.hidden = false; popup.querySelector('input')?.remove();
+    const input = document.createElement('input'); input.type = 'file'; input.name = 'fileData' + id;
+    input.addEventListener('change', () => { const file = input.files[0]; window.got[id] = file ? {name: file.name, size: file.size} : null; document.getElementById('cv_ok').hidden = !file; });
+    popup.appendChild(input);
+  }</script>`);
+
+export const MENU_CHOICES = ['Allemagne', 'Autriche', 'France', 'Italie', 'Liechtenstein', 'Suisse'];
+const MENU_PAGE = fixture => page(fixture, `<form id="application_form">${field('first_name', 'Prénom', {required: true})}${field('last_name', 'Nom', {required: true})}${field('email', 'E-mail', {type: 'email', required: true})}${select('country_code', 'Indicatif de pays', MENU_CHOICES, {required: true})}${field('phone', 'Téléphone', {type: 'tel'})}${field('question_3001', 'Years of experience with Kubernetes', {required: true})}<div class="field"><button type="submit" id="submit_app">Envoyer la candidature</button></div></form>`);
+
 const SIGNIN_PAGES = {
   posting: fixture => page(fixture, `<p>Join our platform team.</p><a id="apply_link" href="${fixture.accountUrl}" style="display:inline-block;padding:12px 28px;background:#222;color:#fff;font-size:18px;text-decoration:none">Apply</a>`),
   account: (fixture, error = '', email = '') => page(fixture, `<h2>Sign in to apply</h2>${error ? `<p id="signin_error" role="alert" style="color:#b00">${esc(error)}</p>` : ''}<form id="signin_form" method="post" action="${fixture.accountPath}">${field('signin_email', 'Email Address', {type: 'email', required: true, extra: email ? `value="${esc(email)}"` : ''})}<div class="field"><label for="signin_password">Password *</label><input id="signin_password" name="signin_password" type="password" required></div><button type="submit" id="signin_button">Sign in</button></form><p><a id="create_account" href="${fixture.accountPath}/new">Create an account</a></p>`, '', {realSubmit: true}),
@@ -337,6 +372,9 @@ export async function startForms({vary = null} = {}) {
       if (req.method === 'POST') { req.resume(); req.on('end', () => res.writeHead(303, {location: SIGNUP.formPath}).end()); return; }   // the account is made: on to the form
       res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(SIGNUP_PAGES.account()); return;
     }
+    if (host === REVEAL.host && signup === REVEAL.path) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(REVEAL_PAGE(REVEAL)); return; }
+    if (host === PROPOSE.host && signup === PROPOSE.path) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(PROPOSE_PAGE(PROPOSE)); return; }
+    for (const fixture of [MENU_FIRST, MENU_AGAIN]) if (host === fixture.host && signup === fixture.path) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(MENU_PAGE(fixture)); return; }
     for (const fixture of [SIGNIN, SIGNIN_REFUSED]) {
       const html = body => { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(body); };
       if (host === fixture.host && signup === fixture.path) { html(SIGNIN_PAGES.posting(fixture)); return; }
