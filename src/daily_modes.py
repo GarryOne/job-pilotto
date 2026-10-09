@@ -12,7 +12,7 @@ from . import import_url, store, telegram
 from .ai import added, cost, inbox, insights, interview_insights, interviews, kit
 from .notion import client as notion, cron_runs, ledger
 from .daily_helpers import KITS_DEFAULT, _job_arg, apply_message, for_job_matches, kits_message, log_ai_run, log_text, new_cron_run, prepare_kit, queue_mail_check
-from .store_access import notion_of, url_stages
+from .store_access import notion_of, profile_source, url_stages
 from . import ledger_store
 from .stores import open_stores
 from .daily_helpers import log_store_job
@@ -29,7 +29,7 @@ def _gate(tracker, stores, message, on_store):
                          message.split(' requires')[0] + ' works only with Notion for now (your data is on this Mac)')
 
 def import_mode(args, stores=None):
-    tracker = notion_of(stores)  # BRIDGE(import_url): remove when import_url.run and cron_runs.log_job take the store alone
+    tracker = notion_of(stores)  # BRIDGE(mac-67): remove when _gate and the Profile reader (profile_source) ask the store alone
     # A link the search has not found: read it, score it, and add it to Job Matches as Open. Not an application.
     if not args.job:
         raise SystemExit('--mode import requires --job <URL> and NOTION_TOKEN')
@@ -37,10 +37,10 @@ def import_mode(args, stores=None):
     run = new_cron_run('import')
     try:
         with store.connect(args.db) as db:
-            outcome = import_url.run(db, tracker, _job_arg(args.job), stats=run, **({} if tracker else {'stores': stores}))
+            outcome = import_url.run(db, _job_arg(args.job), stores=stores, read_profile=profile_source(stores, tracker), stats=run)
         reply = outcome['line']
         if outcome.get('row') and outcome.get('created'):
-            cron_runs.log_job(run, outcome['row'], True)
+            log_store_job(stores, run, outcome['row'], True)
         run['subject'] = outcome.get('subject') or ''
     except ValueError as error:
         reply = f'⚠️ {error}'
@@ -115,7 +115,7 @@ def kits_mode(args, stores=None):
 
 
 def add_message_mode(args, stores=None):
-    tracker = notion_of(stores)  # BRIDGE(mac-20): remove when inbox.propose/log and added.hook take the store alone
+    tracker = notion_of(stores)  # BRIDGE(mac-cd): remove when inbox.propose/log and added.hook take the store alone
     # A pasted message or screenshot (/add <message>, a forward or photo sent to the bot, the app's Log box):
     # the job it's about is updated, or created (src/ai/inbox.py).
     _gate(tracker, stores, '--mode add requires NOTION_TOKEN', on_store=True)
@@ -224,7 +224,7 @@ def add_link_mode(args, stores=None):
 
 
 def interview_mode(args, stores=None):
-    tracker = notion_of(stores)  # BRIDGE(mac-ab): remove when interviews.run and interview_insights.after_review take the store alone
+    tracker = notion_of(stores)  # BRIDGE(mac-e3): remove when interviews.run and interview_insights.after_review take the store alone
     from .stores import chosen
     if not tracker and chosen() == 'notion':  # on this Mac's store it runs without Notion
         raise SystemExit('--mode interview requires NOTION_TOKEN')
@@ -270,7 +270,7 @@ def interview_mode(args, stores=None):
 
 
 def insight_mode(args, stores=None):
-    tracker = notion_of(stores)  # BRIDGE(mac-ab): remove when insights.run/weekly take the store alone
+    tracker = notion_of(stores)  # BRIDGE(mac-e3): remove when insights.run/weekly take the store alone
     from .stores import chosen
     if not tracker and chosen() == 'notion':  # on this Mac's store it runs without Notion
         raise SystemExit(f'--mode {args.mode} requires NOTION_TOKEN')

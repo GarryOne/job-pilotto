@@ -236,5 +236,54 @@ class AddLinkOnNotionTests(unittest.TestCase):
         self.assertSame({'title': 'Staff SRE', 'company': 'Acme'}, again=True)
 
 
+@unittest.skipUnless(stand_in.shutil.which('node'), 'node runs the Notion stand-in')
+class ImportOnNotionTests(unittest.TestCase):
+    """A job link imported on Notion (src/import_url.py): the 🎯 match it writes and the run's link to it, as matches.write_one and
+    cron_runs.log_job wrote them (D7). What comes before (reading, scoring) is the same code on both paths."""
+    setUpClass = classmethod(stand_in.NotionStoreTests.setUpClass.__func__)
+    tearDownClass = classmethod(stand_in.NotionStoreTests.tearDownClass.__func__)
+    make = stand_in.NotionStoreTests.make
+    URL = 'https://job-boards.greenhouse.io/acme/jobs/91'
+
+    def imported(self, through_store, twice=False):
+        import contextlib
+        import io
+        from src import daily_helpers
+        from src.notion import cron_runs, matches
+        s = self.make()
+        out, runs = io.StringIO(), []
+        with mock.patch.object(notion, 'MATCHES_DATABASE_ID', self.env['NOTION_MATCHES_DB']), \
+                tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db, \
+                contextlib.redirect_stdout(out):
+            job_store.import_watch_report(db, {'jobs': [{'company': 'Acme', 'id': '91', 'title': 'Platform SRE', 'location': 'Zurich',
+                                                         'url': self.URL}]})
+            item = dict(daily.find_job(db, self.URL), fit=FIT, ai=AI, notes='imported')
+            for _ in range(2 if twice else 1):
+                run = {'mode': 'import'}
+                if through_store:   # src/import_url.py now
+                    created = s.matches.get(self.URL) is None
+                    s.matches.sync(db, [item], partial=True)
+                    found = s.matches.get(self.URL)
+                    row = {'id': found['id'], 'title': item['title'], 'url': self.URL, 'company': item['company']}
+                    if created:
+                        daily_helpers.log_store_job(s, run, row, True)
+                else:               # before the store
+                    from src.stores.notion_matches import _Bound   # Job Matches pinned to this workspace's database, as in production
+                    page_id, created = matches.write_one(db, _Bound(self.tracker, self.env['NOTION_MATCHES_DB']), item)
+                    row = {'id': page_id, 'url': f"https://www.notion.so/{str(page_id).replace('-', '')}",
+                           'properties': {'Job': {'title': [{'plain_text': item['title']}]}, 'Job URL': {'url': self.URL}}}
+                    if created:
+                        cron_runs.log_job(run, row, True)
+                runs.append((created, {k: v for k, v in run.items() if k not in ('application', 'subject')}, bool(run.get('application'))))
+        said = re.sub(r'[0-9a-f]{32}|[0-9a-f-]{36}', '<id>', out.getvalue())
+        return runs, said, workspace(self.tracker, self.env)
+
+    def test_a_new_match_and_the_runs_link_to_it(self):
+        self.assertEqual(self.imported(True), self.imported(False))
+
+    def test_imported_twice_one_match_one_link(self):
+        self.assertEqual(self.imported(True, twice=True), self.imported(False, twice=True))
+
+
 if __name__ == '__main__':
     unittest.main()
