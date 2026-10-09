@@ -15,6 +15,32 @@ export function weeklyReports(insights = []) {
     .map(row => ({id: row.id, day: row.day, title: plain(row.title), confidence: row.fields?.confidence || '', groups: groupsOf(row.body)}));
 }
 
+// A weekly report (weeklyReports) as the card Recent activity draws (pages/activity-cards.js weeklyCard: headline, finding,
+// summary, focus, what worked, change next week) and the report's other sections under it (priorities with their evidence,
+// numbers, daily insights), in src/ai/insights_text.py weekly_blocks' order. A line ending in a link keeps it: {text, url}.
+const CARD_PARTS = {'What worked': 'worked', 'Change next week': 'change', 'Focus': 'focus'};
+const TRAILING_URL = /^(.*?)(?:\s*·\s*)?(https?:\/\/\S+)$/;
+const textOf = line => line?.text ?? line?.fold ?? String(line ?? '');
+export function linked(line) {
+  const text = textOf(line), found = TRAILING_URL.exec(text);
+  return found ? {text: found[1].trim(), url: found[2]} : {text};
+}
+export function weeklyCardOf(week) {
+  const weekly = {headline: week.title, finding: '', summary: '', worked: [], change: [], focus: ''};
+  const extra = [];
+  for (const part of week.groups || []) {
+    const lines = (part.lines || []).map(textOf).filter(Boolean);
+    if (!part.title) {   // the head: the callout (the week's finding) and the summary
+      const callout = (part.lines || []).find(line => line?.quote);
+      weekly.finding = callout ? textOf(callout) : '';
+      weekly.summary = (part.lines || []).filter(line => line !== callout).map(textOf).filter(Boolean).join(' ');
+    } else if (CARD_PARTS[part.title] === 'focus') weekly.focus = lines.join(' ');
+    else if (CARD_PARTS[part.title]) weekly[CARD_PARTS[part.title]] = lines;
+    else extra.push({title: part.title, lines: (part.lines || []).map(linked).filter(line => line.text || line.url)});
+  }
+  return {weekly, extra};
+}
+
 // The daily and process insights, newest first: {id, day, category, title, evidence, action, confidence, feedback, groups}.
 export function insightItems(insights = []) {
   return insights.filter(row => !APART.has(row.category)).sort(newest).map(row => ({

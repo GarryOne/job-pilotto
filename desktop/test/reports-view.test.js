@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {funnelRows, improveLines, insightItems, weeklyReports} from '../renderer/reports-view.js';
+import {funnelRows, improveLines, insightItems, weeklyCardOf, weeklyReports} from '../renderer/reports-view.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const python = process.env.JOB_PILOTTO_CHECK_PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
@@ -49,4 +49,18 @@ test('the funnel: from previous with its counts, of applied, still open; the eng
   assert.deepEqual(funnelRows(funnel).map(row => [row.fromPrevious, row.ofApplied, row.open]), [['—', '—', 30], ['25%  (10/40)', '100%', 4], ['40%  (4/10)', '40%', 1]]);
   assert.deepEqual(improveLines(funnel), ['Improve Replied: Check the level.']);
   assert.deepEqual(improveLines({...funnel, summary: ['a', 'b']}), ['a', 'b']);
+});
+
+test('a weekly report becomes the card Recent activity draws, and its other sections keep their evidence links', () => {
+  const week = {title: 'Quiet week', groups: [
+    {title: '', lines: [{text: 'Replies came only from fresh jobs', quote: true}, {text: 'You sent 2 applications.'}]},
+    {title: 'Priorities from recurring evidence', lines: [{text: 'Rejections cite Kubernetes'}, {text: 'Example Cloud · employer feedback: deeper Kubernetes · https://jobs.example.com/1'}]},
+    {title: 'What worked', lines: [{text: 'Recruiter channel: 2 of 2'}]},
+    {title: 'Change next week', lines: [{text: 'Send the kits'}, {text: 'Apply within 3 days'}]},
+    {title: 'Focus', lines: [{text: 'Five applications in Zurich'}]}]};
+  const {weekly, extra} = weeklyCardOf(week);
+  assert.deepEqual(weekly, {headline: 'Quiet week', finding: 'Replies came only from fresh jobs', summary: 'You sent 2 applications.',
+    worked: ['Recruiter channel: 2 of 2'], change: ['Send the kits', 'Apply within 3 days'], focus: 'Five applications in Zurich'});
+  assert.deepEqual(extra, [{title: 'Priorities from recurring evidence', lines: [{text: 'Rejections cite Kubernetes'},
+    {text: 'Example Cloud · employer feedback: deeper Kubernetes', url: 'https://jobs.example.com/1'}]}]);
 });

@@ -140,6 +140,11 @@ export function renderKitsCard(kits, target = $('activity-card')) {
 // focus, or without worked items, simply has no such block, and its lists are drawn only when they have something in
 // them. The report's confidence and its recurring-evidence priorities sit on the Notion page, not in this message.
 export function renderWeeklyCard(weekly, target = $('activity-card')) {
+  target.replaceChildren(weeklyCard(weekly));
+}
+
+// The weekly report's card itself (Recent activity draws it; Reports → Weekly adds the report's other sections under it).
+export function weeklyCard(weekly) {
   const box = el('div', 'insight-card');
   box.dataset.guidance = 'weekly';   // the UI Finder checks its words against who the candidate is
   box.append(cardHead('Search analysis · last 7 days', weekly.headline, {subtitles: [weekly.finding && `💡 ${weekly.finding}`, weekly.summary]}));
@@ -159,6 +164,6 @@ export function renderWeeklyCard(weekly, target = $('activity-card')) {
     section.append(list);
     box.append(section);
   }
-  target.replaceChildren(box);
+  return box;
 }
 

@@ -5,7 +5,8 @@
 // insightFeedback (lib/reports-handlers.js) and Focus's funnel. Parts: .tabs, .data-table, the interview review's groups, .segmented.
 // Pure parts: renderer/reports-view.js. Guards: test/reports-view.test.js, test/reports-handlers.test.js.
 import {el, pill} from '../components.js';
-import {dayLabel, funnelRows, improveLines, insightItems, weeklyReports} from '../reports-view.js';
+import {dayLabel, funnelRows, improveLines, insightItems, weeklyCardOf, weeklyReports} from '../reports-view.js';
+import {weeklyCard} from './activity-cards.js';
 import {$} from './core.js';
 
 export const REPORT_TABS = [['weekly', 'Weekly report', 'weekly report search analysis priorities numbers week'],
@@ -33,10 +34,28 @@ function weeklyTab() {
   newer.addEventListener('click', () => { state.week--; draw(); });
   nav.append(older, newer);
   const head = el('div', 'job-panel-head');
-  const words = el('div', '');
-  words.append(el('h2', '', `📊 ${week.title}`), el('p', 'muted small', [dayLabel(week.day), week.confidence && `${week.confidence} confidence`].filter(Boolean).join(' · ')));
-  head.append(words, nav);
-  return [head, ...week.groups.map(part => group(part.title, part.lines))];
+  head.append(el('p', 'muted small', [dayLabel(week.day), week.confidence && `${week.confidence} confidence`].filter(Boolean).join(' · ')), nav);
+  // The card Recent activity draws for this report, then the report's other sections in the same shape.
+  const {weekly, extra} = weeklyCardOf(week);
+  const card = weeklyCard(weekly);
+  card.classList.add('is-flat');   // inside #reports-body, already a card: no box in a box (as Form fills' cards)
+  for (const part of extra) {
+    const section = el('section', 'insight-section');
+    section.append(el('h4', '', part.title));
+    const list = el('ul', 'insight-evidence');
+    for (const line of part.lines) {
+      const item = el('li', '', line.text);
+      if (line.url) {
+        const link = Object.assign(el('a', 'link', new URL(line.url).hostname + new URL(line.url).pathname), {href: line.url});
+        link.addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(line.url); });
+        item.append(line.text ? ' · ' : '', link);
+      }
+      list.append(item);
+    }
+    section.append(list);
+    card.append(section);
+  }
+  return [head, card];
 }
 
 function feedbackChoice(item) {
