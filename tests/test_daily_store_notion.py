@@ -93,6 +93,50 @@ def before(db, url, tracker, action):
 
 
 @unittest.skipUnless(stand_in.shutil.which('node'), 'node runs the Notion stand-in')
+class ProfileForTheAIOnNotionTests(unittest.TestCase):
+    """What the AI reads of the Profile on Notion (texts.plain): the page as Tracker.page_text reads it, as scoring, kits, the
+    rejection review and interview prep always read it before the store (D7), never the Markdown the store keeps."""
+    setUpClass = classmethod(stand_in.NotionStoreTests.setUpClass.__func__)
+    tearDownClass = classmethod(stand_in.NotionStoreTests.tearDownClass.__func__)
+    make = stand_in.NotionStoreTests.make
+    PROFILE = '# Igor\n\nSRE in Zurich.\n\n## Preferences\n\n- **Work mode:** Hybrid\n\n| Skill | Years |\n|---|---|\n| Kubernetes | 6 |'
+
+    def setUp(self):
+        self.s = self.make()
+        self.s.texts.set('profile', self.PROFILE)
+        self.page_text = self.tracker.page_text(self.env['NOTION_PROFILE_PAGE_ID'])
+
+    def test_plain_is_the_page_text(self):
+        self.assertNotEqual(self.s.texts.get('profile'), self.page_text, 'the two readings differ, or this test proves nothing')
+        self.assertEqual(self.s.texts.plain('profile'), self.page_text)
+
+    def test_the_rejection_review_reads_it(self):
+        from src.ai import rejection
+        app = self.s.applications.create({'url': 'https://x.test/r', 'title': 'SRE', 'company': 'Acme'}, 'Rejected')
+        seen = {}
+        def analyse(client, model, profile, text, stats=None):
+            seen['profile'] = profile
+            raise RuntimeError('stop here')
+        with mock.patch.object(rejection, 'analyse', analyse), self.assertRaises(RuntimeError):
+            rejection.review(self.s, app, email_text='Thank you for applying.', client=object())
+        self.assertEqual(seen['profile'], self.page_text)
+
+    def test_interview_prep_reads_it(self):
+        from src.ai import prep
+        record = self.s.applications.create({'url': 'https://x.test/p', 'title': 'SRE', 'company': 'Acme'}, 'Interviewing')
+        sent = {}
+        def create(**params):
+            sent['content'] = json.dumps(params['messages'], ensure_ascii=False)
+            raise RuntimeError('stop here')
+        client = mock.Mock()
+        client.messages.create.side_effect = create
+        with mock.patch.object(prep, 'role_text', lambda stores, record, db_path=None: 'Run Kubernetes at scale. ' * 40), \
+                self.assertRaises(RuntimeError):
+            prep.build(self.s, record, client=client)
+        self.assertIn(json.dumps(self.page_text[:200], ensure_ascii=False)[1:-1], sent['content'])
+
+
+@unittest.skipUnless(stand_in.shutil.which('node'), 'node runs the Notion stand-in')
 class StagesOnNotionTests(unittest.TestCase):
     """The application stages the search and the modes hide jobs by (store_access.url_stages): on Notion the same answer as
     Tracker.url_stages gave, a row with no stage and a URL with spaces around it included."""

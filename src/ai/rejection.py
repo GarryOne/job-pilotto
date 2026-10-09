@@ -194,7 +194,7 @@ def review(stores, app, *, email_text='', client=None, model=DEFAULT_MODEL, stat
     if client is None:
         from . import engine
         client = engine.client(action='review')
-    profile = stores.texts.get('profile') if profile is None else profile
+    profile = stores.texts.plain('profile') if profile is None else profile   # as the AI read it before the store (Notion: page_text)
     result, usage = analyse(client, model, profile, material(stores, app, email_text), stats)
     if result['verdict'] not in VERDICTS:
         result['verdict'] = 'Unclear'
@@ -225,7 +225,7 @@ def main(argv=None):
     if not rows:
         print('No rejected application waits for a review.')
         return 0
-    stats, profile, lines = {}, stores.texts.get('profile'), []
+    stats, profile, lines = {}, stores.texts.plain('profile'), []
     run_log.auto_begin(stores)  # the review's run opens when it starts, in the active store
     log = run_log.new_run('rejection')
     if len(rows) == 1:  # a review of one job: the run links to it (several: about none in particular)

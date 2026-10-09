@@ -293,7 +293,7 @@ def build(stores, record, client=None, model=DEFAULT_MODEL, stats=None, now=None
             role = f'{read}\n\n{role}'.strip()
     if about_role(role) < MIN_ROLE // 2:
         return _ask()
-    profile = stores.texts.get('profile')
+    profile = stores.texts.plain('profile')   # as the AI read it before the store (Notion: page_text)
     history = what_you_learned(stores, record)
     earlier = earlier_interviews(stores, record)
     follow_up = follow_up_text(earlier, latest_events(stores, record) if earlier else [])
