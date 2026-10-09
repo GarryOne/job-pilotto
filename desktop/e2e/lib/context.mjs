@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {startAiProxy} from './ai-proxy.mjs';
-import {startNotionProxy} from './notion-proxy.mjs';
+import {farSide, startNotionProxy} from './notion-proxy.mjs';
 import {startTelegramFake} from './telegram-fake.mjs';
 import {startGoogleFake} from './google-fake.mjs';
 import {startReleasesFake} from './releases-fake.mjs';
@@ -67,7 +67,7 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   // ctx.proxy's controls: a suite's stand-ins (setCanned), faults (setMode) and delay apply on an OpenAI turn too, in OpenAI's own shapes (lib/ai-proxy.mjs).
   ctx.openaiProxy = ctx.family === 'openai' ? await startAiProxy({target: 'https://api.openai.com', kind: 'app-openai', metered: /\/responses(\?|$)/, shape: 'openai', follow: ctx.proxy}) : null;
   // A suite that breaks Notion on purpose (`export const notionProxy = true`) gets the Notion stand-in between the app and Notion (lib/notion-proxy.mjs).
-  if (notionProxy) ctx.notion = await startNotionProxy();
+  if (notionProxy) ctx.notion = await startNotionProxy({target: farSide(standIn)});
   // A suite that reads what Telegram would receive (`export const telegram = true`) gets the fake Bot API (lib/telegram-fake.mjs); nothing reaches Telegram.
   if (telegram) ctx.telegram = await startTelegramFake();
   // A suite that runs the Gmail check (`export const google = true`) gets a fake Google with three of the mailreading eval's invented emails and a fake sign-in (lib/google-fake.mjs).

@@ -23,6 +23,10 @@ export function decide(plan, method, url) {
   return plan.mode;
 }
 
+// The proxy's far side: the in-memory Notion when the run has one, never real Notion behind it (9 Oct 2026: on the stand-in the proxy sent the
+// stand-in's placeholder token to api.notion.com, 401). Real Notion only for a run on the real test page.
+export const farSide = standIn => (standIn ? standIn.url : 'https://api.notion.com');
+
 export async function startNotionProxy({target = 'https://api.notion.com'} = {}) {
   const stats = {calls: 0, failed: 0, writes: 0, armed: 0};
   let plan = {mode: 'pass'};
