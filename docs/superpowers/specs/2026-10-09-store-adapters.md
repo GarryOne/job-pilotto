@@ -47,7 +47,8 @@ supersedes §1 of `2026-10-03-notion-later.md` (the "connect Notion to track" ga
 | P3 Desktop adapters | `desktop/lib/store/*` (JS mirror of the interface for JS-owned entities + its contract test), IPC on the store, gates removed | P0 |
 | P4 Move | `copy(from, to)` (engine), IPC + progress, Always on → move first | P1, P2 |
 | P5 UI | Settings → Data card ("Your data is on this Mac" / "Move my data to Notion"), wizard + extras wording, capability-driven links | P0 (fakes), P3 |
-| P6 Tests | parity test per screen fed by each adapter; e2e in sqlite mode | P1–P3 |
+| P6 Tests | parity test per screen fed by each adapter; e2e in sqlite mode (suite `stores`); move e2e; **export/import round trip** on sqlite, on notion and across the move (owner, 9 Oct 2026: "check import/export still works seamlessly") | P1–P3 |
+| P7 E2E without tokens | every e2e suite runs with **no Notion token** (owner, 9 Oct 2026): sqlite store by default; the Notion path on the in-memory stand-in (`notionStandIn`, lib/notion-fake.mjs); a real test workspace only for ONE suite `notion-real` at the release gate (connect, write, read, move to Notion; owner, 9 Oct 2026) | stand-in part: now; sqlite part: after the engine callers |
 
 P1, P2, P3 and P5 run in parallel once P0 is on main.
 
