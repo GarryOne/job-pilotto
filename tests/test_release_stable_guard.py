@@ -9,6 +9,8 @@ versioned installer beside it, the same bytes, does.
 Driven with a fake `gh` on PATH: no network, no release touched.
 """
 import os
+import shutil
+import signal
 import subprocess
 import tempfile
 import textwrap
@@ -48,6 +50,29 @@ FAKE_GH = textwrap.dedent('''\
     ''')
 
 
+# The script's own switches: one left in the environment by whoever runs the suite (a hotfix's SKIP_E2E=1, a canary job's E2E_NO_START=1)
+# would change what each test checks. They are set per test only.
+OWN_SWITCHES = {'DRY_RUN', 'SKIP_E2E'}
+
+
+def run_alone(command, env, timeout=60):
+    """Run the script in its own process group and end the whole group when it returns or times out: on a timeout,
+    subprocess.run kills only bash, and a `$(gate)` subshell (it shows as `release-stable.sh <tag>` too) was left running
+    after the suite (9 Oct 2026). Fails if anything of the run is still alive afterwards."""
+    child = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env, start_new_session=True)
+    try:
+        out, err = child.communicate(timeout=timeout)
+    finally:
+        try:
+            os.killpg(child.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        child.wait()
+    left = subprocess.run(['pgrep', '-g', str(child.pid)], capture_output=True, text=True).stdout.split()
+    assert not left, f'release-stable.sh left processes running after its test: {left}'
+    return subprocess.CompletedProcess(command, child.returncode, out, err)
+
+
 class PromoteGuardTests(unittest.TestCase):
     def promote(self, assets, e2e='green', skip=False, after='green', no_start=False, extra=None):
         """Run the real script against these (name, size) assets, with a fake gh standing in for GitHub."""
@@ -56,10 +81,13 @@ class PromoteGuardTests(unittest.TestCase):
             binary.write_text(FAKE_GH)
             binary.chmod(0o755)
             self.log = Path(folder) / 'gh.log'
-            env = {**os.environ, 'PATH': f'{folder}{os.pathsep}{os.environ["PATH"]}', 'FAKE_LOG': str(self.log), 'FAKE_STARTED': str(Path(folder) / 'started'),
+            env = {**{name: value for name, value in os.environ.items() if name not in OWN_SWITCHES and not name.startswith('E2E_')},
+                   'PATH': f'{folder}{os.pathsep}{os.environ["PATH"]}', 'FAKE_LOG': str(self.log), 'FAKE_STARTED': str(Path(folder) / 'started'),
                    'FAKE_ASSETS': '\n'.join(f'{name}\t{size}' for name, size in assets), 'FAKE_E2E': e2e, 'FAKE_E2E_AFTER': after, 'E2E_POLL_SECONDS': '0',
                    **({'SKIP_E2E': '1'} if skip else {}), **({'E2E_NO_START': '1'} if no_start else {}), **(extra or {})}
-            done = subprocess.run(['bash', str(SCRIPT), TAG], capture_output=True, text=True, env=env, timeout=60)
+            # The real gh would edit a real release: the script must find the fake first.
+            self.assertEqual(shutil.which('gh', path=env['PATH']), str(binary))
+            done = run_alone(['bash', str(SCRIPT), TAG], env)
             self.calls = self.log.read_text() if self.log.exists() else ''
             return done
 
