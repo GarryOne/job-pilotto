@@ -550,6 +550,8 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/sources/visits.py` — Sites only you can open (owner, 7 Oct 2026): employers whose job site refuses automated visitors (401/403/429, a bot check) and job portals
 - `src/sources/web_search.py` — A web search for a company's own job site ("<company> jobs"), as a person would do it, for employers the scout cannot reach by name or website
 - `src/store.py` — Canonical local store for jobs, companies, sources and application state."""
+- `src/stores/base.py` — The store interface: one Protocol per entity of the user's data, plain dicts in and out (never Notion JSON).
+- `src/stores/memory.py` — The in-memory store: the reference adapter (what the contract means, in the fewest lines) and a fake for tests.
 - `src/telegram.py` — Sending Telegram messages; the bot token comes from the environment or the macOS Keychain."""
 - `src/tgcard.py` — One look for every Telegram message Job Pilotto sends (Telegram HTML).
 - `src/time_budget.py` — A refresh's time budget (owner, 7 Oct 2026: "never more than 2-3 minutes"; a run read 1,650 jobs and sorted 600 titles for 30 minutes).

@@ -1,0 +1,252 @@
+"""The in-memory store: the reference adapter (what the contract means, in the fewest lines) and a fake for tests.
+
+Nothing is kept after the process ends. Guarded by tests/test_store_memory.py (the contract suite).
+"""
+import itertools
+from datetime import datetime, timezone
+
+from . import base
+
+_ids = itertools.count(1)
+
+
+def _now():
+    return datetime.now(timezone.utc).isoformat(timespec='seconds')
+
+
+def _new(fields, values):
+    return base.record(fields, {**values, 'id': f'm{next(_ids)}', 'created_at': _now()})
+
+
+def _known(fields, values):
+    unknown = set(values) - set(fields)
+    if unknown:
+        raise KeyError(f'not a field: {", ".join(sorted(unknown))}')
+    return values
+
+
+class _Table:
+    fields = ()
+
+    def __init__(self):
+        self.rows = {}
+
+    def _get(self, row_id):
+        if row_id not in self.rows:
+            raise KeyError(row_id)
+        return self.rows[row_id]
+
+    def update(self, row_id, fields):
+        row = self._get(row_id)
+        row.update(_known(self.fields, {k: v for k, v in fields.items() if k not in ('id', 'created_at')}))
+        return dict(row)
+
+
+class Applications(_Table):
+    fields = base.APPLICATION_FIELDS
+
+    def __init__(self):
+        super().__init__()
+        self.sections, self.files = {}, {}
+
+    def list(self, stages=None):
+        return [dict(r) for r in self.rows.values() if stages is None or r['stage'] in stages]
+
+    def stages(self):
+        return {base.url_key(r['url']): r['stage'] for r in self.rows.values()}
+
+    def set_stage(self, job, stage, today=None):
+        found = self.get(job.get('url'))
+        if found and found['stage'] == stage:
+            return found, base.UNCHANGED
+        stamp = {'applied_on': today or _now()[:10]} if stage == 'Applied' and not (found or {}).get('applied_on') else {}
+        if found:
+            return self.update(found['id'], {'stage': stage, **stamp}), base.CHANGED
+        return self.create({**job, **stamp}, stage), base.CREATED
+
+    def get(self, url):
+        key = base.url_key(url)
+        return next((dict(r) for r in self.rows.values() if base.url_key(r['url']) == key), None)
+
+    def create(self, job, stage):
+        found = self.get(job.get('url'))
+        if found:
+            return self.update(found['id'], {'stage': stage})
+        row = _new(self.fields, {**_known(self.fields, job), 'stage': stage})
+        self.rows[row['id']] = row
+        return dict(row)
+
+    def delete(self, app_id):
+        self.rows.pop(app_id, None)
+        for store in (self.sections, self.files):
+            for key in [k for k in store if k[0] == app_id]:
+                del store[key]
+
+    def section(self, app_id, name):
+        return self.sections.get((app_id, name))
+
+    def set_section(self, app_id, name, markdown):
+        self._get(app_id)
+        self.sections[(app_id, name)] = markdown
+
+    def attach(self, app_id, name, data, content_type):
+        self._get(app_id)
+        self.files[(app_id, name)] = (bytes(data), content_type)
+        return f'memory:{app_id}/{name}'
+
+
+class Events(_Table):
+    fields = base.EVENT_FIELDS
+
+    def list(self, app_id=None, kind=None, source_id=None):
+        return [dict(r) for r in self.rows.values() if r.get('archived') is not True
+                and (app_id is None or r['app_id'] == app_id) and (kind is None or r['kind'] == kind)
+                and (source_id is None or r['source_id'] == source_id)]
+
+    def add(self, app_id, kind, at, **fields):
+        same = fields.get('source_id') and self.list(app_id=app_id, source_id=fields['source_id'])
+        if same:
+            return same[0]
+        row = _new(self.fields, {**_known(self.fields, fields), 'app_id': app_id, 'kind': kind, 'at': at})
+        self.rows[row['id']] = row
+        return dict(row)
+
+    def archive(self, app_id, kind):
+        gone = [r['id'] for r in self.list(app_id=app_id, kind=kind)]
+        for row_id in gone:
+            del self.rows[row_id]
+        return len(gone)
+
+
+class Matches:
+    def __init__(self):
+        self.rows = {}
+
+    def list(self, status=None):
+        return [dict(r) for r in self.rows.values() if status is None or r['status'] == status]
+
+    def upsert(self, job):
+        key = base.url_key(job['url'])
+        row = self.rows.get(key) or base.record(base.MATCH_FIELDS, {'first_seen': _now()})
+        row.update(_known(base.MATCH_FIELDS, job))
+        self.rows[key] = row
+        return dict(row)
+
+    def set_status(self, url, status):
+        self.rows[base.url_key(url)]['status'] = status
+
+    def remove(self, url):
+        self.rows.pop(base.url_key(url), None)
+
+
+class Interviews(_Table):
+    fields = base.INTERVIEW_FIELDS
+
+    def list(self, app_id=None):
+        return [dict(r) for r in self.rows.values() if app_id is None or r['app_id'] == app_id]
+
+    def get(self, interview_id):
+        row = self.rows.get(interview_id)
+        return dict(row) if row else None
+
+    def save(self, interview_id, fields):
+        if interview_id:
+            return self.update(interview_id, fields)
+        row = _new(self.fields, _known(self.fields, fields))
+        self.rows[row['id']] = row
+        return dict(row)
+
+    def archive(self, interview_id):
+        self.rows.pop(interview_id, None)
+
+
+class Insights(_Table):
+    fields = base.INSIGHT_FIELDS
+
+    def list(self, since=None, category=None, limit=None):
+        found = sorted((dict(r) for r in self.rows.values() if (since is None or r['day'] >= since)
+                        and (category is None or r['category'] == category)), key=lambda r: r['day'], reverse=True)
+        return found[:limit] if limit else found
+
+    def save(self, day, category, title, body, fields=None):
+        same = next((r for r in self.rows.values() if r['day'] == day and r['category'] == category), None)
+        values = {'day': day, 'category': category, 'title': title, 'body': body, 'fields': dict(fields or {})}
+        if same:
+            return self.update(same['id'], values)
+        row = _new(self.fields, values)
+        self.rows[row['id']] = row
+        return dict(row)
+
+
+class Employers(_Table):
+    fields = base.EMPLOYER_FIELDS
+
+    def list(self, active=True):
+        return [dict(r) for r in self.rows.values() if active is None or bool(r['active']) == active]
+
+    def add(self, employer):
+        same = next((r for r in self.rows.values() if r['name'].casefold() == employer['name'].casefold()), None)
+        if same:
+            return dict(same)
+        row = _new(self.fields, {'active': True, **_known(self.fields, employer)})
+        self.rows[row['id']] = row
+        return dict(row)
+
+
+class AgentRuns(_Table):
+    fields = base.AGENT_RUN_FIELDS
+
+    def add(self, run):
+        row = _new(self.fields, _known(self.fields, run))
+        self.rows[row['id']] = row
+        return dict(row)
+
+    def list(self, ats=None, limit=None):
+        found = [dict(r) for r in reversed(list(self.rows.values())) if ats is None or r['ats'] == ats]
+        return found[:limit] if limit else found
+
+
+class CronRuns(_Table):
+    fields = base.CRON_RUN_FIELDS
+
+    def begin(self, kind, where):
+        row = base.record(self.fields, {'id': f'm{next(_ids)}', 'kind': kind, 'where': where, 'status': 'Running',
+                                        'started_at': _now(), 'progress': []})
+        self.rows[row['id']] = row
+        return dict(row)
+
+    def progress(self, run_id, line):
+        self._get(run_id)['progress'].append(line)
+
+    def finish(self, run_id, status, summary='', report='', result='', log=''):
+        return self.update(run_id, {'status': status, 'summary': summary, 'report': report, 'result': result,
+                                    'log': log, 'finished_at': _now()})
+
+    def get(self, run_id):
+        row = self.rows.get(run_id)
+        return dict(row) if row else None
+
+    def list(self, since=None, kind=None):
+        return [dict(r) for r in reversed(list(self.rows.values())) if (since is None or r['started_at'] >= since)
+                and (kind is None or r['kind'] == kind)]
+
+
+class Texts:
+    def __init__(self):
+        self.texts = {}
+
+    def get(self, name):
+        if name not in base.TEXTS:
+            raise KeyError(name)
+        return self.texts.get(name, '')
+
+    def set(self, name, markdown):
+        if name not in base.TEXTS:
+            raise KeyError(name)
+        self.texts[name] = markdown
+
+
+def open_store(env=None):
+    return base.Stores(name='memory', applications=Applications(), events=Events(), matches=Matches(),
+                       interviews=Interviews(), insights=Insights(), employers=Employers(), agent_runs=AgentRuns(),
+                       cron_runs=CronRuns(), texts=Texts())

@@ -105,7 +105,14 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 - Weekly self-review (`.github/workflows/weekly-self-review.yml`, Sun evening): Claude reads the week's commits/CI/issues and
   opens a `self-review/<date>` PR editing these rules or skills. Proposals only: the owner merges.
 
-## Data ownership: Notion is the source of truth (one copy of everything)
+## Data ownership: one copy of everything, behind the store interface
+**Changing since 9 Oct 2026 (owner): Notion becomes optional.** The user's data lives behind one store interface,
+`src/stores/` (`open_stores()`; adapters `sqlite` = the default for new users, `notion` = today's code, more later; every
+adapter passes `tests/store_contract.py`). A user moves to Notion only when they choose ("Move my data to Notion", one-way,
+never a sync); Always on needs Notion. New stored data goes through the interface and every adapter, never straight to
+Notion. Spec and owners: `docs/superpowers/specs/2026-10-09-store-adapters.md`. Until its pieces land, the rules below
+still describe the code; read them as "the active store" where they say Notion.
+
 Data is Notion-first. Before adding any stored field, file, setting or table, decide where it lives:
 - **Notion** — anything the user reads, edits, or would want on another device: statuses, run results,
   profile/answers, open questions, contact details, learned form notes, search settings, transcripts.
