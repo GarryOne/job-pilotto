@@ -5,8 +5,11 @@
 // 2. The bundled Python starts and imports what the pipeline and the Credential Manager need;
 //    the transcription add-on (not in the installer) installs itself with pip and then loads, PyAV decoding a real file;
 //    a secret round-trips through the Credential Manager; the pipeline lists (no) jobs from an empty folder.
-// 3. The installed app renders three screens (welcome, the wizard's extras with the Apply with Claude
-//    checklist, the Jobs page) in smoke mode (JOB_PILOTTO_SMOKE); screenshots go to the output folder.
+// 3. The installed app updates over itself, runs its in-app terminal (node-pty) and renders one screen (the Jobs page) in smoke mode
+//    (JOB_PILOTTO_SMOKE); the screenshot goes to the output folder.
+// Only what the Windows e2e cannot see is checked here: it runs the app from source, so the installer, the bundled Python, the Credential
+// Manager, the add-on and the packaged app's own start stay. The wizard and Settings pages are driven by its wizard and settings suites
+// (owner, 10 Oct 2026: "reduce the smoke tests considering we're just running E2E afterwards"; welcome, wizard extras and Settings → Connections were cut).
 // Any failure exits non-zero, so the release isn't published with a Windows app that doesn't start.
 import {execFileSync, spawn, spawnSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -72,18 +75,8 @@ const jobs = py(['-m', 'src.desktop', 'jobs'], {JOB_PILOTTO_NO_DOTENV: '1', JOB_
 JSON.parse(jobs);
 say(`pipeline jobs list ok: ${jobs.slice(0, 80)}`);
 
-// The app's own screens. Fresh data folders each time; the third has setup done but no Notion key (it can't be
-// made here), so the app asks for Notion again: the wizard's Notion step, with the rest of the app loaded.
-const extras = `(() => { document.querySelectorAll('.step').forEach(s => { s.hidden = s.dataset.step !== 'extras'; }); })()`;
+// The app's own screen: setup done but no Notion key (it can't be made here), so the app opens the Jobs list, with the rest of the app loaded.
 const waitForJobs = `new Promise(resolve => setTimeout(resolve, 8000))`;
-// Settings → Connections, where the extension's state and its install steps live: the pane a PC user is sent to
-// when the extension isn't reporting, and the one whose state was previously read twice and disagreed with itself.
-const openConnections = `(async () => {
-  document.querySelector('.nav[data-view="settings"]').click();
-  await new Promise(r => setTimeout(r, 800));
-  [...document.querySelectorAll('[data-settings-go]')].find(b => b.dataset.settingsGo === 'connections').click();
-  await new Promise(r => setTimeout(r, 3000));
-})()`;
 const DONE = {setupDone: true, autoSearch: false, lastSearchAt: '2099-01-01T00:00:00.000Z',
   notionIds: {NOTION_APPLICATIONS_DB: 'smoke', NOTION_MATCHES_DB: 'smoke', NOTION_PROFILE_PAGE_ID: 'smoke', NOTION_ANSWERS_PAGE_ID: 'smoke'}};
 // Updating itself (lib/updater.js, since 9 Oct 2026): the app starts the downloaded installer with WINDOWS_INSTALLER_ARGS and quits;
@@ -121,20 +114,10 @@ const DONE = {setupDone: true, autoSearch: false, lastSearchAt: '2099-01-01T00:0
 }
 // What each screen must actually report back, not just that a picture was taken: a blank or half-built window
 // still saves one. JOB_PILOTTO_SMOKE_EVAL is evaluated in the window and written beside the screenshot as JSON.
-const ACTIVE_STEP = `([...document.querySelectorAll('.step')].find(s => !s.hidden) || {}).dataset?.step || ''`;
 const SCREENS = [
-  ['welcome', '', null, `({step: ${ACTIVE_STEP}, wizard: !document.getElementById('wizard').hidden})`,
-    ({wizard}) => [wizard === true, 'the setup wizard is up']],
-  // The Apply with Claude card and its checklist exist only with Claude help on (360d4ea, renderer/claude-help.js): a person who chose it.
-  ['wizard-extras', extras, {claudeConsent: true}, `({step: ${ACTIVE_STEP}, checklist: document.querySelectorAll('#claude-prereqs li').length})`,
-    ({checklist}) => [checklist >= 3, `the Apply with Claude checklist rendered (${checklist} items)`]],
   ['jobs-without-notion', waitForJobs, DONE,
     `({view: ([...document.querySelectorAll('.view')].find(v => !v.hidden) || {}).dataset?.view || '', wizard: !document.getElementById('wizard').hidden})`,
     ({view, wizard}) => [view === 'jobs' && wizard === false, `a set-up app without a Notion token opens the Jobs list, not the wizard (view "${view}")`]],
-  ['settings-connections', openConnections, DONE,
-    `({view: ([...document.querySelectorAll('.view')].find(v => !v.hidden) || {}).dataset?.view || '', status: (document.getElementById('ext-status') || {}).textContent || '', steps: document.querySelectorAll('#ext-setup li').length, looked: (document.getElementById('ext-looked') || {}).textContent || ''})`,
-    ({view, status, steps, looked}) => [view === 'settings' && steps >= 3 && status.length > 0 && looked.includes('Looked in'),
-      `Settings → Connections drew its extension steps (${steps}), read the state as "${status}" and listed where it looked`]],
 ];
 for (const [name, js, settings, evalJs, ok] of SCREENS) {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-'));
