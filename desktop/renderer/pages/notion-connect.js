@@ -34,23 +34,32 @@ function progressLine({found, total, building, waitingPage, template, moving}) {
     : `Notion is still sharing your workspace with the connection: ${found} of ${total} found. This can take a minute; the app keeps checking.`;
 }
 
+// The prompt's words for its mode (rules connectMode): "Connect and move" with the move said up front, "Move to Notion" when connected already.
+function setMode(box) {
+  box.mode = connectMode({store: shared.state?.store, connected: notionConnected()});
+  box.sent = box.mode === 'move';   // a move-only prompt is no connect to report
+  const why = shared.state?.notionReasons?.[box.reason];
+  const words = box.mode !== 'move' ? reasonText(box.reason) : why && box.reason !== 'move' ? `Move your data to Notion ${why}.` : '';
+  $('notion-connect-reason').textContent = words;
+  show($('notion-connect-reason'), !!words);
+  show($('notion-connect-move'), box.mode !== 'connect');
+  show($('notion-connect-benefits'), box.mode !== 'move');
+  show($('notion-connect-note'), box.mode !== 'move');   // the sign-in footnote: no sign-in when Notion is connected already
+  $('notion-connect-go').textContent = GO_LABEL[box.mode];
+}
+
 // reason: a key of lib/notion-gate.js REASONS, or 'none' (the Optional extras card, Settings). where: dialog | extras | settings.
 // then(result): runs after a successful connect, and after the move it announced (the action the user asked for, or a redraw).
 // With the data on this Mac the prompt is "Connect and move", or "Move to Notion" when Notion is connected already (rules connectMode).
 export function openNotionConnect({reason = 'none', where = 'dialog', from = 'dialog', then = null} = {}) {
   const dialog = $('notion-connect-dialog');
-  const mode = connectMode({store: shared.state?.store, connected: notionConnected()});
-  current = {reason, where, from, then, sent: mode === 'move', notNow: false, why: null, mode};   // a move-only prompt is no connect to report
-  const why = shared.state?.notionReasons?.[reason];
-  const words = mode !== 'move' ? reasonText(reason) : why && reason !== 'move' ? `Move your data to Notion ${why}.` : '';
-  $('notion-connect-reason').textContent = words;
-  show($('notion-connect-reason'), !!words);
-  show($('notion-connect-move'), mode !== 'connect');
-  show($('notion-connect-benefits'), mode !== 'move');
-  show($('notion-connect-note'), mode !== 'move');   // the sign-in footnote: no sign-in when Notion is connected already
+  current = {reason, where, from, then, sent: false, notNow: false, why: null};
+  setMode(current);
+  // The mode follows where the data is now: the state read at start may be older (a token pasted, a move finished elsewhere).
+  const box = current;
+  window.pilot.state().then(state => { shared.state = state; if (current === box && !box.connecting && !box.moving) setMode(box); }).catch(() => {});
   show($('notion-connect-why'), false);
   $('notion-connect-later').textContent = 'Not now';
-  $('notion-connect-go').textContent = GO_LABEL[mode];
   $('notion-connect-go').disabled = false;
   message('notion-connect-message', '');
   show($('notion-connect-token'), false);
@@ -82,6 +91,9 @@ async function move(box) {
 async function connect() {
   if (!current) return;
   const box = current;
+  // A press before the fresh state arrived: decide on the state now, so a connected Notion is never asked to sign in again.
+  shared.state = await window.pilot.state().catch(() => shared.state);
+  setMode(box);
   if (box.mode === 'move') { await move(box); return; }
   box.connecting = true;
   $('notion-connect-go').disabled = true;

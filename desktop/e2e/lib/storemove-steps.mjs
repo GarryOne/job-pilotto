@@ -73,8 +73,9 @@ export async function pressMove(page, {timeout = 180000} = {}) {
     await page.click('#store-move');
   }
   await page.waitForSelector('#notion-connect-move', {state: 'visible', timeout: 10000});
-  const label = (await page.textContent('#notion-connect-go')).trim();
-  if (label !== 'Move to Notion') throw new Error(`the move's prompt says "${label}", not "Move to Notion"`);
+  // Notion is connected (the step before connected it): the prompt reads the state as it opens and offers the move alone.
+  const said = await page.waitForFunction(() => document.getElementById('notion-connect-go')?.textContent.trim() === 'Move to Notion', null, {timeout: 10000}).then(() => '', () => page.textContent('#notion-connect-go'));
+  if (said) throw new Error(`the move's prompt says "${said.trim()}", not "Move to Notion"`);
   await page.evaluate(() => { document.getElementById('store-message').textContent = ''; });   // a stopped move's line from before must not count
   await page.click('#notion-connect-go');
   await page.waitForFunction(() => /Moved to Notion ✓|stopped before the end|Not moved/.test(document.getElementById('store-message')?.textContent || ''), null, {timeout});
