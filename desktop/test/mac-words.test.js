@@ -16,7 +16,7 @@ const KEPT = [
 ];
 
 test('after the Windows swap no line of the renderer or lib still says Mac', () => {
-  const left = ['renderer', 'lib'].flatMap(walk).filter(file => /\.(js|html)$/.test(file) && !file.endsWith('renderer/os.js'))
+  const left = ['renderer', 'lib'].flatMap(walk).filter(file => /\.(js|html)$/.test(file) && !file.replace(/\\/g, '/').endsWith('renderer/os.js'))   // \ on Windows (CI red, 9 Oct 2026)
     .flatMap(file => readFileSync(join(root, file), 'utf8').split('\n').map((line, i) => [file, i + 1, line.trim()])
       .filter(([, , line]) => !/^(\/\/|\*|<!--)/.test(line) && !line.includes('data-mac-only') && !KEPT.some(text => line.includes(text))
         && /\bMac\b/.test(osText(line.replace(/\bplatform\b.*|darwin.*/, ''), 'win32')) && !/(['"])mac\1|\.mac\b|mac:|process\.platform|navigator\.platform/.test(line))
