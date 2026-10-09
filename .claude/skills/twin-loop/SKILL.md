@@ -81,8 +81,10 @@ Twin fills count as real use since d8cbe63, so they feed it both ways.
    - **Helps:** `filledShare`/`formsNeedingNothing` went up, and `missingShare`/`medianSeconds` went down, for the versions shipped.
    - **Sees:** every left field has a reason the digest can group (not "unknown").
 4. **Gaps:** any "no" above, and any number that cannot move. Examples:
-   - a counter stuck at 0 while the thing happens live (on 9 Oct, `proposedShare` was 0 all week while proposals showed in the panel);
-   - `lastWeek` empty or `before: 0` everywhere, so no weakness can ever show progress;
+   - a counter stuck at 0 while the thing happens live. First check that the fills are reaching the site at all: on 9 Oct, `proposedShare` was 0 because
+     no fill from extension ≥0.9.126 (the version that counts suggestions) had reached the site yet, and the twin was cut off from it until d8cbe63. It was not a counting bug;
+   - no comparison window: weekly and per-version rows are too thin (versions change about hourly, 1-2 forms each), so use the digest's recent vs earlier window
+     (the last 3 days vs the 4 before; mac-1a, 9 Oct 2026) to see progress per weakness;
    - a weakness whose `area` names a part no data path can change (only code can).
 
    Each gap is a fix to the **mechanism**, not to a form, under the same rules: a failing test first, one change, land, then confirm the number moves in the digest.
