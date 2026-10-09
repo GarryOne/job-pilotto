@@ -46,6 +46,11 @@ on:
         description: 'Run every suite on macOS (as before 6 Oct 2026), to compare with the Linux runners'
         type: boolean
         default: false
+      family:
+        description: 'The AI family the app under test runs on: alternate by run number (odd: OpenAI, even: Claude), or claude / openai to pin one (desktop/e2e/lib/engine.mjs pickFamily)'
+        type: choice
+        options: [alternate, claude, openai]
+        default: alternate
       mutant:
         description: 'MUTATION TEST (mutation.yml): write this mutant of desktop/e2e/mutants.json into the app first, or "baseline". Fixed path, no AI review, nothing filed, no Windows run'
         required: false
@@ -147,6 +152,7 @@ jobs:
       E2E_REQUIRE_SECRETS: ${{ github.repository == 'GarryOne/job-pilotto' && '1' || '' }}
       E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
       E2E_OPENAI_KEY: ${{ secrets.E2E_OPENAI_KEY }}   # the OpenAI family's turn (odd runs; desktop/e2e/lib/engine.mjs pickFamily)
+      E2E_AI_FAMILY: ${{ (inputs.family == 'claude' || inputs.family == 'openai') && inputs.family || '' }}   # a manual run pinned to one family; else alternate
       E2E_NOTION_TOKEN: ${{ secrets.E2E_NOTION_TOKEN }}
       E2E_NOTION_TOKEN_FAILURESNOTION: ${{ secrets.E2E_NOTION_TOKEN_FAILURESNOTION }}
       E2E_NOTION_TOKEN_FAILURESCHANNELS: ${{ secrets.E2E_NOTION_TOKEN_FAILURESCHANNELS }}
