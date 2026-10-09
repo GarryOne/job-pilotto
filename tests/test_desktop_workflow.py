@@ -78,8 +78,20 @@ class DesktopWorkflowTest(unittest.TestCase):
         # Owner, 7 Oct 2026: "Anything new? -> Build -> E2E -> Release" per platform, "literally that clean": each step one box (a job or one matrix), no called workflows.
         job = lambda name: WORKFLOW.split(f'\n  {name}:\n')[1].split('\n\n  # ')[0]
         self.assertNotIn('uses: ./.github/workflows/', WORKFLOW, 'a called workflow draws all its jobs in the graph')
-        self.assertIn('needs: changes ', job('build'))
-        self.assertIn('needs: changes ', job('windows'))
+        # The build stage (owner, 10 Oct 2026: "compiles, passes the unit tests", plus a very small smoke) is three parallel jobs per platform, then the publish job.
+        for part in ('compile-mac', 'unit-mac', 'compile-windows', 'unit-windows'):
+            self.assertIn('needs: changes', job(part))
+        self.assertIn('needs: [changes, compile-mac]', job('smoke-mac'))
+        self.assertIn('needs: [changes, compile-windows]', job('smoke-windows'))
+        self.assertIn('needs: [changes, compile-mac, unit-mac, smoke-mac]', job('build'))
+        self.assertIn('needs: [changes, compile-windows, unit-windows, smoke-windows]', job('windows'))
+        self.assertIn('python -m unittest discover -s tests', job('unit-mac'))   # the unit tests stay in the build, on both platforms
+        self.assertIn('npm test', job('unit-mac'))
+        self.assertIn('npm test', job('unit-windows'))
+        self.assertIn('mac-smoke.mjs', job('smoke-mac'))
+        self.assertIn('windows-smoke.mjs', job('smoke-windows'))
+        self.assertIn('needs: [changes, windows]', job('packaging-windows'))   # the slow installed-app checks are the gate's, only when e2e follows
+        self.assertIn("needs.changes.outputs.gate == 'true'", job('packaging-windows'))
         self.assertIn('needs: [changes, build]', job('test-mac'))
         self.assertIn('needs: [changes, windows]', job('test-windows'))
         self.assertIn('fromJson(needs.changes.outputs.mac_matrix)', job('test-mac'))
@@ -92,16 +104,19 @@ class DesktopWorkflowTest(unittest.TestCase):
         self.assertIn('node ai-spend.mjs', job('changes'))
         for name, e2e, script in (('release-mac', 'test-mac', 'tools/beta-approve.sh "$TAG"'), ('release-windows', 'test-windows', 'tools/beta-approve.sh --windows "$TAG"')):
             release = job(name)
-            self.assertIn(f'needs: [changes, {e2e}]', release)
+            self.assertIn(f'needs: [changes, {e2e}', release)   # Windows also waits for its packaging job
             self.assertIn(f"if: needs.{e2e}.result != 'success'", release)   # red, "not released", when an E2E suite failed
             self.assertIn(script, release)
         # only a nightly or a beta by hand is tested; the plan is made once, for both lanes
         self.assertIn("(github.event_name == 'schedule' || inputs.nightly || inputs.beta)", job('changes'))
         self.assertIn('node plan-run.mjs', job('changes'))
-        # the Windows fallback is a step of Build · Windows, not a box
-        self.assertIn('if: failure()', job('windows'))
+        # the Windows fallback is a step of Build · Windows, not a box: it runs when a part failed (then the job fails itself)
+        self.assertIn("if: always() && needs.changes.outputs.released == 'true'", job('windows'))
+        self.assertIn("if: env.PARTS != 'true'", job('windows'))
+        self.assertIn('exit 1', job('windows').split('carry over the last working Windows installer')[1])
+        self.assertIn('needs.packaging-windows.result', job('release-windows'))   # a failed packaging check withholds the Windows beta
         self.assertNotIn('\n  mac-only:\n', WORKFLOW)
-        self.assertIn('needs: [changes, build, windows, test-mac, test-windows, release-mac, release-windows]', WORKFLOW)
+        self.assertIn('needs: [changes, build, windows, packaging-windows, test-mac, test-windows, release-mac, release-windows]', WORKFLOW)
 
 if __name__ == '__main__':
     unittest.main()
