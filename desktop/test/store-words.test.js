@@ -15,3 +15,11 @@ test('no file says "Notion" in more sentences than it did (use storeName()/bySto
   const over = Object.entries(counts(desktop)).filter(([file, n]) => n > (ALLOWED[file] || 0)).map(([file, n]) => `${file}: ${n} (allowed ${ALLOWED[file] || 0})`);
   assert.deepEqual(over, []);
 });
+
+test('index.html counts too: visible words and titles, not what the page already handles by store', async () => {
+  const {countHtml} = await import('./store-words-count.js');
+  assert.equal(countHtml('<p title="Saved to Notion">Hi</p>'), 1, 'a title is read');
+  assert.equal(countHtml('<p class="muted">Saved to Notion 🎤 Interviews</p>'), 1, 'visible text');
+  assert.equal(countHtml('<button data-notion-only>Edit in your Notion</button>\n<b data-store-saved>Saved in Notion</b>'), 0, 'handled by the page');
+  assert.equal(countHtml('<button id="notion-go" data-x="notion">Connect with Notion</button>\n<!-- Notion here -->'), 0, 'about Notion itself, ids, comments');
+});

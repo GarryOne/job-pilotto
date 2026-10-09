@@ -36,5 +36,6 @@
  "renderer/pages/sessions.js": 1,
  "renderer/pages/settings.js": 2,
  "renderer/pages/strategy-review.js": 4,
- "renderer/pages/strategy-targets.js": 1
+ "renderer/pages/strategy-targets.js": 1,
+ "renderer/index.html": 34
 }

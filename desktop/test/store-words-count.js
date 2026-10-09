@@ -15,6 +15,18 @@ export function count(source) {
   }
   return n;
 }
+// index.html's static text: per line, the visible words and the title / placeholder / aria-label a person reads. A line the page
+// already handles (data-notion-only: shown only with Notion; data-store-saved: its words set by the store) does not count.
+export function countHtml(source) {
+  let n = 0;
+  for (const line of source.replace(/<!--[\s\S]*?-->/g, '').split('\n')) {
+    if (/data-notion-only|data-store-saved/.test(line)) continue;
+    const said = [...line.matchAll(/\b(?:title|placeholder|aria-label)="([^"]*)"/g)].map(match => match[1]);
+    said.push(line.replace(/<[^>]*>/g, ' ').replace(/<[a-zA-Z\/][^>]*$/, ' '));
+    if (said.some(text => /(^|[^A-Za-z])Notion/.test(text) && !ABOUT_NOTION.test(text))) n++;
+  }
+  return n;
+}
 // Every window file and its count (the connect prompt and the helper itself are about Notion).
 export function counts(desktop) {
   const out = {};
@@ -26,5 +38,7 @@ export function counts(desktop) {
       if (n) out[file] = n;
     }
   }
+  const html = countHtml(fs.readFileSync(path.join(desktop, 'renderer', 'index.html'), 'utf8'));
+  if (html) out['renderer/index.html'] = html;
   return out;
 }
