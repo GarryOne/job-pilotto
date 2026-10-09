@@ -472,6 +472,9 @@
           "type": "relation",
           "database": "NOTION_CRON_RUNS_DB",
           "synced_property": "Application"
+        },
+        "Created": {
+          "type": "date"
         }
       }
     },
@@ -1380,6 +1383,9 @@
         },
         "Suggested job": {
           "type": "url"
+        },
+        "Created": {
+          "type": "date"
         }
       }
     },

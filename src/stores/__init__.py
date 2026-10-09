@@ -12,6 +12,7 @@ from .base import CLOUD, FILES, LINKS, TEXTS, Stores, url_key  # noqa: F401 (the
 ADAPTERS = {
     'memory': 'src.stores.memory',
     'sqlite': 'src.stores.sqlite',
+    'notion': 'src.stores.notion',
 }
 
 
