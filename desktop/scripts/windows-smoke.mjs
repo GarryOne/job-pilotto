@@ -120,7 +120,8 @@ const ACTIVE_STEP = `([...document.querySelectorAll('.step')].find(s => !s.hidde
 const SCREENS = [
   ['welcome', '', null, `({step: ${ACTIVE_STEP}, wizard: !document.getElementById('wizard').hidden})`,
     ({wizard}) => [wizard === true, 'the setup wizard is up']],
-  ['wizard-extras', extras, null, `({step: ${ACTIVE_STEP}, checklist: document.querySelectorAll('#claude-prereqs li').length})`,
+  // The Apply with Claude card and its checklist exist only with Claude help on (360d4ea, renderer/claude-help.js): a person who chose it.
+  ['wizard-extras', extras, {claudeConsent: true}, `({step: ${ACTIVE_STEP}, checklist: document.querySelectorAll('#claude-prereqs li').length})`,
     ({checklist}) => [checklist >= 3, `the Apply with Claude checklist rendered (${checklist} items)`]],
   ['jobs-without-notion', waitForJobs, DONE,
     `({view: ([...document.querySelectorAll('.view')].find(v => !v.hidden) || {}).dataset?.view || '', wizard: !document.getElementById('wizard').hidden})`,
