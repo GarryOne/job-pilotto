@@ -551,6 +551,9 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .job-panel-head { display: flex; justify-content: space-between; align-items: start; gap: var(--sp-2); margin-bottom: var(--sp-2); }
 .job-panel-head h2 { margin: 0; font-size: var(--fs-lg); }
 .job-panel .tabs { flex-wrap: wrap; gap: 0 var(--sp-3); margin-top: var(--sp-2); }
+/* Reports → Insights (pages/reports.js): one insight after another, its feedback choice closing it. */
+.reports-insight { padding-bottom: var(--sp-4); margin-bottom: var(--sp-4); border-bottom: 1px solid var(--line); }
+.reports-insight .segmented { margin-top: var(--sp-2); }
 .job-panel .iv-moments-group h3, .job-panel-line { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); }
 
 /* Narrow window (under 1180 px; the window's minimum is lib/main-window.js MIN_WIDTH): the comfortable card stacks company, place and

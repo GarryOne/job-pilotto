@@ -132,6 +132,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/questions.js` — "Answer once": questions Job Pilotto needs you to answer. With Notion connected they are the ❓ lines of
 - `desktop/lib/quit-dialog.js` — What "Remove this session" asks when its job is still Applying in Notion: was it submitted?
 - `desktop/lib/recipes.js` — The app's side of the shared recipe library (site/src/recipes.js; design in Notion "Self-improving form filling").
+- `desktop/lib/reports-handlers.js` — Reports (renderer/pages/reports.js): the 💡 Insights history from the active store through the engine (insights.list), and the feedback a
 - `desktop/lib/reports.js` — "Help improve Job Pilotto": when a fill leaves a field for a mechanical reason (a widget the extension couldn't
 - `desktop/lib/request-log.js` — Every Notion request, one line each, for debugging and tuning: <data folder>/logs/notion-requests.log for today,
 - `desktop/lib/reset.js` — Settings → Your data: export, import and reset this computer's Job Pilotto data (the data folder).
@@ -247,6 +248,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/prep.js` — Interview prep kit (Focus → Prepare): built from the job's description, your Profile and your past interviews,
 - `desktop/renderer/pages/profile.js` — Settings → Application profile.
 - `desktop/renderer/pages/reassign.js` — Where an email belongs, in your words: Focus → "Is this about …?" (an email the Gmail check wasn't sure about).
+- `desktop/renderer/pages/reports.js` — Reports (owner's choice, 9 Oct 2026: one page, tabs Weekly · Insights · Funnel · Form fills): what Notion's 💡 Insights and 🎯 Pipeline
 - `desktop/renderer/pages/rich-text.js` — Claude's messages as readable text.
 - `desktop/renderer/pages/runs-page.js` — Status card and the Actions page.
 - `desktop/renderer/pages/session-actions.js` — Session actions: remove, close, cancel, skip, restart, resume and pause one application session.
@@ -326,6 +328,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/proposal-pick.js` — The proposed answer for a field the form still has empty (no DOM: the session page's row asks this, a test feeds it every source).
 - `desktop/renderer/question-words.js` — The words of a "Which job is this email about?" question, shared by the Gmail card (pages/activity.js) and its popup (pages/reassign.js).
 - `desktop/renderer/questions-view.js` — What the "Answer once" card says when its questions couldn't be read: nothing while Notion isn't connected, else one plain line.
+- `desktop/renderer/reports-view.js` — Reports (pages/reports.js), pure: the weekly reports in full, the insight history with its feedback, and the funnel's table, from the
 - `desktop/renderer/result-seen.js` — Which finished runs have had their result card shown on Actions (#280, 5 Oct 2026). A run's id is its start time, so a search started at 10:00 that ends at 10:30 has a
 - `desktop/renderer/review-again.js` — Interviews → a reviewed row's ⋯ "Review again": its menu entry (busy while it runs) and the message after it.
 - `desktop/renderer/review-pending.js` — Interviews being reviewed elsewhere (Always on: GitHub runs the review; the app's call returns at once): remembered

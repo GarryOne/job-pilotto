@@ -1,0 +1,71 @@
+[
+ {
+  "id": "ins-4",
+  "created_at": "",
+  "day": "2026-10-09",
+  "category": "Weekly report",
+  "title": "Quiet week: 2 applications, 1 interview",
+  "body": "> [!] Replies came only from jobs posted under 3 days ago\n\nYou sent 2 applications and had a first interview.\n\n### Priorities from recurring evidence\n\nRejections cite missing Kubernetes depth — 3 applications, 2 employers\n\n- Lead the CV with the cluster you ran\n- Example Cloud · employer feedback: We need deeper Kubernetes operations · https://jobs.example.com/1\n- Alpine Data · interview review: Asked twice about cluster upgrades · https://jobs.example.com/3\n\n### What worked\n\n- The recruiter channel: 2 of 2 replied\n\n### Change next week\n\n- Send the 5 drafted kits\n- Apply within 3 days of posting\n\n### Focus\n\nFive applications to fresh postings\n\n### Numbers\n\n- Applications: 12 total, 2 this week; outcomes {'Rejected': 3}; interview rate of decided 25%\n- Replies this week: {'Replied': 2}\n- Market: 214 open jobs, 120 eligible, 9 need a language you don't have, 31 new this week\n- Top technologies in best-fit jobs: Kubernetes 40, Go 10 (not in profile)\n\n### Daily insights this week\n\n- 2026-10-06 · Timing: Replies come within 2 days of applying — Useful",
+  "fields": {
+   "basis": "Both",
+   "confidence": "Medium",
+   "sample_size": 12,
+   "evidence": "You sent 2 applications and had a first interview.",
+   "action": "Five applications to fresh postings",
+   "cost": 0.03,
+   "model": "claude-sonnet-5-5"
+  }
+ },
+ {
+  "id": "ins-3",
+  "created_at": "",
+  "day": "2026-10-08",
+  "category": "Process",
+  "title": "Rejections cite missing Kubernetes depth",
+  "body": "Lead the CV with the cluster you ran\n\nSupported hypothesis: 3 applications, 2 employers; employer feedback, interview review. Evidence does not establish that this caused every rejection.\n\nExample Cloud · SRE · employer feedback\nWe need deeper Kubernetes operations\nhttps://jobs.example.com/1\n\nAlpine Data · Platform Engineer · interview review\nAsked twice about cluster upgrades\nhttps://jobs.example.com/3",
+  "fields": {
+   "basis": "Applications",
+   "confidence": "medium",
+   "sample_size": 3,
+   "evidence": "Example Cloud · SRE · employer feedback: We need deeper Kubernetes operations\nAlpine Data · Platform Engineer · interview review: Asked twice about cluster upgrades",
+   "action": "Lead the CV with the cluster you ran",
+   "issue_detected": true,
+   "model": "claude-sonnet-5-5"
+  }
+ },
+ {
+  "id": "ins-2",
+  "created_at": "",
+  "day": "2026-10-07",
+  "category": "Skills",
+  "title": "Go appears in 40% of your best-fit jobs",
+  "fields": {
+   "basis": "Jobs",
+   "confidence": "Medium",
+   "sample_size": 25,
+   "evidence": "10 of 25 postings name Go",
+   "action": "Add the Go service you ran to your CV",
+   "cost": 0.01,
+   "model": "claude-sonnet-5-5"
+  },
+  "body": ""
+ },
+ {
+  "id": "ins-1",
+  "created_at": "",
+  "day": "2026-10-06",
+  "category": "Timing",
+  "title": "Replies come within 2 days of applying",
+  "fields": {
+   "basis": "Applications",
+   "confidence": "Low",
+   "sample_size": 10,
+   "evidence": "6 of 7 replies within 2 days\n7 of 10 got a reply",
+   "action": "No reply after 3 days: treat it as a silent no and move on",
+   "cost": 0.01,
+   "model": "claude-sonnet-5-5",
+   "feedback": "Useful"
+  },
+  "body": ""
+ }
+]

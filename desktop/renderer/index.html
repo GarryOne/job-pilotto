@@ -267,6 +267,7 @@
     <button class="nav" data-view="actions"><i data-icon="check"></i>Actions<span class="spinner nav-running" id="nav-actions-running" role="status" hidden></span></button>
     <button class="nav" data-view="calendar"><i data-icon="calendar"></i>Calendar</button>
     <button class="nav" data-view="interviews"><i data-icon="mic"></i>Interviews</button>
+    <button class="nav" data-view="reports"><i data-icon="chart"></i>Reports</button>
     <p class="nav-group">Setup</p>
     <button class="nav" data-view="strategy"><i data-icon="sliders"></i>Strategy<span class="nav-dot" id="strategy-dot" hidden title="Few new jobs lately: see what would bring more"></span></button>
     <button class="nav" data-view="settings" data-settings="profile"><i data-icon="user"></i>Profile</button>
@@ -621,6 +622,19 @@
       <section class="card status-card" id="status-card" hidden></section>
     </div>
 
+    <div class="view" data-view="reports" hidden>
+      <header class="view-head jobs-head">
+        <div><h1>Reports</h1><p class="muted subtitle">Your weekly reports, insights, funnel and form fills.</p></div>
+        <span class="muted small" id="reports-state"></span>
+      </header>
+      <div class="tabs" role="tablist" aria-label="Reports">
+        <button role="tab" type="button" data-reports-tab="weekly" class="is-active">Weekly</button>
+        <button role="tab" type="button" data-reports-tab="insights">Insights</button>
+        <button role="tab" type="button" data-reports-tab="funnel">Funnel</button>
+        <button role="tab" type="button" data-reports-tab="fills">Form fills</button>
+      </div>
+      <div class="card" id="reports-body"></div>
+    </div>
     <div class="view" data-view="calendar" hidden>
       <header class="view-head jobs-head">
         <div><h1>Calendar</h1><p class="muted subtitle">Your screenings and interviews.</p></div>

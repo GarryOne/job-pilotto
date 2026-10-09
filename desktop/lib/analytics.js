@@ -7,7 +7,7 @@ import {scrub} from './telemetry.js';
 
 export const EVENTS = ['app_start', 'page_view', 'setup_step', 'search_done', 'first_search_done', 'kit_prepared', 'apply_started', 'applied',
   'feedback_sent', 'update_installed'];
-export const PAGES = ['focus', 'jobs', 'sessions', 'actions', 'calendar', 'interviews', 'strategy', 'settings'];
+export const PAGES = ['focus', 'jobs', 'sessions', 'actions', 'calendar', 'interviews', 'strategy', 'settings', 'reports'];
 const FLUSH_AT = 20, FLUSH_MS = 30_000, QUEUE_MAX = 100;
 
 // Properties: lower-case names, and values that are a flag, a number, or a short word (a mode, a page, a step), scrubbed.

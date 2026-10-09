@@ -24,6 +24,7 @@ import {registerContactHandlers} from './lib/contact-handlers.js';
 import {registerStoreHandlers, storeState} from './lib/store-handlers.js';
 import {registerJobPageHandlers} from './lib/job-page-handlers.js';
 import {registerTextHandlers} from './lib/text-handlers.js';
+import {registerReportsHandlers} from './lib/reports-handlers.js';
 import {registerSearchTuningHandlers} from './lib/search-tuning-handlers.js';
 import {settingsDepsFor} from './lib/settings-deps.js';
 import {createSessionFlow} from './lib/session-flow.js';
@@ -251,6 +252,7 @@ function handlers() {
   registerStrategyDraftHandlers({DEMO, here, ipcMain, storage, syncCv, toWindow, trackSetup});   // lib/strategy-draft-handlers.js
   registerJobPageHandlers({ipcMain, storage, DEMO, here, log: appLog});   // lib/job-page-handlers.js: Jobs → a job's page
   registerTextHandlers({ipcMain, storage, DEMO, log: appLog});   // lib/text-handlers.js: Settings → Profile's texts
+  registerReportsHandlers({ipcMain, storage, DEMO, here, log: appLog});   // lib/reports-handlers.js: Reports → insights
   registerJobsHandlers({DEMO, JOBS_PAGE, activity, allowanceBlock, app, cloud, dispatchCloud, here, ipcMain, log, needsNotion, shell, storage, toWindow, track});   // lib/jobs-handlers.js
   registerCloudHandlers({DEMO, cloud, dialog, handleImportant, needsNotion, restartTelegram, shell, storage, toWindow, getWindow: () => window});   // lib/cloud-handlers.js
   registerJobActionsHandlers({DEMO, allowanceBlock, cloud, dispatchCloud, dispatchNote, intelLib, ipcMain, log, needsNotion, getRecipeReporter: () => recipeReporterRef, storage});   // lib/job-actions-handlers.js

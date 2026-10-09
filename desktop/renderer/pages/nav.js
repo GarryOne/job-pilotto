@@ -9,6 +9,7 @@ import {showFocusStarted} from './focus-onboarding.js';
 import {loadCalendar} from './calendar.js';
 import {loadInterviews} from './interviews.js';
 import {openJobPanel} from './job-panel.js';
+import {REPORT_TABS, loadReports} from './reports.js';
 import {applyViewGate} from './notion-connect.js';
 import {loadSettings} from './profile.js';
 import {openSession, renderSessionPage} from './session-log.js';
@@ -58,6 +59,7 @@ export function openView(name, {fromHistory = false} = {}) {
   }
   if (name === 'interviews' && !locked) loadInterviews();
   if (name === 'calendar' && !locked) loadCalendar();
+  if (name === 'reports' && !locked) loadReports();
   if (name === 'focus' && !locked && !started) loadFocus();
 }
 
@@ -105,6 +107,8 @@ function paletteCommands() {
     ? 'Your applications in columns by stage; drag a card to change its stage' : 'One row per job', 'pipeline kanban board columns stages list', () => { openView('jobs'); node.click(); }));
   document.querySelectorAll('#jobs-views [data-view]').forEach(node => add('Jobs', `Jobs view: ${labelOf(node.firstChild)}`, node.title,
     'saved view filter applications active rejected this week', () => { openView('jobs'); if (node.getAttribute('aria-pressed') !== 'true') node.click(); }));
+  // Each Reports tab (pages/reports.js), by what it holds.
+  for (const [tab, label, words] of REPORT_TABS) add('Reports', `Open Reports: ${label}`, '', words, () => { openView('reports'); loadReports(tab); });
   button('jobs', 'refresh', 'find jobs scan');
   button('strategy', 'open-profile', 'edit roles locations places cities country skills targeting preferences');
   button('jobs', 'apply-open', 'apply fill forms');

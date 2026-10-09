@@ -28,7 +28,7 @@ contextBridge.exposeInMainWorld('pilot', {
   tailorCv: call('tailorCv'), tailorTop: call('tailorTop'), openTailoredCv: call('openTailoredCv'), cvStatus: call('cvStatus'), cvOf: call('cvOf'), matchCheck: call('matchCheck'), tuneProposals: call('tuneProposals'), tuneApply: call('tuneApply'), matchSaved: call('matchSaved'), cvCheckStatus: call('cvCheckStatus'), cvCheckRun: call('cvCheckRun'), cvCheckAi: call('cvCheckAi'), importCv: call('importCv'), viewBaseCv: call('viewBaseCv'), showCvFolder: call('showCvFolder'),
   coverLetter: call('coverLetter'), coverLetterDraft: call('coverLetterDraft'), coverLetterSave: call('coverLetterSave'), coverLetterApprove: call('coverLetterApprove'), coverLetterOpen: call('coverLetterOpen'),
   ivRecord: call('ivRecord'),
-  jobPage: call('jobPage'), textGet: call('textGet'), textSave: call('textSave'),
+  jobPage: call('jobPage'), textGet: call('textGet'), textSave: call('textSave'), reportsInsights: call('reportsInsights'), insightFeedback: call('insightFeedback'),
   storeState: call('storeState'), keepOnThisMac: call('keepOnThisMac'), moveToNotion: call('moveToNotion'),
   notionConnect: call('notionConnect'), telegramConnect: call('telegramConnect'), telegramDisconnect: call('telegramDisconnect'), setAutomation: call('setAutomation'), setTheme: call('setTheme'),
   onCloudStep: callback => ipcRenderer.on('cloudStep', (_, step) => callback(step)),
