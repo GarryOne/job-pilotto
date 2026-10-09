@@ -10,7 +10,8 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from src import daily, digest, scout, store as job_store
-from src.ai import insights, interviews, mail
+from src.ai import insights, interviews, mail, mail_calendar
+from src.stores import memory
 from src.notion import cron_runs
 
 out = {}
@@ -50,8 +51,13 @@ row = {'id': 'abc', 'url': 'https://app.notion.com/p/app', 'properties': {'Compa
        'Next step': {'rich_text': [{'plain_text': 'Send the recruiter your updated CV.'}]}}}
 event = {'summary': 'Interview with Huxley', 'hangoutLink': 'https://meet.example.com/x', 'attendees': [{'displayName': 'Sam Lee'}]}
 start = datetime.fromisoformat('2026-10-06T08:30:00+02:00')
-with mock.patch.object(interviews, 'stats_for_insights', return_value={'topics_answered_weakly': ['Salary expectations']}):
-    out['mail_prep'] = plain(mail.prep_message(None, row, event, start, 'Tomorrow'))
+# The prep message reads the job from the active store: here a memory store with the same job, and the Notion page link it names.
+prep_store = memory.open_store({})
+job = prep_store.applications.create({'url': 'https://example.test/jobs/huxley', 'title': 'Principal SRE', 'company': 'Huxley',
+                                      'next_step': 'Send the recruiter your updated CV.'}, 'Interview scheduled')
+prep_store.link = lambda record_id: row['url']
+with mock.patch.object(mail_calendar, 'interview_stats', return_value={'topics_answered_weakly': ['Salary expectations']}):
+    out['mail_prep'] = plain(mail.prep_message(prep_store, job, event, start, 'Tomorrow'))
 scheduled = mail.tgcard.block(mail._head(row, 'Interview'), 'Tue 06 Oct · 08:30', mail.tgcard.fact('Event', 'Interview with Huxley'), mail.tgcard.fact('Source', 'Google Calendar'))
 out['mail_updates'] = plain(mail.tgcard.card('Job emails & calendar', '1 update', [scheduled], emoji='📧'))
 from src.ai import rejection
