@@ -35,7 +35,8 @@ export function filesNamed(folder) {
 }
 const realGh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 20 * 1024 * 1024});
 
-const suiteOf = dir => path.basename(dir || '').replace(/^e2e-artifacts-(windows-)?/, '');   // e2e-artifacts-<suite>, or e2e-artifacts-windows-<suite> (e2e-windows.yml)
+// e2e-artifacts-<suite>, e2e-artifacts-windows-<suite> (e2e-windows.yml), or a gate's second store, e2e-artifacts-<suite>-standin (plan-run.mjs legs): the suite.
+export const suiteOf = dir => path.basename(dir || '').replace(/^e2e-artifacts-(windows-)?/, '').replace(/-(standin|sqlite)$/, '');
 // Which platform an issue is about: its platform: label (issues filed before 3 Oct 2026 have none and are all from the Mac).
 export const platformOf = issue => ((issue.labels || []).map(item => item.name || item).find(name => name.startsWith('platform:')) || 'platform:mac').slice(9);
 const tail = (file, lines = 25, chars = 3500) => { try { return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).slice(-lines).join('\n').slice(-chars); } catch { return ''; } };
@@ -186,7 +187,7 @@ export function triage({artifacts, runUrl, gh = realGh, publish = publishFiles, 
   }
   for (const file of found['ui-findings.json']) for (const view of views(path.dirname(file))) reviewed.layout.add(view);
   // A suite-failure issue is cleared only when its suite ran in this run with NO failure at all (a different earlier failure would hide the later steps) and was not skipped.
-  const ranSuites = new Set(fs.existsSync(artifacts) ? fs.readdirSync(artifacts).filter(name => /^e2e-artifacts-/.test(name)).map(name => name.replace(/^e2e-artifacts-(windows-)?/, '')) : []);
+  const ranSuites = new Set(fs.existsSync(artifacts) ? fs.readdirSync(artifacts).filter(name => /^e2e-artifacts-/.test(name)).map(name => suiteOf(name)) : []);
   const failedSuites = new Set([...suiteFailures.map(item => item.suite), ...skipped.map(item => item.suite)]);
   // A sidebar / brand / badge issue lives in the app's chrome, which every page photograph checks (view 'app-chrome') but which has no photograph of its own, so the "reviewed
   // again" test above can never see it: it is cleared when the layout check ran in this run and found nothing in the chrome (the narrow-window pass counts: it is a warning, not silence).

@@ -11,7 +11,7 @@ import {asIssues, REGISTER_LIST, registerEntries} from './lib/prejudge.mjs';
 const realGh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 20 * 1024 * 1024});
 
 // all: every suite; cadence / watches: what each suite exports (lib/plan.mjs says what they mean).
-export async function planRun({env, gh = realGh, all, minutes, os = async () => 'macos-latest', cadence = {}, watches = {}, varies = [], sameOnEveryOs = []}) {
+export async function planRun({env, gh = realGh, all, minutes, os = async () => 'macos-latest', cadence = {}, watches = {}, varies = [], sameOnEveryOs = [], storeless = []}) {
   const {EVENT: event, REPO: repo, SHA: sha} = env;
   // TARGET_REF (the gate, the soak top-ups and the stable canary): test THAT release's commit, with this workflow file. The workflow file of an old tag does not know newer
   // inputs (canary, soak), so the run is started on main and told which tag to check out.
@@ -76,8 +76,11 @@ export async function planRun({env, gh = realGh, all, minutes, os = async () => 
       else if (noise.tripped) { review = false; why = `${why ? `${why} · ` : ''}AI review paused: ${noise.noise} of the last ${noise.judged} judged review issues were noise (the noise breaker, lib/plan.mjs)`; }
     } catch { /* cannot tell: the review runs */ }
   }
+  // The store (lib/store.mjs, P7): the gate runs every suite that keeps data on BOTH stores of the same build (owner, 9 Oct 2026), as two jobs: `key` names
+  // each one's job, artifacts, caches and group (the stand-in's ends in -standin: triage.mjs suiteOf drops it). Any other run: one job, the store alternating by run number.
+  const legs = suite => (env.GATE_TAG && !storeless.includes(suite) ? [{store: 'sqlite', key: suite}, {store: 'standin', key: `${suite}-standin`}] : [{store: '', key: suite}]);
   const include = [];
-  for (const suite of suites) include.push({suite, minutes: await minutes(suite), os: await os(suite)});
+  for (const suite of suites) for (const leg of legs(suite)) include.push({suite, ...leg, minutes: await minutes(suite), os: await os(suite)});
   // Windows runs the same suites, less those that judge what is the same on every OS (quality: the AI's answers; owner, 7 Oct 2026: Windows paid $1.36 a day for it).
   const windows = suites.filter(suite => !sameOnEveryOs.includes(suite));
   return {matrix: JSON.stringify({include}), count: String(include.length), suites: suites.join(','), windows_suites: windows.join(','), ref, tag, review: review ? '1' : '0', why};
@@ -86,9 +89,9 @@ export async function planRun({env, gh = realGh, all, minutes, os = async () => 
 // What every suite says about itself (cadence, watches, varies, minutes, runner): planRun's inputs from the real suites. plan-windows.mjs plans the Windows gate with it too.
 export async function suiteFacts() {
   const {SUITES} = await import('./lib/context.mjs');
-  const cadence = {}, watches = {}, varies = [], sameOnEveryOs = [];
-  for (const suite of SUITES) { const module = await import(`./suites/${suite}.mjs`); if (module.cadence) cadence[suite] = module.cadence; if (module.watches) watches[suite] = module.watches; if (module.varies) varies.push(suite); if (module.sameOnEveryOs) sameOnEveryOs.push(suite); }
-  return {all: SUITES, cadence, watches, varies, sameOnEveryOs, minutes: async suite => (await import(`./suites/${suite}.mjs`)).minutes || 15,
+  const cadence = {}, watches = {}, varies = [], sameOnEveryOs = [], storeless = [];
+  for (const suite of SUITES) { const module = await import(`./suites/${suite}.mjs`); if (module.cadence) cadence[suite] = module.cadence; if (module.watches) watches[suite] = module.watches; if (module.varies) varies.push(suite); if (module.sameOnEveryOs) sameOnEveryOs.push(suite); if (module.notion === false || module.light || module.store) storeless.push(suite); }   // storeless: no store to vary (no Notion part, a model-only eval, or a store of its own)
+  return {all: SUITES, cadence, watches, varies, sameOnEveryOs, storeless, minutes: async suite => (await import(`./suites/${suite}.mjs`)).minutes || 15,
     os: async suite => runnerOf(await import(`./suites/${suite}.mjs`))};
 }
 

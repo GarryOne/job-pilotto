@@ -62,3 +62,9 @@ test('a real token in the environment reaches a run only on the real workspace',
   assert.equal(runToken({store: 'notion', fromEnv}), 'ntn_real_from_the_keychain');
   assert.equal(runToken({store: 'sqlite', light: true, fromEnv}), '');
 });
+
+test('a gate\'s second store files its findings under the suite\'s own name (triage.mjs suiteOf)', async () => {
+  const {suiteOf} = await import('../triage.mjs');
+  assert.deepEqual(['e2e-artifacts-jobs', 'e2e-artifacts-jobs-standin', 'e2e-artifacts-windows-focusdismiss', '/tmp/x/e2e-artifacts-applycv-standin'].map(suiteOf),
+    ['jobs', 'jobs', 'focusdismiss', 'applycv']);
+});

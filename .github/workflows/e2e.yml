@@ -52,10 +52,10 @@ on:
         options: [alternate, claude, openai]
         default: alternate
       store:
-        description: 'Where the app keeps its data (desktop/e2e/lib/store.mjs): alternate by run number (runs 0,1 sqlite, 2,3 the Notion stand-in), or pin one. No suite uses a Notion token except notion-real'
+        description: 'Where the app keeps its data (desktop/e2e/lib/store.mjs): alternate by run number (runs 0,1 sqlite, 2,3 the Notion stand-in), or pin one; a gate runs both. No suite uses a Notion token except notion-real'
         type: choice
-        options: [standin, alternate, sqlite]
-        default: standin
+        options: [alternate, sqlite, standin]
+        default: alternate
       mutant:
         description: 'MUTATION TEST (mutation.yml): write this mutant of desktop/e2e/mutants.json into the app first, or "baseline". Fixed path, no AI review, nothing filed, no Windows run'
         required: false
@@ -140,7 +140,7 @@ jobs:
           OVER: ${{ steps.spend.outputs.over }}
         run: node plan-run.mjs 2>> "$GITHUB_STEP_SUMMARY" | { if [ "$OVER" = true ]; then sed 's/^review=.*/review=0/'; else cat; fi; } >> "$GITHUB_OUTPUT"
   suite:
-    name: ${{ matrix.suite }}
+    name: ${{ matrix.key }}
     needs: plan
     if: needs.plan.outputs.count != '0'   # a push that changed no suite, a scheduled run with nothing new, or a night with no build: no suites
     runs-on: ${{ inputs.all_on_mac && 'macos-latest' || matrix.os || 'macos-latest' }}   # Linux unless the suite needs the Mac (lib/plan.mjs runnerOf); a virtual display there
@@ -149,7 +149,7 @@ jobs:
       fail-fast: false      # one suite failing must not hide what the others found
       matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
     concurrency:
-      group: e2e-${{ matrix.suite }}   # a suite never overlaps itself (it owns one Notion page); different suites run together
+      group: e2e-${{ matrix.key }}   # a suite never overlaps itself (it owns one Notion page); different suites run together
       cancel-in-progress: false
     env:
       # A suite whose secrets are missing FAILS here instead of a green "skipped" (lib/skip.mjs). 6 Oct 2026: failuresnotion and failureschannels
@@ -158,9 +158,9 @@ jobs:
       E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
       E2E_OPENAI_KEY: ${{ secrets.E2E_OPENAI_KEY }}   # the OpenAI family's turn (odd runs; desktop/e2e/lib/engine.mjs pickFamily)
       E2E_AI_FAMILY: ${{ (inputs.family == 'claude' || inputs.family == 'openai') && inputs.family || '' }}   # a manual run pinned to one family; else alternate
-      # The store under test (lib/store.mjs pickStore). Until the engine's store callers land, scheduled runs pin the stand-in; then 'alternate' (bit 1 of the run
-      # number, beside the AI family's bit 0), and the release gate runs both stores on the same build.
-      E2E_STORE: ${{ inputs.store || 'standin' }}
+      # The store under test (lib/store.mjs pickStore): the gate's two jobs per suite pin one store each (plan-run.mjs legs); any other run alternates on bit 1 of the
+      # run number (beside the AI family's bit 0), unless a run by hand pins one.
+      E2E_STORE: ${{ matrix.store || (inputs.store != 'alternate' && inputs.store) || 'alternate' }}
       E2E_NOTION_TOKEN: ${{ secrets.E2E_NOTION_TOKEN }}
       E2E_NOTION_TOKEN_FAILURESNOTION: ${{ secrets.E2E_NOTION_TOKEN_FAILURESNOTION }}
       E2E_NOTION_TOKEN_FAILURESCHANNELS: ${{ secrets.E2E_NOTION_TOKEN_FAILURESCHANNELS }}
@@ -181,7 +181,7 @@ jobs:
       E2E_NOTION_TOKEN_QUALITY: ${{ secrets.E2E_NOTION_TOKEN_QUALITY }}
       E2E_NOTION_TOKEN_INTERACTIONS: ${{ secrets.E2E_NOTION_TOKEN_INTERACTIONS }}
       E2E_NOTION_TOKEN_WANDER: ${{ secrets.E2E_NOTION_TOKEN_WANDER }}
-      E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts/${{ matrix.suite }}
+      E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts/${{ matrix.key }}
       # AI cost (7 Oct 2026: the e2e key billed ~$10 a day, mostly unseen). Only the scheduled runs ask the model live; every other run (gates, soaks, the canary, reruns,
       # by hand) answers a request it has seen before from the replay cache, and pays only for new ones (lib/ai-meter.mjs). Judges on Haiku, except the quality suite,
       # which measures Sonnet's scoring.
@@ -233,9 +233,9 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: desktop/e2e/.ai-cache
-          key: ai-answers-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: ai-answers-${{ matrix.suite }}-
-      - name: Run the ${{ matrix.suite }} suite
+          key: ai-answers-${{ matrix.key }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ai-answers-${{ matrix.key }}-
+      - name: Run the ${{ matrix.key }} suite
         id: suite_run
         # A red first run is not the verdict (owner, 6 Oct 2026): the step below runs the suite once more on the same commit and decides. Flaky (red, then green)
         # passes the job and is filed and labelled `flaky`; red twice fails it. A mutation test has no second try: its red means the bug was caught.
@@ -248,13 +248,13 @@ jobs:
           if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a --server-args='-screen 0 1440x900x24' node suite.mjs ${{ matrix.suite }}; else node suite.mjs ${{ matrix.suite }}; fi
       # Flaky or real? A red suite runs once more on the same commit (6 Oct 2026). The job stays red either way; a pass the second time writes flaky.json beside the
       # first run's artifacts, and triage labels those failed steps `flaky` (the test, not the product). Its own artifacts stay out of the upload: nothing is filed twice.
-      - name: The ${{ matrix.suite }} suite once more, to tell flaky from real
+      - name: The ${{ matrix.key }} suite once more, to tell flaky from real
         if: steps.suite_run.outcome == 'failure' && !inputs.mutant
         working-directory: desktop/e2e
         timeout-minutes: 10
         run: |
           first="$E2E_ARTIFACTS"
-          export E2E_ARTIFACTS="${{ github.workspace }}/e2e-rerun/${{ matrix.suite }}" E2E_RERUN=1   # its step table says "second try" (lib/step-summary.mjs)
+          export E2E_ARTIFACTS="${{ github.workspace }}/e2e-rerun/${{ matrix.key }}" E2E_RERUN=1   # its step table says "second try" (lib/step-summary.mjs)
           again() { if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a --server-args='-screen 0 1440x900x24' node suite.mjs "$1"; else node suite.mjs "$1"; fi; }
           if again ${{ matrix.suite }}; then
             echo '{"rerun": "passed"}' > "$first/flaky.json"
@@ -270,12 +270,12 @@ jobs:
           AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
         run: |
           for kind in app app-openai judges; do   # app-openai: the app under test on an OpenAI engine (odd runs), shown under OpenAI on /ai-cost
-            for dir in "$E2E_ARTIFACTS" "${{ github.workspace }}/e2e-rerun/${{ matrix.suite }}"; do
+            for dir in "$E2E_ARTIFACTS" "${{ github.workspace }}/e2e-rerun/${{ matrix.key }}"; do
               file="$dir/ai-usage-$kind.json"; [ -f "$file" ] || continue
               tag=""; case "$dir" in *rerun*) tag="-rerun";; *apply-edge*) tag="-edge";; esac
               job="e2e-$kind"; provider=anthropic
               if [ "$kind" = app-openai ]; then job=e2e-app; provider=openai; tag="$tag-openai"; fi
-              node desktop/e2e/ai-cost-report.mjs --job "$job" --suffix "${{ matrix.suite }}$tag" --file "$file" --provider "$provider"
+              node desktop/e2e/ai-cost-report.mjs --job "$job" --suffix "${{ matrix.key }}$tag" --file "$file" --provider "$provider"
             done
           done
       - name: Keep the AI answers for the next run
@@ -285,14 +285,14 @@ jobs:
         uses: actions/cache/save@v5
         with:
           path: desktop/e2e/.ai-cache
-          key: ai-answers-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: ai-answers-${{ matrix.key }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Earlier AI reviews (an unchanged screenshot is not asked again)
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && inputs.mutant == ''
         uses: actions/cache/restore@v5
         with:
           path: desktop/e2e/.review-cache
-          key: ai-review-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: ai-review-${{ matrix.suite }}-
+          key: ai-review-${{ matrix.key }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ai-review-${{ matrix.key }}-
       - name: AI review of the screenshots
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && inputs.mutant == ''   # the costly part: only when the UI or its tests changed, or a finding waits
         working-directory: desktop/e2e
@@ -315,11 +315,11 @@ jobs:
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && inputs.mutant == '' && hashFiles('e2e-artifacts/**/ai-review-usage.json') != ''
         env:
           AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
-        run: node tools-main/desktop/e2e/ai-cost-report.mjs --job e2e-screenshot-review --suffix "${{ matrix.suite }}" --file "$RUNNER_TEMP/ai-cost.json"
+        run: node tools-main/desktop/e2e/ai-cost-report.mjs --job e2e-screenshot-review --suffix "${{ matrix.key }}" --file "$RUNNER_TEMP/ai-cost.json"
       - uses: actions/upload-artifact@v6
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && inputs.mutant == '' && hashFiles('e2e-artifacts/**/ai-review-usage.json') != ''
         with:
-          name: ai-cost-review-${{ matrix.suite }}
+          name: ai-cost-review-${{ matrix.key }}
           path: ${{ runner.temp }}/ai-cost.json
           if-no-files-found: ignore
       - name: Keep the AI reviews for the next run
@@ -327,12 +327,12 @@ jobs:
         uses: actions/cache/save@v5
         with:
           path: desktop/e2e/.review-cache
-          key: ai-review-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: ai-review-${{ matrix.key }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: The suite's part of the HTML report
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: blob-${{ matrix.suite }}
+          name: blob-${{ matrix.key }}
           path: blob-report
           if-no-files-found: ignore
           retention-days: 3
@@ -341,18 +341,18 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: e2e-view-${{ matrix.suite }}
+          name: e2e-view-${{ matrix.key }}
           path: |
-            e2e-artifacts/${{ matrix.suite }}/steps.json
-            e2e-artifacts/${{ matrix.suite }}/trace-*.zip
+            e2e-artifacts/${{ matrix.key }}/steps.json
+            e2e-artifacts/${{ matrix.key }}/trace-*.zip
           compression-level: 0
           if-no-files-found: ignore
       - name: Screenshots and timings
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: e2e-artifacts-${{ matrix.suite }}
-          path: e2e-artifacts/${{ matrix.suite }}
+          name: e2e-artifacts-${{ matrix.key }}
+          path: e2e-artifacts/${{ matrix.key }}
           if-no-files-found: ignore
 
   # One Playwright HTML report for the run (6 Oct 2026): every suite wrote a blob (desktop/e2e/report/playwright.config.mjs); merged here, uploaded as e2e-report
