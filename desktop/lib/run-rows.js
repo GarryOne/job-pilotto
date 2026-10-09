@@ -21,6 +21,14 @@ function rowJob(p, mode, summary) {
   return id ? {pageId: id, url: notionPage(id), title: '', jobUrl: '', created: /^\W*Tracked\b/.test(summary)} : null;
 }
 
+// Where a run ran, the same for a Notion row and a store record: the place the store wrote (Where, src/stores/notion_cron_runs.py and the
+// record's `where`), else, on a run from before it, its Run URL (GitHub) or Trigger ("Mac …"). 9 Oct 2026, the storemove e2e: a run made on
+// this Mac read as GitHub on Notion and as nowhere on this Mac's store.
+const placeOf = (written, runUrl, trigger) => {
+  if (['mac', 'github'].includes(written)) return written;
+  return runUrl ? 'github' : /^Mac/.test(trigger) ? 'mac' : 'elsewhere';
+};
+
 // One row as an activity record (the same shape as the Mac's own runs.json records).
 export function fromRow(page, now = Date.now()) {
   const p = page.properties || {};
@@ -40,7 +48,7 @@ export function fromRow(page, now = Date.now()) {
   const kind = mode === 'insight' && /^Interview insights\b/.test(summary) ? 'interviewInsight' : KIND[mode] || 'action';
   const record = {id: Date.parse(startedAt) + tie, pageId: page.id, notionUrl: page.url, url: p['Run URL']?.url || null, kind, mode,
     runId: text(p['Run id']) || null, startedBy: trigger,   // the Trigger as written (Schedule, Manual, Telegram…), for the run's detail
-    trigger: TRIGGER[trigger] || 'you', where: p['Run URL']?.url ? 'github' : /^Mac/.test(trigger) ? 'mac' : 'elsewhere', startedAt};
+    trigger: TRIGGER[trigger] || 'you', where: placeOf(p.Where?.select?.name || '', p['Run URL']?.url, trigger), startedAt};
   // A crash line is not a step (7 Oct 2026: a run killed mid-way left "⏳ Traceback (most recent call last):" on its row, and Recent activity showed it).
   const step = summary.replace(/^⏳\s*/, '');
   if (running) return {...record, live: true, step: step && !CRASH_LINE.test(step) ? step : 'Running'};
@@ -73,7 +81,7 @@ export function fromRecord(row, now = Date.now()) {
   const seconds = stats.duration_s;
   const ended = running ? undefined : row.finished_at || (seconds != null ? new Date(Date.parse(startedAt) + seconds * 1000).toISOString() : startedAt);
   const kind = mode === 'insight' && /^Interview insights\b/.test(summary) ? 'interviewInsight' : KIND[mode] || 'action';
-  const where = row.run_url ? 'github' : /^Mac/.test(trigger) || (!trigger && row.where === 'mac') ? 'mac' : row.where === 'github' ? 'github' : 'elsewhere';
+  const where = placeOf(row.where, row.run_url, trigger);
   const record = {id: Date.parse(startedAt), pageId: row.id, notionUrl: recordLink(row.id), url: row.run_url || null, kind, mode, runId: row.log_id || null, startedBy: trigger,
     trigger: TRIGGER[trigger] || 'you', where, startedAt};
   if (running) {
