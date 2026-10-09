@@ -224,3 +224,35 @@ test('runs from this Mac: a row Notion refuses is retried next start, and the on
   assert.equal(made, 2);   // the insight once, the weekly report on the retry
   assert.equal(storage.settings().runsSyncedTo, 'runs-1');
 });
+
+// On this Mac's store its data is the store's own: the move (lib/store-move.js) takes it whole. 9 Oct 2026, the storemove e2e: a connect before
+// the move deleted profile.md and answers.md while the store was still this Mac's.
+test('a connect on this Mac\'s store moves no Profile in; elsewhere a fresh workspace takes it and an existing one wins', () => {
+  assert.equal(migrate.moveInMode({store: 'sqlite'}, {hadLocal: true, fresh: true}), null);
+  assert.equal(migrate.moveInMode({store: 'sqlite'}, {hadLocal: true, fresh: false}), null);
+  assert.equal(migrate.moveInMode({}, {hadLocal: true, fresh: true}), 'fresh');
+  assert.equal(migrate.moveInMode({store: 'notion'}, {hadLocal: true, fresh: false}), 'existing');
+  assert.equal(migrate.moveInMode({}, {hadLocal: false, fresh: true}), null);
+});
+
+test('the real strategy step keeps profile.md and answers.md on this Mac\'s store, even with a move-in flag left over', async () => {
+  const storage = connected();
+  storage.saveSettings({store: 'sqlite', notionMoveIn: 'fresh'});
+  storage.writeText('profile.md', '# Profile\n\nOn call for ten years.');
+  storage.writeText('answers.md', '- Notice period: three months');
+  const steps = migrate.STEPS.filter(step => ['strategy from this Mac', 'profile copies'].includes(step.name));
+  assert.equal(steps.length, 2);
+  await migrate.run(storage, () => {}, steps);
+  assert.match(storage.readText('profile.md'), /ten years/);
+  assert.match(storage.readText('answers.md'), /three months/);
+});
+
+// Every step says why it does not run while the data lives on this Mac (run() runs none there): a new one fails here until it says.
+test('every migrate step says why it waits on this Mac\'s store: this Mac\'s data, or a workspace part the move does itself', () => {
+  const data = ['strategy from this Mac', 'reached via', 'employers from this Mac', 'runs from this Mac', 'origin', 'profile copies', 'open questions',
+    'form knowledge', 'contact details'];
+  const workspace = ['daily target', 'workspace', 'search settings', 'search settings format'];
+  assert.deepEqual(migrate.STEPS.filter(step => step.onMac === 'data').map(step => step.name).sort(), [...data].sort());
+  assert.deepEqual(migrate.STEPS.filter(step => step.onMac === 'workspace').map(step => step.name).sort(), [...workspace].sort());
+  assert.equal(migrate.STEPS.filter(step => !['data', 'workspace'].includes(step.onMac)).length, 0);
+});
