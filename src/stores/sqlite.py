@@ -80,6 +80,13 @@ def _known(fields, values):
     return values
 
 
+def _stats(stats):
+    unknown = set(stats or {}) - set(base.RUN_STATS)
+    if unknown:
+        raise KeyError(f'not a run stat: {", ".join(sorted(unknown))}')
+    return dict(stats or {})
+
+
 class _Table:
     """A table of records with an `id`: `columns(record)` gives the looked-up columns kept beside `data`."""
     table, fields, live = '', (), ''
@@ -357,17 +364,19 @@ class CronRuns(_Table):
     def columns(self, row):
         return {'kind': row['kind'] or '', 'started_at': row['started_at'] or ''}
 
-    def begin(self, kind, where):
+    def begin(self, kind, where, fields=None):
         return self._write(base.record(self.fields, {'id': uuid.uuid4().hex, 'kind': kind, 'where': where,
-                                                     'status': 'Running', 'started_at': _now(), 'progress': []}))
+                                                     'status': 'Running', 'started_at': _now(), 'progress': [], 'stats': {},
+                                        **_known(self.fields, dict(fields or {}))}))
 
     def progress(self, run_id, line):
         row = self._get(run_id)
         self._write({**row, 'progress': [*(row['progress'] or []), line]})
 
-    def finish(self, run_id, status, summary='', report='', result='', log=''):
+    def finish(self, run_id, status, summary='', report='', result='', log='', stats=None):
         return self._update(run_id, {'status': status, 'summary': summary, 'report': report, 'result': result,
-                                    'log': log, 'finished_at': _now()})
+                                    'log': log, 'finished_at': _now(),
+                                    **({'stats': {**(self._get(run_id).get('stats') or {}), **_stats(stats)}} if stats else {})})
 
     def get(self, run_id):
         found = self._rows('id = ?', (run_id,))

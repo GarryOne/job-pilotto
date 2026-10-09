@@ -36,12 +36,30 @@ INSIGHT_FIELDS = ('id', 'day', 'category', 'title', 'body', 'fields', 'created_a
 EMPLOYER_FIELDS = ('id', 'name', 'website', 'careers_url', 'feed', 'active', 'created_at')
 AGENT_RUN_FIELDS = ('id', 'url', 'ats', 'outcome', 'fields', 'learnings', 'transcript', 'created_at')
 CRON_RUN_FIELDS = ('id', 'kind', 'where', 'status', 'started_at', 'finished_at', 'summary', 'report', 'result',
-                   'log', 'progress')
+                   'log', 'progress', 'trigger', 'mode', 'run_url', 'application', 'stats')
+# A run's numbers (`stats`, a dict): what Recent activity and Telegram /status show. Keys are these; the Notion adapter maps each to its
+# ⏱️ Search runs column (New jobs, Scored, AI cost (USD)…). A key not set is absent from the dict.
+RUN_STATS = ('new_jobs', 'changed_jobs', 'scored', 'kits', 'emails', 'updates', 'closed_stale', 'feeds', 'feed_errors',
+             'top_new_score', 'duration_s', 'ai_cost_usd', 'tokens_total', 'billed_to', 'telegram')
 
 
 # Every entity with ids also has `put(record) -> record`: store a record copied from another store as it is (its
 # fields and timestamps; a new id of this store). Only the move between stores (src/stores/copy.py) calls it; the
 # caller maps ids that point at other records (app_id).
+
+
+def ref(entity, record_id):
+    """How a record is named outside the store when the adapter has no LINKS (the engine's `Cronjob run logged: <link>`
+    line, the desktop's run list): `store:<entity>/<id>`. `Stores.link_or_ref` gives the link when there is one."""
+    return f'store:{entity}/{record_id}'
+
+
+def parse_ref(text):
+    """(entity, id) from a ref, else None."""
+    if not str(text or '').startswith('store:') or '/' not in text:
+        return None
+    entity, record_id = text[len('store:'):].split('/', 1)
+    return (entity, record_id) if entity and record_id else None
 
 
 def url_key(url):
@@ -129,9 +147,9 @@ class AgentRuns(Protocol):
 
 class CronRuns(Protocol):
     """Every run's row (⏱️ Search runs): the one run history."""
-    def begin(self, kind: str, where: str) -> dict: ...
+    def begin(self, kind: str, where: str, fields=None) -> dict: ...  # fields: trigger, mode, run_url, application
     def progress(self, run_id: str, line: str) -> None: ...
-    def finish(self, run_id: str, status: str, summary='', report='', result='', log='') -> dict: ...
+    def finish(self, run_id: str, status: str, summary='', report='', result='', log='', stats=None) -> dict: ...
     def get(self, run_id: str) -> Optional[dict]: ...
     def list(self, since=None, kind=None) -> list: ...
     def put(self, record: dict) -> dict: ...
@@ -160,3 +178,6 @@ class Stores:
     def link(self, record_id) -> Optional[str]:
         """A URL the user can open for a record, when the adapter has LINKS; else None."""
         return None
+
+    def link_or_ref(self, entity, record_id) -> str:
+        return self.link(record_id) or ref(entity, record_id)

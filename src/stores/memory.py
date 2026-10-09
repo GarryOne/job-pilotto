@@ -25,6 +25,13 @@ def _known(fields, values):
     return values
 
 
+def _stats(stats):
+    unknown = set(stats or {}) - set(base.RUN_STATS)
+    if unknown:
+        raise KeyError(f'not a run stat: {", ".join(sorted(unknown))}')
+    return dict(stats or {})
+
+
 class _Table:
     fields = ()
 
@@ -233,18 +240,20 @@ class AgentRuns(_Table):
 class CronRuns(_Table):
     fields = base.CRON_RUN_FIELDS
 
-    def begin(self, kind, where):
+    def begin(self, kind, where, fields=None):
         row = base.record(self.fields, {'id': f'm{next(_ids)}', 'kind': kind, 'where': where, 'status': 'Running',
-                                        'started_at': _now(), 'progress': []})
+                                        'started_at': _now(), 'progress': [], 'stats': {},
+                                        **_known(self.fields, dict(fields or {}))})
         self.rows[row['id']] = row
         return dict(row)
 
     def progress(self, run_id, line):
         self._get(run_id)['progress'].append(line)
 
-    def finish(self, run_id, status, summary='', report='', result='', log=''):
+    def finish(self, run_id, status, summary='', report='', result='', log='', stats=None):
         return self._update(run_id, {'status': status, 'summary': summary, 'report': report, 'result': result,
-                                    'log': log, 'finished_at': _now()})
+                                    'log': log, 'finished_at': _now(),
+                                    **({'stats': {**(self._get(run_id).get('stats') or {}), **_stats(stats)}} if stats else {})})
 
     def get(self, run_id):
         row = self.rows.get(run_id)

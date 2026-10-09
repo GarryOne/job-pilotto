@@ -203,6 +203,25 @@ class StoreContract:
         self.assertEqual([r['id'] for r in self.s.cron_runs.list(kind='search')], [run['id']])
         self.assertEqual(self.s.cron_runs.list(kind='mail'), [])
 
+    def test_a_run_keeps_its_trigger_and_numbers_and_refuses_an_unknown_number(self):
+        run = self.s.cron_runs.begin('search', 'mac', {'trigger': 'button', 'mode': 'check'})
+        self.assertEqual((run['trigger'], run['mode'], run['stats']), ('button', 'check', {}))
+        done = self.s.cron_runs.finish(run['id'], 'Done', summary='3 new jobs', stats={'new_jobs': 3, 'ai_cost_usd': 0.12})
+        self.assertEqual(done['stats'], {'new_jobs': 3, 'ai_cost_usd': 0.12})
+        self.assertEqual(self.s.cron_runs.get(run['id'])['stats']['new_jobs'], 3)
+        other = self.s.cron_runs.begin('mail', 'github')
+        with self.assertRaises(KeyError):
+            self.s.cron_runs.finish(other['id'], 'Done', stats={'not a stat': 1})
+
+    def test_a_record_is_named_by_its_link_or_a_store_ref(self):
+        run = self.s.cron_runs.begin('search', 'mac')
+        named = self.s.link_or_ref('cron_runs', run['id'])
+        if base.LINKS in self.s.caps:
+            self.assertTrue(named.startswith('http'))
+        else:
+            self.assertEqual(base.parse_ref(named), ('cron_runs', run['id']))
+        self.assertIsNone(base.parse_ref('https://www.notion.so/abc'))
+
     # Texts and the adapter
 
     def test_texts_are_whole_markdown_by_name_and_unknown_names_refused(self):
