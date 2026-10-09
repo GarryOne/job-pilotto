@@ -6,7 +6,7 @@
 // Scenarios owned: "Sign-up page before the form", "Sign-in page where we have no account". Guards: worker/test/account-step.test.js, account-fill.test.js, npm run live.
 import {api, settings} from './flow.js';
 import {decide} from './log.js';
-import {askKind, stuck} from './fill-flow.js';
+import {askKind, sayStep, stuck} from './fill-flow.js';
 import {sessionGet} from './tab-memory.js';
 import {tabArmed} from './tab-pages.js';
 import {accountSketch, fillAccountBoxes, fillAccountEmail, flagAccount, markAccountStep, passwordWork, pressAccountButton, pressRegister} from './account-fill.js';
@@ -72,6 +72,11 @@ const signature = sketch => JSON.stringify([sketch.controls, sketch.buttons, ske
 export const formOutline = sketch => (sketch?.controls || []).map(item => `${item.type}:${item.label}`).join('|').slice(0, 1500);
 const run = (tab, frameId, func, args = []) => chrome.scripting.executeScript({target: {tabId: tab.id, frameIds: [frameId ?? 0]}, func, args}).then(rows => rows?.[0]?.result).catch(() => undefined);
 const memoKey = tab => `accountForm:${tab.id}`;
+// A sign-up or sign-in this extension filled (or the person pressed) whose outcome the account AI has not yet given: for two minutes the page after it is the account's, so the submit watch
+// does not ask the app whether it is an application's confirmation (9 Oct 2026, Migros: three paid "did it confirm" calls on the page behind a sign-up).
+export const OUTCOME_WAIT_MS = 120000;
+export const outcomePending = (memo, now = Date.now()) => !!memo && now - Number(memo.at || 0) < OUTCOME_WAIT_MS;
+export async function accountOutcomePending(tabId) { const key = memoKey({id: tabId}); return outcomePending((await sessionGet(key))[key]); }
 const triedKey = (tab, action) => `accountPress:${tab.id}:${action}`;
 const alreadyTried = async (tab, action) => !!(await sessionGet(triedKey(tab, action)))[triedKey(tab, action)];
 // The extension could not finish this account page: said ONCE per tab and reason to the app, which shows what the person must do and OFFERS Claude (never starts it).
@@ -98,8 +103,10 @@ async function judge(tab, frameId, phase, config, fromPath = '', formBefore = ''
   if (formBefore) sketch.sameForm = formOutline(sketch) === formBefore ? 'yes' : 'no';   // a fact of structure; what it means is the AI's word
   const key = `${tab.id} ${phase}`, sig = signature(sketch);
   if (judged.get(key)?.sig === sig) return judged.get(key).answer;   // the page is as it was: the same answer, no new call
+  const askedAt = Date.now();
   const answer = await api(config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase, sketch})}).catch(() => null);
   const kept = answer?.answer ? answer : null;
+  decide('fill', `account judge ${phase}: ${kept?.answer || 'no answer'}`, {ms: Date.now() - askedAt});
   if (kept) judged.set(key, {sig, answer: kept});
   return kept;
 }
@@ -116,6 +123,7 @@ export async function accountOutcome(tab, frameId = 0) {
 }
 async function outcomeOnce(tab, frameId, memo) {
   const config = await settings(), host = memo.host;
+  sayStep(tab.id, 'Checking your account was created…');
   const result = await judge(tab, frameId, 'result', config, memo.path || '', memo.form || '');
   const action = resultAction(result?.answer);
   decide('fill', `account result: ${result?.answer || 'no AI'}`, {host, action});
@@ -192,6 +200,7 @@ async function accountStepOnce(tab, frameId) {
       }
     } else {
       await flag(tab, frameId, null);   // nothing is owed any more: the panel stops saying so
+      sayStep(tab.id, 'Creating your account…');
       const form = formOutline(await run(tab, frameId, accountSketch));   // the form as it is pressed
       await new Promise(resolve => setTimeout(resolve, 800));
       const result = await run(tab, frameId, pressAccountButton, [kind?.accountButton || '']);
@@ -200,6 +209,7 @@ async function accountStepOnce(tab, frameId) {
       if (result === 'pressed') {
         await markTried(tab, submitKey);   // pressed once; what became of it is the account AI's word, a moment later (here, or on the next page)
         await chrome.storage.session.set({[memoKey(tab)]: {host, at: Date.now(), path: new URL(tab.url).pathname.slice(0, 120), pressed: true, form, signin: step === 'sign_in'}}).catch(() => {});
+        sayStep(tab.id, 'Waiting for the site to accept it…');
         await new Promise(resolve => setTimeout(resolve, 4000));
         await accountOutcome(await chrome.tabs.get(tab.id).catch(() => tab));
       }

@@ -68,3 +68,17 @@ test('the form outline at the press: types and labels only, so a refusal (values
   assert.notEqual(formOutline(next), formOutline(form));
   assert.equal(formOutline(null), '');
 });
+
+test('the account\'s outcome and the page kind are asked together; the submit watch leaves a sign-up\'s next page alone for two minutes', async () => {
+  const {outcomePending, OUTCOME_WAIT_MS} = await import('../../extension/account-step.js');
+  const now = 1_000_000;
+  assert.equal(outcomePending(null, now), false);
+  assert.equal(outcomePending({at: now - 5000}, now), true);                  // a sign-up just filled or pressed: its outcome is the account AI's word first
+  assert.equal(outcomePending({at: now - OUTCOME_WAIT_MS - 1}, now), false);  // two minutes later a press is the person's own submit again
+  const fs = await import('node:fs');
+  const flow = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta.url), 'utf8');
+  assert.match(flow, /const kindAsk = askKind\(tab\);\n  await accountOutcome\(tab\);/);   // started before the outcome look, not after it (9 Oct 2026: 13 s + 9 s one behind the other)
+  assert.match(flow, /kind = await kindAsk;/);
+  const watch = fs.readFileSync(new URL('../../extension/submit-watch.js', import.meta.url), 'utf8');
+  assert.ok(watch.indexOf('accountOutcomePending(tabId)') > 0 && watch.indexOf('accountOutcomePending(tabId)') < watch.indexOf('asking whether it confirms'));
+});

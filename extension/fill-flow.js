@@ -93,6 +93,8 @@ async function forgetKind(tab, kind, reason) {
     await api(config, '/extension/page-kind', {method: 'POST', body: JSON.stringify({forget: true, reason, kind: kind?.kind || '', url: tab.url.split('#')[0], ...(sketch || {})})});
   } catch { /* the app is closed: asked again once it is back */ }
 }
+// What the person sees while the app waits for the AI (the panel's step line; nothing is drawn when the tab has no panel yet). Never throws.
+export const sayStep = (tabId, text) => progress(tabId, text).catch(() => {});
 export async function askKind(tab) {
   const sketch = await pageSketchOf(tab.id);
   if (!sketch) return null;
@@ -254,10 +256,15 @@ export async function consider(tab, jobUrl) {
     return;
   }
   // A sign-up form was open in this tab (we filled it) and the page changed: what became of it is the account AI's word (account-step.js accountOutcome).
+  // The two AI looks do not depend on each other (the outcome of a sign-up, the kind of this page): asked together, the wait is the longer one, not the sum (9 Oct 2026, Migros: 13 s then 9 s, one after the other).
+  const lookedAt = Date.now();
+  sayStep(tab.id, 'Reading this page…');
+  const kindAsk = askKind(tab);
   await accountOutcome(tab);
+  const outcomeMs = Date.now() - lookedAt;
   // What kind of page this is: the AI's word for this site and page shape (asked once, kept), in any language; the structure rule when
   // there is none (no AI, unsure). Every flow below goes by the role either one gives (docs/flows/applying.md).
-  const ruled = pageRole(counts, tab.url), kind = await askKind(tab);
+  const ruled = pageRole(counts, tab.url), kind = await kindAsk;
   let role = kind?.role || ruled, noted = '';   // noted: what the page is called to the app and the learning, when the fill below treats it as something else
   // Self-correction: a "form" with nothing to fill is not one. The kept answer goes; the structure rule decides this visit.
   const controls = (Number(counts.fields) || 0) + (Number(counts.files) || 0) + (Number(counts.textareas) || 0) + (Number(counts.passwords) || 0);
@@ -269,7 +276,7 @@ export async function consider(tab, jobUrl) {
     const peek = await api(await settings(), '/extension/site-password', {method: 'POST', body: JSON.stringify({host: host0, peek: true, session: (await sessionGet(`session:${tab.id}`))[`session:${tab.id}`] || ''})}).catch(() => null);
     if (peek?.ok && peek.email && ((kind.accountStep === 'sign_up' && peek.mode === 'sign-up') || (kind.accountStep === 'sign_in' && peek.mode === 'sign-in'))) { role = 'form'; noted = 'account'; decide('fill', `${kind.accountStep} page: filled with your details`, {host: host0}); }
   }
-  decide('fill', `page kind: ${kind?.kind || ruled}`, {by: kind ? kind.by : 'structure rule', confidence: kind?.confidence ?? null,
+  decide('fill', `page kind: ${kind?.kind || ruled}`, {by: kind ? kind.by : 'structure rule', confidence: kind?.confidence ?? null, ms: Date.now() - lookedAt, outcomeMs,
     ...(kind && kind.role !== ruled ? {rule: ruled} : {}), host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
   await noteRole(tab.id, tab.url, noted || role);   // a sign-up page filled like a form is still an account page: no application learning, no "application form" stage (Migros, 8 Oct 2026)
   if (kind?.role === 'account' || ruled === 'account') accountStep(tab, 0).catch(() => {});   // event-driven: an account page is looked at the moment its kind is known, not at the panel's next tick

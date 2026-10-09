@@ -3,6 +3,7 @@
 // Guards: the confirmation, submit-outcome and tab-pages tests in desktop/test and the e2e row "the person submits a form" (npm run flows).
 import {LATE_CONFIRMATION_MS} from './tab-pages.js';
 import {SUBMIT_WAIT_MS} from './tab-pages.js';
+import {accountOutcomePending} from './account-step.js';
 import {api} from './flow.js';
 import {confirmationOf} from './tab-pages.js';
 import {decide} from './log.js';
@@ -44,6 +45,10 @@ export function createSubmitWatch(ctx) {
     if (!job) {
       logOnce(tabId, 'submit, then the page changed, no job stored on this tab: not marked', {host: gate.host, path: gate.path});
       return {done: true};
+    }
+    if (await accountOutcomePending(tabId)) {   // the sign-up before this page has not been judged yet: this is its next page, not an application's confirmation
+      logOnce(tabId, 'submit, then the page changed: an account step is waiting for its outcome, not asking whether it confirms', {host: gate.host, path: gate.path});
+      return {done: false};
     }
     decide('submitted?', `submit, then the page changed (${gate.why}): asking whether it confirms`, {host: gate.host, path: gate.path});
     try {
