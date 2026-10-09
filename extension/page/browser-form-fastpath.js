@@ -98,6 +98,9 @@
   // choice, and "Monsieur" set there read as empty ("empty again at the end of the fill"). One rule for the audit, coverage.js, fill-read.js
   // (the end of a fill) and the panel (extension/review.js, its own copy; test worker/test/select-chosen.test.js keeps them equal).
   window.__jobPilottoChosen = el => (o => !!o && !o.disabled && !o.hidden && !!o.text.trim() && !/^(|0|-1)$/.test(o.value))(el.options[el.selectedIndex]);
+  // A menu still on the page's own initial choice (the option its HTML marks selected, else the first): a page default nobody answered.
+  // easytemp (9 Oct 2026) preselects Nationalité "Suisse" and Langue maternelle "Suisse-allemand": read as answered, never asked, wrong for the person.
+  window.__jobPilottoAtPageDefault = el => { const first = [...el.options].findIndex(option => option.defaultSelected); return el.selectedIndex === (first >= 0 ? first : 0); };
   window.__jobPilottoAuditVisibleFields = () => {
     window.__jobPilottoStep('audit');
     const rows = Array.from(document.querySelectorAll('input, textarea, select'))
