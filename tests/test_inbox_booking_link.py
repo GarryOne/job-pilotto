@@ -55,6 +55,8 @@ class RunTracker(Inbox):
     def _request(self, method, path, body=None):
         if method == 'PATCH' and path.startswith('blocks/run-1/children'):
             self.run_blocks += body['children']
+        if method == 'GET' and path.split('/')[0] in ('pages', 'databases'):  # the store reads rows and the schema
+            return super()._request(method, path, body)
         return {}
 
 

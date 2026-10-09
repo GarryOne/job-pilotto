@@ -28,8 +28,9 @@ from html import escape
 import sys
 
 from .. import telegram, tgcard
-from ..notion import client as notion, cron_runs
+from ..notion import cron_runs
 from ..sources.google import Google
+from ..stores import open_stores
 from . import cost
 from .. import feedback as employer_feedback
 
@@ -38,12 +39,12 @@ from .mail_config import (  # noqa: F401 — re-exported: callers and tests use 
     SENDER_DOMAINS, STATE_FILE, SYSTEM, TERMINAL, TZ, YOU_REPLIED,
 )
 from .mail_read import (  # noqa: F401 — re-exported: callers and tests use `mail.<name>`
-    _field, _role, _unread_invitation, _when, applications, classify, extra_query, listing, load_state, query,
+    _field, _role, _unread_invitation, _when, applications, classify, extra_query, ledger_key, listing, load_state, query,
     save_state, verified_feedback,
 )
 from .mail_record import (  # noqa: F401 — re-exported: callers and tests use `mail.<name>`
-    MOVED_FIELDS, NEW_COLUMNS, _events_index, _moment, _near, _optional, _plain, _stage_for, _value, advance,
-    changes_readable, changes_text, gmail_link, record,
+    MOVED, MOVED_FIELDS, _events_index, _moment, _near, _plain, _stage_for, _value, advance,
+    changes_of, changes_readable, changes_text, gmail_link, record,
 )
 from .mail_lines import (  # noqa: F401 — re-exported: callers and tests use `mail.<name>`
     EMOJI, EVENT_KIND, SHORT_KIND, _head, _label, _short, _who, ask,
@@ -70,31 +71,33 @@ from .mail_failure import (  # noqa: F401 — re-exported: callers and tests use
 
 
 def run(tracker, google, *, client=None, model=DEFAULT_MODEL, days=2, send=None, calendar=True, dry_run=False,
-        now=None, state_path=STATE_FILE, stats=None, on_new=None, always_report=False):
+        now=None, state_path=STATE_FILE, stats=None, on_new=None, always_report=False, stores=None):
     """always_report: a check answers even when there's nothing new. Off for the mail workflow, which the app
     dispatches for "Check Gmail now": a quiet check says so in the app and on its ⏱️ Search runs row, and a
-    Telegram message for every check someone started is noise (1 Oct 2026)."""
-    state = load_state(state_path)
-    apps = applications(tracker)
-    index = _events_index(tracker)
+    Telegram message for every check someone started is noise (1 Oct 2026).
+    stores: the active store (src/stores); by default the one open_stores() picks, on `tracker` when one is given."""
+    stores = stores or open_stores(tracker=tracker)
+    state = load_state(state_path, ledger_key(stores))
+    apps = applications(stores)
+    index = _events_index(stores)
     if client is None:
         from . import engine
         client = engine.client(action='mail')
     rejected = []
     print('Gmail: reading new emails…')
-    lines, count = mail_pass(tracker, google, client, model, apps, index, state, days, stats, dry_run, now, rejected,
+    lines, count = mail_pass(stores, google, client, model, apps, index, state, days, stats, dry_run, now, rejected,
                              None if dry_run else on_new)
     if stats is not None:
         stats.update(pending=count, done=count)
-    sent_pass(tracker, google, apps, index, days, stats, dry_run)  # your own replies: for Focus's follow-ups
+    sent_pass(stores, google, apps, index, days, stats, dry_run)  # your own replies: for Focus's follow-ups
     notes = []
     if calendar:
         print('Gmail: checking the calendar…')
-        cal_lines, notes = calendar_pass(tracker, google, client, model, apps, index, state, stats, now, dry_run)
+        cal_lines, notes = calendar_pass(stores, google, client, model, apps, index, state, stats, now, dry_run)
         lines += cal_lines
     if not dry_run:
         save_state(state, state_path)
-        lines += review_rejections(tracker, client, rejected, stats)
+        lines += review_rejections(stores, client, rejected, stats)
     if send and lines:
         send(tgcard.card('Job emails & calendar', f"{len(lines)} update{'s' if len(lines) != 1 else ''}", lines, emoji='📧'))
     elif send and always_report and not notes:
@@ -122,13 +125,14 @@ def main(argv=None):
     parser.add_argument('--log-run', action='store_true',
                         help='log this check to Notion ⏰ Search runs even without --send (the desktop app always does)')
     args = parser.parse_args(argv)
-    tracker, google = notion.Tracker.from_env(), Google.from_env()
+    google = Google.from_env()
     if not google:
         print('Gmail + Calendar is off: Google is not connected or JOB_PILOTTO_DISABLE includes mail. '
               'See README → Gmail and Calendar.')
         return 0
-    if not tracker:
-        raise SystemExit('NOTION_TOKEN is required')
+    stores = open_stores()  # the active store: this Mac's (sqlite) or Notion; JOB_PILOTTO_STORE picks it
+    # BRIDGE(mac-67 runs, mac-4a added): remove when cron_runs and added.hook on the store lands
+    tracker = getattr(stores.applications, 'tracker', None) if stores.name == 'notion' else None
     sender = None
     from ..features import disabled
     if args.send and not disabled('telegram'):
@@ -136,7 +140,7 @@ def main(argv=None):
         sender = lambda text: telegram.send(text, token, chat_id)
     stats = {}
     logged = (args.send or args.log_run) and not args.dry_run
-    if logged:
+    if logged and tracker is not None:
         cron_runs.auto_begin(tracker)  # the check's ⏱️ Search runs row opens when it starts
     log = cron_runs.new_run('mail')
 
@@ -147,7 +151,7 @@ def main(argv=None):
         log['seconds'] = int((datetime.now(timezone.utc) - datetime.fromisoformat(log['started_at'])).total_seconds())
         if warning:
             log['warnings'].append(warning)
-        url = cron_runs.log_run(tracker, log)
+        url = cron_runs.log_run(tracker, log) if tracker is not None else None
         if url:
             print(f'Cronjob run logged: {url}')
 
@@ -155,7 +159,8 @@ def main(argv=None):
         from ..paths import JOBS_DB
         from . import added  # jobs tracked from an email get facts and a fit score, like found ones
         print(run(tracker, google, days=args.days, send=sender, calendar=not args.no_calendar, dry_run=args.dry_run,
-                  stats=stats, on_new=added.hook(tracker, JOBS_DB, log), always_report=args.always_report))
+                  stats=stats, on_new=added.hook(tracker, JOBS_DB, log) if tracker is not None else None,
+                  always_report=args.always_report, stores=stores))
         if logged:
             log_check()
     except Exception as error:  # noqa: BLE001 — a spend limit is expected, not a crash

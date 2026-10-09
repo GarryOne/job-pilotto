@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import inbox, mail
 from src.notion import ledger
+from tests.mail_fakes import FakeTracker, rec, stores_for
 
 NOW = datetime(2026, 9, 30, 12, 0, tzinfo=timezone.utc)
 APP_ID = 'app-huxley'
@@ -44,25 +45,18 @@ def stored(properties, page_id):
     return {'id': page_id, 'properties': out}
 
 
-class Tracker:
-    """Applications + events in memory: create/update/trash really change what the next query returns."""
-    database_id = 'apps'
-
+class Tracker(FakeTracker):
+    """Applications + events in memory: create/update/trash really change what the next query returns (the store's Notion
+    adapter reads and writes through it: tests/mail_fakes.py)."""
     def __init__(self, row, events=()):
-        self.rows, self.events, self.trashed = [row], list(events), []
-
-    def query_database(self, database_id, filter_=None):
-        return list(self.events) if database_id == ledger.EVENTS_DATABASE_ID else list(self.rows)
+        super().__init__([row], events)
+        self.rows, self.trashed = self.apps, []
 
     def create_page(self, database_id, properties):
+        self.created.append(properties)
         page = stored(properties, f'ev-{len(self.events) + 1}')
         self.events.append(page)
         return page
-
-    def update_page(self, page_id, properties):
-        for page in self.events + self.rows:
-            if page['id'] == page_id:
-                page['properties'].update(stored(properties, page_id)['properties'])
 
     def trash_page(self, page_id):
         self.trashed.append(page_id)
@@ -86,16 +80,16 @@ INVITE = '2026-10-02T14:00:00+02:00'
 
 class WritersDoNotRepeatTests(unittest.TestCase):
     def gmail(self, tracker, source_id, interview_at=INVITE, at='2026-09-28T09:00:00+00:00'):
-        return mail.record(tracker, tracker.rows[0], 'Interview scheduled', at, 'Gmail', source_id, '', ({*()}, {}),
+        return mail.record(stores_for(tracker), rec(stores_for(tracker), tracker.rows[0]), 'Interview scheduled', at, 'Gmail', source_id, '', ({*()}, {}),
                            interview_at=interview_at, now=NOW)
 
     def index(self, tracker):
-        return mail._events_index(tracker)
+        return mail._events_index(stores_for(tracker))
 
     def test_a_gmail_invite_then_the_watcher_is_one_interview_event(self):
         tracker = Tracker(app('Interviewing'))
         tracker.events.append(event('ev-0', 'Screening', '2026-09-29T08:00:00+00:00'))  # a later event of another kind
-        mail.record(tracker, tracker.rows[0], 'Interview scheduled', '2026-09-28T09:00:00+00:00', 'Gmail', 'g1', '',
+        mail.record(stores_for(tracker), rec(stores_for(tracker), tracker.rows[0]), 'Interview scheduled', '2026-09-28T09:00:00+00:00', 'Gmail', 'g1', '',
                     self.index(tracker), interview_at=INVITE, now=NOW)
         tracker.rows[0]['properties']['Stage'] = {'type': 'select', 'select': {'name': 'Interview scheduled'}}
         ledger.sync(tracker, now=NOW)
@@ -118,14 +112,14 @@ class WritersDoNotRepeatTests(unittest.TestCase):
     def test_the_same_interview_from_another_message_is_not_written_again(self):
         tracker = Tracker(app())
         index = self.index(tracker)
-        mail.record(tracker, tracker.rows[0], 'Interview scheduled', '2026-09-28T09:00:00+00:00', 'Gmail', 'g1', '', index, interview_at=INVITE, now=NOW)
-        mail.record(tracker, tracker.rows[0], 'Interview scheduled', '2026-09-30T09:00:00+00:00', 'Telegram', 'paste-9', '', index, interview_at=INVITE, now=NOW)
+        mail.record(stores_for(tracker), rec(stores_for(tracker), tracker.rows[0]), 'Interview scheduled', '2026-09-28T09:00:00+00:00', 'Gmail', 'g1', '', index, interview_at=INVITE, now=NOW)
+        mail.record(stores_for(tracker), rec(stores_for(tracker), tracker.rows[0]), 'Interview scheduled', '2026-09-30T09:00:00+00:00', 'Telegram', 'paste-9', '', index, interview_at=INVITE, now=NOW)
         self.assertEqual(tracker.kinds(), ['Interview scheduled'])
 
     def test_the_same_gmail_id_twice_is_one_event(self):
         tracker = Tracker(app())
         for _ in range(2):
-            mail.record(tracker, tracker.rows[0], 'Interview scheduled', '2026-09-28T09:00:00+00:00', 'Gmail', 'g1', '', self.index(tracker),
+            mail.record(stores_for(tracker), rec(stores_for(tracker), tracker.rows[0]), 'Interview scheduled', '2026-09-28T09:00:00+00:00', 'Gmail', 'g1', '', self.index(tracker),
                         interview_at=INVITE, now=NOW)
         self.assertEqual(tracker.kinds(), ['Interview scheduled'])
         first = ledger.add_event(tracker, tracker.rows[0], 'Reply received', 'Gmail', source_id='r1')
@@ -187,8 +181,8 @@ class CalendarSourceTests(unittest.TestCase):
         tracker = Tracker(app('Interview scheduled'), [
             event('watch', 'Interview scheduled', '2026-09-30T06:00:00+00:00', 'Notion edit', note=CATCH_UP)])
         note = 'Calendar: Huxley · Principal SRE at Thu 01 Oct 08:30'
-        mail.record(tracker, tracker.rows[0], 'Interview scheduled', '2026-09-30T07:17:00+00:00', 'Calendar', 'cal:_60q30c1g',
-                    note, mail._events_index(tracker), '2026-10-01T08:30:00+02:00', NOW)
+        mail.record(stores_for(tracker), rec(stores_for(tracker), tracker.rows[0]), 'Interview scheduled', '2026-09-30T07:17:00+00:00', 'Calendar', 'cal:_60q30c1g',
+                    note, mail._events_index(stores_for(tracker)), '2026-10-01T08:30:00+02:00', NOW)
         props = tracker.events[0]['properties']
         self.assertEqual([e['id'] for e in tracker.events], ['watch'])  # adopted, not a second event
         self.assertEqual((ledger.plain(props['Source']), ledger.plain(props['Note']), ledger.plain(props['Source ID'])),
@@ -197,8 +191,8 @@ class CalendarSourceTests(unittest.TestCase):
     def test_a_hand_logged_twin_keeps_its_own_source_and_note(self):
         tracker = Tracker(app('Interview scheduled'), [
             event('mine', 'Interview scheduled', '2026-09-30T06:00:00+00:00', 'Telegram', note='Logged: call with Anna')])
-        mail.record(tracker, tracker.rows[0], 'Interview scheduled', '2026-09-30T07:17:00+00:00', 'Calendar', 'cal:y',
-                    'Calendar: call', mail._events_index(tracker), '2026-10-01T08:30:00+02:00', NOW)
+        mail.record(stores_for(tracker), rec(stores_for(tracker), tracker.rows[0]), 'Interview scheduled', '2026-09-30T07:17:00+00:00', 'Calendar', 'cal:y',
+                    'Calendar: call', mail._events_index(stores_for(tracker)), '2026-10-01T08:30:00+02:00', NOW)
         props = tracker.events[0]['properties']
         self.assertEqual((ledger.plain(props['Source']), ledger.plain(props['Note'])), ('Telegram', 'Logged: call with Anna'))
 
@@ -214,8 +208,8 @@ class ImpossibleInterviewTests(unittest.TestCase):
     MISREAD = '2024-09-26T08:30:00+02:00'
 
     def paste(self, tracker, index=None):
-        return quiet(mail.record, tracker, tracker.rows[0], 'Interview scheduled', self.PASTED, 'Telegram',
-                     'paste:147147426806328e', 'Logged: call with Anna', index or mail._events_index(tracker),
+        return quiet(mail.record, stores_for(tracker), rec(stores_for(tracker), tracker.rows[0]), 'Interview scheduled', self.PASTED, 'Telegram',
+                     'paste:147147426806328e', 'Logged: call with Anna', index or mail._events_index(stores_for(tracker)),
                      self.MISREAD, datetime(2026, 9, 21, 15, 0, tzinfo=timezone.utc))
 
     def test_a_paste_whose_interview_date_is_years_before_it_does_not_store_that_date(self):
@@ -228,9 +222,9 @@ class ImpossibleInterviewTests(unittest.TestCase):
 
     def test_the_real_invite_later_gives_that_event_its_time_instead_of_being_dropped(self):
         tracker = Tracker(app('Screening'))
-        index = mail._events_index(tracker)
+        index = mail._events_index(stores_for(tracker))
         self.paste(tracker, index)
-        mail.record(tracker, tracker.rows[0], 'Interview scheduled', '2026-09-24T12:35:00+00:00', 'Gmail', 'g-invite', '',
+        mail.record(stores_for(tracker), rec(stores_for(tracker), tracker.rows[0]), 'Interview scheduled', '2026-09-24T12:35:00+00:00', 'Gmail', 'g-invite', '',
                     index, '2026-09-30T10:30:00+04:00', datetime(2026, 9, 24, 13, 0, tzinfo=timezone.utc))
         self.assertEqual(tracker.kinds(), ['Interview scheduled'])
         self.assertEqual(ledger.event_interview_at(tracker.events[0]), '2026-09-30T10:30:00+04:00')

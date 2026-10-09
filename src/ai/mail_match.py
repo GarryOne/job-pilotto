@@ -13,9 +13,9 @@ def _ambiguous(apps, row, email):
     """True when the same employer or agency has another open role and the email doesn't name this one's title:
     one agency, two of your roles — the AI's pick is a guess then."""
     words = lambda text: set(re.findall(r'[a-z0-9]+', (text or '').lower()))
-    org = lambda r: ' '.join(sorted(words(_field(r, 'Company') or _field(r, 'Via'))))
+    org = lambda r: ' '.join(sorted(words(_field(r, 'company') or _field(r, 'via'))))
     mine = org(row)
-    if not mine or not any(r is not row and org(r) == mine and _field(r, 'Stage') not in ENDED for r in apps):
+    if not mine or not any(r is not row and org(r) == mine and _field(r, 'stage') not in ENDED for r in apps):
         return False
     title = words(_role(row)) - STOP
     text = words(f"{email.get('subject', '')} {email.get('body', '')[:6000]}")
@@ -37,7 +37,7 @@ PLATFORMS = {'linkedin', 'gmail', 'googlemail', 'google', 'outlook', 'hotmail', 
 
 def _contact_names(row):
     """Full names written in the Contact field ("Alex Morgan · alex@yupe.io" -> "alex morgan")."""
-    return {m.lower() for m in re.findall(r"\b[A-Z][a-zà-ÿ'-]+ [A-Z][a-zà-ÿ'-]+\b", _field(row, 'Contact'))}
+    return {m.lower() for m in re.findall(r"\b[A-Z][a-zà-ÿ'-]+ [A-Z][a-zà-ÿ'-]+\b", _field(row, 'contact'))}
 
 
 def person_name(value):
@@ -52,7 +52,7 @@ def person_name(value):
 def _names_person(row, text):
     """True if the text names this job's contact person: first and last name both, in any order or format."""
     words = set(re.findall(r'[a-zà-ÿ]+', text.lower()))
-    for person in _field(row, 'Contact').split(' · '):
+    for person in _field(row, 'contact').split(' · '):
         if '@' in person:
             continue
         parts = {w for w in re.findall(r'[a-zà-ÿ]+', person_name(person).lower()) if len(w) >= 3}
@@ -64,16 +64,16 @@ def _names_person(row, text):
 def _names_it(row, email):
     """True if the email names the application: its company, agency, contact (name or email), or comes from the
     domain of one of its contacts. A job with nothing to name (no company, agency or contact) can't be checked."""
-    names = [n for n in (_field(row, 'Company'), _field(row, 'Via'), _field(row, 'Contact')) if n.strip()]
+    names = [n for n in (_field(row, 'company'), _field(row, 'via'), _field(row, 'contact')) if n.strip()]
     if not names:
         return True
     text = f"{email.get('from', '')} {email.get('subject', '')} {email.get('body', '')[:6000]}"
     if _matches(row, text):
         return True
-    domains = {d for d in re.findall(r'@([\w-]+\.[\w.-]+)', _field(row, 'Contact').lower())}
+    domains = {d for d in re.findall(r'@([\w-]+\.[\w.-]+)', _field(row, 'contact').lower())}
     sender = (re.search(r'@([\w.-]+)', email.get('from', '')) or [None, ''])[1].lower()
     squash = lambda value: re.sub(r'[^a-z0-9]', '', value.lower())
-    orgs = [squash(n) for n in (_field(row, 'Company'), _field(row, 'Via')) if len(squash(n)) > 3]
+    orgs = [squash(n) for n in (_field(row, 'company'), _field(row, 'via')) if len(squash(n)) > 3]
     return bool(sender and (any(sender.endswith(d) for d in domains)  # a contact's own domain
                             or any(o in squash(sender.split('.')[0]) or squash(sender.split('.')[0]) in o
                                    for o in orgs if len(squash(sender.split('.')[0])) > 3)))  # agtalent.co.uk = AG Talent
@@ -82,17 +82,17 @@ def _names_it(row, email):
 def _matches(row, text):
     """True if the text names this application's company, platform, a contact's name or email."""
     text = text.lower()
-    names = [n.lower() for n in (_field(row, 'Company'), _field(row, 'Via')) if len(n) > 2]
+    names = [n.lower() for n in (_field(row, 'company'), _field(row, 'via')) if len(n) > 2]
     names += [n.split()[0].lower() for n in names if len(n.split()[0]) >= 5]
     names += sorted(_contact_names(row))
-    emails = re.findall(r'[\w.+-]+@[\w-]+\.[\w.-]+', _field(row, 'Contact').lower())
+    emails = re.findall(r'[\w.+-]+@[\w-]+\.[\w.-]+', _field(row, 'contact').lower())
     return (any(re.search(rf'(?<![\w]){re.escape(n)}(?![\w])', text) for n in names) or any(e in text for e in emails)
             or _names_person(row, text))
 
 
 def _same_person(row, text):
     """True if the text carries a contact's email address of this application, or names one of its contacts."""
-    emails = re.findall(r'[\w.+-]+@[\w-]+\.[\w.-]+', _field(row, 'Contact').lower())
+    emails = re.findall(r'[\w.+-]+@[\w-]+\.[\w.-]+', _field(row, 'contact').lower())
     return any(e in text.lower() for e in emails) or _names_person(row, text)
 
 
@@ -107,7 +107,7 @@ def _about_tracked(apps, text):
     unmatched email isn't a new, untracked application."""
     if any(_matches(row, text) for row in apps):
         return True
-    domains = {d.split('.')[0] for row in apps for d in re.findall(r'@([\w-]+\.[\w.-]+)', _field(row, 'Contact').lower())}
+    domains = {d.split('.')[0] for row in apps for d in re.findall(r'@([\w-]+\.[\w.-]+)', _field(row, 'contact').lower())}
     return any(d and d in text.lower() for d in domains)
 
 

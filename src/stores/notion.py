@@ -346,6 +346,8 @@ def open_store(env=None, tracker=None):
     env = os.environ if env is None else env
     tracker = tracker or tracker_for(env)
     ids = {entity: env.get(variable, '') for entity, variable in DATABASES.items()}
+    # A caller's client already names its Job Tracker (Tracker.database_id): the same database when no variable says so.
+    ids['applications'] = ids['applications'] or getattr(tracker, 'database_id', '') or ''
     return NotionStores(name='notion', applications=Applications(tracker, ids['applications']),
                         events=Events(tracker, ids['events']),
                         matches=NotionMatches(tracker, ids['matches']),

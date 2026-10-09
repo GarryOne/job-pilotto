@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import desktop
 from src.ai import mail, opportunity
 from tests.test_mail import NOW, FakeGoogle, FakeTracker, app, email, result
+from tests.mail_fakes import stores_for
 
 EMAIL_PITCH = """Hi Sam,
 
@@ -188,14 +189,14 @@ class MailOutreachTests(unittest.TestCase):
         lead = app('p1', '', 'Senior DevOps Engineer', stage='Recruiter lead', via='Example Talent')
         tracker, filters = Tracker([lead, app('p2', 'Acme', 'SRE', stage='Dismissed')]), []
         tracker.query_database = lambda db, f=None: filters.append(f) or tracker.apps
-        self.assertEqual([r['id'] for r in mail.applications(tracker)], ['p1'])  # the lead, not the dismissed job
+        self.assertEqual([r['id'] for r in mail.applications(stores_for(tracker))], ['p1'])  # the lead, not the dismissed job
         self.assertEqual(filters, [None])  # no Stage filter: Notion refuses one for a choice the workspace lacks
 
     def test_a_workspace_without_the_recruiter_lead_choice_still_gets_its_mail_checked(self):
         # The choice a workspace lacks is only ever a row this check filters out itself, never a 400.
         tracker, filters = Tracker([app('p1', 'Scale AI', 'SRE')]), []
         tracker.query_database = lambda db, f=None: filters.append(f) or [app('p1', 'Scale AI', 'SRE')]
-        self.assertEqual([r['id'] for r in mail.applications(tracker)], ['p1'])
+        self.assertEqual([r['id'] for r in mail.applications(stores_for(tracker))], ['p1'])
         self.assertEqual(filters, [None])
 
 

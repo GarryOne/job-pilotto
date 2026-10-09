@@ -7,6 +7,7 @@ from src.stores import base, memory, notion_rows
 from tests.mail_fakes import app as notion_row
 from tests.test_focus import NOW, event, row
 from tests.test_mail import FakeTracker, event_row
+from tests.mail_fakes import rec, stores_for
 
 
 def as_record(page):
@@ -60,7 +61,7 @@ class FeedbackTests(unittest.TestCase):
     def test_feedback_can_be_collected_during_screening_without_changing_stage(self):
         app = notion_row('a', 'Acme', 'SRE', stage='Screening')
         tracker = FakeTracker([app])
-        changed = mail.record(tracker, app, feedback.RECEIVED, NOW.isoformat(), 'Gmail', 'msg1',
+        changed = mail.record(stores_for(tracker), rec(stores_for(tracker), app), feedback.RECEIVED, NOW.isoformat(), 'Gmail', 'msg1',
                               'Specific feedback', (set(), {}), feedback_text='Show how you validated database recovery.')
         self.assertEqual(changed, feedback.RECEIVED)
         self.assertEqual(ledger.plain(app['properties']['Stage']), 'Screening')
@@ -73,12 +74,12 @@ class FeedbackTests(unittest.TestCase):
         app = notion_row('a', 'Acme', 'SRE', stage='Rejected')
         tracker, index = FakeTracker([app]), (set(), {})
         for message_id, words in [('msg1', 'Give more concrete incident examples.'), ('msg2', 'Also explain database recovery checks.')]:
-            mail.record(tracker, app, feedback.RECEIVED, NOW.isoformat(), 'Gmail', message_id, 'Feedback', index, feedback_text=words)
+            mail.record(stores_for(tracker), rec(stores_for(tracker), app), feedback.RECEIVED, NOW.isoformat(), 'Gmail', message_id, 'Feedback', index, feedback_text=words)
         kept = ledger.plain(app['properties']['Employer feedback'])
         self.assertIn('incident examples', kept)
         self.assertIn('recovery checks', kept)
         self.assertEqual(len(tracker.created), 2)
-        self.assertIsNone(mail.record(tracker, app, feedback.RECEIVED, NOW.isoformat(), 'Gmail', 'msg2', 'Feedback', index,
+        self.assertIsNone(mail.record(stores_for(tracker), rec(stores_for(tracker), app), feedback.RECEIVED, NOW.isoformat(), 'Gmail', 'msg2', 'Feedback', index,
                                      feedback_text='Also explain database recovery checks.'))
         self.assertEqual(len(tracker.created), 2)
 
@@ -86,12 +87,12 @@ class FeedbackTests(unittest.TestCase):
         for words, status in [('', 'Not asked'), ('Your failover answer missed data consistency checks.', 'Received feedback')]:
             app = notion_row('a', 'Acme', 'SRE', stage='Screening')
             tracker = FakeTracker([app])
-            mail.record(tracker, app, 'Rejected', NOW.isoformat(), 'Gmail', 'msg1', 'Rejected', (set(), {}), feedback_text=words)
+            mail.record(stores_for(tracker), rec(stores_for(tracker), app), 'Rejected', NOW.isoformat(), 'Gmail', 'msg1', 'Rejected', (set(), {}), feedback_text=words)
             self.assertEqual(ledger.plain(app['properties']['Stage']), 'Rejected')
             self.assertEqual(ledger.plain(app['properties']['Feedback status']), status)
         app = notion_row('a', 'Acme', 'SRE')
         tracker = FakeTracker([app])
-        mail.record(tracker, app, 'Rejected', NOW.isoformat(), 'Gmail', 'msg1', 'Rejected', (set(), {}))
+        mail.record(stores_for(tracker), rec(stores_for(tracker), app), 'Rejected', NOW.isoformat(), 'Gmail', 'msg1', 'Rejected', (set(), {}))
         self.assertNotIn('Feedback status', app['properties'])
 
     def test_reviewer_can_mark_feedback_read_then_new_feedback_reappears(self):

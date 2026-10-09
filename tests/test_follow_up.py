@@ -18,6 +18,7 @@ from src.notion import cron_runs
 from tests.test_focus import event as focus_event, reviewed_interview, row as focus_row
 from tests.test_inbox import Inbox, SHOT, job, reading, row
 from tests.test_mail import FakeGoogle, FakeTracker, app
+from tests.mail_fakes import rec, stores_for
 from tests.test_opportunity import Client
 from tests import zone
 
@@ -161,6 +162,12 @@ def sent(message_id, to, date='2026-09-29T10:00:00+02:00', subject='Re: SRE role
             'body': 'Hi Alex, …', 'labels': list(labels)}
 
 
+def sent_pass(tracker, google, apps, index, days, stats):
+    """The Gmail check's sent pass on the Notion store over `tracker`, its jobs as records."""
+    stores = stores_for(tracker)
+    return mail.sent_pass(stores, google, [rec(stores, row) for row in apps], index, days, stats)
+
+
 class SentMailTest(unittest.TestCase):
     def apps(self):
         return [app('p1', '', 'Senior DevOps Engineer', stage='Recruiter lead', via='Example Talent',
@@ -171,20 +178,20 @@ class SentMailTest(unittest.TestCase):
         apps = self.apps()
         tracker, google, stats = FakeTracker(apps), FakeGoogle([sent('s1', 'Alex Morgan <alex@example-talent.test>')]), {}
         index = (set(), {}, set())
-        self.assertEqual(mail.sent_pass(tracker, google, apps, index, 2, stats), 1)
+        self.assertEqual(sent_pass(tracker, google, apps, index, 2, stats), 1)
         self.assertEqual(google.queries, ['in:sent newer_than:2d {to:alex@example-talent.test cc:alex@example-talent.test}'])
         event = tracker.created[0]
         self.assertEqual((event['Kind'], event['Source']), ({'select': {'name': 'Replied'}}, {'select': {'name': 'Gmail'}}))
         self.assertEqual(event['Source ID']['rich_text'][0]['text']['content'], 's1')
         self.assertEqual(event['Note']['rich_text'][0]['text']['content'], 'You replied by email ("Re: SRE role")')
         self.assertEqual(stats['updates'], ['↩️ You replied · Example Talent — Senior DevOps Engineer'])
-        self.assertEqual(mail.sent_pass(tracker, google, apps, index, 2, stats), 0)  # already known: never twice
+        self.assertEqual(sent_pass(tracker, google, apps, index, 2, stats), 0)  # already known: never twice
 
     def test_only_sent_mail_to_one_known_job_counts(self):
         apps = self.apps() + [app('p3', 'Initech', 'SRE', stage='Screening', contact='Alex · alex@example-talent.test')]
         tracker = FakeTracker(apps)
         google = FakeGoogle([sent('s1', 'alex@example-talent.test'), sent('s2', 'x@y.test', labels=('INBOX',))])
-        self.assertEqual(mail.sent_pass(tracker, google, apps, (set(), {}, set()), 2, {}), 0)  # two jobs: which one?
+        self.assertEqual(sent_pass(tracker, google, apps, (set(), {}, set()), 2, {}), 0)  # two jobs: which one?
         self.assertEqual(tracker.created, [])
 
     def test_trouble_never_fails_the_check(self):
@@ -192,12 +199,12 @@ class SentMailTest(unittest.TestCase):
             def search(self, query, limit=50):
                 raise RuntimeError('Gmail is down')
         with mock.patch('sys.stderr', new_callable=io.StringIO) as err:
-            self.assertEqual(mail.sent_pass(FakeTracker(self.apps()), Broken(), self.apps(), (set(), {}, set()), 2, {}), 0)
+            self.assertEqual(sent_pass(FakeTracker(self.apps()), Broken(), self.apps(), (set(), {}, set()), 2, {}), 0)
         self.assertIn('your sent emails not checked', err.getvalue())
 
     def test_no_contacts_no_search(self):
         google = FakeGoogle()
-        mail.sent_pass(FakeTracker([]), google, [app('p1', 'Acme', 'SRE')], (set(), {}, set()), 2, {})
+        sent_pass(FakeTracker([]), google, [app('p1', 'Acme', 'SRE')], (set(), {}, set()), 2, {})
         self.assertEqual(google.queries, [])
 
 

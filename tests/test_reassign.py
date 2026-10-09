@@ -31,15 +31,21 @@ def event(event_id, kind, application=None, changes=None, suggested=''):
         'Changes': text(json.dumps(changes or {}))}}
 
 
+from tests.mail_fakes import APPS_DB, SCHEMA_COLUMNS  # noqa: E402 (after the path setup)
+
+
 class FakeTracker:
-    database_id = 'apps'
+    database_id = APPS_DB
 
     def __init__(self, pages):
         self.pages = {p['id']: p for p in pages}
         self.updates = []
 
-    def _request(self, method, path, body=None):
-        return self.pages[path.split('/')[1]]
+    def _request(self, method, path, body=None):  # a page as Notion returns it: with the database it sits in
+        if path.startswith('databases/'):
+            return {'properties': {name: {} for name in SCHEMA_COLUMNS['apps'] | SCHEMA_COLUMNS['events']}}
+        page = self.pages[path.split('/')[1]]
+        return {'parent': {'database_id': self.database_id}, **page}
 
     def find(self, url):
         return next((p for p in self.pages.values() if (p['properties'].get('Job URL') or {}).get('url') == url), None)
@@ -51,6 +57,7 @@ class FakeTracker:
             for name, value in properties.items():
                 kind = next(iter(value))
                 page['properties'][name] = {'type': kind, kind: value[kind]}
+        return page or {'id': page_id, 'properties': {}}
 
 
 class MoveTests(unittest.TestCase):

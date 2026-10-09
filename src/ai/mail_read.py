@@ -7,6 +7,7 @@ import re
 from ..notion import titles
 from ..notion.funnel import PREPARED_STAGES
 from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, plain
+from ..stores.notion_rows import APPLICATION_COLUMNS
 from . import cost, engine, opportunity
 from .mail_config import BATCH, INVITES, INVITE_MAILS, LINKEDIN_SENDERS, RECRUITER_DOMAINS, SCHEMA, SENDER_DOMAINS, STATE_FILE, SYSTEM, TZ
 
@@ -25,6 +26,12 @@ def load_state(path=STATE_FILE, ledger=None):
     return {'ledger': ledger, 'seen': state.get('seen', []), 'notified': state.get('notified', [])}
 
 
+def ledger_key(stores):
+    """Which ledger the saved state belongs to: the 📈 Application Events database on Notion (as before the stores, so
+    an existing state file stays valid), else the store's name. Another store starts the state over."""
+    return EVENTS_DATABASE_ID if stores.name == 'notion' else f'store:{stores.name}'
+
+
 def save_state(state, path=STATE_FILE):
     path.parent.mkdir(parents=True, exist_ok=True)
     state = {'ledger': state.get('ledger', EVENTS_DATABASE_ID), 'seen': state['seen'][-3000:],
@@ -32,28 +39,40 @@ def save_state(state, path=STATE_FILE):
     path.write_text(json.dumps(state))
 
 
-def applications(tracker):
+def applications(stores):
     """The owner's outstanding jobs that emails and events can belong to, oldest first (stable indexes). Every job
     still in play, not only the ones already applied to: the role a confirmation is about is often still at Kit
     ready or Applying (1 Oct 2026: Canonical's SRE confirmation got no event because that row, at Kit ready, wasn't
     in the list the reader matched against, and the role looked untracked).
-    All rows are read and the stages are filtered here, in Python: Notion rejects a filter on a Stage choice the
+    All records are read and the stages are filtered here, in Python: Notion rejects a filter on a Stage choice the
     workspace doesn't have with a 400 that fails the whole check (a workspace whose "Saved" choice was removed did
     exactly that on 1 Oct 2026, and the check read nothing at all)."""
     keep = set(OUTCOME_STAGES) | {opportunity.LEAD_STAGE} | set(PREPARED_STAGES) | {'Saved'}
-    rows = [row for row in tracker.query_database(tracker.database_id)
-            if (plain(row['properties'].get('Stage')) or '') in keep]
-    return sorted(rows, key=lambda r: (plain(r['properties'].get('Applied on')) or '', r['id']))
+    rows = [row for row in stores.applications.list() if (row['stage'] or '') in keep]
+    return sorted(rows, key=lambda r: (r['applied_on'] or '', r['id']))
+
+
+# A job field by its Notion column and back (src/stores/notion_rows.py), for callers that still hold Notion rows.
+_COLUMN = {field: column for field, column, _ in APPLICATION_COLUMNS}
+_FIELD = {column: field for field, column in _COLUMN.items()}
 
 
 def _field(row, name):
-    return plain(row['properties'].get(name)) or ''
+    """A job record's field as text ('' when empty): rows are store records (src/stores/base.py APPLICATION_FIELDS)."""
+    if 'properties' in row:
+        # BRIDGE(mac-4a prep, mail reassign): remove when the move of prep.py and reassign.py to job records lands
+        return plain(row['properties'].get(_COLUMN.get(name, name))) or ''
+    value = row.get(_FIELD.get(name, name))
+    return '' if value is None else str(value)
 
 
 def _role(row):
     """The row's role: its Job title without " · Acme" / " · via Huxley" (src/notion/titles.py), for matching by role
     words and for lines that name the employer or agency themselves."""
-    return titles.row_role(row)
+    if 'properties' in row:
+        # BRIDGE(mac-4a prep, mail reassign): remove when the move of prep.py and reassign.py to job records lands
+        return titles.row_role(row)
+    return titles.role_of(row.get('title') or '', row.get('company') or '', row.get('via') or '')
 
 
 def verified_feedback(value, original):
@@ -66,7 +85,7 @@ def verified_feedback(value, original):
 def query(apps, days):
     """One Gmail search: known senders or a tracked company's name, in any tab (an employer's mail can land in Promotions). No subject
     words: every other new inbox email is sorted by Claude, in any language (mail_triage)."""
-    names = {n for r in apps for n in (_field(r, 'Company'), _field(r, 'Via')) if n and len(n) > 2 and len(n) < 40}
+    names = {n for r in apps for n in (_field(r, 'company'), _field(r, 'via')) if n and len(n) > 2 and len(n) < 40}
     terms = [f'from:{d}' for d in SENDER_DOMAINS + LINKEDIN_SENDERS] + [f'"{n}"' for n in sorted(names)]
     return f'newer_than:{days}d -in:chats -in:spam -in:trash -in:sent {{{" ".join(terms)}}}'
 
@@ -79,9 +98,9 @@ def extra_query(days):
 
 
 def listing(apps):
-    return '\n'.join(f"{i}. {_field(r, 'Company') or '(employer not named)'} — {_role(r)} (stage {_field(r, 'Stage')}"
-                     f"{', via ' + _field(r, 'Via') if _field(r, 'Via') else ''}"
-                     f"{', recruiter ' + _field(r, 'Contact') if _field(r, 'Contact') else ''}, applied {_field(r, 'Applied on') or '?'})"
+    return '\n'.join(f"{i}. {_field(r, 'company') or '(employer not named)'} — {_role(r)} (stage {_field(r, 'stage')}"
+                     f"{', via ' + _field(r, 'via') if _field(r, 'via') else ''}"
+                     f"{', recruiter ' + _field(r, 'contact') if _field(r, 'contact') else ''}, applied {_field(r, 'applied_on') or '?'})"
                      for i, r in enumerate(apps))
 
 

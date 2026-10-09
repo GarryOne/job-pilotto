@@ -299,10 +299,16 @@ def log(tracker, *, text='', image=None, client=None, model=DEFAULT_MODEL, talki
         elif created:
             changed = APPLIED
     else:
-        index = mail._events_index(tracker)
-        changed = mail.record(tracker, row, REPLY if kind == OUTREACH else kind, when, event_source, source_id,
-                              _noted(f'Logged: {summary}', item), index, item.get('interview_at') or None, now,
+        # BRIDGE(mail inbox): remove when inbox.py on the store lands
+        from ..stores import notion_rows, open_stores
+        stores = open_stores(tracker=tracker)
+        job = stores.applications._record(row)
+        before = dict(job)
+        changed = mail.record(stores, job, REPLY if kind == OUTREACH else kind, when, event_source, source_id,
+                              _noted(f'Logged: {summary}', item), mail._events_index(stores), item.get('interview_at') or None, now,
                               feedback_text=(item.get('feedback') or '') if image else mail.verified_feedback(item.get('feedback'), text))
+        row['properties'].update(notion_rows.to_properties({k: v for k, v in job.items() if v != before.get(k) and k in mail.MOVED},
+                                                           notion_rows.APPLICATION_COLUMNS))
     if talking and (stage == opportunity.LEAD_STAGE or changed == opportunity.LEAD_STAGE):
         ledger.set_stage(tracker, url, 'Screening', event_source, note='You said yes to the recruiter')
         changed = 'Screening'

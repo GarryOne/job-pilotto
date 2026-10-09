@@ -4,7 +4,7 @@ from html import escape
 import re
 import sys
 
-from ..notion.ledger import add_event
+from ..stores import rules
 from .mail_config import YOU_REPLIED
 from .mail_lines import _label, _short
 from .mail_match import ENDED
@@ -19,9 +19,9 @@ def contacts(apps):
     """The recruiters you write to: each email address an open application's Contact names -> those rows."""
     found = {}
     for row in apps:
-        if _field(row, 'Stage') in ENDED:
+        if _field(row, 'stage') in ENDED:
             continue
-        for address in EMAIL.findall(_field(row, 'Contact').lower()):
+        for address in EMAIL.findall(_field(row, 'contact').lower()):
             found.setdefault(address, {})[row['id']] = row
     return found
 
@@ -32,7 +32,7 @@ def sent_query(addresses, days):
     return f'in:sent newer_than:{days}d {{{terms}}}'
 
 
-def sent_pass(tracker, google, apps, index, days, stats, dry_run=False):
+def sent_pass(stores, google, apps, index, days, stats, dry_run=False):
     """Your own emails to a tracked job's recruiter -> a "Replied" event (Source Gmail, Source ID = the message id,
     so never twice; the note is only its subject). Focus then knows you wrote last, and recommends a follow-up when
     it stays unanswered (src/focus.py follow_up): pressing Done is no longer the only way. No AI, no cost. A
@@ -58,10 +58,10 @@ def sent_pass(tracker, google, apps, index, days, stats, dry_run=False):
                 print(f"{email['date'][:16]} you wrote to {_label(row)}: {email['subject'][:60]!r}")
                 continue
             subject = re.sub(r'\s+', ' ', email.get('subject') or '').strip()[:80]
-            event = add_event(tracker, row, YOU_REPLIED, 'Gmail', at=email['date'], source_id=email['id'],
-                              note=f'You replied by email ("{subject}")' if subject else 'You replied by email')
+            _, existing = rules.add_event(stores, row, YOU_REPLIED, 'Gmail', at=email['date'], source_id=email['id'],
+                                          note=f'You replied by email ("{subject}")' if subject else 'You replied by email')
             index[0].add(email['id'])
-            if not (event or {}).get('_existing'):
+            if not existing:
                 recorded += 1
                 _short(stats, YOU_REPLIED, row)
     except Exception as error:  # noqa: BLE001 — your sent mail is extra: the check itself goes on
@@ -69,15 +69,22 @@ def sent_pass(tracker, google, apps, index, days, stats, dry_run=False):
     return recorded
 
 
-def review_rejections(tracker, client, rejected, stats, backfill=2):
+def review_rejections(stores, client, rejected, stats, backfill=2):
     """Why each new rejection happened (rejection.review, Sonnet 5), then up to `backfill` older rejections
     without a review. Lines for Telegram; a failed review is logged and retried next time (it stays pending)."""
     from ..features import disabled
     from . import rejection
+    from .mail_record import _notion_row
     if disabled('rejection_review'):
         return []
+    # BRIDGE(mac-4a rejection): remove when rejection.pending/review on the store lands
+    tracker = getattr(stores.applications, 'tracker', None)
+    if stores.name != 'notion' or tracker is None:
+        if rejected:
+            print('Warning: rejection reviews need the Notion store for now; the rejections are recorded.', file=sys.stderr)
+        return []
     lines, done, profile = [], set(), None
-    todo = [(row, f"Subject: {email['subject']}\n\n{email['body']}") for row, email in rejected]
+    todo = [(_notion_row(stores, row), f"Subject: {email['subject']}\n\n{email['body']}") for row, email in rejected]
     try:
         todo += [(row, '') for row in rejection.pending(tracker, backfill) if row['id'] not in {r['id'] for r, _ in rejected}]
     except Exception as error:  # noqa: BLE001
@@ -91,7 +98,7 @@ def review_rejections(tracker, client, rejected, stats, backfill=2):
             profile = tracker.page_text() if profile is None else profile
             _, summary = rejection.review(tracker, row, email_text=email_text, client=client, stats=stats, profile=profile)
         except Exception as error:  # noqa: BLE001 — the Gmail check's own updates are already saved
-            print(f'Warning: rejection review failed for {_label(row)}: {type(error).__name__}: {error}', file=sys.stderr)
+            print(f'Warning: rejection review failed for {_label(stores.applications._record(row))}: {type(error).__name__}: {error}', file=sys.stderr)
             continue
         lines.append(escape(summary))
         if stats is not None:

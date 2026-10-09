@@ -7,6 +7,7 @@ from unittest import mock
 
 from src.ai import inbox, inbox_notion, mail, mail_leads, opportunity
 from src.notion import client, funnel, ledger, origin
+from tests.mail_fakes import stores_for
 
 
 def select(name):
@@ -137,8 +138,8 @@ class WriterTests(unittest.TestCase):
     def test_an_email_about_an_untracked_role_writes_no_application(self):
         tracker = Fake()   # asked in Focus instead (src/ai/mail.py run); a new job chosen there is made by src/ai/reassign.py
         email = {'date': '2026-09-20T10:00:00Z', 'id': 'm1', 'subject': 'Thanks for applying', 'body': ''}
-        with mock.patch.object(mail_leads, 'add_event'):
-            self.assertIsNone(mail._from_email(tracker, [], {'company': 'Acme', 'role': 'SRE'}, email, None, []))
+        with mock.patch.object(mail_leads.rules, 'add_event'):
+            self.assertIsNone(mail._from_email(stores_for(tracker), [], {'company': 'Acme', 'role': 'SRE'}, email, None, []))
         self.assertEqual(tracker.app_props(), [])
 
 

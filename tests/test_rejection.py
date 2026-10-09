@@ -50,7 +50,7 @@ class Tracker(FakeTracker):
     def update_page(self, page_id, properties):
         if self.fail_columns and 'Rejection reason' in properties:
             raise RuntimeError('400: Rejection reason is not a property')
-        super().update_page(page_id, properties)
+        return super().update_page(page_id, properties)
 
     def replace_after_heading(self, page_id, heading, blocks):
         self.sections[(page_id, heading)] = blocks

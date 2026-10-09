@@ -12,7 +12,7 @@ from src.ai import mail
 from src.notion import ledger
 from src.sources import google as google_api
 from tests import zone
-from tests.mail_fakes import NOW, FakeClient, FakeGoogle, FakeTracker, MailCase, app, email, result, text
+from tests.mail_fakes import NOW, FakeClient, FakeGoogle, FakeTracker, MailCase, app, content, email, result, text
 
 setUpModule, tearDownModule = zone.pinned()
 
@@ -53,14 +53,10 @@ class MailMatchTests(MailCase):
         self.assertTrue(any(line.startswith('❓') for line in stats['updates']))
 
     def test_a_role_on_the_list_but_never_marked_applied_becomes_the_application(self):
-        kit_ready = app('k1', 'Grafana Labs', 'Staff SRE | Spain | Remote', stage='Kit ready', applied='')
-
-        class Tracker(FakeTracker):
-            def query_database(self, database_id, filter_=None):
-                if filter_ and filter_.get('property') == 'Company':
-                    return [kit_ready]
-                return super().query_database(database_id, filter_)
-        tracker, stats = Tracker([app('p1', 'Grafana Labs', 'Staff SRE | Sweden | Remote')]), {}
+        # Saved, Kit ready and Applying are among the jobs the reader matches (mail.applications); a role outside them
+        # (dismissed, then applied to without marking it) is found by the check's scan of every row.
+        kit_ready = app('k1', 'Grafana Labs', 'Staff SRE | Spain | Remote', stage='Dismissed', applied='')
+        tracker, stats = FakeTracker([app('p1', 'Grafana Labs', 'Staff SRE | Sweden | Remote'), kit_ready]), {}
         google = FakeGoogle([email('r1', 'Your application for Grafana Labs', '2026-09-26T07:00:00+02:00')])
         with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}), \
                 mock.patch('src.ai.mail.review_rejections', lambda *a, **k: []):
@@ -83,7 +79,7 @@ class MailMatchTests(MailCase):
             mail.run(tracker, google, client=FakeClient([[{**result(0, -1, 'Reply received', company='Blinq'), 'role': 'DevOps Engineer'}]]),
                      days=2, send=[].append, calendar=False, now=NOW, state_path=self.state, stats={})
         self.assertEqual([p for p in tracker.created if 'Stage' in p], [])  # no twin row
-        self.assertIn(('p1', {'Company': {'rich_text': [{'text': {'content': 'Blinq'}}]}}), tracker.updates)  # the lead learns its employer
+        self.assertIn(('p1', 'Blinq'), [(p, content(u['Company'])) for p, u in tracker.updates if 'Company' in u])  # the lead learns its employer
 
     def test_an_email_that_only_shares_the_agency_with_a_lead_is_asked_about_not_merged_or_duplicated(self):
         lead = app('p1', '', 'Platform Engineer', stage='Screening', via='AG Talent', contact='Sam · sam@agtalent.com')
@@ -248,7 +244,7 @@ class MailMatchTests(MailCase):
                                                    result(1, -1, 'Confirmation received', company='Zeta', summary='Applied')]])
         [question] = tracker.created  # not guessed, not dropped: asked (Focus → "Which job is this?")
         self.assertTrue(question['Needs you']['checkbox'])
-        self.assertNotIn('Suggested job', question)
+        self.assertFalse((question.get('Suggested job') or {}).get('url'))
         self.assertIn('Zeta', sent[0])
         self.assertIn('Which job is this for?', sent[0])
 

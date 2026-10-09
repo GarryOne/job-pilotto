@@ -13,7 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import mail, mail_inbox
 from src.notion import ledger
 from tests import zone
-from tests.mail_fakes import NOW, FakeClient, FakeGoogle, FakeTracker, MailCase, app, email, event_row, result, text
+from tests.mail_fakes import (NOW, FakeClient, FakeGoogle, FakeTracker, MailCase, app, content, email, event_row, rec, result,
+                              stores_for, text)
 
 setUpModule, tearDownModule = zone.pinned()
 
@@ -112,9 +113,8 @@ class MailTests(MailCase):
         self.assertEqual(tracker.created, [])
         page = 'ev-Confirmation received-2026-09-26T01:26:00+02:00'
         update = {k: v for p, u in tracker.updates if p == page for k, v in u.items()}
-        self.assertEqual((update['Source ID'], update['At']), ({'rich_text': [{'text': {'content': 'm2'}}]},
-                                                               {'date': {'start': '2026-09-26T01:26:30+02:00'}}))
-        changes = json.loads(update['Changes']['rich_text'][0]['text']['content'])
+        self.assertEqual((content(update['Source ID']), update['At']), ('m2', {'date': {'start': '2026-09-26T01:26:30+02:00'}}))
+        changes = json.loads(content(update['Changes']))
         self.assertEqual(changes['fields']['Stage'], ['Applied', 'Confirmation received'])  # what the email changed
         self.assertEqual(apps[0]['properties']['Stage']['select']['name'], 'Confirmation received')  # repair a partially saved event
 
@@ -158,7 +158,7 @@ class MailTests(MailCase):
             app('p2', 'Acme', 'SRE', stage='Applying'),
             app('p3', 'Beta', 'Data Engineer', stage='Dismissed')]), []
         tracker.query_database = lambda db, f=None: filters.append(f) or tracker.apps + [app('x', 'Gamma', 'Saved role', stage='Saved')]
-        self.assertEqual([r['id'] for r in mail.applications(tracker)], ['p1', 'p2', 'x'])
+        self.assertEqual([r['id'] for r in mail.applications(stores_for(tracker))], ['p1', 'p2', 'x'])
         self.assertEqual(filters, [None])  # never a filter Notion could refuse
 
     def test_interview_invite_sets_next_interview_and_stage_forward_only(self):
