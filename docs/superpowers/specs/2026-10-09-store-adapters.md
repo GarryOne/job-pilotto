@@ -85,6 +85,12 @@ Rules decided while writing it (9 Oct 2026):
 - **JS side** mirrors only what the desktop does itself (texts, cron/agent run reads and closes, transcripts, files);
   everything else is an engine command that opens the store from `JOB_PILOTTO_STORE`.
 
+**Agent run shapes (one for every writer: the extension's runRecord, the engine's apply_run, the desktop's session stats):**
+- `fields.data` = `{"fields": [{"label", "source", "outcome", "confidence", "reason"}], "left_for_you": ["<label>"], "attachments": ["<name>"]}`:
+  the field-by-field table without answer values (never the person's words), size-capped.
+- `fields.timeline` = `[{"step": "<name>", "ms": <int>}]`: step timings.
+- `learnings` (record field) = the Learning text; `transcript` = the conversation JSON ('💬 Conversation' on Notion).
+
 Owners (9 Oct 2026): P0 + P4 + landing: mac-e4 · P1 sqlite: mac-ab · P2 notion + engine callers: mac-67 · P3+P5 desktop: mac-4a.
 
 ## 5. Open questions
