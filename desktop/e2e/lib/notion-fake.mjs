@@ -41,6 +41,7 @@ export function createNotionFake() {
   const objects = {get: id => store.get(key(id)), set: (id, value) => store.set(key(id), value), has: id => store.has(key(id)), values: () => store.values()};
   const children = {has: id => lists.has(key(id)), get: id => lists.get(key(id)), set: (id, value) => lists.set(key(id), value)};
   const uploads = new Map();
+  let base = '';   // the server's own URL (startNotionFake sets it): an uploaded file is served from there, as Notion serves it from its storage
   const stats = {calls: 0, writes: 0};
   const kids = id => { if (!children.has(id)) children.set(id, []); return children.get(id); };
   const root = {object: 'page', id: uuid(), created_time: now(), last_edited_time: now(), archived: false, in_trash: false, parent: {type: 'workspace', workspace: true},
@@ -62,6 +63,12 @@ export function createNotionFake() {
       const content = {...(block[type] || {})};
       if (content.rich_text) content.rich_text = richOut(content.rich_text);
       const inner = content.children; delete content.children;
+      // A file block that names an upload reads back as Notion's own: a hosted file with a URL and the upload's name.
+      if (content.type === 'file_upload' && uploads.has(content.file_upload?.id)) {
+        const upload = uploads.get(content.file_upload.id);
+        Object.assign(content, {type: 'file', file: {url: `${base}/files/${upload.id}`, expiry_time: now()}, name: upload.filename, caption: content.caption || []});
+        delete content.file_upload;
+      }
       const item = {object: 'block', id: uuid(), parent: {type: 'block_id', block_id: dashed(parentId)}, type, [type]: content, has_children: false, archived: false, in_trash: false,
         created_time: now(), last_edited_time: now()};
       objects.set(item.id, item);
@@ -121,7 +128,7 @@ export function createNotionFake() {
     return value;
   }
 
-  function handle(method, path, body, query) {
+  function handle(method, path, body, query, raw) {
     stats.calls++;
     if (method !== 'GET') stats.writes++;
     let m;
@@ -203,7 +210,8 @@ export function createNotionFake() {
       if (method === 'PATCH') { const type = item.type; if (body[type]) { item[type] = {...item[type], ...body[type], ...(body[type].rich_text ? {rich_text: richOut(body[type].rich_text)} : {})}; } return {status: 200, body: item}; }
     }
     if (method === 'POST' && path === 'file_uploads') { const id = uuid(); uploads.set(id, {id, filename: body.filename, status: 'pending'}); return {status: 200, body: {object: 'file_upload', id, status: 'pending', filename: body.filename, upload_url: `/v1/file_uploads/${id}/send`}}; }
-    if ((m = /^file_uploads\/([^/]+)\/send$/.exec(path)) && method === 'POST') { const item = uploads.get(m[1]); if (!item) return error(404, 'object_not_found', 'no such upload'); item.status = 'uploaded'; return {status: 200, body: {object: 'file_upload', ...item}}; }
+    if ((m = /^files\/([^/]+)$/.exec(path)) && method === 'GET' && uploads.get(m[1])?.data) { const item = uploads.get(m[1]); return {status: 200, body: item.data, type: item.content_type}; }
+    if ((m = /^file_uploads\/([^/]+)\/send$/.exec(path)) && method === 'POST') { const item = uploads.get(m[1]); if (!item) return error(404, 'object_not_found', 'no such upload'); item.status = 'uploaded'; Object.assign(item, fileOf(raw)); return {status: 200, body: {object: 'file_upload', ...item}}; }
     return error(400, 'invalid_request_url', `the Notion stand-in does not know ${method} ${path}: add it (docs/notion-surface.md)`);
   }
 
@@ -222,20 +230,32 @@ export function createNotionFake() {
   const dump = () => [...store.values()].filter(item => item.object !== 'block' || item.type === 'child_page' || item.type === 'child_database').map(item => ({object: item.object, id: item.id,
     parent: item.parent, archived: !!item.archived, title: item.object === 'database' ? plain(item.title) : plain(Object.values(item.properties || {}).find(p => p.type === 'title')?.title),
     ...(item.object === 'database' ? {rows: [...store.values()].filter(row => row.object === 'page' && key(row.parent?.database_id || '') === key(item.id)).length} : {})})).filter(item => item.object !== 'page' || item.parent?.type !== 'database_id');
-  return {root, objects, stats, handle, seed, dump};
+  return {root, objects, stats, handle, seed, dump, setBase: url => { base = url; }};
+}
+
+// The file part of a multipart upload body: its bytes and type (Buffer in, Buffer out; no parser for one part).
+function fileOf(raw) {
+  if (!Buffer.isBuffer(raw)) return {};
+  const start = raw.indexOf('\r\n\r\n'), boundary = raw.subarray(2, raw.indexOf('\r\n'));
+  const end = raw.lastIndexOf(Buffer.concat([Buffer.from('\r\n--'), boundary]));
+  if (start < 0 || end < start) return {};
+  const head = raw.subarray(0, start).toString(), type = /Content-Type:\s*([^\r\n]+)/i.exec(head)?.[1] || 'application/octet-stream';
+  return {data: raw.subarray(start + 4, end), content_type: type};
 }
 
 export async function startNotionFake() {
   const fake = createNotionFake();
   const server = http.createServer(async (req, res) => {
-    let raw = ''; for await (const chunk of req) raw += chunk;
+    const chunks = []; for await (const chunk of req) chunks.push(chunk);
+    const raw = Buffer.concat(chunks), multipart = String(req.headers['content-type'] || '').startsWith('multipart/');
     const url = new URL(req.url, 'http://fake');
-    const path = url.pathname.replace(/^\/v1\//, '');
-    let body = {}; try { body = raw && !String(req.headers['content-type'] || '').startsWith('multipart/') ? JSON.parse(raw) : {}; } catch { body = {}; }
-    const {status, body: out} = fake.handle(req.method, path, body, url.searchParams);
-    res.writeHead(status, {'content-type': 'application/json'});
-    res.end(JSON.stringify(out));
+    const path = url.pathname.replace(/^\/(v1\/)?/, '');
+    let body = {}; try { body = raw.length && !multipart ? JSON.parse(raw.toString()) : {}; } catch { body = {}; }
+    const {status, body: out, type} = fake.handle(req.method, path, body, url.searchParams, multipart ? raw : undefined);
+    res.writeHead(status, {'content-type': type || 'application/json'});
+    res.end(type ? out : JSON.stringify(out));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  fake.setBase(`http://127.0.0.1:${server.address().port}`);
   return {...fake, url: `http://127.0.0.1:${server.address().port}`, close: () => { server.closeAllConnections?.(); return new Promise(resolve => server.close(resolve)); }};
 }

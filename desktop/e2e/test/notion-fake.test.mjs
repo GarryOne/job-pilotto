@@ -67,3 +67,22 @@ test('every id comes back with dashes, as from Notion, whatever the request sent
   const row = call(fake, 'POST', 'pages', {parent: {database_id: db.id.replace(/-/g, '')}, properties: {Name: {title: text('a')}}}).body;
   assert.equal(row.parent.database_id, db.id);
 });
+
+test('an uploaded file keeps its bytes and reads back as a hosted file block', async () => {
+  const {startNotionFake} = await import('../lib/notion-fake.mjs');
+  const fake = await startNotionFake();
+  try {
+    const page = fake.handle('POST', 'pages', {parent: {page_id: fake.root.id}, properties: {title: {title: text('Kit')}}}, {}, new URLSearchParams()).body;
+    const upload = fake.handle('POST', 'file_uploads', {filename: 'cv.pdf', content_type: 'application/pdf'}, new URLSearchParams()).body;
+    const boundary = 'b0undary', body = Buffer.concat([Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="cv.pdf"\r\nContent-Type: application/pdf\r\n\r\n`),
+      Buffer.from([0x25, 0x50, 0x44, 0x46, 0x0d, 0x0a, 0xff]), Buffer.from(`\r\n--${boundary}--\r\n`)]);
+    const sent = await fetch(`${fake.url}/v1/file_uploads/${upload.id}/send`, {method: 'POST', headers: {'content-type': `multipart/form-data; boundary=${boundary}`}, body});
+    assert.equal((await sent.json()).status, 'uploaded');
+    call(fake, 'PATCH', `blocks/${page.id}/children`, {children: [{type: 'file', file: {type: 'file_upload', file_upload: {id: upload.id}}}]});
+    const [block] = call(fake, 'GET', `blocks/${page.id}/children`).body.results;
+    assert.equal(block.file.type, 'file'); assert.equal(block.file.name, 'cv.pdf');
+    const got = await fetch(block.file.file.url);
+    assert.equal(got.headers.get('content-type'), 'application/pdf');
+    assert.deepEqual([...Buffer.from(await got.arrayBuffer())], [0x25, 0x50, 0x44, 0x46, 0x0d, 0x0a, 0xff]);
+  } finally { await fake.close(); }
+});
