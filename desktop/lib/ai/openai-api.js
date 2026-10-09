@@ -4,7 +4,7 @@
 // max_output_tokens; web search → {type: 'web_search'}. A Claude model id maps by tier (models.js). cache_control is dropped (OpenAI
 // caches by itself). Errors: a rejected key or no quota → AiLimit; rate limit, 5xx, connection → AiUnavailable. Billing 'api'.
 // The SDK is loaded only when this engine is used. Guarded by test/ai-contract.test.js (recorded answers, no network, no key).
-import {API, Adapter, AiError, AiLimit, AiUnavailable, response, usage} from './contract.js';
+import {API, Adapter, AiError, AiLimit, AiUnavailable, requestFrom, response, usage} from './contract.js';
 import {openaiModel} from './models.js';
 import {dropNulls, strict} from './schema.js';
 
@@ -83,6 +83,35 @@ export class OpenAiApi extends Adapter {
   constructor({apiKey = '', sdk = null, env = process.env, action = '', ...options} = {}) {
     super(options);
     Object.assign(this, {apiKey, sdk, env, action});
+    // The Anthropic SDK's stream shape (on('text', (delta, snapshot)), finalMessage()), so a caller with a progress bar (the strategy draft) shows
+    // it on OpenAI too, not only on the Anthropic key (owner, 9 Oct 2026: no degradation when switching). Streaming is this engine's and the Anthropic API's.
+    this.messages.stream = params => this.stream(params);
+  }
+
+  stream(params) {
+    const request = requestFrom(params), listeners = [];
+    let done = null;
+    const run = async () => {
+      const sdk = await this.client();
+      let snapshot = '', final = null;
+      try {
+        const events = await sdk.responses.create({...body(request, {env: this.env, action: this.action}), stream: true});
+        for await (const event of events) {
+          if (event.type === 'response.output_text.delta') {
+            snapshot += event.delta || '';
+            for (const listener of listeners) listener(event.delta || '', snapshot);
+          } else if (['response.completed', 'response.incomplete', 'response.failed'].includes(event.type)) final = event.response;
+          else if (event.type === 'error') throw Object.assign(new Error(event.message || 'stream error'), {status: 500});
+        }
+      } catch (error) { throw contractError(error); }
+      if (!final) throw new AiUnavailable('OpenAI: the answer stream ended without a response');
+      if (final.status === 'failed') throw new AiError(`OpenAI: ${final.error?.message || 'the answer failed'}`);
+      return fromResponse(final, request);
+    };
+    return {
+      on(event, listener) { if (event === 'text') listeners.push(listener); return this; },
+      finalMessage: () => (done ??= run()),
+    };
   }
 
   async client() {

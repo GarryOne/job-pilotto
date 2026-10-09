@@ -324,3 +324,27 @@ test('two PDFs in one call: one read, one window, both as pages + text; a stuck 
   assert.ok(Date.now() - began < 2000);
   assert.deepEqual(stuckEvents, ['close']);
 });
+
+test('OpenAI API streams like the Anthropic SDK (the strategy draft\'s progress bar), and the cheap test model maps to the small tier', async () => {
+  const sent = [];
+  const events = [{type: 'response.created'}, {type: 'response.output_text.delta', delta: '{"summary":'}, {type: 'response.output_text.delta', delta: '"done","note":null}'},
+    {type: 'response.completed', response: {model: 'gpt-6-luna', status: 'completed', output_text: '{"summary":"done","note":null}', usage: {input_tokens: 50, output_tokens: 9}}}];
+  const sdk = {responses: {create: async params => { sent.push(params); return (async function* () { yield* events; })(); }}};
+  const client = new OpenAiApi({sdk, env: {}});
+  const stream = client.messages.stream({model: 'claude-haiku-5-5', max_tokens: 100, messages: [{role: 'user', content: 'x'}],
+    output_config: {format: {type: 'json_schema', schema: SCHEMA}}});
+  const seen = [];
+  stream.on('text', (delta, snapshot) => seen.push(snapshot));
+  const answer = await stream.finalMessage();
+  assert.equal(sent[0].stream, true);
+  assert.equal(sent[0].model, 'gpt-6-luna', 'CI\'s claude-haiku-5-5 override runs the small OpenAI model');
+  assert.deepEqual(seen, ['{"summary":', '{"summary":"done","note":null}']);
+  assert.deepEqual(JSON.parse(answer.content[0].text), {summary: 'done'});
+  assert.equal(answer.usage.billing, 'api');
+  assert.equal(await stream.finalMessage(), answer, 'asked twice, run once');
+  const failing = new OpenAiApi({env: {}, sdk: {responses: {create: async () => { throw Object.assign(new Error('quota'), {status: 429, code: 'insufficient_quota'}); }}}});
+  await assert.rejects(failing.messages.stream({model: 'claude-haiku-5-5', messages: [{role: 'user', content: 'x'}]}).finalMessage(), AiLimit);
+  const cut = new OpenAiApi({env: {}, sdk: {responses: {create: async () => (async function* () { yield {type: 'response.output_text.delta', delta: 'x'}; })()}}});
+  await assert.rejects(cut.messages.stream({model: 'claude-haiku-5-5', messages: [{role: 'user', content: 'x'}]}).finalMessage(), AiUnavailable);
+  assert.throws(() => client.messages.stream({model: 'm', temperature: 1, messages: []}), /not part of the AI contract/);
+});
