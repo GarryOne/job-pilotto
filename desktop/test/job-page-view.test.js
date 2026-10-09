@@ -41,6 +41,12 @@ test('Markdown to words: links, marks, escapes, toggles and to-dos', () => {
   assert.doesNotMatch(readablePart('Text\n\n### Machine-readable record\n\n```json\n{"a": 1}\n```'), /json|Machine/);
 });
 
+test('screenshots belong with the messages: an image alone shows the Messages tab; other files stay out', () => {
+  const parts = pageParts({files: [{name: 'chat.png', type: 'image/png', url: 'data:image/png;base64,AA'}, {name: 'cv.pdf', type: 'application/pdf', url: 'data:x'}]});
+  assert.deepEqual(parts.tabs, [['messages', 'Messages']]);
+  assert.deepEqual(parts.shots.map(shot => shot.name), ['chat.png']);
+});
+
 test('the header: stage, applied date, place and fit', () => {
   assert.equal(headerFacts({location: 'Zurich', fit: 82}, {stage: 'Applied', applied_on: '2026-10-01'}), 'Applied · applied 1 Oct 2026 · Zurich · 🎯 82');
   assert.equal(headerFacts({stage: 'Saved'}), 'Saved');

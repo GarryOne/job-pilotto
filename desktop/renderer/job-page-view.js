@@ -96,7 +96,7 @@ export function historyItems(events = []) {
 }
 
 // The page's tabs and their content: {tabs: [[key, label]], kit, groups: {prep, review, record, messages, description}, history}.
-export function pageParts({sections = {}, kit = null, events = []} = {}) {
+export function pageParts({sections = {}, kit = null, events = [], files = []} = {}) {
   const named = Object.entries(sections || {});
   const messages = named.filter(([name]) => isMessages(name))
     .flatMap(([name, markdown]) => groupsOf(markdown, plain(name)));
@@ -108,9 +108,12 @@ export function pageParts({sections = {}, kit = null, events = []} = {}) {
   };
   const kitView = sections[SECTIONS.kit] || kit ? kitParts(kit, sections[SECTIONS.kit]) : null;
   const history = historyItems(events);
+  // The job's images (a logged message's screenshots) belong with its messages; other files (a tailored CV) are not shown here.
+  const shots = (files || []).filter(file => /^image\//.test(file?.type || ''));
   const has = {kit: !!kitView && !!(kitView.groups?.length || kitView.letter || kitView.answers?.length || kitView.check?.length),
     history: history.length > 0, ...Object.fromEntries(Object.entries(groups).map(([key, value]) => [key, value.length > 0]))};
-  return {tabs: TABS.filter(([key]) => has[key]), kit: kitView, groups, history};
+  has.messages ||= shots.length > 0;
+  return {tabs: TABS.filter(([key]) => has[key]), kit: kitView, groups, history, shots};
 }
 
 // "Next interview 14 Oct 2026 · prep 13 Oct 2026" and the call's facts (Applications Next interview, Interview prep, Call facts).

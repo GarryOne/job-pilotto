@@ -13,6 +13,7 @@ function fakeStore(app) {
     if (method === 'get') return app;
     if (method === 'sections') return {'📝 Application kit': kitMarkdown};
     if (entity === 'events') return [{kind: 'Applied', at: '2026-10-01'}];
+    if (method === 'files') return [{name: 'chat.png', content_type: 'image/png', size: 3, data: 'AAAA'}];
     throw new Error(`unexpected ${entity}.${method}`);
   };
   return {call, calls};
@@ -21,7 +22,8 @@ function fakeStore(app) {
 test('a tracked job: its sections, its kit as JSON and its events, by its app id', async () => {
   const {call, calls} = fakeStore({id: 'a1', stage: 'Applied'});
   const page = await jobPage({}, 'https://x/1', {call, links: true});
-  assert.deepEqual(calls.sort(), ['applications.get', 'applications.sections', 'events.list']);
+  assert.deepEqual(calls.sort(), ['applications.files', 'applications.get', 'applications.sections', 'events.list']);
+  assert.deepEqual(page.files.map(file => [file.name, file.url]), [['chat.png', 'data:image/png;base64,AAAA']], 'the screenshots, for Messages');
   assert.equal(page.kit.cover_letter, 'Dear team');
   assert.equal(page.events.length, 1);
   assert.equal(page.links, true);
@@ -29,7 +31,7 @@ test('a tracked job: its sections, its kit as JSON and its events, by its app id
 
 test('a job nobody acted on: no application, nothing else read', async () => {
   const {call, calls} = fakeStore(null);
-  assert.deepEqual(await jobPage({}, 'https://x/2', {call}), {app: null, sections: {}, kit: null, events: [], links: false});
+  assert.deepEqual(await jobPage({}, 'https://x/2', {call}), {app: null, sections: {}, kit: null, events: [], files: [], links: false});
   assert.deepEqual(calls, ['applications.get']);
 });
 

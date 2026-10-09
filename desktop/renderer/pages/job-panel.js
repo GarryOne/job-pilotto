@@ -71,8 +71,26 @@ function historyView(items) {
   }))];
 }
 
+// The job's screenshots (lib/store/files.js), as the composer's attachment rows; View shows one at full width in the panel.
+function shotsView(shots) {
+  if (!shots.length) return [];
+  return [group('Screenshots', shots.map(shot => {
+    const row = el('div', 'attachment');
+    const view = Object.assign(el('button', 'soft-button', shot.url ? 'View' : 'Too large to show'), {type: 'button', disabled: !shot.url});
+    view.addEventListener('click', () => {
+      const open = row.nextElementSibling?.classList.contains('job-panel-shot');
+      if (open) { row.nextElementSibling.remove(); view.textContent = 'View'; return; }
+      row.after(Object.assign(el('img', 'job-panel-shot'), {src: shot.url, alt: shot.name}));
+      view.textContent = 'Hide';
+    });
+    row.append(...(shot.url ? [Object.assign(el('img'), {src: shot.url, alt: ''})] : []), el('span', 'attachment-name', shot.name), view);
+    return row;
+  }))];
+}
+
 function body(parts, tab) {
   if (tab === 'kit') return kitView(parts.kit);
+  if (tab === 'messages') return [...(parts.groups.messages || []).map(part => group(part.title, part.lines)), ...shotsView(parts.shots)];
   if (tab === 'history') return historyView(parts.history);
   return (parts.groups[tab] || []).map(part => group(part.title, part.lines));
 }

@@ -550,6 +550,7 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .job-panel { position: sticky; top: var(--sp-4); max-height: calc(100vh - var(--sp-6) * 2); overflow: auto; margin-bottom: 0; }
 .job-panel-head { display: flex; justify-content: space-between; align-items: start; gap: var(--sp-2); margin-bottom: var(--sp-2); }
 .job-panel-head h2 { margin: 0; font-size: var(--fs-lg); }
+.job-panel-shot { display: block; max-width: 100%; margin-top: var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); }
 .job-panel .tabs { flex-wrap: wrap; gap: 0 var(--sp-3); margin-top: var(--sp-2); }
 /* Reports → Insights (pages/reports.js): one insight after another, its feedback choice closing it. */
 .reports-insight { padding-bottom: var(--sp-4); margin-bottom: var(--sp-4); border-bottom: 1px solid var(--line); }
