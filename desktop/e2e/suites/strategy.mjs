@@ -25,7 +25,12 @@ const START = {
   'Roles to look for': ['data analyst', 'business intelligence', '"bi"', 'analytics engineer', 'reporting analyst'],
   'Your level': [],
   'Best places': [],
+  // The region step keeps only what is in its region: an applicant's strategy may also search the whole country or abroad (the e2e applicant's: all Switzerland).
+  'Anywhere in the country': [],
+  'Places abroad': [],
   'Companies to skip': [],
+  // The level step keeps a "Junior" title: an applicant's strategy may skip junior titles (the e2e applicant's does: desktop/demo/draft.json), so none is skipped here.
+  'Job titles to skip': [],
   'Remote jobs: regions to skip': ['/\\busa?\\b/', 'united states', 'canada', 'apac', 'latam'],
 };
 

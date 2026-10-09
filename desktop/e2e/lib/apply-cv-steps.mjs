@@ -47,7 +47,8 @@ export async function runCvSteps(ctx, h) {
     if (state.state === 'error') throw new Error(`the fill ended in an error: ${state.error}`);
     let panel = await panelOf(tab);
     for (let i = 0; i < 10 && !/general CV/.test(panel?.tailor || ''); i++) { await pause(1500); panel = await readPanel(tab); }
-    if (!/general CV/.test(panel?.tailor || '')) throw new Error(`the panel does not offer a tailored CV (its tailor line: "${panel?.tailor}")`);
+    // The offer needs a session, the app connected, the CV state and no account page (extension/review.js canTailor): the panel's other lines say which is missing.
+    if (!/general CV/.test(panel?.tailor || '')) throw new Error(`the panel does not offer a tailored CV (its tailor line: "${panel?.tailor}"; the panel: ${JSON.stringify({pill: panel?.pill, progress: panel?.progress, note: panel?.note, foot: panel?.foot, fill: panel?.fillLabel})})`);
     await tab.locator('#jobpilotto-review-host .t-btn').click();
     for (let waited = 0; !fs.existsSync(tailoredPdf) && waited < 120000; waited += 1000) await pause(1000);
     if (!fs.existsSync(tailoredPdf)) throw new Error('asking from the panel wrote no tailored CV within two minutes');
