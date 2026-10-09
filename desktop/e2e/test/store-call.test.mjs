@@ -47,3 +47,10 @@ test('Notion (the stand-in): the same calls, with the run\'s token and the works
 test('a Notion store the app has not connected yet is said, not guessed', () => {
   assert.throws(() => storeEnv({profile: profileWith({}), token: ''}), /not connected yet/);
 });
+
+test('never anyone\'s real data: only a temp profile, HOME there, and the engine does not follow an app set up on this computer', () => {
+  assert.throws(() => storeEnv({profile: os.homedir()}), /not a temp profile/);
+  const profile = profileWith({store: 'sqlite'});
+  const env = storeEnv({profile});
+  assert.deepEqual([env.HOME, env.JOB_PILOTTO_FOLLOW_APP, env.JOB_PILOTTO_DATA_DIR], [profile, '0', path.join(profile, 'data')]);
+});
