@@ -196,7 +196,7 @@ export async function runJourneys(ctx, h) {
     fail(problems);
   }, {needs: ctx.needs});
 
-  await ctx.run('a sign-in page before the form that refuses the password: "Sign in" is pressed once, never again, and you are told (Claude offered)', async () => {
+  await ctx.run('a sign-in page before the form that refuses the password: "Sign in" is pressed once, never again, and you are told; Take over with Claude only with Claude help on, never started', async () => {
     const tab = await openAccount(SIGNIN_REFUSED);
     const problems = [];
     for (let waited = 0; waited < 60000 && !pressesOf(SIGNIN_REFUSED).length; waited += 500) await pause(500);
@@ -211,6 +211,18 @@ export async function runJourneys(ctx, h) {
     const log = appLogText(ctx.profile);
     if (!/account result: refused/.test(log)) problems.push('the account AI\'s "refused" is not in the app log');
     if (!/account page: the extension could not finish it: Claude is offered/.test(log)) problems.push('Claude was not offered after the refused sign-in');
+    // The page is stuck: Claude is OFFERED on it, never started (owner, 9 Oct 2026). Claude help off (the default): the panel has no "Take over with Claude";
+    // on (Settings → Application assistant): the panel offers it at its next report. Either way no Claude session starts by itself. Back to off for the steps after.
+    const takeOver = () => tab.evaluate(() => { const button = document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.take-over'); return !!button && !button.hidden; }).catch(() => null);
+    const claudes = async () => (await page.evaluate(() => window.pilot.sessions())).filter(item => (item.kind || 'claude') === 'claude' && String(item.url || '').replace(/\/$/, '') === SIGNIN_REFUSED.url).length;
+    const claudesBefore = await claudes();
+    if (await takeOver()) problems.push('Claude help is off, yet the stuck page offers "Take over with Claude"');
+    await page.evaluate(() => window.pilot.saveSettings({claudeConsent: '2026-10-09T00:00:00.000Z'}));
+    let offered = false;
+    for (let waited = 0; waited < 20000 && !offered; waited += 1000) { await pause(1000); offered = await takeOver(); }   // the panel reports every few seconds
+    if (!offered) problems.push('Claude help on and the page stuck, yet the panel does not offer "Take over with Claude"');
+    if (await claudes() !== claudesBefore) problems.push('a Claude session started by itself: Claude is only ever offered, the person starts it');
+    await page.evaluate(() => window.pilot.saveSettings({claudeConsent: null}));
     fail(problems);
   }, {needs: ctx.needs});
 
