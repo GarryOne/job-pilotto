@@ -1,6 +1,7 @@
 // Recent activity: the site-reading (visits) card and the busy-button memory (presses) its buttons share.
 // Split out of activity.js as a pure move. Guarded by the tests that read the activity-*.js sources (desktop/test/activity-source.js) and the e2e activity suites.
 import {el} from '../components.js';
+import {claudeHelp} from '../claude-help.js';
 import {shared} from './shared.js';
 import {$} from './core.js';
 import {toastMessage} from './startup.js';
@@ -111,7 +112,7 @@ export function renderVisitsCard(card, target = $('activity-card'), {list: withL
     });
     ways.append(again);
   }
-  if (stopped.length > 1) {
+  if (stopped.length > 1 && claudeHelp()) {   // only with Claude help on (claude-help.js)
     const idle = allStopped > stopped.length ? `Read the first ${stopped.length} of ${allStopped} stopped sites with Claude` : `Read the ${stopped.length} stopped sites with Claude`;
     const all = el('button', 'secondary', idle);
     all.type = 'button';
@@ -137,11 +138,11 @@ export function renderVisitsCard(card, target = $('activity-card'), {list: withL
     words.append(el('b', '', site.name), el('span', 'muted', site.detail));
     row.append(words);
     if (!site.ok) {
-      const claude = claudeReadButton(site, words);
+      const claude = claudeHelp() ? claudeReadButton(site, words) : null;   // only with Claude help on (claude-help.js)
       const myself = el('button', 'link item-action', 'Open it myself');
       myself.type = 'button';
       myself.addEventListener('click', () => window.pilot.openVisit(site.url));
-      row.append(claude, myself);
+      row.append(...[claude, myself].filter(Boolean));
     } else {   // a site read: open it yourself too, the same link in the same place
       const myself = el('button', 'link item-action', 'Open it myself');
       myself.type = 'button';
