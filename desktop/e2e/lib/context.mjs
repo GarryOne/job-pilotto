@@ -11,7 +11,7 @@ import {startGoogleFake} from './google-fake.mjs';
 import {startReleasesFake} from './releases-fake.mjs';
 import {startNotionFake} from './notion-fake.mjs';
 import {useNotionAt} from './notion.mjs';
-import {appKey, appModelEnv, DUMMY_KEY, isCi, pickEngine, testKey} from './engine.mjs';
+import {appKey, appModelEnv, DUMMY_KEY, familyOf, isCi, keySecret, pickEngine, testKey} from './engine.mjs';
 import {copyExtension, freePort, makeOpenShim} from './extension.mjs';
 import {startForms} from './forms.mjs';
 import {createVariation, placeOf} from './variation.mjs';
@@ -39,15 +39,17 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   // A suite on the in-memory Notion (`export const notionStandIn = true`): fresh and private for this run, no token, no shared page (lib/notion-fake.mjs).
   const standIn = notionStandIn && !light ? await startNotionFake() : null;
   if (standIn) useNotionAt(standIn.url);
-  const key = KEY(), token = light ? '' : standIn ? 'stand-in' : notionToken(notionTokenOf || suite);
   const engine = pickEngine({suiteEngine});
+  // The app's key follows its engine's family (E2E_OPENAI_KEY for OpenAI); a light suite is the judges' own calls: Claude's key.
+  const key = light ? KEY() : testKey(process.env, engine), token = light ? '' : standIn ? 'stand-in' : notionToken(notionTokenOf || suite);
+  if (!light) console.log(`  AI family under test: ${familyOf(engine) === 'openai' ? 'OpenAI' : 'Claude'} (engine ${engine}${isCi() ? `, CI run ${process.env.GITHUB_RUN_NUMBER || '?'}: odd runs OpenAI, even runs Claude` : ''})`);
   let session = null, fakes = [];   // the fake services of this suite, once started: the runner checks that a step's fault fired (lib/faults.mjs)
   const runner = createRunner(() => session, {keepGoing, stepNeeds, report, faultTally: () => tally(fakes), ...(budgetMinutes ? {budgetMs: budgetMinutes * 60000} : {})});
   // A light suite needs only the AI key: no Notion page, no app, no browser (a model-only eval).
   if (light) return {suite, key, engine, runner, run: runner.run, ARTIFACTS, E2E, needs: isCi() ? [{name: 'E2E_ANTHROPIC_KEY', value: key}] : [], skipAll: isCi() && !key, close: async () => {}};
   const ctx = {suite, key, token, runner, standIn, run: runner.run, ARTIFACTS, E2E, cv: process.env.E2E_CV || path.join(E2E, 'fixtures', 'cv.pdf'),
-    engine, appKey: appKey(key), needsKey: isCi() ? [{name: 'E2E_ANTHROPIC_KEY', value: key}] : [],   // CI only: on a Mac nothing needs a key
-    needs: [...(engine === 'api' && isCi() ? [{name: `E2E_ANTHROPIC_KEY`, value: key}] : []),
+    engine, family: familyOf(engine), appKey: appKey(key), needsKey: isCi() ? [{name: keySecret(engine), value: key}] : [],   // CI only: on a Mac nothing needs a key
+    needs: [...(['api', 'openai'].includes(engine) && isCi() ? [{name: keySecret(engine), value: key}] : []),
       // A suite with no Notion part (`export const notion = false`, the update flow) needs no Notion token and gets no page.
       ...(usesNotion ? [{name: `a Notion token for the ${suite} suite (E2E_NOTION_TOKEN${suite === 'wizard' ? '' : `_${suite.toUpperCase()}`})`, value: token}] : [])]};
   if (ctx.needs.some(item => !item.value)) { ctx.skipAll = true; return ctx; }
@@ -107,7 +109,7 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
     if (ctx.engine === 'api') return fn();
     const set = (mode, secret) => ctx.page.evaluate(async ({mode, secret}) => { if (secret) await window.pilot.saveSecret('ANTHROPIC_API_KEY', secret); await window.pilot.setAiEngine(mode); }, {mode, secret});
     await set('api', DUMMY_KEY);
-    try { return await fn(); } finally { await set('cli', DUMMY_KEY); }
+    try { return await fn(); } finally { await set(ctx.engine, DUMMY_KEY); }   // back to the engine under test (Claude Code, Codex or the OpenAI key)
   };
   return ctx;
 }

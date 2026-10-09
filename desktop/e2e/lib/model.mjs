@@ -56,7 +56,7 @@ export const modelClient = ({key = '', ...options} = {}) => ({messages: {create:
 const reply = (status, data) => ({ok: status < 400, status, json: async () => data});
 
 // fetch-shaped. `engine`/`exec` can be replaced by a test.
-export async function modelFetch(url, init, {engine = () => pickEngine(), exec = run, timeoutMs = 5 * 60 * 1000} = {}) {
+export async function modelFetch(url, init, {engine = () => pickEngine({family: 'claude'}), exec = run, timeoutMs = 5 * 60 * 1000} = {}) {
   if (engine() === 'api') {   // paid: counted for /ai-cost as the judges' spend (lib/ai-meter.mjs)
     const response = await fetch(url, init);
     try { if (response.ok) count('judges', usageOf(await response.clone().text(), response.headers.get('content-type') || '')); } catch { /* counting never breaks the call */ }

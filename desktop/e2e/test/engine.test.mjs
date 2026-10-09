@@ -42,3 +42,24 @@ test('CI forces the cheap model; a Mac lets the app use its own production model
   assert.deepEqual(appModelEnv({CI: 'true'}), {JOB_PILOTTO_MODEL_OVERRIDE: 'claude-haiku-5-5'});
   assert.deepEqual(appModelEnv({}), {});
 });
+
+test('the AI family alternates per CI run (odd: OpenAI, even: Claude), never without the OpenAI key; the judges stay on Claude', async () => {
+  const {pickEngine, pickFamily, keySecret, testKey} = await import('../lib/engine.mjs');
+  const ci = (run, extra = {}) => ({CI: 'true', GITHUB_RUN_NUMBER: String(run), E2E_OPENAI_KEY: 'sk-test', E2E_ANTHROPIC_KEY: 'sk-ant-test', ...extra});
+  assert.equal(pickFamily(ci(7)), 'openai');
+  assert.equal(pickFamily(ci(8)), 'claude');
+  assert.equal(pickFamily(ci(7, {E2E_OPENAI_KEY: ''})), 'claude', 'no OpenAI key: Claude');
+  assert.equal(pickFamily(ci(8, {E2E_AI_FAMILY: 'openai'})), 'openai', 'pinned');
+  assert.equal(pickEngine({env: ci(7)}), 'openai');
+  assert.equal(pickEngine({env: ci(8)}), 'api');
+  assert.equal(pickEngine({env: ci(7), family: 'claude'}), 'api', 'the judges (lib/model.mjs) stay on Claude');
+  assert.equal(pickEngine({env: ci(7), suiteEngine: 'api'}), 'openai', 'CI: a proxy suite still runs the family (the proxy is per step: ctx.withApi)');
+  assert.equal(testKey(ci(7), 'openai'), 'sk-test');
+  assert.equal(testKey(ci(7), 'api'), 'sk-ant-test');
+  assert.equal(keySecret('codex'), 'E2E_OPENAI_KEY');
+  // A Mac: Claude unless pinned; pinned OpenAI runs the user's own Codex, never an API key.
+  assert.equal(pickFamily({}), 'claude');
+  assert.equal(pickEngine({env: {E2E_AI_FAMILY: 'openai'}, installed: () => true}), 'codex');
+  assert.throws(() => pickEngine({env: {E2E_AI_ENGINE: 'openai'}}), /CI only/);
+  assert.throws(() => pickFamily({E2E_AI_FAMILY: 'gpt'}), /claude, openai or rotate/);
+});

@@ -18,7 +18,32 @@ export async function runWizard(ctx) {
     await page.locator('[data-choice="api"]').waitFor();
     await page.locator('[data-choice="cli"]').waitFor();
   });
-  if (ctx.engine === 'cli') {
+  if (ctx.engine === 'codex' || ctx.engine === 'openai') {
+    // The OpenAI family (lib/engine.mjs rotation): the switch first, then its card. A Mac picks Codex (confirmed once, then checked); CI types the OpenAI test key.
+    await ctx.run('the OpenAI side of the switch shows its two cards', async () => {
+      await page.locator('#ai-engine .engine-family button', {hasText: 'OpenAI'}).click();
+      await page.locator('[data-choice="openai"]').waitFor();
+      await page.locator('[data-choice="codex"]').waitFor();
+    });
+    if (ctx.engine === 'codex') {
+      await ctx.run('Codex is chosen (confirmed once, then checked) and the AI step continues', async () => {
+        await page.locator('[data-choice="codex"]').click();
+        await page.locator('[data-notice="yes"]').click({timeout: 5000}).catch(() => {});   // the notice shows only the first time (found by structure, fdfeacd)
+        await page.waitForFunction(() => !document.getElementById('ai-save')?.disabled, null, {timeout: 90000});
+        await page.click('#ai-save');
+        await ctx.expectStep('cv');
+      });
+    } else {
+      await ctx.run('a valid OpenAI API key is accepted and saved', async () => {
+        await page.locator('[data-choice="openai"]').click();
+        await page.locator('#openai-key').waitFor();
+        if (!(await page.locator('#ai-save').isDisabled())) throw new Error('"Check and save" is enabled with no key typed');
+        await page.fill('#openai-key', ctx.key);
+        await page.click('#ai-save');
+        await ctx.expectStep('cv');
+      }, {needs: ctx.needsKey});
+    }
+  } else if (ctx.engine === 'cli') {
     // A Mac: no key is ever typed (lib/engine.mjs). The app asks once whether to use Claude Code, then checks it, and the step continues.
     await ctx.run('Claude Code is chosen (confirmed once, then checked) and the AI step continues', async () => {
       await page.locator('[data-choice="cli"]').click();

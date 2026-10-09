@@ -8,19 +8,21 @@ import {runWizard} from './wizard.mjs';
 
 export async function fastSeed(ctx) {
   const {page} = ctx;
-  // The Claude Code engine (a Mac): a placeholder key is saved (a key is "saved" in every install), Claude Code is verified and chosen the way the engine panel does it.
-  await page.evaluate(async ({key, token, cli}) => {
-    const keyed = await window.pilot.saveSecret('ANTHROPIC_API_KEY', key);
+  // The engine under test (lib/engine.mjs: the family alternates on CI). A placeholder Anthropic key is always saved (a key is "saved" in every install, and ctx.withApi needs
+  // one); an OpenAI engine also gets its key. A CLI (Claude Code, Codex) is verified and chosen the way the engine panel does it.
+  await page.evaluate(async ({anthropic, openai, token, engine}) => {
+    const keyed = await window.pilot.saveSecret('ANTHROPIC_API_KEY', anthropic);
     if (keyed?.ok === false) throw new Error(`the key was refused: ${keyed.error}`);
+    if (openai) await window.pilot.saveSecret('OPENAI_API_KEY', openai);
     const connected = await window.pilot.notionConnect(token);
     if (!connected?.ok) throw new Error(`Notion did not connect: ${connected?.error || 'unknown'}`);
-    if (cli) {
-      const status = await window.pilot.verifyClaudeCode();
-      if (!status?.authenticated) throw new Error(`Claude Code is not ready on this Mac (${status?.error || 'not signed in'}): sign in with claude`);
-      await window.pilot.setAiEngine('cli');
+    if (engine === 'cli' || engine === 'codex') {
+      const status = await (engine === 'cli' ? window.pilot.verifyClaudeCode() : window.pilot.verifyCodex());
+      if (!status?.authenticated) throw new Error(`${engine === 'cli' ? 'Claude Code' : 'Codex'} is not ready on this Mac (${status?.error || 'not signed in'}): sign in with ${engine === 'cli' ? 'claude' : 'codex login'}`);
     }
-    await window.pilot.saveSettings({setupDone: true, wizardStep: 'extras', setupFurthest: 'extras', ...(cli ? {} : {aiEngine: 'api'}), cvName: 'cv.pdf'});
-  }, {key: ctx.engine === 'cli' ? DUMMY_KEY : appKey(ctx.key), token: ctx.token, cli: ctx.engine === 'cli'});
+    await window.pilot.setAiEngine(engine);
+    await window.pilot.saveSettings({setupDone: true, wizardStep: 'extras', setupFurthest: 'extras', cvName: 'cv.pdf'});
+  }, {anthropic: ctx.engine === 'api' ? appKey(ctx.key) : DUMMY_KEY, openai: ctx.engine === 'openai' ? ctx.key : '', token: ctx.token, engine: ctx.engine});
   fs.copyFileSync(ctx.cv, path.join(ctx.profile, 'cv.pdf'));   // forms and tailoring read the CV from the data folder
   await page.reload();
   await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
