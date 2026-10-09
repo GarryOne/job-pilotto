@@ -2,15 +2,18 @@
 store adapters: the same blocks under the same toggle heading. Checked twice: through the codec alone, and end to end on
 the Notion stand-in (desktop/e2e/lib/notion-fake.mjs, node; skipped without it). The memory/sqlite side: tests/test_kit.py.
 """
+import io
 import json
 import shutil
 import tempfile
 import unittest
 import urllib.request
+from contextlib import redirect_stdout
 from pathlib import Path
+from unittest import mock
 
-from src import daily, store as job_store
-from src.ai import kit
+from src import daily, desktop, store as job_store
+from src.ai import kit, provenance
 from src.notion import client as notion
 from src.notion.client import Tracker
 from src.stores import notion as notion_store
@@ -90,6 +93,40 @@ class KitOnNotionTests(unittest.TestCase):
         on_page = [b for b in tracker._children(headings[0]['id']) if not b.get('archived')]
         self.assertEqual(shape(on_page), shape(today))
         self.assertEqual(shape(on_page)[-1][3], 'json')
+
+    def test_a_kit_drafted_on_notion_lists_as_current(self):
+        """The Jobs list's "current inputs" and the kit's recorded ones are the same reading of the same pages (D7): a kit just
+        drafted is never "drafted with earlier inputs". The Profile is the real template (headings, a table, bullets)."""
+        tracker = Tracker(self.token, opener=_direct)
+        env = {'NOTION_TOKEN': self.token}
+        for variable, spec in SCHEMA['databases'].items():
+            columns = {name: {column['type']: {}} for name, column in spec['columns'].items() if column['type'] not in COMPUTED}
+            env[variable] = tracker._request('POST', 'databases', {
+                'parent': {'page_id': 'stand-in-root'}, 'title': [{'text': {'content': spec['title']}}], 'properties': columns})['id']
+        for variable in ('NOTION_PROFILE_PAGE_ID', 'NOTION_ANSWERS_PAGE_ID', 'NOTION_KNOWLEDGE_PAGE'):
+            env[variable] = tracker._request('POST', 'pages', {
+                'parent': {'page_id': 'stand-in-root'}, 'properties': {'title': {'title': [{'text': {'content': variable}}]}}})['id']
+        stores = notion_store.open_store(env, tracker=tracker)
+        template = (ROOT / 'docs' / 'notion-profile-template.md').read_text()
+        stores.texts.set('profile', template.split('## 👤 Profile', 1)[1].split('\n## ', 1)[0].split('\n', 1)[1])
+        stores.texts.set('answers', '# Contact\n\n- Email: me@example.test\n\n| Field | Answer |\n|---|---|\n| Notice | 3 months |')
+        with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+            job_store.import_watch_report(db, {'jobs': [{'company': 'Acme', 'id': '1', 'title': 'SRE', 'location': 'Zurich',
+                                                         'url': URL, 'description': 'Kubernetes.'}]})
+            daily.prepare_kit(db, notion.job_code(URL), tracker, FakeClient(), 'claude-sonnet-5-5', opener, stores=stores)
+        recorded = stores.applications.get(URL)['kit_inputs']
+        seen, out = {}, io.StringIO()
+        def jobs(db, limit, notion_jobs=None, kit_inputs=None, **kw):
+            seen['inputs'] = kit_inputs
+            return {'jobs': notion_jobs}
+        listed = [{'url': URL, 'title': 'SRE', 'company': 'Acme', 'stage': 'Kit ready', 'next_step': ''}]
+        with mock.patch.dict('os.environ', env), mock.patch.object(Tracker, 'from_env', return_value=tracker), \
+                mock.patch.object(tracker, 'notion_jobs', return_value=listed), \
+                mock.patch.object(tracker, 'page_text', lambda page_id=env['NOTION_PROFILE_PAGE_ID']: Tracker.page_text(tracker, page_id)), \
+                mock.patch('src.stores.open_stores', return_value=stores), mock.patch.object(desktop, 'jobs', side_effect=jobs), \
+                mock.patch.object(desktop.store, 'connect', create=True), redirect_stdout(out):
+            desktop.main(['jobs'])
+        self.assertEqual(provenance.kit_state(recorded, seen['inputs']), 'current', (recorded, seen['inputs']))
 
 
 def plain(block):

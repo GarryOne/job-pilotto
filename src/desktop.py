@@ -300,6 +300,7 @@ def main(argv=None):
             print(json.dumps(strategy(db, tracker), ensure_ascii=False))
             return 0
         if args.command == 'jobs':
+            from .stores import open_stores
             found, stores = None, None
             # Notion only when it holds the data: a token can outlive a move to this Mac's store.
             notion = tracker if os.environ.get('JOB_PILOTTO_STORE', 'notion') == 'notion' else None
@@ -310,7 +311,6 @@ def main(argv=None):
                     print(f'Warning: Notion unavailable, showing the cached list: {type(error).__name__}: {error}',
                           file=__import__('sys').stderr)
             elif os.environ.get('JOB_PILOTTO_STORE', 'notion') != 'notion':  # the person chose a store on this Mac: the list is its rows
-                from .stores import open_stores
                 from .desktop_store_jobs import store_jobs
                 stores = open_stores()
                 found = store_jobs(stores)
@@ -318,8 +318,10 @@ def main(argv=None):
             if found and any(_kit(job.get('stage'), job.get('next_step') or '') for job in found):
                 try:
                     from .ai import kit
-                    current = provenance.kit_inputs(notion.page_text(), kit.standard_answers(notion)) if notion else \
-                        provenance.kit_inputs(stores.texts.get('profile'), kit.standard_answers(None, stores))  # as the kit drafts them
+                    # Read exactly as the kit records them (src/daily_helpers.py prepare_kit), on every store: Notion's page_text renders
+                    # the Profile differently from the store's text, so every Notion kit showed "drafted with earlier inputs" (D7).
+                    stores = stores or open_stores(tracker=notion)
+                    current = provenance.kit_inputs(stores.texts.get('profile'), kit.standard_answers(notion, stores))
                 except Exception:  # noqa: BLE001 — kits then show as "inputs unknown"
                     pass
             from .ai import engine as ai_engine
