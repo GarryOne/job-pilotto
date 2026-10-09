@@ -195,17 +195,22 @@ ci_installs_dev() {
 # The suites run on exactly what is pushed, each area in its own fresh checkout of HEAD, as CI does: a forgotten file or a git-ignored
 # file left by another area's run (5 Oct 2026: desktop/shared/ from a desktop run let the worker's tests pass here, fa1f838 went red in CI and
 # blocked every session) fails here, not on main. Dependencies are linked from this checkout (same lockfiles; --clean-install verifies them).
+# The checkouts are made and removed one at a time, outside the parallel runs: git's worktree add and remove race on .git/worktrees
+# ("fatal: failed to read .git/worktrees/worker/commondir", 1 in ~40 pushes on 9 Oct 2026, which blocked a push with no reason shown).
+trees=()
+add_tree() {  # area: its fresh checkout, named in tree_<area> (empty when git could not make it)
+  local tree; tree="$(mktemp -d)/$1"
+  if git -C "$repo" worktree add -q --detach "$tree" HEAD; then trees+=("$tree"); printf -v "tree_$1" '%s' "$tree"; fi
+}
 verify_area() {  # area [extra check.sh flags]
   local area="$1"; shift
-  local tree; tree="$(mktemp -d)/$area"
-  git -C "$repo" worktree add -q --detach "$tree" HEAD || return 1
+  local name="tree_$area"; local tree="${!name:-}"
+  [ -n "$tree" ] || { echo "fatal: git could not make a clean checkout for $area"; return 1; }
   for dir in desktop desktop/e2e worker site; do
     [ -e "$repo/$dir/node_modules" ] && ln -s "$repo/$dir/node_modules" "$tree/$dir/node_modules"
   done
   [ -e "$repo/.venv" ] && ln -s "$repo/.venv" "$tree/.venv"
-  (cd "$tree" && bash tools/check.sh --area "$area" $affected_flag "$@"); local status=$?
-  git -C "$repo" worktree remove --force "$tree" >/dev/null 2>&1 || rm -rf "$tree"
-  return $status
+  (cd "$tree" && bash tools/check.sh --area "$area" $affected_flag "$@")
 }
 source "$repo/tools/check-slot.sh" 2>/dev/null || { slot_acquire() { :; }; slot_release() { :; }; }
 trap slot_release EXIT
@@ -215,6 +220,9 @@ if [ "$want_workflows" = 1 ]; then
   if command -v actionlint >/dev/null; then run "workflow files (actionlint)" workflows
   else echo "pre-push: actionlint not installed (brew install actionlint); workflow files not checked" >&2; fi
 fi
+for area in python worker site desktop; do
+  want="want_$area"; [ "${!want}" = 1 ] && add_tree "$area"
+done
 [ "$want_python" = 1 ] && run "python (clean checkout)" verify_area python $clean_install
 [ "$want_worker" = 1 ] && run "worker (clean checkout)" verify_area worker
 [ "$want_site" = 1 ] && run "site (clean checkout)" verify_area site
@@ -224,13 +232,16 @@ for i in "${!pids[@]}"; do
   cat "${outs[$i]}" >>"$log"; rm -f "${outs[$i]}"
 done
 slot_release
+for tree in ${trees[@]+"${trees[@]}"}; do
+  git -C "$repo" worktree remove --force "$tree" >/dev/null 2>&1 || rm -rf "$tree"
+done
 git -C "$repo" worktree prune 2>/dev/null
 
 if [ ${#failed[@]} -gt 0 ]; then
   {
     echo "Push blocked: tests failed in ${failed[*]} ($repo)."
     echo "Fix them, then push again. Last lines of the test output:"
-    grep -E "^FAIL:|^ERROR:|AssertionError|^not ok|npm ERR|npm error|\.yml:[0-9]+:[0-9]+:" "$log" | sort -u | tail -15
+    grep -E "^FAIL:|^ERROR:|AssertionError|^not ok|npm ERR|npm error|\.yml:[0-9]+:[0-9]+:|^fatal:" "$log" | sort -u | tail -15
   } >&2
   rm -f "$log"
   exit 2
