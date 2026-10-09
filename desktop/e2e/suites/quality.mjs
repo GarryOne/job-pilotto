@@ -102,11 +102,16 @@ export async function run(ctx) {
       for (const file of ['board.json', 'routes.json']) fs.copyFileSync(path.join(GOLDEN, file), path.join(ctx.feeds, file));
       fs.mkdirSync(path.join(ctx.profile, 'config'), {recursive: true});
       fs.copyFileSync(path.join(GOLDEN, 'sources.json'), path.join(ctx.profile, 'config', 'sources.json'));
-      // The search is the candidate's (a senior SRE in Zurich), written here so the roles kept do not depend on what the Notion test page holds.
-      const search = JSON.parse(fs.readFileSync(path.join(ctx.E2E, '..', '..', 'config', 'search.json'), 'utf8'));
-      fs.writeFileSync(path.join(ctx.profile, 'config', 'search.json'), JSON.stringify({...search,
-        role_keywords: ['\\bsre\\b', 'site reliability', 'platform engineer', 'infrastructure engineer', 'devops engineer'],
-        locations: {top_tier: ['zurich', 'geneva'], country_wide: ['switzerland', 'basel', 'bern'], abroad: []}, ...(persona?.search || {})}, null, 2));
+      // The search is the candidate's (a senior SRE in Zurich), saved the way the app saves it (saveStrategy, search only): on this Mac's store into
+      // config/search.json, on Notion into ⚙️ Search settings too, which the engine reads first and which would otherwise keep the setup's places
+      // (9 Oct 2026, stand-in: "changed your places: −geneva … −bern" dropped the Geneva and Bern postings, 3008 and 3005).
+      const base = JSON.parse(fs.readFileSync(path.join(ctx.E2E, '..', '..', 'config', 'search.json'), 'utf8'));
+      const search = {...base, role_keywords: ['\\bsre\\b', 'site reliability', 'platform engineer', 'infrastructure engineer', 'devops engineer'],
+        locations: {top_tier: ['zurich', 'geneva'], country_wide: ['switzerland', 'basel', 'bern'], abroad: []}, ...(persona?.search || {})};
+      const saved = await page.evaluate(search => window.pilot.saveStrategy({search, profile_markdown: '', answers_markdown: '', contact: {}}, ['search']), search);
+      if (!saved?.ok) throw new Error(`the candidate's search was not saved: ${saved?.error || JSON.stringify(saved)}`);
+      const kept = JSON.parse(fs.readFileSync(path.join(ctx.profile, 'config', 'search.json'), 'utf8')).locations;
+      if (JSON.stringify(kept) !== JSON.stringify(search.locations)) throw new Error(`the saved search holds other places: ${JSON.stringify(kept)}`);
     }, {needs: ctx.needs});
 
     await ctx.run('a Jobs check on the golden postings finishes and scores them', async () => {
