@@ -53,10 +53,11 @@ function kitView(kit) {
   if (kit.letter) parts.push(group('✉️ Cover letter', kit.letter.split(/\n\s*\n/).map(text => el('div', 'iv-moment', text)), copyButton(kit.letter)));
   if (kit.answers.length) {
     parts.push(group('🧾 Form answers', kit.answers.map(item => {
+      // Copy on the question's line, as the cover letter's is on its heading: one place for every Copy in the kit.
       const row = el('div', 'iv-moment');
       const line = el('div', 'job-panel-line');
-      line.append(el('span', '', item.answer || '—'), copyButton(item.answer));
-      row.append(el('b', '', item.review ? `${item.question} ❓` : item.question), line);
+      line.append(el('b', '', item.review ? `${item.question} ❓` : item.question), copyButton(item.answer));
+      row.append(line, el('div', '', item.answer || '—'));
       return row;
     }), copyButton(allAnswers(kit.answers), 'Copy all')));
   }
