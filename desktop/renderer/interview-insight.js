@@ -1,6 +1,7 @@
 // Interviews → the Insights card: what the reviewed interviews say together (src/ai/interview_insights.py, one
 // 💡 Insights row in Notion, updated after each review). Pure view code: insightView() decides what to show,
 // insightCard() draws it; pages/interviews.js wires Refresh and the links to the library rows.
+import {ai} from './ai-name.js';
 import {el, pill} from './components.js';
 import {icon} from './icons.js';
 import {minutes} from './practice-session.js';
@@ -117,7 +118,7 @@ export function insightCard(view, {open = () => {}, onMoments = () => {}, onPrac
     side.append(chip);
   }
   const button = Object.assign(el('button', 'secondary with-icon small-btn iv-insight-refresh'), {type: 'button', disabled: busy,
-    title: 'Reads your reviewed interviews together. Claude Opus is only asked when a review changed'});
+    title: ai('Reads your reviewed interviews together. {AI:big} is only asked when a review changed')});
   button.append(busy ? el('span', 'spinner small') : icon('refresh'), el('span', '', busy ? 'Refreshing…' : 'Refresh insights'));
   button.addEventListener('click', event => { event?.stopPropagation(); refresh(); });  // on the bar, but it only refreshes
   side.append(button);

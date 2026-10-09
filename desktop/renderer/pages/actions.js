@@ -1,4 +1,5 @@
 // Actions: every Telegram command.
+import {ai} from '../ai-name.js';
 import {shared} from './shared.js';
 import {COMMAND_KIND, openActivity, refreshActivity} from './activity.js';
 import {$, message, show} from './core.js';
@@ -122,7 +123,7 @@ export async function init() {
     // While the list loads (Claude picks the sites that suit your roles, ~5 s): the Jobs list's loading look in the empty list, not a blank
     // dialog (owner, 8 Oct 2026). The list it replaces is not kept: it may be another run's.
     const loading = el('li', 'list-loading');
-    loading.append(el('span', 'spinner'), el('div', '', 'Finding your sites…'), el('div', 'muted small', 'Claude checks which suit your roles, a few seconds'));
+    loading.append(el('span', 'spinner'), el('div', '', 'Finding your sites…'), el('div', 'muted small', ai('{AI} checks which suit your roles, a few seconds')));
     $('visits-sites').replaceChildren(loading);
     $('visits-tabs').hidden = true;
     showVisitsTab('visits-sites');

@@ -65,7 +65,7 @@ from .mail_calendar import (  # noqa: F401 — re-exported: callers and tests us
     calendar_pass, prep_message, reminders, reviewed_since,
 )
 from .mail_failure import (  # noqa: F401 — re-exported: callers and tests use `mail.<name>`
-    NOT_CHECKED, failure_cause, failure_warning,
+    NOT_CHECKED, NOT_CHECKED_OPENAI, failure_cause, failure_warning, not_checked,
 )
 
 

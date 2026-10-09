@@ -4,6 +4,7 @@
 //   Profile (update / add / remove); the user accepts each one, and only those lines change. Never a rebuild.
 // - Not changed: searches and preferences, existing matches and scores, applications already sent.
 // The previous PDF is kept as cv.previous.pdf (a large file, on this Mac only) until the next replacement.
+import {nameOfClient} from './ai/names.js';
 import {priceOf} from './ai/models.js';
 import {anthropicApi} from './ai/anthropic-api.js';
 import fs from 'node:fs';
@@ -55,7 +56,7 @@ export async function review(storage, apiKey, {client = null, fetcher} = {}) {
       {type: 'text', text: `Profile lines:\n${lines.map((block, n) => `[${n}] ${block.type.startsWith('heading') ? '## ' : ''}${block.text}`).join('\n')}`}]}],
     output_config: {format: {type: 'json_schema', schema: SCHEMA}},
   });
-  if (response.stop_reason === 'refusal') throw new Error('Claude declined to compare these CVs');
+  if (response.stop_reason === 'refusal') throw new Error(`${nameOfClient(anthropic)} declined to compare these CVs`);
   const result = JSON.parse(response.content.find(block => block.type === 'text').text);
   const suggestions = result.suggestions
     .filter(s => Number.isInteger(s.line) && lines[s.line] && (s.kind === 'remove' || s.text.trim()))

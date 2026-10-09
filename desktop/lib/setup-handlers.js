@@ -12,6 +12,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {cleanSecret} from './secrets.js';
 import {checkAnthropicKey} from './ai/anthropic-api.js';
+import {codexBinary, verifyCodex} from './ai/codex-cli.js';
+import {checkOpenAiKey} from './ai/openai-api.js';
 import {log as appLog} from './log.js';
 
 export function registerSetupHandlers(ctx) {
@@ -62,9 +64,24 @@ export function registerSetupHandlers(ctx) {
   ipcMain.handle('verifyClaudeCode', () => (DEMO ? DEMO_CLAUDE : claudeCode.verify(storage)));
   ipcMain.handle('setAiEngine', (_, choice, options = {}) => {
     if (!claudeCode.ENGINES.includes(choice)) throw new Error(`Unknown AI engine: ${choice}`);
-    storage.saveSettings({aiEngine: choice, ...(choice === 'cli' ? {claudeCodeNotice: true} : {}),
+    storage.saveSettings({aiEngine: choice, ...(choice === 'cli' ? {claudeCodeNotice: true} : {}), ...(choice === 'codex' ? {codexNotice: true} : {}),
       ...('fallback' in options ? {aiFallback: !!options.fallback} : {})});
     return forWindow(storage.settings());
+  });
+  // Codex (the OpenAI family's own CLI): found where its installers put it; Verify is one tiny locked-down call on the user's plan (lib/ai/codex-cli.js).
+  const DEMO_CODEX = {installed: true, path: '/usr/local/bin/codex', authenticated: true, error: '', checkedAt: '2026-09-30T09:00:00Z'};
+  ipcMain.handle('codexStatus', () => (DEMO ? DEMO_CODEX : {...(storage.settings().codex || {}), installed: !!codexBinary(), path: codexBinary(),
+    checkedAt: storage.settings().codex?.checkedAt || null}));
+  ipcMain.handle('verifyCodex', () => (DEMO ? DEMO_CODEX : verifyCodex(storage)));
+  ipcMain.handle('checkOpenAI', async (_, pasted) => {
+    const {value: key, error} = cleanSecret(pasted);
+    if (error) return {ok: false, error};
+    try {
+      await checkOpenAiKey(key);   // free call: is the key valid?
+      return {ok: true};
+    } catch (error) {
+      return {ok: false, error: error.status === 401 ? 'This key was rejected. Copy it again from platform.openai.com → API keys.' : error.message};
+    }
   });
   ipcMain.handle('setAiFallback', (_, on) => { storage.saveSettings({aiFallback: !!on}); return forWindow(storage.settings()); });
   ipcMain.handle('dismissEngineOffer', () => { storage.saveSettings({aiEngineOffered: true}); return forWindow(storage.settings()); });

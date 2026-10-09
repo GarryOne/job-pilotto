@@ -102,3 +102,9 @@ export class OpenAiApi extends Adapter {
     return fromResponse(answer, request);
   }
 }
+
+// Is this key valid? A free call (list the models), never a generation. The SDK is loaded only here and in OpenAiApi.
+export async function checkOpenAiKey(apiKey, {Sdk = null} = {}) {
+  const OpenAI = Sdk || (await import('openai')).default;
+  await new OpenAI({apiKey}).models.list();
+}

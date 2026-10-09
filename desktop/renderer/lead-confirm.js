@@ -1,3 +1,4 @@
+import {aiName} from './ai-name.js';
 // Log job activity, step 2 (the confirmation): nothing reaches Notion until you've confirmed what Claude couldn't
 // see. Each field from the engine (src/ai/inbox.py fields()) is "ok" (shown in the message: pre-filled), "check"
 // (inferred: pre-filled, marked, needs a confirm) or "ask" (not shown: empty, with a question). No window needed
@@ -80,7 +81,7 @@ export function channelHint(field = {}, chosen) {
   if (field.state === 'ok') return chosen === guess ? `Shown in the message: ${guess}.` : `The message showed ${guess}; saved as ${CHANNEL_LABEL[chosen] || chosen}.`;
   if (!guess || guess === 'Other') return chosen === 'Other' ? 'Say where, e.g. WhatsApp (optional).' : "Couldn't tell from the message: pick one.";
   if (chosen === guess) return `Looks like ${guess} — change it if not.`;
-  return `Claude guessed ${guess}; saved as ${CHANNEL_LABEL[chosen] || chosen}.`;
+  return `${aiName()} guessed ${guess}; saved as ${CHANNEL_LABEL[chosen] || chosen}.`;
 }
 
 export function startedHint(isNew) {

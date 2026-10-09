@@ -1,4 +1,5 @@
 // Start-up: what the window opens on.
+import {applyAiNames} from '../ai-name.js';
 import {shared} from './shared.js';
 import {$, show} from './core.js';
 import {loadJobs} from './jobs.js';
@@ -36,6 +37,7 @@ export function toastMessage(title, body, hint) {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
+  applyAiNames();   // the static texts name the AI the user chose (renderer/ai-name.js)
   // ---------- start ----------
   // Set up: the app. Without Notion (Notion later) it is only trying, so it opens on Jobs; the pages that need Notion show a gate.
   if (shared.state.settings.setupDone) {

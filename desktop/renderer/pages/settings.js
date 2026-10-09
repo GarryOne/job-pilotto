@@ -63,7 +63,7 @@ async function openProfile() {
 // dot on Connections. required: counted for the alert and the dot (Google Jobs and Always on are optional extras;
 // Always on's card opens its setup on the Automation page).
 const SERVICES = [
-  {id: 'ai', name: 'AI (Claude)', icon: 'bot', what: 'Your Claude Code or an Anthropic API key', required: true,
+  {id: 'ai', name: 'AI', icon: 'bot', what: 'Claude or OpenAI: an API key, Claude Code or Codex', required: true,
     why: 'Reading jobs, fit scores and application kits need AI: choose Claude Code, Codex or an API key.'},
   {id: 'notion', name: 'Notion', icon: 'layers', what: 'Job search workspace', required: false,
     why: 'Where your applications, kits and interviews are kept. Needed for Always on, Telegram and Gmail.'},
@@ -88,7 +88,7 @@ function statusFrom({extension, google}) {
   const on = {ai: aiReady(), notion: !!shared.state.secrets.NOTION_TOKEN, serpapi: !!shared.state.secrets.SERPAPI_API_KEY, brave: !!shared.state.secrets.BRAVE_SEARCH_API_KEY,
     aggregators: !!((shared.state.secrets.ADZUNA_APP_ID && shared.state.secrets.ADZUNA_APP_KEY) || shared.state.secrets.JOOBLE_API_KEY), cloud: !!shared.state.settings.cloud?.repo, 'tg-cloud': !!shared.state.settings.telegramCloud,
     telegram: !!(shared.state.secrets.TELEGRAM_BOT_TOKEN && shared.state.settings.telegramChatId), google: !!google?.connected, extension: extension.on};
-  const detail = {ai: aiReady() && (shared.state.settings.aiEngine === 'cli' ? 'Claude Code · your plan' : 'API key'), google: google?.connected && google.email, extension: extension.on && extension.version && `v${extension.version}`,
+  const detail = {ai: aiReady() && ({cli: 'Claude Code · your plan', codex: 'Codex · your plan', openai: 'OpenAI API key'}[shared.state.settings.aiEngine] || 'Anthropic API key'), google: google?.connected && google.email, extension: extension.on && extension.version && `v${extension.version}`,
     telegram: on.telegram && shared.state.settings.telegramBot && `@${shared.state.settings.telegramBot}`,
     cloud: shared.state.settings.cloud?.repo, 'tg-cloud': shared.state.settings.telegramCloud?.url?.replace('https://', '')};
   const words = {extension: extension.on || extension.checking ? '' : extension.words};

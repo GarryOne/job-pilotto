@@ -2,6 +2,7 @@
 // Each runs its engine commands through run() and is queued, shown and recorded by tracked() (pipeline-queue.js).
 // Guarded by: test/mail-report.test.js, test/run-join.test.js, test/run-note.test.js, test/run-cards.test.js, test/run-kinds.test.js, test/stop-task.test.js.
 // Split out of pipeline.js (a pure move); pipeline.js re-exports everything.
+import {engineOf, familyOfEngine} from './ai/names.js';
 import * as claudeCode from './claude-code.js';
 import {deliveryProblem, mailProblem as mailProblemFrom} from './run-result.js';
 
@@ -26,15 +27,15 @@ export function syncMatches(storage, onLine, trigger = 'you') {
     .then(({code, result}) => ({ok: code === 0, result})), {mode: 'today'}, () => ({}));
 }
 // A check that ended normally (exit 0, so a GitHub run isn't marked crashed) without reading the mail: why, or null.
-export function mailProblem(stdout, result) {
-  return mailProblemFrom(stdout, result);
+export function mailProblem(stdout, result, family = 'claude') {
+  return mailProblemFrom(stdout, result, family);
 }
 export function checkMail(storage, onLine, trigger = 'you') {
   let off = false, problem = null;
   return tracked(storage, 'mail', trigger, onLine, async tee => {
     const {code, stdout, result} = await run(storage, mailArgs(storage), tee, triggerEnv(trigger));
     off = /Gmail \+ Calendar is off/.test(stdout);
-    problem = code === 0 ? mailProblem(stdout, result) : null;
+    problem = code === 0 ? mailProblem(stdout, result, familyOfEngine(engineOf(storage))) : null;
     // lastMailAt paces the schedule (a failed or "not connected" check waits for the next time too);
     // lastMailOkAt sets how far back the next check looks: only a check that read the mail moves it.
     const at = new Date().toISOString();

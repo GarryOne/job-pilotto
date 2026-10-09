@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {COST_HINT, prepCard} from '../renderer/prep-card.js';
+import {ai} from '../renderer/ai-name.js';
 
 const TODAY = '2026-09-30';
 const item = extra => ({kind: 'prepare', meta: ['Principal SRE', '…'], page_id: 'h1', notion_url: 'https://notion.so/h1', ...extra});
@@ -10,7 +11,8 @@ test('a kit from an earlier call: "Build new prep kit" first, the earlier kit on
   const card = prepCard(item({prep_at: '2026-09-29', prep_stale: true, prep_why: 'reviewed', prep_since: '2026-09-30'}), TODAY);
   assert.equal(card.primary.label, 'Build new prep kit');
   assert.equal(card.primary.run, 'build');
-  assert.equal(card.primary.title, COST_HINT);  // what it does is said before you press it
+  assert.equal(card.primary.title, ai(COST_HINT));  // what it does is said before you press it, naming the chosen AI
+  assert.match(card.primary.title, /^Claude Sonnet builds it/);
   assert.doesNotMatch(COST_HINT, /\$/);
   assert.match(card.meta[1], /^Kit from 29 Sept? · your call today was reviewed since$/);
   assert.equal(card.more.length, 1);

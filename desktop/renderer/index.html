@@ -69,8 +69,8 @@
       <header class="view-head step-head">
         <div><span class="eyebrow">Step 1 of 4</span>
           <h1>Connect your AI</h1>
-          <p class="muted subtitle">Job Pilotto uses Claude to read job postings, score them and draft answers. Choose how it runs: an Anthropic API key
-            (you pay Anthropic per use, usually a few dollars a month), your own Claude Code (your Claude plan), or, for invited testers, $1 of free AI.</p></div>
+          <p class="muted subtitle">Job Pilotto uses AI to read job postings, score them and draft answers. Choose Claude or OpenAI, then how it runs:
+            an API key (you pay per use, usually a few dollars a month) or your own Claude Code / Codex (your Claude or ChatGPT plan). Invited testers: $1 of free AI.</p></div>
       </header>
       <section class="card step-card engine" id="ai-engine"></section>
       <section class="card step-card" id="ai-key-part" hidden>
@@ -85,6 +85,20 @@
           <label for="anthropic-key">Anthropic API key</label>
           <input id="anthropic-key" type="password" placeholder="sk-ant-…" autocomplete="off">
           <p class="message" id="ai-message"></p>
+        </div>
+      </section>
+      <section class="card step-card" id="ai-openai-key-part" hidden>
+        <ol class="howto">
+          <li>Open <a href="#" data-link="https://platform.openai.com/api-keys">platform.openai.com → API keys</a> and sign up or sign in
+            (a separate account from a ChatGPT subscription).</li>
+          <li>New account? Go to <a href="#" data-link="https://platform.openai.com/settings/organization/billing">Billing</a> and add a small amount
+            of credit, e.g. $5: it lasts weeks. Keys don't work without credit.</li>
+          <li>Back in <b>API keys</b>: click <b>Create new secret key</b>, name it "Job Pilotto", copy it, and paste it here.</li>
+        </ol>
+        <div class="step-field">
+          <label for="openai-key">OpenAI API key</label>
+          <input id="openai-key" type="password" placeholder="sk-…" autocomplete="off">
+          <p class="message" id="ai-openai-message"></p>
         </div>
       </section>
       <section class="card step-card" id="ai-trial" hidden>
@@ -151,7 +165,7 @@
         <div class="progress-head"><span class="spinner"></span><b id="draft-part">Reading your CV</b><span id="draft-percent" class="muted"></span></div>
         <div class="bar"><span id="draft-bar"></span></div>
         <ul class="draft-feed" id="draft-feed"></ul>
-        <p class="fine" id="draft-time">Claude reads your CV and writes your Profile, standard answers and search settings. This usually takes 1 to 2 minutes.</p>
+        <p class="fine" id="draft-time"><span data-ai>Claude</span> reads your CV and writes your Profile, standard answers and search settings. This usually takes 1 to 2 minutes.</p>
       </div>
       <div id="draft-error" class="message error" hidden></div>
       <div class="stale-draft" id="draft-stale" hidden><span id="draft-stale-text"></span>
@@ -693,7 +707,7 @@
             <button class="ghost" id="iv-save">Save without review</button>
             <button class="ghost" id="iv-discard">Delete draft</button>
           </div>
-          <p class="fine">Saves the transcript to Notion, then Claude Opus reviews it with your profile.
+          <p class="fine">Saves the transcript to Notion, then <span data-ai="big">Claude Opus</span> reviews it with your profile.
             Without review, you can still review it later from the Interview library.</p>
         </div>
       </section>
@@ -934,14 +948,14 @@
             </div>
             <div class="switch-line">
               <label class="switch-row"><span class="switch"><input type="checkbox" id="escalation"><span></span></span>
-                <span><span>Take a closer look when it is stuck</span><span class="muted small">On: when an account page stays unclear, Job Pilotto sends a screenshot of it, with what you typed hidden, to Claude and follows one suggested click. At most 10 a day.</span></span></label>
+                <span><span>Take a closer look when it is stuck</span><span class="muted small">On: when an account page stays unclear, Job Pilotto sends a screenshot of it, with what you typed hidden, to <span data-ai>Claude</span> and follows one suggested click. At most 10 a day.</span></span></label>
             </div>
             <div class="switch-line">
               <label class="switch-row"><span class="switch"><input type="checkbox" id="application-next"><span></span></span>
                 <span><span>Go to the next step of an application for me</span><span class="muted small">On: when a step of a multi-step application is complete, Job Pilotto presses its Next button. Off: it fills the step and you press Next. Never the last step's Submit.</span></span></label>
             </div>
             <div class="switch-line" id="site-password-line">
-              <span class="cv-card-text"><span>Job-site password: <b id="site-password">••••••••</b></span><span class="muted small">Claude signs up and signs in on employers' sites with it and your email; it is kept in this computer's Keychain.</span></span>
+              <span class="cv-card-text"><span>Job-site password: <b id="site-password">••••••••</b></span><span class="muted small">Job Pilotto signs up and signs in on employers' sites with it and your email; it is kept in this computer's Keychain.</span></span>
               <span class="inline"><button class="secondary small-button" id="site-password-show">Show</button><button class="secondary small-button" id="site-password-copy">Copy</button></span>
             </div>
             <p class="message" id="site-password-message"></p>
@@ -1094,10 +1108,15 @@
 
       <div class="setting conn-panel" id="setting-ai" hidden>
         <div class="engine" id="ai-engine-settings"></div>
-        <div class="conn-foot">
+        <div class="conn-foot" data-family="claude">
           <div class="conn-foot-head"><h3>Anthropic API key</h3><span class="status-line" data-secret="ANTHROPIC_API_KEY"></span></div>
           <p class="muted small">Always on (GitHub) requires an API key, regardless of the engine selected on this Mac.</p>
           <div class="inline"><input type="password" id="set-anthropic" placeholder="sk-ant-…"><button class="secondary" id="set-anthropic-save">Save</button></div>
+        </div>
+        <div class="conn-foot" data-family="openai" hidden>
+          <div class="conn-foot-head"><h3>OpenAI API key</h3><span class="status-line" data-secret="OPENAI_API_KEY"></span></div>
+          <p class="muted small">Always on (GitHub) requires an API key, regardless of the engine selected on this Mac.</p>
+          <div class="inline"><input type="password" id="set-openai" placeholder="sk-…"><button class="secondary" id="set-openai-save">Save</button></div>
         </div>
       </div>
       <div class="setting conn-panel" id="setting-notion" hidden>
@@ -1346,12 +1365,12 @@
           </div>
         </div>
         <div class="settings-page" data-settings-page="credentials" hidden>
-          <div class="settings-page-head"><h2>Credentials</h2><p class="muted">Accounts Claude created on job sites. The passwords stay in this Mac's Keychain, encrypted; one is shown only when you press Show.</p></div>
+          <div class="settings-page-head"><h2>Credentials</h2><p class="muted">Accounts Job Pilotto created on job sites. The passwords stay in this Mac's Keychain, encrypted; one is shown only when you press Show.</p></div>
           <div class="setting panel" id="setting-credentials">
             <div class="task-table" id="credentials-table">
               <div class="task-row is-head"><span>Site</span><span>Password</span><span></span></div>
             </div>
-            <p class="muted small" id="credentials-empty" hidden>No accounts yet. When Claude signs up on a job site, the account appears here.</p>
+            <p class="muted small" id="credentials-empty" hidden>No accounts yet. When Job Pilotto signs up on a job site, the account appears here.</p>
             <p class="message" id="credentials-message"></p>
             <div class="switch-line">
               <span class="cv-card-text"><span>Job-site password for new accounts: <b id="credentials-shared">••••••••</b></span><span class="muted small">The same one on every site, so you can sign in by hand too.</span></span>
@@ -1502,7 +1521,7 @@
       <div><b>New applications</b><p>The extension and Apply with Claude use your uploaded CV.</p></div><span class="ui-pill tone-good">✓ Updated</span></li>
     <li class="cv-row cv-profile">
       <div class="cv-profile-head"><i data-icon="file-text"></i><b>Notion Profile</b><span id="cv-profile-pill"></span></div>
-      <p id="cv-profile-text">Claude compares the two CVs and suggests only the lines to change. You pick which.</p>
+      <p id="cv-profile-text"><span data-ai>Claude</span> compares the two CVs and suggests only the lines to change. You pick which.</p>
       <div class="alert tone-good cv-verdict" id="cv-verdict" hidden><i data-icon="check-circle"></i>
         <div><b id="cv-verdict-title"></b><p id="cv-verdict-text"></p></div></div>
       <div id="cv-suggestions" class="cv-suggestions"></div>
@@ -1830,7 +1849,7 @@
       <label for="happened-notes">What did you learn? Salary, next steps, people, questions asked
         <span class="muted">(optional)</span></label>
       <textarea id="happened-notes" rows="8" placeholder="e.g. 30 min with the recruiter. Band 90–110k, contract possible. They asked about on-call and Kafka. Next: a call with the CTO next week."></textarea>
-      <p class="muted small">Saved to 🎤 Interviews in Notion and the job moves on to Interviewing. With a few lines, Claude reviews them
+      <p class="muted small">Saved to 🎤 Interviews in Notion and the job moves on to Interviewing. With a few lines, <span data-ai>Claude</span> reviews them
         like a recording: the next step, and salary, contract or place filled in on the job.</p>
     </div>
     <fieldset id="happened-no">
@@ -1899,7 +1918,7 @@
     <!-- Step 2: what Claude read, checked by you before anything is written to Notion (renderer/lead-confirm.js).
          Marked fields were inferred (confirm or change them); empty ones weren't in the message (answer them). -->
     <div id="lead-confirm" hidden>
-      <p class="dialog-lead">Check what Claude read before it's saved.<span class="muted small">Nothing goes to Notion until the marked details are confirmed.</span></p>
+      <p class="dialog-lead">Check what <span data-ai>Claude</span> read before it's saved.<span class="muted small">Nothing goes to Notion until the marked details are confirmed.</span></p>
       <div class="lead-found" id="lead-found"><span id="lead-found-tile"></span>
         <div><strong id="lead-found-title"></strong><span class="muted small" id="lead-found-meta"></span></div>
         <span class="lead-flag" id="lead-found-flag"></span></div>

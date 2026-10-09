@@ -1,6 +1,7 @@
 // The strategy draft's IPC (moved out of main.js, 8 Oct 2026): drafting a Strategy from the CV, the cached draft and the edits kept on it, how a rebuild
 // would change the search, and saving it to Notion with its progress. main.js passes in the services they share. Guards: the strategy, draft
 // and save-progress tests in desktop/test.
+import {aiNameOf, aiText} from './ai/names.js';
 import * as claudeCode from './claude-code.js';
 import * as contactDetails from './contact.js';
 import * as notion from './notion.js';
@@ -20,22 +21,22 @@ export function registerStrategyDraftHandlers(ctx) {
     if (DEMO) {
       const demo = JSON.parse(fs.readFileSync(path.join(here, 'demo', 'draft.json'), 'utf8')).draft;
       demo.profile_markdown = strategy.withNote(demo.profile_markdown, answers);
-      send({part: 'Proposing your goals', percent: 20, notes: ['Sent your CV to Claude (demo: nothing is sent)', 'Claude read your CV']});
+      send({part: 'Proposing your goals', percent: 20, notes: [aiText(storage, 'Sent your CV to {AI} (demo: nothing is sent)'), aiText(storage, '{AI} read your CV')]});
       await new Promise(resolve => setTimeout(resolve, Number(process.env.JOB_PILOTTO_DEMO_STRATEGY_DELAY) || 300));
       return demo;
     }
     const kb = Math.round(fs.statSync(storage.path('cv.pdf')).size / 1024);
-    const sent = `Sent your CV (${kb} KB)${answers.anything_else ? ' and your note' : ''} to Claude (${strategy.MODEL})`;
+    const sent = `Sent your CV (${kb} KB)${answers.anything_else ? ' and your note' : ''} to ${aiNameOf(storage)} (${aiText(storage, '{AI:main}')})`;
     // Before Claude writes anything it reads the CV (about 25 s): the bar moves by time, up to 10%.
     const started = Date.now();
     let writing = false;
-    const reading = setInterval(() => !writing && send({part: 'Claude is reading your CV', notes: [sent, 'Claude is reading your CV…'],
+    const reading = setInterval(() => !writing && send({part: aiText(storage, '{AI} is reading your CV'), notes: [sent, aiText(storage, '{AI} is reading your CV…')],
       percent: Math.min(strategy.READING - 1, Math.round((Date.now() - started) / 25000 * strategy.READING))}), 1000);
-    send({part: 'Sending your CV to Claude', percent: 0, notes: [sent]});
+    send({part: aiText(storage, 'Sending your CV to {AI}'), percent: 0, notes: [sent]});
     let draft;
     try {
       draft = await strategy.draft(storage, answers, storage.secret('ANTHROPIC_API_KEY'), claudeCode.client(storage),
-        progress => { writing = true; send({...progress, notes: [sent, 'Claude read your CV', ...progress.notes]}); });
+        progress => { writing = true; send({...progress, notes: [sent, aiText(storage, '{AI} read your CV'), ...progress.notes]}); });
     } finally { clearInterval(reading); }
     send({part: 'Checking the draft', percent: 99, notes: ['Checking the draft (valid settings, nothing missing)…']});
     // Kept so reopening the wizard shows it again instead of paying for a new draft.

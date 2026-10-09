@@ -4,6 +4,7 @@
 // Claude call on the text a parser would get: keywords for the person's target roles, evidence, clarity. It is a readiness check, not a
 // score from any real hiring system (they do not publish one). Only observed extraction problems cost points (no text, garbled characters, no contact
 // details, no readable dates); layout alone (columns, pictures) is a note: no recruiter or admin we found shows it breaking a parse. Results are a cache of the PDF (cv/check.json), rebuilt on demand.
+import {nameOfClient} from './ai/names.js';
 import {priceOf} from './ai/models.js';
 import {anthropicApi} from './ai/anthropic-api.js';
 import crypto from 'node:crypto';
@@ -187,7 +188,7 @@ export async function review(storage, apiKey, text, {client = null, profile = ''
     messages: [{role: 'user', content: `<cv>\n${text.slice(0, 30000)}\n</cv>\n\n<profile>\n${(profile || '(none)').slice(0, 6000)}\n</profile>`}],
     output_config: {format: {type: 'json_schema', schema: SCHEMA}},
   });
-  if (response.stop_reason === 'refusal') throw new Error('Claude declined to review this CV');
+  if (response.stop_reason === 'refusal') throw new Error(`${nameOfClient(anthropic)} declined to review this CV`);
   const result = JSON.parse(response.content.find(block => block.type === 'text').text);
   const clamp = value => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
   return {...result, score: clamp(result.score), components: result.components.map(item => ({...item, score: clamp(item.score)})),

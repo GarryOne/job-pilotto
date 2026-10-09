@@ -3,6 +3,7 @@
 // a screening question could turn into a yes/no (work permit, place and office days, language, licence, clearance), and whether the CV and the Profile support
 // them. A grade is a sort order that recruiters override, not a verdict (docs/research/ats-reddit-2026-10.md). Facts only: a missing term is "add it only if
 // it is true". On request (a few cents); the last answer for a job is kept in cv/match/<code>.json, for the CV it was made with.
+import {nameOfClient} from './ai/names.js';
 import {priceOf} from './ai/models.js';
 import {anthropicApi} from './ai/anthropic-api.js';
 import crypto from 'node:crypto';
@@ -68,7 +69,7 @@ export async function check(storage, apiKey, {job, cv, profile = '', client = nu
       `<posting>\n${job.title} at ${job.company}${job.location ? ` (${job.location})` : ''}\n\n${(job.description || '(no description stored)').slice(0, 30000)}\n</posting>`}],
     output_config: {format: {type: 'json_schema', schema: SCHEMA}},
   });
-  if (response.stop_reason === 'refusal') throw new Error('Claude declined to compare this CV and posting');
+  if (response.stop_reason === 'refusal') throw new Error(`${nameOfClient(anthropic)} declined to compare this CV and posting`);
   const result = JSON.parse(response.content.find(block => block.type === 'text').text);
   return {...guard({...result, musts: result.musts.slice(0, 10), knockouts: result.knockouts.slice(0, 8), advice: result.advice.slice(0, 4)}, cvText(cv)), usd: usd(response.usage)};
 }

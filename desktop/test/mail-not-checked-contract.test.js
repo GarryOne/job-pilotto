@@ -5,14 +5,14 @@ import {spawnSync} from 'node:child_process';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
-import {MAIL_SKIPPED} from '../lib/run-result.js';
+import {MAIL_SKIPPED, MAIL_SKIPPED_OPENAI} from '../lib/run-result.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const python = process.env.JOB_PILOTTO_CHECK_PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
 
 test('the engine and the app say why a Gmail check read nothing in the same words', () => {
-  const run = spawnSync(python, ['-c', 'import json; from src.ai import mail; print(json.dumps(mail.NOT_CHECKED, ensure_ascii=False))'],
+  const run = spawnSync(python, ['-c', 'import json; from src.ai import mail; print(json.dumps([mail.NOT_CHECKED, mail.NOT_CHECKED_OPENAI], ensure_ascii=False))'],
     {cwd: path.join(here, '../..'), encoding: 'utf8', env: {...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8'}});
   assert.equal(run.status, 0, run.stderr);
-  assert.deepEqual(JSON.parse(run.stdout), MAIL_SKIPPED);
+  assert.deepEqual(JSON.parse(run.stdout), [MAIL_SKIPPED, MAIL_SKIPPED_OPENAI]);   // Claude's words and OpenAI's
 });

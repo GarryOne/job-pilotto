@@ -1,6 +1,7 @@
 // Sites only you can open (owner, 7 Oct 2026): employers whose job site refuses automated visitors and portals with no API (LinkedIn,
 // Indeed, Glassdoor). The app opens the page in the browser that has the extension; the person, as themselves, presses "Read the jobs" in
 // the extension, which sends each page it sees here; the engine reads it (src/sources/visits.py) and the next jobs check scores it.
+import {aiNameOf} from './ai/names.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -54,9 +55,9 @@ export async function understand(storage, outline, runEngine) {
   if (!/^https?:\/\//.test(String(outline?.url || ''))) return {ok: false, error: 'no page address'};
   const answer = await whileThinking(String(outline.ticket || ''), engineJson(storage, 'visit-understand', {url: String(outline.url), title: String(outline.title || '').slice(0, 200),
     groups: Array.isArray(outline.groups) ? outline.groups.slice(0, 12) : [], pager: Array.isArray(outline.pager) ? outline.pager.slice(0, 25) : []}, runEngine));
-  log('visit', 'recipe asked of Claude', {host: new URL(outline.url).hostname, groups: outline.groups?.length || 0, found: !!answer?.recipe, next: answer?.recipe?.next});
+  log('visit', 'recipe asked of the AI', {host: new URL(outline.url).hostname, groups: outline.groups?.length || 0, found: !!answer?.recipe, next: answer?.recipe?.next});
   // What Claude's reading found, in the task's log (owner, 7 Oct 2026: "are we getting enough details of what's happening in each tab?")
-  onLine(`  Claude's reading of ${new URL(outline.url).hostname}: ${answer?.recipe ? `a job list found (next page: ${answer.recipe.next || 'none'})` : `no job list found among the page's ${outline.groups?.length || 0} groups of repeated items`}`);
+  onLine(`  The AI's reading of ${new URL(outline.url).hostname}: ${answer?.recipe ? `a job list found (next page: ${answer.recipe.next || 'none'})` : `no job list found among the page's ${outline.groups?.length || 0} groups of repeated items`}`);
   return answer || {ok: false, error: 'The app could not read this page.'};
 }
 
@@ -103,9 +104,9 @@ export async function unblock(storage, page, runEngine) {
   const ways = Array.isArray(page.ways) ? page.ways.slice(0, 120) : [];
   const answer = await whileThinking(String(page.ticket || ''), engineJson(storage, 'visit-unblock', {url: String(page.url), title: String(page.title || '').slice(0, 200),
     text: String(page.text || '').slice(0, 800), ways}, runEngine));
-  log('visit', 'Claude asked for a way to the jobs', {host: new URL(page.url).hostname, ways: ways.length, decidedBy: 'Claude', steps: (answer?.steps || []).map(step => `${step.action} ${step.label}`).join(' | ').slice(0, 200), needsYou: answer?.needs_person || ''});
-  onLine(`  Claude's way to the jobs on ${new URL(page.url).hostname}: ${answer?.needs_person ? `it needs you (${answer.needs_person})` : answer?.steps?.length ? answer.steps.map(step => `${step.action} "${step.label.slice(0, 40)}"`).join(', ') : 'none found'}`);
-  return answer || {ok: false, error: 'Claude could not find a way to the jobs.'};
+  log('visit', 'the AI asked for a way to the jobs', {host: new URL(page.url).hostname, ways: ways.length, decidedBy: aiNameOf(storage), steps: (answer?.steps || []).map(step => `${step.action} ${step.label}`).join(' | ').slice(0, 200), needsYou: answer?.needs_person || ''});
+  onLine(`  The AI's way to the jobs on ${new URL(page.url).hostname}: ${answer?.needs_person ? `it needs you (${answer.needs_person})` : answer?.steps?.length ? answer.steps.map(step => `${step.action} "${step.label.slice(0, 40)}"`).join(', ') : 'none found'}`);
+  return answer || {ok: false, error: 'The AI could not find a way to the jobs.'};
 }
 
 // The page's filter controls: which to set for this person's search (src/ai/visit_filters.py, through the engine's AI). Labels in the log.
@@ -118,9 +119,9 @@ export async function filters(storage, page, runEngine = pipeline.run) {
     const late = new Promise(resolve => setTimeout(() => resolve({late: true}), FILTER_WAIT_MS));
     const ran = await whileThinking(String(page.ticket || ''), Promise.race([runEngine(storage, ['src.desktop', 'visit-filters', file], onLine, {}, {stopAfterMs: FILTER_WAIT_MS + 2000}), late]));
     if (ran.late) {
-      log('visit', 'filters: Claude took too long, the page is read as it is', {host: new URL(page.url).hostname, waitedMs: FILTER_WAIT_MS});
-      onLine(`Filters for ${new URL(page.url).hostname}: Claude took over ${FILTER_WAIT_MS / 1000} s, so the page is read as it is`);
-      return {ok: false, error: `Claude took over ${FILTER_WAIT_MS / 1000} s to choose the filters: reading the page as it is`};
+      log('visit', 'filters: the AI took too long, the page is read as it is', {host: new URL(page.url).hostname, waitedMs: FILTER_WAIT_MS});
+      onLine(`Filters for ${new URL(page.url).hostname}: the AI took over ${FILTER_WAIT_MS / 1000} s, so the page is read as it is`);
+      return {ok: false, error: `The AI took over ${FILTER_WAIT_MS / 1000} s to choose the filters: reading the page as it is`};
     }
     const answer = (() => { try { return JSON.parse(String(ran.stdout).trim().split('\n').pop()); } catch { return null; } })();
     log('visit', 'filters chosen', {host: new URL(page.url).hostname, steps: answer?.steps?.length ?? null, labels: (answer?.steps || []).map(step => step.label).join(' | ').slice(0, 300)});

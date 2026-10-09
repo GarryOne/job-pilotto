@@ -197,7 +197,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/activity-run-card.js` — Recent activity: the run card (a run's message as counts and items), its skeleton and the job box.
 - `desktop/renderer/pages/activity-visits.js` — Recent activity: the site-reading (visits) card and the busy-button memory (presses) its buttons share.
 - `desktop/renderer/pages/activity.js` — Recent activity: the bar at the bottom of every screen and its panel. This file keeps init() (the start-up wiring) and re-exports the rest of the panel,
-- `desktop/renderer/pages/ai-engine.js` — The AI engine chooser, one component for the setup wizard's AI step and Settings → Connections → AI: two cards
+- `desktop/renderer/pages/ai-engine.js` — The AI engine chooser, one component for the setup wizard's AI step and Settings → Connections → AI: a Claude | OpenAI switch, then that
 - `desktop/renderer/pages/app-feedback.js` — Send feedback (sidebar and Help → Send Feedback…): a short note to the owner (lib/app-feedback.js → the website →
 - `desktop/renderer/pages/calendar.js` — Calendar page: screenings and interviews on a month grid, with the agenda beside it (renderer/calendar.js). From the job
 - `desktop/renderer/pages/claude-prereqs.js` — Apply with Claude prerequisites checklist: what only the user can install. Drawn in the wizard's Optional extras card and under Settings' "Show Claude help" switch
@@ -244,7 +244,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/session-steps.js` — "What happened" on the session page (owner, 9 Oct 2026: "not sure we want the Claude terminal visible all the time … it confuses non-technical users"): the
 - `desktop/renderer/pages/sessions.js` — Application sessions: the dock, the list, the next step.
 - `desktop/renderer/pages/settings.js` — Settings page: the overview of every service (AI, Notion, Gmail, Telegram, Always on, extras) and each one's sub-page.
-- `desktop/renderer/pages/shared.js` — State more than one page changes (an imported binding is read-only, so it lives on one object).
+- `desktop/renderer/pages/shared.js` — (no header comment: add one)
 - `desktop/renderer/pages/startup.js` — Start-up: what the window opens on.
 - `desktop/renderer/pages/strategy-review.js` — Setup step 5: review the drafted strategy.
 - `desktop/renderer/pages/strategy-state.js` — Strategy page, shared state: one strategyState object (a value reassigned later stays ONE binding for every piece) and the tab switch. Guarded by: the Strategy tests (advice-events, save-progress).
@@ -261,6 +261,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 ## Desktop window: shared modules
 
 - `desktop/renderer/ai-engine-view.js` — The AI engine chooser's words and states (the setup wizard's AI step and Settings → Connections → AI), kept free of
+- `desktop/renderer/ai-name.js` — The name of the AI the user chose, for every text the window shows: "Claude" (Anthropic API key, Claude Code), "OpenAI" (OpenAI API key)
 - `desktop/renderer/answer-options.js` — What a "needs you" row can offer as an answer, kept free of the window so a test can check it (session-needs.js
 - `desktop/renderer/app.js` — The window: setup wizard on first run, then Focus, Jobs, Strategy, sessions and Settings, one module per page
 - `desktop/renderer/audience.js` — Is this candidate looking for IT / engineering work? The same rule as src/coverage.py looks_technical (a table of cases in tests/fixtures/audience_cases.json holds both to it).

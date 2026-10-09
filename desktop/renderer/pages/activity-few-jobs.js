@@ -1,5 +1,6 @@
 // Recent activity: the few-jobs help boxes beside the run card (coverage actions, Explain with AI).
 // Split out of activity.js as a pure move. Guarded by the tests that read the activity-*.js sources (desktop/test/activity-source.js) and the e2e activity suites.
+import {ai} from '../ai-name.js';
 import {el} from '../components.js';
 import {icon} from '../icons.js';
 import {adviceEvent, fewJobsGroups, runAction} from '../coverage-actions.js';
@@ -65,15 +66,15 @@ export function withFewJobsHelp(runId) {
   // card that is on screen, not in one already replaced.
   const showAsking = () => {
     const line = el('p', 'run-card-asking');
-    line.append(el('span', 'spinner small'), 'Claude is reading this search\'s counts…');
+    line.append(el('span', 'spinner small'), ai('{AI} is reading this search\'s counts…'));
     answer.replaceChildren(line);
   };
   const explain = el('button', 'link with-icon', icon('sparkle'));
   explain.append('Understand these results with AI →');
-  explain.title = 'Claude reads the counts of this search (never your CV) and says why it found few jobs, and what to do first';
+  explain.title = ai('{AI} reads the counts of this search (never your CV) and says why it found few jobs, and what to do first');
   keepButton('explain', explain);
   const settle = result => {
-    if (!result?.ok) { answer.textContent = result?.error || 'Claude could not answer now.'; return; }
+    if (!result?.ok) { answer.textContent = result?.error || ai('{AI} could not answer now.'); return; }
     showAnswer(result);
   };
   if (kept.explained) showAnswer(kept.explained);

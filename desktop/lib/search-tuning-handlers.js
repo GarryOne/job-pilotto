@@ -1,6 +1,7 @@
 // The search settings' IPC (moved out of main.js, 8 Oct 2026): how well the search covers the roles and places, ideas, loosening and adding
 // roles or places, tuning proposals and their application, editing targets and goals, stopping a task, and the strategy data. main.js passes
 // in the services they share. Guards: the coverage, tuning and strategy tests in desktop/test.
+import {aiText} from './ai/names.js';
 import * as controlEvents from './control-events.js';
 import * as github from './github.js';
 import * as pipeline from './pipeline.js';
@@ -51,8 +52,8 @@ export function registerSearchTuningHandlers(ctx) {
   ipcMain.handle('explainCoverage', async () => {
     if (DEMO) return {ok: true, why: 'Demo data: your role words catch most postings in your places.', first_steps: []};
     const {code, stdout} = await pipeline.run(storage, ['src.desktop', 'explain-coverage']);
-    if (code !== 0) return {ok: false, error: 'Claude could not answer now (see the activity log)'};
-    try { return {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())}; } catch { return {ok: false, error: 'Claude\'s answer could not be read'}; }
+    if (code !== 0) return {ok: false, error: aiText(storage, '{AI} could not answer now (see the activity log)')};
+    try { return {ok: true, ...JSON.parse(stdout.trim().split('\n').pop())}; } catch { return {ok: false, error: aiText(storage, '{AI}\'s answer could not be read')}; }
   });
   const settingsDeps = settingsDepsFor(toWindow);   // lib/settings-deps.js, shared with main.js
   // Every change to the search (Strategy edits and suggestions, Tune) says "Your search changed · Refresh jobs" until a refresh applies it

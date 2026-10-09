@@ -30,12 +30,26 @@ export function deliveryProblem(lines) {
   return DELIVERY_PROBLEMS.find(([pattern]) => pattern.test(text))?.[1] || null;
 }
 
-export function mailProblem(stdout, result) {
+// The same reasons for an OpenAI-family engine (src/ai/providers: openai_api, codex_cli).
+export const MAIL_SKIPPED_OPENAI = {
+  spend: 'not checked: the OpenAI API credit or spend limit was reached',
+  plan: 'not checked: your ChatGPT plan\'s Codex limit is reached; it runs again later',
+  claude: 'not checked: Codex is not ready (Settings → AI)',
+  google: MAIL_SKIPPED.google,
+};
+
+export function mailProblem(stdout, result, family = 'claude') {
+  if (family === 'openai' && MAIL_SKIPPED_OPENAI[result?.mail?.skipped]) return MAIL_SKIPPED_OPENAI[result.mail.skipped];
   const code = result?.mail?.skipped;
   if (code && MAIL_SKIPPED[code]) return MAIL_SKIPPED[code];
   if (/^Mail check skipped: the Anthropic API spend limit/m.test(stdout || '')) return MAIL_SKIPPED.spend;
   if (/^Mail check skipped: Claude Code: your Claude usage window/m.test(stdout || '')) return MAIL_SKIPPED.plan;
   if (/^Mail check skipped: Claude Code (?:is not signed in|was not found)/m.test(stdout || '')) return MAIL_SKIPPED.claude;
+  // The OpenAI family's own lines (src/ai/providers: codex_cli, openai_api), whatever engine the app thinks is chosen.
+  if (/^Mail check skipped: Codex: your ChatGPT plan's usage limit/m.test(stdout || '')) return MAIL_SKIPPED_OPENAI.plan;
+  if (/^Mail check skipped: Codex (?:is not signed in|was not found)/m.test(stdout || '')) return MAIL_SKIPPED_OPENAI.claude;
+  if (/^Mail check skipped: OpenAI: your API account has no credit left/m.test(stdout || '')) return MAIL_SKIPPED_OPENAI.spend;
+  if (/^Mail check skipped: OpenAI refused the API key/m.test(stdout || '')) return MAIL_SKIPPED_OPENAI.claude;
   if (/The Google sign-in for Gmail and Calendar has expired/.test(stdout || '')) return MAIL_SKIPPED.google;
   return null;
 }

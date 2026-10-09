@@ -1,6 +1,7 @@
 // Focus → "Did the interview happen?" (src/focus.py 'happened': its time passed and nothing was recorded).
 // Yes: your notes become a 🎤 Interviews row, the job moves on, and a few lines get Claude's review (on this Mac, or on
 // GitHub when Always on). No: moved to a new date (Next interview) or cancelled (an event; the stage stays).
+import {aiName} from '../ai-name.js';
 import {$, aiReady, message, show} from './core.js';
 import {loadFocus} from './focus.js';
 import {loadJobs} from './jobs.js';
@@ -30,7 +31,7 @@ async function review(pageId, item) {
     toastMessage('Saved ✓', 'Choose your AI in Settings (Claude Code, Codex or an API key) to get a review of your notes (Interviews → Review).');
     return;
   }
-  toastMessage('Saved ✓', `Claude is reviewing your notes on ${who(item)} (about a minute).`);
+  toastMessage('Saved ✓', `${aiName()} is reviewing your notes on ${who(item)} (about a minute).`);
   const result = await window.pilot.interviews.review(pageId).catch(error => ({ok: false, error: error.message}));
   toastMessage(result.ok ? 'Interview reviewed' : 'Review failed', result.ok ? result.summary : result.error || 'Try again from Interviews.');
   loadFocus();

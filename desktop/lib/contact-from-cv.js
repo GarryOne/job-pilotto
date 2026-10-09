@@ -3,6 +3,7 @@
 // empty boxes of Settings → Profile → Your details, marked "from your CV", and Save there is the confirmation (owner, 8 Oct 2026:
 // a Coop form stopped on 9 questions whose answers were half in the CV). A field you filled is never proposed over.
 // Guarded by test/contact-from-cv.test.js.
+import {nameOfClient} from './ai/names.js';
 import fs from 'node:fs';
 import {LABELS} from './contact.js';
 import {inFlight} from './in-flight.js';
@@ -54,8 +55,8 @@ export async function propose(client, cvPdf, wanted) {
       {type: 'text', text: `Fields to fill: ${wanted.map(key => `${key} (${LABELS[key]})`).join(', ')}`}]}],
     output_config: {format: {type: 'json_schema', schema: SCHEMA}},
   });
-  if (response.stop_reason === 'refusal') throw new Error('Claude declined to read the CV');
-  if (response.stop_reason === 'max_tokens') throw new Error('Claude\'s answer was cut short');
+  if (response.stop_reason === 'refusal') throw new Error(`${nameOfClient(client)} declined to read the CV`);
+  if (response.stop_reason === 'max_tokens') throw new Error(`${nameOfClient(client)}'s answer was cut short`);
   const text = response.content?.find(block => block.type === 'text')?.text || '{}';
   return {proposals: cleanProposals(JSON.parse(text).proposals, wanted)};
 }

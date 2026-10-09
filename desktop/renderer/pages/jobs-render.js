@@ -1,4 +1,5 @@
 // Jobs page, the list: renderJobs (rows, filters, row actions), In conversation, the stuck banner, loading state, kit label. Guarded by: test/count-flash.test.js.
+import {ai} from '../ai-name.js';
 import {closeMenu, el, moreButton, pill, tag} from '../components.js';
 import {claudeHelp} from '../claude-help.js';
 import {isInbound} from '../origin.js';
@@ -293,7 +294,7 @@ export function renderJobs() {
       // Claude reads the posting, what was sent, the timeline and any interview reviews: presentation, hard skills,
       // soft skills, or a different profile (nothing to improve). Written on the job's Notion page.
       menu.push({icon: 'search', label: job.rejection ? 'Review the rejection again' : 'Why was I rejected?',
-        title: 'Claude reviews this application: presentation, hard skills, soft skills, or not on you (~20 s)',
+        title: ai('{AI} reviews this application: presentation, hard skills, soft skills, or not on you (~20 s)'),
         run: () => background('🔎 Reviewing the rejection…', async () => {
           const result = await window.pilot.reviewRejection(job.url);
           toastMessage(result.ok ? 'Rejection reviewed' : 'Review failed', result.text);

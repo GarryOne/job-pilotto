@@ -6,6 +6,7 @@
 //
 //   cv/cv.json, cv/assets/ (photo, logos), cv/style.css (optional own design)
 //   cv/tailored/<job code>.json (the tailored data, what changed and why) and .pdf
+import {nameOfClient} from './ai/names.js';
 import {priceOf} from './ai/models.js';
 import {anthropicApi} from './ai/anthropic-api.js';
 import fs from 'node:fs';
@@ -55,7 +56,7 @@ export async function importPdf(storage, apiKey, client = null, {look = null} = 
       {type: 'text', text: 'Transcribe this CV.'}]}],
     output_config: {format: {type: 'json_schema', schema: IMPORT_SCHEMA}},
   });
-  if (response.stop_reason === 'refusal') throw new Error('Claude declined to read this CV');
+  if (response.stop_reason === 'refusal') throw new Error(`${nameOfClient(anthropic)} declined to read this CV`);
   const data = JSON.parse(response.content.find(block => block.type === 'text').text);
   const clean = {...data, jobs: data.jobs.map(({href, ...job}) => ({...job, ...(href ? {href} : {}),
     roles: job.roles.map(({intro, skills, ...r}) => ({...r, ...(intro ? {intro} : {}), ...(skills ? {skills} : {})}))}))};
@@ -113,7 +114,7 @@ export async function tailor(storage, posting, apiKey, {client = null, feedback 
       (feedback ? `\n\n<feedback>${feedback}</feedback>` : '')}],
     output_config: {format: {type: 'json_schema', schema: TAILOR_SCHEMA}},
   });
-  if (response.stop_reason === 'refusal') throw new Error('Claude declined to tailor this CV');
+  if (response.stop_reason === 'refusal') throw new Error(`${nameOfClient(anthropic)} declined to tailor this CV`);
   if (response.stop_reason === 'max_tokens') throw new Error('The tailored CV was cut off; try again');
   return {result: JSON.parse(response.content.find(block => block.type === 'text').text), usd: usd(response.usage)};
 }

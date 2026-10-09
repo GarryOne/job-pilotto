@@ -10,14 +10,17 @@ import {canContinue} from '../ai-engine-view.js';
 // The AI step's engine chooser (pages/ai-engine.js): mounted the first time the step opens. Nothing is pre-selected;
 // Continue once the user picked one that can run (Claude Code verified, or an API key saved or typed).
 let chooser = null;
-const aiDone = () => !!shared.state.secrets.ANTHROPIC_API_KEY || shared.state.settings.aiEngine === 'cli';
+const aiDone = () => !!shared.state.secrets.ANTHROPIC_API_KEY || ['cli', 'codex'].includes(shared.state.settings.aiEngine)
+  || (shared.state.settings.aiEngine === 'openai' && !!shared.state.secrets.OPENAI_API_KEY);
 function aiStep() {
   const picked = chooser?.picked();
   show($('ai-key-part'), picked === 'api');
+  show($('ai-openai-key-part'), picked === 'openai');
   show($('ai-trial'), picked === 'trial');   // the third card: the founder key field
-  const keyTyped = !!$(picked === 'trial' ? 'ai-trial-key' : 'anthropic-key').value.trim();
-  $('ai-save').disabled = !canContinue({picked, hasKey: !!shared.state.secrets.ANTHROPIC_API_KEY, keyTyped, status: chooser?.status()});
-  $('ai-save').textContent = picked === 'trial' ? 'Use the free credit' : picked === 'api' && keyTyped ? 'Check and save' : 'Continue';
+  const keyTyped = !!$({trial: 'ai-trial-key', openai: 'openai-key'}[picked] || 'anthropic-key').value.trim();
+  $('ai-save').disabled = !canContinue({picked, hasKey: !!shared.state.secrets.ANTHROPIC_API_KEY, hasOpenAiKey: !!shared.state.secrets.OPENAI_API_KEY,
+    keyTyped, status: chooser?.status()});
+  $('ai-save').textContent = picked === 'trial' ? 'Use the free credit' : ['api', 'openai'].includes(picked) && keyTyped ? 'Check and save' : 'Continue';
 }
 
 // The third card, $1 of free AI (lib/ai-trial.js): the founder key unlocks the app and pays for the first $1 of AI.
@@ -36,6 +39,23 @@ async function useTrial() {
   $('ai-trial-key').value = '';
   message('ai-trial-message', '✓ Using your $1 of free AI. Add your own key any time in Settings → Anthropic.', 'ok');
   setTimeout(() => goStep('cv'), 900);
+}
+
+// The OpenAI API card: the key checked with a free call, saved, the engine set.
+async function saveOpenAiKey() {
+  const key = $('openai-key').value.trim();
+  if (!key && shared.state.secrets.OPENAI_API_KEY) { shared.state.settings = await window.pilot.setAiEngine('openai'); goStep('cv'); return; }
+  if (!key.startsWith('sk-')) { message('ai-openai-message', 'OpenAI keys start with sk-. Copy the whole key.', 'error'); return; }
+  $('ai-save').disabled = true;
+  message('ai-openai-message', 'Checking the key…');
+  const result = await window.pilot.checkOpenAI(key);
+  $('ai-save').disabled = false;
+  if (!result.ok) { message('ai-openai-message', result.error, 'error'); return; }
+  shared.state.secrets = await window.pilot.saveSecret('OPENAI_API_KEY', key);
+  shared.state.settings = await window.pilot.setAiEngine('openai');
+  $('openai-key').value = '';
+  message('ai-openai-message', 'Saved ✓', 'ok');
+  goStep('cv');
 }
 
 // ---------- wizard ----------
@@ -87,15 +107,17 @@ export async function init() {
   }));
 
   $('anthropic-key').addEventListener('input', aiStep);
+  $('openai-key').addEventListener('input', aiStep);
   $('ai-trial-key').addEventListener('input', aiStep);
   $('ai-save').addEventListener('click', async () => {
     if (chooser?.picked() === 'trial') { await useTrial(); return; }
-    if (chooser?.picked() === 'cli') {  // the user's own Claude Code, verified: no API key needed
-      shared.state.settings = await window.pilot.setAiEngine('cli');
+    if (['cli', 'codex'].includes(chooser?.picked())) {  // the user's own Claude Code or Codex, verified: no API key needed
+      shared.state.settings = await window.pilot.setAiEngine(chooser.picked());
       message('ai-message', '', '');
       goStep('cv');
       return;
     }
+    if (chooser?.picked() === 'openai') { await saveOpenAiKey(); return; }
     const key = $('anthropic-key').value.trim();
     if (!key && shared.state.secrets.ANTHROPIC_API_KEY) {  // saved earlier: just continue
       shared.state.settings = await window.pilot.setAiEngine('api');

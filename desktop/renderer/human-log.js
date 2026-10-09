@@ -2,6 +2,7 @@
 // job, is waiting for Claude, is struggling, is scoring, is handling the locations with AI"). The engine's raw lines stay in logs/engine.log
 // for debugging; this turns them into one line per thing that happened: noise dropped (Claude timings, pool sharing, Notion links), counters
 // collapsed to their latest value, the rest reworded. A line it does not know is kept as it is.
+import {aiName} from './ai-name.js';
 const SLOW_S = 20, WAITED_S = 30;   // a Claude answer this slow, or a wait for a free slot this long, is worth a line
 
 const host = url => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } };
@@ -11,22 +12,22 @@ const plural = (n, word) => `${n} ${word}${Number(n) === 1 ? '' : 's'}`;
 const RULES = [
   [/^Claude Code (\w+): answered in (\d+) s.*?(?:waited (\d+) s for a free slot)?;/, (m) => {
     const took = Number(m[2]), waited = Number(m[3] || 0);
-    if (waited >= WAITED_S) return `⏳ Waited ${waited} s for Claude: it answers two things at a time`;
-    if (took >= SLOW_S) return `🐢 Claude was slow: ${took} s for one answer`;
+    if (waited >= WAITED_S) return `⏳ Waited ${waited} s for ${aiName()}: it answers two things at a time`;
+    if (took >= SLOW_S) return `🐢 ${aiName()} was slow: ${took} s for one answer`;
     return null;
   }],
   [/^(Pool labels|Shared \d+ employer feeds|Pool catch-up|Cronjob run logged|AI: )/, () => null],
   [/^Job Matches: .*\(so far\)$/, () => null],
   [/^Job Matches: (\d+) created, (\d+) updated/, m => (Number(m[1]) + Number(m[2]) ? `📒 Notion Job Matches: ${m[1]} added, ${m[2]} updated` : null)],
-  [/^Time budget: this search stops its AI steps at (.+?);/, m => `⏱ Claude gets up to ${m[1]} this refresh; what is left waits for the next one`],
+  [/^Time budget: this search stops its AI steps at (.+?);/, m => `⏱ ${aiName()} gets up to ${m[1]} this refresh; what is left waits for the next one`],
   [/^Checked: (.+)$/, (m, state) => ({key: 'checked', text: `🏢 Looked up ${plural(state.count('checked'), 'employer')} from the job boards`})],
   [/^Job board: (\S+) · (.+?) · (.+?)(?: · page \d+)? · (.+)$/, (m, state) => ({key: 'board', text: `🔎 Searched ${m[1]}: ${plural(state.count('board'), 'page')} read`})],
-  [/^⏱ This refresh places (\d+) of (\d+) job locations.*?; (\d+) wait/, m => `📍 Asking Claude where ${m[1]} of ${m[2]} job locations are (${m[3]} next time)`],
-  [/^Places: asking Claude where/, () => null],
-  [/^Places: Claude placed (\d+) location\(s\); (\d+) are in your places/, m => `📍 Claude placed ${plural(m[1], 'location')}: ${m[2]} in your places`],
-  [/^⏱ This refresh sorts (\d+) of (\d+) job titles/, m => `🏷️ Asking Claude about ${m[1]} of ${m[2]} job titles your role words miss`],
-  [/^Titles: asking Claude/, () => null],
-  [/^Titles: Claude sorted (\d+) new title\(s\) in your places; (\d+) could fit/, m => `🏷️ Claude checked ${plural(m[1], 'job title')}: ${m[2]} could fit you`],
+  [/^⏱ This refresh places (\d+) of (\d+) job locations.*?; (\d+) wait/, m => `📍 Asking ${aiName()} where ${m[1]} of ${m[2]} job locations are (${m[3]} next time)`],
+  [/^Places: asking \S+ where/, () => null],   // the engine's name (src/ai/providers engine_name): Claude, OpenAI or Codex
+  [/^Places: \S+ placed (\d+) location\(s\); (\d+) are in your places/, m => `📍 ${aiName()} placed ${plural(m[1], 'location')}: ${m[2]} in your places`],
+  [/^⏱ This refresh sorts (\d+) of (\d+) job titles/, m => `🏷️ Asking ${aiName()} about ${m[1]} of ${m[2]} job titles your role words miss`],
+  [/^Titles: asking \S+/, () => null],
+  [/^Titles: \S+ sorted (\d+) new title\(s\) in your places; (\d+) could fit/, m => `🏷️ ${aiName()} checked ${plural(m[1], 'job title')}: ${m[2]} could fit you`],
   [/^Added (\d+) new job\(s\): (.+)$/, m => `➕ Added ${plural(m[1], 'new job')}: ${m[2]}`],
   [/^Closed 0 job\(s\)/, () => null],
   [/^Closed (\d+) job\(s\) not seen for (\d+) days/, m => `🗑️ Closed ${plural(m[1], 'job')} no longer listed for ${m[2]} days`],
@@ -40,7 +41,7 @@ const RULES = [
   [/^Scored (\d+) of (\d+) job\(s\) with [^;]+; (\d+) failed/, m => ({key: 'scored', text: `🎯 Scored ${m[1]} of ${plural(m[2], 'job')}` + (Number(m[3]) ? `, ${m[3]} failed` : '')})],
   [/^\d+ job\(s\) to score with/, () => null],
   [/^⏱ (\d+) found job\(s\) wait for the next refresh/, m => `⏱ ${plural(m[1], 'found job')} wait for the next refresh to be scored`],
-  [/^Enriched (\d+) of (\d+) job\(s\)/, m => (Number(m[1]) ? `🔍 Claude read ${plural(m[1], 'job')} for facts (languages, level, pay)` : null)],
+  [/^Enriched (\d+) of (\d+) job\(s\)/, m => (Number(m[1]) ? `🔍 ${aiName()} read ${plural(m[1], 'job')} for facts (languages, level, pay)` : null)],
   [/^⏱ Time is up for this refresh: (\d+) (.+?) left/, m => `⏱ Time is up: ${m[1]} ${m[2]} wait for the next refresh`],
   [/^Digest ready: (\d+) jobs?, (\d+) new/, m => `📨 Digest ready: ${plural(m[1], 'job')}, ${m[2]} new`],
   [/^Warning: (.+)$/, m => `⚠️ ${m[1]}`],

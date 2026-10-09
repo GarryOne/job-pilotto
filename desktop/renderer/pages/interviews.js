@@ -1,4 +1,5 @@
 // Interviews page: record a call, then list, relink and review its transcript, notes and recording (saved in Notion).
+import {ai} from '../ai-name.js';
 import * as pendingReviews from '../review-pending.js';
 import * as reviewAgain from '../review-again.js';
 import {closeMenu, el, moreButton, pill} from '../components.js';
@@ -72,7 +73,7 @@ async function openDraft(id) {
   if (draft.status === 'failed') message('iv-message', draft.error || 'Transcription failed', 'error');
   if (draft.status === 'ready') {
     $('iv-text').value = await iv.transcript(id);
-    jobOptions($('iv-job'), draft.jobUrl || draft.suggestedJobUrl, 'Let Claude find the job when reviewing');
+    jobOptions($('iv-job'), draft.jobUrl || draft.suggestedJobUrl, ai('Let {AI} find the job when reviewing'));
     // A job matched by time to a calendar interview: shown as a suggestion; saving confirms it, changing the job replaces it.
     const suggested = !draft.jobUrl && draft.suggestedJobUrl;
     show($('iv-suggest'), !!suggested);
@@ -349,7 +350,7 @@ function renderSaved() {
       main.addEventListener('click', event => window.pilot.openNotion(row.url, event.metaKey));
     } else {
       main = Object.assign(el('button', 'secondary iv-main', reviewing.has(row.id) ? 'Reviewing…' : 'Review'), {disabled: reviewing.has(row.id),
-        title: 'Claude Opus reviews it question by question; the review is added to the Notion page'});
+        title: ai('{AI:big} reviews it question by question; the review is added to the Notion page')});
       main.addEventListener('click', () => reviewRow(row.id));
     }
     const menu = [
@@ -377,7 +378,7 @@ async function reviewRow(pageId, why = 'Review') {
   if (!aiReady()) { message('iv-message', 'Choose your AI in Settings (Claude Code, Codex or an API key) to get reviews.', 'error'); return; }
   if (reviewing.has(pageId)) return;  // already asked for: a second press must not spend a second review (1 Oct 2026)
   reviewing.add(pageId);
-  message('iv-message', 'Claude is reviewing the interview (about a minute)…');
+  message('iv-message', ai('{AI} is reviewing the interview (about a minute)…'));
   readAgain();
   const result = await iv.review(pageId, why);
   if (result.ok && result.cloud) pendingReviews.add(pageId);  // GitHub reviews it: keep "Reviewing…" until it lands
@@ -392,7 +393,7 @@ async function reviewAgainRow(pageId) {
   if (reviewingAgain.has(pageId)) return;
   if (!aiReady()) { message('iv-message', 'Choose your AI in Settings (Claude Code, Codex or an API key) to get reviews.', 'error'); return; }
   reviewingAgain.add(pageId);
-  message('iv-message', reviewAgain.START);
+  message('iv-message', ai(reviewAgain.START));
   const result = await iv.review(pageId, 'Review again').catch(error => ({ok: false, error: String(error?.message || error)}));
   reviewingAgain.delete(pageId);
   message('iv-message', ...reviewAgain.doneMessage(result));

@@ -2,20 +2,21 @@
 // The same review as the first one (window.pilot.interviews.review), re-run on the transcript saved in Notion: it
 // replaces the review and fills only the job's empty fields (src/ai/interviews.py review_again). One AI call, so the
 // menu press is the ask; it never runs by itself.
+import {ai} from './ai-name.js';
 import {humanError} from './run-warnings.js';
 
 export const LABEL = 'Review again · updates the job';
 export const BUSY = 'Reviewing again…';
-export const TITLE = 'Claude reviews the saved transcript again (one Claude Opus call): the review is replaced and the '
+export const TITLE = '{AI} reviews the saved transcript again (one {AI:big} call): the review is replaced and the '
   + "call's facts (salary, contract, visa…) fill the job's empty fields. Stage and filled fields are left as they are.";
 
 // The menu entry for a row, or null (not reviewed yet: the row's own Review button does it).
 export function againItem(row, busy, run) {
   if (!row?.overall) return null;
-  return busy ? {label: BUSY, title: 'Claude is reviewing this interview again', run: () => {}} : {label: LABEL, title: TITLE, run};
+  return busy ? {label: BUSY, title: ai('{AI} is reviewing this interview again'), run: () => {}} : {label: LABEL, title: ai(TITLE), run};
 }
 
-export const START = 'Claude is reviewing the interview again (about a minute)…';
+export const START = '{AI} is reviewing the interview again (about a minute)…';   // shown through ai()
 
 // [text, tone] for the page's message line after the call returns.
 export function doneMessage(result) {

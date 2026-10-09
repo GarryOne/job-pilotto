@@ -24,7 +24,7 @@ test('every renderer file that draws a Claude entry point asks the one switch', 
 
 test('the switch is the settings value, off on a new install; the Apply dialog presets and recommends the extension; the copy speaks of Apply', async () => {
   const help = fs.readFileSync(new URL('claude-help.js', RENDERER), 'utf8');
-  assert.match(help, /export const claudeHelp = \(\) => !!shared\.state\?\.settings\?\.claudeConsent;/);
+  assert.match(help, /export const claudeHelp = \(\) => !!shared\.state\?\.settings\?\.claudeConsent && claudeFeatures\(\);/);   // and the Claude family only
   const html = fs.readFileSync(new URL('index.html', RENDERER), 'utf8');
   assert.match(html, /<b>Fill in Chrome with the extension<\/b> <span class="badge-recommended">Recommended<\/span>/);
   assert.doesNotMatch(html, /<b>Apply with Claude<\/b> <span class="badge-recommended">/);

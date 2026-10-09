@@ -4,6 +4,7 @@
 //
 //   cover-letter/letter.json  {text, status: 'draft' | 'approved', createdAt, approvedAt, model, usd}
 //   cover-letter/letter.pdf   only while approved: an edit makes it a draft again and removes the PDF
+import {nameOfClient} from './ai/names.js';
 import {priceOf} from './ai/models.js';
 import {anthropicApi} from './ai/anthropic-api.js';
 import fs from 'node:fs';
@@ -61,7 +62,7 @@ export async function generate(storage, {apiKey, client = null, profile = '', an
       (feedback && previous ? `\n\n<previous_letter>\n${previous}\n</previous_letter>\n<feedback>${feedback}</feedback>` : '')}],
     output_config: {format: {type: 'json_schema', schema: SCHEMA}},
   });
-  if (response.stop_reason === 'refusal') throw new Error('Claude declined to write this letter');
+  if (response.stop_reason === 'refusal') throw new Error(`${nameOfClient(anthropic)} declined to write this letter`);
   if (response.stop_reason === 'max_tokens') throw new Error('The letter was cut off; try again');
   const text = JSON.parse(response.content.find(block => block.type === 'text').text).letter.trim();
   if (!text) throw new Error('The letter came back empty; try again');

@@ -1,5 +1,6 @@
 // Strategy builder: CV (PDF) + an optional note from the user -> proposed goals, a draft Profile, standard answers
 // and search settings, in one Claude call. Nothing is saved until the user reviews (and corrects) the draft.
+import {nameOfClient} from './ai/names.js';
 import {priceOf} from './ai/models.js';
 import {anthropicApi} from './ai/anthropic-api.js';
 import fs from 'node:fs';
@@ -237,7 +238,7 @@ export async function draft(storage, answers, apiKey, client = null, onProgress 
   } else {
     response = await anthropic.messages.create(request);
   }
-  if (response.stop_reason === 'refusal') throw new Error('Claude declined to read this CV');
+  if (response.stop_reason === 'refusal') throw new Error(`${nameOfClient(anthropic)} declined to read this CV`);
   if (response.stop_reason === 'max_tokens') throw new Error('The draft was cut off; try again');
   const text = response.content.find(block => block.type === 'text').text;
   const result = JSON.parse(text);

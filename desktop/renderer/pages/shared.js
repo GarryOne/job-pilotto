@@ -1,3 +1,5 @@
+import {setEngineSource} from '../ai-name.js';
+
 // State more than one page changes (an imported binding is read-only, so it lives on one object).
 export const shared = {
   visitsPreselect: null,   // Run again on a browser run: the sites the dialog ticks (pages/activity.js -> pages/actions.js)
@@ -18,3 +20,5 @@ export const shared = {
   openedInChrome: new Set(),
   formsOpen: null,  // {known, ids}: which sessions' forms are still open in Chrome (the extension's report)
 };
+
+setEngineSource(() => shared.state?.settings?.aiEngine);   // every {AI} text follows the engine the user chose (renderer/ai-name.js)

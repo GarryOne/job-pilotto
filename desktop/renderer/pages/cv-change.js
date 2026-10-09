@@ -1,4 +1,5 @@
 // A replaced CV and what follows it.
+import {ai} from '../ai-name.js';
 import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
@@ -95,7 +96,7 @@ export async function init() {
     const button = $('cv-compare');
     button.disabled = true;
     button.classList.add('busy');
-    message('cv-review-message', 'Claude is comparing your CVs with your Profile… (about 30 s)', 'waiting');
+    message('cv-review-message', ai('{AI} is comparing your CVs with your Profile… (about 30 s)'), 'waiting');
     const result = await window.pilot.cvReview();
     button.disabled = false;
     button.classList.remove('busy');

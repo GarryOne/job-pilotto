@@ -1,6 +1,7 @@
+import {ai} from './ai-name.js';
 // The Focus card of an interview to prepare for: its meta line, its main button and its ⋯ entries, from the item
 // src/focus.py builds (prep_at: when the kit was built; prep_stale: an interview was reviewed or booked since).
-export const COST_HINT = 'Claude Sonnet builds it from the job, your Profile and your earlier interviews';
+export const COST_HINT = '{AI:main} builds it from the job, your Profile and your earlier interviews';   // shown through ai()
 
 // "29 Sept", or "today"
 export function prepDay(at, today = new Date().toLocaleDateString('en-CA')) {
@@ -13,7 +14,7 @@ export function prepCard(item, today) {
   const day = at => prepDay(at, today);
   const on = at => (day(at) === 'today' ? 'today' : `on ${day(at)}`);
   const job = item.meta?.[0];
-  const build = {label: 'Build prep kit', run: 'build', tone: 'primary', title: COST_HINT};
+  const build = {label: 'Build prep kit', run: 'build', tone: 'primary', title: ai(COST_HINT)};
   if (item.building) return {meta: [job, 'building the prep kit…'], primary: {label: 'Building…', run: 'join', tone: 'secondary'}, more: []};
   if (!item.prep_at) return {meta: item.meta || [], primary: build, more: []};
   if (item.prep_stale) {
@@ -24,5 +25,5 @@ export function prepCard(item, today) {
       more: [{icon: 'file', label: `Open earlier kit (built ${day(item.prep_at)})`, run: 'open'}]};
   }
   return {meta: [job, `✓ prep kit ready · built ${day(item.prep_at)}`], primary: {label: 'Open prep kit', run: 'open', tone: 'primary'},
-    more: [{icon: 'refresh', label: 'Build the prep kit again', run: 'build', title: COST_HINT}]};
+    more: [{icon: 'refresh', label: 'Build the prep kit again', run: 'build', title: ai(COST_HINT)}]};
 }

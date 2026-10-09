@@ -1,4 +1,5 @@
 // Settings → connections: Apply with Claude, the extension, how often, Always on.
+import {aiFamily} from '../ai-name.js';
 import {notionConnected, openNotionConnect} from './notion-connect.js';
 import {shared} from './shared.js';
 import {$, message, osPick, osText, show} from './core.js';
@@ -158,12 +159,15 @@ export function showCloud() {
 // What Always on needs before GitHub can run anything: the searches there use these keys. A checklist with a button per
 // missing step, not a red sentence (a friend pressed "Turn on", read a path in plain text, and did not know what to do).
 let cloudNeedsShown = false;
+// The API key Always on needs for the chosen family.
+const aiKey = () => (aiFamily() === 'openai' ? {name: 'OPENAI_API_KEY', provider: 'OpenAI', cli: 'Codex'} : {name: 'ANTHROPIC_API_KEY', provider: 'Anthropic', cli: 'Claude Code'});
 function cloudMissing() {
   const secrets = shared.state.secrets;
   return [
     !secrets.NOTION_TOKEN && {id: 'notion', title: 'Connect Notion', why: 'Your jobs are saved there.', button: 'Connect Notion →'},
-    !secrets.ANTHROPIC_API_KEY && {id: 'ai', title: 'Add an Anthropic API key',
-      why: 'GitHub runs in the cloud, so it cannot use Claude Code on this Mac. Paste a key; it is stored as an encrypted GitHub secret.', button: 'Add API key →'},
+    // Always on runs the chosen family's API engine (lib/ai/index.js alwaysOnEngine): Anthropic's key for Claude, OpenAI's for OpenAI.
+    !secrets[aiKey().name] && {id: 'ai', title: `Add an ${aiKey().provider} API key`,
+      why: `GitHub runs in the cloud, so it cannot use ${aiKey().cli} on this Mac. Paste a key; it is stored as an encrypted GitHub secret.`, button: 'Add API key →'},
   ].filter(Boolean);
 }
 function showCloudNeeds() {
@@ -174,7 +178,7 @@ function showCloudNeeds() {
   message('cloud-message', done ? 'Ready ✓ Press Turn on to connect GitHub.' : '', done ? 'ok' : '');
   const title = document.createElement('b');
   title.textContent = done ? 'Everything is ready' : `Before it can run (${2 - missing.length} of 2 done)`;
-  const rows = [['notion', 'Notion connected'], ['ai', 'Anthropic API key']].map(([id, label]) => {
+  const rows = [['notion', 'Notion connected'], ['ai', `${aiKey().provider} API key`]].map(([id, label]) => {
     const need = missing.find(m => m.id === id);
     const row = document.createElement('div');
     row.className = 'aon-need';
@@ -421,12 +425,12 @@ export async function init() {
     $('set-notion').value = '';
     loadSettings();
   });
-  for (const [id, name, check] of [['anthropic', 'ANTHROPIC_API_KEY', true], ['serpapi', 'SERPAPI_API_KEY', false], ['adzuna-id', 'ADZUNA_APP_ID', false],
+  for (const [id, name, check] of [['anthropic', 'ANTHROPIC_API_KEY', 'checkAnthropic'], ['openai', 'OPENAI_API_KEY', 'checkOpenAI'], ['serpapi', 'SERPAPI_API_KEY', false], ['adzuna-id', 'ADZUNA_APP_ID', false],
     ['adzuna-key', 'ADZUNA_APP_KEY', false], ['jooble', 'JOOBLE_API_KEY', false]]) {
     $(`set-${id}-save`).addEventListener('click', async () => {
       const value = $(`set-${id}`).value.trim();
       if (!value) return;
-      const checked = check ? await window.pilot.checkAnthropic(value) : {ok: true};
+      const checked = check ? await window.pilot[check](value) : {ok: true};   // a free call: is the key valid?
       if (!checked.ok) { alertLine(name, checked.error || 'That key was rejected'); return; }
       try {
         await window.pilot.saveSecret(name, value);
