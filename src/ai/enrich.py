@@ -193,6 +193,7 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None, only_ids=None):
         jobs = queue[:budget.batch('enrich', len(queue), say=False)]
     if not queue:
         return f'0 job(s) to enrich with {model}'
+    said = [model]   # the model that answered (cost.answered), for the rows and the summary line
     from . import engine
     # Whatever the engine: down or busy (the next run continues), or a refusal of this one call (the job is skipped).
     transient, permanent = engine.transient_errors(), engine.permanent_errors()
@@ -241,7 +242,8 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None, only_ids=None):
                     failures += 1
                     print(f'Skipped job {job["id"]}: {type(error).__name__}: {error}')
                     continue
-                save(db, job, model, data)
+                said[0] = cost.answered(model, usage)
+                save(db, job, said[0], data)
                 enriched += 1
                 tokens_in += usage.input_tokens
                 tokens_out += usage.output_tokens
@@ -262,7 +264,7 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None, only_ids=None):
         print(budget.left_line('enrich', waiting), flush=True)
     if stats is not None:
         stats.update(pending=taken, done=enriched, failed=failures, late=waiting)
-    return (f'Enriched {enriched} of {taken} job(s) with {model}; {failures} failed; '
+    return (f'Enriched {enriched} of {taken} job(s) with {said[0]}; {failures} failed; '
             f'tokens in {tokens_in}, out {tokens_out}')
 
 

@@ -29,6 +29,13 @@ def usd(model, usage):
             + usage.output_tokens * price_out) / 1e6
 
 
+def answered(model, usage):
+    """The model that answered a call: an OpenAI engine maps the Claude tier it was asked for to its own (usage.model); a Claude engine
+    answers with the one asked. Whatever a step saves or shows as its model uses this, never the requested name (9 Oct 2026: OpenAI
+    scores and Insights pages said claude-sonnet-5-5)."""
+    return getattr(usage, 'model', '') or model
+
+
 def add(stats, model, usage):
     """Accumulate one call's tokens and cost into a stage's stats dict (no-op when stats is None)."""
     if stats is None:

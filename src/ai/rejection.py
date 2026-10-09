@@ -193,12 +193,12 @@ def review(tracker, row, *, email_text='', client=None, model=DEFAULT_MODEL, sta
         from . import engine
         client = engine.client(action='review')
     profile = tracker.page_text() if profile is None else profile
-    result, _ = analyse(client, model, profile, material(tracker, row, email_text), stats)
+    result, usage = analyse(client, model, profile, material(tracker, row, email_text), stats)
     if result['verdict'] not in VERDICTS:
         result['verdict'] = 'Unclear'
     if result['verdict'] == NOT_ON_YOU:
         result['improve'] = []
-    write(tracker, row, result, model)
+    write(tracker, row, result, cost.answered(model, usage))   # "Reviewed by" names the model that answered
     return result, line(row, result)
 
 

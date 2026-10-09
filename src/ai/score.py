@@ -327,6 +327,7 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
     stop = threading.Event()  # the spend limit was hit: jobs still queued don't call the API
     from .. import time_budget as budget
     late = [0]   # not started: the search's time was up (src/time_budget.py); the next search scores them
+    said = {}    # requested model -> the model that answered it (cost.answered), for the summary line
 
     def batch(todo, used_model, keep=None):
         """Score `todo` with `used_model`; a result is saved unless keep(data) says it needs the main model. -> (escalate, halted)."""
@@ -382,12 +383,13 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
                 usage_totals['output'] += usage.output_tokens
                 usage_totals['cache_read'] += getattr(usage, 'cache_read_input_tokens', 0) or 0
                 cost.add(stats, used_model, usage)
+                said[used_model] = cost.answered(used_model, usage)
                 if keep is not None and keep(data):
                     escalate.append(job)   # worth the main model: scored again below, this quick score is not kept
                     continue
                 if keep is not None:
                     data['first_pass'] = True   # a quick score by the cheap model, below the bar for a second look
-                save(db, job, used_model, data, profile)
+                save(db, job, said[used_model], data, profile)
                 scored += 1
                 print(f'Scored {scored} of {len(jobs)} job(s)')   # a heartbeat for the live log: one Claude Code call takes tens of seconds
                 if on_scored and scored % every == 0:
@@ -407,6 +409,6 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
     budget.record('score', time.monotonic() - began, scored)
     if stats is not None:
         stats.update(pending=len(jobs), done=scored, failed=failures, late=late[0])
-    return (f'Scored {scored} of {len(jobs)} job(s) with {model}{f" (first pass {first_pass})" if cascade else ""}; {failures} failed; tokens in '
+    return (f'Scored {scored} of {len(jobs)} job(s) with {said.get(model, model)}{f" (first pass {said.get(first_pass, first_pass)})" if cascade else ""}; {failures} failed; tokens in '
             f"{usage_totals['input']} (+{usage_totals['cache_read']} cached), out {usage_totals['output']}")
 

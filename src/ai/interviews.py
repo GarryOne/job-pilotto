@@ -159,7 +159,7 @@ def run(tracker, *, file_id=None, note='', token=None, send=None, model=DEFAULT_
             interview_title(result['company'], result['round'], app)
     source = (plain(saved['properties'].get('Input')) or 'Transcript') if saved else (
         'Recording' if recorded else 'Transcript' if file_id else 'Notes')
-    props = properties(result, app, now.date(), model, usd, source)
+    props = properties(result, app, now.date(), cost.answered(model, usage), usd, source)
     # An application at a closed stage is never touched: its facts are only listed on the review.
     merged = merge_facts(app, result) if app and plain(app['properties'].get('Stage')) not in CLOSED else None
     if again:

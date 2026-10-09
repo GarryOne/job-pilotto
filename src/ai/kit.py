@@ -309,7 +309,7 @@ def cost_line(model, usage):
     cached = getattr(usage, 'cache_read_input_tokens', 0) or 0
     written = getattr(usage, 'cache_creation_input_tokens', 0) or 0
     amount = usd(model, usage)
-    return (f'Kit drafted with {model}; tokens in {usage.input_tokens} (+{cached} cached, {written} cache write), '
+    return (f'Kit drafted with {cost.answered(model, usage)}; tokens in {usage.input_tokens} (+{cached} cached, {written} cache write), '
             f'out {usage.output_tokens}; ~USD {amount:.3f}')
 
 

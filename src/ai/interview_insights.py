@@ -379,7 +379,7 @@ def _update(tracker, *, client, model_, stats, now, force, budget_status):
         stats['done'] = stats.get('done', 0) + 1
     stored = validate(result, items)
     done = _row_data(row).get('done_steps') or [] if row else []  # ticks stay for steps whose words are still there
-    page = upsert(tracker, properties(stored, items, digest, model_, usd, now, done), row)
+    page = upsert(tracker, properties(stored, items, digest, cost.answered(model_, usage), usd, now, done), row)
     return {'status': 'updated', 'usd': usd, 'url': (page or {}).get('url', ''), 'headline': stored['headline'],
             'text': f"Interview insights updated from {len(items)} interview(s): {stored['headline']} ({usd:.3f} USD)"}
 

@@ -329,6 +329,7 @@ def weekly(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, client=None
     _log_quality('weekly report', report['headline'], report.get('focus'))
     cost.add(stats, model, response.usage)
     usd = cost.usd(model, response.usage)
+    model = cost.answered(model, response.usage)   # the Model column and the learning rows name the model that answered
     if stats is not None:
         stats.update(pending=1, done=1)
     print('Search analysis: saving it to Notion…')
@@ -413,6 +414,7 @@ def run(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, force=False, c
     _log_quality('insight', insight['headline'], insight.get('action'), insight.get('sample_size'))
     cost.add(stats, model, usage)
     usd = cost.usd(model, usage)
+    model = cost.answered(model, usage)   # the Model column and the learning rows name the model that answered
     if stats is not None:
         stats.update(pending=1, done=1)
     if insight['skip']:
