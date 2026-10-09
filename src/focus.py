@@ -40,6 +40,7 @@ from .features import disabled
 from .notion import client as notion
 from .notion import funnel as funnel_steps
 from .notion.ledger import OUTCOME_STAGES, REPLY
+from .stores import base
 # The helpers live in focus_items.py and focus_state.py; every name stays importable from here.
 from .focus_items import (  # noqa: F401
     TZ, DEFAULT_TARGET, REPLIED, ENDED, NEEDS_ANSWER, WAITING_DAYS, QUIET_DAYS, SOON_HOURS, STALE_DAYS,
@@ -276,7 +277,10 @@ def load(stores, *, target=None, now=None, gmail=None):
     """Applications, events, interviews, the last week's insights and (without a target given) the Search settings
     target, read at once from the store."""
     since = ((now or datetime.now(timezone.utc)) - timedelta(days=8)).date().isoformat()
-    rows, events, interviews, target, insights = notion.together(
+    # Side by side only for a store reached over the network (Notion: a page load waits for the slowest read, not the sum); a store on
+    # this Mac is read in turn: its sqlite connection refuses another thread (the SQLite store's Focus and Reports failed, 9 Oct 2026).
+    read = notion.together if base.CLOUD in (stores.caps or ()) else (lambda *calls: [call() for call in calls])
+    rows, events, interviews, target, insights = read(
         stores.applications.list, stores.events.list, stores.interviews.list,
         lambda: target or settings_target(), lambda: stores.insights.list(since=since))
     return build(_linked(stores, rows), events, _linked(stores, interviews), target=target, now=now,
