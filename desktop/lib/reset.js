@@ -9,6 +9,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {tar} from './tar.js';
+import * as tracker from './tracker-snapshot.js';
 
 const MARKER = 'reset-pending.json';
 export const KEYS_FILE = 'keys.json';  // an export's keys, in plain text (only when the user asked for them)
@@ -49,10 +50,14 @@ export function exportTo(dir, file, {keys = null, version = ''} = {}, now = new 
     keys: !!keys}, null, 1));
   extra.push('manifest.json');
   if (keys) { fs.writeFileSync(path.join(dir, KEYS_FILE), JSON.stringify(keys), {mode: 0o600}); extra.push(KEYS_FILE); }
+  // The SQLite store's records go in as one consistent copy, never the live file and its WAL (lib/tracker-snapshot.js).
+  const snapshot = tracker.take(dir);
+  const skip = [...LEFT_OUT_INSIDE, ...(snapshot ? tracker.LIVE_FILES : [])];
   try {
-    execFileSync(tar(), ['-czf', file, ...LEFT_OUT_INSIDE.map(pattern => `--exclude=${pattern}`), '-C', dir, ...exported(dir), ...extra]);
+    execFileSync(tar(), ['-czf', file, ...skip.map(pattern => `--exclude=${pattern}`), '-C', dir, ...exported(dir), ...extra]);
   } finally {
     for (const name of extra) fs.rmSync(path.join(dir, name), {force: true});
+    if (snapshot) fs.rmSync(path.join(dir, snapshot), {force: true});
   }
   return file;
 }
@@ -63,6 +68,7 @@ export function stageImport(dir, file) {
   fs.rmSync(staged, {recursive: true, force: true});
   fs.mkdirSync(staged, {recursive: true});
   execFileSync(tar(), ['-xzf', file, '-C', staged]);
+  tracker.restore(staged);
   let manifest = null;
   try { manifest = JSON.parse(fs.readFileSync(path.join(staged, 'manifest.json'), 'utf8')); } catch {}
   if (manifest?.app !== 'Job Pilotto' || !fs.existsSync(path.join(staged, 'settings.json'))) {

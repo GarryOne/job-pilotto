@@ -33,7 +33,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/awake.js` — The time this computer has been awake: Date.now() minus the time it slept. Watchdogs measure with it, so a Mac asleep with its lid
 - `desktop/lib/background-chrome.js` — A Chrome an automation left behind is not just clutter: macOS keeps ONE Apple Event connection per application, and
 - `desktop/lib/background-handlers.js` — The app's background jobs at start-up (moved out of main.js, 8 Oct 2026): the one-time move of user data left on this Mac to Notion, the update check, the
-- `desktop/lib/backup.js` — Automatic backup of what lives only on this Mac (call recordings, tailored CVs, the CV, settings, job cache):
+- `desktop/lib/backup.js` — Automatic backup of what lives on this Mac (call recordings, tailored CVs, the CV, settings, job cache, and with the SQLite store
 - `desktop/lib/benchmarks.js` — What applications typically get on a job board, from the website's counts of how people's applications went (site/src/knowledge.js benchmarks).
 - `desktop/lib/browser-handlers.js` — The browser and extension setup IPC (moved out of main.js, 8 Oct 2026): showing a job's form tab, reloading it, opening Notion and folders,
 - `desktop/lib/browser-launch.js` — Which Chromium browser to open a URL in, and how. Chrome first (what the app always did), then Edge (the Windows
@@ -177,6 +177,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/telemetry-handlers.js` — The app's reports at start-up (moved out of main.js's start, 8 Oct 2026): technical reports, crash reports (Sentry) and usage events (PostHog): only an installed
 - `desktop/lib/telemetry.js` — Technical reports (on by default; Settings → Advanced turns them off): crashes, failed runs, form issues and a
 - `desktop/lib/terminals.js` — In-app terminals for Apply with Claude: each session runs `claude` in a pseudo-terminal (node-pty) inside the
+- `desktop/lib/tracker-snapshot.js` — A consistent copy of data/tracker.sqlite (the SQLite store's records, a user's only copy) for an export or backup.
 - `desktop/lib/transcript.js` — A finished Apply-with-Claude session as a conversation, read from Claude Code's transcript (JSON lines): Claude's
 - `desktop/lib/twin.js` — Twin mode (JOB_PILOTTO_TWIN=1): a second copy of the app for live tests on the owner's real state (owner, 8 Oct 2026), started by
 - `desktop/lib/update-channel.js` — Which builds this install is offered: stable (default), beta (gate-approved pre-releases) or test builds (tools/test-build.sh, nothing checked).
