@@ -162,3 +162,18 @@ test('the stand-in has its own token, shaped like Notion\'s, and answers any oth
     assert.deepEqual([await ask(fake.token), await ask('stand-in')], [200, 401]);
   } finally { await fake.close(); }
 });
+
+test('a date that is not ISO 8601 or a number that is not a number is refused before anything is written, as Notion does', () => {
+  const fake = createNotionFake();
+  const db = call(fake, 'POST', 'databases', {parent: {page_id: fake.root.id}, title: text('Runs'), properties: {Run: {title: {}}, Started: {date: {}}, 'Duration (s)': {number: {}}}}).body;
+  const add = properties => call(fake, 'POST', 'pages', {parent: {database_id: db.id}, properties: {Run: {title: text('r')}, ...properties}});
+  assert.equal(add({Started: {date: {start: '2026-10-09T16:27:10.816Z'}}, 'Duration (s)': {number: 12}}).status, 200);
+  assert.equal(add({Started: {date: {start: '2026-10-09'}}, 'Duration (s)': {number: null}}).status, 200);
+  const refused = add({Started: {date: {start: 1791559393371}}});
+  assert.deepEqual([refused.status, refused.body.code], [400, 'validation_error']);
+  assert.match(refused.body.message, /Started\.date\.start should be a valid ISO 8601/);
+  assert.equal(add({'Duration (s)': {number: 'NaN'}}).status, 400);
+  const row = add({}).body;
+  assert.equal(call(fake, 'PATCH', `pages/${row.id}`, {properties: {Started: {date: {start: 'Invalid Date'}}}}).status, 400);
+  assert.equal(call(fake, 'POST', `databases/${db.id}/query`, {}).body.results.length, 3, 'nothing was written by a refused request');
+});

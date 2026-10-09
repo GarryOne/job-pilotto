@@ -61,6 +61,17 @@ export function createNotionFake() {
   objects.set(root.id, root);
 
   const columnsOf = db => db.properties;
+  // What Notion refuses before writing anything (400 validation_error, naming the property): a date that is not ISO 8601, a number that is not a number.
+  // 9 Oct 2026: the stand-in stored any date, and a later read of the run history failed on it ("Invalid time value"), far from the write that caused it.
+  const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?)?$/;
+  function invalid(written, db) {
+    for (const [name, value] of Object.entries(written || {})) {
+      const type = (db ? columnsOf(db)[name]?.type : null) || typeOfWritten(value), v = value && typeof value === 'object' && type in value ? value[type] : value;
+      if (type === 'date' && v !== null && !ISO_DATE.test(String(v?.start))) return `body failed validation: body.properties.${name}.date.start should be a valid ISO 8601 date string, instead was \`${JSON.stringify(v?.start)}\`.`;
+      if (type === 'number' && v !== null && !(typeof v === 'number' && Number.isFinite(v))) return `body failed validation: body.properties.${name}.number should be a number or \`null\`, instead was \`${JSON.stringify(v)}\`.`;
+    }
+    return '';
+  }
   function setProperties(page, written, db) {
     for (const [name, value] of Object.entries(written || {})) {
       const column = db ? columnsOf(db)[name] : {id: 'title', type: 'title'};
@@ -210,6 +221,7 @@ export function createNotionFake() {
     if (method === 'POST' && path === 'pages') {
       const dbId = body.parent?.database_id, db = dbId ? objects.get(dbId) : null;
       if (dbId && !live(db)) return error(404, 'object_not_found', `Could not find database with ID: ${dbId}.`);
+      const bad = invalid(body.properties, db); if (bad) return error(400, 'validation_error', bad);
       const id = uuid(), item = {object: 'page', id, created_time: now(), last_edited_time: now(), archived: false, in_trash: false,
         parent: dbId ? {type: 'database_id', database_id: dashed(dbId)} : {type: 'page_id', page_id: dashed(body.parent?.page_id)}, properties: {}, icon: body.icon || null, url: `https://www.notion.so/${id.replace(/-/g, '')}`};
       setProperties(item, body.properties, db);
@@ -224,6 +236,7 @@ export function createNotionFake() {
       if (method === 'PATCH') {
         // Real Notion: an archived page cannot be edited, not even archived again (the e2e met that on 6 Oct 2026; lib/notion.mjs trashPage handles it).
         if (item.archived && body.archived !== false) return error(400, 'validation_error', "Can't edit block that is archived. You must unarchive the block before editing.");
+        const bad = invalid(body.properties, item.parent?.database_id ? objects.get(item.parent.database_id) : null); if (bad) return error(400, 'validation_error', bad);
         if ('archived' in body || 'in_trash' in body) item.archived = item.in_trash = !!(body.archived ?? body.in_trash);
         if (body.icon !== undefined) item.icon = body.icon;
         setProperties(item, body.properties, item.parent?.database_id ? objects.get(item.parent.database_id) : null);
