@@ -29,5 +29,5 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const {over, why} = verdict(spent, budget);
   console.log(`over=${over}`);
   console.log(`spent=${spent?.usd ?? ''}`);
-  console.error(why);
+  console.error(`- **E2E AI budget:** ${why}\n`);
 }

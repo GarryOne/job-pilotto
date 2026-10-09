@@ -8,7 +8,7 @@ import {pathToFileURL} from 'node:url';
 import {autoSuites, exploreDecision, runnerOf, noiseTripped, reviewNeeded, suitesFor, suitesNamed, waitingFindings} from './lib/plan.mjs';
 import {asIssues, REGISTER_LIST, registerEntries} from './lib/prejudge.mjs';
 
-const realGh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 20 * 1024 * 1024});
+const realGh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 20 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe']});   // gh's own error text stays out of the step summary (a failed call falls back below)
 
 // all: every suite; cadence / watches: what each suite exports (lib/plan.mjs says what they mean).
 export async function planRun({env, gh = realGh, all, minutes, os = async () => 'macos-latest', cadence = {}, watches = {}, varies = [], sameOnEveryOs = [], storeless = []}) {
@@ -21,7 +21,7 @@ export async function planRun({env, gh = realGh, all, minutes, os = async () => 
   }
   const ref = target || sha;
   const lines = text => String(text || '').split('\n').map(line => line.trim()).filter(Boolean);
-  const changed = (from, to) => { try { return lines(gh(['api', `repos/${repo}/compare/${from}...${to}`, '--paginate', '-q', '.files[].filename'])); } catch { return null; } };
+  const changed = (from, to) => { try { return lines(gh(['api', `repos/${repo}/compare/${from}...${to}`, '--paginate', '-q', '.files[]?.filename'])); } catch { return null; } };
   const json = args => { try { return JSON.parse(gh(args)); } catch { return []; } };
 
   const runs = json(['run', 'list', '-R', repo, '--workflow', 'e2e.yml', '--status', 'completed', '-L', '60', '--json', 'event,headSha,conclusion,createdAt,displayTitle']);
@@ -43,8 +43,9 @@ export async function planRun({env, gh = realGh, all, minutes, os = async () => 
     if (env.GATE_KIND === 'beta') {
       const nightly = suites.filter(suite => cadence[suite] === 'nightly');
       let base = '';
-      for (const {tagName, body} of json(['release', 'list', '-R', repo, '-L', '15', '--exclude-drafts', '--json', 'tagName,body'])) {
-        if (tagName !== tag && /^Beta-approved:/m.test(body || '')) { try { base = gh(['api', `repos/${repo}/commits/${tagName}`, '-q', '.sha']).trim(); } catch { /* unreadable: run it */ } break; }
+      for (const {tagName} of json(['release', 'list', '-R', repo, '-L', '15', '--exclude-drafts', '--json', 'tagName'])) {   // `release list` has no body field: read each release
+        if (tagName === tag) continue;
+        if (/^Beta-approved:/m.test(json(['release', 'view', tagName, '-R', repo, '--json', 'body']).body || '')) { try { base = gh(['api', `repos/${repo}/commits/${tagName}`, '-q', '.sha']).trim(); } catch { /* unreadable: run it */ } break; }
       }
       const files = base ? changed(base, ref) : null;
       const skip = nightly.filter(suite => files && !files.some(file => (watches[suite] || []).some(watched => file === watched || file.startsWith(watched))));
@@ -98,6 +99,10 @@ export async function suiteFacts() {
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const out = await planRun({env: process.env, ...(await suiteFacts())});
   for (const [key, value] of Object.entries(out)) console.log(`${key}=${value}`);
-  const summary = `Suites: ${JSON.parse(out.matrix).include.map(item => item.suite).join(', ') || '(none)'} · commit ${String(out.ref).slice(0, 7)}${out.tag ? ` · promotes ${out.tag} when all pass` : ''} · AI review ${out.review === '1' ? 'on' : 'off'}`;
-  console.error(out.why ? `${summary} · ${out.why}` : summary);
+  const suites = [...new Set(JSON.parse(out.matrix).include.map(item => item.suite))];   // the matrix has one entry per OS
+  console.error([`### E2E plan · commit \`${String(out.ref).slice(0, 7)}\``,
+    `- **Suites (${suites.length}):** ${suites.map(suite => `\`${suite}\``).join(' ') || '(none)'}`,
+    ...(out.tag ? [`- **Promotes:** \`${out.tag}\` when all pass`] : []),
+    `- **AI review:** ${out.review === '1' ? 'on' : 'off'}`,
+    ...(out.why ? [`- **Note:** ${out.why}`] : []), ''].join('\n'));
 }

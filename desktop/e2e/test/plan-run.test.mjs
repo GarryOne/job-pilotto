@@ -179,7 +179,9 @@ test('quality: the nightly runs it; a beta by hand only after a change it watche
   const cadence = {quality: 'nightly'}, watches = {quality: ['src/ai/score.py']};
   const stub = files => args => {
     const text = args.join(' ');
-    if (args[0] === 'release' && args[1] === 'list') return JSON.stringify([{tagName: 'desktop-v1.3', body: ''}, {tagName: 'desktop-v1.2', body: 'notes\nBeta-approved: unit suites…'}]);
+    // like the real gh: `release list` has no body field (7 Oct: the summary showed "Unknown JSON field"), `release view` has
+    if (args[0] === 'release' && args[1] === 'list') { if (/body/.test(text)) throw new Error('Unknown JSON field: "body"'); return JSON.stringify([{tagName: 'desktop-v1.3'}, {tagName: 'desktop-v1.2'}]); }
+    if (args[0] === 'release' && args[1] === 'view') return JSON.stringify({body: args[2] === 'desktop-v1.2' ? 'notes\nBeta-approved: unit suites…' : ''});
     if (/commits\/desktop-v1\.2/.test(text)) return OLD;
     if (/commits\/desktop-v1\.3/.test(text)) return HEAD;
     if (/compare\//.test(text)) return files.join('\n');
