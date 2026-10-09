@@ -150,6 +150,16 @@ class NotionStoreTests(StoreContract, unittest.TestCase):
         columns = [column for column, _ in runs.EXTRAS.values()] + list(runs.COMPUTED.values())
         self.assertEqual([c for c in columns if c not in have], [])
 
+    def test_an_agent_runs_timeline_and_data_keep_the_specs_shapes(self):
+        """Spec §4 "Agent run shapes": the extension and apply_run write these; Notion keeps them as JSON."""
+        data = {'fields': [{'label': 'Email', 'source': 'profile', 'outcome': 'filled', 'confidence': 'high', 'reason': ''}],
+                'left_for_you': ['Salary'], 'attachments': ['cv.pdf']}
+        timeline = [{'step': 'open form', 'ms': 1200}, {'step': 'fill', 'ms': 8400}]
+        run = self.s.agent_runs.add({'url': 'https://jobs.example.com/sre-1', 'ats': 'Greenhouse', 'learnings': 'Salary is a free field',
+                                     'fields': {'data': data, 'timeline': timeline}})
+        got = self.s.agent_runs.get(run['id'])
+        self.assertEqual((got['fields']['data'], got['fields']['timeline'], got['learnings']), (data, timeline, 'Salary is a free field'))
+
 
 class NotionRecordsTests(unittest.TestCase):
     """Today's rows, as the engine wrote them before the stores, read as records."""

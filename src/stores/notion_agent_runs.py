@@ -23,7 +23,7 @@ EXTRAS = {'job': ('Job', 'relation1'), 'company': ('Company', 'rich_text'), 'age
           'reply_median_s': ('Your reply (median s)', 'number'), 'ready_to_decided_min': ('Ready → decided (min)', 'number'),
           'turns': ('Turns', 'number'), 'tool_calls': ('Tool calls', 'number'), 'tools_used': ('Tools used', 'rich_text'),
           'tokens_in': ('Tokens in', 'number'), 'tokens_out': ('Tokens out', 'number'), 'cache_read': ('Cache read', 'number'),
-          'model': ('Model', 'rich_text'), 'timeline': ('Session timeline', 'rich_text'), 'data': ('Data', 'json')}
+          'model': ('Model', 'rich_text'), 'timeline': ('Session timeline', 'json'), 'data': ('Data', 'json')}
 COMPUTED = {'age_days': 'Age (days)', 'fresh': 'Fresh', 'fill_time': 'Fill time', 'waiting_for_you': 'Waiting for you',
             'job_stage': 'Job stage'}
 TRANSCRIPT = 'Transcript'
