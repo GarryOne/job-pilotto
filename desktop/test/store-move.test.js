@@ -44,6 +44,17 @@ test('a finished copy: progress per entity, search settings published, the store
   assert.deepEqual(logged.at(-1), ['store', 'moved', {to: 'notion', applications: 2, events: 3, kept: 1}]);
 });
 
+test('form knowledge to move: the Knowledge page is made before the copy writes it; none to move, no page', async () => {
+  const storage = connected(), order = [];
+  fs.writeFileSync(storage.path('knowledge.md'), '- [workday.com · site] phone: needs a country code');
+  const run = async () => { order.push('copy'); return {code: 0, stdout: '{"moved": {}}'}; };
+  await moveToNotion(storage, {run, publish: async () => {}, knowledgePage: async () => { order.push('page'); }});
+  assert.deepEqual(order, ['page', 'copy']);
+  const empty = connected(), made = [];
+  await moveToNotion(empty, {run: async () => ({code: 0, stdout: '{"moved": {}}'}), publish: async () => {}, knowledgePage: async () => { made.push(1); }});
+  assert.equal(made.length, 0);
+});
+
 test('a copy that stops changes nothing: the store, the files and the settings stay as they were', async () => {
   const storage = connected(), {run} = engine(['moving applications 1/2', 'Traceback: ConnectionError'], {code: 1});
   const result = await moveToNotion(storage, {run, publish: async () => { throw new Error('must not publish'); }});

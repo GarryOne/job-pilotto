@@ -31,6 +31,16 @@ function item(block) {
   return each;
 }
 
+// The Knowledge page, made beside the Profile and remembered when missing; its id. Also before a move to Notion
+// (lib/store-move.js), whose copy writes the page whole.
+export async function ensureKnowledgePage(storage, {fetcher} = {}) {
+  const ids = storage.settings().notionIds || {};
+  if (ids.NOTION_KNOWLEDGE_PAGE) return ids.NOTION_KNOWLEDGE_PAGE;
+  const page = await notion.ensurePage(storage.secret('NOTION_TOKEN'), ids.NOTION_PROFILE_PAGE_ID, learn.PAGE_TITLE, KNOWLEDGE_INTRO, fetcher);
+  storage.saveSettings({notionIds: {...(storage.settings().notionIds || {}), NOTION_KNOWLEDGE_PAGE: page}});
+  return page;
+}
+
 export function open(storage, {fetcher} = {}) {
   const token = () => storage.secret('NOTION_TOKEN');
   const ids = () => storage.settings().notionIds || {};
@@ -46,9 +56,7 @@ export function open(storage, {fetcher} = {}) {
       if (!t.page) throw new Error(MISSING[name]);
       return t;
     }
-    const page = await notion.ensurePage(t.token, ids().NOTION_PROFILE_PAGE_ID, learn.PAGE_TITLE, KNOWLEDGE_INTRO, fetcher);
-    storage.saveSettings({notionIds: {...ids(), NOTION_KNOWLEDGE_PAGE: page}});
-    return {token: t.token, page};
+    return {token: t.token, page: await ensureKnowledgePage(storage, {fetcher})};
   };
   const readable = name => {
     const t = target(name);

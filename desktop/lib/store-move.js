@@ -8,6 +8,7 @@ import * as notion from './notion.js';
 import * as notionGate from './notion-gate.js';
 import * as pipelineRun from './pipeline-run.js';
 import * as strategy from './strategy-settings.js';
+import {ensureKnowledgePage} from './store/notion.js';
 
 export const PROGRESS = /^moving (\w+) (\d+)\/(\d+)$/;
 // What stays on this Mac after the move, out of use: the SQLite store, its files and the move's journal, the three texts.
@@ -19,10 +20,12 @@ const stamp = now => now.toISOString().replace(/[-:]/g, '').replace('T', '-').sl
 
 // -> {ok, moved: {entity: count}, kept: [texts Notion already had], archive} | notionGate.needs('move') | {ok: false, error}
 export async function moveToNotion(storage, {run = pipelineRun.run, publish = strategy.publishSearchSettings, onProgress = () => {},
-  log = () => {}, now = new Date()} = {}) {
+  log = () => {}, now = new Date(), knowledgePage = ensureKnowledgePage} = {}) {
   if (storage.settings().store !== 'sqlite') return {ok: false, error: 'Your data is not on this Mac: there is nothing to move.'};
   if (!notionGate.connected(storage)) return notionGate.needs('move');   // the window connects, then runs the move again
   log('store', 'move started', {to: 'notion'});
+  // The Knowledge page is made on its first write; the copy writes texts whole into existing pages, so it must be there first.
+  if (storage.readText('knowledge.md').trim()) await knowledgePage(storage);
   const {code, stdout} = await run(storage, ['src.stores.copy', '--from', 'sqlite', '--to', 'notion'], line => {
     const step = PROGRESS.exec(String(line).trim());
     if (step) onProgress({entity: step[1], done: Number(step[2]), total: Number(step[3])});
