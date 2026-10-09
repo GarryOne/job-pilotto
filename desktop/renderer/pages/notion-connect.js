@@ -40,7 +40,8 @@ function setMode(box) {
   box.mode = connectMode({store: shared.state?.store, connected: !!shared.state?.store?.notionConnected || notionConnected()});
   box.sent = box.mode === 'move';   // a move-only prompt is no connect to report
   const why = shared.state?.notionReasons?.[box.reason];
-  const words = box.mode !== 'move' ? reasonText(box.reason) : why && box.reason !== 'move' ? `Move your data to Notion ${why}.` : '';
+  const words = box.mode !== 'move' ? reasonText(box.reason) : why && box.reason !== 'move' ? `Needed ${why}.` : '';
+  $('notion-connect-title').textContent = box.mode === 'move' ? 'Move your data to Notion' : GATE_TITLE;   // about Notion
   $('notion-connect-reason').textContent = words;
   show($('notion-connect-reason'), !!words);
   show($('notion-connect-move'), box.mode !== 'connect');
