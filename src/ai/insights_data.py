@@ -107,17 +107,8 @@ def application_stats(stores, now):
 
 
 def reached(stores):
-    """funnel.reached() on store records: per outbound application, the stages and event kinds it has reached."""
-    rows = stores.applications.list(stages=list(OUTCOME_STAGES + funnel.PREPARED_STAGES))
-    by_app = events_by_app(stores)
-    apps = []
-    for row in rows:
-        ordered = [e.get('kind') or '' for e in by_app.get(key(row['id']), [])]
-        if origin(source=row.get('source') or '', stage=row.get('stage') or '', notes=row.get('notes') or '',
-                  kinds=ordered, origin=row.get('origin') or '') == INBOUND:
-            continue
-        apps.append({'stage': row.get('stage') or '', 'seen': set(ordered) | {row.get('stage') or ''}})
-    return apps
+    """funnel.reached() on the store: per outbound application, the stages and event kinds it has reached."""
+    return funnel.reached(stores)
 
 
 def funnel_stats(stores):

@@ -45,25 +45,19 @@ class FunnelTest(unittest.TestCase):
         self.assertIn('Improve 💬 Human reply', funnel.summary(many)[0])
 
     def test_the_pipeline_page_funnel_leaves_inbound_out(self):
-        select = lambda name: {'type': 'select', 'select': {'name': name}}
-        rich = lambda value: {'type': 'rich_text', 'rich_text': [{'plain_text': value}]}
-        page = lambda pid, stage, **props: {'id': pid, 'properties': {'Stage': select(stage), **props}}
-
-        class Tracker:
-            database_id = 'apps'
-
-            def query_database(self, database_id, query=None):
-                if database_id == 'apps':
-                    return [page('a', 'Applied', Source=select('Telegram')), page('b', 'Screening', Source=select('LinkedIn')),
-                            page('c', 'Interviewing', Source=select('Job Pilotto app'), Notes=rich('Recruiter message (Email)')),
-                            page('d', 'Rejected'),
-                            page('e', 'Screening', Source=select('Job Pilotto app')), page('f', 'Screening', Source=select('Job Pilotto app'))]
-                # e: applied, then the recruiter answered (outbound); f: the recruiter wrote first, then you applied (inbound).
-                event = lambda pid, kind, at: {'properties': {'Kind': select(kind), 'At': {'date': {'start': at}},
-                                                              'Application': {'relation': [{'id': pid}]}}}
-                return [event('e', 'Recruiter lead', '2026-09-10'), event('e', 'Applied', '2026-09-01'),
-                        event('f', 'Applied', '2026-09-10'), event('f', 'Recruiter lead', '2026-09-01')]
-        apps = funnel.reached(Tracker())
+        from src.stores import memory
+        stores = memory.open_store()
+        made = {}
+        for key, stage, extra in (('a', 'Applied', {'source': 'Telegram'}), ('b', 'Screening', {'source': 'LinkedIn'}),
+                                  ('c', 'Interviewing', {'source': 'Job Pilotto app', 'notes': 'Recruiter message (Email)'}),
+                                  ('d', 'Rejected', {}), ('e', 'Screening', {'source': 'Job Pilotto app'}),
+                                  ('f', 'Screening', {'source': 'Job Pilotto app'})):
+            made[key] = stores.applications.create({'url': f'https://x.test/{key}', **extra}, stage)['id']
+        # e: applied, then the recruiter answered (outbound); f: the recruiter wrote first, then you applied (inbound).
+        for key, kind, at in (('e', 'Recruiter lead', '2026-09-10'), ('e', 'Applied', '2026-09-01'),
+                              ('f', 'Applied', '2026-09-10'), ('f', 'Recruiter lead', '2026-09-01')):
+            stores.events.add(made[key], kind, at)
+        apps = funnel.reached(stores)
         self.assertEqual(sorted(a['stage'] for a in apps), ['Applied', 'Rejected', 'Screening'])
         self.assertEqual(funnel.inbound_counts([app('Screening'), app('Rejected', 'Interviewing'), app('Recruiter lead')]),
                          {'contacted': 3, 'screening': 2, 'interviews': 1, 'offers': 0})
@@ -96,9 +90,6 @@ class ReplaceAfterHeadingTest(unittest.TestCase):
         self.assertEqual(calls[-1], ('PATCH', 'blocks/page/children', {'children': [{'new': 1}], 'after': 'h'}))
 
 
-if __name__ == '__main__':
-    unittest.main()
-
 
 class SameDefinitionsTests(unittest.TestCase):
     def test_the_jobs_counters_and_the_funnel_use_the_same_stage_sets(self):
@@ -111,3 +102,22 @@ class SameDefinitionsTests(unittest.TestCase):
         steps = {name: marks for name, marks, *_ in funnel.STEPS}
         self.assertEqual(stages('SCREENING') | stages('INTERVIEWS'), steps['📞 Screening'])
         self.assertEqual(stages('INTERVIEWS'), steps['🧑‍💻 Interviews'])
+
+
+class PipelinePageTest(unittest.TestCase):
+    def test_only_a_notion_store_with_a_pipeline_page_writes_it(self):
+        from unittest import mock
+        from src.stores import memory
+        stores = memory.open_store()
+        self.assertIsNone(funnel.pipeline_tracker(stores))
+        notion_like = mock.Mock()
+        notion_like.applications.tracker = 'tracker'
+        with mock.patch.object(funnel, 'PIPELINE_PAGE_ID', 'page'):
+            self.assertEqual(funnel.pipeline_tracker(notion_like), 'tracker')
+            self.assertIsNone(funnel.pipeline_tracker(stores))
+        with mock.patch.object(funnel, 'PIPELINE_PAGE_ID', ''):
+            self.assertIsNone(funnel.pipeline_tracker(notion_like))
+
+
+if __name__ == '__main__':
+    unittest.main()
