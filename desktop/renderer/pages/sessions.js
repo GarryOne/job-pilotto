@@ -279,7 +279,8 @@ export function renderNextStep(item) {
       if (result?.session?.id) openSession(result.session.id);
     }, 'bot'));
   }
-  const resume = kind => sessionButton('Resume Claude', kind, () => resumeSession(item), 'refresh');
+  // Claude is the safety net, never the main action (owner, 9 Oct 2026: "remove Resume Claude from being orange"): always secondary; the way to the form is promoted below.
+  const resume = () => sessionButton('Resume Claude', 'secondary', () => resumeSession(item), 'refresh');
   if (gone) {
     // Nothing to bring forward: the tab is gone. The app opens the job with the fill mark, the way "Fill in Chrome" does.
     actions.push(sessionButton('Reopen form', 'primary', event => reopenClosedTab(item, event.currentTarget), 'link'));
@@ -329,12 +330,12 @@ export function renderNextStep(item) {
     }, 'refresh'));
     if (item.kind !== 'form') actions.push(submittedButton(item));  // you pressed Submit in Chrome: say so here too (a form session's submit is seen by the extension)
     if (live) actions.push(sessionButton('Skip this role', 'secondary', () => skipSession(item)));
-    else if (item.resumable) actions.push(resume('secondary'));
+    else if (item.resumable) actions.push(resume());
     const never = el('span', 'ss-never muted small');
     never.append(icon('info'), el('span', '', 'Job Pilotto never clicks Submit.'));
     actions.push(never);
   } else if (asking && !live) {
-    if (item.resumable) actions.push(resume(gone ? 'secondary' : 'primary'));
+    if (item.resumable) actions.push(resume());
     // Claude closed with the app, but the form may still be open in Chrome.
     if (item.url && !gone) actions.push(sessionButton('Open in Chrome', 'secondary', async event => {
       await openForm(item, event.currentTarget);
@@ -364,7 +365,7 @@ export function renderNextStep(item) {
     actions.push(submittedButton(item));
     actions.push(sessionButton('Watch the log', 'link', () => openLog(true), 'eye'));
   } else if (item.resumable && !submitted) {
-    actions.push(resume('primary'));
+    actions.push(resume());
     actions.push(submittedButton(item));
   }
   // Every state with a job keeps a way to its form (owner, 8 Oct 2026: an ended session showed only Resume Claude).
@@ -373,6 +374,11 @@ export function renderNextStep(item) {
     actions.splice(1, 0, sessionButton('Open in Chrome', actions.length ? 'secondary' : 'primary', async event => {
       await openForm(item, event.currentTarget);
     }, 'link'));
+  }
+  // One main action: with none, the way to the form is it, first in the row (a Claude button is never the orange one).
+  if (!actions.some(button => button.classList.contains('primary'))) {
+    const toIt = actions.find(button => toForm.test(button.textContent));
+    if (toIt) { toIt.classList.replace('secondary', 'primary'); actions.splice(actions.indexOf(toIt), 1); actions.unshift(toIt); }
   }
   $('ss-actions').replaceChildren(...actions);
   // Two sections under the step: what Claude needs from you (answer, agree, confirm), then what happened
