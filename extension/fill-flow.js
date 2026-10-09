@@ -211,10 +211,12 @@ export const fillKey = (tabId, url) => `${tabId} ${pageKey(url)}`;
 // again; once it has fields the panel is put back (a page that replaced its document lost it) and the page is judged again (a new shape for
 // the page-kind AI), then filled. Once per tab and page. Guard: desktop/test/extension-look-again.test.js.
 const lookedAgain = new Set();
-async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => setTimeout(resolve, ms)), looks = 10) {
+async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => setTimeout(resolve, ms)), looks = 10, seenFrames = null) {
   const key = fillKey(tab.id, tab.url);
   if (lookedAgain.has(key)) return false;
-  const hadFrames = !!(await pageShape(tab.id))?.frames;   // a frame there from the start was already seen by the judgment
+  // The frames the judgment saw (its page shape); a frame drawn since, even before this watch started, makes the page be judged again (twin, 9 Oct 2026:
+  // the check's frame came between the judgment and the watch, and counted as already seen).
+  const hadFrames = seenFrames === null ? !!(await pageShape(tab.id))?.frames : seenFrames > 0;
   for (let i = 0; i < looks; i++) {
     await wait(2000);
     const live = await chrome.tabs.get(tab.id).catch(() => null);
@@ -327,7 +329,7 @@ export async function consider(tab, jobUrl) {
     // A check that the visitor is human in front of the page (the page-kind AI's bot_check): the person solves it in this tab; the form is watched for two
     // minutes and filled once it shows (SmartRecruiters, 9 Oct 2026: the check was read as an empty page, "no form", and nobody was told).
     const botCheck = role === 'no-form' && kind?.botCheck === true;
-    if (botCheck || (role === 'no-form' && counts && emptyShape(counts))) watchForFields(tab, jobUrl, undefined, botCheck ? 60 : 10).catch(() => {});   // judged while still empty: look again if fields come
+    if (botCheck || (role === 'no-form' && counts && emptyShape(counts))) watchForFields(tab, jobUrl, undefined, botCheck ? 60 : 10, counts?.frames ?? 0).catch(() => {});   // judged while still empty: look again if fields come
     await writeState(tab.id, {state: role});
     decide('fill', role === 'account' ? 'account page left for Claude' : botCheck ? 'a bot check in front of the page: handed to the person' : 'no form on this page', {host, role});
     if (!(role === 'account' && kind?.accountStep)) stuck(String(jobUrl || tab.url).split('#')[0], host, role === 'account' ? 'account' : 'no-form', tab.id, tab.url, botCheck ? BOT_CHECK_NEED : '');   // tier 3: the app offers Apply with Claude; an account page the AI has a step for is the account step's (it reports when it cannot finish)
