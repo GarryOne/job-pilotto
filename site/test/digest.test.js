@@ -39,6 +39,17 @@ test('efficiency per day and per release, and weaknesses ranked by impact with t
   assert.ok(byVersion('0.8.100', '0.8.97') > 0);
 });
 
+// 9 Oct 2026: AI proposals (to confirm, never typed) were counted as losses, so the biggest weakness could never move.
+test('proposed answers are shown apart: filled / proposed / truly missing, and never ranked as a weakness', async () => {
+  const db = d1();
+  for (let i = 0; i < 3; i++) card(db, `prop-card-${i}`, '2026-10-10', '0.9.126', {filled: 6, causes: {proposed: 3, ai_declined: 1}});
+  const d = await digest(db, now);
+  assert.deepEqual([d.thisWeek.filledShare, d.thisWeek.proposedShare, d.thisWeek.missingShare], [0.6, 0.3, 0.1]);
+  assert.ok(!d.weaknesses.some(w => w.cause === 'proposed'));
+  assert.ok(d.weaknesses.some(w => w.id === 'cause:ai_declined:ashby'));
+  assert.ok(markdown(d).includes('proposed to confirm 30%') && markdown(d).includes('| 0.9.126 | 3 | 60% | 30% | 10% |'));
+});
+
 test('fill records and their Submit arrive through /api/controls; the digest is for admins and the scripts\' key', async () => {
   const e = {STATS: d1(), STATS_KEY: 'k', STATS_API_KEY: 'api', WAITLIST: {get: async () => null, put: async () => {}}};
   const send = body => worker.fetch(new Request('https://w.dev/api/controls', {method: 'POST', body: JSON.stringify({install: 'install-1234', ...body}), headers: {'Content-Type': 'application/json'}}), e, {});

@@ -51,3 +51,9 @@ test('the site accepts exactly the reason words the app sends (site/src/knowledg
   const site = (await import('node:fs')).readFileSync(new URL('../../site/src/knowledge.js', import.meta.url), 'utf8');
   assert.deepEqual(JSON.parse(site.match(/export const LEFT_REASONS = (\[[^\]]*\])/)[1].replace(/'/g, '"')), LEFT_REASONS);
 });
+
+test('a proposed answer is its own reason, apart from "no answer" (9 Oct 2026)', async () => {
+  const {leftReason} = await import('../lib/question-labels.js');
+  assert.equal(leftReason('proposed for you to confirm'), 'proposed');
+  assert.equal(leftReason('no answer in the kit, Profile or your details'), 'no_answer');
+});

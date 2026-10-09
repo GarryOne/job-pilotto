@@ -35,11 +35,12 @@ export function flowState(flow) {
 // unread: a required question the page shows that the reader did not read (extension/page/coverage.js). by_you / by_you_unread:
 // at Submit, a question the person answered themselves that the fill left / never read (extension/review.js): what the fill missed.
 // page_error: a question the page flagged (missing or invalid) after the Submit press.
-export const LEFT_REASONS = ['no_answer', 'not_taken', 'real_click', 'no_option', 'unread', 'by_you', 'by_you_unread', 'page_error', 'other'];
+export const LEFT_REASONS = ['proposed', 'no_answer', 'not_taken', 'real_click', 'no_option', 'unread', 'by_you', 'by_you_unread', 'page_error', 'other'];
 export function leftReason(reason) {
   const text = String(reason || '');
   if (/^(legal|no CV)/.test(text)) return '';
-  if (text.startsWith('no answer') || text.startsWith('proposed')) return 'no_answer';   // proposed: not in your profile; the AI's likely answer is shown
+  if (text.startsWith('proposed')) return 'proposed';   // not in your profile; the AI's likely answer is shown to confirm: counted apart from the truly missing
+  if (text.startsWith('no answer')) return 'no_answer';
   if (/^question (on the page not read|text not found)/.test(text)) return 'unread';
   if (text.startsWith('answer given')) return 'not_taken';
   if (text.startsWith('dropdown that opens')) return 'real_click';

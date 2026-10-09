@@ -18,6 +18,7 @@ export const AREA = {
   unread: 'reader: the extension did not read the question (code: extension/page/fill.js, coverage.js)',
   by_you_unread: 'reader: people answered questions the extension never read (code: extension/page/fill.js)',
   no_data: 'data: neither the kit nor the profile has an answer (profile fields, kit drafting, label aliases)',
+  proposed: 'person: the AI proposed an answer, shown to confirm and never typed (not a loss of the fill)',
   ai_declined: 'AI: Claude was asked and gave no answer (the answer prompt, the context it gets)',
   ai_unsure: 'AI: Claude answered with low confidence (the answer prompt, the profile facts it gets)',
   ai_off: 'AI availability: Claude was not asked (eligibility stop, answering off)',
@@ -36,7 +37,10 @@ function summarize(cards) {
   const required = cards.reduce((s, c) => s + c.required, 0), filled = cards.reduce((s, c) => s + c.filled, 0);
   const clean = cards.filter(c => c.left_n === 0 && !c.by_you && !c.by_you_unread).length;
   const unread = cards.reduce((s, c) => s + c.unread + c.by_you_unread, 0);
-  return {forms: cards.length, required, filled, filledShare: round(share(filled, required)), formsNeedingNothing: round(share(clean, cards.length)),
+  // Required questions the AI proposed an answer for (to confirm, never typed): apart from filled and from truly missing (9 Oct 2026).
+  const proposed = cards.reduce((s, c) => s + (c.causes?.proposed || 0), 0);
+  return {forms: cards.length, required, filled, filledShare: round(share(filled, required)), proposed, proposedShare: round(share(proposed, required)),
+    missingShare: round(share(Math.max(0, required - filled - proposed), required)), formsNeedingNothing: round(share(clean, cards.length)),
     submittedShare: round(share(cards.filter(c => c.submitted).length, cards.length)), unreadPer100: round(required ? (100 * unread) / required : null, 1),
     medianSeconds: cards.length ? [...cards.map(c => c.seconds)].sort((a, b) => a - b)[Math.floor(cards.length / 2)] : null};
 }
@@ -55,7 +59,7 @@ export async function digest(db, now = new Date()) {
   // 1. Why required questions stayed empty, per cause and board (and what people answered themselves), with the per-release rate.
   const lost = (list, cause) => list.reduce((s, c) => s + (cause === 'by_you' ? c.by_you : cause === 'by_you_unread' ? c.by_you_unread : cause === 'page_error' ? c.page_error : c.causes[cause] || 0), 0);
   const causes = [...new Set([...cards.flatMap(c => Object.keys(c.causes)), 'by_you', 'by_you_unread', 'page_error'])];
-  for (const cause of causes) {
+  for (const cause of causes.filter(cause => cause !== 'proposed')) {   // a proposal waits for the person: shown in the totals, not a weakness
     for (const [board, list] of Object.entries(group(thisWeek, c => c.board))) {
       const n = lost(list, cause), forms = list.filter(c => lost([c], cause) > 0).length;
       if (!n) continue;
@@ -104,7 +108,7 @@ const pct = value => (value == null ? '–' : `${Math.round(value * 100)}%`);
 export function markdown(d) {
   const t = d.thisWeek, l = d.lastWeek;
   const lines = [`# Form-filling learning digest, ${d.period.from} → ${d.period.to}`, '',
-    `**This week:** ${t.forms} forms · required questions filled ${pct(t.filledShare)} (last week ${pct(l.filledShare)}) · forms needing nothing from the person ${pct(t.formsNeedingNothing)} (${pct(l.formsNeedingNothing)}) · questions never read per 100 required ${t.unreadPer100 ?? '–'} (${l.unreadPer100 ?? '–'}) · submitted ${pct(t.submittedShare)}.`, '',
+    `**This week:** ${t.forms} forms · required questions filled ${pct(t.filledShare)} (last week ${pct(l.filledShare)}) · proposed to confirm ${pct(t.proposedShare)} (${pct(l.proposedShare)}) · truly missing ${pct(t.missingShare)} (${pct(l.missingShare)}) · forms needing nothing from the person ${pct(t.formsNeedingNothing)} (${pct(l.formsNeedingNothing)}) · questions never read per 100 required ${t.unreadPer100 ?? '–'} (${l.unreadPer100 ?? '–'}) · submitted ${pct(t.submittedShare)}.`, '',
     '## Top weaknesses (by impact)', ''];
   d.weaknesses.forEach((w, i) => {
     lines.push(`${i + 1}. **${w.title}** · impact ${w.impact} · id \`${w.id}\``, `   - area: ${w.area}`);
@@ -113,12 +117,12 @@ export function markdown(d) {
     if (w.byVersion?.length) lines.push(`   - per release (per 100 required): ${w.byVersion.map(v => `${v.version}: ${v.per100 ?? '–'} (${v.forms} forms)`).join(', ')}`);
     if (w.evidence) lines.push(`   - evidence: ${JSON.stringify(w.evidence)}`);
   });
-  lines.push('', '## Per release', '', '| Version | Forms | Filled | Needing nothing | Never read /100 |', '|---|---|---|---|---|',
-    ...d.versions.map(v => `| ${v.version} | ${v.forms} | ${pct(v.filledShare)} | ${pct(v.formsNeedingNothing)} | ${v.unreadPer100 ?? '–'} |`),
+  lines.push('', '## Per release', '', '| Version | Forms | Filled | Proposed | Missing | Needing nothing | Never read /100 |', '|---|---|---|---|---|---|---|',
+    ...d.versions.map(v => `| ${v.version} | ${v.forms} | ${pct(v.filledShare)} | ${pct(v.proposedShare)} | ${pct(v.missingShare)} | ${pct(v.formsNeedingNothing)} | ${v.unreadPer100 ?? '–'} |`),
     '', '## Per board (this week)', '', '| Board | Forms | Filled | Needing nothing |', '|---|---|---|---|',
     ...d.boards.map(b => `| ${b.board} | ${b.forms} | ${pct(b.filledShare)} | ${pct(b.formsNeedingNothing)} |`),
-    '', '## Day by day', '', '| Day | Forms | Filled | Needing nothing | Submitted |', '|---|---|---|---|---|',
-    ...d.daily.map(x => `| ${x.day} | ${x.forms} | ${pct(x.filledShare)} | ${pct(x.formsNeedingNothing)} | ${pct(x.submittedShare)} |`),
+    '', '## Day by day', '', '| Day | Forms | Filled | Proposed | Missing | Needing nothing | Submitted |', '|---|---|---|---|---|---|---|',
+    ...d.daily.map(x => `| ${x.day} | ${x.forms} | ${pct(x.filledShare)} | ${pct(x.proposedShare)} | ${pct(x.missingShare)} | ${pct(x.formsNeedingNothing)} | ${pct(x.submittedShare)} |`),
     '', ...d.notes.map(n => `> ${n}`));
   return lines.join('\n');
 }

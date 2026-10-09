@@ -40,3 +40,16 @@ test('the site keeps only the known fields, each bounded', () => {
   assert.equal(cleanCard({ id: 'x' }), null);
   assert.ok(CAUSES.includes('ai_unsure'));
 });
+
+// 9 Oct 2026: the AI proposes a likely answer (shown to confirm, never typed). The fill card counted these as "other" (the digest's
+// biggest weakness could never move); now they are their own outcome, apart from the truly missing.
+test('a field the AI proposed an answer for is "proposed", not a loss', () => {
+  assert.equal(causeOf({ field: 'sms', reason: 'proposed for you to confirm' }), 'proposed');
+  const card = fillCard({ id: 'fill-0001-abc', trace: [
+    { label: 'SMS', field: 'sms', type: 'combobox', required: true, outcome: 'left', reason: 'proposed for you to confirm' },
+    { label: 'Notice', field: 'n', type: 'text', required: true, outcome: 'left', reason: 'no answer in the kit, Profile or your details' },
+    { label: 'Email', field: 'e', type: 'text', required: true, outcome: 'filled', reason: '' },
+  ], sent: ['n'], ai: { answers: [] } });
+  assert.deepEqual(card.causes, { proposed: 1, ai_declined: 1 });
+  assert.deepEqual(cleanCard(card).causes, { proposed: 1, ai_declined: 1 });   // the site keeps it
+});

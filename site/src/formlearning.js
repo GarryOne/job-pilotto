@@ -20,6 +20,7 @@ export const REASONS = [
   ['by_you', 'You answered a question the fill left', 'gap'],
   ['page_error', 'The page flagged a question after Submit', 'gap'],
   ['no_answer', 'No answer in the profile or kit', 'data'],
+  ['proposed', 'The AI proposed an answer for you to confirm', 'proposed'],
   ['not_taken', 'Answer given, the field did not take it', 'widget'],
   ['real_click', 'Dropdown needs a real click', 'widget'],
   ['no_option', 'Dropdown opened, no option matched', 'widget'],
