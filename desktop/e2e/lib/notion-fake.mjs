@@ -92,6 +92,15 @@ export function createNotionFake() {
     const parent = objects.get(parentId); if (parent?.object === 'block') parent.has_children = true;
     return made.map(id => objects.get(id));
   }
+  // Notion: a change to any block in a page is a change to the page (its last_edited_time), which the engine's kept page copies rely on (src/notion/client.py
+  // _kept_page_text). 9 Oct 2026: without it the engine kept reading its old Search settings after the page was edited.
+  const touch = id => {
+    for (let item = objects.get(id), hops = 0; item && hops < 20; hops++) {
+      item.last_edited_time = now();
+      if (item.object === 'page' || item.object === 'database') return;
+      item = objects.get(item.parent?.block_id || item.parent?.page_id || '');
+    }
+  };
   const live = item => item && !item.archived;
   const page = (items, cursor, size = 100) => {
     const start = Number(cursor || 0), slice = items.slice(start, start + Math.min(Number(size) || 100, 100));
@@ -226,14 +235,14 @@ export function createNotionFake() {
       const parentId = m[1];
       if (!objects.has(parentId)) return error(404, 'object_not_found', `Could not find block with ID: ${parentId}.`);
       if (method === 'GET') return {status: 200, body: {...page(kids(parentId).map(id => objects.get(`${id}#block`) || objects.get(id)).filter(live), query.get('start_cursor'), query.get('page_size')), type: 'block', block: {}}};
-      if (method === 'PATCH') return {status: 200, body: {object: 'list', results: makeBlocks(parentId, body.children, body.after), has_more: false, next_cursor: null, type: 'block', block: {}}};
+      if (method === 'PATCH') { const made = makeBlocks(parentId, body.children, body.after); touch(parentId); return {status: 200, body: {object: 'list', results: made, has_more: false, next_cursor: null, type: 'block', block: {}}}; }
     }
     if ((m = /^blocks\/([^/]+)$/.exec(path))) {
       const item = objects.get(`${m[1]}#block`) || objects.get(m[1]);
       if (!live(item)) return error(404, 'object_not_found', `Could not find block with ID: ${m[1]}.`);
       if (method === 'GET') return {status: 200, body: item};
-      if (method === 'DELETE') { item.archived = true; return {status: 200, body: item}; }
-      if (method === 'PATCH') { const type = item.type; if (body[type]) { item[type] = {...item[type], ...body[type], ...(body[type].rich_text ? {rich_text: richOut(body[type].rich_text)} : {})}; } return {status: 200, body: item}; }
+      if (method === 'DELETE') { item.archived = true; touch(item.id); return {status: 200, body: item}; }
+      if (method === 'PATCH') { const type = item.type; if (body[type]) { item[type] = {...item[type], ...body[type], ...(body[type].rich_text ? {rich_text: richOut(body[type].rich_text)} : {})}; } touch(item.id); return {status: 200, body: item}; }
     }
     if (method === 'POST' && path === 'file_uploads') { const id = uuid(); uploads.set(id, {id, filename: body.filename, status: 'pending'}); return {status: 200, body: {object: 'file_upload', id, status: 'pending', filename: body.filename, upload_url: `/v1/file_uploads/${id}/send`}}; }
     if ((m = /^files\/([^/]+)$/.exec(path)) && method === 'GET' && uploads.get(m[1])?.data) { const item = uploads.get(m[1]); return {status: 200, body: item.data, type: item.content_type}; }

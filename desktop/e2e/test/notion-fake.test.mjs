@@ -134,3 +134,21 @@ test('url filters as Notion has them, and a request the stand-in does not know i
   assert.equal(call(fake, 'GET', 'comments').status, 400);
   assert.deepEqual(fake.stats.unknown.map(line => line.split(':')[0]), ['the Notion stand-in does not know the filter url.sounds_like', 'the Notion stand-in does not know GET comments']);
 });
+
+test('a change to any block in a page changes the page\'s last_edited_time, as in Notion (the engine re-reads a page by it)', async () => {
+  const fake = createNotionFake();
+  const bullet = t => ({object: 'block', type: 'bulleted_list_item', bulleted_list_item: {rich_text: text(t)}});
+  const made = call(fake, 'POST', 'pages', {parent: {page_id: fake.root.id}, properties: {title: {title: text('Search settings')}},
+    children: [{object: 'block', type: 'heading_3', heading_3: {rich_text: text('Kit'), is_toggleable: true, children: [bullet('nested')]}}]}).body;
+  const edited = () => call(fake, 'GET', `pages/${made.id}`).body.last_edited_time;
+  const tick = () => new Promise(resolve => setTimeout(resolve, 5));
+  let before = edited(); await tick();
+  call(fake, 'PATCH', `blocks/${made.id}/children`, {children: [bullet('Ticino')]});
+  assert.ok(edited() > before, 'appending a block'); before = edited(); await tick();
+  const [heading] = call(fake, 'GET', `blocks/${made.id}/children`).body.results;
+  const [nested] = call(fake, 'GET', `blocks/${heading.id}/children`).body.results;
+  call(fake, 'DELETE', `blocks/${nested.id}`);
+  assert.ok(edited() > before, 'deleting a block two levels down'); before = edited(); await tick();
+  call(fake, 'PATCH', `blocks/${heading.id}`, {heading_3: {rich_text: text('Kit 2')}});
+  assert.ok(edited() > before, 'editing a block');
+});
