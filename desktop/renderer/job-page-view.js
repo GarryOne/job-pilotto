@@ -2,8 +2,6 @@
 // every store (the data on this Mac too). Pure: the tabs a job has, and each tab's parts as text (never HTML). Drawn by
 // pages/job-panel.js; guarded by test/job-page-view.test.js. The sections are the engine's own headings (src/ai/kit.py KIT_HEADING,
 // prep.py HEADING, rejection.py HEADING, notion/ledger_record.py RECORD_HEADING, inbox_notion.py DESCRIPTION_HEADING, opportunity.py HEADING).
-import {markdownGroups} from './interview-review-view.js';
-
 export const SECTIONS = {
   kit: '📝 Application kit', prep: '🎤 Interview prep', review: '🔎 Why it was rejected', record: '🗂 Application record',
   description: '🧾 Job description', recruiter: '🤝 Recruiter message',
@@ -22,9 +20,18 @@ export function plain(line) {
     .replace(/\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`/g, (_, a, b, c) => a ?? b ?? c)
     .replace(/\\(.)/g, '$1')
     .replace(/^(>\s*)+/, '')
+    .replace(/^\[![^\]]*\]\s*/, '')   // a callout block's icon, as the codec writes it: > [!🛠] …
     .replace(/^▸\s*/, '')
     .replace(/^\[[ xX]\]\s+/, '')
     .trim();
+}
+
+// One line of a section: its words, bold when the whole line is (a question, "Evidence"), a to-do's state, a quote.
+const LIST = /^\s*(?:[-*•]|\d+[.)])\s+/;
+export function lineOf(raw) {
+  const text = String(raw || '').replace(LIST, '').trim();
+  const todo = /^\[([ xX])\]\s+/.exec(text);
+  return {text: plain(text), strong: /^\*\*[^*]+\*\*(\s*[❓✏️].*)?$/u.test(text), todo: todo ? todo[1] !== ' ' : null, quote: /^>/.test(text)};
 }
 
 // The readable part: code fences (the machine-readable JSON) and their "Machine-readable …" heading are for programs.
@@ -32,18 +39,43 @@ export function readablePart(markdown) {
   return String(markdown || '').replace(/^\s*```[^\n]*\n[\s\S]*?^\s*```[ \t]*$/gm, '').replace(/^\s*#{1,4}\s+Machine-readable.*$/gim, '');
 }
 
-// [{title, lines}] of a section: its own headings start groups, every line plain.
+// [{title, lines: [line | {fold, lines}]}] of a section (lib/store notion_blocks.py's Markdown): its headings start groups; a line whose
+// children follow it indented is a Notion toggle ("📧 Full message", a logged entry) and folds them; every line plain words.
 export function groupsOf(markdown, first = '') {
-  return markdownGroups(readablePart(markdown), first).map(group => ({title: plain(group.title), lines: group.lines.map(plain).filter(Boolean)}))
-    .filter(group => group.lines.length);
+  const groups = [];
+  let group = null, fold = null;
+  const lines = readablePart(markdown).split('\n');
+  const into = () => (group ||= (groups.push({title: first, lines: []}), groups.at(-1)));
+  lines.forEach((raw, i) => {
+    const heading = /^\s*#{1,4}\s+(.*)$/.exec(raw);
+    if (heading) { group = {title: plain(heading[1]), lines: []}; groups.push(group); fold = null; return; }
+    if (!raw.trim() || raw.trim() === '---') return;
+    const indented = /^\s{2,}\S/.test(raw);
+    if (fold && indented) { const line = lineOf(raw); if (line.text) fold.lines.push(line); return; }
+    fold = null;
+    if (!indented && !LIST.test(raw) && /^\s{2,}\S/.test(lines[i + 1] || '')) { fold = {fold: plain(raw), lines: []}; into().lines.push(fold); return; }
+    const line = lineOf(raw);
+    if (line.text) into().lines.push(line);
+  });
+  return groups.filter(each => each.lines.length);
+}
+
+// The section's last ```json fence as an object (the record's own JSON: its job snapshot holds the posting), or null.
+export function jsonOf(markdown) {
+  const fences = [...String(markdown || '').matchAll(/^\s*```json[ \t]*\n([\s\S]*?)\n\s*```[ \t]*$/gm)];
+  try { const value = fences.length ? JSON.parse(fences.at(-1)[1]) : null; return value && typeof value === 'object' ? value : null; } catch { return null; }
 }
 
 // The kit: from its JSON when the section has one (the engine's own record, lib/store/extension-store.js kitOf in the main process),
 // else its readable text. {check, lead, letter, answers: [{question, answer, review}], ineligible} or {groups}.
 export function kitParts(kit, markdown) {
-  if (!kit) return {groups: groupsOf(markdown, 'Kit')};
+  if (!kit) return {groups: groupsOf(markdown)};
+  // Its first line says how it was made: "Form questions read from Greenhouse" or "No form read" (src/ai/kit.py).
+  const lead = groupsOf(markdown)[0];
+  const intro = lead && !lead.title ? lead.lines.map(line => line.text ?? line.fold).join(' ') : '';
   const list = value => (Array.isArray(value) ? value : []).map(String).filter(Boolean);
   return {
+    intro,
     ineligible: kit.eligible === false ? String(kit.eligibility_note || 'Not eligible') : '',
     check: list(kit.check_before_sending), lead: list(kit.highlights), letter: String(kit.cover_letter || '').trim(),
     answers: (Array.isArray(kit.answers) ? kit.answers : []).filter(item => item?.question)
@@ -69,14 +101,23 @@ export function pageParts({sections = {}, kit = null, events = []} = {}) {
   const messages = named.filter(([name]) => isMessages(name))
     .flatMap(([name, markdown]) => groupsOf(markdown, plain(name)));
   const groups = {
-    prep: groupsOf(sections[SECTIONS.prep], 'Prep'), review: groupsOf(sections[SECTIONS.review], 'Verdict'),
-    record: groupsOf(sections[SECTIONS.record], 'Record'), description: groupsOf(sections[SECTIONS.description], 'Description'), messages,
+    prep: groupsOf(sections[SECTIONS.prep]), review: groupsOf(sections[SECTIONS.review]),   // the tab names them: no heading of their own
+    record: groupsOf(sections[SECTIONS.record]), messages,
+    // The posting as saved on the job, else as frozen in its application record (its job snapshot, src/notion/ledger_record.py).
+    description: groupsOf(sections[SECTIONS.description] || jsonOf(sections[SECTIONS.record])?.job?.description || ''),
   };
   const kitView = sections[SECTIONS.kit] || kit ? kitParts(kit, sections[SECTIONS.kit]) : null;
   const history = historyItems(events);
   const has = {kit: !!kitView && !!(kitView.groups?.length || kitView.letter || kitView.answers?.length || kitView.check?.length),
     history: history.length > 0, ...Object.fromEntries(Object.entries(groups).map(([key, value]) => [key, value.length > 0]))};
   return {tabs: TABS.filter(([key]) => has[key]), kit: kitView, groups, history};
+}
+
+// "Next interview 14 Oct 2026 · prep 13 Oct 2026" and the call's facts (Applications Next interview, Interview prep, Call facts).
+export function interviewFacts(app = null) {
+  if (!app) return '';
+  return [app.next_interview && `Next interview ${day(app.next_interview)}`, app.interview_prep && `prep ${day(app.interview_prep)}`,
+    app.call_facts && `From the calls: ${plain(app.call_facts)}`].filter(Boolean).join(' · ');
 }
 
 // "Applied 1 Oct 2026 · Zurich · 🎯 82" (the mockup's line under the title).

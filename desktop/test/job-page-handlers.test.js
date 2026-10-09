@@ -40,7 +40,7 @@ test('the IPC: demo mode reads the fictional fixture; a store error is an answer
   registerJobPageHandlers({ipcMain, storage: {}, DEMO: true, here, log: () => {}});
   const demo = await handlers.jobPage(null, 'https://example.com/jobs/1');
   assert.equal(demo.app.company, 'Helvetic Cloud');
-  assert.equal(demo.kit.answers.length, 3);
+  assert.equal(demo.kit.answers.length, 2);
   const storage = {settings: () => ({store: 'sqlite'})};
   registerJobPageHandlers({ipcMain, storage, DEMO: false, here, log: (...line) => lines.push(line), call: async () => { throw new Error('no engine'); }});
   assert.deepEqual(await handlers.jobPage(null, 'https://x/1'), {error: 'no engine'});

@@ -5,7 +5,7 @@
 // renderer/job-page-view.js (tested). Guards: test/job-page-view.test.js, test/job-panel.test.js.
 import {el} from '../components.js';
 import {icon} from '../icons.js';
-import {allAnswers, headerFacts, pageParts} from '../job-page-view.js';
+import {allAnswers, headerFacts, interviewFacts, pageParts} from '../job-page-view.js';
 import {$} from './core.js';
 
 const state = {url: '', tab: '', density: null, asked: 0};
@@ -20,19 +20,33 @@ function copyButton(text, label = 'Copy') {
   return button;
 }
 
+// A line of a section (job-page-view.js lineOf): bold when it is a question or a label, a to-do with its state, a fold (a Notion toggle:
+// "📧 Full message") as the interview review's folded transcript (details.troubleshoot).
+function lineView(line) {
+  if (typeof line === 'string') return el('div', 'iv-moment', line);
+  if (line.fold !== undefined) {
+    const fold = el('details', 'troubleshoot');
+    fold.append(el('summary', '', line.fold), ...line.lines.map(lineView));
+    return fold;
+  }
+  const text = line.todo === null ? line.text : `${line.todo ? '☑' : '☐'} ${line.text}`;
+  return line.strong ? el('div', 'iv-moment', el('b', '', text)) : el('div', `iv-moment${line.quote ? ' muted' : ''}`, text);
+}
+
 // A group: its heading (with an optional button on the right) and one .iv-moment per line.
 function group(title, lines, action = null) {
   const box = el('div', 'iv-moments-group');
   const head = el('h3', '', title);
   if (action) head.append(action);
   if (title) box.append(head);
-  box.append(...lines.map(line => (typeof line === 'string' ? el('div', 'iv-moment', line) : line)));
+  box.append(...lines.map(line => (line instanceof Node ? line : lineView(line))));
   return box;
 }
 
 function kitView(kit) {
   if (kit.groups) return kit.groups.map(part => group(part.title, part.lines));
   const parts = [];
+  if (kit.intro) parts.push(el('p', 'muted small', kit.intro));
   if (kit.ineligible) parts.push(el('div', 'callout tone-bad', `Not eligible: ${kit.ineligible}`));
   if (kit.check.length) parts.push(group('⚠️ Check before sending', kit.check));
   if (kit.lead.length) parts.push(group('💡 Lead with', kit.lead));
@@ -72,6 +86,8 @@ function draw(job, page) {
   const head = el('div', 'job-panel-head');
   const words = el('div', '');
   words.append(el('h2', '', `${job.title} · ${job.company}`), el('p', 'muted small', headerFacts(job, page?.app)));
+  const calls = interviewFacts(page?.app);
+  if (calls) words.append(el('p', 'muted small', calls));
   head.append(words, close);
   if (!page) { panel.replaceChildren(head, el('span', 'skeleton w-80'), el('span', 'skeleton w-60'), el('span', 'skeleton w-40')); return; }
   if (page.error) { panel.replaceChildren(head, el('p', 'muted', `Could not read this job: ${page.error}. Close and open it again.`)); return; }

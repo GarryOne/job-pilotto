@@ -21,7 +21,7 @@ test('the kit: from its JSON when it has one (copyable answers), else its text',
   assert.equal(kit.letter, 'Dear team,\n\nHi');
   assert.equal(allAnswers(kit.answers), 'Notice period\n3 months\n\nSalary\n140k');
   assert.deepEqual(kitParts(null, '### ✉️ Cover letter\n\nDear **team**\n\n### Machine-readable kit\n\n```json\n{"x": 1}\n```').groups,
-    [{title: '✉️ Cover letter', lines: ['Dear team']}]);
+    [{title: '✉️ Cover letter', lines: [{text: 'Dear team', strong: false, todo: null, quote: false}]}]);
   assert.equal(kitParts({eligible: false, eligibility_note: 'Needs a permit'}).ineligible, 'Needs a permit');
 });
 
@@ -46,10 +46,10 @@ test('the header: stage, applied date, place and fit', () => {
   assert.equal(headerFacts({stage: 'Saved'}), 'Saved');
 });
 
-test('the demo job has every tab but Review, and its kit reads from the JSON', () => {
+test('the demo job has every tab, and its kit reads from the JSON', () => {
   const page = demo['https://example.com/jobs/1'];
   const kit = JSON.parse(/```json\n([\s\S]*?)\n```/.exec(page.sections[SECTIONS.kit])[1]);
   const parts = pageParts({...page, kit});
-  assert.deepEqual(parts.tabs.map(([key]) => key), ['kit', 'prep', 'record', 'messages', 'description', 'history']);
-  assert.equal(parts.kit.answers.length, 3);
+  assert.deepEqual(parts.tabs.map(([key]) => key), TABS.map(([key]) => key));
+  assert.equal(parts.kit.answers.length, 2);
 });
