@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
-import {asset, check, install, macSwapScript, newer, stableRelease, windowsUpdateScript} from '../lib/updater.js';
+import {asset, check, install, macSwapScript, newer, stableRelease} from '../lib/updater.js';
 
 test('versions compare as releases do: numbers, then a release beats its pre-releases', () => {
   assert.ok(newer('0.4.0-alpha.41', '0.4.0-alpha.39'));
@@ -37,40 +37,45 @@ test('the Mac swap waits for the app to quit, replaces it, clears quarantine and
   assert.match(script, /open '\/Applications\/Job Pilotto.app'$/);
 });
 
-test('the Windows update waits for the app to quit, installs quietly and reopens it', () => {
-  const exe = "C:\\Users\\O'Brien\\AppData\\Local\\Programs\\Job Pilotto\\Job Pilotto.exe";
-  const script = windowsUpdateScript(4242, 'C:\\Temp\\Job-Pilotto-Setup.exe', exe);
-  assert.match(script, /Wait-Process -Id 4242 -ErrorAction SilentlyContinue/);
-  assert.match(script, /Start-Process -FilePath 'C:\\Temp\\Job-Pilotto-Setup\.exe' -ArgumentList '\/S' -Wait/);
-  // A quiet install: no wizard to click through, which is what makes it the same one-click update the Mac gets.
-  assert.match(script, /-ArgumentList '\/S' -Wait/);
-  assert.ok(script.includes("Start-Process -FilePath 'C:\\Users\\O''Brien\\AppData\\Local\\Programs\\Job Pilotto\\Job Pilotto.exe'"),
-    "the app is opened again after the install, with the path's apostrophe doubled for PowerShell");
-});
-
-test('installing on Windows downloads the installer, runs PowerShell on the script, and only then quits', async () => {
+// 9 Oct 2026: the old way, a PowerShell script in %TEMP%, never ran on a managed Windows PC: the app closed and nothing came back.
+test('installing on Windows starts the installer itself, quiet, updating and reopening, and only then quits', async () => {
   const calls = [];
   const steps = [];
   await install({download: 'https://dl/exe'}, {
     platform: 'win32', pid: 4242, exe: 'C:\\Programs\\Job Pilotto\\Job Pilotto.exe',
     fetcher: async () => ({ok: true, arrayBuffer: async () => new ArrayBuffer(4)}),
-    spawn: (file, args, options) => { calls.push({file, args, options}); return {unref: () => calls.push('unref')}; },
+    spawn: (file, args, options) => { calls.push({file, args, options}); return fakeChild(calls, 'spawn'); },
     quit: () => calls.push('quit'),
     onStep: text => steps.push(text),
   });
-  const run = calls.find(call => call.file === 'powershell.exe');
-  assert.ok(run, 'PowerShell runs the update script');
-  assert.deepEqual(run.args.slice(0, 4), ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File']);
+  const run = calls[0];
+  assert.match(run.file, /Job-Pilotto-Setup\.exe$/, 'the downloaded installer runs, no script in between');
+  assert.ok(fs.existsSync(run.file));
+  // --updated: it waits for this app to close, then ends it if it lingers; /S: no wizard; --force-run: it opens the new version.
+  assert.deepEqual(run.args, ['--updated', '/S', '--force-run']);
   assert.equal(run.options.detached, true, 'it outlives the app it is about to close');
-  assert.equal(calls.at(-1), 'quit', 'the app quits only after the script is running');
+  assert.ok(!calls.some(call => call.file === 'powershell.exe'));
+  assert.equal(calls.at(-1), 'quit', 'the app quits only once the installer has started');
   assert.ok(calls.indexOf('unref') < calls.indexOf('quit'));
-  // What it will do, read back from the script the app wrote for it.
-  const written = fs.readFileSync(run.args[4], 'utf8');
-  assert.match(written, /Wait-Process -Id 4242/);
-  assert.match(written, /-ArgumentList '\/S' -Wait/);
-  assert.match(written, /Start-Process -FilePath 'C:\\Programs\\Job Pilotto\\Job Pilotto\.exe'/);
   assert.deepEqual(steps, ['Downloading…', 'Installing and restarting…']);
 });
+
+test('a Windows installer that cannot start leaves the app open and says why', async () => {
+  const calls = [];
+  await assert.rejects(install({download: 'https://dl/exe'}, {
+    platform: 'win32', exe: 'C:\\Programs\\Job Pilotto\\Job Pilotto.exe',
+    fetcher: async () => ({ok: true, arrayBuffer: async () => new ArrayBuffer(4)}),
+    spawn: () => fakeChild(calls, 'error', new Error('blocked by group policy')),
+    quit: () => calls.push('quit'),
+  }), /The installer couldn't start: blocked by group policy/);
+  assert.ok(!calls.includes('quit'), 'the app stays open: no update must never mean no app');
+});
+
+function fakeChild(calls, outcome, error) {
+  const handlers = {};
+  setImmediate(() => handlers[outcome]?.(error));
+  return {once: (event, handler) => { handlers[event] = handler; }, unref: () => calls.push('unref')};
+}
 
 // Beta: only for people who switched it on, and only builds the release gate approved.
 const release = (n, {prerelease = true, body = '', assets} = {}) => ({tag_name: `desktop-v0.4.0-alpha.${n}`, name: `Alpha ${n}`, prerelease, draft: false, body, html_url: `https://github.com/x/${n}`,

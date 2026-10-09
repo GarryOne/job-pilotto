@@ -97,7 +97,7 @@ const track = (event, props) => { analytics?.track(event, props); trail?.(event,
 let recipeReporterRef = null;  // the batched, anonymous product counts (lib/recipes.js), made when the app is ready
 let license = null;  // the free allowance and license keys (lib/license.js), made once storage exists
 const {getUpdateOffer, setUpdateOffer, getUpdateCheckedAt, FROM_SOURCE, betaOn, testerOn, testerLogsOn, checkForUpdate, buildMenu, trackSetup, installUpdate, channels} =
-  createAppUpdates({Menu, app, dialog, isDemo: () => DEMO, getStorage: () => storage, getTelemetry: () => telemetry, toWindow, track, getWindow: () => window});   // lib/app-updates.js
+  createAppUpdates({Menu, app, dialog, isDemo: () => DEMO, getStorage: () => storage, getTelemetry: () => telemetry, toWindow, track, getWindow: () => window, openExternal: url => shell.openExternal(url)});   // lib/app-updates.js
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // Demo mode (JOB_PILOTTO_DEMO=1, with JOB_PILOTTO_USER_DATA pointing at a copy of demo/): fictional

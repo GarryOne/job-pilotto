@@ -101,18 +101,11 @@ export function macSwapScript(pid, oldApp, newApp, logFile = '') {
     `open ${q(oldApp)}`].join('\n');
 }
 
-// The Windows update, run after the app quits: wait for this process to end — it holds Job Pilotto.exe and the
-// app.asar open, and the installer cannot replace either — then install it quietly (the silent per-user install the
-// smoke test already proves) and reopen the app it just replaced. A quiet install shows no wizard at all, which is
-// what makes this the same one-click update the Mac gets. PowerShell is on every Windows this runs on; the app is
-// started again even if the installer fails, so a failed update leaves a working app rather than none.
-export function windowsUpdateScript(pid, installer, exe) {
-  const q = value => `'${String(value).replace(/'/g, "''")}'`;  // PowerShell: '' is a quote inside '…'
-  return ['# Job Pilotto: update itself once this process has exited.',
-    `Wait-Process -Id ${Number(pid)} -ErrorAction SilentlyContinue`,
-    `Start-Process -FilePath ${q(installer)} -ArgumentList '/S' -Wait`,
-    `Start-Process -FilePath ${q(exe)}`].join('\r\n') + '\r\n';
-}
+// The Windows update: the downloaded installer itself, started before the app quits, the way electron-updater does it. --updated
+// makes it wait for this app to close (and end it if it lingers), /S installs quietly with no wizard, --force-run opens the
+// new version when done (electron-builder's NSIS templates). No script: a PowerShell file in %TEMP% never ran on a managed PC
+// (Group Policy and AppLocker outrank -ExecutionPolicy Bypass), so the app closed and nothing came back (9 Oct 2026).
+export const WINDOWS_INSTALLER_ARGS = ['--updated', '/S', '--force-run'];
 
 // Downloads and installs `update`; calls quit() when the app should close. onStep(text) for progress.
 export async function install(update, {exe, pid = process.pid, quit, onStep = () => {}, logFile = '', fetcher = globalThis.fetch,
@@ -125,10 +118,12 @@ export async function install(update, {exe, pid = process.pid, quit, onStep = ()
   fs.writeFileSync(file, Buffer.from(await response.arrayBuffer()));
   if (platform === 'win32') {
     onStep('Installing and restarting…');
-    const script = path.join(dir, 'update.ps1');
-    fs.writeFileSync(script, windowsUpdateScript(pid, file, exe), 'utf8');
-    run('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script],
-      {detached: true, stdio: 'ignore', windowsHide: true}).unref();  // -ExecutionPolicy: a locked-down PC still runs it
+    const child = run(file, WINDOWS_INSTALLER_ARGS, {detached: true, stdio: 'ignore', windowsHide: true});
+    await new Promise((resolve, reject) => {   // a blocked installer (antivirus, AppLocker) says so here, and the app stays open
+      child.once('error', error => reject(new Error(`The installer couldn't start: ${error.message}`)));
+      child.once('spawn', resolve);
+    });
+    child.unref();
     quit();
     return;
   }
