@@ -487,7 +487,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/daily_search.py` — The jobs check's search itself (modes scheduled, run, today, more): crawl the feeds, import, enrich, score, sync Job Matches and the
 - `src/daily.py` — Run the local scan, import canonical state and optionally send Telegram digest."""
 - `src/desktop_jobs.py` — The desktop app's job list and posting: stage_status, jobs(), posting(), notion_posting() (a pure move out of desktop.py).
-- `src/desktop_status.py` — The desktop app's application status writes: set_status() and delete_job() with the Notion Stage first (a pure move out of desktop.py).
+- `src/desktop_status.py` — The desktop app's application status writes: set_status() through the store (src/stores: the job's Stage, any store), and
 - `src/desktop_strategy.py` — The Strategy page's data (strategy()), the Calendar's jobs and the sites-to-visit list (a pure move out of desktop.py).
 - `src/desktop.py` — JSON commands for the desktop app (desktop/), which runs this package as a local helper.
 - `src/digest.py` — Telegram digest: filtering, ranking, rotation, paging and message layout."""
@@ -564,6 +564,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/stores/notion_blocks.py` — Markdown ↔ Notion blocks: how a store's Markdown fields (a job's sections, an interview's review, an insight's body)
 - `src/stores/notion_insights.py` — 💡 Insights in Notion as the store's insights (base.Insights): one database row per insight, plain dicts out.
 - `src/stores/notion_interviews.py` — 🎤 Interviews in Notion as the store's interviews (base.Interviews): one database row per interview, plain dicts out.
+- `src/stores/notion_matches.py` — The notion store's Matches: 🎯 Job Matches rows as store records, one per job (found by its URL, src/stores/base.url_key).
 - `src/stores/notion_rows.py` — Notion rows ↔ store records: which column holds each field, and plain values ↔ Notion property values.
 - `src/stores/notion.py` — The notion store: the user's data in their Notion workspace (today's databases and pages), behind src/stores/base.py.
 - `src/stores/rules.py` — The application stage rules, above the store interface: one copy for every store (sqlite, notion, later ones).

@@ -15,6 +15,7 @@ from . import base
 from . import notion_rows as rows
 from .notion_insights import NotionInsights
 from .notion_interviews import NotionInterviews
+from .notion_matches import NotionMatches
 
 # Where each entity lives: the variable naming its database (the app and the workspace repo set them).
 DATABASES = {'applications': 'NOTION_APPLICATIONS_DB', 'events': 'NOTION_EVENTS_DB', 'matches': 'NOTION_MATCHES_DB',
@@ -309,7 +310,7 @@ class _NotYet:
         raise NotImplementedError(f'the notion store has no {self.entity} yet')
 
 
-PENDING = ('matches', 'employers', 'agent_runs', 'cron_runs', 'texts')
+PENDING = ('employers', 'agent_runs', 'cron_runs', 'texts')
 
 
 class NotionStores(base.Stores):
@@ -330,6 +331,7 @@ def open_store(env=None, tracker=None):
     ids = {entity: env.get(variable, '') for entity, variable in DATABASES.items()}
     return NotionStores(name='notion', applications=Applications(tracker, ids['applications']),
                         events=Events(tracker, ids['events']),
+                        matches=NotionMatches(tracker, ids['matches']),
                         interviews=NotionInterviews(tracker, ids['interviews']),
                         insights=NotionInsights(tracker, ids['insights']),
                         **{entity: _NotYet(entity) for entity in PENDING},
