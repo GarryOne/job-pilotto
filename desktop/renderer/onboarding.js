@@ -13,7 +13,8 @@ const finished = (runs, kind) => (runs || []).filter(run => run.kind === kind &&
 const newest = list => Math.max(0, ...list.map(run => Number(run.id) || 0));
 
 // What each step's state is now. runs: Recent activity's records; funnel: Focus's (its "Applied" step); saved: settings.onboarding.
-export function onboarding({runs = [], settings = {}, notionConnected = false, funnel = null} = {}) {
+// keptOnMac: the person chose to keep the data on this Mac (lib/store): the Notion step is done and says so in its own words.
+export function onboarding({runs = [], settings = {}, notionConnected = false, keptOnMac = false, funnel = null} = {}) {
   const saved = settings.onboarding || {};
   const scoutAt = Math.max(newest(finished(runs, 'scout')), Date.parse(settings.lastScoutAt || '') || 0);
   const searches = finished(runs, 'search');
@@ -22,11 +23,12 @@ export function onboarding({runs = [], settings = {}, notionConnected = false, f
   const now = {
     scout: scoutAt > 0,
     search: scoutAt > 0 && searchAt > scoutAt,   // a search after the employers were found: that's the one that brings their jobs
-    notion: notionConnected,
+    notion: notionConnected || keptOnMac,
     tailor: finished(runs, 'tailor').length > 0,
     apply: applied > 0,
   };
-  const steps = STEPS.map(step => ({...step, done: !!(saved[step.key] || now[step.key])}));
+  const steps = STEPS.map(step => ({...step, done: !!(saved[step.key] || now[step.key]),
+    ...(step.key === 'notion' && keptOnMac && !notionConnected ? {label: 'Keep your data on this Mac', hint: 'Notion later, for Always on'} : {})}));
   const next = steps.find(step => !step.done) || null;
   const doneCount = steps.filter(step => step.done).length;
   const remember = Object.fromEntries(steps.filter(step => step.done && !saved[step.key]).map(step => [step.key, true]));

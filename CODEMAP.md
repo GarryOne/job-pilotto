@@ -166,6 +166,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/site-accounts.js` — Which sites hold an account made for which email (owner, 8 Oct 2026): kept in settings.siteAccounts as {host: {email, state, at}}, never a password.
 - `desktop/lib/site-password.js` — The user's one job-site password (src/ai/passwords.py makes it, Keychain item job-pilotto.sites.password): Settings shows it,
 - `desktop/lib/storage.js` — Everything the app keeps lives in the user's own folder (~/Library/Application Support/Job Pilotto):
+- `desktop/lib/store-handlers.js` — Settings → Data & backup → "Your data": where the person's data lives (lib/store), choosing this Mac while trying, and
 - `desktop/lib/strategy-draft-handlers.js` — The strategy draft's IPC (moved out of main.js, 8 Oct 2026): drafting a Strategy from the CV, the cached draft and the edits kept on it, how a rebuild
 - `desktop/lib/strategy-edit.js` — Strategy, the "What you're targeting" lists edited in the app: which lists, cleaning the edits, applying them, editLists.
 - `desktop/lib/strategy-rebuild.js` — Strategy, rebuild from the CV: what a new draft changes, grouped by what each change triggers (and its cost). Re-exported by strategy.js.
@@ -210,7 +211,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/contact-proposals.js` — "Your details from your CV" in the window: the values Claude proposed from the CV (lib/contact-from-cv.js) go into the empty boxes of
 - `desktop/renderer/pages/core.js` — Shared helpers and start-up state of the window.
 - `desktop/renderer/pages/cv-change.js` — A replaced CV and what follows it.
-- `desktop/renderer/pages/data.js` — Your data: export, import, backup, reset.
+- `desktop/renderer/pages/data.js` — Your data: where it lives, export, import, backup, reset.
 - `desktop/renderer/pages/demo.js` — "Look around first": the wizard's buttons that restart the app on the fictional demo data, and in that demo the
 - `desktop/renderer/pages/dismiss-reason.js` — After Dismiss: a one-tap "why?" (optional, gone in 12 seconds). The reason is one of a fixed list and is counted with the job's score band only
 - `desktop/renderer/pages/feedback.js` — Feedback is saved to Notion. Sending stays with the user; Gmail remains read-only.

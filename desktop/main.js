@@ -21,6 +21,7 @@ import {registerAppMetaHandlers} from './lib/app-meta-handlers.js';
 import {registerInterviewHandlers} from './lib/interview-handlers.js';
 import {registerCvAndLettersHandlers} from './lib/cv-handlers.js';
 import {registerContactHandlers} from './lib/contact-handlers.js';
+import {registerStoreHandlers, storeState} from './lib/store-handlers.js';
 import {registerSearchTuningHandlers} from './lib/search-tuning-handlers.js';
 import {settingsDepsFor} from './lib/settings-deps.js';
 import {createSessionFlow} from './lib/session-flow.js';
@@ -170,7 +171,9 @@ function handlers() {
     secrets: storage.secretsPresent(),
     hasCv: fs.existsSync(storage.path('cv.pdf')), hasProfile: !!(storage.settings().setupDone && (storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID || storage.readText('profile.md'))),
     folder: storage.dir,
-    notion: storage.secret('NOTION_TOKEN') ? Object.fromEntries(Object.entries(storage.settings().notionIds || {})
+    store: storeState(storage),   // where the data lives (lib/store): {label, caps, trying}
+    // Notion page links only when Notion is the store (lib/store): with the data on this Mac, none.
+    notion: storage.secret('NOTION_TOKEN') && notionGate.onNotion(storage) ? Object.fromEntries(Object.entries(storage.settings().notionIds || {})
       .map(([env, id]) => [env, notion.pageUrl(id)])) : null,
     templateUrl: notion.TEMPLATE.template_url,
     notionReasons: notionGate.REASONS,  // the sentences after "Connect Notion …" (one source: lib/notion-gate.js)
@@ -238,6 +241,7 @@ function handlers() {
       return {ok: false, error: error.status === 401 ? 'Notion rejected this token. Copy the API token of your Job Pilotto connection again (Developer tools → Connections).' : error.message};
     }
   }
+  registerStoreHandlers({ipcMain, storage, DEMO, log: appLog});   // lib/store-handlers.js: Settings → Your data
   registerContactHandlers({ipcMain, storage, DEMO, connected: () => notionGate.tracking(storage), needsNotion, log: appLog,   // lib/contact-handlers.js
     contactSaved: saved => server.contactSaved(storage, saved)});
   registerSetupHandlers({DEMO, connectNotion, dialog, handleImportant, ipcMain, licenseState, needsNotion, shell, storage, syncCv, getTelemetry: () => telemetry, track, trackSetup, getWindow: () => window,

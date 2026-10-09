@@ -3,7 +3,7 @@
 export const connected = storage => !!storage.secret('NOTION_TOKEN') && !!storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID;
 // Store adapters (9 Oct 2026, lib/store): with the person's data on this Mac (settings.store = 'sqlite') everything is tracked
 // here, so nothing asks for Notion except what runs off the Mac. Unset or 'notion': as before, tracking needs Notion connected.
-const onNotion = storage => (storage.settings().store || 'notion') === 'notion';
+export const onNotion = storage => (storage.settings().store || 'notion') === 'notion';
 export const tracking = storage => !onNotion(storage) || connected(storage);
 // The texts (Profile, answers) are read from Notion: the store is Notion and it is connected. Else this Mac's files.
 export const notionInUse = storage => onNotion(storage) && connected(storage);

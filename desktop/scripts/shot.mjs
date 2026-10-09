@@ -10,6 +10,7 @@
 //   --output <file>    a recorded terminal output to show as the session's log (e.g. a real session's)
 //   --width <px>       the window's width, to check a narrow layout (default 1280; the window's minimum is lib/main-window.js MIN_WIDTH)
 //   --out <file.png>   where the picture goes (default: $TMPDIR/job-pilotto-shot.png)
+//   --settings <json>  merged into the demo's settings.json first (a state the demo lacks: '{"store":"sqlite"}')
 // The full reference set is npm run ui-shots (only after big UI changes, or when asked).
 import {spawnSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -22,7 +23,7 @@ const electron = path.join(desktop, 'node_modules', '.bin', 'electron');
 const args = process.argv.slice(2);
 const flag = name => args.includes(`--${name}`);
 const option = name => { const i = args.indexOf(`--${name}`); return i >= 0 ? args[i + 1] : undefined; };
-const VALUED = ['select', 'session', 'js', 'eval', 'output', 'out', 'width'];
+const VALUED = ['select', 'session', 'js', 'eval', 'output', 'out', 'width', 'settings'];
 const page = args.find((arg, i) => !arg.startsWith('--') && !VALUED.includes(args[i - 1]?.slice(2))) || 'focus';
 
 const wait = ms => `await new Promise(r => setTimeout(r, ${ms}));`;
@@ -38,6 +39,11 @@ const script = code => `(async () => { ${code} })()`;
 
 const data = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-shot-'));
 for (const file of fs.readdirSync(path.join(desktop, 'demo'))) if (file !== 'jobs.json') fs.copyFileSync(path.join(desktop, 'demo', file), path.join(data, file));
+// --settings '<json>': merged into the demo copy's settings.json, to render a state the demo doesn't have (e.g. '{"store":"sqlite"}').
+if (option('settings')) {
+  const file = path.join(data, 'settings.json');
+  fs.writeFileSync(file, JSON.stringify({...JSON.parse(fs.readFileSync(file, 'utf8')), ...JSON.parse(option('settings'))}, null, 2));
+}
 const out = path.resolve(option('out') || path.join(os.tmpdir(), 'job-pilotto-shot.png'));
 fs.rmSync(`${out}.json`, {force: true});
 const env = {...process.env, JOB_PILOTTO_DEMO: '1', JOB_PILOTTO_USER_DATA: data, JOB_PILOTTO_SMOKE: out, JOB_PILOTTO_SMOKE_JS: script(steps.join('\n'))};

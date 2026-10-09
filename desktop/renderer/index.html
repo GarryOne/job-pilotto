@@ -1238,18 +1238,33 @@
         </div>
         <div class="settings-page" data-settings-page="data" hidden>
           <div class="settings-page-head"><h2>Data &amp; backup</h2><p class="muted">Keep a copy of your work and manage local data.</p></div>
+          <div class="setting panel" id="setting-store">
+            <div class="panel-top">
+              <div class="summary-head"><i data-icon="layers"></i><h3>Your data</h3><span class="ui-pill" id="store-pill"></span></div>
+              <div class="panel-actions">
+                <button class="secondary" id="store-keep" hidden>Keep it on this Mac</button>
+                <button class="secondary" id="store-connect" hidden>Connect Notion</button>
+                <button class="primary" id="store-move" hidden>Move my data to Notion</button>
+                <button class="arrow-link" id="store-open" hidden>Open in Notion</button>
+              </div>
+            </div>
+            <p class="muted panel-lead" id="store-lead"></p>
+            <div class="fact-row"><div><span class="muted">Kept in</span><b id="store-where"></b></div>
+              <div><span class="muted">Always on</span><b id="store-cloud"></b></div></div>
+            <p class="message" id="store-message" hidden></p>
+          </div>
           <div class="setting panel" id="setting-backup">
             <div class="panel-top">
               <div class="summary-head"><i data-icon="database"></i><h3>Automatic backup</h3><span class="ui-pill tone-good" id="backup-on">On</span></div>
               <div class="panel-actions"><button class="secondary" id="backup-now">Back up now</button><button class="arrow-link" id="backup-show">View backups</button></div>
             </div>
-            <p class="muted panel-lead">Your CV and tailored CVs are also kept in Notion. Recordings and the rest of this Mac's data are backed up once a week (never your keys), the last four kept.</p>
+            <p class="muted panel-lead"><span id="backup-notion-line">Your CV and tailored CVs are also kept in Notion. </span>Recordings and the rest of this Mac's data are backed up once a week (never your keys), the last four kept.</p>
             <div class="fact-row"><div><span class="muted">Last backup</span><b id="backup-last">None yet</b></div>
               <div><span class="muted">Location</span><b id="backup-where"></b></div></div>
           </div>
           <div class="setting panel" id="setting-data">
             <div class="summary-head"><i data-icon="refresh"></i><h3>Move your data</h3></div>
-            <p class="muted panel-lead">Save a copy of what Job Pilotto keeps on this computer, or restore one. Your Notion data stays in Notion: to keep, copy or move it, use Notion itself (its page history, Duplicate, Export, Move to another workspace).</p>
+            <p class="muted panel-lead">Save a copy of what Job Pilotto keeps on this computer, or restore one.<span id="data-notion-line"> Your Notion data stays in Notion: to keep, copy or move it, use Notion itself (its page history, Duplicate, Export, Move to another workspace).</span></p>
             <div class="choice-grid">
               <div class="choice-card"><span class="file-tile"><i data-icon="upload"></i></span>
                 <div><b>Export</b><p class="muted small">Save a copy of everything Job Pilotto keeps on this computer: settings, profile, CVs, recordings, job list and history.</p>

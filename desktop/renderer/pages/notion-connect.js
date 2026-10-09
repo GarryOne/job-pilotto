@@ -7,6 +7,8 @@ import {closeOnProgress, ignoreGateEvent} from '../notion-connect-rules.js';
 import {shared} from './shared.js';
 
 export const notionConnected = () => !!shared.state?.notion?.NOTION_PROFILE_PAGE_ID;
+// The data has a home (Notion connected, or kept on this Mac: lib/store), so tracking works; false only while trying.
+export const tracking = () => notionConnected() || shared.state?.store?.trying === false;
 export const reasonText = reason => {
   const words = shared.state?.notionReasons?.[reason];
   return words ? `Connect Notion ${words}.` : '';
@@ -97,7 +99,7 @@ export function applyViewGate(name, {then = null} = {}) {
   const view = document.querySelector(`.view[data-view="${name}"]`);
   const reason = LOCKED_VIEWS[name];
   if (!view || !reason) return false;
-  const locked = !notionConnected();
+  const locked = !tracking();
   view.classList.toggle('notion-locked', locked);
   let host = view.querySelector(':scope > .notion-gate-host');
   if (!locked) { host?.remove(); return false; }

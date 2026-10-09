@@ -9,6 +9,7 @@ import {TEXT_FILES} from './text-files.js';
 
 export const NAME = 'sqlite';
 export const CAPS = new Set();
+export const LABEL = 'This Mac';   // what the window calls this store
 export const FILES = TEXT_FILES;
 // Recent activity reads two weeks back (the list shows the latest 25).
 const RUN_DAYS = 14;
@@ -58,5 +59,5 @@ export function open(storage, {call = engine.call} = {}) {
       return {message: row?.result || null, log: log.length ? log : report, report};
     },
   };
-  return {name: NAME, caps: CAPS, page, runs, link: () => null, textLink: () => null};
+  return {name: NAME, label: LABEL, caps: CAPS, page, runs, link: () => null, textLink: () => null};
 }

@@ -8,6 +8,7 @@ import * as notionRuns from './notion-runs.js';
 
 export const NAME = 'notion';
 export const CAPS = new Set([LINKS, CLOUD, FILES]);
+export const LABEL = 'Notion';   // what the window calls this store
 
 // Each text and its page id in settings.notionIds. Form knowledge is made beside the Profile on its first write (lib/knowledge.js did).
 const PAGE_IDS = {profile: 'NOTION_PROFILE_PAGE_ID', answers: 'NOTION_ANSWERS_PAGE_ID', knowledge: 'NOTION_KNOWLEDGE_PAGE'};
@@ -105,7 +106,7 @@ export function open(storage, {fetcher} = {}) {
   };
 
   return {
-    name: NAME, caps: CAPS, page, runs,
+    name: NAME, label: LABEL, caps: CAPS, page, runs,
     // Where the user can open a record or page in Notion.
     link: id => (id ? notion.pageUrl(id) : null),
     textLink: name => (ids()[PAGE_IDS[name]] ? notion.pageUrl(ids()[PAGE_IDS[name]]) : null),

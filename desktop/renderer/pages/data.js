@@ -1,5 +1,7 @@
-// Your data: export, import, backup, reset.
-import {$, message} from './core.js';
+// Your data: where it lives, export, import, backup, reset.
+import {$, message, show} from './core.js';
+import {openInNotion, openNotionConnect} from './notion-connect.js';
+import {shared} from './shared.js';
 import {toastMessage} from './startup.js';
 
 // ---------- automatic backup of this computer's data (lib/backup.js) ----------
@@ -10,8 +12,57 @@ async function showBackup() {
   $('backup-where').textContent = where.replace(' → ', ' / ');
 }
 
+// ---------- your data: where it lives (lib/store-handlers.js) ----------
+// Three states: trying (no home yet: keep it here, or connect Notion), this Mac (move it to Notion for Always on), Notion (open it there).
+// The card asks capabilities (cloud, links), never a store's name.
+// The card's one line of news (an error, "kept on this Mac ✓"): shown only when there is one, so an empty line leaves no gap.
+const say = (text, tone) => { message('store-message', text, tone); show($('store-message'), !!text); };
+async function showStore() {
+  const store = await window.pilot.storeState();
+  const cloud = store.caps.includes('cloud'), links = store.caps.includes('links');
+  const pill = $('store-pill');
+  pill.textContent = store.trying ? 'Not chosen' : store.label;
+  pill.className = `ui-pill ${store.trying ? 'tone-warn' : 'tone-good'}`;
+  $('store-lead').textContent = store.trying
+    ? `Job Pilotto is only trying until your jobs and applications have a home: ${store.choice ? 'this Mac, or your Notion' : 'your Notion'}.`
+    : cloud ? 'Your jobs, applications and answers are in your Notion workspace: open and edit them there too.'
+      : 'Your jobs, applications and answers are kept on this Mac, in one place, and in its backups. Move them to Notion to use Always on.';
+  $('store-where').textContent = store.trying ? 'Not chosen yet' : store.label;
+  $('store-cloud').textContent = cloud && !store.trying ? 'Available' : 'Needs Notion';
+  show($('store-keep'), store.trying && store.choice);
+  show($('store-connect'), store.trying);
+  show($('store-move'), !store.trying && !cloud);
+  show($('store-open'), links && !!shared.state?.notion?.NOTION_PROFILE_PAGE_ID);
+  // The other cards mention Notion only when it holds the data.
+  show($('backup-notion-line'), links);
+  show($('data-notion-line'), links);
+}
+
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
+  showStore();
+  $('store-keep').addEventListener('click', async () => {
+    $('store-keep').disabled = true;
+    const result = await window.pilot.keepOnThisMac();
+    $('store-keep').disabled = false;
+    if (!result?.ok) { say(result?.error || 'Not changed.', 'error'); return; }
+    say('Your data is kept on this Mac ✓', 'ok');
+    shared.state = await window.pilot.state();
+    showStore();
+  });
+  $('store-connect').addEventListener('click', () => openNotionConnect({reason: 'none', where: 'settings', from: 'settings', then: () => showStore()}));
+  $('store-move').addEventListener('click', async () => {
+    $('store-move').disabled = true;
+    const result = await window.pilot.moveToNotion();
+    $('store-move').disabled = false;
+    if (result?.ok) { shared.state = await window.pilot.state(); showStore(); }
+    else say(result?.text || result?.error || 'Not moved.', 'error');
+  });
+  $('store-open').addEventListener('click', event => openInNotion('NOTION_PROFILE_PAGE_ID', event));
+  // An action that runs off this Mac (Always on) while the data is here (preload.cjs): say so, and open this card.
+  window.addEventListener('pilot-needs-move', event => toastMessage({title: 'Move your data to Notion first',
+    body: event.detail?.text || 'This needs your data in Notion.', target: {view: 'settings', section: 'data'}}));
+
   // ---------- your data: export / import ----------
   $('export-data').addEventListener('click', async () => {
     $('export-data').disabled = true;

@@ -7,7 +7,7 @@ import {shared} from './shared.js';
 import {$, show} from './core.js';
 import {openView} from './nav.js';
 import {lastActivity} from './activity.js';
-import {notionConnected, openNotionConnect} from './notion-connect.js';
+import {notionConnected, openNotionConnect, tracking} from './notion-connect.js';
 import {focusButton} from './focus.js';
 
 let lastFunnel = null;   // Focus's funnel (its "Applied" step ticks the last step), from the last Focus that loaded
@@ -25,7 +25,7 @@ const ONBOARDING_GO = {
 // true = shown this way; false = the caller locks the page behind the Notion gate, or loads all of Focus.
 export function showFocusStarted() {
   const view = document.querySelector('.view[data-view="focus"]');
-  const started = focusMode({notionConnected: notionConnected(), gettingStarted: renderOnboarding()}) === 'started';
+  const started = focusMode({notionConnected: tracking(), gettingStarted: renderOnboarding()}) === 'started';
   view?.classList.toggle('focus-started', started);
   if (started) { view?.classList.remove('notion-locked'); view?.querySelector(':scope > .notion-gate-host')?.remove(); }
   return started;
@@ -34,7 +34,7 @@ export function showFocusStarted() {
 export function renderOnboarding({funnel} = {}) {
   if (funnel !== undefined) lastFunnel = funnel;
   const settings = shared.state?.settings || {};
-  const state = onboarding({runs: lastActivity?.runs, settings, notionConnected: notionConnected(), funnel: lastFunnel});
+  const state = onboarding({runs: lastActivity?.runs, settings, notionConnected: notionConnected(), keptOnMac: tracking() && !notionConnected(), funnel: lastFunnel});
   if (Object.keys(state.remember).length) {   // a step done once stays done, even if its run later leaves the history
     const next = {...(settings.onboarding || {}), ...state.remember};
     if (shared.state?.settings) shared.state.settings.onboarding = next;
