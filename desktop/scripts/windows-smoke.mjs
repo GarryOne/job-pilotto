@@ -17,7 +17,8 @@ import {WINDOWS_INSTALLER_ARGS} from '../lib/updater.js';
 const [installer, out] = process.argv.slice(2);
 if (!installer || !out) throw new Error('usage: node scripts/windows-smoke.mjs <installer.exe> <output folder>');
 fs.mkdirSync(out, {recursive: true});
-const say = line => console.log(`• ${line}`);
+const t0 = Date.now();
+const say = line => console.log(`• [${String(Math.round((Date.now() - t0) / 1000)).padStart(3)}s] ${line}`);   // seconds since the start: which stage makes this step slow
 
 execFileSync(path.resolve(installer), ['/S'], {stdio: 'inherit', timeout: 5 * 60 * 1000});
 const programs = path.join(process.env.LOCALAPPDATA, 'Programs');
