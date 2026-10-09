@@ -33,8 +33,13 @@ test('contact details go to this Mac\'s profile.md, not the Notion Profile', asy
   assert.deepEqual(await contact.read(storage, noNotion), {email: 'a@b.c', phone: '1'});
 });
 
-test('main.js writes session stats and conversations to Notion only when Notion is the store', () => {
-  const source = fs.readFileSync(path.join(import.meta.dirname, '..', 'main.js'), 'utf8');
-  assert.match(source, /db: notionGate\.notionInUse\(storage\) \? storage\.settings\(\)\.notionIds\?\.NOTION_AGENT_RUNS_DB : null/);
-  assert.match(source, /!session\.transcript \|\| !notionGate\.notionInUse\(storage\)\) return;/);
+test('session stats and conversations go to this Mac\'s store, never to the Notion still connected', async () => {
+  const {optionsFor} = await import('../lib/session-runs.js');
+  const options = optionsFor(onThisMacWithNotionLeft(), {call: async () => null});
+  assert.equal(options.db, undefined);
+  assert.equal(options.call, undefined);
+  assert.equal(typeof options.agentRuns, 'function');
+  const main = fs.readFileSync(path.join(import.meta.dirname, '..', 'main.js'), 'utf8');
+  assert.match(main, /sessionRuns\.optionsFor\(storage,/);          // main.js asks the store, never builds a Notion call itself
+  assert.match(main, /sessionRuns\.saveConversation\(storage, session, talk\)/);
 });

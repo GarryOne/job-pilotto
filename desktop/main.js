@@ -437,20 +437,17 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   // Each form's last state (ready to submit?), so a restart shows it before Chrome's tabs report again.
   if (!DEMO) review.persist(path.join(storage.dir, 'review-states.json'), terminals.list().map(session => session.id));
   // A session's conversation (its Claude Code transcript) on its Agent Runs row, folded: the Mac's file doesn't last.
-  // Only into a Notion that is the store (lib/store): with the data on this Mac a session's stats and conversation stay in sessions.json.
+  // Into the store (lib/session-runs.js optionsFor): a Notion row, or the record on this Mac; none while trying.
   const saveConversation = session => {
-    if (!session.runPage || !session.transcript || !notionGate.notionInUse(storage)) return;
+    if (!session.runPage || !session.transcript) return;
     const talk = transcript.conversation(session.transcript);
     if (!talk?.length || talk.length === session.conversationSaved) return;
-    transcript.save((method, route, body) => notion.call(storage.secret('NOTION_TOKEN'), method, route, body), session.runPage, talk)
-      .then(count => { session.conversationSaved = count; terminals.saveNow(); }).catch(error => log(`conversation not saved to Notion: ${error.message}`));
+    sessionRuns.saveConversation(storage, session, talk)
+      .then(count => { if (count == null) return; session.conversationSaved = count; terminals.saveNow(); }).catch(error => log(`conversation not saved: ${error.message}`));
   };
   // Each session's statistics on its Agent Runs row in Notion, a few seconds after each change (lib/session-runs.js).
-  if (!DEMO) terminals.onStatus((view, session) => sessionRuns.schedule(session, () => ({
-    call: (method, route, body) => notion.call(storage.secret('NOTION_TOKEN'), method, route, body),
-    db: notionGate.notionInUse(storage) ? storage.settings().notionIds?.NOTION_AGENT_RUNS_DB : null,
-    create: /^decided|^ended|^failed/.test(session.events?.at(-1)?.status || ''),
-  }), page => {
+  if (!DEMO) terminals.onStatus((view, session) => sessionRuns.schedule(session, () => sessionRuns.optionsFor(storage,
+    {create: /^decided|^ended|^failed/.test(session.events?.at(-1)?.status || '')}), page => {
     session.runPage = page;
     terminals.saveNow();
     // Once it ended, its conversation goes on the row too (again if it was resumed and said more since).

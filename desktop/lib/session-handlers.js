@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import * as terminals from './terminals.js';
+import * as sessionRuns from './session-runs.js';
 import * as transcript from './transcript.js';
 import * as quitDialog from './quit-dialog.js';
 import {sessionIpc} from './session-contracts.js';
@@ -17,7 +18,7 @@ export async function closeSessionTab({review, closeTab}, old) {
 import {cleanUse} from './proposal-use.js';
 import {boardName} from './control-events.js';
 export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, dialog, nativeImage, here,
-  DEMO, apply, pipeline, review, server, notion, claudeConsent, getRecipeReporter = () => null, version = '',
+  DEMO, apply, pipeline, review, server, claudeConsent, getRecipeReporter = () => null, version = '',
   closeTab = closeFormTab, tabs = listTabs}) {
   const checkedSessions = sessionIpc(ipcMain, appLog);
   checkedSessions.handle('sessionCancel', async (_, id) => {
@@ -135,7 +136,7 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
     const talk = file ? transcript.conversation(file) : null;
     if (talk?.length || DEMO || !record?.runPage) return talk;
     // The Mac's transcript is gone (Claude Code deletes old ones): the copy on the session's Agent Runs row.
-    return transcript.load((method, route, body) => notion.call(storage.secret('NOTION_TOKEN'), method, route, body), record.runPage).catch(() => null);
+    return sessionRuns.loadConversation(storage, record.runPage).catch(() => null);
   });
   checkedSessions.handle('sessionSnapshot', (_, id) => (DEMO ? terminals.snapshotOf(demoOutput()) : terminals.snapshot(String(id))));
   checkedSessions.handle('sessionWrite', (_, id, data) => terminals.write(String(id), data));
