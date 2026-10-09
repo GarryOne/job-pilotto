@@ -349,10 +349,19 @@ class AgentRuns(_Table):
         return {'ats': row['ats'] or ''}
 
     def add(self, run):
-        return self._new(_known(self.fields, run))
+        return self._new(_known(self.fields, base.check_extras(run, base.AGENT_RUN_EXTRAS)))
 
     def update(self, run_id, fields):
-        return self._update(run_id, fields)
+        return self._update(run_id, base.check_extras(fields, base.AGENT_RUN_EXTRAS))
+
+    def put(self, record):
+        return super().put(base.check_extras(record, base.AGENT_RUN_EXTRAS))
+
+    def get(self, run_id):
+        try:
+            return dict(self._get(run_id))
+        except KeyError:
+            return None
 
     def list(self, ats=None, limit=None):
         return self._rows(*(('ats = ?', (ats,)) if ats is not None else ('', ())), order='seq DESC', limit=limit)

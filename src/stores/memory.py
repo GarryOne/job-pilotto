@@ -225,10 +225,19 @@ class AgentRuns(_Table):
     fields = base.AGENT_RUN_FIELDS
 
     def update(self, run_id, fields):
-        return self._update(run_id, fields)
+        return self._update(run_id, base.check_extras(fields, base.AGENT_RUN_EXTRAS))
+
+    def put(self, record):
+        return super().put(base.check_extras(record, base.AGENT_RUN_EXTRAS))
+
+    def get(self, run_id):
+        try:
+            return dict(self._get(run_id))
+        except KeyError:
+            return None
 
     def add(self, run):
-        row = _new(self.fields, _known(self.fields, run))
+        row = _new(self.fields, _known(self.fields, base.check_extras(run, base.AGENT_RUN_EXTRAS)))
         self.rows[row['id']] = row
         return dict(row)
 

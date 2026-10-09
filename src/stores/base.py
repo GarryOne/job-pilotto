@@ -42,6 +42,12 @@ INSIGHT_EXTRAS = ('basis', 'confidence', 'sample_size', 'evidence', 'action', 'f
                   'input_hash', 'data')
 EMPLOYER_FIELDS = ('id', 'name', 'website', 'careers_url', 'feed', 'active', 'created_at')
 AGENT_RUN_FIELDS = ('id', 'url', 'ats', 'outcome', 'fields', 'learnings', 'transcript', 'created_at')
+# An agent run's `fields` (a dict) holds only these keys: each is an 🤖 Agent Runs column, so a move to Notion loses nothing (one
+# copy). `data` is the catch-all (JSON). Every adapter raises KeyError on any other key (check_extras).
+AGENT_RUN_EXTRAS = ('job', 'company', 'job_stage', 'agent', 'status', 'reason', 'started', 'ended', 'minutes', 'age_days', 'fresh',
+                    'field_count', 'fill_time', 'unfilled_required', 'waiting_for_you', 'billed_to', 'session_id', 'tokens_total',
+                    'output_tokens', 'working_min', 'waiting_min', 'times_asked', 'reply_median_s', 'ready_to_decided_min', 'turns',
+                    'tool_calls', 'tools_used', 'tokens_in', 'tokens_out', 'cache_read', 'model', 'timeline', 'data')
 CRON_RUN_FIELDS = ('id', 'kind', 'where', 'status', 'started_at', 'finished_at', 'summary', 'report', 'result',
                    'log', 'progress', 'trigger', 'mode', 'run_url', 'application', 'stats')
 # A run's numbers (`stats`, a dict): what Recent activity and Telegram /status show. Keys are these; the Notion adapter maps each to its
@@ -67,6 +73,14 @@ def parse_ref(text):
         return None
     entity, record_id = text[len('store:'):].split('/', 1)
     return (entity, record_id) if entity and record_id else None
+
+
+def check_extras(values, allowed):
+    """`values` with its `fields` dict checked against `allowed` (an *_EXTRAS tuple); KeyError names the unknown keys."""
+    unknown = set((values or {}).get('fields') or {}) - set(allowed)
+    if unknown:
+        raise KeyError(f'not a known field: {", ".join(sorted(unknown))}')
+    return values
 
 
 def url_key(url):
@@ -156,6 +170,7 @@ class AgentRuns(Protocol):
     """Form fills and Apply sessions (🤖 Agent Runs)."""
     def add(self, run: dict) -> dict: ...
     def update(self, run_id: str, fields: dict) -> dict: ...
+    def get(self, run_id: str) -> Optional[dict]: ...
     def list(self, ats=None, limit=None) -> list: ...
     def put(self, record: dict) -> dict: ...
 

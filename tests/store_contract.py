@@ -194,6 +194,17 @@ class StoreContract:
         self.assertEqual([r['ats'] for r in self.s.agent_runs.list()], ['greenhouse', 'workday'])
         self.assertEqual(self.s.agent_runs.list(ats='workday')[0]['transcript'], 'talk')
 
+    def test_an_agent_runs_fields_are_known_columns_and_it_is_found_by_id(self):
+        run = self.s.agent_runs.add({'url': JOB['url'], 'ats': 'Claude', 'fields': {'turns': 12, 'model': 'opus'}})
+        self.s.agent_runs.update(run['id'], {'outcome': 'submitted', 'fields': {'turns': 14, 'times_asked': 2}})
+        got = self.s.agent_runs.get(run['id'])
+        self.assertEqual((got['outcome'], got['fields']['turns']), ('submitted', 14))
+        self.assertIsNone(self.s.agent_runs.get('missing'))
+        with self.assertRaises(KeyError):
+            self.s.agent_runs.add({'url': JOB['url'], 'fields': {'not a column': 1}})
+        with self.assertRaises(KeyError):
+            self.s.agent_runs.update(run['id'], {'fields': {'not a column': 1}})
+
     def test_a_cron_run_begins_reports_progress_and_finishes(self):
         run = self.s.cron_runs.begin('search', 'mac')
         self.assertRecord(run, base.CRON_RUN_FIELDS)
