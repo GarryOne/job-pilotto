@@ -566,6 +566,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/stores/notion_interviews.py` — 🎤 Interviews in Notion as the store's interviews (base.Interviews): one database row per interview, plain dicts out.
 - `src/stores/notion_matches.py` — The notion store's Matches: 🎯 Job Matches rows as store records, one per job (found by its URL, src/stores/base.url_key).
 - `src/stores/notion_rows.py` — Notion rows ↔ store records: which column holds each field, and plain values ↔ Notion property values.
+- `src/stores/notion_texts.py` — The notion store's Texts: the Profile, the standard answers and 🧠 Form knowledge, each a Notion page read and written whole as Markdown.
 - `src/stores/notion.py` — The notion store: the user's data in their Notion workspace (today's databases and pages), behind src/stores/base.py.
 - `src/stores/rules.py` — The application stage rules, above the store interface: one copy for every store (sqlite, notion, later ones).
 - `src/stores/sqlite.py` — The SQLite store: the user's data on this Mac, the default adapter when Notion isn't chosen.

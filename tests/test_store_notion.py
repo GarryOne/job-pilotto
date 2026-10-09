@@ -63,6 +63,10 @@ class NotionStoreTests(StoreContract, unittest.TestCase):
             columns = {name: {column['type']: {}} for name, column in spec['columns'].items() if column['type'] not in COMPUTED}
             env[variable] = self.tracker._request('POST', 'databases', {
                 'parent': {'page_id': 'stand-in-root'}, 'title': [{'text': {'content': spec['title']}}], 'properties': columns})['id']
+        for variable in ('NOTION_PROFILE_PAGE_ID', 'NOTION_ANSWERS_PAGE_ID', 'NOTION_KNOWLEDGE_PAGE'):
+            env[variable] = self.tracker._request('POST', 'pages', {
+                'parent': {'page_id': 'stand-in-root'}, 'properties': {'title': {'title': [{'text': {'content': variable}}]}}})['id']
+        self.env = env
         return notion.open_store(env, tracker=self.tracker)
 
     def test_every_method_takes_the_interfaces_parameter_names(self):
@@ -119,6 +123,17 @@ class NotionStoreTests(StoreContract, unittest.TestCase):
         row = self.s.applications.update(app['id'], stamp)
         self.assertEqual({k: row[k] for k in stamp}, stamp)
         self.assertEqual({k: self.s.applications.get(app['url'] if 'url' in app else row['url'])[k] for k in stamp}, stamp)
+
+    def test_a_text_keeps_the_pages_other_blocks_and_its_table(self):
+        """The Profile page also holds ⚙️ Search settings (a child page) and the 📎 CV: rewriting the text keeps them."""
+        page = self.env['NOTION_PROFILE_PAGE_ID']
+        self.tracker._request('POST', 'pages', {'parent': {'page_id': page}, 'properties': {'title': {'title': [{'text': {'content': 'Search settings'}}]}}})
+        profile = '# Experience\n\n| Role | Company |\n| --- | --- |\n| SRE | Acme |\n\nOpen to Zurich.'
+        self.s.texts.set('profile', profile)
+        self.assertEqual(self.s.texts.get('profile'), profile)
+        self.s.texts.set('profile', 'Short now.')
+        kinds = [block['type'] for block in self.tracker._children(page) if not block.get('archived')]
+        self.assertEqual((self.s.texts.get('profile'), kinds), ('Short now.', ['child_page', 'paragraph']))
 
 
 class NotionRecordsTests(unittest.TestCase):
