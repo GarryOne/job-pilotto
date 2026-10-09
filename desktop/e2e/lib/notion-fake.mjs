@@ -42,7 +42,8 @@ export function createNotionFake() {
   const children = {has: id => lists.has(key(id)), get: id => lists.get(key(id)), set: (id, value) => lists.set(key(id), value)};
   const uploads = new Map();
   let base = '';   // the server's own URL (startNotionFake sets it): an uploaded file is served from there, as Notion serves it from its storage
-  const stats = {calls: 0, writes: 0};
+  const stats = {calls: 0, writes: 0, unknown: []};   // unknown: what the stand-in could not answer as Notion would (a gap to add, never the app's fault)
+  const gap = (status, code, message) => { if (!stats.unknown.includes(message)) stats.unknown.push(message); return error(status, code, message); };
   const kids = id => { if (!children.has(id)) children.set(id, []); return children.get(id); };
   // A two-way relation (type dual_property) gets its other side on the target database, as Notion does: "Related to <title> (<column>)" until the
   // app renames it (lib/schema.js). Without it a second install's connect found the synced columns missing (9 Oct 2026, calendar's second app).
@@ -114,6 +115,13 @@ export function createNotionFake() {
       case 'select.is_empty': return !value?.name;
       case 'multi_select.contains': return (value || []).some(option => option.name === wanted);
       case 'url.equals': return value === wanted;
+      case 'url.does_not_equal': return value !== wanted;
+      case 'url.contains': return String(value || '').toLowerCase().includes(String(wanted).toLowerCase());
+      case 'url.does_not_contain': return !String(value || '').toLowerCase().includes(String(wanted).toLowerCase());
+      case 'url.starts_with': return String(value || '').toLowerCase().startsWith(String(wanted).toLowerCase());
+      case 'url.ends_with': return String(value || '').toLowerCase().endsWith(String(wanted).toLowerCase());
+      case 'url.is_empty': return !value;
+      case 'url.is_not_empty': return !!value;
       case 'relation.contains': return (value || []).some(link => link.id.replace(/-/g, '') === String(wanted).replace(/-/g, ''));
       case 'rich_text.equals': case 'title.equals': return text === wanted;
       case 'rich_text.contains': case 'title.contains': return String(text || '').toLowerCase().includes(String(wanted).toLowerCase());
@@ -164,7 +172,7 @@ export function createNotionFake() {
     if ((m = /^databases\/([^/]+)\/query$/.exec(path)) && method === 'POST') {
       const db = objects.get(m[1]); if (!live(db) || db.object !== 'database') return error(404, 'object_not_found', `Could not find database with ID: ${m[1]}.`);
       let rows = [...objects.values()].filter(item => item.object === 'page' && live(item) && key(item.parent?.database_id || '') === key(db.id));
-      try { rows = rows.filter(row => matches(row, body.filter)); } catch (problem) { return error(400, 'validation_error', problem.message); }
+      try { rows = rows.filter(row => matches(row, body.filter)); } catch (problem) { return (problem.unknown ? gap : error)(400, 'validation_error', problem.message); }
       for (const sort of [...(body.sorts || [])].reverse()) rows.sort((a, b) => { const x = sortKey(a, sort), y = sortKey(b, sort); return (x < y ? -1 : x > y ? 1 : 0) * (sort.direction === 'descending' ? -1 : 1); });
       if (!body.sorts?.length) rows.sort((a, b) => (a.created_time < b.created_time ? 1 : -1));   // Notion: newest first by default
       return {status: 200, body: page(rows, body.start_cursor, body.page_size)};
@@ -230,7 +238,7 @@ export function createNotionFake() {
     if (method === 'POST' && path === 'file_uploads') { const id = uuid(); uploads.set(id, {id, filename: body.filename, status: 'pending'}); return {status: 200, body: {object: 'file_upload', id, status: 'pending', filename: body.filename, upload_url: `/v1/file_uploads/${id}/send`}}; }
     if ((m = /^files\/([^/]+)$/.exec(path)) && method === 'GET' && uploads.get(m[1])?.data) { const item = uploads.get(m[1]); return {status: 200, body: item.data, type: item.content_type}; }
     if ((m = /^file_uploads\/([^/]+)\/send$/.exec(path)) && method === 'POST') { const item = uploads.get(m[1]); if (!item) return error(404, 'object_not_found', 'no such upload'); item.status = 'uploaded'; Object.assign(item, fileOf(raw)); return {status: 200, body: {object: 'file_upload', ...item}}; }
-    return error(400, 'invalid_request_url', `the Notion stand-in does not know ${method} ${path}: add it (docs/notion-surface.md)`);
+    return gap(400, 'invalid_request_url', `the Notion stand-in does not know ${method} ${path.replace(/[0-9a-f-]{32,36}/gi, '<id>')}: add it (docs/notion-surface.md)`);
   }
 
   // A scenario as plain data: {databases: [{title, properties: {name: {type: {...}}}, rows: [{name: value-as-written}]}], pages: [{title, children: [blocks]}]}.

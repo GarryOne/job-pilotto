@@ -120,3 +120,17 @@ test('a second install of the app connects to the workspace the first one built 
     await fake.close();
   }
 });
+
+test('url filters as Notion has them, and a request the stand-in does not know is recorded as a gap', () => {
+  const fake = createNotionFake();
+  const db = call(fake, 'POST', 'databases', {parent: {page_id: fake.root.id}, title: text('T'), properties: {Job: {title: {}}, 'Job URL': {url: {}}}}).body;
+  call(fake, 'POST', 'pages', {parent: {database_id: db.id}, properties: {Job: {title: text('Lever')}, 'Job URL': {url: 'https://jobs.lever.co/e2e/5e2e'}}});
+  const count = filter => call(fake, 'POST', `databases/${db.id}/query`, {filter}).body.results?.length;
+  assert.equal(count({property: 'Job URL', url: {contains: '/e2e/5E2E'}}), 1, 'a form page\'s URL finds its job (worker/src/extension.js findRow)');
+  assert.equal(count({property: 'Job URL', url: {does_not_contain: 'lever'}}), 0);
+  assert.equal(count({property: 'Job URL', url: {is_not_empty: true}}), 1);
+  assert.deepEqual(fake.stats.unknown, []);
+  assert.equal(call(fake, 'POST', `databases/${db.id}/query`, {filter: {property: 'Job URL', url: {sounds_like: 'x'}}}).status, 400);
+  assert.equal(call(fake, 'GET', 'comments').status, 400);
+  assert.deepEqual(fake.stats.unknown.map(line => line.split(':')[0]), ['the Notion stand-in does not know the filter url.sounds_like', 'the Notion stand-in does not know GET comments']);
+});

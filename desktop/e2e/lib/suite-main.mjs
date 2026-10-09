@@ -30,6 +30,11 @@ export async function runSuite(name, report = null) {
       if (changes.length) throw new Error(`the real Keychain changed during the run: ${changes.join('; ')}. A test reached it (desktop/lib/keychain.js isolation), or something else on this Mac saved a secret meanwhile: check, then re-run`);
     }, {critical: true});   // critical: an E2E_STEPS filter never skips it
     if (!suite.light) await ctx.run('nothing was queued to report to the product', async () => { assertNothingQueued(ctx.profile); });   // a light suite has no app
+    // P7: a request the in-memory Notion does not know is a gap in the stand-in, and the app swallows many such errors (9 Oct 2026: a missing url filter
+    // left a form without its kit, three layers away). Each one fails here by name, so the stand-in grows instead of hiding it (lib/notion-fake.mjs).
+    if (ctx.standIn) await runAlways('the Notion stand-in answered every request the app made', async () => {
+      if (ctx.standIn.stats.unknown.length) throw new Error(`the stand-in did not know: ${ctx.standIn.stats.unknown.join('; ')}`);
+    }, {critical: true});
   } catch (error) {
     if (!ctx?.runner.results.some(result => result.status === 'failed')) console.log(`✗ the ${name} suite stopped: ${error.message}`);
     if (ctx) ctx.stopped = error.message;   // the trace is kept (lib/context.mjs)
