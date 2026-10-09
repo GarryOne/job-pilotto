@@ -42,6 +42,9 @@ TABLE = [
 ]
 
 
+from tests.mail_fakes import FakeTracker, stores_for  # noqa: E402
+
+
 class JobTitleTests(unittest.TestCase):
     def test_the_table(self):
         for args, expected in TABLE:
@@ -93,16 +96,16 @@ class CreatedTests(unittest.TestCase):
     def test_a_recruiter_lead_gets_the_agency_and_a_second_pitch_still_finds_it(self):
         lead = {'title': 'Principal SRE', 'company': '', 'recruiter_company': 'Huxley', 'recruiter_name': 'Jayantie Nejati',
                 'recruiter_email': 'j.nejati@huxley.test', 'platform': 'Email', 'in_house': False}
-        tracker = LeadTracker()
-        created, _ = opportunity.track(tracker, lead, 'Hi Igor, a Principal SRE role…', source='Gmail', event_source='Gmail',
-                                       gmail_id='m1')
+        tracker = FakeTracker([])
+        created, _ = opportunity.track(stores_for(tracker), lead, 'Hi Igor, a Principal SRE role…', source='Gmail',
+                                       event_source='Gmail', gmail_id='m1')
         props = tracker.created[0]
-        self.assertEqual(titles.text_value(props['Job']), 'Principal SRE · via Huxley')
-        self.assertEqual(ledger.plain(created['properties']['Job']), 'Principal SRE · via Huxley')
+        self.assertEqual(titles.text_value(props['Job']), 'Principal SRE · via Huxley')  # the Notion row's title
+        self.assertEqual(created['title'], 'Principal SRE')  # the record holds the role
         # The same pitch again (pasted in the app): matched by role and agency, not by the suffixed title.
-        tracker.rows = [row('Principal SRE · via Huxley', via='Huxley', stage='Recruiter lead',
-                            Contact=text('Jayantie Nejati · j.nejati@huxley.test'))]
-        self.assertIsNotNone(opportunity.same_pitch(tracker, lead))
+        tracker.apps[:] = [row('Principal SRE · via Huxley', via='Huxley', stage='Recruiter lead',
+                               Contact=text('Jayantie Nejati · j.nejati@huxley.test'))]
+        self.assertIsNotNone(opportunity.same_pitch(stores_for(tracker), lead))
 
     def test_an_email_about_an_untracked_role_creates_no_job(self):
         # Asked in Focus instead (src/ai/mail.py run): a job made from an email alone had a Gmail link for its posting and nothing else.

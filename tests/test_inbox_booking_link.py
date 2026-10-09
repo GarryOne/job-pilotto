@@ -55,7 +55,8 @@ class RunTracker(Inbox):
     def _request(self, method, path, body=None):
         if method == 'PATCH' and path.startswith('blocks/run-1/children'):
             self.run_blocks += body['children']
-        if method == 'GET' and path.split('/')[0] in ('pages', 'databases'):  # the store reads rows and the schema
+            return {}
+        if path.split('/')[0] in ('pages', 'databases', 'blocks'):  # the store reads rows and the schema, writes sections
             return super()._request(method, path, body)
         return {}
 
@@ -98,7 +99,7 @@ class ScreenshotsGoToTheRunTests(unittest.TestCase):
         run(tracker, reading('Recruiter outreach', -1, role='Senior Web3 Infrastructure Engineer', summary='Web3 platform, remote',
                              is_opportunity=True, title='Senior Web3 Infrastructure Engineer', recruiter_name='Linomica Irigoyen'))
         self.assertEqual(len(images(tracker.run_blocks)), 1)
-        page_blocks = [block for _, blocks in tracker.bodies.values() for block in blocks]
+        page_blocks = [block for blocks in tracker.blocks.values() for block in blocks]  # the new lead's page
         self.assertEqual(images(page_blocks), [])
         self.assertIn('run-1', str(page_blocks))  # the page says where they are
 

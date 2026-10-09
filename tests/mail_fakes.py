@@ -99,6 +99,15 @@ class FakeTracker:
 
     def __init__(self, apps, events=()):
         self.apps, self.events, self.created, self.updates = apps, list(events), [], []
+        self.blocks = {}  # parent id -> its child blocks (a page's sections, written by the store)
+
+    def _children(self, block_id):
+        return list(self.blocks.get(block_id, []))
+
+    def written_under(self, page_id):
+        """Everything written under a page, nested blocks included, as one JSON string (for assertIn)."""
+        found = self._children(page_id)
+        return json.dumps(found + [child for block in found for child in self._children(block['id'])], ensure_ascii=False)
 
     def _table(self, database_id):
         if database_id == ledger.EVENTS_DATABASE_ID:
@@ -112,6 +121,17 @@ class FakeTracker:
 
     def _request(self, method, path, body=None):
         kind, _, key = path.partition('/')
+        if kind == 'blocks' and method == 'PATCH' and key.endswith('/children'):
+            parent, siblings = key[:-len('/children')], None
+            siblings = self.blocks.setdefault(parent, [])
+            at = next((i + 1 for i, block in enumerate(siblings) if block['id'] == body.get('after')), len(siblings))
+            made = [{**block, 'id': f'b{sum(map(len, self.blocks.values())) + n}'} for n, block in enumerate(body['children'], 1)]
+            siblings[at:at] = made
+            return {'results': made}
+        if kind == 'blocks' and method == 'DELETE':
+            for siblings in self.blocks.values():
+                siblings[:] = [block for block in siblings if block['id'] != key]
+            return {}
         if kind == 'databases':
             names = SCHEMA_COLUMNS['events' if key == ledger.EVENTS_DATABASE_ID else 'apps']
             return {'properties': {name: {} for name in names if name not in self.missing}}

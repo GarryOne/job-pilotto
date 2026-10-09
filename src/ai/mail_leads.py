@@ -92,11 +92,9 @@ def interview_lead(stores, client, model, email, apps, result, stats):
         lead['recruiter_email'] = address.strip()
         lead['recruiter_name'] = lead.get('recruiter_name') or person_name(name)
     try:
-        # BRIDGE(mail): remove when opportunity.track on the store lands
-        row, _ = opportunity.track(stores.applications.tracker, lead, text, source='Gmail', event_source='Gmail', talking=True,
+        row, _ = opportunity.track(stores, lead, text, source='Gmail', event_source='Gmail', talking=True,
                                    at=email['date'], gmail_id=email['id'],
                                    note=f"Interview invitation: \"{email['subject'][:120]}\"")
-        row = row and stores.applications._record(row)
     except Exception as error:  # noqa: BLE001
         print(f"Warning: interview email {email['id']} not tracked: {type(error).__name__}: {error}", file=sys.stderr)
         return None
@@ -117,10 +115,8 @@ def new_lead(stores, client, model, email, apps, stats, on_new=None):
         return []
     if not lead.get('is_opportunity'):
         return []
-    # BRIDGE(mail): remove when opportunity.track on the store lands
-    row, _ = opportunity.track(stores.applications.tracker, lead, text, source='Gmail', event_source='Gmail', at=email['date'],
+    row, _ = opportunity.track(stores, lead, text, source='Gmail', event_source='Gmail', at=email['date'],
                                gmail_id=email['id'], note=f"Recruiter email: \"{email['subject'][:120]}\"")
-    row = row and stores.applications._record(row)
     if not row:
         return []
     apps.append(row)  # a second email in this batch about the same role matches it

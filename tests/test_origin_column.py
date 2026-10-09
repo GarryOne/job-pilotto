@@ -7,7 +7,7 @@ from unittest import mock
 
 from src.ai import inbox, inbox_notion, mail, mail_leads, opportunity
 from src.notion import client, funnel, ledger, origin
-from tests.mail_fakes import stores_for
+from tests.mail_fakes import FakeTracker, stores_for
 
 
 def select(name):
@@ -121,12 +121,12 @@ class WriterTests(unittest.TestCase):
             self.assertEqual(seen['origin'], expected)
 
     def test_a_recruiter_lead_is_inbound(self):
-        tracker = Fake()
+        tracker = FakeTracker([])
         lead = {'title': 'Platform Engineer', 'company': 'Beta', 'platform': 'Email', 'recruiter_company': 'Huxley'}
-        with mock.patch.object(opportunity, 'add_event'):
-            row, _ = opportunity.track(tracker, lead, 'Hi, a role for you', source='Gmail', event_source='Gmail', url='https://x/lead')
+        row, _ = opportunity.track(stores_for(tracker), lead, 'Hi, a role for you', source='Gmail', event_source='Gmail',
+                                   url='https://x/lead')
         self.assertIsNotNone(row)
-        self.assertEqual(origin_of(tracker.app_props()[0]), 'Inbound')
+        self.assertEqual(origin_of(tracker.created[0]), 'Inbound')
 
     def test_a_pasted_application_made_elsewhere_is_outbound_even_from_linkedin(self):
         tracker = Fake()

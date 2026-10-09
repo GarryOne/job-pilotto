@@ -12,7 +12,7 @@ from src.ai import mail
 from src.notion import ledger
 from src.sources import google as google_api
 from tests import zone
-from tests.mail_fakes import NOW, FakeClient, FakeGoogle, FakeTracker, MailCase, app, content, email, result, text
+from tests.mail_fakes import NOW, FakeClient, FakeGoogle, FakeTracker, MailCase, app, content, email, rec, result, text
 
 setUpModule, tearDownModule = zone.pinned()
 
@@ -170,7 +170,8 @@ class MailMatchTests(MailCase):
             made.append(lead)
             row = app(f'new{len(made)}', '', lead['title'], stage='Screening', via=lead.get('recruiter_company', ''),
                       contact=' · '.join(p for p in (lead.get('recruiter_name'), lead.get('recruiter_email')) if p))
-            return row, ''
+            tracker.apps.append(row)
+            return rec(tracker_, row), ''  # track() answers with the job's store record
         with mock.patch('src.ai.opportunity.extract', side_effect=RuntimeError('no AI in tests')), \
                 mock.patch('src.ai.opportunity.track', track):
             self.run_mail(tracker, FakeGoogle([invite, inmail]), [[
