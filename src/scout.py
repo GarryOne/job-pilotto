@@ -28,7 +28,7 @@ from datetime import timedelta
 from html import escape
 from pathlib import Path
 from . import contribute, employer_index, run_log, scout_core, store, telegram, tgcard
-from .notion import client as notion, cron_runs
+from .notion import client as notion, cron_runs  # noqa: F401 -- notion: tests patch scout.notion (its Tracker)
 from .paths import CONFIG, JOBS_DB, load_search_config
 from .sources import ats, careers, feeds  # noqa: F401 -- `feeds` is also reached as scout.feeds by tests
 from .scout_candidates import harvest, skipped_origins, starter_list
@@ -326,10 +326,11 @@ def report_ai_cost(side):
         Path(target).write_text(json.dumps({'usd': round(usd, 6), 'calls': calls}))
 
 
-def employer_store(tracker=None):
-    """The active store (src/stores open_stores): Notion when the user is on it (the tracker this run already holds), else this Mac's."""
-    from .stores import open_stores
-    return open_stores(tracker=tracker) if tracker else open_stores()
+def employer_store():
+    """The active store, opened as the jobs check opens it (src/store_access.py open_run): Notion through the engine's own client when
+    the user is on it, else this Mac's."""
+    from .store_access import open_run
+    return open_run()
 
 
 def where_of(stores):
@@ -342,21 +343,22 @@ def main():
     parser.add_argument('--batch', type=int, default=DEFAULT_BATCH, help='candidates probed per run')
     parser.add_argument('--budget', type=int, default=0, help='seconds: no new check starts after this; the rest wait for the next run (0 = none)')
     parser.add_argument('--send', action='store_true', help='send the summary to Telegram')
-    parser.add_argument('--log-run', action='store_true', help='log this run to Notion ⏱️ Search runs (the desktop app does)')
+    parser.add_argument('--log-run', action='store_true', help="log this run in the active store's run history (⏱️ Search runs on "
+                                                                 'Notion; the desktop app does)')
     parser.add_argument('--publish-index', action='store_true',
                         help='the central scout: after the run, verify every feed and upload the employer index '
                              '(needs INDEX_PUBLISH_KEY; URL: JOB_PILOTTO_INDEX_URL or the default)')
-    parser.add_argument('--sync-notion', action='store_true',
-                        help='write the employers already checked on this computer that the active store lacks (Employers & Sources '
-                             'in Notion: the app runs it when Notion is connected), then stop')
+    parser.add_argument('--sync-store', '--sync-notion', dest='sync_store', action='store_true',
+                        help='write the employers already checked on this computer that the active store lacks (its employer list; '
+                             'on Notion, Employers & Sources: the app runs it when Notion is connected), then stop')
     parser.add_argument('--export-sources', action='store_true',
                         help='write config/sources.json: the shared starter list of verified public feeds '
                              '(sources.json + the active store\'s active employers with a feed)')
     args = parser.parse_args()
-    if args.sync_notion:
+    if args.sync_store:
         stores = employer_store()
         if not synced_key(stores):
-            print('Employers: Notion is not connected; nothing to write.')
+            print('Employers: no employer list to write to; nothing to write.')
             return 0
         with store.connect(args.db) as db:
             db.executescript(TABLES)
@@ -374,8 +376,7 @@ def main():
     if disabled('scout'):
         print('Source scout is off (JOB_PILOTTO_DISABLE includes scout).')
         return 0
-    tracker = notion.Tracker.from_env()
-    stores = employer_store(tracker)
+    stores = employer_store()
     logged = args.send or args.log_run   # on any store: the row is in the run history wherever the data is
     if logged:
         run_log.auto_begin(stores)  # the scout's run row opens when it starts

@@ -81,5 +81,30 @@ class SyncEmployers(unittest.TestCase):
         self.assertEqual(names(again), ['Rolex'])
 
 
+
+class SyncCommand(unittest.TestCase):
+    def test_sync_store_writes_to_the_active_store_and_sync_notion_is_the_same_command(self):
+        """`src scout --sync-store` (the app runs it under its old name --sync-notion at Notion connect): the active store's employer list,
+        whichever store that is; this Mac's store here."""
+        import io
+        import tempfile
+        from contextlib import redirect_stdout
+        from pathlib import Path
+        from unittest import mock
+        for flag in ('--sync-store', '--sync-notion'):
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / 'jobs.sqlite'
+                source, target = checked_db(), sqlite3.connect(path)
+                source.commit()   # its rows are in an open transaction: a backup of that waits forever
+                source.backup(target)
+                target.close()
+                stores, out = employer_list(), io.StringIO()
+                with mock.patch.object(scout, 'employer_store', return_value=stores), \
+                        mock.patch('sys.argv', ['scout', flag, '--db', str(path)]), redirect_stdout(out):
+                    self.assertEqual(scout.main(), 0)
+                self.assertEqual(names(stores), ['Aldi Suisse', 'Breitling', 'Rolex'], flag)
+                self.assertIn('Employers: 4 written to your employer list', out.getvalue())
+
+
 if __name__ == '__main__':
     unittest.main()
