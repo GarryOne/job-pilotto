@@ -5,6 +5,8 @@ An adapter's own test file subclasses it with `make()` returning a fresh, empty 
         def make(self): return sqlite.open_store({...a temp folder...})
 Spec: docs/superpowers/specs/2026-10-09-store-adapters.md. Not a test file itself (no test_ prefix).
 """
+import inspect
+
 from src.stores import base
 
 JOB = {'url': 'https://jobs.example.com/sre-1', 'title': 'Senior SRE', 'company': 'Acme', 'location': 'Zurich'}
@@ -19,6 +21,19 @@ class StoreContract:
 
     def assertRecord(self, row, fields):
         self.assertEqual(set(row), set(fields), 'a record has exactly its fields')
+
+    def test_every_method_takes_the_interfaces_parameter_names(self):
+        """Callers (and `python -m src.stores call`) pass arguments by name: an adapter must use the same ones."""
+        for entity in ('applications', 'events', 'matches', 'interviews', 'insights', 'employers', 'agent_runs',
+                       'cron_runs', 'texts'):
+            protocol = getattr(base, ''.join(part.title() for part in entity.split('_')))
+            for name, method in vars(protocol).items():
+                if name.startswith('_') or not callable(method):
+                    continue
+                want = [p for p in inspect.signature(method).parameters if p != 'self']
+                have = getattr(getattr(self.s, entity), name, None)
+                self.assertIsNotNone(have, f'{entity}.{name} is missing')
+                self.assertEqual([p for p in inspect.signature(have).parameters], want, f'{entity}.{name}')
 
     # Applications
 
@@ -69,6 +84,32 @@ class StoreContract:
         self.s.applications.delete(row['id'])
         self.assertIsNone(self.s.applications.get(JOB['url']))
         self.assertIsNone(self.s.applications.section(row['id'], 'Kit'))
+
+    def test_sections_and_files_are_listed_for_a_move(self):
+        row = self.s.applications.create(JOB, 'Saved')
+        self.s.applications.set_section(row['id'], 'Kit', 'k')
+        self.s.applications.set_section(row['id'], 'Prep', 'p')
+        self.s.applications.attach(row['id'], 'cv.pdf', b'%PDF', 'application/pdf')
+        self.assertEqual(self.s.applications.sections(row['id']), {'Kit': 'k', 'Prep': 'p'})
+        self.assertEqual(self.s.applications.files(row['id']), [('cv.pdf', b'%PDF', 'application/pdf')])
+
+    def test_put_keeps_a_copied_records_fields_and_dates_under_a_new_id(self):
+        app = self.s.applications.put({**JOB, 'id': 'elsewhere-1', 'stage': 'Applied', 'applied_on': '2026-09-01',
+                                       'created_at': '2026-08-30T10:00:00+00:00'})
+        self.assertNotEqual(app['id'], 'elsewhere-1')
+        self.assertEqual((app['stage'], app['applied_on'], app['created_at'][:10]), ('Applied', '2026-09-01', '2026-08-30'))
+        event = self.s.events.put({'app_id': app['id'], 'kind': 'Applied', 'at': '2026-09-01', 'created_at': '2026-09-01T09:00:00+00:00'})
+        self.assertEqual(self.s.events.list(app_id=app['id'])[0]['created_at'][:10], '2026-09-01')
+        self.assertEqual(event['kind'], 'Applied')
+        run = self.s.cron_runs.put({'kind': 'search', 'where': 'mac', 'status': 'Done', 'started_at': '2026-09-02T08:00:00+00:00',
+                                    'finished_at': '2026-09-02T08:05:00+00:00', 'summary': '2 new jobs', 'progress': []})
+        self.assertEqual((self.s.cron_runs.get(run['id'])['started_at'][:10], run['summary']), ('2026-09-02', '2 new jobs'))
+        for table, values in ((self.s.interviews, {'app_id': app['id'], 'title': 'Call'}),
+                              (self.s.insights, {'day': '2026-09-03', 'category': 'daily', 'title': 'T', 'body': 'b'}),
+                              (self.s.employers, {'name': 'Acme', 'active': True}),
+                              (self.s.agent_runs, {'url': JOB['url'], 'ats': 'workday'})):
+            put = table.put({**values, 'created_at': '2026-09-04T00:00:00+00:00'})
+            self.assertEqual({k: put[k] for k in values}, values)
 
     # Events
 

@@ -36,7 +36,13 @@ class _Table:
             raise KeyError(row_id)
         return self.rows[row_id]
 
-    def update(self, row_id, fields):
+    def put(self, record):
+        values = _known(self.fields, dict(record))
+        row = base.record(self.fields, {**values, 'id': f'm{next(_ids)}', 'created_at': values.get('created_at') or _now()})
+        self.rows[row['id']] = row
+        return dict(row)
+
+    def _update(self, row_id, fields):
         row = self._get(row_id)
         row.update(_known(self.fields, {k: v for k, v in fields.items() if k not in ('id', 'created_at')}))
         return dict(row)
@@ -45,9 +51,12 @@ class _Table:
 class Applications(_Table):
     fields = base.APPLICATION_FIELDS
 
+    def update(self, app_id, fields):
+        return self._update(app_id, fields)
+
     def __init__(self):
         super().__init__()
-        self.sections, self.files = {}, {}
+        self.sections_by_key, self.files_by_key = {}, {}
 
     def list(self, stages=None):
         return [dict(r) for r in self.rows.values() if stages is None or r['stage'] in stages]
@@ -61,7 +70,7 @@ class Applications(_Table):
             return found, base.UNCHANGED
         stamp = {'applied_on': today or _now()[:10]} if stage == 'Applied' and not (found or {}).get('applied_on') else {}
         if found:
-            return self.update(found['id'], {'stage': stage, **stamp}), base.CHANGED
+            return self._update(found['id'], {'stage': stage, **stamp}), base.CHANGED
         return self.create({**job, **stamp}, stage), base.CREATED
 
     def get(self, url):
@@ -71,28 +80,34 @@ class Applications(_Table):
     def create(self, job, stage):
         found = self.get(job.get('url'))
         if found:
-            return self.update(found['id'], {'stage': stage})
+            return self._update(found['id'], {'stage': stage})
         row = _new(self.fields, {**_known(self.fields, job), 'stage': stage})
         self.rows[row['id']] = row
         return dict(row)
 
     def delete(self, app_id):
         self.rows.pop(app_id, None)
-        for store in (self.sections, self.files):
+        for store in (self.sections_by_key, self.files_by_key):
             for key in [k for k in store if k[0] == app_id]:
                 del store[key]
 
     def section(self, app_id, name):
-        return self.sections.get((app_id, name))
+        return self.sections_by_key.get((app_id, name))
 
     def set_section(self, app_id, name, markdown):
         self._get(app_id)
-        self.sections[(app_id, name)] = markdown
+        self.sections_by_key[(app_id, name)] = markdown
 
     def attach(self, app_id, name, data, content_type):
         self._get(app_id)
-        self.files[(app_id, name)] = (bytes(data), content_type)
+        self.files_by_key[(app_id, name)] = (bytes(data), content_type)
         return f'memory:{app_id}/{name}'
+
+    def sections(self, app_id):
+        return {name: md for (row_id, name), md in self.sections_by_key.items() if row_id == app_id}
+
+    def files(self, app_id):
+        return [(name, data, kind) for (row_id, name), (data, kind) in self.files_by_key.items() if row_id == app_id]
 
 
 class Events(_Table):
@@ -151,7 +166,7 @@ class Interviews(_Table):
 
     def save(self, interview_id, fields):
         if interview_id:
-            return self.update(interview_id, fields)
+            return self._update(interview_id, fields)
         row = _new(self.fields, _known(self.fields, fields))
         self.rows[row['id']] = row
         return dict(row)
@@ -172,7 +187,7 @@ class Insights(_Table):
         same = next((r for r in self.rows.values() if r['day'] == day and r['category'] == category), None)
         values = {'day': day, 'category': category, 'title': title, 'body': body, 'fields': dict(fields or {})}
         if same:
-            return self.update(same['id'], values)
+            return self._update(same['id'], values)
         row = _new(self.fields, values)
         self.rows[row['id']] = row
         return dict(row)
@@ -195,6 +210,9 @@ class Employers(_Table):
 
 class AgentRuns(_Table):
     fields = base.AGENT_RUN_FIELDS
+
+    def update(self, run_id, fields):
+        return self._update(run_id, fields)
 
     def add(self, run):
         row = _new(self.fields, _known(self.fields, run))
@@ -219,7 +237,7 @@ class CronRuns(_Table):
         self._get(run_id)['progress'].append(line)
 
     def finish(self, run_id, status, summary='', report='', result='', log=''):
-        return self.update(run_id, {'status': status, 'summary': summary, 'report': report, 'result': result,
+        return self._update(run_id, {'status': status, 'summary': summary, 'report': report, 'result': result,
                                     'log': log, 'finished_at': _now()})
 
     def get(self, run_id):
