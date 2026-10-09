@@ -1,4 +1,4 @@
-/* global document, window */
+/* global window */
 // The one suite on REAL Notion (P7 step 5, spec docs/superpowers/specs/2026-10-09-store-adapters.md): what the in-memory stand-in cannot prove. An app on
 // this Mac's store with real-shaped data (lib/store_seed.py) connects a real test workspace, moves its data there, and the records, the kit, the application
 // record, the interview and the file read back from Notion's own pages; the screens show the same. Nightly release gate only.
@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {DUMMY_KEY} from '../lib/engine.mjs';
 import {call, clearRoot, pageBlocks} from '../lib/notion.mjs';
-import {COMPANIES, sameScreens, screens, seedStore, settingsOf, pressMove, storeMessage, yourData} from '../lib/storemove-steps.mjs';
+import {COMPANIES, sameScreens, screens, seedStore, settingsOf, pressMove} from '../lib/storemove-steps.mjs';
 
 export const name = 'notion-real';
 export const store = 'notion';
