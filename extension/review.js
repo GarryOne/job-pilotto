@@ -85,7 +85,7 @@
       const grouped = ['checkbox', 'radio'].includes(el.type) && el.closest('fieldset');
       const key = grouped ? `group:${question(el)}` : el.type === 'radio' ? `radio:${el.name}` : el;
       const filled = el.type === 'file' ? !!el.files?.length : el.getAttribute('role') === 'combobox' ? comboFilled(el)
-        : ['checkbox', 'radio'].includes(el.type) ? el.checked : !!String(el.value || '').trim();
+        : ['checkbox', 'radio'].includes(el.type) ? el.checked : el.tagName === 'SELECT' ? (o => !!o && !o.disabled && !o.hidden && !!o.text.trim() && !/^(|0|-1)$/.test(o.value))(el.options[el.selectedIndex]) : !!String(el.value || '').trim();
       const entry = groups.get(key) || {el, label: question(el), required: false, filled: false, ai: false, byUs: false};
       entry.required ||= required(el);
       entry.ai ||= el.hasAttribute('data-jobpilotto-ai'); entry.suggested ||= el.dataset.jobpilottoSuggested || ''; entry.guess ||= !!el.dataset.jobpilottoGuess; entry.wants ||= el.dataset.jobpilottoWants || ''; entry.options ||= el.dataset.jobpilottoOptions || '';   // page/propose.js: proposals, reported with what is left (the app's rows)

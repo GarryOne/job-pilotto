@@ -54,7 +54,9 @@
   };
 
   // Every question on the visible page, with the choices it offers. No applicant values.
-  window.__jobPilottoDescribeForm = async () => {
+  // settled: read at the end of a fill (flow.js), when a real choice on the first option is an answer ("Monsieur"); before it, a page's preselected first
+  // option is still asked (the AI answers it: "Célibataire" may be wrong for you).
+  window.__jobPilottoDescribeForm = async (settled = false) => {
     const fields = [];
     const controls = Array.from(document.querySelectorAll('input, textarea, select')).filter(el => visible(el) &&
       !el.disabled && el.getAttribute('aria-hidden') !== 'true' &&
@@ -85,7 +87,7 @@
         const type = el.tagName === 'SELECT' ? 'select' : el.tagName === 'TEXTAREA' ? 'textarea' : el.type || 'text';
         fields.push({field: el.id || el.name, label: labelOf(el), type, required: el.required || el.getAttribute('aria-required') === 'true',
           ...(type === 'select' ? {options: Array.from(el.options).map(o => clean(o.text)).filter(Boolean)} : {}),
-          filled: type === 'select' ? el.selectedIndex > 0 : !!String(el.value || '').trim(), legal: LEGAL.test(labelOf(el))});
+          filled: type === 'select' ? (settled || el.selectedIndex > 0) && (window.__jobPilottoChosen ? window.__jobPilottoChosen(el) : el.selectedIndex > 0) : !!String(el.value || '').trim(), legal: LEGAL.test(labelOf(el))});
       }
     }
     fields.push(...radioOps.ariaFields());   // ARIA radio groups (page/radios.js)

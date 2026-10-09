@@ -67,7 +67,7 @@
     for (const el of area.querySelectorAll(CONTROL)) {
       if (el.matches('input[type=radio], input[type=checkbox]')) { if (el.checked) return true; continue; }
       if (el.matches('input, textarea')) { if (String(el.value || '').trim()) return true; continue; }
-      if (el.matches('select')) { if (el.selectedIndex > 0) return true; continue; }
+      if (el.matches('select')) { if (window.__jobPilottoChosen ? window.__jobPilottoChosen(el) : el.selectedIndex > 0) return true; continue; }   // a real choice (browser-form-fastpath.js)
       if (el.getAttribute('aria-pressed') === 'true' || el.getAttribute('aria-checked') === 'true') return true;
     }
     return !!area.querySelector('[class*=single-value], [class*=multi-value], [aria-selected=true]');
