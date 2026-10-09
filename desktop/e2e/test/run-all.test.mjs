@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {defaultParallel, keychainEnv, pickSuites} from '../run-all.mjs';
+import {defaultParallel, keychainEnv, pickSuites, argProblems} from '../run-all.mjs';
 
 const ALL = ['jobs', 'personas', 'quality', 'settings', 'wizard'], cadence = {personas: 'manual', quality: 'nightly'};
 
@@ -33,4 +33,14 @@ test('run-all runs suites in parallel by default only when each has its own Noti
   assert.equal(defaultParallel(['jobs'], env), 1, 'one suite is just one');
   const ten = 'abcdefghij'.split('');
   assert.equal(defaultParallel(ten, Object.fromEntries(ten.map(x => [`E2E_NOTION_TOKEN_${x.toUpperCase()}`, 'x']))), 4, 'at most four');
+});
+
+test('a bare word is refused, never ignored: a suite name alone does not run every suite', () => {
+  const suites = ['applyflows', 'activity'];
+  assert.deepEqual(argProblems(['applyflows'], suites), ['"applyflows" is not a flag: to run that suite, use --only applyflows']);
+  assert.match(argProblems(['--olny', 'jobs'], suites)[0], /unknown argument "--olny"/);
+  assert.deepEqual(argProblems(['--only'], suites), ['--only needs a value']);
+  assert.deepEqual(argProblems(['--only', '--manual'], suites), ['--only needs a value']);
+  assert.deepEqual(argProblems(['--only', 'applyflows', '--skip', 'activity', '--parallel', '2', '--manual'], suites), []);
+  assert.deepEqual(argProblems([], suites), []);
 });

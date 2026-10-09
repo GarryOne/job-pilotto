@@ -54,11 +54,27 @@ const run = (suite, env, quiet) => new Promise(resolve => {
   child.on('exit', code => resolve({suite, code: code ?? 1, seconds: Math.round((Date.now() - started) / 1000)}));
 });
 
+// -> what is wrong with the command line, or []. Every word must be a known flag or a value-flag's value: a bare word is refused, never ignored
+// (9 Oct 2026: `node run-all.mjs applyflows` ran all 24 suites, each clearing its own Notion test page; a suite's name goes after --only).
+const VALUE_FLAGS = ['--only', '--skip', '--parallel'], PLAIN_FLAGS = ['--manual'];
+export function argProblems(args, suites = []) {
+  const problems = [];
+  for (let at = 0; at < args.length; at++) {
+    const word = args[at];
+    if (PLAIN_FLAGS.includes(word)) continue;
+    if (VALUE_FLAGS.includes(word)) { if (!args[at + 1] || args[at + 1].startsWith('--')) problems.push(`${word} needs a value`); else at++; continue; }
+    problems.push(suites.includes(word) ? `"${word}" is not a flag: to run that suite, use --only ${word}` : `unknown argument "${word}" (known: ${[...VALUE_FLAGS, ...PLAIN_FLAGS].join(', ')})`);
+  }
+  return problems;
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const option = flag => { const at = process.argv.indexOf(flag); return at < 0 ? '' : process.argv[at + 1] || ''; };
   const {SUITES} = await import('./lib/context.mjs');
   const cadence = {};
   for (const suite of SUITES) { const module = await import(`./suites/${suite}.mjs`); if (module.cadence) cadence[suite] = module.cadence; }
+  const wrong = argProblems(process.argv.slice(2), SUITES);
+  if (wrong.length) { console.error(`run-all: ${wrong.join('; ')}`); process.exit(2); }
   let suites;
   try { suites = pickSuites({all: SUITES, cadence, only: option('--only'), skip: option('--skip'), manual: process.argv.includes('--manual')}); } catch (error) { console.error(error.message); process.exit(2); }
   const env = {...process.env, ...keychainEnv(suites)};
