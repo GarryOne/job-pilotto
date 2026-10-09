@@ -7,6 +7,11 @@ import {createAppUpdates} from '../lib/app-updates.js';
 const LATEST = {tag_name: 'desktop-v0.6.15', name: '0.6.15', body: '', html_url: 'https://github.com/x/0.6.15',
   assets: [{name: 'Job-Pilotto-0.6.15-x64.exe', browser_download_url: 'https://dl/0.6.15.exe'}, {name: 'Job-Pilotto-0.6.15-arm64.zip', browser_download_url: 'https://dl/0.6.15.zip'}]};
 
+// The updater offers only Mac and Windows downloads: CI's Linux would get no offer at all (9 Oct 2026, red build d7b907a).
+const realPlatform = Object.getOwnPropertyDescriptor(process, 'platform');
+test.before(() => Object.defineProperty(process, 'platform', {...realPlatform, value: 'win32'}));
+test.after(() => Object.defineProperty(process, 'platform', realPlatform));
+
 function appUpdates(version, settings) {
   const opened = [];
   const updates = createAppUpdates({Menu: {}, dialog: {}, track: () => {}, toWindow: () => {}, getWindow: () => null, getTelemetry: () => null,
