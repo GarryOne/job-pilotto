@@ -23,16 +23,10 @@ ALLOWED = {
     # A check of Notion itself (Settings → doctor, the connection ping and the setup's database check).
     ('src/doctor.py', 'client'): 'the doctor checks the Notion connection when there is one',
     ('src/doctor.py', 'request'): 'the doctor pings users/me',
-    # A client made once, handed to src/store_access.run_stores / open_stores(tracker=): kept only while the active store is Notion
-    # (JOB_PILOTTO_STORE from the app; NOTION_TOKEN alone for Always on and the terminal, D7).
-    ('src/daily.py', 'client'): 'run_stores: the tracker only while the store is Notion (Always on runs here)',
-    ('src/scout.py', 'client'): 'employer_store: the tracker only while the store is Notion',
+    # The one client a run makes (src/store_access.py open_run, used by daily and the scout), handed to run_stores: kept only while
+    # the active store is Notion (JOB_PILOTTO_STORE from the app; NOTION_TOKEN alone for Always on and the terminal, D7).
+    ('src/store_access.py', 'client'): 'open_run: the engine client, kept by run_stores only while the store is Notion',
     ('src/desktop.py', 'client'): 'run_stores / open_stores(tracker=): the app passes JOB_PILOTTO_STORE',
-    ('src/ai/inbox.py', 'client'): 'open_stores(tracker=): the app passes JOB_PILOTTO_STORE',
-    # A request on that tracker, reached only when it is set (the store is Notion).
-    ('src/daily_modes.py', 'request'): "the run's 'Job logged' line reads the Notion page; another store links its record",
-    ('src/daily_helpers.py', 'request'): 'the Notion job finder (Job Matches rows) for a tracker run',
-    ('src/ledger_store.py', 'request'): 'the Notion store serves no matches / agent runs yet: its rows, as before',
 }
 
 
@@ -89,25 +83,19 @@ class OnlyOnTheNotionStoreTest(unittest.TestCase):
         self.tracker = mock.Mock(name='a Notion client')   # any request on it would be recorded
 
     def test_daily_and_desktop_runs_drop_the_client(self):
-        # src/daily.py and src/desktop.py: run_stores; daily_modes / daily_helpers get the tracker it returns.
+        # src/desktop.py and src/store_access.py open_run: run_stores.
         from src.store_access import run_stores
         stores, tracker = run_stores(self.tracker)
         self.assertEqual((stores.name, tracker), ('sqlite', None))
 
-    def test_the_scout_and_the_inbox_open_the_chosen_store(self):
-        from src.scout import employer_store
-        from src.stores import open_stores
-        self.assertEqual(employer_store(self.tracker).name, 'sqlite')        # src/scout.py
-        self.assertEqual(open_stores(tracker=self.tracker).name, 'sqlite')   # src/ai/inbox.py, src/desktop.py (unapply)
+    def test_a_run_opened_from_the_environment_drops_the_client(self):
+        # src/store_access.py open_run (daily, the scout): the engine's client is made when Notion is set up, and dropped on this Mac's store.
+        from src import store_access
+        from src.notion import client as notion
+        with mock.patch.object(notion.Tracker, 'from_env', return_value=self.tracker):
+            stores = store_access.open_run()
+        self.assertEqual(stores.name, 'sqlite')
         self.assertEqual(self.tracker.mock_calls, [])
-
-    def test_the_ledger_fallback_is_only_the_notion_stores(self):
-        # src/ledger_store.py: Job Matches rows and Agent Runs read from Notion only when the store cannot serve them; this Mac's can.
-        from src import ledger_store
-        from src.stores import open_stores
-        stores = open_stores()
-        self.assertIsNone(ledger_store._tracker(stores))
-        self.assertEqual((stores.matches.list(), stores.agent_runs.list()), ([], []))
 
     def test_the_doctor_pings_notion_only_with_a_token(self):
         # src/doctor.py: a check of Notion itself; without a token it says the data stays on this Mac.
