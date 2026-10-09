@@ -2,7 +2,7 @@
 // Moved out of session-needs.js, which calls showFormCard from showFormState. Guarded by test/form-tab-closed.test.js
 // and test/need-proposal.test.js (npm test in desktop/).
 import {el, pill} from '../components.js';
-import {isSubmitted} from '../session-state.js';
+import {accountCardOf, isSubmitted} from '../session-state.js';
 import {KNOCKOUT} from '../knockout.js';
 import {shared} from './shared.js';
 import {$, show} from './core.js';
@@ -64,21 +64,24 @@ function showBefore(item, left, account = false, aiKnockouts = []) {
 const clock = ms => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
 export function showFormCard(item, state) {
   const card = $('ss-form-card');
-  card.hidden = !state?.total || !!state.account || formGone(item);   // Form completion is the application form's, never a sign-in page's
+  card.hidden = !state?.total || formGone(item);
   if (card.hidden) return;
+  // A sign-in or sign-up page is the account step, not the application: its own title, count and what is left for you (never "Ready to submit").
+  const account = accountCardOf(item, state);
+  $('ss-form-title').textContent = account ? account.title : 'Form completion';
   const done = state.total - state.left;
-  $('ss-form-pill').replaceChildren(isSubmitted(item) ? pill('Submitted', 'good', {dot: true})
+  $('ss-form-pill').replaceChildren(account ? pill(account.pill.text, account.pill.tone, {dot: true, title: 'The account step: what the page asks of you before the application form'}) : isSubmitted(item) ? pill('Submitted', 'good', {dot: true})
     : state.ready ? pill('Ready to submit', 'good', {dot: true})
     : state.needs && !state.left ? pill(`Needs you: ${state.needs === '1' ? 'see what the form asks' : state.needs}`, 'warn', {title: 'Every counted field is filled, but the page still asks for something only you can give'})   // the AI's veto (a consent link, a picklist the count cannot see)
     : pill(`${state.left} remaining`, 'warn', {title: `${state.total - state.left} of ${state.total} required fields filled (the ring on the form lists the rest)`}));
   const count = $('ss-form-count');
-  count.replaceChildren(el('b', '', String(done)), el('span', '', ` of ${state.total} required fields`));
+  count.replaceChildren(el('b', '', String(done)), el('span', '', account ? account.count : ` of ${state.total} required fields`));
   $('ss-form-bar').style.width = `${Math.round(100 * done / state.total)}%`;
   card.classList.toggle('is-ready', !!state.ready);
   showBefore(item, state.pending || state.missing || [], !!state.account, state.knockouts || []);
   // An extension older than 0.8.12 sends no filled fields: then only what's left.
   const filled = [...(state.filled || [])].sort((a, b) => a.at - b.at);
-  const left = state.pending || state.missing || [];
+  const left = account ? account.left : state.pending || state.missing || [];
   const start = filled.find(field => field.at)?.at || 0;
   $('ss-form-more').hidden = !filled.length && !left.length;
   const leftCount = Math.max(left.length, state.left);
@@ -95,7 +98,7 @@ export function showFormCard(item, state) {
     return li;
   };
   $('ss-form-fields').replaceChildren(
-    ...left.map(label => row('is-left', '', '○', label)),
+    ...left.map((label, index) => row('is-left', '', '○', label, account && index === 0 && state.needs ? 'for you' : '')),
     ...filled.map(field => row(field.by === 'you' ? 'is-filled is-yours' : 'is-filled', field.at ? clock(Math.max(0, field.at - start)) : '', '✓', field.label,
       field.by === 'you' ? 'you' : '')));
 }

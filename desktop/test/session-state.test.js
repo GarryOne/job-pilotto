@@ -197,3 +197,24 @@ test('the account made for an application shows on its session: "Confirm your em
   assert.equal(sessionStage({stage: 'form', accountState: 'created', accountHost: 'jobs.example.ch'}).text, 'Step 2 of 2 · Account created · Filling the application form');
   assert.equal(sessionStage({stage: 'form'}).text, 'Filling the application form');
 });
+
+import {accountCardOf, accountProgress} from '../renderer/session-state.js';
+test('the account step has its own card: count of its fields, what is left for you first (the AI\'s next press), never "Ready to submit"', () => {
+  const state = {account: true, total: 10, left: 2, needs: 'Solve the check, then press "Créer un compte"', pending: ['Mot de passe'], ready: false};
+  const card = accountCardOf({accountStep: 'sign_up'}, state);
+  assert.deepEqual([card.title, card.done, card.total, card.count], ['Account page', 8, 10, ' of 10 fields filled']);
+  assert.deepEqual(card.left, ['Solve the check, then press "Créer un compte"', 'Mot de passe']);   // the next press first
+  assert.deepEqual(card.pill, {text: 'Needs you: Solve the check, then press "Créer un compte"', tone: 'warn'});
+  assert.equal(accountCardOf({accountStep: 'sign_in'}, state).title, 'Sign-in page');
+  assert.deepEqual(accountCardOf({}, {account: true, total: 3, left: 1, needs: '', missing: ['Email']}).pill, {text: '1 remaining', tone: 'warn'});
+  assert.deepEqual(accountCardOf({}, {account: true, total: 3, left: 0, needs: ''}).pill, {text: 'All fields filled', tone: 'good'});
+  assert.equal(accountCardOf({}, {account: true, total: 2, left: 0, needs: '1'}).left[0], 'See what the page asks');   // the AI said "something", no words
+  assert.equal(accountCardOf({}, {account: false, total: 10, left: 2}), null);   // the application form keeps its own card
+  assert.equal(accountCardOf({}, {account: true, total: 0, left: 0}), null);
+});
+
+test('an account stop says how far its page is instead of "nothing filled yet"; no report yet keeps the old words', () => {
+  assert.equal(accountProgress({account: true, total: 10, left: 2}), '· 8 of 10 filled');
+  assert.equal(accountProgress(undefined), '· nothing filled yet');
+  assert.equal(accountProgress({account: false, total: 10, left: 2}), '· nothing filled yet');
+});

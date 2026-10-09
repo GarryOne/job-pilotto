@@ -119,3 +119,16 @@ export function chromeSilent(item, formsOpen, sinceStart) {
   if (!item || formsOpen?.known || sinceStart <= CHECK_MS || isSubmitted(item) || item.outcome) return false;
   return item.kind === 'form' || ((item.kind || 'claude') === 'claude' && !isLive(item));
 }
+
+// What the card says on a sign-in or sign-up page (owner, 9 Oct 2026: the account step gets its own count, what is left for you and the next press, apart from the application's
+// progress). state: the form page's review state ({account, total, left, needs, pending, missing}); null when this is not an account page with fields.
+export function accountCardOf(item, state) {
+  if (!state?.account || !(state.total > 0)) return null;
+  const need = state.needs === '1' ? 'See what the page asks' : String(state.needs || '').trim();   // the AI's word for the one thing only you can do, e.g. 'Solve the check, then press "Créer un compte"'
+  const done = Math.max(0, state.total - state.left);
+  const left = [...(need ? [need] : []), ...(state.pending || state.missing || [])];
+  return {title: item.accountStep === 'sign_in' ? 'Sign-in page' : 'Account page', done, total: state.total, count: ` of ${state.total} fields filled`, left,
+    pill: need ? {text: `Needs you: ${need}`, tone: 'warn'} : state.left ? {text: `${state.left} remaining`, tone: 'warn'} : {text: 'All fields filled', tone: 'good'}};
+}
+// The short line after the title of an account stop: how far the page is, or nothing was reported yet.
+export const accountProgress = state => (state?.account && state.total > 0 ? `· ${Math.max(0, state.total - state.left)} of ${state.total} filled` : '· nothing filled yet');
