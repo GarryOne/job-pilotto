@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {python} from './python.mjs';
+import {logStoreCall} from './run-logs.mjs';
 
 const REPO = path.resolve(import.meta.dirname, '..', '..', '..');
 const TEXT_FILES = {JOB_PILOTTO_PROFILE_FILE: 'profile.md', JOB_PILOTTO_ANSWERS_FILE: 'answers.md', JOB_PILOTTO_KNOWLEDGE_FILE: 'knowledge.md'};   // desktop/lib/store/text-files.js
@@ -34,13 +35,18 @@ export function storeEnv({profile, token = '', notionUrl = ''}) {
 export function storeCall(ctx, entity, method, kwargs = {}, {profile = ctx.profile} = {}) {
   // Only what Python needs from this shell, then the store's own variables: no token or key from the shell ever reaches the command.
   const shell = Object.fromEntries(['PATH', 'TMPDIR', 'LANG', 'SYSTEMROOT', 'TEMP', 'TMP'].filter(name => process.env[name]).map(name => [name, process.env[name]]));
-  const env = {...shell, PYTHONUTF8: '1', ...storeEnv({profile, token: ctx.store === 'sqlite' ? '' : ctx.token, notionUrl: ctx.appEnv?.JOB_PILOTTO_E2E_NOTION_BASE_URL || ''})};
+  const notionUrl = ctx.appEnv?.JOB_PILOTTO_E2E_NOTION_BASE_URL || '';
+  // The engine's Notion requests go to the profile's notion-requests.log, beside the app's (kept with the artifacts, lib/run-logs.mjs).
+  const env = {...shell, PYTHONUTF8: '1', ...storeEnv({profile, token: ctx.store === 'sqlite' ? '' : ctx.token, notionUrl}), JOB_PILOTTO_NOTION_LOG: path.join(profile, 'logs', 'notion-requests.log')};
+  fs.mkdirSync(path.join(profile, 'logs'), {recursive: true});
+  const said = (ok, error) => logStoreCall(profile, {entity, method, store: ctx.store, notionUrl, ok, error});
   return new Promise((resolve, reject) => {
     execFile(python(), ['-m', 'src.stores', 'call', entity, method, JSON.stringify(kwargs)], {cwd: REPO, env, maxBuffer: 64 * 1024 * 1024, timeout: 120000}, (error, stdout, stderr) => {
       let answer;
       try { answer = stdout.trim() ? JSON.parse(stdout) : null; } catch { answer = undefined; }
-      if (error) return reject(new Error(`store ${entity}.${method}: ${answer?.error || stderr.trim().split('\n').pop() || error.message}`));
-      if (answer === undefined) return reject(new Error(`store ${entity}.${method}: not JSON: ${stdout.slice(0, 200)}`));
+      if (error) { const message = `store ${entity}.${method}: ${answer?.error || stderr.trim().split('\n').pop() || error.message}`; said(false, message); return reject(new Error(message)); }
+      if (answer === undefined) { said(false, 'not JSON'); return reject(new Error(`store ${entity}.${method}: not JSON: ${stdout.slice(0, 200)}`)); }
+      said(true);
       resolve(answer && typeof answer === 'object' && 'result' in answer ? answer.result : answer);   // the command answers {result}
     });
   });

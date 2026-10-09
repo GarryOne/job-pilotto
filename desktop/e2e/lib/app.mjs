@@ -13,6 +13,7 @@ export const DESKTOP = path.resolve(E2E, '..');
 // Windows has no .bin/electron executable (it is a .cmd that Playwright cannot start): the package itself says where electron.exe is. Elsewhere: unchanged.
 import {createRequire} from 'node:module';
 import {appLogText} from './app-log.mjs';
+import {keepRunLogs} from './run-logs.mjs';
 const electronPath = () => {
   if (process.platform !== 'win32') return path.join(DESKTOP, 'node_modules', '.bin', 'electron');
   return createRequire(path.join(DESKTOP, 'package.json'))('electron');
@@ -51,10 +52,10 @@ export async function launch({env = {}, executablePath, args, profile: again, la
   const shot = name => page.screenshot({path: path.join(ARTIFACTS, `${name}.png`)}).catch(() => {});
   // Copy the app's own logs next to the screenshots (the test profile holds only fictional data, and the logs never contain keys), and print the engine's last lines.
   const keepLogs = async () => {
-    const from = path.join(profile, 'logs'), to = path.join(ARTIFACTS, 'logs');
+    const from = path.join(profile, 'logs');
     try {
-      fs.mkdirSync(to, {recursive: true});
-      for (const name of fs.existsSync(from) ? fs.readdirSync(from) : []) fs.copyFileSync(path.join(from, name), path.join(to, name));
+      const counts = keepRunLogs(profile, ARTIFACTS);   // lib/run-logs.mjs: notion-requests.log and store-call.log are always there, empty when nothing was asked
+      console.log(`  logs kept: ${Object.entries(counts).map(([name, lines]) => `${name} ${lines} line(s)`).join(', ')}`);
       const engine = path.join(from, 'engine.log');
       if (fs.existsSync(engine)) console.log(`  --- the engine's last lines ---\n${fs.readFileSync(engine, 'utf8').split('\n').slice(-40).join('\n')}`);
     } catch { /* logs are a help, never a reason to fail */ }
