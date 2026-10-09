@@ -65,6 +65,21 @@ export async function yourData(page) {
   await page.waitForSelector('#export-data', {state: 'visible', timeout: 10000});
 }
 export const storeMessage = page => page.evaluate(() => document.getElementById('store-message')?.textContent.trim() || '');
+// "Move my data to Notion" (Settings → Your data) opens the connect prompt as "Move to Notion" with the move said up front (pages/notion-connect.js);
+// its press runs the move and the result lands in the card's line. A prompt left open by a stopped move is pressed again as it is.
+export async function pressMove(page, {timeout = 180000} = {}) {
+  if (!await page.locator('#notion-connect-dialog').evaluate(dialog => dialog.open)) {
+    await yourData(page);
+    await page.click('#store-move');
+  }
+  await page.waitForSelector('#notion-connect-move', {state: 'visible', timeout: 10000});
+  const label = (await page.textContent('#notion-connect-go')).trim();
+  if (label !== 'Move to Notion') throw new Error(`the move's prompt says "${label}", not "Move to Notion"`);
+  await page.evaluate(() => { document.getElementById('store-message').textContent = ''; });   // a stopped move's line from before must not count
+  await page.click('#notion-connect-go');
+  await page.waitForFunction(() => /Moved to Notion ✓|stopped before the end|Not moved/.test(document.getElementById('store-message')?.textContent || ''), null, {timeout});
+  return storeMessage(page);
+}
 export const settingsOf = profile => JSON.parse(fs.readFileSync(path.join(profile, 'settings.json'), 'utf8'));
 
 // The native dialogs, answered for the person: the next save dialog picks `file`, an "Import and restart?" question answers its second button, and a

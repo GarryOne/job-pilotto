@@ -11,7 +11,7 @@ import {launch} from '../lib/app.mjs';
 import {DUMMY_KEY} from '../lib/engine.mjs';
 import {buildStandIn, startNotionFake} from '../lib/notion-fake.mjs';
 import {NOTION_PROFILE, TEXTS, answerImport, answerSave, copyProcess, fileBlocks, journalOf, pageText, rowsIn, sameScreens, screens, seedStore,
-  afterFirstSearch, logLines, searches, settingsOf, storeMessage, writeProfile, yourData} from '../lib/storemove-steps.mjs';
+  afterFirstSearch, logLines, searches, settingsOf, pressMove, storeMessage, writeProfile, yourData} from '../lib/storemove-steps.mjs';
 
 export const name = 'storemove';
 export const store = 'sqlite';
@@ -35,12 +35,6 @@ async function connect(page, token) {
   await page.reload();
   await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
   return result;
-}
-async function pressMove(page, {timeout = 180000} = {}) {
-  await yourData(page);
-  await page.click('#store-move');
-  await page.waitForFunction(() => { const text = document.getElementById('store-message')?.textContent || ''; return /Moved to Notion ✓|stopped before the end|Not moved/.test(text); }, null, {timeout});
-  return storeMessage(page);
 }
 function noLocalCopies(profile, archive) {
   const left = ['data/tracker.sqlite', 'data/files', 'profile.md', 'answers.md', 'knowledge.md'].filter(name => fs.existsSync(path.join(profile, name)));
