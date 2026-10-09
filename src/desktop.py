@@ -254,33 +254,29 @@ def main(argv=None):
             return 0
         from .notion.client import Tracker
         tracker = Tracker.from_env()
+        if args.command in ('unapply', 'not-submitted'):
+            from .stores import open_stores, rules
+            stores = open_stores(tracker=tracker)  # Notion when connected, else this Mac's store: no gate
         if args.command == 'unapply':
-            if not tracker:
-                print(json.dumps({'ok': False, 'error': 'Notion is not connected.'}))
-                return 0
             try:
-                outcome = tracker.revert_applying(args.url)
+                outcome = rules.revert_applying(stores, args.url)
             except Exception as error:  # noqa: BLE001 — shown to the user; nothing changed
-                print(json.dumps({'ok': False, 'error': f'Notion could not be updated ({type(error).__name__}); nothing changed. Try again.'}))
+                print(json.dumps({'ok': False, 'error': f'Your job tracker could not be updated ({type(error).__name__}); nothing changed. Try again.'}))
                 return 0
             print(json.dumps({'ok': True, 'notion': outcome}))
         if args.command == 'not-submitted':
             # The owner says an Applied was wrong. Only a bare Applied is undone, and its false 📈 event goes with
             # it, so the application's timeline does not keep a submission that never happened (1 Oct 2026).
-            if not tracker:
-                print(json.dumps({'ok': False, 'error': 'Notion is not connected.'}))
-                return 0
-            from .notion.ledger import archive_events
             try:
-                outcome, page = tracker.revert_unsubmitted(args.url)
-                dropped = archive_events(tracker, page, 'Applied') if outcome == 'updated' and page else 0
+                outcome, row = rules.revert_unsubmitted(stores, args.url)
+                dropped = stores.events.archive(row['id'], 'Applied') if outcome == rules.UPDATED and row else 0
             except Exception as error:  # noqa: BLE001 — shown to the user; nothing changed
-                print(json.dumps({'ok': False, 'error': f'Notion could not be updated ({type(error).__name__}); nothing changed. Try again.'}))
+                print(json.dumps({'ok': False, 'error': f'Your job tracker could not be updated ({type(error).__name__}); nothing changed. Try again.'}))
                 return 0
             errors = {'unchanged': 'That job is not at Applied, so there is nothing to undo.',
                       'past': 'That job is past Applied (a confirmation or an interview is recorded), so its stage is not changed here.'}
-            print(json.dumps({'ok': outcome == 'updated', 'notion': outcome, 'events': dropped,
-                              **({} if outcome == 'updated' else {'error': errors[outcome]})}))
+            print(json.dumps({'ok': outcome == rules.UPDATED, 'notion': outcome, 'events': dropped,
+                              **({} if outcome == rules.UPDATED else {'error': errors[outcome]})}))
             return 0
         if args.command == 'calendar':
             print(json.dumps(calendar_jobs(tracker), ensure_ascii=False))
@@ -322,7 +318,8 @@ def main(argv=None):
         elif args.command == 'delete':
             result = delete_job(db, args.url, tracker)
         else:
-            result = set_status(db, args.url, args.status, tracker)
+            from .stores import open_stores
+            result = set_status(db, args.url, args.status, open_stores(tracker=tracker))
     print(json.dumps(result, ensure_ascii=False))
     return 0
 

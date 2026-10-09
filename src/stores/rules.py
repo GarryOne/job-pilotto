@@ -18,10 +18,19 @@ UPDATED = 'updated'
 PAST = 'past'
 
 
+# The applicant tracking system, from the posting's URL (as Tracker._create_row has always stamped it).
+ATS_HOSTS = (('greenhouse', 'Greenhouse'), ('ashbyhq', 'Ashby'), ('lever.co', 'Lever'), ('workable', 'Workable'))
+
+
 def new_job(job):
     """A job's fields for a new row: where it came from (the app sets JOB_PILOTTO_SOURCE; the bot and CI keep
-    Telegram) and Outbound, as every row a person goes after by themselves (src/notion/origin.py)."""
+    Telegram), Outbound, as every row a person goes after by themselves (src/notion/origin.py), the ATS from the
+    URL, and a note when the posting date is only the day it was first seen."""
+    url = job.get('url') or ''
+    ats = next((name for key, name in ATS_HOSTS if key in url), '')
     return {'source': os.getenv('JOB_PILOTTO_SOURCE') or 'Telegram', 'origin': 'Outbound',
+            **({'ats': ats} if ats else {}),
+            **({} if job.get('posted_at') else {'notes': 'Posted date is when Job Pilotto first saw the job.'}),
             **{k: v for k, v in job.items() if k in base.APPLICATION_FIELDS and v not in (None, '')}}
 
 

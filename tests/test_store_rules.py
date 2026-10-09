@@ -59,6 +59,8 @@ class RulesCase:
         with mock.patch.dict(os.environ, {'JOB_PILOTTO_SOURCE': 'Desktop App'}):
             row, _ = rules.mark(self.s, JOB, 'Kit ready')
         self.assertEqual((row['source'], row['origin'], row['company']), ('Desktop App', 'Outbound', 'Acme'))
+        greenhouse, _ = rules.mark(self.s, {'url': 'https://boards.greenhouse.io/acme/jobs/1', 'title': 'SRE', 'posted': '2026-10-01'}, 'Saved')
+        self.assertEqual((greenhouse['ats'], greenhouse['posted']), ('Greenhouse', '2026-10-01'))
 
     def test_applying_goes_back_to_kit_ready_only_from_applying(self):
         self.assertEqual(rules.revert_applying(self.s, JOB['url']), base.UNCHANGED)

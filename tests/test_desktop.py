@@ -6,15 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import desktop, store
-
-
-class FakeTracker:
-    def __init__(self):
-        self.marked = []
-
-    def mark(self, job, stage):
-        self.marked.append((job['url'], job['title'], job['company'], stage))
-        return {}, 'created'
+from src.stores import memory
 
 
 class DesktopTests(unittest.TestCase):
@@ -53,10 +45,11 @@ class DesktopTests(unittest.TestCase):
         # starred first, kit drafted later: the stage stays Saved, Next step shows the kit
         self.assertTrue(desktop.jobs(self.db, stages={'https://x.test/1': ('Saved', '📝 Kit ready: review it, then Apply')})['jobs'][0]['kit'])
 
-    def test_status_is_local_and_reaches_notion_applications(self):
-        tracker = FakeTracker()
-        self.assertEqual(desktop.set_status(self.db, 'https://x.test/1', 'saved', tracker), {'ok': True, 'notion': 'created', 'stage': 'Saved'})
-        self.assertEqual(tracker.marked, [('https://x.test/1', 'Site Reliability Engineer', 'Acme', 'Saved')])
+    def test_status_is_local_and_reaches_the_stores_applications(self):
+        stores = memory.open_store()
+        self.assertEqual(desktop.set_status(self.db, 'https://x.test/1', 'saved', stores), {'ok': True, 'notion': 'created', 'stage': 'Saved'})
+        row = stores.applications.get('https://x.test/1')
+        self.assertEqual((row['title'], row['company'], row['stage']), ('Site Reliability Engineer', 'Acme', 'Saved'))
         self.assertEqual(desktop.jobs(self.db)['jobs'][0]['status'], 'saved')
 
     def test_notion_stage_is_the_truth_and_refreshes_the_local_cache(self):
@@ -70,22 +63,23 @@ class DesktopTests(unittest.TestCase):
                          ['unreviewed', 'unreviewed', 'saved', 'dismissed', 'dismissed', 'applied'])
 
     def test_dismissing_a_job_in_process_closes_it_instead_of_pretending(self):
-        class Stuck:  # Notion's Tracker.mark keeps a real stage against Saved/Dismissed
-            def __init__(self):
-                self.marked = []
-
-            def mark(self, job, stage):
-                self.marked.append(stage)
-                page = {'properties': {'Stage': {'select': {'name': 'Interview scheduled'}}}}
-                return (page, 'unchanged') if stage != 'Closed' else (page, 'updated')
-        tracker = Stuck()
-        result = desktop.set_status(self.db, 'https://x.test/1', 'dismissed', tracker)
-        self.assertEqual((result['ok'], result['stage'], tracker.marked), (True, 'Closed', ['Dismissed', 'Closed']))
+        stores = memory.open_store()  # the store keeps a real stage against Saved/Dismissed (src/stores/rules.py)
+        stores.applications.create({'url': 'https://x.test/1', 'title': 'Site Reliability Engineer'}, 'Interview scheduled')
+        result = desktop.set_status(self.db, 'https://x.test/1', 'dismissed', stores)
+        self.assertEqual((result['ok'], result['stage']), (True, 'Closed'))
+        self.assertEqual(stores.applications.get('https://x.test/1')['stage'], 'Closed')
         self.assertEqual(desktop.jobs(self.db)['jobs'][0]['status'], 'dismissed')
-        # Saved on a job in process is refused, so the screen never shows a change Notion did not take
-        refused = desktop.set_status(self.db, 'https://x.test/1', 'saved', Stuck())
+        # Saved on a job in process is refused, so the screen never shows a change the store did not take
+        stores.applications.set_stage({'url': 'https://x.test/1'}, 'Interview scheduled')
+        refused = desktop.set_status(self.db, 'https://x.test/1', 'saved', stores)
         self.assertFalse(refused['ok'])
         self.assertIn('already in process', refused['error'])
+
+    def test_a_job_only_in_the_store_gets_its_status_there(self):
+        stores = memory.open_store()
+        stores.applications.create({'url': 'https://x.test/elsewhere', 'title': 'SRE', 'company': 'Beta'}, 'Saved')
+        self.assertEqual(desktop.set_status(self.db, 'https://x.test/elsewhere', 'applied', stores)['stage'], 'Applied')
+        self.assertFalse(desktop.set_status(self.db, 'https://x.test/none', 'applied', stores)['ok'])
 
     def test_a_job_kept_only_in_notion_tailors_from_the_description_on_its_page(self):
         url = 'https://www.linkedin.com/messaging/#jp-abc'
@@ -112,13 +106,15 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual((empty['ok'], empty['error']), (False, desktop.NO_POSTING))
         self.assertEqual(desktop.notion_posting(Tracker(long), 'nope'), {'ok': False, 'error': 'job not found'})
 
-    def test_a_status_notion_rejects_changes_nothing(self):
-        class Down:
-            def mark(self, job, stage):
-                raise TimeoutError()
-        result = desktop.set_status(self.db, 'https://x.test/1', 'dismissed', Down())
+    def test_a_status_the_store_rejects_changes_nothing(self):
+        stores = memory.open_store()
+
+        def down(url):
+            raise TimeoutError()
+        stores.applications.get = down
+        result = desktop.set_status(self.db, 'https://x.test/1', 'dismissed', stores)
         self.assertFalse(result['ok'])
-        self.assertIn('Notion could not be updated', result['error'])
+        self.assertIn('could not be updated', result['error'])
         self.assertEqual(desktop.jobs(self.db)['jobs'][0]['status'], 'unreviewed')
 
     def test_without_notion_status_stays_local(self):
