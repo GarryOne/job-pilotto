@@ -113,6 +113,23 @@ class ScheduledRunOnTheStoreTests(unittest.TestCase):
         with mock.patch.object(store_access, 'open_stores', lambda tracker=None: self.stores):
             self.assertEqual(daily_helpers.run_stores(tracker), (self.stores, None))
 
+    def test_the_modes_get_notions_client_exactly_when_the_engine_had_a_tracker(self):
+        """open_run + notion_of (src/store_access.py): the engine's own client on Notion, None on this Mac's store and when
+        Tracker.from_env gave none (no token, Notion switched off), even if the store is Notion anyway."""
+        tracker = object()
+        notion_like = lambda tracker=None: dataclasses.replace(memory.open_store(), name='notion',  # noqa: E731
+                                                               applications=mock.Mock(tracker=tracker or object()))
+        with mock.patch.object(daily.notion.Tracker, 'from_env', return_value=tracker), \
+                mock.patch.object(store_access, 'open_stores', notion_like):
+            self.assertIs(store_access.notion_of(store_access.open_run()), tracker)
+        with mock.patch.object(daily.notion.Tracker, 'from_env', return_value=None), \
+                mock.patch.object(store_access, 'open_stores', notion_like):
+            self.assertIsNone(store_access.notion_of(store_access.open_run()))   # a Notion store, but no engine tracker
+        with mock.patch.object(daily.notion.Tracker, 'from_env', return_value=tracker), \
+                mock.patch.object(store_access, 'open_stores', lambda tracker=None: self.stores):
+            self.assertIsNone(store_access.notion_of(store_access.open_run()))   # this Mac's store
+        self.assertIsNone(store_access.notion_of(None))
+
     def test_the_profile_for_scoring_comes_from_the_store_without_notion(self):
         with mock.patch.object(store_access, 'local_profile', return_value=''):
             self.assertIsNone(daily_helpers.profile_source(self.stores, None))           # nothing to score with: the warning says so

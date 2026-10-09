@@ -1,7 +1,7 @@
 """The jobs check's search itself (modes scheduled, run, today, more): crawl the feeds, import, enrich, score, sync Job Matches and the
-ledger, build the digest, send it to Telegram, save and log the run. `search(args, tracker, stores)` returns the exit code. The data is
-the active store's (src/stores: open once, passed down); `notion` is the tracker only while the store is Notion, for the steps only
-Notion has (the 🎯 Pipeline page), so this Mac's store never gets a copy in Notion.
+ledger, build the digest, send it to Telegram, save and log the run. `search(args, stores)` returns the exit code. The data is the
+active store's (src/stores: open once, passed down); `notion` is Notion's client only while the store is Notion (store_access.notion_of),
+for the steps not on the store yet (each marked BRIDGE), so this Mac's store never gets a copy in Notion.
 Tests: tests/test_daily.py, tests/test_refresh_batch.py, tests/test_search_budget.py, tests/test_places_strict.py, tests/test_place_triage.py,
 tests/test_contribute.py, tests/test_watch.py, tests/test_score.py.
 """
@@ -14,13 +14,16 @@ from . import contribute, coverage, digest, doctor, employer_index, features, le
 from .ai import budget, enrich, insights, interviews, kit, score
 from .notion import client as notion_client, funnel
 from .paths import DATA, REPORTS, load_search_config
+from .store_access import notion_of, open_run
 from .sources import describe, feeds, google_jobs
 from .daily_helpers import (STALE_DAYS, crawl_counts, digest_note, downloaded_index, for_job_matches, left_out, log_crawl, new_cron_run, no_profile,
-                            profile_source, run_stores, save_run, starter_sources, time_budget_on, to_score, top_new, url_stages)
+                            profile_source, save_run, starter_sources, time_budget_on, to_score, top_new, url_stages)
 
 
-def search(args, tracker, stores=None):
-    stores, notion = (stores, tracker if stores.name == 'notion' else None) if stores else run_stores(tracker)
+def search(args, stores=None):
+    stores = stores or open_run()
+    # BRIDGE(mac-4a, mac-ab, mac-88): remove when kit.auto_run, insights.run and the Pipeline page (funnel.write) take the store alone
+    notion = notion_of(stores)
     run = new_cron_run(args.mode)
     spend = None
     if args.mode in ('scheduled', 'run', 'today'):
@@ -250,7 +253,7 @@ def search(args, tracker, stores=None):
         if notion and args.mode == 'scheduled':
             # 🎯 Pipeline page: conversion between funnel steps and the step to improve (no AI).
             try:
-                funnel.write(notion, funnel.funnel(funnel.reached(notion)),
+                funnel.write(notion, funnel.funnel(funnel.reached(stores)),
                              datetime.now(timezone.utc).strftime('%d %b %H:%M UTC'))
             except Exception as error:
                 print(f'Warning: funnel update skipped: {type(error).__name__}: {error}')

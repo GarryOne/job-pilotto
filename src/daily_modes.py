@@ -1,5 +1,6 @@
 """The jobs check's single-purpose modes, one function each (src/daily.py main() picks one): import, apply, prepare, kits, add (a pasted
-message, or a job link), interview, insight/weekly. Each takes the parsed `args` and the Notion `tracker` and returns the exit code.
+message, or a job link), interview, insight/weekly. Each takes the parsed `args` and the run's store and returns the exit code; a step
+whose own lane hasn't moved onto the store yet gets Notion's client from it (store_access.notion_of, each marked BRIDGE).
 Tests: tests/test_inbox.py, tests/test_inbox_confirm.py, tests/test_added.py, tests/test_interviews.py, tests/test_interview_insights.py,
 tests/test_follow_up.py, tests/test_insights.py, tests/test_daily.py.
 """
@@ -11,7 +12,7 @@ from . import import_url, store, telegram
 from .ai import added, cost, inbox, insights, interview_insights, interviews, kit
 from .notion import client as notion, cron_runs, ledger
 from .daily_helpers import KITS_DEFAULT, _job_arg, apply_message, for_job_matches, kits_message, log_ai_run, log_text, new_cron_run, prepare_kit, queue_mail_check
-from .store_access import url_stages
+from .store_access import notion_of, url_stages
 from . import ledger_store
 from .stores import open_stores
 from .daily_helpers import log_store_job
@@ -27,7 +28,8 @@ def _gate(tracker, stores, message, on_store):
         raise SystemExit(message if stores is None or stores.name == 'notion' else
                          message.split(' requires')[0] + ' works only with Notion for now (your data is on this Mac)')
 
-def import_mode(args, tracker, stores=None):
+def import_mode(args, stores=None):
+    tracker = notion_of(stores)  # BRIDGE(import_url): remove when import_url.run and cron_runs.log_job take the store alone
     # A link the search has not found: read it, score it, and add it to Job Matches as Open. Not an application.
     if not args.job:
         raise SystemExit('--mode import requires --job <URL> and NOTION_TOKEN')
@@ -51,7 +53,8 @@ def import_mode(args, tracker, stores=None):
     return 1 if failed else 0
 
 
-def apply_mode(args, tracker, stores=None):
+def apply_mode(args, stores=None):
+    tracker = notion_of(stores)  # BRIDGE(mac-67 item 3): remove when apply_message's Notion branch is the store's (the match record, mac-70)
     if not args.job:
         raise SystemExit('--mode apply requires --job and NOTION_TOKEN')
     _gate(tracker, stores, '--mode apply requires --job and NOTION_TOKEN', on_store=True)
@@ -64,7 +67,8 @@ def apply_mode(args, tracker, stores=None):
     return 0
 
 
-def prepare_mode(args, tracker, stores=None):
+def prepare_mode(args, stores=None):
+    tracker = notion_of(stores)  # BRIDGE(mac-4a): remove when kit.standard_answers takes the store alone
     if not args.job:
         raise SystemExit('--mode prepare requires --job and NOTION_TOKEN')
     _gate(tracker, stores, '--mode prepare requires --job and NOTION_TOKEN', on_store=True)
@@ -82,7 +86,8 @@ def prepare_mode(args, tracker, stores=None):
     return 0
 
 
-def kits_mode(args, tracker, stores=None):
+def kits_mode(args, stores=None):
+    tracker = notion_of(stores)  # BRIDGE(mac-4a): remove when kit.auto_run takes the store alone
     # Prepare top matches (the app's Actions page): kits for the best-scored open jobs that have none yet, from the
     # scores already stored. No crawl, no scoring: the same step a search runs after scoring (auto-kit), on demand.
     _gate(tracker, stores, '--mode kits requires NOTION_TOKEN', on_store=True)
@@ -109,7 +114,8 @@ def kits_mode(args, tracker, stores=None):
     return 0
 
 
-def add_message_mode(args, tracker, stores=None):
+def add_message_mode(args, stores=None):
+    tracker = notion_of(stores)  # BRIDGE(mac-20): remove when inbox.propose/log and added.hook take the store alone
     # A pasted message or screenshot (/add <message>, a forward or photo sent to the bot, the app's Log box):
     # the job it's about is updated, or created (src/ai/inbox.py).
     _gate(tracker, stores, '--mode add requires NOTION_TOKEN', on_store=True)
@@ -171,7 +177,8 @@ def add_message_mode(args, tracker, stores=None):
     return 1 if failed else 0
 
 
-def add_link_mode(args, tracker, stores=None):
+def add_link_mode(args, stores=None):
+    tracker = notion_of(stores)  # BRIDGE(mac-88, mac-4a): remove when ledger.company_for/add_application and added.process take the store alone
     # /add <job URL> [date]: track an application made outside Job Pilotto.
     _gate(tracker, stores, '--mode add requires --job <URL> and NOTION_TOKEN', on_store=True)
     on_store = {} if tracker else {'stores': stores}   # Notion: through the tracker as before; another store: src/ledger_store.py
@@ -218,7 +225,8 @@ def add_link_mode(args, tracker, stores=None):
     return 1 if failed else 0
 
 
-def interview_mode(args, tracker, stores=None):
+def interview_mode(args, stores=None):
+    tracker = notion_of(stores)  # BRIDGE(mac-ab): remove when interviews.run and interview_insights.after_review take the store alone
     from .stores import chosen
     if not tracker and chosen() == 'notion':  # on this Mac's store it runs without Notion
         raise SystemExit('--mode interview requires NOTION_TOKEN')
@@ -263,7 +271,8 @@ def interview_mode(args, tracker, stores=None):
     return 0
 
 
-def insight_mode(args, tracker, stores=None):
+def insight_mode(args, stores=None):
+    tracker = notion_of(stores)  # BRIDGE(mac-ab): remove when insights.run/weekly take the store alone
     from .stores import chosen
     if not tracker and chosen() == 'notion':  # on this Mac's store it runs without Notion
         raise SystemExit(f'--mode {args.mode} requires NOTION_TOKEN')
