@@ -220,7 +220,9 @@ def build(rows, events, interviews=(), *, target=DEFAULT_TARGET, now=None, insig
         first = re.split(r'(?<=[.;])\s', lesson, maxsplit=1)[0].rstrip('.;')
         insight = {'reason': _field(row, 'rejection'), 'headline': _short(first, 220),
                    'detail': f"{_field(row, 'company')} — {_role(row)}", 'lesson': lesson,
-                   'notion_url': row.get('link') or '', 'page_id': row['id']}
+                   'notion_url': row.get('link') or '', 'page_id': row['id'],
+                   # The job, so the app can open its page's Review tab when there is no Notion page (renderer/pages/focus.js renderInsight).
+                   'url': _field(row, 'url'), 'title': _field(row, 'title'), 'company': _field(row, 'company')}
     fresh = [r for r in insights if _field(r, 'day')[:10] >= (now - timedelta(days=7)).date().isoformat()
              and _field(r, 'category') != 'Interview patterns']  # that one is shown on the Interviews page
     if fresh:

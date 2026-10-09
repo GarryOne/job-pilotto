@@ -43,6 +43,11 @@ test('the scanner finds what opens Notion and skips wording and comments', () =>
   const indirect = ['function open(m) {', '  const url = m.job?.notion_url;', '  if (url) window.pilot.openExternal(url);', '}',
     'function other() { const page = run.notionUrl; }', 'function later() { window.pilot.openExternal(run.url); }'].join('\n');
   assert.deepEqual(scanJs('c.js', indirect).map(e => e.key), ['c.js open']);
+  // A control drawn only when a Notion page exists: missing on a store without pages (Focus's "Review rejection", 9 Oct 2026).
+  const gated = ['function renderInsight(insight) {', "  if (insight.notion_url) box.append(focusButton('Review rejection', 'secondary', run));", '}',
+    'function m(job) {', "  if (job.notion_url) menu.push({label: 'Open', run});", '}', 'function v(x) {', "  const kept = x.notion_url && el('span', 'a', 'b');", '}',
+    'function w(job) {', "  const tagged = job.notion_url ? 'Notion' : 'This Mac';", '}'].join('\n');
+  assert.deepEqual(scanJs('g.js', gated).map(e => e.key), ['g.js renderInsight', 'g.js m', 'g.js v'], 'a gated control, not a mere mention');
   const html = '<p>Saved in Notion</p><button id="open-x" class="link">Open answers in Notion</button><a id="y">Elsewhere</a>';
   assert.deepEqual(scanHtml('i.html', html).map(e => e.key), ['i.html#open-x']);
 });

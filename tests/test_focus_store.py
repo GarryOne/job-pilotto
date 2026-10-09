@@ -33,5 +33,14 @@ class FocusOnTheStoreTests(unittest.TestCase):
         self.assertNotIn(threading.get_ident(), threads)
 
 
+    def test_a_rejection_insight_names_its_job(self):
+        """Focus's Insight card opens the job's Review tab when there is no Notion page (renderer/pages/focus.js renderInsight)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            stores = open_stores({'JOB_PILOTTO_STORE': 'sqlite', 'JOB_PILOTTO_DATA_DIR': tmp})
+            app = stores.applications.create({'url': 'https://jobs.test/r', 'title': 'SRE', 'company': 'Acme'}, 'Rejected')
+            stores.applications.update(app['id'], {'rejection': 'Hard skills', 'rejection_lesson': 'Lead with Go. Then SLOs.'})
+            insight = focus.load(stores, target=5, now=datetime.now(timezone.utc), gmail=False)['insight']
+        self.assertEqual((insight['url'], insight['title'], insight['company'], insight['notion_url']), ('https://jobs.test/r', 'SRE', 'Acme', ''))
+
 if __name__ == '__main__':
     unittest.main()

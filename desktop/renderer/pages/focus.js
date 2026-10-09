@@ -7,6 +7,8 @@ import {shared} from './shared.js';
 import {$, savedAgo, show} from './core.js';
 import {openLogFor, showJobsIn} from './jobs.js';
 import {openView} from './nav.js';
+import {openJobPanel} from './job-panel.js';
+import {loadReports} from './reports.js';
 import {openSetting} from './settings.js';
 import {toastMessage} from './startup.js';
 import {openFeedback, saveFeedbackAction} from './feedback.js';
@@ -356,7 +358,11 @@ function renderInsight(insight) {
   body.append(el('div', 'focus-source', insight.reason), el('div', 'focus-headline', insight.headline), el('div', 'muted small focus-detail', insight.detail));
   body.title = insight.lesson || '';
   box.append(round, body);
-  if (insight.notion_url) box.append(focusButton(insight.issue ? 'Review evidence' : insight.report ? 'Open insight' : 'Review rejection', 'secondary', event => openLink(insight.notion_url, event)));
+  // Its Notion page when the store has one (as before); else the same thing in the app: an insight in Reports, a rejection on its job's Review tab.
+  const open = insight.notion_url ? event => openLink(insight.notion_url, event)
+    : insight.report ? () => { openView('reports'); loadReports(insight.reason === 'Weekly report' ? 'weekly' : 'insights'); }
+      : insight.url ? () => { openView('jobs'); openJobPanel({url: insight.url, title: insight.title, company: insight.company}, 'review'); } : null;
+  if (open) box.append(focusButton(insight.issue ? 'Review evidence' : insight.report ? 'Open insight' : 'Review rejection', 'secondary', open));
   $('focus-insight').replaceChildren(box);
 }
 function showInJobs(label, urls) {  // a funnel step's click: those opportunities in the Jobs list
