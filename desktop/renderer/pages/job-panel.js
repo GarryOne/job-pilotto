@@ -106,7 +106,57 @@ function documentsView(documents) {
   }))];
 }
 
+// The Review tab, from Kit's and the interview insights' parts instead of a row per line: "Reviewed by …" muted on top (as Kit's
+// "Drafted by"), the verdict line a callout (as Kit's not-eligible), each section's lines a plain list (no divider under every line),
+// and the to-dos as the interview insights' "Practice next" steps (read-only here: the review is a record).
+const REVIEWED_BY = /^Reviewed by\b/;
+const textOf = line => (typeof line === 'string' ? line : line.text ?? '');
+function reviewSection(title, lines) {
+  const todos = lines.filter(line => line.todo !== undefined && line.todo !== null);
+  if (todos.length) {   // what to improve: the interview insights' steps
+    const block = el('div', 'iv-practice');
+    if (title) block.append(el('h3', '', title));
+    todos.forEach((line, n) => {
+      const row = el('div', `iv-step${line.todo ? ' is-done' : ''}`);
+      const words = el('div', 'iv-row-words');
+      words.append(el('b', '', line.text));
+      const box = Object.assign(el('input', 'iv-step-box'), {type: 'checkbox', checked: !!line.todo, disabled: true});
+      row.append(el('span', 'iv-step-n', String(n + 1)), words, box);
+      block.append(row);
+    });
+    return block;
+  }
+  const box = el('div', 'iv-moments-group');
+  if (title) box.append(el('h3', '', title));
+  const list = el('ul', 'insight-evidence');
+  lines.forEach(line => list.append(line.fold !== undefined ? lineView(line) : el('li', '', textOf(line))));
+  box.append(list);
+  return box;
+}
+
+function reviewView(groups = []) {
+  const parts = [], by = [];
+  groups.forEach((part, index) => {
+    const lines = part.lines.filter(line => !(REVIEWED_BY.test(textOf(line)) && by.push(textOf(line))));
+    let rest = lines;
+    if (!part.title && index === 0 && lines.length) {   // the head: the verdict first
+      parts.push(el('div', 'callout', textOf(lines[0])));
+      rest = lines.slice(1);
+    }
+    // A bold line inside a group is a section's heading ("Evidence", "What to improve next time").
+    let section = {title: part.title, lines: []};
+    const sections = [section];
+    for (const line of rest) {
+      if (line.strong) sections.push(section = {title: textOf(line), lines: []});
+      else section.lines.push(line);
+    }
+    parts.push(...sections.filter(each => each.lines.length).map(each => reviewSection(each.title, each.lines)));
+  });
+  return [...by.map(text => el('p', 'muted small', text)), ...parts];
+}
+
 function body(parts, tab) {
+  if (tab === 'review') return reviewView(parts.groups.review);
   if (tab === 'kit') return [...(parts.kit ? kitView(parts.kit) : []), ...documentsView(parts.documents || [])];
   if (tab === 'messages') return [...(parts.groups.messages || []).map(part => group(part.title, part.lines)), ...shotsView(parts.shots)];
   if (tab === 'history') return historyView(parts.history);
