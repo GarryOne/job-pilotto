@@ -90,9 +90,21 @@ def _fields(run, final):
     return found
 
 
+class BothLogs(RuntimeError):
+    """One process logged its run through both src/run_log.py and src/notion/cron_runs.py (a half-switched caller): two
+    rows, two stop handlers. Raised, never caught: it shows in tests, not as a doubled run in production."""
+
+
+def one_log():
+    from .notion import cron_runs
+    if cron_runs._open.get('id'):
+        raise BothLogs('this process opened its run row with src/notion/cron_runs.py: log it there, or move all of it to run_log')
+
+
 def begin(stores, run):
     """Open the run's row now (Running), so a job in progress shows everywhere; log_run() completes it. Returns its link or
-    store ref, or None (never raises)."""
+    store ref, or None (never raises, but BothLogs)."""
+    one_log()
     capture()
     _install()
     try:
@@ -164,7 +176,9 @@ def finished(run, failed=False):
 
 
 def log_run(stores, run, failed=False):
-    """Complete the row begin() opened for this run (or add one); returns its link or store ref, or None (never raises)."""
+    """Complete the row begin() opened for this run (or add one); returns its link or store ref, or None (never raises,
+    but BothLogs)."""
+    one_log()
     try:
         end = finished(run, failed)
         args = {k: end[k] for k in ('summary', 'report', 'result', 'log', 'stats', 'title')}

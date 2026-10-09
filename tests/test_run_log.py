@@ -100,6 +100,24 @@ class StoreRunTests(Quiet):
         self.assertEqual(row['status'], 'Failed')
 
 
+class OneLogTests(Quiet):
+    def test_a_process_logs_through_run_log_or_cron_runs_never_both(self):
+        stores, run = memory.open_store(), sample_run()
+        cron_runs._open.update(id='old-row', run=run)
+        self.addCleanup(cron_runs._open.clear)
+        with self.assertRaises(run_log.BothLogs):
+            run_log.begin(stores, run)
+        with self.assertRaises(run_log.BothLogs):
+            run_log.log_run(stores, run)
+        cron_runs._open.clear()
+        with redirect_stdout(io.StringIO()):
+            run_log.begin(stores, run)
+        with self.assertRaises(run_log.BothLogs):
+            cron_runs.log_run(OldTracker(), run)
+        with self.assertRaises(run_log.BothLogs), mock.patch.object(cron_runs, 'CRON_RUNS_DATABASE_ID', 'runs-db'):
+            cron_runs.begin(OldTracker(), run)
+
+
 class OldTracker:
     """What cron_runs.log_run writes to Notion today (one new row: properties and children)."""
     def __init__(self):
