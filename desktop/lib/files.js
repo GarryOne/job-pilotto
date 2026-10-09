@@ -18,14 +18,14 @@ export const fingerprint = file => crypto.createHash('sha1').update(fs.readFileS
 // -> the file upload's id, ready to attach. Throws when Notion refuses or the file is too big.
 export async function upload(token, file, name = path.basename(file), fetcher = globalThis.fetch) {
   const data = fs.readFileSync(file);
-  if (data.length > MAX_BYTES) throw new Error(`${name} is ${(data.length / 1e6).toFixed(1)} MB; Notion's free plan takes files up to 5 MB`);
+  if (data.length > MAX_BYTES) throw new Error(`${name} is ${(data.length / 1e6).toFixed(1)} MB; Notion's free plan takes files up to 5 MB`);   // about Notion
   const created = await notion.call(token, 'POST', 'file_uploads', {filename: name, content_type: 'application/pdf'}, fetcher);
   const form = new FormData();
   form.append('file', new Blob([data], {type: 'application/pdf'}), name);
   const response = await fetcher(`${API}file_uploads/${created.id}/send`, {method: 'POST', body: form,
-    headers: {Authorization: `Bearer ${token}`, 'Notion-Version': '2022-06-28'}});
+    headers: {Authorization: `Bearer ${token}`, 'Notion-Version': '2022-06-28'}});   // about Notion
   const sent = await response.json().catch(() => ({}));
-  if (!response.ok || sent.status !== 'uploaded') throw new Error(sent.message || `Notion upload ${response.status}`);
+  if (!response.ok || sent.status !== 'uploaded') throw new Error(sent.message || `Notion upload ${response.status}`);   // about Notion
   return created.id;
 }
 
@@ -59,7 +59,7 @@ export async function syncCv(storage, fetcher) {
   if (!notionInUse(storage)) return {skipped: 'the data is on this Mac'};   // one copy: never into a Notion that is not the store
   if (!token || !profile || !fs.existsSync(file)) return {skipped: 'nothing to upload'};
   const print = fingerprint(file);
-  if (storage.settings().cvInNotion === print) return {skipped: 'already in Notion'};
+  if (storage.settings().cvInNotion === print) return {skipped: 'already in Notion'};   // about Notion
   const caption = await cvToProfile(token, profile, file, storage.settings().cvName || 'CV.pdf', new Date(), fetcher);
   storage.saveSettings({cvInNotion: print});
   return {uploaded: caption};

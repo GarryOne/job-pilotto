@@ -34,3 +34,15 @@ test('store-name.js follows the store for the window-free modules', async () => 
   setWhere('Notion');
   assert.equal(byWhere('in Notion', 'here'), 'in Notion');
 });
+
+// desktop/lib counts too (9 Oct 2026: its errors and dialogs said "Notion could not be updated" on this Mac's store); its helper follows the settings.
+test('desktop/lib is counted, and its byStore follows the store in the settings', async () => {
+  const {count, DIRS} = await import('./store-words-count.js');
+  assert.ok(DIRS.includes('lib') && DIRS.includes('lib/store'));
+  assert.equal(count("return {ok: false, error: 'Notion could not be updated. Try again.'};"), 1, 'a message the window shows');
+  assert.equal(count("import * as notion from './notion.js';   // Notion-only: a goal's own row"), 0, 'a trailing comment is no sentence');
+  const {byStore} = await import('../lib/store/words.js');
+  const on = store => ({settings: () => (store ? {store} : {})});
+  assert.deepEqual([byStore(on(''), 'in Notion', 'here'), byStore(on('notion'), 'in Notion', 'here'), byStore(on('sqlite'), 'in Notion', 'here')],
+    ['in Notion', 'in Notion', 'here']);
+});

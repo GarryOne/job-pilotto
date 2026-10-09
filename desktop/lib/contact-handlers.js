@@ -12,6 +12,7 @@ import {aiClient} from './confirmation.js';
 import {hashOf} from './cv-check.js';
 import {profileTexts} from './strategy-settings.js';
 import {openStore} from './store/index.js';
+import {byStore} from './store/words.js';
 
 // Demo mode: fictional proposals, no AI (the screenshots of the Your details panel).
 const DEMO_PROPOSALS = [{field: 'phone', value: '+44 20 7946 0000', sure: true}, {field: 'location', value: 'London', sure: true},
@@ -44,7 +45,7 @@ export function registerContactHandlers({ipcMain, storage, DEMO, connected, need
     if (DEMO) return {proposals: DEMO_PROPOSALS, fresh: false};
     if (!connected()) return {proposals: [], error: 'notion'};
     const contact = await contactDetails.read(storage).catch(() => null);
-    if (!contact) return {proposals: [], error: 'Couldn\'t read your details from Notion'};
+    if (!contact) return {proposals: [], error: byStore(storage, 'Couldn\'t read your details from Notion', 'Couldn\'t read your details from your Profile')};
     // What you stated beside the CV (Profile, Answers, Knowledge: contact-from-cv.js statedText): the town etc. the CV doesn't give.
     const {profile, answers} = await profileTexts(storage).catch(() => ({profile: '', answers: ''}));
     const knowledge = await openStore(storage).page('knowledge').text().catch(() => '');   // the active store's (lib/store)

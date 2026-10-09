@@ -18,13 +18,13 @@ import {log as appLog} from './log.js';
 
 export function registerSetupHandlers(ctx) {
   const {DEMO, connectNotion, dialog, handleImportant, ipcMain, licenseState, needsNotion, shell, storage, syncCv, getTelemetry, track, trackSetup, getWindow, setNotionFrom} = ctx;
-  handleImportant('notionConnect', 'Connecting Notion', async (_, pasted) => {
+  handleImportant('notionConnect', 'Connecting Notion', async (_, pasted) => {   // about Notion
     const {value: token, error} = cleanSecret(pasted);
     if (error) return {ok: false, error};
     return connectNotion(token);
   });
   // "Connect with Notion": Notion's consent page in the browser, then the same connect as above.
-  handleImportant('notionOAuth', 'Connecting Notion', async (_, options = {}) => {
+  handleImportant('notionOAuth', 'Connecting Notion', async (_, options = {}) => {   // about Notion
     setNotionFrom(typeof options?.from === 'string' ? options.from.slice(0, 40) : 'unknown');  // for the log: wizard, gate:<reason>, settings
     const signedIn = await notionOAuth.connect(url => shell.openExternal(url));
     if (!signedIn.ok) return signedIn;

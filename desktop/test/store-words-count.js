@@ -6,8 +6,9 @@ import path from 'node:path';
 const ABOUT_NOTION = /connect notion|edit in notion|transcript in notion|connect with notion|in notion ↗|open .*in notion|notion ↗|notion's own|notion workspace|notion page links|notion \(|notion:|move (my|your) data to notion|moving your data to notion|moved to notion|your notion already had|needs notion/i;
 export function count(source) {
   let n = 0;
-  for (const line of source.split('\n')) {
-    if (/^\s*\/\//.test(line) || /byStore\(|byWhere\(|\/\/ about Notion/.test(line)) continue;   // byStore(notion, mac): the Notion sentence is said only with Notion
+  for (const raw of source.split('\n')) {
+    if (/^\s*\/\//.test(raw) || /byStore\(|byWhere\(|\/\/ about Notion/.test(raw)) continue;   // byStore(notion, mac): the Notion sentence is said only with Notion
+    const line = raw.replace(/\s\/\/\s.*$/, '');   // a trailing comment is no sentence (its apostrophes would pair with a quote in the code)
     for (const quoted of line.match(/'[^']*Notion[^']*'|`[^`]*Notion[^`]*`|"[^"]*Notion[^"]*"/g) || []) {
       // "Notion" as a word: a quote that only spans code between two strings (`inNotion ? '`, `openInNotion('`) is no sentence.
       if (/(^|[^A-Za-z])Notion/.test(quoted) && !ABOUT_NOTION.test(quoted) && !/NOTION_|notion_url|openNotion|notion\.so/.test(quoted)) n++;
@@ -27,13 +28,16 @@ export function countHtml(source) {
   }
   return n;
 }
-// Every window file and its count (the connect prompt and the helper itself are about Notion).
+// Every window file and every main-process file (desktop/lib: its errors, toasts, dialogs and results reach the window too) and its count.
+// Not counted: the connect prompt, the helpers themselves, and lib's Notion API modules (notion-*.js, schema.js, store/notion.js: about Notion).
+export const DIRS = ['renderer', 'renderer/pages', 'lib', 'lib/store'];
+const ABOUT_NOTION_FILES = /notion-(connect|benefits|connect-rules)\.js$|store-(words|name)\.js$|^lib\/(notion-[a-z-]+|notion|schema|store\/notion|store\/words)\.js$/;
 export function counts(desktop) {
   const out = {};
-  for (const dir of ['renderer', 'renderer/pages']) {
+  for (const dir of DIRS) {
     for (const name of fs.readdirSync(path.join(desktop, dir)).filter(each => each.endsWith('.js'))) {
       const file = `${dir}/${name}`;
-      if (/notion-(connect|benefits|connect-rules)\.js$|store-(words|name)\.js$/.test(file)) continue;
+      if (ABOUT_NOTION_FILES.test(file)) continue;
       const n = count(fs.readFileSync(path.join(desktop, file), 'utf8'));
       if (n) out[file] = n;
     }

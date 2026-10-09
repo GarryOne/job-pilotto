@@ -34,7 +34,7 @@ test('a search, waiting tasks and sessions together: one line each, then the thr
 test('removing a session whose job is still Applying asks whether it was submitted, both answers explained', () => {
   const dialog = submitted('N26');
   assert.equal(dialog.message, 'Did you submit the application to N26?');
-  assert.match(dialog.detail, /Yes: it is marked Applied in Notion\.\nNo: it goes back to Kit ready/);
+  assert.match(dialog.detail, /Yes: it is marked Applied\.\nNo: it goes back to Kit ready/);   // on every store
   assert.deepEqual(dialog.buttons, ['Yes, I submitted it', 'No, not submitted', 'Cancel']);
 });
 

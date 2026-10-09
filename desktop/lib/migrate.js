@@ -77,7 +77,7 @@ export const STEPS = [
     const db = storage.settings().notionIds?.NOTION_EMPLOYERS_DB;
     if (!db || storage.settings().employersSyncedTo === db) return false;
     const {code, stdout = ''} = await run(storage, ['src', 'scout', '--sync-notion']);
-    if (code !== 0) throw new Error('could not write the employers to Notion');
+    if (code !== 0) throw new Error('could not write the employers to Notion');   // about Notion
     storage.saveSettings({employersSyncedTo: db});
     return !/^Employers: 0 written/m.test(stdout);
   }},
@@ -205,7 +205,7 @@ export async function run(storage, onLine = () => {}, steps = STEPS, fetcher) {
     try {
       if (await step.run(storage, fetcher)) moved.push(step.name);
     } catch (error) {
-      onLine(`Moving ${step.name} to Notion failed (will retry next start): ${error.message}`);
+      onLine(`Moving ${step.name} to Notion failed (will retry next start): ${error.message}`);   // about Notion
     }
   }
   if (moved.length) onLine(`Moved to Notion: ${moved.join(', ')}.`);

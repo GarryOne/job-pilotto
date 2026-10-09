@@ -29,7 +29,7 @@ export function registerSystemHandlers(ctx) {
       message: freshNotion ? 'Reset Job Pilotto and start a fresh Notion workspace?' : 'Reset Job Pilotto on this computer?',
       detail: `Your keys, CV, tailored CVs, recordings, interview drafts, job list and settings on this computer ${backup
         ? 'are moved to a backup folder' : 'are deleted for good'}, and Job Pilotto restarts at the setup. ${freshNotion
-        ? 'Your Job Pilotto page in Notion is renamed "… (archived)" and kept as it is; the setup then builds a new workspace in a new empty page.'
+        ? 'Your Job Pilotto page in Notion is renamed "… (archived)" and kept as it is; the setup then builds a new workspace in a new empty page.'   // about Notion
         : 'Your Notion workspace, Gmail sign-in and GitHub repo are not changed.'}`});
     if (answer !== 1) return {ok: false};
     let archived = null;

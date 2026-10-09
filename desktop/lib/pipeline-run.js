@@ -103,7 +103,7 @@ export function run(storage, args, onLine = () => {}, extraEnv = {}, {stopAfterM
       if ((timedOut || exitCode === null) && rowUrl) {
         const reason = timedOut ? stoppedReason(timedOut) : 'Stopped before it finished. What it saved is kept; the next run continues.';
         const closed = await (await import('./run-history.js')).closeStopped(storage, rowUrl, reason).catch(() => false);
-        appLog('run', `its Notion row ${closed ? 'was closed as Failed' : 'was already closed'}`, {run_id: runId});
+        appLog('run', `its run row ${closed ? 'was closed as Failed' : 'was already closed'}`, {run_id: runId});
       }
       resolve({code, stdout, result, runId, timedOut});
     });

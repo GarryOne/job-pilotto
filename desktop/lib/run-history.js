@@ -82,7 +82,7 @@ export function localRow(run, name = kind => kind) {
   const lines = (run.log || []).slice(-LOG_LINES);
   const message = String(run.message || '').split('\n').filter(line => line.trim()).slice(0, 40);
   const children = [block('heading_3', 'Report'), block('bulleted_list_item', summary),
-    block('paragraph', 'Run on this Mac before this database had it (Notion not yet connected, or its row could not be written); copied from the app.'),
+    block('paragraph', 'Run on this Mac before this database had it (Notion not yet connected, or its row could not be written); copied from the app.'),   // about Notion
     ...(message.length ? [block('heading_3', 'Result'), ...message.map(line => block('paragraph', line))] : []),
     ...(lines.length ? [{object: 'block', type: 'toggle', toggle: {...rich(`Technical log (last ${lines.length} lines)`),
       children: Array.from({length: Math.ceil(lines.length / 25)}, (_, i) => ({object: 'block', type: 'code',

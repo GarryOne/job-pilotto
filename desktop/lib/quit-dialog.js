@@ -2,7 +2,7 @@
 export function submitted(company) {
   return {
     message: `Did you submit the application to ${company || 'this company'}?`,
-    detail: 'Yes: it is marked Applied in Notion.\nNo: it goes back to Kit ready, so it doesn\'t stay stuck as Applying.\n\nYou can change it later in Jobs.',
+    detail: 'Yes: it is marked Applied.\nNo: it goes back to Kit ready, so it doesn\'t stay stuck as Applying.\n\nYou can change it later in Jobs.',
     buttons: ['Yes, I submitted it', 'No, not submitted', 'Cancel'],
   };
 }
@@ -58,7 +58,7 @@ export function working({busy = null, queue = [], sessions = [], important = [],
   return {
     message: 'Job Pilotto is still working',
     detail: `${lines.join('\n')}\n\nQuit when done: closes by itself once these finish.\n` +
-      `Quit now: stops them, and the jobs you started run again next time. What's saved stays in Notion.` +
+      `Quit now: stops them, and the jobs you started run again next time. What's saved stays saved.` +
       (sessions.length ? `\n\n${AFTER}` : ''),
     buttons: ['Quit when done', 'Quit now', 'Cancel'],
   };

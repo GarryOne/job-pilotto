@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {log as appLog} from './log.js';
 import * as pipeline from './pipeline.js';
+import {byStore} from './store/words.js';
 
 export const AUDIO = ['webm', 'm4a', 'mp3', 'wav', 'ogg', 'oga', 'opus', 'mp4', 'mov', 'aac', 'flac', 'aiff', 'mkv'];
 export const TEXT = ['txt', 'md', 'srt', 'vtt', 'text'];
@@ -194,7 +195,7 @@ async function notionCall(storage, args, run) {
   const lines = [];
   const {stdout} = await run(storage, ['src.ai.interviews', ...args], line => lines.push(line));
   try { return JSON.parse(String(stdout).trim().split('\n').pop()); } catch {
-    return {ok: false, error: lines.filter(Boolean).pop() || 'Notion could not be reached'};
+    return {ok: false, error: lines.filter(Boolean).pop() || byStore(storage, 'Notion could not be reached', 'The interview could not be read or saved')};
   }
 }
 

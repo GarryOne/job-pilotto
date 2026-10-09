@@ -42,7 +42,7 @@ export function createUpdateChannel(ctx) {
     if (stable?.error) return {ok: false, text: `Couldn't reach GitHub: ${stable.error.message}`};
     if (!stable?.ahead) return {ok: false, text: 'You are not ahead of the stable version.'};
     const {response} = await dialog.showMessageBox(parentWindow(), {type: 'question', message: `Go back to stable ${stable.version}?`, buttons: ['Go back to stable', 'Cancel'], defaultId: 0, cancelId: 1,
-      detail: `You have ${app.getVersion()}. The app closes, installs the stable version and opens again. Your jobs and answers are in Notion and stay as they are. The beta is switched off; you can join again any time.`});
+      detail: `You have ${app.getVersion()}. The app closes, installs the stable version and opens again. Your jobs and answers stay as they are. The beta is switched off; you can join again any time.`});
     if (response !== 0) return {ok: false, cancelled: true};
     storage.saveSettings({betaChannel: false, testChannel: false});
     onChange();

@@ -21,7 +21,7 @@ export function registerStoreHandlers({ipcMain, storage, DEMO, log, choice = STO
   ipcMain.handle('keepOnThisMac', () => {
     if (!choice) return {ok: false, error: 'Choosing where your data lives is not available yet.'};
     if (DEMO) return {ok: true, store: storeState(storage, {choice})};
-    if (!store.trying(storage)) return {ok: false, error: 'Your data already has a home: it can only move to Notion.'};
+    if (!store.trying(storage)) return {ok: false, error: 'Your data already has a home: it can only move to Notion.'};   // about Notion
     storage.saveSettings({store: 'sqlite'});
     log('store', 'chosen', {store: 'sqlite', from: 'trying'});
     return {ok: true, store: storeState(storage, {choice})};

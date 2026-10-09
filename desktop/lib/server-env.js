@@ -110,7 +110,7 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
       // button's own end, without pressing anything.
       submitted(job.url);
       appliedHook({how: 'extension'});
-      const where = notionGate.notionInUse(storage) ? 'in your Notion' : 'in Job Pilotto';
+      const where = notionGate.notionInUse(storage) ? 'in your Notion' : 'in Job Pilotto';   // about Notion
       notify('Marked Applied ✓', `${jobName(job)}. Saved ${where}.`, {view: 'jobs', job: job.code || job.url});
       return {ok: true, message: `Marked Applied ${where}.`};
     },
@@ -172,7 +172,7 @@ async function learnFromRun(storage, run, job) {
   if (!notes.length) return;
   await knowledge.add(storage, notes);
   proposalReporter(learn.proposalsOf(notes));  // label wording + profile field only, counted by the site (3+ people) before it is even a candidate
-  notify('Learned from this form', `${notes.length} note${notes.length > 1 ? 's' : ''} saved in ${notionGate.notionInUse(storage) ? 'your Notion → Form knowledge' : 'your form knowledge'} (${job?.company || 'this form'}, $${usd.toFixed(3)}). Only you can see them.`);
+  notify('Learned from this form', `${notes.length} note${notes.length > 1 ? 's' : ''} saved in ${notionGate.notionInUse(storage) ? 'your Notion → Form knowledge' : 'your form knowledge'} (${job?.company || 'this form'}, $${usd.toFixed(3)}). Only you can see them.`);   // about Notion
 }
 
 // A note that has left its field empty three fills in a row is not working: drop it from the Notion page and let the field be studied again.

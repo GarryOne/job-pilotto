@@ -9,6 +9,7 @@ import * as contactDetails from './contact.js';
 import {log} from './log.js';
 import {choicesFor} from './menu-choices.js';
 import {isTwin} from './twin.js';
+import {byStore} from './store/words.js';
 export const withholdFiles = (storage, env = process.env) => isTwin(env) && fs.existsSync(storage.path('twin-no-files'));
 
 // The user's details live in the app (Settings → Your details, filled from the CV by the strategy draft);
@@ -21,10 +22,10 @@ async function readContact(storage) {
   try {
     const contact = await contactDetails.read(storage);
     if (Object.keys(contact).length) { lastContact = contact; viewCache.remember(storage, 'contact', {contact}); }
-    return {contact, contactSource: 'notion', contactError: Object.keys(contact).length ? null : 'the 📇 Contact details section of your Notion Profile is empty'};
+    return {contact, contactSource: 'notion', contactError: Object.keys(contact).length ? null : 'the 📇 Contact details section of your Profile is empty'};
   } catch (error) {
     const kept = lastContact || viewCache.recall(storage, 'contact')?.result?.contact || null;
-    return {contact: kept || {}, contactSource: kept ? 'last read (Notion failed)' : 'none', contactError: `Notion: ${error.message}`};
+    return {contact: kept || {}, contactSource: kept ? byStore(storage, 'last read (Notion failed)', 'last read') : 'none', contactError: byStore(storage, `Notion: ${error.message}`, error.message)};
   }
 }
 // Answered at once from the last good read kept on this Mac (view-cache), refreshed from Notion in the background once
