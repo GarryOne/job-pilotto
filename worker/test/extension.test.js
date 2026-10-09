@@ -161,7 +161,7 @@ test('AI answers: profile and answers from Notion, one Claude call, only known f
   // The log line: why answers were dropped, in counts and ids, never an answer or the profile's text (8 Oct 2026: Coop got 0 back, untraceable).
   const { ms, engine, provider, billing, model, ...trace } = traces[0];
   assert.deepEqual([engine, provider], ['api', 'anthropic']);   // a client with no .engine is the raw Anthropic SDK
-  assert.deepEqual(trace, { fields: 2, returned: 3, kept: 1, unknownIds: ['invented'], empty: 1, profileChars: 13, answersChars: trace.answersChars, kit: true, stop: 'end_turn', proposed: 0 });
+  assert.deepEqual(trace, { fields: 2, returned: 3, kept: 1, unknownIds: ['invented'], empty: 1, profileChars: 13, answersChars: trace.answersChars, kit: true, stop: 'end_turn', proposed: 0, floored: [], categories: {} });
   assert.ok(trace.answersChars > 0 && Number.isInteger(ms));
   assert.ok(!JSON.stringify(traces).includes('1 month') && !JSON.stringify(traces).includes('B permit'));
   assert.equal(result.eligible, true);
@@ -260,13 +260,14 @@ test("a fill's per-field outcomes pass the log boundary as short rows of wording
   assert.equal(kept[1].reason.length, 80);
 });
 
-test('a likely answer the profile does not state comes back as a proposal (a knockout one too, to be checked); never for a legal or demographic question', async () => {
+test('a likely answer the profile does not state comes back as a proposal (a knockout one too, to be checked); a preference too (an SMS opt-in); never for a legal or demographic question', async () => {
   const { answerForm } = await import('../src/extension.js');
   const answers = [
     { field: 'hours', value: 'Oui', confidence: 'medium', note: 'applying to this 50% role', category: 'normal', use: 'propose' },
     { field: 'visa', value: 'Yes', confidence: 'low', note: '', category: 'knockout', use: 'propose' },
     { field: 'gender', value: 'Female', confidence: 'low', note: '', category: 'demographic', use: 'propose' },
     { field: 'terms', value: 'checked', confidence: 'low', note: '', category: 'legal', use: 'propose' },
+    { field: 'sms', value: 'Non', confidence: 'low', note: 'a notification choice', category: 'preference', use: 'propose' },
     { field: 'email', value: 'ada@example.com', confidence: 'high', note: '', category: 'contact', use: 'fill' },
   ];
   const client = { messages: { create: async () => ({ stop_reason: 'end_turn', usage: { billing: 'subscription' },
@@ -275,8 +276,10 @@ test('a likely answer the profile does not state comes back as a proposal (a kno
   const fields = answers.map((a) => ({ field: a.field, label: a.field, type: 'text' }));
   const result = await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t) },
     { url: 'https://forms.example.com/apply', fields, page_text: '50% contract' }, client);
-  assert.deepEqual(result.answers.map((a) => [a.field, a.use]), [['hours', 'propose'], ['visa', 'propose'], ['email', 'fill']]);
-  assert.equal(traces[0].proposed, 2);
+  assert.deepEqual(result.answers.map((a) => [a.field, a.use]), [['hours', 'propose'], ['visa', 'propose'], ['sms', 'propose'], ['email', 'fill']]);
+  assert.equal(traces[0].proposed, 3);
+  assert.deepEqual(traces[0].floored, ['demographic', 'legal']);   // the log says what the floor took out (9 Oct 2026: Coop's SMS opt-in, no trace)
+  assert.equal(traces[0].categories.preference, 1);
 });
 
 test('the log says which engine answered the form (Codex here), never only "the AI"', async () => {

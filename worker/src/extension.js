@@ -130,7 +130,7 @@ const ANSWER_SCHEMA = {
           value: { type: 'string' },
           confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
           note: { type: 'string' },
-          category: { type: 'string', enum: ['knockout', 'legal', 'demographic', 'contact', 'normal'] },
+          category: { type: 'string', enum: ['knockout', 'legal', 'demographic', 'contact', 'preference', 'normal'] },
           use: { type: 'string', enum: ['fill', 'propose'] },
         },
       },
@@ -147,7 +147,7 @@ For each form field you are given its id, label, type, whether it is required, a
 - combobox: its options are often not listed (the menu is closed); give the option wording the form most likely uses ("Yes", "No", a country or city name). When options are listed, copy one exactly.
 - checkbox: "checked" or "unchecked".
 use: "fill" when <profile>, <standard_answers> or the drafted kit state the answer: it is typed into the form. When they don't state it, still give your most plausible answer for this applicant and this job, with use: "propose": the applicant sees it as a suggestion and confirms it; it is never typed for them. Base it on what is stated (their country, their CV, that they chose to apply to this job) and on what the posting expects (its hours, place, duties). Leave a field out (no answer) when nothing given points to an answer: never invent employers, dates, numbers, links or personal details. Leave out legal consents and acknowledgements, and never propose an answer to a demographic question or to a fact only the applicant can know (a criminal record, a registration with an office, their health). Voluntary demographic questions (gender, ethnicity, veteran, disability) are answered only from <standard_answers>; otherwise choose the "decline to answer" option if there is one.
-category, in whatever language the form is: knockout = a question the employer can reject on by itself (work authorisation, visa or sponsorship, location, relocation, on-site days, a required licence or language); legal = a consent, terms, privacy notice, certification or acknowledgement; demographic = gender, ethnicity, disability, veteran or similar voluntary questions; contact = name, email, phone, address; normal = anything else.
+category, in whatever language the form is: knockout = a question the employer can reject on by itself (work authorisation, visa or sponsorship, location, relocation, on-site days, a required licence or language); legal = a consent, terms, privacy notice, certification or acknowledgement; demographic = gender, ethnicity, disability, veteran or similar voluntary questions; contact = name, email, phone, address; preference = whether and how the applicant is kept informed (notifications by SMS or email, job alerts, a newsletter, a talent pool): a choice, not a legal consent, so give it your most plausible answer with use: "propose"; normal = anything else.
 confidence: high when the answer is stated in the profile or standard answers, medium when you inferred it, low when the applicant should check it. note: a few words on why, for medium and low.
 
 Eligibility: set eligible to false only when the posting clearly rules the applicant out (a work location, residence or authorization the profile says they can't meet, or a required language they don't speak), and say why in eligibility_note. Otherwise eligible is true and eligibility_note is empty.`;
@@ -203,7 +203,9 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   const known = new Set(fields.map((f) => f.field));
   // A proposal is never for a legal or demographic question, whatever the AI said (a hard floor beside its own rule). A knockout question
   // (residence, hours, availability) gets its most plausible answer, shown as "check it" and never typed: the owner confirms each (9 Oct 2026). Proposals are shown in the app, never typed (extension/flow.js).
-  const raw = (Array.isArray(result.answers) ? result.answers : []).filter((a) => a.use !== 'propose' || !['legal', 'demographic'].includes(a.category));
+  const all = Array.isArray(result.answers) ? result.answers : [];
+  const floored = (a) => a.use === 'propose' && ['legal', 'demographic'].includes(a.category);
+  const raw = all.filter((a) => !floored(a));
   // What this call did, in counts and field ids (never an answer or the profile's text): with 0 answers it tells "nothing to go on"
   // (an empty profile) from "answered, but under other ids" from "answered nothing" (8 Oct 2026: Coop, 11 fields sent, 0 back, no trace).
   await env.onAnswer?.({ fields: fields.length, returned: raw.length, kept: raw.filter((a) => known.has(a.field) && a.value !== '').length,
@@ -214,7 +216,10 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
     // Who answered (9 Oct 2026: "The AI answered" could not say whether Codex or Claude did): the adapter's engine, the provider and billing
     // of its usage, the model that replied. The raw Anthropic SDK (the Cloudflare deploy) has no .engine: 'api'.
     engine: anthropic.engine || 'api', provider: response.usage?.provider || 'anthropic', billing: response.usage?.billing || 'api',
-    model: String(response.model || '').slice(0, 40) });
+    model: String(response.model || '').slice(0, 40),
+    // A proposal the floor took out, by category (9 Oct 2026: a Coop SMS opt-in got no proposal, and the log could not say whether the AI left it or the floor did).
+    floored: all.filter(floored).map((a) => a.category),
+    categories: Object.fromEntries(['knockout', 'legal', 'demographic', 'contact', 'preference', 'normal'].map((c) => [c, all.filter((a) => a.category === c).length]).filter(([, n]) => n)) });
   return {
     job: row ? summary(row) : null,
     eligible: result.eligible, eligibility_note: result.eligibility_note,
