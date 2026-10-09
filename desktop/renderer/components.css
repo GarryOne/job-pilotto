@@ -612,7 +612,7 @@ b.count-down, span.count-down { display: inline-block; animation: count-pop-down
 
 /* A row of toggle chips that narrow a list (Jobs → saved views): pressed = on, a count beside each label. */
 .chip-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-2) 0; }
-.chip-button { display: inline-flex; align-items: center; gap: var(--sp-2); border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+.chip-button { display: inline-flex; align-items: center; min-height: var(--control-h); gap: var(--sp-2); border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
   border-radius: var(--r-pill); padding: 2px var(--sp-3); font-size: var(--fs-sm); font-weight: 500; cursor: pointer; }
 .chip-button:hover { background: var(--surface-2); }
 .chip-button[aria-pressed="true"] { background: var(--signal-soft); border-color: var(--signal); color: var(--signal-ink); font-weight: 600; }

@@ -404,9 +404,9 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .search-box { flex: 1; }
 .search-box .icon, .sort-box .icon { position: absolute; left: 11px; color: var(--muted); pointer-events: none; }
 .toolbar input, .toolbar select { font-size: var(--fs-md); }
-.search-box input { padding: 7px 10px 7px 34px; border-color: var(--line); border-radius: var(--r-md); }
+.search-box input { min-height: var(--control-h); padding: 7px 10px 7px 34px; border-color: var(--line); border-radius: var(--r-md); }
 .sort-box select { padding-left: 32px; }
-.toolbar select { width: 150px; padding-top: 7px; padding-bottom: 7px; border-color: var(--line); border-radius: var(--r-md); }
+.toolbar select { min-height: var(--control-h); width: 150px; padding-top: 7px; padding-bottom: 7px; border-color: var(--line); border-radius: var(--r-md); }
 
 /* Count and density switch */
 .list-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
