@@ -1,0 +1,49 @@
+// The suites' one way to the person's data (lib/store-call.mjs): the engine's own store command, on this Mac's store and on Notion (the stand-in), with the same calls.
+// Runs the real engine (python3 with the repo's requirements); no Notion but the local stand-in, no key.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {test} from 'node:test';
+import {buildStandIn, startNotionFake} from '../lib/notion-fake.mjs';
+import {storeCall, storeEnv} from '../lib/store-call.mjs';
+
+const profileWith = settings => {
+  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-store-call-'));
+  fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify(settings));
+  return profile;
+};
+const JOB = {url: 'https://boards.e2e.test/job/store-call-1', title: 'Senior Site Reliability Engineer', company: 'E2E Seam AG', location: 'Zurich, Switzerland'};
+
+// The same round trip on a store: a job saved, then found in the list, its kit section written and read back.
+async function roundTrip(ctx) {
+  const made = await storeCall(ctx, 'applications', 'create', {job: JOB, stage: 'Saved'});
+  assert.ok(made?.id, `create answered ${JSON.stringify(made)}`);
+  const listed = await storeCall(ctx, 'applications', 'list', {});
+  assert.deepEqual(listed.filter(item => item.url === JOB.url).map(item => [item.title, item.stage]), [[JOB.title, 'Saved']]);
+  await storeCall(ctx, 'applications', 'set_section', {app_id: made.id, name: '🧾 Job description', markdown: 'Run production on Kubernetes.'});
+  assert.match(await storeCall(ctx, 'applications', 'section', {app_id: made.id, name: '🧾 Job description'}), /Kubernetes/);
+}
+
+test('this Mac\'s store: the engine\'s store, in the profile\'s data folder, with no Notion at all', async () => {
+  const profile = profileWith({store: 'sqlite'});
+  const env = storeEnv({profile});
+  assert.equal(env.JOB_PILOTTO_STORE, 'sqlite');
+  assert.equal(env.NOTION_TOKEN, undefined);
+  await roundTrip({profile, store: 'sqlite', token: ''});
+  assert.ok(fs.readdirSync(path.join(profile, 'data')).some(name => name.endsWith('.sqlite')), 'the data is in the profile\'s own data folder');
+});
+
+test('Notion (the stand-in): the same calls, with the run\'s token and the workspace the app connected to', async () => {
+  const fake = await startNotionFake();
+  try {
+    const ids = await buildStandIn(fake);
+    const profile = profileWith({notionIds: ids});
+    await roundTrip({profile, store: 'standin', token: fake.token, appEnv: {JOB_PILOTTO_E2E_NOTION_BASE_URL: fake.url}});
+    assert.equal(fake.dump().find(item => item.title === 'Job Tracker')?.rows, 1, 'the job is a row of the stand-in\'s Job Tracker, not anywhere else');
+  } finally { await fake.close(); }
+});
+
+test('a Notion store the app has not connected yet is said, not guessed', () => {
+  assert.throws(() => storeEnv({profile: profileWith({}), token: ''}), /not connected yet/);
+});

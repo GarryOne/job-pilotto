@@ -19,6 +19,7 @@ import {ARTIFACTS, E2E, launch, pickFile, step} from './app.mjs';
 import {clearRoot, testRoot, workspaceReady} from './notion.mjs';
 import {createRunner} from './runner.mjs';
 import {notionFarSide, pickStore, storeSettings} from './store.mjs';
+import {storeCall} from './store-call.mjs';
 import {tally} from './faults.mjs';
 
 // A suite is a file in suites/ (adding one needs no other list). It may export `minutes` (its time limit in CI, default 15).
@@ -122,6 +123,8 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
       .catch(async () => { throw new Error(`expected the "${name}" step, the app shows "${await step(ctx.page)}"`); });
   };
   ctx.pickCv = () => pickFile(ctx.app, ctx.cv);
+  // The person's data on whichever store the app uses, through the engine's own store command (lib/store-call.mjs): how a suite seeds and reads its data.
+  ctx.data = (entity, method, kwargs = {}, options = {}) => storeCall(ctx, entity, method, kwargs, options);
   // Run `fn` with the app on the API engine and the AI proxy in front of it, then put the engine back. With a dummy key (the default) nothing reaches Anthropic that the
   // proxy does not answer itself (429, 500, a delay then a refusal, a canned answer), so it costs nothing. There is no way to use the real key from here.
   ctx.withApi = async fn => {
