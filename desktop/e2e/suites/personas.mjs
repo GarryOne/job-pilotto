@@ -133,12 +133,14 @@ export async function run(ctx) {
       while (!listed && Date.now() - started < 240000) { listed = ((await ctx.data('employers', 'list', {active: null}).catch(() => [])) || []).find(item => item.name === 'E2E Gamma') || null; if (!listed) await page.waitForTimeout(4000); }
       if (!listed) throw new Error('"E2E Gamma" was not listed in the store\'s employers (Employers & Sources) within 4 minutes');
       const output = engine(ctx, 'import subprocess, sys; print(subprocess.run([sys.executable, "-m", "src", "discover"], capture_output=True, text=True).stdout)');
-      // TechTree lists all of Europe and is searched for any place; jobs.ch and SwissDevJobs are for Swiss places only (6b71f5c).
+      // jobs.ch and SwissDevJobs are for Swiss places only (6b71f5c); TechTree lists Europe but developer jobs only, so a non-IT search uses no board (e2d7df8).
       // The boards searched, without the engine's explanation in brackets ("none (for these roles and places: SwissDevJobs and TechTree list developer jobs,
       // jobs.ch Swiss ones)", src/sources/boards.py since e2d7df8): a board named only to say why it was skipped was not searched.
       const boards = ((output.match(/^Job boards: (.*)$/m) || [])[1] || '').replace(/\([^)]*\)/g, '').trim();
       if (/jobs\.ch|SwissDevJobs/i.test(boards)) throw new Error(`the Swiss job boards were searched for a user with no Swiss place: ${boards}`);
-      if (!/discovery is skipped/i.test(output) && !/TechTree/.test(boards)) throw new Error(`neither a skipped discovery nor the TechTree search: ${output.slice(0, 200)}`);
+      // No board at all is right for roles outside IT: SwissDevJobs and TechTree list developer jobs (e2d7df8), jobs.ch Swiss ones; TechTree runs only for IT roles.
+      const noBoard = /discovery is skipped/i.test(output) || /^none\b/i.test(boards);
+      if (!noBoard && !/TechTree/.test(boards)) throw new Error(`neither no board nor the TechTree search: ${output.slice(0, 200)}`);
     }, {needs: ctx.needs});
     await ctx.run(`${label}: the digest follows their places, citizenship and the posting's currency`, async () => {
       const result = JSON.parse(engine(ctx, DIGEST_CODE).trim().split('\n').pop());
