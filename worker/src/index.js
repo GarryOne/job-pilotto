@@ -259,7 +259,7 @@ export async function handleCommand(env, command) {
 //   act:p:<code>:<n>       Prepare -> dispatch a prepare run (application kit), mark the number button
 //   close                  hide the action row
 //   more:<seed>:<page>     next page;  apply:<code>  legacy ✅ button from older digests
-const ACTIONS = { a: ['applied', '✅', 'Marking it applied in Notion…'],
+const ACTIONS = { a: ['applied', '✅', 'Marking it applied{where}…'],   // {where}: " in Notion" only when Notion holds the data (env.store unset)
                   s: ['saved', '⭐', 'Saved — it stays in digests with a star.'],
                   d: ['dismissed', '❌', "Dismissed — it won't show again."],
                   p: [null, '📝', 'Drafting the application kit; it arrives in about a minute.'] };
@@ -310,13 +310,13 @@ async function handleButton(env, query) {
       const [action, emoji, text] = ACTIONS[act[1]];
       await dispatch(env, action ? { mode: 'apply', job: act[2], action } : { mode: 'prepare', job: act[2] });
       await editButtons(env, query, afterAction(query.message.reply_markup, act[3], emoji));
-      await answer(text);
+      await answer(text.replace('{where}', env.store ? '' : ' in Notion'));
     } else if (data === 'close') {
       await editButtons(env, query, afterAction(query.message.reply_markup, '-', ''));
       await answer('OK');
     } else if (apply) {
       await dispatch(env, { mode: 'apply', job: apply[1], action: 'applied' });
-      await answer('Marking it applied in Notion…');
+      await answer(`Marking it applied${env.store ? '' : ' in Notion'}…`);
     } else if (opick) {
       await editButtons(env, query, withOutcomeRows(query.message.reply_markup, opick[1], opick[2]));
       await answer(`Application ${opick[1]}: what happened?`);
