@@ -44,15 +44,24 @@ export const contactOf = storage => kept(storage, 'contact', () => readContact(s
 // After an edit in Settings → Your details: the kept copy is the new one at once.
 export function contactSaved(storage, contact) { lastContact = contact; viewCache.remember(storage, 'contact', {contact}); }
 
+// The CV a form gets: the job's tailored one, else the general one (twin, 9 Oct 2026: a tailored PDF missing on disk left the form with NO CV,
+// silently: an empty catch). Each miss is logged with why (never the file's content). Guard: test/server-contact-cv.test.js.
+export function pickCv({tailored, general, url = '', read = file => fs.readFileSync(file), say = log}) {
+  const host = (() => { try { return new URL(url).hostname; } catch { return ''; } })();
+  for (const [kind, choice] of [['tailored', tailored], ['general', general]]) {
+    if (!choice) continue;
+    try { return {name: choice.name, type: 'application/pdf', data: read(choice.path).toString('base64'), tailored: kind === 'tailored'}; }
+    catch (error) { say('extension', `CV: the ${kind} CV could not be read${kind === 'tailored' ? ', using the general one' : ''}`, {host, error: String(error?.code || error?.message || error).slice(0, 60)}); }
+  }
+  return null;
+}
+
 export async function me(storage, url = '') {
   const settings = storage.settings();
-  let resume = null;
   const tailored = url ? cv.forUrl(storage, url) : null;
-  try {
-    const data = fs.readFileSync(tailored ? cv.pdfPath(storage, tailored.job.code) : storage.path('cv.pdf'));
-    // A tailored CV goes up under its own name (CV_<Name>_<Company>.pdf), so the form shows which one it got.
-    resume = {name: tailored ? cv.finalName(storage, tailored) : settings.cvName || 'CV.pdf', type: 'application/pdf', data: data.toString('base64'), tailored: !!tailored};
-  } catch {}
+  // A tailored CV goes up under its own name (CV_<Name>_<Company>.pdf), so the form shows which one it got.
+  const resume = pickCv({tailored: tailored ? {path: cv.pdfPath(storage, tailored.job.code), name: cv.finalName(storage, tailored)} : null,
+    general: {path: storage.path('cv.pdf'), name: settings.cvName || 'CV.pdf'}, url});
   // The approved general cover letter as a file, for forms that ask to upload one (Profile → Cover letter).
   let coverLetterFile = null;
   try {
