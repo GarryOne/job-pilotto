@@ -80,7 +80,8 @@ class RunPageTests(unittest.TestCase):
             self.assertEqual(shown(notion.blocks[run_id]), shown(today), run['mode'])
             self.assertEqual(runs.get(run_id)['report'], report)  # read back as written
         self.assertIn('Emails read', report)
-        self.assertIn('- [Your application at Acme · Jobs · 26 Sep 09:00 — \\[recorded\\]', report)  # the email's line opens it
+        # The time is local (the machine's zone): CI runs in UTC, a Mac in Zurich; the line's shape is what matters.
+        self.assertRegex(report, r'- \[Your application at Acme · Jobs · 26 Sep \d\d:\d\d — \\\[recorded\\\]')  # the email's line opens it
         self.assertIn('](https://mail.google.com/mail/u/0/#all/1)', report)
 
     def test_the_desktop_still_reads_the_report_bullets_and_the_result(self):

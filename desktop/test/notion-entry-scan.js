@@ -45,7 +45,7 @@ export function scanHtml(file, text) {
 // [{key, line}] for every entry point, in file order.
 export function notionEntryPoints(root = ROOT) {
   return walk(root).filter(full => !SKIP.has(path.basename(full))).flatMap(full => {
-    const file = path.relative(root, full), text = fs.readFileSync(full, 'utf8');
+    const file = path.relative(root, full).split(path.sep).join('/'), text = fs.readFileSync(full, 'utf8');
     return full.endsWith('.js') ? scanJs(file, text) : full.endsWith('.html') ? scanHtml(file, text) : [];
   });
 }
