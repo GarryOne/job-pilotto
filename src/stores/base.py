@@ -25,11 +25,13 @@ FILES = 'files'      # attach() keeps the bytes in the store itself (else a path
 
 APPLICATION_FIELDS = ('id', 'url', 'title', 'company', 'location', 'work_mode', 'stage', 'fit', 'next_step',
                       'next_interview', 'applied_on', 'via', 'contact', 'origin', 'source', 'notes', 'kit_inputs',
-                      'rejection', 'rejection_lesson', 'feedback_status', 'employer_feedback', 'created_at')
+                      'rejection', 'rejection_lesson', 'feedback_status', 'employer_feedback', 'salary', 'contract',
+                      'call_facts', 'created_at')
 EVENT_FIELDS = ('id', 'app_id', 'kind', 'at', 'source', 'note', 'source_id', 'interview_at', 'created_at')
 MATCH_FIELDS = ('url', 'title', 'company', 'location', 'work_mode', 'fit', 'reason', 'fit_detail', 'status',
                 'first_seen')
-INTERVIEW_FIELDS = ('id', 'app_id', 'title', 'at', 'kind', 'notes', 'transcript', 'review', 'created_at')
+INTERVIEW_FIELDS = ('id', 'app_id', 'title', 'at', 'input', 'round', 'overall', 'questions', 'weak_answers', 'topics',
+                    'weak_topics', 'next_step', 'cost', 'model', 'notes', 'transcript', 'review', 'created_at')
 INSIGHT_FIELDS = ('id', 'day', 'category', 'title', 'body', 'fields', 'created_at')
 EMPLOYER_FIELDS = ('id', 'name', 'website', 'careers_url', 'feed', 'active', 'created_at')
 AGENT_RUN_FIELDS = ('id', 'url', 'ats', 'outcome', 'fields', 'learnings', 'transcript', 'created_at')
@@ -101,8 +103,13 @@ class Interviews(Protocol):
 
 
 class Insights(Protocol):
+    """💡 Insights. `fields` holds the extras (basis, confidence, sample_size, evidence, action, feedback, cost, …)."""
     def list(self, since=None, category=None, limit=None) -> list: ...
-    def save(self, day: str, category: str, title: str, body: str, fields=None) -> dict: ...  # one per day+category
+    # The daily insight and weekly report: one per day+category, a second save that day replaces it.
+    def save(self, day: str, category: str, title: str, body: str, fields=None) -> dict: ...
+    # Rows of their own: several a day (learning's issues), or one kept and updated in place (Interview patterns).
+    def add(self, record: dict) -> dict: ...
+    def update(self, insight_id: str, fields: dict) -> dict: ...
     def put(self, record: dict) -> dict: ...
 
 

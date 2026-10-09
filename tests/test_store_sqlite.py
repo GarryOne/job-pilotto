@@ -39,6 +39,19 @@ class SqliteOwnTests(_Folder, unittest.TestCase):
         self.assertEqual(sqlite.connect(self.folder / 'tracker.sqlite').execute('PRAGMA user_version').fetchone()[0],
                          len(sqlite.MIGRATIONS))
 
+    def test_a_first_layout_database_keeps_its_insights_through_the_later_migrations(self):
+        path = self.folder / 'tracker.sqlite'
+        old = sqlite3.connect(path)
+        old.executescript(sqlite.MIGRATIONS[0] + '; PRAGMA user_version = 1;')
+        old.execute("INSERT INTO insights (id, day, category, data) VALUES ('i1', '2026-10-01', 'daily', ?)",
+                    ('{"id": "i1", "day": "2026-10-01", "category": "daily", "title": "Kept"}',))
+        old.commit()
+        old.close()
+        s = sqlite.open_store(self.env)
+        self.assertEqual([i['title'] for i in s.insights.list()], ['Kept'])
+        s.insights.add({'day': '2026-10-01', 'category': 'daily', 'title': 'Second'})
+        self.assertEqual(len(s.insights.list(category='daily')), 2)
+
     def test_files_live_under_the_job_folder_and_go_with_the_job(self):
         s = sqlite.open_store(self.env)
         app = s.applications.create(JOB, 'Saved')

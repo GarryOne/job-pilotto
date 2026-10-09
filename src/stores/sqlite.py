@@ -42,6 +42,15 @@ MIGRATIONS = (
     CREATE TABLE cron_runs (seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, kind TEXT NOT NULL DEFAULT '',
                             started_at TEXT NOT NULL DEFAULT '', data TEXT NOT NULL);
     """,
+    # 2: insights may share a day and category (learning's issues); save() keeps one per day+category itself.
+    """
+    CREATE TABLE insights_2 (seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, day TEXT NOT NULL,
+                             category TEXT NOT NULL, data TEXT NOT NULL);
+    INSERT INTO insights_2 (seq, id, day, category, data) SELECT seq, id, day, category, data FROM insights;
+    DROP TABLE insights;
+    ALTER TABLE insights_2 RENAME TO insights;
+    CREATE INDEX insights_day_idx ON insights(day, category);
+    """,
 )
 
 
@@ -299,8 +308,15 @@ class Insights(_Table):
 
     def save(self, day, category, title, body, fields=None):
         values = {'day': day, 'category': category, 'title': title, 'body': body, 'fields': dict(fields or {})}
-        same = self.db.execute('SELECT id FROM insights WHERE day = ? AND category = ?', (day, category)).fetchone()
+        same = self.db.execute('SELECT id FROM insights WHERE day = ? AND category = ? ORDER BY seq DESC',
+                               (day, category)).fetchone()
         return self._update(same['id'], values) if same else self._new(values)
+
+    def add(self, record):
+        return self._new(_known(self.fields, record))
+
+    def update(self, insight_id, fields):
+        return self._update(insight_id, fields)
 
 
 class Employers(_Table):

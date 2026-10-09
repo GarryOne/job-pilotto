@@ -155,6 +155,18 @@ class StoreContract:
         self.s.interviews.archive(row['id'])
         self.assertEqual(self.s.interviews.list(), [])
 
+    def test_insight_rows_of_their_own_share_a_day_and_update_in_place(self):
+        one = self.s.insights.add({'day': '2026-10-08', 'category': 'Process', 'title': 'A', 'fields': {'sample_size': 4}})
+        self.s.insights.add({'day': '2026-10-08', 'category': 'Process', 'title': 'B'})
+        self.assertEqual(sorted(i['title'] for i in self.s.insights.list(category='Process')), ['A', 'B'])
+        kept = self.s.insights.update(one['id'], {'title': 'A2', 'fields': {'sample_size': 5}})
+        self.assertEqual((kept['id'], kept['title'], kept['fields']), (one['id'], 'A2', {'sample_size': 5}))
+        with self.assertRaises(KeyError):
+            self.s.insights.update('missing', {'title': 'x'})
+        self.s.insights.save('2026-10-08', 'daily', 'D', 'b')
+        self.s.insights.save('2026-10-08', 'daily', 'D2', 'c')
+        self.assertEqual([i['title'] for i in self.s.insights.list(category='daily')], ['D2'])
+
     def test_one_insight_per_day_and_category_newest_first(self):
         self.s.insights.save('2026-10-07', 'daily', 'Old', 'a')
         self.s.insights.save('2026-10-08', 'daily', 'New', 'b')

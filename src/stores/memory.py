@@ -188,9 +188,15 @@ class Insights(_Table):
         values = {'day': day, 'category': category, 'title': title, 'body': body, 'fields': dict(fields or {})}
         if same:
             return self._update(same['id'], values)
-        row = _new(self.fields, values)
+        return self.add(values)
+
+    def add(self, record):
+        row = _new(self.fields, _known(self.fields, record))
         self.rows[row['id']] = row
         return dict(row)
+
+    def update(self, insight_id, fields):
+        return self._update(insight_id, fields)
 
 
 class Employers(_Table):
