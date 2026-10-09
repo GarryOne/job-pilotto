@@ -176,7 +176,7 @@ class DailyAddTests(unittest.TestCase):
                 mock.patch.object(inbox, 'read', lambda *a, **k: answer), mock.patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'sk-test'}), \
                 mock.patch.dict(sys.modules, {'anthropic': SimpleNamespace(Anthropic=lambda **kwargs: None)}), \
                 mock.patch.object(daily.run_log, 'log_run', lambda t, run, failed=False: logged.update(run=run)), \
-                mock.patch.dict(daily.run_log._auto, {}), mock.patch.dict(daily.run_log._open, {}), \
+                mock.patch.object(daily.run_log, 'auto_begin', lambda stores: None), mock.patch.dict(daily.run_log._open, {}), \
                 mock.patch.object(daily_modes, 'queue_mail_check', lambda: False), mock.patch('builtins.print') as printed:
             daily.main()
         return logged.get('run') or {}, [str(c.args[0]) for c in printed.call_args_list if c.args]

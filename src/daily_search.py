@@ -1,7 +1,7 @@
 """The jobs check's search itself (modes scheduled, run, today, more): crawl the feeds, import, enrich, score, sync Job Matches and the
 ledger, build the digest, send it to Telegram, save and log the run. `search(args, tracker, stores)` returns the exit code. The data is
 the active store's (src/stores: open once, passed down); `notion` is the tracker only while the store is Notion, for the steps only
-Notion has yet (Job Matches, the ledger sync, the interview sweep, the 🎯 Pipeline page), so this Mac's store never gets a copy in Notion.
+Notion has yet (Job Matches, the 🎯 Pipeline page), so this Mac's store never gets a copy in Notion.
 Tests: tests/test_daily.py, tests/test_refresh_batch.py, tests/test_search_budget.py, tests/test_places_strict.py, tests/test_place_triage.py,
 tests/test_contribute.py, tests/test_watch.py, tests/test_score.py.
 """
@@ -10,7 +10,7 @@ import random
 import sys
 from collections import Counter
 from datetime import datetime, timezone
-from . import contribute, coverage, digest, doctor, employer_index, features, scout, store, telegram
+from . import contribute, coverage, digest, doctor, employer_index, features, ledger_store, scout, store, telegram
 from .ai import budget, enrich, insights, interviews, kit, score
 from .notion import client as notion_client, funnel, ledger, matches
 from .paths import DATA, REPORTS, load_search_config
@@ -229,25 +229,26 @@ def search(args, tracker, stores=None):
             except Exception as error:
                 print(f'Warning: {"Notion Job Matches sync or " if notion else ""}auto-kit skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'{"Job Matches sync or " if notion else ""}auto-kit skipped: {type(error).__name__}')
-        if notion and args.mode == 'scheduled':
-            # Application ledger: log Stage edits made in Notion, and mark silent applications No response.
+        if args.mode == 'scheduled':
+            # Application ledger (src/ledger_store.py, any store): log Stage edits, and mark silent applications No response.
             try:
-                print(ledger.sync(notion))
+                print(ledger_store.sync(stores))
             except Exception as error:
                 print(f'Warning: ledger sync skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'ledger sync skipped: {type(error).__name__}')
             # Saved / Kit ready jobs whose posting was taken down (their board confirms it) → Closed, named in the report.
             try:
-                summary, run['gone_titles'] = ledger.close_gone(notion, open_urls)
+                summary, run['gone_titles'] = ledger_store.close_gone(stores, open_urls)
                 print(summary)
             except Exception as error:
                 print(f'Warning: taken-down check skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'taken-down check skipped: {type(error).__name__}')
             # A recorded interview whose application still says Interview scheduled (saved before the app moved it on).
             try:
-                print(interviews.sweep(notion))
+                print(interviews.sweep(stores=stores))
             except Exception as error:
                 print(f'Warning: interview sweep skipped: {type(error).__name__}: {error}')
+        if notion and args.mode == 'scheduled':
             # 🎯 Pipeline page: conversion between funnel steps and the step to improve (no AI).
             try:
                 funnel.write(notion, funnel.funnel(funnel.reached(notion)),

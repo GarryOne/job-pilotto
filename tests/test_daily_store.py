@@ -1,7 +1,7 @@
 """The scheduled search on the active store (src/stores), end to end: no Notion, no network, no AI.
 
 A person on this Mac's store gets the run's row, the crawl's employers, the budget, the insight and the health alert from that
-store; a Notion token beside another store never brings a second copy into Notion (Job Matches, ledger, funnel stay untouched).
+store; a Notion token beside another store never brings a second copy into Notion (Job Matches and the Pipeline page stay untouched).
 Guards src/daily.py, src/daily_search.py and the run_stores / url_stages / profile_source helpers in src/daily_helpers.py.
 """
 import contextlib
@@ -53,9 +53,10 @@ class ScheduledRunOnTheStoreTests(unittest.TestCase):
             mock.patch.object(daily_search.doctor, 'alert', side_effect=record('doctor', 'Health: all good')),
             mock.patch.object(daily_search.doctor, 'HEALTH_HOUR_UTC', datetime.now(timezone.utc).hour),
             mock.patch.object(daily_search.matches, 'sync', side_effect=AssertionError('Job Matches is Notion only')),
-            mock.patch.object(daily_search.ledger, 'sync', side_effect=AssertionError('the ledger sync is Notion only')),
+            mock.patch.object(daily_search.ledger_store, 'sync', side_effect=record('ledger', 'Ledger sync: 1 applications')),
+            mock.patch.object(daily_search.ledger_store, 'close_gone', side_effect=record('gone', ('Taken-down postings: 0', []))),
             mock.patch.object(daily_search.funnel, 'write', side_effect=AssertionError('the Pipeline page is Notion only')),
-            mock.patch.object(daily_search.interviews, 'sweep', side_effect=AssertionError('the interview sweep is Notion only')),
+            mock.patch.object(daily_search.interviews, 'sweep', side_effect=record('sweep', 'Interviews: none to move on')),
             mock.patch.object(run_log, '_install', lambda: None), mock.patch.object(run_log, '_heartbeat', lambda run: None),
             mock.patch.object(run_log, 'capture', lambda: None),
         ]
@@ -86,6 +87,9 @@ class ScheduledRunOnTheStoreTests(unittest.TestCase):
         self.assertIs(by_name['insight'][1]['stores'], self.stores)   # the daily insight runs without Notion
         self.assertIsNone(by_name['insight'][0][1])            # and is handed no Notion tracker
         self.assertIs(by_name['doctor'][0][0], self.stores)     # the daily health alert: this store's checks
+        self.assertIs(by_name['ledger'][0][0], self.stores)     # the ledger sync and the taken-down check: this store's applications
+        self.assertIs(by_name['gone'][0][0], self.stores)
+        self.assertIs(by_name['sweep'][1]['stores'], self.stores)   # recorded interviews move their job on, on any store
         stages = by_name['contribute'][1]['stages']
         self.assertEqual(stages, {'https://jobs.example/applied-1': 'Applied'})   # the store's applications, by their own URL
 
