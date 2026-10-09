@@ -628,6 +628,7 @@ table.lib-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm
 .lib-table td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
 .lib-table tr:last-child td { border-bottom: 0; }
 .lib-table tr:hover td { background: var(--surface-2); }
+.lib-table .is-nowrap { white-space: nowrap; }   /* a short value that must not wrap (Employers' Origin) */
 /* A library row's name cell: a .logo badge, the bold name, a muted line under it. */
 .lib-who { display: flex; align-items: center; gap: 10px; }
 .lib-who b { font-size: var(--fs-md); }

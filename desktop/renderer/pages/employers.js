@@ -86,7 +86,7 @@ function rowOf(row) {
   if (name) feed.append(el('div', 'muted small', name));
   cell(feed);
   cell(el('span', '', row.quality === null || row.quality === undefined || row.quality === '' ? '–' : String(row.quality)));
-  cell(el('span', 'muted', row.origin || '–'));
+  cell(el('span', 'muted is-nowrap', row.origin || '–'));   // "Find employers" on one line
   cell(el('span', 'muted', day(row.checked) || '–'));
   cell(activeSwitch(row));
   return opened.has(row.id) ? [tr, detailRow(row)] : [tr];
