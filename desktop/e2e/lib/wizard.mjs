@@ -65,15 +65,19 @@ export async function runWizard(ctx) {
     if (!state.hasProfile) throw new Error('the strategy was not kept on this Mac');
     if (!fs.existsSync(path.join(ctx.profile, 'profile.md'))) throw new Error('profile.md is not in the app folder');
   }, {needs: ctx.needs});
-  await ctx.run('Focus asks to connect Notion, lists the advantages, and Not now with a reason closes the prompt', async () => {
+  // Focus without Notion shows only Get started (396d94e); a page that still needs Notion (Interviews) carries the prompt.
+  await ctx.run('Focus shows Get started without Notion; Interviews asks to connect Notion, lists the advantages, and Not now with a reason closes the prompt', async () => {
     await page.click('.nav[data-view="focus"]');
-    await page.locator('.view[data-view="focus"] .ui-gate').waitFor({timeout: 15000});
-    await page.locator('.view[data-view="focus"] .ui-gate button.primary').click();
+    await page.locator('.view[data-view="focus"].focus-started #focus-onboarding').waitFor({timeout: 15000});
+    if (await page.locator('.view[data-view="focus"] .ui-gate').count()) throw new Error('Focus shows the Notion prompt instead of Get started');
+    await page.click('.nav[data-view="interviews"]');
+    await page.locator('.view[data-view="interviews"] .ui-gate').waitFor({timeout: 15000});
+    await page.locator('.view[data-view="interviews"] .ui-gate button.primary').click();
     await page.locator('#notion-connect-dialog[open]').waitFor({timeout: 5000});
     const benefits = await page.locator('#notion-connect-benefits li').count();
     if (benefits !== 6) throw new Error(`the prompt lists ${benefits} advantages, not 6`);
     const reason = await page.locator('#notion-connect-reason').innerText();
-    if (!/Connect Notion to see what to do next\./.test(reason)) throw new Error(`the prompt's reason reads "${reason}"`);
+    if (!/Connect Notion to keep interview transcripts\./.test(reason)) throw new Error(`the prompt's reason reads "${reason}"`);
     await page.click('#notion-connect-later');
     await page.locator('#notion-connect-why .ui-tag', {hasText: 'Privacy'}).click();
     await page.locator('#notion-connect-dialog[open]').waitFor({state: 'detached', timeout: 5000}).catch(async () => {
