@@ -99,12 +99,12 @@ class RetryTableTest(unittest.TestCase):
                 self.assertEqual(retry.kind(method, path), name, (method, path))
 
     def test_every_cell(self):
-        for status in sorted(retry.BUSY | retry.MAYBE_DONE):
+        for status in sorted(retry.BUSY | retry.DOWN | retry.EDGE):
             for name, requests in SAMPLES.items():
                 for method, path, body in requests:
                     wanted = retry.action(status, method, path)
                     with self.subTest(status=status, kind=name, method=method, path=path, wanted=wanted):
-                        lookup = [{'results': [], 'has_more': False}] if wanted == retry.LOOKUP else []
+                        lookup = [{'results': [], 'has_more': False}] if wanted in (retry.LOOKUP, retry.LOOKUP_OR_RETRY) else []
                         answers = [http_error(status)] + lookup + [{'ok': True}]
                         if wanted == retry.FAIL:
                             with self.assertRaises(urllib.error.HTTPError):
@@ -115,9 +115,13 @@ class RetryTableTest(unittest.TestCase):
                         self.assertEqual(sent[0], sent[-1])   # the same request, sent again
                         self.assertEqual(len(sent), 3 if lookup else 2)
 
-    def test_busy_retries_everything_and_maybe_done_never_doubles_a_write(self):
-        self.assertEqual({retry.action(429, m, p) for reqs in SAMPLES.values() for m, p, _ in reqs}, {retry.RETRY})
-        for status in retry.MAYBE_DONE:
+    def test_busy_and_down_retry_as_always_and_the_edge_never_doubles_a_write(self):
+        everything = [(m, p) for reqs in SAMPLES.values() for m, p, _ in reqs]
+        self.assertEqual({retry.action(429, m, p) for m, p in everything}, {retry.RETRY})
+        for status in retry.DOWN:   # D7: as before, every request is sent again; a new page with a Job URL is looked up first
+            self.assertNotIn(retry.FAIL, {retry.action(status, m, p) for m, p in everything})
+            self.assertEqual(retry.action(status, 'POST', 'pages'), retry.LOOKUP_OR_RETRY)
+        for status in retry.EDGE:
             self.assertEqual(retry.action(status, 'PATCH', 'blocks/p/children'), retry.FAIL)
             self.assertEqual(retry.action(status, 'POST', 'pages'), retry.LOOKUP)
         self.assertEqual(retry.action(404, 'GET', 'pages/p'), retry.FAIL)
@@ -135,12 +139,12 @@ class RetryTableTest(unittest.TestCase):
         self.assertEqual(result, {'id': 'page-2'})
         self.assertEqual(sent, [('POST', 'pages'), ('POST', 'databases/db1/query'), ('POST', 'pages')])
 
-    def test_a_new_page_with_no_job_url_is_not_sent_again(self):
+    def test_a_new_page_with_no_job_url_is_sent_again_when_notion_was_down_never_after_an_edge_error(self):
         body = {'parent': {'database_id': 'db1'}, 'properties': {'Name': {'title': []}}}
-        for status in (502, 520):
-            with self.subTest(status=status), self.assertRaises(urllib.error.HTTPError):
-                self.run_with('POST', 'pages', body, [http_error(status), {'id': 'twice'}])
-
+        result, sent, _ = self.run_with('POST', 'pages', body, [http_error(502), {'id': 'p'}])   # as before 9 Oct 2026: no lookup, no key
+        self.assertEqual((result, sent), ({'id': 'p'}, [('POST', 'pages'), ('POST', 'pages')]))
+        with self.assertRaises(urllib.error.HTTPError):
+            self.run_with('POST', 'pages', body, [http_error(520), {'id': 'twice'}])
 
 if __name__ == '__main__':
     unittest.main()

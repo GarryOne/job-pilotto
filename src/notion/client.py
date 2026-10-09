@@ -158,9 +158,9 @@ class Tracker:
                 if error.code == 429 and self._paced():
                     pace.calm_until(self.token, time.time() * 1000 + wait * 1000)  # everyone waits it out
                 self.sleep(wait)
-                if then == retry.LOOKUP:
+                if then in (retry.LOOKUP, retry.LOOKUP_OR_RETRY):
                     made = retry.made_already(self, body)
-                    if made is None:
+                    if made is None and then == retry.LOOKUP:
                         raise
                     if made:
                         return made

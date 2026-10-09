@@ -2,20 +2,23 @@
 tests/test_notion_retry.py tests every cell).
 
 - 429 (busy): Notion did nothing, so every request is sent again after the wait.
-- 502/503/504 and Cloudflare's 520/522/524 (down, or the answer was lost): the request may have been done. Sent again only when that
-  can't leave a second copy: a read, a query, a search, a property update or archive. A new page only once its database is known not to
-  hold it: looked up by its Job URL (Job Tracker, Job Matches) and returned if Notion made it anyway. Appended blocks, a page with no Job
-  URL and anything else fail at once, and the caller's own recovery takes over (a Move to Notion goes on where it stopped).
-9 Oct 2026: a 520 on POST pages stopped a Move to Notion; 502-504 were then retried for every request, so a page could be made twice.
+- 502/503/504 (briefly down): sent again as they always were (D7: Notion users see no change), except a new page with a Job URL, which is
+  first looked up in its database and returned if Notion made it anyway (Job Tracker, Job Matches: never made twice).
+- Cloudflare's 520/522/524 (the answer was lost; never retried before): a read, a query, a search, a property update or archive is sent
+  again; a new page only after that Job URL lookup; appended blocks, a page with no Job URL and anything else fail as before.
+9 Oct 2026: a 520 on POST pages stopped a Move to Notion (mac-e4 chose the 502-504 cells: keep today's retries, add the lookup).
 """
 
 BUSY = {429}
-MAYBE_DONE = {502, 503, 504, 520, 522, 524}
-RETRY, LOOKUP, FAIL = 'retry', 'look up, then retry', 'fail'
+DOWN = {502, 503, 504}
+EDGE = {520, 522, 524}
+# LOOKUP: a new page with a Job URL is looked up first; with none, LOOKUP fails and LOOKUP_OR_RETRY sends it again as before.
+RETRY, LOOKUP, LOOKUP_OR_RETRY, FAIL = 'retry', 'look up, else fail', 'look up, else retry', 'fail'
 # Kinds of request: 'safe' (sending it twice changes nothing), 'create' (POST pages), 'append' (PATCH blocks/…/children), 'other'.
 TABLE = {
     'busy': {'safe': RETRY, 'create': RETRY, 'append': RETRY, 'other': RETRY},
-    'maybe done': {'safe': RETRY, 'create': LOOKUP, 'append': FAIL, 'other': FAIL},
+    'down': {'safe': RETRY, 'create': LOOKUP_OR_RETRY, 'append': RETRY, 'other': RETRY},
+    'edge': {'safe': RETRY, 'create': LOOKUP, 'append': FAIL, 'other': FAIL},
 }
 
 
@@ -32,8 +35,8 @@ def kind(method, path):
 
 
 def action(status, method, path):
-    """RETRY, LOOKUP or FAIL for a request Notion answered with `status`."""
-    family = 'busy' if status in BUSY else 'maybe done' if status in MAYBE_DONE else None
+    """RETRY, LOOKUP, LOOKUP_OR_RETRY or FAIL for a request Notion answered with `status`."""
+    family = 'busy' if status in BUSY else 'down' if status in DOWN else 'edge' if status in EDGE else None
     return TABLE[family][kind(method, path)] if family else FAIL
 
 
