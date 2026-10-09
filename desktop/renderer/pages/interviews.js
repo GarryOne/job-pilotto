@@ -167,7 +167,7 @@ async function loadSavedOnce() {
   const started = Date.now();
   libraryLog('load', {rows: ivSavedRows.length});
   try { shownAt = await showSavedLoading(); } catch (error) { failed('library (saved copy)', error); }
-  libraryLog('asking Notion', {cached: !!shownAt, ms: Date.now() - started});
+  libraryLog('asking the store', {cached: !!shownAt, ms: Date.now() - started});
   const result = await iv.saved().catch(error => ({ok: false, error: String(error?.message || error)}));
   libraryLog('answer', {ok: !!result?.ok, rows: Array.isArray(result?.interviews) ? result.interviews.length : -1,
     needsNotion: !!result?.needsNotion, ms: Date.now() - started});

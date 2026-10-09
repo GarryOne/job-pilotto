@@ -5,6 +5,7 @@ import {loadTextEditor, showStoreParts} from './text-editors.js';
 import {collapsiblePanel, el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
+import {byStore} from '../store-words.js';
 import {showCloud, showExtensionStatus, showGoogle, showSchedule, showTelegram} from './connections.js';
 import {$, message, osText, runWhen, show} from './core.js';
 import {showCvChanged} from './cv-change.js';
@@ -337,7 +338,7 @@ export async function init() {
     const result = await window.pilot.saveContact(contact);
     if (!result.ok) $('contact-save').disabled = false; else clearProposals();   // saved: what was proposed is yours now
     if (result.ok) setTimeout(() => { if ($('contact-save').disabled) contactDirty(false); }, 2500);   // the bar says "Saved" a moment, then leaves
-    message('contact-message', result.ok ? (shared.state.notion ? 'Saved in your Notion Profile ✓ The extension uses these from the next form it fills.'
-      : 'Saved ✓ The extension uses these from the next form it fills.') : result.error, result.ok ? 'ok' : 'error');
+    message('contact-message', result.ok ? `${byStore('Saved in your Notion Profile ✓', 'Saved ✓')} The extension uses these from the next form it fills.`
+      : result.error, result.ok ? 'ok' : 'error');
   });
 }

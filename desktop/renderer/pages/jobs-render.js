@@ -18,6 +18,7 @@ import {scoreBucket} from '../intel.js';
 import {askWhy} from './dismiss-reason.js';
 import {openMatchCheck} from './match-check.js';
 import {jobsState, MORE, pageKey, fullKey} from './jobs-state.js';
+import {byStore, storeName} from '../store-words.js';
 import {fitDetail} from './jobs-fit.js';
 import {openJobPanel, panelUrl} from './job-panel.js';
 import {loadJobs, showJobsData} from './jobs.js';
@@ -281,7 +282,7 @@ export function renderJobs() {
       // Draft the kit again from the current Profile and standard answers (replaces it in Notion).
       const earlier = String(job.kit_state || '').startsWith('earlier');
       menu.push({icon: 'refresh', label: earlier ? 'Redraft kit (earlier inputs)' : 'Redraft kit',
-        title: 'Draft the kit again from your current CV, Profile and standard answers (~20 s); replaces it in Notion', run: () =>
+        title: `Draft the kit again from your current CV, Profile and standard answers (~20 s); replaces it in ${storeName()}`, run: () =>
         background('↻ Redrafting kit…', async () => {
           const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
           if (result.cloud) openActivity(true); else if (result.ok) loadJobs(); else toastMessage('Redraft failed', result.error || 'Try again.');
@@ -325,7 +326,7 @@ export function renderJobs() {
     }
     // "How did it go?": one click records what the employer did (in Notion, like a stage the Gmail check finds) and counts it anonymously,
     // by job board and days only, when Technical reports are on. It is how Job Pilotto learns which applications get answers.
-    const choices = job.url ? outcomeChoices(job.stage) : [];
+    const choices = job.url ? outcomeChoices(job.stage, storeName()) : [];
     if (choices.length) {
       menu.push('-');
       if (jobsState.benchmarkText[job.url]) menu.push({icon: 'info', label: jobsState.benchmarkText[job.url], disabled: true, title: 'From how other people\'s applications on this job board went (anonymous counts)'});
@@ -334,7 +335,7 @@ export function renderJobs() {
           const result = await window.pilot.markOutcome({url: job.url, outcome: choice.outcome, appliedOn: job.applied_on, bucket: scoreBucket(job.fit)}).catch(error => ({ok: false, error: error.message}));
           if (!result.ok) { toastMessage('Not saved', result.error || 'Try again.'); return; }
           if (choice.outcome !== 'reply') job.stage = result.stage;   // a reply is an event only: the stage stays where it is
-          toastMessage('Saved', `${choice.label.replace(/^(Heard back|No answer): /, '')} — recorded in Notion.`);
+          toastMessage('Saved', `${choice.label.replace(/^(Heard back|No answer): /, '')} — recorded in ${storeName()}.`);
           renderJobs();
           loadJobs();
         }});
@@ -344,7 +345,7 @@ export function renderJobs() {
     menu.push('-');
     if (job.status !== 'saved') menu.push({icon: 'bookmark', label: 'Save', run: setStatus('saved'), title: 'Keep this job on your list'});
     if (job.stage === 'Applying') {  // the session is over or was closed: say what happened, instead of staying Applying
-      menu.push({icon: 'tick', label: 'I submitted it', run: setStatus('applied'), title: 'Mark it Applied in Notion'});
+      menu.push({icon: 'tick', label: 'I submitted it', run: setStatus('applied'), title: `Mark it Applied in ${storeName()}`});
       menu.push({icon: 'undo', label: 'Not submitted', title: 'Back to Kit ready', run: async () => {
         const result = await window.pilot.unapplyJob(job.url).catch(error => ({ok: false, error: error.message}));
         if (!result.ok) { toastMessage('Status not changed', result.error || 'Something went wrong.'); return; }
@@ -355,27 +356,27 @@ export function renderJobs() {
     if (job.stage === 'Applied') menu.push({icon: 'undo', label: "This wasn't submitted…", title: 'Back to Applying, and the Applied record removed',
       run: async () => {
         // Only a bare Applied: a stage past it (a confirmation, an interview) is the employer's own evidence.
-        if (!confirm('Mark this as not submitted? It goes back to Applying and the Applied date and event are removed from Notion.\n\n'
+        if (!confirm(`Mark this as not submitted? It goes back to Applying and the Applied date and event are removed from ${storeName()}.\n\n`
           + 'Use this when Job Pilotto marked it Applied by itself and no application was sent.')) return;
         const result = await window.pilot.notSubmitted(job.url).catch(error => ({ok: false, error: error.message}));
         if (!result.ok) { toastMessage('Not changed', result.error || 'Something went wrong.'); return; }
         job.stage = 'Applying';
         job.status = 'applied';
-        toastMessage('Back to Applying', `The Applied record was removed${result.events ? ` (${result.events} Notion event${result.events === 1 ? '' : 's'})` : ''}.`);
+        toastMessage('Back to Applying', `The Applied record was removed${result.events ? ` (${result.events} ${byStore('Notion ', '')}event${result.events === 1 ? '' : 's'})` : ''}.`);
         renderJobs();
       }});
     if (job.status !== 'dismissed') menu.push({icon: 'close', label: 'Dismiss', run: setStatus('dismissed'), title: 'Not interested: hide this job', danger: true});
     // A dismissed job can go for good (owner, 7 Oct 2026): its Notion pages to the trash (30 days there), and no search brings it back.
-    else menu.push({icon: 'trash', label: 'Delete', danger: true, title: 'Remove this job: its Notion pages go to the trash, and searches will not show it again',
+    else menu.push({icon: 'trash', label: 'Delete', danger: true, title: byStore('Remove this job: its Notion pages go to the trash, and searches will not show it again', 'Remove this job for good: searches will not show it again'),
       run: async () => {
-        if (!confirm(`Delete "${job.title}" at ${job.company}?\n\nIts Notion pages go to Notion's trash (restorable there for 30 days), and searches will not show it again.`)) return;
+        if (!confirm(`Delete "${job.title}" at ${job.company}?\n\n${byStore('Its Notion pages go to Notion\'s trash (restorable there for 30 days), and searches will not show it again.', 'It is removed from Job Pilotto, and searches will not show it again.')}`)) return;
         const result = await window.pilot.deleteJob(job.url).catch(error => ({ok: false, error: error.message}));
         if (!result?.ok) { toastMessage('Not deleted', result?.error || 'Something went wrong.'); return; }
         const left = shared.allJobs.filter(other => other !== job);
         shared.allJobs = left;
         // The header and counters are counted from loaded data (showJobsData): counted again now, one job fewer.
         if (jobsState.lastJobsData) showJobsData({...jobsState.lastJobsData, jobs: left, total: jobsState.lastJobsData.total == null ? jobsState.lastJobsData.total : jobsState.lastJobsData.total - 1});
-        toastMessage('Deleted', result.trashed ? 'Its Notion pages are in the trash.' : 'It will not come back.');
+        toastMessage('Deleted', result.trashed ? byStore('Its Notion pages are in the trash.', 'It is deleted.') : 'It will not come back.');
         renderJobs();
       }});
     box.append(moreButton(menu, 'More: save, dismiss, kit, posting, tailor CV'));
@@ -437,12 +438,12 @@ export function renderJobs() {
 // While the list loads from Notion (a few seconds): a spinner in the empty list the first time; afterwards the
 // list stays and the subtitle says it's refreshing.
 export function showLoading() {
-  if (shared.allJobs.length) { $('jobs-stats').textContent = 'Refreshing from Notion…'; return; }
+  if (shared.allJobs.length) { $('jobs-stats').textContent = byStore('Refreshing from Notion…', 'Refreshing…'); return; }
   const box = el('div', 'list-loading');
-  box.append(el('span', 'spinner'), el('div', '', 'Loading your jobs from Notion…'),
+  box.append(el('span', 'spinner'), el('div', '', byStore('Loading your jobs from Notion…', 'Loading your jobs…')),
     el('div', 'muted small', 'Job Matches and Applications, usually a few seconds'));
   $('jobs-body').replaceChildren(box);
-  $('jobs-stats').textContent = 'Loading from Notion…';
+  $('jobs-stats').textContent = byStore('Loading from Notion…', 'Loading…');
 }
 
 const INPUT_NAMES = {cv: 'CV', profile: 'Profile', answers: 'standard answers'};

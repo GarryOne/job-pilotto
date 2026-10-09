@@ -3,13 +3,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const ABOUT_NOTION = /connect notion|connect with notion|in notion ↗|open .*in notion|notion ↗|notion's own|notion workspace|notion page links|notion \(|notion:|move (my|your) data to notion|moving your data to notion|moved to notion|your notion already had|needs notion/i;
+const ABOUT_NOTION = /connect notion|edit in notion|connect with notion|in notion ↗|open .*in notion|notion ↗|notion's own|notion workspace|notion page links|notion \(|notion:|move (my|your) data to notion|moving your data to notion|moved to notion|your notion already had|needs notion/i;
 export function count(source) {
   let n = 0;
   for (const line of source.split('\n')) {
     if (/^\s*\/\//.test(line) || /byStore\(/.test(line)) continue;   // byStore(notion, mac): the Notion sentence is said only with Notion
     for (const quoted of line.match(/'[^']*Notion[^']*'|`[^`]*Notion[^`]*`|"[^"]*Notion[^"]*"/g) || []) {
-      if (!ABOUT_NOTION.test(quoted) && !/NOTION_|notion_url|openNotion|notion\.so/.test(quoted)) n++;
+      // "Notion" as a word: a quote that only spans code between two strings (`inNotion ? '`, `openInNotion('`) is no sentence.
+      if (/(^|[^A-Za-z])Notion/.test(quoted) && !ABOUT_NOTION.test(quoted) && !/NOTION_|notion_url|openNotion|notion\.so/.test(quoted)) n++;
     }
   }
   return n;
