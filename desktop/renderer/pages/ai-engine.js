@@ -1,5 +1,5 @@
 // The AI engine chooser, one component for the setup wizard's AI step and Settings → Connections → AI: two cards
-// (Anthropic API key / Claude Code), the Claude Code status block with Verify, the plan-limit fallback and the note.
+// (Anthropic API key / Claude Code; the wizard adds a third, $1 of free AI), the Claude Code status block with Verify, the plan-limit fallback and the note.
 // The user picks; in the wizard nothing is pre-selected, in Settings the choice is remembered and switching is instant.
 import {choiceCards, el, pill} from '../components.js';
 import {icon} from '../icons.js';
@@ -17,6 +17,7 @@ export function mountEngine(box, {context = 'settings', onChange = () => {}} = {
       {id: 'api', icon: 'key', title: TEXT.api.title, text: context === 'settings' ? TEXT.api.short : TEXT.api.text},
       {id: 'cli', icon: 'terminal', title: TEXT.cli.title, text: context === 'settings' ? TEXT.cli.short : TEXT.cli.text,
         note: status && !status.installed ? 'Not found on this Mac' : ''},
+      ...(context === 'wizard' ? [{id: 'trial', icon: 'sparkle', title: TEXT.trial.title, text: TEXT.trial.text}] : []),
     ], {selected: picked, onPick: pick, label: TEXT.title});
     const head = el('div', 'engine-head');
     head.append(el('h3', '', TEXT.title), el('p', 'muted small', context === 'settings' ? TEXT.settingsSubtitle : TEXT.subtitle));
@@ -24,13 +25,15 @@ export function mountEngine(box, {context = 'settings', onChange = () => {}} = {
     if (context === 'settings' && showOffer(shared.state?.settings, hasKey(), status)) parts.push(offerCard());
     parts.push(cards);
     if (notice) parts.push(notice);
-    parts.push(statusBlock(cli));
+    // The wizard shows Claude Code's status and billing only for its card (picked, or nothing picked yet); Settings always.
+    const aboutCli = context === 'settings' || !picked || picked === 'cli';
+    if (aboutCli) parts.push(statusBlock(cli));
     if (problem) parts.push(el('p', 'message error', problem));
     const fallback = showFallback(picked, hasKey());
     if (fallback) parts.push(fallbackRow());
     // The fallback row's hint carries the retry line in Settings; the wizard (and the states without that row) keep
     // the full note, which is the only place the billing is explained there.
-    if (!(fallback && context === 'settings')) parts.push(el('p', 'muted small engine-note', TEXT.note));
+    if (aboutCli && !(fallback && context === 'settings')) parts.push(el('p', 'muted small engine-note', TEXT.note));
     box.replaceChildren(...parts);
   };
   const statusBlock = cli => {

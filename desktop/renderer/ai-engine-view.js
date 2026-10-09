@@ -10,6 +10,8 @@ export const TEXT = {
   cli: {title: 'Claude Code CLI', text: 'Uses your own Claude Code CLI (the claude command on this Mac) and its Claude subscription for the AI tasks here, with no API key or '
     + 'per-token costs for them. Scheduled runs in your GitHub repository (Always on) still use your API key.',
     short: 'Use your Claude subscription, for tasks on this Mac.'},
+  trial: {title: '$1 of free AI', text: 'Invited tester? Use your founder key: no Anthropic account or card needed. '
+    + 'When the $1 is used, add your own key in Settings → Anthropic.'},  // the wizard only: a first-run offer
   note: 'AI tasks run through your Claude Code and bill to your Claude subscription, not to API credits. Always on (GitHub) '
     + 'and the free-credit relay use an API key. Tasks are retried later when your Claude usage window is exhausted.',
   fallback: 'Use my API key if Claude Code reaches its limit',
@@ -23,6 +25,7 @@ export const TEXT = {
 // The chosen engine: 'api', 'cli' or null. In Settings an install that had a key before the choice existed shows 'api'
 // (it keeps running on the key); the wizard shows nothing chosen until the user picks.
 export function chosen(settings = {}, hasKey = false, context = 'settings') {
+  if (context === 'wizard' && settings.aiTrial) return 'trial';
   if (settings.aiEngine === 'api' || settings.aiEngine === 'cli') return settings.aiEngine;
   return context === 'settings' && hasKey ? 'api' : null;
 }
@@ -41,8 +44,10 @@ export function cliStatus(status = null) {
   return {lines, path: status.path || '', usable: !!(status.installed && status.authenticated), checking: false};
 }
 
-// Wizard: Continue once a card is picked and it can run (Claude Code verified; the API card with a key saved or typed).
-export function canContinue({picked, hasKey = false, keyTyped = false, status = null}) {
+// Wizard: Continue once a card is picked and it can run (Claude Code verified; the API card with a key saved or typed;
+// the free credit with a founder key typed, or one already in the app).
+export function canContinue({picked, hasKey = false, keyTyped = false, status = null, licensed = false}) {
+  if (picked === 'trial') return !!(keyTyped || licensed);
   if (picked === 'cli') return cliStatus(status).usable;
   if (picked === 'api') return !!(hasKey || keyTyped);
   return false;

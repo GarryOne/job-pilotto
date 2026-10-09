@@ -9,15 +9,34 @@ import {canContinue} from '../ai-engine-view.js';
 
 // The AI step's engine chooser (pages/ai-engine.js): mounted the first time the step opens. Nothing is pre-selected;
 // Continue once the user picked one that can run (Claude Code verified, or an API key saved or typed).
-let chooser = null;
+let chooser = null, licensed = false;
 const aiDone = () => !!shared.state.secrets.ANTHROPIC_API_KEY || shared.state.settings.aiEngine === 'cli';
 function aiStep() {
   const picked = chooser?.picked();
   show($('ai-key-part'), picked === 'api');
-  show($('ai-trial'), picked !== 'cli');  // the free credit stays for people with neither
-  const keyTyped = !!$('anthropic-key').value.trim();
-  $('ai-save').disabled = !canContinue({picked, hasKey: !!shared.state.secrets.ANTHROPIC_API_KEY, keyTyped, status: chooser?.status()});
-  $('ai-save').textContent = picked === 'api' && keyTyped ? 'Check and save' : 'Continue';
+  show($('ai-trial'), picked === 'trial');   // the third card: the founder key field
+  const keyTyped = !!$(picked === 'trial' ? 'ai-trial-key' : 'anthropic-key').value.trim();
+  $('ai-save').disabled = !canContinue({picked, hasKey: !!shared.state.secrets.ANTHROPIC_API_KEY, keyTyped, status: chooser?.status(), licensed});
+  $('ai-save').textContent = picked === 'trial' ? 'Use the free credit' : picked === 'api' && keyTyped ? 'Check and save' : 'Continue';
+}
+
+// The third card, $1 of free AI (lib/ai-trial.js): the founder key unlocks the app and pays for the first $1 of AI.
+async function useTrial() {
+  const pasted = $('ai-trial-key').value.trim();
+  $('ai-save').disabled = true;
+  message('ai-trial-message', 'Checking the key…');
+  if (pasted) {
+    const set = await window.pilot.licenseSet(pasted).catch(error => ({ok: false, error: error.message}));
+    if (set && set.ok === false) { $('ai-save').disabled = false; message('ai-trial-message', set.error || 'That key was not accepted.', 'error'); return; }
+  }
+  const result = await window.pilot.startTrialCredit();
+  $('ai-save').disabled = false;
+  if (!result.ok) { message('ai-trial-message', result.error, 'error'); return; }
+  shared.state.secrets = {...shared.state.secrets, ANTHROPIC_API_KEY: true};
+  shared.state.settings = {...shared.state.settings, aiTrial: true};
+  $('ai-trial-key').value = '';
+  message('ai-trial-message', '✓ Using your $1 of free AI. Add your own key any time in Settings → Anthropic.', 'ok');
+  setTimeout(() => goStep('cv'), 900);
 }
 
 // ---------- wizard ----------
@@ -33,7 +52,10 @@ export function goStep(name) {
   }
   if (name === 'extras') import('./settings.js').then(settings => settings.showExtrasStatus());  // Connected / Manage, as in Settings
   if (name === 'ai') {
-    if (!chooser) chooser = mountEngine($('ai-engine'), {context: 'wizard', onChange: aiStep});
+    if (!chooser) {
+      chooser = mountEngine($('ai-engine'), {context: 'wizard', onChange: aiStep});
+      window.pilot.license().then(state => { licensed = !!state?.licensed; aiStep(); }, () => {});   // a founder key already in: no need to paste it
+    }
     aiStep();
   }
   document.querySelectorAll('.step').forEach(step => show(step, step.dataset.step === name));
@@ -69,7 +91,9 @@ export async function init() {
   }));
 
   $('anthropic-key').addEventListener('input', aiStep);
+  $('ai-trial-key').addEventListener('input', aiStep);
   $('ai-save').addEventListener('click', async () => {
+    if (chooser?.picked() === 'trial') { await useTrial(); return; }
     if (chooser?.picked() === 'cli') {  // the user's own Claude Code, verified: no API key needed
       shared.state.settings = await window.pilot.setAiEngine('cli');
       message('ai-message', '', '');
@@ -95,21 +119,6 @@ export async function init() {
     goStep('cv');
   });
   $('ai-skip').addEventListener('click', () => goStep('cv'));
-  // The free AI credit (lib/ai-trial.js): the founder key unlocks the app and pays for the first $1 of AI.
-  $('ai-trial-go').addEventListener('click', async () => {
-    const pasted = $('ai-trial-key').value.trim();
-    if (pasted) {
-      const set = await window.pilot.licenseSet(pasted).catch(error => ({ok: false, error: error.message}));
-      if (set && set.ok === false) { message('ai-message', set.error || 'That key was not accepted.', 'error'); return; }
-    }
-    const result = await window.pilot.startTrialCredit();
-    if (!result.ok) { message('ai-message', result.error, 'error'); return; }
-    shared.state.secrets = {...shared.state.secrets, ANTHROPIC_API_KEY: true};
-    $('ai-trial-key').value = '';
-    message('ai-message', '✓ Using your $1 of free AI. Add your own key any time in Settings → Anthropic.', 'ok');
-    setTimeout(() => goStep('cv'), 900);
-  });
-
   // What's happening, line by line: finished pieces ✓, the one being written last.
   window.pilot.onDraftProgress(({part, percent, notes = []}) => {
     $('draft-feed').replaceChildren(...notes.slice(-9).map((note, i, shown) => Object.assign(document.createElement('li'),

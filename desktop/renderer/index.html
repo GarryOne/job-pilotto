@@ -69,8 +69,8 @@
       <header class="view-head step-head">
         <div><span class="eyebrow">Step 1 of 4</span>
           <h1>Connect your AI</h1>
-          <p class="muted subtitle">Job Pilotto uses Claude to read job postings, score them and draft answers. Choose how it runs: your own
-            Claude Code (your Claude plan), or an Anthropic API key (you pay Anthropic per use, usually a few dollars a month).</p></div>
+          <p class="muted subtitle">Job Pilotto uses Claude to read job postings, score them and draft answers. Choose how it runs: an Anthropic API key
+            (you pay Anthropic per use, usually a few dollars a month), your own Claude Code (your Claude plan), or, for invited testers, $1 of free AI.</p></div>
       </header>
       <section class="card step-card engine" id="ai-engine"></section>
       <section class="card step-card" id="ai-key-part" hidden>
@@ -87,14 +87,15 @@
           <p class="message" id="ai-message"></p>
         </div>
       </section>
-      <details class="troubleshoot trial-offer" id="ai-trial">
-        <summary>No Anthropic key yet? Try it with $1 of free AI</summary>
-        <p class="muted small">For invited testers: paste the founder key you got with your invite. While you use the free credit, AI
-          requests go through the Job Pilotto website to Anthropic (nothing is stored). With your own key they go straight from this Mac
-          to Anthropic. When the $1 is used, add your own key in Settings → Anthropic.</p>
-        <div class="inline"><input id="ai-trial-key" type="text" placeholder="Your founder key (JP1.…)" autocomplete="off" spellcheck="false">
-          <button type="button" class="secondary" id="ai-trial-go">Use the free credit</button></div>
-      </details>
+      <section class="card step-card" id="ai-trial" hidden>
+        <p class="muted small">While you use the free credit, AI requests go through the Job Pilotto website to Anthropic (nothing is stored).
+          With your own key they go straight from this Mac to Anthropic.</p>
+        <div class="step-field">
+          <label for="ai-trial-key">Founder key</label>
+          <input id="ai-trial-key" type="text" placeholder="The key from your invite (JP1.…)" autocomplete="off" spellcheck="false">
+          <p class="message" id="ai-trial-message"></p>
+        </div>
+      </section>
       <div class="actions">
         <button class="ghost" data-back>Back</button>
         <button class="ghost" id="ai-skip">Skip for now</button>

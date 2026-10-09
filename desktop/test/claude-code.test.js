@@ -198,3 +198,12 @@ test('Always on (GitHub) never gets the Claude Code engine: it runs on the API k
   for (const name of ['JOB_PILOTTO_AI_ENGINE', 'JOB_PILOTTO_CLAUDE_BIN', 'JOB_PILOTTO_AI_FALLBACK']) assert.ok(!(name in variables), name);
   assert.equal(secrets.ANTHROPIC_API_KEY, 'sk-test');
 });
+
+// The wizard's third card, $1 of free AI: chosen again when the credit is on; Continue needs a founder key typed or already in the app.
+test('free credit card: chosen when on (wizard only), Continue with a founder key', () => {
+  assert.equal(view.chosen({aiTrial: true}, true, 'wizard'), 'trial');
+  assert.equal(view.chosen({aiTrial: true}, true, 'settings'), 'api');
+  assert.equal(view.canContinue({picked: 'trial'}), false);
+  assert.equal(view.canContinue({picked: 'trial', keyTyped: true}), true);
+  assert.equal(view.canContinue({picked: 'trial', licensed: true}), true);
+});
