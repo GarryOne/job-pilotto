@@ -51,3 +51,22 @@ test('without a CV in the app nothing is attached, and the CV is listed as left 
     await app.assertIsolated();
   } finally { await app.close(); }
 });
+
+// 9 Oct 2026, a friend's Windows Chrome: the app opened a jobs.ch posting to apply and nothing happened. jobs.ch is not one of
+// manifest.json's hiring systems and "Work on every job site" was off, so the tab got a silent '?' badge: no panel, no Allow, no
+// log line. A fresh profile has no optional site permission, as a new install does. Nothing on the page is pressed.
+const NOT_ALLOWED = 'https://www.jobs.ch/en/vacancies/detail/a601bb40-5e00-429b-abdf-a52760202eda/';
+test('an apply tab on a site not allowed yet opens the Allow page and tells the app why it waits', {skip}, async () => {
+  const run = await startRealExtension({extensionDir});
+  try {
+    const opened = run.context.waitForEvent('page', {predicate: page => /allow\.html$/.test(page.url()), timeout: 30000}).catch(() => null);
+    await run.page.goto(`${NOT_ALLOWED}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'});
+    const allow = await opened;
+    assert.ok(allow, 'the extension opened its Allow page beside the tab');
+    assert.ok(await waitUntil(() => run.told('waits for Allow'), 30), 'the app log hears that the tab waits for Allow, and on which host');
+    assert.ok(run.told('www.jobs.ch'));
+    assert.ok(await run.assertIsolated());
+  } finally {
+    await run.close();
+  }
+});

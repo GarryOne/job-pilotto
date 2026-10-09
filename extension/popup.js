@@ -27,7 +27,23 @@ const LINKEDIN = 'LinkedIn forbids reading its pages with an extension and may r
   if (!app || !tab?.id) return;
   const mode = popupMode({url: tab.url, armed: (await chrome.storage.session.get(`armed:${tab.id}`).catch(() => ({})))[`armed:${tab.id}`]});
   // A tab the app opened to apply: the panel on the page fills the form; reading this page's jobs has nothing to do with it.
-  if (mode === 'fill') { $('intro').textContent = 'The Job Pilotto app opened this page to apply: the panel on the page fills the form and tells you what is left.'; return; }
+  if (mode === 'fill' || (tab.url || '').includes('#jobpilotto-fill')) {
+    // Not allowed on this site yet: the panel can't start, so the popup says so and offers the Allow (site-allow.js), never "the panel fills the form".
+    if (!(await chrome.permissions.contains({origins: [`${new URL(tab.url).origin}/*`]}).catch(() => true))) {
+      $('intro').textContent = 'The Job Pilotto app opened this page to apply, but the extension isn\'t allowed on this site yet. Allow it, once, on the sites the app opens for you:';
+      $('visit').hidden = false;
+      $('visit-read').hidden = $('visit-filter').hidden = true;
+      $('visit-text').textContent = '';
+      $('visit-allow').hidden = false;
+      $('visit-allow').addEventListener('click', async () => {
+        const ok = await chrome.permissions.request({origins: ['https://*/*']}).catch(() => false);
+        $('visit-progress').textContent = ok ? 'Allowed: the form is being filled.' : 'Not allowed: the extension can\'t fill this form.';
+      });
+      return;
+    }
+    $('intro').textContent = 'The Job Pilotto app opened this page to apply: the panel on the page fills the form and tells you what is left.';
+    return;
+  }
   if (mode === 'none') return;
   $('visit').hidden = false;
   const host = new URL(tab.url).hostname;

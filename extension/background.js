@@ -14,6 +14,7 @@ import {autoRead, markListed, siteUnreachable, startWaiting} from './visit.js';
 import {MEMORY_KEY, memoryReadyIs, sessionGet, snapshot, startRun} from './tab-memory.js';
 import {startsOwnJob, pageKey, sameSite, navigationKind, neverForm, sharedFixes, tabArmed, withMark} from './tab-pages.js';
 import {noteStart} from './panel-start.js';
+import {fillWaitsForAllow, resumeFillWaiting, watchUnallowedFillTabs} from './site-allow.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
 // while a fill is still running, so every injection asks the tab what it shows first (tab-pages.js).
@@ -51,11 +52,8 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   let origin = '';
   try { origin = new URL(tab.url).origin + '/*'; } catch { return; }
   if (!(await chrome.permissions.contains({origins: [origin]}))) {
-    if (info.status !== 'complete') return;
-    // Not one of the supported job sites, and "Work on every job site" is off. The app opened this tab;
-    // the extension still does not run here until that permission is granted.
-    chrome.action.setBadgeText({tabId, text: '?'}).catch(() => {});  // the tab may already be closed
-    chrome.action.setTitle({tabId, title: 'Job Pilotto: this site needs Settings → Work on every job site'}).catch(() => {});  // the tab may already be closed
+    // Not one of the supported job sites, and "Work on every job site" is off: wait for Allow, visibly (site-allow.js).
+    if (info.status === 'complete') await fillWaitsForAllow(tabId, tab.url, {decide});
     return;
   }
   // `from` is the job this tab was opened for. A mark the extension carried onto the next page (markPage) does not change it:
@@ -142,7 +140,8 @@ if (chrome.webNavigation) {
     if (found[1]) settings().then(config => api(config, '/extension/visit-state', {method: 'POST', body: JSON.stringify({ticket: found[1], words: 'the extension has the tab: waiting for the page to load'})})).catch(() => {});
   });
   chrome.tabs.onRemoved.addListener(tabId => { chrome.storage.session.remove(`readmark:${tabId}`).catch(() => {}); });
-  chrome.permissions.onAdded.addListener(() => startWaiting());
+  chrome.permissions.onAdded.addListener(() => { startWaiting(); resumeFillWaiting({decide}); });
+  watchUnallowedFillTabs({decide});
   chrome.webNavigation.onCommitted.addListener(async details => {
     if (details.frameId !== 0) return;
     const key = `armed:${details.tabId}`;
