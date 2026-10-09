@@ -115,12 +115,11 @@ def kits_mode(args, stores=None):
 
 
 def add_message_mode(args, stores=None):
-    tracker = notion_of(stores)  # BRIDGE(mac-cd): remove when inbox.propose/log and added.hook take the store alone
+    tracker = notion_of(stores)  # BRIDGE(mac-67): remove when _gate asks the store alone and the run's "Job logged" line reads the job through it
     # A pasted message or screenshot (/add <message>, a forward or photo sent to the bot, the app's Log box):
     # the job it's about is updated, or created (src/ai/inbox.py).
     _gate(tracker, stores, '--mode add requires NOTION_TOKEN', on_store=True)
-    # The inbox reads and writes the store (src/ai/inbox.py): Notion's over the tracker as before, else this Mac's.
-    stores = open_stores(tracker=tracker) if tracker else stores
+    # The inbox, its AI stages (added.hook) and the job it logs take the caller's store alone (src/ai/inbox.py).
     run = new_cron_run('add')
     run['mail'] = {}  # Haiku reading one message: counted with the mail check's cost
     found = {}  # the job it created or updated (inbox.log fills it)
@@ -154,7 +153,7 @@ def add_message_mode(args, stores=None):
         reply = escape(inbox.log(stores, text=args.note or '', image=image, source=source,
                                  event_source='Job Pilotto app' if args.from_app else 'Telegram' if args.send else 'CLI',
                                  talking=args.action == 'talking', stats=run['mail'], target=args.target,
-                                 on_new=added.hook(tracker, args.db, run, stores=stores), proposal=proposal, found=found))
+                                 on_new=added.hook(stores, args.db, run), proposal=proposal, found=found))
         run['mail'].update(pending=1, done=1)
         queue_mail_check()
     except ValueError as error:

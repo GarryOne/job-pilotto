@@ -228,5 +228,31 @@ class WalledSiteTests(unittest.TestCase):
         self.assertFalse(ledger.walled('https://boards.greenhouse.io/acme/jobs/1'))
 
 
+class HookTests(unittest.TestCase):
+    """added.hook(stores, db_path, stats): the AI stages for a job added by a log, a lead or Gmail, through the caller's store alone."""
+
+    def test_the_hook_scores_through_the_callers_store_with_no_notion_client(self):
+        import tempfile
+        from src.stores import memory
+        stores, seen = memory.open_store(), {}
+        def process(db, url, job, *, row=None, stats=None, stores=None, **_):
+            seen.update(stores=stores, url=url, row=row)
+            return 'fit 80/100, tier A'
+        with tempfile.TemporaryDirectory() as folder, mock.patch.object(added, 'process', process):
+            on_new = added.hook(stores, str(Path(folder) / 'jobs.sqlite'), {})
+            self.assertEqual(on_new('https://x.test/1', {'title': 'SRE'}, {'id': 'r1'}), 'fit 80/100, tier A')
+        self.assertIs(seen['stores'], stores)
+        self.assertEqual(seen['row'], {'id': 'r1'})
+
+    def test_a_failure_is_printed_never_raised(self):
+        import io
+        import tempfile
+        from contextlib import redirect_stdout
+        with tempfile.TemporaryDirectory() as folder, mock.patch.object(added, 'process', side_effect=RuntimeError('model down')), \
+                redirect_stdout(io.StringIO()) as out:
+            self.assertIsNone(added.hook(None, str(Path(folder) / 'jobs.sqlite'))('https://x.test/1', {}))
+        self.assertIn('AI stages skipped', out.getvalue())
+
+
 if __name__ == '__main__':
     unittest.main()
