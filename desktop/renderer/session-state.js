@@ -98,7 +98,9 @@ export function tabClosed(item, formsOpen, seen = false, now = Date.now()) {
 // The first look at Chrome after the app starts (or ⌘R): until the extension reports in, or CHECK_MS pass, nobody knows whether
 // a session's tab is still there, so its card shows that it is checking instead of the last state it had (owner, 8 Oct 2026:
 // for 2 s the old question and "Can't reach form" showed, then "The form tab was closed" replaced them).
-export const CHECK_MS = 15 * 1000;
+// At least one report of the extension's (extension/report-alarm.js: every 30 s, Chrome's shortest alarm) plus a margin: at 15 s every card said "Chrome isn't
+// reporting" for up to 15 s after each app start while Chrome was fine (twin, 9 Oct 2026). Guard: test/session-state.test.js.
+export const CHECK_MS = 45 * 1000;
 export function checkingTabs(item, formsOpen, sinceStart) {
   if (!item || formsOpen?.known || sinceStart > CHECK_MS || isSubmitted(item) || item.outcome) return false;
   return item.kind === 'form' || ((item.kind || 'claude') === 'claude' && !isLive(item));

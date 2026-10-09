@@ -218,3 +218,11 @@ test('an account stop says how far its page is instead of "nothing filled yet"; 
   assert.equal(accountProgress(undefined), '· nothing filled yet');
   assert.equal(accountProgress({account: false, total: 10, left: 2}), '· nothing filled yet');
 });
+
+test('the first look at Chrome waits longer than one report of the extension, so a working Chrome is never called silent', async () => {
+  const fs = await import('node:fs');
+  const {CHECK_MS} = await import('../renderer/session-state.js');
+  const alarm = fs.readFileSync(new URL('../../extension/report-alarm.js', import.meta.url), 'utf8');
+  const period = Number(alarm.match(/periodInMinutes = ([\d.]+)/)[1]) * 60 * 1000;
+  assert.ok(CHECK_MS >= period + 10 * 1000, `CHECK_MS ${CHECK_MS} ms vs the extension's report every ${period} ms (9 Oct 2026: 15 s vs 30 s)`);
+});
