@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 from .. import features, store
 from ..notion import matches
 from ..notion.ledger import SELECTS, plain
+from ..stores import open_stores
 from ..paths import local_profile
 from . import cost, enrich, score
 
@@ -40,10 +41,11 @@ def description_of(item, text=''):
     return '\n'.join(f'{name}: {value}' for name, value in parts if value)
 
 
-def process(db, tracker, url, job, *, row=None, client=None, stats=None, now=None):
+def process(db, url, job, *, stores, row=None, client=None, stats=None, now=None):
     """Stage 1 + stage 2 for one job you added. job: title, company, location, description (optional: work_mode,
     date_posted). row: its Applications page, whose fit columns are filled. With no row yet (/add scores the job before
-    its row exists), the columns are left in job['application_columns'] for ledger.add_application to write.
+    its row exists), the columns are left in job['application_columns'] for ledger.add_application to write (and as store
+    fields in job['application_fields']). With a row, the job is filled through the active store (stores).
     Returns a short line ("fit 82/100, tier A"), or None when skipped (AI off, no text, already scored)."""
     if not (features.enabled('enrich') and features.enabled('score')):
         return None
@@ -68,15 +70,16 @@ def process(db, tracker, url, job, *, row=None, client=None, stats=None, now=Non
     enrich.save(db, item, enrich.DEFAULT_MODEL, facts)
     cost.add(stats.setdefault('enrich', {}) if stats is not None else None, enrich.DEFAULT_MODEL, usage)
     item['ai'] = facts
-    profile = score.scoring_profile(local_profile() or tracker.page_text())  # contact/links edits don't re-score
+    profile = score.scoring_profile(local_profile() or stores.texts.plain('profile'))  # as the search scores (Notion: the page text)
     fit, usage = score.score_one(client, score.DEFAULT_MODEL, item, profile)
     score.save(db, item, score.DEFAULT_MODEL, fit, profile)
     cost.add(stats.setdefault('score', {}) if stats is not None else None, score.DEFAULT_MODEL, usage)
     props = matches.properties(dict(item, fit=fit), 'Applied')  # the same values a found job's match carries
     if row is not None:
-        _fill_application(tracker, row, props)
+        _fill_application(stores, url, props)
     else:
         job['application_columns'] = application_columns(props)
+        job['application_fields'] = application_fields(props)
     return f"fit {fit['score']}/100, tier {fit['tier']}"
 
 
@@ -95,17 +98,40 @@ def application_columns(props, have=None):
     return changes
 
 
-def _fill_application(tracker, row, props):
-    tracker.update_page(row['id'], application_columns(props, row.get('properties')))
+# The same columns as store fields (src/stores APPLICATION_FIELDS; the Notion store writes each to its column).
+FIELDS = {'Fit score': 'fit', 'Seniority': 'seniority', 'Work mode': 'work_mode', 'Tier': 'tier', 'Recruiter': 'recruiter', 'Salary': 'salary'}
 
 
-def hook(tracker, db_path, stats=None):
-    """on_new(url, job, row) for the places that add jobs (logged messages, recruiter leads, Gmail): runs process()
-    on the job cache at db_path; a failure is printed, never raised (the job is tracked either way)."""
+def application_fields(props, have=None):
+    """application_columns() as store fields; what you set (have: the job's record) stays."""
+    have = have or {}
+    changes = {'fit': props['Score']['number']}
+    for name in SELECTS:
+        value = (props.get(name) or {}).get('select')
+        if value and value['name'] in SELECTS[name] and not have.get(FIELDS[name]):
+            changes[FIELDS[name]] = value['name']
+    if (props.get('Recruiter') or {}).get('checkbox') and not have.get('recruiter'):
+        changes['recruiter'] = True
+    salary = ((props.get('Salary') or {}).get('rich_text') or [{}])[0].get('text', {}).get('content')
+    if salary and not have.get('salary'):
+        changes['salary'] = salary
+    return changes
+
+
+def _fill_application(stores, url, props):
+    record = stores.applications.get(url)
+    if record:
+        stores.applications.update(record['id'], application_fields(props, record))
+
+
+def hook(stores, db_path, stats=None):
+    """on_new(url, job, record) for the places that add jobs (logged messages, recruiter leads, Gmail): runs process()
+    on the job cache at db_path through the active store the caller holds; a failure is printed, never raised (the job
+    is tracked either way)."""
     def on_new(url, job, row=None):
         try:
             with store.connect(db_path) as db:
-                return process(db, tracker, url, job, row=row, stats=stats)
+                return process(db, url, job, row=row, stats=stats, stores=stores)
         except Exception as error:  # noqa: BLE001
             print(f'Warning: AI stages skipped for {url}: {type(error).__name__}: {error}')
             return None

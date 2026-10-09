@@ -15,40 +15,38 @@ class AdvanceTests(unittest.TestCase):
             self.assertEqual(interviews.held_stage(stage, 'Recruiter screen'), expected)
         # A technical or hiring-manager round: Interviewing.
         for stage in ('Interview scheduled', 'Screening', 'Recruiter lead'):
-            tracker = FakeTracker([])
-            self.assertEqual(interviews.advance(tracker, huxley(stage), now=NOW, round_='Technical interview',
+            stores = store_with(huxley_job(stage))
+            self.assertEqual(interviews.advance(stores, only_app(stores), now=NOW, round_='Technical interview',
                                                 next_step='Hiring manager call next week'), 'Interviewing')
-            self.assertEqual(tracker.created[0][1]['Kind'], {'select': {'name': 'Interviewing'}})
-            self.assertEqual(tracker.updates, [('h-1', {
-                'Stage': {'select': {'name': 'Interviewing'}},
-                'Next step': {'rich_text': [{'text': {'content': 'Hiring manager call next week'}}]},
-                'Next interview': {'date': None}})])
+            self.assertEqual([e['kind'] for e in stores.events.list()], ['Interviewing'])
+            job = only_app(stores)
+            self.assertEqual((job['stage'], job['next_step'], job['next_interview']),
+                             ('Interviewing', 'Hiring manager call next week', ''))
         # A coming interview stays; "not stated" is no next step.
-        tracker = FakeTracker([])
-        row = huxley(**{'Next interview': {'type': 'date', 'date': {'start': '2026-10-02T09:00:00Z'}}})
-        interviews.advance(tracker, row, now=NOW, next_step='not stated')
-        self.assertEqual(tracker.updates, [('h-1', {'Stage': {'select': {'name': 'Interviewing'}}})])
+        stores = store_with(huxley_job(next_interview='2026-10-02T09:00:00Z'))
+        interviews.advance(stores, only_app(stores), now=NOW, next_step='not stated')
+        job = only_app(stores)
+        self.assertEqual((job['stage'], job['next_step'], job['next_interview']), ('Interviewing', '', '2026-10-02T09:00:00Z'))
 
     def test_never_backwards_and_never_a_closed_stage(self):
-        tracker = FakeTracker([])
-        self.assertIsNone(interviews.advance(tracker, huxley('Interviewing'), now=NOW, next_step='Final round'))
-        self.assertNotIn('Stage', tracker.updates[0][1])  # already there: next step and the date only
+        stores = store_with(huxley_job('Interviewing'))
+        self.assertIsNone(interviews.advance(stores, only_app(stores), now=NOW, next_step='Final round'))
+        self.assertEqual((only_app(stores)['stage'], only_app(stores)['next_step']), ('Interviewing', 'Final round'))
         for stage in ('Offer', 'Rejected', 'Withdrawn', 'Closed', 'Dismissed'):
-            tracker = FakeTracker([])
-            self.assertIsNone(interviews.advance(tracker, huxley(stage), now=NOW, next_step='x',
-                                                 changes={'Salary': {'rich_text': []}}))
-            self.assertEqual((tracker.updates, tracker.created), ([], []), stage)
+            stores = store_with(huxley_job(stage))
+            before = only_app(stores)
+            self.assertIsNone(interviews.advance(stores, before, now=NOW, next_step='x', changes={'salary': 'CHF 1'}))
+            self.assertEqual((only_app(stores), stores.events.list()), (before, []), stage)
 
 
 class FactsTests(unittest.TestCase):
     def test_empty_fields_are_filled_same_values_left_and_different_ones_reported(self):
-        row = huxley(**{'Work mode': {'type': 'select', 'select': {'name': 'Remote'}},
-                        'Call facts': text('Team size: about 10')})
+        row = huxley_job(work_mode='Remote', call_facts='Team size: about 10')
         merged = interviews.merge_facts(row, {'facts': FACTS})
         self.assertEqual(merged['changes'], {
-            'Salary': {'rich_text': [{'text': {'content': 'CHF 160-180k/year'}}]},
-            'Contract': {'select': {'name': 'B2B / contractor'}},  # the option's own spelling
-            'Call facts': {'rich_text': [{'text': {'content': 'Team size: about 10 · Your ask: CHF 170k'}}]}})
+            'salary': 'CHF 160-180k/year',
+            'contract': 'B2B / contractor',  # the option's own spelling
+            'call_facts': 'Team size: about 10 · Your ask: CHF 170k'})
         self.assertEqual([f['label'] for f in merged['filled']], ['Salary', 'Contract', 'Your ask'])
         self.assertEqual([(f['label'], f['current'], f['value']) for f in merged['differs']],
                          [('Location', 'Remote', 'Hybrid, Zurich 2 days'), ('Team size', 'about 10', '8 SREs')])
@@ -61,11 +59,10 @@ class FactsTests(unittest.TestCase):
         self.assertIn('belong in relocation', interviews.SYSTEM)
 
     def test_a_more_specific_location_refines_the_job_but_a_different_one_does_not(self):
-        row = huxley(Location=text('Remote'))
+        row = huxley_job(location='Remote')
         merged = interviews.merge_facts(row, {'facts': [
             {'field': 'location', 'value': 'Remote, Europe (Switzerland via employer of record, or Romania)', 'quote': 'q'}]})
-        self.assertEqual(merged['changes']['Location'],
-                         {'rich_text': [{'text': {'content': 'Remote, Europe (Switzerland via employer of record, or Romania)'}}]})
+        self.assertEqual(merged['changes']['location'], 'Remote, Europe (Switzerland via employer of record, or Romania)')
         self.assertEqual([(f['label'], f.get('refined')) for f in merged['filled']], [('Location', 'Remote')])
         self.assertEqual(merged['differs'], [])
         # Selects are never refined, and a value that does not contain the current one is only reported.
@@ -76,20 +73,19 @@ class FactsTests(unittest.TestCase):
         original, fixtures.RESULT = fixtures.RESULT, dict(fixtures.RESULT, application=0, round='Technical interview', facts=FACTS,
                                         next_step='Intro with the hiring manager')
         try:
-            tracker, sent = FakeTracker([huxley()]), []
-            log = interviews.run(tracker, note='/interview Huxley\n' + 'Notes about the call. ' * 5,
+            stores, sent = store_with(huxley_job()), []
+            log = interviews.run(stores=stores, note='/interview Huxley\n' + 'Notes about the call. ' * 5,
                                  client=FakeClient(), now=NOW, send=sent.append)
         finally:
             fixtures.RESULT = original
-        (page_id, update), = tracker.updates
-        self.assertEqual(update['Stage'], {'select': {'name': 'Interviewing'}})
-        self.assertEqual(update['Salary'], {'rich_text': [{'text': {'content': 'CHF 160-180k/year'}}]})
-        self.assertEqual(update['Next interview'], {'date': None})
-        self.assertNotIn('Location', update)  # "Remote" stays: the call said something else, reported instead
+        job = only_app(stores)
+        self.assertEqual((job['stage'], job['salary'], job['next_interview']), ('Interviewing', 'CHF 160-180k/year', ''))
+        self.assertEqual(job['location'], 'Remote')  # the call said something else: reported instead
         self.assertIn('Huxley, Technical interview', log)
         self.assertIn('Stage → Interviewing; filled Salary (CHF 160-180k/year), Contract (B2B / contractor)', log)
         self.assertIn('differs from the job, not changed: Location (call: Hybrid, Zurich 2 days; job: Remote)', log)
-        page = str(tracker.requests[0]['children'])
+        [interview] = stores.interviews.list()
+        page = interview['review']
         self.assertIn('Facts from the call', page)
         self.assertIn('“two days a week in Zurich” ⚠️ Different from the job (it says “Remote”): not changed', page)
         self.assertIn('Salary: CHF 160-180k/year — “the band is 160 to 180 thousand francs” (added to the job)', page)

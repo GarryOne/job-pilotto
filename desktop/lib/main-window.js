@@ -19,7 +19,7 @@ export function createMainWindow(ctx) {
   function openNotion(url) {
     if (!/^https:\/\/(www\.)?notion\.(so|site)\//.test(url)) return shell.openExternal(url);
     if (!notionWindow || notionWindow.isDestroyed()) {
-      notionWindow = new BrowserWindow({width: 1280, height: 860, title: 'Notion · Job Pilotto', show: !HIDDEN,
+      notionWindow = new BrowserWindow({width: 1280, height: 860, title: 'Notion · Job Pilotto', show: !HIDDEN,   // about Notion
         webPreferences: {partition: 'persist:notion', contextIsolation: true, sandbox: true}});
       const outside = target => !/^https:\/\/([a-z0-9-]+\.)*notion\.(so|site|com)\//.test(target);
       notionWindow.webContents.setWindowOpenHandler(({url: target}) => {

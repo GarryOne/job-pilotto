@@ -30,7 +30,7 @@
     <div class="steps-foot">
       <button class="nav wizard-exit" id="wizard-exit" type="button" hidden><i data-icon="undo"></i>Back to the app</button>
       <button class="nav wizard-stuck" id="wizard-stuck" type="button"><i data-icon="help"></i>Stuck? Tell us</button>
-      <p class="fine steps-privacy"><i data-icon="shield"></i><span>Data: <strong>this Mac</strong> &amp; connected Notion.<br>Keys: encrypted in Keychain.</span></p>
+      <p class="fine steps-privacy"><i data-icon="shield"></i><span>Data: <strong>this Mac</strong><span data-notion-only> &amp; connected Notion</span>.<br>Keys: encrypted in Keychain.</span></p>
       <p class="fine steps-version"><i data-icon="info"></i><span data-version></span></p>
     </div>
   </aside>
@@ -38,7 +38,7 @@
   <div class="step-body">
     <div class="alert tone-good review-mode" id="review-mode" hidden><i data-icon="shield"></i>
       <div><strong>Your setup is done.</strong> You're looking at it: nothing changes here unless you replace your
-      strategy at step 4, after a confirmation. For small changes, edit your Profile or Search settings in Notion instead.</div></div>
+      strategy at step 4, after a confirmation. For small changes, edit your Profile or Search settings instead.</div></div>
     <div class="step" data-step="welcome">
       <header class="view-head step-head">
         <div><span class="eyebrow">Check-in · about 5 minutes</span>
@@ -122,7 +122,7 @@
         <div><span class="eyebrow">Step 2 of 4</span>
           <h1>Your CV</h1>
           <p class="muted subtitle">The AI reads it and proposes what you're looking for: roles, places, work mode, salary and languages. You check and correct them next.
-            It stays on this Mac and in your Notion; only the AI reads it when building your strategy.</p></div>
+            It stays on this Mac<span data-notion-only> and in your Notion</span>; only the AI reads it when building your strategy.</p></div>
       </header>
       <section class="card step-card">
         <div class="cv-pick">
@@ -151,7 +151,7 @@
           <div class="step-field" id="note-field">
             <label for="q-more" id="note-label">What should the AI know about what you want? <span class="muted">(optional)</span></label>
             <textarea id="q-more" rows="4" placeholder="e.g. senior or staff level, permanent only, companies under 500 people, English-speaking teams, no on-call, skip my current employer"></textarea>
-            <p class="muted small note-hint">Your CV says what you've done; this says what you want next. It's saved with your Profile in Notion.</p>
+            <p class="muted small note-hint">Your CV says what you've done; this says what you want next. It's saved with your Profile<span data-notion-only> in Notion</span>.</p>
           </div>
         </section>
         <p class="muted small step-note" id="goals-cost"><i data-icon="info"></i><span id="goals-cost-text">Building reads your CV and your note with Claude Sonnet 5.
@@ -193,7 +193,7 @@
         </div>
         <section class="card questions-card" id="open-questions" hidden>
           <div class="card-head"><div><h3><span class="bang">!</span> <span id="open-count"></span></h3>
-            <p class="muted small">They make applications more accurate. You can skip any of them; they stay as ❓ in Notion.</p></div>
+            <p class="muted small">They make applications more accurate. You can skip any of them; they stay as ❓ in your answers.</p></div>
             <button class="link" id="open-more" hidden></button></div>
           <div id="open-list"></div>
         </section>
@@ -226,7 +226,7 @@
       </header>
       <div class="service-grid is-rows extras">
         <div class="service-card is-row is-wide"><span class="ui-tile tone-signal"><i data-icon="layers"></i></span>
-          <span class="service-text"><b>Notion</b><span class="muted small">Track applications, kits and interviews in your own free Notion workspace. Needed to save jobs, apply, and for Always on, Telegram and Gmail.</span>
+          <span class="service-text"><b>Notion</b><span class="muted small">Keep your applications, kits and interviews in your own free Notion workspace instead of this Mac. Needed for Always on (runs while this Mac is off).</span>
             <ul class="ui-benefits is-compact" id="extras-notion-benefits"></ul></span>
           <button class="secondary" id="extras-notion" data-goto-settings="notion" data-connect="Connect with Notion">Connect with Notion</button></div>
         <div id="extras-extension" class="service-card is-row is-wide"><span class="ui-tile tone-signal"><i data-icon="puzzle"></i></span>
@@ -267,8 +267,10 @@
     <button class="nav" data-view="actions"><i data-icon="check"></i>Actions<span class="spinner nav-running" id="nav-actions-running" role="status" hidden></span></button>
     <button class="nav" data-view="calendar"><i data-icon="calendar"></i>Calendar</button>
     <button class="nav" data-view="interviews"><i data-icon="mic"></i>Interviews</button>
+    <button class="nav" data-view="reports"><i data-icon="chart"></i>Reports</button>
     <p class="nav-group">Setup</p>
     <button class="nav" data-view="strategy"><i data-icon="sliders"></i>Strategy<span class="nav-dot" id="strategy-dot" hidden title="Few new jobs lately: see what would bring more"></span></button>
+    <button class="nav" data-view="employers"><i data-icon="building"></i>Employers</button>
     <button class="nav" data-view="settings" data-settings="profile"><i data-icon="user"></i>Profile</button>
     <!-- The Notion pages: in ⌘K (Search & commands), not in the menu. -->
     <div class="notion-links" id="notion-links" hidden></div>
@@ -314,7 +316,7 @@
       <details class="questions" id="questions" hidden>
         <summary><b>✍️ Answer once</b><span class="ui-pill tone-signal" id="questions-count"></span><span class="muted small">used in every application</span></summary>
         <p class="muted small">Forms asked these and nothing in your profile or standard answers covered them. Your answer is added to your
-          Notion standard answers; redraft a job's kit (↻) to use it there.</p>
+          standard answers<span data-notion-only> in Notion</span>; redraft a job's kit (↻) to use it there.</p>
         <p class="message error" id="questions-error" hidden></p>
         <button class="secondary" id="questions-retry" hidden>Retry</button>
         <div id="questions-list"></div>
@@ -332,6 +334,7 @@
           <option value="best">Best match</option><option value="newest">Newest</option><option value="company">Company A–Z</option>
         </select></label>
       </div>
+      <div class="chip-row" id="jobs-views" role="group" aria-label="Saved views"></div>
       <div class="stuck-banner" id="jobs-stuck" hidden>
         <i data-icon="alert"></i><span id="jobs-stuck-text"></span>
         <button class="secondary small-button" id="jobs-stuck-show">Show them</button>
@@ -344,12 +347,20 @@
           <button class="link" id="import-open" title="A job that is not in Job Pilotto yet. Paste its link and it is scored like one the search found">+ Add a job…</button>
           <button class="link" id="applied-open" title="Applied to a job outside Job Pilotto? Track it with the rest">+ Applied elsewhere…</button>
           <button class="link" id="lead-open" title="A recruiter's pitch, a reply, a rejection… paste the text or a screenshot">+ Log job activity…</button></div>
+        <div class="list-right"><div class="density" id="jobs-mode" role="group" aria-label="Show as">
+          <button data-mode="list" aria-pressed="true">List</button><button data-mode="board" aria-pressed="false">Board</button>
+        </div>
         <div class="density" role="group" aria-label="List density">
           <button data-density="comfortable" aria-pressed="true">Comfortable</button><button data-density="compact" aria-pressed="false">Compact</button>
         </div>
+        </div>
       </div>
       <div class="job-list-head" id="jobs-head" aria-hidden="true"><span>Fit</span><span>Role</span><span>Company</span><span>Location</span><span>Status</span><span>Actions</span></div>
-      <div class="job-list" id="jobs-body"></div>
+      <div class="board shows-scrollbar" id="jobs-board" hidden></div>
+      <div class="job-split" id="jobs-split">
+        <div class="job-list" id="jobs-body"></div>
+        <aside class="card job-panel" id="job-panel" aria-label="Job page" hidden></aside>
+      </div>
       <div class="callout tone-warn" id="jobs-unscored" hidden><span id="jobs-unscored-text"></span> <button class="link" id="jobs-unscored-go" type="button">Check now</button></div>
       <p class="empty" id="jobs-empty" hidden>No jobs here yet. Click <b>Refresh jobs</b>; the first refresh takes a few minutes.</p>
     </div>
@@ -612,6 +623,19 @@
       <section class="card status-card" id="status-card" hidden></section>
     </div>
 
+    <div class="view" data-view="reports" hidden>
+      <header class="view-head jobs-head">
+        <div><h1>Reports</h1><p class="muted subtitle">Your weekly reports, insights, funnel and form fills.</p></div>
+        <span class="muted small" id="reports-state"></span>
+      </header>
+      <div class="tabs" role="tablist" aria-label="Reports">
+        <button role="tab" type="button" data-reports-tab="weekly" class="is-active">Weekly</button>
+        <button role="tab" type="button" data-reports-tab="insights">Insights</button>
+        <button role="tab" type="button" data-reports-tab="funnel">Funnel</button>
+        <button role="tab" type="button" data-reports-tab="fills">Form fills</button>
+      </div>
+      <div class="card" id="reports-body"></div>
+    </div>
     <div class="view" data-view="calendar" hidden>
       <header class="view-head jobs-head">
         <div><h1>Calendar</h1><p class="muted subtitle">Your screenings and interviews.</p></div>
@@ -643,7 +667,7 @@
 
     <div class="view" data-view="interviews" hidden>
       <header class="view-head jobs-head">
-        <div><h1>Interviews</h1><p class="muted subtitle" title="The transcript is made on this Mac, then saved to Notion under its job">Record, transcribe and review every interview in one place.</p></div>
+        <div><h1>Interviews</h1><p class="muted subtitle" title="The transcript is made on this Mac, then saved under its job">Record, transcribe and review every interview in one place.</p></div>
         <div class="head-actions">
           <button class="secondary with-icon" id="iv-add" title="An audio or video file, or a transcript you already have"><i data-icon="upload"></i><span>Import recording</span></button>
           <button class="primary with-icon" id="iv-record" disabled title="First confirm that everyone on the call agreed to be recorded"><i data-icon="mic"></i><span>Record interview</span></button>
@@ -713,7 +737,7 @@
             <button class="ghost" id="iv-save">Save without review</button>
             <button class="ghost" id="iv-discard">Delete draft</button>
           </div>
-          <p class="fine">Saves the transcript to Notion, then <span data-ai="big">Claude Opus</span> reviews it with your profile.
+          <p class="fine">Saves the transcript<span data-notion-only> to Notion</span>, then <span data-ai="big">Claude Opus</span> reviews it with your profile.
             Without review, you can still review it later from the Interview library.</p>
         </div>
       </section>
@@ -722,7 +746,7 @@
 
       <section>
         <div class="iv-section-head spread">
-          <div><h2>Interview library</h2><p class="muted small" id="iv-lib-stats">Saved to Notion 🎤 Interviews</p></div>
+          <div><h2>Interview library</h2><p class="muted small" id="iv-lib-stats">Your saved interviews</p></div>
           <div class="head-actions">
             <button class="secondary with-icon" id="iv-refresh"><i data-icon="refresh"></i><span>Refresh</span></button>
             <button class="secondary with-icon" id="iv-recordings" title="The recordings kept on this Mac"><i data-icon="folder"></i><span>Open recordings folder</span></button>
@@ -732,13 +756,13 @@
           <label class="search-box"><i data-icon="search"></i><input id="iv-filter" type="search" placeholder="Search interviews" aria-label="Search interviews"></label>
           <select id="iv-outcome" aria-label="Outcome"><option value="">All outcomes</option><option value="positive">Positive</option><option value="neutral">Neutral</option><option value="negative">Negative</option><option value="none">Not reviewed</option></select>
         </div>
-        <div class="iv-lib-wrap">
-          <table class="iv-lib">
+        <div class="lib-wrap">
+          <table class="lib-table">
             <thead><tr><th>Date</th><th>Job</th><th>Interview</th><th>Location</th><th>Outcome</th><th>Actions</th></tr></thead>
             <tbody id="iv-saved"></tbody>
           </table>
         </div>
-        <p class="empty" id="iv-empty" hidden>No interviews in Notion yet.</p>
+        <p class="empty" id="iv-empty" hidden>No interviews saved yet.</p>
       </section>
     </div>
 
@@ -749,7 +773,7 @@
           <button class="secondary with-icon" id="strategy-edit"><i data-icon="link"></i><span>Edit in Notion</span></button>
           <button class="primary" id="strategy-jobs">View matching jobs</button></div></header>
       <div class="alert tone-bad settings-alert" id="strategy-profile-empty" hidden><i data-icon="alert"></i>
-        <div><strong>Your Profile is empty, so fit scores are paused</strong><p>Your Profile in Notion is still the blank template, so no job can be scored against it. Rebuild it from your CV here, or fill it in Notion.</p></div>
+        <div><strong>Your Profile is empty, so fit scores are paused</strong><p>Your Profile is still the blank template, so no job can be scored against it. Rebuild it from your CV here, or fill it in<span data-notion-only> Notion</span>.</p></div>
         <button class="primary" id="profile-empty-rebuild">Rebuild from CV</button></div>
       <div class="alert tone-info settings-alert search-changed" id="strategy-search-changed" hidden><i data-icon="refresh"></i>
         <div><strong>Your search changed</strong><p>Refresh your jobs to apply it: jobs outside your search are removed (not the ones you applied to or interview for), and new ones are found.</p></div>
@@ -809,6 +833,29 @@
       <p class="message" id="strategy-load"></p>
     </div>
 
+    <div class="view" data-view="employers" hidden>
+      <header class="view-head">
+        <div><h1>Employers &amp; Sources</h1><p class="muted subtitle" id="emp-stats">Loading…</p></div>
+        <div class="head-actions">
+          <button class="secondary with-icon" id="emp-refresh"><i data-icon="refresh"></i><span>Refresh</span></button>
+        </div>
+      </header>
+      <div class="toolbar">
+        <label class="search-box"><i data-icon="search"></i><input id="emp-filter" type="search" placeholder="Search employers, places, roles or job systems" aria-label="Search employers"></label>
+        <select id="emp-kind" aria-label="Kind"><option value="">All kinds</option><option value="Employer">Employers</option><option value="Job board">Job boards</option></select>
+        <select id="emp-feed" aria-label="Feed status"><option value="">Any feed status</option></select>
+        <select id="emp-active" aria-label="Active"><option value="">All employers</option><option value="on">Active</option><option value="off">Paused</option></select>
+      </div>
+      <p class="message" id="emp-message" hidden></p>
+      <div class="lib-wrap">
+        <table class="lib-table">
+          <thead><tr><th>Employer</th><th>Kind</th><th>Feed</th><th>Quality</th><th>Origin</th><th>Checked</th><th>Active</th></tr></thead>
+          <tbody id="emp-rows"></tbody>
+        </table>
+        <p class="empty" id="emp-empty" hidden></p>
+      </div>
+    </div>
+
     <div class="view" data-view="settings" hidden>
       <div class="back-to-setup" id="back-to-setup" hidden>
         <span>You're finishing your setup: set this up here, then go back to the last step.</span>
@@ -866,7 +913,9 @@
 
           <div class="tabs" role="tablist">
             <button role="tab" data-profile-tab="details" class="is-active">CV &amp; details</button>
+            <button role="tab" data-profile-tab="profiletext">Profile text</button>
             <button role="tab" data-profile-tab="answers">Standard answers</button>
+            <button role="tab" data-profile-tab="knowledge">Form knowledge</button>
             <button role="tab" data-profile-tab="letter">Cover letter</button>
           </div>
           <div class="setting cv-card" id="setting-cv" data-profile-panel="details">
@@ -903,7 +952,7 @@
         <button class="secondary" id="cv-changed-open">Review what changes</button></div>
           <div class="setting panel" id="setting-contact" data-profile-panel="details">
             <div class="panel-top"><div class="summary-head"><i data-icon="user"></i><h3>Your details</h3></div>
-              <div class="panel-actions"><span class="synced is-on">Saved in Notion</span><button class="link" id="contact-from-cv">Fill from my CV</button><button class="link" id="open-profile-details">Open profile in Notion</button></div></div>
+              <div class="panel-actions"><span class="synced is-on" data-store-saved>Saved in Notion</span><button class="link" id="contact-from-cv">Fill from my CV</button><button class="link" id="open-profile-details" data-notion-only>Open profile in Notion</button></div></div>
             <p class="muted panel-lead">Your personal details for application forms. Empty ones are filled in from your CV for you to check.</p>
             <div class="form-grid cols-2">
               <label>First name<input data-contact="first_name" type="text"></label>
@@ -981,13 +1030,28 @@
             </div>
           </div>
           <div class="setting info-bar" id="setting-answers-note" data-profile-panel="answers" hidden><i data-icon="info"></i>
-            <span><b>Saved in Notion</b> · Updated answers are used for future application kits.</span>
-            <button class="link" id="open-answers">Open answers in Notion</button></div>
+            <span><b data-store-saved>Saved in Notion</b> · Updated answers are used for future application kits.</span>
+            <button class="link" id="open-answers" data-notion-only>Open answers in Notion</button></div>
           <div class="setting panel" id="setting-answers" data-profile-panel="answers" hidden>
             <div class="summary-head"><i data-icon="file"></i><h3>Reusable answers</h3></div>
             <p class="muted panel-lead">The answers Job Pilotto adapts for each application form and kit.</p>
-            <div class="answer-list" id="answers-list"><p class="muted">Loading from Notion…</p></div>
-            <div class="panel-foot"><span class="muted" id="answers-count"></span><button class="link" id="answers-review">Review all in Notion</button></div>
+            <div class="answer-list" id="answers-list"><p class="muted">Loading…</p></div>
+            <div class="panel-foot"><span class="muted" id="answers-count"></span><button class="link" id="answers-review" data-notion-only>Review all in Notion</button></div>
+          </div>
+          <div class="setting panel" id="setting-text-answers" data-profile-panel="answers" data-text-editor="answers" hidden>
+            <div class="summary-head"><i data-icon="file"></i><h3>All standard answers</h3></div>
+            <p class="muted panel-lead">The whole page of answers as text: add, fix or remove any of them.</p>
+            <div class="text-editor-body"></div>
+          </div>
+          <div class="setting panel" id="setting-text-profile" data-profile-panel="profiletext" data-text-editor="profile" hidden>
+            <div class="summary-head"><i data-icon="user"></i><h3>Profile text</h3></div>
+            <p class="muted panel-lead">What kits, scores and tailored CVs read about you: hard constraints, pay, summary, skills and experience.</p>
+            <div class="text-editor-body"></div>
+          </div>
+          <div class="setting panel" id="setting-text-knowledge" data-profile-panel="knowledge" data-text-editor="knowledge" hidden>
+            <div class="summary-head"><i data-icon="bookmark"></i><h3>Form knowledge</h3></div>
+            <p class="muted panel-lead">Answers Job Pilotto remembered from forms you filled yourself, used on the next forms that ask the same.</p>
+            <div class="text-editor-body"></div>
           </div>
         </div>
         <div class="settings-page" data-settings-page="automation" hidden>
@@ -1068,7 +1132,7 @@
                 <div class="inline" id="cloud-choose" hidden><select id="cloud-repo"></select><button class="secondary" id="cloud-use">Use this repository</button></div>
                 <details class="troubleshoot" id="cloud-howto"><summary>How it works</summary>
                   <p class="muted small">Job Pilotto sets up a <b>private</b> repository in your free GitHub account that does its work on the schedule
-                    above (searches, application kits, insights, new sources, mail) and sends results to Telegram and Notion, even when this Mac is asleep or off. Job Pilotto gets access to that one repository only, nothing else on your GitHub.
+                    above (searches, application kits, insights, new sources, mail) and sends results to Telegram and <span data-about-notion>Notion</span>, even when this Mac is asleep or off. Job Pilotto gets access to that one repository only, nothing else on your GitHub.
                     Your keys are stored there as encrypted secrets.</p>
                 </details>
               </div>
@@ -1126,8 +1190,8 @@
         </div>
       </div>
       <div class="setting conn-panel" id="setting-notion" hidden>
-        <div><h3>🗂️ Notion</h3><p class="muted status-line" data-secret="NOTION_TOKEN"></p>
-          <p class="muted small">Where your applications, kits and interviews are kept. Needed for Always on, Telegram and Gmail. Reconnect if Job Pilotto lost access (for example after you removed it in Notion).</p></div>
+        <div><h3 data-about-notion>🗂️ Notion</h3><p class="muted status-line" data-secret="NOTION_TOKEN"></p>
+          <p class="muted small" data-about-notion>Where your applications, kits and interviews are kept. Needed for Always on, Telegram and Gmail. Reconnect if Job Pilotto lost access (for example after you removed it in Notion).</p></div>
         <ul class="ui-benefits" id="set-notion-benefits" hidden></ul>
         <div class="inline"><button class="secondary" id="set-notion-oauth">Reconnect with Notion</button></div>
         
@@ -1238,18 +1302,33 @@
         </div>
         <div class="settings-page" data-settings-page="data" hidden>
           <div class="settings-page-head"><h2>Data &amp; backup</h2><p class="muted">Keep a copy of your work and manage local data.</p></div>
+          <div class="setting panel" id="setting-store">
+            <div class="panel-top">
+              <div class="summary-head"><i data-icon="layers"></i><h3>Your data</h3><span class="ui-pill" id="store-pill"></span></div>
+              <div class="panel-actions">
+                <button class="secondary" id="store-keep" hidden>Keep it on this Mac</button>
+                <button class="secondary" id="store-connect" hidden>Connect Notion</button>
+                <button class="primary" id="store-move" hidden>Move my data to Notion</button>
+                <button class="arrow-link" id="store-open" hidden>Open in Notion</button>
+              </div>
+            </div>
+            <p class="muted panel-lead" id="store-lead"></p>
+            <div class="fact-row"><div><span class="muted">Kept in</span><b id="store-where"></b></div>
+              <div><span class="muted">Always on</span><b id="store-cloud"></b></div></div>
+            <p class="message" id="store-message" hidden></p>
+          </div>
           <div class="setting panel" id="setting-backup">
             <div class="panel-top">
               <div class="summary-head"><i data-icon="database"></i><h3>Automatic backup</h3><span class="ui-pill tone-good" id="backup-on">On</span></div>
               <div class="panel-actions"><button class="secondary" id="backup-now">Back up now</button><button class="arrow-link" id="backup-show">View backups</button></div>
             </div>
-            <p class="muted panel-lead">Your CV and tailored CVs are also kept in Notion. Recordings and the rest of this Mac's data are backed up once a week (never your keys), the last four kept.</p>
+            <p class="muted panel-lead"><span id="backup-notion-line" data-notion-only>Your CV and tailored CVs are also kept in Notion. </span>Recordings and the rest of this Mac's data are backed up once a week (never your keys), the last four kept.</p>
             <div class="fact-row"><div><span class="muted">Last backup</span><b id="backup-last">None yet</b></div>
               <div><span class="muted">Location</span><b id="backup-where"></b></div></div>
           </div>
           <div class="setting panel" id="setting-data">
             <div class="summary-head"><i data-icon="refresh"></i><h3>Move your data</h3></div>
-            <p class="muted panel-lead">Save a copy of what Job Pilotto keeps on this computer, or restore one. Your Notion data stays in Notion: to keep, copy or move it, use Notion itself (its page history, Duplicate, Export, Move to another workspace).</p>
+            <p class="muted panel-lead">Save a copy of what Job Pilotto keeps on this computer, or restore one.<span id="data-notion-line"> Your Notion data stays in Notion: to keep, copy or move it, use Notion itself (its page history, Duplicate, Export, Move to another workspace).</span></p>
             <div class="choice-grid">
               <div class="choice-card"><span class="file-tile"><i data-icon="upload"></i></span>
                 <div><b>Export</b><p class="muted small">Save a copy of everything Job Pilotto keeps on this computer: settings, profile, CVs, recordings, job list and history.</p>
@@ -1259,7 +1338,7 @@
                   <button class="secondary" id="import-data" data-import>Import data</button></div></div>
             </div>
             <details class="troubleshoot"><summary>Export options</summary>
-              <label class="check-row"><input type="checkbox" id="export-keys"><span><span>Include my keys (AI, Notion, Telegram, GitHub)</span>
+              <label class="check-row"><input type="checkbox" id="export-keys"><span><span>Include my keys (AI, <span data-about-notion>Notion</span>, Telegram, GitHub)</span>
                 <span class="muted small">For another computer. On this one your keys always come back; ticked, they're in the file in plain text: keep it private.</span></span></label>
             </details>
             <p class="message" id="data-message"></p>
@@ -1330,8 +1409,8 @@
             <div class="panel-top"><div class="summary-head"><i data-icon="globe"></i><h3>Help the pool grow</h3></div>
               <label class="switch-row"><input type="checkbox" id="pool-share-on"><span>Share</span></label></div>
             <p class="muted panel-lead">Share which employer career pages and job boards your searches read, with how many jobs they listed, matched and led to an application or interview, and labels from fixed lists: your kind of role and your region
-              (your kind of role and role family, your country, region and city area), so the shared pool grows and can suggest better employers to people like you.
-              Only public company career pages, board names, counts and those two labels. Never your jobs, applications, CV, answers, e-mail or Notion.
+               (your kind of role and role family, your country, region and city area), so the shared pool grows and can suggest better employers to people like you.
+               Only public company career pages, board names, counts and those two labels. Never your jobs, applications, CV, answers, e-mail or <span data-about-notion>Notion</span>.
               On by default; turn it off here any time.</p>
             <details class="pool-share-shown"><summary>See what would be sent</summary><pre class="log" id="pool-share-text">Nothing is sent while this is off.</pre></details>
           </div>
@@ -1356,7 +1435,7 @@
               <button class="danger-outline" id="reset-review">Review reset options</button></div>
             <p class="small">Removes local settings and files. Your Notion workspace is kept unless you choose to start fresh.</p>
             <div id="reset-options" hidden>
-              <p class="small"><b>Removed from this computer:</b> your AI, Notion, Telegram and GitHub keys, your CV and tailored CVs, call recordings and
+              <p class="small"><b>Removed from this computer:</b> your AI, <span data-about-notion>Notion</span>, Telegram and GitHub keys, your CV and tailored CVs, call recordings and
                 interview drafts, the job list, schedule and settings. Job Pilotto restarts at the setup, like the first time.</p>
               <p class="small muted"><b>Not changed:</b> your Notion workspace (unless you tick "fresh Notion workspace" below), your Gmail sign-in, your GitHub repo.
                 The Chrome extension has to be connected again.</p>
@@ -1391,7 +1470,7 @@
               <div class="tabs" role="tablist" aria-label="Log">
                 <button type="button" role="tab" class="is-active" aria-selected="true" data-log="app">App</button>
                 <button type="button" role="tab" aria-selected="false" data-log="engine">Engine runs</button>
-                <button type="button" role="tab" aria-selected="false" data-log="notion">Notion requests</button></div>
+                <button type="button" role="tab" aria-selected="false" data-log="notion" data-about-notion>Notion requests</button></div>
               <div class="panel-actions"><button class="secondary with-icon" data-copy="logs-lines"><i data-icon="copy"></i>Copy</button><button class="arrow-link" id="logs-show">Show in Finder</button></div>
             </div>
             <div class="toolbar">
@@ -1504,7 +1583,7 @@
   <form method="dialog">
     <div class="dialog-head"><span class="dialog-icon"><i data-icon="refresh"></i></span><h2>Review what this rebuild changes</h2>
       <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button></div>
-    <p class="dialog-lead">Tick what to apply. Nothing changes until you do; a copy of your current strategy is kept in Notion first
+    <p class="dialog-lead">Tick what to apply. Nothing changes until you do; a copy of your current strategy is kept<span data-notion-only> in Notion</span> first
       (“🗂 Previous strategy”). Applications and their history are never changed. <span id="rebuild-draft-cost"></span></p>
     <div class="review-groups" id="rebuild-groups"><p class="message waiting">Comparing the draft with your current strategy…</p></div>
     <p class="muted small" id="rebuild-total"></p>
@@ -1526,7 +1605,7 @@
     <li class="cv-row"><i data-icon="user"></i>
       <div><b>New applications</b><p>The extension and Apply with Claude use your uploaded CV.</p></div><span class="ui-pill tone-good">✓ Updated</span></li>
     <li class="cv-row cv-profile">
-      <div class="cv-profile-head"><i data-icon="file-text"></i><b>Notion Profile</b><span id="cv-profile-pill"></span></div>
+      <div class="cv-profile-head"><i data-icon="file-text"></i><b>Your Profile</b><span id="cv-profile-pill"></span></div>
       <p id="cv-profile-text"><span data-ai>Claude</span> compares the two CVs and suggests only the lines to change. You pick which.</p>
       <div class="alert tone-good cv-verdict" id="cv-verdict" hidden><i data-icon="check-circle"></i>
         <div><b id="cv-verdict-title"></b><p id="cv-verdict-text"></p></div></div>
@@ -1572,8 +1651,8 @@
     <button type="button" role="tab" class="is-active" aria-selected="true" aria-controls="visits-sites" data-tab="visits-sites">Sites<span class="ui-pill tab-count" id="visits-sites-count"></span></button>
     <button type="button" role="tab" aria-selected="false" aria-controls="visits-unread" data-tab="visits-unread">Jobs we couldn't read<span class="ui-pill tone-warn tab-count" id="visits-unread-count"></span></button></div>
   <p class="inline small visits-pick"><button type="button" class="link" id="visits-all">Select all</button><span class="muted">·</span><button type="button" class="link" id="visits-none">Select none</button></p>
-  <ul class="item-rows" id="visits-sites" role="tabpanel"></ul>
-  <ul class="item-rows" id="visits-unread" role="tabpanel" hidden></ul>
+  <ul class="item-rows shows-scrollbar" id="visits-sites" role="tabpanel"></ul>
+  <ul class="item-rows shows-scrollbar" id="visits-unread" role="tabpanel" hidden></ul>
   <label class="check-row"><input type="checkbox" id="visits-filter" checked><span><span class="muted">Filter each site for my search first</span></span></label>
   <label class="task-count-field"><input id="visits-at-once" class="task-count" type="number" min="1" max="5" value="2" aria-label="How many sites at once" title="How many sites at once"><span class="task-count-unit">at a time</span></label>
   <div class="dialog-foot"><span class="muted small">Each site opens in Chrome, where the extension reads it.</span>
@@ -1601,14 +1680,14 @@
 
 <!-- Wizard step 5: saving the strategy to Notion, step by step -->
 <dialog id="save-dialog" class="save-dialog panel-dialog">
-  <div class="dialog-head"><span class="dialog-icon"><i data-icon="upload"></i></span><h2 id="save-title">Saving your strategy to Notion</h2></div>
-  <p class="dialog-lead">Notion is written one block at a time, so this takes a minute or two. You can leave this window open.</p>
+  <div class="dialog-head"><span class="dialog-icon"><i data-icon="upload"></i></span><h2 id="save-title">Saving your strategy<span data-notion-only> to Notion</span></h2></div>
+  <p class="dialog-lead" data-notion-only>Notion is written one block at a time, so this takes a minute or two. You can leave this window open.</p>
   <ol class="save-steps" id="save-steps">
-    <li data-save-step="snapshot" hidden>Keeping a copy of your current strategy in Notion</li>
+    <li data-save-step="snapshot" hidden>Keeping a copy of your current strategy<span data-notion-only> in Notion</span></li>
     <li data-save-step="local">Saving your search settings on this computer</li>
-    <li data-save-step="profile">Writing your Profile to Notion <span class="count"></span></li>
-    <li data-save-step="answers">Writing your standard answers to Notion <span class="count"></span></li>
-    <li data-save-step="search">Creating your ⚙️ Search settings page in Notion</li>
+    <li data-save-step="profile">Writing your Profile<span data-notion-only> to Notion</span> <span class="count"></span></li>
+    <li data-save-step="answers">Writing your standard answers<span data-notion-only> to Notion</span> <span class="count"></span></li>
+    <li data-save-step="search">Saving your ⚙️ Search settings<span data-notion-only> in Notion</span></li>
   </ol>
   <div class="bar"><span id="save-bar"></span></div>
   <p class="message" id="save-message"></p>
@@ -1621,10 +1700,13 @@
     <p class="ui-gate-reason" id="notion-connect-reason" hidden></p>
     <div class="alert tone-warn" id="notion-connect-import" hidden><i data-icon="alert"></i>
       <div><strong>Pick the workspace your backup used</strong><p>Your Profile and job tracking are in the Notion workspace this backup used. On Notion's screen, choose that workspace and your existing Job Pilotto page. Don't create a new copy: a new workspace starts with an empty Profile.</p></div></div>
+    <!-- Data on this Mac (renderer/notion-connect-rules.js connectMode): connecting is moving, said before the press. -->
+    <div class="alert" id="notion-connect-move" hidden><i data-icon="info"></i>
+      <div data-about-notion><strong>Your data moves to Notion</strong><p>Your jobs, applications, interviews and answers on this Mac move into your Notion, once and one way. From then on Job Pilotto reads and saves them there; this Mac keeps an archived copy. If it stops halfway, nothing changes and the next try goes on where it stopped.</p></div></div>
     <ul class="ui-benefits" id="notion-connect-benefits"></ul>
     <p class="muted small" id="notion-connect-note"></p>
     <p class="message" id="notion-connect-message"></p>
-    <p class="muted small" id="notion-connect-token" hidden>Or paste a token: Settings → Connections → Notion.</p>
+    <p class="muted small" id="notion-connect-token" data-about-notion hidden>Or paste a token: Settings → Connections → Notion.</p>
     <div class="actions">
       <button class="secondary" id="notion-connect-later" type="button">Not now</button>
       <button class="primary" id="notion-connect-go" type="button">Connect with Notion</button>
@@ -1648,7 +1730,7 @@
 <dialog id="applied-dialog">
   <form method="dialog">
     <h2>📥 Applied elsewhere</h2>
-    <p class="muted small">A job you applied to outside Job Pilotto (LinkedIn, a referral, the company's site). It goes to your Notion Applications
+    <p class="muted small">A job you applied to outside Job Pilotto (LinkedIn, a referral, the company's site). It goes to your<span data-notion-only> Notion</span> Applications
       as Applied with the same facts and fit score as the jobs Job Pilotto finds, and Gmail replies about it are tracked like any other.</p>
     <label for="applied-url">Job link</label>
     <input id="applied-url" type="url" placeholder="https://…" required>
@@ -1719,6 +1801,18 @@
     </div>
   </form>
 </dialog>
+<!-- Interviews → Open review with the data on this Mac (renderer/interview-review-view.js): the review the Notion page would show. -->
+<dialog id="review-dialog" class="panel-dialog">
+  <form method="dialog">
+    <div class="dialog-head"><span class="dialog-icon"><i data-icon="mic"></i></span>
+      <h2 id="review-title">Interview review</h2>
+      <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
+    </div>
+    <p class="dialog-lead muted" id="review-facts"></p>
+    <div id="review-body"></div>
+    <div class="dialog-foot"><button class="ghost" value="cancel" formnovalidate>Close</button></div>
+  </form>
+</dialog>
 <!-- The free allowance is over (pages/license.js): new work pauses, everything else keeps working. -->
 <!-- Re-score the older scores (Strategy → Improve your search): the cost, said before anything is spent. -->
 <dialog id="rescore-dialog" class="panel-dialog">
@@ -1769,7 +1863,7 @@
       <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button>
     </div>
     <p class="dialog-lead" id="allowance-lead">You have used your free allowance. Ask Igor for a founder key to keep starting new applications.
-      <span class="small">Your jobs, tracking, Notion, export and data all keep working.</span></p>
+      <span class="small">Your jobs, tracking, <span data-notion-only>Notion, </span>export and data all keep working.</span></p>
     <div class="inline"><input type="text" id="allowance-input" placeholder="Paste your license key (JP1.…)" autocomplete="off" spellcheck="false"><button id="allowance-unlock" type="button" class="secondary">Unlock</button></div>
     <p class="message" id="allowance-message"></p>
     <div class="dialog-foot">
@@ -1785,7 +1879,7 @@
       <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button></div>
     <p class="dialog-lead" id="why-lead">One tap helps make setup easier for the next person. Optional.</p>
     <div class="why-options" id="why-options">
-      <label><input type="radio" name="why" value="notion"> I don't use Notion</label>
+      <label data-about-notion><input type="radio" name="why" value="notion"> I don't use Notion</label>
       <label><input type="radio" name="why" value="ai"> The AI key or its cost</label>
       <label><input type="radio" name="why" value="time"> Setup takes too long</label>
       <label><input type="radio" name="why" value="privacy"> Privacy concerns</label>
@@ -1809,7 +1903,7 @@
     <p class="dialog-lead">What works, what's confusing, what's missing? It goes straight to the maker, Igor. Your job data isn't sent: only
       what you write here, the app version and a random install id.</p>
     <label for="app-feedback-text">Your feedback</label>
-    <textarea id="app-feedback-text" rows="7" maxlength="2000" placeholder="e.g. Setup took 20 minutes; the Notion step was unclear…"></textarea>
+    <textarea id="app-feedback-text" data-about-notion rows="7" maxlength="2000" placeholder="e.g. Setup took 20 minutes; the Notion step was unclear…"></textarea>
     <label for="app-feedback-contact">Email or handle, if you'd like a reply <span class="muted">(optional)</span></label>
     <input id="app-feedback-contact" type="text" maxlength="200" autocomplete="email">
     <p id="app-feedback-message" class="message"></p>
@@ -1855,7 +1949,7 @@
       <label for="happened-notes">What did you learn? Salary, next steps, people, questions asked
         <span class="muted">(optional)</span></label>
       <textarea id="happened-notes" rows="8" placeholder="e.g. 30 min with the recruiter. Band 90–110k, contract possible. They asked about on-call and Kafka. Next: a call with the CTO next week."></textarea>
-      <p class="muted small">Saved to 🎤 Interviews in Notion and the job moves on to Interviewing. With a few lines, <span data-ai>Claude</span> reviews them
+      <p class="muted small">Saved to 🎤 Interviews<span data-notion-only> in Notion</span> and the job moves on to Interviewing. With a few lines, <span data-ai>Claude</span> reviews them
         like a recording: the next step, and salary, contract or place filled in on the job.</p>
     </div>
     <fieldset id="happened-no">
@@ -1924,7 +2018,7 @@
     <!-- Step 2: what Claude read, checked by you before anything is written to Notion (renderer/lead-confirm.js).
          Marked fields were inferred (confirm or change them); empty ones weren't in the message (answer them). -->
     <div id="lead-confirm" hidden>
-      <p class="dialog-lead">Check what <span data-ai>Claude</span> read before it's saved.<span class="muted small">Nothing goes to Notion until the marked details are confirmed.</span></p>
+      <p class="dialog-lead">Check what <span data-ai>Claude</span> read before it's saved.<span class="muted small">Nothing is saved until the marked details are confirmed.</span></p>
       <div class="lead-found" id="lead-found"><span id="lead-found-tile"></span>
         <div><strong id="lead-found-title"></strong><span class="muted small" id="lead-found-meta"></span></div>
         <span class="lead-flag" id="lead-found-flag"></span></div>
@@ -2012,7 +2106,7 @@
     <fieldset>
       <legend>How to fill them</legend>
       <label class="radio"><input type="radio" name="apply-mode" value="agents">
-        <span><b>Apply with Claude</b><br><span class="muted">One Claude session per job in its own window, driving Chrome. Follows a job board's Apply to the employer's site, creates an account there if needed (password saved in your Keychain) and fills every page. You solve CAPTCHAs, tick the terms and submit. Minutes per job; needs Claude Code and Notion.</span></span></label>
+        <span><b>Apply with Claude</b><br><span class="muted">One Claude session per job in its own window, driving Chrome. Follows a job board's Apply to the employer's site, creates an account there if needed (password saved in your Keychain) and fills every page. You solve CAPTCHAs, tick the terms and submit. Minutes per job; needs Claude Code and <span data-about-notion>Notion</span>.</span></span></label>
       <label class="radio"><input type="radio" name="apply-mode" value="chrome">
         <span><b>Fill in Chrome with the extension</b> <span class="badge-recommended">Recommended</span><br><span class="muted">Opens each job as a tab and fills forms that are right on the page. Seconds per form; stops at sign-in pages.</span></span></label>
     </fieldset>

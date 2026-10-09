@@ -1,20 +1,20 @@
 // The Focus suite's oracle must be right before the page is judged by it, and the comparison must be able to fail.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {EXPECTED_UP_NEXT, compareNumbers, eventProperties, expectedNumbers, rowProperties, scenario, zurichAt, zurichDay} from '../lib/focus-data.mjs';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {EXPECTED_UP_NEXT, HAND_EDITS, compareNumbers, expectedNumbers, readData, resetFocusData, scenario, zurichAt, zurichDay} from '../lib/focus-data.mjs';
+import {buildStandIn, startNotionFake} from '../lib/notion-fake.mjs';
+import {storeCall} from '../lib/store-call.mjs';
 
 const NOW = new Date('2026-10-02T09:30:00Z');
-// The scenario as the Notion API would return it.
+// The scenario as the store returns it (src/stores/base.py records: the same on every store).
 function apiPages(now = NOW) {
   const data = scenario(now);
-  const page = (id, properties) => ({id, archived: false, properties: Object.fromEntries(Object.entries(properties).map(([name, value]) => [name, withType(value)]))});
-  const rows = data.rows.map(({key, fields}) => page(`row-${key}`, rowProperties(fields)));
-  const events = data.events.map(item => page(`event-${item.rowKey}-${item.kind}`, eventProperties(item, data.rows.find(r => r.key === item.rowKey).fields, `row-${item.rowKey}`)));
+  const rows = data.rows.map(({key, fields}) => ({id: `row-${key}`, ...fields}));
+  const events = data.events.map(({rowKey, ...item}) => ({id: `event-${rowKey}-${item.kind}`, app_id: `row-${rowKey}`, ...item}));
   return {rows, events};
-}
-function withType(value) {   // what the API adds: a `type` per property
-  const type = ['title', 'rich_text', 'select', 'date', 'number', 'url', 'relation'].find(name => name in value);
-  return {type, ...value};
 }
 
 test('the scenario gives the numbers the product spec promises', () => {
@@ -59,7 +59,7 @@ test('a missing step is a difference, not a crash', () => {
 });
 test('the oracle refuses a row without an Origin instead of guessing', () => {
   const {rows, events} = apiPages();
-  delete rows[0].properties.Origin;
+  delete rows[0].origin;
   assert.throws(() => expectedNumbers(rows, events, {now: NOW}), /explicit Origin/);
 });
 test('Zurich days and offsets follow daylight saving', () => {
@@ -71,11 +71,39 @@ test('every Up next row names a button list', () => {
   assert.equal(EXPECTED_UP_NEXT.length, 6);
 });
 
-test('the hand-edited rows are what people type: an unknown stage, an empty title, a 2,000-character note, other scripts', async () => {
-  const {HAND_EDITS, rowProperties} = await import('../lib/focus-data.mjs');
-  const props = HAND_EDITS.map(rowProperties);
-  assert.equal(props[0].Stage.select.name, 'On hold (my own stage)');
-  assert.equal(props[0].Job.title[0]?.text?.content ?? '', '');
-  assert.equal(props[1].Notes.rich_text.map(part => part.text.content).join('').length, 2000);
-  assert.match(HAND_EDITS.map(row => row.Company).join(' '), /株式会社.*شركة|شركة.*株式会社/s);
+test('the hand-edited rows are what people type: an unknown stage, an empty title, a 2,000-character note, other scripts', () => {
+  assert.equal(HAND_EDITS[0].stage, 'On hold (my own stage)');
+  assert.equal(HAND_EDITS[0].title, '');
+  assert.equal(HAND_EDITS[1].notes.length, 2000);
+  assert.match(HAND_EDITS.map(row => row.company).join(' '), /株式会社.*شركة|شركة.*株式会社/s);
+});
+
+// The seed and the reset through the engine's own store command, on this Mac's store and on the stand-in: the oracle then reads the same numbers from both.
+const profileWith = settings => {
+  const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-focus-data-'));
+  fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify(settings));
+  return profile;
+};
+async function seedAndReset(ctx) {
+  ctx.data = (entity, method, kwargs = {}) => storeCall(ctx, entity, method, kwargs);
+  const made = await resetFocusData(ctx, {data: scenario(NOW)});
+  assert.equal(Object.keys(made).length, 10);
+  const {rows, events} = await readData(ctx);
+  assert.deepEqual([rows.length, events.length], [10, 14]);
+  const want = expectedNumbers(rows, events, {now: NOW, target: 5});
+  assert.deepEqual(want.funnel.map(step => step.reached), [8, 6, 2, 2, 0], 'the same hand-counted funnel as from the scenario itself');
+  assert.equal(events.find(item => item.source_id === 'e2e-lead-1')?.app_id, made.huxley.id, 'the lead\'s email is on its job');
+  await resetFocusData(ctx, {});
+  const after = await readData(ctx);
+  assert.deepEqual([after.rows.length, after.events.length], [0, 0], 'a reset leaves a new user\'s data');
+}
+test('the seed and the reset on this Mac\'s store', {timeout: 120000}, async () => {
+  await seedAndReset({profile: profileWith({store: 'sqlite'}), store: 'sqlite', token: ''});
+});
+test('the seed and the reset on Notion (the stand-in)', {timeout: 120000}, async () => {
+  const fake = await startNotionFake();
+  try {
+    const ids = await buildStandIn(fake);
+    await seedAndReset({profile: profileWith({notionIds: ids}), store: 'standin', token: fake.token, appEnv: {JOB_PILOTTO_E2E_NOTION_BASE_URL: fake.url}});
+  } finally { await fake.close(); }
 });

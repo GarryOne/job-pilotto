@@ -18,6 +18,8 @@ export {pageKey, fullKey} from './jobs-state.js';
 export {openLogFor} from './jobs-lead.js';
 import {wireLead} from './jobs-lead.js';
 import {loadQuestions} from './jobs-questions.js';
+import {wireViews} from './jobs-views.js';
+import {storeName} from '../store-words.js';
 
 // Sites that often show a sign-in page instead of the posting (src/notion/ledger.py WALLED): read like any page, with fields for the text in case.
 const WALLED = /(^|\.)(linkedin\.com|glassdoor\.[a-z.]+|indeed\.[a-z.]+|levels\.fyi|reddit\.com)$/i;
@@ -123,7 +125,7 @@ export function showJobsData(data) {
       (count.week ? ` · ${count.week} new this week` : '') + (data.filtered ? ` · ${data.filtered} hidden` : '') +
       // Found but not read and scored yet: the next refreshes take them, a batch at a time, best places first (src/daily.py).
       (data.waiting ? ` · ${data.waiting} found, waiting for a score` : '') +
-      (data.stale ? ' · ⚠️ Notion unreachable: statuses may be out of date' : '');
+      (data.stale ? ' · ⚠️ Notion unreachable: statuses may be out of date' : '');   // about Notion
     $('jobs-stats').title = `${scored} scored by the AI` + (data.filtered ? `; ${data.filtered} hidden by your language or company filters` : '');
     const totalBefore = $('stat-total').textContent, flash = setCount($('stat-total'), count.total);
     // Whether a person could see it (7 Oct 2026: "the flashing is not consistently working"): logs/app.log, area ui
@@ -189,6 +191,8 @@ export async function init() {
     renderJobs();
   });
   $('sort-by').addEventListener('change', renderJobs);
+  wireViews();   // saved views + List | Board (pages/jobs-views.js): they ask for a render through this event
+  document.addEventListener('jobs-rerender', () => renderJobs());
   $('jobs-filter-clear').addEventListener('click', () => { jobsState.statFilter = null; renderJobs(); });
   $('jobs-filter-back').addEventListener('click', () => document.querySelector('.nav[data-view="focus"]').click());
   // The counters filter the list to the jobs they count, whatever their status (so the list matches the number);
@@ -197,6 +201,7 @@ export async function init() {
     const kind = card.dataset.stat;
     const next = statClick(kind, typeof jobsState.statFilter === 'string' ? jobsState.statFilter : null, $('filter-status').value);
     jobsState.statFilter = next.stat;
+    if (next.stat) jobsState.view = null;   // one narrowing at a time: a counter replaces a saved view
     $('filter-status').value = next.filter;
     if (kind === 'companies' && jobsState.statFilter) $('sort-by').value = 'company';
     renderJobs();
@@ -246,7 +251,7 @@ export async function init() {
     const url = $('applied-url').value.trim();
     if (!/^https?:\/\//.test(url)) { message('applied-message', 'Paste the job link (it starts with https://).', 'error'); return; }
     $('applied-go').disabled = true;
-    message('applied-message', 'Reading the posting and adding it to Notion…', 'waiting');
+    message('applied-message', `Reading the posting and adding it to ${storeName()}…`, 'waiting');
     const day = $('applied-when').value;  // YYYY-MM-DD from the date picker
     if (!day) { message('applied-message', 'Pick the day you applied.', 'error'); return; }
     const manual = !$('applied-manual').hidden;

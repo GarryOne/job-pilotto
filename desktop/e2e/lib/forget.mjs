@@ -3,6 +3,7 @@
 // Those postings stay in the local store and show up as "new" in the next digest even after the page is cleaned. 3 Oct 2026: strategy failed on "before any change the check finds
 // neither new posting" after every run that had finished, and passed after every run that had failed early.
 import {execFileSync} from 'node:child_process';
+import {python, pythonEnv} from './python.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -21,5 +22,5 @@ print(len(ids))`;
 export function forgetFixtureJobs(profile, urlPrefix = 'https://boards.e2e.test/') {
   const database = path.join(profile, 'data', 'jobs.sqlite');
   if (!fs.existsSync(database)) return 0;
-  return Number(execFileSync('python3', ['-c', SCRIPT, database, urlPrefix], {encoding: 'utf8'}).trim()) || 0;
+  return Number(execFileSync(python(), ['-c', SCRIPT, database, urlPrefix], {encoding: 'utf8', env: pythonEnv({}, {home: profile})}).trim()) || 0;
 }

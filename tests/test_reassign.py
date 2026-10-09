@@ -1,7 +1,9 @@
 """Your answer about an email: "Is this about …?" (src/ai/reassign.py)."""
 import json
+import tempfile
 import unittest
 from datetime import datetime, timezone
+from unittest import mock
 
 from src import focus
 from src.ai import reassign
@@ -31,48 +33,94 @@ def event(event_id, kind, application=None, changes=None, suggested=''):
         'Changes': text(json.dumps(changes or {}))}}
 
 
-class FakeTracker:
-    database_id = 'apps'
+from src.notion import ledger  # noqa: E402
+from src.stores import memory, open_stores, sqlite  # noqa: E402
+from tests.mail_fakes import FakeTracker  # noqa: E402
 
-    def __init__(self, pages):
-        self.pages = {p['id']: p for p in pages}
-        self.updates = []
+HUX = {'url': 'https://x.test/hux', 'title': 'Principal SRE', 'company': '', 'via': 'Huxley'}
 
-    def _request(self, method, path, body=None):
-        return self.pages[path.split('/')[1]]
 
-    def find(self, url):
-        return next((p for p in self.pages.values() if (p['properties'].get('Job URL') or {}).get('url') == url), None)
-
-    def update_page(self, page_id, properties):
-        self.updates.append((page_id, properties))
-        page = self.pages.get(page_id)
-        if page:
-            for name, value in properties.items():
-                kind = next(iter(value))
-                page['properties'][name] = {'type': kind, kind: value[kind]}
+def asked(stores, kind='Interview scheduled', interview_at='2026-09-30T08:30:00+02:00'):
+    """A question the Gmail check left: an email event on no job (Needs you), with the job it would pick."""
+    return stores.events.add('', kind, '2026-09-29T14:35:00+02:00', source='Gmail', source_id='h1', needs_you=True,
+                             interview_at=interview_at, suggested_job=HUX['url'], note='Teams call (email: "Connect Igor / Jaya - SRE")',
+                             changes={'fields': {}, 'from': 'Jaya <jaya@huxley.test>', 'subject': 'Connect Igor / Jaya - SRE'})
 
 
 class MoveTests(unittest.TestCase):
-    def test_answering_is_this_about(self):
-        hux = job('hux', '', 'Principal SRE', via='Huxley')
-        question = event('q', 'Interview scheduled', changes={'interview_at': '2026-09-30T08:30:00+02:00'},
-                         suggested='https://x.test/hux')
-        tracker = FakeTracker([hux, question])
-        self.assertTrue(reassign.move(tracker, 'q', 'https://x.test/hux', now=NOW)['ok'])
-        self.assertEqual(hux['properties']['Next interview']['date']['start'], '2026-09-30T08:30:00+02:00')
-        fresh = event('q2', 'Interview scheduled', suggested='https://x.test/hux')
-        self.assertIs(reassign.move(FakeTracker([fresh]), 'q2', 'https://x.test/gone', now=NOW)['ok'], False)
+    """On the store (src/stores): the same answer on every adapter; the contract covers events.get/update on each."""
+
+    def test_answering_is_this_about_moves_the_email_and_the_job(self):
+        stores = memory.open_store()
+        hux, _ = stores.applications.set_stage(HUX, 'Screening')
+        question = asked(stores)
+        result = reassign.move(stores, question['id'], HUX['url'], now=NOW)
+        self.assertTrue(result['ok'], result)
+        self.assertIn('Huxley', result['text'])
+        self.assertEqual(stores.applications.get(HUX['url'])['next_interview'], '2026-09-30T08:30:00+02:00')
+        event = stores.events.get(question['id'])
+        self.assertEqual((event['app_id'], bool(event['needs_you'])), (hux['id'], False))
+        self.assertEqual((event['changes']['from'], event['changes']['subject']), ('Jaya <jaya@huxley.test>', 'Connect Igor / Jaya - SRE'))
+        self.assertIn('Next interview', event['changes']['fields'])
+
+    def test_a_job_no_longer_there_or_an_answered_email_is_said(self):
+        stores = memory.open_store()
+        question = asked(stores)
+        self.assertIs(reassign.move(stores, question['id'], 'https://x.test/gone', now=NOW)['ok'], False)
+        self.assertTrue(stores.events.get(question['id'])['needs_you'])   # nothing changed
+        self.assertIs(reassign.move(stores, 'no-such-event', HUX['url'], now=NOW)['ok'], False)
+
+    def test_not_about_a_job_closes_the_question_on_no_job(self):
+        stores = memory.open_store()
+        question = asked(stores)
+        self.assertTrue(reassign.move(stores, question['id'], reassign.NONE, now=NOW)['ok'])
+        event = stores.events.get(question['id'])
+        self.assertEqual((event['app_id'], bool(event['needs_you'])), ('', False))
+
+
+class NewJobTests(unittest.TestCase):
+    """"A new job": the job is made from the email on the active store (opportunity.track) on this Mac's and on Notion."""
+
+    def check_new_job(self, stores):
+        question = asked(stores)
+        result = reassign.move(stores, question['id'], reassign.NEW, now=NOW)
+        self.assertTrue(result['ok'], result)
+        job = stores.applications.get('https://mail.google.com/mail/u/0/#all/h1')   # the email is its Job URL
+        self.assertEqual((job['title'], job['contact']), ('Connect Igor / Jaya - SRE', 'Jaya · jaya@huxley.test'))
+        self.assertEqual(job['next_interview'], '2026-09-30T08:30:00+02:00')
+        event = stores.events.get(question['id'])
+        self.assertEqual((event['app_id'], bool(event['needs_you'])), (job['id'], False))
+        self.assertTrue([e for e in stores.events.list(app_id=job['id']) if e['note'].startswith('From an email you placed')])
+        # Asked again (another question from the same email): the same job, not a second one.
+        again = asked(stores)
+        self.assertTrue(reassign.move(stores, again['id'], reassign.NEW, now=NOW)['ok'])
+        self.assertEqual(stores.events.get(again['id'])['app_id'], job['id'])
+        return job
+
+    def test_a_new_job_on_this_macs_store(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self.check_new_job(sqlite.open_store({'JOB_PILOTTO_DATA_DIR': folder}))
+
+    def test_a_new_job_on_notion(self):
+        tracker = FakeTracker([])
+        with mock.patch.object(ledger, 'EVENTS_DATABASE_ID', 'events-db'):
+            stores = open_stores(env={'NOTION_EVENTS_DB': 'events-db'}, tracker=tracker)   # the Notion store, whatever the environment says
+            self.assertEqual(stores.name, 'notion')
+            job = self.check_new_job(stores)
+        self.assertEqual(len(tracker.apps), 1)
+        self.assertIn('Connect Igor / Jaya - SRE', tracker.written_under(job['id']))   # the message section on the page
 
 
 class FocusQuestionTests(unittest.TestCase):
     def test_an_open_question_is_asked_with_the_likeliest_job(self):
-        hux = job('hux', '', 'Principal SRE', via='Huxley')
-        items = focus.build([hux], [event('q', 'Interview scheduled', suggested='https://x.test/hux')], target=0, now=NOW)['items']
+        from tests.test_focus import from_notion  # the rows the Gmail check writes, as the notion store reads them
+        hux = from_notion(job('hux', '', 'Principal SRE', via='Huxley'))
+        asked = from_notion(event('q', 'Interview scheduled', suggested='https://x.test/hux'), 'events')
+        items = focus.build([hux], [asked], target=0, now=NOW)['items']
         [ask] = [i for i in items if i['kind'] == 'which_job']
         self.assertEqual(ask['title'], 'Is this email about Huxley — Principal SRE?')
         self.assertEqual((ask['event_id'], ask['suggested_url'], ask['badge']), ('q', 'https://x.test/hux', 'Which job?'))
-        answered = event('q', 'Interview scheduled', application='hux')
+        answered = from_notion(event('q', 'Interview scheduled', application='hux'), 'events')
         self.assertFalse([i for i in focus.build([hux], [answered], target=0, now=NOW)['items'] if i['kind'] == 'which_job'])
 
 

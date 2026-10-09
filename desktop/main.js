@@ -21,6 +21,12 @@ import {registerAppMetaHandlers} from './lib/app-meta-handlers.js';
 import {registerInterviewHandlers} from './lib/interview-handlers.js';
 import {registerCvAndLettersHandlers} from './lib/cv-handlers.js';
 import {registerContactHandlers} from './lib/contact-handlers.js';
+import {registerStoreHandlers, settleStore, startOnNotionIfEmpty, storeState} from './lib/store-handlers.js';
+import {registerJobPageHandlers} from './lib/job-page-handlers.js';
+import {registerTextHandlers} from './lib/text-handlers.js';
+import {registerReportsHandlers} from './lib/reports-handlers.js';
+import {registerEmployersHandlers} from './lib/employers-handlers.js';
+import {registerFormFillsHandlers} from './lib/form-fills-handlers.js';
 import {registerSearchTuningHandlers} from './lib/search-tuning-handlers.js';
 import {settingsDepsFor} from './lib/settings-deps.js';
 import {createSessionFlow} from './lib/session-flow.js';
@@ -55,6 +61,7 @@ import * as viewCache from './lib/view-cache.js';
 import * as migrate from './lib/migrate.js';
 import * as reset from './lib/reset.js';
 import * as files from './lib/files.js';
+import * as letters from './lib/cover-letter.js';
 import * as backup from './lib/backup.js';
 import * as notionGate from './lib/notion-gate.js';
 import * as notionWorkspace from './lib/notion-workspace.js';
@@ -170,7 +177,9 @@ function handlers() {
     secrets: storage.secretsPresent(),
     hasCv: fs.existsSync(storage.path('cv.pdf')), hasProfile: !!(storage.settings().setupDone && (storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID || storage.readText('profile.md'))),
     folder: storage.dir,
-    notion: storage.secret('NOTION_TOKEN') ? Object.fromEntries(Object.entries(storage.settings().notionIds || {})
+    store: storeState(storage),   // where the data lives (lib/store): {label, caps, trying}
+    // Notion page links only when Notion is the store (lib/store): with the data on this Mac, none.
+    notion: storage.secret('NOTION_TOKEN') && notionGate.onNotion(storage) ? Object.fromEntries(Object.entries(storage.settings().notionIds || {})
       .map(([env, id]) => [env, notion.pageUrl(id)])) : null,
     templateUrl: notion.TEMPLATE.template_url,
     notionReasons: notionGate.REASONS,  // the sentences after "Connect Notion …" (one source: lib/notion-gate.js)
@@ -207,7 +216,7 @@ function handlers() {
       const titles = {...notion.TEMPLATE.databases, ...notion.TEMPLATE.pages};
       const send = progress => toWindow('notionProgress', {...progress, titles});
       const result = await notionWorkspace.connectWorkspace(token, {templateRoot, onProgress: send});
-      let kept = null;
+      let kept = null, startedOnNotion = false;
       if (result.ok) {
         storage.setSecret('NOTION_TOKEN', token);
         storage.saveSettings({notionIds: result.ids});
@@ -215,8 +224,10 @@ function handlers() {
         // app just built (or Notion just copied the template into) is empty, so this Mac's strategy wins; any other workspace
         // already had data, and Notion wins. Saved first, so a step that fails retries next start with the same answer.
         const hadLocal = !!(storage.readText('profile.md').trim() || storage.readText('answers.md').trim());
-        if (hadLocal) storage.saveSettings({notionMoveIn: result.built?.length || templateRoot ? 'fresh' : 'existing'});
+        storage.saveSettings(migrate.connectSettings(storage.settings(), {hadLocal, fresh: !!(result.built?.length || templateRoot)}));
         if (!DEMO) {
+          // This Mac's store with nothing in it yet: the data lives in Notion from now on (before the move below, so the texts go there).
+          startedOnNotion = await startOnNotionIfEmpty(storage, {log: appLog}).catch(error => { log(`Store not switched to Notion: ${error.message}`); return false; });
           if (hadLocal) send({moving: true});
           const moved = await migrate.run(storage, log);  // anything kept on this Mac moves in now
           kept = storage.settings().notionKeptFolder || null;
@@ -233,16 +244,23 @@ function handlers() {
           if (hadLocal || moved.length) { if (!cloud()) pipeline.syncMatches(storage, log).catch(error => log(`Job Matches not synced: ${error.message}`)); }
         }
       }
-      return {...result, titles, kept};
+      return {...result, titles, kept, startedOnNotion, stayedOnMac: !!result.ok && storage.settings().store === 'sqlite'};
     } catch (error) {
       return {ok: false, error: error.status === 401 ? 'Notion rejected this token. Copy the API token of your Job Pilotto connection again (Developer tools → Connections).' : error.message};
     }
   }
-  registerContactHandlers({ipcMain, storage, DEMO, connected: () => notionGate.connected(storage), needsNotion, log: appLog,   // lib/contact-handlers.js
+  if (!DEMO) settleStore(storage, {log: appLog});   // a new install's data on this Mac, a connected Notion stays Notion (D7)
+  registerStoreHandlers({ipcMain, storage, DEMO, log: appLog, toWindow});   // lib/store-handlers.js: Settings → Your data
+  registerContactHandlers({ipcMain, storage, DEMO, connected: () => notionGate.tracking(storage), needsNotion, log: appLog,   // lib/contact-handlers.js
     contactSaved: saved => server.contactSaved(storage, saved)});
   registerSetupHandlers({DEMO, connectNotion, dialog, handleImportant, ipcMain, licenseState, needsNotion, shell, storage, syncCv, getTelemetry: () => telemetry, track, trackSetup, getWindow: () => window,
     setNotionFrom: value => { notionFrom = value; }});   // lib/setup-handlers.js
   registerStrategyDraftHandlers({DEMO, here, ipcMain, storage, syncCv, toWindow, trackSetup});   // lib/strategy-draft-handlers.js
+  registerJobPageHandlers({ipcMain, storage, DEMO, here, dialog, log: appLog});   // lib/job-page-handlers.js: Jobs → a job's page
+  registerTextHandlers({ipcMain, storage, DEMO, log: appLog});   // lib/text-handlers.js: Settings → Profile's texts
+  registerReportsHandlers({ipcMain, storage, DEMO, here, log: appLog});   // lib/reports-handlers.js: Reports → insights
+  registerEmployersHandlers({ipcMain, storage, DEMO, here, log: appLog});   // lib/employers-handlers.js: the Employers page
+  registerFormFillsHandlers({ipcMain, storage, DEMO, here, log: appLog});   // lib/form-fills-handlers.js: Reports → Form fills
   registerJobsHandlers({DEMO, JOBS_PAGE, activity, allowanceBlock, app, cloud, dispatchCloud, here, ipcMain, log, needsNotion, shell, storage, toWindow, track});   // lib/jobs-handlers.js
   registerCloudHandlers({DEMO, cloud, dialog, handleImportant, needsNotion, restartTelegram, shell, storage, toWindow, getWindow: () => window});   // lib/cloud-handlers.js
   registerJobActionsHandlers({DEMO, allowanceBlock, cloud, dispatchCloud, dispatchNote, intelLib, ipcMain, log, needsNotion, getRecipeReporter: () => recipeReporterRef, storage});   // lib/job-actions-handlers.js
@@ -285,6 +303,9 @@ function syncCv() {
   if (DEMO) return;
   files.syncCv(storage).then(done => done.uploaded && console.log(`CV saved to your Notion Profile (${done.uploaded})`))
     .catch(error => console.error(`CV not saved to Notion: ${error.message}`));
+  // The approved cover letter too, once per version (lib/files.js): one approved with the data on this Mac reaches Notion after a move.
+  files.coverLetterToProfile(storage, letters.pdfPath(storage)).then(caption => caption && appLog('cover-letter', 'PDF saved to the Notion Profile', {caption}))
+    .catch(error => appLog('cover-letter', 'PDF not saved to Notion', {error: error.message}));
 }
 function backupNow() {
   try { const done = backup.run(storage, {version: about?.label || ''}); console.log(`Backup saved: ${done.file}`); return {ok: true, ...done}; }
@@ -433,19 +454,17 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   // Each form's last state (ready to submit?), so a restart shows it before Chrome's tabs report again.
   if (!DEMO) review.persist(path.join(storage.dir, 'review-states.json'), terminals.list().map(session => session.id));
   // A session's conversation (its Claude Code transcript) on its Agent Runs row, folded: the Mac's file doesn't last.
+  // Into the store (lib/session-runs.js optionsFor): a Notion row, or the record on this Mac; none while trying.
   const saveConversation = session => {
     if (!session.runPage || !session.transcript) return;
     const talk = transcript.conversation(session.transcript);
     if (!talk?.length || talk.length === session.conversationSaved) return;
-    transcript.save((method, route, body) => notion.call(storage.secret('NOTION_TOKEN'), method, route, body), session.runPage, talk)
-      .then(count => { session.conversationSaved = count; terminals.saveNow(); }).catch(error => log(`conversation not saved to Notion: ${error.message}`));
+    sessionRuns.saveConversation(storage, session, talk)
+      .then(count => { if (count == null) return; session.conversationSaved = count; terminals.saveNow(); }).catch(error => log(`conversation not saved: ${error.message}`));
   };
   // Each session's statistics on its Agent Runs row in Notion, a few seconds after each change (lib/session-runs.js).
-  if (!DEMO) terminals.onStatus((view, session) => sessionRuns.schedule(session, () => ({
-    call: (method, route, body) => notion.call(storage.secret('NOTION_TOKEN'), method, route, body),
-    db: storage.settings().notionIds?.NOTION_AGENT_RUNS_DB,
-    create: /^decided|^ended|^failed/.test(session.events?.at(-1)?.status || ''),
-  }), page => {
+  if (!DEMO) terminals.onStatus((view, session) => sessionRuns.schedule(session, () => sessionRuns.optionsFor(storage,
+    {create: /^decided|^ended|^failed/.test(session.events?.at(-1)?.status || '')}), page => {
     session.runPage = page;
     terminals.saveNow();
     // Once it ended, its conversation goes on the row too (again if it was resumed and said more since).

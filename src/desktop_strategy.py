@@ -66,10 +66,13 @@ def feeds_remote_wanted(search):
     return remote_wanted(search)
 
 
-def strategy(db, tracker=None):
+def strategy(db, tracker=None, stores=None):
     """What the Strategy page shows, all from the user's own data: search settings (the cache of ⚙️ Search settings),
     preferences, the average fit components of the scored open jobs, counts, the Profile's compensation line and
-    the latest 💡 Insight."""
+    the latest 💡 Insight. The data is the active store's; `tracker` is used only while that store is Notion (as before)."""
+    if stores is None:
+        from .store_access import run_stores
+        stores, tracker = run_stores(tracker)
     from . import role_kinds
     from .paths import CONFIG, load_search_config
     # The user's own words: with the regions and AI place words the crawl adds, the page listed a regex of every city as one "place".
@@ -91,47 +94,47 @@ def strategy(db, tracker=None):
             components.append({'key': key, 'label': label, 'value': 100 - average if key == 'risk' else average})  # risk: lower is better
     stages = {}
     insight, compensation, goals, profile = None, '', {}, None
+    def latest_insight():
+        """The newest insight in the active store, not the Interviews page's own row (Interview patterns)."""
+        found = stores
+        rows = [r for r in found.insights.list(limit=5) if r['category'] != 'Interview patterns'][:1]
+        return [{**rows[0], 'url': found.link(rows[0]['id']) or ''}] if rows else []
     if tracker:
-        from .ai.insights import INSIGHTS_DATABASE_ID
         from .notion.client import together
-
-        def latest_insight():
-            if not INSIGHTS_DATABASE_ID:
-                return []
-            rows = tracker._request('POST', f'databases/{INSIGHTS_DATABASE_ID}/query',
-                                    {'page_size': 5, 'sorts': [{'timestamp': 'created_time', 'direction': 'descending'}]})['results']
-            # The Interviews page's own row is not a strategy insight. Skipped here, not in a Notion filter: a filter on
-            # an option the workspace doesn't have yet (before the schema repair) is refused with a 400.
-            from .notion.ledger import plain
-            return [r for r in rows if plain((r.get('properties') or {}).get('Category')) != 'Interview patterns'][:1]
         quiet = lambda call: lambda: _quietly(call)  # a failed read leaves its part empty; the rest still shows
         url_stages, profile, rows = together(quiet(tracker.url_stages), quiet(tracker.page_text), quiet(latest_insight))
         for stage in (url_stages or {}).values():
             stages[stage] = stages.get(stage, 0) + 1
         goals = _goals(profile)
         compensation = goals.get('minimum_salary') or _section(profile or '', 'compensation') or _section(profile or '', 'salary')
-        if rows:
-            from .notion.ledger import plain
-            props = rows[0]['properties']
-            insight = {'headline': plain(props.get('Insight')) or '', 'action': plain(props.get('Action')) or '',
-                       'url': rows[0].get('url', '')}
+    else:
+        rows = _quietly(latest_insight)
+        if stores.name != 'notion':   # this Mac's store: its applications and its Profile
+            from .store_access import url_stages as stages_of
+            for stage in (_quietly(lambda: stages_of(stores)) or {}).values():
+                stages[stage] = stages.get(stage, 0) + 1
+            profile = _quietly(lambda: stores.texts.get('profile')) or None
+    if rows:
+        insight = {'headline': rows[0]['title'] or '', 'action': (rows[0]['fields'] or {}).get('action') or '',
+                   'url': rows[0]['url']}
     from .paths import local_profile
     # Trying (no Notion): the Profile is on this Mac. Also when Notion gave no Profile and the app passed a local one (only in Trying or the demo,
     # whose Notion is fictional: desktop/lib/pipeline.js), so the demo's goals show.
     if not tracker or (profile is None and local_profile()):
-        goals = _goals(local_profile() or '')
-        compensation = goals.get('minimum_salary') or _section(local_profile() or '', 'compensation')
+        own_text = local_profile() or ('' if tracker else profile or '')
+        goals = _goals(own_text)
+        compensation = goals.get('minimum_salary') or _section(own_text, 'compensation')
     stale = 0
-    if tracker:  # jobs whose fit score waits for the new Profile ("Scores updating"), re-scored over the next searches
+    if tracker or profile:  # jobs whose fit score waits for the new Profile ("Scores updating"), re-scored over the next searches
         try:
             from .paths import local_profile
-            stale = score.stale_count(db, candidates, local_profile() or tracker.page_text())
+            stale = score.stale_count(db, candidates, local_profile() or (tracker.page_text() if tracker else profile))
         except Exception:  # noqa: BLE001
             pass
     # The Profile still the empty template (an import or a new workspace): fit scores are paused (score.unfilled); the page says so.
     from .paths import local_profile
     own = local_profile()
-    profile_empty = score.unfilled(own) if own else (score.unfilled(profile) if tracker and profile is not None else False)
+    profile_empty = score.unfilled(own) if own else (score.unfilled(profile) if (tracker or stores.name != 'notion') and profile is not None else False)
     sent = sum(n for stage, n in stages.items() if stage not in ('Saved', 'Kit ready', 'Applying', 'Dismissed', 'Closed', 'Recruiter lead'))
     return {
         'roles': unique(search.get('jobs_board_search_queries') or search.get('role_keywords')),
@@ -144,10 +147,17 @@ def strategy(db, tracker=None):
                          for item in items or [] if _readable(item)]
                   for name, items in (('roles', search.get('role_keywords')), ('places', places.get('top_tier')),
                                       ('country', places.get('country_wide')), ('abroad', places.get('abroad')),
-                                      ('stack', search.get('quality_stack_keywords')), ('rights', prefs.get('work_rights')))},
+                                      ('stack', search.get('quality_stack_keywords')), ('rights', prefs.get('work_rights')),
+                                      ('remoteSkip', search.get('remote_excluded_regions')), ('titleSkip', search.get('title_exclude_keywords')), ('finders', search.get('board_discovery_keywords')))},
         # Plain lists, shown as written: board search phrases and the languages that hide a job.
         'texts': {'queries': [str(q) for q in search.get('jobs_board_search_queries') or []],
-                  'languages': [str(q) for q in prefs.get('disqualifying_languages') or []]},
+                  'languages': [str(q) for q in prefs.get('disqualifying_languages') or []],
+                  # What only the ⚙️ Search settings page showed (desktop/lib/strategy-edit.js edits them): a Google Jobs place as the page writes it.
+                  'skip': [str(q) for q in prefs.get('excluded_companies') or []],
+                  'gqueries': [str(q) for q in (search.get('google_jobs') or {}).get('queries') or []],
+                  'gplaces': [' · '.join(filter(None, (p.get('location'), p.get('language')))) for p in (search.get('google_jobs') or {}).get('locations') or []
+                              if isinstance(p, dict) and p.get('location')]},
+        'digest_min_score': prefs.get('digest_min_score'),
         'remote_jobs': feeds_remote_wanted(search),
         'goals': goals,
         'level': levels.level_of(search.get('level')),
@@ -162,16 +172,20 @@ def strategy(db, tracker=None):
     }
 
 
-def calendar_jobs(tracker):
+def calendar_jobs(stores, tracker=None):
     """What the Calendar reads from a job: its Next interview, and the fields a meeting shows. Applications rows only, so it
-    skips the Job Matches database (every job a search found), which made the page wait ~10 s for a list it barely used."""
-    if not tracker:
+    skips the Job Matches database (every job a search found), which made the page wait ~10 s for a list it barely used.
+    The active store's applications; Notion's read through the tracker, as before."""
+    if stores.name == 'notion' and not tracker:
         return {'jobs': [], 'error': 'Notion is not connected.'}
     try:
-        found = tracker.notion_jobs(matches=False)
+        found = tracker.notion_jobs(matches=False) if tracker else \
+            [{**row, 'notion_url': stores.link(row['id']) or '', 'page_id': row['id']} for row in stores.applications.list()]
     except Exception as error:  # noqa: BLE001 — shown on the page; the saved copy stays
-        return {'jobs': [], 'error': f'Notion could not be read ({type(error).__name__}).'}
-    keep = ('url', 'title', 'company', 'stage', 'notion_url', 'next_interview')
+        where = 'Notion' if tracker else 'Your job tracker'
+        return {'jobs': [], 'error': f'{where} could not be read ({type(error).__name__}).'}
+    # page_id: the job's id in its store (Notion: its page), what a meeting is dismissed by and a recording matched to (renderer/calendar.js page).
+    keep = ('url', 'title', 'company', 'stage', 'notion_url', 'next_interview', 'page_id')
     return {'jobs': [{**{key: job.get(key) or '' for key in keep}, 'status': stage_status(job.get('stage'))} for job in found]}
 
 

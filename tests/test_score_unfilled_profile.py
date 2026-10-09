@@ -57,10 +57,12 @@ class UnfilledProfileTest(unittest.TestCase):
         self.assertEqual(stats, {'paused': 'profile'})
 
     def test_doctor_fails_on_the_template(self):
-        tracker = type('T', (), {'page_text': lambda self: template_as_notion_renders_it()})()
-        self.assertEqual(doctor.check_profile(tracker).state, doctor.FAIL)
-        tracker.page_text = lambda: FILLED
-        self.assertEqual(doctor.check_profile(tracker).state, doctor.OK)
+        from src.stores import memory
+        stores = memory.open_store()
+        stores.texts.set('profile', template_as_notion_renders_it())
+        self.assertEqual(doctor.check_profile(stores).state, doctor.FAIL)
+        stores.texts.set('profile', FILLED)
+        self.assertEqual(doctor.check_profile(stores).state, doctor.OK)
 
 
 if __name__ == '__main__':

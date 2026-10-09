@@ -16,7 +16,7 @@ from .mail_read import _field, _unread_invitation, _when, classify, extra_query,
 from .mail_record import changes_readable, gmail_link, record
 
 
-def mail_pass(tracker, google, client, model, apps, index, state, days, stats, dry_run=False, now=None, rejected=None,
+def mail_pass(stores, google, client, model, apps, index, state, days, stats, dry_run=False, now=None, rejected=None,
               on_new=None):
     """Process new emails; returns (lines for Telegram, count classified)."""
     seen = set(state['seen'])
@@ -72,7 +72,7 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             guess, row = row, None
         elif row is not None and _ambiguous(apps, row, email):
             # The same agency or employer has another of your roles, and the email doesn't say which: ask.
-            print(f"Not sure it's {_label(row)}: {_field(row, 'Via') or _field(row, 'Company')} has another open role", file=sys.stderr)
+            print(f"Not sure it's {_label(row)}: {_field(row, 'via') or _field(row, 'company')} has another open role", file=sys.stderr)
             guess, row = row, None
         named = result.get('relevant') and not row and result.get('role') and result.get('company') \
             and result.get('kind') in TRACKABLE
@@ -88,7 +88,7 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             # asks which job it is (or that it is none); nothing is attached or created until the owner answers.
             invited = {**result, 'kind': 'Interview scheduled', 'interview_at': email.get('invite_at', ''),
                        'summary': f"Meeting invitation: {email['subject'][:90]}"}
-            ask(tracker, email, invited, None, index, lines, stats)
+            ask(stores, email, invited, None, index, lines, stats)
             note(email, 'asked', result.get('company') or '', "a meeting invitation; needs you in Focus (nothing moved)")
             continue
         if not result.get('relevant'):
@@ -103,7 +103,7 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
             continue
         if result.get('kind') == OUTREACH:
             if not row:
-                made = new_lead(tracker, client, model, email, apps, stats, on_new)
+                made = new_lead(stores, client, model, email, apps, stats, on_new)
                 lines += made
                 note(email, 'tracked', result.get('company') or 'recruiter lead', 'new lead; nothing else changed')
                 continue
@@ -117,27 +117,27 @@ def mail_pass(tracker, google, client, model, apps, index, state, days, stats, d
                 apps, f"{result['company']} {email['from']} {email['subject']} {email['body'][:1500]}"):
             # An interview for a job not tracked yet (often via an agency, the employer unnamed): track it from the
             # email and let Focus ask for the missing details, rather than drop it or name the job after the agency.
-            row = interview_lead(tracker, client, model, email, apps, result, stats)
+            row = interview_lead(stores, client, model, email, apps, result, stats)
             if row is not None:
                 lines.append(tgcard.block('Which job is this for?', f"{_label(row)}: the interview was detected, but the role could not be identified.",
                                           tgcard.fact('Next step', 'In Job Pilotto: Focus → Add details. Paste the job link or LinkedIn conversation.')))
         if not row and named:
             # The email names a role: the job it is on (tracked, or on your list and applied to without marking it). None found: asked below.
-            row = _from_email(tracker, apps, result, email, stats, lines, on_new)
+            row = _from_email(stores, apps, result, email, stats, lines, on_new)
         if not row:
             # Not sure which job (or whether it's one you track): never guess, ask. Focus shows "Is this about …?"
             # with the likeliest job; the answer is applied by src/ai/reassign.py.
             text = f"{result.get('company') or ''} {email['from']} {email['subject']} {email['body'][:1500]}"
             candidates = [r for r in apps if _about_tracked([r], text)]
             suggested = guess or (candidates[0] if candidates else None)
-            ask(tracker, email, result, suggested, index, lines, stats)
+            ask(stores, email, result, suggested, index, lines, stats)
             note(email, 'asked', _label(suggested) if suggested is not None else (result.get('company') or ''),
                  f"needs you in Focus (nothing moved; {result.get('kind')})")
             continue
         fields = {}
         known = index[0]
         already = email['id'] in known
-        changed = record(tracker, row, result['kind'], email['date'], 'Gmail', email['id'],
+        changed = record(stores, row, result['kind'], email['date'], 'Gmail', email['id'],
                          f"{result['summary']} (email: \"{email['subject'][:120]}\")", index, result['interview_at'], now,
                          feedback_text=verified_feedback(result.get('feedback'), email['body']), email=email,
                          fields=fields)
@@ -167,8 +167,8 @@ def without_ai(apps, emails):
         sender = (re.search(r'[\w.+-]+@[\w-]+\.[\w.-]+', email.get('from', '')) or [''])[0].lower()
         if not email.get('invite_at') or not sender or re.search(r'cancel|declin', email.get('subject', ''), re.I):
             continue
-        jobs = [n for n, row in enumerate(apps) if _field(row, 'Stage') not in ENDED
-                and sender in re.findall(r'[\w.+-]+@[\w-]+\.[\w.-]+', _field(row, 'Contact').lower())]
+        jobs = [n for n, row in enumerate(apps) if _field(row, 'stage') not in ENDED
+                and sender in re.findall(r'[\w.+-]+@[\w-]+\.[\w.-]+', _field(row, 'contact').lower())]
         if jobs:
             one = len(jobs) == 1
             results[i] = {'relevant': True, 'application': jobs[0] if one else -1,

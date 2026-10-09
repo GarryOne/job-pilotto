@@ -126,7 +126,8 @@ class InsightLimitTests(unittest.TestCase):
         out = io.StringIO()
         with tempfile.TemporaryDirectory() as tmp, mock.patch.object(daily.notion.Tracker, 'from_env', return_value=object()), \
                 mock.patch.object(daily.insights, 'run', side_effect=RuntimeError('Your credit balance is too low to access the Anthropic API.')), \
-                mock.patch.object(daily.cron_runs, 'log_run', side_effect=lambda tracker, run, failed=False: logged.append((dict(run), failed)) or 'https://notion.so/row'), \
+                mock.patch.dict(daily.run_log._auto, {}), mock.patch.dict(daily.run_log._open, {}), \
+                mock.patch.object(daily.run_log, 'log_run', side_effect=lambda stores, run, failed=False: logged.append((dict(run), failed)) or 'https://notion.so/row'), \
                 mock.patch.object(daily.telegram, 'to_app'), mock.patch.object(sys, 'argv', ['daily', '--mode', 'insight', '--log-run', '--db', str(Path(tmp) / 'jobs.sqlite')]), \
                 contextlib.redirect_stdout(out):
             code = daily.main()
@@ -149,14 +150,16 @@ class PrepareTopMatchesTests(unittest.TestCase):
         matches = [{'id': 1, 'url': 'https://a/1', 'title': 'SRE', 'company': 'A', 'fit': {'score': 90}},
                    {'id': 2, 'url': 'https://a/2', 'title': 'Platform', 'company': 'B', 'fit': {'score': 80}}]
         seen, logged, shown = [], [], []
-        def auto_run(db, candidates, tracker, model, max_jobs, min_score, stats=None):
+        def auto_run(db, candidates, stores, model, max_jobs, min_score, stats=None):
             seen.append(([c['id'] for c in candidates], max_jobs))
             return 'Auto-drafted 1 of 1 kit(s); 0 failed', [(candidates[0], {'url': 'https://notion.so/p'})]
         out = io.StringIO()
         with tempfile.TemporaryDirectory() as tmp, mock.patch.object(daily.notion.Tracker, 'from_env', return_value=tracker), \
                 mock.patch.object(daily_modes, 'for_job_matches', return_value=matches) as found, \
                 mock.patch.object(daily.kit, 'auto_run', side_effect=auto_run), \
-                mock.patch.object(daily.cron_runs, 'log_run', side_effect=lambda tracker, run, failed=False: logged.append(dict(run)) or ''), \
+                mock.patch.object(daily_modes, 'url_stages', lambda stores: tracker.url_stages()), \
+                mock.patch.dict(daily.run_log._auto, {}), mock.patch.dict(daily.run_log._open, {}), \
+                mock.patch.object(daily.run_log, 'log_run', side_effect=lambda stores, run, failed=False: logged.append(dict(run)) or ''), \
                 mock.patch.object(daily.feeds, 'scan', side_effect=AssertionError('no crawl')), \
                 mock.patch.object(daily.telegram, 'to_app', side_effect=shown.append), \
                 mock.patch.object(sys, 'argv', ['daily', '--mode', 'kits', '--log-run', '--db', str(Path(tmp) / 'jobs.sqlite')]), \

@@ -18,7 +18,7 @@ const RULES = [
   }],
   [/^(Pool labels|Shared \d+ employer feeds|Pool catch-up|Cronjob run logged|AI: )/, () => null],
   [/^Job Matches: .*\(so far\)$/, () => null],
-  [/^Job Matches: (\d+) created, (\d+) updated/, m => (Number(m[1]) + Number(m[2]) ? `📒 Notion Job Matches: ${m[1]} added, ${m[2]} updated` : null)],
+  [/^Job Matches: (\d+) created, (\d+) updated/, m => (Number(m[1]) + Number(m[2]) ? `📒 Notion Job Matches: ${m[1]} added, ${m[2]} updated` : null)],   // about Notion
   [/^Time budget: this search stops its AI steps at (.+?);/, m => `⏱ ${aiName()} gets up to ${m[1]} this refresh; what is left waits for the next one`],
   [/^Checked: (.+)$/, (m, state) => ({key: 'checked', text: `🏢 Looked up ${plural(state.count('checked'), 'employer')} from the job boards`})],
   [/^Job board: (\S+) · (.+?) · (.+?)(?: · page \d+)? · (.+)$/, (m, state) => ({key: 'board', text: `🔎 Searched ${m[1]}: ${plural(state.count('board'), 'page')} read`})],

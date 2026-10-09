@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {badSummary, leaks, sample} from './activity.mjs';
-import {emptyDatabase, runRows} from './notion.mjs';
+import {clearData} from './start-state.mjs';
 import {snap} from './layout.mjs';
 import {ensureSetUp} from './seed.mjs';
 
@@ -124,9 +124,9 @@ export const idsNow = async page => new Set((await runsData(page)).runs.map(run 
 
 // The feed the engine reads: these postings, nothing else (an empty list means a search finds nothing new and asks the AI nothing).
 let nextId = Math.floor(Date.now() / 1000);   // new in every run of the suite: a posting seen by an earlier run (its Job Matches row stays in Notion) is not new
-export function setFeed(ctx, titles = []) {
+export function setFeed(ctx, titles = [], {location = 'Zurich, Switzerland or Amsterdam, Netherlands'} = {}) {
   // The titles say both "Site Reliability Engineer" and "Data Analyst": the roles a wizard-built page searches for, and the example's (a page whose Search settings were not built from the CV).
-  const jobs = titles.map(title => { const id = nextId++; title = `${title} (Site Reliability / Data Analyst)`; return {id, title, location: {name: 'Zurich, Switzerland or Amsterdam, Netherlands'}, absolute_url: `https://boards.e2e.test/job/${id}`, updated_at: '2026-10-02T09:00:00Z',
+  const jobs = titles.map(title => { const id = nextId++; title = `${title} (Site Reliability / Data Analyst)`; return {id, title, location: {name: location}, absolute_url: `https://boards.e2e.test/job/${id}`, updated_at: '2026-10-02T09:00:00Z',
     content: `<p>${title}: run production on Kubernetes and AWS with Terraform, SLOs and on-call. Senior level, hybrid in Zurich, English working language.</p>`}; });
   fs.writeFileSync(path.join(ctx.feeds, 'acme.json'), JSON.stringify({jobs}));
   fs.writeFileSync(path.join(ctx.feeds, 'beta.json'), JSON.stringify({jobs: []}));
@@ -147,15 +147,16 @@ export function problemsWith(ctx, run, {label, shown}) {
 }
 
 // No row of this suite's run history may stay "Running" once the app says nothing runs. Waits a little: the engine closes its row a moment after the app sees the end.
+// Read through the store the app uses (cron_runs, ctx.data): this Mac's or Notion's ⏱️ Search runs.
 export async function noRowStaysRunning(ctx, {allow = 0, waitMs = 45000} = {}) {
   const started = Date.now();
   let rows;
   do {
-    rows = (await runRows(ctx.token, RUNS_DB)).filter(row => row.status === 'Running' && !/schedule/i.test(row.trigger));
+    rows = ((await ctx.data('cron_runs', 'list', {})) || []).filter(row => row.status === 'Running' && !/schedule/i.test(row.trigger || ''));
     if (rows.length <= allow) return;
     await sleep(ctx.page, 3000);
   } while (Date.now() - started < waitMs);
-  throw new Error(`${rows.length} run row(s) in Notion are still "Running" with nothing running: ${rows.map(row => `"${row.title}" (${row.summary.slice(0, 40)})`).join('; ')}`);
+  throw new Error(`${rows.length} run row(s) in the store are still "Running" with nothing running: ${rows.map(row => `"${row.title}" (${String(row.summary || '').slice(0, 40)})`).join('; ')}`);
 }
 
 // Waits until the app has shown nothing running, nothing queued and its history loaded for `forMs` in a row.
@@ -181,12 +182,12 @@ export async function prepare(ctx) {
   const page = livePage(ctx);
   ctx.findings = [];
   console.log(`  profile ${ctx.profile}, feeds ${ctx.feeds}`);
-  await ctx.run('this suite starts with no run rows in its Notion page', async () => {
-    console.log(`  cleared ${await emptyDatabase(ctx.token, RUNS_DB)} run row(s)`);
+  await ctx.run('this suite starts with no run rows in its store', async () => {
+    console.log(`  cleared ${await clearData(ctx, RUNS_DB)} run row(s)`);
   }, {needs: ctx.needs, critical: true});
   // Every run seeds postings with new ids (setFeed), so each leaves Job Matches rows behind: 491 piled up by 6 Oct 2026 and a run spent 5 minutes marking them Not seen.
-  await ctx.run('this suite starts with no job rows in its Notion Job Matches', async () => {
-    console.log(`  cleared ${await emptyDatabase(ctx.token, 'Job Matches — AI Scored')} job row(s)`);
+  await ctx.run('this suite starts with no job rows in its store\'s Job Matches', async () => {
+    console.log(`  cleared ${await clearData(ctx, 'Job Matches — AI Scored')} job row(s)`);
   }, {needs: ctx.needs});
   await ensureSetUp(ctx);
   fs.mkdirSync(path.join(ctx.profile, 'config'), {recursive: true});

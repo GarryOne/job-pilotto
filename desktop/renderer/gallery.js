@@ -1,6 +1,6 @@
 // The component gallery: every token and component, built with the same code the screens use.
 import {fillIcons, icon} from './icons.js';
-import {choiceCards, el, moreButton, notionBenefits, notionGate, pill, tag, tile, TONES} from './components.js';
+import {cardHead, choiceCards, el, moreButton, notionBenefits, notionGate, numberStrip, pill, tag, tile, TONES} from './components.js';
 
 const root = document.getElementById('gallery');
 const section = (title, note, ...children) => {
@@ -62,14 +62,33 @@ section('Lit panel', '.is-lit (also .card.is-lit, .panel.is-lit): dot grid, ambe
   box.innerHTML = '<h3>Up next</h3><p class="muted">Lit like the website\'s departures hall. Used by the sidebar, Focus → Up next and Settings → Appearance.</p>';
   return box;
 })());
+section('Result card head and figures', 'cardHead(category, title, {badges, subtitles}) and numberStrip(cells, {valueFirst}) inside .insight-card: every result card in Recent activity and Form fills', (() => {
+  const box = el('div', 'insight-card');
+  box.append(cardHead('Salary', 'The advertised ceiling sits under your floor', {badges: [pill('High confidence', 'good')], subtitles: ['12 postings in your search said a salary']}),
+    numberStrip([{label: 'Jobs', value: '12'}, {label: 'Median', value: 'CHF 120k'}]),
+    numberStrip([{label: 'employers checked', value: '48'}, {label: 'had a job for you', value: '9'}], {valueFirst: true}));
+  return box;
+})());
 section('Tiles', 'tile(icon, tone)', row(tile('mic'), tile('file', 'teal'), tile('search', 'info'), tile('mail', 'info'), tile('check', 'good'), tile('shield', 'warn')));
 
-section('Notion advantages', 'notionBenefits(count): why connect Notion (the connect dialog, Settings, Optional extras)', notionBenefits());
+section('Notion advantages', 'notionBenefits(count): why connect Notion (the connect dialog, Settings, Optional extras)', notionBenefits());   // about Notion
 section('Locked page', 'notionGate({reasonText, onConnect}): a page that needs Notion, until it is connected', notionGate({reasonText: 'Connect Notion to see what to do next.'}));
 
 section('Choice cards', 'choiceCards(choices, {selected, onPick}): one of a few options (Settings → AI engine, the setup wizard)',
   choiceCards([{id: 'api', icon: 'key', title: 'Anthropic API key', text: 'Uses your Anthropic API key.'},
     {id: 'cli', icon: 'terminal', title: 'Claude Code CLI', text: 'Uses your own Claude Code CLI and its Claude subscription.'}], {selected: 'cli'}));
+
+section('Library table', '.lib-wrap > table.lib-table, name cell .lib-who (.logo + bold name + muted line): a list of records on its own page (Interviews, Employers). Inside a card use .data-table', (() => {
+  const wrap = el('div', 'lib-wrap'), table = el('table', 'lib-table');
+  const head = el('tr', ''); head.append(...['Name', 'Status', 'When'].map(text => el('th', '', text)));
+  const row = el('tr', ''), who = el('div', 'lib-who'), lines = el('div', '');
+  lines.append(el('b', '', 'Northwind Robotics'), el('div', 'muted small', 'Zürich · 200–500 people'));
+  who.append(el('span', 'logo', 'NR'), lines);
+  for (const cell of [who, pill('Feed found', 'good', {dot: true}), el('span', 'muted', '8 Oct')]) { const td = el('td', ''); td.append(cell); row.append(td); }
+  const thead = el('thead', ''); thead.append(head); const tbody = el('tbody', ''); tbody.append(row);
+  table.append(thead, tbody); wrap.append(table);
+  return wrap;
+})());
 
 section('Data table', '.data-table: a few rows of figures to compare; .is-num right-aligns a number column', (() => {
   const box = el('div');
@@ -99,6 +118,13 @@ section('Dialog parts', '.panel-dialog with .dialog-head / .dialog-lead / .dialo
   return box;
 })());
 
+section('Toggle chips', '.chip-row of .chip-button[aria-pressed] with a .chip-count (Jobs → saved views)', (() => {
+  const box = el('div', 'chip-row');
+  box.innerHTML = `<button class="chip-button" aria-pressed="true"><span>Active</span><span class="chip-count">4</span></button>
+    <button class="chip-button" aria-pressed="false"><span>Rejected</span><span class="chip-count">12</span></button>
+    <button class="chip-button" aria-pressed="false"><span>This week</span><span class="chip-count">0</span></button>`;
+  return box;
+})());
 section('Alerts', '.alert.tone-warn | tone-good | tone-info | tone-bad: icon, title, text, optional link (.alert-actions: a row of them)', row(...['warn', 'good', 'info', 'bad'].map(tone => {
   const box = el('div', `alert tone-${tone}`);
   box.innerHTML = tone === 'good'

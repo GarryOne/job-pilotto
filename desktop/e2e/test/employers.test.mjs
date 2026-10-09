@@ -5,26 +5,26 @@ import {blank, byQuality, duplicates, EXPECTED, parseRunLine, rowProblems} from 
 import {buildRequest, judge, parseVerdicts, problems} from '../lib/judge.mjs';
 import {flatten} from '../lib/notion.mjs';
 
-const good = {Company: 'E2E Nimbus', 'Feed status': 'Feed found', ATS: 'greenhouse', Slug: 'e2e-nimbus', Feed: 'https://x', Quality: 76, Cities: 'Zurich', 'Relevant roles': 4,
-  'In preferred places': 4, Notes: '5 postings; 4 SRE-type; 4 in preferred places', Origin: 'Tier 1 seed', Tier: 'Tier 1', Checked: '2026-10-02', Added: '2026-10-02', Active: true};
+const good = {name: 'E2E Nimbus', feed_status: 'Feed found', ats: 'greenhouse', slug: 'e2e-nimbus', feed: 'https://x', quality: 76, cities: 'Zurich', relevant_roles: 4,
+  in_preferred_places: 4, notes: '5 postings; 4 SRE-type; 4 in preferred places', origin: 'Tier 1 seed', tier: 'Tier 1', checked: '2026-10-02', added: '2026-10-02', active: true};
 
 test('a complete row passes, and each broken one is named', () => {
   assert.deepEqual(rowProblems(good, 'found'), []);
-  assert.match(rowProblems({...good, Notes: ''}, 'found').join(), /"Notes" is empty/);
-  assert.match(rowProblems({...good, Cities: 'undefined'}, 'found').join(), /"Cities" is empty/);
-  assert.match(rowProblems({...good, Notes: '5 postings; undefined SRE-type'}, 'found').join(), /says/);
-  assert.match(rowProblems({...good, Quality: 0}, 'found').join(), /outside 1 to 100/);
-  assert.match(rowProblems({...good, Quality: null}, 'found').join(), /"Quality" is empty/);
-  assert.match(rowProblems({...good, 'In preferred places': 9}, 'found').join(), /more roles in preferred places/);
-  assert.match(rowProblems({...good, Slug: null}, 'found').join(), /"Slug" is empty/);
+  assert.match(rowProblems({...good, notes: ''}, 'found').join(), /"notes" is empty/);
+  assert.match(rowProblems({...good, cities: 'undefined'}, 'found').join(), /"cities" is empty/);
+  assert.match(rowProblems({...good, notes: '5 postings; undefined SRE-type'}, 'found').join(), /says/);
+  assert.match(rowProblems({...good, quality: 0}, 'found').join(), /outside 1 to 100/);
+  assert.match(rowProblems({...good, quality: null}, 'found').join(), /"quality" is empty/);
+  assert.match(rowProblems({...good, in_preferred_places: 9}, 'found').join(), /more roles in preferred places/);
+  assert.match(rowProblems({...good, slug: null}, 'found').join(), /"slug" is empty/);
 });
 
 test('a manual-watch row needs its careers link, a no-feed row only its name and status', () => {
-  const quiet = {Company: 'E2E Quiet', 'Feed status': 'Manual watch', Careers: 'https://quiet.e2e.test/careers', Origin: 'Tier 1 seed (no public feed)', Tier: 'Tier 1', Checked: '2026-10-02'};
+  const quiet = {name: 'E2E Quiet', feed_status: 'Manual watch', careers_url: 'https://quiet.e2e.test/careers', origin: 'Tier 1 seed (no public feed)', tier: 'Tier 1', checked: '2026-10-02'};
   assert.deepEqual(rowProblems(quiet, 'manual'), []);
-  assert.match(rowProblems({...quiet, Careers: null}, 'manual').join(), /"Careers" is empty/);
-  assert.deepEqual(rowProblems({Company: 'E2E Ghost', 'Feed status': 'No public feed', Origin: 'Tier 1 seed', Tier: 'Tier 1', Checked: '2026-10-02'}, 'none'), []);
-  assert.match(rowProblems({Company: 'E2E Ghost', 'Feed status': 'No public feed'}, 'none').join(), /"Origin" is empty/);
+  assert.match(rowProblems({...quiet, careers_url: null}, 'manual').join(), /"careers_url" is empty/);
+  assert.deepEqual(rowProblems({name: 'E2E Ghost', feed_status: 'No public feed', origin: 'Tier 1 seed', tier: 'Tier 1', checked: '2026-10-02'}, 'none'), []);
+  assert.match(rowProblems({name: 'E2E Ghost', feed_status: 'No public feed'}, 'none').join(), /"origin" is empty/);
 });
 
 test('blank means empty, whitespace or a leaked "undefined"', () => {
@@ -45,9 +45,9 @@ test("the run line is read as numbers, and a line that says neither is not guess
 });
 
 test('duplicates are found by name, ignoring case; quality orders best first; the expectations cover every kind of candidate', () => {
-  assert.deepEqual(duplicates([{Company: 'E2E Orbit'}, {Company: 'e2e orbit '}, {Company: 'E2E Nimbus'}]), ['e2e orbit']);
-  assert.deepEqual(duplicates([{Company: 'A'}, {Company: 'B'}]), []);
-  assert.deepEqual(byQuality([{Company: 'low', Quality: 10}, {Company: 'high', Quality: 80}]), ['high', 'low']);
+  assert.deepEqual(duplicates([{name: 'E2E Orbit'}, {name: 'e2e orbit '}, {name: 'E2E Nimbus'}]), ['e2e orbit']);
+  assert.deepEqual(duplicates([{name: 'A'}, {name: 'B'}]), []);
+  assert.deepEqual(byQuality([{name: 'low', quality: 10}, {name: 'high', quality: 80}]), ['high', 'low']);
   assert.deepEqual([...new Set(Object.values(EXPECTED).map(item => item.status))].sort(), ['duplicate', 'excluded', 'found', 'low', 'manual', 'none']);
 });
 

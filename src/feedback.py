@@ -1,11 +1,14 @@
-"""Employer feedback loop. Notion holds the status, verbatim feedback and timeline; no AI or email sending."""
+"""Employer feedback loop. The store holds the status, verbatim feedback and timeline (events); no AI or email sending.
+
+act / save_received work on the active store (the app's buttons, `python -m src.feedback <id> <action>`, the Gmail check).
+No Notion here: the Notion ledger reads a row's history itself (src/notion/ledger.py). Guarded by tests/test_feedback.py.
+"""
 import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
 
-from .notion import client as notion
-from .notion.ledger import EVENTS_DATABASE_ID, add_event, moment, plain
+from .notion.ledger import moment
 
 REACHED = {'Screening', 'Interview scheduled', 'Interviewing', 'Offer'}
 REQUESTED, RECEIVED, REVIEWED, SKIPPED = ('Feedback requested', 'Feedback received', 'Feedback reviewed', 'Feedback skipped')
@@ -17,21 +20,17 @@ def _moment(value):
     return value.astimezone(timezone.utc) if isinstance(value, datetime) else moment(value)
 
 
-def eligible(row, history=()):
-    """A recorded Screening or later, before rejection. Replies/assessments alone are not proof."""
+def eligible_status(status, history=()):
+    """A recorded Screening or later, before rejection. Replies/assessments alone are not proof. history: events with
+    'kind' and 'at' (store records, or history_for's)."""
     from .features import disabled
     if disabled('feedback'):
         return False
-    if plain(row['properties'].get('Feedback status')) == 'Not asked':
+    if status == 'Not asked':
         return True  # the prior stage was captured when the rejection arrived
     rejected = [_moment(e.get('at')) for e in history if e.get('kind') == 'Rejected']
     cutoff = min(rejected) if rejected else datetime.max.replace(tzinfo=timezone.utc)
     return any(e.get('kind') in REACHED and e.get('at') and _moment(e.get('at')) <= cutoff for e in history)
-
-
-def history_for(tracker, row):
-    return [{'kind': plain(e['properties'].get('Kind')), 'at': plain(e['properties'].get('At'))}
-            for e in tracker.query_database(EVENTS_DATABASE_ID, {'property': 'Application', 'relation': {'contains': row['id']}})]
 
 
 def draft(row):
@@ -41,36 +40,35 @@ def draft(row):
             'Even a few words would be really helpful.')
 
 
-def receive(tracker, row, text):
-    """Store employer words separately from AI guesses; preserve every reply, within Notion's limit."""
+def save_received(stores, app, text):
+    """The employer's words on the application (store record `app`), kept apart from AI guesses; every reply is
+    preserved. Returns the updated record (unchanged when feedback is switched off)."""
     text = (text or '').strip()
     from .features import disabled
     if disabled('feedback'):
-        return
+        return app
     if not text:
         raise ValueError('Paste the feedback you received first.')
-    previous = plain(row['properties'].get('Employer feedback')) or ''
+    previous = app.get('employer_feedback') or ''
     combined = previous if text in previous else '\n\n'.join(filter(None, [previous, text]))
     if len(combined) > 100_000:
         raise ValueError('Feedback is too long; save a shorter excerpt.')
-    tracker.update_page(row['id'], {
-        'Employer feedback': {'rich_text': [{'text': {'content': combined[i:i + 1900]}} for i in range(0, len(combined), 1900)]},
-        'Feedback status': {'select': {'name': STATUSES[RECEIVED]}},
-        # A previous AI assessment must be reconsidered against the employer's actual words.
-        'Rejection reason': {'select': None}, 'Rejection lesson': {'rich_text': []},
-    })
-    row['properties']['Employer feedback'] = {'type': 'rich_text', 'rich_text': [{'plain_text': combined}]}
-    row['properties']['Feedback status'] = {'type': 'select', 'select': {'name': STATUSES[RECEIVED]}}
+    # A previous AI assessment must be reconsidered against the employer's actual words.
+    return stores.applications.update(app['id'], {'employer_feedback': combined, 'feedback_status': STATUSES[RECEIVED],
+                                                  'rejection': '', 'rejection_lesson': ''})
 
 
-def act(tracker, row, action, text=''):
+def act(stores, app, action, text=''):
+    """The app's feedback buttons on one application (its store record): request, receive (pasted words), review,
+    skip. Each logs its event once; a repeated click writes nothing."""
+    from . import ledger_store
     from .features import disabled
     if disabled('feedback'):
         raise ValueError('Employer feedback is disabled in your settings.')
-    history = history_for(tracker, row)
-    if action in ('request', 'skip') and plain(row['properties'].get('Stage')) != 'Rejected':
+    history = stores.events.list(app_id=app['id'])
+    if action in ('request', 'skip') and app.get('stage') != 'Rejected':
         raise ValueError('This feedback follow-up is for a rejected application.')
-    if action in ('request', 'skip') and not eligible(row, history):
+    if action in ('request', 'skip') and not eligible_status(app.get('feedback_status'), history):
         raise ValueError('Only rejections after Screening or a later stage need a feedback request.')
     kind = {'request': REQUESTED, 'receive': RECEIVED, 'review': REVIEWED, 'skip': SKIPPED}[action]
     existing = [e for e in history if e['kind'] == kind]
@@ -81,22 +79,20 @@ def act(tracker, row, action, text=''):
         latest_received = max((moment(e['at']) for e in history if e['kind'] == RECEIVED), default=latest_review)
         if latest_review >= latest_received:
             return
-    if action in ('request', 'skip') and plain(row['properties'].get('Feedback status')) in ('Received feedback', 'Asked for feedback'):
+    if action in ('request', 'skip') and app.get('feedback_status') in ('Received feedback', 'Asked for feedback'):
         raise ValueError('Feedback was already requested or received; refresh the job.')
     if action == 'receive':
         seed = 'feedback:' + hashlib.sha256(text.strip().encode()).hexdigest()[:24]
-        events = tracker.query_database(EVENTS_DATABASE_ID, {'property': 'Source ID', 'rich_text': {'equals': seed}})
-        if any(any(link['id'].replace('-', '') == row['id'].replace('-', '') for link in
-                   e['properties'].get('Application', {}).get('relation', [])) for e in events):
+        if any(e['source_id'] == seed for e in history):  # the same words pasted twice on this job
             return
-        receive(tracker, row, text)
-        event = add_event(tracker, row, kind, 'Job Pilotto app', note=text[:1900])
-        tracker.update_page(event['id'], {'Source ID': {'rich_text': [{'text': {'content': seed}}]}})
+        app = save_received(stores, app, text)
+        event = ledger_store.add_event(stores, app, kind, 'Job Pilotto app', note=text[:1900])
+        stores.events.update(event['id'], {'source_id': seed})
     else:
-        if action == 'review' and not plain(row['properties'].get('Employer feedback')):
+        if action == 'review' and not app.get('employer_feedback'):
             raise ValueError('There is no employer feedback to review yet.')
-        tracker.update_page(row['id'], {'Feedback status': {'select': {'name': STATUSES[kind]}}})
-        add_event(tracker, row, kind, 'Job Pilotto app', note={
+        app = stores.applications.update(app['id'], {'feedback_status': STATUSES[kind]})
+        ledger_store.add_event(stores, app, kind, 'Job Pilotto app', note={
             'request': 'You sent a feedback request (confirmed in the desktop app).',
             'review': 'You reviewed the employer feedback.', 'skip': 'You chose not to request feedback.'}[action])
 
@@ -107,11 +103,13 @@ def main(argv=None):
     parser.add_argument('action', choices=('request', 'receive', 'review', 'skip'))
     parser.add_argument('--text', default='')
     args = parser.parse_args(argv)
-    tracker = notion.Tracker.from_env()
-    if not tracker:
-        raise SystemExit('Notion is required to save feedback.')
+    from .stores import open_stores
+    stores = open_stores()
     try:
-        act(tracker, tracker._request('GET', f'pages/{args.page_id}'), args.action, args.text)
+        app = stores.applications.by_id(args.page_id)
+        if not app:
+            raise ValueError('This job is no longer in your tracker; refresh the list.')
+        act(stores, app, args.action, args.text)
         print(json.dumps({'ok': True}))
     except ValueError as error:
         print(json.dumps({'ok': False, 'error': str(error)}))

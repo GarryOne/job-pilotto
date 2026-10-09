@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import * as terminals from './terminals.js';
+import * as sessionRuns from './session-runs.js';
 import * as transcript from './transcript.js';
 import * as quitDialog from './quit-dialog.js';
 import {sessionIpc} from './session-contracts.js';
@@ -17,7 +18,7 @@ export async function closeSessionTab({review, closeTab}, old) {
 import {cleanUse} from './proposal-use.js';
 import {boardName} from './control-events.js';
 export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, dialog, nativeImage, here,
-  DEMO, apply, pipeline, review, server, notion, claudeConsent, getRecipeReporter = () => null, version = '',
+  DEMO, apply, pipeline, review, server, claudeConsent, getRecipeReporter = () => null, version = '',
   closeTab = closeFormTab, tabs = listTabs}) {
   const checkedSessions = sessionIpc(ipcMain, appLog);
   checkedSessions.handle('sessionCancel', async (_, id) => {
@@ -124,7 +125,7 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
     return list;
   });
   const demoOutput = () => (process.env.JOB_PILOTTO_DEMO_OUTPUT ? fs.readFileSync(process.env.JOB_PILOTTO_DEMO_OUTPUT, 'utf8')  // a recorded session
-    : '\x1b[2m19:10:02\x1b[0m \x1b[32m✓\x1b[0m Loaded the kit, Profile and answers from Notion\r\n\x1b[2m19:10:06\x1b[0m \x1b[32m✓\x1b[0m Opened the posting in Chrome\r\n' +
+    : '\x1b[2m19:10:02\x1b[0m \x1b[32m✓\x1b[0m Loaded the kit, Profile and answers from Notion\r\n\x1b[2m19:10:06\x1b[0m \x1b[32m✓\x1b[0m Opened the posting in Chrome\r\n' +   // about Notion
       '\x1b[2m19:10:09\x1b[0m \x1b[33m!\x1b[0m Location: San Francisco, CA · On-site\r\n\x1b[2m19:10:11\x1b[0m \x1b[35m⏸\x1b[0m Paused before opening the form. Waiting for your reply…\r\n\r\n\x1b[1m>\x1b[0m ');
   checkedSessions.handle('sessionOutput', (_, id) => (DEMO ? demoOutput() : terminals.output(String(id))));
   // The log's screen when it opens (see terminals.snapshot); JOB_PILOTTO_DEMO_OUTPUT replays a recorded session in demo mode.
@@ -135,7 +136,7 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
     const talk = file ? transcript.conversation(file) : null;
     if (talk?.length || DEMO || !record?.runPage) return talk;
     // The Mac's transcript is gone (Claude Code deletes old ones): the copy on the session's Agent Runs row.
-    return transcript.load((method, route, body) => notion.call(storage.secret('NOTION_TOKEN'), method, route, body), record.runPage).catch(() => null);
+    return sessionRuns.loadConversation(storage, record.runPage).catch(() => null);
   });
   checkedSessions.handle('sessionSnapshot', (_, id) => (DEMO ? terminals.snapshotOf(demoOutput()) : terminals.snapshot(String(id))));
   checkedSessions.handle('sessionWrite', (_, id, data) => terminals.write(String(id), data));
@@ -155,7 +156,7 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
     if (response === 2) return {ok: false, cancelled: true};
     const result = DEMO ? {ok: true} : response === 0 ? await pipeline.setStatus(storage, found.url, 'applied') : await pipeline.unapply(storage, found.url);
     if (result.ok) terminals.setOutcome(String(id), response === 0 ? 'submitted' : 'not submitted');  // its statistics, before it goes
-    if (!result.ok) return {ok: false, error: result.error || 'Notion could not be updated.'};
+    if (!result.ok) return {ok: false, error: result.error || 'It could not be saved.'};
     terminals.remove(String(id));
     return {ok: true, submitted: response === 0};
   });

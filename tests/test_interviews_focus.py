@@ -9,42 +9,43 @@ from tests.interviews_fixtures import setUpModule  # noqa: F401 (the model's ans
 
 class FocusAnswerTests(unittest.TestCase):
     def test_yes_it_happened_saves_the_notes_as_an_interview_and_moves_the_job_on(self):
-        tracker = NotionPages([huxley()])
+        stores = store_with(huxley_job())
+        app_id = only_app(stores)['id']
         notes = 'Talked to Jaya for 30 minutes: salary band 160-180k, B2B possible, next a call with the CTO.'
-        out = interviews.held(tracker, 'h-1', notes, now=NOW)
+        out = interviews.held(stores, app_id, notes, now=NOW)
         self.assertEqual((out['ok'], out['stage'], out['review']), (True, 'Interviewing', True))
-        row = tracker.pages[out['id']]['properties']
-        self.assertEqual(row['Input'], {'select': {'name': 'Notes'}})
-        self.assertEqual(row['Date'], {'date': {'start': '2026-09-26'}})  # the day it was held
-        self.assertEqual(row['Application'], {'relation': [{'id': 'h-1'}]})
-        self.assertEqual(interviews.saved_transcript(tracker, out['id']), notes)  # the review reads the notes
-        self.assertEqual(tracker.updates[-1][1]['Stage'], {'select': {'name': 'Interviewing'}})
-        self.assertEqual(tracker.created[0][1]['Kind'], {'select': {'name': 'Interviewing'}})
+        row = stores.interviews.get(out['id'])
+        self.assertEqual((row['input'], row['at'], row['app_id']), ('Notes', '2026-09-26', app_id))  # the day it was held
+        self.assertEqual(row['transcript'], notes)  # the review reads the notes
+        self.assertEqual(only_app(stores)['stage'], 'Interviewing')
+        self.assertEqual([e['kind'] for e in stores.events.list()], ['Interviewing'])
         # Without notes it's still recorded as held, and there's nothing to review.
-        self.assertFalse(interviews.held(NotionPages([huxley()]), 'h-1', '', now=NOW)['review'])
+        stores = store_with(huxley_job())
+        self.assertFalse(interviews.held(stores, only_app(stores)['id'], '', now=NOW)['review'])
+        with self.assertRaises(ValueError):
+            interviews.held(stores, 'no-such-job', '', now=NOW)
 
     def test_moved_updates_the_next_interview_and_cancelled_logs_it_without_moving_the_stage(self):
-        tracker = NotionPages([huxley()])
-        interviews.moved(tracker, 'h-1', '2026-10-03T09:00:00+02:00')
-        self.assertEqual(tracker.updates, [('h-1', {'Next interview': {'date': {'start': '2026-10-03T09:00:00+02:00'}}})])
-        self.assertEqual(tracker.created[0][1]['Kind'], {'select': {'name': 'Interview scheduled'}})
+        stores = store_with(huxley_job())
+        app_id = only_app(stores)['id']
+        interviews.moved(stores, app_id, '2026-10-03T09:00:00+02:00')
+        self.assertEqual(only_app(stores)['next_interview'], '2026-10-03T09:00:00+02:00')
+        self.assertEqual([(e['kind'], e['interview_at']) for e in stores.events.list()],
+                         [('Interview scheduled', '2026-10-03T09:00:00+02:00')])
         with self.assertRaises(ValueError):
-            interviews.moved(tracker, 'h-1', '')
-        tracker = NotionPages([huxley()])
-        interviews.cancelled(tracker, 'h-1')
-        self.assertEqual(tracker.created[0][1]['Kind'], {'select': {'name': 'Interview cancelled'}})
-        self.assertEqual(tracker.updates, [('h-1', {'Next interview': {'date': None}})])  # no Stage
+            interviews.moved(stores, app_id, '')
+        stores = store_with(huxley_job())
+        interviews.cancelled(stores, only_app(stores)['id'])
+        self.assertEqual([e['kind'] for e in stores.events.list()], ['Interview cancelled'])
+        self.assertEqual((only_app(stores)['next_interview'], only_app(stores)['stage']), ('', 'Interview scheduled'))  # no Stage
 
     def test_the_sweep_moves_on_a_recorded_interview_saved_before(self):
-        tracker = FakeTracker([huxley(), huxley() | {'id': 'h-2'}])
-        tracker.query_database = lambda database_id, filter_=None: (
-            [] if database_id == ledger.EVENTS_DATABASE_ID else
-            [{'properties': {'Date': {'type': 'date', 'date': {'start': '2026-09-26'}},
-                             'Application': {'type': 'relation', 'relation': [{'id': 'h-1'}]}}}]
-            if database_id == interviews.INTERVIEWS_DATABASE_ID else tracker.apps)
-        with mock.patch.object(interviews, 'INTERVIEWS_DATABASE_ID', 'ivdb'):
-            self.assertIn('1 application(s)', interviews.sweep(tracker, now=NOW))
-        self.assertEqual(tracker.updates, [('h-1', {'Stage': {'select': {'name': 'Interviewing'}}})])  # h-2: not recorded
+        stores = store_with(huxley_job(), huxley_job(url='https://x.test/h-2'))
+        first = stores.applications.get('https://x.test/h-1')
+        stores.interviews.save(None, {'app_id': first['id'], 'at': '2026-09-26', 'title': 'Recorded'})
+        self.assertIn('1 application(s)', interviews.sweep(stores=stores, now=NOW))
+        self.assertEqual(stores.applications.get('https://x.test/h-1')['stage'], 'Interviewing')
+        self.assertEqual(stores.applications.get('https://x.test/h-2')['stage'], 'Interview scheduled')  # not recorded
 
 
 class EffortTests(unittest.TestCase):

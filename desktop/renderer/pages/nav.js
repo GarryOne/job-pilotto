@@ -8,6 +8,9 @@ import {loadFocus} from './focus.js';
 import {showFocusStarted} from './focus-onboarding.js';
 import {loadCalendar} from './calendar.js';
 import {loadInterviews} from './interviews.js';
+import {loadEmployers} from './employers.js';
+import {openJobPanel} from './job-panel.js';
+import {REPORT_TABS, loadReports} from './reports.js';
 import {applyViewGate} from './notion-connect.js';
 import {loadSettings} from './profile.js';
 import {openSession, renderSessionPage} from './session-log.js';
@@ -57,6 +60,8 @@ export function openView(name, {fromHistory = false} = {}) {
   }
   if (name === 'interviews' && !locked) loadInterviews();
   if (name === 'calendar' && !locked) loadCalendar();
+  if (name === 'reports' && !locked) loadReports();
+  if (name === 'employers' && !locked) loadEmployers();
   if (name === 'focus' && !locked && !started) loadFocus();
 }
 
@@ -96,6 +101,16 @@ function paletteCommands() {
   // A task waiting its turn can be taken out of the queue from here too (activity.js unqueue).
   (lastActivity?.queued || []).forEach(run => add('Actions', `Remove ${KIND[kindOf(run)].name} from the queue`, 'It has not started: it will not run',
     'unqueue cancel queued waiting remove', () => unqueue(run)));
+  // Every tracked job's page (pages/job-panel.js): its kit, prep, reviews, record, messages and history, found by its title or company.
+  (shared.allJobs || []).filter(job => job.stage && job.url).forEach(job => add('Jobs', `Open job page: ${job.title} · ${job.company}`, job.stage,
+    'job page kit cover letter form answers prep review record messages description history', () => { openView('jobs'); openJobPanel(job); }));
+  // Jobs → List | Board and every saved view chip (pages/jobs-views.js), read from the page so a new view is listed by itself.
+  document.querySelectorAll('[data-mode]').forEach(node => add('Jobs', `Show jobs as a ${labelOf(node).toLowerCase()}`, node.dataset.mode === 'board'
+    ? 'Your applications in columns by stage; drag a card to change its stage' : 'One row per job', 'pipeline kanban board columns stages list', () => { openView('jobs'); node.click(); }));
+  document.querySelectorAll('#jobs-views [data-view]').forEach(node => add('Jobs', `Jobs view: ${labelOf(node.firstChild)}`, node.title,
+    'saved view filter applications active rejected this week', () => { openView('jobs'); if (node.getAttribute('aria-pressed') !== 'true') node.click(); }));
+  // Each Reports tab (pages/reports.js), by what it holds.
+  for (const [tab, label, words] of REPORT_TABS) add('Reports', `Open Reports: ${label}`, '', words, () => { openView('reports'); loadReports(tab); });
   button('jobs', 'refresh', 'find jobs scan');
   button('strategy', 'open-profile', 'edit roles locations places cities country skills targeting preferences');
   button('jobs', 'apply-open', 'apply fill forms');
@@ -138,7 +153,7 @@ function paletteCommands() {
       add('Settings', `${title}: ${labelOf(node)}`, node.title, `settings ${page}`, () => { open(); if (danger) node.focus(); else node.click(); });
     });
   });
-  document.querySelectorAll('#notion-links:not([hidden]) .notion-link').forEach(link => add('Notion', `Notion: ${labelOf(link)}`, '', 'open page database', () => link.click()));
+  document.querySelectorAll('#notion-links:not([hidden]) .notion-link').forEach(link => add('Notion', `Notion: ${labelOf(link)}`, '', 'open page database', () => link.click()));   // about Notion
   return commands;
 }
 

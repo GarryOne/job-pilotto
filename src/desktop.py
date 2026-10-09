@@ -11,6 +11,7 @@ here reads and writes the user's own folder. Output is one JSON document on stdo
 """
 import argparse
 import json
+import os
 from .ai import providers
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,7 +24,7 @@ from .paths import JOBS_DB
 
 # The pieces live in desktop_jobs.py, desktop_status.py and desktop_strategy.py; their names stay reachable here (src.desktop.jobs, ...),
 # and the tests patch the shared modules (digest, score, store) through this one.
-from .desktop_jobs import (GONE, MIN_POSTING, NO_POSTING, NOT_ELIGIBLE, NOT_YET, _deleted_urls, _fit_detail, _kit, jobs, notion_posting, posting,  # noqa: F401
+from .desktop_jobs import (GONE, MIN_POSTING, NO_POSTING, NOT_ELIGIBLE, NOT_YET, _deleted_urls, _fit_detail, _kit, jobs, store_posting, posting,  # noqa: F401
                            stage_status)
 from .desktop_status import NOTION_STAGES, InProcess, _mark, _matches_rows, delete_job, set_status  # noqa: F401
 from .desktop_strategy import (COMPONENTS, GOAL_ROWS, _goals, _quietly, _readable, _section, _visits, calendar_jobs,  # noqa: F401
@@ -70,13 +71,12 @@ def main(argv=None):
     with store.connect(JOBS_DB) as db:
         if args.command == 'posting':
             found = posting(db, args.code)
-            if not found['ok']:  # not in the crawl: a job kept only in Notion
+            if not found['ok']:  # not in the crawl: a job kept only in the store (Notion, or this Mac's)
                 try:
-                    from .notion.client import Tracker
-                    tracker = Tracker.from_env()
-                    found = notion_posting(tracker, args.code) if tracker else found
-                except Exception as error:  # noqa: BLE001 — the first answer ("job not found") stays when Notion can't be read
-                    print(f'Notion posting not read: {type(error).__name__}: {error}', file=sys.stderr)
+                    from .stores import open_stores
+                    found = store_posting(open_stores(), args.code)
+                except Exception as error:  # noqa: BLE001 — the first answer ("job not found") stays when the store can't be read
+                    print(f'Store posting not read: {type(error).__name__}: {error}', file=sys.stderr)
             print(json.dumps(found, ensure_ascii=False))
             return 0
         if args.command == 'explain-coverage':
@@ -113,10 +113,10 @@ def main(argv=None):
                 return 0
             try:
                 profile = local_profile()
-                if not profile:
-                    from .notion.client import Tracker
-                    tracker = Tracker.from_env()
-                    profile = tracker.page_text() if tracker else ''
+                if not profile:   # the active store's Profile (Notion's page as before)
+                    from .store_access import open_run, profile_source
+                    read = profile_source(open_run())
+                    profile = read() if read else ''
                 found = role_ideas.ideas(profile or '', load_search_config(), (coverage.load() or {}).get('missed_titles') or [], asked.get('set_aside') or [])
             except Exception as error:  # noqa: BLE001 — no ideas this time, said; the box shows the market's words as before
                 print(json.dumps({'ok': False, 'ideas': [], 'error': f'No role ideas this time ({type(error).__name__})'}))
@@ -254,76 +254,86 @@ def main(argv=None):
             return 0
         from .notion.client import Tracker
         tracker = Tracker.from_env()
+        if args.command in ('unapply', 'not-submitted'):
+            from .stores import open_stores, rules
+            stores = open_stores(tracker=tracker)  # Notion when connected, else this Mac's store: no gate
         if args.command == 'unapply':
-            if not tracker:
-                print(json.dumps({'ok': False, 'error': 'Notion is not connected.'}))
-                return 0
             try:
-                outcome = tracker.revert_applying(args.url)
+                outcome = rules.revert_applying(stores, args.url)
             except Exception as error:  # noqa: BLE001 — shown to the user; nothing changed
-                print(json.dumps({'ok': False, 'error': f'Notion could not be updated ({type(error).__name__}); nothing changed. Try again.'}))
+                print(json.dumps({'ok': False, 'error': f'Your job tracker could not be updated ({type(error).__name__}); nothing changed. Try again.'}))
                 return 0
             print(json.dumps({'ok': True, 'notion': outcome}))
             return 0
         if args.command == 'not-submitted':
             # The owner says an Applied was wrong. Only a bare Applied is undone, and its false 📈 event goes with
             # it, so the application's timeline does not keep a submission that never happened (1 Oct 2026).
-            if not tracker:
-                print(json.dumps({'ok': False, 'error': 'Notion is not connected.'}))
-                return 0
-            from .notion.ledger import archive_events
             try:
-                outcome, page = tracker.revert_unsubmitted(args.url)
-                dropped = archive_events(tracker, page, 'Applied') if outcome == 'updated' and page else 0
+                outcome, row = rules.revert_unsubmitted(stores, args.url)
+                dropped = stores.events.archive(row['id'], 'Applied') if outcome == rules.UPDATED and row else 0
             except Exception as error:  # noqa: BLE001 — shown to the user; nothing changed
-                print(json.dumps({'ok': False, 'error': f'Notion could not be updated ({type(error).__name__}); nothing changed. Try again.'}))
+                print(json.dumps({'ok': False, 'error': f'Your job tracker could not be updated ({type(error).__name__}); nothing changed. Try again.'}))
                 return 0
             errors = {'unchanged': 'That job is not at Applied, so there is nothing to undo.',
                       'past': 'That job is past Applied (a confirmation or an interview is recorded), so its stage is not changed here.'}
-            print(json.dumps({'ok': outcome == 'updated', 'notion': outcome, 'events': dropped,
-                              **({} if outcome == 'updated' else {'error': errors[outcome]})}))
+            print(json.dumps({'ok': outcome == rules.UPDATED, 'notion': outcome, 'events': dropped,
+                              **({} if outcome == rules.UPDATED else {'error': errors[outcome]})}))
             return 0
         if args.command == 'calendar':
-            print(json.dumps(calendar_jobs(tracker), ensure_ascii=False))
+            from .store_access import run_stores
+            print(json.dumps(calendar_jobs(*run_stores(tracker)), ensure_ascii=False))
             return 0
         if args.command == 'rescore-previous':
             print(json.dumps({'queued': score.rescore_previous(db)}))
             return 0
         if args.command == 'tune':
-            if not tracker:
+            from .store_access import run_stores, url_stages
+            stores, notion = run_stores(tracker)
+            if stores.name == 'notion' and not notion:   # Notion chosen but not readable: as before
                 print(json.dumps({'ok': False, 'error': 'Connect Notion first: your outcomes (dismissed, applied, interviews) live there.'}))
                 return 0
             from . import tune
             from .paths import load_search_config
-            print(json.dumps(tune.run(db, tracker, load_search_config()), ensure_ascii=False))
+            print(json.dumps(tune.run(db, notion, load_search_config(), stages=url_stages(stores)), ensure_ascii=False))
             return 0
         if args.command == 'strategy':
             print(json.dumps(strategy(db, tracker), ensure_ascii=False))
             return 0
         if args.command == 'jobs':
-            found = None
-            if tracker:
+            from .stores import open_stores
+            found, stores = None, None
+            # Notion only when it holds the data: a token can outlive a move to this Mac's store.
+            notion = tracker if os.environ.get('JOB_PILOTTO_STORE', 'notion') == 'notion' else None
+            if notion:
                 try:
-                    found = tracker.notion_jobs()  # the list, from Notion
+                    found = notion.notion_jobs()  # the list, from Notion
                 except Exception as error:  # the list still shows from the cache, marked as possibly out of date
                     print(f'Warning: Notion unavailable, showing the cached list: {type(error).__name__}: {error}',
                           file=__import__('sys').stderr)
+            elif os.environ.get('JOB_PILOTTO_STORE', 'notion') != 'notion':  # the person chose a store on this Mac: the list is its rows
+                from .desktop_store_jobs import store_jobs
+                stores = open_stores()
+                found = store_jobs(stores)
             current = None  # the inputs a kit would be drafted from now: to tell current kits from earlier ones
             if found and any(_kit(job.get('stage'), job.get('next_step') or '') for job in found):
                 try:
                     from .ai import kit
-                    current = provenance.kit_inputs(tracker.page_text(), kit.standard_answers(tracker))
+                    # Read exactly as the kit records them (src/daily_helpers.py prepare_kit), on every store (D7): on Notion the Profile as
+                    # Tracker.page_text reads it, as kits recorded it before the store adapters, so those kits stay current too.
+                    stores = stores or open_stores(tracker=notion)
+                    answers = kit.standard_answers(stores)
+                    current = provenance.kit_inputs(stores.texts.plain('profile'), answers)   # as kits read it (texts.plain)
                 except Exception:  # noqa: BLE001 — kits then show as "inputs unknown"
                     pass
             from .ai import engine as ai_engine
             result = jobs(db, args.limit, notion_jobs=found, kit_inputs=current, hide_unscored=ai_engine.ready())
             fresh = found is not None
-            if tracker and not fresh:
+            if notion and not fresh:
                 result['stale'] = True
-        elif args.command == 'delete':
-            result = delete_job(db, args.url, tracker)
         else:
-            result = set_status(db, args.url, args.status, tracker)
+            from .stores import open_stores
+            stores = open_stores(tracker=tracker)
+            result = delete_job(db, args.url, stores) if args.command == 'delete' else set_status(db, args.url, args.status, stores)
     print(json.dumps(result, ensure_ascii=False))
     return 0
 

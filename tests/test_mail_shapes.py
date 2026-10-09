@@ -17,6 +17,7 @@ from src.ai import mail
 from src.notion import ledger
 from tests import zone
 from tests.test_mail import FakeClient, FakeGoogle, FakeTracker, app, email, event_row, result
+from tests.mail_fakes import record_of
 
 setUpModule, tearDownModule = zone.pinned()
 
@@ -35,7 +36,7 @@ class ShapeTests(unittest.TestCase):
 
     def check(self, apps, emails, verdicts, events=()):
         tracker, sent = FakeTracker(apps, events), []
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {}):
             mail.run(tracker, FakeGoogle(emails), client=FakeClient([verdicts]), days=2, send=sent.append, calendar=False,
                      now=NOW, state_path=self.state, stats={})
         return tracker, sent
@@ -110,7 +111,7 @@ class ShapeTests(unittest.TestCase):
         self.assertEqual([u for u in tracker.updates if 'Stage' in u[1]], [])
 
     def test_the_search_catches_every_sender_kind_that_is_about_an_application(self):
-        query = mail.query([app('p1', 'Acme Labs', 'SRE')], 2)
+        query = mail.query([record_of(app('p1', 'Acme Labs', 'SRE'))], 2)
         for part in ('from:greenhouse-mail.io', '"Acme Labs"'):
             self.assertIn(part, query)
 

@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import * as history from '../lib/run-history.js';
+import {fromRecord} from '../lib/run-rows.js';
 
 const row = (id, props, extra = {}) => ({id, url: `https://www.notion.so/${id}`, created_time: '2026-09-28T10:00:00.000Z', ...extra, properties: {
   Started: {date: {start: props.started}}, Mode: {select: {name: props.mode}}, Status: {select: {name: props.status}},
   Trigger: {select: {name: props.trigger}}, Summary: {rich_text: [{plain_text: props.summary || ''}]},
   'Duration (s)': {number: props.seconds ?? null}, 'New jobs': {number: props.fresh ?? 0}, 'AI cost (USD)': {number: 0.01},
-  'Run URL': {url: props.runUrl || null},
+  'Run URL': {url: props.runUrl || null}, ...(props.where ? {Where: {select: {name: props.where}}} : {}),
   'Run id': props.runId ? {rich_text: [{plain_text: props.runId}]} : {rich_text: []}}});
 const NOW = Date.parse('2026-09-28T12:10:00Z');
 
@@ -174,4 +175,25 @@ test('a "Running" row nobody edited for 30 minutes is a lost run; one edited rec
     {last_edited_time: '2026-09-28T11:30:00Z'}), NOW);
   assert.equal(silent.live, undefined);
   assert.equal(silent.ok, false);
+});
+
+// The store writes Where (src/stores/notion_cron_runs.py): a run made on this Mac and moved to Notion keeps "this Mac", whatever its Trigger
+// says (9 Oct 2026, the storemove e2e: it read as GitHub). A row from before the column still reads its Run URL and Trigger.
+test('a row\'s Where column says where it ran; a row without one is read from its Run URL and Trigger', () => {
+  const moved = history.fromRow(row('w1', {started: '2026-09-28T12:00:00Z', mode: 'mail', status: 'OK', trigger: 'button', where: 'mac'}), NOW);
+  const github = history.fromRow(row('w2', {started: '2026-09-28T12:00:00Z', mode: 'mail', status: 'OK', trigger: 'Schedule', where: 'github'}), NOW);
+  const older = history.fromRow(row('w3', {started: '2026-09-28T12:00:00Z', mode: 'mail', status: 'OK', trigger: 'Schedule', runUrl: 'https://github.com/me/p/actions/runs/9'}), NOW);
+  const olderMac = history.fromRow(row('w4', {started: '2026-09-28T12:00:00Z', mode: 'mail', status: 'OK', trigger: 'Mac schedule'}), NOW);
+  const unknown = history.fromRow(row('w5', {started: '2026-09-28T12:00:00Z', mode: 'mail', status: 'OK', trigger: 'Manual'}), NOW);
+  assert.deepEqual([moved.where, github.where, older.where, olderMac.where, unknown.where], ['mac', 'github', 'github', 'mac', 'elsewhere']);
+});
+
+// The same run read from this Mac's store and from Notion says the same place (9 Oct 2026: "· GitHub" on Notion, nothing on this Mac).
+test('a run started by you on this Mac reads as this Mac from a store record and from a Notion row', () => {
+  const record = fromRecord({id: 'x1', kind: 'mail', where: 'mac', trigger: 'button', status: 'OK', started_at: '2026-09-28T12:00:00Z', finished_at: '2026-09-28T12:01:00Z'}, NOW);
+  const page = history.fromRow(row('x1', {started: '2026-09-28T12:00:00Z', mode: 'mail', status: 'OK', trigger: 'button', where: 'mac'}), NOW);
+  assert.deepEqual([record.where, page.where], ['mac', 'mac']);
+  const older = fromRecord({id: 'x2', kind: 'mail', trigger: 'Mac schedule', status: 'OK', started_at: '2026-09-28T12:00:00Z'}, NOW);
+  const github = fromRecord({id: 'x3', kind: 'mail', where: 'github', status: 'OK', started_at: '2026-09-28T12:00:00Z'}, NOW);
+  assert.deepEqual([older.where, github.where], ['mac', 'github']);
 });

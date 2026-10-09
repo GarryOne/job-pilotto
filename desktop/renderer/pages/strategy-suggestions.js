@@ -14,6 +14,9 @@ import {startSearch} from './jobs.js';
 import {strategyState, showTab} from './strategy-state.js';
 import {loadStrategy} from './strategy.js';
 import {dirty, entriesOf, renderTargets} from './strategy-targets.js';
+import {byStore} from '../store-words.js';
+// Where else the change shows: Notion's ⚙️ Search settings page, only while Notion holds the data (on this Mac they are the app's own).
+const alsoInSettings = () => byStore(' (also in your Search settings in Notion)', '');
 
 // ---------- Suggestions: one row per kind (owner mockup, 7 Oct 2026: five banners pushed your own settings below the fold) ----------
 // The engine's coverage verdict (src/coverage.py, read after the strategy: a Python start) and the roles from your Profile (src/ai/role_ideas.py)
@@ -253,7 +256,7 @@ const paintCoverage = verdict => {
   rows.coverage = coverage && suggestionRow({kind: 'coverage', id: 'coverage', glyph: 'search', title: verdict.local ? 'Catch titles in other languages' : 'Add role words',
     summary: `Your keywords catch ${number(verdict.matched)} of ${number(verdict.in_places)} postings in your places`, text: coverage.text,
     options: coverage.chips.map(chip => ({label: plain(chip.label), button: 'Add role word', preview: `Adds "${chip.term}" to your role words. ${chip.title}`,
-      run: widen('coverage', () => window.pilot.addRoles([chip.term]), `"${chip.term}" is now a role word (also in your Search settings in Notion).`, 'roles')})),
+      run: widen('coverage', () => window.pilot.addRoles([chip.term]), `"${chip.term}" is now a role word${alsoInSettings()}.`, 'roles')})),
     brief: {title: verdict.local ? 'Catch titles in other languages' : 'Add role words', text: `Your keywords catch ${number(verdict.matched)} of ${number(verdict.in_places)} postings in your places`, cta: 'Review role words'},
     menu: [hideItem('coverage', 'coverage', DISMISSED, coverage.at)]});
   const places = placesCard(verdict, remembered(PLACES_DISMISSED));
@@ -262,7 +265,7 @@ const paintCoverage = verdict => {
     summary: `${topPlace.place} · ${number(topPlace.count)} matching role${topPlace.count === 1 ? '' : 's'} outside your places${places.chips.length > 1 ? `, and ${places.chips.length - 1} more place${places.chips.length > 2 ? 's' : ''}` : ''}`,
     text: places.text,
     options: places.chips.map(chip => ({label: plain(chip.label), button: 'Add place', preview: `Adds ${chip.place} to your places; jobs you already have stay. ${chip.title}`,
-      run: widen('places', () => window.pilot.addPlaces([chip.place]), `${chip.place} is now one of your places (also in your Search settings in Notion). Jobs you already have stay.`, 'places')})),
+      run: widen('places', () => window.pilot.addPlaces([chip.place]), `${chip.place} is now one of your places${alsoInSettings()}. Jobs you already have stay.`, 'places')})),
     brief: {title: 'Expand your locations', text: `${number(topPlace.count)} matching role${topPlace.count === 1 ? '' : 's'} in ${topPlace.place}${places.chips.length > 1 ? ` and ${places.chips.length - 1} more place${places.chips.length > 2 ? 's' : ''}` : ''}`, cta: 'Review location'},
     menu: [hideItem('places', 'places', PLACES_DISMISSED, places.at)]});
   // Filters of the user's own that hide matching jobs: an option removes that filter.
@@ -272,8 +275,8 @@ const paintCoverage = verdict => {
     summary: `${filters.chips.length} of your filters hide ${number(filterHidden)} matching job${filterHidden === 1 ? '' : 's'}`, text: filters.text,
     options: filters.chips.map(chip => ({label: plain(chip.label), button: 'Remove filter', preview: chip.title,
       run: widen('filters', () => window.pilot.loosenSearch(chip.exclude ? {excludes: [chip.exclude]} : {languages: [chip.language]}),
-        chip.exclude ? `Titles with "${chip.exclude}" are no longer left out (also in your Search settings in Notion).`
-          : `Jobs that require ${chip.language} are no longer hidden (also in your Search settings in Notion).`, chip.language ? 'languages' : '')})),
+        chip.exclude ? `Titles with "${chip.exclude}" are no longer left out${alsoInSettings()}.`
+          : `Jobs that require ${chip.language} are no longer hidden${alsoInSettings()}.`, chip.language ? 'languages' : '')})),
     brief: {title: 'Loosen your filters', text: `${filters.chips.length} of your filters hide ${number(filterHidden)} matching job${filterHidden === 1 ? '' : 's'}`, cta: 'Review filters'},
     menu: [hideItem('filters', 'filters', FILTERS_DISMISSED, filters.at)]});
   // Unused job sources: an option opens its panel in Settings → Connections (a key to add there); nothing is turned on from here.
@@ -381,7 +384,7 @@ function paintIdeas(ideas) {
   const option = chip => ({label: chip.role || plain(chip.label).replace(/ · \d+$/, ''), why: String(chip.why || '').replace(/\.+$/, '.'), button: '+ Add role', accent: true,
     meta: `${chip.count} opening${chip.count === 1 ? '' : 's'} now in your places`, tech: `Searched as "${chip.term}" in job titles. Adding it makes the next searches look for it.`,
     preview: `Adds "${chip.term}" to your role words: ${chip.title}`,
-    run: widen('ideas', () => window.pilot.addRoles([chip.term]), `"${chip.term}" is now a role word (also in your Search settings in Notion).`, 'roles')});
+    run: widen('ideas', () => window.pilot.addRoles([chip.term]), `"${chip.term}" is now a role word${alsoInSettings()}.`, 'roles')});
   const {open, empty} = byOpenings(card.chips);
   const top = open[0];
   rows.ideas = suggestionRow({kind: 'ideas', id: 'ideas', glyph: 'briefcase', title: 'Explore related roles', count: card.chips.length,

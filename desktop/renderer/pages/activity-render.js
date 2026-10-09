@@ -31,6 +31,7 @@ import {showJumpToLatest, showRunJob, linked, refreshActivity, renderRunCard, re
 import {renderMailCard} from './activity-mail.js';
 import {renderInsightCard, renderInterviewCard, renderKitsCard, renderWeeklyCard} from './activity-cards.js';
 import {kindFilter, barLabel, PANEL_KEY, panelMemory} from './activity-panel.js';
+import {byStore} from '../store-words.js';
 export let lastActivity = null;
 const RUNS_PAGE = 8;
 let shownRuns = RUNS_PAGE;
@@ -225,18 +226,18 @@ export function renderActivity(fresh) {
   if (needsPage(picked) && !runDetails.has(picked.pageId)) {
     const pageId = picked.pageId, hasLog = !!picked.log;
     readingPages.add(pageId);   // the card's skeleton bars show while the page is read, also for a local run that has its own log: the read waits its turn behind the app's other Notion calls (25 s+ right after a start) and the pane was empty meanwhile
-    runDetails.set(pageId, hasLog ? {} : {log: ['Reading from Notion…']});
+    runDetails.set(pageId, hasLog ? {} : {log: [byStore('Reading from Notion…', 'Reading…')]});
     // A run that just finished may not have its log on its page yet (it's written a moment after the status):
     // an empty answer is read again a few times before it's kept.
     const read = (tries = 0) => (readTrace.push(`${pageId} read #${tries} asked`), window.pilot.runDetail(pageId)).then(detail => {
       readTrace.push(`${pageId} read #${tries} gave message=${!!detail?.message} log=${(detail?.log || []).length}`);
       const empty = !detail?.message && !(detail?.log || []).length;
       if (empty && tries < 4 && !hasLog) {
-        runDetails.set(pageId, {log: ['Waiting for the log from Notion…']});
+        runDetails.set(pageId, {log: [byStore('Waiting for the log from Notion…', 'Waiting for the log…')]});
         setTimeout(() => read(tries + 1), 5000);
       } else {
         readingPages.delete(pageId);
-        runDetails.set(pageId, empty ? (hasLog ? {} : {log: ['This run left no log on its Notion page.']}) : detail);
+        runDetails.set(pageId, empty ? (hasLog ? {} : {log: [byStore('This run left no log on its Notion page.', 'This run left no log.')]}) : detail);
       }
       renderActivity(lastActivity);
     }).catch(error => { readTrace.push(`${pageId} read failed: ${error?.message || error}`); console.error('activity: a run page was not shown', pageId, error); readingPages.delete(pageId); renderActivity(lastActivity); });
@@ -278,6 +279,9 @@ export function renderActivity(fresh) {
     !run.live && seconds > 0 && (seconds < 90 ? `${seconds} s` : `${Math.round(seconds / 60)} min`),
     cost,
     run.where === 'github' ? 'GitHub' : run.where === 'mac' ? 'This Mac' : '',
+    // What the run's record says beyond its result (P8 D): who started it, and whether its message also went to Telegram.
+    !run.live && run.startedBy && `Started: ${run.startedBy}`,
+    !run.live && run.telegram && 'Sent to Telegram',
   ].filter(Boolean).join(' · ');
   // A search that found new jobs: straight to them (newest first).
   const found = !run?.live && kindOf(run) === 'search' ? newJobsShown(run, shownText) : 0;   // the card's own count (run-cards.js)
@@ -285,11 +289,13 @@ export function renderActivity(fresh) {
   $('activity-go').textContent = `View new job${found === 1 ? '' : 's'} →`;
   // The header's one visible link, then the rest under ⋯: a Notion page is the run's record, its GitHub run the build
   // behind it. A GitHub-only run shows that link itself; with nothing else to offer there is no ⋯ at all.
-  show($('activity-notion'), !!run?.notionUrl);
-  $('activity-notion').dataset.url = run?.notionUrl || '';
-  show($('activity-github'), !!run?.url && (!run?.notionUrl || !!run?.live));
+  // A run's record opens only when it is a page somewhere (Notion); in the store on this Mac its link is only a key (store:cron_runs/<id>).
+  const page = /^https:\/\//.test(run?.notionUrl || '') ? run.notionUrl : '';
+  show($('activity-notion'), !!page);
+  $('activity-notion').dataset.url = page;
+  show($('activity-github'), !!run?.url && (!page || !!run?.live));
   $('activity-github').dataset.url = run?.url || '';
-  $('activity-more').replaceChildren(...(run?.url && run?.notionUrl && !run?.live
+  $('activity-more').replaceChildren(...(run?.url && page && !run?.live
     ? [moreButton([{label: 'View GitHub run ↗', run: () => window.pilot.openExternal(run.url)}], 'More links')] : []));
   const result = run && !run.live ? runResults.get(run.id) || '' : '';
   $('activity-result').textContent = result;

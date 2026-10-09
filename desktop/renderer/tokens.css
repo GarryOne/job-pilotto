@@ -81,6 +81,7 @@
 
   /* Space: 4px steps */
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
+  --control-h: 33px;   /* a toolbar control's height (search box, select) and anything beside it (Jobs' saved-view chips) */
 
   /* Lit panels (the website's departures-hall look): a dot grid, an amber glow from one corner, a thin amber edge.
      .is-lit in components.css. */

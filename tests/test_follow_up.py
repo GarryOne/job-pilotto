@@ -15,9 +15,10 @@ from unittest import mock
 from src import focus
 from src.ai import inbox, mail
 from src.notion import cron_runs
-from tests.test_focus import event as focus_event, row as focus_row
+from tests.test_focus import event as focus_event, reviewed_interview, row as focus_row
 from tests.test_inbox import Inbox, SHOT, job, reading, row
 from tests.test_mail import FakeGoogle, FakeTracker, app
+from tests.mail_fakes import rec, stores_for
 from tests.test_opportunity import Client
 from tests import zone
 
@@ -81,7 +82,7 @@ class ResolveDayTest(unittest.TestCase):
 
 class ProposeTest(unittest.TestCase):
     def test_the_real_case_asks_nothing_about_dates_and_defaults_to_an_update(self):
-        proposal = inbox.propose(duvo_tracker(), image=SHOT, client=Client(duvo_chat()), now=NOW)
+        proposal = inbox.propose(stores_for(duvo_tracker()), image=SHOT, client=Client(duvo_chat()), now=NOW)
         fields = proposal['fields']
         self.assertEqual(proposal['kind'], inbox.UPDATE)
         self.assertEqual((fields['kind']['value'], fields['kind']['state']), (inbox.UPDATE, 'ok'))  # no "Please check"
@@ -91,27 +92,27 @@ class ProposeTest(unittest.TestCase):
         self.assertEqual({k: fields['last'][k] for k in ('value', 'state', 'from')}, {'value': '2026-09-28', 'state': 'ok', 'from': 'you'})
 
     def test_a_new_job_keeps_first_contact_and_has_no_update_choice(self):
-        proposal = inbox.propose(Inbox(), image=SHOT, client=Client(duvo_chat(match=-1)), now=NOW)
+        proposal = inbox.propose(stores_for(Inbox()), image=SHOT, client=Client(duvo_chat(match=-1)), now=NOW)
         self.assertEqual(proposal['fields']['kind']['value'], 'Recruiter outreach')
         self.assertNotIn(inbox.UPDATE, proposal['fields']['kind']['options'])
 
     def test_an_unreadable_last_day_is_asked_never_guessed(self):
         last = {'from': 'you', 'at': '2024-09-28T10:05:00Z', 'at_text': '10:05 AM', 'text_snippet': 'Thanks!'}
-        fields = inbox.propose(duvo_tracker(), image=SHOT, client=Client(duvo_chat(last=last)), now=NOW)['fields']
+        fields = inbox.propose(stores_for(duvo_tracker()), image=SHOT, client=Client(duvo_chat(last=last)), now=NOW)['fields']
         self.assertEqual((fields['last']['value'], fields['last']['state'], fields['last']['question']),
                          ('', 'ask', 'When was the last message?'))
 
     def test_the_day_you_give_is_used(self):
         last = {'from': 'you', 'at': '', 'at_text': '', 'text_snippet': 'Thanks!'}
-        proposal = inbox.propose(duvo_tracker(), image=SHOT, client=Client(duvo_chat(last=last)), now=NOW)
+        proposal = inbox.propose(stores_for(duvo_tracker()), image=SHOT, client=Client(duvo_chat(last=last)), now=NOW)
         confirmed = inbox.confirm(proposal, kind=inbox.UPDATE, last_at='2026-09-27')
         self.assertEqual(confirmed['item']['last_message']['resolved'], '2026-09-27')
 
 
 class LastMessageEventTest(unittest.TestCase):
     def log(self, tracker, answer=None):
-        proposal = inbox.propose(tracker, image=SHOT, client=Client(answer or duvo_chat()), now=NOW)
-        return inbox.log(tracker, image=SHOT, now=NOW, event_source='Job Pilotto app',
+        proposal = inbox.propose(stores_for(tracker), image=SHOT, client=Client(answer or duvo_chat()), now=NOW)
+        return inbox.log(stores_for(tracker), image=SHOT, now=NOW, event_source='Job Pilotto app',
                          proposal=inbox.confirm(proposal, kind=inbox.UPDATE, channel='LinkedIn'))
 
     def test_the_real_case_saves_your_last_message_for_focus(self):
@@ -161,6 +162,12 @@ def sent(message_id, to, date='2026-09-29T10:00:00+02:00', subject='Re: SRE role
             'body': 'Hi Alex, …', 'labels': list(labels)}
 
 
+def sent_pass(tracker, google, apps, index, days, stats):
+    """The Gmail check's sent pass on the Notion store over `tracker`, its jobs as records."""
+    stores = stores_for(tracker)
+    return mail.sent_pass(stores, google, [rec(stores, row) for row in apps], index, days, stats)
+
+
 class SentMailTest(unittest.TestCase):
     def apps(self):
         return [app('p1', '', 'Senior DevOps Engineer', stage='Recruiter lead', via='Example Talent',
@@ -171,20 +178,20 @@ class SentMailTest(unittest.TestCase):
         apps = self.apps()
         tracker, google, stats = FakeTracker(apps), FakeGoogle([sent('s1', 'Alex Morgan <alex@example-talent.test>')]), {}
         index = (set(), {}, set())
-        self.assertEqual(mail.sent_pass(tracker, google, apps, index, 2, stats), 1)
+        self.assertEqual(sent_pass(tracker, google, apps, index, 2, stats), 1)
         self.assertEqual(google.queries, ['in:sent newer_than:2d {to:alex@example-talent.test cc:alex@example-talent.test}'])
         event = tracker.created[0]
         self.assertEqual((event['Kind'], event['Source']), ({'select': {'name': 'Replied'}}, {'select': {'name': 'Gmail'}}))
         self.assertEqual(event['Source ID']['rich_text'][0]['text']['content'], 's1')
         self.assertEqual(event['Note']['rich_text'][0]['text']['content'], 'You replied by email ("Re: SRE role")')
         self.assertEqual(stats['updates'], ['↩️ You replied · Example Talent — Senior DevOps Engineer'])
-        self.assertEqual(mail.sent_pass(tracker, google, apps, index, 2, stats), 0)  # already known: never twice
+        self.assertEqual(sent_pass(tracker, google, apps, index, 2, stats), 0)  # already known: never twice
 
     def test_only_sent_mail_to_one_known_job_counts(self):
         apps = self.apps() + [app('p3', 'Initech', 'SRE', stage='Screening', contact='Alex · alex@example-talent.test')]
         tracker = FakeTracker(apps)
         google = FakeGoogle([sent('s1', 'alex@example-talent.test'), sent('s2', 'x@y.test', labels=('INBOX',))])
-        self.assertEqual(mail.sent_pass(tracker, google, apps, (set(), {}, set()), 2, {}), 0)  # two jobs: which one?
+        self.assertEqual(sent_pass(tracker, google, apps, (set(), {}, set()), 2, {}), 0)  # two jobs: which one?
         self.assertEqual(tracker.created, [])
 
     def test_trouble_never_fails_the_check(self):
@@ -192,12 +199,12 @@ class SentMailTest(unittest.TestCase):
             def search(self, query, limit=50):
                 raise RuntimeError('Gmail is down')
         with mock.patch('sys.stderr', new_callable=io.StringIO) as err:
-            self.assertEqual(mail.sent_pass(FakeTracker(self.apps()), Broken(), self.apps(), (set(), {}, set()), 2, {}), 0)
+            self.assertEqual(sent_pass(FakeTracker(self.apps()), Broken(), self.apps(), (set(), {}, set()), 2, {}), 0)
         self.assertIn('your sent emails not checked', err.getvalue())
 
     def test_no_contacts_no_search(self):
         google = FakeGoogle()
-        mail.sent_pass(FakeTracker([]), google, [app('p1', 'Acme', 'SRE')], (set(), {}, set()), 2, {})
+        sent_pass(FakeTracker([]), google, [app('p1', 'Acme', 'SRE')], (set(), {}, set()), 2, {})
         self.assertEqual(google.queries, [])
 
 
@@ -227,17 +234,12 @@ class FollowUpFocusTest(unittest.TestCase):
         # You wrote Wednesday. Thursday the call happened and you saved the review. "No reply yet" would
         # chase a message the meeting already answered.
         rows, events = self.duvo(stage='Interviewing')
-        review = {'properties': {'Date': {'type': 'date', 'date': {'start': '2026-10-01'}},
-                                 'Overall': {'type': 'select', 'select': {'name': 'positive'}},
-                                 'Next step': {'type': 'rich_text', 'rich_text': [{'plain_text': 'Recruiter will pass the details on'}]},
-                                 'Application': {'type': 'relation', 'relation': [{'id': 'd1'}]}}}
+        review = reviewed_interview('d1', '2026-10-01', next_step='Recruiter will pass the details on')
         kinds = [i['kind'] for i in self.items(rows, events, datetime(2026, 10, 1, 14, 0, tzinfo=timezone.utc), [review])]
         self.assertNotIn('follow_up', kinds)
         self.assertIn('waiting', kinds)
         # A review from before that message does not settle it: you wrote again and they still haven't answered.
-        older = {'properties': {'Date': {'type': 'date', 'date': {'start': '2026-09-27'}},
-                                'Overall': {'type': 'select', 'select': {'name': 'positive'}},
-                                'Application': {'type': 'relation', 'relation': [{'id': 'd1'}]}}}
+        older = reviewed_interview('d1', '2026-09-27')
         self.assertEqual(self.items(rows, events, NOW, [older])[0]['kind'], 'follow_up')
 
     def test_their_later_message_means_no_follow_up(self):
@@ -272,13 +274,18 @@ class FollowUpFocusTest(unittest.TestCase):
         self.assertEqual((item['link'], item['link_label']), ('https://mail.google.com/mail/u/0/#all/msg1', 'Open email'))
 
     def test_done_from_focus_logs_a_followed_up_reply(self):
-        tracker = mock.Mock()
-        tracker._request.return_value = {'id': 'd1', 'properties': {}}
-        with mock.patch.object(focus.notion.Tracker, 'from_env', return_value=tracker), \
-                mock.patch.object(focus, 'add_event') as add, redirect_stdout(io.StringIO()):
-            focus.main(['done', 'd1', 'followed_up'])
-        self.assertEqual(add.call_args.args[2], 'Replied')
-        self.assertEqual(add.call_args.kwargs['note'], 'You followed up (marked done in Focus)')
+        from src.stores import memory
+        stores = memory.open_store()
+        app = stores.applications.create({'url': 'https://x.test/d1', 'company': 'Duvo.ai'}, 'Screening')
+        out = io.StringIO()
+        with mock.patch('src.stores.open_stores', return_value=stores), redirect_stdout(out):
+            focus.main(['done', app['id'], 'followed_up'])
+            focus.main(['done', app['id'], 'details_skipped'])
+        self.assertEqual(out.getvalue().splitlines(), ['{"ok": true}'] * 2)
+        [replied, skipped] = stores.events.list(app_id=app['id'])
+        self.assertEqual((replied['kind'], replied['note'], replied['source']),
+                         ('Replied', 'You followed up (marked done in Focus)', 'Job Pilotto app'))
+        self.assertEqual((skipped['kind'], skipped['source_id']), ('Details skipped', 'skip-details:Screening'))
 
 
 class ProposeIsNoRunTest(unittest.TestCase):

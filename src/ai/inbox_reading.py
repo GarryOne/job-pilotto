@@ -114,9 +114,16 @@ and its first words.
 The owner's own messages may be in the screenshot; the other person is the recruiter or employer."""
 
 
-def candidates(tracker):
-    """Jobs Notion knows: tracked applications first, then open Job Matches (Tracker.notion_jobs)."""
-    jobs = [j for j in tracker.notion_jobs() if j.get('stage') not in ('Dismissed', 'Closed')
+def candidates(stores):
+    """Jobs the store knows: tracked applications first, then open Job Matches. Notion: Tracker.notion_jobs(), as before;
+    another store: the same list from its applications and matches (src/desktop_store_jobs.py store_jobs)."""
+    tracker = getattr(stores.applications, 'tracker', None)
+    if tracker is not None:
+        known = tracker.notion_jobs()
+    else:
+        from ..desktop_store_jobs import store_jobs
+        known = store_jobs(stores)
+    jobs = [j for j in known if j.get('stage') not in ('Dismissed', 'Closed')
             and (j.get('stage') or j.get('match_status') not in GONE)]
     jobs.sort(key=lambda j: (not j.get('stage'), -(j.get('fit') or 0)))
     return jobs[:MAX_JOBS]

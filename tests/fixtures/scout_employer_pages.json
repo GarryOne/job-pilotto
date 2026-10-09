@@ -1,0 +1,626 @@
+{
+ "_comment": "What Find employers wrote to Employers & Sources before the store (src/scout_notion.py write_notion, 9 Oct 2026), per outcome: the properties of a new row and of an update. tests/test_scout_employers_store.py checks the store path sends the same.",
+ "cases": {
+  "found": [
+   {
+    "name": "Bigco",
+    "origin": "seed",
+    "tier": "Tier 1"
+   },
+   {
+    "ats": "lever",
+    "quality": 71,
+    "slug": "bigco",
+    "stats": {
+     "jobs": 40,
+     "places": [
+      "Geneva",
+      "Zurich"
+     ],
+     "preferred": 2,
+     "relevant": 10,
+     "salary_published": true,
+     "stack_share": 0.25,
+     "swiss": 2
+    },
+    "status": "found"
+   }
+  ],
+  "low": [
+   {
+    "name": "Smallco",
+    "origin": "x",
+    "tier": "Standard"
+   },
+   {
+    "ats": "greenhouse",
+    "quality": 12,
+    "slug": "smallco",
+    "status": "low"
+   }
+  ],
+  "manual": [
+   {
+    "name": "Walledco",
+    "origin": "AI idea",
+    "tier": "Standard"
+   },
+   {
+    "quality": null,
+    "status": "manual"
+   }
+  ],
+  "watch": [
+   {
+    "careers": "https://example.test/careers",
+    "name": "Example AG",
+    "origin": "list",
+    "tier": "Tier 2"
+   },
+   {
+    "status": "watch"
+   }
+  ]
+ },
+ "pages": {
+  "found:create": {
+   "ATS": {
+    "select": {
+     "name": "lever"
+    }
+   },
+   "Active": {
+    "checkbox": true
+   },
+   "Added": {
+    "date": {
+     "start": "2026-10-09"
+    }
+   },
+   "Careers": {
+    "url": "https://jobs.lever.co/bigco"
+   },
+   "Checked": {
+    "date": {
+     "start": "2026-10-09"
+    }
+   },
+   "Cities": {
+    "rich_text": [
+     {
+      "text": {
+       "content": "Geneva, Zurich"
+      }
+     }
+    ]
+   },
+   "Company": {
+    "title": [
+     {
+      "text": {
+       "content": "Bigco"
+      }
+     }
+    ]
+   },
+   "Feed": {
+    "url": "https://jobs.lever.co/bigco"
+   },
+   "Feed status": {
+    "select": {
+     "name": "Feed found"
+    }
+   },
+   "Glassdoor": {
+    "url": "https://www.glassdoor.com/Search/results.htm?keyword=Bigco"
+   },
+   "In preferred places": {
+    "number": 2
+   },
+   "Integration": {
+    "select": {
+     "name": "Working"
+    }
+   },
+   "Kind": {
+    "select": {
+     "name": "Employer"
+    }
+   },
+   "Notes": {
+    "rich_text": [
+     {
+      "text": {
+       "content": "40 postings; 10 matching; 2 in preferred places (2 in your countries or cities); stack overlap 25%; salaries published"
+      }
+     }
+    ]
+   },
+   "Origin": {
+    "rich_text": [
+     {
+      "text": {
+       "content": "seed"
+      }
+     }
+    ]
+   },
+   "Quality": {
+    "number": 71
+   },
+   "Relevant roles": {
+    "number": 10
+   },
+   "Slug": {
+    "rich_text": [
+     {
+      "text": {
+       "content": "bigco"
+      }
+     }
+    ]
+   },
+   "Tier": {
+    "select": {
+     "name": "Tier 1"
+    }
+   },
+   "levels.fyi": {
+    "url": "https://www.levels.fyi/companies/bigco/salaries"
+   }
+  },
+  "found:update": {
+   "ATS": {
+    "select": {
+     "name": "lever"
+    }
+   },
+   "Active": {
+    "checkbox": true
+   },
+   "Added": {
+    "date": {
+     "start": "2026-10-09"
+    }
+   },
+   "Careers": {
+    "url": "https://jobs.lever.co/bigco"
+   },
+   "Checked": {
+    "date": {
+     "start": "2026-10-09"
+    }
+   },
+   "Cities": {
+    "rich_text": [
+     {
+      "text": {
+       "content": "Geneva, Zurich"
+      }
+     }
+    ]
+   },
+   "Company": {
+    "title": [
+     {
+      "text": {
+       "content": "Bigco"
+      }
+     }
+    ]
+   },
+   "Feed": {
+    "url": "https://jobs.lever.co/bigco"
+   },
+   "Feed status": {
+    "select": {
+     "name": "Feed found"
+    }
+   },
+   "Glassdoor": {
+    "url": "https://www.glassdoor.com/Search/results.htm?keyword=Bigco"
+   },
+   "In preferred places": {
+    "number": 2
+   },
+   "Integration": {
+    "select": {
+     "name": "Working"
+    }
+   },
+   "Kind": {
+    "select": {
+     "name": "Employer"
+    }
+   },
+   "Notes": {
+    "rich_text": [
+     {
+      "text": {
+       "content": "40 postings; 10 matching; 2 in preferred places (2 in your countries or cities); stack overlap 25%; salaries published"
+      }
+     }
+    ]
+   },
+   "Origin": {
+    "rich_text": [
+     {
+      "text": {
+       "content": "seed"
+      }
+     }
+    ]
+   },
+   "Quality": {
+    "number": 71
+   },
+   "Relevant roles": {
+    "number": 10
+   },
+   "Slug": {
+    "rich_text": [
+     {
+      "text": {
+       "content": "bigco"
+      }
+     }
+    ]
+   },
+   "Tier": {
+    "select": {
+     "name": "Tier 1"
+    }
+   },
+   "levels.fyi": {
+    "url": "https://www.levels.fyi/companies/bigco/salaries"
+   }
+  },
+  "low:create": {
+   "ATS": {
+    "select": {
+     "name": "greenhouse"
+    }
+   },
+   "Active": {
+    "checkbox": false
+   },
+   "Careers": {
+    "url": "https://job-boards.greenhouse.io/smallco"
+   },
+   "Checked": {
+    "date": {
+     "start": "2026-10-09"
+    }
+   },
+   "Company": {
+    "title": [
+     {
+      "text": {
+       "content": "Smallco"
+      }
+     }
+    ]
+   },
+   "Feed": {
+    "url": "https://job-boards.greenhouse.io/smallco"
+   },
+   "Feed status": {
+    "select": {
+     "name": "Low relevance"
+    }
+   },
+   "Glassdoor": {
+    "url": "https://www.glassdoor.com/Search/results.htm?keyword=Smallco"
+   },
+   "Kind": {
+    "select": {
+     "name": "Employer"
+    }
+   },
+   "Origin": {
+    "rich_text": [
+     {
+      "text": {
+       "content": "x"
+      }
+     }
+    ]
+   },
+   "Quality": {
+    "number": 12
+   },
+   "Slug": {
+    "rich_text": [
+     {
+      "text": {
+       "content": "smallco"
+      }
+     }
+    ]
+   },
+   "Tier": {
+    "select": {
+     "name": "Standard"
+    }
+   },
+   "levels.fyi": {
+    "url": "https://www.levels.fyi/companies/smallco/salaries"
+   }
+  },
+  "low:update": {
+   "ATS": {
+    "select": {
+     "name": "greenhouse"
+    }
+   },
+   "Active": {
+    "checkbox": false
+   },
+   "Careers": {
+    "url": "https://job-boards.greenhouse.io/smallco"
+   },
+   "Checked": {
+    "date": {
+     "start": "2026-10-09"
+    }
+   },
+   "Company": {
+    "title": [
+     {
+      "text": {
+       "content": "Smallco"
+      }
+     }
+    ]
+   },
+   "Feed": {
+    "url": "https://job-boards.greenhouse.io/smallco"
+   },
+   "Feed status": {
+    "select": {
+     "name": "Low relevance"
+    }
+   },
+   "Glassdoor": {
+    "url": "https://www.glassdoor.com/Search/results.htm?keyword=Smallco"
+   },
+   "Kind": {
+    "select": {
+     "name": "Employer"
+    }
+   },
+   "Origin": {
+    "rich_text": [
+     {
+      "text": {
+       "content": "x"
+      }
+     }
+    ]
+   },
+   "Quality": {
+    "number": 12
+   },
+   "Slug": {
+    "rich_text": [
+     {
+      "text": {
+       "content": "smallco"
+      }
+     }
+    ]
+   },
+   "Tier": {
+    "select": {
+     "name": "Standard"
+    }
+   },
+   "levels.fyi": {
+    "url": "https://www.levels.fyi/companies/smallco/salaries"
+   }
+  },
+  "manual:create": {
+   "Active": {
+    "checkbox": false
+   },
+   "Checked": {
+    "date": {
+     "start": "2026-10-09"
+    }
+   },
+   "Company": {
+    "title": [
+     {
+      "text": {
+       "content": "Walledco"
+      }
+     }
+    ]
+   },
+   "Feed status": {
+    "select": {
+     "name": "Manual watch"
+    }
+   },
+   "Glassdoor": {
+    "url": "https://www.glassdoor.com/Search/results.htm?keyword=Walledco"
+   },
+   "Kind": {
+    "select": {
+     "name": "Employer"
+    }
+   },
+   "Origin": {
+    "rich_text": [
+     {
+      "text": {
+       "content": "AI idea"
+      }
+     }
+    ]
+   },
+   "Tier": {
+    "select": {
+     "name": "Standard"
+    }
+   },
+   "levels.fyi": {
+    "url": "https://www.levels.fyi/companies/walledco/salaries"
+   }
+  },
+  "manual:update": {
+   "Active": {
+    "checkbox": false
+   },
+   "Checked": {
+    "date": {
+     "start": "2026-10-09"
+    }
+   },
+   "Company": {
+    "title": [
+     {
+      "text": {
+       "content": "Walledco"
+      }
+     }
+    ]
+   },
+   "Feed status": {
+    "select": {
+     "name": "Manual watch"
+    }
+   },
+   "Glassdoor": {
+    "url": "https://www.glassdoor.com/Search/results.htm?keyword=Walledco"
+   },
+   "Kind": {
+    "select": {
+     "name": "Employer"
+    }
+   },
+   "Origin": {
+    "rich_text": [
+     {
+      "text": {
+       "content": "AI idea"
+      }
+     }
+    ]
+   },
+   "Tier": {
+    "select": {
+     "name": "Standard"
+    }
+   },
+   "levels.fyi": {
+    "url": "https://www.levels.fyi/companies/walledco/salaries"
+   }
+  },
+  "watch:create": {
+   "Active": {
+    "checkbox": false
+   },
+   "Careers": {
+    "url": "https://example.test/careers"
+   },
+   "Checked": {
+    "date": {
+     "start": "2026-10-09"
+    }
+   },
+   "Company": {
+    "title": [
+     {
+      "text": {
+       "content": "Example AG"
+      }
+     }
+    ]
+   },
+   "Feed status": {
+    "select": {
+     "name": "No open jobs"
+    }
+   },
+   "Glassdoor": {
+    "url": "https://www.glassdoor.com/Search/results.htm?keyword=Example%20AG"
+   },
+   "Kind": {
+    "select": {
+     "name": "Employer"
+    }
+   },
+   "Origin": {
+    "rich_text": [
+     {
+      "text": {
+       "content": "list"
+      }
+     }
+    ]
+   },
+   "Tier": {
+    "select": {
+     "name": "Tier 2"
+    }
+   },
+   "levels.fyi": {
+    "url": "https://www.levels.fyi/companies/example-ag/salaries"
+   }
+  },
+  "watch:update": {
+   "Active": {
+    "checkbox": false
+   },
+   "Careers": {
+    "url": "https://example.test/careers"
+   },
+   "Checked": {
+    "date": {
+     "start": "2026-10-09"
+    }
+   },
+   "Company": {
+    "title": [
+     {
+      "text": {
+       "content": "Example AG"
+      }
+     }
+    ]
+   },
+   "Feed status": {
+    "select": {
+     "name": "No open jobs"
+    }
+   },
+   "Glassdoor": {
+    "url": "https://www.glassdoor.com/Search/results.htm?keyword=Example%20AG"
+   },
+   "Kind": {
+    "select": {
+     "name": "Employer"
+    }
+   },
+   "Origin": {
+    "rich_text": [
+     {
+      "text": {
+       "content": "list"
+      }
+     }
+    ]
+   },
+   "Tier": {
+    "select": {
+     "name": "Tier 2"
+    }
+   },
+   "levels.fyi": {
+    "url": "https://www.levels.fyi/companies/example-ag/salaries"
+   }
+  }
+ },
+ "today": "2026-10-09"
+}

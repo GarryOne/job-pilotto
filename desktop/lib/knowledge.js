@@ -1,10 +1,9 @@
 // 🧠 Form knowledge: what Job Pilotto learned from your form fills (learn.js), used by every later kit and fill.
-// With Notion connected, the Notion page is the only copy: one bullet per note, which you can read, fix or
-// delete there ("[job-boards.greenhouse.io · option] How did you hear: … → "Careers Website""). Notion is required.
+// The active store's knowledge page is the only copy (lib/store: a Notion page beside the Profile, or knowledge.md on this Mac):
+// one bullet per note, which you can read, fix or delete there ("[job-boards.greenhouse.io · option] How did you hear: … → "Careers Website"").
 import * as learn from './learn.js';
-import * as notion from './notion.js';
+import {openStore} from './store/index.js';
 
-const INTRO = 'What Job Pilotto learned from your form fills, used by every later kit and fill. Fix or delete a line to change what it does.';
 export const line = n => `[${n.scope} · ${n.kind}] ${n.field}: ${n.note}${n.value ? ` → "${n.value}"` : ''}`;
 // A bullet back to a note; lines written before kinds were recorded read as answers (with a value) or meanings.
 export function parse(text) {
@@ -15,36 +14,26 @@ export function parse(text) {
   return {scope, kind: kind || (value ? 'answer' : 'meaning'), field: match[2], note: match[3], value};
 }
 
-const target = storage => {
-  const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};
-  if (!token || !ids.NOTION_PROFILE_PAGE_ID) throw new Error('Connect Notion first: form knowledge lives there.');
-  return {token, ids};
-};
+const knowledgePage = (storage, fetcher) => openStore(storage, {fetcher}).page('knowledge');
 
 export async function notes(storage, fetcher) {
-  const t = target(storage);
-  if (!t.ids.NOTION_KNOWLEDGE_PAGE) return [];
-  return (await notion.textBlocks(t.token, t.ids.NOTION_KNOWLEDGE_PAGE, fetcher))
-    .map(block => ({...parse(block.text), block})).filter(n => n.field);
-}
-
-async function page(storage, t, fetcher) {
-  if (t.ids.NOTION_KNOWLEDGE_PAGE) return t.ids.NOTION_KNOWLEDGE_PAGE;
-  const id = await notion.ensurePage(t.token, t.ids.NOTION_PROFILE_PAGE_ID, learn.PAGE_TITLE, INTRO, fetcher);
-  storage.saveSettings({notionIds: {...storage.settings().notionIds, NOTION_KNOWLEDGE_PAGE: id}});
-  return id;
+  return (await knowledgePage(storage, fetcher).blocks()).map(block => ({...parse(block.text), block})).filter(n => n.field);
 }
 
 // New notes: a note for the same site + field replaces the old line in place; the rest are appended.
 export async function add(storage, fresh, fetcher) {
-  const t = target(storage);
-  const id = await page(storage, t, fetcher);
+  const page = knowledgePage(storage, fetcher);
   const existing = new Map((await notes(storage, fetcher)).map(n => [learn.knowledgeKey(n), n]));
   const append = [];
   for (const note of fresh) {
     const old = existing.get(learn.knowledgeKey(note));
-    if (old) await notion.setBlockText(t.token, old.block, line(note), fetcher);
+    if (old) await page.setText(old.block, line(note));
     else append.push(line(note));
   }
-  if (append.length) await notion.appendBullets(t.token, id, append, fetcher);
+  if (append.length) await page.append(append);
 }
+
+// A note dropped from the page (it kept a field empty: lib/server-env.js judgeNotes).
+export const remove = (storage, note, fetcher) => knowledgePage(storage, fetcher).remove(note.block);
+// Several notes, last line first (on this Mac a note's id is its line, so an earlier removal would move the later ones).
+export const lastFirst = notes => [...notes].sort((a, b) => String(b.note?.block?.id ?? b.block?.id).localeCompare(String(a.note?.block?.id ?? a.block?.id), undefined, {numeric: true}));

@@ -1,21 +1,11 @@
-"""A careers page with no open jobs today ('watch', looked at again weekly) is written to Notion like every other outcome.
-6 Oct 2026: write_notion had no Feed status for it, so the run warned "Notion not updated for <company>: KeyError: 'watch'"."""
+"""A careers page with no open jobs today ('watch', looked at again weekly) is written to the employers like every other outcome.
+6 Oct 2026: the Notion write had no Feed status for it, so the run warned "Notion not updated for <company>: KeyError: 'watch'"."""
 import json
 import unittest
 from pathlib import Path
 
 from src import scout
-
-
-class FakeTracker:
-    def __init__(self):
-        self.created = []
-
-    def query_database(self, *_):
-        return []
-
-    def create_page(self, _db, props):
-        self.created.append(props)
+from src.stores import memory
 
 
 class WatchOutcome(unittest.TestCase):
@@ -37,11 +27,11 @@ class WatchOutcome(unittest.TestCase):
             self.assertIn(scout.FEED_STATUS[status], options, status)
 
     def test_a_watched_careers_page_is_written(self):
-        tracker = FakeTracker()
+        stores = memory.open_store()
         candidate = {'name': 'Example Careers AG', 'tier': 'Tier 2', 'origin': 'list', 'careers': 'https://example.test/careers'}
-        scout.write_notion(tracker, candidate, {'status': 'watch', 'ats': 'greenhouse', 'slug': 'example'})
-        self.assertEqual(tracker.created[0]['Feed status'], {'select': {'name': 'No open jobs'}})
-        self.assertEqual(tracker.created[0]['Active'], {'checkbox': False})
+        scout.write_employer(stores, candidate, {'status': 'watch', 'ats': 'greenhouse', 'slug': 'example'})
+        [row] = stores.employers.list(active=None)
+        self.assertEqual((row['feed_status'], row['active']), ('No open jobs', False))
 
 
 if __name__ == '__main__':

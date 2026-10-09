@@ -31,6 +31,9 @@ export function defaultParallel(suites, env = {}, {most = 4} = {}) {
 }
 
 // -> the secrets a run needs that are not in the environment yet, read from the Keychain (nothing is printed or written).
+// The suites whose Notion tokens a run needs: each suite's own, or the one it borrows (`notionTokenOf`: notion-real uses failuresnotion's).
+export const tokenSuites = (suites, tokenOf = {}) => [...new Set(suites.map(suite => tokenOf[suite] || suite))];
+
 export function keychainEnv(suites, {env = process.env, read = defaultRead} = {}) {
   // The Anthropic key is never read here: the e2e on a Mac runs on Claude Code (lib/engine.mjs), and CI gets its key from GitHub's secrets.
   const wanted = [['E2E_NOTION_TOKEN', 'notion_token'], ...suites.map(suite => [`E2E_NOTION_TOKEN_${suite.toUpperCase()}`, `notion_token_${suite}`])];
@@ -71,13 +74,13 @@ export function argProblems(args, suites = []) {
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const option = flag => { const at = process.argv.indexOf(flag); return at < 0 ? '' : process.argv[at + 1] || ''; };
   const {SUITES} = await import('./lib/context.mjs');
-  const cadence = {};
-  for (const suite of SUITES) { const module = await import(`./suites/${suite}.mjs`); if (module.cadence) cadence[suite] = module.cadence; }
+  const cadence = {}, tokenOf = {};   // tokenOf: a suite that uses another's Notion token (notion-real) gets that Keychain item loaded
+  for (const suite of SUITES) { const module = await import(`./suites/${suite}.mjs`); if (module.cadence) cadence[suite] = module.cadence; if (module.notionTokenOf) tokenOf[suite] = module.notionTokenOf; }
   const wrong = argProblems(process.argv.slice(2), SUITES);
   if (wrong.length) { console.error(`run-all: ${wrong.join('; ')}`); process.exit(2); }
   let suites;
   try { suites = pickSuites({all: SUITES, cadence, only: option('--only'), skip: option('--skip'), manual: process.argv.includes('--manual')}); } catch (error) { console.error(error.message); process.exit(2); }
-  const env = {...process.env, ...keychainEnv(suites)};
+  const env = {...process.env, ...keychainEnv(tokenSuites(suites, tokenOf))};
   const parallel = Math.max(1, Number(option('--parallel')) || defaultParallel(suites, env));
   console.log(`Running ${suites.length} suite(s)${parallel > 1 ? `, ${parallel} at a time` : ' one after the other'}: ${suites.join(', ')}\n`);
   fs.mkdirSync(path.join(HERE, 'artifacts'), {recursive: true});

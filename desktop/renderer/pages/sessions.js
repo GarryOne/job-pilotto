@@ -15,6 +15,7 @@ import {attachTerminal, fitTerminal, openSession, renderSessionPage, say} from '
 import {applyFormStates, askRow, reviewStates, opening, openForm, reopenClosedTab, checkingTab, silentChrome, formGone, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, showSendBar, updateNeedsCount, watchAgreements} from './session-needs.js';
 import {toastMessage} from './startup.js';
 import {cancelSession, closeSession, pauseSession, removeSession, restartSession, resumeSession, skipSession} from './session-actions.js';
+import {storeName} from '../store-words.js';
 export {cancelSession, removeSession, restartSession, resumeSession, skipSession};
 
 // Other pages import these from here.
@@ -244,7 +245,7 @@ export function renderNextStep(item) {
   if (running) ticking(state, '· working for ', item.startedAt); else { delete state.dataset.since; delete state.dataset.prefix; }
   // What to read: one line when the form is ready (Claude's words one click away), else Claude's own text.
   const said = intro.filter(line => line.replace(/\*/g, '') !== ask && !isDevTalk(line));
-  $('ss-question').replaceChildren(...(submitted ? [el('p', 'rich-p', 'Marked Applied in Notion. The confirmation page in Chrome is what decided it.')]
+  $('ss-question').replaceChildren(...(submitted ? [el('p', 'rich-p', `Marked Applied in ${storeName()}. The confirmation page in Chrome is what decided it.`)]
     : stuck ? [el('p', 'rich-p', item.stuck === 'account'
       ? 'The form is behind a sign-in or sign-up. The extension fills it in Chrome; a robot check or a choice there is yours. If it stays stuck, Claude can take over; you still submit the application.'
       : 'This page has no form the extension can open by itself (no Apply button it may press, or it leads to another site). Open it in Chrome to go on; if it stays stuck, Claude can find the form and fill it; you still submit it.'),

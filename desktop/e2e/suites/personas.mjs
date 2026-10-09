@@ -8,8 +8,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
+import {familyOf, testKey} from '../lib/engine.mjs';
+import {python, pythonEnv} from '../lib/python.mjs';
 import {DESKTOP} from '../lib/app.mjs';
-import {databaseText, emptyDatabase, findPage, pageText} from '../lib/notion.mjs';
+import {pageText} from '../lib/notion.mjs';
+import {storeText} from '../lib/seed-texts.mjs';
+import {clearData} from '../lib/start-state.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 
 export const minutes = 15;
@@ -30,10 +34,15 @@ export const pickPersona = (env = process.env, day = Math.floor(Date.now() / 864
 const PERSONAS = [pickPersona()];
 
 // The engine's own code, run against this install's folders: what the digest and the settings say for this user.
+// The engine on this suite's profile, isolated (lib/python.mjs: no token, no app-following, HOME the profile), with the app's own AI engine, so a decision
+// the engine hands to AI (Google Jobs places, src/sources/google_jobs.py within_places) is made as the app makes it; a CLI engine keeps this computer's
+// HOME for its sign-in, as the app under test does. 9 Oct 2026: without an engine the place decision fell back to Swiss places only and São Paulo was dropped.
 function engine(ctx, code, args = []) {
-  const env = {...process.env, JOB_PILOTTO_NO_DOTENV: '1', JOB_PILOTTO_CONFIG_DIR: path.join(ctx.profile, 'config'), JOB_PILOTTO_DATA_DIR: path.join(ctx.profile, 'data'), PYTHONUTF8: '1'};
-  for (const name of Object.keys(env)) if (/^(NOTION_|TELEGRAM_|SERPAPI)/.test(name)) delete env[name];
-  return execFileSync(process.env.E2E_PYTHON || 'python3', ['-c', code, ...args], {cwd: REPO, env, encoding: 'utf8', timeout: 120000});
+  const cli = ['cli', 'codex'].includes(ctx.engine);
+  const key = cli ? {} : familyOf(ctx.engine) === 'openai' ? {OPENAI_API_KEY: testKey(process.env, ctx.engine)} : {ANTHROPIC_API_KEY: ctx.key};
+  const env = pythonEnv({JOB_PILOTTO_CONFIG_DIR: path.join(ctx.profile, 'config'), JOB_PILOTTO_DATA_DIR: path.join(ctx.profile, 'data'), JOB_PILOTTO_AI_ENGINE: ctx.engine, ...key},
+    cli ? {realHome: true} : {home: ctx.profile});
+  return execFileSync(python(), ['-c', code, ...args], {cwd: REPO, env, encoding: 'utf8', timeout: 120000});
 }
 const DIGEST_CODE = `
 import json, sys
@@ -88,7 +97,7 @@ export async function run(ctx) {
     const label = `${profile.name}`;
     const read = {ui: '', digest: '', notion: ''};
     await ctx.run(`${label}: starts from nothing: no jobs, runs or employers in Notion, no cached jobs on the Mac, their feeds and CV in place`, async () => {
-      await emptyDatabase(NOTION, 'Job Matches — AI Scored'); await emptyDatabase(NOTION, 'Cronjob Runs'); await emptyDatabase(NOTION, 'Employers & Sources');
+      await clearData(ctx, 'Job Matches — AI Scored'); await clearData(ctx, 'Cronjob Runs'); await clearData(ctx, 'Employers & Sources');
       for (const file of fs.readdirSync(path.join(personaDir(key), 'feeds'))) fs.copyFileSync(path.join(personaDir(key), 'feeds', file), path.join(feeds, file));
       const data = path.join(ctx.profile, 'data');
       for (const file of fs.existsSync(data) ? fs.readdirSync(data) : []) if (/^jobs\.sqlite/.test(file)) fs.rmSync(path.join(data, file));
@@ -106,9 +115,10 @@ export async function run(ctx) {
       const prefs = JSON.parse(fs.readFileSync(path.join(config, 'preferences.json'), 'utf8'));
       if (JSON.stringify(search.locations) !== JSON.stringify(profile.places)) throw new Error(`the places were not kept: ${JSON.stringify(search.locations)}`);
       if (JSON.stringify(prefs.work_rights) !== JSON.stringify(profile.work_rights)) throw new Error(`citizenship / work rights were not kept: ${JSON.stringify(prefs.work_rights)}`);
-      const settingsPage = await pageText(NOTION, 'Search settings');
-      if (!/Where you can work without a visa/i.test(settingsPage)) throw new Error('⚙️ Search settings in Notion has no "Where you can work without a visa" section');
-      if (!new RegExp(profile.work_rights[0], 'i').test(settingsPage.split(/Where you can work without a visa/i)[1] || '')) throw new Error(`Notion's work-rights section does not list ${profile.work_rights[0]}`);
+      // ⚙️ Search settings is a Notion page on the Notion store; on this Mac's store the settings are the files just read (config/*.json).
+      const settingsPage = ctx.store === 'sqlite' ? null : await pageText(NOTION, 'Search settings');
+      if (settingsPage !== null && !/Where you can work without a visa/i.test(settingsPage)) throw new Error('⚙️ Search settings in Notion has no "Where you can work without a visa" section');
+      if (settingsPage !== null && !new RegExp(profile.work_rights[0], 'i').test(settingsPage.split(/Where you can work without a visa/i)[1] || '')) throw new Error(`Notion's work-rights section does not list ${profile.work_rights[0]}`);
     }, {needs: ctx.needs});
     await ctx.run(`${label}: a jobs check keeps the roles in their places and drops the wrong ones`, async () => {
       await page.click('.nav[data-view="jobs"]');
@@ -127,13 +137,17 @@ export async function run(ctx) {
       await page.click('[data-command="scout"]');
       const started = Date.now();
       let listed = null;
-      while (!listed && Date.now() - started < 240000) { listed = await findPage(NOTION, 'E2E Gamma').catch(() => null); if (!listed) await page.waitForTimeout(4000); }
-      if (!listed) throw new Error('"E2E Gamma" was not listed in Notion (Employers & Sources) within 4 minutes');
+      while (!listed && Date.now() - started < 240000) { listed = ((await ctx.data('employers', 'list', {active: null}).catch(() => [])) || []).find(item => item.name === 'E2E Gamma') || null; if (!listed) await page.waitForTimeout(4000); }
+      if (!listed) throw new Error('"E2E Gamma" was not listed in the store\'s employers (Employers & Sources) within 4 minutes');
       const output = engine(ctx, 'import subprocess, sys; print(subprocess.run([sys.executable, "-m", "src", "discover"], capture_output=True, text=True).stdout)');
-      // TechTree lists all of Europe and is searched for any place; jobs.ch and SwissDevJobs are for Swiss places only (6b71f5c).
-      const boards = (output.match(/^Job boards: (.*)$/m) || [])[1] || '';
+      // jobs.ch and SwissDevJobs are for Swiss places only (6b71f5c); TechTree lists Europe but developer jobs only, so a non-IT search uses no board (e2d7df8).
+      // The boards searched, without the engine's explanation in brackets ("none (for these roles and places: SwissDevJobs and TechTree list developer jobs,
+      // jobs.ch Swiss ones)", src/sources/boards.py since e2d7df8): a board named only to say why it was skipped was not searched.
+      const boards = ((output.match(/^Job boards: (.*)$/m) || [])[1] || '').replace(/\([^)]*\)/g, '').trim();
       if (/jobs\.ch|SwissDevJobs/i.test(boards)) throw new Error(`the Swiss job boards were searched for a user with no Swiss place: ${boards}`);
-      if (!/discovery is skipped/i.test(output) && !/TechTree/.test(boards)) throw new Error(`neither a skipped discovery nor the TechTree search: ${output.slice(0, 200)}`);
+      // No board at all is right for roles outside IT: SwissDevJobs and TechTree list developer jobs (e2d7df8), jobs.ch Swiss ones; TechTree runs only for IT roles.
+      const noBoard = /discovery is skipped/i.test(output) || /^none\b/i.test(boards);
+      if (!noBoard && !/TechTree/.test(boards)) throw new Error(`neither no board nor the TechTree search: ${output.slice(0, 200)}`);
     }, {needs: ctx.needs});
     await ctx.run(`${label}: the digest follows their places, citizenship and the posting's currency`, async () => {
       const result = JSON.parse(engine(ctx, DIGEST_CODE).trim().split('\n').pop());
@@ -165,11 +179,11 @@ export async function run(ctx) {
       }
       // The window says which time zone it shows: this machine's own, whatever it is (a Mac in Zurich is not a hard-coded Zurich).
       read.ui = texts.join('\n').replace(/Times shown in [\w/+-]+\./g, '');
-      read.notion = [await databaseText(NOTION, 'Job Matches — AI Scored'), await databaseText(NOTION, 'Job Tracker'), await databaseText(NOTION, 'Employers & Sources'),
-        await databaseText(NOTION, 'Cronjob Runs'), await pageText(NOTION, 'Search settings'), await pageText(NOTION, 'Profile — CV and Preferences')].join('\n');
+      // Everything the store holds (this Mac's or Notion), plus ⚙️ Search settings where it is a Notion page (on this Mac's store: the cached settings below).
+      read.notion = [await storeText(ctx), ctx.store === 'sqlite' ? '' : await pageText(NOTION, 'Search settings')].join('\n');
       const config = ['search.json', 'preferences.json'].map(file => fs.readFileSync(path.join(ctx.profile, 'config', file), 'utf8')).join('\n');
       const hits = [];
-      for (const [where, text] of Object.entries({'the window': read.ui, 'the digest': read.digest, 'Notion': read.notion, 'the cached settings': config})) {
+      for (const [where, text] of Object.entries({'the window': read.ui, 'the digest': read.digest, 'the store': read.notion, 'the cached settings': config})) {
         const found = [...new Set(text.match(new RegExp(FORBIDDEN.source, 'gi')) || [])];
         if (found.length) hits.push(`${where}: ${found.join(', ')}${(text.match(new RegExp(`.{0,50}(?:${FORBIDDEN.source}).{0,50}`, 'i')) || [''])[0] ? ` (… ${text.match(new RegExp(`.{0,50}(?:${FORBIDDEN.source}).{0,50}`, 'i'))[0].replace(/\s+/g, ' ')} …)` : ''}`);
       }

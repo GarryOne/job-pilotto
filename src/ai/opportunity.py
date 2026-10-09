@@ -25,10 +25,11 @@ import re
 import sys
 from datetime import datetime, timezone
 
-from ..notion import client as notion
 from ..notion import origin as origin_rule
 from ..notion import titles
-from ..notion.ledger import _block, _text, add_event, plain
+from ..notion.ledger import _block
+from ..stores import open_stores, rules
+from ..stores.notion_blocks import to_markdown
 from . import cost, engine
 from .models import SMALL_MODEL
 
@@ -128,68 +129,54 @@ def source_for(lead, source):
     return 'LinkedIn' if lead.get('platform') == 'LinkedIn' else source
 
 
-def first_contact_changes(row, platform, began, origin):
-    """Property changes when a contact on `platform` at `began` (a datetime) predates the row's first known contact
-    (`origin`): Source, Reached via and the Notes' "(Email)" follow the earliest contact. {} otherwise: a later
-    contact, or the same channel again, changes nothing."""
+def first_contact_fields(record, platform, began, origin):
+    """first_contact_changes for a job record: {field: value} for source, reached_via and notes; {} when nothing changes."""
     if platform not in CHANNEL_SOURCE or not began or not origin or began >= origin:
         return {}
-    props, changes = row.get('properties') or {}, {}
-    if SOURCE_CHANNEL.get(plain(props.get('Source')) or '') != platform:
-        changes['Source'] = {'select': {'name': CHANNEL_SOURCE[platform]}}
-    if plain(props.get('Reached via')) != platform:
-        changes['Reached via'] = {'select': {'name': platform}}
-    notes = plain(props.get('Notes')) or ''
+    changes = {}
+    if SOURCE_CHANNEL.get(record.get('source') or '') != platform:
+        changes['source'] = CHANNEL_SOURCE[platform]
+    if (record.get('reached_via') or '') != platform:
+        changes['reached_via'] = platform
+    notes = record.get('notes') or ''
     found = NOTES_ORIGIN.match(notes)
     if found and found.group(1) != platform:
-        changes['Notes'] = _text(notes[:found.start(1)] + platform + notes[found.end(1):])
+        changes['notes'] = notes[:found.start(1)] + platform + notes[found.end(1):]
     return changes
 
 
-def properties(lead, url, stage, source, origin='Recruiter message'):
-    via = '' if lead.get('in_house') else lead.get('recruiter_company', '')
+def fields(lead, url, stage, source, origin='Recruiter message'):
+    """A lead's job record fields (src/stores APPLICATION_FIELDS): the values properties() writes as Notion columns."""
     notes = [f"{origin} ({lead.get('platform') or 'Other'})"]
-    if lead.get('channel_other'):
-        notes.append(f"On {lead['channel_other']}")
-    if lead.get('client'):
-        notes.append(f"Client: {lead['client']}")
-    if lead.get('contract'):
-        notes.append(lead['contract'])
-    if lead.get('summary'):
-        notes.append(lead['summary'])
-    props = {
-        'Job': {'title': [{'text': {'content': title(lead)}}]},
-        'Job URL': {'url': url},
-        'Stage': {'select': {'name': stage}},
-        # Hidden employer: Company stays empty (the Gmail check matches on names, and "hidden" matches too much).
-        'Company': _text(lead.get('company')), 'Location': _text(lead.get('location')), 'Salary': _text(lead.get('salary')),
-        'Channel': {'select': {'name': 'Direct' if lead.get('in_house') else 'Agency'}},
-        'Via': _text(via), 'Contact': _text(contact(lead)), 'Recruiter': {'checkbox': not lead.get('in_house')},
-        'Notes': _text('. '.join(notes)), 'Source': {'select': {'name': source_for(lead, source)}},
-        # Where the recruiter reached you: where to answer (Focus says "Reply by email / on LinkedIn").
-        'Reached via': {'select': {'name': lead.get('platform') if lead.get('platform') in REACHED_VIA else 'Other'}},
-    }
+    notes += [value for value in (f"On {lead['channel_other']}" if lead.get('channel_other') else '',
+                                  f"Client: {lead['client']}" if lead.get('client') else '', lead.get('contract'), lead.get('summary')) if value]
+    values = {'title': title(lead), 'url': url, 'stage': stage,
+              # Hidden employer: Company stays empty (the Gmail check matches on names, and "hidden" matches too much).
+              'company': lead.get('company') or '', 'location': lead.get('location') or '', 'salary': lead.get('salary') or '',
+              'channel': 'Direct' if lead.get('in_house') else 'Agency',
+              'via': '' if lead.get('in_house') else lead.get('recruiter_company', ''), 'contact': contact(lead),
+              'recruiter': not lead.get('in_house'), 'notes': '. '.join(notes), 'source': source_for(lead, source),
+              # Where the recruiter reached you: where to answer (Focus says "Reply by email / on LinkedIn").
+              'reached_via': lead.get('platform') if lead.get('platform') in REACHED_VIA else 'Other'}
     if lead.get('work_mode') in WORK_MODES:
-        props['Work mode'] = {'select': {'name': lead['work_mode']}}
-    return props
+        values['work_mode'] = lead['work_mode']
+    return values
 
 
-def same_pitch(tracker, lead):
+def same_pitch(stores, lead):
     """An open lead for the same role from the same recruiter (email) or agency: the pitch pasted after the Gmail check
-    found it, or the other way round. None when there's none (or it can't be checked)."""
+    found it, or the other way round. None when there's none (or it can't be checked). Every job is read and the stages
+    filtered here: Notion refuses a filter on a Stage choice the workspace lacks."""
     words = lambda value: ' '.join(re.findall(r'[a-z0-9]+', (value or '').lower()))
     role, email, agency = words(title(lead)), (lead.get('recruiter_email') or '').lower(), words(lead.get('recruiter_company'))
     try:
-        rows = tracker.query_database(tracker.database_id, {'or': [
-            {'property': 'Stage', 'select': {'equals': stage}} for stage in (LEAD_STAGE, 'Screening')]})
+        rows = [row for row in stores.applications.list() if row['stage'] in (LEAD_STAGE, 'Screening')]
     except Exception:  # noqa: BLE001
         return None
     for row in rows:
-        props = row.get('properties', {})
-        text = lambda name: ''.join(t.get('plain_text', '') for t in (props.get(name) or {}).get('rich_text') or (props.get(name) or {}).get('title') or [])
-        if words(titles.role_of(text('Job'), text('Company'), text('Via'))) != role:  # the role, not " · via Huxley"
+        if words(titles.role_of(row['title'] or '', row['company'] or '', row['via'] or '')) != role:  # the role, not " · via Huxley"
             continue
-        if (email and email in text('Contact').lower()) or (agency and words(text('Via')) == agency):
+        if (email and email in (row['contact'] or '').lower()) or (agency and words(row['via']) == agency):
             return row
     return None
 
@@ -227,42 +214,44 @@ def message_blocks(text):
     return shown
 
 
-def track(tracker, lead, text, *, source, event_source, talking=False, at=None, gmail_id='', note='', seed=None, url=None, extra_blocks=()):
-    """The Applications row, the page body (the message) and the events. Returns (row, one-line summary);
-    row is None when the message is already tracked."""
+def message_markdown(text):
+    """The message section as Markdown (message_blocks through the store's codec: a Notion page shows what it did)."""
+    return to_markdown(message_blocks(text))
+
+
+def track(stores, lead, text, *, source, event_source, talking=False, at=None, gmail_id='', note='', seed=None, url=None,
+          extra_markdown=''):
+    """The job's record, its message section and the events. Returns (record, one-line summary); record is None when the
+    message is already tracked. extra_markdown: what goes under the message (what to check, the screenshots' link)."""
     if gmail_id and lead.get('platform') not in ('LinkedIn',):
         lead = {**lead, 'platform': 'Email'}  # found in Gmail: an email (LinkedIn's notification emails stay LinkedIn)
     url = url or lead_url(lead, text, gmail_id, seed)
-    if tracker.find(url) or same_pitch(tracker, lead):
+    if stores.applications.get(url) or same_pitch(stores, lead):
         return None, f'Already tracked: {label(lead)}'
     talking = talking or bool(lead.get('owner_agreed'))
     stage = 'Screening' if talking else LEAD_STAGE
-    # A recruiter's pitch: it found you (Inbound, src/notion/origin.py).
-    # Its Job title names who it is for: "Principal SRE · via Huxley" (src/notion/titles.py).
-    props = origin_rule.stamp(properties(lead, url, stage, source), origin_rule.INBOUND)
-    row = tracker.create_page(tracker.database_id, props)
-    known = row.setdefault('properties', {})  # Notion returns the new row's properties; test fakes may not
-    for name, value in (('Company', {'rich_text': [{'plain_text': lead.get('company') or ''}]}),
-                        ('Via', {'rich_text': [{'plain_text': titles.text_value(props.get('Via'))}]}),
-                        ('Job', {'title': [{'plain_text': titles.text_value(props.get('Job'))}]}), ('Job URL', {'url': url})):
-        known.setdefault(name, value)
-    blocks = message_blocks(text) + list(extra_blocks)  # e.g. the screenshot it was read from
+    # A recruiter's pitch: it found you (Inbound, src/notion/origin.py); an Inbound job's title names who it is for
+    # ("Principal SRE · via Huxley", src/notion/titles.py), as the Notion store writes it.
+    record = stores.applications.create({**fields(lead, url, stage, source), 'origin': origin_rule.LABELS[origin_rule.INBOUND]},
+                                        stage)
+    body = '\n\n'.join(part for part in (message_markdown(text), extra_markdown) if part)
     try:
-        if blocks:
-            tracker.replace_after_heading(row['id'], HEADING, blocks)
-    except Exception as error:  # noqa: BLE001 — the row is what matters; the body is a convenience
-        print(f'Warning: message not copied to the page: {type(error).__name__}: {error}', file=sys.stderr)
+        if body:
+            stores.applications.set_section(record['id'], HEADING, body)
+    except Exception as error:  # noqa: BLE001 — the job is what matters; the message is a convenience
+        print(f'Warning: message not copied to the job: {type(error).__name__}: {error}', file=sys.stderr)
     at = at or datetime.now(timezone.utc).isoformat(timespec='seconds')
-    event = add_event(tracker, row, LEAD_STAGE, event_source, at=at, note=note or f'Recruiter message: {label(lead)}'[:300])
-    if gmail_id and event:
-        tracker.update_page(event['id'], {'Source ID': {'rich_text': [{'text': {'content': gmail_id}}]}})
+    event, existing = rules.add_event(stores, record, LEAD_STAGE, event_source, at=at,
+                                      note=note or f'Recruiter message: {label(lead)}'[:300])
+    if gmail_id and not existing:
+        stores.events.update(event['id'], {'source_id': gmail_id})
     if talking:
-        add_event(tracker, row, 'Screening', event_source, note='Already talking to the recruiter when tracked')
+        rules.add_event(stores, record, 'Screening', event_source, note='Already talking to the recruiter when tracked')
     facts = ' · '.join(p for p in (lead.get('salary'), lead.get('location') or lead.get('work_mode')) if p)
-    return row, f"Tracked recruiter lead: {label(lead)}{f' · {facts}' if facts else ''} ({stage})"
+    return record, f"Tracked recruiter lead: {label(lead)}{f' · {facts}' if facts else ''} ({stage})"
 
 
-def add_from_text(tracker, text, *, client=None, model=DEFAULT_MODEL, source='Manual', event_source='CLI',
+def add_from_text(stores, text, *, client=None, model=DEFAULT_MODEL, source='Manual', event_source='CLI',
                   talking=False, stats=None):
     """A pasted or forwarded message -> a tracked lead. Returns one line for the reply."""
     text = (text or '').strip()
@@ -276,23 +265,21 @@ def add_from_text(tracker, text, *, client=None, model=DEFAULT_MODEL, source='Ma
     lead = extract(client, model, text, stats=stats)
     if not lead.get('is_opportunity'):
         raise ValueError("That doesn't read like a recruiter pitching a role, so nothing was added.")
-    return track(tracker, lead, text, source=source, event_source=event_source, talking=talking)[1]
+    return track(stores, lead, text, source=source, event_source=event_source, talking=talking)[1]
 
 
-def backfill_reached(tracker):
-    """Leads tracked before the "Reached via" column: filled from their Notes ("Recruiter message (Email)"), or
-    Email when the lead is a Gmail message. Returns how many rows were filled."""
+def backfill_reached(stores):
+    """Leads tracked before "Reached via" existed: filled from their Notes ("Recruiter message (Email)"), or Email when the
+    lead is a Gmail message. Returns how many jobs were filled."""
     filled = 0
-    for row in tracker.query_database(tracker.database_id):
-        props = row['properties']
-        if 'Reached via' not in props or ((props['Reached via'] or {}).get('select') or {}).get('name'):
+    for row in stores.applications.list():
+        if row['reached_via']:
             continue
-        notes = ''.join(t.get('plain_text', '') for t in (props.get('Notes') or {}).get('rich_text') or [])
-        url = (props.get('Job URL') or {}).get('url') or ''
-        found = re.search(r'\((Email|LinkedIn|Phone|Other)\)', notes)
+        found = re.search(r'\((Email|LinkedIn|Phone|Other)\)', row['notes'] or '')
+        url = row['url'] or ''
         value = found.group(1) if found else 'Email' if 'mail.google.com' in url else 'LinkedIn' if 'linkedin.com/messaging' in url else ''
         if value:
-            tracker.update_page(row['id'], {'Reached via': {'select': {'name': value}}})
+            stores.applications.update(row['id'], {'reached_via': value})
             filled += 1
     return filled
 
@@ -305,15 +292,13 @@ def main(argv=None):
     add.add_argument('--talking', action='store_true', help="you've already replied yes: Stage Screening")
     sub.add_parser('backfill', help='fill "Reached via" on leads tracked before the column existed')
     args = parser.parse_args(argv)
-    tracker = notion.Tracker.from_env()
-    if not tracker:
-        raise SystemExit('NOTION_TOKEN is required (Keychain entry job-pilotto.notion.token, or export it)')
+    stores = open_stores()  # the active store: this Mac's (sqlite) or Notion; JOB_PILOTTO_STORE picks it
     if args.command == 'backfill':
-        print(f'Reached via filled on {backfill_reached(tracker)} lead(s)')
+        print(f'Reached via filled on {backfill_reached(stores)} lead(s)')
         return 0
     text = open(args.text_file, encoding='utf-8').read() if args.text_file else sys.stdin.read()
     try:
-        print('🤝 ' + add_from_text(tracker, text, talking=args.talking))
+        print('🤝 ' + add_from_text(stores, text, talking=args.talking))
     except ValueError as error:
         print(f'⚠️ {error}')
         return 1

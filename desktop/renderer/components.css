@@ -609,3 +609,32 @@ b.count-down, span.count-down { display: inline-block; animation: count-pop-down
 .stat.count-up { animation: count-glow-up 1s ease-out; }
 .stat.count-down { animation: count-glow-down 1s ease-out; }
 @media (prefers-reduced-motion: reduce) { .count-up, .count-down { animation: none !important; } }
+
+/* A row of toggle chips that narrow a list (Jobs → saved views): pressed = on, a count beside each label. */
+.chip-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: var(--sp-2) 0; }
+.chip-button { display: inline-flex; align-items: center; min-height: var(--control-h); gap: var(--sp-2); border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+  border-radius: var(--r-pill); padding: 2px var(--sp-3); font-size: var(--fs-sm); font-weight: 500; cursor: pointer; }
+.chip-button:hover { background: var(--surface-2); }
+.chip-button[aria-pressed="true"] { background: var(--signal-soft); border-color: var(--signal); color: var(--signal-ink); font-weight: 600; }
+.chip-button .chip-count { color: var(--muted); font-size: var(--fs-xs); }
+.chip-button[aria-pressed="true"] .chip-count { color: inherit; }
+/* A library table in a white box (Interviews library, Employers & Sources): small-caps header on --surface-2, compact rows, hover tint.
+   Inside a container that is already a card, use .data-table instead (no box in a box). */
+.lib-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; overflow-x: auto; }
+table.lib-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.lib-table th { text-align: left; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+  padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.lib-table th:last-child { width: 1%; }
+.lib-table td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.lib-table tr:last-child td { border-bottom: 0; }
+.lib-table tr:hover td { background: var(--surface-2); }
+.lib-table .is-nowrap { white-space: nowrap; }   /* a short value that must not wrap (Employers' Origin) */
+/* A library row's name cell: a .logo badge, the bold name, a muted line under it. */
+.lib-who { display: flex; align-items: center; gap: 10px; }
+.lib-who b { font-size: var(--fs-md); }
+.lib-who .muted { font-size: var(--fs-sm); line-height: 1.35; }
+
+/* .shows-scrollbar: a scroll box whose scrollbar is always there, not the overlay one that hides until you scroll, so a person sees there
+   is more (the Sites to visit list below, the Jobs board's columns to the right: 9 Oct 2026, its last column read as cut off). */
+.shows-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+.shows-scrollbar::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--r-pill); }

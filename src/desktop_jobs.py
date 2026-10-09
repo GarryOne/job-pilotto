@@ -1,4 +1,4 @@
-"""The desktop app's job list and posting: stage_status, jobs(), posting(), notion_posting() (a pure move out of desktop.py).
+"""The desktop app's job list and posting: stage_status, jobs(), posting(), store_posting() (a pure move out of desktop.py).
 
 Guarded by tests/test_desktop.py, tests/test_desktop_notion_list.py, tests/test_refresh_batch.py, tests/test_places_strict.py.
 """
@@ -145,19 +145,19 @@ NO_POSTING = 'This job has no description yet. Add it first (⋯ → Log job act
 MIN_POSTING = 200  # characters that really describe the role (prep.about_role): a Teams invite or a greeting is not a posting
 
 
-def notion_posting(tracker, code):
-    """A job that only exists in Notion (a recruiter's message, a LinkedIn chat pasted as screenshots, Add details): its
-    posting is the description saved on its page (inbox.py / prep.py). {'ok': False, 'error'} says what is missing."""
+def store_posting(stores, code):
+    """A job kept only in the store, not in the crawl (a recruiter's message, a LinkedIn chat pasted as screenshots, Add
+    details): its posting is the description saved with it (inbox.py / prep.py), read by prep.role_text from the job's
+    sections. {'ok': False, 'error'} says what is missing."""
     from .ai import prep
-    item = next((j for j in tracker.notion_jobs() if j.get('url') and job_code(j['url']) == code), None)
-    row = tracker.find(item['url']) if item else None
-    if not row:
+    record = next((app for app in stores.applications.list() if app['url'] and job_code(app['url']) == code), None)
+    if not record:
         return {'ok': False, 'error': 'job not found'}
-    text = prep.role_text(tracker, row)
+    text = prep.role_text(stores, record)
     if prep.about_role(text) < MIN_POSTING:
         return {'ok': False, 'error': NO_POSTING}
-    return {'ok': True, 'code': code, 'title': item['title'], 'company': item.get('company') or item.get('via') or '', 'url': item['url'],
-            'location': item.get('location') or '', 'description': text}
+    return {'ok': True, 'code': code, 'title': record['title'], 'company': record['company'] or record['via'] or '',
+            'url': record['url'], 'location': record['location'] or '', 'description': text}
 
 def _deleted_urls(db):
     """Jobs deleted on this Mac (delete_job); none in a store without its tables yet."""

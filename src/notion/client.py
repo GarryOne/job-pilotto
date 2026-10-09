@@ -14,7 +14,7 @@ import urllib.error
 import urllib.request
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
-from . import origin, titles
+from . import origin, retry, titles
 
 
 def api_base():
@@ -114,9 +114,9 @@ class Tracker:
             return None
         return cls(token, os.getenv('NOTION_APPLICATIONS_DB') or DEFAULT_DATABASE_ID) if token else None
 
-    # Notion answers 429 when a workspace gets more than ~3 requests a second, and 502/503/504 when it's briefly
-    # down: wait (its Retry-After, else 0.5, 1, 2, 4 s) and try again rather than fail the run on a busy moment.
-    RETRY_STATUS = {429, 502, 503, 504}
+    # Notion answers 429 when a workspace gets more than ~3 requests a second, and 502/503/504 (520/522/524 at its edge) when it's
+    # briefly down: wait (its Retry-After, else 0.5, 1, 2, 4 s) and try again rather than fail the run on a busy moment, when sending
+    # it again can't make a second copy (src/notion/retry.py has the table).
     RETRIES = 4
 
     def _paced(self):
@@ -141,7 +141,8 @@ class Tracker:
                     return result
             except urllib.error.HTTPError as error:
                 _log_request(method, path, error.code, started, attempt)
-                if error.code not in self.RETRY_STATUS or attempt == self.RETRIES:
+                then = retry.action(error.code, method, path)   # src/notion/retry.py: sent again only when that can't make a second copy
+                if then == retry.FAIL or attempt == self.RETRIES:
                     # urllib's own text is only "HTTP Error 400: Bad Request". Notion's reason
                     # ("Run id is not a property that exists.") is the body, and callers that drop a
                     # missing column read it from the exception.
@@ -157,6 +158,12 @@ class Tracker:
                 if error.code == 429 and self._paced():
                     pace.calm_until(self.token, time.time() * 1000 + wait * 1000)  # everyone waits it out
                 self.sleep(wait)
+                if then in (retry.LOOKUP, retry.LOOKUP_OR_RETRY):
+                    made = retry.made_already(self, body)
+                    if made is None and then == retry.LOOKUP:
+                        raise
+                    if made:
+                        return made
 
     def _query(self, filter_=None, database_id=None):
         body, pages = {'page_size': 100}, []

@@ -1,5 +1,6 @@
 """The jobs check's search itself (modes scheduled, run, today, more): crawl the feeds, import, enrich, score, sync Job Matches and the
-ledger, build the digest, send it to Telegram, save and log the run. `search(args, tracker)` returns the exit code.
+ledger, build the digest, send it to Telegram, save and log the run. `search(args, stores)` returns the exit code. The data is the
+active store's (src/stores: open once, passed down), on every store; this Mac's store never gets a copy in Notion.
 Tests: tests/test_daily.py, tests/test_refresh_batch.py, tests/test_search_budget.py, tests/test_places_strict.py, tests/test_place_triage.py,
 tests/test_contribute.py, tests/test_watch.py, tests/test_score.py.
 """
@@ -8,21 +9,24 @@ import random
 import sys
 from collections import Counter
 from datetime import datetime, timezone
-from . import contribute, coverage, digest, doctor, employer_index, features, scout, store, telegram
+from . import contribute, coverage, digest, doctor, employer_index, features, ledger_store, scout, store, telegram
 from .ai import budget, enrich, insights, interviews, kit, score
-from .notion import client as notion, funnel, ledger, matches
-from .paths import DATA, REPORTS, load_search_config, local_profile
+from .notion import client as notion_client, funnel
+from .paths import DATA, REPORTS, load_search_config
+from .store_access import open_run
 from .sources import describe, feeds, google_jobs
-from .daily_helpers import STALE_DAYS, crawl_counts, digest_note, downloaded_index, for_job_matches, left_out, log_crawl, new_cron_run, no_profile, save_run, starter_sources, time_budget_on, to_score, top_new
+from .daily_helpers import (STALE_DAYS, crawl_counts, digest_note, downloaded_index, for_job_matches, left_out, log_crawl, new_cron_run, no_profile,
+                            profile_source, save_run, starter_sources, time_budget_on, to_score, top_new, url_stages)
 
 
-def search(args, tracker):
+def search(args, stores=None):
+    stores = stores or open_run()
     run = new_cron_run(args.mode)
     spend = None
-    if tracker and args.mode in ('scheduled', 'run', 'today'):
+    if args.mode in ('scheduled', 'run', 'today'):
         # AI budget: at 90% of the month's limit the optional AI steps pause; alerts are sent at the end.
         try:
-            spend = budget.status(tracker)
+            spend = budget.status(stores)
             # The monthly budget is API spend: with Claude Code the AI runs on the user's Claude plan, so "$0.00 of $15" says nothing (6 Oct 2026).
             from .ai import engine as ai_engine
             chosen = ai_engine.providers.spec()
@@ -32,15 +36,14 @@ def search(args, tracker):
             print(f'Warning: budget check skipped: {type(error).__name__}: {error}')
     hidden, saved, dismissed = frozenset(), frozenset(), frozenset()
     stages = None   # job URL -> Stage: also what the pool's outcome counts read (src/contribute.py outcomes)
-    if tracker:
-        try:
-            stages = tracker.url_stages()
-            hidden = frozenset(u for u, st in stages.items() if st not in notion.VISIBLE_STAGES)
-            saved = frozenset(u for u, st in stages.items() if st == 'Saved')
-            dismissed = frozenset(u for u, st in stages.items() if st == 'Dismissed')
-        except Exception as error:  # A Notion outage shouldn't block the digest.
-            print(f'Warning: could not read Notion applications: {error}')
-            run['warnings'].append(f'Notion applications unreadable: {error}')
+    try:
+        stages = url_stages(stores)
+        hidden = frozenset(u for u, st in stages.items() if st not in notion_client.VISIBLE_STAGES)
+        saved = frozenset(u for u, st in stages.items() if st == 'Saved')
+        dismissed = frozenset(u for u, st in stages.items() if st == 'Dismissed')
+    except Exception as error:  # A Notion outage shouldn't block the digest.
+        print(f'Warning: could not read your applications: {error}')
+        run['warnings'].append(f'{"Notion applications" if stores.name == "notion" else "Applications"} unreadable: {error}')
     sources = starter_sources()
     report, imported = {'jobs': [], 'sources': []}, []
     with store.connect(args.db) as db:
@@ -50,7 +53,7 @@ def search(args, tracker):
             # The feed watcher and canonical store intentionally have different schemas.
             # Keep the source-specific history separate, then import the report.
             # sources.json plus every active feed the scout found (local table + Notion Source Registry).
-            feed_list = scout.active_sources(db, tracker, sources, [] if args.only_visits else downloaded_index())
+            feed_list = scout.active_sources(db, stores, sources, [] if args.only_visits else downloaded_index())
             if args.only_visits:
                 feed_list = [source for source in feed_list if source.get('ats') == 'visit']
                 print(f'Reading only the {len(feed_list)} page(s) read in Chrome on this Mac')
@@ -99,7 +102,7 @@ def search(args, tracker):
                 print(f'Added {sum(new_here.values())} new job(s): {store.grouped(new_here)}', flush=True)
             if args.mode in ('scheduled', 'run', 'today'):
                 try:  # opt-in (src/contribute.py); the pool never affects a run
-                    contribute.maybe_send(feed_list, report, tracker, db=db, stages=stages)
+                    contribute.maybe_send(feed_list, report, stores, db=db, stages=stages)
                 except Exception as error:  # noqa: BLE001
                     print(f'Warning: pool contribution skipped: {type(error).__name__}: {error}')
             if args.mode in ('scheduled', 'run'):
@@ -134,10 +137,11 @@ def search(args, tracker):
         # A refresh with a time budget takes one batch end to end (owner, 7 Oct 2026: "a batch should handle it from start to finish"): the new
         # jobs it can read and score in its time, best places first; the rest waits for the next refresh and is not listed until scored.
         batch, batch_started = None, None
-        if time_budget_on() and args.score_max and (tracker or local_profile()):
+        read_profile = profile_source(stores) if args.score_max else None
+        if time_budget_on() and args.score_max and read_profile:
             try:
                 from . import time_budget
-                waiting = score.queue(db, to_score(db, hidden), local_profile() or tracker.page_text())
+                waiting = score.queue(db, to_score(db, hidden), read_profile())
                 taken = time_budget.batch('score', len(waiting))
                 batch, batch_started = {job['id'] for job in waiting[:taken]}, __import__('time').monotonic()
                 run['waiting'] = len(waiting) - taken
@@ -156,21 +160,21 @@ def search(args, tracker):
         # twice, and scored nothing); the AI reading (facts such as languages) gets the time left after. Without a batch: reading, then scoring.
         if args.enrich_max and batch is None:
             read_jobs()
-        if args.score_max and (tracker or local_profile()):
+        if args.score_max and read_profile:
             # Scores only jobs that survive the hard filters; the Profile is re-read every run
             # (the desktop app's local Profile file when set, else the Notion page).
             try:
-                profile = local_profile() or tracker.page_text()
+                profile = read_profile()
                 candidates = to_score(db, hidden)
                 run['score'] = {}
 
                 def to_notion():
                     # Owner, 7 Oct 2026: Job Matches was written only after the whole search, so a stopped one left nothing there. The scores
                     # so far are written now and then; the end of the search still writes the rest and marks what is gone or applied.
-                    if not tracker or args.mode not in ('scheduled', 'run', 'today'):
+                    if args.mode not in ('scheduled', 'run', 'today'):
                         return
                     try:
-                        print(matches.sync(db, tracker, for_job_matches(db, hidden), hidden - dismissed, None, dismissed, partial=True) + ' (so far)', flush=True)
+                        print(stores.matches.sync(db, for_job_matches(db, hidden), hidden - dismissed, None, dismissed, partial=True) + ' (so far)', flush=True)
                     except Exception as error:  # noqa: BLE001 — the end of the search writes them
                         print(f'Job Matches: not updated yet ({type(error).__name__}); the end of the search writes them', flush=True)
                 print(score.run(db, candidates, profile, score.DEFAULT_MODEL, args.score_max, stats=run['score'], on_scored=to_notion, only_ids=batch))
@@ -201,52 +205,51 @@ def search(args, tracker):
                 run['warnings'].append(f'scoring skipped: {type(error).__name__}')
         if args.enrich_max and batch is not None:
             read_jobs()   # with the time left: the budget sizes it, best places first
-        for warning in no_profile(args.score_max, tracker, local_profile()):
+        for warning in no_profile(args.score_max, None, read_profile):
             print(f'Warning: {warning}')
             run['warnings'].append(warning)
         open_urls = None   # the crawl's open jobs, set by the Job Matches sync below; None checks every saved job
-        if tracker and args.mode in ('scheduled', 'run', 'today'):
-            # Mirror scored jobs into Notion "Job Matches"; a Notion problem never blocks the digest.
+        if args.mode in ('scheduled', 'run', 'today'):
             try:
                 scored = for_job_matches(db, hidden)
                 open_urls = {j['url'].strip() for j in store.digest_jobs(db, limit=10_000) if j.get('url')}
-                applied_urls = hidden - dismissed
                 run['top_new'] = top_new(report, scored)
-                run['matches'] = matches.sync(db, tracker, scored, applied_urls, open_urls, dismissed)
+                # Scored jobs into the store's Job Matches (src/stores Matches.sync); a store problem never blocks the digest.
+                run['matches'] = stores.matches.sync(db, scored, hidden - dismissed, open_urls, dismissed)
                 print(run['matches'])
                 if args.auto_kit_max:
                     # Runs after scoring so it sees the same fits; a kit failure never blocks the digest.
                     run['kits'] = {}
-                    summary, drafted_jobs = kit.auto_run(db, scored, tracker, kit.DEFAULT_MODEL,
-                                                         args.auto_kit_max, args.auto_kit_min_score,
-                                                         stats=run['kits'])
+                    summary, drafted_jobs = kit.auto_run(db, scored, stores, kit.DEFAULT_MODEL,
+                                                         args.auto_kit_max, args.auto_kit_min_score, stats=run['kits'])
                     run['kit_titles'] = [f"{job['title']} ({job['company']})" for job, _ in drafted_jobs]
                     print(summary)
             except Exception as error:
-                print(f'Warning: Notion Job Matches sync or auto-kit skipped: {type(error).__name__}: {error}')
+                print(f'Warning: Job Matches sync or auto-kit skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'Job Matches sync or auto-kit skipped: {type(error).__name__}')
-        if tracker and args.mode == 'scheduled':
-            # Application ledger: log Stage edits made in Notion, and mark silent applications No response.
+        if args.mode == 'scheduled':
+            # Application ledger (src/ledger_store.py, any store): log Stage edits, and mark silent applications No response.
             try:
-                print(ledger.sync(tracker))
+                print(ledger_store.sync(stores))
             except Exception as error:
                 print(f'Warning: ledger sync skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'ledger sync skipped: {type(error).__name__}')
             # Saved / Kit ready jobs whose posting was taken down (their board confirms it) → Closed, named in the report.
             try:
-                summary, run['gone_titles'] = ledger.close_gone(tracker, open_urls)
+                summary, run['gone_titles'] = ledger_store.close_gone(stores, open_urls)
                 print(summary)
             except Exception as error:
                 print(f'Warning: taken-down check skipped: {type(error).__name__}: {error}')
                 run['warnings'].append(f'taken-down check skipped: {type(error).__name__}')
             # A recorded interview whose application still says Interview scheduled (saved before the app moved it on).
             try:
-                print(interviews.sweep(tracker))
+                print(interviews.sweep(stores=stores))
             except Exception as error:
                 print(f'Warning: interview sweep skipped: {type(error).__name__}: {error}')
-            # 🎯 Pipeline page: conversion between funnel steps and the step to improve (no AI).
+        if args.mode == 'scheduled' and stores.name == 'notion' and not features.disabled('notion'):
+            # 🎯 Pipeline page: conversion between funnel steps and the step to improve (no AI). Notion only: the notion adapter writes it.
             try:
-                funnel.write(tracker, funnel.funnel(funnel.reached(tracker)),
+                funnel.write(stores, funnel.funnel(funnel.reached(stores)),
                              datetime.now(timezone.utc).strftime('%d %b %H:%M UTC'))
             except Exception as error:
                 print(f'Warning: funnel update skipped: {type(error).__name__}: {error}')
@@ -267,8 +270,8 @@ def search(args, tracker):
         print('\n' + digest_note(len(shown_ids), new_count, terminal=sys.stdout.isatty()))
         if args.mode in ('scheduled', 'run', 'today'):
             save_run(run)  # the desktop app's activity bar shows its counts
-            if tracker and args.log_run:
-                log_crawl(tracker, run)
+            if args.log_run:
+                log_crawl(stores, run)
         return 0
     token, chat_id = telegram.credentials()
     if args.mode == 'scheduled' and not new_count:
@@ -296,24 +299,23 @@ def search(args, tracker):
     if spend and not run.get('telegram', '').startswith('not sent'):
         with store.connect(args.db) as db:
             budget.alert_once(db, spend, lambda text: telegram.send(text, token, chat_id))
-    if tracker and args.mode == 'scheduled' and datetime.now(timezone.utc).hour == doctor.HEALTH_HOUR_UTC:
+    if args.mode == 'scheduled' and datetime.now(timezone.utc).hour == doctor.HEALTH_HOUR_UTC:
         # Once a day: one Telegram line if a health check fails (Google sign-in, mail, budget, feeds).
         try:
-            print(doctor.alert(tracker, lambda text: telegram.send(text, token, chat_id)))
+            print(doctor.alert(stores, lambda text: telegram.send(text, token, chat_id)))
         except Exception as error:
             print(f'Warning: health check skipped: {type(error).__name__}: {error}')
-    if tracker and args.insight and args.mode == 'scheduled':
+    if args.insight and args.mode == 'scheduled':
         # One insight a day, with the first scheduled run after insights.SEND_HOUR_UTC.
         try:
             run['insight'] = {}
             with store.connect(args.db) as db:
-                print(insights.run(db, tracker, send=lambda text, markup: telegram.send(text, token, chat_id, markup),
+                print(insights.run(db, stores, send=lambda text, markup: telegram.send(text, token, chat_id, markup),
                                    stats=run['insight']))
         except Exception as error:
             print(f'Warning: insight skipped: {type(error).__name__}: {error}')
             run['warnings'].append(f'insight skipped: {type(error).__name__}')
     if args.mode in ('scheduled', 'run', 'today'):
         save_run(run)
-        if tracker:  # sending runs; a terminal preview (no --send) isn't logged unless --log-run
-            log_crawl(tracker, run)
+        log_crawl(stores, run)  # sending runs; a terminal preview (no --send) isn't logged unless --log-run
     return 0

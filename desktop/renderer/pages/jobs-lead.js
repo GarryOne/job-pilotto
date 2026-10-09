@@ -6,6 +6,7 @@ import {showJob} from './activity.js';
 import {jobActions, jobHeadline} from '../job-link.js';
 import {$, message, osPick} from './core.js';
 import {loadJobs} from './jobs.js';
+import {storeName} from '../store-words.js';
 
 // A recruiter's message: Claude reads it into a recruiter lead in Notion (like /add <message> in Telegram).
 let leadSteps = [];  // the Log box's steps so far ({text, at}), from the engine (lead-confirm.js addStep)
@@ -138,7 +139,7 @@ async function working(first, task) {
 async function pickJob(target) {
   if (!target || !leadProposal) return;
   const text = $('lead-text').value.trim();
-  const next = await working('Reading your jobs in Notion', () => window.pilot.proposeLead(text, [], target, leadProposal));
+  const next = await working(`Reading your jobs in ${storeName()}`, () => window.pilot.proposeLead(text, [], target, leadProposal));
   if (!next.ok) { leadResult('warn', "Couldn't use that job", String(next.text || '').replace(/^\S+\s/, '')); return; }
   showConfirm(next, confirmStep.carry(leadState, next));
 }
@@ -349,7 +350,7 @@ export function wireLead() {
       return;
     }
     const answers = confirmStep.confirmed(leadProposal, leadState);
-    const result = await working('Saving to Notion', () => window.pilot.addLead(text, leadShots,
+    const result = await working(`Saving to ${storeName()}`, () => window.pilot.addLead(text, leadShots,
       leadProposal.target ?? leadTarget(), leadProposal, answers));
     const said = result.text.replace(/^\S+\s/, '');
     if (!result.ok) { leadResult('warn', "Couldn't log it", said); return; }

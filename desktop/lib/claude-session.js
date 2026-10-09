@@ -67,7 +67,7 @@ export function prompt(url, {auditFile}) {
     'Never trigger the extension\'s fill yourself. Work only from the form in Chrome and the --context output: don\'t read this repo\'s tests, config or README, ' +
     'and report as needing my attention only a control on the form. ';
   return `Use the apply-to-job skill to apply to this job: ${url}. Don't ask me questions or discuss the skill file — just follow it: ` +
-    'pull the drafted kit from Notion Applications for this job URL, get to the actual form in the open tab (claude-in-chrome) ' +
+    'pull the drafted kit from Notion Applications for this job URL, get to the actual form in the open tab (claude-in-chrome) ' +   // about Notion
     `as the skill's "Reaching the form" section says, in that same tab: when the page is a job board's or only links out, follow its Apply / Apply now buttons to ` +
     "the employer's site, and create an account or sign in there if it asks (password from python3 -m src.ai.passwords, pasted from the clipboard, " +
     "never typed or shown). A confirmation email's code or link you read yourself with python3 -m src.sources.google verify --from <employer domain> " +
@@ -83,7 +83,7 @@ export function prompt(url, {auditFile}) {
     'At hand-over, record the run instead of notifying yourself: in the form tab evaluate JSON.stringify({page_url: location.href, ' +
     'guard_active: !!window.__jobPilottoGuardActive, fields: window.__jobPilottoAuditVisibleFields(), steps: window.__jobPilottoSteps || []}), ' +
     `write that JSON to ${auditFile}, then run: python3 -m src.ai.apply_run --record ${url} --audit "${auditFile}" --started <that time> ` +
-    '--learning "<one line on what you learned about this form, or empty if nothing new>" — it saves the run record, updates the Notion row and ' +
+    '--learning "<one line on what you learned about this form, or empty if nothing new>" — it saves the run record, updates the Notion row and ' +   // about Notion
     `sends my "Form filled" or "Needs your input" notification. If the posting is gone ("Job not found", 404, or not on the company's board), ` +
     `don't stop to ask: run python3 -m src.ai.apply_batch --mark-closed ${url} (marks it Closed and notifies me), close the tab, and finish. ` +
     `If you stop on any other blocker before filling, just run tools/notify.sh ${url} "Needs your input — see Terminal". ` +

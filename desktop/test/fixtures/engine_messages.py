@@ -10,7 +10,8 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from src import daily, digest, scout, store as job_store
-from src.ai import insights, interviews, mail
+from src.ai import insights, interviews, mail, mail_calendar
+from src.stores import memory
 from src.notion import cron_runs
 
 out = {}
@@ -46,17 +47,33 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
     db.close()
 
 text = lambda value: {'rich_text': [{'text': {'content': value}}]}
-row = {'id': 'abc', 'url': 'https://app.notion.com/p/app', 'properties': {'Company': {'rich_text': [{'plain_text': 'Huxley', 'text': {'content': 'Huxley'}}]}, 'Job': {'title': [{'text': {'content': 'Principal SRE'}}]},
-       'Next step': {'rich_text': [{'plain_text': 'Send the recruiter your updated CV.'}]}}}
+PAGE = 'https://app.notion.com/p/app'  # the job's Notion page, as the Notion store links it
 event = {'summary': 'Interview with Huxley', 'hangoutLink': 'https://meet.example.com/x', 'attendees': [{'displayName': 'Sam Lee'}]}
 start = datetime.fromisoformat('2026-10-06T08:30:00+02:00')
-with mock.patch.object(interviews, 'stats_for_insights', return_value={'topics_answered_weakly': ['Salary expectations']}):
-    out['mail_prep'] = plain(mail.prep_message(None, row, event, start, 'Tomorrow'))
-scheduled = mail.tgcard.block(mail._head(row, 'Interview'), 'Tue 06 Oct · 08:30', mail.tgcard.fact('Event', 'Interview with Huxley'), mail.tgcard.fact('Source', 'Google Calendar'))
+# The prep message reads the job from the active store: here a memory store with the same job, and the Notion page link it names.
+prep_store = memory.open_store({})
+job = prep_store.applications.create({'url': 'https://example.test/jobs/huxley', 'title': 'Principal SRE', 'company': 'Huxley',
+                                      'next_step': 'Send the recruiter your updated CV.'}, 'Interview scheduled')
+prep_store.link = lambda record_id: PAGE
+with mock.patch.object(mail_calendar, 'interview_stats', return_value={'topics_answered_weakly': ['Salary expectations']}):
+    out['mail_prep'] = plain(mail.prep_message(prep_store, job, event, start, 'Tomorrow'))
+scheduled = mail.tgcard.block(mail._head(job, 'Interview'), 'Tue 06 Oct · 08:30', mail.tgcard.fact('Event', 'Interview with Huxley'), mail.tgcard.fact('Source', 'Google Calendar'))
 out['mail_updates'] = plain(mail.tgcard.card('Job emails & calendar', '1 update', [scheduled], emoji='📧'))
 from src.ai import rejection
-outcome = mail.tgcard.block(mail._head(row, 'Rejected'), 'Application rejected after consideration')
-why = rejection.line(row, {'verdict': 'Hard skills', 'confidence': 'medium', 'summary': 'Staff-level role needing a deep data background (BigQuery, Spark); your experience is SRE/platform.'})
+outcome = mail.tgcard.block(mail._head(job, 'Rejected'), 'Application rejected after consideration')
+why = rejection.line(job, {'verdict': 'Hard skills', 'confidence': 'medium', 'summary': 'Staff-level role needing a deep data background (BigQuery, Spark); your experience is SRE/platform.'})
 out['mail_rejected'] = plain(mail.tgcard.card('Job emails & calendar', '2 updates', [outcome, why], emoji='📧'))
 out['mail_none'] = plain(mail.tgcard.card('Gmail checked', 'No new job emails', [], emoji='📧'))
+# An interview's review as the store keeps it (src/stores/notion_interviews.py: to_markdown of the page's analysis blocks): what the app's
+# review dialog reads (renderer/interview-review-view.js reviewParts): each question's verdict and the call's facts with their job marks.
+from src.ai import interviews_blocks
+from src.stores import notion_blocks
+review = {'summary': 'A friendly screen; salary came up early.', 'strengths': ['Clear on-call story'], 'weaknesses': ['Vague on Kafka'],
+          'signals': ['They want someone in the office twice a week'], 'red_flags': ['No Go experience'], 'practice': ['Prepare a Kafka example'],
+          'facts': [{'field': 'salary_ask', 'value': 'CHF 140k', 'quote': 'I am looking at 140'}, {'field': 'location', 'value': 'Zürich', 'quote': ''}],
+          'questions': [{'quality': 'strong', 'topic': 'On-call', 'question': 'Tell me about an incident', 'answer': 'The DNS outage', 'better': ''},
+                        {'quality': 'weak', 'topic': 'Kafka', 'question': 'How do you size partitions?', 'answer': 'By throughput', 'better': 'Name the consumer count'},
+                        {'quality': 'not_answered', 'topic': 'Go', 'question': 'Have you shipped Go?', 'answer': '', 'better': 'Say what you would learn first'}]}
+merged = {'filled': [{'field': 'salary_ask'}], 'differs': [{'field': 'location', 'current': 'Basel'}]}
+out['interview_review'] = notion_blocks.to_markdown(interviews_blocks.analysis_blocks(review, merged))
 print(json.dumps(out))

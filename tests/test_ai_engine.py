@@ -344,11 +344,13 @@ class BillingTests(unittest.TestCase):
 
     def test_budget_counts_only_api_dollars(self):
         from src.ai import budget
-        rows = [{'properties': {'AI cost (USD)': {'type': 'number', 'number': 0}, 'Billed to': {'type': 'select', 'select': {'name': 'Claude subscription'}}}},
-                {'properties': {'AI cost (USD)': {'type': 'number', 'number': 1.5}}}]
-        tracker = SimpleNamespace(query_database=lambda db, flt: rows)
+        from datetime import datetime, timezone
+        from src.stores import memory
+        stores, now = memory.open_store(), datetime.now(timezone.utc).isoformat(timespec='seconds')
+        stores.cron_runs.put({'kind': 'insight', 'started_at': now, 'stats': {'ai_cost_usd': 0, 'billed_to': 'Claude subscription'}})
+        stores.cron_runs.put({'kind': 'insight', 'started_at': now, 'stats': {'ai_cost_usd': 1.5}})
         with mock.patch.object(budget, 'admin_key', lambda: None):
-            info = budget.status(tracker)
+            info = budget.status(stores)
         self.assertEqual(info['spent'], 1.5)
 
 

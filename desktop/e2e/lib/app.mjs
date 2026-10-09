@@ -13,6 +13,7 @@ export const DESKTOP = path.resolve(E2E, '..');
 // Windows has no .bin/electron executable (it is a .cmd that Playwright cannot start): the package itself says where electron.exe is. Elsewhere: unchanged.
 import {createRequire} from 'node:module';
 import {appLogText} from './app-log.mjs';
+import {keepRunLogs} from './run-logs.mjs';
 const electronPath = () => {
   if (process.platform !== 'win32') return path.join(DESKTOP, 'node_modules', '.bin', 'electron');
   return createRequire(path.join(DESKTOP, 'package.json'))('electron');
@@ -25,11 +26,11 @@ export const zoneOf = (env = {}) => env.TZ || 'Europe/Zurich';
 // Hidden windows (lib/e2e-hidden.js) only on the owner's Mac, so a run doesn't steal focus; CI is unchanged. E2E_HIDDEN=0 to watch, =1 to force.
 const hidden = (env = process.env) => (env.E2E_HIDDEN ? (env.E2E_HIDDEN === '1' ? '1' : '0') : (process.platform === 'darwin' && !env.CI ? '1' : '0'));
 
-export async function launch({env = {}, executablePath, args, profile: again, lang = ''} = {}) {   // lang: the window's language (Chromium's --lang), for a seeded place
+export async function launch({env = {}, executablePath, args, profile: again, lang = '', settings = {}} = {}) {   // lang: the window's language (Chromium's --lang), for a seeded place; settings: a fresh profile's start (the store, lib/store.mjs)
   const profile = again || fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-'));   // `again`: the same profile, a second start (a relaunch keeps the person's data)
   fs.mkdirSync(ARTIFACTS, {recursive: true});
   // The test app is a stranger to the product: no technical reports, no employer-pool sharing, nothing it learns leaves this computer.
-  if (!again) fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({telemetry: false, shareEmployers: false}));
+  if (!again) fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({telemetry: false, shareEmployers: false, ...settings}));
   // Linux (CI runners, 6 Oct 2026): no keyring there, so Chromium's basic password store keeps the app's keys (test keys only, a throwaway profile).
   const app = await electron.launch({
     executablePath: executablePath || electronPath(),
@@ -51,10 +52,10 @@ export async function launch({env = {}, executablePath, args, profile: again, la
   const shot = name => page.screenshot({path: path.join(ARTIFACTS, `${name}.png`)}).catch(() => {});
   // Copy the app's own logs next to the screenshots (the test profile holds only fictional data, and the logs never contain keys), and print the engine's last lines.
   const keepLogs = async () => {
-    const from = path.join(profile, 'logs'), to = path.join(ARTIFACTS, 'logs');
+    const from = path.join(profile, 'logs');
     try {
-      fs.mkdirSync(to, {recursive: true});
-      for (const name of fs.existsSync(from) ? fs.readdirSync(from) : []) fs.copyFileSync(path.join(from, name), path.join(to, name));
+      const counts = keepRunLogs(profile, ARTIFACTS);   // lib/run-logs.mjs: notion-requests.log and store-call.log are always there, empty when nothing was asked
+      console.log(`  logs kept: ${Object.entries(counts).map(([name, lines]) => `${name} ${lines} line(s)`).join(', ')}`);
       const engine = path.join(from, 'engine.log');
       if (fs.existsSync(engine)) console.log(`  --- the engine's last lines ---\n${fs.readFileSync(engine, 'utf8').split('\n').slice(-40).join('\n')}`);
     } catch { /* logs are a help, never a reason to fail */ }

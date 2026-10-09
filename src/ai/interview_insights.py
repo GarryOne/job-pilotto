@@ -23,10 +23,11 @@ import re
 import sys
 import urllib.error
 
-from ..notion import client as notion, titles
-from ..notion.ledger import plain
+from ..stores import open_stores
+from ..stores.notion_blocks import plain_text, to_blocks
 from . import engine
 from . import budget, cost, interviews, meanings
+from .interviews_apps import app_by_id, role, who
 from .interview_insights_text import (  # noqa: F401 — moved; kept importable from here
     CATEGORY, BASIS, MIN_SUPPORT, ROUND_TYPES, REVIEW_SECTIONS, MAX_REVIEW_CHARS, TRANSCRIPT_CHARS, TRANSCRIPT_BUDGET,
     KINDS, DATA_VERSION, SCHEMA, SYSTEM,
@@ -51,33 +52,37 @@ def round_type(round_):
 FINGERPRINT_COLUMNS = ('Interview', 'Round', 'Overall', 'Topics', 'Weak topics', 'Next step', 'Questions', 'Weak answers', 'Date')
 
 
-def reviewed_rows(tracker):
-    """🎤 Interviews rows with a review (Overall set), oldest first."""
-    if not interviews.INTERVIEWS_DATABASE_ID:
-        return []
-    rows = [r for r in tracker.query_database(interviews.INTERVIEWS_DATABASE_ID) if plain(r['properties'].get('Overall'))]
-    return sorted(rows, key=lambda r: (plain(r['properties'].get('Date')) or '', r['id']))
+def reviewed_rows(stores):
+    """The reviewed interviews (records), oldest first."""
+    rows = [r for r in stores.interviews.list() if r.get('overall')]
+    return sorted(rows, key=lambda r: (r.get('at') or '', r['id']))
+
+
+# The record field behind each FINGERPRINT_COLUMNS column, and whether Notion's plain() gave None for it when empty (a
+# select, a date, a number): the digest is the one written before the store, so a Notion user's insight stays current.
+FINGERPRINT_FIELDS = (('title', False), ('round', False), ('overall', True), ('topics', False), ('weak_topics', False),
+                      ('next_step', False), ('questions', True), ('weak_answers', True), ('at', True))
 
 
 def fingerprint(rows):
-    """The same reviewed interviews with the same review columns -> the same value (order doesn't matter)."""
-    items = sorted([r['id'].replace('-', ''), [plain(r['properties'].get(c)) for c in FINGERPRINT_COLUMNS],
-                    sorted(l['id'].replace('-', '') for l in (r['properties'].get('Application') or {}).get('relation', []))]
+    """The same reviewed interviews with the same review fields -> the same value (order doesn't matter)."""
+    items = sorted([r['id'].replace('-', ''), [None if empty_is_none and r.get(field) in ('', None) else r.get(field)
+                                               for field, empty_is_none in FINGERPRINT_FIELDS],
+                    [r['app_id'].replace('-', '')] if r.get('app_id') else []]
                    for r in rows)
     return hashlib.sha256(json.dumps(items, ensure_ascii=False, default=str).encode()).hexdigest()[:24]
 
 
-def review_text(tracker, page_id):
-    """The review on an interview page, by section: {'summary', 'strengths', 'weak_spots', 'practice', 'signals',
+def review_text(review):
+    """An interview's review (Markdown), by section: {'summary', 'strengths', 'weak_spots', 'practice', 'signals',
     'weak_answers', 'mixed_answers', 'against'}: ⚠️/❌ questions are weak answers, ➖ ones mixed (their "Better:" lines matter
     too). The transcript is read separately (transcript_of)."""
     out = {'summary': '', 'strengths': [], 'weak_spots': [], 'practice': [], 'signals': [], 'weak_answers': [], 'mixed_answers': [],
            'against': []}
     section = None
-    for block in tracker._children(page_id):
+    for block in to_blocks(review or ''):
         kind = block.get('type')
-        body = block.get(kind) or {}
-        text = plain({'type': 'rich_text', 'rich_text': body.get('rich_text', [])}) or ''
+        text = plain_text((block.get(kind) or {}).get('rich_text'))
         if kind == 'heading_3':
             if text == 'Transcript':
                 break
@@ -93,44 +98,24 @@ def review_text(tracker, page_id):
     return out
 
 
-def transcript_of(tracker, page_id, limit):
-    """The interview's saved transcript, at most `limit` characters; '' when it has none or it can't be read."""
-    if limit <= 0:
-        return ''
-    try:
-        return interviews.saved_transcript(tracker, page_id)[:limit]
-    except Exception:  # noqa: BLE001 - notes without a transcript, an older page: the review alone
-        return ''
-
-
-def _app(tracker, app_id, seen):
-    if app_id not in seen:
-        try:
-            props = tracker._request('GET', f'pages/{app_id}')['properties']
-            seen[app_id] = {'company': plain(props.get('Company')) or plain(props.get('Via')) or '', 'job': titles.row_role(props)}
-        except Exception:  # noqa: BLE001 - a trashed or unshared application: the interview still counts
-            seen[app_id] = {}
-    return seen[app_id]
-
-
-def gather(tracker, rows):
-    """The model's input, one entry per reviewed interview, labelled I1, I2… (oldest first)."""
-    items, apps = [], {}
+def gather(stores, rows):
+    """The reviewed interviews as the prompt's items (I1, I2, …): their fields, review sections, job and transcript."""
+    apps = stores.applications.list()
+    split = lambda value: [t.strip() for t in (value or '').split(';') if t.strip()]
+    items, transcripts = [], {}
     for n, row in enumerate(rows, 1):
-        p = row['properties']
-        relation = (p.get('Application') or {}).get('relation', [])
-        app = _app(tracker, relation[0]['id'], apps) if relation else {}
-        review = review_text(tracker, row['id'])
-        split = lambda value: [t.strip() for t in (value or '').split(';') if t.strip()]
+        full = stores.interviews.get(row['id']) or row
+        transcripts[row['id']] = full.get('transcript') or ''
+        app = app_by_id(stores, row.get('app_id'), apps) if row.get('app_id') else None
         items.append({
-            'label': f'I{n}', 'id': row['id'], 'url': row.get('url', ''), 'title': plain(p.get('Interview')) or 'Interview',
-            'date': plain(p.get('Date')) or '', 'round': plain(p.get('Round')) or '', 'round_type': round_type(plain(p.get('Round'))),
-            'company': app.get('company', ''), 'job': app.get('job', ''), 'outcome': plain(p.get('Overall')) or '',
-            'topics': split(plain(p.get('Topics'))), 'weak_topics': split(plain(p.get('Weak topics'))),
-            'next_step': plain(p.get('Next step')) or '', **review})
+            'label': f'I{n}', 'id': row['id'], 'url': stores.link(row['id']) or '', 'title': row.get('title') or 'Interview',
+            'date': row.get('at') or '', 'round': row.get('round') or '', 'round_type': round_type(row.get('round')),
+            'company': who(app), 'job': role(app) if app else '', 'outcome': row.get('overall') or '',
+            'topics': split(row.get('topics')), 'weak_topics': split(row.get('weak_topics')),
+            'next_step': row.get('next_step') or '', **review_text(full.get('review'))})
     left = TRANSCRIPT_BUDGET  # newest first: the latest interviews matter most
     for item in reversed(items):
-        item['transcript'] = transcript_of(tracker, item['id'], min(TRANSCRIPT_CHARS, left))
+        item['transcript'] = transcripts[item['id']][:max(min(TRANSCRIPT_CHARS, left), 0)]
         left -= len(item['transcript'])
     return items
 
@@ -218,24 +203,10 @@ def validate(result, items):
 
 # ---------- storage: one upserted 💡 Insights row ----------
 
-def _rich(value):
-    value = value or ''
-    return {'rich_text': [{'text': {'content': value[i:i + 2000]}} for i in range(0, min(len(value), 100 * 2000), 2000)]}
-
-
-def existing(tracker):
-    """The Interview patterns row, or None (the newest if several)."""
-    if not insights_db():
-        return None
-    try:
-        rows = tracker.query_database(insights_db(), {'property': 'Category', 'select': {'equals': CATEGORY}})
-    except urllib.error.HTTPError as error:
-        # 400: the workspace doesn't have the "Interview patterns" option (or Category) yet, because the app's schema
-        # repair hasn't run: Notion refuses a filter on an unknown option. Read the rows and pick it here instead.
-        if error.code != 400:
-            raise
-        rows = [r for r in tracker.query_database(insights_db()) if plain((r.get('properties') or {}).get('Category')) == CATEGORY]
-    return max(rows, key=lambda r: r.get('last_edited_time', '')) if rows else None
+def existing(stores):
+    """The Interview patterns insight (a record), or None (the newest if several)."""
+    rows = stores.insights.list(category=CATEGORY)
+    return rows[0] if rows else None
 
 
 def evidence_lines(stored, items):
@@ -256,77 +227,65 @@ def step_key(text):
 
 def _row_data(row):
     try:
-        return json.loads(plain((row.get('properties') or {}).get('Data')) or '{}')
+        return json.loads(((row or {}).get('fields') or {}).get('data') or '{}')
     except ValueError:
         return {}
 
 
-def properties(stored, items, digest, model_, usd, now, done=()):
+def record_of(stored, items, digest, model_, usd, now, done=()):
+    """The Interview patterns insight as a store record: its numbers in fields, the whole result in fields['data'] (JSON)."""
     keys = {step_key(step['text']) for step in stored['next_steps']}
     data = {'v': DATA_VERSION, 'headline_detail': stored.get('headline_detail') or '', 'patterns': stored['patterns'], 'next_steps': stored['next_steps'], 'nothing_useful': stored['nothing_useful'],
             'done_steps': [key for key in done if key in keys],
             'interviews': [{'id': i['id'], 'title': i['title'], 'url': i['url'], 'round_type': i['round_type'], 'date': i['date']}
                            for i in items],
             'updated': now.isoformat(timespec='seconds')}
-    return {
-        'Insight': {'title': [{'text': {'content': stored['headline'][:200]}}]},
-        'Date': {'date': {'start': now.date().isoformat()}},
-        'Category': {'select': {'name': CATEGORY}},
-        'Basis': {'select': {'name': BASIS}},
-        'Confidence': {'select': {'name': stored['confidence']}},
-        'Sample size': {'number': len(items)},
-        'Evidence': _rich(evidence_lines(stored, items)[:2000]),
-        'Action': _rich('\n'.join(f"• {s['text']}" for s in stored['next_steps'])[:2000]),
-        'Cost (USD)': {'number': round(usd, 4)},
-        'Model': _rich(model_),
-        'Input hash': _rich(digest),
-        'Data': _rich(json.dumps(data, ensure_ascii=False)),
-    }
+    return {'title': stored['headline'][:200], 'day': now.date().isoformat(), 'category': CATEGORY, 'fields': {
+        'basis': BASIS, 'confidence': stored['confidence'], 'sample_size': len(items),
+        'evidence': evidence_lines(stored, items)[:2000], 'action': '\n'.join(f"• {s['text']}" for s in stored['next_steps'])[:2000],
+        'cost': round(usd, 4), 'model': model_, 'input_hash': digest, 'data': json.dumps(data, ensure_ascii=False)}}
 
 
-def upsert(tracker, props, row=None):
-    """Update the Interview patterns row, or create it; a column the workspace lacks yet is dropped, never the row."""
-    from ..notion.cron_runs import _without_missing
+def upsert(stores, values, row=None):
+    """Update the Interview patterns insight in place (its fields merged), or add it."""
     if row:
-        return _without_missing(lambda p: tracker._request('PATCH', f"pages/{row['id']}", {'properties': p}), props) or row
-    return _without_missing(lambda p: tracker._request('POST', 'pages', {'parent': {'database_id': insights_db()}, 'properties': p}), props)
+        if 'fields' in values:
+            values = {**values, 'fields': {**(row.get('fields') or {}), **values['fields']}}
+        return stores.insights.update(row['id'], values)
+    return stores.insights.add(values)
 
 
-def saved(tracker):
+def saved(stores):
     """The stored insight for the app: {headline, confidence, interviews, updated, patterns, next_steps, url, evidence,
     action}, or None. Evidence/Action (text) are for a row written before its Data column existed."""
-    row = existing(tracker)
+    row = existing(stores)
     if not row:
         return None
-    p = row['properties']
-    try:
-        data = json.loads(plain(p.get('Data')) or '{}')
-    except ValueError:
-        data = {}
-    return {'id': row['id'], 'url': row.get('url', ''), 'headline': plain(p.get('Insight')) or '',
-            'confidence': plain(p.get('Confidence')) or 'low', 'sample': plain(p.get('Sample size')) or 0,
-            'updated': data.get('updated') or row.get('last_edited_time', ''),
+    fields, data = row.get('fields') or {}, _row_data(row)
+    return {'id': row['id'], 'url': stores.link(row['id']) or '', 'headline': row.get('title') or '',
+            'confidence': fields.get('confidence') or 'low', 'sample': fields.get('sample_size') or 0,
+            'updated': data.get('updated') or row.get('created_at', ''),
             'version': data.get('v') or 1, 'headline_detail': data.get('headline_detail') or '', 'patterns': data.get('patterns') or [],
             'next_steps': [{**step, 'done': step_key(step.get('text')) in (data.get('done_steps') or [])}
                            for step in data.get('next_steps') or []], 'interviews': data.get('interviews') or [],
-            'nothing_useful': bool(data.get('nothing_useful')), 'done_steps': data.get('done_steps') or [], 'evidence': plain(p.get('Evidence')) or '',
-            'action': plain(p.get('Action')) or '', 'input_hash': plain(p.get('Input hash')) or '',
-            'outdated': _outdated(tracker, plain(p.get('Input hash')))}
+            'nothing_useful': bool(data.get('nothing_useful')), 'done_steps': data.get('done_steps') or [], 'evidence': fields.get('evidence') or '',
+            'action': fields.get('action') or '', 'input_hash': fields.get('input_hash') or '',
+            'outdated': _outdated(stores, fields.get('input_hash'))}
 
 
-def _outdated(tracker, stored):
+def _outdated(stores, stored):
     """A review changed (or one was added) since the insight was written: Review again doesn't refresh it, and a review
     on GitHub writes it after the review. The card says so instead of looking current. False when it can't tell."""
     try:
-        return bool(stored) and fingerprint(reviewed_rows(tracker)) != stored
+        return bool(stored) and fingerprint(reviewed_rows(stores)) != stored
     except Exception:  # noqa: BLE001 - the card shows the insight either way
         return False
 
 
-def set_step_done(tracker, text, done):
-    """Tick or untick one "Practice next" step, saved in the insight row's Data (Notion holds the one copy). Returns
+def set_step_done(stores, text, done):
+    """Tick or untick one "Practice next" step, saved in the insight's data (the store holds the one copy). Returns
     {'done_steps': [...]}. ValueError when there are no insights or the step isn't one of them."""
-    row = existing(tracker)
+    row = existing(stores)
     if not row:
         raise ValueError('There are no interview insights yet.')
     data = _row_data(row)
@@ -335,39 +294,41 @@ def set_step_done(tracker, text, done):
         raise ValueError('That is not a step of the current insights (Refresh may have replaced it).')
     kept = [k for k in data.get('done_steps') or [] if k != key]
     data['done_steps'] = kept + [key] if done else kept
-    upsert(tracker, {'Data': _rich(json.dumps(data, ensure_ascii=False))}, row)
+    upsert(stores, {'fields': {'data': json.dumps(data, ensure_ascii=False)}}, row)
     return {'done_steps': data['done_steps']}
 
 
-def update(tracker, *, client=None, model_=None, stats=None, now=None, force=False, budget_status=None):
+def update(*, client=None, model_=None, stats=None, now=None, force=False, budget_status=None, stores=None):
     """Bring the Interview patterns row up to date with the reviews. Returns {'status', 'text', ...}: status is
     'updated', 'unchanged' (no AI call), 'none' (no reviewed interview), 'paused' (AI budget) or 'off' (no Insights
-    database). force: call even when the input is unchanged (never used by the app: it would spend twice)."""
+    database). force: call even when the input is unchanged (never used by the app: it would spend twice). stores: the active
+    store (else open_stores())."""
+    stores = stores or open_stores()
     # One refresh at a time on this Mac (the app, the terminal, a review's own refresh): the second one waits, then finds
     # the row current and makes no AI call (two paid Opus refreshes at 14:09 on 30 Sep 2026).
     from ..paths import run_lock
     with run_lock(name='insights', on_wait=lambda: print('Another interview-insights refresh is running: waiting for it…', file=sys.stderr)):
-        return _update(tracker, client=client, model_=model_, stats=stats, now=now, force=force, budget_status=budget_status)
+        return _update(stores, client=client, model_=model_, stats=stats, now=now, force=force, budget_status=budget_status)
 
 
-def _update(tracker, *, client, model_, stats, now, force, budget_status):
+def _update(stores, *, client, model_, stats, now, force, budget_status):
     now = now or datetime.now(timezone.utc)
-    if not insights_db() or not interviews.INTERVIEWS_DATABASE_ID:
+    if stores.name == 'notion' and (not insights_db() or not interviews.INTERVIEWS_DATABASE_ID):
         return {'status': 'off', 'text': 'Interview insights: no 💡 Insights or 🎤 Interviews database'}
-    rows = reviewed_rows(tracker)
+    rows = reviewed_rows(stores)
     if not rows:
         return {'status': 'none', 'text': 'Interview insights: no reviewed interview yet'}
-    digest, row = fingerprint(rows), existing(tracker)
-    if row and not force and plain(row['properties'].get('Input hash')) == digest and (_row_data(row).get('v') or 1) >= DATA_VERSION:
+    digest, row = fingerprint(rows), existing(stores)
+    if row and not force and (row.get('fields') or {}).get('input_hash') == digest and (_row_data(row).get('v') or 1) >= DATA_VERSION:
         return {'status': 'unchanged', 'text': f'Interview insights: up to date ({len(rows)} reviewed, nothing changed)', 'usd': 0.0}
     try:
-        info = (budget_status or budget.status)(tracker)
+        info = (budget_status or budget.status)(stores)
     except Exception as error:  # noqa: BLE001 - a budget read that fails never blocks it
         print(f'Warning: budget check skipped: {type(error).__name__}: {error}')
         info = {'level': 'ok'}
     if info.get('level') == 'pause':
         return {'status': 'paused', 'text': f"Interview insights: paused, AI budget at {info.get('pct', 0):.0%}"}
-    items = gather(tracker, rows)
+    items = gather(stores, rows)
     model_ = model_ or model()
     if client is None:
         client = engine.client(action='interview')
@@ -379,15 +340,15 @@ def _update(tracker, *, client, model_, stats, now, force, budget_status):
         stats['done'] = stats.get('done', 0) + 1
     stored = validate(result, items)
     done = _row_data(row).get('done_steps') or [] if row else []  # ticks stay for steps whose words are still there
-    page = upsert(tracker, properties(stored, items, digest, cost.answered(model_, usage), usd, now, done), row)
-    return {'status': 'updated', 'usd': usd, 'url': (page or {}).get('url', ''), 'headline': stored['headline'],
+    saved_row = upsert(stores, record_of(stored, items, digest, cost.answered(model_, usage), usd, now, done), row)
+    return {'status': 'updated', 'usd': usd, 'url': stores.link(saved_row['id']) or '', 'headline': stored['headline'],
             'text': f"Interview insights updated from {len(items)} interview(s): {stored['headline']} ({usd:.3f} USD)"}
 
 
-def after_review(tracker, stats=None, client=None):
+def after_review(stats=None, client=None, stores=None):
     """Called at the end of a saved review: never fails the review. Returns the one-line result, or ''."""
     try:
-        return update(tracker, stats=stats, client=client)['text']
+        return update(stats=stats, client=client, stores=stores)['text']
     except Exception as error:  # noqa: BLE001 - the review is saved; insights catch up on the next review or Refresh
         if cost.limit_reached(error):
             from . import providers
@@ -408,23 +369,23 @@ def main(argv=None):
     parser.add_argument('--text', default='')
     parser.add_argument('--done', choices=('yes', 'no'), default='yes')
     args = parser.parse_args(argv)
-    tracker = notion.Tracker.from_env()
-    if not tracker:
+    if interviews.notion_unusable(os.environ):
         print(json.dumps({'ok': False, 'error': 'Connect Notion first'}))
         return 1
+    stores = open_stores()
     if args.command == 'step':
         try:
-            print(json.dumps({'ok': True, **set_step_done(tracker, args.text, args.done == 'yes')}, ensure_ascii=False))
+            print(json.dumps({'ok': True, **set_step_done(stores, args.text, args.done == 'yes')}, ensure_ascii=False))
             return 0
         except (ValueError, urllib.error.URLError) as error:
             print(json.dumps({'ok': False, 'error': str(error)}))
             return 1
-    from ..notion import cron_runs
-    run = cron_runs.new_run('insight')
+    from .. import run_log
+    run = run_log.new_run('insight')
     run['insight'] = {}
     run['name'] = RUN_NAME  # "Interview insights" in the run's title, not the daily "Insight"
     try:
-        out = update(tracker, stats=run['insight'])
+        out = update(stats=run['insight'], stores=stores)
     except Exception as error:  # noqa: BLE001 - the page says what failed
         # The page gets a friendly sentence; the log keeps which error it was (a spend limit and a rate limit read alike there).
         print(f'interview insights failed: {type(error).__name__} status={getattr(error, "status_code", "")} '
@@ -433,11 +394,11 @@ def main(argv=None):
             f'Could not update the interview insights: {type(error).__name__}: {error}'
         print(json.dumps({'ok': False, 'error': text}))
         return 1
-    if out['status'] == 'updated':  # a run with an AI call leaves its ⏱️ Search runs row (its cost counts for the budget)
+    if out['status'] == 'updated':  # a run with an AI call leaves its row, on any store (its cost counts for the budget)
         run['headline'] = out['text']
         run['seconds'] = int((datetime.now(timezone.utc) - datetime.fromisoformat(run['started_at'])).total_seconds())
-        cron_runs.log_run(tracker, run)
-    print(json.dumps({'ok': True, 'status': out['status'], 'text': out['text'], 'insight': saved(tracker)}, ensure_ascii=False))
+        run_log.log_run(stores, run)
+    print(json.dumps({'ok': True, 'status': out['status'], 'text': out['text'], 'insight': saved(stores)}, ensure_ascii=False))
     return 0
 
 

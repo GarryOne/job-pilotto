@@ -14,6 +14,7 @@ import {openSession, renderSessionPage, say} from './session-log.js';
 import {firstLine, refreshSessions, renderDock, sessionCompany, sessionList} from './sessions.js';
 import {toastMessage} from './startup.js';
 import {showFormCard} from './session-form-card.js';
+import {storeName} from '../store-words.js';
 
 // Something only you can do, with its most likely action one click away: a judgement call (Claude's proposed
 // answer, or another you saved for the same question) or an agreement (open the form to tick it).
@@ -373,7 +374,7 @@ export function askRow(need, item) {
     const value = input.value.trim();
     if (!value) { tick.checked = false; note.textContent = 'Write an answer first'; input.focus(); return; }
     tick.disabled = input.disabled = true;
-    note.textContent = 'Saving to Notion…';
+    note.textContent = `Saving to ${storeName()}…`;
     const result = await window.pilot.rememberAnswer(need.question, value);
     if (result.ok) { savedAnswers.set(need.question, value); keep(); note.textContent = `Remembered ${shown()} for future forms`; box.classList.add('is-saved'); return; }
     tick.checked = tick.disabled = input.disabled = false;

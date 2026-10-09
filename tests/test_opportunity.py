@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import desktop
 from src.ai import mail, opportunity
 from tests.test_mail import NOW, FakeGoogle, FakeTracker, app, email, result
+from tests.mail_fakes import content, stores_for
 
 EMAIL_PITCH = """Hi Sam,
 
@@ -64,7 +65,7 @@ class Tracker(FakeTracker):
 class OpportunityTests(unittest.TestCase):
     def test_a_recruiter_email_becomes_a_recruiter_lead_with_the_message_on_its_page(self):
         tracker, client = Tracker(), Client(EMAIL_LEAD)
-        line = opportunity.add_from_text(tracker, EMAIL_PITCH, client=client)
+        line = opportunity.add_from_text(stores_for(tracker), EMAIL_PITCH, client=client)
         row, event = tracker.created
         self.assertEqual(row['Stage'], {'select': {'name': 'Recruiter lead'}})
         self.assertEqual(row['Channel'], {'select': {'name': 'Agency'}})
@@ -74,36 +75,33 @@ class OpportunityTests(unittest.TestCase):
         self.assertIn('Client: logistics software', row['Notes']['rich_text'][0]['text']['content'])
         self.assertEqual(row['Work mode'], {'select': {'name': 'Remote'}})
         self.assertEqual(event['Kind'], {'select': {'name': 'Recruiter lead'}})
-        heading, blocks = tracker.bodies['new-1']
-        self.assertEqual(heading, opportunity.HEADING)
-        self.assertIn('Would you be open', json.dumps(blocks, ensure_ascii=False))
+        written = tracker.written_under('new-1')  # the job's page: the message section, as replace_after_heading wrote it
+        self.assertIn(opportunity.HEADING, written)
+        self.assertIn('Would you be open', written)
         self.assertIn('Senior DevOps Engineer — logistics software, Series A (client) via Example Talent', line)
         self.assertIn('(Recruiter lead)', line)
 
     def test_pasting_the_same_message_twice_keeps_one_row(self):
         tracker = Tracker()
-        opportunity.add_from_text(tracker, EMAIL_PITCH, client=Client(EMAIL_LEAD))
-        again = opportunity.add_from_text(tracker, EMAIL_PITCH + '\n', client=Client(EMAIL_LEAD))
+        opportunity.add_from_text(stores_for(tracker), EMAIL_PITCH, client=Client(EMAIL_LEAD))
+        again = opportunity.add_from_text(stores_for(tracker), EMAIL_PITCH + '\n', client=Client(EMAIL_LEAD))
         self.assertTrue(again.startswith('Already tracked'))
         self.assertEqual(len([p for p in tracker.created if 'Stage' in p]), 1)
 
     def test_where_the_recruiter_reached_you_is_kept(self):
         tracker = Tracker()
-        opportunity.add_from_text(tracker, CHAT_PITCH, client=Client(CHAT_LEAD))
+        opportunity.add_from_text(stores_for(tracker), CHAT_PITCH, client=Client(CHAT_LEAD))
         self.assertEqual(tracker.created[0]['Reached via'], {'select': {'name': 'LinkedIn'}})
         # Source = where it started: a LinkedIn chat pasted into the app is LinkedIn; a pasted email keeps the app's
         self.assertEqual(tracker.created[0]['Source'], {'select': {'name': 'LinkedIn'}})
-        opportunity.add_from_text(tracker, EMAIL_PITCH, client=Client(EMAIL_LEAD))
+        opportunity.add_from_text(stores_for(tracker), EMAIL_PITCH, client=Client(EMAIL_LEAD))
         self.assertEqual([p for p in tracker.created if 'Stage' in p][-1]['Source'], {'select': {'name': 'Manual'}})
 
     def test_the_same_pitch_from_gmail_and_pasted_is_one_lead(self):
         emailed = app('g1', '', 'Senior DevOps Engineer', stage='Recruiter lead', contact='Alex Morgan · alex@example-talent.test')
 
-        class Seen(Tracker):
-            def query_database(self, database_id, filter_=None):
-                return [emailed] if filter_ and 'or' in filter_ else super().query_database(database_id, filter_)
-        tracker = Seen()
-        line = opportunity.add_from_text(tracker, EMAIL_PITCH, client=Client(EMAIL_LEAD))
+        tracker = Tracker([emailed])
+        line = opportunity.add_from_text(stores_for(tracker), EMAIL_PITCH, client=Client(EMAIL_LEAD))
         self.assertTrue(line.startswith('Already tracked'))
         self.assertEqual(tracker.created, [])
 
@@ -114,12 +112,12 @@ class OpportunityTests(unittest.TestCase):
         done = app('o2', '', 'SRE', stage='Recruiter lead')
         done['properties']['Reached via'] = {'type': 'select', 'select': {'name': 'Email'}}
         tracker = Tracker([old, done])
-        self.assertEqual(opportunity.backfill_reached(tracker), 1)
+        self.assertEqual(opportunity.backfill_reached(stores_for(tracker)), 1)
         self.assertEqual(tracker.updates, [('o1', {'Reached via': {'select': {'name': 'LinkedIn'}}})])
 
     def test_a_conversation_where_the_owner_said_yes_starts_at_screening(self):
         tracker = Tracker()
-        line = opportunity.add_from_text(tracker, CHAT_PITCH, client=Client(CHAT_LEAD))
+        line = opportunity.add_from_text(stores_for(tracker), CHAT_PITCH, client=Client(CHAT_LEAD))
         row = tracker.created[0]
         self.assertEqual(row['Stage'], {'select': {'name': 'Screening'}})
         self.assertTrue(row['Job URL']['url'].startswith('https://www.linkedin.com/messaging/#jp-'))
@@ -129,9 +127,9 @@ class OpportunityTests(unittest.TestCase):
     def test_short_text_and_non_pitches_are_refused_without_writing(self):
         tracker = Tracker()
         with self.assertRaisesRegex(ValueError, 'whole recruiter message'):
-            opportunity.add_from_text(tracker, 'on or before 23 Sep', client=Client())
+            opportunity.add_from_text(stores_for(tracker), 'on or before 23 Sep', client=Client())
         with self.assertRaisesRegex(ValueError, "doesn't read like"):
-            opportunity.add_from_text(tracker, 'Your weekly job alert: 25 new DevOps jobs near Zurich …',
+            opportunity.add_from_text(stores_for(tracker), 'Your weekly job alert: 25 new DevOps jobs near Zurich …',
                                       client=Client(dict(EMAIL_LEAD, is_opportunity=False)))
         self.assertEqual(tracker.created, [])
 
@@ -168,7 +166,7 @@ class MailOutreachTests(unittest.TestCase):
         self.assertEqual(row['Source'], {'select': {'name': 'Gmail'}})
         self.assertEqual(row['Job URL']['url'], 'https://mail.google.com/mail/u/0/#all/m1')
         self.assertEqual(event['At'], {'date': {'start': '2026-09-26T09:00:00+02:00'}})
-        self.assertIn(('new-2', {'Source ID': {'rich_text': [{'text': {'content': 'm1'}}]}}), tracker.updates)
+        self.assertIn(('new-2', 'm1'), [(page, content(u['Source ID'])) for page, u in tracker.updates if 'Source ID' in u])
         self.assertIn('<b>New recruiter lead · Senior DevOps Engineer', sent[0])
         self.assertIn('Recruiter outreach', client.calls[0]['system'][0]['text'])
 
@@ -188,14 +186,14 @@ class MailOutreachTests(unittest.TestCase):
         lead = app('p1', '', 'Senior DevOps Engineer', stage='Recruiter lead', via='Example Talent')
         tracker, filters = Tracker([lead, app('p2', 'Acme', 'SRE', stage='Dismissed')]), []
         tracker.query_database = lambda db, f=None: filters.append(f) or tracker.apps
-        self.assertEqual([r['id'] for r in mail.applications(tracker)], ['p1'])  # the lead, not the dismissed job
+        self.assertEqual([r['id'] for r in mail.applications(stores_for(tracker))], ['p1'])  # the lead, not the dismissed job
         self.assertEqual(filters, [None])  # no Stage filter: Notion refuses one for a choice the workspace lacks
 
     def test_a_workspace_without_the_recruiter_lead_choice_still_gets_its_mail_checked(self):
         # The choice a workspace lacks is only ever a row this check filters out itself, never a 400.
         tracker, filters = Tracker([app('p1', 'Scale AI', 'SRE')]), []
         tracker.query_database = lambda db, f=None: filters.append(f) or [app('p1', 'Scale AI', 'SRE')]
-        self.assertEqual([r['id'] for r in mail.applications(tracker)], ['p1'])
+        self.assertEqual([r['id'] for r in mail.applications(stores_for(tracker))], ['p1'])
         self.assertEqual(filters, [None])
 
 
@@ -217,3 +215,29 @@ class CleanMessageTests(unittest.TestCase):
     def test_a_clean_message_has_no_fold(self):
         from src.ai import opportunity as o
         self.assertNotIn('toggle', [b['type'] for b in o.message_blocks('Hi Igor,\n\nA Senior SRE role in Zurich.')])
+
+
+class OpportunityOnTheMemoryStoreTests(unittest.TestCase):
+    """The same command without Notion (the memory store, as sqlite runs it)."""
+
+    def setUp(self):
+        from src.stores import memory
+        self.s = memory.open_store({})
+
+    def test_a_pasted_pitch_is_a_lead_with_its_message_and_event_once(self):
+        line = opportunity.add_from_text(self.s, EMAIL_PITCH, client=Client(EMAIL_LEAD))
+        self.assertIn('(Recruiter lead)', line)
+        [job] = self.s.applications.list()
+        self.assertEqual((job['stage'], job['via'], job['company'], job['origin'], job['reached_via']),
+                         ('Recruiter lead', 'Example Talent', '', 'Inbound', 'Email'))
+        self.assertIn('Would you be open', self.s.applications.section(job['id'], opportunity.HEADING))
+        self.assertEqual([e['kind'] for e in self.s.events.list(app_id=job['id'])], ['Recruiter lead'])
+        self.assertTrue(opportunity.add_from_text(self.s, EMAIL_PITCH + '\n', client=Client(EMAIL_LEAD)).startswith('Already tracked'))
+        self.assertEqual(len(self.s.applications.list()), 1)
+
+    def test_older_leads_get_reached_via_from_their_notes(self):
+        old = self.s.applications.create({'url': 'https://x.test/o1', 'title': 'SRE', 'notes': 'Recruiter message (LinkedIn). x'},
+                                         'Recruiter lead')
+        self.assertEqual(opportunity.backfill_reached(self.s), 1)
+        self.assertEqual(self.s.applications.get('https://x.test/o1')['reached_via'], 'LinkedIn')
+        self.assertEqual(opportunity.backfill_reached(self.s), 0, old['id'])

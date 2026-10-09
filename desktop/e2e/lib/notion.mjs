@@ -257,10 +257,12 @@ export async function addKitJob(token, {title, company, url, kit, fit = 80, desc
     Job: {title: text(title)}, Company: {rich_text: text(company)}, 'Job URL': {url}, Stage: {select: {name: stage}},
     'Next step': {rich_text: text(nextStep)}, 'Fit score': {number: fit}, Location: {rich_text: text('Zurich, Switzerland')}},
   // kit: null = a job without a drafted kit (a saved job the person has not prepared yet).
-  children: [...(kit ? [{object: 'block', type: 'heading_3', heading_3: {rich_text: text('📝 Application kit'), is_toggleable: true,
+  // The app's own shape: each section is a heading_2 (src/ai/kit.py: a toggle; src/notion/client.py replace_after_heading), and the engine's store reads
+  // only heading_1/2 as sections (src/stores/notion.py _sections). 9 Oct 2026: written as heading_3 here, Tailor CV found no description on the stand-in.
+  children: [...(kit ? [{object: 'block', type: 'heading_2', heading_2: {rich_text: text('📝 Application kit'), is_toggleable: true,
     children: [{object: 'block', type: 'code', code: {language: 'json', rich_text: text(JSON.stringify(kit))}}]}}] : []),
     // What a pasted message or "Add details" leaves on the job's page (src/ai/inbox.py): the posting a tailored CV is written from.
-    ...(description ? [{object: 'block', type: 'heading_3', heading_3: {rich_text: text('🧾 Job description')}},
+    ...(description ? [{object: 'block', type: 'heading_2', heading_2: {rich_text: text('🧾 Job description')}},
       {object: 'block', type: 'paragraph', paragraph: {rich_text: text(description)}}] : [])]});
 }
 

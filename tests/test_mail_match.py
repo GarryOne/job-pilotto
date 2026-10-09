@@ -12,7 +12,7 @@ from src.ai import mail
 from src.notion import ledger
 from src.sources import google as google_api
 from tests import zone
-from tests.mail_fakes import NOW, FakeClient, FakeGoogle, FakeTracker, MailCase, app, email, result, text
+from tests.mail_fakes import NOW, FakeClient, FakeGoogle, FakeTracker, MailCase, app, content, email, rec, result, text
 
 setUpModule, tearDownModule = zone.pinned()
 
@@ -22,7 +22,7 @@ class MailMatchTests(MailCase):
         apps = [app('p1', 'Grafana Labs', 'Staff SRE | Sweden'), app('p2', 'Grafana Labs', 'Staff SRE | Germany')]
         tracker, google = FakeTracker(apps), FakeGoogle([email('g1', 'Your application for Grafana Labs')])
         stats = {}
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {'topics_answered_weakly': {}}):
             sent = []
             mail.run(tracker, google, client=FakeClient([[result(0, -1, 'Rejected', company='Grafana Labs')]]), days=2,
                      send=sent.append, calendar=False, now=NOW, state_path=self.state, stats=stats)
@@ -41,7 +41,7 @@ class MailMatchTests(MailCase):
                              email('r1', 'Your application for Grafana Labs', '2026-09-26T07:00:00+02:00')])
         tracker, stats = FakeTracker(apps), {}
         spain = dict(company='Grafana Labs', role='Staff SRE | Spain | Remote')
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {'topics_answered_weakly': {}}):
             mail.run(tracker, google, client=FakeClient([[{**result(0, -1, 'Confirmation received'), **spain},
                                                           {**result(1, -1, 'Rejected'), **spain}]]),
                      days=2, send=[].append, calendar=False, now=NOW, state_path=self.state, stats=stats)
@@ -53,16 +53,12 @@ class MailMatchTests(MailCase):
         self.assertTrue(any(line.startswith('❓') for line in stats['updates']))
 
     def test_a_role_on_the_list_but_never_marked_applied_becomes_the_application(self):
-        kit_ready = app('k1', 'Grafana Labs', 'Staff SRE | Spain | Remote', stage='Kit ready', applied='')
-
-        class Tracker(FakeTracker):
-            def query_database(self, database_id, filter_=None):
-                if filter_ and filter_.get('property') == 'Company':
-                    return [kit_ready]
-                return super().query_database(database_id, filter_)
-        tracker, stats = Tracker([app('p1', 'Grafana Labs', 'Staff SRE | Sweden | Remote')]), {}
+        # Saved, Kit ready and Applying are among the jobs the reader matches (mail.applications); a role outside them
+        # (dismissed, then applied to without marking it) is found by the check's scan of every row.
+        kit_ready = app('k1', 'Grafana Labs', 'Staff SRE | Spain | Remote', stage='Dismissed', applied='')
+        tracker, stats = FakeTracker([app('p1', 'Grafana Labs', 'Staff SRE | Sweden | Remote'), kit_ready]), {}
         google = FakeGoogle([email('r1', 'Your application for Grafana Labs', '2026-09-26T07:00:00+02:00')])
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}), \
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {'topics_answered_weakly': {}}), \
                 mock.patch('src.ai.mail.review_rejections', lambda *a, **k: []):
             mail.run(tracker, google, client=FakeClient([[{**result(0, -1, 'Rejected'), 'company': 'Grafana Labs',
                                                           'role': 'Staff SRE | Spain | Remote'}]]),
@@ -79,18 +75,18 @@ class MailMatchTests(MailCase):
         tracker = FakeTracker([lead])
         google = FakeGoogle([email('m1', 'Blinq - DevOps Engineer', sender='Sam <sam@agtalent.com>',
                                    body='Hi Igor, AG Talent here. Blinq is hiring a DevOps Engineer, B2B contract.')])
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {'topics_answered_weakly': {}}):
             mail.run(tracker, google, client=FakeClient([[{**result(0, -1, 'Reply received', company='Blinq'), 'role': 'DevOps Engineer'}]]),
                      days=2, send=[].append, calendar=False, now=NOW, state_path=self.state, stats={})
         self.assertEqual([p for p in tracker.created if 'Stage' in p], [])  # no twin row
-        self.assertIn(('p1', {'Company': {'rich_text': [{'text': {'content': 'Blinq'}}]}}), tracker.updates)  # the lead learns its employer
+        self.assertIn(('p1', 'Blinq'), [(p, content(u['Company'])) for p, u in tracker.updates if 'Company' in u])  # the lead learns its employer
 
     def test_an_email_that_only_shares_the_agency_with_a_lead_is_asked_about_not_merged_or_duplicated(self):
         lead = app('p1', '', 'Platform Engineer', stage='Screening', via='AG Talent', contact='Sam · sam@agtalent.com')
         tracker, sent = FakeTracker([lead]), []
         google = FakeGoogle([email('m1', 'Blinq - DevOps Engineer', sender='Pat <pat@other.example>',
                                    body='Hello, this is about AG Talent and a DevOps Engineer role at Blinq.')])
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {'topics_answered_weakly': {}}):
             mail.run(tracker, google, client=FakeClient([[{**result(0, -1, 'Reply received', company='Blinq'), 'role': 'DevOps Engineer'}]]),
                      days=2, send=sent.append, calendar=False, now=NOW, state_path=self.state, stats={})
         self.assertEqual([p for p in tracker.created if 'Stage' in p and 'Job' in p], [])  # no new row
@@ -174,7 +170,8 @@ class MailMatchTests(MailCase):
             made.append(lead)
             row = app(f'new{len(made)}', '', lead['title'], stage='Screening', via=lead.get('recruiter_company', ''),
                       contact=' · '.join(p for p in (lead.get('recruiter_name'), lead.get('recruiter_email')) if p))
-            return row, ''
+            tracker.apps.append(row)
+            return rec(tracker_, row), ''  # track() answers with the job's store record
         with mock.patch('src.ai.opportunity.extract', side_effect=RuntimeError('no AI in tests')), \
                 mock.patch('src.ai.opportunity.track', track):
             self.run_mail(tracker, FakeGoogle([invite, inmail]), [[
@@ -231,8 +228,10 @@ class MailMatchTests(MailCase):
         tracker = FakeTracker([app('p1', 'Scale AI', 'SRE')])
         google = FakeGoogle([email('h2', 'Connect Igor - SRE', sender='Jaya <j@att.test>')])
 
-        def track(tracker_, lead, text_, **options):
-            return app('new-lead', 'AT&T', lead['title'], stage='Screening', via=lead.get('recruiter_company', '')), ''
+        def track(tracker_, lead, text_, **options):  # track() answers with the job's store record
+            row = app('new-lead', 'AT&T', lead['title'], stage='Screening', via=lead.get('recruiter_company', ''))
+            tracker.apps.append(row)
+            return rec(tracker_, row), ''
         with mock.patch('src.ai.opportunity.extract', side_effect=RuntimeError('no AI in tests')), \
                 mock.patch('src.ai.opportunity.track', track):
             _, sent = self.run_mail(tracker, google, [[result(0, -1, 'Interview scheduled', company='AT&T',
@@ -248,7 +247,7 @@ class MailMatchTests(MailCase):
                                                    result(1, -1, 'Confirmation received', company='Zeta', summary='Applied')]])
         [question] = tracker.created  # not guessed, not dropped: asked (Focus → "Which job is this?")
         self.assertTrue(question['Needs you']['checkbox'])
-        self.assertNotIn('Suggested job', question)
+        self.assertFalse((question.get('Suggested job') or {}).get('url'))
         self.assertIn('Zeta', sent[0])
         self.assertIn('Which job is this for?', sent[0])
 

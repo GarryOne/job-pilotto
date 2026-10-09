@@ -65,3 +65,39 @@ test('gateEvent keeps only values from fixed lists, and why only with not_now', 
   assert.equal(gate.gateEvent({reason: 'none', where: 'extras', outcome: 'connected'}).reason, 'none');
   assert.equal(gate.gateEvent({reason: 'save', where: 'dialog', outcome: 'closed'}).minutes, null);  // no first start known
 });
+
+// Store adapters (9 Oct 2026): with the data on this Mac nothing asks for Notion, except what runs off the Mac (moved first).
+test('data on this Mac: every gate opens, except the ones that run off the Mac, which ask to move the data first', () => {
+  const storage = make();
+  storage.saveSettings({store: 'sqlite'});
+  for (const reason of Object.keys(gate.REASONS).filter(reason => !gate.OFF_MAC.has(reason))) assert.equal(gate.check(storage, reason), null, reason);
+  for (const reason of gate.OFF_MAC) {
+    const answer = gate.check(storage, reason);
+    assert.equal(answer.needsMove, true, reason);
+    assert.equal(answer.needsNotion, undefined, reason);   // not the connect dialog: Notion may be connected, the data is not there
+    assert.equal(answer.text, `Move your data to Notion ${gate.REASONS[reason]}.`);
+  }
+  assert.equal(gate.tracking(storage), true);
+  assert.equal(gate.notionInUse(storage), false);
+});
+
+test('store unset or Notion: the gates answer as before', () => {
+  for (const store of [undefined, 'notion']) {
+    const off = make(), on = make({token: true, profile: true});
+    if (store) { off.saveSettings({store}); on.saveSettings({store}); }
+    assert.equal(gate.check(off, 'save').needsNotion, true);
+    assert.equal(gate.check(on, 'save'), null);
+    assert.equal(gate.check(on, 'cloud'), null);
+    assert.equal(gate.tracking(off), false);
+    assert.equal(gate.notionInUse(on), true);
+  }
+});
+
+test('every reason the code passes to a gate has its sentence (no "Connect Notion undefined.")', () => {
+  const dir = path.join(import.meta.dirname, '..');
+  const files = [path.join(dir, 'main.js'), ...fs.readdirSync(path.join(dir, 'lib')).filter(f => f.endsWith('.js')).map(f => path.join(dir, 'lib', f))];
+  const used = new Set();
+  for (const file of files) for (const match of fs.readFileSync(file, 'utf8').matchAll(/needsNotion\('([A-Za-z]+)'\)/g)) used.add(match[1]);
+  assert.ok(used.size > 10);
+  for (const reason of used) assert.ok(gate.REASONS[reason], reason);
+});

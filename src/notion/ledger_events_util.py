@@ -63,9 +63,9 @@ SAME_OCCURRENCE_HOURS = 24
 
 
 def _same_occurrence(event, when, hours=SAME_OCCURRENCE_HOURS):
-    """True when an existing event is the same occurrence as one at `when`. An event with no readable time counts as
-    the same (the old behaviour), rather than creating a twin on every read."""
-    recorded = plain(event['properties'].get('At')) or ''
+    """True when an existing event (a Notion row or a store record) is the same occurrence as one at `when`. An event
+    with no readable time counts as the same (the old behaviour), rather than creating a twin on every read."""
+    recorded = (event.get('at') if 'properties' not in event else plain(event['properties'].get('At'))) or ''
     if not recorded:
         return True
     try:
@@ -73,6 +73,37 @@ def _same_occurrence(event, when, hours=SAME_OCCURRENCE_HOURS):
     except ValueError:
         return True
     return abs((moment(recorded) - when).total_seconds()) <= hours * 3600
+
+
+# Stage kinds are once per application (one Screening, one Rejected, ...); "Interview scheduled" repeats only for
+# another interview date/time. Every other kind (replies, cancellations, feedback asks) repeats, but never for the
+# same Source ID (a Gmail message id).
+def repeat_of(events, kind, outcome_stages, *, source_id='', interview_at='', at=None, by_source=()):
+    """The event that one of `kind` would repeat, or None when it is genuinely new. events: the application's own
+    events; by_source: events with this source_id on any application (a mis-filed message is still the same message).
+    Each event is a record ({'kind', 'at', 'source_id', 'interview_at', ...}). The one copy of the rule: the Notion
+    path (src/notion/ledger.py existing_event) and the store path (src/ledger_store.py) both ask it."""
+    if source_id:
+        for event in (*events, *by_source):
+            if event.get('source_id') == source_id:
+                return event
+    if kind not in outcome_stages:
+        return None
+    same = [e for e in events if e.get('kind') == kind]
+    if not same:
+        return None
+    if kind == 'Interview scheduled' and interview_at:
+        known = [e.get('interview_at') or '' for e in same]
+        if any(known) and not any(k and moment(k) == moment(interview_at) for k in known):
+            return None  # another interview
+        # An interview's identity is the interview itself, so a message about it may arrive days later (another
+        # message, or the real invite that gives a pasted one its time): never filtered by when it arrived.
+    elif at:  # a kind identified by the report: the same kind a day or more later is another occurrence
+        when = moment(at)
+        same = [e for e in same if _same_occurrence(e, when)]
+        if not same:
+            return None
+    return same[0]
 
 
 def moment(value):

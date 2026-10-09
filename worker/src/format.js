@@ -21,48 +21,54 @@ export function formatRuns(runs) {
   return [`🛠 <b>Recent runs</b>\n${lines.length} latest`, lines.join('\n\n')].join('\n\n');
 }
 
-// /status: the latest ⏱️ Search runs rows, wherever they ran (the Mac, GitHub, a button here), with the one running.
-export function formatNotionRuns(pages) {
-  if (!pages.length) return 'No runs yet.';
-  const text = (prop) => (prop?.rich_text || prop?.title || []).map((t) => t.plain_text).join('');
+// The bot's lists read plain items, whichever store holds the data: a Notion row becomes one here (appItem, runItem); the desktop's
+// store on this Mac hands the same items (desktop/lib/store/telegram-store.js). `link`: a page to open, or '' (no page on this Mac).
+const plainText = (prop) => (prop?.rich_text || prop?.title || []).map((t) => t.plain_text).join('');
+export function appItem(page) {
+  const p = page.properties || {};
+  return { id: page.id, title: plainText(p.Job), company: plainText(p.Company), stage: p.Stage?.select?.name || '',
+    applied_on: p['Applied on']?.date?.start || '', next_interview: p['Next interview']?.date?.start || '', url: p['Job URL']?.url || '' };
+}
+export function runItem(page) {
+  const p = page.properties || {};
+  return { link: page.url || '', mode: p.Mode?.select?.name || '', status: p.Status?.select?.name || '', started: p.Started?.date?.start || '',
+    where: p['Run URL']?.url ? 'github' : /^Mac/.test(p.Trigger?.select?.name || '') ? 'mac' : '', summary: plainText(p.Summary) };
+}
+const linked = (link, html) => (link ? `<a href="${escapeHtml(link)}">${html}</a>` : html);
+
+// /status: the latest runs (⏱️ Search runs, or the store's), wherever they ran (the Mac, GitHub, a button here), with the one running.
+export function formatRunItems(runs) {
+  if (!runs.length) return 'No runs yet.';
   const ICON = { Running: '⏳', Failed: '❌', Warnings: '⚠️' };
-  const lines = pages.map((page) => {
-    const p = page.properties;
-    const status = p.Status?.select?.name || '';
-    const when = (p.Started?.date?.start || '').replace('T', ' ').slice(0, 16);
-    const where = p['Run URL']?.url ? ' · GitHub' : /^Mac/.test(p.Trigger?.select?.name || '') ? ' · Mac' : '';
-    const summary = text(p.Summary).replace(/;?\s*\(?AI cost \$[\d.]+\)?\.?$/, '');
-    return `${ICON[status] || '✅'} <a href="${escapeHtml(page.url)}">${escapeHtml(p.Mode?.select?.name || 'run')}</a> · ${when} UTC${where}`
+  const lines = runs.map((run) => {
+    const when = (run.started || '').replace('T', ' ').slice(0, 16);
+    const where = run.where === 'github' ? ' · GitHub' : run.where === 'mac' ? ' · Mac' : '';
+    const summary = (run.summary || '').replace(/;?\s*\(?AI cost \$[\d.]+\)?\.?$/, '');
+    return `${ICON[run.status] || '✅'} ${linked(run.link, escapeHtml(run.mode || 'run'))} · ${when} UTC${where}`
       + (summary ? `\n${escapeHtml(summary.slice(0, 160))}` : '');
   });
   return [`🛠 <b>Recent runs</b>\n${lines.length} latest`, lines.join('\n\n')].join('\n\n');
 }
+export const formatNotionRuns = (pages) => formatRunItems(pages.map(runItem));
 
-export function formatApplied(pages, databaseUrl) {
-  const text = (prop) => (prop?.rich_text || prop?.title || []).map((t) => t.plain_text).join('');
-  if (!pages.length) return `No applications yet. Tap /apply_&lt;code&gt; under a job, or add one in <a href="${databaseUrl}">Notion</a>.`;
-  const lines = pages.map((page, index) => {
-    const p = page.properties;
-    const stage = p.Stage?.select?.name || 'No stage';
-    const applied = p['Applied on']?.date?.start || 'date not set';
-    const url = p['Job URL']?.url;
-    const title = `<b>${escapeHtml(text(p.Job) || 'Untitled')}</b>`;
-    const interview = p['Next interview']?.date?.start ? `\nInterview: ${p['Next interview'].date.start.slice(0, 16).replace('T', ' · ')}` : '';
-    return `${index + 1}. ${url ? `<a href="${escapeHtml(url)}">${title}</a>` : title}\n`
-      + `${escapeHtml(text(p.Company))} · ${STAGE_EMOJI[stage] || ''} ${escapeHtml(stage)}\n`
-      + `Applied: ${applied}${interview}`;
+// `databaseUrl`: the Applications database in Notion, or '' with the data on this Mac.
+export function formatAppliedItems(items, databaseUrl) {
+  if (!items.length) return `No applications yet. Tap /apply_&lt;code&gt; under a job${databaseUrl ? `, or add one in <a href="${databaseUrl}">Notion</a>` : ', or add one in the Job Pilotto app'}.`;
+  const lines = items.map((item, index) => {
+    const stage = item.stage || 'No stage';
+    const title = `<b>${escapeHtml(item.title || 'Untitled')}</b>`;
+    const interview = item.next_interview ? `\nInterview: ${item.next_interview.slice(0, 16).replace('T', ' · ')}` : '';
+    return `${index + 1}. ${linked(item.url, title)}\n`
+      + `${escapeHtml(item.company)} · ${STAGE_EMOJI[stage] || ''} ${escapeHtml(stage)}\n`
+      + `Applied: ${item.applied_on || 'date not set'}${interview}`;
   });
-  return [`📋 <b>Applications</b>\n${pages.length} tracked · <a href="${databaseUrl}">Open in Notion</a>`, lines.join('\n\n')].join('\n\n');
+  return [`📋 <b>Applications</b>\n${items.length} tracked${databaseUrl ? ` · <a href="${databaseUrl}">Open in Notion</a>` : ''}`, lines.join('\n\n')].join('\n\n');
 }
+export const formatApplied = (pages, databaseUrl) => formatAppliedItems(pages.map(appItem), databaseUrl);
 
-export function formatSaved(pages, databaseUrl) {
-  const text = (prop) => (prop?.rich_text || prop?.title || []).map((t) => t.plain_text).join('');
-  if (!pages.length) return 'No saved jobs. Tap a job number in a digest, then ⭐ Save.';
-  const lines = pages.map((page, i) => {
-    const p = page.properties;
-    const url = p['Job URL']?.url;
-    const title = `<b>${escapeHtml(text(p.Job) || 'Untitled')}</b>`;
-    return `${i + 1}. ${url ? `<a href="${escapeHtml(url)}">${title}</a>` : title}\n${escapeHtml(text(p.Company))}`;
-  });
-  return [`⭐ <b>Saved jobs</b>\n${pages.length} saved · <a href="${databaseUrl}">Open in Notion</a>`, lines.join('\n\n')].join('\n\n');
+export function formatSavedItems(items, databaseUrl) {
+  if (!items.length) return 'No saved jobs. Tap a job number in a digest, then ⭐ Save.';
+  const lines = items.map((item, i) => `${i + 1}. ${linked(item.url, `<b>${escapeHtml(item.title || 'Untitled')}</b>`)}\n${escapeHtml(item.company)}`);
+  return [`⭐ <b>Saved jobs</b>\n${items.length} saved${databaseUrl ? ` · <a href="${databaseUrl}">Open in Notion</a>` : ''}`, lines.join('\n\n')].join('\n\n');
 }
+export const formatSaved = (pages, databaseUrl) => formatSavedItems(pages.map(appItem), databaseUrl);

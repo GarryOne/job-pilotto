@@ -89,9 +89,10 @@ def proposals(search, jobs):
     return sorted(found, key=lambda p: -p['dismissed'])
 
 
-def run(db, tracker, search):
-    """The Tune my strategy answer: proposals plus the counts they rest on."""
-    stages = tracker.url_stages()
+def run(db, tracker, search, stages=None):
+    """The Tune my strategy answer: proposals plus the counts they rest on. stages: job URL -> Stage from the active store
+    (src/daily_helpers.url_stages); else the tracker's."""
+    stages = tracker.url_stages() if stages is None else stages
     jobs = acted_jobs(db, stages)
     dismissed, engaged, interviews = _tally(jobs)
     found = proposals(search, jobs)

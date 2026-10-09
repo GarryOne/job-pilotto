@@ -4,7 +4,7 @@
 import {aiNameOf, aiText} from './ai/names.js';
 import * as claudeCode from './claude-code.js';
 import * as contactDetails from './contact.js';
-import * as notion from './notion.js';
+import * as notion from './notion.js';   // Notion-only: an accepted strategy written to the Notion Profile/answers/settings pages when Notion is the store
 import * as notionGate from './notion-gate.js';
 import * as pipeline from './pipeline.js';
 import * as strategy from './strategy.js';
@@ -81,7 +81,7 @@ export function registerStrategyDraftHandlers(ctx) {
         preferences: !parts ? {...draft.preferences, daily_applications_target: strategy.clampTarget(perDay)} : take('filters') ? draft.preferences : null});
       // Trying (no Notion yet, lib/notion-gate.js): the strategy is kept on this Mac, and lib/migrate.js moves it into
       // Notion when it is connected. Contact details are a section of the Profile text, as in Notion.
-      if (!notionGate.connected(storage)) {
+      if (!notionGate.notionInUse(storage)) {
         strategy.save(storage, accepted());
         step('local', {finished: true});
         const contact = Object.fromEntries(Object.entries(draft.contact || {}).filter(([, value]) => value));

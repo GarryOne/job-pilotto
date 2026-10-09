@@ -1,4 +1,5 @@
 import {aiName} from './ai-name.js';
+import {where} from './store-name.js';
 // Log job activity, step 2 (the confirmation): nothing reaches Notion until you've confirmed what Claude couldn't
 // see. Each field from the engine (src/ai/inbox.py fields()) is "ok" (shown in the message: pre-filled), "check"
 // (inferred: pre-filled, marked, needs a confirm) or "ask" (not shown: empty, with a question). No window needed
@@ -70,7 +71,7 @@ export function pending(proposal = {}, state, today = '') {
 
 // The Save button's words: what's left, or the save itself.
 export function saveLabel(left) {
-  return left.length ? `Confirm ${left.length} detail${left.length === 1 ? '' : 's'}` : 'Save to Notion';
+  return left.length ? `Confirm ${left.length} detail${left.length === 1 ? '' : 's'}` : `Save to ${where()}`;
 }
 
 // "Which year was this ("Sep 21")?" → the date for a year picked (month_day "09-21").
@@ -186,7 +187,7 @@ export function carry(state = {}, next = {}) {
 
 // The bold line and the muted line under it: what was read and what saving will do.
 export function found(proposal = {}) {
-  const meta = proposal.new ? 'New job: added to Notion when you save'
+  const meta = proposal.new ? `New job: added to ${where()} when you save`
     : `Already tracked${proposal.stage ? ` (${proposal.stage})` : ''}: updated when you save`;
   return {title: proposal.label || 'The job', meta};
 }

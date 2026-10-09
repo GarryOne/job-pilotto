@@ -7,8 +7,10 @@
 // code stopped writing, e.g. Cronjob Runs' per-step costs), so every workspace follows. Views aren't in the API.
 import fs from 'node:fs';
 import path from 'node:path';
-import {call, normalise} from './notion.js';
-import {REPO} from './pipeline.js';
+import {call, normalise} from './notion.js';   // Notion-only: the Notion workspace checked and repaired against config/notion_schema.json
+// The repo's folder only (lib/root.js, a leaf): pipeline.js would pull the whole engine runner and the AI client into anything that checks the
+// schema, the e2e harness's Notion stand-in included (it has only desktop/e2e's packages: '@anthropic-ai/sdk' not found on CI, 9 Oct 2026).
+import {ROOT as REPO} from './root.js';
 
 export function load(file = path.join(REPO, 'config', 'notion_schema.json')) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }

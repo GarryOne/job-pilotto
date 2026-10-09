@@ -5,8 +5,9 @@ import unittest
 from datetime import date
 from unittest import mock
 
-from src.ai import inbox, inbox_notion, mail, mail_leads, opportunity
+from src.ai import inbox, mail, mail_leads, opportunity
 from src.notion import client, funnel, ledger, origin
+from tests.mail_fakes import FakeTracker, stores_for
 
 
 def select(name):
@@ -108,37 +109,37 @@ class WriterTests(unittest.TestCase):
         # "Log job activity": a reply on LinkedIn you said was the first contact, about a job not tracked yet.
         for first_here, expected in ((True, origin.INBOUND), (False, None)):
             seen = {}
-            def add(tracker, url, **kwargs):
+            def add(stores, url, **kwargs):
                 seen.update(kwargs)
                 raise StopIteration  # the rest of the log isn't this test's business
             proposal = {'item': {'platform': 'LinkedIn', 'first_contact_here': first_here, 'title': 'SRE'},
                         'job': {'url': 'https://x/open', 'title': 'SRE', 'company': 'Acme'}, 'kind': inbox.REPLY,
                         'confirmed': True}
-            with mock.patch.object(inbox.ledger, 'add_application', add), mock.patch.object(inbox, 'step', create=True):
+            with mock.patch.object(inbox.ledger_store, 'add_application', add), mock.patch.object(inbox, 'step', create=True):
                 with self.assertRaises(StopIteration):
-                    inbox.log(Fake(), text='Thanks, let us talk', proposal=proposal, source='Job Pilotto app')
+                    inbox.log(stores_for(Fake()), text='Thanks, let us talk', proposal=proposal, source='Job Pilotto app')
             self.assertEqual(seen['origin'], expected)
 
     def test_a_recruiter_lead_is_inbound(self):
-        tracker = Fake()
+        tracker = FakeTracker([])
         lead = {'title': 'Platform Engineer', 'company': 'Beta', 'platform': 'Email', 'recruiter_company': 'Huxley'}
-        with mock.patch.object(opportunity, 'add_event'):
-            row, _ = opportunity.track(tracker, lead, 'Hi, a role for you', source='Gmail', event_source='Gmail', url='https://x/lead')
+        row, _ = opportunity.track(stores_for(tracker), lead, 'Hi, a role for you', source='Gmail', event_source='Gmail',
+                                   url='https://x/lead')
         self.assertIsNotNone(row)
-        self.assertEqual(origin_of(tracker.app_props()[0]), 'Inbound')
+        self.assertEqual(origin_of(tracker.created[0]), 'Inbound')
 
     def test_a_pasted_application_made_elsewhere_is_outbound_even_from_linkedin(self):
-        tracker = Fake()
+        from src.stores import memory
+        stores = memory.open_store()
         item = {'title': 'SRE', 'company': 'Acme', 'platform': 'LinkedIn'}
-        with mock.patch.object(inbox_notion, 'add_event'):
-            inbox._new_row(tracker, item, 'https://x/pasted', 'LinkedIn', 'App', '2026-09-20', 'logged')
-        self.assertEqual(origin_of(tracker.app_props()[0]), 'Outbound')
+        inbox._new_row(stores, item, 'https://x/pasted', 'LinkedIn', 'App', '2026-09-20', 'logged')
+        self.assertEqual(stores.applications.get('https://x/pasted')['origin'], 'Outbound')
 
     def test_an_email_about_an_untracked_role_writes_no_application(self):
         tracker = Fake()   # asked in Focus instead (src/ai/mail.py run); a new job chosen there is made by src/ai/reassign.py
         email = {'date': '2026-09-20T10:00:00Z', 'id': 'm1', 'subject': 'Thanks for applying', 'body': ''}
-        with mock.patch.object(mail_leads, 'add_event'):
-            self.assertIsNone(mail._from_email(tracker, [], {'company': 'Acme', 'role': 'SRE'}, email, None, []))
+        with mock.patch.object(mail_leads.rules, 'add_event'):
+            self.assertIsNone(mail._from_email(stores_for(tracker), [], {'company': 'Acme', 'role': 'SRE'}, email, None, []))
         self.assertEqual(tracker.app_props(), [])
 
 

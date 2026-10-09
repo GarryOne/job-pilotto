@@ -11,16 +11,9 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import doctor
 from src.ai import budget
+from src.stores import memory, notion
 
 NOW = datetime(2026, 9, 27, 14, 0, tzinfo=timezone.utc)
-
-
-def run_row(usd, started='2026-09-20T10:00:00+00:00', feeds=None, errors=None):
-    props = {'AI cost (USD)': {'type': 'number', 'number': usd},
-             'Started': {'type': 'date', 'date': {'start': started}}}
-    if feeds is not None:
-        props.update({'Feeds': {'type': 'number', 'number': feeds}, 'Feed errors': {'type': 'number', 'number': errors}})
-    return {'properties': props}
 
 
 class FakeTracker:
@@ -32,6 +25,15 @@ class FakeTracker:
         return self.rows
 
 
+def run_history(*runs):
+    """A store whose run history holds these runs: (usd, started_at[, feeds, feed_errors])."""
+    stores = memory.open_store()
+    for usd, started, *feeds in runs:
+        stats = {'ai_cost_usd': usd, **({'feeds': feeds[0], 'feed_errors': feeds[1]} if feeds else {})}
+        stores.cron_runs.put({'kind': 'search', 'where': 'mac', 'status': 'Done', 'started_at': started, 'stats': stats})
+    return stores
+
+
 class BudgetTests(unittest.TestCase):
     def setUp(self):
         patcher = mock.patch.object(budget, 'admin_key', return_value=None)
@@ -40,15 +42,19 @@ class BudgetTests(unittest.TestCase):
 
     def test_levels_from_the_run_log(self):
         with mock.patch.dict('os.environ', {'JOB_PILOTTO_MONTHLY_BUDGET_USD': '15'}):
-            ok = budget.status(FakeTracker([run_row(3.0), run_row(2.0)]), NOW)
-            warn = budget.status(FakeTracker([run_row(11.0)]), NOW)
-            pause = budget.status(FakeTracker([run_row(14.0)]), NOW)
+            ok = budget.status(run_history((3.0, '2026-09-20T10:00:00+00:00'), (2.0, '2026-09-21T10:00:00+00:00')), NOW)
+            warn = budget.status(run_history((11.0, '2026-09-20T10:00:00+00:00')), NOW)
+            pause = budget.status(run_history((14.0, '2026-09-20T10:00:00+00:00')), NOW)
         self.assertEqual((ok['spent'], ok['level'], ok['source']), (5.0, 'ok', 'Job Pilotto log'))
         self.assertEqual((warn['level'], pause['level']), ('warn', 'pause'))
 
-    def test_month_filter(self):
+    def test_only_this_months_runs_count(self):
+        stores = run_history((4.0, '2026-08-31T23:00:00+00:00'), (1.5, '2026-09-01T00:30:00+00:00'))
+        self.assertEqual(budget.ledger_spend(stores, NOW), 1.5)
+
+    def test_on_notion_only_this_months_search_runs_are_asked_for(self):
         tracker = FakeTracker([])
-        budget.ledger_spend(tracker, NOW)
+        budget.ledger_spend(notion.open_store({'NOTION_TOKEN': 't'}, tracker=tracker), NOW)
         self.assertEqual(tracker.filters[0], {'property': 'Started', 'date': {'on_or_after': '2026-09-01'}})
 
     def test_admin_cost_report_is_summed_in_cents_across_pages(self):
@@ -106,8 +112,8 @@ class HealthTests(unittest.TestCase):
             self.assertEqual(doctor.check_mail_workflow(NOW).state, doctor.INFO)  # not connected: nothing to judge
 
     def test_feeds_failing_in_the_last_crawl(self):
-        tracker = FakeTracker([run_row(0.1, '2026-09-26T10:00:00Z', 29, 0), run_row(0.1, '2026-09-27T10:00:00Z', 29, 29)])
-        check = doctor.check_feeds(tracker)
+        stores = run_history((0.1, '2026-09-26T10:00:00+00:00', 29, 0), (0.1, '2026-09-27T10:00:00+00:00', 29, 29), (0.1, '2026-09-27T12:00:00+00:00'))
+        check = doctor.check_feeds(stores)   # the newest run that read feeds; a run without feeds (a Gmail check) is passed over
         self.assertEqual((check.state, check.detail), (doctor.FAIL, '29 of 29 feeds failed in the last crawl'))
 
     def test_alert_sends_one_line_only_when_something_is_wrong(self):

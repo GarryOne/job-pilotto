@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {planRun} from '../plan-run.mjs';
 import {MAX_RUNS_PER_COMMIT, exploreDecision, reviewNeeded, shouldSkipScheduled, waitingFindings} from '../lib/plan.mjs';
+// The suites a plan runs, once each (a gate runs each suite on two stores: two jobs).
+const suitesOf = out => [...new Set(JSON.parse(out.matrix).include.map(item => item.suite))];
 
 const ALL = ['activity', 'apply', 'jobs', 'settings'];
 const HEAD = 'a'.repeat(40), OLD = 'b'.repeat(40);
@@ -80,13 +82,13 @@ test('a schedule with new commits runs every suite on that commit', async () => 
 
 test('a push to main runs only the suites its files changed, and a push run is never the last run to compare with', async () => {
   const out = await plan({EVENT: 'push', SHA: HEAD, BEFORE: OLD}, {files: ['desktop/e2e/suites/jobs.mjs'], runs: [{event: 'push', headSha: OLD, conclusion: 'success'}]});
-  assert.deepEqual(JSON.parse(out.matrix).include.map(item => item.suite), ['jobs']);
+  assert.deepEqual(suitesOf(out), ['jobs']);
   assert.equal(out.review, '1', 'no earlier non-push run: review');
 });
 
 test('every changed file counts, one per line', async () => {
   const out = await plan({EVENT: 'push', SHA: HEAD, BEFORE: OLD}, {files: ['desktop/e2e/suites/jobs.mjs', 'extension/content.js', 'docs/x.md']});
-  assert.deepEqual(JSON.parse(out.matrix).include.map(item => item.suite), ['apply', 'jobs']);
+  assert.deepEqual(suitesOf(out), ['apply', 'jobs']);
 });
 
 test('a manual dry run of the promotion runs no suite', async () => {
@@ -96,7 +98,7 @@ test('a manual dry run of the promotion runs no suite', async () => {
 
 test('a manual run runs what it names', async () => {
   const out = await plan({EVENT: 'workflow_dispatch', SHA: HEAD, ONLY: 'jobs,settings'}, {});
-  assert.deepEqual(JSON.parse(out.matrix).include.map(item => item.suite), ['jobs', 'settings']);
+  assert.deepEqual(suitesOf(out), ['jobs', 'settings']);
 });
 
 
@@ -107,7 +109,7 @@ test('a manual run runs what it names', async () => {
 test('cadence: always runs on every schedule, nightly only in the nightly gate, manual never by itself', async () => {
   const cadence = {settings: 'always', jobs: 'always', apply: 'nightly', activity: 'manual'};
   const run = (env, stub) => planRun({env: {REPO: 'o/r', ...env}, gh: gh(stub), all: ALL, cadence, minutes: () => 15});
-  const names = out => JSON.parse(out.matrix).include.map(item => item.suite);
+  const names = out => suitesOf(out);
   const scheduled = await run({EVENT: 'schedule', SHA: HEAD}, {runs: [{event: 'schedule', headSha: OLD, conclusion: 'success'}], files: ['desktop/lib/x.js']});
   assert.deepEqual(names(scheduled), ['jobs', 'settings'], 'the three-a-day schedule: only the always suites');
   const empty = await run({EVENT: 'workflow_dispatch', SHA: HEAD, ONLY: ''}, {});
@@ -122,7 +124,7 @@ test('cadence: the nightly release gate runs the always and nightly suites, not 
   const cadence = {settings: 'always', jobs: 'always', apply: 'nightly', activity: 'manual'};
   const out = await planRun({env: {REPO: 'o/r', EVENT: 'schedule', SHA: OLD, TARGET_REF: 'desktop-v1', GATE_TAG: 'desktop-v1'},
     gh: gh({releases: [['desktop-v1', HEAD]]}), all: ALL, cadence, minutes: () => 15});
-  assert.deepEqual(JSON.parse(out.matrix).include.map(item => item.suite), ['apply', 'jobs', 'settings']);
+  assert.deepEqual(suitesOf(out), ['apply', 'jobs', 'settings']);
 });
 
 test('a manual run with target_ref tests that release\'s commit, not main\'s', async () => {
@@ -137,7 +139,7 @@ test('a manual run with target_ref tests that release\'s commit, not main\'s', a
 test('a manual gate for a tag runs the nightly gate\'s suites on that tag\'s commit and names the tag to approve', async () => {
   const stub = args => (args[0] === 'api' && /commits\/desktop-v1\.5$/.test(args[1]) ? 'cafe'.repeat(10) + '\n' : '[]');
   const out = await planRun({env: {REPO: 'o/r', EVENT: 'workflow_dispatch', SHA: 'mainsha', TARGET_REF: 'desktop-v1.5', GATE_TAG: 'desktop-v1.5'}, gh: stub, all: ALL, minutes: () => 15});
-  assert.deepEqual([out.tag, out.ref, out.count], ['desktop-v1.5', 'cafe'.repeat(10), '4']);
+  assert.deepEqual([out.tag, out.ref, out.count], ['desktop-v1.5', 'cafe'.repeat(10), '8']);
   const plain = await planRun({env: {REPO: 'o/r', EVENT: 'workflow_dispatch', SHA: 'mainsha'}, gh: stub, all: ALL, minutes: () => 15});
   assert.equal(plain.tag, '', 'a plain manual run promotes nothing');
 });
@@ -153,7 +155,7 @@ test('the interactions suite has the time it needs: a job limit under what it ta
 test('the gate called from the release run tests the release\'s commit whatever the event, and says its suites for the Windows gate', async () => {
   for (const EVENT of ['schedule', 'workflow_dispatch']) {
     const out = await plan({EVENT, SHA: OLD, TARGET_REF: 'desktop-v1.2', GATE_TAG: 'desktop-v1.2'}, {releases: [['desktop-v1.2', HEAD]], runs: [{event: 'schedule', headSha: HEAD, conclusion: 'success'}]});
-    assert.deepEqual([out.count, out.ref, out.tag], ['4', HEAD, 'desktop-v1.2'], EVENT);
+    assert.deepEqual([out.count, out.ref, out.tag], ['8', HEAD, 'desktop-v1.2'], EVENT);
     assert.equal(out.suites, ALL.join(','), 'the same list goes to e2e-windows.yml');
   }
   assert.equal((await plan({EVENT: 'workflow_dispatch', SHA: HEAD, ONLY: 'jobs,settings'}, {})).suites, 'jobs,settings');
@@ -168,7 +170,7 @@ test('a scheduled run skips while a release run is testing; a build only does no
   assert.match(held.why, /release run is testing/);
   assert.notEqual((await plan({EVENT: 'schedule', SHA: HEAD}, {...stub, releasing: [{status: 'in_progress', displayTitle: 'Build only (by hand, not tested)'}]})).count, '0');
   const gate = await plan({EVENT: 'schedule', SHA: OLD, TARGET_REF: 'desktop-v1.2', GATE_TAG: 'desktop-v1.2'}, {releases: [['desktop-v1.2', HEAD]], releasing: [{status: 'in_progress', displayTitle: 'Nightly beta'}]});
-  assert.equal(gate.count, '4', 'the gate itself, called from that release run, runs');
+  assert.equal(gate.count, '8', 'the gate itself, called from that release run, runs (4 suites, each on both stores)');
 });
 
 // 7 Oct 2026 (owner: "$30 a week"): quality (Sonnet) ran in every beta by hand and on Windows too. Now: the Mac lane only, and in a beta by hand only when
@@ -194,4 +196,14 @@ test('quality: the nightly runs it; a beta by hand only after a change it watche
   assert.ok(names(nightly).includes('quality'), 'the nightly always runs it');
   assert.ok(!nightly.windows_suites.split(',').includes('quality'), 'never on Windows');
   assert.ok(nightly.windows_suites.split(',').includes('jobs'));
+});
+
+test('the gate runs each suite that keeps data on both stores, one job each; other runs one job, the store left to the run number', async () => {
+  const stub = args => (args[0] === 'run' && args[1] === 'list' ? '[]' : '[]');
+  const gate = await planRun({env: {REPO: 'o/r', EVENT: 'workflow_dispatch', SHA: 'cafe'.repeat(10), TARGET_REF: 'desktop-v2', GATE_TAG: 'desktop-v2'}, gh: stub,
+    all: ['jobs', 'updates'], storeless: ['updates'], minutes: () => 15});
+  assert.deepEqual(JSON.parse(gate.matrix).include.map(({suite, key, store}) => ({suite, key, store})),
+    [{suite: 'jobs', key: 'jobs', store: 'sqlite'}, {suite: 'jobs', key: 'jobs-standin', store: 'standin'}, {suite: 'updates', key: 'updates', store: ''}]);
+  const manual = await planRun({env: {REPO: 'o/r', EVENT: 'workflow_dispatch', SHA: 'cafe'.repeat(10), ONLY: 'jobs'}, gh: stub, all: ['jobs', 'updates'], minutes: () => 15});
+  assert.deepEqual(JSON.parse(manual.matrix).include.map(({key, store}) => ({key, store})), [{key: 'jobs', store: ''}]);
 });

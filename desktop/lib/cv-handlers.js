@@ -126,7 +126,7 @@ export function registerCvAndLettersHandlers(ctx) {
       letters.approve(storage, (await printPdf(page)).pdf);
       appLog('cover-letter', 'approved; PDF written for form uploads', {words: record.text.split(/\s+/).length});
       // Notion too (the source of truth): best effort, the PDF is on this Mac either way.
-      files.coverLetterToProfile(storage, letters.pdfPath(storage)).then(caption => caption && appLog('cover-letter', 'PDF saved to the Notion Profile', {caption}))
+      files.coverLetterToProfile(storage, letters.pdfPath(storage)).then(caption => caption && appLog('cover-letter', 'PDF saved to the Notion Profile', {caption}))   // about Notion
         .catch(error => appLog('cover-letter', `not saved to Notion: ${error.message}`));
       return {ok: true, ...letters.status(storage)};
     } catch (error) { return {ok: false, error: error.message}; }

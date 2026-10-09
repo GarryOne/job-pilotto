@@ -7,18 +7,24 @@ import {modelClient} from '../lib/model.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
+import {python, pythonEnv} from '../lib/python.mjs';
 import {fileURLToPath} from 'node:url';
 import {sample, watch} from '../lib/activity.mjs';
 import {failures, judge} from '../lib/factjudge.mjs';
-import {databaseRows, emptyDatabase, profileText, rewriteLines} from '../lib/notion.mjs';
+import {plainTextOf, rewriteTextLines} from '../lib/seed-texts.mjs';
+import {MATCHES, matchRowsOf, notKeptNote} from '../lib/quality-rows.mjs';
+import {clearData} from '../lib/start-state.mjs';
 import {checkFacts, dirtyRows, dirtyText, fingerprints, leaks, judgeVerdict, matchRows, missingColumns, normalizeUrl, rankingViolations, stabilityVerdict, unstable} from '../lib/quality.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
+import {quiet} from '../lib/activity-steps.mjs';
 
 export const name = 'quality';
 // About $0.3 a run on Sonnet 5.5: the nightly release gate, and a push that touches what it judges (scoring and enrichment prompts, the model ids, its own fixtures), not the three-a-day schedule.
 export const cadence = 'nightly';
 // It judges the AI's answers (scores, facts), which are the same on every OS: the Mac lane only, no Windows run (owner, 7 Oct 2026: $1.36 a day on Windows).
 export const sameOnEveryOs = true;
+// On the Notion stand-in its Profile is drafted from the CV by the wizard, as on the real test page: the scores this suite judges read it (lib/context.mjs).
+export const standInFromWizard = true;
 export const watches = ['src/ai/score.py', 'src/ai/enrich.py', 'src/ai/hints.py', 'desktop/lib/pipeline.js', 'desktop/e2e/fixtures/golden/'];
 // This suite measures what a user gets, so the app under test runs on the shipped model (about $0.3 a run); the other suites run on Haiku. For a cheap run:
 // E2E_APP_MODEL=claude-haiku-4-5 (Haiku 4.5 scored the same job up to 10 points apart between two scorings, Sonnet within 6).
@@ -31,10 +37,9 @@ const PERSONA = process.env.E2E_QUALITY_PERSONA || '';
 const GOLDEN = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', PERSONA ? `golden-${PERSONA}` : 'golden');
 const persona = PERSONA ? JSON.parse(fs.readFileSync(path.join(GOLDEN, 'persona.json'), 'utf8')) : null;
 const read = file => JSON.parse(fs.readFileSync(path.join(GOLDEN, file), 'utf8'));
-const MATCHES = 'Job Matches — AI Scored';
 
 export async function run(ctx) {
-  const {page, token: NOTION} = ctx;
+  const {page} = ctx;
   const truth = process.env.E2E_QUALITY_TRUTH ? JSON.parse(fs.readFileSync(process.env.E2E_QUALITY_TRUTH, 'utf8')) : read('truth.json');   // a different truth: to prove the suite fails
   const candidate = fs.readFileSync(path.join(GOLDEN, 'candidate.txt'), 'utf8');
   const postings = truth.filter(item => !item.duplicateOf);
@@ -42,6 +47,8 @@ export async function run(ctx) {
   let rows = [], appJobs = [];
   ctx.findings = [];
   await ensureSetUp(ctx);
+  // Set up through the wizard (the stand-in: standInFromWizard; or an empty test page), the app starts its first search: the Jobs checks below wait for it to end.
+  if (!ctx.built) await ctx.run('the first search after the setup has ended', () => quiet(ctx, {forMs: 3000, maxMs: 300000}), {needs: ctx.needs, critical: true});
 
   const check = async label => {   // one Jobs check; ends when the task is no longer running
     await page.click('.nav[data-view="jobs"]');
@@ -71,7 +78,7 @@ export async function run(ctx) {
   const read2 = async () => {
     const expected = postings.filter(item => !item.filterMayDrop).length;
     for (let waited = 0; waited < 90000; waited += 5000) {   // Notion's query can trail a write by a few seconds: wait for every posting that must be there
-      rows = await databaseRows(NOTION, MATCHES);
+      rows = await matchRowsOf(ctx);   // the store's matches: Notion's rows, or this Mac's records (lib/quality-rows.mjs)
       if (Object.keys(matchRows(truth, rows).byId).length >= expected) break;
       await page.waitForTimeout(5000);
     }
@@ -83,23 +90,29 @@ export async function run(ctx) {
   const soft = async step => { try { await step(); } catch (error) { late.push(error); } };
   try {
     await ctx.run('this suite starts with no jobs and no runs in its Notion page', async () => {
-      await emptyDatabase(NOTION, MATCHES); await emptyDatabase(NOTION, 'Cronjob Runs');
+      await clearData(ctx, MATCHES); await clearData(ctx, 'Cronjob Runs');
       // The candidate's compensation is known, not whatever the wizard's AI drafted from the CV ("CHF 180,000 (estimate)"): target 170k, minimum 140k.
     if (!persona) {   // a persona states its own compensation in its Profile file
-    const set = [await rewriteLines(NOTION, 'Profile — CV and Preferences', /^\s*Target:/, 'Target: CHF 170,000 per year in Switzerland'),
-      await rewriteLines(NOTION, 'Profile — CV and Preferences', /^\s*Minimum acceptable:/, 'Minimum acceptable: CHF 140,000 per year in Switzerland')];
-    if (set.some(count => count !== 1)) throw new Error(`the Profile page should have one Target line and one Minimum acceptable line, found ${set.join(' and ')}`);
+    // The Profile through the store the app uses (this Mac's profile.md or Notion's Profile page).
+    const set = [await rewriteTextLines(ctx, 'profile', /^\s*(?:[-*]\s*)?(?:\*\*)?Target:/, 'Target: CHF 170,000 per year in Switzerland'),
+      await rewriteTextLines(ctx, 'profile', /^\s*(?:[-*]\s*)?(?:\*\*)?Minimum acceptable:/, 'Minimum acceptable: CHF 140,000 per year in Switzerland')];
+    if (set.some(count => count !== 1)) throw new Error(`the Profile should have one Target line and one Minimum acceptable line, found ${set.join(' and ')}`);
     }
     // The golden postings replace the shared fixture feeds: one board, twelve postings (one is a duplicate).
       for (const file of fs.readdirSync(ctx.feeds)) fs.rmSync(path.join(ctx.feeds, file), {force: true, recursive: true});
       for (const file of ['board.json', 'routes.json']) fs.copyFileSync(path.join(GOLDEN, file), path.join(ctx.feeds, file));
       fs.mkdirSync(path.join(ctx.profile, 'config'), {recursive: true});
       fs.copyFileSync(path.join(GOLDEN, 'sources.json'), path.join(ctx.profile, 'config', 'sources.json'));
-      // The search is the candidate's (a senior SRE in Zurich), written here so the roles kept do not depend on what the Notion test page holds.
-      const search = JSON.parse(fs.readFileSync(path.join(ctx.E2E, '..', '..', 'config', 'search.json'), 'utf8'));
-      fs.writeFileSync(path.join(ctx.profile, 'config', 'search.json'), JSON.stringify({...search,
-        role_keywords: ['\\bsre\\b', 'site reliability', 'platform engineer', 'infrastructure engineer', 'devops engineer'],
-        locations: {top_tier: ['zurich', 'geneva'], country_wide: ['switzerland', 'basel', 'bern'], abroad: []}, ...(persona?.search || {})}, null, 2));
+      // The search is the candidate's (a senior SRE in Zurich), saved the way the app saves it (saveStrategy, search only): on this Mac's store into
+      // config/search.json, on Notion into ⚙️ Search settings too, which the engine reads first and which would otherwise keep the setup's places
+      // (9 Oct 2026, stand-in: "changed your places: −geneva … −bern" dropped the Geneva and Bern postings, 3008 and 3005).
+      const base = JSON.parse(fs.readFileSync(path.join(ctx.E2E, '..', '..', 'config', 'search.json'), 'utf8'));
+      const search = {...base, role_keywords: ['\\bsre\\b', 'site reliability', 'platform engineer', 'infrastructure engineer', 'devops engineer'],
+        locations: {top_tier: ['zurich', 'geneva'], country_wide: ['switzerland', 'basel', 'bern'], abroad: []}, ...(persona?.search || {})};
+      const saved = await page.evaluate(search => window.pilot.saveStrategy({search, profile_markdown: '', answers_markdown: '', contact: {}}, ['search']), search);
+      if (!saved?.ok) throw new Error(`the candidate's search was not saved: ${saved?.error || JSON.stringify(saved)}`);
+      const kept = JSON.parse(fs.readFileSync(path.join(ctx.profile, 'config', 'search.json'), 'utf8')).locations;
+      if (JSON.stringify(kept) !== JSON.stringify(search.locations)) throw new Error(`the saved search holds other places: ${JSON.stringify(kept)}`);
     }, {needs: ctx.needs});
 
     await ctx.run('a Jobs check on the golden postings finishes and scores them', async () => {
@@ -130,7 +143,7 @@ export async function run(ctx) {
           if (result.ok) summary.facts.exact++; else problems.push(`"${result.posting}": ${result.fact} should be ${JSON.stringify(result.expected)}, the app wrote ${JSON.stringify(result.actual)}`);
         }
       }
-      console.log(`  ${summary.facts.exact}/${summary.facts.total} facts exact`);
+      console.log(`  ${summary.facts.exact}/${summary.facts.total} facts exact${notKeptNote(rows) ? `; ${notKeptNote(rows)}` : ''}`);
       if (problems.length) throw new Error(`${problems.length} wrong or missing fact(s):\n    ${problems.join('\n    ')}`);
     }, {needs: ctx.needs});
 
@@ -163,6 +176,7 @@ export async function run(ctx) {
       const problems = [];
       for (const row of rows) { const item = matchRows(truth, [row]).byId; const posting = truth.find(entry => item[entry.id]); const missing = missingColumns(row, posting?.mayBeEmpty); if (missing.length) problems.push(`${row.props.Job}: empty ${missing.join(', ')}`); }
       for (const dirty of dirtyRows(rows)) problems.push(`${dirty.where} shows ${dirty.problems.join(', ')}`);
+      if (notKeptNote(rows)) console.log(`  ${notKeptNote(rows)}`);
       // What a person reads: the Jobs page and the app's own list.
       const visible = await page.evaluate(() => document.querySelector('.view[data-view="jobs"]')?.innerText || '');
       for (const found of dirtyText(visible)) problems.push(`the Jobs page shows ${found}`);
@@ -185,7 +199,7 @@ export async function run(ctx) {
       // Ask for every score again, the way "Re-score" does (an empty input hash: no shortcut), then run the check once more.
       const database = path.join(ctx.profile, 'data', 'jobs.sqlite');
       if (!fs.existsSync(database)) throw new Error(`the jobs database is not where expected: ${database}`);
-      execFileSync('python3', ['-c', 'import sqlite3,sys; db=sqlite3.connect(sys.argv[1]); db.execute("UPDATE scores SET input_hash=\'\'"); db.commit()', database]);
+      execFileSync(python(), ['-c', 'import sqlite3,sys; db=sqlite3.connect(sys.argv[1]); db.execute("UPDATE scores SET input_hash=\'\'"); db.commit()', database], {env: pythonEnv({}, {home: ctx.profile})});
       await check('second Jobs check');
       await read2();
       const second = scoresOf();
@@ -210,7 +224,7 @@ export async function run(ctx) {
     await soft(() => ctx.run('the score reasons say nothing invented or untrue (Sonnet judge)', async () => {
       const {byId} = matchRows(truth, rows);
       // The candidate as the app knows them: the CV text plus the Profile page the scoring read (figures such as a salary minimum may come from there).
-      const profile = `${candidate}\n\nPROFILE PAGE IN NOTION\n${persona ? fs.readFileSync(path.join(GOLDEN, 'profile.md'), 'utf8') : await profileText(NOTION, 'Profile — CV and Preferences').catch(() => '')}`.slice(0, 30000);
+      const profile = `${candidate}\n\nTHE PROFILE\n${persona ? fs.readFileSync(path.join(GOLDEN, 'profile.md'), 'utf8') : await plainTextOf(ctx, 'profile').catch(() => '')}`.slice(0, 30000);
       const verdicts = [], problems = [];
       const todo = postings.filter(item => byId[item.id]);
       for (let i = 0; i < todo.length; i += 4) {

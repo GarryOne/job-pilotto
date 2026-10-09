@@ -120,10 +120,10 @@ class EndToEndIsolationTest(unittest.TestCase):
         from src.ai import apply_run, budget
         env = {'JOB_PILOTTO_E2E': '1'}
         with mock.patch.object(sys, 'platform', 'darwin'), mock.patch.dict('os.environ', env), mock.patch.object(budget.subprocess, 'run') as budget_asked, \
-                mock.patch.object(apply_run.subprocess, 'run') as apply_asked, mock.patch.object(apply_run.Tracker, 'from_env', return_value=None):
+                mock.patch.object(apply_run.subprocess, 'run') as apply_asked:
             os.environ.pop('ANTHROPIC_ADMIN_KEY', None)
             self.assertIsNone(budget.admin_key())
-            self.assertIsNone(apply_run._tracker())
+            self.assertEqual(apply_run._keychain_token(), '')
         budget_asked.assert_not_called()
         apply_asked.assert_not_called()
 

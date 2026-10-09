@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import {test} from 'node:test';
-import {decide, isWrite, startNotionProxy} from '../lib/notion-proxy.mjs';
+import {decide, farSide, isWrite, startNotionProxy} from '../lib/notion-proxy.mjs';
+import {startNotionFake} from '../lib/notion-fake.mjs';
 
 test('a query is a read; a page change is a write', () => {
   assert.equal(isWrite('POST', '/v1/databases/abc/query'), false);
@@ -46,4 +47,17 @@ test('the server answers an HTML page, a 429 with retry-after, refuses a connect
     assert.equal((await get()).status, 200);
     assert.equal(proxy.stats.failed, 3);
   } finally { await proxy.close(); notion.close(); }
+});
+
+test('on the stand-in the proxy forwards to the stand-in, never to real Notion', async () => {
+  assert.equal(farSide(null), 'https://api.notion.com');   // only a run on the real test page
+  const fake = await startNotionFake();
+  const proxy = await startNotionProxy({target: farSide(fake)});
+  try {
+    assert.match(farSide(fake), /^http:\/\/127\.0\.0\.1:/);
+    const before = fake.stats.calls;
+    const response = await fetch(`${proxy.url}/v1/users/me`, {headers: {authorization: `Bearer ${fake.token}`, 'Notion-Version': '2022-06-28'}});
+    assert.equal(response.status, 200, 'answered by the stand-in, not refused by real Notion');
+    assert.equal(fake.stats.calls, before + 1, 'the request reached the stand-in');
+  } finally { await proxy.close(); await fake.close(); }
 });

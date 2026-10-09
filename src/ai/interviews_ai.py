@@ -9,7 +9,6 @@ import sys
 
 from . import engine
 from ..notion import titles
-from ..notion.ledger import plain
 from .interviews_stages import CANDIDATE_STAGES
 from .models import BIG_MODEL, MAIN_MODEL
 
@@ -109,10 +108,10 @@ The candidate's profile follows.
 """
 
 
-def candidates(tracker):
-    rows = tracker.query_database(tracker.database_id, {'or': [
-        {'property': 'Stage', 'select': {'equals': stage}} for stage in CANDIDATE_STAGES]})
-    return sorted(rows, key=lambda r: plain(r['properties'].get('Applied on')) or '', reverse=True)
+def candidates(stores):
+    """The applications an interview may belong to (application records), latest applied first."""
+    rows = stores.applications.list(stages=list(CANDIDATE_STAGES))
+    return sorted(rows, key=lambda r: r.get('applied_on') or '', reverse=True)
 
 
 def ask(client, model, **request):
@@ -130,8 +129,8 @@ def ask(client, model, **request):
 
 def analyse(client, model, profile, apps, caption, transcript):
     listing = '\n'.join(
-        f"{i}. {plain(r['properties'].get('Company'))} — {titles.row_role(r)} "
-        f"(stage {plain(r['properties'].get('Stage'))}, applied {plain(r['properties'].get('Applied on')) or '?'})"
+        f"{i}. {r.get('company') or ''} — {titles.role_of(r.get('title') or '', r.get('company') or '', r.get('via') or '')} "
+        f"(stage {r.get('stage') or ''}, applied {r.get('applied_on') or '?'})"
         for i, r in enumerate(apps))
     return ask(client, model, max_tokens=MAX_TOKENS,
                system=[{'type': 'text', 'text': SYSTEM + profile}],

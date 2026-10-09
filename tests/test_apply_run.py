@@ -72,28 +72,20 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(apply_run.audit(sample, URL, self.start, self.end)[0], 'needs_user')
 
 
-class FakeTracker:
-    def __init__(self):
-        self.marked = []
-        self.updated = []
-
-    def find(self, url):
-        return {'id': 'page-1', 'properties': {'Stage': {'select': {'name': 'Saved'}}}}
-
-    def mark(self, job, stage):
-        self.marked.append(stage)
-
-    def read_kit(self, page_id, heading):
-        return {'url': URL, 'check_before_sending': []}
-
-    def update_page(self, page_id, properties):
-        self.updated.append(properties)
+def store_with_kit(checks=()):
+    """This Mac's store holding the job at Saved with its kit section (base.KIT_SECTION, the kit as a json fence)."""
+    from src.stores import base, memory
+    stores = memory.open_store()
+    app = stores.applications.create({'url': URL, 'title': 'SRE', 'company': 'Acme'}, 'Saved')
+    kit = {'url': URL, 'check_before_sending': list(checks)}
+    stores.applications.set_section(app['id'], base.KIT_SECTION, '### Machine-readable kit\n\n```json\n' + json.dumps(kit) + '\n```')
+    return stores
 
 
 class RunnerTests(unittest.TestCase):
     def test_records_review_ready_result_outside_repo(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(apply_run, 'STATE_DIR', Path(directory)):
-            tracker = FakeTracker()
+            stores = store_with_kit()
 
             def fake_codex(command, **kwargs):
                 self.assertIn('browser-submit-guard.js', ' '.join(command))
@@ -104,24 +96,33 @@ class RunnerTests(unittest.TestCase):
                 return type('Process', (), {'returncode': 0, 'stderr': ''})()
 
             with patch.object(apply_run.subprocess, 'run', side_effect=fake_codex):
-                state = apply_run.run(URL, tracker)
+                state = apply_run.run(URL, stores)
             self.assertEqual(state['status'], 'ready')
-            self.assertEqual(tracker.marked, ['Applying'])
-            self.assertIn('Form fill time (min)', tracker.updated[0])
+            row = stores.applications.get(URL)
+            self.assertEqual(row['stage'], 'Applying')
+            self.assertTrue(row['next_step'].startswith('Ready for review'))
+            self.assertNotEqual(row['fill_minutes'], '')
             self.assertTrue((Path(directory) / f'{apply_run.job_code(URL)}.json').exists())
             with self.assertRaises(RuntimeError):
-                apply_run.run(URL, tracker)
+                apply_run.run(URL, stores)
 
     def test_eligibility_check_stops_before_codex(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(apply_run, 'STATE_DIR', Path(directory)):
-            tracker = FakeTracker()
-            tracker.read_kit = lambda page_id, heading: {
-                'url': URL, 'check_before_sending': ['Confirm location eligibility']}
+            stores = store_with_kit(['Confirm location eligibility'])
             with patch.object(apply_run.subprocess, 'run') as codex:
-                state = apply_run.run(URL, tracker)
+                state = apply_run.run(URL, stores)
             self.assertEqual(state['status'], 'needs_user')
             self.assertIn('location eligibility', state['reason'])
             codex.assert_not_called()
+
+    def test_no_kit_in_the_store_stops_before_anything(self):
+        from src.stores import memory
+        stores = memory.open_store()
+        stores.applications.create({'url': URL, 'title': 'SRE'}, 'Saved')
+        with tempfile.TemporaryDirectory() as directory, patch.object(apply_run, 'STATE_DIR', Path(directory)):
+            with self.assertRaises(RuntimeError):
+                apply_run.run(URL, stores)
+        self.assertEqual(stores.applications.get(URL)['stage'], 'Saved')
 
 
 class RecordFromPageTests(unittest.TestCase):

@@ -32,32 +32,6 @@ def job_line(app):
         text('🔗 Job: '), text(f'{who} · {title}' if title else who, link=True)]}}
 
 
-def _line_key(rich_text):
-    return [(t.get('text', {}).get('content', t.get('plain_text', '')), (t.get('text', {}).get('link') or {}).get('url')) for t in rich_text]
-
-
-def ensure_job_line(tracker, page_id, app):
-    """Keep the job line at the top of an interview page, once: replaced when it is there (the first three blocks),
-    else put first. Returns True when the page changed."""
-    want = job_line(app)['paragraph']['rich_text']
-    blocks = tracker._children(page_id)
-    for block in blocks[:3]:
-        if block['type'] == 'paragraph' and plain({'type': 'rich_text', 'rich_text': block['paragraph'].get('rich_text', [])}).startswith('🔗 '):
-            if _line_key(block['paragraph']['rich_text']) == _line_key(want):
-                return False
-            tracker._request('PATCH', f"blocks/{block['id']}", {'paragraph': {'rich_text': want}})
-            return True
-    first = blocks[0] if blocks else None
-    if first and first['type'] == 'paragraph' and not first.get('children') and not first.get('has_children'):
-        # The API can't insert before a block: the first paragraph becomes the line and its old text goes right after.
-        old = first['paragraph'].get('rich_text', [])
-        tracker._request('PATCH', f"blocks/{first['id']}", {'paragraph': {'rich_text': want}})
-        tracker._request('PATCH', f"blocks/{page_id}/children", {'children': [{'object': 'block', 'type': 'paragraph', 'paragraph': {'rich_text': old}}], 'after': first['id']})
-    else:
-        tracker._request('PATCH', f"blocks/{page_id}/children", {'children': [job_line(app)], **({'after': first['id']} if first else {})})
-    return True
-
-
 def transcript_toggle(transcript):
     toggle = _block('heading_3', 'Transcript')
     paragraphs = [transcript[i:i + 190_000] for i in range(0, len(transcript), 190_000)] or ['']
@@ -91,39 +65,30 @@ def page_blocks(result, transcript, merged=None):
 def interview_title(company, round_, app=None):
     """"Company · Round": the employer if named (in the call, else the application's Company), else the application's
     Via (agency), else its job title, else just the round."""
-    props = (app or {}).get('properties', {})
-    name = (named(company) or named(plain(props.get('Company'))) or named(plain(props.get('Via')))
-            or named(titles.row_role(app)))
+    app = app or {}
+    name = (named(company) or named(app.get('company') or '') or named(app.get('via') or '')
+            or named(titles.role_of(app.get('title') or '', app.get('company') or '', app.get('via') or '')))
     return ' · '.join(part for part in (name, (round_ or '').strip()) if part)[:200] or 'Interview'
 
 
-def properties(result, app, today, model, usd, source):
-    """source: 'Recording', 'Transcript' or 'Notes' (older callers pass True/False for transcript/notes)."""
+def review_fields(result, app, today, model, usd, source):
+    """The reviewed interview's fields (src/stores/base.py INTERVIEW_FIELDS), without the review text itself.
+    source: 'Recording', 'Transcript' or 'Notes' (older callers pass True/False for transcript/notes)."""
     source = {True: 'Transcript', False: 'Notes'}.get(source, source)
-    text = lambda value: {'rich_text': [{'text': {'content': value[:2000]}}]}
     topics = list(dict.fromkeys(q['topic'] for q in result['questions']))
     weak = list(dict.fromkeys(q['topic'] for q in result['questions'] if q['quality'] in ('weak', 'not_answered')))
-    props = {
-        'Interview': {'title': [{'text': {'content': interview_title(result['company'], result['round'], app)}}]},
-        'Date': {'date': {'start': today.isoformat()}},
-        'Round': text(result['round']),
-        'Overall': {'select': {'name': result['overall']}},
-        'Questions': {'number': len(result['questions'])},
-        'Weak answers': {'number': sum(q['quality'] in ('weak', 'not_answered') for q in result['questions'])},
-        'Topics': text('; '.join(topics)),
-        'Weak topics': text('; '.join(weak)),
-        'Next step': text(result['next_step']),
-        'Input': {'select': {'name': source}},
-        'Cost (USD)': {'number': round(usd, 4)},
-        'Model': text(model),
-    }
+    fields = {'title': interview_title(result['company'], result['round'], app), 'at': today.isoformat(),
+              'round': result['round'][:2000], 'overall': result['overall'], 'questions': len(result['questions']),
+              'weak_answers': sum(q['quality'] in ('weak', 'not_answered') for q in result['questions']),
+              'topics': '; '.join(topics)[:2000], 'weak_topics': '; '.join(weak)[:2000], 'next_step': result['next_step'][:2000],
+              'input': source, 'cost': round(usd, 4), 'model': model}
     if app:
-        props['Application'] = {'relation': [{'id': app['id']}]}
-    return props
+        fields['app_id'] = app['id']
+    return fields
 
 
 def message(result, app, page_url, usd, truncated=False, merged=None, stage=None):
-    title = (tgcard.dot(plain(app['properties'].get('Company')), titles.row_role(app))
+    title = (tgcard.dot(app.get('company') or '', titles.role_of(app.get('title') or '', app.get('company') or '', app.get('via') or ''))
              if app else f"{named(result['company']) or 'Unknown company'} · not linked to an application")
     weak = [q for q in result['questions'] if q['quality'] in ('weak', 'not_answered')]
     blocks = [tgcard.block(escape(title), escape(result['summary']))]

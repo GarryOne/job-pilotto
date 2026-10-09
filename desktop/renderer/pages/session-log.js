@@ -17,6 +17,7 @@ import {richText} from './rich-text.js';
 import {renderSteps, terminalShown, toggleTechnicalLog} from './session-steps.js';
 import {toastMessage} from './startup.js';
 import {syncTips} from '../tips.js';
+import {storeName} from '../store-words.js';
 
 export async function openSession(id) {
   if (!id) return;
@@ -119,14 +120,14 @@ export function renderSessionPage() {
   const livePill = pill(`${logLabel} · ${sessionDuration(item)}`, logTone, {dot: true});
   if (item.status === 'running') ticking(livePill, `${logLabel} · `, item.startedAt);
   $('ss-live-state').replaceChildren(livePill);
-  $('ss-log-last').textContent = `> ${isSubmitted(item) ? 'Submitted. Marked Applied in Notion.' : review ? 'Form filled in Chrome. Waiting for your review.' : item.note || 'Starting…'}`;
+  $('ss-log-last').textContent = `> ${isSubmitted(item) ? `Submitted. Marked Applied in ${storeName()}.` : review ? 'Form filled in Chrome. Waiting for your review.' : item.note || 'Starting…'}`;
   // A session that isn't running (closed with the app, or ended) takes no typing: say so, with Resume one click away.
   const offline = !isLive(item);
   show($('ss-offline'), offline);
   show($('ss-replies'), !offline);
   $('ss-offline-resume').hidden = !item.resumable || isSubmitted(item) || !claudeHelp();
   $('ss-offline').querySelector('span').textContent = isSubmitted(item)
-    ? 'Submitted. This application is marked Applied in Notion.'
+    ? `Submitted. This application is marked Applied in ${storeName()}.`
     : item.resumable
     ? 'Claude isn\'t running. This is its conversation; resume it to answer or ask for more.'
     : 'This session has ended. Start a new session from the job to continue.';

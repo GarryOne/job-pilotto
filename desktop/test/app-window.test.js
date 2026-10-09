@@ -28,7 +28,7 @@ test('open questions are the ❓ lines of the Notion standard answers; answering
   const questions = await import('../lib/questions.js');
   const storage = tempStorage();
   storage.setSecret('NOTION_TOKEN', 'ntn_x');
-  storage.saveSettings({notionIds: {NOTION_ANSWERS_PAGE_ID: 'answers'}});
+  storage.saveSettings({notionIds: {NOTION_PROFILE_PAGE_ID: 'profile', NOTION_ANSWERS_PAGE_ID: 'answers'}});
   const {blocks, fetcher} = fakeNotion(['Notice period: ❓', 'Salary expectation: CHF 130,000']);
   const run = {url: 'https://x/1', trace: [
     {label: 'Are you open to relocation?', required: true, reason: questions.NO_ANSWER},
@@ -52,7 +52,7 @@ test('a form\'s required marker (*) is not part of an open question', async () =
   const questions = await import('../lib/questions.js');
   const storage = tempStorage();
   storage.setSecret('NOTION_TOKEN', 'ntn_x');
-  storage.saveSettings({notionIds: {NOTION_ANSWERS_PAGE_ID: 'answers'}});
+  storage.saveSettings({notionIds: {NOTION_PROFILE_PAGE_ID: 'profile', NOTION_ANSWERS_PAGE_ID: 'answers'}});
   const {blocks, fetcher} = fakeNotion(['* Street, No.: ❓ (asked by Acme)']);
   const run = {url: 'https://x/1', trace: [{label: '* Nationality', required: true, reason: questions.NO_ANSWER},
     {label: 'Street, No. *', required: true, reason: questions.NO_ANSWER}]};  // same question as the page's: not added again
@@ -66,7 +66,7 @@ test('contact fields left empty never become questions for the answers page (the
   const questions = await import('../lib/questions.js');
   const storage = tempStorage();
   storage.setSecret('NOTION_TOKEN', 'ntn_x');
-  storage.saveSettings({notionIds: {NOTION_ANSWERS_PAGE_ID: 'answers'}});
+  storage.saveSettings({notionIds: {NOTION_PROFILE_PAGE_ID: 'profile', NOTION_ANSWERS_PAGE_ID: 'answers'}});
   const {blocks, fetcher} = fakeNotion([]);
   const empty = label => ({label, required: true, reason: questions.NO_ANSWER});
   const run = {url: 'https://x/1', trace: ['First Name', 'Last Name *', 'Email', 'Phone', 'LinkedIn Profile', 'Location (City)',

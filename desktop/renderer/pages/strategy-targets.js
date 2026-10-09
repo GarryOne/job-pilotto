@@ -13,26 +13,34 @@ import {dirtyLists, exclusionGroups, roleFamilies, withTyped} from '../strategy-
 import {strategyState} from './strategy-state.js';
 import {loadStrategy} from './strategy.js';
 import {drawImprove, refreshAction} from './strategy-suggestions.js';
+import {byStore} from '../store-words.js';
 
 // ---------- Your goals and the setup review's cards, with your live settings (owner, 7 Oct 2026: the page lacked work mode, salary,
 // languages, search terms, excluded languages and work rights, which the setup review shows). Lists: Edit → Save (lib/strategy.js editLists,
 // to ⚙️ Search settings); goals: corrected one at a time in the Profile (lib/goals.js), like the review.
 // [card, icon, title, its lists: [list, label or note, what the add field asks]]
 // Owner mockup, 7 Oct 2026: four cards (roles with their search terms, places with eligibility, skills, exclusions); every list still edits here.
-export const CARD_TONE = {roles: 'violet', places: 'teal', stack: 'info', languages: 'warn'};   // the same colours as the suggestions of each kind
+export const CARD_TONE = {roles: 'violet', places: 'teal', stack: 'info', languages: 'warn', search: 'neutral'};   // the same colours as the suggestions of each kind
 export const TARGET_CARDS = [
   ['roles', 'briefcase', 'Roles & job board searches', [['roles', '', 'Add a job title'], ['queries', 'Job board searches: what we type into job boards such as jobs.ch', 'Add a job board search']]],
   ['places', 'pin', 'Locations & eligibility', [['places', 'Priority locations', 'Add a city or region'], ['country', 'Additional regions', 'Add a country or region'],
     ['abroad', 'Relocation (open to)', 'Add a city abroad'], ['rights', 'Work rights: where you can work without a visa', 'Add a country or EU']]],
   ['stack', 'layers', 'Skills & experience', [['stack', 'Key skills and tools you want in jobs.', 'Add a skill or tool']]],
   ['languages', 'shield', 'Exclusions & preferences', [['languages', 'Languages that rule a job out', 'Add a language']]],
+  // What only the ⚙️ Search settings page had (P8, 9 Oct 2026), so every store edits it here (lib/strategy-edit.js), with the level and the digest's minimum.
+  ['search', 'search', 'More search settings', [['titleSkip', 'Job titles to skip', 'Add a word'], ['skip', 'Companies to skip', 'Add a company'], ['remoteSkip', 'Remote jobs: regions to skip', 'Add a region'],
+    ['finders', 'Words that find new employers', 'Add a word'], ['gqueries', 'Google Jobs searches', 'Add a search'],
+    ['gplaces', 'Google Jobs places: "City,Region,Country · language"', 'Add a place, e.g. Zurich,Zurich,Switzerland · de']]],
 ];
+// A card's one-value settings, edited as {set} (not lists): they mark the card Edited too.
+const CARD_VALUES = {places: ['remote'], search: ['level', 'minScore']};
+const valuesDirty = (key, changed) => (CARD_VALUES[key] || []).some(name => changed.has(name));
 export const TARGET_LISTS = TARGET_CARDS.flatMap(([, , , lists]) => lists.map(([name]) => name));
 // targetEdits (on strategyState): {list: {add: [words], remove: [stored entries]}, remote: {set}} while editing
 let typed = {};   // the text still in each list's input (not yet added with Enter): part of the draft
 export const dirty = () => dirtyLists(strategyState.targetEdits, typed);
 // Two columns that stack on their own (owner, 7 Oct 2026: cards sharing a grid row left tall gaps under the shorter one when zoomed out).
-const COLUMNS = [['roles', 'stack'], ['places', 'languages']];
+const COLUMNS = [['roles', 'stack', 'search'], ['places', 'languages']];
 export const inColumns = cards => COLUMNS.map(keys => {
   const column = el('div', 'target-column');
   column.append(...keys.map(key => cards.find(card => card.dataset.list === key)).filter(Boolean));
@@ -46,7 +54,8 @@ export function editedList(entries, edit = {add: [], remove: []}) {
   return [...entries.filter(entry => !gone.has(entry.fragment)).map(entry => ({...entry, added: false})),
     ...edit.add.map(word => ({fragment: '', label: word, added: true}))];
 }
-const PLAIN = new Set(['queries', 'languages']);   // stored as typed, not lower-cased
+const PLAIN = new Set(['queries', 'languages', 'skip', 'gqueries', 'gplaces']);   // stored as typed, not lower-cased
+const AS_TYPED = new Set(['skip', 'gplaces']);   // shown as typed too: a company's own spelling, a place's language code ("de", not "De")
 function listChips(name, placeholder) {
   const editing = !!strategyState.targetEdits, edit = editing ? (strategyState.targetEdits[name] ||= {add: [], remove: []}) : null;
   const stored = entriesOf(strategyState.lastStrategy, name);
@@ -54,7 +63,7 @@ function listChips(name, placeholder) {
   const entries = editing ? editedList(stored, edit) : stored;
   box.append(...entries.map(entry => {
     const pill = el('span', `chip${editing ? ' removable' : ''}${entry.added ? ' is-added' : ''}`);
-    pill.append(el('span', '', titleCase(entry.label)));
+    pill.append(el('span', '', AS_TYPED.has(name) ? entry.label : titleCase(entry.label)));
     if (editing) {
       const remove = Object.assign(document.createElement('button'), {type: 'button', className: 'x', textContent: '×', title: `Remove ${entry.label}`});
       remove.setAttribute('aria-label', `Remove ${entry.label}`);
@@ -106,6 +115,40 @@ function remoteChoice() {
   }
   return group;
 }
+// Your level (Search settings "Your level"): postings whose title plainly names another level are skipped; Any keeps them all.
+const LEVELS = [['', 'Any'], ['junior', 'Junior'], ['mid', 'Mid'], ['senior', 'Senior'], ['lead', 'Lead']];
+function levelChoice() {
+  const now = strategyState.lastStrategy?.level || '', chosen = strategyState.targetEdits?.level ? strategyState.targetEdits.level.set : now;
+  if (!strategyState.targetEdits) return el('span', '', LEVELS.find(([value]) => value === now)?.[1] || 'Any');
+  const group = el('div', 'segmented');
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', 'Your level');
+  for (const [value, label] of LEVELS) {
+    const button = Object.assign(el('button', value === chosen ? 'is-active' : '', label), {type: 'button'});
+    button.setAttribute('aria-pressed', String(value === chosen));
+    button.addEventListener('click', () => {
+      if (value === now) delete strategyState.targetEdits.level; else strategyState.targetEdits.level = {set: value};
+      renderTargets();
+    });
+    group.append(button);
+  }
+  return group;
+}
+// The digest's minimum fit score (Search settings "Minimum fit score for the digest"; the engine's default is 50).
+function minScoreInput() {
+  const now = strategyState.lastStrategy?.digest_min_score ?? 50;
+  if (!strategyState.targetEdits) return el('span', '', `${now} / 100: lower scores stay in your list, out of the digest`);
+  const input = Object.assign(document.createElement('input'), {type: 'number', min: 0, max: 100, step: 1, className: 'add',
+    value: strategyState.targetEdits.minScore?.set ?? now});
+  input.setAttribute('aria-label', 'Minimum fit score for the digest');
+  input.addEventListener('change', () => {
+    const value = Math.round(Number(input.value));
+    if (!Number.isFinite(value) || value < 0 || value > 100 || value === now) delete strategyState.targetEdits.minScore;
+    else strategyState.targetEdits.minScore = {set: value};
+    refreshDraft();
+  });
+  return input;
+}
 function targetCard([key, glyph, title, lists]) {
   const card = el('section', 'card');
   card.dataset.list = key;
@@ -113,7 +156,7 @@ function targetCard([key, glyph, title, lists]) {
   heading.append(tile(glyph, CARD_TONE[key] || 'neutral'), title);
   const badge = pill('Edited', 'warn');
   badge.classList.add('edited-badge');
-  badge.hidden = !lists.some(([name]) => dirty().has(name)) && !(key === 'places' && dirty().has('remote'));
+  badge.hidden = !lists.some(([name]) => dirty().has(name)) && !valuesDirty(key, dirty());
   heading.append(badge);
   head.append(heading);
   if (!strategyState.targetEdits) {
@@ -133,6 +176,7 @@ function targetCard([key, glyph, title, lists]) {
     card.append(box);
   }
   if (key === 'places') card.append(el('p', 'sub', 'Remote jobs'), remoteChoice());
+  if (key === 'search') card.append(el('p', 'sub', 'Your level'), levelChoice(), el('p', 'sub', 'Minimum fit score for the digest'), minScoreInput());
   return card;
 }
 // ---------- The cards as read (not editing): grouped and short; Edit shows every list in full as before ----------
@@ -199,6 +243,13 @@ const VIEWS = {
     const stack = labelsOf('stack');
     return [el('p', 'sub', 'Key skills and tools you want in jobs.'), stack.length ? folded(stack, 10, 'Show all') : el('span', 'muted small', 'None')];
   },
+  search() {
+    const row = (glyph, label, name, none) => { const labels = labelsOf(name); return settingRow(glyph, label, !labels.length ? none : AS_TYPED.has(name) ? chipsOf(labels, false) : folded(labels, 6, 'Show all')); };
+    return [settingRow('user', 'Your level', levelChoice()), settingRow('target', 'Minimum fit score for the digest', minScoreInput()),
+      row('close', 'Job titles to skip', 'titleSkip', 'None'), row('building', 'Companies to skip', 'skip', 'None'), row('globe', 'Remote jobs: regions to skip', 'remoteSkip', 'None'),
+      row('sparkle', 'Words that find new employers', 'finders', 'None'), row('search', 'Google Jobs searches', 'gqueries', 'None: Google Jobs is not searched'),
+      row('pin', 'Google Jobs places', 'gplaces', 'None')];
+  },
   languages() {
     const {languages, hide, lower} = exclusionGroups(strategyState.lastStrategy);
     const block = el('div', 'setting-body');
@@ -259,7 +310,7 @@ function refreshDraft() {
   for (const card of document.querySelectorAll('#strategy-targets .card[data-list]')) {
     const [key, , , lists] = TARGET_CARDS.find(([name]) => name === card.dataset.list);
     const badge = card.querySelector('.edited-badge');
-    if (badge) badge.hidden = !lists.some(([name]) => changed.has(name)) && !(key === 'places' && changed.has('remote'));
+    if (badge) badge.hidden = !lists.some(([name]) => changed.has(name)) && !valuesDirty(key, changed);
   }
 }
 function startTargetsEdit() {
@@ -296,7 +347,7 @@ export async function saveTargets() {
   strategyState.targetEdits = null;
   typed = {};
   // Saved to Search settings; when Notion is connected, editLists has published it there before answering ok (lib/strategy.js).
-  toastMessage({title: 'Strategy saved ✓', body: `${shared.state?.notionConnected ? 'Synced to Notion. ' : ''}Refresh your jobs to search with it.`, action: refreshAction});
+  toastMessage({title: 'Strategy saved ✓', body: `${shared.state?.notionConnected ? byStore('Synced to Notion. ', '') : ''}Refresh your jobs to search with it.`, action: refreshAction});
   await loadStrategy();
   renderTargets();
   return true;

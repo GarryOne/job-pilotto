@@ -1,7 +1,8 @@
 // Jobs page, the list: renderJobs (rows, filters, row actions), In conversation, the stuck banner, loading state, kit label. Guarded by: test/count-flash.test.js.
 import {ai} from '../ai-name.js';
-import {closeMenu, el, moreButton, pill, tag} from '../components.js';
+import {closeMenu, el, isInteractiveTarget, moreButton, pill, tag} from '../components.js';
 import {claudeHelp} from '../claude-help.js';
+import {columnOf} from '../jobs-board-rules.js';
 import {isInbound} from '../origin.js';
 import {looksLikeLink, matches} from '../filter.js';
 import {icon} from '../icons.js';
@@ -18,8 +19,12 @@ import {scoreBucket} from '../intel.js';
 import {askWhy} from './dismiss-reason.js';
 import {openMatchCheck} from './match-check.js';
 import {jobsState, MORE, pageKey, fullKey} from './jobs-state.js';
+import {byStore, storeName} from '../store-words.js';
 import {fitDetail} from './jobs-fit.js';
+import {openJobPanel, panelUrl} from './job-panel.js';
 import {loadJobs, showJobsData} from './jobs.js';
+import {inView} from '../jobs-board-rules.js';
+import {paintViews} from './jobs-views.js';
 
 // Applying, with no session open for it: one to settle (banner on Jobs).
 const stuck = job => isStuck(job, entry => sessionList.some(item => pageKey(item.url) === pageKey(entry.url)));
@@ -52,7 +57,7 @@ function renderTalking(narrowed = false) {
   $('jobs-talking-count').textContent = `${talking.length} active · ${found} inbound · ${talking.length - found} outbound`;
   $('jobs-talking-list').replaceChildren(...talking.map(job => {
     const li = Object.assign(el('li', 'focus-item tone-info'), {tabIndex: 0, role: 'button',
-      title: job.notion_url ? 'Open in Notion' : 'Open the link'});
+      title: job.notion_url ? 'Open in Notion' : 'Open its page'});
     const round = el('span', 'focus-round');
     round.append(icon('chat'));
     const top = el('div', 'focus-top');
@@ -66,7 +71,8 @@ function renderTalking(narrowed = false) {
     const body = el('div', 'focus-body');
     body.append(top, meta);
     li.append(round, body);
-    const open = event => (job.notion_url ? window.pilot.openNotion(job.notion_url, event.metaKey) : window.pilot.openExternal(job.url));
+    // Its Notion page when the store has one, else the job's page here (pages/job-panel.js): the conversation, its messages and history.
+    const open = event => (job.notion_url ? window.pilot.openNotion(job.notion_url, event.metaKey) : openJobPanel(job));
     li.addEventListener('click', open);
     li.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(event); } });
     return li;
@@ -81,7 +87,9 @@ export function renderJobs() {
   // The counters count every application (real workload); without one, the menu decides (byFilter): job matches by
   // status, all of them under All matches, the opportunities that found you under Inbound only, both kinds together
   // under Everything (the open ones are also "In conversation" above); a pasted link finds any job.
-  const counted = jobsState.statFilter === 'stuck' ? shared.allJobs.filter(stuck)
+  // A saved view chip (pages/jobs-views.js) narrows like a counter: those jobs, whatever the menu says.
+  const counted = jobsState.view ? shared.allJobs.filter(job => inView(job, jobsState.view))
+    : jobsState.statFilter === 'stuck' ? shared.allJobs.filter(stuck)
     : jobsState.statFilter?.urls ? shared.allJobs.filter(job => jobsState.statFilter.urls.has(fullKey(job.url)))
     : jobsState.statFilter ? byStat(COUNTS_ALL.has(jobsState.statFilter) ? shared.allJobs : matchesOnly(shared.allJobs), jobsState.statFilter) : null;
   const by = $('sort-by').value;
@@ -139,15 +147,17 @@ export function renderJobs() {
     const skills = tags(job, 8);
     for (const skill of skills.slice(0, 3)) chips.append(tag(skill));
     if (skills.length > 3) chips.append(tag(`+${skills.length - 3}`, {title: skills.slice(3).join(', ')}));
-    if (job.kit && job.notion_url) {
+    // A section of the job's page (kit, rejection review): Notion's page when the store has one, else the job's page here (pages/job-panel.js).
+    const openPage = (tab, event) => (job.notion_url ? window.pilot.openNotion(job.notion_url, event?.metaKey) : openJobPanel(job, tab));
+    if (job.kit) {
       // Which inputs it was drafted from (src/ai/provenance.py): today's, earlier ones, or unknown (before they were recorded).
       const {label, title} = kitLabel(job.kit_state);
-      chips.append(tag(label, {title: `${title} Click to open it in Notion.`, onClick: event => window.pilot.openNotion(job.notion_url, event.metaKey)}));
+      chips.append(tag(label, {title: `${title} Click to open it${job.notion_url ? ' in Notion' : ''}.`, onClick: event => openPage('kit', event)}));
     }
     if (job.tailored && job.code) chips.append(tag('📄 Tailored CV', {title: 'Your CV tailored to this job, with the changes highlighted',
       onClick: () => window.pilot.openTailoredCv(job.code)}));
-    if (job.rejection) chips.append(tag(`🔎 ${job.rejection}`, {title: job.rejection_lesson || 'Why it was rejected (on its Notion page)',
-      onClick: event => job.notion_url && window.pilot.openNotion(job.notion_url, event.metaKey)}));
+    if (job.rejection) chips.append(tag(`🔎 ${job.rejection}`, {title: job.rejection_lesson || 'Why it was rejected',
+      onClick: event => openPage('review', event)}));
     if (busyNotes.has(job.url)) chips.append(tag(busyNotes.get(job.url), {busy: true}));
     if (chips.childElementCount) role.append(chips);
 
@@ -265,14 +275,16 @@ export function renderJobs() {
       renderJobs();
       try { await work(); } finally { busyNotes.delete(job.url); renderJobs(); }
     };
+    menu.push({icon: 'file', label: 'Open job page', run: () => openJobPanel(job),
+      title: 'Its kit, prep, reviews, record, messages, description and history, here beside the list'});
     if (job.notion_url) menu.push({icon: job.kit ? 'file-text' : 'layers', label: job.kit ? 'Open kit in Notion' : 'Open in Notion', run: event => window.pilot.openNotion(job.notion_url, event.metaKey),
-      title: job.kit ? 'Application kit: form answers, cover letter, eligibility (in Notion)' : 'This job in your Notion'});
+      title: job.kit ? 'Application kit: form answers, cover letter, eligibility (in Notion)' : 'This job in your Notion'});   // about Notion
     menu.push({icon: 'external', label: isInbound(job) ? 'Open the message' : 'Open posting', run: () => window.pilot.openExternal(job.url), title: isInbound(job) ? 'The email or chat it came from' : 'The job posting'});
     if (job.kit && job.code) {
       // Draft the kit again from the current Profile and standard answers (replaces it in Notion).
       const earlier = String(job.kit_state || '').startsWith('earlier');
       menu.push({icon: 'refresh', label: earlier ? 'Redraft kit (earlier inputs)' : 'Redraft kit',
-        title: 'Draft the kit again from your current CV, Profile and standard answers (~20 s); replaces it in Notion', run: () =>
+        title: `Draft the kit again from your current CV, Profile and standard answers (~20 s); replaces it in ${storeName()}`, run: () =>
         background('↻ Redrafting kit…', async () => {
           const result = await window.pilot.prepareKit(job.code, `${job.title} · ${job.company}`);
           if (result.cloud) openActivity(true); else if (result.ok) loadJobs(); else toastMessage('Redraft failed', result.error || 'Try again.');
@@ -288,8 +300,8 @@ export function renderJobs() {
     if (job.page_id) menu.push({icon: 'chat', label: 'Add employer feedback', run: () => openFeedback({...job, job: job.title}, 'receive')});
     if (job.employer_feedback && job.page_id) menu.push({icon: 'chat', label: 'Read employer feedback', run: () => openFeedback({...job, job: job.title}, 'review')});
     // The saved review is a tag on the row; the menu says it in words too, as the tag alone did not read as clickable.
-    if (job.rejection && job.notion_url) menu.push({icon: 'file', label: 'View rejection review',
-      title: job.rejection_lesson || 'Why it was rejected, on the job\'s Notion page', run: event => window.pilot.openNotion(job.notion_url, event?.metaKey)});
+    if (job.rejection) menu.push({icon: 'file', label: 'View rejection review',
+      title: job.rejection_lesson || 'Why it was rejected: evidence and what to improve', run: event => openPage('review', event)});
     if (job.stage === 'Rejected') {
       // Claude reads the posting, what was sent, the timeline and any interview reviews: presentation, hard skills,
       // soft skills, or a different profile (nothing to improve). Written on the job's Notion page.
@@ -316,7 +328,7 @@ export function renderJobs() {
     }
     // "How did it go?": one click records what the employer did (in Notion, like a stage the Gmail check finds) and counts it anonymously,
     // by job board and days only, when Technical reports are on. It is how Job Pilotto learns which applications get answers.
-    const choices = job.url ? outcomeChoices(job.stage) : [];
+    const choices = job.url ? outcomeChoices(job.stage, storeName()) : [];
     if (choices.length) {
       menu.push('-');
       if (jobsState.benchmarkText[job.url]) menu.push({icon: 'info', label: jobsState.benchmarkText[job.url], disabled: true, title: 'From how other people\'s applications on this job board went (anonymous counts)'});
@@ -325,7 +337,7 @@ export function renderJobs() {
           const result = await window.pilot.markOutcome({url: job.url, outcome: choice.outcome, appliedOn: job.applied_on, bucket: scoreBucket(job.fit)}).catch(error => ({ok: false, error: error.message}));
           if (!result.ok) { toastMessage('Not saved', result.error || 'Try again.'); return; }
           if (choice.outcome !== 'reply') job.stage = result.stage;   // a reply is an event only: the stage stays where it is
-          toastMessage('Saved', `${choice.label.replace(/^(Heard back|No answer): /, '')} — recorded in Notion.`);
+          toastMessage('Saved', `${choice.label.replace(/^(Heard back|No answer): /, '')} — recorded in ${storeName()}.`);
           renderJobs();
           loadJobs();
         }});
@@ -335,7 +347,7 @@ export function renderJobs() {
     menu.push('-');
     if (job.status !== 'saved') menu.push({icon: 'bookmark', label: 'Save', run: setStatus('saved'), title: 'Keep this job on your list'});
     if (job.stage === 'Applying') {  // the session is over or was closed: say what happened, instead of staying Applying
-      menu.push({icon: 'tick', label: 'I submitted it', run: setStatus('applied'), title: 'Mark it Applied in Notion'});
+      menu.push({icon: 'tick', label: 'I submitted it', run: setStatus('applied'), title: `Mark it Applied in ${storeName()}`});
       menu.push({icon: 'undo', label: 'Not submitted', title: 'Back to Kit ready', run: async () => {
         const result = await window.pilot.unapplyJob(job.url).catch(error => ({ok: false, error: error.message}));
         if (!result.ok) { toastMessage('Status not changed', result.error || 'Something went wrong.'); return; }
@@ -346,32 +358,37 @@ export function renderJobs() {
     if (job.stage === 'Applied') menu.push({icon: 'undo', label: "This wasn't submitted…", title: 'Back to Applying, and the Applied record removed',
       run: async () => {
         // Only a bare Applied: a stage past it (a confirmation, an interview) is the employer's own evidence.
-        if (!confirm('Mark this as not submitted? It goes back to Applying and the Applied date and event are removed from Notion.\n\n'
+        if (!confirm(`Mark this as not submitted? It goes back to Applying and the Applied date and event are removed from ${storeName()}.\n\n`
           + 'Use this when Job Pilotto marked it Applied by itself and no application was sent.')) return;
         const result = await window.pilot.notSubmitted(job.url).catch(error => ({ok: false, error: error.message}));
         if (!result.ok) { toastMessage('Not changed', result.error || 'Something went wrong.'); return; }
         job.stage = 'Applying';
         job.status = 'applied';
-        toastMessage('Back to Applying', `The Applied record was removed${result.events ? ` (${result.events} Notion event${result.events === 1 ? '' : 's'})` : ''}.`);
+        toastMessage('Back to Applying', `The Applied record was removed${result.events ? ` (${result.events} ${byStore('Notion ', '')}event${result.events === 1 ? '' : 's'})` : ''}.`);
         renderJobs();
       }});
     if (job.status !== 'dismissed') menu.push({icon: 'close', label: 'Dismiss', run: setStatus('dismissed'), title: 'Not interested: hide this job', danger: true});
     // A dismissed job can go for good (owner, 7 Oct 2026): its Notion pages to the trash (30 days there), and no search brings it back.
-    else menu.push({icon: 'trash', label: 'Delete', danger: true, title: 'Remove this job: its Notion pages go to the trash, and searches will not show it again',
+    else menu.push({icon: 'trash', label: 'Delete', danger: true, title: byStore('Remove this job: its Notion pages go to the trash, and searches will not show it again', 'Remove this job for good: searches will not show it again'),
       run: async () => {
-        if (!confirm(`Delete "${job.title}" at ${job.company}?\n\nIts Notion pages go to Notion's trash (restorable there for 30 days), and searches will not show it again.`)) return;
+        if (!confirm(`Delete "${job.title}" at ${job.company}?\n\n${byStore('Its Notion pages go to Notion\'s trash (restorable there for 30 days), and searches will not show it again.', 'It is removed from Job Pilotto, and searches will not show it again.')}`)) return;
         const result = await window.pilot.deleteJob(job.url).catch(error => ({ok: false, error: error.message}));
         if (!result?.ok) { toastMessage('Not deleted', result?.error || 'Something went wrong.'); return; }
         const left = shared.allJobs.filter(other => other !== job);
         shared.allJobs = left;
         // The header and counters are counted from loaded data (showJobsData): counted again now, one job fewer.
         if (jobsState.lastJobsData) showJobsData({...jobsState.lastJobsData, jobs: left, total: jobsState.lastJobsData.total == null ? jobsState.lastJobsData.total : jobsState.lastJobsData.total - 1});
-        toastMessage('Deleted', result.trashed ? 'Its Notion pages are in the trash.' : 'It will not come back.');
+        toastMessage('Deleted', result.trashed ? byStore('Its Notion pages are in the trash.', 'It is deleted.') : 'It will not come back.');
         renderJobs();
       }});
     box.append(moreButton(menu, 'More: save, dismiss, kit, posting, tailor CV'));
 
     row.append(fit, role, company, place, status, box);
+    // The job's page beside the list (pages/job-panel.js): a click on the row outside its controls, the score ring and its analysis.
+    if (panelUrl() && panelUrl() === job.url) row.classList.add('is-selected');
+    row.addEventListener('click', event => {
+      if (!isInteractiveTarget(event.target, row) && !fit.contains(event.target) && !event.target.closest('.fit-detail, .ui-menu')) openJobPanel(job);
+    });
     // The score ring opens why: Match analysis (the score's parts, strengths and gaps; Notion Job Matches keeps
     // them). The caret turns with it, and the row's own one-line summary steps aside for the panel's lead.
     if (canOpen) {
@@ -416,17 +433,19 @@ export function renderJobs() {
     : anyStatus ? 'That job isn\'t in your list: not found by a search yet, or hidden by your language or company filters.'
     : !text && !jobsState.statFilter && emptyFor[filter] ? emptyFor[filter]
     : text || jobsState.statFilter || filter !== 'all' ? 'No job matches this filter.' : 'No open jobs right now.';
+  // The board shows applications only (rows with a Stage), whatever the menu says; a view or counter and the words narrow it.
+  paintViews((counted || shared.allJobs).filter(job => columnOf(job) && matches(job, text)));   // a job the board has a column for (jobs-board-rules.js)
 }
 
 // While the list loads from Notion (a few seconds): a spinner in the empty list the first time; afterwards the
 // list stays and the subtitle says it's refreshing.
 export function showLoading() {
-  if (shared.allJobs.length) { $('jobs-stats').textContent = 'Refreshing from Notion…'; return; }
+  if (shared.allJobs.length) { $('jobs-stats').textContent = byStore('Refreshing from Notion…', 'Refreshing…'); return; }
   const box = el('div', 'list-loading');
-  box.append(el('span', 'spinner'), el('div', '', 'Loading your jobs from Notion…'),
+  box.append(el('span', 'spinner'), el('div', '', byStore('Loading your jobs from Notion…', 'Loading your jobs…')),
     el('div', 'muted small', 'Job Matches and Applications, usually a few seconds'));
   $('jobs-body').replaceChildren(box);
-  $('jobs-stats').textContent = 'Loading from Notion…';
+  $('jobs-stats').textContent = byStore('Loading from Notion…', 'Loading…');
 }
 
 const INPUT_NAMES = {cv: 'CV', profile: 'Profile', answers: 'standard answers'};

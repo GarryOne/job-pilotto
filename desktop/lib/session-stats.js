@@ -69,19 +69,33 @@ export function toolsText(tools = {}) {
 }
 
 const OUTCOME = {submitted: 'Submitted', 'not submitted': 'Not submitted', restarted: 'Restarted', cancelled: 'Cancelled'};
-// The Agent Runs columns (config/notion_schema.json) for one session.
-export function properties(session, {now = Date.now(), read} = {}) {
+// One session's numbers as plain values: the store on this Mac keeps them in its agent run's `fields` (src/stores AGENT_RUN_FIELDS);
+// properties() turns the same values into Notion's columns, so both stores hold the same.
+export function plain(session, {now = Date.now(), read} = {}) {
   const time = timeline(session.events, {now, decidedAt: session.decidedAt});
   const claude = session.transcript ? transcript(session.transcript, read) : null;
+  return {
+    working_min: time.workingMin ?? null, waiting_min: time.waitingMin ?? null, times_asked: time.asked ?? null,
+    reply_median_s: time.replyMedianS ?? null, ready_to_decided_min: time.readyToDecidedMin ?? null,
+    outcome: OUTCOME[session.outcome] || 'Open',
+    ...(claude ? {turns: claude.turns, tool_calls: claude.toolCalls, tools_used: toolsText(claude.tools), tokens_in: claude.tokensIn,
+      tokens_out: claude.tokensOut, cache_read: claude.cacheRead, model: claude.model} : {}),
+    timeline: (session.events || []).map(e => `${e.at.slice(11, 19)} ${e.status}`).join(' → '),
+  };
+}
+
+// The Agent Runs columns (config/notion_schema.json) for one session.
+export function properties(session, options) {
+  const p = plain(session, options);
   const number = value => ({number: value ?? null});
   const text = value => ({rich_text: value ? [{text: {content: String(value).slice(0, 1900)}}] : []});
   return {
-    'Claude working (min)': number(time.workingMin), 'Waiting for you (min)': number(time.waitingMin),
-    'Times asked': number(time.asked), 'Your reply (median s)': number(time.replyMedianS),
-    'Ready → decided (min)': number(time.readyToDecidedMin),
-    Outcome: {select: {name: OUTCOME[session.outcome] || 'Open'}},
-    ...(claude ? {'Turns': number(claude.turns), 'Tool calls': number(claude.toolCalls), 'Tools used': text(toolsText(claude.tools)),
-      'Tokens in': number(claude.tokensIn), 'Tokens out': number(claude.tokensOut), 'Cache read': number(claude.cacheRead), Model: text(claude.model)} : {}),
-    'Session timeline': text((session.events || []).map(e => `${e.at.slice(11, 19)} ${e.status}`).join(' → ')),
+    'Claude working (min)': number(p.working_min), 'Waiting for you (min)': number(p.waiting_min),
+    'Times asked': number(p.times_asked), 'Your reply (median s)': number(p.reply_median_s),
+    'Ready → decided (min)': number(p.ready_to_decided_min),
+    Outcome: {select: {name: p.outcome}},
+    ...('turns' in p ? {'Turns': number(p.turns), 'Tool calls': number(p.tool_calls), 'Tools used': text(p.tools_used),
+      'Tokens in': number(p.tokens_in), 'Tokens out': number(p.tokens_out), 'Cache read': number(p.cache_read), Model: text(p.model)} : {}),
+    'Session timeline': text(p.timeline),
   };
 }

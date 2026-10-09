@@ -1,11 +1,11 @@
 /* global document, window, MutationObserver */
-// Focus: what a person sees on the first page they open each day. Dummy applications in every stage are written to Notion, then the page is
-// judged as a person would: the Up next rows in the right order with the right buttons, every number against the Notion rows, the target, finishing
+// Focus: what a person sees on the first page they open each day. Dummy applications in every stage are written to the app's store (ctx.data: this
+// Mac's or Notion), then the page is judged as a person would: the Up next rows in the right order with the right buttons, every number against the store's records, the target, finishing
 // an action, the Insight card, a fresh account. Starts from a set-up install; resets only this suite's own rows (never the workspace).
-import {call, createRowIn} from '../lib/notion.mjs';
+import {call} from '../lib/notion.mjs';
 import {LIMITS, inspect} from '../lib/uicheck.mjs';
 import {journey} from '../lib/journey.mjs';
-import {actionScenario, addFocusData, expectedNumbers, compareNumbers, EXPECTED_UP_NEXT, HAND_EDITS, idsFromApp, queryAll, readTargetLine, resetFocusData, rowProperties, scenario} from '../lib/focus-data.mjs';
+import {actionScenario, addApplication, addFocusData, expectedNumbers, compareNumbers, EXPECTED_UP_NEXT, HAND_EDITS, readData, resetFocusData, savedTarget, scenario} from '../lib/focus-data.mjs';
 import {finish, snap} from '../lib/layout.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 
@@ -28,7 +28,7 @@ export async function runFocus(ctx, parts) {
   const {page, app, token: NOTION} = ctx;
   ctx.findings = [];
   const now = new Date();
-  let ids, rows, events, target = 5;
+  let rows, events, target = 5;
 
   const focusReady = () => page.waitForFunction(() => /^Updated/.test(document.querySelector('#focus-status')?.textContent || '')
     && !document.querySelector('.view[data-view="focus"] .skeleton, .view[data-view="focus"] .spinner'), null, {timeout: 60000});
@@ -48,7 +48,7 @@ export async function runFocus(ctx, parts) {
       inbound: document.querySelector('#focus-inbound').hidden ? [] : steps('#inbound-steps'),
       actions: document.querySelector('#focus-count-note').textContent.trim()};
   });
-  const readNotion = async () => { rows = await queryAll(NOTION, ids.tracker); events = await queryAll(NOTION, ids.events); };
+  const readStore = async () => ({rows, events} = await readData(ctx));
   // The helper every count goes through: what Focus shows against what Notion says (an independent oracle, lib/focus-data.mjs).
   // Notion's query API is eventually consistent: a read a moment after a write can miss it, and the engine and this oracle read at different moments.
   // So a difference is checked again (Notion re-read, Focus refreshed) for up to ~30 s; a real bug does not go away, and the log says how long agreement took.
@@ -56,18 +56,18 @@ export async function runFocus(ctx, parts) {
     let diffs = [];
     for (let attempt = 0; attempt < 7; attempt++) {
       if (attempt) { await page.waitForTimeout(5000); if (attempt % 2 === 0) await refresh(); }
-      await readNotion();
+      await readStore();
       diffs = compareNumbers(await shownNumbers(), expectedNumbers(rows, events, {now, target}));
-      if (!diffs.length) { if (attempt) console.log(`  ${label}: Notion and Focus agreed after ${attempt} re-read(s)`); return; }
+      if (!diffs.length) { if (attempt) console.log(`  ${label}: the store and Focus agreed after ${attempt} re-read(s)`); return; }
     }
-    throw new Error(`${label}: ${diffs.join('; ')} (Notion has ${rows.length} application(s) and ${events.length} event(s); still different after 30 s)`);
+    throw new Error(`${label}: ${diffs.join('; ')} (the store has ${rows.length} application(s) and ${events.length} event(s); still different after 30 s)`);
   };
   // The events of one kind on one application (found by who it is for), for up to 30 s: Notion shows a write a moment after it returns.
   const eventsOf = async (kind, who) => {
     let found = [];
     for (let i = 0; i < 10 && !found.length; i++) {
-      const row = (await queryAll(NOTION, ids.tracker)).find(item => ['Company', 'Via'].some(field => (item.properties[field]?.rich_text || []).map(part => part.plain_text).join('') === who));
-      found = row ? (await queryAll(NOTION, ids.events)).filter(item => item.properties.Kind.select?.name === kind && item.properties.Application.relation.some(link => link.id === row.id)) : [];
+      const row = (await ctx.data('applications', 'list', {})).find(item => item.company === who || item.via === who);
+      found = row ? await ctx.data('events', 'list', {app_id: row.id, kind}) : [];
       if (!found.length) await page.waitForTimeout(3000);
     }
     return found;
@@ -79,11 +79,10 @@ export async function runFocus(ctx, parts) {
   await app.evaluate(({shell}) => { globalThis.__opened = []; shell.openExternal = async url => { globalThis.__opened.push(String(url)); }; });
   const urlsOpened = () => app.evaluate(() => globalThis.__opened.slice());
 
-  await ctx.run('a search with applications in every stage is written to Notion (dummy employers, target 5)', async () => {
-    ids = idsFromApp(await page.evaluate(async () => (await window.pilot.state()).settings.notionIds || {}));
-    await resetFocusData(NOTION, ids, {data: scenario(now), target});
-    for (let i = 0; i < 12; i++) { await readNotion(); if (rows.length === 10 && events.length === 14) break; await page.waitForTimeout(5000); }   // Notion lists new rows a moment later
-    if (rows.length !== 10 || events.length !== 14) throw new Error(`expected 10 applications and 14 events in Notion, found ${rows.length} and ${events.length}`);
+  await ctx.run('a search with applications in every stage is written to the store (dummy employers, target 5)', async () => {
+    await resetFocusData(ctx, {data: scenario(now)});
+    for (let i = 0; i < 12; i++) { await readStore(); if (rows.length === 10 && events.length === 14) break; await page.waitForTimeout(5000); }   // Notion lists new rows a moment later
+    if (rows.length !== 10 || events.length !== 14) throw new Error(`expected 10 applications and 14 events in the store, found ${rows.length} and ${events.length}`);
   }, {needs: ctx.needs, critical: true});
 
   await ctx.run('Focus finishes loading within 20 seconds, with no error text', async () => {
@@ -136,6 +135,20 @@ export async function runFocus(ctx, parts) {
     if (!/Seniority mismatch/.test(card.text) || !/Hard skills/i.test(card.text) || !/Gale Robotics/.test(card.text)) throw new Error(`the Insight card does not show the saved lesson: "${card.text}"`);
     if (ERROR_WORDS.test(card.text)) throw new Error(`the Insight card shows error-like text: "${card.text}"`);
     if (card.button !== 'Review rejection') throw new Error(`the Insight button says "${card.button}", expected "Review rejection"`);
+    // The button opens the rejection: its Notion page on the Notion store; on this Mac's store the job's panel on its Review tab (pages/focus.js, 130d7d2).
+    const opened = (await urlsOpened()).length;
+    await page.click('#focus-insight button');
+    if (ctx.store === 'sqlite') {
+      await page.waitForSelector('#job-panel:not([hidden]) .tabs [data-job-tab="review"].is-active', {timeout: 15000}).catch(async () => {
+        throw new Error(`"Review rejection" did not open the job's Review tab: ${JSON.stringify(await page.evaluate(() => ({hidden: document.querySelector('#job-panel')?.hidden, tabs: [...document.querySelectorAll('#job-panel .tabs button')].map(b => `${b.dataset.jobTab}${b.classList.contains('is-active') ? '*' : ''}`), text: document.querySelector('#job-panel')?.innerText.slice(0, 160)})))}`);
+      });
+      const panel = await page.textContent('#job-panel');
+      if (!/Gale Robotics/.test(panel) || !/Seniority mismatch/.test(panel)) throw new Error(`the Review tab is not Gale Robotics' rejection: "${panel.replace(/\s+/g, ' ').slice(0, 200)}"`);
+      await goFocus();
+    } else {
+      await page.waitForTimeout(500);
+      if ((await urlsOpened()).length !== opened + 1) throw new Error(`"Review rejection" opened nothing (opened: ${(await urlsOpened()).join(', ') || 'none'})`);
+    }
   }, {needs: ctx.needs});
 
   await ctx.run('clicking an Up next row opens the right place: the mail, Jobs, the feedback box', async () => {
@@ -169,13 +182,14 @@ export async function runFocus(ctx, parts) {
     const apply = (await upNext()).find(item => item.headline.startsWith('Apply to'));
     if (!apply || !/1 more/.test(apply.headline) || !/2 of 3 today/.test(apply.meta)) throw new Error(`the Apply row should ask for 1 more and say "2 of 3 today", it says: ${apply?.headline} / ${apply?.meta}`);
     const written = await page.evaluate(async () => (await window.pilot.state()).settings.notionIds?.NOTION_SEARCH_SETTINGS_PAGE || '');
-    if (!written) throw new Error('changing the target did not save a Search settings page id in the app');
+    if (!written && ctx.store !== 'sqlite') throw new Error('changing the target did not save a Search settings page id in the app');
     let line = NaN, last = '';
     for (let i = 0; i < 20 && line !== 3; i++) {   // Notion shows a rewritten page a moment after the write returns (a page of 26+ blocks: up to a minute)
-      try { line = await readTargetLine(NOTION, written); } catch (error) { last = error.message; }
+      try { line = await savedTarget(ctx, written); } catch (error) { last = error.message; }
       if (line !== 3) await page.waitForTimeout(3000);
     }
     if (line !== 3 && last) throw new Error(`the target was not saved to Notion within 60 s: ${last}`);
+    if (line !== 3 && ctx.store === 'sqlite') throw new Error(`this Mac's config/preferences.json says the daily target is ${line}, expected 3`);
     if (line !== 3) throw new Error(`Notion's "Daily applications target" is ${line}, expected 3 (page ${written}: ${JSON.stringify((await call(NOTION, 'GET', `blocks/${written}/children?page_size=100`)).results.map(block => (block[block.type].rich_text || []).map(part => part.plain_text).join('').slice(0, 30)).filter(Boolean).slice(0, 60))})`);
     await page.reload();
     await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
@@ -195,7 +209,7 @@ export async function runFocus(ctx, parts) {
     await focusReady();
     if ((await upNext()).some(item => item.headline.includes('Huxley'))) throw new Error('the answered recruiter came back after Focus was read from Notion again');
     const written = await eventsOf('Replied', 'Huxley Partners');
-    if (written.length !== 1) throw new Error(`Done should write one "Replied" event to Notion, found ${written.length}: ${written.map(item => `${item.properties.At.date?.start} ${item.properties.Source.select?.name} "${(item.properties.Note.rich_text[0]?.plain_text || '').slice(0, 50)}" created ${item.created_time}`).join(' | ')}`);
+    if (written.length !== 1) throw new Error(`Done should write one "Replied" event to the store, found ${written.length}: ${written.map(item => `${item.at} ${item.source} "${String(item.note || '').slice(0, 50)}" created ${item.created_at}`).join(' | ')}`);
     await numbersMatchSource('after Done');
   }, {needs: ctx.needs});
 
@@ -207,7 +221,7 @@ export async function runFocus(ctx, parts) {
     const left = await upNext();
     if (left.some(item => item.headline.includes('Kestrel'))) throw new Error('the skipped employer question came back after a refresh');
     if (left.length !== 4) throw new Error(`4 actions should remain (prepare, apply, add feedback, waiting), Focus lists ${left.length}: ${left.map(item => item.headline).join(' | ')}`);
-    if ((await eventsOf('Details skipped', 'Kestrel Agency')).length !== 1) throw new Error('Skip should write one "Details skipped" event to Notion');
+    if ((await eventsOf('Details skipped', 'Kestrel Agency')).length !== 1) throw new Error('Skip should write one "Details skipped" event to the store');
     await numbersMatchSource('after Skip');
   }, {needs: ctx.needs});
 
@@ -216,7 +230,7 @@ export async function runFocus(ctx, parts) {
   // and after a reload once Notion has had time. A MutationObserver from the first paint of every load records any moment the card is in the list.
   const actions = actionScenario(now, ` r${String(process.env.GITHUB_RUN_ID || Date.now().toString(36)).slice(-5)}`);   // names unique to this run
   await ctx.run('five more Up next cards, one for each way to finish one, are written to Notion', async () => {
-    await addFocusData(NOTION, ids, actions);
+    await addFocusData(ctx, actions);
     await page.addInitScript(() => {
       const watch = () => { try { return JSON.parse(localStorage.getItem('__e2eWatch') || '[]'); } catch { return []; } };
       new MutationObserver(() => {
@@ -287,16 +301,16 @@ export async function runFocus(ctx, parts) {
     await page.getByRole('menuitem', {name: 'Dismiss'}).click();
     // At once: no waiting for a refresh. The screen must not claim a change Notion has not taken.
     await ember().waitFor({state: 'detached', timeout: 5000}).catch(() => { throw new Error('the dismissed job is still in the In process list 5 seconds after Dismiss'); });
-    const stageInNotion = async () => (await queryAll(NOTION, ids.tracker)).find(item => (item.properties.Company?.rich_text || []).some(part => part.plain_text === 'Ember Data'))?.properties.Stage?.select?.name;
+    const stageInNotion = async () => (await ctx.data('applications', 'list', {})).find(item => item.company === 'Ember Data')?.stage;
     let stage = null;
     for (let i = 0; i < 10 && stage !== 'Closed'; i++) { stage = await stageInNotion(); if (stage !== 'Closed') await page.waitForTimeout(3000); }
-    if (stage !== 'Closed') throw new Error(`Notion's stage for the dismissed job should be Closed, it is "${stage}"`);
+    if (stage !== 'Closed') throw new Error(`the store's stage for the dismissed job should be Closed, it is "${stage}"`);
     await page.reload();
     await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
     await page.click('.nav[data-view="jobs"]');
     await page.click('.stat[data-stat="interviews"]');
     await page.waitForTimeout(3000);
-    if (await ember().count()) throw new Error(`after a reload the dismissed job is back in the In process list: "${(await ember().innerText()).replace(/\s+/g, ' ')}" (Notion says ${await stageInNotion()})`);
+    if (await ember().count()) throw new Error(`after a reload the dismissed job is back in the In process list: "${(await ember().innerText()).replace(/\s+/g, ' ')}" (the store says ${await stageInNotion()})`);
     await goFocus();   // the next step starts on Focus
   }, {needs: ctx.needs});
 
@@ -304,7 +318,7 @@ export async function runFocus(ctx, parts) {
   // a 2,000-character note, other scripts and emoji. The app must still draw Focus with no error text and no window error, and its numbers must still be Notion's.
   await ctx.run('rows edited by hand in Notion (an unknown stage, an empty title, a very long note, other scripts) leave Focus working and its numbers right', async () => {
     const errorsBefore = journey.pageErrors.length + journey.consoleErrors.length;
-    for (const fields of HAND_EDITS) { await createRowIn(NOTION, ids.tracker, rowProperties(fields)); await page.waitForTimeout(350); }
+    for (const fields of HAND_EDITS) await addApplication(ctx, fields);
     await goFocus();
     await refresh();
     const shownErrors = (await page.evaluate(inspect, {view: 'focus', limits: LIMITS})).filter(item => item.kind === 'error-shown');
@@ -315,7 +329,7 @@ export async function runFocus(ctx, parts) {
   }, {needs: ctx.needs});
 
   await ctx.run('a fresh account gets a helpful Focus: one next step, zeros, a funnel that says it fills in later, no insight, no raw errors', async () => {
-    await resetFocusData(NOTION, ids, {target: 5});   // every row to the trash: a new user's workspace
+    await resetFocusData(ctx);   // every row to the trash: a new user's workspace
     target = 5;
     await page.evaluate(() => window.pilot.setDailyTarget(5));   // the app's own cache of the target, as a new install has it
     // Notion still lists a trashed row for up to a few minutes: refresh until Focus has caught up, and say how long that took (it must catch up).

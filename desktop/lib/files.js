@@ -5,7 +5,8 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import * as notion from './notion.js';
+import * as notion from './notion.js';   // Notion-only: the CV and cover letter uploaded to the Notion Profile, only when Notion is the store (notionInUse)
+import {notionInUse} from './notion-gate.js';
 
 export const MAX_BYTES = 5 * 1024 * 1024;
 export const CV_HEADING = '📎 CV';
@@ -17,14 +18,14 @@ export const fingerprint = file => crypto.createHash('sha1').update(fs.readFileS
 // -> the file upload's id, ready to attach. Throws when Notion refuses or the file is too big.
 export async function upload(token, file, name = path.basename(file), fetcher = globalThis.fetch) {
   const data = fs.readFileSync(file);
-  if (data.length > MAX_BYTES) throw new Error(`${name} is ${(data.length / 1e6).toFixed(1)} MB; Notion's free plan takes files up to 5 MB`);
+  if (data.length > MAX_BYTES) throw new Error(`${name} is ${(data.length / 1e6).toFixed(1)} MB; Notion's free plan takes files up to 5 MB`);   // about Notion
   const created = await notion.call(token, 'POST', 'file_uploads', {filename: name, content_type: 'application/pdf'}, fetcher);
   const form = new FormData();
   form.append('file', new Blob([data], {type: 'application/pdf'}), name);
   const response = await fetcher(`${API}file_uploads/${created.id}/send`, {method: 'POST', body: form,
-    headers: {Authorization: `Bearer ${token}`, 'Notion-Version': '2022-06-28'}});
+    headers: {Authorization: `Bearer ${token}`, 'Notion-Version': '2022-06-28'}});   // about Notion
   const sent = await response.json().catch(() => ({}));
-  if (!response.ok || sent.status !== 'uploaded') throw new Error(sent.message || `Notion upload ${response.status}`);
+  if (!response.ok || sent.status !== 'uploaded') throw new Error(sent.message || `Notion upload ${response.status}`);   // about Notion
   return created.id;
 }
 
@@ -55,17 +56,24 @@ export async function tailoredToApplication(token, applicationsDb, jobUrl, file,
 export async function syncCv(storage, fetcher) {
   const token = storage.secret('NOTION_TOKEN'), profile = storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID;
   const file = storage.path('cv.pdf');
+  if (!notionInUse(storage)) return {skipped: 'the data is on this Mac'};   // one copy: never into a Notion that is not the store
   if (!token || !profile || !fs.existsSync(file)) return {skipped: 'nothing to upload'};
   const print = fingerprint(file);
-  if (storage.settings().cvInNotion === print) return {skipped: 'already in Notion'};
+  if (storage.settings().cvInNotion === print) return {skipped: 'already in Notion'};   // about Notion
   const caption = await cvToProfile(token, profile, file, storage.settings().cvName || 'CV.pdf', new Date(), fetcher);
   storage.saveSettings({cvInNotion: print});
   return {uploaded: caption};
 }
 
-// The approved cover letter on the Profile page, once per approval (the user's text is in the PDF; Notion keeps every version).
-export const coverLetterToProfile = (storage, file, fetcher) => {
+// The approved cover letter on the Profile page, once per version (the user's text is in the PDF; Notion keeps every version):
+// settings.letterInNotion remembers which one is there, so a letter approved while the data was on this Mac reaches Notion after a
+// move to it (syncCv runs at every start, as it does for the CV).
+export async function coverLetterToProfile(storage, file, fetcher) {
   const token = storage.secret('NOTION_TOKEN'), profile = storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID;
-  if (!token || !profile || !fs.existsSync(file)) return Promise.resolve(null);
-  return cvToProfile(token, profile, file, 'Cover letter.pdf', new Date(), fetcher, LETTER_HEADING);
-};
+  if (!notionInUse(storage) || !token || !profile || !fs.existsSync(file)) return null;
+  const print = fingerprint(file);
+  if (storage.settings().letterInNotion === print) return null;
+  const caption = await cvToProfile(token, profile, file, 'Cover letter.pdf', new Date(), fetcher, LETTER_HEADING);
+  storage.saveSettings({letterInNotion: print});
+  return caption;
+}

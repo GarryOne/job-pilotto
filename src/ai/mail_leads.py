@@ -5,7 +5,8 @@ import re
 import sys
 
 from .. import tgcard
-from ..notion.ledger import REPLY, add_event
+from ..notion.ledger import REPLY
+from ..stores import rules
 from . import opportunity
 from .mail_lines import _head
 from .mail_match import PLATFORMS, _matches, _same_person, _sender_org, person_name
@@ -15,12 +16,12 @@ from .mail_read import _field, _role
 TRACKABLE = ('Confirmation received', REPLY, 'Interview scheduled', 'Rejected', 'Offer')
 
 
-def _from_email(tracker, apps, result, email, stats, lines, on_new=None):
+def _from_email(stores, apps, result, email, stats, lines, on_new=None):
     """An Applications row for the role an email names (Stage Applied; the email's own event then moves it on).
     Keyed by company + role, so a second email about it (a duplicate, the rejection after the confirmation) finds it."""
     company, role = result['company'].strip(), result['role'].strip()
     words = lambda text: ' '.join(re.findall(r'[a-z0-9]+', text.lower()))
-    same = [r for r in apps if words(_field(r, 'Company')) == words(company)
+    same = [r for r in apps if words(_field(r, 'company')) == words(company)
             and words(_role(r)) and (words(role) in words(_role(r)) or words(_role(r)) in words(role))]
     if same:
         return same[0]
@@ -30,12 +31,12 @@ def _from_email(tracker, apps, result, email, stats, lines, on_new=None):
     # Anything weaker (only the agency matches, another role, several leads) is asked about, never guessed
     # and never a new row: the caller asks in Focus and on the check's card.
     text = f"{email.get('from', '')} {email.get('subject', '')} {email.get('body', '')}"
-    leads = [r for r in apps if not _field(r, 'Company') and _matches(r, text)]
+    leads = [r for r in apps if not _field(r, 'company') and _matches(r, text)]
     sure = [r for r in leads if _same_person(r, text) and words(_role(r))
             and (words(role) in words(_role(r)) or words(_role(r)) in words(role))]
     if len(sure) == 1 and company:
-        tracker.update_page(sure[0]['id'], {'Company': {'rich_text': [{'text': {'content': company[:200]}}]}})
-        sure[0]['properties']['Company'] = {'type': 'rich_text', 'rich_text': [{'plain_text': company}]}
+        stores.applications.update(sure[0]['id'], {'company': company[:200]})
+        sure[0]['company'] = company
         return sure[0]
     if leads:
         return None
@@ -43,21 +44,20 @@ def _from_email(tracker, apps, result, email, stats, lines, on_new=None):
     # The role may be on the list before it was applied to (Saved, Kit ready…) and applied to without marking it:
     # that row becomes the application, so the job keeps its posting, kit and fit instead of getting a twin.
     try:
-        earlier = [r for r in tracker.query_database(tracker.database_id, {'property': 'Company', 'rich_text': {'equals': company}})
-                   if words(_role(r)) and (words(role) in words(_role(r)) or words(_role(r)) in words(role))]
+        earlier = [r for r in stores.applications.list() if (r['company'] or '') == company
+                   and words(_role(r)) and (words(role) in words(_role(r)) or words(_role(r)) in words(role))]
     except Exception:  # noqa: BLE001 — then a new row, as before
         earlier = []
     if earlier:
         row = earlier[0]
-        before = _field(row, 'Stage') or 'on your list'
-        changes = {'Stage': {'select': {'name': 'Applied'}}, 'Date approximate': {'checkbox': True}}
-        if applied and not _field(row, 'Applied on'):
-            changes['Applied on'] = {'date': {'start': applied}}
-        tracker.update_page(row['id'], changes)
-        for name, value in changes.items():
-            row['properties'][name] = {'type': next(iter(value)), **value}
-        add_event(tracker, row, 'Applied', 'Gmail', at=applied or None,
-                  note=f'Applied without marking it; found in the email "{email["subject"][:120]}" (date is an upper bound)')
+        before = _field(row, 'stage') or 'on your list'
+        changes = {'stage': 'Applied', 'date_approximate': True}
+        if applied and not _field(row, 'applied_on'):
+            changes['applied_on'] = applied
+        stores.applications.update(row['id'], changes)
+        row.update(changes)
+        rules.add_event(stores, row, 'Applied', 'Gmail', at=applied or None,
+                        note=f'Applied without marking it; found in the email "{email["subject"][:120]}" (date is an upper bound)')
         apps.append(row)
         lines.append(tgcard.block(_head(row, 'Applied'), f"Marked applied from this email (it was {escape(before)})."))
         if stats is not None:
@@ -69,7 +69,7 @@ def _from_email(tracker, apps, result, email, stats, lines, on_new=None):
     return None
 
 
-def interview_lead(tracker, client, model, email, apps, result, stats):
+def interview_lead(stores, client, model, email, apps, result, stats):
     """An interview invitation about a job nothing tracks yet: the Applications row from the email (role, agency,
     contact, the message), at Screening; the caller then records the interview (Stage Interview scheduled, Next
     interview). The employer is often unnamed: Focus then asks the owner to add the details. None if not tracked."""
@@ -92,7 +92,7 @@ def interview_lead(tracker, client, model, email, apps, result, stats):
         lead['recruiter_email'] = address.strip()
         lead['recruiter_name'] = lead.get('recruiter_name') or person_name(name)
     try:
-        row, _ = opportunity.track(tracker, lead, text, source='Gmail', event_source='Gmail', talking=True,
+        row, _ = opportunity.track(stores, lead, text, source='Gmail', event_source='Gmail', talking=True,
                                    at=email['date'], gmail_id=email['id'],
                                    note=f"Interview invitation: \"{email['subject'][:120]}\"")
     except Exception as error:  # noqa: BLE001
@@ -105,7 +105,7 @@ def interview_lead(tracker, client, model, email, apps, result, stats):
     return row
 
 
-def new_lead(tracker, client, model, email, apps, stats, on_new=None):
+def new_lead(stores, client, model, email, apps, stats, on_new=None):
     """A recruiter's pitch -> a tracked recruiter lead (opportunity.track); lines for Telegram."""
     text = f"Subject: {email['subject']}\n\n{email['body']}"
     try:
@@ -115,7 +115,7 @@ def new_lead(tracker, client, model, email, apps, stats, on_new=None):
         return []
     if not lead.get('is_opportunity'):
         return []
-    row, _ = opportunity.track(tracker, lead, text, source='Gmail', event_source='Gmail', at=email['date'],
+    row, _ = opportunity.track(stores, lead, text, source='Gmail', event_source='Gmail', at=email['date'],
                                gmail_id=email['id'], note=f"Recruiter email: \"{email['subject'][:120]}\"")
     if not row:
         return []
@@ -125,7 +125,8 @@ def new_lead(tracker, client, model, email, apps, stats, on_new=None):
         'work_mode': lead.get('work_mode') or '', 'description': text[:8000]}, row) if on_new else None
     if stats is not None:
         stats.setdefault('updates', []).append(f"🤝 Recruiter lead · {opportunity.label(lead)}"[:140])
-    link = (f"<a href=\"{escape(row['url'], quote=True)}\">In Notion</a>" if row.get('url') else '')
+    page = stores.link(row['id'])  # a store without pages (this Mac) has no link: the card shows none
+    link = (f"<a href=\"{escape(page, quote=True)}\">In Notion</a>" if page else '')
     return [tgcard.block(f"New recruiter lead · {escape(opportunity.label(lead))}",
                          escape(tgcard.dot(lead.get('salary'), fit)), link,
                          tgcard.fact('Next step', 'set Stage to Screening once you reply'))]

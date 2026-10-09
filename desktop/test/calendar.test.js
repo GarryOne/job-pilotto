@@ -68,3 +68,17 @@ test('"Today" is disabled while the grid shows this month (#83: pressed there it
   const body = page.slice(page.indexOf('export function render()'), page.indexOf('export async function loadCalendar'));
   assert.match(body, /\$\('cal-today'\)\.disabled = month\.year === now\.getFullYear\(\) && month\.month === now\.getMonth\(\);\n  \$\('cal-title'\)/);
 });
+
+test('a meeting opens its job: the Notion page when there is one, else the job\'s page in the app (never a dead click)', async () => {
+  const fs = await import('node:fs');
+  const page = fs.readFileSync(new URL('../renderer/pages/calendar.js', import.meta.url), 'utf8');
+  const open = page.slice(page.indexOf('function open(m)'), page.indexOf('\n}\n', page.indexOf('function open(m)')));
+  assert.match(open, /if \(\/\^https:\\\/\\\/\/\.test\(url \|\| ''\)\) \{ window\.pilot\.openExternal\(url\); return; \}/);
+  assert.match(open, /openView\('jobs'\);\n  openJobPanel\(m\.job\);/);
+});
+
+test('a meeting\'s job id: the store\'s page_id on every store, else the Notion page\'s from its URL (an older answer)', () => {
+  assert.equal(c.page({page_id: 'app-7', notion_url: ''}), 'app7');
+  assert.equal(c.page({page_id: '', notion_url: 'https://www.notion.so/SRE-0123abcd'}), '0123abcd');
+  assert.equal(c.page({}), '');
+});

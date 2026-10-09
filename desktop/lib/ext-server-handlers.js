@@ -39,7 +39,7 @@ export function registerExtServerHandlers(ctx) {
     }
     let answer = credentials.forExtension(host, {applying});
     let made = false;
-    const email = await Promise.resolve(notionGate.connected(storage) ? contactDetails.read(storage) : {}).then(contact => contact?.email || '').catch(() => '');
+    const email = await Promise.resolve(notionGate.tracking(storage) ? contactDetails.read(storage) : {}).then(contact => contact?.email || '').catch(() => '');
     const mode = modeOf(storage.settings().siteAccounts, host, email, credentials.emailOf(host), !!answer.ok, company);   // our record, else the Credentials item (its email, or just that it exists): sign in first
     if (peek) return {ok: true, mode, email};   // the extension only asks which step this site is for this email (no password is made or read)
     if (!answer.ok) {
@@ -55,7 +55,7 @@ export function registerExtServerHandlers(ctx) {
   });
   // The extension pressed a sign-up page's button: this email has an account on this host now, unconfirmed until its mail's link is opened (never the address in a log).
   server.setAccountPressedHandler(async ({host, state, session} = {}) => {
-    const email = await Promise.resolve(notionGate.connected(storage) ? contactDetails.read(storage) : {}).then(contact => contact?.email || '').catch(() => '');
+    const email = await Promise.resolve(notionGate.tracking(storage) ? contactDetails.read(storage) : {}).then(contact => contact?.email || '').catch(() => '');
     if (!host || !email) { appLog('extension', 'account made but not recorded', {host: String(host || '').slice(0, 120), email: !!email}); return; }
     if (state === 'refused') {   // a sign-in with this email was refused here (the account judge, any language): no account yet; the next look signs up (under full)
       storage.saveSettings({siteAccounts: record(storage.settings().siteAccounts, host, email, 'refused', Date.now(), terminals.record(String(session || ''))?.company || '')});

@@ -10,6 +10,7 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import contribute  # noqa: E402
+from src.stores import memory  # noqa: E402
 
 NOW = datetime(2026, 9, 30, 12, tzinfo=timezone.utc)
 SEARCH = {'role_keywords': ['site reliability', '\\bsre\\b', 'platform engineer', 'security engineer'],
@@ -20,10 +21,11 @@ REPORT = {'sources': [{'company': 'Matched Co', 'ok': True, 'total': 9, 'matches
 
 
 from tests.model_stand_ins import answers  # noqa: E402 (the model's answers)
-class FakeTracker:
-    def query_database(self, db, flt):
-        return [{'properties': {'ATS': {'select': {'name': 'greenhouse'}}, 'Slug': {'rich_text': [{'plain_text': 'mine'}]},
-                                'Company': {'title': [{'plain_text': 'Mine Co'}]}}}]
+def own_list():
+    """A store holding one employer the user added themselves (any adapter: the memory one here)."""
+    stores = memory.open_store()
+    stores.employers.add({'name': 'Mine Co', 'ats': 'greenhouse', 'slug': 'mine'})
+    return stores
 
 
 class TagsTest(unittest.TestCase):
@@ -43,7 +45,7 @@ class TagsTest(unittest.TestCase):
 
 class PayloadTest(unittest.TestCase):
     def test_every_feed_read_or_own_and_only_public_facts(self):
-        body = contribute.payload(FEEDS, REPORT, FakeTracker(), install='abc-12345678', search=SEARCH)
+        body = contribute.payload(FEEDS, REPORT, own_list(), install='abc-12345678', search=SEARCH)
         self.assertEqual({(f['slug'], f['matched'], f['own']) for f in body['feeds']},
                          {('matched', True, False), ('mine', False, True), ('quiet', False, False)})   # 'quiet' was read with no match: sent since 7 Oct 2026; 'nonsense' is not a feed system
         self.assertEqual(set(body), {'v', 'install', 'roles', 'regions', 'countries', 'metros', 'families', 'feeds'})

@@ -1,7 +1,8 @@
 // Interviews → the library's read from Notion (src/ai/interviews.py list, through lib/interviews.js): what the page
 // shows after it. Pure, so the failure cases are tested (test/interview-library.test.js): a failed read says why and
 // keeps the rows already on screen (the last good copy), and is never shown as an empty table.
-export const LIBRARY_ERROR = "Couldn't read your interviews from Notion. Try again with ↻; the reason is in the app log.";
+import {where} from './store-name.js';
+export const libraryError = () => `Couldn't read your interviews from ${where()}. Try again with ↻; the reason is in the app log.`;
 
 function ago(at) {
   const minutes = Math.max(0, Math.round((Date.now() - Date.parse(at)) / 60000));
@@ -15,9 +16,9 @@ export function afterLoad(result, shown = {}) {
   if (result?.ok && Array.isArray(result.interviews)) {
     return {ok: true, rows: result.interviews, insight: result.insight || null, insightError: result.insight_error || '', error: ''};
   }
-  const error = String(result?.error || '').trim() || LIBRARY_ERROR;
+  const error = String(result?.error || '').trim() || libraryError();
   const rows = shown.rows || [];
   const when = shown.at ? ago(shown.at) : '';
   return {ok: false, rows, error,
-    stats: rows.length ? `Couldn't refresh from Notion · showing the copy ${when ? `saved ${when}` : 'shown before'}` : ''};
+    stats: rows.length ? `Couldn't refresh from ${where()} · showing the copy ${when ? `saved ${when}` : 'shown before'}` : ''};
 }

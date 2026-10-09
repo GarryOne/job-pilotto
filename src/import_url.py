@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from . import features, store
 from .ai import cost, enrich, score
-from .notion import ledger, matches
+from .notion import ledger
 from .paths import local_profile
 
 SOURCE = 'Imported link'
@@ -16,33 +16,38 @@ NOTE = 'imported'  # the Jobs list keeps a job you asked for even when a crawl w
 MIN_DESCRIPTION = 80
 
 
-def run(db, tracker, url, *, client=None, stats=None, now=None):
-    """Returns {ok, line, subject, row, created}. Raises ValueError when the link cannot be taken on."""
+def _tracked(stores, url):
+    """The answer for a link already among your applications, or None (row: its record; the run links to a new match only)."""
+    existing = stores.applications.get(url)
+    if not existing:
+        return None
+    title = existing['title'] or url
+    return {'ok': True, 'line': f'Already in your applications ({existing["stage"] or "tracked"}): {title}', 'subject': title,
+            'row': existing, 'created': False}
+
+
+def run(db, url, *, stores, read_profile=None, client=None, stats=None, now=None):
+    """Returns {ok, line, subject, row, created}; row: the match it wrote, as a record (the run links to it). Raises ValueError when
+    the link cannot be taken on. The active store's data on every store; read_profile: what reads the Profile for scoring, the
+    search's own (store_access.profile_source: Notion's page text there), else this Mac's profile or the store's Profile text."""
     url = (url or '').strip()
     if not url.startswith(('http://', 'https://')):
         raise ValueError('Paste the job link (it starts with https://).')
-    if not tracker:
-        raise ValueError('Connect Notion first. Jobs are kept there.')
-    existing = tracker.find(url)
+    existing = _tracked(stores, url)
     if existing:
-        stage = ledger.plain(existing['properties'].get('Stage')) or 'tracked'
-        title = ledger.plain(existing['properties'].get('Job')) or url
-        return {'ok': True, 'line': f'Already in your applications ({stage}): {title}', 'subject': title,
-                'row': existing, 'created': False}
+        return existing
     if not (features.enabled('enrich') and features.enabled('score')):
         raise ValueError('Scoring needs an AI key. Add it in Settings, then add this job again.')
     pasted = url
     meta = ledger.page_meta(pasted)
-    meta['company'] = ledger.company_for(tracker, pasted, meta)
+    from . import ledger_store
+    meta['company'] = ledger_store.company_for(stores, pasted, meta)
     # The board's own link when it has one, so this is the same row a Jobs check would store.
     url = (meta.get('url') or pasted).strip()
     if url != pasted:
-        existing = tracker.find(url)
+        existing = _tracked(stores, url)
         if existing:
-            stage = ledger.plain(existing['properties'].get('Stage')) or 'tracked'
-            title = ledger.plain(existing['properties'].get('Job')) or url
-            return {'ok': True, 'line': f'Already in your applications ({stage}): {title}', 'subject': title,
-                    'row': existing, 'created': False}
+            return existing
     description = (meta.get('description') or '').strip()
     if len(description) < MIN_DESCRIPTION:
         if ledger.walled(pasted):
@@ -61,7 +66,7 @@ def run(db, tracker, url, *, client=None, stats=None, now=None):
     facts = enrich.load(db).get(job_id)
     profile = None
     if job_id not in fits:
-        profile = score.scoring_profile(local_profile() or (tracker.page_text() if tracker else ''))
+        profile = score.scoring_profile((read_profile or (lambda: local_profile() or stores.texts.plain('profile')))() or '')
         if not (profile or '').strip():
             raise ValueError('Add your profile first. The fit score is read against it.')
     if client is None and (job_id not in fits or not facts):
@@ -83,10 +88,12 @@ def run(db, tracker, url, *, client=None, stats=None, now=None):
         if stats is not None:
             cost.add(stats.setdefault('score', {}), score.DEFAULT_MODEL, usage)
     item['fit'] = fit
-    page_id, created = matches.write_one(db, tracker, item)
     title, company = item['title'], item.get('company') or ''
     line = f"Added · {title} — {company} · fit {fit['score']}/100, tier {fit['tier']}"
-    row = {'id': page_id, 'url': f"https://www.notion.so/{str(page_id).replace('-', '')}",
-           'properties': {'Job': {'title': [{'plain_text': title}]}, 'Job URL': {'url': url}}}
+    # The same Open match a search writes, by the search's own sync (Notion: every scoring column, its page cache in db).
+    created = stores.matches.get(url) is None
+    stores.matches.sync(db, [item], partial=True)
+    found = stores.matches.get(url) or {}
+    row = {'id': found.get('id'), 'title': title, 'url': url, 'company': company} if found.get('id') else None
     return {'ok': True, 'line': line, 'subject': ' — '.join(part for part in (company, title) if part),
             'row': row, 'created': created}

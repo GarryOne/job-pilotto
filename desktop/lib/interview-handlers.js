@@ -3,6 +3,8 @@
 // services it shares (registerInterviewHandlers). Guards: interviews tests in desktop/test and the interviews e2e suite.
 import fs from 'node:fs';
 import path from 'node:path';
+import * as storeEngine from './store/engine.js';
+import {byStore} from './store/words.js';
 
 export function registerInterviewHandlers(ctx) {
   const {appLog, calltap, cloud, DEMO, dialog, dispatchCloud, handleImportant, here, interviews, ipcMain, needsNotion, notify, reminders, sharedRead, shell, storage, toWindow, viewCache, getWindow} = ctx;
@@ -72,7 +74,7 @@ export function registerInterviewHandlers(ctx) {
   ipcMain.handle('ivPrefetch', () => (DEMO ? {ok: true} : interviews.prefetch(storage, step => toWindow('ivProgress', step))));
   handleImportant('ivTranscribe', 'Transcribing an interview', async (_, id, options) => {
     const meta = await interviews.transcribe(storage, id, options, step => toWindow('ivProgress', step));
-    if (meta.status === 'ready') notify('Transcript ready', `${meta.title}: ${meta.pageId ? 'already in your Notion; ' : ''}name the speakers, pick the job, then Save.`, {view: 'interviews'});
+    if (meta.status === 'ready') notify('Transcript ready', `${meta.title}: ${meta.pageId ? byStore(storage, 'already in your Notion; ', 'already saved; ') : ''}name the speakers, pick the job, then Save.`, {view: 'interviews'});
     return meta;
   });
   ipcMain.handle('ivSaveDraft', (_, id, patch) => (DEMO ? true : interviews.saveDraft(storage, id, patch)));
@@ -99,7 +101,7 @@ export function registerInterviewHandlers(ctx) {
     reviewingStarted.set(id, Date.now());
     if (cloud()) {
       return dispatchCloud(caller, {mode: 'interview', interview: id}).then(started => (started.ok
-        ? {ok: true, cloud: true, summary: 'Reviewing on GitHub: it shows in Recent activity, and the review lands on the interview in Notion.'}
+        ? {ok: true, cloud: true, summary: 'Reviewing on GitHub: it shows in Recent activity, and the review lands on the interview in Notion.'}   // about Notion: Always on needs Notion
         : {ok: false, error: `Could not start the review on GitHub: ${started.error}`}));
     }
     return Promise.resolve(interviews.review(storage, id)).then(result => {
@@ -108,6 +110,11 @@ export function registerInterviewHandlers(ctx) {
     });
   });
   ipcMain.handle('ivDelete', (_, pageId) => (DEMO ? {ok: true} : interviews.remove(storage, pageId)));
+  // Interviews → Open review with no page to open (the data on this Mac): the interview's record from the store, for the app's own view.
+  ipcMain.handle('ivRecord', async (_, id) => {
+    if (DEMO) return demoInterviews().records?.[String(id)] || null;   // a fictional interview with no Notion page: its review in the app
+    try { return await storeEngine.call(storage, 'interviews', 'get', {interview_id: String(id)}); } catch (error) { return {error: error.message}; }
+  });
   ipcMain.handle('ivRecordings', () => {
     fs.mkdirSync(storage.path('recordings'), {recursive: true});
     return shell.openPath(storage.path('recordings'));

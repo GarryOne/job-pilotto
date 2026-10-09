@@ -32,7 +32,8 @@ def interview(page_id, round_, overall, date_, topics='', weak='', next_step='',
 
 
 def block(kind, content):
-    return {'type': kind, kind: {'rich_text': [{'plain_text': content}]}}
+    block.count = getattr(block, 'count', 0) + 1  # ids: the notion store finds the Transcript toggle and reads children by id
+    return {'id': f'b-{block.count}', 'type': kind, kind: {'rich_text': [{'plain_text': content}]}}
 
 
 def review_blocks(summary, strengths=(), weak=(), practice=(), questions=()):
@@ -54,6 +55,9 @@ class FakeNotion:
     def query_database(self, database_id, filter_=None):
         if database_id == 'interviews-db':
             return self.rows
+        if database_id == 'apps-db':  # the job every interview here belongs to
+            return [{'id': 'app-1', 'properties': {'Company': text('Acme'), 'Job': {'type': 'title', 'title': [{'plain_text': 'SRE'}]},
+                                                   'Job URL': {'type': 'url', 'url': 'https://x.test/acme'}}}]
         if database_id == 'insights-db':
             wanted = (filter_ or {}).get('select', {}).get('equals')
             return [r for r in self.insights if not wanted or r['properties']['Category']['select']['name'] == wanted]
@@ -64,7 +68,8 @@ class FakeNotion:
 
     def _request(self, method, path, body=None):
         if method == 'GET':
-            return {'properties': {'Company': text('Acme'), 'Job': {'type': 'title', 'title': [{'plain_text': 'SRE'}]}}}
+            row = next((r for r in self.rows + self.insights if path == f"pages/{r['id']}"), None)
+            return row or {'properties': {'Company': text('Acme'), 'Job': {'type': 'title', 'title': [{'plain_text': 'SRE'}]}}}
         self.writes.append((method, path, body))
         stored = {name: _as_read(value) for name, value in body['properties'].items()}
         if method == 'POST':
@@ -122,4 +127,18 @@ RESULT = {'nothing_useful': False, 'headline': 'Database failover is your weak s
 
 def env():
     return mock.patch.multiple(interviews, INTERVIEWS_DATABASE_ID='interviews-db'), \
-        mock.patch.dict(ii.os.environ, {'NOTION_INSIGHTS_DB': 'insights-db'})
+        mock.patch.dict(ii.os.environ, {'NOTION_INSIGHTS_DB': 'insights-db', 'NOTION_INTERVIEWS_DB': 'interviews-db', 'NOTION_APPLICATIONS_DB': 'apps-db',
+                                        'JOB_PILOTTO_STORE': 'notion'})
+
+
+def of(fake):
+    """The notion store over this fake Notion (call inside env(): it reads the database ids)."""
+    from src.stores import notion
+    return notion.open_store(ii.os.environ, tracker=fake)
+
+
+def recs(fake, rows):
+    """These interview rows as the store's records."""
+    from src.stores.notion_interviews import NotionInterviews
+    reader = NotionInterviews(fake, 'interviews-db')
+    return [reader._record(row) for row in rows]

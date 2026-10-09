@@ -1,6 +1,6 @@
 // Recent activity: the insight, interview-review, kits and weekly cards.
 // Split out of activity.js as a pure move. Guarded by the tests that read the activity-*.js sources (desktop/test/activity-source.js) and the e2e activity suites.
-import {el, pill} from '../components.js';
+import {cardHead, el, numberStrip, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {comparisonTable, confidenceLabel, confidenceTone, sourceLine} from '../insight-card.js';
 import {$} from './core.js';
@@ -11,22 +11,9 @@ import {plural} from './activity-basics.js';
 export function renderInsightCard(insight, target = $('activity-card')) {
   const box = el('div', 'insight-card');
   box.dataset.guidance = 'insight';   // the UI Finder checks its words against who the candidate is
-  const head = el('header', 'insight-head');
-  const kicker = el('div', 'insight-kicker');
-  kicker.append(el('span', 'insight-category', insight.category));
-  if (insight.confidence) kicker.append(pill(confidenceLabel(insight.confidence), confidenceTone(insight.confidence)));
-  head.append(kicker, el('h3', 'insight-title', insight.headline));
-  if (insight.subtitle) head.append(el('p', 'insight-subtitle', insight.subtitle));
-  box.append(head);
-  if (insight.metrics.length) {
-    const strip = el('div', 'insight-numbers');
-    for (const {label, value} of insight.metrics) {
-      const cell = el('div', 'insight-number');
-      cell.append(el('span', 'insight-number-label', label), el('b', 'insight-number-value', value));
-      strip.append(cell);
-    }
-    box.append(strip);
-  }
+  box.append(cardHead(insight.category, insight.headline, {subtitles: [insight.subtitle],
+    badges: insight.confidence ? [pill(confidenceLabel(insight.confidence), confidenceTone(insight.confidence))] : []}));
+  if (insight.metrics.length) box.append(numberStrip(insight.metrics));
   // The figures the evidence breaks down the same way, as one comparison (the shared .data-table); those lines leave the evidence.
   const table = comparisonTable(insight.evidence);
   if (table) {
@@ -80,12 +67,7 @@ export function renderInsightCard(insight, target = $('activity-card')) {
 export function renderInterviewCard(review, target = $('activity-card')) {
   const box = el('div', 'insight-card');
   box.dataset.guidance = 'interview';   // the UI Finder checks its words against who the candidate is
-  const head = el('header', 'insight-head');
-  const kicker = el('div', 'insight-kicker');
-  kicker.append(el('span', 'insight-category', `Interview · ${review.round}`));
-  head.append(kicker, el('h3', 'insight-title', review.title || 'Interview review'));
-  if (review.summary) head.append(el('p', 'insight-subtitle', review.summary));
-  box.append(head);
+  box.append(cardHead(`Interview · ${review.round}`, review.title || 'Interview review', {subtitles: [review.summary]}));
   for (const section of review.sections) {
     const node = el('section', 'insight-section');
     node.append(el('h4', '', `${section.icon} ${section.label}`.trim()));
@@ -111,16 +93,13 @@ export function renderInterviewCard(review, target = $('activity-card')) {
 // title (linked to the posting) and company. Every word is the run's own.
 export function renderKitsCard(kits, target = $('activity-card')) {
   const box = el('div', 'insight-card');
-  const head = el('header', 'insight-head');
-  const kicker = el('div', 'insight-kicker');
   const cvs = kits.what === 'cv';
-  kicker.append(el('span', 'insight-category', cvs ? 'Tailored CVs' : 'Application kits'));
   // Some failed: the heading says how many of how many; the jobs that failed get a row each, as their log lines name them.
   const {done = kits.jobs.length, total = kits.jobs.length, failed = []} = kits.outcome || {};
   const noun = cvs ? 'CV' : 'kit';
-  head.append(kicker, el('h3', 'insight-title', total > done ? `${done} of ${plural(total, noun)} ready` : `${plural(kits.jobs.length, noun)} ready`));
-  if (total > done) head.append(el('p', 'insight-subtitle', `${plural(total - done, noun)} could not be ${cvs ? 'tailored' : 'drafted'}${failed.length ? '.' : ': the run did not record which.'}`));
-  else if (kits.subtitle) head.append(el('p', 'insight-subtitle', kits.subtitle));   // partial: the line above says it, with the counts
+  const head = cardHead(cvs ? 'Tailored CVs' : 'Application kits', total > done ? `${done} of ${plural(total, noun)} ready` : `${plural(kits.jobs.length, noun)} ready`,
+    {subtitles: [total > done ? `${plural(total - done, noun)} could not be ${cvs ? 'tailored' : 'drafted'}${failed.length ? '.' : ': the run did not record which.'}`
+      : kits.subtitle]});   // partial: the line above says it, with the counts
   // One row per job (the shared .item-rows): its title (the posting opens from it) and company, then the one action, aligned.
   const list = el('ul', 'item-rows kits-jobs');
   for (const job of kits.jobs) {
@@ -161,15 +140,14 @@ export function renderKitsCard(kits, target = $('activity-card')) {
 // focus, or without worked items, simply has no such block, and its lists are drawn only when they have something in
 // them. The report's confidence and its recurring-evidence priorities sit on the Notion page, not in this message.
 export function renderWeeklyCard(weekly, target = $('activity-card')) {
+  target.replaceChildren(weeklyCard(weekly));
+}
+
+// The weekly report's card itself (Recent activity draws it; Reports → Weekly adds the report's other sections under it).
+export function weeklyCard(weekly) {
   const box = el('div', 'insight-card');
   box.dataset.guidance = 'weekly';   // the UI Finder checks its words against who the candidate is
-  const head = el('header', 'insight-head');
-  const kicker = el('div', 'insight-kicker');
-  kicker.append(el('span', 'insight-category', 'Search analysis · last 7 days'));
-  head.append(kicker, el('h3', 'insight-title', weekly.headline));
-  if (weekly.finding) head.append(el('p', 'insight-subtitle', `💡 ${weekly.finding}`));
-  if (weekly.summary) head.append(el('p', 'insight-subtitle', weekly.summary));
-  box.append(head);
+  box.append(cardHead('Search analysis · last 7 days', weekly.headline, {subtitles: [weekly.finding && `💡 ${weekly.finding}`, weekly.summary]}));
   if (weekly.focus) {
     const words = el('div', 'insight-next-words');
     words.append(el('b', '', 'Focus next'), el('p', '', weekly.focus));
@@ -186,6 +164,6 @@ export function renderWeeklyCard(weekly, target = $('activity-card')) {
     section.append(list);
     box.append(section);
   }
-  target.replaceChildren(box);
+  return box;
 }
 

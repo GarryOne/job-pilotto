@@ -3,6 +3,7 @@
 import {$, message} from './core.js';
 import {openSetting} from './settings.js';
 import {chip} from '../license-chip.js';
+import {byStore} from '../store-words.js';
 
 const KIND = {founder: 'Founder', friend: 'Friend', pass: 'Pass'};
 
@@ -33,7 +34,7 @@ export function showLicense(state) {
   $('license-bar').hidden = licensed;
   if (shown) $('license-bar').firstElementChild.style.width = `${shown.percent}%`;
   $('license-note').textContent = licensed ? (state.license.until ? `Valid until ${state.license.until}.` : 'No end date.')
-    : ended ? 'New applications, kits and searches are paused. Tracking, Notion, export and your data keep working.'
+    : ended ? `New applications, kits and searches are paused. ${byStore('Tracking, Notion, export and your data keep working.', 'Tracking, export and your data keep working.')}`
       : `Free until you reach ${state.limit} applications and 60 days have passed, whichever comes later.`;
   $('license-paste').hidden = licensed;
   $('license-held').hidden = !licensed;

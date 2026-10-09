@@ -201,3 +201,27 @@ export function collapsiblePanel(panel, key = panel.id) {
   set(!!savedCollapsed()[key], {remember: false});
   return {set};
 }
+
+// A result card's head, the insight card's shape (.insight-head): the kicker (its category, then any badges: a pill, a source), the title,
+// then a line under it per subtitle (empty ones skipped). Every result card in Recent activity and Form fills starts with one; a caller adds
+// more to the returned header (a link line) as before.
+export function cardHead(category, title, {badges = [], subtitles = []} = {}) {
+  const head = el('header', 'insight-head');
+  const kicker = el('div', 'insight-kicker');
+  kicker.append(el('span', 'insight-category', category), ...badges);
+  head.append(kicker, el('h3', 'insight-title', title), ...subtitles.filter(Boolean).map(text => el('p', 'insight-subtitle', text)));
+  return head;
+}
+
+// A strip of figures (.insight-numbers), one cell per {label, value}: the label over the value in bold, or with valueFirst the value
+// over its label, both plain (the few-jobs coverage card's counts).
+export function numberStrip(cells, {valueFirst = false} = {}) {
+  const strip = el('div', 'insight-numbers');
+  for (const {label, value} of cells) {
+    const cell = el('div', 'insight-number');
+    cell.append(...(valueFirst ? [el('span', 'insight-number-value', value), el('span', 'insight-number-label', label)]
+      : [el('span', 'insight-number-label', label), el('b', 'insight-number-value', value)]));
+    strip.append(cell);
+  }
+  return strip;
+}

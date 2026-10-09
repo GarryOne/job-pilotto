@@ -3,8 +3,10 @@ job already says. Re-exported by src/ai/interviews.py. Tests: tests/test_intervi
 """
 import re
 
-from ..notion.ledger import plain
 from .interviews_ai import FACTS, NOT_STATED, SELECT_OPTIONS
+
+# The application record's field for each fact column (src/stores/base.py APPLICATION_FIELDS).
+FIELD_OF = {'Salary': 'salary', 'Contract': 'contract', 'Location': 'location', 'Work mode': 'work_mode', 'Call facts': 'call_facts'}
 
 
 def _norm(value):
@@ -41,33 +43,32 @@ def merge_facts(app, result):
     """What the call adds to the application. Pure. Empty fields are filled; a field that already says the same
     (or more) is left; a value the call makes more specific ("Remote" -> "Remote, Europe") is refined; a different
     value is never overwritten: it's reported. Returns
-    {'changes': Notion properties, 'filled': [fact], 'differs': [fact + 'current'], 'same': [fact]}."""
-    props = (app or {}).get('properties', {})
+    {'changes': {application field: value}, 'filled': [fact], 'differs': [fact + 'current'], 'same': [fact]}.
+    app: an application record."""
+    app = app or {}
     merged = {'changes': {}, 'filled': [], 'differs': [], 'same': []}
-    known = _call_facts(plain(props.get('Call facts')) or '')
+    known = _call_facts(app.get('call_facts') or '')
     added = dict(known)
     for fact in facts_of(result):
         label, column, kind = FACTS[fact['field']]
-        current = known.get(label, '') if kind == 'fact' else (plain(props.get(column)) or '')
+        current = known.get(label, '') if kind == 'fact' else (app.get(FIELD_OF[column]) or '')
         if not current:
             merged['filled'].append(fact)
             if kind == 'fact':
                 added[label] = fact['value']
-            elif kind == 'select':
-                merged['changes'][column] = {'select': {'name': fact['value']}}
             else:
-                merged['changes'][column] = {'rich_text': [{'text': {'content': fact['value'][:2000]}}]}
+                merged['changes'][FIELD_OF[column]] = fact['value']
         elif _norm(fact['value']) == _norm(current) or _norm(fact['value']) in _norm(current):
             merged['same'].append(fact)
         elif kind == 'text' and _norm(current) in _norm(fact['value']):
             # The job says less than the call ("Remote" -> "Remote, Europe"): a refinement, not a contradiction.
             merged['filled'].append(dict(fact, refined=current))
-            merged['changes'][column] = {'rich_text': [{'text': {'content': fact['value'][:2000]}}]}
+            merged['changes'][FIELD_OF[column]] = fact['value']
         else:
             merged['differs'].append(dict(fact, current=current))
     if added != known:
         text = ' · '.join(f'{label}: {value}' for label, value in added.items())
-        merged['changes']['Call facts'] = {'rich_text': [{'text': {'content': text[:2000]}}]}
+        merged['changes']['call_facts'] = text[:2000]
     return merged
 
 

@@ -7,6 +7,8 @@ import {shared} from './shared.js';
 import {$, savedAgo, show} from './core.js';
 import {openLogFor, showJobsIn} from './jobs.js';
 import {openView} from './nav.js';
+import {openJobPanel} from './job-panel.js';
+import {loadReports} from './reports.js';
 import {openSetting} from './settings.js';
 import {toastMessage} from './startup.js';
 import {openFeedback, saveFeedbackAction} from './feedback.js';
@@ -15,6 +17,7 @@ import {moveEmail, whichJob} from './reassign.js';
 import {openPrep} from './prep.js';
 import {prepCard} from '../prep-card.js';
 import {renderOnboarding} from './focus-onboarding.js';
+import {byStore, storeName} from '../store-words.js';
 
 // Focus page state, declared before the start-up code opens Focus (a later `let` isn't usable yet then).
 let focusLoading = null, focusShown = false;
@@ -97,7 +100,7 @@ async function finishItem(item, save) {
     settled.delete(itemKey(item));
     keepHolds();
     if (lastFocus) renderFocus(lastFocus);
-    toastMessage('Not saved', done?.error || 'Notion refused it. Try again.');
+    toastMessage('Not saved', done?.error || `${storeName()} could not save it. Try again.`);
     return;
   }
   if (focusLoading) await focusLoading.catch(() => {});
@@ -129,7 +132,7 @@ async function loadFocusOnce() {
   }
   const result = await window.pilot.focus();
   if (!result.ok) {
-    focusStatus(result.error || 'Could not read your Notion.');
+    focusStatus(result.error || byStore('Could not read your Notion.', 'Could not read your data.'));
     if (!focusShown) $('focus-list').replaceChildren();
     return;
   }
@@ -206,7 +209,9 @@ function focusCard(item) {
   }
   // The prep kit: built on the job's page (a button press: it costs about $0.04), then opened there. A kit from an
   // earlier call offers the new one first; the earlier kit stays on the page, in the ⋯ menu.
-  const prepRun = run => (run === 'open' ? event => openLink(item.notion_url, event) : () => {
+  // A ready kit: its Notion page, else the job's page here on its Prep tab (the 'open' state had no target on a store without pages).
+  const jobOf = () => ({url: item.job_url, title: item.job, company: item.company});
+  const prepRun = run => (run === 'open' ? event => (item.notion_url ? openLink(item.notion_url, event) : (openView('jobs'), openJobPanel(jobOf(), 'prep'))) : () => {
     markPrep(item.page_id, 'building');  // the row says "Building…" before the dialog, not after Notion
     openPrep(item);
   });
@@ -216,8 +221,8 @@ function focusCard(item) {
     if (prep.primary.run === 'join') main.prepend(el('span', 'spinner small'));
     actions.append(main);
   }
-  if (!item.link && ['reply', 'book', 'offer', 'nudge', 'waiting', 'follow_up'].includes(item.kind) && item.notion_url) {
-    actions.append(focusButton('Open', 'primary', event => openLink(item.notion_url, event)));
+  if (!item.link && ['reply', 'book', 'offer', 'nudge', 'waiting', 'follow_up'].includes(item.kind) && (item.notion_url || item.job_url)) {
+    actions.append(focusButton('Open', 'primary', event => (item.notion_url ? openLink(item.notion_url, event) : (openView('jobs'), openJobPanel(jobOf())))));
   }
   if (item.done && item.page_id) actions.append(focusButton('Done', 'secondary', () => finishItem(item,
     () => window.pilot.focusDone(item.page_id, item.kind === 'follow_up' ? 'followed_up' : 'replied'))));
@@ -231,7 +236,7 @@ function focusCard(item) {
   if (item.notion_url) more.push({icon: 'layers', label: 'Open in Notion', run: event => openLink(item.notion_url, event)});
   if (item.job_url && item.job_url !== item.link && !/jobpilotto|mail\.google/.test(item.job_url)) more.push({icon: 'external', label: 'Open posting', run: () => window.pilot.openExternal(item.job_url)});
   if (['follow_up', 'nudge', 'waiting'].includes(item.kind) && item.job_url && item.page_id) more.push({icon: 'close', label: "I'm out: withdraw",
-    title: 'You no longer want this job: it is marked Withdrawn in Notion and leaves Focus',
+    title: `You no longer want this job: it is marked Withdrawn in ${storeName()} and leaves Focus`,
     run: () => finishItem(item, () => window.pilot.markOutcome({url: item.job_url, outcome: 'withdrawn'}))});
   if (item.kind === 'which_job') more.push({icon: 'close', label: 'Dismiss', run: () => moveEmail(item.event_id, 'none', item)});
   if (item.kind === 'prepare' && item.page_id) more.push({icon: 'close', label: 'Dismiss interview',
@@ -262,7 +267,7 @@ const dayOf = iso => {
 };
 async function loadHistory() {
   const list = $('focus-history');
-  list.replaceChildren(el('li', 'muted small', 'Loading from Notion…'));
+  list.replaceChildren(el('li', 'muted small', byStore('Loading from Notion…', 'Loading…')));
   const {ok, items = [], error} = await window.pilot.focusHistory().catch(failure => ({ok: false, error: failure.message}));
   if (!historyShown) return;
   if (!ok) { list.replaceChildren(el('li', 'message error', `Couldn't read your history from Notion: ${error || 'try again'}`)); return; }
@@ -301,7 +306,8 @@ export function prepAction(company) {
   const item = key && (lastFocus?.items || []).find(one => one.kind === 'prepare' && one.page_id && String(one.company || '').toLowerCase().trim() === key);
   if (!item) return null;
   const {primary} = prepCard(item);
-  const run = primary.run === 'open' ? event => window.pilot.openNotion(item.notion_url, event?.metaKey)
+  const run = primary.run === 'open' ? event => (item.notion_url ? window.pilot.openNotion(item.notion_url, event?.metaKey)
+      : (openView('jobs'), openJobPanel({url: item.job_url, title: item.job, company: item.company}, 'prep')))
     : primary.run === 'join' ? () => openView('focus') : () => { markPrep(item.page_id, 'building'); openPrep(item); };
   return {label: primary.label, title: primary.title || '', busy: primary.run === 'join', run};
 }
@@ -355,7 +361,11 @@ function renderInsight(insight) {
   body.append(el('div', 'focus-source', insight.reason), el('div', 'focus-headline', insight.headline), el('div', 'muted small focus-detail', insight.detail));
   body.title = insight.lesson || '';
   box.append(round, body);
-  if (insight.notion_url) box.append(focusButton(insight.issue ? 'Review evidence' : insight.report ? 'Open insight' : 'Review rejection', 'secondary', event => openLink(insight.notion_url, event)));
+  // Its Notion page when the store has one (as before); else the same thing in the app: an insight in Reports, a rejection on its job's Review tab.
+  const open = insight.notion_url ? event => openLink(insight.notion_url, event)
+    : insight.report ? () => { openView('reports'); loadReports(insight.reason === 'Weekly report' ? 'weekly' : 'insights'); }
+      : insight.url ? () => { openView('jobs'); openJobPanel({url: insight.url, title: insight.title, company: insight.company}, 'review'); } : null;
+  if (open) box.append(focusButton(insight.issue ? 'Review evidence' : insight.report ? 'Open insight' : 'Review rejection', 'secondary', open));
   $('focus-insight').replaceChildren(box);
 }
 function showInJobs(label, urls) {  // a funnel step's click: those opportunities in the Jobs list
@@ -385,8 +395,12 @@ function renderFunnel(funnel) {
   }), showInJobs));
   $('funnel-improve').textContent = funnel.improve ? `To improve: ${funnel.improve.step.replace(/^\S+\s/, '')}. ${funnel.improve.advice}` : '';
   show($('funnel-improve'), !!funnel.improve);
-  $('focus-funnel-notion').dataset.url = funnel.notion_url || '';
-  show($('focus-funnel-notion'), !!funnel.notion_url);
+  // The full funnel: its Notion page when there is one (index.html's label), else Reports → Funnel here.
+  const full = $('focus-funnel-notion');
+  full.dataset.url = funnel.notion_url || '';
+  full.dataset.notionLabel ||= full.textContent;
+  full.textContent = funnel.notion_url ? full.dataset.notionLabel : 'Open in Reports';
+  show(full, true);
 }
 function editTarget() {
   show($('focus-target-row'));
@@ -423,6 +437,7 @@ export async function init() {
   $('focus-funnel-notion').addEventListener('click', event => {
     event.preventDefault();
     if (event.currentTarget.dataset.url) window.pilot.openNotion(event.currentTarget.dataset.url, event.metaKey);
+    else { openView('reports'); loadReports('funnel'); }
   });
   $('focus-edit-target').addEventListener('click', event => { event.preventDefault(); editTarget(); });
   $('focus-edit-reminders').addEventListener('click', event => {

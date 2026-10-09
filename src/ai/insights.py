@@ -27,18 +27,20 @@ import re
 from statistics import mean
 
 from .. import digest, store, tgcard
-from ..notion import funnel
-from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, plain
-from . import cost, engine, enrich, interviews, score
+from ..notion.ledger import REPLY
+from . import cost, engine, enrich, score
+from . import insights_data as data_of
 from . import learning, quality
 from .insights_text import (  # noqa: F401 — moved; kept importable from here
     HONEST, WEEKLY_SCHEMA, WEEKLY_SYSTEM, weekly_message, weekly_blocks, plural,
 )
 from .models import MAIN_MODEL
+from ..stores import open_stores
+from ..stores.notion_blocks import to_markdown
 
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_INSIGHT_MODEL', MAIN_MODEL)
-INSIGHTS_DATABASE_ID = os.getenv('NOTION_INSIGHTS_DB', '')
+INSIGHTS_DATABASE_ID = os.getenv('NOTION_INSIGHTS_DB', '')  # focus.py and desktop.py still read Notion's insights by it
 SEND_HOUR_UTC = 4
 GOOD_FIT = 60
 NEAR_MISS = 45
@@ -52,9 +54,7 @@ CATEGORIES = ['Skills', 'CV', 'Location', 'Salary', 'Seniority', 'Role focus', '
 WEEKLY = 'Weekly report'
 WEEKLY_DAY = 0  # Monday
 INTERVIEW_PATTERNS = 'Interview patterns'  # interview_insights.CATEGORY: one upserted row, not a daily insight
-INTERVIEW_STAGES = {'Screening', 'Interview scheduled', 'Interviewing', 'Offer'}
-# Any of these means a human answered: the basis for reply rate and time to first reply.
-RESPONSE_KINDS = INTERVIEW_STAGES | {REPLY, 'Rejected'}
+INTERVIEW_STAGES, RESPONSE_KINDS = data_of.INTERVIEW_STAGES, data_of.RESPONSE_KINDS
 TECH_ALIASES = {'k8s': 'kubernetes', 'amazon web services': 'aws', 'gcp': 'google cloud',
                 'google cloud platform': 'google cloud', 'golang': 'go', 'postgres': 'postgresql',
                 'microsoft azure': 'azure', 'ci/cd': 'ci/cd pipelines', 'grafana labs': 'grafana'}
@@ -184,93 +184,6 @@ def market_stats(db, profile, now):
     }
 
 
-def _outcome(stage, kinds):
-    if stage in INTERVIEW_STAGES or kinds & INTERVIEW_STAGES:
-        return 'interview'
-    if stage == 'Rejected':
-        return 'rejected'
-    if stage == 'Withdrawn':
-        return 'withdrawn'
-    if REPLY in kinds:
-        return 'replied'
-    if stage == 'No response':
-        return 'no_response'
-    return 'waiting'
-
-
-def application_stats(tracker, now):
-    """The owner's applications with outcomes, and reply rates per group (flagged when small)."""
-    rows = tracker.query_database(tracker.database_id, {'or': [
-        {'property': 'Stage', 'select': {'equals': stage}} for stage in OUTCOME_STAGES]})
-    kinds, first_reply = defaultdict(set), {}
-    for event in tracker.query_database(EVENTS_DATABASE_ID):
-        kind, at = plain(event['properties'].get('Kind')), (plain(event['properties'].get('At')) or '')[:10]
-        for link in (event['properties'].get('Application') or {}).get('relation', []):
-            key = link['id'].replace('-', '')
-            kinds[key].add(kind)
-            if kind in RESPONSE_KINDS and at and (key not in first_reply or at < first_reply[key]):
-                first_reply[key] = at
-    apps = []
-    for row in rows:
-        p = {name: plain(prop) for name, prop in row['properties'].items()}
-        applied = (p.get('Applied on') or '')[:10]
-        key = row['id'].replace('-', '')
-        replied_after = ((date.fromisoformat(first_reply[key]) - date.fromisoformat(applied)).days
-                         if key in first_reply and applied else None)
-        apps.append({'outcome': _outcome(p.get('Stage'), kinds[key]), 'applied': applied, 'days_to_reply': replied_after,
-                     'Channel': p.get('Channel') or 'unknown',
-                     'Seniority': p.get('Seniority') or 'unknown', 'Work mode': p.get('Work mode') or 'unknown',
-                     'ATS': p.get('ATS') or 'unknown', 'Tier': p.get('Tier') or 'unknown',
-                     'Region': region({'location': p.get('Location') or ''}),
-                     'Fit score': ('>=70' if (p.get('Fit score') or 0) >= 70 else '<70') if p.get('Fit score') else 'unknown',
-                     'Days to apply': ('<=3' if p['Days to apply'] <= 3 else '>3') if p.get('Days to apply') is not None else 'unknown',
-                     'Cover letter': 'yes' if p.get('Cover letter') else 'no',
-                     'Recruiter': 'yes' if p.get('Recruiter') else 'no'})
-    decided = [a for a in apps if a['outcome'] != 'waiting']
-    groups = {}
-    for key in ('Channel', 'Region', 'Seniority', 'Work mode', 'ATS', 'Tier', 'Fit score', 'Days to apply',
-                'Cover letter', 'Recruiter'):
-        table = defaultdict(Counter)
-        for app in apps:
-            table[app[key]][app['outcome']] += 1
-        groups[key] = {value: dict(c, n=sum(c.values()), too_small=sum(c.values()) < MIN_GROUP)
-                       for value, c in table.items()}
-    dates = sorted(a['applied'] for a in apps if a['applied'])
-    week, month = (now - timedelta(days=7)).date().isoformat(), (now - timedelta(days=30)).date().isoformat()
-    return {
-        'applications': len(apps), 'outcomes': dict(Counter(a['outcome'] for a in apps)),
-        'interview_rate_of_decided': _share(sum(a['outcome'] == 'interview' for a in decided), len(decided)),
-        'reply_rate_of_all': _share(sum(a['outcome'] in ('interview', 'rejected', 'replied') for a in apps), len(apps)),
-        'days_to_first_reply': sorted(a['days_to_reply'] for a in apps if a['days_to_reply'] is not None),
-        'applied_last_7_days': sum(d >= week for d in dates), 'applied_last_30_days': sum(d >= month for d in dates),
-        'days_since_last_application': (now.date() - date.fromisoformat(dates[-1])).days if dates else None,
-        'by_group': groups, 'min_group_for_conclusions': MIN_GROUP,
-        'funnel': funnel_stats(tracker),
-    }
-
-
-def funnel_stats(tracker):
-    """Conversion between funnel steps, for the model (the same numbers as the 🎯 Pipeline page)."""
-    steps = funnel.funnel(funnel.reached(tracker))
-    return {'steps': [{k: s.get(k) for k in ('step', 'reached', 'waiting', 'conversion', 'decided', 'decided_conversion',
-                                              'benchmark')} for s in steps],
-            'summary': funnel.summary(steps)}
-
-
-def recent_insights(tracker, days=45):
-    rows = tracker.query_database(INSIGHTS_DATABASE_ID)
-    items = [{name: plain(prop) for name, prop in row['properties'].items()} for row in rows]
-    items = [i for i in items if (i.get('Date') or '') >= (date.today() - timedelta(days=days)).isoformat()]
-    return [{'date': i.get('Date'), 'category': i.get('Category'), 'headline': i.get('Insight'),
-             'feedback': i.get('Feedback')} for i in sorted(items, key=lambda i: i.get('Date') or '')]
-
-
-def sent_today(tracker, today):
-    rows = tracker.query_database(INSIGHTS_DATABASE_ID, {'property': 'Date', 'date': {'equals': today.isoformat()}})
-    # The Interviews page's row (interview_insights.py) is updated after every review: it is not today's insight.
-    return any(plain(r['properties'].get('Category')) != INTERVIEW_PATTERNS for r in rows)
-
-
 def _log_quality(kind, headline, action, sample_size=None):
     """A line in the run's output (a 'Warning' is never shown as a step) when the AI's words break the HONEST rules."""
     found = quality.problems(headline, action, sample_size)
@@ -291,28 +204,15 @@ def generate(client, model, profile, stats):
     return json.loads(next(block.text for block in response.content if block.type == 'text')), response.usage
 
 
-def week_stats(tracker, now):
-    """The last 7 days: outcome events and the daily insights with their feedback."""
-    since = (now - timedelta(days=7)).isoformat()
-    events = []
-    for event in tracker.query_database(EVENTS_DATABASE_ID):
-        props = {name: plain(prop) for name, prop in event['properties'].items()}
-        if (props.get('At') or '') >= since[:10] and props.get('Source') != 'Backfill':
-            events.append({'kind': props.get('Kind'), 'at': (props.get('At') or '')[:10], 'event': props.get('Event'),
-                           'source': props.get('Source')})
-    return {'events_last_7_days': sorted(events, key=lambda e: e['at']),
-            'event_counts': dict(Counter(e['kind'] for e in events)),
-            'insights_last_7_days': [i for i in recent_insights(tracker, days=7) if i['category'] != WEEKLY]}
-
-
-def weekly(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, client=None, stats=None):
+def weekly(db, stores=None, model=DEFAULT_MODEL, *, send=None, now=None, client=None, stats=None):
     """Make, save and send the weekly report; returns a one-line summary."""
     now = now or datetime.now(timezone.utc)
+    stores = stores or open_stores()
     print('Search analysis: reading your numbers…')   # each step says so: the app shows the latest line while the run works
-    profile = tracker.page_text()
-    data = {'market': market_stats(db, profile, now), 'applications': application_stats(tracker, now),
-            'interviews': interviews.stats_for_insights(tracker), 'week': week_stats(tracker, now),
-            'learning': learning.evidence(tracker, now)}
+    profile = profile_of(stores)
+    data = {'market': market_stats(db, profile, now), 'applications': data_of.application_stats(stores, now),
+            'interviews': data_of.interview_stats(stores), 'week': data_of.week_stats(stores, now),
+            'learning': learning.evidence(stores, now)}
     if client is None:
         client = engine.client(action='insight')
     print('Search analysis: asking the AI to write the report…')
@@ -332,23 +232,14 @@ def weekly(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, client=None
     model = cost.answered(model, response.usage)   # the Model column and the learning rows name the model that answered
     if stats is not None:
         stats.update(pending=1, done=1)
-    print('Search analysis: saving it to Notion…')
-    text = lambda value: {'rich_text': [{'text': {'content': value[:2000]}}]}
-    page = tracker._request('POST', 'pages', {'parent': {'database_id': INSIGHTS_DATABASE_ID}, 'properties': {
-        'Insight': {'title': [{'text': {'content': report['headline'][:200]}}]},
-        'Date': {'date': {'start': now.date().isoformat()}},
-        'Category': {'select': {'name': WEEKLY}},
-        'Basis': {'select': {'name': 'Both'}},
-        'Confidence': {'select': {'name': report['confidence']}},
-        'Sample size': {'number': data['applications']['applications']},
-        'Evidence': text(report['summary']),
-        'Action': text(report['focus']),
-        'Cost (USD)': {'number': round(usd, 4)},
-        'Model': text(model),
-    }, 'children': weekly_blocks(report, data)})
-    learning.publish(tracker, report['issues'], now, model)
+    print('Search analysis: saving it…')
+    row = stores.insights.add({'day': now.date().isoformat(), 'category': WEEKLY, 'title': report['headline'][:200],
+                               'body': to_markdown(weekly_blocks(report, data)), 'fields': {
+        'basis': 'Both', 'confidence': report['confidence'], 'sample_size': data['applications']['applications'],
+        'evidence': report['summary'], 'action': report['focus'], 'cost': round(usd, 4), 'model': model}})
+    learning.publish(stores, report['issues'], now, model)
     if send:
-        send(weekly_message(report, page.get('url', '')), keyboard(page['id']))
+        send(weekly_message(report, stores.link(row['id']) or ''), keyboard(row['id']))
     return f"Weekly report sent: {report['headline']} ({usd:.3f} USD)"
 
 
@@ -361,27 +252,24 @@ def message(insight):
     return tgcard.card('Insight', insight['category'], blocks, emoji='💡')
 
 
-def keyboard(page_id):
-    page = page_id.replace('-', '')
+def keyboard(insight_id):
+    """The feedback buttons: ins:<u|n|a>:<the insight's store id> (a Notion page id without dashes)."""
+    page = insight_id.replace('-', '')
     return {'inline_keyboard': [[{'text': '👍 Useful', 'callback_data': f'ins:u:{page}'},
                                  {'text': '👎 Not useful', 'callback_data': f'ins:n:{page}'},
                                  {'text': "✅ I'll act on it", 'callback_data': f'ins:a:{page}'}]]}
 
 
-def notion_properties(insight, today, model, usd):
-    text = lambda value: {'rich_text': [{'text': {'content': value[:2000]}}]}
-    return {
-        'Insight': {'title': [{'text': {'content': insight['headline'][:200]}}]},
-        'Date': {'date': {'start': today.isoformat()}},
-        'Category': {'select': {'name': insight['category']}},
-        'Basis': {'select': {'name': insight['basis']}},
-        'Confidence': {'select': {'name': insight['confidence']}},
-        'Sample size': {'number': insight['sample_size']},
-        'Evidence': text('\n'.join(insight['evidence'])),
-        'Action': text(insight['action']),
-        'Cost (USD)': {'number': round(usd, 4)},
-        'Model': text(model),
-    }
+def record(insight, today, model, usd):
+    """Today's insight as a store record (💡 Insights: title, date, category, the rest as its fields)."""
+    return {'day': today.isoformat(), 'category': insight['category'], 'title': insight['headline'][:200], 'fields': {
+        'basis': insight['basis'], 'confidence': insight['confidence'], 'sample_size': insight['sample_size'],
+        'evidence': '\n'.join(insight['evidence']), 'action': insight['action'], 'cost': round(usd, 4), 'model': model}}
+
+
+def profile_of(stores):
+    """The Profile as the AI reads it, from the active store (texts.plain: on Notion the page as Tracker.page_text reads it, as before)."""
+    return stores.texts.plain('profile')
 
 
 SENT = 'Insight sent: '
@@ -392,19 +280,21 @@ def category_of(summary):
     return summary[len(SENT):].split(' — ')[0].strip() if (summary or '').startswith(SENT) and ' — ' in summary else ''
 
 
-def run(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, force=False, client=None, stats=None):
+def run(db, stores=None, model=DEFAULT_MODEL, *, send=None, now=None, force=False, client=None, stats=None):
     """Make and send today's insight unless one exists already (or it's before SEND_HOUR_UTC).
-    send(text, keyboard) delivers it; returns a one-line summary."""
+    send(text, keyboard) delivers it; returns a one-line summary. The data comes from the active store (stores, else
+    open_stores())."""
     now = now or datetime.now(timezone.utc)
-    if not force and (now.hour < SEND_HOUR_UTC or sent_today(tracker, now.date())):
+    stores = stores or open_stores()
+    if not force and (now.hour < SEND_HOUR_UTC or data_of.sent_today(stores, now.date())):
         return 'Insight: not due'
     if not force and now.weekday() == WEEKLY_DAY:
-        return weekly(db, tracker, model, send=send, now=now, client=client, stats=stats)
+        return weekly(db, stores, model, send=send, now=now, client=client, stats=stats)
     print('Insight: reading your numbers…')
-    profile = tracker.page_text()
-    data = {'market': market_stats(db, profile, now), 'applications': application_stats(tracker, now),
-            'interviews': interviews.stats_for_insights(tracker), 'recent_insights': recent_insights(tracker),
-            'learning': learning.evidence(tracker, now)}
+    profile = profile_of(stores)
+    data = {'market': market_stats(db, profile, now), 'applications': data_of.application_stats(stores, now),
+            'interviews': data_of.interview_stats(stores), 'recent_insights': data_of.recent_insights(stores, now.date()),
+            'learning': learning.evidence(stores, now)}
     if client is None:
         from . import engine
         client = engine.client(action='insight')
@@ -419,8 +309,8 @@ def run(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, force=False, c
         stats.update(pending=1, done=1)
     if insight['skip']:
         return f'Insight: nothing new today ({usd:.3f} USD)'
-    page = tracker.create_page(INSIGHTS_DATABASE_ID, notion_properties(insight, now.date(), model, usd))
-    learning.publish(tracker, insight['issues'], now, model)
+    row = stores.insights.add(record(insight, now.date(), model, usd))
+    learning.publish(stores, insight['issues'], now, model)
     if send:
-        send(message(insight), keyboard(page['id']))
+        send(message(insight), keyboard(row['id']))
     return f"{SENT}{insight['category']} — {insight['headline']} ({usd:.3f} USD)"

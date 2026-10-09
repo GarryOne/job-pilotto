@@ -1,0 +1,412 @@
+"""The daily run's store reads and writes on the Notion stand-in (src/daily_helpers.py): what a Notion user had before the
+engine went through the store. The same calls on the memory store: tests/test_applications.py."""
+import json
+import re
+import tempfile
+import unittest
+import urllib.error
+from datetime import date
+from pathlib import Path
+from unittest import mock
+
+from src import daily
+from src import store as job_store
+from src.notion import client as notion, ledger
+from src.stores.notion import DATABASES
+from tests import test_store_notion as stand_in
+
+STAMP = re.compile(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?(Z|[+-]\d\d:\d\d)?')
+SKIP = {'created_time', 'last_edited_time', 'created_by', 'last_edited_by', 'parent', 'public_url', 'request_id'}
+
+
+def workspace(tracker, env):
+    """Every page of every database, with its blocks, as JSON whose ids are the order they were met and whose timestamps
+    (to the second) are one placeholder: two runs that wrote the same things give the same text."""
+    ids = {}
+    def norm(value):
+        if isinstance(value, dict):
+            return {k: norm(v) for k, v in sorted(value.items()) if k not in SKIP and not (k == 'id' and v not in ids)}
+        if isinstance(value, list):
+            return [norm(v) for v in value]
+        if isinstance(value, str):
+            if value in ids:
+                return ids[value]
+            return STAMP.sub('<time>', value)
+        return value
+    def blocks(block_id):
+        found = [block for block in tracker._children(block_id) if not block.get('archived')]
+        return [{**norm(block), 'children': blocks(block['id'])} for block in found]
+    out = {}
+    for entity, variable in sorted(DATABASES.items()):
+        pages = [page for page in tracker.query_database(env[variable]) if not page.get('archived')]
+        for page in pages:
+            ids.setdefault(page['id'], f'<{entity} {len(ids)}>')
+        out[entity] = [{'properties': norm(page['properties']), 'blocks': blocks(page['id'])} for page in pages]
+    return json.dumps(out, indent=1, sort_keys=True, ensure_ascii=False)
+
+
+@unittest.skipUnless(stand_in.shutil.which('node'), 'node runs the Notion stand-in')
+class TrackedJobOnNotionTests(unittest.TestCase):
+    setUpClass = classmethod(stand_in.NotionStoreTests.setUpClass.__func__)
+    tearDownClass = classmethod(stand_in.NotionStoreTests.tearDownClass.__func__)
+    make = stand_in.NotionStoreTests.make
+
+    def setUp(self):
+        self.s = self.make()
+        posting = mock.patch.object(daily.ats, 'posting', return_value=None)
+        posting.start()
+        self.addCleanup(posting.stop)
+
+    def test_the_job_tracker_row_by_url_and_by_code(self):
+        url = 'https://job-boards.greenhouse.io/acme/jobs/42'
+        self.s.applications.create({'url': url, 'title': 'Staff SRE', 'company': 'Acme'}, 'Saved')
+        job = daily.tracked_job(url, self.s)
+        self.assertEqual((job['title'], job['company'], job['url']), ('Staff SRE', 'Acme', url))
+        self.assertEqual(daily.tracked_job(notion.job_code(url), self.s)['url'], url)
+        self.assertIsNone(daily.tracked_job('https://x.test/untracked', self.s))
+
+    def test_the_job_matches_row_when_there_is_no_tracker_row(self):
+        url = 'https://jobs.ashbyhq.com/acme/abc-123'
+        self.s.matches.upsert({'url': url, 'title': 'Platform SRE', 'company': 'Acme', 'location': 'Zurich'})
+        job = daily.tracked_job(notion.job_code(url), self.s)
+        self.assertEqual((job['title'], job['company'], job['location']), ('Platform SRE', 'Acme', 'Zurich'))
+
+
+
+AI = {'seniority': {'value': 'senior'}, 'work_mode': {'value': 'hybrid'}, 'english_is_enough': {'value': 'yes'},
+      'languages': [{'language': 'German', 'level': 'nice_to_have'}], 'salary': {'stated': True, 'text': 'CHF 140k'},
+      'employer_type': {'value': 'direct'}, 'technologies': ['Kubernetes', 'Go'], 'role_family': 'SRE'}
+FIT = {'score': 81, 'tier': 'A', 'reason': 'Strong platform match', 'strengths': ['Kubernetes'], 'gaps': ['German'],
+       'confidence': 'high', 'components': {'role_fit': 9, 'location': 8, 'compensation': 7, 'growth': 6, 'risk': 2}}
+# Accepted D7 differences (mac-e4, 9 Oct 2026): the store fills the settable Created date (applications, events), and an Applied
+# event without a time takes the application's own date, where tracker.mark's stale row made it "now" for a row that existed.
+
+
+def before(db, url, tracker, action):
+    """Today's Notion path for a Telegram button, as src/daily_helpers.py apply_message ran it before the store (the reference)."""
+    job = daily.find_job(db, url)
+    page, outcome = tracker.mark(job, daily.ACTIONS[action])
+    if daily.ACTIONS[action] == 'Applied' and outcome != 'unchanged':
+        ledger.add_event(tracker, page, 'Applied', 'Telegram')
+        ledger.record(tracker, job['url'])
+    return outcome
+
+
+@unittest.skipUnless(stand_in.shutil.which('node'), 'node runs the Notion stand-in')
+class ProfileForTheAIOnNotionTests(unittest.TestCase):
+    """What the AI reads of the Profile on Notion (texts.plain): the page as Tracker.page_text reads it, as scoring, kits, the
+    rejection review and interview prep always read it before the store (D7), never the Markdown the store keeps."""
+    setUpClass = classmethod(stand_in.NotionStoreTests.setUpClass.__func__)
+    tearDownClass = classmethod(stand_in.NotionStoreTests.tearDownClass.__func__)
+    make = stand_in.NotionStoreTests.make
+    PROFILE = '# Igor\n\nSRE in Zurich.\n\n## Preferences\n\n- **Work mode:** Hybrid\n\n| Skill | Years |\n|---|---|\n| Kubernetes | 6 |'
+
+    def setUp(self):
+        self.s = self.make()
+        self.s.texts.set('profile', self.PROFILE)
+        self.page_text = self.tracker.page_text(self.env['NOTION_PROFILE_PAGE_ID'])
+
+    def test_plain_is_the_page_text(self):
+        self.assertNotEqual(self.s.texts.get('profile'), self.page_text, 'the two readings differ, or this test proves nothing')
+        self.assertEqual(self.s.texts.plain('profile'), self.page_text)
+
+    def test_the_rejection_review_reads_it(self):
+        from src.ai import rejection
+        app = self.s.applications.create({'url': 'https://x.test/r', 'title': 'SRE', 'company': 'Acme'}, 'Rejected')
+        seen = {}
+        def analyse(client, model, profile, text, stats=None):
+            seen['profile'] = profile
+            raise RuntimeError('stop here')
+        with mock.patch.object(rejection, 'analyse', analyse), self.assertRaises(RuntimeError):
+            rejection.review(self.s, app, email_text='Thank you for applying.', client=object())
+        self.assertEqual(seen['profile'], self.page_text)
+
+    def test_interview_prep_reads_it(self):
+        from src.ai import prep
+        record = self.s.applications.create({'url': 'https://x.test/p', 'title': 'SRE', 'company': 'Acme'}, 'Interviewing')
+        sent = {}
+        def create(**params):
+            sent['content'] = json.dumps(params['messages'], ensure_ascii=False)
+            raise RuntimeError('stop here')
+        client = mock.Mock()
+        client.messages.create.side_effect = create
+        with mock.patch.object(prep, 'role_text', lambda stores, record, db_path=None: 'Run Kubernetes at scale. ' * 40), \
+                self.assertRaises(RuntimeError):
+            prep.build(self.s, record, client=client)
+        self.assertIn(json.dumps(self.page_text[:200], ensure_ascii=False)[1:-1], sent['content'])
+
+    def test_an_interview_review_reads_it(self):
+        from src.ai import interviews
+        self.s.applications.create({'url': 'https://x.test/i', 'title': 'SRE', 'company': 'Acme'}, 'Interview scheduled')
+        seen = {}
+        def analyse(client, model, profile, apps, caption, transcript):
+            seen['profile'] = profile
+            raise RuntimeError('stop here')
+        with mock.patch.object(interviews, 'analyse', analyse), self.assertRaises(RuntimeError):
+            interviews.run(note='/interview Acme\n' + 'Notes about the call. ' * 5, client=object(), stores=self.s)
+        self.assertEqual(seen['profile'], self.page_text)
+
+    def test_the_daily_insight_and_the_weekly_report_read_it(self):
+        from datetime import datetime, timezone
+        from src.ai import insights
+        seen = {}
+        def generate(client, model, profile, stats):
+            seen['profile'] = profile
+            raise RuntimeError('stop here')
+        with mock.patch.object(insights, 'market_stats', lambda db, profile, now: {}), \
+                mock.patch.object(insights, 'generate', generate), self.assertRaises(RuntimeError):
+            insights.run(None, self.s, now=datetime(2026, 10, 8, 12, tzinfo=timezone.utc), force=True, client=object())
+        self.assertEqual(seen['profile'], self.page_text)
+        self.assertEqual(insights.profile_of(self.s), self.page_text)   # the weekly report's system prompt reads the same
+
+
+@unittest.skipUnless(stand_in.shutil.which('node'), 'node runs the Notion stand-in')
+class JobLoggedOnNotionTests(unittest.TestCase):
+    """The run's "Job logged" line and its link to the job (a logged message, src/daily_modes.py add_message_mode): log_store_job on the
+    store's record says what cron_runs.log_job said from the Notion page (D7), titles with a generated " · via Agency" / " · Company"."""
+    setUpClass = classmethod(stand_in.NotionStoreTests.setUpClass.__func__)
+    tearDownClass = classmethod(stand_in.NotionStoreTests.tearDownClass.__func__)
+    make = stand_in.NotionStoreTests.make
+
+    def logged(self, fields):
+        import contextlib
+        import io
+        from src import daily_helpers
+        from src.notion import cron_runs
+        s = self.make()
+        app = s.applications.create({'url': 'https://x.test/lead', **fields}, 'Recruiter lead')
+        page = self.tracker._request('GET', f"pages/{app['id']}")
+        said = []
+        for log in (lambda run: cron_runs.log_job(run, page, True), lambda run: daily_helpers.log_store_job(s, run, app, True)):
+            run, out = {'mode': 'add'}, io.StringIO()
+            with contextlib.redirect_stdout(out):
+                log(run)
+            said.append((run, out.getvalue()))
+        return said
+
+    def test_the_same_line_subject_and_link(self):
+        for fields in ({'title': 'Principal SRE', 'via': 'Huxley', 'origin': 'Inbound'},       # a recruiter's lead: "· via Huxley"
+                       {'title': 'Platform Engineer', 'company': 'Acme', 'origin': 'Inbound'},
+                       {'title': 'SRE', 'company': 'Acme', 'via': 'Huxley', 'origin': 'Inbound'},
+                       {'title': 'Staff SRE', 'company': 'Acme', 'origin': 'Outbound'},      # a job you went after: the role alone
+                       {'title': 'Staff SRE'}):
+            old, new = self.logged(fields)
+            self.assertEqual(new, old, fields)
+
+
+@unittest.skipUnless(stand_in.shutil.which('node'), 'node runs the Notion stand-in')
+class StagesOnNotionTests(unittest.TestCase):
+    """The application stages the search and the modes hide jobs by (store_access.url_stages): on Notion the same answer as
+    Tracker.url_stages gave, a row with no stage and a URL with spaces around it included."""
+    setUpClass = classmethod(stand_in.NotionStoreTests.setUpClass.__func__)
+    tearDownClass = classmethod(stand_in.NotionStoreTests.tearDownClass.__func__)
+    make = stand_in.NotionStoreTests.make
+
+    def test_the_same_stages_as_the_trackers_read(self):
+        from src.store_access import url_stages
+        s = self.make()
+        self.tracker.database_id = self.env['NOTION_APPLICATIONS_DB']
+        s.applications.create({'url': 'https://x.test/applied', 'title': 'A', 'company': 'Acme'}, 'Applied')
+        s.applications.create({'url': 'https://x.test/saved', 'title': 'B', 'company': 'Acme'}, 'Saved')
+        self.tracker.create_page(self.env['NOTION_APPLICATIONS_DB'], {'Job': {'title': [{'text': {'content': 'C'}}]},
+                                                                      'Job URL': {'url': ' https://x.test/no-stage '}})
+        want = self.tracker.url_stages()
+        self.assertEqual(want['https://x.test/no-stage'], None)
+        self.assertEqual(url_stages(s), want)
+
+
+@unittest.skipUnless(stand_in.shutil.which('node'), 'node runs the Notion stand-in')
+class TelegramButtonOnNotionTests(unittest.TestCase):
+    """A Telegram button (✅ Applied, ⭐, ❌) on Notion writes the pages it wrote through the tracker (D7): the same rows, columns,
+    event and frozen record, once as before (the reference) and once through the store, each on a fresh workspace."""
+    setUpClass = classmethod(stand_in.NotionStoreTests.setUpClass.__func__)
+    tearDownClass = classmethod(stand_in.NotionStoreTests.tearDownClass.__func__)
+    make = stand_in.NotionStoreTests.make
+    URL = 'https://job-boards.greenhouse.io/acme/jobs/42'
+
+    def setUp(self):
+        patch = mock.patch.object(daily.ats, '_board', mock.Mock(side_effect=urllib.error.URLError('offline')))
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def press(self, presses, through_store, matched=False):
+        s = self.make()
+        self.tracker.database_id = self.env['NOTION_APPLICATIONS_DB']
+        with mock.patch.object(ledger, 'EVENTS_DATABASE_ID', self.env['NOTION_EVENTS_DB']), \
+                mock.patch.object(notion, 'MATCHES_DATABASE_ID', self.env['NOTION_MATCHES_DB']), \
+                tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
+            job_store.import_watch_report(db, {'jobs': [{'company': 'Acme', 'id': '42', 'title': 'Staff SRE', 'location': 'Zurich',
+                                                         'url': self.URL}]})
+            if matched:   # the search's own sync wrote its 🎯 match, every scoring column
+                job = dict(daily.find_job(db, self.URL), fit=FIT, ai=AI)
+                s.matches.sync(db, [job], partial=True)
+            for action in presses:
+                if through_store:
+                    daily.apply_message(db, self.URL, s, action)
+                else:
+                    before(db, self.URL, self.tracker, action)
+        return workspace(self.tracker, self.env)
+
+    def assertSame(self, presses, **kwargs):
+        def known(text):
+            data = json.loads(text)
+            for page in data['applications'] + data['events']:
+                page['properties']['Created'] = '<known>'
+            for event in data['events']:
+                event['properties']['At'] = '<known>'
+            for app in data['applications']:   # the frozen record: its JSON as data (key order is Notion's property order)
+                for heading in app['blocks']:
+                    for block in heading['children']:
+                        if block['type'] == 'code':
+                            record = json.loads(''.join(part['plain_text'] for part in block['code']['rich_text']))
+                            (record.get('match') or {}).pop('Last update', None)   # computed: the stand-in has no such column
+                            block['code'] = record
+            return data
+        old, new = known(self.press(presses, False, **kwargs)), known(self.press(presses, True, **kwargs))
+        self.assertEqual(new, old)
+        self.assertIn('Staff SRE', json.dumps(new))
+
+    def test_applied_on_a_new_job(self):
+        self.assertSame(['applied'])
+
+    def test_saved_then_applied_with_a_match(self):
+        self.assertSame(['saved', 'applied', 'applied'], matched=True)
+
+    def test_applied_with_a_match(self):
+        self.assertSame(['applied'], matched=True)
+
+    def test_dismissed_then_saved(self):
+        self.assertSame(['dismissed', 'saved'])
+
+
+@unittest.skipUnless(stand_in.shutil.which('node'), 'node runs the Notion stand-in')
+class AddLinkOnNotionTests(unittest.TestCase):
+    """/add <job URL> [date] on Notion: the employer, the Applications row with its event and record, and the run's link to it, as
+    ledger.add_application and cron_runs.log_job wrote them through the tracker (D7), once as before and once through the store."""
+    setUpClass = classmethod(stand_in.NotionStoreTests.setUpClass.__func__)
+    tearDownClass = classmethod(stand_in.NotionStoreTests.tearDownClass.__func__)
+    make = stand_in.NotionStoreTests.make
+    URL = 'https://job-boards.greenhouse.io/acme-corp/jobs/77'
+
+    def setUp(self):
+        patch = mock.patch.object(daily.ats, '_board', mock.Mock(side_effect=urllib.error.URLError('offline')))
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def add(self, through_store, meta, matched=False, again=False):
+        import contextlib
+        import io
+        from src import daily_helpers, ledger_store
+        from src.notion import cron_runs
+        s = self.make()
+        self.tracker.database_id = self.env['NOTION_APPLICATIONS_DB']
+        out, runs = io.StringIO(), []
+        with mock.patch.object(ledger, 'EVENTS_DATABASE_ID', self.env['NOTION_EVENTS_DB']), \
+                mock.patch.object(notion, 'MATCHES_DATABASE_ID', self.env['NOTION_MATCHES_DB']), \
+                tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db, \
+                contextlib.redirect_stdout(out):
+            if matched:
+                job_store.import_watch_report(db, {'jobs': [{'company': 'Acme', 'id': '77', 'title': 'Staff SRE', 'location': 'Zurich',
+                                                             'url': self.URL}]})
+                s.matches.sync(db, [dict(daily.find_job(db, self.URL), fit=FIT, ai=AI)], partial=True)
+            for _ in range(2 if again else 1):
+                given, found, run = dict(meta), {}, {'mode': 'add'}
+                if through_store:
+                    given['company'] = ledger_store.company_for(s, self.URL, given)
+                    line = ledger_store.add_application(s, self.URL, applied=date(2026, 10, 1), approx=False, source='Telegram',
+                                                        meta=given, found=found)
+                    daily_helpers.log_store_job(s, run, found['row'], found['created'])
+                else:
+                    given['company'] = ledger.company_for(self.tracker, self.URL, given)
+                    line = ledger.add_application(self.tracker, self.URL, applied=date(2026, 10, 1), approx=False, source='Telegram',
+                                                  meta=given, found=found)
+                    cron_runs.log_job(run, found['row'], found['created'])
+                runs.append((line, {k: v for k, v in run.items() if k != 'application'}, bool(run.get('application'))))
+        said = re.sub(r'[0-9a-f]{32}|[0-9a-f-]{36}', '<id>', out.getvalue())
+        return runs, said, workspace(self.tracker, self.env)
+
+    def assertSame(self, meta, **kwargs):
+        def known(result):
+            runs, said, text = result
+            data = json.loads(text)
+            for page in data['applications'] + data['events']:
+                page['properties']['Created'] = '<known>'
+            for event in data['events']:
+                event['properties']['At'] = '<known>'
+            for app in data['applications']:
+                for heading in app['blocks']:
+                    for block in heading['children']:
+                        if block['type'] == 'code':
+                            record = json.loads(''.join(part['plain_text'] for part in block['code']['rich_text']))
+                            (record.get('match') or {}).pop('Last update', None)
+                            block['code'] = record
+            return runs, said, data
+        old, new = known(self.add(False, meta, **kwargs)), known(self.add(True, meta, **kwargs))
+        self.assertEqual(new[0], old[0])   # the reply line, the run's subject, its link to the row
+        self.assertEqual(new[1], old[1])   # what it printed ("Job logged: {...}")
+        self.assertEqual(new[2], old[2])   # every page and block
+
+    def test_a_page_that_names_its_employer(self):
+        self.assertSame({'title': 'Staff SRE', 'company': 'Acme', 'description': 'Kubernetes at scale.'})
+
+    def test_no_company_named_the_match_has_it(self):
+        self.assertSame({'title': 'Staff SRE'}, matched=True)
+
+    def test_no_company_and_no_match_the_boards_slug(self):
+        self.assertSame({'title': 'Staff SRE'})
+
+    def test_added_twice(self):
+        self.assertSame({'title': 'Staff SRE', 'company': 'Acme'}, again=True)
+
+
+@unittest.skipUnless(stand_in.shutil.which('node'), 'node runs the Notion stand-in')
+class ImportOnNotionTests(unittest.TestCase):
+    """A job link imported on Notion (src/import_url.py): the 🎯 match it writes and the run's link to it, as matches.write_one and
+    cron_runs.log_job wrote them (D7). What comes before (reading, scoring) is the same code on both paths."""
+    setUpClass = classmethod(stand_in.NotionStoreTests.setUpClass.__func__)
+    tearDownClass = classmethod(stand_in.NotionStoreTests.tearDownClass.__func__)
+    make = stand_in.NotionStoreTests.make
+    URL = 'https://job-boards.greenhouse.io/acme/jobs/91'
+
+    def imported(self, through_store, twice=False):
+        import contextlib
+        import io
+        from src import daily_helpers
+        from src.notion import cron_runs, matches
+        s = self.make()
+        out, runs = io.StringIO(), []
+        with mock.patch.object(notion, 'MATCHES_DATABASE_ID', self.env['NOTION_MATCHES_DB']), \
+                tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db, \
+                contextlib.redirect_stdout(out):
+            job_store.import_watch_report(db, {'jobs': [{'company': 'Acme', 'id': '91', 'title': 'Platform SRE', 'location': 'Zurich',
+                                                         'url': self.URL}]})
+            item = dict(daily.find_job(db, self.URL), fit=FIT, ai=AI, notes='imported')
+            for _ in range(2 if twice else 1):
+                run = {'mode': 'import'}
+                if through_store:   # src/import_url.py now
+                    created = s.matches.get(self.URL) is None
+                    s.matches.sync(db, [item], partial=True)
+                    found = s.matches.get(self.URL)
+                    row = {'id': found['id'], 'title': item['title'], 'url': self.URL, 'company': item['company']}
+                    if created:
+                        daily_helpers.log_store_job(s, run, row, True)
+                else:               # before the store
+                    from src.stores.notion_matches import _Bound   # Job Matches pinned to this workspace's database, as in production
+                    page_id, created = matches.write_one(db, _Bound(self.tracker, self.env['NOTION_MATCHES_DB']), item)
+                    row = {'id': page_id, 'url': f"https://www.notion.so/{str(page_id).replace('-', '')}",
+                           'properties': {'Job': {'title': [{'plain_text': item['title']}]}, 'Job URL': {'url': self.URL}}}
+                    if created:
+                        cron_runs.log_job(run, row, True)
+                runs.append((created, {k: v for k, v in run.items() if k not in ('application', 'subject')}, bool(run.get('application'))))
+        said = re.sub(r'[0-9a-f]{32}|[0-9a-f-]{36}', '<id>', out.getvalue())
+        return runs, said, workspace(self.tracker, self.env)
+
+    def test_a_new_match_and_the_runs_link_to_it(self):
+        self.assertEqual(self.imported(True), self.imported(False))
+
+    def test_imported_twice_one_match_one_link(self):
+        self.assertEqual(self.imported(True, twice=True), self.imported(False, twice=True))
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -3,6 +3,7 @@
 // feed, a duplicate of a source already in use, an excluded company, a manual-watch company) is run from the Actions page; then what the scout decided, what it wrote
 // into Notion and into its run row, what a second run does, what the crawl would now read, and a Sonnet judge on whether the added employers suit the person.
 import {execFileSync} from 'node:child_process';
+import {python, pythonEnv} from '../lib/python.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {E2E} from '../lib/app.mjs';
@@ -10,7 +11,7 @@ import {collect, judge as fitJudge, toFindings as fitFindings} from '../lib/fit.
 import {duplicates, EXPECTED, parseRunLine, rowProblems} from '../lib/employers.mjs';
 import {judge, problems as judgeProblems} from '../lib/judge.mjs';
 import {finish, visit} from '../lib/layout.mjs';
-import {emptyDatabase, readRows} from '../lib/notion.mjs';
+import {clearData} from '../lib/start-state.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 import {appLogLines} from '../lib/app-log.mjs';
 
@@ -30,6 +31,11 @@ const PERSON = persona.person;
 // "quality" is the scout's 0-100 score of a whole feed (relevance, freshness, location, stack): a feed with older postings or a few off-target roles scores in the 30s-50s and is
 // still a sensible employer to follow. The judge must not read a middling score as a contradiction with "stack overlap" or "in preferred places", which describe single postings.
 const QUALITY_NOTE = 'Note: "quality" is a 0-100 score of the whole job feed, also lowered by stale postings or a few unrelated roles, so a middling score next to a good stack or place match is normal; judge only whether following this employer suits the person.';
+// What each count means (src/scout_probe.py quality): a posting outside the person's roles counts in neither number, and "cities" are those of the relevant roles in
+// preferred places. 9 Oct 2026 (CI run 37978637897): without this the judge read Orbit's 3 postings, 2 relevant, 1 of them in Zurich, "cities: Zurich" (its non-relevant
+// Product Designer is in Zurich too) as contradicting facts. The bar is said too: on a later run the judge called Orbit "coherent but weaker" (one relevant role in Zurich) and still
+// said no; the suite expects every board with a relevant role in the person's places to be added (EXPECTED: Orbit found, active).
+const FIELDS_NOTE = 'Fields: "postings" in "why" counts every posting on the board; "relevantRoles" counts only those matching the person\'s roles; "relevantRolesInPreferredPlaces" counts the relevant ones that are also in the person\'s places (a subset of relevantRoles); "citiesOfThose" lists the cities of exactly those relevant roles in preferred places. A posting outside the person\'s roles is counted in neither number, wherever it is. The bar: an employer with at least one relevant role in the person\'s places is worth following (fewer roles make it weaker, not wrong); answer no only when following it would not suit the person.';
 const ROOT = path.resolve(E2E, '..', '..');
 
 const find = dir => {
@@ -52,8 +58,8 @@ rows = lambda q: [dict(r) for r in c.execute(q)]
 with store.connect(__import__('pathlib').Path(path)) as db:
     crawl = [s['company'] for s in scout.active_sources(db, None, starter)]
 print(json.dumps({'candidates': rows('select name, status, ats, slug, quality from scout_candidates'), 'registered': rows('select ats, slug, company, quality, active from feed_sources'), 'crawl': crawl}))`;
-  const out = execFileSync('python3', ['-c', script, db, path.join(ctx.profile, 'config', 'sources.json')],
-    {cwd: ROOT, env: {...process.env, ...env, JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, PYTHONUTF8: '1'}});   // as the app runs the engine: UTF-8 files on Windows too
+  const out = execFileSync(python(), ['-c', script, db, path.join(ctx.profile, 'config', 'sources.json')],
+    {cwd: ROOT, env: pythonEnv({...env, JOB_PILOTTO_FIXTURE_DIR: ctx.feeds}, {home: ctx.profile})});   // isolated, UTF-8 (lib/python.mjs)
   return JSON.parse(out.toString());
 }
 
@@ -91,21 +97,22 @@ async function findEmployers(ctx) {
   return now.runs.slice(0, now.runs.length - before);
 }
 
-// The scout's rows in Notion's run list, oldest first, as numbers.
-async function notionRuns(token) {
-  const rows = (await readRows(token, 'Cronjob Runs')).filter(row => row.Mode === 'scout');
-  return rows.sort((a, b) => String(a.Started).localeCompare(String(b.Started))).map(row => ({row, line: parseRunLine(row.Summary)}));
+// The scout's rows in the store's run list (cron_runs: this Mac's or Notion's ⏱️ Search runs), oldest first, as numbers.
+async function storeRuns(ctx) {
+  const rows = ((await ctx.data('cron_runs', 'list', {})) || []).filter(row => row.mode === 'scout');
+  return rows.sort((a, b) => String(a.started_at).localeCompare(String(b.started_at))).map(row => ({row, line: parseRunLine(row.summary)}));
 }
+// Every employer the store holds, active or not.
+const employers = ctx => ctx.data('employers', 'list', {active: null});
 
 export async function run(ctx) {
-  const {token: NOTION} = ctx;
   ctx.findings = [];
   ctx.audience = persona.dir === 'employers' ? undefined : 'non-it';   // the UI Finder checks that the app's tips and insights suit a candidate who is not in IT
   await ensureSetUp(ctx);
   const state = {};
 
   await ctx.run('this suite starts with no employers and no runs in its Notion page, and a candidate list of every kind', async () => {
-    const cleared = [await emptyDatabase(NOTION, 'Employers & Sources'), await emptyDatabase(NOTION, 'Cronjob Runs')];
+    const cleared = [await clearData(ctx, 'Employers & Sources'), await clearData(ctx, 'Cronjob Runs')];
     console.log(`  cleared ${cleared[0]} employer row(s) and ${cleared[1]} run row(s)`);
     // Nimbus' postings are three days old whenever the suite runs (freshness is part of the quality score); Orbit's stay old on purpose.
     if (persona.dir !== 'employers') {   // the persona's boards replace the SRE ones of the same names
@@ -152,38 +159,38 @@ export async function run(ctx) {
   }, {needs: ctx.needs});
 
   await ctx.run('Employers & Sources in Notion holds a complete, sensible row per candidate, and none for the duplicate or the excluded', async () => {
-    state.rows = await readRows(NOTION, 'Employers & Sources');
-    const byName = Object.fromEntries(state.rows.map(row => [row.Company, row]));
+    state.rows = await employers(ctx);
+    const byName = Object.fromEntries(state.rows.map(row => [row.name, row]));
     const problems = [];
     for (const [company, want] of Object.entries(EXPECTED)) {
       const row = byName[company];
-      if (want.feed == null) { if (row) problems.push(`${company} must not have a row (${want.status}), it has one: ${row['Feed status']}`); continue; }
+      if (want.feed == null) { if (row) problems.push(`${company} must not have a row (${want.status}), it has one: ${row.feed_status}`); continue; }
       if (!row) { problems.push(`${company} has no row in Employers & Sources`); continue; }
       problems.push(...rowProblems(row, want.status));
-      if (row['Feed status'] !== want.feed) problems.push(`${company}: Feed status "${row['Feed status']}", expected "${want.feed}"`);
-      if (row.Active !== want.active) problems.push(`${company}: Active is ${row.Active}, expected ${want.active}`);
+      if (row.feed_status !== want.feed) problems.push(`${company}: Feed status "${row.feed_status}", expected "${want.feed}"`);
+      if (row.active !== want.active) problems.push(`${company}: Active is ${row.active}, expected ${want.active}`);
     }
     // The numbers in a row come from the fixture boards: Nimbus has 5 postings, 4 of them relevant, all 4 in the person's city; Orbit 3, 2 and 1.
     const nimbus = byName['E2E Nimbus'], orbit = byName['E2E Orbit'];
-    if (nimbus && !(nimbus.ATS === 'greenhouse' && nimbus.Slug === 'e2e-nimbus' && nimbus['Relevant roles'] === 4 && nimbus['In preferred places'] === 4 && persona.city.test(nimbus.Cities) && /5 postings; 4 matching; 4 in preferred places/.test(nimbus.Notes))) problems.push(`E2E Nimbus' row does not match its board: ${JSON.stringify({ats: nimbus.ATS, slug: nimbus.Slug, relevant: nimbus['Relevant roles'], preferred: nimbus['In preferred places'], cities: nimbus.Cities, notes: nimbus.Notes})}`);
-    if (orbit && !(orbit['Relevant roles'] === 2 && orbit['In preferred places'] === 1 && persona.city.test(orbit.Cities) && !persona.elsewhere.test(orbit.Cities))) problems.push(`E2E Orbit's row does not match its board (2 relevant, 1 in ${persona.cityName}, none elsewhere): ${JSON.stringify({relevant: orbit['Relevant roles'], preferred: orbit['In preferred places'], cities: orbit.Cities})}`);
-    if (nimbus && orbit && !(nimbus.Quality > orbit.Quality)) problems.push(`Notion's quality does not order the boards: Nimbus ${nimbus.Quality}, Orbit ${orbit.Quality}`);
-    if (byName['E2E Quiet'] && !/quiet\.e2e\.test/.test(byName['E2E Quiet'].Careers || '')) problems.push(`E2E Quiet's Careers link is "${byName['E2E Quiet'].Careers}"`);
+    if (nimbus && !(nimbus.ats === 'greenhouse' && nimbus.slug === 'e2e-nimbus' && nimbus.relevant_roles === 4 && nimbus.in_preferred_places === 4 && persona.city.test(nimbus.cities) && /5 postings; 4 matching; 4 in preferred places/.test(nimbus.notes))) problems.push(`E2E Nimbus' row does not match its board: ${JSON.stringify({ats: nimbus.ats, slug: nimbus.slug, relevant: nimbus.relevant_roles, preferred: nimbus.in_preferred_places, cities: nimbus.cities, notes: nimbus.notes})}`);
+    if (orbit && !(orbit.relevant_roles === 2 && orbit.in_preferred_places === 1 && persona.city.test(orbit.cities) && !persona.elsewhere.test(orbit.cities))) problems.push(`E2E Orbit's row does not match its board (2 relevant, 1 in ${persona.cityName}, none elsewhere): ${JSON.stringify({relevant: orbit.relevant_roles, preferred: orbit.in_preferred_places, cities: orbit.cities})}`);
+    if (nimbus && orbit && !(nimbus.quality > orbit.quality)) problems.push(`Notion's quality does not order the boards: Nimbus ${nimbus.quality}, Orbit ${orbit.quality}`);
+    if (byName['E2E Quiet'] && !/quiet\.e2e\.test/.test(byName['E2E Quiet'].careers_url || '')) problems.push(`E2E Quiet's Careers link is "${byName['E2E Quiet'].careers_url}"`);
     if (problems.length) throw new Error(problems.join('; '));
   }, {needs: ctx.needs});
 
   await ctx.run("the run's row says what happened, and the numbers are the real ones", async () => {
-    const runs = await notionRuns(NOTION);
-    console.log(`  run rows: ${runs.map(item => item.row.Summary).join(' | ')}`);
+    const runs = await storeRuns(ctx);
+    console.log(`  run rows: ${runs.map(item => item.row.summary).join(' | ')}`);
     if (!runs.length) throw new Error('Find new employers left no row in the Notion run list');
     const {line, row} = runs[0];
-    if (!line) throw new Error(`the run row says "${row.Summary}": no "checked N" and no "N new sources"`);
+    if (!line) throw new Error(`the run row says "${row.summary}": no "checked N" and no "N new sources"`);
     const registered = state.first.registered.length;
     if (line.checked !== state.first.candidates.length) throw new Error(`the row says checked ${line.checked}, the scout checked ${state.first.candidates.length}`);
     if (line.added !== registered) throw new Error(`the row says ${line.added} new sources, the scout registered ${registered}`);
     const shown = state.runs[0].result;
     const app = parseRunLine(shown);
-    if (!app || app.checked !== line.checked || app.added !== line.added) throw new Error(`the app's Recent runs says "${shown}", Notion says "${row.Summary}"`);
+    if (!app || app.checked !== line.checked || app.added !== line.added) throw new Error(`the app's Recent runs says "${shown}", Notion says "${row.summary}"`);
   }, {needs: ctx.needs});
 
   await ctx.run("the crawl's source list now holds the starter employers and the two new boards, and nothing else", async () => {
@@ -193,12 +200,12 @@ export async function run(ctx) {
   }, {needs: ctx.needs});
 
   await ctx.run('a second run writes nothing twice', async () => {
-    const rowsBefore = (await readRows(NOTION, 'Employers & Sources')).length;
+    const rowsBefore = (await employers(ctx)).length;
     state.second = await findEmployers(ctx);
     console.log(`  second run: ${JSON.stringify(state.second)}`);
     if (state.second.length !== 1 || state.second[0].ok === false) throw new Error(`the second click gave ${state.second.length} run(s): ${JSON.stringify(state.second)}`);
     const after = engineState(ctx);
-    const rows = await readRows(NOTION, 'Employers & Sources');
+    const rows = await employers(ctx);
     const twice = duplicates(rows);
     if (twice.length) throw new Error(`Employers & Sources lists ${twice.join(', ')} more than once`);
     if (rows.length !== rowsBefore) throw new Error(`Employers & Sources had ${rowsBefore} rows and now has ${rows.length}`);
@@ -210,10 +217,10 @@ export async function run(ctx) {
   // The AI judge is paid for in the nightly release gate and in a manual run (E2E_FULL=1 in CI), not on the three-a-day schedule: what it judges is tuned once. On a Mac it always runs.
   const FULL = {name: 'the nightly or a manual run (E2E_FULL=1)', value: process.env.CI ? process.env.E2E_FULL : '1'};
   await ctx.run('a Sonnet judge finds each added employer sensible for the candidate', async () => {
-    const added = state.rows.filter(row => row.Active === true);
-    const items = added.map(row => ({name: row.Company, board: row.ATS, quality: row.Quality, cities: row.Cities, why: row.Notes, relevantRoles: row['Relevant roles'], inPreferredPlaces: row['In preferred places']}));
+    const added = state.rows.filter(row => row.active === true);
+    const items = added.map(row => ({name: row.name, board: row.ats, quality: row.quality, citiesOfThose: row.cities, why: row.notes, relevantRoles: row.relevant_roles, relevantRolesInPreferredPlaces: row.in_preferred_places}));
     if (items.length !== 2) throw new Error(`expected two added employers to judge, found ${items.length}`);
-    const verdicts = await judge({key: ctx.judgeKey, person: `${PERSON} ${QUALITY_NOTE}`, items});
+    const verdicts = await judge({key: ctx.judgeKey, person: `${PERSON} ${QUALITY_NOTE} ${FIELDS_NOTE}`, items});
     console.log(`  judge: ${verdicts.map(item => `${item.name}: ${item.makes_sense ? 'yes' : 'NO'} (${item.reason})`).join(' | ')}`);
     const problems = judgeProblems(items.map(item => item.name), verdicts);
     if (problems.length) throw new Error(problems.join('; '));

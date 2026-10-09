@@ -87,7 +87,8 @@ def capture():
 
 def begin(tracker, run):
     """Open the run's row now (Status Running), so a job in progress shows everywhere; log_run() completes it.
-    Returns its URL, or None (never raises)."""
+    Returns its URL, or None (never raises, but run_log.BothLogs)."""
+    _one_log()
     capture()
     if not tracker or not CRON_RUNS_DATABASE_ID:
         return None
@@ -105,6 +106,19 @@ def begin(tracker, run):
     except Exception as error:
         print(f'Warning: cronjob run not opened in Notion: {type(error).__name__}: {error}')
         return None
+
+
+def _one_log():
+    """src/run_log.py opened this process's row: a half-switched caller (see run_log.BothLogs)."""
+    from .. import run_log
+    if run_log._open.get('id'):
+        raise run_log.BothLogs('this process opened its run row with src/run_log.py: log it there too')
+
+
+def running():
+    """True while a run's row is open in this process (attach() would put blocks there): a log uploads its screenshots for the
+    run only then, else they go with the job (src/ai/inbox_notion.py)."""
+    return bool(_open.get('id') and _open.get('tracker'))
 
 
 def attach(blocks):
@@ -183,8 +197,10 @@ def _without_missing(send, properties):
 
 
 def log_run(tracker, run, failed=False):
-    """Complete the row begin() opened (or create it); returns its URL, or None when Notion refuses (never raises)."""
+    """Complete the row begin() opened (or create it); returns its URL, or None when Notion refuses (never raises,
+    but run_log.BothLogs)."""
     from .. import telegram
+    _one_log()
     try:
         if failed:
             run['failed'] = True  # the report's words (report_lines): a run that crashed never says "done"

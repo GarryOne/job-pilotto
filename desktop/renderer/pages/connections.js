@@ -13,6 +13,7 @@ import {noteCheck, openSetting, refreshServices, renderOverview, showRunMode, st
 import {toastMessage} from './startup.js';
 import {goStep} from './wizard.js';
 import {showClaudePrereqs} from './claude-prereqs.js';
+import {storeName} from '../store-words.js';
 
 function showStray(entry) {
   const box = $('ext-stray');
@@ -133,7 +134,7 @@ async function saveReminders() {
 async function saveTarget() {
   const input = $('set-target');
   if (!input.value || input.value === input.dataset.saved) return;
-  saveState('Saving the daily target to Notion…');
+  saveState(`Saving the daily target to ${storeName()}…`);
   const ok = await saveDailyTarget(input);
   saveState('');
   if (!ok) { input.value = input.dataset.saved || ''; return; }
@@ -178,7 +179,7 @@ function showCloudNeeds() {
   message('cloud-message', done ? 'Ready ✓ Press Turn on to connect GitHub.' : '', done ? 'ok' : '');
   const title = document.createElement('b');
   title.textContent = done ? 'Everything is ready' : `Before it can run (${2 - missing.length} of 2 done)`;
-  const rows = [['notion', 'Notion connected'], ['ai', `${aiKey().provider} API key`]].map(([id, label]) => {
+  const rows = [['notion', 'Notion connected'], ['ai', `${aiKey().provider} API key`]].map(([id, label]) => {   // about Notion
     const need = missing.find(m => m.id === id);
     const row = document.createElement('div');
     row.className = 'aon-need';
@@ -424,6 +425,8 @@ export async function init() {
     if (!result.ok) { alertLine('NOTION_TOKEN', result.error || `Not found: ${(result.missing || []).join(', ') || 'columns missing'}`); return; }
     $('set-notion').value = '';
     loadSettings();
+    // Connected with the data still on this Mac: the move, in the same prompt as every connect (pages/notion-connect.js "Move to Notion").
+    if (result.stayedOnMac) { shared.state = await window.pilot.state(); openNotionConnect({reason: 'move', where: 'settings', from: 'settings', then: () => loadSettings()}); }
   });
   for (const [id, name, check] of [['anthropic', 'ANTHROPIC_API_KEY', 'checkAnthropic'], ['openai', 'OPENAI_API_KEY', 'checkOpenAI'], ['serpapi', 'SERPAPI_API_KEY', false], ['adzuna-id', 'ADZUNA_APP_ID', false],
     ['adzuna-key', 'ADZUNA_APP_KEY', false], ['jooble', 'JOOBLE_API_KEY', false]]) {

@@ -3,10 +3,13 @@
 import {$, message, show} from './core.js';
 import {el, notionBenefits, notionGate} from '../components.js';
 import {GATE_FOOTNOTE, GATE_TITLE, LOCKED_VIEWS, WHY_CHOICES} from '../notion-benefits.js';
-import {closeOnProgress, ignoreGateEvent} from '../notion-connect-rules.js';
+import {closeOnProgress, connectMode, GO_LABEL, ignoreGateEvent, moveAfterConnect} from '../notion-connect-rules.js';
+import {MOVE_WORDS, movedText} from '../store-move-text.js';
 import {shared} from './shared.js';
 
 export const notionConnected = () => !!shared.state?.notion?.NOTION_PROFILE_PAGE_ID;
+// The data has a home (Notion connected, or kept on this Mac: lib/store), so tracking works; false only while trying.
+export const tracking = () => notionConnected() || shared.state?.store?.trying === false;
 export const reasonText = reason => {
   const words = shared.state?.notionReasons?.[reason];
   return words ? `Connect Notion ${words}.` : '';
@@ -15,7 +18,7 @@ export const reasonText = reason => {
 // What happened to the prompt, to the app (lib/notion-gate.js gateEvent keeps only fixed lists; nothing else is sent).
 const report = (reason, where, outcome, why) => window.pilot.notionGateEvent({reason, where, outcome, why}).catch?.(() => {});
 
-let current = null;  // the open prompt: {reason, where, from, then, sent, notNow, why, connecting}
+let current = null;  // the open prompt: {reason, where, from, then, sent, notNow, why, connecting, mode, moving}
 let underwaySince = 0;  // news of a connect this prompt did not start (Settings, a token): see notion-connect-rules.js
 function finish(outcome) {
   if (!current || current.sent) return;
@@ -31,13 +34,32 @@ function progressLine({found, total, building, waitingPage, template, moving}) {
     : `Notion is still sharing your workspace with the connection: ${found} of ${total} found. This can take a minute; the app keeps checking.`;
 }
 
+// The prompt's words for its mode (rules connectMode): "Connect and move" with the move said up front, "Move to Notion" when connected already.
+function setMode(box) {
+  // Connected is read from the store's own answer: state.notion holds Notion's pages only while Notion holds the data (main.js state).
+  box.mode = connectMode({store: shared.state?.store, connected: !!shared.state?.store?.notionConnected || notionConnected()});
+  box.sent = box.mode === 'move';   // a move-only prompt is no connect to report
+  const why = shared.state?.notionReasons?.[box.reason];
+  const words = box.mode !== 'move' ? reasonText(box.reason) : why && box.reason !== 'move' ? `Needed ${why}.` : '';
+  $('notion-connect-title').textContent = box.mode === 'move' ? 'Move your data to Notion' : GATE_TITLE;   // about Notion
+  $('notion-connect-reason').textContent = words;
+  show($('notion-connect-reason'), !!words);
+  show($('notion-connect-move'), box.mode !== 'connect');
+  show($('notion-connect-benefits'), box.mode !== 'move');
+  show($('notion-connect-note'), box.mode !== 'move');   // the sign-in footnote: no sign-in when Notion is connected already
+  $('notion-connect-go').textContent = GO_LABEL[box.mode];
+}
+
 // reason: a key of lib/notion-gate.js REASONS, or 'none' (the Optional extras card, Settings). where: dialog | extras | settings.
-// then(): runs after a successful connect (the action the user asked for, or a redraw).
+// then(result): runs after a successful connect, and after the move it announced (the action the user asked for, or a redraw).
+// With the data on this Mac the prompt is "Connect and move", or "Move to Notion" when Notion is connected already (rules connectMode).
 export function openNotionConnect({reason = 'none', where = 'dialog', from = 'dialog', then = null} = {}) {
   const dialog = $('notion-connect-dialog');
   current = {reason, where, from, then, sent: false, notNow: false, why: null};
-  $('notion-connect-reason').textContent = reasonText(reason);
-  show($('notion-connect-reason'), !!reasonText(reason));
+  setMode(current);
+  // The mode follows where the data is now: the state read at start may be older (a token pasted, a move finished elsewhere).
+  const box = current;
+  window.pilot.state().then(state => { shared.state = state; if (current === box && !box.connecting && !box.moving) setMode(box); }).catch(() => {});
   show($('notion-connect-why'), false);
   $('notion-connect-later').textContent = 'Not now';
   $('notion-connect-go').disabled = false;
@@ -47,9 +69,34 @@ export function openNotionConnect({reason = 'none', where = 'dialog', from = 'di
   if (!dialog.open) dialog.showModal();
 }
 
+// The move the prompt announced (lib/store-move.js through preload's moveToNotion): progress in the prompt, then box.then(result).
+async function move(box) {
+  box.moving = true;
+  $('notion-connect-go').disabled = true;
+  message('notion-connect-message', 'Moving your data to Notion…', 'waiting');
+  const result = await window.pilot.moveToNotion().catch(error => ({ok: false, error: error.message}));
+  box.moving = false;
+  $('notion-connect-go').disabled = false;
+  shared.state = await window.pilot.state();
+  if (!result?.ok) {
+    // Stopped: nothing changed, the data is still on this Mac; the prompt stays open with "Move to Notion" to try again.
+    box.mode = 'move';
+    $('notion-connect-go').textContent = GO_LABEL.move;
+    message('notion-connect-message', result?.text || result?.error || 'Not moved.', 'error');
+    box.then?.(result);
+    return;
+  }
+  message('notion-connect-message', movedText(result), 'ok');
+  setTimeout(() => { $('notion-connect-dialog').close(); box.then?.(result); }, 2500);
+}
+
 async function connect() {
   if (!current) return;
   const box = current;
+  // A press before the fresh state arrived: decide on the state now, so a connected Notion is never asked to sign in again.
+  shared.state = await window.pilot.state().catch(() => shared.state);
+  setMode(box);
+  if (box.mode === 'move') { await move(box); return; }
   box.connecting = true;
   $('notion-connect-go').disabled = true;
   message('notion-connect-message', 'Waiting for Notion: approve in your browser, then come back here…', 'waiting');
@@ -63,10 +110,15 @@ async function connect() {
   }
   shared.state = await window.pilot.state();
   finish('connected');
+  if (box.mode === 'connect-move' && moveAfterConnect(result)) { await move(box); return; }
+  // Where the data lives now (lib/store-handlers.js startOnNotionIfEmpty): nothing on this Mac yet → Notion from now on; data here → it stays
+  // until "Move my data to Notion" (Settings → Data & backup).
+  const where = result.startedOnNotion ? ' Your jobs and applications live in Notion from now on.'
+    : moveAfterConnect(result) ? ' Your data is still on this Mac: Settings → Data & backup → Move my data to Notion.' : '';
   message('notion-connect-message', result.kept
-    ? `Connected ✓ Your Notion already had a Profile, so it was kept. This Mac's version is saved in ${result.kept}.`
-    : 'Connected ✓', 'ok');
-  setTimeout(() => { $('notion-connect-dialog').close(); box.then?.(); }, result.kept ? 4000 : 900);
+    ? `Connected ✓ Your Notion already had a Profile, so it was kept. This Mac's version is saved in ${result.kept}.${where}`
+    : `Connected ✓${where}`, 'ok');
+  setTimeout(() => { $('notion-connect-dialog').close(); box.then?.(); }, result.kept || where ? 4000 : 900);
 }
 
 // Open one of the user's Notion pages (a key of state.notion), or the connect prompt when Notion isn't connected.
@@ -97,7 +149,7 @@ export function applyViewGate(name, {then = null} = {}) {
   const view = document.querySelector(`.view[data-view="${name}"]`);
   const reason = LOCKED_VIEWS[name];
   if (!view || !reason) return false;
-  const locked = !notionConnected();
+  const locked = !tracking();
   view.classList.toggle('notion-locked', locked);
   let host = view.querySelector(':scope > .notion-gate-host');
   if (!locked) { host?.remove(); return false; }
@@ -146,6 +198,18 @@ export function init() {
     openNotionConnect({reason: need.reason, where: 'dialog', from: `gate:${need.reason}`, then: async () => {
       await window.pilot.retryNotionNeed().catch(() => null);
       import('./jobs.js').then(jobs => jobs.loadJobs());
+    }});
+  });
+  // A move this prompt runs: its progress here (data.js shows the same in Settings → Your data).
+  window.pilot.onStoreMoveProgress(({entity, done, total} = {}) => {
+    if (current?.moving && $('notion-connect-dialog').open) message('notion-connect-message', `Moving ${MOVE_WORDS[entity] || entity}… ${done} of ${total}`, 'waiting');
+  });
+  // An action that runs off this Mac (Always on, Telegram buttons while it is off) while the data is here (preload.cjs): the move, then the action again.
+  window.addEventListener('pilot-needs-move', () => {
+    const need = window.pilot.takeNotionNeed();
+    if (!need || $('notion-connect-dialog').open) return;
+    openNotionConnect({reason: need.reason, where: 'dialog', from: `gate:${need.reason}`, then: async result => {
+      if (result?.ok) await window.pilot.retryNotionNeed().catch(() => null);
     }});
   });
   window.pilot.onNotionProgress(progress => {

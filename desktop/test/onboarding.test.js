@@ -1,6 +1,8 @@
 // Focus → Get started (renderer/onboarding.js): each step ticked from what really happened, in order, and the card gone for good once all are done.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import {STEPS, focusMode, onboarding} from '../renderer/onboarding.js';
 
 const run = (kind, id, extra = {}) => ({kind, id, endedAt: id + 1000, ok: true, ...extra});
@@ -64,4 +66,19 @@ test('Focus: all of it with Notion; only Get started without; the gate once Get 
   assert.equal(focusMode({notionConnected: true, gettingStarted: true}), 'full');
   const hidden = onboarding({settings: {onboarding: {hidden: true}}, notionConnected: false});
   assert.equal(focusMode({notionConnected: false, gettingStarted: hidden.show}), 'locked');
+});
+
+test('data kept on this Mac: the Notion step is done in its own words, and Focus is whole', () => {
+  const state = onboarding({keptOnMac: true});
+  const step = state.steps.find(each => each.key === 'notion');
+  assert.equal(step.done, true);
+  assert.equal(step.label, 'Keep your data on this Mac');
+  assert.equal(onboarding({notionConnected: true}).steps.find(each => each.key === 'notion').label, 'Connect Notion');
+});
+
+test('the window locks a page only while trying, never because Notion is absent (one rule: tracking())', () => {
+  const dir = path.join(import.meta.dirname, '..', 'renderer', 'pages');
+  const gate = fs.readFileSync(path.join(dir, 'notion-connect.js'), 'utf8');
+  assert.match(gate, /const locked = !tracking\(\);/);
+  assert.match(gate, /shared\.state\?\.store\?\.trying === false/);
 });

@@ -6,16 +6,21 @@ import path from 'node:path';
 import * as contact from './contact.js';
 import * as knowledge from './knowledge.js';
 import {log} from './log.js';
-import * as notion from './notion.js';
+import * as notion from './notion.js';   // Notion-only: moves this Mac's data into a connected Notion that is the store
+import * as notionGate from './notion-gate.js';
 import * as questions from './questions.js';
 import * as runHistory from './run-history.js';
 import * as schema from './schema.js';
 import * as pipeline from './pipeline.js';
 import * as strategy from './strategy.js';
 
+// onMac: why the step does not run while the data lives on this Mac (the rule in run(): nothing in migrate runs unless Notion is the store).
+// 'data': it moves (or deletes) this Mac's data into Notion, or fills Notion's rows: "Move my data to Notion" (lib/store-move.js) copies and
+// archives that data itself. 'workspace': Notion's workspace or the search config only: the move does that part itself too (schema repair
+// before the copy, the Search settings page after). 9 Oct 2026, the storemove e2e: a connect deleted profile.md and answers.md on this Mac's store.
 export const STEPS = [
   // The daily applications target, first kept in the app's settings -> ⚙️ Search settings in Notion.
-  {name: 'daily target', run: async storage => {
+  {name: 'daily target', onMac: 'workspace', run: async storage => {
     const old = storage.settings().dailyTarget;
     if (old == null) return false;
     await strategy.setDailyTarget(storage, old, {run: pipeline.run, ensurePage: notion.ensurePage, writePage: notion.writePage});
@@ -23,7 +28,7 @@ export const STEPS = [
     return true;
   }},
   // The workspace itself: columns and databases the code needs that it lacks (config/notion_schema.json).
-  {name: 'workspace', run: async (storage, fetcher) => {
+  {name: 'workspace', onMac: 'workspace', run: async (storage, fetcher) => {
     const fixed = await schema.repair(storage.secret('NOTION_TOKEN'), storage.settings().notionIds || {}, schema.load(), fetcher);
     for (const step of fixed.manual || []) log('notion', `Do by hand in Notion: ${step}`);
     if (!fixed.created.length && !fixed.columns.length && !fixed.renamed?.length) return false;
@@ -35,7 +40,7 @@ export const STEPS = [
   // Mac's strategy is written into it; 'existing' = the workspace already had data, so Notion wins and the files are only
   // backed up. After 'workspace' (which creates the pages) and before 'profile copies' and 'search settings' (which would
   // link the empty Search settings page and drop this Mac's search choices). Local copies go only after every write succeeded.
-  {name: 'strategy from this Mac', run: async (storage, _fetcher, deps = {}) => {
+  {name: 'strategy from this Mac', onMac: 'data', run: async (storage, _fetcher, deps = {}) => {
     const mode = storage.settings().notionMoveIn;
     if (!mode) return false;
     const {writePage = notion.writePage, ensurePage = notion.ensurePage, run = pipeline.run} = deps;
@@ -58,7 +63,7 @@ export const STEPS = [
     return true;
   }},
   // "Reached via" on leads tracked before the column existed (from their Notes), once.
-  {name: 'reached via', run: async storage => {
+  {name: 'reached via', onMac: 'data', run: async storage => {
     if (storage.settings().reachedViaFilled) return false;
     const {code} = await pipeline.run(storage, ['src.ai.opportunity', 'backfill']);
     if (code !== 0) throw new Error('could not fill Reached via');
@@ -68,17 +73,17 @@ export const STEPS = [
   // Employers checked on this Mac before this Employers & Sources database had them (trying the app without Notion, a failed write,
   // another workspace connected): written once per database (src/scout.py sync_notion), after 'workspace' creates it. 6 Oct 2026: three
   // Find new employers runs made while trying never reached the user's Notion. A failed run is retried next start.
-  {name: 'employers from this Mac', run: async (storage, _fetcher, run = pipeline.run) => {
+  {name: 'employers from this Mac', onMac: 'data', run: async (storage, _fetcher, run = pipeline.run) => {
     const db = storage.settings().notionIds?.NOTION_EMPLOYERS_DB;
     if (!db || storage.settings().employersSyncedTo === db) return false;
     const {code, stdout = ''} = await run(storage, ['src', 'scout', '--sync-notion']);
-    if (code !== 0) throw new Error('could not write the employers to Notion');
+    if (code !== 0) throw new Error('could not write the employers to Notion');   // about Notion
     storage.saveSettings({employersSyncedTo: db});
     return !/^Employers: 0 written/m.test(stdout);
   }},
   // Runs made on this Mac with no ⏱️ Search runs row (trying the app before Notion, a row write that failed): written once per database
   // (run-history.js copyLocal), after 'workspace' creates it. 7 Oct 2026: they were listed in Recent activity (f9a5a38) but never reached Notion.
-  {name: 'runs from this Mac', run: async (storage, fetcher, deps = {}) => {
+  {name: 'runs from this Mac', onMac: 'data', run: async (storage, fetcher, deps = {}) => {
     const db = storage.settings().notionIds?.NOTION_CRON_RUNS_DB;
     if (!db || storage.settings().runsSyncedTo === db) return false;
     const runs = deps.runs || (() => pipeline.runs(storage)), save = deps.save || (list => pipeline.saveRuns(storage, list));
@@ -90,7 +95,7 @@ export const STEPS = [
   }},
   // Origin (Inbound / Outbound) on rows tracked before the column existed, from the derived rule (src/notion/origin.py),
   // once. After 'workspace', which adds the column; rows that have an Origin are never touched.
-  {name: 'origin', run: async (storage, _fetcher, run = pipeline.run) => {
+  {name: 'origin', onMac: 'data', run: async (storage, _fetcher, run = pipeline.run) => {
     if (storage.settings().originFilled) return false;
     const {code} = await run(storage, ['src.notion.origin', '--backfill', '--apply']);
     if (code !== 0) throw new Error('could not fill Origin');
@@ -98,7 +103,7 @@ export const STEPS = [
     return true;
   }},
   // Profile and standard answers: Notion pages since setup; the local copies are leftovers.
-  {name: 'profile copies', run: async storage => {
+  {name: 'profile copies', onMac: 'data', run: async storage => {
     if (!storage.readText('profile.md') && !storage.readText('answers.md')) return false;
     const {profile, answers} = await strategy.profileTexts(storage);
     if (!profile.trim() || (storage.readText('answers.md') && !answers.trim())) return false;  // Notion looks empty: keep them
@@ -106,7 +111,7 @@ export const STEPS = [
     return true;
   }},
   // Search settings -> a readable ⚙️ Search settings page (the local files stay, as its cache).
-  {name: 'search settings', run: async (storage, fetcher) => {
+  {name: 'search settings', onMac: 'workspace', run: async (storage, fetcher) => {
     const ids = storage.settings().notionIds || {};
     if (ids.NOTION_SEARCH_SETTINGS_PAGE) return false;
     // A workspace connected again already has its page, and Notion is the source of truth: link it, never write this Mac's example file over it.
@@ -116,7 +121,7 @@ export const STEPS = [
   }},
   // A Search settings page in the first format (plain entry = whole word) -> the exact format; untouched
   // pages are rebuilt from the cache (same meaning as before), edits are kept (src/notion/search_settings.py).
-  {name: 'search settings format', run: async storage => {
+  {name: 'search settings format', onMac: 'workspace', run: async storage => {
     const page = storage.settings().notionIds?.NOTION_SEARCH_SETTINGS_PAGE;
     if (!page) return false;
     const {code, stdout} = await pipeline.run(storage, ['src.notion.search_settings', 'upgrade']);
@@ -126,7 +131,7 @@ export const STEPS = [
     return true;
   }},
   // Open questions -> ❓ lines of the standard answers page (skipping ones already there).
-  {name: 'open questions', run: async (storage, fetcher) => {
+  {name: 'open questions', onMac: 'data', run: async (storage, fetcher) => {
     const open = storage.settings().openQuestions;
     if (!open?.length && !storage.settings().answeredQuestions) return false;
     const ids = storage.settings().notionIds || {};
@@ -140,7 +145,7 @@ export const STEPS = [
     return true;
   }},
   // Form knowledge -> the 🧠 Form knowledge page (a note already there, same site + field, is kept).
-  {name: 'form knowledge', run: async (storage, fetcher) => {
+  {name: 'form knowledge', onMac: 'data', run: async (storage, fetcher) => {
     const local = storage.settings().formKnowledge;
     if (!local?.length) return false;
     const there = new Set((await knowledge.notes(storage, fetcher)).map(n => `${n.scope}|${n.field}`.toLowerCase()));
@@ -150,7 +155,7 @@ export const STEPS = [
     return true;
   }},
   // Contact details -> the 📇 Contact details section of the Profile page (what's already in Notion wins).
-  {name: 'contact details', run: async (storage, fetcher) => {
+  {name: 'contact details', onMac: 'data', run: async (storage, fetcher) => {
     const local = storage.settings().contact;
     if (!local || !Object.keys(local).length) return false;
     const there = await contact.read(storage, fetcher);
@@ -159,6 +164,14 @@ export const STEPS = [
     return true;
   }},
 ];
+
+// At a Notion connect, what to remember about this Mac's Profile and answers. Elsewhere: whether they move into the workspace ('fresh': a
+// workspace just built, they win; 'existing': Notion wins, they are backed up), for 'strategy from this Mac'. On this Mac's store they are its
+// texts and the move takes them: only whether the workspace was just built (its pages hold the template's text), so the move writes them over it.
+export function connectSettings(settings, {hadLocal, fresh}) {
+  if (settings?.store === 'sqlite') return {storeTextsWin: !!fresh};
+  return hadLocal ? {notionMoveIn: fresh ? 'fresh' : 'existing'} : {};
+}
 
 // Once, at the first start of the version whose default is "no own scout": an install that is already set up keeps
 // its daily scout (written down, so it stays whatever the default is); a new install starts without one.
@@ -186,12 +199,13 @@ export async function run(storage, onLine = () => {}, steps = STEPS, fetcher) {
   if (openPoolShare(storage)) log('pool', 'Help the pool grow turned on (opt-out since 7 Oct 2026)', {decidedBy: 'migrate.openPoolShare'});
   const settings = storage.settings();
   if (!settings.setupDone || !storage.secret('NOTION_TOKEN') || !settings.notionIds?.NOTION_PROFILE_PAGE_ID) return [];
+  if (!notionGate.notionInUse(storage)) return [];   // the data lives on this Mac (lib/store): nothing moves into a Notion left connected
   const moved = [];
   for (const step of steps) {
     try {
       if (await step.run(storage, fetcher)) moved.push(step.name);
     } catch (error) {
-      onLine(`Moving ${step.name} to Notion failed (will retry next start): ${error.message}`);
+      onLine(`Moving ${step.name} to Notion failed (will retry next start): ${error.message}`);   // about Notion
     }
   }
   if (moved.length) onLine(`Moved to Notion: ${moved.join(', ')}.`);

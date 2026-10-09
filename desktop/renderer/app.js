@@ -22,6 +22,7 @@ import {init as data} from './pages/data.js';
 import {init as startup} from './pages/startup.js';
 import {init as calendar} from './pages/calendar.js';
 import {init as interviews} from './pages/interviews.js';
+import {init as reports} from './pages/reports.js';
 import {init as matchCheck} from './pages/match-check.js';
 import {init as tune} from './pages/tune.js';
 import {mountStageTips} from './tips.js';
@@ -43,6 +44,7 @@ import {init as license} from './pages/license.js';
 import {init as appFeedback} from './pages/app-feedback.js';
 import {init as whyStop} from './pages/why-stop.js';
 import {init as notionConnect} from './pages/notion-connect.js';
+import {init as employers} from './pages/employers.js';
 import {startListening as saveProgress} from './save-progress.js';
 
 await core();
@@ -81,6 +83,7 @@ mountStageTips('tips-jobs', ['cv', 'tailor', 'ats', 'knockout', 'timing']);
 mountStageTips('tips-focus', ['follow-up', 'mindset', 'timing']);
 mountStageTips('tips-interviews', ['interview', 'mindset']);
 await calendar();
+reports();
 await focus();
 await feedback();
 await logs();
@@ -89,6 +92,7 @@ await sessions();
 await sessionNeeds();
 await sessionLog();
 await runsPage();
+employers();
 
 // For checks and debugging (npm run shot -- --eval, the DevTools console): the window's state, read-only by convention.
 window.__jp = {shared, get sessions() { return sessionList; }, get openSession() { return sessionList.find(item => item.id === shared.openSessionId) || null; },

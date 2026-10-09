@@ -17,7 +17,7 @@ export function track(patch, before, now = Date.now()) {
 // Why people stop (the "Leaving setup?" question when quitting mid-setup, and "Stuck? Tell us" on every step):
 // one of these reasons, the step they were on, and optional words. Sent as a "setup" report with step "stopped".
 export const REASONS = {
-  notion: "I don't use Notion", ai: 'The AI key or its cost', time: 'Setup takes too long', privacy: 'Privacy concerns',
+  notion: "I don't use Notion", ai: 'The AI key or its cost', time: 'Setup takes too long', privacy: 'Privacy concerns',   // about Notion
   looking: "Just looking, I'll come back", broke: 'Something broke', other: 'Other',
 };
 

@@ -7,6 +7,8 @@ import {shared} from './shared.js';
 import {$, savedAgo} from './core.js';
 import {dismissInterview} from './happened.js';
 import {openView} from './nav.js';
+import {openJobPanel} from './job-panel.js';
+import {byStore, storeName} from '../store-words.js';
 
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const KINDS = {screening: ['Screening', 'teal'], interview: ['Interview', 'info']};
@@ -28,9 +30,14 @@ const timeOf = m => (m.timed ? new Date(m.at).toLocaleTimeString(undefined, {hou
 const dayLabel = m => new Date(`${m.day}T12:00:00Z`).toLocaleDateString(undefined, {weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC'});
 const name = m => m.company || m.title || 'Interview';
 
+// A meeting's job: its Notion page when the store has one (as before), else the job's page in the app (Jobs → the side panel), so a click
+// is never dead on a store without pages (9 Oct 2026, found on SQLite).
 function open(m) {
   const url = m.job?.notion_url;
-  if (url) window.pilot.openExternal(url);
+  if (/^https:\/\//.test(url || '')) { window.pilot.openExternal(url); return; }
+  if (!m.job?.url) return;
+  openView('jobs');
+  openJobPanel(m.job);
 }
 
 // The small ✕ on a meeting that hasn't been held: give up on it (confirmation first). It leaves the calendar at once.
@@ -84,9 +91,9 @@ function emptyUpcoming() {
 const skeletons = () => [0, 1, 2].map(() => { const box = el('div', 'cal-row'); box.append(el('span', 'skeleton w-40'), el('span', 'skeleton w-80')); return box; });
 
 function status() {
-  const text = phase === 'loading' ? 'Reading from Notion…'
-    : phase === 'updating' ? 'Updating from Notion…'
-    : phase === 'failed' ? `Couldn't refresh from Notion${savedAt ? ` · showing the copy saved ${savedAt}` : ''}. ${failure}`.trim() : '';
+  const text = phase === 'loading' ? byStore('Reading from Notion…', 'Reading…')
+    : phase === 'updating' ? byStore('Updating from Notion…', 'Updating…')
+    : phase === 'failed' ? `Couldn't refresh from ${storeName()}${savedAt ? ` · showing the copy saved ${savedAt}` : ''}. ${failure}`.trim() : '';
   const node = $('cal-status');
   node.replaceChildren(...(phase === 'failed' || !text ? [] : [el('span', 'spinner')]), text);
   node.className = `muted small cal-status${phase === 'failed' ? ' bad' : ''}`;

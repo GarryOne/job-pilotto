@@ -4,6 +4,8 @@
 import {handleAdd, handleCommand, handleUpdate} from '../shared/worker/index.js';
 import * as github from './github.js';
 import * as pipeline from './pipeline.js';
+import * as notionGate from './notion-gate.js';
+import {telegramStore} from './store/telegram-store.js';
 
 // The end-to-end tests' fake Bot API (desktop/e2e/lib/telegram-fake.mjs), honoured only in a test run.
 export const BASE = process.env.JOB_PILOTTO_E2E && process.env.JOB_PILOTTO_E2E_TELEGRAM_BASE_URL ? process.env.JOB_PILOTTO_E2E_TELEGRAM_BASE_URL.replace(/\/$/, '') : 'https://api.telegram.org';
@@ -64,11 +66,14 @@ export function localDispatch(storage, onLine = () => {}) {
 
 export function telegramEnv(storage, onLine, note = () => {}) {
   const settings = storage.settings();
-  const ids = settings.notionIds || {};
+  // Notion only when it is the store (lib/store); with the data on this Mac the bot reads and writes it through env.store.
+  const onNotion = notionGate.onNotion(storage);
+  const ids = onNotion ? settings.notionIds || {} : {};
   return {
+    ...(!onNotion ? {store: telegramStore(storage)} : {}),
     TELEGRAM_BOT_TOKEN: storage.secret('TELEGRAM_BOT_TOKEN'),
     OWNER_CHAT_ID: settings.telegramChatId,
-    NOTION_TOKEN: storage.secret('NOTION_TOKEN'),
+    NOTION_TOKEN: onNotion ? storage.secret('NOTION_TOKEN') : '',
     NOTION_APPLICATIONS_DB: ids.NOTION_APPLICATIONS_DB || '',
     NOTION_EVENTS_DB: ids.NOTION_EVENTS_DB || '',
     NOTION_CRON_RUNS_DB: ids.NOTION_CRON_RUNS_DB || '',  // /status and the app's Status: the runs in Notion

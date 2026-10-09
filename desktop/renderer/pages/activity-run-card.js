@@ -128,6 +128,10 @@ export function renderRunCard(card, run = null, target = $('activity-card')) {
       toggle.addEventListener('click', () => { expandedCard = all ? '' : card.items.map(item => item.company).join('|'); renderRunCard(card, run, target); });
       more.append(toggle);
     }
+    // The whole list in the app, on every store (pages/employers.js); a Notion user also gets the database as an extra.
+    const list = Object.assign(el('button', 'arrow-link', 'All employers'), {type: 'button'});
+    list.addEventListener('click', () => { openActivity(false); openView('employers'); });
+    more.append(list);
     const employers = shared.state?.notion?.NOTION_EMPLOYERS_DB;
     if (employers) {
       const open = Object.assign(el('a', 'arrow-link', 'All employers in Notion ↗'), {href: '#'});

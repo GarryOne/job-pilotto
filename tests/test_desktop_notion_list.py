@@ -12,6 +12,9 @@ def notion(url, **kw):
             'first_seen': '2026-09-20', **({'stage': kw['stage'], 'next_step': kw.get('step', ''), 'notion_url': 'n'} if 'stage' in kw else {})}
 
 
+NOTION = __import__('types').SimpleNamespace(name='notion')   # the Notion store, as calendar_jobs tells it
+
+
 class NotionListTests(unittest.TestCase):
     def run_list(self, notion_jobs, local=(), blocked=()):
         with mock.patch.object(desktop.digest, 'eligible_jobs', return_value=(list(local), list(blocked))), \
@@ -107,16 +110,26 @@ class CalendarJobsTests(unittest.TestCase):
             asked.append(database_id)
             return [row]
         with mock.patch.object(client, 'MATCHES_DATABASE_ID', 'matches'), mock.patch.object(tracker, '_query', query):
-            result = desktop.calendar_jobs(tracker)
+            result = desktop.calendar_jobs(NOTION, tracker)
         self.assertEqual(asked, [None])  # Job Matches (every job a search found) is not read
         self.assertEqual(result['jobs'], [{'url': 'https://a/1', 'title': 'SRE', 'company': 'Acme', 'stage': 'Interviewing',
-                                           'notion_url': 'https://notion/p1', 'next_interview': '2026-10-08T10:00:00+02:00', 'status': 'applied'}])
+                                           'notion_url': 'https://notion/p1', 'next_interview': '2026-10-08T10:00:00+02:00', 'page_id': 'p1',
+                                           'status': 'applied'}])   # page_id: a meeting's Dismiss and its recording match by it
 
     def test_calendar_says_so_when_notion_is_not_connected_or_fails(self):
-        self.assertEqual(desktop.calendar_jobs(None)['jobs'], [])
+        self.assertEqual(desktop.calendar_jobs(NOTION, None)['jobs'], [])
         tracker = mock.Mock()
         tracker.notion_jobs.side_effect = RuntimeError('down')
-        self.assertIn('could not be read', desktop.calendar_jobs(tracker)['error'])
+        self.assertIn('could not be read', desktop.calendar_jobs(NOTION, tracker)['error'])
+
+    def test_calendar_on_this_macs_store_lists_its_applications(self):
+        from src.stores import memory
+        stores = memory.open_store()
+        row, _ = stores.applications.set_stage({'url': 'https://a/1', 'title': 'SRE', 'company': 'Acme'}, 'Interviewing')
+        stores.applications.update(row['id'], {'next_interview': '2026-10-08T10:00:00+02:00'})
+        self.assertEqual(desktop.calendar_jobs(stores)['jobs'], [{'url': 'https://a/1', 'title': 'SRE', 'company': 'Acme', 'stage': 'Interviewing',
+                                                                  'notion_url': '', 'next_interview': '2026-10-08T10:00:00+02:00', 'page_id': row['id'],
+                                                                  'status': 'applied'}])   # no Notion page: the store's id
 
 
 if __name__ == '__main__':

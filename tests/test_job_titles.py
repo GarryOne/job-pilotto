@@ -42,6 +42,9 @@ TABLE = [
 ]
 
 
+from tests.mail_fakes import FakeTracker, record_of, stores_for  # noqa: E402
+
+
 class JobTitleTests(unittest.TestCase):
     def test_the_table(self):
         for args, expected in TABLE:
@@ -93,16 +96,16 @@ class CreatedTests(unittest.TestCase):
     def test_a_recruiter_lead_gets_the_agency_and_a_second_pitch_still_finds_it(self):
         lead = {'title': 'Principal SRE', 'company': '', 'recruiter_company': 'Huxley', 'recruiter_name': 'Jayantie Nejati',
                 'recruiter_email': 'j.nejati@huxley.test', 'platform': 'Email', 'in_house': False}
-        tracker = LeadTracker()
-        created, _ = opportunity.track(tracker, lead, 'Hi Igor, a Principal SRE role…', source='Gmail', event_source='Gmail',
-                                       gmail_id='m1')
+        tracker = FakeTracker([])
+        created, _ = opportunity.track(stores_for(tracker), lead, 'Hi Igor, a Principal SRE role…', source='Gmail',
+                                       event_source='Gmail', gmail_id='m1')
         props = tracker.created[0]
-        self.assertEqual(titles.text_value(props['Job']), 'Principal SRE · via Huxley')
-        self.assertEqual(ledger.plain(created['properties']['Job']), 'Principal SRE · via Huxley')
+        self.assertEqual(titles.text_value(props['Job']), 'Principal SRE · via Huxley')  # the Notion row's title
+        self.assertEqual(created['title'], 'Principal SRE')  # the record holds the role
         # The same pitch again (pasted in the app): matched by role and agency, not by the suffixed title.
-        tracker.rows = [row('Principal SRE · via Huxley', via='Huxley', stage='Recruiter lead',
-                            Contact=text('Jayantie Nejati · j.nejati@huxley.test'))]
-        self.assertIsNotNone(opportunity.same_pitch(tracker, lead))
+        tracker.apps[:] = [row('Principal SRE · via Huxley', via='Huxley', stage='Recruiter lead',
+                               Contact=text('Jayantie Nejati · j.nejati@huxley.test'))]
+        self.assertIsNotNone(opportunity.same_pitch(stores_for(tracker), lead))
 
     def test_an_email_about_an_untracked_role_creates_no_job(self):
         # Asked in Focus instead (src/ai/mail.py run): a job made from an email alone had a Gmail link for its posting and nothing else.
@@ -135,51 +138,52 @@ class LeadTracker:
         pass
 
 
-class Updates:
-    def __init__(self):
-        self.updates = []
-
-    def update_page(self, page_id, properties):
-        self.updates.append((page_id, properties))
-
-
 class LaterUpdateTests(unittest.TestCase):
+    """What a later message learns about the job keeps the title's form (on the store: src/ai/inbox._fill_gaps)."""
+
+    @staticmethod
+    def job(title, company='', via='', origin_value='Inbound', stage='Screening'):
+        from src.stores import memory
+        stores = memory.open_store()
+        return stores, stores.applications.put({'url': 'https://x.test/r1', 'title': title, 'company': company, 'via': via,
+                                                'origin': origin_value, 'stage': stage})
+
     def test_the_employer_learned_later_replaces_the_agency_in_the_title(self):
-        tracker, job = Updates(), row('Principal SRE · via Huxley', via='Huxley')
-        inbox._fill_gaps(tracker, job, {'company': 'Acme'})
-        self.assertEqual(ledger.plain(job['properties']['Job']), 'Principal SRE · Acme')
-        self.assertEqual(ledger.plain(job['properties']['Company']), 'Acme')
+        stores, app = self.job('Principal SRE · via Huxley', via='Huxley')
+        inbox._fill_gaps(stores, app, {'company': 'Acme'})
+        now = stores.applications.get(app['url'])
+        self.assertEqual((now['title'], now['company']), ('Principal SRE · Acme', 'Acme'))
 
     def test_a_bare_inbound_title_gets_the_suffix_with_the_fuller_role(self):
-        tracker, job = Updates(), row('SRE', via='Huxley')
-        filled = inbox._fill_gaps(tracker, job, {'role': 'Principal SRE'})
-        self.assertEqual(ledger.plain(job['properties']['Job']), 'Principal SRE · via Huxley')
+        stores, app = self.job('SRE', via='Huxley')
+        filled = inbox._fill_gaps(stores, app, {'role': 'Principal SRE'})
+        self.assertEqual(stores.applications.get(app['url'])['title'], 'Principal SRE · via Huxley')
         self.assertEqual(filled, ['the title "Principal SRE"'])
 
     def test_a_title_you_edited_is_never_replaced(self):
-        tracker, job = Updates(), row('Principal SRE · Zurich team', via='Huxley')
-        inbox._fill_gaps(tracker, job, {'company': 'Acme'})
-        self.assertEqual(ledger.plain(job['properties']['Job']), 'Principal SRE · Zurich team')
-        self.assertNotIn('Job', tracker.updates[0][1])
+        stores, app = self.job('Principal SRE · Zurich team', via='Huxley')
+        inbox._fill_gaps(stores, app, {'company': 'Acme'})
+        now = stores.applications.get(app['url'])
+        self.assertEqual((now['title'], now['company']), ('Principal SRE · Zurich team', 'Acme'))
 
     def test_an_outbound_title_stays_the_role(self):
-        tracker, job = Updates(), row('Principal SRE', origin_value='Outbound', stage='Applied')
-        inbox._fill_gaps(tracker, job, {'company': 'Acme'})
-        self.assertEqual(ledger.plain(job['properties']['Job']), 'Principal SRE')
+        stores, app = self.job('Principal SRE', origin_value='Outbound', stage='Applied')
+        inbox._fill_gaps(stores, app, {'company': 'Acme'})
+        self.assertEqual(stores.applications.get(app['url'])['title'], 'Principal SRE')
 
 
 class MatchingTests(unittest.TestCase):
     """Job URL is the key; where a role is compared, it is the role without the suffix."""
 
     def test_an_email_about_the_role_finds_the_suffixed_row(self):
-        apps = [row('Principal SRE · Acme', company='Acme')]
+        apps = [record_of(row('Principal SRE · Acme', company='Acme'))]
         found = mail._from_email(LeadTracker(), apps, {'company': 'Acme', 'role': 'Principal SRE'},
                                  {'id': 'e', 'date': '', 'subject': '', 'body': ''}, None, [])
         self.assertIs(found, apps[0])
 
     def test_the_agency_name_is_not_a_role_word(self):
-        mine = row('Principal SRE · via Huxley', via='Huxley')
-        other = {**row('Platform Engineer · via Huxley', via='Huxley'), 'id': 'r2'}
+        mine = record_of(row('Principal SRE · via Huxley', via='Huxley'))
+        other = record_of({**row('Platform Engineer · via Huxley', via='Huxley'), 'id': 'r2'})
         # An email from Huxley naming only "Huxley": which role is still a guess.
         self.assertTrue(mail._ambiguous([mine, other], mine, {'subject': 'Huxley: next steps', 'body': 'Hi from Huxley'}))
 
@@ -203,21 +207,23 @@ class DisplayTests(unittest.TestCase):
         self.assertEqual((job['title'], job['via']), ('Principal SRE', 'Huxley'))  # In conversation: role, then "via Huxley"
 
     def test_focus_items_and_labels(self):
-        job = row('Principal SRE · via Huxley', via='Huxley')
+        from tests.test_focus import from_notion
+        job = from_notion(row('Principal SRE · via Huxley', via='Huxley'))
         item = focus.present(focus._item(1, 'reply', '💬', 'Reply', '', job, lead=True))
         self.assertEqual((item['job'], item['via']), ('Principal SRE', 'Huxley'))
         self.assertEqual((item['headline'], item['meta']), ('Reply to Huxley recruiter', ['Principal SRE']))
         event = {'id': 'e1', 'properties': {'Needs you': {'checkbox': True}, 'Application': {'relation': []},
                                             'Suggested job': {'url': 'https://x/r1'}, 'Note': text('Hi'), 'Kind': select('Reply')}}
-        asked, = focus.questions([job], [event])
+        asked, = focus.questions([job], [from_notion(event, 'events')])
         self.assertEqual(asked['suggested_label'], 'Huxley — Principal SRE')
 
     def test_mail_lines_and_interview_pages(self):
         job = row('Principal SRE · via Huxley', via='Huxley')
-        self.assertEqual(mail._label(job), 'Huxley — Principal SRE')
+        self.assertEqual(mail._label(record_of(job)), 'Huxley — Principal SRE')
         line = interviews.job_line(job)['paragraph']['rich_text'][1]['text']['content']
         self.assertEqual(line, 'Huxley · Principal SRE')
-        self.assertEqual(interviews.interview_title('', 'Screening', job), 'Huxley · Screening')
+        record = {'id': 'a', 'title': 'Principal SRE · via Huxley', 'company': '', 'via': 'Huxley'}  # the store's application record
+        self.assertEqual(interviews.interview_title('', 'Screening', record), 'Huxley · Screening')
 
 
 if __name__ == '__main__':

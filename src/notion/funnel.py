@@ -2,20 +2,20 @@
 """Application funnel: how many applications reached each step, the conversion between steps,
 and which step to improve. No AI, so it costs nothing.
 
-Written to the "📈 Conversion" section of the 🎯 Pipeline page by the scheduled run (after the
-ledger sync), and passed to the daily insight as `funnel`.
+Read from the active store (src/stores). With Notion, written to the "📈 Conversion" section of the 🎯 Pipeline page
+by the scheduled run (after the ledger sync); other stores have no such page (the app's Focus draws the funnel from
+the same numbers, src/focus_state.py). Passed to the daily insight as `funnel`. Guarded by tests/test_funnel.py.
 
 Usage:
   python -m src.notion.funnel            # print the funnel
-  python -m src.notion.funnel --write    # also update the Pipeline page
+  python -m src.notion.funnel --write    # also update the Pipeline page (Notion only)
 """
 import argparse
 import os
 import sys
 
-from . import client as notion
-from .ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, REPLY, plain
-from .origin import INBOUND, row_origin as _row_origin
+from .ledger import OUTCOME_STAGES, REPLY
+from .origin import INBOUND, origin as origin_of, row_origin as _row_origin
 
 PIPELINE_PAGE_ID = os.getenv('NOTION_PIPELINE_PAGE', '')
 HEADING = '📈 Conversion'
@@ -78,21 +78,22 @@ def inbound_funnel(apps):
     return steps
 
 
-def reached(tracker):
+def _key(record_id):
+    return (record_id or '').replace('-', '')
+
+
+def reached(stores):
     """Per outbound application (src/notion/origin.py): the set of stages and event kinds it has reached, and its
-    current Stage. Opportunities that found you (inbound) are not in the funnel."""
-    rows = tracker.query_database(tracker.database_id, {'or': [
-        {'property': 'Stage', 'select': {'equals': stage}} for stage in OUTCOME_STAGES + PREPARED_STAGES]})
+    current stage. Opportunities that found you (inbound) are not in the funnel. stores: the active store (src/stores)."""
+    rows = stores.applications.list(stages=list(OUTCOME_STAGES + PREPARED_STAGES))
     kinds = {}  # oldest first: the first contact decides inbound or outbound
-    at = lambda event: ((event['properties'].get('At') or {}).get('date') or {}).get('start') or ''
-    for event in sorted(tracker.query_database(EVENTS_DATABASE_ID), key=at):
-        kind = plain(event['properties'].get('Kind'))
-        for link in (event['properties'].get('Application') or {}).get('relation', []):
-            kinds.setdefault(link['id'].replace('-', ''), []).append(kind)
+    for event in sorted(stores.events.list(), key=lambda event: event.get('at') or ''):
+        kinds.setdefault(_key(event.get('app_id')), []).append(event.get('kind') or '')
     apps = []
     for row in rows:
-        stage, ordered = plain(row['properties'].get('Stage')), kinds.get(row['id'].replace('-', ''), [])
-        if row_origin(row, ordered) == INBOUND:
+        stage, ordered = row.get('stage') or '', kinds.get(_key(row['id']), [])
+        if origin_of(source=row.get('source') or '', stage=stage, notes=row.get('notes') or '', kinds=ordered,
+                     origin=row.get('origin') or '') == INBOUND:
             continue
         apps.append({'stage': stage, 'seen': set(ordered) | {stage}})
     return apps
@@ -183,8 +184,11 @@ def blocks(steps, now_text):
     return [table, callout, note]
 
 
-def write(tracker, steps, now_text, page_id=PIPELINE_PAGE_ID):
-    tracker.replace_after_heading(page_id, HEADING, blocks(steps, now_text))
+def write(stores, steps, now_text):
+    """The 📈 Conversion section of the 🎯 Pipeline page: a Notion-only output, written by the notion adapter
+    (src/stores/notion.py pipeline_page). False on a store without that page (the app's Focus shows the funnel)."""
+    page = getattr(stores, 'pipeline_page', None)
+    return bool(page and page(HEADING, blocks(steps, now_text)))
 
 
 def main(argv=None):
@@ -192,14 +196,17 @@ def main(argv=None):
     parser.add_argument('--write', action='store_true', help='update the Pipeline page')
     args = parser.parse_args(argv)
     from datetime import datetime
-    tracker = notion.Tracker.from_env()
-    steps = funnel(reached(tracker))
+    from ..stores import open_stores
+    stores = open_stores()
+    steps = funnel(reached(stores))
     for s in steps:
         print(f"{s['step']:<16} {s['reached']:>3}  {pct(s.get('conversion')):>5}  open {s['waiting']}")
     print('\n'.join(summary(steps)))
     if args.write:
-        write(tracker, steps, datetime.now().strftime('%d %b %H:%M'))
-        print('Pipeline page updated.')
+        if write(stores, steps, datetime.now().strftime('%d %b %H:%M')):
+            print('Pipeline page updated.')
+        else:
+            print('No Pipeline page with this store: the app shows the funnel on Focus.')
     return 0
 
 

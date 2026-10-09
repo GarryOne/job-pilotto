@@ -1,29 +1,31 @@
-"""Employers checked while the app had no Notion reach Employers & Sources later (6 Oct 2026: three Find new employers runs made
-while trying the app, Breitling's feed among them, never reached the user's Notion after they connected it)."""
+"""Employers checked before the store had them reach it later (6 Oct 2026: three Find new employers runs made while trying the app,
+Breitling's feed among them, never reached the user's Notion after they connected it). Any store: the memory one here; a Notion
+store's marks are per Employers & Sources database (`database_id`), so another workspace connected later gets them all."""
 import json
 import sqlite3
 import unittest
-from unittest import mock
 
-from src import scout, scout_core
+from src import scout
+from src.stores import memory
 
 
-class FakeTracker:
-    def __init__(self, fail=()):
-        self.rows, self.fail = {}, set(fail)
+def employer_list(database_id=None, fail=()):
+    """A memory store; with database_id, its employers stand for one Notion Employers & Sources database. fail: names refused."""
+    stores = memory.open_store()
+    if database_id:
+        stores.employers.database_id = database_id
+    upsert = stores.employers.upsert
 
-    def query_database(self, _db, query):
-        name = query['title']['equals']
-        return [{'id': name}] if name in self.rows else []
-
-    def create_page(self, _db, props):
-        name = props['Company']['title'][0]['text']['content']
-        if name in self.fail:
+    def refusing(employer):
+        if employer['name'] in fail:
             raise RuntimeError('Notion busy')
-        self.rows[name] = props
+        return upsert(employer)
+    stores.employers.upsert = refusing
+    return stores
 
-    def update_page(self, page_id, props):
-        self.rows[page_id] = props
+
+def names(stores):
+    return sorted(e['name'] for e in stores.employers.list(active=None))
 
 
 def checked_db():
@@ -46,28 +48,62 @@ def checked_db():
     return db
 
 
-class SyncNotion(unittest.TestCase):
-    def test_employers_checked_without_notion_are_written_once_connected(self):
-        db, tracker = checked_db(), FakeTracker()
-        with mock.patch.object(scout_core, 'EMPLOYERS_DB', 'employers-1'):
-            self.assertEqual(scout.sync_notion(db, None), (0, 0))                 # still trying the app: nothing to write to
-            self.assertEqual(scout.sync_notion(db, tracker), (4, 0))
-            self.assertEqual(sorted(tracker.rows), ['Aldi Suisse', 'Breitling', 'Rolex'])   # Lidl was never checked; Fnac stays local; the duplicate never
-            self.assertEqual(tracker.rows['Breitling']['Feed status'], {'select': {'name': 'Feed found'}})
-            self.assertEqual(tracker.rows['Breitling']['ATS'], {'select': {'name': 'successfactors'}})
-            self.assertEqual(scout.sync_notion(db, tracker), (0, 0))              # nothing twice
-        with mock.patch.object(scout_core, 'EMPLOYERS_DB', 'employers-2'):            # another workspace connected later gets them all
-            other = FakeTracker()
-            self.assertEqual(scout.sync_notion(db, other), (4, 0))
-            self.assertIn('Breitling', other.rows)
+class SyncEmployers(unittest.TestCase):
+    def test_employers_checked_before_the_store_had_them_are_written_once(self):
+        db, stores = checked_db(), employer_list('employers-1')
+        self.assertEqual(scout.sync_employers(db, None), (0, 0))                 # nowhere to write
+        self.assertEqual(scout.sync_employers(db, stores), (4, 0))
+        self.assertEqual(names(stores), ['Aldi Suisse', 'Breitling', 'Rolex'])   # Lidl was never checked; Fnac stays local; the duplicate never
+        breitling = next(e for e in stores.employers.list() if e['name'] == 'Breitling')
+        self.assertEqual((breitling['feed_status'], breitling['ats']), ('Feed found', 'successfactors'))
+        self.assertEqual(scout.sync_employers(db, stores), (0, 0))              # nothing twice
+        other = employer_list('employers-2')                                     # another workspace connected later gets them all
+        self.assertEqual(scout.sync_employers(db, other), (4, 0))
+        self.assertIn('Breitling', names(other))
+
+    def test_the_store_on_this_mac_gets_them_too(self):
+        """A user not on Notion: the employers go to this Mac's store (the Employers screen reads it), once."""
+        db, stores = checked_db(), employer_list()
+        self.assertEqual(scout.sync_employers(db, stores), (4, 0))
+        self.assertEqual(names(stores), ['Aldi Suisse', 'Breitling', 'Rolex'])
+        self.assertEqual(scout.sync_employers(db, stores), (0, 0))
+
+    def test_a_notion_store_without_employers_database_writes_nothing(self):
+        stores = employer_list()
+        stores.employers.database_id = ''
+        self.assertEqual(scout.sync_employers(checked_db(), stores), (0, 0))
 
     def test_a_failed_write_is_tried_again_next_time(self):
         db = checked_db()
-        with mock.patch.object(scout_core, 'EMPLOYERS_DB', 'employers-1'):
-            self.assertEqual(scout.sync_notion(db, FakeTracker(fail={'Rolex'})), (3, 1))
-            again = FakeTracker()
-            self.assertEqual(scout.sync_notion(db, again), (1, 0))
-            self.assertEqual(list(again.rows), ['Rolex'])
+        self.assertEqual(scout.sync_employers(db, employer_list('employers-1', fail={'Rolex'})), (3, 1))
+        again = employer_list('employers-1')
+        self.assertEqual(scout.sync_employers(db, again), (1, 0))
+        self.assertEqual(names(again), ['Rolex'])
+
+
+
+class SyncCommand(unittest.TestCase):
+    def test_sync_store_writes_to_the_active_store_and_sync_notion_is_the_same_command(self):
+        """`src scout --sync-store` (the app runs it under its old name --sync-notion at Notion connect): the active store's employer list,
+        whichever store that is; this Mac's store here."""
+        import io
+        import tempfile
+        from contextlib import redirect_stdout
+        from pathlib import Path
+        from unittest import mock
+        for flag in ('--sync-store', '--sync-notion'):
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / 'jobs.sqlite'
+                source, target = checked_db(), sqlite3.connect(path)
+                source.commit()   # its rows are in an open transaction: a backup of that waits forever
+                source.backup(target)
+                target.close()
+                stores, out = employer_list(), io.StringIO()
+                with mock.patch.object(scout, 'employer_store', return_value=stores), \
+                        mock.patch('sys.argv', ['scout', flag, '--db', str(path)]), redirect_stdout(out):
+                    self.assertEqual(scout.main(), 0)
+                self.assertEqual(names(stores), ['Aldi Suisse', 'Breitling', 'Rolex'], flag)
+                self.assertIn('Employers: 4 written to your employer list', out.getvalue())
 
 
 if __name__ == '__main__':

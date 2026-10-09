@@ -2,8 +2,8 @@
 
 Spend comes from Anthropic's Usage & Cost Admin API when an Admin API key is available
 (ANTHROPIC_ADMIN_KEY, or the Keychain entry job-pilotto.anthropic.admin-key) — the exact figure the
-console shows. Without one (Admin keys need an organization account), it is the sum of this month's
-⏰ Cronjob Runs "AI cost (USD)", which every AI run logs (crawls, kits, insights, interviews, mail).
+console shows. Without one (Admin keys need an organization account), it is the sum of this month's runs' AI cost
+(stores.cron_runs: ⏱️ Search runs "AI cost (USD)" in Notion), which every AI run logs (crawls, kits, insights, interviews, mail).
 
 Levels, against JOB_PILOTTO_MONTHLY_BUDGET_USD (your console limit, default 15):
   ok     below 70%
@@ -20,8 +20,6 @@ import urllib.parse
 import urllib.request
 
 from .. import secret_store
-from ..notion import cron_runs
-from ..notion.ledger import plain
 
 WARN_AT, PAUSE_AT = 0.70, 0.90
 COST_REPORT = 'https://api.anthropic.com/v1/organizations/cost_report'
@@ -68,16 +66,14 @@ def admin_spend(key, now, opener=urllib.request.urlopen):
             return total
 
 
-def ledger_spend(tracker, now):
-    """USD this month from the ⏰ Cronjob Runs rows (every AI run logs one)."""
-    start = month_start(now).isoformat()
-    rows = tracker.query_database(cron_runs.CRON_RUNS_DATABASE_ID,
-                                  {'property': 'Started', 'date': {'on_or_after': start[:10]}})
-    return sum(plain(r['properties'].get('AI cost (USD)')) or 0 for r in rows)
+def ledger_spend(stores, now):
+    """USD this month from the run history (every AI run logs its cost in its stats)."""
+    runs = stores.cron_runs.list(since=month_start(now).date().isoformat())
+    return sum((run.get('stats') or {}).get('ai_cost_usd') or 0 for run in runs)
 
 
-def status(tracker, now=None, opener=urllib.request.urlopen):
-    """{'spent', 'budget', 'pct', 'level', 'source'} for this month."""
+def status(stores, now=None, opener=urllib.request.urlopen):
+    """{'spent', 'budget', 'pct', 'level', 'source'} for this month. stores: the active store (src/stores open_stores)."""
     now = now or datetime.now(timezone.utc)
     budget, key, spent, source = monthly_budget(), admin_key(), None, 'Job Pilotto log'
     from . import providers
@@ -87,7 +83,7 @@ def status(tracker, now=None, opener=urllib.request.urlopen):
         except Exception as error:  # noqa: BLE001 — fall back to the log rather than fail the run
             print(f'Warning: Anthropic cost report unavailable ({type(error).__name__}); using the run log')
     if spent is None:
-        spent = ledger_spend(tracker, now)
+        spent = ledger_spend(stores, now)
     pct = spent / budget if budget else 0.0
     level = 'pause' if pct >= PAUSE_AT else 'warn' if pct >= WARN_AT else 'ok'
     return {'spent': round(spent, 2), 'budget': budget, 'pct': pct, 'level': level, 'source': source}

@@ -2,13 +2,14 @@
 See also test_mail.py."""
 from datetime import timedelta
 import io
+import os
 from pathlib import Path
 import sys
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tests import zone
-from tests.mail_fakes import NOW, FakeGoogle, FakeTracker, MailCase, app, email
+from tests.mail_fakes import NOW, FakeGoogle, FakeTracker, MailCase, _matches_filter, app, email
 
 setUpModule, tearDownModule = zone.pinned()
 
@@ -52,9 +53,12 @@ class MailCalendarTests(MailCase):
 
         class Reviewed(FakeTracker):
             def query_database(self, database_id, filter_=None):
-                return [review] if database_id == 'interviews-db' else super().query_database(database_id, filter_)
+                if database_id == 'interviews-db':
+                    return [r for r in [review] if _matches_filter(r, filter_)]
+                return super().query_database(database_id, filter_)
 
-        with mock.patch('src.ai.interviews.INTERVIEWS_DATABASE_ID', 'interviews-db'):
+        with mock.patch('src.ai.interviews.INTERVIEWS_DATABASE_ID', 'interviews-db'), \
+                mock.patch.dict(os.environ, {'NOTION_INTERVIEWS_DB': 'interviews-db'}):
             return self.run_mail(Reviewed([job]), FakeGoogle(events=[event]), [], calendar=True)[1]
 
     def test_after_the_interview_does_not_ask_when_a_review_is_already_saved(self):

@@ -12,3 +12,16 @@ export const ignoreGateEvent = ({since, now = Date.now()}) => connectUnderway(si
 
 // Progress news from a connect this prompt did not start: a prompt left open is stale, close it.
 export const closeOnProgress = ({dialogOpen, ownConnect}) => !!dialogOpen && !ownConnect;
+
+// "Connect Notion" while the data is on this Mac is "Connect and move" (owner, 9 Oct 2026: Notion connected without the data in it gives
+// nothing, not even Always on). store: state.store ({trying, caps}). -> 'connect' | 'connect-move' | 'move' (connected already: the move only).
+export function connectMode({store, connected}) {
+  const onMac = !!store && !store.trying && !(store.caps || []).includes('cloud');
+  if (!onMac) return 'connect';
+  return connected ? 'move' : 'connect-move';
+}
+// After a connect from that prompt: the data stayed on this Mac (an empty store switched at connect, lib/store-handlers.js
+// startOnNotionIfEmpty), so the move the prompt announced runs now.
+export const moveAfterConnect = result => !!result?.ok && !!result.stayedOnMac;
+// The prompt's button for each mode.
+export const GO_LABEL = {connect: 'Connect with Notion', 'connect-move': 'Connect and move', move: 'Move to Notion'};

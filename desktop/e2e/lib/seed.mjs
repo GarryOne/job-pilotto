@@ -5,24 +5,35 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {appKey, DUMMY_KEY} from './engine.mjs';
 import {runWizard} from './wizard.mjs';
+import {E2E} from './app.mjs';
 
 export async function fastSeed(ctx) {
   const {page} = ctx;
   // The engine under test (lib/engine.mjs: the family alternates on CI). A placeholder Anthropic key is always saved (a key is "saved" in every install, and ctx.withApi needs
   // one); an OpenAI engine also gets its key. A CLI (Claude Code, Codex) is verified and chosen the way the engine panel does it.
-  await page.evaluate(async ({anthropic, openai, token, engine}) => {
+  // The stand-in is built empty of a strategy (lib/notion-fake.mjs buildStandIn): the first app of the run saves the e2e applicant's (an SRE in Zurich, the fixture
+  // CV and feeds), from desktop/demo/draft.json, kept in the draft's current shape by the demo. 9 Oct 2026: without it searches ran on the app's default roles.
+  // On this Mac's store (sqlite) each app keeps its own data, so every app seeded gets it, kept on this Mac by the same saveStrategy (no Notion).
+  const applicant = () => JSON.parse(fs.readFileSync(path.join(E2E, '..', 'demo', 'draft.json'), 'utf8')).draft;
+  const strategy = ctx.store === 'sqlite' ? applicant() : ctx.standIn && ctx.store === 'standin' && !ctx.standIn.strategySaved ? applicant() : null;
+  if (strategy && ctx.standIn) ctx.standIn.strategySaved = true;
+  await page.evaluate(async ({anthropic, openai, token, engine, strategy}) => {
     const keyed = await window.pilot.saveSecret('ANTHROPIC_API_KEY', anthropic);
     if (keyed?.ok === false) throw new Error(`the key was refused: ${keyed.error}`);
     if (openai) await window.pilot.saveSecret('OPENAI_API_KEY', openai);
-    const connected = await window.pilot.notionConnect(token);
-    if (!connected?.ok) throw new Error(`Notion did not connect: ${connected?.error || 'unknown'}`);
+    const connected = token ? await window.pilot.notionConnect(token) : {ok: true};   // no token: this Mac's store, nothing to connect
+    if (!connected?.ok) throw new Error(`Notion did not connect: ${connected?.error || `missing ${JSON.stringify(connected?.missing || [])}, problems ${JSON.stringify((connected?.problems || []).map(p => p.title || p))}, found ${JSON.stringify(Object.keys(connected?.ids || {}))}`}`);   // no error text: say what the connect found
+    if (strategy) {   // a fresh stand-in: the applicant's strategy, saved the way the wizard's Save does (the real test page holds one from its first run)
+      const saved = await window.pilot.saveStrategy(strategy);
+      if (!saved?.ok) throw new Error(`the strategy was not saved: ${saved?.error || 'unknown'}`);
+    }
     if (engine === 'cli' || engine === 'codex') {
       const status = await (engine === 'cli' ? window.pilot.verifyClaudeCode() : window.pilot.verifyCodex());
       if (!status?.authenticated) throw new Error(`${engine === 'cli' ? 'Claude Code' : 'Codex'} is not ready on this Mac (${status?.error || 'not signed in'}): sign in with ${engine === 'cli' ? 'claude' : 'codex login'}`);
     }
     await window.pilot.setAiEngine(engine);
     await window.pilot.saveSettings({setupDone: true, wizardStep: 'extras', setupFurthest: 'extras', cvName: 'cv.pdf'});
-  }, {anthropic: ctx.engine === 'api' ? appKey(ctx.key) : DUMMY_KEY, openai: ctx.engine === 'openai' ? ctx.key : '', token: ctx.token, engine: ctx.engine});
+  }, {anthropic: ctx.engine === 'api' ? appKey(ctx.key) : DUMMY_KEY, openai: ctx.engine === 'openai' ? ctx.key : '', token: ctx.token, engine: ctx.engine, strategy});
   fs.copyFileSync(ctx.cv, path.join(ctx.profile, 'cv.pdf'));   // forms and tailoring read the CV from the data folder
   await page.reload();
   await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
@@ -30,6 +41,8 @@ export async function fastSeed(ctx) {
 
 // The workspace exists in this suite's page: seed in seconds. Otherwise build it once with the real wizard path (and keep it for the next run).
 export async function ensureSetUp(ctx) {
+  // This Mac's store (lib/store.mjs): no Notion to build or connect; set up the way the wizard leaves it (the key, the engine, the applicant's strategy kept here).
+  if (ctx.store === 'sqlite') return ctx.run('the app is set up on this Mac\'s store with the applicant\'s strategy', () => fastSeed(ctx), {needs: ctx.needs, critical: true});
   if (ctx.built) {
     await ctx.run('the app is seeded as a set-up install from the existing workspace', () => fastSeed(ctx), {needs: ctx.needs, critical: true});   // every later step needs a set-up app
   } else {

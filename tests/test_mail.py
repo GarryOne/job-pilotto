@@ -13,14 +13,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import mail, mail_inbox
 from src.notion import ledger
 from tests import zone
-from tests.mail_fakes import NOW, FakeClient, FakeGoogle, FakeTracker, MailCase, app, email, event_row, result, text
+from tests.mail_fakes import (NOW, FakeClient, FakeGoogle, FakeTracker, MailCase, app, content, email, event_row, rec, record_of, result,
+                              stores_for, text)
 
 setUpModule, tearDownModule = zone.pinned()
 
 
 class MailTests(MailCase):
     def test_query_covers_senders_subjects_and_tracked_companies(self):
-        q = mail.query([app('a', 'Zephyr AI', 'Infra', via='TechTree')], 2)
+        q = mail.query([record_of(app('a', 'Zephyr AI', 'Infra', via='TechTree'))], 2)
         self.assertTrue(q.startswith('newer_than:2d -in:chats'))
         self.assertNotIn('subject:', q)   # no words: other inbox mail is sorted by Claude (mail_triage), in any language
         for part in ('from:greenhouse-mail.io', 'from:techtree.dev', '"Zephyr AI"', '"TechTree"'):
@@ -55,7 +56,7 @@ class MailTests(MailCase):
     def test_a_check_someone_started_always_answers(self):  # the flag is still there for GitHub's Run button
         tracker, google = FakeTracker([app('p1', 'Acme', 'SRE')]), FakeGoogle([email('m1', 'Newsletter')])
         sent = []
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {}):
             mail.run(tracker, google, client=FakeClient([[result(0, 0, 'Other', relevant=False)]]), days=2, send=sent.append,
                      calendar=False, now=NOW, state_path=self.state, stats={}, always_report=True)
         self.assertEqual(sent, ['📧 <b>Gmail checked</b>\n1 new email\n\nNothing that changes your applications.'])
@@ -65,7 +66,7 @@ class MailTests(MailCase):
         # nothing stays quiet on Telegram, and the app shows it in Recent activity.
         tracker, google = FakeTracker([app('p1', 'Acme', 'SRE')]), FakeGoogle([email('m1', 'Newsletter')])
         sent = []
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {}):
             mail.run(tracker, google, client=FakeClient([[result(0, 0, 'Other', relevant=False)]]), days=2, send=sent.append,
                      calendar=False, now=NOW, state_path=self.state, stats={})
         self.assertEqual(sent, [])
@@ -92,7 +93,7 @@ class MailTests(MailCase):
         stats = {}
         client = FakeClient([[result(0, 0, 'Confirmation received', company='Canonical'),
                               result(1, -1, 'Other', relevant=False)]])
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {}):
             mail.run(tracker, google, client=client, days=2, send=None, calendar=False, now=NOW, state_path=self.state,
                      stats=stats)
         [read] = stats['emails']  # the newsletter is not about the applications: read, marked seen, never listed
@@ -112,9 +113,8 @@ class MailTests(MailCase):
         self.assertEqual(tracker.created, [])
         page = 'ev-Confirmation received-2026-09-26T01:26:00+02:00'
         update = {k: v for p, u in tracker.updates if p == page for k, v in u.items()}
-        self.assertEqual((update['Source ID'], update['At']), ({'rich_text': [{'text': {'content': 'm2'}}]},
-                                                               {'date': {'start': '2026-09-26T01:26:30+02:00'}}))
-        changes = json.loads(update['Changes']['rich_text'][0]['text']['content'])
+        self.assertEqual((content(update['Source ID']), update['At']), ('m2', {'date': {'start': '2026-09-26T01:26:30+02:00'}}))
+        changes = json.loads(content(update['Changes']))
         self.assertEqual(changes['fields']['Stage'], ['Applied', 'Confirmation received'])  # what the email changed
         self.assertEqual(apps[0]['properties']['Stage']['select']['name'], 'Confirmation received')  # repair a partially saved event
 
@@ -141,7 +141,7 @@ class MailTests(MailCase):
         # row stays the one the email names, so the event is recorded on it rather than on a twin.
         with mock.patch.object(mail_inbox, 'classify', lambda *a, **k: {0: {
                 **result(0, 0, 'Confirmation received', company='Canonical'), 'role': 'Site Reliability Engineer'}}), \
-                mock.patch('src.ai.interviews.stats_for_insights', lambda t: {}):
+                mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {}):
             summary = mail.run(tracker, google, client=SimpleNamespace(), days=2, send=[].append, calendar=False, now=NOW,
                                state_path=self.state, stats={})
         self.assertIn('1 new email(s) classified, 1 update(s)', summary)
@@ -158,7 +158,7 @@ class MailTests(MailCase):
             app('p2', 'Acme', 'SRE', stage='Applying'),
             app('p3', 'Beta', 'Data Engineer', stage='Dismissed')]), []
         tracker.query_database = lambda db, f=None: filters.append(f) or tracker.apps + [app('x', 'Gamma', 'Saved role', stage='Saved')]
-        self.assertEqual([r['id'] for r in mail.applications(tracker)], ['p1', 'p2', 'x'])
+        self.assertEqual([r['id'] for r in mail.applications(stores_for(tracker))], ['p1', 'p2', 'x'])
         self.assertEqual(filters, [None])  # never a filter Notion could refuse
 
     def test_interview_invite_sets_next_interview_and_stage_forward_only(self):
@@ -182,7 +182,7 @@ class MailTests(MailCase):
                              email('tr', 'Download transcript: Screening Call', '2026-09-25T11:07:00+00:00', body=zephyr)])
         tracker = FakeTracker(apps)
         client = FakeClient([[result(0, 0, 'Interview scheduled'), result(1, 0, 'Other'), result(2, 0, 'Other')]])
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {'topics_answered_weakly': {}}):
             sent = []
             mail.run(tracker, google, client=client, days=2, send=sent.append, calendar=False, now=NOW,
                      state_path=self.state, stats={})

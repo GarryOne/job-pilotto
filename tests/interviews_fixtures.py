@@ -12,6 +12,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import interviews; from tests.model_stand_ins import screens as setUpModule  # noqa: E702,F401 (the model's answer)
 from src.notion import ledger
+from src.stores import notion_blocks  # noqa: F401 (tests read reviews back as blocks)
 from src.notion.ledger import plain
 
 NOW = datetime(2026, 9, 26, 15, 0, tzinfo=timezone.utc)
@@ -259,6 +260,40 @@ class LiveApps(NotionPages):
         self.events = getattr(self, 'events', []) + [{'id': f'e-{len(self.created)}', 'properties': {
             name: {'type': next(iter(value)), **value} for name, value in properties.items()}}]
         return super().create_page(database_id, properties)
+
+
+def store_with(*apps):
+    """A memory store holding these applications (records: url, stage and any other field), for the store-based tests."""
+    from src.stores import memory
+    stores = memory.open_store()
+    for row in apps:
+        stores.applications.create({k: v for k, v in row.items() if k != 'stage'}, row['stage'])
+    return stores
+
+
+def huxley_job(stage='Interview scheduled', **fields):
+    """huxley() as an application record (30 Sep 2026: an agency's call, booked, held and reviewed)."""
+    return {'url': 'https://x.test/h-1', 'title': 'SRE', 'via': 'Huxley', 'location': 'Remote', 'stage': stage,
+            'next_interview': '2026-09-26T06:30:00.000Z', **fields}
+
+
+def job(ref, company, stage, applied):
+    """app() as an application record."""
+    return {'url': f'https://x.test/{ref}', 'title': 'SRE', 'company': company, 'stage': stage, 'applied_on': applied}
+
+
+def app_id(stores, ref):
+    return stores.applications.get(f'https://x.test/{ref}')['id']
+
+
+def only_interview(stores):
+    [row] = stores.interviews.list()
+    return stores.interviews.get(row['id'])
+
+
+def only_app(stores):
+    [row] = stores.applications.list()
+    return row
 
 
 def headings(tracker, page_id):

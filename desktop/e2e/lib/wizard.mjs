@@ -7,7 +7,7 @@ import path from 'node:path';
 import {pageText} from './notion.mjs';
 
 export async function runWizard(ctx) {
-  const {page, key: KEY, token: NOTION} = ctx;
+  const {page, key: KEY} = ctx;
   await ctx.run('the app starts on the welcome screen', async () => {
     await ctx.expectStep('welcome');
     await page.getByRole('button', {name: 'Start'}).waitFor();
@@ -90,6 +90,30 @@ export async function runWizard(ctx) {
     if (!state.hasProfile) throw new Error('the strategy was not kept on this Mac');
     if (!fs.existsSync(path.join(ctx.profile, 'profile.md'))) throw new Error('profile.md is not in the app folder');
   }, {needs: ctx.needs});
+  // A new install (the wizard suite: no store at launch, ctx.newInstall): the app gives it this Mac at first start (lib/store-handlers.js settleStore),
+  // so it is never "trying"; on the stand-in it then connects Notion while the store is still empty, and the store becomes Notion ("Start using Notion").
+  if (ctx.newInstall) {
+    await ctx.run('a new install keeps its data on this Mac: the store is set once at first start', async () => {
+      const store = JSON.parse(fs.readFileSync(path.join(ctx.profile, 'settings.json'), 'utf8')).store;
+      if (store !== 'sqlite') throw new Error(`a new install started on "${store}", not this Mac`);
+    }, {needs: ctx.needs});
+  }
+  // This Mac's store: no page carries the Notion prompt and there is nothing to connect.
+  if (ctx.store === 'sqlite' || ctx.newInstall) {
+    await ctx.run("on this Mac's store no page asks to connect Notion: Focus and Interviews open their own content", async () => {
+      await page.click('.nav[data-view="focus"]');
+      await page.locator('.view[data-view="focus"]:not([hidden])').waitFor({timeout: 15000});
+      await page.click('.nav[data-view="interviews"]');
+      await page.locator('.view[data-view="interviews"] #iv-add').waitFor({state: 'visible', timeout: 15000});
+      for (const view of ['focus', 'interviews']) {
+        if (await page.locator(`.view[data-view="${view}"] .ui-gate`).count()) throw new Error(`${view} shows the Notion prompt on this Mac's store`);
+      }
+      if (await page.locator('#notion-connect-dialog[open]').count()) throw new Error("the connect prompt opened on this Mac's store");
+    }, {needs: ctx.needs});
+    if (ctx.store === 'sqlite') return;
+    await connectNotion(ctx, {startedOnNotion: true});
+    return;
+  }
   // Focus without Notion shows only Get started (396d94e); a page that still needs Notion (Interviews) carries the prompt.
   await ctx.run('Focus shows Get started without Notion; Interviews asks to connect Notion, lists the advantages, and Not now with a reason closes the prompt', async () => {
     await page.click('.nav[data-view="focus"]');
@@ -109,9 +133,20 @@ export async function runWizard(ctx) {
       if (await page.locator('#notion-connect-dialog').evaluate(dialog => dialog.open)) throw new Error('the prompt stayed open after Not now');
     });
   }, {needs: ctx.needs});
+  await connectNotion(ctx);
+}
+
+// Notion connected with a token: the workspace is built inside the test page and the strategy moves in. startedOnNotion: the store was this Mac's, still
+// empty, so the connect itself makes Notion the store (lib/store-handlers.js startOnNotionIfEmpty) and says so.
+async function connectNotion(ctx, {startedOnNotion = false} = {}) {
+  const {page, token: NOTION} = ctx;
   await ctx.run('a Notion token connects: the workspace is built inside the test page and the strategy moves in', async () => {
     const result = await page.evaluate(token => window.pilot.notionConnect(token), NOTION);
     if (!result?.ok) throw new Error(`Notion did not connect: ${result?.error || (result?.problems || []).map(p => p.title).join(', ') || 'unknown'}`);
+    if (startedOnNotion) {
+      const store = JSON.parse(fs.readFileSync(path.join(ctx.profile, 'settings.json'), 'utf8')).store;
+      if (!result.startedOnNotion || store !== 'notion') throw new Error(`an empty store did not become Notion at connect (startedOnNotion ${result.startedOnNotion}, store ${store})`);
+    }
     const started = Date.now();
     let text = '';
     while (text.length < 200) {   // the Profile page holds the strategy's Profile once the move-in has run
@@ -122,5 +157,10 @@ export async function runWizard(ctx) {
     const state = await page.evaluate(() => window.pilot.state());
     if (!state.notion) throw new Error('the app does not know it is connected');
     if (fs.existsSync(path.join(ctx.profile, 'profile.md'))) throw new Error('profile.md is still on this Mac after it moved to Notion');
+    // The connect was the app's call, not the window's prompt (which refreshes the window and reopens the page): reload, as lib/seed.mjs fastSeed does, so the
+    // window knows. Without it a page that needs Notion stayed on its gate (9 Oct 2026, the stand-in: every suite builds its workspace through here).
+    await page.reload();
+    await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
+    if (!await page.evaluate(() => !!window.__jp?.shared?.state?.notion?.NOTION_PROFILE_PAGE_ID)) throw new Error('the window does not know Notion is connected after a reload');
   }, {needs: ctx.needs});
 }

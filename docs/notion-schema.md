@@ -79,6 +79,7 @@ replies:
 | Call facts | Text | Facts an interview revealed, `Label: value · …` (Your ask, Relocation, Team size, Company size, Visa/permit, Start date); a review adds missing ones and never overwrites |
 | Origin | Select | Options: `Inbound`, `Outbound`. Who made the first contact: Inbound = a recruiter/lead you logged (Recruiter lead, Gmail pitch, a logged message); Outbound = a job you went after (match, kit, apply, applied elsewhere, saved). Set once when the row is created, never overwritten by the app on its own; only your answer to "Who reached out first?" in Log job activity (a conversation that began before the job's first contact) flips Outbound to Inbound, and the reply and the job's page say so. Change it by hand when it's wrong. Empty (older rows): derived from Source/Stage/Notes/events, and filled once by the app (`python -m src.notion.origin --backfill`) |
 | Runs | Relation | Two-way with ⏰ Cronjob Runs "Application": every run about this job (logged activity, kit, interview prep/review, rejection review). An older one-way "Application" is made two-way by the app at connect/start-up; if Notion refuses, the app says: Cronjob Runs → Application column menu → turn on "Show on Job Tracker", name it "Runs" |
+| Created | Date | When the record was created in its first store (kept when moved to Notion; else the page's created time). src/stores/notion.py |
 
 The page body gets a "🗂 Application record" toggle section: every question with the answer sent
 (and the kit's draft, marked ✏️ when edited), the cover letter, and a JSON block with the job
@@ -185,6 +186,7 @@ guess ("Notion edit") gives it Source `Calendar` and its own note.
 | Changes | Text | JSON: what the email changed (before/after per field), its interview time and sender |
 | Needs you | Checkbox | The Gmail check wasn't sure which job: Focus asks "Is this about …?" |
 | Suggested job | URL | The likeliest job for a Needs-you email (its Job URL) |
+| Created | Date | When the event was recorded in its first store (kept when moved to Notion). src/stores/notion.py |
 
 ## 🎤 Interviews (database)
 
@@ -282,6 +284,10 @@ Env var: `NOTION_CRON_RUNS_DB`. One row per scheduled pipeline run (`daily.yml`,
 | Application | Relation | To Job Tracker (two-way, shows there as "Runs"): the one job a run was about; empty for runs about many jobs (search, Gmail check, insights) |
 | Updates | Number |  |
 | Billed to | Select | How the run's AI was paid: `Claude subscription` (the user's own Claude Code on the Mac, $0 API), `Anthropic API credits` (API key), `Both` (plan limit hit, fell back to the key); empty when no AI ran |
+| Kind | Select | What ran (search, mail, kit…), as the store names it; an older row has none and its Mode is used. src/stores/notion_cron_runs.py |
+| Where | Select | Where it ran (mac, github); an older row has none and Run URL / Trigger tell. |
+| Progress | Text | The run's progress lines (the last 40), one per line; Summary shows the latest with ⏳ while it runs. |
+| Finished | Date | When the run ended, with time. |
 
 Views: **Latest runs** (newest first), **AI cost per day** (column chart).
 
@@ -330,6 +336,9 @@ recorded locally without it. Rows never contain applicant values, only field lab
 | Cache read | Number |  |
 | Model | Text |  |
 | Session timeline | Text |  |
+| Session id | Text | The Apply session's id, so the app and the engine update one row for one session. src/stores/notion_agent_runs.py |
+| Data | Text | Anything else the run kept, as JSON (the store's catch-all `data`). |
+| Created | Date | When the run was recorded in its first store (kept when moved to Notion; else the page's created time). |
 
 The page body lists per-step timings, each field ✓/CHECK, attachments and the learning.
 

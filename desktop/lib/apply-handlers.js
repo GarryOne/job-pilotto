@@ -22,6 +22,7 @@ import {mergeTabs, openFormTab, withOpenForm} from './form-tab.js';
 import {sharedCheck} from './shared-check.js';
 import {withAccounts, withCompanies, withoutHost} from './site-accounts.js';
 import {isTwin} from './twin.js';
+import {OUTCOME_STAGES as BOARD_STAGES} from '../renderer/jobs-board-rules.js';
 
 export function registerApplyHandlers(ctx) {
   const {DEMO, allowanceBlock, claudeConsent, cloud, here, ipcMain, log, needsNotion, prepareKitFor, getRecipeReporter, shell, startClaude, storage, toWindow, track} = ctx;
@@ -122,6 +123,15 @@ export function registerApplyHandlers(ctx) {
     const result = await pipeline.markOutcome(storage, url, stage);
     if (result.ok && outcome !== 'withdrawn') getRecipeReporter()?.application(applicationOutcomes.anonymous({url, outcome, appliedOn: input?.appliedOn}));
     if (result.ok && outcome !== 'withdrawn') getRecipeReporter()?.reply(String(input?.bucket || ''), outcome);   // the job's score band, to see whether the score predicts replies
+    return result;
+  });
+  // Jobs → Board: a card moved to an outcome column (renderer/jobs-board-rules.js dropFor). The same engine step as markOutcome (the stage
+  // and its 📈 event, the store's rules), without the anonymous outcome report: a move on the board can be a correction.
+  ipcMain.handle('setStage', async (_, url, stage) => {
+    const job = String(url || ''), to = String(stage || '');
+    if (!job || !BOARD_STAGES.includes(to)) return {ok: false, error: 'That stage is set by Job Pilotto, not by moving a card.'};
+    const result = await pipeline.markOutcome(storage, job, to).catch(error => ({ok: false, error: error.message}));
+    appLog('outcome', `moved on the board to ${to}: ${result.ok ? 'saved' : result.error || 'failed'}`, {by: 'you'});
     return result;
   });
   ipcMain.handle('claudeReady', () => apply.claudeReady(storage));

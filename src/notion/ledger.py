@@ -19,6 +19,9 @@ Usage:
   python -m src.notion.ledger event <job URL> <stage> [--note TEXT]
   python -m src.notion.ledger sync [--dry-run]
   python -m src.notion.ledger add <job URL> [--applied "on or before 23 Sep"] [--channel ...] [--via ...]
+
+The commands run on the active store (src/ledger_store.py, the same rules on records); the functions here that take a
+Notion `tracker` stay for the callers that still hold one.
 """
 import argparse
 import hashlib
@@ -45,7 +48,7 @@ from .ledger_record import (RECORD_HEADING, RECORD_VERSION, RECRUITER_PLATFORMS,
                             _fitted_json, record_blocks)
 from .ledger_events_util import (WATCHER_SOURCES, PAST_INTERVIEW_DAYS, FUTURE_INTERVIEW_DAYS,  # noqa: F401
                                  SAME_OCCURRENCE_HOURS, plausible_interview, _link_ids, event_interview_at,
-                                 _same_occurrence, moment)
+                                 _same_occurrence, moment, repeat_of)
 from .ledger_intake import (MONTHS, NUMBER_WORDS, WALLED, _relative, parse_applied, walled, _visible_text,  # noqa: F401
                             page_meta)
 
@@ -117,11 +120,6 @@ def record(tracker, url, *, now=None, force=False, posting=ats.posting, cv_path=
 
 
 
-# Stage kinds are once per application (one Screening, one Rejected, ...); "Interview scheduled" repeats only for
-# another interview date/time. Every other kind (replies, cancellations, feedback asks) repeats, but never for the
-# same Source ID (a Gmail message id).
-
-
 
 def events_of(tracker, page):
     """This application's 📈 Application Events rows."""
@@ -135,36 +133,26 @@ def events_of(tracker, page):
 
 
 
+def _as_record(event):
+    """A 📈 Application Events row as the plain values repeat_of reads; the row itself under 'row'."""
+    props = event['properties']
+    return {'kind': plain(props.get('Kind')), 'at': plain(props.get('At')), 'source_id': plain(props.get('Source ID')),
+            'interview_at': event_interview_at(event), 'row': event}
+
+
 def existing_event(tracker, page, kind, *, source_id='', interview_at='', at=None):
-    """The event this one would repeat, or None when it is genuinely new."""
-    events = events_of(tracker, page)
-    if source_id:
-        for event in events:
-            if plain(event['properties'].get('Source ID')) == source_id:
-                return event
+    """The event this one would repeat, or None when it is genuinely new (the rule: repeat_of)."""
+    events = [_as_record(e) for e in events_of(tracker, page)]
+    by_source = []
+    if source_id and not any(e['source_id'] == source_id for e in events):
         try:  # the same message may sit on another job's page (a mis-filed one): still the same message
-            for event in tracker.query_database(EVENTS_DATABASE_ID, {'property': 'Source ID', 'rich_text': {'equals': source_id}}):
-                if plain(event['properties'].get('Source ID')) == source_id:
-                    return event
+            by_source = [_as_record(e) for e in tracker.query_database(
+                EVENTS_DATABASE_ID, {'property': 'Source ID', 'rich_text': {'equals': source_id}})]
         except AttributeError:
             pass
-    if kind not in OUTCOME_STAGES:
-        return None
-    same = [e for e in events if plain(e['properties'].get('Kind')) == kind]
-    if not same:
-        return None
-    if kind == 'Interview scheduled' and interview_at:
-        known = [event_interview_at(e) for e in same]
-        if any(known) and not any(k and moment(k) == moment(interview_at) for k in known):
-            return None  # another interview
-        # An interview's identity is the interview itself, so a message about it may arrive days later (another
-        # message, or the real invite that gives a pasted one its time): never filtered by when it arrived.
-    elif at:  # a kind identified by the report: the same kind a day or more later is another occurrence
-        when = moment(at)
-        same = [e for e in same if _same_occurrence(e, when)]
-        if not same:
-            return None
-    return same[0]
+    found = repeat_of(events, kind, OUTCOME_STAGES, source_id=source_id, interview_at=interview_at, at=at,
+                      by_source=by_source)
+    return found['row'] if found else None
 
 
 def add_event(tracker, page, kind, source, *, at=None, note='', source_id='', interview_at=''):
@@ -230,7 +218,10 @@ def set_stage(tracker, url, stage, source='CLI', note=''):
         changes = {'Stage': {'select': {'name': stage}}}
         if stage == 'Rejected' and not plain(row['properties'].get('Feedback status')):
             from .. import feedback
-            if plain(row['properties'].get('Stage')) in feedback.REACHED or feedback.eligible(row, feedback.history_for(tracker, row)):
+            history = [{'kind': plain(e['properties'].get('Kind')), 'at': plain(e['properties'].get('At'))}   # the row's own events
+                       for e in tracker.query_database(EVENTS_DATABASE_ID, {'property': 'Application', 'relation': {'contains': row['id']}})]
+            if plain(row['properties'].get('Stage')) in feedback.REACHED or \
+                    feedback.eligible_status(plain(row['properties'].get('Feedback status')), history):
                 changes['Feedback status'] = {'select': {'name': 'Not asked'}}
         tracker.update_page(row['id'], changes)
     add_event(tracker, row, stage, source, note=note)
@@ -419,19 +410,21 @@ def main(argv=None):
     ad.add_argument('--channel', choices=CHANNELS)
     ad.add_argument('--via', help='recruiter platform or agency, e.g. TechTree')
     args = parser.parse_args(argv)
-    tracker = notion.Tracker.from_env()
-    if not tracker:
-        raise SystemExit('NOTION_TOKEN is required (Keychain entry job-pilotto.notion.token, or export it)')
+    # Every command works on the active store (sqlite, or Notion when that's where the data is): src/ledger_store.py.
+    from .. import ledger_store
+    from ..stores import open_stores
+    stores = open_stores()
     if args.command == 'record':
-        _, outcome = record(tracker, args.url, force=args.force)
+        _, outcome = ledger_store.record(stores, args.url, force=args.force)
         print(f'{args.url}: {outcome}')
     elif args.command == 'event':
-        print(set_stage(tracker, args.url, args.stage, args.source, args.note))
+        print(ledger_store.set_stage(stores, args.url, args.stage, args.source, args.note))
     elif args.command == 'add':
         applied, approx = parse_applied(args.applied)
-        print(add_application(tracker, args.url, applied=applied, approx=approx, channel=args.channel, via=args.via))
+        print(ledger_store.add_application(stores, args.url, applied=applied, approx=approx, channel=args.channel,
+                                           via=args.via))
     else:
-        print(sync(tracker, dry_run=args.dry_run))
+        print(ledger_store.sync(stores, dry_run=args.dry_run))
     return 0
 
 

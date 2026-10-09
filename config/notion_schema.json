@@ -472,6 +472,9 @@
           "type": "relation",
           "database": "NOTION_CRON_RUNS_DB",
           "synced_property": "Application"
+        },
+        "Created": {
+          "type": "date"
         }
       }
     },
@@ -997,6 +1000,15 @@
         },
         "Session timeline": {
           "type": "rich_text"
+        },
+        "Session id": {
+          "type": "rich_text"
+        },
+        "Data": {
+          "type": "rich_text"
+        },
+        "Created": {
+          "type": "date"
         }
       }
     },
@@ -1215,6 +1227,18 @@
         "Updates": {
           "type": "number",
           "format": "number"
+        },
+        "Kind": {
+          "type": "select"
+        },
+        "Where": {
+          "type": "select"
+        },
+        "Progress": {
+          "type": "rich_text"
+        },
+        "Finished": {
+          "type": "date"
         }
       },
       "retired": [
@@ -1380,6 +1404,9 @@
         },
         "Suggested job": {
           "type": "url"
+        },
+        "Created": {
+          "type": "date"
         }
       }
     },

@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import inbox
 from tests.test_mail import NOW, event_row
+from tests.mail_fakes import stores_for
 from tests.test_opportunity import EMAIL_LEAD, Client, Tracker
 
 SHOT = ('shot.png', b'\x89PNG fake screenshot bytes', 'image/png')
@@ -51,7 +52,7 @@ class Inbox(Tracker):
 def run(tracker, answer, **options):
     options.setdefault('text', '')
     options.setdefault('image', SHOT)
-    return inbox.log(tracker, client=Client(answer), now=NOW, **options)
+    return inbox.log(stores_for(tracker), client=Client(answer), now=NOW, **options)
 
 
 class InboxTests(unittest.TestCase):
@@ -138,7 +139,7 @@ class InboxTests(unittest.TestCase):
 
     def test_short_text_without_a_screenshot_is_refused(self):
         with self.assertRaisesRegex(ValueError, 'whole message or a screenshot'):
-            inbox.log(Inbox(), text='ok', client=Client())
+            inbox.log(stores_for(Inbox()), text='ok', client=Client())
 
     def test_screenshot_files(self):
         self.assertIsNone(inbox.load_image('notes.txt'))
@@ -175,8 +176,8 @@ class DailyAddTests(unittest.TestCase):
         with mock.patch.object(sys, 'argv', argv), mock.patch.object(daily.notion.Tracker, 'from_env', lambda: tracker), \
                 mock.patch.object(inbox, 'read', lambda *a, **k: answer), mock.patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'sk-test'}), \
                 mock.patch.dict(sys.modules, {'anthropic': SimpleNamespace(Anthropic=lambda **kwargs: None)}), \
-                mock.patch.object(daily.cron_runs, 'log_run', lambda t, run, failed=False: logged.update(run=run)), \
-                mock.patch.dict(daily.cron_runs._auto, {}), mock.patch.dict(daily.cron_runs._open, {}), \
+                mock.patch.object(daily.run_log, 'log_run', lambda t, run, failed=False: logged.update(run=run)), \
+                mock.patch.object(daily.run_log, 'auto_begin', lambda stores: None), mock.patch.dict(daily.run_log._open, {}), \
                 mock.patch.object(daily_modes, 'queue_mail_check', lambda: False), mock.patch('builtins.print') as printed:
             daily.main()
         return logged.get('run') or {}, [str(c.args[0]) for c in printed.call_args_list if c.args]
@@ -193,7 +194,7 @@ class DailyAddTests(unittest.TestCase):
         self.assertTrue(run['application'])  # ⏱️ Search runs → Application: the job it created
         job = self._job_line(lines)
         self.assertEqual((job['page_id'], job['created']), (run['application'], True))
-        self.assertTrue(job['url'].startswith('https://notion.test/'))
+        self.assertEqual(job['url'], f"https://www.notion.so/{job['page_id'].replace('-', '')}")   # the store's link to the page
         self.assertEqual(job['job_url'], page['Job URL']['url'])
         self.assertTrue(job['title'])
         self.assertIn('Tracked recruiter lead', lines[-1])  # the reply stays the last line (the app reads it)
@@ -202,7 +203,7 @@ class DailyAddTests(unittest.TestCase):
         tracker = Inbox([row('p1', 'https://x.test/1', 'SRE', 'Grafana Labs')], [job('https://x.test/1', 'SRE', 'Grafana Labs', 'Applied')])
         run, lines = self._add_run(tracker, reading('Rejected', 0))
         self.assertEqual(run['application'], 'p1')
-        self.assertEqual(self._job_line(lines), {'page_id': 'p1', 'url': 'https://notion.test/p1', 'title': 'SRE',
+        self.assertEqual(self._job_line(lines), {'page_id': 'p1', 'url': 'https://www.notion.so/p1', 'title': 'SRE',
                                                  'job_url': 'https://x.test/1', 'created': False})
         self.assertIn('Updated: Grafana Labs — SRE → Rejected', lines[-1])
 
@@ -219,7 +220,7 @@ class DailyAddTests(unittest.TestCase):
         from unittest import mock
         from src import daily, daily_modes
         run = daily.new_cron_run('insight')
-        with mock.patch.object(daily.cron_runs, 'log_run', lambda tracker, r, failed=False: 'https://notion.test/run-1'), \
+        with mock.patch.object(daily.run_log, 'log_run', lambda tracker, r, failed=False: 'https://notion.test/run-1'), \
                 mock.patch('builtins.print') as printed:
             daily.log_ai_run(object(), run, SimpleNamespace(send=False, log_run=True))
         printed.assert_called_with('Cronjob run logged: https://notion.test/run-1')

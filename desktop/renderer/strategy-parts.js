@@ -67,7 +67,7 @@ export const hostOf = url => { try { return new URL(url).hostname.replace(/^www\
 // The lists with a change, typed text included (it is part of the draft: Save keeps it, the bar and the Edited badges count it).
 export function dirtyLists(edits, typed = {}) {
   const dirty = new Set();
-  for (const [name, edit] of Object.entries(edits || {})) if (name === 'remote' || edit.add?.length || edit.remove?.length) dirty.add(name);
+  for (const [name, edit] of Object.entries(edits || {})) if (name === 'remote' || 'set' in (edit || {}) || edit.add?.length || edit.remove?.length) dirty.add(name);
   for (const [name, text] of Object.entries(typed || {})) if (String(text || '').trim()) dirty.add(name);
   return dirty;
 }

@@ -26,6 +26,7 @@ export const SCREENS = [
     `document.getElementById('sd-all').click(); ${wait(1500)}`],
   ['actions', 'Actions: running banner, task cards by category with Run, Recent runs table', `${open('actions')} ${wait(1500)}`],
   ['interviews', 'Interviews: recorder, drafts and the saved library table', `${open('interviews')} ${wait(1200)}`],
+  ['employers', 'Employers & Sources: toolbar with filters, library table (name + places, kind, feed status, quality, origin, checked, Active switch)', `${open('employers')} ${wait(1200)}`],
   ['settings', 'Settings: setting rows (title, explanation, control)', `${open('settings')} ${wait(1200)}`],
   ['strategy', 'Strategy: targeting rows with chips, score bars, Avoid; side glance card', `${open('strategy')} ${ready('strategy-synced', /^Synced/)}`],
   ['strategy-loading', 'Strategy loading: each card in its final shape, greyed; "Loading strategy…" pill', `${open('strategy')} ${wait(900)}`,

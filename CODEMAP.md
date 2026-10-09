@@ -33,7 +33,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/awake.js` — The time this computer has been awake: Date.now() minus the time it slept. Watchdogs measure with it, so a Mac asleep with its lid
 - `desktop/lib/background-chrome.js` — A Chrome an automation left behind is not just clutter: macOS keeps ONE Apple Event connection per application, and
 - `desktop/lib/background-handlers.js` — The app's background jobs at start-up (moved out of main.js, 8 Oct 2026): the one-time move of user data left on this Mac to Notion, the update check, the
-- `desktop/lib/backup.js` — Automatic backup of what lives only on this Mac (call recordings, tailored CVs, the CV, settings, job cache):
+- `desktop/lib/backup.js` — Automatic backup of what lives on this Mac (call recordings, tailored CVs, the CV, settings, job cache, and with the SQLite store
 - `desktop/lib/benchmarks.js` — What applications typically get on a job board, from the website's counts of how people's applications went (site/src/knowledge.js benchmarks).
 - `desktop/lib/browser-handlers.js` — The browser and extension setup IPC (moved out of main.js, 8 Oct 2026): showing a job's form tab, reloading it, opening Notion and folders,
 - `desktop/lib/browser-launch.js` — Which Chromium browser to open a URL in, and how. Chrome first (what the app always did), then Edge (the Windows
@@ -46,7 +46,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/contact-from-cv.js` — "Your details from your CV": Claude reads the CV once per CV file and proposes a value for each empty contact field it states
 - `desktop/lib/contact-handlers.js` — Settings → Profile → Your details over IPC: read and save the 📇 Contact details (lib/contact.js), and the values Claude proposes
 - `desktop/lib/contact-keys.js` — Which contact detail a form field asks for ("Rue et numéro" → street, "Numéro postal d'acheminement" → postal_code, "Formule d'appel"
-- `desktop/lib/contact.js` — Your contact details (name, email, phone, city, links), used to fill forms. With Notion connected they are
+- `desktop/lib/contact.js` — Your contact details (name, email, phone, city, links), used to fill forms: the "📇 Contact details" section of your
 - `desktop/lib/control-events.js` — How the form reader and the generic operators fared, as reports for the product (docs: Notion "Self-improving form filling").
 - `desktop/lib/cover-letter.js` — The user's general cover letter (Settings → Profile → Cover letter): drafted once by the AI from the CV, the Profile and
 - `desktop/lib/crash-line.js` — A line of a crash: the traceback's first line, or the exception line (KeyboardInterrupt, BrokenPipeError: …). Never a run's step, wherever the
@@ -63,6 +63,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/e2e-hidden.js` — E2E only (JOB_PILOTTO_E2E_HIDDEN=1, set by e2e/lib/app.mjs): the app runs with hidden windows and never takes focus, so a test run
 - `desktop/lib/e2e-ipc.js` — E2E only: wraps ipcMain.handle so every call the window makes to the app is logged (channel, start, duration, failed), newest MAX kept. The journey reads the log to tell a
 - `desktop/lib/e2e-timing.js` — Waits the end-to-end journey may shorten so a test does not sit through them (never for a user): JOB_PILOTTO_E2E_<NAME> in milliseconds, only with JOB_PILOTTO_E2E set.
+- `desktop/lib/employers-handlers.js` — Employers & Sources (renderer/pages/employers.js): every employer and job board the person tracks, from the active store through the
 - `desktop/lib/engine-log.js` — What the engine printed, in full: <data folder>/logs/engine.log, one file per day (see below). The app's own log says a run
 - `desktop/lib/escalate.js` — A closer look when the text sketch is not enough (spec: docs/superpowers/specs/2026-10-08-ai-escalation.md; owner, 8 Oct 2026: yes, account pages first, off until he turns it on).
 - `desktop/lib/ext-server-handlers.js` — The extension server's wiring (moved out of main.js's start-up, 8 Oct 2026): what the local server asks of the app when the Chrome extension calls it: the site
@@ -71,6 +72,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/few-jobs.js` — "Few new jobs" nudge (owner, 7 Oct 2026: "popup a dialog/button to recommend more methods if the last Search for new jobs found 0 or close"):
 - `desktop/lib/files.js` — Large files that used to live only on this Mac, kept in Notion too (the source of truth): the CV (every version,
 - `desktop/lib/focus-handlers.js` — The jobs, focus and status IPC (moved out of main.js, 8 Oct 2026): the theme and automation switches, deleting a job and setting its status, the Focus
+- `desktop/lib/form-fills-handlers.js` — Form-fill history (Reports → Form fills, renderer/pages/form-fills.js): past extension fills and Apply with Claude sessions from the
 - `desktop/lib/form-judge.js` — The AI's judgment on an APPLICATION form before the person submits it (owner, 8 Oct 2026: the account page's "ready?" judgment, ported to the application): is everything
 - `desktop/lib/form-tab.js` — "Open filled form" on the session page: the form Claude filled is a tab in the user's Chrome; this finds that
 - `desktop/lib/github.js` — Always on: the user's own private GitHub repo runs the searches on a
@@ -83,6 +85,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/interviews.js` — Interviews page. Notion 🎤 Interviews is the database: every interview is a row there (transcript in the
 - `desktop/lib/job-actions-handlers.js` — The job actions' IPC (moved out of main.js, 8 Oct 2026): running a Telegram-style command from the app, adding a job or an applied one by hand, standard
 - `desktop/lib/job-line.js` — The job a Logged activity run created or updated, from the engine's output line (dependency-free: pipeline.js and
+- `desktop/lib/job-page-handlers.js` — A job's page in the app (Jobs → a row → the side panel, renderer/pages/job-panel.js): the job's record, its sections (kit, prep, review,
 - `desktop/lib/jobs-handlers.js` — The jobs and runs IPC (moved out of main.js, 8 Oct 2026): the page's view of a run, the runs list and a run's detail, checking mail, the first search,
 - `desktop/lib/keychain.js` — Every Keychain read of the app goes through here, and what a test or a live-test twin may reach (8 Oct 2026: a local e2e run that reached
 - `desktop/lib/kit-handlers.js` — The application kit and tailored CVs' IPC (moved out of main.js, 8 Oct 2026): drafting a job's kit (questions, answers, cover letter) onto
@@ -131,14 +134,16 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/questions.js` — "Answer once": questions Job Pilotto needs you to answer. With Notion connected they are the ❓ lines of
 - `desktop/lib/quit-dialog.js` — What "Remove this session" asks when its job is still Applying in Notion: was it submitted?
 - `desktop/lib/recipes.js` — The app's side of the shared recipe library (site/src/recipes.js; design in Notion "Self-improving form filling").
+- `desktop/lib/reports-handlers.js` — Reports (renderer/pages/reports.js): the 💡 Insights history from the active store through the engine (insights.list), and the feedback a
 - `desktop/lib/reports.js` — "Help improve Job Pilotto": when a fill leaves a field for a mechanical reason (a widget the extension couldn't
 - `desktop/lib/request-log.js` — Every Notion request, one line each, for debugging and tuning: <data folder>/logs/notion-requests.log for today,
 - `desktop/lib/reset.js` — Settings → Your data: export, import and reset this computer's Job Pilotto data (the data folder).
 - `desktop/lib/resume-queue.js` — Jobs you had started when the app last quit (pipeline queue.json) start again a little after launch. The queue is taken at LAUNCH and started later: read at
 - `desktop/lib/review.js` — The form page and the session page, in step. The Chrome extension shows a ring on the application form (how much
 - `desktop/lib/root.js` — Where the pipeline, config, tools and extension live: the repo when developing, the app's
-- `desktop/lib/run-history.js` — Recent activity from Notion ⏱️ Search runs: every run writes its row there, wherever it ran (this Mac, the
+- `desktop/lib/run-history.js` — Recent activity from the store's run history (Notion ⏱️ Search runs, or the store on this Mac: lib/store `runs`): every run writes
 - `desktop/lib/run-result.js` — The engine's result file (src/run_result.py): one object per run, instead of the last stdout line.
+- `desktop/lib/run-rows.js` — One run as an activity record (the shape of this Mac's runs.json records), from a store's row: a Notion ⏱️ Search runs page
 - `desktop/lib/run-state.js` — What the run list shares between main.js's activity() and the start-up background jobs (lib/background-handlers.js): the run history last read from
 - `desktop/lib/schedule.js` — Searches, Gmail checks and new-employer finds on the chosen schedule (Settings → How often) while the app is open, and catches up after the Mac wakes from sleep.
 - `desktop/lib/schema.js` — The user's Notion workspace, checked against config/notion_schema.json (the workspace as code, from
@@ -165,6 +170,8 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/site-accounts.js` — Which sites hold an account made for which email (owner, 8 Oct 2026): kept in settings.siteAccounts as {host: {email, state, at}}, never a password.
 - `desktop/lib/site-password.js` — The user's one job-site password (src/ai/passwords.py makes it, Keychain item job-pilotto.sites.password): Settings shows it,
 - `desktop/lib/storage.js` — Everything the app keeps lives in the user's own folder (~/Library/Application Support/Job Pilotto):
+- `desktop/lib/store-handlers.js` — Settings → Data & backup → "Your data": where the person's data lives (lib/store), choosing this Mac while trying, and
+- `desktop/lib/store-move.js` — "Move my data to Notion" (spec P4, docs/superpowers/specs/2026-10-09-store-adapters.md): the person's data goes from the store on this Mac
 - `desktop/lib/strategy-draft-handlers.js` — The strategy draft's IPC (moved out of main.js, 8 Oct 2026): drafting a Strategy from the CV, the cached draft and the edits kept on it, how a rebuild
 - `desktop/lib/strategy-edit.js` — Strategy, the "What you're targeting" lists edited in the app: which lists, cleaning the edits, applying them, editLists.
 - `desktop/lib/strategy-rebuild.js` — Strategy, rebuild from the CV: what a new draft changes, grouped by what each change triggers (and its cost). Re-exported by strategy.js.
@@ -177,6 +184,8 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/telemetry-handlers.js` — The app's reports at start-up (moved out of main.js's start, 8 Oct 2026): technical reports, crash reports (Sentry) and usage events (PostHog): only an installed
 - `desktop/lib/telemetry.js` — Technical reports (on by default; Settings → Advanced turns them off): crashes, failed runs, form issues and a
 - `desktop/lib/terminals.js` — In-app terminals for Apply with Claude: each session runs `claude` in a pseudo-terminal (node-pty) inside the
+- `desktop/lib/text-handlers.js` — Settings → Profile: the user's whole texts (the Profile, standard answers, Form knowledge) read and edited in the app, through the store
+- `desktop/lib/tracker-snapshot.js` — A consistent copy of data/tracker.sqlite (the SQLite store's records, a user's only copy) for an export or backup.
 - `desktop/lib/transcript.js` — A finished Apply-with-Claude session as a conversation, read from Claude Code's transcript (JSON lines): Claude's
 - `desktop/lib/twin.js` — Twin mode (JOB_PILOTTO_TWIN=1): a second copy of the app for live tests on the owner's real state (owner, 8 Oct 2026), started by
 - `desktop/lib/update-channel.js` — Which builds this install is offered: stable (default), beta (gate-approved pre-releases) or test builds (tools/test-build.sh, nothing checked).
@@ -208,23 +217,28 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/contact-proposals.js` — "Your details from your CV" in the window: the values Claude proposed from the CV (lib/contact-from-cv.js) go into the empty boxes of
 - `desktop/renderer/pages/core.js` — Shared helpers and start-up state of the window.
 - `desktop/renderer/pages/cv-change.js` — A replaced CV and what follows it.
-- `desktop/renderer/pages/data.js` — Your data: export, import, backup, reset.
+- `desktop/renderer/pages/data.js` — Your data: where it lives, export, import, backup, reset.
 - `desktop/renderer/pages/demo.js` — "Look around first": the wizard's buttons that restart the app on the fictional demo data, and in that demo the
 - `desktop/renderer/pages/dismiss-reason.js` — After Dismiss: a one-tap "why?" (optional, gone in 12 seconds). The reason is one of a fixed list and is counted with the job's score band only
+- `desktop/renderer/pages/employers.js` — Employers & Sources page (nav → Employers): every employer and job board the person tracks, from the active store
 - `desktop/renderer/pages/feedback.js` — Feedback is saved to Notion. Sending stays with the user; Gmail remains read-only.
 - `desktop/renderer/pages/find.js` — ⌘F on every page: a small find bar (top right) that highlights what the page shows (CSS Highlight API) and scrolls to each
 - `desktop/renderer/pages/focus-onboarding.js` — Focus → Get started (moved out of pages/focus.js, 9 Oct 2026): the first steps after the setup, and Focus without Notion, which shows only
 - `desktop/renderer/pages/focus.js` — Focus page: what needs you today (up next, history, interviews, follow-ups, feedback to add) and the daily target.
+- `desktop/renderer/pages/form-fills.js` — Reports → Form fills (mounted by pages/reports.js: renderFormFills(container), called each time the tab opens): past extension fills
 - `desktop/renderer/pages/happened.js` — Focus → "Did the interview happen?" (src/focus.py 'happened': its time passed and nothing was recorded).
 - `desktop/renderer/pages/interview-lists.js` — Interviews page, the job list helpers (names, the picker's options, the pasted link), the unsaved-recordings list and
 - `desktop/renderer/pages/interview-practice.js` — Interviews page, small parts: the supporting-moments dialog, the practice session, the loading skeleton rows and
 - `desktop/renderer/pages/interview-recorder.js` — Interviews page, recording: the macOS permission panel and the recorder (your microphone on the left channel, the
 - `desktop/renderer/pages/interviews.js` — Interviews page: record a call, then list, relink and review its transcript, notes and recording (saved in Notion).
+- `desktop/renderer/pages/job-panel.js` — Jobs → a job's page beside the list (owner's mockup, 9 Oct 2026): the title, "Applied 1 Oct · Zurich · 🎯 82", tabs for what the job
+- `desktop/renderer/pages/jobs-board.js` — Jobs → Board: the applications in columns by Stage (the 🎯 Pipeline page's board in Notion), a card per job like the "In conversation"
 - `desktop/renderer/pages/jobs-fit.js` — Jobs page, match analysis: the panel a score ring opens (parts as bars, risk, strengths and gaps). Guarded by: npm run shot -- jobs (no unit test reads it).
 - `desktop/renderer/pages/jobs-lead.js` — Jobs page, Log a message: the recruiter-lead dialog (screenshots, confirm step, job picker) and wireLead(). Guarded by: test/lead-confirm.test.js.
 - `desktop/renderer/pages/jobs-questions.js` — Jobs page, questions to answer once: cached list, read from Notion, Save/Skip. Guarded by: test/question-save.test.js, questions-load-error.test.js, questions-error-text.test.js.
 - `desktop/renderer/pages/jobs-render.js` — Jobs page, the list: renderJobs (rows, filters, row actions), In conversation, the stuck banner, loading state, kit label. Guarded by: test/count-flash.test.js.
 - `desktop/renderer/pages/jobs-state.js` — Jobs page, shared state: one jobsState object (a value reassigned later stays ONE binding for every piece) and the link keys. Guarded by: the Jobs tests (count-flash, live-count, activity-selection-ke
+- `desktop/renderer/pages/jobs-views.js` — Jobs page, the saved views and List | Board: one chip per view of the Applications database (jobs-board-rules.js VIEWS, with its count),
 - `desktop/renderer/pages/jobs.js` — Jobs: loading and reloading the list, adding jobs, init(); the pieces are jobs-state/-render/-fit/-lead/-questions.js. Guarded by: search-changed, live-status-line, live-count, activity-selection-kept
 - `desktop/renderer/pages/license.js` — Settings → License: the free allowance ("12 of 40 free applications · 41 days left"), also as a small counter in the sidebar, pasting a key (checked on this
 - `desktop/renderer/pages/logs.js` — Settings → Logs: the app's logs on this Mac, for the user (and whoever helps them) to see what happened. One day at a
@@ -238,6 +252,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/prep.js` — Interview prep kit (Focus → Prepare): built from the job's description, your Profile and your past interviews,
 - `desktop/renderer/pages/profile.js` — Settings → Application profile.
 - `desktop/renderer/pages/reassign.js` — Where an email belongs, in your words: Focus → "Is this about …?" (an email the Gmail check wasn't sure about).
+- `desktop/renderer/pages/reports.js` — Reports (owner's choice, 9 Oct 2026: one page, tabs Weekly · Insights · Funnel · Form fills): what Notion's 💡 Insights and 🎯 Pipeline
 - `desktop/renderer/pages/rich-text.js` — Claude's messages as readable text.
 - `desktop/renderer/pages/runs-page.js` — Status card and the Actions page.
 - `desktop/renderer/pages/session-actions.js` — Session actions: remove, close, cancel, skip, restart, resume and pause one application session.
@@ -256,6 +271,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/strategy-targets.js` — Strategy page, goals and targets: the four target cards, their lists (chips, Edit, Save, remote choice), goals, renderStrategy. Guarded by: test/save-progress.test.js (and test/strategy-targets.test.j
 - `desktop/renderer/pages/strategy.js` — Strategy page: the search strategy and its coverage, read from Notion, with a link to edit it there. Entry: loadStrategy and init; the cards are strategy-targets.js and strategy-suggestions.js, shared
 - `desktop/renderer/pages/telemetry.js` — Technical reports: the window's own errors go to the app's reporter (lib/telemetry.js, scrubbed there); Settings →
+- `desktop/renderer/pages/text-editors.js` — Settings → Profile: the whole Profile text, the standard answers and Form knowledge, read and edited in the app (IPC textGet/textSave,
 - `desktop/renderer/pages/theme.js` — Theme: System / Light / Dark (Settings → Appearance) and the sidebar's one-click switch.
 - `desktop/renderer/pages/tune.js` — Tune my strategy (Actions page): the changes your own results support (src/tune.py, no AI), each one ticked or not;
 - `desktop/renderer/pages/update.js` — App updates: when a newer stable release exists (lib/updater.js), the menu's foot offers it; one click downloads
@@ -277,9 +293,12 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/coverage-actions.js` — What to do after a jobs check that found few new jobs (owner, 6 Oct 2026: "buttons after the search is done"): the coverage answer's cards
 - `desktop/renderer/coverage-card.js` — The Strategy page's "your search may be too narrow" card (src/coverage.py says it; desktop/lib/strategy.js addRoles acts on it).
 - `desktop/renderer/cv-state.js` — The one-glance caption beside "Current CV": ready, not read yet, or the read failed (then the error below says it, not a promise).
+- `desktop/renderer/date.js` — One date format for the screens: "8 Oct", and "8 Oct 2025" only when it isn't this year (owner, 9 Oct 2026). A date alone
+- `desktop/renderer/employers-view.js` — Employers & Sources, without a window (pages/employers.js draws it): the filter, a feed status's tone, the stats line, an employer's
 - `desktop/renderer/extension-looked.js` — The line under the extension's install steps: where the app looked for the browser profiles on this computer.
 - `desktop/renderer/filter.js` — The Jobs filter box: words match title, company and place; a pasted link matches the job's own link,
 - `desktop/renderer/find-bar.js` — ⌘F, find in the page (pages/find.js draws the bar and highlights the matches with the CSS Highlight API): the matching,
+- `desktop/renderer/form-fills-view.js` — Form-fill history, without a window (pages/form-fills.js draws it): one agent run (src/stores/base.py AGENT_RUN_FIELDS + EXTRAS) as
 - `desktop/renderer/funnel-view.js` — Focus → the two funnel cards (Application funnel: jobs you went after; Inbound funnel: opportunities that found
 - `desktop/renderer/gallery.js` — The component gallery: every token and component, built with the same code the screens use.
 - `desktop/renderer/goal-tiles.js` — The setup goals as label/value rows (Target level, Work mode, Minimum salary, Languages you work in): the setup review and the Strategy page
@@ -289,13 +308,16 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/intel.js` — What a job's fit score and what became of it look like to the product, as counts (src/intelligence.js on the site): the score bands, the states,
 - `desktop/renderer/interview-insight.js` — Interviews → the Insights card: what the reviewed interviews say together (src/ai/interview_insights.py, one
 - `desktop/renderer/interview-library.js` — Interviews → the library's read from Notion (src/ai/interviews.py list, through lib/interviews.js): what the page
+- `desktop/renderer/interview-review-view.js` — An interview's review in the app (Interviews → Open review), for a store with no page to open (the data on this Mac): the same content as
 - `desktop/renderer/interview-review.js` — An interview review's message as the parts the owner reads. src/ai/interviews.py writes it as:
 - `desktop/renderer/job-link.js` — Logged activity: the green box that links to the job a run created or updated ("Job created — <title>", Open job
+- `desktop/renderer/job-page-view.js` — A job's page in the app (Jobs → a row → the side panel): what the job's Notion page shows, read from the store, so it shows for
+- `desktop/renderer/jobs-board-rules.js` — Jobs → Board and the saved views, the rules without a window: the stage columns in funnel order, the Applications database's 10 views
 - `desktop/renderer/jobs-view.js` — The Jobs page's derived bits, kept free of the DOM so the tests can check them.
 - `desktop/renderer/kits-ready.js` — The "Prepare top matches" message as the card's parts. src/daily.py (--mode kits) writes it as:
 - `desktop/renderer/knockout.js` — Questions a hiring system can be set to reject on by itself (recruiters on r/recruiting, 2025-26: work authorisation, sponsorship, location or
 - `desktop/renderer/labels.js` — Is this the same form question? Claude rewords and shortens ("I agree to use only my own words; AI-generated content
-- `desktop/renderer/lead-confirm.js` — Log job activity, step 2 (the confirmation): nothing reaches Notion until you've confirmed what Claude couldn't
+- `desktop/renderer/lead-confirm.js` — (no header comment: add one)
 - `desktop/renderer/license-chip.js` — The small counter in the sidebar ("Free plan · 28 of 40 applications left"): which plan this is and what the number counts, at a glance
 - `desktop/renderer/live-log.js` — The running task's live log in the window: the app (lib/pipeline.js current.log, its last 300 lines) is the copy that lasts; the window's own
 - `desktop/renderer/mail-report.js` — A Gmail check's message as the parts of it the owner reads. src/ai/mail.py writes the lines (prep_message and the
@@ -313,6 +335,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/proposal-pick.js` — The proposed answer for a field the form still has empty (no DOM: the session page's row asks this, a test feeds it every source).
 - `desktop/renderer/question-words.js` — The words of a "Which job is this email about?" question, shared by the Gmail card (pages/activity.js) and its popup (pages/reassign.js).
 - `desktop/renderer/questions-view.js` — What the "Answer once" card says when its questions couldn't be read: nothing while Notion isn't connected, else one plain line.
+- `desktop/renderer/reports-view.js` — Reports (pages/reports.js), pure: the weekly reports in full, the insight history with its feedback, and the funnel's table, from the
 - `desktop/renderer/result-seen.js` — Which finished runs have had their result card shown on Actions (#280, 5 Oct 2026). A run's id is its start time, so a search started at 10:00 that ends at 10:30 has a
 - `desktop/renderer/review-again.js` — Interviews → a reviewed row's ⋯ "Review again": its menu entry (busy while it runs) and the message after it.
 - `desktop/renderer/review-pending.js` — Interviews being reviewed elsewhere (Always on: GitHub runs the review; the app's call returns at once): remembered
@@ -330,6 +353,9 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/sessions-cache.js` — The last known session list, so the Applying page paints it at once instead of a spinner — or, before this, the
 - `desktop/renderer/sidebar-rail.js` — The sidebar as an icon rail: automatically in a narrow window (under 1180 px, where there is no room for labels), or when the person
 - `desktop/renderer/stop-task.js` — Stop on a running task (owner, 7 Oct 2026: a search ran for an hour with no way to stop it): the Actions banner and Recent activity's
+- `desktop/renderer/store-move-text.js` — What Settings → Your data says while the data moves to Notion and after (lib/store-move.js): pure, so its wording is tested
+- `desktop/renderer/store-name.js` — The store's name for modules that run without the window's state (their node tests import them): renderer/store-words.js sets it
+- `desktop/renderer/store-words.js` — Where the person's data is kept, in the words the window says (lib/store: Notion, or Job Pilotto on this Mac). A page says
 - `desktop/renderer/strategy-parts.js` — The Strategy page's pure parts (owner mockup, 7 Oct 2026): role families, goal notes (estimated salary, language levels not set), the
 - `desktop/renderer/targets.js` — Where a click on a notification (macOS / Windows) or an in-window pop-up leads (pure, no DOM: main.js checks a target, the window follows it). A target is plain data with fixed keys, checked here befo
 - `desktop/renderer/tips-pool.js` — The pool of facts and advice rotated in the ticker on the Application sessions page (tips.js).
@@ -404,6 +430,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/__main__.py` — Command line entry point: python -m src <command> [options].
 - `src/ai/added.py` — Jobs you add yourself get AI stage 1 facts and the stage 2 fit score, on their Applications row (no Job Matches row).
 - `src/ai/apply_batch.py` — Queue every ready application kit into the ChatGPT/Codex desktop app, one chat each.
+- `src/ai/apply_record.py` — A form fill's run in the active store (src/stores agent_runs): its record in the spec's shape, and the learnings
 - `src/ai/apply_run.py` — Run one observable Codex browser fill and record its review handoff.
 - `src/ai/board_ideas.py` — Job boards for the user's countries and kinds of role, proposed by Claude (spec docs/superpowers/specs/2026-10-08-job-board-discovery.md;
 - `src/ai/budget.py` — Monthly AI budget: how much of this month's Anthropic spend limit is used, and what to do about it.
@@ -416,20 +443,21 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/inbox_dates.py` — 📥 Log anything, part 2: dates as a chat writes them ("MONDAY 12:33 AM", "Sep 21") resolved against the day it is
 - `src/ai/inbox_events.py` — 📥 Log anything, part 5: the last message of a conversation as an event on the job, and the note an event carries.
 - `src/ai/inbox_fields.py` — 📥 Log anything, part 4: the confirmation step's questions (fields: ok / check / ask), the agreement to talk, and what an
-- `src/ai/inbox_notion.py` — 📥 Log anything, part 3: what a log writes in Notion: the job's page entry with its screenshots, a new Applications row,
+- `src/ai/inbox_notion.py` — 📥 Log anything, part 3: what a log writes through the active store (src/stores): the job's logged entry (base.LOGGED) with
 - `src/ai/inbox_reading.py` — 📥 Log anything, part 1: what Claude is told and how its reading is asked for (the kinds, the schema, the prompt,
 - `src/ai/inbox.py` — 📥 Log anything: a pasted message or a screenshot (LinkedIn, Gmail, WhatsApp…) -> the right job, updated or created.
+- `src/ai/insights_data.py` — The daily insight and weekly report, what they read: the owner's applications with their outcomes, the funnel, the
 - `src/ai/insights_text.py` — What the Insights messages say: the honesty rules shared by both prompts, the weekly report's schema and prompt, and the weekly Telegram text and Notion page body.
 - `src/ai/insights.py` — Daily insight: one finding a day about the job search, sent to Telegram and kept in Notion 💡 Insights.
 - `src/ai/interview_insights_text.py` — Interview insights' constants and its one AI call's words: limits, categories, the pattern kinds, DATA_VERSION, the output schema and the system prompt.
 - `src/ai/interview_insights.py` — Interview insights: what your reviewed interviews say together, for the Interviews page and 💡 Insights.
 - `src/ai/interviews_ai.py` — Interview analysis, the Claude call: the model names, the facts a call can reveal, the review's schema and prompt,
+- `src/ai/interviews_apps.py` — Interview analysis, the job an interview belongs to, on the store: finding it (by id, by URL), adding a job an interview
 - `src/ai/interviews_blocks.py` — Interview analysis, what is written: the Interviews page (job line, review blocks, transcript), its row properties and
 - `src/ai/interviews_facts.py` — Interview analysis, the call's facts about the job (salary, contract, place…): read from the review, merged with what the
 - `src/ai/interviews_input.py` — Interview analysis, the input: a Telegram file, a subtitle file stripped of its timing, a recording transcribed on the
-- `src/ai/interviews_review.py` — Interview analysis, replacing a review on an Interviews page: finding the blocks an earlier review wrote and swapping them.
+- `src/ai/interviews_review.py` — Interview analysis, a review on a Notion Interviews page: the blocks an earlier review wrote (found by its headings) and the
 - `src/ai/interviews_stages.py` — Interview analysis, the stages: which stages an interview moves forward, which it never touches, and the stage a held
-- `src/ai/interviews_store.py` — Interview analysis, finding things in Notion: the application a job URL names, a saved transcript, linking and deleting
 - `src/ai/interviews.py` — Interview analysis: a recording, a transcript file or typed notes -> 🎤 Interviews.
 - `src/ai/kit.py` — Application kit: a drafted cover letter and form answers for one job, on request.
 - `src/ai/learning.py` — Cross-application learning evidence and conservative validation of global advice. No model calls."""
@@ -441,7 +469,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/mail_lines.py` — How the check names and reports a job: ask() for an email it cannot place, the run's short update lines and Telegram headings.
 - `src/ai/mail_match.py` — Matching an email or calendar event to a tracked application: company, agency, contact names, ambiguity.
 - `src/ai/mail_read.py` — Reading side of the Gmail check: saved state, the open applications, the Gmail queries and the model classification of emails.
-- `src/ai/mail_record.py` — Writing side of the Gmail check: the events index, the stage ladder (advance, forward only), the Changes column text and record().
+- `src/ai/mail_record.py` — Writing side of the Gmail check: the events index, the stage ladder (advance, forward only), an event's changes and record().
 - `src/ai/mail_sent.py` — Your own sent emails to a recruiter (Replied events) and the review of new rejections.
 - `src/ai/mail_triage.py` — Which new inbox emails are about the owner's job search, decided by Claude in any language instead of subject words (owner, 8 Oct 2026:
 - `src/ai/mail.py` — Gmail + Calendar -> the application ledger, read-only.
@@ -480,19 +508,21 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/daily_modes.py` — The jobs check's single-purpose modes, one function each (src/daily.py main() picks one): import, apply, prepare, kits, add (a pasted
 - `src/daily_search.py` — The jobs check's search itself (modes scheduled, run, today, more): crawl the feeds, import, enrich, score, sync Job Matches and the
 - `src/daily.py` — Run the local scan, import canonical state and optionally send Telegram digest."""
-- `src/desktop_jobs.py` — The desktop app's job list and posting: stage_status, jobs(), posting(), notion_posting() (a pure move out of desktop.py).
-- `src/desktop_status.py` — The desktop app's application status writes: set_status() and delete_job() with the Notion Stage first (a pure move out of desktop.py).
+- `src/desktop_jobs.py` — The desktop app's job list and posting: stage_status, jobs(), posting(), store_posting() (a pure move out of desktop.py).
+- `src/desktop_status.py` — The desktop app's application status writes: set_status() through the store (src/stores: the job's Stage, any store), and
+- `src/desktop_store_jobs.py` — The desktop Jobs list from a store that is not Notion: Tracker.notion_jobs()'s list, in exactly its shape, built from
 - `src/desktop_strategy.py` — The Strategy page's data (strategy()), the Calendar's jobs and the sites-to-visit list (a pure move out of desktop.py).
 - `src/desktop.py` — JSON commands for the desktop app (desktop/), which runs this package as a local helper.
 - `src/digest.py` — Telegram digest: filtering, ranking, rotation, paging and message layout."""
 - `src/doctor.py` — Readiness check: is everything set up, and what is the one thing to do next?
 - `src/employer_index.py` — The central employer index: feeds found and verified by one scout for everyone, downloaded by every install.
 - `src/features.py` — Optional features: what each one needs, what it costs, and one switch to turn any of them off.
-- `src/feedback.py` — Employer feedback loop. Notion holds the status, verbatim feedback and timeline; no AI or email sending."""
+- `src/feedback.py` — Employer feedback loop. The store holds the status, verbatim feedback and timeline (events); no AI or email sending.
 - `src/focus_items.py` — Focus, part 1: the constants (time zone, targets, who-wrote-last sets) and the small helpers every Focus item is
 - `src/focus_state.py` — Focus, part 2: reading the application's history into a state: the app's own bookkeeping events, the interview
 - `src/focus.py` — Focus: what to do next in the job search, most important first. No AI, so it costs nothing.
 - `src/import_url.py` — One job link, put through the same path as a job a search found.
+- `src/ledger_store.py` — The application ledger on the store (src/stores): stage events, the Applied mark and the frozen record, for every
 - `src/legacy_lists.py` — The starter feeds and seed names the app shipped before 6 Oct 2026, when every install copied them into its own config folder. They now
 - `src/levels.py` — The level a person is looking for ("junior", "mid", "senior", "lead") as title words to skip, before any AI is spent on a posting.
 - `src/notion/client.py` — Notion "Job Tracker" (formerly "Applications — Job Tracker"): the durable record of every opportunity.
@@ -508,7 +538,8 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/notion/matches.py` — Mirror AI-scored jobs into the Notion database "Job Matches — AI Scored".
 - `src/notion/origin.py` — Outbound or inbound: did you go after this opportunity, or did it find you? The Applications row's own Origin column
 - `src/notion/pace.py` — One Notion pace shared with the desktop app and every other process on this computer using the same connection.
-- `src/notion/runs.py` — Notion "🤖 Agent Runs": one row per form-filling session, and the learnings read back from it.
+- `src/notion/retry.py` — Which failed Notion requests may be sent again: one table, statuses × kinds of request (Tracker._request in src/notion/client.py;
+- `src/notion/runs.py` — The names a form fill's run is recorded with: its job board from the URL, its agent and its status.
 - `src/notion/search_settings.py` — ⚙️ Search settings: what Job Pilotto looks for, as a readable Notion page (the source of truth).
 - `src/notion/titles.py` — An inbound job's title names who it is for: "Principal SRE · Acme", else "Principal SRE · via Huxley".
 - `src/paths.py` — Repository paths shared by every module."""
@@ -517,11 +548,12 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/progress.py` — Live progress for a long step: "⏳ Reading new jobs with AI: 12 of 26", printed at the start, then at most every few seconds and at the end.
 - `src/regions.py` — Place words that stand for many places. A search that says "Switzerland" must find a job posted as "Lausanne", and "Romandie" must find
 - `src/role_kinds.py` — Kinds of role (software, retail, logistics, …): what an employer or a job board mostly hires for, and what a search looks for.
+- `src/run_log.py` — The run history on the store: a run's row in stores.cron_runs (⏱️ Search runs in Notion, data/tracker.sqlite on this Mac),
 - `src/run_result.py` — The versioned result of one engine process, written for the desktop app.
 - `src/scout_candidates.py` — Source scout, harvest: where candidate employers come from (seed lists, Hacker News "Who is hiring?", hiring-without-whiteboards,
 - `src/scout_core.py` — Shared base of the source scout (src/scout.py and its scout_*.py pieces): paths, tuning numbers, the candidate table's SQL,
 - `src/scout_index.py` — Source scout, central index: the lists the central scout publishes to every install (feeds, boards, health, market coverage, unread
-- `src/scout_notion.py` — Source scout, Notion registry: the Notion "Employers & Sources" database. Which feeds are active (`active_sources`, `notion_feeds`),
+- `src/scout_notion.py` — Source scout, the employers registry: the active store's employers (🌍 Employers & Sources in Notion, the employers table on this
 - `src/scout_probe.py` — Source scout, probing: which candidates are due (`next_batch`), whether a feed belongs to the company (`belongs_to`, `job_hosts`),
 - `src/scout.py` — Source scout: grow the list of employer job feeds a few companies per run.
 - `src/secret_store.py` — This computer's own secret store: the macOS Keychain (the `security` tool) or, on Windows, the
@@ -550,7 +582,26 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/sources/visits_recipes.py` — The reading recipes of visited sites: a layout learned with Claude (or served by the pool and checked again), how many visits in a row it
 - `src/sources/visits.py` — Sites only you can open (owner, 7 Oct 2026): employers whose job site refuses automated visitors (401/403/429, a bot check) and job portals
 - `src/sources/web_search.py` — A web search for a company's own job site ("<company> jobs"), as a person would do it, for employers the scout cannot reach by name or website
+- `src/store_access.py` — The run's store, light to import (the desktop commands and the scheduled search both use it): the active store opened once,
 - `src/store.py` — Canonical local store for jobs, companies, sources and application state."""
+- `src/stores/__main__.py` — `python -m src.stores call <entity> <method> '<json kwargs>'`: one store method, JSON out on stdout.
+- `src/stores/base.py` — The store interface: one Protocol per entity of the user's data, plain dicts in and out (never Notion JSON).
+- `src/stores/copy.py` — Move the user's data from one store to another ("Move my data to Notion"): every entity, through the interface.
+- `src/stores/matches_sync.py` — A search's scored jobs into a store's Matches, for the stores without a sync of their own (memory, sqlite): the same rows
+- `src/stores/memory.py` — The in-memory store: the reference adapter (what the contract means, in the fewest lines) and a fake for tests.
+- `src/stores/notion_agent_runs.py` — The notion store's AgentRuns: 🤖 Agent Runs rows (form fills and Apply sessions) as store records.
+- `src/stores/notion_blocks.py` — Markdown ↔ Notion blocks: how a store's Markdown fields (a job's sections, an interview's review, an insight's body)
+- `src/stores/notion_conversation.py` — An Apply session's conversation as Notion blocks and back: the "💬 Conversation" toggle on its 🤖 Agent Runs row.
+- `src/stores/notion_cron_runs.py` — The notion store's CronRuns: ⏱️ Search runs rows as store records, the one run history wherever a run happened.
+- `src/stores/notion_employers.py` — The notion store's Employers: 🌍 Employers & Sources rows as store records, one per employer (matched by name, any case).
+- `src/stores/notion_insights.py` — 💡 Insights in Notion as the store's insights (base.Insights): one database row per insight, plain dicts out.
+- `src/stores/notion_interviews.py` — 🎤 Interviews in Notion as the store's interviews (base.Interviews): one database row per interview, plain dicts out.
+- `src/stores/notion_matches.py` — The notion store's Matches: 🎯 Job Matches rows as store records, one per job (found by its URL, src/stores/base.url_key).
+- `src/stores/notion_rows.py` — Notion rows ↔ store records: which column holds each field, and plain values ↔ Notion property values.
+- `src/stores/notion_texts.py` — The notion store's Texts: the Profile, the standard answers and 🧠 Form knowledge, each a Notion page read and written whole as Markdown.
+- `src/stores/notion.py` — The notion store: the user's data in their Notion workspace (today's databases and pages), behind src/stores/base.py.
+- `src/stores/rules.py` — The application stage rules, above the store interface: one copy for every store (sqlite, notion, later ones).
+- `src/stores/sqlite.py` — The SQLite store: the user's data on this Mac, the default adapter when Notion isn't chosen.
 - `src/telegram.py` — Sending Telegram messages; the bot token comes from the environment or the macOS Keychain."""
 - `src/tgcard.py` — One look for every Telegram message Job Pilotto sends (Telegram HTML).
 - `src/time_budget.py` — A refresh's time budget (owner, 7 Oct 2026: "never more than 2-3 minutes"; a run read 1,650 jobs and sorted 600 titles for 30 minutes).

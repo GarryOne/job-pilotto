@@ -404,12 +404,13 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .search-box { flex: 1; }
 .search-box .icon, .sort-box .icon { position: absolute; left: 11px; color: var(--muted); pointer-events: none; }
 .toolbar input, .toolbar select { font-size: var(--fs-md); }
-.search-box input { padding: 7px 10px 7px 34px; border-color: var(--line); border-radius: var(--r-md); }
+.search-box input { min-height: var(--control-h); padding: 7px 10px 7px 34px; border-color: var(--line); border-radius: var(--r-md); }
 .sort-box select { padding-left: 32px; }
-.toolbar select { width: 150px; padding-top: 7px; padding-bottom: 7px; border-color: var(--line); border-radius: var(--r-md); }
+.toolbar select { min-height: var(--control-h); width: 150px; padding-top: 7px; padding-bottom: 7px; border-color: var(--line); border-radius: var(--r-md); }
 
 /* Count and density switch */
 .list-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.list-right { display: flex; align-items: center; gap: var(--sp-2); }
 #jobs-count { font-weight: 600; font-size: var(--fs-md); }
 .density { display: inline-flex; background: var(--line); border-radius: var(--r-md); padding: 2px; }
 .density button { background: transparent; border: 0; font-size: var(--fs-xs); font-weight: 500; color: var(--muted); padding: 4px 10px; border-radius: var(--r-sm); }
@@ -528,6 +529,37 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .compact .meta .sep { color: var(--line-strong); }
 .compact .reason { -webkit-line-clamp: 1; margin-top: 3px; }
 .compact .tags { margin-top: 5px; }
+
+/* Jobs → Board (pages/jobs-board.js): one column per stage, side by side, scrolling sideways; cards are the In conversation rows
+   (.focus-item); an empty column stays narrow but still takes a drop. */
+.board { display: flex; gap: var(--sp-3); overflow-x: auto; align-items: flex-start; padding-bottom: var(--sp-3); }
+.board-column { flex: 0 0 240px; background: var(--surface-2); border-radius: var(--r-md); padding: var(--sp-2); min-height: 120px; }
+.board-column.is-empty { flex-basis: 150px; }
+.board-column.is-over { box-shadow: inset 0 0 0 2px var(--signal); }
+.board-column-head { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.board-cards .board-card { cursor: grab; align-items: flex-start; }
+.board-card .focus-headline { overflow-wrap: anywhere; }
+.board-card.is-dragging { opacity: .5; }
+.board-empty { flex: 0 0 100%; }
+/* Jobs → a job's page beside the list (pages/job-panel.js): the list keeps its compact rows (title, fit, company · status), the panel scrolls
+   on its own. Its content is the interview review's groups (.iv-moments-group) and the page tabs (.tabs), wrapped to the panel's width. */
+.job-split.has-panel { display: grid; grid-template-columns: minmax(280px, 38%) minmax(0, 1fr); gap: var(--sp-4); align-items: start; }
+.job-split.has-panel .job-row .row-actions, .job-split.has-panel .job-row .tags, .job-split.has-panel .job-row .reason { display: none; }
+.job-split.has-panel .job-row { grid-template-columns: 76px minmax(0, 1fr); cursor: pointer; }
+.compact .job-row.is-selected { border-left-color: var(--signal); border-color: var(--line-strong); }
+/* Sticks where main's content starts (its own top padding), not 16 px below it: scrolled, it sat 36 px under the list's first row (mac-48, 9 Oct). */
+.job-panel { position: sticky; top: 0; max-height: calc(100vh - var(--sp-6) * 2); overflow: auto; margin-bottom: 0; }
+.job-panel-head { display: flex; justify-content: space-between; align-items: start; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.job-panel-head h2 { margin: 0; font-size: var(--fs-lg); }
+.job-panel-shot { display: block; max-width: 100%; margin-top: var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.job-panel .tabs { flex-wrap: wrap; gap: 0 var(--sp-3); margin-top: var(--sp-2); }
+/* Settings → Profile's texts on a store whose page is the editor (pages/text-editors.js): read-only reads as such. */
+.text-editor-body textarea[readonly] { background: var(--surface-2); color: var(--ink-2); }
+/* Reports → Insights (pages/reports.js): one insight after another, its feedback choice closing it. */
+.reports-insight { padding-bottom: var(--sp-4); margin-bottom: var(--sp-4); border-bottom: 1px solid var(--line); }
+.reports-insight .segmented { margin-top: var(--sp-2); }
+.job-panel .iv-moments-group h3, .job-panel-line { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); }
+.job-panel .iv-practice { margin-top: var(--sp-3); }   /* the Review tab's steps, after its list (the Interviews page spaces them by its own layout) */
 
 /* Narrow window (under 1180 px; the window's minimum is lib/main-window.js MIN_WIDTH): the comfortable card stacks company, place and
    status under the title, and its actions go beneath the job instead of a column of their own. */
@@ -649,19 +681,8 @@ button.with-icon .icon { width: 15px; height: 15px; }
   .iv-pattern { grid-template-columns: auto minmax(0, 1fr); }
   .iv-chips { grid-column: 2; justify-content: flex-start; }
 }
-.iv-lib tr.is-flash td { background: var(--info-soft); transition: background .3s; }
-.iv-lib-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
-table.iv-lib { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
-.iv-lib th { text-align: left; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
-  padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
-.iv-lib th:last-child { width: 1%; }
-.iv-lib td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
-.iv-lib tr:last-child td { border-bottom: 0; }
-.iv-lib tr:hover td { background: var(--surface-2); }
+.lib-table tr.is-flash td { background: var(--info-soft); transition: background .3s; }
 .iv-date { white-space: nowrap; color: var(--ink); }
-.iv-who { display: flex; align-items: center; gap: 10px; }
-.iv-who b { font-size: var(--fs-md); }
-.iv-who .muted { font-size: var(--fs-sm); line-height: 1.35; }
 .iv-where { color: var(--ink); }
 .iv-picker { display: grid; gap: 4px; margin-top: 6px; }
 .iv-picker select, .iv-picker input { font-size: var(--fs-sm); padding: 4px 8px; }
@@ -978,7 +999,6 @@ main { min-width: 0; }
 .list-bar { flex-wrap: wrap; gap: 8px; }
 .stat > div { min-width: 0; }
 .stat > div span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.iv-lib-wrap { overflow-x: auto; }
 
 /* The sidebar as an icon rail (class .app.rail, set by sidebar-rail.js: under 1180 px, or when the menu was collapsed with its button):
    labels become tooltips (title), the footer notes are hidden. */
@@ -1460,13 +1480,11 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 /* "Read the N stopped sites with Claude" under a Find jobs using your browser card's heading (renderer/pages/activity.js renderVisitsCard). */
 .insight-head .visits-claude-all { margin-top: var(--sp-3); }
 #visits-sites, #visits-unread { max-height: min(46vh, 420px); overflow-y: auto; overscroll-behavior: contain; border-bottom: 1px solid var(--line); margin-bottom: var(--sp-2); scrollbar-gutter: stable; }
-#visits-sites::-webkit-scrollbar, #visits-unread::-webkit-scrollbar { width: 8px; }   /* shown, not the overlay one that hides until you scroll: there is more below */
 #visits-dialog .visits-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
 #visits-dialog .visits-row .check-row { flex: 1; min-width: 0; }
 #visits-dialog .visits-remove { flex: none; }
 #visits-dialog .visits-pick { margin: var(--sp-4) 0 var(--sp-2); }
 #visits-dialog .task-count-field { display: flex; margin: var(--sp-2) 0 var(--sp-4); }
-#visits-sites::-webkit-scrollbar-thumb, #visits-unread::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: var(--r-pill); }
 .task-card button.action { flex: none; min-width: 72px; display: block; padding: 8px 18px; text-align: center; font-weight: 600; }
 .runs-card { margin-top: 0; }
 .runs-table { list-style: none; padding: 0; margin: 0; }
@@ -1762,6 +1780,8 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .insight-card { display: grid; gap: var(--sp-4); padding: 20px; border: 1px solid var(--line);
   border-radius: var(--r-lg); background: var(--surface); }
 .insight-head { display: grid; gap: var(--sp-2); }
+/* The same card drawn inside a container that is already a card (Reports → Form fills): its parts and spacing, no second box. */
+.insight-card.is-flat { padding: 0; border: 0; border-radius: 0; background: none; }
 .insight-kicker { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
 .insight-category { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 /* The card's type scale, one step down from the mockup's: its display title was drawn for a short phrase, while a
@@ -2112,7 +2132,7 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 /* Interview library: the Job column (company, then the role). */
 .iv-job { min-width: 180px; max-width: 260px; }
 /* A button's text is centred by default: a job name that wraps (no company, a long title) lined up in the middle of its cell. */
-.iv-who button.link { text-align: left; }
+.lib-who button.link { text-align: left; }
 
 /* The AI engine chooser (pages/ai-engine.js): wizard AI step and Settings → Connections → AI. */
 .engine { display: flex; flex-direction: column; gap: var(--sp-4); }

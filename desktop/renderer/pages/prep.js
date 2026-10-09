@@ -3,6 +3,9 @@
 import {$, message, show} from './core.js';
 import {loadFocus, markPrep} from './focus.js';
 import {toastMessage} from './startup.js';
+import {byStore} from '../store-words.js';
+import {openView} from './nav.js';
+import {openJobPanel} from './job-panel.js';
 
 let current = null;   // the Focus item the dialog is for
 let step = '';        // the engine's current step (onPrepStep)
@@ -56,9 +59,12 @@ async function build() {
   }
   message('prep-message', result.text || '', result.ok ? 'ok' : 'error');
   if (result.ok) {
-    show($('prep-open'), !!current.notion_url);
+    // The kit where it is: its Notion page, else the job's page here, Prep tab (the button's words follow: the Notion label is index.html's).
+    const jobUrl = current.url || current.job_url;
+    $('prep-open').textContent = current.notion_url ? $('prep-open').dataset.notionLabel : 'Open the prep kit';
+    show($('prep-open'), !!(current.notion_url || jobUrl));
     $('prep-go').textContent = 'Build again';
-    toastMessage('Prep kit ready ✓', `${current.company || current.via || ''} · ${current.job}: on the job's Notion page.`);
+    toastMessage('Prep kit ready ✓', `${current.company || current.via || ''} · ${current.job}: on the job's ${byStore('Notion page', 'page')}.`);
     loadFocus();
   }
 }
@@ -74,7 +80,16 @@ export function openPrep(item) {
 
 export async function init() {
   window.pilot.onPrepStep(text => { step = text; });
-  $('prep-open').addEventListener('click', () => current?.notion_url && window.pilot.openExternal(current.notion_url));
+  $('prep-open').dataset.notionLabel = $('prep-open').textContent;
+  $('prep-open').addEventListener('click', () => {
+    if (!current) return;
+    if (current.notion_url) { window.pilot.openExternal(current.notion_url); return; }
+    const url = current.url || current.job_url;
+    if (!url) return;
+    $('prep-dialog').close();
+    openView('jobs');
+    openJobPanel({url, title: current.job, company: current.company || current.via}, 'prep');
+  });
   $('prep-go').addEventListener('click', async event => {
     event.preventDefault();
     if (!current) return;

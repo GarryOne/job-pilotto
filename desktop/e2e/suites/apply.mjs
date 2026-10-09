@@ -7,7 +7,7 @@ import path from 'node:path';
 import {cvProblems, fillProblems, highlightProblems, leftProblems, submitProblems} from '../lib/applycheck.mjs';
 import {CHAIN, FORMS, HOSTS, LATE, REAL_FORMS, SCRIPTED, SIGNIN, SIGNIN_REFUSED, SIGNUP, MENU_FIRST, MENU_AGAIN, PROPOSE, REVEAL, COLLAPSED, ONEPAGE, MISLABELLED, realFieldId} from '../lib/forms.mjs';
 import {launchBrowser, readForm, readPanel, fillState} from '../lib/extension.mjs';
-import {addKitJob, removeJobsByUrl, stageOf} from '../lib/notion.mjs';
+import {addKitJob, removeJobsByUrl, stageOf} from '../lib/seed-data.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 import {appLogLines, appLogText} from '../lib/app-log.mjs';
 import {livePosting, realKind, runLive} from '../lib/apply-live.mjs';
@@ -59,8 +59,8 @@ export async function runApply(ctx, parts) {
 
   await ctx.run('the app has an applicant, jobs with drafted kits for every fixture form, and an AI that answers only what the kits do not', async () => {
     await page.evaluate(contact => window.pilot.saveContact(contact), live && process.env.LIVE_EMAIL ? {...CONTACT, email: process.env.LIVE_EMAIL} : CONTACT);   // LIVE_EMAIL: the live run signs up with the owner's own plus address
-    console.log(`  removed ${await removeJobsByUrl(NOTION, urls)} job row(s) left by an earlier run`);
-    for (const form of fixtures) await addKitJob(NOTION, {title: form.title, company: form.company, url: form.url, kit: {answers: form.kit, cover_letter: '', check_before_sending: []}, description: POSTING});
+    console.log(`  removed ${await removeJobsByUrl(ctx, urls)} job row(s) left by an earlier run`);
+    for (const form of fixtures) await addKitJob(ctx, {title: form.title, company: form.company, url: form.url, kit: {answers: form.kit, cover_letter: '', check_before_sending: []}, description: POSTING});
     // The app's own AI calls go to the test proxy: the one question no kit covers gets a fixed answer, everything else would pass through (and is counted).
     proxy.setCanned(body => {
       const content = body.messages?.[0]?.content;
@@ -311,10 +311,10 @@ export async function runApply(ctx, parts) {
     if (state.state === 'error') throw new Error(`the fill ended in an error: ${state.error}`);
     fail(fillProblems({expected: {first_name: CONTACT.first_name, last_name: CONTACT.last_name, email: CONTACT.email, question_4001: '9'}, actual: await readForm(tab)}));
     if (!(await sessionsOf(form.url)).length) throw new Error('the Apply click left no session for this job (nothing to take off the list)');
-    if ((await stageOf(NOTION, form.url)) === 'Applied') throw new Error('the job was Applied before anyone submitted');
+    if ((await stageOf(ctx, form.url)) === 'Applied') throw new Error('the job was Applied before anyone submitted');
     const asked = proxy.stats.canned;
     await tab.click('#submit_app');   // the person's click
-    await until('the job never became Applied after the person submitted', async () => (await stageOf(NOTION, form.url)) === 'Applied', 90000);
+    await until('the job never became Applied after the person submitted', async () => (await stageOf(ctx, form.url)) === 'Applied', 90000);
     if (forms.posts.length !== 1) throw new Error(`expected the person's one Submit, the server saw ${forms.posts.length}`);
     if (proxy.stats.canned - asked < 1) throw new Error('the page after Submit was never sent to the AI');
     await until('the job is Applied but its session is still on the list', async () => !(await sessionsOf(form.url)).length, 30000);
@@ -326,16 +326,16 @@ export async function runApply(ctx, parts) {
     const result = await page.evaluate(url => window.pilot.setStatus(url, 'applied'), CHAIN.url);
     if (!result?.ok) throw new Error(`the app refused: ${result?.error}`);
     await until('"I submitted it" left the job\'s session on the list', async () => !(await sessionsOf(CHAIN.url)).length, 30000);
-    if ((await stageOf(NOTION, CHAIN.url)) !== 'Applied') throw new Error('the Notion row is not Applied');
+    if ((await stageOf(ctx, CHAIN.url)) !== 'Applied') throw new Error('the Notion row is not Applied');
   }, {needs: ctx.needs});
 
-  await runCvSteps(ctx, {NOTION, apply, cv, fail, page, panelOf, proxy});   // lib/apply-cv-steps.mjs
+  await runCvSteps(ctx, {apply, cv, fail, page, panelOf, proxy});   // lib/apply-cv-steps.mjs
 
   await ctx.run('through all of it: Submit was never clicked or submitted, and no host but the fixture job sites was contacted', async () => {
     fail(submitProblems(forms.fired, ''));
     const strange = [...ctx.browser.requested].filter(host => !HOSTS.includes(host) && host !== '127.0.0.1' && host !== 'localhost' && host !== '');
     if (strange.length) throw new Error(`the browser asked for hosts outside the fixtures: ${strange.join(', ')}`);
-    await removeJobsByUrl(NOTION, urls);
+    await removeJobsByUrl(ctx, urls);
   }, {needs: ctx.needs});
 
   // Found by this suite (2 Oct 2026): extension/review.js built the panel's list from native fields only, so a REQUIRED custom widget it cannot read (here a

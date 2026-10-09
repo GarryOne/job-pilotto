@@ -4,17 +4,20 @@
 import {el, moreButton, pill, tile} from '../components.js';
 import {shared} from './shared.js';
 import {$, osText, show} from './core.js';
+import {byStore} from '../store-words.js';
+import {jobOfApplication} from '../jobs-view.js';
 
 const iv = window.pilot.interviews;
 export const plainId = id => String(id || '').replace(/-/g, '');
 export const jobList = () => (Array.isArray(shared.allJobs) ? shared.allJobs : []);  // unset while the job list loads
 export const jobName = job => `${job.company} — ${job.title}${job.status === 'applied' ? ' (applied)' : ''}`;
-export const jobForPage = pageId => jobList().find(job => job.notion_url && plainId(job.notion_url).includes(plainId(pageId)));
+// An interview's job: by the store's id (job.page_id, every store) or its Notion page (renderer/jobs-view.js jobOfApplication).
+export const jobForPage = pageId => jobOfApplication(jobList(), pageId);
 
 // Every job in the list (applied and tracked ones first); one not in Applications yet is added there on save.
 export const PASTE = '__paste__';
 export function jobOptions(select, chosenUrl, emptyLabel) {
-  const rank = job => (job.status === 'applied' ? 0 : job.notion_url ? 1 : 2);
+  const rank = job => (job.status === 'applied' ? 0 : job.notion_url || job.page_id ? 1 : 2);   // tracked first, on any store
   const jobs = jobList().filter(job => job.url && job.status !== 'dismissed')
     .sort((a, b) => rank(a) - rank(b) || a.company.localeCompare(b.company));
   select.replaceChildren(new Option(emptyLabel, ''), ...jobs.map(job => new Option(jobName(job), job.url, false, job.url === chosenUrl)));
@@ -38,7 +41,7 @@ export function renderDrafts(drafts, env) {
     const when = new Date(draft.createdAt).toLocaleString([], {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'});
     const meta = el('div', 'muted small');
     const parts = [when, draft.seconds ? `${Math.max(1, Math.round(draft.seconds / 60))} min` : '', STATUS[draft.status] || draft.status,
-      draft.pageUrl ? 'Transcript in Notion' : 'Stored on this Mac'].filter(Boolean);
+      draft.pageUrl ? 'Transcript in Notion' : 'Stored on this Mac'].filter(Boolean);   // about Notion
     meta.textContent = parts.join('  ·  ');
     text.append(el('b', '', draft.title), meta);
     const [tone, label] = PILL[draft.status] || ['neutral', STATUS[draft.status] || draft.status];
@@ -50,10 +53,12 @@ export function renderDrafts(drafts, env) {
     main.addEventListener('click', () => env.openDraft(draft.id));
     const menu = [{label: 'Open', run: () => env.openDraft(draft.id)}];
     if (draft.pageUrl) menu.push({label: '↗ Transcript in Notion', run: () => window.pilot.openExternal(draft.pageUrl)});
+    // Saved with the data on this Mac (no page to open): the saved transcript and its review in the app (interview-review-view.js).
+    else if (draft.pageId && env.openReview) menu.push({label: 'Transcript and review', run: () => env.openReview(draft.pageId)});
     menu.push({label: osText('Show in Finder'), run: () => iv.recordings(), title: 'The recordings kept on this Mac'});
     if (!busy) {
-      menu.push('-', {label: draft.pageId ? 'Delete here and in Notion' : 'Delete recording', danger: true, run: async () => {
-        if (!confirm(draft.pageId ? `Delete "${draft.title}" on this Mac and in Notion?` : `Delete "${draft.title}" and its recording?`)) return;
+      menu.push('-', {label: draft.pageId ? byStore('Delete here and in Notion', 'Delete') : 'Delete recording', danger: true, run: async () => {
+        if (!confirm(draft.pageId ? `Delete "${draft.title}"${byStore(' on this Mac and in Notion', '')}?` : `Delete "${draft.title}" and its recording?`)) return;
         await iv.discard(draft.id);
         if (env.openId() === draft.id) env.closeEditor();
         renderDrafts(await iv.drafts(), env);

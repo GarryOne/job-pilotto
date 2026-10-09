@@ -95,35 +95,47 @@ class KitReadyStageTests(unittest.TestCase):
 
 
 class TrackedJobFallbackTests(unittest.TestCase):
-    """A job tracked in Notion but missing from the crawl's SQLite must still be markable/preparable."""
-    def test_apply_falls_back_to_the_notion_row(self):
-        url = 'https://job-boards.greenhouse.io/acme/jobs/42'
-        page = row(url, 'Saved')
-        page['id'] = 'row-42'
-        page['properties']['Job'] = {'title': [{'plain_text': 'Staff SRE'}]}
-        page['properties']['Company'] = {'rich_text': [{'plain_text': 'Acme'}]}
-        tracker = FakeTracker([page])
+    """A job in the store but missing from the crawl's SQLite must still be markable/preparable (any store: tracked_job reads
+    the store; the Notion side of the same reads is in tests/test_daily_store_notion.py)."""
+    def setUp(self):
         from unittest import mock
-        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(daily.ats, 'posting', return_value=None):
+        from src.stores import memory
+        self.stores = memory.open_store()
+        posting = mock.patch.object(daily.ats, 'posting', return_value=None)
+        posting.start()
+        self.addCleanup(posting.stop)
+
+    def test_apply_falls_back_to_the_application_record(self):
+        url = 'https://job-boards.greenhouse.io/acme/jobs/42'
+        self.stores.applications.create({'url': url, 'title': 'Staff SRE', 'company': 'Acme'}, 'Saved')
+        with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 self.assertIsNone(daily.find_job(db, url))
-                job = daily.tracked_job(url, tracker)
+                job = daily.tracked_job(url, self.stores)
                 self.assertEqual((job['title'], job['company'], job['id']), ('Staff SRE', 'Acme', None))
-                self.assertEqual(daily.tracked_job(applications.job_code(url), tracker)['url'], url)
-                self.assertIn('✅ <b>Marked applied</b>', daily.apply_message(db, url, tracker))
-                self.assertIsNone(daily.tracked_job('https://x.test/untracked', tracker))
+                self.assertEqual(daily.tracked_job(applications.job_code(url), self.stores)['url'], url)
+                self.assertIn('✅ <b>Marked applied</b>', daily.apply_message(db, url, self.stores))
+                self.assertIsNone(daily.tracked_job('https://x.test/untracked', self.stores))
 
-    def test_falls_back_to_job_matches_when_the_applications_row_is_gone(self):
+    def test_falls_back_to_the_match_when_there_is_no_application(self):
         url = 'https://jobs.ashbyhq.com/acme/abc-123'
-        match = {'properties': {'Job URL': {'url': url}, 'Job': {'title': [{'plain_text': 'Platform SRE'}]},
-                                'Company': {'rich_text': [{'plain_text': 'Acme'}]}}}
-        tracker = FakeTracker()
-        from unittest import mock
-        with mock.patch.object(daily.ats, 'posting', return_value=None), \
-                mock.patch.object(FakeTracker, 'query_database', lambda self, db, f=None: [match]):
-            job = daily.tracked_job(url, tracker)
-            self.assertEqual((job['title'], job['company'], job['url']), ('Platform SRE', 'Acme', url))
-            self.assertEqual(daily.tracked_job(applications.job_code(url), tracker)['url'], url)
+        self.stores.matches.upsert({'url': url, 'title': 'Platform SRE', 'company': 'Acme', 'location': 'Zurich'})
+        job = daily.tracked_job(url, self.stores)
+        self.assertEqual((job['title'], job['company'], job['url']), ('Platform SRE', 'Acme', url))
+        self.assertEqual(daily.tracked_job(applications.job_code(url), self.stores)['url'], url)
+
+
+class NewRowPostedTests(unittest.TestCase):
+    """A row a button creates (rules.mark, any store) keeps the posting's date, as Tracker._create_row's Posted always did."""
+    def test_posted_is_the_postings_date_else_the_day_it_was_first_seen(self):
+        from src.stores import memory, rules
+        stores = memory.open_store()
+        seen, _ = rules.mark(stores, {'url': 'https://x.test/1', 'title': 'SRE', 'company': 'Acme',
+                                      'first_seen_at': '2026-10-02T08:00:00+00:00'}, 'Saved')
+        self.assertEqual((seen['posted'], seen['notes']), ('2026-10-02', 'Posted date is when Job Pilotto first saw the job.'))
+        posted, _ = rules.mark(stores, {'url': 'https://x.test/2', 'title': 'SRE', 'company': 'Acme',
+                                        'posted_at': '2026-09-30', 'first_seen_at': '2026-10-02T08:00:00+00:00'}, 'Applied')
+        self.assertEqual((posted['posted'], posted['notes']), ('2026-09-30', ''))
 
 
 class DigestIntegrationTests(unittest.TestCase):
@@ -133,19 +145,21 @@ class DigestIntegrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 job_store.import_watch_report(db, report)
-                tracker = FakeTracker()
+                from src.stores import memory
+                stores = memory.open_store()
                 code = applications.job_code('https://x.test/1')
                 _, _, keyboards = digest.build_digest(db)
                 buttons = [b for row in keyboards[0]['inline_keyboard'] for b in row]
                 self.assertTrue(any(b['callback_data'].startswith(f'pick:{code}:') for b in buttons))
                 self.assertEqual([b['text'] for b in buttons], ['1', '2', '3'])
-                self.assertIn('✅ <b>Marked applied</b>', daily.apply_message(db, code, tracker))
-                self.assertIn('Already tracked', daily.apply_message(db, code, tracker))
-                self.assertIn('No job with code', daily.apply_message(db, 'deadbeef', tracker))
-                self.assertIn('⭐ <b>Saved</b>', daily.apply_message(db, applications.job_code('https://x.test/0'), tracker, 'saved'))
-                stages = tracker.url_stages()
+                self.assertIn('✅ <b>Marked applied</b>', daily.apply_message(db, code, stores))
+                self.assertIn('Already tracked', daily.apply_message(db, code, stores))
+                self.assertIn('No job with code', daily.apply_message(db, 'deadbeef', stores))
+                self.assertIn('⭐ <b>Saved</b>', daily.apply_message(db, applications.job_code('https://x.test/0'), stores, 'saved'))
+                stages = {r['url']: r['stage'] for r in stores.applications.list()}
                 saved = frozenset(u for u, s in stages.items() if s == 'Saved')
-                message = digest.format_digest(db, hidden_urls=frozenset(tracker.hidden_urls()), saved_urls=saved)
+                hidden = frozenset(u for u, s in stages.items() if s not in applications.VISIBLE_STAGES)
+                message = digest.format_digest(db, hidden_urls=hidden, saved_urls=saved)
                 self.assertIn('<b>1. <a href="https://x.test/0"', message)  # saved job ranks first, and says so
                 self.assertIn(' · Saved\n', message)
         self.assertNotIn('https://x.test/1"', message)

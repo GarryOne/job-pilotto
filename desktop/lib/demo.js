@@ -50,7 +50,7 @@ export const BLOCKED = ['notionConnect', 'notionOAuth', 'saveSecret', 'startTria
   'telegramCloudOn', 'telegramCloudOff', 'telegramConnect', 'googleConnect', 'licenseRemove', 'applyWithClaude', 'apply',
   'applyOne', 'sessionRestart', 'sessionReopen', 'sessionResume', 'updateInstall', 'updateCheck', 'betaSet', 'testSet', 'betaRollback', 'resetProfile', 'importProfile', 'importCv',
   'backupNow', 'refresh', 'firstSearch', 'checkMail', 'command', 'rescorePrevious', 'prepareKit', 'tailorCv', 'tailorTop', 'ivRecordStart',
-  'ivTranscribe', 'ivSave', 'ivLink', 'ivReview', 'answerQuestion', 'cvApply', 'cvReview', 'cvCheckRun', 'cvCheckAi', 'matchCheck', 'saveStrategy', 'setStatus',
+  'ivTranscribe', 'ivSave', 'ivLink', 'ivReview', 'answerQuestion', 'cvApply', 'cvReview', 'cvCheckRun', 'cvCheckAi', 'matchCheck', 'saveStrategy', 'setStatus', 'setStage',
   'setAutomation', 'lookAround'];
 export function blocked(name) {
   if (name === 'saveSecret') throw new Error(TEXT);  // its callers expect the keys back, or an error

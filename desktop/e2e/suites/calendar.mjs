@@ -2,8 +2,9 @@
 // Calendar: meetings from the Job Tracker ("Next interview") and from saved recordings, on dummy rows written through the Notion API, with the app running in a fixed time
 // zone (Asia/Tokyo, no daylight saving) and then in another (Pacific/Honolulu). Starts from a set-up install; resets only its own rows.
 import {launch} from '../lib/app.mjs';
-import {addDays, interviewProps, showsClock, trackerProps, weekDays} from '../lib/interview-data.mjs';
-import {createRow, emptyDatabase} from '../lib/notion.mjs';
+import {addDays, showsClock, weekDays} from '../lib/interview-data.mjs';
+import {addInterview, addTrackedJob} from '../lib/seed-data.mjs';
+import {clearData} from '../lib/start-state.mjs';
 import {finish, snap} from '../lib/layout.mjs';
 import {fastSeed, ensureSetUp} from '../lib/seed.mjs';
 import {captureExternal, ids, independent} from '../lib/steps.mjs';
@@ -17,7 +18,7 @@ const backToToday = async page => { if (await page.locator('#cal-today').isEnabl
 const monthTitle = day => new Date(`${day.slice(0, 7)}-01T00:00:00Z`).toLocaleDateString('en-US', {month: 'long', year: 'numeric', timeZone: 'UTC'});
 
 export async function run(ctx) {
-  const {page, app, token: NOTION} = ctx;
+  const {page, app} = ctx;
   ctx.findings = [];
   const {step, end} = independent(ctx);
   const today = dayIn(new Date(), ZONE);
@@ -49,7 +50,7 @@ export async function run(ctx) {
   await ensureSetUp(ctx);
   const external = await captureExternal(app);
   await ctx.run('this suite starts with no jobs and no interviews in its Notion page', async () => {
-    console.log(`  cleared ${await emptyDatabase(NOTION, 'Job Tracker')} job row(s) and ${await emptyDatabase(NOTION, 'Interviews')} interview row(s)`);
+    console.log(`  cleared ${await clearData(ctx, 'Job Tracker')} job row(s) and ${await clearData(ctx, 'Interviews')} interview row(s)`);
   });
 
   await step('the app runs in the time zone the test asked for', async () => {
@@ -67,14 +68,11 @@ export async function run(ctx) {
     await snap(ctx, 'calendar-empty', {view: 'calendar', situation: 'A calendar with no meeting'});
   });
 
-  await ctx.run('this suite writes its dummy meetings to Notion', async () => {
-    for (const item of meetings) {
-      const created = await createRow(NOTION, 'Job Tracker', trackerProps({role: item.role, company: item.company, url: `https://boards.e2e.test/cal/${item.key}`, stage: item.stage, nextInterview: item.at}));
-      seed[item.key] = created;
-    }
+  await ctx.run('this suite writes its dummy meetings to the store', async () => {
+    for (const item of meetings) seed[item.key] = await addTrackedJob(ctx, {role: item.role, company: item.company, url: `https://boards.e2e.test/cal/${item.key}`, stage: item.stage, nextInterview: item.at});
     // A recording on the third day, linked to the Acme job (held), and an old one with no job (past).
-    await createRow(NOTION, 'Interviews', interviewProps({name: 'E2E Acme · Recruiter screen', day: l3, round: 'Recruiter screen', overall: 'positive', applicationId: seed.acme.id}));
-    await createRow(NOTION, 'Interviews', interviewProps({name: 'E2E Old call', day: oldDay, round: 'Call'}));
+    await addInterview(ctx, {name: 'E2E Acme · Recruiter screen', day: l3, round: 'Recruiter screen', overall: 'positive', applicationId: seed.acme.id});
+    await addInterview(ctx, {name: 'E2E Old call', day: oldDay, round: 'Call'});
   });
   if (!seed.epsilon) throw new Error('the dummy meetings were not written: the other steps cannot run');
 
@@ -133,6 +131,8 @@ export async function run(ctx) {
     if (await page.locator('#cal-today').isEnabled()) throw new Error('Today is still enabled while this month is shown');
   });
 
+  // On this Mac's store a job has no Notion page: a meeting opens the job's side panel in the app instead (owner via mac-e4, 9 Oct 2026; mac-27 f8f8d5e): the next step.
+  const notionPage = {name: 'a Notion page for the meeting\'s job (on this Mac\'s store the next step checks the job\'s side panel)', value: ctx.store !== 'sqlite'};
   await step('a meeting opens its job in Notion, from the grid and from the agenda', async () => {
     await openCalendar();
     await page.waitForFunction(() => document.querySelectorAll('#cal-grid .cal-chip').length >= 5, null, {timeout: 60000});
@@ -150,14 +150,36 @@ export async function run(ctx) {
     await cell(page, l3).locator('.cal-chip').first().click();   // the held recording: opens the job it belongs to
     await page.waitForTimeout(400);
     if (!(await external.urls()).some(url => url.includes(ids(seed.acme.id)))) throw new Error('the recording on the third day did not open its job');
-  });
+  }, {needs: [notionPage]});
+
+  // This Mac's store: no Notion page, so a meeting opens its job's side panel in the app (renderer/pages/calendar.js, mac-27 f8f8d5e), from the grid and the agenda.
+  const panelShows = async (who, title) => {
+    await page.waitForSelector('.view[data-view="jobs"]:not([hidden])', {timeout: 15000}).catch(() => { throw new Error(`clicking the ${who} meeting did not open the Jobs view`); });
+    await page.waitForFunction(want => (document.querySelector('#job-panel:not([hidden]) h2')?.textContent || '').includes(want), title, {timeout: 15000})
+      .catch(async () => { throw new Error(`the job panel after the ${who} meeting shows "${await page.locator('#job-panel h2').first().textContent().catch(() => '')}", expected "${title}"`); });
+  };
+  await step('on this Mac\'s store a meeting opens its job\'s side panel, from the grid and from the agenda', async () => {
+    await openCalendar();
+    await page.waitForFunction(() => document.querySelectorAll('#cal-grid .cal-chip').length >= 5, null, {timeout: 60000});
+    await external.clear();
+    await cell(page, l1).locator('.cal-chip').first().click();
+    await panelShows('Acme', seed.acme.title);
+    await openCalendar();
+    await page.locator('#cal-upcoming .cal-row, #cal-past .cal-row').filter({hasText: 'E2E Beta'}).first().click();
+    await panelShows('Beta', seed.beta.title);
+    if ((await external.urls()).length) throw new Error(`a meeting on this Mac's store opened ${JSON.stringify(await external.urls())} outside the app`);
+  }, {needs: [{name: 'this Mac\'s store (on Notion a meeting opens its Notion page: the step above)', value: ctx.store === 'sqlite'}]});
 
   await step('the same meetings fall on other days and hours in another time zone', async () => {
     const options = {env: {...ctx.appEnv, TZ: 'Pacific/Honolulu', JOB_PILOTTO_TZ: 'Pacific/Honolulu'}};
+    // The same data in another zone. Notion: a second app, connected to the same workspace. This Mac's store: the data is this profile's, so the same app
+    // starts again in Honolulu, and back in the test's zone afterwards.
+    const sameMac = ctx.store === 'sqlite';
+    if (sameMac) await ctx.relaunch({TZ: 'Pacific/Honolulu', JOB_PILOTTO_TZ: 'Pacific/Honolulu'});
     // A second Electron next to the first sometimes misses its first window on a busy machine: one more try, then fail loudly.
-    const other = await launch(options).catch(error => { console.log(`  second app did not open (${error.message.split('\n')[0]}): trying once more`); return launch(options); });
+    const other = sameMac ? {page: ctx.page, close: () => ctx.relaunch()} : await launch(options).catch(error => { console.log(`  second app did not open (${error.message.split('\n')[0]}): trying once more`); return launch(options); });
     try {
-      await fastSeed({...ctx, page: other.page, profile: other.profile});
+      if (!sameMac) await fastSeed({...ctx, page: other.page, profile: other.profile});
       const zone = await other.page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
       if (zone !== 'Pacific/Honolulu') throw new Error(`the second app runs in "${zone}"`);
       await other.page.click('.nav[data-view="calendar"]');

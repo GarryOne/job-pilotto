@@ -8,6 +8,7 @@ import {el} from '../components.js';
 import {renderSessionPage} from './session-log.js';
 import {badge, reviewStates, showInForm, smallButton, submitOnEnter, titleLine} from './session-needs.js';
 import {keyAsker, onChoices, pickProposal} from '../proposal-pick.js';
+import {storeName} from '../store-words.js';
 
 // What the row needs besides the form's report, asked once per window and kept: your details, the CV's proposals, and which detail a
 // label asks for (Claude reads the labels the extension doesn't know: lib/contact-keys.js).
@@ -67,7 +68,7 @@ export function proposedRow(item, label, proposal, now = Date.now()) {
   }
   if (tried) {
     input.disabled = true;
-    note.textContent = tried.kept ? 'Filled in the form · remembered for future forms' : 'Filled in the form (not remembered: Notion didn\'t answer)';
+    note.textContent = tried.kept ? 'Filled in the form · remembered for future forms' : `Filled in the form (not remembered: ${storeName()} didn't answer)`;
     li.classList.add('is-done');
     return li;
   }

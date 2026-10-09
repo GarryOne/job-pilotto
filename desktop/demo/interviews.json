@@ -1,6 +1,18 @@
 {
   "saved": [
     {
+      "id": "demo-iv-3",
+      "title": "Helvetic Cloud · Hiring manager",
+      "date": "2099-01-08",
+      "input": "Recording",
+      "overall": "positive",
+      "round": "Hiring manager",
+      "next_step": "Technical round on Tuesday",
+      "application": [
+        "0000000000000000000000000000a001"
+      ]
+    },
+    {
       "id": "demo-iv-2",
       "url": "https://www.notion.so/demo-iv-2",
       "title": "Alpine Data · System design",
@@ -157,5 +169,26 @@
     "action": "",
     "headline_detail": "The same pattern appeared in tenure, unblocking and security-framing questions.",
     "version": 6
+  },
+  "records": {
+    "demo-iv-3": {
+      "id": "demo-iv-3",
+      "app_id": "0000000000000000000000000000a001",
+      "title": "Helvetic Cloud · Hiring manager",
+      "at": "2099-01-08T15:00:00",
+      "input": "Recording",
+      "round": "Hiring manager",
+      "overall": "Positive",
+      "questions": 2,
+      "weak_answers": "Salary expectations: vague",
+      "topics": "Incidents, on-call, pay",
+      "weak_topics": "Pay",
+      "next_step": "Technical round on Tuesday",
+      "cost": 0.03,
+      "model": "claude-sonnet-5-5",
+      "transcript": "[00:00] Manager: Thanks for joining.\n[00:05] You: Thanks for having me.",
+      "review": "A friendly first call: the manager explained the on-call model and asked about incident leadership.\n\n### Strengths\n\n- Clear incident story with numbers\n- Asked about the on-call rota\n\n### Weak spots\n\n- Salary answer was vague\n\n### Facts from the call\n\n- Team size: 8 (added to the job)\n- Location: hybrid, 2 days in Zurich ⚠️ Different from the job (it says “Remote”): Not changed, update it in the job\n\n### Practise before the next round\n\n- A 2-minute answer on SLO trade-offs\n\n### Questions\n\n- ✅ \\[Incidents\\] Tell us about an outage you led — The DNS outage, 40 min to recover → Better: Name the follow-up you shipped\n- ⚠️ \\[Pay\\] What are your salary expectations? — Open to discuss → Better: Give the range: CHF 130–145k",
+      "created_at": "2099-01-08T16:00:00"
+    }
   }
 }

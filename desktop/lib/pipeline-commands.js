@@ -115,7 +115,7 @@ export async function focusDone(storage, pageId, what = 'replied') {
 export async function focusHistory(storage) {
   const {code, stdout} = await run(storage, ['src.focus', 'history']);
   try { return {...JSON.parse(stdout.trim().split('\n').pop()), ok: code === 0}; }
-  catch { return {ok: false, error: 'Notion could not be read. Try again.', items: []}; }
+  catch { return {ok: false, error: 'Your history could not be read. Try again.', items: []}; }
 }
 const lastJson = (stdout, fallback) => { try { return JSON.parse(stdout.trim().split('\n').pop()); } catch { return fallback; } };
 // Interview prep kit (src/ai/prep.py): built on the job's Notion page; needs_description when the role is unknown.
@@ -125,12 +125,12 @@ export async function interviewPrep(storage, pageId, onLine = () => {}) {
 }
 export async function describeJob(storage, pageId, text = '', url = '') {
   const {stdout} = await run(storage, ['src.ai.prep', 'describe', pageId, ...(text ? ['--text', text] : []), ...(url ? ['--url', url] : [])]);
-  return lastJson(stdout, {ok: false, text: 'The description could not be saved to Notion. Try again.'});
+  return lastJson(stdout, {ok: false, text: 'The description could not be saved. Try again.'});
 }
 // An email the Gmail check wasn't sure where to place: move it to a job ("new", "none" or a job URL).
 export async function reassignEmail(storage, eventId, target) {
   const {stdout} = await run(storage, ['src.ai.reassign', 'move', eventId, target]);
-  return lastJson(stdout, {ok: false, text: 'Notion could not be updated. Try again.'});
+  return lastJson(stdout, {ok: false, text: 'The email could not be moved. Try again.'});   // any store (src/ai/reassign.py)
 }
 // Focus → "Did the interview happen?" (src/ai/interviews.py held | moved | cancelled, no AI).
 export async function interviewHappened(storage, pageId, answer, {notes = '', at = ''} = {}) {
@@ -138,13 +138,13 @@ export async function interviewHappened(storage, pageId, answer, {notes = '', at
   const args = ['src.ai.interviews', answer, pageId, ...(answer === 'held' && notes ? [`--notes=${notes}`] : []),
     ...(answer === 'moved' ? [`--at=${at}`] : [])];
   const {code, stdout} = await run(storage, args);
-  const result = lastJson(stdout, {ok: false, error: 'Notion could not be updated. Try again.'});
+  const result = lastJson(stdout, {ok: false, error: 'The interview could not be updated. Try again.'});
   return {...result, ok: code === 0 && !!result.ok};
 }
 export async function feedbackAction(storage, pageId, action, text = '') {
   const {code, stdout} = await run(storage, ['src.feedback', pageId, action, ...(text ? ['--text', text] : [])]);
   try { const result = JSON.parse(stdout.trim().split('\n').pop()); return {...result, ok: code === 0 && result.ok}; }
-  catch { return {ok: false, error: 'Feedback could not be saved to Notion. Try again.'}; }
+  catch { return {ok: false, error: 'Feedback could not be saved. Try again.'}; }
 }
 // The reminder text (empty when nothing is worth interrupting for); send: also to Telegram.
 export async function focusReminder(storage, send = false) {
@@ -167,7 +167,7 @@ export async function notSubmitted(storage, url) {
 export async function markOutcome(storage, url, stage) {
   const {code, stdout} = await run(storage, ['src.notion.ledger', 'event', url, stage, '--note', 'Marked in Job Pilotto', '--source', 'CLI']);
   const last = stdout.trim().split('\n').filter(Boolean).pop() || '';
-  return code === 0 ? {ok: true, stage} : {ok: false, error: last || 'Notion did not take it'};
+  return code === 0 ? {ok: true, stage} : {ok: false, error: last || 'It was not saved. Try again.'};
 }
 // A dismissed job deleted (src/desktop.py delete_job): its Notion pages to the trash, the local copy a marker.
 export async function deleteJob(storage, url) {

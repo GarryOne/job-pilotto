@@ -8,14 +8,16 @@ import re
 from collections import Counter
 from datetime import datetime, timezone
 from html import escape
-from . import digest, employer_index, features, role_kinds, scout, store, telegram, tgcard
+from . import digest, employer_index, features, role_kinds, run_log, scout, store, telegram, tgcard
 from .ai import cost, enrich, kit, provenance, score
-from .notion import client as notion, cron_runs, ledger, matches
+from .notion import client as notion, cron_runs, matches
 from .paths import JOBS_DB, REPORTS, load_search_config
 from .sources import ats, feeds
+from .stores import open_stores, rules
+from .store_access import profile_source, run_stores, url_stages  # noqa: F401 -- daily_search and tests use them from here
 
 
-new_cron_run = cron_runs.new_run  # kept for callers and tests
+new_cron_run = run_log.new_run  # kept for callers and tests
 
 
 def left_out(stats, what):
@@ -79,30 +81,21 @@ def find_job(db, code):
     return None
 
 
-def tracked_job(code, tracker):
-    """A job known to Notion but absent from the crawl's SQLite (evicted cache, reset DB, or a
-    filter that no longer admits it): rebuilt from its Applications row, or else its Job Matches
-    row, with the posting text fetched live from its job board. Matches by URL or by 8-hex code.
-    None if Notion has neither."""
-    if not tracker:
-        return None
+def tracked_job(code, stores):
+    """A job known to the store but absent from the crawl's SQLite (evicted cache, reset DB, or a
+    filter that no longer admits it): rebuilt from its application record, or else its match, with
+    the posting text fetched live from its job board. Matches by URL or by 8-hex code (of the URL as
+    stored). None if the store has neither. Notion: the Job Tracker row, else the Job Matches row."""
     wanted = _url_key(code) if '/' in code else None
     matches = lambda u: (wanted and _url_key(u) == wanted) or notion.job_code(u) == code
-    url = next((u for u in tracker.url_stages() if matches(u)), None)
-    row = tracker.find(url) if url else None
-    if not row:
-        row = next((r for r in tracker.query_database(notion.MATCHES_DATABASE_ID)
-                    if matches((r['properties'].get('Job URL') or {}).get('url') or '')), None)
-        url = (row['properties'].get('Job URL') or {}).get('url') if row else None
+    row = next((r for r in stores.applications.list() if matches(r['url'] or '')), None) or \
+        next((m for m in stores.matches.list() if matches(m['url'] or '')), None)
     if not row:
         return None
-    props = row['properties']
-    text = lambda name: ''.join(t.get('plain_text', '') for t in
-                                (props.get(name) or {}).get('title' if name == 'Job' else 'rich_text', []))
-    live = ats.posting(url) or {}
-    return {'id': None, 'url': url, 'title': live.get('title') or text('Job'),
-            'company': text('Company'), 'location': live.get('location') or text('Location'),
-            'description': live.get('description', ''), 'work_mode': '', 'city': ''}
+    live = ats.posting(row['url']) or {}
+    return {'id': None, 'url': row['url'], 'title': live.get('title') or row['title'], 'company': row['company'],
+            'location': live.get('location') or row['location'], 'description': live.get('description', ''),
+            'work_mode': '', 'city': ''}
 
 
 def to_score(db, hidden):
@@ -136,23 +129,28 @@ def _url_key(url):
 ACTIONS = {'applied': 'Applied', 'saved': 'Saved', 'dismissed': 'Dismissed'}
 
 
-def apply_message(db, code, tracker, action='applied'):
-    """Record a Telegram button action for the job with this code in Notion; return the reply text."""
-    job = find_job(db, code) or tracked_job(code, tracker)
+def apply_message(db, code, stores, action='applied'):
+    """Record a Telegram button action for the job with this code in the active store; return the reply text. Every store: its
+    stage rules and ledger (src/stores/rules.py, src/ledger_store.py); on Notion the same pages as before the store
+    (tests/test_daily_store_notion.py)."""
+    job = find_job(db, code) or tracked_job(code, stores)
     if not job:
-        return f"⚠️ <b>Job not found</b>\nNo job with code <code>{escape(code)}</code>. It may have closed; add it in Notion manually."
+        where = 'Notion' if stores.name == 'notion' else 'the app'
+        return f"⚠️ <b>Job not found</b>\nNo job with code <code>{escape(code)}</code>. It may have closed; add it in {where} manually."
     stage = ACTIONS[action]
-    page, outcome = tracker.mark(job, stage)
+    found, outcome = rules.mark(stores, job, stage)
+    page = {'id': found['id'], 'url': stores.link(found['id']) or ''}
     if stage == 'Applied' and outcome != 'unchanged':
         # The application ledger: an Applied event and the frozen record (no form capture from CI,
         # so answers are the kit drafts). Never blocks the reply.
         try:
-            ledger.add_event(tracker, page, 'Applied', 'Telegram')
-            ledger.record(tracker, job['url'])
+            from . import ledger_store
+            ledger_store.add_event(stores, found, 'Applied', 'Telegram')
+            ledger_store.record(stores, job['url'])
         except Exception as error:
             print(f'Warning: application record skipped: {type(error).__name__}: {error}')
         queue_mail_check()
-    link = f'<a href="{escape(page.get("url", ""), quote=True)}">Notion</a>'
+    link = f'<a href="{escape(page.get("url", ""), quote=True)}">Notion</a>' if page.get('url') else 'the app'
     title = f"{escape(job['title'])}\n{escape(job['company'])}"
     if outcome == 'unchanged':
         return f"ℹ️ <b>Already tracked</b>\n{title}\n\n<b>Next step</b>\nSee {link}."
@@ -196,22 +194,22 @@ def kits_message(drafted, subtitle=None):
         for job, _ in drafted], emoji='📝')
 
 
-def log_ai_run(tracker, run, args, failed=False):
-    """⏰ Cronjob Runs row for an on-demand AI job (kit, interview, insight, weekly), so the month's rows add
-    up to the AI spend the budget guard reads. Sending runs and the desktop app's runs (--log-run) are logged."""
-    if tracker and (args.send or args.log_run):
+def log_ai_run(stores, run, args, failed=False):
+    """The run's row in the active store (⏱️ Search runs on Notion) for an on-demand AI job (kit, interview, insight, weekly), so the
+    month's rows add up to the AI spend the budget guard reads, on every store. Sending runs and the app's runs (--log-run) are logged."""
+    if args.send or args.log_run:
         run['seconds'] = int((datetime.now(timezone.utc) - datetime.fromisoformat(run['started_at'])).total_seconds())
-        url = cron_runs.log_run(tracker, run, failed=failed)
+        url = run_log.log_run(stores, run, failed=failed)
         if url:
             print(f'Cronjob run logged: {url}')  # the app's Recent activity links "See it full in Notion" to this
 
 
-def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=None, stats=None, run=None, drafted_out=None):
+def prepare_kit(db, code, stores, client=None, model=kit.DEFAULT_MODEL, opener=None, stats=None, run=None, drafted_out=None):
     """Draft the application kit for one job; save it on its Notion Applications row (run: its ⏱️ Search runs row
     links to that row, shown on the job's page as Runs).
 
     Returns (Telegram messages, log line). The row is created as Saved if the job isn't tracked yet."""
-    job = find_job(db, code) or tracked_job(code, tracker)
+    job = find_job(db, code) or tracked_job(code, stores)
     if not job:
         return [f"⚠️ <b>Job not found</b>\nNo job with code <code>{escape(code)}</code>. It may have closed."], 'job not found'
     if job['id'] is not None:
@@ -221,7 +219,7 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
     except Exception as error:  # An unreadable form still gets a kit, with likely questions.
         print(f'Warning: form questions unavailable: {type(error).__name__}: {error}')
         questions = []
-    profile, answers = tracker.page_text(), kit.standard_answers(tracker)
+    profile, answers = stores.texts.plain('profile'), kit.standard_answers(stores)   # as the AI reads it (Notion: the page text)
     if client is None:
         from .ai import engine
         client = engine.client(action='kit')
@@ -229,14 +227,16 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
     cost.add(stats, model, usage)
     if stats is not None:
         stats.update(pending=1, done=1)
-    page, _ = tracker.mark(job, 'Kit ready')
+    record, _ = rules.mark(stores, job, 'Kit ready')
+    page = {'id': record['id'], 'url': stores.link(record['id']) or ''}
     if run is not None:
         run['application'] = page['id']  # the run links to the job it was for, and its title names it
-        run['subject'] = cron_runs.job_subject(page) or cron_runs.job_subject(company=job.get('company', ''), role=job.get('title', ''))
-    tracker.replace_section(page['id'], kit.KIT_HEADING, kit.notion_blocks(job, drafted, questions, model))
-    kit.record_next_step(tracker, page, drafted)
-    kit.record_cost(tracker, page, model, usage)
-    provenance.record_kit(tracker, page, profile, answers)
+        run['subject'] = cron_runs.job_subject(company=record.get('company') or job.get('company', ''),
+                                               role=record.get('title') or job.get('title', ''), via=record.get('via') or '')
+    stores.applications.set_section(page['id'], kit.KIT_SECTION, kit.kit_markdown(job, drafted, questions, model))
+    kit.record_next_step(stores, page, drafted)
+    kit.record_cost(stores, page, model, usage)
+    provenance.record_kit(stores, page, profile, answers)
     if drafted_out is not None:
         drafted_out.append((job, page))  # the app's card for this run (kits_message)
     return kit.telegram_messages(job, drafted, questions, page.get('url')), kit.cost_line(model, usage)
@@ -271,8 +271,28 @@ def save_run(run):
     (REPORTS / 'last-run.json').write_text(json.dumps(run, default=str, indent=2))
 
 
-def log_crawl(tracker, run):
-    url = cron_runs.log_run(tracker, run)
+def log_store_job(stores, run, app, created):
+    """cron_runs.log_job for a store's application record (no Notion page): the run's Application, its subject and the
+    "Job logged: {…}" line the app links the run's result to that job by."""
+    from .notion import cron_report
+    # The job's title as its page shows it, as cron_runs.log_job read it: an Inbound row's carries its employer or agency ("Principal SRE ·
+    # via Huxley", the notion adapter's _title), any other row's is its role.
+    from .notion import titles
+    title = app.get('title') or ''
+    if (app.get('origin') or '').lower() == 'inbound':
+        title = titles.job_title(title, app.get('company') or '', app.get('via') or '')
+    job = {'page_id': app['id'], 'url': stores.link(app['id']) or '', 'title': title,
+           'job_url': app.get('url') or '', 'created': bool(created)}
+    run['application'] = app['id']
+    run['subject'] = cron_report.job_subject(company=app.get('company') or '', role=app.get('title') or '', via=app.get('via') or '')
+    from . import run_result
+    run_result.note_job(job)
+    print(cron_report.JOB_LINE + json.dumps(job, ensure_ascii=False))
+    return job
+
+
+def log_crawl(stores, run):
+    url = run_log.log_run(stores, run)
     if url:
         print(f'Cronjob run logged: {url}')  # the desktop app links its activity row to this
 

@@ -18,7 +18,7 @@ export function createAppReminders(ctx) {
   async function focusReminder(now = new Date()) {
     const settings = getStorage().settings();
     if (!settings.setupDone || settings.focusReminders === false) return;
-    if (!notionGate.connected(getStorage())) return skipUntilNotion('focus reminder');
+    if (!notionGate.tracking(getStorage())) return skipUntilNotion('focus reminder');
     const slot = FOCUS_HOURS.filter(hour => now.getHours() >= hour).pop();
     if (slot == null) return;
     const key = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}-${slot}`;  // local day

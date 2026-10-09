@@ -4,6 +4,8 @@ import {runParts} from './activityfailures.mjs';
 
 export const minutes = 12;
 export const name = 'failuresnotion';
+// Notion's own failures (429, 500, a refused write) on the app's Notion calls: it runs on Notion, the stand-in, with the fault proxy in front (P7).
+export const store = 'standin';
 export const keepGoing = true;
 export const notionProxy = true;
 export const env = {JOB_PILOTTO_E2E_HISTORY_MS: '3000', JOB_PILOTTO_E2E_RESUME_MS: '3000', JOB_PILOTTO_E2E_EXPECTS_FAILURES: '1'};
