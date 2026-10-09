@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('pilot', {
   storeState: call('storeState'), keepOnThisMac: call('keepOnThisMac'), moveToNotion: call('moveToNotion'),
   notionConnect: call('notionConnect'), telegramConnect: call('telegramConnect'), telegramDisconnect: call('telegramDisconnect'), setAutomation: call('setAutomation'), setTheme: call('setTheme'),
   onCloudStep: callback => ipcRenderer.on('cloudStep', (_, step) => callback(step)),
+  onStoreMoveProgress: callback => ipcRenderer.on('storeMoveProgress', (_, progress) => callback(progress)),
   onLeadStep: callback => ipcRenderer.on('leadStep', (_, step) => callback(step)),
   onPrepStep: callback => ipcRenderer.on('prepStep', (_, step) => callback(step)),
   markOutcome: call('markOutcome'),

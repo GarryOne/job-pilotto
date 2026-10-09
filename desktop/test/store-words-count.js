@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const ABOUT_NOTION = /connect notion|connect with notion|in notion ↗|open .*in notion|notion ↗|notion's own|notion workspace|notion page links|notion \(|notion:|move (my|your) data to notion|needs notion/i;
+const ABOUT_NOTION = /connect notion|connect with notion|in notion ↗|open .*in notion|notion ↗|notion's own|notion workspace|notion page links|notion \(|notion:|move (my|your) data to notion|moving your data to notion|moved to notion|your notion already had|needs notion/i;
 export function count(source) {
   let n = 0;
   for (const line of source.split('\n')) {

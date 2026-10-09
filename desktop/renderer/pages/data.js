@@ -2,6 +2,7 @@
 import {$, message, show} from './core.js';
 import {openInNotion, openNotionConnect} from './notion-connect.js';
 import {shared} from './shared.js';
+import {MOVE_WORDS, movedText} from '../store-move-text.js';
 import {toastMessage} from './startup.js';
 
 // ---------- automatic backup of this computer's data (lib/backup.js) ----------
@@ -13,8 +14,6 @@ async function showBackup() {
 }
 
 // ---------- your data: where it lives (lib/store-handlers.js) ----------
-// Three states: trying (no home yet: keep it here, or connect Notion), this Mac (move it to Notion for Always on), Notion (open it there).
-// The card asks capabilities (cloud, links), never a store's name.
 // The card's one line of news (an error, "kept on this Mac ✓"): shown only when there is one, so an empty line leaves no gap.
 const say = (text, tone) => { message('store-message', text, tone); show($('store-message'), !!text); };
 async function showStore() {
@@ -51,12 +50,20 @@ export async function init() {
     showStore();
   });
   $('store-connect').addEventListener('click', () => openNotionConnect({reason: 'none', where: 'settings', from: 'settings', then: () => showStore()}));
+  // The move (lib/store-move.js): its progress as it copies, then what moved and which texts Notion already had (kept there, this Mac's in the archive).
+  window.pilot.onStoreMoveProgress(({entity, done, total} = {}) =>
+    say(`Moving ${MOVE_WORDS[entity] || entity}… ${done} of ${total}`, 'waiting'));
   $('store-move').addEventListener('click', async () => {
-    $('store-move').disabled = true;
-    const result = await window.pilot.moveToNotion();
-    $('store-move').disabled = false;
-    if (result?.ok) { shared.state = await window.pilot.state(); showStore(); }
-    else say(result?.text || result?.error || 'Not moved.', 'error');
+    const button = $('store-move'), label = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Moving…';
+    say('Moving your data to Notion…', 'waiting');
+    const result = await window.pilot.moveToNotion().finally(() => { button.disabled = false; button.textContent = label; });
+    if (result?.needsNotion) { say(''); return; }   // preload.cjs opens the connect prompt and moves again after it
+    if (!result?.ok) { say(result?.text || result?.error || 'Not moved.', 'error'); return; }
+    shared.state = await window.pilot.state();
+    await showStore();
+    say(movedText(result), 'ok');
   });
   $('store-open').addEventListener('click', event => openInNotion('NOTION_PROFILE_PAGE_ID', event));
   // An action that runs off this Mac (Always on) while the data is here (preload.cjs): say so, and open this card.
