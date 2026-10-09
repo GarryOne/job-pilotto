@@ -1,7 +1,7 @@
 // The record of accounts we made (lib/site-accounts.js): sign-in only for a confirmed account of this very email; a pending one waits for its mail.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {modeOf, record} from '../lib/site-accounts.js';
+import {modeOf, record, withCompanies, withoutHost} from '../lib/site-accounts.js';
 
 test('no account, another email, or a pending one: never a sign-in', () => {
   assert.equal(modeOf({}, 'career2.successfactors.eu', 'a@b.c'), 'sign-up');
@@ -118,4 +118,18 @@ test('Credentials rows say which employers an account was used for, and cap them
   const rows = withAccounts([{host: 'career2.successfactors.eu', email: ''}], accounts);
   assert.deepEqual(rows[0].employers.map(item => item.name), ['B', 'C', 'D', 'E', 'F', 'G']);
   assert.equal(rows[0].email, 'me@example.com');
+});
+
+test('a deleted credential takes the app\'s record of that host with it, and only that host', () => {
+  const accounts = {'career2.successfactors.eu': {email: 'a@b.c', state: 'confirmed'}, 'e2e.wd3.myworkdayjobs.com': {email: 'x@y.z', state: 'pending'}};
+  assert.deepEqual(withoutHost(accounts, 'E2E.wd3.myworkdayjobs.com'), {'career2.successfactors.eu': {email: 'a@b.c', state: 'confirmed'}});
+  assert.deepEqual(withoutHost(undefined, 'x.com'), {});
+});
+
+test('a credential row names the companies its account serves: the recorded employers first, then open applications on that host', () => {
+  const rows = [{host: 'career2.successfactors.eu', employers: [{name: 'Migros', state: 'confirmed'}]}, {host: 'career55.sapsf.eu'}];
+  const states = [{id: 's1', url: 'https://career2.successfactors.eu/careers?x=1'}, {id: 's2', url: 'https://career2.successfactors.eu/careers'}, {id: 's3', url: 'https://jobs.ch/x'}];
+  const sessions = [{id: 's1', company: 'Coop Suisse'}, {id: 's2', company: 'Migros'}, {id: 's3', company: 'Manor'}];
+  const named = withCompanies(rows, states, sessions);
+  assert.deepEqual(named.map(row => row.companies), [['Migros', 'Coop Suisse'], []]);
 });

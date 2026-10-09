@@ -49,3 +49,9 @@ export function emailOf(host, platform = process.platform, exec = execFileSync) 
   const note = keychain.comment(`job-pilotto.${host}.password`, {account: 'job-pilotto', exec, platform});
   return (note.match(/(?:^|\s)email=(\S+)/) || [])[1] || '';
 }
+
+// Deletes one site's password item (Settings → Credentials → Delete). The account on the site stays; only this Mac forgets its password.
+export function forget(host, platform = process.platform, exec = execFileSync) {
+  if (!/^[a-z0-9.-]{1,253}$/i.test(String(host || '')) || !String(host).includes('.')) return false;
+  return keychain.remove(`job-pilotto.${host}.password`, {account: 'job-pilotto', exec, platform});
+}

@@ -385,7 +385,7 @@ export async function init() {
   });
 }
 
-// Settings → Credentials: one row per site Claude made an account on. Passwords hidden until Show; Copy never shows them.
+// Settings → Credentials: one row per site Claude made an account on, with the companies it serves (lib/site-accounts.js withCompanies). Passwords hidden until Show; Copy never shows them; Delete asks once.
 const when = iso => (iso ? new Date(iso).toLocaleDateString(undefined, {day: 'numeric', month: 'short', year: 'numeric'}) : '');
 async function openCredentials() {
   const result = await window.pilot.credentials();
@@ -396,7 +396,7 @@ async function openCredentials() {
     const who = el('span');
     const details = [row.email || 'email not recorded', when(row.accountAt || row.created), ({confirmed: 'Account ready', pending: 'Waiting for the confirmation'})[row.state] || '', row.job ? (() => { try { return new URL(row.job).hostname.replace(/^www\./, ''); } catch { return ''; } })() : '']
       .filter(Boolean).join(' · ');
-    who.append(el('b', '', row.host), el('small', '', details));
+    who.append(el('b', '', row.host), ...(row.companies?.length ? [el('small', 'cred-companies', `For ${row.companies.join(', ')}`)] : []), el('small', '', details));
     const secret = el('b', '', '••••••••');
     const shown = el('span', '');
     shown.append(secret);
@@ -416,7 +416,22 @@ async function openCredentials() {
       await navigator.clipboard.writeText(answer.password);
       $('credentials-message').textContent = `Copied the password for ${row.host}.`;
     });
-    actions.append(reveal, copy);
+    // Delete asks once in place (it cannot be undone): the password goes from this Mac's Keychain; the account on the site stays.
+    const remove = el('button', 'danger-outline small-button', 'Delete');
+    remove.addEventListener('click', () => {
+      const sure = el('button', 'danger-outline small-button', 'Delete for good'), keep = el('button', 'secondary small-button', 'Cancel');
+      $('credentials-message').textContent = `Delete the saved password for ${row.host}? The account on the site stays; only this Mac forgets its password.`;
+      keep.addEventListener('click', () => { actions.replaceChildren(reveal, copy, remove); $('credentials-message').textContent = ''; });
+      sure.addEventListener('click', async () => {
+        sure.disabled = keep.disabled = true;
+        const answer = await window.pilot.credentialDelete(row.host);
+        if (!answer?.ok) { $('credentials-message').textContent = answer?.error || 'It could not be deleted.'; actions.replaceChildren(reveal, copy, remove); return; }
+        await openCredentials();
+        $('credentials-message').textContent = `Deleted the saved password for ${row.host}.`;
+      });
+      actions.replaceChildren(keep, sure);
+    });
+    actions.append(reveal, copy, remove);
     line.append(who, shown, actions);
     return line;
   }));

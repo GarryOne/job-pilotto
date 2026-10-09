@@ -68,3 +68,16 @@ export function dump({env = process.env, exec = execFileSync, platform = process
   });
   return own + kept.join('');
 }
+
+// Deletes one item (Settings → Credentials, owner 9 Oct 2026). A test run or the twin deletes only from its own file, never a real Keychain item. -> true when it was there.
+export function remove(service, {account, env = process.env, exec = execFileSync, platform = process.platform} = {}) {
+  if (isolated(env)) {
+    const items = isolatedItems(env), file = isolatedFile(env);
+    if (!file || !(service in items)) return false;
+    delete items[service];
+    fs.writeFileSync(file, JSON.stringify(items, null, 2), {mode: 0o600});
+    return true;
+  }
+  if (platform !== 'darwin') return false;
+  return real(exec, ['delete-generic-password', ...(account ? ['-a', account] : []), '-s', service]) !== null;
+}

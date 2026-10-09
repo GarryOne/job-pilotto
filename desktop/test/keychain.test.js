@@ -7,7 +7,7 @@ import path from 'node:path';
 import {test} from 'node:test';
 import * as keychain from '../lib/keychain.js';
 import * as pipeline from '../lib/pipeline.js';
-import {list} from '../lib/credentials.js';
+import {forget, list} from '../lib/credentials.js';
 
 const folder = () => fs.mkdtempSync(path.join(os.tmpdir(), 'jp-keychain-'));
 const spy = answer => { const calls = []; const exec = (cmd, args) => { calls.push([cmd, ...args]); return answer(args); }; return {calls, exec}; };
@@ -84,4 +84,24 @@ test('every Keychain call of the app goes through lib/keychain.js (a new one wou
   const direct = fs.readdirSync(lib).filter(name => name.endsWith('.js') && name !== 'keychain.js')
     .filter(name => /execFile(?:Sync)?\(\s*'security'|\['find-generic-password'|'dump-keychain'|'add-generic-password'/.test(fs.readFileSync(path.join(lib, name), 'utf8')));
   assert.deepEqual(direct, []);
+});
+
+// Settings → Credentials → Delete (owner, 9 Oct 2026): a test run or the twin deletes only from its own file; a user's app deletes the one item it names.
+test('Delete: isolated runs delete from their own file only; the app deletes the named item; a bad host is refused', () => {
+  for (const env of [{JOB_PILOTTO_E2E: '1'}, {JOB_PILOTTO_TWIN: '1'}]) {
+    const dir = folder(); env.JOB_PILOTTO_USER_DATA = dir;
+    save(dir, {'job-pilotto.e2e.test.password': {value: 'Test-Pass-11', account: 'job-pilotto'}});
+    const {calls, exec} = spy(() => '');
+    assert.equal(keychain.remove('job-pilotto.e2e.test.password', {account: 'job-pilotto', env, exec, platform: 'darwin'}), true);
+    assert.equal(keychain.remove('job-pilotto.career2.successfactors.eu.password', {account: 'job-pilotto', env, exec, platform: 'darwin'}), false);   // a real item: never
+    assert.deepEqual(calls, []);
+    assert.deepEqual(keychain.isolatedItems(env), {});
+  }
+  const {calls, exec} = spy(() => '');
+  assert.equal(keychain.remove('job-pilotto.e2e.wd3.myworkdayjobs.com.password', {account: 'job-pilotto', env: {}, exec, platform: 'darwin'}), true);
+  assert.deepEqual(calls, [['security', 'delete-generic-password', '-a', 'job-pilotto', '-s', 'job-pilotto.e2e.wd3.myworkdayjobs.com.password']]);
+  const none = spy(() => '');
+  assert.equal(forget('sites', 'darwin', none.exec), false);   // the shared job-site password is not a site row
+  assert.equal(forget('a b.com; rm', 'darwin', none.exec), false);
+  assert.deepEqual(none.calls, []);
 });

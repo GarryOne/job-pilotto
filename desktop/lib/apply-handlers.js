@@ -19,7 +19,7 @@ import {GOOGLE_KEYCHAIN} from './google-keys.js';
 import {log as appLog} from './log.js';
 import {mergeTabs, openFormTab, withOpenForm} from './form-tab.js';
 import {sharedCheck} from './shared-check.js';
-import {withAccounts} from './site-accounts.js';
+import {withAccounts, withCompanies, withoutHost} from './site-accounts.js';
 import {isTwin} from './twin.js';
 
 export function registerApplyHandlers(ctx) {
@@ -132,11 +132,19 @@ export function registerApplyHandlers(ctx) {
     return {ok: true, copied: true, password: action === 'show' ? sitePassword.read() : null};
   });
   // Settings → Credentials: the sites' accounts from the Keychain (attributes only), and one password when you press Show or Copy.
-  ipcMain.handle('credentials', () => (DEMO ? {ok: true, rows: [{host: 'career2.successfactors.eu', email: 'you@example.com', job: 'https://jobs.migros.ch/x', created: '2026-10-08T11:54:02Z', state: 'confirmed'}]} : (list => ({...list, rows: withAccounts(list.rows, storage.settings().siteAccounts)}))(credentials.list())));
+  ipcMain.handle('credentials', () => (DEMO ? {ok: true, rows: [{host: 'career2.successfactors.eu', email: 'you@example.com', job: 'https://jobs.migros.ch/x', created: '2026-10-08T11:54:02Z', state: 'confirmed', companies: ['Migros', 'Coop']}]} : (list => ({...list, rows: withCompanies(withAccounts(list.rows, storage.settings().siteAccounts), review.allStates(), terminals.list())}))(credentials.list())));
   ipcMain.handle('credentialReveal', (_, host, why) => {
     const password = DEMO ? 'Maple-Rocket-42' : credentials.reveal(host);
     appLog('apply', `credential ${why === 'copy' ? 'copied' : 'shown'}`, {host: String(host || '').slice(0, 120), found: !!password});   // which site, never the password
     return password ? {ok: true, password} : {ok: false, error: 'Not in the Keychain any more.'};
+  });
+  // Delete: the site's password item, and the app's record of an account there (the next sign-in or sign-up page starts fresh). Logged: the host, never a secret.
+  ipcMain.handle('credentialDelete', (_, host) => {
+    if (DEMO) return {ok: true};
+    const gone = credentials.forget(host);
+    if (gone) storage.saveSettings({siteAccounts: withoutHost(storage.settings().siteAccounts, host)});
+    appLog('apply', 'credential deleted', {host: String(host || '').slice(0, 120), ok: gone});
+    return gone ? {ok: true} : {ok: false, error: 'It could not be deleted (not in the Keychain any more?).'};
   });
   ipcMain.handle('claudePrereqs', async () => ({...apply.claudePrereqs(), inApp: await terminals.available()}));
   // Gmail and Calendar (read-only): replies and interviews, and sign-up confirmation emails for Apply with Claude.

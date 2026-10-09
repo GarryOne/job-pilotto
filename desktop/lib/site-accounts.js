@@ -23,6 +23,8 @@ export function modeOf(accounts, host, email, itemEmail = '', hasItem = false, c
 
 // A new settings.siteAccounts with this host's account recorded (state 'pending' unless given); the other hosts are untouched.
 // employer: the job's company, so one host that serves several employers keeps one state each (employers: {name: state}, the six latest).
+// settings.siteAccounts without this host (its password was deleted in Settings → Credentials: the app no longer claims an account there).
+export function withoutHost(accounts, host) { const kept = {...(accounts || {})}; delete kept[key(host)]; return kept; }
 export const employerName = company => String(company || '').replace(/\s+/g, ' ').trim().slice(0, 40);
 export function record(accounts, host, email, state = 'pending', now = Date.now(), employer = '') {
   const before = accounts?.[key(host)], mail = String(email || '').toLowerCase(), name = employerName(employer);
@@ -54,4 +56,17 @@ export function withAccounts(rows, accounts) {
   });
   for (const [host, kept] of Object.entries(accounts || {})) if (!known.has(host)) merged.push({host, email: kept.email, job: '', created: kept.at, state: kept.state, accountAt: kept.at, employers: employersOf(kept)});
   return merged;
+}
+
+// The companies a credential row's account serves (owner, 9 Oct 2026: "show the company names for which this account works", e.g. Migros, Coop on one
+// SuccessFactors host): the employers recorded with the account, plus the company of every application whose form tab is on that host now (a session's
+// review state). Names only, no duplicates, the recorded ones first. states: [{id, url}] (lib/review.js allStates); sessions: [{id, company}] (lib/terminals.js list).
+export function withCompanies(rows, states = [], sessions = []) {
+  const hostOf = url => { try { return new URL(String(url)).hostname.toLowerCase(); } catch { return ''; } };
+  const companyOf = new Map(sessions.map(session => [session.id, employerName(session.company)]));
+  return (rows || []).map(row => {
+    const names = (row.employers || []).map(item => item.name);
+    for (const state of states) if (hostOf(state.url) === key(row.host) && companyOf.get(state.id)) names.push(companyOf.get(state.id));
+    return {...row, companies: [...new Set(names.filter(Boolean))]};
+  });
 }
