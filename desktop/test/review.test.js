@@ -23,7 +23,7 @@ test('the page learns what to watch, reports it back, and the session page hears
   review.setWatch('s1', [{id: 'w1', label: 'AI Policy for Application'}, {id: 'w2', label: 'Agreement to Arbitrate'}]);
   let reply = review.report(sessions, form());
   assert.equal(reply.matched, 's1');
-  assert.deepEqual(Object.keys(reply.session).sort(), ['company', 'id', 'live', 'note', 'status', 'title', 'url']);  // no answers, no question text
+  assert.deepEqual(Object.keys(reply.session).sort(), ['company', 'id', 'kind', 'live', 'note', 'status', 'stuck', 'title', 'url']);  // no answers, no question text (kind, stuck: fixed words for the panel's Take over)
   assert.deepEqual(reply.watch.map(item => item.label), ['AI Policy for Application', 'Agreement to Arbitrate']);
   assert.deepEqual(heard.map(state => [state.left, state.ready]), [[3, false]]);
   review.report(sessions, form());  // nothing changed: not passed on again
