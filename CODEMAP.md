@@ -244,6 +244,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/session-form-card.js` — Session page, "Form completion" card and "Before you submit" box (knockout questions, which CV goes in).
 - `desktop/renderer/pages/session-log.js` — Session page: opening a session and its log.
 - `desktop/renderer/pages/session-needs.js` — Session page: what Claude needs from you, and the form page in step.
+- `desktop/renderer/pages/session-optional.js` — "Optional questions" on a session page (owner, 9 Oct 2026): the form's optional fields still empty, folded under "Needs your attention", with the
 - `desktop/renderer/pages/session-steps.js` — "What happened" on the session page (owner, 9 Oct 2026: "not sure we want the Claude terminal visible all the time … it confuses non-technical users"): the
 - `desktop/renderer/pages/sessions.js` — Application sessions: the dock, the list, the next step.
 - `desktop/renderer/pages/settings.js` — Settings page: the overview of every service (AI, Notion, Gmail, Telegram, Always on, extras) and each one's sub-page.
@@ -302,6 +303,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/notion-benefits.js` — Why connect Notion: the advantages, written once. Shown in the connect dialog, on a locked page, in Settings → Notion
 - `desktop/renderer/notion-connect-rules.js` — When the "Connect Notion" prompt must stay out of the way: pure rules, so they are tested without a window.
 - `desktop/renderer/onboarding.js` — Focus → Get started: the first steps after the setup, in order, each ticked from what really happened (owner, 6 Oct 2026).
+- `desktop/renderer/optional-questions.js` — Which optional questions the session page's "Optional questions" card lists (pages/session-optional.js): the form's optional fields still empty,
 - `desktop/renderer/origin.js` — Outbound or inbound: did you go after this opportunity, or did it find you? The same reading as src/notion/origin.py,
 - `desktop/renderer/os.js` — The window's words are written for the Mac; on Windows these swaps name the PC's equivalents. Order matters: the
 - `desktop/renderer/outcome-tap.js` — The "How did it go?" choices on a job's menu: which outcomes make sense for the stage it is at (desktop/lib/outcomes.js writes them).

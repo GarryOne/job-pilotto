@@ -53,7 +53,26 @@
     "label": "Notice period",
     "value": "1 month",
     "key": ""
+   },
+   {
+    "label": "LinkedIn profile",
+    "value": "https://www.linkedin.com/in/ada-tester",
+    "key": "linkedin",
+    "guess": false,
+    "options": []
+   },
+   {
+    "label": "Salary expectation (CHF per year)",
+    "value": "95000",
+    "key": "",
+    "guess": true,
+    "options": []
    }
+  ],
+  "optional": [
+   "LinkedIn profile",
+   "Salary expectation (CHF per year)",
+   "How did you hear about us?"
   ]
  }
 ]

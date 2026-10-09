@@ -489,6 +489,12 @@
             <p class="muted small ss-needs-none">Nothing needs you now.</p>
             <button class="ss-needs-history" id="ss-needs-history" hidden></button>
           </section>
+          <!-- Optional questions: the form's empty optional fields (never a consent), folded; they never count as left (owner, 9 Oct 2026). Rows as above. -->
+          <section class="ss-fact-card ss-happened ss-optional" id="ss-optional-card" hidden>
+            <div class="ss-fact-head" id="ss-optional-head"><i data-icon="chevron"></i>
+              <div class="ss-needs-words"><b>Optional questions <span id="ss-optional-count"></span></b><span class="muted small">They don't block Submit; filling them can help.</span></div></div>
+            <ul class="ss-checks ss-needs-list" id="ss-optional"></ul>
+          </section>
           <section class="ss-fact-card ss-happened" id="ss-happened-card" hidden>
             <div class="ss-fact-head" id="ss-happened-head"><i data-icon="chevron"></i><b>Claude's report</b><span class="muted small" id="ss-happened-when"></span><span id="ss-audit-pill"></span></div>
             <ul class="ss-checks" id="ss-happened"></ul>

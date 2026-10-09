@@ -8,6 +8,7 @@ import {shared} from './shared.js';
 import {claudeHelp} from '../claude-help.js';
 import {hasSessionCache, rememberSessions, rememberedSessions} from '../sessions-cache.js';
 import {$, osText, show} from './core.js';
+import {initOptional, showOptional} from './session-optional.js';
 import {pageKey} from './jobs.js';
 import {richText} from './rich-text.js';
 import {attachTerminal, fitTerminal, openSession, renderSessionPage, say} from './session-log.js';
@@ -390,13 +391,13 @@ export function renderNextStep(item) {
   const empty = gone ? [] : emptyFields(item, needs);   // a closed tab has no empty fields to open
   show($('ss-needs-card'), needs.length + empty.length > 0 && !gone);   // a closed tab's rows are stale: Reopen form asks what to keep
   $('ss-needs-title').textContent = 'Needs your attention';
-  $('ss-needs-sub').textContent = review ? 'Claude filled most of the form, but a few items need your review.'
-    : 'Claude flagged these while it worked.';
+  $('ss-needs-sub').textContent = review ? 'Most of the form is filled; a few items need your review.' : 'Left for you after the fill.';
   $('ss-needs').replaceChildren(...needs.map(need => (need.kind === 'ask' ? askRow(need, item) : needRow(need, item))), ...empty.map(label => emptyRow(label, item)));
   watchAgreements(item, needs.filter(need => need.kind === 'agree' || need.kind === 'ask'));
   applyFormStates(item);
   showFormState(item);
   updateNeedsCount();
+  showOptional(item, {gone, listed: empty});   // the optional ones, folded below (session-optional.js)
   showSendBar(item);   // answers not sent yet stay with their send button when the page redraws
   // The live field list ("In the form") says what was filled, field by field: Claude's "Filled:" summary only without it.
   const listed = !!reviewStates.get(item.id)?.filled?.length;
@@ -443,6 +444,7 @@ export function renderNextStep(item) {
     reportFor = item.id;
     $('ss-happened-card').classList.toggle('is-open', happened.some(entry => entry.problem) && !formReady(item));
   }
+  initOptional();
   $('ss-happened-head').onclick = event => { if (!event.target.closest('a, button')) $('ss-happened-card').classList.toggle('is-open'); };
 }
 
