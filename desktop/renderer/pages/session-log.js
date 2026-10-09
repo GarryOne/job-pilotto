@@ -1,5 +1,6 @@
 // Session page: opening a session and its log.
 import {el, moreButton, pill} from '../components.js';
+import {claudeHelp} from '../claude-help.js';
 import {latestStep, readSessionMessage} from '../session-message.js';
 import {passWheel, wheelLines} from '../wheel.js';
 import {shared} from './shared.js';
@@ -121,7 +122,7 @@ export function renderSessionPage() {
   const offline = !isLive(item);
   show($('ss-offline'), offline);
   show($('ss-replies'), !offline);
-  $('ss-offline-resume').hidden = !item.resumable || isSubmitted(item);
+  $('ss-offline-resume').hidden = !item.resumable || isSubmitted(item) || !claudeHelp();
   $('ss-offline').querySelector('span').textContent = isSubmitted(item)
     ? 'Submitted. This application is marked Applied in Notion.'
     : item.resumable
@@ -225,6 +226,7 @@ export function say(text) {
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
   document.querySelectorAll('[data-say]').forEach(button => button.addEventListener('click', () => say(button.dataset.say)));
+  window.addEventListener('claude-help', () => { if (shared.openSessionId) renderSessionPage(); });   // Settings' Claude switch: the session's buttons follow it at once
   $('ss-offline-resume').addEventListener('click', () => { const item = sessionList.find(entry => entry.id === shared.openSessionId); if (item) resumeSession(item); });
   $('ss-copy').addEventListener('click', async () => {
     const text = (await window.pilot.sessionOutput(shared.openSessionId)).replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '').replace(/\x1b\][^\x07]*\x07/g, '');

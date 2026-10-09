@@ -5,6 +5,7 @@ import {avatar} from '../jobs-view.js';
 import {PROBLEM, isDevTalk, latestStep, readSessionMessage, sortChecks, splitLabel} from '../session-message.js';
 import {accountProgress, applyingBadge, asksYou, dockCounts, dockOrder, firstLine, isLive, isSubmitted, panelAnswered, sessionDuration, sessionReview, sessionStage, sessionState} from '../session-state.js';
 import {shared} from './shared.js';
+import {claudeHelp} from '../claude-help.js';
 import {hasSessionCache, rememberSessions, rememberedSessions} from '../sessions-cache.js';
 import {$, osText, show} from './core.js';
 import {pageKey} from './jobs.js';
@@ -125,7 +126,7 @@ export function renderDock() {
 export function sessionMenu(item) {
   const menu = [{icon: 'external', label: 'Open posting', run: () => window.pilot.openExternal(item.url)}];
   if (isLive(item)) menu.push({label: '⏸ Pause Claude (Esc)', run: () => pauseSession()});
-  if (item.resumable && !isSubmitted(item)) menu.push({label: '▶ Resume Claude', run: () => resumeSession(item)});
+  if (item.resumable && !isSubmitted(item) && claudeHelp()) menu.push({label: '▶ Resume Claude', run: () => resumeSession(item)});
   if (isLive(item)) menu.push({label: '⏹ Stop Claude', run: () => window.pilot.sessionStop(item.id)});
   menu.push({label: '✕ Close this session', danger: true, run: () => closeSession(item)});
   return menu;
@@ -272,7 +273,7 @@ export function renderNextStep(item) {
     // Tier 3: the cheap ways ran out. Chrome first, Claude the safety net (owner, 9 Oct 2026: "remove the 'Apply with Claude' from being orange";
     // the panel's "Take over with Claude" is there while the form tab is open, this one when it isn't).
     if (item.url) actions.push(sessionButton('Open in Chrome', 'primary', async event => { await openForm(item, event.currentTarget); }, 'link'));
-    actions.push(sessionButton('Apply with Claude', 'secondary', async event => {
+    if (claudeHelp()) actions.push(sessionButton('Apply with Claude', 'secondary', async event => {
       const result = await opening(event.currentTarget, () => window.pilot.applyWithClaude(item.url, {title: item.title, company: item.company, location: item.location, workMode: item.workMode}));
       if (result?.ok === false) { toastMessage('Claude could not start', result.error || 'Try again.'); return; }
       await refreshSessions();
@@ -281,6 +282,7 @@ export function renderNextStep(item) {
   }
   // Claude is the safety net, never the main action (owner, 9 Oct 2026: "remove Resume Claude from being orange"): always secondary; the way to the form is promoted below.
   const resume = () => sessionButton('Resume Claude', 'secondary', () => resumeSession(item), 'refresh');
+  const pushResume = () => { if (claudeHelp()) actions.push(resume()); };   // only with Claude help on (claude-help.js)
   if (gone) {
     // Nothing to bring forward: the tab is gone. The app opens the job with the fill mark, the way "Fill in Chrome" does.
     actions.push(sessionButton('Reopen form', 'primary', event => reopenClosedTab(item, event.currentTarget), 'link'));
@@ -330,12 +332,12 @@ export function renderNextStep(item) {
     }, 'refresh'));
     if (item.kind !== 'form') actions.push(submittedButton(item));  // you pressed Submit in Chrome: say so here too (a form session's submit is seen by the extension)
     if (live) actions.push(sessionButton('Skip this role', 'secondary', () => skipSession(item)));
-    else if (item.resumable) actions.push(resume());
+    else if (item.resumable) pushResume();
     const never = el('span', 'ss-never muted small');
     never.append(icon('info'), el('span', '', 'Job Pilotto never clicks Submit.'));
     actions.push(never);
   } else if (asking && !live) {
-    if (item.resumable) actions.push(resume());
+    if (item.resumable) pushResume();
     // Claude closed with the app, but the form may still be open in Chrome.
     if (item.url && !gone) actions.push(sessionButton('Open in Chrome', 'secondary', async event => {
       await openForm(item, event.currentTarget);
@@ -365,7 +367,7 @@ export function renderNextStep(item) {
     actions.push(submittedButton(item));
     actions.push(sessionButton('Watch the log', 'link', () => openLog(true), 'eye'));
   } else if (item.resumable && !submitted) {
-    actions.push(resume());
+    pushResume();
     actions.push(submittedButton(item));
   }
   // Every state with a job keeps a way to its form (owner, 8 Oct 2026: an ended session showed only Resume Claude).

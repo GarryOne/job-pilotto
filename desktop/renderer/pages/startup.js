@@ -76,5 +76,6 @@ export async function init() {
   });
   $('claude-consent').addEventListener('change', async () => {
     shared.state.settings = await window.pilot.saveSettings({claudeConsent: $('claude-consent').checked ? new Date().toISOString() : null});
+    window.dispatchEvent(new Event('claude-help'));   // every Claude entry point redraws (claude-help.js)
   });
 }

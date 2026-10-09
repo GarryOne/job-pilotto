@@ -1,5 +1,6 @@
 // Jobs page, the list: renderJobs (rows, filters, row actions), In conversation, the stuck banner, loading state, kit label. Guarded by: test/count-flash.test.js.
 import {closeMenu, el, moreButton, pill, tag} from '../components.js';
+import {claudeHelp} from '../claude-help.js';
 import {isInbound} from '../origin.js';
 import {looksLikeLink, matches} from '../filter.js';
 import {icon} from '../icons.js';
@@ -212,7 +213,7 @@ export function renderJobs() {
           title: opened ? 'Opened in Chrome: click to open it there again' : 'Open in Chrome: the extension fills the form from your kit; you review and submit'});
         fill.addEventListener('click', () => fillInChrome(fill));
         box.append(fill);
-        if (jobsState.claudeReady) {
+        if (jobsState.claudeReady && claudeHelp()) {
           const started = claudeStarted.has(pageKey(job.url));
           menu.push({icon: 'bot', label: started ? 'Claude is applying' : 'Apply with Claude', disabled: started,
             title: started ? 'A Claude session is filling this one in its window: answer it there' :

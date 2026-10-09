@@ -1,5 +1,6 @@
 // Session page: what Claude needs from you, and the form page in step.
 import {el, pill} from '../components.js';
+import {claudeHelp} from '../claude-help.js';
 import {replyOf, splitLabel, unbold} from '../session-message.js';
 import {checkingTabs, chromeSilent, tabClosed} from '../session-state.js';
 import {icon} from '../icons.js';
@@ -334,7 +335,7 @@ export function needRow(need, item) {
     });
     if (offline(item)) { select.disabled = true; select.title = offline(item); }
     chip.append(select);
-    actions.append(onlyChange ? smallButton('Tell Claude…', 'secondary', ask, offline(item)) : chip, smallButton('Review in form', 'primary', event => showInForm(item, agreeLabel(need), event.currentTarget)));
+    actions.append(onlyChange && claudeHelp() ? smallButton('Tell Claude…', 'secondary', ask, offline(item)) : chip, smallButton('Review in form', 'primary', event => showInForm(item, agreeLabel(need), event.currentTarget)));
   }
   li.append(badge(), body, actions);
   if (handled.has(key)) doneRow(li, key, handled.get(key));

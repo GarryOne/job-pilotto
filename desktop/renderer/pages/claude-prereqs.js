@@ -1,9 +1,12 @@
 // Apply with Claude prerequisites checklist (wizard, Optional extras): what only the user can install.
 // Moved out of connections.js, which calls it at start-up and on window focus. Guarded by the desktop page shot tests (npm test).
 import {$} from './core.js';
+import {claudeHelp} from '../claude-help.js';
 import {icon} from '../icons.js';
 
 export async function showClaudePrereqs() {
+  const card = document.getElementById('claude-extra');   // the setup's Claude card: only with Claude help on (claude-help.js)
+  if (card) card.hidden = !claudeHelp();
   const found = await window.pilot.claudePrereqs().catch(() => null);
   if (!found) return;
   const link = (href, text) => Object.assign(document.createElement('a'), {href, target: '_blank', textContent: text});

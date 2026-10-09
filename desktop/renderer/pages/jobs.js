@@ -1,5 +1,6 @@
 // Jobs: loading and reloading the list, adding jobs, init(); the pieces are jobs-state/-render/-fit/-lead/-questions.js. Guarded by: search-changed, live-status-line, live-count, activity-selection-kept tests.
 import {setCount} from '../components.js';
+import {claudeHelp} from '../claude-help.js';
 import {applicationStats, inboundCount, inProcess, matchesOnly, statClick, stats, takenDown, toReview} from '../jobs-view.js';
 import {shared} from './shared.js';
 import {refreshBusy, showSearchChanged, wireSearchChanged} from '../search-changed.js';
@@ -12,6 +13,7 @@ import {searchSelect} from '../search-select.js';
 import {jobsState, MORE, fullKey} from './jobs-state.js';
 import {TALKING_OPEN, renderJobs, renderStuck, showLoading} from './jobs-render.js';
 export {renderJobs} from './jobs-render.js';
+window.addEventListener('claude-help', () => renderJobs());   // Settings' Claude switch: the job menus follow it (claude-help.js)
 export {pageKey, fullKey} from './jobs-state.js';
 export {openLogFor} from './jobs-lead.js';
 import {wireLead} from './jobs-lead.js';
@@ -288,7 +290,9 @@ export async function init() {
   $('jobs-unscored-go').addEventListener('click', () => $('refresh').click());
   $('apply-open').addEventListener('click', () => {
     message('apply-message', '');
-    document.querySelector(`input[name="apply-mode"][value="${jobsState.claudeReady ? 'agents' : 'chrome'}"]`).checked = true;
+    // The extension first; Claude is a choice only with Claude help on (claude-help.js), and never the preset one.
+    document.querySelector('input[name="apply-mode"][value="agents"]').closest('label').hidden = !(jobsState.claudeReady && claudeHelp());
+    document.querySelector('input[name="apply-mode"][value="chrome"]').checked = true;
     $('apply-dialog').showModal();
   });
   window.pilot.onApplyProgress(text => message('apply-message', text, 'waiting'));   // "Drafting kit 2 of 3…" while the batch drafts what is missing

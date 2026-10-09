@@ -263,6 +263,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/audience.js` — Is this candidate looking for IT / engineering work? The same rule as src/coverage.py looks_technical (a table of cases in tests/fixtures/audience_cases.json holds both to it).
 - `desktop/renderer/browser-words.js` — The browser's name and its own extensions page, in the wording of the extension card: "Chrome" and chrome://extensions
 - `desktop/renderer/calendar.js` — Calendar page: every screening and interview on one calendar. Pure (tested in test/calendar.test.js); the page is
+- `desktop/renderer/claude-help.js` — One switch for every way into Claude (owner, 9 Oct 2026: "the extension and Chrome flow is smart … Resume with Claude or Apply with Claude is a degraded experience;
 - `desktop/renderer/compensation.js` — The Profile's unanswered "Target: ❓" is a placeholder, not a value: with no real figure it reads as not set (UI loop #272).
 - `desktop/renderer/components.js` — Job Pilotto's UI building blocks (styles in components.css, values in tokens.css). Screens build their
 - `desktop/renderer/coverage-actions.js` — What to do after a jobs check that found few new jobs (owner, 6 Oct 2026: "buttons after the search is done"): the coverage answer's cards

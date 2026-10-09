@@ -229,7 +229,7 @@
         <div class="service-card is-row"><span class="ui-tile tone-signal"><i data-icon="search"></i></span>
           <span class="service-text"><b>Google Jobs</b><span class="muted small">Adds Google Jobs listings (SerpApi, free plan: 250 searches a month).</span></span>
           <button class="secondary" data-goto-settings="serpapi">Add key</button></div>
-        <div class="service-card is-row is-wide"><span class="ui-tile tone-signal"><i data-icon="bot"></i></span>
+        <div class="service-card is-row is-wide" id="claude-extra"><span class="ui-tile tone-signal"><i data-icon="bot"></i></span>
           <span class="service-text"><b>Apply with Claude</b><span class="muted small">Claude opens each job, signs up on the employer's site if needed and fills every page. You review and submit. It needs a few things only you can install:</span>
             <ul class="prereqs" id="claude-prereqs"></ul></span>
           </div>
@@ -425,17 +425,16 @@
       <section class="card ss-empty" id="ss-empty" hidden>
         <span class="ss-empty-glyph"><i data-icon="send"></i></span>
         <h2>No application sessions yet</h2>
-        <p class="muted">Apply with Claude fills an employer's form in Chrome while you watch. It stops before
-          <b>Submit</b>, hands you the legal boxes and the questions it couldn't answer, and keeps the answers it
-          used in Notion.</p>
+        <p class="muted">Apply opens the job in Chrome and the extension fills the employer's form. It stops before
+          <b>Submit</b>, shows you the questions it couldn't answer with a suggested answer, and keeps your answers for the next form.</p>
         <div class="ss-empty-actions">
           <button class="primary with-icon" id="ss-empty-jobs"><i data-icon="briefcase"></i><span>Find a job to apply to</span></button>
         </div>
-        <p class="muted small">On a job's row, press <b>Apply with Claude</b> to start one.</p>
+        <p class="muted small">On a job's row, press <b>Apply</b> to start one.</p>
       </section>
       <div class="ss-grid" id="ss-grid" hidden>
         <section class="card ss-list-card">
-          <div class="focus-card-head"><h2>Sessions</h2><button class="secondary small-button" id="ss-new" title="Start Apply with Claude from the Jobs list">+ New session</button></div>
+          <div class="focus-card-head"><h2>Sessions</h2><button class="secondary small-button" id="ss-new" title="Start an application from the Jobs list">+ New session</button></div>
           <ol class="ss-list" id="ss-list"></ol>
         </section>
         <section class="card ss-main" id="ss-main">
@@ -915,10 +914,10 @@
             <span>When you tailor a CV, Job Pilotto reads this profile and your current CV.</span></div>
           <div class="setting panel" id="setting-claude" data-profile-panel="details">
             <div class="summary-head"><i data-icon="zap"></i><h3>Application assistant</h3></div>
-            <p class="muted panel-lead">Let Claude help you complete application forms (Apply with Claude).</p>
+            <p class="muted panel-lead">The extension fills your applications. Claude can help when it gets stuck: slower, and it uses your Claude plan.</p>
             <div class="switch-line">
               <label class="switch-row"><span class="switch"><input type="checkbox" id="claude-consent"><span></span></span>
-                <span><span>Allow Claude to continue through application steps</span><span class="muted small">Submission always remains your decision.</span></span></label>
+                <span><span>Show Claude help (Apply with Claude, Resume Claude, Take over)</span><span class="muted small">Off: only the extension's flow is shown. On: Claude is offered as a second option and works without asking before each step. It never clicks Submit.</span></span></label>
               <button class="arrow-link" id="claude-how">How this works</button>
             </div>
             <p class="muted small" id="claude-how-text" hidden>Its Claude Code windows then work without asking before each step, so they can run on their own.
@@ -1982,9 +1981,9 @@
     <fieldset>
       <legend>How to fill them</legend>
       <label class="radio"><input type="radio" name="apply-mode" value="agents">
-        <span><b>Apply with Claude</b> <span class="badge-recommended">Recommended</span><br><span class="muted">One Claude session per job in its own window, driving Chrome. Follows a job board's Apply to the employer's site, creates an account there if needed (password saved in your Keychain) and fills every page. You solve CAPTCHAs, tick the terms and submit. Minutes per job; needs Claude Code and Notion.</span></span></label>
+        <span><b>Apply with Claude</b><br><span class="muted">One Claude session per job in its own window, driving Chrome. Follows a job board's Apply to the employer's site, creates an account there if needed (password saved in your Keychain) and fills every page. You solve CAPTCHAs, tick the terms and submit. Minutes per job; needs Claude Code and Notion.</span></span></label>
       <label class="radio"><input type="radio" name="apply-mode" value="chrome">
-        <span><b>Fill in Chrome with the extension</b><br><span class="muted">Opens each job as a tab and fills forms that are right on the page. Seconds per form; stops at sign-in pages.</span></span></label>
+        <span><b>Fill in Chrome with the extension</b> <span class="badge-recommended">Recommended</span><br><span class="muted">Opens each job as a tab and fills forms that are right on the page. Seconds per form; stops at sign-in pages.</span></span></label>
     </fieldset>
     <p class="message" id="apply-message"></p>
     <div class="actions"><button class="ghost" value="cancel">Close</button><button class="primary" id="apply-go" value="default">Start</button></div>
