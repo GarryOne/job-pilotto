@@ -2,6 +2,7 @@
 // stores them (D1 "telemetry", 90 days), /telemetry shows the problems users hit (same key as /stats), and a daily
 // run (scheduled) picks the top problems and starts the triage workflow on GitHub, which files or updates an issue
 // per problem. Design: Notion "📡 Technical reports (telemetry) — design".
+import {installsByEngine} from './engines.js';
 import {filterLinks} from './admin.js';
 import {viewer} from './auth.js';   // admins (invited) read this page too
 import {trendChip} from './admin.js';
@@ -111,7 +112,9 @@ export async function problems(db, days, now = new Date(), limit = 50) {
     for (const name of OUTCOMES) if (typeof data[name] === 'number') { outcomes[name] = (outcomes[name] || 0) + data[name]; counted[name] = (counted[name] || 0) + 1; }
   }
   outcomes.counted = counted;
-  return {from, days, rows, installs, unique, everSeen, platforms, machines, outcomes, reporting: health.length};
+  // Which AI each install runs (its latest health report): the four engines, to see plan vs API (owner, 9 Oct 2026; src/engines.js).
+  const engines = await installsByEngine(db, from).catch(() => []);
+  return {from, days, rows, installs, unique, everSeen, platforms, machines, outcomes, reporting: health.length, engines};
 }
 // Machines by the channel they came from (the install link's ?src=, reported once by the app with its anonymous id):
 // how many installed, how many finished setup, how many are active (reported on 2+ days). "unknown" = installed from a
@@ -199,7 +202,7 @@ function page(data) {
   const {rows, installs} = data;
   const count = kind => rows.filter(row => row.kind === kind).reduce((sum, row) => sum + row.n, 0);
   const range = filterLinks([1, 7, 30].map(n => [n, n === 1 ? 'today' : `${n} days`, `?days=${n}`]), data.days);
-  const tiles = [['🖥️ Machines reporting', data.unique, `${data.everSeen} ever seen` + (data.platforms.length ? ' · ' + data.platforms.map(p => `${p.n} ${esc(OS_NAMES[p.platform] || p.platform)}`).join(', ') : '')], ['💥 Crashes', count('crash')], ['🔁 Failed runs', count('run_failed')], ['🧩 Form issues', count('form_issue')]];
+  const tiles = [['🖥️ Machines reporting', data.unique, `${data.everSeen} ever seen` + (data.platforms.length ? ' · ' + data.platforms.map(p => `${p.n} ${esc(OS_NAMES[p.platform] || p.platform)}`).join(', ') : '')], ['🤖 AI engine', (data.engines || []).filter(e => e.engine !== 'unknown').reduce((sum, e) => sum + e.n, 0), (data.engines || []).filter(e => e.n).map(e => `${e.n} ${esc(e.label)}`).join(' · ') || 'no health report yet'], ['💥 Crashes', count('crash')], ['🔁 Failed runs', count('run_failed')], ['🧩 Form issues', count('form_issue')]];
   const table = rows.map(row => `<tr><td><span class="kind ${row.kind}">${esc(row.kind.replace('_', ' '))}</span></td>
     <td><details><summary>${esc(row.summary)}</summary><pre>${esc(JSON.stringify(JSON.parse(row.sample || '{}'), null, 1))}</pre></details></td>
     <td><b>${row.users}</b></td><td>${row.n}</td><td class="muted">${esc(row.versions)}</td><td class="muted">${esc(String(row.last).slice(0, 16).replace('T', ' '))}</td></tr>`).join('');

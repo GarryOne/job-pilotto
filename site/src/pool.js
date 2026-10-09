@@ -2,6 +2,7 @@
 // employer career pages an app uses, tagged with coarse fixed-list roles and regions; GET /api/contributions (Bearer
 // INDEX_PUBLISH_KEY, the central scout only) gives the aggregate. Nothing here can identify a person: the install id is
 // hashed, and a feed's tags are only ever published from many installs (the scout's threshold).
+import {familyOfInstall} from './engines.js';
 import {COUNTRIES, METROS, FAMILIES} from './pool-tags.js';
 
 const SYSTEMS = ['greenhouse', 'lever', 'ashby', 'smartrecruiters', 'workable', 'recruitee', 'personio', 'teamtailor', 'join', 'workday', 'umantis', 'successfactors', 'careers', 'amazon', 'netflix', 'jobsch'];
@@ -120,6 +121,7 @@ export async function contribute(request, env, now = new Date()) {
     boards.push({board: item.board, jobs: count(item.jobs), hits: count(item.hits), dup: count(item.dup), failed: item.failed ? 1 : 0, out: outOf(item.out)});
   }
   if (!feeds.length && !nofeed.length && !boards.length && !sites.length) return Response.json({ok: false, error: 'no valid feeds'}, {status: 400});
+  const aiFamily = await familyOfInstall(env.STATS, body.install);   // Claude or OpenAI, from the raw id's latest health report, before it is hashed (src/engines.js)
   const install = await hashed(env, body.install);
   const kv = env.WAITLIST, limit = `pool:${install}`;
   const minute = `${limit}:${Math.floor(now.getTime() / 60000)}`;
@@ -128,29 +130,29 @@ export async function contribute(request, env, now = new Date()) {
   if (kv) await kv.put(minute, String(used + 1), {expirationTtl: 120});
   const today = day(now);
   // matched / own: a one-item share made the same day (matched false) must not undo what that day's jobs check saw.
-  const statements = feeds.map(feed => env.STATS.prepare(`INSERT INTO contributions (install, day, ats, slug, company, matched, own, roles, regions, how, jobs, hits, site, failed, out_json, countries, metros, families)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  const statements = feeds.map(feed => env.STATS.prepare(`INSERT INTO contributions (install, day, ats, slug, company, matched, own, roles, regions, how, jobs, hits, site, failed, out_json, countries, metros, families, ai_family)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(install, ats, slug) DO UPDATE SET company = excluded.company,
       matched = CASE WHEN day = excluded.day THEN MAX(matched, excluded.matched) ELSE excluded.matched END,
       own = CASE WHEN day = excluded.day THEN MAX(own, excluded.own) ELSE excluded.own END, day = excluded.day,
       roles = excluded.roles, regions = excluded.regions, countries = excluded.countries, metros = excluded.metros, families = excluded.families, how = COALESCE(how, excluded.how), jobs = COALESCE(excluded.jobs, jobs),
-      hits = COALESCE(excluded.hits, hits), site = COALESCE(excluded.site, site), failed = excluded.failed, out_json = COALESCE(excluded.out_json, out_json)`)
+      hits = COALESCE(excluded.hits, hits), site = COALESCE(excluded.site, site), failed = excluded.failed, out_json = COALESCE(excluded.out_json, out_json), ai_family = excluded.ai_family`)
     .bind(install, today, feed.ats, feed.slug, feed.company, feed.matched, feed.own, roles.join(','), regions.join(','), feed.how, feed.jobs, feed.hits,
-      feed.site, feed.failed, feed.out, ...fine));
+      feed.site, feed.failed, feed.out, ...fine, aiFamily));
   for (const item of nofeed) {
-    statements.push(env.STATS.prepare('INSERT INTO nofeed (install, day, key, company, host) VALUES (?, ?, ?, ?, ?) ON CONFLICT(install, key) DO UPDATE SET day = excluded.day, host = COALESCE(excluded.host, host)')
-      .bind(install, today, item.key, item.company, item.host));
+    statements.push(env.STATS.prepare('INSERT INTO nofeed (install, day, key, company, host, ai_family) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(install, key) DO UPDATE SET day = excluded.day, host = COALESCE(excluded.host, host), ai_family = excluded.ai_family')
+      .bind(install, today, item.key, item.company, item.host, aiFamily));
   }
   for (const item of sites) {
     statements.push(env.STATS.prepare('INSERT INTO sitefacts (install, day, host, kind, url, body) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(install, host, kind) DO UPDATE SET day = excluded.day, url = excluded.url, body = excluded.body')
       .bind(install, today, item.host, item.kind, item.url, item.body));
   }
   for (const item of boards) {
-    statements.push(env.STATS.prepare(`INSERT INTO board_reads (install, day, board, roles, regions, jobs, hits, failed, dup, out_json, countries, metros, families) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    statements.push(env.STATS.prepare(`INSERT INTO board_reads (install, day, board, roles, regions, jobs, hits, failed, dup, out_json, countries, metros, families, ai_family) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(install, board) DO UPDATE SET day = excluded.day, roles = excluded.roles, regions = excluded.regions, countries = excluded.countries,
       metros = excluded.metros, families = excluded.families, jobs = excluded.jobs,
-      hits = excluded.hits, failed = excluded.failed, dup = excluded.dup, out_json = COALESCE(excluded.out_json, out_json)`)
-      .bind(install, today, item.board, roles.join(','), regions.join(','), item.jobs, item.hits, item.failed, item.dup, item.out, ...fine));
+      hits = excluded.hits, failed = excluded.failed, dup = excluded.dup, out_json = COALESCE(excluded.out_json, out_json), ai_family = excluded.ai_family`)
+      .bind(install, today, item.board, roles.join(','), regions.join(','), item.jobs, item.hits, item.failed, item.dup, item.out, ...fine, aiFamily));
   }
   // D1 runs a batch as one call: 2,000 feeds stay one request's worth of queries.
   for (let i = 0; i < statements.length; i += 500) {

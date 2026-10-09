@@ -1,6 +1,7 @@
 // What installs report so the product can learn what questions mean and where applications get stuck (Notion: "Knowledge as data:
 // build plan"). Stored as counts. A question's wording is kept only while several installs report it; the rest is deleted by tidy().
 //   POST /api/controls (src/recipes.js) hands {questions, flows} here.   GET /api/knowledge (owner): what the proposers work from.
+import {familyOfInstall} from './engines.js';
 import {cleanLabel} from '../../extension/alias-schema.js';
 import {digestOf} from './guard.js';
 import {isOwner} from './stats.js';
@@ -25,6 +26,7 @@ export async function store(env, body, install, now = new Date()) {
   let questions = 0, flows = 0, applications = 0;
   if (!env.STATS) return {questions, flows};
   const who = (await digestOf(String(install || 'anonymous'))).slice(0, 8);
+  const family = await familyOfInstall(env.STATS, install);   // Claude or OpenAI, from the install's latest health report (src/engines.js)
   for (const item of (Array.isArray(body?.questions) ? body.questions : []).slice(0, 40)) {
     const label = cleanLabel(item?.label), board = String(item?.board || '');
     if (!label || !BOARD.test(board)) continue;
@@ -43,16 +45,16 @@ export async function store(env, body, install, now = new Date()) {
     const board = String(item?.board || ''), state = String(item?.state || '');
     const n = Math.max(0, Math.min(1000, Math.round(Number(item?.n)) || 0));
     if (!BOARD.test(board) || !FLOW_STATES.includes(state) || !n) continue;
-    await env.STATS.prepare('INSERT INTO flow_outcomes (day, board, state, n) VALUES (?, ?, ?, ?) ON CONFLICT (day, board, state) DO UPDATE SET n = n + excluded.n')
-      .bind(day(now), board, state, n).run();
+    await env.STATS.prepare('INSERT INTO flow_outcomes (day, board, state, ai_family, n) VALUES (?, ?, ?, ?, ?) ON CONFLICT (day, board, state, ai_family) DO UPDATE SET n = n + excluded.n')
+      .bind(day(now), board, state, family, n).run();
     flows++;
   }
   for (const item of (Array.isArray(body?.unfilled) ? body.unfilled : []).slice(0, 20)) {
     const board = String(item?.board || ''), reason = String(item?.reason || '');
     const n = Math.max(0, Math.min(1000, Math.round(Number(item?.n)) || 0));
     if (!BOARD.test(board) || !LEFT_REASONS.includes(reason) || !n) continue;
-    await env.STATS.prepare('INSERT INTO fill_reasons (day, board, reason, n) VALUES (?, ?, ?, ?) ON CONFLICT (day, board, reason) DO UPDATE SET n = n + excluded.n')
-      .bind(day(now), board, reason, n).run();
+    await env.STATS.prepare('INSERT INTO fill_reasons (day, board, reason, ai_family, n) VALUES (?, ?, ?, ?, ?) ON CONFLICT (day, board, reason, ai_family) DO UPDATE SET n = n + excluded.n')
+      .bind(day(now), board, reason, family, n).run();
   }
   for (const item of (Array.isArray(body?.applications) ? body.applications : []).slice(0, 20)) {
     const board = String(item?.board || ''), outcome = String(item?.outcome || ''), days = String(item?.days || '');

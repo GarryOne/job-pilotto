@@ -19,7 +19,7 @@ export async function appTrends(db, now = new Date()) {
   const firsts = await rows(db, 'SELECT install, MIN(day) AS day FROM telemetry GROUP BY install HAVING MIN(day) >= ?', from);
   const problems = await rows(db, `SELECT day FROM telemetry WHERE kind IN ${PROBLEMS} AND day >= ?`, from);
   const lab = await rows(db, "SELECT day, ok, 1 AS n FROM lab_runs WHERE kind != 'question' AND day >= ?", from);
-  const fills = await rows(db, 'SELECT day, n FROM form_exposure WHERE day >= ?', from);
+  const fills = await rows(db, 'SELECT day, SUM(n) AS n FROM form_exposure WHERE day >= ? GROUP BY day', from);
   const guard = await rows(db, 'SELECT day, n FROM anomalies WHERE day >= ?', from);
   const feedback = await rows(db, 'SELECT day FROM feedback WHERE day >= ?', from);
   const gate = setup.filter(row => row.data.step === 'notion_gate' && row.data.outcome !== 'viewed')
@@ -48,8 +48,8 @@ export async function insightTrends(db, now = new Date()) {
   const replies = (await rows(db, 'SELECT day, outcome, n FROM intel_replies WHERE day >= ?', from)).map(row => ({day: row.day, all: row.n, good: GOOD.includes(row.outcome) ? row.n : 0}));
   const sources = await rows(db, 'SELECT day, seen, acted FROM intel_sources WHERE day >= ?', from);
   const fixes = await rows(db, 'SELECT day, filled, corrected FROM intel_fix_days WHERE day >= ?', from);
-  const empty = await rows(db, 'SELECT day, n AS left FROM fill_reasons WHERE day >= ?', from);
-  const fills = await rows(db, 'SELECT day, n AS forms FROM form_exposure WHERE day >= ?', from);
+  const empty = await rows(db, 'SELECT day, SUM(n) AS left FROM fill_reasons WHERE day >= ? GROUP BY day', from);
+  const fills = await rows(db, 'SELECT day, SUM(n) AS forms FROM form_exposure WHERE day >= ? GROUP BY day', from);
   const cost = await rows(db, 'SELECT day, micro_usd FROM ai_calls WHERE day >= ?', from);
   const pct = value => `${Math.round(value * 100)}%`;
   return {

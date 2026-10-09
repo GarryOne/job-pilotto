@@ -8,9 +8,9 @@ import {purge, rollup} from '../src/pool.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql', '0031_board_reads.sql', '0032_pool_indexes.sql', '0033_pool_outcomes.sql', '0034_pool_fine_tags.sql', '0035_pool_daily.sql', '0037_pool_sitefacts.sql', '0038_sitefacts_layout.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql', '0031_board_reads.sql', '0032_pool_indexes.sql', '0033_pool_outcomes.sql', '0034_pool_fine_tags.sql', '0035_pool_daily.sql', '0037_pool_sitefacts.sql', '0038_sitefacts_layout.sql', '0045_pool_ai_family.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
-    all: async () => ({results: db.prepare(sql).all(...args)})});
+    all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args) ?? null});
   return {db, prepare: sql => statement(sql)};
 }
 const kvStore = () => { const map = new Map(); return {map, get: async k => map.get(k) ?? null, put: async (k, v) => { map.set(k, v); }}; };
@@ -224,4 +224,22 @@ test('a job board an install read jobs on: its template and countries only; serv
   }
   const boards = (await agreedSites(env)).filter(fact => fact.kind === 'board');
   assert.deepEqual(boards.map(fact => [fact.host, fact.url, fact.recipe, fact.installs]), [['net-empregos.com', template, {countries: ['pt']}, 3]]);
+});
+
+test('a share is kept with the AI family of the install that sent it, and the scouting page filters by it', async () => {
+  const {gather} = await import('../src/scoutingadmin.js');
+  const env = setup();
+  const health = (install, aiEngine) => env.STATS.db.prepare(`INSERT INTO telemetry (day, at, kind, install, version, platform, fingerprint, summary, data)
+    VALUES ('2026-10-09', '2026-10-09T10:00:00Z', 'health', ?, '0.6.0', 'darwin', 'health', 'health', ?)`).run(install, JSON.stringify({aiEngine}));
+  health('install-codex111', 'codex'); health('install-claude11', 'cli');
+  assert.equal((await post(env, body('install-codex111', [feed('a')]))).status, 200);
+  assert.equal((await post(env, body('install-claude11', [feed('b')]))).status, 200);
+  assert.equal((await post(env, body('install-nohealth', [feed('c')]))).status, 200);
+  const families = env.STATS.db.prepare('SELECT slug, ai_family FROM contributions ORDER BY slug').all().map(row => [row.slug, row.ai_family]);
+  assert.deepEqual(families, [['a', 'openai'], ['b', 'claude'], ['c', 'unknown']]);
+  const now = new Date();
+  assert.equal((await gather(env.STATS, now, 'openai')).shared, 1);
+  assert.equal((await gather(env.STATS, now)).shared, 3);
+  const all = await gather(env.STATS, now);
+  assert.deepEqual([all.families.claude.shared, all.families.openai.shared, all.families.unknown.shared], [1, 1, 1]);
 });

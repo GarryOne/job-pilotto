@@ -6,6 +6,7 @@
 //     per 100 forms for apps older than 0.8.96, which send no count)
 //   3 the recipe funnel (candidate -> canary -> verified, disabled), and the questions the lab could not read, to fix next.
 // Counts and the forms' own public wording only. Owner-only, like /self-heal.
+import {FAMILIES, familyLinks, familyParam} from './engines.js';
 import {viewer} from './auth.js';   // admins (invited) read this page too
 import {digest, markdown} from './digest.js';
 import {RESULT_STATES} from '../../desktop/lib/application-result.js';
@@ -49,7 +50,26 @@ export function resultsFrom(rows, thisWeek, lastWeek) {
   return {now: summary(sums.now), before: summary(sums.before), boards: [...boards].map(([board, counts]) => ({board, ...summary(counts)})).sort((a, b) => b.finished - a.finished).slice(0, 12)};
 }
 
-export async function report(db, now = new Date()) {
+// The three counts installs report, for one AI family ('' = all): src/engines.js, migration 0044.
+const FAMILY_SQL = " AND (? = '' OR ai_family = ?)";
+
+// This week, side by side per AI family: forms filled, success (submitted ÷ finished), fields left empty per 100 required questions.
+export async function byFamily(db, thisWeek) {
+  const out = {};
+  for (const family of ['claude', 'openai', 'unknown']) {
+    const use = await db.prepare('SELECT SUM(n) AS fills, SUM(required) AS required FROM form_exposure WHERE day >= ? AND ai_family = ?').bind(thisWeek, family).first().catch(() => null);
+    const left = await db.prepare('SELECT SUM(n) AS n FROM fill_reasons WHERE day >= ? AND ai_family = ?').bind(thisWeek, family).first().catch(() => null);
+    const flows = (await db.prepare('SELECT day, board, state, SUM(n) AS n FROM flow_outcomes WHERE day >= ? AND ai_family = ? GROUP BY day, board, state')
+      .bind(thisWeek, family).all().catch(() => ({results: []}))).results || [];
+    const results = resultsFrom(flows, thisWeek, thisWeek).now;
+    const base = use?.required || use?.fills || 0;
+    out[family] = {fills: use?.fills || 0, successRate: results.successRate, finished: results.finished, submitted: results.submitted,
+      leftPer100: base ? (100 * (left?.n || 0)) / base : null, unit: use?.required ? 'required questions' : 'forms'};
+  }
+  return out;
+}
+
+export async function report(db, now = new Date(), family = '') {
   const thisWeek = back(now, WEEK - 1), lastWeek = back(now, 2 * WEEK - 1);
   const period = d => (d >= thisWeek ? 'now' : d >= lastWeek ? 'before' : null);
   const rate = () => ({ok: 0, n: 0, rate: null});
@@ -68,10 +88,10 @@ export async function report(db, now = new Date()) {
     boards.set(row.site, entry);
   }
 
-  const exposure = (await db.prepare('SELECT day, SUM(n) AS fills, SUM(required) AS required FROM form_exposure WHERE day >= ? GROUP BY day').bind(lastWeek).all()).results || [];
+  const exposure = (await db.prepare('SELECT day, SUM(n) AS fills, SUM(required) AS required FROM form_exposure WHERE day >= ?' + FAMILY_SQL + ' GROUP BY day').bind(lastWeek, family, family).all()).results || [];
   const use = {now: {fills: 0, required: 0}, before: {fills: 0, required: 0}};
   for (const row of exposure) { const when = period(row.day); if (when) { use[when].fills += row.fills || 0; use[when].required += row.required || 0; } }
-  const reasonRows = (await db.prepare('SELECT day, reason, SUM(n) AS n FROM fill_reasons WHERE day >= ? GROUP BY day, reason').bind(lastWeek).all()).results || [];
+  const reasonRows = (await db.prepare('SELECT day, reason, SUM(n) AS n FROM fill_reasons WHERE day >= ?' + FAMILY_SQL + ' GROUP BY day, reason').bind(lastWeek, family, family).all()).results || [];
   const counts = {now: {}, before: {}};
   for (const row of reasonRows) { const when = period(row.day); if (when) counts[when][row.reason] = (counts[when][row.reason] || 0) + row.n; }
   // Per 100 required questions when the apps sent the count, else per 100 forms.
@@ -93,9 +113,10 @@ export async function report(db, now = new Date()) {
     FROM lab_runs r WHERE r.kind = ? AND r.ok = 0 AND r.day >= ? GROUP BY r.fingerprint, r.site ORDER BY n DESC, last DESC LIMIT 15`)
     .bind(READING_KIND, thisWeek).all()).results || []).map(row => ({...row}));
 
-  const results = resultsFrom((await db.prepare('SELECT day, board, state, SUM(n) AS n FROM flow_outcomes WHERE day >= ? GROUP BY day, board, state').bind(lastWeek).all().catch(() => ({results: []}))).results || [], thisWeek, lastWeek);
+  const results = resultsFrom((await db.prepare('SELECT day, board, state, SUM(n) AS n FROM flow_outcomes WHERE day >= ?' + FAMILY_SQL + ' GROUP BY day, board, state').bind(lastWeek, family, family).all().catch(() => ({results: []}))).results || [], thisWeek, lastWeek);
   const learning = await digest(db, now).catch(() => null);
-  return {results, learning, lab: [...boards.values()].sort((a, b) => (b.reading.now.n + b.operating.now.n) - (a.reading.now.n + a.operating.now.n)),
+  const families = await byFamily(db, thisWeek).catch(() => null);
+  return {family, families, results, learning, lab: [...boards.values()].sort((a, b) => (b.reading.now.n + b.operating.now.n) - (a.reading.now.n + a.operating.now.n)),
     totals, use: {...use, unitNow: per('now').unit, reasons}, recipes, unread, from: lastWeek, to: day(now)};
 }
 
@@ -139,7 +160,20 @@ ${none ? '<small class="muted">No finished applications reported yet: they appea
 ${results.boards.map(b => `<tr><td>${esc(b.board)}</td><td class="n">${b.finished}</td><td class="n">${b.submitted}</td><td class="n">${b['submitted-assisted']}</td><td class="n">${b.failed}</td></tr>`).join('')}</table></div>`}</section>`;
 }
 
-export function page(data) {
+// This week per AI family, side by side (owner, 9 Oct 2026: Claude users and Codex/OpenAI users told apart).
+function familySection(families) {
+  if (!families) return '';
+  const cell = value => (value === null || value === undefined ? '–' : value);
+  const row = (key, label) => {
+    const f = families[key];
+    return `<tr><td>${label}</td><td class="n">${f.fills}</td><td class="n">${f.finished ? `${pct({rate: f.successRate})} (${f.submitted}/${f.finished})` : '–'}</td><td class="n">${cell(f.leftPer100 === null ? null : num(f.leftPer100))}</td></tr>`;
+  };
+  return `<section class="card"><h2>🤖 By AI family, this week</h2><small class="muted">From each reporting install's latest health report: Claude = Claude Code or an Anthropic key; OpenAI = Codex or an OpenAI key. Unknown = counted before 9 Oct 2026, or no health report yet.</small>
+<div class="scroll"><table><tr><th>Family</th><th>Forms filled</th><th>Success (submitted ÷ finished)</th><th>Fields left empty per 100</th></tr>
+${row('claude', 'Claude')}${row('openai', 'OpenAI')}${row('unknown', 'Unknown')}</table></div></section>`;
+}
+
+export function page(data, url = new URL('https://www.jobpilotto.workers.dev/admin/form-filling')) {
   const r = data.totals.reading, o = data.totals.operating;
   const blind = data.use.reasons.filter(x => x.group === 'blind spot');
   const blindNow = blind.reduce((s, x) => s + (x.rateNow || 0), 0), blindBefore = blind.reduce((s, x) => s + (x.rateBefore || 0), 0);
@@ -158,7 +192,9 @@ a{color:var(--amber)}.muted{color:var(--muted)}header{display:flex;justify-conte
 .wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;margin-top:8px}th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:6px 4px}
 td{padding:6px 4px;border-top:1px solid var(--line)}th.n{text-align:right}td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 </style></head><body><main>
-<header><h1>📝 Form filling</h1><span class="muted">${esc(data.from)} → ${esc(data.to)} · this week vs last</span></header>
+<header><h1>📝 Form filling</h1><span class="muted">${esc(data.from)} → ${esc(data.to)} · this week vs last${data.family ? ` · ${esc(FAMILIES[data.family])} installs only` : ''}</span></header>
+${familyLinks(url, data.family || '')}
+${familySection(data.families)}
 <div class="tiles">
 ${tile('📖 Reading (lab)', pct(r.now), trend(r.now.rate, r.before.rate), `required questions read on public forms · ${r.now.n} this week, ${pct(r.before)} last`)}
 ${tile('🖱️ Operating (lab)', pct(o.now), trend(o.now.rate, o.before.rate), `widgets set by the operators · ${o.now.n} this week, ${pct(o.before)} last`)}
@@ -198,5 +234,6 @@ export async function view(request, env, now = new Date()) {
   const url = new URL(request.url);
   if (url.searchParams.has('key')) return remember(url, env, request);
   if (!env.STATS) return new Response('No database', {status: 503});
-  return new Response(page(await report(env.STATS, now)), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  const family = familyParam(url);   // ?family=claude|openai: every count of the page for that AI family (src/engines.js)
+  return new Response(page(await report(env.STATS, now, family), url), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }

@@ -9,6 +9,7 @@
 //   POST /api/controls  from apps: scrubbed control structures (to propose recipes from) and how the operators fared (the canary's
 //                       evidence). Product data only: no user data, no text, no answers.
 // evaluateCanary (daily) promotes a canary that works and halts one that fails, with no one watching.
+import {familyOfInstall} from './engines.js';
 import {appliesTo, validateRecipe} from '../../extension/recipe-schema.js';
 import {cleanCard} from '../../extension/fill-card.js';
 import {isOwner} from './stats.js';
@@ -163,13 +164,14 @@ export async function controls(request, env, now = new Date()) {
     await env.STATS.prepare(`UPDATE fill_cards SET submitted = MAX(submitted, ?), by_you = MAX(by_you, ?), by_you_unread = MAX(by_you_unread, ?), page_error = MAX(page_error, ?) WHERE id = ?`)
       .bind(item.submitted ? 1 : 0, n(item.by_you), n(item.by_you_unread), n(item.page_error), id).run();
   }
+  const family = Array.isArray(body.exposure) && body.exposure.length ? await familyOfInstall(env.STATS, install) : 'unknown';   // src/engines.js
   for (const item of (Array.isArray(body.exposure) ? body.exposure : []).slice(0, 20)) {
     const board = text(item?.board, 40).toLowerCase();
     const n = Math.max(0, Math.min(1000, Math.round(Number(item?.n)) || 0));
     const required = Math.max(0, Math.min(200 * n, Math.round(Number(item?.required)) || 0));   // required questions on those forms (0: an older app)
     if (!/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(board) || !n) continue;
-    await env.STATS.prepare('INSERT INTO form_exposure (day, board, n, required) VALUES (?, ?, ?, ?) ON CONFLICT (day, board) DO UPDATE SET n = n + excluded.n, required = required + excluded.required')
-      .bind(day(now), board, n, required).run();
+    await env.STATS.prepare('INSERT INTO form_exposure (day, board, ai_family, n, required) VALUES (?, ?, ?, ?, ?) ON CONFLICT (day, board, ai_family) DO UPDATE SET n = n + excluded.n, required = required + excluded.required')
+      .bind(day(now), board, family, n, required).run();
   }
   for (const item of samples) {
     const fingerprint = String(item?.fingerprint || '');

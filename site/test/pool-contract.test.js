@@ -8,7 +8,7 @@ import {test} from 'node:test';
 import worker from '../src/index.js';
 
 const MIGRATIONS = ['0001_stats.sql', '0002_telemetry.sql', '0003_contributions.sql', '0027_contributions_v2.sql', '0028_nofeed.sql', '0031_board_reads.sql',
-  '0032_pool_indexes.sql', '0033_pool_outcomes.sql', '0034_pool_fine_tags.sql', '0035_pool_daily.sql'];
+  '0032_pool_indexes.sql', '0033_pool_outcomes.sql', '0034_pool_fine_tags.sql', '0035_pool_daily.sql', '0045_pool_ai_family.sql'];
 function d1() {
   const db = new DatabaseSync(':memory:');
   for (const file of MIGRATIONS) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));

@@ -8,7 +8,7 @@ import {cleanLabel, knowledge, report, tidy} from '../src/knowledge.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0004_recipes.sql', '0005_lab.sql', '0006_exposure.sql', '0009_knowledge.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0004_recipes.sql', '0005_lab.sql', '0006_exposure.sql', '0009_knowledge.sql', '0017_alias_proposals.sql', '0022_form_required.sql', '0044_family_counts.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};

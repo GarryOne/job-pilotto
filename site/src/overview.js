@@ -18,8 +18,8 @@ export async function report(db, now = new Date()) {
   const visits = await rows(db, 'SELECT day, visitor FROM visits WHERE day >= ?', from);
   const downloads = await rows(db, 'SELECT day FROM downloads WHERE day >= ?', from);
   const reading = await rows(db, "SELECT day, ok, 1 AS n FROM lab_runs WHERE kind = 'question' AND day >= ?", from);
-  const blind = await rows(db, "SELECT day, n AS blind FROM fill_reasons WHERE reason IN ('unread', 'by_you_unread') AND day >= ?", from);
-  const exposure = (await rows(db, 'SELECT day, n, required FROM form_exposure WHERE day >= ?', from)).map(row => ({day: row.day, base: row.required || row.n}));
+  const blind = await rows(db, "SELECT day, SUM(n) AS blind FROM fill_reasons WHERE reason IN ('unread', 'by_you_unread') AND day >= ? GROUP BY day", from);
+  const exposure = (await rows(db, 'SELECT day, SUM(n) AS n, SUM(required) AS required FROM form_exposure WHERE day >= ? GROUP BY day', from)).map(row => ({day: row.day, base: row.required || row.n}));
   const jobCost = await rows(db, 'SELECT day, usd FROM ai_cost_runs WHERE day >= ?', from);
   const relay = (await rows(db, 'SELECT day, micro_usd FROM ai_calls WHERE day >= ?', from)).map(row => ({day: row.day, usd: row.micro_usd / 1e6}));
   // Self-healing stores precision as a percent (38); pct() here takes a ratio (7 Oct 2026: Overview showed 3800%).
