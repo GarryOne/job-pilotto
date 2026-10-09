@@ -7,6 +7,6 @@ document.getElementById('allow').addEventListener('click', async () => {
   const ok = await chrome.permissions.request(ALL_SITES).catch(() => false);
   const said = document.getElementById('said');
   said.className = ok ? 'done' : '';
-  said.textContent = ok ? 'Allowed: the extension is reading the sites now. This page closes by itself.' : 'Not allowed: the sites stay unread. You can still click the Job Pilotto icon on each site.';
+  said.textContent = ok ? 'Allowed: the extension is starting on those sites now. This page closes by itself.' : 'Not allowed: the extension can\'t read or fill those sites. You can still click the Job Pilotto icon on each site.';
   if (ok) setTimeout(() => window.close(), 1500);
 });
