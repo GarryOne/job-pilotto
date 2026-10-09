@@ -6,8 +6,7 @@ import re
 
 from ..notion import titles
 from ..notion.funnel import PREPARED_STAGES
-from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES, plain
-from ..stores.notion_rows import APPLICATION_COLUMNS
+from ..notion.ledger import EVENTS_DATABASE_ID, OUTCOME_STAGES
 from . import cost, engine, opportunity
 from .mail_config import BATCH, INVITES, INVITE_MAILS, LINKEDIN_SENDERS, RECRUITER_DOMAINS, SCHEMA, SENDER_DOMAINS, STATE_FILE, SYSTEM, TZ
 
@@ -52,26 +51,15 @@ def applications(stores):
     return sorted(rows, key=lambda r: (r['applied_on'] or '', r['id']))
 
 
-# A job field by its Notion column and back (src/stores/notion_rows.py), for callers that still hold Notion rows.
-_COLUMN = {field: column for field, column, _ in APPLICATION_COLUMNS}
-_FIELD = {column: field for field, column in _COLUMN.items()}
-
-
 def _field(row, name):
     """A job record's field as text ('' when empty): rows are store records (src/stores/base.py APPLICATION_FIELDS)."""
-    if 'properties' in row:
-        # BRIDGE(mac-cd inbox): remove when inbox.py passing job records lands
-        return plain(row['properties'].get(_COLUMN.get(name, name))) or ''
-    value = row.get(_FIELD.get(name, name))
+    value = row.get(name)
     return '' if value is None else str(value)
 
 
 def _role(row):
     """The row's role: its Job title without " · Acme" / " · via Huxley" (src/notion/titles.py), for matching by role
     words and for lines that name the employer or agency themselves."""
-    if 'properties' in row:
-        # BRIDGE(mac-cd inbox): remove when inbox.py passing job records lands
-        return titles.row_role(row)
     return titles.role_of(row.get('title') or '', row.get('company') or '', row.get('via') or '')
 
 

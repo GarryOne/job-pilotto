@@ -29,6 +29,12 @@ def content(prop):
     return ''.join((part.get('text') or {}).get('content', part.get('plain_text', '')) for part in (prop or {}).get('rich_text') or [])
 
 
+def record_of(row):
+    """A fake Notion row as the job record the Notion store reads from it (its codec, no store needed)."""
+    from src.stores import notion as notion_store
+    return notion_store.Applications(None, 'db')._record(row)
+
+
 def rec(stores, row):
     """A fake Notion row as the store's record (what the check's internals take)."""
     return stores.applications._record(row)

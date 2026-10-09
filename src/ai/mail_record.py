@@ -96,15 +96,6 @@ def _receive(stores, row, text):
     row.update(employer_feedback.save_received(stores, row, text))
 
 
-def _notion_row(stores, row):
-    """The Notion row of a job record, read through the store's own client; a record of another store passes as it is."""
-    # BRIDGE(mac-4a rejection): remove when rejection.pending/review on the store lands
-    tracker = getattr(stores.applications, 'tracker', None)
-    if stores.name != 'notion' or tracker is None:
-        return row
-    return {'id': row['id'], 'url': stores.link(row['id']), **tracker._request('GET', f"pages/{row['id']}")}
-
-
 # The fields one email can move on a job (advance() writes exactly these): named in a run's log as before -> after.
 MOVED_FIELDS = ('Stage', 'Next interview', 'Feedback status', 'Confirmation email')
 

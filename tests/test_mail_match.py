@@ -228,8 +228,10 @@ class MailMatchTests(MailCase):
         tracker = FakeTracker([app('p1', 'Scale AI', 'SRE')])
         google = FakeGoogle([email('h2', 'Connect Igor - SRE', sender='Jaya <j@att.test>')])
 
-        def track(tracker_, lead, text_, **options):
-            return app('new-lead', 'AT&T', lead['title'], stage='Screening', via=lead.get('recruiter_company', '')), ''
+        def track(tracker_, lead, text_, **options):  # track() answers with the job's store record
+            row = app('new-lead', 'AT&T', lead['title'], stage='Screening', via=lead.get('recruiter_company', ''))
+            tracker.apps.append(row)
+            return rec(tracker_, row), ''
         with mock.patch('src.ai.opportunity.extract', side_effect=RuntimeError('no AI in tests')), \
                 mock.patch('src.ai.opportunity.track', track):
             _, sent = self.run_mail(tracker, google, [[result(0, -1, 'Interview scheduled', company='AT&T',

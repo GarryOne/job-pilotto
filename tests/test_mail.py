@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import mail, mail_inbox
 from src.notion import ledger
 from tests import zone
-from tests.mail_fakes import (NOW, FakeClient, FakeGoogle, FakeTracker, MailCase, app, content, email, event_row, rec, result,
+from tests.mail_fakes import (NOW, FakeClient, FakeGoogle, FakeTracker, MailCase, app, content, email, event_row, rec, record_of, result,
                               stores_for, text)
 
 setUpModule, tearDownModule = zone.pinned()
@@ -21,7 +21,7 @@ setUpModule, tearDownModule = zone.pinned()
 
 class MailTests(MailCase):
     def test_query_covers_senders_subjects_and_tracked_companies(self):
-        q = mail.query([app('a', 'Zephyr AI', 'Infra', via='TechTree')], 2)
+        q = mail.query([record_of(app('a', 'Zephyr AI', 'Infra', via='TechTree'))], 2)
         self.assertTrue(q.startswith('newer_than:2d -in:chats'))
         self.assertNotIn('subject:', q)   # no words: other inbox mail is sorted by Claude (mail_triage), in any language
         for part in ('from:greenhouse-mail.io', 'from:techtree.dev', '"Zephyr AI"', '"TechTree"'):

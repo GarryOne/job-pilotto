@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 
 from ..notion import origin as origin_rule
 from ..notion import titles
-from ..notion.ledger import _block, _text, plain
+from ..notion.ledger import _block
 from ..stores import open_stores, rules
 from ..stores.notion_blocks import to_markdown
 from . import cost, engine
@@ -129,25 +129,6 @@ def source_for(lead, source):
     return 'LinkedIn' if lead.get('platform') == 'LinkedIn' else source
 
 
-def first_contact_changes(row, platform, began, origin):
-    # BRIDGE(mac-cd inbox): remove when inbox_notion.py uses first_contact_fields lands
-    """Property changes when a contact on `platform` at `began` (a datetime) predates the row's first known contact
-    (`origin`): Source, Reached via and the Notes' "(Email)" follow the earliest contact. {} otherwise: a later
-    contact, or the same channel again, changes nothing."""
-    if platform not in CHANNEL_SOURCE or not began or not origin or began >= origin:
-        return {}
-    props, changes = row.get('properties') or {}, {}
-    if SOURCE_CHANNEL.get(plain(props.get('Source')) or '') != platform:
-        changes['Source'] = {'select': {'name': CHANNEL_SOURCE[platform]}}
-    if plain(props.get('Reached via')) != platform:
-        changes['Reached via'] = {'select': {'name': platform}}
-    notes = plain(props.get('Notes')) or ''
-    found = NOTES_ORIGIN.match(notes)
-    if found and found.group(1) != platform:
-        changes['Notes'] = _text(notes[:found.start(1)] + platform + notes[found.end(1):])
-    return changes
-
-
 def first_contact_fields(record, platform, began, origin):
     """first_contact_changes for a job record: {field: value} for source, reached_via and notes; {} when nothing changes."""
     if platform not in CHANNEL_SOURCE or not began or not origin or began >= origin:
@@ -162,35 +143,6 @@ def first_contact_fields(record, platform, began, origin):
     if found and found.group(1) != platform:
         changes['notes'] = notes[:found.start(1)] + platform + notes[found.end(1):]
     return changes
-
-
-def properties(lead, url, stage, source, origin='Recruiter message'):
-    # BRIDGE(mac-cd inbox): remove when inbox_notion.py creates jobs with fields() lands
-    via = '' if lead.get('in_house') else lead.get('recruiter_company', '')
-    notes = [f"{origin} ({lead.get('platform') or 'Other'})"]
-    if lead.get('channel_other'):
-        notes.append(f"On {lead['channel_other']}")
-    if lead.get('client'):
-        notes.append(f"Client: {lead['client']}")
-    if lead.get('contract'):
-        notes.append(lead['contract'])
-    if lead.get('summary'):
-        notes.append(lead['summary'])
-    props = {
-        'Job': {'title': [{'text': {'content': title(lead)}}]},
-        'Job URL': {'url': url},
-        'Stage': {'select': {'name': stage}},
-        # Hidden employer: Company stays empty (the Gmail check matches on names, and "hidden" matches too much).
-        'Company': _text(lead.get('company')), 'Location': _text(lead.get('location')), 'Salary': _text(lead.get('salary')),
-        'Channel': {'select': {'name': 'Direct' if lead.get('in_house') else 'Agency'}},
-        'Via': _text(via), 'Contact': _text(contact(lead)), 'Recruiter': {'checkbox': not lead.get('in_house')},
-        'Notes': _text('. '.join(notes)), 'Source': {'select': {'name': source_for(lead, source)}},
-        # Where the recruiter reached you: where to answer (Focus says "Reply by email / on LinkedIn").
-        'Reached via': {'select': {'name': lead.get('platform') if lead.get('platform') in REACHED_VIA else 'Other'}},
-    }
-    if lead.get('work_mode') in WORK_MODES:
-        props['Work mode'] = {'select': {'name': lead['work_mode']}}
-    return props
 
 
 def fields(lead, url, stage, source, origin='Recruiter message'):
@@ -268,14 +220,11 @@ def message_markdown(text):
 
 
 def track(stores, lead, text, *, source, event_source, talking=False, at=None, gmail_id='', note='', seed=None, url=None,
-          extra_markdown='', extra_blocks=()):
+          extra_markdown=''):
     """The job's record, its message section and the events. Returns (record, one-line summary); record is None when the
     message is already tracked. extra_markdown: what goes under the message (what to check, the screenshots' link)."""
-    if extra_blocks:
-        # BRIDGE(mac-cd inbox): remove when inbox.py passes extra_markdown lands
-        extra_markdown = '\n\n'.join(part for part in (extra_markdown, to_markdown(list(extra_blocks))) if part)
     if not hasattr(stores, 'applications'):
-        # BRIDGE(mac-cd inbox, mac-70 reassign): remove when inbox.py and reassign.py pass the store lands
+        # BRIDGE(mac-71 reassign): remove when reassign.py passing the store lands
         return _track_for_tracker(stores, lead, text, source=source, event_source=event_source, talking=talking, at=at,
                                   gmail_id=gmail_id, note=note, seed=seed, url=url, extra_markdown=extra_markdown)
     if gmail_id and lead.get('platform') not in ('LinkedIn',):
@@ -309,7 +258,7 @@ def track(stores, lead, text, *, source, event_source, talking=False, at=None, g
 def _track_for_tracker(tracker, lead, text, **options):
     """track() for a caller that still holds a Notion client: the same, on the Notion store over it, answered as the
     Notion row it expects."""
-    # BRIDGE(mac-cd inbox, mac-70 reassign): remove when inbox.py and reassign.py pass the store lands
+    # BRIDGE(mac-71 reassign): remove when reassign.py passing the store lands
     stores = open_stores(tracker=tracker)
     record, line = track(stores, lead, text, **options)
     if record is None:

@@ -59,13 +59,12 @@ def score(cases, results, applications):
 
 
 def tracked(applications):
-    """The check's own application rows (src/ai/mail.py reads these fields from Notion pages)."""
-    text = lambda value: {'type': 'rich_text', 'rich_text': [{'plain_text': value}]}
-    return [{'id': f'p{n}', 'properties': {
-        'Company': text(app['company']), 'Job': {'type': 'title', 'title': [{'plain_text': app['job']}]},
-        'Stage': {'type': 'select', 'select': {'name': app['stage']}}, 'Via': text(app.get('via', '')), 'Contact': text(app.get('contact', '')),
-        'Applied on': {'type': 'date', 'date': {'start': app['applied']} if app['applied'] else None}, 'Next step': text(''),
-        'Next interview': {'type': 'date', 'date': None}, 'Job URL': {'type': 'url', 'url': f'https://x.test/p{n}'}}} for n, app in enumerate(applications)]
+    """The check's own jobs: store records (src/stores/base.py APPLICATION_FIELDS), as src/ai/mail.py reads them."""
+    from src.stores import base
+    return [base.record(base.APPLICATION_FIELDS, {
+        'id': f'p{n}', 'url': f'https://x.test/p{n}', 'title': app['job'], 'company': app['company'], 'stage': app['stage'],
+        'via': app.get('via', ''), 'contact': app.get('contact', ''), 'applied_on': app['applied'] or ''})
+        for n, app in enumerate(applications)]
 
 
 def main(argv=None):
