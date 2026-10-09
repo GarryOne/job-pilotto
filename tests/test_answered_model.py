@@ -78,7 +78,7 @@ class AnsweredModelTests(unittest.TestCase):
             'src/ai/insights.py': r"model = cost\.answered\(model, response\.usage\)[\s\S]*'model': model\}[\s\S]*model = cost\.answered\(model, usage\)[\s\S]*record\(insight, now\.date\(\), model, usd\)",
             'src/ai/interviews.py': r"review_fields\(result, app, now\.date\(\), cost\.answered\(model, usage\)",
             'src/ai/interview_insights.py': r"record_of\(stored, items, digest, cost\.answered\(model_, usage\)",
-            'src/ai/rejection.py': r"write\(tracker, row, result, cost\.answered\(model, usage\)\)",
+            'src/ai/rejection.py': r"write\(stores, app, result, cost\.answered\(model, usage\)\)",
         }
         for path, pattern in writers.items():
             self.assertRegex((ROOT / path).read_text(), pattern, path)

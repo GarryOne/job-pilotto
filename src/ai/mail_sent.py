@@ -74,31 +74,23 @@ def review_rejections(stores, client, rejected, stats, backfill=2):
     without a review. Lines for Telegram; a failed review is logged and retried next time (it stays pending)."""
     from ..features import disabled
     from . import rejection
-    from .mail_record import _notion_row
     if disabled('rejection_review'):
         return []
-    # BRIDGE(mac-4a rejection): remove when rejection.pending/review on the store lands
-    tracker = getattr(stores.applications, 'tracker', None)
-    if stores.name != 'notion' or tracker is None:
-        if rejected:
-            print('Warning: rejection reviews need the Notion store for now; the rejections are recorded.', file=sys.stderr)
-        return []
-    lines, done, profile = [], set(), None
-    todo = [(_notion_row(stores, row), f"Subject: {email['subject']}\n\n{email['body']}") for row, email in rejected]
+    lines, done = [], set()
+    todo = [(row, f"Subject: {email['subject']}\n\n{email['body']}") for row, email in rejected]
     try:
-        todo += [(row, '') for row in rejection.pending(tracker, backfill) if row['id'] not in {r['id'] for r, _ in rejected}]
+        todo += [(row, '') for row in rejection.pending(stores, backfill) if row['id'] not in {r['id'] for r, _ in rejected}]
     except Exception as error:  # noqa: BLE001
         print(f'Warning: rejected applications not listed: {type(error).__name__}: {error}', file=sys.stderr)
     for row, email_text in todo:
         if row['id'] in done:
             continue
         done.add(row['id'])
-        row['properties']['Stage'] = {'type': 'select', 'select': {'name': 'Rejected'}}
-        try:
-            profile = tracker.page_text() if profile is None else profile
-            _, summary = rejection.review(tracker, row, email_text=email_text, client=client, stats=stats, profile=profile)
+        row = dict(row, stage='Rejected')
+        try:   # the review reads the Profile from the store itself
+            _, summary = rejection.review(stores, row, email_text=email_text, client=client, stats=stats)
         except Exception as error:  # noqa: BLE001 — the Gmail check's own updates are already saved
-            print(f'Warning: rejection review failed for {_label(stores.applications._record(row))}: {type(error).__name__}: {error}', file=sys.stderr)
+            print(f'Warning: rejection review failed for {_label(row)}: {type(error).__name__}: {error}', file=sys.stderr)
             continue
         lines.append(escape(summary))
         if stats is not None:

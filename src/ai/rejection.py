@@ -31,14 +31,17 @@ import json
 import os
 import sys
 
-from .. import telegram, tgcard
+from .. import run_log, telegram, tgcard
 from ..notion import client as notion, cron_runs
-from ..notion.ledger import EVENTS_DATABASE_ID, RECORD_HEADING, plain
+from ..notion.ledger import RECORD_HEADING
+from ..stores import base, open_stores
+from ..stores.notion_blocks import to_markdown
+from ..stores.notion_interviews import COLUMNS as INTERVIEW_COLUMNS
+from ..stores.notion_rows import APPLICATION_COLUMNS, EVENT_COLUMNS
 from . import cost
 from .models import MAIN_MODEL
 
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_REJECTION_MODEL', os.getenv('JOB_PILOTTO_INSIGHT_MODEL', MAIN_MODEL))
-INTERVIEWS_DATABASE_ID = os.getenv('NOTION_INTERVIEWS_DB', '')
 HEADING = '🔎 Why it was rejected'
 NOT_ON_YOU = 'Not a fit (not on you)'
 VERDICTS = ['Presentation', 'Hard skills', 'Soft skills', NOT_ON_YOU, 'Unclear']
@@ -90,28 +93,22 @@ The candidate's profile follows.
 """
 
 
-def _props(row):
-    return {name: plain(value) for name, value in row['properties'].items()
-            if (value or {}).get('type') not in ('relation', 'rollup', 'formula', 'files')}
+def _labelled(record, columns):
+    """A store record's fields under their Notion column names, as the prompt has always shown a job, an event and an
+    interview (links between records left out, as the relations were)."""
+    return {column: record.get(field) for field, column, kind in columns
+            if kind not in ('relation1', 'created') and not kind.startswith('json') and record.get(field) not in (None, '', [], False)}
 
 
-def _related(tracker, database_id, row_id):
-    if not database_id:
-        return []
-    rows = tracker.query_database(database_id, {'property': 'Application', 'relation': {'contains': row_id}})
-    return [_props(r) for r in rows]
-
-
-def material(tracker, row, email_text=''):
-    """Everything known about one application, as text for the model."""
-    props = _props(row)
-    record = tracker.read_kit(row['id'], RECORD_HEADING) or {}
+def material(stores, app, email_text=''):
+    """Everything known about one application (`app`: its record in the active store), as text for the model."""
+    props = _labelled(app, APPLICATION_COLUMNS)
+    record = base.kit_from(stores.applications.section(app['id'], RECORD_HEADING) or '') or {}   # the frozen application record
     job = record.get('job') or {}
-    events = sorted(_related(tracker, EVENTS_DATABASE_ID, row['id']), key=lambda e: e.get('At') or '')
-    interviews = _related(tracker, INTERVIEWS_DATABASE_ID, row['id'])
-    same_company = [f"- {plain(r['properties'].get('Job'))} ({plain(r['properties'].get('Stage'))})"
-                    for r in tracker.query_database(tracker.database_id, {'property': 'Company', 'rich_text': {'equals': props.get('Company') or '-'}})
-                    if r['id'] != row['id']] if props.get('Company') else []
+    events = sorted((_labelled(e, EVENT_COLUMNS) for e in stores.events.list(app_id=app['id'])), key=lambda e: e.get('At') or '')
+    interviews = [_labelled(i, INTERVIEW_COLUMNS) for i in stores.interviews.list(app_id=app['id'])]
+    same_company = [f"- {r.get('title') or ''} ({r.get('stage') or ''})" for r in stores.applications.list()
+                    if r.get('company') == props.get('Company') and r['id'] != app['id']] if props.get('Company') else []
     keep = ('Job', 'Company', 'Location', 'Work mode', 'Seniority', 'Salary', 'Channel', 'Via', 'Applied on', 'Fit score',
             'Stage', 'Notes', 'Next step', 'Cover letter', 'Answers captured', 'CV version')
     parts = ['## Application', '\n'.join(f'{k}: {props[k]}' for k in keep if props.get(k))]
@@ -171,43 +168,46 @@ def blocks(result, model):
     return out
 
 
-def write(tracker, row, result, model):
+def review_markdown(result, model):
+    """The review section's Markdown: today's blocks (callout, evidence, to-dos) through the store's codec, so a Notion
+    page shows exactly what it did."""
+    return to_markdown(blocks(result, model))
+
+
+def write(stores, app, result, model):
     lesson = result['summary'] + (f" Next time: {result['improve'][0]}" if result['improve'] else '')
     try:
-        tracker.update_page(row['id'], {'Rejection reason': {'select': {'name': result['verdict']}},
-                                        'Rejection lesson': {'rich_text': [{'text': {'content': lesson[:1900]}}]}})
-    except Exception as error:  # noqa: BLE001 — columns added at the app's next start; the page section still has it all
-        print(f'Warning: rejection columns not set ({type(error).__name__}); the review is on the page.', file=sys.stderr)
-    tracker.replace_after_heading(row['id'], HEADING, blocks(result, model))
+        stores.applications.update(app['id'], {'rejection': result['verdict'], 'rejection_lesson': lesson[:1900]})
+    except Exception as error:  # noqa: BLE001 — columns added at the app's next start; the job's section still has it all
+        print(f'Warning: rejection fields not set ({type(error).__name__}); the review is on the job.', file=sys.stderr)
+    stores.applications.set_section(app['id'], HEADING, review_markdown(result, model))
 
 
-def line(row, result):
+def line(app, result):
     """One short line for Telegram and the desktop app's activity panel."""
-    return (f"{EMOJI[result['verdict']]} Why rejected · {plain(row['properties'].get('Company'))} — "
-            f"{plain(row['properties'].get('Job'))[:60]}: {result['verdict']} ({result['confidence']}). {result['summary']}")
+    return (f"{EMOJI[result['verdict']]} Why rejected · {app.get('company') or ''} — "
+            f"{(app.get('title') or '')[:60]}: {result['verdict']} ({result['confidence']}). {result['summary']}")
 
 
-def review(tracker, row, *, email_text='', client=None, model=DEFAULT_MODEL, stats=None, profile=None):
+def review(stores, app, *, email_text='', client=None, model=DEFAULT_MODEL, stats=None, profile=None):
     """Review one rejected application and write the result on it. Returns (result, one-line summary)."""
     if client is None:
         from . import engine
         client = engine.client(action='review')
-    profile = tracker.page_text() if profile is None else profile
-    result, usage = analyse(client, model, profile, material(tracker, row, email_text), stats)
+    profile = stores.texts.get('profile') if profile is None else profile
+    result, usage = analyse(client, model, profile, material(stores, app, email_text), stats)
     if result['verdict'] not in VERDICTS:
         result['verdict'] = 'Unclear'
     if result['verdict'] == NOT_ON_YOU:
         result['improve'] = []
-    write(tracker, row, result, cost.answered(model, usage))   # "Reviewed by" names the model that answered
-    return result, line(row, result)
+    write(stores, app, result, cost.answered(model, usage))   # "Reviewed by" names the model that answered
+    return result, line(app, result)
 
 
-def pending(tracker, limit=3):
-    """Rejected applications with no review yet. Only where the "Rejection reason" column exists: without it,
-    a review couldn't be marked done and would run again at every check."""
-    rows = tracker.query_database(tracker.database_id, {'property': 'Stage', 'select': {'equals': 'Rejected'}})
-    todo = [r for r in rows if 'Rejection reason' in r['properties'] and not plain(r['properties']['Rejection reason'])]
-    return sorted(todo, key=lambda r: plain(r['properties'].get('Applied on')) or '', reverse=True)[:limit]
+def pending(stores, limit=3):
+    """Rejected applications with no review yet, the latest applied first."""
+    todo = [app for app in stores.applications.list(stages=['Rejected']) if not app.get('rejection')]
+    return sorted(todo, key=lambda app: app.get('applied_on') or '', reverse=True)[:limit]
 
 
 def main(argv=None):
@@ -218,29 +218,29 @@ def main(argv=None):
     parser.add_argument('--limit', type=int, default=3)
     parser.add_argument('--send', action='store_true', help='send the result to Telegram')
     args = parser.parse_args(argv)
-    tracker = notion.Tracker.from_env()
-    if not tracker:
-        raise SystemExit('NOTION_TOKEN is required')
-    rows = [tracker.find(args.job)] if args.job else pending(tracker, args.limit)
+    stores = open_stores(tracker=notion.Tracker.from_env())   # the active store: Notion, or this Mac's
+    rows = [stores.applications.get(args.job)] if args.job else pending(stores, args.limit)
     if args.job and not rows[0]:
         raise SystemExit(f'No application for {args.job}')
     if not rows:
         print('No rejected application waits for a review.')
         return 0
-    stats, profile, lines = {}, tracker.page_text(), []
-    cron_runs.auto_begin(tracker)  # the review's ⏱️ Search runs row opens when it starts
-    log = cron_runs.new_run('rejection')
+    stats, profile, lines = {}, stores.texts.get('profile'), []
+    run_log.auto_begin(stores)  # the review's run opens when it starts, in the active store
+    log = run_log.new_run('rejection')
     if len(rows) == 1:  # a review of one job: the run links to it (several: about none in particular)
         log['application'] = rows[0]['id']
-    log['subject'] = cron_runs.job_subject(rows[0]) if len(rows) == 1 else cron_runs.counted(len(rows), 'application')
+    one = rows[0]
+    log['subject'] = (cron_runs.job_subject(company=one.get('company') or '', role=one.get('title') or '', via=one.get('via') or '')
+                      if len(rows) == 1 else cron_runs.counted(len(rows), 'application'))
     try:
         for row in rows:
-            _, summary = review(tracker, row, stats=stats, profile=profile)
+            _, summary = review(stores, row, stats=stats, profile=profile)
             lines.append(summary)
             print(summary)
     finally:  # one ⏰ Cronjob Runs row per review run, like every AI job
         log.update(insight=stats, updates=lines)
-        cron_runs.log_run(tracker, log)
+        run_log.log_run(stores, log)
     if args.send and lines:
         token, chat_id = telegram.credentials()
         telegram.send(tgcard.card('Why it was rejected', f"{len(lines)} application{'s' if len(lines) != 1 else ''} reviewed",

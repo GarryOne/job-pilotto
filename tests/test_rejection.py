@@ -9,6 +9,8 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import mail, rejection
 from src.notion import ledger
+from src.stores import memory
+from src.stores.notion_blocks import to_blocks
 from tests.test_mail import FakeClient, FakeGoogle, FakeTracker, NOW, app, email, result
 
 
@@ -29,111 +31,96 @@ class Client:
                                                      cache_creation_input_tokens=0))
 
 
-class Tracker(FakeTracker):
-    def __init__(self, apps, events=(), record=None, fail_columns=False):
-        super().__init__(apps, events)
-        self.record, self.fail_columns, self.sections = record, fail_columns, {}
-
-    def page_text(self, page_id=None):
-        return '# Profile\nSRE, 8 years, Kubernetes, Prometheus.'
-
-    def read_kit(self, page_id, heading):
-        return self.record if heading == ledger.RECORD_HEADING else None
-
-    def query_database(self, database_id, filter_=None):
-        if database_id == 'events':
-            return self.events
-        if filter_ and filter_.get('property') == 'Company':
-            return [a for a in self.apps if a['properties']['Company']['rich_text'][0]['plain_text'] == filter_['rich_text']['equals']]
-        return super().query_database(database_id, filter_)
-
-    def update_page(self, page_id, properties):
-        if self.fail_columns and 'Rejection reason' in properties:
-            raise RuntimeError('400: Rejection reason is not a property')
-        return super().update_page(page_id, properties)
-
-    def replace_after_heading(self, page_id, heading, blocks):
-        self.sections[(page_id, heading)] = blocks
-
-
 RECORD = {'job': {'title': 'Staff SRE', 'description': 'We need 5+ years of Postgres internals.'},
           'answers': [{'question': 'Why us?', 'answer': 'I love observability.'}], 'cover_letter': 'Dear team',
           'match': {'Score': 72, 'Reason': 'strong SRE match, Postgres depth unclear'}}
 
 
+def stores_with(*jobs, record=None):
+    """The memory store (any adapter: sqlite on this Mac, Notion) with the Profile and the jobs (company, title, stage, extra)."""
+    stores = memory.open_store()
+    stores.texts.set('profile', '# Profile\nSRE, 8 years, Kubernetes, Prometheus.')
+    made = []
+    for company, title, stage, extra in jobs:
+        made.append(stores.applications.create({'url': f'https://jobs.test/{len(made) + 1}', 'title': title, 'company': company, **extra}, stage))
+    if record is not None:
+        stores.applications.set_section(made[0]['id'], ledger.RECORD_HEADING, f"Frozen\n\n```json\n{json.dumps(record)}\n```\n")
+    return stores, [stores.applications.get(m['url']) for m in made]
+
+
 class RejectionTests(unittest.TestCase):
     def test_material_has_the_posting_what_was_sent_the_timeline_and_the_email(self):
-        row = app('p1', 'Grafana Labs', 'Staff SRE | Spain', stage='Rejected')
-        events = [{
-            'id': 'e1', 'properties': {'Kind': {'type': 'select', 'select': {'name': 'Rejected'}},
-                                       'At': {'type': 'date', 'date': {'start': '2026-09-28T05:00:00Z'}},
-                                       'Note': {'type': 'rich_text', 'rich_text': [{'plain_text': 'not moving forward'}]}}}]
-        others = [row, app('p2', 'Grafana Labs', 'Staff SRE | Sweden', stage='Rejected')]
-        with mock.patch.object(rejection, 'EVENTS_DATABASE_ID', 'events'):
-            text = rejection.material(Tracker(others, events, RECORD), row, 'Subject: Your application\n\nNot moving forward.')
+        stores, (row, _) = stores_with(('Grafana Labs', 'Staff SRE | Spain', 'Rejected', {}),
+                                       ('Grafana Labs', 'Staff SRE | Sweden', 'Rejected', {}), record=RECORD)
+        stores.events.add(row['id'], 'Rejected', '2026-09-28T05:00:00Z', source='Gmail', note='not moving forward')
+        text = rejection.material(stores, row, 'Subject: Your application\n\nNot moving forward.')
         for part in ('5+ years of Postgres', 'Q: Why us?', 'Dear team', 'strong SRE match', 'Rejected — not moving forward',
-                     'Staff SRE | Sweden (Rejected)', '## Rejection email'):
+                     'Staff SRE | Sweden (Rejected)', '## Rejection email', 'Company: Grafana Labs'):
             self.assertIn(part, text)
-        bare = rejection.material(Tracker([row]), row)
-        self.assertIn('No application record was kept', bare)
+        bare_stores, (bare,) = stores_with(('Acme', 'SRE', 'Rejected', {}))
+        self.assertIn('No application record was kept', rejection.material(bare_stores, bare))
 
     def test_review_writes_the_verdict_on_the_application(self):
-        row = app('p1', 'Canonical', 'Senior SRE', stage='Rejected')
-        tracker, client = Tracker([row], record=RECORD), Client(verdict())
-        result, line = rejection.review(tracker, row, client=client, model='claude-sonnet-5-5', stats={})
+        stores, (row,) = stores_with(('Canonical', 'Senior SRE', 'Rejected', {}), record=RECORD)
+        client = Client(verdict())
+        result, line = rejection.review(stores, row, client=client, model='claude-sonnet-5-5', stats={})
         self.assertIn('## Job posting', client.calls[0]['messages'][0]['content'])
         self.assertIn('SRE, 8 years', client.calls[0]['system'][0]['text'])
-        props = tracker.updates[0][1]
-        self.assertEqual(props['Rejection reason'], {'select': {'name': 'Hard skills'}})
-        self.assertIn('Next time: Add a Postgres', props['Rejection lesson']['rich_text'][0]['text']['content'])
-        section = tracker.sections[('p1', rejection.HEADING)]
-        self.assertEqual(section[0]['type'], 'callout')
-        self.assertIn('to_do', [b['type'] for b in section])
+        saved = stores.applications.get(row['url'])
+        self.assertEqual(saved['rejection'], 'Hard skills')
+        self.assertIn('Next time: Add a Postgres', saved['rejection_lesson'])
+        blocks = to_blocks(stores.applications.section(row['id'], rejection.HEADING))
+        self.assertEqual(blocks[0]['type'], 'callout')   # the review keeps its callout and to-dos (the store's codec)
+        self.assertIn('to_do', [b['type'] for b in blocks])
         self.assertIn('Hard skills (medium)', line)
 
-    def test_not_on_you_has_nothing_to_improve_and_missing_columns_still_leave_the_page_section(self):
-        row = app('p1', 'Grafana Labs', 'Staff SRE | Spain', stage='Rejected')
-        tracker = Tracker([row], fail_columns=True)
-        result, _ = rejection.review(tracker, row, client=Client(verdict(rejection.NOT_ON_YOU, ('ignored',))), stats={})
-        self.assertEqual(result['improve'], [])
-        texts = [b[b['type']]['rich_text'][0]['text']['content'] for b in tracker.sections[('p1', rejection.HEADING)]]
-        self.assertIn('Nothing to improve here: they were looking for a different profile.', texts)
+    def test_the_reviews_markdown_becomes_todays_blocks_again(self):
+        """Notion users see the review as before: the same blocks, the callout's icon included."""
+        made = to_blocks(rejection.review_markdown(verdict(), 'claude-sonnet-5-5'))
+        today = rejection.blocks(verdict(), 'claude-sonnet-5-5')
+        self.assertEqual([b['type'] for b in made], [b['type'] for b in today])
+        self.assertEqual(made[0]['callout'].get('icon'), today[0]['callout']['icon'])
 
-    def test_pending_needs_the_column_and_an_empty_value(self):
-        done, todo, old_workspace = (app('a', 'A', 'x', stage='Rejected'), app('b', 'B', 'y', stage='Rejected'),
-                                     app('c', 'C', 'z', stage='Rejected'))
-        done['properties']['Rejection reason'] = {'type': 'select', 'select': {'name': 'Unclear'}}
-        todo['properties']['Rejection reason'] = {'type': 'select', 'select': None}
-        self.assertEqual([r['id'] for r in rejection.pending(Tracker([done, todo, old_workspace]))], ['b'])
+    def test_not_on_you_has_nothing_to_improve_and_missing_fields_still_leave_the_section(self):
+        stores, (row,) = stores_with(('Grafana Labs', 'Staff SRE | Spain', 'Rejected', {}))
+        with mock.patch.object(stores.applications, 'update', side_effect=RuntimeError('400: Rejection reason is not a property')):
+            result, _ = rejection.review(stores, row, client=Client(verdict(rejection.NOT_ON_YOU, ('ignored',))), stats={})
+        self.assertEqual(result['improve'], [])
+        self.assertIn('Nothing to improve here: they were looking for a different profile.', stores.applications.section(row['id'], rejection.HEADING))
+
+    def test_pending_is_the_rejected_jobs_without_a_review(self):
+        stores, rows = stores_with(('A', 'x', 'Rejected', {'rejection': 'Unclear'}), ('B', 'y', 'Rejected', {'applied_on': '2026-09-01'}),
+                                   ('C', 'z', 'Rejected', {'applied_on': '2026-09-20'}), ('D', 'w', 'Applied', {}))
+        self.assertEqual([r['company'] for r in rejection.pending(stores)], ['C', 'B'])   # the latest applied first
 
 
 class RejectionRunTests(unittest.TestCase):
-    def logged(self, argv, rows):
-        tracker, logged = Tracker(rows, record=RECORD), []
-        tracker.find = lambda url: rows[0]
-        with mock.patch.object(rejection.notion.Tracker, 'from_env', return_value=tracker), \
+    def logged(self, argv, rows, stores):
+        logged = []
+        with mock.patch.object(rejection.notion.Tracker, 'from_env', return_value=None), \
+                mock.patch.object(rejection, 'open_stores', return_value=stores), \
                 mock.patch.object(rejection, 'pending', return_value=rows), \
-                mock.patch.object(rejection, 'review', side_effect=lambda t, row, **_: (None, f"reviewed {row['id']}")), \
-                mock.patch.object(rejection.cron_runs, 'auto_begin'), \
-                mock.patch.object(rejection.cron_runs, 'log_run', side_effect=lambda t, run: logged.append(run)), \
+                mock.patch.object(rejection, 'review', side_effect=lambda s, row, **_: (None, f"reviewed {row['id']}")), \
+                mock.patch.object(rejection.run_log, 'auto_begin'), \
+                mock.patch.object(rejection.run_log, 'log_run', side_effect=lambda s, run: logged.append(run)), \
                 mock.patch('builtins.print'):
             rejection.main(argv)
         return logged[0]
 
     def test_a_review_of_one_job_links_its_run_to_it_several_link_none(self):
-        one = [app('p1', 'Canonical', 'Senior SRE', stage='Rejected')]
-        self.assertEqual(self.logged(['--job', 'https://x.test/p1'], one)['application'], 'p1')
-        two = one + [app('p2', 'Grafana Labs', 'Staff SRE', stage='Rejected')]
-        self.assertNotIn('application', self.logged(['--pending'], two))
+        stores, rows = stores_with(('Canonical', 'Senior SRE', 'Rejected', {}), ('Grafana Labs', 'Staff SRE', 'Rejected', {}))
+        run = self.logged(['--job', rows[0]['url']], rows[:1], stores)
+        self.assertEqual((run['application'], run['subject']), (rows[0]['id'], 'Canonical — Senior SRE'))
+        self.assertNotIn('application', self.logged(['--pending'], rows, stores))
 
 
 class GmailCheckTriggersTests(unittest.TestCase):
     def test_a_rejection_email_starts_a_review_with_the_email_text(self):
         with tempfile.TemporaryDirectory() as folder:
             apps = [app('p1', 'Scale AI', 'Infrastructure Engineer')]
-            tracker, google = Tracker(apps), FakeGoogle([{**email('m1', 'Update on your application'), 'body': 'Scale AI: not moving forward'}])
+            tracker, google = FakeTracker(apps), FakeGoogle([{**email('m1', 'Update on your application'), 'body': 'Scale AI: not moving forward'}])
             reviewed = []
-            fake = lambda tracker, row, **kw: (reviewed.append((row['id'], kw['email_text'])) or ({}, '🛠 Why rejected · Scale AI'))
+            fake = lambda stores, row, **kw: (reviewed.append((row['id'], kw['email_text'])) or ({}, '🛠 Why rejected · Scale AI'))
             stats = {}
             with mock.patch.object(rejection, 'review', fake), \
                     mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {'topics_answered_weakly': {}}):
@@ -146,7 +133,7 @@ class GmailCheckTriggersTests(unittest.TestCase):
 
     def test_turned_off_it_does_nothing(self):
         with mock.patch.dict('os.environ', {'JOB_PILOTTO_DISABLE': 'rejection_review'}):
-            self.assertEqual(mail.review_rejections(Tracker([]), None, [(app('p1', 'A', 'x'), email('m', 's'))], {}), [])
+            self.assertEqual(mail.review_rejections(memory.open_store(), None, [(app('p1', 'A', 'x'), email('m', 's'))], {}), [])
 
 
 if __name__ == '__main__':
