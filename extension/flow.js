@@ -345,7 +345,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       ({label: row.label, field: (debug.form || []).find(f => f.label === row.label)?.field || ''})),
     Object.values(me?.contact || config.profile || {}).filter(value => typeof value === 'string')]).catch(() => ({}));
   // Every field's outcome as the page holds it once all passes are done (extension/trace-settle.js).
-  const finalForm = await inPage(tab.id, () => window.__jobPilottoDescribeForm?.()).catch(() => null);
+  const finalForm = await inPage(tab.id, () => window.__jobPilottoDescribeForm?.(true)).catch(() => null);   // settled: a real first choice is an answer
   summary.trace = settleTrace(summary.trace || [], Array.isArray(finalForm) ? finalForm : []);
   // One anonymous record of this fill for the learning digest (fill-card.js: counts and fixed words), and its id on the page so
   // the panel can add, at Submit, what you answered yourself.
