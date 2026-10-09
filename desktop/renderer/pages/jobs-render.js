@@ -21,6 +21,8 @@ import {jobsState, MORE, pageKey, fullKey} from './jobs-state.js';
 import {fitDetail} from './jobs-fit.js';
 import {openJobPanel, panelUrl} from './job-panel.js';
 import {loadJobs, showJobsData} from './jobs.js';
+import {inView} from '../jobs-board-rules.js';
+import {paintViews} from './jobs-views.js';
 
 // Applying, with no session open for it: one to settle (banner on Jobs).
 const stuck = job => isStuck(job, entry => sessionList.some(item => pageKey(item.url) === pageKey(entry.url)));
@@ -82,7 +84,9 @@ export function renderJobs() {
   // The counters count every application (real workload); without one, the menu decides (byFilter): job matches by
   // status, all of them under All matches, the opportunities that found you under Inbound only, both kinds together
   // under Everything (the open ones are also "In conversation" above); a pasted link finds any job.
-  const counted = jobsState.statFilter === 'stuck' ? shared.allJobs.filter(stuck)
+  // A saved view chip (pages/jobs-views.js) narrows like a counter: those jobs, whatever the menu says.
+  const counted = jobsState.view ? shared.allJobs.filter(job => inView(job, jobsState.view))
+    : jobsState.statFilter === 'stuck' ? shared.allJobs.filter(stuck)
     : jobsState.statFilter?.urls ? shared.allJobs.filter(job => jobsState.statFilter.urls.has(fullKey(job.url)))
     : jobsState.statFilter ? byStat(COUNTS_ALL.has(jobsState.statFilter) ? shared.allJobs : matchesOnly(shared.allJobs), jobsState.statFilter) : null;
   const by = $('sort-by').value;
@@ -426,6 +430,8 @@ export function renderJobs() {
     : anyStatus ? 'That job isn\'t in your list: not found by a search yet, or hidden by your language or company filters.'
     : !text && !jobsState.statFilter && emptyFor[filter] ? emptyFor[filter]
     : text || jobsState.statFilter || filter !== 'all' ? 'No job matches this filter.' : 'No open jobs right now.';
+  // The board shows applications only (rows with a Stage), whatever the menu says; a view or counter and the words narrow it.
+  paintViews((counted || shared.allJobs).filter(job => job.stage && matches(job, text)));
 }
 
 // While the list loads from Notion (a few seconds): a spinner in the empty list the first time; afterwards the

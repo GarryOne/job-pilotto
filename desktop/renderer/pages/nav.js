@@ -100,6 +100,11 @@ function paletteCommands() {
   // Every tracked job's page (pages/job-panel.js): its kit, prep, reviews, record, messages and history, found by its title or company.
   (shared.allJobs || []).filter(job => job.stage && job.url).forEach(job => add('Jobs', `Open job page: ${job.title} · ${job.company}`, job.stage,
     'job page kit cover letter form answers prep review record messages description history', () => { openView('jobs'); openJobPanel(job); }));
+  // Jobs → List | Board and every saved view chip (pages/jobs-views.js), read from the page so a new view is listed by itself.
+  document.querySelectorAll('[data-mode]').forEach(node => add('Jobs', `Show jobs as a ${labelOf(node).toLowerCase()}`, node.dataset.mode === 'board'
+    ? 'Your applications in columns by stage; drag a card to change its stage' : 'One row per job', 'pipeline kanban board columns stages list', () => { openView('jobs'); node.click(); }));
+  document.querySelectorAll('#jobs-views [data-view]').forEach(node => add('Jobs', `Jobs view: ${labelOf(node.firstChild)}`, node.title,
+    'saved view filter applications active rejected this week', () => { openView('jobs'); if (node.getAttribute('aria-pressed') !== 'true') node.click(); }));
   button('jobs', 'refresh', 'find jobs scan');
   button('strategy', 'open-profile', 'edit roles locations places cities country skills targeting preferences');
   button('jobs', 'apply-open', 'apply fill forms');

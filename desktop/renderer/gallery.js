@@ -99,6 +99,13 @@ section('Dialog parts', '.panel-dialog with .dialog-head / .dialog-lead / .dialo
   return box;
 })());
 
+section('Toggle chips', '.chip-row of .chip-button[aria-pressed] with a .chip-count (Jobs → saved views)', (() => {
+  const box = el('div', 'chip-row');
+  box.innerHTML = `<button class="chip-button" aria-pressed="true"><span>Active</span><span class="chip-count">4</span></button>
+    <button class="chip-button" aria-pressed="false"><span>Rejected</span><span class="chip-count">12</span></button>
+    <button class="chip-button" aria-pressed="false"><span>This week</span><span class="chip-count">0</span></button>`;
+  return box;
+})());
 section('Alerts', '.alert.tone-warn | tone-good | tone-info | tone-bad: icon, title, text, optional link (.alert-actions: a row of them)', row(...['warn', 'good', 'info', 'bad'].map(tone => {
   const box = el('div', `alert tone-${tone}`);
   box.innerHTML = tone === 'good'

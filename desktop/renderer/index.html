@@ -332,6 +332,7 @@
           <option value="best">Best match</option><option value="newest">Newest</option><option value="company">Company A–Z</option>
         </select></label>
       </div>
+      <div class="chip-row" id="jobs-views" role="group" aria-label="Saved views"></div>
       <div class="stuck-banner" id="jobs-stuck" hidden>
         <i data-icon="alert"></i><span id="jobs-stuck-text"></span>
         <button class="secondary small-button" id="jobs-stuck-show">Show them</button>
@@ -344,11 +345,16 @@
           <button class="link" id="import-open" title="A job that is not in Job Pilotto yet. Paste its link and it is scored like one the search found">+ Add a job…</button>
           <button class="link" id="applied-open" title="Applied to a job outside Job Pilotto? Track it with the rest">+ Applied elsewhere…</button>
           <button class="link" id="lead-open" title="A recruiter's pitch, a reply, a rejection… paste the text or a screenshot">+ Log job activity…</button></div>
+        <div class="list-right"><div class="density" id="jobs-mode" role="group" aria-label="Show as">
+          <button data-mode="list" aria-pressed="true">List</button><button data-mode="board" aria-pressed="false">Board</button>
+        </div>
         <div class="density" role="group" aria-label="List density">
           <button data-density="comfortable" aria-pressed="true">Comfortable</button><button data-density="compact" aria-pressed="false">Compact</button>
         </div>
+        </div>
       </div>
       <div class="job-list-head" id="jobs-head" aria-hidden="true"><span>Fit</span><span>Role</span><span>Company</span><span>Location</span><span>Status</span><span>Actions</span></div>
+      <div class="board" id="jobs-board" hidden></div>
       <div class="job-split" id="jobs-split">
         <div class="job-list" id="jobs-body"></div>
         <aside class="card job-panel" id="job-panel" aria-label="Job page" hidden></aside>

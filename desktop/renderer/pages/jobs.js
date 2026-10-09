@@ -18,6 +18,7 @@ export {pageKey, fullKey} from './jobs-state.js';
 export {openLogFor} from './jobs-lead.js';
 import {wireLead} from './jobs-lead.js';
 import {loadQuestions} from './jobs-questions.js';
+import {wireViews} from './jobs-views.js';
 
 // Sites that often show a sign-in page instead of the posting (src/notion/ledger.py WALLED): read like any page, with fields for the text in case.
 const WALLED = /(^|\.)(linkedin\.com|glassdoor\.[a-z.]+|indeed\.[a-z.]+|levels\.fyi|reddit\.com)$/i;
@@ -189,6 +190,8 @@ export async function init() {
     renderJobs();
   });
   $('sort-by').addEventListener('change', renderJobs);
+  wireViews();   // saved views + List | Board (pages/jobs-views.js): they ask for a render through this event
+  document.addEventListener('jobs-rerender', () => renderJobs());
   $('jobs-filter-clear').addEventListener('click', () => { jobsState.statFilter = null; renderJobs(); });
   $('jobs-filter-back').addEventListener('click', () => document.querySelector('.nav[data-view="focus"]').click());
   // The counters filter the list to the jobs they count, whatever their status (so the list matches the number);
@@ -197,6 +200,7 @@ export async function init() {
     const kind = card.dataset.stat;
     const next = statClick(kind, typeof jobsState.statFilter === 'string' ? jobsState.statFilter : null, $('filter-status').value);
     jobsState.statFilter = next.stat;
+    if (next.stat) jobsState.view = null;   // one narrowing at a time: a counter replaces a saved view
     $('filter-status').value = next.filter;
     if (kind === 'companies' && jobsState.statFilter) $('sort-by').value = 'company';
     renderJobs();

@@ -410,6 +410,7 @@ button.with-icon .icon { width: 15px; height: 15px; }
 
 /* Count and density switch */
 .list-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.list-right { display: flex; align-items: center; gap: var(--sp-2); }
 #jobs-count { font-weight: 600; font-size: var(--fs-md); }
 .density { display: inline-flex; background: var(--line); border-radius: var(--r-md); padding: 2px; }
 .density button { background: transparent; border: 0; font-size: var(--fs-xs); font-weight: 500; color: var(--muted); padding: 4px 10px; border-radius: var(--r-sm); }
@@ -529,6 +530,17 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .compact .reason { -webkit-line-clamp: 1; margin-top: 3px; }
 .compact .tags { margin-top: 5px; }
 
+/* Jobs → Board (pages/jobs-board.js): one column per stage, side by side, scrolling sideways; cards are the In conversation rows
+   (.focus-item); an empty column stays narrow but still takes a drop. */
+.board { display: flex; gap: var(--sp-3); overflow-x: auto; align-items: flex-start; padding-bottom: var(--sp-3); }
+.board-column { flex: 0 0 240px; background: var(--surface-2); border-radius: var(--r-md); padding: var(--sp-2); min-height: 120px; }
+.board-column.is-empty { flex-basis: 150px; }
+.board-column.is-over { box-shadow: inset 0 0 0 2px var(--signal); }
+.board-column-head { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.board-cards .board-card { cursor: grab; align-items: flex-start; }
+.board-card .focus-headline { overflow-wrap: anywhere; }
+.board-card.is-dragging { opacity: .5; }
+.board-empty { flex: 0 0 100%; }
 /* Jobs → a job's page beside the list (pages/job-panel.js): the list keeps its compact rows (title, fit, company · status), the panel scrolls
    on its own. Its content is the interview review's groups (.iv-moments-group) and the page tabs (.tabs), wrapped to the panel's width. */
 .job-split.has-panel { display: grid; grid-template-columns: minmax(280px, 38%) minmax(0, 1fr); gap: var(--sp-4); align-items: start; }
