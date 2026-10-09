@@ -11,6 +11,7 @@ here reads and writes the user's own folder. Output is one JSON document on stdo
 """
 import argparse
 import json
+import os
 from .ai import providers
 from datetime import datetime, timezone
 from pathlib import Path
@@ -303,6 +304,10 @@ def main(argv=None):
                 except Exception as error:  # the list still shows from the cache, marked as possibly out of date
                     print(f'Warning: Notion unavailable, showing the cached list: {type(error).__name__}: {error}',
                           file=__import__('sys').stderr)
+            elif os.environ.get('JOB_PILOTTO_STORE', 'notion') != 'notion':  # the person chose a store on this Mac: the list is its rows
+                from .stores import open_stores
+                from .desktop_store_jobs import store_jobs
+                found = store_jobs(open_stores())
             current = None  # the inputs a kit would be drafted from now: to tell current kits from earlier ones
             if found and any(_kit(job.get('stage'), job.get('next_step') or '') for job in found):
                 try:
