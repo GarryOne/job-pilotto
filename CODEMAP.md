@@ -373,11 +373,13 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/scripts/apply-demo.mjs` — The website's "How automatic apply works" videos, recorded in real time from staged pages (a Greenhouse-style form,
 - `desktop/scripts/codemap.mjs` — CODEMAP.md at the repo root: every source file and what it's for, from its own first comment (JS) or docstring
 - `desktop/scripts/extension-fingerprint.mjs` — The Chrome extension's fingerprint (extension/fingerprint.json): a hash of its files, with the version it shipped as.
+- `desktop/scripts/mac-smoke.mjs` — Mac smoke test (CI, after the app is built): unpacks the built .zip the way a user's Mac would and checks the packaged app, not the source tree.
 - `desktop/scripts/record-page.cjs` — Records a web page as frames while it animates (Electron offscreen, a fixed frame rate), for the website's videos.
 - `desktop/scripts/screenshots.mjs` — Screenshots and a short walkthrough video of the app for the website (site/public/images/app/),
 - `desktop/scripts/shot.mjs` — One screen, fast (~5 s), to check a change: npm run shot -- <page> [options]. Fictional demo data only (demo/).
 - `desktop/scripts/sign.cjs` — electron-builder afterPack hook: sign the whole app bundle.
 - `desktop/scripts/site-demo.mjs` — The website's demo: the app's screens (fictional demo data, never a real profile) as one silent looping video,
+- `desktop/scripts/smoke-screens.mjs` — The one screen both smoke tests (windows-smoke.mjs, mac-smoke.mjs) check in the INSTALLED app: setup done but no Notion key (it can't be made on a runner),
 - `desktop/scripts/stage.mjs` — Build staging: copies the worker, recipe format and (with --app) the pipeline, config and extension into the app.
 - `desktop/scripts/ui-shots.mjs` — Reference screenshots of every screen, for the ui-look-and-feel skill (.claude/skills/ui-look-and-feel):
 - `desktop/scripts/windows-smoke.mjs` — Windows smoke test (CI, after the installer is built): installs Job Pilotto the way a user would, then checks

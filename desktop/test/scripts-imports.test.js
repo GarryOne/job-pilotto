@@ -25,3 +25,20 @@ test('every named import a script takes from lib/ exists there', async () => {
   assert.ok(checked > 0, 'the scan found the scripts\' imports');
   assert.deepEqual(missing, []);
 });
+
+test('every named import a script takes from a sibling script exists there (the two smoke tests share smoke-screens.mjs)', async () => {
+  const missing = [];
+  let checked = 0;
+  for (const file of fs.readdirSync(scripts).filter(name => name.endsWith('.mjs'))) {
+    const source = fs.readFileSync(path.join(scripts, file), 'utf8');
+    for (const [, names, from] of source.matchAll(/^import\s*\{([^}]+)\}\s*from\s*'(\.\/[^']+\.mjs)'/gm)) {
+      const module = await import(pathToFileURL(path.join(scripts, from)).href);
+      for (const name of names.split(',').map(part => part.trim().split(/\s+as\s+/)[0]).filter(Boolean)) {
+        checked++;
+        if (!(name in module)) missing.push(`${file}: ${name} from ${from}`);
+      }
+    }
+  }
+  assert.ok(checked >= 2, 'the scan found the smoke tests\' imports of smoke-screens.mjs');
+  assert.deepEqual(missing, []);
+});

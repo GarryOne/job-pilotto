@@ -1,24 +1,25 @@
 // Windows smoke test (CI, after the installer is built): installs Job Pilotto the way a user would, then checks
 // the installed app, not the source tree.
-//   node scripts/windows-smoke.mjs <installer.exe> <output folder>
-// 1. Silent per-user install (%LOCALAPPDATA%\Programs\…).
-// 2. The bundled Python starts and imports what the pipeline and the Credential Manager need;
-//    the transcription add-on (not in the installer) installs itself with pip and then loads, PyAV decoding a real file;
-//    a secret round-trips through the Credential Manager; the pipeline lists (no) jobs from an empty folder.
-// 3. The installed app updates over itself, runs its in-app terminal (node-pty) and renders one screen (the Jobs page) in smoke mode
-//    (JOB_PILOTTO_SMOKE); the screenshot goes to the output folder.
-// Only what the Windows e2e cannot see is checked here: it runs the app from source, so the installer, the bundled Python, the Credential
-// Manager, the add-on and the packaged app's own start stay. The wizard and Settings pages are driven by its wizard and settings suites
-// (owner, 10 Oct 2026: "reduce the smoke tests considering we're just running E2E afterwards"; welcome, wizard extras and Settings → Connections were cut).
+//   node scripts/windows-smoke.mjs <installer.exe> <output folder> [smoke|packaging|full]
+// The build stage runs `smoke` (a binary that installs and starts, about a minute: the build is not done without it), the beta gate runs `packaging`
+// only when e2e follows (the slow checks the e2e cannot see because it runs from source), the weekly run (windows-smoke.yml) runs `full`.
+// owner, 10 Oct 2026: a build is "compiles, unit tests pass, and a very small, fast smoke"; the rest is a gate.
+//   smoke:     silent per-user install; the bundled Python imports what the pipeline and the Credential Manager need; a secret round-trips
+//              through the Credential Manager; the pipeline lists (no) jobs from an empty folder; the installed app opens the Jobs list (smoke-screens.mjs).
+//   packaging: the transcription add-on (not in the installer) installs with pip and loads, PyAV decodes a real file; the installer updates the
+//              installed app over itself; the in-app terminal (node-pty) runs a command.
+// The wizard and Settings pages are driven by the e2e wizard and settings suites, not here (welcome, wizard extras and Settings → Connections were cut).
 // Any failure exits non-zero, so the release isn't published with a Windows app that doesn't start.
 import {execFileSync, spawn, spawnSync} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {WINDOWS_INSTALLER_ARGS} from '../lib/updater.js';
+import {jobsScreen} from './smoke-screens.mjs';
 
-const [installer, out] = process.argv.slice(2);
-if (!installer || !out) throw new Error('usage: node scripts/windows-smoke.mjs <installer.exe> <output folder>');
+const [installer, out, mode = 'full'] = process.argv.slice(2);
+if (!installer || !out || !['smoke', 'packaging', 'full'].includes(mode)) throw new Error('usage: node scripts/windows-smoke.mjs <installer.exe> <output folder> [smoke|packaging|full]');
+const want = part => mode === 'full' || mode === part;
 fs.mkdirSync(out, {recursive: true});
 const t0 = Date.now();
 const say = line => console.log(`• [${String(Math.round((Date.now() - t0) / 1000)).padStart(3)}s] ${line}`);   // seconds since the start: which stage makes this step slow
@@ -39,6 +40,7 @@ say(py(['-c', 'import anthropic, keyring, pip, sqlite3, ssl, sys; from importlib
 say(py(['-c', "from src import secret_store as s; s.put('job-pilotto.smoke.test', 'ok', 'ci'); " +
   "v = s.get('job-pilotto.smoke.test', 'ci'); s.delete('job-pilotto.smoke.test', 'ci'); " +
   "assert v == 'ok', v; assert s.get('job-pilotto.smoke.test', 'ci') is None; print('Credential Manager round-trip ok')"]));
+if (want('packaging')) {
 // The transcription add-on is downloaded on the first recording (src/ai/transcribe.py install_addon): do exactly that here,
 // into a throwaway folder, so a Windows wheel that goes missing fails the release instead of a user's first interview.
 const models = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-models-'));
@@ -65,6 +67,7 @@ assert samples >= 16000, samples
 os.remove(path); os.rmdir(folder)
 print('PyAV decoded', samples, 'samples at', frames[0].sample_rate, 'Hz')
 `], {JOB_PILOTTO_MODELS_DIR: path.join(models, 'models')}));
+}
 const data = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-data-'));
 for (const sub of ['config', 'data']) fs.mkdirSync(path.join(data, sub), {recursive: true});
 for (const name of fs.readdirSync(path.join(pilot, 'config')).filter(n => n.endsWith('.json'))) {
@@ -75,14 +78,10 @@ const jobs = py(['-m', 'src.desktop', 'jobs'], {JOB_PILOTTO_NO_DOTENV: '1', JOB_
 JSON.parse(jobs);
 say(`pipeline jobs list ok: ${jobs.slice(0, 80)}`);
 
-// The app's own screen: setup done but no Notion key (it can't be made here), so the app opens the Jobs list, with the rest of the app loaded.
-const waitForJobs = `new Promise(resolve => setTimeout(resolve, 8000))`;
-const DONE = {setupDone: true, autoSearch: false, lastSearchAt: '2099-01-01T00:00:00.000Z',
-  notionIds: {NOTION_APPLICATIONS_DB: 'smoke', NOTION_MATCHES_DB: 'smoke', NOTION_PROFILE_PAGE_ID: 'smoke', NOTION_ANSWERS_PAGE_ID: 'smoke'}};
 // Updating itself (lib/updater.js, since 9 Oct 2026): the app starts the downloaded installer with WINDOWS_INSTALLER_ARGS and quits;
 // the installer waits for the app to close (ends it if it lingers), installs quietly and opens the new version. Run for real here:
 // the installed app is open, this same installer runs with those arguments, the old process must be gone and the app open again.
-{
+if (want('packaging')) {
   const running = () => execFileSync('tasklist', ['/FI', 'IMAGENAME eq Job Pilotto.exe', '/FO', 'CSV', '/NH'], {encoding: 'utf8'})
     .split(/\r?\n/).map(line => line.split('","')[1]).filter(Boolean).map(Number);
   const wait = async (check, seconds) => { for (let i = 0; i < seconds * 4; i++) { if (check()) return true; await new Promise(resolve => setTimeout(resolve, 250)); } return false; };
@@ -103,7 +102,7 @@ const DONE = {setupDone: true, autoSearch: false, lastSearchAt: '2099-01-01T00:0
   if (!(await wait(() => running().length === 0, 30))) throw new Error('update: the reopened app could not be closed');
 }
 // The in-app terminal (Apply with Claude sessions): node-pty loads in the installed app and runs a command.
-{
+if (want('packaging')) {
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-pty-'));
   const result = path.join(userData, 'pty.txt');
   spawnSync(exe, [], {timeout: 90000, stdio: 'inherit', env: {...process.env, JOB_PILOTTO_USER_DATA: userData,
@@ -112,28 +111,5 @@ const DONE = {setupDone: true, autoSearch: false, lastSearchAt: '2099-01-01T00:0
   if (!text.includes('pty-ok')) throw new Error(`in-app terminal: ${text.slice(0, 300)}`);
   say('in-app terminal ok (node-pty ran cmd.exe in the installed app)');
 }
-// What each screen must actually report back, not just that a picture was taken: a blank or half-built window
-// still saves one. JOB_PILOTTO_SMOKE_EVAL is evaluated in the window and written beside the screenshot as JSON.
-const SCREENS = [
-  ['jobs-without-notion', waitForJobs, DONE,
-    `({view: ([...document.querySelectorAll('.view')].find(v => !v.hidden) || {}).dataset?.view || '', wizard: !document.getElementById('wizard').hidden})`,
-    ({view, wizard}) => [view === 'jobs' && wizard === false, `a set-up app without a Notion token opens the Jobs list, not the wizard (view "${view}")`]],
-];
-for (const [name, js, settings, evalJs, ok] of SCREENS) {
-  const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-'));
-  if (settings) fs.writeFileSync(path.join(userData, 'settings.json'), JSON.stringify(settings));
-  const png = path.join(out, `windows-${name}.png`);
-  const result = spawnSync(exe, [], {timeout: 90000, stdio: 'inherit',
-    env: {...process.env, JOB_PILOTTO_USER_DATA: userData, JOB_PILOTTO_SMOKE: png, JOB_PILOTTO_SMOKE_JS: js, JOB_PILOTTO_SMOKE_EVAL: evalJs}});
-  if (!fs.existsSync(png) || fs.statSync(png).size < 10000) {
-    throw new Error(`${name}: the installed app saved no screenshot (exit ${result.status}${result.error ? `, ${result.error.message}` : ''})`);
-  }
-  const reported = fs.existsSync(`${png}.json`) ? JSON.parse(fs.readFileSync(`${png}.json`, 'utf8')) : null;
-  if (!reported || reported.error) {
-    throw new Error(`${name}: the window answered nothing (${reported ? reported.error : `no ${path.basename(png)}.json`})`);
-  }
-  const [passed, what] = ok(reported);
-  if (!passed) throw new Error(`${name}: expected ${what}, the window reported ${JSON.stringify(reported)}`);
-  say(`screen ${name}: ${what} · ${path.basename(png)} (${Math.round(fs.statSync(png).size / 1024)} KB)`);
-}
-say('Windows smoke test passed');
+if (want('smoke')) jobsScreen({exe, out, prefix: 'windows', say});
+say(`Windows smoke test (${mode}) passed`);

@@ -1,0 +1,44 @@
+// Mac smoke test (CI, after the app is built): unpacks the built .zip the way a user's Mac would and checks the packaged app, not the source tree.
+//   node scripts/mac-smoke.mjs <Job-Pilotto-….zip> <output folder>
+// The same three checks as the Windows build smoke (windows-smoke.mjs `smoke`), about a minute: the bundled Python imports what the pipeline needs and lists
+// (no) jobs from an empty folder; a secret round-trips through the Keychain; the packaged app opens the Jobs list (smoke-screens.mjs).
+// owner, 10 Oct 2026: a build is "compiles, unit tests pass, and a very small, fast smoke", the same on Mac and Windows; the Mac had none.
+// Any failure exits non-zero, so the release isn't published with a Mac app that doesn't start.
+import {execFileSync} from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {jobsScreen} from './smoke-screens.mjs';
+
+const [archive, out] = process.argv.slice(2);
+if (!archive || !out) throw new Error('usage: node scripts/mac-smoke.mjs <Job-Pilotto-….zip> <output folder>');
+fs.mkdirSync(out, {recursive: true});
+const t0 = Date.now();
+const say = line => console.log(`• [${String(Math.round((Date.now() - t0) / 1000)).padStart(3)}s] ${line}`);
+
+const unpacked = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-mac-smoke-app-'));
+execFileSync('ditto', ['-x', '-k', path.resolve(archive), unpacked], {stdio: 'inherit'});   // ditto keeps the bundle's symlinks and signature, unzip may not
+const app = fs.readdirSync(unpacked).map(name => path.join(unpacked, name)).find(d => d.endsWith('.app'));
+if (!app) throw new Error(`no .app inside ${archive}`);
+const exe = path.join(app, 'Contents', 'MacOS', fs.readdirSync(path.join(app, 'Contents', 'MacOS'))[0]);
+const pilot = path.join(app, 'Contents', 'Resources', 'pilot');
+const python = path.join(pilot, 'python', 'bin', 'python3');
+if (!fs.existsSync(python)) throw new Error(`the bundled Python is missing: ${python}`);
+say(`unpacked: ${app}`);
+
+const py = (args, env = {}) => execFileSync(python, args, {cwd: pilot, encoding: 'utf8', timeout: 120000, env: {...process.env, PYTHONUTF8: '1', ...env}}).trim();
+say(py(['-c', 'import anthropic, keyring, sqlite3, ssl, sys; from importlib.metadata import version; ' +
+  "print('Python', sys.version.split()[0], 'anthropic', version('anthropic'), 'keyring', version('keyring'))"]));
+say(py(['-c', "from src import secret_store as s; s.put('job-pilotto.smoke.test', 'ok', 'ci'); " +
+  "v = s.get('job-pilotto.smoke.test', 'ci'); s.delete('job-pilotto.smoke.test', 'ci'); " +
+  "assert v == 'ok', v; assert s.get('job-pilotto.smoke.test', 'ci') is None; print('Keychain round-trip ok')"]));
+const data = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-data-'));
+for (const sub of ['config', 'data']) fs.mkdirSync(path.join(data, sub), {recursive: true});
+for (const name of fs.readdirSync(path.join(pilot, 'config')).filter(n => n.endsWith('.json'))) fs.copyFileSync(path.join(pilot, 'config', name), path.join(data, 'config', name));
+const jobs = py(['-m', 'src.desktop', 'jobs'], {JOB_PILOTTO_NO_DOTENV: '1', JOB_PILOTTO_CONFIG_DIR: path.join(data, 'config'),
+  JOB_PILOTTO_DATA_DIR: path.join(data, 'data')}).split(/\r?\n/).pop();
+JSON.parse(jobs);
+say(`pipeline jobs list ok: ${jobs.slice(0, 80)}`);
+
+jobsScreen({exe, out, prefix: 'mac', say});
+say('Mac smoke test passed');
