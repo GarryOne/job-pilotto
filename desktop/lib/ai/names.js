@@ -19,3 +19,6 @@ export const aiNameOf = storage => NAMES[engineOf(storage)] || 'Claude';
 // The name of the engine that answered (an adapter's .engine; the raw Anthropic SDK has none: Claude).
 export const nameOfClient = client => NAMES[client?.engine] || 'Claude';
 export const familyOfEngine = familyOf;
+// Claude-only features (Apply / Read / Take over with Claude: Claude Code driving Chrome) exist only with a Claude engine: the main process's twin of
+// the window's claudeFeatures() (renderer/ai-name.js). With OpenAI or Codex chosen nothing offers or starts Claude (owner, 9 Oct 2026).
+export const claudeFamily = storage => familyOf(engineOf(storage)) === 'claude';

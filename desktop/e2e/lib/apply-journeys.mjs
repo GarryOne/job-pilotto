@@ -210,7 +210,7 @@ export async function runJourneys(ctx, h) {
     if (at?.stuck !== 'account') problems.push(`the session does not say the account step needs you (stage: ${at?.stage}, stuck: ${at?.stuck})`);
     const log = appLogText(ctx.profile);
     if (!/account result: refused/.test(log)) problems.push('the account AI\'s "refused" is not in the app log');
-    if (!/account page: the extension could not finish it: Claude is offered/.test(log)) problems.push('Claude was not offered after the refused sign-in');
+    if (!/account page: the extension could not finish it/.test(log)) problems.push('the account step was not handed to the person after the refused sign-in');
     // The session is stuck on the sign-up page the refusal led to (a box only a person can tick): Claude is OFFERED there, never started (owner, 9 Oct 2026).
     // Read as a person sees it: the panel open (the button is drawn only in its open card, extension/review.js). Claude help off (the default): no Take over;
     // on (Settings → Application assistant): offered at the panel's next report. No Claude session starts by itself. Back to off for the steps after.
@@ -227,8 +227,10 @@ export async function runJourneys(ctx, h) {
     else if (off.offered) problems.push('Claude help is off, yet the stuck page offers "Take over with Claude"');
     await page.evaluate(() => window.pilot.saveSettings({claudeConsent: '2026-10-09T00:00:00.000Z'}));
     let on = null;
-    for (let waited = 0; waited < 20000 && !on?.offered; waited += 2000) { await pause(2000); on = await panelTakeOver(); }   // the panel learns the switch at its next report
-    if (off.panel && !on?.offered) problems.push(`Claude help on and the page stuck, yet the panel does not offer "Take over with Claude" (${JSON.stringify(on)})`);
+    for (let waited = 0; waited < (ctx.family === 'openai' ? 8000 : 20000) && !on?.offered; waited += 2000) { await pause(2000); on = await panelTakeOver(); }   // OpenAI: a few reports, still nothing   // the panel learns the switch at its next report
+    // An OpenAI engine (odd CI runs, lib/engine.mjs): Claude is never offered, whatever the switch (owner, 9 Oct 2026; the app's claudeHelp needs the Claude family).
+    if (ctx.family === 'openai') { if (on?.offered) problems.push('an OpenAI engine is chosen, yet the panel offers "Take over with Claude"'); }
+    else if (off.panel && !on?.offered) problems.push(`Claude help on and the page stuck, yet the panel does not offer "Take over with Claude" (${JSON.stringify(on)})`);
     if (await claudes() !== claudesBefore) problems.push('a Claude session started by itself: Claude is only ever offered, the person starts it');
     await page.evaluate(() => window.pilot.saveSettings({claudeConsent: null}));
     fail(problems);

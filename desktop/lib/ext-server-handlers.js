@@ -2,6 +2,7 @@
 // password, the form's review, the stuck report, the learned answers and fill misses, the visit routes, the tabs and the session reports. main.js
 // passes in the services they share. A FLOW FILE (docs/flows/applying.md). Guards: the server, review, credentials and visits tests in desktop/test and
 // the matrix (npm run flows).
+import {claudeFamily} from './ai/names.js';
 import * as aliasLibrary from './aliases.js';
 import * as applyLib from './apply.js';
 import * as contactDetails from './contact.js';
@@ -74,7 +75,7 @@ export function registerExtServerHandlers(ctx) {
   server.setReviewHandler(payload => {
     const report = review.report(terminals.list(), payload);
     if (report.matched && report.session) formSeen(report.matched);
-    return report.session ? {...report, cv: cvOf(report.session.url), claudeHelp: !!storage.settings().claudeConsent} : report;   // the one Claude switch (renderer/claude-help.js)
+    return report.session ? {...report, cv: cvOf(report.session.url), claudeHelp: !!storage.settings().claudeConsent && claudeFamily(storage)} : report;   // the one Claude switch (renderer/claude-help.js)
   });
   const recipeReporter = recipeLibrary.createReporter(storage, {onSent: (what, sent) => sharedLog.add(storage, what, sent)});
   setRecipeReporter(recipeReporter);   // main.js keeps it: the other handler groups reach it through a getter

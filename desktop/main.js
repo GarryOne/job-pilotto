@@ -1,5 +1,6 @@
 // Job Pilotto desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
 import {app, BrowserWindow, clipboard, crashReporter, Menu, desktopCapturer, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
+import {aiNameOf, claudeFamily} from './lib/ai/names.js';
 import {setPdfReader} from './lib/ai/codex-cli.js';
 import {electronPdfReader} from './lib/ai/pdf-pages.js';
 import {recordIpc} from './lib/e2e-ipc.js';
@@ -314,7 +315,8 @@ const firstCopy = claimInstance({app, getWindow: () => window, createWindow,
 // Apply with Claude sessions run without asking before each action (--permission-mode bypassPermissions), so the
 // user agrees once, knowing what that means; the answer is kept in settings.
 // Apply with Claude for one job: the job row's button, the page's "Take over" and an account page the extension reached.
-const startClaude = async (url, details = null) => allowanceBlock() || (await claudeConsent())
+const startClaude = async (url, details = null) => !claudeFamily(storage) ? {ok: false, error: `Apply with Claude needs a Claude engine; your AI is ${aiNameOf(storage)} (Settings → AI).`}
+  : allowanceBlock() || (await claudeConsent())
   ? apply.claudeOne(storage, url, undefined, undefined, undefined, details).then(result => {
     if (result?.ok) { track('apply_started', {how: 'claude'}); handOverForms(url); } else terminals.dropForm(String(url).split('#')[0]);
     return result;
@@ -323,9 +325,10 @@ const startClaude = async (url, details = null) => allowanceBlock() || (await cl
 // The Applying flows' decisions (stuck → hand-over, the stage from each report, the hand-over's tab): lib/session-flow.js, unit-tested.
 let sessionFlow = null;
 const flow = () => (sessionFlow ||= createSessionFlow({terminals, review, apply, appLog, toWindow, startClaude,
-  claudeAllowed: () => !!storage.settings().claudeConsent, closeTab: session => closeSessionTab({review, closeTab: closeFormTab}, session)}));
+  claudeAllowed: () => !!storage.settings().claudeConsent && claudeFamily(storage), closeTab: session => closeSessionTab({review, closeTab: closeFormTab}, session)}));
 const handOverForms = url => flow().handOver(url);
 async function claudeConsent() {
+  if (!claudeFamily(storage)) return false;   // an OpenAI engine: no Claude feature, and no question about one
   if (storage.settings().claudeConsent) return true;
   const {response} = await dialog.showMessageBox(window, {type: 'warning', buttons: ['Allow', 'Cancel'], defaultId: 1, cancelId: 1,
     message: 'Let Claude work without asking before each step?',

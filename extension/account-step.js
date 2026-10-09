@@ -87,7 +87,7 @@ async function giveUp(tab, host, reason, needs = '') {
   const key = `stuck-${reason}-${needs}`.slice(0, 120);
   if (await alreadyTried(tab, key)) return;
   await markTried(tab, key);
-  decide('fill', `account step: could not finish (${reason}): Claude is offered`, {host});
+  decide('fill', `account step: could not finish (${reason}): handed to the app`, {host});   // the app decides what it offers (Claude only for a Claude engine)
   await stuck(tab.url.split('#')[0], host, 'account', tab.id, tab.url, needs, stepOf.get(tab.id) || '');
 }
 const markTried = (tab, action) => chrome.storage.session.set({[triedKey(tab, action)]: Date.now()}).catch(() => {});

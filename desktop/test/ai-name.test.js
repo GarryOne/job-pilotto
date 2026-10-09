@@ -57,3 +57,20 @@ test('no new hard-coded generic "Claude" in what the window shows or the main pr
   const over = Object.entries(found).filter(([file, n]) => n > (ALLOWED[file] || 0)).map(([file, n]) => `${file}: ${n} (allowed ${ALLOWED[file] || 0})`);
   assert.deepEqual(over, [], 'write {AI} through ai() (window) or aiText()/nameOfClient() (main process); Claude-only features keep "Claude"');
 });
+
+test('Claude-only features exist only with a Claude engine, in every main-process gate: the panel\'s Take over, starting, the consent question, the session flow', () => {
+  const store = engine => ({settings: () => (engine ? {aiEngine: engine} : {}), secret: () => ''});
+  assert.equal(appNames.claudeFamily(store('codex')), false);
+  assert.equal(appNames.claudeFamily(store('openai')), false);
+  assert.equal(appNames.claudeFamily(store('cli')), true);
+  assert.equal(appNames.claudeFamily(store('')), true, 'nothing chosen: Claude, as before');
+  // Every place the main process decides about Claude asks the family too (a new gate without it fails here).
+  const source = file => fs.readFileSync(path.join(root, file), 'utf8');
+  const main = source('main.js'), server = source('lib/ext-server-handlers.js');
+  assert.match(server, /claudeHelp: !!storage\.settings\(\)\.claudeConsent && claudeFamily\(storage\)/);
+  assert.match(main, /const startClaude = async \(url, details = null\) => !claudeFamily\(storage\)/);
+  assert.match(main, /claudeAllowed: \(\) => !!storage\.settings\(\)\.claudeConsent && claudeFamily\(storage\)/);
+  assert.match(main, /async function claudeConsent\(\) \{\n  if \(!claudeFamily\(storage\)\) return false;/);
+  const gates = [...main.matchAll(/storage\.settings\(\)\.claudeConsent/g)].length + [...server.matchAll(/storage\.settings\(\)\.claudeConsent/g)].length;
+  assert.equal(gates, 3, 'a new read of the Claude switch in the main process must also ask claudeFamily(storage)');
+});

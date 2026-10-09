@@ -35,7 +35,7 @@ export function createSessionFlow({terminals, review, apply, appLog, toWindow = 
     if (why !== 'account') return 'noted';
     // Claude is OFFERED, never started by itself (owner, 8 Oct 2026: extension first; "Take over with Claude" is the person's button, takeOverHandler). The extension reports
     // an account page only when it could not finish it (its account AI was unsure, a bot check, something only the person can give): the session says what is needed.
-    appLog('extension', 'account page: the extension could not finish it: Claude is offered', {host: event.host, id: match.id, ...(event.needs ? {needs: String(event.needs).slice(0, 60)} : {})});
+    appLog('extension', `account page: the extension could not finish it: ${claudeAllowed?.() ? 'Claude is offered' : 'the person is told what is needed (no Claude: off, or an OpenAI engine)'}`, {host: event.host, id: match.id, ...(event.needs ? {needs: String(event.needs).slice(0, 60)} : {})});
     return 'offered';
   }
 
