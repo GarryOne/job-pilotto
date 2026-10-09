@@ -26,6 +26,10 @@ def main():
     name = sys.argv.pop(1)
     sys.argv[0] = f'python -m src {name}'
     import importlib
+    if name == 'daily' and '--mode' in sys.argv[:-1] and sys.argv[sys.argv.index('--mode') + 1] == 'prepare' and '--job' in sys.argv:
+        # Preparing one job's kit crawls and scores nothing and leaves the job cache alone (it reads it, asks the AI, writes the kit
+        # to the store), so it never waits for a search and several run side by side. 10 Oct 2026: two kits sat 6+ min behind a scout run.
+        return importlib.import_module(commands[name]).main() or 0
     if name == 'daily' and '--propose' in sys.argv:
         # The app's Log box, step 1: Claude reads a message and says what it would log; nothing is written (Notion or the job cache), so it
         # never waits for a search. 6 Oct 2026: it sat on "Starting… 200 s" behind a scheduled search holding the run lock.

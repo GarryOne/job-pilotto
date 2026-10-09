@@ -31,6 +31,14 @@ class RunLockTest(unittest.TestCase):
         taken, ran = self.run_main('daily', '--mode', 'add', '--from-app', '--propose')
         self.assertEqual((taken, len(ran)), ([], 1))
 
+    def test_preparing_one_kit_never_waits_for_a_search(self):
+        taken, ran = self.run_main('daily', '--mode', 'prepare', '--log-run', '--job', '12bc5f58', '--action', 'applied')
+        self.assertEqual((taken, len(ran)), ([], 1))
+
+    def test_prepare_without_a_job_is_not_exempt(self):
+        taken, _ = self.run_main('daily', '--mode', 'prepare')
+        self.assertEqual(len(taken), 1)
+
     def test_saving_the_log_still_takes_turns(self):
         taken, _ = self.run_main('daily', '--mode', 'add', '--from-app', '--reading', 'x.json')
         self.assertEqual(len(taken), 1)
