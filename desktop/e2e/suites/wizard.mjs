@@ -5,6 +5,8 @@ import {runWizard} from '../lib/wizard.mjs';
 export const minutes = 20;
 export const macos = true;   // runs on a macOS runner: the first run: the Keychain holds the keys it saves (lib/plan.mjs runnerOf)
 export const name = 'wizard';
+// The "Notion later" journey (set up without Notion, trying, then connect): a state that ends once a store is chosen, so it runs on Notion, the stand-in (P7).
+export const store = 'standin';
 export const fresh = true;
 export async function run(ctx) {
   ctx.findings = [];

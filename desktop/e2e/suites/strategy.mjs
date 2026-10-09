@@ -6,13 +6,16 @@ import path from 'node:path';
 import {launch} from '../lib/app.mjs';
 import {digestTitles} from '../lib/digest.mjs';
 import {watch} from '../lib/activity.mjs';
-import {closeRunningRows, emptyDatabase, ensureSection, findPagesBeside, pageSections, restoreSections, setSection, trashPage} from '../lib/notion.mjs';
+import {closeRunningRows, ensureSection, findPagesBeside, pageSections, restoreSections, setSection, trashPage} from '../lib/notion.mjs';
+import {clearData} from '../lib/start-state.mjs';
 import {forgetFixtureJobs} from '../lib/forget.mjs';
 import {fastSeed, ensureSetUp} from '../lib/seed.mjs';
 
 export const engine = 'api';   // the suite relies on the AI proxy answering "no credit", which needs the API engine (dummy key: nothing reaches Anthropic)
 export const minutes = 30;
 export const name = 'strategy';
+// The ⚙️ Search settings page round-trip: a Notion rendering of the settings (spec 2026-10-09-store-adapters.md §4), so it runs on Notion, the stand-in (P7).
+export const store = 'standin';
 const TITLE = '⚙️ Search settings';
 const ROLE = 'zebra wrangler', GIRAFFE = 'giraffe keeper', PLACE = 'lugano', SKIP = 'E2E Initech';
 // Free words (no fixture feed depends on them): a company added on the Notion page and a region accepted in the app. A seeded run picks one of each, so a word an
@@ -98,7 +101,7 @@ export async function run(ctx) {
   const listed = (jobs, word, level) => jobs.some(job => new RegExp(word, 'i').test(job) && (!level || job.startsWith(level)));
 
   await ctx.run('this suite starts with no jobs, two small boards and no strategy change', async () => {
-    await emptyDatabase(NOTION, 'Job Matches — AI Scored');
+    await clearData(ctx, 'Job Matches — AI Scored');
     const closed = await closeRunningRows(NOTION);   // start state: no run left "Running" by a killed earlier run
     if (closed) console.log(`  closed ${closed} run row(s) an earlier, killed run had left "Running"`);
     fs.mkdirSync(path.join(ctx.profile, 'config'), {recursive: true});
