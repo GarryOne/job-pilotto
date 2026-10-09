@@ -554,6 +554,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/stores/base.py` — The store interface: one Protocol per entity of the user's data, plain dicts in and out (never Notion JSON).
 - `src/stores/copy.py` — Move the user's data from one store to another ("Move my data to Notion"): every entity, through the interface.
 - `src/stores/memory.py` — The in-memory store: the reference adapter (what the contract means, in the fewest lines) and a fake for tests.
+- `src/stores/sqlite.py` — The SQLite store: the user's data on this Mac, the default adapter when Notion isn't chosen.
 - `src/telegram.py` — Sending Telegram messages; the bot token comes from the environment or the macOS Keychain."""
 - `src/tgcard.py` — One look for every Telegram message Job Pilotto sends (Telegram HTML).
 - `src/time_budget.py` — A refresh's time budget (owner, 7 Oct 2026: "never more than 2-3 minutes"; a run read 1,650 jobs and sorted 600 titles for 30 minutes).

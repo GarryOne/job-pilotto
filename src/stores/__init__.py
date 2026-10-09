@@ -11,6 +11,7 @@ from .base import CLOUD, FILES, LINKS, TEXTS, Stores, url_key  # noqa: F401 (the
 # name → module with `open_store(env)`. An adapter is registered here once it passes tests/store_contract.py.
 ADAPTERS = {
     'memory': 'src.stores.memory',
+    'sqlite': 'src.stores.sqlite',
 }
 
 
