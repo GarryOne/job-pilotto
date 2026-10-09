@@ -9,11 +9,11 @@ const TOPICS = Object.fromEntries(Object.entries(SCHEMA).filter(([topic]) => !to
 export const validRow = row => Boolean(TOPICS[row?.topic]?.answers.includes(row.answer)) && ['pattern', 'exact'].includes(row.kind)
   && typeof row.wording === 'string' && row.wording.trim() && row.wording.length <= (row.kind === 'exact' ? 200 : 2000);
 
-export async function packMeanings(db, install, beta = false) {
+export async function packMeanings(db, install, reach = {}) {
   const rows = (await db.prepare("SELECT topic, kind, wording, answer, ord, status, rollout, source FROM meanings WHERE source NOT LIKE 'seed:%' AND status IN ('canary', 'verified')").all()).results || [];
   const off = (await db.prepare("SELECT topic, kind, wording FROM meanings WHERE source LIKE 'seed:%' AND status = 'disabled'").all()).results || [];
   return {
-    rows: rows.filter(validRow).filter(row => reaches(row, install, beta))   // canary-reach.js
+    rows: rows.filter(validRow).filter(row => reaches(row, install, reach))   // canary-reach.js: staged rollout off for now
       .map(({topic, kind, wording, answer, ord}) => ({topic, kind, wording, answer, ord})),
     off: off.map(row => [row.topic, row.kind, row.wording]),
   };

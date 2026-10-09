@@ -13,8 +13,8 @@ test('learned rows and switched-off seeds reach the app; nothing outside the sch
     {topic: 'no-such-topic', kind: 'exact', wording: 'x', answer: 'y', ord: 0, status: 'verified', rollout: 100, source: 'learned'},
     {topic: 'interview-round', kind: 'exact', wording: 'entretien rh', answer: 'recruiter_screen', ord: 0, status: 'canary', rollout: 0, source: 'learned'},
     {topic: 'asks-to-book', kind: 'pattern', wording: '\\bbook\\b', answer: 'asks_to_book', ord: 1, status: 'disabled', rollout: 0, source: 'seed:focus.py BOOKING'},
-  ]), 'install-1');
-  assert.deepEqual(pack.rows, [{topic: 'pool-country', kind: 'exact', wording: 'lisboa', answer: 'pt', ord: 0}]);   // the 0% canary is not this install's yet
+  ]), 'install-1', {stage: true});
+  assert.deepEqual(pack.rows, [{topic: 'pool-country', kind: 'exact', wording: 'lisboa', answer: 'pt', ord: 0}]);   // staged: the 0% canary is not this install's yet
   assert.deepEqual(pack.off, [['asks-to-book', 'pattern', '\\bbook\\b']]);
   assert.equal(validRow({topic: 'pool-country', kind: 'pattern', wording: 'x'.repeat(2001), answer: 'pt'}), false);
 });

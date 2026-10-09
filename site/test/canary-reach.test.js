@@ -3,17 +3,27 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {bucketOf} from '../../extension/recipe-schema.js';
-import {betaOf, reaches} from '../src/canary-reach.js';
+import {betaOf, reaches, staged} from '../src/canary-reach.js';
 import {LEARNING_CRON, judgeLearning} from '../src/index.js';
 
 const outside = Array.from({length: 200}, (_, i) => `install-${i}`).find(id => bucketOf(id) >= 5);   // an install outside a 5% canary
 
-test('a canary reaches its rollout share and every beta install; verified reaches all; disabled none', () => {
-  assert.equal(reaches({status: 'canary', rollout: 5}, outside), false);
-  assert.equal(reaches({status: 'canary', rollout: 5}, outside, true), true);
-  assert.equal(reaches({status: 'verified', rollout: 0}, outside), true);
-  assert.equal(reaches({status: 'disabled', rollout: 100}, outside, true), false);
-  assert.equal(reaches({status: 'candidate', rollout: 0}, outside, true), false);
+test('staged (switch on): a canary reaches its rollout share and every beta install; verified reaches all; disabled none', () => {
+  const on = {stage: true};
+  assert.equal(reaches({status: 'canary', rollout: 5}, outside, on), false);
+  assert.equal(reaches({status: 'canary', rollout: 5}, outside, {...on, beta: true}), true);
+  assert.equal(reaches({status: 'verified', rollout: 0}, outside, on), true);
+  assert.equal(reaches({status: 'disabled', rollout: 100}, outside, {...on, beta: true}), false);
+  assert.equal(reaches({status: 'candidate', rollout: 0}, outside, {...on, beta: true}), false);
+});
+
+// Owner, 9 Oct 2026: the staged rollout is off for now (few installs); valid learning reaches everyone, the kill switch still works.
+test('switch off (the default): a canary reaches every install; disabled and candidates still reach no one', () => {
+  assert.equal(staged({}), false);
+  assert.equal(staged({LEARNING_CANARY: 'on'}), true);
+  assert.equal(reaches({status: 'canary', rollout: 5}, outside), true);
+  assert.equal(reaches({status: 'disabled', rollout: 100}, outside), false);
+  assert.equal(reaches({status: 'candidate', rollout: 0}, outside), false);
   assert.equal(betaOf(new Request('https://x/', {headers: {'X-Beta': '1'}})), true);
   assert.equal(betaOf(new Request('https://x/')), false);
 });

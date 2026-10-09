@@ -116,7 +116,7 @@ test('a valid candidate starts at the first canary step; a broken one, or one wh
 });
 
 test('an app gets a token, then recipes only for the fingerprints it presents, at its own canary share', async () => {
-  const e = {...env(), WAITLIST: kvStore()};
+  const e = {...env(), WAITLIST: kvStore(), LEARNING_CANARY: 'on'};   // the staged rollout, as when it is switched back on (canary-reach.js)
   await put(e, {recipe: recipe(), status: 'verified'});
   await put(e, {recipe: recipe({fingerprint: 'other0001'}), status: 'verified'});
   await put(e, {recipe: recipe({fingerprint: 'draft0001'}), status: 'candidate'});

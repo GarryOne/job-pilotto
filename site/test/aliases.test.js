@@ -34,7 +34,7 @@ test('only the owner adds meanings; invalid ones are refused; a sensitive field 
 });
 
 test('installs with a token get only running aliases at their own canary share; others are refused', async () => {
-  const e = env();
+  const e = {...env(), LEARNING_CANARY: 'on'};   // the staged rollout, as when it is switched back on (canary-reach.js)
   await owner(e, 'PUT', {status: 'verified', items: [{key: 'email', phrase: 'courriel'}]});
   await owner(e, 'PUT', {status: 'candidate', items: [{key: 'location', phrase: 'ville de résidence'}]});
   const install = 'install-alias-0001';

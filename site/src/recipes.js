@@ -11,7 +11,7 @@
 // evaluateCanary (daily) promotes a canary that works and halts one that fails, with no one watching.
 import {familyOfInstall} from './engines.js';
 import {validateRecipe} from '../../extension/recipe-schema.js';
-import {betaOf, reaches} from './canary-reach.js';
+import {betaOf, reaches, staged} from './canary-reach.js';
 import {cleanCard} from '../../extension/fill-card.js';
 import {isOwner} from './stats.js';
 import {authorize, digestOf, equal, flag, honeypotAmong, revoke, tokenFor} from './guard.js';
@@ -112,8 +112,8 @@ export async function lookup(request, env, now = new Date()) {
       ORDER BY version DESC LIMIT 1`).bind(fingerprint).first();
     if (!row) continue;
     const checked = validateRecipe(JSON.parse(row.body));
-    const rollout = row.status === 'verified' ? 100 : row.rollout;
-    if (checked.ok && reaches(row, install, betaOf(request))) out.push({...checked.recipe, rollout});   // canary-reach.js: beta installs test canaries
+    const stage = staged(env), rollout = row.status === 'verified' || !stage ? 100 : row.rollout;
+    if (checked.ok && reaches(row, install, {beta: betaOf(request), stage})) out.push({...checked.recipe, rollout});   // canary-reach.js: staged rollout off for now
   }
   return Response.json({ok: true, recipes: out}, {headers: {'Cache-Control': 'private, no-store'}});
 }

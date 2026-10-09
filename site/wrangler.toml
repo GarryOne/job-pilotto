@@ -19,6 +19,9 @@ id = "a871d4644b614266b5bfa7f1b5e811c1"
 # Notion URL for optional template) hold https://adaptable-bit-846.notion.site/Job-Pilotto-3e862be8fd868143b431df70d505ed7c,
 # so Notion's consent page offers "Use a template provided by the developer" and the token carries duplicated_template_id.
 [vars]
+# Staged rollout of learned recipes, wording and page meanings (site/src/canary-reach.js). OFF for now (owner, 9 Oct 2026): with few installs a
+# learned item reaches every install at once, still validated and rolled back on failure. Set to "on" again once the user base is larger.
+LEARNING_CANARY = "off"
 # /admin/ai-cost counts from this day (site/src/jobcost.js): every product key was replaced on 8 Oct 2026 (~13:15 UTC), measuring starts that day.
 AI_COST_SINCE = "2026-10-08"
 GITHUB_REPO = "GarryOne/job-pilotto"
