@@ -266,6 +266,21 @@ test('empty-field reasons are summed per board and reason word; unknown words an
   assert.deepEqual(sent[0].unfilled, [{board: 'ashby', reason: 'no_answer', n: 3}]);
 });
 
+test('AI answer calls go in the batch summed per engine, counts only; nothing when reports are off', async () => {
+  const storage = tempStorage();
+  const sent = [];
+  const fetcher = async (url, init) => { sent.push(JSON.parse(init.body)); return {ok: true, status: 200, json: async () => ({})}; };
+  const reporter = createReporter(storage, {fetcher, base: 'https://site.test', setTimer: () => ({})});
+  const trace = {fields: 3, returned: 3, kept: 2, empty: 1, proposed: 0, unknownIds: ['x_salary'], stop: 'end_turn', ms: 4000, engine: 'cli'};
+  reporter.answer(trace); reporter.answer(trace);
+  await reporter.flush();
+  assert.deepEqual(sent[0].answers, [{engine: 'cli', calls: 2, fields: 6, returned: 6, kept: 4, empty: 2, unknown: 2, proposed: 0, cut: 0, ms: [2, 0, 0, 0, 0, 0]}]);
+  assert.ok(!JSON.stringify(sent[0]).includes('x_salary'));
+  storage.saveSettings({telemetry: false});
+  reporter.answer(trace);
+  assert.deepEqual(await reporter.flush(), {sent: 0});
+});
+
 test('each fill\'s record and what Submit added go in the batch, with the board; nothing when reports are off', async () => {
   const storage = tempStorage();
   const sent = [];

@@ -20,6 +20,8 @@ export function setTabsHandler(fn) { tabsHandler = fn; }  // ({ids, boot, readin
 // "message" for Notification) and tools/notify.sh (form field "message"). Local programs only, as for tickets.
 export let sharedLogger = null;   // lib/shared-log.js: a copy of what is sent to the service, for Settings → "See what's sent"
 export function setSharedLogger(fn) { sharedLogger = fn; }
+export let answerReporter = () => {};   // each AI answer call's counts -> lib/recipes.js reporter.answer (set in ext-server-handlers.js)
+export function setAnswerReporter(fn) { answerReporter = fn; }
 export let proposalReporter = () => {};
 export function setProposalReporter(fn) { proposalReporter = fn; }
 export let sessionReporter = () => {};

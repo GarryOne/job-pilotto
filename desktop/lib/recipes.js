@@ -8,6 +8,7 @@ import {validateAlias} from '../shared/alias-schema.js';
 import {validateRecipe} from '../shared/recipe-schema.js';
 import {installId} from './app-feedback.js';
 import {RESULT_STATES} from './application-result.js';
+import {addAnswer, mergeAnswers} from './answer-counts.js';
 import {log} from './log.js';
 import {LEFT_REASONS, cleanLabel} from './question-labels.js';
 import {cleanUse} from './proposal-use.js';
@@ -83,7 +84,7 @@ export async function lookup(storage, fingerprints, {fetcher = globalThis.fetch,
 
 // ---- what goes back: operator outcomes (counts per fingerprint and recipe) and new control structures ----
 export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE, setTimer = setTimeout, onSent = null} = {}) {
-  let outcomes = new Map(), samples = [], fills = new Map(), questions = new Map(), flows = new Map(), aliasUse = new Map(), applications = new Map(), proposals = new Map(), proposalUses = new Map(), unfilled = new Map(), intel = emptyIntel(), timer = null, requiredBy = new Map(), cards = [], submits = new Map();
+  let outcomes = new Map(), samples = [], fills = new Map(), questions = new Map(), flows = new Map(), aliasUse = new Map(), applications = new Map(), proposals = new Map(), proposalUses = new Map(), unfilled = new Map(), answers = new Map(), intel = emptyIntel(), timer = null, requiredBy = new Map(), cards = [], submits = new Map();
   const schedule = () => { if (!timer) { timer = setTimer(() => { timer = null; flush().catch(() => {}); }, FLUSH_MS); timer.unref?.(); } };
   return {
     // items [{fp, ok, recipe}] from the operators.
@@ -154,6 +155,10 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
         unfilled.set(key, {board, reason: item.reason, n: (unfilled.get(key)?.n || 0) + Math.min(100, Math.round(Number(item.n)))});
       }
       schedule();
+    },
+    // One AI answer call for a form (lib/answer-counts.js): summed per engine, counts only, for the site's per-AI-family metrics.
+    answer(trace) {
+      if (enabled(storage) && addAnswer(answers, trace)) schedule();
     },
     // What a learned note says about a label's wording (lib/learn.js proposalsOf): [{key, phrase}], the wording and the fixed profile field it stands for.
     // The site only counts it; it becomes a candidate meaning once 3+ installs sent the same pair, and the owner's canary decides the rest.
@@ -281,11 +286,11 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     for (const item of sent.fixes) { const again = intel.fixes.get(item.label) || {label: item.label, filled: 0, corrected: 0}; again.filled += item.filled; again.corrected += item.corrected; intel.fixes.set(item.label, again); }
   }
   async function flush() {
-    if (!enabled(storage) || (!outcomes.size && !samples.length && !fills.size && !questions.size && !flows.size && !aliasUse.size && !applications.size && !proposals.size && !proposalUses.size && !unfilled.size && !cards.length && !submits.size && !hasIntel())) return {sent: 0};
+    if (!enabled(storage) || (!outcomes.size && !samples.length && !fills.size && !questions.size && !flows.size && !aliasUse.size && !applications.size && !proposals.size && !proposalUses.size && !unfilled.size && !answers.size && !cards.length && !submits.size && !hasIntel())) return {sent: 0};
     const body = {install: installId(storage), samples: samples.slice(0, 10), outcomes: [...outcomes.values()].slice(0, 40), exposure: [...fills].slice(0, 20).map(([board, n]) => ({board, n, ...(requiredBy.get(board) ? {required: requiredBy.get(board)} : {})})),
       questions: [...questions.values()].slice(0, 40), flows: [...flows.values()].slice(0, 20), aliasUse: [...aliasUse.values()].slice(0, 20),
-      applications: [...applications.values()].slice(0, 20), proposals: [...proposals.values()].slice(0, 10), proposalUses: [...proposalUses.values()].slice(0, 40), unfilled: [...unfilled.values()].slice(0, 20), cards: cards.slice(0, 20), submits: [...submits.values()].slice(0, 20), ...(hasIntel() ? {intel: takeIntel()} : {})};
-    const taken = {cards: cards.slice(0, 20), submits, samples: samples.slice(0, 10), outcomes, fills, requiredBy, questions, flows, aliasUse, applications, proposals, proposalUses, unfilled, intel: body.intel};
+      applications: [...applications.values()].slice(0, 20), proposals: [...proposals.values()].slice(0, 10), proposalUses: [...proposalUses.values()].slice(0, 40), unfilled: [...unfilled.values()].slice(0, 20), answers: [...answers.values()], cards: cards.slice(0, 20), submits: [...submits.values()].slice(0, 20), ...(hasIntel() ? {intel: takeIntel()} : {})};
+    const taken = {cards: cards.slice(0, 20), submits, samples: samples.slice(0, 10), outcomes, fills, requiredBy, questions, flows, aliasUse, applications, proposals, proposalUses, unfilled, answers, intel: body.intel};
     samples = samples.slice(10);
     outcomes = new Map();
     fills = new Map();
@@ -297,13 +302,14 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     proposals = new Map();
     proposalUses = new Map();
     unfilled = new Map();
+    answers = new Map();
     cards = cards.slice(20);
     submits = new Map();
     try {
       const response = await fetcher(`${base}/api/controls`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
       if (!response.ok) throw new Error(`controls ${response.status}`);
       onSent?.('shared counts → /api/controls', body);
-      return {sent: body.samples.length + body.outcomes.length + body.exposure.length + body.questions.length + body.flows.length + body.aliasUse.length + body.applications.length + body.proposals.length + body.proposalUses.length + body.unfilled.length + body.cards.length + body.submits.length + (body.intel ? 1 : 0)};
+      return {sent: body.samples.length + body.outcomes.length + body.exposure.length + body.questions.length + body.flows.length + body.aliasUse.length + body.applications.length + body.proposals.length + body.proposalUses.length + body.unfilled.length + body.answers.length + body.cards.length + body.submits.length + (body.intel ? 1 : 0)};
     } catch (error) {
       log('recipes', `outcomes not sent: ${error.message}`);
       samples = [...taken.samples, ...samples].slice(-20);   // kept for the next try
@@ -322,6 +328,7 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
       cards = [...taken.cards, ...cards].slice(-40);
       for (const [key, entry] of taken.submits) if (!submits.has(key)) submits.set(key, entry);
       for (const [key, entry] of taken.proposalUses) proposalUses.set(key, {...entry, n: entry.n + (proposalUses.get(key)?.n || 0)});
+      mergeAnswers(answers, taken.answers);
       for (const [key, entry] of taken.unfilled) unfilled.set(key, {...entry, n: entry.n + (unfilled.get(key)?.n || 0)});
       for (const [key, entry] of taken.aliasUse) { const again = aliasUse.get(key) || {phrase: key, ok: 0, failed: 0}; again.ok += entry.ok; again.failed += entry.failed; aliasUse.set(key, again); }
       return {sent: 0};

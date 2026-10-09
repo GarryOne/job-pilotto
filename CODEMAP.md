@@ -18,6 +18,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/aliases.js` — The app's side of the label meanings (site/src/aliases.js; format extension/alias-schema.js; plan in Notion "Knowledge as data"). The
 - `desktop/lib/analytics-config.js` — Where crash reports and usage events go (config/analytics.json, overridden by env). Everything empty = nothing is sent. The DSN and the
 - `desktop/lib/analytics.js` — Product analytics (PostHog, EU cloud) without PostHog's SDK: which steps people take and where they stop (setup, first search, kit,
+- `desktop/lib/answer-counts.js` — Each AI answer call for a form (worker/src/extension.js answerForm -> env.onAnswer trace), summed per engine for the site's per-AI-family
 - `desktop/lib/app-allowance.js` — The free allowance, the health line and visit scoring (moved out of main.js, 8 Oct 2026): where the user stands (the license state), the guard before new work starts,
 - `desktop/lib/app-feedback.js` — "Send feedback…" (sidebar and Help menu): the user's own words to the owner, through the website
 - `desktop/lib/app-menu.js` — The app's menu bar: Electron's standard menus, plus "Check for Updates…" where Mac users look for it

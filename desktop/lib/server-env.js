@@ -16,7 +16,7 @@ import {jobKey} from '../shared/worker/extension.js';
 import {log as appLog} from './log.js';
 import {contactOf} from './server-contact.js';
 import {pageKey} from './server-pages.js';
-import {appliedHook, formIssue, jobName, notify, proposalReporter, sharedLogger, tellWindow} from './server-hooks.js';
+import {answerReporter, appliedHook, formIssue, jobName, notify, proposalReporter, sharedLogger, tellWindow} from './server-hooks.js';
 import {NAMES} from './ai/names.js';
 
 export function extensionToken(storage) {
@@ -114,8 +114,11 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
         appLog('extension', `${entry?.kind || 'note'}: ${entry?.text || ''}`, entry?.fields || {});
       }
     },
-    // Each Claude answer for a form's questions (worker/src/extension.js answerForm): counts and field ids only.
-    onAnswer: trace => appLog('fill', `${NAMES[trace.engine] || 'The AI'} answered ${trace.kept} of ${trace.fields} question(s)`, trace),
+    // Each AI answer for a form's questions (worker/src/extension.js answerForm): counts and field ids only, in the log; counts only to the site.
+    onAnswer: trace => {
+      appLog('fill', `${NAMES[trace.engine] || 'The AI'} answered ${trace.kept} of ${trace.fields} question(s)`, trace);
+      answerReporter(trace);
+    },
     onRun: async run => {
       // A running count of forms the extension filled (technical reports' daily health line: how much it helps).
       storage.saveSettings({formsFilled: (storage.settings().formsFilled || 0) + 1});

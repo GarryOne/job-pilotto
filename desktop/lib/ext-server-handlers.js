@@ -92,6 +92,7 @@ export function registerExtServerHandlers(ctx) {
     appLog('sessions', `application ended: ${result}`, {board, id: session.id});
   });
   server.setProposalReporter(items => recipeReporter.proposal(items));
+  server.setAnswerReporter(trace => { if (!isolated()) recipeReporter.answer(trace); });   // per-AI-family answer metrics, never from a test run or a twin
   // After a search: how much of the market the role keywords caught (data/coverage.json, src/coverage.py), as anonymous counts, once per crawl.
   pipeline.onRunEnd(({args, code}) => {
     if (code !== 0 || args[1] !== 'daily') return;

@@ -6,6 +6,7 @@
 //     per 100 forms for apps older than 0.8.96, which send no count)
 //   3 the recipe funnel (candidate -> canary -> verified, disabled), and the questions the lab could not read, to fix next.
 // Counts and the forms' own public wording only. Owner-only, like /self-heal.
+import {answersByFamily, answersSection} from './answer-metrics.js';
 import {FAMILIES, familyLinks, familyParam} from './engines.js';
 import {viewer} from './auth.js';   // admins (invited) read this page too
 import {digest, markdown} from './digest.js';
@@ -117,7 +118,8 @@ export async function report(db, now = new Date(), family = '') {
   const results = resultsFrom((await db.prepare('SELECT day, board, state, SUM(n) AS n FROM flow_outcomes WHERE day >= ?' + FAMILY_SQL + ' GROUP BY day, board, state').bind(lastWeek, family, family).all().catch(() => ({results: []}))).results || [], thisWeek, lastWeek);
   const learning = await digest(db, now).catch(() => null);
   const families = await byFamily(db, thisWeek).catch(() => null);
-  return {family, families, results, learning, lab: [...boards.values()].sort((a, b) => (b.reading.now.n + b.operating.now.n) - (a.reading.now.n + a.operating.now.n)),
+  const answers = await answersByFamily(db, thisWeek, lastWeek).catch(() => null);   // the AI's own answers, per family (migration 0046)
+  return {family, families, answers, results, learning, lab: [...boards.values()].sort((a, b) => (b.reading.now.n + b.operating.now.n) - (a.reading.now.n + a.operating.now.n)),
     totals, use: {...use, unitNow: per('now').unit, reasons}, recipes, unread, from: lastWeek, to: day(now)};
 }
 
@@ -196,6 +198,7 @@ td{padding:6px 4px;border-top:1px solid var(--line)}th.n{text-align:right}td.n{t
 <header><h1>📝 Form filling</h1><span class="muted">${esc(data.from)} → ${esc(data.to)} · this week vs last${data.family ? ` · ${esc(FAMILIES[data.family])} installs only` : ''}</span></header>
 ${familyLinks(url, data.family || '')}
 ${familySection(data.families)}
+${answersSection(data.answers, trend)}
 <div class="tiles">
 ${tile('📖 Reading (lab)', pct(r.now), trend(r.now.rate, r.before.rate), `required questions read on public forms · ${r.now.n} this week, ${pct(r.before)} last`)}
 ${tile('🖱️ Operating (lab)', pct(o.now), trend(o.now.rate, o.before.rate), `widgets set by the operators · ${o.now.n} this week, ${pct(o.before)} last`)}
