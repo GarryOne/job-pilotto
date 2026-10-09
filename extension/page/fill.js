@@ -214,6 +214,9 @@
       let outcome = row.filled ? 'filled' : 'left';
       let reason = '';
       if (row.legal) { outcome = 'left'; reason = 'legal/consent: always your choice'; }
+      // A menu left on the page's own preselected choice that nobody answered (easytemp: Nationalité "Suisse"): the page will send it, so it reads as
+      // filled, but the person must check it (browser-form-fastpath.js __jobPilottoAtPageDefault).
+      else if (row.filled && !source && (el => el?.tagName === 'SELECT' && window.__jobPilottoAtPageDefault?.(el))(document.getElementById(row.field) || document.querySelector(`select[name="${CSS.escape(row.field)}"]`))) reason = 'preselected by the page: check it';
       else if (row.unread && !row.filled) reason = 'question on the page not read';
       else if (!row.filled && proposedOf[row.field]) reason = 'proposed for you to confirm';
       else if (!row.filled && armedFields.has(row.field)) { outcome = 'left'; reason = 'dropdown that opens only on a real click'; }

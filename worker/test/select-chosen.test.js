@@ -33,3 +33,20 @@ test('the panel and flow.js read menus by the same rule', () => {
   assert.match(read('extension/flow.js'), /window\.__jobPilottoDescribeForm\?\.\(true\)/, 'the end of a fill reads settled');
   assert.match(read('extension/page/coverage.js'), /window\.__jobPilottoChosen\(el\)/);
 });
+
+// easytemp (twin, 9 Oct 2026): Nationalité preselected "Suisse" (an option marked selected, not the first) was read as answered and never asked.
+test('a menu on the page\'s own preselected choice is asked before the fill and flagged after it when nobody answered it', { skip: !JSDOM }, async () => {
+  const window = openPage(JSDOM, `<form>
+    <label for="staat">Nationalité*</label><select id="staat"><option value="AF">Afghanistan</option><option value="CH" selected>Suisse</option><option value="RO">Roumanie</option></select>
+    <label for="lang">Langue</label><select id="lang"><option value="FR">Français</option><option value="DE">Deutsch</option></select>
+  </form>`, { url: 'https://api.easytemp.ch/live/bew/2-FR.php' });
+  const staat = window.document.getElementById('staat');
+  assert.equal(window.__jobPilottoAtPageDefault(staat), true);
+  const before = Object.fromEntries((await window.__jobPilottoDescribeForm()).map(row => [row.field, row.filled]));
+  assert.deepEqual([before.staat, before.lang], [false, false], 'both still asked');
+  const summary = await window.__jobPilottoExtensionFill([{field: 'lang', value: 'Deutsch'}], {}, null, '', false);
+  const rows = Object.fromEntries(Array.from(summary.trace, row => [row.label, [row.outcome, row.reason]]));
+  assert.deepEqual(rows['Nationalité'], ['filled', 'preselected by the page: check it']);
+  assert.deepEqual(rows.Langue, ['filled', ''], 'one we set is a plain answer');
+  window.close();
+});
