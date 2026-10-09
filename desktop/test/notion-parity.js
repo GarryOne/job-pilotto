@@ -6,7 +6,6 @@ const JOB = {view: 'pages/job-panel.js openJobPanel'};
 const PREP = {view: 'pages/prep.js openPrep'};
 const EDITORS = {pending: 'mac-27 (P8 C: Profile, Answers, Form knowledge and Search settings editors)'};
 const REPORTS = {pending: 'mac-27 (P8 D: reports and history in full)'};
-const INTERVIEW = {pending: 'mac-4a (P8 B: full interview review and saved transcript)'};
 
 export const NOTION_PARITY = {
   'index.html#focus-funnel-notion': REPORTS,                     // the 🎯 Pipeline page: funnel "from previous" / "Of applied"
@@ -16,7 +15,7 @@ export const NOTION_PARITY = {
   'index.html#answers-review': EDITORS,
   'index.html#store-open': {none: 'Settings → Data: opens the workspace itself, shown only to a Notion user'},
   'index.html#activity-notion': {view: 'pages/activity-panel.js openActivity'},   // a run's row; Result digest, Billed to, Trigger: P8 D
-  'index.html#moments-notion': INTERVIEW,
+  'index.html#moments-notion': {view: 'pages/interview-practice.js showMoments'},   // the insight's quotes; a name opens the interview
   'index.html#prep-open': PREP,
   'job-link.js jobLinkActions': JOB,
   'pages/activity-mail.js interviewPanel': JOB,
@@ -29,8 +28,8 @@ export const NOTION_PARITY = {
   'pages/focus.js loadHistory': JOB,                             // the job's History tab
   'pages/focus.js prepAction': PREP,
   'pages/focus.js init': REPORTS,                                // the funnel link (#focus-funnel-notion)
-  'pages/interview-lists.js renderDrafts': INTERVIEW,            // the saved transcript
-  'pages/interview-practice.js showMoments': INTERVIEW,
+  'pages/interview-lists.js renderDrafts': {view: 'pages/interviews.js openReview'},   // a saved draft: Transcript and review
+  'pages/interview-practice.js showMoments': {view: 'pages/interview-practice.js showMoments'},
   'pages/interviews.js showRow': {view: 'pages/interviews.js openReview'},
   'pages/interviews.js renderSaved': {view: 'pages/interviews.js openReview'},   // its job link: the job panel
   'pages/job-panel.js draw': JOB,                                // the panel itself; "Open in Notion" is the Notion user's extra

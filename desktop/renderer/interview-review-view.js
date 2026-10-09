@@ -24,9 +24,11 @@ export function markdownGroups(text, first = 'Review') {
 // or "⚠️ Different from the job (it says “…”): …" (src/ai/interviews_facts.py fact_lines). A line that doesn't parse is kept as it is.
 export const QUESTIONS = 'Questions', CALL_FACTS = 'Facts from the call';
 export const VERDICTS = {'✅': ['Strong', 'good'], '➖': ['OK', 'neutral'], '⚠️': ['Weak', 'warn'], '❌': ['Not answered', 'bad']};
+// Markdown escapes the codec writes (`\[`, `\]`, `\*`, `\_`, `` \` ``, `\\`) back to the characters.
+const unescape = line => String(line).trim().replace(/\\([[\]\\*_`])/g, '$1');
 export function questionOf(line) {
-  // The store's Markdown escapes the topic's bracket (`\[On-call]`, src/stores/notion_blocks.py); an unanswered question ends in "— ".
-  const found = /^(✅|➖|⚠️|❌)?\s*(?:\\?\[([^\]]*)\]\s*)?(.*)$/u.exec(String(line).trim());
+  // The store's Markdown escapes brackets (`\[On-call\]`, src/stores/notion_blocks.py): undone first. An unanswered question ends in "— ".
+  const found = /^(✅|➖|⚠️|❌)?\s*(?:\[([^\]]*)\]\s*)?(.*)$/u.exec(unescape(line));
   const [, mark = '', topic = '', rest = ''] = found;
   const [asked, better = ''] = rest.split(/\s*→ Better:\s*/);
   const [question, ...answer] = asked.split(/\s+—(?:\s+|$)/);
@@ -34,6 +36,7 @@ export function questionOf(line) {
   return {verdict, tone, topic: topic.trim(), question: question.trim(), answer: answer.join(' — ').trim(), better: better.trim()};
 }
 export function callFactOf(line) {
+  line = unescape(line);
   const differs = /\s*⚠️ Different from the job \(it says “([^”]*)”\).*$/u.exec(line);
   if (differs) return {text: line.slice(0, differs.index).trim(), mark: 'differs', current: differs[1]};
   if (/\s*\(added to the job\)$/.test(line)) return {text: line.replace(/\s*\(added to the job\)$/, '').trim(), mark: 'added', current: ''};
