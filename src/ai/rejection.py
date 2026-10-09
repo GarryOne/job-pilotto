@@ -32,7 +32,7 @@ import os
 import sys
 
 from .. import run_log, telegram, tgcard
-from ..notion import client as notion, cron_runs
+from ..notion import cron_runs
 from ..notion.ledger import RECORD_HEADING
 from ..stores import base, open_stores
 from ..stores.notion_blocks import to_markdown
@@ -218,7 +218,7 @@ def main(argv=None):
     parser.add_argument('--limit', type=int, default=3)
     parser.add_argument('--send', action='store_true', help='send the result to Telegram')
     args = parser.parse_args(argv)
-    stores = open_stores(tracker=notion.Tracker.from_env())   # the active store: Notion, or this Mac's
+    stores = open_stores()   # the active store: Notion, or this Mac's
     rows = [stores.applications.get(args.job)] if args.job else pending(stores, args.limit)
     if args.job and not rows[0]:
         raise SystemExit(f'No application for {args.job}')

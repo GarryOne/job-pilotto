@@ -13,7 +13,7 @@ import sys
 from urllib.parse import urlparse
 
 from . import apply_record
-from ..notion.client import DEFAULT_DATABASE_ID, Tracker, job_code
+from ..notion.client import job_code
 from ..notion import runs
 from ..stores import base, rules
 from .. import secret_store, service
@@ -247,21 +247,18 @@ def _kit(stores, row):
 def _stores():
     """The active store: Notion with this Mac's Notion token when there is one (the Keychain too), else this Mac's."""
     from ..stores import open_stores
-    tracker = _tracker()
-    return open_stores(tracker=tracker) if tracker else open_stores()
+    token = '' if os.getenv('NOTION_TOKEN') else _keychain_token()
+    return open_stores({**os.environ, 'NOTION_TOKEN': token}) if token else open_stores()
 
 
-def _tracker():
-    tracker = Tracker.from_env()
-    if tracker:
-        return tracker
+def _keychain_token():
+    """The Notion token kept in the Keychain (the app's), for a run started without one in its environment."""
     if sys.platform != 'darwin' or secret_store.isolated():  # the end-to-end journey never reaches the owner's own Notion
-        return None
+        return ''
     secret = subprocess.run(['security', 'find-generic-password', '-a', os.getenv('USER', ''),
                              '-s', 'job-pilotto.notion.token', '-w'], capture_output=True,
                             text=True, check=False)
-    token = secret.stdout.strip() if secret.returncode == 0 else ''
-    return Tracker(token, os.getenv('NOTION_APPLICATIONS_DB') or DEFAULT_DATABASE_ID) if token else None
+    return secret.stdout.strip() if secret.returncode == 0 else ''
 
 
 def run(url, stores, *, codex=None, timeout=TIMEOUT):

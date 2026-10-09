@@ -50,8 +50,7 @@ class ReadyJobsTests(unittest.TestCase):
 
 def run_main(stores, *argv):
     out = io.StringIO()
-    with mock.patch.object(apply_batch.notion.Tracker, 'from_env', return_value=None), \
-            mock.patch.object(apply_batch, 'open_stores', return_value=stores), \
+    with mock.patch.object(apply_batch, 'open_stores', return_value=stores), \
             mock.patch.object(sys, 'argv', ['apply_batch', *argv]), redirect_stdout(out):
         return apply_batch.main(), out.getvalue()
 

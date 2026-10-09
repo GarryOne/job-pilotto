@@ -214,8 +214,7 @@ def main():
     if args.file:
         args.urls = [line.strip() for line in Path(args.file).read_text().splitlines() if line.strip()]
 
-    tracker = notion.Tracker.from_env()   # None with the data on this Mac
-    stores = open_stores(tracker=tracker)
+    stores = open_stores()   # the active store: Notion, or this Mac's
 
     if args.has_kit:
         try:
@@ -267,6 +266,7 @@ def main():
             print('No job has a kit ready. Prepare one first: 📝 Prepare in Telegram, or '
                   '`gh workflow run daily.yml -f mode=prepare -f job=<job URL>`.')
             from .. import doctor  # lazy: the full checklist is only needed on this empty path
+            tracker = getattr(stores.applications, 'tracker', None)   # the Notion line of the checklist, on a Notion store
             print(f'👉 Next step — {doctor.next_step(doctor.run_checks(tracker, stores=stores))}')   # the store's checks too
             return 0
 

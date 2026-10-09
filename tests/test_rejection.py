@@ -97,8 +97,7 @@ class RejectionTests(unittest.TestCase):
 class RejectionRunTests(unittest.TestCase):
     def logged(self, argv, rows, stores):
         logged = []
-        with mock.patch.object(rejection.notion.Tracker, 'from_env', return_value=None), \
-                mock.patch.object(rejection, 'open_stores', return_value=stores), \
+        with mock.patch.object(rejection, 'open_stores', return_value=stores), \
                 mock.patch.object(rejection, 'pending', return_value=rows), \
                 mock.patch.object(rejection, 'review', side_effect=lambda s, row, **_: (None, f"reviewed {row['id']}")), \
                 mock.patch.object(rejection.run_log, 'auto_begin'), \
