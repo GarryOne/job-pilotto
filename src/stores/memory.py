@@ -136,6 +136,10 @@ class Events(_Table):
                 and (app_id is None or r['app_id'] == app_id) and (kind is None or r['kind'] == kind)
                 and (source_id is None or r['source_id'] == source_id)]
 
+    def get(self, event_id):
+        row = self.rows.get(event_id)
+        return dict(row) if row and row.get('archived') is not True else None
+
     def add(self, app_id, kind, at, **fields):
         same = fields.get('source_id') and self.list(app_id=app_id, source_id=fields['source_id'])
         if same:

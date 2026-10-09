@@ -174,6 +174,7 @@ class Applications(Protocol):
 class Events(Protocol):
     """The outcome history of applications (📈 Application Events)."""
     def list(self, app_id=None, kind=None, source_id=None) -> list: ...
+    def get(self, event_id: str) -> Optional[dict]: ...  # None when there is no such (live) event
     def add(self, app_id: str, kind: str, at: str, **fields) -> dict: ...
     # Idempotent: with a non-empty source_id (a mail id, a Telegram tap), an event of that app with that
     # source_id is returned as it is instead of a second one.

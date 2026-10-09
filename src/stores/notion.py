@@ -326,6 +326,12 @@ class Events(_Database):
         found = [self._record(page) for page in self._query(filter_)]
         return sorted(found, key=lambda event: event['created_at'])
 
+    def get(self, event_id):
+        try:
+            return self._record(self._page(event_id))
+        except KeyError:  # gone, archived, or a page of another database
+            return None
+
     def _title(self, app_id, kind, values=None):
         """'Kind · Company' and the job's URL, from the job's row (as src/notion/ledger.py has always titled them). A question on
         no job is '❓ Which job? · <the email's subject>' (as src/ai/mail_lines.py has always titled it)."""

@@ -43,7 +43,7 @@ from .mail_read import (  # noqa: F401 — re-exported: callers and tests use `m
 )
 from .mail_record import (  # noqa: F401 — re-exported: callers and tests use `mail.<name>`
     MOVED, MOVED_FIELDS, _events_index, _moment, _near, _plain, _stage_for, _value, advance,
-    changes_of, changes_readable, changes_text, gmail_link, record,
+    changes_of, changes_readable, gmail_link, record,
 )
 from .mail_lines import (  # noqa: F401 — re-exported: callers and tests use `mail.<name>`
     EMOJI, EVENT_KIND, SHORT_KIND, _head, _label, _short, _who, ask,

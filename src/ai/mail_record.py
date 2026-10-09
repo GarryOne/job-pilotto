@@ -1,7 +1,6 @@
-"""Writing side of the Gmail check: the events index, the stage ladder (advance, forward only), the Changes column text and record().
+"""Writing side of the Gmail check: the events index, the stage ladder (advance, forward only), an event's changes and record().
 Guarded by tests/test_mail_stages.py and tests/test_event_dedupe.py."""
 from datetime import datetime, timezone
-import json
 import sys
 
 from ..notion import ledger
@@ -63,11 +62,6 @@ def advance(stores, row, kind, interview_at=None, now=None, *, by_app=None, feed
     """Move a job forward for one email (Stage forward only, Next interview, flags). Returns {field: [before, after]},
     by the names in MOVED. `out`, when given, is filled with that mapping too: a caller that reports what ran keeps it
     without a second read. `row` (the job's record) is updated in place."""
-    if not hasattr(stores, 'applications'):
-        # BRIDGE(mail reassign): remove when reassign.py on the store lands
-        from ..stores import open_stores
-        stores = open_stores(tracker=stores)
-        row = stores.applications._record(row)
     key, by_app = row['id'].replace('-', ''), by_app or {}
     changes = {}
     stage = _stage_for(kind, _field(row, 'stage'))
@@ -158,15 +152,6 @@ def changes_of(fields, email=None, feedback=''):
     if feedback:
         data['feedback'] = feedback[:1200]
     return data
-
-
-def changes_text(fields, interview_at=None, email=None, feedback=''):
-    """The event's Changes column (JSON) as a Notion property."""
-    # BRIDGE(mail reassign): remove when reassign.py on the store lands
-    data = changes_of(fields, email, feedback)
-    if interview_at:
-        data = {'fields': data.pop('fields'), 'interview_at': interview_at, **data}
-    return {'rich_text': [{'text': {'content': json.dumps(data, ensure_ascii=False)[:1990]}}]}
 
 
 def record(stores, row, kind, at, source, source_id, note, index, interview_at=None, now=None, feedback_text='', email=None,

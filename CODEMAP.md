@@ -467,7 +467,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/mail_lines.py` — How the check names and reports a job: ask() for an email it cannot place, the run's short update lines and Telegram headings.
 - `src/ai/mail_match.py` — Matching an email or calendar event to a tracked application: company, agency, contact names, ambiguity.
 - `src/ai/mail_read.py` — Reading side of the Gmail check: saved state, the open applications, the Gmail queries and the model classification of emails.
-- `src/ai/mail_record.py` — Writing side of the Gmail check: the events index, the stage ladder (advance, forward only), the Changes column text and record().
+- `src/ai/mail_record.py` — Writing side of the Gmail check: the events index, the stage ladder (advance, forward only), an event's changes and record().
 - `src/ai/mail_sent.py` — Your own sent emails to a recruiter (Replied events) and the review of new rejections.
 - `src/ai/mail_triage.py` — Which new inbox emails are about the owner's job search, decided by Claude in any language instead of subject words (owner, 8 Oct 2026:
 - `src/ai/mail.py` — Gmail + Calendar -> the application ledger, read-only.

@@ -31,45 +31,47 @@ def event(event_id, kind, application=None, changes=None, suggested=''):
         'Changes': text(json.dumps(changes or {}))}}
 
 
-from tests.mail_fakes import APPS_DB, SCHEMA_COLUMNS  # noqa: E402 (after the path setup)
+from src.stores import memory  # noqa: E402
+
+HUX = {'url': 'https://x.test/hux', 'title': 'Principal SRE', 'company': '', 'via': 'Huxley'}
 
 
-class FakeTracker:
-    database_id = APPS_DB
-
-    def __init__(self, pages):
-        self.pages = {p['id']: p for p in pages}
-        self.updates = []
-
-    def _request(self, method, path, body=None):  # a page as Notion returns it: with the database it sits in
-        if path.startswith('databases/'):
-            return {'properties': {name: {} for name in SCHEMA_COLUMNS['apps'] | SCHEMA_COLUMNS['events']}}
-        page = self.pages[path.split('/')[1]]
-        return {'parent': {'database_id': self.database_id}, **page}
-
-    def find(self, url):
-        return next((p for p in self.pages.values() if (p['properties'].get('Job URL') or {}).get('url') == url), None)
-
-    def update_page(self, page_id, properties):
-        self.updates.append((page_id, properties))
-        page = self.pages.get(page_id)
-        if page:
-            for name, value in properties.items():
-                kind = next(iter(value))
-                page['properties'][name] = {'type': kind, kind: value[kind]}
-        return page or {'id': page_id, 'properties': {}}
+def asked(stores, kind='Interview scheduled', interview_at='2026-09-30T08:30:00+02:00'):
+    """A question the Gmail check left: an email event on no job (Needs you), with the job it would pick."""
+    return stores.events.add('', kind, '2026-09-29T14:35:00+02:00', source='Gmail', source_id='h1', needs_you=True,
+                             interview_at=interview_at, suggested_job=HUX['url'], note='Teams call (email: "Connect Igor / Jaya - SRE")',
+                             changes={'fields': {}, 'from': 'Jaya <jaya@huxley.test>', 'subject': 'Connect Igor / Jaya - SRE'})
 
 
 class MoveTests(unittest.TestCase):
-    def test_answering_is_this_about(self):
-        hux = job('hux', '', 'Principal SRE', via='Huxley')
-        question = event('q', 'Interview scheduled', changes={'interview_at': '2026-09-30T08:30:00+02:00'},
-                         suggested='https://x.test/hux')
-        tracker = FakeTracker([hux, question])
-        self.assertTrue(reassign.move(tracker, 'q', 'https://x.test/hux', now=NOW)['ok'])
-        self.assertEqual(hux['properties']['Next interview']['date']['start'], '2026-09-30T08:30:00+02:00')
-        fresh = event('q2', 'Interview scheduled', suggested='https://x.test/hux')
-        self.assertIs(reassign.move(FakeTracker([fresh]), 'q2', 'https://x.test/gone', now=NOW)['ok'], False)
+    """On the store (src/stores): the same answer on every adapter; the contract covers events.get/update on each."""
+
+    def test_answering_is_this_about_moves_the_email_and_the_job(self):
+        stores = memory.open_store()
+        hux, _ = stores.applications.set_stage(HUX, 'Screening')
+        question = asked(stores)
+        result = reassign.move(stores, question['id'], HUX['url'], now=NOW)
+        self.assertTrue(result['ok'], result)
+        self.assertIn('Huxley', result['text'])
+        self.assertEqual(stores.applications.get(HUX['url'])['next_interview'], '2026-09-30T08:30:00+02:00')
+        event = stores.events.get(question['id'])
+        self.assertEqual((event['app_id'], bool(event['needs_you'])), (hux['id'], False))
+        self.assertEqual((event['changes']['from'], event['changes']['subject']), ('Jaya <jaya@huxley.test>', 'Connect Igor / Jaya - SRE'))
+        self.assertIn('Next interview', event['changes']['fields'])
+
+    def test_a_job_no_longer_there_or_an_answered_email_is_said(self):
+        stores = memory.open_store()
+        question = asked(stores)
+        self.assertIs(reassign.move(stores, question['id'], 'https://x.test/gone', now=NOW)['ok'], False)
+        self.assertTrue(stores.events.get(question['id'])['needs_you'])   # nothing changed
+        self.assertIs(reassign.move(stores, 'no-such-event', HUX['url'], now=NOW)['ok'], False)
+
+    def test_not_about_a_job_closes_the_question_on_no_job(self):
+        stores = memory.open_store()
+        question = asked(stores)
+        self.assertTrue(reassign.move(stores, question['id'], reassign.NONE, now=NOW)['ok'])
+        event = stores.events.get(question['id'])
+        self.assertEqual((event['app_id'], bool(event['needs_you'])), ('', False))
 
 
 class FocusQuestionTests(unittest.TestCase):

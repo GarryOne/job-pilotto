@@ -240,6 +240,10 @@ class Events(_Table):
         wanted = {k: v for k, v in (('app_id', app_id), ('kind', kind), ('source_id', source_id)) if v is not None}
         return self._rows(' AND '.join(f'{k} = ?' for k in wanted), tuple(wanted.values()))
 
+    def get(self, event_id):
+        found = self._rows('id = ?', (event_id,))
+        return found[0] if found else None
+
     def add(self, app_id, kind, at, **fields):
         same = fields.get('source_id') and self.list(app_id=app_id, source_id=fields['source_id'])
         if same:

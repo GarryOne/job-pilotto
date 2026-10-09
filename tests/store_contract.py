@@ -178,6 +178,18 @@ class StoreContract:
         with self.assertRaises(KeyError):
             self.s.events.update(event['id'], {'not_a_field': 1})
 
+    def test_an_event_is_read_by_its_id_and_a_missing_or_archived_one_is_none(self):
+        app = self.s.applications.create(JOB, 'Applied')
+        asked = self.s.events.add('', 'Interview invite', '2026-10-03T09:00:00+00:00', source='Gmail', source_id='mail-4', needs_you=True,
+                                  changes={'fields': {}, 'from': 'Ana <ana@acme.test>', 'subject': 'Our call'})
+        found = self.s.events.get(asked['id'])
+        self.assertRecord(found, base.EVENT_FIELDS)
+        self.assertEqual((found['id'], found['kind'], found['changes']['subject']), (asked['id'], 'Interview invite', 'Our call'))
+        self.assertIsNone(self.s.events.get('no-such-event'))
+        done = self.s.events.add(app['id'], 'Offer', '2026-10-04')
+        self.s.events.archive(app['id'], 'Offer')
+        self.assertIsNone(self.s.events.get(done['id']))
+
     def test_a_question_is_an_event_on_no_job_with_the_job_it_would_pick(self):
         self.s.applications.create(JOB, 'Applied')
         asked = self.s.events.add('', 'Rejected', '2026-10-03T09:00:00+00:00', source='Gmail', source_id='mail-3', needs_you=True,
