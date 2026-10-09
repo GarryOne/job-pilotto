@@ -81,6 +81,14 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(desktop.set_status(self.db, 'https://x.test/elsewhere', 'applied', stores)['stage'], 'Applied')
         self.assertFalse(desktop.set_status(self.db, 'https://x.test/none', 'applied', stores)['ok'])
 
+    def test_saving_a_job_only_in_job_matches_makes_its_applications_row(self):
+        stores = memory.open_store()
+        stores.matches.upsert({'url': 'https://x.test/found', 'title': 'Platform Engineer', 'company': 'Gamma',
+                               'location': 'Bern', 'fit': 81, 'status': 'Open'})
+        self.assertEqual(desktop.set_status(self.db, 'https://x.test/found/', 'saved', stores), {'ok': True, 'notion': 'created', 'stage': 'Saved'})
+        row = stores.applications.get('https://x.test/found')
+        self.assertEqual((row['title'], row['company'], row['location'], row['stage']), ('Platform Engineer', 'Gamma', 'Bern', 'Saved'))
+
     def test_a_job_kept_only_in_notion_tailors_from_the_description_on_its_page(self):
         url = 'https://www.linkedin.com/messaging/#jp-abc'
         code = desktop.job_code(url)

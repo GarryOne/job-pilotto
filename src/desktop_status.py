@@ -5,7 +5,7 @@ Guarded by tests/test_desktop.py and tests/test_import_url.py.
 """
 from . import store
 from .desktop_jobs import stage_status
-from .stores import rules
+from .stores import base, rules
 
 
 NOTION_STAGES = {'saved': 'Saved', 'applied': 'Applied', 'dismissed': 'Dismissed'}
@@ -35,6 +35,12 @@ def _mark(stores, job, status):
     raise InProcess(f'It is already in process ({current}), so it can not be saved. Dismiss it to close it.')
 
 
+def _match(stores, url):
+    """The job's Job Matches record (what a search found), or None."""
+    key = base.url_key(url)
+    return next((match for match in stores.matches.list() if base.url_key(match['url']) == key), None)
+
+
 def set_status(db, url, status, stores=None):
     """Record the status as the job's stage in the store (the truth; Saved/Dismissed never overwrite a real application
     stage, src/stores/rules.py), then in the local job cache. If the store can't be written, nothing changes."""
@@ -42,7 +48,7 @@ def set_status(db, url, status, stores=None):
                                  companies.name company FROM jobs JOIN companies ON companies.id=jobs.company_id
                           WHERE jobs.url=?""", (url,)).fetchone()
     if not row and stores and status in NOTION_STAGES:  # a job only in the store (no local copy): the store alone
-        item = stores.applications.get(url)
+        item = stores.applications.get(url) or _match(stores, url)  # a found job's ⭐ Save makes its Applications row
         if not item:
             return {'ok': False, 'error': 'job not found'}
         try:
