@@ -11,7 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 # "Claude" followed by one of these is a Claude-only thing, named on purpose.
-KEPT = re.compile(r"\bClaude(?= Code| plan| subscription| usage window| in Chrome|\s*\(your Claude plan\))|(?:with|With) Claude\b|Claude's own|your Claude\b")
+KEPT = re.compile(r"\bClaude(?= Code| plan| subscription| usage window| in Chrome|\s*\(your Claude plan\))|(?:with|With) Claude\b|Claude's own|your Claude\b|Claude working \(min\)")  # the last: an Agent Runs column's name (desktop/lib/session-stats.js), not engine words
 # Files about the Claude-only features (Apply/Read with Claude sessions and their agent names), the Claude Code engine's own texts, and the
 # registry that defines the word itself.
 CLAUDE_ONLY = {'src/ai/apply_batch.py', 'src/ai/apply_run.py', 'src/ai/providers/claude_code.py', 'src/ai/providers/__init__.py',
