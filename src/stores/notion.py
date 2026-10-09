@@ -138,6 +138,12 @@ class Applications(_Database):
         page = self._find(url)
         return self._record(page) if page else None
 
+    def by_id(self, app_id):
+        try:
+            return self._record(self._page(app_id))
+        except KeyError:
+            return None
+
     def stages(self):
         found = {}
         for page in self._query():

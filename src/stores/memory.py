@@ -87,6 +87,10 @@ class Applications(_Table):
         key = base.url_key(url)
         return next((dict(r) for r in self.rows.values() if base.url_key(r['url']) == key), None)
 
+    def by_id(self, app_id):
+        row = self.rows.get(app_id)
+        return dict(row) if row else None
+
     def create(self, job, stage):
         found = self.get(job.get('url'))
         if found:

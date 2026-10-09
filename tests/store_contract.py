@@ -48,6 +48,12 @@ class StoreContract:
         self.assertEqual([r['id'] for r in self.s.applications.list()], [row['id']])
         self.assertEqual(self.s.applications.list(stages=['Applied']), [])
 
+    def test_an_application_is_found_by_its_id(self):
+        row = self.s.applications.create(JOB, 'Saved')
+        self.assertEqual(self.s.applications.by_id(row['id'])['url'], row['url'])
+        self.s.applications.delete(row['id'])
+        self.assertIsNone(self.s.applications.by_id(row['id']))
+
     def test_creating_the_same_job_twice_keeps_one_row(self):
         self.s.applications.create(JOB, 'Saved')
         self.s.applications.create({**JOB, 'url': JOB['url'] + '/'}, 'Saved')

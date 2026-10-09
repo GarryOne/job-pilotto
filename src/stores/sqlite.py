@@ -163,6 +163,12 @@ class Applications(_Table):
     def stages(self):
         return {r['url_key']: r['stage'] for r in self.db.execute('SELECT url_key, stage FROM applications')}
 
+    def by_id(self, app_id):
+        try:
+            return self._get(app_id)
+        except KeyError:
+            return None
+
     def create(self, job, stage):
         found = self.get(job.get('url'))
         if found:
