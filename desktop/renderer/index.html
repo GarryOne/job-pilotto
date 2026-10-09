@@ -38,7 +38,7 @@
   <div class="step-body">
     <div class="alert tone-good review-mode" id="review-mode" hidden><i data-icon="shield"></i>
       <div><strong>Your setup is done.</strong> You're looking at it: nothing changes here unless you replace your
-      strategy at step 4, after a confirmation. For small changes, edit your Profile or Search settings in Notion instead.</div></div>
+      strategy at step 4, after a confirmation. For small changes, edit your Profile or Search settings instead.</div></div>
     <div class="step" data-step="welcome">
       <header class="view-head step-head">
         <div><span class="eyebrow">Check-in · about 5 minutes</span>
@@ -122,7 +122,7 @@
         <div><span class="eyebrow">Step 2 of 4</span>
           <h1>Your CV</h1>
           <p class="muted subtitle">The AI reads it and proposes what you're looking for: roles, places, work mode, salary and languages. You check and correct them next.
-            It stays on this Mac and in your Notion; only the AI reads it when building your strategy.</p></div>
+            It stays on this Mac<span data-notion-only> and in your Notion</span>; only the AI reads it when building your strategy.</p></div>
       </header>
       <section class="card step-card">
         <div class="cv-pick">
@@ -151,7 +151,7 @@
           <div class="step-field" id="note-field">
             <label for="q-more" id="note-label">What should the AI know about what you want? <span class="muted">(optional)</span></label>
             <textarea id="q-more" rows="4" placeholder="e.g. senior or staff level, permanent only, companies under 500 people, English-speaking teams, no on-call, skip my current employer"></textarea>
-            <p class="muted small note-hint">Your CV says what you've done; this says what you want next. It's saved with your Profile in Notion.</p>
+            <p class="muted small note-hint">Your CV says what you've done; this says what you want next. It's saved with your Profile<span data-notion-only> in Notion</span>.</p>
           </div>
         </section>
         <p class="muted small step-note" id="goals-cost"><i data-icon="info"></i><span id="goals-cost-text">Building reads your CV and your note with Claude Sonnet 5.
@@ -193,7 +193,7 @@
         </div>
         <section class="card questions-card" id="open-questions" hidden>
           <div class="card-head"><div><h3><span class="bang">!</span> <span id="open-count"></span></h3>
-            <p class="muted small">They make applications more accurate. You can skip any of them; they stay as ❓ in Notion.</p></div>
+            <p class="muted small">They make applications more accurate. You can skip any of them; they stay as ❓ in your answers.</p></div>
             <button class="link" id="open-more" hidden></button></div>
           <div id="open-list"></div>
         </section>
@@ -315,7 +315,7 @@
       <details class="questions" id="questions" hidden>
         <summary><b>✍️ Answer once</b><span class="ui-pill tone-signal" id="questions-count"></span><span class="muted small">used in every application</span></summary>
         <p class="muted small">Forms asked these and nothing in your profile or standard answers covered them. Your answer is added to your
-          Notion standard answers; redraft a job's kit (↻) to use it there.</p>
+          standard answers<span data-notion-only> in Notion</span>; redraft a job's kit (↻) to use it there.</p>
         <p class="message error" id="questions-error" hidden></p>
         <button class="secondary" id="questions-retry" hidden>Retry</button>
         <div id="questions-list"></div>
@@ -666,7 +666,7 @@
 
     <div class="view" data-view="interviews" hidden>
       <header class="view-head jobs-head">
-        <div><h1>Interviews</h1><p class="muted subtitle" title="The transcript is made on this Mac, then saved to Notion under its job">Record, transcribe and review every interview in one place.</p></div>
+        <div><h1>Interviews</h1><p class="muted subtitle" title="The transcript is made on this Mac, then saved under its job">Record, transcribe and review every interview in one place.</p></div>
         <div class="head-actions">
           <button class="secondary with-icon" id="iv-add" title="An audio or video file, or a transcript you already have"><i data-icon="upload"></i><span>Import recording</span></button>
           <button class="primary with-icon" id="iv-record" disabled title="First confirm that everyone on the call agreed to be recorded"><i data-icon="mic"></i><span>Record interview</span></button>
@@ -736,7 +736,7 @@
             <button class="ghost" id="iv-save">Save without review</button>
             <button class="ghost" id="iv-discard">Delete draft</button>
           </div>
-          <p class="fine">Saves the transcript to Notion, then <span data-ai="big">Claude Opus</span> reviews it with your profile.
+          <p class="fine">Saves the transcript<span data-notion-only> to Notion</span>, then <span data-ai="big">Claude Opus</span> reviews it with your profile.
             Without review, you can still review it later from the Interview library.</p>
         </div>
       </section>
@@ -761,7 +761,7 @@
             <tbody id="iv-saved"></tbody>
           </table>
         </div>
-        <p class="empty" id="iv-empty" hidden>No interviews in Notion yet.</p>
+        <p class="empty" id="iv-empty" hidden>No interviews saved yet.</p>
       </section>
     </div>
 
@@ -772,7 +772,7 @@
           <button class="secondary with-icon" id="strategy-edit"><i data-icon="link"></i><span>Edit in Notion</span></button>
           <button class="primary" id="strategy-jobs">View matching jobs</button></div></header>
       <div class="alert tone-bad settings-alert" id="strategy-profile-empty" hidden><i data-icon="alert"></i>
-        <div><strong>Your Profile is empty, so fit scores are paused</strong><p>Your Profile in Notion is still the blank template, so no job can be scored against it. Rebuild it from your CV here, or fill it in Notion.</p></div>
+        <div><strong>Your Profile is empty, so fit scores are paused</strong><p>Your Profile is still the blank template, so no job can be scored against it. Rebuild it from your CV here, or fill it in<span data-notion-only> Notion</span>.</p></div>
         <button class="primary" id="profile-empty-rebuild">Rebuild from CV</button></div>
       <div class="alert tone-info settings-alert search-changed" id="strategy-search-changed" hidden><i data-icon="refresh"></i>
         <div><strong>Your search changed</strong><p>Refresh your jobs to apply it: jobs outside your search are removed (not the ones you applied to or interview for), and new ones are found.</p></div>
@@ -1559,7 +1559,7 @@
   <form method="dialog">
     <div class="dialog-head"><span class="dialog-icon"><i data-icon="refresh"></i></span><h2>Review what this rebuild changes</h2>
       <button class="icon-button" value="cancel" formnovalidate title="Close" aria-label="Close"><i data-icon="close"></i></button></div>
-    <p class="dialog-lead">Tick what to apply. Nothing changes until you do; a copy of your current strategy is kept in Notion first
+    <p class="dialog-lead">Tick what to apply. Nothing changes until you do; a copy of your current strategy is kept<span data-notion-only> in Notion</span> first
       (“🗂 Previous strategy”). Applications and their history are never changed. <span id="rebuild-draft-cost"></span></p>
     <div class="review-groups" id="rebuild-groups"><p class="message waiting">Comparing the draft with your current strategy…</p></div>
     <p class="muted small" id="rebuild-total"></p>
@@ -1581,7 +1581,7 @@
     <li class="cv-row"><i data-icon="user"></i>
       <div><b>New applications</b><p>The extension and Apply with Claude use your uploaded CV.</p></div><span class="ui-pill tone-good">✓ Updated</span></li>
     <li class="cv-row cv-profile">
-      <div class="cv-profile-head"><i data-icon="file-text"></i><b>Notion Profile</b><span id="cv-profile-pill"></span></div>
+      <div class="cv-profile-head"><i data-icon="file-text"></i><b>Your Profile</b><span id="cv-profile-pill"></span></div>
       <p id="cv-profile-text"><span data-ai>Claude</span> compares the two CVs and suggests only the lines to change. You pick which.</p>
       <div class="alert tone-good cv-verdict" id="cv-verdict" hidden><i data-icon="check-circle"></i>
         <div><b id="cv-verdict-title"></b><p id="cv-verdict-text"></p></div></div>
@@ -1657,13 +1657,13 @@
 <!-- Wizard step 5: saving the strategy to Notion, step by step -->
 <dialog id="save-dialog" class="save-dialog panel-dialog">
   <div class="dialog-head"><span class="dialog-icon"><i data-icon="upload"></i></span><h2 id="save-title">Saving your strategy to Notion</h2></div>
-  <p class="dialog-lead">Notion is written one block at a time, so this takes a minute or two. You can leave this window open.</p>
+  <p class="dialog-lead" data-notion-only>Notion is written one block at a time, so this takes a minute or two. You can leave this window open.</p>
   <ol class="save-steps" id="save-steps">
-    <li data-save-step="snapshot" hidden>Keeping a copy of your current strategy in Notion</li>
+    <li data-save-step="snapshot" hidden>Keeping a copy of your current strategy<span data-notion-only> in Notion</span></li>
     <li data-save-step="local">Saving your search settings on this computer</li>
-    <li data-save-step="profile">Writing your Profile to Notion <span class="count"></span></li>
-    <li data-save-step="answers">Writing your standard answers to Notion <span class="count"></span></li>
-    <li data-save-step="search">Creating your ⚙️ Search settings page in Notion</li>
+    <li data-save-step="profile">Writing your Profile<span data-notion-only> to Notion</span> <span class="count"></span></li>
+    <li data-save-step="answers">Writing your standard answers<span data-notion-only> to Notion</span> <span class="count"></span></li>
+    <li data-save-step="search">Saving your ⚙️ Search settings<span data-notion-only> in Notion</span></li>
   </ol>
   <div class="bar"><span id="save-bar"></span></div>
   <p class="message" id="save-message"></p>
@@ -1703,7 +1703,7 @@
 <dialog id="applied-dialog">
   <form method="dialog">
     <h2>📥 Applied elsewhere</h2>
-    <p class="muted small">A job you applied to outside Job Pilotto (LinkedIn, a referral, the company's site). It goes to your Notion Applications
+    <p class="muted small">A job you applied to outside Job Pilotto (LinkedIn, a referral, the company's site). It goes to your<span data-notion-only> Notion</span> Applications
       as Applied with the same facts and fit score as the jobs Job Pilotto finds, and Gmail replies about it are tracked like any other.</p>
     <label for="applied-url">Job link</label>
     <input id="applied-url" type="url" placeholder="https://…" required>
@@ -1922,7 +1922,7 @@
       <label for="happened-notes">What did you learn? Salary, next steps, people, questions asked
         <span class="muted">(optional)</span></label>
       <textarea id="happened-notes" rows="8" placeholder="e.g. 30 min with the recruiter. Band 90–110k, contract possible. They asked about on-call and Kafka. Next: a call with the CTO next week."></textarea>
-      <p class="muted small">Saved to 🎤 Interviews in Notion and the job moves on to Interviewing. With a few lines, <span data-ai>Claude</span> reviews them
+      <p class="muted small">Saved to 🎤 Interviews<span data-notion-only> in Notion</span> and the job moves on to Interviewing. With a few lines, <span data-ai>Claude</span> reviews them
         like a recording: the next step, and salary, contract or place filled in on the job.</p>
     </div>
     <fieldset id="happened-no">
@@ -1991,7 +1991,7 @@
     <!-- Step 2: what Claude read, checked by you before anything is written to Notion (renderer/lead-confirm.js).
          Marked fields were inferred (confirm or change them); empty ones weren't in the message (answer them). -->
     <div id="lead-confirm" hidden>
-      <p class="dialog-lead">Check what <span data-ai>Claude</span> read before it's saved.<span class="muted small">Nothing goes to Notion until the marked details are confirmed.</span></p>
+      <p class="dialog-lead">Check what <span data-ai>Claude</span> read before it's saved.<span class="muted small">Nothing is saved until the marked details are confirmed.</span></p>
       <div class="lead-found" id="lead-found"><span id="lead-found-tile"></span>
         <div><strong id="lead-found-title"></strong><span class="muted small" id="lead-found-meta"></span></div>
         <span class="lead-flag" id="lead-found-flag"></span></div>

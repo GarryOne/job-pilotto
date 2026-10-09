@@ -4,6 +4,7 @@
 import {el, moreButton, pill, tile} from '../components.js';
 import {shared} from './shared.js';
 import {$, osText, show} from './core.js';
+import {byStore} from '../store-words.js';
 
 const iv = window.pilot.interviews;
 export const plainId = id => String(id || '').replace(/-/g, '');
@@ -54,8 +55,8 @@ export function renderDrafts(drafts, env) {
     else if (draft.pageId && env.openReview) menu.push({label: 'Transcript and review', run: () => env.openReview(draft.pageId)});
     menu.push({label: osText('Show in Finder'), run: () => iv.recordings(), title: 'The recordings kept on this Mac'});
     if (!busy) {
-      menu.push('-', {label: draft.pageId ? 'Delete here and in Notion' : 'Delete recording', danger: true, run: async () => {
-        if (!confirm(draft.pageId ? `Delete "${draft.title}" on this Mac and in Notion?` : `Delete "${draft.title}" and its recording?`)) return;
+      menu.push('-', {label: draft.pageId ? byStore('Delete here and in Notion', 'Delete') : 'Delete recording', danger: true, run: async () => {
+        if (!confirm(draft.pageId ? `Delete "${draft.title}"${byStore(' on this Mac and in Notion', '')}?` : `Delete "${draft.title}" and its recording?`)) return;
         await iv.discard(draft.id);
         if (env.openId() === draft.id) env.closeEditor();
         renderDrafts(await iv.drafts(), env);

@@ -15,6 +15,7 @@ import {moveEmail, whichJob} from './reassign.js';
 import {openPrep} from './prep.js';
 import {prepCard} from '../prep-card.js';
 import {renderOnboarding} from './focus-onboarding.js';
+import {byStore, storeName} from '../store-words.js';
 
 // Focus page state, declared before the start-up code opens Focus (a later `let` isn't usable yet then).
 let focusLoading = null, focusShown = false;
@@ -97,7 +98,7 @@ async function finishItem(item, save) {
     settled.delete(itemKey(item));
     keepHolds();
     if (lastFocus) renderFocus(lastFocus);
-    toastMessage('Not saved', done?.error || 'Notion refused it. Try again.');
+    toastMessage('Not saved', done?.error || `${storeName()} could not save it. Try again.`);
     return;
   }
   if (focusLoading) await focusLoading.catch(() => {});
@@ -129,7 +130,7 @@ async function loadFocusOnce() {
   }
   const result = await window.pilot.focus();
   if (!result.ok) {
-    focusStatus(result.error || 'Could not read your Notion.');
+    focusStatus(result.error || byStore('Could not read your Notion.', 'Could not read your data.'));
     if (!focusShown) $('focus-list').replaceChildren();
     return;
   }
@@ -231,7 +232,7 @@ function focusCard(item) {
   if (item.notion_url) more.push({icon: 'layers', label: 'Open in Notion', run: event => openLink(item.notion_url, event)});
   if (item.job_url && item.job_url !== item.link && !/jobpilotto|mail\.google/.test(item.job_url)) more.push({icon: 'external', label: 'Open posting', run: () => window.pilot.openExternal(item.job_url)});
   if (['follow_up', 'nudge', 'waiting'].includes(item.kind) && item.job_url && item.page_id) more.push({icon: 'close', label: "I'm out: withdraw",
-    title: 'You no longer want this job: it is marked Withdrawn in Notion and leaves Focus',
+    title: `You no longer want this job: it is marked Withdrawn in ${storeName()} and leaves Focus`,
     run: () => finishItem(item, () => window.pilot.markOutcome({url: item.job_url, outcome: 'withdrawn'}))});
   if (item.kind === 'which_job') more.push({icon: 'close', label: 'Dismiss', run: () => moveEmail(item.event_id, 'none', item)});
   if (item.kind === 'prepare' && item.page_id) more.push({icon: 'close', label: 'Dismiss interview',
@@ -262,7 +263,7 @@ const dayOf = iso => {
 };
 async function loadHistory() {
   const list = $('focus-history');
-  list.replaceChildren(el('li', 'muted small', 'Loading from Notion…'));
+  list.replaceChildren(el('li', 'muted small', byStore('Loading from Notion…', 'Loading…')));
   const {ok, items = [], error} = await window.pilot.focusHistory().catch(failure => ({ok: false, error: failure.message}));
   if (!historyShown) return;
   if (!ok) { list.replaceChildren(el('li', 'message error', `Couldn't read your history from Notion: ${error || 'try again'}`)); return; }

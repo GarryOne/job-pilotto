@@ -7,6 +7,7 @@ import {shared} from './shared.js';
 import {$, savedAgo} from './core.js';
 import {dismissInterview} from './happened.js';
 import {openView} from './nav.js';
+import {byStore, storeName} from '../store-words.js';
 
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const KINDS = {screening: ['Screening', 'teal'], interview: ['Interview', 'info']};
@@ -84,9 +85,9 @@ function emptyUpcoming() {
 const skeletons = () => [0, 1, 2].map(() => { const box = el('div', 'cal-row'); box.append(el('span', 'skeleton w-40'), el('span', 'skeleton w-80')); return box; });
 
 function status() {
-  const text = phase === 'loading' ? 'Reading from Notion…'
-    : phase === 'updating' ? 'Updating from Notion…'
-    : phase === 'failed' ? `Couldn't refresh from Notion${savedAt ? ` · showing the copy saved ${savedAt}` : ''}. ${failure}`.trim() : '';
+  const text = phase === 'loading' ? byStore('Reading from Notion…', 'Reading…')
+    : phase === 'updating' ? byStore('Updating from Notion…', 'Updating…')
+    : phase === 'failed' ? `Couldn't refresh from ${storeName()}${savedAt ? ` · showing the copy saved ${savedAt}` : ''}. ${failure}`.trim() : '';
   const node = $('cal-status');
   node.replaceChildren(...(phase === 'failed' || !text ? [] : [el('span', 'spinner')]), text);
   node.className = `muted small cal-status${phase === 'failed' ? ' bad' : ''}`;

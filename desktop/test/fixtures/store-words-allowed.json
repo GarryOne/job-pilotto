@@ -14,14 +14,10 @@
  "renderer/pages/activity-basics.js": 2,
  "renderer/pages/activity-render.js": 3,
  "renderer/pages/activity.js": 1,
- "renderer/pages/calendar.js": 3,
  "renderer/pages/connections.js": 2,
- "renderer/pages/cv-change.js": 3,
  "renderer/pages/data.js": 4,
  "renderer/pages/feedback.js": 2,
- "renderer/pages/focus.js": 4,
- "renderer/pages/happened.js": 3,
- "renderer/pages/interview-lists.js": 4,
+ "renderer/pages/interview-lists.js": 2,
  "renderer/pages/jobs-lead.js": 2,
  "renderer/pages/jobs-render.js": 2,
  "renderer/pages/jobs.js": 2,
@@ -35,7 +31,6 @@
  "renderer/pages/session-needs.js": 1,
  "renderer/pages/sessions.js": 1,
  "renderer/pages/settings.js": 2,
- "renderer/pages/strategy-review.js": 4,
  "renderer/pages/strategy-targets.js": 1,
- "renderer/index.html": 34
+ "renderer/index.html": 15
 }

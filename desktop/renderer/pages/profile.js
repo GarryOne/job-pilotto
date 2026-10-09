@@ -341,4 +341,5 @@ export async function init() {
     message('contact-message', result.ok ? `${byStore('Saved in your Notion Profile ✓', 'Saved ✓')} The extension uses these from the next form it fills.`
       : result.error, result.ok ? 'ok' : 'error');
   });
+  showStoreParts();   // every [data-notion-only] in the window (index.html's Notion-only words too), from the start, not only once a Profile tab opens
 }

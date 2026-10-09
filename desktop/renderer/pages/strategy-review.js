@@ -10,6 +10,7 @@ import {openView} from './nav.js';
 import {openSetting} from './settings.js';
 import {toastMessage} from './startup.js';
 import {goStep, saveState} from './wizard.js';
+import {byStore} from '../store-words.js';
 
 // ---------- step 5: review the drafted strategy ----------
 // The draft's lists, as the cards show them: [draft path, how an entry is shown, how a typed entry is stored].
@@ -276,7 +277,7 @@ async function saveDraft(parts = null) {
   for (const key of Object.keys(saveState)) delete saveState[key];
   document.querySelectorAll('#save-steps li').forEach(li => { li.className = ''; const count = li.querySelector('.count'); if (count) count.textContent = ''; });
   $('save-bar').style.width = '3%';
-  $('save-title').textContent = 'Saving your strategy to Notion';
+  $('save-title').textContent = byStore('Saving your strategy to Notion', 'Saving your strategy');
   message('save-message', '');
   show($('save-close'), false); show($('save-retry'), false);
   const replacing = !!shared.state.settings.setupDone;
@@ -285,19 +286,19 @@ async function saveDraft(parts = null) {
   if (!$('save-dialog').open) $('save-dialog').showModal();
   const result = await window.pilot.saveStrategy({...shared.draft, profile_markdown: $('draft-profile').value, answers_markdown: $('draft-answers').value}, parts);
   if (!result.ok) {
-    $('save-title').textContent = 'Not saved to Notion yet';
+    $('save-title').textContent = byStore('Not saved to Notion yet', 'Not saved yet');
     message('save-message', osText(`${result.error} Your strategy is kept on this computer: try again.`), 'error');
     show($('save-close')); show($('save-retry'));
     return;
   }
-  $('save-title').textContent = 'Saved to Notion ✓';
+  $('save-title').textContent = byStore('Saved to Notion ✓', 'Saved ✓');
   $('save-bar').style.width = '100%';
   shared.state = await window.pilot.state();
   // A replaced strategy: back to the app; the first setup: on to the last step.
   setTimeout(() => {
     $('save-dialog').close();
     // The Strategy page read again: it still showed the strategy from before (7 Oct 2026: "Your Profile is empty" stayed after a rebuild filled it).
-    if (replacing) { show($('wizard'), false); show($('app')); loadJobs(); import('./strategy.js').then(page => page.loadStrategy()); toastMessage('Strategy replaced ✓', 'The previous one is kept in Notion as “🗂 Previous strategy”.'); }
+    if (replacing) { show($('wizard'), false); show($('app')); loadJobs(); import('./strategy.js').then(page => page.loadStrategy()); toastMessage('Strategy replaced ✓', byStore('The previous one is kept in Notion as “🗂 Previous strategy”.', 'The previous one is kept as “🗂 Previous strategy”.')); }
     else goStep('extras');
   }, 900);
 }

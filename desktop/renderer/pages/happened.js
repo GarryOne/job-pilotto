@@ -6,6 +6,7 @@ import {$, aiReady, message, show} from './core.js';
 import {loadFocus} from './focus.js';
 import {loadJobs} from './jobs.js';
 import {toastMessage} from './startup.js';
+import {storeName} from '../store-words.js';
 
 let current = null;  // {item, answer: 'yes' | 'no'}
 const who = item => item.company || item.via || 'the recruiter';
@@ -54,7 +55,7 @@ async function save() {
   $('happened-save').disabled = true;
   const result = await window.pilot.interviewHappened(item.page_id, kind, detail).catch(error => ({ok: false, error: error.message}));
   $('happened-save').disabled = false;
-  if (!result.ok) { message('happened-message', result.error || 'Notion could not save it. Try again.', 'warn'); return false; }
+  if (!result.ok) { message('happened-message', result.error || `${storeName()} could not save it. Try again.`, 'warn'); return false; }
   $('happened-dialog').close();
   if (kind === 'held' && result.review && result.id) review(result.id, item);
   else toastMessage('Saved ✓', {held: `${who(item)}: marked as held${result.stage ? `, now ${result.stage}` : ''}.`,
@@ -68,10 +69,10 @@ async function save() {
 // in Notion and the Next interview cleared; the job's stage stays. onConfirmed runs as soon as the user says yes, onDone once Notion has it, onFail if it refused.
 export async function dismissInterview({page_id, company, via}, {onConfirmed = () => {}, onDone = () => {}, onFail = () => {}} = {}) {
   const name = company || via || 'this recruiter';
-  if (!confirm(`Dismiss the interview with ${name}?\n\nIt leaves Up next and the calendar and is logged as cancelled in Notion. The job itself stays as it is.`)) return false;
+  if (!confirm(`Dismiss the interview with ${name}?\n\nIt leaves Up next and the calendar and is logged as cancelled in ${storeName()}. The job itself stays as it is.`)) return false;
   onConfirmed();   // the row leaves the list at once; Notion takes seconds
   const result = await window.pilot.interviewHappened(page_id, 'cancelled', {}).catch(error => ({ok: false, error: error.message}));
-  if (!result.ok) { onFail(); toastMessage('Not saved', result.error || 'Notion could not save it. Try again.'); return false; }
+  if (!result.ok) { onFail(); toastMessage('Not saved', result.error || `${storeName()} could not save it. Try again.`); return false; }
   toastMessage('Dismissed ✓', `${name}: the interview is logged as cancelled.`);
   onDone();
   loadFocus();

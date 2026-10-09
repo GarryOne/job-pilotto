@@ -5,6 +5,7 @@ import {icon} from '../icons.js';
 import {shared} from './shared.js';
 import {$, message, show} from './core.js';
 import {loadCvSetting} from './profile.js';
+import {byStore} from '../store-words.js';
 
 // ---------- a replaced CV: what follows it (suggested Profile edits, tailoring base, unsent kits), never a rebuild ----------
 let cvSuggestions = [];
@@ -51,7 +52,7 @@ export async function openCvChange() {
   message('cv-review-message', '');
   $('cv-compare').disabled = !change.comparable;
   if (!change.comparable) {
-    $('cv-profile-text').textContent = 'The previous CV is not on this computer, so there is nothing to compare. Edit the Profile in Notion if needed.';
+    $('cv-profile-text').textContent = `The previous CV is not on this computer, so there is nothing to compare. ${byStore('Edit the Profile in Notion if needed.', 'Edit your Profile if needed.')}`;
     show($('cv-profile-status').parentElement, false);
     setPill('cv-profile-pill', 'Edit in Notion', 'neutral');
   }
@@ -140,8 +141,8 @@ export async function init() {
     $('cv-apply').disabled = false;
     if (!result.ok) return message('cv-review-message', result.error, 'error');
     message('cv-review-message', result.failed.length ? `${result.applied} applied; not applied: ${result.failed.join('; ')}`
-      : `✓ ${result.applied} change${result.applied === 1 ? '' : 's'} saved to your Profile in Notion.`, result.failed.length ? 'error' : 'ok');
-    if (!result.failed.length) { $('cv-suggestions').replaceChildren(); show($('cv-apply-row'), false); setPill('cv-profile-pill', '✓ Updated', 'good'); setVerdict('good', 'Profile updated', 'Your selected changes are saved in Notion.'); }
+      : `✓ ${result.applied} change${result.applied === 1 ? '' : 's'} saved to your Profile${byStore(' in Notion', '')}.`, result.failed.length ? 'error' : 'ok');
+    if (!result.failed.length) { $('cv-suggestions').replaceChildren(); show($('cv-apply-row'), false); setPill('cv-profile-pill', '✓ Updated', 'good'); setVerdict('good', 'Profile updated', byStore('Your selected changes are saved in Notion.', 'Your selected changes are saved.')); }
   });
   $('cv-base-read').addEventListener('click', async () => {
     const button = $('cv-base-read');
