@@ -68,3 +68,11 @@ test('"Today" is disabled while the grid shows this month (#83: pressed there it
   const body = page.slice(page.indexOf('export function render()'), page.indexOf('export async function loadCalendar'));
   assert.match(body, /\$\('cal-today'\)\.disabled = month\.year === now\.getFullYear\(\) && month\.month === now\.getMonth\(\);\n  \$\('cal-title'\)/);
 });
+
+test('a meeting opens its job: the Notion page when there is one, else the job\'s page in the app (never a dead click)', async () => {
+  const fs = await import('node:fs');
+  const page = fs.readFileSync(new URL('../renderer/pages/calendar.js', import.meta.url), 'utf8');
+  const open = page.slice(page.indexOf('function open(m)'), page.indexOf('\n}\n', page.indexOf('function open(m)')));
+  assert.match(open, /if \(\/\^https:\\\/\\\/\/\.test\(url \|\| ''\)\) \{ window\.pilot\.openExternal\(url\); return; \}/);
+  assert.match(open, /openView\('jobs'\);\n  openJobPanel\(m\.job\);/);
+});

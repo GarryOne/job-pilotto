@@ -22,13 +22,21 @@ function walk(dir) {
     ? walk(path.join(dir, entry.name)) : [path.join(dir, entry.name)]);
 }
 
+// A Notion page's URL read into a value, then opened some lines later in the same function (`const url = m.job?.notion_url; …
+// openExternal(url)`): the Calendar's meeting click was such a dead click on a store without pages (9 Oct 2026), unseen by the line rules.
+const NOTION_URL = /notion_url|notionUrl|notionPageUrl|pageUrl|notion\.(so|com)\//;
+const OPENS = /\b(openExternal|openNotion|openPath|openUrl)\(/;
+
 export function scanJs(file, text) {
   const found = [];
-  let owner = '(module)';
+  let owner = '(module)', readsUrl = -1;
   text.split('\n').forEach((line, index) => {
     const top = TOP.exec(line);
-    if (top) owner = top[1] || top[2];
-    if (!comment(line) && JS_ENTRY.some(pattern => pattern.test(line))) found.push({key: `${file} ${owner}`, line: index + 1});
+    if (top) { owner = top[1] || top[2]; readsUrl = -1; }
+    if (comment(line)) return;
+    if (JS_ENTRY.some(pattern => pattern.test(line))) { found.push({key: `${file} ${owner}`, line: index + 1}); return; }
+    if (NOTION_URL.test(line)) readsUrl = index;
+    if (readsUrl >= 0 && OPENS.test(line)) found.push({key: `${file} ${owner}`, line: index + 1});
   });
   return found;
 }

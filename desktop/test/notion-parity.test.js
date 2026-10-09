@@ -38,6 +38,11 @@ test('the scanner finds what opens Notion and skips wording and comments', () =>
     "function d(u) { window.pilot.openExternal(draft.pageUrl); }",
   ].join('\n');
   assert.deepEqual(scanJs('x.js', js).map(e => e.key), ['x.js b', 'x.js c', 'x.js d']);
+  // A URL read into a value, opened a few lines later in the same function (the Calendar's dead click, 9 Oct 2026); a URL read in one
+  // function and an open in the next is not one entry point.
+  const indirect = ['function open(m) {', '  const url = m.job?.notion_url;', '  if (url) window.pilot.openExternal(url);', '}',
+    'function other() { const page = run.notionUrl; }', 'function later() { window.pilot.openExternal(run.url); }'].join('\n');
+  assert.deepEqual(scanJs('c.js', indirect).map(e => e.key), ['c.js open']);
   const html = '<p>Saved in Notion</p><button id="open-x" class="link">Open answers in Notion</button><a id="y">Elsewhere</a>';
   assert.deepEqual(scanHtml('i.html', html).map(e => e.key), ['i.html#open-x']);
 });

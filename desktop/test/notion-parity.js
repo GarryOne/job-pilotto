@@ -8,6 +8,8 @@ const TEXTS = {view: 'pages/text-editors.js loadTextEditor'};   // Settings → 
 const FUNNEL = {view: 'pages/reports.js funnelTab'};             // Reports → Funnel: the Pipeline table and Where to improve (P8 D)
 
 export const NOTION_PARITY = {
+  'pages/calendar.js open': JOB,                                 // a meeting's job: its Notion page, else the job's side panel
+  'pages/activity-render.js renderActivity': {none: 'opens the run on GitHub; the run\'s own page is #activity-notion'},
   'index.html#focus-funnel-notion': FUNNEL,                     // the 🎯 Pipeline page: funnel "from previous" / "Of applied"
   'index.html#strategy-edit': {view: 'pages/strategy-targets.js renderTargets'},                           // ⚙️ Search settings (or the Profile)
   'index.html#open-profile-details': {view: 'pages/profile.js showContact'},
