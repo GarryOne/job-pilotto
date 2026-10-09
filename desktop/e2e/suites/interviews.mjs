@@ -19,6 +19,8 @@ export async function run(ctx) {
   const {page, app, proxy} = ctx;
   // Where the library says it is kept (renderer/pages/interviews.js savedTo): Notion's database, or the app itself on this Mac's store.
   const SAVED_TO = ctx.store === 'sqlite' ? 'Saved in Job Pilotto' : 'Saved to Notion 🎤 Interviews';
+  // A finished review says where it went (interviews.js: byStore 'The review is on the Notion page.' / 'The review is saved with it.').
+  const REVIEW_DONE = ctx.store === 'sqlite' ? 'The review is saved with it' : 'The review is on the Notion page';
   ctx.findings = [];
   const {step, end} = independent(ctx);
   const today = new Date().toISOString().slice(0, 10);
@@ -221,7 +223,7 @@ export async function run(ctx) {
     const callsBefore = proxy.stats.calls;
     try {
       await page.click('#iv-save-review');
-      await page.waitForFunction(() => /Saved to Notion/.test(document.getElementById('iv-message').textContent) || document.getElementById('iv-message').classList.contains('error'), null, {timeout: 60000});
+      await page.waitForFunction(want => document.getElementById('iv-message').textContent.includes(want) || document.getElementById('iv-message').classList.contains('error'), SAVED_TO, {timeout: 60000});
       await page.waitForFunction(() => document.getElementById('iv-message').classList.contains('error') && !/Saving|reviewing the interview/.test(document.getElementById('iv-message').textContent), null, {timeout: 240000});
     } finally { proxy.setMode('pass'); }
     const said = (await message()).trim();
@@ -231,10 +233,10 @@ export async function run(ctx) {
     const after = await notionRows();
     if (after.length !== before + 1) throw new Error(`Notion has ${after.length} interviews after the failed review, expected ${before + 1} (the saved transcript, once)`);
     const saved = byTitle(after, 'recruiter-call-failing') || after.find(item => !seed.page && String(item.title || '').includes('failing'));
-    if (!saved) throw new Error('the saved transcript is not in Notion');
+    if (!saved) throw new Error('the saved transcript is not in the store');
     if ((await interviewOf(saved.id))?.overall) throw new Error('the interview has an outcome although its review failed');
     const headings = await reviewHeadings(saved.id);
-    if (headings.some(text => ['Strengths', 'Questions', 'Weak spots'].includes(text))) throw new Error(`a half-written review is on the Notion page: ${headings}`);
+    if (headings.some(text => ['Strengths', 'Questions', 'Weak spots'].includes(text))) throw new Error(`a half-written review was saved: ${headings}`);
     if (!/Terraform at scale/.test((await interviewOf(saved.id))?.transcript || '')) throw new Error('the saved row lost its transcript');
     seed.failed = {page: saved.id};
     await page.waitForFunction(id => /^Review$/.test(document.querySelector(`#iv-saved tr[data-id="${id}"] .iv-main`)?.textContent.trim() || ''), saved.id, {timeout: 60000}).catch(() => {});
@@ -253,10 +255,10 @@ export async function run(ctx) {
     await pickJob(page.locator('#iv-job'), seed.gamma.url);
     const calls = proxy.stats.calls;
     await page.click('#iv-save-review');
-    await page.waitForFunction(() => /The review is on the Notion page|failed|Could not|error/i.test(document.getElementById('iv-message').textContent) && !/reviewing the interview/.test(document.getElementById('iv-message').textContent),
-      null, {timeout: REVIEW_MS, polling: 2000});
+    await page.waitForFunction(done => { const text = document.getElementById('iv-message').textContent; return (text.includes(done) || /failed|Could not|error/i.test(text)) && !/reviewing the interview/.test(text); }, REVIEW_DONE,
+      {timeout: REVIEW_MS, polling: 2000});
     const said = (await message()).trim();
-    if (!/The review is on the Notion page/.test(said)) throw new Error(`the review did not finish: "${said.slice(0, 240)}"`);
+    if (!said.includes(REVIEW_DONE)) throw new Error(`the review did not finish: "${said.slice(0, 240)}"`);
     const after = await notionRows();
     const added = after.filter(item => !before.some(old => old.id === item.id));
     if (added.length !== 1) throw new Error(`${added.length} new interview rows in the store after one import, expected 1`);
@@ -337,7 +339,7 @@ export async function run(ctx) {
     await page.waitForFunction(id => !document.querySelector(`#iv-saved tr[data-id="${id}"]`), target, {timeout: 120000});
     if (!/Deleted/.test(await message())) throw new Error(`no confirmation after deleting: "${(await message()).trim()}"`);
     const after = await notionRows();
-    if (after.length !== before - 1 || after.some(item => item.id === target)) throw new Error('the interview is still in Notion after Delete');
+    if (after.length !== before - 1 || after.some(item => item.id === target)) throw new Error('the interview is still in the store after Delete');
   });
 
   await step('Interviews renders without layout problems', async () => { finish(ctx); });
