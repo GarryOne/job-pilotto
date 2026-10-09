@@ -4,6 +4,7 @@
 import * as learn from '../learn.js';
 import * as notion from '../notion.js';
 import {CLOUD, FILES, LINKS} from './caps.js';
+import * as notionRuns from './notion-runs.js';
 
 export const NAME = 'notion';
 export const CAPS = new Set([LINKS, CLOUD, FILES]);
@@ -97,8 +98,14 @@ export function open(storage, {fetcher} = {}) {
     },
   });
 
+  const runs = {
+    list: ({size} = {}) => notionRuns.list(storage, {fetcher, size}),
+    close: (link, reason) => notionRuns.closeStopped(storage, link, reason, {fetcher}),
+    detail: id => notionRuns.detail(storage, id, {fetcher}),
+  };
+
   return {
-    name: NAME, caps: CAPS, page,
+    name: NAME, caps: CAPS, page, runs,
     // Where the user can open a record or page in Notion.
     link: id => (id ? notion.pageUrl(id) : null),
     textLink: name => (ids()[PAGE_IDS[name]] ? notion.pageUrl(ids()[PAGE_IDS[name]]) : null),

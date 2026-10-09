@@ -1,93 +1,24 @@
-// Recent activity from Notion ⏱️ Search runs: every run writes its row there, wherever it ran (this Mac, the
-// user's GitHub repo, a Telegram button), from the start (Status Running, with a ⏳ progress line) to the end
-// (report, result, technical log). So the app shows the same history as Notion and Telegram, and a job running
-// elsewhere still shows its progress here. runs.json on this Mac only fills the gap while a row isn't there yet.
+// Recent activity from the store's run history (Notion ⏱️ Search runs, or the store on this Mac: lib/store `runs`): every run writes
+// its record there, wherever it ran (this Mac, the user's GitHub repo, a Telegram button), from the start (Running, with a ⏳ progress
+// line) to the end (report, result, technical log). So the app shows the same history as the store and Telegram, and a job running
+// elsewhere still shows its progress here. runs.json on this Mac only fills the gap while a record isn't there yet.
 import {call} from './notion.js';
-import {CRASH_LINE} from './crash-line.js';
+import {openStore} from './store/index.js';
 import {jobFrom} from './job-line.js';
 import {runWarned} from '../renderer/run-status.js';   // pure (no DOM): the Actions page and this pop-up must call a run "with warnings" by the same rule
+import {KIND, fromRow, result} from './run-rows.js';
 
-export {jobFrom};
-
-const KIND = {scheduled: 'search', run: 'search', first: 'search', today: 'today', mail: 'mail', scout: 'scout', insight: 'insight',
-  weekly: 'weekly', kits: 'kits', tailor: 'tailor', visits: 'visits', prepare: 'prepare', interview: 'interview', add: 'add', rejection: 'rejection', prep: 'prep', import: 'import'};
-// What started it: the Mac's schedule, you (the app, Telegram, GitHub's Run button) or GitHub's schedule.
-const TRIGGER = {'Mac schedule': 'schedule', Schedule: 'schedule'};
-const STALE_MS = 3 * 3600 * 1000;  // a row still "Running" after this long lost its job (the machine went away)
-// A "Running" row nobody edited for this long lost its job too: a running engine edits it at least every 5 minutes (HEARTBEAT_S,
-// src/notion/cron_runs.py). 7 Oct 2026: a run killed hard (a GitHub force-cancel) cannot close its row and showed as running for 3 h.
-const LOST_MS = 30 * 60 * 1000;
-
-const text = prop => (prop?.rich_text || prop?.title || []).map(part => part.plain_text ?? part.text?.content ?? '').join('');
-
-const notionPage = id => `https://www.notion.so/${String(id).replace(/-/g, '')}`;
-// From the row alone (before its page is read): the Application relation, and "Tracked…" (a new job) in its Summary.
-function rowJob(p, mode, summary) {
-  const id = mode === 'add' && p.Application?.relation?.[0]?.id;
-  return id ? {pageId: id, url: notionPage(id), title: '', jobUrl: '', created: /^\W*Tracked\b/.test(summary)} : null;
-}
-
-// One row as an activity record (the same shape as the Mac's own runs.json records).
-export function fromRow(page, now = Date.now()) {
-  const p = page.properties || {};
-  const startedAt = p.Started?.date?.start || page.created_time;
-  const mode = p.Mode?.select?.name || 'scheduled';
-  const status = p.Status?.select?.name || '';
-  const trigger = p.Trigger?.select?.name || '';
-  const seconds = p['Duration (s)']?.number;
-  const summary = text(p.Summary);
-  const seen = Math.max(Date.parse(startedAt), Date.parse(page.last_edited_time || '') || 0);   // its last sign of life
-  const running = status === 'Running' && now - Date.parse(startedAt) < STALE_MS && now - seen < LOST_MS;
-  const ended = !running && seconds != null ? new Date(Date.parse(startedAt) + seconds * 1000).toISOString() : (running ? undefined : startedAt);
-  // Notion keeps start times to the minute: two runs started in the same minute (a scheduled Gmail check and one you
-  // started) would share an id, and the activity list would select both. A tie-breaker from the page id (< 1 s).
-  const tie = parseInt(String(page.id).replace(/-/g, '').slice(-6), 16) % 1000 || 0;
-  // The Interviews page's insights share the daily insight's mode; their result line tells them apart.
-  const kind = mode === 'insight' && /^Interview insights\b/.test(summary) ? 'interviewInsight' : KIND[mode] || 'action';
-  const record = {id: Date.parse(startedAt) + tie, pageId: page.id, notionUrl: page.url, url: p['Run URL']?.url || null, kind, mode,
-    runId: text(p['Run id']) || null,
-    trigger: TRIGGER[trigger] || 'you', where: p['Run URL']?.url ? 'github' : /^Mac/.test(trigger) ? 'mac' : 'elsewhere', startedAt};
-  // A crash line is not a step (7 Oct 2026: a run killed mid-way left "⏳ Traceback (most recent call last):" on its row, and Recent activity showed it).
-  const step = summary.replace(/^⏳\s*/, '');
-  if (running) return {...record, live: true, step: step && !CRASH_LINE.test(step) ? step : 'Running'};
-  const ok = status !== 'Failed' && !(status === 'Running');  // a stale "Running" row: the job never reported
-  const job = ok ? rowJob(p, mode, summary) : null;
-  return {...record, endedAt: ended, ok, warned: status === 'Warnings', new: p['New jobs']?.number ?? null, feeds: p.Feeds?.number ?? null, usd: p['AI cost (USD)']?.number || 0,
-    billing: p['Billed to']?.select?.name || null,
-    result: result(summary, status, p['New jobs']?.number, mode), ...(job ? {job} : {})};
-}
-
-// One line on what it did: the row's Summary without the cost, or the count of new jobs for a search.
-export function result(summary, status, fresh, mode) {
-  if (status === 'Running') return 'never finished (see the log)';
-  const cost = String.raw`(?:AI cost \$[\d.]+(?: \+ Claude Code)?|Claude Code, your plan)`;
-  const line = summary.replace(new RegExp(String.raw`\s*\(${cost}\)\.?$`), '').replace(new RegExp(String.raw`;?\s*${cost}\.?$`), '').trim();
-  if (KIND[mode] === 'search' && fresh != null) return fresh ? `${fresh} new job${fresh === 1 ? '' : 's'}` : 'nothing new';
-  return line || (status === 'Failed' ? 'failed' : 'done');
-}
+export {fromRow, jobFrom, result};
 
 const ids = storage => storage.settings().notionIds || {};
 
-// The latest rows, newest first.
-export async function list(storage, {fetcher, size = 25} = {}) {
-  const token = storage.secret('NOTION_TOKEN'), db = ids(storage).NOTION_CRON_RUNS_DB;
-  if (!token || !db) return null;
-  const {results = []} = await call(token, 'POST', `databases/${db}/query`,
-    {sorts: [{property: 'Started', direction: 'descending'}], page_size: size}, fetcher);
-  return results.map(page => fromRow(page));
-}
+// The latest runs, newest first (null: the store has no run history yet, e.g. Notion not connected).
+export const list = (storage, {fetcher, size = 25} = {}) => openStore(storage, {fetcher}).runs.list({size});
 
-// A run the watchdog stopped (a silent AI) was killed, and a killed Python cannot close its own row: it would stay "Running" and the app would show the task as running
-// until the row goes stale (3 h). The app closes it: Failed, with why. Returns whether it changed the row (a row the run closed itself on SIGTERM is left alone).
-export async function closeStopped(storage, url, reason, {fetcher} = {}) {
-  const token = storage.secret('NOTION_TOKEN');
-  const id = /([0-9a-f]{32})(?:[?#].*)?$/i.exec(String(url || '').replace(/-/g, ''))?.[1];
-  if (!token || !id) return false;
-  const page = await call(token, 'GET', `pages/${id}`, null, fetcher);
-  if (page.properties?.Status?.select?.name !== 'Running') return false;
-  await call(token, 'PATCH', `pages/${id}`, {properties: {Status: {select: {name: 'Failed'}}, Summary: {rich_text: [{text: {content: String(reason).slice(0, 1900)}}]}}}, fetcher);
-  return true;
-}
+// A run the watchdog stopped (a silent AI) was killed, and a killed Python cannot close its own record: it would stay "Running" and the app would show the task as
+// running until it goes stale (3 h). The app closes it: Failed, with why. `link`: the run's address (a Notion page URL, or store:cron_runs/<id>).
+// Returns whether it changed the record (one the run closed itself on SIGTERM is left alone).
+export const closeStopped = (storage, link, reason, {fetcher} = {}) => openStore(storage, {fetcher}).runs.close(link, reason);
 
 // The jobs the app was running when it quit (queue.json, `interrupted`) are about to start again, and the killed run's row would stay "Running" for up to 3 h: Python can
 // close its own row only when it exits by itself. A Mac leaves the orphaned engine running and it finishes; Windows ends the whole process tree, so the row stayed Running
@@ -189,25 +120,8 @@ export async function copyLocal(storage, {fetcher, runs, save, name, windowMs = 
   return out;
 }
 
-// A run's page: what it produced (under "Result") and its technical log (the toggle's code blocks).
-export async function detail(storage, pageId, {fetcher} = {}) {
-  const token = storage.secret('NOTION_TOKEN');
-  const {results: blocks = []} = await call(token, 'GET', `blocks/${pageId}/children?page_size=100`, null, fetcher);
-  const plain = block => text(block[block.type]);
-  const at = blocks.findIndex(block => block.type === 'heading_3' && plain(block) === 'Result');
-  const message = at < 0 ? null : blocks.slice(at + 1).filter(block => block.type === 'paragraph').map(plain).join('\n') || null;
-  const toggle = blocks.find(block => block.type === 'toggle' && /^Technical log/.test(plain(block)));
-  let log = [];
-  if (toggle?.has_children) {
-    const {results: code = []} = await call(token, 'GET', `blocks/${toggle.id}/children?page_size=100`, null, fetcher);
-    log = code.filter(block => block.type === 'code').flatMap(block => plain(block).split('\n'));
-  }
-  const report = blocks.filter(block => block.type === 'bulleted_list_item').map(plain);
-  const job = jobFrom(log);  // a Logged activity run: its job's title and whether it was created
-  // `report` goes along even when a technical log exists: it is where a GitHub run's "Warning: …" lines are (its row's
-  // Summary is only the report's first line, and its log is a single line pointing at the page).
-  return {message, log: log.length ? log : report, report, ...(job ? {job} : {})};
-}
+// A run's record: what it produced, its report and its technical log.
+export const detail = (storage, id, {fetcher} = {}) => openStore(storage, {fetcher}).runs.detail(id);
 
 // The activity list: Notion's rows, with this Mac's own record where it's the same run (it has the full log and
 // the live lines) and this Mac's records Notion doesn't have yet. `pending`: jobs just sent to GitHub that

@@ -5,7 +5,7 @@
 import * as claudeCode from './claude-code.js';
 import * as poolShare from './pool-share.js';
 import * as notionGate from './notion-gate.js';
-import {FILES as TEXT_FILES} from './store/sqlite.js';
+import {TEXT_FILES} from './store/text-files.js';
 import * as requestLog from './request-log.js';
 import * as pageRender from './page-render.js';
 import fs from 'node:fs';

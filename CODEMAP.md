@@ -137,8 +137,9 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/resume-queue.js` — Jobs you had started when the app last quit (pipeline queue.json) start again a little after launch. The queue is taken at LAUNCH and started later: read at
 - `desktop/lib/review.js` — The form page and the session page, in step. The Chrome extension shows a ring on the application form (how much
 - `desktop/lib/root.js` — Where the pipeline, config, tools and extension live: the repo when developing, the app's
-- `desktop/lib/run-history.js` — Recent activity from Notion ⏱️ Search runs: every run writes its row there, wherever it ran (this Mac, the
+- `desktop/lib/run-history.js` — Recent activity from the store's run history (Notion ⏱️ Search runs, or the store on this Mac: lib/store `runs`): every run writes
 - `desktop/lib/run-result.js` — The engine's result file (src/run_result.py): one object per run, instead of the last stdout line.
+- `desktop/lib/run-rows.js` — One run as an activity record (the shape of this Mac's runs.json records), from a store's row: a Notion ⏱️ Search runs page
 - `desktop/lib/run-state.js` — What the run list shares between main.js's activity() and the start-up background jobs (lib/background-handlers.js): the run history last read from
 - `desktop/lib/schedule.js` — Searches, Gmail checks and new-employer finds on the chosen schedule (Settings → How often) while the app is open, and catches up after the Mac wakes from sleep.
 - `desktop/lib/schema.js` — The user's Notion workspace, checked against config/notion_schema.json (the workspace as code, from

@@ -285,11 +285,13 @@ export function renderActivity(fresh) {
   $('activity-go').textContent = `View new job${found === 1 ? '' : 's'} →`;
   // The header's one visible link, then the rest under ⋯: a Notion page is the run's record, its GitHub run the build
   // behind it. A GitHub-only run shows that link itself; with nothing else to offer there is no ⋯ at all.
-  show($('activity-notion'), !!run?.notionUrl);
-  $('activity-notion').dataset.url = run?.notionUrl || '';
-  show($('activity-github'), !!run?.url && (!run?.notionUrl || !!run?.live));
+  // A run's record opens only when it is a page somewhere (Notion); in the store on this Mac its link is only a key (store:cron_runs/<id>).
+  const page = /^https:\/\//.test(run?.notionUrl || '') ? run.notionUrl : '';
+  show($('activity-notion'), !!page);
+  $('activity-notion').dataset.url = page;
+  show($('activity-github'), !!run?.url && (!page || !!run?.live));
   $('activity-github').dataset.url = run?.url || '';
-  $('activity-more').replaceChildren(...(run?.url && run?.notionUrl && !run?.live
+  $('activity-more').replaceChildren(...(run?.url && page && !run?.live
     ? [moreButton([{label: 'View GitHub run ↗', run: () => window.pilot.openExternal(run.url)}], 'More links')] : []));
   const result = run && !run.live ? runResults.get(run.id) || '' : '';
   $('activity-result').textContent = result;

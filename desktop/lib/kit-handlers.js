@@ -5,6 +5,7 @@ import * as apply from './apply.js';
 import * as claudeCode from './claude-code.js';
 import * as cvlib from './cv.js';
 import * as files from './files.js';
+import * as notionGate from './notion-gate.js';
 import * as pipeline from './pipeline.js';
 import * as strategy from './strategy.js';
 import fs from 'node:fs';
@@ -67,13 +68,15 @@ export function registerKitHandlers(ctx) {
         model: cvlib.MODEL, usd: Math.round(cost * 100) / 100, changes: result.changes, warnings: applied.warnings, cv: applied.cv, review: applied.review, result};
       cvlib.save(storage, code, record, printed.pdf);
       // Notion too, on the job's Applications row (the PDF isn't only on this Mac); no row yet -> said below.
+      // With the data on this Mac (lib/store) the PDF is kept here only, and nothing is said about Notion.
+      const notionStore = notionGate.notionInUse(storage);
       let inNotion = false;
-      try {
+      if (notionStore) try {
         inNotion = await files.tailoredToApplication(storage.secret('NOTION_TOKEN'), storage.settings().notionIds?.NOTION_APPLICATIONS_DB,
           job.url, cvlib.pdfPath(storage, code), `CV · ${job.company} · ${job.title}.pdf`.replace(/[/\\:]/g, '-'));
       } catch (error) { console.error(`Tailored CV not saved to Notion: ${error.message}`); }
       if (!quiet) notify('Tailored CV ready ✓', `${name}: ${result.changes.length} changes${applied.warnings.length ? `, ${applied.warnings.length} to check` : ''}.`
-        + (inNotion ? ' Saved in Notion too.' : ' On this Mac only: save the job (☆) to keep it in Notion.'), {view: 'jobs', job: code});
+        + (!notionStore ? '' : inNotion ? ' Saved in Notion too.' : ' On this Mac only: save the job (☆) to keep it in Notion.'), {view: 'jobs', job: code});
       if (show) openTailoredCv(code);   // from the form's panel the window stays behind: the person is on the form, the notification says it is ready
       return {ok: true, usd: record.usd};
     } catch (error) {

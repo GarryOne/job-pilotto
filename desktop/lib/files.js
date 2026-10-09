@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as notion from './notion.js';
+import {notionInUse} from './notion-gate.js';
 
 export const MAX_BYTES = 5 * 1024 * 1024;
 export const CV_HEADING = '📎 CV';
@@ -55,6 +56,7 @@ export async function tailoredToApplication(token, applicationsDb, jobUrl, file,
 export async function syncCv(storage, fetcher) {
   const token = storage.secret('NOTION_TOKEN'), profile = storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID;
   const file = storage.path('cv.pdf');
+  if (!notionInUse(storage)) return {skipped: 'the data is on this Mac'};   // one copy: never into a Notion that is not the store
   if (!token || !profile || !fs.existsSync(file)) return {skipped: 'nothing to upload'};
   const print = fingerprint(file);
   if (storage.settings().cvInNotion === print) return {skipped: 'already in Notion'};
@@ -66,6 +68,6 @@ export async function syncCv(storage, fetcher) {
 // The approved cover letter on the Profile page, once per approval (the user's text is in the PDF; Notion keeps every version).
 export const coverLetterToProfile = (storage, file, fetcher) => {
   const token = storage.secret('NOTION_TOKEN'), profile = storage.settings().notionIds?.NOTION_PROFILE_PAGE_ID;
-  if (!token || !profile || !fs.existsSync(file)) return Promise.resolve(null);
+  if (!notionInUse(storage) || !token || !profile || !fs.existsSync(file)) return Promise.resolve(null);
   return cvToProfile(token, profile, file, 'Cover letter.pdf', new Date(), fetcher, LETTER_HEADING);
 };

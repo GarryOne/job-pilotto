@@ -433,8 +433,9 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   // Each form's last state (ready to submit?), so a restart shows it before Chrome's tabs report again.
   if (!DEMO) review.persist(path.join(storage.dir, 'review-states.json'), terminals.list().map(session => session.id));
   // A session's conversation (its Claude Code transcript) on its Agent Runs row, folded: the Mac's file doesn't last.
+  // Only into a Notion that is the store (lib/store): with the data on this Mac a session's stats and conversation stay in sessions.json.
   const saveConversation = session => {
-    if (!session.runPage || !session.transcript) return;
+    if (!session.runPage || !session.transcript || !notionGate.notionInUse(storage)) return;
     const talk = transcript.conversation(session.transcript);
     if (!talk?.length || talk.length === session.conversationSaved) return;
     transcript.save((method, route, body) => notion.call(storage.secret('NOTION_TOKEN'), method, route, body), session.runPage, talk)
@@ -443,7 +444,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   // Each session's statistics on its Agent Runs row in Notion, a few seconds after each change (lib/session-runs.js).
   if (!DEMO) terminals.onStatus((view, session) => sessionRuns.schedule(session, () => ({
     call: (method, route, body) => notion.call(storage.secret('NOTION_TOKEN'), method, route, body),
-    db: storage.settings().notionIds?.NOTION_AGENT_RUNS_DB,
+    db: notionGate.notionInUse(storage) ? storage.settings().notionIds?.NOTION_AGENT_RUNS_DB : null,
     create: /^decided|^ended|^failed/.test(session.events?.at(-1)?.status || ''),
   }), page => {
     session.runPage = page;

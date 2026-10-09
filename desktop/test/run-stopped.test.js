@@ -18,7 +18,7 @@ test('closeStopped fails a row still Running, and leaves a row that was closed a
   for (const [name, status] of Object.entries(rows)) {
     calls.length = 0;
     const fetcher = async (url, init) => { calls.push([init.method, String(url).replace('https://api.notion.com/v1/', ''), init.body]); return json({id: PAGE, properties: {Status: {select: {name: status}}}}); };
-    const storage = {secret: () => 'token'};
+    const storage = {secret: () => 'token', settings: () => ({})};
     const closed = await runHistory.closeStopped(storage, URL, 'Stopped by Job Pilotto: no output for 1 min', {fetcher});
     assert.equal(closed, status === 'Running', name);
     const patch = calls.find(call => call[0] === 'PATCH');

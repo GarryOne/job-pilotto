@@ -1,4 +1,4 @@
-// Where the user's data lives, for what the desktop reads and writes itself (its text pages; runs later). The only place that picks
+// Where the user's data lives, for what the desktop reads and writes itself (its text pages and run history). The only place that picks
 // an adapter: `openStore(storage)`. Everything else the app tracks is an engine command, which opens the same store from
 // JOB_PILOTTO_STORE (lib/pipeline-env.js). Spec: docs/superpowers/specs/2026-10-09-store-adapters.md. Guarded by
 // desktop/test/store-contract.test.js.
@@ -6,6 +6,7 @@
 // A page (`store.page('profile' | 'answers' | 'knowledge')`): blocks(), outline(), text(), write(markdown), setText(block, text),
 // remove(block), append(lines), insertAfter(id, lines), appendHeading(text) → id, setCell(row, index, text).
 // Several removes on one page: last block first (this Mac's ids are line numbers).
+// Runs (`store.runs`, Recent activity): list({size}) → activity records or null, close(link, reason) → bool, detail(link).
 import * as notionGate from '../notion-gate.js';
 import * as notionStore from './notion.js';
 import * as sqliteStore from './sqlite.js';
