@@ -54,12 +54,12 @@ def import_mode(args, stores=None):
 
 
 def apply_mode(args, stores=None):
-    tracker = notion_of(stores)  # BRIDGE(mac-67 item 3): remove when apply_message's Notion branch is the store's (the match record, mac-70)
+    tracker = notion_of(stores)  # BRIDGE(mac-67): remove when _gate asks the store alone
     if not args.job:
         raise SystemExit('--mode apply requires --job and NOTION_TOKEN')
     _gate(tracker, stores, '--mode apply requires --job and NOTION_TOKEN', on_store=True)
     with store.connect(args.db) as db:
-        reply = apply_message(db, _job_arg(args.job), tracker, args.action, **({} if tracker else {'stores': stores}))
+        reply = apply_message(db, _job_arg(args.job), stores, args.action)
     print(reply)
     # Save/Dismiss are already confirmed on the button itself; only Applied gets a message (Notion link).
     if args.send and args.action == 'applied':

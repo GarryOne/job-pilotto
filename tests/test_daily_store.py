@@ -164,7 +164,7 @@ class ModesOnTheStoreTests(unittest.TestCase):
                 mock.patch.object(daily_helpers.ats, 'posting', return_value=None), \
                 mock.patch('src.ledger_store.record', return_value=(None, 'recorded')) as recorded, \
                 mock.patch.object(daily_helpers, 'queue_mail_check'):
-            reply = daily_helpers.apply_message(db, 'https://jobs.example/sre', None, 'applied', stores=stores)
+            reply = daily_helpers.apply_message(db, 'https://jobs.example/sre', stores, 'applied')
         self.assertIn('Marked applied', reply)
         self.assertIn('Track the stage in the app', reply)                      # no Notion link to give
         self.assertEqual(stores.applications.stages(), {'https://jobs.example/sre': 'Applied'})

@@ -52,14 +52,29 @@ def _kit(stores, app_id):
         return None
 
 
+def _match_columns(found):
+    """A match as the record has always held it: each 🎯 Job Matches column by its name, as ledger_blocks.plain reads it (an empty
+    select or date is None, empty text '', a multi-select a list). The names come from the Notion adapter's column map, the record's
+    own format on every store."""
+    from .stores.notion_matches import COLUMNS, PARTS
+    empty_none = {'select', 'date', 'number', 'url'}
+    values = {column: (None if kind in empty_none and found.get(field) in ('', None) else found.get(field))
+              for field, column, kind in COLUMNS}
+    detail = found.get('fit_detail') or {}
+    values.update({column: (detail.get('parts') or {}).get(part) for part, column in PARTS})
+    values.update({'Strengths': detail.get('strengths') or '', 'Gaps': detail.get('gaps') or ''})
+    if found.get('last_update'):
+        values['Last update'] = found['last_update']
+    return values
+
+
 def match_of(stores, url, app):
-    """The job's scores as src/notion/ledger_record.py match_for gives them ({'Score', 'Seniority', ...}): the 🎯 match
-    when there is one, else the application's own fit columns (a job you added has no match)."""
-    found = next((m for m in stores.matches.list() if base.url_key(m['url']) == base.url_key(url)), None)
+    """The job's scores as src/notion/ledger_record.py match_for gives them ({'Score', 'Seniority', ...}): its 🎯 match, every
+    column, when there is one (stores.matches.get: one row, not the list), else the application's own fit columns (a job you
+    added has no match)."""
+    found = stores.matches.get(url)
     if found:
-        return {k: v for k, v in {'Score': found['fit'], 'Work mode': found['work_mode'], 'Job': found['title'],
-                                   'Company': found['company'], 'Location': found['location']}.items()
-                if v not in (None, '')}
+        return _match_columns(found)
     app = app or {}   # company_for asks before there is an application
     own = {'Score': app.get('fit'), 'Seniority': app.get('seniority'), 'Work mode': app.get('work_mode'),
            'Tier': app.get('tier'), 'Salary': app.get('salary')}

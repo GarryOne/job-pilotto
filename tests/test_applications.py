@@ -114,7 +114,7 @@ class TrackedJobFallbackTests(unittest.TestCase):
                 job = daily.tracked_job(url, self.stores)
                 self.assertEqual((job['title'], job['company'], job['id']), ('Staff SRE', 'Acme', None))
                 self.assertEqual(daily.tracked_job(applications.job_code(url), self.stores)['url'], url)
-                self.assertIn('✅ <b>Marked applied</b>', daily.apply_message(db, url, None, stores=self.stores))
+                self.assertIn('✅ <b>Marked applied</b>', daily.apply_message(db, url, self.stores))
                 self.assertIsNone(daily.tracked_job('https://x.test/untracked', self.stores))
 
     def test_falls_back_to_the_match_when_there_is_no_application(self):
@@ -145,19 +145,21 @@ class DigestIntegrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 job_store.import_watch_report(db, report)
-                tracker = FakeTracker()
+                from src.stores import memory
+                stores = memory.open_store()
                 code = applications.job_code('https://x.test/1')
                 _, _, keyboards = digest.build_digest(db)
                 buttons = [b for row in keyboards[0]['inline_keyboard'] for b in row]
                 self.assertTrue(any(b['callback_data'].startswith(f'pick:{code}:') for b in buttons))
                 self.assertEqual([b['text'] for b in buttons], ['1', '2', '3'])
-                self.assertIn('✅ <b>Marked applied</b>', daily.apply_message(db, code, tracker))
-                self.assertIn('Already tracked', daily.apply_message(db, code, tracker))
-                self.assertIn('No job with code', daily.apply_message(db, 'deadbeef', tracker))
-                self.assertIn('⭐ <b>Saved</b>', daily.apply_message(db, applications.job_code('https://x.test/0'), tracker, 'saved'))
-                stages = tracker.url_stages()
+                self.assertIn('✅ <b>Marked applied</b>', daily.apply_message(db, code, stores))
+                self.assertIn('Already tracked', daily.apply_message(db, code, stores))
+                self.assertIn('No job with code', daily.apply_message(db, 'deadbeef', stores))
+                self.assertIn('⭐ <b>Saved</b>', daily.apply_message(db, applications.job_code('https://x.test/0'), stores, 'saved'))
+                stages = {r['url']: r['stage'] for r in stores.applications.list()}
                 saved = frozenset(u for u, s in stages.items() if s == 'Saved')
-                message = digest.format_digest(db, hidden_urls=frozenset(tracker.hidden_urls()), saved_urls=saved)
+                hidden = frozenset(u for u, s in stages.items() if s not in applications.VISIBLE_STAGES)
+                message = digest.format_digest(db, hidden_urls=hidden, saved_urls=saved)
                 self.assertIn('<b>1. <a href="https://x.test/0"', message)  # saved job ranks first, and says so
                 self.assertIn(' · Saved\n', message)
         self.assertNotIn('https://x.test/1"', message)

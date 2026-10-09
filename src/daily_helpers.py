@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from html import escape
 from . import digest, employer_index, features, role_kinds, run_log, scout, store, telegram, tgcard
 from .ai import cost, enrich, kit, provenance, score
-from .notion import client as notion, cron_runs, ledger, matches
+from .notion import client as notion, cron_runs, matches
 from .paths import JOBS_DB, REPORTS, load_search_config
 from .sources import ats, feeds
 from .stores import open_stores, rules
@@ -129,31 +129,24 @@ def _url_key(url):
 ACTIONS = {'applied': 'Applied', 'saved': 'Saved', 'dismissed': 'Dismissed'}
 
 
-def apply_message(db, code, tracker, action='applied', stores=None):
-    """Record a Telegram button action for the job with this code in the active store; return the reply text. Notion: through the
-    tracker, as before; another store: its stage rules and ledger (src/stores/rules.py, src/ledger_store.py)."""
-    stores = stores or open_stores(tracker=tracker)
+def apply_message(db, code, stores, action='applied'):
+    """Record a Telegram button action for the job with this code in the active store; return the reply text. Every store: its
+    stage rules and ledger (src/stores/rules.py, src/ledger_store.py); on Notion the same pages as before the store
+    (tests/test_daily_store_notion.py)."""
     job = find_job(db, code) or tracked_job(code, stores)
     if not job:
-        where = 'Notion' if tracker else 'the app'
+        where = 'Notion' if stores.name == 'notion' else 'the app'
         return f"⚠️ <b>Job not found</b>\nNo job with code <code>{escape(code)}</code>. It may have closed; add it in {where} manually."
     stage = ACTIONS[action]
-    if tracker:
-        page, outcome = tracker.mark(job, stage)
-    else:
-        found, outcome = rules.mark(stores, job, stage)
-        page = {'id': found['id'], 'url': stores.link(found['id']) or ''}
+    found, outcome = rules.mark(stores, job, stage)
+    page = {'id': found['id'], 'url': stores.link(found['id']) or ''}
     if stage == 'Applied' and outcome != 'unchanged':
         # The application ledger: an Applied event and the frozen record (no form capture from CI,
         # so answers are the kit drafts). Never blocks the reply.
         try:
-            if tracker:
-                ledger.add_event(tracker, page, 'Applied', 'Telegram')
-                ledger.record(tracker, job['url'])
-            else:
-                from . import ledger_store
-                ledger_store.add_event(stores, found, 'Applied', 'Telegram')
-                ledger_store.record(stores, job['url'])
+            from . import ledger_store
+            ledger_store.add_event(stores, found, 'Applied', 'Telegram')
+            ledger_store.record(stores, job['url'])
         except Exception as error:
             print(f'Warning: application record skipped: {type(error).__name__}: {error}')
         queue_mail_check()
