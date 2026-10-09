@@ -121,3 +121,20 @@ class PipelinePageTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FocusFunnelTest(unittest.TestCase):
+    """Reports → Funnel (desktop renderer/reports-view.js): Focus's funnel carries each step's share of the previous one and the
+    Pipeline page's own "Where to improve" lines (one copy: funnel.funnel and funnel.summary)."""
+
+    def test_from_previous_and_the_improve_lines(self):
+        from src import focus_state
+        rows = [{'id': f'a{i}', 'stage': stage, 'url': f'https://x.test/{i}', 'source': 'Job Pilotto app'}
+                for i, stage in enumerate(['Applied', 'Applied', 'Rejected', 'Kit ready'])]
+        events = [{'app_id': 'a2', 'kind': REPLY_KIND, 'at': '2026-10-01'}]
+        result = focus_state.funnel(rows, events)
+        by = {step['step']: step for step in result['steps']}
+        applied = next(step for name, step in by.items() if 'Applied' in name)
+        self.assertEqual((applied['from'], applied['conversion']), (result['steps'][0]['reached'], applied['reached'] / result['steps'][0]['reached']))
+        self.assertIsNone(result['steps'][0]['from'])
+        self.assertTrue(result['summary'] and all(isinstance(line, str) for line in result['summary']))
