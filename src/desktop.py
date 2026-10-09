@@ -315,11 +315,10 @@ def main(argv=None):
             fresh = found is not None
             if tracker and not fresh:
                 result['stale'] = True
-        elif args.command == 'delete':
-            result = delete_job(db, args.url, tracker)
         else:
             from .stores import open_stores
-            result = set_status(db, args.url, args.status, open_stores(tracker=tracker))
+            stores = open_stores(tracker=tracker)
+            result = delete_job(db, args.url, stores) if args.command == 'delete' else set_status(db, args.url, args.status, stores)
     print(json.dumps(result, ensure_ascii=False))
     return 0
 

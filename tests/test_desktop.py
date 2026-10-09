@@ -263,42 +263,43 @@ class DeleteTests(unittest.TestCase):
         self.db.close()
         self.tmp.cleanup()
 
-    class Tracker:
-        def __init__(self, stage):
-            self.stage, self.trashed = stage, []
-
-        def find(self, url):
-            return {'id': 'app-1', 'properties': {'Stage': {'select': {'name': self.stage}}}} if self.stage else None
-
-        def trash_page(self, page_id):
-            self.trashed.append(page_id)
+    def stores(self, stage):
+        """A store holding the job's Applications row at `stage` (none when empty) and its Job Matches record."""
+        stores = memory.open_store()
+        if stage:
+            stores.applications.create({'url': 'https://x.test/a', 'title': 'Staff Software Engineer'}, stage)
+        stores.matches.upsert({'url': 'https://x.test/a', 'title': 'Staff Software Engineer', 'status': 'Open'})
+        return stores
 
     def test_only_a_dismissed_job_can_be_deleted(self):
         result = desktop.delete_job(self.db, 'https://x.test/a')
         self.assertFalse(result['ok'])
         self.assertIn('Dismiss it first', result['error'])
-        self.assertFalse(desktop.delete_job(self.db, 'https://x.test/a', self.Tracker('Applied'))['ok'])
+        self.assertFalse(desktop.delete_job(self.db, 'https://x.test/a', self.stores('Applied'))['ok'])
 
-    def test_a_dismissed_job_goes_to_the_trash_and_no_search_brings_it_back(self):
+    def test_a_dismissed_job_leaves_the_store_and_no_search_brings_it_back(self):
         desktop.set_status(self.db, 'https://x.test/a', 'dismissed')
-        tracker = self.Tracker('Dismissed')
-        self.assertEqual(desktop.delete_job(self.db, 'https://x.test/a', tracker), {'ok': True, 'trashed': 1})
-        self.assertEqual(tracker.trashed, ['app-1'])
+        stores = self.stores('Dismissed')
+        self.assertEqual(desktop.delete_job(self.db, 'https://x.test/a', stores), {'ok': True, 'trashed': 2})
+        self.assertIsNone(stores.applications.get('https://x.test/a'))
+        self.assertEqual(stores.matches.list(), [])
         self.assertEqual(desktop.jobs(self.db)['jobs'], [])
         store.upsert_job(self.db, self.job, 'Anthropic', source_kind='employer feed')   # the next search sees the posting again
         self.db.commit()
         self.assertEqual(desktop.jobs(self.db)['jobs'], [], 'still deleted')
 
-    def test_notion_refusing_changes_nothing(self):
+    def test_a_store_refusing_changes_nothing(self):
         desktop.set_status(self.db, 'https://x.test/a', 'dismissed')
-        tracker = self.Tracker('Dismissed')
-        tracker.trash_page = lambda page: (_ for _ in ()).throw(RuntimeError('503'))
-        self.assertFalse(desktop.delete_job(self.db, 'https://x.test/a', tracker)['ok'])
+        stores = self.stores('Dismissed')
+        stores.applications.delete = lambda app_id: (_ for _ in ()).throw(RuntimeError('503'))
+        result = desktop.delete_job(self.db, 'https://x.test/a', stores)
+        self.assertFalse(result['ok'])
+        self.assertIn('nothing was deleted', result['error'])
         self.assertEqual(len(desktop.jobs(self.db)['jobs']), 1)
 
     def test_a_deleted_job_stays_out_while_notion_still_lists_its_trashed_page(self):
         desktop.set_status(self.db, 'https://x.test/a', 'dismissed')
-        desktop.delete_job(self.db, 'https://x.test/a', self.Tracker('Dismissed'))
+        desktop.delete_job(self.db, 'https://x.test/a', self.stores('Dismissed'))
         lagging = [{'url': 'https://x.test/a', 'stage': 'Dismissed', 'title': 'Staff Software Engineer', 'company': 'Anthropic', 'location': 'Remote'},
                    {'url': 'https://x.test/b', 'stage': 'Saved', 'title': 'Photographer', 'company': 'Studio', 'location': 'Geneva'}]
         self.assertEqual([job['url'] for job in desktop.jobs(self.db, notion_jobs=lagging)['jobs']], ['https://x.test/b'])
