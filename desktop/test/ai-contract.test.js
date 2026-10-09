@@ -19,7 +19,7 @@ import * as ai from '../lib/ai/index.js';
 import {OPENAI_PRICES, model, openaiModel, priceOf} from '../lib/ai/models.js';
 import {dropNulls, strict} from '../lib/ai/schema.js';
 import * as claudeCode from '../lib/claude-code.js';
-import * as worker from '../../worker/src/ai.js';
+import * as worker from '../../worker/src/ai-prices.js';   // not ai.js: it imports the Worker's SDK, which the desktop job does not install
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SCHEMA = {type: 'object', required: ['summary'], properties: {summary: {type: 'string'}, note: {type: 'string'}}};

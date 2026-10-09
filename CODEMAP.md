@@ -550,6 +550,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 ## Telegram bot (worker)
 
+- `worker/src/ai-prices.js` — What an AI call costs per million tokens, for the Worker's form answers: no SDK here, so the desktop tests can read it without the
 - `worker/src/ai.js` — The Worker's AI client: the Anthropic SDK on the Worker's own ANTHROPIC_API_KEY (the Cloudflare deploy stays Anthropic-only). The desktop
 - `worker/src/extension.js` — Endpoints for the Job Pilotto Chrome extension (extension/ in the repo).
 - `worker/src/format.js` — Telegram message text for the worker: HTML escaping and the run / applications / saved-jobs listings.
