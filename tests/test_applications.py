@@ -125,6 +125,19 @@ class TrackedJobFallbackTests(unittest.TestCase):
         self.assertEqual(daily.tracked_job(applications.job_code(url), self.stores)['url'], url)
 
 
+class NewRowPostedTests(unittest.TestCase):
+    """A row a button creates (rules.mark, any store) keeps the posting's date, as Tracker._create_row's Posted always did."""
+    def test_posted_is_the_postings_date_else_the_day_it_was_first_seen(self):
+        from src.stores import memory, rules
+        stores = memory.open_store()
+        seen, _ = rules.mark(stores, {'url': 'https://x.test/1', 'title': 'SRE', 'company': 'Acme',
+                                      'first_seen_at': '2026-10-02T08:00:00+00:00'}, 'Saved')
+        self.assertEqual((seen['posted'], seen['notes']), ('2026-10-02', 'Posted date is when Job Pilotto first saw the job.'))
+        posted, _ = rules.mark(stores, {'url': 'https://x.test/2', 'title': 'SRE', 'company': 'Acme',
+                                        'posted_at': '2026-09-30', 'first_seen_at': '2026-10-02T08:00:00+00:00'}, 'Applied')
+        self.assertEqual((posted['posted'], posted['notes']), ('2026-09-30', ''))
+
+
 class DigestIntegrationTests(unittest.TestCase):
     def test_applied_jobs_are_hidden_and_apply_command_works(self):
         report = {'jobs': [{'company': 'Example', 'id': str(i), 'title': f'SRE {i}', 'location': 'Zurich',
