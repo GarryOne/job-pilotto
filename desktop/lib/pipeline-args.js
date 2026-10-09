@@ -9,7 +9,7 @@ import {cadence} from './cadence.js';
 // file, note), so Telegram buttons and commands work the same from the app as from the cloud.
 export function dailyArgs(storage, inputs = {}) {
   const mode = inputs.mode || 'scheduled';
-  const ai = claudeCode.aiReady(storage.settings(), !!storage.secret('ANTHROPIC_API_KEY'));
+  const ai = claudeCode.aiReady(storage.settings(), !!storage.secret('ANTHROPIC_API_KEY'), !!storage.secret('OPENAI_API_KEY'));
   const telegram = !!(storage.secret('TELEGRAM_BOT_TOKEN') && storage.settings().telegramChatId);
   // --log-run: every run from the app gets a row in Notion ⏰ Search runs (Notion is where the details live).
   const args = ['src', 'daily', '--mode', mode, ...(telegram ? ['--send'] : []), '--log-run'];

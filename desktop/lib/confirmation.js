@@ -2,8 +2,8 @@
 // a yes or no: a short read by the user's own AI, never a hardcoded /confirmation or /thanks path. A path
 // like that is only a hint the model may see. Page text such as "thank you for applying", on its own, is not
 // a submission (1 Oct 2026). The URL helpers below are for the log line when such a page shows up with no submit press.
-import Anthropic from '@anthropic-ai/sdk';
-import * as claudeCode from './claude-code.js';
+import {priceOf} from './ai/models.js';
+import * as ai from './ai/index.js';
 
 export const MODEL = 'claude-haiku-5-5';
 const PRICE = {input: 0.1, output: 0.5}; // USD per million tokens, same haiku price as form learning
@@ -39,7 +39,7 @@ export function pageBrief({url, title, headings, text, inputs} = {}) {
 }
 
 export function aiClient(storage) {
-  return claudeCode.client(storage) || (storage.secret('ANTHROPIC_API_KEY') ? new Anthropic({apiKey: storage.secret('ANTHROPIC_API_KEY')}) : null);
+  return ai.client(storage);
 }
 
 // One small call. confirmation is true only on an explicit true. Anything else, including a failure, is not a mark.
@@ -67,7 +67,7 @@ export async function judgePage(client, raw) {
     catch { return {confirmation: false, error: 'not JSON', host: page.host, path: page.path, inputs: page.inputs}; }
     const usage = response.usage || {};
     const usd = usage.billing === 'subscription' ? 0
-      : Math.round(((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output) / 1e4) / 100;
+      : Math.round(((usage.input_tokens || 0) * priceOf(usage, PRICE).input + (usage.output_tokens || 0) * priceOf(usage, PRICE).output) / 1e4) / 100;
     return {confirmation, usd, host: page.host, path: page.path, inputs: page.inputs};
   } catch (error) {
     return {confirmation: false, error: String(error.message || 'AI failed').slice(0, 120), host: page.host, path: page.path, inputs: page.inputs};

@@ -11,10 +11,11 @@ import {forWindow} from './site-accounts.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import {cleanSecret} from './secrets.js';
+import {checkAnthropicKey} from './ai/anthropic-api.js';
 import {log as appLog} from './log.js';
 
 export function registerSetupHandlers(ctx) {
-  const {Anthropic, DEMO, connectNotion, dialog, handleImportant, ipcMain, licenseState, needsNotion, shell, storage, syncCv, getTelemetry, track, trackSetup, getWindow, setNotionFrom} = ctx;
+  const {DEMO, connectNotion, dialog, handleImportant, ipcMain, licenseState, needsNotion, shell, storage, syncCv, getTelemetry, track, trackSetup, getWindow, setNotionFrom} = ctx;
   handleImportant('notionConnect', 'Connecting Notion', async (_, pasted) => {
     const {value: token, error} = cleanSecret(pasted);
     if (error) return {ok: false, error};
@@ -74,7 +75,7 @@ export function registerSetupHandlers(ctx) {
     const {value: key, error} = cleanSecret(pasted);
     if (error) return {ok: false, error};
     try {
-      await new Anthropic({apiKey: key, baseURL: 'https://api.anthropic.com'}).models.list({limit: 1}); // free call: is the key valid?
+      await checkAnthropicKey(key); // free call: is the key valid?
       return {ok: true};
     } catch (error) {
       return {ok: false, error: error.status === 401 ? 'This key was rejected. Copy it again from console.anthropic.com.' : error.message};

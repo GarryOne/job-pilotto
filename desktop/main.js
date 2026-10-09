@@ -5,7 +5,6 @@ import {isTwin, twinRefusal} from './lib/twin.js';
 import {forWindow} from './lib/site-accounts.js';
 import * as devMarker from './lib/dev-marker.js';
 import {hideWindows} from './lib/e2e-hidden.js';
-import Anthropic from '@anthropic-ai/sdk';
 import fs from 'node:fs';
 import os from 'node:os';
 import {execFileSync} from 'node:child_process';
@@ -122,7 +121,7 @@ const about = {version: app.getVersion(), build: buildInfo?.build || null, commi
 let storage;
 let window;
 // AI steps can run: the user chose their own Claude Code, or saved an API key (lib/claude-code.js).
-const aiReady = () => claudeCode.aiReady(storage.settings(), !!storage.secret('ANTHROPIC_API_KEY'));
+const aiReady = () => claudeCode.aiReady(storage.settings(), !!storage.secret('ANTHROPIC_API_KEY'), !!storage.secret('OPENAI_API_KEY'));
 let polling = null;
 
 function restartTelegram() {
@@ -237,7 +236,7 @@ function handlers() {
   }
   registerContactHandlers({ipcMain, storage, DEMO, connected: () => notionGate.connected(storage), needsNotion, log: appLog,   // lib/contact-handlers.js
     contactSaved: saved => server.contactSaved(storage, saved)});
-  registerSetupHandlers({Anthropic, DEMO, connectNotion, dialog, handleImportant, ipcMain, licenseState, needsNotion, shell, storage, syncCv, getTelemetry: () => telemetry, track, trackSetup, getWindow: () => window,
+  registerSetupHandlers({DEMO, connectNotion, dialog, handleImportant, ipcMain, licenseState, needsNotion, shell, storage, syncCv, getTelemetry: () => telemetry, track, trackSetup, getWindow: () => window,
     setNotionFrom: value => { notionFrom = value; }});   // lib/setup-handlers.js
   registerStrategyDraftHandlers({DEMO, here, ipcMain, storage, syncCv, toWindow, trackSetup});   // lib/strategy-draft-handlers.js
   registerJobsHandlers({DEMO, JOBS_PAGE, activity, allowanceBlock, app, cloud, dispatchCloud, here, ipcMain, log, needsNotion, shell, storage, toWindow, track});   // lib/jobs-handlers.js

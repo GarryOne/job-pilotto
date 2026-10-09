@@ -3,14 +3,15 @@
 // a screening question could turn into a yes/no (work permit, place and office days, language, licence, clearance), and whether the CV and the Profile support
 // them. A grade is a sort order that recruiters override, not a verdict (docs/research/ats-reddit-2026-10.md). Facts only: a missing term is "add it only if
 // it is true". On request (a few cents); the last answer for a job is kept in cv/match/<code>.json, for the CV it was made with.
-import Anthropic from '@anthropic-ai/sdk';
+import {priceOf} from './ai/models.js';
+import {anthropicApi} from './ai/anthropic-api.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
 export const MODEL = process.env.JOB_PILOTTO_MODEL_OVERRIDE || 'claude-sonnet-5-5';
 const PRICE = {input: 2, output: 10};  // USD per million tokens
-const usd = usage => (usage?.billing === 'subscription' ? 0 : Math.round(((usage?.input_tokens || 0) * PRICE.input + (usage?.output_tokens || 0) * PRICE.output) / 1e4) / 100);
+const usd = usage => (usage?.billing === 'subscription' ? 0 : Math.round(((usage?.input_tokens || 0) * priceOf(usage, PRICE).input + (usage?.output_tokens || 0) * priceOf(usage, PRICE).output) / 1e4) / 100);
 
 const string = {type: 'string'};
 export const SCHEMA = {type: 'object', additionalProperties: false, required: ['grade', 'summary', 'musts', 'knockouts', 'advice'], properties: {
@@ -60,7 +61,7 @@ export function guard(result, text) {
 }
 
 export async function check(storage, apiKey, {job, cv, profile = '', client = null}) {
-  const anthropic = client || new Anthropic({apiKey});
+  const anthropic = client || anthropicApi(apiKey);
   const response = await anthropic.messages.create({
     model: MODEL, max_tokens: 5000, system: INSTRUCTIONS,
     messages: [{role: 'user', content: `<cv>\n${cvText(cv).slice(0, 30000)}\n</cv>\n\n<profile>\n${(profile || '(none)').slice(0, 8000)}\n</profile>\n\n` +

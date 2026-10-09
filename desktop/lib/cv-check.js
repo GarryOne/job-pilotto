@@ -4,14 +4,15 @@
 // Claude call on the text a parser would get: keywords for the person's target roles, evidence, clarity. It is a readiness check, not a
 // score from any real hiring system (they do not publish one). Only observed extraction problems cost points (no text, garbled characters, no contact
 // details, no readable dates); layout alone (columns, pictures) is a note: no recruiter or admin we found shows it breaking a parse. Results are a cache of the PDF (cv/check.json), rebuilt on demand.
-import Anthropic from '@anthropic-ai/sdk';
+import {priceOf} from './ai/models.js';
+import {anthropicApi} from './ai/anthropic-api.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
 export const MODEL = process.env.JOB_PILOTTO_MODEL_OVERRIDE || 'claude-sonnet-5-5';
 const PRICE = {input: 2, output: 10};  // USD per million tokens
-const usd = usage => (usage?.billing === 'subscription' ? 0 : Math.round(((usage?.input_tokens || 0) * PRICE.input + (usage?.output_tokens || 0) * PRICE.output) / 1e4) / 100);
+const usd = usage => (usage?.billing === 'subscription' ? 0 : Math.round(((usage?.input_tokens || 0) * priceOf(usage, PRICE).input + (usage?.output_tokens || 0) * priceOf(usage, PRICE).output) / 1e4) / 100);
 
 // ---------- the text, in the order a parser reads it ----------
 export function linesOf(pages) {
@@ -180,7 +181,7 @@ const plain = value => String(value || '').toLowerCase().replace(/[^\p{L}\p{N}+#
 export const stated = (text, term) => { const p = plain(term); return p.length >= 2 && ` ${plain(text)} `.includes(` ${p} `); };
 
 export async function review(storage, apiKey, text, {client = null, profile = ''} = {}) {
-  const anthropic = client || new Anthropic({apiKey});
+  const anthropic = client || anthropicApi(apiKey);
   const response = await anthropic.messages.create({
     model: MODEL, max_tokens: 6000, system: INSTRUCTIONS,
     messages: [{role: 'user', content: `<cv>\n${text.slice(0, 30000)}\n</cv>\n\n<profile>\n${(profile || '(none)').slice(0, 6000)}\n</profile>`}],

@@ -7,10 +7,11 @@
 //   account       a sign-in or sign-up only (never filled by the extension; Claude or the person makes the account)
 //   posting       a job posting or a step that leads on to the application (press its Apply)
 //   other         none of these (an error, a list of jobs, a cookie wall)
+import {model, priceOf} from './ai/models.js';
 import fs from 'node:fs';
 import {validateAlias} from '../shared/alias-schema.js';
 
-export const MODEL = 'claude-haiku-5-5';
+export const MODEL = model('small');   // the small tier (lib/ai/models.js); an OpenAI engine maps it to its own small model
 const PRICE = {input: 0.1, output: 0.5}; // USD per million tokens, the haiku price confirmation.js and form learning use
 export const KINDS = ['form', 'account-form', 'account', 'posting', 'other'];
 // The role the extension's flows go by (tab-pages.js pageRole's words): an account-form page is the form.
@@ -135,7 +136,7 @@ export async function pageKind(client, raw, cache, {now = Date.now()} = {}) {
     try { answer = JSON.parse(text); } catch { return {error: 'not JSON', shape}; }
     const usage = response.usage || {};
     const usd = usage.billing === 'subscription' ? 0
-      : Math.round(((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output) / 1e4) / 100;
+      : Math.round(((usage.input_tokens || 0) * priceOf(usage, PRICE).input + (usage.output_tokens || 0) * priceOf(usage, PRICE).output) / 1e4) / 100;
     const confidence = Math.max(0, Math.min(1, Number(answer?.confidence) || 0));
     if (!KINDS.includes(answer?.kind)) return {error: 'not a kind', shape, usd};
     if (confidence < MIN_CONFIDENCE) return {error: `unsure (${confidence})`, kind: answer.kind, shape, usd};

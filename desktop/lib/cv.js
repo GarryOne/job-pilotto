@@ -6,7 +6,8 @@
 //
 //   cv/cv.json, cv/assets/ (photo, logos), cv/style.css (optional own design)
 //   cv/tailored/<job code>.json (the tailored data, what changed and why) and .pdf
-import Anthropic from '@anthropic-ai/sdk';
+import {priceOf} from './ai/models.js';
+import {anthropicApi} from './ai/anthropic-api.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
@@ -15,7 +16,7 @@ import {render} from '../cv/template.js';
 
 export const MODEL = process.env.JOB_PILOTTO_MODEL_OVERRIDE || 'claude-sonnet-5-5';   // the override: the end-to-end journey (desktop/e2e)
 const PRICE = {input: 2, output: 10};  // USD per million tokens
-const usd = usage => (usage?.billing === 'subscription' ? 0 : Math.round(((usage?.input_tokens || 0) * PRICE.input + (usage?.output_tokens || 0) * PRICE.output) / 1e4) / 100);  // Claude Code: the user's plan, $0
+const usd = usage => (usage?.billing === 'subscription' ? 0 : Math.round(((usage?.input_tokens || 0) * priceOf(usage, PRICE).input + (usage?.output_tokens || 0) * priceOf(usage, PRICE).output) / 1e4) / 100);  // Claude Code: the user's plan, $0
 
 const string = {type: 'string'};
 const list = {type: 'array', items: string};
@@ -46,7 +47,7 @@ bold figures as **bold**. Use "" for anything the CV doesn't show.`;
 // look: async cv => cv, keeps the PDF's photo, icons, logos and page breaks (lib/cv-look.js; needs a window, so main.js passes it). A failure there keeps the plain CV.
 export async function importPdf(storage, apiKey, client = null, {look = null} = {}) {
   const pdf = fs.readFileSync(storage.path('cv.pdf'));
-  const anthropic = client || new Anthropic({apiKey});
+  const anthropic = client || anthropicApi(apiKey);
   const response = await anthropic.messages.create({
     model: MODEL, max_tokens: 16000, system: IMPORT_INSTRUCTIONS,
     messages: [{role: 'user', content: [
@@ -104,7 +105,7 @@ const numbered = cv => ({summary: cv.summary || '', jobs: cv.jobs.map(job => ({c
 export async function tailor(storage, posting, apiKey, {client = null, feedback = '', profile = ''} = {}) {
   const cv = baseCv(storage);
   if (!cv) throw new Error('No base CV yet');
-  const anthropic = client || new Anthropic({apiKey});
+  const anthropic = client || anthropicApi(apiKey);
   const response = await anthropic.messages.create({
     model: MODEL, max_tokens: 12000, system: TAILOR_INSTRUCTIONS,
     messages: [{role: 'user', content: `<cv>\n${JSON.stringify(numbered(cv), null, 1)}\n</cv>\n\n<profile>\n${(profile || '').slice(0, 40000)}\n</profile>\n\n` +

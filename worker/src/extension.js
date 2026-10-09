@@ -9,7 +9,7 @@
 // Every call needs `Authorization: Bearer <EXTENSION_TOKEN>` (a Worker secret). Responses allow any
 // origin, so the extension needs no host permission for the Worker; the token is the access control.
 
-import Anthropic from '@anthropic-ai/sdk';
+import { anthropicClient, priceOf } from './ai.js';
 
 const KIT_HEADING = '📝 Application kit';
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
@@ -171,7 +171,7 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   // The strategy's search settings (roles, places, what the user aims for): a proposal should serve that, not just the CV.
   const search = String((await Promise.resolve(env.SEARCH_TEXT).catch(() => '')) || '').slice(0, 4000);
   const job = row ? summary(row) : { title: '', company: '', url };
-  const anthropic = client || new Anthropic({ apiKey: anthropicKey(env), fetch: (...args) => globalThis.fetch(...args) });
+  const anthropic = client || anthropicClient(anthropicKey(env));
   const response = await anthropic.messages.create({
     model: env.JOB_PILOTTO_KIT_MODEL || DEFAULT_MODEL,
     max_tokens: 16000,
@@ -197,7 +197,7 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   const result = JSON.parse(text);
   const usage = response.usage || {};
   // Answered on the user's Claude plan (Claude Code): no per-token cost.
-  const usd = usage.billing === 'subscription' ? 0 : ((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output
+  const usd = usage.billing === 'subscription' ? 0 : ((usage.input_tokens || 0) * priceOf(usage, PRICE).input + (usage.output_tokens || 0) * priceOf(usage, PRICE).output
     + (usage.cache_read_input_tokens || 0) * PRICE.cacheRead + (usage.cache_creation_input_tokens || 0) * PRICE.cacheWrite) / 1e6;
   const known = new Set(fields.map((f) => f.field));
   // A proposal is never for a legal or demographic question, whatever the AI said (a hard floor beside its own rule). A knockout question
@@ -340,8 +340,10 @@ export async function handleExtension(request, env) {
       try {
         return json(await answerForm(env, { url: body.url, fields, page_text: body.page_text, test: !!body.test }, aiClient));
       } catch (error) {
-        const limit = /credit|spend|limit|billing/i.test(error.message);
-        return json({ error: limit ? 'The Anthropic spend limit is reached; fill without AI for now.' : `AI answer failed: ${error.message}` }, limit ? 402 : 502);
+        // The app's injected client throws the contract's AiLimit (any engine: a plan's or a key's limit); the Worker's own SDK says it in words.
+        const limit = !!error.aiLimit || /credit|spend|limit|billing/i.test(error.message);
+        const said = error.aiLimit ? `${error.message} Fill without AI for now.` : 'The Anthropic spend limit is reached; fill without AI for now.';
+        return json({ error: limit ? said : `AI answer failed: ${error.message}` }, limit ? 402 : 502);
       }
     }
     if (request.method === 'POST' && url.pathname === '/extension/run') {

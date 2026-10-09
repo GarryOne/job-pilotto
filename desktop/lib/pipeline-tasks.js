@@ -74,7 +74,7 @@ export function task(storage, kind, args, onLine, trigger = 'you', {note = ''} =
 }
 function searchOnce(storage, onLine, mode, trigger = 'you') {
   return (async () => {
-    const ai = claudeCode.aiReady(storage.settings(), !!storage.secret('ANTHROPIC_API_KEY'));
+    const ai = claudeCode.aiReady(storage.settings(), !!storage.secret('ANTHROPIC_API_KEY'), !!storage.secret('OPENAI_API_KEY'));
     const startedAt = new Date().toISOString();   // "Your search changed" compares with when a refresh began, not ended (renderer/search-changed.js)
     onLine('Searching job boards…');
     await run(storage, ['src', 'discover', '--pages', '5', '--max-companies', '40'], onLine);

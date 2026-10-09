@@ -73,7 +73,7 @@ export function pipelineEnv(storage, parent = process.env) {
   };
   // The Profile and standard answers are read from Notion; before it is connected (Trying) from this Mac's files
   // (src/paths.py local_text). Never set when connected: the local file would win over Notion.
-  for (const name of ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY', 'BRAVE_SEARCH_API_KEY', 'ADZUNA_APP_ID', 'ADZUNA_APP_KEY', 'JOOBLE_API_KEY']) {
+  for (const name of ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY', 'BRAVE_SEARCH_API_KEY', 'ADZUNA_APP_ID', 'ADZUNA_APP_KEY', 'JOOBLE_API_KEY']) {
     const value = storage.secret(name);
     if (value) env[name] = value;
   }
@@ -95,9 +95,9 @@ export function pipelineEnv(storage, parent = process.env) {
     // A fictional candidate's Profile (the quality suite's personas, desktop/e2e/fixtures/golden-*): a file the engine scores against instead of the test page's Profile. Test runs only.
     if (parent.JOB_PILOTTO_E2E_PROFILE_FILE) env.JOB_PILOTTO_PROFILE_FILE = parent.JOB_PILOTTO_E2E_PROFILE_FILE;
   }
-  // The AI engine the user chose (lib/claude-code.js): their own Claude Code on this Mac, or the API key.
-  Object.assign(env, claudeCode.pipelineVariables(settings, !!env.ANTHROPIC_API_KEY));
-  if (claudeCode.aiReady(settings, !!env.ANTHROPIC_API_KEY)) {
+  // The AI engine the user chose (lib/claude-code.js): their own Claude Code or Codex on this Mac, or an API key (Anthropic or OpenAI).
+  Object.assign(env, claudeCode.pipelineVariables(settings, !!env.ANTHROPIC_API_KEY, !!env.OPENAI_API_KEY));
+  if (claudeCode.aiReady(settings, !!env.ANTHROPIC_API_KEY, !!env.OPENAI_API_KEY)) {
     env.JOB_PILOTTO_ENRICH_MODEL = MODELS.enrich;
     env.JOB_PILOTTO_SCORE_MODEL = MODELS.score;
     env.JOB_PILOTTO_KIT_MODEL = MODELS.kit;

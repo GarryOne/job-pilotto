@@ -4,6 +4,7 @@
 // from the public starter template, installs the app on it, and approves a sign-in code; the app then
 // commits the schedule and search settings, and stores their keys as encrypted repository secrets. Each run executes the public
 // engine (GarryOne/job-pilotto) with those secrets, so logs and data stay in the user's private repo.
+import * as ai from './ai/index.js';
 import * as poolShare from './pool-share.js';
 import fs from 'node:fs';
 import {createHash} from 'node:crypto';
@@ -26,7 +27,7 @@ export const INSTALL_URL = `https://github.com/apps/${APP_SLUG}/installations/ne
 const API = 'https://api.github.com';
 
 // Keys the cloud runs need (secrets), and what the app's own runs set (variables): same values as pipelineEnv.
-export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY', 'BRAVE_SEARCH_API_KEY', 'ADZUNA_APP_ID', 'ADZUNA_APP_KEY', 'JOOBLE_API_KEY'];
+export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY', 'BRAVE_SEARCH_API_KEY', 'ADZUNA_APP_ID', 'ADZUNA_APP_KEY', 'JOOBLE_API_KEY'];
 // Secrets kept outside the app's own store, e.g. the Google sign-in (the Python side keeps it in the Keychain):
 // main.js sets the reader; they go to the repo with the rest, so a Gmail check on GitHub can sign in.
 let extraSecrets = () => ({});
@@ -188,7 +189,11 @@ export function payload(storage, templatesDir = path.join(REPO, 'templates', 'gi
   if (settings.telegramChatId) secrets.TELEGRAM_CHAT_ID = String(settings.telegramChatId);
   const variables = Object.fromEntries(Object.entries(settings.notionIds || {}).filter(([, value]) => value));
   const removed = [];
-  if (secrets.ANTHROPIC_API_KEY) {
+  // The engine GitHub runs use (never a CLI there): the chosen family's API engine, on its own key (lib/ai/index.js alwaysOnEngine).
+  // 'api' is the workflows' default, so it is only set for OpenAI (and removed otherwise, so a switch back to Claude takes effect).
+  const engine = ai.alwaysOnEngine(settings, ai.keysOf(storage));
+  if (engine === 'openai') variables.JOB_PILOTTO_AI_ENGINE = engine; else removed.push('JOB_PILOTTO_AI_ENGINE');
+  if (secrets[ai.ENGINES[engine].key]) {
     for (const [name, stage] of Object.entries(MODEL_VARIABLES)) variables[name] = MODELS[stage];
     const {insights, kits} = cadence(settings);
     if (insights === 'off') { delete variables.JOB_PILOTTO_INSIGHT_MODEL; removed.push('JOB_PILOTTO_INSIGHT_MODEL'); }

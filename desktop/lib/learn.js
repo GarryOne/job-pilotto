@@ -4,7 +4,8 @@
 // extension at fill time) and mirrored to a "🧠 Form knowledge" page in the user's Notion (read by kit
 // drafting and on-page answering, and where the user reads or deletes them). Missing personal facts are
 // not guessed: they stay in the "Answer once" list.
-import Anthropic from '@anthropic-ai/sdk';
+import {priceOf} from './ai/models.js';
+import {anthropicApi} from './ai/anthropic-api.js';
 import {KEYS} from '../shared/alias-schema.js';
 
 export const MODEL = 'claude-haiku-5-5';
@@ -86,7 +87,7 @@ export async function learn({run, profile = '', answers = '', contact = {}, know
   const form = (run.debug?.form || []).filter(f => labels.has(f.label) || left.some(l => (f.label || '').includes(l.label)));
   let host = '';
   try { host = new URL(run.url).hostname; } catch {}
-  const anthropic = client || new Anthropic({apiKey});
+  const anthropic = client || anthropicApi(apiKey);
   const response = await anthropic.messages.create({
     model: MODEL, max_tokens: 2000,
     system: INSTRUCTIONS,
@@ -103,7 +104,7 @@ export async function learn({run, profile = '', answers = '', contact = {}, know
   });
   const text = response.content.find(block => block.type === 'text')?.text || '{"notes":[]}';
   const usage = response.usage || {};
-  const usd = usage.billing === 'subscription' ? 0 : Math.round(((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output) / 1e4) / 100;
+  const usd = usage.billing === 'subscription' ? 0 : Math.round(((usage.input_tokens || 0) * priceOf(usage, PRICE).input + (usage.output_tokens || 0) * priceOf(usage, PRICE).output) / 1e4) / 100;
   return {notes: JSON.parse(text).notes || [], usd};
 }
 

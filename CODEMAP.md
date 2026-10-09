@@ -38,7 +38,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/browser-launch.js` — Which Chromium browser to open a URL in, and how. Chrome first (what the app always did), then Edge (the Windows
 - `desktop/lib/cadence.js` — How often each job runs, chosen by the user (Settings → How often), as GitHub Actions schedules.
 - `desktop/lib/calltap.js` — The call's audio for the interview recorder, through AudioTee (Core Audio taps, macOS 14.2+): it needs only
-- `desktop/lib/claude-code.js` — The AI engine the user chose (Settings → Connections → AI, and the setup wizard's AI step): their Anthropic API key,
+- `desktop/lib/claude-code.js` — The AI engine the user chose (Settings → Connections → AI, and the setup wizard's AI step): their Anthropic or OpenAI API key,
 - `desktop/lib/claude-session.js` — Apply with Claude: one interactive Claude Code session per job, each in its own window (Terminal on the
 - `desktop/lib/cloud-handlers.js` — The Always on and Telegram IPC (moved out of main.js, 8 Oct 2026): connecting and turning off Always on (the user's GitHub repo), the Telegram buttons
 - `desktop/lib/confirmation.js` — A submit press, then a change: a redirect, or new content on the same page. This file turns that page into
@@ -550,6 +550,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 ## Telegram bot (worker)
 
+- `worker/src/ai.js` — The Worker's AI client: the Anthropic SDK on the Worker's own ANTHROPIC_API_KEY (the Cloudflare deploy stays Anthropic-only). The desktop
 - `worker/src/extension.js` — Endpoints for the Job Pilotto Chrome extension (extension/ in the repo).
 - `worker/src/format.js` — Telegram message text for the worker: HTML escaping and the run / applications / saved-jobs listings.
 - `worker/src/index.js` — Telegram webhook for @sre_job_pilotto_bot.

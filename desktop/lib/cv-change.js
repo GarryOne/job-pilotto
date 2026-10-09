@@ -4,13 +4,14 @@
 //   Profile (update / add / remove); the user accepts each one, and only those lines change. Never a rebuild.
 // - Not changed: searches and preferences, existing matches and scores, applications already sent.
 // The previous PDF is kept as cv.previous.pdf (a large file, on this Mac only) until the next replacement.
-import Anthropic from '@anthropic-ai/sdk';
+import {priceOf} from './ai/models.js';
+import {anthropicApi} from './ai/anthropic-api.js';
 import fs from 'node:fs';
 import * as notion from './notion.js';
 
 export const MODEL = process.env.JOB_PILOTTO_MODEL_OVERRIDE || 'claude-sonnet-5-5';   // the override: the end-to-end journey (desktop/e2e)
 const PRICE = {input: 2, output: 10};  // USD per million tokens
-const usd = usage => (usage?.billing === 'subscription' ? 0 : Math.round(((usage?.input_tokens || 0) * PRICE.input + (usage?.output_tokens || 0) * PRICE.output) / 1e4) / 100);  // Claude Code: the user's plan, $0
+const usd = usage => (usage?.billing === 'subscription' ? 0 : Math.round(((usage?.input_tokens || 0) * priceOf(usage, PRICE).input + (usage?.output_tokens || 0) * priceOf(usage, PRICE).output) / 1e4) / 100);  // Claude Code: the user's plan, $0
 export const PREVIOUS = 'cv.previous.pdf';
 
 // Replace the CV: the one there now becomes cv.previous.pdf (only after setup, when there's a Profile to compare).
@@ -47,7 +48,7 @@ export async function review(storage, apiKey, {client = null, fetcher} = {}) {
   if (!fs.existsSync(storage.path(PREVIOUS))) throw new Error('The previous CV is not on this computer, so there is nothing to compare');
   const lines = (await notion.textBlocks(token, page, fetcher)).filter(block => block.text.trim());
   const pdf = name => ({type: 'document', source: {type: 'base64', media_type: 'application/pdf', data: fs.readFileSync(storage.path(name)).toString('base64')}});
-  const anthropic = client || new Anthropic({apiKey});
+  const anthropic = client || anthropicApi(apiKey);
   const response = await anthropic.messages.create({
     model: MODEL, max_tokens: 8000, system: INSTRUCTIONS,
     messages: [{role: 'user', content: [pdf(PREVIOUS), pdf('cv.pdf'),

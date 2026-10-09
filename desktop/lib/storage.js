@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {twinSecret} from './twin.js';
 
-export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY', 'BRAVE_SEARCH_API_KEY', 'ADZUNA_APP_ID', 'ADZUNA_APP_KEY', 'JOOBLE_API_KEY', 'EXTENSION_TOKEN', 'GITHUB_TOKEN', 'REPORT_TOKEN', 'CLOUDFLARE_API_TOKEN'];
+export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY', 'BRAVE_SEARCH_API_KEY', 'ADZUNA_APP_ID', 'ADZUNA_APP_KEY', 'JOOBLE_API_KEY', 'EXTENSION_TOKEN', 'GITHUB_TOKEN', 'REPORT_TOKEN', 'CLOUDFLARE_API_TOKEN'];
 
 export function createStorage(dir, crypto) {
   fs.mkdirSync(dir, {recursive: true});

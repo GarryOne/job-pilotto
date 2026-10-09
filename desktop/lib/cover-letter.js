@@ -4,13 +4,14 @@
 //
 //   cover-letter/letter.json  {text, status: 'draft' | 'approved', createdAt, approvedAt, model, usd}
 //   cover-letter/letter.pdf   only while approved: an edit makes it a draft again and removes the PDF
-import Anthropic from '@anthropic-ai/sdk';
+import {priceOf} from './ai/models.js';
+import {anthropicApi} from './ai/anthropic-api.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import {baseCv, MODEL} from './cv.js';
 
 const PRICE = {input: 2, output: 10};  // USD per million tokens
-const usd = usage => (usage?.billing === 'subscription' ? 0 : Math.round(((usage?.input_tokens || 0) * PRICE.input + (usage?.output_tokens || 0) * PRICE.output) / 1e4) / 100);
+const usd = usage => (usage?.billing === 'subscription' ? 0 : Math.round(((usage?.input_tokens || 0) * priceOf(usage, PRICE).input + (usage?.output_tokens || 0) * priceOf(usage, PRICE).output) / 1e4) / 100);
 
 export const dir = storage => storage.path('cover-letter');
 const jsonPath = storage => path.join(dir(storage), 'letter.json');
@@ -51,7 +52,7 @@ export async function generate(storage, {apiKey, client = null, profile = '', an
   const cv = baseCv(storage);
   if (!cv) throw new Error('Read your CV first (Preview CV or Read my CV PDF).');
   const previous = load(storage)?.text || '';
-  const anthropic = client || new Anthropic({apiKey});
+  const anthropic = client || anthropicApi(apiKey);
   const response = await anthropic.messages.create({
     model: MODEL, max_tokens: 3000, system: INSTRUCTIONS,
     messages: [{role: 'user', content: `<cv>\n${cvText(cv)}\n</cv>\n\n<profile>\n${profile.slice(0, 40000)}\n</profile>\n\n` +

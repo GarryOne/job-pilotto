@@ -1,6 +1,7 @@
 // Strategy builder: CV (PDF) + an optional note from the user -> proposed goals, a draft Profile, standard answers
 // and search settings, in one Claude call. Nothing is saved until the user reviews (and corrects) the draft.
-import Anthropic from '@anthropic-ai/sdk';
+import {priceOf} from './ai/models.js';
+import {anthropicApi} from './ai/anthropic-api.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import {wordsOf} from './strategy-rebuild.js';
@@ -216,7 +217,7 @@ export async function draft(storage, answers, apiKey, client = null, onProgress 
   const cv = fs.readFileSync(storage.path('cv.pdf'));
   const known = knownFacts(storage);
   const example = fs.readFileSync(path.join(REPO, 'config', 'search.json'), 'utf8');
-  const anthropic = client || new Anthropic({apiKey});
+  const anthropic = client || anthropicApi(apiKey);
   const request = {
     model: MODEL,
     max_tokens: 16000,
@@ -246,7 +247,7 @@ export async function draft(storage, answers, apiKey, client = null, onProgress 
   if (result.search) result.search = withRemoteDefaults(result.search);
   storage.saveSettings({draftSections: sectionLengths(text)});  // the next draft's bar follows this one's parts
   const usage = response.usage || {};
-  result.usd = usage.billing === 'subscription' ? 0 : Math.round(((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output) / 1e4) / 100;
+  result.usd = usage.billing === 'subscription' ? 0 : Math.round(((usage.input_tokens || 0) * priceOf(usage, PRICE).input + (usage.output_tokens || 0) * priceOf(usage, PRICE).output) / 1e4) / 100;
   return result;
 }
 
