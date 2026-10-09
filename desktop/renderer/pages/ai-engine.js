@@ -127,6 +127,7 @@ export function mountEngine(box, {context = 'settings', onChange = () => {}} = {
     else if (id === 'cli') shared.state.settings = {...shared.state.settings, claudeCodeNotice: true};
     else if (id === 'codex') shared.state.settings = {...shared.state.settings, codexNotice: true};
     applyAiNames();   // the window's static texts name the new engine at once
+    window.dispatchEvent(new Event('claude-help'));   // and every Claude entry point (Jobs ⋯, Apply dialog, sessions) shows or hides with the family
     render();
     onChange(picked);
   }
