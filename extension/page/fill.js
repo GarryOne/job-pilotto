@@ -205,6 +205,7 @@
     };
     // Field-by-field log for the run record: where each answer came from and what happened.
     const answerOf = Object.fromEntries(answers.map(a => [a.field, a]));
+    const knownKey = row => (PROFILE_LABELS.find(([, pattern]) => pattern.test(clean(row.label || ''))) || [])[0] || aliasFor(row.label || '')?.key || '';
     // Upload widgets' own buttons (Attach, Dropbox, Enter manually…) aren't questions: not in the log.
     const trace = after.filter(row => row.field !== 'resume' && row.type !== 'file' && !/^(attach|dropbox|google drive|enter manually)$/i.test(clean(row.label))).map(row => {
       const label = rowOf[row.field]?.label || clean(row.label).replace(row.field, '').trim() || row.field;
@@ -218,6 +219,9 @@
       else if (!row.filled && armedFields.has(row.field)) { outcome = 'left'; reason = 'dropdown that opens only on a real click'; }
       // The question read as one of its own choices (or nothing): the page's title wasn't found, so no answer could be right.
       else if (!row.filled && !answer && (!label || (rowOf[row.field]?.options || []).some(o => norm(o) === norm(label)))) reason = 'question text not found on the page';
+      // A detail the built-in words or a pack meaning recognise, with nothing saved for it: your data to give once (cause no_data), never a
+      // wording to learn (only NO_ANSWER rows are reported as such). 9 Oct 2026: "Lieu d'origine" went to the learner although its meaning was known.
+      else if (!row.filled && !answer && !contactFields.has(row.field) && knownKey(row)) reason = `a detail of yours not saved yet (${knownKey(row)})`;
       else if (!row.filled && !answer && !contactFields.has(row.field)) reason = 'no answer in the kit, Profile or your details';
       else if (!row.filled) reason = 'answer given, but the field did not take it';
       if (outcome === 'filled' && source && row.type !== 'file') watchCorrection(row.field, label);

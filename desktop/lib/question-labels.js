@@ -40,7 +40,7 @@ export function leftReason(reason) {
   const text = String(reason || '');
   if (/^(legal|no CV)/.test(text)) return '';
   if (text.startsWith('proposed')) return 'proposed';   // not in your profile; the AI's likely answer is shown to confirm: counted apart from the truly missing
-  if (text.startsWith('no answer')) return 'no_answer';
+  if (text.startsWith('no answer') || text.startsWith('a detail of yours not saved yet')) return 'no_answer';   // the second: a known detail with no value
   if (/^question (on the page not read|text not found)/.test(text)) return 'unread';
   if (text.startsWith('answer given')) return 'not_taken';
   // A menu left empty, as the pick observed it (extension/menu-reason.js; test/menu-reason-copies.test.js keeps these equal).

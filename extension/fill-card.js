@@ -27,6 +27,7 @@ export function causeOf(row, {sent = new Set(), ai = null, aiError = '', useAI =
   if (reason.startsWith('answer given')) return 'not_taken';
   const menu = menuCause(reason);
   if (menu) return menu;
+  if (reason.startsWith('a detail of yours not saved yet')) return 'no_data';   // known meaning, no value: yours to give once
   if (reason !== NO_ANSWER) return 'other';
   if (!sent.has(row.field)) return useAI ? 'no_data' : 'ai_off';
   if (aiError) return 'ai_error';
