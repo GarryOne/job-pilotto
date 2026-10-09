@@ -1,7 +1,7 @@
 """The scheduled search on the active store (src/stores), end to end: no Notion, no network, no AI.
 
 A person on this Mac's store gets the run's row, the crawl's employers, the budget, the insight and the health alert from that
-store; a Notion token beside another store never brings a second copy into Notion (Job Matches and the Pipeline page stay untouched).
+store; a Notion token beside another store never brings a second copy into Notion (only the Pipeline page stays Notion's).
 Guards src/daily.py, src/daily_search.py and the run_stores / url_stages / profile_source helpers in src/daily_helpers.py.
 """
 import contextlib
@@ -52,7 +52,6 @@ class ScheduledRunOnTheStoreTests(unittest.TestCase):
             mock.patch.object(daily_search.insights, 'run', side_effect=record('insight', 'Insight: none today')),
             mock.patch.object(daily_search.doctor, 'alert', side_effect=record('doctor', 'Health: all good')),
             mock.patch.object(daily_search.doctor, 'HEALTH_HOUR_UTC', datetime.now(timezone.utc).hour),
-            mock.patch.object(daily_search.matches, 'sync', side_effect=AssertionError('Job Matches is Notion only')),
             mock.patch.object(daily_search.ledger_store, 'sync', side_effect=record('ledger', 'Ledger sync: 1 applications')),
             mock.patch.object(daily_search.ledger_store, 'close_gone', side_effect=record('gone', ('Taken-down postings: 0', []))),
             mock.patch.object(daily_search.funnel, 'write', side_effect=AssertionError('the Pipeline page is Notion only')),
@@ -82,6 +81,7 @@ class ScheduledRunOnTheStoreTests(unittest.TestCase):
         self.assertEqual(runs[0]['mode'], 'scheduled')
         by_name = {name: (a, k) for name, a, k in self.calls}
         self.assertIs(by_name['scout'][0][1], self.stores)      # the crawl's employers: this store's
+        self.assertIn('Job Matches:', out)                      # the search's matches: synced into this store
         self.assertIs(by_name['contribute'][0][2], self.stores)
         self.assertIs(by_name['budget'][0][0], self.stores)     # the AI budget: this store's run rows
         self.assertIs(by_name['insight'][1]['stores'], self.stores)   # the daily insight runs without Notion

@@ -1,7 +1,7 @@
 """The jobs check's search itself (modes scheduled, run, today, more): crawl the feeds, import, enrich, score, sync Job Matches and the
 ledger, build the digest, send it to Telegram, save and log the run. `search(args, tracker, stores)` returns the exit code. The data is
 the active store's (src/stores: open once, passed down); `notion` is the tracker only while the store is Notion, for the steps only
-Notion has yet (Job Matches, the 🎯 Pipeline page), so this Mac's store never gets a copy in Notion.
+Notion has (the 🎯 Pipeline page), so this Mac's store never gets a copy in Notion.
 Tests: tests/test_daily.py, tests/test_refresh_batch.py, tests/test_search_budget.py, tests/test_places_strict.py, tests/test_place_triage.py,
 tests/test_contribute.py, tests/test_watch.py, tests/test_score.py.
 """
@@ -12,7 +12,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from . import contribute, coverage, digest, doctor, employer_index, features, ledger_store, scout, store, telegram
 from .ai import budget, enrich, insights, interviews, kit, score
-from .notion import client as notion_client, funnel, ledger, matches
+from .notion import client as notion_client, funnel
 from .paths import DATA, REPORTS, load_search_config
 from .sources import describe, feeds, google_jobs
 from .daily_helpers import (STALE_DAYS, crawl_counts, digest_note, downloaded_index, for_job_matches, left_out, log_crawl, new_cron_run, no_profile,
@@ -171,10 +171,10 @@ def search(args, tracker, stores=None):
                 def to_notion():
                     # Owner, 7 Oct 2026: Job Matches was written only after the whole search, so a stopped one left nothing there. The scores
                     # so far are written now and then; the end of the search still writes the rest and marks what is gone or applied.
-                    if not notion or args.mode not in ('scheduled', 'run', 'today'):
+                    if args.mode not in ('scheduled', 'run', 'today'):
                         return
                     try:
-                        print(matches.sync(db, notion, for_job_matches(db, hidden), hidden - dismissed, None, dismissed, partial=True) + ' (so far)', flush=True)
+                        print(stores.matches.sync(db, for_job_matches(db, hidden), hidden - dismissed, None, dismissed, partial=True) + ' (so far)', flush=True)
                     except Exception as error:  # noqa: BLE001 — the end of the search writes them
                         print(f'Job Matches: not updated yet ({type(error).__name__}); the end of the search writes them', flush=True)
                 print(score.run(db, candidates, profile, score.DEFAULT_MODEL, args.score_max, stats=run['score'], on_scored=to_notion, only_ids=batch))
@@ -214,10 +214,9 @@ def search(args, tracker, stores=None):
                 scored = for_job_matches(db, hidden)
                 open_urls = {j['url'].strip() for j in store.digest_jobs(db, limit=10_000) if j.get('url')}
                 run['top_new'] = top_new(report, scored)
-                if notion:
-                    # Mirror scored jobs into Notion "Job Matches"; a Notion problem never blocks the digest.
-                    run['matches'] = matches.sync(db, notion, scored, hidden - dismissed, open_urls, dismissed)
-                    print(run['matches'])
+                # Scored jobs into the store's Job Matches (src/stores Matches.sync); a store problem never blocks the digest.
+                run['matches'] = stores.matches.sync(db, scored, hidden - dismissed, open_urls, dismissed)
+                print(run['matches'])
                 if args.auto_kit_max:
                     # Runs after scoring so it sees the same fits; a kit failure never blocks the digest.
                     run['kits'] = {}
@@ -227,8 +226,8 @@ def search(args, tracker, stores=None):
                     run['kit_titles'] = [f"{job['title']} ({job['company']})" for job, _ in drafted_jobs]
                     print(summary)
             except Exception as error:
-                print(f'Warning: {"Notion Job Matches sync or " if notion else ""}auto-kit skipped: {type(error).__name__}: {error}')
-                run['warnings'].append(f'{"Job Matches sync or " if notion else ""}auto-kit skipped: {type(error).__name__}')
+                print(f'Warning: Job Matches sync or auto-kit skipped: {type(error).__name__}: {error}')
+                run['warnings'].append(f'Job Matches sync or auto-kit skipped: {type(error).__name__}')
         if args.mode == 'scheduled':
             # Application ledger (src/ledger_store.py, any store): log Stage edits, and mark silent applications No response.
             try:
