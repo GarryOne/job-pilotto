@@ -4,15 +4,15 @@
 // A new entry point fails notion-parity.test.js until it has a row here.
 const JOB = {view: 'pages/job-panel.js openJobPanel'};
 const PREP = {view: 'pages/prep.js openPrep'};
-const EDITORS = {pending: 'mac-27 (P8 C: Profile, Answers, Form knowledge and Search settings editors)'};
-const REPORTS = {pending: 'mac-27 (P8 D: reports and history in full)'};
+const TEXTS = {view: 'pages/text-editors.js loadTextEditor'};   // Settings → Profile: the Profile, answers and Form knowledge (P8 C)
+const FUNNEL = {view: 'pages/reports.js funnelTab'};             // Reports → Funnel: the Pipeline table and Where to improve (P8 D)
 
 export const NOTION_PARITY = {
-  'index.html#focus-funnel-notion': REPORTS,                     // the 🎯 Pipeline page: funnel "from previous" / "Of applied"
-  'index.html#strategy-edit': EDITORS,                           // ⚙️ Search settings (or the Profile)
+  'index.html#focus-funnel-notion': FUNNEL,                     // the 🎯 Pipeline page: funnel "from previous" / "Of applied"
+  'index.html#strategy-edit': {view: 'pages/strategy-targets.js renderTargets'},                           // ⚙️ Search settings (or the Profile)
   'index.html#open-profile-details': {view: 'pages/profile.js showContact'},
-  'index.html#open-answers': EDITORS,
-  'index.html#answers-review': EDITORS,
+  'index.html#open-answers': TEXTS,
+  'index.html#answers-review': TEXTS,
   'index.html#store-open': {none: 'Settings → Data: opens the workspace itself, shown only to a Notion user'},
   'index.html#activity-notion': {view: 'pages/activity-panel.js openActivity'},   // a run's row; Result digest, Billed to, Trigger: P8 D
   'index.html#moments-notion': {view: 'pages/interview-practice.js showMoments'},   // the insight's quotes; a name opens the interview
@@ -22,12 +22,12 @@ export const NOTION_PARITY = {
   'pages/activity-mail.js jobPrep': PREP,
   'pages/activity-mail.js jobLink': JOB,
   'pages/activity-run-card.js renderRunCard': {pending: 'mac-cd (P8 F: Employers & Sources list)'},
-  'pages/activity.js init': REPORTS,                             // links inside a run's result: the weekly report in full, an insight
+  'pages/activity.js init': {view: 'pages/activity-panel.js openActivity'},                             // links inside a run's result: the weekly report in full, an insight
   'pages/focus.js openLink': {none: 'helper: its callers are rows of their own (focusCard)'},
   'pages/focus.js focusCard': JOB,
   'pages/focus.js loadHistory': JOB,                             // the job's History tab
   'pages/focus.js prepAction': PREP,
-  'pages/focus.js init': REPORTS,                                // the funnel link (#focus-funnel-notion)
+  'pages/focus.js init': FUNNEL,                                // the funnel link (#focus-funnel-notion)
   'pages/interview-lists.js renderDrafts': {view: 'pages/interviews.js openReview'},   // a saved draft: Transcript and review
   'pages/interview-practice.js showMoments': {view: 'pages/interview-practice.js showMoments'},
   'pages/interviews.js showRow': {view: 'pages/interviews.js openReview'},
@@ -37,7 +37,7 @@ export const NOTION_PARITY = {
   'pages/jobs-render.js renderJobs': JOB,
   'pages/notion-connect.js openInNotion': {none: 'helper: its callers are rows of their own (index.html ids)'},
   'pages/prep.js init': PREP,
-  'pages/profile.js loadAnswers': EDITORS,
-  'pages/profile.js renderNotionLinks': EDITORS,
+  'pages/profile.js loadAnswers': TEXTS,
+  'pages/profile.js renderNotionLinks': {view: 'pages/nav.js openView'},   // each database is a page of the app (Jobs, Interviews, Reports…)
   'pages/rich-text.js messageLink': {none: 'a link Claude wrote in its message; what it points to has its own row'},
 };
