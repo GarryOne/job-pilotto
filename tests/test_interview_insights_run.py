@@ -5,7 +5,6 @@ import io
 import json
 from pathlib import Path
 import sys
-from types import SimpleNamespace
 import unittest
 from unittest import mock
 
@@ -164,8 +163,7 @@ class Neighbours(unittest.TestCase):
         with mock.patch.object(ii, 'saved', side_effect=RuntimeError('HTTP Error 400: Bad Request')):
             self.assertIsNone(interviews.saved_insight(object(), problems))
         self.assertEqual(problems, ['RuntimeError: HTTP Error 400: Bad Request'])
-        tracker = SimpleNamespace()
-        with mock.patch.object(interviews.notion.Tracker, 'from_env', return_value=tracker), \
+        with mock.patch.object(interviews, 'open_for_commands', return_value=(object(), None)), \
                 mock.patch.object(interviews, 'listing', return_value=[{'id': 'iv-1'}]), \
                 mock.patch.object(ii, 'saved', side_effect=RuntimeError('HTTP Error 400: Bad Request')), \
                 mock.patch.object(interviews, 'INTERVIEWS_DATABASE_ID', 'interviews-db'), \

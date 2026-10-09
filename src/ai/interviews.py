@@ -38,8 +38,8 @@ from . import engine
 from . import meanings
 from . import transcribe
 from .. import tgcard
-from ..notion import client as notion
 from ..notion.titles import named
+from ..features import disabled
 from ..stores import chosen, open_stores, rules
 from ..stores.notion_blocks import to_markdown
 from ..telegram import api_base as telegram_api_base
@@ -49,8 +49,8 @@ from .interviews_ai import (
     SYSTEM, TEXT_TYPES, analyse, ask,
     candidates)
 from .interviews_blocks import (
-    NO_JOB, _block, _line_key, analysis_blocks,
-    changes_lines, changes_summary, ensure_job_line, interview_title,
+    NO_JOB, _block, analysis_blocks,
+    changes_lines, changes_summary, interview_title,
     job_line, message, page_blocks, review_fields,
     transcript_toggle)
 from .interviews_facts import _call_facts, _norm, fact_lines, facts_of, merge_facts  # noqa: F401
@@ -318,13 +318,20 @@ def sweep(tracker=None, now=None, stores=None):
     return f'Interview sweep: {moved_on} application(s) moved on after a recorded interview.'
 
 
+NOT_CONNECTED = 'Connect Notion first: interviews are kept in 🎤 Interviews.'
+
+
+def notion_unusable(env):
+    """True when the store is Notion but it can't be reached: no token, or JOB_PILOTTO_DISABLE=notion (as no token)."""
+    return chosen(env) == 'notion' and (disabled('notion') or not env.get('NOTION_TOKEN'))
+
+
 def open_for_commands(env=None):
-    """(stores, tracker) for the app's commands, or (None, message) when the store is Notion and it isn't connected."""
+    """(stores, None) for the app's commands, or (None, message) when the store is Notion and it isn't connected."""
     env = os.environ if env is None else env
-    tracker = notion.Tracker.from_env()
-    if chosen(env) == 'notion' and (not tracker or not INTERVIEWS_DATABASE_ID):
-        return None, 'Connect Notion first: interviews are kept in 🎤 Interviews.'
-    return open_stores(env, tracker=tracker if chosen(env) == 'notion' else None), tracker
+    if notion_unusable(env) or (chosen(env) == 'notion' and not INTERVIEWS_DATABASE_ID):
+        return None, NOT_CONNECTED
+    return open_stores(env), None
 
 
 def main(argv=None):
@@ -354,9 +361,9 @@ def main(argv=None):
     cancelling = sub.add_parser('cancelled', help='Focus: the interview did not happen')
     cancelling.add_argument('app')
     args = parser.parse_args(argv)
-    stores, tracker = open_for_commands()
+    stores, problem = open_for_commands()
     if stores is None:
-        print(json.dumps({'ok': False, 'error': tracker}))
+        print(json.dumps({'ok': False, 'error': problem}))
         return 1
     try:
         if args.command == 'list':
@@ -368,7 +375,7 @@ def main(argv=None):
             out = {'ok': True, 'interviews': listing(stores, places=False)}
         elif args.command == 'save':
             row = save(stores, args.file.read_text(encoding='utf-8'), args.title, job_url=args.job, source=args.input,
-                       page_id=args.page, tracker=tracker)
+                       page_id=args.page)
             out = {'ok': True, 'id': row['id'], 'url': _url(stores, row['id'])}
         elif args.command == 'delete':
             stores.interviews.archive(args.page)
@@ -380,7 +387,7 @@ def main(argv=None):
         elif args.command == 'cancelled':
             out = cancelled(stores, args.app)
         else:
-            out = {'ok': True, 'application': link(stores, args.page, args.job, tracker)}
+            out = {'ok': True, 'application': link(stores, args.page, args.job)}
     except ValueError as error:
         out = {'ok': False, 'error': str(error)}
     print(json.dumps(out))

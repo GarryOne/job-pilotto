@@ -23,8 +23,7 @@ import re
 import sys
 import urllib.error
 
-from ..notion import client as notion
-from ..stores import chosen, open_stores
+from ..stores import open_stores
 from ..stores.notion_blocks import plain_text, to_blocks
 from . import engine
 from . import budget, cost, interviews, meanings
@@ -370,11 +369,10 @@ def main(argv=None):
     parser.add_argument('--text', default='')
     parser.add_argument('--done', choices=('yes', 'no'), default='yes')
     args = parser.parse_args(argv)
-    tracker = notion.Tracker.from_env()
-    if chosen() == 'notion' and not tracker:
+    if interviews.notion_unusable(os.environ):
         print(json.dumps({'ok': False, 'error': 'Connect Notion first'}))
         return 1
-    stores = open_stores(tracker=tracker if chosen() == 'notion' else None)
+    stores = open_stores()
     if args.command == 'step':
         try:
             print(json.dumps({'ok': True, **set_step_done(stores, args.text, args.done == 'yes')}, ensure_ascii=False))
@@ -387,7 +385,7 @@ def main(argv=None):
     run['insight'] = {}
     run['name'] = RUN_NAME  # "Interview insights" in the run's title, not the daily "Insight"
     try:
-        out = update(tracker, stats=run['insight'], stores=stores)
+        out = update(stats=run['insight'], stores=stores)
     except Exception as error:  # noqa: BLE001 - the page says what failed
         # The page gets a friendly sentence; the log keeps which error it was (a spend limit and a rate limit read alike there).
         print(f'interview insights failed: {type(error).__name__} status={getattr(error, "status_code", "")} '

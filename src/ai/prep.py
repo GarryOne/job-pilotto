@@ -17,7 +17,7 @@ import re
 import sys
 from datetime import datetime, timezone
 
-from ..notion import client as notion, ledger, titles
+from ..notion import ledger, titles
 from ..notion.ledger import _block
 from ..stores import base, open_stores
 from ..stores.notion_blocks import to_markdown
@@ -423,9 +423,8 @@ def main(argv=None):
     about.add_argument('--text', default='')
     about.add_argument('--url', default='')
     args = parser.parse_args(argv)
-    tracker = notion.Tracker.from_env()   # None with the data on this Mac
     try:
-        stores = open_stores(tracker=tracker)
+        stores = open_stores()   # Notion (its token) or this Mac's store, as JOB_PILOTTO_STORE / the token choose
         record = stores.applications.by_id(args.page_id)
         if record is None:
             result = {'ok': False, 'text': 'That job is no longer tracked.'}

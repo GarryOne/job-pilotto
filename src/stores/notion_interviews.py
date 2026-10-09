@@ -9,6 +9,7 @@ import os
 
 from ..ai import interviews_blocks as layout
 from ..ai import interviews_review as review_blocks
+from ..notion.ledger import plain
 from . import base
 from . import notion_blocks
 from . import notion_rows
@@ -25,6 +26,32 @@ BODY = ('transcript', 'review')
 
 def _same(a, b):
     return (a or '').replace('-', '') == (b or '').replace('-', '')
+
+
+def _line_key(rich_text):
+    return [(t.get('text', {}).get('content', t.get('plain_text', '')), (t.get('text', {}).get('link') or {}).get('url')) for t in rich_text]
+
+
+def ensure_job_line(tracker, page_id, app):
+    """Keep the job line at the top of an interview page, once: replaced when it is there (the first three blocks),
+    else put first. Returns True when the page changed."""
+    want = layout.job_line(app)['paragraph']['rich_text']
+    blocks = tracker._children(page_id)
+    for block in blocks[:3]:
+        if block['type'] == 'paragraph' and plain({'type': 'rich_text', 'rich_text': block['paragraph'].get('rich_text', [])}).startswith('🔗 '):
+            if _line_key(block['paragraph']['rich_text']) == _line_key(want):
+                return False
+            tracker._request('PATCH', f"blocks/{block['id']}", {'paragraph': {'rich_text': want}})
+            return True
+    first = blocks[0] if blocks else None
+    if first and first['type'] == 'paragraph' and not first.get('children') and not first.get('has_children'):
+        # The API can't insert before a block: the first paragraph becomes the line and its old text goes right after.
+        old = first['paragraph'].get('rich_text', [])
+        tracker._request('PATCH', f"blocks/{first['id']}", {'paragraph': {'rich_text': want}})
+        tracker._request('PATCH', f"blocks/{page_id}/children", {'children': [{'object': 'block', 'type': 'paragraph', 'paragraph': {'rich_text': old}}], 'after': first['id']})
+    else:
+        tracker._request('PATCH', f"blocks/{page_id}/children", {'children': [layout.job_line(app)], **({'after': first['id']} if first else {})})
+    return True
 
 
 class NotionInterviews:
@@ -76,7 +103,7 @@ class NotionInterviews:
         else:
             job, between, _ = self._parts(blocks)
             if not job:  # a page from before the job line: put it first, so the review has its place
-                layout.ensure_job_line(self.tracker, page_id, self._app(app_id))
+                ensure_job_line(self.tracker, page_id, self._app(app_id))
                 job, between, _ = self._parts(self.tracker._children(page_id))
             old, after = [b['id'] for b in between], job['id']
         self.tracker._request('PATCH', f'blocks/{page_id}/children', {'children': new, 'after': after})
@@ -127,7 +154,7 @@ class NotionInterviews:
         if 'transcript' in fields:
             self._set_transcript(interview_id, fields['transcript'])
         if 'app_id' in fields:
-            layout.ensure_job_line(self.tracker, interview_id, self._app(fields['app_id']))
+            ensure_job_line(self.tracker, interview_id, self._app(fields['app_id']))
         return self.get(interview_id)
 
     def archive(self, interview_id):

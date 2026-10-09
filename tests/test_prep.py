@@ -264,7 +264,7 @@ class MainTests(unittest.TestCase):
     def test_build_and_describe_work_with_the_data_on_this_mac(self):
         stores, record = job()
         out = []
-        with mock.patch.object(prep.notion.Tracker, 'from_env', return_value=None), mock.patch.object(prep, 'open_stores', return_value=stores), \
+        with mock.patch.object(prep, 'open_stores', return_value=stores), \
                 mock.patch('builtins.print', lambda *a, **k: out.append(a[0] if a else '')):
             self.assertEqual(prep.main(['describe', record['id'], '--text', ROLE]), 0)
             self.assertEqual(prep.main(['build', 'gone-id']), 1)

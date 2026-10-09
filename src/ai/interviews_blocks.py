@@ -32,32 +32,6 @@ def job_line(app):
         text('🔗 Job: '), text(f'{who} · {title}' if title else who, link=True)]}}
 
 
-def _line_key(rich_text):
-    return [(t.get('text', {}).get('content', t.get('plain_text', '')), (t.get('text', {}).get('link') or {}).get('url')) for t in rich_text]
-
-
-def ensure_job_line(tracker, page_id, app):
-    """Keep the job line at the top of an interview page, once: replaced when it is there (the first three blocks),
-    else put first. Returns True when the page changed."""
-    want = job_line(app)['paragraph']['rich_text']
-    blocks = tracker._children(page_id)
-    for block in blocks[:3]:
-        if block['type'] == 'paragraph' and plain({'type': 'rich_text', 'rich_text': block['paragraph'].get('rich_text', [])}).startswith('🔗 '):
-            if _line_key(block['paragraph']['rich_text']) == _line_key(want):
-                return False
-            tracker._request('PATCH', f"blocks/{block['id']}", {'paragraph': {'rich_text': want}})
-            return True
-    first = blocks[0] if blocks else None
-    if first and first['type'] == 'paragraph' and not first.get('children') and not first.get('has_children'):
-        # The API can't insert before a block: the first paragraph becomes the line and its old text goes right after.
-        old = first['paragraph'].get('rich_text', [])
-        tracker._request('PATCH', f"blocks/{first['id']}", {'paragraph': {'rich_text': want}})
-        tracker._request('PATCH', f"blocks/{page_id}/children", {'children': [{'object': 'block', 'type': 'paragraph', 'paragraph': {'rich_text': old}}], 'after': first['id']})
-    else:
-        tracker._request('PATCH', f"blocks/{page_id}/children", {'children': [job_line(app)], **({'after': first['id']} if first else {})})
-    return True
-
-
 def transcript_toggle(transcript):
     toggle = _block('heading_3', 'Transcript')
     paragraphs = [transcript[i:i + 190_000] for i in range(0, len(transcript), 190_000)] or ['']
