@@ -30,8 +30,10 @@ export function funnelRows(funnel = {}) {
   const steps = funnel?.steps || [];
   return steps.map((step, i) => {
     const previous = steps[i - 1];
+    // The engine's from/conversion when it sends them (src/focus_state.py funnel), else the same share from the counts.
+    const from = step.from ?? previous?.reached, share = step.conversion !== undefined ? step.conversion : from ? step.reached / from : null;
     return {step: step.step, reached: step.reached ?? 0,
-      fromPrevious: previous ? `${pct(previous.reached ? step.reached / previous.reached : null)}  (${step.reached}/${previous.reached})` : '—',
+      fromPrevious: previous ? `${pct(share)}  (${step.reached}/${from ?? 0})` : '—',
       ofApplied: i ? pct(step.of_applied) : '—', open: step.now ?? step.waiting ?? '—'};
   });
 }

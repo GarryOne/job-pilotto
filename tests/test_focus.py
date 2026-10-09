@@ -168,6 +168,11 @@ class FocusTests(unittest.TestCase):
         result = focus.build(rows, events, now=NOW)['funnel']
         steps = {s['step']: s['reached'] for s in result['steps']}
         self.assertEqual([steps[k] for k in ('📝 Prepared', '📨 Applied', '📞 Screening', '🧑‍💻 Interviews')], [2, 2, 1, 0])
+        # Reports → Funnel: from the previous step, and the Pipeline page's own "Where to improve" lines.
+        by = {s['step']: s for s in result['steps']}
+        self.assertEqual((by['📞 Screening']['from'], by['📨 Applied']['conversion']), (by['💬 Human reply']['reached'], 1.0))
+        self.assertNotIn('from', {k for k, v in result['steps'][0].items() if v is not None})
+        self.assertTrue(result['summary'] and all(isinstance(line, str) for line in result['summary']))
         inbound = result['inbound']
         self.assertEqual({k: inbound[k] for k in ('contacted', 'screening', 'interviews', 'offers')},
                          {'contacted': 4, 'screening': 3, 'interviews': 1, 'offers': 0})

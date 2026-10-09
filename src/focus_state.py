@@ -255,9 +255,13 @@ def funnel(rows, events):
     # now: still at this step (reached it, not the next one, not closed): the number the Jobs boxes show.
     # urls: every application that ever reached each step (the count only grows), for the Jobs list a click shows.
     here = [[a['url'] for a in apps if a['url'] and (marks is None or a['seen'] & marks)] for _, marks, _, _ in funnel_steps.STEPS]
-    return {'steps': [{'step': s['step'], 'reached': s['reached'], 'now': s['waiting'], 'of_applied': s.get('of_applied'), 'urls': urls}
+    # from/conversion: the share of the previous step that got this far; summary: the Pipeline page's "Where to improve" lines
+    # (src/notion/funnel.py, one copy), both shown by the app's Reports → Funnel for every store.
+    return {'steps': [{'step': s['step'], 'reached': s['reached'], 'now': s['waiting'], 'of_applied': s.get('of_applied'), 'urls': urls,
+                       'from': s.get('from'), 'conversion': s.get('conversion')}
                       for s, urls in zip(steps, here)],
             'improve': {'step': weak['step'], 'advice': weak['advice']} if weak else None,
+            'summary': funnel_steps.summary(steps),
             # The inbound funnel card: the counts, and the steps (with their links) it draws.
             'inbound': {**funnel_steps.inbound_counts(inbound), 'steps': funnel_steps.inbound_funnel(inbound)},
             'notion_url': f'https://www.notion.so/{page.replace("-", "")}' if page else ''}
