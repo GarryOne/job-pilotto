@@ -56,7 +56,7 @@ test('on the stand-in the proxy forwards to the stand-in, never to real Notion',
   try {
     assert.match(farSide(fake), /^http:\/\/127\.0\.0\.1:/);
     const before = fake.stats.calls;
-    const response = await fetch(`${proxy.url}/v1/users/me`, {headers: {authorization: 'Bearer stand-in', 'Notion-Version': '2022-06-28'}});
+    const response = await fetch(`${proxy.url}/v1/users/me`, {headers: {authorization: `Bearer ${fake.token}`, 'Notion-Version': '2022-06-28'}});
     assert.equal(response.status, 200, 'answered by the stand-in, not refused by real Notion');
     assert.equal(fake.stats.calls, before + 1, 'the request reached the stand-in');
   } finally { await proxy.close(); await fake.close(); }
