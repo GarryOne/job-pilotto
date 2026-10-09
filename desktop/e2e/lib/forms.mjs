@@ -261,6 +261,9 @@ const MENU_PAGE = fixture => page(fixture, `<form id="application_form">${field(
 const SIGNIN_PAGES = {
   posting: fixture => page(fixture, `<p>Join our platform team.</p><a id="apply_link" href="${fixture.accountUrl}" style="display:inline-block;padding:12px 28px;background:#222;color:#fff;font-size:18px;text-decoration:none">Apply</a>`),
   account: (fixture, error = '', email = '') => page(fixture, `<h2>Sign in to apply</h2>${error ? `<p id="signin_error" role="alert" style="color:#b00">${esc(error)}</p>` : ''}<form id="signin_form" method="post" action="${fixture.accountPath}">${field('signin_email', 'Email Address', {type: 'email', required: true, extra: email ? `value="${esc(email)}"` : ''})}<div class="field"><label for="signin_password">Password *</label><input id="signin_password" name="signin_password" type="password" required></div><button type="submit" id="signin_button">Sign in</button></form><p><a id="create_account" href="${fixture.accountPath}/new">Create an account</a></p>`, '', {realSubmit: true}),
+  // The sign-up page the extension goes to after a refused sign-in (its register link): a box only a person can tick keeps it from being finished, so the session
+  // is stuck on a page that HAS a panel, where Take over with Claude is offered with Claude help on (9 Oct 2026). Never submitted: the box stays empty.
+  signup: fixture => page(fixture, `<h2>Create an account</h2><form id="signup_form" method="post" action="${fixture.accountPath}/new">${field('signup_email', 'Email Address', {type: 'email', required: true})}<div class="field"><label for="signup_password">Password *</label><input type="password" id="signup_password" name="signup_password" required autocomplete="new-password"></div><div class="field"><label><input type="checkbox" id="robot" name="robot" required> I'm not a robot *</label></div><div class="field"><button type="submit" id="signup_submit">Create account</button></div></form>`),
   form: fixture => page(fixture, `<form id="application_form">${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('email', 'E-mail', {type: 'email', required: true})}${field('question_3001', 'Years of experience with Kubernetes', {required: true})}<div class="field"><button type="submit" id="submit_app">Submit Application</button></div></form>`),
 };
 const SIGNUP_PAGES = {
@@ -394,6 +397,7 @@ export async function startForms({vary = null} = {}) {
       const html = body => { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(body); };
       if (host === fixture.host && signup === fixture.path) { html(SIGNIN_PAGES.posting(fixture)); return; }
       if (host === fixture.accountHost && signup === fixture.formPath) { html(SIGNIN_PAGES.form(fixture)); return; }
+      if (host === fixture.accountHost && signup === `${fixture.accountPath}/new` && req.method !== 'POST') { html(SIGNIN_PAGES.signup(fixture)); return; }
       if (host !== fixture.accountHost || signup !== fixture.accountPath) continue;
       if (req.method !== 'POST') { html(SIGNIN_PAGES.account(fixture)); return; }
       let body = '';
