@@ -104,6 +104,7 @@ switched-off feature behaves exactly as if its keys were missing, and `doctor` l
 ## 🧠 AI at every step
 
 Something in Job Pilotto is reading, suggesting or checking at each stop of the search: 40 steps today (AI, plus a few plain rules marked as such), each one yours to accept or ignore, none of them pressing Submit.
+Every step runs on the AI you choose: Claude or OpenAI, through an API key or your own Claude Code / Codex plan (setup step 5 below).
 The same list, with more detail, is on the website: [Intelligence](https://www.jobpilotto.workers.dev/intelligence.html). Every base prompt is in this repository (`src/ai/`, `desktop/lib/`, `worker/src/extension.js`); what is learned from installs is served as data, never as prompt text.
 
 **Find: Finds what is worth your time**
@@ -661,16 +662,24 @@ Everything below is for the [optional features](#optional-features); set up only
    an Applications database, a Job Matches database, a Profile page, an Application Answers page,
    and (optional) Employers & Sources and 🤖 Agent Runs databases. For the two pages,
    **[docs/notion-profile-template.md](docs/notion-profile-template.md)** has paste-ready copies.
-5. **AI: pick one** (setup wizard → AI, or Settings → Connections → AI → Execution engine). Skip both and you still
-   get a plain crawler + digest, with no scoring or drafting.
-   - **Anthropic API key** (`ANTHROPIC_API_KEY`): pay-as-you-go. Needed for **Always on** (GitHub runs).
-   - **Claude Code** (your Claude subscription): the app runs *your own*, signed-in `claude` on your Mac
-     (`JOB_PILOTTO_AI_ENGINE=cli`). No API key, no per-token cost; uses your plan's usage limits.
-   - Policy: Job Pilotto never reads, stores or forwards your Claude login, never signs in for you, never
-     modifies Claude Code, and never uses it from GitHub, Telegram's cloud worker or the website.
-     Not signed in? Run `claude` in Terminal and sign in yourself.
-   - Plan limit reached: the step pauses and runs again later. Optional tick: "If Claude Code hits my plan limit,
-     use my API key" (off by default).
+5. **AI: pick one** (setup wizard → AI, or Settings → Connections → AI): first **Claude or OpenAI**, then how it runs.
+   Skip it and you still get a plain crawler + digest, with no scoring or drafting. Every AI step works the same on all four
+   (one adapter per engine, `src/ai/providers/`, `desktop/lib/ai/`); the prompts are the same text for both.
+
+   | | Claude | OpenAI |
+   |---|---|---|
+   | **API key**, pay per use, also for **Always on** (GitHub) | Anthropic (`ANTHROPIC_API_KEY`) | OpenAI (`OPENAI_API_KEY`) |
+   | **Your own CLI**, your plan, $0 per call, this Mac only | Claude Code (`claude`, Claude plan) | Codex (`codex`, ChatGPT plan) |
+
+   - Policy: Job Pilotto runs your own, signed-in CLI as you could yourself; it never reads, stores or forwards its login, never
+     signs in for you, never modifies it, and never uses it from GitHub, Telegram's cloud worker or the website. Not signed in?
+     Run `claude` (or `codex login`) in Terminal and sign in yourself.
+   - Plan limit reached: the step pauses and runs again later. Optional tick: "If my plan's limit is hit, use my API key"
+     (off by default; same family only: Claude Code → Anthropic key, Codex → OpenAI key; never Claude ↔ OpenAI).
+   - Models, by tier: small `claude-haiku-5-5` / `gpt-6-luna`, main `claude-sonnet-5-5` / `gpt-6.1-sol`, big
+     `claude-opus-5-5` / `gpt-6.1-sol` at high effort (`src/ai/models.py`; each can be changed without a release).
+   - Claude-only: **Apply with Claude** / Read with Claude (Claude Code driving Chrome) and the $1 of free AI. With an OpenAI
+     engine they are hidden; plain **Apply** (the extension) works on every engine. A PDF reaches Codex as page pictures + text.
 6. **Your own CV and profile facts.** There's no way around this being manual — it's what makes
    the scoring and drafting personal to you.
 
@@ -731,9 +740,11 @@ overriding a variable your shell already has set. `.env` is git-ignored, never c
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` | GitHub secrets for Gmail + Calendar (read-only), set by `python3 -m src.sources.google auth --github`; locally in the Keychain (`job-pilotto.google.*`) |
 | `JOB_PILOTTO_MAIL_MODEL` | model that classifies job emails (repository variable; default `claude-haiku-5-5`) |
 | `JOB_PILOTTO_TZ` | your time zone for reminders (default `Europe/Zurich`) |
-| `JOB_PILOTTO_AI_ENGINE` | `api` (default; GitHub) or `cli` (your own Claude Code; set by the app on your Mac from your choice) |
-| `JOB_PILOTTO_AI_FALLBACK` | `api`: when Claude Code hits your plan's limit, that run goes on with your API key (the app's opt-in tick) |
-| `JOB_PILOTTO_CLAUDE_BIN` | path to `claude` (the app sets the one Verify found); else PATH, `~/.local/bin`, Homebrew |
+| `JOB_PILOTTO_AI_ENGINE` | `api` (default; GitHub), `openai` (GitHub too), `cli` (your own Claude Code) or `codex` (your own Codex); set by the app from your choice |
+| `JOB_PILOTTO_AI_FALLBACK` | `api` or `openai`: when your CLI hits its plan's limit, that run goes on with the same family's API key (the app's opt-in tick) |
+| `JOB_PILOTTO_CLAUDE_BIN`, `JOB_PILOTTO_CODEX_BIN` | path to `claude` / `codex` (the app sets the one Verify found); else PATH, `~/.local/bin`, Homebrew |
+| `OPENAI_API_KEY` | the OpenAI engine's key (Keychain `job-pilotto.openai.api_key`, the app's secrets, a GitHub secret for Always on) |
+| `JOB_PILOTTO_OPENAI_SMALL_MODEL`, `_MAIN_MODEL`, `_BIG_MODEL` | the OpenAI tiers' models (defaults `gpt-6-luna`, `gpt-6.1-sol`, `gpt-6.1-sol`) |
 | `JOB_PILOTTO_MONTHLY_BUDGET_USD` | your Anthropic monthly spend limit, for the budget guard (repository variable; default 15) |
 | `ANTHROPIC_ADMIN_KEY` | optional Admin API key (`sk-ant-admin…`, GitHub secret or Keychain `job-pilotto.anthropic.admin-key`): exact monthly spend from Anthropic's cost report |
 | `JOB_PILOTTO_GOOGLE_AUTH_AT` | when you last signed in to Google (set by `google auth --github`); the health check warns before the 7-day Testing limit |

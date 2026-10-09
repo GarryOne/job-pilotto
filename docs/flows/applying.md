@@ -40,7 +40,7 @@ forgotten` in the log).
 |---|---|---|---|---|
 | `form` | the application (incl. account + application on one page: a file upload or text box beside a password) | ✅ (passwords from the Keychain) | ✅ (password boxes never) | Form completion, "Applying" |
 | `account` | sign-in / sign-up only | ❌ (left to the person or Claude) | ❌ never | "Creating account", account step |
-| `no-form` | a posting or a step before the form | presses Apply once | ❌ | can't reach form → Apply with Claude |
+| `no-form` | a posting or a step before the form | presses Apply once | ❌ | can't reach form → Apply with Claude (Claude engines only; with OpenAI/Codex the step is left to the person) |
 
 ## The matrix
 

@@ -44,6 +44,15 @@ keeps its last release: old engine tags must keep working against our site's API
 
 What stays on the Mac: recording, transcription, Apply with Claude, form filling, and Google sign-in.
 
+**One AI seam per runtime** (9 Oct 2026). Every AI call, in the engine and in the app, goes through one factory: `src/ai/engine.py`
+`client()` and `desktop/lib/ai/index.js` `client()`. Four engines sit behind one contract (`src/ai/providers/contract.py`,
+`desktop/lib/ai/contract.js`): Anthropic API (`api`), the user's Claude Code (`cli`), OpenAI API (`openai`), the user's Codex (`codex`).
+Callers send the same Anthropic-shaped `messages.create` and get the same shape back; each adapter translates (schemas, images, PDFs,
+web search, effort, refusals, usage and price). Models are tiers (`src/ai/models.py`, `desktop/lib/ai/models.js`): a Claude id becomes
+the same tier on OpenAI. Nothing switches by itself; a plan engine may fall back to its own family's API key on the user's tick. The
+user-visible word for the AI comes from the chosen engine (`providers.who()`, `renderer/ai-name.js`), tested by ratchets in both runtimes.
+Claude-only: Apply/Read with Claude (Claude Code driving Chrome) and the $1 free credit; hidden for OpenAI engines (`renderer/claude-help.js`).
+
 ## Where the code sits
 
 ```text
