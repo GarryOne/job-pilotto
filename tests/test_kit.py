@@ -123,8 +123,8 @@ class KitTests(unittest.TestCase):
                      'description': 'Kubernetes.'}]})
                 stores, client = memory_stores(), FakeClient()
                 drafted = []
-                messages, log = daily.prepare_kit(db, notion.job_code(URL), None, client, 'claude-sonnet-5-5', opener, drafted_out=drafted,
-                                                  stores=stores)
+                messages, log = daily.prepare_kit(db, notion.job_code(URL), stores, client, 'claude-sonnet-5-5', opener,
+                                                  drafted_out=drafted)
         self.assertEqual([job['title'] for job, _ in drafted], ['SRE'])  # the app's card for the run
         self.assertIn('Drafted for this job', daily.kits_message(drafted, 'Drafted for this job · nothing sent'))
         record = stores.applications.get(URL)
@@ -149,7 +149,7 @@ class KitTests(unittest.TestCase):
                     {'company': 'Acme', 'id': '1', 'title': 'SRE', 'location': 'Zurich', 'url': URL,
                      'description': 'Kubernetes.'}]})
                 run, stores = {'mode': 'prepare'}, memory_stores()
-                daily.prepare_kit(db, notion.job_code(URL), None, FakeClient(), 'claude-sonnet-5-5', opener, run=run, stores=stores)
+                daily.prepare_kit(db, notion.job_code(URL), stores, FakeClient(), 'claude-sonnet-5-5', opener, run=run)
         self.assertEqual(run['application'], stores.applications.get(URL)['id'])  # its run row shows on the job's page (Runs)
         self.assertEqual(run['subject'], 'Acme — SRE')
 
@@ -167,7 +167,7 @@ class KitTests(unittest.TestCase):
     def test_unknown_code(self):
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
-                messages, _ = daily.prepare_kit(db, 'deadbeef', FakeTracker(), FakeClient())
+                messages, _ = daily.prepare_kit(db, 'deadbeef', memory_stores(), FakeClient())
         self.assertIn('No job', messages[0])
 
 
@@ -191,14 +191,14 @@ class AutoKitTests(unittest.TestCase):
                 jobs = [{'id': 1, 'title': 'SRE', 'company': 'Acme', 'url': URL, 'description': 'd',
                         'fit': {'score': 80}}]
                 stores, client = memory_stores(), FakeClient()
-                summary, drafted = kit.auto_run(db, jobs, None, 'claude-sonnet-5-5', max_jobs=5, min_score=50,
-                                                client=client, opener=opener, stores=stores)
+                summary, drafted = kit.auto_run(db, jobs, stores, 'claude-sonnet-5-5', max_jobs=5, min_score=50,
+                                                client=client, opener=opener)
                 self.assertIn('Auto-drafted 1 of 1', summary)
                 self.assertEqual(len(drafted), 1)
                 self.assertEqual(stores.applications.get(URL)['stage'], 'Kit ready')
                 # A second run must skip the same job (already recorded).
-                summary2, drafted2 = kit.auto_run(db, jobs, None, 'claude-sonnet-5-5', max_jobs=5, min_score=50,
-                                                  client=client, opener=opener, stores=stores)
+                summary2, drafted2 = kit.auto_run(db, jobs, stores, 'claude-sonnet-5-5', max_jobs=5, min_score=50,
+                                                  client=client, opener=opener)
                 self.assertIn('0 kit(s)', summary2)
                 self.assertEqual(drafted2, [])
 
@@ -206,7 +206,7 @@ class AutoKitTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 jobs = [{'id': 1, 'title': 'SRE', 'company': 'Acme', 'url': URL, 'fit': {'score': 40}}]
-                summary, drafted = kit.auto_run(db, jobs, FakeTracker(), 'm', max_jobs=5, min_score=50,
+                summary, drafted = kit.auto_run(db, jobs, memory_stores(), 'm', max_jobs=5, min_score=50,
                                                 client=FakeClient())
                 self.assertIn('0 kit(s)', summary)
                 self.assertEqual(drafted, [])

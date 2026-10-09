@@ -94,7 +94,7 @@ class StoreJobsTests(unittest.TestCase):
         self.assertEqual(len(listed['jobs']), 4)
         self.assertNotIn('stale', listed)
         from src.ai import kit, provenance
-        self.assertEqual(seen['inputs'], provenance.kit_inputs('My profile', kit.standard_answers(None, stores)))
+        self.assertEqual(seen['inputs'], provenance.kit_inputs('My profile', kit.standard_answers(stores)))
 
 
     def test_the_jobs_list_carries_each_applications_store_id(self):

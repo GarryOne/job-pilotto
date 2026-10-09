@@ -68,7 +68,7 @@ def apply_mode(args, stores=None):
 
 
 def prepare_mode(args, stores=None):
-    tracker = notion_of(stores)  # BRIDGE(mac-4a): remove when kit.standard_answers takes the store alone
+    tracker = notion_of(stores)  # BRIDGE(mac-67): remove when _gate asks the store alone
     if not args.job:
         raise SystemExit('--mode prepare requires --job and NOTION_TOKEN')
     _gate(tracker, stores, '--mode prepare requires --job and NOTION_TOKEN', on_store=True)
@@ -76,8 +76,7 @@ def prepare_mode(args, stores=None):
     run['kits'] = {}
     drafted = []
     with store.connect(args.db) as db:
-        messages, log = prepare_kit(db, _job_arg(args.job), tracker, stats=run['kits'], run=run, drafted_out=drafted,
-                                    **({} if tracker else {'stores': stores}))
+        messages, log = prepare_kit(db, _job_arg(args.job), stores, stats=run['kits'], run=run, drafted_out=drafted)
     print(log)
     log_ai_run(stores, run, args)
     print('\n\n'.join(messages))  # the kit is saved in Notion; no Telegram message (owner, 5 Oct 2026: not relevant)
@@ -87,7 +86,7 @@ def prepare_mode(args, stores=None):
 
 
 def kits_mode(args, stores=None):
-    tracker = notion_of(stores)  # BRIDGE(mac-4a): remove when kit.auto_run takes the store alone
+    tracker = notion_of(stores)  # BRIDGE(mac-67): remove when url_stages and _gate read the store alone
     # Prepare top matches (the app's Actions page): kits for the best-scored open jobs that have none yet, from the
     # scores already stored. No crawl, no scoring: the same step a search runs after scoring (auto-kit), on demand.
     _gate(tracker, stores, '--mode kits requires NOTION_TOKEN', on_store=True)
@@ -98,8 +97,8 @@ def kits_mode(args, stores=None):
     kitted = frozenset(u for u, st in stages.items() if st == 'Kit ready')
     with store.connect(args.db) as db:
         candidates = [j for j in for_job_matches(db, hidden) if (j.get('url') or '').strip() not in kitted]
-        summary, drafted = kit.auto_run(db, candidates, tracker, kit.DEFAULT_MODEL, args.auto_kit_max or KITS_DEFAULT,
-                                        args.auto_kit_min_score, stats=run['kits'], **({} if tracker else {'stores': stores}))
+        summary, drafted = kit.auto_run(db, candidates, stores, kit.DEFAULT_MODEL, args.auto_kit_max or KITS_DEFAULT,
+                                        args.auto_kit_min_score, stats=run['kits'])
     print(summary)
     if drafted:
         message = kits_message(drafted)

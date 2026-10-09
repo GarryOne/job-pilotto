@@ -150,7 +150,7 @@ class PrepareTopMatchesTests(unittest.TestCase):
         matches = [{'id': 1, 'url': 'https://a/1', 'title': 'SRE', 'company': 'A', 'fit': {'score': 90}},
                    {'id': 2, 'url': 'https://a/2', 'title': 'Platform', 'company': 'B', 'fit': {'score': 80}}]
         seen, logged, shown = [], [], []
-        def auto_run(db, candidates, tracker, model, max_jobs, min_score, stats=None):
+        def auto_run(db, candidates, stores, model, max_jobs, min_score, stats=None):
             seen.append(([c['id'] for c in candidates], max_jobs))
             return 'Auto-drafted 1 of 1 kit(s); 0 failed', [(candidates[0], {'url': 'https://notion.so/p'})]
         out = io.StringIO()

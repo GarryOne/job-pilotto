@@ -81,7 +81,7 @@ class KitOnNotionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
             job_store.import_watch_report(db, {'jobs': [{'company': 'Acme', 'id': '1', 'title': 'SRE', 'location': 'Zurich',
                                                          'url': URL, 'description': 'Kubernetes.'}]})
-            daily.prepare_kit(db, notion.job_code(URL), tracker, FakeClient(), 'claude-sonnet-5-5', opener, stores=stores)
+            daily.prepare_kit(db, notion.job_code(URL), stores, FakeClient(), 'claude-sonnet-5-5', opener)
         record = stores.applications.get(URL)
         self.assertEqual(record['stage'], 'Kit ready')
         headings = [b for b in tracker._children(record['id']) if b['type'] == 'heading_2' and not b.get('archived')]
@@ -113,7 +113,7 @@ class KitOnNotionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
             job_store.import_watch_report(db, {'jobs': [{'company': 'Acme', 'id': '1', 'title': 'SRE', 'location': 'Zurich',
                                                          'url': URL, 'description': 'Kubernetes.'}]})
-            daily.prepare_kit(db, notion.job_code(URL), tracker, FakeClient(), 'claude-sonnet-5-5', opener, stores=stores)
+            daily.prepare_kit(db, notion.job_code(URL), stores, FakeClient(), 'claude-sonnet-5-5', opener)
         # Tracker.page_text reads the Profile page the environment names, as on a real install (its default is bound at import).
         tracker.page_text = lambda page_id=env['NOTION_PROFILE_PAGE_ID']: Tracker.page_text(tracker, page_id)
         return tracker, env, stores
@@ -143,7 +143,7 @@ class KitOnNotionTests(unittest.TestCase):
         """A kit drafted before the store adapters recorded the Profile as Tracker.page_text read it: on Notion it stays current
         (Notion users see no change, D7); a changed Profile still shows, and the old digest is never accepted off Notion."""
         tracker, env, stores = self.drafted()
-        answers = kit.standard_answers(tracker, stores)
+        answers = kit.standard_answers(stores)
         before, today = provenance.kit_inputs(tracker.page_text(), answers), provenance.kit_inputs(stores.texts.get('profile'), answers)
         self.assertNotEqual(before, stores.applications.get(URL)['kit_inputs'], 'the two readings differ, or this test proves nothing')
         self.assertEqual(self.listed_state(tracker, env, stores, before), 'current')

@@ -22,7 +22,7 @@ from .daily_helpers import (STALE_DAYS, crawl_counts, digest_note, downloaded_in
 
 def search(args, stores=None):
     stores = stores or open_run()
-    # BRIDGE(mac-4a, mac-ab, mac-88): remove when kit.auto_run, insights.run and the Pipeline page (funnel.write) take the store alone
+    # BRIDGE(mac-e3): remove when insights.run and the Pipeline page (funnel.write) take the store alone
     notion = notion_of(stores)
     run = new_cron_run(args.mode)
     spend = None
@@ -223,9 +223,8 @@ def search(args, stores=None):
                 if args.auto_kit_max:
                     # Runs after scoring so it sees the same fits; a kit failure never blocks the digest.
                     run['kits'] = {}
-                    summary, drafted_jobs = kit.auto_run(db, scored, notion, kit.DEFAULT_MODEL,
-                                                         args.auto_kit_max, args.auto_kit_min_score,
-                                                         stats=run['kits'], stores=stores)
+                    summary, drafted_jobs = kit.auto_run(db, scored, stores, kit.DEFAULT_MODEL,
+                                                         args.auto_kit_max, args.auto_kit_min_score, stats=run['kits'])
                     run['kit_titles'] = [f"{job['title']} ({job['company']})" for job, _ in drafted_jobs]
                     print(summary)
             except Exception as error:

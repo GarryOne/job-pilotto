@@ -204,12 +204,11 @@ def log_ai_run(stores, run, args, failed=False):
             print(f'Cronjob run logged: {url}')  # the app's Recent activity links "See it full in Notion" to this
 
 
-def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=None, stats=None, run=None, drafted_out=None, stores=None):
+def prepare_kit(db, code, stores, client=None, model=kit.DEFAULT_MODEL, opener=None, stats=None, run=None, drafted_out=None):
     """Draft the application kit for one job; save it on its Notion Applications row (run: its ⏱️ Search runs row
     links to that row, shown on the job's page as Runs).
 
     Returns (Telegram messages, log line). The row is created as Saved if the job isn't tracked yet."""
-    stores = stores or open_stores(tracker=tracker)   # the active store: Notion through this tracker, or this Mac's
     job = find_job(db, code) or tracked_job(code, stores)
     if not job:
         return [f"⚠️ <b>Job not found</b>\nNo job with code <code>{escape(code)}</code>. It may have closed."], 'job not found'
@@ -220,7 +219,7 @@ def prepare_kit(db, code, tracker, client=None, model=kit.DEFAULT_MODEL, opener=
     except Exception as error:  # An unreadable form still gets a kit, with likely questions.
         print(f'Warning: form questions unavailable: {type(error).__name__}: {error}')
         questions = []
-    profile, answers = stores.texts.get('profile'), kit.standard_answers(tracker, stores)
+    profile, answers = stores.texts.get('profile'), kit.standard_answers(stores)
     if client is None:
         from .ai import engine
         client = engine.client(action='kit')

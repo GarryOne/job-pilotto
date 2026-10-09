@@ -321,7 +321,7 @@ def main(argv=None):
                     # Read exactly as the kit records them (src/daily_helpers.py prepare_kit), on every store: Notion's page_text renders
                     # the Profile differently from the store's text, so every Notion kit showed "drafted with earlier inputs" (D7).
                     stores = stores or open_stores(tracker=notion)
-                    answers = kit.standard_answers(notion, stores)
+                    answers = kit.standard_answers(stores)
                     current = provenance.kit_inputs(stores.texts.get('profile'), answers)
                     if notion:  # a kit drafted before the store adapters recorded Tracker.page_text's reading: still current
                         before = provenance.kit_inputs(notion.page_text(), answers)

@@ -18,7 +18,7 @@ import urllib.request
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
 from . import cost, engine
-from ..stores import base, open_stores, rules
+from ..stores import base, rules
 from ..stores.notion_blocks import to_markdown
 from .models import MAIN_MODEL
 
@@ -208,9 +208,8 @@ def draft(client, model, job, profile, answers, questions):
     return kit, response.usage
 
 
-def standard_answers(tracker, stores=None):
+def standard_answers(stores):
     """The standard answers, plus what earlier form fills learned (🧠 Form knowledge), from the active store."""
-    stores = stores or open_stores(tracker=tracker)
     answers = stores.texts.get('answers')
     try:
         learned = stores.texts.get('knowledge')
@@ -227,7 +226,7 @@ def kit_markdown(job, kit, questions, model):
     return to_markdown(notion_blocks(job, kit, questions, model)['heading_2']['children'])
 
 
-def prepare_one(client, model, job, tracker, profile, answers, opener=None, stores=None):
+def prepare_one(client, model, job, stores, profile, answers, opener=None):
     """Draft and save one kit in the active store; returns (kit dict, questions, page, usage). Marks the row Kit ready.
     page: {'id', 'url'}: the job's record id and its page link (Notion), or '' where the store has none."""
     try:
@@ -236,7 +235,6 @@ def prepare_one(client, model, job, tracker, profile, answers, opener=None, stor
         print(f'Warning: form questions unavailable: {type(error).__name__}: {error}')
         questions = []
     drafted, usage = draft(client, model, job, profile, answers, questions)
-    stores = stores or open_stores(tracker=tracker)
     record, _ = rules.mark(stores, job, 'Kit ready')
     stores.applications.set_section(record['id'], KIT_SECTION, kit_markdown(job, drafted, questions, model))
     page = {'id': record['id'], 'url': stores.link(record['id']) or ''}
@@ -262,7 +260,7 @@ def mark_auto(db, job_id):
     db.commit()
 
 
-def auto_run(db, candidates, tracker, model, max_jobs, min_score, client=None, opener=None, stats=None, stores=None):
+def auto_run(db, candidates, stores, model, max_jobs, min_score, client=None, opener=None, stats=None):
     """Draft kits for the best-scored jobs that don't have one yet.
 
     Returns (summary line, list of (job, page) for jobs drafted this run) for the digest to mention.
@@ -272,13 +270,12 @@ def auto_run(db, candidates, tracker, model, max_jobs, min_score, client=None, o
         return '0 kit(s) auto-drafted', []
     if client is None:
         client = engine.client(action='kit')
-    stores = stores or open_stores(tracker=tracker)
-    profile, answers = stores.texts.get('profile'), standard_answers(tracker, stores)
+    profile, answers = stores.texts.get('profile'), standard_answers(stores)
     drafted_jobs, failures = [], 0
     for number, job in enumerate(pending, 1):
         print(f"Kits: drafting {number} of {len(pending)}: {job['title']}")
         try:
-            _, _, page, usage = prepare_one(client, model, job, tracker, profile, answers, opener, stores=stores)
+            _, _, page, usage = prepare_one(client, model, job, stores, profile, answers, opener)
             cost.add(stats, model, usage)
             mark_auto(db, job['id'])
             drafted_jobs.append((job, page))
