@@ -42,7 +42,8 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   const store = light || !usesNotion ? '' : pickStore({suiteStore: suiteStore || (notionStandIn ? 'standin' : '')});
   if (store) console.log(`  store under test: ${store}${isCi() && !suiteStore && !notionStandIn ? ` (CI run ${process.env.GITHUB_RUN_NUMBER || '?'}: runs 0,1 sqlite, 2,3 stand-in, by 4)` : ''}`);
   const onNotion = usesNotion && store !== 'sqlite';
-  const standIn = store === 'standin' ? await startNotionFake() : null;
+  // A suite on this Mac's store that also opts into the stand-in (`store = 'sqlite'` + `notionStandIn = true`: "Move my data to Notion") gets an empty one to move into.
+  const standIn = store === 'standin' || (store === 'sqlite' && notionStandIn) ? await startNotionFake() : null;
   if (standIn) useNotionAt(standIn.url);
   const engine = pickEngine({suiteEngine});
   // The app's key follows its engine's family (E2E_OPENAI_KEY for OpenAI); a light suite is the judges' own calls: Claude's key.
@@ -65,7 +66,7 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   if (onNotion) ctx.root = await testRoot(token);   // refuses any workspace but the test one, and any token that sees more than one page
   if (fresh && ctx.root) console.log(`Notion test page "${ctx.root.title}": ${await clearRoot(token, ctx.root.id)} item(s) moved to the trash`);
   // The stand-in starts empty: built once here unless the suite tests a fresh setup (the wizard), like the real test page that is built already.
-  if (standIn && !fresh) await buildStandIn(standIn);
+  if (store === 'standin' && !fresh) await buildStandIn(standIn);
   ctx.built = onNotion && !fresh && await workspaceReady(token);
   ctx.feeds = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-feeds-'));
   fs.cpSync(path.join(E2E, 'fixtures', 'feeds'), ctx.feeds, {recursive: true});
