@@ -12,9 +12,10 @@ import subprocess
 import sys
 from urllib.parse import urlparse
 
-from .kit import KIT_HEADING
+from . import apply_record
 from ..notion.client import DEFAULT_DATABASE_ID, Tracker, job_code
 from ..notion import runs
+from ..stores import base, rules
 from .. import secret_store, service
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -153,14 +154,11 @@ def _prompt(url, learnings=''):
             'the owner. Your final response must conform to the supplied output schema.')
 
 
-def _mark(tracker, url, next_step, minutes=None):
-    row = tracker.find(url)
+def _mark(stores, url, next_step, minutes=None):
+    row = stores.applications.get(url)
     if not row:
         raise RuntimeError(f'No Applications row for {url}')
-    props = {'Next step': {'rich_text': [{'text': {'content': next_step[:2000]}}]}}
-    if minutes is not None:
-        props['Form fill time (min)'] = {'number': minutes}
-    tracker.update_page(row['id'], props)
+    stores.applications.update(row['id'], {'next_step': next_step[:2000], **({'fill_minutes': minutes} if minutes is not None else {})})
 
 
 def _essential_checks(kit):
@@ -225,25 +223,32 @@ def _notify(url, message):
         pass
 
 
-def _log_run(tracker, state, result, learning=''):
-    """Agent Runs row in Notion; never fails the run (the local record still counts)."""
-    try:
-        return runs.log_run(tracker, state, result, learning) if tracker else None
-    except Exception as error:  # Notion down, or the Agent Runs database not shared
-        print(f'Warning: Agent Runs not updated: {type(error).__name__}: {error}')
-        return None
+def _log_run(stores, state, result, learning=''):
+    """The fill's Agent Runs record in the store (src/ai/apply_record.py); never fails the run."""
+    return apply_record.log(stores, state, result, learning) if stores else None
 
 
-def _learnings_text(tracker, url):
-    """Recent Agent Runs learnings for this job board, as a prompt preface ('' if none)."""
+def _learnings_text(stores, url):
+    """Recent learnings for this job board, as a prompt preface ('' if none)."""
     try:
-        items = runs.recent_learnings(tracker, runs.ats_name(url), limit=8)
-    except Exception:  # Notion unavailable: fill without them
+        items = apply_record.learnings(stores, runs.ats_name(url), limit=8)
+    except Exception:  # noqa: BLE001 — the store unavailable: fill without them
         return ''
     if not items:
         return ''
     lines = '\n'.join(f'- {day} {company}: {text}' for day, _, company, _, text in items)
     return f'Learnings from earlier runs on this job board (apply them):\n{lines}\n\n'
+
+
+def _kit(stores, row):
+    return base.kit_from(stores.applications.section(row['id'], base.KIT_SECTION)) if row else None
+
+
+def _stores():
+    """The active store: Notion with this Mac's Notion token when there is one (the Keychain too), else this Mac's."""
+    from ..stores import open_stores
+    tracker = _tracker()
+    return open_stores(tracker=tracker) if tracker else open_stores()
 
 
 def _tracker():
@@ -259,7 +264,7 @@ def _tracker():
     return Tracker(token, os.getenv('NOTION_APPLICATIONS_DB') or DEFAULT_DATABASE_ID) if token else None
 
 
-def run(url, tracker, *, codex=None, timeout=TIMEOUT):
+def run(url, stores, *, codex=None, timeout=TIMEOUT):
     if urlparse(url).scheme != 'https':
         raise ValueError('An HTTPS job URL is required')
     _private_dir(STATE_DIR)
@@ -273,16 +278,16 @@ def run(url, tracker, *, codex=None, timeout=TIMEOUT):
             _write_json(state_path, prior)
     if prior and prior.get('status') in ('running', 'ready'):
         raise RuntimeError(f"Existing {prior['status']} run for this URL; inspect {state_path} first")
-    row = tracker.find(url)
+    row = stores.applications.get(url)
     if not row:
         raise RuntimeError('Prepare and save an application kit before starting a browser run')
-    stage = (row['properties'].get('Stage', {}).get('select') or {}).get('name')
+    stage = row['stage'] or None
     if stage not in ('Saved', 'Kit ready', 'Applying'):
         raise RuntimeError(f'Cannot start a browser run for Stage {stage}')
-    kit = tracker.read_kit(row['id'], KIT_HEADING)
+    kit = _kit(stores, row)
     if not kit:
         raise RuntimeError('No application kit found for this job')
-    tracker.mark({'url': url}, 'Applying')
+    rules.mark(stores, {'url': url}, 'Applying')
     started = datetime.now(timezone.utc)
     state = {'url': url, 'status': 'running', 'started_at': started.isoformat(), 'updated_at': started.isoformat()}
     _write_json(state_path, state)
@@ -291,7 +296,7 @@ def run(url, tracker, *, codex=None, timeout=TIMEOUT):
         reason = 'owner input needed: ' + '; '.join(checks)[:300]
         state.update(status='needs_user', reason=reason)
         _write_json(state_path, state)
-        _mark(tracker, url, reason)
+        _mark(stores, url, reason)
         return state
     # Closest observable point to "first field filled": Codex's field writes aren't visible here.
     _notify(url, 'Filling started')
@@ -304,7 +309,7 @@ def run(url, tracker, *, codex=None, timeout=TIMEOUT):
                '--output-last-message', str(result_path), '-C', str(ROOT),
                '-c', f'mcp_servers.playwright.command={json.dumps(npx)}',
                '-c', f'mcp_servers.playwright.args={json.dumps(["-y", "@playwright/mcp@0.0.82", "--extension", "--init-script", str(GUARD), "--init-script", str(FASTPATH)])}',
-               _prompt(url, _learnings_text(tracker, url))]
+               _prompt(url, _learnings_text(stores, url))]
     try:
         agent_env = os.environ.copy()
         agent_env.pop('NOTION_TOKEN', None)
@@ -323,19 +328,19 @@ def run(url, tracker, *, codex=None, timeout=TIMEOUT):
                      unanswered=result.get('unanswered', []), summary=result.get('summary', ''))
         _write_json(state_path, state)
         if status == 'ready':
-            _mark(tracker, url, 'Ready for review — inspect the browser form and submit yourself', minutes)
+            _mark(stores, url, 'Ready for review — inspect the browser form and submit yourself', minutes)
         else:
-            _mark(tracker, url, f'Form needs review: {reason or status}')
+            _mark(stores, url, f'Form needs review: {reason or status}')
         used = codex_usage(trace_path)
-        _log_run(tracker, dict(state, agent='codex', billed_to='ChatGPT plan',
+        _log_run(stores, dict(state, agent='codex', billed_to='ChatGPT plan',
                                tokens_total=used[0] if used else None, tokens_output=used[1] if used else None), result)
         return state
     except Exception as error:
         state.update(status='failed', updated_at=datetime.now(timezone.utc).isoformat(),
                      reason=str(error)[:500])
         _write_json(state_path, state)
-        _mark(tracker, url, 'Browser run failed — inspect local run log before retrying')
-        _log_run(tracker, dict(state, agent='codex', billed_to='ChatGPT plan'), None)
+        _mark(stores, url, 'Browser run failed — inspect local run log before retrying')
+        _log_run(stores, dict(state, agent='codex', billed_to='ChatGPT plan'), None)
         raise
 
 
@@ -366,19 +371,16 @@ def main(argv=None):
                         help='mark running records older than this as stale when listing status')
     args = parser.parse_args(argv)
     if args.context:
-        tracker = _tracker()
-        if not tracker:
-            parser.error('NOTION_TOKEN is required')
-        from .kit import ANSWERS_PAGE_ID
-        row = tracker.find(args.context)
-        kit = tracker.read_kit(row['id'], KIT_HEADING) if row else None
+        stores = _stores()
+        row = stores.applications.get(args.context)
+        kit = _kit(stores, row)
         board = runs.ats_name(args.context)
         print(f'# Job: {args.context} (board: {board})')
         print('\n## Kit (JSON)\n' + (json.dumps(kit, ensure_ascii=False, indent=1) if kit else
               'No kit on this job yet: draft one first (tools/prepare-top.sh or 📝 Prepare).'))
-        print('\n## Profile — CV and Preferences\n' + tracker.page_text())
-        print('\n## Application Answers\n' + tracker.page_text(ANSWERS_PAGE_ID))
-        items = runs.recent_learnings(tracker, board)
+        print('\n## Profile — CV and Preferences\n' + stores.texts.get('profile'))
+        print('\n## Application Answers\n' + stores.texts.get('answers'))
+        items = apply_record.learnings(stores, board)
         print(f'\n## Learnings from earlier runs on {board}')
         print('\n'.join(f'- {day} {company}: {text}' for day, _, company, _, text in items) or '- none yet')
         notes = service.playbook(board) if not os.getenv('JOB_PILOTTO_NO_SERVICE') else ''
@@ -386,10 +388,7 @@ def main(argv=None):
         print(notes or '- none available (offline, or nothing recorded for this board yet): use the generic rules in the skill')
         return 0
     if args.learnings is not None:
-        tracker = _tracker()
-        if not tracker:
-            parser.error('NOTION_TOKEN is required')
-        items = runs.recent_learnings(tracker, args.learnings or None)
+        items = apply_record.learnings(_stores(), args.learnings or None)
         for day, board, company, agent, text in items:
             print(f'- {day} · {board} · {company or "?"} · {agent}: {text}')
         if not items:
@@ -408,16 +407,16 @@ def main(argv=None):
         _private_dir(STATE_DIR)
         _write_json(STATE_DIR / f'{job_code(args.record)}.json', state)
         _write_json(STATE_DIR / f'{job_code(args.record)}.result.json', result)
-        tracker = _tracker()
+        stores = _stores()
         try:
-            if tracker and state['status'] == 'ready':
-                _mark(tracker, args.record, 'Ready for review — inspect the browser form and submit yourself',
+            if state['status'] == 'ready':
+                _mark(stores, args.record, 'Ready for review — inspect the browser form and submit yourself',
                       state['minutes'])
-            elif tracker:
-                _mark(tracker, args.record, f"Form needs review: {state['reason']}", state['minutes'])
-        except RuntimeError as error:  # not tracked in Notion: the local record still counts
-            print(f'Warning: Notion not updated: {error}')
-        page_url = _log_run(tracker, state, result, args.learning)
+            else:
+                _mark(stores, args.record, f"Form needs review: {state['reason']}", state['minutes'])
+        except RuntimeError as error:  # not tracked in the store: the local record still counts
+            print(f'Warning: the job was not updated: {error}')
+        page_url = _log_run(stores, state, result, args.learning)
         if page_url:
             print(f'Agent Runs: {page_url}')
         _notify(args.record, 'Form filled — review and Submit' if state['status'] == 'ready'
@@ -450,13 +449,11 @@ def main(argv=None):
         ended = datetime.fromisoformat(state['updated_at'])
         status, minutes, reason = audit(result, url, started, ended)
         state.update(status=status, minutes=minutes, reason=reason)
-        tracker = _tracker()
-        if not tracker:
-            parser.error('NOTION_TOKEN is required')
+        stores = _stores()
         if status == 'ready':
-            _mark(tracker, url, 'Ready for review — inspect the browser form and submit yourself', minutes)
+            _mark(stores, url, 'Ready for review — inspect the browser form and submit yourself', minutes)
         else:
-            _mark(tracker, url, f'Form needs review: {reason or status}')
+            _mark(stores, url, f'Form needs review: {reason or status}')
         _write_json(state_path, state)
         print(f'{status}: {url} — {reason}')
         return 0
@@ -477,10 +474,7 @@ def main(argv=None):
         return 0
     if not args.url:
         parser.error('provide a job URL or --status')
-    tracker = _tracker()
-    if not tracker:
-        parser.error('NOTION_TOKEN is required')
-    state = run(args.url, tracker)
+    state = run(args.url, _stores())
     print(f"{state['status']}: {args.url} — {state.get('reason') or state.get('summary', '')}")
     message = {'ready': 'Form filled — review and Submit',
                'needs_user': 'Needs your input — see Terminal'}.get(state['status'], 'Run failed — see Terminal')
