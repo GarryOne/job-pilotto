@@ -15,6 +15,7 @@ export const PAGES = [
   {path: '/admin/form-filling', group: 'Intelligence', question: 'How well are application forms filled, and what still trips the filler?', old: '/smart-form-filling', name: 'Form filling', icon: '📝'},
   {path: '/admin/feedback', group: 'Growth', question: 'What are users telling us?', old: '/feedback', name: 'Feedback', icon: '💬'},
   {path: '/admin/brain', group: 'Intelligence', question: 'What did the product brain recommend, and what did we decide?', name: 'Product Brain', icon: '🧠'},
+  {path: '/admin/sentry', group: 'Operations', question: 'What errors do the apps report to Sentry, and did the fixer handle them?', name: 'Sentry', icon: '🐞'},
   {path: '/admin/e2e', group: 'Operations', question: 'Do the end-to-end tests pass, and what broke?', name: 'E2E runs', icon: '🧪'},
   {path: '/admin/access', group: 'Operations', question: 'Who can open these admin pages?', name: 'Access', icon: '🔐', superadmin: true},
 ];
