@@ -413,6 +413,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/review.js` — The Job Pilotto panel, only on a tab the desktop app opened (bottom right). Collapsed: a pill with a progress ring and what's
 - `extension/same-tab.js` — One tab per application (owner, 8 Oct 2026: Manor's Apply opened the sign-in in a second tab, and the app lost track of which
 - `extension/sections.js` — Collapsed form sections, opened before the form is read (owner, 9 Oct 2026; live: SuccessFactors draws "Informations sur le profil" and
+- `extension/site-allow.js` — One Allow for every tab the app opens on a site the extension may not run on yet ("Work on every job site" off, the site not one
 - `extension/submit-watch.js` — Did the person submit? (moved out of background.js, 8 Oct 2026): the submit press starts a short watch; a redirect or a change on the same page is read by the app, which decides
 - `extension/tab-memory.js` — The extension's memory of its tabs (which session and job each tab is, which the app opened, the sites being read) lives in
 - `extension/tab-pages.js` — Which tab may the extension touch, and with which page? Chrome reuses a tab id after its tab closes, and the

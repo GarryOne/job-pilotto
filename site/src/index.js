@@ -28,6 +28,7 @@ import {feedback, view as feedbackView} from './feedback.js';
 import * as recipeLibrary from './recipes.js';
 import * as triageQueue from './triage.js';
 import {trial} from './trial.js';
+import {isReleasesPath, releases} from './releases.js';
 import {brain} from './brain.js';
 import {attribution, purge as purgeNets} from './attribution.js';
 import {log as brainLog, view as brainView} from './brainlog.js';
@@ -104,6 +105,7 @@ export default {
     if (pathname.startsWith('/download/')) return stats.download(request, env, ctx);
     if (pathname === '/install') return install(request, env, ctx, stats.record);
     if (pathname === '/api/hit') return stats.hit(request, env);
+    if (isReleasesPath(pathname)) return releases(request, env, ctx);   // the app's update check (src/releases.js)
     // The owner's admin pages (src/admin.js): one menu on all, the same key; never in public/, or they would be served to anyone.
     const admin = {'/admin': overviewView, '/admin/website': stats.stats, '/admin/app': telemetry.view, '/admin/insights': intelligenceView, '/admin/scouting': scoutingView,
       '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/form-filling': formLearningView, '/admin/feedback': feedbackView,

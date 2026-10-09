@@ -77,7 +77,7 @@ export async function launchBrowser({port, spool, extensionDir, real = false, pr
   if (kept) fs.mkdirSync(kept, {recursive: true});
   const profile = kept || fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-chromium-'));
   const context = await chromium.launchPersistentContext(profile, {
-    ...browserChannel(), headless: false, ignoreHTTPSErrors: !real, ...(real ? {viewport: null} : {}), ignoreDefaultArgs: ['--disable-extensions'],
+    ...browserChannel(), headless: false, ignoreHTTPSErrors: !real, ...(real ? {viewport: null} : {}), ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'],
     args: [...(process.env.E2E_HEADED || real ? [] : ['--headless=new']), `--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`,
       ...(real ? [] : [`--host-resolver-rules=${hostRules(port)}`, '--ignore-certificate-errors']), '--no-first-run', '--no-default-browser-check', ...(debugPort ? [`--remote-debugging-port=${debugPort}`] : [])],
   });

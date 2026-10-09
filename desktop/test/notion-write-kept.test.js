@@ -38,8 +38,10 @@ const KEPT = [
   {type: 'image', image: {type: 'external'}},
 ];
 
-test('the kept block types are the engine\'s (src/stores/notion_texts.py KEPT)', () => {
-  const python = fs.readFileSync(new URL('../../src/stores/notion_texts.py', import.meta.url), 'utf8');
+// The engine's own kept list lives in src/stores/notion_texts.py, on the Notion-optional line only (release/notion-optional); on main the check is skipped.
+const ENGINE_KEPT = new URL('../../src/stores/notion_texts.py', import.meta.url);
+test('the kept block types are the engine\'s (src/stores/notion_texts.py KEPT)', {skip: !fs.existsSync(ENGINE_KEPT)}, () => {
+  const python = fs.readFileSync(ENGINE_KEPT, 'utf8');
   const listed = /KEPT = \(([^)]*)\)/.exec(python)[1].match(/'([a-z_]+)'/g).map(word => word.slice(1, -1));
   assert.deepEqual([...KEPT_TYPES].sort(), listed.sort());
 });

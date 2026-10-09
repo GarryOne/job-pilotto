@@ -4,6 +4,7 @@
 // new, or at any login wall or "are you human" check (the person deals with it, then clicks again). It never logs in, never solves a check,
 // never hides that it is a script, and waits between pages. Filtering is the app's: every job read goes through the same filters and scores.
 import {api, settings} from './flow.js';
+import {ALL_SITES, openAllowPage} from './site-allow.js';
 
 export const MAX_PAGES = 20;
 const PAUSE_MS = [1800, 3200];   // between pages, like a person reading: not to look like one, to be gentle with the site
@@ -292,7 +293,7 @@ export const POSTING_MARK = /#jp-posting-([a-z0-9]{4,16})$/;
 // A mark may carry the app's id for the tab (#jp-read-filter-a1b2c3): reported back, so a site that redirects (www.glassdoor.com to
 // de.glassdoor.ch, 7 Oct 2026) is still matched to the run that opened it.
 export const MARK = /#(jp-read(-filter)?)(?:-([a-z0-9]{4,16}))?$/;
-export const ALL_SITES = {origins: ['https://*/*']};   // as declared in manifest.json; asking or checking more is always refused
+export {ALL_SITES};   // site-allow.js: as declared in manifest.json; asking or checking more is always refused
 const started = new Set();
 // Sites this worker is reading now: an update of the extension waits for them (a reload ends every reading; 7 Oct 2026: two runs lost their sites).
 export const readingNow = () => started.size;
@@ -308,11 +309,7 @@ export async function autoRead(tabId, url) {
     // page with the Allow button opens beside the site (once), and the app is told, so its banner says "waiting for you", not "reading".
     await chrome.storage.session.set({[`waiting:${tabId}`]: url});
     badge(tabId, '!', 'Job Pilotto: waiting for you: press Allow on the page it opened');
-    const asked = (await chrome.storage.session.get('allowTab')).allowTab;
-    if (!asked || !(await chrome.tabs.get(asked).catch(() => null))) {
-      const tab = await chrome.tabs.create({url: chrome.runtime.getURL('allow.html'), active: true}).catch(() => null);
-      if (tab) await chrome.storage.session.set({allowTab: tab.id});
-    }
+    await openAllowPage();   // site-allow.js: the same page an apply tab waits on
     await api(await settings(), '/extension/visit-waiting', {method: 'POST', body: JSON.stringify({url: url.slice(0, -mark.length), ticket, why: 'allow'})}).catch(() => {});
     return;
   }

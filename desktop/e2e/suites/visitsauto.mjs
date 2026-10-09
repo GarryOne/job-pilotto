@@ -72,7 +72,7 @@ export async function run(ctx) {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-visits-chromium-'));
   const rules = [`MAP ${ALLOWED} 127.0.0.1:${sites.address().port}`, `MAP ${OTHER} 127.0.0.1:${sites.address().port}`, 'MAP * ~NOTFOUND , EXCLUDE 127.0.0.1 , EXCLUDE localhost'].join(', ');
   const context = await chromium.launchPersistentContext(profile, {
-    ...browserChannel(), headless: false, ignoreHTTPSErrors: true, ignoreDefaultArgs: ['--disable-extensions'],
+    ...browserChannel(), headless: false, ignoreHTTPSErrors: true, ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'],
     args: [...(process.env.E2E_HEADED ? [] : ['--headless=new']), `--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`,
       `--host-resolver-rules=${rules}`, '--ignore-certificate-errors', '--no-first-run', '--no-default-browser-check'],
   });
