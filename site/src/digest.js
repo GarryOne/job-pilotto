@@ -61,6 +61,11 @@ export async function digest(db, now = new Date()) {
     .sort(([a], [b]) => byVersion(a, b)).map(([version, list]) => ({version, ...summarize(list)}));
   const boards = Object.entries(group(thisWeek, c => c.board)).map(([board, list]) => ({board, ...summarize(list)})).sort((a, b) => b.forms - a.forms);
 
+  // Recent vs earlier (mac-1a, 9 Oct 2026): the last 3 days against the 4 before them, inside this week. Weekly and per-release rows are too thin
+  // to show progress while fills are few and versions change hourly; this window moves within days.
+  const recentFrom = dayOf(new Date(now.getTime() - 2 * DAY));
+  const recent = thisWeek.filter(c => c.day >= recentFrom), earlier = thisWeek.filter(c => c.day < recentFrom);
+  const per100 = (list, cause) => { const required = list.reduce((s, c) => s + c.required, 0); return round(required ? (100 * lost(list, cause)) / required : null, 1); };
   const weaknesses = [];
   // 1. Why required questions stayed empty, per cause and board (and what people answered themselves), with the per-release rate.
   const lost = (list, cause) => list.reduce((s, c) => s + (cause === 'by_you' ? c.by_you : cause === 'by_you_unread' ? c.by_you_unread : cause === 'page_error' ? c.page_error : c.causes[cause] || 0), 0);
@@ -74,6 +79,8 @@ export async function digest(db, now = new Date()) {
         title: `${cause} on ${board}: ${n} required question${n === 1 ? '' : 's'} on ${forms} of ${list.length} forms`,
         now: {lost: n, forms, per100: round(required ? (100 * n) / required : null, 1)},
         before: {lost: lost(before, cause), forms: before.length},
+        recent: {per100: per100(recent.filter(c => c.board === board), cause), forms: recent.filter(c => c.board === board).length},
+        earlier: {per100: per100(earlier.filter(c => c.board === board), cause), forms: earlier.filter(c => c.board === board).length},
         kinds: list.reduce((out, c) => { if (lost([c], cause)) for (const [k, v] of Object.entries(c.kinds)) out[k] = (out[k] || 0) + v; return out; }, {}),
         byVersion: Object.entries(group(cards.filter(c => c.board === board && c.version), c => c.version)).sort(([a], [b]) => byVersion(a, b))
           .map(([version, vl]) => ({version, forms: vl.length, per100: round(vl.reduce((s, c) => s + c.required, 0) ? (100 * lost(vl, cause)) / vl.reduce((s, c) => s + c.required, 0) : null, 1)}))});
@@ -96,6 +103,7 @@ export async function digest(db, now = new Date()) {
   weaknesses.sort((a, b) => b.impact - a.impact);
   const proposals = proposalSection(await rows(db, 'SELECT * FROM proposal_use WHERE day >= ?', month), weekAgo, twoWeeks, byVersion);
   return {generated: now.toISOString(), period: {from: weekAgo, to: today, compare: twoWeeks}, thisWeek: summarize(thisWeek), lastWeek: summarize(lastWeek),
+    recent: {from: recentFrom, ...summarize(recent)}, earlier: summarize(earlier),
     daily, versions, boards, proposals, weaknesses: weaknesses.slice(0, 25),
     notes: ['Counts and fixed words only; question wording is the forms\' own, kept once 3+ installs reported it.',
       'impact = forms affected x required questions lost (widgets: failures; wording: times met).',
@@ -107,10 +115,12 @@ export function markdown(d) {
   const t = d.thisWeek, l = d.lastWeek;
   const lines = [`# Form-filling learning digest, ${d.period.from} → ${d.period.to}`, '',
     `**This week:** ${t.forms} forms · required questions filled ${pct(t.filledShare)} (last week ${pct(l.filledShare)}) · proposed to confirm ${pct(t.proposedShare)} (${pct(l.proposedShare)}) · truly missing ${pct(t.missingShare)} (${pct(l.missingShare)}) · forms needing nothing from the person ${pct(t.formsNeedingNothing)} (${pct(l.formsNeedingNothing)}) · questions never read per 100 required ${t.unreadPer100 ?? '–'} (${l.unreadPer100 ?? '–'}) · submitted ${pct(t.submittedShare)}.`, '',
+    `**Recent vs earlier** (since ${d.recent.from} vs the days before, this week): ${d.recent.forms} vs ${d.earlier.forms} forms · filled ${pct(d.recent.filledShare)} vs ${pct(d.earlier.filledShare)} · proposed ${pct(d.recent.proposedShare)} vs ${pct(d.earlier.proposedShare)} · truly missing ${pct(d.recent.missingShare)} vs ${pct(d.earlier.missingShare)}.`, '',
     '## Top weaknesses (by impact)', ''];
   d.weaknesses.forEach((w, i) => {
     lines.push(`${i + 1}. **${w.title}** · impact ${w.impact} · id \`${w.id}\``, `   - area: ${w.area}`);
     if (w.now) lines.push(`   - this week: ${JSON.stringify(w.now)}${w.before ? ` · last week: ${JSON.stringify(w.before)}` : ''}`);
+    if (w.recent) lines.push(`   - recent vs earlier (per 100 required): ${w.recent.per100 ?? '–'} (${w.recent.forms} forms) vs ${w.earlier.per100 ?? '–'} (${w.earlier.forms} forms)`);
     if (w.kinds && Object.keys(w.kinds).length) lines.push(`   - field kinds: ${JSON.stringify(w.kinds)}`);
     if (w.byVersion?.length) lines.push(`   - per release (per 100 required): ${w.byVersion.map(v => `${v.version}: ${v.per100 ?? '–'} (${v.forms} forms)`).join(', ')}`);
     if (w.evidence) lines.push(`   - evidence: ${JSON.stringify(w.evidence)}`);

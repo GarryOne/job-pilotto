@@ -158,7 +158,10 @@ ${row('claude', 'Claude')}${row('openai', 'OpenAI')}${row('unknown', 'Unknown')}
 
 export function page(data, url = new URL('https://www.jobpilotto.workers.dev/admin/form-filling')) {
   const w = data.learning?.thisWeek, l = data.learning?.lastWeek;   // real fills (fill_cards, the digest)
-  const f = w?.filledShare == null ? null : {now: w.filledShare, before: l?.filledShare ?? null};
+  // Compared with last week; while last week has no forms, the last 3 days against the days before (the digest's recent vs earlier window).
+  const early = !l?.forms && data.learning?.recent, rc = data.learning?.recent, er = data.learning?.earlier;
+  const f = early ? (rc?.filledShare == null ? null : {now: rc.filledShare, before: er?.filledShare ?? null, words: 'last 3 days vs the days before'})
+    : w?.filledShare == null ? null : {now: w.filledShare, before: l?.filledShare ?? null, words: 'this week vs last'};
   const blind = data.use.reasons.filter(x => x.group === 'blind spot');
   const blindNow = blind.reduce((s, x) => s + (x.rateNow || 0), 0), blindBefore = blind.reduce((s, x) => s + (x.rateBefore || 0), 0);
   const haveUse = data.use.now.fills || data.use.before.fills;
@@ -181,7 +184,7 @@ ${familyLinks(url, data.family || '')}
 ${familySection(data.families)}
 ${answersSection(data.answers, trend)}
 <div class="tiles">
-${tile('✅ Filled (real use)', f ? `${Math.round(f.now * 100)}%` : '–', f ? trend(f.now, f.before) : '', `required questions the fill answered · ${data.learning?.thisWeek?.forms || 0} forms this week, ${f?.before == null ? '–' : `${Math.round(f.before * 100)}%`} last`)}
+${tile('✅ Filled (real use)', f ? `${Math.round(f.now * 100)}%` : '–', f ? trend(f.now, f.before) : '', `required questions the fill answered · ${f?.words || 'this week vs last'}: ${f?.before == null ? '–' : `${Math.round(f.before * 100)}%`} before · ${data.learning?.thisWeek?.forms || 0} forms this week`)}
 ${tile('🕳️ Blind spots (real use)', haveUse ? num(blindNow) : '–', haveUse ? trend(blindNow, blindBefore, false) : '', `per 100 ${esc(data.use.unitNow)}: questions the fill never read · ${data.use.now.fills} forms this week`)}
 ${tile('🧩 Recipes', String(data.recipes.verified.n), `<span class="muted">+${data.recipes.canary.n} canary</span>`, `verified · ${data.recipes.candidate.n} candidates (${data.recipes.candidate.fresh} new this week) · ${data.recipes.disabled.n} retired`)}
 </div>

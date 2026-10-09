@@ -92,3 +92,16 @@ test('the form lab\'s endpoint is gone', async () => {
     assert.notEqual(response.status, 200, method);
   }
 });
+
+// 9 Oct 2026: weekly and per-release rows were too thin to show progress (cards start 5 Oct, versions change hourly). Recent vs earlier moves within days.
+test('recent vs earlier: the last 3 days against the days before, in the totals and per weakness', async () => {
+  const db = d1();
+  card(db, 'early-card-1', '2026-10-07', '0.9.1', {filled: 5, causes: {no_data: 5}});   // now = 12 Oct: earlier = 6-9 Oct
+  card(db, 'late-card-01', '2026-10-11', '0.9.2', {filled: 9, causes: {no_data: 1}});   // recent = 10-12 Oct
+  const d = await digest(db, now);
+  assert.deepEqual([d.recent.from, d.recent.forms, d.recent.filledShare, d.earlier.forms, d.earlier.filledShare], ['2026-10-10', 1, 0.9, 1, 0.5]);
+  const w = d.weaknesses.find(item => item.id === 'cause:no_data:ashby');
+  assert.deepEqual([w.recent.per100, w.earlier.per100], [10, 50]);
+  const md = markdown(d);
+  assert.ok(md.includes('**Recent vs earlier** (since 2026-10-10') && md.includes('recent vs earlier (per 100 required): 10 (1 forms) vs 50 (1 forms)'));
+});
