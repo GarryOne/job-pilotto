@@ -179,6 +179,15 @@ export const band = fit => (fit == null ? 'none' : fit >= 70 ? 'high' : fit >= 5
 // Under the ring in the compact list.
 export const matchLabel = fit => (fit == null ? 'Not scored' : fit >= 70 ? 'Strong match' : fit >= 50 ? 'Good match' : 'Weak match');
 
+// The fit score's bands, a few words each: the same bands the scoring prompt states (src/ai/score.py; Notion "Fit score - the scoring
+// rubric"). Shown as the tooltip of every place a fit score is drawn (the Jobs ring, a run card's score), with this job's own band first.
+export const FIT_BANDS = [[85, 'Everything matches'], [70, 'Small gaps only'], [50, 'Partial fit'], [30, 'Mostly another role'], [0, 'Unrelated']];
+export function fitTooltip(fit, extra = '') {
+  const bands = FIT_BANDS.map(([from], i) => `${from}–${i ? FIT_BANDS[i - 1][0] - 1 : 100}  ${FIT_BANDS[i][1]}`);
+  const head = fit == null ? 'Not scored yet' : `Fit ${fit}: ${matchLabel(fit)}`;
+  return [head, ...bands, ...(extra ? ['', extra] : [])].join('\n');
+}
+
 // When a job was first seen: "just now", "5h ago", "3d ago", "2w ago".
 export function ago(iso, now = Date.now()) {
   const ms = now - Date.parse(iso);

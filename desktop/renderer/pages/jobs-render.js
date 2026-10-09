@@ -5,7 +5,7 @@ import {claudeHelp} from '../claude-help.js';
 import {isInbound} from '../origin.js';
 import {looksLikeLink, matches} from '../filter.js';
 import {icon} from '../icons.js';
-import {ago, avatar, band, byFilter, byStat, inConversation, inStatus, isStuck, matchesOnly, matchLabel, placeAndMode, prepareState, preparing, shortPlace, sorted, statPressed, statusPill, tags, workMode} from '../jobs-view.js';
+import {ago, avatar, band, byFilter, byStat, inConversation, inStatus, isStuck, fitTooltip, matchesOnly, matchLabel, placeAndMode, prepareState, preparing, shortPlace, sorted, statPressed, statusPill, tags, workMode} from '../jobs-view.js';
 import {shared} from './shared.js';
 import {openActivity} from './activity.js';
 import {$, show} from './core.js';
@@ -111,7 +111,7 @@ export function renderJobs() {
     ringRow.append(ring, caret);
     fit.append(ringRow, el('span', 'fit-label', matchLabel(job.fit)));
     fit.title = job.fit == null ? 'Not scored yet: no description to read, or excluded by your filters'
-      : canOpen ? 'Why this score? Click to see' : matchLabel(job.fit);
+      : fitTooltip(job.fit, canOpen ? 'Click to see why' : '');
     const live = sessionFor(job.url);
     const {label: statusLabel, tone: statusTone} = live && !live.endedAt ? SESSION_PILL[live.status] || statusPill(job) : statusPill(job);
 
