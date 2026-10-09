@@ -33,8 +33,9 @@ const PERSON = persona.person;
 const QUALITY_NOTE = 'Note: "quality" is a 0-100 score of the whole job feed, also lowered by stale postings or a few unrelated roles, so a middling score next to a good stack or place match is normal; judge only whether following this employer suits the person.';
 // What each count means (src/scout_probe.py quality): a posting outside the person's roles counts in neither number, and "cities" are those of the relevant roles in
 // preferred places. 9 Oct 2026 (CI run 37978637897): without this the judge read Orbit's 3 postings, 2 relevant, 1 of them in Zurich, "cities: Zurich" (its non-relevant
-// Product Designer is in Zurich too) as contradicting facts.
-const FIELDS_NOTE = 'Fields: "postings" in "why" counts every posting on the board; "relevantRoles" counts only those matching the person\'s roles; "relevantRolesInPreferredPlaces" counts the relevant ones that are also in the person\'s places (a subset of relevantRoles); "citiesOfThose" lists the cities of exactly those relevant roles in preferred places. A posting outside the person\'s roles is counted in neither number, wherever it is.';
+// Product Designer is in Zurich too) as contradicting facts. The bar is said too: on a later run the judge called Orbit "coherent but weaker" (one relevant role in Zurich) and still
+// said no; the suite expects every board with a relevant role in the person's places to be added (EXPECTED: Orbit found, active).
+const FIELDS_NOTE = 'Fields: "postings" in "why" counts every posting on the board; "relevantRoles" counts only those matching the person\'s roles; "relevantRolesInPreferredPlaces" counts the relevant ones that are also in the person\'s places (a subset of relevantRoles); "citiesOfThose" lists the cities of exactly those relevant roles in preferred places. A posting outside the person\'s roles is counted in neither number, wherever it is. The bar: an employer with at least one relevant role in the person\'s places is worth following (fewer roles make it weaker, not wrong); answer no only when following it would not suit the person.';
 const ROOT = path.resolve(E2E, '..', '..');
 
 const find = dir => {
