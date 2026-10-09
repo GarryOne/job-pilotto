@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
-import {FIELDS, cleanProposals, emptyFields, forCv, pending, sourceKey} from '../lib/contact-from-cv.js';
+import {FIELDS, cleanProposals, emptyFields, forCv, pending, sourceKey, statedText} from '../lib/contact-from-cv.js';
 
 const memoryStorage = () => { const files = {}; return {files, readText: name => files[name] ?? null, writeText: (name, text) => { files[name] = text; }, path: name => `/x/${name}`}; };
 const fakeClient = (answer, calls = []) => ({messages: {create: async request => { calls.push(request); return {stop_reason: 'end_turn', content: [{type: 'text', text: JSON.stringify(answer)}]}; }}});
@@ -78,4 +78,10 @@ test('the Profile goes beside the CV: a detail only it states is proposed to che
   await forCv(memoryStorage(), {contact: coop, client, cvHash: 'cv1', read: pdf});
   assert.equal(calls[2].messages[0].content.length, 2);                        // no Profile: the CV and the fields only, as before
   assert.equal(sourceKey('cv1', ''), 'cv1');
+});
+
+// 9 Oct 2026, the twin: the town was stated only in the Knowledge page (learned notes), which the form AI reads and this call did not.
+test('what you stated: Profile, Answers and learned notes, each named; empty ones left out', () => {
+  assert.equal(statedText({profile: 'Retail.', answers: '', knowledge: "Candidate's location is Nyon."}), "## Profile\nRetail.\n\n## Learned notes\nCandidate's location is Nyon.");
+  assert.equal(statedText({}), '');
 });

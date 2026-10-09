@@ -11,6 +11,7 @@ import * as review from './review.js';
 import {aiClient} from './confirmation.js';
 import {hashOf} from './cv-check.js';
 import {profileTexts} from './strategy-settings.js';
+import * as notion from './notion.js';
 
 // Demo mode: fictional proposals, no AI (the screenshots of the Your details panel).
 const DEMO_PROPOSALS = [{field: 'phone', value: '+44 20 7946 0000', sure: true}, {field: 'location', value: 'London', sure: true},
@@ -44,7 +45,10 @@ export function registerContactHandlers({ipcMain, storage, DEMO, connected, need
     if (!connected()) return {proposals: [], error: 'notion'};
     const contact = await contactDetails.read(storage).catch(() => null);
     if (!contact) return {proposals: [], error: 'Couldn\'t read your details from Notion'};
-    const {profile} = await profileTexts(storage).catch(() => ({profile: ''}));   // the town etc. a Profile states and the CV doesn't
-    return fromCv.forCv(storage, {contact, client: aiClient(storage), cvHash: hashOf(storage), profile, again, log});
+    // What you stated beside the CV (Profile, Answers, Knowledge: contact-from-cv.js statedText): the town etc. the CV doesn't give.
+    const {profile, answers} = await profileTexts(storage).catch(() => ({profile: '', answers: ''}));
+    const knowledgeId = storage.settings().notionIds?.NOTION_KNOWLEDGE_PAGE;
+    const knowledge = knowledgeId ? await notion.pageText(storage.secret('NOTION_TOKEN'), knowledgeId).catch(() => '') : '';
+    return fromCv.forCv(storage, {contact, client: aiClient(storage), cvHash: hashOf(storage), profile: fromCv.statedText({profile, answers, knowledge}), again, log});
   });
 }
