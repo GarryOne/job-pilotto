@@ -83,6 +83,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/interviews.js` — Interviews page. Notion 🎤 Interviews is the database: every interview is a row there (transcript in the
 - `desktop/lib/job-actions-handlers.js` — The job actions' IPC (moved out of main.js, 8 Oct 2026): running a Telegram-style command from the app, adding a job or an applied one by hand, standard
 - `desktop/lib/job-line.js` — The job a Logged activity run created or updated, from the engine's output line (dependency-free: pipeline.js and
+- `desktop/lib/job-page-handlers.js` — A job's page in the app (Jobs → a row → the side panel, renderer/pages/job-panel.js): the job's record, its sections (kit, prep, review,
 - `desktop/lib/jobs-handlers.js` — The jobs and runs IPC (moved out of main.js, 8 Oct 2026): the page's view of a run, the runs list and a run's detail, checking mail, the first search,
 - `desktop/lib/keychain.js` — Every Keychain read of the app goes through here, and what a test or a live-test twin may reach (8 Oct 2026: a local e2e run that reached
 - `desktop/lib/kit-handlers.js` — The application kit and tailored CVs' IPC (moved out of main.js, 8 Oct 2026): drafting a job's kit (questions, answers, cover letter) onto
@@ -224,6 +225,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/interview-practice.js` — Interviews page, small parts: the supporting-moments dialog, the practice session, the loading skeleton rows and
 - `desktop/renderer/pages/interview-recorder.js` — Interviews page, recording: the macOS permission panel and the recorder (your microphone on the left channel, the
 - `desktop/renderer/pages/interviews.js` — Interviews page: record a call, then list, relink and review its transcript, notes and recording (saved in Notion).
+- `desktop/renderer/pages/job-panel.js` — Jobs → a job's page beside the list (owner's mockup, 9 Oct 2026): the title, "Applied 1 Oct · Zurich · 🎯 82", tabs for what the job
 - `desktop/renderer/pages/jobs-fit.js` — Jobs page, match analysis: the panel a score ring opens (parts as bars, risk, strengths and gaps). Guarded by: npm run shot -- jobs (no unit test reads it).
 - `desktop/renderer/pages/jobs-lead.js` — Jobs page, Log a message: the recruiter-lead dialog (screenshots, confirm step, job picker) and wireLead(). Guarded by: test/lead-confirm.test.js.
 - `desktop/renderer/pages/jobs-questions.js` — Jobs page, questions to answer once: cached list, read from Notion, Save/Skip. Guarded by: test/question-save.test.js, questions-load-error.test.js, questions-error-text.test.js.
@@ -296,6 +298,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/interview-review-view.js` — An interview's review in the app (Interviews → Open review), for a store with no page to open (the data on this Mac): the same content as
 - `desktop/renderer/interview-review.js` — An interview review's message as the parts the owner reads. src/ai/interviews.py writes it as:
 - `desktop/renderer/job-link.js` — Logged activity: the green box that links to the job a run created or updated ("Job created — <title>", Open job
+- `desktop/renderer/job-page-view.js` — A job's page in the app (Jobs → a row → the side panel): what the job's Notion page shows, read from the store, so it shows for
 - `desktop/renderer/jobs-view.js` — The Jobs page's derived bits, kept free of the DOM so the tests can check them.
 - `desktop/renderer/kits-ready.js` — The "Prepare top matches" message as the card's parts. src/daily.py (--mode kits) writes it as:
 - `desktop/renderer/knockout.js` — Questions a hiring system can be set to reject on by itself (recruiters on r/recruiting, 2025-26: work authorisation, sponsorship, location or

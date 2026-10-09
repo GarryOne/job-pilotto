@@ -349,7 +349,10 @@
         </div>
       </div>
       <div class="job-list-head" id="jobs-head" aria-hidden="true"><span>Fit</span><span>Role</span><span>Company</span><span>Location</span><span>Status</span><span>Actions</span></div>
-      <div class="job-list" id="jobs-body"></div>
+      <div class="job-split" id="jobs-split">
+        <div class="job-list" id="jobs-body"></div>
+        <aside class="card job-panel" id="job-panel" aria-label="Job page" hidden></aside>
+      </div>
       <div class="callout tone-warn" id="jobs-unscored" hidden><span id="jobs-unscored-text"></span> <button class="link" id="jobs-unscored-go" type="button">Check now</button></div>
       <p class="empty" id="jobs-empty" hidden>No jobs here yet. Click <b>Refresh jobs</b>; the first refresh takes a few minutes.</p>
     </div>

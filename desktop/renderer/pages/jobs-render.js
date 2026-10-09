@@ -1,6 +1,6 @@
 // Jobs page, the list: renderJobs (rows, filters, row actions), In conversation, the stuck banner, loading state, kit label. Guarded by: test/count-flash.test.js.
 import {ai} from '../ai-name.js';
-import {closeMenu, el, moreButton, pill, tag} from '../components.js';
+import {closeMenu, el, isInteractiveTarget, moreButton, pill, tag} from '../components.js';
 import {claudeHelp} from '../claude-help.js';
 import {isInbound} from '../origin.js';
 import {looksLikeLink, matches} from '../filter.js';
@@ -19,6 +19,7 @@ import {askWhy} from './dismiss-reason.js';
 import {openMatchCheck} from './match-check.js';
 import {jobsState, MORE, pageKey, fullKey} from './jobs-state.js';
 import {fitDetail} from './jobs-fit.js';
+import {openJobPanel, panelUrl} from './job-panel.js';
 import {loadJobs, showJobsData} from './jobs.js';
 
 // Applying, with no session open for it: one to settle (banner on Jobs).
@@ -139,15 +140,17 @@ export function renderJobs() {
     const skills = tags(job, 8);
     for (const skill of skills.slice(0, 3)) chips.append(tag(skill));
     if (skills.length > 3) chips.append(tag(`+${skills.length - 3}`, {title: skills.slice(3).join(', ')}));
-    if (job.kit && job.notion_url) {
+    // A section of the job's page (kit, rejection review): Notion's page when the store has one, else the job's page here (pages/job-panel.js).
+    const openPage = (tab, event) => (job.notion_url ? window.pilot.openNotion(job.notion_url, event?.metaKey) : openJobPanel(job, tab));
+    if (job.kit) {
       // Which inputs it was drafted from (src/ai/provenance.py): today's, earlier ones, or unknown (before they were recorded).
       const {label, title} = kitLabel(job.kit_state);
-      chips.append(tag(label, {title: `${title} Click to open it in Notion.`, onClick: event => window.pilot.openNotion(job.notion_url, event.metaKey)}));
+      chips.append(tag(label, {title: `${title} Click to open it${job.notion_url ? ' in Notion' : ''}.`, onClick: event => openPage('kit', event)}));
     }
     if (job.tailored && job.code) chips.append(tag('📄 Tailored CV', {title: 'Your CV tailored to this job, with the changes highlighted',
       onClick: () => window.pilot.openTailoredCv(job.code)}));
-    if (job.rejection) chips.append(tag(`🔎 ${job.rejection}`, {title: job.rejection_lesson || 'Why it was rejected (on its Notion page)',
-      onClick: event => job.notion_url && window.pilot.openNotion(job.notion_url, event.metaKey)}));
+    if (job.rejection) chips.append(tag(`🔎 ${job.rejection}`, {title: job.rejection_lesson || 'Why it was rejected',
+      onClick: event => openPage('review', event)}));
     if (busyNotes.has(job.url)) chips.append(tag(busyNotes.get(job.url), {busy: true}));
     if (chips.childElementCount) role.append(chips);
 
@@ -265,6 +268,8 @@ export function renderJobs() {
       renderJobs();
       try { await work(); } finally { busyNotes.delete(job.url); renderJobs(); }
     };
+    menu.push({icon: 'file-text', label: 'Open job page', run: () => openJobPanel(job),
+      title: 'Its kit, prep, reviews, record, messages, description and history, here beside the list'});
     if (job.notion_url) menu.push({icon: job.kit ? 'file-text' : 'layers', label: job.kit ? 'Open kit in Notion' : 'Open in Notion', run: event => window.pilot.openNotion(job.notion_url, event.metaKey),
       title: job.kit ? 'Application kit: form answers, cover letter, eligibility (in Notion)' : 'This job in your Notion'});
     menu.push({icon: 'external', label: isInbound(job) ? 'Open the message' : 'Open posting', run: () => window.pilot.openExternal(job.url), title: isInbound(job) ? 'The email or chat it came from' : 'The job posting'});
@@ -288,8 +293,8 @@ export function renderJobs() {
     if (job.page_id) menu.push({icon: 'chat', label: 'Add employer feedback', run: () => openFeedback({...job, job: job.title}, 'receive')});
     if (job.employer_feedback && job.page_id) menu.push({icon: 'chat', label: 'Read employer feedback', run: () => openFeedback({...job, job: job.title}, 'review')});
     // The saved review is a tag on the row; the menu says it in words too, as the tag alone did not read as clickable.
-    if (job.rejection && job.notion_url) menu.push({icon: 'file', label: 'View rejection review',
-      title: job.rejection_lesson || 'Why it was rejected, on the job\'s Notion page', run: event => window.pilot.openNotion(job.notion_url, event?.metaKey)});
+    if (job.rejection) menu.push({icon: 'file', label: 'View rejection review',
+      title: job.rejection_lesson || 'Why it was rejected: evidence and what to improve', run: event => openPage('review', event)});
     if (job.stage === 'Rejected') {
       // Claude reads the posting, what was sent, the timeline and any interview reviews: presentation, hard skills,
       // soft skills, or a different profile (nothing to improve). Written on the job's Notion page.
@@ -372,6 +377,11 @@ export function renderJobs() {
     box.append(moreButton(menu, 'More: save, dismiss, kit, posting, tailor CV'));
 
     row.append(fit, role, company, place, status, box);
+    // The job's page beside the list (pages/job-panel.js): a click on the row outside its controls, the score ring and its analysis.
+    if (panelUrl() && panelUrl() === job.url) row.classList.add('is-selected');
+    row.addEventListener('click', event => {
+      if (!isInteractiveTarget(event.target, row) && !fit.contains(event.target) && !event.target.closest('.fit-detail, .ui-menu')) openJobPanel(job);
+    });
     // The score ring opens why: Match analysis (the score's parts, strengths and gaps; Notion Job Matches keeps
     // them). The caret turns with it, and the row's own one-line summary steps aside for the panel's lead.
     if (canOpen) {

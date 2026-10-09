@@ -529,6 +529,18 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .compact .reason { -webkit-line-clamp: 1; margin-top: 3px; }
 .compact .tags { margin-top: 5px; }
 
+/* Jobs → a job's page beside the list (pages/job-panel.js): the list keeps its compact rows (title, fit, company · status), the panel scrolls
+   on its own. Its content is the interview review's groups (.iv-moments-group) and the page tabs (.tabs), wrapped to the panel's width. */
+.job-split.has-panel { display: grid; grid-template-columns: minmax(280px, 38%) minmax(0, 1fr); gap: var(--sp-4); align-items: start; }
+.job-split.has-panel .job-row .row-actions, .job-split.has-panel .job-row .tags, .job-split.has-panel .job-row .reason { display: none; }
+.job-split.has-panel .job-row { grid-template-columns: 76px minmax(0, 1fr); cursor: pointer; }
+.compact .job-row.is-selected { border-left-color: var(--signal); border-color: var(--line-strong); }
+.job-panel { position: sticky; top: var(--sp-4); max-height: calc(100vh - var(--sp-6) * 2); overflow: auto; margin-bottom: 0; }
+.job-panel-head { display: flex; justify-content: space-between; align-items: start; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.job-panel-head h2 { margin: 0; font-size: var(--fs-lg); }
+.job-panel .tabs { flex-wrap: wrap; gap: 0 var(--sp-3); margin-top: var(--sp-2); }
+.job-panel .iv-moments-group h3, .job-panel-line { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); }
+
 /* Narrow window (under 1180 px; the window's minimum is lib/main-window.js MIN_WIDTH): the comfortable card stacks company, place and
    status under the title, and its actions go beneath the job instead of a column of their own. */
 @media (max-width: 1179px) {

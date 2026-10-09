@@ -1,0 +1,46 @@
+{
+ "https://example.com/jobs/1": {
+  "app": {
+   "id": "demo-app-1",
+   "url": "https://example.com/jobs/1",
+   "title": "Senior Site Reliability Engineer",
+   "company": "Helvetic Cloud",
+   "stage": "Interview scheduled",
+   "applied_on": "2026-10-01",
+   "location": "Zurich"
+  },
+  "sections": {
+   "📝 Application kit": "Drafted by demo for Senior Site Reliability Engineer — Helvetic Cloud. Review before sending; nothing was submitted.\n\n### 💡 Lead with\n\n- Ran on-call for a 40-service Kubernetes platform\n\n### Machine-readable kit\n\n```json\n{\n \"version\": 3,\n \"url\": \"https://example.com/jobs/1\",\n \"model\": \"demo\",\n \"eligible\": true,\n \"check_before_sending\": [\n  \"The form asks for a start date: 1 December is in your answers.\"\n ],\n \"highlights\": [\n  \"Ran on-call for a 40-service Kubernetes platform\",\n  \"Cut alert noise by 60% with SLO-based paging\"\n ],\n \"cover_letter\": \"Dear Helvetic Cloud team,\\n\\nI run reliability for a payments platform today, and your post-mortem culture is why I am writing.\\n\\nKind regards,\\nAlex Example\",\n \"answers\": [\n  {\n   \"question\": \"Notice period\",\n   \"answer\": \"3 months\",\n   \"needs_review\": false\n  },\n  {\n   \"question\": \"Salary expectation (CHF)\",\n   \"answer\": \"140,000\",\n   \"needs_review\": true\n  },\n  {\n   \"question\": \"Do you need a work permit?\",\n   \"answer\": \"No, I hold a C permit.\",\n   \"needs_review\": false\n  }\n ]\n}\n```",
+   "🎤 Interview prep": "### Likely questions\n\n- Walk us through an incident you led.\n- How do you set SLOs with a product team?\n\n### Ask them\n\n- How is on-call shared across teams?",
+   "🗂 Application record": "Frozen 2026-10-01 for Senior Site Reliability Engineer — Helvetic Cloud. Answers read from the form just before Submit.\n\n### 🧾 Questions and answers\n\n**Notice period**\n\n3 months\n\n### ✉️ Cover letter sent\n\nDear Helvetic Cloud team, …\n\n### Machine-readable record\n\n```json\n{}\n```",
+   "🧾 Job description": "Helvetic Cloud runs managed Kubernetes for Swiss banks.\n\n- Own the reliability of the control plane\n- Lead incident reviews",
+   "📥 Logged messages": "### 📥 3 Oct 2026 · Recruiter asked for a call\n\n> Hi Alex, could we talk on Tuesday at 10:00?"
+  },
+  "events": [
+   {
+    "id": "e1",
+    "app_id": "demo-app-1",
+    "kind": "Applied",
+    "at": "2026-10-01",
+    "source": "Job Pilotto",
+    "note": "Applied with the extension"
+   },
+   {
+    "id": "e2",
+    "app_id": "demo-app-1",
+    "kind": "Replied",
+    "at": "2026-10-03",
+    "source": "Gmail",
+    "note": "Recruiter asked for a call"
+   },
+   {
+    "id": "e3",
+    "app_id": "demo-app-1",
+    "kind": "Interview scheduled",
+    "at": "2026-10-07",
+    "source": "Calendar",
+    "note": "Tuesday 10:00, video call"
+   }
+  ]
+ }
+}

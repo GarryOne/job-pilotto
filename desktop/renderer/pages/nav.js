@@ -8,6 +8,7 @@ import {loadFocus} from './focus.js';
 import {showFocusStarted} from './focus-onboarding.js';
 import {loadCalendar} from './calendar.js';
 import {loadInterviews} from './interviews.js';
+import {openJobPanel} from './job-panel.js';
 import {applyViewGate} from './notion-connect.js';
 import {loadSettings} from './profile.js';
 import {openSession, renderSessionPage} from './session-log.js';
@@ -96,6 +97,9 @@ function paletteCommands() {
   // A task waiting its turn can be taken out of the queue from here too (activity.js unqueue).
   (lastActivity?.queued || []).forEach(run => add('Actions', `Remove ${KIND[kindOf(run)].name} from the queue`, 'It has not started: it will not run',
     'unqueue cancel queued waiting remove', () => unqueue(run)));
+  // Every tracked job's page (pages/job-panel.js): its kit, prep, reviews, record, messages and history, found by its title or company.
+  (shared.allJobs || []).filter(job => job.stage && job.url).forEach(job => add('Jobs', `Open job page: ${job.title} · ${job.company}`, job.stage,
+    'job page kit cover letter form answers prep review record messages description history', () => { openView('jobs'); openJobPanel(job); }));
   button('jobs', 'refresh', 'find jobs scan');
   button('strategy', 'open-profile', 'edit roles locations places cities country skills targeting preferences');
   button('jobs', 'apply-open', 'apply fill forms');

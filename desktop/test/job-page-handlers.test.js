@@ -1,0 +1,48 @@
+// Jobs → a job's page (lib/job-page-handlers.js): one store's record, sections and events through the engine, on every store.
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import {test} from 'node:test';
+import {fileURLToPath} from 'node:url';
+import {jobPage, registerJobPageHandlers} from '../lib/job-page-handlers.js';
+
+const kitMarkdown = 'Drafted.\n\n### Machine-readable kit\n\n```json\n{"cover_letter": "Dear team", "answers": []}\n```';
+function fakeStore(app) {
+  const calls = [];
+  const call = async (_storage, entity, method, kwargs) => {
+    calls.push(`${entity}.${method}`);
+    if (method === 'get') return app;
+    if (method === 'sections') return {'📝 Application kit': kitMarkdown};
+    if (entity === 'events') return [{kind: 'Applied', at: '2026-10-01'}];
+    throw new Error(`unexpected ${entity}.${method}`);
+  };
+  return {call, calls};
+}
+
+test('a tracked job: its sections, its kit as JSON and its events, by its app id', async () => {
+  const {call, calls} = fakeStore({id: 'a1', stage: 'Applied'});
+  const page = await jobPage({}, 'https://x/1', {call, links: true});
+  assert.deepEqual(calls.sort(), ['applications.get', 'applications.sections', 'events.list']);
+  assert.equal(page.kit.cover_letter, 'Dear team');
+  assert.equal(page.events.length, 1);
+  assert.equal(page.links, true);
+});
+
+test('a job nobody acted on: no application, nothing else read', async () => {
+  const {call, calls} = fakeStore(null);
+  assert.deepEqual(await jobPage({}, 'https://x/2', {call}), {app: null, sections: {}, kit: null, events: [], links: false});
+  assert.deepEqual(calls, ['applications.get']);
+});
+
+test('the IPC: demo mode reads the fictional fixture; a store error is an answer, logged', async () => {
+  const handlers = {}, lines = [];
+  const ipcMain = {handle: (name, fn) => { handlers[name] = fn; }};
+  const here = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+  registerJobPageHandlers({ipcMain, storage: {}, DEMO: true, here, log: () => {}});
+  const demo = await handlers.jobPage(null, 'https://example.com/jobs/1');
+  assert.equal(demo.app.company, 'Helvetic Cloud');
+  assert.equal(demo.kit.answers.length, 3);
+  const storage = {settings: () => ({store: 'sqlite'})};
+  registerJobPageHandlers({ipcMain, storage, DEMO: false, here, log: (...line) => lines.push(line), call: async () => { throw new Error('no engine'); }});
+  assert.deepEqual(await handlers.jobPage(null, 'https://x/1'), {error: 'no engine'});
+  assert.equal(lines[0][1], 'job page not read');
+});
