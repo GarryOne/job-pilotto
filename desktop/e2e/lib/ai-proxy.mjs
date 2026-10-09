@@ -28,6 +28,7 @@ export async function startAiProxy({delayMs = 0, target = 'https://api.anthropic
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
     stats.calls++;
+    if (follow) follow.stats.calls++;   // the suite's proxy counts every AI call of the turn, as it counts the faults below: steps compare its `calls` before and after (10 Oct 2026: apply failed on an OpenAI turn, "the AI was never asked")
     const control = follow ? follow.stats : stats, openai = shape === 'openai';   // the faults and the delay a step set on the suite's proxy
     await new Promise(resolve => setTimeout(resolve, control.delayMs));
     if (control.mode !== 'pass') control.failed++;

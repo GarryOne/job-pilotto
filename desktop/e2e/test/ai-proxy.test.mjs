@@ -118,6 +118,7 @@ test("a fault the suite sets fires on an OpenAI turn, in OpenAI's own error shap
     turn.suite.setMode('server-error');
     await assert.rejects(ask(turn.engine, 'hello'), error => error instanceof AiUnavailable);
     assert.equal(turn.suite.stats.failed, 4);
+    assert.equal(turn.suite.stats.calls, 4, 'steps count AI calls on the suite proxy: an OpenAI turn must show there too');
     assert.equal(turn.reached(), 0);
     assert.deepEqual(Object.keys(OPENAI_FAILURES).sort(), Object.keys(FAILURES).sort());   // a new Anthropic fault needs its OpenAI twin
   } finally { await turn.close(); }
