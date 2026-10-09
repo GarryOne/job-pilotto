@@ -398,8 +398,18 @@ PENDING = ()
 
 
 class NotionStores(base.Stores):
+    pipeline_page_id = ''   # NOTION_PIPELINE_PAGE of the workspace (open_store)
+
     def link(self, record_id):
         return f"https://www.notion.so/{str(record_id).replace('-', '')}" if record_id else None
+
+    def pipeline_page(self, heading, blocks):
+        """Notion only, no entity of the interface: the section under `heading` on the 🎯 Pipeline page (src/notion/funnel.py writes its
+        📈 Conversion), replaced by `blocks`. False when this workspace has no Pipeline page."""
+        if not self.pipeline_page_id:
+            return False
+        self.applications.tracker.replace_after_heading(self.pipeline_page_id, heading, blocks)
+        return True
 
 
 def tracker_for(env):
@@ -415,7 +425,7 @@ def open_store(env=None, tracker=None):
     ids = {entity: env.get(variable, '') for entity, variable in DATABASES.items()}
     # A caller's client already names its Job Tracker (Tracker.database_id): the same database when no variable says so.
     ids['applications'] = ids['applications'] or getattr(tracker, 'database_id', '') or ''
-    return NotionStores(name='notion', applications=Applications(tracker, ids['applications']),
+    stores = NotionStores(name='notion', applications=Applications(tracker, ids['applications']),
                         events=Events(tracker, ids['events']),
                         matches=NotionMatches(tracker, ids['matches']),
                         interviews=NotionInterviews(tracker, ids['interviews']),
@@ -425,3 +435,5 @@ def open_store(env=None, tracker=None):
                         employers=NotionEmployers(tracker, ids['employers']),
                         **{entity: _NotYet(entity) for entity in PENDING},
                         caps=frozenset({base.LINKS, base.CLOUD, base.FILES}))
+    stores.pipeline_page_id = env.get('NOTION_PIPELINE_PAGE', '')
+    return stores

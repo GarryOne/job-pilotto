@@ -78,21 +78,13 @@ def inbound_funnel(apps):
     return steps
 
 
-def _stores(stores_or_tracker):
-    """The store: given, or the notion store around a caller's Notion tracker (callers that still hold one)."""
-    from ..stores import Stores, open_stores
-    return stores_or_tracker if isinstance(stores_or_tracker, Stores) else open_stores(tracker=stores_or_tracker)
-
-
 def _key(record_id):
     return (record_id or '').replace('-', '')
 
 
 def reached(stores):
     """Per outbound application (src/notion/origin.py): the set of stages and event kinds it has reached, and its
-    current stage. Opportunities that found you (inbound) are not in the funnel. stores: the store (or a Notion
-    tracker)."""
-    stores = _stores(stores)
+    current stage. Opportunities that found you (inbound) are not in the funnel. stores: the active store (src/stores)."""
     rows = stores.applications.list(stages=list(OUTCOME_STAGES + PREPARED_STAGES))
     kinds = {}  # oldest first: the first contact decides inbound or outbound
     for event in sorted(stores.events.list(), key=lambda event: event.get('at') or ''):
@@ -192,14 +184,11 @@ def blocks(steps, now_text):
     return [table, callout, note]
 
 
-def write(tracker, steps, now_text, page_id=PIPELINE_PAGE_ID):
-    tracker.replace_after_heading(page_id, HEADING, blocks(steps, now_text))
-
-
-def pipeline_tracker(stores):
-    """The Notion client that writes the 🎯 Pipeline page, or None: only a Notion store with a Pipeline page has one."""
-    tracker = getattr(stores.applications, 'tracker', None)
-    return tracker if tracker is not None and PIPELINE_PAGE_ID else None
+def write(stores, steps, now_text):
+    """The 📈 Conversion section of the 🎯 Pipeline page: a Notion-only output, written by the notion adapter
+    (src/stores/notion.py pipeline_page). False on a store without that page (the app's Focus shows the funnel)."""
+    page = getattr(stores, 'pipeline_page', None)
+    return bool(page and page(HEADING, blocks(steps, now_text)))
 
 
 def main(argv=None):
@@ -214,12 +203,10 @@ def main(argv=None):
         print(f"{s['step']:<16} {s['reached']:>3}  {pct(s.get('conversion')):>5}  open {s['waiting']}")
     print('\n'.join(summary(steps)))
     if args.write:
-        tracker = pipeline_tracker(stores)
-        if tracker is None:
-            print('No Pipeline page with this store: the app shows the funnel on Focus.')
-        else:
-            write(tracker, steps, datetime.now().strftime('%d %b %H:%M'))
+        if write(stores, steps, datetime.now().strftime('%d %b %H:%M')):
             print('Pipeline page updated.')
+        else:
+            print('No Pipeline page with this store: the app shows the funnel on Focus.')
     return 0
 
 

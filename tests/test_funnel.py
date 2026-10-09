@@ -1,9 +1,11 @@
 import sys
+import shutil
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.notion import funnel
+from tests import notion_stand_in
 from src.notion.ledger import REPLY as REPLY_KIND
 
 
@@ -104,20 +106,51 @@ class SameDefinitionsTests(unittest.TestCase):
         self.assertEqual(stages('INTERVIEWS'), steps['🧑‍💻 Interviews'])
 
 
-class PipelinePageTest(unittest.TestCase):
-    def test_only_a_notion_store_with_a_pipeline_page_writes_it(self):
-        from unittest import mock
-        from src.stores import memory
-        stores = memory.open_store()
-        self.assertIsNone(funnel.pipeline_tracker(stores))
-        notion_like = mock.Mock()
-        notion_like.applications.tracker = 'tracker'
-        with mock.patch.object(funnel, 'PIPELINE_PAGE_ID', 'page'):
-            self.assertEqual(funnel.pipeline_tracker(notion_like), 'tracker')
-            self.assertIsNone(funnel.pipeline_tracker(stores))
-        with mock.patch.object(funnel, 'PIPELINE_PAGE_ID', ''):
-            self.assertIsNone(funnel.pipeline_tracker(notion_like))
+STEPS = funnel.funnel([app('Kit ready')] * 4 + [app('Rejected', 'Applied')] * 6 + [app('Screening', 'Applied', 'Reply received')])
 
+
+class PipelinePageTest(unittest.TestCase):
+    def test_a_store_without_a_pipeline_page_writes_nothing(self):
+        from src.stores import memory
+        self.assertFalse(funnel.write(memory.open_store(), STEPS, '09 Oct 20:00 UTC'))
+
+
+def _direct(request, timeout=20):
+    import urllib.request
+    return urllib.request.urlopen(request, timeout=timeout)
+
+
+@unittest.skipUnless(shutil.which('node'), 'node runs the Notion stand-in')
+class PipelinePageOnNotionTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        notion_stand_in.start(cls)
+
+    @classmethod
+    def tearDownClass(cls):
+        notion_stand_in.stop(cls)
+
+    def page(self, tracker, title):
+        page = tracker._request('POST', 'pages', {'parent': {'page_id': 'stand-in-root'},
+                                                   'properties': {'title': {'title': [{'text': {'content': title}}]}}})['id']
+        tracker.append_blocks(page, [{'object': 'block', 'type': 'heading_2', 'heading_2': {'rich_text': [{'type': 'text', 'text': {'content': 'Intro'}}]}}])
+        return page
+
+    def test_the_store_writes_the_same_page_as_before(self):
+        """D7: the Pipeline page through the notion adapter is block for block what the engine wrote with its tracker before."""
+        from src.notion.client import Tracker
+        from src.stores import notion as notion_store
+        tracker = Tracker(self.token, opener=_direct)
+        before, through_store = self.page(tracker, 'before'), self.page(tracker, 'store')
+        tracker.replace_after_heading(before, funnel.HEADING, funnel.blocks(STEPS, '09 Oct 20:00 UTC'))   # the old funnel.write
+        stores = notion_store.open_store({'NOTION_TOKEN': self.token, 'NOTION_PIPELINE_PAGE': through_store}, tracker=tracker)
+        self.assertTrue(funnel.write(stores, STEPS, '09 Oct 20:00 UTC'))
+        shape = lambda page: [{key: value for key, value in block.items() if key not in ('id', 'parent', 'created_time', 'last_edited_time')}
+                              for block in tracker._children(page) if not block.get('archived')]
+        self.assertGreater(len(shape(through_store)), 2)
+        self.assertEqual(shape(through_store), shape(before))
+        self.assertFalse(funnel.write(notion_store.open_store({'NOTION_TOKEN': self.token, 'NOTION_PIPELINE_PAGE': ''}, tracker=tracker),
+                                      STEPS, 'x'), 'a workspace without a Pipeline page')
 
 if __name__ == '__main__':
     unittest.main()

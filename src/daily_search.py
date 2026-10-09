@@ -22,7 +22,7 @@ from .daily_helpers import (STALE_DAYS, crawl_counts, digest_note, downloaded_in
 
 def search(args, stores=None):
     stores = stores or open_run()
-    # BRIDGE(mac-e3): remove when insights.run and the Pipeline page (funnel.write) take the store alone
+    # BRIDGE(mac-e3): remove when insights.run takes the store alone
     notion = notion_of(stores)
     run = new_cron_run(args.mode)
     spend = None
@@ -249,10 +249,10 @@ def search(args, stores=None):
                 print(interviews.sweep(stores=stores))
             except Exception as error:
                 print(f'Warning: interview sweep skipped: {type(error).__name__}: {error}')
-        if notion and args.mode == 'scheduled':
-            # 🎯 Pipeline page: conversion between funnel steps and the step to improve (no AI).
+        if args.mode == 'scheduled' and stores.name == 'notion' and not features.disabled('notion'):
+            # 🎯 Pipeline page: conversion between funnel steps and the step to improve (no AI). Notion only: the notion adapter writes it.
             try:
-                funnel.write(notion, funnel.funnel(funnel.reached(stores)),
+                funnel.write(stores, funnel.funnel(funnel.reached(stores)),
                              datetime.now(timezone.utc).strftime('%d %b %H:%M UTC'))
             except Exception as error:
                 print(f'Warning: funnel update skipped: {type(error).__name__}: {error}')
