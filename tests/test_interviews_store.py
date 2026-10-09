@@ -22,7 +22,8 @@ from tests.interview_insights_fakes import ONE, interview, recs
 from tests.interviews_fixtures import SPOKEN
 
 
-class SqliteCommandTests(unittest.TestCase):
+class OnThisMac(unittest.TestCase):
+    """A temporary SQLite store chosen as the active one, with one job at Interview scheduled."""
     def setUp(self):
         folder = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, folder, True)
@@ -42,6 +43,8 @@ class SqliteCommandTests(unittest.TestCase):
             code = module.main(list(argv))
         return code, json.loads(out.getvalue().strip().splitlines()[-1])
 
+
+class SqliteCommandTests(OnThisMac):
     def test_every_interviews_command_works_on_this_macs_store(self):
         transcript = self.folder / 'call.txt'
         transcript.write_text(SPOKEN, encoding='utf-8')
@@ -89,6 +92,27 @@ class SqliteCommandTests(unittest.TestCase):
             except SystemExit as stop:
                 self.fail(f'the insight command needs Notion: {stop}')
         self.assertIsNone(run.call_args.args[1])  # no tracker: the store is this Mac's
+
+
+class ReviewCommandTests(OnThisMac):
+    def test_a_review_runs_on_this_macs_store_without_notion(self):
+        from types import SimpleNamespace
+        from src import daily_modes
+        from tests.interviews_fixtures import FakeClient
+        transcript = self.folder / 'call.txt'
+        transcript.write_text(SPOKEN, encoding='utf-8')
+        args = SimpleNamespace(file=str(transcript), note='Grafana, round 1', send=False, job='https://x.test/g-1', interview=None,
+                               log_run=False)
+        out = io.StringIO()
+        with mock.patch('src.ai.engine.client', return_value=FakeClient()), redirect_stdout(out):
+            try:
+                self.assertEqual(daily_modes.interview_mode(args, None), 0)
+            except SystemExit as stop:
+                self.fail(f'a review needs Notion: {stop}')
+        self.assertIn('Interview analysed (Grafana Labs', out.getvalue())
+        [row] = sqlite.open_store(self.env).interviews.list()
+        self.assertEqual((row['overall'], row['app_id']), ('positive', self.job['id']))
+        self.assertEqual(sqlite.open_store(self.env).applications.get('https://x.test/g-1')['stage'], 'Interviewing')
 
 
 class FingerprintTests(unittest.TestCase):

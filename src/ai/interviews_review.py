@@ -1,5 +1,5 @@
-"""Interview analysis, replacing a review on an Interviews page: finding the blocks an earlier review wrote and swapping them.
-Re-exported by src/ai/interviews.py. Tests: tests/test_interviews_again.py.
+"""Interview analysis, a review on a Notion Interviews page: the blocks an earlier review wrote (found by its headings) and the
+placeholder; src/stores/notion_interviews.py swaps them. Re-exported by src/ai/interviews.py. Tests: tests/test_interviews_again.py.
 """
 from ..notion.ledger import plain
 
@@ -33,24 +33,4 @@ def review_block_ids(blocks):
     return ids
 
 
-def replace_review(tracker, page_id, blocks):
-    """Put a new review where the old one is: added right after it, then the old blocks removed (a failed add leaves
-    the old review whole; a second run also clears what a half-done delete left). No review yet: add_review."""
-    old = review_block_ids(tracker._children(page_id))
-    if not old:
-        return add_review(tracker, page_id, blocks)
-    tracker._request('PATCH', f'blocks/{page_id}/children', {'children': blocks, 'after': old[-1]})
-    for block_id in old:
-        tracker._request('DELETE', f'blocks/{block_id}')
-
-
 PLACEHOLDER = 'Not reviewed yet. Review it from the Interviews page of the Job Pilotto app.'
-
-
-def add_review(tracker, page_id, blocks):
-    """Put the review where the placeholder is (the top of the page), or at the end if it's gone."""
-    marker = next((b for b in tracker._children(page_id) if b['type'] == 'paragraph' and
-                   plain({'type': 'rich_text', 'rich_text': b['paragraph'].get('rich_text', [])}) == PLACEHOLDER), None)
-    tracker._request('PATCH', f'blocks/{page_id}/children', {'children': blocks, **({'after': marker['id']} if marker else {})})
-    if marker:
-        tracker._request('DELETE', f"blocks/{marker['id']}")

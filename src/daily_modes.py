@@ -195,7 +195,8 @@ def add_link_mode(args, tracker):
 
 
 def interview_mode(args, tracker):
-    if not tracker:
+    from .stores import chosen
+    if not tracker and chosen() == 'notion':  # on this Mac's store it runs without Notion
         raise SystemExit('--mode interview requires NOTION_TOKEN')
     # Telegram only to send the summary or fetch a file sent to the bot; the app's reviews work without it.
     from_bot = bool(args.file) and not Path(args.file).is_file()

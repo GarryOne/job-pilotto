@@ -56,8 +56,7 @@ from .interviews_blocks import (
 from .interviews_facts import _call_facts, _norm, fact_lines, facts_of, merge_facts  # noqa: F401
 from .interviews_input import clean, download, read_input  # noqa: F401
 from .interviews_review import (
-    PLACEHOLDER, REVIEW_HEADINGS, _plain_block, add_review,
-    replace_review, review_block_ids)
+    PLACEHOLDER, REVIEW_HEADINGS, _plain_block, review_block_ids)
 from .interviews_stages import (
     APP_SOURCE, BEFORE_INTERVIEW, CANCELLED, CANDIDATE_STAGES,
     CLOSED, IN_TALKS, held_stage)
