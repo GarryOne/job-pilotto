@@ -28,9 +28,10 @@ export const stepNeeds = {'form': [SETUP], 'session page says it too': [SETUP, '
 export const name = 'apply';
 
 
-// Parts of this file (6 Oct 2026, the 7-minute budget; the journeys split off on 8 Oct 2026): `apply` fills the forms; `applycv` (suites/applycv.mjs) runs the
-// tailored-CV and kitless-Apply steps AND the journeys across pages and tabs (docs/flows/applying.md: a posting that opens a new tab, two applications side by
-// side, a sign-up before the form, account + form on one page, a closed tab, a wrong kind), which is how CI runs them within its 5 macOS jobs; `applyflows`
+// Parts of this file (6 Oct 2026, the 7-minute budget; the journeys split off on 8 Oct 2026): `apply` fills the forms and runs the tailored-CV and kitless-Apply
+// steps (moved here 9 Oct 2026: with them applycv ran over 7 minutes); `applycv` (suites/applycv.mjs) runs the journeys across pages and tabs (docs/flows/applying.md:
+// a posting that opens a new tab, two applications side by side, a sign-up before the form, account + form on one page, a closed tab, a wrong kind), which is how
+// CI runs them within its 5 macOS jobs (test/apply-parts.test.mjs: each part in exactly one of them); `applyflows`
 // (suites/applyflows.mjs, manual) runs only the journeys, so the local scenario matrix runs forms and journeys in parallel. Each has its own Notion page and token.
 // The setup step and the final "Submit was never clicked" check run in all of them; each run seeds only the fixture jobs its steps use.
 const CV_STEPS = ['Tailor CV on a job', 'the form\'s panel offers a tailored CV', 'Tailor CVs for top matches', 'Apply on a saved job without a kit'];
@@ -40,7 +41,7 @@ const SHARED_STEPS = ['the app is seeded', 'the app has an applicant', 'through 
 const LIVE_STEPS = ['a real posting, watched live'];
 export const partOf = name => (LIVE_STEPS.some(head => name.startsWith(head)) ? 'live' : SHARED_STEPS.some(head => name.startsWith(head)) ? 'both' : CV_STEPS.some(head => name.startsWith(head)) ? 'cv' : FLOW_STEPS.some(head => name.startsWith(head)) ? 'flows' : 'forms');
 
-export const run = ctx => runApply(ctx, ['forms']);
+export const run = ctx => runApply(ctx, ['forms', 'cv']);   // the CV steps use the form fixtures' jobs; with the journeys they put applycv over 7 minutes (beta 9 Oct 2026: 394 s of steps on Windows)
 export async function runApply(ctx, parts) {
   const {page, token: NOTION, proxy, forms} = ctx;
   ctx.findings = [];

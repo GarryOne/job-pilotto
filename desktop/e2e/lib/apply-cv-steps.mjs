@@ -55,16 +55,25 @@ export async function runCvSteps(ctx, h) {
     if (!/ready/.test(panel?.tailor || '')) throw new Error(`the panel never said the tailored CV is ready (its tailor line: "${panel?.tailor}")`);
     await tab.locator('#jobpilotto-review-host .fill').click();
     await pause(2500);
-    for (let waited = 0; waited < 90000; waited += 500) { const now = await fillState(tab).catch(() => null); if (now?.state === 'done' || now?.state === 'error') break; await pause(500); }
-    fail(cvProblems(await readForm(tab), {name: 'CV_Ada_Tester_E2E_Lever_Systems.pdf', size: fs.statSync(tailoredPdf).size}));
+    // Done when the form holds the tailored CV: the app re-fills by itself once the CV is ready, and that fill leaves no state on the page, so waiting for
+    // "done" alone always ran the full 90 s (beta 9 Oct 2026: 107 s of this step's 113, the apply suite at 91% of its budget).
+    const expected = {name: 'CV_Ada_Tester_E2E_Lever_Systems.pdf', size: fs.statSync(tailoredPdf).size};
+    for (let waited = 0; waited < 90000; waited += 500) {
+      const now = await fillState(tab).catch(() => null);
+      if (now?.state === 'done' || now?.state === 'error' || !cvProblems(await readForm(tab).catch(() => ({})), expected).length) break;
+      await pause(500);
+    }
+    fail(cvProblems(await readForm(tab), expected));
   }, {needs: ctx.needs});
 
   // Tailor CVs for top matches (Actions): the best open jobs without a tailored CV, in fit order, only as many as asked. The stand-in AI answers the tailoring.
   const topUrls = [1, 2, 3].map(n => `https://boards.greenhouse.io/e2e-top/jobs/90000${n}`);
+  const bareUrl = 'https://boards.greenhouse.io/e2e-no-such-board/jobs/900010';   // the kitless step's Saved job: a run that stopped inside that step leaves it
   const codeOf = url => crypto.createHash('sha1').update(url.trim()).digest('hex').slice(0, 8);
   const tailoredAt = url => path.join(ctx.profile, 'cv', 'tailored', `${codeOf(url)}.pdf`);
     await ctx.run('Tailor CVs for top matches: asked for 2, it tailors the two best open jobs without a CV, in fit order, and leaves the third alone', async () => {
-    await removeJobsByUrl(NOTION, topUrls);   // rows an earlier failed run left behind
+    // Rows an earlier run left behind, the kitless step's Saved job too: a Saved job is picked before any fit (beta 9 Oct 2026, the apply page: it took a slot).
+    await removeJobsByUrl(NOTION, [...topUrls, bareUrl]);
     const added = [];
     for (const [index, fit] of [99, 98, 97].entries()) added.push((await addKitJob(NOTION, {title: `Platform Engineer ${index + 1}`, company: `E2E Top ${index + 1}`, url: topUrls[index], fit,
       kit: {answers: [], cover_letter: '', check_before_sending: []}, description: POSTING})).id.replace(/-/g, ''));
@@ -77,6 +86,10 @@ export async function runCvSteps(ctx, h) {
         const held = await page.evaluate(urls => (window.__jp.shared.allJobs || []).filter(job => urls.includes(job.url)).map(job => `${job.url.slice(-6)} → ${String(job.notion_url || 'no page').slice(-32)}`), topUrls);
         throw new Error(`the Jobs list never showed the three new top-match rows ${added.map(id => id.slice(-8)).join(', ')}; it holds: ${held.join(' | ') || 'none of their URLs'}`);
       });
+    // The premise: no other open job without a CV is saved or fits above 98 (else it rightly takes a slot and the step proves nothing).
+    const rivals = await page.evaluate(urls => (window.__jp.shared.allJobs || []).filter(job => !urls.includes(job.url) && ['unreviewed', 'saved'].includes(job.status) && !job.tailored
+      && (job.status === 'saved' || (job.fit ?? -1) >= 98)).map(job => `${job.title} (${job.status}, fit ${job.fit})`), topUrls);
+    if (rivals.length) throw new Error(`other open jobs without a CV would be picked first: ${rivals.join(' | ')}`);
     await page.click('.nav[data-view="actions"]');
     if (await page.locator('[data-command="kits"]').count()) throw new Error('Prepare top matches is still on the Actions page');
     await page.fill('#tailor-top-n', '2');
@@ -113,7 +126,6 @@ export async function runCvSteps(ctx, h) {
   // be made: the button must say so ("Retry apply"), no form may open, and the job stays without a kit. The success path needs a form to read (not faked here).
   // (A board that does not exist is not enough: an unreadable form still gets a kit from the posting, src/ai/kit.py prepare_one; the gate of 6 Oct 2026 drafted one.)
   await ctx.run('Apply on a saved job without a kit: it prepares first, and when the kit cannot be drafted says Retry apply and opens nothing', async () => {
-    const bareUrl = 'https://boards.greenhouse.io/e2e-no-such-board/jobs/900010';
     await removeJobsByUrl(NOTION, [bareUrl]);
     await addKitJob(NOTION, {title: 'Bare Platform Engineer', company: 'E2E Bare', url: bareUrl, kit: null, fit: 60, stage: 'Saved', nextStep: '', description: POSTING});
     await page.reload();
