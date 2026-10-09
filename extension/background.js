@@ -12,7 +12,7 @@ import {closePosting, followOpener, noteSource} from './tabs.js';
 import {consider, initFillFlow} from './fill-flow.js';
 import {autoRead, markListed, siteUnreachable, startWaiting} from './visit.js';
 import {MEMORY_KEY, memoryReadyIs, sessionGet, snapshot, startRun} from './tab-memory.js';
-import {startsOwnJob, pageKey, sameSite, navigationKind, neverForm, tabArmed, withMark} from './tab-pages.js';
+import {startsOwnJob, pageKey, sameSite, navigationKind, neverForm, sharedFixes, tabArmed, withMark} from './tab-pages.js';
 import {noteStart} from './panel-start.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
@@ -359,8 +359,8 @@ async function fillOpenedTabNow(tab, url, force = false, {fast = false, quiet = 
       {url: page, ineligible: !!result.ineligible});
     // How each field was handled, so "what happened to <field>?" is answered from the log (8 Oct 2026: it took page probes). Labels and kinds, never a value.
     // One row per field: a later pass (Claude on the page) wins.
-    const fields = [...new Map((result.trace || []).map(row => [row.label, row])).values()].slice(0, 40).map(row => ({label: String(row.label || '').slice(0, 50), type: row.type || '', outcome: row.outcome, source: row.source || '', reason: row.reason || ''}));
-    if (fields.length) decide('fill', `fields: ${fields.filter(row => row.outcome === 'filled').length} filled, ${fields.filter(row => row.outcome !== 'filled').length} left`, {url: page, fields});
+    const fields = [...new Map((result.trace || []).map(row => [row.label, row])).values()].slice(0, 40).map(row => ({label: String(row.label || '').slice(0, 50), type: row.type || '', outcome: row.outcome, source: row.source || '', reason: row.reason || '', ...(row.alias ? {alias: String(row.alias).slice(0, 30)} : {})}));   // alias: the pack meaning's field key, never a value
+    if (fields.length) decide('fill', `fields: ${fields.filter(row => row.outcome === 'filled').length} filled, ${fields.filter(row => row.outcome !== 'filled').length} left`, {url: page, fields, recipes: sharedFixes(result.operated).count});   // did the learned layer act (twin-loop, 9 Oct 2026)
     chrome.action.setBadgeText({tabId: tab.id, text: result.ineligible ? '!' : '✓'}).catch(() => {});  // the tab may already be closed
     return result;
   } catch (error) {

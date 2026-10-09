@@ -260,6 +260,17 @@ test("a fill's per-field outcomes pass the log boundary as short rows of wording
   assert.equal(kept[1].reason.length, 80);
 });
 
+// twin-loop (9 Oct 2026): whether the learned layer acted must be readable from the log: the pack meaning that placed a field, and the recipe count.
+test('the fill line keeps a field\'s pack meaning key and the recipes count; a value posing as a key is dropped', async () => {
+  const seen = [];
+  const rows = [{label: 'Localité', type: 'text', outcome: 'filled', source: 'your details', reason: '', alias: 'location'},
+    {label: 'Ville', type: 'text', outcome: 'filled', source: 'your details', reason: '', alias: 'Nyon, Vaud'}];
+  await call('/extension/log', { method: 'POST', body: { entries: [{ kind: 'fill', text: 'fields: 2 filled, 0 left', fields: { fields: rows, recipes: 2 } }] } },
+    { onLog: async entries => seen.push(...entries) });
+  const kept = seen[0].fields;
+  assert.deepEqual([kept.fields[0].alias, kept.fields[1].alias, kept.recipes], ['location', undefined, 2]);
+});
+
 test('a likely answer the profile does not state comes back as a proposal (a knockout one too, to be checked); a preference too (an SMS opt-in); never for a legal or demographic question', async () => {
   const { answerForm } = await import('../src/extension.js');
   const answers = [

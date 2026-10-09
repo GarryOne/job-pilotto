@@ -73,13 +73,13 @@ Twin fills count as real use since d8cbe63, so they feed it both ways.
    - `proposals` (`bySource`, `byFamily`): what the person did with proposed answers. **Never press Use in the twin** to make this move:
      used / edited / ignored is the owner's judgment, and Use saves the answer for every later form.
    - **What was learned, as data** (owner key as above, never print it):
-     - recipes: `GET /api/recipes?status=candidate`, `?status=canary` (and the "Recipe funnel" card on `/admin/form-filling`);
+     - recipes: `GET /api/recipes?status=candidate` (waiting), `GET /api/recipes` (canary + verified), and the "Recipe funnel" card on `/admin/form-filling`;
      - wording meanings: `GET /api/knowledge` (question wordings 3+ installs met, alias proposals and how they fared);
      - what the proposer should work on next: `GET /api/recipes/targets`.
 2. **The live signals from this round's runs** (in `app.log` and the trace). Did the learned layer act? Count per run:
    - page kind `by: remembered` vs `by: ai` (a shape learned once, reused for free);
-   - trace rows with an `alias` (a meaning from the pack placed the field);
-   - `operated` rows with `recipe > 0` (a recipe configured an operator);
+   - rows of the `fields: N filled` line with an `alias` (the pack meaning that placed the field, a key such as `location`);
+   - `recipes` on the same line: how many shared recipes set a control in this fill;
    - proposals shown, and used by the person (`inspect` shows `proposals`);
    - misses reported with a fingerprint (menu reasons, unread questions, unknown uploads);
    - did this fill's record reach the site? (`forms` in the digest went up after the run).
