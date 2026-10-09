@@ -33,3 +33,11 @@ test('the comment shows the change since the last scorecard and carries its data
   assert.match(text, /\| Layout and DOM checks \| 3 \| 1 \| 2 \| 0 \| 33% \(\+33\) \| fp:detector 2 \| 1↑ 0↓ \|/);
   assert.match(text, /since 2026-10-01/);
 });
+
+test('the yield: real and false findings this week vs the week before, with a warning when real bugs fall', () => {
+  const at = (days, item) => ({...item, createdAt: new Date(Date.parse('2026-10-09T00:00:00Z') - days * 86400000).toISOString()});
+  const real = issue('ai-review', 'CLOSED', ['resolution:fixed', 'confirmed']), fp = issue('layout-check', 'CLOSED', ['resolution:fp:detector', 'wontfix-auto']);
+  const card = scorecard([at(1, fp), at(2, real), at(8, real), at(9, real)], {now: new Date('2026-10-09T00:00:00Z')});
+  assert.deepEqual(card.yield, {thisWeek: {real: 1, falsePositive: 1}, lastWeek: {real: 2, falsePositive: 0}});
+  assert.match(scorecardComment(card), /This week 1 real · 1 false\*\* \(the week before: 2 real · 0 false\) · ⚠️ fewer real bugs/);
+});

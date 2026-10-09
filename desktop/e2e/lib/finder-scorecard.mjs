@@ -25,7 +25,11 @@ export function scorecard(issues, {now = new Date()} = {}) {
     return {source, detector: row.detector, filed: row.filed, real, falsePositive: row.falsePositive + row.harness, open: row.open + row.unclear,
       precision: judged ? Math.round(100 * real / judged) : null, causes, severityChanged};
   }).sort((a, b) => b.filed - a.filed);
-  return {at: now.toISOString().slice(0, 10), totals: {filed: totals.filed, real: totals.real, falsePositive: totals.falsePositive + totals.harness, open: totals.unjudged, precision: totals.precision}, detectors};
+  // The yield (owner, 9 Oct 2026: "more and more real issues, fewer and fewer false"): real and false findings by the week they were found, this week vs the one before.
+  const week = (from, to) => { const list = issues.filter(issue => { const at = Date.parse(issue.createdAt || 0); return at >= now - from * 86400000 && at < now - to * 86400000; });
+    const {totals: t} = summarize(list); return {real: t.real, falsePositive: t.falsePositive + t.harness}; };
+  const yieldOf = {thisWeek: week(7, 0), lastWeek: week(14, 7)};
+  return {at: now.toISOString().slice(0, 10), yield: yieldOf, totals: {filed: totals.filed, real: totals.real, falsePositive: totals.falsePositive + totals.harness, open: totals.unjudged, precision: totals.precision}, detectors};
 }
 
 // The previous scorecard, read back from its comment.
@@ -43,6 +47,7 @@ export function scorecardComment(card, previous = null) {
   const rows = card.detectors.map(row => `| ${row.detector} | ${row.filed} | ${row.real} | ${row.falsePositive} | ${row.open} | ${cell(row.precision)}%${delta(row.precision, was(row.source)?.precision)} | ${Object.entries(row.causes).map(([why, n]) => `${why} ${n}`).join(', ') || '–'} | ${row.severityChanged.judged ? `${row.severityChanged.raised}↑ ${row.severityChanged.lowered}↓` : '–'} |`);
   return [
     `### 🎯 Finder scorecard · ${card.at}`,
+    ...(card.yield ? [`**This week ${card.yield.thisWeek.real} real · ${card.yield.thisWeek.falsePositive} false** (the week before: ${card.yield.lastWeek.real} real · ${card.yield.lastWeek.falsePositive} false)${card.yield.thisWeek.real < card.yield.lastWeek.real ? ' · ⚠️ fewer real bugs than the week before: find out why before anything else' : ''}`] : []),
     `**Precision ${cell(card.totals.precision)}%${delta(card.totals.precision, previous?.totals?.precision)}** · ${card.totals.real} real of ${card.totals.filed} filed · ${card.totals.falsePositive} false · ${card.totals.open} not judged yet${previous ? ` · since ${previous.at}` : ''}`,
     '',
     '| Detector | Filed | Real | False | Open | Precision | False because | Severity fixed |',

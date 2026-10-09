@@ -14,6 +14,22 @@ lessons the judges learn from (`desktop/e2e/lib/reversals.mjs`). Never invent a 
 possible. The quality bar is issue #265: a concrete mismatch between what the screen tells a job seeker and what they can do, with why it
 matters. Nitpicks (wording, emoji, scrollbars) are not wanted.
 
+## The principle: more real issues, fewer false ones, every day (owner, 9 Oct 2026)
+The Finder is judged by its **yield**: real bugs found per day should go **up** and false ones **down**, day after day. Precision alone is not
+the goal. A Finder that files nothing has perfect precision and is useless (7-9 Oct 2026: 0 real bugs in three days, because the noise
+breaker had paused the AI screenshot review, the detector that found 21 of 29 real bugs on 3-5 Oct).
+- **Real bugs first, money second.** A gate that saves tokens by switching a detector off (a budget, a breaker, a "only when the UI changed"
+  rule) is a suspect whenever the yield falls. Find it in the run's plan (`desktop/e2e/plan-run.mjs` `why`, the e2e run summary) before
+  blaming the product or the prompt.
+- **Never a permanent pause.** Every gate must let a detector earn its way back (a sliding window, a probe run). A rule that can only
+  be undone by a person is a bug.
+- **Caught noise is the safety net working**, not the detector failing the owner: it counts in precision and lessons, never as a reason to
+  stop looking.
+- **Each session moves the numbers:** the report compares this week's real and false counts with the week before (the scorecard's first
+  line). Real bugs down = the first thing to explain and fix, before any other proposal.
+- Daily view: per day and per detector, real / false / judged-before-filing (group `classify()` of `lib/selfheal-stats.mjs` by `createdAt`
+  day, the noise register included). A detector that went silent is as suspicious as one that got noisy.
+
 ## 0. Before starting (one line each to the owner)
 - **Scope:** `gh issue list --state open -L 200 --json number,title,labels,createdAt`. Say how many, by kind.
 - **Leave alone:** the loop's own state issues: `noise-register`, `harness-signatures`, `top-issues`, `verdict-audit`, `finder-scorecard`,

@@ -65,19 +65,24 @@ export const shouldSkipScheduled = ({event, head, lastSha, waiting}) => event ==
 // The AI review of screenshots is the costly part of a run: only when the UI (or the tests that drive it) changed since the last run, or a finding waits to be confirmed.
 // The noise breaker for the AI screenshot review, which spends the owner's money on every run (owner, 4 Oct 2026: "it burns my tokens and produces noise"). When most of the
 // issues the review filed SINCE the job-seeker prompt (NOISE_SINCE) were judged noise (rejected, duplicate, harness) rather than real (fixed or confirmed), the review pauses:
-// no more tokens until a person changes the rules and moves NOISE_SINCE forward. It needs NOISE_MIN judged issues before it can trip.
+// fewer tokens until its recent record recovers (rules of 9 Oct below). It needs NOISE_MIN judged issues before it can trip.
 export const NOISE_SINCE = STATS_SINCE;
-export const NOISE_MIN = 6, NOISE_SHARE = 0.5;
-export function noiseTripped(issues, {since = NOISE_SINCE, min = NOISE_MIN, share = NOISE_SHARE} = {}) {
-  let noise = 0, real = 0;
+export const NOISE_MIN = 6, NOISE_SHARE = 0.5, NOISE_WINDOW = 10;
+// 9 Oct 2026 (owner: "more and more real issues, fewer and fewer false"; real bugs first, money second): the breaker had paused the review since 6 Oct on 7 noise of 14,
+// six of them caught by the judge BEFORE filing, and a paused review can never earn its way back. Now: (1) only noise that reached the owner (filed issues) counts here;
+// noise judged before filing is the safety net working, and still counts in the stats and the weekly lessons (lib/selfheal-stats.mjs); (2) only the last NOISE_WINDOW judged
+// outcomes count, so a better prompt shows at once; (3) plan-run.mjs keeps the review on for scheduled runs while tripped (a probe), so the record can recover.
+export function noiseTripped(issues, {since = NOISE_SINCE, min = NOISE_MIN, share = NOISE_SHARE, window = NOISE_WINDOW} = {}) {
+  const judged = [];
   for (const issue of issues) {
-    if (detectorOf(issue) !== 'ai-review' || !(issue.createdAt >= since)) continue;
+    if (issue.prejudged || detectorOf(issue) !== 'ai-review' || !(issue.createdAt >= since)) continue;
     const kind = classify(issue);
-    if (['falsePositive', 'duplicate', 'harness'].includes(kind)) noise++;
-    else if (['fixed', 'queued'].includes(kind)) real++;
+    if (['falsePositive', 'duplicate', 'harness'].includes(kind)) judged.push({at: issue.createdAt, noise: true});
+    else if (['fixed', 'queued'].includes(kind)) judged.push({at: issue.createdAt, noise: false});
   }
-  const judged = noise + real;
-  return {tripped: judged >= min && noise / judged >= share, noise, real, judged};
+  const recent = judged.sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, window);
+  const noise = recent.filter(item => item.noise).length, real = recent.length - noise;
+  return {tripped: recent.length >= min && noise / recent.length > share, noise, real, judged: recent.length};
 }
 export const reviewNeeded = ({files, waiting, known}) => !known || waiting > 0 || files.some(file => /^desktop\/(renderer|e2e)\//.test(file));
 

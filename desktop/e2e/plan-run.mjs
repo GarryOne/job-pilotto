@@ -71,7 +71,9 @@ export async function planRun({env, gh = realGh, all, minutes, os = async () => 
       // Noise judged before filing never became an issue: it still counts against the review (lib/prejudge.mjs asIssues).
       const judged = asIssues(registerEntries(JSON.parse(gh(REGISTER_LIST))[0]?.body));
       const noise = noiseTripped([...issues, ...judged]);
-      if (noise.tripped) { review = false; why = `${why ? `${why} · ` : ''}AI review paused: ${noise.noise} of the last ${noise.judged} judged review issues were noise (the noise breaker, lib/plan.mjs)`; }
+      // While tripped, a scheduled run still reviews (a probe, 9 Oct 2026): a paused review finds nothing real, so it could never earn its way back.
+      if (noise.tripped && event === 'schedule') why = `${why ? `${why} · ` : ''}AI review on as a probe: ${noise.noise} of the last ${noise.judged} judged review issues were noise (the noise breaker, lib/plan.mjs)`;
+      else if (noise.tripped) { review = false; why = `${why ? `${why} · ` : ''}AI review paused: ${noise.noise} of the last ${noise.judged} judged review issues were noise (the noise breaker, lib/plan.mjs)`; }
     } catch { /* cannot tell: the review runs */ }
   }
   const include = [];

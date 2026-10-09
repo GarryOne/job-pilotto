@@ -73,6 +73,10 @@ test('the noise breaker trips when most judged review issues since the new promp
   assert.equal(noiseTripped(noisy.slice(0, 5)).tripped, false, 'too few judged issues to say');
   assert.equal(noiseTripped(noisy.map(item => ({...item, createdAt: '2026-10-03T12:00:00Z'}))).tripped, false, 'issues from before the new prompt do not count against it');
   assert.equal(noiseTripped(noisy.map(item => ({...item, labels: [{name: 'source:suite-failure'}]}))).tripped, false, 'only the AI review is judged by this');
+  // 9 Oct 2026: the recent record decides, so a better review recovers; a tie does not trip it.
+  const at = (list, day) => list.map(item => ({...item, createdAt: `2026-10-${day}T12:00:00Z`}));
+  assert.equal(noiseTripped([...at(noisy, '05'), ...at([...real, ...real], '08')]).tripped, false, 'ten recent real findings outweigh older noise');
+  assert.equal(noiseTripped([...at(noisy.slice(0, 3), '08'), ...at(real.slice(0, 3), '08')]).tripped, false, 'half and half is not mostly noise');
 });
 
 test('a suite runs on Linux unless it needs the Mac, and the Mac suites stay within the 5 macOS slots of the Free plan', async () => {

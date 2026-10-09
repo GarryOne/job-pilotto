@@ -78,7 +78,7 @@ test('a run with verdicts: noise is not filed and is remembered, real is filed c
   assert.deepEqual(next.pending.map(item => item.view), ['jobs'], 'the remembered noise is not judged again');
 });
 
-test('noise judged before filing still counts: a false positive of its detector for the breaker, the numbers and the weekly lessons', async () => {
+test('noise judged before filing still counts: a false positive of its detector for the numbers and the weekly lessons, but not for the breaker', async () => {
   const {classify, detectorOf, build} = await import('../lib/selfheal-stats.mjs');
   const {noiseTripped} = await import('../lib/plan.mjs');
   const {weekFacts} = await import('../lib/finder-review.mjs');
@@ -87,7 +87,7 @@ test('noise judged before filing still counts: a false positive of its detector 
   assert.equal(detectorOf(judged[0]), 'ai-review');
   assert.equal(classify(judged[0]), 'falsePositive');
   assert.equal(classify(judged[6]), 'harness');
-  assert.equal(noiseTripped(judged).tripped, true, 'six judged-noise review findings trip the breaker');
+  assert.equal(noiseTripped(judged).tripped, false, 'noise the judge caught before filing never reached the owner: it does not pause the review (9 Oct 2026)');
   const snapshot = build({issues: judged});
   assert.equal(snapshot.totals.filed, 7);
   assert.equal(snapshot.totals.falsePositive, 6);
