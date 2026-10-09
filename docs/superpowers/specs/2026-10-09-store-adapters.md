@@ -86,9 +86,9 @@ Rules decided while writing it (9 Oct 2026):
   everything else is an engine command that opens the store from `JOB_PILOTTO_STORE`.
 
 **Agent run shapes (one for every writer: the extension's runRecord, the engine's apply_run, the desktop's session stats):**
-- `fields.data` = `{"fields": [{"label", "source", "outcome", "confidence", "reason"}], "left_for_you": ["<label>"], "attachments": ["<name>"]}`:
+- `fields.data` = `{"fields": [{"label", "required", "source", "outcome", "confidence", "reason"}], "left_for_you": ["<label>"], "attachments": ["<name>"], "steps": [{"step": "<name>", "ms": <int>}]}`:
   the field-by-field table without answer values (never the person's words), size-capped.
-- `fields.timeline` = `[{"step": "<name>", "ms": <int>}]`: step timings.
+- `fields.timeline` = the Claude session's status timeline as today's "Session timeline" column (a string). Step timings are `data.steps`.
 - `learnings` (record field) = the Learning text; `transcript` = the conversation JSON ('💬 Conversation' on Notion).
 
 Owners (9 Oct 2026): P0 + P4 + landing: mac-e4 · P1 sqlite: mac-ab · P2 notion + engine callers: mac-67 · P3+P5 desktop: mac-4a.
