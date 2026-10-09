@@ -1,7 +1,8 @@
 // The Sentry fixer picks only what is real, fresh and not being fixed, and may touch only the app's code and tests (tools/sentry-fixer/lib.mjs).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {checkChange, choose, eventFacts, handled, judge} from '../../tools/sentry-fixer/lib.mjs';
+import {PLANT_TYPE, checkChange, choose, eventFacts, exceptionType, handled, judge, judgedRecently} from '../../tools/sentry-fixer/lib.mjs';
+import {PLANTS} from '../e2e/lib/recall.mjs';
 
 const NOW = Date.parse('2026-10-03T12:00:00Z');
 const issue = (shortId, extra = {}) => ({shortId, level: 'error', status: 'unresolved', count: '5', userCount: 2, firstSeen: '2026-10-01T00:00:00Z', lastSeen: '2026-10-03T08:00:00Z', ...extra});
@@ -49,4 +50,24 @@ test('the event is reduced to the exception, its own frames and the trail, with 
   assert.deepEqual(facts.exceptions[0].frames, [{file: 'src/a.py', line: 7, function: 'f', code: 'boom()'}]);
   assert.deepEqual(facts.trail, ['opened Jobs']);
   assert.equal(JSON.stringify(facts).includes('secret'), false);
+});
+
+test('a recall plant is never picked, and every plant that throws carries the plant type', () => {
+  const plant = {entries: [{type: 'exception', data: {values: [{type: PLANT_TYPE, value: 'recall planted rejection'}]}}]};
+  assert.equal(exceptionType(plant), PLANT_TYPE);
+  assert.match(judge(issue('P', {level: 'fatal'}), 'e2e', NOW, {expected: 'no'}, exceptionType(plant)).why, /planted/);
+  const throwing = PLANTS.filter(item => item.run && /Error\(/.test(String(item.run)));
+  assert.ok(throwing.length >= 2);
+  for (const item of throwing) assert.ok(String(item.run).includes(`name: '${PLANT_TYPE}'`), item.id);
+});
+
+test('an issue judged to need no change is left out for 14 days, then picked again (4-9 Oct 2026: the same issue six days running)', () => {
+  const at = days => new Date(NOW - days * 86400000).toISOString();
+  const list = [{issue: issue('SAME', {userCount: 9}), environment: 'production'}, {issue: issue('NEXT', {userCount: 2}), environment: 'production'}];
+  const verdicts = [{title: 'Sentry fixer: SAME not-a-bug', createdAt: at(1)}];
+  const {pick, left} = choose(list, [], NOW, verdicts);
+  assert.equal(pick.issue.shortId, 'NEXT');
+  assert.match(left.find(item => item.shortId === 'SAME').why, /not-a-bug/);
+  assert.equal(judgedRecently('SAME', [{title: 'Sentry fixer: SAME not-a-bug', createdAt: at(20)}], NOW), '');
+  assert.equal(judgedRecently('SAM', verdicts, NOW), '', 'a short id that is the start of another is not it');
 });

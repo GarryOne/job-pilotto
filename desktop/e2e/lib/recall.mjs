@@ -37,8 +37,8 @@ export const PLANTS = [
   // 5 Oct 2026 (the owner's find): a card appeared on Strategy five seconds after the page stood still and pushed everything down, with no loading sign. The plant adds a tall card at
   // the top of the page after a short wait, with no click behind it.
   {id: 'late-card', detector: 'shift', expect: 'late-shift', run: () => setTimeout(() => { const box = document.createElement('div'); box.id = 'recall-plant'; box.style.cssText = 'height:160px;background:#fdf1d8'; box.textContent = 'Your search may be too narrow'; (document.querySelector('.view:not([hidden])') || document.body).prepend(box); }, 300)},
-  {id: 'uncaught-error', detector: 'journey', expect: 'recall planted error', run: () => setTimeout(() => { throw new Error('recall planted error'); }, 0)},
-  {id: 'unhandled-rejection', detector: 'journey', expect: 'recall planted rejection', run: () => { Promise.reject(new Error('recall planted rejection')); }},
+  {id: 'uncaught-error', detector: 'journey', expect: 'recall planted error', run: () => setTimeout(() => { throw Object.assign(new Error('recall planted error'), {name: 'RecallPlant'}); }, 0)},
+  {id: 'unhandled-rejection', detector: 'journey', expect: 'recall planted rejection', run: () => { Promise.reject(Object.assign(new Error('recall planted rejection'), {name: 'RecallPlant'})); }},
 ];
 
 const insert = html => { document.getElementById('recall-plant')?.remove(); const box = document.createElement('div'); box.id = 'recall-plant'; box.innerHTML = html; (document.querySelector('.view:not([hidden])') || document.body).prepend(box); box.scrollIntoView({block: 'nearest'}); };   // at the top, in view: axe leaves an off-screen element's contrast "incomplete" (#115)

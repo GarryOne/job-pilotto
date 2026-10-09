@@ -3,7 +3,8 @@ name: CI · Sentry fixer
 # THE SENTRY FIXER, once a day. It reads the unresolved issues of the app's Sentry project (org job-pilotto, project job-pilotto-app, EU region), keeps only what is REAL and
 # FRESH, picks the most critical (people affected, then events) and lets Claude Code fix it and open ONE pull request for the owner to review. Never merges anything.
 # Left out, and said so in the run summary: reports of end-to-end runs (environment e2e) unless tagged expected:no (a surprise in a suite that breaks nothing on purpose = synthetic monitoring), warnings (the app telling the user something, e.g. a spend limit), issues not seen for
-# 7 days (stale), one-offs (one event, one person, unless fatal), issues in Sentry already resolved or ignored, and issues that already have a pull request (open, or merged/closed within 14 days).
+# 7 days (stale), one-offs (one event, one person, unless fatal), issues in Sentry already resolved or ignored, issues that already have a pull request (open, or merged/closed within 14 days),
+# bugs planted on purpose by the recall benchmark (exception type RecallPlant), and issues Claude already judged need no change within 14 days (a closed issue labelled sentry-fix-verdict).
 # Claude only edits files (no git, no gh, no network). The last step checks the paths (tools/sentry-fixer/lib.mjs: the app's code and the engine and their tests, never reporting, secrets or
 # workflows), requires a test, runs both test suites, and only then pushes `sentry-fix/<short id>` and opens the PR. At most 3 automatic Sentry PRs may be open at once.
 # The run log is public: it names issues by short id and reason only; no event content, no transcript artifact.
@@ -16,6 +17,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 concurrency:
   group: sentry-fix
@@ -88,7 +90,13 @@ jobs:
           fi
           changed=$(git status --porcelain --untracked-files=all | awk '{print $NF}' | grep -v -E '^\.heal/' || true)
           if [ -z "$changed" ]; then
+            verdict=$(head -1 .heal/verdict.md 2>/dev/null | awk '{print $1}' | tr -cd 'a-z-')
             echo "No change for $SHORT_ID: $(head -1 .heal/verdict.md 2>/dev/null || echo 'Claude made no change')." >> "$GITHUB_STEP_SUMMARY"
+            # Remember the verdict for 14 days (tools/sentry-fixer/lib.mjs judgedRecently), or the next run picks the same issue again. Short id and verdict word only: the log is public.
+            gh label create sentry-fix-verdict --repo "$REPO" --force --color C5DEF5 --description 'The Sentry fixer judged an issue needs no change'
+            num=$(gh issue create --repo "$REPO" --title "Sentry fixer: $SHORT_ID ${verdict:-no-change}" --label sentry-fix-verdict \
+              --body "Claude made no change for Sentry issue $SHORT_ID (${verdict:-no verdict written}). The fixer leaves it out for 14 days. Run: $RUN_URL" | grep -o '[0-9]*$')
+            gh issue close "$num" --repo "$REPO" --reason 'not planned'
             exit 0
           fi
           if ! echo "$changed" | node tools/sentry-fixer/check-change.mjs; then

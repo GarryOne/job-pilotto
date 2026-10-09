@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {choose, eventFacts} from './lib.mjs';
+import {VERDICT_LABEL, choose, eventFacts, exceptionType} from './lib.mjs';
 
 const ORG = 'job-pilotto', PROJECT = 'job-pilotto-app', HOST = 'https://de.sentry.io';
 const api = async route => {
@@ -21,10 +21,11 @@ const candidates = [];
 for (const issue of issues) {
   const event = await api(`organizations/${ORG}/issues/${issue.id}/events/latest/`).catch(() => null);
   const tags = Object.fromEntries((event?.tags || []).map(tag => [tag.key, tag.value]));
-  candidates.push({issue, event, environment: tags.environment || '', tags});
+  candidates.push({issue, event, environment: tags.environment || '', tags, type: exceptionType(event)});
 }
 const prs = JSON.parse(execFileSync('gh', ['pr', 'list', '--state', 'all', '--search', 'head:sentry-fix/', '--json', 'headRefName,state,closedAt,mergedAt', '--limit', '100'], {encoding: 'utf8'}) || '[]');
-const {pick, left} = choose(candidates, prs);
+const verdicts = JSON.parse(execFileSync('gh', ['issue', 'list', '--state', 'all', '--label', VERDICT_LABEL, '--json', 'title,createdAt', '--limit', '100'], {encoding: 'utf8'}) || '[]');
+const {pick, left} = choose(candidates, prs, Date.now(), verdicts);
 
 const lines = [`## Sentry fixer`, pick ? `Most critical fixable issue: ${pick.issue.shortId}` : 'Nothing is ready to fix.', ...left.map(item => `- ${item.shortId}: ${item.why}`)];
 console.log(lines.join('\n'));
