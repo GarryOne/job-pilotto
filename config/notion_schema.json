@@ -1000,6 +1000,15 @@
         },
         "Session timeline": {
           "type": "rich_text"
+        },
+        "Session id": {
+          "type": "rich_text"
+        },
+        "Data": {
+          "type": "rich_text"
+        },
+        "Created": {
+          "type": "date"
         }
       }
     },

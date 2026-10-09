@@ -336,6 +336,9 @@ recorded locally without it. Rows never contain applicant values, only field lab
 | Cache read | Number |  |
 | Model | Text |  |
 | Session timeline | Text |  |
+| Session id | Text | The Apply session's id, so the app and the engine update one row for one session. src/stores/notion_agent_runs.py |
+| Data | Text | Anything else the run kept, as JSON (the store's catch-all `data`). |
+| Created | Date | When the run was recorded in its first store (kept when moved to Notion; else the page's created time). |
 
 The page body lists per-step timings, each field ✓/CHECK, attachments and the learning.
 

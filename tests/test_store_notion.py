@@ -142,6 +142,14 @@ class NotionStoreTests(StoreContract, unittest.TestCase):
         kinds = [block['type'] for block in self.tracker._children(page) if not block.get('archived')]
         self.assertEqual((self.s.texts.get('profile'), kinds), ('Short now.', ['child_page', 'paragraph']))
 
+    def test_every_agent_run_extra_has_its_column_in_the_schema(self):
+        """A `fields` key without a column would be lost on Notion (one copy): each is written to, or computed by, a column."""
+        from src.stores import notion_agent_runs as runs
+        self.assertEqual(set(runs.EXTRAS) | set(runs.COMPUTED), set(base.AGENT_RUN_EXTRAS))
+        have = SCHEMA['databases']['NOTION_AGENT_RUNS_DB']['columns']
+        columns = [column for column, _ in runs.EXTRAS.values()] + list(runs.COMPUTED.values())
+        self.assertEqual([c for c in columns if c not in have], [])
+
 
 class NotionRecordsTests(unittest.TestCase):
     """Today's rows, as the engine wrote them before the stores, read as records."""
