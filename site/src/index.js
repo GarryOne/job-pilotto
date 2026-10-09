@@ -80,6 +80,14 @@ export async function dispatch(env, inputs, workflow, fetcher = fetch) {
   if (response.status !== 204) throw new Error(`GitHub dispatch failed: ${response.status}`);
 }
 
+export const LEARNING_CRON = '15 * * * *';   // wrangler.toml [triggers]
+export async function judgeLearning(db, now = new Date()) {
+  const [recipes, meanings, aliases] = await Promise.all([recipeLibrary.evaluateCanary(db, now), evaluateMeanings(db, now), evaluateAliases(db, now)]);
+  const actions = {recipes, meanings, aliases};
+  if (recipes.length || meanings.length || aliases.length) console.log(`learning: ${JSON.stringify(actions)}`);
+  return actions;
+}
+
 export default {
   async fetch(request, env, ctx) {
     const {pathname} = new URL(request.url);
@@ -135,6 +143,9 @@ export default {
   },
   // Daily (wrangler.toml [triggers]): app reports older than 90 days dropped; the top problems go to GitHub triage.
   async scheduled(event, env, ctx) {
+    // Hourly (owner, 9 Oct 2026: learning should move within a loop, not once a day): only the learning judges. A canary grows or halts on
+    // real use as soon as the evidence is there; everything else stays daily.
+    if (event?.cron === LEARNING_CRON) { if (env.STATS) ctx.waitUntil(judgeLearning(env.STATS).catch(error => console.error(`learning judges: ${error.message}`))); return; }
     // The day's totals first (kept for good), then the 90-day purge of raw rows.
     ctx.waitUntil(pool.rollup(env).catch(error => console.error(`pool rollup: ${error.message}`)).then(() => pool.purge(env)).catch(error => console.error(`pool purge: ${error.message}`)));
     ctx.waitUntil((env.STATS ? recipeLibrary.evaluateCanary(env.STATS) : Promise.resolve([])).then(actions => { if (actions.length) console.log(`recipes: ${JSON.stringify(actions)}`); })

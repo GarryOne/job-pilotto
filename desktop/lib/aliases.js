@@ -5,7 +5,7 @@ import {cleanLabel, validateBundle} from '../shared/alias-schema.js';
 import {installId} from './app-feedback.js';
 import * as benchmarks from './benchmarks.js';
 import {log} from './log.js';
-import {SITE, enabled, siteIsOff, token} from './recipes.js';
+import {SITE, betaHeader, enabled, siteIsOff, token} from './recipes.js';
 
 const CACHE = 'aliases-cache.json';
 const TTL_MS = 6 * 3600 * 1000;
@@ -55,7 +55,7 @@ export async function lookup(storage, {fetcher = globalThis.fetch, base = SITE, 
   if (!enabled(storage)) return siteIsOff() ? (kept?.aliases || []) : [];   // not a real install (twin, CI, dev): the cached pack if any, never a request
   try {
     const id = installId(storage);
-    const ask = async bearer => fetcher(`${base}/api/packs/aliases`, {headers: {Authorization: `Bearer ${bearer}`, 'X-Install-Id': id}});
+    const ask = async bearer => fetcher(`${base}/api/packs/aliases`, {headers: {Authorization: `Bearer ${bearer}`, 'X-Install-Id': id, ...betaHeader(storage)}});
     let response = await ask(await token(storage, fetcher, base));
     if (response.status === 401) { storage.saveSettings({recipesToken: null}); response = await ask(await token(storage, fetcher, base)); }
     if (!response.ok) throw new Error(`aliases ${response.status}`);

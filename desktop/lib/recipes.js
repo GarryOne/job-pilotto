@@ -31,6 +31,8 @@ export const FLOW_STATES = ['filled', 'fill-error', 'account', 'no-form', 'no-fo
 let siteOff = '';
 export const setSiteOff = reason => { siteOff = reason || ''; };
 export const siteIsOff = () => !!siteOff;
+// An install that opted into beta (Settings → Beta) also tests canary learning (site/src/canary-reach.js, owner 9 Oct 2026).
+export const betaHeader = storage => (storage.settings().betaChannel === true ? {'X-Beta': '1'} : {});
 export const enabled = storage => !siteOff && storage.settings().telemetry !== false;
 const readCache = storage => { try { return JSON.parse(storage.readText(CACHE) || '{}'); } catch { return {}; } };
 
@@ -57,12 +59,12 @@ export async function lookup(storage, fingerprints, {fetcher = globalThis.fetch,
     try {
       const id = installId(storage);
       let bearer = await token(storage, fetcher, base);
-      let response = await fetcher(`${base}/api/recipes/lookup`, {method: 'POST', headers: {'Content-Type': 'application/json', Authorization: `Bearer ${bearer}`},
+      let response = await fetcher(`${base}/api/recipes/lookup`, {method: 'POST', headers: {'Content-Type': 'application/json', Authorization: `Bearer ${bearer}`, ...betaHeader(storage)},
         body: JSON.stringify({install: id, fingerprints: ask})});
       if (response.status === 401) {   // a token from before a key change: take a new one once
         storage.saveSettings({recipesToken: null});
         bearer = await token(storage, fetcher, base);
-        response = await fetcher(`${base}/api/recipes/lookup`, {method: 'POST', headers: {'Content-Type': 'application/json', Authorization: `Bearer ${bearer}`},
+        response = await fetcher(`${base}/api/recipes/lookup`, {method: 'POST', headers: {'Content-Type': 'application/json', Authorization: `Bearer ${bearer}`, ...betaHeader(storage)},
           body: JSON.stringify({install: id, fingerprints: ask})});
       }
       if (!response.ok) throw new Error(`lookup ${response.status}`);

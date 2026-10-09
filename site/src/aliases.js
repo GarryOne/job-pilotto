@@ -5,9 +5,9 @@
 //   PUT  /api/aliases         the owner (the private proposer): add or change aliases, or record {reviewed: [{label}]} wordings that mean nothing. Sensitive fields (birth date, address ...)
 //                             only go live when the owner passes approved: true.
 // evaluateAliases (daily) grows a canary that works and halts one that fails, like the recipes' canary, sensitive fields too (owner, 8 Oct 2026).
+import {betaOf, reaches} from './canary-reach.js';
 import {MIN_PEOPLE, hints} from './intelligence.js';
 import {BUTTON_KEYS, FILE_KEYS, KEYS, SENSITIVE, aliasKey, cleanLabel, fileKind, validateAlias} from '../../extension/alias-schema.js';
-import {appliesTo} from '../../extension/recipe-schema.js';
 import {authorize, digestOf, flag} from './guard.js';
 import {benchmarks, report} from './knowledge.js';
 import {isOwner} from './stats.js';
@@ -79,10 +79,10 @@ export async function pack(request, env, now = new Date()) {
   for (const row of rows) {
     const checked = validateAlias(row);
     const rollout = row.status === 'verified' ? 100 : row.rollout;
-    if (checked.ok && appliesTo({rollout}, install)) out.push({...checked.alias, rollout});
+    if (checked.ok && reaches(row, install, betaOf(request))) out.push({...checked.alias, rollout});   // canary-reach.js: beta installs test canaries
   }
   return json({ok: true, aliases: out, hints: await hints(env.STATS, now).catch(() => []), benchmarks: await benchmarks(env.STATS, now).catch(() => []),
-    meanings: await packMeanings(env.STATS, install).catch(() => ({rows: [], off: []}))});
+    meanings: await packMeanings(env.STATS, install, betaOf(request)).catch(() => ({rows: [], off: []}))});
 }
 
 // Daily: a verified alias keeps being judged over the last week; if it starts failing it is switched off like a canary would be.

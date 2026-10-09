@@ -297,3 +297,19 @@ test('each fill\'s record and what Submit added go in the batch, with the board;
   reporter.card('ashby', {id: 'fill-0002-abc'});
   assert.deepEqual(await reporter.flush(), {sent: 0});
 });
+
+// Owner, 9 Oct 2026: a beta install also tests canary learning; the app says so in a header (site/src/canary-reach.js).
+test('a beta install asks for recipes with X-Beta: 1; any other install without it', async () => {
+  for (const beta of [true, false]) {
+    const storage = tempStorage();
+    storage.saveSettings({betaChannel: beta});
+    const seen = [];
+    const fetcher = async (url, init = {}) => {
+      if (new URL(url).pathname === '/api/install-token') return {ok: true, status: 200, json: async () => ({token: 't'})};
+      seen.push(init.headers || {});
+      return {ok: true, status: 200, json: async () => ({recipes: []})};
+    };
+    await lookup(storage, ['1d2pcapx18'], {fetcher, base: 'https://site.test'});
+    assert.equal(seen[0]['X-Beta'], beta ? '1' : undefined, String(beta));
+  }
+});
