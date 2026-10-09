@@ -212,6 +212,7 @@ async function accountStepOnce(tab, frameId) {
         await new Promise(resolve => setTimeout(resolve, 4000));
         await accountOutcome(await chrome.tabs.get(tab.id).catch(() => tab));
       }
+      sayStep(tab.id, '');   // the step is over, pressed or not: no "Creating your account…" left spinning on a page where nothing happens (owner's screenshot, 9 Oct 2026)
     }
   }
   return {filled};

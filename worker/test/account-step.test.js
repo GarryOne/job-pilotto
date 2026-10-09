@@ -94,3 +94,13 @@ test('an account page filled with your details is judged after that fill, others
   assert.ok(fill > 0 && later > fill, 'the account step of a filled account page starts after the fill');
   assert.equal(flow.match(/accountStep\(tab, 0\)/g).length, 2, 'one start before the fill, one after: never both for one page');
 });
+
+// Owner's screenshot, 9 Oct 2026: "Creating your account…" spun on a jobs.ch page where the press had been refused ("not-filled").
+test('every account step banner is cleared when the step ends, pressed or not', async () => {
+  const fs = await import('node:fs');
+  const source = fs.readFileSync(new URL('../../extension/account-step.js', import.meta.url), 'utf8');
+  const said = source.indexOf("sayStep(tab.id, 'Creating your account…')"), waiting = source.indexOf("sayStep(tab.id, 'Waiting for the site to accept it…')");
+  const cleared = source.indexOf("sayStep(tab.id, '');", waiting);
+  assert.ok(said > 0 && waiting > said && cleared > waiting, 'cleared after both banners');
+  assert.ok(cleared < source.indexOf('return {filled};'), 'within the step, before it returns');
+});

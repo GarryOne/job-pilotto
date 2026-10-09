@@ -67,6 +67,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/escalate.js` — A closer look when the text sketch is not enough (spec: docs/superpowers/specs/2026-10-08-ai-escalation.md; owner, 8 Oct 2026: yes, account pages first, off until he turns it on).
 - `desktop/lib/ext-server-handlers.js` — The extension server's wiring (moved out of main.js's start-up, 8 Oct 2026): what the local server asks of the app when the Chrome extension calls it: the site
 - `desktop/lib/extension-install.js` — Is the Job Pilotto extension loaded in a Chromium browser on this computer — and is it awake?
+- `desktop/lib/extension-ready.js` — Waits for the extension's first check-in since the app started (server.extensionSeen), for a "show this form" asked right after a start.
 - `desktop/lib/few-jobs.js` — "Few new jobs" nudge (owner, 7 Oct 2026: "popup a dialog/button to recommend more methods if the last Search for new jobs found 0 or close"):
 - `desktop/lib/files.js` — Large files that used to live only on this Mac, kept in Notion too (the source of truth): the CV (every version,
 - `desktop/lib/focus-handlers.js` — The jobs, focus and status IPC (moved out of main.js, 8 Oct 2026): the theme and automation switches, deleting a job and setting its status, the Focus
