@@ -382,8 +382,8 @@ def main(argv=None):
         except (ValueError, urllib.error.URLError) as error:
             print(json.dumps({'ok': False, 'error': str(error)}))
             return 1
-    from ..notion import cron_runs
-    run = cron_runs.new_run('insight')
+    from .. import run_log
+    run = run_log.new_run('insight')
     run['insight'] = {}
     run['name'] = RUN_NAME  # "Interview insights" in the run's title, not the daily "Insight"
     try:
@@ -396,10 +396,10 @@ def main(argv=None):
             f'Could not update the interview insights: {type(error).__name__}: {error}'
         print(json.dumps({'ok': False, 'error': text}))
         return 1
-    if out['status'] == 'updated' and tracker:  # a run with an AI call leaves its ⏱️ Search runs row (its cost counts for the budget)
+    if out['status'] == 'updated':  # a run with an AI call leaves its row, on any store (its cost counts for the budget)
         run['headline'] = out['text']
         run['seconds'] = int((datetime.now(timezone.utc) - datetime.fromisoformat(run['started_at'])).total_seconds())
-        cron_runs.log_run(tracker, run)
+        run_log.log_run(stores, run)
     print(json.dumps({'ok': True, 'status': out['status'], 'text': out['text'], 'insight': saved(stores)}, ensure_ascii=False))
     return 0
 

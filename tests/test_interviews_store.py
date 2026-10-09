@@ -115,6 +115,21 @@ class ReviewCommandTests(OnThisMac):
         self.assertEqual(sqlite.open_store(self.env).applications.get('https://x.test/g-1')['stage'], 'Interviewing')
 
 
+class InsightRunTests(OnThisMac):
+    def test_a_refresh_that_calls_the_ai_logs_its_run_on_this_macs_store(self):
+        from tests.interview_insights_fakes import RESULT, FakeClient
+        stores = sqlite.open_store(self.env)
+        stores.interviews.save(None, {'app_id': self.job['id'], 'title': 'Grafana · Technical 1', 'overall': 'neutral',
+                                      'round': 'Technical 1', 'at': '2026-09-20', 'review': 'Solid.\n\n### Weak spots\n\n- Postgres'})
+        with mock.patch('src.ai.engine.client', return_value=FakeClient(RESULT)):
+            code, out = self.call(ii, 'refresh')
+        self.assertEqual((code, out['status']), (0, 'updated'))
+        [run] = sqlite.open_store(self.env).cron_runs.list()
+        self.assertEqual((run['kind'], run['status']), ('insight', 'OK'))  # today's word (cron_report.status)
+        self.assertTrue(run['title'].endswith('Interview insights'), run['title'])
+        self.assertGreater(run['stats']['ai_cost_usd'], 0)  # the budget guard sees it on this Mac's store
+
+
 class FingerprintTests(unittest.TestCase):
     def test_the_digest_is_the_one_notions_rows_gave(self):
         rows = list(ONE) + [interview('iv-2', 'Screen', 'positive', '2026-09-25'), interview('iv-3', '', 'negative', '')]
