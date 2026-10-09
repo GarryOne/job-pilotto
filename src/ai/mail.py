@@ -131,7 +131,7 @@ def main(argv=None):
               'See README → Gmail and Calendar.')
         return 0
     stores = open_stores()  # the active store: this Mac's (sqlite) or Notion; JOB_PILOTTO_STORE picks it
-    # BRIDGE(mac-67 runs, mac-4a added): remove when cron_runs and added.hook on the store lands
+    # BRIDGE(mac-ab runs, mac-4a added): remove when cron_runs and added.hook on the store lands
     tracker = getattr(stores.applications, 'tracker', None) if stores.name == 'notion' else None
     sender = None
     from ..features import disabled

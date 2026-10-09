@@ -80,7 +80,7 @@ def advance(stores, row, kind, interview_at=None, now=None, *, by_app=None, feed
     if kind == 'Rejected' and not feedback_text and not _field(row, 'feedback_status'):
         history = [{'kind': k, 'at': t} for k, t, _, _ in by_app.get(key, [])]
         # Only reached with no Feedback status, so eligible() decides on the history alone (its row check is that status).
-        # BRIDGE(mac-67 feedback): remove when feedback.eligible on job records lands
+        # BRIDGE(mac-88 focus feedback): remove when feedback.eligible on job records lands
         if _field(row, 'stage') in employer_feedback.REACHED or employer_feedback.eligible({'properties': {}}, history):
             changes['feedback_status'] = 'Not asked'
     moment, current = _when(interview_at or ''), _when(_field(row, 'next_interview'))
@@ -102,7 +102,7 @@ def advance(stores, row, kind, interview_at=None, now=None, *, by_app=None, feed
 def _receive(stores, row, text):
     """The employer's own words on the job: Notion only for now; another store says it is not kept yet (the event
     still records the email)."""
-    # BRIDGE(mac-67 feedback): remove when feedback.receive on the store lands
+    # BRIDGE(mac-88 focus feedback): remove when feedback.receive on the store lands
     if stores.name != 'notion':
         print('Warning: employer feedback not kept on this store yet; the email is still recorded.', file=sys.stderr)
         return
@@ -113,7 +113,7 @@ def _receive(stores, row, text):
 
 def _notion_row(stores, row):
     """The Notion row of a job record, read through the store's own client; a record of another store passes as it is."""
-    # BRIDGE(mac-67 feedback, mac-4a rejection): remove when the move of feedback and rejection to job records lands
+    # BRIDGE(mac-88 focus feedback, mac-4a rejection): remove when the move of feedback and rejection to job records lands
     tracker = getattr(stores.applications, 'tracker', None)
     if stores.name != 'notion' or tracker is None:
         return row
