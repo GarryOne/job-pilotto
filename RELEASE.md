@@ -13,7 +13,7 @@
 | ✅ **Stable** ("Latest" on GitHub) | friends' apps + the website's Download buttons | **the nightly pipeline** (below), or you with `tools/release-stable.sh` |
 
 ### The nightly pipeline (`desktop.yml` → `e2e.yml`)
-1. **04:00 Zurich:** `desktop.yml` builds Mac + Windows if the app changed since the last release (tests alone do not count), as a pre-release. GitHub may start a scheduled run late.
+1. **04:00 Zurich:** `desktop.yml` builds Mac + Windows if the app changed since the last release that reached someone (a stable, or a build approved as beta; a build that failed its gate does not count, so the next night tries again; tests alone do not count), as a pre-release. GitHub may start a scheduled run late.
 2. **When the build finishes**, `e2e.yml` runs **every suite on the build's own commit** (`desktop/e2e/plan-run.mjs`; only for the nightly build: one made by hand is for trying).
 3. **When all suites pass and `build.yml` is green on that commit**, its `promote` job runs `tools/release-stable.sh` (the Windows installer must be the build's own). Friends get the update by morning.
 4. **A red suite, a red `build.yml`, a failed Windows job, or no build:** nothing is promoted; stable stays; the next night's build carries the fixes.

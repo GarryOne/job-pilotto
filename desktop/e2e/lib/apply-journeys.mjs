@@ -436,7 +436,11 @@ export async function runJourneys(ctx, h) {
     for (let waited = 0; waited < 90000; waited += 500) { state = await fillState(tab).catch(() => null); if (['done', 'error', 'no-form', 'account'].includes(state?.state)) break; await pause(500); }
     const problems = [];
     const log = appLogText(ctx.profile);
-    if (!/page kind: posting/.test(log)) problems.push('the stand-in\'s wrong kind was never given (no "page kind: posting"): the row proves nothing');
+    // The premise, on this page's own shape and from the AI (not remembered): another posting's line proves nothing (beta 9 Oct 2026).
+    const ownLines = log.split('\n').filter(line => line.includes(`"shape":"${MISLABELLED.shape}|`));
+    if (!ownLines.some(line => line.includes('page kind: posting {') && line.includes('"by":"ai"'))) {
+      problems.push(`the stand-in's wrong kind was never asked for this page (no "page kind: posting" by the AI on ${MISLABELLED.shape}): the row proves nothing. Its lines: ${ownLines.slice(0, 3).join(' | ') || 'none'}`);
+    }
     if (!/page kind corrected: a posting with no Apply but a form's fields/.test(log)) problems.push('the wrong kind was not corrected (no "page kind corrected" line)');
     if (!/page kind forgotten/.test(log)) problems.push('the app never dropped the kept kind (no "page kind forgotten" line)');
     if (state?.state !== 'done') problems.push(`the form was not filled after the correction (state: ${JSON.stringify(state)})`);

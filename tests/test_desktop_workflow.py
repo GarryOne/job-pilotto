@@ -44,6 +44,25 @@ class DesktopWorkflowTest(unittest.TestCase):
         self.assertIn("':!desktop/e2e'", paths)
         self.assertIn("':!desktop/test'", paths)
 
+    def test_the_nightly_compares_against_the_last_release_that_reached_someone(self):
+        # 9 Oct 2026: the failed 0.6.12 build was "the last release", so the nightly built nothing and the fix waited. A build that failed its
+        # gate never counts; a stable or a build approved as beta on one platform does. Runs the workflow's own jq on sample releases.
+        import json, shutil, subprocess
+        jq = shutil.which('jq')
+        if not jq:
+            self.skipTest('jq is not installed')
+        query = re.search(r"--jq '(.*?)' \|\| true\)", WORKFLOW).group(1)
+        releases = [
+            {'tag_name': 'draft', 'draft': True, 'prerelease': True, 'body': 'Beta-approved: x'},
+            {'tag_name': 'failed-build', 'draft': False, 'prerelease': True, 'body': 'Built from abc\nNot approved'},
+            {'tag_name': 'windows-beta', 'draft': False, 'prerelease': True, 'body': 'notes\nBeta-approved (Windows): passed'},
+            {'tag_name': 'stable', 'draft': False, 'prerelease': False, 'body': ''},
+        ]
+        pick = lambda rows: subprocess.run([jq, '-r', query], input=json.dumps(rows), capture_output=True, text=True, check=True).stdout.strip()
+        self.assertEqual(pick(releases), 'windows-beta')
+        self.assertEqual(pick(releases[:2] + releases[3:]), 'stable')
+        self.assertEqual(pick(releases[:2]), '')   # nothing reached anyone: build
+
     def test_release_403_after_main_moved_starts_a_fresh_build(self):
         self.assertIn("grep -q 'HTTP 403' release-error.txt", WORKFLOW)
         self.assertIn('"$(git rev-parse origin/main)" != "$GITHUB_SHA"', WORKFLOW)

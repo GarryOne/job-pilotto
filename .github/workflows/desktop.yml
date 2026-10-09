@@ -85,7 +85,10 @@ jobs:
           # 04:00-15:59: GitHub starts scheduled runs late, on 4 Oct 2026 by six hours (07:52 and 09:29 UTC), and the old 04:xx-05:xx guard skipped
           # both, so no build and no beta that day. A late run still builds; the second of the two finds nothing new since the first one's release.
           if [ "$GITHUB_EVENT_NAME" = schedule ] && { [ $((10#$hour)) -lt 4 ] || [ $((10#$hour)) -gt 15 ]; }; then echo "It is $hour:xx in Zurich: outside the nightly window (04:00-15:59): not this schedule's turn."; echo "build=false" >> "$GITHUB_OUTPUT"; exit 0; fi
-          tag=$(gh release list -L 1 --exclude-drafts --json tagName -q '.[0].tagName' || true)
+          # Against the newest release that reached someone (a stable, or a build a platform's gate approved as beta), never a build that failed
+          # its gate: 9 Oct 2026 the failed 0.6.12 counted as "the last release", the nightly built nothing and the fix waited for a manual beta.
+          tag=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=30" \
+            --jq '[.[] | select(.draft | not) | select((.prerelease | not) or ((.body // "") | test("(^|\n)Beta-approved")))][0].tag_name // empty' || true)
           sha=$([ -n "$tag" ] && git rev-list -n 1 "$tag" 2>/dev/null || true)
           # The tests of the app (desktop/test, desktop/e2e) are not in the app: a night when only they changed builds nothing.
           paths=(desktop src config templates tools extension worker/src requirements.txt requirements-transcribe.txt

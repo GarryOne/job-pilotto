@@ -126,11 +126,15 @@ export const ONEPAGE = {
 ONEPAGE.url = `https://${ONEPAGE.host}${ONEPAGE.path}`;
 // An application form the stand-in AI calls a "posting" (a wrong kind, kept): the extension finds no Apply to press while the page has a
 // form's fields, so it drops that kind, fills the form, and the next visit asks again (self-correction, 8 Oct 2026).
+// Its path has no digit, so its page shape (desktop/lib/page-kind.js pageShape: a part with a digit is blanked, and "e2e" has one) is its own:
+// on /e2e-…/<id> it shared jobs.lever.co/*/* with the + upload form, whose right "form" was remembered first and the wrong kind never asked
+// (beta 9 Oct 2026). test/apply-parts.test.mjs keeps it unique.
 export const MISLABELLED = {
-  title: 'Support Engineer, Mislabelled', company: 'E2E Mislabelled Co', host: 'jobs.lever.co', path: '/e2e-mislabelled/4001008',
+  title: 'Support Engineer, Mislabelled', company: 'E2E Mislabelled Co', host: 'jobs.lever.co', path: '/mislabelled-co/support-engineer',
   kit: [{field: 'question_3001', question: 'Years of experience with Kubernetes', answer: '4', needs_review: false}],
 };
 MISLABELLED.url = `https://${MISLABELLED.host}${MISLABELLED.path}`;
+MISLABELLED.shape = `${MISLABELLED.host}${MISLABELLED.path}`;   // its page-kind cache shape, asserted in the test
 // A form the TEST (playing the person) really submits: its Submit POSTs and the same address answers with the site's own "submitted" banner (like OK Job,
 // api.easytemp.ch), so the extension must see the Submit press, the page change, and send that page to the AI. Never reported to `fired`: it is the one
 // form allowed to be submitted, and only by the person (the test), never by the extension.

@@ -34,7 +34,7 @@ export const name = 'apply';
 // (suites/applyflows.mjs, manual) runs only the journeys, so the local scenario matrix runs forms and journeys in parallel. Each has its own Notion page and token.
 // The setup step and the final "Submit was never clicked" check run in all of them; each run seeds only the fixture jobs its steps use.
 const CV_STEPS = ['Tailor CV on a job', 'the form\'s panel offers a tailored CV', 'Tailor CVs for top matches', 'Apply on a saved job without a kit'];
-const FLOW_STEPS = ['a posting whose Apply opens a new tab', 'two applications side by side', 'a form drawn after a spinner', 'a sign-up page before the form', 'a sign-in page before the form', 'a menu whose choices', '"Needs your attention" from the extension', 'an upload slot that appears only when + is pressed', 'the account and the application on one page',
+const FLOW_STEPS = ['a posting whose Apply opens a new tab', 'two applications side by side', 'a form drawn after a spinner', 'a sign-up page before the form', 'a sign-in page before the form', 'a menu whose choices', '"Needs your attention" from the extension', 'an upload slot that appears only when + is pressed', 'a form with collapsed sections', 'the account and the application on one page',
   'the form tab is closed', 'a second browser with the extension', 'the AI gave a page the wrong kind', '"I submitted it"'];
 const SHARED_STEPS = ['the app is seeded', 'the app has an applicant', 'through all of it'];
 const LIVE_STEPS = ['a real posting, watched live'];
