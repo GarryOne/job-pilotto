@@ -9,8 +9,9 @@ import {notionFarSide, pickStore, runToken, STORES, storeSettings} from '../lib/
 import {E2E} from '../lib/app.mjs';
 import {SUITES} from '../lib/context.mjs';
 
-test('a Mac runs on the stand-in unless pinned; E2E_NOTION_STANDIN=1 still means the stand-in', () => {
-  assert.equal(pickStore({env: {}}), 'standin');
+test('a Mac runs on its own store (what a new install gets) unless pinned; E2E_NOTION_STANDIN=1 still means the stand-in', () => {
+  assert.equal(pickStore({env: {}}), 'sqlite');
+  assert.equal(pickStore({env: {E2E_STORE: 'standin'}}), 'standin');
   assert.equal(pickStore({env: {E2E_STORE: 'sqlite'}}), 'sqlite');
   assert.equal(pickStore({env: {E2E_NOTION_STANDIN: '1'}}), 'standin');
 });

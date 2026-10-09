@@ -7,8 +7,8 @@ import {isCi} from './engine.mjs';
 export const STORES = ['sqlite', 'standin', 'notion'];
 
 // E2E_STORE pins one; E2E_NOTION_STANDIN=1 is the older name for 'standin'. CI alternates by run number on bit 1, so it is independent of the AI
-// family (bit 0, lib/engine.mjs pickFamily): runs 0,1 sqlite, 2,3 stand-in, and every family meets every store. A Mac with nothing pinned: the
-// stand-in (no token, and every suite's Notion path as before).
+// family (bit 0, lib/engine.mjs pickFamily): runs 0,1 sqlite, 2,3 stand-in, and every family meets every store. A Mac with nothing pinned:
+// this Mac's store, what a new install gets (E2E_STORE=standin for a suite's Notion path).
 export function pickStore({env = process.env, suiteStore = ''} = {}) {
   if (suiteStore) {
     if (!STORES.includes(suiteStore)) throw new Error(`a suite's store must be ${STORES.join(', ')}, not "${suiteStore}"`);
@@ -17,7 +17,7 @@ export function pickStore({env = process.env, suiteStore = ''} = {}) {
   const pinned = env.E2E_STORE || (env.E2E_NOTION_STANDIN === '1' ? 'standin' : '');
   if (pinned && !['sqlite', 'standin', 'alternate'].includes(pinned)) throw new Error(`E2E_STORE must be sqlite, standin or alternate, not "${pinned}" (the real workspace is only for a suite that pins it)`);
   if (pinned && pinned !== 'alternate') return pinned;
-  if (!isCi(env) && pinned !== 'alternate') return 'standin';
+  if (!isCi(env) && pinned !== 'alternate') return 'sqlite';
   return (Number(env.GITHUB_RUN_NUMBER || 0) >> 1) & 1 ? 'standin' : 'sqlite';
 }
 
