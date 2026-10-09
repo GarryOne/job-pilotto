@@ -30,6 +30,10 @@ const PERSON = persona.person;
 // "quality" is the scout's 0-100 score of a whole feed (relevance, freshness, location, stack): a feed with older postings or a few off-target roles scores in the 30s-50s and is
 // still a sensible employer to follow. The judge must not read a middling score as a contradiction with "stack overlap" or "in preferred places", which describe single postings.
 const QUALITY_NOTE = 'Note: "quality" is a 0-100 score of the whole job feed, also lowered by stale postings or a few unrelated roles, so a middling score next to a good stack or place match is normal; judge only whether following this employer suits the person.';
+// What each count means (src/scout_probe.py quality): a posting outside the person's roles counts in neither number, and "cities" are those of the relevant roles in
+// preferred places. 9 Oct 2026 (CI run 37978637897): without this the judge read Orbit's 3 postings, 2 relevant, 1 of them in Zurich, "cities: Zurich" (its non-relevant
+// Product Designer is in Zurich too) as contradicting facts.
+const FIELDS_NOTE = 'Fields: "postings" in "why" counts every posting on the board; "relevantRoles" counts only those matching the person\'s roles; "relevantRolesInPreferredPlaces" counts the relevant ones that are also in the person\'s places (a subset of relevantRoles); "citiesOfThose" lists the cities of exactly those relevant roles in preferred places. A posting outside the person\'s roles is counted in neither number, wherever it is.';
 const ROOT = path.resolve(E2E, '..', '..');
 
 const find = dir => {
@@ -212,9 +216,9 @@ export async function run(ctx) {
   const FULL = {name: 'the nightly or a manual run (E2E_FULL=1)', value: process.env.CI ? process.env.E2E_FULL : '1'};
   await ctx.run('a Sonnet judge finds each added employer sensible for the candidate', async () => {
     const added = state.rows.filter(row => row.active === true);
-    const items = added.map(row => ({name: row.name, board: row.ats, quality: row.quality, cities: row.cities, why: row.notes, relevantRoles: row.relevant_roles, inPreferredPlaces: row.in_preferred_places}));
+    const items = added.map(row => ({name: row.name, board: row.ats, quality: row.quality, citiesOfThose: row.cities, why: row.notes, relevantRoles: row.relevant_roles, relevantRolesInPreferredPlaces: row.in_preferred_places}));
     if (items.length !== 2) throw new Error(`expected two added employers to judge, found ${items.length}`);
-    const verdicts = await judge({key: ctx.judgeKey, person: `${PERSON} ${QUALITY_NOTE}`, items});
+    const verdicts = await judge({key: ctx.judgeKey, person: `${PERSON} ${QUALITY_NOTE} ${FIELDS_NOTE}`, items});
     console.log(`  judge: ${verdicts.map(item => `${item.name}: ${item.makes_sense ? 'yes' : 'NO'} (${item.reason})`).join(' | ')}`);
     const problems = judgeProblems(items.map(item => item.name), verdicts);
     if (problems.length) throw new Error(problems.join('; '));
