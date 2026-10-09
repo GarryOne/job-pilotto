@@ -3,6 +3,7 @@
 import {kitStance} from './tab-pages.js';
 import {fillCard} from './fill-card.js';
 import {settleTrace} from './trace-settle.js';
+import {expandSections} from './sections.js';
 export const JOB_SITES = [
   'https://*.greenhouse.io/*', 'https://jobs.lever.co/*', 'https://jobs.ashbyhq.com/*',
   'https://*.myworkdayjobs.com/*', 'https://*.smartrecruiters.com/*', 'https://apply.workable.com/*',
@@ -148,6 +149,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   let stepAt = Date.now();
   const step = name => { const now = Date.now(); debug.steps.push({step: name, ms: now - stepAt}); stepAt = now; };
   onStep('Reading the form…');
+  await expandSections(tab);   // collapsed sections open first, so their fields are read (a no-op when consider already did: sections.js marks what it opened)
   // No Submit guard for the extension: it never submits, and the user presses Submit themselves.
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', func: () => { window.__jobPilottoNoGuard = true; }});
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', files: PAGE_FILES});
