@@ -62,7 +62,7 @@ scheduled = mail.tgcard.block(mail._head(row, 'Interview'), 'Tue 06 Oct · 08:30
 out['mail_updates'] = plain(mail.tgcard.card('Job emails & calendar', '1 update', [scheduled], emoji='📧'))
 from src.ai import rejection
 outcome = mail.tgcard.block(mail._head(row, 'Rejected'), 'Application rejected after consideration')
-why = rejection.line(row, {'verdict': 'Hard skills', 'confidence': 'medium', 'summary': 'Staff-level role needing a deep data background (BigQuery, Spark); your experience is SRE/platform.'})
+why = rejection.line(job, {'verdict': 'Hard skills', 'confidence': 'medium', 'summary': 'Staff-level role needing a deep data background (BigQuery, Spark); your experience is SRE/platform.'})
 out['mail_rejected'] = plain(mail.tgcard.card('Job emails & calendar', '2 updates', [outcome, why], emoji='📧'))
 out['mail_none'] = plain(mail.tgcard.card('Gmail checked', 'No new job emails', [], emoji='📧'))
 # An interview's review as the store keeps it (src/stores/notion_interviews.py: to_markdown of the page's analysis blocks): what the app's
