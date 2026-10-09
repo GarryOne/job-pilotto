@@ -29,8 +29,8 @@ import time
 from pathlib import Path
 
 from ..notion import client as notion
-from ..notion import ledger
 from ..sources import ats
+from .. import ledger_store
 from ..stores import base, open_stores, rules
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -241,11 +241,8 @@ def main():
         return 0
 
     if args.mark_applied:
-        # Also logs an Applied event and freezes the application record (questions, answers sent). The ledger is
-        # Notion's until it moves to the store (src/notion/ledger.py, mac-67's lane).
-        if not tracker or stores.name != 'notion':   # one copy: never into a Notion that is not the store
-            raise SystemExit('--mark-applied needs Notion until the ledger moves to the store; use the app\'s Applied')
-        print(ledger.mark_applied(tracker, args.mark_applied, args.source))
+        # Also logs an Applied event and freezes the application record (questions, answers sent), in the active store.
+        print(ledger_store.mark_applied(stores, args.mark_applied, args.source))
         return 0
 
     if args.top_unprepared is not None:

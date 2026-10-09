@@ -86,9 +86,13 @@ class MarkApplyingTests(unittest.TestCase):
         self.assertEqual((code, stores.applications.list()), (0, []))
         self.assertIn('not on the tracker', text)
 
-    def test_mark_applied_never_writes_a_notion_that_is_not_the_store(self):
-        with self.assertRaises(SystemExit):
-            run_main(stores_with([(KIT['url'], 'Applying', KIT, {})]), '--mark-applied', KIT['url'])
+    def test_mark_applied_marks_the_job_and_logs_the_applied_event_in_the_store(self):
+        stores = stores_with([(KIT['url'], 'Applying', KIT, {})])
+        code, text = run_main(stores, '--mark-applied', KIT['url'])
+        record = stores.applications.get(KIT['url'])
+        self.assertEqual((code, record['stage']), (0, 'Applied'))
+        self.assertIn(f"{KIT['url']}: updated", text)
+        self.assertEqual([e['kind'] for e in stores.events.list(app_id=record['id'])], ['Applied'])
 
 
 class NextJobsTests(unittest.TestCase):
