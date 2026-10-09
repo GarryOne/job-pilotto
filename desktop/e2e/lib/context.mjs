@@ -18,6 +18,7 @@ import {createVariation, placeOf} from './variation.mjs';
 import {ARTIFACTS, E2E, launch, pickFile, step} from './app.mjs';
 import {clearRoot, testRoot, workspaceReady} from './notion.mjs';
 import {createRunner} from './runner.mjs';
+import {pickStore, storeSettings} from './store.mjs';
 import {tally} from './faults.mjs';
 
 // A suite is a file in suites/ (adding one needs no other list). It may export `minutes` (its time limit in CI, default 15).
@@ -35,9 +36,13 @@ export function notionToken(suite) {
 
 // browser: the suite drives a real Chromium with the extension (lib/extension.mjs): the fixture forms are served, and the app's `open` reaches that browser.
 // engine: a suite whose steps the AI proxy answers pins 'api' (a placeholder key on a Mac); otherwise a Mac uses Claude Code, CI the API key (lib/engine.mjs).
-export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false, light = false, notionProxy = false, telegram = false, google = false, releases = false, notion: usesNotion = true, notionStandIn = false, notionTokenOf = '', keepGoing = false, variesPlace = false, engine: suiteEngine = '', budgetMinutes = 0, stepNeeds = {}, report = null} = {}) {
-  // A suite on the in-memory Notion (`export const notionStandIn = true`): fresh and private for this run, no token, no shared page (lib/notion-fake.mjs).
-  const standIn = notionStandIn && !light ? await startNotionFake() : null;
+export async function openContext(suite, {fresh = false, env: suiteEnv = {}, browser = false, light = false, notionProxy = false, telegram = false, google = false, releases = false, notion: usesNotion = true, notionStandIn = false, store: suiteStore = '', notionTokenOf = '', keepGoing = false, variesPlace = false, engine: suiteEngine = '', budgetMinutes = 0, stepNeeds = {}, report = null} = {}) {
+  // Where the app keeps the person's data (lib/store.mjs): this Mac (sqlite, no Notion at all), the in-memory Notion (fresh and private for this run, no
+  // token, no shared page: lib/notion-fake.mjs), or the real test workspace for a suite that pins it. A suite with no Notion part keeps its own setup.
+  const store = light || !usesNotion ? '' : pickStore({suiteStore: suiteStore || (notionStandIn ? 'standin' : '')});
+  if (store) console.log(`  store under test: ${store}${isCi() && !suiteStore && !notionStandIn ? ` (CI run ${process.env.GITHUB_RUN_NUMBER || '?'}: runs 0,1 sqlite, 2,3 stand-in, by 4)` : ''}`);
+  const onNotion = usesNotion && store !== 'sqlite';
+  const standIn = store === 'standin' ? await startNotionFake() : null;
   if (standIn) useNotionAt(standIn.url);
   const engine = pickEngine({suiteEngine});
   // The app's key follows its engine's family (E2E_OPENAI_KEY for OpenAI); a light suite is the judges' own calls: Claude's key.
@@ -50,16 +55,16 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   // by one model: always the Anthropic test key, never the app's (9 Oct 2026: the first OpenAI run sent the OpenAI key to Anthropic, 401).
   const judgeKey = KEY();
   if (light) return {suite, key, judgeKey, engine, runner, run: runner.run, ARTIFACTS, E2E, needs: isCi() ? [{name: 'E2E_ANTHROPIC_KEY', value: key}] : [], skipAll: isCi() && !key, close: async () => {}};
-  const ctx = {suite, key, judgeKey, token, runner, standIn, run: runner.run, ARTIFACTS, E2E, cv: process.env.E2E_CV || path.join(E2E, 'fixtures', 'cv.pdf'),
+  const ctx = {suite, key, judgeKey, token, runner, standIn, store, run: runner.run, ARTIFACTS, E2E, cv: process.env.E2E_CV || path.join(E2E, 'fixtures', 'cv.pdf'),
     engine, family: familyOf(engine), appKey: appKey(key), needsKey: isCi() ? [{name: keySecret(engine), value: key}] : [],   // CI only: on a Mac nothing needs a key
     needs: [...(['api', 'openai'].includes(engine) && isCi() ? [{name: keySecret(engine), value: key}] : []),
       // A suite with no Notion part (`export const notion = false`, the update flow) needs no Notion token and gets no page.
-      ...(usesNotion ? [{name: `a Notion token for the ${suite} suite (E2E_NOTION_TOKEN${suite === 'wizard' ? '' : `_${suite.toUpperCase()}`})`, value: token}] : [])]};
+      ...(onNotion ? [{name: `a Notion token for the ${suite} suite (E2E_NOTION_TOKEN${suite === 'wizard' ? '' : `_${suite.toUpperCase()}`})`, value: token}] : [])]};
   if (ctx.needs.some(item => !item.value)) { ctx.skipAll = true; return ctx; }
   if (engine === 'cli') console.log('  AI engine: the Claude Code on this Mac (your plan): no Anthropic key is read or used on a Mac.');
-  if (usesNotion) ctx.root = await testRoot(token);   // refuses any workspace but the test one, and any token that sees more than one page
-  if (fresh) console.log(`Notion test page "${ctx.root.title}": ${await clearRoot(token, ctx.root.id)} item(s) moved to the trash`);
-  ctx.built = usesNotion && !fresh && await workspaceReady(token);
+  if (onNotion) ctx.root = await testRoot(token);   // refuses any workspace but the test one, and any token that sees more than one page
+  if (fresh && ctx.root) console.log(`Notion test page "${ctx.root.title}": ${await clearRoot(token, ctx.root.id)} item(s) moved to the trash`);
+  ctx.built = onNotion && !fresh && await workspaceReady(token);
   ctx.feeds = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-feeds-'));
   fs.cpSync(path.join(E2E, 'fixtures', 'feeds'), ctx.feeds, {recursive: true});
   ctx.proxy = await startAiProxy({delayMs: 0});
@@ -98,7 +103,7 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   // A seeded run of a suite that opts in lives somewhere else: another time zone (window and engine) and language (lib/variation.mjs placeOf).
   ctx.place = variesPlace ? placeOf() : null;
   if (ctx.place) { Object.assign(env, {TZ: ctx.place.zone, JOB_PILOTTO_TZ: ctx.place.zone, LANG: `${ctx.place.locale.replace('-', '_')}.UTF-8`}); console.log(`  place: ${ctx.place.zone}, ${ctx.place.locale}`); }
-  adopt(await launch({env, lang: ctx.place?.locale || ''}));
+  adopt(await launch({env, lang: ctx.place?.locale || '', settings: storeSettings(store)}));
   // The app's trace is kept when the suite failed so far: a failed step, or an error outside the steps (lib/suite-main.mjs sets ctx.stopped first).
   const failed = () => !!ctx.stopped || runner.results.some(result => result.status === 'failed');
   ctx.close = async () => { await session?.shot('last'); await ctx.browser?.close(); await session?.close({keepTrace: failed()}); await ctx.proxy?.close(); await ctx.openaiProxy?.close(); await ctx.notion?.close(); await ctx.telegram?.close(); await ctx.google?.close(); await ctx.releases?.close(); if (ctx.standIn) { try { fs.writeFileSync(path.join(ARTIFACTS, 'notion-standin.json'), JSON.stringify(ctx.standIn.dump(), null, 1)); } catch {} await ctx.standIn.close(); } await ctx.forms?.close(); };

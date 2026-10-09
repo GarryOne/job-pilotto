@@ -51,6 +51,11 @@ on:
         type: choice
         options: [alternate, claude, openai]
         default: alternate
+      store:
+        description: 'Where the app keeps its data (desktop/e2e/lib/store.mjs): alternate by run number (runs 0,1 sqlite, 2,3 the Notion stand-in), or pin one. No suite uses a Notion token except notion-real'
+        type: choice
+        options: [standin, alternate, sqlite]
+        default: standin
       mutant:
         description: 'MUTATION TEST (mutation.yml): write this mutant of desktop/e2e/mutants.json into the app first, or "baseline". Fixed path, no AI review, nothing filed, no Windows run'
         required: false
@@ -153,6 +158,9 @@ jobs:
       E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
       E2E_OPENAI_KEY: ${{ secrets.E2E_OPENAI_KEY }}   # the OpenAI family's turn (odd runs; desktop/e2e/lib/engine.mjs pickFamily)
       E2E_AI_FAMILY: ${{ (inputs.family == 'claude' || inputs.family == 'openai') && inputs.family || '' }}   # a manual run pinned to one family; else alternate
+      # The store under test (lib/store.mjs pickStore). Until the engine's store callers land, scheduled runs pin the stand-in; then 'alternate' (bit 1 of the run
+      # number, beside the AI family's bit 0), and the release gate runs both stores on the same build.
+      E2E_STORE: ${{ inputs.store || 'standin' }}
       E2E_NOTION_TOKEN: ${{ secrets.E2E_NOTION_TOKEN }}
       E2E_NOTION_TOKEN_FAILURESNOTION: ${{ secrets.E2E_NOTION_TOKEN_FAILURESNOTION }}
       E2E_NOTION_TOKEN_FAILURESCHANNELS: ${{ secrets.E2E_NOTION_TOKEN_FAILURESCHANNELS }}

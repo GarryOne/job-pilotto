@@ -29,8 +29,9 @@ test('the table marks a skipped suite, and only fails the run when secrets are r
 });
 
 test('suite.mjs itself: no secrets means a loud SKIPPED line, and the exit code follows the environment', () => {
+  // As CI with no test key: since every suite runs without a Notion token (lib/store.mjs), the AI key is the secret a suite can lack. On a Mac nothing is missing.
   const clean = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^E2E_/.test(key)));
-  const run = env => spawnSync('node', ['suite.mjs', 'settings'], {cwd: new URL('..', import.meta.url).pathname, env: {...clean, ...env}, encoding: 'utf8', timeout: 60000});
+  const run = env => spawnSync('node', ['suite.mjs', 'settings'], {cwd: new URL('..', import.meta.url).pathname, env: {...clean, CI: 'true', ...env}, encoding: 'utf8', timeout: 60000});
   const plain = run({}), inRun = run({E2E_SKIP_EXIT: '3'}), required = run({E2E_REQUIRE_SECRETS: '1'});
   for (const result of [plain, inRun, required]) assert.match(result.stdout, /SKIPPED, nothing ran/);
   assert.deepEqual([plain.status, inRun.status, required.status], [0, SKIPPED, 1]);

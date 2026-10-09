@@ -25,11 +25,11 @@ export const zoneOf = (env = {}) => env.TZ || 'Europe/Zurich';
 // Hidden windows (lib/e2e-hidden.js) only on the owner's Mac, so a run doesn't steal focus; CI is unchanged. E2E_HIDDEN=0 to watch, =1 to force.
 const hidden = (env = process.env) => (env.E2E_HIDDEN ? (env.E2E_HIDDEN === '1' ? '1' : '0') : (process.platform === 'darwin' && !env.CI ? '1' : '0'));
 
-export async function launch({env = {}, executablePath, args, profile: again, lang = ''} = {}) {   // lang: the window's language (Chromium's --lang), for a seeded place
+export async function launch({env = {}, executablePath, args, profile: again, lang = '', settings = {}} = {}) {   // lang: the window's language (Chromium's --lang), for a seeded place; settings: a fresh profile's start (the store, lib/store.mjs)
   const profile = again || fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-'));   // `again`: the same profile, a second start (a relaunch keeps the person's data)
   fs.mkdirSync(ARTIFACTS, {recursive: true});
   // The test app is a stranger to the product: no technical reports, no employer-pool sharing, nothing it learns leaves this computer.
-  if (!again) fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({telemetry: false, shareEmployers: false}));
+  if (!again) fs.writeFileSync(path.join(profile, 'settings.json'), JSON.stringify({telemetry: false, shareEmployers: false, ...settings}));
   // Linux (CI runners, 6 Oct 2026): no keyring there, so Chromium's basic password store keeps the app's keys (test keys only, a throwaway profile).
   const app = await electron.launch({
     executablePath: executablePath || electronPath(),
