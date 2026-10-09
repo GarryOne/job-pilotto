@@ -75,42 +75,15 @@ def revert_unsubmitted(stores, url):
     return UPDATED, stores.applications.update(current['id'], {'stage': 'Applying', 'applied_on': ''})
 
 
-def _same_occurrence(event, when):
-    """An event at `when` repeats this one: within SAME_OCCURRENCE_HOURS, or this one has no readable time."""
-    from datetime import datetime
-    from ..notion.ledger_events_util import SAME_OCCURRENCE_HOURS, moment
-    recorded = event['at'] or ''
-    try:
-        datetime.fromisoformat(recorded.replace('Z', '+00:00'))
-    except ValueError:
-        return True
-    return abs((moment(recorded) - when).total_seconds()) <= SAME_OCCURRENCE_HOURS * 3600
-
-
 def existing_event(stores, app, kind, *, source_id='', interview_at='', at=None):
     """The event this one would repeat, or None when it is genuinely new: the same message (source_id) on any job; else
-    an outcome of the same kind, the same interview (by its time, whenever the message came), or within a day."""
+    an outcome of the same kind, the same interview (by its time, whenever the message came), or within a day. The
+    rule itself is repeat_of (src/notion/ledger_events_util.py), the one copy the Notion tracker path asks too."""
     from ..notion.ledger import OUTCOME_STAGES  # local: the ledger module is heavy and imports the Notion client
-    from ..notion.ledger_events_util import moment
-    if source_id:
-        same = stores.events.list(source_id=source_id)
-        mine = [event for event in same if event['app_id'] == app['id']]
-        if mine or same:
-            return (mine or same)[0]
-    if kind not in OUTCOME_STAGES:
-        return None
-    same = [event for event in stores.events.list(app_id=app['id'], kind=kind)]
-    if not same:
-        return None
-    if kind == 'Interview scheduled' and interview_at:
-        known = [event['interview_at'] for event in same]
-        if any(known) and not any(k and moment(k) == moment(interview_at) for k in known):
-            return None  # another interview
-    elif at:
-        same = [event for event in same if _same_occurrence(event, moment(at))]
-        if not same:
-            return None
-    return same[0]
+    from ..notion.ledger_events_util import repeat_of
+    by_source = stores.events.list(source_id=source_id) if source_id else ()
+    return repeat_of(stores.events.list(app_id=app['id']), kind, OUTCOME_STAGES, source_id=source_id,
+                     interview_at=interview_at, at=at, by_source=by_source)
 
 
 def add_event(stores, app, kind, source, *, at=None, note='', source_id='', interview_at='', changes=None):
