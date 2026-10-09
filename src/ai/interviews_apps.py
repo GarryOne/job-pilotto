@@ -36,7 +36,7 @@ def by_url(stores, apps, job_url):
     return next((r for r in apps if url_key(r.get('url')) == wanted), None) or stores.applications.get(job_url.strip())
 
 
-def application_for(stores, job_url, tracker=None):  # tracker: kept for callers, unused
+def application_for(stores, job_url):
     """The application for a job the owner picked; a job not tracked yet is added (an interview means they applied;
     the date is marked approximate)."""
     found = by_url(stores, [], job_url)

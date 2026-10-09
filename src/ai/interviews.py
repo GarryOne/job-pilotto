@@ -207,7 +207,7 @@ def review_again(stores, page_id, saved, result, app, merged, fields, usd, send=
             f". {extra[0].upper()}{extra[1:]} {link}").strip()
 
 
-def save(stores, transcript, title, *, job_url=None, source='Recording', now=None, page_id=None, tracker=None):
+def save(stores, transcript, title, *, job_url=None, source='Recording', now=None, page_id=None):
     """A transcript as an interview, without AI: title, date, input, the chosen job and the transcript (the review comes
     later). Returns the interview record. With page_id (the one the app created as soon as the transcript was ready), that
     one is updated instead: title, job, and the transcript replaced by the edited one (speakers named).
@@ -217,7 +217,7 @@ def save(stores, transcript, title, *, job_url=None, source='Recording', now=Non
     transcript = transcript.strip()[:MAX_CHARS]
     if len(transcript) < 40:
         raise ValueError('Too little text to save')
-    app = application_for(stores, job_url, tracker) if job_url else None
+    app = application_for(stores, job_url) if job_url else None
     fields = {'title': (title or 'Interview')[:200], 'input': source, 'transcript': transcript, 'app_id': app['id'] if app else ''}
     if page_id:  # the day it was first saved stays
         row = stores.interviews.save(page_id, fields)
@@ -228,9 +228,9 @@ def save(stores, transcript, title, *, job_url=None, source='Recording', now=Non
     return row
 
 
-def link(stores, page_id, job_url=None, tracker=None):
+def link(stores, page_id, job_url=None):
     """Set (or with no job_url, clear) the application an interview belongs to."""
-    app = application_for(stores, job_url, tracker) if job_url else None
+    app = application_for(stores, job_url) if job_url else None
     stores.interviews.save(page_id, {'app_id': app['id'] if app else ''})
     if app:  # a recorded call belongs to this job: it was held
         advance(stores, app, note='Interview linked', source=APP_SOURCE, clear_past=False)
@@ -297,11 +297,11 @@ def cancelled(stores, app_id):
     return {'ok': True}
 
 
-def sweep(tracker=None, now=None, stores=None):
+def sweep(now=None, stores=None):
     """Applications still at Recruiter lead / Screening / Interview scheduled whose Next interview has passed and
     which have an interview from that day on (recorded): moved on (advance), as a review would.
     For interviews saved before save() did it. Returns a one-line summary."""
-    stores = stores or open_stores(tracker=tracker)
+    stores = stores or open_stores()
     now = now or datetime.now(timezone.utc)
     days = {}
     for row in stores.interviews.list():
@@ -405,12 +405,6 @@ def saved_insight(stores, problems=None):
         if problems is not None:
             problems.append(reason)
         return None
-
-
-def stats_for_insights(tracker):
-    """Interview topics across all interviews (mail_calendar.py and prep.py, which still hold a tracker)."""
-    from .insights_data import interview_stats
-    return interview_stats(open_stores(tracker=tracker))
 
 
 if __name__ == '__main__':
