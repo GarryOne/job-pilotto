@@ -19,6 +19,16 @@ export function reportingOff(env = process.env, {packaged = false} = {}) {
   return '';
 }
 
+// Whether this run may exchange FORM LEARNING with the site (lib/recipes.js: fill records, reasons, proposal use, control samples out;
+// recipes and wording meanings in), or why not. As reportingOff, except a live-test twin: it fills real forms on real sites with the owner's
+// real profile, so its fills are real use and it should fill with what other fills taught (owner, 9 Oct 2026: "Twin form filling I think are
+// real data ... we should learn from it and reuse the learning"). Its analytics, crash reports and install attribution stay off (reportingOff).
+// The twin is a clone of the owner's folder: it reports under the owner's install id, so it never counts as another install.
+export function learningOff(env = process.env, {packaged = false} = {}) {
+  if (env.JOB_PILOTTO_TWIN && !env.JOB_PILOTTO_E2E) return '';
+  return reportingOff(env, {packaged});
+}
+
 // The journey on CI is the one test run that may reach Sentry (tagged environment "e2e", one fixed anonymous id, never your /telemetry store or PostHog):
 // a crash during the journey is a real bug and the stack trace helps. A local run reports nothing at all.
 export const sentryOnly = (env = process.env) => !!(env.JOB_PILOTTO_E2E && env.GITHUB_ACTIONS);

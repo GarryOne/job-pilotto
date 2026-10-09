@@ -3,7 +3,8 @@
 // and fill real forms (never Submit), but nothing it does reaches the owner's own app, Chrome windows, Telegram, schedules or real Notion:
 // - its folder must not be the real one (JOB_PILOTTO_USER_DATA, checked at start: refused otherwise);
 // - Notion: the mirror's token from JOB_PILOTTO_TWIN_NOTION_TOKEN, never a token found in the cloned secrets.json;
-// - no Telegram polling, no schedules, no telemetry, no AppleScript on Chrome or Terminal (no Apply with Claude);
+// - no Telegram polling, no schedules, no telemetry, no AppleScript on Chrome or Terminal (no Apply with Claude); form LEARNING is the one
+//   exchange with the site it keeps (lib/telemetry.js learningOff): its fills are real use, and it fills with the shared recipes and meanings;
 // - the engine sees no Keychain (src/secret_store.py isolated(): no Telegram bot, no Google sign-in).
 // Guarded by desktop/test/twin.test.js.
 import fs from 'node:fs';

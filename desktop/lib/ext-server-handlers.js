@@ -23,7 +23,8 @@ import {log as appLog} from './log.js';
 import {confirmAccount} from './account-confirm.js';
 import {automationOf, modeOf, record} from './site-accounts.js';
 import {resultOf} from './application-result.js';
-import {isolated} from './keychain.js';
+// A test run never counts; a live-test twin does: its fills are real use (owner, 9 Oct 2026; lib/telemetry.js learningOff).
+const testRun = () => !!process.env.JOB_PILOTTO_E2E;
 
 export function registerExtServerHandlers(ctx) {
   const {DEMO, app, createWindow, cvOf, flow, notify, readSites, scoreVisitJobs, sessionNeedsYou, storage, getTelemetry, toWindow, getWindow, setRecipeReporter} = ctx;
@@ -79,9 +80,9 @@ export function registerExtServerHandlers(ctx) {
   });
   const recipeReporter = recipeLibrary.createReporter(storage, {onSent: (what, sent) => sharedLog.add(storage, what, sent)});
   setRecipeReporter(recipeReporter);   // main.js keeps it: the other handler groups reach it through a getter
-  // How an application ended (submitted clean / assisted / by Claude, or failed and where): one fixed word per finished application, by board. Never from a test run or a twin.
+  // How an application ended (submitted clean / assisted / by Claude, or failed and where): one fixed word per finished application, by board. Never from a test run.
   terminals.onOutcome(session => {
-    if (isolated()) return;
+    if (testRun()) return;
     const state = review.allStates().find(item => item.id === session.id);
     const result = resultOf(session, state);
     if (!result) return;
@@ -92,7 +93,7 @@ export function registerExtServerHandlers(ctx) {
     appLog('sessions', `application ended: ${result}`, {board, id: session.id});
   });
   server.setProposalReporter(items => recipeReporter.proposal(items));
-  server.setAnswerReporter(trace => { if (!isolated()) recipeReporter.answer(trace); });   // per-AI-family answer metrics, never from a test run or a twin
+  server.setAnswerReporter(trace => { if (!testRun()) recipeReporter.answer(trace); });   // per-AI-family answer metrics, never from a test run
   // After a search: how much of the market the role keywords caught (data/coverage.json, src/coverage.py), as anonymous counts, once per crawl.
   pipeline.onRunEnd(({args, code}) => {
     if (code !== 0 || args[1] !== 'daily') return;

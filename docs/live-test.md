@@ -12,6 +12,7 @@
 | Browser | the owner's Chrome | its own visible Chromium window, one tab, fresh profile with the sign-ins carried over, extension copy on the twin's port |
 | Port | 47111 | a free one (`twin.json`) |
 | Telegram, schedules, Always on, telemetry | on | off (`desktop/lib/twin.js`) |
+| Form learning with the site (fill records, reasons, proposal use out; recipes and meanings in) | on | on: its fills are real use (`desktop/lib/telemetry.js` learningOff, 9 Oct 2026) |
 | AppleScript on Chrome / Terminal | yes | off |
 | Apply with Claude / Take over with Claude | your Chrome (`--chrome`) | the twin's own Chromium only: `--no-chrome` + a Playwright MCP on its port, the submit guard as init script, job-site passwords masked (`--secrets`) |
 | Engine's Keychain (Telegram bot, Google sign-in) | yes | none (`src/secret_store.py` `isolated()`) |

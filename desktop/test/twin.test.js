@@ -7,7 +7,7 @@ import {test} from 'node:test';
 import {isTwin, realFolder, twinRefusal, twinSecret} from '../lib/twin.js';
 import {createStorage} from '../lib/storage.js';
 import {pipelineEnv} from '../lib/pipeline-env.js';
-import {reportingOff} from '../lib/telemetry.js';
+import {learningOff, reportingOff} from '../lib/telemetry.js';
 
 const real = '/Users/someone/Library/Application Support/Job Pilotto';
 const twin = {JOB_PILOTTO_TWIN: '1', JOB_PILOTTO_USER_DATA: '/tmp/jp-twin/data', JOB_PILOTTO_TWIN_NOTION_TOKEN: 'ntn_mirror'};
@@ -37,11 +37,16 @@ test('the twin\'s Notion token is the mirror\'s, never one in the cloned secrets
   assert.equal(storage.secret('NOTION_TOKEN'), 'ntn_REAL');                   // not a twin: unchanged
 });
 
-test('a twin\'s engine sees no Keychain and nothing reports to the product', () => {
+test('a twin\'s engine sees no Keychain and nothing reports to the product but form learning', () => {
   const storage = createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-twin-')), {encrypt: v => v, decrypt: v => v});
   assert.equal(pipelineEnv(storage, twin).JOB_PILOTTO_TWIN, '1');
   assert.equal(pipelineEnv(storage, {}).JOB_PILOTTO_TWIN, undefined);
   assert.equal(reportingOff(twin, {packaged: true}), 'a live-test twin');
+  // Its fills are real use (owner, 9 Oct 2026): form learning goes both ways, from a source run too; a test run never learns.
+  assert.equal(learningOff(twin, {packaged: false}), '');
+  assert.equal(learningOff({...twin, JOB_PILOTTO_E2E: '1'}), 'the end-to-end journey');
+  assert.equal(learningOff({CI: '1'}), 'CI');
+  assert.equal(learningOff({}, {packaged: false}), reportingOff({}, {packaged: false}));
   assert.ok(isTwin(twin) && !isTwin({}));
 });
 
