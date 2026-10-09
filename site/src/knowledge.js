@@ -9,7 +9,7 @@ import {isOwner} from './stats.js';
 import {cleanUse} from '../../desktop/lib/proposal-use.js';
 
 export {cleanLabel};
-export const LEFT_REASONS = ['proposed', 'no_answer', 'not_taken', 'real_click', 'no_option', 'unread', 'by_you', 'by_you_unread', 'page_error', 'other'];   // desktop/lib/question-labels.js
+export const LEFT_REASONS = ['proposed', 'no_answer', 'not_taken', 'menu_not_clicked', 'menu_not_opened', 'menu_not_selected', 'menu_not_read', 'real_click', 'no_option', 'unread', 'by_you', 'by_you_unread', 'page_error', 'other'];   // desktop/lib/question-labels.js
 import {RESULT_STATES} from '../../desktop/lib/application-result.js';
 export const FLOW_STATES = ['filled', 'fill-error', 'account', 'no-form', 'no-form-after-apply', ...RESULT_STATES];   // the last ones: how an application ended (desktop/lib/application-result.js)
 export const OUTCOMES = ['reply', 'screening', 'offer', 'rejected', 'no_response'], DAY_BUCKETS = ['', '0-3', '4-7', '8-14', '15-30', '31+'];

@@ -22,7 +22,11 @@ export const REASONS = [
   ['no_answer', 'No answer in the profile or kit', 'data'],
   ['proposed', 'The AI proposed an answer for you to confirm', 'proposed'],
   ['not_taken', 'Answer given, the field did not take it', 'widget'],
-  ['real_click', 'Dropdown needs a real click', 'widget'],
+  ['menu_not_clicked', 'Menu never clicked (setting off or the click failed)', 'widget'],
+  ['menu_not_opened', 'Menu clicked, it did not open', 'widget'],
+  ['menu_not_selected', 'Option clicked, the field stayed empty', 'widget'],
+  ['menu_not_read', 'Selected, but the reader cannot see it', 'blind spot'],
+  ['real_click', 'Menu left empty (older version: cause not observed)', 'widget'],
   ['no_option', 'Dropdown opened, no option matched', 'widget'],
   ['other', 'Other', 'other'],
 ];

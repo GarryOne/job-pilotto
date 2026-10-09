@@ -9,12 +9,15 @@
 //   ai_unsure     Claude answered with low confidence and the answer was not used
 //   ai_off        Claude was not asked: answering with Claude was off, or you were not eligible
 //   ai_error      Claude was asked and the call failed
-//   not_taken / real_click / no_option   the field did not take the answer / a dropdown needing a real click / no option matched
+//   not_taken / no_option   the field did not take the answer / a menu opened and no option matched
+//   menu_not_clicked / menu_not_opened / menu_not_selected / menu_not_read   a menu left empty, as the pick observed it (menu-reason.js)
+//   real_click    a menu left empty by a version that did not observe why (before 9 Oct 2026)
 //   proposed      the AI proposed a likely answer, shown for you to confirm and never typed (worker use: "propose", 9 Oct 2026): not a loss of
 //                 the fill, so the digest counts it apart from the truly missing (it was counted as "other" before)
 //   unread        a required question on the page the reader did not read
 //   other         anything else (its first words go nowhere: only this word is counted)
-export const CAUSES = ['proposed', 'no_data', 'ai_declined', 'ai_unsure', 'ai_off', 'ai_error', 'not_taken', 'real_click', 'no_option', 'unread', 'other'];
+import {menuCause} from './menu-reason.js';
+export const CAUSES = ['proposed', 'no_data', 'ai_declined', 'ai_unsure', 'ai_off', 'ai_error', 'not_taken', 'menu_not_clicked', 'menu_not_opened', 'menu_not_selected', 'menu_not_read', 'real_click', 'no_option', 'unread', 'other'];
 const NO_ANSWER = 'no answer in the kit, Profile or your details';
 
 export function causeOf(row, {sent = new Set(), ai = null, aiError = '', useAI = true} = {}) {
@@ -22,8 +25,8 @@ export function causeOf(row, {sent = new Set(), ai = null, aiError = '', useAI =
   if (reason.startsWith('proposed')) return 'proposed';   // extension/page/fill.js: "proposed for you to confirm"
   if (/^question (on the page not read|text not found)/.test(reason)) return 'unread';
   if (reason.startsWith('answer given')) return 'not_taken';
-  if (reason.startsWith('dropdown that opens')) return 'real_click';
-  if (reason.startsWith('dropdown clicked')) return 'no_option';
+  const menu = menuCause(reason);
+  if (menu) return menu;
   if (reason !== NO_ANSWER) return 'other';
   if (!sent.has(row.field)) return useAI ? 'no_data' : 'ai_off';
   if (aiError) return 'ai_error';

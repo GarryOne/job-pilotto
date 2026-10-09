@@ -5,9 +5,9 @@
 // waits for the owner. The Worker only starts the intake workflow on the public repo (existing GITHUB_TOKEN).
 import { snapshotFromReport } from './snapshot.js';
 
-const MECHANICAL = [
-  'dropdown clicked, but no option matched',
-  'dropdown that opens only on a real click',
+const MECHANICAL = [   // the menu reasons: extension/menu-reason.js (desktop/test/menu-reason-copies.test.js keeps them equal)
+  'dropdown not clicked', 'dropdown clicked, but its menu did not open', 'dropdown clicked, but no option matched',
+  'dropdown option clicked, but not selected', 'dropdown selected, but the reader cannot see it', 'dropdown that opens only on a real click',
   'answer given, but the field did not take it',
   'question text not found on the page',
   'question on the page not read',
@@ -23,7 +23,7 @@ export function sanitize(report) {
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(site)) return null;
   let room = SNAPSHOTS_MAX;
   const fields = (Array.isArray(report.fields) ? report.fields : []).slice(0, 20)
-    .filter((f) => MECHANICAL.includes(f.reason))
+    .filter((f) => MECHANICAL.some((reason) => String(f.reason || '').startsWith(reason)))
     .map((f) => {
       const field = { label: text(f.label, 120), type: text(f.type, 30), required: !!f.required, reason: f.reason,
         options: (Array.isArray(f.options) ? f.options : []).slice(0, 30).map((o) => text(o, 60)) };

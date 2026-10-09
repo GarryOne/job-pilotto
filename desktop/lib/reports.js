@@ -15,7 +15,9 @@ export function reportToken(storage) {
 }
 
 export const ENDPOINT = process.env.JOB_PILOTTO_REPORT_URL || 'https://www.jobpilotto.workers.dev/report/fill-failure';
-export const MECHANICAL = ['dropdown clicked, but no option matched', 'dropdown that opens only on a real click',
+// The menu reasons are extension/menu-reason.js MENU_REASONS (what the pick observed) and the older fixed one; test/menu-reason-copies.test.js keeps them equal.
+export const MECHANICAL = ['dropdown not clicked', 'dropdown clicked, but its menu did not open', 'dropdown clicked, but no option matched',
+  'dropdown option clicked, but not selected', 'dropdown selected, but the reader cannot see it', 'dropdown that opens only on a real click',
   'answer given, but the field did not take it', 'question text not found on the page',
   'question on the page not read'];
 const SNAPPED = '#snapshot';  // reportedFailures entry "<label key> #snapshot": reported with its snapshot
@@ -29,7 +31,7 @@ export function build(run, reported = {}) {
   const snapshotOf = label => run.snapshots?.[label] || null;
   // A clicked dropdown's reason ends with its time ("… no option matched (1.5 s)"): without it, it is the mechanical one.
   const reasonOf = f => String(f.reason || '').replace(/\s*\([\d.]+ s\)$/, '');
-  const fields = (run.trace || []).filter(f => MECHANICAL.includes(reasonOf(f)) && !done.has(`${key(f.label)} ${SNAPPED}`) &&
+  const fields = (run.trace || []).filter(f => MECHANICAL.some(reason => reasonOf(f).startsWith(reason)) && !done.has(`${key(f.label)} ${SNAPPED}`) &&
     !(done.has(key(f.label)) && !snapshotOf(f.label))).map(f => ({
     label: f.label, type: f.type || byLabel.get(key(f.label))?.type || '', required: !!f.required, reason: reasonOf(f),
     options: (byLabel.get(key(f.label))?.options || []).slice(0, 30), ...(snapshotOf(f.label) ? {snapshot: snapshotOf(f.label)} : {})}));

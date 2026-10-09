@@ -369,6 +369,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/form-ready.js` — The AI's veto on an APPLICATION form's "Ready to submit" (owner, 8 Oct 2026: the account page's "ready?" judgment, ported). The panel counts required boxes by HTML; when that count says
 - `extension/hook.js` — Apply with Claude → extension hand-off. A Claude session driving this tab (Claude in Chrome) asks for the
 - `extension/log.js` — The extension's decision log (moved out of background.js, 8 Oct 2026): every part that decides something (fill, tabs, account pages)
+- `extension/menu-reason.js` — Why a drop-down menu was left empty, as OBSERVED by the pick (flow.js clickCombos: opened, found, selectedAfter, trusted), never assumed.
 - `extension/messages-app.js` — The extension worker's messages from the page: the site password for a sign-in page and the form review relay to the app (moved out of background.js, 8 Oct 2026).
 - `extension/messages-learning.js` — The extension worker's messages about what the page learned (moved out of background.js, 8 Oct 2026): reading a job list, arming a tab, the fill's misses and the
 - `extension/messages-panel.js` — The extension worker's messages from the page's panel (moved out of background.js, 8 Oct 2026): the job it shows, Fill, bringing the tab forward or closing it, taking over with

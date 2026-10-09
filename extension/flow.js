@@ -1,5 +1,6 @@
 // One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
 // Shared by the popup (the tab you're on) and the background worker (tabs the app opens to fill).
+import {MENU_REASONS, OLD_MENU_REASON, menuReason} from './menu-reason.js';
 import {kitStance} from './tab-pages.js';
 import {fillCard} from './fill-card.js';
 import {settleTrace} from './trace-settle.js';
@@ -115,7 +116,7 @@ export async function api(config, path, init = {}, retry = true) {
 }
 
 // Why a field was left that is the extension's fault, not missing data (desktop/lib/reports.js reports these).
-const MECHANICAL = ['dropdown clicked, but no option matched', 'dropdown that opens only on a real click',
+const MECHANICAL = [...MENU_REASONS.map(item => item.text), OLD_MENU_REASON,
   'answer given, but the field did not take it', 'question text not found on the page',
   'question on the page not read'];
 
@@ -276,6 +277,9 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     summary.todo = [`Your name and email weren't filled: ${why}`, ...(summary.todo || [])];
   }
   const clickDropdowns = config.clickDropdowns !== false;  // on unless turned off in Settings
+  // An armed menu no trusted click reached keeps its page reason until here: say so, with why (menu-reason.js "dropdown not clicked").
+  const notClicked = why => { for (const row of summary.trace || []) if (row.reason === OLD_MENU_REASON) row.reason = `dropdown not clicked: ${why}`; };
+  if (!clickDropdowns) notClicked('"Fill drop-down menus too" is off');
   if (!clickDropdowns && await armedLeft()) {
     // Say why they're left, and how to have them chosen automatically.
     summary.todo = [...(summary.todo || []), 'Tip: turn on "Fill drop-down menus too" in the extension Settings to have these chosen for you'];
@@ -292,8 +296,9 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
         const wrong = combo.picked && combo.matched === false;   // the click selected another choice than the answer: not a fill
         if (row) Object.assign(row, {outcome: combo.picked && !wrong ? 'filled' : 'left', source: row.source || 'kit',
           reason: wrong ? `dropdown clicked, but it selected another choice (${(combo.ms / 1000).toFixed(1)} s)`
-            : combo.picked ? `dropdown clicked for you (${(combo.ms / 1000).toFixed(1)} s)` : `dropdown clicked, but no option matched (${(combo.ms / 1000).toFixed(1)} s)`});
+            : combo.picked ? `dropdown clicked for you (${(combo.ms / 1000).toFixed(1)} s)` : `${menuReason(combo)} (${(combo.ms / 1000).toFixed(1)} s)`});   // what the pick observed (menu-reason.js)
       }
+      notClicked('the pick never reached it');
       if (picked) {
         summary.filled = (summary.filled || 0) + picked;
         summary.todo = (summary.todo || []).filter(item => !/highlighted dropdown/.test(item));
@@ -302,6 +307,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       }
     } catch (error) {
       debug.errors.push(`dropdowns: ${error.message}`);
+      notClicked('the click failed');
       summary.todo = [`Drop-downs not chosen automatically (${error.message}): click each highlighted one`, ...(summary.todo || [])];
     }
   }
