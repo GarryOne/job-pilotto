@@ -440,7 +440,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/interviews_blocks.py` — Interview analysis, what is written: the Interviews page (job line, review blocks, transcript), its row properties and
 - `src/ai/interviews_facts.py` — Interview analysis, the call's facts about the job (salary, contract, place…): read from the review, merged with what the
 - `src/ai/interviews_input.py` — Interview analysis, the input: a Telegram file, a subtitle file stripped of its timing, a recording transcribed on the
-- `src/ai/interviews_review.py` — Interview analysis, replacing a review on an Interviews page: finding the blocks an earlier review wrote and swapping them.
+- `src/ai/interviews_review.py` — Interview analysis, a review on a Notion Interviews page: the blocks an earlier review wrote (found by its headings) and the
 - `src/ai/interviews_stages.py` — Interview analysis, the stages: which stages an interview moves forward, which it never touches, and the stage a held
 - `src/ai/interviews.py` — Interview analysis: a recording, a transcript file or typed notes -> 🎤 Interviews.
 - `src/ai/kit.py` — Application kit: a drafted cover letter and form answers for one job, on request.
@@ -500,7 +500,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/doctor.py` — Readiness check: is everything set up, and what is the one thing to do next?
 - `src/employer_index.py` — The central employer index: feeds found and verified by one scout for everyone, downloaded by every install.
 - `src/features.py` — Optional features: what each one needs, what it costs, and one switch to turn any of them off.
-- `src/feedback.py` — Employer feedback loop. Notion holds the status, verbatim feedback and timeline; no AI or email sending."""
+- `src/feedback.py` — Employer feedback loop. The store holds the status, verbatim feedback and timeline (events); no AI or email sending.
 - `src/focus_items.py` — Focus, part 1: the constants (time zone, targets, who-wrote-last sets) and the small helpers every Focus item is
 - `src/focus_state.py` — Focus, part 2: reading the application's history into a state: the app's own bookkeeping events, the interview
 - `src/focus.py` — Focus: what to do next in the job search, most important first. No AI, so it costs nothing.
