@@ -108,37 +108,45 @@ class PrePushCheckTest(unittest.TestCase):
         self.needed_committed()
         self.assertEqual(self.hook('PUSH_FULL=1 git push origin HEAD:main'), (0, ''))
         runs = self.log.read_text().splitlines()
-        self.assertEqual([line.split(' --area ')[1].split()[0] for line in runs], ['python', 'worker', 'site', 'desktop'])
+        self.assertEqual(sorted(line.split(' --area ')[1].split()[0] for line in runs), ['desktop', 'python', 'site', 'worker'])   # areas run side by side: no order
         self.assertEqual(len({line.split()[0] for line in runs}), 4, 'a fresh checkout per area')
         self.assertEqual(len(git(self.repo, 'worktree', 'list').splitlines()), 1)
+
+    def test_a_local_push_asks_for_the_affected_tests_and_push_full_asks_for_everything(self):
+        self.needed_committed()
+        self.hook('git push origin HEAD:main')
+        self.assertTrue(all('--affected-from origin/main' in line for line in self.log.read_text().splitlines()))
+        self.log.unlink()
+        self.hook('PUSH_FULL=1 git push origin HEAD:main')
+        self.assertFalse(any('--affected-from' in line for line in self.log.read_text().splitlines()))
 
     def areas_run(self, command='git push origin HEAD:main'):
         self.log.unlink(missing_ok=True)
         code, err = self.hook(command)
         runs = self.log.read_text().splitlines() if self.log.exists() else []
-        return code, [line.split(' --area ')[1].split()[0] for line in runs], err
+        return code, sorted(line.split(' --area ')[1].split()[0] for line in runs), err   # areas run side by side (9 Oct 2026): compare as a set
 
     def test_only_the_areas_a_push_touches_run(self):
         self.needed_committed()
         self.assertEqual(self.areas_run()[:2], (0, ['desktop']))
         self.commit('Worker only', {'worker/a.js': 'x'})
-        self.assertEqual(self.areas_run()[:2], (0, ['worker', 'desktop']))   # origin/main..HEAD still holds the desktop commit
+        self.assertEqual(self.areas_run()[:2], (0, ['desktop', 'worker']))   # origin/main..HEAD still holds the desktop commit
         git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
         self.commit('Engine change', {'src/ai/x.py': 'x'})
-        self.assertEqual(self.areas_run()[:2], (0, ['python', 'desktop']), 'the engine also runs its desktop callers')
+        self.assertEqual(self.areas_run()[:2], (0, ['desktop', 'python']), 'the engine also runs its desktop callers')
         git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
         self.commit('Site only', {'site/p.html': 'x'})
         self.assertEqual(self.areas_run()[:2], (0, ['site']))
         git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
         self.commit('Unknown top-level file', {'Makefile': 'x'})
-        self.assertEqual(self.areas_run()[:2], (0, ['python', 'worker', 'site', 'desktop']), 'an unknown path runs everything')
+        self.assertEqual(self.areas_run()[:2], (0, ['desktop', 'python', 'site', 'worker']), 'an unknown path runs everything')
 
     def test_docs_alone_run_no_suite_and_full_forces_all(self):
         self.needed_committed()
         git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
         self.commit('Docs', {'README.md': 'x', 'docs/a.md': 'y'})
         self.assertEqual(self.areas_run()[:2], (0, []))
-        self.assertEqual(self.areas_run('PUSH_FULL=1 git push origin HEAD:main')[:2], (0, ['python', 'worker', 'site', 'desktop']))
+        self.assertEqual(self.areas_run('PUSH_FULL=1 git push origin HEAD:main')[:2], (0, ['desktop', 'python', 'site', 'worker']))
 
     def test_a_red_main_with_no_failed_job_is_rerun_not_blocking(self):
         self.needed_committed()

@@ -36,10 +36,30 @@ def find_node(env=None):
     raise RuntimeError('Node 22.13+ or 24+ is required. Use nvm use 22 or set JOB_PILOTTO_CHECK_NODE.')
 
 
-def commands(area, fast, node, npm):
+def affected(base):
+    """The tests a change can break (tools/affected-tests.py), or None: run everything. Local pushes only; CI never passes --affected-from."""
+    if not base:
+        return None
+    out = subprocess.run([sys.executable, str(ROOT / 'tools/affected-tests.py'), '--base', base], capture_output=True, text=True, check=False)
+    try:
+        return json.loads(out.stdout)
+    except ValueError:
+        return None
+
+
+def commands(area, fast, node, npm, picked='all'):
+    """picked: 'all' or the list of this area's test files/modules to run (everything else is left to CI)."""
     if area == 'python':
-        return [(ROOT, [sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-q'])]
+        if picked != 'all':
+            return [(ROOT, [sys.executable, 'tools/py-shards.py', *picked])] if picked else []
+        if os.environ.get('JOB_PILOTTO_PY_SERIAL'):      # the old single-process run, to compare with the shards
+            return [(ROOT, [sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-q'])]
+        return [(ROOT, [sys.executable, 'tools/py-shards.py'])]
     folder = ROOT / area
+    if picked != 'all':
+        pre = {'desktop': [(folder, [node, 'scripts/stage.mjs']), (folder, [npm, 'run', 'lint'])],
+               'worker': [(folder, [node, 'scripts/stage-shared.mjs'])]}.get(area, [])
+        return pre + ([(folder, [node, '--test', *picked])] if picked else [])
     if fast and area == 'desktop':
         return [(folder, [node, 'scripts/stage.mjs']),
                 (folder, [npm, 'run', 'lint']),
@@ -51,6 +71,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--area', choices=AREAS, action='append', help='repeat to select suites; default: all')
     parser.add_argument('--fast', action='store_true', help='desktop lint and focused lifecycle/contract checks (default area: desktop)')
+    parser.add_argument('--affected-from', metavar='REF', help='local pushes: run only the tests this change (HEAD vs REF) can break; without it everything runs, as on CI')
     parser.add_argument('--clean-install', action='store_true', help='verify desktop/Worker/site lockfiles in temporary folders before checks')
     args = parser.parse_args(argv)
     areas = args.area or (['desktop'] if args.fast else list(AREAS))
@@ -93,10 +114,12 @@ def main(argv=None):
                     print(f'check: {area} clean install failed', file=sys.stderr)
                     return 1
     failed = []
+    plan = affected(args.affected_from)
     for area in dict.fromkeys(areas):
         started = time.monotonic()
-        print(f'check: {area} started', flush=True)
-        for folder, command in commands(area, args.fast, node, npm):
+        picked = plan.get(area, 'all') if plan else 'all'
+        print(f'check: {area} started' + ('' if picked == 'all' else f' ({len(picked)} affected test files; the full suite runs on CI)'), flush=True)
+        for folder, command in commands(area, args.fast, node, npm, picked):
             try:
                 result = subprocess.run(command, cwd=folder, env=env, check=False)
             except OSError as error:

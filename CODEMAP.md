@@ -548,6 +548,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 ## Tools
 
+- `tools/affected-tests.py` — Which tests a change can break: the local push check runs only these; CI always runs everything. Guarded by tests/test_affected_tests.py.
 - `tools/apply-batch-chatgpt.sh` — queue every ready application kit into the ChatGPT/Codex desktop app.
 - `tools/apply-batch-claude.sh` — open one new Terminal window per job, each running its own
 - `tools/apply-batch-codex-terminal.sh` — Open one Codex CLI session per application in Terminal, using Playwright MCP's
@@ -557,6 +558,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/brand.py` — Builds every Job Pilotto icon from the logo artwork in brand/.
 - `tools/canary_promote.py` — Canary auto-promote: make the canary build stable once it has been out >= 48 h, if nothing new went wrong.
 - `tools/check_schema_additive.py` — May this build go to beta testers? Its Notion schema (config/notion_schema.json) must be ADDITIVE over the current stable's.
+- `tools/check-slot.sh` — Machine-wide queue for the push checks: at most JOB_PILOTTO_CHECK_SLOTS (default 2) run at once on this Mac, so three sessions
 - `tools/check.py` — Run consistent fast, area or full project verification with supported runtimes and actionable failures."""
 - `tools/check.sh` — Every agent uses this entry point; select a supported Python, then let check.py select Node and run CI checks.
 - `tools/commit-subject.py` — The subject a `git commit` command line would write, when it is given inline (-m "...", or -m "$(cat <<'EOF' ...)"); else nothing.
@@ -583,6 +585,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/product_brain.py` — The product brain's plumbing (.github/workflows/product-brain.yml): Claude decides, this script reads and writes.
 - `tools/prune-releases.sh` — Keep the release list short: every stable release stays, and only the newest few test builds (pre-releases), plus each platform's newest beta.
 - `tools/publish-starter.sh` — Publishes templates/github-actions to the public starter template repo (GarryOne/job-pilotto-starter),
+- `tools/py-shards.py` — Run the Python unit tests in parallel shards (one `unittest` process per shard); guarded by tests/test_py_shards.py.
 - `tools/release-checks.sh` — The release checks every platform's beta approval shares (e2e.yml promote for Mac/Linux, e2e-windows.yml approve-windows): the unit suites are green on the
 - `tools/release-stable.sh` — Promote a desktop build to the stable release: friends' apps offer it as an update ("Update to …" in the menu),
 - `tools/score_eval.py` — What would a cheaper fit-scoring setup cost in QUALITY? Measured, not guessed.

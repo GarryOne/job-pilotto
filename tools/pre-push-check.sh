@@ -169,9 +169,17 @@ case "$command" in *PUSH_FULL=1*) want_python=1; want_worker=1; want_site=1; wan
 
 failed=()
 log="$(mktemp)"
-run() {  # name, then the command
-  local name="$1"; shift
-  if ! (cd "$repo" && "$@") >>"$log" 2>&1; then failed+=("$name"); fi
+# Local pushes run only the tests the change can break (tools/affected-tests.py: imports + mentions, "all" when in doubt); CI and
+# PUSH_FULL=1 always run everything. Areas run side by side, and at most JOB_PILOTTO_CHECK_SLOTS push checks run on this Mac at once.
+affected_flag="--affected-from origin/main"
+case "$command" in *PUSH_FULL=1*) affected_flag="" ;; esac
+[ -z "$changed" ] && affected_flag=""
+git -C "$repo" rev-parse --verify -q origin/main >/dev/null || affected_flag=""
+pids=(); names=(); outs=()
+run() {  # name, then the command: started in the background, collected below
+  local name="$1" out; shift; out="$(mktemp)"
+  ( cd "$repo" && "$@" ) >"$out" 2>&1 &
+  pids+=($!); names+=("$name"); outs+=("$out")
 }
 # CI-only failure classes the tests can't see:
 # - workflow files: actionlint (also shellchecks each run: script; info-level notes are allowed)
@@ -184,11 +192,6 @@ ci_installs_dev() {
     return 1
   fi
 }
-if [ "$want_workflows" = 1 ]; then
-  run "CI installs dev dependencies (build.yml)" ci_installs_dev
-  if command -v actionlint >/dev/null; then run "workflow files (actionlint)" workflows
-  else echo "pre-push: actionlint not installed (brew install actionlint); workflow files not checked" >&2; fi
-fi
 # The suites run on exactly what is pushed, each area in its own fresh checkout of HEAD, as CI does: a forgotten file or a git-ignored
 # file left by another area's run (5 Oct 2026: desktop/shared/ from a desktop run let the worker's tests pass here, fa1f838 went red in CI and
 # blocked every session) fails here, not on main. Dependencies are linked from this checkout (same lockfiles; --clean-install verifies them).
@@ -200,14 +203,27 @@ verify_area() {  # area [extra check.sh flags]
     [ -e "$repo/$dir/node_modules" ] && ln -s "$repo/$dir/node_modules" "$tree/$dir/node_modules"
   done
   [ -e "$repo/.venv" ] && ln -s "$repo/.venv" "$tree/.venv"
-  (cd "$tree" && bash tools/check.sh --area "$area" "$@"); local status=$?
+  (cd "$tree" && bash tools/check.sh --area "$area" $affected_flag "$@"); local status=$?
   git -C "$repo" worktree remove --force "$tree" >/dev/null 2>&1 || rm -rf "$tree"
   return $status
 }
+source "$repo/tools/check-slot.sh" 2>/dev/null || { slot_acquire() { :; }; slot_release() { :; }; }
+trap slot_release EXIT
+slot_acquire
+if [ "$want_workflows" = 1 ]; then
+  run "CI installs dev dependencies (build.yml)" ci_installs_dev
+  if command -v actionlint >/dev/null; then run "workflow files (actionlint)" workflows
+  else echo "pre-push: actionlint not installed (brew install actionlint); workflow files not checked" >&2; fi
+fi
 [ "$want_python" = 1 ] && run "python (clean checkout)" verify_area python $clean_install
 [ "$want_worker" = 1 ] && run "worker (clean checkout)" verify_area worker
 [ "$want_site" = 1 ] && run "site (clean checkout)" verify_area site
 [ "$want_desktop" = 1 ] && run "desktop (clean checkout)" verify_area desktop
+for i in "${!pids[@]}"; do
+  wait "${pids[$i]}" || failed+=("${names[$i]}")
+  cat "${outs[$i]}" >>"$log"; rm -f "${outs[$i]}"
+done
+slot_release
 git -C "$repo" worktree prune 2>/dev/null
 
 if [ ${#failed[@]} -gt 0 ]; then

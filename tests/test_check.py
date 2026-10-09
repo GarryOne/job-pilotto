@@ -32,7 +32,16 @@ class CheckTests(unittest.TestCase):
         self.assertEqual(fast[0][1], ['node', 'scripts/stage.mjs'])
         self.assertIn('test/session-contracts.test.js', fast[-1][1])
         self.assertIn('test/app-scenarios.test.js', fast[-1][1])
-        self.assertEqual(check.commands('python', False, None, None)[0][1][1:4], ['-m', 'unittest', 'discover'])
+        # 9 Oct 2026: the full Python suite runs sharded (same tests, tools/py-shards.py); the old single process stays behind an env switch.
+        self.assertEqual(check.commands('python', False, None, None)[0][1][1:], ['tools/py-shards.py'])
+        with mock.patch.dict(check.os.environ, {'JOB_PILOTTO_PY_SERIAL': '1'}):
+            self.assertEqual(check.commands('python', False, None, None)[0][1][1:4], ['-m', 'unittest', 'discover'])
+        # A local push with a picked subset runs just those files; an empty pick runs no tests (desktop still lints).
+        self.assertEqual(check.commands('python', False, None, None, ['test_a'])[0][1][1:], ['tools/py-shards.py', 'test_a'])
+        self.assertEqual(check.commands('python', False, None, None, []), [])
+        picked = check.commands('desktop', False, 'node', 'npm', ['test/a.test.js'])
+        self.assertEqual([c[1][:3] for c in picked], [['node', 'scripts/stage.mjs'], ['npm', 'run', 'lint'], ['node', '--test', 'test/a.test.js']])
+        self.assertEqual([c[1][1] for c in check.commands('desktop', False, 'node', 'npm', [])], ['scripts/stage.mjs', 'run'])
 
     def test_failure_propagates_and_external_services_are_disabled(self):
         with mock.patch.object(check.subprocess, 'run', return_value=mock.Mock(returncode=3)) as run:
