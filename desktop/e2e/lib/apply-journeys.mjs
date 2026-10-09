@@ -1,6 +1,6 @@
 /* global document, window */
 // The apply suite's journey steps (moved out of suites/apply.mjs, 8 Oct 2026): a posting that opens a tab, side-by-side applications, sign-up, one page, a closed form tab, a wrong page kind. Guards the flows in docs/flows/applying.md.
-import {CHAIN, LATE, MENU_AGAIN, MENU_CHOICES, MENU_FIRST, MISLABELLED, NOTICE_CHOICES, ONEPAGE, PROPOSE, REVEAL, SCRIPTED, SIGNIN, SIGNIN_PASSWORD, SIGNIN_REFUSED, SIGNUP} from './forms.mjs';
+import {CHAIN, LATE, MENU_AGAIN, MENU_CHOICES, MENU_FIRST, MISLABELLED, NOTICE_CHOICES, ONEPAGE, PROPOSE, REVEAL, COLLAPSED, SCRIPTED, SIGNIN, SIGNIN_PASSWORD, SIGNIN_REFUSED, SIGNUP} from './forms.mjs';
 import {CONTACT, pause} from './apply-fixtures.mjs';
 import {appLogText} from './app-log.mjs';
 import {cvProblems, fillProblems, submitProblems} from './applycheck.mjs';
@@ -313,6 +313,25 @@ export async function runJourneys(ctx, h) {
     if (String(read.first_name?.value ?? read.first_name ?? '') !== CONTACT.first_name) problems.push('the first name was not filled');
     if (String(read.question_3001?.value ?? read.question_3001 ?? '') !== '8') problems.push('Kubernetes years is not the kit\'s 8');
     fail([...problems, ...submitProblems(forms.fired, REVEAL.path)]);
+  }, {needs: ctx.needs});
+
+  // Sections drawn collapsed (Migros on SuccessFactors, 9 Oct 2026): the fill saw one field and filled nothing. The extension opens the closed disclosures by structure
+  // (extension/sections.js), then reads and fills the questions inside them. Shapes alone: worker/test/page-sections.test.js. Submit untouched.
+  await ctx.run('a form with collapsed sections: they are opened and the questions inside are filled', async () => {
+    await page.evaluate(([url, details]) => window.pilot.applyOne(url, details), [COLLAPSED.url, {title: COLLAPSED.title, company: COLLAPSED.company}]);
+    let tab = null;
+    for (let waited = 0; waited < 60000 && !tab; waited += 1000) { tab = ctx.browser.context.pages().find(item => item.url().startsWith(COLLAPSED.url)) || null; await pause(1000); }
+    if (!tab) throw new Error(`the collapsed-sections form never opened. Tabs: ${ctx.browser.context.pages().map(item => item.url()).join(' | ')}`);
+    let state = null;
+    for (let waited = 0; waited < 90000; waited += 500) { state = await fillState(tab).catch(() => null); if (state?.state === 'done' || state?.state === 'error') break; await pause(500); }
+    const problems = [];
+    if (state?.state !== 'done') problems.push(`the fill did not finish (${JSON.stringify(state)})`);
+    const read = await readForm(tab);
+    if (String(read.email?.value ?? read.email ?? '') !== CONTACT.email) problems.push('the e-mail inside the closed "profile" section was not filled');
+    if (String(read.question_4001?.value ?? read.question_4001 ?? '') !== '6') problems.push('the question inside the closed "job" section is not the kit\'s 6');
+    const closed = await tab.evaluate(() => [...document.querySelectorAll('button[aria-expanded]')].filter(b => b.getAttribute('aria-expanded') === 'false').length).catch(() => -1);
+    if (closed !== 0) problems.push(`${closed} section(s) are still closed`);
+    fail([...problems, ...submitProblems(forms.fired, COLLAPSED.path)]);
   }, {needs: ctx.needs});
 
   // The account and the application on one page (Coop, 8 Oct 2026): a CV upload says it is the application. It is filled from the kit, the session is at the

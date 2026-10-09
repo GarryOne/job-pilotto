@@ -222,6 +222,16 @@ export const MENU_AGAIN = menuFixture('Network Engineer II, Country Menu', '/e2e
 export const PROPOSE = menuFixture('Cloud Engineer, Notice Period', '/e2e-propose/4001012');
 PROPOSE.company = 'E2E Notice Systems';
 PROPOSE.kit = [{field: 'notice_period', question: 'Notice period', answer: '3 months', needs_review: false}, {field: 'question_3001', question: 'Years of experience with Kubernetes', answer: '7', needs_review: false}];
+// A form whose sections are drawn collapsed (Migros on SuccessFactors, 9 Oct 2026): a heading with a closed disclosure button (aria-expanded="false", aria-controls)
+// over a hidden region, the questions inside. Only the first section's neighbours are visible until the extension opens them (extension/sections.js, by structure).
+export const COLLAPSED = {title: 'Cashier, Collapsed Sections', company: 'E2E Accordion Retail', host: 'jobs.lever.co', path: '/e2e-collapsed/4001014',
+  kit: [{field: 'question_4001', question: 'Years of experience with cash registers', answer: '6', needs_review: false}]};
+COLLAPSED.url = `https://${COLLAPSED.host}${COLLAPSED.path}`;
+const section = (id, title, inner) => `<h3><button type="button" id="b_${id}" aria-expanded="false" aria-controls="${id}" onclick="const r = document.getElementById('${id}'); r.hidden = !r.hidden; this.setAttribute('aria-expanded', String(!r.hidden))">${title}</button></h3><div id="${id}" hidden>${inner}</div>`;
+const COLLAPSED_PAGE = fixture => page(fixture, `<form id="application_form">${field('first_name', 'Prénom', {required: true})}${field('last_name', 'Nom', {required: true})}
+  ${section('sec_profile', 'Informations sur le profil', field('email', 'E-mail', {type: 'email', required: true}))}
+  ${section('sec_job', 'Informations propres au poste', field('question_4001', 'Years of experience with cash registers', {required: true}))}
+  <div class="field"><button type="submit" id="submit_app">Envoyer</button></div></form>`);
 export const NOTICE_CHOICES = ['Immediately', '1 month', '2 months'];
 const PROPOSE_PAGE = fixture => page(fixture, `<form id="application_form">${field('first_name', 'First name', {required: true})}${field('last_name', 'Last name', {required: true})}${field('email', 'E-mail', {type: 'email', required: true})}${select('notice_period', 'Notice period', NOTICE_CHOICES, {required: true})}${field('question_3001', 'Years of experience with Kubernetes', {required: true})}<div class="field"><button type="submit" id="submit_app">Submit Application</button></div></form>`);
 // An upload slot with no file input until its + is pressed (8 Oct 2026, Coop on SuccessFactors): the + opens a "Select a source" popup that creates the input.
@@ -372,6 +382,7 @@ export async function startForms({vary = null} = {}) {
       if (req.method === 'POST') { req.resume(); req.on('end', () => res.writeHead(303, {location: SIGNUP.formPath}).end()); return; }   // the account is made: on to the form
       res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(SIGNUP_PAGES.account()); return;
     }
+    if (host === COLLAPSED.host && signup === COLLAPSED.path) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(COLLAPSED_PAGE(COLLAPSED)); return; }
     if (host === REVEAL.host && signup === REVEAL.path) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(REVEAL_PAGE(REVEAL)); return; }
     if (host === PROPOSE.host && signup === PROPOSE.path) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(PROPOSE_PAGE(PROPOSE)); return; }
     for (const fixture of [MENU_FIRST, MENU_AGAIN]) if (host === fixture.host && signup === fixture.path) { res.writeHead(200, {'content-type': 'text/html; charset=utf-8'}); res.end(MENU_PAGE(fixture)); return; }
