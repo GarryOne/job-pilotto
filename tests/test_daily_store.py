@@ -2,7 +2,7 @@
 
 A person on this Mac's store gets the run's row, the crawl's employers, the budget, the insight and the health alert from that
 store; a Notion token beside another store never brings a second copy into Notion (only the Pipeline page stays Notion's).
-Guards src/daily.py, src/daily_search.py and the run_stores / url_stages / profile_source helpers in src/daily_helpers.py.
+Guards src/daily.py, src/daily_search.py and the run_stores / url_stages / profile_source helpers in src/store_access.py.
 """
 import contextlib
 import dataclasses
@@ -15,7 +15,7 @@ import unittest
 from datetime import datetime, timezone
 from unittest import mock
 
-from src import daily, daily_helpers, daily_search, run_log
+from src import daily, daily_helpers, daily_search, run_log, store_access
 from src.stores import memory
 
 JOB = {'url': 'https://jobs.example/sre-1', 'title': 'SRE', 'company': 'Example', 'location': 'Zurich', 'description': 'Kubernetes on call.'}
@@ -32,7 +32,7 @@ class ScheduledRunOnTheStoreTests(unittest.TestCase):
         patches = [
             no_network,
             mock.patch.object(daily.notion.Tracker, 'from_env', return_value=None),
-            mock.patch.object(daily_helpers, 'open_stores', lambda tracker=None: self.stores),
+            mock.patch.object(store_access, 'open_stores', lambda tracker=None: self.stores),
             mock.patch.object(daily_search, 'DATA', self.tmp), mock.patch.object(daily_search, 'REPORTS', self.tmp),
             mock.patch.object(daily_helpers, 'REPORTS', self.tmp),
             mock.patch.object(daily_search, 'downloaded_index', return_value=[]),
@@ -98,7 +98,7 @@ class ScheduledRunOnTheStoreTests(unittest.TestCase):
         tracker.url_stages.side_effect = AssertionError('Notion read on this Mac\'s store')
         tracker.page_text.side_effect = AssertionError('Notion Profile read on this Mac\'s store')
         with mock.patch.object(daily.notion.Tracker, 'from_env', return_value=tracker), \
-                mock.patch.object(daily_helpers, 'open_stores', lambda tracker=None: self.stores):
+                mock.patch.object(store_access, 'open_stores', lambda tracker=None: self.stores):
             code, out = self.run_daily('--score-max', '0')
         self.assertEqual(code, 0, out)
         self.assertEqual(len(self.stores.cron_runs.list()), 1)
@@ -107,19 +107,52 @@ class ScheduledRunOnTheStoreTests(unittest.TestCase):
     def test_the_run_stores_and_the_notion_only_tracker(self):
         notion_like = dataclasses.replace(memory.open_store(), name='notion')
         tracker = object()
-        with mock.patch.object(daily_helpers, 'open_stores', lambda tracker=None: notion_like):
+        with mock.patch.object(store_access, 'open_stores', lambda tracker=None: notion_like):
             self.assertEqual(daily_helpers.run_stores(tracker), (notion_like, tracker))
-        with mock.patch.object(daily_helpers, 'open_stores', lambda tracker=None: self.stores):
+        with mock.patch.object(store_access, 'open_stores', lambda tracker=None: self.stores):
             self.assertEqual(daily_helpers.run_stores(tracker), (self.stores, None))
 
     def test_the_profile_for_scoring_comes_from_the_store_without_notion(self):
-        with mock.patch.object(daily_helpers, 'local_profile', return_value=''):
+        with mock.patch.object(store_access, 'local_profile', return_value=''):
             self.assertIsNone(daily_helpers.profile_source(self.stores, None))           # nothing to score with: the warning says so
             self.stores.texts.set('profile', '# Me\nSRE in Zurich')
             self.assertIn('SRE in Zurich', daily_helpers.profile_source(self.stores, None)())
             notion = mock.Mock(page_text=lambda: 'from Notion')
             self.assertEqual(daily_helpers.profile_source(self.stores, notion)(), 'from Notion')   # Notion users: as before
 
+
+
+class ModesOnTheStoreTests(unittest.TestCase):
+    """The modes a button or the app runs (src/daily_modes.py): on this Mac's store without Notion where they have moved, and a
+    clear "only with Notion for now" where they haven't; a Notion store that can't be read keeps today's message."""
+
+    def test_the_gates(self):
+        from src import daily_modes
+        sqlite_like = dataclasses.replace(memory.open_store(), name='sqlite')
+        notion_like = dataclasses.replace(memory.open_store(), name='notion')
+        daily_modes._gate(object(), None, 'x requires NOTION_TOKEN', on_store=False)          # Notion readable: every mode
+        daily_modes._gate(None, sqlite_like, 'x requires NOTION_TOKEN', on_store=True)         # moved: runs on this Mac's store
+        with self.assertRaisesRegex(SystemExit, '^--mode add works only with Notion for now'):
+            daily_modes._gate(None, sqlite_like, '--mode add requires NOTION_TOKEN', on_store=False)
+        for unreadable in (None, notion_like):                                                # as before
+            with self.assertRaisesRegex(SystemExit, '^--mode kits requires NOTION_TOKEN$'):
+                daily_modes._gate(None, unreadable, '--mode kits requires NOTION_TOKEN', on_store=True)
+
+    def test_an_applied_tap_marks_the_job_in_this_macs_store_with_its_event(self):
+        stores = memory.open_store()
+        stores.applications.set_stage({'url': 'https://jobs.example/sre', 'title': 'SRE', 'company': 'Acme'}, 'Kit ready')
+        db = mock.Mock()
+        with mock.patch.object(daily_helpers, 'find_job', return_value=None), \
+                mock.patch.object(daily_helpers.ats, 'posting', return_value=None), \
+                mock.patch('src.ledger_store.record', return_value=(None, 'recorded')) as recorded, \
+                mock.patch.object(daily_helpers, 'queue_mail_check'):
+            reply = daily_helpers.apply_message(db, 'https://jobs.example/sre', None, 'applied', stores=stores)
+        self.assertIn('Marked applied', reply)
+        self.assertIn('Track the stage in the app', reply)                      # no Notion link to give
+        self.assertEqual(stores.applications.stages(), {'https://jobs.example/sre': 'Applied'})
+        app = stores.applications.list()[0]
+        self.assertEqual([e['kind'] for e in stores.events.list(app['id'])], ['Applied'])
+        recorded.assert_called_once()
 
 if __name__ == '__main__':
     unittest.main()

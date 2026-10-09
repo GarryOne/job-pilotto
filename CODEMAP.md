@@ -571,6 +571,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/sources/visits_recipes.py` — The reading recipes of visited sites: a layout learned with Claude (or served by the pool and checked again), how many visits in a row it
 - `src/sources/visits.py` — Sites only you can open (owner, 7 Oct 2026): employers whose job site refuses automated visitors (401/403/429, a bot check) and job portals
 - `src/sources/web_search.py` — A web search for a company's own job site ("<company> jobs"), as a person would do it, for employers the scout cannot reach by name or website
+- `src/store_access.py` — The run's store, light to import (the desktop commands and the scheduled search both use it): the active store opened once,
 - `src/store.py` — Canonical local store for jobs, companies, sources and application state."""
 - `src/stores/__main__.py` — `python -m src.stores call <entity> <method> '<json kwargs>'`: one store method, JSON out on stdout.
 - `src/stores/base.py` — The store interface: one Protocol per entity of the user's data, plain dicts in and out (never Notion JSON).

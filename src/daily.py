@@ -41,7 +41,7 @@ def main():
         parser.error('--limit must be between 1 and 50')
     apply_switches(args)
     tracker = notion.Tracker.from_env()
-    stores, _ = run_stores(tracker)   # the active store, opened once for the whole run (src/stores)
+    stores, tracker = run_stores(tracker)   # the active store, opened once; the tracker only while that store is Notion
     # The app's check-first step (--propose) is a preview, not a run: no ⏱️ Search runs row (it once ended as
     # "Failed: ended before its report", toasting "had problems" for a good reading). Its cost is counted in the
     # confirmed step's run (--reading carries it). The row is the active store's (src/run_log.py), on any store.

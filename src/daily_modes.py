@@ -11,12 +11,24 @@ from . import import_url, store, telegram
 from .ai import added, cost, inbox, insights, interview_insights, interviews, kit
 from .notion import client as notion, cron_runs, ledger
 from .daily_helpers import KITS_DEFAULT, _job_arg, apply_message, for_job_matches, kits_message, log_ai_run, log_text, new_cron_run, prepare_kit, queue_mail_check
+from .store_access import url_stages
 
+
+
+def _gate(tracker, stores, message, on_store):
+    """Who may run a mode: Notion readable (the tracker), or another store when the mode works on it (on_store). A Notion store that
+    can't be read keeps today's message; another store gets "only with Notion for now" for a mode not moved yet."""
+    if tracker:
+        return
+    if stores is None or stores.name == 'notion' or not on_store:
+        raise SystemExit(message if stores is None or stores.name == 'notion' else
+                         message.split(' requires')[0] + ' works only with Notion for now (your data is on this Mac)')
 
 def import_mode(args, tracker, stores=None):
     # A link the search has not found: read it, score it, and add it to Job Matches as Open. Not an application.
-    if not args.job or not tracker:
+    if not args.job:
         raise SystemExit('--mode import requires --job <URL> and NOTION_TOKEN')
+    _gate(tracker, stores, '--mode import requires --job <URL> and NOTION_TOKEN', on_store=False)   # src/import_url.py: Notion only yet
     run = new_cron_run('import')
     try:
         with store.connect(args.db) as db:
@@ -37,10 +49,11 @@ def import_mode(args, tracker, stores=None):
 
 
 def apply_mode(args, tracker, stores=None):
-    if not args.job or not tracker:
+    if not args.job:
         raise SystemExit('--mode apply requires --job and NOTION_TOKEN')
+    _gate(tracker, stores, '--mode apply requires --job and NOTION_TOKEN', on_store=True)
     with store.connect(args.db) as db:
-        reply = apply_message(db, _job_arg(args.job), tracker, args.action)
+        reply = apply_message(db, _job_arg(args.job), tracker, args.action, **({} if tracker else {'stores': stores}))
     print(reply)
     # Save/Dismiss are already confirmed on the button itself; only Applied gets a message (Notion link).
     if args.send and args.action == 'applied':
@@ -49,13 +62,15 @@ def apply_mode(args, tracker, stores=None):
 
 
 def prepare_mode(args, tracker, stores=None):
-    if not args.job or not tracker:
+    if not args.job:
         raise SystemExit('--mode prepare requires --job and NOTION_TOKEN')
+    _gate(tracker, stores, '--mode prepare requires --job and NOTION_TOKEN', on_store=True)
     run = new_cron_run('prepare')
     run['kits'] = {}
     drafted = []
     with store.connect(args.db) as db:
-        messages, log = prepare_kit(db, _job_arg(args.job), tracker, stats=run['kits'], run=run, drafted_out=drafted)
+        messages, log = prepare_kit(db, _job_arg(args.job), tracker, stats=run['kits'], run=run, drafted_out=drafted,
+                                    **({} if tracker else {'stores': stores}))
     print(log)
     log_ai_run(stores, run, args)
     print('\n\n'.join(messages))  # the kit is saved in Notion; no Telegram message (owner, 5 Oct 2026: not relevant)
@@ -67,17 +82,16 @@ def prepare_mode(args, tracker, stores=None):
 def kits_mode(args, tracker, stores=None):
     # Prepare top matches (the app's Actions page): kits for the best-scored open jobs that have none yet, from the
     # scores already stored. No crawl, no scoring: the same step a search runs after scoring (auto-kit), on demand.
-    if not tracker:
-        raise SystemExit('--mode kits requires NOTION_TOKEN')
+    _gate(tracker, stores, '--mode kits requires NOTION_TOKEN', on_store=True)
     run = new_cron_run('kits')
     run['kits'] = {}
-    stages = tracker.url_stages()
+    stages = url_stages(stores, tracker)
     hidden = frozenset(u for u, st in stages.items() if st not in notion.VISIBLE_STAGES)
     kitted = frozenset(u for u, st in stages.items() if st == 'Kit ready')
     with store.connect(args.db) as db:
         candidates = [j for j in for_job_matches(db, hidden) if (j.get('url') or '').strip() not in kitted]
         summary, drafted = kit.auto_run(db, candidates, tracker, kit.DEFAULT_MODEL, args.auto_kit_max or KITS_DEFAULT,
-                                        args.auto_kit_min_score, stats=run['kits'])
+                                        args.auto_kit_min_score, stats=run['kits'], **({} if tracker else {'stores': stores}))
     print(summary)
     if drafted:
         message = kits_message(drafted)
@@ -95,8 +109,7 @@ def kits_mode(args, tracker, stores=None):
 def add_message_mode(args, tracker, stores=None):
     # A pasted message or screenshot (/add <message>, a forward or photo sent to the bot, the app's Log box):
     # the job it's about is updated, or created (src/ai/inbox.py).
-    if not tracker:
-        raise SystemExit('--mode add requires NOTION_TOKEN')
+    _gate(tracker, stores, '--mode add requires NOTION_TOKEN', on_store=False)   # src/ai/inbox.py: Notion only yet
     run = new_cron_run('add')
     run['mail'] = {}  # Haiku reading one message: counted with the mail check's cost
     found = {}  # the job it created or updated (inbox.log fills it)
@@ -150,8 +163,7 @@ def add_message_mode(args, tracker, stores=None):
 
 def add_link_mode(args, tracker, stores=None):
     # /add <job URL> [date]: track an application made outside Job Pilotto.
-    if not tracker:
-        raise SystemExit('--mode add requires --job <URL> and NOTION_TOKEN')
+    _gate(tracker, stores, '--mode add requires --job <URL> and NOTION_TOKEN', on_store=False)   # ledger.company_for: Notion only yet
     run = new_cron_run('add')
     found = {}  # the job it created or updated (ledger.add_application fills it)
     try:

@@ -113,10 +113,11 @@ def main(argv=None):
                 return 0
             try:
                 profile = local_profile()
-                if not profile:
+                if not profile:   # the active store's Profile (Notion's page as before)
                     from .notion.client import Tracker
-                    tracker = Tracker.from_env()
-                    profile = tracker.page_text() if tracker else ''
+                    from .store_access import profile_source, run_stores
+                    read = profile_source(*run_stores(Tracker.from_env()))
+                    profile = read() if read else ''
                 found = role_ideas.ideas(profile or '', load_search_config(), (coverage.load() or {}).get('missed_titles') or [], asked.get('set_aside') or [])
             except Exception as error:  # noqa: BLE001 — no ideas this time, said; the box shows the market's words as before
                 print(json.dumps({'ok': False, 'ideas': [], 'error': f'No role ideas this time ({type(error).__name__})'}))
@@ -279,18 +280,21 @@ def main(argv=None):
                               **({} if outcome == rules.UPDATED else {'error': errors[outcome]})}))
             return 0
         if args.command == 'calendar':
-            print(json.dumps(calendar_jobs(tracker), ensure_ascii=False))
+            from .store_access import run_stores
+            print(json.dumps(calendar_jobs(*run_stores(tracker)), ensure_ascii=False))
             return 0
         if args.command == 'rescore-previous':
             print(json.dumps({'queued': score.rescore_previous(db)}))
             return 0
         if args.command == 'tune':
-            if not tracker:
+            from .store_access import run_stores, url_stages
+            stores, notion = run_stores(tracker)
+            if stores.name == 'notion' and not notion:   # Notion chosen but not readable: as before
                 print(json.dumps({'ok': False, 'error': 'Connect Notion first: your outcomes (dismissed, applied, interviews) live there.'}))
                 return 0
             from . import tune
             from .paths import load_search_config
-            print(json.dumps(tune.run(db, tracker, load_search_config()), ensure_ascii=False))
+            print(json.dumps(tune.run(db, notion, load_search_config(), stages=url_stages(stores, notion)), ensure_ascii=False))
             return 0
         if args.command == 'strategy':
             print(json.dumps(strategy(db, tracker), ensure_ascii=False))
