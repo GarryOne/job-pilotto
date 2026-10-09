@@ -7,6 +7,7 @@ import {modelClient} from '../lib/model.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
+import {python, pythonEnv} from '../lib/python.mjs';
 import {fileURLToPath} from 'node:url';
 import {sample, watch} from '../lib/activity.mjs';
 import {failures, judge} from '../lib/factjudge.mjs';
@@ -198,7 +199,7 @@ export async function run(ctx) {
       // Ask for every score again, the way "Re-score" does (an empty input hash: no shortcut), then run the check once more.
       const database = path.join(ctx.profile, 'data', 'jobs.sqlite');
       if (!fs.existsSync(database)) throw new Error(`the jobs database is not where expected: ${database}`);
-      execFileSync('python3', ['-c', 'import sqlite3,sys; db=sqlite3.connect(sys.argv[1]); db.execute("UPDATE scores SET input_hash=\'\'"); db.commit()', database]);
+      execFileSync(python(), ['-c', 'import sqlite3,sys; db=sqlite3.connect(sys.argv[1]); db.execute("UPDATE scores SET input_hash=\'\'"); db.commit()', database], {env: pythonEnv({}, {home: ctx.profile})});
       await check('second Jobs check');
       await read2();
       const second = scoresOf();

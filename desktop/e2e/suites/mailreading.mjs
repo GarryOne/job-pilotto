@@ -25,7 +25,7 @@ export async function run(ctx) {
       cwd: repo, timeout: 4 * 60 * 1000, maxBuffer: 4 << 20,
       // The product's mail prompt runs on the app's family: an OpenAI turn reads the emails with the OpenAI test key (lib/engine.mjs), never Claude's key under an OpenAI engine.
       env: pythonEnv({JOB_PILOTTO_AI_ENGINE: ctx.engine, ...(familyOf(ctx.engine) === 'openai' ? {OPENAI_API_KEY: testKey(process.env, ctx.engine)} : {ANTHROPIC_API_KEY: ctx.key}),
-        ...(proxy ? {ANTHROPIC_BASE_URL: proxy.url} : {})}),
+        ...(proxy ? {ANTHROPIC_BASE_URL: proxy.url} : {})}, {realHome: ['cli', 'codex'].includes(ctx.engine)}),   // a CLI finds its sign-in in HOME
     }, (error, stdout, stderr) => resolve({code: error ? (error.code ?? 1) : 0, out: String(stdout), err: String(stderr)})));
     } finally { await proxy?.close(); }
     console.log(report.out.split('\n').filter(line => /^(ok|MISS)|right/.test(line)).map(line => `  ${line}`).join('\n'));

@@ -3,6 +3,7 @@
 // feed, a duplicate of a source already in use, an excluded company, a manual-watch company) is run from the Actions page; then what the scout decided, what it wrote
 // into Notion and into its run row, what a second run does, what the crawl would now read, and a Sonnet judge on whether the added employers suit the person.
 import {execFileSync} from 'node:child_process';
+import {python, pythonEnv} from '../lib/python.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {E2E} from '../lib/app.mjs';
@@ -56,8 +57,8 @@ rows = lambda q: [dict(r) for r in c.execute(q)]
 with store.connect(__import__('pathlib').Path(path)) as db:
     crawl = [s['company'] for s in scout.active_sources(db, None, starter)]
 print(json.dumps({'candidates': rows('select name, status, ats, slug, quality from scout_candidates'), 'registered': rows('select ats, slug, company, quality, active from feed_sources'), 'crawl': crawl}))`;
-  const out = execFileSync('python3', ['-c', script, db, path.join(ctx.profile, 'config', 'sources.json')],
-    {cwd: ROOT, env: {...process.env, ...env, JOB_PILOTTO_FIXTURE_DIR: ctx.feeds, PYTHONUTF8: '1'}});   // as the app runs the engine: UTF-8 files on Windows too
+  const out = execFileSync(python(), ['-c', script, db, path.join(ctx.profile, 'config', 'sources.json')],
+    {cwd: ROOT, env: pythonEnv({...env, JOB_PILOTTO_FIXTURE_DIR: ctx.feeds}, {home: ctx.profile})});   // isolated, UTF-8 (lib/python.mjs)
   return JSON.parse(out.toString());
 }
 

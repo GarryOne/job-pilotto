@@ -8,6 +8,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
+import {familyOf, testKey} from '../lib/engine.mjs';
+import {python, pythonEnv} from '../lib/python.mjs';
 import {DESKTOP} from '../lib/app.mjs';
 import {pageText} from '../lib/notion.mjs';
 import {storeText} from '../lib/seed-texts.mjs';
@@ -32,10 +34,15 @@ export const pickPersona = (env = process.env, day = Math.floor(Date.now() / 864
 const PERSONAS = [pickPersona()];
 
 // The engine's own code, run against this install's folders: what the digest and the settings say for this user.
+// The engine on this suite's profile, isolated (lib/python.mjs: no token, no app-following, HOME the profile), with the app's own AI engine, so a decision
+// the engine hands to AI (Google Jobs places, src/sources/google_jobs.py within_places) is made as the app makes it; a CLI engine keeps this computer's
+// HOME for its sign-in, as the app under test does. 9 Oct 2026: without an engine the place decision fell back to Swiss places only and São Paulo was dropped.
 function engine(ctx, code, args = []) {
-  const env = {...process.env, JOB_PILOTTO_NO_DOTENV: '1', JOB_PILOTTO_CONFIG_DIR: path.join(ctx.profile, 'config'), JOB_PILOTTO_DATA_DIR: path.join(ctx.profile, 'data'), PYTHONUTF8: '1'};
-  for (const name of Object.keys(env)) if (/^(NOTION_|TELEGRAM_|SERPAPI)/.test(name)) delete env[name];
-  return execFileSync(process.env.E2E_PYTHON || 'python3', ['-c', code, ...args], {cwd: REPO, env, encoding: 'utf8', timeout: 120000});
+  const cli = ['cli', 'codex'].includes(ctx.engine);
+  const key = cli ? {} : familyOf(ctx.engine) === 'openai' ? {OPENAI_API_KEY: testKey(process.env, ctx.engine)} : {ANTHROPIC_API_KEY: ctx.key};
+  const env = pythonEnv({JOB_PILOTTO_CONFIG_DIR: path.join(ctx.profile, 'config'), JOB_PILOTTO_DATA_DIR: path.join(ctx.profile, 'data'), JOB_PILOTTO_AI_ENGINE: ctx.engine, ...key},
+    cli ? {realHome: true} : {home: ctx.profile});
+  return execFileSync(python(), ['-c', code, ...args], {cwd: REPO, env, encoding: 'utf8', timeout: 120000});
 }
 const DIGEST_CODE = `
 import json, sys

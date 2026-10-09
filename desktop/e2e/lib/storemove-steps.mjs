@@ -2,6 +2,7 @@
 // What the storemove suite (suites/storemove.mjs) reads and drives: the seeded data's items on every screen, Settings → Your data, the native dialogs
 // export and import open (Playwright cannot press an OS window), the move's own Python process (killed halfway), and what the Notion stand-in holds.
 import {execFileSync} from 'node:child_process';
+import {python, pythonEnv} from './python.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -21,7 +22,7 @@ export const NOTION_PROFILE = 'E2E storemove: the Profile this Notion already ha
 // The app's store gets the seed through the engine's own store code, in this app's data folder (the script refuses any other).
 export function seedStore(profile) {
   for (const [name, text] of Object.entries(TEXTS)) fs.writeFileSync(path.join(profile, `${name}.md`), text);
-  const out = execFileSync('python3', [path.join(HERE, 'store_seed.py'), path.join(profile, 'data')], {encoding: 'utf8'});
+  const out = execFileSync(python(), [path.join(HERE, 'store_seed.py'), path.join(profile, 'data')], {encoding: 'utf8', env: pythonEnv({}, {home: profile})});
   return JSON.parse(out.trim().split('\n').pop());
 }
 
