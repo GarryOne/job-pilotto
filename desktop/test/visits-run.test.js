@@ -179,7 +179,10 @@ test('the result says how many jobs fit the search, and the card reads it (owner
   assert.equal(parseVisits('🌐 Sites read\nRead 1 of 1 site · 4 jobs (4 new)\n✓ A · 4 jobs (4 new) · https://a.example').fits, null, 'an older result still reads');
 });
 
-test('each step a read tab takes shows live in its row, in the words of the page banner, and keeps the site from counting as silent', async () => {
+test('each step a read tab takes shows live in its row, in the words of the page banner, and keeps the site from counting as silent', async t => {
+  // A fake clock: the tab moves time itself (25 ms per step against a 50 ms quiet time), so a slow machine cannot turn a step into silence
+  // (it failed about 1 run in 3 on real timers, 9 Oct 2026).
+  t.mock.timers.enable({apis: ['setTimeout', 'setInterval', 'Date'], now: 0});
   const {stepOf, siteLine} = await import('../lib/visits.js');
   const {tellStep} = await import('../../extension/visit.js');
   const banners = [], sent = [];
@@ -190,15 +193,13 @@ test('each step a read tab takes shows live in its row, in the words of the page
     const ticket = /-([a-z0-9]+)$/.exec(url)[1];
     (async () => {
       await tellStep(5, {}, ticket, 'Claude is choosing the filters for your search…', runIn, send);
-      for (let i = 0; i < 6; i++) { await new Promise(resolve => setTimeout(resolve, 25)); stepOf({ticket, words: 'Claude is choosing the filters for your search…'}); }   // 150 ms: 3x the quiet time
+      for (let i = 0; i < 6; i++) { t.mock.timers.tick(25); stepOf({ticket, words: 'Claude is choosing the filters for your search…'}); }   // 150 ms: 3x the quiet time
       await tellStep(5, {}, ticket, 'reading page 1…', runIn, send);
       done({url: url.split('#')[0], ticket, jobs: 6, added: 6, pages: 1});
     })();
     return {ok: true};
   };
   const results = await runAll([{name: 'Hublot', url: 'https://www.hublot.com'}], {openTab, tee: line => lines.push(line), quietMs: 50, siteMs: 5000, waitMs: 5000});
-  // Timing-based (steps every 25 ms against a 50 ms quiet time): it failed once in the pre-push hook (7 Oct 2026) and not in
-  // 20 runs under CPU load, so a failure says what the run saw, to tell a late timer from a real break.
   const seen = () => `result ${JSON.stringify(results[0])}; lines ${JSON.stringify(lines)}; banners ${JSON.stringify(banners)}`;
   assert.equal(results[0].ok, true, `not skipped as silent while Claude chose the filters: ${seen()}`);
   assert.deepEqual(banners, ['Job Pilotto: Claude is choosing the filters for your search…', 'Job Pilotto: reading page 1…'], seen());
