@@ -45,13 +45,23 @@ class AffectedTests(unittest.TestCase):
         self.assertEqual((got['python'], got['site']), ([], []))
 
     def test_an_engine_file_no_test_reaches_runs_the_whole_python_suite(self):
+        # The changed path alone, no file written: a temporary src/zz_... raced the shards that walk src/ (9 Oct 2026: red main twice).
         name = 'zz_' + 'orphan_nobody_names.py'          # built at run time: this file's own text must not name it
-        orphan = ROOT / 'src' / name
-        orphan.write_text('"""temporary: a module nothing imports."""\n')
-        try:
-            self.assertEqual(affected.select([f'src/{name}'])['python'], 'all')
-        finally:
-            orphan.unlink()
+        self.assertFalse((ROOT / 'src' / name).exists())
+        self.assertEqual(affected.select([f'src/{name}'])['python'], 'all')
+
+    def test_no_test_writes_into_the_shared_src_folder(self):
+        # Other shards read src/ while this one runs: a test that needs a file there makes it in a temporary copy instead.
+        found = []
+        for test in sorted((ROOT / 'tests').glob('test_*.py')):
+            lines = test.read_text(encoding='utf-8').splitlines()
+            src_vars = {m.group(1) for line in lines for m in [re.match(r"\s*(\w+)\s*=\s*ROOT\s*/\s*'src'", line)] if m}
+            for number, line in enumerate(lines, 1):
+                direct = re.search(r"ROOT\s*/\s*'src'.*\.(write_text|write_bytes|touch|mkdir)\(", line)
+                via = any(re.search(rf"\b{var}\.(write_text|write_bytes|touch|mkdir)\(", line) for var in src_vars)
+                if direct or via:
+                    found.append(f'{test.name}:{number}')
+        self.assertEqual(found, [])
 
 
 if __name__ == '__main__':
