@@ -61,6 +61,7 @@
 </details>
 
 ## Working with the twin as an agent (owner, 9 Oct 2026: "instruct yourself how to work with the twin when doing updates in the code")
+The whole apply → observe → fix → test → refresh loop on real jobs is the skill **twin-loop** (`.claude/skills/twin-loop/SKILL.md`; the owner types `/twin-loop`).
 The twin is for looking at the REAL app on a REAL site while you build. The loop, in order:
 1. **One twin, started once.** `pgrep -f e2e/twin.mjs` first (the Live Test folder and its Notion mirror are shared: a second twin collides; ask the peer who runs it). Start it from a worktree
    of its own (`tools/worktree.sh twin-<topic>`, then `cd desktop && npm run twin` in the background, a Monitor on its log for `^twin: (running|refresh)`). Say in one line what its window will do
