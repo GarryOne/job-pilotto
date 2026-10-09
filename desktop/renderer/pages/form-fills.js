@@ -3,7 +3,7 @@
 // detail in place: the field-by-field table (answer source, result, note, low confidence), Left for you, learnings, step timings or the
 // session's timeline and numbers. Drawn inside the Reports card, so tables are .data-table (no box in a box); shared components only.
 // Logic without a window: renderer/form-fills-view.js. Guarded by test/form-fills-view.test.js, test/form-fills-handlers.test.js.
-import {el, pill} from '../components.js';
+import {cardHead, el, numberStrip, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {byStore, storeName} from '../store-words.js';
 import {runWhen} from './core.js';
@@ -26,11 +26,7 @@ const tr = (...cells) => { const row = el('tr', ''); row.append(...cells.map(c =
 // A section of the detail: the insight card's (heading over a bullet list or a table), so it reads like the other result cards.
 const section = (title, ...children) => { const box = el('section', 'insight-section'); box.append(el('h4', '', title), ...children); return box; };
 const list = items => { const ul = el('ul', 'insight-evidence'); ul.append(...items.map(text => el('li', '', text))); return ul; };
-const numbers = pairs => {
-  const strip = el('div', 'insight-numbers');
-  strip.append(...pairs.map(([label, value]) => { const cell = el('div', 'insight-number'); cell.append(el('span', 'insight-number-label', label), el('b', 'insight-number-value', value)); return cell; }));
-  return strip;
-};
+const numbers = pairs => numberStrip(pairs.map(([label, value]) => ({label, value})));
 
 function listView() {
   const box = el('div', 'ff-list');
@@ -73,12 +69,8 @@ function detailView(run) {
   box.dataset.id = run.id;
   const back = Object.assign(el('button', 'link', '‹ All form fills'), {type: 'button'});
   back.addEventListener('click', () => { state.open = null; draw(); });
-  const head = el('header', 'insight-head');
-  const kicker = el('div', 'insight-kicker');
-  kicker.append(el('span', 'insight-category', `${s.agent}${s.at ? ` · ${runWhen(s.at)}` : ''}`), pill(s.outcome, s.tone, {dot: true}));
-  head.append(kicker, el('h3', 'insight-title', `${s.title}${s.company ? ` · ${s.company}` : ''}`));
-  const sub = [run.fields?.billed_to, run.fields?.reason].filter(Boolean).join(' · ');
-  if (sub) head.append(el('p', 'insight-subtitle', sub));
+  const head = cardHead(`${s.agent}${s.at ? ` · ${runWhen(s.at)}` : ''}`, `${s.title}${s.company ? ` · ${s.company}` : ''}`,
+    {badges: [pill(s.outcome, s.tone, {dot: true})], subtitles: [[run.fields?.billed_to, run.fields?.reason].filter(Boolean).join(' · ')]});
   if (run.url) {
     const open = Object.assign(el('button', 'link small', 'Open the form'), {type: 'button', title: run.url});
     open.addEventListener('click', () => window.pilot.openExternal(run.url));

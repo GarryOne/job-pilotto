@@ -1,6 +1,6 @@
 // The component gallery: every token and component, built with the same code the screens use.
 import {fillIcons, icon} from './icons.js';
-import {choiceCards, el, moreButton, notionBenefits, notionGate, pill, tag, tile, TONES} from './components.js';
+import {cardHead, choiceCards, el, moreButton, notionBenefits, notionGate, numberStrip, pill, tag, tile, TONES} from './components.js';
 
 const root = document.getElementById('gallery');
 const section = (title, note, ...children) => {
@@ -60,6 +60,13 @@ section('Lit panel', '.is-lit (also .card.is-lit, .panel.is-lit): dot grid, ambe
   box.className = 'card is-lit';
   box.style.padding = 'var(--sp-5)';
   box.innerHTML = '<h3>Up next</h3><p class="muted">Lit like the website\'s departures hall. Used by the sidebar, Focus → Up next and Settings → Appearance.</p>';
+  return box;
+})());
+section('Result card head and figures', 'cardHead(category, title, {badges, subtitles}) and numberStrip(cells, {valueFirst}) inside .insight-card: every result card in Recent activity and Form fills', (() => {
+  const box = el('div', 'insight-card');
+  box.append(cardHead('Salary', 'The advertised ceiling sits under your floor', {badges: [pill('High confidence', 'good')], subtitles: ['12 postings in your search said a salary']}),
+    numberStrip([{label: 'Jobs', value: '12'}, {label: 'Median', value: 'CHF 120k'}]),
+    numberStrip([{label: 'employers checked', value: '48'}, {label: 'had a job for you', value: '9'}], {valueFirst: true}));
   return box;
 })());
 section('Tiles', 'tile(icon, tone)', row(tile('mic'), tile('file', 'teal'), tile('search', 'info'), tile('mail', 'info'), tile('check', 'good'), tile('shield', 'warn')));

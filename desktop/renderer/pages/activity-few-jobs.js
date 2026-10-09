@@ -1,7 +1,7 @@
 // Recent activity: the few-jobs help boxes beside the run card (coverage actions, Explain with AI).
 // Split out of activity.js as a pure move. Guarded by the tests that read the activity-*.js sources (desktop/test/activity-source.js) and the e2e activity suites.
 import {ai} from '../ai-name.js';
-import {el} from '../components.js';
+import {el, numberStrip} from '../components.js';
 import {icon} from '../icons.js';
 import {adviceEvent, fewJobsGroups, runAction} from '../coverage-actions.js';
 import {openSetting} from './settings.js';
@@ -100,13 +100,8 @@ export function withFewJobsHelp(runId) {
       const e = groups.employers;
       const coverage = card('file', 'Employer coverage', 'What your employer sources are finding');
       // Numbers, not a bar: the bar read as loading progress (owner, 7 Oct 2026). The shared .insight-numbers cells.
-      const numbers = el('div', 'insight-numbers');
-      for (const [value, label] of [[e.matched, `employer${e.matched === 1 ? '' : 's'} had a job for you`], [e.read, `employer${e.read === 1 ? '' : 's'} checked`],
-        [e.pending, `employer idea${e.pending === 1 ? '' : 's'} not tried yet`]]) {
-        const cell = el('div', 'insight-number');
-        cell.append(el('span', 'insight-number-value', value.toLocaleString('en-US')), el('span', 'insight-number-label', label));
-        numbers.append(cell);
-      }
+      const numbers = numberStrip([[e.matched, `employer${e.matched === 1 ? '' : 's'} had a job for you`], [e.read, `employer${e.read === 1 ? '' : 's'} checked`],
+        [e.pending, `employer idea${e.pending === 1 ? '' : 's'} not tried yet`]].map(([value, label]) => ({value: value.toLocaleString('en-US'), label})), {valueFirst: true});
       const scout = el('button', `${e.dry ? 'primary' : 'secondary'} item-action`, 'Find new employers →');
       scout.type = 'button';
       scout.addEventListener('click', () => { adviceEvent('taken', 'employer', 'few-jobs'); document.querySelector('.action[data-command="scout"]')?.click(); });
