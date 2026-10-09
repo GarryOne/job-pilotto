@@ -49,6 +49,7 @@ export async function judgeAccount(client, raw, phase) {
     if (response.stop_reason === 'max_tokens') return {error: 'cut off'};
     const found = JSON.parse(response.content?.find(block => block.type === 'text')?.text || '');
     if (!answers.includes(found?.answer)) return {error: 'not an answer'};
-    return {answer: found.answer, needs: listed(found.needs, sketch), needsKind: ['consent', 'choice', 'code', 'field', 'other'].includes(found.needs_kind) ? found.needs_kind : '', botCheck: !!found.bot_check, confidence: Math.max(0, Math.min(1, Number(found.confidence) || 0))};
+    const needs = listed(found.needs, sketch), unlisted = !needs && found.needs ? clean(found.needs, 60) : '';   // a label not on the page is dropped; logged so a miss can be told from "named nothing"
+    return {answer: found.answer, needs, ...(unlisted ? {unlisted} : {}), needsKind: ['consent', 'choice', 'code', 'field', 'other'].includes(found.needs_kind) ? found.needs_kind : '', botCheck: !!found.bot_check, confidence: Math.max(0, Math.min(1, Number(found.confidence) || 0))};
   } catch (error) { return {error: clean(error?.message || 'AI failed', 120)}; }
 }

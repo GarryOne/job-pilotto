@@ -52,3 +52,14 @@ test('after the press the AI is told whether the SAME form is back, not only the
   await judgeAccount(fake({answer: 'created', needs: '', needs_kind: '', bot_check: false, confidence: 0.9}, quiet), page, 'result');
   assert.ok(!JSON.stringify(quiet[0]).includes('Same form'), 'no line when the extension did not compare');
 });
+
+// 9 Oct 2026, jobs.ch live: "needs_person" with no label logged, so a label the page lacks could not be told from none named.
+test('a needs label the page does not show is dropped but kept as unlisted for the log', async () => {
+  const off = await judgeAccount(fake({answer: 'needs_person', needs: 'Accept the terms', needs_kind: 'consent', bot_check: false, confidence: 0.8}), page, 'ready');
+  assert.equal(off.needs, '');
+  assert.equal(off.unlisted, 'Accept the terms');
+  assert.equal(off.needsKind, 'consent');
+  const on = await judgeAccount(fake({answer: 'needs_person', needs: 'e-mail-adresse', needs_kind: 'field', bot_check: false, confidence: 0.8}), page, 'ready');
+  assert.equal(on.needs, 'E-Mail-Adresse');
+  assert.ok(!('unlisted' in on));
+});
