@@ -270,6 +270,7 @@
     <button class="nav" data-view="reports"><i data-icon="chart"></i>Reports</button>
     <p class="nav-group">Setup</p>
     <button class="nav" data-view="strategy"><i data-icon="sliders"></i>Strategy<span class="nav-dot" id="strategy-dot" hidden title="Few new jobs lately: see what would bring more"></span></button>
+    <button class="nav" data-view="employers"><i data-icon="building"></i>Employers</button>
     <button class="nav" data-view="settings" data-settings="profile"><i data-icon="user"></i>Profile</button>
     <!-- The Notion pages: in ⌘K (Search & commands), not in the menu. -->
     <div class="notion-links" id="notion-links" hidden></div>
@@ -755,8 +756,8 @@
           <label class="search-box"><i data-icon="search"></i><input id="iv-filter" type="search" placeholder="Search interviews" aria-label="Search interviews"></label>
           <select id="iv-outcome" aria-label="Outcome"><option value="">All outcomes</option><option value="positive">Positive</option><option value="neutral">Neutral</option><option value="negative">Negative</option><option value="none">Not reviewed</option></select>
         </div>
-        <div class="iv-lib-wrap">
-          <table class="iv-lib">
+        <div class="lib-wrap">
+          <table class="lib-table">
             <thead><tr><th>Date</th><th>Job</th><th>Interview</th><th>Location</th><th>Outcome</th><th>Actions</th></tr></thead>
             <tbody id="iv-saved"></tbody>
           </table>
@@ -830,6 +831,29 @@
         <button class="secondary" id="targets-cancel">Discard changes</button><button class="primary" id="targets-save">Save changes</button>
       </div>
       <p class="message" id="strategy-load"></p>
+    </div>
+
+    <div class="view" data-view="employers" hidden>
+      <header class="view-head">
+        <div><h1>Employers &amp; Sources</h1><p class="muted subtitle" id="emp-stats">Loading…</p></div>
+        <div class="head-actions">
+          <button class="secondary with-icon" id="emp-refresh"><i data-icon="refresh"></i><span>Refresh</span></button>
+        </div>
+      </header>
+      <div class="toolbar">
+        <label class="search-box"><i data-icon="search"></i><input id="emp-filter" type="search" placeholder="Search employers, places, roles or job systems" aria-label="Search employers"></label>
+        <select id="emp-kind" aria-label="Kind"><option value="">All kinds</option><option value="Employer">Employers</option><option value="Job board">Job boards</option></select>
+        <select id="emp-feed" aria-label="Feed status"><option value="">Any feed status</option></select>
+        <select id="emp-active" aria-label="Active"><option value="">Active and paused</option><option value="on">Active</option><option value="off">Paused</option></select>
+      </div>
+      <p class="message" id="emp-message" hidden></p>
+      <div class="lib-wrap">
+        <table class="lib-table">
+          <thead><tr><th>Employer</th><th>Kind</th><th>Feed</th><th>Quality</th><th>Origin</th><th>Checked</th><th>Active</th></tr></thead>
+          <tbody id="emp-rows"></tbody>
+        </table>
+        <p class="empty" id="emp-empty" hidden></p>
+      </div>
     </div>
 
     <div class="view" data-view="settings" hidden>

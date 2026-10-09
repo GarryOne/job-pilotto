@@ -284,7 +284,7 @@ function renderSaved() {
     cell(row.date ? new Date(`${row.date}T12:00:00`).toLocaleDateString([], {day: 'numeric', month: 'short', year: 'numeric'}) : '').className = 'iv-date';
 
     // Job: company badge, the company and the role it's linked to (or why none is).
-    const jobCell = el('div', 'iv-who');
+    const jobCell = el('div', 'lib-who');
     const logo = avatar(job?.company || job?.title || row.title);
     const badge = el('span', 'logo', logo.initials);
     badge.style.setProperty('--hue', logo.hue);

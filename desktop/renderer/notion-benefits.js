@@ -14,4 +14,4 @@ export const GATE_FOOTNOTE = "One click with Notion's own sign-in. Your strategy
 // Under Not now: why not (optional, one tap). Keys = lib/notion-gate.js WHY.
 export const WHY_CHOICES = [['no_notion', "I don't use Notion"], ['privacy', 'Privacy'], ['later', 'Later'], ['other', 'Something else']];
 // A locked page → the reason it is locked (keys = lib/notion-gate.js REASONS).
-export const LOCKED_VIEWS = {focus: 'focus', sessions: 'apply', interviews: 'interviews', calendar: 'interviews', reports: 'focus'};
+export const LOCKED_VIEWS = {focus: 'focus', sessions: 'apply', interviews: 'interviews', calendar: 'interviews', reports: 'focus', employers: 'employers'};

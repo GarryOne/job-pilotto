@@ -677,19 +677,8 @@ button.with-icon .icon { width: 15px; height: 15px; }
   .iv-pattern { grid-template-columns: auto minmax(0, 1fr); }
   .iv-chips { grid-column: 2; justify-content: flex-start; }
 }
-.iv-lib tr.is-flash td { background: var(--info-soft); transition: background .3s; }
-.iv-lib-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
-table.iv-lib { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
-.iv-lib th { text-align: left; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
-  padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
-.iv-lib th:last-child { width: 1%; }
-.iv-lib td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
-.iv-lib tr:last-child td { border-bottom: 0; }
-.iv-lib tr:hover td { background: var(--surface-2); }
+.lib-table tr.is-flash td { background: var(--info-soft); transition: background .3s; }
 .iv-date { white-space: nowrap; color: var(--ink); }
-.iv-who { display: flex; align-items: center; gap: 10px; }
-.iv-who b { font-size: var(--fs-md); }
-.iv-who .muted { font-size: var(--fs-sm); line-height: 1.35; }
 .iv-where { color: var(--ink); }
 .iv-picker { display: grid; gap: 4px; margin-top: 6px; }
 .iv-picker select, .iv-picker input { font-size: var(--fs-sm); padding: 4px 8px; }
@@ -1006,7 +995,6 @@ main { min-width: 0; }
 .list-bar { flex-wrap: wrap; gap: 8px; }
 .stat > div { min-width: 0; }
 .stat > div span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.iv-lib-wrap { overflow-x: auto; }
 
 /* The sidebar as an icon rail (class .app.rail, set by sidebar-rail.js: under 1180 px, or when the menu was collapsed with its button):
    labels become tooltips (title), the footer notes are hidden. */
@@ -1790,6 +1778,8 @@ details.ss-form-more { margin: var(--sp-3) 0 0; padding: 0; border: 0; border-ra
 .insight-card { display: grid; gap: var(--sp-4); padding: 20px; border: 1px solid var(--line);
   border-radius: var(--r-lg); background: var(--surface); }
 .insight-head { display: grid; gap: var(--sp-2); }
+/* The same card drawn inside a container that is already a card (Reports → Form fills): its parts and spacing, no second box. */
+.insight-card.is-flat { padding: 0; border: 0; border-radius: 0; background: none; }
 .insight-kicker { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
 .insight-category { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 /* The card's type scale, one step down from the mockup's: its display title was drawn for a short phrase, while a
@@ -2140,7 +2130,7 @@ body.is-demo > .app, body.is-demo > .wizard { height: auto; flex: 1; min-height:
 /* Interview library: the Job column (company, then the role). */
 .iv-job { min-width: 180px; max-width: 260px; }
 /* A button's text is centred by default: a job name that wraps (no company, a long title) lined up in the middle of its cell. */
-.iv-who button.link { text-align: left; }
+.lib-who button.link { text-align: left; }
 
 /* The AI engine chooser (pages/ai-engine.js): wizard AI step and Settings → Connections → AI. */
 .engine { display: flex; flex-direction: column; gap: var(--sp-4); }

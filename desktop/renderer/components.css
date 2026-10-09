@@ -618,3 +618,17 @@ b.count-down, span.count-down { display: inline-block; animation: count-pop-down
 .chip-button[aria-pressed="true"] { background: var(--signal-soft); border-color: var(--signal); color: var(--signal-ink); font-weight: 600; }
 .chip-button .chip-count { color: var(--muted); font-size: var(--fs-xs); }
 .chip-button[aria-pressed="true"] .chip-count { color: inherit; }
+/* A library table in a white box (Interviews library, Employers & Sources): small-caps header on --surface-2, compact rows, hover tint.
+   Inside a container that is already a card, use .data-table instead (no box in a box). */
+.lib-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; overflow-x: auto; }
+table.lib-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.lib-table th { text-align: left; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+  padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.lib-table th:last-child { width: 1%; }
+.lib-table td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.lib-table tr:last-child td { border-bottom: 0; }
+.lib-table tr:hover td { background: var(--surface-2); }
+/* A library row's name cell: a .logo badge, the bold name, a muted line under it. */
+.lib-who { display: flex; align-items: center; gap: 10px; }
+.lib-who b { font-size: var(--fs-md); }
+.lib-who .muted { font-size: var(--fs-sm); line-height: 1.35; }

@@ -44,6 +44,7 @@ import {init as license} from './pages/license.js';
 import {init as appFeedback} from './pages/app-feedback.js';
 import {init as whyStop} from './pages/why-stop.js';
 import {init as notionConnect} from './pages/notion-connect.js';
+import {init as employers} from './pages/employers.js';
 import {startListening as saveProgress} from './save-progress.js';
 
 await core();
@@ -91,6 +92,7 @@ await sessions();
 await sessionNeeds();
 await sessionLog();
 await runsPage();
+employers();
 
 // For checks and debugging (npm run shot -- --eval, the DevTools console): the window's state, read-only by convention.
 window.__jp = {shared, get sessions() { return sessionList; }, get openSession() { return sessionList.find(item => item.id === shared.openSessionId) || null; },

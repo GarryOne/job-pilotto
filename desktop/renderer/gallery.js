@@ -71,6 +71,18 @@ section('Choice cards', 'choiceCards(choices, {selected, onPick}): one of a few 
   choiceCards([{id: 'api', icon: 'key', title: 'Anthropic API key', text: 'Uses your Anthropic API key.'},
     {id: 'cli', icon: 'terminal', title: 'Claude Code CLI', text: 'Uses your own Claude Code CLI and its Claude subscription.'}], {selected: 'cli'}));
 
+section('Library table', '.lib-wrap > table.lib-table, name cell .lib-who (.logo + bold name + muted line): a list of records on its own page (Interviews, Employers). Inside a card use .data-table', (() => {
+  const wrap = el('div', 'lib-wrap'), table = el('table', 'lib-table');
+  const head = el('tr', ''); head.append(...['Name', 'Status', 'When'].map(text => el('th', '', text)));
+  const row = el('tr', ''), who = el('div', 'lib-who'), lines = el('div', '');
+  lines.append(el('b', '', 'Northwind Robotics'), el('div', 'muted small', 'Zürich · 200–500 people'));
+  who.append(el('span', 'logo', 'NR'), lines);
+  for (const cell of [who, pill('Feed found', 'good', {dot: true}), el('span', 'muted', '8 Oct')]) { const td = el('td', ''); td.append(cell); row.append(td); }
+  const thead = el('thead', ''); thead.append(head); const tbody = el('tbody', ''); tbody.append(row);
+  table.append(thead, tbody); wrap.append(table);
+  return wrap;
+})());
+
 section('Data table', '.data-table: a few rows of figures to compare; .is-num right-aligns a number column', (() => {
   const box = el('div');
   box.innerHTML = `<table class="data-table"><tr><th>Family</th><th>Good-fit hits</th><th class="is-num">Rate</th></tr>

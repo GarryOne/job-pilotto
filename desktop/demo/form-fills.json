@@ -1,0 +1,191 @@
+[
+ {
+  "id": "r1",
+  "url": "https://boards.greenhouse.io/northwind/jobs/1",
+  "ats": "Greenhouse",
+  "outcome": "Ready",
+  "learnings": "1 left: no answer in the kit (Portfolio link)",
+  "created_at": "2026-10-09T09:12:00Z",
+  "fields": {
+   "job": "Senior Backend Engineer",
+   "company": "Northwind Robotics",
+   "agent": "Extension",
+   "status": "Ready",
+   "started": "2026-10-09T09:12:00Z",
+   "ended": "2026-10-09T09:14:30Z",
+   "minutes": 2.5,
+   "field_count": 14,
+   "unfilled_required": 0,
+   "billed_to": "Claude subscription",
+   "reason": "Filled from the kit; AI cost $0.000",
+   "data": {
+    "fields": [
+     {
+      "label": "First name",
+      "required": true,
+      "source": "your details",
+      "outcome": "filled",
+      "confidence": "",
+      "reason": "typed (0.1 s)"
+     },
+     {
+      "label": "Email",
+      "required": true,
+      "source": "your details",
+      "outcome": "filled",
+      "confidence": "",
+      "reason": "typed (0.1 s)"
+     },
+     {
+      "label": "Resume/CV",
+      "required": true,
+      "source": "your CV",
+      "outcome": "filled",
+      "confidence": "",
+      "reason": "file attached"
+     },
+     {
+      "label": "Work authorization in Switzerland",
+      "required": true,
+      "source": "kit",
+      "outcome": "filled",
+      "confidence": "",
+      "reason": "dropdown clicked (0.2 s)"
+     },
+     {
+      "label": "Expected salary",
+      "required": false,
+      "source": "kit",
+      "outcome": "filled",
+      "confidence": "low",
+      "reason": "typed · check: low confidence"
+     },
+     {
+      "label": "Portfolio link",
+      "required": false,
+      "source": "—",
+      "outcome": "left",
+      "confidence": "",
+      "reason": "no answer in the kit, Profile or your details"
+     }
+    ],
+    "left_for_you": [
+     "Portfolio link (optional)"
+    ],
+    "attachments": [
+     "CV.pdf"
+    ],
+    "steps": [
+     {
+      "step": "open tab",
+      "ms": 640
+     },
+     {
+      "step": "read form",
+      "ms": 910
+     },
+     {
+      "step": "fill",
+      "ms": 6200
+     },
+     {
+      "step": "check",
+      "ms": 1300
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "r2",
+  "url": "https://jobs.ashbyhq.com/bluefin/2",
+  "ats": "Ashby",
+  "outcome": "Needs input",
+  "learnings": "2 left: dropdown not clicked (Start date, Notice period)",
+  "created_at": "2026-10-08T15:40:00Z",
+  "fields": {
+   "job": "Full-stack Developer",
+   "company": "Bluefin Health",
+   "agent": "Extension",
+   "status": "Needs input",
+   "started": "2026-10-08T15:40:00Z",
+   "ended": "2026-10-08T15:44:12Z",
+   "minutes": 4.2,
+   "field_count": 11,
+   "unfilled_required": 2,
+   "billed_to": "Anthropic API credits",
+   "reason": "The AI answered the form; AI cost $0.012",
+   "data": {
+    "fields": [
+     {
+      "label": "Full name",
+      "required": true,
+      "source": "your details",
+      "outcome": "filled",
+      "confidence": "",
+      "reason": "typed"
+     },
+     {
+      "label": "Start date",
+      "required": true,
+      "source": "Claude",
+      "outcome": "left",
+      "confidence": "",
+      "reason": "dropdown not clicked: menu did not open"
+     },
+     {
+      "label": "Notice period",
+      "required": true,
+      "source": "Claude",
+      "outcome": "left",
+      "confidence": "low",
+      "reason": "dropdown not clicked · check: low confidence"
+     }
+    ],
+    "left_for_you": [
+     "Start date",
+     "Notice period"
+    ],
+    "attachments": [],
+    "steps": [
+     {
+      "step": "read form",
+      "ms": 1200
+     },
+     {
+      "step": "fill",
+      "ms": 9800
+     }
+    ]
+   }
+  }
+ },
+ {
+  "id": "r3",
+  "url": "https://lumen.example/careers/apply/7",
+  "ats": "Claude",
+  "outcome": "Submitted",
+  "learnings": "Account sign-up needed an email code",
+  "created_at": "2026-10-07T11:02:00Z",
+  "fields": {
+   "job": "Platform Engineer",
+   "company": "Lumen Payments",
+   "agent": "Claude",
+   "status": "Submitted",
+   "started": "2026-10-07T11:02:00Z",
+   "ended": "2026-10-07T11:31:00Z",
+   "minutes": 29,
+   "working_min": 21,
+   "waiting_min": 6,
+   "times_asked": 2,
+   "reply_median_s": 95,
+   "ready_to_decided_min": 2,
+   "turns": 48,
+   "tool_calls": 131,
+   "model": "claude-sonnet-5-5",
+   "tokens_in": 412000,
+   "tokens_out": 9100,
+   "timeline": "11:02:00 working → 11:15:10 asking → 11:17:40 working → 11:29:00 ready → 11:31:00 decided"
+  }
+ }
+]

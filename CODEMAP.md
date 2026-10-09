@@ -63,6 +63,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/e2e-hidden.js` — E2E only (JOB_PILOTTO_E2E_HIDDEN=1, set by e2e/lib/app.mjs): the app runs with hidden windows and never takes focus, so a test run
 - `desktop/lib/e2e-ipc.js` — E2E only: wraps ipcMain.handle so every call the window makes to the app is logged (channel, start, duration, failed), newest MAX kept. The journey reads the log to tell a
 - `desktop/lib/e2e-timing.js` — Waits the end-to-end journey may shorten so a test does not sit through them (never for a user): JOB_PILOTTO_E2E_<NAME> in milliseconds, only with JOB_PILOTTO_E2E set.
+- `desktop/lib/employers-handlers.js` — Employers & Sources (renderer/pages/employers.js): every employer and job board the person tracks, from the active store through the
 - `desktop/lib/engine-log.js` — What the engine printed, in full: <data folder>/logs/engine.log, one file per day (see below). The app's own log says a run
 - `desktop/lib/escalate.js` — A closer look when the text sketch is not enough (spec: docs/superpowers/specs/2026-10-08-ai-escalation.md; owner, 8 Oct 2026: yes, account pages first, off until he turns it on).
 - `desktop/lib/ext-server-handlers.js` — The extension server's wiring (moved out of main.js's start-up, 8 Oct 2026): what the local server asks of the app when the Chrome extension calls it: the site
@@ -71,6 +72,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/few-jobs.js` — "Few new jobs" nudge (owner, 7 Oct 2026: "popup a dialog/button to recommend more methods if the last Search for new jobs found 0 or close"):
 - `desktop/lib/files.js` — Large files that used to live only on this Mac, kept in Notion too (the source of truth): the CV (every version,
 - `desktop/lib/focus-handlers.js` — The jobs, focus and status IPC (moved out of main.js, 8 Oct 2026): the theme and automation switches, deleting a job and setting its status, the Focus
+- `desktop/lib/form-fills-handlers.js` — Form-fill history (Reports → Form fills, renderer/pages/form-fills.js): past extension fills and Apply with Claude sessions from the
 - `desktop/lib/form-judge.js` — The AI's judgment on an APPLICATION form before the person submits it (owner, 8 Oct 2026: the account page's "ready?" judgment, ported to the application): is everything
 - `desktop/lib/form-tab.js` — "Open filled form" on the session page: the form Claude filled is a tab in the user's Chrome; this finds that
 - `desktop/lib/github.js` — Always on: the user's own private GitHub repo runs the searches on a
@@ -218,10 +220,12 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/data.js` — Your data: where it lives, export, import, backup, reset.
 - `desktop/renderer/pages/demo.js` — "Look around first": the wizard's buttons that restart the app on the fictional demo data, and in that demo the
 - `desktop/renderer/pages/dismiss-reason.js` — After Dismiss: a one-tap "why?" (optional, gone in 12 seconds). The reason is one of a fixed list and is counted with the job's score band only
+- `desktop/renderer/pages/employers.js` — Employers & Sources page (nav → Employers): every employer and job board the person tracks, from the active store
 - `desktop/renderer/pages/feedback.js` — Feedback is saved to Notion. Sending stays with the user; Gmail remains read-only.
 - `desktop/renderer/pages/find.js` — ⌘F on every page: a small find bar (top right) that highlights what the page shows (CSS Highlight API) and scrolls to each
 - `desktop/renderer/pages/focus-onboarding.js` — Focus → Get started (moved out of pages/focus.js, 9 Oct 2026): the first steps after the setup, and Focus without Notion, which shows only
 - `desktop/renderer/pages/focus.js` — Focus page: what needs you today (up next, history, interviews, follow-ups, feedback to add) and the daily target.
+- `desktop/renderer/pages/form-fills.js` — Reports → Form fills (mounted by pages/reports.js: renderFormFills(container), called each time the tab opens): past extension fills
 - `desktop/renderer/pages/happened.js` — Focus → "Did the interview happen?" (src/focus.py 'happened': its time passed and nothing was recorded).
 - `desktop/renderer/pages/interview-lists.js` — Interviews page, the job list helpers (names, the picker's options, the pasted link), the unsaved-recordings list and
 - `desktop/renderer/pages/interview-practice.js` — Interviews page, small parts: the supporting-moments dialog, the practice session, the loading skeleton rows and
@@ -289,9 +293,11 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/coverage-actions.js` — What to do after a jobs check that found few new jobs (owner, 6 Oct 2026: "buttons after the search is done"): the coverage answer's cards
 - `desktop/renderer/coverage-card.js` — The Strategy page's "your search may be too narrow" card (src/coverage.py says it; desktop/lib/strategy.js addRoles acts on it).
 - `desktop/renderer/cv-state.js` — The one-glance caption beside "Current CV": ready, not read yet, or the read failed (then the error below says it, not a promise).
+- `desktop/renderer/employers-view.js` — Employers & Sources, without a window (pages/employers.js draws it): the filter, a feed status's tone, the stats line, an employer's
 - `desktop/renderer/extension-looked.js` — The line under the extension's install steps: where the app looked for the browser profiles on this computer.
 - `desktop/renderer/filter.js` — The Jobs filter box: words match title, company and place; a pasted link matches the job's own link,
 - `desktop/renderer/find-bar.js` — ⌘F, find in the page (pages/find.js draws the bar and highlights the matches with the CSS Highlight API): the matching,
+- `desktop/renderer/form-fills-view.js` — Form-fill history, without a window (pages/form-fills.js draws it): one agent run (src/stores/base.py AGENT_RUN_FIELDS + EXTRAS) as
 - `desktop/renderer/funnel-view.js` — Focus → the two funnel cards (Application funnel: jobs you went after; Inbound funnel: opportunities that found
 - `desktop/renderer/gallery.js` — The component gallery: every token and component, built with the same code the screens use.
 - `desktop/renderer/goal-tiles.js` — The setup goals as label/value rows (Target level, Work mode, Minimum salary, Languages you work in): the setup review and the Strategy page

@@ -8,6 +8,7 @@ import {loadFocus} from './focus.js';
 import {showFocusStarted} from './focus-onboarding.js';
 import {loadCalendar} from './calendar.js';
 import {loadInterviews} from './interviews.js';
+import {loadEmployers} from './employers.js';
 import {openJobPanel} from './job-panel.js';
 import {REPORT_TABS, loadReports} from './reports.js';
 import {applyViewGate} from './notion-connect.js';
@@ -60,6 +61,7 @@ export function openView(name, {fromHistory = false} = {}) {
   if (name === 'interviews' && !locked) loadInterviews();
   if (name === 'calendar' && !locked) loadCalendar();
   if (name === 'reports' && !locked) loadReports();
+  if (name === 'employers' && !locked) loadEmployers();
   if (name === 'focus' && !locked && !started) loadFocus();
 }
 
