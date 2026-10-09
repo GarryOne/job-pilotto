@@ -52,6 +52,16 @@ class NotionInterviewsTests(unittest.TestCase):
         self.assertEqual([t for _, t in self.texts(row['id'])].count('Strengths'), 1)
         self.assertTrue(self.s.get(row['id'])['review'].startswith('Second look.'))
 
+    def test_any_markdown_review_is_read_back_and_replaced_whole(self):
+        row = self.s.save(None, {'app_id': 'app-1', 'title': 'Call', 'transcript': 'A: hi'})
+        self.s.save(row['id'], {'review': '## Went well\n\n- calm'})
+        self.assertEqual(self.s.get(row['id'])['review'], '## Went well\n\n- calm')
+        self.s.save(row['id'], {'review': 'Short.'})
+        self.assertEqual([t for _, t in self.texts(row['id'])], [self.texts(row['id'])[0][1], 'Short.', 'Transcript'])
+        self.s.save(row['id'], {'review': ''})
+        self.assertEqual(self.texts(row['id'])[1][1], interviews_review.PLACEHOLDER)
+        self.assertEqual(self.s.get(row['id'])['review'], '')
+
     def test_a_column_keeps_its_text_as_written(self):
         row = self.s.save(None, {'title': 'Tech *1* [x](y)', 'round': 'Round `2`'})
         self.assertEqual((self.s.get(row['id'])['title'], self.s.get(row['id'])['round']), ('Tech *1* [x](y)', 'Round `2`'))

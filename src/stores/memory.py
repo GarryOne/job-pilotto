@@ -192,18 +192,18 @@ class Insights(_Table):
 
     def save(self, day, category, title, body, fields=None):
         same = next((r for r in self.rows.values() if r['day'] == day and r['category'] == category), None)
-        values = {'day': day, 'category': category, 'title': title, 'body': body, 'fields': dict(fields or {})}
+        values = base.insight_values({'day': day, 'category': category, 'title': title, 'body': body, 'fields': dict(fields or {})})
         if same:
             return self._update(same['id'], values)
         return self.add(values)
 
     def add(self, record):
-        row = _new(self.fields, _known(self.fields, record))
+        row = _new(self.fields, _known(self.fields, base.insight_values(record)))
         self.rows[row['id']] = row
         return dict(row)
 
     def update(self, insight_id, fields):
-        return self._update(insight_id, fields)
+        return self._update(insight_id, base.insight_values(fields))
 
 
 class Employers(_Table):

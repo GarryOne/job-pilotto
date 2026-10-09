@@ -163,6 +163,8 @@ class StoreContract:
         self.assertEqual((kept['id'], kept['title'], kept['fields']), (one['id'], 'A2', {'sample_size': 5}))
         with self.assertRaises(KeyError):
             self.s.insights.update('missing', {'title': 'x'})
+        with self.assertRaises(KeyError):
+            self.s.insights.add({'day': '2026-10-08', 'category': 'Process', 'title': 'C', 'fields': {'colour': 'red'}})
         self.s.insights.save('2026-10-08', 'daily', 'D', 'b')
         self.s.insights.save('2026-10-08', 'daily', 'D2', 'c')
         self.assertEqual([i['title'] for i in self.s.insights.list(category='daily')], ['D2'])
@@ -170,7 +172,7 @@ class StoreContract:
     def test_one_insight_per_day_and_category_newest_first(self):
         self.s.insights.save('2026-10-07', 'daily', 'Old', 'a')
         self.s.insights.save('2026-10-08', 'daily', 'New', 'b')
-        again = self.s.insights.save('2026-10-08', 'daily', 'Newer', 'c', {'jobs': 3})
+        again = self.s.insights.save('2026-10-08', 'daily', 'Newer', 'c', {'sample_size': 3})
         self.assertRecord(again, base.INSIGHT_FIELDS)
         self.assertEqual([i['title'] for i in self.s.insights.list(category='daily')], ['Newer', 'Old'])
         self.assertEqual([i['title'] for i in self.s.insights.list(since='2026-10-08')], ['Newer'])

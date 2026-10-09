@@ -41,17 +41,36 @@ class NotionInterviews:
     def _app(self, app_id):
         return self.tracker._request('GET', f'pages/{app_id}') if app_id else None
 
+    @staticmethod
+    def _parts(blocks):
+        """(job line, review blocks, Transcript toggle) of a page. The review is everything else on it: the layout is
+        the job line first, then the review (or the placeholder), then the toggle; the placeholder is no review."""
+        job = next((b for b in blocks[:3] if b['type'] == 'paragraph' and review_blocks._plain_block(b).startswith('🔗 ')), None)
+        toggle = next((b for b in blocks if b['type'] == 'heading_3' and review_blocks._plain_block(b) == 'Transcript'), None)
+        review = [b for b in blocks if b is not job and b is not toggle]
+        return job, review, toggle
+
     def _body(self, page_id):
         """(transcript, review) of a page: the Transcript toggle's text, and the review blocks as Markdown."""
-        blocks = self.tracker._children(page_id)
+        _, review, toggle = self._parts(self.tracker._children(page_id))
         transcript = ''
-        for block in blocks:
-            if block['type'] == 'heading_3' and review_blocks._plain_block(block) == 'Transcript':
-                kids = block.get('children') or self.tracker._children(block['id'])
-                transcript = ''.join(notion_blocks.plain_text(k.get(k['type'], {}).get('rich_text')) for k in kids)
-        ids = set(review_blocks.review_block_ids(blocks))
-        return {'transcript': transcript,
-                'review': notion_blocks.to_markdown([b for b in blocks if b.get('id') in ids], self.tracker._children)}
+        if toggle:
+            kids = toggle.get('children') or self.tracker._children(toggle['id'])
+            transcript = ''.join(notion_blocks.plain_text(k.get(k['type'], {}).get('rich_text')) for k in kids)
+        shown = [b for b in review if review_blocks._plain_block(b) != review_blocks.PLACEHOLDER]
+        return {'transcript': transcript, 'review': notion_blocks.to_markdown(shown, self.tracker._children)}
+
+    def _set_review(self, page_id, markdown, app_id):
+        """The review replaced whole, right under the job line (added first, then the old blocks removed: a failed add
+        leaves the old review). No review: the placeholder."""
+        job, old, _ = self._parts(self.tracker._children(page_id))
+        if not job:  # a page from before the job line: put it first, so the review has its place
+            layout.ensure_job_line(self.tracker, page_id, self._app(app_id))
+            job, old, _ = self._parts(self.tracker._children(page_id))
+        new = notion_blocks.to_blocks(markdown) or [layout._block('paragraph', review_blocks.PLACEHOLDER)]
+        self.tracker._request('PATCH', f'blocks/{page_id}/children', {'children': new, 'after': job['id']})
+        for block in old:
+            self.tracker._request('DELETE', f"blocks/{block['id']}")
 
     def _set_transcript(self, page_id, transcript):
         for block in self.tracker._children(page_id):
@@ -86,13 +105,14 @@ class NotionInterviews:
                 'parent': {'database_id': self.database_id}, 'properties': self._properties(fields),
                 'children': [layout.job_line(app)] + review + [layout.transcript_toggle(fields.get('transcript') or '')]})
             return self._record(page, {k: fields.get(k, '') for k in BODY})
-        if self.get(interview_id) is None:
+        current = self.get(interview_id)
+        if current is None:
             raise KeyError(interview_id)
         props = self._properties(fields)
         if props:
             self.tracker._request('PATCH', f'pages/{interview_id}', {'properties': props})
         if 'review' in fields:
-            review_blocks.replace_review(self.tracker, interview_id, notion_blocks.to_blocks(fields['review']))
+            self._set_review(interview_id, fields['review'], fields.get('app_id', current['app_id']))
         if 'transcript' in fields:
             self._set_transcript(interview_id, fields['transcript'])
         if 'app_id' in fields:

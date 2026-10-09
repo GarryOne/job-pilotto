@@ -37,6 +37,9 @@ MATCH_FIELDS = ('url', 'title', 'company', 'location', 'work_mode', 'fit', 'reas
 INTERVIEW_FIELDS = ('id', 'app_id', 'title', 'at', 'input', 'round', 'overall', 'questions', 'weak_answers', 'topics',
                     'weak_topics', 'next_step', 'cost', 'model', 'transcript', 'review', 'created_at')
 INSIGHT_FIELDS = ('id', 'day', 'category', 'title', 'body', 'fields', 'created_at')
+# The keys an insight's `fields` may hold (each a column in Notion); any other key is refused, as an unknown field is.
+INSIGHT_EXTRAS = ('basis', 'confidence', 'sample_size', 'evidence', 'action', 'feedback', 'issue_detected', 'cost', 'model',
+                  'input_hash', 'data')
 EMPLOYER_FIELDS = ('id', 'name', 'website', 'careers_url', 'feed', 'active', 'created_at')
 AGENT_RUN_FIELDS = ('id', 'url', 'ats', 'outcome', 'fields', 'learnings', 'transcript', 'created_at')
 CRON_RUN_FIELDS = ('id', 'kind', 'where', 'status', 'started_at', 'finished_at', 'summary', 'report', 'result',
@@ -69,6 +72,14 @@ def parse_ref(text):
 def url_key(url):
     """The one key a job is matched by in every adapter."""
     return normalize_url((url or '').strip())
+
+
+def insight_values(values):
+    """An insight's values with its `fields` checked against INSIGHT_EXTRAS (KeyError on another key)."""
+    unknown = set((values or {}).get('fields') or {}) - set(INSIGHT_EXTRAS)
+    if unknown:
+        raise KeyError(f'not an insight field: {", ".join(sorted(unknown))}')
+    return values
 
 
 def record(fields, values):

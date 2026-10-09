@@ -17,6 +17,7 @@ EXTRAS = {'basis': ('Basis', 'select'), 'confidence': ('Confidence', 'select'), 
           'evidence': ('Evidence', 'rich_text'), 'action': ('Action', 'rich_text'), 'feedback': ('Feedback', 'select'),
           'issue_detected': ('Issue detected', 'checkbox'), 'cost': ('Cost (USD)', 'number'), 'model': ('Model', 'rich_text'),
           'input_hash': ('Input hash', 'rich_text'), 'data': ('Data', 'rich_text')}
+assert set(EXTRAS) == set(base.INSIGHT_EXTRAS), 'every insight extra has its column'
 MAIN = (('title', 'Insight', 'title'), ('day', 'Date', 'date'), ('category', 'Category', 'select'))
 EMPTY = ('', None, False)
 
@@ -34,9 +35,9 @@ class NotionInsights:
 
     def _properties(self, values):
         unknown = set(values) - set(base.INSIGHT_FIELDS)
-        extra = set((values.get('fields') or {})) - set(EXTRAS)
-        if unknown or extra:
-            raise KeyError(f'not a field: {", ".join(sorted(unknown | extra))}')
+        if unknown:
+            raise KeyError(f'not a field: {", ".join(sorted(unknown))}')
+        base.insight_values(values)
         props = notion_rows.to_properties(values, MAIN)
         for key, raw in (values.get('fields') or {}).items():
             props[EXTRAS[key][0]] = notion_rows.write(raw, EXTRAS[key][1])

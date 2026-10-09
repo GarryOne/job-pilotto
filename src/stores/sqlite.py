@@ -314,16 +314,16 @@ class Insights(_Table):
         return self._rows(' AND '.join(c for c, _ in wanted), tuple(v for _, v in wanted), 'day DESC, seq DESC', limit)
 
     def save(self, day, category, title, body, fields=None):
-        values = {'day': day, 'category': category, 'title': title, 'body': body, 'fields': dict(fields or {})}
+        values = base.insight_values({'day': day, 'category': category, 'title': title, 'body': body, 'fields': dict(fields or {})})
         same = self.db.execute('SELECT id FROM insights WHERE day = ? AND category = ? ORDER BY seq DESC',
                                (day, category)).fetchone()
         return self._update(same['id'], values) if same else self._new(values)
 
     def add(self, record):
-        return self._new(_known(self.fields, record))
+        return self._new(_known(self.fields, base.insight_values(record)))
 
     def update(self, insight_id, fields):
-        return self._update(insight_id, fields)
+        return self._update(insight_id, base.insight_values(fields))
 
 
 class Employers(_Table):
