@@ -81,10 +81,11 @@ export async function runCvSteps(ctx, h) {
     await page.reload();
     await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
     await page.click('.nav[data-view="jobs"]');
-    // The NEW rows, by page id (6 Oct 2026: the saved list painted on reload still held the rows just archived, same URLs; Tailor then wrote to an archived page).
-    await page.waitForFunction(ids => ids.every(id => (window.__jp.shared.allJobs || []).some(job => String(job.notion_url || '').replace(/-/g, '').includes(id))), added, {timeout: 120000, polling: 2000})
+    // The NEW rows, by the store's id (6 Oct 2026: the saved list painted on reload still held the rows just archived, same URLs; Tailor then wrote to an archived page).
+    // page_id is the store's id on every store (src.desktop jobs); notion_url only on Notion.
+    await page.waitForFunction(ids => ids.every(id => (window.__jp.shared.allJobs || []).some(job => String(job.page_id || job.notion_url || '').replace(/-/g, '').includes(id))), added, {timeout: 120000, polling: 2000})
       .catch(async () => {
-        const held = await page.evaluate(urls => (window.__jp.shared.allJobs || []).filter(job => urls.includes(job.url)).map(job => `${job.url.slice(-6)} → ${String(job.notion_url || 'no page').slice(-32)}`), topUrls);
+        const held = await page.evaluate(urls => (window.__jp.shared.allJobs || []).filter(job => urls.includes(job.url)).map(job => `${job.url.slice(-6)} → ${String(job.page_id || job.notion_url || 'no store id').slice(-32)}`), topUrls);
         throw new Error(`the Jobs list never showed the three new top-match rows ${added.map(id => id.slice(-8)).join(', ')}; it holds: ${held.join(' | ') || 'none of their URLs'}`);
       });
     // The premise: no other open job without a CV is saved or fits above 98 (else it rightly takes a slot and the step proves nothing).
