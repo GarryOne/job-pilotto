@@ -13,7 +13,7 @@ import {createStorage} from '../lib/storage.js';
 
 // Stand-in for safeStorage: reversible, and obviously not plain text on disk.
 const fakeCrypto = {encrypt: v => Buffer.from(v).reverse().toString('base64'), decrypt: s => Buffer.from(s, 'base64').reverse().toString()};
-const tempStorage = () => createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'pilot-')), fakeCrypto);
+const tempStorage = () => { const s = createStorage(fs.mkdtempSync(path.join(os.tmpdir(), 'pilot-')), fakeCrypto); s.saveSettings({telemetry: false}); return s; };   // no request to the live site
 
 test('the window scripts parse (a syntax error leaves the app window blank)', async () => {
   const {execFileSync} = await import('node:child_process');

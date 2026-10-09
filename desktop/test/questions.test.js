@@ -38,7 +38,7 @@ function page() {
 function storage() {
   const s = createStorage(path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-')), 'x'), {encrypt: v => v, decrypt: v => v});
   s.setSecret('NOTION_TOKEN', 'ntn');
-  s.saveSettings({notionIds: {NOTION_ANSWERS_PAGE_ID: 'answers'}});
+  s.saveSettings({notionIds: {NOTION_ANSWERS_PAGE_ID: 'answers'}, telemetry: false});   // no label-meanings request to the live site
   return s;
 }
 
