@@ -4,9 +4,7 @@ built …" toggle, and a "🧾 Job description" heading with ledger.md_blocks' b
 (desktop/e2e/lib/notion-fake.mjs, node; skipped without it). The prep logic itself: tests/test_prep.py.
 """
 import json
-import os
 import shutil
-import subprocess
 import unittest
 import urllib.request
 from datetime import datetime, timezone
@@ -18,9 +16,9 @@ from src.notion.client import Tracker
 from src.notion.ledger import md_blocks
 from src.stores import notion as notion_store
 from tests.test_prep import KIT, NOW, ROLE, Client
+from tests import notion_stand_in
 
 ROOT = Path(__file__).resolve().parent.parent
-FAKE = ROOT / 'desktop' / 'e2e' / 'lib' / 'notion-fake.mjs'
 SCHEMA = json.loads((ROOT / 'config' / 'notion_schema.json').read_text())
 COMPUTED = {'formula', 'rollup', 'last_edited_time', 'created_time', 'unique_id', 'people'}
 
@@ -41,24 +39,15 @@ def text(block):
 class PrepOnNotionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        script = f"import {{startNotionFake}} from {json.dumps(FAKE.as_uri())}; const f = await startNotionFake(); console.log(f.url);"
-        cls.server = subprocess.Popen(['node', '--input-type=module', '-e', script], stdout=subprocess.PIPE, text=True)
-        cls.url = cls.server.stdout.readline().strip()
-        if not cls.url.startswith('http'):
-            cls.server.kill()
-            raise RuntimeError('the Notion stand-in did not start')
-        cls.env = mock.patch.dict(os.environ, {'JOB_PILOTTO_E2E': '1', 'JOB_PILOTTO_E2E_NOTION_BASE_URL': cls.url})
-        cls.env.start()
+        notion_stand_in.start(cls)
 
     @classmethod
     def tearDownClass(cls):
-        cls.env.stop()
-        cls.server.kill()
-        cls.server.wait()
+        notion_stand_in.stop(cls)
 
     def setUp(self):
-        self.tracker = Tracker('stand-in-token', opener=_direct)
-        env = {'NOTION_TOKEN': 'stand-in-token'}
+        self.tracker = Tracker(self.token, opener=_direct)
+        env = {'NOTION_TOKEN': self.token}
         for variable, spec in SCHEMA['databases'].items():
             columns = {name: {column['type']: {}} for name, column in spec['columns'].items() if column['type'] not in COMPUTED}
             env[variable] = self.tracker._request('POST', 'databases', {

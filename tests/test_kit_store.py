@@ -3,14 +3,11 @@ store adapters: the same blocks under the same toggle heading. Checked twice: th
 the Notion stand-in (desktop/e2e/lib/notion-fake.mjs, node; skipped without it). The memory/sqlite side: tests/test_kit.py.
 """
 import json
-import os
 import shutil
-import subprocess
 import tempfile
 import unittest
 import urllib.request
 from pathlib import Path
-from unittest import mock
 
 from src import daily, store as job_store
 from src.ai import kit
@@ -19,9 +16,9 @@ from src.notion.client import Tracker
 from src.stores import notion as notion_store
 from src.stores.notion_blocks import to_blocks
 from tests.test_kit import URL, FakeClient, opener
+from tests import notion_stand_in
 
 ROOT = Path(__file__).resolve().parent.parent
-FAKE = ROOT / 'desktop' / 'e2e' / 'lib' / 'notion-fake.mjs'
 SCHEMA = json.loads((ROOT / 'config' / 'notion_schema.json').read_text())
 COMPUTED = {'formula', 'rollup', 'last_edited_time', 'created_time', 'unique_id', 'people'}
 JOB = {'title': 'SRE', 'company': 'Acme', 'url': URL}
@@ -63,24 +60,15 @@ def _direct(request, timeout=20):
 class KitOnNotionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        script = f"import {{startNotionFake}} from {json.dumps(FAKE.as_uri())}; const f = await startNotionFake(); console.log(f.url);"
-        cls.server = subprocess.Popen(['node', '--input-type=module', '-e', script], stdout=subprocess.PIPE, text=True)
-        cls.url = cls.server.stdout.readline().strip()
-        if not cls.url.startswith('http'):
-            cls.server.kill()
-            raise RuntimeError('the Notion stand-in did not start')
-        cls.env = mock.patch.dict(os.environ, {'JOB_PILOTTO_E2E': '1', 'JOB_PILOTTO_E2E_NOTION_BASE_URL': cls.url})
-        cls.env.start()
+        notion_stand_in.start(cls)
 
     @classmethod
     def tearDownClass(cls):
-        cls.env.stop()
-        cls.server.kill()
-        cls.server.wait()
+        notion_stand_in.stop(cls)
 
     def test_a_kit_drafted_through_the_store_is_todays_page(self):
-        tracker = Tracker('stand-in-token', opener=_direct)
-        env = {'NOTION_TOKEN': 'stand-in-token'}
+        tracker = Tracker(self.token, opener=_direct)
+        env = {'NOTION_TOKEN': self.token}
         for variable, spec in SCHEMA['databases'].items():
             columns = {name: {column['type']: {}} for name, column in spec['columns'].items() if column['type'] not in COMPUTED}
             env[variable] = tracker._request('POST', 'databases', {

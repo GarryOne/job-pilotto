@@ -6,9 +6,7 @@ workspace would lack fails here. Skipped where node isn't installed (the stand-i
 """
 import inspect
 import json
-import os
 import shutil
-import subprocess
 import unittest
 import urllib.request
 from types import SimpleNamespace
@@ -17,11 +15,11 @@ from unittest import mock
 
 from src.notion.client import Tracker
 from src.stores import base, notion
+from tests import notion_stand_in
 from tests.store_contract import StoreContract
 
 ROOT = Path(__file__).resolve().parent.parent
 plain = lambda block: ''.join(p.get('plain_text', '') for p in block[block['type']].get('rich_text', []))
-FAKE = ROOT / 'desktop' / 'e2e' / 'lib' / 'notion-fake.mjs'
 SCHEMA = json.loads((ROOT / 'config' / 'notion_schema.json').read_text())
 # Column types the stand-in can't create from a schema entry alone; the store never writes them.
 COMPUTED = {'formula', 'rollup', 'last_edited_time', 'created_time', 'unique_id', 'people'}
@@ -36,20 +34,11 @@ def _direct(request, timeout=20):
 class NotionStoreTests(StoreContract, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        script = f"import {{startNotionFake}} from {json.dumps(FAKE.as_uri())}; const f = await startNotionFake(); console.log(f.url);"
-        cls.server = subprocess.Popen(['node', '--input-type=module', '-e', script], stdout=subprocess.PIPE, text=True)
-        cls.url = cls.server.stdout.readline().strip()
-        if not cls.url.startswith('http'):
-            cls.server.kill()
-            raise RuntimeError('the Notion stand-in did not start')
-        cls.env = mock.patch.dict(os.environ, {'JOB_PILOTTO_E2E': '1', 'JOB_PILOTTO_E2E_NOTION_BASE_URL': cls.url})
-        cls.env.start()
+        notion_stand_in.start(cls)
 
     @classmethod
     def tearDownClass(cls):
-        cls.env.stop()
-        cls.server.kill()
-        cls.server.wait()
+        notion_stand_in.stop(cls)
 
     def _callTestMethod(self, method):
         """A contract test that reaches an entity whose Notion side hasn't landed (src/stores/notion.py PENDING) is skipped."""
@@ -59,8 +48,8 @@ class NotionStoreTests(StoreContract, unittest.TestCase):
             self.skipTest(str(missing))
 
     def make(self):
-        self.tracker = Tracker('stand-in-token', opener=_direct)
-        env = {'NOTION_TOKEN': 'stand-in-token'}
+        self.tracker = Tracker(self.token, opener=_direct)
+        env = {'NOTION_TOKEN': self.token}
         for variable, spec in SCHEMA['databases'].items():
             columns = {name: {column['type']: {}} for name, column in spec['columns'].items() if column['type'] not in COMPUTED}
             env[variable] = self.tracker._request('POST', 'databases', {
