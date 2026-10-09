@@ -2,10 +2,9 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import test from 'node:test';
-import OpenAI from 'openai';
 import {AiLimit, AiUnavailable} from '../../lib/ai/contract.js';
-import {OpenAiApi} from '../../lib/ai/openai-api.js';
-import {FAILURES, OPENAI_FAILURES, asAnthropic, failureFor, startAiProxy} from '../lib/ai-proxy.mjs';
+import {OpenAiApi, contractError, fromResponse} from '../../lib/ai/openai-api.js';
+import {FAILURES, OPENAI_FAILURES, asAnthropic, failureFor, openaiFailureFor, responseOf, startAiProxy} from '../lib/ai-proxy.mjs';
 
 const post = url => fetch(`${url}/v1/messages`, {method: 'POST', body: '{}', headers: {'content-type': 'application/json'}});
 
@@ -72,6 +71,11 @@ test('a refusal asks for an almost immediate retry, so the SDK does not back off
 // ---- An OpenAI turn (9 Oct 2026: the first OpenAI CI run let every stand-in through to the real model and no fault ever fired) ----
 // The real adapter and SDK (desktop/lib/ai/openai-api.js) against the OpenAI proxy that follows the suite's proxy: the shapes are proven by the code that reads them.
 
+// The SDK is the app's dependency (desktop/node_modules): CI's plan job installs only the e2e harness's, so the SDK tests run where it is (a Mac, the desktop job)
+// and the shape test below, which needs no SDK, runs everywhere.
+const OpenAI = await import('openai').then(module => module.default, () => null);
+const withSdk = {skip: OpenAI ? false : 'the openai SDK is not installed here (desktop/node_modules)'};
+
 async function openaiTurn() {
   let reached = 0;
   const target = http.createServer((req, res) => { reached++; res.writeHead(500); res.end('{}'); });   // the "real" OpenAI: never to be reached here
@@ -83,7 +87,7 @@ async function openaiTurn() {
 }
 const ask = (engine, text, more = {}) => engine.complete({model: 'fast', system: 'You pick a menu choice.', messages: [{role: 'user', parts: [text]}], maxTokens: 100, ...more});
 
-test("an OpenAI turn's calls are answered by the suite's stand-in, which reads them as Messages bodies", async () => {
+test("an OpenAI turn's calls are answered by the suite's stand-in, which reads them as Messages bodies", withSdk, async () => {
   const turn = await openaiTurn();
   const seen = [];
   turn.suite.setCanned(body => { seen.push(body); return typeof body.messages[0].content === 'string' && body.messages[0].content.startsWith('{"question"') ? JSON.stringify({choice: 'Suisse'}) : null; });
@@ -102,7 +106,7 @@ test("an OpenAI turn's calls are answered by the suite's stand-in, which reads t
   } finally { await turn.close(); }
 });
 
-test("a fault the suite sets fires on an OpenAI turn, in OpenAI's own error shape, and is counted on the suite's proxy", async () => {
+test("a fault the suite sets fires on an OpenAI turn, in OpenAI's own error shape, and is counted on the suite's proxy", withSdk, async () => {
   const turn = await openaiTurn();
   try {
     turn.suite.setMode('no-credit');
@@ -124,4 +128,14 @@ test('a Responses body reads as a Messages body: files are documents, one text p
   assert.equal(body.system, 'sys');
   assert.deepEqual(body.messages[0].content, [{type: 'document'}, {type: 'text', text: 'read it'}]);
   assert.equal(body.messages[1].content, '<cv>');
+});
+
+test("without the SDK: the proxy's answers and faults read right through the adapter's own readers", async () => {
+  assert.equal(fromResponse(responseOf('{"choice":"Suisse"}'), {model: 'fast', schema: {type: 'object', properties: {choice: {type: 'string'}}}}).content[0].text, '{"choice":"Suisse"}');
+  const kinds = Object.fromEntries(Object.keys(OPENAI_FAILURES).map(mode => {
+    const made = openaiFailureFor(mode), body = JSON.parse(made.body);
+    const error = contractError(Object.assign(new Error(body.error.message), {status: made.status, code: body.error.code, name: 'APIError'}));
+    return [mode, error instanceof AiLimit ? 'limit' : error instanceof AiUnavailable ? 'unavailable' : 'other'];
+  }));
+  assert.deepEqual(kinds, {'rate-limit': 'unavailable', 'server-error': 'unavailable', 'invalid-key': 'limit', 'no-credit': 'limit'});
 });
