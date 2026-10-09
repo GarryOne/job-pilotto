@@ -182,11 +182,11 @@ export async function prepare(ctx) {
   const page = livePage(ctx);
   ctx.findings = [];
   console.log(`  profile ${ctx.profile}, feeds ${ctx.feeds}`);
-  await ctx.run('this suite starts with no run rows in its Notion page', async () => {
+  await ctx.run('this suite starts with no run rows in its store', async () => {
     console.log(`  cleared ${await clearData(ctx, RUNS_DB)} run row(s)`);
   }, {needs: ctx.needs, critical: true});
   // Every run seeds postings with new ids (setFeed), so each leaves Job Matches rows behind: 491 piled up by 6 Oct 2026 and a run spent 5 minutes marking them Not seen.
-  await ctx.run('this suite starts with no job rows in its Notion Job Matches', async () => {
+  await ctx.run('this suite starts with no job rows in its store\'s Job Matches', async () => {
     console.log(`  cleared ${await clearData(ctx, 'Job Matches — AI Scored')} job row(s)`);
   }, {needs: ctx.needs});
   await ensureSetUp(ctx);
