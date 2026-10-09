@@ -68,6 +68,7 @@ export const needsNotice = settings => !settings?.claudeCodeNotice;
 // Recent activity: how a run was paid for, instead of "$0.03".
 export function billingLabel(run = {}) {
   if (run.billing === 'Claude subscription') return 'Claude Code · your plan';
+  if (run.billing === 'ChatGPT plan') return 'Codex · your plan';
   if (run.billing === 'Both') return `$${(run.usd || 0).toFixed(2)} + Claude Code`;
   return null;
 }

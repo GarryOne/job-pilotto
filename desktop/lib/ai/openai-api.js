@@ -41,13 +41,17 @@ export function body(request, {env = process.env, action = ''} = {}) {
   };
 }
 
-// The SDK's error as the contract's.
+// The SDK's error as the contract's, by HTTP status and error name (never instanceof one SDK version). A non-SDK error (a bug here)
+// passes through untouched, never swallowed as an AI error.
+const CONNECTION = /^APIConnection(?:Timeout)?Error$|^APITimeoutError$/;
 export function contractError(error) {
-  const status = error?.status, code = error?.code || error?.error?.code;
+  const status = Number.isInteger(error?.status) ? error.status : null, name = String(error?.name || error?.constructor?.name || '');
+  if (status === null && !CONNECTION.test(name)) return error;
+  const code = error?.code || error?.error?.code;
   const text = `OpenAI: ${String(error?.message || error).slice(0, 300)}`;
   if (status === 401 || status === 403) return new AiLimit(KEY_TEXT, {final: true, cause: error});
-  if (code === 'insufficient_quota') return new AiLimit(LIMIT_TEXT, {final: true, cause: error});
-  if (status === 429 || status >= 500 || status === undefined) return new AiUnavailable(text, {cause: error});
+  if (status === 429 && code === 'insufficient_quota') return new AiLimit(LIMIT_TEXT, {final: true, cause: error});
+  if (status === null || status === 429 || status >= 500) return new AiUnavailable(text, {cause: error});
   return new AiError(text, {cause: error});
 }
 

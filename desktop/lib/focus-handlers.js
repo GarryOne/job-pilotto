@@ -99,7 +99,7 @@ export function registerFocusHandlers(ctx) {
       if (item) Object.assign(item, {prep_at: new Date().toLocaleDateString('en-CA'), prep_stale: false});
       return {ok: true, text: 'Prep kit ready (demo): nothing was written.'};
     }
-    if (!aiReady()) return {ok: false, text: 'The prep kit needs AI: choose Claude Code or add an API key (Settings → Connections → AI).'};
+    if (!aiReady()) return {ok: false, text: 'The prep kit needs AI: choose an AI engine: Claude Code, Codex or an API key (Settings → AI).'};
     // Its lines and result also go to logs/app.log (a failed kit left no trace before).
     return pipeline.interviewPrep(storage, String(pageId), line => {
       log(line);
@@ -132,7 +132,7 @@ export function registerFocusHandlers(ctx) {
   // A rejected job's menu → Why was I rejected? (also runs by itself after the Gmail check logs a rejection).
   ipcMain.handle('reviewRejection', async (_, url) => {
     if (DEMO) return {ok: true, text: 'Reviewed (demo): nothing was written.'};
-    if (!aiReady()) return {ok: false, text: 'The review needs AI: choose Claude Code or add an API key (Settings → Connections → AI).'};
+    if (!aiReady()) return {ok: false, text: 'The review needs AI: choose an AI engine: Claude Code, Codex or an API key (Settings → AI).'};
     try { return await pipeline.reviewRejection(storage, url, log); } catch (error) { return {ok: false, text: error.message}; }
   });
 }

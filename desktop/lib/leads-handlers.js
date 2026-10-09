@@ -18,7 +18,7 @@ export function registerLeadsHandlers(ctx) {
   // Two steps: proposeLead reads it (Claude, once; nothing written), the window asks you to confirm the channel and the
   // start date, then addLead(…, {proposal, confirmed}) writes it to Notion with those instead of Claude's guesses.
   const leadCheck = () => needsNotion('lead')
-    || (!aiReady() ? {ok: false, text: 'Reading a message or screenshot needs AI: choose Claude Code or add an API key (Settings → Connections → AI).'} : null);
+    || (!aiReady() ? {ok: false, text: 'Reading a message or screenshot needs AI: choose an AI engine: Claude Code, Codex or an API key (Settings → AI).'} : null);
   // Screenshots (up to 5) go to temporary files for the run (then to Notion, on the job's page), deleted after.
   const withShots = async (image, task) => {
     const exts = {'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif'};

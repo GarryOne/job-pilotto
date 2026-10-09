@@ -3,14 +3,14 @@
 // `codex exec --json --ephemeral` in the call's own folder, read-only sandbox, the user's config and rules not loaded (their MCP servers, hooks
 // and plugins stay out; their sign-in is still used), and every tool a text call does not need switched off by name, from the features this
 // Codex lists (`codex features list`, once per binary). The system prompt leads the prompt (no flag for it); a schema goes in --output-schema
-// in OpenAI's strict form; images go in -i; a PDF is a file in the folder and the shell stays on, read-only, to read it. It never reads or
+// in OpenAI's strict form; images go in -i; a PDF goes as its pages' pictures (-i) and its text in the prompt (pdf-pages.js), the shell always off. It never reads or
 // copies ~/.codex and never signs in for the user; the env drops the API keys the app holds. Billing 'subscription'.
 // Guarded by test/ai-contract.test.js (recorded `codex exec --json` output, no real Codex).
 import {execFile} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {usage as usageOf} from './contract.js';
+import {AiError, usage as usageOf} from './contract.js';
 import {CliAdapter, cliError, conversation, runProcess, slots} from './cli-base.js';
 import {openaiModel} from './models.js';
 import {dropNulls, strict} from './schema.js';
@@ -20,13 +20,14 @@ const VERIFY_TIMEOUT_MS = 90 * 1000;
 export const OFF = ['unified_exec', 'browser_use', 'browser_use_external', 'browser_use_full_cdp_access', 'computer_use', 'image_generation',
   'multi_agent', 'multi_agent_v2', 'apps', 'plugins', 'remote_plugin', 'hooks', 'memories', 'goals', 'in_app_browser',
   'realtime_conversation', 'sleep_tool', 'tool_suggest', 'skill_search', 'skill_mcp_dependency_install', 'view_image'];
-export const SHELL = 'shell_tool';   // on only to read an attached PDF (read-only sandbox, this call's folder)
+export const SHELL = 'shell_tool';   // always off: a PDF is never read as a file (it answered without opening one, live check 9 Oct 2026)
 const DROP_ENV = ['OPENAI_API_KEY', 'OPENAI_BASE_URL', 'CODEX_API_KEY', 'ANTHROPIC_API_KEY', 'ANTHROPIC_BASE_URL'];
 const LIMIT = /usage limit|hit your (?:usage )?limit|limit reached|rate.?limit|too many requests|\b429\b|quota/i;
 const SIGNED_OUT = /not logged in|codex login|log ?in again|unauthorized|\b401\b|authentication|token (?:has )?expired|refresh token/i;
 export const LIMIT_TEXT = 'Codex: your ChatGPT plan\'s usage limit is reached, so this AI step is paused; try again later, when the limit resets.';
 export const SIGNED_OUT_TEXT = 'Codex is not signed in on this computer: open Terminal, run `codex login` and sign in with your ChatGPT account, '
   + 'then try again. Or switch to an OpenAI API key in Settings → AI.';
+export const PDF_TEXT = 'Codex cannot read PDF attachments: the caller must send the PDF as page images and its text.';
 export const MISSING_TEXT = 'Codex was not found on this computer: install it (developers.openai.com/codex) and sign in with `codex login`, '
   + 'or switch to an OpenAI API key in Settings → AI.';
 
@@ -65,6 +66,28 @@ export function features(binary, run = execFile) {
   return featureCache.get(binary);
 }
 
+// (base64 PDF) -> {pages: [base64 PNG], text}: set by main.js (ai/pdf-pages.js electronPdfReader); none in a process without windows.
+let pdfReader = null;
+export const setPdfReader = read => { pdfReader = read; };
+
+// The request with each PDF replaced by its text (as `[attached PDF ./document-N.pdf, its text:]`) and its pages as PNG images.
+export async function withPdfsAsPages(request, read = pdfReader) {
+  let n = 0;
+  const messages = [];
+  for (const message of request.messages) {
+    const parts = [];
+    for (const part of message.parts) {
+      if (typeof part === 'string' || part.kind !== 'pdf') { parts.push(part); continue; }
+      if (!read) throw new AiError(PDF_TEXT);
+      n += 1;
+      const {pages, text} = await read(part.data);
+      parts.push(`[attached PDF ./document-${n}.pdf, its text:]\n${text}`, ...pages.map(png => ({kind: 'image', mediaType: 'image/png', data: png})));
+    }
+    messages.push({...message, parts});
+  }
+  return n ? {...request, messages} : request;
+}
+
 // What a failed `codex exec` said, as {kind, text} (the CLI's own error output, never page or mail content).
 export function classify(text) {
   if (SIGNED_OUT.test(text || '')) return {kind: 'signed-out', text: SIGNED_OUT_TEXT};
@@ -77,6 +100,15 @@ export const events = stdout => String(stdout || '').split('\n').flatMap(line =>
   try { const item = JSON.parse(line); return item && typeof item === 'object' ? [item] : []; } catch { return []; }
 });
 
+// The locked-down start of every `codex exec` (a call and Verify alike): its own folder, read-only, the user's config and rules not loaded,
+// every unneeded tool and the shell off (those this Codex lists), web search only when asked.
+export function lockedArgs(folder, model, known, {webSearch = false} = {}) {
+  const args = ['exec', '--json', '--ephemeral', '--skip-git-repo-check', '-s', 'read-only', '-C', folder, '--ignore-user-config', '--ignore-rules', '-m', model];
+  for (const name of [...OFF, SHELL]) if (known.has(name)) args.push('--disable', name);
+  args.push('-c', `web_search="${webSearch ? 'live' : 'disabled'}"`);
+  return args;
+}
+
 export class Codex extends CliAdapter {
   static engine = 'codex';
   static family = 'openai';
@@ -86,27 +118,27 @@ export class Codex extends CliAdapter {
   static folder = 'codex';
   static missingText = MISSING_TEXT;
   static queue = slots(2);
+  static readsPdf = false;   // PDFs arrive here as page images and text (withPdfsAsPages)
 
-  constructor({run = execFile, env: parentEnv = process.env, ...options} = {}) { super(options); Object.assign(this, {run, parentEnv}); }
+  constructor({run = execFile, env: parentEnv = process.env, pdfReader: read, ...options} = {}) { super(options); Object.assign(this, {run, parentEnv, pdfReader: read}); }
 
   env() { return codexEnv(this.parentEnv); }
+
+  async complete(request) { return super.complete(await withPdfsAsPages(request, this.pdfReader ?? pdfReader)); }
 
   async build(request, folder, files) {
     const tier = openaiModel(request.model, request.effort, this.parentEnv);
     const known = await features(this.binary, this.run);
-    const pdfs = files.filter(name => name.endsWith('.pdf'));
-    const args = ['exec', '--json', '--ephemeral', '--skip-git-repo-check', '-s', 'read-only', '-C', folder, '--ignore-user-config', '--ignore-rules', '-m', tier.model];
-    for (const name of [...OFF, ...(pdfs.length ? [] : [SHELL])]) if (known.has(name)) args.push('--disable', name);
-    args.push('-c', `web_search="${request.webSearch ? 'live' : 'disabled'}"`);
+    if (files.some(name => !name.startsWith('image-'))) throw new AiError(PDF_TEXT);   // never a file it would have to open
+    const args = lockedArgs(folder, tier.model, known, {webSearch: !!request.webSearch});
     if (tier.effort) args.push('-c', `model_reasoning_effort="${tier.effort === 'max' ? 'high' : tier.effort}"`);
     if (request.schema) {
       const file = path.join(folder, 'answer-schema.json');
       fs.writeFileSync(file, JSON.stringify(strict(request.schema)));
       args.push('--output-schema', file);
     }
-    for (const name of files) if (!name.endsWith('.pdf')) args.push('-i', path.join(folder, name));
+    for (const name of files) args.push('-i', path.join(folder, name));
     let prompt = conversation(request, files);
-    if (pdfs.length) prompt = `First read each attached PDF file in this folder: ${pdfs.map(name => `./${name}`).join(', ')}. Then answer.\n\n${prompt}`;
     if (request.system) prompt = `${request.system}\n\n---\n\n${prompt}`;
     return {args: [...args, '-'], prompt, native: !!request.schema};
   }
@@ -137,14 +169,14 @@ export const codexClient = (binary, options = {}) => new Codex({binary, ...optio
 
 // Installed? Signed in? One tiny call (the small model, one word), on the user's own plan, only when they press Verify.
 // Kept on this computer (settings.codex) for the status block and for jobs.
-export async function verifyCodex(storage, {binary = codexBinary, spawnFn, now = () => new Date()} = {}) {
+export async function verifyCodex(storage, {binary = codexBinary, spawnFn, run = execFile, now = () => new Date()} = {}) {
   const file = binary();
   let result = {installed: !!file, path: file, authenticated: false, error: file ? '' : MISSING_TEXT};
   if (file) {
     const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'job-pilotto-codex-'));
     try {
-      const finished = await runProcess(file, ['exec', '--json', '--ephemeral', '--skip-git-repo-check', '-s', 'read-only', '-C', folder,
-        '--ignore-user-config', '--ignore-rules', '-m', openaiModel('claude-haiku').model, '-'], 'Reply with the single word OK.',
+      const args = [...lockedArgs(folder, openaiModel('claude-haiku').model, await features(file, run)), '-'];
+      const finished = await runProcess(file, args, 'Reply with the single word OK.',
       {cwd: folder, env: codexEnv(), timeout: VERIFY_TIMEOUT_MS, spawnFn, tool: 'Codex'});
       const found = finished.error ? [] : events(finished.stdout);
       const failed = found.filter(item => item.type === 'turn.failed' || item.type === 'error');

@@ -1,5 +1,7 @@
 // Job Pilotto desktop app: a local-first cockpit for the job search. Data and keys stay on this Mac.
 import {app, BrowserWindow, clipboard, crashReporter, Menu, desktopCapturer, dialog, ipcMain, nativeImage, nativeTheme, Notification, powerMonitor, safeStorage, session, shell, systemPreferences} from 'electron';
+import {setPdfReader} from './lib/ai/codex-cli.js';
+import {electronPdfReader} from './lib/ai/pdf-pages.js';
 import {recordIpc} from './lib/e2e-ipc.js';
 import {isTwin, twinRefusal} from './lib/twin.js';
 import {forWindow} from './lib/site-accounts.js';
@@ -111,6 +113,7 @@ const HIDDEN = hideWindows({app, BrowserWindow, shell});   // an e2e run: window
 pipeline.setDemo(DEMO);  // Python: only the jobs that read the demo folder
 // Always on also gives the repo the Google sign-in (kept in the Keychain by the Python side, not the app's store).
 github.setExtraSecrets(() => (DEMO ? {} : googleSecrets()));
+setPdfReader(electronPdfReader(BrowserWindow));   // Codex reads a PDF as its pages' pictures and text (lib/ai/pdf-pages.js)
 // The user's repo runs this app's own release of the code (a source checkout: main), so both update together.
 github.setEngineRef(app.isPackaged ? `desktop-v${app.getVersion()}` : 'main');
 // Version shown in the About box and the sidebar. build-info.json is written by the packaged build

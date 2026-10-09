@@ -243,7 +243,7 @@ function showRow(id) {
   setTimeout(() => tr.classList.remove('is-flash'), 1600);
 }
 async function refreshInsights() {
-  if (!aiReady()) { message('iv-message', 'Choose your AI in Settings (Claude Code or an API key) to get insights.', 'error'); return; }
+  if (!aiReady()) { message('iv-message', 'Choose your AI in Settings (Claude Code, Codex or an API key) to get insights.', 'error'); return; }
   insightBusy = true; insightNote = '';
   renderInsight();
   const result = await iv.insights().catch(error => ({ok: false, error: String(error?.message || error)}));
@@ -374,7 +374,7 @@ function renderSaved() {
 }
 
 async function reviewRow(pageId, why = 'Review') {
-  if (!aiReady()) { message('iv-message', 'Choose your AI in Settings (Claude Code or an API key) to get reviews.', 'error'); return; }
+  if (!aiReady()) { message('iv-message', 'Choose your AI in Settings (Claude Code, Codex or an API key) to get reviews.', 'error'); return; }
   if (reviewing.has(pageId)) return;  // already asked for: a second press must not spend a second review (1 Oct 2026)
   reviewing.add(pageId);
   message('iv-message', 'Claude is reviewing the interview (about a minute)…');
@@ -390,7 +390,7 @@ async function reviewRow(pageId, why = 'Review') {
 const reviewingAgain = new Set();
 async function reviewAgainRow(pageId) {
   if (reviewingAgain.has(pageId)) return;
-  if (!aiReady()) { message('iv-message', 'Choose your AI in Settings (Claude Code or an API key) to get reviews.', 'error'); return; }
+  if (!aiReady()) { message('iv-message', 'Choose your AI in Settings (Claude Code, Codex or an API key) to get reviews.', 'error'); return; }
   reviewingAgain.add(pageId);
   message('iv-message', reviewAgain.START);
   const result = await iv.review(pageId, 'Review again').catch(error => ({ok: false, error: String(error?.message || error)}));

@@ -27,7 +27,7 @@ export function openHappened(item, answer) {
 // A few lines of notes: Claude reviews them like a transcript (the same review as a recording), in the background.
 async function review(pageId, item) {
   if (!aiReady()) {
-    toastMessage('Saved ✓', 'Choose your AI in Settings (Claude Code or an API key) to get a review of your notes (Interviews → Review).');
+    toastMessage('Saved ✓', 'Choose your AI in Settings (Claude Code, Codex or an API key) to get a review of your notes (Interviews → Review).');
     return;
   }
   toastMessage('Saved ✓', `Claude is reviewing your notes on ${who(item)} (about a minute).`);

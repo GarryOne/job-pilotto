@@ -20,7 +20,7 @@ export const runWarningLines = run => runWarnings([
 ].filter(line => run?.kind !== 'visits' || !SITE_ROW.test(String(line))));
 
 // The Anthropic account's spend limit, in any of its wordings (a line cut short still counts when another says it).
-const LIMIT = /usage limits?|credit balance|AI limit reached|spending limit/i;
+const LIMIT = /usage limits?|credit balance|AI limit reached|spending limit|spend limit|no credit left/i;   // the last two: OpenAI's (src/ai/providers/openai_api.py)
 export const isSpendingLimit = text => LIMIT.test(String(text || ''));
 const SKIPPED =/^Skipped job (\S+): (.*)$/;
 // "N job(s) not read by AI / not scored / left for the next check": the same loss, said three ways by the pipeline.

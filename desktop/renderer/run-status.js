@@ -24,7 +24,14 @@ const AI_STOPPED_WHAT = {mail: 'Email processing', search: 'Scoring', insight: '
   interview: 'The interview review', review: 'The review'};
 // Which limit, from the error itself and who is billed (owner, 6 Oct 2026: credits, a spend limit, a plan's limit and a rate limit all read
 // "Increase your limit"): its words and the page that fixes it. A cause not recognised keeps the neutral words.
+// The OpenAI family first (its texts are the engine's own: src/ai/providers/openai_api.py, codex_cli.py), so a generic "spend limit" rule
+// below never sends an OpenAI user to Anthropic's console.
+const OPENAI_LIMITS = 'https://platform.openai.com/settings/organization/limits', CODEX_USAGE = 'https://chatgpt.com/codex/settings/usage';
 const LIMIT_KINDS = [
+  {test: (line, run) => run.billing === 'ChatGPT plan' || /^Codex:|ChatGPT plan/i.test(line), why: 'Your ChatGPT plan’s Codex limit was reached.',
+    hint: 'Run it again once your plan’s usage resets.', fix: {label: 'View Codex usage', url: CODEX_USAGE}},
+  {test: (line, run) => run.billing === 'OpenAI API credits' || /^OpenAI:|platform\.openai\.com/i.test(line), why: 'Your OpenAI API credit or spend limit ran out.',
+    hint: 'Add credit or raise the limit, then run it again.', fix: {label: 'Manage OpenAI limits', url: OPENAI_LIMITS}},
   {test: (line) => /credit balance/i.test(line), why: 'API credits are exhausted.', hint: 'Add credits, then run it again.',
     fix: {label: 'Manage API billing', url: 'https://console.anthropic.com/settings/billing'}},
   {test: (line, run) => run.billing === 'Claude subscription' || /Claude Code|usage window|your plan|resets? at/i.test(line), why: 'Your plan’s usage limit was reached.',
@@ -45,7 +52,8 @@ export function aiLimitHead(run, name = 'The run') {
   if (kind) return {problem: hit, title, summary: `${kind.why} ${what} could not complete.`, hint: typeof kind.hint === 'function' ? kind.hint(hit) : kind.hint, fix: kind.fix};
   return {problem: hit, title, summary: `The AI provider’s usage limit was reached. ${what} could not complete.`,
     hint: `Increase your limit, then run the ${name === 'Gmail check' ? 'check' : name === 'Refresh jobs' ? 'refresh' : 'task'} again.`,
-    fix: {label: 'Manage AI limit', url: run.billing === 'Claude subscription' ? 'https://claude.ai/settings/usage' : 'https://console.anthropic.com/settings/limits'}};
+    fix: {label: 'Manage AI limit', url: {'Claude subscription': 'https://claude.ai/settings/usage', 'ChatGPT plan': CODEX_USAGE, 'OpenAI API credits': OPENAI_LIMITS}[run.billing]
+      || 'https://console.anthropic.com/settings/limits'}};
 }
 // A run the app's watchdog stopped (lib/pipeline.js stoppedReason): what happened, the step it was on in plain words, and the way
 // out, with the log folded since the box says it (the owner's targeted fix #4, 6 Oct 2026: 110 log lines hid the reason).

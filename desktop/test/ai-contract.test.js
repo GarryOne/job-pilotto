@@ -12,7 +12,8 @@ import {fileURLToPath} from 'node:url';
 import {AiError, AiLimit, AiUnavailable, requestFrom} from '../lib/ai/contract.js';
 import {AnthropicApi} from '../lib/ai/anthropic-api.js';
 import {ClaudeCode} from '../lib/ai/claude-code-cli.js';
-import {Codex, OFF, SHELL} from '../lib/ai/codex-cli.js';
+import {Codex, OFF, PDF_TEXT, SHELL} from '../lib/ai/codex-cli.js';
+import {pageText} from '../lib/ai/pdf-pages.js';
 import {OpenAiApi, body} from '../lib/ai/openai-api.js';
 import * as ai from '../lib/ai/index.js';
 import {OPENAI_PRICES, model, openaiModel, priceOf} from '../lib/ai/models.js';
@@ -50,6 +51,9 @@ const codexEvents = (text, usage = {input_tokens: 120, cached_input_tokens: 20, 
   [{type: 'thread.started'}, {type: 'turn.started'}, {type: 'item.completed', item: {type: 'agent_message', text}}, {type: 'turn.completed', usage}]
     .map(event => JSON.stringify(event)).join('\n');
 
+// The app's PDF reader (ai/pdf-pages.js renders in a window): here two pages and the text.
+const readPdf = async () => ({pages: [Buffer.from('page1').toString('base64'), Buffer.from('page2').toString('base64')], text: 'Nine years at Acme'});
+
 // The four engines, each answering {"summary":"done"} the way its provider does.
 function engines() {
   const anthropicSdk = {messages: {create: async sent => ({id: 'm', type: 'message', model: sent.model, stop_reason: 'end_turn',
@@ -64,7 +68,7 @@ function engines() {
     api: {adapter: new AnthropicApi({sdk: anthropicSdk}), billing: 'api', provider: 'anthropic'},
     cli: {adapter: new ClaudeCode({binary: '/fake/claude', spawnFn: claude.spawnFn, run: claudeFlags}), billing: 'subscription', provider: 'anthropic', calls: claude.calls},
     openai: {adapter: new OpenAiApi({sdk: openaiSdk, env: {}, action: 'cv'}), billing: 'api', provider: 'openai', sent: openaiSdk.sent},
-    codex: {adapter: new Codex({binary: '/fake/codex', spawnFn: codex.spawnFn, run: codexFeatures, env: {}}), billing: 'subscription', provider: 'openai', calls: codex.calls},
+    codex: {adapter: new Codex({binary: '/fake/codex', spawnFn: codex.spawnFn, run: codexFeatures, env: {}, pdfReader: readPdf}), billing: 'subscription', provider: 'openai', calls: codex.calls},
   };
 }
 
@@ -117,37 +121,50 @@ test('OpenAI API: the Responses body, cached tokens, refusal, cut-off, and error
   await assert.rejects(failing(Object.assign(new Error('quota'), {status: 429, code: 'insufficient_quota'})), error => error instanceof AiLimit && /spend limit/.test(error.message));
   await assert.rejects(failing(Object.assign(new Error('slow down'), {status: 429})), AiUnavailable);
   await assert.rejects(failing(Object.assign(new Error('boom'), {status: 503})), AiUnavailable);
-  await assert.rejects(failing(new Error('socket hang up')), AiUnavailable);
+  await assert.rejects(failing(Object.assign(new Error('socket hang up'), {name: 'APIConnectionError'})), AiUnavailable);
+  await assert.rejects(failing(Object.assign(new Error('timed out'), {name: 'APIConnectionTimeoutError'})), AiUnavailable);
+  const bug = new TypeError('x is undefined');
+  await assert.rejects(failing(bug), error => error === bug, 'a bug is never turned into an AI error');
   await assert.rejects(failing(Object.assign(new Error('bad request'), {status: 400})), error => error instanceof AiError && !(error instanceof AiLimit));
   await assert.rejects(new OpenAiApi({env: {}}).messages.create(ask), error => error instanceof AiLimit && /OpenAI API key/.test(error.message));
 });
 
-test('Codex: its own folder, read-only, user config off, unneeded tools off, strict schema file, images by -i, PDFs read from the folder', async () => {
+test('Codex: its own folder, read-only, user config and the shell off, strict schema file, a PDF only as page pictures + its text', async () => {
   const {codex} = engines();
   await codex.adapter.messages.create(params());
   const [call] = codex.calls;
   const flag = name => call.args[call.args.indexOf(name) + 1];
+  const disabled = name => call.args.some((arg, i) => arg === name && call.args[i - 1] === '--disable');
   assert.deepEqual(call.args.slice(0, 5), ['exec', '--json', '--ephemeral', '--skip-git-repo-check', '-s']);
   assert.equal(flag('-s'), 'read-only');
   assert.equal(flag('-C'), call.cwd);
   assert.ok(call.args.includes('--ignore-user-config') && call.args.includes('--ignore-rules'));
   assert.equal(flag('-m'), 'gpt-6.1-sol');
-  assert.ok(call.args.includes('plugins') && !call.args.includes('something_new'));   // only features this Codex lists, only from OFF
+  assert.ok(disabled('plugins') && !call.args.includes('something_new'));   // only features this Codex lists, only from OFF
   assert.ok(OFF.includes('plugins'));
-  assert.ok(!call.args.some((arg, i) => arg === SHELL && call.args[i - 1] === '--disable'), 'the shell stays on to read the PDF');
+  assert.ok(disabled(SHELL), 'the shell is always off, even with a PDF');
   assert.ok(call.args.includes('web_search="disabled"'));
   assert.deepEqual(call.schema, strict(SCHEMA));
-  assert.ok(call.files.includes('document-1.pdf') && call.files.includes('image-2.png'));
-  assert.equal(flag('-i'), path.join(call.cwd, 'image-2.png'));
+  assert.ok(!call.files.some(name => name.endsWith('.pdf')), 'a PDF never reaches Codex as a file');
+  assert.deepEqual(call.files.filter(name => name.startsWith('image-')), ['image-1.png', 'image-2.png', 'image-3.png']);   // 2 pages + the PNG
+  assert.equal(call.args.filter(arg => arg === '-i').length, 3);
   assert.equal(call.args.at(-1), '-');
-  assert.match(call.prompt, /^Be brief\.\n\n---\n\nFirst read each attached PDF file in this folder: \.\/document-1\.pdf/);
+  assert.match(call.prompt, /^Be brief\.\n\n---\n\n\[attached PDF \.\/document-1\.pdf, its text:\]\nNine years at Acme/);
   assert.ok(!fs.existsSync(call.cwd), 'the call folder is removed');
-  // Text only: the shell is off too.
+  // No PDF reader (a process without windows): the call fails before Codex runs, saying why.
+  const none = fakeSpawn(() => ({stdout: codexEvents('x')}));
+  await assert.rejects(new Codex({binary: '/fake/codex', run: codexFeatures, env: {}, spawnFn: none.spawnFn, pdfReader: null}).messages.create(params()),
+    error => error instanceof AiError && error.message === PDF_TEXT);
+  assert.equal(none.calls.length, 0);
+  // Text only: the small tier.
   const text = engines().codex;
   await text.adapter.messages.create({model: 'claude-haiku-5-5', messages: [{role: 'user', content: 'hi'}]});
-  const [plain] = text.calls;
-  assert.ok(plain.args.some((arg, i) => arg === SHELL && plain.args[i - 1] === '--disable'));
-  assert.equal(plain.args[plain.args.indexOf('-m') + 1], 'gpt-6-luna');
+  assert.equal(text.calls[0].args[text.calls[0].args.indexOf('-m') + 1], 'gpt-6-luna');
+});
+
+test('a PDF page\'s text in reading order: lines by position, words of one line joined', () => {
+  assert.equal(pageText([{str: 'Acme', x: 200, y: 50, h: 10}, {str: 'Sam', x: 10, y: 10, h: 12}, {str: '2016-2025', x: 10, y: 51, h: 10}, {str: ' ', x: 0, y: 90, h: 1}]),
+    'Sam\n2016-2025 Acme');
 });
 
 test('the CLI engines: signed out and plan limit are AiLimit; a bad structured answer is repaired once; codex env drops the keys', async () => {
@@ -247,4 +264,36 @@ test('Always on: the OpenAI family runs on GitHub as the OpenAI API engine with 
   const claude = payload({aiEngine: 'cli'}, {ANTHROPIC_API_KEY: 'sk-a'});
   assert.ok(!('JOB_PILOTTO_AI_ENGINE' in claude.variables));
   assert.ok(claude.removed.includes('JOB_PILOTTO_AI_ENGINE'));
+});
+
+test('Codex Verify is as locked down as a call: same folder rules, tools and shell off, no web search; the result is kept', async () => {
+  const {verifyCodex} = await import('../lib/ai/codex-cli.js');
+  const spawned = fakeSpawn(() => ({stdout: codexEvents('OK')}));
+  let saved = null;
+  const result = await verifyCodex({saveSettings: part => { saved = part; }}, {binary: () => '/fake/codex-verify', run: codexFeatures, spawnFn: spawned.spawnFn, now: () => new Date(0)});
+  const [call] = spawned.calls;
+  const disabled = name => call.args.some((arg, i) => arg === name && call.args[i - 1] === '--disable');
+  assert.ok(disabled(SHELL) && disabled('plugins'));
+  assert.ok(call.args.includes('--ignore-user-config') && call.args.includes('--ignore-rules') && call.args.includes('web_search="disabled"'));
+  assert.equal(call.args[call.args.indexOf('-s') + 1], 'read-only');
+  assert.deepEqual([result.installed, result.authenticated, saved.codex.checkedAt], [true, true, new Date(0).toISOString()]);
+  const signedOut = fakeSpawn(() => ({stdout: JSON.stringify({type: 'error', message: 'Not logged in'}), code: 1}));
+  const out = await verifyCodex({saveSettings: () => {}}, {binary: () => '/fake/codex-verify', run: codexFeatures, spawnFn: signedOut.spawnFn});
+  assert.deepEqual([out.installed, out.authenticated], [true, false]);
+  assert.match(out.error, /codex login/);
+});
+
+test('an OpenAI-family limit reads as OpenAI\'s and links OpenAI\'s page, never Anthropic\'s console', async () => {
+  const {aiLimitHead} = await import('../renderer/run-status.js');
+  const {billingLabel} = await import('../renderer/ai-engine-view.js');
+  const codex = aiLimitHead({ok: false, kind: 'search', billing: 'ChatGPT plan',
+    log: ['Codex: your ChatGPT plan\'s usage limit is reached, so this AI step is paused; try again later, when the limit resets.']}, 'Jobs check');
+  assert.equal(codex.fix.url, 'https://chatgpt.com/codex/settings/usage');
+  assert.match(codex.summary, /ChatGPT plan/);
+  const credit = aiLimitHead({ok: false, kind: 'search', billing: 'OpenAI API credits',
+    log: ['OpenAI: your API account has no credit left or reached its spend limit (platform.openai.com → Billing), so this AI step is paused.']}, 'Jobs check');
+  assert.equal(credit.fix.url, 'https://platform.openai.com/settings/organization/limits');
+  const anthropic = aiLimitHead({ok: false, kind: 'search', log: ['Your credit balance is too low to access the Anthropic API.']}, 'Jobs check');
+  assert.match(anthropic.fix.url, /console\.anthropic\.com/);
+  assert.equal(billingLabel({billing: 'ChatGPT plan'}), 'Codex · your plan');
 });

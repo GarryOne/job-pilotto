@@ -76,6 +76,7 @@ export class Adapter {
   static billing = API;
   static label = '';       // how a call is paid for, in words
   static fallbackLabel = '';
+  static readsPdf = true;  // takes a PDF attachment as it is (Codex: no, see codex-cli.js)
 
   constructor({fallback = null, log = text => console.warn(text)} = {}) {
     this.fallback = fallback;

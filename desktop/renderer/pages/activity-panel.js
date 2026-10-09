@@ -82,7 +82,7 @@ export async function buildDraft() {
   $('draft-save').disabled = true;
   if (!aiReady()) {
     showDraftIntro();
-    $('draft-error').textContent = 'Building your strategy needs AI (step 1: Claude Code or an API key). Go back and add it, or skip to use the example settings.';
+    $('draft-error').textContent = 'Building your strategy needs AI (step 1: Claude Code, Codex or an API key). Go back and add it, or skip to use the example settings.';
     show($('draft-error'));
     return;
   }

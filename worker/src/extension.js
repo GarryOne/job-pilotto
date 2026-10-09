@@ -197,8 +197,9 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   const result = JSON.parse(text);
   const usage = response.usage || {};
   // Answered on the user's Claude plan (Claude Code): no per-token cost.
-  const usd = usage.billing === 'subscription' ? 0 : ((usage.input_tokens || 0) * priceOf(usage, PRICE).input + (usage.output_tokens || 0) * priceOf(usage, PRICE).output
-    + (usage.cache_read_input_tokens || 0) * PRICE.cacheRead + (usage.cache_creation_input_tokens || 0) * PRICE.cacheWrite) / 1e6;
+  const price = priceOf(usage, PRICE);   // an OpenAI call (the app's client) at its own model's price
+  const usd = usage.billing === 'subscription' ? 0 : ((usage.input_tokens || 0) * price.input + (usage.output_tokens || 0) * price.output
+    + (usage.cache_read_input_tokens || 0) * (price.cacheRead ?? price.cachedInput ?? 0) + (usage.cache_creation_input_tokens || 0) * (price.cacheWrite ?? 0)) / 1e6;
   const known = new Set(fields.map((f) => f.field));
   // A proposal is never for a legal or demographic question, whatever the AI said (a hard floor beside its own rule). A knockout question
   // (residence, hours, availability) gets its most plausible answer, shown as "check it" and never typed: the owner confirms each (9 Oct 2026). Proposals are shown in the app, never typed (extension/flow.js).

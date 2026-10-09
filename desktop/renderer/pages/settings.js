@@ -64,7 +64,7 @@ async function openProfile() {
 // Always on's card opens its setup on the Automation page).
 const SERVICES = [
   {id: 'ai', name: 'AI (Claude)', icon: 'bot', what: 'Your Claude Code or an Anthropic API key', required: true,
-    why: 'Reading jobs, fit scores and application kits need AI: choose Claude Code or an API key.'},
+    why: 'Reading jobs, fit scores and application kits need AI: choose Claude Code, Codex or an API key.'},
   {id: 'notion', name: 'Notion', icon: 'layers', what: 'Job search workspace', required: false,
     why: 'Where your applications, kits and interviews are kept. Needed for Always on, Telegram and Gmail.'},
   {id: 'google', name: 'Gmail & Calendar', icon: 'mail', what: 'Read-only access', required: true,

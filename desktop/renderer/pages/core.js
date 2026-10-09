@@ -25,8 +25,12 @@ export function runWhen(iso) {
 
 // ---------- helpers ----------
 export function show(element, visible = true) { element.hidden = !visible; }
-// AI steps can run: the user chose their own Claude Code, or saved an API key (lib/claude-code.js aiReady).
-export const aiReady = () => shared.state?.settings?.aiEngine === 'cli' || !!shared.state?.secrets?.ANTHROPIC_API_KEY;
+// AI steps can run: the user chose their own Claude Code or Codex, or saved the chosen API engine's key (the same rule as lib/ai/index.js ready).
+export const aiReady = () => {
+  const engine = shared.state?.settings?.aiEngine, secrets = shared.state?.secrets || {};
+  if (engine === 'cli' || engine === 'codex') return true;
+  return engine === 'openai' ? !!secrets.OPENAI_API_KEY : !!secrets.ANTHROPIC_API_KEY;
+};
 export function message(id, text, tone = '') { const el = $(id); el.textContent = text || ''; el.className = `message ${tone}`; }
 // Regex fragments from the draft ("z[uü]rich", "\\bsre\\b") shown as plain words.
 export const readable = fragment => fragment.replace(/\\b/g, '').replace(/\[([^\]])[^\]]*\]/g, '$1').replace(/[.?*+()]/g, '').trim();
