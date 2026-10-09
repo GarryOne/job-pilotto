@@ -2,8 +2,11 @@
 // (phone, street, postal code, town, date of birth, place of origin, salutation…). Nothing is saved here: the proposals fill the
 // empty boxes of Settings → Profile → Your details, marked "from your CV", and Save there is the confirmation (owner, 8 Oct 2026:
 // a Coop form stopped on 9 questions whose answers were half in the CV). A field you filled is never proposed over.
+// The Profile's text goes beside the CV (9 Oct 2026: Coop's "Localité" stayed empty with no proposal; the town was in the Profile, not the CV):
+// a value only the Profile states is marked source "profile" and always "check it". Asked again when the CV or the Profile changes.
 // Guarded by test/contact-from-cv.test.js.
 import {nameOfClient} from './ai/names.js';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import {LABELS} from './contact.js';
 import {inFlight} from './in-flight.js';
@@ -13,16 +16,16 @@ export const FILE = 'cv/contact-proposals.json';
 const NEVER = new Set(['full_name']);   // made from first + last name on Save
 export const FIELDS = Object.keys(LABELS).filter(key => !NEVER.has(key));
 
-const INSTRUCTIONS = `You read a CV and copy the applicant's own contact details out of it, to prefill a form they will check.
-Return one proposal per requested field that the CV states. Copy values as written (phone with its country code if the CV has one).
+const INSTRUCTIONS = `You read a CV, and the applicant's own profile text when given in <profile>, and copy the applicant's own contact details out of them,
+to prefill a form they will check. Return one proposal per requested field that the CV or the profile states; source says which one stated it. Copy values as written (phone with its country code if the CV has one).
 location is the town or city they live in; street is street and number only; postal_code is the postal code only.
 salutation is how forms address them (e.g. "Mr", "Ms", or the CV's own language: "Monsieur", "Madame", "Herr", "Frau"): propose it only when the CV
 shows it (a title, a gendered word such as "né"/"née" or "geboren als"), with sure=false. Never invent a value, never guess from a name alone.
-Leave out a field the CV does not give. sure=true only when the CV states the value plainly.`;
+Leave out a field neither gives. sure=true only when the CV states the value plainly.`;
 
 const SCHEMA = {type: 'object', additionalProperties: false, required: ['proposals'], properties: {proposals: {type: 'array', items: {
-  type: 'object', additionalProperties: false, required: ['field', 'value', 'sure'],
-  properties: {field: {type: 'string', enum: FIELDS}, value: {type: 'string'}, sure: {type: 'boolean'}}}}}};
+  type: 'object', additionalProperties: false, required: ['field', 'value', 'sure', 'source'],
+  properties: {field: {type: 'string', enum: FIELDS}, value: {type: 'string'}, sure: {type: 'boolean'}, source: {type: 'string', enum: ['cv', 'profile']}}}}}};
 
 // The fields worth asking about: known, and empty in what you saved.
 export const emptyFields = (contact = {}) => FIELDS.filter(key => !String(contact?.[key] || '').trim());
@@ -34,7 +37,8 @@ export function cleanProposals(raw, wanted) {
     const field = String(item?.field || ''), value = String(item?.value || '').trim().slice(0, 200);
     if (!allowed.has(field) || !value || seen.has(field)) return [];
     seen.add(field);
-    return [{field, value, sure: field === 'salutation' ? false : item?.sure === true}];
+    const profile = item?.source === 'profile';   // only the Profile states it: a suggestion to check, never "From your CV"
+    return [{field, value, sure: field === 'salutation' || profile ? false : item?.sure === true, ...(profile ? {source: 'profile'} : {})}];
   });
 }
 
@@ -46,12 +50,13 @@ export function pending(saved, cvHash, contact) {
 }
 
 // One Claude call on the CV PDF. → {proposals, usd?} ; throws on an AI failure (the caller says why).
-export async function propose(client, cvPdf, wanted) {
+export async function propose(client, cvPdf, wanted, profile = '') {
   if (!wanted.length) return {proposals: []};
   const response = await client.messages.create({
     model: MODEL, max_tokens: 8000, system: INSTRUCTIONS,   // room for thinking (an answer cut short is not JSON)
     messages: [{role: 'user', content: [
       {type: 'document', source: {type: 'base64', media_type: 'application/pdf', data: Buffer.from(cvPdf).toString('base64')}},
+      ...(String(profile || '').trim() ? [{type: 'text', text: `<profile>\n${String(profile).slice(0, 20000)}\n</profile>`}] : []),
       {type: 'text', text: `Fields to fill: ${wanted.map(key => `${key} (${LABELS[key]})`).join(', ')}`}]}],
     output_config: {format: {type: 'json_schema', schema: SCHEMA}},
   });
@@ -67,7 +72,11 @@ const once = inFlight();
 export function forCv(storage, options = {}) {   // the same CV asked twice at once (the session page and Profile at start): one call
   return options.again || !options.cvHash ? forCvNow(storage, options) : once(options.cvHash, () => forCvNow(storage, options));
 }
-async function forCvNow(storage, {contact, client, cvHash, again = false, log = () => {}, read = fs.readFileSync} = {}) {
+// What the proposals were made from: the CV file, and the Profile's text when there is one (a change to either asks again).
+export const sourceKey = (cvHash, profile = '') => (cvHash && String(profile || '').trim()
+  ? `${cvHash}+${crypto.createHash('sha256').update(String(profile)).digest('hex').slice(0, 12)}` : cvHash || '');
+async function forCvNow(storage, {contact, client, cvHash: cvFile, profile = '', again = false, log = () => {}, read = fs.readFileSync} = {}) {
+  const cvHash = sourceKey(cvFile, profile);
   let saved = null;
   try { saved = JSON.parse(storage.readText(FILE) || 'null'); } catch {}
   if (!cvHash) return {proposals: [], cv: ''};
@@ -75,10 +84,10 @@ async function forCvNow(storage, {contact, client, cvHash, again = false, log = 
   if (!client) return {proposals: [], cv: cvHash, fresh: false, error: 'no AI'};
   const wanted = emptyFields(contact), started = Date.now();
   let proposals = [], error = '';
-  try { ({proposals} = await propose(client, read(storage.path('cv.pdf')), wanted)); } catch (failure) { error = String(failure?.message || failure).slice(0, 200); }
+  try { ({proposals} = await propose(client, read(storage.path('cv.pdf')), wanted, profile)); } catch (failure) { error = String(failure?.message || failure).slice(0, 200); }
   storage.writeText(FILE, JSON.stringify({cv: cvHash, at: new Date().toISOString(), proposals, ...(error ? {error} : {})}));
   // Which fields, never their values (lib/log.js): enough to tell "nothing in the CV" from "Claude failed".
   log('profile', error ? `details from the CV: failed: ${error}` : `details from the CV: ${proposals.length} of ${wanted.length} proposed`,
-    {cv: cvHash, asked: wanted, proposed: proposals.map(item => item.field), ms: Date.now() - started});
+    {cv: cvHash, asked: wanted, proposed: proposals.map(item => item.field), fromProfile: proposals.filter(item => item.source === 'profile').map(item => item.field), ms: Date.now() - started});
   return {proposals: pending({cv: cvHash, proposals}, cvHash, contact), cv: cvHash, fresh: true, error};
 }

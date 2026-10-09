@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
-import {FIELDS, cleanProposals, emptyFields, forCv, pending} from '../lib/contact-from-cv.js';
+import {FIELDS, cleanProposals, emptyFields, forCv, pending, sourceKey} from '../lib/contact-from-cv.js';
 
 const memoryStorage = () => { const files = {}; return {files, readText: name => files[name] ?? null, writeText: (name, text) => { files[name] = text; }, path: name => `/x/${name}`}; };
 const fakeClient = (answer, calls = []) => ({messages: {create: async request => { calls.push(request); return {stop_reason: 'end_turn', content: [{type: 'text', text: JSON.stringify(answer)}]}; }}});
@@ -61,4 +61,21 @@ test('the window shows proposals in the Your details boxes and Save is the only 
   assert.match(profile, /loadProposals\(\);/);
   assert.match(html, /id="contact-from-cv"/);
   assert.match(html, /data-contact="salutation"/);
+});
+
+// 9 Oct 2026, the twin: Coop's "Localité" stayed empty with no proposal; the town was in the Profile, not in the CV or Your details.
+test('the Profile goes beside the CV: a detail only it states is proposed to check, and a changed Profile is read again', async () => {
+  const storage = memoryStorage(), calls = [], logged = [];
+  const client = fakeClient({proposals: [{field: 'location', value: 'Nyon', sure: true, source: 'profile'}, {field: 'phone', value: '+41 79 1', sure: true, source: 'cv'}]}, calls);
+  const first = await forCv(storage, {contact: coop, client, cvHash: 'cv1', profile: 'Lives in Nyon, VD.', log: (...line) => logged.push(line), read: pdf});
+  assert.deepEqual(first.proposals, [{field: 'location', value: 'Nyon', sure: false, source: 'profile'}, {field: 'phone', value: '+41 79 1', sure: true}]);
+  assert.match(calls[0].messages[0].content[1].text, /^<profile>\nLives in Nyon/);
+  assert.deepEqual(logged[0][2].fromProfile, ['location']);
+  await forCv(storage, {contact: coop, client, cvHash: 'cv1', profile: 'Lives in Nyon, VD.', read: pdf});
+  assert.equal(calls.length, 1);                                               // the same CV and Profile: kept
+  await forCv(storage, {contact: coop, client, cvHash: 'cv1', profile: 'Moved to Gland.', read: pdf});
+  assert.equal(calls.length, 2);                                               // the Profile changed: asked again
+  await forCv(memoryStorage(), {contact: coop, client, cvHash: 'cv1', read: pdf});
+  assert.equal(calls[2].messages[0].content.length, 2);                        // no Profile: the CV and the fields only, as before
+  assert.equal(sourceKey('cv1', ''), 'cv1');
 });

@@ -20,6 +20,9 @@ test('the proposed answer: what the fill proposed, else your detail, else the CV
   assert.deepEqual(pickProposal({proposals, label: 'Numéro de téléphone'}), {value: '', key: 'phone', from: 'Your phone: type it once, every form gets it'});
   // A label only Claude could read (lib/contact-keys.js): its key comes from there.
   assert.equal(pickProposal({label: 'Rue et numéro', key: 'street', cv: [{field: 'street', value: 'Rue du Lac 1', sure: true}]}).value, 'Rue du Lac 1');
+  // A town only the Profile states (9 Oct 2026: Coop's "Localité" had an empty box): proposed from there, always to check.
+  assert.deepEqual(pickProposal({label: 'Localité', key: 'location', cv: [{field: 'location', value: 'Nyon', sure: false, source: 'profile'}]}),
+    {value: 'Nyon', key: 'location', from: 'From your profile: check it'});
   assert.equal(pickProposal({label: 'Employment subscription'}), null);
 });
 
