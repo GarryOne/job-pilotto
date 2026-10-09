@@ -1,0 +1,65 @@
+"""The stage rules above the store interface (src/stores/rules.py), on every local store: the same rule everywhere."""
+import os
+import tempfile
+import unittest
+from unittest import mock
+
+from src.stores import base, memory, rules, sqlite
+
+JOB = {'url': 'https://jobs.example.com/sre-1', 'title': 'Senior SRE', 'company': 'Acme'}
+
+
+class RulesCase:
+    def make(self):
+        raise NotImplementedError
+
+    def setUp(self):
+        self.s = self.make()
+
+    def test_a_soft_stage_never_overwrites_a_real_one(self):
+        row, outcome = rules.mark(self.s, JOB, 'Saved')
+        self.assertEqual((outcome, row['stage']), (base.CREATED, 'Saved'))
+        self.assertEqual(rules.mark(self.s, JOB, 'Applied', today='2026-10-09')[1], rules.UPDATED)
+        for soft in ('Saved', 'Dismissed', 'Kit ready'):
+            self.assertEqual(rules.mark(self.s, JOB, soft)[1], base.UNCHANGED, soft)
+        self.assertEqual(self.s.applications.get(JOB['url'])['applied_on'], '2026-10-09')
+
+    def test_kit_ready_lands_only_on_a_new_row_and_a_star_can_still_be_dismissed(self):
+        rules.mark(self.s, JOB, 'Saved')
+        self.assertEqual(rules.mark(self.s, JOB, 'Kit ready')[1], base.UNCHANGED)
+        self.assertEqual(rules.mark(self.s, JOB, 'Dismissed')[1], rules.UPDATED)
+
+    def test_a_new_row_says_where_it_came_from(self):
+        with mock.patch.dict(os.environ, {'JOB_PILOTTO_SOURCE': 'Desktop App'}):
+            row, _ = rules.mark(self.s, JOB, 'Kit ready')
+        self.assertEqual((row['source'], row['origin'], row['company']), ('Desktop App', 'Outbound', 'Acme'))
+
+    def test_applying_goes_back_to_kit_ready_only_from_applying(self):
+        self.assertEqual(rules.revert_applying(self.s, JOB['url']), base.UNCHANGED)
+        rules.mark(self.s, JOB, 'Applying')
+        self.assertEqual(rules.revert_applying(self.s, JOB['url']), rules.UPDATED)
+        self.assertEqual(self.s.applications.get(JOB['url'])['stage'], 'Kit ready')
+
+    def test_a_wrong_applied_goes_back_but_the_employers_stages_stay(self):
+        rules.mark(self.s, JOB, 'Applied', today='2026-10-09')
+        outcome, row = rules.revert_unsubmitted(self.s, JOB['url'])
+        self.assertEqual((outcome, row['stage'], row['applied_on']), (rules.UPDATED, 'Applying', ''))
+        self.s.applications.set_stage(JOB, 'Interviewing')
+        self.assertEqual(rules.revert_unsubmitted(self.s, JOB['url'])[0], rules.PAST)
+        self.assertEqual(rules.revert_unsubmitted(self.s, 'https://jobs.example.com/none'), (base.UNCHANGED, None))
+
+
+class MemoryRulesTests(RulesCase, unittest.TestCase):
+    def make(self):
+        return memory.open_store()
+
+
+class SqliteRulesTests(RulesCase, unittest.TestCase):
+    def make(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        return sqlite.open_store({'JOB_PILOTTO_DATA_DIR': folder.name})
+
+
+if __name__ == '__main__':
+    unittest.main()
