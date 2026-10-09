@@ -83,6 +83,11 @@ async function main() {
   fs.mkdirSync(path.join(profile, 'Default'), {recursive: true});
   carry(path.join(LIVE, 'browser'), profile);
   const browser = await launchBrowser({port, spool: shim.spool, extensionDir, real: true, profile, debugPort: browserCdp});   // kept: site sign-ins survive
+  // A page's own alert/confirm/"leave this page?" dialog: Playwright answers it for us, and when the page has moved on by then its answer fails with
+  // "session closed" as an UNHANDLED error that ended this launcher and, with it, the twin app (9 Oct 2026, Migros, a click on the panel's Fill again).
+  // The dialog is dismissed here, a failure is ignored, and nothing a stray rejection raises stops the twin.
+  browser.context.on('dialog', dialog => { dialog.dismiss().catch(() => {}); });
+  process.on('unhandledRejection', error => say(`ignored (the twin stays up): ${String(error?.message || error).split('\n')[0].slice(0, 160)}`));
   fs.writeFileSync(path.join(LIVE, 'twin.json'), JSON.stringify({cdp: `http://127.0.0.1:${cdp}`, browser: `http://127.0.0.1:${browserCdp}`, port, app: app.pid, home: HOME, at: new Date().toISOString()}, null, 1));
   say(`running: app on port ${port}, window driver at http://127.0.0.1:${cdp} (${path.join(LIVE, 'twin.json')}); its browser is the separate Chromium window. Ctrl-C stops both.`);
   // Stopping always stops the app first (8 Oct 2026: a stop that awaited the browser first left the twin's app running on its ports),

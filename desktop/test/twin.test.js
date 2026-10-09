@@ -93,3 +93,9 @@ test('the twin keeps what it learned across starts: the job-site passwords it ma
   assert.match(source, /path\.join\(LIVE, 'site-accounts\.json'\)/);
   assert.match(source, /settings\.siteAccounts = \{\.\.\.\(settings\.siteAccounts \|\| \{\}\), \.\.\./);   // added to the real ones, never replacing them
 });
+
+test('a page\'s own dialog or a stray rejection never takes the twin down (9 Oct 2026: Playwright\'s answer to a dialog failed and ended the launcher and the app)', () => {
+  const source = fs.readFileSync(new URL('../e2e/twin.mjs', import.meta.url), 'utf8');
+  assert.match(source, /browser\.context\.on\('dialog'/);
+  assert.match(source, /process\.on\('unhandledRejection'/);
+});
