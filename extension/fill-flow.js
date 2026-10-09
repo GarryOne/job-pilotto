@@ -165,7 +165,7 @@ async function pressApply(tabId, phrases = []) {
       .filter(text => text && text.length <= 40))].slice(0, 25);
     return {pressed: null, via: '', buttons: seen};
   }
-  const done = await chrome.scripting.executeScript({target: {tabId}, func: (selector, index) => {
+  const done = await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: (selector, index) => {   // MAIN: the page's own window.open, below
     const el = document.querySelectorAll(selector)[index];
     if (!el) return false;
     el.scrollIntoView({block: 'center'});
@@ -178,6 +178,22 @@ async function pressApply(tabId, phrases = []) {
     if (el.getAttribute('formtarget') && el.getAttribute('formtarget').toLowerCase() !== '_self') { el.setAttribute('formtarget', '_self'); same = 'form'; }
     if (form?.target && form.target.toLowerCase() !== '_self') { form.target = '_self'; same = 'form'; }
     const aimed = (link?.getAttribute('target') || el.getAttribute('formtarget') || form?.getAttribute('target') || '').slice(0, 20);
+    // A new tab the page opens from its own script (window.open, no window features): Chrome's pop-up blocker refuses it, because this
+    // click is not the person's own (jobs.ch, 9 Oct 2026: Apply pressed, no tab, "no form"). For this press it opens in this tab instead,
+    // like a link pointed here. A sized pop-up (a sign-in window: features given) is left to the page. Restored a few seconds later.
+    const open = window.open;
+    const here = address => { try { location.assign(new URL(String(address), location.href).href); } catch { /* not an address */ } };
+    window.open = function (url, name, features) {
+      if (features) return open.apply(this, arguments);
+      same = 'script';
+      const address = String(url ?? '');
+      if (address && address !== 'about:blank') { setTimeout(() => here(address), 0); return window; }
+      // Opened empty, its address set afterwards (w = window.open(); w.location = url): that address comes here too.
+      const later = {closed: false, focus() {}, close() {}, opener: window, document};
+      Object.defineProperty(later, 'location', {get: () => ({assign: here, replace: here, set href(value) { here(value); }}), set: here});
+      return later;
+    };
+    setTimeout(() => { if (window.open !== open) window.open = open; }, 5000);
     el.click();
     return {same, tag: el.tagName.toLowerCase(), aimed};
   }, args: [PAGE_BUTTONS, pick.index]}).then(rows => rows?.[0]?.result || null).catch(error => ({error: String(error?.message || error).slice(0, 120)}));
