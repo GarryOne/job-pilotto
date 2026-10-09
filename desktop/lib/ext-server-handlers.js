@@ -21,6 +21,8 @@ import {flowState, leftCounts, missedQuestions, submitCounts, unplaced} from './
 import {log as appLog} from './log.js';
 import {confirmAccount} from './account-confirm.js';
 import {automationOf, modeOf, record} from './site-accounts.js';
+import {resultOf} from './application-result.js';
+import {isolated} from './keychain.js';
 
 export function registerExtServerHandlers(ctx) {
   const {DEMO, app, createWindow, cvOf, flow, notify, readSites, scoreVisitJobs, sessionNeedsYou, storage, getTelemetry, toWindow, getWindow, setRecipeReporter} = ctx;
@@ -70,6 +72,18 @@ export function registerExtServerHandlers(ctx) {
   });
   const recipeReporter = recipeLibrary.createReporter(storage, {onSent: (what, sent) => sharedLog.add(storage, what, sent)});
   setRecipeReporter(recipeReporter);   // main.js keeps it: the other handler groups reach it through a getter
+  // How an application ended (submitted clean / assisted / by Claude, or failed and where): one fixed word per finished application, by board. Never from a test run or a twin.
+  terminals.onOutcome(session => {
+    if (isolated()) return;
+    const state = review.allStates().find(item => item.id === session.id);
+    const result = resultOf(session, state);
+    if (!result) return;
+    let host = '';
+    for (const address of [state?.url, session.accountHost ? `https://${session.accountHost}/` : '', session.url]) { try { host = new URL(address).hostname; break; } catch { /* the next one */ } }
+    const board = controlEvents.boardName(host);
+    recipeReporter.flow(board, result);
+    appLog('sessions', `application ended: ${result}`, {board, id: session.id});
+  });
   server.setProposalReporter(items => recipeReporter.proposal(items));
   // After a search: how much of the market the role keywords caught (data/coverage.json, src/coverage.py), as anonymous counts, once per crawl.
   pipeline.onRunEnd(({args, code}) => {

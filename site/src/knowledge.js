@@ -7,7 +7,8 @@ import {isOwner} from './stats.js';
 
 export {cleanLabel};
 export const LEFT_REASONS = ['no_answer', 'not_taken', 'real_click', 'no_option', 'unread', 'by_you', 'by_you_unread', 'page_error', 'other'];   // desktop/lib/question-labels.js
-export const FLOW_STATES = ['filled', 'fill-error', 'account', 'no-form', 'no-form-after-apply'];
+import {RESULT_STATES} from '../../desktop/lib/application-result.js';
+export const FLOW_STATES = ['filled', 'fill-error', 'account', 'no-form', 'no-form-after-apply', ...RESULT_STATES];   // the last ones: how an application ended (desktop/lib/application-result.js)
 export const OUTCOMES = ['reply', 'screening', 'offer', 'rejected', 'no_response'], DAY_BUCKETS = ['', '0-3', '4-7', '8-14', '15-30', '31+'];
 export const MIN_INSTALLS = 3, KEEP_SINGLE_DAYS = 14, KEEP_FLOW_DAYS = 180;
 const BOARD = /^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/;

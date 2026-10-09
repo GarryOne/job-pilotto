@@ -7,6 +7,7 @@
 import {validateAlias} from '../shared/alias-schema.js';
 import {validateRecipe} from '../shared/recipe-schema.js';
 import {installId} from './app-feedback.js';
+import {RESULT_STATES} from './application-result.js';
 import {log} from './log.js';
 import {LEFT_REASONS, cleanLabel} from './question-labels.js';
 
@@ -20,7 +21,7 @@ export const DISMISS_REASONS = ['seniority', 'location', 'tech', 'company', 'rol
 export const SCORE_BANDS = ['0-39', '40-59', '60-79', '80-100', 'unscored'];
 const JOB_STATES = ['new', 'saved', 'dismissed', 'applying', 'applied', 'screening', 'interviewing', 'offer', 'rejected', 'no_response', 'withdrawn'];
 const OUTCOME_IDS = ['reply', 'screening', 'offer', 'rejected', 'no_response'];
-export const FLOW_STATES = ['filled', 'fill-error', 'account', 'no-form', 'no-form-after-apply'];
+export const FLOW_STATES = ['filled', 'fill-error', 'account', 'no-form', 'no-form-after-apply', ...RESULT_STATES];   // the last ones: how an application ended (application-result.js)
 
 const enabled = storage => storage.settings().telemetry !== false;
 const readCache = storage => { try { return JSON.parse(storage.readText(CACHE) || '{}'); } catch { return {}; } };

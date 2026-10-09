@@ -65,6 +65,8 @@ function mark(session, status = session.status, now = new Date().toISOString()) 
   if (session.kind !== 'form') statusListener(publicView(session), session);  // a form session has no Claude run to report on
 }
 // What you decided at the end: 'submitted' or 'not submitted' (the "Did you submit?" question, or Jobs → ⋯).
+let outcomeListener = () => {};
+export function onOutcome(fn) { outcomeListener = fn; }   // told when you decide how an application ended (the statistics: lib/application-result.js)
 export function setOutcome(id, outcome) {
   const session = sessions.get(id);
   if (!session) return;
@@ -72,6 +74,7 @@ export function setOutcome(id, outcome) {
   session.decidedAt = new Date().toISOString();
   mark(session, `decided: ${outcome}`, session.decidedAt);
   saveNow();
+  if (outcome) { try { outcomeListener({id: session.id, kind: session.kind, url: session.url, outcome, stuck: session.stuck || '', accountHost: session.accountHost || ''}); } catch { /* the statistics never break a decision */ } }
 }
 export const record = id => sessions.get(id) || null;  // the full record (timeline, transcript path), for statistics
 let loadPty = () => import('@lydell/node-pty').then(module => module.default || module);

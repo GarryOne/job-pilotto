@@ -8,6 +8,7 @@
 // Counts and the forms' own public wording only. Owner-only, like /self-heal.
 import {viewer} from './auth.js';   // admins (invited) read this page too
 import {digest, markdown} from './digest.js';
+import {RESULT_STATES} from '../../desktop/lib/application-result.js';
 import {isOwner, esc, remember} from './stats.js';
 
 export const WEEK = 7;
@@ -29,6 +30,24 @@ const back = (now, days) => day(new Date(now.getTime() - days * 86400000));
 
 // {lab: [{board, reading: {now, before}, operating: {now, before}}], use: {fills, required, reasons: [...]}, recipes, unread, totals}
 // Each rate is {ok, n, rate}; "now" is the last 7 days, "before" the 7 days before.
+// How applications ended (the app's flow words from desktop/lib/application-result.js): this week and last, per board. Counts only.
+export function resultsFrom(rows, thisWeek, lastWeek) {
+  const blank = () => Object.fromEntries(RESULT_STATES.map(state => [state, 0]));
+  const sums = {now: blank(), before: blank()}, boards = new Map();
+  for (const row of rows) {
+    const when = row.day >= thisWeek ? 'now' : row.day >= lastWeek ? 'before' : null;
+    if (!when || !RESULT_STATES.includes(row.state)) continue;
+    sums[when][row.state] += Number(row.n) || 0;
+    if (when === 'now') { const cell = boards.get(row.board) || blank(); cell[row.state] += Number(row.n) || 0; boards.set(row.board, cell); }
+  }
+  const summary = counts => {
+    const submitted = counts['submitted-clean'] + counts['submitted-assisted'] + counts['submitted-claude'], failed = counts['failed-no-form'] + counts['failed-account'] + counts['failed-abandoned'];
+    return {...counts, submitted, failed, finished: submitted + failed, successRate: submitted + failed ? submitted / (submitted + failed) : null,
+      cleanShare: submitted ? counts['submitted-clean'] / submitted : null, assistedShare: submitted ? counts['submitted-assisted'] / submitted : null};
+  };
+  return {now: summary(sums.now), before: summary(sums.before), boards: [...boards].map(([board, counts]) => ({board, ...summary(counts)})).sort((a, b) => b.finished - a.finished).slice(0, 12)};
+}
+
 export async function report(db, now = new Date()) {
   const thisWeek = back(now, WEEK - 1), lastWeek = back(now, 2 * WEEK - 1);
   const period = d => (d >= thisWeek ? 'now' : d >= lastWeek ? 'before' : null);
@@ -73,8 +92,9 @@ export async function report(db, now = new Date()) {
     FROM lab_runs r WHERE r.kind = ? AND r.ok = 0 AND r.day >= ? GROUP BY r.fingerprint, r.site ORDER BY n DESC, last DESC LIMIT 15`)
     .bind(READING_KIND, thisWeek).all()).results || []).map(row => ({...row}));
 
+  const results = resultsFrom((await db.prepare('SELECT day, board, state, SUM(n) AS n FROM flow_outcomes WHERE day >= ? GROUP BY day, board, state').bind(lastWeek).all().catch(() => ({results: []}))).results || [], thisWeek, lastWeek);
   const learning = await digest(db, now).catch(() => null);
-  return {learning, lab: [...boards.values()].sort((a, b) => (b.reading.now.n + b.operating.now.n) - (a.reading.now.n + a.operating.now.n)),
+  return {results, learning, lab: [...boards.values()].sort((a, b) => (b.reading.now.n + b.operating.now.n) - (a.reading.now.n + a.operating.now.n)),
     totals, use: {...use, unitNow: per('now').unit, reasons}, recipes, unread, from: lastWeek, to: day(now)};
 }
 
@@ -103,6 +123,21 @@ ${days.map(x => `<tr><td>${esc(x.day)}</td><td class="n">${x.forms}</td><td clas
 <ol>${d.weaknesses.slice(0, 5).map(w => `<li><b>${esc(w.title)}</b> <span class="muted">· impact ${w.impact} · ${esc(w.area.split(':')[0])}</span></li>`).join('') || '<li class="muted">Nothing ranked yet.</li>'}</ol></section>`;
 }
 
+const WORDS = {'submitted-clean': ['✅ Submitted, nothing changed by you', 'the extension filled every required field'], 'submitted-assisted': ['✍️ Submitted, you fixed fields', 'you answered or corrected at least one field'],
+  'submitted-claude': ['🤖 Submitted with Claude', 'finished through Apply with Claude'], 'failed-no-form': ['🚫 Failed: no form reached', 'the extension could not get to the form'],
+  'failed-account': ['🔐 Failed at sign-in or sign-up', 'a bot check, a code, something only the person could give'], 'failed-abandoned': ['💤 Not submitted', 'the tab closed, the session ended, or the person chose not to']};
+function resultsSection(results) {
+  if (!results) return '';
+  const {now, before} = results, none = !now.finished && !before.finished;
+  const row = state => `<tr><td>${WORDS[state][0]}<br><small class="muted">${WORDS[state][1]}</small></td><td class="n">${now[state]}</td><td class="n muted">${before[state]}</td></tr>`;
+  return `<section class="card"><h2>🏁 How applications ended</h2><small class="muted">One fixed word per finished application, by the app (counts only, from installs that send technical reports; tests and twins are never counted). Success = submitted ÷ finished.</small>
+<div class="tiles"><section class="card tile"><small class="muted">Success rate</small><b>${pct({rate: now.successRate})} ${trend(now.successRate, before.successRate)}</b><small class="muted">${now.submitted} of ${now.finished} finished this week · ${pct({rate: before.successRate})} last week</small></section>
+<section class="card tile"><small class="muted">Nothing changed by you</small><b>${pct({rate: now.cleanShare})}</b><small class="muted">of submitted · assisted ${pct({rate: now.assistedShare})}</small></section></div>
+<div class="wrap"><table><tr><th>Ended as</th><th class="n">This week</th><th class="n">Last week</th></tr>${RESULT_STATES.map(row).join('')}</table></div>
+${none ? '<small class="muted">No finished applications reported yet: they appear once someone decides "I submitted it" or "not submitted".</small>' : `<div class="wrap"><table><tr><th>Board</th><th class="n">Finished</th><th class="n">Submitted</th><th class="n">Assisted</th><th class="n">Failed</th></tr>
+${results.boards.map(b => `<tr><td>${esc(b.board)}</td><td class="n">${b.finished}</td><td class="n">${b.submitted}</td><td class="n">${b['submitted-assisted']}</td><td class="n">${b.failed}</td></tr>`).join('')}</table></div>`}</section>`;
+}
+
 export function page(data) {
   const r = data.totals.reading, o = data.totals.operating;
   const blind = data.use.reasons.filter(x => x.group === 'blind spot');
@@ -129,6 +164,7 @@ ${tile('🖱️ Operating (lab)', pct(o.now), trend(o.now.rate, o.before.rate), 
 ${tile('🕳️ Blind spots (real use)', haveUse ? num(blindNow) : '–', haveUse ? trend(blindNow, blindBefore, false) : '', `per 100 ${esc(data.use.unitNow)}: questions the fill never read · ${data.use.now.fills} forms this week`)}
 ${tile('🧩 Recipes', String(data.recipes.verified.n), `<span class="muted">+${data.recipes.canary.n} canary</span>`, `verified · ${data.recipes.candidate.n} candidates (${data.recipes.candidate.fresh} new this week) · ${data.recipes.disabled.n} retired`)}
 </div>
+${resultsSection(data.results)}
 ${learningSections(data.learning)}
 <section class="card"><h2>📖 The lab, per board</h2><small class="muted">The extension's own code on public application forms, daily, never submitted. Reading = required questions it read (what it would ask Claude); operating = widgets its operators set.</small>
 <div class="wrap"><table><tr><th>Board</th><th class="n">Reading</th><th></th><th class="n">Last week</th><th class="n">Operating</th><th></th><th class="n">Last week</th><th class="n">Runs</th></tr>
