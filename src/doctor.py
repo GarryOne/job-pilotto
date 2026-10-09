@@ -5,7 +5,8 @@
     python -m src doctor --json     machine-readable, for a menu bar or Telegram /status
     python -m src doctor --alert    health checks only; one Telegram line if something is wrong
 
-The health checks (Google sign-in, mail workflow, AI budget, failing feeds) also run once a day with the
+The data checks read the active store (src/stores: Notion, or this Mac's), so they work without Notion too; "Your data"
+says whether it can be read. The health checks (Google sign-in, mail workflow, AI budget, failing feeds) also run once a day with the
 04:30 UTC scheduled crawl, which sends one Telegram line only when one of them warns or fails.
 
 Checks run in order of dependency: setup → the scheduled pipeline on GitHub → data it produced →
@@ -29,10 +30,9 @@ import sys
 
 from . import features, secret_store
 from .ai import apply_batch
-from .ai.kit import ANSWERS_PAGE_ID
-from .notion import client as notion, cron_runs
+from .notion import client as notion
 from .paths import CONFIG
-from .scout import EMPLOYERS_DB
+from .stores import open_stores, stores_of
 
 OK, WARN, FAIL, INFO = 'ok', 'warn', 'fail', 'info'
 ICONS = {OK: '✅', WARN: '⚠️ ', FAIL: '❌', INFO: 'ℹ️ '}
@@ -89,7 +89,7 @@ def check_notion(tracker):
     if tracker is None:
         # Optional: the core crawl and digest work without it; tracking, scoring and kits need it.
         state = 'switched off (JOB_PILOTTO_DISABLE)' if features.disabled('notion') else 'not set up'
-        return Check('Setup', 'Notion', INFO, f'{state} — optional; tracking, AI scoring and kits need it',
+        return Check('Setup', 'Notion', INFO, f'{state} — optional; your data stays on this Mac without it, Always on needs it',
                      'Store it: security add-generic-password -a "$USER" -s job-pilotto.notion.token -w')
     try:
         tracker._request('GET', 'users/me')
@@ -99,20 +99,36 @@ def check_notion(tracker):
     return Check('Setup', 'Notion', OK, 'connected')
 
 
-def check_profile(tracker):
+def check_store(stores):
+    """Can the user's data be read where it lives (src/stores)? One narrow read per table the checks below use."""
+    where = 'Notion' if stores.name == 'notion' else 'this Mac' if stores.name == 'sqlite' else stores.name
+    for entity, read in (('applications', lambda: stores.applications.list(stages=['Applying'])),
+                         ('matches', lambda: stores.matches.list(status='Open')),
+                         ('runs', lambda: stores.cron_runs.list(since=datetime.now(timezone.utc).date().isoformat()))):
+        try:
+            read()
+        except Exception as error:  # noqa: BLE001 — the check reports it
+            return Check('Setup', 'Your data', FAIL, f'{where}: {entity} could not be read ({type(error).__name__})',
+                         'Settings → Connections: reconnect Notion' if stores.name == 'notion' else 'Restart the app; if it stays, restore the latest backup')
+    return Check('Setup', 'Your data', OK, f'in {where}, readable')
+
+
+def check_profile(stores):
     from .ai import score
-    text = tracker.page_text()
+    text = stores.texts.get('profile')
     if score.unfilled(text):   # length alone passed the blank template (about 2,000 characters of ❓ fields)
         return Check('Setup', 'Profile', FAIL, 'Profile page is empty or still the template',
-                     'Fill "Profile — CV and Preferences" in Notion (template: docs/notion-profile-template.md)')
+                     'Fill "Profile — CV and Preferences" in Notion (template: docs/notion-profile-template.md)' if stores.name == 'notion'
+                     else 'Fill your profile in the app: Profile, or Strategy → Detailed strategy')
     return Check('Setup', 'Profile', OK, f'{len(text):,} characters')
 
 
-def check_answers(tracker):
-    text = tracker.page_text(ANSWERS_PAGE_ID)
+def check_answers(stores):
+    text = stores.texts.get('answers')
     if len(text) < 200:
         return Check('Setup', 'Application Answers', WARN, 'page is empty; forms will stop to ask you more often',
-                     'Fill "Application Answers — Standard Form Fields" in Notion')
+                     'Fill "Application Answers — Standard Form Fields" in Notion' if stores.name == 'notion'
+                     else 'Fill your reusable answers in the app: Profile → Reusable answers')
     return Check('Setup', 'Application Answers', OK, f'{len(text):,} characters')
 
 
@@ -184,7 +200,7 @@ def check_features(env=None):
                  'Optional — README → Optional features lists what each needs and costs')
 
 
-def check_last_crawl(tracker, now):
+def check_last_crawl(stores, now):
     # Filter by event on GitHub's side: manual prepare/apply runs would crowd a plain "last 10".
     runs = gh('run', 'list', *repo_args(), '--workflow', 'daily.yml', '--event', 'schedule', '--limit', '5',
               '--json', 'conclusion,createdAt,status')
@@ -199,22 +215,19 @@ def check_last_crawl(tracker, now):
         return Check('Data', 'Last crawl', FAIL, f"last scheduled crawl {last['conclusion']} ({hours:.0f} h ago)",
                      'Open it: gh run list --workflow daily.yml, then gh run view <id> --log-failed')
     summary = ''
-    rows = [r for r in (tracker.query_database(cron_runs.CRON_RUNS_DATABASE_ID) if tracker else [])
-            if not (r.get('in_trash') or r.get('archived'))]
-    if rows:
-        latest = max(rows, key=lambda r: ((r['properties'].get('Started') or {}).get('date') or {}).get('start', ''))
-        text = ''.join(t.get('plain_text', '') for t in latest['properties']['Summary']['rich_text'])
-        summary = f' — {text}' if text else ''
+    runs = stores.cron_runs.list() if stores else []   # newest first
+    if runs:
+        summary = f" — {runs[0]['summary']}" if runs[0]['summary'] else ''
     if hours > STALE_CRAWL_HOURS:
         return Check('Data', 'Last crawl', WARN, f'{hours:.0f} h ago; the schedule may be paused{summary}',
                      'gh workflow run daily.yml -f mode=run')
     return Check('Data', 'Last crawl', OK, f'{hours:.1f} h ago{summary}')
 
 
-def check_sources(tracker):
+def check_sources(stores):
     from . import scout
     static = scout.starter_list()
-    active = tracker.query_database(EMPLOYERS_DB, {'property': 'Active', 'checkbox': {'equals': True}})
+    active = stores.employers.list(active=True)
     count = len(static) + len(active)
     if not count:
         return Check('Data', 'Sources', FAIL, 'no employer feeds to crawl',
@@ -222,23 +235,23 @@ def check_sources(tracker):
     return Check('Data', 'Sources', OK, f'{count} feeds ({len(active)} from Employers & Sources)')
 
 
-def check_matches(tracker):
-    rows = tracker.query_database(notion.MATCHES_DATABASE_ID, {'property': 'Status', 'select': {'equals': 'Open'}})
+def check_matches(stores):
+    rows = stores.matches.list(status='Open')
     if not rows:
         return Check('Data', 'Scored jobs', FAIL, 'no open scored jobs in Job Matches',
                      'Run a crawl with scoring: gh workflow run daily.yml -f mode=run')
-    good = sum(((r['properties'].get('Score') or {}).get('number') or 0) >= 70 for r in rows)
+    good = sum((r['fit'] or 0) >= 70 for r in rows)
     return Check('Data', 'Scored jobs', OK, f'{len(rows)} open, {good} scoring 70+')
 
 
 # ---------- Health: sign-ins, background jobs, budget, feeds ----------
 
-def check_budget(tracker, now=None):
+def check_budget(stores, now=None):
     from .ai import budget, engine
     from .ai import providers
     if providers.spec().billing == providers.SUBSCRIPTION:   # the AI runs on the user's own plan: there is no API spend to measure against a budget
         return Check('Health', 'AI budget', OK, f'{providers.spec().plan}: no API budget to watch')
-    info = budget.status(tracker, now)
+    info = budget.status(stores, now)
     detail = budget.describe(info)
     if info['level'] == 'pause':
         return Check('Health', 'AI budget', FAIL, f'{detail}; auto-kits and extra scoring are paused',
@@ -306,17 +319,14 @@ def check_mail_workflow(now=None):
     return Check('Health', 'Mail checks', OK, f'last one {hours:.1f} h ago{where()}')
 
 
-def check_feeds(tracker):
-    rows = tracker.query_database(cron_runs.CRON_RUNS_DATABASE_ID,
-                                  {'property': 'Feeds', 'number': {'greater_than': 0}})
-    if not rows:
+def check_feeds(stores):
+    crawls = [run for run in stores.cron_runs.list() if (run['stats'] or {}).get('feeds')]   # newest first
+    if not crawls:
         return Check('Health', 'Feeds', INFO, 'no crawl with feeds logged yet')
-    latest = max(rows, key=lambda r: (r['properties'].get('Started', {}).get('date') or {}).get('start') or '')
-    number = lambda name: (latest['properties'].get(name) or {}).get('number') or 0
-    feeds, errors = number('Feeds'), number('Feed errors')
+    feeds, errors = crawls[0]['stats']['feeds'], crawls[0]['stats'].get('feed_errors') or 0
     if errors and errors / feeds >= FEED_FAIL_SHARE:
         return Check('Health', 'Feeds', FAIL, f'{errors:.0f} of {feeds:.0f} feeds failed in the last crawl',
-                     'Open the last ⏰ Cronjob Runs row for the failing feeds')
+                     'Open the last crawl in Recent activity for the failing feeds')
     if errors:
         return Check('Health', 'Feeds', WARN, f'{errors:.0f} of {feeds:.0f} feeds failed in the last crawl',
                      'Usually temporary; check again after the next crawl')
@@ -326,17 +336,18 @@ def check_feeds(tracker):
 HEALTH_CHECKS = (check_google, check_mail_workflow)
 
 
-def health_checks(tracker, now=None):
-    """The checks that matter for the unattended pipeline (no local tools, no CV file)."""
+def health_checks(stores, now=None):
+    """The checks that matter for the unattended pipeline (no local tools, no CV file). stores: the active store (or a Tracker)."""
+    stores = stores_of(stores)
     checks = [_safe(fn, now) for fn in HEALTH_CHECKS]
-    if tracker:
-        checks += [_safe(check_budget, tracker, now), _safe(check_feeds, tracker)]
+    if stores:
+        checks += [_safe(check_budget, stores, now), _safe(check_feeds, stores)]
     return checks
 
 
-def alert(tracker, send, now=None):
+def alert(stores, send, now=None):
     """One Telegram line when a health check warns or fails; returns what was found."""
-    problems = [c for c in health_checks(tracker, now) if c.state in (WARN, FAIL)]
+    problems = [c for c in health_checks(stores, now) if c.state in (WARN, FAIL)]
     if not problems:
         return 'Health: all good'
     blocks = [f"<b>{html.escape(c.name)} · {'Failed' if c.state == FAIL else 'Warning'}</b>\n{html.escape(c.detail)}"
@@ -350,16 +361,16 @@ def alert(tracker, send, now=None):
 
 # ---------- Kits and applications ----------
 
-def check_kits(tracker):
-    ready = apply_batch.ready_jobs(tracker, 10)
+def check_kits(stores):
+    ready = apply_batch.ready_jobs(stores, 10)
     if not ready:
         return Check('Apply', 'Kits ready', WARN, 'no job has a drafted kit, so there is nothing to apply to yet',
                      'Draft kits for your best matches: tools/prepare-top.sh 5  (~$0.04 each)')
     return Check('Apply', 'Kits ready', OK, f"{len(ready)}{'+' if len(ready) >= 10 else ''} job(s) ready to apply")
 
 
-def check_in_progress(tracker):
-    rows = tracker.query_database(tracker.database_id, {'property': 'Stage', 'select': {'equals': 'Applying'}})
+def check_in_progress(stores):
+    rows = stores.applications.list(stages=['Applying'])
     if rows:
         return Check('Apply', 'In progress', INFO, f'{len(rows)} form(s) filled and waiting for your Submit')
     return Check('Apply', 'In progress', OK, 'nothing waiting for you')
@@ -380,21 +391,37 @@ def check_mac_tools():
 
 # ---------- Running and reporting ----------
 
-def run_checks(tracker=None, now=None):
+def run_checks(tracker=None, now=None, stores=None):
+    """tracker: the Notion client when a token is set (the Notion line). stores: where the user's data lives (src/stores; default:
+    the notion store the tracker stands for, none without one). The data checks run when that store answers."""
     now = now or datetime.now(timezone.utc)
+    stores = stores if stores is not None else stores_of(tracker)
     local = [check_cv, check_workflow, check_features, check_mac_tools,
              lambda: check_google(now), lambda: check_mail_workflow(now)]
-    remote = [check_profile, check_answers, check_sources, lambda t: check_last_crawl(t, now),
-              check_matches, check_kits, check_in_progress, lambda t: check_budget(t, now), check_feeds]
-    first = check_notion(tracker)
+    remote = [check_profile, check_answers, check_sources, lambda s: check_last_crawl(s, now),
+              check_matches, check_kits, check_in_progress, lambda s: check_budget(s, now), check_feeds]
+    first = [check_notion(tracker)]
+    if stores is not None and (stores.name != 'notion' or first[0].state == OK):
+        first.append(_safe(check_store, stores))
     jobs = [(fn, ()) for fn in local]
-    if first.state == OK:
-        jobs += [(fn, (tracker,)) for fn in remote]
+    ready = stores is not None and first[-1].name == 'Your data' and first[-1].state == OK
     with ThreadPoolExecutor(max_workers=8) as pool:
         futures = [pool.submit(_safe, fn, *args) for fn, args in jobs]
-        results = [first] + [f.result() for f in futures]
+        # The data checks run on this thread, meanwhile: a store on this Mac (SQLite) answers only the thread that opened it, and
+        # Notion's requests go one at a time anyway (src/notion/pace.py).
+        data = [_safe(fn, stores) for fn in remote] if ready else []
+        results = first + [f.result() for f in futures] + data
     order = ['Setup', 'Pipeline', 'Health', 'Data', 'Apply', 'This Mac']
     return sorted(results, key=lambda c: order.index(c.area))
+
+
+def active_store(tracker):
+    """The active store (the one the tracker stands for, else this Mac's), or None when it cannot be opened (the checklist says so)."""
+    try:
+        return open_stores(tracker=tracker) if tracker else open_stores()
+    except Exception as error:  # noqa: BLE001
+        print(f'Warning: your data could not be opened: {type(error).__name__}: {error}')
+        return None
 
 
 def _safe(fn, *args):
@@ -410,7 +437,7 @@ def next_step(checks):
         for check in checks:
             if check.state == state and check.fix:
                 return f'{check.name}: {check.fix}'
-    if any(c.name == 'Notion' and c.state != OK for c in checks):
+    if any(c.name == 'Notion' and c.state != OK for c in checks) and not any(c.name == 'Your data' and c.state == OK for c in checks):
         return ('The core works: python3 -m src daily prints your digest. Unlock more only if you want it: '
                 'README → Optional features')
     return 'All set. Apply to your next job: tools/apply-batch-claude.sh --max 1'
@@ -444,9 +471,9 @@ def main():
             send = lambda text: telegram.send(text, token, chat_id)
         except SystemExit:
             send = None
-        print(alert(tracker, send))
+        print(alert(active_store(tracker), send))
         return 0
-    checks = run_checks(tracker)
+    checks = run_checks(tracker, stores=active_store(tracker))
     if args.json:
         print(json.dumps({'checks': [asdict(c) for c in checks], 'next_step': next_step(checks)}, indent=2,
                          ensure_ascii=False))
