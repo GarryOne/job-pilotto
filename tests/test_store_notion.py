@@ -20,6 +20,7 @@ from src.stores import base, notion
 from tests.store_contract import StoreContract
 
 ROOT = Path(__file__).resolve().parent.parent
+plain = lambda block: ''.join(p.get('plain_text', '') for p in block[block['type']].get('rich_text', []))
 FAKE = ROOT / 'desktop' / 'e2e' / 'lib' / 'notion-fake.mjs'
 SCHEMA = json.loads((ROOT / 'config' / 'notion_schema.json').read_text())
 # Column types the stand-in can't create from a schema entry alone; the store never writes them.
@@ -191,6 +192,20 @@ class NotionStoreTests(StoreContract, unittest.TestCase):
                                      'fields': {'data': data, 'timeline': timeline}})
         got = self.s.agent_runs.get(run['id'])
         self.assertEqual((got['fields']['data'], got['fields']['timeline'], got['learnings']), (data, timeline, 'Salary is a free field'))
+    def test_an_agent_runs_conversation_is_the_apps_toggle_on_its_page(self):
+        """transcript = the session's conversation (JSON); on Notion the app's 💬 Conversation toggle, read back as the app reads it."""
+        import json
+        talk = [{'kind': 'you', 'text': 'Apply please', 'at': '2026-10-09T19:42:05Z'},
+                {'kind': 'steps', 'steps': ['Opened', 'Filled'], 'at': '2026-10-09T19:43:00Z'},
+                {'kind': 'claude', 'text': 'Done: **2 fields**', 'at': '2026-10-09T19:44:00Z'}]
+        run = self.s.agent_runs.add({'url': 'https://jobs.example.com/sre-1', 'ats': 'Claude'})
+        self.s.agent_runs.update(run['id'], {'transcript': json.dumps(talk)})
+        toggle = [b for b in self.tracker._children(run['id']) if b['type'] == 'toggle' and not b.get('archived')]
+        self.assertEqual([plain(b) for b in toggle], ['💬 Conversation · 3 messages and steps'])
+        back = json.loads(self.s.agent_runs.get(run['id'])['transcript'])
+        self.assertEqual([(e['kind'], e.get('text'), e.get('steps')) for e in back],
+                         [('you', 'Apply please', None), ('steps', None, ['Filled']), ('claude', 'Done: **2 fields**', None)])
+
 
 class NotionRecordsTests(unittest.TestCase):
     """Today's rows, as the engine wrote them before the stores, read as records."""

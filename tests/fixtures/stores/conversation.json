@@ -1,0 +1,422 @@
+{
+ "_comment": "One Apply conversation, its 💬 Conversation blocks and what reading them gives, in TZ=UTC. desktop/lib/transcript.js (blocks, load) and src/stores/notion_conversation.py must both match it.",
+ "talk": [
+  {
+   "kind": "you",
+   "text": "Please apply to the Acme SRE job.",
+   "at": "2026-10-09T19:42:05Z"
+  },
+  {
+   "kind": "steps",
+   "steps": [
+    "Opened the posting",
+    "Pressed Apply",
+    "Filled 12 fields"
+   ],
+   "at": "2026-10-09T19:43:00Z"
+  },
+  {
+   "kind": "claude",
+   "text": "## Ready for review\n\nI filled **12 fields** and left `Salary` for you.\n- Email\n- Phone\n1. Check the CV\n| Field | Value |\n| --- | --- |\n| Notice | 3 months |",
+   "at": "2026-10-09T19:47:30Z"
+  },
+  {
+   "kind": "steps",
+   "steps": [
+    "Uploaded cv.pdf"
+   ],
+   "at": "2026-10-09T19:48:00Z"
+  },
+  {
+   "kind": "you",
+   "text": "Thanks",
+   "at": "not a time"
+  }
+ ],
+ "blocks": [
+  {
+   "type": "paragraph",
+   "paragraph": {
+    "rich_text": [
+     {
+      "type": "text",
+      "text": {
+       "content": "You · 19:42"
+      },
+      "annotations": {
+       "bold": true
+      }
+     }
+    ]
+   }
+  },
+  {
+   "type": "paragraph",
+   "paragraph": {
+    "rich_text": [
+     {
+      "type": "text",
+      "text": {
+       "content": "Please apply to the Acme SRE job."
+      }
+     }
+    ]
+   }
+  },
+  {
+   "type": "toggle",
+   "toggle": {
+    "rich_text": [
+     {
+      "type": "text",
+      "text": {
+       "content": "3 steps · Filled 12 fields"
+      }
+     }
+    ],
+    "children": [
+     {
+      "type": "bulleted_list_item",
+      "bulleted_list_item": {
+       "rich_text": [
+        {
+         "type": "text",
+         "text": {
+          "content": "Opened the posting"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "type": "bulleted_list_item",
+      "bulleted_list_item": {
+       "rich_text": [
+        {
+         "type": "text",
+         "text": {
+          "content": "Pressed Apply"
+         }
+        }
+       ]
+      }
+     },
+     {
+      "type": "bulleted_list_item",
+      "bulleted_list_item": {
+       "rich_text": [
+        {
+         "type": "text",
+         "text": {
+          "content": "Filled 12 fields"
+         }
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "type": "paragraph",
+   "paragraph": {
+    "rich_text": [
+     {
+      "type": "text",
+      "text": {
+       "content": "Claude · 19:47"
+      },
+      "annotations": {
+       "bold": true
+      }
+     }
+    ]
+   }
+  },
+  {
+   "type": "heading_2",
+   "heading_2": {
+    "rich_text": [
+     {
+      "type": "text",
+      "text": {
+       "content": "Ready for review"
+      },
+      "annotations": {
+       "bold": false,
+       "code": false
+      }
+     }
+    ]
+   }
+  },
+  {
+   "type": "paragraph",
+   "paragraph": {
+    "rich_text": [
+     {
+      "type": "text",
+      "text": {
+       "content": "I filled "
+      },
+      "annotations": {
+       "bold": false,
+       "code": false
+      }
+     },
+     {
+      "type": "text",
+      "text": {
+       "content": "12 fields"
+      },
+      "annotations": {
+       "bold": true,
+       "code": false
+      }
+     },
+     {
+      "type": "text",
+      "text": {
+       "content": " and left "
+      },
+      "annotations": {
+       "bold": false,
+       "code": false
+      }
+     },
+     {
+      "type": "text",
+      "text": {
+       "content": "Salary"
+      },
+      "annotations": {
+       "bold": false,
+       "code": true
+      }
+     },
+     {
+      "type": "text",
+      "text": {
+       "content": " for you."
+      },
+      "annotations": {
+       "bold": false,
+       "code": false
+      }
+     }
+    ]
+   }
+  },
+  {
+   "type": "bulleted_list_item",
+   "bulleted_list_item": {
+    "rich_text": [
+     {
+      "type": "text",
+      "text": {
+       "content": "Email"
+      },
+      "annotations": {
+       "bold": false,
+       "code": false
+      }
+     }
+    ]
+   }
+  },
+  {
+   "type": "bulleted_list_item",
+   "bulleted_list_item": {
+    "rich_text": [
+     {
+      "type": "text",
+      "text": {
+       "content": "Phone"
+      },
+      "annotations": {
+       "bold": false,
+       "code": false
+      }
+     }
+    ]
+   }
+  },
+  {
+   "type": "numbered_list_item",
+   "numbered_list_item": {
+    "rich_text": [
+     {
+      "type": "text",
+      "text": {
+       "content": "Check the CV"
+      },
+      "annotations": {
+       "bold": false,
+       "code": false
+      }
+     }
+    ]
+   }
+  },
+  {
+   "type": "table",
+   "table": {
+    "table_width": 2,
+    "has_column_header": true,
+    "has_row_header": false,
+    "children": [
+     {
+      "type": "table_row",
+      "table_row": {
+       "cells": [
+        [
+         {
+          "type": "text",
+          "text": {
+           "content": "Field"
+          },
+          "annotations": {
+           "bold": false,
+           "code": false
+          }
+         }
+        ],
+        [
+         {
+          "type": "text",
+          "text": {
+           "content": "Value"
+          },
+          "annotations": {
+           "bold": false,
+           "code": false
+          }
+         }
+        ]
+       ]
+      }
+     },
+     {
+      "type": "table_row",
+      "table_row": {
+       "cells": [
+        [
+         {
+          "type": "text",
+          "text": {
+           "content": "Notice"
+          },
+          "annotations": {
+           "bold": false,
+           "code": false
+          }
+         }
+        ],
+        [
+         {
+          "type": "text",
+          "text": {
+           "content": "3 months"
+          },
+          "annotations": {
+           "bold": false,
+           "code": false
+          }
+         }
+        ]
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "type": "toggle",
+   "toggle": {
+    "rich_text": [
+     {
+      "type": "text",
+      "text": {
+       "content": "1 step · Uploaded cv.pdf"
+      }
+     }
+    ],
+    "children": [
+     {
+      "type": "bulleted_list_item",
+      "bulleted_list_item": {
+       "rich_text": [
+        {
+         "type": "text",
+         "text": {
+          "content": "Uploaded cv.pdf"
+         }
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  {
+   "type": "paragraph",
+   "paragraph": {
+    "rich_text": [
+     {
+      "type": "text",
+      "text": {
+       "content": "You"
+      },
+      "annotations": {
+       "bold": true
+      }
+     }
+    ]
+   }
+  },
+  {
+   "type": "paragraph",
+   "paragraph": {
+    "rich_text": [
+     {
+      "type": "text",
+      "text": {
+       "content": "Thanks"
+      }
+     }
+    ]
+   }
+  }
+ ],
+ "loaded": [
+  {
+   "kind": "you",
+   "text": "Please apply to the Acme SRE job.",
+   "time": "19:42"
+  },
+  {
+   "kind": "steps",
+   "steps": [
+    "Filled 12 fields"
+   ],
+   "count": 3
+  },
+  {
+   "kind": "claude",
+   "text": "### Ready for review\nI filled **12 fields** and left `Salary` for you.\n- Email\n- Phone\n1. Check the CV\n",
+   "time": "19:47"
+  },
+  {
+   "kind": "steps",
+   "steps": [
+    "Uploaded cv.pdf"
+   ],
+   "count": 1
+  },
+  {
+   "kind": "you",
+   "text": "Thanks",
+   "time": ""
+  }
+ ]
+}

@@ -578,6 +578,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/stores/memory.py` — The in-memory store: the reference adapter (what the contract means, in the fewest lines) and a fake for tests.
 - `src/stores/notion_agent_runs.py` — The notion store's AgentRuns: 🤖 Agent Runs rows (form fills and Apply sessions) as store records.
 - `src/stores/notion_blocks.py` — Markdown ↔ Notion blocks: how a store's Markdown fields (a job's sections, an interview's review, an insight's body)
+- `src/stores/notion_conversation.py` — An Apply session's conversation as Notion blocks and back: the "💬 Conversation" toggle on its 🤖 Agent Runs row.
 - `src/stores/notion_cron_runs.py` — The notion store's CronRuns: ⏱️ Search runs rows as store records, the one run history wherever a run happened.
 - `src/stores/notion_employers.py` — The notion store's Employers: 🌍 Employers & Sources rows as store records, one per employer (matched by name, any case).
 - `src/stores/notion_insights.py` — 💡 Insights in Notion as the store's insights (base.Insights): one database row per insight, plain dicts out.

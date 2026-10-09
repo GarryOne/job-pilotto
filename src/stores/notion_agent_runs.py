@@ -2,14 +2,16 @@
 
 `fields` holds base.AGENT_RUN_EXTRAS, each in its own column. Notion computes five of them itself (Age (days), Fresh,
 Fill time, Waiting for you: formulas; Job stage: a rollup): they are read, and a write of them is left out. The
-transcript is the page's "Transcript" toggle (Markdown through src/stores/notion_blocks.py). Guarded by
+transcript is the session's conversation (JSON, as the app keeps it on this Mac), on the page as the app's own
+"💬 Conversation" toggle (src/stores/notion_conversation.py, a port of desktop/lib/transcript.js). Guarded by
 tests/test_store_notion.py (the store contract on the Notion stand-in).
 """
+import json
 from datetime import datetime, timezone
 
 from . import base
 from . import notion_rows as rows
-from .notion_blocks import to_blocks, to_markdown
+from . import notion_conversation as conversation
 
 COLUMNS = (('url', 'Job URL', 'url'), ('ats', 'ATS', 'select'), ('outcome', 'Outcome', 'select'),
            ('learnings', 'Learnings', 'rich_text'), ('created_at', 'Created', 'created'))
@@ -26,7 +28,6 @@ EXTRAS = {'job': ('Job', 'relation1'), 'company': ('Company', 'rich_text'), 'age
           'model': ('Model', 'rich_text'), 'timeline': ('Session timeline', 'rich_text'), 'data': ('Data', 'json')}
 COMPUTED = {'age_days': 'Age (days)', 'fresh': 'Fresh', 'fill_time': 'Fill time', 'waiting_for_you': 'Waiting for you',
             'job_stage': 'Job stage'}
-TRANSCRIPT = 'Transcript'
 
 
 def _computed(prop):
@@ -42,7 +43,6 @@ def _computed(prop):
 
 def _read(prop, kind):
     if kind == 'json':
-        import json
         text = rows.read(prop, 'rich_text')
         try:
             return json.loads(text) if text else None
@@ -53,7 +53,6 @@ def _read(prop, kind):
 
 def _write(value, kind):
     if kind == 'json':
-        import json
         return rows.write(json.dumps(value, ensure_ascii=False) if value not in (None, '') else '', 'rich_text')
     return rows.write(value, kind)
 
@@ -73,23 +72,40 @@ class NotionAgentRuns:
         found['transcript'] = self._transcript(page['id']) if transcript is None else transcript
         return base.record(self.fields, found)
 
-    def _transcript(self, run_id):
-        for block in self.tracker._children(run_id):
-            body = block.get(block['type']) or {}
-            if block['type'] == 'heading_2' and body.get('is_toggleable') and rows.plain_text(body.get('rich_text')) == TRANSCRIPT:
-                return to_markdown(self.tracker._children(block['id']) if block.get('has_children') else [],
-                                   children=self.tracker._children)
-        return ''
+    def _toggle(self, run_id):
+        return next((block for block in self.tracker._children(run_id) if block['type'] == 'toggle'
+                     and rows.plain_text(block['toggle'].get('rich_text')).startswith(conversation.HEADING)), None)
 
-    def _set_transcript(self, run_id, markdown):
-        for block in self.tracker._children(run_id):
-            body = block.get(block['type']) or {}
-            if block['type'] == 'heading_2' and rows.plain_text(body.get('rich_text')) == TRANSCRIPT:
-                self.tracker._request('DELETE', f"blocks/{block['id']}")
-        if markdown:
-            self.tracker.append_blocks(run_id, [{'object': 'block', 'type': 'heading_2', 'heading_2': {
-                'rich_text': rows.write(TRANSCRIPT, 'rich_text')['rich_text'], 'is_toggleable': True,
-                'children': to_blocks(markdown)[:100]}}])
+    def _transcript(self, run_id):
+        """The conversation (JSON, as the app keeps it on this Mac) from the row's 💬 Conversation toggle; text that is
+        not a conversation comes back as it was written."""
+        toggle = self._toggle(run_id)
+        children = self.tracker._children(toggle['id']) if toggle and toggle.get('has_children') else []
+        talk = conversation.load(children)
+        if talk:
+            return json.dumps(talk, ensure_ascii=False)
+        return '\n'.join(rows.plain_text((block.get(block['type']) or {}).get('rich_text')) for block in children)
+
+    def _set_transcript(self, run_id, text):
+        old = self._toggle(run_id)
+        if old:
+            self.tracker._request('DELETE', f"blocks/{old['id']}")
+        if not text:
+            return
+        try:
+            talk = json.loads(text)
+        except ValueError:
+            talk = None
+        if isinstance(talk, list):
+            title, children = conversation.toggle_title(talk), conversation.blocks(talk)
+        else:
+            title = conversation.HEADING
+            children = [{'type': 'paragraph', 'paragraph': {'rich_text': part}} for part in [rows.write(text, 'rich_text')['rich_text']]]
+        made = self.tracker._request('PATCH', f'blocks/{run_id}/children', {'children': [
+            {'object': 'block', 'type': 'toggle', 'toggle': {'rich_text': rows.write(title, 'rich_text')['rich_text']}}]})
+        toggle = made['results'][0]['id']
+        for start in range(0, len(children), 90):  # as transcript.js: 90 blocks a call
+            self.tracker._request('PATCH', f'blocks/{toggle}/children', {'children': children[start:start + 90]})
 
     def _properties(self, values):
         unknown = set(values) - set(self.fields)
