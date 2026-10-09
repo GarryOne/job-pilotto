@@ -426,7 +426,8 @@ export async function init() {
   }).catch(() => {});
   window.pilot.onReview(state => {
     const before = reviewStates.get(state.id);
-    const changed = JSON.stringify(before?.missing || []) !== JSON.stringify(state.missing || []) || before?.url !== state.url;   // the header shows the tab's address
+    const changed = JSON.stringify(before?.missing || []) !== JSON.stringify(state.missing || []) || before?.url !== state.url   // the header shows the tab's address
+      || JSON.stringify(before?.proposals || []) !== JSON.stringify(state.proposals || []);   // answers proposed after the rows were drawn (the AI step is slower than the fill)
     reviewStates.set(state.id, state);
     const item = sessionList.find(entry => entry.id === state.id);
     // Ready to submit (or not any more): every pill that shows it, in the dock and the sessions list.

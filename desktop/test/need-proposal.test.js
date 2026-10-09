@@ -91,3 +91,10 @@ test('a label is asked of Claude once, even when the page redraws while Claude i
   await new Promise(resolve => setTimeout(resolve, 20));
   assert.equal(sent.length, 1);
 });
+
+test('the session page redraws when proposals arrive after its rows were drawn; a proposed row\'s box fills the row like its siblings', () => {
+  const needs = fs.readFileSync(new URL('../renderer/pages/session-needs.js', import.meta.url), 'utf8');
+  assert.match(needs, /JSON\.stringify\(before\?\.proposals \|\| \[\]\) !== JSON\.stringify\(state\.proposals \|\| \[\]\)/);   // 9 Oct 2026: 5 of 7 stayed bare "still empty"
+  const css = fs.readFileSync(new URL('../renderer/style.css', import.meta.url), 'utf8');
+  assert.match(css, /\.ss-need\.is-ask \.ss-ask-input \{ max-width: none/);   // "Use" ends at the right edge, where "Open in form" does
+});

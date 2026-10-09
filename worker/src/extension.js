@@ -168,6 +168,8 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
     const known = env.KNOWLEDGE_TEXT ?? (env.NOTION_KNOWLEDGE_PAGE ? await pageText(env, env.NOTION_KNOWLEDGE_PAGE).catch(() => '') : '');
     return [p, known ? `${a}\n\n# Learned from earlier forms\n${known}` : a];
   });
+  // The strategy's search settings (roles, places, what the user aims for): a proposal should serve that, not just the CV.
+  const search = String((await Promise.resolve(env.SEARCH_TEXT).catch(() => '')) || '').slice(0, 4000);
   const job = row ? summary(row) : { title: '', company: '', url };
   const anthropic = client || new Anthropic({ apiKey: anthropicKey(env), fetch: (...args) => globalThis.fetch(...args) });
   const response = await anthropic.messages.create({
@@ -177,7 +179,7 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
     // or the next application within five minutes pays a tenth for them.
     system: [
       { type: 'text', text: test ? `${INSTRUCTIONS}\n\n${TEST_MODE}` : INSTRUCTIONS },
-      { type: 'text', text: `<profile>\n${profile}\n</profile>\n<standard_answers>\n${standard}\n</standard_answers>`,
+      { type: 'text', text: `<profile>\n${profile}\n</profile>\n<standard_answers>\n${standard}\n</standard_answers>${search ? `\n<search_preferences>\n${search}\n</search_preferences>` : ''}`,
         cache_control: { type: 'ephemeral' } },
     ],
     messages: [{
@@ -198,9 +200,9 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   const usd = usage.billing === 'subscription' ? 0 : ((usage.input_tokens || 0) * PRICE.input + (usage.output_tokens || 0) * PRICE.output
     + (usage.cache_read_input_tokens || 0) * PRICE.cacheRead + (usage.cache_creation_input_tokens || 0) * PRICE.cacheWrite) / 1e6;
   const known = new Set(fields.map((f) => f.field));
-  // A proposal is never for a legal, demographic or knockout question, whatever the AI said (a hard floor beside its own rule): a wrong
-  // guess there can reject the applicant, and only they can say. Proposals are shown in the app, never typed (extension/flow.js).
-  const raw = (Array.isArray(result.answers) ? result.answers : []).filter((a) => a.use !== 'propose' || !['legal', 'demographic', 'knockout'].includes(a.category));
+  // A proposal is never for a legal or demographic question, whatever the AI said (a hard floor beside its own rule). A knockout question
+  // (residence, hours, availability) gets its most plausible answer, shown as "check it" and never typed: the owner confirms each (9 Oct 2026). Proposals are shown in the app, never typed (extension/flow.js).
+  const raw = (Array.isArray(result.answers) ? result.answers : []).filter((a) => a.use !== 'propose' || !['legal', 'demographic'].includes(a.category));
   // What this call did, in counts and field ids (never an answer or the profile's text): with 0 answers it tells "nothing to go on"
   // (an empty profile) from "answered, but under other ids" from "answered nothing" (8 Oct 2026: Coop, 11 fields sent, 0 back, no trace).
   await env.onAnswer?.({ fields: fields.length, returned: raw.length, kept: raw.filter((a) => known.has(a.field) && a.value !== '').length,

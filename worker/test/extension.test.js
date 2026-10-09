@@ -259,7 +259,7 @@ test("a fill's per-field outcomes pass the log boundary as short rows of wording
   assert.equal(kept[1].reason.length, 80);
 });
 
-test('a likely answer the profile does not state comes back as a proposal; never for a legal, demographic or knockout question', async () => {
+test('a likely answer the profile does not state comes back as a proposal (a knockout one too, to be checked); never for a legal or demographic question', async () => {
   const { answerForm } = await import('../src/extension.js');
   const answers = [
     { field: 'hours', value: 'Oui', confidence: 'medium', note: 'applying to this 50% role', category: 'normal', use: 'propose' },
@@ -274,6 +274,17 @@ test('a likely answer the profile does not state comes back as a proposal; never
   const fields = answers.map((a) => ({ field: a.field, label: a.field, type: 'text' }));
   const result = await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t) },
     { url: 'https://forms.example.com/apply', fields, page_text: '50% contract' }, client);
-  assert.deepEqual(result.answers.map((a) => [a.field, a.use]), [['hours', 'propose'], ['email', 'fill']]);
-  assert.equal(traces[0].proposed, 1);
+  assert.deepEqual(result.answers.map((a) => [a.field, a.use]), [['hours', 'propose'], ['visa', 'propose'], ['email', 'fill']]);
+  assert.equal(traces[0].proposed, 2);
+});
+
+test('the strategy\'s search settings go to the AI beside the profile', async () => {
+  const { answerForm } = await import('../src/extension.js');
+  let system = '';
+  const client = { messages: { create: async (args) => { system = JSON.stringify(args.system); return { stop_reason: 'end_turn', usage: { billing: 'subscription' },
+    content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers: [] }) }] }; } } };
+  await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '', SEARCH_TEXT: Promise.resolve('{"roles":["cashier"]}') },
+    { url: 'https://forms.example.com/apply', fields: [{ field: 'x', label: 'x', type: 'text' }], page_text: '' }, client);
+  assert.match(system, /<search_preferences>/);
+  assert.match(system, /cashier/);
 });

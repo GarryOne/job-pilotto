@@ -1321,6 +1321,10 @@ main { min-width: 0; }
 .ss-check.is-solved .ss-check-line { color: var(--muted); }
 .ss-ask-line { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
 .ss-ask-input { flex: 1 1 260px; max-width: 460px; }
+/* A proposed answer's row (need-proposal.js): the box takes the row's width, so "Use" ends at the right edge where "Open in form" does on its siblings. */
+.ss-need.is-ask .ss-ask-line { flex-wrap: nowrap; }
+.ss-need.is-ask .ss-ask-input { max-width: none; min-width: 0; }
+.ss-need.is-ask .ss-need-actions { flex: none; }
 .ss-ask-save { display: inline-flex; align-items: center; gap: var(--sp-2); cursor: pointer; color: var(--ink-2); white-space: nowrap; margin: 0; }
 .ss-ask-save input { width: auto; margin: 0; }
 .ss-ask-save.is-saved { color: var(--good); }
