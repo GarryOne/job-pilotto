@@ -40,18 +40,23 @@ export async function clickCombos(tabId) {
         // The page opens the menu, filters it and picks the answer: a fixed list picks within a few tenths of a second,
         // so it gets 1.5 s; a search field that is still loading its suggestions from the server gets up to 5 s.
         const loading = () => page(() => !!document.querySelector('[class*=loading-indicator], [class*=loadingIndicator], [class*=menu-notice--loading], [class*=loadingMessage]'));
+        let spotClicked = false;
         for (let waited = 0, limit = 1500; waited < limit; waited += 100) {
           await new Promise(r => setTimeout(r, 100));
           if ((await page(() => window.__jobPilottoArmedCount())) < before) break;
+          // The menu ignored a scripted click on its option: the page left the option's spot, clicked here for real once (page/fill.js armCombo).
+          const spotAt = spotClicked ? null : await page(() => window.__jobPilottoPickSpot || null);
+          if (spotAt) { spotClicked = true; await click(spotAt.x, spotAt.y); limit = Math.max(limit, waited + 4500); }
           if (limit < 5000 && await loading()) limit = 5000;
         }
         picked = (await page(() => window.__jobPilottoArmedCount())) < before;
         if (!picked) { await click(5, 5).catch(() => {}); await new Promise(r => setTimeout(r, 100)); }  // close the menu
       }
       // Did the page pick what it was asked for? (8 Oct 2026: an automatic click selected the item after "Suisse".) A yes/no, never the value.
-      const last = picked ? await page(() => { const pick = window.__jobPilottoLastPick; window.__jobPilottoLastPick = null; return pick; }) : null;
-      const matched = !last ? null : String(last.asked).trim().toLowerCase() === String(last.got).trim().toLowerCase();
-      results.push({label: spot.label, picked, matched, ms: Date.now() - started});
+      const last = await page(() => { const pick = window.__jobPilottoLastPick; window.__jobPilottoLastPick = null; return pick; });
+      const matched = !picked || !last ? null : String(last.asked).trim().toLowerCase() === String(last.got).trim().toLowerCase();
+      // What was observed for this menu (fill card reasons: opened, found, selectedAfter, trusted), never assumed.
+      results.push({label: spot.label, picked, matched, ms: Date.now() - started, opened: last?.opened ?? null, found: last?.found ?? null, selectedAfter: last?.selectedAfter ?? null, trusted: last?.trusted ?? null});
       if (!picked) skip += 1;
     }
     // A phone widget whose country was just picked: type the number for real, so the form registers it.
@@ -132,7 +137,7 @@ export function forgetAI(tab) { return chrome.storage.session.remove(cacheKey(ta
 // me: your contact details and CV when already fetched (the panel prefetches them), so the fill starts at once.
 // The page scripts a fill needs, in order (also loaded for one field's "Use" from the app: fill-flow.js).
 export const PAGE_FILES = ['page/browser-submit-guard.js', 'page/browser-form-fastpath.js', 'page/snapshot.js', 'page/skeleton.js', 'page/controls.js',
-  'page/coverage.js', 'page/propose.js', 'page/upload.js', 'page/categories.js', 'page/dial-codes.js', 'page/radios.js', 'page/fill.js'];
+  'page/coverage.js', 'page/propose.js', 'page/upload.js', 'page/categories.js', 'page/dial-codes.js', 'page/radios.js', 'page/menu-pick.js', 'page/fill.js'];
 export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], hasKit = false, onStep = () => {}, reuse = true, coverLetter = '', jobUrl = '', me: early = null} = {}) {
   const startedAt = new Date();
   const job = (jobUrl || tab.url).split('#')[0];

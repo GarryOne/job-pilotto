@@ -36,8 +36,10 @@ test('a field left empty is marked with the answer the form did not take, or the
 
 test('propose.js is loaded with the page scripts, before fill.js, as the extension injects them', () => {
   const flow = fs.readFileSync(new URL('../../extension/flow.js', import.meta.url), 'utf8');
-  assert.match(flow, /'page\/propose\.js', 'page\/upload\.js', 'page\/categories\.js', 'page\/dial-codes\.js', 'page\/radios\.js', 'page\/fill\.js'\];/);
-  assert.ok(PAGE_SCRIPTS.indexOf('extension/page/propose.js') === PAGE_SCRIPTS.indexOf('extension/page/fill.js') - 5);
+  // The order, not the exact list: propose.js and menu-pick.js (the armed menus' pick) load before fill.js, which calls them.
+  const injected = flow.slice(flow.indexOf('PAGE_FILES'), flow.indexOf('];', flow.indexOf('PAGE_FILES')));
+  for (const before of ['page/propose.js', 'page/menu-pick.js']) assert.ok(injected.indexOf(before) > 0 && injected.indexOf(before) < injected.indexOf('page/fill.js'), `${before} is injected before fill.js`);
+  for (const before of ['extension/page/propose.js', 'extension/page/menu-pick.js']) assert.ok(PAGE_SCRIPTS.indexOf(before) >= 0 && PAGE_SCRIPTS.indexOf(before) < PAGE_SCRIPTS.indexOf('extension/page/fill.js'), `${before} is loaded before fill.js in the tests`);
   const panel = fs.readFileSync(new URL('../../extension/review.js', import.meta.url), 'utf8');
   assert.match(panel, /proposals: state\.list\.filter/);
   assert.match(panel, /if \(command\.fill\) \{ send\(\{type: 'panelFillOne', \.\.\.command\.fill\}\)/);

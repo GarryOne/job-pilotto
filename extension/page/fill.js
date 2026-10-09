@@ -99,9 +99,7 @@
     (() => { for (let b = el.parentElement, i = 0; b && i < 4 && b.querySelectorAll('input:not([type=hidden]), select, textarea').length <= 1; b = b.parentElement, i++) { const h = [...b.querySelectorAll('input[type=hidden][id]')].find(x => x.value && document.querySelector(`label[for="${CSS.escape(x.id)}"]`)); if (h) return h; } return null; })();   // else a labelled hidden input holding it (review.js comboFilled)
   const radioOps = window.__jobPilottoRadios({clean, norm, labelOf, questionOf, LEGAL, visible});   // page/radios.js, injected first
 
-  // Searchable dropdowns (react-select on Greenhouse) only open for real user input: scripted clicks
-  // and keys are ignored (checked on a live form, 27 Sep 2026). So the extension never opens them;
-  // it marks each one, and when you click it, picks the answer in the menu your click opened.
+  // Searchable dropdowns (react-select on Greenhouse) only open for real user input: scripted clicks and keys are ignored (checked on a live form, 27 Sep 2026). So the extension never opens them; it marks each one, and when you click it, picks the answer in the menu your click opened.
   const OPTION = '[class*="option"], [role="option"]';
   // The innermost option elements of an open menu (not the phone field's hidden country list).
   const optionNodes = () => Array.from(document.querySelectorAll(OPTION))
@@ -189,15 +187,17 @@
         if (!option) {
           // The menu as it opened (before typing filters it): for the fill-failure report's snapshot (snapshot.js).
           try { (window.__jobPilottoMenuSnapshots ||= {})[control.dataset.jobpilottoArmed] = window.__jobPilottoSnapshot?.({field: el.id || el.name}); } catch {} var shown = []; for (let w = 0; w < 1500 && !shown.length; w += 150) { await sleep(150); shown = optionNodes().map(o => clean(o.textContent)).filter(Boolean).slice(0, 60); } option = matchOption(answer);   // the menu's own choices once drawn (a slow menu: Coop, 8 Oct 2026)
-          // Long menus (countries, cities) show only their first entries: type the answer to filter,
-          // which the menu accepts once your click has opened it.
-          // Search-as-you-type fields (Location) load suggestions from the server: type the first part, wait for them.
+          // Long menus (countries, cities) show only their first entries: type the answer to filter, which the menu accepts once your click has opened it; search-as-you-type fields (Location) load suggestions from the server: type the first part, wait for them.
           if (!option) Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, String(answer).split(' || ')[0].split(',')[0].trim());
           if (!option) el.dispatchEvent(new Event('input', {bubbles: true}));
           for (let waited = 0; waited < 4000 && !option; waited += 250) { await sleep(250); option = matchOption(answer); }
         }
-        if (option) { window.__jobPilottoLastPick = {asked: String(answer).split(' || ')[0], got: clean(option.textContent)}; option.click(); done(); }   // flow.js clickCombos checks asked = got
-        else { badge.textContent = `✈️ Suggested: ${answer} (pick it yourself)`; window.__jobPilottoMenuMissed?.(el, shown); }   // page/propose.js: no text left in the box; its choices go to the app
+        // Picked only when the page shows it (page/menu-pick.js); what was seen goes to flow.js clickCombos and the fill card's reason (observed, not assumed: 9 Oct 2026).
+        const opened = el.getAttribute('aria-expanded') === 'true' || optionNodes().length > 0;   // before the pick closes it
+        const took = option ? await (window.__jobPilottoMenuPick?.({el, option, control, readValue: comboValue}) ?? (option.click(), {selectedAfter: true, trusted: false})) : {selectedAfter: false, trusted: false};
+        window.__jobPilottoLastPick = {asked: String(answer).split(' || ')[0], got: option ? clean(option.textContent) : '', opened, found: !!option, ...took};
+        if (took.selectedAfter) { done(); return; }
+        badge.textContent = `✈️ Suggested: ${answer} (pick it yourself)`; if (!option) window.__jobPilottoMenuMissed?.(el, shown);   // page/propose.js: no text left in the box; its choices go to the app
       }, 120);
     };
     control.addEventListener('mousedown', onOpen, true); control.__jobPilottoDisarm = done;
@@ -205,8 +205,7 @@
   };
 
 
-  // A group of checkboxes that is one question ("How did you hear about us?": LinkedIn / Careers website / …):
-  // tick the option whose label best matches the answer (exact, then contained either way, then shared words).
+  // A group of checkboxes that is one question ("How did you hear about us?": LinkedIn / Careers website / …): tick the option whose label best matches the answer (exact, then contained either way, then shared words).
   const pickCheckboxOption = (question, answer) => {
     const boxes = Array.from(document.querySelectorAll('input[type=checkbox]')).filter(b => questionOf(b) === question);
     if (!boxes.length || LEGAL.test(question)) return null;

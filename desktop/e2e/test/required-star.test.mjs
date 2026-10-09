@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import {test} from 'node:test';
 import {chromium} from 'playwright-core';
 
-const PAGE_FILES = ['browser-submit-guard', 'browser-form-fastpath', 'snapshot', 'skeleton', 'controls', 'coverage', 'propose', 'upload', 'radios', 'fill'];
+const PAGE_FILES = ['browser-submit-guard', 'browser-form-fastpath', 'snapshot', 'skeleton', 'controls', 'coverage', 'propose', 'upload', 'radios', 'menu-pick', 'fill'];
 const FORM = `<body><form>
   <div><label for="first">* Prénom</label><input id="first" required></div>
   <div><label for="last">Nom *</label><input id="last" required></div>
