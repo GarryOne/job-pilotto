@@ -193,14 +193,9 @@ def run(db, model, max_jobs, client=None, workers=5, stats=None, only_ids=None):
         jobs = queue[:budget.batch('enrich', len(queue), say=False)]
     if not queue:
         return f'0 job(s) to enrich with {model}'
-    try:
-        import anthropic  # Only needed when actually calling the API.
-        transient = (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError)
-        permanent = (anthropic.APIStatusError,)
-    except ImportError:
-        if client is None:
-            raise
-        transient = permanent = ()  # A test client raises none of the SDK's errors.
+    from . import engine
+    # Whatever the engine: down or busy (the next run continues), or a refusal of this one call (the job is skipped).
+    transient, permanent = engine.transient_errors(), engine.permanent_errors()
     from . import engine
     client = client or engine.client(action='enrich')
     tokens_in = tokens_out = failures = enriched = 0

@@ -264,7 +264,7 @@ class CliClientTests(unittest.TestCase):
         facts = {'languages': [], 'english_is_enough': {'value': 'yes', 'evidence': ''}}
         with mock.patch.dict(os.environ, {'FAKE_CLAUDE_MODE': 'text'}), \
                 mock.patch.object(engine.CliClient, '_answer', staticmethod(lambda data, schema: json.dumps(facts))), \
-                mock.patch.object(engine, 'problems', lambda value, schema, where='$': []):
+                mock.patch('src.ai.providers.cli_base.problems', lambda value, schema, where='$': []):
             with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
                 job_store.import_watch_report(db, {'jobs': [{'id': '1', 'url': 'https://x.test/1', 'title': 'SRE',
                                                              'company': 'Example', 'description': 'Kubernetes.'}]})
@@ -283,9 +283,9 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(engine.choice({'JOB_PILOTTO_AI_ENGINE': 'auto'}), 'api')  # no silent automatic choice
 
     def test_client_matrix(self):
-        with mock.patch.object(engine, '_api', lambda: 'sdk client'):
-            self.assertEqual(engine.client({'ANTHROPIC_API_KEY': 'k'}), 'sdk client')
-            self.assertEqual(engine.client({}), 'sdk client')  # the SDK says what's missing, as before
+        with mock.patch('src.ai.providers.anthropic_api.sdk', lambda action='': 'sdk client'):
+            self.assertEqual(engine.client({'ANTHROPIC_API_KEY': 'k'}).client, 'sdk client')
+            self.assertEqual(engine.client({}).client, 'sdk client')  # the SDK says what's missing, as before
             cli = engine.client({'JOB_PILOTTO_AI_ENGINE': 'cli', 'JOB_PILOTTO_CLAUDE_BIN': sys.executable})
             self.assertIsInstance(cli, engine.CliClient)
             self.assertEqual(cli.binary, sys.executable)
@@ -386,8 +386,8 @@ class HaikuThinking(unittest.TestCase):
     def test_haiku_runs_without_thinking_and_the_others_keep_theirs(self):
         from src.ai.engine import CliClient, call_env
         client = CliClient(binary='claude', run=lambda *a, **k: None)
-        import src.ai.engine as engine
-        with mock.patch.object(engine, 'flags', lambda *a: {'--tools', '--json-schema', '--effort', '--max-turns'}):
+        from src.ai.providers import claude_code
+        with mock.patch.object(claude_code, 'flags', lambda *a: {'--tools', '--json-schema', '--effort', '--max-turns'}):
             haiku = client.command('claude-haiku-4-5', 'system', {'type': 'object'})
             sonnet = client.command('claude-sonnet-4-6', 'system', {'type': 'object'}, 'medium')
         self.assertEqual(call_env(haiku, {'PATH': '/bin'})['MAX_THINKING_TOKENS'], '0')

@@ -67,7 +67,7 @@ class ClaudeCodeSearchTests(unittest.TestCase):
     def test_claude_code_is_allowed_web_search_and_nothing_else(self):
         from src.ai import engine
         cli = engine.CliClient(binary='claude', run=lambda *a, **k: None)
-        with mock.patch.object(engine, 'flags', lambda binary, run: {'--tools', '--permission-mode', '--max-turns', '--allowedTools'}):
+        with mock.patch('src.ai.providers.claude_code.flags', lambda binary, run: {'--tools', '--permission-mode', '--max-turns', '--allowedTools'}):
             args = cli.command('claude-haiku-4-5', 'system', web_search=True)
             plain = cli.command('claude-haiku-4-5', 'system')
         self.assertEqual(args[args.index('--tools') + 1], 'WebSearch')

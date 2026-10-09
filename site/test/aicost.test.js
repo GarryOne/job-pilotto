@@ -65,7 +65,7 @@ test('a failing log never breaks the relay, and the steps match the ones the app
   e.STATS.db.exec('DROP TABLE ai_calls;');
   assert.equal((await ask(e, key, 'score', {input_tokens: 10, output_tokens: 10})).status, 200);
   assert.equal(await record({}, 'x', 'score', 'm', {}, 0.01), false);   // no database bound: nothing to do
-  const python = readFileSync(new URL('../../src/ai/engine.py', import.meta.url), 'utf8');
+  const python = readFileSync(new URL('../../src/ai/providers/anthropic_api.py', import.meta.url), 'utf8');
   const sent = /ACTIONS = \(([^)]*)\)/.exec(python)[1].match(/'([a-z]+)'/g).map(word => word.replace(/'/g, ''));
-  assert.deepEqual(sent, ACTIONS, 'src/ai/engine.py ACTIONS and site/src/aicost.js ACTIONS must be the same list');
+  assert.deepEqual(sent, ACTIONS, 'src/ai/providers/anthropic_api.py ACTIONS and site/src/aicost.js ACTIONS must be the same list');
 });

@@ -307,14 +307,9 @@ def run(db, candidates, profile, model, max_jobs, client=None, workers=5, stats=
     if not jobs:
         return f'0 job(s) to score with {model}'
     began = time.monotonic()
-    try:
-        import anthropic
-        transient = (anthropic.APIConnectionError, anthropic.RateLimitError, anthropic.InternalServerError)
-        permanent = (anthropic.APIStatusError,)
-    except ImportError:
-        if client is None:
-            raise
-        transient = permanent = ()
+    from . import engine
+    # Whatever the engine: down or busy (the next run continues), or a refusal of this one call (the job is skipped).
+    transient, permanent = engine.transient_errors(), engine.permanent_errors()
     from . import engine
     client = client or engine.client(action='score')
     scored = failures = 0

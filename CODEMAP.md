@@ -400,7 +400,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/budget.py` — Monthly AI budget: how much of this month's Anthropic spend limit is used, and what to do about it.
 - `src/ai/cost.py` — API prices and per-call cost, shared by the AI stages and the cronjob run report.
 - `src/ai/decide.py` — The engine's one way to let AI decide what content means, in any language, instead of keyword lists (owner, 8 Oct 2026: "Let the AI
-- `src/ai/engine.py` — The AI engine every AI step calls through: the Anthropic API (the user's key) or the user's own Claude Code.
+- `src/ai/engine.py` — The AI engine every AI step calls through: one factory, `client()`, over the engines in src/ai/providers/.
 - `src/ai/enrich.py` — AI stage 1: read each new or changed job description and extract structured facts.
 - `src/ai/few_jobs.py` — 'Explain with AI' on a jobs check that found few new jobs: Claude reads the search's coverage counts and says why, and what to do first.
 - `src/ai/hints.py` — Scoring hints learned from what people dismiss (site/src/intelligence.js hints, fetched by desktop/lib/aliases.js into data/hints.json).
@@ -445,6 +445,11 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/place_triage.py` — Which job locations are in the user's places, decided by AI (owner, 7 Oct 2026: "nothing hard-coded: around the globe there are thousands of
 - `src/ai/prep.py` — Interview prep kit: how to prepare for one interview, from the job's description, your Profile and how your past
 - `src/ai/provenance.py` — Which inputs produced a kit, so the app can say whether it's still current.
+- `src/ai/providers/anthropic_api.py` — The `api` engine: the Anthropic SDK with the user's ANTHROPIC_API_KEY (or the free-credit relay's address). Billed per token.
+- `src/ai/providers/claude_code.py` — The `cli` engine: the user's own signed-in Claude Code (`claude -p`), on their Claude plan. Shared CLI rules: cli_base.py.
+- `src/ai/providers/cli_base.py` — What every engine that runs the user's own signed-in CLI shares (Claude Code `claude -p`, Codex `codex exec`).
+- `src/ai/providers/contract.py` — The contract every AI provider adapter meets: one neutral request in, one SDK-shaped response out, one set of errors.
+- `src/ai/providers/schema.py` — JSON schemas across providers: a small validator, a forgiving JSON reader, and each provider's accepted form of one schema.
 - `src/ai/quality.py` — Quality checks for the words the AI writes for the owner (insight headline, next step).
 - `src/ai/reassign.py` — Your answer about an email the Gmail check wasn't sure where to place.
 - `src/ai/rejection.py` — Rejection review: why an application was turned down, and whether there's anything to improve.

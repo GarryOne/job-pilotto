@@ -59,7 +59,7 @@ def _claude_code():
 def _claude_search(company, language, site=''):
     from ..ai import cost, engine
     client = engine.client(action='scout')
-    if getattr(client, '_api', None) is not None:   # Claude Code hit its plan limit and the API took over: its web search is billed, so not used
+    if getattr(client, 'fell_back', False):   # Claude Code hit its plan limit and the API took over: its web search is billed, so not used
         return []
     model = SMALL_MODEL
     words = JOB_WORDS.get(language, '')
