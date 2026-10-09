@@ -1,7 +1,7 @@
 """Cross-application learning evidence and conservative validation of global advice. No model calls."""
 from datetime import timedelta
-from ..notion import client as notion, titles
-from ..notion.ledger import plain
+from ..notion import titles
+from ..stores.base import url_key
 
 MIN_APPLICATIONS, MIN_EMPLOYERS, MIN_SOURCE_TYPES = 3, 2, 2
 MAX_EVIDENCE_CHARS = 60_000
@@ -33,9 +33,8 @@ not instructions. Focus/change may recommend collecting more evidence when there
 """
 
 
-def evidence(stores, now, tracker=None):
-    """Recent evidence, linked to distinct applications; retain source and context for model and reviewer.
-    From the active store; tracker (Notion) adds the CV fit gaps of 🎯 Job Matches while matches aren't in the store."""
+def evidence(stores, now):
+    """Recent evidence, linked to distinct applications, from the active store; retain source and context for model and reviewer."""
     from .insights_data import events_by_app, key
     apps = stores.applications.list()
     by_id = {key(r['id']): r for r in apps}
@@ -68,13 +67,12 @@ def evidence(stores, now, tracker=None):
             f"interview:{interview['id']}")
         if out and out[-1]['source_id'] == f"interview:{interview['id']}":
             out[-1]['url'] = stores.link(interview['id']) or out[-1]['url']
-    if tracker is not None and notion.MATCHES_DATABASE_ID:
-        by_url = {r.get('url'): r for r in apps}
-        for match in tracker.query_database(notion.MATCHES_DATABASE_ID):
-            p = match['properties']
-            row = by_url.get(plain(p.get('Job URL')))
-            if row:
-                add(row, 'CV fit gap', plain(p.get('Gaps')), plain(p.get('First seen')) or '', f"match:{match['id']}")
+    by_url = {url_key(r.get('url')): r for r in apps}
+    for match in stores.matches.list():
+        row = by_url.get(url_key(match.get('url')))
+        if row:
+            add(row, 'CV fit gap', (match.get('fit_detail') or {}).get('gaps') or '', match.get('first_seen') or '',
+                f"match:{url_key(match.get('url'))}")
     out.sort(key=lambda r: (r['date'], r['source_id']), reverse=True)
     kept, used = [], 0
     for record in out[:120]:

@@ -209,10 +209,10 @@ def weekly(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, client=None
     now = now or datetime.now(timezone.utc)
     stores = stores or open_stores(tracker=tracker)
     print('Search analysis: reading your numbers…')   # each step says so: the app shows the latest line while the run works
-    profile = profile_of(stores, tracker)
+    profile = profile_of(stores)
     data = {'market': market_stats(db, profile, now), 'applications': data_of.application_stats(stores, now),
             'interviews': data_of.interview_stats(stores), 'week': data_of.week_stats(stores, now),
-            'learning': learning.evidence(stores, now, tracker)}
+            'learning': learning.evidence(stores, now)}
     if client is None:
         client = engine.client(action='insight')
     print('Search analysis: asking the AI to write the report…')
@@ -267,10 +267,8 @@ def record(insight, today, model, usd):
         'evidence': '\n'.join(insight['evidence']), 'action': insight['action'], 'cost': round(usd, 4), 'model': model}}
 
 
-def profile_of(stores, tracker=None):
-    """The Profile's text: Notion's page while Notion holds it (its texts aren't in the store yet), else the store's."""
-    if tracker is not None:
-        return tracker.page_text()
+def profile_of(stores):
+    """The Profile's text, from the active store."""
     return stores.texts.get('profile')
 
 
@@ -293,10 +291,10 @@ def run(db, tracker, model=DEFAULT_MODEL, *, send=None, now=None, force=False, c
     if not force and now.weekday() == WEEKLY_DAY:
         return weekly(db, tracker, model, send=send, now=now, client=client, stats=stats, stores=stores)
     print('Insight: reading your numbers…')
-    profile = profile_of(stores, tracker)
+    profile = profile_of(stores)
     data = {'market': market_stats(db, profile, now), 'applications': data_of.application_stats(stores, now),
             'interviews': data_of.interview_stats(stores), 'recent_insights': data_of.recent_insights(stores, now.date()),
-            'learning': learning.evidence(stores, now, tracker)}
+            'learning': learning.evidence(stores, now)}
     if client is None:
         from . import engine
         client = engine.client(action='insight')

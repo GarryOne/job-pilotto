@@ -72,6 +72,9 @@ class FakeTracker:
     def page_text(self):
         return PROFILE
 
+    def _children(self, page_id):  # the Profile page, as the notion store's texts read it
+        return [{'type': 'paragraph', 'paragraph': {'rich_text': [{'plain_text': PROFILE}]}}] if page_id == 'profile-page' else []
+
     def create_page(self, database_id, properties):
         self.created.append((database_id, properties))
         return {'id': '4c79aec0-91df-4dcc-8a88-27cd4d43a5ef'}
@@ -209,7 +212,7 @@ class RunTests(unittest.TestCase):
 
     def test_sends_one_insight_with_feedback_buttons_and_records_cost(self):
         tracker, client, sent, stats = FakeTracker(), FakeClient(), [], {}
-        with patched():
+        with patched(), mock.patch.dict('os.environ', {'NOTION_PROFILE_PAGE_ID': 'profile-page'}):
             summary = insights.run(None, tracker, 'claude-sonnet-5-5', send=lambda t, k: sent.append((t, k)),
                                    now=NOW, client=client, stats=stats)
         self.assertIn('Insight sent: Skills', summary)

@@ -66,6 +66,16 @@ class LearningTests(unittest.TestCase):
         self.assertIn('Postgres failover', review['text'])
         self.assertNotIn('secret words', ' '.join(r['text'] for r in found))
 
+    def test_a_matchs_fit_gaps_are_evidence_for_its_job(self):
+        stores = memory.open_store()
+        stores.applications.create({'url': 'https://x.test/a', 'title': 'SRE', 'company': 'Acme'}, 'Applied')
+        stores.matches.upsert({'url': 'https://x.test/a/', 'title': 'SRE', 'first_seen': '2026-09-20',
+                               'fit_detail': {'gaps': 'No Postgres HA shown'}})
+        stores.matches.upsert({'url': 'https://x.test/other', 'fit_detail': {'gaps': 'not this job'}})
+        found = learning.evidence(stores, NOW)['evidence']
+        self.assertEqual([(r['source_type'], r['text'], r['company']) for r in found],
+                         [('CV fit gap', 'No Postgres HA shown', 'Acme')])
+
     def test_publish_adds_one_process_insight_per_issue_with_its_evidence(self):
         stores = memory.open_store()
         issue = {'issue': 'Postgres depth comes up', 'action': 'Practise failover', 'applications': 3, 'employers': 2,
