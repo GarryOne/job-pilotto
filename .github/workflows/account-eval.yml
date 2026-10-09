@@ -1,0 +1,55 @@
+# The account-page AI eval (desktop/e2e/account-eval.mjs): the real model reads sign-in, sign-up, "account exists" and one-page account outlines in several
+# languages through the app's own page-kind and account-judge code, and must get 85% right and every strict case (a wrong sign-in/sign-up, a retried refusal,
+# a bot check pressed through). Runs when that code, its prompts or the cases change, and by hand. Haiku, about 24 calls: under a cent a run (test key).
+name: CI · Account-page eval
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - desktop/lib/page-kind.js
+      - desktop/lib/account-judge.js
+      - desktop/e2e/fixtures/account-pages.json
+      - desktop/e2e/lib/account-eval.mjs
+      - desktop/e2e/account-eval.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: account-eval
+  cancel-in-progress: true
+
+jobs:
+  eval:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Within the day's AI budget
+        id: budget
+        run: node desktop/e2e/ai-budget.mjs --check
+      - name: Install
+        if: steps.budget.outputs.skip != 'true' && env.E2E_ANTHROPIC_KEY != ''
+        working-directory: desktop/e2e
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+        run: npm ci --no-audit --no-fund
+      - name: The eval
+        if: steps.budget.outputs.skip != 'true' && env.E2E_ANTHROPIC_KEY != ''
+        working-directory: desktop/e2e
+        run: node account-eval.mjs --out account-eval.json
+      - uses: actions/upload-artifact@v4
+        if: always() && hashFiles('desktop/e2e/account-eval.json') != ''
+        with:
+          name: account-eval
+          path: desktop/e2e/account-eval.json
+          retention-days: 14
