@@ -1,10 +1,10 @@
 // A real DOM (jsdom) with the extension's page scripts loaded, for replay and snapshot tests: what Chrome gives the
 // extension that jsdom lacks (layout, CSS.escape, trusted clicks) is filled in just enough for fill.js.
 import fs from 'node:fs';
+import { PAGE_FILES } from '../../../extension/page-files.js';
 
 const read = (path) => fs.readFileSync(new URL(`../../../${path}`, import.meta.url), 'utf8');
-export const PAGE_SCRIPTS = ['extension/page/browser-submit-guard.js', 'extension/page/browser-form-fastpath.js',
-  'extension/page/snapshot.js', 'extension/page/skeleton.js', 'extension/page/controls.js', 'extension/page/coverage.js', 'extension/page/propose.js', 'extension/page/upload.js', 'extension/page/categories.js', 'extension/page/dial-codes.js', 'extension/page/radios.js', 'extension/page/menu-pick.js', 'extension/page/fill.js'];
+export const PAGE_SCRIPTS = PAGE_FILES.map(file => `extension/${file}`);   // as the extension injects them
 
 // jsdom is a dev dependency: CI installs it (npm ci). A worktree whose linked node_modules predates it skips the
 // DOM tests locally with a note instead of failing every other suite; `npm install` in worker/ brings it.

@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { loadJsdom, openPage, PAGE_SCRIPTS } from './helpers/page.js';
+import { PAGE_FILES } from '../../extension/page-files.js';
 
 const JSDOM = await loadJsdom();
 const skip = JSDOM ? false : 'jsdom is not installed here (run npm install in worker/)';
@@ -37,9 +38,11 @@ test('a field left empty is marked with the answer the form did not take, or the
 test('propose.js is loaded with the page scripts, before fill.js, as the extension injects them', () => {
   const flow = fs.readFileSync(new URL('../../extension/flow.js', import.meta.url), 'utf8');
   // The order, not the exact list: propose.js and menu-pick.js (the armed menus' pick) load before fill.js, which calls them.
-  const injected = flow.slice(flow.indexOf('PAGE_FILES'), flow.indexOf('];', flow.indexOf('PAGE_FILES')));
-  for (const before of ['page/propose.js', 'page/menu-pick.js']) assert.ok(injected.indexOf(before) > 0 && injected.indexOf(before) < injected.indexOf('page/fill.js'), `${before} is injected before fill.js`);
-  for (const before of ['extension/page/propose.js', 'extension/page/menu-pick.js']) assert.ok(PAGE_SCRIPTS.indexOf(before) >= 0 && PAGE_SCRIPTS.indexOf(before) < PAGE_SCRIPTS.indexOf('extension/page/fill.js'), `${before} is loaded before fill.js in the tests`);
+  assert.match(flow, /import \{PAGE_FILES\} from '\.\/page-files\.js'/);
+  for (const before of ['page/propose.js', 'page/menu-pick.js', 'page/fill-labels.js', 'page/fill-read.js', 'page/fill-menus.js', 'page/fill-checks.js', 'page/fill-marks.js']) {
+    assert.ok(PAGE_FILES.indexOf(before) > 0 && PAGE_FILES.indexOf(before) < PAGE_FILES.indexOf('page/fill.js'), `${before} is injected before fill.js`);
+  }
+  assert.deepEqual(PAGE_SCRIPTS, PAGE_FILES.map(file => `extension/${file}`), 'the tests load the page scripts the extension injects');
   const panel = fs.readFileSync(new URL('../../extension/review.js', import.meta.url), 'utf8');
   assert.match(panel, /proposals: state\.list\.filter/);
   assert.match(panel, /if \(command\.fill\) \{ send\(\{type: 'panelFillOne', \.\.\.command\.fill\}\)/);

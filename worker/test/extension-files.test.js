@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { FILL_FILES } from '../../extension/page-files.js';
 
 const read = path => fs.readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 
@@ -36,7 +37,7 @@ test('contact details go into matching empty text fields, never over kit answers
   const window = {};
   const context = vm.createContext({window, document: {}});
   vm.runInContext(read('extension/page/radios.js'), context);   // injected before fill.js (extension/flow.js)
-  vm.runInContext(read('extension/page/fill.js'), context);
+  for (const file of FILL_FILES) vm.runInContext(read(`extension/${file}`), context);   // the filler, in its injection order
   const rows = [
     {field: 'first_name', label: 'First Name*', type: 'text', filled: false},
     {field: 'last_name', label: 'Last Name', type: 'text', filled: false},
@@ -58,7 +59,7 @@ test('contact details go into matching empty text fields, never over kit answers
 });
 
 test('consent boxes are recognised by whole words (Acknowledge, consents, certify), not only stems', () => {
-  const source = read('extension/page/fill.js');
+  const source = read('extension/page/fill-labels.js');
   const LEGAL = eval(source.match(/const LEGAL = (\/.*\/i);/)[1]);
   for (const text of ['Acknowledge', 'I consent to Twilio collecting', 'By checking this box, I confirm I have read the policy',
     'I certify that the information is true', 'Privacy Policy']) assert.ok(LEGAL.test(text), text);

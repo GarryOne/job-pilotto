@@ -374,6 +374,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/messages-panel.js` — The extension worker's messages from the page's panel (moved out of background.js, 8 Oct 2026): the job it shows, Fill, bringing the tab forward or closing it, taking over with
 - `extension/next-step.js` — The next step of a multi-step application (owner, 8 Oct 2026: approved, "assist" by default). When the form judge (form-ready.js) says THIS page state is
 - `extension/options.js` — Settings: only the connection to the Job Pilotto app — filled in by itself when this page opens, or by Connect.
+- `extension/page-files.js` — The page scripts the extension injects into an application form (main world), in order: one list for flow.js, fill-flow.js and the tests.
 - `extension/page-picture.js` — What the closer look takes of a page (spec: docs/superpowers/specs/2026-10-08-ai-escalation.md): the typed values are hidden BEFORE the screenshot and shown again right after, so labels and
 - `extension/panel-start.js` — The panel's first seconds on a page the app opened to fill: its button spins with "Starting…" until the fill says its own first step
 - `extension/popup.js` — The toolbar popup: whether the extension can reach the Job Pilotto app, and "Read the jobs on this page" (visit.js) for a job list the app

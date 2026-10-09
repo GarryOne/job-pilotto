@@ -4,6 +4,7 @@ import {kitStance} from './tab-pages.js';
 import {fillCard} from './fill-card.js';
 import {settleTrace} from './trace-settle.js';
 import {expandSections} from './sections.js';
+import {PAGE_FILES} from './page-files.js';
 export const JOB_SITES = [
   'https://*.greenhouse.io/*', 'https://jobs.lever.co/*', 'https://jobs.ashbyhq.com/*',
   'https://*.myworkdayjobs.com/*', 'https://*.smartrecruiters.com/*', 'https://apply.workable.com/*',
@@ -136,8 +137,7 @@ export function forgetAI(tab) { return chrome.storage.session.remove(cacheKey(ta
 // jobUrl: the posting the kit belongs to, when the form lives elsewhere (a job board's Apply led to the employer's site).
 // me: your contact details and CV when already fetched (the panel prefetches them), so the fill starts at once.
 // The page scripts a fill needs, in order (also loaded for one field's "Use" from the app: fill-flow.js).
-export const PAGE_FILES = ['page/browser-submit-guard.js', 'page/browser-form-fastpath.js', 'page/snapshot.js', 'page/skeleton.js', 'page/controls.js',
-  'page/coverage.js', 'page/propose.js', 'page/upload.js', 'page/categories.js', 'page/dial-codes.js', 'page/radios.js', 'page/menu-pick.js', 'page/fill.js'];
+export {PAGE_FILES};   // extension/page-files.js
 export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], hasKit = false, onStep = () => {}, reuse = true, coverLetter = '', jobUrl = '', me: early = null} = {}) {
   const startedAt = new Date();
   const job = (jobUrl || tab.url).split('#')[0];

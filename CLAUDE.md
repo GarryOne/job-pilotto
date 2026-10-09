@@ -194,8 +194,9 @@ block missed `sessionGet` 800 lines below; an import changed upstream and a page
 500 lines.** About to cross it? Move a concern into its own file first (the pattern: `lib/session-flow.js`, `extension/fill-flow.js`: shared
 state passed in, a header naming what it owns and the tests guarding it). Files already over it are in `tools/file-size-allowed.json` at their
 size and may only shrink; `tools/file-size.mjs` (push hook + `desktop/test/file-size.test.js`) fails a new big file or a listed one that grew.
-**Documented exceptions (owner, 8 Oct 2026):** `extension/review.js` and `extension/page/fill.js` stay over 500 on purpose: Chrome injects each as ONE classic
-content script (no imports without a build step, or without exposing modules to every page). They may not grow; the reasons live in `EXCEPTIONS` in `tools/file-size.mjs`.
+**Documented exception (owner, 8 Oct 2026):** `extension/review.js` stays over 500 on purpose: Chrome injects it as ONE classic
+content script (no imports without a build step, or without exposing modules to every page). It may not grow; the reason lives in `EXCEPTIONS` in `tools/file-size.mjs`.
+A classic page script can still be split: `extension/page/fill.js` became six files on 9 Oct 2026, injected in order (`extension/page-files.js`) and sharing helpers through one window object (`window.__jobPilottoFillKit`).
 
 ### Splitting a file safely (8 Oct 2026: main.js 2,781 → 1,197 lines, a failed start and three near-misses)
 - **Pure move, nothing else.** Same code, same names; a new file starts with a header: what it owns, which tests guard it.

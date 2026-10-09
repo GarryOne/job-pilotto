@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import vm from 'node:vm';
 import {test} from 'node:test';
+import {FILL_FILES} from '../../extension/page-files.js';
 import {aliasKey} from '../shared/alias-schema.js';
 import {lookup} from '../lib/aliases.js';
 import {createReporter} from '../lib/recipes.js';
@@ -71,7 +72,7 @@ function filler() {
   const window = {};
   const context = vm.createContext({window, document: {querySelectorAll: () => [], getElementById: () => null, body: {innerText: ''}}, getComputedStyle: () => ({}), setTimeout, console});
   vm.runInContext(fs.readFileSync(new URL('../../extension/page/radios.js', import.meta.url), 'utf8'), context);   // injected before fill.js
-  vm.runInContext(fs.readFileSync(new URL('../../extension/page/fill.js', import.meta.url), 'utf8'), context);
+  for (const file of FILL_FILES) vm.runInContext(fs.readFileSync(new URL(`../../extension/${file}`, import.meta.url), 'utf8'), context);
   return window;
 }
 const rows = labels => labels.map((label, i) => ({field: `f${i}`, label, type: 'text', filled: false, legal: false}));

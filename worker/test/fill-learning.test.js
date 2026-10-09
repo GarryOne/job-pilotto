@@ -1,4 +1,4 @@
-// Does the form-filling loop learn? Bugs are planted in the reader (extension/page/fill.js), one at a time, on a corpus of real
+// Does the form-filling loop learn? Bugs are planted in the reader (extension/page/fill-labels.js, fill-read.js), one at a time, on a corpus of real
 // layouts (Greenhouse, Ashby). For each plant, the loop must on its own: notice the question it no longer reads (coverage), send
 // it in a fill-failure report with its HTML (desktop/lib/reports.js -> worker/src/report.js), queue it for triage at once, and
 // turn it into a replay fixture (tools/fill-fixture.mjs) that is RED while the bug is there and GREEN once it is gone: the fix is
@@ -11,7 +11,7 @@ import { handleReport, sanitize } from '../src/report.js';
 import { fromFields } from '../../tools/fill-fixture.mjs';
 
 const JSDOM = await loadJsdom();
-const FILL = 'extension/page/fill.js';
+const LABELS = 'extension/page/fill-labels.js', READER = 'extension/page/fill-read.js';   // the reader's two files (extension/page-files.js)
 const SITE = 'jobs.ashbyhq.com';
 const READING = /^question (on the page not read|text not found)/;
 
@@ -33,18 +33,18 @@ const CORPUS = `<form>
 
 // Each plant: a real line of the reader replaced by a broken one (the test fails if the line is gone: plants follow the code).
 const PLANTS = [
-  { name: 'fieldset titled by a label is not read', questions: ['How much has AI increased your speed?'],
+  { name: 'fieldset titled by a label is not read', file: LABELS, questions: ['How much has AI increased your speed?'],
     from: "Array.from(set.querySelectorAll('label')).find(l => !l.control && !l.querySelector('input, select, textarea'))", to: 'null' },
-  { name: 'a field\'s loose label is ignored', questions: ['Where are you located?'],
+  { name: 'a field\'s loose label is ignored', file: LABELS, questions: ['Where are you located?'],
     from: 'if (loose.length === 1) return loose[0].textContent;', to: "if (loose.length === 1) return '';" },
-  { name: 'a field with no id or name is dropped', questions: ['Where are you located?'],
+  { name: 'a field with no id or name is dropped', file: READER, questions: ['Where are you located?'],
     from: 'el.id = `jp-field-${++unnamed}`', to: 'void 0' },
-  { name: 'radio buttons are not read at all', questions: ['Do you need a visa to work here?', 'How much has AI increased your speed?'],
+  { name: 'radio buttons are not read at all', file: READER, questions: ['Do you need a visa to work here?', 'How much has AI increased your speed?'],
     from: "['hidden', 'submit', 'button', 'reset', 'search', 'file', 'image'].includes(el.type));",
     to: "['hidden', 'submit', 'button', 'reset', 'search', 'file', 'image', 'radio'].includes(el.type));" },
 ];
-const plant = (p) => ({ [FILL]: (source) => {
-  assert.ok(source.includes(p.from), `plant "${p.name}": its line is no longer in fill.js; update the plant`);
+const plant = (p) => ({ [p.file]: (source) => {
+  assert.ok(source.includes(p.from), `plant "${p.name}": its line is no longer in ${p.file}; update the plant`);
   return source.replace(p.from, p.to);
 } });
 

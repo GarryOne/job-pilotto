@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import {test} from 'node:test';
 import {chromium} from 'playwright-core';
 
-const PAGE_FILES = ['browser-submit-guard', 'browser-form-fastpath', 'snapshot', 'skeleton', 'controls', 'coverage', 'propose', 'upload', 'radios', 'menu-pick', 'fill'];   // radios before fill, as extension/flow.js injects them
+const PAGE_FILES = ['browser-submit-guard', 'browser-form-fastpath', 'snapshot', 'skeleton', 'controls', 'coverage', 'propose', 'upload', 'radios', 'menu-pick', 'fill-labels', 'fill-read', 'fill-menus', 'fill-checks', 'fill-marks', 'fill'];   // radios before fill, as extension/flow.js injects them
 const file = (name, label) => ({data: Buffer.from(`%PDF ${label}`).toString('base64'), name, type: 'application/pdf'});
 const CV = {...file('cv.pdf', 'cv'), coverLetterFile: file('letter.pdf', 'letter')};
 const CV_ONLY = file('cv.pdf', 'cv');

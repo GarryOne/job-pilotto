@@ -11,7 +11,6 @@ export const LIMIT = 500;
 // without a build step, or without exposing modules to every page): they may not grow, and a new one needs the owner's yes.
 export const EXCEPTIONS = {
   'extension/review.js': 'the page panel: injected as one classic script (background.js `files: [..., \'review.js\']`); no static imports in a content script',
-  'extension/page/fill.js': 'the form filler: an IIFE injected as one classic script (extension/flow.js); no static imports in a content script',
 };
 export const SOURCE = /\.(?:js|mjs|cjs|py)$/;
 export const SKIP = /^desktop\/shared\/|node_modules\/|\/vendor\/|\.min\.|^site\/public\//;

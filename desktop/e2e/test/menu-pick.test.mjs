@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import {test} from 'node:test';
 import {chromium} from 'playwright-core';
 
-const PAGE_FILES = ['browser-submit-guard', 'browser-form-fastpath', 'snapshot', 'skeleton', 'controls', 'coverage', 'propose', 'upload', 'radios', 'menu-pick', 'fill'];
+const PAGE_FILES = ['browser-submit-guard', 'browser-form-fastpath', 'snapshot', 'skeleton', 'controls', 'coverage', 'propose', 'upload', 'radios', 'menu-pick', 'fill-labels', 'fill-read', 'fill-menus', 'fill-checks', 'fill-marks', 'fill'];
 // A combobox input that opens a list on mousedown; `accept` decides which option clicks select: 'trusted' (SuccessFactors-like), 'any', or 'none'.
 const MENU = accept => `<body><form><div class="field"><label for="pays">* Pays de résidence</label>
   <input id="pays" role="combobox" aria-expanded="false" readonly value="Aucune sélection" style="width:240px">

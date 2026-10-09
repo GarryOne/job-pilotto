@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {test} from 'node:test';
+import {FILL_FILES} from '../../extension/page-files.js';
 
 function page(rows) {
   const elements = Object.fromEntries(rows.map(row => [row.field, {id: row.field, type: row.type, checked: false, dataset: {}, clicks: 0,
@@ -13,7 +14,7 @@ function page(rows) {
     documentElement: {className: ''}};
   const context = vm.createContext({window, document, getComputedStyle: () => ({}), setTimeout, clearTimeout, CSS: {escape: s => s}, console,
     Event: class {}, HTMLInputElement: class {}, HTMLTextAreaElement: class {}});
-  for (const file of ['categories.js', 'radios.js', 'fill.js']) vm.runInContext(fs.readFileSync(new URL(`../../extension/page/${file}`, import.meta.url), 'utf8'), context);
+  for (const file of ['page/categories.js', 'page/radios.js', ...FILL_FILES]) vm.runInContext(fs.readFileSync(new URL(`../../extension/${file}`, import.meta.url), 'utf8'), context);
   window.__jobPilottoDescribeForm = async () => rows.map(row => ({...row}));
   window.__jobPilottoCheckboxQuestions = () => [];
   window.__jobPilottoFillKnownFields = () => ({filled: []});
@@ -50,7 +51,7 @@ test('every calling code names a country; the codes the filler named before keep
   for (const [code, country] of [['+852', 'Hong Kong'], ['+90', 'T'], ['+65', 'Singapore'], ['+7', 'Russia'], ['+27', 'South Africa'], ['+57', 'Colombia']]) {
     assert.ok(String(dial[code]).startsWith(country), `${code}: ${dial[code]}`);
   }
-  const fill = fs.readFileSync(new URL('../../extension/page/fill.js', import.meta.url), 'utf8');
+  const fill = fs.readFileSync(new URL('../../extension/page/fill-menus.js', import.meta.url), 'utf8');
   assert.match(fill, /const DIAL = \{\.\.\.\(window\.__jobPilottoDial \|\| \{\}\), '\+1': 'United States'/);   // the old names win (after the spread)
   assert.match(fill, /'\+420': 'Czech Republic'/);
 });
