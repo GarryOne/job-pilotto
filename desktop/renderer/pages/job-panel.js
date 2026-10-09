@@ -93,7 +93,7 @@ function shotsView(shots) {
 // to read here: its name only.
 function documentsView(documents) {
   if (!documents.length) return [];
-  return [group('Files on this job', documents.map(file => {
+  return [group('📎 Files on this job', documents.map(file => {   // an icon like every section of the kit
     const row = el('div', 'attachment');
     row.append(el('span', 'attachment-name', file.name));
     if (file.url) {
