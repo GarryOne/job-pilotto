@@ -1,6 +1,7 @@
 """Logging a message on a job fills what the job was missing, and never replaces what's there. On the store (src/ai/inbox*.py
 take `stores` and application records); the Notion page's shapes (the logged entry's fold, its thumbnails) and the 30 Sep
 events-filter bug are checked on the notion store over a fake Notion."""
+import os
 import unittest
 from unittest import mock
 
@@ -138,7 +139,7 @@ class NotionEventsFilterTest(unittest.TestCase):
                                            'Application': {'type': 'relation', 'relation': [{'id': 'h1'}]}}}
         fake = EventsNotion([lead])
         with mock.patch.dict('os.environ', {'NOTION_EVENTS_DB': 'events-db'}):
-            stores = open_stores(env={}, tracker=fake)
+            stores = open_stores({**os.environ, 'JOB_PILOTTO_STORE': 'notion'}, tracker=fake)
         manual = base.record(base.APPLICATION_FIELDS, {'id': 'h1', 'url': URL, 'source': 'Manual', 'reached_via': 'Email',
                                                        'created_at': '2026-09-29T13:09:00Z'})
         with mock.patch.object(stores.applications, 'update', side_effect=AssertionError('nothing to write')), \
@@ -164,10 +165,11 @@ class NotionPage:
 
     def __init__(self):
         self.appended = []
+        self.parent = ''   # the Applications database the store was opened with (the page must be one of its rows)
 
     def _request(self, method, path, body=None):
         assert method == 'GET' and path.startswith('pages/'), (method, path)
-        return {'id': path.split('/')[1], 'parent': {'database_id': ''}, 'properties': {}}
+        return {'id': path.split('/')[1], 'parent': {'database_id': self.parent}, 'properties': {}}
 
     def upload_file(self, name, data, kind):
         return f'up-{name}'
@@ -182,7 +184,8 @@ class NotionEntryTest(unittest.TestCase):
 
     def test_a_logged_entry_names_its_channel_on_the_notion_page(self):
         page = NotionPage()
-        stores = open_stores(env={}, tracker=page)   # the Notion store, whatever another test left in the environment
+        stores = open_stores({**os.environ, 'JOB_PILOTTO_STORE': 'notion'}, tracker=page)   # the Notion store, with its database ids
+        page.parent = stores.applications.database_id
         app = base.record(base.APPLICATION_FIELDS, {'id': 'job'})
         inbox._keep(stores, app, 'hi', None, 'Call booked', '2026-09-21T10:00:00Z', 'LinkedIn')
         inbox._keep(stores, app, 'hi', None, 'LinkedIn chat', '2026-09-21T10:00:00Z', 'LinkedIn')
@@ -191,7 +194,8 @@ class NotionEntryTest(unittest.TestCase):
 
     def test_several_screenshots_become_a_row_of_thumbnails_inside_the_fold(self):
         page = NotionPage()
-        stores = open_stores(env={}, tracker=page)   # the Notion store, whatever another test left in the environment
+        stores = open_stores({**os.environ, 'JOB_PILOTTO_STORE': 'notion'}, tracker=page)   # the Notion store, with its database ids
+        page.parent = stores.applications.database_id
         shots = [(f's{n}.png', b'x', 'image/png') for n in range(4)]
         inbox._keep(stores, base.record(base.APPLICATION_FIELDS, {'id': 'job'}), '', shots, 'LinkedIn chat', '2026-09-21T10:00:00+00:00')
         (where, [entry]), (inside, [row]) = page.appended
