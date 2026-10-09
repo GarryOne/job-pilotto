@@ -72,11 +72,12 @@ test('parity: one run as a Notion row and as a store record reads the same in Re
   const page = {id: 'abc', url: 'https://www.notion.so/abc', created_time: started, last_edited_time: started, properties: {
     Started: {date: {start: started}}, Mode: {select: {name: 'scheduled'}}, Status: {select: {name: 'Warnings'}}, Trigger: {select: {name: 'Mac schedule'}},
     'Duration (s)': {number: 90}, Summary: rt('3 new jobs (AI cost $0.12)'), 'New jobs': {number: 3}, Feeds: {number: 40},
-    'AI cost (USD)': {number: 0.12}, 'Billed to': {select: {name: 'Your plan'}}}};
+    'AI cost (USD)': {number: 0.12}, 'Billed to': {select: {name: 'Your plan'}}, Telegram: rt('🔎 3 new jobs')}};
   const record = {id: 'r9', kind: 'scheduled', mode: 'scheduled', where: 'mac', status: 'Warnings', trigger: 'Mac schedule', started_at: started,
     finished_at: '', summary: '3 new jobs (AI cost $0.12)', report: '', result: '', log: '', progress: [], run_url: '', application: '',
-    stats: {new_jobs: 3, feeds: 40, ai_cost_usd: 0.12, billed_to: 'Your plan', duration_s: 90}};
+    stats: {new_jobs: 3, feeds: 40, ai_cost_usd: 0.12, billed_to: 'Your plan', duration_s: 90, telegram: 1}};
   const pick = run => ({kind: run.kind, mode: run.mode, trigger: run.trigger, where: run.where, ok: run.ok, warned: run.warned, new: run.new, feeds: run.feeds,
-    usd: run.usd, billing: run.billing, result: run.result, endedAt: run.endedAt, startedAt: run.startedAt, url: run.url});
+    usd: run.usd, billing: run.billing, result: run.result, endedAt: run.endedAt, startedAt: run.startedAt, url: run.url, startedBy: run.startedBy, telegram: run.telegram});
+  assert.deepEqual([fromRow(page, Date.parse(started) + 3600000).startedBy, fromRow(page, Date.parse(started) + 3600000).telegram], ['Mac schedule', true], 'the fields are set, not equal by being empty')
   assert.deepEqual(pick(fromRecord(record, Date.parse(started) + 3600000)), pick(fromRow(page, Date.parse(started) + 3600000)));
 });
