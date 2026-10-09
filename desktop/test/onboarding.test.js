@@ -1,7 +1,7 @@
 // Focus → Get started (renderer/onboarding.js): each step ticked from what really happened, in order, and the card gone for good once all are done.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {STEPS, onboarding} from '../renderer/onboarding.js';
+import {STEPS, focusMode, onboarding} from '../renderer/onboarding.js';
 
 const run = (kind, id, extra = {}) => ({kind, id, endedAt: id + 1000, ok: true, ...extra});
 const applied = n => ({steps: [{step: '📝 Prepared', reached: 3}, {step: '📨 Applied', reached: n}]});
@@ -54,4 +54,14 @@ test('a search suggests Find new employers when none ever ran or too few employe
   assert.equal(employersAdvice(search({live: true})), null);
   assert.equal(employersAdvice(search({ok: false})), null);                                                         // a failed search says why it failed instead
   assert.equal(employersAdvice({kind: 'mail', id: 1, ok: true}), null);
+});
+
+// Fresh after setup, no Notion: Focus is Get started (its own step connects Notion), not the Connect card (owner, 9 Oct 2026).
+test('Focus: all of it with Notion; only Get started without; the gate once Get started is hidden', () => {
+  const fresh = onboarding({settings: {}, notionConnected: false});
+  assert.equal(focusMode({notionConnected: false, gettingStarted: fresh.show}), 'started');
+  assert.ok(fresh.steps.some(step => step.key === 'notion' && !step.done));   // connecting stays one step away
+  assert.equal(focusMode({notionConnected: true, gettingStarted: true}), 'full');
+  const hidden = onboarding({settings: {onboarding: {hidden: true}}, notionConnected: false});
+  assert.equal(focusMode({notionConnected: false, gettingStarted: hidden.show}), 'locked');
 });

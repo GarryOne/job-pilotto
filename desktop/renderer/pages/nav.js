@@ -5,6 +5,7 @@ import {$, show} from './core.js';
 import {shared} from './shared.js';
 import {showCvChanged} from './cv-change.js';
 import {loadFocus} from './focus.js';
+import {showFocusStarted} from './focus-onboarding.js';
 import {loadCalendar} from './calendar.js';
 import {loadInterviews} from './interviews.js';
 import {applyViewGate} from './notion-connect.js';
@@ -43,7 +44,9 @@ export function openView(name, {fromHistory = false} = {}) {
   document.querySelectorAll('.view').forEach(view => show(view, view.dataset.view === name));
   document.querySelectorAll('.nav').forEach(nav => nav.classList.toggle('active', nav.dataset.view === name));
   // Notion later: a page that needs Notion shows only its gate card until it is connected (pages/notion-connect.js); connecting reopens it.
-  const locked = applyViewGate(name, {then: () => openView(name, {fromHistory: true})});
+  // Focus without Notion shows its Get started list instead (pages/focus.js showFocusStarted): a fresh setup can search first.
+  const started = name === 'focus' && showFocusStarted();
+  const locked = !started && applyViewGate(name, {then: () => openView(name, {fromHistory: true})});
   if (name === 'sessions' && !locked) renderSessionPage();  // the view's HTML starts on the spinner; opening it must paint the list we already have
   if (name === 'strategy') { loadStrategy(); showCvChanged(); }
   if (name === 'settings') {
@@ -54,7 +57,7 @@ export function openView(name, {fromHistory = false} = {}) {
   }
   if (name === 'interviews' && !locked) loadInterviews();
   if (name === 'calendar' && !locked) loadCalendar();
-  if (name === 'focus' && !locked) loadFocus();
+  if (name === 'focus' && !locked && !started) loadFocus();
 }
 
 // ⌘K / Ctrl+K: the command palette. Its commands are the app's own buttons, read when it opens (so a disabled

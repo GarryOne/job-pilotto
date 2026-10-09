@@ -1046,6 +1046,9 @@ main { min-width: 0; }
 .focus-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--sp-4); align-items: start; }
 .focus-main, .focus-side { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
 .focus-grid .card { margin: 0; }
+/* Focus without Notion (pages/focus.js showFocusStarted): only Get started; the parts that read Notion stay out. */
+.view.focus-started .focus-main > :not(#focus-onboarding), .view.focus-started .focus-side, .view.focus-started .head-actions { display: none; }
+.view.focus-started .focus-grid { grid-template-columns: minmax(0, 1fr); }
 .focus-card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-3); }
 .focus-card-head h2, .focus-summary h2 { font-size: var(--fs-lg); margin: 0; }
 .with-glyph { display: flex; align-items: center; gap: var(--sp-2); }

@@ -34,6 +34,12 @@ export function onboarding({runs = [], settings = {}, notionConnected = false, f
     remember: !next && !saved.done ? {...remember, done: true} : remember};   // what to add to settings.onboarding now ({} = nothing)
 }
 
+// What Focus shows (owner, 9 Oct 2026: "it should allow the user to search for jobs first"): with Notion, all of it; without Notion, only
+// Get started (its own step connects Notion), so a fresh setup lands on the first steps, not on a Connect card; once Get started is hidden
+// or finished, the Notion gate as for the other pages that need it.
+export const focusMode = ({notionConnected = false, gettingStarted = false} = {}) =>
+  notionConnected ? 'full' : gettingStarted ? 'started' : 'locked';
+
 // A search's result suggests Find new employers when it can't have found much yet: no employer search has ever finished, or the search read
 // fewer than ENOUGH_FEEDS employer sites (owner, 6 Oct 2026: "the call to action"). null = nothing to suggest.
 export const ENOUGH_FEEDS = 10;
