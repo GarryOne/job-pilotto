@@ -196,7 +196,7 @@
 
   // ---- the panel (its own shadow root: the page's styles can't touch it, it can't touch the page) ----
   const host = Object.assign(document.createElement('div'), {id: 'jobpilotto-review-host'});
-  host.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:2147483646;';
+  host.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:2147483646;pointer-events:none;';   // only the card and the pill take clicks (.jp > *)
   const root = host.attachShadow({mode: 'open'});
   root.innerHTML = `<style>
     :host { all: initial; }
@@ -204,7 +204,7 @@
     .jp { --navy: #132439; --ink: #182537; --muted: #5b6b80; --line: #e2e8f0; --soft: #f5f7fb; --signal: #d9540b; --signal-2: #f07014;
       --good: #1f9d55; --good-soft: #e7f6ee; --warn: #9a6200; --warn-soft: #fdf4e4; --info: #165bba; --info-soft: #eaf1fb;
       font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; color: var(--ink);
-      display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+      display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none; } .jp > * { pointer-events: auto; }   /* the box is as wide as the pill: its empty part lets the page's clicks through (owner, 9 Oct 2026) */
     button { font: inherit; cursor: pointer; border: 0; }
     /* the pill (collapsed) */
     .pill { display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border-radius: 999px; background: #fff;
