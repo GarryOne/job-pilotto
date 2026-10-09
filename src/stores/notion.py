@@ -7,6 +7,7 @@ Every request goes through one `Tracker` (src/notion/client.py: retries, pacing,
 Guarded by tests/test_store_notion.py: the store contract against the Notion stand-in (desktop/e2e/lib/notion-fake.mjs).
 """
 import os
+import sys
 import urllib.request
 from datetime import datetime, timezone
 
@@ -271,17 +272,30 @@ class Applications(_Database):
         return '\n\n'.join(base.entry_appended('', _text_of(block), self._body(block, None))
                              for block in self._children(app_id) if _logged(block))
 
-    def append_entry(self, app_id, section, title, markdown):
+    def append_entry(self, app_id, section, title, markdown, files=()):
         from .notion_blocks import to_blocks
         self._page(app_id)
         if section != base.LOGGED:  # only the log has a fold per entry on Notion; any other grows as its section
-            self.set_section(app_id, section, base.entry_appended(self.section(app_id, section), title, markdown))
+            self.set_section(app_id, section, base.entry_appended(self.section(app_id, section), title,
+                                                                 base.entry_files(self, app_id, markdown, files)))
             return
-        inside = to_blocks(markdown) if (markdown or '').strip() else []
-        self.tracker.append_blocks(app_id, [{'object': 'block', 'type': 'toggle', 'toggle': {
+        shots = []
+        for name, data, kind in files:  # uploaded first: one that fails is left out, the words still go in
+            try:
+                shots.append({'object': 'block', 'type': 'image', 'image': {'type': 'file_upload', 'file_upload': {
+                    'id': self.tracker.upload_file(name, bytes(data), kind)}}})
+            except Exception as error:  # noqa: BLE001
+                print(f'Warning: screenshot not uploaded to Notion: {type(error).__name__}: {error}', file=sys.stderr)
+        inside = (to_blocks(markdown) if (markdown or '').strip() else []) + (shots if len(shots) < 2 else [])
+        added = self.tracker.append_blocks(app_id, [{'object': 'block', 'type': 'toggle', 'toggle': {
             'rich_text': [{'type': 'text', 'text': {'content': title[:1900]}, 'annotations': {'bold': True}}],
             'children': inside or [{'object': 'block', 'type': 'paragraph', 'paragraph': {
                 'rich_text': [{'type': 'text', 'text': {'content': title[:1900]}}]}}]}}])
+        if len(shots) > 1:  # side by side inside the fold: a second call (Notion nests only two levels per call)
+            fold = ((added or {}).get('results') or [{}])[0].get('id')
+            if fold:
+                self.tracker.append_blocks(fold, [{'object': 'block', 'type': 'column_list', 'column_list': {'children': [
+                    {'object': 'block', 'type': 'column', 'column': {'children': [shot]}} for shot in shots]}}])
 
     def _file_blocks(self, block_id, depth=0):
         """The page's file, PDF and image blocks in page order, also inside folded blocks (a log entry, its columns)."""

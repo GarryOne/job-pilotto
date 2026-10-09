@@ -79,6 +79,14 @@ RUN_STATS = ('new_jobs', 'changed_jobs', 'scored', 'kits', 'emails', 'updates', 
 LOGGED = '📥 Logged messages'
 
 
+def entry_files(applications, app_id, markdown, files):
+    """This Mac's append_entry with screenshots: each kept as the job's file, and a line in the entry saying so."""
+    for name, data, kind in files:
+        applications.attach(app_id, name, data, kind)
+    said = f'Screenshots: {len(files)} kept with this job' if len(files) != 1 else f'Screenshot: {files[0][0]}, kept with this job'
+    return '\n\n'.join(part for part in ((markdown or '').strip(), said if files else '') if part)
+
+
 def entry_appended(section, title, markdown):
     """A section with one more entry at its end: '### {title}' and its Markdown (append_entry on this Mac's stores)."""
     entry = f'### {title}\n\n{markdown}'.rstrip() if (markdown or '').strip() else f'### {title}'
@@ -163,10 +171,11 @@ class Applications(Protocol):
     def set_section(self, app_id: str, name: str, markdown: str) -> None: ...
     def attach(self, app_id: str, name: str, data: bytes, content_type: str) -> str: ...
     def sections(self, app_id: str) -> dict: ...  # {name: markdown}
-    def append_entry(self, app_id: str, section: str, title: str, markdown: str) -> None: ...
+    def append_entry(self, app_id: str, section: str, title: str, markdown: str, files=()) -> None: ...
     # One more dated entry in a section that only grows (LOGGED: a pasted message or screenshot, "📥 29 Sep 2026 · …"). This Mac's
     # stores append "### {title}" and its Markdown to the section; Notion appends the page's folded toggle as it always has, and its
-    # sections() reads those toggles back as this section, so every store returns the same shape.
+    # sections() reads those toggles back as this section, so every store returns the same shape. files: [(name, bytes, type)], the
+    # entry's screenshots: inside the fold on Notion (side by side when several), the job's files on this Mac (one line says so).
     def files(self, app_id: str) -> list: ...     # [(name, bytes, content_type)]
     def put(self, record: dict) -> dict: ...
 

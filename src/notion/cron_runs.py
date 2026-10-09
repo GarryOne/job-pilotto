@@ -115,6 +115,12 @@ def _one_log():
         raise run_log.BothLogs('this process opened its run row with src/run_log.py: log it there too')
 
 
+def running():
+    """True while a run's row is open in this process (attach() would put blocks there): a log uploads its screenshots for the
+    run only then, else they go with the job (src/ai/inbox_notion.py)."""
+    return bool(_open.get('id') and _open.get('tracker'))
+
+
 def attach(blocks):
     """Add blocks (a log's screenshots) to the row begin() opened, while its run is going. Returns that row's URL, or None
     when no row is open or Notion refuses (the caller keeps them elsewhere). Never raises."""

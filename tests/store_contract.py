@@ -120,6 +120,14 @@ class StoreContract:
         self.assertEqual(self.s.applications.section(row['id'], base.LOGGED), logged)
         self.assertEqual(self.s.applications.section(row['id'], '🧾 Job description'), 'Kubernetes on call.')   # untouched by the log
 
+    def test_a_logged_entrys_screenshots_are_kept_with_the_job(self):
+        """append_entry(files=…): the screenshots of a log stay with the job (its files on this Mac, inside the fold on Notion)."""
+        row, _ = self.s.applications.set_stage(JOB, 'Applied')
+        self.s.applications.append_entry(row['id'], base.LOGGED, '📥 29 Sep 2026 · LinkedIn · A call?', '> Free Monday?',
+                                         files=[('chat.png', b'png bytes', 'image/png')])
+        self.assertIn('📥 29 Sep 2026 · LinkedIn · A call?', self.s.applications.section(row['id'], base.LOGGED))
+        self.assertIn(b'png bytes', [data for _, data, _ in self.s.applications.files(row['id'])])
+
     def test_sections_and_files_are_listed_for_a_move(self):
         row = self.s.applications.create(JOB, 'Saved')
         self.s.applications.set_section(row['id'], 'Kit', 'k')

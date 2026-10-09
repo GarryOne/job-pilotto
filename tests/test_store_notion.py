@@ -131,6 +131,15 @@ class NotionStoreTests(StoreContract, unittest.TestCase):
         self.assertEqual([b['type'] for b in top if b['type'].startswith('heading')], ['heading_2'])   # no new heading on the page
         self.assertEqual(self.s.applications.section(app['id'], '🧾 Job description'), 'Kubernetes on call.')
 
+    def test_a_logged_entrys_screenshots_sit_inside_its_fold_side_by_side_when_several(self):
+        """As the log always wrote them on Notion: one image inside the toggle; several in columns, added in a second call."""
+        app = self.s.applications.create({'url': 'https://jobs.example.com/sre-1', 'title': 'SRE'}, 'Applied')
+        self.s.applications.append_entry(app['id'], base.LOGGED, '📥 one', 'hi', files=[('a.png', b'a', 'image/png')])
+        self.s.applications.append_entry(app['id'], base.LOGGED, '📥 two', 'hi', files=[('a.png', b'a', 'image/png'), ('b.png', b'b', 'image/png')])
+        one, two = [b for b in self.tracker._children(app['id']) if b['type'] == 'toggle']
+        self.assertEqual([b['type'] for b in self.tracker._children(one['id'])], ['paragraph', 'image'])
+        self.assertEqual([b['type'] for b in self.tracker._children(two['id'])], ['paragraph', 'column_list'])
+
     def test_files_are_found_inside_folded_log_entries_too(self):
         """Screenshots logged inside a folded entry (src/ai/prep.py read them that deep) are the job's files too."""
         app = self.s.applications.create({'url': 'https://jobs.example.com/sre-1', 'title': 'SRE'}, 'Saved')
