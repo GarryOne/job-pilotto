@@ -1,10 +1,11 @@
-"""The Notion client waits and retries on 429 (busy) and 502/503/504 (briefly down), then gives up. Cloudflare's 520/522/524 only when
-sending again can't make a second copy: a new page after looking it up by its Job URL (src/notion/retry.py)."""
+"""The Notion client waits and retries on 429 (busy) and 502/503/504 (briefly down), then gives up, when sending again can't make a
+second copy (src/notion/retry.py: statuses × kinds of request; a new page after looking it up by its Job URL)."""
 import io
 import json
 import unittest
 import urllib.error
 
+from src.notion import retry
 from src.notion.client import Tracker
 
 
@@ -68,10 +69,17 @@ class NotionRetryTest(unittest.TestCase):
 
 
 JOB = {'parent': {'database_id': 'db1'}, 'properties': {'Job URL': {'url': 'https://jobs.test/a'}, 'Job': {'title': []}}}
+# One request of each kind (src/notion/retry.py kind()).
+SAMPLES = {'safe': [('GET', 'pages/p', None), ('POST', 'databases/db1/query', {}), ('POST', 'search', {}), ('PATCH', 'pages/p', {}),
+                    ('DELETE', 'blocks/b', None)],
+           'create': [('POST', 'pages', JOB)],
+           'append': [('PATCH', 'blocks/p/children', {'children': []})],
+           'other': [('POST', 'comments', {})]}
 
 
-class EdgeErrorTest(unittest.TestCase):
-    """A 520 once, then Notion answers: what was sent, in order (9 Oct 2026: a 520 on POST pages stopped a Move to Notion)."""
+class RetryTableTest(unittest.TestCase):
+    """Every status × kind of request does what the table says (9 Oct 2026: a 520 stopped a Move to Notion; 502-504 were retried for every
+    request, so a page Notion made before losing the answer was made twice)."""
     def run_with(self, method, path, body, answers):
         sent, waits = [], []
         def opener(request, timeout):
@@ -83,31 +91,55 @@ class EdgeErrorTest(unittest.TestCase):
         result = Tracker('t', 'db', opener=opener, sleep=waits.append)._request(method, path, body)
         return result, sent, waits
 
-    def test_reads_queries_and_property_updates_are_sent_again(self):
-        for method, path in (('GET', 'pages/p'), ('POST', 'databases/db1/query'), ('POST', 'search'), ('PATCH', 'pages/p')):
-            with self.subTest(method=method, path=path):
-                result, sent, waits = self.run_with(method, path, {}, [http_error(520), {'ok': True}])
-                self.assertEqual((result, len(sent), waits), ({'ok': True}, 2, [0.5]))
+    def test_the_table_covers_every_kind_and_the_samples_are_those_kinds(self):
+        for family in retry.TABLE.values():
+            self.assertEqual(set(family), set(SAMPLES))
+        for name, requests in SAMPLES.items():
+            for method, path, _ in requests:
+                self.assertEqual(retry.kind(method, path), name, (method, path))
 
-    def test_appended_blocks_fail_at_once(self):
-        with self.assertRaises(urllib.error.HTTPError):
-            self.run_with('PATCH', 'blocks/p/children', {'children': []}, [http_error(522), {'ok': True}])
+    def test_every_cell(self):
+        for status in sorted(retry.BUSY | retry.MAYBE_DONE):
+            for name, requests in SAMPLES.items():
+                for method, path, body in requests:
+                    wanted = retry.action(status, method, path)
+                    with self.subTest(status=status, kind=name, method=method, path=path, wanted=wanted):
+                        lookup = [{'results': [], 'has_more': False}] if wanted == retry.LOOKUP else []
+                        answers = [http_error(status)] + lookup + [{'ok': True}]
+                        if wanted == retry.FAIL:
+                            with self.assertRaises(urllib.error.HTTPError):
+                                self.run_with(method, path, body, answers)
+                            continue
+                        result, sent, _ = self.run_with(method, path, body, answers)
+                        self.assertEqual(result, {'ok': True})
+                        self.assertEqual(sent[0], sent[-1])   # the same request, sent again
+                        self.assertEqual(len(sent), 3 if lookup else 2)
+
+    def test_busy_retries_everything_and_maybe_done_never_doubles_a_write(self):
+        self.assertEqual({retry.action(429, m, p) for reqs in SAMPLES.values() for m, p, _ in reqs}, {retry.RETRY})
+        for status in retry.MAYBE_DONE:
+            self.assertEqual(retry.action(status, 'PATCH', 'blocks/p/children'), retry.FAIL)
+            self.assertEqual(retry.action(status, 'POST', 'pages'), retry.LOOKUP)
+        self.assertEqual(retry.action(404, 'GET', 'pages/p'), retry.FAIL)
 
     def test_a_new_page_notion_made_anyway_is_returned_not_made_twice(self):
         made = {'id': 'page-1', 'object': 'page'}
-        result, sent, _ = self.run_with('POST', 'pages', JOB, [http_error(520), {'results': [made], 'has_more': False}])
-        self.assertEqual(result, made)
-        self.assertEqual(sent, [('POST', 'pages'), ('POST', 'databases/db1/query')])   # one create, then the lookup: no second create
+        for status in (502, 520):
+            with self.subTest(status=status):
+                result, sent, _ = self.run_with('POST', 'pages', JOB, [http_error(status), {'results': [made], 'has_more': False}])
+                self.assertEqual(result, made)
+                self.assertEqual(sent, [('POST', 'pages'), ('POST', 'databases/db1/query')])   # no second create
 
     def test_a_new_page_notion_did_not_make_is_made_once(self):
-        result, sent, _ = self.run_with('POST', 'pages', JOB, [http_error(524), {'results': [], 'has_more': False}, {'id': 'page-2'}])
+        result, sent, _ = self.run_with('POST', 'pages', JOB, [http_error(504), {'results': [], 'has_more': False}, {'id': 'page-2'}])
         self.assertEqual(result, {'id': 'page-2'})
         self.assertEqual(sent, [('POST', 'pages'), ('POST', 'databases/db1/query'), ('POST', 'pages')])
 
     def test_a_new_page_with_no_job_url_is_not_sent_again(self):
         body = {'parent': {'database_id': 'db1'}, 'properties': {'Name': {'title': []}}}
-        with self.assertRaises(urllib.error.HTTPError):
-            self.run_with('POST', 'pages', body, [http_error(520), {'id': 'twice'}])
+        for status in (502, 520):
+            with self.subTest(status=status), self.assertRaises(urllib.error.HTTPError):
+                self.run_with('POST', 'pages', body, [http_error(status), {'id': 'twice'}])
 
 
 if __name__ == '__main__':
