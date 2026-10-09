@@ -123,7 +123,6 @@ export async function accountOutcome(tab, frameId = 0) {
 }
 async function outcomeOnce(tab, frameId, memo) {
   const config = await settings(), host = memo.host;
-  sayStep(tab.id, 'Checking your account was created…');
   const result = await judge(tab, frameId, 'result', config, memo.path || '', memo.form || '');
   const action = resultAction(result?.answer);
   decide('fill', `account result: ${result?.answer || 'no AI'}`, {host, action});

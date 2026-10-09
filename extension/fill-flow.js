@@ -259,12 +259,16 @@ export async function consider(tab, jobUrl) {
   // The two AI looks do not depend on each other (the outcome of a sign-up, the kind of this page): asked together, the wait is the longer one, not the sum (9 Oct 2026, Migros: 13 s then 9 s, one after the other).
   const lookedAt = Date.now();
   sayStep(tab.id, 'Reading this page…');
-  const kindAsk = askKind(tab);
-  await accountOutcome(tab);
-  const outcomeMs = Date.now() - lookedAt;
+  const kindAsk = askKind(tab), outcomeLook = accountOutcome(tab).catch(() => {});
+  const asked = await kindAsk;
+  // The application form: fill it now; what became of the sign-up before it is the account AI's word a moment later, for the card only (owner, 9 Oct 2026: the fill
+  // waited 40 s on it on Migros while the page was already the form). Any other page (an account page, a posting, nothing known) waits for it, as the sign-in →
+  // sign-up switch and the account step go by it. Guard: worker/test/account-step.test.js.
+  if (asked?.role !== 'form') await outcomeLook;
+  const outcomeMs = Date.now() - lookedAt;   // what the fill waited before it could go on
   // What kind of page this is: the AI's word for this site and page shape (asked once, kept), in any language; the structure rule when
   // there is none (no AI, unsure). Every flow below goes by the role either one gives (docs/flows/applying.md).
-  const ruled = pageRole(counts, tab.url), kind = await kindAsk;
+  const ruled = pageRole(counts, tab.url), kind = asked;
   let role = kind?.role || ruled, noted = '';   // noted: what the page is called to the app and the learning, when the fill below treats it as something else
   // Self-correction: a "form" with nothing to fill is not one. The kept answer goes; the structure rule decides this visit.
   const controls = (Number(counts.fields) || 0) + (Number(counts.files) || 0) + (Number(counts.textareas) || 0) + (Number(counts.passwords) || 0);

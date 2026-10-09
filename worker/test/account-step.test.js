@@ -77,8 +77,9 @@ test('the account\'s outcome and the page kind are asked together; the submit wa
   assert.equal(outcomePending({at: now - OUTCOME_WAIT_MS - 1}, now), false);  // two minutes later a press is the person's own submit again
   const fs = await import('node:fs');
   const flow = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta.url), 'utf8');
-  assert.match(flow, /const kindAsk = askKind\(tab\);\n  await accountOutcome\(tab\);/);   // started before the outcome look, not after it (9 Oct 2026: 13 s + 9 s one behind the other)
-  assert.match(flow, /kind = await kindAsk;/);
+  assert.match(flow, /const kindAsk = askKind\(tab\), outcomeLook = accountOutcome\(tab\)\.catch\(\(\) => \{\}\);/);   // both asked at once (9 Oct 2026: 13 s + 9 s one behind the other)
+  assert.match(flow, /if \(asked\?\.role !== 'form'\) await outcomeLook;/);   // the application form is filled without waiting for the sign-up's outcome (40 s on Migros)
+  assert.match(flow, /kind = asked;/);
   const watch = fs.readFileSync(new URL('../../extension/submit-watch.js', import.meta.url), 'utf8');
   assert.ok(watch.indexOf('accountOutcomePending(tabId)') > 0 && watch.indexOf('accountOutcomePending(tabId)') < watch.indexOf('asking whether it confirms'));
 });
