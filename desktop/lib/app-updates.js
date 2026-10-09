@@ -4,10 +4,11 @@
 import * as appMenu from './app-menu.js';
 import * as setupFunnel from './setup-funnel.js';
 import * as updater from './updater.js';
+import {createUpdateChannel} from './update-channel.js';
 import {log as appLog, logFile} from './log.js';
 
 export function createAppUpdates(ctx) {
-  const {Menu, app, dialog, getStorage, getTelemetry, toWindow, track, getWindow} = ctx;
+  const {Menu, app, dialog, getStorage, getTelemetry, toWindow, track, getWindow, isDemo = () => false} = ctx;
   const storage = {settings: () => getStorage().settings(), saveSettings: patch => getStorage().saveSettings(patch)};   // storage is made after this runs: every use goes through the getter
   let updateOffer = null;  // the newer stable release, when there is one (lib/updater.js)
   let updateCheckedAt = null;  // the last check that reached GitHub (Settings → Diagnostics shows it)
@@ -15,7 +16,7 @@ export function createAppUpdates(ctx) {
   // Running from source (npm start): never offer or install an update. It would quit the dev app and open the
   // downloaded one in its place. From source, updating is `git pull` + restart.
   const FROM_SOURCE = !app.isPackaged;
-  const betaOn = () => storage.settings().betaChannel === true;   // opt-in, off by default (Settings → Diagnostics → Beta)
+  const betaOn = () => storage.settings().betaChannel === true;   // opt-in, off by default (Settings → Diagnostics → Beta, or the menu's Update Channel)
   // A tester: the person switched the beta on (versions are plain X.Y.Z since 0.5: the channel says how proven a build is).
   const testOn = () => storage.settings().testChannel === true;   // opt-in, off by default (Settings → Diagnostics → Test builds): unchecked builds, newest first
   const channel = () => (testOn() ? 'test' : betaOn() ? 'beta' : 'stable');
@@ -34,9 +35,21 @@ export function createAppUpdates(ctx) {
       return {ok: false, text: `Couldn't check for updates: ${error.message}`, current: app.getVersion()};
     }
   }
+  const parentWindow = () => (getWindow() && !getWindow().isDestroyed() ? getWindow() : undefined);
+  // The channel switch shared by the menu and Settings → Diagnostics; a change redraws the menu's radio and tells the window to redraw its switches.
+  const channels = createUpdateChannel({app, dialog, storage, updater, isLocked: () => isDemo() || FROM_SOURCE, checkForUpdate: () => checkForUpdate(),
+    installUpdate: () => installUpdate(), setUpdateOffer: value => { updateOffer = value; }, parentWindow,
+    onChange: () => { buildMenu(); toWindow('updateChannel', channels.current()); }});
+  // Menu → Update Channel → a channel: switch (asked first), then the same answer as Check for Updates…, with Update now when a build is there.
+  async function pickChannel(name) {
+    const result = await channels.pick(name);
+    buildMenu();   // a cancelled dialog puts the radio back where it was
+    if (result.ok === false && result.text) dialog.showMessageBox(parentWindow(), {type: 'warning', message: 'The update channel didn\'t change', detail: result.text, buttons: ['OK']});
+    if (result.check) await checkForUpdatesNow();
+  }
   function buildMenu() {
     Menu.setApplicationMenu(Menu.buildFromTemplate(appMenu.template({name: app.name, mac: process.platform === 'darwin',
-      checkForUpdates: checkForUpdatesNow,
+      checkForUpdates: checkForUpdatesNow, channel: getStorage() ? channels.current() : 'stable', pickChannel: FROM_SOURCE ? null : pickChannel,   // built once before storage exists, then again
       sendFeedback: () => { if (getWindow() && !getWindow().isDestroyed()) { getWindow().show(); toWindow('openFeedback'); } },
       find: what => toWindow('find', what)})));
   }
@@ -67,12 +80,12 @@ export function createAppUpdates(ctx) {
   // Menu → Check for Updates…: always answers (up to date, an update to install, or why it couldn't check).
   async function checkForUpdatesNow() {
     const shown = appMenu.answer(await checkForUpdate(true), app.getVersion());
-    const parent = getWindow() && !getWindow().isDestroyed() ? getWindow() : undefined;
+    const parent = parentWindow();
     const {response} = await dialog.showMessageBox(parent, {type: shown.type, message: shown.message, detail: shown.detail,
       buttons: shown.buttons, defaultId: 0, cancelId: shown.buttons.length - 1});
     if (!shown.install || response !== 0) return;
     const result = await installUpdate();
     if (!result.ok) dialog.showMessageBox(parent, {type: 'warning', message: 'The update didn\'t install', detail: result.text, buttons: ['OK']});
   }
-  return {getUpdateOffer: () => updateOffer, setUpdateOffer: value => { updateOffer = value; }, getUpdateCheckedAt: () => updateCheckedAt, FROM_SOURCE, betaOn, testerOn, testerLogsOn, checkForUpdate, buildMenu, trackSetup, installUpdate, checkForUpdatesNow};
+  return {getUpdateOffer: () => updateOffer, setUpdateOffer: value => { updateOffer = value; }, getUpdateCheckedAt: () => updateCheckedAt, FROM_SOURCE, betaOn, testerOn, testerLogsOn, checkForUpdate, buildMenu, trackSetup, installUpdate, checkForUpdatesNow, channels};
 }

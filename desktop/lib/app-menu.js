@@ -1,10 +1,15 @@
 // The app's menu bar: Electron's standard menus, plus "Check for Updates…" where Mac users look for it
-// (Job Pilotto menu, under About); on Windows it sits in Help. Only stable releases are offered.
+// (Job Pilotto menu, under About); on Windows it sits in Help. Next to it, Update Channel: Stable / Beta / Test builds (lib/update-channel.js,
+// the same switch as Settings → Diagnostics); picking one asks first, then checks at once so the build can be installed from there.
 // Help → Send Feedback… on both platforms (lib/app-feedback.js). Edit → Find… (⌘F), Find Next (⌘G), Find Previous
 // (⇧⌘G): find(what) tells the window ('open' | 'next' | 'previous'; renderer/pages/find.js).
-export function template({name, mac, checkForUpdates, sendFeedback = () => {}, find = () => {}}) {
+export const CHANNEL_LABELS = {stable: 'Stable', beta: 'Beta', test: 'Test Builds (unchecked)'};
+
+export function template({name, mac, checkForUpdates, sendFeedback = () => {}, find = () => {}, channel = 'stable', pickChannel = null}) {
   const feedback = {label: 'Send Feedback…', click: sendFeedback};
-  const check = [{label: 'Check for Updates…', click: checkForUpdates}];
+  const channels = pickChannel ? [{label: 'Update Channel', submenu: Object.entries(CHANNEL_LABELS).map(([id, label]) =>
+    ({label, type: 'radio', checked: id === channel, click: () => pickChannel(id)}))}] : [];
+  const check = [{label: 'Check for Updates…', click: checkForUpdates}, ...channels];
   return [
     ...(mac ? [{label: name, submenu: [{role: 'about'}, ...check, {type: 'separator'}, {role: 'services'}, {type: 'separator'},
       {role: 'hide'}, {role: 'hideOthers'}, {role: 'unhide'}, {type: 'separator'}, {role: 'quit'}]}] : []),

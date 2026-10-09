@@ -12,7 +12,7 @@ import * as updater from './updater.js';
 import {log as appLog} from './log.js';
 
 export function registerAppMetaHandlers(ctx) {
-  const {DEMO, FROM_SOURCE, app, betaOn, checkForUpdate, cloud, dialog, installUpdate, ipcMain, licenseState, log, storage, testerLogsOn, testerOn, track, getLicense, getTelemetry, getUpdateOffer, setUpdateOffer, getUpdateCheckedAt, getWindow} = ctx;
+  const {DEMO, FROM_SOURCE, app, betaOn, checkForUpdate, cloud, installUpdate, ipcMain, licenseState, log, storage, testerLogsOn, testerOn, track, getLicense, getTelemetry, getUpdateOffer, getUpdateCheckedAt, channels} = ctx;
   // App updates (lib/updater.js): the latest stable release, offered in the menu; one click installs it.
   // Technical reports: the window's own errors come here; Settings shows the last ones sent and the switch.
   // Settings → License: where the user stands, pasting a key (checked offline), removing it.
@@ -50,51 +50,15 @@ export function registerAppMetaHandlers(ctx) {
   ipcMain.handle('updateCheck', () => checkForUpdate(true));
   ipcMain.handle('updateStatus', () => ({current: app.getVersion(), offer: getUpdateOffer(), checkedAt: getUpdateCheckedAt(), fromSource: FROM_SOURCE}));
   ipcMain.handle('updateInstall', () => installUpdate());
-  // Beta (Settings → Diagnostics → Beta). Asked here, in the main process: only a click on this dialog turns it on, never a script in the window.
-  // Beta builds are only the ones the release gate approved (tools/beta-approve.sh); "Back to stable" installs the latest stable release even though it is older.
-  const parentWindow = () => (getWindow() && !getWindow().isDestroyed() ? getWindow() : undefined);
+  // Beta and Test builds (Settings → Diagnostics): asked and saved by lib/update-channel.js, the same switch as the menu's Update Channel.
+  // Only a click on its native dialog turns one on, never a script in the window. "Back to stable" installs the latest stable release even though it is older.
   ipcMain.handle('betaState', async () => {
     const stable = FROM_SOURCE ? null : await updater.stableRelease(app.getVersion()).catch(() => null);
     return {on: betaOn(), test: storage.settings().testChannel === true, current: app.getVersion(), stable: stable?.version || '', ahead: !!stable?.ahead, fromSource: FROM_SOURCE};
   });
-  ipcMain.handle('betaSet', async (_, want) => {
-    if (DEMO || FROM_SOURCE) return {ok: false, text: 'Not in demo mode or when running from source.'};
-    if (want) {
-      const {response} = await dialog.showMessageBox(parentWindow(), {type: 'question', message: 'Get the beta version?', buttons: ['Join the beta', 'Not now'], defaultId: 1, cancelId: 1,
-        detail: 'Be the first to test new features. Beta versions pass our automatic checks, but can still have bugs. Job Pilotto will offer you each one; nothing installs without your click.\n\nYou can go back to the stable version any time: Settings → Diagnostics → Beta → Back to stable.'});
-      if (response !== 0) return {ok: false, cancelled: true};
-    }
-    storage.saveSettings({betaChannel: !!want, ...(want ? {testChannel: false} : {})});   // one channel at a time
-    appLog('update', `beta channel ${want ? 'on' : 'off'}`, {version: app.getVersion()});
-    checkForUpdate();
-    return {ok: true, on: !!want};
-  });
-  // Test builds: the builds made by hand without the e2e gate, nothing checked. Asked here too, with the risk said plainly; "Back to stable" works the same as for the beta.
-  ipcMain.handle('testSet', async (_, want) => {
-    if (DEMO || FROM_SOURCE) return {ok: false, text: 'Not in demo mode or when running from source.'};
-    if (want) {
-      const {response} = await dialog.showMessageBox(parentWindow(), {type: 'warning', message: 'Get test builds?', buttons: ['Get test builds', 'Not now'], defaultId: 1, cancelId: 1,
-        detail: 'Test builds are made straight from the latest change, before the end-to-end checks have run on them, so they can be broken. Job Pilotto will offer you each one; nothing installs without your click.\n\nYou can go back to the stable version at any time.'});
-      if (response !== 0) return {ok: false, cancelled: true};
-    }
-    storage.saveSettings({testChannel: !!want, ...(want ? {betaChannel: false} : {})});   // one channel at a time
-    appLog('update', `test builds ${want ? 'on' : 'off'}`, {version: app.getVersion()});
-    checkForUpdate();
-    return {ok: true, on: !!want};
-  });
-  ipcMain.handle('betaRollback', async () => {
-    if (DEMO || FROM_SOURCE) return {ok: false, text: 'Not in demo mode or when running from source.'};
-    const stable = await updater.stableRelease(app.getVersion()).catch(error => ({error}));
-    if (stable?.error) return {ok: false, text: `Couldn't reach GitHub: ${stable.error.message}`};
-    if (!stable?.ahead) return {ok: false, text: 'You are not ahead of the stable version.'};
-    const {response} = await dialog.showMessageBox(parentWindow(), {type: 'question', message: `Go back to stable ${stable.version}?`, buttons: ['Go back to stable', 'Cancel'], defaultId: 0, cancelId: 1,
-      detail: `You have ${app.getVersion()}. The app closes, installs the stable version and opens again. Your jobs and answers are in Notion and stay as they are. The beta is switched off; you can join again any time.`});
-    if (response !== 0) return {ok: false, cancelled: true};
-    storage.saveSettings({betaChannel: false, testChannel: false});
-    setUpdateOffer(stable);
-    appLog('update', `back to stable: ${app.getVersion()} -> ${stable.version}`);
-    return installUpdate();
-  });
+  ipcMain.handle('betaSet', (_, want) => channels.set('beta', want));
+  ipcMain.handle('testSet', (_, want) => channels.set('test', want));
+  ipcMain.handle('betaRollback', () => channels.rollback());
   // Why setup stopped (the quit question or "Stuck? Tell us"): a setup report; typed words also reach the owner.
   ipcMain.handle('leaveReason', async (_, answer = {}) => {
     const event = answer.reason ? setupFunnel.stopped(answer, storage.settings()) : null;

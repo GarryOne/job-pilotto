@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {answer, template} from '../lib/app-menu.js';
+import {CHANNEL_LABELS, answer, template} from '../lib/app-menu.js';
 
 test('Mac: Check for Updates… right under About; standard menus kept', () => {
   const click = () => {};
@@ -19,10 +19,26 @@ test('Windows: no app menu; Check for Updates… in Help', () => {
   assert.ok(menu.at(-1).submenu.some(item => item.label === 'Check for Updates…'));
 });
 
-test('there is no test-build opt-in: the app only offers the stable release', () => {
+// Update Channel sits right under Check for Updates… on both platforms: Stable / Beta / Test builds, the current one checked.
+test('Update Channel: three radio items under Check for Updates…, on Mac and Windows', () => {
+  const picked = [];
+  for (const mac of [true, false]) {
+    const menu = template({name: 'Job Pilotto', mac, checkForUpdates: () => {}, channel: 'beta', pickChannel: id => picked.push(id)});
+    const list = (mac ? menu[0] : menu.at(-1)).submenu;
+    const at = list.findIndex(item => item.label === 'Check for Updates…');
+    const channel = list[at + 1];
+    assert.equal(channel.label, 'Update Channel');
+    assert.deepEqual(channel.submenu.map(item => [item.type, item.checked]), [['radio', false], ['radio', true], ['radio', false]]);
+    assert.deepEqual(channel.submenu.map(item => item.label), Object.values(CHANNEL_LABELS));
+    channel.submenu[2].click();
+  }
+  assert.deepEqual(picked, ['test', 'test']);
+});
+
+test('from source there is no Update Channel (nothing to install)', () => {
   const labels = template({name: 'Job Pilotto', mac: true, checkForUpdates: () => {}})[0].submenu.map(item => item.label || '');
   assert.ok(labels.includes('Check for Updates…'));
-  assert.ok(!labels.some(label => /Test Build/.test(label)));
+  assert.ok(!labels.includes('Update Channel'));
 });
 
 test('the answer: up to date, an update to install, or why the check failed', () => {

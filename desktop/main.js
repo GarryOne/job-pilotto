@@ -94,8 +94,8 @@ let trail = null;  // lib/sentry.js note(): the last steps, attached to the next
 const track = (event, props) => { analytics?.track(event, props); trail?.(event, props); };
 let recipeReporterRef = null;  // the batched, anonymous product counts (lib/recipes.js), made when the app is ready
 let license = null;  // the free allowance and license keys (lib/license.js), made once storage exists
-const {getUpdateOffer, setUpdateOffer, getUpdateCheckedAt, FROM_SOURCE, betaOn, testerOn, testerLogsOn, checkForUpdate, buildMenu, trackSetup, installUpdate} =
-  createAppUpdates({Menu, app, dialog, getStorage: () => storage, getTelemetry: () => telemetry, toWindow, track, getWindow: () => window});   // lib/app-updates.js
+const {getUpdateOffer, setUpdateOffer, getUpdateCheckedAt, FROM_SOURCE, betaOn, testerOn, testerLogsOn, checkForUpdate, buildMenu, trackSetup, installUpdate, channels} =
+  createAppUpdates({Menu, app, dialog, isDemo: () => DEMO, getStorage: () => storage, getTelemetry: () => telemetry, toWindow, track, getWindow: () => window});   // lib/app-updates.js
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // Demo mode (JOB_PILOTTO_DEMO=1, with JOB_PILOTTO_USER_DATA pointing at a copy of demo/): fictional
@@ -255,7 +255,7 @@ function handlers() {
     DEMO, apply, pipeline, review, server, notion, claudeConsent});
   registerAppMetaHandlers({DEMO, FROM_SOURCE, app, betaOn, checkForUpdate, cloud, dialog, installUpdate, ipcMain, licenseState, log, storage, testerLogsOn, testerOn, track,
     getLicense: () => license, getTelemetry: () => telemetry, getUpdateOffer, setUpdateOffer,
-    getUpdateCheckedAt, getWindow: () => window});   // lib/app-meta-handlers.js
+    getUpdateCheckedAt, getWindow: () => window, channels});   // lib/app-meta-handlers.js
   const {showForm} = registerApplyHandlers({DEMO, allowanceBlock, claudeConsent, cloud, here, ipcMain, log, needsNotion, prepareKitFor, getRecipeReporter: () => recipeReporterRef, shell, startClaude, storage, toWindow, track});   // lib/apply-handlers.js
   registerCvAndLettersHandlers({BrowserWindow, DEMO, cvOf, handleImportant, ipcMain, keepLook, openTailoredCv, printPdf, shell, storage, tailorCv, tailoring, toWindow});   // lib/cv-handlers.js
   registerVisitsHandlers({DEMO, allowanceBlock, here, ipcMain, log, readSites, shell, storage});   // lib/visits-handlers.js
@@ -371,6 +371,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   // E2E on a Linux CI runner only (no keyring there): Electron's safeStorage refuses the basic store unless told to. A user's app never takes this path.
   if (process.platform === 'linux' && process.env.JOB_PILOTTO_E2E && process.env.CI) safeStorage.setUsePlainTextEncryption?.(true);
   storage = createStorage(app.getPath('userData'), DEMO ? {encrypt: value => value, decrypt: value => value} : safeStorageCrypto(safeStorage));
+  buildMenu();   // again, now the saved update channel can be read (Update Channel's radio)
   // An import on the Mac that made it: its sealed keys open here; an older export without them takes them from the same Profile's backup (lib/reset.js adoptBackupKeys).
   if (resetDone?.imported) {
     const kept = reset.adoptBackupKeys(storage);

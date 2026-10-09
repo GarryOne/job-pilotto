@@ -340,6 +340,7 @@ export async function init() {
     button.disabled = false;
     if (result?.ok === false && result.text) $('diag-test-text').textContent = result.text; else renderBeta();
   });
+  window.pilot.onUpdateChannel?.(() => renderBeta());   // switched from the menu (Update Channel): the Diagnostics switches follow
   $('diag-beta-back').addEventListener('click', async () => {
     const result = await window.pilot.betaRollback().catch(error => ({ok: false, text: error.message}));
     if (result?.ok === false && result.text) $('diag-beta-text').textContent = result.text;

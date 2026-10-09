@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('pilot', {
   poolShareGet: call('poolShareGet'), poolShareSet: call('poolShareSet'), poolShareShown: call('poolShareShown'),
   updateState: call('updateState'), updateStatus: call('updateStatus'), updateCheck: call('updateCheck'), updateInstall: call('updateInstall'), betaState: call('betaState'), betaSet: call('betaSet'), testSet: call('testSet'), betaRollback: call('betaRollback'),
   onUpdate: callback => ipcRenderer.on('update', (_, offer) => callback(offer)),
+  onUpdateChannel: callback => ipcRenderer.on('updateChannel', (_, channel) => callback(channel)),   // the menu's Update Channel changed it
   sendFeedback: call('sendFeedback'), leaveReason: call('leaveReason'),
   onAskWhyLeaving: callback => ipcRenderer.on('askWhyLeaving', () => callback()),
   startTrialCredit: call('startTrialCredit'), trialCredit: call('trialCredit'),
