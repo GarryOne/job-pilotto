@@ -35,7 +35,7 @@ EVENT_FIELDS = ('id', 'app_id', 'kind', 'at', 'source', 'note', 'source_id', 'in
 MATCH_FIELDS = ('url', 'title', 'company', 'location', 'work_mode', 'fit', 'reason', 'fit_detail', 'status',
                 'first_seen')
 INTERVIEW_FIELDS = ('id', 'app_id', 'title', 'at', 'input', 'round', 'overall', 'questions', 'weak_answers', 'topics',
-                    'weak_topics', 'next_step', 'cost', 'model', 'notes', 'transcript', 'review', 'created_at')
+                    'weak_topics', 'next_step', 'cost', 'model', 'transcript', 'review', 'created_at')
 INSIGHT_FIELDS = ('id', 'day', 'category', 'title', 'body', 'fields', 'created_at')
 EMPLOYER_FIELDS = ('id', 'name', 'website', 'careers_url', 'feed', 'active', 'created_at')
 AGENT_RUN_FIELDS = ('id', 'url', 'ats', 'outcome', 'fields', 'learnings', 'transcript', 'created_at')

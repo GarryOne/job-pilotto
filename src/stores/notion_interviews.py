@@ -18,7 +18,7 @@ COLUMNS = {'title': ('Interview', 'title'), 'at': ('Date', 'date'), 'input': ('I
            'weak_answers': ('Weak answers', 'number'), 'topics': ('Topics', 'text'), 'weak_topics': ('Weak topics', 'text'),
            'next_step': ('Next step', 'text'), 'cost': ('Cost (USD)', 'number'), 'model': ('Model', 'text')}
 BODY = ('transcript', 'review')
-NOT_KEPT = ('notes',)   # no column: a note the person wrote is the transcript of an unrecorded interview
+NOT_KEPT = ()
 
 
 def _same(a, b):
