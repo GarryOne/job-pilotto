@@ -2,7 +2,7 @@
 in-memory Notion of the interview tests, and pages laid out as today (job line, review, Transcript toggle)."""
 import unittest
 
-from src.ai import interviews_blocks, interviews_review
+from src.ai import interviews, interviews_blocks, interviews_review
 from src.stores import base, notion_blocks
 from src.stores.notion_interviews import NotionInterviews
 from tests.interviews_fixtures import RESULT, NotionPages, app
@@ -13,7 +13,8 @@ REVIEW = notion_blocks.to_markdown(interviews_blocks.analysis_blocks(RESULT, {'f
 class NotionInterviewsTests(unittest.TestCase):
     def setUp(self):
         self.notion = NotionPages([app('app-1', 'Acme', 'Interview scheduled', '2026-09-01')])
-        self.s = NotionInterviews(self.notion, database_id='')   # the fake's interviews database id
+        # The fake answers for whatever interviews.INTERVIEWS_DATABASE_ID holds when the test runs (other tests set it): '' broke in a full run.
+        self.s = NotionInterviews(self.notion, database_id=interviews.INTERVIEWS_DATABASE_ID)
 
     def texts(self, page_id):
         return [(b['type'], interviews_review._plain_block(b)) for b in self.notion._children(page_id)]
