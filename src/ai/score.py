@@ -19,10 +19,11 @@ import threading
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
 from .. import store
 from . import cost, engine, hints
+from .models import MAIN_MODEL
 
 # Bump when the prompt or schema changes so every job is re-scored once.
 SCORER_VERSION = 2
-DEFAULT_MODEL = os.getenv('JOB_PILOTTO_SCORE_MODEL', 'claude-sonnet-5-5')
+DEFAULT_MODEL = os.getenv('JOB_PILOTTO_SCORE_MODEL', MAIN_MODEL)
 # How hard the scorer thinks (medium by default; Haiku has no such setting and ignores it).
 EFFORT = os.getenv('JOB_PILOTTO_SCORE_EFFORT', 'medium')
 # A cheaper first pass (e.g. claude-haiku-5-5): every pending job gets it, and only jobs whose first-pass score reaches

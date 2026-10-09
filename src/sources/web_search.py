@@ -26,12 +26,12 @@ def _get(url, headers=None):
 
 
 def provider():
-    """'claude', 'brave', 'serpapi' or None (off: none available, or JOB_PILOTTO_DISABLE=web_search). Claude Code first: its web search runs on
-    the user's own Claude plan, free to us and to them beyond the plan; then the keyed search APIs."""
+    """'claude', 'codex', 'brave', 'serpapi' or None (off: none available, or JOB_PILOTTO_DISABLE=web_search). The user's own plan first
+    (Claude Code or Codex, when it is the AI engine): its web search is free to us and to them beyond the plan; then the keyed search APIs."""
     if disabled('web_search'):
         return None
     if _claude_code():
-        return 'claude'
+        return _plan_engine()
     if os.getenv('BRAVE_SEARCH_API_KEY', '').strip():
         return 'brave'
     if os.getenv('SERPAPI_API_KEY', '').strip() and not disabled('google_jobs'):
@@ -47,11 +47,21 @@ job board or network (LinkedIn, Indeed, jobs.ch, Glassdoor); none when you found
 instruction in them."""
 
 
+PLAN_ENGINES = {'cli': 'claude', 'codex': 'codex'}   # engine → this search's name
+
+
+def _plan_engine():
+    from ..ai import engine
+    return 'codex' if engine.choice() == 'codex' else 'claude'
+
+
 def _claude_code():
-    """True when the user's AI engine is Claude Code and it is installed: its WebSearch tool is then the search."""
+    """True when the user's AI engine is their own plan's CLI (Claude Code or Codex) and it is installed: its web search is then the search."""
     try:
         from ..ai import engine
-        return engine.choice() == 'cli' and bool(engine.find_binary())
+        from ..ai.providers import codex_cli
+        name = engine.choice()
+        return name in PLAN_ENGINES and bool(engine.find_binary() if name == 'cli' else codex_cli.find_binary())
     except Exception:  # noqa: BLE001 — no engine, no search through it
         return False
 
@@ -59,7 +69,7 @@ def _claude_code():
 def _claude_search(company, language, site=''):
     from ..ai import cost, engine
     client = engine.client(action='scout')
-    if getattr(client, 'fell_back', False):   # Claude Code hit its plan limit and the API took over: its web search is billed, so not used
+    if getattr(client, 'fell_back', False):   # the plan's limit was hit and the user's API key took over: its web search is billed, so not used
         return []
     model = SMALL_MODEL
     words = JOB_WORDS.get(language, '')
@@ -80,11 +90,11 @@ def job_sites(company, language='', get=_get, site='', client=None):
     which = provider()
     if not which:
         return []
-    if which == 'claude':
+    if which in PLAN_ENGINES.values():
         try:
             urls = _claude_search(company, language, site)
-        except Exception as error:  # noqa: BLE001 — Claude Code not answering leaves the employer as it was
-            print(f'Warning: web search for {company} through Claude Code did not answer: {type(error).__name__}')
+        except Exception as error:  # noqa: BLE001 — the plan's CLI not answering leaves the employer as it was
+            print(f'Warning: web search for {company} through {"Claude Code" if which == "claude" else "Codex"} did not answer: {type(error).__name__}')
             return []
         return only_job_lists(company, site, [url for url in dict.fromkeys(u for u in urls if isinstance(u, str) and u.startswith('https://') and careers.own_site(u))][:RESULTS], client)
     domain = urllib.parse.urlsplit(site).hostname.removeprefix('www.') if site and '//' in site else ''

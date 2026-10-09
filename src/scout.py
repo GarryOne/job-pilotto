@@ -306,10 +306,12 @@ def telegram_summary(summary, results):
 def ai_cost_line(what, usd, api_calls, plan_calls, calls):
     """What a run's AI cost, in words: dollars only for calls on the API key; calls through Claude Code are on the user's Claude plan
     (6 Oct 2026: "$0.000 in 21 call(s)" read as broken to a Claude Code user)."""
+    from .ai import providers
+    plan, tool = ('ChatGPT plan', 'Codex') if providers.spec().family == 'openai' else ('Claude plan', 'Claude Code')
     if plan_calls and not api_calls:
-        return f'AI of this {what}: {plan_calls} call(s) on your Claude plan (Claude Code: no cost per call)'
+        return f'AI of this {what}: {plan_calls} call(s) on your {plan} ({tool}: no cost per call)'
     if plan_calls:
-        return f'AI cost of this {what}: ${usd:.3f} for {api_calls} call(s) on your API key, plus {plan_calls} on your Claude plan'
+        return f'AI cost of this {what}: ${usd:.3f} for {api_calls} call(s) on your API key, plus {plan_calls} on your {plan}'
     return f'AI cost of this {what}: ${usd:.3f} in {calls} call(s)'
 
 

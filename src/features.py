@@ -19,8 +19,9 @@ class Feature:
     setup: str        # how to turn it on, one line
 
 
-# AI: the user's API key, or their own Claude Code chosen in the app (src/ai/engine.py; runs on their Claude plan).
-AI = ('ANTHROPIC_API_KEY', 'JOB_PILOTTO_AI_ENGINE=cli')
+# AI: the user's API key (Anthropic or OpenAI), or their own Claude Code / Codex chosen in the app (src/ai/providers; runs on their plan).
+# Any one of them; engine.ready() then checks the one the user chose.
+AI = ('ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'JOB_PILOTTO_AI_ENGINE=cli', 'JOB_PILOTTO_AI_ENGINE=codex')
 
 
 FEATURES = (

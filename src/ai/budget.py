@@ -80,7 +80,8 @@ def status(tracker, now=None, opener=urllib.request.urlopen):
     """{'spent', 'budget', 'pct', 'level', 'source'} for this month."""
     now = now or datetime.now(timezone.utc)
     budget, key, spent, source = monthly_budget(), admin_key(), None, 'Job Pilotto log'
-    if key:
+    from . import providers
+    if key and providers.spec().family == 'claude':   # Anthropic's own report; an OpenAI engine's spend is in the run log
         try:
             spent, source = admin_spend(key, now, opener), 'Anthropic cost report'
         except Exception as error:  # noqa: BLE001 — fall back to the log rather than fail the run

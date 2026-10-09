@@ -96,18 +96,29 @@ def total_tokens(run):
                for key in ('tokens_in', 'tokens_out', 'cache_read'))
 
 
+PLAN_BILLED = {'claude': 'Claude subscription', 'openai': 'ChatGPT plan'}        # the user's own plan (Claude Code, Codex)
+API_BILLED = {'claude': 'Anthropic API credits', 'openai': 'OpenAI API credits'}   # their API key
+PLAN_WORDS = {'claude': 'Claude Code, your plan', 'openai': 'Codex, your ChatGPT plan'}
+
+
+def _family(run):
+    """'openai' when the run's AI was OpenAI's (a stage's provider, src/ai/cost.py), else 'claude'."""
+    return 'openai' if any((run.get(stage) or {}).get('provider') == 'openai' for stage, _, _ in STAGES) else 'claude'
+
+
 def billed_to(run):
-    """How the run's AI was paid for (the "Billed to" column): the user's Claude Code on their Claude plan
-    (src/ai/engine.py), their API key, both (a fallback), or None when no AI ran."""
+    """How the run's AI was paid for (the "Billed to" column): the user's own plan (Claude Code, Codex), their API key (Anthropic,
+    OpenAI), both (a fallback), or None when no AI ran (src/ai/providers)."""
     cli = any((run.get(stage) or {}).get('cli_calls') for stage, _, _ in STAGES)
     api = any((run.get(stage) or {}).get('api_calls') for stage, _, _ in STAGES)
-    return 'Both' if cli and api else 'Claude subscription' if cli else 'Anthropic API credits' if api else None
+    family = _family(run)
+    return 'Both' if cli and api else PLAN_BILLED[family] if cli else API_BILLED[family] if api else None
 
 
 def cost_text(run):
-    """The run's AI cost in words: dollars for the API, "Claude Code, your plan" for the subscription."""
-    billed, usd = billed_to(run), f'AI cost ${total_usd(run):.3f}'
-    return 'Claude Code, your plan' if billed == 'Claude subscription' else f'{usd} + Claude Code' if billed == 'Both' else usd
+    """The run's AI cost in words: dollars for the API, "<CLI>, your plan" for the subscription."""
+    billed, usd, plan = billed_to(run), f'AI cost ${total_usd(run):.3f}', PLAN_WORDS[_family(run)]
+    return plan if billed in PLAN_BILLED.values() else f'{usd} + {plan.split(",")[0]}' if billed == 'Both' else usd
 
 
 def status(run):
@@ -313,7 +324,8 @@ def run_page(run, final=True):
                 f"{heading} with {info.get('model', '?')}{done}; "
                 f"tokens in {info.get('tokens_in', 0)} (+{info.get('cache_read', 0)} cached), "
                 f"out {info.get('tokens_out', 0)}; "
-                + ('Claude Code, your plan' if info.get('cli_calls') and not info.get('api_calls') else f"${info.get('usd', 0.0):.4f}"),
+                + (PLAN_WORDS['openai' if info.get('provider') == 'openai' else 'claude'] if info.get('cli_calls') and not info.get('api_calls')
+                   else f"${info.get('usd', 0.0):.4f}"),
                 'bulleted_list_item'))
     if run.get('matches'):
         children.append(_para(f"Job Matches: {run['matches']}", 'bulleted_list_item'))

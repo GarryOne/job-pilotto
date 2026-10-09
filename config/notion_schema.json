@@ -1022,6 +1022,14 @@
               "color": "red"
             },
             {
+              "name": "ChatGPT plan",
+              "color": "green"
+            },
+            {
+              "name": "OpenAI API credits",
+              "color": "blue"
+            },
+            {
               "name": "Both",
               "color": "purple"
             }

@@ -438,7 +438,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/mail.py` — Gmail + Calendar -> the application ledger, read-only.
 - `src/ai/meanings_pack.py` — The meanings pack on this computer: wording -> fixed answer, per topic, before any AI is asked (approved by the owner, 8 Oct 2026: the
 - `src/ai/meanings.py` — What content means, decided by AI in any language (CLAUDE.md "Meaning comes from AI, never from keyword lists"; the shared mechanism is
-- `src/ai/models.py` — The model of the small AI steps (title, page and place checks, triage, search picks, stage 1 facts, mail), as data.
+- `src/ai/models.py` — The models of the AI steps, as data: three tiers (small, main, big) per family (Claude, OpenAI).
 - `src/ai/opportunity.py` — Recruiter leads: a role someone pitched to you (an email, a LinkedIn message), tracked like an application.
 - `src/ai/page_reader.py` — Claude reads a careers page that has no machine-readable jobs and lists the jobs on it.
 - `src/ai/passwords.py` — Employer-site passwords for Apply with Claude sessions, on the Mac and on Windows.
@@ -448,7 +448,9 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `src/ai/providers/anthropic_api.py` — The `api` engine: the Anthropic SDK with the user's ANTHROPIC_API_KEY (or the free-credit relay's address). Billed per token.
 - `src/ai/providers/claude_code.py` — The `cli` engine: the user's own signed-in Claude Code (`claude -p`), on their Claude plan. Shared CLI rules: cli_base.py.
 - `src/ai/providers/cli_base.py` — What every engine that runs the user's own signed-in CLI shares (Claude Code `claude -p`, Codex `codex exec`).
+- `src/ai/providers/codex_cli.py` — The `codex` engine: the user's own signed-in Codex CLI (`codex exec`), on their ChatGPT plan. Shared CLI rules: cli_base.py.
 - `src/ai/providers/contract.py` — The contract every AI provider adapter meets: one neutral request in, one SDK-shaped response out, one set of errors.
+- `src/ai/providers/openai_api.py` — The `openai` engine: OpenAI's Responses API with the user's OPENAI_API_KEY (the official `openai` SDK). Billed per token.
 - `src/ai/providers/schema.py` — JSON schemas across providers: a small validator, a forgiving JSON reader, and each provider's accepted form of one schema.
 - `src/ai/quality.py` — Quality checks for the words the AI writes for the owner (insight headline, next step).
 - `src/ai/reassign.py` — Your answer about an email the Gmail check wasn't sure where to place.

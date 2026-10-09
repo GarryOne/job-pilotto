@@ -98,7 +98,8 @@ class RegistryTests(unittest.TestCase):
         for name, (env, kind) in ENGINE_CASES.items():
             with self.subTest(engine=name):
                 import unittest.mock as mock
-                with mock.patch('src.ai.providers.anthropic_api.sdk', lambda action='': 'sdk'):
+                with mock.patch('src.ai.providers.anthropic_api.sdk', lambda action='': 'sdk'), \
+                        mock.patch('src.ai.providers.openai_api.sdk', lambda action='': 'sdk'):
                     client = engine.client(env)
                 self.assertEqual(type(client).__name__, kind)
                 self.assertEqual(client.name, name)
@@ -138,6 +139,8 @@ class SchemaTests(unittest.TestCase):
 ENGINE_CASES = {
     'api': ({'ANTHROPIC_API_KEY': 'k'}, 'AnthropicApi'),
     'cli': ({'JOB_PILOTTO_AI_ENGINE': 'cli', 'JOB_PILOTTO_CLAUDE_BIN': sys.executable}, 'ClaudeCode'),
+    'openai': ({'JOB_PILOTTO_AI_ENGINE': 'openai', 'OPENAI_API_KEY': 'sk-test-not-real'}, 'OpenAIApi'),
+    'codex': ({'JOB_PILOTTO_AI_ENGINE': 'codex', 'JOB_PILOTTO_CODEX_BIN': sys.executable}, 'Codex'),
 }
 
 if __name__ == '__main__':

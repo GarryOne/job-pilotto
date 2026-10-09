@@ -129,12 +129,13 @@ class Usage:
     cache_creation_input_tokens: int = 0
     billing: str = SUBSCRIPTION
     provider: str = ''
+    model: str = ''      # the model that answered, when another family's adapter mapped it (cost.py prices this one)
 
 
 def plus(a, b):
     return Usage(a.input_tokens + b.input_tokens, a.output_tokens + b.output_tokens,
                  a.cache_read_input_tokens + b.cache_read_input_tokens,
-                 a.cache_creation_input_tokens + b.cache_creation_input_tokens, a.billing, a.provider)
+                 a.cache_creation_input_tokens + b.cache_creation_input_tokens, a.billing, a.provider, a.model)
 
 
 @dataclass
@@ -159,6 +160,7 @@ class Adapter:
     billing = API
     label = ''           # how a call was paid for, in words ("Claude Code (your plan)")
     fallback_label = ''  # the fallback, in words ("your Anthropic API key")
+    reads_pdf = True     # a PDF attachment is read as Claude reads it; False: refused with a clear error, never a guessed answer
 
     def __init__(self, fallback=None, log=None):
         self.fallback = fallback
@@ -173,6 +175,9 @@ class Adapter:
 
     def create(self, **params):
         request = request_from(params)
+        if not self.reads_pdf and any(part.kind == 'pdf' for part in request.attachments):
+            raise AiError(f'{self.label or self.name} cannot read PDF attachments: the caller must send the PDF as page images '
+                          'and its text (the app does, desktop/lib/ai), or choose another engine in Settings → AI.')
         if self._fallen is not None:
             return self._fallen.messages.create(**params)
         try:

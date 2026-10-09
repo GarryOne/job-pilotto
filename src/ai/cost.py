@@ -1,7 +1,7 @@
 """API prices and per-call cost, shared by the AI stages and the cronjob run report.
 
 USD per million tokens: (input, output, cache read); a cache write costs 1.25x input.
-Anthropic first-party rates, checked 2026-09-26. An unpriced model counts as 0.
+Anthropic first-party rates, checked 2026-09-26; OpenAI rates below. An unpriced model counts as 0.
 """
 PRICES = {
     'claude-opus-5-5': (4.00, 20.00, 0.20),  # interview reviews and insights (checked 2026-09-30)
@@ -9,6 +9,10 @@ PRICES = {
     'claude-sonnet-5': (2.00, 10.00, 0.20),    # runs logged before the switch to 5.5
     'claude-haiku-5-5': (0.10, 0.50, 0.01),    # the small AI steps (8 Oct 2026); above 100k input tokens a call costs 5x, none come close
     'claude-haiku-4-5': (1.00, 5.00, 0.10),    # runs logged before the switch to 5.5
+    # OpenAI (developers.openai.com/api/docs/pricing, checked 2026-10-09; its cached input is the "cache read" column; no cache-write charge)
+    'gpt-6-luna': (0.10, 0.50, 0.01),          # the small tier on the OpenAI engine (= Haiku 5.5's price)
+    'gpt-6.1-sol': (2.00, 10.00, 0.10),        # the main and big tiers (= Sonnet 5.5's price)
+    'gpt-6-astra': (10.00, 50.00, 1.00),       # not a default tier (2.5x Opus); priced in case a user sets it
 }
 
 
@@ -17,6 +21,7 @@ def usd(model, usage):
     on the user's Claude plan, not API credits: $0."""
     if getattr(usage, 'billing', None) == 'subscription':
         return 0.0
+    model = getattr(usage, 'model', '') or model   # the model that answered (an OpenAI engine maps a Claude tier to its own)
     price_in, price_out, price_cache = PRICES.get(model, (0, 0, 0))
     cached = getattr(usage, 'cache_read_input_tokens', 0) or 0
     written = getattr(usage, 'cache_creation_input_tokens', 0) or 0
@@ -28,7 +33,9 @@ def add(stats, model, usage):
     """Accumulate one call's tokens and cost into a stage's stats dict (no-op when stats is None)."""
     if stats is None:
         return
-    stats['model'] = model
+    stats['model'] = getattr(usage, 'model', '') or model
+    if getattr(usage, 'provider', ''):
+        stats['provider'] = usage.provider
     stats['tokens_in'] = stats.get('tokens_in', 0) + usage.input_tokens
     stats['tokens_out'] = stats.get('tokens_out', 0) + usage.output_tokens
     stats['cache_read'] = stats.get('cache_read', 0) + (getattr(usage, 'cache_read_input_tokens', 0) or 0)
@@ -65,8 +72,12 @@ def cli_limit(error):
 
 
 def limit_reason(error):
-    """The limit in a few words, for the run's log ("AI limit reached: …")."""
-    return 'Claude Code (your Claude plan) cannot go on' if cli_limit(error) else 'Anthropic API spending limit'
+    """The limit in a few words, for the run's log ("AI limit reached: …"): the chosen engine's, when it can't go on."""
+    if not cli_limit(error):
+        return 'Anthropic API spending limit'
+    from . import providers
+    chosen = providers.spec()
+    return 'Claude Code (your Claude plan) cannot go on' if chosen.name in ('api', 'cli') else f'{chosen.label} cannot go on'
 
 
 def limit_message(error, what, retry=''):

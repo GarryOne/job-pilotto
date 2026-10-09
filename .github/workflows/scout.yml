@@ -30,6 +30,12 @@ permissions:
 env:
   # The model of the small AI steps (title and page checks, triage, search picks), as the app sets it in this repo (desktop/lib/github.js).
   JOB_PILOTTO_SMALL_MODEL: ${{ vars.JOB_PILOTTO_SMALL_MODEL }}
+  # The AI engine the user chose for Always on (api: Anthropic key, openai: OpenAI key; never a CLI here) and the OpenAI tiers' models,
+  # as the app sets them in this repo (desktop/lib/github.js; src/ai/providers, src/ai/models.py).
+  JOB_PILOTTO_AI_ENGINE: ${{ vars.JOB_PILOTTO_AI_ENGINE }}
+  JOB_PILOTTO_OPENAI_SMALL_MODEL: ${{ vars.JOB_PILOTTO_OPENAI_SMALL_MODEL }}
+  JOB_PILOTTO_OPENAI_MAIN_MODEL: ${{ vars.JOB_PILOTTO_OPENAI_MAIN_MODEL }}
+  JOB_PILOTTO_OPENAI_BIG_MODEL: ${{ vars.JOB_PILOTTO_OPENAI_BIG_MODEL }}
   # Help the pool grow, as the app sets it in this repo (desktop/lib/pool-share.js): an Always on run shares like the app (6 Oct 2026: it never did).
   JOB_PILOTTO_SHARE_EMPLOYERS: ${{ vars.JOB_PILOTTO_SHARE_EMPLOYERS }}
   JOB_PILOTTO_INSTALL_ID: ${{ vars.JOB_PILOTTO_INSTALL_ID }}
@@ -99,6 +105,7 @@ jobs:
       - name: Scout new sources
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           JOB_PILOTTO_RENDER: ${{ vars.JOB_PILOTTO_RENDER }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

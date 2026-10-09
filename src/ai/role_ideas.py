@@ -11,9 +11,9 @@ import json
 from datetime import datetime, timezone
 
 from ..paths import DATA, keyword_regex
-from .models import SMALL_MODEL
+from .models import MAIN_MODEL, SMALL_MODEL
 
-MODEL = 'claude-sonnet-5-5'
+MODEL = MAIN_MODEL
 MAX_IDEAS = 8
 STORE = DATA / 'role_ideas.json'
 SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['ideas'],

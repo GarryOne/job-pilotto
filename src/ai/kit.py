@@ -18,8 +18,9 @@ import urllib.request
 
 from .. import paths as _paths  # noqa: F401 (import side effect: loads .env before getenv below)
 from . import cost, engine
+from .models import MAIN_MODEL
 
-DEFAULT_MODEL = os.getenv('JOB_PILOTTO_KIT_MODEL', 'claude-sonnet-5-5')
+DEFAULT_MODEL = os.getenv('JOB_PILOTTO_KIT_MODEL', MAIN_MODEL)
 KIT_VERSION = 1
 KIT_HEADING = '📝 Application kit'
 ANSWERS_PAGE_ID = os.getenv('NOTION_ANSWERS_PAGE_ID', '')

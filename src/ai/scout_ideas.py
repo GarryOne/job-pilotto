@@ -18,9 +18,9 @@ from datetime import datetime, timezone
 from . import engine
 from .. import coverage
 from ..sources import ats, careers
-from .models import SMALL_MODEL
+from .models import MAIN_MODEL, SMALL_MODEL
 
-IDEAS_MODEL = 'claude-sonnet-5-5'
+IDEAS_MODEL = MAIN_MODEL
 READ_MODEL = SMALL_MODEL
 IDEA_PRIORITY = 92        # probed before the fixed lists (SwissDevJobs 88, Hacker News 85): each run tries new ground first (6 Oct 2026)
 LIST_PRIORITY = 90

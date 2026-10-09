@@ -1,3 +1,4 @@
 anthropic>=1,<2
+openai>=3,<4   # the OpenAI engine (src/ai/providers/openai_api.py), when the user chose an OpenAI key
 keyring>=25; sys_platform == "win32"   # Windows Credential Manager (src/secret_store.py); the Mac uses its Keychain
 tzdata; sys_platform == "win32"   # Windows has no time-zone database: without it zoneinfo cannot load even "UTC" (src/tz.py falls back to the computer's offset)

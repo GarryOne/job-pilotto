@@ -390,7 +390,8 @@ def after_review(tracker, stats=None, client=None):
         return update(tracker, stats=stats, client=client)['text']
     except Exception as error:  # noqa: BLE001 - the review is saved; insights catch up on the next review or Refresh
         if cost.limit_reached(error):
-            return ('Interview insights: paused, your Claude Code plan limit is reached' if cost.cli_limit(error)
+            from . import providers
+            return (f'Interview insights: paused, {providers.spec().limit}' if cost.cli_limit(error)
                     else 'Interview insights: paused, the Anthropic spend limit is reached')
         return f'Interview insights skipped: {type(error).__name__}: {error}'
 

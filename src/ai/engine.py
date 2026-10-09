@@ -1,10 +1,12 @@
 """The AI engine every AI step calls through: one factory, `client()`, over the engines in src/ai/providers/.
 
 JOB_PILOTTO_AI_ENGINE picks it, as the user chose it (Settings → AI in the app):
-  api (default; GitHub / Always on, the Telegram worker, the free-credit relay)  the Anthropic SDK (providers/anthropic_api.py)
-  cli (the app, on the user's Mac, when the user picked "Claude Code")            the user's own Claude Code (providers/claude_code.py)
-Nothing is chosen for the user: no automatic switch. JOB_PILOTTO_AI_FALLBACK=api (the user's own tick, "If Claude
-Code hits my plan limit, use my API key") lets a call that hits the plan's limit go to the API key instead.
+  api    (default; GitHub / Always on, the Telegram worker, the free-credit relay)  the Anthropic SDK, their key (providers/anthropic_api.py)
+  cli    (the app, on the user's Mac)                                           their own Claude Code, Claude plan (providers/claude_code.py)
+  openai (the app or Always on)                                                  OpenAI's Responses API, their key (providers/openai_api.py)
+  codex  (the app, on the user's Mac)                                           their own Codex CLI, ChatGPT plan (providers/codex_cli.py)
+Nothing is chosen for the user: no automatic switch. JOB_PILOTTO_AI_FALLBACK=api|openai (the user's own tick, "If my plan's limit is hit,
+use my API key") lets a plan engine hand the rest of a run to the API key of the SAME family; never Claude to OpenAI or back.
 
 Every engine is an adapter behind one contract (providers/contract.py): `client().messages.create(**the SDK's arguments)` returns an
 object shaped like the Anthropic SDK's response (`.content[0].type/.text`, `.usage`, `.stop_reason`, `.model`), so the AI modules work
@@ -64,6 +66,9 @@ def structured(schema, model, effort='medium'):
 
 def label(usage_or_stats):
     """How a call or a stage was paid for, in words."""
-    billing = getattr(usage_or_stats, 'billing', None) if not isinstance(usage_or_stats, dict) else (
-        SUBSCRIPTION if usage_or_stats.get('cli_calls') else None)
-    return 'Claude Code (your plan)' if billing == SUBSCRIPTION else 'Anthropic API'
+    if isinstance(usage_or_stats, dict):
+        billing, provider = SUBSCRIPTION if usage_or_stats.get('cli_calls') else API, usage_or_stats.get('provider', '')
+    else:
+        billing, provider = getattr(usage_or_stats, 'billing', None) or API, getattr(usage_or_stats, 'provider', '')
+    family = 'openai' if provider == 'openai' else 'claude'
+    return next(item.label for item in providers.ENGINES.values() if item.family == family and item.billing == billing)

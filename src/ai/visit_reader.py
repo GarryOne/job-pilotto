@@ -9,11 +9,11 @@ What Claude sees: the outline (a few sample blocks of a public job list, capped)
 import json
 
 from . import engine
-from .models import SMALL_MODEL
+from .models import MAIN_MODEL, SMALL_MODEL
 
 MODEL = SMALL_MODEL
 # The second try when the first model finds nothing (owner, 7 Oct 2026: "Sonnet as a 2nd try"): one page, only on a failure, logged.
-SECOND_MODEL = 'claude-sonnet-5-5'
+SECOND_MODEL = MAIN_MODEL
 SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['group', 'title', 'company', 'place', 'link', 'next', 'why'],
           'properties': {'group': {'type': 'string', 'description': 'The id of the group whose blocks are job postings, or "" if none is'},
                          'title': {'type': 'integer', 'description': "The index of the block's text line holding the job title; -1: the job link's own text"},

@@ -34,9 +34,10 @@ from . import learning, quality
 from .insights_text import (  # noqa: F401 — moved; kept importable from here
     HONEST, WEEKLY_SCHEMA, WEEKLY_SYSTEM, weekly_message, weekly_blocks, plural,
 )
+from .models import MAIN_MODEL
 
 
-DEFAULT_MODEL = os.getenv('JOB_PILOTTO_INSIGHT_MODEL', 'claude-sonnet-5-5')
+DEFAULT_MODEL = os.getenv('JOB_PILOTTO_INSIGHT_MODEL', MAIN_MODEL)
 INSIGHTS_DATABASE_ID = os.getenv('NOTION_INSIGHTS_DB', '')
 SEND_HOUR_UTC = 4
 GOOD_FIT = 60

@@ -43,7 +43,7 @@ def _client(client):
         return client
     from . import engine
     if not engine.ready():
-        raise ValueError('Reading a message needs AI: choose Claude Code or add an API key (Settings → AI).')
+        raise ValueError('Reading a message needs AI: choose an AI engine: Claude Code, Codex or an API key (Settings → AI).')
     return engine.client(action='inbox')
 
 

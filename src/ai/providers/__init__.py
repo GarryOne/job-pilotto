@@ -8,7 +8,7 @@ tests/test_ai_providers.py (every engine meets the contract) and tests/test_ai_e
 from dataclasses import dataclass
 import os
 
-from .contract import API, SUBSCRIPTION
+from .contract import API, SUBSCRIPTION  # noqa: F401 (callers read them here)
 
 
 @dataclass(frozen=True)
@@ -21,14 +21,27 @@ class Engine:
     fallback: str = ''   # the engine the user may tick as the fallback when the plan's limit is hit
     fallback_env: str = 'JOB_PILOTTO_AI_FALLBACK'
     missing: str = ''    # what to say when it can't run
+    label: str = ''      # how its calls are paid for, in words ("Billed to", a run's log)
+    limit: str = ''      # its limit in a few words: "AI limit reached: <limit>"
+    plan: str = ''       # a plan engine in words: "Claude Code, on your Claude plan"
 
 
 ENGINES = {
-    'api': Engine('api', 'claude', API, key='ANTHROPIC_API_KEY',
+    'api': Engine('api', 'claude', API, key='ANTHROPIC_API_KEY', label='Anthropic API', limit='the Anthropic API spending limit was reached',
                   missing='This needs your Anthropic API key (Settings → AI), or choose Claude Code there.'),
-    'cli': Engine('cli', 'claude', SUBSCRIPTION, local_only=True, fallback='api',
+    'cli': Engine('cli', 'claude', SUBSCRIPTION, local_only=True, fallback='api', label='Claude Code (your plan)',
+                  plan='Claude Code, on your Claude plan',
+                  limit='your Claude Code plan limit was reached (or it is signed out)',
                   missing='Claude Code is chosen but not found on this computer: install it (claude.com/claude-code) or switch to '
                           'an API key in Settings → AI.'),
+    'openai': Engine('openai', 'openai', API, key='OPENAI_API_KEY', label='OpenAI API',
+                     limit='the OpenAI API credit or spending limit was reached (or the key was refused)',
+                     missing='This needs your OpenAI API key (Settings → AI), or choose Codex there.'),
+    'codex': Engine('codex', 'openai', SUBSCRIPTION, local_only=True, fallback='openai', label='Codex (your ChatGPT plan)',
+                    plan='Codex, on your ChatGPT plan',
+                    limit='your Codex (ChatGPT plan) limit was reached (or it is signed out)',
+                    missing='Codex is chosen but not found on this computer: install it (developers.openai.com/codex) or switch to '
+                            'an OpenAI API key in Settings → AI.'),
 }
 DEFAULT = 'api'
 
@@ -63,16 +76,23 @@ def build(env=None, action='', log=None):
     """The chosen engine's client: an adapter whose `messages.create` every AI module calls."""
     env = os.environ if env is None else env
     name = choice(env)
+    fallback = (lambda: build(dict(env, JOB_PILOTTO_AI_ENGINE=ENGINES[name].fallback), action, log)) if fallback_allowed(env) else None
     if name == 'cli':
         from .claude_code import ClaudeCode, find_binary
-        return ClaudeCode(binary=find_binary(env), log=log,
-                          fallback=(lambda: build(dict(env, JOB_PILOTTO_AI_ENGINE='api'), action, log)) if fallback_allowed(env) else None)
+        return ClaudeCode(binary=find_binary(env), log=log, fallback=fallback)
+    if name == 'codex':
+        from .codex_cli import Codex, find_binary
+        return Codex(binary=find_binary(env), log=log, fallback=fallback)
+    if name == 'openai':
+        from .openai_api import OpenAIApi
+        return OpenAIApi(action=action, log=log)
     from .anthropic_api import AnthropicApi
     return AnthropicApi(action=action, log=log)
 
 
 def transient_errors():
-    """Every engine's "down or busy, the next run continues" errors: the contract's own and each installed SDK's."""
+    """Every engine's "down or busy, the next run continues" errors: the contract's own (the OpenAI and CLI adapters raise those) and
+    the Anthropic SDK's (that adapter passes the SDK's own errors through untouched)."""
     from .anthropic_api import transient_errors as anthropic
     from .contract import AiUnavailable
     return (AiUnavailable, *anthropic())
@@ -80,4 +100,5 @@ def transient_errors():
 
 def permanent_errors():
     from .anthropic_api import permanent_errors as anthropic
-    return anthropic()
+    from .contract import AiError
+    return (AiError, *anthropic())

@@ -235,8 +235,9 @@ def check_matches(tracker):
 
 def check_budget(tracker, now=None):
     from .ai import budget, engine
-    if engine.choice() == 'cli':   # the AI runs on the user's Claude plan: there is no API spend to measure against a budget
-        return Check('Health', 'AI budget', OK, 'Claude Code, on your Claude plan: no API budget to watch')
+    from .ai import providers
+    if providers.spec().billing == providers.SUBSCRIPTION:   # the AI runs on the user's own plan: there is no API spend to measure against a budget
+        return Check('Health', 'AI budget', OK, f'{providers.spec().plan}: no API budget to watch')
     info = budget.status(tracker, now)
     detail = budget.describe(info)
     if info['level'] == 'pause':

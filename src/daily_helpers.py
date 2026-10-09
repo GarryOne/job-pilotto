@@ -28,8 +28,10 @@ def left_out(stats, what):
         left = min(left, stats.get('failed') or 0)
     if left <= 0:
         return []
-    why = ('your Claude Code plan limit was reached (or it is signed out)' if stats.get('limit') == 'cli' else
-           'the Anthropic API spending limit was reached' if stats.get('limit') else 'the AI call failed')
+    from .ai import providers
+    # The engine's own limit (an engine that can't go on: its plan, its sign-in, its key); a bare True is the Anthropic API's spend limit.
+    why = (providers.spec().limit if stats.get('limit') == 'cli' else
+           providers.ENGINES['api'].limit if stats.get('limit') else 'the AI call failed')
     return [f'{left} job(s) not {what}: {why}']
 
 
