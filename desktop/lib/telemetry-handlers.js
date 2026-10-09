@@ -20,7 +20,9 @@ export function registerTelemetryHandlers(ctx) {
   let trail = null;
   const quiet = DEMO ? 'demo mode' : telemetryLib.reportingOff(process.env, {packaged: app.isPackaged});
   // The recipe/meanings exchange (lib/recipes.js) follows learningOff: the same as `quiet`, except a live-test twin learns and shares (telemetry.js).
-  recipesLib.setSiteOff(DEMO ? 'demo mode' : telemetryLib.learningOff(process.env, {packaged: app.isPackaged}));
+  const learning = DEMO ? 'demo mode' : telemetryLib.learningOff(process.env, {packaged: app.isPackaged});
+  recipesLib.setSiteOff(learning);
+  appLog('telemetry', learning ? `form learning with the site is off: ${learning}` : 'form learning with the site is on');   // twin-loop reads it (9 Oct 2026)
   const sentryOnly = telemetryLib.sentryOnly(process.env);   // the journey on CI: Sentry (environment e2e, id "e2e") yes; the store and PostHog never
   telemetry = quiet && !sentryOnly ? null : telemetryLib.create(storage, {version: app.getVersion(), silent: sentryOnly});
   setTelemetry(telemetry);

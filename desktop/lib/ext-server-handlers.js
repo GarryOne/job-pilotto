@@ -78,7 +78,11 @@ export function registerExtServerHandlers(ctx) {
     if (report.matched && report.session) formSeen(report.matched);
     return report.session ? {...report, cv: cvOf(report.session.url), claudeHelp: !!storage.settings().claudeConsent && claudeFamily(storage)} : report;   // the one Claude switch (renderer/claude-help.js)
   });
-  const recipeReporter = recipeLibrary.createReporter(storage, {onSent: (what, sent) => sharedLog.add(storage, what, sent)});
+  // Each send is logged with its counts (never its content): "is the twin's fill reaching the site?" was unanswerable on 9 Oct 2026.
+  const recipeReporter = recipeLibrary.createReporter(storage, {onSent: (what, sent) => {
+    sharedLog.add(storage, what, sent);
+    appLog('recipes', `sent to the site: ${what}`, {cards: sent?.cards?.length || 0, proposalUses: sent?.proposalUses?.length || 0, samples: sent?.samples?.length || 0, outcomes: sent?.outcomes?.length || 0});
+  }});
   setRecipeReporter(recipeReporter);   // main.js keeps it: the other handler groups reach it through a getter
   // How an application ended (submitted clean / assisted / by Claude, or failed and where): one fixed word per finished application, by board. Never from a test run.
   terminals.onOutcome(session => {
