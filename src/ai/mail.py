@@ -130,8 +130,6 @@ def main(argv=None):
               'See README → Gmail and Calendar.')
         return 0
     stores = open_stores()  # the active store: this Mac's (sqlite) or Notion; JOB_PILOTTO_STORE picks it
-    # BRIDGE(mac-4a added): remove when added.hook on the store lands
-    tracker = getattr(stores.applications, 'tracker', None) if stores.name == 'notion' else None
     sender = None
     from ..features import disabled
     if args.send and not disabled('telegram'):
@@ -157,8 +155,8 @@ def main(argv=None):
     try:
         from ..paths import JOBS_DB
         from . import added  # jobs tracked from an email get facts and a fit score, like found ones
-        print(run(tracker, google, days=args.days, send=sender, calendar=not args.no_calendar, dry_run=args.dry_run,
-                  stats=stats, on_new=added.hook(tracker, JOBS_DB, log) if tracker is not None else None,
+        print(run(None, google, days=args.days, send=sender, calendar=not args.no_calendar, dry_run=args.dry_run,
+                  stats=stats, on_new=added.hook(None, JOBS_DB, log, stores=stores),
                   always_report=args.always_report, stores=stores))
         if logged:
             log_check()

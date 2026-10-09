@@ -125,13 +125,14 @@ def _fill_application(stores, url, props):
         stores.applications.update(record['id'], application_fields(props, record))
 
 
-def hook(tracker, db_path, stats=None):
+def hook(tracker, db_path, stats=None, stores=None):
     """on_new(url, job, row) for the places that add jobs (logged messages, recruiter leads, Gmail): runs process()
-    on the job cache at db_path; a failure is printed, never raised (the job is tracked either way)."""
+    on the job cache at db_path; a failure is printed, never raised (the job is tracked either way). stores: the active
+    store the caller holds (then tracker may be None)."""
     def on_new(url, job, row=None):
         try:
             with store.connect(db_path) as db:
-                return process(db, tracker, url, job, row=row, stats=stats)
+                return process(db, tracker, url, job, row=row, stats=stats, stores=stores)
         except Exception as error:  # noqa: BLE001
             print(f'Warning: AI stages skipped for {url}: {type(error).__name__}: {error}')
             return None
