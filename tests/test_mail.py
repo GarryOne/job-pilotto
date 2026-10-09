@@ -56,7 +56,7 @@ class MailTests(MailCase):
     def test_a_check_someone_started_always_answers(self):  # the flag is still there for GitHub's Run button
         tracker, google = FakeTracker([app('p1', 'Acme', 'SRE')]), FakeGoogle([email('m1', 'Newsletter')])
         sent = []
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {}):
             mail.run(tracker, google, client=FakeClient([[result(0, 0, 'Other', relevant=False)]]), days=2, send=sent.append,
                      calendar=False, now=NOW, state_path=self.state, stats={}, always_report=True)
         self.assertEqual(sent, ['📧 <b>Gmail checked</b>\n1 new email\n\nNothing that changes your applications.'])
@@ -66,7 +66,7 @@ class MailTests(MailCase):
         # nothing stays quiet on Telegram, and the app shows it in Recent activity.
         tracker, google = FakeTracker([app('p1', 'Acme', 'SRE')]), FakeGoogle([email('m1', 'Newsletter')])
         sent = []
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {}):
             mail.run(tracker, google, client=FakeClient([[result(0, 0, 'Other', relevant=False)]]), days=2, send=sent.append,
                      calendar=False, now=NOW, state_path=self.state, stats={})
         self.assertEqual(sent, [])
@@ -93,7 +93,7 @@ class MailTests(MailCase):
         stats = {}
         client = FakeClient([[result(0, 0, 'Confirmation received', company='Canonical'),
                               result(1, -1, 'Other', relevant=False)]])
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {}):
             mail.run(tracker, google, client=client, days=2, send=None, calendar=False, now=NOW, state_path=self.state,
                      stats=stats)
         [read] = stats['emails']  # the newsletter is not about the applications: read, marked seen, never listed
@@ -141,7 +141,7 @@ class MailTests(MailCase):
         # row stays the one the email names, so the event is recorded on it rather than on a twin.
         with mock.patch.object(mail_inbox, 'classify', lambda *a, **k: {0: {
                 **result(0, 0, 'Confirmation received', company='Canonical'), 'role': 'Site Reliability Engineer'}}), \
-                mock.patch('src.ai.interviews.stats_for_insights', lambda t: {}):
+                mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {}):
             summary = mail.run(tracker, google, client=SimpleNamespace(), days=2, send=[].append, calendar=False, now=NOW,
                                state_path=self.state, stats={})
         self.assertIn('1 new email(s) classified, 1 update(s)', summary)
@@ -182,7 +182,7 @@ class MailTests(MailCase):
                              email('tr', 'Download transcript: Screening Call', '2026-09-25T11:07:00+00:00', body=zephyr)])
         tracker = FakeTracker(apps)
         client = FakeClient([[result(0, 0, 'Interview scheduled'), result(1, 0, 'Other'), result(2, 0, 'Other')]])
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {'topics_answered_weakly': {}}):
             sent = []
             mail.run(tracker, google, client=client, days=2, send=sent.append, calendar=False, now=NOW,
                      state_path=self.state, stats={})

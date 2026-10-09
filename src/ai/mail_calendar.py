@@ -6,6 +6,7 @@ from html import escape
 
 from .. import tgcard
 from . import cost, meanings
+from .insights_data import interview_stats
 from .mail_config import TZ
 from .mail_lines import _head, _short, _who
 from .mail_match import _event_text, _matches
@@ -89,11 +90,8 @@ def reviewed_since(stores, row, day):
 
 
 def prep_message(stores, row, event, start, day):
-    from . import interviews  # local import: interviews imports the ledger too
     people = [a.get('displayName') or a.get('email', '') for a in event.get('attendees', []) if not a.get('self')]
-    # BRIDGE(mac-ab interviews): remove when interviews.stats_for_insights on the store lands
-    tracker = getattr(stores.applications, 'tracker', None)
-    weak = list(interviews.stats_for_insights(tracker)['topics_answered_weakly'])[:3] if tracker is not None else []
+    weak = list(interview_stats(stores)['topics_answered_weakly'])[:3]
     link = event.get('hangoutLink') or event.get('location') or ''
     blocks = [tgcard.block(_head(row, 'Interview'), escape(f"{day} · {start.astimezone(TZ):%H:%M}"), escape(event.get('summary', '')),
                            escape(link), tgcard.fact('With', ', '.join(people[:5])))]

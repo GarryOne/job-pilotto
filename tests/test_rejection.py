@@ -136,7 +136,7 @@ class GmailCheckTriggersTests(unittest.TestCase):
             fake = lambda tracker, row, **kw: (reviewed.append((row['id'], kw['email_text'])) or ({}, '🛠 Why rejected · Scale AI'))
             stats = {}
             with mock.patch.object(rejection, 'review', fake), \
-                    mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
+                    mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {'topics_answered_weakly': {}}):
                 sent = []
                 mail.run(tracker, google, client=FakeClient([[result(0, 0, 'Rejected', 'Not moving forward')]]), days=2,
                          send=sent.append, calendar=False, now=NOW, state_path=Path(folder) / 's.json', stats=stats)

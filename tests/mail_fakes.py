@@ -190,7 +190,7 @@ class MailCase(unittest.TestCase):
 
     def run_mail(self, tracker, google, results, calendar=False):
         sent = []
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {'Postgres': 2}}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {'topics_answered_weakly': {'Postgres': 2}}):
             summary = mail.run(tracker, google, client=FakeClient(results), days=2, send=sent.append, calendar=calendar,
                                now=NOW, state_path=self.state, stats={})
         return summary, sent

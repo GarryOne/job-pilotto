@@ -35,7 +35,7 @@ class ShapeTests(unittest.TestCase):
 
     def check(self, apps, emails, verdicts, events=()):
         tracker, sent = FakeTracker(apps, events), []
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {}):
             mail.run(tracker, FakeGoogle(emails), client=FakeClient([verdicts]), days=2, send=sent.append, calendar=False,
                      now=NOW, state_path=self.state, stats={})
         return tracker, sent

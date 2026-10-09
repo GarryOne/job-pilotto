@@ -22,7 +22,7 @@ class MailMatchTests(MailCase):
         apps = [app('p1', 'Grafana Labs', 'Staff SRE | Sweden'), app('p2', 'Grafana Labs', 'Staff SRE | Germany')]
         tracker, google = FakeTracker(apps), FakeGoogle([email('g1', 'Your application for Grafana Labs')])
         stats = {}
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {'topics_answered_weakly': {}}):
             sent = []
             mail.run(tracker, google, client=FakeClient([[result(0, -1, 'Rejected', company='Grafana Labs')]]), days=2,
                      send=sent.append, calendar=False, now=NOW, state_path=self.state, stats=stats)
@@ -41,7 +41,7 @@ class MailMatchTests(MailCase):
                              email('r1', 'Your application for Grafana Labs', '2026-09-26T07:00:00+02:00')])
         tracker, stats = FakeTracker(apps), {}
         spain = dict(company='Grafana Labs', role='Staff SRE | Spain | Remote')
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {'topics_answered_weakly': {}}):
             mail.run(tracker, google, client=FakeClient([[{**result(0, -1, 'Confirmation received'), **spain},
                                                           {**result(1, -1, 'Rejected'), **spain}]]),
                      days=2, send=[].append, calendar=False, now=NOW, state_path=self.state, stats=stats)
@@ -58,7 +58,7 @@ class MailMatchTests(MailCase):
         kit_ready = app('k1', 'Grafana Labs', 'Staff SRE | Spain | Remote', stage='Dismissed', applied='')
         tracker, stats = FakeTracker([app('p1', 'Grafana Labs', 'Staff SRE | Sweden | Remote'), kit_ready]), {}
         google = FakeGoogle([email('r1', 'Your application for Grafana Labs', '2026-09-26T07:00:00+02:00')])
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}), \
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {'topics_answered_weakly': {}}), \
                 mock.patch('src.ai.mail.review_rejections', lambda *a, **k: []):
             mail.run(tracker, google, client=FakeClient([[{**result(0, -1, 'Rejected'), 'company': 'Grafana Labs',
                                                           'role': 'Staff SRE | Spain | Remote'}]]),
@@ -75,7 +75,7 @@ class MailMatchTests(MailCase):
         tracker = FakeTracker([lead])
         google = FakeGoogle([email('m1', 'Blinq - DevOps Engineer', sender='Sam <sam@agtalent.com>',
                                    body='Hi Igor, AG Talent here. Blinq is hiring a DevOps Engineer, B2B contract.')])
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {'topics_answered_weakly': {}}):
             mail.run(tracker, google, client=FakeClient([[{**result(0, -1, 'Reply received', company='Blinq'), 'role': 'DevOps Engineer'}]]),
                      days=2, send=[].append, calendar=False, now=NOW, state_path=self.state, stats={})
         self.assertEqual([p for p in tracker.created if 'Stage' in p], [])  # no twin row
@@ -86,7 +86,7 @@ class MailMatchTests(MailCase):
         tracker, sent = FakeTracker([lead]), []
         google = FakeGoogle([email('m1', 'Blinq - DevOps Engineer', sender='Pat <pat@other.example>',
                                    body='Hello, this is about AG Talent and a DevOps Engineer role at Blinq.')])
-        with mock.patch('src.ai.interviews.stats_for_insights', lambda t: {'topics_answered_weakly': {}}):
+        with mock.patch('src.ai.mail_calendar.interview_stats', lambda s: {'topics_answered_weakly': {}}):
             mail.run(tracker, google, client=FakeClient([[{**result(0, -1, 'Reply received', company='Blinq'), 'role': 'DevOps Engineer'}]]),
                      days=2, send=sent.append, calendar=False, now=NOW, state_path=self.state, stats={})
         self.assertEqual([p for p in tracker.created if 'Stage' in p and 'Job' in p], [])  # no new row
