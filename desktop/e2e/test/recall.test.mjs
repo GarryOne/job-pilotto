@@ -48,3 +48,15 @@ test('a plant that reuses the app\'s ids never takes the real elements out with 
     assert.equal(state.plant, false);
   } finally { await browser.close(); }
 });
+
+// A plant whose html uses an id the real page has (the detectors read some by id) is declared with `reusesIds`, so the collision is
+// a choice: the app looks elements up by id and moves real nodes beside the plant's (#321). A new plant that collides by accident fails here.
+test('a plant that reuses an id of the real page says so, and names exactly those ids', async () => {
+  const fs = await import('node:fs');
+  const html = fs.readFileSync(new URL('../../renderer/index.html', import.meta.url), 'utf8');
+  const real = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]));
+  for (const plant of PLANTS) {
+    const reused = [...String(plant.html || '').matchAll(/\bid="([^"]+)"/g)].map(m => m[1]).filter(id => real.has(id)).sort();
+    assert.deepEqual([...(plant.reusesIds || [])].sort(), reused, `plant ${plant.id}: the ids it shares with index.html must be listed in reusesIds`);
+  }
+});
