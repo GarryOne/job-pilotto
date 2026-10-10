@@ -51,6 +51,7 @@ function summarize(cards) {
     medianSeconds: cards.length ? [...cards.map(c => c.seconds)].sort((a, b) => a - b)[Math.floor(cards.length / 2)] : null};
 }
 
+export const DROP_POINTS = 0.1, DROP_MIN_FORMS = 5;
 export async function digest(db, now = new Date()) {
   const today = dayOf(now), weekAgo = dayOf(new Date(now.getTime() - 6 * DAY)), twoWeeks = dayOf(new Date(now.getTime() - 13 * DAY)), month = dayOf(new Date(now.getTime() - 27 * DAY));
   const cards = (await rows(db, 'SELECT * FROM fill_cards WHERE day >= ?', month)).map(c => ({...c, causes: json(c.causes), kinds: json(c.kinds)}));
@@ -59,12 +60,18 @@ export async function digest(db, now = new Date()) {
   const daily = Object.entries(group(cards, c => c.day)).sort(([a], [b]) => a.localeCompare(b)).map(([day, list]) => ({day, ...summarize(list)}));
   const versions = Object.entries(group(cards.filter(c => c.version), c => c.version)).filter(([, list]) => list.length >= 3)
     .sort(([a], [b]) => byVersion(a, b)).map(([version, list]) => ({version, ...summarize(list)}));
-  const boards = Object.entries(group(thisWeek, c => c.board)).map(([board, list]) => ({board, ...summarize(list)})).sort((a, b) => b.forms - a.forms);
 
   // Recent vs earlier (mac-1a, 9 Oct 2026): the last 3 days against the 4 before them, inside this week. Weekly and per-release rows are too thin
   // to show progress while fills are few and versions change hourly; this window moves within days.
   const recentFrom = dayOf(new Date(now.getTime() - 2 * DAY));
   const recent = thisWeek.filter(c => c.day >= recentFrom), earlier = thisWeek.filter(c => c.day < recentFrom);
+  // Per board, the same window (layer 4 of the applying reliability spec, 10 Oct 2026): `dropped` when the fill rate fell by more than 10 points with at
+  // least 5 forms on each side; the nightly smoke report lists dropped boards beside its own regressions.
+  const boards = Object.entries(group(thisWeek, c => c.board)).map(([board, list]) => {
+    const now = summarize(list.filter(c => c.day >= recentFrom)), before = summarize(list.filter(c => c.day < recentFrom));
+    const dropped = now.forms >= DROP_MIN_FORMS && before.forms >= DROP_MIN_FORMS && before.filledShare - now.filledShare > DROP_POINTS;
+    return {board, ...summarize(list), recentFilledShare: now.filledShare, earlierFilledShare: before.filledShare, recentForms: now.forms, earlierForms: before.forms, dropped};
+  }).sort((a, b) => b.forms - a.forms);
   const per100 = (list, cause) => { const required = list.reduce((s, c) => s + c.required, 0); return round(required ? (100 * lost(list, cause)) / required : null, 1); };
   const weaknesses = [];
   // 1. Why required questions stayed empty, per cause and board (and what people answered themselves), with the per-release rate.
@@ -128,7 +135,7 @@ export function markdown(d) {
   lines.push('', '## Per release', '', '| Version | Forms | Filled | Proposed | Missing | Needing nothing | Never read /100 |', '|---|---|---|---|---|---|---|',
     ...d.versions.map(v => `| ${v.version} | ${v.forms} | ${pct(v.filledShare)} | ${pct(v.proposedShare)} | ${pct(v.missingShare)} | ${pct(v.formsNeedingNothing)} | ${v.unreadPer100 ?? '–'} |`),
     '', '## Per board (this week)', '', '| Board | Forms | Filled | Needing nothing |', '|---|---|---|---|',
-    ...d.boards.map(b => `| ${b.board} | ${b.forms} | ${pct(b.filledShare)} | ${pct(b.formsNeedingNothing)} |`),
+    ...d.boards.map(b => `| ${b.board}${b.dropped ? ` ⚠ dropped (${pct(b.earlierFilledShare)} → ${pct(b.recentFilledShare)})` : ''} | ${b.forms} | ${pct(b.filledShare)} | ${pct(b.formsNeedingNothing)} |`),
     '', '## Day by day', '', '| Day | Forms | Filled | Proposed | Missing | Needing nothing | Submitted |', '|---|---|---|---|---|---|---|',
     ...d.daily.map(x => `| ${x.day} | ${x.forms} | ${pct(x.filledShare)} | ${pct(x.proposedShare)} | ${pct(x.missingShare)} | ${pct(x.formsNeedingNothing)} | ${pct(x.submittedShare)} |`),
     ...proposalLines(d.proposals),

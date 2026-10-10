@@ -105,3 +105,16 @@ test('recent vs earlier: the last 3 days against the days before, in the totals 
   const md = markdown(d);
   assert.ok(md.includes('**Recent vs earlier** (since 2026-10-10') && md.includes('recent vs earlier (per 100 required): 10 (1 forms) vs 50 (1 forms)'));
 });
+
+// Layer 4 of the applying reliability spec (10 Oct 2026): a board whose fill rate fell by more than 10 points (5+ forms on each side) is flagged.
+test('per board: recent vs earlier fill rate, and a drop flagged only with enough forms on each side', async () => {
+  const db = d1();
+  const on = (board, id, day, filled) => db.db.prepare(`INSERT INTO fill_cards (id, day, board, version, required, filled, left_n, unread, causes, kinds, submitted, by_you, seconds)
+    VALUES (?, ?, ?, '0.9.1', 10, ?, ?, 0, '{}', '{}', 0, 0, 30)`).run(id, day, board, filled, 10 - filled);
+  for (let i = 0; i < 5; i++) { on('greenhouse', `g-old-${i}`, '2026-10-07', 9); on('greenhouse', `g-new-${i}`, '2026-10-11', 6); }
+  for (let i = 0; i < 5; i++) on('workday', `w-old-${i}`, '2026-10-07', 9);
+  for (let i = 0; i < 3; i++) on('workday', `w-new-${i}`, '2026-10-11', 2);   // a big drop, but only 3 recent forms: not flagged yet
+  const boards = Object.fromEntries((await digest(db, now)).boards.map(b => [b.board, b]));
+  assert.deepEqual([boards.greenhouse.earlierFilledShare, boards.greenhouse.recentFilledShare, boards.greenhouse.dropped], [0.9, 0.6, true]);
+  assert.deepEqual([boards.workday.recentForms, boards.workday.dropped], [3, false]);
+});
