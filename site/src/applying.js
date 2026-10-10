@@ -4,6 +4,7 @@
 // site's host and fixed words only, never a posting's address or applicant data. Guard: test/applying.test.js.
 import {viewer} from './auth.js';
 import {digest} from './digest.js';
+import {nextToAdd} from './nextsites.js';
 import {displayName, flowOf, platformLabel, SIGNATURE, signatureHost} from './platform.js';
 
 export const STEPS = ['none', 'posting', 'account', 'code/bot', 'form', 'ready'];
@@ -67,6 +68,7 @@ export async function data(db, now = new Date()) {
     return out;
   }, {})).map(([day, counts]) => ({day, counts}));
   const pool = await poolRows(db, sites, now);
+  const next = await nextToAdd(db, pool, now).catch(() => ({sites: [], hidden: {hosts: 0}}));   // real users' end hosts the pool lacks (src/nextsites.js)
   const live = sites.filter(site => !site.note);
   const dropped = await digest(db, now).then(d => d.boards.filter(board => board.dropped).map(board => ({board: board.board, earlier: board.earlierFilledShare, recent: board.recentFilledShare}))).catch(() => []);
   return {
@@ -75,7 +77,7 @@ export async function data(db, now = new Date()) {
       sites: sites.length, sitesRecent: sites.filter(site => site.day >= tenDays).length,
       reachedForm: live.length ? Math.round((100 * live.filter(site => ['form', 'ready'].includes(site.reached)).length) / live.length) : null,
       regressions: sites.filter(site => site.regression).length, gone: sites.filter(site => site.note).length, dropped: dropped.length},
-    sites, pool, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, now: now.toISOString()};
+    sites, pool, next, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, now: now.toISOString()};
 }
 
 // "Greenhouse: 4 sites, 3 flows": each group's size and how many different flows (or platforms) it holds.
@@ -173,8 +175,20 @@ fetch('?json').then(r => r.json()).then(d => {
     : el('p', {className: 'muted', textContent: 'No recorded-page run uploaded yet: cd desktop/e2e && npm run recorded'})));
   app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table)
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
+  // Next sites to add: the hosts real applications ended on that the pool lacks, each used by >= 3 installs (src/nextsites.js). Top 5, the rest on request.
+  let allNext = false; const nextBox = el('div');
+  const drawNext = () => { nextBox.textContent = ''; const list = d.next.sites, shown = allNext ? list : list.slice(0, 5);
+    nextBox.append(list.length ? el('table', {},
+      el('tr', {}, ...['Site', 'Platform', 'Used by', 'Applications', 'Filled, nothing left', 'Countries'].map(h => el('th', {textContent: h}))),
+      ...shown.map(s => el('tr', {}, el('td', {textContent: s.host}),
+        el('td', {textContent: s.platform + (s.poolSites ? ' · ' + s.poolSites + ' in the pool' : s.platform === 'Custom' ? '' : ' · none in the pool')}),
+        el('td', {textContent: s.installs + ' installs'}), el('td', {textContent: s.uses}), el('td', {textContent: s.readyShare + '%'}),
+        el('td', {className: 'muted', textContent: s.countries.map(c => c.country + ' ' + c.installs).join(', ')})))) : el('p', {className: 'muted', textContent: 'Nothing yet: a site shows here once 3 installs have applied on it and the pool lacks it.'}),
+      list.length > 5 ? el('p', {}, el('button', {className: 'chip', type: 'button', textContent: allNext ? 'Show top 5' : 'Show all ' + list.length, onclick: () => { allNext = !allNext; drawNext(); }})) : null); };
+  app.append(el('section', {}, el('h2', {textContent: 'Next sites to add · where people apply, not in the pool'}),
+    el('p', {className: 'muted', textContent: 'The site each application ended on, counted per install. A site is listed only once 3 different installs used it' + (d.next.hidden.hosts ? ' (' + d.next.hidden.hosts + ' more are below that and stay hidden)' : '') + '. Country = where those installs search; under 3 installs it is "other". Never a posting or an address.'}), nextBox)); drawNext();
   // Fetch again every 15 s while the tab is visible and redraw the pool, so the spinner and the times follow a run without a reload.
-  setInterval(() => { if (!document.hidden) fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; draw(); }).catch(() => {}); }, 15000);
+  setInterval(() => { if (!document.hidden) fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; draw(); drawNext(); }).catch(() => {}); }, 15000);
   if (d.nights.length) {
     const most = Math.max(...d.nights.map(n => Object.values(n.counts).reduce((a, b) => a + b, 0)));
     app.append(el('section', {}, el('h2', {textContent: 'Nights · where each site got to'}), el('div', {className: 'bars'}, ...d.nights.map(n => el('div', {className: 'bar', title: n.day},
