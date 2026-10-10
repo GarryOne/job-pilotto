@@ -10,7 +10,9 @@ test('a fill or flow change without a case is stopped; a case, a scenario or a s
   assert.match(missingCase(['extension/fill-flow.js'], [''], FLOW_FILES), /fill-flow\.js/);
   assert.equal(missingCase(['extension/page/controls.js', 'desktop/e2e/recorded/menu-1/case.json'], [''], FLOW_FILES), '');
   assert.equal(missingCase(['extension/fill-flow.js', 'desktop/test/journeys.test.js'], [''], FLOW_FILES), '');
-  assert.equal(missingCase(['extension/page/controls.js', 'worker/test/fixtures/fill/acme--salary.html'], [''], FLOW_FILES), '');   // improve-filling's field replay
+  // A field replay alone is not proof (10 Oct 2026: an Ashby fix passed with one and never reached the Fixed-site replays list); with a recorded page it is fine.
+  assert.match(missingCase(['extension/page/radios.js', 'worker/test/fixtures/fill/acme--salary.html'], ['Fix a group'], FLOW_FILES), /does not count/);
+  assert.equal(missingCase(['extension/page/radios.js', 'worker/test/fixtures/fill/acme--salary.html', 'desktop/e2e/recorded/acme-1/case.json'], [''], FLOW_FILES), '');
   assert.equal(missingCase(['extension/fill-flow.js'], ['Log the press\n\nRecorded-unneeded: a log line only'], FLOW_FILES), '');
 });
 

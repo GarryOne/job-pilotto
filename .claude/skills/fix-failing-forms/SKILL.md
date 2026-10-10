@@ -47,7 +47,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
 ## 3. Fix, with the recorded page first
 1. **A recorded page that fails on the old build** (layer 2, `desktop/e2e/recorded/<shape>-<n>/`): capture the real page (`twin:drive capture` only from a twin
    the owner runs; otherwise record the page from the harness run's DOM, scrubbed: no values, no scripts, no query strings, no personal data;
-   `desktop/test/recorded-privacy.test.js`). **Its AI answers must be what the real AI answered in the failing run** (from the log / decisions), never an answer
+   `desktop/test/recorded-privacy.test.js`). **Its AI answers must be what the real AI answered in the failing run** (from the log / decisions), **and only to what the extension asked** (the `asked` check reads the /extension/answer request's fields; a stub that answers an unasked question lets the old build pass), never an answer
    written by hand to make the case pass (10 Oct 2026: `workday-start-dialog-1` was given `applyButton: "Apply Manually"` by hand, the live AI answered "Apply").
 2. Run `cd desktop/e2e && npm run recorded` against the build from before the fix (`REAL_EXTENSION_DIR=<that build's extension/>`): it **must fail**; then on the fix: pass.
    Also a journey scenario in `desktop/test/journeys.test.js` when the logic of the flow changes (failing first).
@@ -57,7 +57,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
 
 ## 4. Land and confirm
 - `tools/ship.sh` (never from the twin's worktree: it deletes the worktree it lands). A push changing how the extension acts on pages needs the recorded page,
-  a scenario or a fill replay, or `Recorded-unneeded: <why>` in the commit. Commit subject <= 72 characters.
+  or a scenario (a fill replay alone does not count), or `Recorded-unneeded: <why>` in the commit only when no real site's failure is fixed. Commit subject <= 72 characters.
 - **Re-run `npm run smoke -- --only <shape>` on the landed build** (a held run, said before it starts) and compare with the first run: **it must reach further**
   (a later page kind, a fill count > 0). Report: before -> after, counts, what still stops it. Not further = not done: back to step 1 with the new log.
 - Report to the owner and the pool owner in one line per shape: shape, fix (mechanism part), reached before -> after, commit, sibling sites helped.

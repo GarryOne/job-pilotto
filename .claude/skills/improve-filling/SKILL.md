@@ -35,7 +35,7 @@ answer with its source, dropdown attempts, step timings, errors, extension versi
       fixture by hand from the public form's structure, `"source": "synthetic"`, like the seeded Greenhouse ones.
       Without `node` (the daily fixer's allowlist): `gh issue view <n>`, then Write the two files yourself: the
       ```html block verbatim as `.html`, and a `.json` like the seeded ones with `"source": "issue #<n>"`.
-   (A fix about a whole page or step, not one field: also a recorded page in `desktop/e2e/recorded/`, see CLAUDE.md "Never fix the same website twice"; the push hook accepts either.)
+   **A recorded page is required, not optional** (owner, 10 Oct 2026): every fix to a failure seen on a real site also adds `desktop/e2e/recorded/<shape>-<n>/` (CLAUDE.md "Never fix the same website twice"), so it appears in the Fixed-site replays list on /admin/applying. The fill fixture above is a second layer and no longer satisfies the push hook alone. Run the case against the build from before the fix (`REAL_EXTENSION_DIR=<that extension/>`): it must fail, on a check about what the extension asked or read (`asked`), not one a stubbed answer can satisfy. See skill `fix-failing-forms` section 3.
    2. **See it fail**: `cd worker && node --test test/fill-replay.test.js` (or `npm --prefix worker test`). It runs the real `extension/page/fill.js`
       on the fixture in jsdom (a dropdown gets a trusted click, as in Chrome). If it passes, the fixture doesn't
       reproduce the failure: fix the fixture or the expectation first, not the code.
