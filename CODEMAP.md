@@ -673,6 +673,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/fill-fixture.mjs` — Turns a fill-failure issue's snapshot into a replay test fixture (worker/test/fixtures/fill/<site>--<label>.html + .json).
 - `tools/fixture-from-fills.py` — Real forms for the apply suite, from the extension's fill log: the forms it failed on for a real person, rebuilt as fixtures.
 - `tools/focus-terminal.sh` — focus-terminal.sh </dev/ttysNNN> — bring the Terminal window whose tab owns that tty to the front
+- `tools/gate-timing.sh` — Times every step of the push gate: `source tools/gate-timing.sh` then `timed <name> <command...>` runs the command (stdout and stderr untouched,
 - `tools/hardcoded-page-words.mjs` — A ratchet against hard-coded page knowledge (owner, 8 Oct 2026: "universal: any website, any form, any language; AI decides, not regex or lists"). It counts, per file in
 - `tools/journey-gate.mjs` — The journey gate (spec: docs/superpowers/specs/2026-10-10-application-journey.md, step 4): a push that touches a flow file (desktop/e2e/flows.mjs FLOW_FILES)
 - `tools/ladder-gate.mjs` — The ladder gate (docs/flows/ladder.md): a push that touches a flow file, the page-kind decision, a ladder fixture, the baseline or the scorer replays every fixture offline (stored answers through

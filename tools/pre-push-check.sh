@@ -7,6 +7,9 @@
 # Runs only the suites the push touches (AGENTS.md "Change tiers"; PUSH_FULL=1 for all). Also blocks a push on top of a red CI build on main
 # (not one that was only cancelled), and a build.yml that installs without dev dependencies.
 set -uo pipefail
+source "$(dirname "$0")/gate-timing.sh" 2>/dev/null || { gate_timing_start() { :; }; timed() { shift; "$@"; }; gate_summary() { :; }; }
+gate_timing_start
+trap gate_summary EXIT
 
 input="$(cat)"
 command="$(jq -r '.tool_input.command // ""' <<<"$input")"
@@ -107,7 +110,7 @@ fi
 # `STALE_EXPECT_OK=1 git push ...` skips it. No node, or no origin/main to compare: skipped.
 case "$command" in *STALE_EXPECT_OK=1*) ;; *)
   if command -v node >/dev/null && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
-    stale="$(cd "$repo" && node tools/stale-expectations.mjs --base origin/main 2>&1)" || { echo "Push blocked: $stale" >&2; exit 2; }
+    stale="$(cd "$repo" && timed "stale expectations" node tools/stale-expectations.mjs --base origin/main 2>&1)" || { echo "Push blocked: $stale" >&2; exit 2; }
   fi ;;
 esac
 
@@ -117,7 +120,7 @@ case "$command" in *PLACES_CHECK_OK=1*) ;; *)
   if git -C "$repo" rev-parse --verify -q origin/main >/dev/null && git -C "$repo" diff --name-only origin/main...HEAD | grep -qE '^src/(ai/place_triage|sources/feeds)\.py$'; then
     if command -v claude >/dev/null || [ -n "${ANTHROPIC_API_KEY:-}" ]; then
       engine="$([ -n "${ANTHROPIC_API_KEY:-}" ] && echo api || echo cli)"
-      checked="$(cd "$repo" && JOB_PILOTTO_FOLLOW_APP=0 JOB_PILOTTO_AI_ENGINE="$engine" python3 tools/places_check.py 2>&1)" \
+      checked="$(cd "$repo" && JOB_PILOTTO_FOLLOW_APP=0 JOB_PILOTTO_AI_ENGINE="$engine" timed "places check (real AI)" python3 tools/places_check.py 2>&1)" \
         || { echo "Push blocked: the place sorter answered wrongly with real AI calls, or could not ask (tools/places_check.py):" >&2; echo "$checked" | grep -v '^⏳' | tail -25 >&2; exit 2; }
     else
       echo "Note: the place code changed but no AI is available here (no claude, no ANTHROPIC_API_KEY): tools/places_check.py skipped" >&2
@@ -128,33 +131,33 @@ esac
 # A new e2e step must have been seen passing (6 Oct 2026: one that never had failed the 0.5.8 beta gate on its own premise): a local run of it, or an
 # "E2E-passed: <run url>" / "E2E-unverified: <why>" line in a commit message (tools/new-e2e-steps.mjs). No node, or no origin/main: skipped.
 if command -v node >/dev/null && [ -f "$repo/tools/new-e2e-steps.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
-  unseen="$(cd "$repo" && node tools/new-e2e-steps.mjs --base origin/main 2>&1)" || { echo "Push blocked: $unseen" >&2; exit 2; }
+  unseen="$(cd "$repo" && timed "new e2e steps" node tools/new-e2e-steps.mjs --base origin/main 2>&1)" || { echo "Push blocked: $unseen" >&2; exit 2; }
 fi
 
 # No source file over 500 lines; files already over it may only shrink (tools/file-size.mjs; owner, 8 Oct 2026). Any push, any area.
 if command -v node >/dev/null && [ -f "$repo/tools/file-size.mjs" ]; then
-  sizes="$(cd "$repo" && node tools/file-size.mjs 2>&1)" || { echo "Push blocked: a file is too big:
+  sizes="$(cd "$repo" && timed "file size" node tools/file-size.mjs 2>&1)" || { echo "Push blocked: a file is too big:
 $sizes" >&2; exit 2; }
 fi
 # The journey gate (owner, 10 Oct 2026): a push touching a flow file runs the applying scenarios as event sequences (tools/journey-gate.mjs, seconds,
 # no browser). Unlike the matrix below it needs no browser, and it runs even when the change is in extension/ only, which the affected-tests pick missed.
 if command -v node >/dev/null && [ -f "$repo/tools/journey-gate.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
-  journeys="$(cd "$repo" && node tools/journey-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $journeys" >&2; exit 2; }
+  journeys="$(cd "$repo" && timed "journey gate" node tools/journey-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $journeys" >&2; exit 2; }
   [ -n "$journeys" ] && echo "$journeys" >&2
 fi
 # The ladder gate (docs/flows/ladder.md): a push touching a flow file, the page-kind decision or the ladder fixtures replays every fixture offline against the baseline: none may get worse (tools/ladder-gate.mjs, seconds, no model).
 if command -v node >/dev/null && [ -f "$repo/tools/ladder-gate.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
-  ladder="$(cd "$repo" && node tools/ladder-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $ladder" >&2; exit 2; }
+  ladder="$(cd "$repo" && timed "ladder gate" node tools/ladder-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $ladder" >&2; exit 2; }
   [ -n "$ladder" ] && echo "$ladder" >&2
 fi
 # Never fix the same website twice (owner, 10 Oct 2026): a push changing how the extension acts on pages brings its recorded page (desktop/e2e/recorded) or
 # journey scenario, or a commit says "Recorded-unneeded: <why>" (tools/recorded-cases.mjs).
 if command -v node >/dev/null && [ -f "$repo/tools/recorded-cases.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
-  cases="$(cd "$repo" && node tools/recorded-cases.mjs --base origin/main 2>&1)" || { echo "Push blocked: $cases" >&2; exit 2; }
+  cases="$(cd "$repo" && timed "recorded cases" node tools/recorded-cases.mjs --base origin/main 2>&1)" || { echo "Push blocked: $cases" >&2; exit 2; }
 fi
 # The rung trailer (docs/flows/ladder.md): a push touching the ladder's flow code carries "Rung: <0-6|router|judges>" and "Fixture: <id | none: why>" in a commit message (tools/rung-trailer.mjs).
 if command -v node >/dev/null && [ -f "$repo/tools/rung-trailer.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
-  trailer="$(cd "$repo" && node tools/rung-trailer.mjs --base origin/main 2>&1)" || { echo "Push blocked: $trailer" >&2; exit 2; }
+  trailer="$(cd "$repo" && timed "rung trailer" node tools/rung-trailer.mjs --base origin/main 2>&1)" || { echo "Push blocked: $trailer" >&2; exit 2; }
 fi
 # The Applying scenario matrix is not a push gate any more (owner, 9 Oct 2026): its steps run with every other e2e on CI (apply, applycv: schedule and beta gate);
 # `cd desktop && npm run flows` stays an on-demand check. (8 Oct-9 Oct it blocked pushes that touched FLOW_CORE: one recorded catch in 186 commits, 28 skips.)
@@ -162,7 +165,7 @@ fi
 # and were diagnosed again from scratch): "Fixes #N", "Refs #N" or "E2E-issue: none <why>" (tools/e2e-issue-links.mjs). `E2E_ISSUE_OK=1` on the push skips it.
 case "$command" in *E2E_ISSUE_OK=1*) ;; *)
   if command -v node >/dev/null && [ -f "$repo/tools/e2e-issue-links.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
-    links="$(cd "$repo" && node tools/e2e-issue-links.mjs --base origin/main 2>&1)" || { echo "Push blocked: $links" >&2; exit 2; }
+    links="$(cd "$repo" && timed "e2e issue links" node tools/e2e-issue-links.mjs --base origin/main 2>&1)" || { echo "Push blocked: $links" >&2; exit 2; }
   fi ;;
 esac
 
@@ -205,7 +208,7 @@ git -C "$repo" rev-parse --verify -q origin/main >/dev/null || affected_flag=""
 pids=(); names=(); outs=()
 run() {  # name, then the command: started in the background, collected below
   local name="$1" out; shift; out="$(mktemp)"
-  ( cd "$repo" && "$@" ) >"$out" 2>&1 &
+  ( cd "$repo" && timed "$name" "$@" ) >"$out" 2>&1 &
   pids+=($!); names+=("$name"); outs+=("$out")
 }
 # CI-only failure classes the tests can't see:
