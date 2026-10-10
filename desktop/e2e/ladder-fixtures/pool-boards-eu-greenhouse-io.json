@@ -1,0 +1,269 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-boards-eu-greenhouse-io",
+ "source": "captured",
+ "why": "pool shape read from a real posting at boards.eu.greenhouse.io",
+ "capture": {
+  "url": "https://boards.eu.greenhouse.io/nice/jobs/4728093101?gh_jid=4728093101"
+ },
+ "expect": {
+  "outcome": "form"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://job-boards.eu.greenhouse.io/nice/jobs/4728093101",
+  "title": "Job Application for Senior Site Reliability Engineer at NICE",
+  "headings": [
+   "Senior Site Reliability Engineer",
+   "Apply for this job"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "First Name*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Last Name*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Email*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Country*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true
+   },
+   {
+    "type": "tel",
+    "label": "Phone*",
+    "required": true
+   },
+   {
+    "type": "file",
+    "label": "Attach",
+    "required": false
+   },
+   {
+    "type": "file",
+    "label": "Attach",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "LinkedIn Profile",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "Do you have any first-degree relatives (spouse, parent, child, sibling) that are",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Have you ever worked at NICE or any of it's subsidiaries? *",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Do you now or in the future require visa sponsorship?*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "This role may require security clearance. Security clearance eligibility can inc",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "For research purposes only and unrelated to your application: Were you familiar ",
+    "required": true
+   },
+   {
+    "type": "checkbox",
+    "label": "Hybrid work model",
+    "required": true
+   },
+   {
+    "type": "checkbox",
+    "label": "Meaningful professional challenges",
+    "required": true
+   },
+   {
+    "type": "checkbox",
+    "label": "Hands-on work with AI and AI skill development",
+    "required": true
+   },
+   {
+    "type": "checkbox",
+    "label": "Career growth and development",
+    "required": true
+   },
+   {
+    "type": "checkbox",
+    "label": "Compensation and benefits",
+    "required": true
+   },
+   {
+    "type": "checkbox",
+    "label": "Employee events and social culture",
+    "required": true
+   },
+   {
+    "type": "checkbox",
+    "label": "Supportive, people-centric managers",
+    "required": true
+   },
+   {
+    "type": "checkbox",
+    "label": "Long-term job stability",
+    "required": true
+   },
+   {
+    "type": "checkbox",
+    "label": "Global company with enterprise customers worldwide",
+    "required": true
+   },
+   {
+    "type": "checkbox",
+    "label": "Volunteering and community involvement",
+    "required": true
+   }
+  ],
+  "buttons": [
+   "Back to jobs",
+   "Apply",
+   "Create alert",
+   "Autofill my application",
+   "Attach",
+   "Dropbox",
+   "Google Drive",
+   "Enter manually",
+   "Submit application",
+   "Greenhouse"
+  ],
+  "frames": [
+   "www.recaptcha.net"
+  ],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "link",
+   "text": "Back to jobs",
+   "host": "www.nice.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Apply",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "Create alert",
+   "host": "my.greenhouse.io",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Autofill my application",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "button",
+   "text": "Attach",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "button",
+   "text": "Dropbox",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Senior Site Reliability Engineer",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "United Kingdom - London; United Kingdom - Southampton",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "At NiCE, we don’t limit our challenges.",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "We challenge our limits.",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "sentence",
+   "text": "Always.",
+   "position": "main"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "Greenhouse",
+   "host": "www.greenhouse.com",
+   "position": "footer"
+  }
+ ],
+ "answer": {
+  "kind": "form",
+  "confidence": 0.92,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

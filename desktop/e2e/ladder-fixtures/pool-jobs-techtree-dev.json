@@ -1,0 +1,145 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-jobs-techtree-dev",
+ "source": "captured",
+ "why": "pool shape read from a real posting at jobs.techtree.dev (TechTree job board)",
+ "capture": {
+  "url": "https://jobs.techtree.dev/job/57d72ba1-9ee2-4c75-88c0-3e10fda33886"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://jobs.techtree.dev/job/57d72ba1-9ee2-4c75-88c0-3e10fda33886",
+  "title": "Field Application Engineer (Integrated Photonics) at Proof-Backed Reasoning Startup | $150k-$250k | TechTree",
+  "headings": [
+   "Field Application Engineer (Integrated Photonics)",
+   "About the Company",
+   "About the Role",
+   "What You'll Do",
+   "What You'll Bring",
+   "What's on Offer",
+   "Work Model",
+   "Process"
+  ],
+  "controls": [],
+  "buttons": [
+   "techtree",
+   "About us",
+   "All jobs",
+   "Apply now",
+   "Proof-Backed Reasoning Startup",
+   "Talent Partners",
+   "Case Studies",
+   "Reports",
+   "Insights",
+   "Blog",
+   "Get a Demo",
+   "Sign in",
+   "Contact",
+   "Privacy",
+   "Security",
+   "Disclosure"
+  ],
+  "frames": [],
+  "mails": [
+   "mailto:contact@example.com"
+  ]
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "link",
+   "text": "Apply now",
+   "host": "jobs.techtree.dev",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "link",
+   "text": "Voice AI Engineer€85k-€160kBerlinMid-Senior LevelSimilar to Field Application En",
+   "host": "jobs.techtree.dev",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "Founding EngineerSan FranciscoMid-Senior LevelSimilar to Field Application Engin",
+   "host": "jobs.techtree.dev",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "Principal/Staff Software EngineerEurope (remote)Mid-Senior LevelSimilar to Field",
+   "host": "jobs.techtree.dev",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "Forward Deployed Engineer$150k-$250kBoston · +4Mid-Senior LevelSimilar to Field ",
+   "host": "jobs.techtree.dev",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "All jobs",
+   "host": "jobs.techtree.dev",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "About the Company",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "We're building a new class of AI systems designed to reason with the rigour of the scientific method.",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Combining deep learning with formal logic and physics-based modelling, our platform creates verifiable, interpretable AI that accelerates real engineering workf",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Our mission: a 30× improvement in the speed, accessibility, and cost of semiconductor and photonic hardware development by 2030.",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "techtree",
+   "host": "jobs.techtree.dev",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "About us",
+   "host": "www.techtree.dev",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.92,
+  "apply_button": "Apply now",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

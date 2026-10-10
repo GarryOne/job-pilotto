@@ -1,0 +1,142 @@
+{
+ "id": "cloudera-workday",
+ "source": "captured",
+ "lang": "en",
+ "why": "pool: Workday posting that stops at Start Your Application",
+ "capture": {
+  "url": "https://cloudera.wd5.myworkdayjobs.com/External_Career/job/Czech-Republic-Prague/Product-Manager---Platform---Storage--Anywhere-Cloud_260873-1"
+ },
+ "expect": {
+  "outcome": "other"
+ },
+ "sketch": {
+  "url": "https://cloudera.wd5.myworkdayjobs.com/External_Career/job/Czech-Republic-Prague/Product-Manager---Platform---Storage--Anywhere-Cloud_260873-1",
+  "title": "Product Manager - Cloudera Kubernetes",
+  "headings": [
+   "Cloudera Careers",
+   "Product Manager - Cloudera Kubernetes",
+   "Recruitment Fraud Alert"
+  ],
+  "controls": [],
+  "buttons": [
+   "Skip to main content",
+   "Recruitment Site Cookie Notice",
+   "Candidate Privacy Notice",
+   "Read Full Privacy Message",
+   "Decline",
+   "Accept Cookies",
+   "Sign In",
+   "Cloudera Careers Home",
+   "Search for Jobs",
+   "Apply",
+   "Unplugged Days",
+   "Paid Volunteer Time",
+   "https://www.cloudera.com/careers.html",
+   "@cloudera.com",
+   "Read More",
+   "here",
+   "contact@example.com",
+   "contact@example.com",
+   "Cloudera's Candidate Privacy Notice"
+  ],
+  "frames": [],
+  "mails": [
+   "mailto:contact@example.com",
+   "mailto:contact@example.com",
+   "For information on Cloudera's Candidate Privacy Notice, click here. If you have any questions about our privacy practices, please contact us at privacy@cloudera",
+   "If you need assistance with applying for a position, please email our office at contact@example.com."
+  ]
+ },
+ "note": "the address of the pool lands on the careers home with a cookie notice today",
+ "schemaVersion": 1,
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Apply",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "link",
+   "text": "Recruitment Site Cookie Notice",
+   "host": "www.cloudera.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "link",
+   "text": "Candidate Privacy Notice",
+   "host": "www.cloudera.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Read Full Privacy Message",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Decline",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "button",
+   "text": "Accept Cookies",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "Apply",
+   "host": "cloudera.wd5.myworkdayjobs.com",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "We use cookies on our external career site (\"Site\"), which is hosted on the Workday Recruiting platform, to make the Site operate.",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "In addition, cookies allow us to provide you with the best possible experience on our Site and to collect statistics to optimize the Site’s functionality.",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "We will not set cookies unless you enable them or they are essential for the Site to work properly.",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "You may click “Accept Cookies” to accept all cookies and go directly to the Site, or you may click “Decline” to reject all non-essential cookies.",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "button",
+   "text": "Sign In",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "button",
+   "text": "Cloudera Careers Home",
+   "position": "header"
+  }
+ ]
+}

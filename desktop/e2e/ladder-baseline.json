@@ -1,0 +1,891 @@
+{
+ "schemaVersion": 1,
+ "reasons": [
+  {
+   "date": "2026-10-10",
+   "reason": "first baseline: stored answers recorded live on the plan path, 10 Oct 2026"
+  },
+  {
+   "date": "2026-10-10",
+   "reason": "grown real set (38 pool pages read once), 9 start-dialog fixtures, expect.apply_route/digest on the two recorded Workday dialogs (their stored rung 2 answer names no manual route: digest-not-asked fails)"
+  }
+ ],
+ "fixtures": {
+  "aldi-suisse": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "other",
+   "status": "miss"
+  },
+  "ashby-form": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "auterion-greenhouse-embed": {
+   "expect": {
+    "outcome": "form_in_frame",
+    "accept": [
+     "form_in_frame",
+     "posting",
+     "other"
+    ]
+   },
+   "outcome": "other",
+   "status": "ok"
+  },
+  "cloudera-workday": {
+   "expect": {
+    "outcome": "other",
+    "accept": [
+     "other"
+    ]
+   },
+   "outcome": "posting",
+   "status": "wrong-confident"
+  },
+  "coreweave-greenhouse-embed": {
+   "expect": {
+    "outcome": "form_in_frame",
+    "accept": [
+     "form_in_frame",
+     "posting",
+     "other"
+    ]
+   },
+   "outcome": "other",
+   "status": "ok"
+  },
+  "databricks-greenhouse-embed": {
+   "expect": {
+    "outcome": "form_in_frame",
+    "accept": [
+     "form_in_frame",
+     "posting",
+     "other"
+    ]
+   },
+   "outcome": "posting",
+   "status": "ok"
+  },
+  "datadog-greenhouse-frame": {
+   "expect": {
+    "outcome": "form_in_frame",
+    "accept": [
+     "form_in_frame",
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "ok"
+  },
+  "dialog-de-over-posting": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "dialog-de-three-routes": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "dialog-en-autofill-resume": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "dialog-en-link-styled-manual": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "dialog-en-no-manual-route": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "other",
+   "status": "wrong-confident"
+  },
+  "dialog-en-three-social": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "dialog-en-workday-like": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "dialog-fr-three-routes": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "dialog-it-three-routes": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "fidag-sa-ch-fr": {
+   "expect": {
+    "outcome": "email",
+    "accept": [
+     "email",
+     "other"
+    ]
+   },
+   "outcome": "other",
+   "status": "ok"
+  },
+  "formlabs-greenhouse-embed": {
+   "expect": {
+    "outcome": "form_in_frame",
+    "accept": [
+     "form_in_frame",
+     "posting",
+     "other"
+    ]
+   },
+   "outcome": "unsure",
+   "status": "miss"
+  },
+  "greenhouse-form": {
+   "expect": {
+    "outcome": "form",
+    "accept": [
+     "form"
+    ]
+   },
+   "outcome": "form",
+   "status": "exact"
+  },
+  "hm-smartrecruiters": {
+   "expect": {
+    "outcome": "other",
+    "accept": [
+     "other"
+    ]
+   },
+   "outcome": "other",
+   "status": "exact"
+  },
+  "hornbach-successfactors": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "inv-closed-en": {
+   "expect": {
+    "outcome": "expired",
+    "accept": [
+     "expired",
+     "other"
+    ]
+   },
+   "outcome": "other",
+   "status": "ok"
+  },
+  "inv-closed-it": {
+   "expect": {
+    "outcome": "expired",
+    "accept": [
+     "expired",
+     "other"
+    ]
+   },
+   "outcome": "other",
+   "status": "ok"
+  },
+  "inv-email-en": {
+   "expect": {
+    "outcome": "email",
+    "accept": [
+     "email"
+    ]
+   },
+   "outcome": "email",
+   "status": "exact"
+  },
+  "inv-email-fr": {
+   "expect": {
+    "outcome": "email",
+    "accept": [
+     "email"
+    ]
+   },
+   "outcome": "email",
+   "status": "exact"
+  },
+  "inv-email-it": {
+   "expect": {
+    "outcome": "email",
+    "accept": [
+     "email"
+    ]
+   },
+   "outcome": "email",
+   "status": "exact"
+  },
+  "inv-inperson-de": {
+   "expect": {
+    "outcome": "in_person",
+    "accept": [
+     "in_person",
+     "other"
+    ]
+   },
+   "outcome": "posting",
+   "status": "wrong-confident"
+  },
+  "inv-inperson-fr": {
+   "expect": {
+    "outcome": "in_person",
+    "accept": [
+     "in_person",
+     "other"
+    ]
+   },
+   "outcome": "other",
+   "status": "ok"
+  },
+  "inv-inperson-it": {
+   "expect": {
+    "outcome": "in_person",
+    "accept": [
+     "in_person",
+     "other"
+    ]
+   },
+   "outcome": "unsure",
+   "status": "miss"
+  },
+  "inv-login-wall-en": {
+   "expect": {
+    "outcome": "login_wall",
+    "accept": [
+     "login_wall",
+     "account",
+     "other"
+    ]
+   },
+   "outcome": "other",
+   "status": "ok"
+  },
+  "inv-phone-de": {
+   "expect": {
+    "outcome": "phone",
+    "accept": [
+     "phone",
+     "other"
+    ]
+   },
+   "outcome": "posting",
+   "status": "wrong-confident"
+  },
+  "inv-phone-fr": {
+   "expect": {
+    "outcome": "phone",
+    "accept": [
+     "phone",
+     "other"
+    ]
+   },
+   "outcome": "other",
+   "status": "ok"
+  },
+  "jobs-ch-apply-not-found": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "other",
+   "status": "wrong-confident"
+  },
+  "lever-form": {
+   "expect": {
+    "outcome": "form",
+    "accept": [
+     "form"
+    ]
+   },
+   "outcome": "form",
+   "status": "exact"
+  },
+  "nebius-greenhouse-embed": {
+   "expect": {
+    "outcome": "form_in_frame",
+    "accept": [
+     "form_in_frame",
+     "posting",
+     "other"
+    ]
+   },
+   "outcome": "other",
+   "status": "ok"
+  },
+  "pool-apply-workable-com": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-arbeitnow-ch": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-autonomous-teaming-jobs-personio-de": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-boards-eu-greenhouse-io": {
+   "expect": {
+    "outcome": "form",
+    "accept": [
+     "form"
+    ]
+   },
+   "outcome": "form",
+   "status": "exact"
+  },
+  "pool-bulgari-recruitmentplatform-com": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-career-valora-com": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-careers-adnovum-com": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-careers-breitling-com": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-careers-duolingo-com": {
+   "expect": {
+    "outcome": "form",
+    "accept": [
+     "form",
+     "posting"
+    ]
+   },
+   "outcome": "form",
+   "status": "exact"
+  },
+  "pool-careers-hadrian-io": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-careers-hellofresh-com": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-careers-hellofresh-com-2": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-careers-ocadogroup-com": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-careers-richemont-com": {
+   "expect": {
+    "outcome": "other",
+    "accept": [
+     "other"
+    ]
+   },
+   "outcome": "other",
+   "status": "exact"
+  },
+  "pool-careers-tether-io": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-careers-toasttab-com": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting",
+     "form"
+    ]
+   },
+   "outcome": "form",
+   "status": "ok"
+  },
+  "pool-cc-wd3-myworkdayjobs-com": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-clarivate-wd3-myworkdayjobs-com": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-consultandpepper-com": {
+   "expect": {
+    "outcome": "form",
+    "accept": [
+     "form",
+     "posting"
+    ]
+   },
+   "outcome": "form",
+   "status": "exact"
+  },
+  "pool-content-red-badger-com": {
+   "expect": {
+    "outcome": "form_in_frame",
+    "accept": [
+     "form_in_frame",
+     "posting",
+     "other"
+    ]
+   },
+   "outcome": "other",
+   "status": "ok"
+  },
+  "pool-job-boards-greenhouse-io": {
+   "expect": {
+    "outcome": "form",
+    "accept": [
+     "form"
+    ]
+   },
+   "outcome": "other",
+   "status": "wrong-confident"
+  },
+  "pool-jobs-ashbyhq-com": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-jobs-ashbyhq-com-2": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-jobs-ch": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-jobs-ch-2": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-jobs-ch-3": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-jobs-ch-4": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-jobs-ch-5": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-jobs-ch-6": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-jobs-coop-ch": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-jobs-louisvuitton-com": {
+   "expect": {
+    "outcome": "other",
+    "accept": [
+     "other"
+    ]
+   },
+   "outcome": "other",
+   "status": "exact"
+  },
+  "pool-jobs-migros-ch": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-jobs-techtree-dev": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-jobup-ch": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-migros-gruppe-jobs": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-richemont-wd3-myworkdayjobs-com": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-richemont-wd3-myworkdayjobs-com-2": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "pool-suisse-fnac-ch": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "recorded-ashby-yes-no-buttons-1": {
+   "expect": {
+    "outcome": "form",
+    "accept": [
+     "form"
+    ]
+   },
+   "outcome": "form",
+   "status": "exact"
+  },
+  "recorded-chrome-translated-form-1": {
+   "expect": {
+    "outcome": "form",
+    "accept": [
+     "form"
+    ]
+   },
+   "outcome": "form",
+   "status": "exact"
+  },
+  "recorded-cookie-banner-links-1": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "recorded-cv-choice-step-1": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "form",
+   "status": "wrong-confident"
+  },
+  "recorded-email-application-1": {
+   "expect": {
+    "outcome": "email",
+    "accept": [
+     "email"
+    ]
+   },
+   "outcome": "email",
+   "status": "exact"
+  },
+  "recorded-email-first-signin-1": {
+   "expect": {
+    "outcome": "account",
+    "accept": [
+     "account"
+    ]
+   },
+   "outcome": "account",
+   "status": "exact"
+  },
+  "recorded-workday-start-dialog-1": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "miss"
+  },
+  "recorded-workday-start-dialog-2": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "miss"
+  },
+  "trap-closed-notice-with-form-en": {
+   "expect": {
+    "outcome": "form",
+    "accept": [
+     "form"
+    ]
+   },
+   "outcome": "form",
+   "status": "exact"
+  },
+  "trap-contact-address-fr": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "trap-footer-contact-en": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "trap-press-address-de": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  }
+ }
+}

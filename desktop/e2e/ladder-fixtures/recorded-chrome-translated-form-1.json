@@ -1,0 +1,116 @@
+{
+ "schemaVersion": 1,
+ "id": "recorded-chrome-translated-form-1",
+ "source": "recorded",
+ "lang": "en",
+ "why": "recorded case: an application form in German that Chrome has translated to English (text wrapped in <font>, html marked trans",
+ "capture": {
+  "page": "recorded/chrome-translated-form-1/form.html"
+ },
+ "url": "https://karriere.example.ch/bewerbung/buchhalter",
+ "expect": {
+  "outcome": "form"
+ },
+ "sketch": {
+  "url": "https://karriere.example.ch/bewerbung/buchhalter",
+  "title": "<font style=\"vertical-align: inherit;\"><font style=\"vertical-align: inherit;\">Application: Accountant (m/f/d)</font></font>",
+  "headings": [
+   "Your application"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "First name *",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Last name *",
+    "required": true
+   },
+   {
+    "type": "email",
+    "label": "E-mail address *",
+    "required": true
+   },
+   {
+    "type": "file",
+    "label": "Upload CV *",
+    "required": true
+   },
+   {
+    "type": "textarea",
+    "label": "Message (optional)",
+    "required": false
+   }
+  ],
+  "buttons": [
+   "Submit application"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "form",
+  "confidence": 0.97,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Submit application",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Your application",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Fields marked with * are mandatory.",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "First name *",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Last name *",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "E-mail address *",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Upload CV *",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Message (optional)",
+   "position": "main"
+  }
+ ]
+}

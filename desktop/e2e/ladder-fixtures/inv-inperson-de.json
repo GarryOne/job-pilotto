@@ -1,0 +1,65 @@
+{
+ "schemaVersion": 1,
+ "id": "inv-inperson-de",
+ "source": "invented",
+ "lang": "de",
+ "why": "Vorstellung nur persönlich vor Ort",
+ "capture": {
+  "page": "ladder-fixtures/pages/inv-inperson-de.html"
+ },
+ "url": "https://baeckerei.example.ch/stellen/verkaeufer",
+ "expect": {
+  "outcome": "in_person",
+  "accept": [
+   "in_person",
+   "other"
+  ]
+ },
+ "sketch": {
+  "url": "https://baeckerei.example.ch/stellen/verkaeufer",
+  "title": "Verkäufer/in Bäckerei",
+  "headings": [
+   "Verkäufer/in Bäckerei",
+   "So bewerben Sie sich"
+  ],
+  "controls": [],
+  "buttons": [
+   "Start"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.85,
+  "apply_button": "Start",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "sentence",
+   "text": "Verkäufer/in Bäckerei",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "So bewerben Sie sich",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Kommen Sie persönlich in unserer Filiale vorbei, Montag bis Freitag zu den Öffnungszeiten.",
+   "position": "main"
+  }
+ ]
+}

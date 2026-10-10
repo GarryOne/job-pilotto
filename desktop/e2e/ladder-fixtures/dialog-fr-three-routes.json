@@ -1,0 +1,83 @@
+{
+ "schemaVersion": 1,
+ "id": "dialog-fr-three-routes",
+ "source": "reconstructed",
+ "lang": "fr",
+ "why": "start dialog: start dialog in French: manual / reuse / Google",
+ "capture": {
+  "page": "ladder-fixtures/pages/dialog-fr-three-routes.html"
+ },
+ "url": "https://jobs.example.com/dialog-fr-three-routes/1",
+ "expect": {
+  "outcome": "posting",
+  "accept": [
+   "posting"
+  ],
+  "apply_route": "manual",
+  "digest": "not_asked"
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/dialog-fr-three-routes/1",
+  "title": "Démarrer la candidature",
+  "headings": [
+   "Conseiller de vente",
+   "Comment souhaitez-vous postuler ?"
+  ],
+  "controls": [],
+  "buttons": [
+   "Home",
+   "Postuler",
+   "Remplir manuellement",
+   "Réutiliser ma dernière candidature",
+   "Continuer avec Google"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Postuler",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Conseiller de vente",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Rejoignez notre équipe.",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Remplir manuellement",
+   "position": "other"
+  },
+  {
+   "n": 5,
+   "kind": "button",
+   "text": "Réutiliser ma dernière candidature",
+   "position": "other"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.93,
+  "apply_button": "Remplir manuellement",
+  "apply_button_kind": "apply",
+  "apply_route": "manual",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

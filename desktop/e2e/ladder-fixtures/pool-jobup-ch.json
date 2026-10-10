@@ -1,0 +1,138 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-jobup-ch",
+ "source": "captured",
+ "why": "pool shape read from a real posting at www.jobup.ch (jobup.ch posting, then the employer's site)",
+ "capture": {
+  "url": "https://www.jobup.ch/en/jobs/detail/85229440-b9b9-4497-9705-a1e1549be144/"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://www.jobup.ch/en/jobs/detail/85229440-b9b9-4497-9705-a1e1549be144/",
+  "title": "Senior Auditor in Industries - Geneva - Job offer on jobup.ch",
+  "headings": [
+   "Senior Auditor in Industries - Geneva",
+   "Tasks",
+   "Skills",
+   "Salary estimator",
+   "Cookies"
+  ],
+  "controls": [],
+  "buttons": [
+   "Skip to content",
+   "jobup.ch Navigation logo",
+   "Find a job",
+   "Explore companies",
+   "Salary estimator",
+   "Recruiter Area",
+   "Français",
+   "English",
+   "Login",
+   "Sign up",
+   "Job search",
+   "Job recommendations",
+   "Job alerts",
+   "Saved jobs",
+   "Applications",
+   "Save",
+   "Apply",
+   "Show",
+   "here",
+   "Take the survey"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Save",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Apply",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Show",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "here",
+   "host": "www.ey.com",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Ernst & Young AG",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "Grand-Lancy / Geneva",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Senior Auditor in Industries - Geneva",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "07 October 2026",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "100%",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Job summary",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "button",
+   "text": "Skip to content",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "jobup.ch Navigation logo",
+   "host": "www.jobup.ch",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Apply",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

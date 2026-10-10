@@ -1,0 +1,97 @@
+{
+ "schemaVersion": 1,
+ "id": "recorded-email-application-1",
+ "source": "recorded",
+ "lang": "de",
+ "why": "recorded case: a posting that asks for the application by email (address in the text and in a mailto link), no Apply button, ",
+ "capture": {
+  "page": "recorded/email-application-1/page.html"
+ },
+ "url": "https://firma.example.ch/jobs/senior-ingenieur-4711",
+ "expect": {
+  "outcome": "email"
+ },
+ "sketch": {
+  "url": "https://firma.example.ch/jobs/senior-ingenieur-4711",
+  "title": "Senior Ingenieur (m/w/d) | Firma AG",
+  "headings": [
+   "Senior Ingenieur (m/w/d)",
+   "Ihre Aufgaben",
+   "Ihr Profil",
+   "Bewerbung"
+  ],
+  "controls": [],
+  "buttons": [
+   "Zurück zur Übersicht",
+   "jobs@example.com"
+  ],
+  "frames": [],
+  "mails": [
+   "mailto:jobs@example.com",
+   "Senden Sie Ihre vollständigen Bewerbungsunterlagen bitte per E-Mail an jobs@example.com."
+  ]
+ },
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.93,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "email",
+  "apply_email": "jobs@example.com",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "email",
+   "text": "Senden Sie Ihre vollständigen Bewerbungsunterlagen bitte per E-Mail an jobs@example.com .",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "email",
+   "text": "jobs@example.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Senior Ingenieur (m/w/d)",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "Ihre Aufgaben",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Entwicklung",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "Ihr Profil",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "ETH",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Bewerbung",
+   "position": "main"
+  }
+ ]
+}

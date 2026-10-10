@@ -1,0 +1,65 @@
+{
+ "schemaVersion": 1,
+ "id": "inv-phone-fr",
+ "source": "invented",
+ "lang": "fr",
+ "why": "Candidature par téléphone seulement",
+ "capture": {
+  "page": "ladder-fixtures/pages/inv-phone-fr.html"
+ },
+ "url": "https://restaurant.example.ch/emplois/aide-cuisine",
+ "expect": {
+  "outcome": "phone",
+  "accept": [
+   "phone",
+   "other"
+  ]
+ },
+ "sketch": {
+  "url": "https://restaurant.example.ch/emplois/aide-cuisine",
+  "title": "Aide de cuisine",
+  "headings": [
+   "Aide de cuisine",
+   "Intéressé(e) ?"
+  ],
+  "controls": [],
+  "buttons": [
+   "Accueil"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.6,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "other",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "phone",
+   "text": "Merci de téléphoner au (phone) pendant les heures de bureau ; nous ne prenons pas de dossiers en ligne.",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Aide de cuisine",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Intéressé(e) ?",
+   "position": "main"
+  }
+ ]
+}

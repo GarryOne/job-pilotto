@@ -1,0 +1,77 @@
+{
+ "schemaVersion": 1,
+ "id": "dialog-en-three-social",
+ "source": "reconstructed",
+ "lang": "en",
+ "why": "start dialog: three social sign-ins and a manual \"without an account\" route",
+ "capture": {
+  "page": "ladder-fixtures/pages/dialog-en-three-social.html"
+ },
+ "url": "https://jobs.example.com/dialog-en-three-social/1",
+ "expect": {
+  "outcome": "posting",
+  "accept": [
+   "posting"
+  ],
+  "apply_route": "manual",
+  "digest": "not_asked"
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/dialog-en-three-social/1",
+  "title": "Apply",
+  "headings": [
+   "Retail manager",
+   "Sign in to apply"
+  ],
+  "controls": [],
+  "buttons": [
+   "Home",
+   "Continue with LinkedIn",
+   "Continue with Google",
+   "Continue with Apple",
+   "Apply without an account"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "sentence",
+   "text": "Retail manager",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "London.",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Continue with LinkedIn",
+   "position": "other"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Continue with Google",
+   "position": "other"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Apply without an account",
+  "apply_button_kind": "apply",
+  "apply_route": "manual",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "bot_check": false
+ }
+}

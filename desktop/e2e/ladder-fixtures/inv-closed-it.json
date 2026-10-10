@@ -1,0 +1,60 @@
+{
+ "schemaVersion": 1,
+ "id": "inv-closed-it",
+ "source": "invented",
+ "lang": "it",
+ "why": "Posizione chiusa, nessun modulo",
+ "capture": {
+  "page": "ladder-fixtures/pages/inv-closed-it.html"
+ },
+ "url": "https://logistica.example.ch/lavoro/responsabile-magazzino",
+ "expect": {
+  "outcome": "expired",
+  "accept": [
+   "expired",
+   "other"
+  ]
+ },
+ "sketch": {
+  "url": "https://logistica.example.ch/lavoro/responsabile-magazzino",
+  "title": "Responsabile magazzino",
+  "headings": [
+   "Responsabile magazzino"
+  ],
+  "controls": [],
+  "buttons": [
+   "Home",
+   "Tutte le offerte",
+   "Vedi altre offerte"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "other",
+  "confidence": 0.6,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "sentence",
+   "text": "Responsabile magazzino",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Questa posizione non è più disponibile.",
+   "position": "main"
+  }
+ ]
+}

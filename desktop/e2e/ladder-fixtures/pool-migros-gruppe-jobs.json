@@ -1,0 +1,144 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-migros-gruppe-jobs",
+ "source": "captured",
+ "why": "pool shape read from a real posting at migros-gruppe.jobs (Migros group: Denner (migros-gruppe.jobs))",
+ "capture": {
+  "url": "https://migros-gruppe.jobs/de/unsere-unternehmen/job/denner-ag/assistentin-filialleitung/03f55afb-d4bb-4f42-95a1-79f662b9be48"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "de",
+ "sketch": {
+  "url": "https://jobs.migros.ch/de/unsere-unternehmen/job/denner-ag/assistentin-filialleitung/03f55afb-d4bb-4f42-95a1-79f662b9be48",
+  "title": "Assistent*in Filialleitung | Migros Jobs",
+  "headings": [
+   "Assistent*in Filialleitung80 – 100%",
+   "Wichtige Hinweise",
+   "Was du bewegst",
+   "Was du mitbringst",
+   "Was wir dir bieten",
+   "Bewerbung & Kontakt",
+   "Rekrutierungsprozess",
+   "Hinweis für Personaldienstleister"
+  ],
+  "controls": [],
+  "buttons": [
+   "Das Jobportal der Migros-Gruppe",
+   "Jobs",
+   "Berufswelten",
+   "Arbeiten bei der Migros",
+   "Karriere",
+   "Lehre",
+   "Unsere Unternehmen",
+   "deDeutsch",
+   "Mehr erfahren",
+   "Übersicht",
+   "Aufgaben",
+   "Profil",
+   "Angebot",
+   "Bewerbung & Kontakt",
+   "Teilen",
+   "Jetzt bewerben",
+   "Mit WhatsApp bewerben",
+   "Lehrstellen",
+   "Migros als Arbeitgeberin",
+   "Dafür stehen wir"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Teilen",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "link",
+   "text": "Jetzt bewerben",
+   "host": "recruitingapp-662.umantis.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "Mit WhatsApp bewerben",
+   "host": "denner.pitchyou.de",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "Denner AGFiliale 303Apollostrasse 28032 ZürichRoute berechnen",
+   "host": "www.google.com",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "button",
+   "text": "Das Video wird pausiert. Drücke zum Abspielen.",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "Du möchtest ab und zu die Tagesverantwortung übernehmen?",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Bist aber noch nicht bereit für Stv.?",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Hier kannst du beweisen, was du draufhast.",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Dein Wissen weitergeben.",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Führungserfahrungen sammeln.",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "Das Jobportal der Migros-Gruppe",
+   "host": "jobs.migros.ch",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "Jobs",
+   "host": "jobs.migros.ch",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Jetzt bewerben",
+  "apply_route": "manual",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

@@ -1,0 +1,83 @@
+{
+ "schemaVersion": 1,
+ "id": "dialog-it-three-routes",
+ "source": "reconstructed",
+ "lang": "it",
+ "why": "start dialog: start dialog in Italian: manual / reuse / LinkedIn",
+ "capture": {
+  "page": "ladder-fixtures/pages/dialog-it-three-routes.html"
+ },
+ "url": "https://jobs.example.com/dialog-it-three-routes/1",
+ "expect": {
+  "outcome": "posting",
+  "accept": [
+   "posting"
+  ],
+  "apply_route": "manual",
+  "digest": "not_asked"
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/dialog-it-three-routes/1",
+  "title": "Inizia la candidatura",
+  "headings": [
+   "Addetto vendite",
+   "Come vuoi candidarti?"
+  ],
+  "controls": [],
+  "buttons": [
+   "Home",
+   "Candidati",
+   "Compila manualmente",
+   "Usa l'ultima candidatura",
+   "Accedi con LinkedIn"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Candidati",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Addetto vendite",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Entra nel nostro team.",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Compila manualmente",
+   "position": "other"
+  },
+  {
+   "n": 5,
+   "kind": "button",
+   "text": "Usa l'ultima candidatura",
+   "position": "other"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.95,
+  "apply_button": "Compila manualmente",
+  "apply_button_kind": "apply",
+  "apply_route": "manual",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

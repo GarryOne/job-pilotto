@@ -1,0 +1,83 @@
+{
+ "schemaVersion": 1,
+ "id": "dialog-en-workday-like",
+ "source": "reconstructed",
+ "lang": "en",
+ "why": "start dialog: a Workday-like start dialog: manual / autofill / last application",
+ "capture": {
+  "page": "ladder-fixtures/pages/dialog-en-workday-like.html"
+ },
+ "url": "https://jobs.example.com/dialog-en-workday-like/1",
+ "expect": {
+  "outcome": "posting",
+  "accept": [
+   "posting"
+  ],
+  "apply_route": "manual",
+  "digest": "not_asked"
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/dialog-en-workday-like/1",
+  "title": "Start Your Application",
+  "headings": [
+   "Sales Associate",
+   "Start Your Application"
+  ],
+  "controls": [],
+  "buttons": [
+   "Home",
+   "Apply",
+   "Autofill with Resume",
+   "Apply Manually",
+   "Use My Last Application"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Apply",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Sales Associate",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Join our boutique team.",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Autofill with Resume",
+   "position": "other"
+  },
+  {
+   "n": 5,
+   "kind": "button",
+   "text": "Apply Manually",
+   "position": "other"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.92,
+  "apply_button": "Apply Manually",
+  "apply_button_kind": "apply",
+  "apply_route": "manual",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "bot_check": false
+ }
+}

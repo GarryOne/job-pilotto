@@ -1,0 +1,125 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-jobs-coop-ch",
+ "source": "captured",
+ "why": "pool shape read from a real posting at jobs.coop.ch (Coop's own SuccessFactors site (jobs.coop.ch))",
+ "capture": {
+  "url": "https://jobs.coop.ch/BaleHotels/job/Spielzelt-Palazzo%2C-Rosentalanl-Servicefachangestellter-im-Stundenlohn-f%C3%BCr-Palazzo-Colombino-1-Base/1433117633/"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "de",
+ "sketch": {
+  "url": "https://jobs.coop.ch/BaleHotels/job/Spielzelt-Palazzo%2C-Rosentalanl-Servicefachangestellter-im-Stundenlohn-f%C3%BCr-Palazzo-Colombino-1-Base/1433117633/",
+  "title": "Servicefachangestellte:r im Stundenlohn für Palazzo Colombino 1 Stellendetails | Coop",
+  "headings": [
+   "Servicefachangestellte:r im Stundenlohn für Palazzo Colombino 1"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Suchbegriff eingeben",
+    "required": false
+   }
+  ],
+  "buttons": [
+   "Akzeptieren",
+   "Schließen",
+   "Zum Hauptinhalt",
+   "Startseite",
+   "Sprache",
+   "Anmelden / Mein Profil",
+   "Detailsuche",
+   "Stellen suchen",
+   "Jetzt bewerben »",
+   "DE",
+   "FR",
+   "IT"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "link",
+   "text": "Jetzt bewerben »",
+   "host": "jobs.coop.ch",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Jetzt bewerben »",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Servicefachangestellte:r im Stundenlohn für Palazzo Colombino 1",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "Ort: Spielzelt Palazzo, Rosentalanl",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Position: Mitarbeitende",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "Fachrichtung: Gastronomie / Hotellerie",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Unternehmen: BÂLE HOTELS GROUP",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Pensum: 100%",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Referenzcode: 169591",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "button",
+   "text": "Akzeptieren",
+   "position": "other"
+  },
+  {
+   "n": 11,
+   "kind": "button",
+   "text": "Schließen",
+   "position": "other"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.95,
+  "apply_button": "Jetzt bewerben »",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

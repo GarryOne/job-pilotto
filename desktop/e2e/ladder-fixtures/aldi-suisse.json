@@ -1,0 +1,143 @@
+{
+ "id": "aldi-suisse",
+ "source": "captured",
+ "lang": "de",
+ "why": "pool: stops at the posting (Aldi Suisse own site)",
+ "capture": {
+  "url": "https://www.jobs.aldi.ch/job/1421220233"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "sketch": {
+  "url": "https://www.jobs.aldi.ch/job/1421220233",
+  "title": "Apprenti(e) du commerce de détail (CFC ou AFP) | 1110 Morges, Rue de Lausanne 47 | ALDI SUISSE",
+  "headings": [
+   "Apprenti(e) du commerce de détail (CFC ou AFP)",
+   "LIEU DE TRAVAIL",
+   "DOMAINE D'ACTIVITÉ",
+   "DÉBUT DU TRAVAIL",
+   "TAUX D'OCCUPATION",
+   "Notre précepte: Ensemble, nous faisons plus, à savoir «Plus pour la vie».",
+   "Tâches",
+   "Profil"
+  ],
+  "controls": [],
+  "buttons": [
+   "aldi-suisse.ch",
+   "Bewerbungstipps",
+   "FAQ",
+   "Kandidatenprofil",
+   "Jobalarm",
+   "Karriere",
+   "Einstiegsmöglichkeiten",
+   "Jobs nach Bereichen",
+   "Administration",
+   "Area Manager",
+   "Buying & Quality Management",
+   "Compliance & Datenschutz",
+   "Corporate Responsibility",
+   "Filialführung",
+   "Filialteam",
+   "Finance",
+   "Human Resources",
+   "IT",
+   "Logistics & Supply Chain Management",
+   "Marketing & Communications"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "note": "the Apply control is not among the first 20 buttons the sketch keeps (navigation fills them): the likely reason the pool stops here",
+ "schemaVersion": 1,
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.75,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "other",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "phone",
+   "text": "​(phone)​",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Postuler",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "En savoir plus",
+   "host": "www.jobs.aldi.ch",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "Apprenti(e) du commerce de détail (CFC ou AFP)",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "LIEU DE TRAVAIL",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "DOMAINE D'ACTIVITÉ",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "DÉBUT DU TRAVAIL",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "TAUX D'OCCUPATION",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Notre précepte: Ensemble, nous faisons plus, à savoir «Plus pour la vie».",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Ensemble nous atteignons davantage d’objectifs.",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "aldi-suisse.ch",
+   "host": "www.aldi-suisse.ch",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "Bewerbungstipps",
+   "host": "www.jobs.aldi.ch",
+   "position": "header"
+  }
+ ]
+}

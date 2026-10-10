@@ -1,0 +1,78 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-jobs-louisvuitton-com",
+ "source": "captured",
+ "why": "pool shape read from a real posting at jobs.louisvuitton.com (Louis Vuitton jobs)",
+ "capture": {
+  "url": "https://jobs.louisvuitton.com/en/search-page/job/stock-controller-athens-part-time-greece-athens-LVM34193"
+ },
+ "expect": {
+  "outcome": "other"
+ },
+ "sketch": {
+  "url": "https://jobs.louisvuitton.com/en/search-page/job/stock-controller-athens-part-time-greece-athens-LVM34193",
+  "title": "LOUIS VUITTON",
+  "headings": [
+   "REF #0.7f161502.1791661163.20241435",
+   "Access denied. We invite you to return at a later time to complete your purchase.",
+   "Accès refusé. Nous vous invitons à revenir plus tard pour effectuer votre achat."
+  ],
+  "controls": [],
+  "buttons": [],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "phone",
+   "text": "REF #0.2c6cdead.(phone)c9e54f6",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "phone",
+   "text": "(phone)",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Access denied.",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "We invite you to return at a later time to complete your purchase.",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Accès refusé.",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "Nous vous invitons à revenir plus tard pour effectuer votre achat.",
+   "position": "main"
+  }
+ ],
+ "note": "a bot wall or access-denied page when read today: never passed",
+ "lang": "en",
+ "answer": {
+  "kind": "other",
+  "confidence": 0.9,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

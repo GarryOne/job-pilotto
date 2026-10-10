@@ -1,0 +1,163 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-careers-tether-io",
+ "source": "captured",
+ "why": "pool shape read from a real posting at careers.tether.io",
+ "capture": {
+  "url": "https://careers.tether.io/o/devops-engineer-100-remote"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://careers.tether.io/o/devops-engineer-100-remote",
+  "title": "Tether Operations Limited - DevOps Engineer (100% remote)",
+  "headings": [
+   "DevOps Engineer (100% remote)",
+   "Job description",
+   "Job requirements"
+  ],
+  "controls": [
+   {
+    "type": "file",
+    "label": "CV or resume *",
+    "required": true
+   },
+   {
+    "type": "file",
+    "label": "",
+    "required": false
+   },
+   {
+    "type": "file",
+    "label": "",
+    "required": false
+   },
+   {
+    "type": "file",
+    "label": "Upload a file",
+    "required": false
+   },
+   {
+    "type": "file",
+    "label": "Upload a file",
+    "required": false
+   },
+   {
+    "type": "file",
+    "label": "",
+    "required": false
+   }
+  ],
+  "buttons": [
+   "Skip to content",
+   "Tether Operations LimitedHomepage",
+   "Finance",
+   "Power",
+   "Data",
+   "Education",
+   "Plan ₿",
+   "Tether.to",
+   "Job details",
+   "Apply",
+   "tether.to",
+   "tether.io",
+   "Share job"
+  ],
+  "frames": [],
+  "mails": [
+   "mailto:contact@example.com"
+  ]
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Job details",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Apply",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "tether.io",
+   "host": "tether.io",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Share job",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "DevOps Engineer (100% remote)",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "Remote",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "United Kindom , Armagh City, Banbridge and Craigavon , United Kingdom",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Data",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Job description",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Join Tether and Shape the Future of Digital Finance",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "Skip to content",
+   "host": "careers.tether.io",
+   "position": "other"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "Tether Operations LimitedHomepage",
+   "host": "careers.tether.io",
+   "position": "other"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.6,
+  "apply_button": "Apply",
+  "apply_route": "manual",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

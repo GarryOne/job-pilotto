@@ -1,0 +1,148 @@
+{
+ "id": "databricks-greenhouse-embed",
+ "source": "captured",
+ "lang": "en",
+ "why": "pool: Greenhouse behind the employer site (Databricks)",
+ "capture": {
+  "url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8532682002"
+ },
+ "expect": {
+  "outcome": "form_in_frame",
+  "accept": [
+   "form_in_frame",
+   "posting",
+   "other"
+  ]
+ },
+ "sketch": {
+  "url": "https://www.databricks.com/company/careers/executive-engineering---pipeline/staff-software-engineer---ai-research-infrastructure-8532682002",
+  "title": "Staff Software Engineer - AI Research Infrastructure - Databricks",
+  "headings": [
+   "Staff Software Engineer - AI Research Infrastructure",
+   "Staff Software Engineer - AI Research Infrastructure",
+   "We Care About Your Privacy"
+  ],
+  "controls": [],
+  "buttons": [
+   "Skip to main content",
+   "Why Databricks",
+   "Product",
+   "Solutions",
+   "Resources",
+   "About",
+   "Login",
+   "Contact Us",
+   "Try Databricks",
+   "Overview",
+   "Culture",
+   "Benefits",
+   "Diversity",
+   "Engineering",
+   "Research",
+   "Students & new grads",
+   "Back to search results",
+   "Apply now",
+   "here",
+   "LinkedIn"
+  ],
+  "frames": [
+   "job-boards.greenhouse.io"
+  ],
+  "mails": []
+ },
+ "schemaVersion": 1,
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Apply now",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "link",
+   "text": "here",
+   "host": "www.databricks.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "link",
+   "text": "LinkedIn",
+   "host": "www.linkedin.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "X",
+   "host": "x.com",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "YouTube",
+   "host": "www.youtube.com",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "Instagram",
+   "host": "www.instagram.com",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "Applicant Privacy Notice",
+   "host": "www.databricks.com",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Staff Software Engineer - AI Research Infrastructure",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "P-1215",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "At Databricks, we are obsessed with enabling data teams to solve the world’s toughest problems, from security threat detection to cancer drug development.",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "We do this by building and running the world’s best data and AI platform so our customers can focus on the high-value challenges that are central to their own m",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "phone",
+   "text": "160 Spear Street, 15th Floor San Francisco, CA (phone)",
+   "position": "footer"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "Skip to main content",
+   "host": "www.databricks.com",
+   "position": "other"
+  }
+ ]
+}

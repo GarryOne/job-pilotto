@@ -1,0 +1,142 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-jobs-migros-ch",
+ "source": "captured",
+ "why": "pool shape read from a real posting at jobs.migros.ch (Migros group site (jobs.migros.ch), German and French)",
+ "capture": {
+  "url": "https://jobs.migros.ch/de/unsere-unternehmen/job/activ-fitness/teamleader-wmd-kinderparadies/188bab5f-fedd-4ba5-84ec-ed552e6a3ddc"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "de",
+ "sketch": {
+  "url": "https://jobs.migros.ch/de/unsere-unternehmen/job/activ-fitness/teamleader-wmd-kinderparadies/188bab5f-fedd-4ba5-84ec-ed552e6a3ddc",
+  "title": "Teamleader (w/m/d) Kinderparadies | Migros Jobs",
+  "headings": [
+   "Teamleader (w/m/d) Kinderparadies20 – 25%",
+   "Wichtige Hinweise",
+   "Was du bewegst",
+   "Was du mitbringst",
+   "Was wir dir bieten",
+   "Bewerbung & Kontakt",
+   "Rekrutierungsprozess"
+  ],
+  "controls": [],
+  "buttons": [
+   "Das Jobportal der Migros-Gruppe",
+   "Jobs",
+   "Berufswelten",
+   "Arbeiten bei der Migros",
+   "Karriere",
+   "Lehre",
+   "Unsere Unternehmen",
+   "deDeutsch",
+   "Mehr erfahren",
+   "Übersicht",
+   "Aufgaben",
+   "Profil",
+   "Angebot",
+   "Bewerbung & Kontakt",
+   "Teilen",
+   "Jetzt bewerben",
+   "Lehrstellen",
+   "Migros als Arbeitgeberin",
+   "Dafür stehen wir",
+   "Das bieten wir"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Teilen",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "link",
+   "text": "Jetzt bewerben",
+   "host": "recruitingapp-662.umantis.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "ACTIV FITNESSHorgenSeestrasse 1298810 HorgenRoute berechnen",
+   "host": "www.google.com",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "Du bist fürsorglich und betreust gerne Kinder?",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Du übernimmst gerne Verantwortung für ein kleines Team?",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "Dann freuen wir uns auf deine Bewerbung!",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Jetzt bewerben",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "ACTIV FITNESS",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Horgen",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Seestrasse 129",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "Das Jobportal der Migros-Gruppe",
+   "host": "jobs.migros.ch",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "Jobs",
+   "host": "jobs.migros.ch",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Jetzt bewerben",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

@@ -1,0 +1,199 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-careers-toasttab-com",
+ "source": "captured",
+ "why": "pool shape read from a real posting at careers.toasttab.com",
+ "capture": {
+  "url": "https://careers.toasttab.com/jobs?gh_jid=8201856"
+ },
+ "expect": {
+  "outcome": "posting",
+  "accept": [
+   "posting",
+   "form"
+  ]
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://careers.toasttab.com/jobs/senior-software-engineer-infrastructure-dublin-county-dublin-ireland-7a373bb2-25c4-4d37-b382-def81889b49b",
+  "title": "Senior Software Engineer - Infrastructure - Dublin, County Dublin, Ireland",
+  "headings": [
+   "Senior Software Engineer - Infrastructure",
+   "Senior Software Engineer - Infrastructure",
+   "Bready* for a change?",
+   "Other recommended rolls*",
+   "Senior Infrastructure Engineer",
+   "Senior Software Engineer, Application Infrastructure",
+   "Senior Software Engineer, International Mid Market",
+   "Life at Toast Blog"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Legal First Name (required) 73533843",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Legal Last Name (required) 3c686aca",
+    "required": true
+   },
+   {
+    "type": "email",
+    "label": "Email (required) 9b2c301e",
+    "required": true
+   },
+   {
+    "type": "tel",
+    "label": "Phone (required) ffbdcf92",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Location (required) dc042395",
+    "required": true
+   },
+   {
+    "type": "file",
+    "label": "Resume 6014d636",
+    "required": false
+   },
+   {
+    "type": "file",
+    "label": "Cover Letter e688b428",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "LinkedIn Profile 1556fe0d",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "Website eae704e0",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "Search by job title, location, department, category, etc.",
+    "required": false
+   }
+  ],
+  "buttons": [
+   "Explore",
+   "Locations",
+   "See all jobs",
+   "Life At Toast",
+   "Your Settings",
+   "contact@example.com",
+   "Apply now",
+   "Spark: Toasters Behind the Scenes",
+   "Apply now! Please wait... Done",
+   "this site",
+   "Search",
+   "Jobs near me",
+   "Privacy Statement",
+   "California Privacy Statement",
+   "Terms of Service",
+   "Merchant Agreement",
+   "Cookie Policy"
+  ],
+  "frames": [],
+  "mails": [
+   "mailto:contact@example.com",
+   "Toast is committed to creating an accessible and inclusive hiring process. As part of this commitment, we strive to provide reasonable accommodations for person"
+  ]
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "email",
+   "text": "If you need an accommodation to access the job application or interview process, please contact contact@example.com .",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "email",
+   "text": "contact@example.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "Apply now",
+   "host": "careers.toasttab.com",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Apply now! Please wait... Done",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "button",
+   "text": "Search",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "button",
+   "text": "Jobs near me",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "link",
+   "text": "https://careers.toasttab.com/toast-benefits",
+   "host": "careers.toasttab.com",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "link",
+   "text": "https://careers.toasttab.com/ai-in-hiring",
+   "host": "careers.toasttab.com",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Kiosk mode",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Senior Software Engineer - Infrastructure",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "Explore",
+   "host": "careers.toasttab.com",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "Locations",
+   "host": "careers.toasttab.com",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "form",
+  "confidence": 0.92,
+  "apply_button": "",
+  "apply_route": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "apply_by": "",
+  "apply_email": "",
+  "bot_check": false
+ }
+}

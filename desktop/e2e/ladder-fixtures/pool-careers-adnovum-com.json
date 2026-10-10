@@ -1,0 +1,151 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-careers-adnovum-com",
+ "source": "captured",
+ "why": "pool shape read from a real posting at careers.adnovum.com (Adnovum)",
+ "capture": {
+  "url": "https://careers.adnovum.com/job/Zurich-AI-Platform-Engineer-%28a%29/1164908455/"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://careers.adnovum.com/job/Zurich-AI-Platform-Engineer-%28a%29/1164908455/",
+  "title": "AI Platform Engineer (a) Job Details | Adnovum AG",
+  "headings": [
+   "AI Platform Engineer (a)",
+   "What you're going to do",
+   "What we're looking for",
+   "Sharp minds, good vibes"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Search by Keyword",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "Search by Location",
+    "required": false
+   },
+   {
+    "type": "number",
+    "label": "Select how often (in days) to receive an alert:",
+    "required": true
+   }
+  ],
+  "buttons": [
+   "Accept",
+   "Close",
+   "Skip to main content",
+   "Working at Adnovum",
+   "Work for Adnovum in",
+   "Open positions",
+   "Language",
+   "View Profile",
+   "Employee Login",
+   "Show More Options",
+   "Search Jobs",
+   "Create Alert",
+   "Apply now »",
+   "contact@example.com",
+   "Information for recruiting agencies",
+   "Opens in a new tab."
+  ],
+  "frames": [],
+  "mails": [
+   "mailto:contact@example.com",
+   "contact@example.com"
+  ]
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "email",
+   "text": "David Lemos Senior Talent Acquisition Manager contact@example.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "email",
+   "text": "contact@example.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Create Alert",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "Apply now »",
+   "host": "careers.adnovum.com",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Apply now »",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "AI Platform Engineer (a)",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "100%",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Zurich",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "What you're going to do",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Software engineering is being reimagined around AI agents that do the work under human direction.",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "button",
+   "text": "Accept",
+   "position": "other"
+  },
+  {
+   "n": 12,
+   "kind": "button",
+   "text": "Close",
+   "position": "other"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.92,
+  "apply_button": "Apply now »",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

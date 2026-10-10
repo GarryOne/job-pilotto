@@ -1,0 +1,77 @@
+{
+ "schemaVersion": 1,
+ "id": "inv-phone-de",
+ "source": "invented",
+ "lang": "de",
+ "why": "Bewerbung nur telefonisch (ohne Zahl im Text, damit der Test keine Nummer trägt)",
+ "capture": {
+  "page": "ladder-fixtures/pages/inv-phone-de.html"
+ },
+ "url": "https://gasthof.example.ch/stellen/kuechenhilfe",
+ "expect": {
+  "outcome": "phone",
+  "accept": [
+   "phone",
+   "other"
+  ]
+ },
+ "sketch": {
+  "url": "https://gasthof.example.ch/stellen/kuechenhilfe",
+  "title": "Küchenhilfe",
+  "headings": [
+   "Küchenhilfe (m/w)",
+   "Ihre Bewerbung"
+  ],
+  "controls": [],
+  "buttons": [
+   "Start"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.85,
+  "apply_button": "Start",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "phone",
+   "text": "(phone), und fragen Sie nach der Betriebsleitung.",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Küchenhilfe (m/w)",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Ihre Bewerbung",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "Bitte rufen Sie uns an, Tel.",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Wir freuen uns auf Ihren Anruf.",
+   "position": "main"
+  }
+ ]
+}

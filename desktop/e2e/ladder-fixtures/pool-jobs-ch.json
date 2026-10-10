@@ -1,0 +1,142 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-jobs-ch",
+ "source": "captured",
+ "why": "pool shape read from a real posting at www.jobs.ch (jobs.ch -> Deloitte: email-first account, email code, CV choice step)",
+ "capture": {
+  "url": "https://www.jobs.ch/en/vacancies/detail/12181ac1-c171-4d4c-a9d7-abacab3b2bad/"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://www.jobs.ch/en/vacancies/detail/12181ac1-c171-4d4c-a9d7-abacab3b2bad/",
+  "title": "Senior / Assistant Manager, Large & Complex Audit - Geneva - Job Offer on jobs.ch",
+  "headings": [
+   "Senior / Assistant Manager, Large & Complex Audit - Geneva",
+   "Tasks",
+   "Skills",
+   "Basic information",
+   "Job description",
+   "Categories:",
+   "Salary estimator",
+   "Cookies"
+  ],
+  "controls": [],
+  "buttons": [
+   "Skip to content",
+   "jobs.ch Navigation logo",
+   "Find a job",
+   "Explore companies",
+   "Salary estimator",
+   "Recruiter Area",
+   "Deutsch",
+   "Français",
+   "English",
+   "Login",
+   "Sign up",
+   "Job search",
+   "Job recommendations",
+   "Job alerts",
+   "Saved jobs",
+   "Applications",
+   "Save",
+   "Apply",
+   "Hide",
+   "addressing climate change"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Save",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Apply",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Hide",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "addressing climate change",
+   "host": "www2.deloitte.com",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "www.deloitte.com/ch/careers",
+   "host": "www.deloitte.com",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "button",
+   "text": "E-Mail schreiben",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Deloitte",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Geneva",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Senior / Assistant Manager, Large & Complex Audit - Geneva",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "25 August 2025",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "button",
+   "text": "Skip to content",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "jobs.ch Navigation logo",
+   "host": "www.jobs.ch",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Apply",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

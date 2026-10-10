@@ -1,0 +1,139 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-jobs-ch-2",
+ "source": "captured",
+ "why": "pool shape read from a real posting at www.jobs.ch (jobs.ch -> KPMG's own application system)",
+ "capture": {
+  "url": "https://www.jobs.ch/en/vacancies/detail/b9032988-9a53-4f98-95b6-904c033a6c59/"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://www.jobs.ch/en/vacancies/detail/b9032988-9a53-4f98-95b6-904c033a6c59/",
+  "title": "Senior or Assistant Manager - Accounting Advisory Services - Job Offer at KPMG - jobs.ch",
+  "headings": [
+   "Senior or Assistant Manager - Accounting Advisory Services",
+   "Salary estimator",
+   "Cookies"
+  ],
+  "controls": [],
+  "buttons": [
+   "Skip to content",
+   "jobs.ch Navigation logo",
+   "Find a job",
+   "Explore companies",
+   "Salary estimator",
+   "Recruiter Area",
+   "Deutsch",
+   "Français",
+   "English",
+   "Login",
+   "Sign up",
+   "Job search",
+   "Job recommendations",
+   "Job alerts",
+   "Saved jobs",
+   "Applications",
+   "KPMG",
+   "Save",
+   "Apply",
+   "Grow at KPMG"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Save",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Apply",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "Grow at KPMG",
+   "host": "kpmg.com",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "Work at KPMG",
+   "host": "kpmg.com",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "Values & Culture",
+   "host": "kpmg.com",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "KPMG",
+   "host": "www.jobs.ch",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Geneva",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Senior or Assistant Manager - Accounting Advisory Services",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "22 September 2026",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "80 – 100%",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "button",
+   "text": "Skip to content",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "jobs.ch Navigation logo",
+   "host": "www.jobs.ch",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Apply",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

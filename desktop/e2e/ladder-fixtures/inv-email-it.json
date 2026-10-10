@@ -1,0 +1,79 @@
+{
+ "schemaVersion": 1,
+ "id": "inv-email-it",
+ "source": "invented",
+ "lang": "it",
+ "why": "Posizione di addetto/a alle vendite; candidature via e-mail",
+ "capture": {
+  "page": "ladder-fixtures/pages/inv-email-it.html"
+ },
+ "url": "https://negozio.example.ch/lavoro/addetto-vendite",
+ "expect": {
+  "outcome": "email",
+  "accept": [
+   "email"
+  ]
+ },
+ "sketch": {
+  "url": "https://negozio.example.ch/lavoro/addetto-vendite",
+  "title": "Addetto/a alle vendite",
+  "headings": [
+   "Addetto/a alle vendite",
+   "Cosa offriamo",
+   "Come candidarsi"
+  ],
+  "controls": [],
+  "buttons": [
+   "Home"
+  ],
+  "frames": [],
+  "mails": [
+   "Inviate la vostra candidatura a lavoro@example.ch indicando il riferimento 2210."
+  ]
+ },
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.92,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "email",
+  "apply_email": "lavoro@example.ch",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "email",
+   "text": "Inviate la vostra candidatura a lavoro@example.ch indicando il riferimento 2210.",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Addetto/a alle vendite",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Cosa offriamo",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "Un team giovane.",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Come candidarsi",
+   "position": "main"
+  }
+ ]
+}

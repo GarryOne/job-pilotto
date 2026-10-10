@@ -1,0 +1,67 @@
+{
+ "schemaVersion": 1,
+ "id": "trap-contact-address-fr",
+ "source": "invented",
+ "lang": "fr",
+ "why": "TRAP: a question/contact address beside a Postuler button: not an apply address",
+ "capture": {
+  "page": "ladder-fixtures/pages/trap-contact-address-fr.html"
+ },
+ "url": "https://societe.example.ch/emplois/assistant",
+ "expect": {
+  "outcome": "posting",
+  "accept": [
+   "posting"
+  ]
+ },
+ "trap": true,
+ "sketch": {
+  "url": "https://societe.example.ch/emplois/assistant",
+  "title": "Assistant(e) administratif(ve)",
+  "headings": [
+   "Assistant(e) administratif(ve)"
+  ],
+  "controls": [],
+  "buttons": [
+   "Accueil",
+   "Postuler"
+  ],
+  "frames": [],
+  "mails": [
+   "Une question sur le poste ? Écrivez à rh@example.ch."
+  ]
+ },
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Postuler",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "email",
+   "text": "Écrivez à rh@example.ch.",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Assistant(e) administratif(ve)",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Une question sur le poste ?",
+   "position": "main"
+  }
+ ]
+}

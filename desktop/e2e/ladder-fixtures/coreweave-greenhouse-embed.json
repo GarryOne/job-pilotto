@@ -1,0 +1,124 @@
+{
+ "id": "coreweave-greenhouse-embed",
+ "source": "captured",
+ "lang": "en",
+ "why": "pool: Greenhouse behind the employer site (CoreWeave)",
+ "capture": {
+  "url": "https://coreweave.com/careers/job?4553828006&board=coreweave&gh_jid=4553828006"
+ },
+ "expect": {
+  "outcome": "form_in_frame",
+  "accept": [
+   "form_in_frame",
+   "posting",
+   "other"
+  ]
+ },
+ "sketch": {
+  "url": "https://coreweave.com/careers/job",
+  "title": "Explore Our Open Positions | CoreWeave",
+  "headings": [
+   "Products",
+   "Solutions",
+   "AI Infrastructure",
+   "Why CoreWeave",
+   "Resources",
+   "About"
+  ],
+  "controls": [],
+  "buttons": [
+   "Read more",
+   "CoreWeave Cloud",
+   "Infrastructure",
+   "CoreWeave Forge",
+   "Solutions",
+   "Resources",
+   "Log in",
+   "Sign up",
+   "Contact us",
+   "Openings in Europe →",
+   "Openings in Canada →",
+   "Openings at Weights & Biases →",
+   "Login",
+   "GPU Compute",
+   "CPU Compute",
+   "Storage Services",
+   "Networking Services",
+   "Managed Services",
+   "Bare Metal Servers",
+   "Fleet LifeCycle Controller"
+  ],
+  "frames": [
+   "job-boards.greenhouse.io"
+  ],
+  "mails": []
+ },
+ "schemaVersion": 1,
+ "answer": {
+  "kind": "other",
+  "confidence": 0.85,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "link",
+   "text": "Openings in Europe →",
+   "host": "coreweave.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "link",
+   "text": "Openings in Canada →",
+   "host": "coreweave.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "Openings at Weights & Biases →",
+   "host": "coreweave.com",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "Openings in Europe",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Openings in Canada",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "Openings at Weights & Biases",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "link",
+   "text": "Read more",
+   "host": "coreweave.com",
+   "position": "other"
+  },
+  {
+   "n": 8,
+   "kind": "button",
+   "text": "CoreWeave Cloud",
+   "position": "header"
+  }
+ ]
+}

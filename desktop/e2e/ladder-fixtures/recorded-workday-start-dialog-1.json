@@ -1,0 +1,62 @@
+{
+ "schemaVersion": 1,
+ "id": "recorded-workday-start-dialog-1",
+ "source": "recorded",
+ "lang": "en",
+ "why": "recorded case: a start dialog offering manual / reuse a previous application / sign in with a third-party account (Workday 'S",
+ "capture": {
+  "page": "recorded/workday-start-dialog-1/page.html"
+ },
+ "url": "https://richemont.wd3.myworkdayjobs.com/en-US/External/job/Geneva/Buyer_R123",
+ "expect": {
+  "outcome": "posting",
+  "apply_route": "manual",
+  "digest": "not_asked"
+ },
+ "sketch": {
+  "url": "https://richemont.wd3.myworkdayjobs.com/en-US/External/job/Geneva/Buyer_R123",
+  "title": "Buyer - Geneva",
+  "headings": [
+   "Buyer"
+  ],
+  "controls": [],
+  "buttons": [
+   "Apply"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Apply",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "sentence",
+   "text": "Buyer",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Geneva · Full time",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Join our purchasing team.",
+   "position": "main"
+  }
+ ]
+}

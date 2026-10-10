@@ -1,0 +1,130 @@
+{
+ "id": "ashby-form",
+ "source": "captured",
+ "lang": "en",
+ "why": "pool: reaches the form (Ashby)",
+ "capture": {
+  "url": "https://jobs.ashbyhq.com/bjakcareer/066ac7d5-dd99-42a1-82b2-ca5e3dc4eb92"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "sketch": {
+  "url": "https://jobs.ashbyhq.com/bjakcareer/066ac7d5-dd99-42a1-82b2-ca5e3dc4eb92",
+  "title": "Strategy & Operations Associate @ Bjak",
+  "headings": [
+   "Strategy & Operations Associate",
+   "Location",
+   "Address",
+   "Employment Type",
+   "Location Type",
+   "Department",
+   "About BJAK",
+   "The Role"
+  ],
+  "controls": [],
+  "buttons": [
+   "Overview",
+   "Application",
+   "Apply for this Job",
+   "Powered by Ashby",
+   "Privacy Policy",
+   "Security",
+   "Vulnerability Disclosure"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "note": "the Ashby Overview tab; the form is behind \"Apply for this Job\"",
+ "schemaVersion": 1,
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.93,
+  "apply_button": "Apply for this Job",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "link",
+   "text": "Apply for this Job",
+   "host": "jobs.ashbyhq.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Apply for this Job",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Strategy & Operations Associate",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "Location",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Malaysia",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "Address",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Bandar Utama, Petaling Jaya, Selangor",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Employment Type",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Full time",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Location Type",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "Overview",
+   "host": "jobs.ashbyhq.com",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "Application",
+   "host": "jobs.ashbyhq.com",
+   "position": "header"
+  }
+ ]
+}

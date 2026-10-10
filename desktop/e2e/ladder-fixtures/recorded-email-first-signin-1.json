@@ -1,0 +1,99 @@
+{
+ "schemaVersion": 1,
+ "id": "recorded-email-first-signin-1",
+ "source": "recorded",
+ "lang": "en",
+ "why": "recorded case: email-first sign-in: one email box and Continue, a 'Create an account' link, social sign-in buttons",
+ "capture": {
+  "page": "recorded/email-first-signin-1/login.html"
+ },
+ "url": "https://auth.jobs.ch/u/login/identifier",
+ "expect": {
+  "outcome": "account"
+ },
+ "sketch": {
+  "url": "https://auth.jobs.ch/u/login/identifier",
+  "title": "",
+  "headings": [
+   "Log in"
+  ],
+  "controls": [
+   {
+    "type": "email",
+    "label": "Email address *",
+    "required": true
+   }
+  ],
+  "buttons": [
+   "Continue",
+   "Create an account",
+   "Continue with Google",
+   "Continue with Apple"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "account",
+  "confidence": 0.8,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "sign_in",
+  "register_control": "Create an account",
+  "signin_control": "",
+  "account_button": "Continue",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Continue",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Continue with Google",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Continue with Apple",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "Email address",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Please enter an email address",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "Email is not valid.",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Don't have an account?",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Create an account",
+   "position": "main"
+  }
+ ]
+}

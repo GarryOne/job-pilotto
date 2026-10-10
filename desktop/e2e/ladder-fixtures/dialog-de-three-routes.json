@@ -1,0 +1,83 @@
+{
+ "schemaVersion": 1,
+ "id": "dialog-de-three-routes",
+ "source": "reconstructed",
+ "lang": "de",
+ "why": "start dialog: start dialog in German: manual / reuse / LinkedIn",
+ "capture": {
+  "page": "ladder-fixtures/pages/dialog-de-three-routes.html"
+ },
+ "url": "https://jobs.example.com/dialog-de-three-routes/1",
+ "expect": {
+  "outcome": "posting",
+  "accept": [
+   "posting"
+  ],
+  "apply_route": "manual",
+  "digest": "not_asked"
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/dialog-de-three-routes/1",
+  "title": "Bewerbung starten",
+  "headings": [
+   "Verkäufer (m/w/d)",
+   "Wie möchten Sie sich bewerben?"
+  ],
+  "controls": [],
+  "buttons": [
+   "Home",
+   "Jetzt bewerben",
+   "Manuell ausfüllen",
+   "Letzte Bewerbung verwenden",
+   "Mit LinkedIn anmelden"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Jetzt bewerben",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Verkäufer (m/w/d)",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Verstärken Sie unser Team.",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Manuell ausfüllen",
+   "position": "other"
+  },
+  {
+   "n": 5,
+   "kind": "button",
+   "text": "Letzte Bewerbung verwenden",
+   "position": "other"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Manuell ausfüllen",
+  "apply_button_kind": "apply",
+  "apply_route": "manual",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

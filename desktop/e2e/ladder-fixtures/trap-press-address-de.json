@@ -1,0 +1,80 @@
+{
+ "schemaVersion": 1,
+ "id": "trap-press-address-de",
+ "source": "invented",
+ "lang": "de",
+ "why": "TRAP: a press address in the posting text, with a real Apply button: the outcome is not email",
+ "capture": {
+  "page": "ladder-fixtures/pages/trap-press-address-de.html"
+ },
+ "url": "https://logistik.example.ch/stellen/mitarbeiter",
+ "expect": {
+  "outcome": "posting",
+  "accept": [
+   "posting"
+  ]
+ },
+ "trap": true,
+ "sketch": {
+  "url": "https://logistik.example.ch/stellen/mitarbeiter",
+  "title": "Mitarbeiter Logistik",
+  "headings": [
+   "Mitarbeiter Logistik",
+   "Ihre Aufgaben"
+  ],
+  "controls": [],
+  "buttons": [
+   "Start",
+   "Jetzt bewerben"
+  ],
+  "frames": [],
+  "mails": [
+   "Presseanfragen bitte an presse@example.ch."
+  ]
+ },
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.88,
+  "apply_button": "Jetzt bewerben",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "email",
+   "text": "Presseanfragen bitte an presse@example.ch.",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Jetzt bewerben",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Mitarbeiter Logistik",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "Ihre Aufgaben",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Kommissionieren und Verladen.",
+   "position": "main"
+  }
+ ]
+}

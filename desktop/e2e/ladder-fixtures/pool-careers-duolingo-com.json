@@ -1,0 +1,214 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-careers-duolingo-com",
+ "source": "captured",
+ "why": "pool shape read from a real posting at careers.duolingo.com (Duolingo)",
+ "capture": {
+  "url": "https://careers.duolingo.com/jobs/8778700002?gh_jid=8778700002"
+ },
+ "expect": {
+  "outcome": "form",
+  "accept": [
+   "form",
+   "posting"
+  ]
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://careers.duolingo.com/jobs/8778700002",
+  "title": "Duolingo Careers",
+  "headings": [
+   "Platform Engineer II",
+   "Apply for this job",
+   "Voluntary Self Identification"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "First Name*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Last Name*",
+    "required": true
+   },
+   {
+    "type": "email",
+    "label": "Email*",
+    "required": true
+   },
+   {
+    "type": "tel",
+    "label": "Phone*",
+    "required": true
+   },
+   {
+    "type": "search",
+    "label": "",
+    "required": false
+   },
+   {
+    "type": "search",
+    "label": "",
+    "required": false
+   },
+   {
+    "type": "file",
+    "label": "Attach",
+    "required": false
+   },
+   {
+    "type": "file",
+    "label": "Attach",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "Preferred First Name*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "How do you pronounce your name? (e.g., 'An-na' or 'Ah-na')",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "LinkedIn Profile",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "If you're less than 3 years out of school, what is your undergraduate GPA?*",
+    "required": true
+   },
+   {
+    "type": "textarea",
+    "label": "How has AI changed the way you approach your work?*",
+    "required": true
+   }
+  ],
+  "buttons": [
+   "Back to home",
+   "Apply",
+   "here",
+   "contact@example.com",
+   "Duolingo Applicant Privacy Notice",
+   "Opt-out here",
+   "Dropbox",
+   "Google Drive",
+   "Enter manually",
+   "Submit application",
+   "Courses",
+   "Mission",
+   "Approach",
+   "Efficacy",
+   "Research",
+   "Press",
+   "Investors",
+   "Contact us",
+   "Duolingo",
+   "Duolingo English Test"
+  ],
+  "frames": [
+   "www.youtube-nocookie.com"
+  ],
+  "mails": [
+   "mailto:contact@example.com",
+   "Accommodations: We will do everything we can within reason to make sure that your interview takes place in an environment that fairly and accurately assesses yo"
+  ]
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "email",
+   "text": "If you need assistance or accommodation, please contact contact@example.com .",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "email",
+   "text": "contact@example.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "innovative solutions to complex technical problems",
+   "host": "blog.duolingo.com",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "here",
+   "host": "careers.duolingo.com",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "Duolingo Applicant Privacy Notice",
+   "host": "docs.google.com",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "Opt-out here",
+   "host": "app2.greenhouse.io",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "button",
+   "text": "Dropbox",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "button",
+   "text": "Google Drive",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Platform Engineer II",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "New York, NY",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "button",
+   "text": "Back to home",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "Courses",
+   "host": "duolingo.com",
+   "position": "footer"
+  }
+ ],
+ "answer": {
+  "kind": "form",
+  "confidence": 0.95,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

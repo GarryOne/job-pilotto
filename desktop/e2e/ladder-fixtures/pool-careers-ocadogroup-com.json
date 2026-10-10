@@ -1,0 +1,135 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-careers-ocadogroup-com",
+ "source": "captured",
+ "why": "pool shape read from a real posting at careers.ocadogroup.com (Ocado Technology)",
+ "capture": {
+  "url": "https://careers.ocadogroup.com/jobs/details?gh_jid=4892147101&gh_jid=4892147101"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://careers.ocadogroup.com/jobs/details",
+  "title": "Job Details",
+  "headings": [
+   "Hardware Reliability Engineer",
+   "Stay in the loop"
+  ],
+  "controls": [],
+  "buttons": [
+   "Search Logistics Jobs",
+   "Life at Ocado",
+   "Teams",
+   "Locations",
+   "Blogs",
+   "Jobs",
+   "Apply",
+   "Join our Talent Community",
+   "Linkedin",
+   "Facebook",
+   "X",
+   "Youtube",
+   "All social channels",
+   "Stay Updated",
+   "See Reviews",
+   "Explore Ocado",
+   "Terms and conditions",
+   "Privacy policy",
+   "Recruitment Privacy Notice",
+   "Sitemap"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "link",
+   "text": "Join our Talent Community",
+   "host": "boards.eu.greenhouse.io",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "We are searching for a Hardware Reliability Engineer to help support our growing customer sites.",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "An ideal candidate possesses electro-mechanical experience, learns quickly, and can work both independently and across the organization effectively.",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "You will join our Hardware Reliability Team, combined with software support, configurations, and deployment engineering teams, to make our customers successful.",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "This position has the opportunity for the candidate to grow with the company and take on additional responsibilities over time.",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "This unique role requires a mix of hands-on technical capability, client-facing posture, travel savvy, and six sigma methodologies.",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "You will have an immediate impact on the development of our company and the success of our customers.",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "If you enjoy tinkering, troubleshooting, and want hands-on experience with a new technology in a rapidly growing industry, this role is for you!",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Key Activities:",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Use remote monitoring software to access customer automation to execute hardware maintenance, upgrades, and retrofits",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "Search Logistics Jobs",
+   "host": "www.ocado-logistics.com",
+   "position": "other"
+  },
+  {
+   "n": 12,
+   "kind": "button",
+   "text": "Life at Ocado",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Apply",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

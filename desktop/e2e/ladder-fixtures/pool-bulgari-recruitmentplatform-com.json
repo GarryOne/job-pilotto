@@ -1,0 +1,126 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-bulgari-recruitmentplatform-com",
+ "source": "captured",
+ "why": "pool shape read from a real posting at bulgari.recruitmentplatform.com (Bulgari (recruitmentplatform.com))",
+ "capture": {
+  "url": "https://bulgari.recruitmentplatform.com/FO/PCAFK026203F3VBQB798N7V11/details.html?jobId=1091811"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://bulgari.recruitmentplatform.com/FO/PCAFK026203F3VBQB798N7V11/details.html",
+  "title": "Bulgari",
+  "headings": [
+   "CLIENT ADVISOR Apply Now",
+   "Our Maison",
+   "Our Opportunity",
+   "Your Background",
+   "Our Benefits",
+   "BULG10196",
+   "Switzerland",
+   "GENEVA"
+  ],
+  "controls": [],
+  "buttons": [
+   "Apply Now",
+   "Back to list",
+   "Send job to a friend",
+   "Print this page"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "link",
+   "text": "Apply Now",
+   "host": "emea3.recruitmentplatform.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "CLIENT ADVISOR",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Our Maison",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "Founded in 1884 by Sotirio Bulgari as a single jewelry shop in the capital city of Rome, Bulgari’s name has today become emblematic of Italian excellence.",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Creating a highly distinctive style that celebrates its rich Roman history, Bulgari is able to blend modernity with classicism.",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "The original pioneering spirit of the Bulgari family helped to evolve the company into a successful and global Maison, while its roots in jewelry and watches ha",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Our Opportunity",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "In order to strengthen the team in our prestigious boutique in Geneva, Rue du Rhône, we are recruiting our future :",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Acting as an ambassador of the Maison, you will provide exceptional, consistent, and seamless client experience and embody the values of the Maison and sophisti",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Your main missions:",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "Back to list",
+   "host": "bulgari.recruitmentplatform.com",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "Send job to a friend",
+   "host": "bulgari.recruitmentplatform.com",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.95,
+  "apply_button": "Apply Now",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

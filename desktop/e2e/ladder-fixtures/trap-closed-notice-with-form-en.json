@@ -1,0 +1,86 @@
+{
+ "schemaVersion": 1,
+ "id": "trap-closed-notice-with-form-en",
+ "source": "invented",
+ "lang": "en",
+ "why": "TRAP: a deadline notice on a page that still has a working application form",
+ "capture": {
+  "page": "ladder-fixtures/pages/trap-closed-notice-with-form-en.html"
+ },
+ "url": "https://shop.example.com/jobs/customer-advisor",
+ "expect": {
+  "outcome": "form",
+  "accept": [
+   "form"
+  ]
+ },
+ "trap": true,
+ "sketch": {
+  "url": "https://shop.example.com/jobs/customer-advisor",
+  "title": "Customer advisor",
+  "headings": [
+   "Customer advisor"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "First name",
+    "required": true
+   },
+   {
+    "type": "email",
+    "label": "Email",
+    "required": true
+   },
+   {
+    "type": "file",
+    "label": "CV",
+    "required": false
+   }
+  ],
+  "buttons": [
+   "Send application"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "form",
+  "confidence": 0.95,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Send application",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Customer advisor",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Note: the deadline for this posting has passed, but applications are still accepted below.",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "First name Email CV",
+   "position": "main"
+  }
+ ]
+}

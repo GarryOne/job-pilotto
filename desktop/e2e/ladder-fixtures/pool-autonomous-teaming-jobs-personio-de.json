@@ -1,0 +1,128 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-autonomous-teaming-jobs-personio-de",
+ "source": "captured",
+ "why": "pool shape read from a real posting at autonomous-teaming.jobs.personio.de (autonomous-teaming)",
+ "capture": {
+  "url": "https://autonomous-teaming.jobs.personio.de/job/2639174"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://autonomous-teaming.jobs.personio.de/job/2639174",
+  "title": "Senior Platform / DevOps Engineer (m/f/d) — CI/CD, Build Systems & Developer Environments | Jobs at ATS",
+  "headings": [
+   "Senior Platform / DevOps Engineer (m/f/d) — CI/CD, Build Systems & Developer Environments",
+   "What we offer",
+   "Your mission",
+   "Your profile",
+   "Nice to have",
+   "What else",
+   "About us"
+  ],
+  "controls": [],
+  "buttons": [
+   "Skip to main content",
+   "English",
+   "Back to all jobs",
+   "Apply for this job",
+   "Personio",
+   "Data privacy statement",
+   "Legal Notice"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "link",
+   "text": "Back to all jobs",
+   "host": "autonomous-teaming.jobs.personio.de",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "link",
+   "text": "Apply for this job",
+   "host": "autonomous-teaming.jobs.personio.de",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Apply for this job",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "Back to all jobs",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Senior Platform / DevOps Engineer (m/f/d) — CI/CD, Build Systems & Developer Environments",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "Munich (DEU)",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Full-time",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Permanent employee",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "What we offer",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Work in an international, agile team creating the future of autonomous systems",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "Skip to main content",
+   "host": "autonomous-teaming.jobs.personio.de",
+   "position": "other"
+  },
+  {
+   "n": 12,
+   "kind": "button",
+   "text": "English",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.92,
+  "apply_button": "Apply for this job",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

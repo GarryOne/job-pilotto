@@ -1,0 +1,136 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-apply-workable-com",
+ "source": "captured",
+ "why": "pool shape read from a real posting at apply.workable.com (Starling Bank)",
+ "capture": {
+  "url": "https://apply.workable.com/j/288875C2F2"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://apply.workable.com/starling-bank/j/288875C2F2",
+  "title": "Staff Infrastructure Engineer (GCP) - Engine by Starling - Starling",
+  "headings": [
+   "Staff Infrastructure Engineer (GCP) - Engine by Starling",
+   "Description",
+   "Requirements",
+   "Benefits"
+  ],
+  "controls": [],
+  "buttons": [
+   "Overview",
+   "Application",
+   "Engine by Starling",
+   "Starling",
+   "Apply for this job",
+   "cookies policy",
+   "Cookies settings",
+   "Accept all",
+   "Decline all",
+   "privacy notice",
+   "View website",
+   "View all jobs",
+   "HelpSVGs not supported by this browser.",
+   "Cookie settings",
+   "Workable"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Share this job SVGs not supported by this browser.",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "link",
+   "text": "Engine by Starling",
+   "host": "www.enginebystarling.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "Starling",
+   "host": "www.starlingbank.com",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "https://enginebystarling.com/careers/engineering/",
+   "host": "enginebystarling.com",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "Apply for this job",
+   "host": "apply.workable.com",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "Description",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "At Engine by Starling , we are on a mission to find and work with leading banks all around the world who have the ambition to build rapid growth businesses, on ",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Engine is Starling's software-as-a-service (SaaS) business, the technology that was built to power Starling Bank, and a year ago we split out as a separate busi",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Starling has seen exceptional growth and success, and a large part of that is down to the fact that we have built our own modern technology from the ground up.",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "The Engine technology platform is now available to banks and financial institutions all around the world, enabling them to benefit from the innovative digital f",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "Overview",
+   "host": "apply.workable.com",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "Application",
+   "host": "apply.workable.com",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.95,
+  "apply_button": "Apply for this job",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

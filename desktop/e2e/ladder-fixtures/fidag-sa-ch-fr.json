@@ -1,0 +1,140 @@
+{
+ "id": "fidag-sa-ch-fr",
+ "source": "captured",
+ "lang": "fr",
+ "why": "pool: a small French employer; the AI said other at 0.6",
+ "capture": {
+  "url": "https://www.fidag-sa.ch/offres/vous-etes-comptable/"
+ },
+ "expect": {
+  "outcome": "email",
+  "accept": [
+   "email",
+   "other"
+  ]
+ },
+ "sketch": {
+  "url": "https://www.fidag-sa.ch/offres/vous-etes-comptable/",
+  "title": "Vous êtes comptable ? - Fidag",
+  "headings": [
+   "Vous êtes comptable ?"
+  ],
+  "controls": [],
+  "buttons": [
+   "Fr",
+   "En",
+   "Retourner aux offres",
+   "contact@example.com",
+   "Keyboard shortcuts",
+   "Terms",
+   "Do you own this website?",
+   "OK",
+   "✉",
+   "Termes et conditions",
+   "Politique de confidentialité",
+   "Politiques de cookies",
+   "Ok"
+  ],
+  "frames": [
+   "www.fidag-sa.ch"
+  ],
+  "mails": [
+   "mailto:contact@example.com",
+   "mailto:contact@example.com",
+   "mailto:contact@example.com",
+   "mailto:contact@example.com",
+   "mailto:contact@example.com"
+  ]
+ },
+ "schemaVersion": 1,
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.6,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "other",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "email",
+   "text": "Merci d’envoyer votre dossier complet à : contact@example.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "email",
+   "text": "contact@example.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "phone",
+   "text": "(phone)",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "Retourner aux offres",
+   "host": "www.fidag-sa.ch",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "button",
+   "text": "Keyboard shortcuts",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "Terms",
+   "host": "www.google.com",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "link",
+   "text": "Do you own this website?",
+   "host": "g.co",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "button",
+   "text": "OK",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Retourner aux offres",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Vous êtes comptable ?",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "phone",
+   "text": ": (phone)",
+   "position": "footer"
+  },
+  {
+   "n": 12,
+   "kind": "phone",
+   "text": ": (phone)",
+   "position": "footer"
+  }
+ ]
+}

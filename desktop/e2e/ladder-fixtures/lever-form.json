@@ -1,0 +1,101 @@
+{
+ "schemaVersion": 1,
+ "id": "lever-form",
+ "source": "reconstructed",
+ "lang": "en",
+ "why": "Lever application page: the form (reconstructed from the shape, no live Lever page in the pool)",
+ "capture": {
+  "page": "ladder-fixtures/pages/lever-form.html"
+ },
+ "url": "https://jobs.example.com/acme/1234",
+ "expect": {
+  "outcome": "form",
+  "accept": [
+   "form"
+  ]
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/acme/1234",
+  "title": "Backend engineer",
+  "headings": [
+   "Backend engineer",
+   "Submit your application"
+  ],
+  "controls": [
+   {
+    "type": "file",
+    "label": "Resume/CV",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "Full name",
+    "required": true
+   },
+   {
+    "type": "email",
+    "label": "Email",
+    "required": true
+   },
+   {
+    "type": "tel",
+    "label": "Phone",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "LinkedIn URL",
+    "required": false
+   },
+   {
+    "type": "textarea",
+    "label": "Additional information",
+    "required": false
+   }
+  ],
+  "buttons": [
+   "Submit application"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "form",
+  "confidence": 0.97,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Submit application",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Backend engineer",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Submit your application",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "Resume/CV Full name Email Phone LinkedIn URL Additional information",
+   "position": "main"
+  }
+ ]
+}

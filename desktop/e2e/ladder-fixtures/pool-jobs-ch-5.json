@@ -1,0 +1,147 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-jobs-ch-5",
+ "source": "captured",
+ "why": "pool shape read from a real posting at www.jobs.ch (jobs.ch -> a university's public-sector form)",
+ "capture": {
+  "url": "https://www.jobs.ch/en/vacancies/detail/c9aeada9-6a23-4e60-b896-f584d041a9d7/"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://www.jobs.ch/en/vacancies/detail/c9aeada9-6a23-4e60-b896-f584d041a9d7/",
+  "title": "Secretary-Accountant / Manager - Job Offer at Université de Genève - jobs.ch",
+  "headings": [
+   "Secretary-Accountant / Manager",
+   "Job description",
+   "Title and required skills",
+   "Start date",
+   "Contact",
+   "Additional information",
+   "Categories:",
+   "Others have also looked at"
+  ],
+  "controls": [],
+  "buttons": [
+   "Skip to content",
+   "jobs.ch Navigation logo",
+   "Find a job",
+   "Explore companies",
+   "Salary estimator",
+   "Recruiter Area",
+   "Deutsch",
+   "Français",
+   "English",
+   "Login",
+   "Sign up",
+   "Job search",
+   "Job recommendations",
+   "Job alerts",
+   "Saved jobs",
+   "Applications",
+   "Université de Genève",
+   "Save",
+   "Apply",
+   "Rue du Général-DUFOUR 24, 1204 Genève"
+  ],
+  "frames": [],
+  "mails": [
+   "mailto:contact@example.com",
+   "Further information can be obtained from Ms Bouchra Gilliéron: contact@example.com"
+  ]
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "email",
+   "text": "Further information can be obtained from Ms Bouchra Gilliéron: contact@example.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "email",
+   "text": "contact@example.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Save",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Apply",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "Rue du Général-DUFOUR 24, 1204 Genève",
+   "host": "www.google.com",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "Finance / Trusts / Real Estate",
+   "host": "www.jobs.ch",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "link",
+   "text": "Finance",
+   "host": "www.jobs.ch",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "link",
+   "text": "Université de Genève",
+   "host": "www.jobs.ch",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Genève",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Secretary-Accountant / Manager",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "button",
+   "text": "Skip to content",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "jobs.ch Navigation logo",
+   "host": "www.jobs.ch",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Apply",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

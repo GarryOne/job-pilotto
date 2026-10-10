@@ -1,0 +1,82 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-careers-richemont-com",
+ "source": "captured",
+ "why": "pool shape read from a real posting at careers.richemont.com (Richemont careers site)",
+ "capture": {
+  "url": "https://careers.richemont.com/en/jobs/jr132391/client-advisor/"
+ },
+ "expect": {
+  "outcome": "other"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://careers.richemont.com/en/jobs/jr132391/client-advisor/",
+  "title": "Just a moment...",
+  "headings": [
+   "careers.richemont.com",
+   "Performing security verification"
+  ],
+  "controls": [],
+  "buttons": [
+   "Cloudflare",
+   "Privacy"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "sentence",
+   "text": "careers.richemont.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Performing security verification",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "This website uses a security service to protect against malicious bots.",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "This page is displayed while the website verifies you are not a bot.",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "Cloudflare",
+   "host": "www.cloudflare.com",
+   "position": "footer"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "Privacy",
+   "host": "www.cloudflare.com",
+   "position": "footer"
+  }
+ ],
+ "note": "a bot wall or access-denied page when read today: never passed",
+ "answer": {
+  "kind": "other",
+  "confidence": 0.95,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": true
+ }
+}

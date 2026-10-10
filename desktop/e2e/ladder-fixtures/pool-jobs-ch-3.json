@@ -1,0 +1,141 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-jobs-ch-3",
+ "source": "captured",
+ "why": "pool shape read from a real posting at www.jobs.ch (jobs.ch -> EY's application system)",
+ "capture": {
+  "url": "https://www.jobs.ch/en/vacancies/detail/ccff839c-c5f2-4a89-98e3-00fdaba6037c/"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://www.jobs.ch/en/vacancies/detail/ccff839c-c5f2-4a89-98e3-00fdaba6037c/",
+  "title": "Senior Auditor(s) in Financial Services - Geneva - Job Offer at Ernst & Young AG - jobs.ch",
+  "headings": [
+   "Senior Auditor(s) in Financial Services - Geneva",
+   "Tasks",
+   "Skills",
+   "Categories:",
+   "Salary estimator",
+   "Cookies"
+  ],
+  "controls": [],
+  "buttons": [
+   "Skip to content",
+   "jobs.ch Navigation logo",
+   "Find a job",
+   "Explore companies",
+   "Salary estimator",
+   "Recruiter Area",
+   "Deutsch",
+   "Français",
+   "English",
+   "Login",
+   "Sign up",
+   "Job search",
+   "Job recommendations",
+   "Job alerts",
+   "Saved jobs",
+   "Applications",
+   "Save",
+   "Apply",
+   "Hide",
+   "multi-cultural"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Save",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Apply",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Hide",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "multi-cultural",
+   "host": "www.ey.com",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "here",
+   "host": "www.ey.com",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "Finance / Trusts / Real Estate",
+   "host": "www.jobs.ch",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Grand-Lancy / Geneva",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Senior Auditor(s) in Financial Services - Geneva",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "07 February 2025",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "100%",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "button",
+   "text": "Skip to content",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "jobs.ch Navigation logo",
+   "host": "www.jobs.ch",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Apply",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

@@ -1,0 +1,147 @@
+{
+ "id": "datadog-greenhouse-frame",
+ "source": "captured",
+ "lang": "en",
+ "why": "pool: the Greenhouse form is a frame of the posting (frameCandidates, checklist C)",
+ "capture": {
+  "url": "https://careers.datadoghq.com/detail/7131404/?gh_jid=7131404"
+ },
+ "expect": {
+  "outcome": "form_in_frame",
+  "accept": [
+   "form_in_frame",
+   "posting"
+  ]
+ },
+ "sketch": {
+  "url": "https://careers.datadoghq.com/detail/7131404/",
+  "title": "Strategic Account Executive | Datadog Careers",
+  "headings": [
+   "Careers",
+   "Strategic Account Executive"
+  ],
+  "controls": [],
+  "buttons": [
+   "Careers",
+   "Welcome",
+   "All Jobs",
+   "Instagram",
+   "LinkedIn,",
+   "Datadog Learning Center.",
+   "equal employment opportunity",
+   "Candidate Legal Notices",
+   "this form",
+   "Applicant and Candidate Privacy Notice",
+   "Interviewing at Datadog AI Guidelines",
+   "Product",
+   "Observability",
+   "Infrastructure Monitoring",
+   "Custom Metrics",
+   "Network Monitoring",
+   "Container Monitoring",
+   "Kubernetes Autoscaling",
+   "Serverless Monitoring",
+   "Cloud Cost Management"
+  ],
+  "frames": [
+   "job-boards.greenhouse.io"
+  ],
+  "mails": []
+ },
+ "schemaVersion": 1,
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.6,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "link",
+   "text": "Instagram",
+   "host": "www.instagram.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "link",
+   "text": "LinkedIn,",
+   "host": "www.linkedin.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "Datadog Learning Center.",
+   "host": "learn.datadoghq.com",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "equal employment opportunity",
+   "host": "www.eeoc.gov",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "Candidate Legal Notices",
+   "host": "www.datadoghq.com",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "this form",
+   "host": "docs.google.com",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Strategic Account Executive",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Chile, Remote",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Our Strategic Account Executives target and close new business with Datadog’s largest, most strategic customers and prospects.",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "In this role you’ll be focused on uncovering the pain points organizations face as they operate in or migrate to a cloud environment at scale as well as deliver",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "Datadog named a Leader in the Gartner® Magic Quadrant™ for Observability Platfor",
+   "host": "www.datadoghq.com",
+   "position": "other"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "Careers",
+   "host": "careers.datadoghq.com",
+   "position": "other"
+  }
+ ]
+}

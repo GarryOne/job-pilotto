@@ -1,0 +1,156 @@
+{
+ "id": "hornbach-successfactors",
+ "source": "captured",
+ "lang": "de",
+ "why": "pool: stops at the posting; SuccessFactors posting with an Apply that leads to no form",
+ "capture": {
+  "url": "https://jobs.hornbach.com/Austria/job/Klagenfurt-Verk%C3%A4ufer-%28wmd%29-Baustoffe-9020/1410199233/"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "sketch": {
+  "url": "https://jobs.hornbach.com/Austria/job/Klagenfurt-Verk%C3%A4ufer-%28wmd%29-Baustoffe-9020/1410199233/",
+  "title": "Verkäufer (w/m/d) Baustoffe Stellendetails | HORNBACH",
+  "headings": [
+   "Verkäufer (w/m/d) Baustoffe",
+   "Über HORNBACH",
+   "Jobs",
+   "Ausbildung",
+   "Informationen",
+   "Wir verwenden Cookies!"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Stichwort, Jobtitel, Standort, etc.",
+    "required": false
+   },
+   {
+    "type": "number",
+    "label": "Wählen Sie aus, wie oft (in Tagen) Sie eine Benachrichtigung erhalten möchten:",
+    "required": true
+   }
+  ],
+  "buttons": [
+   "Zum Hauptinhalt",
+   "JOBS",
+   "ANMELDUNG",
+   "LÄNDER",
+   "Stellen suchen",
+   "Jobsuchagent aktivieren",
+   "Jetzt bewerben (ohne Anmeldung)",
+   "Jetzt bewerben (mit Anmeldung)",
+   "contact@example.com",
+   "Jobs in unseren Märkten",
+   "Kultur und Werte",
+   "Entwicklung",
+   "Benefits",
+   "Zentrale",
+   "Märkte",
+   "Bewerbungsprozess",
+   "Kontakt",
+   "Deine Lehre",
+   "Lehrstellen",
+   "Goodies"
+  ],
+  "frames": [],
+  "mails": [
+   "mailto:contact@example.com",
+   "contact@example.com"
+  ]
+ },
+ "schemaVersion": 1,
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.95,
+  "apply_button": "Jetzt bewerben (ohne Anmeldung)",
+  "apply_route": "manual",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "email",
+   "text": "(phone) contact@example.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "email",
+   "text": "contact@example.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Jobsuchagent aktivieren",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "Jetzt bewerben (mit Anmeldung)",
+   "host": "jobs.hornbach.com",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "Stellenangebote in unseren Märkten bei HORNBACH Österreich,",
+   "host": "jobs.hornbach.com",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "Jobs in unseren Märkten",
+   "host": "jobs.hornbach.com",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Verkäufer (w/m/d) Baustoffe",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Was erwartet Dich:",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Urlaubswoche nach einem Jahr und viele weitere Benefits wie z.B.",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Gesundheitsleistungen, Dienstradleasing und Firmenevents",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "Zum Hauptinhalt",
+   "host": "jobs.hornbach.com",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "JOBS",
+   "host": "jobs.hornbach.com",
+   "position": "header"
+  }
+ ]
+}

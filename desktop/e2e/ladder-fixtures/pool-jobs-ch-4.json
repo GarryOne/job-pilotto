@@ -1,0 +1,144 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-jobs-ch-4",
+ "source": "captured",
+ "why": "pool shape read from a real posting at www.jobs.ch (jobs.ch -> BDO)",
+ "capture": {
+  "url": "https://www.jobs.ch/en/vacancies/detail/8515aa2b-69f4-4979-9707-0d0b62a45d31/"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://www.jobs.ch/en/vacancies/detail/8515aa2b-69f4-4979-9707-0d0b62a45d31/",
+  "title": "Manager/Senior Manager Audit Financial Services with focus on Asset Management (m/f/d) at 80 - 100% - Job Offer at BDO AG - jobs.ch",
+  "headings": [
+   "Manager/Senior Manager Audit Financial Services with focus on Asset Management (m/f/d) at 80 - 100%",
+   "Manager/Senior Manager Audit Financial Services with focus on Asset Management (m/f/d) at 80 - 100%",
+   "Categories:",
+   "Others have also looked at",
+   "Un(e) conseiller(e) de direction en gestion et finances (80-100%)",
+   "Spécialiste Corporate Actions - Mission en banque privée à 100%",
+   "Analyste Controlling",
+   "Salary estimator"
+  ],
+  "controls": [],
+  "buttons": [
+   "Skip to content",
+   "jobs.ch Navigation logo",
+   "Find a job",
+   "Explore companies",
+   "Salary estimator",
+   "Recruiter Area",
+   "Deutsch",
+   "Français",
+   "English",
+   "Login",
+   "Sign up",
+   "Job search",
+   "Job recommendations",
+   "Job alerts",
+   "Saved jobs",
+   "Applications",
+   "BDO AG",
+   "Save",
+   "Apply",
+   "Route de Meyrin 123, 1219 Châtelaine"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "phone",
+   "text": "Séverine Marmy Head of HR Romandy (phone) www.bdo.ch/carrieres",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Save",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Apply",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "Route de Meyrin 123, 1219 Châtelaine",
+   "host": "www.google.com",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "Finance / Trusts / Real Estate",
+   "host": "www.jobs.ch",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "Auditing / Revision / Auditing",
+   "host": "www.jobs.ch",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "link",
+   "text": "BDO AG",
+   "host": "www.jobs.ch",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Châtelaine",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Manager/Senior Manager Audit Financial Services with focus on Asset Management (m/f/d) at 80 - 100%",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "13 August 2026",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "button",
+   "text": "Skip to content",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "jobs.ch Navigation logo",
+   "host": "www.jobs.ch",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Apply",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

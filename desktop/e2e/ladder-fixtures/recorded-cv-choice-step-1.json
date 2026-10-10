@@ -1,0 +1,56 @@
+{
+ "schemaVersion": 1,
+ "id": "recorded-cv-choice-step-1",
+ "source": "recorded",
+ "lang": "en",
+ "why": "recorded case: a step that offers ways to give the CV, each revealing its own part (upload / paste / later)",
+ "capture": {
+  "page": "recorded/cv-choice-step-1/choice.html"
+ },
+ "url": "https://apply.deloitte.ch/CHCareers/ApplicationMethods",
+ "expect": {
+  "outcome": "posting"
+ },
+ "sketch": {
+  "url": "https://apply.deloitte.ch/CHCareers/ApplicationMethods",
+  "title": "Application methods",
+  "headings": [
+   "Choose from one of the options below to start your application"
+  ],
+  "controls": [
+   {
+    "type": "file",
+    "label": "Upload CV *",
+    "required": false
+   }
+  ],
+  "buttons": [
+   "Upload CV",
+   "Copy and paste CV",
+   "Upload later"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "form",
+  "confidence": 0.85,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "sentence",
+   "text": "Choose from one of the options below to start your application",
+   "position": "main"
+  }
+ ]
+}

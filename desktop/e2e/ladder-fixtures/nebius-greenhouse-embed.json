@@ -1,0 +1,85 @@
+{
+ "id": "nebius-greenhouse-embed",
+ "source": "captured",
+ "lang": "en",
+ "why": "pool: Greenhouse behind the employer site (Nebius)",
+ "capture": {
+  "url": "https://careers.nebius.com/?gh_jid=4376374101"
+ },
+ "expect": {
+  "outcome": "form_in_frame",
+  "accept": [
+   "form_in_frame",
+   "posting",
+   "other"
+  ]
+ },
+ "sketch": {
+  "url": "https://careers.nebius.com/job",
+  "title": "Careers at Nebius",
+  "headings": [],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Search",
+    "required": false
+   }
+  ],
+  "buttons": [
+   "Skip to main content",
+   "What's new in Nebius AI Cloud: Q3 2026",
+   "Products",
+   "Solutions",
+   "Why Nebius",
+   "For Developers",
+   "Pricing",
+   "Company",
+   "Investors",
+   "Contact sales",
+   "Log in",
+   "Corporate policies",
+   "Legal documents",
+   "Terms of use",
+   "Manage cookies",
+   "Cookie policy (opens in a new tab)",
+   "Privacy policy (opens in a new tab)",
+   "Cookie policy",
+   "Cookies settings",
+   "Reject all"
+  ],
+  "frames": [
+   "job-boards.greenhouse.io"
+  ],
+  "mails": []
+ },
+ "schemaVersion": 1,
+ "answer": {
+  "kind": "other",
+  "confidence": 0.85,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "link",
+   "text": "Skip to main content",
+   "host": "careers.nebius.com",
+   "position": "other"
+  },
+  {
+   "n": 2,
+   "kind": "link",
+   "text": "What's new in Nebius AI Cloud: Q3 2026",
+   "host": "nebius.com",
+   "position": "other"
+  }
+ ]
+}

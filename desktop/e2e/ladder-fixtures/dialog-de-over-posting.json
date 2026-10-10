@@ -1,0 +1,89 @@
+{
+ "schemaVersion": 1,
+ "id": "dialog-de-over-posting",
+ "source": "reconstructed",
+ "lang": "de",
+ "why": "start dialog: a dialog over a posting: fill in myself / sign in with another site",
+ "capture": {
+  "page": "ladder-fixtures/pages/dialog-de-over-posting.html"
+ },
+ "url": "https://jobs.example.com/dialog-de-over-posting/1",
+ "expect": {
+  "outcome": "posting",
+  "accept": [
+   "posting"
+  ],
+  "apply_route": "manual",
+  "digest": "not_asked"
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/dialog-de-over-posting/1",
+  "title": "Stellenangebot",
+  "headings": [
+   "Lagerist (m/w)",
+   "Bewerbung"
+  ],
+  "controls": [],
+  "buttons": [
+   "Home",
+   "Jetzt bewerben",
+   "Stelle merken",
+   "Selbst ausfüllen",
+   "Mit Xing anmelden"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Jetzt bewerben",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Stelle merken",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Lagerist (m/w)",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "Vollzeit, Zürich.",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "button",
+   "text": "Selbst ausfüllen",
+   "position": "other"
+  },
+  {
+   "n": 6,
+   "kind": "button",
+   "text": "Mit Xing anmelden",
+   "position": "other"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.8,
+  "apply_button": "Selbst ausfüllen",
+  "apply_button_kind": "apply",
+  "apply_route": "manual",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

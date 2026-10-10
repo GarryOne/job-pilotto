@@ -1,0 +1,61 @@
+{
+ "schemaVersion": 1,
+ "id": "inv-login-wall-en",
+ "source": "invented",
+ "lang": "en",
+ "why": "Sign in required to see and apply",
+ "capture": {
+  "page": "ladder-fixtures/pages/inv-login-wall-en.html"
+ },
+ "url": "https://network.example.com/jobs/data-analyst",
+ "expect": {
+  "outcome": "login_wall",
+  "accept": [
+   "login_wall",
+   "account",
+   "other"
+  ]
+ },
+ "sketch": {
+  "url": "https://network.example.com/jobs/data-analyst",
+  "title": "Data analyst",
+  "headings": [
+   "Data analyst"
+  ],
+  "controls": [],
+  "buttons": [
+   "Home",
+   "Sign in",
+   "Join now"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "other",
+  "confidence": 0.6,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "sentence",
+   "text": "Data analyst",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Sign in to view this job and apply.",
+   "position": "main"
+  }
+ ]
+}

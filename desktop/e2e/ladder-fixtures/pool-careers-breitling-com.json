@@ -1,0 +1,124 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-careers-breitling-com",
+ "source": "captured",
+ "why": "pool shape read from a real posting at careers.breitling.com (Breitling SuccessFactors)",
+ "capture": {
+  "url": "https://careers.breitling.com/job/Geneva-Universal-Gen%C3%A8ve-Grand-Vendeur-Geneva-Flagship-%28fmx%29-GE-1201/1410143633/"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://careers.breitling.com/job/Geneva-Universal-Gen%C3%A8ve-Grand-Vendeur-Geneva-Flagship-(fmx)-GE-1201/1432-en_GB/",
+  "title": "[Universal Genève] - Grand Vendeur - Geneva Flagship (f/m/x) Job Details | Breitling",
+  "headings": [],
+  "controls": [],
+  "buttons": [
+   "Modify Cookie Preferences",
+   "Reject All Cookies",
+   "Accept All Cookies",
+   "Skip to main content",
+   "OUR OPEN POSITIONS",
+   "YOUNG TALENT SQUAD",
+   "LANGUAGE",
+   "YOUR PROFILE",
+   "APPLY NOW",
+   "Job Alerts Link",
+   "Privacy Policy",
+   "Cookie Consent Manager",
+   "Opens in a new tab."
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "link",
+   "text": "APPLY NOW",
+   "host": "careers.breitling.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Job Alerts Link",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "[Universal Genève] - Grand Vendeur - Geneva Flagship (f/m/x)",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "For Those Ready To Build A Legacy",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "If you are an elite sales professional who commands the high-end watch market and wishes to shape something truly historic, we invite you to lead our revival.",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "You will play an essential role in opening a completely new chapter for \"Le Couturier de la Montre\" as we establish our global retail foundation in the prestigi",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Universal Genève:",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Founded in 1894, Universal Genève is an iconic Swiss watchmaking Maison celebrated for its rich heritage and timeless elegance.",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Known as the “Couturier de la Montre”, the Maison unites technical excellence with refined design, crafting timepieces with the same precision, creativity, and ",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Today, Universal Genève enters a new chapter.",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "button",
+   "text": "Modify Cookie Preferences",
+   "position": "other"
+  },
+  {
+   "n": 12,
+   "kind": "button",
+   "text": "Reject All Cookies",
+   "position": "other"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.95,
+  "apply_button": "APPLY NOW",
+  "apply_route": "manual",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

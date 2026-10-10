@@ -1,0 +1,163 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-career-valora-com",
+ "source": "captured",
+ "why": "pool shape read from a real posting at career.valora.com (Valora careers, German)",
+ "capture": {
+  "url": "https://career.valora.com/de/job/3706/verkaufer-press-books-teilzeit-w-m-d"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "de",
+ "sketch": {
+  "url": "https://career.valora.com/de/job/3706/verkaufer-press-books-teilzeit-w-m-d",
+  "title": "Verkäufer Press & Books - Teilzeit (w/m/d) • Press & Books",
+  "headings": [
+   "Verkäufer Press & Books - Teilzeit (w/m/d) • Press & Books",
+   "Verkäufer Press & Books - Teilzeit (w/m/d)",
+   "Deine Aufgaben",
+   "Das zeichnet Dich aus",
+   "Das bieten wir Dir",
+   "Press & Books",
+   "Werde über neue Jobs informiert"
+  ],
+  "controls": [
+   {
+    "type": "checkbox",
+    "label": "Notwendig",
+    "required": false
+   },
+   {
+    "type": "checkbox",
+    "label": "Komfort",
+    "required": false
+   },
+   {
+    "type": "checkbox",
+    "label": "Statistik",
+    "required": false
+   },
+   {
+    "type": "checkbox",
+    "label": "Marketing",
+    "required": false
+   }
+  ],
+  "buttons": [
+   "Cookie-Richtlinie",
+   "Details zeigen",
+   "Alle erlauben",
+   "Nur notwendige Cookies verwenden",
+   "Karriere",
+   "valora.com",
+   "de",
+   "•••",
+   "Zur Jobauswahl",
+   "Routenplaner",
+   "Mehr lesen Weniger anzeigen",
+   "Jetzt bewerben",
+   "Mit Whatsapp bewerben",
+   "Job Alert erstellen",
+   "Datenschutzerklärung",
+   "Nutzungsbedingungen",
+   "Impressum",
+   "Cookie-Einstellungen"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "phone",
+   "text": "(phone)",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "link",
+   "text": "Zur Jobauswahl",
+   "host": "career.valora.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "Routenplaner",
+   "host": "www.google.com",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Mehr lesen Weniger anzeigen",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "Jetzt bewerben",
+   "host": "recruitingapp-2538.umantis.com",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "Mit Whatsapp bewerben",
+   "host": "valora-ag.pitchyou.de",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Verkäufer Press & Books - Teilzeit (w/m/d) • Press & Books",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Verkäufer Press & Books - Teilzeit (w/m/d)",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "17524",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Verkauf",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "Cookie-Richtlinie",
+   "host": "www.valora.com",
+   "position": "other"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "Details zeigen",
+   "host": "career.valora.com",
+   "position": "other"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.92,
+  "apply_button": "Jetzt bewerben",
+  "apply_route": "manual",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

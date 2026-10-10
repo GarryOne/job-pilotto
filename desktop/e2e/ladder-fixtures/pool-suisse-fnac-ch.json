@@ -1,0 +1,142 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-suisse-fnac-ch",
+ "source": "captured",
+ "why": "pool shape read from a real posting at suisse.fnac.ch (FNAC Suisse jobs, French)",
+ "capture": {
+  "url": "https://suisse.fnac.ch/jobs/offers/CDDVendeurProduitsEditoriauxHF80du1erau31dcembre2026/?id=236"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "fr",
+ "sketch": {
+  "url": "https://suisse.fnac.ch/jobs/offers/CDDVendeurProduitsEditoriauxHF80du1erau31dcembre2026/",
+  "title": "FNAC - CDD Vendeur Produits Editoriaux (H/F) 80% du 1er au 31 décembre 2026",
+  "headings": [],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Search",
+    "required": false
+   }
+  ],
+  "buttons": [
+   "fnac.ch",
+   "Besoin d’aide ?",
+   "Magasins",
+   "Me connecter",
+   "Mon Panier",
+   "DE",
+   "Retour",
+   "POSTULER MAINTENANT",
+   "Heureuxou remboursé",
+   "Retrait gratuitet pratique en magasin",
+   "Livraison gratuite à partir de 20.-",
+   "Qui sommes nous ?",
+   "Recrutement",
+   "Besoin d'aide ?",
+   "SAV",
+   "Conditions générales de ventes",
+   "Données personnelles",
+   "Mentions légales",
+   "Signaler un abus",
+   "Cookies"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "phone",
+   "text": "(phone)",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "link",
+   "text": "LES INDISPENSABLES ALERTES FNACLes abonnés ne savent plus s'en passer. Et vous ?",
+   "host": "secure.fr.fnac.ch",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "Qui sommes nous ?",
+   "host": "www.groupe-fnac.com",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "Besoin d'aide ?",
+   "host": "www.fr.fnac.ch",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "SAV",
+   "host": "www.fr.fnac.ch",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "Fnacpro",
+   "host": "www.fr.fnac.ch",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "link",
+   "text": "Fnac Blog",
+   "host": "blog.fnac.ch",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "fnac.ch Culture, High-tech, Loisirs >",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Besoin d’aide ?",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Magasins",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "sentence",
+   "text": "Me connecter",
+   "position": "main"
+  },
+  {
+   "n": 12,
+   "kind": "sentence",
+   "text": "Mon Panier",
+   "position": "main"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.95,
+  "apply_button": "POSTULER MAINTENANT",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

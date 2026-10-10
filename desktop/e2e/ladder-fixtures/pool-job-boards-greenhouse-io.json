@@ -1,0 +1,354 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-job-boards-greenhouse-io",
+ "source": "captured",
+ "why": "pool shape read from a real posting at job-boards.greenhouse.io",
+ "capture": {
+  "url": "https://job-boards.greenhouse.io/eqtcorporation/jobs/5407974008"
+ },
+ "expect": {
+  "outcome": "form"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://job-boards.greenhouse.io/eqtcorporation/jobs/5407974008",
+  "title": "Job Application for Sr/Lead/Principal Fundamentals Analyst - Midwest at EQT Corporation",
+  "headings": [
+   "Sr/Lead/Principal Fundamentals Analyst - Midwest",
+   "Apply for this job",
+   "U.S. Standard Demographic Questions",
+   "Voluntary Self-Identification"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "First Name*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Last Name*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Preferred First Name",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "Email*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Country*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true
+   },
+   {
+    "type": "tel",
+    "label": "Phone*",
+    "required": true
+   },
+   {
+    "type": "file",
+    "label": "Attach",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "School",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "Degree*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true
+   },
+   {
+    "type": "number",
+    "label": "Start date year",
+    "required": false
+   },
+   {
+    "type": "number",
+    "label": "End date year",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "Address*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Residing State*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Are you willing to relocate?*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Previous EQT Employee*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Current EQT Employee or Active Contractor*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Current Company*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Current Job Title*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Desired Base Salary Range*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Total Compensation Expectations (including bonus and/or equity)",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "Related Employee(s)*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Are you legally authorized to work in the United States?*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Will you immediately require EQT to sponsor you for an employment visa, such as ",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Will you at any point in the future require EQT to sponsor you for an employment",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Source*",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "How would you describe your gender identity?",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "How would you describe your racial/ethnic background?",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "How would you describe your sexual orientation?",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "Do you identify as transgender?",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "Do you have a disability or chronic condition (physical, visual, auditory, cogni",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "Are you a veteran or active member of the United States Armed Forces?",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "Gender",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "Are you Hispanic/Latino?",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "Veteran Status",
+    "required": false
+   }
+  ],
+  "buttons": [
+   "Back to jobs",
+   "Apply",
+   "Create alert",
+   "Autofill my application",
+   "Attach",
+   "Dropbox",
+   "Google Drive",
+   "Enter manually",
+   "Add another",
+   "Race & Ethnicity Definitions",
+   "Submit application",
+   "Greenhouse"
+  ],
+  "frames": [
+   "www.recaptcha.net"
+  ],
+  "mails": [
+   "What state do you currently live in? If you are a resident of New Jersey, New York, or California (or present in the State of NJ, NY, or CA at the time of apply"
+  ]
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "email",
+   "text": "Instead your resume and job application must be emailed to contact@example.com.",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Apply",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "Create alert",
+   "host": "my.greenhouse.io",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Autofill my application",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "button",
+   "text": "Attach",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "button",
+   "text": "Dropbox",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "button",
+   "text": "Google Drive",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Sr/Lead/Principal Fundamentals Analyst - Midwest",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Remote",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "At EQT, you won't just do a job, you'll help shape our future.",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "sentence",
+   "text": "Through Transparent Leadership, you'll work alongside leaders who value collaboration and ensure every voice is heard.",
+   "position": "main"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "Greenhouse",
+   "host": "www.greenhouse.com",
+   "position": "footer"
+  }
+ ],
+ "answer": {
+  "kind": "other",
+  "confidence": 0.8,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": true
+ }
+}

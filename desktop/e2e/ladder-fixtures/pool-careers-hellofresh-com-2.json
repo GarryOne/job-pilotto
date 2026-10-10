@@ -1,0 +1,176 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-careers-hellofresh-com-2",
+ "source": "captured",
+ "why": "pool shape read from a real posting at careers.hellofresh.com",
+ "capture": {
+  "url": "https://careers.hellofresh.com/global/en/job/6440546?gh_jid=6440546"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://careers.hellofresh.com/global/en/job/6440546",
+  "title": "Inbound/Outbound Operative - Days in Derby, England, United Kingdom | Warehouse Operations at HelloFresh",
+  "headings": [
+   "Inbound/Outbound Operative - Days",
+   "At HelloFresh, we want to change the way people eat forever by offering our customers high quality food and recipes for different meal occasions. Over the past more than 12 years, we've seen this mission spread around the world and now we are a global integrated food solutions group and the world's leading meal kit company. The HelloFresh Group includes our core brand HelloFresh, as well as: Green Chef, EveryPlate, Chefs Plate, Factor, Youfoodz, Good Chop, and The Pets Table.",
+   "About HelloFresh",
+   "Curious about what it’s like to work at HelloFresh?",
+   "Get notified for similar jobs",
+   "Get tailored job recommendations based on your interests.",
+   "Similar Jobs",
+   "Follow our journey @InsideHelloFresh"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Enter Job Title or Location",
+    "required": false
+   },
+   {
+    "type": "checkbox",
+    "label": "Save Job",
+    "required": false
+   },
+   {
+    "type": "checkbox",
+    "label": "Save Job Inbound/Outbound Operative - Days",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "Enter Email address (Required)",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Chatbot User Input box with Send button",
+    "required": false
+   }
+  ],
+  "buttons": [
+   "Skip to main content",
+   "Search",
+   "Sign up",
+   "Saved Jobs (0)",
+   "Roles",
+   "Inside HelloFresh",
+   "HelloTech",
+   "Deny",
+   "Allow",
+   "Apply Now",
+   "Instagram",
+   "LinkedIn",
+   "contact@example.com",
+   "contact@example.com",
+   "contact@example.com",
+   "contact@example.com",
+   "Learn more",
+   "Share via Facebook",
+   "Share via twitter",
+   "Share via LinkedIn"
+  ],
+  "frames": [],
+  "mails": [
+   "mailto:contact@example.com",
+   "mailto:contact@example.com",
+   "mailto:contact@example.com",
+   "mailto:contact@example.com",
+   "Europe: contact@example.com."
+  ]
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "email",
+   "text": "Europe: contact@example.com .",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "email",
+   "text": "APAC: contact@example.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "email",
+   "text": "Canada: contact@example.com",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "Apply Now",
+   "host": "careers.hellofresh.com",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "Instagram",
+   "host": "www.instagram.com",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "LinkedIn",
+   "host": "www.linkedin.com",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "link",
+   "text": "Learn more",
+   "host": "careers.hellofresh.com",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "button",
+   "text": "Share via Facebook",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "button",
+   "text": "Share via twitter",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "We use cookies to offer you a better browsing experience, analyze site traffic, and personalize content.",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "Skip to main content",
+   "host": "careers.hellofresh.com",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "button",
+   "text": "Search",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.93,
+  "apply_button": "Apply Now",
+  "apply_route": "manual",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

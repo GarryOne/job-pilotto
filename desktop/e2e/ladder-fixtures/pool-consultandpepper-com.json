@@ -1,0 +1,170 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-consultandpepper-com",
+ "source": "captured",
+ "why": "pool shape read from a real posting at consultandpepper.com (Zürcher Kantonalbank)",
+ "capture": {
+  "url": "https://consultandpepper.com/jobs/exclusiv-mandate/5C7O9D"
+ },
+ "expect": {
+  "outcome": "form",
+  "accept": [
+   "form",
+   "posting"
+  ]
+ },
+ "lang": "de",
+ "sketch": {
+  "url": "https://consultandpepper.com/jobs/exclusiv-mandate/5C7O9D/",
+  "title": "Fullstack Software Engineer mit DevOps Mindset (a) (80-100%) - Consult & Pepper",
+  "headings": [
+   "Fullstack Software Engineer mit DevOps Mindset (a) (80-100%)",
+   "Kandidat:innen",
+   "Firmen",
+   "Über uns",
+   "Adressen"
+  ],
+  "controls": [
+   {
+    "type": "file",
+    "label": "application[]",
+    "required": false
+   },
+   {
+    "type": "file",
+    "label": "Datei wählen (max. 15 MB)",
+    "required": false
+   },
+   {
+    "type": "file",
+    "label": "Datei wählen (max. 15 MB)",
+    "required": false
+   }
+  ],
+  "buttons": [
+   "Zum Inhalt springen",
+   "Vakanzen",
+   "Unsere Dienstleistung",
+   "Karriere-Check",
+   "Kontakttage & Events",
+   "WARUM WIR",
+   "Warum wir",
+   "Success Stories",
+   "Kandidat:innen über uns",
+   "ÜBER UNS",
+   "Über uns",
+   "Neue Ära",
+   "Karriere",
+   "Team",
+   "Newsletter-Anmeldung",
+   "Adressen",
+   "Kooperationen",
+   "Publikationen",
+   "Für Kandidat:innen",
+   "Kontaktieren"
+  ],
+  "frames": [],
+  "mails": [
+   "mailto:contact@example.com",
+   "mailto:contact@example.com",
+   "mailto:contact@example.com",
+   "mailto:contact@example.com",
+   "mailto:contact@example.com"
+  ]
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "email",
+   "text": "contact@example.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "email",
+   "text": "contact@example.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "email",
+   "text": "contact@example.com",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "phone",
+   "text": "Telefon: (phone)",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "phone",
+   "text": "Tel (phone)",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "Zur Bewerbung",
+   "host": "consultandpepper.com",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "link",
+   "text": "Zum Inhalt springen",
+   "host": "consultandpepper.com",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "link",
+   "text": "Kontakttage / Events",
+   "host": "consultandpepper.com",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "link",
+   "text": "Abgewickelte Mandate & Referenzen",
+   "host": "consultandpepper.com",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "link",
+   "text": "Firmen über uns",
+   "host": "consultandpepper.com",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "Erfolgsbasis",
+   "host": "consultandpepper.com",
+   "position": "main"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "Vakanzen",
+   "host": "consultandpepper.com",
+   "position": "header"
+  }
+ ],
+ "note": "contact addresses and phone numbers beside an on-page application form (file inputs further down)",
+ "answer": {
+  "kind": "form",
+  "confidence": 0.6,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

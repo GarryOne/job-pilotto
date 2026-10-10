@@ -1,0 +1,65 @@
+{
+ "schemaVersion": 1,
+ "id": "inv-inperson-fr",
+ "source": "invented",
+ "lang": "fr",
+ "why": "Se présenter au magasin",
+ "capture": {
+  "page": "ladder-fixtures/pages/inv-inperson-fr.html"
+ },
+ "url": "https://boutique.example.ch/emplois/vendeur",
+ "expect": {
+  "outcome": "in_person",
+  "accept": [
+   "in_person",
+   "other"
+  ]
+ },
+ "sketch": {
+  "url": "https://boutique.example.ch/emplois/vendeur",
+  "title": "Vendeur / vendeuse",
+  "headings": [
+   "Vendeur / vendeuse",
+   "Candidature"
+  ],
+  "controls": [],
+  "buttons": [
+   "Accueil"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "other",
+  "confidence": 0.6,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "sentence",
+   "text": "Vendeur / vendeuse",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Candidature",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Présentez-vous directement à la boutique avec votre CV, du mardi au samedi.",
+   "position": "main"
+  }
+ ]
+}

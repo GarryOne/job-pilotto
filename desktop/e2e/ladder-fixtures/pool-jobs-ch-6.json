@@ -1,0 +1,144 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-jobs-ch-6",
+ "source": "captured",
+ "why": "pool shape read from a real posting at www.jobs.ch",
+ "capture": {
+  "url": "https://www.jobs.ch/en/vacancies/detail/014cc98e-d541-41d4-82fd-8a21e7d257dc/"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://www.jobs.ch/en/vacancies/detail/014cc98e-d541-41d4-82fd-8a21e7d257dc/",
+  "title": "Senior Accounting & Reporting Specialist - Job Offer at Van Lanschot Kempen (Schweiz) AG - jobs.ch",
+  "headings": [
+   "Senior Accounting & Reporting Specialist",
+   "Categories:",
+   "Others have also looked at",
+   "Senior Accountant / Financial Reporting (80–100%)",
+   "Senior Finance Specialist (m/w/d)",
+   "Manager Accounting & Financial Consulting (80 - 100%)",
+   "Salary estimator",
+   "Cookies"
+  ],
+  "controls": [],
+  "buttons": [
+   "Skip to content",
+   "jobs.ch Navigation logo",
+   "Find a job",
+   "Explore companies",
+   "Salary estimator",
+   "Recruiter Area",
+   "Deutsch",
+   "Français",
+   "English",
+   "Login",
+   "Sign up",
+   "Job search",
+   "Job recommendations",
+   "Job alerts",
+   "Saved jobs",
+   "Applications",
+   "Van Lanschot Kempen (Schweiz) AG",
+   "Save",
+   "Apply",
+   "Mittelstrasse 10, 8008 Zürich"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Save",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Apply",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "Mittelstrasse 10, 8008 Zürich",
+   "host": "www.google.com",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "Finance / Trusts / Real Estate",
+   "host": "www.jobs.ch",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "Controlling",
+   "host": "www.jobs.ch",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "Van Lanschot Kempen (Schweiz) AG",
+   "host": "www.jobs.ch",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Zürich",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Senior Accounting & Reporting Specialist",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "05 October 2026",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "80 – 100%",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "button",
+   "text": "Skip to content",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "jobs.ch Navigation logo",
+   "host": "www.jobs.ch",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.93,
+  "apply_button": "Apply",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

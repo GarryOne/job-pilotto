@@ -1,0 +1,126 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-clarivate-wd3-myworkdayjobs-com",
+ "source": "captured",
+ "why": "pool shape read from a real posting at clarivate.wd3.myworkdayjobs.com (TrademarkVision)",
+ "capture": {
+  "url": "https://clarivate.wd3.myworkdayjobs.com/Clarivate_Careers/job/Spain---Barcelona/Senior-Infrastructure-Engineer_JREQ135256-2"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://clarivate.wd3.myworkdayjobs.com/Clarivate_Careers/job/Spain---Barcelona/Senior-Infrastructure-Engineer_JREQ135256-2",
+  "title": "Senior Network Engineer",
+  "headings": [
+   "Career opportunities",
+   "Senior Network Engineer",
+   "About Us"
+  ],
+  "controls": [],
+  "buttons": [
+   "Skip to main content",
+   "here",
+   "Read Full Privacy Message",
+   "Decline",
+   "Accept Cookies",
+   "English",
+   "Sign In",
+   "Apply",
+   "clarivate.com",
+   "Read More"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "link",
+   "text": "here",
+   "host": "clarivate.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Read Full Privacy Message",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Decline",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Accept Cookies",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "Apply",
+   "host": "clarivate.wd3.myworkdayjobs.com",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "button",
+   "text": "Read More",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "OUR POLICY TOWARDS THE USE OF COOKIES",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "All Clarivate websites use cookies to improve your online experience.",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "They were placed on your computer when you launched this website.",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "You can change your cookie settings through your browser.",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "button",
+   "text": "English",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "button",
+   "text": "Sign In",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Apply",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

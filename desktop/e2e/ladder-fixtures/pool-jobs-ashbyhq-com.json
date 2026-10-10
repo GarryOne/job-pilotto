@@ -1,0 +1,146 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-jobs-ashbyhq-com",
+ "source": "captured",
+ "why": "pool shape read from a real posting at jobs.ashbyhq.com (Ashby form in an embedded app)",
+ "capture": {
+  "url": "https://jobs.ashbyhq.com/pennylane/67967c1d-301a-4dd5-81af-44faa1d43021"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://jobs.ashbyhq.com/pennylane/67967c1d-301a-4dd5-81af-44faa1d43021",
+  "title": "Expert Support Technique et Comptable H/F @ Pennylane SAS",
+  "headings": [
+   "Expert Support Technique et Comptable H/F",
+   "Location",
+   "Employment Type",
+   "Location Type",
+   "Department"
+  ],
+  "controls": [],
+  "buttons": [
+   "Overview",
+   "Application",
+   "d'excellents retours",
+   "Busuu",
+   "pennylane.com",
+   "pennylane-partners.com",
+   "contact@example.com.",
+   "data policy",
+   "contact@example.com",
+   "Learn more",
+   "Mehr erfahren",
+   "Más información",
+   "Apply for this Job",
+   "Powered by Ashby",
+   "Privacy Policy",
+   "Security",
+   "Vulnerability Disclosure"
+  ],
+  "frames": [],
+  "mails": [
+   "mailto:contact@example.com",
+   "Pennylane traite vos données pour gérer votre candidature et évaluer votre adéquation au poste. Si votre candidature n’aboutit pas, vos données peuvent être con",
+   "Pennylane processes your data to manage your application and assess your suitability for the position. If your application is unsuccessful, your data may be ret",
+   "Pennylane verarbeitet Ihre Daten, um Ihre Bewerbung zu bearbeiten und Ihre Eignung für die Stelle zu beurteilen. Sollte Ihre Bewerbung nicht erfolgreich sein, k"
+  ]
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "email",
+   "text": "Vous pouvez vous opposer à tout moment et demander la suppression de vos données en écrivant à : contact@example.com.",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "email",
+   "text": "You may object at any time and request the deletion of your data by writing to contact@example.com .",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "email",
+   "text": "Sie können jederzeit Widerspruch einlegen und die Löschung Ihrer Daten beantragen, indem Sie an contact@example.com schreiben.",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "d'excellents retours",
+   "host": "www.google.com",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "Busuu",
+   "host": "www.busuu.com",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "pennylane.com",
+   "host": "pennylane.com",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "link",
+   "text": "pennylane-partners.com",
+   "host": "pennylane-partners.com",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "link",
+   "text": "data policy",
+   "host": "www.pennylane.com",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "link",
+   "text": "Learn more",
+   "host": "www.pennylane.com",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Expert Support Technique et Comptable H/F",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "Overview",
+   "host": "jobs.ashbyhq.com",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "Application",
+   "host": "jobs.ashbyhq.com",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.95,
+  "apply_button": "Apply for this Job",
+  "apply_route": "manual",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

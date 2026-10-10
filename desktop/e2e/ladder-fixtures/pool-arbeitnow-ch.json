@@ -1,0 +1,150 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-arbeitnow-ch",
+ "source": "captured",
+ "why": "pool shape read from a real posting at www.arbeitnow.ch (arbeitnow.ch board -> employer)",
+ "capture": {
+  "url": "https://www.arbeitnow.ch/jobs/companies/destinusgroup/accounts-payable-accountant-zurich-326977"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://www.arbeitnow.ch/jobs/companies/destinusgroup/accounts-payable-accountant-zurich-326977",
+  "title": "Accounts Payable Accountant – Destinusgroup – Zürich | Arbeitnow",
+  "headings": [
+   "Accounts Payable Accountant",
+   "Jobs at Destinusgroup",
+   "Engineering Intern / Traineeship",
+   "Senior Quality Manager",
+   "Flight Physics & Performance Engineer",
+   "Flight Physics & Performance Engineer",
+   "Stress Engineer - Non-linear & Propellants",
+   "Job recommendations"
+  ],
+  "controls": [
+   {
+    "type": "email",
+    "label": "Enter your email",
+    "required": true
+   }
+  ],
+  "buttons": [
+   "Adithya",
+   "Popular",
+   "Locations",
+   "Categories",
+   "About",
+   "Home",
+   "Destinusgroup",
+   "Accounts Payable Accountant",
+   "Finance",
+   "Temporary",
+   "associate",
+   "Apply Now",
+   "Share",
+   "Engineering Intern / Traineeship",
+   "R&D & Engineering",
+   "Internship",
+   "Senior Quality Manager",
+   "Aviation & Aerospace",
+   "Full time",
+   "Flight Physics & Performance Engineer"
+  ],
+  "frames": [],
+  "mails": [
+   "mailto:contact@example.com"
+  ]
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "phone",
+   "text": "(phone) CHF",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "link",
+   "text": "Destinusgroup",
+   "host": "www.arbeitnow.ch",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Finance",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Temporary",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "button",
+   "text": "associate",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "Apply Now",
+   "host": "www.arbeitnow.ch",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "button",
+   "text": "Apply Now",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Jobs in Switzerland",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Home | Destinusgroup | Accounts Payable Accountant",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Accounts Payable Accountant",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "Adithya",
+   "host": "www.linkedin.com",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "button",
+   "text": "Popular",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Apply Now",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

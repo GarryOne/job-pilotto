@@ -1,0 +1,76 @@
+{
+ "schemaVersion": 1,
+ "id": "dialog-en-link-styled-manual",
+ "source": "reconstructed",
+ "lang": "en",
+ "why": "start dialog: the manual route is a link-styled control among buttons",
+ "capture": {
+  "page": "ladder-fixtures/pages/dialog-en-link-styled-manual.html"
+ },
+ "url": "https://jobs.example.com/dialog-en-link-styled-manual/1",
+ "expect": {
+  "outcome": "posting",
+  "accept": [
+   "posting"
+  ],
+  "apply_route": "manual",
+  "digest": "not_asked"
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/dialog-en-link-styled-manual/1",
+  "title": "Apply",
+  "headings": [
+   "Warehouse operative",
+   "How do you want to apply?"
+  ],
+  "controls": [],
+  "buttons": [
+   "Home",
+   "Use my saved profile",
+   "Enter my details myself",
+   "Sign in with Google"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "sentence",
+   "text": "Warehouse operative",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Days, Derby.",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Use my saved profile",
+   "position": "other"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Sign in with Google",
+   "position": "other"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.93,
+  "apply_button": "Enter my details myself",
+  "apply_button_kind": "apply",
+  "apply_route": "manual",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

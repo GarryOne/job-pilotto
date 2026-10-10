@@ -1,0 +1,66 @@
+{
+ "schemaVersion": 1,
+ "id": "inv-closed-en",
+ "source": "invented",
+ "lang": "en",
+ "why": "Filled position, links to other jobs",
+ "capture": {
+  "page": "ladder-fixtures/pages/inv-closed-en.html"
+ },
+ "url": "https://studio.example.com/jobs/junior-designer",
+ "expect": {
+  "outcome": "expired",
+  "accept": [
+   "expired",
+   "other"
+  ]
+ },
+ "sketch": {
+  "url": "https://studio.example.com/jobs/junior-designer",
+  "title": "Junior designer",
+  "headings": [
+   "Junior designer"
+  ],
+  "controls": [],
+  "buttons": [
+   "Home",
+   "See all open jobs",
+   "Create a job alert"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "other",
+  "confidence": 0.7,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "sentence",
+   "text": "Junior designer",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Thank you for your interest.",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "This position has been filled.",
+   "position": "main"
+  }
+ ]
+}

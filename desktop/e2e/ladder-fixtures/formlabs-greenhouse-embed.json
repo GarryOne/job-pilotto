@@ -1,0 +1,141 @@
+{
+ "id": "formlabs-greenhouse-embed",
+ "source": "captured",
+ "lang": "en",
+ "why": "pool: Greenhouse behind the employer site (Formlabs)",
+ "capture": {
+  "url": "https://careers.formlabs.com/job/8078997/apply/?gh_jid=8078997"
+ },
+ "expect": {
+  "outcome": "form_in_frame",
+  "accept": [
+   "form_in_frame",
+   "posting",
+   "other"
+  ]
+ },
+ "sketch": {
+  "url": "https://careers.formlabs.com/job/8078997/apply/",
+  "title": "Software Engineer, Test Infrastructure & Reliability | Formlabs",
+  "headings": [
+   "Software Engineer, Test Infrastructure & Reliability"
+  ],
+  "controls": [],
+  "buttons": [
+   "Cookie Policy",
+   "Preferences",
+   "Accept",
+   "Careers",
+   "Our Teams",
+   "Locations",
+   "Open Roles",
+   "Back To Formlabs.com",
+   "Skip to Main Content",
+   "PreForm",
+   "Privacy Policy",
+   "contact@example.com",
+   "Join our Talent Community"
+  ],
+  "frames": [
+   "job-boards.greenhouse.io"
+  ],
+  "mails": [
+   "mailto:contact@example.com",
+   "Your personal data is processed in accordance with our Privacy Policy. If you have any questions or wish to exercise your rights under applicable privacy and da"
+  ]
+ },
+ "schemaVersion": 1,
+ "answer": {
+  "kind": "other",
+  "confidence": 0.4,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "email",
+   "text": "If you have any questions or wish to exercise your rights under applicable privacy and data protection laws, please contact us at contact@example.com .",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "email",
+   "text": "contact@example.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "PreForm",
+   "host": "formlabs.com",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "Privacy Policy",
+   "host": "formlabs.com",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "Join our Talent Community",
+   "host": "www.gem.com",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "Careers",
+   "host": "careers.formlabs.com",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "link",
+   "text": "Skip to Main Content",
+   "host": "careers.formlabs.com",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "link",
+   "text": "Back To Formlabs.com",
+   "host": "formlabs.com",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "We use essential cookies to make our site work.",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "With your consent, we may also use non-essential cookies to improve user experience and analyze website traffic.",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "sentence",
+   "text": "By clicking “Accept,” you agree to our website's cookie use as described in our .",
+   "position": "main"
+  },
+  {
+   "n": 12,
+   "kind": "sentence",
+   "text": "You can change your cookie settings at any time by clicking “ .”",
+   "position": "main"
+  }
+ ]
+}

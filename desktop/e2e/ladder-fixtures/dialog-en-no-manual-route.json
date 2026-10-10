@@ -1,0 +1,74 @@
+{
+ "schemaVersion": 1,
+ "id": "dialog-en-no-manual-route",
+ "source": "reconstructed",
+ "lang": "en",
+ "why": "start dialog: no manual route offered: nothing the program may press, so a higher rung or the person decides (the digest is asked)",
+ "capture": {
+  "page": "ladder-fixtures/pages/dialog-en-no-manual-route.html"
+ },
+ "url": "https://jobs.example.com/dialog-en-no-manual-route/1",
+ "expect": {
+  "outcome": "posting",
+  "accept": [
+   "posting"
+  ],
+  "apply_route": "reuse_previous",
+  "digest": "asked"
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/dialog-en-no-manual-route/1",
+  "title": "Apply",
+  "headings": [
+   "Data engineer",
+   "Apply with your profile"
+  ],
+  "controls": [],
+  "buttons": [
+   "Home",
+   "Use my profile",
+   "Sign in with Apple"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "sentence",
+   "text": "Data engineer",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Remote.",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Use my profile",
+   "position": "other"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Sign in with Apple",
+   "position": "other"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.8,
+  "apply_button": "",
+  "apply_route": "reuse_previous",
+  "apply_by": "other",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

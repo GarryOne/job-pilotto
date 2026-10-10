@@ -1,0 +1,62 @@
+{
+ "schemaVersion": 1,
+ "id": "recorded-workday-start-dialog-2",
+ "source": "recorded",
+ "lang": "en",
+ "why": "recorded case: a start dialog whose manual route is a link-styled button, while the posting's own plain Apply stays behind it",
+ "capture": {
+  "page": "recorded/workday-start-dialog-2/page.html"
+ },
+ "url": "https://richemont.wd3.myworkdayjobs.com/en-US/External/job/Geneva/Sales-Associate_JR1",
+ "expect": {
+  "outcome": "posting",
+  "apply_route": "manual",
+  "digest": "not_asked"
+ },
+ "sketch": {
+  "url": "https://richemont.wd3.myworkdayjobs.com/en-US/External/job/Geneva/Sales-Associate_JR1",
+  "title": "Sales Associate - Geneva",
+  "headings": [
+   "Sales Associate - 60%"
+  ],
+  "controls": [],
+  "buttons": [
+   "Apply"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Apply",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "sentence",
+   "text": "Sales Associate - 60%",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Geneva · Part time",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Join our boutique team.",
+   "position": "main"
+  }
+ ]
+}

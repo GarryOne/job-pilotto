@@ -1,0 +1,76 @@
+{
+ "schemaVersion": 1,
+ "id": "dialog-en-autofill-resume",
+ "source": "reconstructed",
+ "lang": "en",
+ "why": "start dialog: autofill-from-resume offered beside manual and a social sign-in",
+ "capture": {
+  "page": "ladder-fixtures/pages/dialog-en-autofill-resume.html"
+ },
+ "url": "https://jobs.example.com/dialog-en-autofill-resume/1",
+ "expect": {
+  "outcome": "posting",
+  "accept": [
+   "posting"
+  ],
+  "apply_route": "manual",
+  "digest": "not_asked"
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/dialog-en-autofill-resume/1",
+  "title": "Apply",
+  "headings": [
+   "Support agent",
+   "Start your application"
+  ],
+  "controls": [],
+  "buttons": [
+   "Home",
+   "Autofill with my resume",
+   "Fill in manually",
+   "Continue with LinkedIn"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "sentence",
+   "text": "Support agent",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Hybrid.",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Autofill with my resume",
+   "position": "other"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Fill in manually",
+   "position": "other"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Fill in manually",
+  "apply_button_kind": "apply",
+  "apply_route": "manual",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

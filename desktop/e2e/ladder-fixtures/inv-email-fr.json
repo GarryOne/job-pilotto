@@ -1,0 +1,88 @@
+{
+ "schemaVersion": 1,
+ "id": "inv-email-fr",
+ "source": "invented",
+ "lang": "fr",
+ "why": "Postes à pourvoir : comptable. Envoyez votre dossier de candidature à recrutement@example.ch",
+ "capture": {
+  "page": "ladder-fixtures/pages/inv-email-fr.html"
+ },
+ "url": "https://emploi.example.ch/offres/comptable-80",
+ "expect": {
+  "outcome": "email",
+  "accept": [
+   "email"
+  ]
+ },
+ "sketch": {
+  "url": "https://emploi.example.ch/offres/comptable-80",
+  "title": "Comptable à 80%",
+  "headings": [
+   "Comptable à 80%",
+   "Votre mission",
+   "Postuler"
+  ],
+  "controls": [],
+  "buttons": [
+   "Accueil",
+   "Offres",
+   "recrutement@example.ch"
+  ],
+  "frames": [],
+  "mails": [
+   "mailto:recrutement@example.ch",
+   "Envoyez votre dossier (CV et lettre) à recrutement@example.ch."
+  ]
+ },
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "email",
+  "apply_email": "recrutement@example.ch",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "email",
+   "text": "Envoyez votre dossier (CV et lettre) à recrutement@example.ch .",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "email",
+   "text": "recrutement@example.ch",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Comptable à 80%",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "Votre mission",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Tenue de la comptabilité de nos clients.",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "Postuler",
+   "position": "main"
+  }
+ ]
+}

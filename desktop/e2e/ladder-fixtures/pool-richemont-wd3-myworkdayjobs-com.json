@@ -1,0 +1,130 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-richemont-wd3-myworkdayjobs-com",
+ "source": "captured",
+ "why": "pool shape read from a real posting at richemont.wd3.myworkdayjobs.com (Richemont Workday)",
+ "capture": {
+  "url": "https://richemont.wd3.myworkdayjobs.com/richemont/job/GENEVA/Sales-Associate---60-_JR134503"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://richemont.wd3.myworkdayjobs.com/richemont/job/GENEVA/Sales-Associate---60-_JR134503",
+  "title": "Sales Associate - 60%",
+  "headings": [
+   "Sales Associate - 60%",
+   "Similar Jobs (2)",
+   "Access our world of opportunities"
+  ],
+  "controls": [],
+  "buttons": [
+   "Skip to main content",
+   "Cookie Policy",
+   "Decline",
+   "Accept Cookies",
+   "English",
+   "Sign In",
+   "Learn more about our Group",
+   "Spontaneous Application",
+   "Apply",
+   "Sales Associate",
+   "Senior Sales Associate",
+   "Read More",
+   "Talent Privacy Policy"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "link",
+   "text": "Cookie Policy",
+   "host": "www.richemont.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Decline",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Accept Cookies",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "Apply",
+   "host": "richemont.wd3.myworkdayjobs.com",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "button",
+   "text": "Read More",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "Talent Privacy Policy",
+   "host": "www.richemont.com",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "This site uses only technical essential cookies.",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "More information about how Richemont uses cookies is available in our Cookie Policy",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Sales Associate - 60%",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "remote type",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "button",
+   "text": "English",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "button",
+   "text": "Sign In",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Apply",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

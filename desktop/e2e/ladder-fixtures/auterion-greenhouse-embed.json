@@ -1,0 +1,92 @@
+{
+ "id": "auterion-greenhouse-embed",
+ "source": "captured",
+ "lang": "en",
+ "why": "pool: Greenhouse behind the employer site (Auterion)",
+ "capture": {
+  "url": "https://auterion.com/company/careers-open-position/8863310002?gh_jid=8863310002"
+ },
+ "expect": {
+  "outcome": "form_in_frame",
+  "accept": [
+   "form_in_frame",
+   "posting",
+   "other"
+  ]
+ },
+ "sketch": {
+  "url": "https://auterion.com/company/careers-open-position/",
+  "title": "Open position | Auterion",
+  "headings": [
+   "Open position"
+  ],
+  "controls": [],
+  "buttons": [
+   "Accept",
+   "Decline",
+   "Product",
+   "AuterionOS",
+   "Skynode",
+   "Auterion Nemyx",
+   "Nemyx VLS",
+   "Long Range",
+   "Partners",
+   "News",
+   "Company",
+   "About",
+   "Press",
+   "Code of ethics",
+   "Legal",
+   "Contact",
+   "Careers",
+   "Nemyx",
+   "Auterion Suite",
+   "Auterion Mission Control"
+  ],
+  "frames": [
+   "job-boards.greenhouse.io"
+  ],
+  "mails": []
+ },
+ "schemaVersion": 1,
+ "answer": {
+  "kind": "other",
+  "confidence": 0.6,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "sentence",
+   "text": "Careers",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Open position",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Product",
+   "position": "header"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "Partners",
+   "host": "auterion.com",
+   "position": "header"
+  }
+ ]
+}

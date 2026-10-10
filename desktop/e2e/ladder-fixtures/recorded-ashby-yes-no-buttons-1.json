@@ -1,0 +1,75 @@
+{
+ "schemaVersion": 1,
+ "id": "recorded-ashby-yes-no-buttons-1",
+ "source": "recorded",
+ "lang": "en",
+ "why": "recorded case: a form whose Yes/No questions are two aria-pressed buttons under one parent, with a display:none checkbox besi",
+ "capture": {
+  "page": "recorded/ashby-yes-no-buttons-1/form.html"
+ },
+ "url": "https://jobs.ashbyhq.com/example/00000000-0000-0000-0000-000000000000/application",
+ "expect": {
+  "outcome": "form"
+ },
+ "sketch": {
+  "url": "https://jobs.ashbyhq.com/example/00000000-0000-0000-0000-000000000000/application",
+  "title": "Software Engineer @ Example",
+  "headings": [],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Legal Name",
+    "required": true
+   },
+   {
+    "type": "email",
+    "label": "Email",
+    "required": true
+   },
+   {
+    "type": "tel",
+    "label": "Phone Number",
+    "required": true
+   }
+  ],
+  "buttons": [
+   "Yes",
+   "No"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "form",
+  "confidence": 0.92,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Yes",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "No",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "We may provide immigration and sponsorship support to new employees based on their unique circumstances.",
+   "position": "main"
+  }
+ ]
+}

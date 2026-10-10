@@ -1,0 +1,129 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-cc-wd3-myworkdayjobs-com",
+ "source": "captured",
+ "why": "pool shape read from a real posting at cc.wd3.myworkdayjobs.com (Chanel Workday)",
+ "capture": {
+  "url": "https://cc.wd3.myworkdayjobs.com/en-US/ChanelCareers/job/Zrich/Sales-Advisor_JOBREQ00117609"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://cc.wd3.myworkdayjobs.com/en-US/ChanelCareers/job/Zrich/Sales-Advisor_JOBREQ00117609",
+  "title": "Sales Advisor",
+  "headings": [
+   "Careers",
+   "Sales Advisor",
+   "Similar Jobs (1)",
+   "About Us"
+  ],
+  "controls": [],
+  "buttons": [
+   "Skip to main content",
+   "LEARN MORE.",
+   "Decline",
+   "Accept Cookies",
+   "English",
+   "Sign In",
+   "Search for Jobs",
+   "Submit your interest",
+   "Apply",
+   "Sales Advisor",
+   "Read More"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "phone",
+   "text": "JOBREQ(phone)",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "link",
+   "text": "LEARN MORE.",
+   "host": "services.chanel.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Decline",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Accept Cookies",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "Apply",
+   "host": "cc.wd3.myworkdayjobs.com",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "button",
+   "text": "Read More",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "link",
+   "text": "Skip to main content",
+   "host": "cc.wd3.myworkdayjobs.com",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "CHANEL USES COOKIES TO IMPROVE YOUR EXPERIENCE ON THIS SITE AND TO PROVIDE YOU WITH SERVICES AND CONTENT TAILORED TO YOUR INTERESTS.",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "BY CONTINUING TO USE THIS SITE YOU AGREE TO THE USE OF COOKIES.",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "LEARN MORE.",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "button",
+   "text": "English",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "button",
+   "text": "Sign In",
+   "position": "header"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Apply",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

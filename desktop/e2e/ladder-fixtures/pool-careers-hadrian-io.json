@@ -1,0 +1,132 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-careers-hadrian-io",
+ "source": "captured",
+ "why": "pool shape read from a real posting at careers.hadrian.io (Hadrian)",
+ "capture": {
+  "url": "https://careers.hadrian.io/jobs/8287635-senior-infrastructure-engineer"
+ },
+ "expect": {
+  "outcome": "posting"
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://careers.hadrian.io/jobs/8287635-senior-infrastructure-engineer",
+  "title": "Senior Infrastructure Engineer - Hadrian",
+  "headings": [
+   "This website uses cookies to ensure you get the best experience.",
+   "Senior Infrastructure Engineer",
+   "Who are we:",
+   "Your role:",
+   "What you will do as a Senior Infrastructure Engineer at Hadrian:",
+   "You are fit for this job because you:",
+   "Our Stack:",
+   "Benefits at Hadrian:"
+  ],
+  "controls": [],
+  "buttons": [
+   "Skip to main content",
+   "Cookie Policy",
+   "Accept all cookies",
+   "Decline all non-necessary cookies",
+   "Cookie preferences",
+   "Apply for this job",
+   "Data & privacy",
+   "Manage cookies",
+   "Employee login",
+   "Candidate Connect login",
+   "Applicant tracking system by Teamtailor"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Apply for this job",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Engineering · Amsterdam · Hybrid",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Senior Infrastructure Engineer",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "Are you obsessed with building cloud-native platforms that enable engineers to operate at internet scale?",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Then join us as our new Senior Infrastructure Engineer and be part of defining the next generation of the Infrastructure platform at Hadrian !",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "Who are we:",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "We are Hadrian - an offensive cybersecurity startup.",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "We are reshaping the future of cybersecurity through the power of agentic AI injected with the hacker’s perspective.",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Founded in August 2021, we've secured funding and the backing of ABN AMRO Ventures and Cherry Ventures, propelling us into a new era.",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Our goal is to provide companies with an autonomous Threat Exposure Management platform.",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "Skip to main content",
+   "host": "careers.hadrian.io",
+   "position": "other"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "Cookie Policy",
+   "host": "careers.hadrian.io",
+   "position": "other"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.95,
+  "apply_button": "Apply for this job",
+  "apply_route": "manual",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

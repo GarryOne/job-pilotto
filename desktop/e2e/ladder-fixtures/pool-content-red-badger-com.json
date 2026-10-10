@@ -1,0 +1,151 @@
+{
+ "schemaVersion": 1,
+ "id": "pool-content-red-badger-com",
+ "source": "captured",
+ "why": "pool shape read from a real posting at content.red-badger.com (Red Badger)",
+ "capture": {
+  "url": "https://content.red-badger.com/all-jobs?gh_jid=8004173003"
+ },
+ "expect": {
+  "outcome": "form_in_frame",
+  "accept": [
+   "form_in_frame",
+   "posting",
+   "other"
+  ]
+ },
+ "lang": "en",
+ "sketch": {
+  "url": "https://content.red-badger.com/all-jobs",
+  "title": "Careers | Join our team | Red Badger",
+  "headings": [
+   "Join Red Badger",
+   "Employee Benefits",
+   "See what the Badgers have been up to...",
+   "Engineering Culture: The Hidden Operating System for Scaling Success",
+   "Reflections from Red Badger's 2025 Partner Day",
+   "Breaking the mould - How big corporates can select top tier partners"
+  ],
+  "controls": [],
+  "buttons": [
+   "×",
+   "View our cookies policy here.",
+   "Accept and Close",
+   "What we do",
+   "Digital products",
+   "Digital platforms",
+   "Digital capabilities",
+   "Our work",
+   "Our clients",
+   "Our partners",
+   "About us",
+   "Working with you",
+   "The Badger approach",
+   "Badger news",
+   "Resources",
+   "Our thinking",
+   "White papers & Guides",
+   "Awesome Badger",
+   "Hot topics",
+   "Agent-Assisted Engineering"
+  ],
+  "frames": [
+   "job-boards.greenhouse.io"
+  ],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "link",
+   "text": "Continue reading >",
+   "host": "content.red-badger.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "link",
+   "text": "VIEW MORE POSTS >",
+   "host": "content.red-badger.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "Read more →",
+   "host": "content.red-badger.com",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "Engineering Culture: The Hidden Operating System for Scaling Success",
+   "host": "content.red-badger.com",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "Reflections from Red Badger's 2025 Partner Day",
+   "host": "content.red-badger.com",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "Breaking the mould - How big corporates can select top tier partners",
+   "host": "content.red-badger.com",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Careers",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Join Red Badger",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "We recognise our people are the best thing about Red Badger and that a truly diverse workplace where people are free to be themselves is essential for great cul",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "If you like solving difficult problems, working with great people and making a real impact, join us and become a Badger.",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "phone",
+   "text": "(phone) We use cookies on our website.",
+   "position": "footer"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "View our cookies policy here.",
+   "host": "red-badger.com",
+   "position": "other"
+  }
+ ],
+ "answer": {
+  "kind": "other",
+  "confidence": 0.8,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

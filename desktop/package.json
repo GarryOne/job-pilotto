@@ -25,6 +25,7 @@
     "drawer-shots": "node scripts/drawer-shots.mjs",
     "site-demo": "node scripts/stage.mjs && node scripts/site-demo.mjs",
     "apply-demo": "node scripts/apply-demo.mjs",
+    "ladder-score": "node e2e/ladder-score.mjs",
     "lint": "cd .. && eslint --config eslint.config.mjs --max-warnings 0 desktop extension",
     "mail-states": "node scripts/stage.mjs && node e2e/mail-states.mjs"
   },

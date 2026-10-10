@@ -1,0 +1,58 @@
+{
+ "schemaVersion": 1,
+ "id": "inv-inperson-it",
+ "source": "invented",
+ "lang": "it",
+ "why": "Presentarsi di persona",
+ "capture": {
+  "page": "ladder-fixtures/pages/inv-inperson-it.html"
+ },
+ "url": "https://ristorante.example.ch/lavoro/cameriere",
+ "expect": {
+  "outcome": "in_person",
+  "accept": [
+   "in_person",
+   "other"
+  ]
+ },
+ "sketch": {
+  "url": "https://ristorante.example.ch/lavoro/cameriere",
+  "title": "Cameriere/a",
+  "headings": [
+   "Cameriere/a"
+  ],
+  "controls": [],
+  "buttons": [
+   "Home"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "other",
+  "confidence": 0.5,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "sentence",
+   "text": "Cameriere/a",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Per candidarsi, presentarsi di persona al ristorante con il curriculum, dal martedì alla domenica.",
+   "position": "main"
+  }
+ ]
+}

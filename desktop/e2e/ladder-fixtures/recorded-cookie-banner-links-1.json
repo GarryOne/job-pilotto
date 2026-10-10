@@ -1,0 +1,69 @@
+{
+ "schemaVersion": 1,
+ "id": "recorded-cookie-banner-links-1",
+ "source": "recorded",
+ "lang": "en",
+ "why": "recorded case: a cookie banner with links beside its close button (the AI names a link)",
+ "capture": {
+  "page": "recorded/cookie-banner-links-1/posting.html"
+ },
+ "url": "https://www.jobs.ch/en/vacancies/detail/replay-0001/",
+ "expect": {
+  "outcome": "posting"
+ },
+ "sketch": {
+  "url": "https://www.jobs.ch/en/vacancies/detail/replay-0001/",
+  "title": "Senior Manager, Audit - Geneva",
+  "headings": [
+   "Senior Manager, Audit"
+  ],
+  "controls": [],
+  "buttons": [
+   "Apply",
+   "Terms of Use",
+   "Cookie notice",
+   "Verstanden"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.9,
+  "apply_button": "Apply",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Apply",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "Senior Manager, Audit",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Geneva · Full time",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "Join our audit team in Geneva.",
+   "position": "main"
+  }
+ ]
+}

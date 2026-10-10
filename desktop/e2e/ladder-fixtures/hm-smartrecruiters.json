@@ -1,0 +1,58 @@
+{
+ "id": "hm-smartrecruiters",
+ "source": "captured",
+ "lang": "en",
+ "why": "pool: H&M career site, no-form",
+ "capture": {
+  "url": "https://career.hm.com/job/3ee4ab7c-44f4-4324-9d61-0549a61f887f"
+ },
+ "expect": {
+  "outcome": "other"
+ },
+ "sketch": {
+  "url": "https://career.hm.com/job/3ee4ab7c-44f4-4324-9d61-0549a61f887f",
+  "title": "Access Denied",
+  "headings": [
+   "Access Denied"
+  ],
+  "controls": [],
+  "buttons": [],
+  "frames": [],
+  "mails": []
+ },
+ "note": "read today the site answers \"Access Denied\" to a plain browser: a bot wall, never passed",
+ "schemaVersion": 1,
+ "answer": {
+  "kind": "other",
+  "confidence": 0.8,
+  "apply_button": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "phone",
+   "text": "Reference #18.2d6cdead.(phone)e2b36",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "phone",
+   "text": "https://errors.edgesuite.net/18.2d6cdead.(phone)e2b36",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Access Denied",
+   "position": "main"
+  }
+ ]
+}
