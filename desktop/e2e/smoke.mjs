@@ -18,6 +18,8 @@ import {earlierReports, recordSite} from './lib/smoke-record.mjs';
 import {evidenceLines, runFinished, writeBundle} from './lib/evidence-bundle.mjs';
 import {dropCandidate, saveCandidate} from './lib/replay-candidate.mjs';
 import {fetchWanted, wantedFirst} from './lib/wanted-hosts.mjs';
+import {heavy} from './lib/heavy.mjs';
+heavy('e2e-smoke', import.meta.url);   // one heavy run at a time on this Mac (tools/heavy-lock.sh)
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const QA_DIR = path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA');   // survives profile resets and removed worktrees

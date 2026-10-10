@@ -11,6 +11,8 @@ import path from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {autoSuites, suitesNamed} from './lib/plan.mjs';
 import {SKIPPED, summarize} from './lib/skip.mjs';
+import {heavy} from './lib/heavy.mjs';
+heavy('e2e-all', import.meta.url);   // one heavy run at a time on this Mac (tools/heavy-lock.sh)
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 

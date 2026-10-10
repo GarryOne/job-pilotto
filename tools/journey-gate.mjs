@@ -22,7 +22,9 @@ function replay(desktop) {
   const e2e = path.join(desktop, 'e2e');
   if (!fs.existsSync(path.join(e2e, 'node_modules', 'playwright-core'))) { console.log('journey gate: recorded pages skipped (no desktop/e2e/node_modules: npm ci there)'); return 0; }
   const started = Date.now();
-  const run = spawnSync('npm', ['run', '-s', 'recorded'], {cwd: e2e, encoding: 'utf8', timeout: 6 * 60 * 1000});
+  // `npm run recorded` takes the heavy-run lock (tools/heavy-lock.sh) and may wait for it and for a busy machine: the 6 minutes are for the replay itself.
+  const waitS = process.env.JOB_PILOTTO_HEAVY === '0' ? 0 : Number(process.env.JOB_PILOTTO_HEAVY_WAIT || 1800) + Number(process.env.JOB_PILOTTO_HEAVY_LOAD_WAIT || 300);
+  const run = spawnSync('npm', ['run', '-s', 'recorded'], {cwd: e2e, encoding: 'utf8', timeout: (6 * 60 + waitS) * 1000});
   const seconds = ((Date.now() - started) / 1000).toFixed(0);
   if (run.status === 0) { console.log(`journey gate: recorded pages replayed in ${seconds} s`); return 0; }
   const failures = String(run.stdout || '').split('\n').filter(line => /^not ok|^# fail|^\s+[0-9]+: '/.test(line)).join('\n');

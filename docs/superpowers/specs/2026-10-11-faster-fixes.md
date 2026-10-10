@@ -44,7 +44,7 @@ repro tool not on the app's path, ~25% waiting (e2e page, file claims, version r
 
 ### 6. Landing speed (landing-speed session)
 - [x] 1. Timing: every gate step timed, log in the git common dir, top steps printed (be0269c, afdd1f8)
-- [ ] 2. Cache by content: a suite that passed on the same inputs is not run again (Stop hook reads it too)
+- [x] 2. Cache by content: a suite that passed on the same inputs is not run again (Stop hook reads it too) (856ecbb)
 - [ ] 3. One heavy run at a time per machine (lock) and heavy runs wait when the load is high
 - [ ] 4. Tiers: docs, skills, tools-only and tests-only pushes run lint + touched unit tests only
 - [ ] 5. Landing lock in ship.sh, and the extension version taken at ship time under it

@@ -19,6 +19,7 @@ if (name === '--list') {
   console.log(JSON.stringify({include}));
   process.exit(0);
 }
+(await import('./lib/heavy.mjs')).heavy(`e2e-${name}`, import.meta.url);   // one heavy run at a time on this Mac (tools/heavy-lock.sh)
 process.env.JOB_PILOTTO_E2E_SUITE = name;   // the app tags its Sentry reports with it (lib/sentry.js e2eTags)
 process.env.E2E_SUITE = name;   // read when lib/app.mjs loads: each suite writes its own artifacts folder
 // A hard stop for the whole process (6 Oct 2026: a Windows jobs suite ran 14+ min after its last step failed: something outside the steps hung, closing the app
