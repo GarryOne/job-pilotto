@@ -16,7 +16,7 @@ export const OUTCOMES_BY_QUESTION = {page_kind: OUTCOMES, account_ready: ['ready
 export const JUDGE_SKETCH_FIELDS = ['title', 'headings', 'controls', 'buttons', 'texts', 'frames', 'fromPath', 'sameForm'];
 // The fields a fixture may carry (adding one is a one-line change here; the test fails on an undeclared one). `rung` (0-6) and `signal` (unsure|contradicted|stalled|failed) are for the
 // admin page; `expect` may later carry form_frame (an index into frameCandidates) and a closed verb with candidate numbers (slice B).
-export const FIELDS = ['schemaVersion', 'id', 'question', 'source', 'lang', 'why', 'note', 'trap', 'url', 'capture', 'sketch', 'candidates', 'expect', 'answer', 'rung', 'signal', 'file'];
+export const FIELDS = ['schemaVersion', 'id', 'question', 'source', 'lang', 'why', 'note', 'trap', 'url', 'capture', 'sketch', 'candidates', 'expect', 'answer', 'answer_path', 'rung', 'signal', 'file'];
 // `apply_route` (manual | reuse_previous | third_party_account) and `digest` (not_asked: rung 2 names the manual route and its button, so the numbered digest is not needed; asked: it is) are for start dialogs.
 export const EXPECT_FIELDS = ['outcome', 'accept', 'apply_route', 'digest', 'form_frame', 'verb', 'candidates'];
 export const LANGS = ['de', 'fr', 'en', 'it'];

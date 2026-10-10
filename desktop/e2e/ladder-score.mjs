@@ -14,7 +14,7 @@ import {fingerprints} from './lib/ladder-fingerprint.mjs';
 import {BASELINE_FILE, nextBaseline, readBaseline} from './lib/ladder-baseline.mjs';
 import {DIR, loadFixtures} from './lib/ladder-fixtures.mjs';
 import {assertNoApiSpend, scoreFixtures, summarize} from './lib/ladder-score.mjs';
-import {modelClient} from './lib/model.mjs';
+import {answerPathNote, scoringClient} from './lib/ladder-score-path.mjs';
 
 const args = process.argv.slice(2), arg = name => (args.includes(name) ? args[args.indexOf(name) + 1] : '');
 const offline = args.includes('--offline'), record = args.includes('--record');
@@ -27,7 +27,7 @@ let clientFor;
 if (!offline) {
   const engine = pickEngine({family: 'claude'});
   assertNoApiSpend({env: process.env, engine});
-  const client = modelClient({key: '', engine: () => engine});
+  const client = scoringClient();   // the app's own adapter: same effort, same schema handling (lib/ladder-score-path.mjs)
   clientFor = () => client;
 }
 // Live: four calls at a time. Rows come back in fixture order.
@@ -37,7 +37,7 @@ const rows = (await Promise.all(lanes.map(lane => scoreFixtures(lane, {clientFor
 if (record) {
   for (const row of rows) if (row.answer?.kind || row.answer?.answer !== undefined) {   // a page-kind answer has a kind, a judge's an answer
     const fixture = fixtures.find(f => f.id === row.id), {file, ...kept} = fixture;
-    fs.writeFileSync(path.join(DIR, file), `${JSON.stringify({...kept, answer: row.answer}, null, 1)}\n`);
+    fs.writeFileSync(path.join(DIR, file), `${JSON.stringify({...kept, answer: row.answer, answer_path: 'app'}, null, 1)}\n`);   // which path recorded this answer
   }
 }
 if (arg('--update-baseline')) {
@@ -64,4 +64,5 @@ if (summary.pending.length) {
   console.log(`To confirm (expectation pending, not scored, not in the ratchet): ${summary.pending.length}`);
   for (const row of summary.pending) console.log(`  ${row.id}: rung 2 says ${row.outcome || '(no stored answer yet)'}${row.confidence ? ` at ${row.confidence.toFixed(2)}` : ''}; ${row.note || ''}`.slice(0, 220));
 }
+if (offline && answerPathNote(fixtures)) console.log(answerPathNote(fixtures));   // the stored answers a gate replays: which path recorded them
 if (summary.noAnswer.length) console.log(`No stored answer yet: ${summary.noAnswer.map(row => row.id).join(', ')} (run: npm run ladder-score -- --record)`);
