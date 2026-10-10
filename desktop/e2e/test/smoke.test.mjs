@@ -1,7 +1,7 @@
 // The nightly smoke's logic (lib/smoke.mjs): how far a live run got, what counts as a regression, which posting is tried tonight.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {compare, fieldLines, parseLive, pickPosting, placeFound, shortfall} from '../lib/smoke.mjs';
+import {compare, fieldLines, parseLive, pickPosting, placeFound, rungFields, shortfall} from '../lib/smoke.mjs';
 
 const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detail/x/
   2026-10-10T12:20:27Z [extension] page kind: account {"shape":"auth.jobs.ch/u/login/identifier|1-2","by":"ai"}
@@ -9,7 +9,7 @@ const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detai
   2026-10-10T12:20:46Z [extension] account judgment result: needs_code {"botCheck":false}`;
 
 test('a run that stopped at the email code reached code/bot; an account page\'s fields are not the form', () => {
-  assert.deepEqual(parseLive(LIVE), {reached: 'code/bot', filled: null, left: null, fieldList: [], kinds: ['account'], path: [{kind: 'account', host: 'auth.jobs.ch'}], errors: []});
+  assert.deepEqual(parseLive(LIVE), {reached: 'code/bot', filled: null, left: null, rung: 2, signal: null, fieldList: [], kinds: ['account'], path: [{kind: 'account', host: 'auth.jobs.ch'}], errors: []});
 });
 
 test('a form filled to the end is ready; one with fields left is form', () => {
@@ -150,4 +150,32 @@ test('the fields line the app writes (far longer than 230 characters) becomes on
   assert.deepEqual(shortfall(back), {done: 4, total: 11});   // 4 of the 11 asked fields (the 12th is optional)
   assert.deepEqual(fieldLines('fill: fields: 1 filled, 1 left {"fields":[]} account page'), []);   // an account page's fields are not the form's
   assert.deepEqual(fieldLines('fill: fields: 4 filled, 8 left {"fields":[{"label":"Full name","type"'), []);   // a cut line gives none, never a wrong one
+});
+
+// The AI ladder (docs/flows/ladder.md): the rung that made the run's last decision, read from the log; /admin/applying shows it as "Rung" (rung 0 to 6, signal unsure|contradicted|stalled|failed).
+const rungOf = text => { const {rung, signal} = parseLive(text); return [rung, signal]; };
+test('parseLive: the rung of the last decision comes from how the page kind was decided', () => {
+  assert.deepEqual(rungOf('x [extension] page kind: posting {"by":"ai"}'), [2, null]);
+  assert.deepEqual(rungOf('x [extension] page kind: posting {"by":"remembered"}'), [1, null]);
+  assert.deepEqual(rungOf('x [extension] page kind: posting {"by":"structure rule"}'), [0, null]);
+  assert.deepEqual(rungOf('x [extension] page kind: none (no answer), the structure rule decides {"by":""}'), [0, null]);
+  assert.deepEqual(rungOf('x [extension] page kind: posting {"by":"ai"}\nx [extension] page kind: form {"by":"remembered"}'), [1, null]);   // the last decision wins
+});
+test('parseLive: a closer look is rung 4, a Claude takeover rung 5', () => {
+  assert.deepEqual(rungOf('x [extension] page kind: account {"by":"ai"}\nx [extension] closer look: click (the Continue button) {"by":"ai"}'), [4, null]);
+  assert.deepEqual(rungOf('x [extension] closer look: click (x)\nx [extension] take over with Claude asked from the page {"host":"a.com"}'), [5, null]);
+  assert.deepEqual(rungOf('x [extension] take over with Claude refused: Claude already took over this application (one per application)\nx [extension] page kind: posting {"by":"ai"}'), [2, null]);   // refused: nothing took over
+});
+test('parseLive: the exact line "ladder: rung N signal S" overrides, and an unknown rung stays null', () => {
+  assert.deepEqual(rungOf('x [extension] page kind: posting {"by":"ai"}\nx [extension] ladder: rung 3 signal unsure'), [3, 'unsure']);
+  assert.deepEqual(rungOf('x [extension] ladder: rung 2 signal contradicted\nx [extension] page kind: form {"by":"remembered"}'), [2, 'contradicted']);   // the app's own line wins over a derived rung
+  assert.deepEqual(rungOf('x [extension] ladder: rung 9 signal unsure'), [null, null]);
+  assert.deepEqual(rungOf('x [extension] ladder: rung 3 signal because'), [3, null]);
+  assert.deepEqual(rungOf('Apply pressed on https://a.com/x'), [null, null]);
+});
+test('rungFields: the upload row carries a known rung and signal, nothing for an unknown one', () => {
+  assert.deepEqual(rungFields({rung: 0, signal: null}), {rung: 0});
+  assert.deepEqual(rungFields({rung: 3, signal: 'stalled'}), {rung: 3, signal: 'stalled'});
+  assert.deepEqual(rungFields({rung: null, signal: null}), {});
+  assert.deepEqual(rungFields(undefined), {});
 });

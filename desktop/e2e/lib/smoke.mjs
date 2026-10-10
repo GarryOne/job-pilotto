@@ -8,27 +8,41 @@ export const NEVER_VISIT = /(^|\.)(linkedin\.com|glassdoor\.[a-z.]+|indeed\.[a-z
 export const mayVisit = url => { try { return !NEVER_VISIT.test(new URL(url).hostname); } catch { return true; } };   // only the named sites are blocked
 const rank = step => STEPS.indexOf(step);
 
-// -> {reached, filled, left, kinds: [page kinds seen], path: [{kind, host}] in order (consecutive repeats folded), errors: [lines]}
+// The AI ladder's rung (0 to 6) of a decision, read from the app's own log lines (docs/flows/ladder.md); the app's exact line `ladder: rung N signal S` overrides what is derived.
+const BY_RUNG = {ai: 2, remembered: 1, 'structure rule': 0};
+const SIGNALS = ['unsure', 'contradicted', 'stalled', 'failed'];
+
+// The rung and signal a site's upload row carries (absent = unknown; the site drops anything else).
+export const rungFields = result => ({...(result?.rung != null ? {rung: result.rung} : {}), ...(result?.signal ? {signal: result.signal} : {})});
+
+// -> {reached, filled, left, rung (0-6 | null), signal (unsure|contradicted|stalled|failed | null), kinds: [page kinds seen], path: [{kind, host}] in order (consecutive repeats folded), errors: [lines]}
 export function parseLive(output) {
   const lines = String(output || '').split('\n');
   let reached = 'none', filled = null, left = null;
   const kinds = [], errors = [], path = [];
   let fieldList = [];   // the form's fields, one 'field ...' line each (apply-live.mjs prints them whole: the app's own line is cut at 230 characters)
+  let derived = null, told = null;
   const reach = step => { if (rank(step) > rank(reached)) reached = step; };
   for (const line of lines) {
     if (/Apply pressed on /.test(line)) reach('posting');
     const kind = line.match(/page kind: ([\w-]+)/);
     if (kind) { const host = (line.match(/"host":"([^"]+)"/) || line.match(/"shape":"([^\/"|]+)/) || [])[1] || ''; const last = path.at(-1);
       if (!last || last.kind !== kind[1] || last.host !== host) path.push({kind: kind[1], host});
+      const by = (line.match(/"by":"([^"]*)"/) || [])[1];
+      derived = BY_RUNG[by] ?? (/page kind: none/.test(line) ? 0 : derived);
       kinds.push(kind[1]); if (kind[1] === 'account') reach('account'); if (/^(form|account-form)$/.test(kind[1])) reach('form'); }
     if (/account (judgment|result)[^:]*: needs_code|"botCheck":true|bot check/.test(line)) reach('code/bot');
+    if (/\bcloser look: /.test(line)) derived = 4;
+    if (/take over with Claude asked from the page/.test(line)) derived = 5;
+    const ladder = line.match(/\bladder: rung (\d) signal (\w+)\s*$/);
+    if (ladder && Number(ladder[1]) <= 6) told = {rung: Number(ladder[1]), signal: SIGNALS.includes(ladder[2]) ? ladder[2] : null};
     const fields = line.match(/fields: (\d+) filled, (\d+) left/);
     const field = line.match(/^\s+field (filled|left) (\S+) "(.*)" required=(true|false|\?) reason=(.*)$/);
     if (field) fieldList.push({outcome: field[1], type: field[2], label: field[3], required: field[4] === 'true' ? true : field[4] === 'false' ? false : null, reason: field[5]});
     if (fields && !/account page/.test(line)) { fieldList = []; filled = Number(fields[1]); left = Number(fields[2]); reach('form'); if (left === 0 && filled > 0) reach('ready'); }
     if (/(^|\s)(✗|not ok)\b|Error:|crash/.test(line)) errors.push(line.trim().slice(0, 200));
   }
-  return {reached, filled, left, fieldList, kinds: [...new Set(kinds)], path, errors};
+  return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, kinds: [...new Set(kinds)], path, errors};
 }
 
 // The same shape reaching an earlier step than last night, or filling fewer fields on the same posting, is a regression.
