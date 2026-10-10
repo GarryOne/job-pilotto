@@ -132,12 +132,17 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
 
 def posting(db, code):
     """The job whose code (job_code of its URL) is given, with the posting text stored by the crawl."""
-    rows = db.execute("""SELECT jobs.title, jobs.url, jobs.location, jobs.description, companies.name company
-                          FROM jobs JOIN companies ON companies.id=jobs.company_id WHERE jobs.url IS NOT NULL""").fetchall()
+    rows = db.execute("""SELECT jobs.title, jobs.url, jobs.location, jobs.description, jobs.posted_at, jobs.first_seen_at,
+                                companies.name company, sources.name source, sources.kind source_kind
+                          FROM jobs JOIN companies ON companies.id=jobs.company_id LEFT JOIN sources ON sources.id=jobs.source_id
+                          WHERE jobs.url IS NOT NULL""").fetchall()
     for row in rows:
         if job_code(row['url']) == code:
             return {'ok': True, 'code': code, 'title': row['title'], 'company': row['company'], 'url': row['url'],
-                    'location': row['location'] or '', 'description': row['description'] or ''}
+                    'location': row['location'] or '', 'description': row['description'] or '',
+                    # where and when: the Description tab's facts (the source and its kind, when the search first found it, when it was posted)
+                    'source': row['source'] or '', 'source_kind': row['source_kind'] or '',
+                    'first_seen_at': row['first_seen_at'] or '', 'posted_at': row['posted_at'] or ''}
     return {'ok': False, 'error': 'job not found'}
 
 

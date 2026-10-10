@@ -14,7 +14,7 @@ import sqlite3
 import unicodedata
 import urllib.request
 
-from . import ats
+from . import ats, posting_text
 from .. import coverage
 from ..paths import CONFIG, DATA, REPORTS, keyword_regex, load_search_config, place_regex
 from ..ai import providers
@@ -24,9 +24,8 @@ _SEARCH = load_search_config()
 
 
 def plain_text(markup):
-    """Greenhouse sends HTML-escaped HTML; return readable plain text."""
-    markup = html.unescape(markup or "")
-    return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", markup))).strip()[:DESCRIPTION_LIMIT]
+    """Greenhouse sends HTML-escaped HTML; return readable text that keeps its structure (src/sources/posting_text.py)."""
+    return posting_text.html_to_text(markup, DESCRIPTION_LIMIT)
 
 
 # Feed jobs whose title doesn't match config/search.json's role_keywords never reach the digest.

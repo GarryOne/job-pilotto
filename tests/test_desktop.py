@@ -32,6 +32,9 @@ class DesktopTests(unittest.TestCase):
         found = desktop.posting(self.db, job_code('https://x.test/1'))
         self.assertTrue(found['ok'])
         self.assertEqual((found['title'], found['company'], found['url']), ('Site Reliability Engineer', 'Acme', 'https://x.test/1'))
+        self.assertEqual((found['source'], found['source_kind']), ('Acme', 'employer feed'), 'where it came from: the Description tab says so')
+        self.assertTrue(found['first_seen_at'], 'and when the search first found it')
+        self.assertIn('posted_at', found)
         self.assertFalse(desktop.posting(self.db, 'nope0000')['ok'])
 
     def test_a_job_has_a_kit_when_its_notion_stage_is_kit_ready(self):

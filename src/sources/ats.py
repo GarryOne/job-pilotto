@@ -16,6 +16,8 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from . import posting_text
+
 USER_AGENT = 'JobPilotto/0.1 (personal job search; contact via GitHub GarryOne/job-pilotto)'
 TIMEOUT = 20
 DESCRIPTION_LIMIT = 12000
@@ -45,9 +47,8 @@ def _json(url):
 
 
 def plain(markup):
-    """HTML (possibly escaped twice) to plain text."""
-    text = html.unescape(markup or '')
-    return re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]+>', ' ', text))).strip()[:DESCRIPTION_LIMIT]
+    """HTML (possibly escaped twice) to text that keeps its headings, paragraphs and list items (src/sources/posting_text.py)."""
+    return posting_text.html_to_text(markup, DESCRIPTION_LIMIT)
 
 
 def _job(id, title, location, url, date_posted='', description='', remote=False, salary=''):
