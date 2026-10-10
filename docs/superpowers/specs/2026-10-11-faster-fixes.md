@@ -12,8 +12,8 @@ repro tool not on the app's path, ~25% waiting (e2e page, file claims, version r
 - [x] The AI's live requests and answers saved per run: `ai-calls.json` (job-pilotto-b8, 3cc8788)
 - [x] The digest's own answer and what was dropped in the app log (job-pilotto-eb, 94d4d59)
 - [x] The press trace: where a press went (job-pilotto-54, 0.9.184)
-- [ ] One evidence bundle per pool run, its four lines quoted in the report (job-pilotto-b8)
-- [ ] A killed or cut-short run uploads nothing (job-pilotto-b8)
+- [x] One evidence bundle per pool run, its four lines quoted in the report (job-pilotto-b8, d46864d)
+- [x] A killed or cut-short run uploads nothing (job-pilotto-b8, d46864d)
 
 ### 2. Reproduce on the app's real path (~20%)
 - [x] Live ladder-score asks through the app's own AI adapter (job-pilotto-eb, a322751)
