@@ -92,6 +92,17 @@ test('a posting in any language: the AI names its Apply button among the page\'s
   assert.equal(applyButtonOf('Iniciar sessão', ['Iniciar sessão']), 'iniciar sessão');   // a sign-in in Portuguese: the schema's floor knows English words only…
   assert.equal(applyButtonOf('Sign in', ['Sign in']), '', '…and never accepts the English ones');
   assert.equal(applyButtonOf('Submit', ['Submit']), '');
+  // A board's own quick apply is an Apply route (owner, 11 Oct 2026, jobs.ch "Easy apply"); applying through another site's account is not.
+  assert.equal(applyButtonOf('Easy apply', ['Save', 'Easy apply']), 'easy apply');
+  assert.equal(applyButtonOf('Apply with LinkedIn', ['Apply with LinkedIn']), '');
+});
+
+test('a posting whose only Apply is the board\'s own "Easy apply": kept when the AI judges it apply, dropped when it is another site\'s account', async () => {
+  const posting = {url: 'https://www.jobs.ch/en/vacancies/detail/1/', title: 'Real Estate Accountant', headings: ['Real Estate Accountant'], controls: [], buttons: ['Save', 'Easy apply', 'Login']};
+  const kept = await pageKind(fake({kind: 'posting', confidence: 0.9, apply_button_kind: 'apply', apply_button: 'Easy apply'}, []), posting, cacheIn());
+  assert.equal(kept.applyButton, 'easy apply');
+  const other = await pageKind(fake({kind: 'posting', confidence: 0.9, apply_button_kind: 'third_party', apply_button: 'Easy apply'}, []), posting, cacheIn());
+  assert.equal(other.applyButton, '');
 });
 
 test('a button by meaning: the app picks among the page\'s own buttons only, kept; nothing outside them', async () => {

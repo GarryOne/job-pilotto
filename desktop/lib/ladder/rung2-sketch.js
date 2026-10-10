@@ -61,7 +61,7 @@ Decide from what the page asks, not from words in one language. Give your confid
 bot_check: true when a check that the visitor is human stands in front of what the page would show (a puzzle or image test, a "verify you are human" step, a
 challenge drawn in a frame: the Frames line lists the hosts of the page's visible frames), in any language; the kind is then other.
 apply_button: for a posting, the exact text, copied from the Buttons list, of the one button that starts applying for this job, in whatever
-language; never sign in, sign up, submit, save, share, an alert, or applying through another site (LinkedIn, Indeed, "Easy Apply"); "" when
+language; never sign in, sign up, submit, save, share, an alert, or applying through another site's account (LinkedIn, Indeed, Google); a quick or easy apply of the board's own that starts THIS application on its own site counts, in any language; "" when
 there is none or for any other kind. apply_button_kind: judge what that button DOES, in any language, not by its words: apply only when it starts or continues this application
 (including the manual way of a start dialog); sign_in for a log-in to an existing account; sign_up for creating an account or registering; third_party for signing in or applying through another site's account; other for the rest; "" when apply_button is "".
 When a posting or a dialog offers SEVERAL ways to start (fill it in by hand, reuse an earlier application or profile, sign in with another site's account such as LinkedIn, Google or Apple), in any
@@ -97,7 +97,7 @@ export function pageSketch({url, title, headings, controls, buttons, frames, mai
 // The kind of one page: remembered for its shape, else asked. Returns {kind, role, confidence, by: 'remembered' | 'ai', usd?} or
 // {error} (no AI, a failure, an answer outside the kinds, a low confidence): the caller then goes by its structure rule.
 // The Apply button the AI named, kept only when it is one of the page's own buttons and a start-applying phrase the shared schema accepts (never
-// sign in, submit, Easy Apply…: extension/alias-schema.js validateAlias), so it can never name something the page does not show.
+// sign in, submit, apply with another site…: extension/alias-schema.js validateAlias), so it can never name something the page does not show.
 export function applyButtonOf(text, buttons = []) {
   const wanted = clean(text, 40);
   if (!wanted || !buttons.some(button => clean(button, 40).toLowerCase() === wanted.toLowerCase())) return '';

@@ -298,6 +298,10 @@ test('a button the page-kind AI named is pressed by its own text, not outscored 
   assert.equal(pickNamedButton(list, 'Apply With LinkedIn'), null);                                           // floor: a third-party sign-in is never pressed
   assert.equal(pickNamedButton(list, 'Apply Later'), null);                                                  // not on the page: nothing, never a guess
   assert.equal(pickNamedButton(list, ''), null);
+  // jobs.ch, 11 Oct 2026: a board's own "Easy apply" is pressed when the AI named it; without the AI the rule still refuses it.
+  const easy = [b('Save', {tag: 'button', href: ''}), b('Easy apply', {tag: 'button', href: ''}), b('Apply With LinkedIn')].map((item, index) => ({...item, index}));
+  assert.equal(pickNamedButton(easy, 'Easy apply').text, 'Easy apply');
+  assert.equal(pickApplyButton(easy), null);
   assert.equal(pickNamedButton([b('Apply Manually', {submits: true}), b('Apply Manually', {visible: false}), b('Apply Manually', {disabled: true})], 'Apply Manually'), null);
   assert.equal(pickNamedButton([b('Apply Manually', {href: 'mailto:a@b.c'})], 'Apply Manually'), null);
 });

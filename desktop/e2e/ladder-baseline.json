@@ -24,10 +24,14 @@
   {
    "date": "2026-10-10",
    "reason": "judge questions added with their stored answers (account_ready, account_result, form_step): 39 fixtures; umantis expectation set to middle after reading the page (note in the fixture)"
+  },
+  {
+   "date": "2026-10-10",
+   "reason": "Rung 2: a board's own Easy apply counts as the Apply button (jobs.ch); jobs-ch-apply-not-found wrong-confident -> exact (live, recorded); other fixtures keep their stored answers, a live re-run of all showed only model noise (4 moved, 3 back on re-run)"
   }
  ],
  "promptFingerprint": {
-  "rung2": "5393c1cd563f8955",
+  "rung2": "f195b59f9e204185",
   "rung3": "10d7aa414a43a90a",
   "account-judge": "82bb54b889d5f14d",
   "form-judge": "ac2382fd98ef6780",
@@ -633,8 +637,8 @@
      "posting"
     ]
    },
-   "outcome": "other",
-   "status": "wrong-confident"
+   "outcome": "posting",
+   "status": "exact"
   },
   "lever-form": {
    "expect": {

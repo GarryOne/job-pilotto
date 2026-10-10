@@ -51,6 +51,9 @@ export const neverForm = url => {
 // → the candidate, or null. Tested in desktop/test/extension-tab-pages.test.js.
 const APPLY_PHRASE = /^(to apply|apply( now| here| online| today)?( for (this|the) (job|role|position|opening))?|apply to this (job|role|position)|i['\u2019]?m interested|start (your |the )?application|jetzt bewerben|online bewerben|bewerben|zur bewerbung|bewerbung starten|postuler( maintenant| en ligne)?|candidater|postuler [a\u00e0] (ce|cette) (poste|offre)|candidati( ora)?|invia candidatura|inscribirme|aplicar( ahora)?)[\s\p{P}\p{S}]*$/iu;   // any trailing marks: "Postuler »" (Coop, 8 Oct 2026), "Apply →", "Apply ❯"
 const NOT_APPLY = /sign.?in|log.?in|register|create (an )?account|submit|save|share|alert|easy apply|apply with |already applied|follow|subscribe/i;
+// The button the page-kind AI named: the same floor, except a board's own "Easy apply" (owner, 11 Oct 2026: the AI says whether it applies here or through another site's account;
+// "apply with …" stays refused). Without the AI's answer the rule above still refuses it.
+const NOT_APPLY_NAMED = new RegExp(NOT_APPLY.source.replace('|easy apply', ''), 'i');
 const notAPage = href => /^(mailto|tel|javascript):/i.test(String(href || ''));   // a mail, phone or script link is no way into the application
 export function pickApplyButton(candidates = [], phrases = []) {
   let best = null, bestScore = -1;
@@ -78,7 +81,7 @@ export function pickNamedButton(candidates = [], named = '') {
   let best = null;
   for (const item of candidates) {
     const text = same(item?.text);
-    if (text !== wanted || item.submits || !item.visible || item.disabled || NOT_APPLY.test(text)) continue;
+    if (text !== wanted || item.submits || !item.visible || item.disabled || NOT_APPLY_NAMED.test(text)) continue;
     if (notAPage(item.href)) continue;
     if (!best || (Number(item.area) || 0) > (Number(best.area) || 0)) best = item;
   }

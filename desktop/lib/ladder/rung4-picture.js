@@ -52,7 +52,7 @@ export function vetForm(found, sketch) {
 }
 
 // A job posting (scope "page"): the last look when the sketch, the digest and the kept answers found no way to apply. Only a click (or a wait) goes through, and only on a control the page lists that the AI
-// calls Apply (control_kind) AND the Apply floor accepts (the shared alias schema: never a sign-in, submit, Easy Apply or alert): both keys must turn. The extension presses it with next-step.js pressInPage,
+// calls Apply (control_kind) AND the Apply floor accepts (the shared alias schema: never a sign-in, submit, apply-with-another-site or alert): both keys must turn. The extension presses it with next-step.js pressInPage,
 // which never presses a control that submits or reads like Submit. A kept click (`remembered`) already passed this once: it needs to be listed and to pass the floor again. -> {ok, action, control?, why?}
 export function vetPage(found, sketch, {remembered = false} = {}) {
   const asked = {ok: true, action: 'ask_person'};

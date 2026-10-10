@@ -16,8 +16,9 @@ export const FILE_FLOOR = {
 export const KEYS = ['first_name', 'last_name', 'full_name', 'email', 'phone', 'linkedin', 'github', 'website', 'location', 'street', 'postal_code', 'place_of_origin', 'birth_date'];
 // A wrong meaning for these would put personal data where it does not belong, so they are never rolled out without the owner's approval.
 export const SENSITIVE = ['phone', 'street', 'postal_code', 'place_of_origin', 'birth_date'];
-// Words a start-applying button never has: sign in, share, save, submit and the like (the same list as NOT_APPLY in tab-pages.js).
-const NOT_APPLY = /sign.?in|log.?in|register|create (an )?account|submit|send|save|share|alert|easy apply|apply with |already applied|follow|subscribe|cookie|accept|decline|reject|password|search|filter|menu|language/i;
+// Words a start-applying button never has: sign in, share, save, submit and the like (tab-pages.js NOT_APPLY is the no-AI copy and still refuses "Easy Apply":
+// with the AI's answer, a board's own quick apply counts, 11 Oct 2026; the AI's apply_button_kind says whether it applies here or through another site's account).
+const NOT_APPLY = /sign.?in|log.?in|register|create (an )?account|submit|send|save|share|alert|apply with |already applied|follow|subscribe|cookie|accept|decline|reject|password|search|filter|menu|language/i;
 const FORBIDDEN = /\b(i agree|i accept|terms|privacy|consent|acknowledg|certif|affirm|password|passwort|signature|sign here|captcha|submit|apply now|salary|gehalt|visa|permit|gender|disability|race|ethnic|religion)\b/i;
 
 // The same cleaning the app and the site apply to a question's wording: lower case, no stars or "(optional)", no personal-looking text.
