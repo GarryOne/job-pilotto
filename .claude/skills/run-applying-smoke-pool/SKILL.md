@@ -10,6 +10,9 @@ e2e harness. It answers "did a real site change under us, and how far does each 
 not fix shapes: a failing one goes to `/fix-failing-forms`; one that needs the owner's real state goes to `/fix-live-applying-in-twin`.
 Spec: `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md` (four layers); flows map: `docs/flows/applying.md`.
 
+## Taking the role (do this first)
+Whoever owns the pool and the e2e page writes its own session name into `~/Library/Application Support/Job Pilotto QA/coordinator.txt` (one line, then what it is), when it starts and whenever its name changes: every other skill reads that file to find who to report to. `ListAgents` shows your own name on its first line. Tell the peers once ("I am the pool coordinator now, report to <name>").
+
 ## What exists
 - **Runner** `desktop/e2e/smoke.mjs` (`cd desktop/e2e && npm run smoke`), logic in `lib/smoke.mjs` (rotation `tonight`, `parseLive`, `signature`, `compare`,
   `NEVER_VISIT`), upload in `lib/applying-report.mjs`. It never schedules itself: the nightly schedule (launchd vs by hand) is the owner's choice, ask once.

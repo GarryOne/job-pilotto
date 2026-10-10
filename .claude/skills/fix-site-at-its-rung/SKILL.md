@@ -9,6 +9,9 @@ Map: `docs/flows/ladder.md` (rungs, owners, fixed answers, what may change). Spe
 Companion of `fix-failing-forms` (which fixes what happens AFTER the right page kind is known: fill, upload, controls). This skill is for "the page was judged or climbed wrong".
 Rule of the product: **never fix a website; fix a shape.** The site is one live sample.
 
+## 0. Coordinator and the e2e page
+Find the coordinator: `cat "~/Library/Application Support/Job Pilotto QA/coordinator.txt"` names the session that owns the applying test pool and the shared e2e page (it rewrites the file when it starts or its session name changes). If that name is not in `ListAgents`, no coordinator is running: ask the owner before any run on the e2e page. Tell it the shape you take and ask before any run on the e2e page (one run at a time on it). The ladder's design is job-pilotto-cc's: tell it before you touch the flow core.
+
 ## 1. Find the rung that decided wrong (5 min, no edits)
 - `/admin/applying` pool table "Rung" column, or `logs/app.log`: `page kind: <kind> by ai|remembered`, `structure rule`, `closer look`, `takeover`.
 - Map: by `ai` = rung 2, `remembered` = 1, structure rule = 0 (after unsure or no AI), closer look = 4, takeover = 5.

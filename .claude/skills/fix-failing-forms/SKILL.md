@@ -21,7 +21,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
   site's `fieldList`: label, type, outcome, required, reason per field; one `.log` per run) and **`replay-candidates/<day>/<shape>/`** (the failing run's last page, structure only and scrubbed, with a
   `case.json` skeleton: the run's fields, page path and page-kind lines): start the recorded page from that candidate, take the AI's answers from its `evidence`, never invent them.
   Say: N rows, the top three, the one you take. After the landing, the next night's "Filled, last runs" column of that row is the proof: it must go up or the row must leave the list.
-- **Peers:** `ListAgents`; message the pool owner (session in memory `project-handover-smoke-coordinator`) with the shape you take, and ask whether the
+- **Peers:** `ListAgents`; message the coordinator: `cat "~/Library/Application Support/Job Pilotto QA/coordinator.txt"` names the session that owns the applying test pool and the shared e2e page (it rewrites the file when it starts or its session name changes). If that name is not in `ListAgents`, no coordinator is running: ask the owner before any run on the e2e page. Send it the shape you take, and ask whether the
   e2e page is free (suites share one Notion test page: never two runs at once). A pool or applying run by a peer: wait, or queue yours.
 - **Claim the flow core** (`FLOW_CORE`/`FLOW_FILES`, `desktop/e2e/flows.mjs`) before editing any file in it: one message to every peer "I own the flow core
   until I say released", and "released" when done. Read each file's `Invariants:` block first; changing one is the owner's call, said in the commit.
@@ -64,7 +64,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
   or a scenario (a fill replay alone does not count), or `Recorded-unneeded: <why>` in the commit only when no real site's failure is fixed. Commit subject <= 72 characters.
 - **Re-run `npm run smoke -- --only <shape>` on the landed build** (a held run, said before it starts) and compare with the first run: **it must reach further**
   (a later page kind, a fill count > 0). Report: before -> after, counts, what still stops it. Not further = not done: back to step 1 with the new log.
-- Report to the owner and the pool owner in one line per shape: shape, fix (mechanism part), reached before -> after, commit, sibling sites helped.
+- Report to the owner and the coordinator in one line per shape: shape, fix (mechanism part), reached before -> after, commit, sibling sites helped.
 - Say "released" for the flow core to every peer.
 
 ## Stop conditions
@@ -72,7 +72,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
 - Two fix rounds without reaching further: stop, write what is known (log lines, frames, what you tried) and hand the shape back; do not keep guessing.
 - A site that blocks automation (401/403/429, a bot check) is a no: note it in the report, leave it.
 - The shape needs the owner's real state (their account, their Gmail): hand it to the twin skill, never use it here.
-- The pool owner or a peer holds the e2e page or the flow core: wait or hand over; never two runs on one page.
+- The coordinator or a peer holds the e2e page or the flow core: wait or hand over; never two runs on one page.
 - The owner says stop.
 
 ## Never
