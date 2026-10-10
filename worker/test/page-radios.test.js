@@ -91,3 +91,72 @@ test('the AI\'s likely answer (use: propose) is never typed: it is the question\
   assert.equal(row.reason, 'proposed for you to confirm');
   assert.equal(window.document.getElementById('name').value, 'Ada Tester');   // a stated answer is still typed
 });
+
+// Pressable buttons as a choice group (Ashby's Yes/No: two aria-pressed buttons under one parent, the title in a label above). Found by
+// structure, not by the words Yes/No; read as the same field shape as an ARIA radio group, with the same legal floor.
+const toggle = (title, options, extra = '') => `
+  <div class="entry"><label class="_heading_x _required_x title">${title}</label>
+    <div class="_yesno_x" ${extra}>${options.map(text => `<button type="button" aria-pressed="false">${text}</button>`).join('')}</div>
+    <input type="checkbox" hidden></div>`;
+const TOGGLES = `<form><label for="name">Full name *</label><input id="name" required>
+  ${toggle('Are you authorized to work here?', ['Yes', 'No'])}
+  ${toggle('Wie gross ist Ihr Team?', ['Klein', 'Mittel', 'Gross'])}
+  ${toggle('I accept the terms', ['I accept', 'I do not accept'])}
+  <div class="entry"><label class="title">Additional information</label>
+    <div role="toolbar"><button type="button" aria-pressed="false">Bold</button><button type="button" aria-pressed="false">Italic</button></div>
+    <textarea id="more"></textarea></div>
+</form>`;
+function pressing(window) {
+  for (const button of window.document.querySelectorAll('button[aria-pressed]')) {
+    button.addEventListener('click', () => {
+      for (const other of button.parentElement.querySelectorAll('button')) other.setAttribute('aria-pressed', 'false');
+      button.setAttribute('aria-pressed', 'true');
+    });
+  }
+}
+
+test('a group of pressable buttons is read as one choice field, by structure: its title above, its buttons as options, in any language', { skip: !JSDOM }, async () => {
+  const window = openPage(JSDOM, TOGGLES);
+  const fields = (await window.__jobPilottoDescribeForm()).filter((field) => String(field.field).startsWith('aria:'));
+  assert.deepEqual(Array.from(fields.map((field) => field.label)), ['Are you authorized to work here?', 'Wie gross ist Ihr Team?', 'I accept the terms']);
+  const [yesNo, team] = fields;
+  assert.equal(yesNo.type, 'radio');
+  assert.equal(yesNo.required, true);   // the title's own "required" class
+  assert.deepEqual(Array.from(yesNo.options), ['Yes', 'No']);
+  assert.deepEqual(Array.from(team.options), ['Klein', 'Mittel', 'Gross']);
+  assert.equal(yesNo.filled, false);
+  assert.equal(fields[2].legal, true);
+  // Not a question: a rich-text toolbar's pressable buttons.
+  assert.ok(!fields.some((field) => /Bold/.test(String(field.options))), 'a toolbar is not a question');
+});
+
+test('the answer presses the button by its name, counts as filled, and nothing is left "not read"; a legal option is never pressed', { skip: !JSDOM }, async () => {
+  const window = openPage(JSDOM, TOGGLES);
+  pressing(window);
+  const form = await window.__jobPilottoDescribeForm();
+  const keyOf = (label) => form.find((field) => field.label === label).field;
+  const summary = await window.__jobPilottoExtensionFill([
+    { field: 'name', value: 'Ada Tester', source: 'kit' },
+    { field: keyOf('Are you authorized to work here?'), value: 'No', source: 'kit' },
+    { field: keyOf('Wie gross ist Ihr Team?'), value: 'Mittel', source: 'kit' },
+    { field: keyOf('I accept the terms'), value: 'I accept', source: 'kit' },
+  ], {}, null, '', false);
+  const pressed = (text) => Array.from(window.document.querySelectorAll('button')).find((button) => button.textContent === text).getAttribute('aria-pressed');
+  assert.equal(pressed('No'), 'true');
+  assert.equal(pressed('Yes'), 'false');
+  assert.equal(pressed('Mittel'), 'true');
+  assert.equal(pressed('I accept'), 'false');
+  const trace = Array.from(summary.trace);
+  assert.equal(trace.filter((row) => row.reason === 'question on the page not read' && /authorized/.test(row.label)).length, 0);
+  assert.equal(trace.find((row) => row.label === 'Are you authorized to work here?')?.outcome, 'filled');
+});
+
+test('an unanswered pressable-button question is listed as left, by its question, not as unread', { skip: !JSDOM }, async () => {
+  const window = openPage(JSDOM, TOGGLES);
+  pressing(window);
+  const summary = await window.__jobPilottoExtensionFill([{ field: 'name', value: 'Ada Tester', source: 'kit' }], {}, null, '', false);
+  const row = Array.from(summary.trace).find((item) => item.label === 'Are you authorized to work here?');
+  assert.ok(row, 'listed');
+  assert.notEqual(row.outcome, 'filled');
+  assert.notEqual(row.reason, 'question on the page not read');
+});

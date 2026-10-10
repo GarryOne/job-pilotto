@@ -31,6 +31,13 @@ async function replay(spec, html) {
     const option = event.target.closest?.('[role=option], [class*=option]');
     if (option) picked.push(option.textContent.replace(/\s+/g, ' ').trim());
   }, true);
+  // The page's own behaviour for a group of pressable buttons: a click presses this one and releases its siblings (React does it on the real page).
+  for (const button of window.document.querySelectorAll('button[aria-pressed]')) {
+    button.addEventListener('click', () => {
+      for (const other of button.parentElement.querySelectorAll('button[aria-pressed]')) other.setAttribute('aria-pressed', 'false');
+      button.setAttribute('aria-pressed', 'true');
+    });
+  }
   const field = fieldOf(window, spec);
   const summary = await window.__jobPilottoExtensionFill([{ field, value: spec.answer, question: spec.label, source: 'kit' }], {}, null, '', false);
   const armed = window.document.querySelector('[data-jobpilotto-armed]');
@@ -42,6 +49,8 @@ async function replay(spec, html) {
   const input = window.document.getElementById(field) || window.document.querySelector(`[name="${field}"]`);
   return {
     picked: picked[0] ?? null,
+    // A group of pressable buttons (Yes/No): the one pressed now.
+    pressed: window.document.querySelector('button[aria-pressed=true]')?.textContent.replace(/\s+/g, ' ').trim() ?? null,
     checked: radio ? (radio.labels?.[0]?.textContent || radio.value).replace(/\s+/g, ' ').trim() : null,
     value: input && !/^(radio|checkbox)$/.test(input.type) && input.getAttribute('role') !== 'combobox' ? input.value : null,
     trace: (summary.trace || []).find((row) => row.label === spec.label) || null,

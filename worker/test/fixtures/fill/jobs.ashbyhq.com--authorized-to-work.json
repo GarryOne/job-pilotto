@@ -1,0 +1,15 @@
+{
+ "source": "synthetic",
+ "site": "jobs.ashbyhq.com",
+ "label": "Are you authorized to work in the country where the job is located?",
+ "reason": "question on the page not read",
+ "note": "Ashby: a Yes/No question drawn as two aria-pressed buttons under one parent (a title label above, a hidden checkbox beside). The reader listed inputs and role=radiogroup only, so the question never reached an answer (OpenAI and Colonist, 6 Oct 2026, three required questions left).",
+ "field": "aria:g1",
+ "answer": "Yes",
+ "expect": {
+  "pressed": "Yes",
+  "traced": true,
+  "read": true,
+  "required": true
+ }
+}
