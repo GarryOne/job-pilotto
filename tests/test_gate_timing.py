@@ -36,6 +36,12 @@ class GateTimingTest(unittest.TestCase):
         self.assertEqual(result.stdout.strip(), 'ran')
         self.assertFalse((self.tmp / '.git' / 'gate-timing.log').exists())
 
+    def test_the_hook_has_one_exit_trap_that_prints_the_summary(self):
+        # A second `trap ... EXIT` replaces the first: the summary vanished that way on the first landing (11 Oct 2026).
+        traps = [line for line in (ROOT / 'tools' / 'pre-push-check.sh').read_text().splitlines() if line.startswith('trap ') and line.split('#')[0].rstrip().endswith('EXIT')]
+        self.assertEqual(len(traps), 1)
+        self.assertIn('gate_summary', traps[0])
+
 
 if __name__ == '__main__':
     unittest.main()

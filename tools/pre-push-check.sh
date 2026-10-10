@@ -9,7 +9,7 @@
 set -uo pipefail
 source "$(dirname "$0")/gate-timing.sh" 2>/dev/null || { gate_timing_start() { :; }; timed() { shift; "$@"; }; gate_summary() { :; }; }
 gate_timing_start
-trap gate_summary EXIT
+trap 'type slot_release >/dev/null 2>&1 && slot_release; gate_summary' EXIT   # one EXIT trap: the slot is freed and the timing printed on every way out
 
 input="$(cat)"
 command="$(jq -r '.tool_input.command // ""' <<<"$input")"
@@ -247,7 +247,6 @@ verify_area() {  # area [extra check.sh flags]
   (cd "$tree" && bash tools/check.sh --area "$area" $affected_flag "$@")
 }
 source "$repo/tools/check-slot.sh" 2>/dev/null || { slot_acquire() { :; }; slot_release() { :; }; }
-trap slot_release EXIT
 slot_acquire
 if [ "$want_workflows" = 1 ]; then
   run "CI installs dev dependencies (build.yml)" ci_installs_dev
