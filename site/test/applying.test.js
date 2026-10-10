@@ -203,3 +203,29 @@ test('the owner can delete one run row (a case that should never have been sent)
   assert.deepEqual(await forget(db, {kind: 'recorded', day: '2026-10-12', name: 'bad-case-1'}), {ok: true, removed: 1});
   assert.deepEqual(db.db.prepare('SELECT name FROM applying_runs').all().map(row => row.name), ['good-case-1']);
 });
+
+// The pool table's search (owner, 11 Oct 2026): words in any order over the site's name, platform, host, flow, last result and its blocked/regression text; with the two filters; Clear empties it.
+test('the pool search matches words in any order over name, platform, host, flow and result, and combines with the filters', () => {
+  const snippet = PAGE.slice(PAGE.indexOf('/*search*/'), PAGE.indexOf('/*end search*/'));
+  assert.ok(snippet.length > 100, 'the search code is on the page');
+  const matches = new Function('flowText', 'STAGE', 'shortText', 'blocked', `${snippet}; return poolMatches;`)(s => s.flow || '—', {posting: 'Posting reached', form: 'Form reached'}, s => `${s.short.unexplained} unexplained of ${s.short.total}`, s => s.reached === 'posting' && s.rung != null);
+  const aldi = {name: 'Aldi Suisse jobs', platform: 'Custom', start: 'www.jobs.aldi.ch', flow: 'Posting', reached: 'posting', rung: 2};
+  const bulgari = {name: 'Bulgari', platform: 'Custom', start: 'recruitmentplatform.com', flow: 'Posting → form', reached: 'form', short: {unexplained: 1, total: 14}, rung: 2};
+  const ashby = {name: 'Ashby form in an embedded app', platform: 'Ashby', start: 'jobs.ashbyhq.com', flow: 'Posting → form', reached: 'form', regression: true};
+  assert.equal(matches(aldi, ''), true); assert.equal(matches(aldi, '   '), true);                       // nothing typed: every site
+  assert.equal(matches(aldi, 'ALDI'), true); assert.equal(matches(aldi, 'suisse aldi'), true);         // case and word order do not matter
+  assert.equal(matches(aldi, 'aldi.ch'), true); assert.equal(matches(aldi, 'jobs.aldi'), true);       // the host
+  assert.equal(matches(aldi, 'blocked'), true); assert.equal(matches(aldi, 'blocked at 2'), true);    // the red cell's text
+  assert.equal(matches(bulgari, 'blocked'), false); assert.equal(matches(bulgari, '1 unexplained'), true); assert.equal(matches(bulgari, 'form reached'), true);
+  assert.equal(matches(ashby, 'ashby regression'), true); assert.equal(matches(ashby, 'ashby aldi'), false);   // every word must match
+  assert.equal(matches(ashby, 'lever'), false);
+});
+
+test('the pool search is an input of the filter bar, resets the page, is combined with the two filters and is emptied by Clear', () => {
+  assert.match(PAGE, /el\('input', \{type: 'search', placeholder: 'Site, platform, host or result'/);
+  assert.match(PAGE, /oninput: event => \{ chosen\.query = event\.target\.value; chosen\.page = 0; draw\(\); \}/);
+  assert.match(PAGE, /\(!chosen\.flow \|\| s\.flow === chosen\.flow\) && poolMatches\(s, chosen\.query\)/);
+  assert.match(PAGE, /chosen\.query = ''; chosen\.page = 0;[\s\S]{0,160}search\.value = ''/);                    // Clear
+  assert.match(PAGE, /clear\.hidden = !chosen\.platform && !chosen\.flow && !chosen\.query/);
+  assert.match(PAGE, /\.pick input\[type=search\]/);
+});
