@@ -170,7 +170,12 @@ export async function run(ctx) {
       if (!pageText(standIn2, ids.NOTION_PROFILE_PAGE_ID).includes('ten years')) throw new Error('this Mac\'s Profile did not reach the empty Notion');
       await second.page.reload();
       await second.page.waitForSelector('.view:not([hidden])', {timeout: 60000});
-      sameScreens(expected, await screens(second.page));
+      try { sameScreens(expected, await screens(second.page)); } catch (error) {
+        // Evidence for a failure only seen on Windows CI (10 Oct 2026: the hidden "Orrin AG" shows after the move there): what the second install's store holds, and its own log.
+        const rows = await ctx.data('matches', 'list', {}, {profile: second.profile}).catch(problem => `unreadable: ${problem.message}`);
+        throw new Error(`${error.message}\n  the second install's matches after the move: ${JSON.stringify(Array.isArray(rows) ? rows.map(match => ({company: match.company, status: match.status})) : rows)}`
+          + `\n  searches seen by its log: ${JSON.stringify(searches(second.profile))} (before the connect: ${JSON.stringify(mark)}); its log: ${JSON.stringify(logLines(second.profile, /\[(store|data|run)\]|search|daily/i))}`);
+      }
       if (standIn2.stats.unknown.length) throw new Error(`the second stand-in met requests it does not know: ${standIn2.stats.unknown.join('; ')}`);
     });
   } finally {
