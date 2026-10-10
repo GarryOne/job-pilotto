@@ -17,6 +17,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {chromium} from 'playwright-core';
 import {looksLikeSubmit} from './lib/twin-guards.mjs';
+import {appProfileTexts, personalValues, scrub, snapshotInPage, writeCapture} from './lib/capture-page.mjs';
 
 export const TWIN_JSON = path.join(os.homedir(), 'Library', 'Application Support', 'Job Pilotto (live test)', 'twin.json');
 
@@ -143,6 +144,21 @@ const commands = {
     const result = tab ? await tab.evaluate(expression) : `no tab with ${part}`;
     await browser.close();
     return result;
+  },
+  // capture <tab part> <case-name> <page-name> <out dir>: the tab's page, its structure only and scrubbed (lib/capture-page.mjs), into <out>/<case-name>/ for
+  // the recorded pages (layer 2). <out> is YOUR worktree's desktop/e2e/recorded: never the twin's own worktree. Nothing typed, no value, no query survives.
+  async capture(part, caseName, pageName, out) {
+    if (!part || !caseName || !pageName || !out) throw new Error('usage: capture <tab part> <case-name> <page-name> <your worktree>/desktop/e2e/recorded');
+    const browser = await connect('browser');
+    const tab = tabOf(browser.pages, part);
+    if (!tab) { await browser.close(); return `no tab with ${part}`; }
+    const raw = await tab.evaluate(snapshotInPage);
+    const url = tab.url();
+    await browser.close();
+    const twinHome = path.join(os.homedir(), 'Library/Application Support/Job Pilotto (live test)/home');
+    const html = scrub(raw, personalValues(appProfileTexts([path.join(os.homedir(), 'Library/Application Support/Job Pilotto'), twinHome])));
+    const {dir, file} = writeCapture({out: path.resolve(out), caseName, pageName, url, html});
+    return `captured ${file} (${html.length} chars) into ${dir}: write its shape, ai answers and expect in case.json, then: cd desktop && node --test test/recorded-privacy.test.js`;
   },
   async shot(which, file) {
     const conn = await connect(which === 'app' ? 'cdp' : 'browser');

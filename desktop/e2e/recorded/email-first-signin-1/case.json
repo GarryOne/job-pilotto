@@ -1,0 +1,38 @@
+{
+ "shape": "email-first sign-in: one email box and Continue, a 'Create an account' link, social sign-in buttons",
+ "why": "jobs.ch, 10 Oct 2026: the account step of the Deloitte sessions; captured from the twin with twin:drive capture",
+ "sample": "auth.jobs.ch",
+ "pages": [
+  {
+   "url": "https://auth.jobs.ch/u/login/identifier",
+   "file": "login.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "account",
+   "role": "account",
+   "by": "ai",
+   "confidence": 0.99,
+   "accountStep": "sign_in",
+   "registerControl": "Create an account",
+   "signinControl": "Continue"
+  },
+  "/extension/site-password": {
+   "ok": true,
+   "password": "fake-password-1",
+   "email": "test.candidate@example.com",
+   "mode": "sign-in",
+   "automation": "assist",
+   "session": ""
+  }
+ },
+ "expect": {
+  "filled": [
+   "#username"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 40
+ }
+}

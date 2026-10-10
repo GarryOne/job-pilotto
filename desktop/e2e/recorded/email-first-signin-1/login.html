@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en" dir="auto" data-jobpilotto-hook="0.9.165" data-jobpilotto-fill="{&quot;state&quot;:&quot;account&quot;}" data-jobpilotto-account-step="sign_in"><head>
+  
+    <meta charset="utf-8">
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="ulp-version" content="1.145.2">
+    
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="shortcut icon" href="https://www.jobs.ch/public/favicon/favicon.ico">
+    <link rel="stylesheet" href="https://cdn.auth0.com/ulp/react-components/1.222.2/css/main_wcag_compliant.cdn.min.css">
+    <style id="custom-styles-container">
+      :root, .af-custom-form-container .af-form {
+          --primary-color: #321E50;
+        }
+:root, .af-custom-form-container .af-form {
+          --button-font-color: #FFFFFF;
+        }
+:root {
+          --secondary-button-border-color: #321E50;
+          --social-button-border-color: #321E50;
+          --radio-button-border-color: #321E50;
+        }
+:root {
+          --secondary-button-text-color: #321E50;
+        }
+:root {
+          --link-color: #5F4BA0;
+        }
+:root {
+          --title-font-color: #1D1C1A;
+        }
+:root {
+          --font-default-color: #1D1C1A;
+        }
+:root {
+          --widget-background-color: #FFFFFF;
+        }
+:root {
+          --box-border-color: #A9A39C;
+        }
+:root {
+          --font-light-color: #5E5852;
+        }
+:root {
+          --input-text-color: #1D1C1A;
+        }
+:root {
+          --input-border-color: #A9A39C;
+          --border-default-color: #A9A39C;
+        }
+:root {
+          --input-background-color: #FFFFFF;
+        }
+:root {
+          --icon-default-color: #1D1C1A;
+        }
+:root {
+          --error-color: #AB2034;
+          --error-text-color: #ffffff;
+        }
+:root {
+          --success-color: #279E03;
+        }
+:root {
+          --base-focus-color: #321E50;
+          --transparency-focus-color: rgba(50,30,80, 0.15);
+        }
+:root {
+          --base-hover-color: #321E50;
+          --transparency-hover-color: rgba(50,30,80, var(--hover-transparency-value));
+        }
+
+            @media (prefers-color-scheme: dark) {
+              :root {
+                --ulp-captcha-widget-theme: dark;
+              }
+            }
+            @media (not (prefers-color-scheme: dark)) {
+              :root {
+                --ulp-captcha-widget-theme: light;
+              }
+            }
+@font-face {
+          font-family: 'ULP Custom';
+          font-style: normal;
+          font-weight: var(--font-default-weight);
+          src: local('ULP Custom'), url('https://www.jobs.ch/asset/auth0/fonts/Inter_28pt-Regular-subset.woff2') format('woff');
+        }
+
+        body {
+          --font-family: 'ULP Custom', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, sans-serif;
+        }
+html, :root {
+          font-size: 100%;
+          --default-font-size: 1rem;
+          --small-font-size: 0.75rem;
+          --title-font-size: 1.5rem;
+          --lg-font-size: 1rem;
+          --xl-font-size: 1.25rem;
+          --spacing: 0.5rem;
+        }
+        .af-custom-form-container .af-form {
+          font-size: 1rem;
+        }
+body {
+          --title-font-size: 1.5rem;
+          --title-font-weight: var(--font-default-weight);
+        }
+.c8ca42957 {
+          font-size: 1rem;
+          font-weight: var(--font-default-weight);
+        }
+.c7d4418d9 {
+          font-size: 1rem;
+          font-weight: var(--font-default-weight);
+        }
+        .ulp-passkey-benefit-heading {
+          font-size: 1.15rem;
+        }
+.cb10dac59, .cce6001ae {
+          font-size: 1rem;
+          font-weight: var(--font-default-weight);
+        }
+body {
+          --ulp-label-font-size: 1rem;
+          --ulp-label-font-weight: var(--font-default-weight);
+        }
+.c8577202b, .c06bc2bb0, [id^='ulp-container-'] a {
+          font-size: 1rem;
+          font-weight: var(--font-default-weight) !important;
+        }
+.c06bc2bb0, .c8577202b {
+            text-decoration: underline;
+          }
+:root {
+          --button-border-width: 1px;
+          --social-button-border-width: 1px;
+          --radio-border-width: 1px;
+        }
+body {
+          --button-border-radius: 9999px;
+          --radio-border-radius: 9999px;
+        }
+
+:root {
+          --input-border-width: 1px;
+        }
+body {
+          --input-border-radius: 8px;
+        }
+
+        .af-custom-form-container .af-form {
+          --border-radius: 8px;
+        }
+
+:root {
+          --border-radius-outer: 24px;
+        }
+:root {
+          --box-border-width: 0px;
+        }
+body {
+          --shadow-component-outer: none;
+        }
+
+          body {
+            --logo-alignment: 0 auto;
+          }
+        
+
+          .c8ae6d9f3 {
+            content: url('https://www.jobs.ch/asset/auth0/images/logo_color.svg');
+          }
+        
+body {
+          --logo-height: 48px;
+        }
+        .c8ae6d9f3 {
+          height: var(--logo-height);
+        }
+        
+
+          body {
+            --header-alignment: center;
+          }
+        
+
+.c3121fc3c {
+          --page-background-alignment: center;
+        }
+body {
+          --page-background-color: #321E50;
+        }
+
+
+    </style>
+    <style>
+    /* By default, hide features for javascript-disabled browsing */
+    /* We use !important to override any css with higher specificity */
+    /* It is also overriden by the styles in <noscript> in the header file */
+    .no-js {
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
+      height: 1px;
+      overflow: hidden;
+      position: absolute;
+      white-space: nowrap;
+      width: 1px;
+    }
+  </style>
+  
+    
+    
+  
+
+  
+  <style>
+    a {
+      text-decoration: underline;
+    }
+
+    button[data-action-button-primary="true"]:hover {
+      background-color: #37317F;
+    }
+
+    button[value="back-action"] {
+      align-items: center;
+      border-radius: var(--button-border-radius);
+      color: #5F4BA0;
+      cursor: pointer;
+      display: flex;
+      font-family: inherit;
+      font-size: var(--lg-font-size);
+      font-weight: var(--font-default-weight);
+      justify-content: center;
+      margin-top: var(--spacing-3);
+      min-height: var(--button-height);
+      outline: none;
+      padding: 4px var(--spacing-2);
+      position: relative;
+      text-decoration: none;
+      transition: background-color .125s ease-out, color .125s ease-out;
+      width: 100%;
+    }
+
+    button[value="back-action"]:hover {
+      background-color: #321E5014;
+      color: #321E50;
+    }
+
+    a:focus,
+    button:focus {
+      outline: none !important;
+    }
+
+    #prompt-alert {
+      background-color: #FFD5C2;
+      border-radius: 16px;
+    }
+
+    #prompt-alert p {
+      color: #AB2034;
+    }
+  </style>
+
+</head>
+
+<body class="_widget-auto-layout">
+  <main class="_widget login-id"><section class="c72b49ac4 _prompt-box-outer c042b26fe"><div class="cccfc2030 c84c8bb91"><div class="c731624c3"><header class="cedb07813 c4352833b" id="screen-header" tabindex="-1"><div title="jobs.ch" id="custom-prompt-logo" style="width:auto !important;height:60px !important;position:static !important;margin:auto !important;padding:0 !important;background-color:transparent !important;background-position:center !important;background-size:contain !important;background-repeat:no-repeat !important"></div><img class="c8ae6d9f3 c2e1ce09a" id="prompt-logo-center" src="https://www.jobs.ch/asset/auth0/images/logo_color.svg" alt="jobs.ch"><h1 class="c63b6ec4a cd0f709b7">Log in</h1><div class="c8ca42957 c7df6ecec"><p class="cc7454072 c207a98ba"> </p></div></header><div class="c7d4418d9 cadff8d7d"><div class="c24497e4b c8656cf7f"><div class="c07ce0347"><form class="c92935a96 _form-login-id" data-form-primary="true" data-disable-html-validations="true" method="POST" novalidate=""><div id="ulp-error-announcer" class="screen-reader-only" aria-live="assertive" aria-atomic="true"></div><button type="submit" class="c2421978c" style="opacity:0 !important;position:absolute !important;pointer-events:none !important" value="default" aria-hidden="true" tabindex="-1" name="action">Continue</button><input type="hidden" name="state"><div class="c24497e4b c8656cf7f"><div class="c07ce0347"><div class="input-wrapper _input-wrapper"><div class="c629135ce c4031a297 c1f3389ed cc39915d6 ulp-field cf48edfdc" data-action-text="" data-alternate-action-text=""><label id="username-label" class="cab4e2a69 c8bc991c2 ce620d8d1" for="username">Email address <span class="required" aria-hidden="true">*</span></label><input class="input cf2cd3e94 cc9592596" inputmode="email" id="username" type="email" aria-labelledby="username-label" aria-required="true" required="" autocomplete="email" autocapitalize="none" spellcheck="false" name="username"></div><div id="error-cs-username-required" class="ulp-error-info aria-error-check" data-ulp-validation-function="ulpRequiredFunction" data-ulp-validation-event-listeners="blur,change,input,focus" data-ulp-validation-target="username" aria-live="polite" aria-atomic="true">Please enter an email address</div><div id="error-cs-email-invalid" class="ulp-error-info aria-error-check" data-ulp-validation-function="ulpEmailValidationFunction" data-ulp-validation-event-listeners="blur,change,input,focus" data-ulp-validation-target="username" aria-live="polite" aria-atomic="true">Email is not valid.</div><div id="error-cs-pattern-mismatch" class="ulp-error-info aria-error-check" data-ulp-validation-function="ulpPatternCheckFunction" data-ulp-validation-event-listeners="blur,change,input,focus" data-ulp-validation-target="username" aria-live="polite" aria-atomic="true"></div></div></div></div><input class="hide" hidden="" type="password" autocomplete="off" tabindex="-1" aria-hidden="true"><input type="hidden" id="js-available" name="js-available"><input type="hidden" id="webauthn-available" name="webauthn-available"><input type="hidden" id="is-brave" name="is-brave"><input type="hidden" id="webauthn-platform-available" name="webauthn-platform-available"><div class="cc39a184d"><button type="submit" value="default" class="cb10dac59 cf6920a3e cab59f089 c3a12ac9d _button-login-id" data-action-button-primary="true" name="action">Continue</button></div></form></div></div><div class="ulp-alternate-action _alternate-action __s16nu9"><p class="cc7454072 c207a98ba c46fe3713">Don't have an account? <a class="c06bc2bb0 c9c41f9f9" href="/u/signup/identifier">Create an account</a></p></div><div class="c79983b43 c63c20ffc"><span>Or</span></div><div class="c45cd295e cf0b57d44"><form data-provider="google" class="cce6001ae cc320e059 ca6d051b0" data-form-secondary="true" method="post"><input type="hidden" name="state"><input type="hidden" name="connection"><button type="submit" class="cc9f89392 ce2feea10 cde3b3fcc" data-provider="google" data-action-button-secondary="true"><span class="cd6d43cd8 c7e3d7c2b" data-provider="google"></span><span class="c4dce67d3">Continue with Google</span></button></form><form data-provider="apple" class="cce6001ae cc320e059 c954d471d" data-form-secondary="true" method="post"><input type="hidden" name="state"><input type="hidden" name="connection"><button type="submit" class="cc9f89392 ce2feea10 c28a1eff4" data-provider="apple" data-action-button-secondary="true"><span class="cd6d43cd8 c7e3d7c2b" data-provider="apple"></span><span class="c4dce67d3">Continue with Apple</span></button></form></div></div></div></div></section></main>
+
+
+
+
+</body></html>

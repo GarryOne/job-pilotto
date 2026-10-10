@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
+import {appProfileTexts, personalValues} from '../e2e/lib/capture-page.mjs';
 
 const REPLAY = new URL('../e2e/recorded/', import.meta.url);
 const files = () => (fs.existsSync(REPLAY) ? fs.readdirSync(REPLAY).flatMap(dir => {
@@ -26,12 +27,7 @@ test('recorded pages hold no email but example.*, no phone, no typed value, no U
 });
 
 test('on this Mac: none of the person\'s own values (from the app\'s profile) is in a recorded page', {skip: !fs.existsSync(path.join(os.homedir(), 'Library/Application Support/Job Pilotto/profile.md')) && 'no app profile on this computer'}, () => {
-  const folder = path.join(os.homedir(), 'Library/Application Support/Job Pilotto');
-  const own = ['profile.md', 'answers.md'].map(name => { try { return fs.readFileSync(path.join(folder, name), 'utf8'); } catch { return ''; } }).join('\n');
-  const values = new Map();
-  for (const email of own.match(EMAIL) || []) values.set(email.toLowerCase(), 'an email of yours');
-  for (const phone of own.match(/\+?\d[\d\s().-]{8,}\d/g) || []) values.set(phone.replace(/\D/g, ''), 'a phone number of yours');
-  for (const [, value] of own.matchAll(/^\W*(?:full\s*)?(?:first\s*|last\s*|family\s*)?name\W*:\s*(.+)$/gim)) for (const word of value.split(/\s+/)) if (word.length >= 3) values.set(word.toLowerCase(), 'your name');
+  const values = personalValues(appProfileTexts());   // e2e/lib/capture-page.mjs: the same extraction the capture scrubs with
   const found = [];
   for (const {name, text} of files()) {
     const lower = text.toLowerCase(), digits = text.replace(/\D/g, '');
