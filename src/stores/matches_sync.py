@@ -4,7 +4,8 @@ and statuses src/notion/matches.py writes to 🎯 Job Matches, as store records 
 One row per job (base.url_key): the best scored copy of a job is written; a job applied to is Applied, else Open. After a full
 search (not `partial`), a row the search no longer has becomes Dismissed, Applied, or Not seen when the crawl's open jobs lack
 it (not proof the posting closed). Unchanged rows are not written. The scoring facts (tier, confidence, code, seniority,
-languages, technologies, role family, salary, recruiter, scoring method) are written as the Job Matches columns hold them, so a
+languages, technologies, role family, salary, recruiter, scoring method, and the posting's workload, on-call, visa, remote scope,
+contract, deadline and posted date) are written as the Job Matches columns hold them, so a
 person on this Mac sees what a Notion user sees. Guarded by tests/store_contract.py (every store, Notion's through its own sync)
 and tests/test_match_facts.py (each fact equals the column src/notion/matches.py writes).
 """
@@ -16,7 +17,28 @@ from ..notion.client import job_code
 MODES = {'onsite': 'On-site', 'hybrid': 'Hybrid', 'remote': 'Remote'}   # as src/notion/matches.py writes Work mode
 SENIORITY = {'junior': 'Junior', 'mid': 'Mid', 'senior': 'Senior', 'staff_principal': 'Staff/Principal',
              'lead_manager': 'Lead/Manager'}   # as src/notion/matches.py writes Seniority
+ON_CALL = {'yes': 'Yes', 'no': 'No'}
+VISA = {'offered': 'Offered', 'not_offered': 'Not offered'}
+CONTRACT = {'permanent': 'Permanent', 'fixed_term': 'Fixed term', 'freelance': 'Freelance', 'internship': 'Internship'}
 PARTS = ('role_fit', 'location', 'compensation', 'growth', 'risk')
+
+
+def posting_facts(job):
+    """What the posting says about the job (the extraction's own words, src/ai/enrich.py SCHEMA), as the Job Matches columns hold
+    them; src/notion/matches.py writes the same. A job read by an older extractor lacks the newer ones: they stay empty until
+    the next search re-reads it (EXTRACTOR_VERSION)."""
+    ai = job.get('ai') or {}
+    if not ai:
+        return {}
+    plain = lambda v: str((v.get('value') if isinstance(v, dict) else v) or '')   # a string in the schema; an object in some older rows
+    workload = plain(ai.get('workload'))
+    return {'workload': '' if workload == 'unknown' else workload[:2000],
+            'on_call': ON_CALL.get(plain(ai.get('on_call')), ''),
+            'visa': VISA.get((ai.get('visa_sponsorship') or {}).get('value'), ''),
+            'remote_scope': ((ai.get('work_mode') or {}).get('remote_scope') or '')[:2000],
+            'contract': CONTRACT.get(plain(ai.get('contract')), ''),
+            'deadline': plain(ai.get('deadline'))[:10],
+            'posted': (job.get('posted_at') or plain(ai.get('posted')))[:10]}
 
 
 def facts(job):
@@ -32,6 +54,7 @@ def facts(job):
         found['recruiter'] = ai['employer_type']['value'] == 'recruiter'
         found['technologies'] = '; '.join(ai.get('technologies') or [])[:2000]
         found['role_family'] = ai.get('role_family') or ''
+        found.update(posting_facts(job))
     return found
 
 

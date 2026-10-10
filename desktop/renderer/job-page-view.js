@@ -101,8 +101,10 @@ export function matchGroups(match = null) {
     .filter(Boolean).join(' · ');
   const scored = match.scored ? `Scored ${day(match.scored)}${match.scoring_method === 'Previous' ? ' (from your earlier Profile)' : ''}` : '';
   const languages = (Array.isArray(match.languages) ? match.languages : []).map(name => name.replace(/ \+$/, ' (a plus)')).join(', ');
-  const facts = [['Seniority', match.seniority], ['Role family', match.role_family], ['Work mode', match.work_mode], ['Languages', languages],
-    ['Technologies', match.technologies], ['Salary', match.salary]].filter(([, value]) => value).map(([label, value]) => `${label} · ${value}`);
+  const facts = [['Posted', day(match.posted)], ['Deadline', day(match.deadline)], ['Seniority', match.seniority], ['Role family', match.role_family],
+    ['Contract', match.contract], ['Work mode', match.work_mode], ['Remote scope', match.remote_scope], ['Workload', match.workload],
+    ['On call', match.on_call], ['Visa sponsorship', match.visa], ['Languages', languages], ['Technologies', match.technologies],
+    ['Salary', match.salary]].filter(([, value]) => value).map(([label, value]) => `${label} · ${value}`);
   if (match.recruiter === true) facts.push('Posted by a recruiter');
   const groups = [];
   if (score || scored) groups.push({title: 'Fit', lines: [score, scored].filter(Boolean)});

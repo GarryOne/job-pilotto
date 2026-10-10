@@ -29,6 +29,20 @@ def _text(value):
     return {'rich_text': [{'text': {'content': (value or '')[:2000]}}]}
 
 
+def _posting_props(job):
+    """The posting's own facts (src/stores/matches_sync.posting_facts) as their columns; an empty one writes nothing."""
+    from ..stores.matches_sync import posting_facts
+    kinds = {'workload': ('Workload', 'text'), 'remote_scope': ('Remote scope', 'text'), 'on_call': ('On call', 'select'),
+             'visa': ('Visa', 'select'), 'contract': ('Contract', 'select'), 'deadline': ('Deadline', 'date'), 'posted': ('Posted', 'date')}
+    props = {}
+    for field, value in posting_facts(job).items():
+        column, kind = kinds[field]
+        if value:
+            props[column] = (_text(value) if kind == 'text' else {'select': {'name': value}} if kind == 'select'
+                             else {'date': {'start': value}})
+    return props
+
+
 def properties(job, status):
     """Notion properties for one scored job (job carries 'ai' and 'fit')."""
     fit, ai = job['fit'], job.get('ai') or {}
@@ -70,6 +84,7 @@ def properties(job, status):
         props['Technologies'] = _text('; '.join(ai.get('technologies') or []))
         if ai.get('role_family'):
             props['Role family'] = {'select': {'name': ai['role_family']}}
+        props.update(_posting_props(job))
     return props
 
 

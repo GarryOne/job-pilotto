@@ -21,10 +21,11 @@ test('Match: the fit line and the job\'s facts, only those it has; none for a jo
   assert.deepEqual(matchGroups(null), []);
   const groups = matchGroups({fit: 82, tier: 'Strong', confidence: 'High', scored: '2026-10-09', scoring_method: 'Previous', seniority: 'Senior',
     role_family: 'SRE', work_mode: 'Hybrid', languages: ['English', 'German +'], technologies: 'Kubernetes; Terraform', salary: 'CHF 140-160k',
-    recruiter: true});
+    recruiter: true, posted: '2026-10-03', deadline: '2026-11-01', contract: 'Permanent', workload: '80-100%', on_call: 'No', visa: 'Not offered', remote_scope: ''});
   assert.deepEqual(groups.map(group => group.title), ['Fit', 'About the job']);
   assert.deepEqual(groups[0].lines, ['🎯 82 · Strong · confidence High', `Scored ${shortDay('2026-10-09')} (from your earlier Profile)`]);
-  assert.deepEqual(groups[1].lines, ['Seniority · Senior', 'Role family · SRE', 'Work mode · Hybrid', 'Languages · English, German (a plus)',
+  assert.deepEqual(groups[1].lines, [`Posted · ${shortDay('2026-10-03')}`, `Deadline · ${shortDay('2026-11-01')}`, 'Seniority · Senior', 'Role family · SRE',
+    'Contract · Permanent', 'Work mode · Hybrid', 'Workload · 80-100%', 'On call · No', 'Visa sponsorship · Not offered', 'Languages · English, German (a plus)',
     'Technologies · Kubernetes; Terraform', 'Salary · CHF 140-160k', 'Posted by a recruiter']);
   assert.deepEqual(matchGroups({fit: 60, tier: '', languages: '', recruiter: false}).map(group => group.lines), [['🎯 60']], 'only what it has');
   assert.deepEqual(pageParts({match: {fit: 70}}).tabs, [['match', 'Match']], 'a match nobody acted on still has its page');

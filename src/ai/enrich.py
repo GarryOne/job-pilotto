@@ -20,7 +20,7 @@ from . import cost, engine
 from .models import SMALL_MODEL
 
 # Bump when the prompt or schema changes so every job is re-extracted once.
-EXTRACTOR_VERSION = 2
+EXTRACTOR_VERSION = 3   # 3: contract, deadline, posted (a bump re-reads every job on the next search, newest and best first: the backfill)
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_ENRICH_MODEL') or SMALL_MODEL
 
 ENRICHMENT_TABLE = """
@@ -40,7 +40,7 @@ SCHEMA = {
     'type': 'object',
     'additionalProperties': False,
     'required': ['languages', 'english_is_enough', 'seniority', 'work_mode', 'workload', 'salary',
-                 'employer_type', 'role_family', 'technologies', 'on_call', 'visa_sponsorship', 'confidence'],
+                 'employer_type', 'role_family', 'technologies', 'on_call', 'visa_sponsorship', 'contract', 'deadline', 'posted', 'confidence'],
     'properties': {
         'languages': {
             'type': 'array',
@@ -100,6 +100,9 @@ SCHEMA = {
                 'evidence': _evidence,
             },
         },
+        'contract': {'type': 'string', 'enum': ['permanent', 'fixed_term', 'freelance', 'internship', 'unknown']},
+        'deadline': {'type': 'string', 'description': 'Application deadline as YYYY-MM-DD when the posting states one, else ""'},
+        'posted': {'type': 'string', 'description': 'Date the posting says it was published, YYYY-MM-DD, else ""'},
         'confidence': {'type': 'string', 'enum': ['high', 'medium', 'low']},
     },
 }

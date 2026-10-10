@@ -122,6 +122,13 @@ delete and let it repopulate.
 | Recruiter | Checkbox | |
 | Technologies | Text | Key technologies from the posting (stage 1), semicolon-separated |
 | Role family | Select | `sre`, `platform`, `devops`, `cloud_infrastructure`, `software`, `data`, `security`, `support_it`, `sales_retail`, `logistics`, `hospitality`, `healthcare`, `creative_media`, `finance_admin`, `education`, `trades`, `other` |
+| Workload | Text | e.g. `80-100%`; empty when the posting doesn't say |
+| On call | Select | `Yes`, `No` |
+| Visa | Select | `Offered`, `Not offered` (only when the posting says so) |
+| Remote scope | Text | Where remote work is allowed, as the posting says |
+| Contract | Select | `Permanent`, `Fixed term`, `Freelance`, `Internship` |
+| Deadline | Date | Application deadline, when the posting states one |
+| Posted | Date | When the posting was published |
 | Last update | Last edited time |  |
 | First seen | Date |  |
 | Scoring method | Select | Options: `Current`, `Previous` |

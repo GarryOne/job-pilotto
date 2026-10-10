@@ -760,6 +760,65 @@
               "color": "gray"
             }
           ]
+        },
+        "Workload": {
+          "type": "rich_text"
+        },
+        "Remote scope": {
+          "type": "rich_text"
+        },
+        "On call": {
+          "type": "select",
+          "options": [
+            {
+              "name": "Yes",
+              "color": "orange"
+            },
+            {
+              "name": "No",
+              "color": "green"
+            }
+          ]
+        },
+        "Visa": {
+          "type": "select",
+          "options": [
+            {
+              "name": "Offered",
+              "color": "green"
+            },
+            {
+              "name": "Not offered",
+              "color": "gray"
+            }
+          ]
+        },
+        "Contract": {
+          "type": "select",
+          "options": [
+            {
+              "name": "Permanent",
+              "color": "green"
+            },
+            {
+              "name": "Fixed term",
+              "color": "blue"
+            },
+            {
+              "name": "Freelance",
+              "color": "purple"
+            },
+            {
+              "name": "Internship",
+              "color": "gray"
+            }
+          ]
+        },
+        "Deadline": {
+          "type": "date"
+        },
+        "Posted": {
+          "type": "date"
         }
       }
     },

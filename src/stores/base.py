@@ -53,6 +53,7 @@ MATCH_FIELDS = ('id',   # the store's own: Notion's 🎯 Job Matches page id, a 
                 # Notion user reads there, and what the application record freezes (src/notion/ledger_record.match_for).
                 'tier', 'confidence', 'code', 'scored', 'scoring_method', 'seniority', 'languages', 'salary', 'recruiter',
                 'technologies', 'role_family',
+                'workload', 'on_call', 'visa', 'remote_scope', 'contract', 'deadline', 'posted',   # the posting's own facts (matches_sync.posting_facts)
                 'last_update')   # read-only: when the row last changed (Notion's Last update; the other stores stamp each write)
 INTERVIEW_FIELDS = ('id', 'app_id', 'title', 'at', 'input', 'round', 'overall', 'questions', 'weak_answers', 'topics',
                     'weak_topics', 'next_step', 'cost', 'model', 'transcript', 'review', 'created_at')

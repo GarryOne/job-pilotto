@@ -22,10 +22,11 @@ def scored(url, score):
                     'components': {'role_fit': 30, 'location': 20, 'compensation': 10, 'growth': 10, 'risk': 10}}}
 
 
-AI = {'seniority': {'value': 'senior'}, 'work_mode': {'value': 'hybrid'}, 'english_is_enough': {'value': 'yes'},
+AI = {'seniority': {'value': 'senior'}, 'work_mode': {'value': 'hybrid', 'remote_scope': 'Switzerland'}, 'english_is_enough': {'value': 'yes'},
       'languages': [{'language': 'German', 'level': 'nice_to_have'}, {'language': 'Spanish', 'level': 'nice_to_have'}],
       'salary': {'stated': True, 'text': 'CHF 140-160k'}, 'employer_type': {'value': 'recruiter'},
-      'technologies': ['Kubernetes', 'Terraform'], 'role_family': 'SRE'}
+      'technologies': ['Kubernetes', 'Terraform'], 'role_family': 'SRE', 'workload': '80-100%', 'on_call': 'no',
+      'visa_sponsorship': {'value': 'not_offered'}, 'contract': 'permanent', 'deadline': '2026-11-01', 'posted': '2026-10-03'}
 
 
 class StoreContract:
