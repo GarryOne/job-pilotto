@@ -8,7 +8,7 @@ from src.stores import notion_rows as rows
 from tests.store_contract import AI, scored
 
 FACTS = ('tier', 'confidence', 'code', 'scored', 'scoring_method', 'seniority', 'languages', 'salary', 'recruiter', 'technologies',
-         'role_family', 'workload', 'on_call', 'visa', 'remote_scope', 'contract', 'deadline', 'posted')
+         'role_family', 'workload', 'on_call', 'visa', 'remote_scope', 'contract', 'deadline', 'posted', 'responsibilities')
 
 
 class MatchFactsTests(unittest.TestCase):
@@ -27,9 +27,10 @@ class MatchFactsTests(unittest.TestCase):
 
     def test_the_posting_facts_are_read_and_a_job_from_an_older_extractor_leaves_the_new_ones_empty(self):
         facts = matches_sync.facts({**scored('https://jobs.example/d', 80), 'ai': AI})
-        self.assertEqual({k: facts[k] for k in ('workload', 'on_call', 'visa', 'remote_scope', 'contract', 'deadline', 'posted')},
+        self.assertEqual({k: facts[k] for k in ('workload', 'on_call', 'visa', 'remote_scope', 'contract', 'deadline', 'posted', 'responsibilities')},
                          {'workload': '80-100%', 'on_call': 'No', 'visa': 'Not offered', 'remote_scope': 'Switzerland',
-                          'contract': 'Permanent', 'deadline': '2026-11-01', 'posted': '2026-10-03'})
+                          'contract': 'Permanent', 'deadline': '2026-11-01', 'posted': '2026-10-03',
+                          'responsibilities': 'Keep production reliable\nRun on-call and incidents'})
         old = {k: v for k, v in AI.items() if k not in ('contract', 'deadline', 'posted')}
         self.assertEqual(matches_sync.facts({**scored('https://jobs.example/e', 80), 'ai': old, 'posted_at': '2026-10-05T08:00'})['posted'],
                          '2026-10-05')   # the fetcher's own date wins when the extractor has none

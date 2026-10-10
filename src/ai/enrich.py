@@ -20,7 +20,7 @@ from . import cost, engine
 from .models import SMALL_MODEL
 
 # Bump when the prompt or schema changes so every job is re-extracted once.
-EXTRACTOR_VERSION = 3   # 3: contract, deadline, posted (a bump re-reads every job on the next search, newest and best first: the backfill)
+EXTRACTOR_VERSION = 4   # 4: responsibilities; 3: contract, deadline, posted (a bump re-reads every job on the next search, newest and best first: the backfill)
 DEFAULT_MODEL = os.getenv('JOB_PILOTTO_ENRICH_MODEL') or SMALL_MODEL
 
 ENRICHMENT_TABLE = """
@@ -40,7 +40,7 @@ SCHEMA = {
     'type': 'object',
     'additionalProperties': False,
     'required': ['languages', 'english_is_enough', 'seniority', 'work_mode', 'workload', 'salary',
-                 'employer_type', 'role_family', 'technologies', 'on_call', 'visa_sponsorship', 'contract', 'deadline', 'posted', 'confidence'],
+                 'employer_type', 'role_family', 'technologies', 'on_call', 'visa_sponsorship', 'contract', 'deadline', 'posted', 'responsibilities', 'confidence'],
     'properties': {
         'languages': {
             'type': 'array',
@@ -92,6 +92,8 @@ SCHEMA = {
                                                    'data', 'security', 'support_it', 'sales_b2b', 'sales_retail', 'logistics', 'hospitality', 'healthcare',
                                                    'creative_media', 'finance_admin', 'education', 'trades', 'other']},
         'technologies': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Up to 12 key technologies'},
+        'responsibilities': {'type': 'array', 'items': {'type': 'string'},
+                             'description': 'What the role involves day to day: up to 4 short plain sentences (under 110 characters each), in the posting\'s own terms; [] when it says nothing'},
         'on_call': {'type': 'string', 'enum': ['yes', 'no', 'unknown']},
         'visa_sponsorship': {
             'type': 'object', 'additionalProperties': False, 'required': ['value', 'evidence'],

@@ -129,6 +129,7 @@ delete and let it repopulate.
 | Contract | Select | `Permanent`, `Fixed term`, `Freelance`, `Internship` |
 | Deadline | Date | Application deadline, when the posting states one |
 | Posted | Date | When the posting was published |
+| Responsibilities | Text | What the role involves: up to 4 short lines, one per line |
 | Last update | Last edited time |  |
 | First seen | Date |  |
 | Scoring method | Select | Options: `Current`, `Previous` |

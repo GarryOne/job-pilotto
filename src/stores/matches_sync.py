@@ -5,7 +5,7 @@ One row per job (base.url_key): the best scored copy of a job is written; a job 
 search (not `partial`), a row the search no longer has becomes Dismissed, Applied, or Not seen when the crawl's open jobs lack
 it (not proof the posting closed). Unchanged rows are not written. The scoring facts (tier, confidence, code, seniority,
 languages, technologies, role family, salary, recruiter, scoring method, and the posting's workload, on-call, visa, remote scope,
-contract, deadline and posted date) are written as the Job Matches columns hold them, so a
+contract, deadline, posted date and what the role involves) are written as the Job Matches columns hold them, so a
 person on this Mac sees what a Notion user sees. Guarded by tests/store_contract.py (every store, Notion's through its own sync)
 and tests/test_match_facts.py (each fact equals the column src/notion/matches.py writes).
 """
@@ -38,6 +38,7 @@ def posting_facts(job):
             'remote_scope': ((ai.get('work_mode') or {}).get('remote_scope') or '')[:2000],
             'contract': CONTRACT.get(plain(ai.get('contract')), ''),
             'deadline': plain(ai.get('deadline'))[:10],
+            'responsibilities': '\n'.join(str(item).strip() for item in (ai.get('responsibilities') or []) if str(item).strip())[:2000],   # one a line
             'posted': (job.get('posted_at') or plain(ai.get('posted')))[:10]}
 
 

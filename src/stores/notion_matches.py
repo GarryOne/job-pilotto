@@ -17,7 +17,8 @@ COLUMNS = (('url', 'Job URL', 'url'), ('title', 'Job', 'title'), ('company', 'Co
            ('salary', 'Salary', 'rich_text'), ('recruiter', 'Recruiter', 'checkbox'), ('technologies', 'Technologies', 'rich_text'),
            ('role_family', 'Role family', 'select'), ('workload', 'Workload', 'rich_text'), ('on_call', 'On call', 'select'),
            ('visa', 'Visa', 'select'), ('remote_scope', 'Remote scope', 'rich_text'), ('contract', 'Contract', 'select'),
-           ('deadline', 'Deadline', 'date'), ('posted', 'Posted', 'date'))
+           ('deadline', 'Deadline', 'date'), ('posted', 'Posted', 'date'),
+           ('responsibilities', 'Responsibilities', 'rich_text'))
 # fit_detail: {'strengths', 'gaps', 'parts': {part: number}}, each in its own column (as notion_jobs reads them).
 PARTS = (('role_fit', 'Role fit'), ('location', 'Location fit'), ('compensation', 'Compensation fit'),
          ('growth', 'Growth'), ('risk', 'Risk'))

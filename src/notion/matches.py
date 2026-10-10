@@ -33,7 +33,8 @@ def _posting_props(job):
     """The posting's own facts (src/stores/matches_sync.posting_facts) as their columns; an empty one writes nothing."""
     from ..stores.matches_sync import posting_facts
     kinds = {'workload': ('Workload', 'text'), 'remote_scope': ('Remote scope', 'text'), 'on_call': ('On call', 'select'),
-             'visa': ('Visa', 'select'), 'contract': ('Contract', 'select'), 'deadline': ('Deadline', 'date'), 'posted': ('Posted', 'date')}
+             'visa': ('Visa', 'select'), 'contract': ('Contract', 'select'), 'deadline': ('Deadline', 'date'), 'posted': ('Posted', 'date'),
+             'responsibilities': ('Responsibilities', 'text')}
     props = {}
     for field, value in posting_facts(job).items():
         column, kind = kinds[field]

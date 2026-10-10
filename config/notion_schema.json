@@ -819,6 +819,9 @@
         },
         "Posted": {
           "type": "date"
+        },
+        "Responsibilities": {
+          "type": "rich_text"
         }
       }
     },
