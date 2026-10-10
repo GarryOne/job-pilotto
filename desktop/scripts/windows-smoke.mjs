@@ -111,5 +111,5 @@ if (want('packaging')) {
   if (!text.includes('pty-ok')) throw new Error(`in-app terminal: ${text.slice(0, 300)}`);
   say('in-app terminal ok (node-pty ran cmd.exe in the installed app)');
 }
-if (want('smoke')) jobsScreen({exe, out, prefix: 'windows', say});
+if (want('smoke')) await jobsScreen({exe, out, prefix: 'windows', say});
 say(`Windows smoke test (${mode}) passed`);

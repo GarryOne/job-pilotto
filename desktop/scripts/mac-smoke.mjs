@@ -52,5 +52,5 @@ const asNode = code => execFileSync(exe, ['-e', code, path.join(app, 'Contents',
 say(asNode("console.log('Electron', process.versions.electron, 'runs the packaged binary')"));
 say(asNode(`const path = require('path'); const pty = require(path.join(process.argv[1], 'app.asar.unpacked', 'node_modules', '@lydell', 'node-pty'));
   if (typeof pty.spawn !== 'function') throw new Error('node-pty loaded without spawn'); console.log('node-pty loads (its native module is in the app)')`));
-jobsScreen({exe, out, prefix: 'mac', say});   // last: the one check that opens a window
+await jobsScreen({exe, out, prefix: 'mac', say});   // last: the one check that opens a window
 say('Mac smoke test passed');
