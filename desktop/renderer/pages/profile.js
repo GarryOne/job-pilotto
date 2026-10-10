@@ -1,5 +1,6 @@
 // Settings → Application profile.
 import {showMode} from '../assistant-mode.js';
+import {showClaudeAuto} from '../claude-auto.js';
 import {contactHints} from '../audience.js';
 import {openInNotion, showNotionPanel} from './notion-connect.js';
 import {loadTextEditor, showStoreParts} from './text-editors.js';
@@ -218,7 +219,7 @@ export async function loadSettings() {
   showCloud();
   showSchedule();
   showContact();
-  $('claude-consent').checked = !!shared.state.settings.claudeConsent;
+  showClaudeAuto();
   showMode(shared.state.settings);
   document.querySelectorAll('[data-secret]').forEach(line => {
     const set = shared.state.secrets[line.dataset.secret];

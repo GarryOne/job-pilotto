@@ -1012,9 +1012,9 @@
               </div>
               <p class="muted small" id="assistant-mode-text"></p>
             </div>
-            <div class="switch-line">
-              <label class="switch-row"><span class="switch"><input type="checkbox" id="claude-consent"><span></span></span>
-                <span><span>Show Claude help (Apply with Claude, Resume Claude, Take over, Read with Claude)</span><span class="muted small">Off: only the extension's flow is shown. On: Claude is offered as a second option and works without asking before each step. It never clicks Submit.</span></span></label>
+            <div class="switch-line" id="claude-auto-line" hidden>
+              <label class="switch-row"><span class="switch"><input type="checkbox" id="claude-auto"><span></span></span>
+                <span><span>Always let Claude finish when I'm stuck</span><span class="muted small">Off: the stuck page asks first. On: Claude takes over after a 5-second countdown you can cancel. It works in that tab and never clicks Submit.</span></span></label>
               <button class="arrow-link" id="claude-how">How this works</button>
             </div>
             <ul class="prereqs" id="claude-prereqs-settings" hidden></ul>

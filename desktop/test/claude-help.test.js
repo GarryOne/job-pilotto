@@ -22,9 +22,9 @@ test('every renderer file that draws a Claude entry point asks the one switch', 
   assert.match(sessions, /const pushResume = \(\) => \{ if \(claudeHelp\(\)\) actions\.push\(resume\(\)\); \};/);
 });
 
-test('the switch is the settings value, off on a new install; the Apply dialog presets and recommends the extension; the copy speaks of Apply', async () => {
+test('the switch is "Claude is ready" (installed + signed in), not a setting; the Apply dialog presets and recommends the extension; the copy speaks of Apply', async () => {
   const help = fs.readFileSync(new URL('claude-help.js', RENDERER), 'utf8');
-  assert.match(help, /export const claudeHelp = \(\) => !!shared\.state\?\.settings\?\.claudeConsent && claudeFeatures\(\);/);   // and the Claude family only
+  assert.match(help, /export const claudeHelp = \(\) => installed && claudeFeatures\(\);/);   // and the Claude family only
   const html = fs.readFileSync(new URL('index.html', RENDERER), 'utf8');
   assert.match(html, /<b>Fill in Chrome with the extension<\/b> <span class="badge-recommended">Recommended<\/span>/);
   assert.doesNotMatch(html, /<b>Apply with Claude<\/b> <span class="badge-recommended">/);
@@ -39,4 +39,14 @@ test('the Claude install checklist is under the Settings switch too, shown only 
   assert.match(prereqs, /inSettings\.hidden = !claudeHelp\(\);/);
   assert.match(prereqs, /for \(const list of \[\$\('claude-prereqs'\), inSettings\]/);   // one checklist, drawn in both places
   assert.match(prereqs, /window\.addEventListener\('claude-help', \(\) => showClaudePrereqs\(\)\);/);   // turned on: it shows at once
+});
+
+test('"Always let Claude finish when I\'m stuck" is a Settings switch (claudeAuto) shown only while Claude is ready; it replaced "Show Claude help"', () => {
+  const html = fs.readFileSync(new URL('index.html', RENDERER), 'utf8');
+  assert.match(html, /id="claude-auto-line" hidden/);
+  assert.match(html, /Always let Claude finish when I'm stuck/);
+  assert.doesNotMatch(html, /Show Claude help|id="claude-consent"/);
+  const auto = fs.readFileSync(new URL('claude-auto.js', RENDERER), 'utf8');
+  assert.match(auto, /\$\('claude-auto-line'\)\.hidden = !claudeHelp\(\);/);
+  assert.match(auto, /save\(\{claudeAuto: \$\('claude-auto'\)\.checked\}\)/);
 });

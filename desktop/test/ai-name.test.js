@@ -34,7 +34,7 @@ test('one name and one model per engine, in the window and the main process, mat
 // Files allowed to say "Claude" in a string, and how many times: Claude-only features. May only shrink; a new file or a higher count fails.
 const ALLOWED = {
   'renderer/pages/sessions.js': 12, 'renderer/pages/activity-visits.js': 9, 'lib/ai/names.js': 8, 'renderer/ai-name.js': 7,
-  'renderer/index.html': 2, 'lib/quit-dialog.js': 4, 'renderer/pages/session-log.js': 3, 'renderer/pages/jobs-render.js': 3, 'lib/session-runs.js': 3,
+  'renderer/index.html': 3, 'lib/quit-dialog.js': 4, 'renderer/pages/session-log.js': 3, 'renderer/pages/jobs-render.js': 3, 'lib/session-runs.js': 3,
   'renderer/pages/session-needs.js': 2, 'renderer/ai-engine-view.js': 2, 'lib/terminals.js': 2, 'lib/session-flow.js': 2,
   'renderer/pages/session-actions.js': 1, 'renderer/pages/claude-prereqs.js': 1, 'lib/transcript.js': 1, 'lib/session-stats.js': 1, 'lib/run-result.js': 1,
   'lib/claude-session.js': 1, 'lib/apply-handlers.js': 1, 'lib/app-reminders.js': 1, 'lib/ai/claude-code-cli.js': 1,
@@ -67,10 +67,10 @@ test('Claude-only features exist only with a Claude engine, in every main-proces
   // Every place the main process decides about Claude asks the family too (a new gate without it fails here).
   const source = file => fs.readFileSync(path.join(root, file), 'utf8');
   const main = source('main.js'), server = source('lib/ext-server-handlers.js');
-  assert.match(server, /claudeHelp: !!storage\.settings\(\)\.claudeConsent && claudeFamily\(storage\)/);
+  assert.match(server, /claudeHelp: claudeOffered\(storage\), claudeAuto: claudeAutoOn\(storage\)/);   // lib/claude-ready.js asks the family itself
   assert.match(main, /const startClaude = async \(url, details = null\) => !claudeFamily\(storage\)/);
-  assert.match(main, /claudeAllowed: \(\) => !!storage\.settings\(\)\.claudeConsent && claudeFamily\(storage\)/);
+  assert.match(main, /claudeAllowed: \(\) => claudeOffered\(storage\)/);
   assert.match(main, /async function claudeConsent\(\) \{\n  if \(!claudeFamily\(storage\)\) return false;/);
   const gates = [...main.matchAll(/storage\.settings\(\)\.claudeConsent/g)].length + [...server.matchAll(/storage\.settings\(\)\.claudeConsent/g)].length;
-  assert.equal(gates, 3, 'a new read of the Claude switch in the main process must also ask claudeFamily(storage)');
+  assert.equal(gates, 1, 'a new read of the Claude switch in the main process must also ask claudeFamily(storage)');
 });

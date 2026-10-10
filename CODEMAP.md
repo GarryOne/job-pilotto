@@ -42,6 +42,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/cadence.js` — How often each job runs, chosen by the user (Settings → How often), as GitHub Actions schedules.
 - `desktop/lib/calltap.js` — The call's audio for the interview recorder, through AudioTee (Core Audio taps, macOS 14.2+): it needs only
 - `desktop/lib/claude-code.js` — The AI engine the user chose (Settings → Connections → AI, and the setup wizard's AI step): their Anthropic or OpenAI API key,
+- `desktop/lib/claude-ready.js` — The one "Claude ready" check (owner, 10 Oct 2026; spec docs/superpowers/specs/2026-10-10-claude-finishes-stuck-pages.md): Claude is offered only when the AI
 - `desktop/lib/claude-session.js` — Apply with Claude: one interactive Claude Code session per job, each in its own window (Terminal on the
 - `desktop/lib/cloud-handlers.js` — The Always on and Telegram IPC (moved out of main.js, 8 Oct 2026): connecting and turning off Always on (the user's GitHub repo), the Telegram buttons
 - `desktop/lib/confirmation.js` — A submit press, then a change: a redirect, or new content on the same page. This file turns that page into
@@ -296,6 +297,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/audience.js` — Is this candidate looking for IT / engineering work? The same rule as src/coverage.py looks_technical (a table of cases in tests/fixtures/audience_cases.json holds both to it).
 - `desktop/renderer/browser-words.js` — The browser's name and its own extensions page, in the wording of the extension card: "Chrome" and chrome://extensions
 - `desktop/renderer/calendar.js` — Calendar page: every screening and interview on one calendar. Pure (tested in test/calendar.test.js); the page is
+- `desktop/renderer/claude-auto.js` — Settings → Application assistant: "Always let Claude finish when I'm stuck" (settings.claudeAuto; spec 2026-10-10-claude-finishes-stuck-pages.md part 3).
 - `desktop/renderer/claude-help.js` — One switch for every way into Claude (owner, 9 Oct 2026: "the extension and Chrome flow is smart … Resume with Claude or Apply with Claude is a degraded experience;
 - `desktop/renderer/compensation.js` — The Profile's unanswered "Target: ❓" is a placeholder, not a value: with no real figure it reads as not set (UI loop #272).
 - `desktop/renderer/components.js` — Job Pilotto's UI building blocks (styles in components.css, values in tokens.css). Screens build their

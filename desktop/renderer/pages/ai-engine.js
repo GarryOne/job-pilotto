@@ -2,6 +2,7 @@
 // family's two cards (API key / its own CLI: Claude Code or Codex; the wizard adds $1 of free AI under Claude), the CLI's status block with Verify,
 // the in-family plan-limit fallback and the note.
 // The user picks; in the wizard nothing is pre-selected, in Settings the choice is remembered and switching is instant.
+import {refreshClaudeHelp} from '../claude-help.js';
 import {choiceCards, el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {CLI_OF, FAMILY_CARDS, TEXT, chosen, cliStatus, familyOf, fallbackOn, needsNotice, showFallback, showOffer} from '../ai-engine-view.js';
@@ -129,6 +130,7 @@ export function mountEngine(box, {context = 'settings', onChange = () => {}} = {
     else if (id === 'codex') shared.state.settings = {...shared.state.settings, codexNotice: true};
     applyAiNames();   // the window's static texts name the new engine at once
     window.dispatchEvent(new Event('claude-help'));   // and every Claude entry point (Jobs ⋯, Apply dialog, sessions) shows or hides with the family
+    refreshClaudeHelp();
     render();
     onChange(picked);
   }

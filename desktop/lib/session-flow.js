@@ -5,7 +5,8 @@
 // Every service is passed in (terminals, review, apply, the log, the window, startClaude), so a test drives these with fakes.
 // Invariants (flow core: read before editing; changing one is the owner's call, said in the commit; each names the test that guards it):
 //  1. A stuck report from a tab the session has left is ignored (desktop/test/session-flow.test.js).
-//  2. Claude is offered on an account page the extension could not finish, never started by itself (desktop/test/session-flow.test.js).
+//  2. Claude is offered on a page the extension could not finish; this module never starts it. It starts only on the person's press in the panel or, with settings.claudeAuto,
+//     after the panel's visible 5 s countdown with Cancel (owner, 10 Oct 2026; replaces "never started by itself") (desktop/test/session-flow.test.js).
 //  3. The session is found one way (lib/journey-identity.js) and its step changes only through terminals.js -> lib/application-journey.js (desktop/test/journeys.test.js).
 
 import {resolveSession} from './journey-identity.js';
@@ -38,7 +39,7 @@ export function createSessionFlow({terminals, review, apply, appLog, toWindow = 
     if (!match) return 'no-session';
     if (!terminals.noteStuck(match.id, why, event.host, event.needs, event.accountStep) && match.stuck === 'account' && why === 'no-form') appLog('extension', 'no-form from an earlier tab: the account step stays', {host: event.host, id: match.id});
     if (why !== 'account') return 'noted';
-    // Claude is OFFERED, never started by itself (owner, 8 Oct 2026: extension first; "Take over with Claude" is the person's button, takeOverHandler). The extension reports
+    // Claude is OFFERED here, never started by this function (extension first; the person's press, or claudeAuto's 5 s countdown in the panel, starts it: takeOverHandler). The extension reports
     // an account page only when it could not finish it (its account AI was unsure, a bot check, something only the person can give): the session says what is needed.
     appLog('extension', `account page: the extension could not finish it: ${claudeAllowed?.() ? 'Claude is offered' : 'the person is told what is needed (no Claude: off, or an OpenAI engine)'}`, {host: event.host, id: match.id, ...(event.needs ? {needs: String(event.needs).slice(0, 60)} : {})});
     return 'offered';

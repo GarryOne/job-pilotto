@@ -1,5 +1,7 @@
 // Start-up: what the window opens on.
 import {showMode, wireMode} from '../assistant-mode.js';
+import {wireClaudeAuto} from '../claude-auto.js';
+import {refreshClaudeHelp} from '../claude-help.js';
 import {applyAiNames} from '../ai-name.js';
 import {shared} from './shared.js';
 import {$, show} from './core.js';
@@ -71,8 +73,6 @@ export async function init() {
   // How much Job Pilotto does (renderer/assistant-mode.js): "Do it for me" (the default) or "Let me check each step".
   wireMode(async patch => (shared.state.settings = await window.pilot.saveSettings(patch)));
   showMode(shared.state?.settings || {});   // the setup's question and Settings show the same choice; nothing saved yet is "Do it for me"
-  $('claude-consent').addEventListener('change', async () => {
-    shared.state.settings = await window.pilot.saveSettings({claudeConsent: $('claude-consent').checked ? new Date().toISOString() : null});
-    window.dispatchEvent(new Event('claude-help'));   // every Claude entry point redraws (claude-help.js)
-  });
+  wireClaudeAuto(async patch => (shared.state.settings = await window.pilot.saveSettings(patch)));   // "Always let Claude finish when I'm stuck" (claude-auto.js)
+  refreshClaudeHelp();   // is Claude ready (installed, signed in)? every Claude entry point follows (claude-help.js)
 }

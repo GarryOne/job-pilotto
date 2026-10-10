@@ -25,7 +25,7 @@ test('an account page the extension could not finish: Claude is OFFERED, never s
   assert.equal(s.flow.stuck({url: URL1, host: 'career55.sapsf.eu', why: 'account', tab: 5, session: 'f1', needs: 'Land/Region des Wohnorts'}), 'offered');
   assert.equal(s.flow.stuck({url: URL1, host: 'career55.sapsf.eu', why: 'account', tab: 5, session: 'f1', needs: 'Land/Region des Wohnorts'}), 'offered');   // reported again: the same, nothing started
   await settle();
-  assert.deepEqual(s.started, [], 'Claude is a button the person presses, never started by itself');
+  assert.deepEqual(s.started, [], 'stuck() only offers Claude: the person\'s press or the panel\'s 5 s countdown (claudeAuto) starts it');
   const session = terminals.get('f1');
   assert.deepEqual([session.stuck, session.stage, session.accountNeeds, session.note], ['account', 'account', 'Land/Region des Wohnorts', 'Needs you: Land/Region des Wohnorts']);
   s.flow.stuck({url: URL1, host: 'career55.sapsf.eu', why: 'account', tab: 5, session: 'f1', needs: 'Datenschutzerklärung'});   // a new need replaces the old one
