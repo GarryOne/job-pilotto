@@ -2438,3 +2438,9 @@ button.is-busy { cursor: progress; opacity: .7; }
 #ss-needs-send { margin-top: var(--sp-3); }
 /* Credentials: the Show/Copy column ends at the panel edge, in line with the job-site password buttons under the table. */
 #credentials-table .task-row > span:last-child { justify-self: end; }
+
+/* Settings → Profile → Experience: a job's details, folded; the rest is the shared item-rows and pills. */
+.exp-roles { display: grid; gap: var(--sp-2); }
+.exp-role { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); background: var(--surface); }
+.exp-role > summary { cursor: pointer; }
+.exp-role ul { margin: var(--sp-2) 0 0; padding-left: var(--sp-4); display: grid; gap: var(--sp-1); font-size: var(--fs-md); }

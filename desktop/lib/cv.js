@@ -17,7 +17,7 @@ import {render} from '../cv/template.js';
 
 export const MODEL = process.env.JOB_PILOTTO_MODEL_OVERRIDE || 'claude-sonnet-5-5';   // the override: the end-to-end journey (desktop/e2e)
 const PRICE = {input: 2, output: 10};  // USD per million tokens
-const usd = usage => (usage?.billing === 'subscription' ? 0 : Math.round(((usage?.input_tokens || 0) * priceOf(usage, PRICE).input + (usage?.output_tokens || 0) * priceOf(usage, PRICE).output) / 1e4) / 100);  // Claude Code: the user's plan, $0
+export const usd = usage => (usage?.billing === 'subscription' ? 0 : Math.round(((usage?.input_tokens || 0) * priceOf(usage, PRICE).input + (usage?.output_tokens || 0) * priceOf(usage, PRICE).output) / 1e4) / 100);  // Claude Code: the user's plan, $0
 
 const string = {type: 'string'};
 const list = {type: 'array', items: string};
@@ -45,9 +45,8 @@ the bullets ("" if none); skills is a role's own "Skills:" line ("" if none). To
 such sections. links: phone, email and profile URLs shown in the header (href as tel:, mailto: or https://). Keep the CV's
 bold figures as **bold**. Use "" for anything the CV doesn't show.`;
 
-// look: async cv => cv, keeps the PDF's photo, icons, logos and page breaks (lib/cv-look.js; needs a window, so main.js passes it). A failure there keeps the plain CV.
-export async function importPdf(storage, apiKey, client = null, {look = null} = {}) {
-  const pdf = fs.readFileSync(storage.path('cv.pdf'));
+// A CV PDF transcribed into the schema (no files written): the main CV's import and the extra versions (lib/experience.js) read it alike.
+export async function transcribePdf(pdf, apiKey, client = null) {
   const anthropic = client || anthropicApi(apiKey);
   const response = await anthropic.messages.create({
     model: MODEL, max_tokens: 16000, system: IMPORT_INSTRUCTIONS,
@@ -61,11 +60,17 @@ export async function importPdf(storage, apiKey, client = null, {look = null} = 
   const clean = {...data, jobs: data.jobs.map(({href, ...job}) => ({...job, ...(href ? {href} : {}),
     roles: job.roles.map(({intro, skills, ...r}) => ({...r, ...(intro ? {intro} : {}), ...(skills ? {skills} : {})}))}))};
   for (const key of ['skills', 'languages', 'location', 'summary']) if (!clean[key]) delete clean[key];
+  return {cv: clean, usd: usd(response.usage)};
+}
+
+// look: async cv => cv, keeps the PDF's photo, icons, logos and page breaks (lib/cv-look.js; needs a window, so main.js passes it). A failure there keeps the plain CV.
+export async function importPdf(storage, apiKey, client = null, {look = null} = {}) {
+  const {cv: clean, usd: cost} = await transcribePdf(fs.readFileSync(storage.path('cv.pdf')), apiKey, client);
   let kept = clean;
   if (look) { try { kept = await look(clean); } catch (error) { console.error(`CV look not kept: ${error.message}`); } }
   fs.mkdirSync(dir(storage), {recursive: true});
   fs.writeFileSync(path.join(dir(storage), 'cv.json'), JSON.stringify(kept, null, 2) + '\n', {mode: 0o600});
-  return {cv: kept, usd: usd(response.usage)};
+  return {cv: kept, usd: cost};
 }
 
 // ---------- tailoring ----------
@@ -90,6 +95,10 @@ Rewrite the summary (2–3 sentences, similar length) to lead with what this pos
 role title at its start (e.g. "Site Reliability Engineer …"): the candidate's identity doesn't change per job.
 Rewording changes emphasis and vocabulary, never claims: don't replace a concrete detail with an outcome the CV doesn't
 state (e.g. "reduced alert noise", "improved signal quality", "at scale"), and prefer the smallest edit that works.
+Bullets flagged "extra" come from other versions of the same person's CV: they are real facts the main CV doesn't list. Use one
+only where it answers the posting better than a main bullet, instead of that bullet (the role must not get longer), and leave the
+others out; they never count as dropped. "extra_skills" are real skills from those versions: the summary may name one the posting
+asks for, a role's skills line never gains one.
 Hard rules: use only facts from the CV and the facts the Profile states as confirmed; never use anything marked ❓, never
 add a tool, technology, certification, number, employer or responsibility that isn't there, never change numbers (keep
 **bold** figures), never inflate scope ("led" only where the CV says led). Same language as the CV. The result must fit
@@ -100,11 +109,12 @@ changes: 3–8 short items for the candidate: where (e.g. "Summary", "Acme · Da
 // The CV as the model sees it: bullets numbered per role.
 const numbered = cv => ({summary: cv.summary || '', jobs: cv.jobs.map(job => ({company: job.company, roles: job.roles.map(r => ({
   title: r.title, period: r.period, ...(r.intro ? {intro: r.intro} : {}),
-  bullets: r.bullets.map((text, index) => ({index, text})), skills: r.skills || ''}))})),
-  ...(cv.skills ? {skills: cv.skills} : {})});
+  bullets: r.bullets.map((text, index) => ({index, text, ...(r.extra?.includes(index) ? {extra: true} : {})})), skills: r.skills || ''}))})),
+  ...(cv.skills ? {skills: cv.skills} : {}), ...(cv.extraSkills ? {extra_skills: cv.extraSkills} : {})});
 
-export async function tailor(storage, posting, apiKey, {client = null, feedback = '', profile = ''} = {}) {
-  const cv = baseCv(storage);
+// base: the main CV with the experience bank's extra bullets (lib/experience.js withExtras); the main CV itself when none.
+export async function tailor(storage, posting, apiKey, {client = null, feedback = '', profile = '', base = null} = {}) {
+  const cv = base || baseCv(storage);
   if (!cv) throw new Error('No base CV yet');
   const anthropic = client || anthropicApi(apiKey);
   const response = await anthropic.messages.create({
@@ -180,6 +190,7 @@ export function applyTailoring(base, result, known = '') {
   };
   if (result.jobs.length !== base.jobs.length) throw new Error('The tailored CV changed the list of jobs');
   const cv = structuredClone(base), review = structuredClone(base);
+  delete cv.extraSkills; delete review.extraSkills;
 
   let summary = result.summary?.trim() || base.summary || '';
   if (numbers(summary).some(n => !cvNumbers.has(n))) { warnings.push('Summary: a new number appeared; kept your original summary'); summary = base.summary || ''; }
@@ -208,7 +219,7 @@ export function applyTailoring(base, result, known = '') {
         bullets.push({text, source: item.source, original});
       }
       // Dropping is allowed (at most 2); losing more means the answer was incomplete: keep the rest in order.
-      const dropped = role.bullets.map((text, index) => ({text, index})).filter(b => !seen.has(b.index));
+      const dropped = role.bullets.map((text, index) => ({text, index})).filter(b => !seen.has(b.index) && !role.extra?.includes(b.index));   // an extra bullet left out is not a drop
       if (dropped.length > 2) {
         warnings.push(`${where}: ${dropped.length} bullets were left out; kept all but 2`);
         for (const b of dropped.slice(0, dropped.length - 2)) bullets.push({text: b.text, source: b.index, original: b.text});
@@ -220,12 +231,15 @@ export function applyTailoring(base, result, known = '') {
         skills = role.skills;
       }
       const tailoredRole = cv.jobs[j].roles[r];
+      delete tailoredRole.extra; delete tailoredRole.extraFrom;
       tailoredRole.bullets = bullets.map(b => b.text);
       if (role.skills) tailoredRole.skills = skills;
       const marked = review.jobs[j].roles[r];
+      delete marked.extra; delete marked.extraFrom;
       marked.bullets = bullets.map((b, position) => ({text: b.text, from: b.source,
         // Moved up: now above a bullet that used to come before it (not just shifted by a dropped one).
-        mark: plain(b.text) !== plain(b.original) ? 'reworded' : bullets.slice(position + 1).some(later => later.source < b.source) ? 'moved' : 'kept',
+        mark: role.extra?.includes(b.source) ? 'added' : plain(b.text) !== plain(b.original) ? 'reworded' : bullets.slice(position + 1).some(later => later.source < b.source) ? 'moved' : 'kept',
+        ...(role.extra?.includes(b.source) ? {addedFrom: role.extraFrom?.[b.source]} : {}),
         diff: plain(b.text) !== plain(b.original) ? wordDiff(b.original, b.text) : ''}));
       marked.dropped = dropped.map(b => b.text);
       if (role.skills) { marked.skills = skills; if (skills !== role.skills) { marked.skillsMark = true; marked.skillsDiff = escape(skills); } }

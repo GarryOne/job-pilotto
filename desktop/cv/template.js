@@ -33,10 +33,10 @@ const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').re
 export const md = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2">$1</a>');
 const asset = name => name ? `assets/${esc(name)}` : '';
 
-// A bullet is a string, or in review mode {text, mark: 'reworded'|'moved'|'kept', diff: html, from: n}.
+// A bullet is a string, or in review mode {text, mark: 'reworded'|'moved'|'added'|'kept', diff: html, from: n}.
 function bullet(item) {
   if (typeof item === 'string') return `<li>${md(item)}</li>`;
-  const note = item.mark === 'moved' ? ` data-note="moved up from #${item.from + 1}"` : '';
+  const note = item.mark === 'moved' ? ` data-note="moved up from #${item.from + 1}"` : item.mark === 'added' ? ` data-note="added from ${esc(item.addedFrom || 'another version of your CV')}"` : '';
   return `<li class="mark-${item.mark || 'kept'}"${note}>${item.diff || md(item.text)}</li>`;
 }
 
@@ -98,12 +98,15 @@ const REVIEW_CSS = `
 body.review .mark-reworded { background: #fff4c2; box-shadow: 0 0 0 1.5pt #fff4c2; }
 body.review .mark-moved { box-shadow: -4pt 0 0 #7cb7ff; }
 body.review .mark-moved::after { content: ' ↑ ' attr(data-note); color: #2a6fd6; font-size: 0.8em; }
+body.review .mark-added { box-shadow: -4pt 0 0 #4cc38a; }
+body.review .mark-added::after { content: ' + ' attr(data-note); color: #1d7a50; font-size: 0.8em; }
 body.review .mark-dropped { color: #b0b0b0; text-decoration: line-through; }
 body.review ins { background: #c9f3d2; text-decoration: none; }
 body.review del { color: #c0392b; background: #ffe0dc; }
 body.review .before { display: block; color: #8a8a8a; font-size: 0.9em; margin-top: 3pt; }
 body.review.clean .mark-reworded { background: none; box-shadow: none; }
 body.review.clean .mark-moved { box-shadow: none; } body.review.clean .mark-moved::after { content: none; }
+body.review.clean .mark-added { box-shadow: none; } body.review.clean .mark-added::after { content: none; }
 body.review.clean .mark-dropped, body.review.clean del, body.review.clean .before { display: none; }
 body.review.clean ins { background: none; }
 `;

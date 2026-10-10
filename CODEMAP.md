@@ -68,6 +68,8 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/employers-handlers.js` — Employers & Sources (renderer/pages/employers.js): every employer and job board the person tracks, from the active store through the
 - `desktop/lib/engine-log.js` — What the engine printed, in full: <data folder>/logs/engine.log, one file per day (see below). The app's own log says a run
 - `desktop/lib/escalate.js` — A closer look when the text sketch is not enough (spec: docs/superpowers/specs/2026-10-08-ai-escalation.md; owner, 8 Oct 2026: yes, account pages first, off until he turns it on).
+- `desktop/lib/experience-handlers.js` — The experience bank's IPC (Settings → Profile → Experience): what the window shows, adding another CV version, removing one, matching
+- `desktop/lib/experience.js` — The experience bank (Settings → Profile → Experience): what the candidate has done, beyond the one main CV.
 - `desktop/lib/ext-server-handlers.js` — The extension server's wiring (moved out of main.js's start-up, 8 Oct 2026): what the local server asks of the app when the Chrome extension calls it: the site
 - `desktop/lib/extension-install.js` — Is the Job Pilotto extension loaded in a Chromium browser on this computer — and is it awake?
 - `desktop/lib/extension-ready.js` — Waits for the extension's first check-in since the app started (server.extensionSeen), for a "show this form" asked right after a start.
@@ -226,6 +228,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/demo.js` — "Look around first": the wizard's buttons that restart the app on the fictional demo data, and in that demo the
 - `desktop/renderer/pages/dismiss-reason.js` — After Dismiss: a one-tap "why?" (optional, gone in 12 seconds). The reason is one of a fixed list and is counted with the job's score band only
 - `desktop/renderer/pages/employers.js` — Employers & Sources page (nav → Employers): every employer and job board the person tracks, from the active store
+- `desktop/renderer/pages/experience.js` — Settings → Profile → Experience: the sources of what tailoring knows about the person (the main CV, other CV versions) and, per job,
 - `desktop/renderer/pages/feedback.js` — Feedback is saved to Notion. Sending stays with the user; Gmail remains read-only.
 - `desktop/renderer/pages/find.js` — ⌘F on every page: a small find bar (top right) that highlights what the page shows (CSS Highlight API) and scrolls to each
 - `desktop/renderer/pages/focus-onboarding.js` — Focus → Get started (moved out of pages/focus.js, 9 Oct 2026): the first steps after the setup, and Focus without Notion, which shows only

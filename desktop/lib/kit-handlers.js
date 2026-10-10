@@ -4,6 +4,7 @@
 import * as apply from './apply.js';
 import * as claudeCode from './claude-code.js';
 import * as cvlib from './cv.js';
+import * as experience from './experience.js';
 import * as files from './files.js';
 import * as storeFiles from './store/files.js';
 import * as notionGate from './notion-gate.js';
@@ -52,14 +53,14 @@ export function registerKitHandlers(ctx) {
       }
       const job = await pipeline.posting(storage, code);
       if (!job.ok) return {ok: false, error: job.error};
-      const base = cvlib.baseCv(storage);
+      const main = cvlib.baseCv(storage), base = experience.withExtras(storage, main);   // the main CV + the bank's extra bullets (same jobs and dates)
       const {profile} = await strategy.profileTexts(storage);
       let feedback = '', result, applied, printed;
       for (let attempt = 0; attempt < 2; attempt++) {
-        const answer = await cvlib.tailor(storage, job, key, {client: ai, feedback, profile});
+        const answer = await cvlib.tailor(storage, job, key, {client: ai, feedback, profile, base});
         cost += answer.usd;
         result = answer.result;
-        applied = cvlib.applyTailoring(base, result, profile);
+        applied = cvlib.applyTailoring(base, result, `${profile} ${experience.knownText(storage, main)}`);
         printed = await printPdf(cvlib.writeHtml(storage, applied.cv, `${code}.html`));
         if (!printed.overflow.length) break;
         feedback = `Your last version didn't fit on page ${printed.overflow.join(', ')}: make the bullets on that page shorter or drop one, so it fits.`;

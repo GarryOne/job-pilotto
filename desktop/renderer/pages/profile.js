@@ -2,6 +2,7 @@
 import {contactHints} from '../audience.js';
 import {openInNotion, showNotionPanel} from './notion-connect.js';
 import {loadTextEditor, showStoreParts} from './text-editors.js';
+import {initExperience, loadExperience} from './experience.js';
 import {collapsiblePanel, el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
@@ -25,6 +26,7 @@ export function profileTab(name) {
   });
   showStoreParts();
   if (name === 'answers') { loadAnswers(); loadTextEditor('answers'); }
+  else if (name === 'experience') loadExperience();
   else if (name === 'profiletext') loadTextEditor('profile');
   else if (name === 'knowledge') loadTextEditor('knowledge');
   else if (name === 'letter') loadLetter();
@@ -269,6 +271,7 @@ export function showContact() {
 export async function init() {
   initLetter();
   document.querySelectorAll('[data-profile-tab]').forEach(tab => tab.addEventListener('click', () => profileTab(tab.dataset.profileTab)));
+  initExperience();
   $('open-profile-details').addEventListener('click', event => openInNotion('NOTION_PROFILE_PAGE_ID', event));
   $('contact-from-cv').addEventListener('click', () => loadProposals({again: true}));
   $('answers-review').addEventListener('click', event => openInNotion('NOTION_ANSWERS_PAGE_ID', event));

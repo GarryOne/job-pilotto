@@ -913,6 +913,7 @@
 
           <div class="tabs" role="tablist">
             <button role="tab" data-profile-tab="details" class="is-active">CV &amp; details</button>
+            <button role="tab" data-profile-tab="experience">Experience</button>
             <button role="tab" data-profile-tab="profiletext">Profile text</button>
             <button role="tab" data-profile-tab="answers">Standard answers</button>
             <button role="tab" data-profile-tab="knowledge">Form knowledge</button>
@@ -950,6 +951,19 @@
           </div>
           <div class="stale-draft" id="cv-changed" data-profile-panel="details" hidden><span id="cv-changed-text"></span>
         <button class="secondary" id="cv-changed-open">Review what changes</button></div>
+          <div class="setting panel" id="setting-experience-sources" data-profile-panel="experience" hidden>
+            <div class="panel-top"><div class="summary-head"><i data-icon="layers"></i><h3>Where your experience comes from</h3></div>
+              <div class="panel-actions"><button class="secondary with-icon" id="exp-add"><i data-icon="upload"></i><span>Add another CV version</span></button></div></div>
+            <p class="muted panel-lead">Your main CV is the reference: a tailored CV keeps its jobs, titles and dates. Other versions only add facts to those jobs, so tailoring has more to choose from.</p>
+            <ul class="item-rows" id="exp-sources"></ul>
+            <p class="message" id="exp-message"></p>
+          </div>
+          <div class="setting panel" id="setting-experience-roles" data-profile-panel="experience" hidden>
+            <div class="panel-top"><div class="summary-head"><i data-icon="briefcase"></i><h3>What tailoring can draw on</h3></div>
+              <div class="panel-actions"><span class="synced" id="exp-count"></span></div></div>
+            <p class="muted panel-lead">Each job from your main CV, with the details other versions add.</p>
+            <div class="exp-roles" id="exp-roles"></div>
+          </div>
           <div class="setting panel" id="setting-contact" data-profile-panel="details">
             <div class="panel-top"><div class="summary-head"><i data-icon="user"></i><h3>Your details</h3></div>
               <div class="panel-actions"><span class="synced is-on" data-store-saved>Saved in Notion</span><button class="link" id="contact-from-cv">Fill from my CV</button><button class="link" id="open-profile-details" data-notion-only>Open profile in Notion</button></div></div>
