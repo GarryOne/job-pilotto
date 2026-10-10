@@ -122,7 +122,7 @@ th{text-align:left;color:var(--muted);font-weight:500;font-size:12px;white-space
 .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;color:#0b0d10}
 .s-none{background:var(--muted)}.s-posting{background:var(--red)}.s-account{background:var(--amber)}.s-code\\/bot{background:var(--violet)}.s-form{background:var(--blue)}.s-ready{background:var(--green)}
 .dots{white-space:nowrap}.dots i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px}
-.filters{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;margin:10px 0 12px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;font-size:13px}.pick{display:flex;flex-direction:column;gap:4px;min-width:200px}.pick>span{font-size:11px;text-transform:uppercase;letter-spacing:.04em}.pick select{background:var(--bg,var(--card));color:var(--text);border:1px solid var(--line);border-radius:8px;padding:0 10px;height:34px;box-sizing:border-box;font:inherit;font-size:13px;max-width:100%}.filters .count,.filters .pager{align-self:flex-end;box-sizing:border-box;height:34px;display:flex;align-items:center}.filters .count{padding-left:4px}.filters .pager{margin:0 0 0 auto;justify-content:flex-end}.chip{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:3px 11px;font:inherit;font-size:12px;cursor:pointer}.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;font-size:13px}.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes spin{to{transform:rotate(360deg)}}.chip:disabled{opacity:.4;cursor:default}.chip.on{border-color:var(--amber);color:var(--amber)}
+.filters{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;margin:10px 0 12px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;font-size:13px}.pick{display:flex;flex-direction:column;gap:4px;min-width:200px}.pick b{line-height:34px;font-weight:600}.pick>span{font-size:11px;text-transform:uppercase;letter-spacing:.04em}.pick select{background:var(--bg,var(--card));color:var(--text);border:1px solid var(--line);border-radius:8px;padding:0 10px;height:34px;box-sizing:border-box;font:inherit;font-size:13px;max-width:100%}.filters .count,.filters .pager{align-self:flex-end;box-sizing:border-box;height:34px;display:flex;align-items:center}.filters .count{padding-left:4px}.filters .pager{margin:0 0 0 auto;justify-content:flex-end}.chip{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:3px 11px;font:inherit;font-size:12px;cursor:pointer}.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;font-size:13px}.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes spin{to{transform:rotate(360deg)}}.chip:disabled{opacity:.4;cursor:default}.chip.on{border-color:var(--amber);color:var(--amber)}
 .flag{color:var(--red);font-weight:600}.muted{color:var(--muted)}.bars{display:flex;gap:6px;align-items:flex-end;height:110px;margin-top:8px}
 .bar{display:flex;flex-direction:column-reverse;width:26px}.bar i{display:block}.bar small{color:var(--muted);font-size:10px;text-align:center}
 </style></head><body><main>
@@ -169,21 +169,27 @@ fetch('?json').then(r => r.json()).then(d => {
         el('button', {className: 'chip', type: 'button', textContent: 'Next →', disabled: chosen.page >= pages - 1, onclick: go(1)})); } };
   // Next sites to add: first the platforms most matched jobs are on that the pool covers too little (from any number of installs), then the hosts real applications ended on
   // that the pool lacks, each used by >= 3 installs (src/nextsites.js). Top 5 of each, the rest on request.
-  let allNext = false; const nextBox = el('div');
-  const more = (list, redraw) => (list.length > 5 ? el('p', {}, el('button', {className: 'chip', type: 'button', textContent: allNext ? 'Show top 5' : 'Show all ' + list.length, onclick: () => { allNext = !allNext; redraw(); }})) : null);
-  const drawNext = () => { nextBox.textContent = ''; const platforms = d.next.platforms || [], list = d.next.sites, pick5 = rows => (allNext ? rows : rows.slice(0, 5));
-    nextBox.append(...[el('h3', {textContent: 'Platforms'}),
-      platforms.length ? el('table', {}, el('tr', {}, ...['Platform', 'Of matched jobs', 'Of the pool', 'Pool sites', 'Installs', 'Applications'].map(h => el('th', {textContent: h}))),
-        ...pick5(platforms).map(s => el('tr', {}, el('td', {textContent: s.platform}), el('td', {textContent: s.matchShare + '%'}), el('td', {textContent: s.poolShare + '%'}),
-          el('td', {textContent: s.poolSites || 'none'}), el('td', {textContent: s.installs}), el('td', {textContent: s.applications || '–'})))) : el('p', {className: 'muted', textContent: 'Nothing under-covered: no platform has more of the matched jobs than of the pool.'}),
-      more(platforms, drawNext),
-      el('h3', {textContent: 'Sites'}),
-      list.length ? el('table', {}, el('tr', {}, ...['Site', 'Platform', 'Used by', 'Applications', 'Filled, nothing left', 'Countries'].map(h => el('th', {textContent: h}))),
-        ...pick5(list).map(s => el('tr', {}, el('td', {textContent: s.host}),
-          el('td', {textContent: s.platform + (s.poolSites ? ' · ' + s.poolSites + ' in the pool' : s.platform === 'Custom' ? '' : ' · none in the pool')}),
-          el('td', {textContent: s.installs + ' installs'}), el('td', {textContent: s.uses}), el('td', {textContent: s.readyShare + '%'}),
-          el('td', {className: 'muted', textContent: s.countries.map(c => c.country + ' ' + c.installs).join(', ')})))) : el('p', {className: 'muted', textContent: 'Nothing yet: a site shows here once 3 installs have applied on it and the pool lacks it.'}),
-      more(list, drawNext)].filter(Boolean)); };   // append() writes a null as the text "null"
+  // Each list is a bar (its title, "Showing 1-5 of N", Previous / Next) over a table: the pool table's own pattern, 5 rows a page.
+  const nextPage = {platforms: 0, sites: 0}, NEXT_PER = 5, nextBox = el('div');
+  const block = (key, title, what, rows, heads, row, none) => {
+    const pages = Math.max(1, Math.ceil(rows.length / NEXT_PER)); nextPage[key] = Math.min(nextPage[key], pages - 1);
+    const from = nextPage[key] * NEXT_PER, shown = rows.slice(from, from + NEXT_PER), go = step => () => { nextPage[key] += step; drawNext(); };
+    return [el('div', {className: 'filters'}, el('label', {className: 'pick'}, el('span', {className: 'muted', textContent: title}), el('b', {textContent: what})),
+        el('span', {className: 'muted count', textContent: rows.length ? 'Showing ' + (from + 1) + '–' + (from + shown.length) + ' of ' + rows.length : none}),
+      pages > 1 ? el('div', {className: 'pager'}, el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: nextPage[key] === 0, onclick: go(-1)}),
+        el('button', {className: 'chip', type: 'button', textContent: 'Next →', disabled: nextPage[key] >= pages - 1, onclick: go(1)})) : null),
+      rows.length ? el('table', {}, el('tr', {}, ...heads.map(h => el('th', {textContent: h}))), ...shown.map(row)) : null];
+  };
+  const drawNext = () => { nextBox.textContent = '';
+    nextBox.append(...[...block('platforms', 'Platforms', 'Matched jobs against the pool', d.next.platforms || [], ['Platform', 'Of matched jobs', 'Of the pool', 'Pool sites', 'Installs', 'Applications'],
+        s => el('tr', {}, el('td', {textContent: s.platform}), el('td', {textContent: s.matchShare + '%'}), el('td', {className: 'muted', textContent: s.poolShare + '%'}),
+          el('td', {className: 'muted', textContent: s.poolSites || 'none'}), el('td', {className: 'muted', textContent: s.installs}), el('td', {className: 'muted', textContent: s.applications || '—'})),
+        'Nothing under-covered'),
+      ...block('sites', 'Sites', 'Used by 3 or more installs', d.next.sites, ['Site', 'Platform', 'Used by', 'Applications', 'Filled, nothing left', 'Countries'],
+        s => el('tr', {}, el('td', {textContent: s.host}), el('td', {textContent: s.platform + (s.poolSites ? ' · ' + s.poolSites + ' in the pool' : s.platform === 'Custom' ? '' : ' · none in the pool')}),
+          el('td', {className: 'muted', textContent: s.installs + ' installs'}), el('td', {className: 'muted', textContent: s.uses}), el('td', {className: 'muted', textContent: s.readyShare + '%'}),
+          el('td', {className: 'muted', textContent: s.countries.map(c => c.country + ' ' + c.installs).join(', ') || '—'})),
+        'Nothing yet: a site shows once 3 installs applied on it')].filter(Boolean)); };   // append() writes a null as the text "null"
   app.append(el('section', {}, el('h2', {textContent: 'Next sites to add · where people apply, not in the pool'}),
     el('p', {className: 'muted', textContent: 'Platforms: the share of matched jobs on each platform against its share of the pool, from any number of installs (a platform is a name from a fixed list). Sites: the site each application ended on, listed only once 3 different installs used it' + (d.next.hidden.hosts ? ' (' + d.next.hidden.hosts + ' more are below that and stay hidden)' : '') + '; under 3 installs a country is "other". Never a posting or an address.'}), nextBox)); drawNext();
   app.append(el('section', {}, el('h2', {textContent: 'Fixed-site replays · every fixed site, replayed'}), d.cases.length ? el('table', {},

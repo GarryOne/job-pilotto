@@ -64,7 +64,7 @@ test('the page draws the section with no stray text, with and without suggestion
   assert.ok(withPlatforms.includes('Workday') && withPlatforms.includes('82%') && !/null/.test(withPlatforms), 'a platform from one install is listed');
   const text = await run({sites: Array.from({length: 7}, (_, i) => ({host: `h${i}.acme.md`, platform: 'Custom', poolSites: 0, installs: 3, uses: 3, readyShare: 50, countries: []})), hidden: {hosts: 0}});
   assert.ok(text.indexOf('Next sites to add') >= 0 && text.indexOf('Next sites to add') < text.indexOf('Fixed-site replays'), 'the list is the first section, above the replays');
-  assert.ok(!/null/.test(text) && text.includes('h0.acme.md') && !text.includes('h5.acme.md') && text.includes('Show all 7'), 'top 5 and the button');
+  assert.ok(!/null/.test(text) && text.includes('h0.acme.md') && !text.includes('h5.acme.md') && text.includes('Showing 1–5 of 7') && text.includes('Next →'), 'top 5, the count and the pager');
 });
 
 // The owner (10 Oct 2026): the list must not rely only on installs: if most matched jobs are on Workday and the pool has no Workday site, that comes first, even from one install.
@@ -92,4 +92,12 @@ test('applications on a known board count beside the matched jobs', async () => 
   env.db.exec("INSERT INTO fill_cards (id, day, board, version) VALUES ('f1', '2026-10-09', 'ashby', 'v'), ('f2', '2026-10-09', 'ashby', 'v')");
   const {platforms} = await nextToAdd(env, [], now);
   assert.deepEqual(platforms.map(item => [item.platform, item.applications]), [['Ashby', 2]]);
+});
+
+test('a platform the pool does not cover is listed even when small (at least 1%); a gap under 2 points where the pool has sites is left out', async () => {
+  const env = d1();
+  feed(env, 'i1', 'lever', 3, 'a'); feed(env, 'i1', 'greenhouse', 96, 'b'); feed(env, 'i1', 'teamtailor', 1, 'c');
+  const pool = [{name: 'l', start: 'jobs.lever.co', end: '', platform: 'Lever'}, ...Array.from({length: 49}, (_, i) => ({name: `g${i}`, start: `x${i}.greenhouse.io`, end: '', platform: 'Greenhouse'}))];
+  const {platforms} = await nextToAdd(env, pool, now);
+  assert.deepEqual(platforms.map(item => [item.platform, item.matchShare]), [['Teamtailor', 1]], 'lever: 3% vs 2% is noise; greenhouse: 96% of matches vs 98% of the pool; teamtailor has no pool site');
 });
