@@ -62,6 +62,21 @@ Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is not
 5. **Grow the pool** (when asked or after a profile change): `--discover`; read what it added to the Mac's list and why (the new signature). Never add a posting address to the public file unless it is from a public feed.
 6. **Report to the owner:** counts (run, reached form / posting / bot, regressions, new shapes), what moved since the last report, what was handed to whom. Say "done" to the peers.
 
+## Reading real use: "Next sites to add" and the platform scorecard (10 Oct 2026)
+`/admin/applying` also says where real users apply and how it goes (`?json` has `next` and `scorecard`; the owner key from the Keychain, never printed). Read both at the start of a round, then act:
+
+| Scorecard verdict | It means | Do | Skill |
+|---|---|---|---|
+| Not in the pool | real use, no pool site on that platform | add a site on it: `--discover` (suggested hosts are tried first), or a public-feed posting; never a user's posting into the public file | this skill |
+| Weak in both | tests and real fills both fall short | fix first: it costs users most | `fix-failing-forms` |
+| Blind spot | the pool reaches the form, real users' fills do not | the pool tests the wrong shape: find what real fills miss, then add a recorded page | `improve-filling`, then `fix-failing-forms` |
+| Test failing | real use is fine, pool sites fall short | reproduce, and check the site did not change | `fix-failing-forms` |
+| Fine | | nothing | |
+
+- **Rank by demand, not by install count:** a platform with most of the matched jobs and no pool site comes first, even from one install ("Of matched jobs" against "Of the pool"). Hosts ("Sites") are only listed once 3 installs used them; countries under 3 installs show as "other".
+- **Under 5 real forms is no evidence** (the scorecard shows "—"): judge by the pool alone, and say so. Workday has no real forms until an app with the board names (720f344) is in use.
+- Say in the report which platform rows you acted on and which you left, with the verdict. The data is counts and platform names only: never quote a host as an install's.
+
 ## Open threads to carry (10 Oct 2026; drop each when closed)
 - Discovery is serial (~90 s a candidate, ~45 min per 30) because every run shares one e2e app and Notion test page. A `--workers` option (own port and profile per worker) is not built; the owner asked about it, the pool owner will brief it.
 - Ask the owner: the nightly schedule (launchd or by hand); a `prestart` that prints npm's error on failure; renaming the Jobs "Closed" counter; multi-step AI answers for account recorded cases.

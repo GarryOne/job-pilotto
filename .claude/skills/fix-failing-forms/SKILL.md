@@ -10,6 +10,9 @@ Goal (owner, 9-10 Oct 2026): from the posting to a filled form, stopped before S
 This skill works on the pool (real postings, layer 3 of `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md`). Live sessions on the
 owner's twin are `fix-live-applying-in-twin`. The pool's own upkeep (running, growing, coordinating it) is the skill `run-applying-smoke-pool`, which hands failing shapes to this one.
 
+Where the next shape comes from: the platform scorecard on `/admin/applying` names the platforms to fix, in this order: **Weak in both**, **Blind spot** (start with `improve-filling` to see what real fills miss),
+**Test failing**. **Not in the pool** is `run-applying-smoke-pool`'s to add first. Rank by "Of matched jobs": the most-used platform that fails comes first (skill `run-applying-smoke-pool` "Reading real use").
+
 ## 0. Before starting (one line each to the owner)
 - **The list**, worst first: regressions, then shapes that reached the earliest step. Sources: `/admin/applying` (owner-only; Bearer = Keychain
   `job-pilotto.site.api_key`, see memory `reference-owner-pages-access`), and the newest files in

@@ -5,6 +5,9 @@ description: Improve the Job Pilotto Chrome extension's form filling from its re
 
 # Improve the form filling from recorded runs
 
+> **Verdict "Blind spot" on the platform scorecard** (`/admin/applying`, see the skill `run-applying-smoke-pool` "Reading real use"): the pool's tests reach the form but real users' fills
+> do not. Start here: this skill finds what real fills miss on that platform; hand the shape to `fix-failing-forms` for a recorded page.
+
 Every extension fill writes a record to Notion's 🎏 Job Apply — Agent Runs (Agent = Extension): a
 field-by-field table (answer source, result, why) and a Debug data JSON block (the form as read, every
 answer with its source, dropdown attempts, step timings, errors, extension version).
