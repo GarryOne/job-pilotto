@@ -27,20 +27,24 @@ export function seedStore(profile) {
 }
 
 const settled = (page, ms = 600) => page.waitForTimeout(ms);
-async function named(page, selector, {timeout = 30000, want = 1} = {}) {
-  // Rows arrive once the store answered: wait for `want` of the seeded names, then read them all.
-  await page.waitForFunction(({selector, names, want}) => [...document.querySelectorAll(selector)].map(node => node.textContent).join('\n')
-    .split('\n').filter(Boolean).length && names.filter(name => [...document.querySelectorAll(selector)].some(node => node.textContent.includes(name))).length >= want,
-  {selector, names: COMPANIES, want}, {timeout}).catch(() => {});
+async function named(page, selector, {timeout = 30000, want = 1, exact = false} = {}) {
+  // Rows arrive once the store answered: wait for `want` of the seeded names (exactly `want` when the screen is known to hide some: a transient list that still shows them all
+  // must not end the wait, 10 Oct 2026, Windows CI), then read them all.
+  await page.waitForFunction(({selector, names, want, exact}) => {
+    const rows = [...document.querySelectorAll(selector)];
+    const shown = names.filter(name => rows.some(node => node.textContent.includes(name))).length;
+    return rows.map(node => node.textContent).join('\n').split('\n').filter(Boolean).length && (exact ? shown === want : shown >= want);
+  }, {selector, names: COMPANIES, want, exact}, {timeout}).catch(() => {});
   return page.evaluate(({selector, names}) => names.filter(name => [...document.querySelectorAll(selector)].some(node => node.textContent.includes(name))), {selector, names: COMPANIES});
 }
 
 // {jobs, focus, interviews, activity}: which seeded items each screen shows. Compared before and after a move or an import.
-export async function screens(page) {
+// jobs: how many seeded jobs the Jobs list is expected to show (4 unless a search has marked one not seen, which hides it): the wait is for exactly that many.
+export async function screens(page, {jobs: expectedJobs = COMPANIES.length} = {}) {
   const go = async view => { await page.click(`.nav[data-view="${view}"]`); await page.waitForSelector(`.view[data-view="${view}"]:not([hidden])`); await settled(page); };
   await go('jobs');
   await page.selectOption('#filter-status', 'all');   // the default shows new matches only; the applications are under All
-  const jobs = await named(page, 'article.job-row', {want: 4});
+  const jobs = await named(page, 'article.job-row', {want: expectedJobs, exact: true});
   await go('focus');
   const focus = await named(page, '#focus-list .focus-item', {timeout: 8000});
   await go('interviews');

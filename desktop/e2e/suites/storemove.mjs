@@ -128,7 +128,8 @@ export async function run(ctx) {
   await ctx.run('Jobs, Focus, Interviews and Recent activity show the same items from Notion', async () => {
     await page.reload();
     await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
-    sameScreens(afterConnect || before, await screens(page));
+    const wanted = afterConnect || before;
+    sameScreens(wanted, await screens(page, {jobs: wanted.jobs.length}));
   });
 
   // A second install: the export, imported into a fresh profile, then moved into its own empty Notion.
@@ -170,7 +171,7 @@ export async function run(ctx) {
       if (!pageText(standIn2, ids.NOTION_PROFILE_PAGE_ID).includes('ten years')) throw new Error('this Mac\'s Profile did not reach the empty Notion');
       await second.page.reload();
       await second.page.waitForSelector('.view:not([hidden])', {timeout: 60000});
-      try { sameScreens(expected, await screens(second.page)); } catch (error) {
+      try { sameScreens(expected, await screens(second.page, {jobs: expected.jobs.length})); } catch (error) {
         // Evidence for a failure only seen on Windows CI (10 Oct 2026: the hidden "Orrin AG" shows after the move there): what the second install's store holds, and its own log.
         throw new Error(`${error.message}\n  Job Matches in the second Notion after the move: ${JSON.stringify(standInRows(standIn2, 'Job Matches'))}; Job Tracker: ${JSON.stringify(standInRows(standIn2, 'Job Tracker').map(row => row.title))}`
           + `\n  searches seen by its log: ${JSON.stringify(searches(second.profile))} (before the connect: ${JSON.stringify(mark)}); its log: ${JSON.stringify(logLines(second.profile, /\\[(store|data|run)\\]|search|daily/i))}`);
