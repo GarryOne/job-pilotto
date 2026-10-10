@@ -22,9 +22,11 @@ export const ROLE = {form: 'form', 'account-form': 'form', account: 'account', p
 // The ways a "how do you want to start?" step can begin an application (Workday's "Start Your Application", 10 Oct 2026). Fixed answers the AI gives for the button
 // it named; only 'manual' is ever pressed. A third-party sign-in (LinkedIn, Google…) is never pressed: never log in automatically.
 export const ROUTES = ['manual', 'reuse_previous', 'third_party_account'];
+// How a posting is applied to (docs/superpowers/specs/2026-10-10-non-form-outcomes.md). Step 1 builds 'email'; phone, link, login_wall, expired, in_person fit the same answer later.
+export const APPLY_BY = ['form', 'email', 'other'];
 export const MIN_CONFIDENCE = 0.6;   // below it the structure rule decides, and the page is asked again next time
 
-const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 'confidence', 'apply_button', 'apply_route', 'account_step', 'register_control', 'signin_control', 'account_button', 'bot_check'], properties: {
+const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 'confidence', 'apply_button', 'apply_route', 'apply_by', 'apply_email', 'account_step', 'register_control', 'signin_control', 'account_button', 'bot_check'], properties: {
   kind: {type: 'string', enum: KINDS},
   apply_button: {type: 'string', description: 'For a posting: the exact text of the listed button that starts the application, else ""'},
   apply_route: {type: 'string', enum: [...ROUTES, ''], description: 'For a posting or a start step: the route of the apply_button named (manual = the candidate fills the application in by hand; reuse_previous = reuses an earlier application or profile; third_party_account = signs in with another site\'s account), or of the only routes offered when apply_button is ""; "" for an ordinary Apply button'},
@@ -32,6 +34,8 @@ const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 
   register_control: {type: 'string', description: 'For a sign_in page: the exact text of the listed control that leads to creating a new account, else ""'},
   signin_control: {type: 'string', description: 'For a sign_up or choose page: the exact text of the listed control that leads to signing in to an existing account, else ""'},
   account_button: {type: 'string', description: 'For an account page: the exact text of the listed button that submits this sign-in or sign-up form, else ""'},
+  apply_by: {type: 'string', enum: [...APPLY_BY, ''], description: 'For a posting: how the application is made: form (an Apply button or a form), email (the page asks to send the application to an email address), other (some other way, or no way offered); "" for any other kind'},
+  apply_email: {type: 'string', description: 'When apply_by is email: the one address, copied exactly from the Addresses list, that the application goes to, else ""'},
   confidence: {type: 'number', description: 'From 0 to 1: how sure, from this page alone.'},
   bot_check: {type: 'boolean', description: 'true when a check that the visitor is human (a puzzle or image test, a verification step, a challenge in a frame) stands in front of the page'},
 }};
@@ -52,11 +56,13 @@ language; never sign in, sign up, submit, save, share, an alert, or applying thr
 there is none or for any other kind.
 When a posting or a dialog offers SEVERAL ways to start (fill it in by hand, reuse an earlier application or profile, sign in with another site's account such as LinkedIn, Google or Apple), in any
 language: apply_button is the button of the manual way and apply_route is manual; if only the other ways are offered, apply_button is "" and apply_route names the route offered (reuse_previous or third_party_account); an ordinary Apply button has apply_route "".
+apply_by, for a posting, decided from what the page's own text tells the candidate to do: email when the text asks to send the application (CV, cover letter) to an email address, in any language, even if a button such as Apply is also listed (it may only scroll to that text); the address is apply_email, copied exactly from the Addresses list (an address that is only a contact, question or press address is not one); form when the page leads to a form to fill (an Apply button or a form) and does not ask for an email; other when it offers no way to apply or another way (a phone call, a visit); "" for any other kind.
 For an account page only: account_step is sign_in when the form logs in to an existing account (it asks for an email or username and a password, nothing more), sign_up when it creates
 a new account (it chooses and confirms a password, or asks for more details), choose when the page only tells that an account already exists and offers to sign in or to reset the password (no form), "" for any other kind. register_control: on a sign_in page, the exact text, copied from the Buttons list,
 of the one control that leads to creating a new account, in whatever language, else "". signin_control: on a sign_up or choose page, the exact text, copied from the Buttons list, of the one control that leads to signing in to the existing account (never the password-reset control), else "". account_button: on an account page, the exact text, copied from the Buttons list, of the one
 button that submits this sign-in or sign-up form (never "forgot password", a social sign-in, or a language switch), else "".`;
 
+const MAIL = /[^\s@<>()]+@[^\s@<>()]+\.[a-z]{2,}/i;
 const clean = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 // The page's shape for the cache: its host and its path with the parts that differ per job (numbers, ids, long tokens) blanked,
 // so every posting of one site is one shape and the same sign-in page is asked once. The query string is dropped (tokens).
@@ -68,7 +74,7 @@ export function pageShape(url) {
 }
 
 // What the model is allowed to see: no values the person typed, no query string, labels and texts capped.
-export function pageSketch({url, title, headings, controls, buttons, frames} = {}) {
+export function pageSketch({url, title, headings, controls, buttons, frames, mails} = {}) {
   let path = '';
   try { path = new URL(String(url)).pathname.slice(0, 120); } catch { /* not a url */ }
   return {
@@ -77,6 +83,7 @@ export function pageSketch({url, title, headings, controls, buttons, frames} = {
     controls: (Array.isArray(controls) ? controls : []).slice(0, 50).map(item => ({type: clean(item?.type, 20), label: clean(item?.label, 80), required: !!item?.required}))
       .filter(item => item.type),
     buttons: (Array.isArray(buttons) ? buttons : []).map(text => clean(text, 40)).filter(Boolean).slice(0, 20),
+    mails: (Array.isArray(mails) ? mails : []).map(text => clean(text, 160)).filter(text => MAIL.test(text) || /^mailto:/i.test(text)).slice(0, 5),   // only sentences / mailto links that carry an address
     frames: (Array.isArray(frames) ? frames : []).map(host => clean(host, 80)).filter(Boolean).slice(0, 5),   // visible frames' hosts: a check drawn in a frame
   };
 }
@@ -122,11 +129,19 @@ export function listedControl(text, buttons = []) {
   return wanted && buttons.some(button => clean(button, 40).toLowerCase() === wanted.toLowerCase()) ? wanted : '';
 }
 
+// The address the AI named, kept only when it literally stands in one of the page's own sentences or links (never guessed).
+export function addressOf(text, mails = []) {
+  const wanted = clean(text, 120).toLowerCase();
+  return MAIL.test(wanted) && mails.some(line => String(line).toLowerCase().includes(wanted)) ? wanted : '';
+}
+
 // fresh: the page changed after a press (a dialog opened over the posting), so a kept answer for its shape is not used.
 export async function pageKind(client, raw, cache, {now = Date.now(), fresh = false} = {}) {
   const shape = kindKey(raw);
   if (!shape) return {error: 'no address'};
-  const kept = fresh ? null : cache?.get(shape);
+  const stored = fresh ? null : cache?.get(shape);
+  // A kept posting (or other page) is asked again when this page carries an address: a later posting of the shape may apply by email (one AI call, only on pages with an address). A kept form is final.
+  const kept = stored && pageSketch(raw).mails.length && !['form', 'account-form', 'account'].includes(stored.kind) ? null : stored;
   if (kept && KINDS.includes(kept.kind)) return {kind: kept.kind, role: ROLE[kept.kind], confidence: kept.confidence, by: 'remembered', shape, applyButton: kept.applyButton || '', accountStep: kept.accountStep || '', registerControl: kept.registerControl || '', accountButton: kept.accountButton || '', signinControl: kept.signinControl || ''};
   if (!client) return {error: 'no AI', shape};
   const page = pageSketch(raw);
@@ -141,6 +156,7 @@ export async function pageKind(client, raw, cache, {now = Date.now(), fresh = fa
         `Headings: ${page.headings.join(' | ') || '(none)'}`,
         `Controls (type · label · required):\n${page.controls.map(item => `- ${item.type} · ${item.label || '(no label)'}${item.required ? ' · required' : ''}`).join('\n') || '(none)'}`,
         `Buttons: ${page.buttons.join(' | ') || '(none)'}`,
+        `Addresses (sentences or links on the page that carry an email address):\n${page.mails.map(text => `- ${text}`).join('\n') || '(none)'}`,
         `Frames: ${page.frames.join(' | ') || '(none)'}`,
       ].join('\n')}],
       output_config: {format: {type: 'json_schema', schema: SCHEMA}, effort: 'low'},
@@ -158,6 +174,12 @@ export async function pageKind(client, raw, cache, {now = Date.now(), fresh = fa
     const applyRoute = answer.kind === 'posting' && ROUTES.includes(answer.apply_route) ? answer.apply_route : '';
     // Floor: the named button is kept only for an ordinary Apply or the manual route; reuse and a third-party sign-in are never pressed, whatever the AI names.
     const applyButton = answer.kind === 'posting' && (!applyRoute || applyRoute === 'manual') ? applyButtonOf(answer.apply_button, page.buttons) : '';
+    // Floors: an email outcome only for a posting; it never replaces the Apply button (the extension presses that first, and reports the email only when no form came); the address must literally stand in the page's own sentences or links, else it is dropped (reported as `dropped`) and the outcome is 'other'.
+    let applyBy = answer.kind === 'posting' && APPLY_BY.includes(answer.apply_by) ? answer.apply_by : '', applyEmail = '', dropped = '';
+    if (applyBy === 'email') {
+      applyEmail = addressOf(answer.apply_email, page.mails);
+      if (!applyEmail) { applyBy = 'other'; dropped = 'apply_email'; }
+    }
     const onAccount = answer.kind === 'account';   // the account step is asked of the AI for an account page only; the code never reads its words
     const accountStep = onAccount && ['sign_in', 'sign_up', 'choose'].includes(answer.account_step) ? answer.account_step : '';
     const registerControl = accountStep === 'sign_in' ? listedControl(answer.register_control, page.buttons) : '';
@@ -165,10 +187,11 @@ export async function pageKind(client, raw, cache, {now = Date.now(), fresh = fa
     const accountButton = onAccount ? listedControl(answer.account_button, page.buttons) : '';
     // A check in front of the page is a passing state, not its kind: never kept for the shape (the form behind it is judged fresh once solved).
     if (answer.bot_check === true) return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', shape, usd, botCheck: true, applyButton: '', accountStep: '', registerControl: '', signinControl: '', accountButton: '', applyRoute: ''};
+    // An email outcome is about this posting (its address), a start step a passing state: neither is kept for the shape.
     // A start step is a passing state of the posting, never kept for its shape (the next visit starts from the plain Apply, as a bot check does).
-    if (!applyRoute) cache?.set(shape, {kind: answer.kind, confidence, at: new Date(now).toISOString(), ...(applyButton ? {applyButton} : {}),
+    if (!applyRoute && applyBy !== 'email') cache?.set(shape, {kind: answer.kind, confidence, at: new Date(now).toISOString(), ...(applyButton ? {applyButton} : {}),
       ...(accountStep ? {accountStep} : {}), ...(registerControl ? {registerControl} : {}), ...(signinControl ? {signinControl} : {}), ...(accountButton ? {accountButton} : {})});
-    return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', shape, usd, applyButton, applyRoute, accountStep, registerControl, signinControl, accountButton};
+    return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', shape, usd, applyButton, applyRoute, applyBy, applyEmail, ...(dropped ? {dropped} : {}), accountStep, registerControl, signinControl, accountButton};
   } catch (error) {
     return {error: clean(error?.message || 'AI failed', 120), shape};
   }

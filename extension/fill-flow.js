@@ -20,6 +20,7 @@ import {applyPressed} from './tabs.js';
 import {bindSession, identityOf, sessionOf} from './tab-identity.js';
 import {pageKey, pageRole, pickApplyButton, pickNamedButton} from './tab-pages.js';
 import {forgetRouteTries, startRoute} from './start-route.js';
+import {emailReport, mailsOf} from './non-form.js';
 
 let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true, fillsNow = new Set(), arm = async () => {}, progress = async () => {};
 export function initFillFlow(shared) {
@@ -116,6 +117,7 @@ export const sayStep = (tabId, text) => progress(tabId, text).catch(() => {});
 export async function askKind(tab, {fresh = false} = {}) {   // fresh: the page changed after a press, a kept answer for its shape does not apply (start-route.js)
   const sketch = await pageSketchOf(tab.id);
   if (!sketch) return null;
+  sketch.mails = await mailsOf(tab.id);   // the sentences and mailto links that carry an address (non-form.js)
   try {
     const config = await settings();
     if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return null;   // your own Worker: no app to ask
@@ -386,8 +388,10 @@ export async function consider(tab, jobUrl) {
     const botCheck = role === 'no-form' && kind?.botCheck === true;
     if (botCheck || (role === 'no-form' && counts && emptyShape(counts))) watchForFields(tab, jobUrl, undefined, botCheck ? 60 : 10, counts?.frameHosts || []).catch(() => {});   // judged while still empty: look again if fields come
     await writeState(tab.id, {state: role});
-    decide('fill', role === 'account' ? 'account page left for Claude' : botCheck ? 'a bot check in front of the page: handed to the person' : 'no form on this page', {host, role});
-    if (!(role === 'account' && kind?.accountStep)) stuck(String(jobUrl || tab.url).split('#')[0], host, role === 'account' ? 'account' : 'no-form', tab.id, tab.url, botCheck ? BOT_CHECK_NEED : '');   // tier 3: the app offers Apply with Claude; an account page the AI has a step for is the account step's (it reports when it cannot finish)
+    decide('fill', role === 'account' ? 'account page left for Claude' : botCheck ? 'a bot check in front of the page: handed to the person' : kind?.applyBy === 'email' ? 'the posting asks for the application by email: reported to the app' : 'no form on this page', {host, role, ...(kind?.applyBy ? {applyBy: kind.applyBy} : {})});
+    const email = role === 'no-form' ? emailReport(kind) : null;   // after the Apply press found no form either   // the posting asks for the application by email (non-form.js)
+    if (email) stuck(String(jobUrl || tab.url).split('#')[0], host, email.why, tab.id, tab.url, email.needs);   // the address is the need: the card says where to send it
+    else if (!(role === 'account' && kind?.accountStep)) stuck(String(jobUrl || tab.url).split('#')[0], host, role === 'account' ? 'account' : 'no-form', tab.id, tab.url, botCheck ? BOT_CHECK_NEED : '');   // tier 3: the app offers Apply with Claude; an account page the AI has a step for is the account step's (it reports when it cannot finish)
     reportFlow(tab, {role, pressed}, {buttons: pressed ? [] : buttonsSeen});
     return;
   }

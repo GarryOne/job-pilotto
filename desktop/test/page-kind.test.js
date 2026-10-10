@@ -197,3 +197,58 @@ test('fresh: a kept answer is not used (the page changed after a press); the ins
   assert.deepEqual(calls[0].output_config.format.schema.properties.apply_route.enum, ['manual', 'reuse_previous', 'third_party_account', '']);
   assert.match(calls[0].system, /apply_route/);
 });
+
+// A posting that is not applied to through a form: "apply by email" is the first outcome (docs/superpowers/specs/2026-10-10-non-form-outcomes.md).
+// The AI names how to apply (apply_by) and the address; the address is kept only when the page's own sketch carries it (text or mailto), never guessed.
+const emailPages = {
+  de: {url: 'https://firma.ch/jobs/senior-ingenieur-4711', title: 'Senior Ingenieur | Firma AG', headings: ['Bewerbung'], buttons: ['Zurück'], mails: ['Senden Sie Ihre Bewerbung an jobs@firma.ch']},
+  fr: {url: 'https://entreprise.ch/emplois/ingenieur-12', title: 'Ingénieur logiciel', headings: ['Postuler'], buttons: ['Retour'], mails: ['mailto:rh@entreprise.ch', 'Envoyez votre dossier à rh@entreprise.ch']},
+  en: {url: 'https://small.co.uk/careers/analyst-3', title: 'Analyst', headings: ['About the role'], buttons: ['Home'], mails: ['Applications: careers@small.co.uk']},
+};
+for (const [language, page] of Object.entries(emailPages)) {
+  test(`an email posting (${language}): the answer names how to apply and the address, and it is kept per shape`, async () => {
+    const address = page.mails.join(' ').match(/[\w.-]+@[\w.-]+\.\w+/)[0], calls = [];
+    const got = await pageKind(fake({kind: 'posting', confidence: 0.9, apply_by: 'email', apply_email: address}, calls), page, cacheIn());
+    assert.deepEqual([got.applyBy, got.applyEmail], ['email', address]);
+    assert.match(calls[0].messages[0].content, new RegExp(address.replace(/\./g, '\\.')));   // the AI sees the sentence that carries it
+  });
+}
+test('an address the page does not carry is dropped and reported, never guessed', async () => {
+  const got = await pageKind(fake({kind: 'posting', confidence: 0.9, apply_by: 'email', apply_email: 'hr@elsewhere.com'}), emailPages.de, cacheIn());
+  assert.deepEqual([got.applyBy, got.applyEmail, got.dropped], ['other', '', 'apply_email']);
+});
+test('apply_by is a fixed answer: an unknown value, or email on a form page, is no outcome', async () => {
+  assert.equal((await pageKind(fake({kind: 'posting', confidence: 0.9, apply_by: 'carrier pigeon'}), emailPages.de, cacheIn())).applyBy, '');
+  assert.equal((await pageKind(fake({kind: 'form', confidence: 0.9, apply_by: 'email', apply_email: 'jobs@firma.ch'}), emailPages.de, cacheIn())).applyBy, '');
+});
+test('the sketch carries only short sentences with an address, capped, never the body', () => {
+  const sketch = pageSketch({...emailPages.de, mails: Array.from({length: 9}, (_, i) => `x${i}@a.ch ${'y'.repeat(300)}`)});
+  assert.ok(sketch.mails.length <= 5 && sketch.mails.every(line => line.length <= 160));
+});
+
+test('an email next to an Apply button keeps both: the extension presses the button first and reports the email only when no form came', async () => {
+  const page = {...emailPages.de, buttons: ['Apply', 'Zurück']};
+  const got = await pageKind(fake({kind: 'posting', confidence: 0.9, apply_button: 'Apply', apply_by: 'email', apply_email: 'jobs@firma.ch'}), page, cacheIn());
+  assert.deepEqual([got.applyButton, got.applyBy, got.applyEmail], ['apply', 'email', 'jobs@firma.ch']);
+});
+test('an email outcome is about this posting: it is not kept for the page shape', async () => {
+  const cache = cacheIn(), calls = [];
+  await pageKind(fake({kind: 'posting', confidence: 0.9, apply_by: 'email', apply_email: 'jobs@firma.ch'}, calls), emailPages.de, cache);
+  await pageKind(fake({kind: 'posting', confidence: 0.9, apply_by: 'form'}, calls), {...emailPages.de, url: 'https://firma.ch/jobs/other-9999'}, cache);
+  assert.equal(calls.length, 2);
+});
+
+test('a kept posting is asked again on a page that carries an address (a later email-only posting of a shape once cached as a plain posting), a kept form is not', async () => {
+  const cache = cacheIn(), calls = [];
+  const plain = {...emailPages.de, mails: []};
+  await pageKind(fake({kind: 'posting', confidence: 0.9, apply_by: 'form'}, calls), plain, cache);
+  assert.equal(calls.length, 1);
+  await pageKind(fake({kind: 'posting', confidence: 0.9}, calls), plain, cache);
+  assert.equal(calls.length, 1, 'without an address the kept answer is used');
+  const got = await pageKind(fake({kind: 'posting', confidence: 0.9, apply_by: 'email', apply_email: 'jobs@firma.ch'}, calls), {...emailPages.de, url: 'https://firma.ch/jobs/senior-ingenieur-9999'}, cache);
+  assert.deepEqual([calls.length, got.by, got.applyBy], [2, 'ai', 'email']);
+  const formCache = cacheIn(), formCalls = [];
+  await pageKind(fake({kind: 'form', confidence: 0.9}, formCalls), plain, formCache);
+  await pageKind(fake({kind: 'form', confidence: 0.9}, formCalls), emailPages.de, formCache);
+  assert.equal(formCalls.length, 1, 'a form page carrying an address (a contact line) costs no second AI call');
+});

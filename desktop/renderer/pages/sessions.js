@@ -229,7 +229,7 @@ export function renderNextStep(item) {
   const brief = item.brief || '';
   const ask = asksYou(item) && /\?$/.test(brief) ? brief : '';
   $('ss-next-title').textContent = submitted ? 'Submitted'
-    : stuck ? (item.stuck === 'account' ? (item.accountStep === 'sign_in' ? `Sign in${item.accountHost ? ` to ${item.accountHost.replace(/^www\./, '')}` : ''}` : 'This site needs an account') : item.stuck === 'incomplete' ? 'The extension filled nothing here' : 'The extension can\'t reach this form')
+    : stuck ? (item.stuck === 'account' ? (item.accountStep === 'sign_in' ? `Sign in${item.accountHost ? ` to ${item.accountHost.replace(/^www\./, '')}` : ''}` : 'This site needs an account') : item.stuck === 'incomplete' ? 'The extension filled nothing here' : item.stuck === 'email' ? 'Send your application by email' : 'The extension can\'t reach this form')
     : gone ? 'The form tab was closed'
     : review ? 'Review the filled application'
     : asking ? ask || 'Claude needs your answer'
@@ -238,7 +238,7 @@ export function renderNextStep(item) {
   const since = item.needsYouSince || item.endedAt || item.startedAt;
   const state = $('ss-next-state');
   state.textContent = submitted ? `· ended at ${hhmmOf(since)}`
-    : stuck ? (item.stuck === 'account' ? accountProgress(reviewStates.get(item.id)) : '· nothing filled yet')
+    : stuck ? (item.stuck === 'account' ? accountProgress(reviewStates.get(item.id)) : item.stuck === 'email' ? '' : '· nothing filled yet')
     : review ? (item.kind === 'form' || item.inChrome ? `· form opened at ${hhmmOf(since)}` : `· Claude finished at ${hhmmOf(since)}`) : asking ? (isLive(item) ? `· waiting since ${hhmmOf(since)}` : '· Claude closed with the app')
     : running ? '· working' : `· ended at ${hhmmOf(since)}`;
   const stage = sessionStage(item);
@@ -249,6 +249,7 @@ export function renderNextStep(item) {
   $('ss-question').replaceChildren(...(submitted ? [el('p', 'rich-p', `Marked Applied in ${storeName()}. The confirmation page in Chrome is what decided it.`)]
     : stuck ? [el('p', 'rich-p', item.stuck === 'account'
       ? 'The form is behind a sign-in or sign-up. The extension fills it in Chrome; a robot check or a choice there is yours. If it stays stuck, Claude can take over; you still submit the application.'
+      : item.stuck === 'email' ? `This job is applied to by email, not through a form. Send your CV and cover letter to ${item.accountNeeds || 'the address on the page'}. Job Pilotto never sends it for you.`
       : item.stuck === 'incomplete' ? 'The form is open in Chrome, but the extension could not fill any of it and required fields are still empty. Fill them there, or let Claude take over; you still submit the application.'
       : 'This page has no form the extension can open by itself (no Apply button it may press, or it leads to another site). Open it in Chrome to go on; if it stays stuck, Claude can find the form and fill it; you still submit it.'),
       // The next press, in the AI's own words (e.g. 'Solve the check, then press "Créer un compte"'): what is left for you on this page.
@@ -279,7 +280,7 @@ export function renderNextStep(item) {
     // Tier 3: the cheap ways ran out. Chrome first, Claude the safety net (owner, 9 Oct 2026: "remove the 'Apply with Claude' from being orange";
     // the panel's "Take over with Claude" is there while the form tab is open, this one when it isn't).
     if (item.url) actions.push(sessionButton('Open in Chrome', 'primary', async event => { await openForm(item, event.currentTarget); }, 'link'));
-    const offer = offerParts(item, {rerender: () => renderNextStep(item), after: async result => { await refreshSessions(); if (result?.session?.id) openSession(result.session.id); }});   // claude-offer.js
+    const offer = item.stuck === 'email' ? {buttons: [], notes: []} : offerParts(item, {rerender: () => renderNextStep(item), after: async result => { await refreshSessions(); if (result?.session?.id) openSession(result.session.id); }});   // claude-offer.js
     actions.push(...offer.buttons);
     if (offer.notes.length) $('ss-question').append(...offer.notes);
   }

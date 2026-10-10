@@ -11,7 +11,7 @@
   // The view for the facts (info: on = Claude ready, stuck, auto = countdown allowed [always + "Do it for me"], consent) and what the person pressed.
   // mem is what was decided on this page: {phase: null | 'consent' | 'countdown' | 'sent', dismissed}. Pure: the tests drive it.
   function next(info, mem, action = null) {
-    if (!info.stuck) return {view: 'hidden', mem: {phase: null, dismissed: false}};
+    if (!info.stuck || info.stuck === 'email') return {view: 'hidden', mem: {phase: null, dismissed: false}};
     if (!info.on) return {view: 'needs', mem};
     const m = {...mem};
     if (action === 'myself' || action === 'cancel') { m.phase = null; m.dismissed = true; }

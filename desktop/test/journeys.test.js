@@ -110,3 +110,19 @@ test('scenario: a sign-up accepts the required terms, is created, and the code f
   assert.equal(accountRecordLine(item).includes('terms accepted: ‘I accept the terms of use’'), true);
   assert.equal(card().step !== 'ended', true);
 });
+
+test('scenario: a posting that asks for the application by email: the card says where to send it, never "can\'t reach the form", and Claude is not offered', () => {
+  const {flow, card} = journeyOf();
+  flow.stuck({url: POSTING, host: 'www.jobs.ch', why: 'email', needs: 'jobs@firma.ch', session: 'f1'});
+  assert.deepEqual(card(), {step: 'posting', needs: 'Send your application to jobs@firma.ch'});
+  assert.equal(terminals.get('f1').stuck, 'email');
+  flow.stuck({url: POSTING, host: 'www.jobs.ch', why: 'no-form', session: 'f1'});   // the same page reported again by the structure rule: the email stays
+  assert.equal(terminals.get('f1').stuck, 'email');
+});
+
+test('scenario: an email posting reported from a tab the application has left (its sign-in tab) never takes the account step back', () => {
+  const {flow, card} = journeyOf();
+  flow.reported({id: 'f1', url: SIGNIN, total: 1, left: 1, account: true});
+  flow.stuck({url: POSTING, host: 'www.jobs.ch', why: 'email', needs: 'jobs@firma.ch', session: 'f1'});
+  assert.equal(card().step, 'account');
+});

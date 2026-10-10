@@ -430,6 +430,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/messages-learning.js` — The extension worker's messages about what the page learned (moved out of background.js, 8 Oct 2026): reading a job list, arming a tab, the fill's misses and the
 - `extension/messages-panel.js` — The extension worker's messages from the page's panel (moved out of background.js, 8 Oct 2026): the job it shows, Fill, bringing the tab forward or closing it, taking over with
 - `extension/next-step.js` — The next step of a multi-step application (owner, 10 Oct 2026: always on, the setting was dropped; the floors below are what keep it safe). When the form judge (form-ready.js) says THIS page state is
+- `extension/non-form.js` — A posting that is applied to some other way than a form (spec: docs/superpowers/specs/2026-10-10-non-form-outcomes.md). Step 1: by email.
 - `extension/options.js` — Settings: only the connection to the Job Pilotto app — filled in by itself when this page opens, or by Connect.
 - `extension/page-files.js` — The page scripts the extension injects into an application form (main world), in order: one list for flow.js, fill-flow.js and the tests.
 - `extension/page-picture.js` — What the closer look takes of a page (spec: docs/superpowers/specs/2026-10-08-ai-escalation.md): the typed values are hidden BEFORE the screenshot and shown again right after, so labels and

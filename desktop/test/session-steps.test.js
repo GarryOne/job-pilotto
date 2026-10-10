@@ -27,3 +27,9 @@ test('the terminal is only for a Claude conversation with Claude help on; elsewh
   assert.match(log, /show\(\$\('ss-log'\), terminalShown\(item\)\);/);
   assert.match(fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8'), /<ul class="activity-phases" id="ss-steps"><\/ul>/);   // Recent activity's step list, reused
 });
+
+test('an email posting says where to send it once, not twice', () => {
+  const time = () => '14:45';
+  const email = {startedAt: 'x', status: 'running', stuck: 'email', note: 'Send your application to jobs@firma.ch'};
+  assert.deepEqual(texts(sessionSteps(email, null, {time})), ['done: Opened the job in Chrome · 14:45', 'warn: Send your application to jobs@firma.ch']);
+});

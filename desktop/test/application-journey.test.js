@@ -50,3 +50,11 @@ test('6: the account record: terms accepted (at most 3, 80 characters each, once
   assert.deepEqual(journey(a, {type: 'account-fact', fact: 'password'}).set, {}, 'only fixed facts');
   assert.deepEqual(journey(form({outcome: 'submitted'}), {type: 'account-fact', fact: 'code'}).set, {}, 'a finished application never changes');
 });
+
+test('invariant 7: an email need is reported like no-form (never over the account step) and a later no-form does not replace it', () => {
+  const posting = {kind: 'form', stuck: '', stage: ''};
+  const first = journey(posting, {type: 'stuck', why: 'email', needs: 'jobs@firma.ch'});
+  assert.deepEqual([first.set.stuck, first.set.note, first.set.accountNeeds], ['email', 'Send your application to jobs@firma.ch', 'jobs@firma.ch']);
+  assert.deepEqual(journey({...posting, ...first.set}, {type: 'stuck', why: 'no-form'}).set, {});
+  assert.deepEqual(journey({...posting, stage: 'account'}, {type: 'stuck', why: 'email', needs: 'jobs@firma.ch'}).set, {});
+});

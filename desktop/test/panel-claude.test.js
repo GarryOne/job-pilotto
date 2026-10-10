@@ -42,3 +42,8 @@ test('Claude not ready (not installed, OpenAI engine, "Let me check each step" f
   assert.equal(next(info({on: false, auto: true}), fresh()).view, 'needs');
   assert.equal(next(info({on: false, stuck: false}), fresh()).view, 'hidden');
 });
+
+test('an email posting has no page for Claude to finish: the panel offers nothing', () => {
+  assert.equal(next(info({stuck: 'email'}), fresh()).view, 'hidden');
+  assert.equal(next(info({stuck: 'no-form'}), fresh()).view, 'offer');
+});

@@ -76,13 +76,13 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
     return {ok: true, forgotten: !!dropped};
   }
   const answer = await decide(client === undefined ? aiClient(storage) : client, {url: body?.url, title: body?.title, headings: body?.headings,
-    controls: body?.controls, buttons: body?.buttons, frames: body?.frames}, kindCache, {fresh: body?.fresh === true});   // frames: the hosts of visible frames (a bot check), lib/page-kind.js
+    controls: body?.controls, buttons: body?.buttons, frames: body?.frames, mails: body?.mails}, kindCache, {fresh: body?.fresh === true});   // frames: the hosts of visible frames (a bot check), lib/page-kind.js
   if (kindWorthSaying(answer)) appLog('extension', answer.kind && !answer.error ? `page kind: ${answer.kind}` : `page kind: none (${answer.error || 'no answer'}), the structure rule decides`,
-    {shape: answer.shape || '', by: answer.by || '', confidence: answer.confidence ?? null, ...(answer.usd != null ? {usd: answer.usd} : {}), ...(answer.botCheck ? {botCheck: true} : {})});
+    {shape: answer.shape || '', by: answer.by || '', confidence: answer.confidence ?? null, ...(answer.usd != null ? {usd: answer.usd} : {}), ...(answer.botCheck ? {botCheck: true} : {}), ...(answer.applyBy ? {applyBy: answer.applyBy} : {}), ...(answer.dropped ? {dropped: answer.dropped} : {})});   // applyBy 'other' and a dropped address are listed with the shape, never silent
   // An Apply button the AI named for the first time goes to the shared label meanings (the button's wording only; 2-3 installs start a canary).
   if (answer.by === 'ai' && answer.applyButton && !answer.applyRoute) proposalReporter([{key: 'apply_button', phrase: answer.applyButton}]);
   return answer.error ? {ok: true, kind: '', error: answer.error}
-    : {ok: true, kind: answer.kind, role: answer.role, by: answer.by, confidence: answer.confidence, applyButton: answer.applyButton || '', applyRoute: answer.applyRoute || '',
+    : {ok: true, kind: answer.kind, role: answer.role, by: answer.by, confidence: answer.confidence, applyButton: answer.applyButton || '', applyRoute: answer.applyRoute || '', applyBy: answer.applyBy || '', applyEmail: answer.applyEmail || '',
       accountStep: answer.accountStep || '', registerControl: answer.registerControl || '', signinControl: answer.signinControl || '', accountButton: answer.accountButton || '',
       ...(answer.botCheck ? {botCheck: true} : {})};   // a check in front of the page: the extension hands it to the person (fill-flow.js)
 }

@@ -1,0 +1,32 @@
+{
+ "shape": "a posting that asks for the application by email (address in the text and in a mailto link), no Apply button, no form",
+ "why": "10 Oct 2026, owner: postings applied to by email; today the app said \"can't reach the form\" and the address was lost. The extension reports the address; nothing is sent or opened. Guard for the apply_by outcome (docs/superpowers/specs/2026-10-10-non-form-outcomes.md). It also asserts the sketch sent to the app carries the address sentence (the app endpoint only forwards what the extension sends)",
+ "sample": "a German employer posting (constructed from the shape; AI answer taken from a real run on the plan path, 10 Oct 2026)",
+ "pages": [
+  {
+   "url": "https://firma.example.ch/jobs/senior-ingenieur-4711",
+   "file": "page.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "posting",
+   "role": "no-form",
+   "by": "ai",
+   "confidence": 0.9,
+   "applyButton": "",
+   "applyRoute": "",
+   "applyBy": "email",
+   "applyEmail": "jobs@example.com"
+  }
+ },
+ "expect": {
+  "told": [
+   "the posting asks for the application by email",
+   "bitte per E-Mail an jobs@example.com"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 30
+ }
+}
