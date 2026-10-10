@@ -84,7 +84,7 @@ function pageShape(tabId) {
 // A sketch of the page for the AI that decides its kind (desktop/lib/page-kind.js): headings, every visible control's type and label
 // (never its value), and the buttons and short links a person could press. In the page's own language: nothing here matches words.
 function pageSketchOf(tabId) {
-  return chrome.scripting.executeScript({target: {tabId}, func: buttonSelector => {   // buttonSelector: tab-pages.js NAMED_BUTTONS, the one list the named-button finder also uses
+  return chrome.scripting.executeScript({target: {tabId}, func: () => {   // a closed script: desktop/e2e/ladder-capture.mjs runs its body on its own (no arguments)
     const shown = el => el.getClientRects().length > 0;
     const text = el => String(el?.textContent || '').replace(/\s+/g, ' ').trim();
     const labelOf = el => text(el.labels?.[0]) || el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.name || '';
@@ -94,14 +94,14 @@ function pageSketchOf(tabId) {
       .filter(el => el.type === 'file' || (el.type !== 'hidden' && shown(el)))   // an upload behind a button keeps its input hidden
       .filter(el => !['submit', 'button', 'reset', 'image'].includes(el.type))
       .map(el => ({type: el.tagName === 'INPUT' ? el.type : el.tagName.toLowerCase(), label: labelOf(el).slice(0, 80), required: !!el.required || el.getAttribute('aria-required') === 'true'}));
-    const buttons = all(buttonSelector).filter(shown)
+    const buttons = all('button, input[type=submit], [role=button], a').filter(shown)
       .map(el => (el.tagName === 'INPUT' ? el.value : text(el))).filter(words => words && words.length <= 40);
     // The hosts of visible frames (a check drawn in a frame): the AI decides what they are (desktop/lib/page-kind.js bot_check).
     const frames = [...document.querySelectorAll('iframe')].filter(el => { const box = el.getBoundingClientRect(); return box.width > 40 && box.height > 40; })
       .map(el => { try { return new URL(el.src, location.href).hostname; } catch { return ''; } }).filter(Boolean);
     return {title: document.title, headings: all('h1, h2, h3').filter(shown).map(text).filter(Boolean).slice(0, 8),
       controls: controls.slice(0, 50), buttons: [...new Set(buttons)].slice(0, 20), frames: [...new Set(frames)].slice(0, 5)};
-  }, args: [NAMED_BUTTONS]}).then(rows => rows?.[0]?.result || null).catch(() => null);
+  }}).then(rows => rows?.[0]?.result || null).catch(() => null);
 }
 // The page's kind from the app (the AI's answer, kept per site and page shape), or null: then the structure rule decides alone.
 // The kept kind was wrong for this page: the app drops it (desktop/lib/page-kind.js forgetPageKind) and the next visit asks again.

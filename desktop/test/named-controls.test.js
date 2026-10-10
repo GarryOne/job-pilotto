@@ -11,9 +11,11 @@ const row = (text, extra = {}) => ({index: 0, tag: 'a', text, area: 4000, visibl
 
 test('the page sketch and the named-button finder read one list, not two copies', () => {
   assert.equal(NAMED_BUTTONS, 'button, input[type=submit], [role=button], a');
-  assert.match(flow, /args: \[NAMED_BUTTONS\]/, 'pageSketchOf is given the shared list');
+  // pageSketchOf is a closed script (desktop/e2e/ladder-capture.mjs runs its body with no arguments), so its list is a literal: pinned equal to the shared one.
+  const sketch = flow.slice(flow.indexOf('function pageSketchOf'));
+  assert.equal(sketch.match(/const buttons = all\('([^']*)'\)/)?.[1], NAMED_BUTTONS, 'the page sketch lists what the named-button finder searches');
+  assert.match(sketch.slice(0, 200), /func: \(\) => \{/, 'a closed script, no argument (the capture tool extracts it)');
   assert.match(flow, /listed = target \? NAMED_BUTTONS : PAGE_BUTTONS/, 'the named path searches the shared list');
-  assert.equal((flow.match(/\[role=button\], a'/g) || []).length, 0, 'no second copy of the list in fill-flow.js');
 });
 
 test('a named control with no href is found; the floors still refuse a Submit by another name', () => {
