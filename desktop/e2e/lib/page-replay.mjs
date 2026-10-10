@@ -61,6 +61,9 @@ export async function runCase(item, {extensionDir} = {}) {
     const tabs = run.context.pages().filter(open => !open.url().startsWith('chrome-extension://')).length;
     if (expect.maxTabs != null && tabs > expect.maxTabs) failures.push(`maxTabs: ${tabs} > ${expect.maxTabs}`);
     if (expect.maxNewTabs != null && opened > expect.maxNewTabs) failures.push(`maxNewTabs: ${opened} > ${expect.maxNewTabs}`);
+    if (process.env.REPLAY_LOG) for (const request of run.requests.filter(one => one.route === '/extension/log')) {   // REPLAY_LOG=1: the extension's own decision lines, to read why a case failed (what the failure list cannot tell)
+      try { for (const entry of JSON.parse(request.body).entries) console.log(`  [extension] ${entry.text} ${JSON.stringify(entry.fields)}`); } catch { /* a body cut at the recording limit */ }
+    }
     if (!(await run.assertIsolated())) failures.push('isolation');
     return {ok: !failures.length, failures, seen: {tabs, opened}};
   } finally { await run.close(); }

@@ -70,6 +70,10 @@ export function pickApplyButton(candidates = [], phrases = []) {
   return best;
 }
 
+// What may be named: every control the page sketch lists (fill-flow.js pageSketchOf reads the page with this same selector) and the named-button finder searches with it, so the AI is never
+// told about a control the finder cannot find (10 Oct 2026, Hornbach: "Jetzt bewerben (ohne Anmeldung)" is an <a> with no href and a script click handler; the finder listed only a[href]).
+// One string for both: desktop/test/named-controls.test.js. The phrase path (pickApplyButton, no AI answer) keeps its own narrower list (fill-flow.js PAGE_BUTTONS).
+export const NAMED_BUTTONS = 'button, input[type=submit], [role=button], a';
 // A button the page-kind AI NAMED (the start route's: Workday's "Apply Manually"): found by its own text, never ranked against the built-in apply words,
 // which would pick the posting's plain "Apply" behind the dialog (10 Oct 2026: 109 vs 103 on Richemont, Red Hat, Chanel). The AI decides which button;
 // structure only finds it (same words, case and spacing aside). Floors as above: never a Submit, a sign-in or "apply with…", a mail link, a hidden or disabled one.

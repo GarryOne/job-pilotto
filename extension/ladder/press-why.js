@@ -17,3 +17,7 @@ export function whyNotPressed(candidates = [], named = '') {
   for (const item of matches) { const key = `href${hrefKind(item.href)}`; counts[key] = (counts[key] || 0) + 1; }
   return {...counts, pickable};
 }
+
+// The named control EXISTS on the page but is not visible yet: a step comes first (Workday: "Apply Manually" is in the dialog the posting's plain "Apply" opens), so the phrase path may press the
+// page's own Apply once. Absent from the page (found 0), or visible but refused by a floor (a Submit, disabled, sign-in, mail): nothing else is pressed in its place (Hornbach).
+export const behindAStep = why => !!why && why.found > 0 && !why.visible;

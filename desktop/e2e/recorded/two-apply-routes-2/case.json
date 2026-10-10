@@ -1,0 +1,92 @@
+{
+ "shape": "a posting whose named Apply route is a link with no href (a script click handler) beside a real link to the account route (Hornbach: the AI names \"Jetzt bewerben (ohne Anmeldung)\", only \"(mit Anmeldung)\" is an a[href])",
+ "why": "10 Oct 2026, the pool, Hornbach 0.9.179 on a build with the evidence line: `no Apply button to press {found:0, named:true, pickable:false}`. The press finder listed only a[href], button and role=button, the page sketch the AI reads lists every a: two finders disagreed about what is clickable, the AI's named control was never found, and the digest pressed the other route (with an account). Same answers as two-apply-routes-1: the AI names the route without an account; the extension must press THAT control, never the sign-in link, and reach the form",
+ "sample": "same invented posting as two-apply-routes-1; only the named link's markup differs (no href, onclick), as on the real page",
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://jobs.beispiel.example/de/stelle/verkaeufer-4711",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://jobs.beispiel.example/de/bewerbung/4711",
+   "file": "form.html"
+  },
+  {
+   "url": "https://jobs.beispiel.example/de/anmeldung/4711",
+   "file": "login.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://jobs.beispiel.example/de/bewerbung/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   },
+   {
+    "when": {
+     "url": "https://jobs.beispiel.example/de/anmeldung/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "account",
+     "role": "account",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident",
+     "accountStep": "sign_in",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": "Anmelden"
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.9,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "jetzt bewerben (ohne anmeldung)",
+     "applyRoute": "manual",
+     "applyBy": "form",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   }
+  ]
+ },
+ "expect": {
+  "told": [
+   "pressed the Apply button"
+  ],
+  "filled": [
+   "#first"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 45,
+  "notTold": [
+   "pressed the control the digest named"
+  ]
+ },
+ "control": {
+  "build": "0.9.179",
+  "failed": "told: pressed the Apply button; filled: #first"
+ }
+}

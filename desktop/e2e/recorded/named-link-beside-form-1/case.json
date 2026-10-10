@@ -1,0 +1,85 @@
+{
+ "shape": "the AI-named Apply link has no href and sits NEXT TO a form with a visible field (a search box): it is still pressed",
+ "why": "10 Oct 2026, the floor of the named-control finder (two-apply-routes-2): an href-less link counts as a form's Submit only INSIDE a form that has fields to fill; Hornbach's posting has a search form beside its Apply link, so a link outside that form must stay pressable",
+ "sample": "invented posting, the shape of two-apply-routes-2 with a search form (Hornbach has one in its header)",
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://jobs.beispiel.example/de/stelle/verkaeufer-4711",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://jobs.beispiel.example/de/bewerbung/4711",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://jobs.beispiel.example/de/bewerbung/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   },
+   {
+    "when": {
+     "url": "https://jobs.beispiel.example/de/anmeldung/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "account",
+     "role": "account",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident",
+     "accountStep": "sign_in",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": "Anmelden"
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.9,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "jetzt bewerben (ohne anmeldung)",
+     "applyRoute": "manual",
+     "applyBy": "form",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   }
+  ]
+ },
+ "expect": {
+  "told": [
+   "pressed the Apply button"
+  ],
+  "filled": [
+   "#first"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 45
+ },
+ "control": {
+  "build": "0.9.179",
+  "failed": "told: pressed the Apply button; filled: #first"
+ }
+}

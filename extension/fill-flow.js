@@ -18,8 +18,8 @@ import {formNext} from './form-ready.js';
 import {accountOutcome, accountStep} from './account-step.js';
 import {applyPressed} from './tabs.js';
 import {bindSession, identityOf, sessionOf} from './tab-identity.js';
-import {pageKey, pageRole, pickApplyButton, pickNamedButton} from './tab-pages.js';
-import {whyNotPressed} from './ladder/press-why.js';
+import {NAMED_BUTTONS, pageKey, pageRole, pickApplyButton, pickNamedButton} from './tab-pages.js';
+import {behindAStep, whyNotPressed} from './ladder/press-why.js';
 import {forgetRouteTries, startRoute} from './start-route.js';
 import {emailReport, mailsOf} from './ladder/outcomes.js';
 import {candidatesOf, claimFrame, climbOnStall, frameBecameCandidate, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, noteSignal, otherReport, toldReport, verifiedBody} from './ladder/climb.js';
@@ -84,7 +84,7 @@ function pageShape(tabId) {
 // A sketch of the page for the AI that decides its kind (desktop/lib/page-kind.js): headings, every visible control's type and label
 // (never its value), and the buttons and short links a person could press. In the page's own language: nothing here matches words.
 function pageSketchOf(tabId) {
-  return chrome.scripting.executeScript({target: {tabId}, func: () => {
+  return chrome.scripting.executeScript({target: {tabId}, func: buttonSelector => {   // buttonSelector: tab-pages.js NAMED_BUTTONS, the one list the named-button finder also uses
     const shown = el => el.getClientRects().length > 0;
     const text = el => String(el?.textContent || '').replace(/\s+/g, ' ').trim();
     const labelOf = el => text(el.labels?.[0]) || el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.name || '';
@@ -94,14 +94,14 @@ function pageSketchOf(tabId) {
       .filter(el => el.type === 'file' || (el.type !== 'hidden' && shown(el)))   // an upload behind a button keeps its input hidden
       .filter(el => !['submit', 'button', 'reset', 'image'].includes(el.type))
       .map(el => ({type: el.tagName === 'INPUT' ? el.type : el.tagName.toLowerCase(), label: labelOf(el).slice(0, 80), required: !!el.required || el.getAttribute('aria-required') === 'true'}));
-    const buttons = all('button, input[type=submit], [role=button], a').filter(shown)
+    const buttons = all(buttonSelector).filter(shown)
       .map(el => (el.tagName === 'INPUT' ? el.value : text(el))).filter(words => words && words.length <= 40);
     // The hosts of visible frames (a check drawn in a frame): the AI decides what they are (desktop/lib/page-kind.js bot_check).
     const frames = [...document.querySelectorAll('iframe')].filter(el => { const box = el.getBoundingClientRect(); return box.width > 40 && box.height > 40; })
       .map(el => { try { return new URL(el.src, location.href).hostname; } catch { return ''; } }).filter(Boolean);
     return {title: document.title, headings: all('h1, h2, h3').filter(shown).map(text).filter(Boolean).slice(0, 8),
       controls: controls.slice(0, 50), buttons: [...new Set(buttons)].slice(0, 20), frames: [...new Set(frames)].slice(0, 5)};
-  }}).then(rows => rows?.[0]?.result || null).catch(() => null);
+  }, args: [NAMED_BUTTONS]}).then(rows => rows?.[0]?.result || null).catch(() => null);
 }
 // The page's kind from the app (the AI's answer, kept per site and page shape), or null: then the structure rule decides alone.
 // The kept kind was wrong for this page: the app drops it (desktop/lib/page-kind.js forgetPageKind) and the next visit asks again.
@@ -142,7 +142,7 @@ const PAGE_BUTTONS = 'a[href], button, [role="button"], input[type="button"]';
 // A page with no form control of any kind (fill-flow consider waits for it to stop growing before its kind is asked).
 export const BOT_CHECK_NEED = 'Solve the robot check in this tab; the form fills after it';   // said in the session (desktop/lib/terminals.js noteStuck)
 export const emptyShape = counts => !counts.fields && !counts.passwords && !counts.files && !counts.anyFiles && !counts.textareas;
-function applyCandidates(tabId) {
+function applyCandidates(tabId, listed = PAGE_BUTTONS) {   // listed: PAGE_BUTTONS for the phrase path, NAMED_BUTTONS (the page sketch's own list) when the AI named the control
   return chrome.scripting.executeScript({target: {tabId}, func: selector => [...document.querySelectorAll(selector)].map((el, index) => {
     const box = el.getBoundingClientRect(), style = getComputedStyle(el);
     return {index, tag: el.tagName.toLowerCase(), text: (el.innerText || el.value || el.getAttribute('aria-label') || '').slice(0, 80),
@@ -156,9 +156,11 @@ function applyCandidates(tabId) {
         const own = node => `${node.id || ''} ${node.getAttribute('name') || ''} ${typeof node.className === 'string' ? node.className : ''}`;
         for (let node = el, depth = 0; node && depth < 3; node = node.parentElement, depth++) if (/submit|save/i.test(own(node))) return true;
         const fields = form => !!form && [...form.elements].some(item => !['hidden', 'submit', 'button', 'reset', 'image'].includes(item.type) && item.getClientRects().length > 0);
+        // A link with no href (a script click handler: the named list now includes it) inside a form that has fields to fill is that form's Submit by another name.
+        if (el.tagName === 'A' && !el.hasAttribute('href') && fields(el.closest('form'))) return true;
         return ['submit', 'image'].includes(el.type) && fields(el.form);
       })()};
-  }), args: [PAGE_BUTTONS]}).then(rows => rows?.[0]?.result || []).catch(() => []);
+  }), args: [listed]}).then(rows => rows?.[0]?.result || []).catch(() => []);
 }
 // The start-applying phrases the service has learned (extension/alias-schema.js, key apply_button), asked of the app which asks the site and
 // remembers: added to the built-in words, never replacing them. None, and the built-in words work alone.
@@ -175,12 +177,18 @@ async function applyPhrases() {
 // -> {pressed: the button's text or null, via: the service phrase that found it ('' for a built-in word), buttons: the visible button texts
 // when none was found (the app counts them, to learn new words; texts only, from a page with no form)}.
 async function pressApply(tabId, phrases = [], named = '', want = '') {   // named: a button the page-kind AI chose (the start route): pressed by its own text, not ranked (tab-pages.js pickNamedButton); want: the name the AI gave, only for the log
-  const candidates = await applyCandidates(tabId);
-  const pick = named ? pickNamedButton(candidates, named) : pickApplyButton(candidates, phrases);
+  // The AI named a control (the start route's, or the posting's Apply): the finder searches the list the AI's sketch came from and presses that control only. Never another route found by a phrase
+  // in its place when the named one is on the page and visible but a floor refuses it (Hornbach: the digest pressed "(mit Anmeldung)" when "(ohne Anmeldung)" was named). A posting's named control that is
+  // hidden or absent sits behind a step (Workday: "Apply Manually" is in the dialog the posting's plain "Apply" opens): then the phrase path runs as before. No name: the phrase path, its own list.
+  const target = named || want;
+  let listed = target ? NAMED_BUTTONS : PAGE_BUTTONS, candidates = await applyCandidates(tabId, listed);
+  let pick = target ? pickNamedButton(candidates, target) : pickApplyButton(candidates, phrases);
+  const why = pick || !target ? null : whyNotPressed(candidates, target);   // the named control's flags, for the log
+  if (!pick && want && !named && behindAStep(why)) { listed = PAGE_BUTTONS; candidates = await applyCandidates(tabId, listed); pick = pickApplyButton(candidates, phrases); }
   if (!pick) {
     const seen = [...new Set(candidates.filter(item => item.visible && !item.disabled).sort((a, b) => b.area - a.area).map(item => String(item.text || '').replace(/\s+/g, ' ').trim())
       .filter(text => text && text.length <= 40))].slice(0, 25);
-    return {pressed: null, via: '', buttons: seen, why: whyNotPressed(candidates, named || want)};   // why: flags of the control the AI named (ladder/press-why.js), for the log
+    return {pressed: null, via: '', buttons: seen, why};   // why: flags of the control the AI named (ladder/press-why.js), for the log
   }
   const done = await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: (selector, index) => {   // MAIN: the page's own window.open, below
     const el = document.querySelectorAll(selector)[index];
@@ -213,7 +221,7 @@ async function pressApply(tabId, phrases = [], named = '', want = '') {   // nam
     setTimeout(() => { if (window.open !== open) window.open = open; }, 5000);
     el.click();
     return {same, tag: el.tagName.toLowerCase(), aimed};
-  }, args: [PAGE_BUTTONS, pick.index]}).then(rows => rows?.[0]?.result || null).catch(error => ({error: String(error?.message || error).slice(0, 120)}));
+  }, args: [listed, pick.index]}).then(rows => rows?.[0]?.result || null).catch(error => ({error: String(error?.message || error).slice(0, 120)}));
   if (done?.error) { decide('fill', 'the Apply button could not be pressed', {error: done.error}); return {pressed: null, via: '', buttons: []}; }
   return {pressed: done ? pick.text.replace(/\s+/g, ' ').trim().slice(0, 40) : null, via: done ? pick.viaPhrase || '' : '', buttons: [],
     same: done?.same || '', tag: done?.tag || '', aimed: done?.aimed || ''};
