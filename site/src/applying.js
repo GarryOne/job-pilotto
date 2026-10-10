@@ -13,6 +13,8 @@ const KINDS = ['smoke', 'recorded', 'pool', 'running'];
 const RUNNING_MINUTES = 5;   // a start ping older than this is a run that died
 const DAY = /^\d{4}-\d\d-\d\d$/;
 const text = (value, max) => String(value ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
+const SIGNALS = ['unsure', 'contradicted', 'stalled', 'failed'];   // why a rung handed the page on (the AI ladder spec): fixed words only
+const rungOf = value => (Number.isInteger(value) && value >= 0 && value <= 6 ? value : null);
 const int = value => (Number.isInteger(value) && value >= 0 && value < 10000 ? value : null);
 const hostOf = value => { const host = text(value, 120).toLowerCase(); return /^[a-z0-9.-]+\.[a-z]{2,}$/.test(host) ? host : null; };
 
@@ -39,9 +41,10 @@ export async function ingest(db, body, now = new Date()) {
         .bind(name, hostOf(row.start_host), signature, at, version).run();
       stored += 1; continue;
     }
-    await db.prepare(`INSERT INTO applying_runs (kind, day, at, name, host, reached, filled, left_n, ok, note, regression, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    await db.prepare(`INSERT INTO applying_runs (kind, day, at, name, host, reached, filled, left_n, ok, note, regression, version, rung, signal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(kind, day, at, name, kind === 'smoke' ? hostOf(row.host) : null, kind === 'smoke' && STEPS.includes(row.reached) ? row.reached : null,
-        int(row.filled), int(row.left), kind === 'recorded' ? (row.ok ? 1 : 0) : null, text(row.note, 200) || null, row.regression ? 1 : 0, version).run();
+        int(row.filled), int(row.left), kind === 'recorded' ? (row.ok ? 1 : 0) : null, text(row.note, 200) || null, row.regression ? 1 : 0, version,
+        rungOf(row.rung), kind === 'smoke' && SIGNALS.includes(row.signal) ? row.signal : null).run();
     stored += 1;
   }
   return {ok: true, stored};
@@ -56,12 +59,12 @@ export async function data(db, now = new Date()) {
   const byName = kind => runs.filter(run => run.kind === kind).reduce((out, run) => ((out[run.name] ||= []).push(run), out), {});
   const sites = Object.entries(byName('smoke')).map(([name, list]) => {
     const last = list.at(-1);
-    return {name, at: last.at, host: last.host, reached: last.reached, filled: last.filled, left: last.left_n, day: last.day, version: last.version, note: last.note,
+    return {name, at: last.at, host: last.host, reached: last.reached, filled: last.filled, left: last.left_n, day: last.day, version: last.version, note: last.note, rung: last.rung ?? null, signal: last.signal ?? null,
       regression: !!last.regression, history: list.slice(-10).map(run => run.reached || 'none')};
   }).sort((a, b) => Number(b.regression) - Number(a.regression) || STEPS.indexOf(a.reached) - STEPS.indexOf(b.reached));
   const cases = Object.entries(byName('recorded')).map(([name, list]) => {
     const last = list.at(-1);
-    return {name, ok: !!last.ok, note: last.note, day: last.day, version: last.version, since: list[0].day, history: list.slice(-10).map(run => (run.ok ? 1 : 0))};
+    return {name, ok: !!last.ok, note: last.note, day: last.day, version: last.version, rung: last.rung ?? null, since: list[0].day, history: list.slice(-10).map(run => (run.ok ? 1 : 0))};
   }).sort((a, b) => Number(a.ok) - Number(b.ok) || a.name.localeCompare(b.name));
   const nights = Object.entries(runs.filter(run => run.kind === 'smoke').reduce((out, run) => {
     const counts = (out[run.day] ||= Object.fromEntries(STEPS.map(step => [step, 0])));
@@ -96,7 +99,7 @@ async function poolRows(db, sites, now) {
     const row = known.get(name) || {}, site = byName[name], start = row.start_host || site?.host || '', end = signatureHost(row.signature) || '';
     const {flow, raw} = flowOf(row.signature, start);
     const step = row.signature?.match(/#([^#]+)$/)?.[1] || null, reached = site?.reached ?? step;
-    return {name: displayName(name, start), platform: platformLabel(end, start), flow, raw, start, end, reached, day: site?.day ?? null, at: site?.at ?? null, running: running.has(name), note: site?.note ?? null,
+    return {name: displayName(name, start), platform: platformLabel(end, start), flow, raw, start, end, reached, day: site?.day ?? null, at: site?.at ?? null, running: running.has(name), note: site?.note ?? null, rung: site?.rung ?? null, signal: site?.signal ?? null,
       regression: !!site?.regression, history: site?.history ?? (step ? [step] : [])};
   }).sort((a, b) => Number(b.running) - Number(a.running) || a.platform.localeCompare(b.platform) || a.name.localeCompare(b.name));
 }
@@ -125,6 +128,7 @@ th{text-align:left;color:var(--muted);font-weight:500;font-size:12px;white-space
 .s-none{background:var(--muted)}.s-posting{background:var(--red)}.s-account{background:var(--amber)}.s-code\\/bot{background:var(--violet)}.s-form{background:var(--blue)}.s-ready{background:var(--green)}
 th.sortable{cursor:pointer;user-select:none}th.sortable:hover,th.sortable.on{color:var(--text)}.dots{white-space:nowrap}.dots i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px}
 .filters{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;margin:10px 0 12px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;font-size:13px}.pick{display:flex;flex-direction:column;gap:4px;min-width:200px}.pick b{line-height:34px;font-weight:600}.pick>span{font-size:11px;text-transform:uppercase;letter-spacing:.04em}.pick select{background:var(--bg,var(--card));color:var(--text);border:1px solid var(--line);border-radius:8px;padding:0 10px;height:34px;box-sizing:border-box;font:inherit;font-size:13px;max-width:100%}.filters .count,.filters .pager{align-self:flex-end;box-sizing:border-box;height:34px;display:flex;align-items:center}.filters .count{padding-left:4px}.filters .pager{margin:0 0 0 auto;justify-content:flex-end}.chip{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:3px 11px;font:inherit;font-size:12px;cursor:pointer}.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;font-size:13px}.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes spin{to{transform:rotate(360deg)}}.chip:disabled{opacity:.4;cursor:default}.chip.on{border-color:var(--amber);color:var(--amber)}
+.legend{margin:18px 0 0}.legend h3{margin:0 0 6px}.ladder{margin:10px 0 0;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}.ladder summary{cursor:pointer;font-weight:600}.ladder table{margin-top:8px}
 .flag{color:var(--red);font-weight:600}.muted{color:var(--muted)}.bars{display:flex;gap:6px;align-items:flex-end;height:110px;margin-top:8px}
 .bar{display:flex;flex-direction:column-reverse;width:26px}.bar i{display:block}.bar small{color:var(--muted);font-size:10px;text-align:center}
 </style></head><body><main>
@@ -150,13 +154,21 @@ fetch('?json').then(r => r.json()).then(d => {
     tile(t.reachedForm == null ? '–' : t.reachedForm + '%', 'sites that reached the form', t.reachedForm >= 70 ? 'good' : ''),
     tile(t.regressions, 'regressions open' + (t.gone ? ' · ' + t.gone + ' posting(s) gone' : ''), t.regressions ? 'bad' : 'good'),
     tile(t.dropped, 'boards dropped in the fleet (layer 4)', t.dropped ? 'bad' : 'good')));
+  // The AI ladder (owner, 10 Oct 2026): where each decision of a page is made, cheapest first; collapsed by default.
+  const RUNGS = [[0, 'Structure rule, no AI', 'free', 'extension/tab-pages.js pageRole'], [1, 'Kept answer per page shape', 'free', 'page-kinds.json, kept by desktop/lib/server-pages.js'], [2, 'Text sketch to the small model', 'about 600 tokens', 'desktop/lib/page-kind.js'],
+    [3, 'Numbered digest to a small or middle model', 'about 1,500 to 2,500 tokens', 'not built yet'], [4, 'Screenshot plus sketch to the strongest model, one action', 'about 1.5k tokens plus the sketch, capped', 'desktop/lib/escalate.js'],
+    [5, 'Claude takes over the page', 'a full agent session', 'desktop/lib/take-over.js'], [6, 'The person, with the page\\'s sentence quoted', 'the person\\'s time', 'the session card']];
+  app.append(el('details', {className: 'ladder'}, el('summary', {textContent: 'The AI ladder · which rung decides a page'}),
+    el('table', {}, el('tr', {}, ...['Rung', 'What it is', 'Cost', 'Where it lives'].map(h => el('th', {textContent: h}))),
+      ...RUNGS.map(([n, what, cost, where]) => el('tr', {}, el('td', {textContent: n}), el('td', {textContent: what}), el('td', {className: 'muted', textContent: cost}), el('td', {className: 'muted', textContent: where})))),
+    el('p', {className: 'muted', textContent: 'A rung that is unsure or contradicted hands the page to the next; a rung never guesses.'})));
   // What the colors mean (owner, 10 Oct 2026): the badge and the dots of the pool table are the step a run reached, not how well the form was filled.
   const COLORS = {none: 'grey', posting: 'red', account: 'amber', 'code/bot': 'violet', form: 'blue', ready: 'green'};   // the page's own --muted, --red, --amber, --violet, --blue, --green
   const MEANS = {none: 'nothing reached, or never run (the dash)', posting: 'stopped at the job posting, never got past it', account: 'reached an account or sign-in page', 'code/bot': 'stopped at an email code or a bot check (a documented hold)', form: 'reached the application form', ready: 'the form is filled with nothing required left'};
-  app.append(el('section', {className: 'legend'}, el('h2', {textContent: 'What the colors mean'}),
+  const colorLegend = el('div', {className: 'legend'}, el('h3', {textContent: 'What the colors mean'}),   // the foot of the pool table (owner, 10 Oct 2026)
     el('p', {className: 'muted', textContent: 'On the pool table, the "Last reached" badge and the dots of "Last 10 runs" show the step a run reached (a color is not a verdict on how well the form was filled). In the fixed-site replays a dot is green when the case passed and red when it failed.'}),
     el('table', {}, el('tr', {}, ...['Color', 'Step', 'Meaning'].map(h => el('th', {textContent: h}))),
-      ...d.steps.map(step => el('tr', {}, el('td', {}, el('span', {className: 'pill s-' + step, textContent: COLORS[step] || step})), el('td', {textContent: step}), el('td', {className: 'muted', textContent: MEANS[step] || ''}))))));
+      ...d.steps.map(step => el('tr', {}, el('td', {}, el('span', {className: 'pill s-' + step, textContent: COLORS[step] || step})), el('td', {textContent: step}), el('td', {className: 'muted', textContent: MEANS[step] || ''})))));
   const dots = list => el('span', {className: 'dots'}, ...list.map(step => el('i', {title: step, style: 'background:' + (typeof step === 'number' ? (step ? 'var(--green)' : 'var(--red)') : color(step))})));
   // Sortable columns (owner, 10 Oct 2026: all the red ones first): every table's header sorts ascending, then descending, then back to the page's own order. The choice is kept per
   // table across the 15 s redraw. Empty cells go last either way. For a step or a run, ascending is the worst first (red before blue); the page's own order keeps running sites on top.
@@ -173,14 +185,19 @@ fetch('?json').then(r => r.json()).then(d => {
     el('option', {value: '', textContent: all}), ...list.map(item => el('option', {value: item.name, textContent: item.name + ' · ' + item.sites + (item.sites === 1 ? ' site' : ' sites') + (key === 'platform' ? ' · ' + item.flows + (item.flows === 1 ? ' flow' : ' flows') : '')})), ), {}));
   const count = el('span', {className: 'muted count'}), pager = el('div', {className: 'pager'}), clear = el('button', {className: 'chip', type: 'button', textContent: 'Clear', hidden: true, onclick: () => { chosen.platform = chosen.flow = null; chosen.page = 0; filters.querySelectorAll('select').forEach(node => { node.value = ''; }); draw(); }});
   const filters = el('div', {className: 'filters'}, pick('platform', d.platforms, 'Platform', 'All platforms · ' + d.pool.length + ' sites'), pick('flow', d.flows, 'Flow', 'All flows'), count, clear, pager);
-  const POOL_GET = [s => s.name.toLowerCase(), s => s.platform, s => s.flow, s => s.start, s => (s.reached ? rankOf(s.reached) : null), s => (s.at ? Date.parse(s.at) : null), s => (s.history.length ? rankOf(s.history.at(-1)) : null)];
+  // The rung that made the last decision; a site that ran and did not reach the form is "blocked at N" (red) with the signal when known, "?" when the rung is unknown.
+  const blocked = s => !!s.reached && !['form', 'ready'].includes(s.reached) && s.rung != null;
+  const rungCell = s => (s.rung == null ? el('span', {className: 'muted', title: 'not reported', textContent: s.reached ? '?' : '—'}) : blocked(s)
+    ? el('span', {}, el('span', {className: 'flag', textContent: 'blocked at ' + s.rung}), s.signal ? el('div', {className: 'muted', textContent: s.signal}) : null) : el('span', {textContent: s.rung}));
+  const POOL_GET = [s => s.name.toLowerCase(), s => s.platform, s => s.flow, s => s.start, s => (s.reached ? rankOf(s.reached) : null), s => (s.rung == null ? null : s.rung + (blocked(s) ? 10 : 0)), s => (s.at ? Date.parse(s.at) : null), s => (s.history.length ? rankOf(s.history.at(-1)) : null)];
   const draw = () => { const rows = sortRows('pool', d.pool.filter(s => (!chosen.platform || s.platform === chosen.platform) && (!chosen.flow || s.flow === chosen.flow)), POOL_GET), pages = Math.max(1, Math.ceil(rows.length / PER)); chosen.page = Math.min(chosen.page, pages - 1); const shown = rows.slice(chosen.page * PER, (chosen.page + 1) * PER); table.textContent = ''; count.textContent = 'Showing ' + (rows.length ? chosen.page * PER + 1 : 0) + '–' + (chosen.page * PER + shown.length) + ' of ' + rows.length + (rows.length < d.pool.length ? ' (' + d.pool.length + ' in the pool)' : ''); pager.textContent = ''; clear.hidden = !chosen.platform && !chosen.flow;
     table.append(rows.length ? el('table', {},
-      el('tr', {}, ...heads('pool', ['Site', 'Platform', 'Flow it tests', 'Starts → ends on', 'Last reached', 'Last run', 'Last 10 runs'], () => { chosen.page = 0; draw(); })),
+      el('tr', {}, ...heads('pool', ['Site', 'Platform', 'Flow it tests', 'Starts → ends on', 'Last reached', 'Rung', 'Last run', 'Last 10 runs'], () => { chosen.page = 0; draw(); })),
       ...shown.map(s => el('tr', {}, el('td', {}, s.name, s.regression ? el('div', {className: 'flag', textContent: 'regression'}) : null, s.note ? el('div', {className: 'muted', textContent: s.note}) : null),
         el('td', {textContent: s.platform}), el('td', {title: s.raw || '', textContent: s.flow || '—'}),
         el('td', {className: 'muted', textContent: (s.start || '…') + (s.end && s.end !== s.start ? ' → ' + s.end : '')}),
         el('td', {}, s.reached ? pill(s.reached) : el('span', {className: 'muted', textContent: '—'}), s.day ? el('div', {className: 'muted', textContent: s.day}) : null),
+        el('td', {}, rungCell(s)),
         el('td', {className: 'muted', title: s.at || ''}, s.running ? el('span', {}, el('i', {className: 'spin'}), 'running…') : el('span', {textContent: s.at ? ago(s.at) : '—'})),
         el('td', {}, s.history.length ? dots(s.history) : el('span', {className: 'muted', textContent: '—'}))))) : el('p', {className: 'muted', textContent: 'No site matches.'}));
     if (pages > 1) { const go = step => () => { chosen.page += step; draw(); };
@@ -221,15 +238,15 @@ fetch('?json').then(r => r.json()).then(d => {
       'No platform seen yet', () => drawScore(), [s => s.platform, s => Object.keys(TONE).indexOf(s.verdict), s => s.matchShare, s => s.forms, s => s.filledShare, s => s.poolSites, s => s.poolReached]).filter(Boolean)); };
   app.append(el('section', {}, el('h2', {textContent: 'Platform scorecard · real use against the tests'}),
     el('p', {className: 'muted', textContent: 'Per platform: its share of the matched jobs and how well real forms are filled (the form-filling page), against the pool sites on it and how many reached the form. Verdicts, in the order to act: not in the pool; weak in both; blind spot (tests reach the form, real users do not fill it); test failing (real use is fine). Under 5 real forms is no evidence.'}), scoreBox)); drawScore();
-  const caseBox = el('div'), CASE_GET = [c => c.name.toLowerCase(), c => (c.ok ? 1 : 0), c => c.history.at(-1), c => c.day, c => c.since];
+  const caseBox = el('div'), CASE_GET = [c => c.name.toLowerCase(), c => c.rung, c => (c.ok ? 1 : 0), c => c.history.at(-1), c => c.day, c => c.since];
   const drawCases = () => { caseBox.textContent = ''; caseBox.append(el('table', {},
-    el('tr', {}, ...heads('cases', ['Case', 'Result', 'Last 10 runs', 'Last run', 'Since'], drawCases)),
-    ...sortRows('cases', d.cases, CASE_GET).map(c => el('tr', {}, el('td', {textContent: c.name}), el('td', {}, c.ok ? el('span', {className: 'pill s-ready', textContent: 'passed'}) : el('span', {className: 'pill s-posting', textContent: 'failed'}),
+    el('tr', {}, ...heads('cases', ['Case', 'Rung guarded', 'Result', 'Last 10 runs', 'Last run', 'Since'], drawCases)),
+    ...sortRows('cases', d.cases, CASE_GET).map(c => el('tr', {}, el('td', {textContent: c.name}), el('td', {className: 'muted', textContent: c.rung ?? '—'}), el('td', {}, c.ok ? el('span', {className: 'pill s-ready', textContent: 'passed'}) : el('span', {className: 'pill s-posting', textContent: 'failed'}),
       c.note ? el('div', {className: 'muted', textContent: c.note}) : null), el('td', {}, dots(c.history)), el('td', {className: 'muted', textContent: c.day + (c.version ? ' · ' + c.version : '')}),
       el('td', {className: 'muted', textContent: c.since}))))); };
   app.append(el('section', {}, el('h2', {textContent: 'Fixed-site replays · every fixed site, replayed'}), d.cases.length ? caseBox
     : el('p', {className: 'muted', textContent: 'No recorded-page run uploaded yet: cd desktop/e2e && npm run recorded'}))); if (d.cases.length) drawCases();
-  app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table)
+  app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table, colorLegend)
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
   // Fetch again every 15 s while the tab is visible and redraw the pool, so the spinner and the times follow a run without a reload.
   setInterval(() => { if (!document.hidden) fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; d.scorecard = fresh.scorecard; draw(); drawNext(); drawScore(); }).catch(() => {}); }, 15000);

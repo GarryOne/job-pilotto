@@ -1,6 +1,6 @@
 // /admin/applying (src/applying.js): uploads are checked to fixed values, and the page's data shows each site's last step, its trend, regressions and cases.
 import assert from 'node:assert/strict';
-import {readFileSync, readdirSync} from 'node:fs';
+import {existsSync, readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {PAGE, data, ingest} from '../src/applying.js';
@@ -73,14 +73,50 @@ test('the pool: each site shows when it last ran; a site mid-run is flagged "run
   assert.equal((await ingest(db, {kind: 'running', day: '2026-10-12', rows: [{name: 'x', state: 'weird'}]}, now)).stored, 0);   // fixed words only
 });
 
+test('an upload keeps a rung (integer 0 to 6) and a signal (a fixed word) and drops anything else; the page data carries them', async () => {
+  const db = d1();
+  await ingest(db, {kind: 'smoke', day: '2026-10-12', rows: [{name: 'A', host: 'a.com', reached: 'posting', rung: 3, signal: 'unsure'}, {name: 'B', host: 'b.com', reached: 'form', rung: 9, signal: 'because I said so'},
+    {name: 'C', host: 'c.com', reached: 'form', rung: '2', signal: 'stalled'}, {name: 'D', host: 'd.com', reached: 'form', rung: 0}]}, now);
+  await ingest(db, {kind: 'recorded', day: '2026-10-12', rows: [{name: 'case-1', ok: true, rung: 2}, {name: 'case-2', ok: true, rung: 7}, {name: 'case-3', ok: true}]}, now);
+  const rows = Object.fromEntries(db.db.prepare('SELECT name, rung, signal FROM applying_runs').all().map(row => [row.name, {...row}]));
+  assert.deepEqual([rows.A.rung, rows.A.signal, rows.B.rung, rows.B.signal, rows.C.rung, rows.C.signal, rows.D.rung, rows.D.signal], [3, 'unsure', null, null, null, 'stalled', 0, null]);
+  assert.deepEqual([rows['case-1'].rung, rows['case-2'].rung, rows['case-3'].rung], [2, null, null]);
+  await ingest(db, {kind: 'pool', day: '2026-10-12', rows: [{name: 'A', start_host: 'a.com'}, {name: 'Z', start_host: 'z.com'}]}, now);
+  const d = await data(db, now), by = Object.fromEntries(d.pool.map(item => [item.name, item]));
+  assert.deepEqual([by.A.rung, by.A.signal, by.Z.rung, by.Z.signal], [3, 'unsure', null, null]);   // never run: unknown
+  assert.deepEqual(d.cases.map(item => [item.name, item.rung]).sort(), [['case-1', 2], ['case-2', null], ['case-3', null]]);
+});
+
+test('the page shows the ladder as a legend collapsed by default, a Rung column in the pool and a Rung guarded column in the replays', () => {
+  const legend = PAGE.slice(PAGE.indexOf('The AI ladder'), PAGE.indexOf('What the colors mean'));
+  assert.match(PAGE, /<details|'details'/); assert.doesNotMatch(legend, /open: true/);   // collapsed
+  for (const where of ['extension/tab-pages.js', 'page-kinds.json', 'desktop/lib/page-kind.js', 'not built yet', 'desktop/lib/escalate.js', 'desktop/lib/take-over.js', 'the session card']) assert.ok(legend.includes(where), where);
+  assert.ok(legend.includes('A rung that is unsure or contradicted hands the page to the next; a rung never guesses.'));
+  assert.match(PAGE, /heads\('pool', \[[^\]]*'Rung'/); assert.match(PAGE, /heads\('cases', \[[^\]]*'Rung guarded'/);
+  assert.match(PAGE, /blocked at /);
+});
+
+test('every file the ladder legend names exists on disk (or the rung says "not built yet"), so the legend cannot drift', () => {
+  const rungs = PAGE.slice(PAGE.indexOf('const RUNGS'), PAGE.indexOf('app.append(el(\'details\''));
+  const files = [...rungs.matchAll(/[\w./-]+\.(?:js|json)\b/g)].map(match => match[0]).filter(file => file !== 'page-kinds.json');   // page-kinds.json is a per-install file, named with the code that keeps it
+  assert.ok(files.length >= 5); assert.match(rungs, /not built yet/);
+  for (const file of files) assert.ok(existsSync(new URL('../../' + file, import.meta.url)), file + ' is not in the repo');
+});
+
 test('every table on the page gets its headers from the one sortable helper (owner, 10 Oct 2026: sort by any column, red first)', () => {
   // A table added with its own plain th cells would not sort: only the helper may create a th, and every table's headers come from it.
-  // The one exception is the fixed color legend (6 rows, nothing to sort): its headers are plain, and it is the only table allowed to build them.
-  const legend = PAGE.slice(PAGE.indexOf('What the colors mean'), PAGE.indexOf('const dots = list'));
-  assert.equal(legend.split("el('th'").length - 1, 1, 'the legend lost its plain headers');
+  // The exceptions are the two fixed legends, the AI ladder and the colors (7 and 6 rows, nothing to sort): their headers are plain, and they are the only tables allowed to build them.
+  const legend = PAGE.slice(PAGE.indexOf('The AI ladder'), PAGE.indexOf('const dots = list'));   // the two fixed legends: the ladder at the top, the colors (the pool table's foot)
+  assert.equal(legend.split("el('th'").length - 1, 2, 'a legend lost its plain headers');
   assert.equal(PAGE.replace(legend, '').split("el('th'").length - 1, 1, 'a table builds its own th instead of heads(...)');
   for (const key of ['pool', 'cases']) assert.match(PAGE, new RegExp("heads\\('" + key + "'"));
   assert.equal((PAGE.match(/heads\(key, labels/g) || []).length, 1);   // the next-sites and scorecard blocks share it
+});
+
+test('the colors legend is the foot of the pool table, not a section of its own', () => {
+  assert.match(PAGE, /filters, table, colorLegend\)/);
+  assert.doesNotMatch(PAGE, /app\.append\(colorLegend/);
+  assert.ok(PAGE.indexOf('The AI ladder') < PAGE.indexOf('What the colors mean'));
 });
 
 test('the page explains its colors: a legend row for every step the page draws', () => {
