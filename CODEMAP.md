@@ -63,6 +63,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/cv.js` — Tailored CVs. The base CV is data (cv/cv.json in the user's folder: summary, jobs, bullets, skills, links),
 - `desktop/lib/demo.js` — "Look around first": the app restarts on a fresh copy of the fictional demo data (demo/) and back to the user's
 - `desktop/lib/dev-marker.js` — Running from source (npm start / electron .) must never look like the installed app: a "DEV" badge on the Dock
+- `desktop/lib/digest.js` — The numbered digest's answer (rung 3 of the ladder, docs/flows/ladder.md): the page's candidates (extension/page/candidates.js: sentences, links, buttons, addresses, numbered, found by structure) go t
 - `desktop/lib/e2e-hidden.js` — E2E only (JOB_PILOTTO_E2E_HIDDEN=1, set by e2e/lib/app.mjs): the app runs with hidden windows and never takes focus, so a test run
 - `desktop/lib/e2e-ipc.js` — E2E only: wraps ipcMain.handle so every call the window makes to the app is logged (channel, start, duration, failed), newest MAX kept. The journey reads the log to tell a
 - `desktop/lib/e2e-timing.js` — Waits the end-to-end journey may shorten so a test does not sit through them (never for a user): JOB_PILOTTO_E2E_<NAME> in milliseconds, only with JOB_PILOTTO_E2E set.
@@ -98,6 +99,8 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/keychain.js` — Every Keychain read of the app goes through here, and what a test or a live-test twin may reach (8 Oct 2026: a local e2e run that reached
 - `desktop/lib/kit-handlers.js` — The application kit and tailored CVs' IPC (moved out of main.js, 8 Oct 2026): drafting a job's kit (questions, answers, cover letter) onto
 - `desktop/lib/knowledge.js` — 🧠 Form knowledge: what Job Pilotto learned from your form fills (learn.js), used by every later kit and fill.
+- `desktop/lib/ladder-learning.js` — Write-back of the ladder (docs/superpowers/specs/2026-10-10-ai-ladder.md "Learning"): what a higher rung (3 digest, 4 picture, 5 takeover, 6 person) decided AND the page confirmed becomes the
+- `desktop/lib/ladder-other.js` — The shapes whose ladder ended with no usable answer ("other"): a count per page shape (host + path template | build, as page-kind.js kindKey), nothing else. Fixed values and integers only:
 - `desktop/lib/leads-handlers.js` — The "log anything" IPC (moved out of main.js, 8 Oct 2026): the clipboard's image, proposing a lead from a pasted message or screenshot (the one AI
 - `desktop/lib/learn.js` — Learning from each form fill: after a fill that left fields, one small Claude call reads that run's
 - `desktop/lib/learned.js` — What you answered yourself in a form: the extension reads the fields YOU changed at the Submit press (extension/review.js)
@@ -424,6 +427,8 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/flow.js` — One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
 - `extension/form-ready.js` — The AI's veto on an APPLICATION form's "Ready to submit" (owner, 8 Oct 2026: the account page's "ready?" judgment, ported). The panel counts required boxes by HTML; when that count says
 - `extension/hook.js` — Apply with Claude → extension hand-off. A Claude session driving this tab (Claude in Chrome) asks for the
+- `extension/ladder-core.js` — The ladder's signals and the one rule that says which rung to ask next (spec: docs/superpowers/specs/2026-10-10-ai-ladder.md). Pure: no chrome API, no AI, no storage, so the
+- `extension/ladder.js` — What the extension does with a rung's signal (spec: docs/superpowers/specs/2026-10-10-ai-ladder.md; the rule itself is extension/ladder-core.js). The app's page-kind answer says which rung
 - `extension/log.js` — The extension's decision log (moved out of background.js, 8 Oct 2026): every part that decides something (fill, tabs, account pages)
 - `extension/menu-reason.js` — Why a drop-down menu was left empty, as OBSERVED by the pick (flow.js clickCombos: opened, found, selectedAfter, trusted), never assumed.
 - `extension/messages-app.js` — The extension worker's messages from the page: the site password for a sign-in page and the form review relay to the app (moved out of background.js, 8 Oct 2026).
@@ -678,6 +683,8 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/focus-terminal.sh` — focus-terminal.sh </dev/ttysNNN> — bring the Terminal window whose tab owns that tty to the front
 - `tools/hardcoded-page-words.mjs` — A ratchet against hard-coded page knowledge (owner, 8 Oct 2026: "universal: any website, any form, any language; AI decides, not regex or lists"). It counts, per file in
 - `tools/journey-gate.mjs` — The journey gate (spec: docs/superpowers/specs/2026-10-10-application-journey.md, step 4): a push that touches a flow file (desktop/e2e/flows.mjs FLOW_FILES)
+- `tools/ladder-gate.mjs` — The ladder gate (docs/flows/ladder.md): a push that touches a flow file, the page-kind decision, a ladder fixture, the baseline or the scorer replays every fixture offline (stored answers through
+- `tools/ladder-progress.mjs` — The AI ladder's progress report: reads the checklist at the end of docs/superpowers/specs/2026-10-10-ai-ladder.md ("## Progress", one "### X. title" per item,
 - `tools/mail_eval.py` — Does the model still read the Gmail check's emails right? (the AI half of the check, which its unit tests stub)
 - `tools/meanings_parity.py` — Before an "AI instead of keyword lists" change ships: the owner's real search and data, AI off, on a baseline commit and on this tree;
 - `tools/meanings_seed.py` — Builds the meanings pack's seed (config/meanings_seed.json) from the keyword lists the code used before they became AI decisions, read

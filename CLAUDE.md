@@ -102,6 +102,14 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
      stay as they are. Prove a step with `cd desktop/e2e && E2E_STEPS=... node run-all.mjs --only <suite>`; `E2E_AI_FAMILY=openai` runs the OpenAI side on Codex.
 - Big features (Always on, migrations, Apply with Claude): a short spec in `docs/superpowers/specs/` with a
   "Data ownership" section (Notion vs cache) before code; link it from the Notion Decision Log, don't copy it there.
+- **A big change (a feature, a migration, a refactor): slices, a safety net first, ONE full run at landing** (owner, 10 Oct 2026: the ladder took 40 checklist boxes and the full suites ran about 40 times; "do it in 1 to 3 commits and run the e2e suites 10x less"):
+  1. **Size it first** (Tier 0/1/2). Above Tier 1: a spec with a checklist (`docs/superpowers/specs/`; one box per provable step, bars from `tools/ladder-progress.mjs`-style reports), and say what stays unverified.
+  2. **Safety net before behaviour:** fixtures, a baseline and a gate (the ladder's `ladder-score`, `tools/ladder-gate.mjs`, recorded pages, contract and architecture tests) exist BEFORE the change; they replace re-running everything by hand.
+  3. **Three speeds of checking:** each edit runs only the touched test (seconds); each finished slice runs the gate and the replays it touches (1-2 min); the FULL suites, all replays, real-extension and the old-build controls run ONCE per landing, in the background (`run_in_background` + Monitor). Never the full suites per commit. Extension version, fingerprint and codemap are written once, at landing (a second write at the same version is refused: `git checkout origin/main -- extension/fingerprint.json`, then write).
+  4. **Commits:** small local commits are free; what lands is 1-3 squashed commits by concern. The review unit is the slice, not the commit.
+  5. **Parallel sessions by file ownership, not by task:** one session owns the flow core; others get new files, tests, the site, measurement (brief + own worktree + commit only + report; the coordinator merges and lands). Fix the landing order and any freeze window up front and message every peer.
+  6. **A migration or move is its own pure commit,** in a quiet window announced to all peers, after the safety net, never mixed with behaviour changes (an architecture test pins the allowed imports).
+  7. **Measure per source** (real / reconstructed / invented), never blended, and never tune on invented data.
 - Weekly self-review (`.github/workflows/weekly-self-review.yml`, Sun evening): Claude reads the week's commits/CI/issues and
   opens a `self-review/<date>` PR editing these rules or skills. Proposals only: the owner merges.
 
@@ -280,6 +288,12 @@ Why: in 8 days `extension/background.js` took 48 commits and `fill-flow.js` 29, 
   the bug: 10 Oct 2026, Ashby Yes/No). `Recorded-unneeded: <why>` is only for a change that fixes no failure seen on a real site (a log line, a comment, a refactor), never for a site's fix.
 - **One owner per state:** where an application stands is `desktop/lib/application-journey.js` (app) and `extension/tab-identity.js` (which application a tab is);
   never a new field or storage key for it elsewhere.
+- **The ladder: fix a site at its rung** (owner, 10 Oct 2026): a page decision climbs rung 0 structure rule, 1 kept answer, 2 text sketch, 3 numbered digest, 4 closer look
+  (screenshot), 5 Claude takeover, 6 the person; a rung that is unsure or contradicted hands the page up, never guesses (`extension/ladder-core.js`). Map: `docs/flows/ladder.md`; skill `fix-site-at-its-rung`; progress: skill `report-ladder-progress`.
+- **Fix at the LOWEST rung that has the information, data before code** (a kept answer, a recipe, a prompt example); never a site name, vendor list or word list; never in a higher rung what a lower one can see.
+- **A fix cannot break another site:** `desktop/e2e/ladder-fixtures/` (real sketches, recorded pages, traps) + `desktop/e2e/ladder-baseline.json`. `cd desktop && npm run ladder-score` (live, plan path, no API key) and `-- --offline` (stored answers);
+  `tools/ladder-gate.mjs` (push hook) fails a flow push that makes a fixture worse. A fixture only gets better through `npm run ladder-score -- --offline --update-baseline "<why>"`; never edit an expectation to pass. Rates are per source (real / reconstructed / invented), never blended.
+- **A new shape from the pool or a live bug first becomes a fixture** (`node desktop/e2e/ladder-capture.mjs`), seen wrong, then the fix; `Recorded-unneeded` rules are unchanged.
 
 ## Facts that are easy to get wrong
 - **A ⏱️ Search runs row's `Summary` is only the report's first line** (`src/notion/cron_runs.py`,
