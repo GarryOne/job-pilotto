@@ -289,7 +289,7 @@ Why: in 8 days `extension/background.js` took 48 commits and `fill-flow.js` 29, 
 - **One owner per state:** where an application stands is `desktop/lib/application-journey.js` (app) and `extension/tab-identity.js` (which application a tab is);
   never a new field or storage key for it elsewhere.
 - **The ladder: fix a site at its rung** (owner, 10 Oct 2026): a page decision climbs rung 0 structure rule, 1 kept answer, 2 text sketch, 3 numbered digest, 4 closer look
-  (screenshot), 5 Claude takeover, 6 the person; a rung that is unsure or contradicted hands the page up, never guesses (`extension/ladder/core.js`). Map: `docs/flows/ladder.md`; skill `fix-site-at-its-rung`; progress: skill `report-ladder-progress`.
+  (screenshot), 5 Claude takeover, 6 the person; a rung that is unsure or contradicted hands the page up, never guesses (`extension/ladder/core.js`). Map: `docs/flows/ladder.md`; skill `fix-failing-forms` (its rung method); progress: skill `report-ladder-progress`.
 - **Fix at the LOWEST rung that has the information, data before code** (a kept answer, a recipe, a prompt example); never a site name, vendor list or word list; never in a higher rung what a lower one can see.
 - **A fix cannot break another site:** `desktop/e2e/ladder-fixtures/` (real sketches, recorded pages, traps) + `desktop/e2e/ladder-baseline.json`. `cd desktop && npm run ladder-score` (live, plan path, no API key) and `-- --offline` (stored answers);
   `tools/ladder-gate.mjs` (push hook) fails a flow push that makes a fixture worse. A fixture only gets better through `npm run ladder-score -- --offline --update-baseline "<why>"`; never edit an expectation to pass. Rates are per source (real / reconstructed / invented), never blended.
