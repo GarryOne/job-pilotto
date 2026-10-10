@@ -4,6 +4,7 @@
 // site's host and fixed words only, never a posting's address or applicant data. Guard: test/applying.test.js.
 import {viewer} from './auth.js';
 import {digest} from './digest.js';
+import {topCauses} from './applying-cause.js';
 import {nextToAdd} from './nextsites.js';
 import {platformScorecard} from './scorecard.js';
 import {displayName, flowOf, platformLabel, SIGNATURE, signatureHost} from './platform.js';
@@ -78,6 +79,8 @@ export async function data(db, now = new Date()) {
     return out;
   }, {})).map(([day, counts]) => ({day, counts}));
   const pool = await poolRows(db, sites, now);
+  const causes = await topCauses(db, pool.map(item => item.name), now).catch(() => ({}));   // the pool's own fill cards: why the form's fields stayed empty (src/applying-cause.js)
+  for (const item of pool) item.cause = causes[item.name] || null;
   const scorecard = await platformScorecard(db, pool, now).catch(() => []);   // real use against the pool's tests, per platform (src/scorecard.js)
   const next = await nextToAdd(db, pool, now).catch(() => ({sites: [], hidden: {hosts: 0}}));   // real users' end hosts the pool lacks (src/nextsites.js)
   const live = sites.filter(site => !site.note);
@@ -261,11 +264,12 @@ fetch('?json').then(r => r.json()).then(d => {
   const drawFix = () => { fixBox.textContent = '';
     fixBox.append(el('h2', {textContent: 'Needs a fix · where applying stops'}),
       el('p', {className: 'muted', textContent: 'A regression, a stop before the form, or a form reached with under half of the fields filled. The last column is the share of fields filled in each of the last runs: a fix shows there the next night.'}),
-      ...block('fix', 'Sites', 'Worst first', d.pool.filter(needs).sort((a, b) => worst(a) - worst(b) || a.name.localeCompare(b.name)), ['Site', 'Platform', 'Why', 'Filled, last runs', 'Last run'],
+      ...block('fix', 'Sites', 'Worst first', d.pool.filter(needs).sort((a, b) => worst(a) - worst(b) || a.name.localeCompare(b.name)), ['Site', 'Platform', 'Why', 'Top cause', 'Filled, last runs', 'Last run'],
         s => el('tr', {}, el('td', {textContent: s.name}), el('td', {textContent: s.platform}),
           el('td', {}, el('span', {className: 'flag', textContent: s.regression ? 'regression' : s.short ? 'form · ' + s.short.done + ' of ' + s.short.total + ' filled' : 'stopped at the ' + s.reached})),
+          el('td', {className: 'muted', textContent: s.cause ? s.cause.cause + ' · ' + s.cause.lost + ' on ' + s.cause.nights + ' night' + (s.cause.nights === 1 ? '' : 's') : '—'}),
           el('td', {className: 'muted', textContent: filledRuns(s).length ? filledRuns(s).join(' → ') + '%' : '—'}), el('td', {className: 'muted', textContent: s.at ? ago(s.at) : '—'})),
-        'Nothing needs a fix', () => drawFix(), [s => s.name.toLowerCase(), s => s.platform, worst, s => filledRuns(s).at(-1) ?? null, s => (s.at ? Date.parse(s.at) : null)]).filter(Boolean)); };
+        'Nothing needs a fix', () => drawFix(), [s => s.name.toLowerCase(), s => s.platform, worst, s => s.cause?.lost ?? null, s => filledRuns(s).at(-1) ?? null, s => (s.at ? Date.parse(s.at) : null)]).filter(Boolean)); };
   const drawScore = () => { scoreBox.textContent = '';
     scoreBox.append(...block('score', 'Platforms', 'Real use against the tests', d.scorecard || [], ['Platform', 'Verdict', 'Of matched jobs', 'Real forms', 'Required filled', 'Pool sites', 'Reached the form'],
       s => el('tr', {}, el('td', {textContent: s.platform}), el('td', {}, el('span', {className: 'pill s-' + TONE[s.verdict], textContent: s.verdict})), el('td', {textContent: pct(s.matchShare)}),
