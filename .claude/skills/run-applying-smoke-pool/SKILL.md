@@ -29,6 +29,8 @@ Spec: `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md` (four l
 | Some shapes | `npm run smoke -- --only <words of the shape>` |
 | The whole pool (~55 x 2 min) | `npm run smoke -- --all` |
 | Find new flow shapes from the loaded profile's jobs (a few per host, more from boards) | `npm run smoke -- --discover --limit 30` (~45 min) |
+
+`--discover` names a new shape by the posting's employer and, when the same host has a shape that was never run, fills that one instead of adding a row (474c641).
 Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is noted and replaced, never a regression. Exit 1 = a shape reached less than ITS last run.
 
 ## The rules that bite
@@ -36,8 +38,8 @@ Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is not
   how long; send "done" when finished. A peer holding it: wait, or queue. Never start a second run on it.
 - **Say before a held run** what the window does and what is HELD (headless Chrome, fake applicant, no consent, no account button, never Submit), and how long.
 - **Background + Monitor, never sleep** (global rules). Start the run writing to a log, then arm a Monitor on its summary lines:
-  `tail -n 0 -F <log> | grep --line-buffered -E "^smoke: |regression|rror:"` (one event per site: `reached <step>`, filled/left counts), and a second one
-  `until ! pgrep -f smoke.mjs; do sleep 3; done` for the end. Test the pattern with `grep -c` on a log so far. Each event: one line on what it shows, then decide (progressing / done / stuck).
+  `tail -n 0 -F <log> | grep --line-buffered -E "^smoke: |regression|rror:"` (one event per site: `reached <step>`, filled/left counts), and a second one for the end: save the run's PID at start (`echo $! > <scratch>/pid`) and watch `while kill -0 $PID 2>/dev/null; do sleep 3; done; echo ended`.
+  Never `pgrep -f smoke.mjs` inside a Monitor: the Monitor's own command line contains the pattern and matches itself, so it never ends (anchor it, `pgrep -f "^node smoke.mjs"`, if you must). Test the pattern with `grep -c` on a log so far. Each event: one line on what it shows, then decide (progressing / done / stuck).
   First sign of life within ~20 s or say the run failed. Stop only your own run, by saved PID, never `pkill -f` (it kills other sessions' suites).
 - **NEVER_VISIT:** LinkedIn, Glassdoor, Indeed, levels.fyi, Reddit are never run (`lib/smoke.mjs` `NEVER_VISIT`; discovery once visited an Indeed posting before it existed).
   Check any new candidate source against it. Never log in, never get past a login wall or bot check (401/403/429 or a check is a "bot/code" result, not a bug to defeat).
@@ -59,7 +61,7 @@ Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is not
 6. **Report to the owner:** counts (run, reached form / posting / bot, regressions, new shapes), what moved since the last report, what was handed to whom. Say "done" to the peers.
 
 ## Open threads to carry (10 Oct 2026; drop each when closed)
-- Discovery should fold "other -> form on the same host" in `lib/smoke.mjs` (tell the session that owns `/admin/applying`).
+- Discovery is serial (~90 s a candidate, ~45 min per 30) because every run shares one e2e app and Notion test page. A `--workers` option (own port and profile per worker) is not built; the owner asked about it, the pool owner will brief it.
 - Ask the owner: the nightly schedule (launchd or by hand); a `prestart` that prints npm's error on failure; renaming the Jobs "Closed" counter; multi-step AI answers for account recorded cases.
 - Chanel's Workday dialog has a fourth option, "Autofill with Resume", with no route in the page-kind answers (`desktop/lib/page-kind.js` `ROUTES`); the run still reached the form. Decide with the owner whether it needs a route.
 
@@ -70,6 +72,9 @@ Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is not
 - The live harness's stall dump is capped (12 buttons): a missing button in it is not evidence; look at the frames, and check the frames folder belongs to YOUR run (the next site overwrites it).
 - Codemap: commit first, then `node desktop/scripts/codemap.mjs`, then amend (the reverse turned main red once; `tools/ship.sh --fix` for a red main).
 - A removed worktree's results are dropped by the Stop hook (fixed); a name that already exists in `desktop/e2e` (`lib/replay.mjs`) was overwritten once: grep before naming a file.
+
+- The `/admin/applying` pool count changes only when a run ENDS (`sendPool` at the end of smoke or discover); the Mac's own list changes at once. A half-finished run shows nothing there.
+- Never `git checkout` in the primary checkout: other sessions and uncommitted changes live there. Work in your own worktree.
 
 ## Stop conditions
 - The e2e page is held by a peer, or a peer asks for it back: stop your own run by PID and say so.
