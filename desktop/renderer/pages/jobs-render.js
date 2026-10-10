@@ -383,10 +383,10 @@ export function renderJobs() {
     box.append(moreButton(menu, 'More: save, dismiss, kit, posting, tailor CV'));
 
     row.append(fit, role, company, place, status, box);
-    // The job's page beside the list (pages/job-panel.js): a click on the row outside its controls, the score ring and its analysis.
+    // The job's drawer (pages/job-panel.js): a click anywhere on the row outside its controls and its analysis (the score ring opens that, when there is one).
     if (panelUrl() && panelUrl() === job.url) row.classList.add('is-selected');
     row.addEventListener('click', event => {
-      if (!isInteractiveTarget(event.target, row) && !fit.contains(event.target) && !event.target.closest('.fit-detail, .ui-menu')) openJobPanel(job);
+      if (!isInteractiveTarget(event.target, row) && !(canOpen && fit.contains(event.target)) && !event.target.closest('.fit-detail, .ui-menu')) openJobPanel(job);   // the score cell opens the drawer too, unless it opens its own analysis
     });
     // The score ring opens why: Match analysis (the score's parts, strengths and gaps; Notion Job Matches keeps
     // them). The caret turns with it, and the row's own one-line summary steps aside for the panel's lead.

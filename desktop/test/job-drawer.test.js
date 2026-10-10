@@ -51,6 +51,12 @@ test('Description: reads the saved posting once per job, and offers Retry only a
   assert.match(fs.readFileSync(new URL('../preload.cjs', import.meta.url), 'utf8'), /jobPosting: call\('jobPosting'\)/);
 });
 
+test('every job row shows a pointer: a click anywhere on it opens the drawer, the score cell too when it has no analysis', () => {
+  assert.match(read('style.css'), /\.job-row \{ cursor: pointer; \}/);
+  assert.match(read('style.css'), /\.job-row \.fit-detail \{ cursor: default; \}/, 'the open analysis is not a click target');
+  assert.match(read('pages/jobs-render.js'), /!\(canOpen && fit\.contains\(event\.target\)\)[\s\S]{0,120}openJobPanel\(job\)/);
+});
+
 test('one score ring for the list and the drawer', () => {
   assert.match(read('pages/jobs-render.js'), /fitRing\(job\.fit\)/);
   assert.match(read('job-drawer/header.js'), /fitRing\(job\.fit, 'lg'\)/);

@@ -428,6 +428,8 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .job-row.flash { outline: 2px solid var(--signal); outline-offset: 2px; animation: row-flash 2.2s ease-out; }
 @keyframes row-flash { from { background: color-mix(in srgb, var(--signal) 14%, var(--surface)); } to { background: var(--surface); } }
 @media (prefers-reduced-motion: reduce) { .job-row.flash { animation: none; } }
+.job-row { cursor: pointer; }   /* a click anywhere on it opens the job's drawer (pages/job-panel.js); its own controls and the open analysis keep theirs */
+.job-row .fit-detail { cursor: default; }
 .job-row:hover { border-color: var(--line-strong); box-shadow: 0 3px 12px rgb(var(--shadow-rgb) / .06); }
 .fit-cell { --tone: var(--line-strong); --track: var(--line); display: grid; justify-items: center; gap: 4px; }
 .fit-cell.is-clickable { cursor: pointer; }
