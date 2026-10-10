@@ -13,7 +13,8 @@ import {resolveSession} from './journey-identity.js';
 
 const hostOf = url => { try { return new URL(String(url)).hostname; } catch { return ''; } };
 
-export function createSessionFlow({terminals, review, apply, appLog, toWindow = () => {}, startClaude, claudeAllowed, closeTab}) {
+export function createSessionFlow({terminals, review, apply, appLog, toWindow = () => {}, startClaude, claudeAllowed, closeTab, offerNotice = () => {}}) {
+  const announced = new Set();   // sessions whose stuck page already got its "Claude can finish this" notice
 
   // The extension can't reach a form ('no-form': nothing it may press; 'account': a sign-in or sign-up). The tab's own session first (it
   // carries it: lib/review.js pick); only a tab carrying none is matched by its job. Returns what was decided, for the tests.
@@ -42,6 +43,8 @@ export function createSessionFlow({terminals, review, apply, appLog, toWindow = 
     // Claude is OFFERED here, never started by this function (extension first; the person's press, or claudeAuto's 5 s countdown in the panel, starts it: takeOverHandler). The extension reports
     // an account page only when it could not finish it (its account AI was unsure, a bot check, something only the person can give): the session says what is needed.
     appLog('extension', `account page: the extension could not finish it: ${claudeAllowed?.() ? 'Claude is offered' : 'the person is told what is needed (no Claude: off, or an OpenAI engine)'}`, {host: event.host, id: match.id, ...(event.needs ? {needs: String(event.needs).slice(0, 60)} : {})});
+    // The same offer as the page's panel, for whoever is not looking at the tab: a notice that opens the session's card (one per session; the card has the choices).
+    if (claudeAllowed?.() && !announced.has(match.id)) { announced.add(match.id); offerNotice({id: match.id, host: event.host, company: match.company || ''}); }
     return 'offered';
   }
 

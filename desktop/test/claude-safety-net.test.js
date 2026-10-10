@@ -8,5 +8,7 @@ test('no card offers Apply with Claude as its primary action; a stuck card leads
   const source = fs.readFileSync(new URL('../renderer/pages/sessions.js', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /sessionButton\('Apply with Claude', 'primary'/);
   const stuck = source.slice(source.indexOf('if (stuck) {'), source.indexOf('const resume = kind =>'));
-  assert.ok(stuck.indexOf("'Open in Chrome', 'primary'") >= 0 && stuck.indexOf("'Open in Chrome', 'primary'") < stuck.indexOf("'Apply with Claude', 'secondary'"));
+  assert.ok(stuck.indexOf("'Open in Chrome', 'primary'") >= 0 && stuck.indexOf("'Open in Chrome', 'primary'") < stuck.indexOf('offerParts(item'));
+  // The Claude offer on that card (renderer/claude-offer.js) has no orange button either: every Claude choice there is secondary or a link.
+  assert.doesNotMatch(fs.readFileSync(new URL('../renderer/claude-offer.js', import.meta.url), 'utf8'), /button\('[^']*(?:Claude|Continue)[^']*', 'primary'/);
 });

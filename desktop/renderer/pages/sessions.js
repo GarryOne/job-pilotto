@@ -6,6 +6,7 @@ import {PROBLEM, isDevTalk, latestStep, readSessionMessage, sortChecks, splitLab
 import {accountProgress, applyingBadge, asksYou, dockCounts, dockOrder, firstLine, isLive, isSubmitted, panelAnswered, sessionDuration, sessionReview, sessionStage, sessionState} from '../session-state.js';
 import {shared} from './shared.js';
 import {claudeHelp} from '../claude-help.js';
+import {offerParts} from '../claude-offer.js';
 import {hasSessionCache, rememberSessions, rememberedSessions} from '../sessions-cache.js';
 import {$, osText, show} from './core.js';
 import {initOptional, showOptional} from './session-optional.js';
@@ -276,12 +277,9 @@ export function renderNextStep(item) {
     // Tier 3: the cheap ways ran out. Chrome first, Claude the safety net (owner, 9 Oct 2026: "remove the 'Apply with Claude' from being orange";
     // the panel's "Take over with Claude" is there while the form tab is open, this one when it isn't).
     if (item.url) actions.push(sessionButton('Open in Chrome', 'primary', async event => { await openForm(item, event.currentTarget); }, 'link'));
-    if (claudeHelp()) actions.push(sessionButton('Apply with Claude', 'secondary', async event => {
-      const result = await opening(event.currentTarget, () => window.pilot.applyWithClaude(item.url, {title: item.title, company: item.company, location: item.location, workMode: item.workMode}));
-      if (result?.ok === false) { toastMessage('Claude could not start', result.error || 'Try again.'); return; }
-      await refreshSessions();
-      if (result?.session?.id) openSession(result.session.id);
-    }, 'bot'));
+    const offer = offerParts(item, {rerender: () => renderNextStep(item), after: async result => { await refreshSessions(); if (result?.session?.id) openSession(result.session.id); }});   // claude-offer.js
+    actions.push(...offer.buttons);
+    if (offer.notes.length) $('ss-question').append(...offer.notes);
   }
   // Claude is the safety net, never the main action (owner, 9 Oct 2026: "remove Resume Claude from being orange"): always secondary; the way to the form is promoted below.
   const resume = () => sessionButton('Resume Claude', 'secondary', () => resumeSession(item), 'refresh');

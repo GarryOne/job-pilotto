@@ -9,7 +9,7 @@ import {fileURLToPath} from 'node:url';
 
 const RENDERER = new URL('../renderer/', import.meta.url);
 const files = dir => fs.readdirSync(dir, {withFileTypes: true}).flatMap(entry => entry.isDirectory() ? files(path.join(dir, entry.name)) : entry.name.endsWith('.js') ? [path.join(dir, entry.name)] : []);
-const ENTRY = /['"`](▶ )?(Resume Claude|Apply with Claude|Tell Claude…|Change with Claude…|Read with Claude)['"`]|`Reply "\$\{/;   // buttons, a menu's option, a reply to Claude
+const ENTRY = /['"`](▶ )?(Resume Claude|Apply with Claude|Tell Claude…|Change with Claude…|Read with Claude|Let Claude finish this page)['"`]|`Reply "\$\{/;   // buttons, a menu's option, a reply to Claude
 
 test('every renderer file that draws a Claude entry point asks the one switch', () => {
   const drawing = files(fileURLToPath(RENDERER)).filter(file => ENTRY.test(fs.readFileSync(file, 'utf8')));

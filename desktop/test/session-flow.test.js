@@ -8,14 +8,15 @@ import {createSessionFlow} from '../lib/session-flow.js';
 
 const URL1 = 'https://www.jobs.ch/en/vacancies/detail/manor/';
 function setup({allowed = true, older = () => false, states = [], startClaude} = {}) {
+  const notices = [];
   terminals._reset();
   terminals.usePty(async () => ({spawn: () => ({onData: () => {}, onExit: () => {}, write: () => {}, resize: () => {}, kill: () => {}})}));
   const logs = [], started = [], closed = [], windows = [];
   const review = {olderTab: older, allStates: () => states, queueClose: () => {}};
   const flow = createSessionFlow({terminals, review, apply, appLog: (area, text) => logs.push(`${area}: ${text}`), toWindow: (...args) => windows.push(args),
-    startClaude: startClaude || (async url => { started.push(url); return {ok: true, session: {id: 'c9'}}; }), claudeAllowed: () => allowed,
+    startClaude: startClaude || (async url => { started.push(url); return {ok: true, session: {id: 'c9'}}; }), claudeAllowed: () => allowed, offerNotice: notice => notices.push(notice),
     closeTab: async session => { closed.push(session.id); return true; }});
-  return {flow, logs, started, closed, windows};
+  return {flow, logs, started, closed, windows, notices};
 }
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
@@ -116,4 +117,19 @@ test('the window says it: pill "Needs you", a warn step with the note, Claude of
   const item = {kind: 'form', stuck: 'incomplete', note: 'Needs you: Copy and paste CV'};
   assert.deepEqual(sessionState(item), ['Needs you', 'warn']);
   assert.ok(sessionSteps(item).some(step => step.tone === 'warn' && step.text === 'Needs you: Copy and paste CV'));
+});
+
+test('a stuck page where Claude is offered says so once per session (a notice that opens the card); no notice when Claude is not offered', () => {
+  const on = setup({allowed: true});
+  terminals.startForm({id: 'f1', url: URL1, company: 'Manor AG'});
+  const event = {url: URL1, host: 'career55.sapsf.eu', why: 'account', tab: 5, session: 'f1', needs: 'Land/Region'};
+  on.flow.stuck(event);
+  on.flow.stuck(event);   // reported again: the same page, no second notice
+  assert.equal(on.notices.length, 1);
+  assert.equal(on.notices[0].id, 'f1');
+  assert.deepEqual(on.started, [], 'a notice never starts Claude');
+  const off = setup({allowed: false});
+  terminals.startForm({id: 'f2', url: URL1, company: 'Manor AG'});
+  off.flow.stuck({...event, session: 'f2'});
+  assert.equal(off.notices.length, 0, 'Claude is not offered: nothing to announce');
 });

@@ -40,7 +40,10 @@ export function registerApplyHandlers(ctx) {
   });
   // Checked session workflows share the production registration with the offline app scenario tests.
   ipcMain.handle('applyWithClaude', (_, url, details = null) => startClaude(url, details));
-  server.setTakeOverHandler(createTakeOver({startClaude, storage, appLog, toWindow}));   // the panel's button or countdown: the person's own request, once per application (lib/take-over.js)
+  const takeOver = createTakeOver({startClaude, storage, appLog, toWindow});   // the panel's button or countdown and the session card's: the person's own request, once per application (lib/take-over.js)
+  server.setTakeOverHandler(takeOver);
+  ipcMain.handle('takeOverClaude', (_, url, details, consent) => takeOver({url, host: '', consent: !!consent,
+    job: details ? {title: details.title, company: details.company, location: details.location, work_mode: details.workMode} : null}));
   server.setClaudeAutoHandler(event => {   // the panel's "Always let Claude finish when I'm stuck" box: the same switch as Settings
     storage.saveSettings({claudeAuto: !!event.on});
     appLog('extension', `always let Claude finish when stuck: ${event.on ? 'on' : 'off'} (from the panel)`);

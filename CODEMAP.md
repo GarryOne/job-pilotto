@@ -300,6 +300,8 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/calendar.js` — Calendar page: every screening and interview on one calendar. Pure (tested in test/calendar.test.js); the page is
 - `desktop/renderer/claude-auto.js` — Settings → Application assistant: "Always let Claude finish when I'm stuck" (settings.claudeAuto; spec 2026-10-10-claude-finishes-stuck-pages.md part 3).
 - `desktop/renderer/claude-help.js` — One switch for every way into Claude (owner, 9 Oct 2026: "the extension and Chrome flow is smart … Resume with Claude or Apply with Claude is a degraded experience;
+- `desktop/renderer/claude-offer-view.js` — Which view the session card's Claude offer shows (renderer/claude-offer.js), as a pure function so a test can drive it without a window.
+- `desktop/renderer/claude-offer.js` — The stuck session card's Claude offer (owner, 10 Oct 2026; spec docs/superpowers/specs/2026-10-10-claude-finishes-stuck-pages.md part 3): the same three choices as the page's panel
 - `desktop/renderer/compensation.js` — The Profile's unanswered "Target: ❓" is a placeholder, not a value: with no real figure it reads as not set (UI loop #272).
 - `desktop/renderer/components.js` — Job Pilotto's UI building blocks (styles in components.css, values in tokens.css). Screens build their
 - `desktop/renderer/coverage-actions.js` — What to do after a jobs check that found few new jobs (owner, 6 Oct 2026: "buttons after the search is done"): the coverage answer's cards
