@@ -72,15 +72,30 @@ test('an apply tab on a site not allowed yet opens the Allow page and tells the 
   }
 });
 
-// 9 Oct 2026: Deloitte's application page sat behind a cookie dialog and the extension never closed it (only the job-reading flow had a closer). Any
-// popup over a page the extension works on is closed the same way (extension/consent.js); here a real cookie dialog, closed by the free word rule
-// (the harness has no AI). Nothing on the page is typed or submitted.
-const COOKIE_PAGE = 'https://apply.deloitte.ch/CHCareers/ApplicationMethods?tempJobid=19243';
+// 9 Oct 2026, Deloitte: the application page sat behind a cookie dialog and the extension never closed it (only the job-reading flow had a closer), and its "how
+// will you give your CV" step (Upload CV / Copy and paste CV / Upload later) hid the file input when "Copy and paste CV" was pressed after "Upload CV".
+// These two run on LOCAL fixtures served at the real host's address (context.route fulfils every request to it): the extension sees the real hostname and
+// permissions, but nothing goes to the third party. The live page changed under the earlier version of these tests (10 Oct 2026: both failed on the real
+// site, with the original code too), so the shape is pinned here and the real site stays out of the test. Nothing is typed or submitted.
+const DELOITTE = 'https://apply.deloitte.ch/CHCareers/ApplicationMethods?tempJobid=19243';
+const serve = (run, html) => run.context.route('https://apply.deloitte.ch/**', route => route.fulfill({status: 200, contentType: 'text/html; charset=utf-8', body: html}));
+const COOKIE_DIALOG = `<div role="dialog" id="cookie-dialog" style="position:fixed;bottom:0;left:0;right:0;background:#fff;border:1px solid #888;padding:12px">
+  <p>We use cookies and similar tracking to improve your visit.</p>
+  <button type="button" onclick="document.getElementById('cookie-dialog').remove()">Accept all cookies</button>
+  <button type="button" id="reject" onclick="document.getElementById('cookie-dialog').remove()">Reject optional cookies</button></div>`;
+// The choice step as the real page draws it: three ways to give the CV, each reveals its own part; the file input sits in a hidden container; pressing a way hides the others.
+const CHOICE_STEP = `<body><h1>Choose from one of the options below to start your application</h1>
+  <div class="how"><a role="button" onclick="show('fileBox')">Upload CV</a> <a role="button" onclick="show('pasteBox')">Copy and paste CV</a> <a role="button" onclick="show('')">Upload later</a></div>
+  <fieldset id="fileBox" style="display:none"><label>Upload CV * <input type="file" id="resumeFile"></label></fieldset>
+  <fieldset id="pasteBox" style="display:none"><label>Copy and paste CV * <textarea id="resumePaste" required></textarea></label></fieldset>
+  <script>function show(id) { for (const box of ['fileBox', 'pasteBox']) document.getElementById(box).style.display = box === id ? 'block' : 'none'; }</script></body>`;
+
 test('a cookie dialog over an application page is closed by the extension', {skip}, async () => {
-  const run = await startRealExtension({extensionDir});
+  const run = await startRealExtension({extensionDir, allowAllSites: true});
   try {
-    await run.page.goto(`${COOKIE_PAGE}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'});
-    const dialog = run.page.getByRole('button', {name: /optional cookies/i}).first();
+    await serve(run, `<body><h1>Application</h1>${CHOICE_STEP.replace('<body>', '')}${COOKIE_DIALOG}`);
+    await run.page.goto(`${DELOITTE}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'});
+    const dialog = run.page.locator('#cookie-dialog');
     await dialog.waitFor({timeout: 30000});
     assert.ok(await waitUntil(async () => !(await dialog.isVisible().catch(() => false)), 60), 'the cookie dialog is gone');
     assert.ok(await waitUntil(() => run.told('closed a popup'), 20), 'the app log says it');
@@ -88,13 +103,14 @@ test('a cookie dialog over an application page is closed by the extension', {ski
   } finally { await run.close(); }
 });
 
-// 9 Oct 2026, Deloitte's "how will you give your CV" step (Upload CV / Copy and paste CV / Upload later): the input is hidden until "Upload CV", the operator
-// waited for a NEW input, and "Copy and paste CV" (also an upload trigger) was pressed after, hiding it. The page-kind AI's word is stubbed as the real log has it
-// (posting, button "upload cv"). The fake CV goes to a real third-party page (fixture, not the owner's), nothing else is typed, never Submit.
+// The page-kind AI's word is stubbed as the real log has it (posting, button "upload cv"). The fake CV goes into a local page, nothing else is typed, never Submit.
+// What this proves: the real extension presses "Upload CV" on a posting-kind page and attaches the CV into the hidden input. What it does NOT prove: that the "paste way is not pressed"
+// guard (page/upload.js `given`) works, since the test still passes with that guard removed (mutation control, 10 Oct 2026); upload-slot.test.mjs's choice shape is the guard's test.
 test('a choice step that reveals its own file input: the CV is attached, the paste way is not pressed', {skip}, async () => {
-  const run = await startRealExtension({extensionDir, cv: true, answer: {'/extension/page-kind': () => ({ok: true, kind: 'posting', role: 'no-form', by: 'ai', confidence: 0.98, applyButton: 'upload cv'})}});
+  const run = await startRealExtension({extensionDir, cv: true, allowAllSites: true, answer: {'/extension/page-kind': () => ({ok: true, kind: 'posting', role: 'no-form', by: 'ai', confidence: 0.98, applyButton: 'upload cv'})}});
   try {
-    await run.page.goto(`${COOKIE_PAGE}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'});
+    await serve(run, CHOICE_STEP);
+    await run.page.goto(`${DELOITTE}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'});
     const attached = () => run.page.evaluate(() => document.getElementById('resumeFile')?.files.length || 0).catch(() => 0);
     assert.ok(await waitUntil(async () => (await attached()) === 1, 60), 'the CV is in the page\'s file input');
     assert.equal(await run.page.evaluate(() => !!document.getElementById('resumePaste')?.getClientRects().length), false, 'the paste box was not opened');
