@@ -6,17 +6,17 @@ const file = name => readFileSync(new URL(`../public/${name}`, import.meta.url),
 
 test('Google can find the public pages: robots, sitemap, canonical, structured data', () => {
   const robots = file('robots.txt');
-  assert.match(robots, /Sitemap: https:\/\/www\.jobpilotto\.workers\.dev\/sitemap\.xml/);
+  assert.match(robots, /Sitemap: https:\/\/www\.jobpilotto\.top\/sitemap\.xml/);
   for (const path of ['/stats', '/telemetry', '/feedback', '/api/']) assert.match(robots, new RegExp(`Disallow: ${path}`));
   const sitemap = file('sitemap.xml');
-  assert.match(sitemap, /<loc>https:\/\/www\.jobpilotto\.workers\.dev\/<\/loc>/);
-  assert.match(sitemap, /<loc>https:\/\/www\.jobpilotto\.workers\.dev\/compare<\/loc>/);
-  assert.match(sitemap, /<loc>https:\/\/www\.jobpilotto\.workers\.dev\/intelligence<\/loc>/);
-  assert.match(sitemap, /<loc>https:\/\/www\.jobpilotto\.workers\.dev\/platforms<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/www\.jobpilotto\.top\/<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/www\.jobpilotto\.top\/compare<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/www\.jobpilotto\.top\/intelligence<\/loc>/);
+  assert.match(sitemap, /<loc>https:\/\/www\.jobpilotto\.top\/platforms<\/loc>/);
   assert.doesNotMatch(sitemap, /friends/);
   for (const [page, canonical] of [['index.html', '/'], ['compare.html', '/compare'], ['intelligence.html', '/intelligence'], ['platforms.html', '/platforms']]) {
     const html = file(page);
-    assert.ok(html.includes(`<link rel="canonical" href="https://www.jobpilotto.workers.dev${canonical}">`), page);
+    assert.ok(html.includes(`<link rel="canonical" href="https://www.jobpilotto.top${canonical}">`), page);
     assert.match(html, /<meta property="og:title"/);
     assert.match(html, /<meta property="og:image"/);
     assert.ok(!/<title>Job Pilotto<\/title>/.test(html), `${page} needs a descriptive title`);

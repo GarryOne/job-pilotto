@@ -22,12 +22,12 @@ test('every body the engine sends is kept whole, and every field reaches the tot
   const env = {STATS: d1(), WAITLIST: kv(), STATS_SALT: 'salt', INDEX_PUBLISH_KEY: 'k3y', ASSETS: {fetch: () => new Response('asset')}};
   assert.ok(BODIES.length >= 3, 'the fixture holds the instant shares and the end-of-check share');
   for (const body of BODIES) {
-    const reply = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/contribute', {method: 'POST', body: JSON.stringify(body)}), env, {});
+    const reply = await worker.fetch(new Request('https://www.jobpilotto.top/api/contribute', {method: 'POST', body: JSON.stringify(body)}), env, {});
     const answer = await reply.json();
     assert.equal(reply.status, 200, JSON.stringify(answer));
     assert.equal(answer.dropped, undefined, `the site dropped ${JSON.stringify(answer.dropped)} of a body the engine sends`);
   }
-  const read = async query => (await worker.fetch(new Request(`https://www.jobpilotto.workers.dev/api/contributions${query}`, {headers: {Authorization: 'Bearer k3y'}}), env, {})).json();
+  const read = async query => (await worker.fetch(new Request(`https://www.jobpilotto.top/api/contributions${query}`, {headers: {Authorization: 'Bearer k3y'}}), env, {})).json();
   const all = await read('');
   const sent = BODIES.flatMap(body => body.feeds).filter(feed => feed.out);
   assert.ok(sent.length, 'the fixture carries outcomes');

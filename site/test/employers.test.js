@@ -8,12 +8,12 @@ import {clean} from '../src/employers.js';
 const store = new Map();
 const env = () => ({INDEX_PUBLISH_KEY: 'k3y', ASSETS: {fetch: () => new Response('asset')},
   WAITLIST: {get: async key => store.get(key) ?? null, put: async (key, value) => { store.set(key, value); }}});
-const call = (e, method, headers = {}, body) => worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/index',
+const call = (e, method, headers = {}, body) => worker.fetch(new Request('https://www.jobpilotto.top/api/index',
   {method, headers, body: body === undefined ? undefined : JSON.stringify(body)}), e, {});
 const feed = (slug, extra = {}) => ({company: `Co ${slug}`, ats: 'lever', slug, quality: 71.6, jobs: 12, relevant: 4.6, checked: '2026-09-30', places: ['Zurich, Switzerland', 7], ...extra});
 const auth = {Authorization: 'Bearer k3y'};
 // An install's token for the index, minted the way the engine does.
-const tokenOf = async (install, purpose = 'index') => (await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/install-token',
+const tokenOf = async (install, purpose = 'index') => (await (await worker.fetch(new Request('https://www.jobpilotto.top/api/install-token',
   {method: 'POST', body: JSON.stringify({install, purpose})}), env(), {})).json()).token;
 const holder = async (install = 'abcd-1234-efgh') => ({'X-Install-Id': install, Authorization: `Bearer ${await tokenOf(install)}`});
 
@@ -60,7 +60,7 @@ test('a token opens only what it was minted for; a wrong or missing install id i
 test('the summary is public and holds only counts, never the feeds', async () => {
   store.clear();
   await call(env(), 'PUT', auth, {feeds: [feed('a'), feed('b', {kind: 'board'}), feed('c', {jobs: 8})]});
-  const res = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/index?summary=1'), env(), {});
+  const res = await worker.fetch(new Request('https://www.jobpilotto.top/api/index?summary=1'), env(), {});
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), {employers: 2, jobs: 20});   // the job portal is not counted as an employer
 });
@@ -69,7 +69,7 @@ test('an install can download a few times a day, then waits', async () => {
   store.clear();
   await call(env(), 'PUT', auth, {feeds: [feed('a')]});
   const e = env(), headers = await holder('limit-install-1');
-  const get = () => worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/index', {headers}), e, {});
+  const get = () => worker.fetch(new Request('https://www.jobpilotto.top/api/index', {headers}), e, {});
   for (let i = 0; i < 24; i++) assert.equal((await get()).status, 200);
   assert.equal((await get()).status, 429);
 });
@@ -89,7 +89,7 @@ test('a broken scout run cannot wipe the list, and empty or invalid bodies are r
   assert.equal((await call(env(), 'PUT', auth, {feeds: many.slice(0, 5)})).status, 409);
   assert.equal((await call(env(), 'PUT', auth, {feeds: []})).status, 400);
   assert.equal(JSON.parse(store.get('index:employers')).feeds.length, 20);
-  const raw = await worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/index', {method: 'PUT', headers: auth, body: 'not json'}), env(), {});
+  const raw = await worker.fetch(new Request('https://www.jobpilotto.top/api/index', {method: 'PUT', headers: auth, body: 'not json'}), env(), {});
   assert.equal(raw.status, 400);
 });
 
@@ -150,7 +150,7 @@ function d1() {
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
 }
-const sliced = (e, regions, headers) => worker.fetch(new Request(`https://www.jobpilotto.workers.dev/api/index?regions=${regions}`, {headers}), e, {});
+const sliced = (e, regions, headers) => worker.fetch(new Request(`https://www.jobpilotto.top/api/index?regions=${regions}`, {headers}), e, {});
 
 test('published feeds land in D1 with their regions, and an install gets only its regions plus feeds of unknown places', async () => {
   store.clear();

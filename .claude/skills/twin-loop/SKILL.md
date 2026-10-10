@@ -84,7 +84,7 @@ Twin fills count as real use since d8cbe63, so they feed it both ways.
 1. **The fleet numbers.** Fetch them with the key from the Keychain. **Never print the key**, nor any user text:
 
    ```
-   K=$(security find-generic-password -s job-pilotto.site.api_key -w); curl -s -H "Authorization: Bearer $K" https://www.jobpilotto.workers.dev/admin/form-filling/digest.json
+   K=$(security find-generic-password -s job-pilotto.site.api_key -w); curl -s -H "Authorization: Bearer $K" https://www.jobpilotto.top/admin/form-filling/digest.json
    ```
 
    Save each read as `<scratchpad>/twin-loop/digest-r<N>.json` (round 0 = before the first round) and diff it against round 0: the weekly

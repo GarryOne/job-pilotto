@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import site, {dispatch} from '../src/index.js';
 
-const post = (body, token) => new Request('https://www.jobpilotto.workers.dev/report/fill-failure', {method: 'POST',
+const post = (body, token) => new Request('https://www.jobpilotto.top/report/fill-failure', {method: 'POST',
   headers: {'Content-Type': 'application/json', ...(token ? {Authorization: `Bearer ${token}`} : {})}, body: JSON.stringify(body)});
 
 test('form reports reach the site worker; nothing mechanical is refused before GitHub is called', async () => {

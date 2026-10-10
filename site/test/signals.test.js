@@ -14,7 +14,7 @@ function d1() {
 }
 const kv = {get: async () => null, put: async () => {}, list: async () => ({keys: [{name: 'signup:someone@example.com', metadata: {at: new Date().toISOString(), role: 'SRE'}}]})};
 const env = () => ({STATS: d1(), STATS_KEY: 'k3y', WAITLIST: kv, ASSETS: {fetch: () => new Response('asset')}});
-const get = (e, headers = {}) => worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/signals?days=7', {headers}), e, {});
+const get = (e, headers = {}) => worker.fetch(new Request('https://www.jobpilotto.top/api/signals?days=7', {headers}), e, {});
 
 test('without the key: not found', async () => {
   assert.equal((await get(env())).status, 404);
@@ -22,7 +22,7 @@ test('without the key: not found', async () => {
 
 test('with the key: website, app and waitlist counts, never an email or a problem sample', async () => {
   const e = env();
-  const send = events => worker.fetch(new Request('https://www.jobpilotto.workers.dev/report/telemetry',
+  const send = events => worker.fetch(new Request('https://www.jobpilotto.top/report/telemetry',
     {method: 'POST', body: JSON.stringify({events})}), e, {});
   await send([{kind: 'crash', install: 'install-aaaa', version: '0.4.1', platform: 'darwin', at: new Date().toISOString(),
     where: 'window', type: 'TypeError', message: 'boom'}]);
@@ -39,7 +39,7 @@ test('with the key: website, app and waitlist counts, never an email or a proble
 
 test('license ids seen on health lines: the last time and version per id, never anything else', async () => {
   const e = env();
-  const send = events => worker.fetch(new Request('https://www.jobpilotto.workers.dev/report/telemetry',
+  const send = events => worker.fetch(new Request('https://www.jobpilotto.top/report/telemetry',
     {method: 'POST', body: JSON.stringify({events})}), e, {});
   const health = (install, at, licenseId, version) => ({kind: 'health', install, version, platform: 'darwin', at, licensed: true, licenseId});
   const today = new Date().toISOString().slice(0, 10);

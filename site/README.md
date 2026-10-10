@@ -19,7 +19,7 @@ From a terminal or an agent session on the owner's Mac:
 
 ```sh
 curl -s -H "Authorization: Bearer $(security find-generic-password -s job-pilotto.site.api_key -w)" \
-  https://www.jobpilotto.workers.dev/admin/ai-cost
+  https://www.jobpilotto.top/admin/ai-cost
 ```
 
 - The Bearer token is the Worker secret `STATS_API_KEY`, kept in the Keychain as `job-pilotto.site.api_key`.

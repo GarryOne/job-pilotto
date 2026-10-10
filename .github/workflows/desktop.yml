@@ -831,7 +831,7 @@ jobs:
           find blob-reports -name '*.zip' -exec cp {} flat/ \;
           if ls flat/*.zip >/dev/null 2>&1; then
             PLAYWRIGHT_HTML_OUTPUT_DIR="$GITHUB_WORKSPACE/e2e-report" PLAYWRIGHT_HTML_OPEN=never npx playwright merge-reports -c report/merge.config.mjs --reporter html flat
-            echo "## 📊 [Open the Mac HTML report](https://www.jobpilotto.workers.dev/admin/e2e/run/${{ github.run_id }}/report) · every suite, its steps with a screenshot each, the failure and its trace (admins)" >> "$GITHUB_STEP_SUMMARY"
+            echo "## 📊 [Open the Mac HTML report](https://www.jobpilotto.top/admin/e2e/run/${{ github.run_id }}/report) · every suite, its steps with a screenshot each, the failure and its trace (admins)" >> "$GITHUB_STEP_SUMMARY"
           else echo "No suite wrote a report." >> "$GITHUB_STEP_SUMMARY"; fi
       - uses: actions/upload-artifact@v6
         if: hashFiles('e2e-report/index.html') != ''
@@ -905,7 +905,7 @@ jobs:
           find blob-reports -name '*.zip' -exec cp {} flat/ \;
           if ls flat/*.zip >/dev/null 2>&1; then
             PLAYWRIGHT_HTML_OUTPUT_DIR="$GITHUB_WORKSPACE/e2e-report" PLAYWRIGHT_HTML_OPEN=never npx playwright merge-reports -c report/merge.config.mjs --reporter html flat
-            echo "## 📊 [Open the Windows HTML report](https://www.jobpilotto.workers.dev/admin/e2e/run/${{ github.run_id }}/report?os=windows) · every suite, its steps with a screenshot each, the failure and its trace (admins)" >> "$GITHUB_STEP_SUMMARY"
+            echo "## 📊 [Open the Windows HTML report](https://www.jobpilotto.top/admin/e2e/run/${{ github.run_id }}/report?os=windows) · every suite, its steps with a screenshot each, the failure and its trace (admins)" >> "$GITHUB_STEP_SUMMARY"
           else echo "No suite wrote a report." >> "$GITHUB_STEP_SUMMARY"; fi
       - uses: actions/upload-artifact@v6
         if: hashFiles('e2e-report/index.html') != ''

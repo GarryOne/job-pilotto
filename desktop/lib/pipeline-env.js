@@ -94,7 +94,7 @@ export function pipelineEnv(storage, parent = process.env) {
     for (const [variable, name] of Object.entries(LOCAL_TEXTS)) env[variable] = storage.path(name);
   }
   // The free AI credit (lib/ai-trial.js): the Python SDK follows ANTHROPIC_BASE_URL like the app's.
-  if (settings.aiTrial) env.ANTHROPIC_BASE_URL = 'https://www.jobpilotto.workers.dev/api/ai'; else delete env.ANTHROPIC_BASE_URL;
+  if (settings.aiTrial) env.ANTHROPIC_BASE_URL = 'https://www.jobpilotto.top/api/ai'; else delete env.ANTHROPIC_BASE_URL;
   // The end-to-end journey (desktop/e2e) sends the engine's AI calls through its own slow proxy to reproduce a slow AI; never set for a user.
   if (parent.JOB_PILOTTO_E2E && parent.JOB_PILOTTO_E2E_AI_BASE_URL) env.ANTHROPIC_BASE_URL = parent.JOB_PILOTTO_E2E_AI_BASE_URL;
   if (parent.JOB_PILOTTO_E2E && parent.JOB_PILOTTO_E2E_OPENAI_BASE_URL) env.OPENAI_BASE_URL = parent.JOB_PILOTTO_E2E_OPENAI_BASE_URL;   // the Python OpenAI SDK too

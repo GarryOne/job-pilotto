@@ -72,7 +72,7 @@ function familySection(families) {
 ${row('claude', 'Claude')}${row('openai', 'OpenAI')}${row('unknown', 'Unknown')}</table></section>`;
 }
 
-export function page(data, url = new URL('https://www.jobpilotto.workers.dev/admin/scouting')) {
+export function page(data, url = new URL('https://www.jobpilotto.top/admin/scouting')) {
   const {feeds} = data;
   const nonIt = feeds.filter(feed => !['software', 'unknown'].includes(topKind(feed))).length;
   const week = data.daily.find(row => row.day <= day(new Date(), 7));

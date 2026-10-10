@@ -13,7 +13,7 @@ async function licenseKey(payload) {
 const kv = () => { const m = new Map(); return {m, get: async k => m.get(k) ?? null, put: async (k, v) => { m.set(k, v); }}; };
 const env = () => ({ANTHROPIC_TRIAL_KEY: 'sk-trial', WAITLIST: kv(), LICENSE_PUBLIC_KEY: publicKey, TRIAL_PER_KEY_USD: '1', TRIAL_MONTH_USD: '20'});
 const call = (e, key, body = {model: 'claude-haiku-4-5', max_tokens: 10, messages: []}, fetcher, path = '/api/ai/v1/messages') =>
-  trial(new Request(`https://www.jobpilotto.workers.dev${path}`, {method: path.endsWith('messages') ? 'POST' : 'GET',
+  trial(new Request(`https://www.jobpilotto.top${path}`, {method: path.endsWith('messages') ? 'POST' : 'GET',
     headers: {'x-api-key': key, 'anthropic-version': '2023-06-01'}, ...(path.endsWith('messages') ? {body: JSON.stringify(body)} : {})}), e, fetcher);
 const anthropic = (usage = {input_tokens: 1000, output_tokens: 1000}, seen = []) => async (url, init) => {
   seen.push({url, key: init.headers['x-api-key']});

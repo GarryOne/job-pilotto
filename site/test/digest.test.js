@@ -65,7 +65,7 @@ test('proposed answers: the app\'s counts arrive through /api/controls and the d
   assert.deepEqual(d.proposals.byVersion.map(v => [v.version, v.shown]), [['0.6.0', 5]]);
   const md = markdown(d);
   assert.ok(md.includes('## Proposed answers') && md.includes('| fill_guess | 4 | 50% | 25% | 25% |'), md.slice(md.indexOf('## Proposed')));
-  const html = page(await report(e.STATS, new Date()), new URL('https://www.jobpilotto.workers.dev/admin/form-filling'));
+  const html = page(await report(e.STATS, new Date()), new URL('https://www.jobpilotto.top/admin/form-filling'));
   assert.match(html, /🎯 Proposed answers: used as proposed/);
   assert.match(html, /<td>fill_guess<\/td><td class="n">4<\/td><td class="n">50%<\/td>/);
 });

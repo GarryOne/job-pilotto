@@ -16,9 +16,9 @@ function d1() {
 }
 const env = () => ({STATS: d1(), STATS_SALT: 'salt', fetcher: async () => new Response('{}', {status: 404})});
 const BROWSER = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Safari/605.1.15';
-const click = (e, query, ip, at, referer) => download(new Request(`https://www.jobpilotto.workers.dev/download/mac?${query}`,
+const click = (e, query, ip, at, referer) => download(new Request(`https://www.jobpilotto.top/download/mac?${query}`,
   {headers: {'CF-Connecting-IP': ip, 'User-Agent': BROWSER, ...(referer ? {Referer: referer} : {})}}), e, null, new Date(at));
-const ask = async (e, platform, ip, at) => (await (await attribution(new Request(`https://www.jobpilotto.workers.dev/api/attribution?platform=${platform}`,
+const ask = async (e, platform, ip, at) => (await (await attribution(new Request(`https://www.jobpilotto.top/api/attribution?platform=${platform}`,
   {headers: {'CF-Connecting-IP': ip, 'User-Agent': 'Electron'}}), e, new Date(at))).json()).source;
 
 test('the app gets the source of the latest click from its network and platform', async () => {

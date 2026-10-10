@@ -13,7 +13,7 @@ function d1() {
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
 }
-const req = (path, headers = {}) => new Request(`https://www.jobpilotto.workers.dev${path}`, {headers: {'User-Agent': 'Mozilla/5.0 (Macintosh)', 'CF-IPCountry': 'CH', ...headers}});
+const req = (path, headers = {}) => new Request(`https://www.jobpilotto.top${path}`, {headers: {'User-Agent': 'Mozilla/5.0 (Macintosh)', 'CF-IPCountry': 'CH', ...headers}});
 const now = Date.parse('2026-10-06T12:00:00Z');
 
 test('a login swaps the key for a signed session that expires; the key itself never sits in a cookie', async () => {

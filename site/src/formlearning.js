@@ -156,7 +156,7 @@ function familySection(families) {
 ${row('claude', 'Claude')}${row('openai', 'OpenAI')}${row('unknown', 'Unknown')}</table></div></section>`;
 }
 
-export function page(data, url = new URL('https://www.jobpilotto.workers.dev/admin/form-filling')) {
+export function page(data, url = new URL('https://www.jobpilotto.top/admin/form-filling')) {
   const w = data.learning?.thisWeek, l = data.learning?.lastWeek;   // real fills (fill_cards, the digest)
   // Compared with last week; while last week has no forms, the last 3 days against the days before (the digest's recent vs earlier window).
   const early = !l?.forms && data.learning?.recent, rc = data.learning?.recent, er = data.learning?.earlier;

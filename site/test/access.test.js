@@ -13,7 +13,7 @@ function d1() {
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
 }
-const ORIGIN = 'https://www.jobpilotto.workers.dev';
+const ORIGIN = 'https://www.jobpilotto.top';
 const env = () => ({STATS: d1(), STATS_KEY: 'browser-key', STATS_API_KEY: 'script-key', STATS_SALT: 's', WAITLIST: {get: async () => null, put: async () => {}, list: async () => ({keys: []})},
   ASSETS: {fetch: () => new Response('asset')}});
 const get = (e, path, headers = {}) => worker.fetch(new Request(`${ORIGIN}${path}`, {headers: {'User-Agent': 'Mozilla/5.0 (Macintosh)', ...headers}}), e, {});

@@ -6,7 +6,7 @@ import {brain} from '../src/brain.js';
 
 const env = {BRAIN_BOT_TOKEN: 't', BRAIN_WEBHOOK_SECRET: 's3cret', BRAIN_CHAT_ID: '42'};
 const id = 'a'.repeat(32);
-const tap = (data, chat = 42, secret = 's3cret') => new Request('https://www.jobpilotto.workers.dev/api/brain/telegram', {
+const tap = (data, chat = 42, secret = 's3cret') => new Request('https://www.jobpilotto.top/api/brain/telegram', {
   method: 'POST', headers: {'X-Telegram-Bot-Api-Secret-Token': secret},
   body: JSON.stringify({callback_query: {id: 'q', data, message: {chat: {id: chat}, message_id: 7}}})});
 

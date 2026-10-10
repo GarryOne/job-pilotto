@@ -18,7 +18,7 @@ function d1() {
   return {db, prepare: sql => statement(sql)};
 }
 const MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Safari/605.1.15';
-const request = (path, {ip = '1.2.3.4', agent = MAC, ...init} = {}) => new Request(`https://www.jobpilotto.workers.dev${path}`,
+const request = (path, {ip = '1.2.3.4', agent = MAC, ...init} = {}) => new Request(`https://www.jobpilotto.top${path}`,
   {...init, headers: {'CF-Connecting-IP': ip, 'User-Agent': agent, ...init.headers}});
 const env = () => ({STATS: d1(), STATS_KEY: 'k3y', STATS_SALT: 'salt', ASSETS: {fetch: () => new Response('asset')},
   fetcher: async () => new Response('', {status: 503})});  // no GitHub in tests: the fixed file name
@@ -94,7 +94,8 @@ test('device and source are read without keeping anything identifying', () => {
   assert.equal(device('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)'), 'iPhone');
   assert.equal(device('Mozilla/5.0 (Windows NT 10.0; Win64; x64)'), 'Windows');
   assert.equal(sourceOf('https://www.linkedin.com/feed/', 'www.jobpilotto.workers.dev'), 'linkedin.com');
-  assert.equal(sourceOf('https://www.jobpilotto.workers.dev/compare.html', 'www.jobpilotto.workers.dev'), 'direct');
+  assert.equal(sourceOf('https://www.jobpilotto.top/compare.html', 'www.jobpilotto.workers.dev'), 'direct');
+  assert.equal(sourceOf('https://www.jobpilotto.workers.dev/', 'www.jobpilotto.top'), 'direct');   // the site linking to itself, whichever host
   assert.equal(sourceOf('', 'x'), 'direct');
 });
 

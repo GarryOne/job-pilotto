@@ -9,4 +9,4 @@ Disallow: /friends
 Disallow: /install
 Disallow: /trace-viewer/
 
-Sitemap: https://www.jobpilotto.workers.dev/sitemap.xml
+Sitemap: https://www.jobpilotto.top/sitemap.xml

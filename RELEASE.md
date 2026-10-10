@@ -151,7 +151,7 @@ buttons `site/src/brain.js`, decisions in Notion **🧭 Product Brain · Decisio
 - Notion: connection **Job Pilotto Brain** (internal), shared with the Decisions database only → GitHub secret `NOTION_BRAIN_TOKEN`.
 - Telegram: @BotFather → new bot → GitHub secret `BRAIN_BOT_TOKEN`; your chat id → `BRAIN_CHAT_ID`.
   The same token and id + a random `BRAIN_WEBHOOK_SECRET` as Worker secrets of `www` (site/), then
-  `setWebhook` to `https://www.jobpilotto.workers.dev/api/brain/telegram` with that secret.
+  `setWebhook` to `https://www.jobpilotto.top/api/brain/telegram` with that secret.
 - Repository variable `BRAIN_DATABASE_ID` (set). Cost: about $0.10–0.30 a brief (Sonnet, capped turns).
 </details>
 

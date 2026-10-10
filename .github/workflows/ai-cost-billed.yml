@@ -1,6 +1,6 @@
 name: CI · AI cost billed
 
-# What Anthropic itself billed per day (Admin API cost report), published to the owner's page https://www.jobpilotto.workers.dev/ai-cost next to what the
+# What Anthropic itself billed per day (Admin API cost report), published to the owner's page https://www.jobpilotto.top/ai-cost next to what the
 # scheduled jobs report: a growing gap means a job that spends but does not report. Needs ANTHROPIC_ADMIN_KEY (an Admin key, not the API key) and
 # AI_COST_PUBLISH_KEY; without the first it only prints a line.
 on:

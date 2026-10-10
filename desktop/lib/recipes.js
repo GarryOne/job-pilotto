@@ -13,7 +13,7 @@ import {log} from './log.js';
 import {LEFT_REASONS, cleanLabel} from './question-labels.js';
 import {cleanUse} from './proposal-use.js';
 
-export const SITE = 'https://www.jobpilotto.workers.dev';
+export const SITE = 'https://www.jobpilotto.top';
 const CACHE = 'recipes-cache.json';
 const TTL_MS = 6 * 3600 * 1000;
 const FLUSH_MS = 5 * 60 * 1000;

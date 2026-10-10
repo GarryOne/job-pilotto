@@ -22,7 +22,7 @@ function d1() {
 const env = () => ({STATS: d1(), STATS_KEY: 'k3y', STATS_SALT: 'salt', WAITLIST: {get: async () => null, put: async () => {}, list: async () => ({keys: []})},
   ASSETS: {fetch: () => new Response('asset')}, fetcher: async () => new Response('', {status: 503})});
 const owner = {headers: {Cookie: 'jp_stats=k3y'}};
-const get = (e, path, init = {}) => worker.fetch(new Request(`https://www.jobpilotto.workers.dev${path}`, init), e, {});
+const get = (e, path, init = {}) => worker.fetch(new Request(`https://www.jobpilotto.top${path}`, init), e, {});
 const now = new Date('2026-10-12T12:00:00Z');
 
 test('the old addresses send the owner to /admin (query kept); anyone else still gets a 404', async () => {

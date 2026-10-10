@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {E2E} from './app.mjs';
 
-export const SITE = 'https://www.jobpilotto.workers.dev/admin/applying';
+export const SITE = 'https://www.jobpilotto.top/admin/applying';
 export const extensionVersion = () => { try { return JSON.parse(fs.readFileSync(path.join(E2E, '..', '..', 'extension', 'manifest.json'), 'utf8')).version; } catch { return ''; } };
 export const hostOnly = url => { try { return new URL(url).hostname; } catch { return ''; } };
 export const skipReason = (env = process.env) => (env.CI ? 'CI' : env.REAL_EXTENSION_DIR ? 'a control run on another build' : env.JP_NO_REPORT ? 'JP_NO_REPORT' : '');

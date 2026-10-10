@@ -11,3 +11,6 @@ export function apexRedirect(request) {
   url.hostname = `www.${ALIAS_APEX}`;
   return Response.redirect(url.toString(), 301);
 }
+
+// Our own hosts, www stripped: a referrer from any of them is the site linking to itself (src/stats.js sourceOf).
+export const OWN_HOSTS = [ALIAS_APEX, 'jobpilotto.workers.dev'];

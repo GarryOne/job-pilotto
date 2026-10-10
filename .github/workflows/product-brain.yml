@@ -87,7 +87,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/shots" && cp tools/site-shots.mjs "$RUNNER_TEMP/shots/"
           cd "$RUNNER_TEMP/shots" && npm init -y >/dev/null && npm i -s playwright@1 && npx playwright install --with-deps chromium >/dev/null
-          node site-shots.mjs https://www.jobpilotto.workers.dev/ "$GITHUB_WORKSPACE/.brain"
+          node site-shots.mjs https://www.jobpilotto.top/ "$GITHUB_WORKSPACE/.brain"
 
       - name: Claude picks today's one action
         if: env.STEP == 'brief' || env.STEP == 'another'

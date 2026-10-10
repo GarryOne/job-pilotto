@@ -24,7 +24,7 @@ export function device(agent = '') {
 export function sourceOf(referrer, self) {
   try {
     const host = new URL(referrer).hostname.replace(/^www\./, '');
-    return host && host !== self.replace(/^www\./, '') ? clip(host, 60) : 'direct';
+    return host && host !== self.replace(/^www\./, '') && !OWN_HOSTS.includes(host) ? clip(host, 60) : 'direct';
   } catch { return 'direct'; }
 }
 
@@ -109,6 +109,7 @@ export async function download(request, env, ctx, now = new Date()) {
 // ---- /stats ----
 
 // Who may open the owner's pages: src/auth.js (a session cookie, the scripts' key).
+import {OWN_HOSTS} from './hosts.js';
 import {filterLinks} from './admin.js';
 import {net} from './attribution.js';
 import {viewer} from './auth.js';   // admins (invited) read this page too

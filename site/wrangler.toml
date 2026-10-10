@@ -1,6 +1,6 @@
 # The landing page (public/, Workers static assets), POST /api/waitlist, and Connect with Notion (src/notion.js).
 # Deploy: cd site && npx wrangler@4 deploy   (CI: .github/workflows/site.yml on changes under site/)
-name = "www"   # https://www.jobpilotto.workers.dev (the account's workers.dev subdomain is "jobpilotto")
+name = "www"   # https://www.jobpilotto.top; also https://www.jobpilotto.workers.dev, which never changes (installed apps call it; the account's workers.dev subdomain is "jobpilotto")
 main = "src/index.js"
 compatibility_date = "2026-09-01"
 

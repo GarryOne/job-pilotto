@@ -4,9 +4,9 @@ import {execFileSync} from 'node:child_process';
 import {cleanSource, install, script} from '../src/install.js';
 
 test('the installer is valid bash that installs to Applications from the stable release', () => {
-  const text = script('https://www.jobpilotto.workers.dev');
+  const text = script('https://www.jobpilotto.top');
   execFileSync('bash', ['-n'], {input: text});  // syntax only, runs nothing
-  assert.match(text, /curl -fsSL https:\/\/www\.jobpilotto\.workers\.dev\/install \| bash/);
+  assert.match(text, /curl -fsSL https:\/\/www\.jobpilotto\.top\/install \| bash/);
   assert.match(text, /releases\/latest\/download\/Job-Pilotto-mac-arm64\.zip/);
   assert.match(text, /APP="\/Applications\/Job Pilotto\.app"/);
   assert.match(text, /uname -m\)" = arm64/);
@@ -14,7 +14,7 @@ test('the installer is valid bash that installs to Applications from the stable 
 
 test('GET /install serves the script as text and counts a terminal download', async () => {
   const rows = [];
-  const response = await install(new Request('https://www.jobpilotto.workers.dev/install', {headers: {'User-Agent': 'curl/8.7.1'}}),
+  const response = await install(new Request('https://www.jobpilotto.top/install', {headers: {'User-Agent': 'curl/8.7.1'}}),
     {}, null, async (request, env, fields) => rows.push(fields));
   assert.equal(response.status, 200);
   assert.match(response.headers.get('Content-Type'), /^text\/plain/);
@@ -31,7 +31,7 @@ test('only GET counts; other methods are refused', async () => {
 });
 
 test('with a founder key (bash -s JP1.…) the installer leaves it for the app, private to the user', () => {
-  const text = script('https://www.jobpilotto.workers.dev');
+  const text = script('https://www.jobpilotto.top');
   assert.match(text, /key="\$\{1:-\}"/);
   assert.match(text, /pending-license\.txt/);
   assert.match(text, /umask 077/);
@@ -40,7 +40,7 @@ test('with a founder key (bash -s JP1.…) the installer leaves it for the app, 
 test('/install?src= is counted with its channel and leaves it for the app; anything odd is ignored', async () => {
   const rows = [];
   const count = async (request, env, fields) => rows.push(fields);
-  const tagged = await install(new Request('https://www.jobpilotto.workers.dev/install?src=Reddit-DevOps'), {}, null, count);
+  const tagged = await install(new Request('https://www.jobpilotto.top/install?src=Reddit-DevOps'), {}, null, count);
   const text = await tagged.text();
   assert.match(text, /channel='reddit-devops'/);
   assert.match(text, /install-source\.txt/);

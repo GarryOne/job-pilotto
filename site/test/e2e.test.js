@@ -59,7 +59,7 @@ function github(calls = []) {
     return new Response('nope', {status: 404});
   };
 }
-const ask = (path, init = {}, fetcher = github(), e = env) => view(new Request(`https://www.jobpilotto.workers.dev${path}`, init), e, fetcher);
+const ask = (path, init = {}, fetcher = github(), e = env) => view(new Request(`https://www.jobpilotto.top${path}`, init), e, fetcher);
 
 test('the runs, the steps and the trace, for an admin only', async () => {
   for (const path of ['/admin/e2e', '/admin/e2e?json=1', '/admin/e2e?steps=42', '/admin/e2e/trace/42/trace-jobs.zip']) assert.equal((await ask(path)).status, 404, path);
@@ -131,7 +131,7 @@ test('the run link: an admin is sent to the report (filtered to a suite); not re
 });
 test('report files: the signed address serves them without a cookie; a wrong token or another artifact is a 404', async () => {
   const token = await reportToken(env, 77);
-  const get = path => reportFile(new Request(`https://www.jobpilotto.workers.dev${path}`), env, reportGithub());
+  const get = path => reportFile(new Request(`https://www.jobpilotto.top${path}`), env, reportGithub());
   const page = await get(`/admin/e2e/report/77/${token}/index.html`);
   assert.equal(page.status, 200);
   assert.match(page.headers.get('Content-Type'), /text\/html/);

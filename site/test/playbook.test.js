@@ -5,9 +5,9 @@ import worker from '../src/index.js';
 
 const map = new Map();
 const env = () => ({STATS_KEY: 'secret', WAITLIST: {get: async key => map.get(key) ?? null, put: async (key, value) => { map.set(key, value); }}});
-const call = (e, method, {headers = {}, body, query = ''} = {}) => worker.fetch(new Request(`https://www.jobpilotto.workers.dev/api/playbook${query}`,
+const call = (e, method, {headers = {}, body, query = ''} = {}) => worker.fetch(new Request(`https://www.jobpilotto.top/api/playbook${query}`,
   {method, headers, body: body === undefined ? undefined : JSON.stringify(body)}), e, {});
-const tokenOf = async (e, install) => (await (await worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/install-token', {method: 'POST', body: JSON.stringify({install})}), e, {})).json()).token;
+const tokenOf = async (e, install) => (await (await worker.fetch(new Request('https://www.jobpilotto.top/api/install-token', {method: 'POST', body: JSON.stringify({install})}), e, {})).json()).token;
 const holder = async (e, install = 'abcd-1234-efgh') => ({'X-Install-Id': install, Authorization: `Bearer ${await tokenOf(e, install)}`});
 
 test('only the owner publishes; a board name and size are checked', async () => {

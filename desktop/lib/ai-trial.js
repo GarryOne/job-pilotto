@@ -2,7 +2,7 @@
 // key, the app sends its owner-signed license key (JP1.…) to our website, which forwards to Anthropic with the
 // owner's trial key. Both SDKs (the app's JS and the Python pipeline) follow ANTHROPIC_BASE_URL, so switching is
 // one variable. Own key saved later → back to Anthropic directly (settings.aiTrial off).
-export const TRIAL_BASE = 'https://www.jobpilotto.workers.dev/api/ai';
+export const TRIAL_BASE = 'https://www.jobpilotto.top/api/ai';
 
 export const isTrialKey = key => String(key || '').startsWith('JP1.');
 

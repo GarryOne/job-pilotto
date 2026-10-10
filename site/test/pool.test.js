@@ -15,8 +15,8 @@ function d1() {
 }
 const kvStore = () => { const map = new Map(); return {map, get: async k => map.get(k) ?? null, put: async (k, v) => { map.set(k, v); }}; };
 const setup = () => ({STATS: d1(), WAITLIST: kvStore(), STATS_SALT: 'salt', INDEX_PUBLISH_KEY: 'k3y', ASSETS: {fetch: () => new Response('asset')}});
-const post = (env, body) => worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/contribute', {method: 'POST', body: JSON.stringify(body)}), env, {});
-const read = (env, headers = {}, query = '') => worker.fetch(new Request(`https://www.jobpilotto.workers.dev/api/contributions${query}`, {headers}), env, {});
+const post = (env, body) => worker.fetch(new Request('https://www.jobpilotto.top/api/contribute', {method: 'POST', body: JSON.stringify(body)}), env, {});
+const read = (env, headers = {}, query = '') => worker.fetch(new Request(`https://www.jobpilotto.top/api/contributions${query}`, {headers}), env, {});
 const feed = (slug, extra = {}) => ({ats: 'lever', slug, company: `Co ${slug}`, matched: true, own: false, ...extra});
 const body = (install, feeds, extra = {}) => ({v: 1, install, roles: ['sre_devops'], regions: ['europe'], feeds, ...extra});
 
@@ -38,7 +38,7 @@ test('invalid bodies and a wrong method are refused', async () => {
   assert.equal((await post(env, {v: 3, install: 'install-aaaa1111', feeds: [feed('a')]})).status, 400);   // v1 and v2 are known
   assert.equal((await post(env, {v: 1, install: 'x', feeds: [feed('a')]})).status, 400);
   assert.equal((await post(env, body('install-aaaa1111', []))).status, 400);
-  assert.equal((await worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/contribute'), env, {})).status, 405);
+  assert.equal((await worker.fetch(new Request('https://www.jobpilotto.top/api/contribute'), env, {})).status, 405);
 });
 
 test('many small shares a minute per install (each find as it is made), then a pause', async () => {
@@ -160,7 +160,7 @@ test('country, metro and role family are kept from the fixed lists only and coun
 test('the day\'s totals per source and segment are kept for good, after the raw rows are purged', async () => {
   const env = setup();
   for (const install of ['install-aaaa1111', 'install-bbbb2222']) {
-    await worker.fetch(new Request('https://www.jobpilotto.workers.dev/api/contribute', {method: 'POST', body: JSON.stringify({v: 2, install, roles: ['creative_media'], regions: ['europe'],
+    await worker.fetch(new Request('https://www.jobpilotto.top/api/contribute', {method: 'POST', body: JSON.stringify({v: 2, install, roles: ['creative_media'], regions: ['europe'],
       countries: ['ch'], feeds: [feed('studio', {jobs: 5, hits: 1, out: {applied: 1, interview: install.includes('aaaa') ? 1 : 0}})], boards: [{board: 'jobsch', jobs: 50, hits: 2, dup: 1}]})}), env, {});
   }
   assert.ok(await rollup(env, new Date()) >= 2);

@@ -28,8 +28,8 @@ test('every step is a row with its status, time and what happened', () => {
 });
 
 test('the suite links to the run\'s HTML report, except on the second try', () => {
-  const url = 'https://www.jobpilotto.workers.dev/admin/e2e/run/9/report?suite=jobs';
-  assert.match(stepSummary('jobs', results, {reportUrl: url}), /📊 \[Open the HTML report\]\(https:\/\/www\.jobpilotto\.workers\.dev\/admin\/e2e\/run\/9\/report\?suite=jobs\)/);
+  const url = 'https://www.jobpilotto.top/admin/e2e/run/9/report?suite=jobs';
+  assert.match(stepSummary('jobs', results, {reportUrl: url}), /📊 \[Open the HTML report\]\(https:\/\/www\.jobpilotto\.top\/admin\/e2e\/run\/9\/report\?suite=jobs\)/);
   assert.doesNotMatch(stepSummary('jobs', results, {reportUrl: url, rerun: true}), /HTML report/);
 });
 

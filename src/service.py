@@ -13,7 +13,7 @@ import urllib.request
 from .paths import DATA
 from .sources import ats
 
-SITE = 'https://www.jobpilotto.workers.dev'
+SITE = 'https://www.jobpilotto.top'
 TIMEOUT = 10
 ID_FILE = DATA / 'install_id'
 _ID = re.compile(r'[A-Za-z0-9_-]{8,64}')

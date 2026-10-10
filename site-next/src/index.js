@@ -1,6 +1,6 @@
 // The preview site serves its own pages. Anything that is not a page (downloads, the install script, the APIs) is
 // handled by the live site, so the buttons work, but the preview keeps no data of its own.
-const LIVE = 'https://www.jobpilotto.workers.dev';
+const LIVE = 'https://www.jobpilotto.top';
 
 export default {
   async fetch(request) {

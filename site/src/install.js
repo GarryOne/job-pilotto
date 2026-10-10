@@ -1,4 +1,4 @@
-// GET /install: the Mac installer script, for `curl -fsSL https://www.jobpilotto.workers.dev/install | bash`.
+// GET /install: the Mac installer script, for `curl -fsSL https://www.jobpilotto.top/install | bash`.
 // Files downloaded by curl carry no quarantine flag, so the app opens without Gatekeeper's "Not Opened" /
 // "Open Anyway" (the app isn't notarized yet). Also updates an installed copy. Each run is counted as a Mac
 // download (button "terminal"); curl isn't a bot here.
