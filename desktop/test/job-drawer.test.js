@@ -87,6 +87,27 @@ test('Interviews and Review: cards that fold, the way from an interview to its r
   assert.match(review, /No review yet/);
 });
 
+test('Description: Fetch original and Paste description only for a job with an application; a failed fetch keeps Try again and Paste; a not-seen posting says so', () => {
+  const source = read('job-drawer/tab-description.js');
+  assert.match(source, /window\.pilot\.describeJob\(app, '', job\.url\)/, 'fetch: the posting\'s page');
+  assert.match(source, /window\.pilot\.describeJob\(app, field\.value, ''\)/, 'paste: the person\'s own text');
+  assert.match(source, /if \(app\) actions\.push\(\.\.\.buttons\(\)\)/, 'a job with no application has nowhere to keep it');
+  assert.match(source, /Could not retrieve the page/);
+  assert.match(source, /Try again, or paste the description/);
+  assert.match(source, /notSeen\(page\) \? \[closedCard\(\)\]/);
+  assert.match(read('job-drawer/tab-overview.js'), /notSeen\(page\)/);
+  assert.match(read('job-drawer/header.js'), /Not seen lately/);
+});
+
+test('Review: a rejection shows the employer\'s words, or that the email gave no reason, before the AI suggestions', () => {
+  const source = read('job-drawer/tab-review.js');
+  assert.match(source, /Employer statement/);
+  assert.match(source, /The email does not give a specific reason/);
+  assert.match(source, /AI suggestions/);
+  assert.match(source, /not confirmed rejection reasons/);
+  assert.match(source, /active\.key === 'rejection'/);
+});
+
 test('Overview: built from the shared card, tile and state-card parts, each part only when it has something', () => {
   const source = read('job-drawer/tab-overview.js');
   for (const part of ['card(', 'factTile(', 'iconRow(', 'stateCard(', 'glanceTiles(', 'clarifyOf(', 'callFacts(']) assert.ok(source.includes(part), part);

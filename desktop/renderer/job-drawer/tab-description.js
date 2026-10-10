@@ -1,10 +1,11 @@
 // Drawer → Description (owner's mock, 10 Oct 2026): a strip of facts (employer, posted, first found, the saved copy), the posting with its
 // headings and bullets, and where it came from with "View original". The text is the page's own (a job you applied to), else the copy the
-// search saved (IPC jobPosting, asked once per job and kept for the session). States: reading it, saved, none saved, could not be read (Retry,
-// only after a failure). Words and blocks: renderer/job-page-view.js postingFacts, postingBlocks.
+// search saved (IPC jobPosting, asked once per job and kept for the session). None saved: "Fetch original" reads the posting's page and
+// "Paste description" saves your own text (both through IPC describeJob, for a job with an application). States: reading it, saved, none
+// saved, fetching, could not be fetched (a saved copy stays readable), could not be read (Retry, only then). Words and blocks: job-page-view.js.
 import {el} from '../components.js';
-import {postingBlocks, postingFacts, postingSource} from '../job-page-view.js';
-import {button, factStrip, postingBody, skeleton, sourceCard, stateCard} from './parts.js';
+import {postingBlocks, postingFacts, postingSource, notSeen} from '../job-page-view.js';
+import {button, closedCard, factStrip, postingBody, skeleton, sourceCard, stateCard} from './parts.js';
 
 const read = new Map();   // job url → the answer of IPC jobPosting, for this session
 const ICONS = {employer: 'building', posted: 'calendar', found: 'search', saved: 'file'};
@@ -16,17 +17,43 @@ function saved(text, job, found = {}) {
   return view;
 }
 
-const none = () => stateCard({icon: 'file', tone: 'warn', title: 'This job has no saved description', text: 'A copy of the original posting is saved with the job once it is read.'});
+// What the two buttons do, for a job with an application (a job nobody applied to has nowhere to keep a description: it says so).
+function missing({job, page, reload}, box, paint, problem = '') {
+  const app = page?.app?.id;
+  const actions = [];
+  const failed = text => { box.replaceChildren(stateCard({icon: 'alert', tone: 'bad', title: 'Could not retrieve the page', text: `${text} Try again, or paste the description.`, actions: buttons()})); };
+  const done = async result => { if (result.ok) { read.delete(job.url); reload(); } else failed(result.text || result.error || 'The page did not answer.'); };
+  const fetchOriginal = () => {
+    box.replaceChildren(stateCard({icon: 'info', title: 'Fetching original…', text: 'Retrieving the posting from the employer\'s website.'}), ...skeleton());
+    window.pilot.describeJob(app, '', job.url).catch(error => ({ok: false, text: error.message})).then(done);
+  };
+  const pasteIn = () => {
+    const field = Object.assign(el('textarea', 'jd-paste'), {rows: 10, placeholder: 'Paste the job description here'});
+    const save = button('Save description', () => {
+      if (!field.value.trim()) return;
+      window.pilot.describeJob(app, field.value, '').catch(error => ({ok: false, text: error.message})).then(done);
+    }, 'primary');
+    const actionsRow = el('div', 'jd-actions');
+    actionsRow.append(save, button('Cancel', () => paint(read.get(job.url) || {ok: false}), 'soft-button'));
+    box.replaceChildren(field, actionsRow);
+  };
+  function buttons() { return [button('Fetch original', fetchOriginal, 'soft-button'), button('Paste description', pasteIn, 'primary')]; }
+  if (app) actions.push(...buttons());
+  return stateCard({icon: 'file', tone: 'warn', title: problem || 'This job has no saved description',
+    text: app ? 'We haven\'t saved a copy of the original posting yet.' : 'A copy of the original posting is saved with the job once the search reads it. Save the job to add one yourself.', actions});
+}
 
-export function descriptionTab({job, parts}) {
-  if (parts.descriptionText) return [saved(parts.descriptionText, job)];
+export function descriptionTab(ctx) {
+  const {job, parts, page} = ctx;
+  const lead = notSeen(page) ? [closedCard()] : [];
+  if (parts.descriptionText) return [...lead, saved(parts.descriptionText, job)];
   const box = el('div', 'jd-async');
   const paint = answer => {
     if (answer.failed) {
       box.replaceChildren(stateCard({icon: 'alert', tone: 'bad', title: 'Could not read the saved posting', text: answer.error, actions: [button('Retry', () => ask(true))]}));
       return;
     }
-    box.replaceChildren(answer.ok && answer.description ? saved(answer.description, job, answer) : none());
+    box.replaceChildren(answer.ok && answer.description ? saved(answer.description, job, answer) : missing(ctx, box, paint));
   };
   const ask = again => {
     if (!again && read.has(job.url)) { paint(read.get(job.url)); return; }
@@ -37,5 +64,5 @@ export function descriptionTab({job, parts}) {
     });
   };
   ask(false);
-  return [box];
+  return [...lead, box];
 }

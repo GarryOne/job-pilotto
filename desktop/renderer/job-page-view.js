@@ -299,6 +299,17 @@ export function reviewsOf(page = {}) {
     .sort((a, b) => String(b.at || '').localeCompare(String(a.at || ''))).map(record => ({key: `iv-${record.id}`, label: `${plain(record.title || 'Interview')} review`, markdown: String(record.review)}))];
 }
 
+// The rejection, as its email said it (board 06): when and from whom, and what the employer stated: the latest "Rejected" event's note. "" when
+// the email gave no reason, which the Review tab then says. null when there is no rejection event. Never the AI's words: those are the review.
+export function rejectionOf(page = {}) {
+  const event = [...(page.events || [])].filter(each => each?.kind === 'Rejected').sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')))[0];
+  if (!event) return null;
+  return {when: day(event.at || event.created_at), from: plain(changesOf(event).from || ''), statement: plain(event.note || '')};
+}
+
+// A posting the last full search no longer listed: the match row's status "Not seen" (src/stores/matches_sync.py: "not proof the posting closed").
+export const notSeen = page => page?.match?.status === 'Not seen';
+
 // The page's content: {tabs: TABS (every job has all eight), kit, groups: {match, prep, review, record, messages, description}, history, shots,
 // documents, has: {tab key → it has content, for its empty state}}.
 export function pageParts({sections = {}, kit = null, events = [], files = [], match = null, app = null, interviews = []} = {}) {

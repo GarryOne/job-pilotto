@@ -5,7 +5,7 @@ import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {fitRing} from '../fit-ring.js';
 import {band} from '../jobs-view.js';
-import {appliedLine, nextInterview} from '../job-page-view.js';
+import {appliedLine, nextInterview, notSeen} from '../job-page-view.js';
 
 function control(name, title, run, disabled = false) {
   const node = Object.assign(el('button', 'ghost icon-btn jd-control'), {type: 'button', title, disabled});
@@ -32,6 +32,7 @@ export function drawerHeader(job, page, {at, back, expanded, on}) {
   const stage = page?.app?.stage || job.stage;
   if (stage) chips.append(pill(stage, 'info'));
   if (job.work_mode) chips.append(pill(job.work_mode, 'neutral'));
+  if (notSeen(page)) chips.append(pill('Not seen lately', 'warn', {title: 'The last search did not list this posting. It may have closed.'}));
   const applied = appliedLine(job, page?.app);
   if (applied) chips.append(el('span', 'muted small', applied));
   if (chips.childNodes.length) words.append(chips);

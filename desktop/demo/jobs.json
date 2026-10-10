@@ -158,6 +158,21 @@
       "applied_on": "",
       "via": "Example Talent",
       "next_step": "Reply to the recruiter"
+    },
+    {
+      "id": 9,
+      "code": "d9",
+      "title": "Release Engineer",
+      "company": "Aare Software",
+      "location": "Bern",
+      "work_mode": "Hybrid",
+      "url": "https://example.com/jobs/9",
+      "posted_at": "2099-01-01",
+      "first_seen_at": "2099-01-01",
+      "status": "unreviewed",
+      "fit": 66,
+      "reason": "Release tooling and CI fit; the stack leans on Java, which your CV barely shows.",
+      "rank": 90
     }
   ],
   "total": 215,

@@ -2,8 +2,8 @@
 // than one (the rejection's review, then each interview's, newest first). "Reviewed by …" muted on top, the verdict a callout, each section's
 // lines a plain list, the to-dos as the interview insights' "Practice next" steps (read-only: the review is a record). None yet: a state card.
 import {el} from '../components.js';
-import {groupsOf, reviewsOf} from '../job-page-view.js';
-import {choice, lineView, stateCard} from './parts.js';
+import {groupsOf, rejectionOf, reviewsOf} from '../job-page-view.js';
+import {card, choice, lineView, stateCard} from './parts.js';
 
 const REVIEWED_BY = /^Reviewed by\b/;
 const textOf = line => (typeof line === 'string' ? line : line.text ?? '');
@@ -55,12 +55,29 @@ function reviewBody(groups) {
   return [...by.map(text => el('p', 'muted small', text)), ...out];
 }
 
+// The rejection, as the email said it, apart from what the AI makes of it: "Application rejected" with the date and the employer's own words (or that
+// the email gave no reason), then a band saying what follows is a suggestion, not a confirmed reason.
+function rejectionHead(page) {
+  const rejection = rejectionOf(page);
+  const nodes = [];
+  if (rejection) {
+    const quote = rejection.statement
+      ? el('blockquote', 'jd-quote', `“${rejection.statement}”`)
+      : el('p', '', 'The email does not give a specific reason.');
+    nodes.push(stateCard({icon: 'close', tone: 'bad', title: 'Application rejected', text: [rejection.when && `Rejection email received ${rejection.when}`, rejection.from && `from ${rejection.from}`].filter(Boolean).join(' ')}),
+      card('Employer statement', quote));
+  }
+  nodes.push(stateCard({icon: 'bulb', tone: 'info', title: 'AI suggestions', text: 'Suggestions from what Job Pilotto kept, not confirmed rejection reasons.'}));
+  return nodes;
+}
+
 export function reviewTab({job, page}, redraw) {
   const reviews = reviewsOf(page);
   if (!reviews.length) return [stateCard({icon: 'search', title: 'No review yet', text: 'Available after rejection feedback or a completed interview.'})];
   const active = reviews.find(review => review.key === chosen.get(job.url)) || reviews[0];
   const nodes = [];
   if (reviews.length > 1) nodes.push(choice(reviews.map(review => [review.key, review.label]), active.key, key => { chosen.set(job.url, key); redraw(); }, 'Review of'));
+  if (active.key === 'rejection') nodes.push(...rejectionHead(page));
   nodes.push(...reviewBody(groupsOf(active.markdown)));
   return nodes;
 }

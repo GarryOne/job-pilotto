@@ -2,8 +2,8 @@
 // chips), "Worth clarifying" (what the score says to check) and "From your conversations" (what the calls said). Each part shows only
 // when it has something; a job with none of it says so once. Words: renderer/job-page-view.js.
 import {el, tag} from '../components.js';
-import {callFacts, clarifyOf, foundLine, glanceTiles, lines, matchView, technologiesOf} from '../job-page-view.js';
-import {card, factTile, iconRow, stateCard} from './parts.js';
+import {callFacts, clarifyOf, foundLine, glanceTiles, lines, matchView, notSeen, technologiesOf} from '../job-page-view.js';
+import {card, closedCard, factTile, iconRow, stateCard} from './parts.js';
 
 const GLANCE = {salary: ['coins', 'good'], mode: ['building', 'violet'], contract: ['file', 'info'], seniority: ['chart', 'signal'],
   languages: ['users', 'violet'], posted: ['calendar', 'info']};
@@ -37,6 +37,7 @@ function listOf(items) {
 export function overviewTab({job, page}) {
   const match = matchView(job, page);
   const nodes = [];
+  if (notSeen(page)) nodes.push(closedCard());
   if (match) nodes.push(glance(match, job));
   const role = involves(match);
   if (role) nodes.push(role);

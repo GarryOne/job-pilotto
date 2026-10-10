@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 import {shortDay} from '../renderer/date.js';
-import {SECTIONS, TABS, allAnswers, factPairs, appliedLine, callFacts, clarifyOf, foundLine, glanceTiles, gmailUrl, headerFacts, kitParts, lines, matchGroups, matchView, messagesOf, nextInterview, pageParts, paragraphize, plain, postingBlocks, postingFacts, interviewsOf, postingSource, reviewsOf, timelineOf, readablePart, submittedOf, tabKey, technologiesOf} from '../renderer/job-page-view.js';
+import {SECTIONS, TABS, allAnswers, factPairs, appliedLine, callFacts, clarifyOf, foundLine, glanceTiles, gmailUrl, headerFacts, kitParts, lines, matchGroups, matchView, messagesOf, nextInterview, pageParts, paragraphize, plain, postingBlocks, postingFacts, interviewsOf, notSeen, postingSource, rejectionOf, reviewsOf, timelineOf, readablePart, submittedOf, tabKey, technologiesOf} from '../renderer/job-page-view.js';
 
 const demo = JSON.parse(fs.readFileSync(new URL('../demo/job-pages.json', import.meta.url), 'utf8'));
 
@@ -237,4 +237,15 @@ test('Review: the rejection\'s review first, then each interview\'s that has one
     {id: 'c', title: 'Technical', at: '2026-10-09', review: 'Fine'}]};
   assert.deepEqual(reviewsOf(page).map(review => [review.key, review.label]), [['rejection', 'Rejection review'], ['iv-c', 'Technical review'], ['iv-b', 'Screening review']]);
   assert.deepEqual(reviewsOf({}), []);
+});
+
+test('Rejection: what the email said apart from the AI; none when there is no rejection event; no reason when the email gave none', () => {
+  const page = {events: [{kind: 'Applied', at: '2026-09-25'}, {kind: 'Rejected', at: '2026-10-02T16:40:00', source: 'Gmail', source_id: 'x1', note: ' We have decided to move forward. ', changes: {from: 'Glacier <talent@glacier.example>'}},
+    {kind: 'Rejected', at: '2026-09-30', note: 'older'}]};
+  assert.deepEqual(rejectionOf(page), {when: shortDay('2026-10-02T16:40:00'), from: 'Glacier <talent@glacier.example>', statement: 'We have decided to move forward.'}, 'the latest rejection');
+  assert.equal(rejectionOf({events: [{kind: 'Rejected', at: '2026-10-02'}]}).statement, '', 'no reason given: empty, which the tab says in words');
+  assert.equal(rejectionOf({events: [{kind: 'Applied'}]}), null);
+  assert.equal(rejectionOf({}), null);
+  assert.equal(notSeen({match: {status: 'Not seen'}}), true);
+  assert.deepEqual([notSeen({match: {status: 'Open'}}), notSeen({match: null}), notSeen(null)], [false, false, false]);
 });

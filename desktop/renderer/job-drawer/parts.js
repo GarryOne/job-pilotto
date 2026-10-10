@@ -170,3 +170,7 @@ export function foldCard({iconName = 'mail', title, tag: pillText = '', when = '
   card.append(head, body);
   return card;
 }
+
+// A posting the last search no longer listed (page.match.status "Not seen"): not proof it closed, and what the app saved is kept.
+export const closedCard = () => stateCard({icon: 'alert', tone: 'warn', title: 'Not seen in the last search',
+  text: 'The posting may have closed or moved. What the app saved about it (its facts, score and text) is kept.'});

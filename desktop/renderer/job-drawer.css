@@ -97,3 +97,5 @@
 .jd-event-icon { z-index: 1; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line); background: var(--surface); color: var(--info); }
 .jd-event-icon svg { width: 20px; height: 20px; }
 .jd-event-words { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-top: var(--sp-1); overflow-wrap: anywhere; }
+.jd-quote { margin: 0; padding: var(--sp-2) var(--sp-3); border-left: 3px solid var(--line-strong); color: var(--ink-2); font-style: italic; }
+.jd-paste { width: 100%; box-sizing: border-box; margin-bottom: var(--sp-2); }

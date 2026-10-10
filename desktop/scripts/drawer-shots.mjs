@@ -1,7 +1,7 @@
 // Every tab and state of a job's drawer, on the demo's fictional jobs (demo/job-pages.json), one picture each cropped to the drawer, then contact
 // sheets of six: npm run drawer-shots [-- --only <name,...>] [--out <dir>] [--no-sheets]. ~1 min. Check a drawer change against the boards with
 // these, not with one lucky shot. Jobs: 1 applied with everything · 2 screening, a kit, an email · 3 applied, nothing recorded · 4 new, a saved posting
-// · 5 rejected, with its review and record · 6 slow to load · 7 fails to load · 8 never scored.
+// · 5 rejected, with its review and record · 6 slow to load · 7 fails to load · 8 never scored · 9 not seen in the last search.
 import {spawn, spawnSync} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -45,6 +45,9 @@ const CASES = [
   ['22-timeline-only-discovered', open(3, 'timeline')],
   ['23-loading', `window.__jp.openJob('https://example.com/jobs/6', 'overview'); ${wait(500)}`],
   ['24-error', open(7, 'overview')],
+  ['28-overview-not-seen', open(9, 'overview')],
+  ['29-description-not-seen', open(9, 'description', wait(500))],
+  ['30-description-paste', open(2, 'description', click('button', 'Paste description'))],
   ['26-review-interview', open(1, 'review', click('.jd-choice button', 'Screening call'))],
   ['27-interviews-recorded-open', open(1, 'interviews', click('.jd-message-head', 'Screening call'))],
   ['25-expanded', open(1, 'overview', "document.querySelector('.jd-control[title^=\"Expand\"]').click(); " + wait(400))],
