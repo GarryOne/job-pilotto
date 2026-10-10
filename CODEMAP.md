@@ -99,7 +99,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/leads-handlers.js` — The "log anything" IPC (moved out of main.js, 8 Oct 2026): the clipboard's image, proposing a lead from a pasted message or screenshot (the one AI
 - `desktop/lib/learn.js` — Learning from each form fill: after a fill that left fields, one small Claude call reads that run's
 - `desktop/lib/learned.js` — What you answered yourself in a form: the extension reads the fields YOU changed at the Submit press (extension/review.js)
-- `desktop/lib/license.js` — The free allowance and license keys (Stage 1: checked here, offline). Free for the first 40 applications
+- `desktop/lib/license.js` — The free allowance and license keys (Stage 1: checked here, offline). Free for the first 20 applications
 - `desktop/lib/lifecycle.js` — Testable Electron startup, activation, quit decisions and terminal shutdown; services are injected.
 - `desktop/lib/log-days.js` — The app's logs, one file per day for KEEP_DAYS days: today's is always <name>.log (app.log, engine.log), so every
 - `desktop/lib/log-view.js` — Settings → Logs: reads the app's log files for the window a page at a time, so a big log never reaches it whole:
@@ -248,7 +248,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/jobs-state.js` — Jobs page, shared state: one jobsState object (a value reassigned later stays ONE binding for every piece) and the link keys. Guarded by: the Jobs tests (count-flash, live-count, activity-selection-ke
 - `desktop/renderer/pages/jobs-views.js` — Jobs page, the saved views and List | Board: one chip per view of the Applications database (jobs-board-rules.js VIEWS, with its count),
 - `desktop/renderer/pages/jobs.js` — Jobs: loading and reloading the list, adding jobs, init(); the pieces are jobs-state/-render/-fit/-lead/-questions.js. Guarded by: search-changed, live-status-line, live-count, activity-selection-kept
-- `desktop/renderer/pages/license.js` — Settings → License: the free allowance ("12 of 40 free applications · 41 days left"), also as a small counter in the sidebar, pasting a key (checked on this
+- `desktop/renderer/pages/license.js` — Settings → License: the free allowance ("12 of 20 free applications · 41 days left"), also as a small counter in the sidebar, pasting a key (checked on this
 - `desktop/renderer/pages/logs.js` — Settings → Logs: the app's logs on this Mac, for the user (and whoever helps them) to see what happened. One day at a
 - `desktop/renderer/pages/match-check.js` — CV match dialog (lib/match-check.js): this job's posting against the CV, on request. Opened from the Jobs ⋯ menu and from the session card.
 - `desktop/renderer/pages/nav.js` — Navigation: pages, ⌘R memory, the ⌘K palette.
@@ -327,7 +327,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/knockout.js` — Questions a hiring system can be set to reject on by itself (recruiters on r/recruiting, 2025-26: work authorisation, sponsorship, location or
 - `desktop/renderer/labels.js` — Is this the same form question? Claude rewords and shortens ("I agree to use only my own words; AI-generated content
 - `desktop/renderer/lead-confirm.js` — (no header comment: add one)
-- `desktop/renderer/license-chip.js` — The small counter in the sidebar ("Free plan · 28 of 40 applications left"): which plan this is and what the number counts, at a glance
+- `desktop/renderer/license-chip.js` — The small counter in the sidebar ("Free plan · 12 of 20 applications used"): which plan this is and what the number counts, at a glance
 - `desktop/renderer/live-log.js` — The running task's live log in the window: the app (lib/pipeline.js current.log, its last 300 lines) is the copy that lasts; the window's own
 - `desktop/renderer/mail-report.js` — A Gmail check's message as the parts of it the owner reads. src/ai/mail.py writes the lines (prep_message and the
 - `desktop/renderer/markdown-edit.js` — Inline editing of the drafted Profile / standard answers (wizard step 5): one edited cell or line goes back

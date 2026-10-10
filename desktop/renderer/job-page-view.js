@@ -134,6 +134,37 @@ export function matchView(job = {}, page = null) {
     fit_detail: job.fit_detail || stored.fit_detail || null};
 }
 
+// The Overview's "At a glance" tiles (the owner's mock, 10 Oct 2026): six facts a person weighs first, each with a note, "Not stated" when the posting
+// does not say. [{key, label, value, note, known}]. Words from the job's match (factPairs' own values).
+export function glanceTiles(match = null) {
+  const m = match || {};
+  const languages = (Array.isArray(m.languages) ? m.languages : []).map(name => name.replace(/ \+$/, ' (a plus)')).join('; ');
+  const tile = (key, label, value, note = '') => ({key, label, value: value || 'Not stated', note: value ? note : '', known: !!value});
+  const mode = m.work_mode;
+  return [tile('salary', 'Salary', m.salary, 'From the posting'),
+    tile('mode', 'Work mode', mode, m.remote_scope || (mode === 'Hybrid' ? 'Office days not stated' : '')),
+    tile('contract', 'Contract', m.contract, m.workload ? `Workload ${m.workload}` : ''),
+    tile('seniority', 'Seniority', m.seniority, m.role_family ? `Role family: ${m.role_family}` : ''),
+    tile('languages', 'Languages', languages),
+    tile('posted', 'Posted', day(m.posted), m.deadline ? `Deadline ${day(m.deadline)}` : '')];
+}
+
+// "First found 9 Oct · Scored 9 Oct" under the tiles.
+export function foundLine(job = {}, match = null) {
+  const found = day(job.first_seen_at || match?.first_seen), scored = day(match?.scored);
+  return [found && `First found ${found}`, scored && `Scored ${scored}`].filter(Boolean).join(' · ');
+}
+
+// What the role involves, one short line each (the extractor's responsibilities, written a line each), and the technologies as chips.
+export const lines = text => String(text || '').split('\n').map(line => line.trim()).filter(Boolean);
+export const technologiesOf = match => String(match?.technologies || '').split(/;\s*/).map(name => name.trim()).filter(Boolean);
+// What is worth clarifying: what the score's "What to check" holds.
+export const clarifyOf = match => String(match?.fit_detail?.gaps || '').split(/;\s+/).map(item => item.trim()).filter(Boolean);
+// "Team size: 8 · Visa/permit: not needed": what the calls said (Applications Call facts).
+export const callFacts = app => plain(app?.call_facts || '');
+// The next interview, for the header's bar: {when} or null.
+export const nextInterview = app => (app?.next_interview ? {when: day(app.next_interview)} : null);
+
 // The page's content: {tabs: TABS (every job has all eight), kit, groups: {match, prep, review, record, messages, description}, history, shots,
 // documents, has: {tab key → it has content, for its empty state}}.
 export function pageParts({sections = {}, kit = null, events = [], files = [], match = null} = {}) {

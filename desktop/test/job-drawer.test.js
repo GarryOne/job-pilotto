@@ -42,6 +42,14 @@ test('the tab strip scrolls sideways, the header and tabs stay, the body scrolls
   assert.match(css, /\.jd-head \{ flex: none/);
 });
 
+test('Overview: built from the shared card, tile and state-card parts, each part only when it has something', () => {
+  const source = read('job-drawer/tab-overview.js');
+  for (const part of ['card(', 'factTile(', 'iconRow(', 'stateCard(', 'glanceTiles(', 'clarifyOf(', 'callFacts(']) assert.ok(source.includes(part), part);
+  assert.match(source, /Worth clarifying/);
+  assert.match(source, /From your conversations/);
+  assert.match(read('job-drawer/header.js'), /nextInterview\(page\?\.app\)/, 'the next interview is on every tab\'s header');
+});
+
 test('Description: reads the saved posting once per job, and offers Retry only after a failure', () => {
   const source = read('job-drawer/tab-description.js');
   assert.match(source, /window\.pilot\.jobPosting\(job\.url\)/);

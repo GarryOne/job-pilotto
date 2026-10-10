@@ -5,7 +5,7 @@ import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {fitRing} from '../fit-ring.js';
 import {band} from '../jobs-view.js';
-import {appliedLine, interviewFacts} from '../job-page-view.js';
+import {appliedLine, nextInterview} from '../job-page-view.js';
 
 function control(name, title, run, disabled = false) {
   const node = Object.assign(el('button', 'ghost icon-btn jd-control'), {type: 'button', title, disabled});
@@ -34,8 +34,6 @@ export function drawerHeader(job, page, {at, back, expanded, on}) {
   if (job.work_mode) chips.append(pill(job.work_mode, 'neutral'));
   const applied = appliedLine(job, page?.app);
   if (applied) chips.append(el('span', 'muted small', applied));
-  const calls = interviewFacts(page?.app);
-  if (calls) chips.append(el('span', 'muted small', calls));
   if (chips.childNodes.length) words.append(chips);
   const nav = el('div', 'jd-nav');
   const flip = control('chevron', 'Previous job', on.prev, !at || at.index <= 0);
@@ -45,5 +43,13 @@ export function drawerHeader(job, page, {at, back, expanded, on}) {
     control('maximize', expanded ? 'Shrink' : 'Expand to the full width', on.expand), control('close', 'Close (Esc)', on.close));
   top.append(cell, words, nav);
   head.append(top);
+  const next = nextInterview(page?.app);
+  if (next) {   // the next step, on every tab: when, and the way to its interview
+    const bar = el('div', 'jd-next');
+    const open = Object.assign(el('button', 'primary', 'Open interviews →'), {type: 'button'});
+    open.addEventListener('click', on.interviews);
+    bar.append(icon('calendar'), el('span', '', `Next interview · ${next.when}`), open);
+    head.append(bar);
+  }
   return head;
 }

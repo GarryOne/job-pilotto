@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 import {shortDay} from '../renderer/date.js';
-import {SECTIONS, TABS, allAnswers, factPairs, appliedLine, headerFacts, kitParts, matchGroups, matchView, pageParts, plain, readablePart, tabKey} from '../renderer/job-page-view.js';
+import {SECTIONS, TABS, allAnswers, factPairs, appliedLine, callFacts, clarifyOf, foundLine, glanceTiles, headerFacts, kitParts, lines, matchGroups, matchView, nextInterview, pageParts, plain, readablePart, tabKey, technologiesOf} from '../renderer/job-page-view.js';
 
 const demo = JSON.parse(fs.readFileSync(new URL('../demo/job-pages.json', import.meta.url), 'utf8'));
 
@@ -103,4 +103,28 @@ test('the key facts as pairs, and the list row\'s fields win over the stored mat
 test('the drawer header\'s applied chip: only when it was applied', () => {
   assert.equal(appliedLine({}, {applied_on: '2026-10-01'}), `applied ${shortDay('2026-10-01')}`);
   assert.equal(appliedLine({stage: 'Saved'}), '');
+});
+
+test('the Overview\'s six tiles: what the posting says, "Not stated" when it does not, notes only for what is known', () => {
+  const tiles = Object.fromEntries(glanceTiles({salary: 'CHF 130-150k', work_mode: 'Hybrid', seniority: 'Senior', role_family: 'SRE', languages: ['English', 'German +'],
+    posted: '2026-10-03', deadline: '2026-11-01', workload: '80-100%', contract: 'Permanent'}).map(tile => [tile.key, tile]));
+  assert.deepEqual(Object.keys(tiles), ['salary', 'mode', 'contract', 'seniority', 'languages', 'posted']);
+  assert.deepEqual([tiles.salary.value, tiles.salary.note], ['CHF 130-150k', 'From the posting']);
+  assert.equal(tiles.mode.note, 'Office days not stated', 'hybrid with no scope says so');
+  assert.deepEqual([tiles.contract.value, tiles.contract.note], ['Permanent', 'Workload 80-100%']);
+  assert.equal(tiles.languages.value, 'English; German (a plus)');
+  assert.equal(tiles.posted.note, `Deadline ${shortDay('2026-11-01')}`);
+  const none = glanceTiles(null);
+  assert.ok(none.every(tile => tile.value === 'Not stated' && tile.note === '' && tile.known === false));
+});
+
+test('the Overview\'s lines: responsibilities a line each, technologies as chips, what to clarify, what the calls said, the next interview', () => {
+  assert.deepEqual(lines('Run on-call\n\n  Build automation \n'), ['Run on-call', 'Build automation']);
+  assert.deepEqual(technologiesOf({technologies: 'Kubernetes; Terraform;Go'}), ['Kubernetes', 'Terraform', 'Go']);
+  assert.deepEqual(clarifyOf({fit_detail: {gaps: 'Go depth; Salary not stated'}}), ['Go depth', 'Salary not stated']);
+  assert.deepEqual([clarifyOf(null), technologiesOf(null), lines(undefined)], [[], [], []]);
+  assert.equal(callFacts({call_facts: 'Team size: 8 · Visa/permit: not needed'}), 'Team size: 8 · Visa/permit: not needed');
+  assert.deepEqual(nextInterview({next_interview: '2026-10-14T10:00:00'}), {when: shortDay('2026-10-14T10:00:00')});
+  assert.equal(nextInterview({}), null);
+  assert.equal(foundLine({first_seen_at: '2026-10-09T10:00:00Z'}, {scored: '2026-10-09'}), `First found ${shortDay('2026-10-09T10:00:00Z')} · Scored ${shortDay('2026-10-09')}`);
 });

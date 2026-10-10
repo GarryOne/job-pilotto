@@ -35,16 +35,22 @@ function footer(job, page) {
   return bar;
 }
 
+function pick(key) {
+  state.tab = key;
+  state.tabs.set(state.url, key);
+  draw();
+}
+
 function draw() {
   const {job, page} = state, panel = $('job-panel');
   const urls = shownUrls(), index = urls.indexOf(state.url);
   const head = drawerHeader(job, page, {
     at: index < 0 ? null : {index, total: urls.length}, expanded: state.expanded,
     back: state.back && {label: state.back.label, run: goBack},
-    on: {prev: () => go(-1), next: () => go(1), expand: () => { state.expanded = !state.expanded; draw(); }, close: closeJobPanel},
+    on: {prev: () => go(-1), next: () => go(1), interviews: () => pick('interviews'), expand: () => { state.expanded = !state.expanded; draw(); }, close: closeJobPanel},
   });
   panel.classList.toggle('is-expanded', state.expanded);
-  const tabs = tabStrip(TABS, state.tab, key => { state.tab = key; state.tabs.set(state.url, key); draw(); });
+  const tabs = tabStrip(TABS, state.tab, pick);
   const body = el('div', 'jd-body');
   if (!page) body.append(...skeleton());
   else if (page.error) {

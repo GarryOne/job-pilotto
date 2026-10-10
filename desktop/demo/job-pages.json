@@ -79,7 +79,22 @@
    ],
    "technologies": "Kubernetes; Terraform; Go",
    "salary": "CHF 130–150k",
-   "recruiter": false
+   "recruiter": false,
+   "contract": "",
+   "posted": "",
+   "responsibilities": "Ensure platform reliability, availability and performance across cloud services.\nBuild and maintain automation with Kubernetes and infrastructure as code.\nParticipate in on-call rotation and incident response.",
+   "fit_detail": {
+    "strengths": "Kubernetes experience matches requirements; Production reliability and incident response; Terraform and infrastructure as code",
+    "gaps": "Office days and on-call frequency are not stated",
+    "parts": {
+     "role_fit": 94,
+     "location": 90,
+     "compensation": 85,
+     "growth": 90,
+     "risk": 20
+    }
+   },
+   "reason": "Strong SRE and cloud infrastructure match; aligns with your background."
   }
  }
 }
