@@ -77,6 +77,16 @@ test('Timeline: a filter with counts, entries with the way to their detail, Add 
   for (const [key] of TABS) assert.ok(shots.includes(`'${key}'`), `drawer-shots has a picture of ${key}`);
 });
 
+test('Interviews and Review: cards that fold, the way from an interview to its review, and a choice between reviews', () => {
+  const interviews = read('job-drawer/tab-interviews.js'), review = read('job-drawer/tab-review.js');
+  assert.match(interviews, /foldCard\(/);
+  assert.match(interviews, /showReview\(job\.url, `iv-\$\{record\.key\}`\); pick\('review'\)/, 'View interview review opens that review');
+  assert.match(interviews, /No interviews yet/);
+  assert.match(review, /choice\(reviews\.map/, 'a choice only when there is more than one');
+  assert.match(review, /reviews\.length > 1/);
+  assert.match(review, /No review yet/);
+});
+
 test('Overview: built from the shared card, tile and state-card parts, each part only when it has something', () => {
   const source = read('job-drawer/tab-overview.js');
   for (const part of ['card(', 'factTile(', 'iconRow(', 'stateCard(', 'glanceTiles(', 'clarifyOf(', 'callFacts(']) assert.ok(source.includes(part), part);

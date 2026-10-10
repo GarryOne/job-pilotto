@@ -17,13 +17,14 @@ import {jobFiles} from './store/files.js';
 export async function jobPage(storage, url, {call = engine.call, links = false} = {}) {
   const [app, match] = await Promise.all([call(storage, 'applications', 'get', {url: String(url || '')}),
     call(storage, 'matches', 'get', {url: String(url || '')}).catch(() => null)]);   // no match is no Match tab, never a failed page
-  if (!app?.id) return {app: null, match: match || null, sections: {}, kit: null, events: [], files: [], links};
-  const [sections, events, files] = await Promise.all([
+  if (!app?.id) return {app: null, match: match || null, sections: {}, kit: null, events: [], files: [], interviews: [], links};
+  const [sections, events, files, interviews] = await Promise.all([
     call(storage, 'applications', 'sections', {app_id: app.id}),
     call(storage, 'events', 'list', {app_id: app.id}),
     jobFiles(storage, app.id, {call}),
+    call(storage, 'interviews', 'list', {app_id: app.id}).catch(() => []),   // the job's recorded and practised interviews; none is not a failed page
   ]);
-  return {app, match: match || null, sections: sections || {}, kit: kitOf(sections?.[KIT_SECTION]), events: events || [], files, links};
+  return {app, match: match || null, sections: sections || {}, kit: kitOf(sections?.[KIT_SECTION]), events: events || [], files, interviews: interviews || [], links};
 }
 
 // A file of the job's page saved where the person picks (its data: URL from lib/store/files.js): only data: URLs, only after the dialog.

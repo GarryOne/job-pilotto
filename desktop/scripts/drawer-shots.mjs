@@ -45,6 +45,8 @@ const CASES = [
   ['22-timeline-only-discovered', open(3, 'timeline')],
   ['23-loading', `window.__jp.openJob('https://example.com/jobs/6', 'overview'); ${wait(500)}`],
   ['24-error', open(7, 'overview')],
+  ['26-review-interview', open(1, 'review', click('.jd-choice button', 'Screening call'))],
+  ['27-interviews-recorded-open', open(1, 'interviews', click('.jd-message-head', 'Screening call'))],
   ['25-expanded', open(1, 'overview', "document.querySelector('.jd-control[title^=\"Expand\"]').click(); " + wait(400))],
 ];
 

@@ -115,7 +115,33 @@
    },
    "reason": "Strong SRE and cloud infrastructure match; aligns with your background.",
    "first_seen": "2026-09-29"
-  }
+  },
+  "interviews": [
+   {
+    "id": "demo-iv-a",
+    "app_id": "demo-app-1",
+    "title": "Screening call",
+    "round": "Screening",
+    "at": "2026-10-07T10:00:00",
+    "input": "Recording",
+    "overall": "positive",
+    "next_step": "Technical interview on Tuesday 14 Oct",
+    "transcript": "**Sarah (Helvetic Cloud)** 02:14\nCan you walk me through a time you improved the reliability of a critical service?\n\n**You** 02:39\nSure. We had an incident that caused elevated error rates across two regions, so I led the review and introduced SLOs.\n\n**Sarah (Helvetic Cloud)** 05:02\nHow did you measure success?\n\n**You** 05:20\nError budget burn and the number of pages per week.",
+    "review": "> [!🎤] Positive · a solid screening with clear examples.\n\n**Strengths**\n\n- Clear understanding of SRE principles and cloud infrastructure\n- Good examples of incident response and post-mortem practices\n- Strong, structured communication\n\n**Answers to improve**\n\n- Could provide deeper examples of large-scale systems (02:14)\n- More detail on monitoring and alerting tools used (08:32)\n\nReviewed by claude-sonnet-5-5."
+   },
+   {
+    "id": "demo-iv-b",
+    "app_id": "demo-app-1",
+    "title": "Recruiter intro",
+    "round": "Intro",
+    "at": "2026-10-02T15:30:00",
+    "input": "Notes",
+    "overall": "mixed",
+    "next_step": "Screening call with the hiring manager",
+    "transcript": "",
+    "review": ""
+   }
+  ]
  },
  "https://example.com/jobs/2": {
   "app": {
@@ -171,7 +197,8 @@
    "posted": "2026-09-30",
    "responsibilities": "Build the internal developer platform.\nImprove build and deploy speed for product teams.",
    "first_seen": "2026-10-01"
-  }
+  },
+  "interviews": []
  },
  "https://example.com/jobs/3": {
   "app": {

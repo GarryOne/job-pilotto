@@ -258,9 +258,50 @@ export function timelineOf(events = [], job = {}, match = null, parts = {}) {
   return items;
 }
 
+// The Interviews tab (board 05): the interviews of the job: the upcoming ones from its events (an invitation by email and the calendar entry for the
+// same time are one) and the recorded or practised ones from the interview store, newest first. A slot reads "Tue 14 Oct · 10:00".
+const slot = at => {
+  const text = String(at || '');
+  const when = new Date(text);
+  if (!text || Number.isNaN(when.getTime())) return '';
+  const date = when.toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric', month: 'short'});
+  return /T\d\d:\d\d/.test(text) ? `${date} · ${when.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'})}` : date;
+};
+const OVERALL = {positive: ['Positive', 'good'], mixed: ['Mixed', 'warn'], negative: ['Needs work', 'bad']};
+export function interviewsOf(page = {}, now = Date.now()) {
+  const planned = new Map();
+  for (const event of page.events || []) {
+    const at = String(event?.interview_at || '');
+    if (!at || Number.isNaN(new Date(at).getTime())) continue;
+    const key = at.slice(0, 16);
+    const changes = changesOf(event);
+    const found = planned.get(key) || {key: `slot-${key}`, kind: 'slot', at, title: 'Interview', note: '', source: ''};
+    if (event.source === 'Gmail') { found.title = plain(changes.subject || found.title); found.note = plain(event.note || found.note); found.source = `From ${plain(changes.from || 'an email')}`; }
+    else if (!found.note) found.note = plain(event.note || '');
+    planned.set(key, found);
+  }
+  if (!planned.size && page.app?.next_interview) planned.set('next', {key: 'slot-next', kind: 'slot', at: String(page.app.next_interview), title: 'Interview', note: '', source: ''});
+  const slots = [...planned.values()].map(item => ({...item, when: slot(item.at), upcoming: new Date(item.at).getTime() >= now,
+    status: new Date(item.at).getTime() >= now ? 'Scheduled' : 'Past'})).sort((a, b) => b.at.localeCompare(a.at));
+  const records = (page.interviews || []).filter(record => record?.id).map(record => ({key: String(record.id), kind: 'record', title: plain(record.title || 'Interview'), round: plain(record.round || ''),
+    when: slot(record.at || record.created_at), at: String(record.at || record.created_at || ''), overall: OVERALL[record.overall] || null, nextStep: plain(record.next_step || ''),
+    input: String(record.input || ''), transcript: readablePart(String(record.transcript || '')).trim(), hasReview: !!String(record.review || '').trim()}))
+    .sort((a, b) => b.at.localeCompare(a.at));
+  return {upcoming: slots.filter(item => item.upcoming), past: slots.filter(item => !item.upcoming), records};
+}
+
+// The Review tab's choice (board 06): the rejection's review and each interview's, with what each says. [{key, label, markdown}]; the markdown is a
+// section (the rejection) or the interview record's review.
+export function reviewsOf(page = {}) {
+  const rejection = (page.sections || {})[SECTIONS.review];
+  const found = rejection ? [{key: 'rejection', label: 'Rejection review', markdown: rejection}] : [];
+  return [...found, ...(page.interviews || []).filter(record => record?.id && String(record.review || '').trim())
+    .sort((a, b) => String(b.at || '').localeCompare(String(a.at || ''))).map(record => ({key: `iv-${record.id}`, label: `${plain(record.title || 'Interview')} review`, markdown: String(record.review)}))];
+}
+
 // The page's content: {tabs: TABS (every job has all eight), kit, groups: {match, prep, review, record, messages, description}, history, shots,
 // documents, has: {tab key → it has content, for its empty state}}.
-export function pageParts({sections = {}, kit = null, events = [], files = [], match = null, app = null} = {}) {
+export function pageParts({sections = {}, kit = null, events = [], files = [], match = null, app = null, interviews = []} = {}) {
   const named = Object.entries(sections || {});
   const messages = named.filter(([name]) => isMessages(name))
     .flatMap(([name, markdown]) => groupsOf(markdown, plain(name)));
@@ -281,7 +322,7 @@ export function pageParts({sections = {}, kit = null, events = [], files = [], m
     overview: groups.match.length > 0, match: groups.match.length > 0, description: groups.description.length > 0,
     application: (!!kitView && !!(kitView.groups?.length || kitView.letter || kitView.answers?.length || kitView.check?.length)) || documents.length > 0
       || groups.prep.length > 0 || submittedOf(sections, app) !== null,
-    interviews: false, review: groups.review.length > 0, messages: messages.length > 0 || shots.length > 0, timeline: history.length > 0};
+    interviews: !!app?.next_interview || interviews.length > 0, review: groups.review.length > 0 || interviews.some(record => String(record?.review || '').trim()), messages: messages.length > 0 || shots.length > 0, timeline: history.length > 0};
   // The posting as text (the section, or the record's frozen copy): the Description tab draws it as blocks, else asks for the search's saved copy.
   const descriptionText = readablePart(String(sections[SECTIONS.description] || jsonOf(sections[SECTIONS.record])?.job?.description || '')).trim();
   return {tabs: TABS, kit: kitView, groups, history, shots, documents, submitted: submittedOf(sections, app), descriptionText, has};

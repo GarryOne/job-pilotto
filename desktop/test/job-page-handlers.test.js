@@ -15,6 +15,7 @@ function fakeStore(app, match = null) {
     if (method === 'sections') return {'📝 Application kit': kitMarkdown};
     if (entity === 'events') return [{kind: 'Applied', at: '2026-10-01'}];
     if (method === 'files') return [{name: 'chat.png', content_type: 'image/png', size: 3, data: 'AAAA'}];
+    if (entity === 'interviews') return [{id: 'iv1', title: 'Screening call', round: 'Screening', at: '2026-10-07T10:00:00'}];
     throw new Error(`unexpected ${entity}.${method}`);
   };
   return {call, calls};
@@ -23,7 +24,8 @@ function fakeStore(app, match = null) {
 test('a tracked job: its sections, its kit as JSON and its events, by its app id', async () => {
   const {call, calls} = fakeStore({id: 'a1', stage: 'Applied'}, {url: 'https://x/1', fit: 82, tier: 'Strong'});
   const page = await jobPage({}, 'https://x/1', {call, links: true});
-  assert.deepEqual(calls.sort(), ['applications.files', 'applications.get', 'applications.sections', 'events.list', 'matches.get']);
+  assert.deepEqual(calls.sort(), ['applications.files', 'applications.get', 'applications.sections', 'events.list', 'interviews.list', 'matches.get']);
+  assert.equal(page.interviews[0].title, 'Screening call', 'its interviews, for the Interviews and Review tabs');
   assert.equal(page.match.tier, 'Strong', 'the search\'s facts, for the Match tab');
   assert.deepEqual(page.files.map(file => [file.name, file.url]), [['chat.png', 'data:image/png;base64,AAAA']], 'the screenshots, for Messages');
   assert.equal(page.kit.cover_letter, 'Dear team');
@@ -33,7 +35,7 @@ test('a tracked job: its sections, its kit as JSON and its events, by its app id
 
 test('a job nobody acted on: no application, nothing else read', async () => {
   const {call, calls} = fakeStore(null);
-  assert.deepEqual(await jobPage({}, 'https://x/2', {call}), {app: null, match: null, sections: {}, kit: null, events: [], files: [], links: false});
+  assert.deepEqual(await jobPage({}, 'https://x/2', {call}), {app: null, match: null, sections: {}, kit: null, events: [], files: [], interviews: [], links: false});
   assert.deepEqual(calls.sort(), ['applications.get', 'matches.get']);
 });
 

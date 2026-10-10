@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 import {shortDay} from '../renderer/date.js';
-import {SECTIONS, TABS, allAnswers, factPairs, appliedLine, callFacts, clarifyOf, foundLine, glanceTiles, gmailUrl, headerFacts, kitParts, lines, matchGroups, matchView, messagesOf, nextInterview, pageParts, paragraphize, plain, postingBlocks, postingFacts, postingSource, timelineOf, readablePart, submittedOf, tabKey, technologiesOf} from '../renderer/job-page-view.js';
+import {SECTIONS, TABS, allAnswers, factPairs, appliedLine, callFacts, clarifyOf, foundLine, glanceTiles, gmailUrl, headerFacts, kitParts, lines, matchGroups, matchView, messagesOf, nextInterview, pageParts, paragraphize, plain, postingBlocks, postingFacts, interviewsOf, postingSource, reviewsOf, timelineOf, readablePart, submittedOf, tabKey, technologiesOf} from '../renderer/job-page-view.js';
 
 const demo = JSON.parse(fs.readFileSync(new URL('../demo/job-pages.json', import.meta.url), 'utf8'));
 
@@ -88,7 +88,7 @@ test('the demo job has content for its tabs, and its kit reads from the JSON', (
   const page = demo['https://example.com/jobs/1'];
   const kit = JSON.parse(/```json\n([\s\S]*?)\n```/.exec(page.sections[SECTIONS.kit])[1]);
   const parts = pageParts({...page, kit});
-  assert.deepEqual(Object.keys(parts.has).filter(key => parts.has[key]).sort(), ['application', 'description', 'match', 'messages', 'overview', 'review', 'timeline']);
+  assert.deepEqual(Object.keys(parts.has).filter(key => parts.has[key]).sort(), ['application', 'description', 'interviews', 'match', 'messages', 'overview', 'review', 'timeline']);
   assert.equal(parts.kit.answers.length, 2);
 });
 
@@ -211,4 +211,30 @@ test('Timeline: the job\'s events newest first, the filter kinds, where the deta
   assert.equal(by.a.time, '09:00');
   assert.equal(by.c.time, '', 'a date with no time shows none');
   assert.deepEqual(timelineOf([], {}, null, {}), [], 'no events and never found: nothing');
+});
+
+test('Interviews: upcoming from the events (an email and a calendar entry for one time are one), recorded ones newest first', () => {
+  const now = Date.parse('2026-10-10T12:00:00');
+  const page = {app: {next_interview: '2026-10-14T10:00:00'}, events: [
+    {kind: 'Interview scheduled', source: 'Gmail', source_id: 'abc', interview_at: '2026-10-14T10:00:00', note: 'Join via Meet', changes: {subject: 'Technical interview invitation', from: 'S <s@x.com>'}},
+    {kind: 'Interview scheduled', source: 'Calendar', interview_at: '2026-10-14T10:00:00', note: 'Video call'},
+    {kind: 'Interview scheduled', source: 'Calendar', interview_at: '2026-10-07T10:00:00'},
+    {kind: 'Applied', at: '2026-10-01'}],
+    interviews: [{id: 'a', title: 'Intro', at: '2026-10-02T15:30:00', overall: 'mixed'}, {id: 'b', title: 'Screening', at: '2026-10-07T10:00:00', overall: 'positive', round: 'Screening',
+      next_step: 'Technical', transcript: '**Sarah** 02:14\nHello', review: 'Good'}, {title: 'no id'}]};
+  const found = interviewsOf(page, now);
+  assert.equal(found.upcoming.length, 1, 'the invitation and the calendar entry are one slot');
+  assert.deepEqual([found.upcoming[0].title, found.upcoming[0].status, found.upcoming[0].source], ['Technical interview invitation', 'Scheduled', 'From S <s@x.com>']);
+  assert.deepEqual(found.past.map(item => item.status), ['Past']);
+  assert.deepEqual(found.records.map(record => [record.key, record.overall?.[0], record.hasReview]), [['b', 'Positive', true], ['a', 'Mixed', false]], 'newest first; a record with no id is left out');
+  assert.match(found.upcoming[0].when, /Wed 14 Oct · 10:00/);
+  assert.equal(interviewsOf({app: {next_interview: '2026-10-14T10:00:00'}}, now).upcoming.length, 1, 'the job\'s next interview alone is enough');
+  assert.deepEqual(interviewsOf({}, now), {upcoming: [], past: [], records: []});
+});
+
+test('Review: the rejection\'s review first, then each interview\'s that has one, newest first', () => {
+  const page = {sections: {[SECTIONS.review]: 'Verdict'}, interviews: [{id: 'a', title: 'Intro', at: '2026-10-02', review: ''}, {id: 'b', title: 'Screening', at: '2026-10-07', review: 'Good'},
+    {id: 'c', title: 'Technical', at: '2026-10-09', review: 'Fine'}]};
+  assert.deepEqual(reviewsOf(page).map(review => [review.key, review.label]), [['rejection', 'Rejection review'], ['iv-c', 'Technical review'], ['iv-b', 'Screening review']]);
+  assert.deepEqual(reviewsOf({}), []);
 });
