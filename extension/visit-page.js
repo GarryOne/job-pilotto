@@ -149,12 +149,14 @@ export function closeConsent(want = null) {   // want: {list: true} -> the box's
     .filter(node => visible(node) && ABOUT.test(node.innerText || '') && !node.querySelector('input[type=password]'));
   const least = /^(reject|decline|refuse|deny|necessary|essential|only necessary|use necessary|allow (technical|necessary|essential)|tout refuser|refuser|continuer sans accepter|nur (notwendige|erforderliche|technisch)|ablehnen|alle ablehnen|rifiuta|solo (necessari|tecnici))/i;
   const any = /^(accept|agree|allow all|got it|ok\b|okay|i understand|accepter|tout accepter|j'accepte|akzeptieren|alle akzeptieren|zustimmen|einverstanden|accetta|accetto)/i;
-  const buttonsOf = box => [...box.querySelectorAll('button, a, [role=button], input[type=button], input[type=submit]')].filter(node => visible(node) && words(node) && words(node).length < 60);
+  // A link to another address, or one that opens a new tab, is no dismiss control (jobs.ch, 10 Oct 2026: "Cookie notice" opened a tab per press, each with the same banner): "#", script and same-page links stay.
+  const stays = node => { if (node.tagName !== 'A' || !node.getAttribute('href')) return true; if (/^(_blank|_top|_parent)$/i.test(node.getAttribute('target') || '')) return false; try { const to = new URL(node.href, location.href); return to.protocol === 'javascript:' || to.href.split('#')[0] === location.href.split('#')[0]; } catch { return false; } };
+  const buttonsOf = box => [...box.querySelectorAll('button, a, [role=button], input[type=button], input[type=submit]')].filter(node => visible(node) && stays(node) && words(node) && words(node).length < 60);
   if (want?.list) return [...new Set(boxes.flatMap(box => buttonsOf(box).map(words)))].slice(0, 20);
   if (want?.press) { const button = boxes.flatMap(buttonsOf).find(node => words(node) === want.press); if (button) button.click(); return button ? words(button) : ''; }
   for (const pattern of [least, any]) {
     for (const box of boxes) {
-      const button = [...box.querySelectorAll('button, a, [role=button], input[type=button], input[type=submit]')].find(node => visible(node) && pattern.test(words(node)) && words(node).length < 60);
+      const button = [...box.querySelectorAll('button, a, [role=button], input[type=button], input[type=submit]')].find(node => visible(node) && stays(node) && pattern.test(words(node)) && words(node).length < 60);
       if (button) { button.click(); return words(button); }
     }
   }

@@ -15,7 +15,9 @@ export function findPopup(want = null) {
   let boxes = [...new Set([...explicit, ...floating])].filter(node => !ours(node) && visible(node) && area(node) >= page * 0.02
     && !node.querySelector('input[type=password]') && fields(node) <= 1);
   boxes = boxes.filter(node => !boxes.some(other => other !== node && other.contains(node)));   // the outer layer, once
-  const buttonsOf = box => [...box.querySelectorAll('button, a, [role=button], input[type=button], input[type=submit]')].filter(node => visible(node) && words(node) && words(node).length < 60);
+  // A link to another address, or one that opens a new tab, is no dismiss control (jobs.ch, 10 Oct 2026: "Cookie notice" opened a tab per press, each with the same banner): "#", script and same-page links stay.
+  const stays = node => { if (node.tagName !== 'A' || !node.getAttribute('href')) return true; if (/^(_blank|_top|_parent)$/i.test(node.getAttribute('target') || '')) return false; try { const to = new URL(node.href, location.href); return to.protocol === 'javascript:' || to.href.split('#')[0] === location.href.split('#')[0]; } catch { return false; } };
+  const buttonsOf = box => [...box.querySelectorAll('button, a, [role=button], input[type=button], input[type=submit]')].filter(node => visible(node) && stays(node) && words(node) && words(node).length < 60);
   const withButtons = boxes.filter(box => buttonsOf(box).length);
   if (want?.list) { const box = withButtons[0]; return box ? {text: words(box).slice(0, 600), buttons: [...new Set(buttonsOf(box).map(words))].slice(0, 20)} : null; }
   if (want?.press) { const button = withButtons.flatMap(buttonsOf).find(node => words(node) === want.press); if (button) button.click(); return button ? words(button) : ''; }

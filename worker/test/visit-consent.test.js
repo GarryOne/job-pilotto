@@ -20,12 +20,12 @@ async function inPage(html, run) {
 
 test('a Portuguese cookie banner: its buttons are listed, and the one picked by meaning is pressed by its exact label', { skip: !JSDOM }, async () => {
   const banner = '<div role="dialog" id="cookie-banner"><p>Utilizamos cookies para melhorar a sua experiência.</p>'
-    + '<button id="all">Aceitar todos</button><button id="none">Rejeitar não essenciais</button><a href="/privacidade">Saber mais</a></div>';
+    + '<button id="all">Aceitar todos</button><button id="none">Rejeitar não essenciais</button><a href="/privacidade">Saber mais</a></div>';   // a link that leaves the page is no dismiss control: never listed
   await inPage(banner, ({ closeConsent }, win) => {
     let pressed = '';
     win.document.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { pressed = b.id; }));
     assert.equal(closeConsent(), '', 'no word of the built-in lists knows these buttons');
-    assert.deepEqual(closeConsent({ list: true }), ['Aceitar todos', 'Rejeitar não essenciais', 'Saber mais']);
+    assert.deepEqual(closeConsent({ list: true }), ['Aceitar todos', 'Rejeitar não essenciais']);
     assert.equal(closeConsent({ press: 'Rejeitar não essenciais' }), 'Rejeitar não essenciais');
     assert.equal(pressed, 'none');
     assert.equal(closeConsent({ press: 'Not on this banner' }), '');
@@ -99,4 +99,22 @@ test('the popup\'s Apply on this page forgets the tried Apply press, only for th
   assert.match(messages, /import \{consider, forgetApplyTries\} from '\.\/fill-flow\.js'/);
   assert.match(messages, /message\?\.type === 'applyHere'[\s\S]*forgetApplyTries\(tab\.id\);[\s\S]*consider\(tab, await jobOf\(tab\)\)/);
   assert.equal([...read('fill-flow.js').matchAll(/forgetApplyTries\(/g)].length, 0, 'fill-flow.js only defines it: it never calls it by itself after an Apply press');
+});
+
+// jobs.ch, 10 Oct 2026: the banner's "Cookie notice" link was picked as the dismiss button; it opened a new tab, whose banner did the same: a loop of tabs.
+// The floor is structure: a link to another address or a new tab is never a dismiss control, whatever its words or what the AI picks; "#" and script links are.
+test('a link that leaves the page is never a dismiss control (listed, pressed or matched by a word rule)', { skip: !JSDOM }, async () => {
+  const banner = '<div class="cookie-notice"><p>This website uses cookies. See our Terms of Use and the Cookie notice.</p>'
+    + '<a id="terms" href="/en/terms">Terms of Use</a><a id="more" href="/en/privacy-policy/#cookie-notice" target="_blank">Cookie notice</a>'
+    + '<a id="ok" href="#">OK</a><a id="js" href="javascript:void(0)">Accept</a><a id="same" href="/ofertas#top">Got it</a></div>';
+  await inPage(banner, ({ closeConsent }, win) => {
+    const clicked = [];
+    win.document.querySelectorAll('a').forEach((a) => a.addEventListener('click', (e) => { clicked.push(a.id); e.preventDefault(); }));
+    assert.deepEqual(closeConsent({ list: true }), ['OK', 'Accept', 'Got it']);
+    assert.equal(closeConsent({ press: 'Cookie notice' }), '');
+    assert.equal(closeConsent({ press: 'Terms of Use' }), '');
+    assert.deepEqual(clicked, []);
+    assert.equal(closeConsent(), 'OK');
+    assert.deepEqual(clicked, ['ok']);
+  });
 });
