@@ -12,7 +12,7 @@ const tracked = () => execFileSync('git', ['-C', root, 'ls-files'], {encoding: '
 
 test('every skill folder holds a SKILL.md whose name: is the folder', () => {
   const dirs = fs.readdirSync(path.join(root, '.claude/skills'), {withFileTypes: true}).filter(item => item.isDirectory()).map(item => item.name);
-  assert.ok(dirs.includes('fix-failing-forms') && dirs.includes('fix-live-applying-in-twin') && dirs.includes('triage-github-open-issues'));
+  assert.ok(dirs.includes('fix-failing-forms') && dirs.includes('run-applying-smoke-pool') && dirs.includes('fix-live-applying-in-twin') && dirs.includes('triage-github-open-issues'));
   for (const dir of dirs) {
     const text = fs.readFileSync(path.join(root, '.claude/skills', dir, 'SKILL.md'), 'utf8');
     assert.equal(/^name:\s*(\S+)/m.exec(text)?.[1], dir, dir);
