@@ -3,13 +3,14 @@
 // postings (read-only from the app's jobs.sqlite, rotating by day), run live through the e2e app with the real extension (the `npm run live` machinery,
 // headless, HELD: no account button, never Submit), read where it got to (lib/smoke.mjs parseLive), compare with the last report, and list the boards the
 // fleet digest flags as dropped (layer 4). Report: smoke-reports/<day>.json (not committed). Exit 1 when a shape reached less than last time.
-// Usage: cd desktop/e2e && npm run smoke [-- --only <shape words>] [SMOKE_SECONDS=90]. It never schedules itself (the owner chooses).
+// Usage: cd desktop/e2e && npm run smoke [-- --only <shape words> | --all] [SMOKE_PER_NIGHT=10] [SMOKE_SECONDS=90]: tonight's share of the pool (rotating), or
+// --all / --only. Each shape is compared with ITS last run, however many nights ago. It never schedules itself (the owner chooses).
 import {execFileSync, spawn} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {compare, parseLive, pickPosting} from './lib/smoke.mjs';
+import {compare, lastSeen, parseLive, pickPosting, tonight} from './lib/smoke.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const REPORTS = path.join(here, 'smoke-reports');
@@ -53,7 +54,10 @@ async function main() {
   const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')).shapes || []; } catch { return []; } };
   const shapes = [...read(path.join(here, 'smoke-sites.json')), ...read(LOCAL_SITES)];
   const day = new Date().toISOString().slice(0, 10), results = {};
-  for (const {shape, like = [], urls = []} of shapes.filter(item => !only || item.shape.includes(only))) {
+  const pool = shapes.filter(item => !only || item.shape.includes(only));
+  const chosen = only || process.argv.includes('--all') ? pool : tonight(pool, Number(process.env.SMOKE_PER_NIGHT || 10));
+  console.log(`smoke: ${chosen.length} of ${shapes.length} shapes tonight`);
+  for (const {shape, like = [], urls = []} of chosen) {
     const posting = pickPosting([...urls.map(url => ({url, title: '', company: ''})), ...(like.length ? postingsLike(like) : [])]);
     if (!posting) { results[shape] = {reached: 'none', note: 'no posting of this shape in the job list'}; console.log(`smoke: ${shape}: no posting`); continue; }
     const status = await postingStatus(posting.url);
@@ -65,8 +69,9 @@ async function main() {
     fs.writeFileSync(path.join(REPORTS, `${day}-${shape.replace(/\W+/g, '-')}.log`), run.output);
     console.log(`smoke: ${shape}: reached ${results[shape].reached}${results[shape].filled != null ? `, ${results[shape].filled} filled, ${results[shape].left} left` : ''} (${run.seconds}s)`);
   }
-  const previousFile = fs.existsSync(REPORTS) ? fs.readdirSync(REPORTS).filter(name => /^\d{4}-\d\d-\d\d\.json$/.test(name) && name < `${day}.json`).sort().at(-1) : null;
-  const previous = previousFile ? JSON.parse(fs.readFileSync(path.join(REPORTS, previousFile), 'utf8')).results : {};
+  const earlierReports = fs.existsSync(REPORTS) ? fs.readdirSync(REPORTS).filter(name => /^\d{4}-\d\d-\d\d\.json$/.test(name) && name < `${day}.json`)
+    .map(name => { try { return JSON.parse(fs.readFileSync(path.join(REPORTS, name), 'utf8')); } catch { return null; } }).filter(Boolean) : [];
+  const previous = lastSeen(earlierReports), previousFile = earlierReports.length ? `${earlierReports.length} earlier report(s)` : null;
   const regressions = compare(previous, results), dropped = droppedBoards();
   fs.mkdirSync(REPORTS, {recursive: true});
   fs.writeFileSync(path.join(REPORTS, `${day}.json`), `${JSON.stringify({day, results, regressions, dropped, comparedWith: previousFile}, null, 1)}\n`);

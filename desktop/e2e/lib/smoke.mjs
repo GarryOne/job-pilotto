@@ -36,3 +36,17 @@ export function compare(previous = {}, current = {}) {
 
 // One of a shape's postings, rotating by day (the list is the owner's own jobs matching the shape's patterns).
 export const pickPosting = (postings, day = new Date()) => (postings.length ? postings[Math.floor(day.getTime() / 86400000) % postings.length] : null);
+
+// Tonight's share of a big pool (owner, 10 Oct 2026: "100 sites, 10 a night, all of them in 10 days"): a window that moves by perNight each day, wrapping.
+export function tonight(shapes, perNight = 10, day = new Date()) {
+  if (!shapes.length || perNight >= shapes.length) return shapes;
+  const start = (Math.floor(day.getTime() / 86400000) * perNight) % shapes.length;
+  return Array.from({length: perNight}, (_, i) => shapes[(start + i) % shapes.length]);
+}
+
+// Each shape's most recent result across all earlier reports (a shape runs every few nights, so its "last time" may be days ago).
+export function lastSeen(reports) {
+  const seen = {};
+  for (const report of [...reports].sort((a, b) => String(a.day).localeCompare(String(b.day)))) for (const [shape, result] of Object.entries(report.results || {})) seen[shape] = {...result, day: report.day};
+  return seen;
+}

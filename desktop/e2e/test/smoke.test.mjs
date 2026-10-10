@@ -55,3 +55,18 @@ test('the public site list holds only fixed job-feed postings: a profile\'s own 
   const {LOCAL_SITES} = await import('../smoke.mjs');
   assert.ok(!LOCAL_SITES.includes('/desktop/e2e/'), 'the local list is outside the repo');
 });
+
+test('rotation: 10 of 25 a night, every shape within 3 nights; a small pool runs whole', async () => {
+  const {tonight} = await import('../lib/smoke.mjs');
+  const pool = Array.from({length: 25}, (_, i) => `s${i}`), day = n => new Date(n * 86400000);
+  const covered = new Set([0, 1, 2].flatMap(n => tonight(pool, 10, day(n))));
+  assert.equal(tonight(pool, 10, day(0)).length, 10);
+  assert.equal(covered.size, 25);
+  assert.deepEqual(tonight(['a', 'b'], 10), ['a', 'b']);
+});
+
+test('each shape is compared with its own last run, however many nights ago', async () => {
+  const {lastSeen} = await import('../lib/smoke.mjs');
+  const seen = lastSeen([{day: '2026-10-01', results: {a: {reached: 'form'}, b: {reached: 'account'}}}, {day: '2026-10-05', results: {a: {reached: 'posting'}}}]);
+  assert.deepEqual([seen.a.reached, seen.a.day, seen.b.reached, seen.b.day], ['posting', '2026-10-05', 'account', '2026-10-01']);
+});

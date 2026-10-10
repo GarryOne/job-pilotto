@@ -30,6 +30,8 @@ extension (`REAL_EXTENSION_DIR`), then pass.
 ## Layer 3: nightly live smoke
 - A list `desktop/e2e/smoke-sites.json`: 10 shapes chosen for different flows (10 Oct 2026), each `like` (the owner's own jobs, read-only, rotating by day) or
   `urls` (fixed public postings from public job feeds).
+- **A big pool, rotated** (owner, 10 Oct 2026: 50–100 sites, 10 a night): `SMOKE_PER_NIGHT` (10) shapes a night, a window moving each day, so all are run every
+  pool/10 nights; each shape is compared with ITS last run, however many nights ago (`--all` runs the whole pool, `--only` some).
 - Each run: the e2e app + a headless Chromium + the real extension (the `npm run live` machinery, its isolation), Apply pressed through the app's API,
   stopped before any account button or Submit (HELD), a report per posting: reached step, filled/left, page kinds, errors.
 - The report is compared with the last run: a shape that reached less than before is a regression, listed first; a posting gone (HTTP 404/410) is noted,
