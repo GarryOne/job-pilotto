@@ -191,7 +191,7 @@ ${tile('🧩 Recipes', String(data.recipes.verified.n), `<span class="muted">+${
 ${resultsSection(data.results)}
 ${proposalCard(data.learning?.proposals, esc)}
 ${learningSections(data.learning)}
-<section class="card"><h2>🧭 Real use: what the fill missed</h2><small class="muted">From the apps that send technical reports, per 100 ${esc(data.use.unitNow)}. Blind spots are what the learning loop must catch; widgets get recipes; data is the profile's.</small>
+<section class="card"><h2>🧭 Real use: what the fill missed</h2><small class="muted">From the apps that send technical reports, per 100 ${esc(data.use.unitNow)}. Blind spots are what the learning loop must catch; widgets get recipes; data is the profile's. Per platform, against the pool's tests: <a href="/admin/applying">Applying tests → platform scorecard</a>.</small>
 <div class="wrap"><table><tr><th>Why</th><th>Kind</th><th class="n">This week</th><th class="n">Per 100</th><th></th><th class="n">Last week</th></tr>
 ${data.use.reasons.filter(x => x.now || x.before).map(x => `<tr><td>${esc(x.text)}</td><td class="muted">${esc(x.group)}</td><td class="n">${x.now}</td><td class="n">${num(x.rateNow)}</td><td>${trend(x.rateNow, x.rateBefore, false)}</td><td class="n muted">${num(x.rateBefore)}</td></tr>`).join('')
   || '<tr><td colspan="6" class="muted">Nothing reported yet.</td></tr>'}</table></div></section>

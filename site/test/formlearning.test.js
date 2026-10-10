@@ -71,3 +71,7 @@ test('the results block is honest when nothing was reported yet, and the site ac
   assert.ok(page(await report(db, now)).includes('No finished applications reported yet'));
   for (const word of ['submitted-clean', 'submitted-assisted', 'submitted-claude', 'failed-no-form', 'failed-account', 'failed-abandoned']) assert.ok(FLOW_STATES.includes(word), word);
 });
+
+test('the page links to the applying scorecard, where real use meets the pool\'s tests', () => {
+  assert.match(readFileSync(new URL('../src/formlearning.js', import.meta.url), 'utf8'), /href="\/admin\/applying">Applying tests → platform scorecard/);
+});
