@@ -302,6 +302,8 @@ test('a button the page-kind AI named is pressed by its own text, not outscored 
   const easy = [b('Save', {tag: 'button', href: ''}), b('Easy apply', {tag: 'button', href: ''}), b('Apply With LinkedIn')].map((item, index) => ({...item, index}));
   assert.equal(pickNamedButton(easy, 'Easy apply').text, 'Easy apply');
   assert.equal(pickApplyButton(easy), null);
+  assert.equal(pickApplyButton(easy, [{key: 'apply_button', phrase: 'easy apply'}])?.text, 'Easy apply');   // the generic press with the AI's phrase (0.9.180 still refused it here)
+  assert.equal(pickApplyButton(easy, [{key: 'apply_button', phrase: 'apply with linkedin'}]), null);
   assert.equal(pickNamedButton([b('Apply Manually', {submits: true}), b('Apply Manually', {visible: false}), b('Apply Manually', {disabled: true})], 'Apply Manually'), null);
   assert.equal(pickNamedButton([b('Apply Manually', {href: 'mailto:a@b.c'})], 'Apply Manually'), null);
 });

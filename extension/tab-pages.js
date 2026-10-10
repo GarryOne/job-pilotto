@@ -62,7 +62,7 @@ export function pickApplyButton(candidates = [], phrases = []) {
     // The built-in words, or a phrase the service learned (extension/alias-schema.js, validated against the same not-a-button list).
     const learned = buttonPhrase(text, phrases);
     if (item?.submits) continue;   // never a form's Submit, whatever its words (applyCandidates: by structure)
-    if (!item?.visible || item.disabled || !text || text.length > 40 || !(APPLY_PHRASE.test(text) || learned) || NOT_APPLY.test(text)) continue;
+    if (!item?.visible || item.disabled || !text || text.length > 40 || !(APPLY_PHRASE.test(text) || learned) || (learned ? NOT_APPLY_NAMED : NOT_APPLY).test(text)) continue;
     if (notAPage(item.href)) continue;
     const score = 100 - text.length + (item.tag === 'button' ? 5 : 0) + Math.min(20, Math.log10(Math.max(1, Number(item.area) || 1)) * 4);
     if (score > bestScore) { best = learned && !APPLY_PHRASE.test(text) ? {...item, viaPhrase: learned} : item; bestScore = score; }

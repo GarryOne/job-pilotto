@@ -1,0 +1,94 @@
+{
+ "shape": "a posting whose Easy apply opens a start dialog (Login here / Create an account / Continue without an account): the AI names Easy apply, the press opens the dialog, the AI names the manual route, the extension presses it",
+ "why": "11 Oct 2026, the pool run on 0.9.180: the posting's Easy apply was pressed only through the digest and the dialog it opened was never judged (\"no form\"). The generic press refused the AI's \"easy apply\" (pickApplyButton's NOT_APPLY). Stubbed answers are what the real AI answered: the posting answer of ladder-fixtures/jobs-ch-apply-not-found.json and the dialog answer of ladder-fixtures/dialog-en-continue-without-account.json (reconstructed from the real modal's text), only to /extension/page-kind.",
+ "control": {
+  "build": "0.9.180",
+  "failed": "expected told: pressed the start route: manual (the AI-named Easy apply was refused by the generic press, so the dialog was never reached)"
+ },
+ "sample": "www.jobs.ch posting and its start modal (reconstructed from the captured sketch and a screenshot; hosts and text invented)",
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://exampleboard.example.ch/jobs/4711",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://exampleboard.example.ch/apply/4711",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://exampleboard.example.ch/apply/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   },
+   {
+    "when": {
+     "fresh": true
+    },
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.85,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "continue without an account",
+     "applyRoute": "manual",
+     "applyBy": "form",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.9,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "easy apply",
+     "applyRoute": "",
+     "applyBy": "form",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   }
+  ],
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  }
+ },
+ "expect": {
+  "told": [
+   "pressed the start route: manual"
+  ],
+  "filled": [
+   "#first"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 60
+ }
+}

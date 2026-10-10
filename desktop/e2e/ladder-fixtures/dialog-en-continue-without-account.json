@@ -1,0 +1,87 @@
+{
+ "schemaVersion": 1,
+ "id": "dialog-en-continue-without-account",
+ "source": "reconstructed",
+ "lang": "en",
+ "why": "start dialog after a board's own Easy apply (jobs.ch, 11 Oct 2026): \"Create an account to apply faster\" with Login here, Create an account and Continue without an account (the manual route)",
+ "capture": {
+  "page": "ladder-fixtures/pages/dialog-en-continue-without-account.html"
+ },
+ "url": "https://jobs.example.com/dialog-en-continue-without-account/1",
+ "expect": {
+  "outcome": "posting",
+  "accept": [
+   "posting"
+  ],
+  "apply_route": "manual",
+  "digest": "not_asked"
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/dialog-en-continue-without-account/1",
+  "title": "Real Estate Accountant - Job Offer - exampleboard",
+  "headings": [
+   "Accountant",
+   "Create an account to apply faster"
+  ],
+  "controls": [],
+  "buttons": [
+   "Find a job",
+   "Explore companies",
+   "Login",
+   "Save",
+   "Easy apply",
+   "Login here",
+   "Continue without an account",
+   "Create an account"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Save",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Easy apply",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "Accountant",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "Geneva",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "button",
+   "text": "Create an account",
+   "position": "other"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.85,
+  "apply_button": "Continue without an account",
+  "apply_button_kind": "apply",
+  "apply_route": "manual",
+  "apply_by": "form",
+  "apply_email": "",
+  "form_frame": -1,
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}
