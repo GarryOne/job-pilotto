@@ -6,7 +6,7 @@ description: The fast, safe loop for any change to Job Pilotto's desktop app (de
 # Desktop change: the loop and the traps
 
 ## Find, don't search
-- **`CODEMAP.md`** (repo root): every file → its purpose. `grep -i <keyword> CODEMAP.md` (don't read it whole), open the one file you need, read only the part you change.
+- **Code map:** `node desktop/scripts/codemap.mjs <words>` (every file → its purpose, live), open the one file you need, read only the part you change.
 - A page's code: `desktop/renderer/pages/<page>.js`; its markup: `desktop/renderer/index.html` (grep the element id).
 - Main ↔ window: `preload.cjs` (window.pilot.*) ↔ handlers in `main.js` and session handlers in `lib/session-handlers.js`. `test/ipc.test.js` checks both halves.
 

@@ -9,13 +9,12 @@ Personal job-search automation: crawls job boards and employer feeds, filters an
 2. Read the Notion page **Session Handoff — Start Here (for Claude)** (`3e562be8fd8681af9a4dd8732964fd94`) via the Notion MCP. It has the owner's preferences, current state, open threads and known gotchas.
 3. Then **Technical Reference — Implementation** (`3e562be8fd868124a28ee7c044dc83dc`), the latest **Run Log** entries and the **Decision Log**.
 4. For any other Notion page/database ID, or to find where something lives, use the skill **notion-map** (private: `GarryOne/job-pilotto-internal`, linked on the owner's Mac as `~/.claude/skills/notion-map`) instead of searching from scratch.
-5. **Code: `grep -i <keyword> CODEMAP.md`** (every file → its purpose, generated, kept fresh by a test; ~12k tokens, so never read it
-   whole), then open only the file you need. Changing `desktop/`: follow the skill **desktop-change** (`.claude/skills/desktop-change/SKILL.md`): the fast
+5. **Code: `node desktop/scripts/codemap.mjs <words>`** (every file → its purpose, live from each file's first comment; nothing to keep fresh), then open only
+   the file you need. Changing `desktop/`: follow the skill **desktop-change** (`.claude/skills/desktop-change/SKILL.md`): the fast
    edit → check → push loop and the traps that caused real bugs. Screens: skill **ui-look-and-feel**.
 6. Humans and agents alike: [CONTRIBUTING.md](CONTRIBUTING.md) (the change loop, where things go) and
    [RELEASE.md](RELEASE.md) (pre-releases, `tools/release-stable.sh`, what updates on a friend's side).
-7. New file: start it with a one-line comment (docstring in Python) saying what it's for; `node desktop/scripts/codemap.mjs`
-   then updates `CODEMAP.md`.
+7. New file: start it with a one-line comment (docstring in Python) saying what it's for (at least 25 characters): the live code map reads it.
 
 ## Working rules
 - Code changes happen in a git worktree on their own branch (see AGENTS.md → Working with git); other agents work on this repo at the same time.

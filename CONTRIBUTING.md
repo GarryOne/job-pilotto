@@ -1,6 +1,6 @@
 # Contributing to Job Pilotto
 
-> **In short:** one worktree per change → find the file in `CODEMAP.md` → change it → tests → push to `main`.
+> **In short:** one worktree per change → find the file with `node desktop/scripts/codemap.mjs <words>` → change it → tests → push to `main`.
 > Rules that are never bent are at the bottom. Releases: [RELEASE.md](RELEASE.md).
 
 ## 1 · Set up (once)
@@ -18,7 +18,7 @@ Your own keys live in the macOS Keychain (`job-pilotto.*`), never in files you c
 
 1. **Worktree:** `tools/worktree.sh <topic>` → `.claude/worktrees/<topic>`, branch `<topic>`, packages already linked.
    Several people and agents push to `main` at once: never edit the main checkout, never bare `git stash`.
-2. **Find the file:** `grep -i <keyword> CODEMAP.md` (every file → what it's for; don't read it whole, it is long), open only that file.
+2. **Find the file:** `node desktop/scripts/codemap.mjs <words>` (every file → what it's for, live), open only that file.
 3. **Change it**, with a test for anything that can break again (`tests/` for Python, `desktop/test/` for the app).
 4. **Check it:** every AI tool and CI use the same runner, which selects supported Python and Node runtimes:
 
@@ -63,7 +63,7 @@ journey gate (`tools/journey-gate.mjs`) runs them. Spec: `docs/superpowers/specs
 | A cache | the Mac (`jobs.sqlite`, `runs.json`…): always rebuildable from Notion or a crawl |
 | A colour, size, radius, font | `desktop/renderer/tokens.css` only (`design.test.js` fails otherwise) |
 | A UI building block | `desktop/renderer/components.js` + `components.css` (and `gallery.js`) |
-| A new file | a first-line comment saying what it's for; `node desktop/scripts/codemap.mjs` updates the map |
+| A new file | a first-line comment saying what it's for (the live code map reads it) |
 | A run of any job | a row in ⏰ Cronjob Runs (`src/notion/cron_runs.py`): start → end, result, log |
 
 ## 4 · Before you say it's done

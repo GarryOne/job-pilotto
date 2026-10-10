@@ -1,6 +1,6 @@
 # Job Pilotto — architecture
 
-Read this once at the start of a session. Then open `CODEMAP.md` for the file the task names. Workflow detail, only if the task touches one: `docs/HOW-IT-RUNS.md`.
+Read this once at the start of a session. Then find the file the task names with `node desktop/scripts/codemap.mjs <words>`. Workflow detail, only if the task touches one: `docs/HOW-IT-RUNS.md`.
 
 Job Pilotto is a personal job-search system: it finds jobs, scores them, tracks them in Notion, and can fill application forms. It never clicks Submit.
 
@@ -71,7 +71,7 @@ tools/                          worktrees, form fast-path, schema snapshot, rele
 .github/workflows/              CI, desktop release, site deploy, and the user-called engine workflows
 ```
 
-`CODEMAP.md` is generated from each file's first comment and kept fresh by a test. Read that before opening a file.
+The code map (`node desktop/scripts/codemap.mjs <words>`) is read live from each file's first comment. Use it before opening a file.
 
 ## Data ownership
 

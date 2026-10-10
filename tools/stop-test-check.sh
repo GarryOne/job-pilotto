@@ -3,7 +3,7 @@
 # files changed vs origin/main in each worktree this session touched, the way CI runs them, and send failures back.
 #   src/ tests/ tools/ config/ templates/ -> Python, as CI sees it (JOB_PILOTTO_DISABLE=..., no Keychain credentials)
 #   desktop/ -> desktop npm test    worker/ extension/ -> worker npm test    site/ -> site npm test
-#   a file added, removed or renamed anywhere -> desktop's CODEMAP test
+#   a file added, removed or renamed anywhere -> desktop's code-map test (its header comment says what it does)
 # Uses Python >= 3.11 and Node 22 (nvm) whatever is first on PATH. Each suite is time-boxed; a tree state that
 # already passed is not tested again. Exit 2 + stderr keeps Claude working on the failure (once per stop chain).
 # Manual run: echo '{"cwd":"<worktree>"}' | tools/stop-test-check.sh
@@ -101,7 +101,7 @@ for repo in "${repos[@]}"; do
     [ "$code" = 0 ] && continue
     case "$s" in
       python) how="JOB_PILOTTO_DISABLE=mail,notion,telegram,google_jobs $py -m unittest discover -s tests" ;;
-      codemap) how="cd desktop && node --test test/codemap.test.js (new/removed file: node desktop/scripts/codemap.mjs)" ;;
+      codemap) how="cd desktop && node --test test/codemap.test.js (a new file needs a one-line header saying what it does)" ;;
       *) how="cd $s && npm test" ;;
     esac
     failed+="--- $s failed (exit $code). Reproduce in $repo: $how"$'\n'

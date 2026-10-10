@@ -5,7 +5,7 @@ reading this because a session is rooted in this folder, don't keep separate not
 duplicate what's here — read these instead, and update them if something's missing or wrong:
 
 - **`docs/ARCHITECTURE.md`** — the session-start map (engine, app, extension, website, bot, Notion).
-  Read it once at the start of a session, then `grep -i <keyword> CODEMAP.md` for the file (not the whole map). Written for every agent:
+  Read it once at the start of a session, then `node desktop/scripts/codemap.mjs <words>` for the file. Written for every agent:
   Grok, Claude Code, Codex, DeepSeek.
 - **`CLAUDE.md`** — project overview, working rules (never auto-apply, ask before AI spend,
   secrets policy), code layout, how to run tests. Written for Claude Code but applies to any agent.
@@ -241,7 +241,7 @@ cd desktop && npm test
   `JOB_PILOTTO_DATA_DIR=<a writable folder>`. The DSH sandbox starts that way for this repo, since the session
   workspace is elsewhere; the first write needs the user to widen the policy, after which the rules above apply as they
   are.
-- **Adding a file?** `node desktop/scripts/codemap.mjs`, or the freshness test fails.
+- **Adding a file?** Start it with a one-line comment saying what it does (the live code map reads it; `desktop/test/codemap.test.js` checks it says enough).
 - **The smoke hooks** (`desktop/main.js`): `JOB_PILOTTO_SMOKE_JS` must be an IIFE — top-level `await` hangs the window —
   `JOB_PILOTTO_SMOKE_EVAL`'s result is written to `<JOB_PILOTTO_SMOKE>.json`, and `..._SELECTOR` crops the picture.
 - **Notion, if your harness has no tool for it**: the change loop above expects the hub, Run Log, Technical Reference

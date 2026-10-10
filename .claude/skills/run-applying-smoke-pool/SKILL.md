@@ -93,7 +93,6 @@ Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is not
 - The guard hook misreads `>`, `=` and `$VAR` paths in commands run from the primary checkout: run from a worktree, with literal paths.
 - A negative-only recorded case must watch its whole window; count tabs OPENED, not left. A "gone: <selector>" check on an element that starts hidden is true before anything happens: assert an outcome (a field filled).
 - The live harness's stall dump is capped (12 buttons): a missing button in it is not evidence; look at the frames, and check the frames folder belongs to YOUR run (the next site overwrites it).
-- Codemap: commit first, then `node desktop/scripts/codemap.mjs`, then amend (the reverse turned main red once; `tools/ship.sh --fix` for a red main).
 - A removed worktree's results are dropped by the Stop hook (fixed); a name that already exists in `desktop/e2e` (`lib/replay.mjs`) was overwritten once: grep before naming a file.
 
 - The `/admin/applying` pool count changes only when a run ENDS (`sendPool` at the end of smoke or discover); the Mac's own list changes at once. A half-finished run shows nothing there.

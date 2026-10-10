@@ -73,9 +73,9 @@ weekly backup (`backup.js`), update check at start + every 6 h (`updater.js`), t
 off in Settings; never from `npm start`).
 
 **For sessions (local):** `tools/pre-push-check.sh` blocks a push unless all suites + actionlint pass;
-`tools/stop-test-check.sh` runs the touched suites before "done"; `CODEMAP.md` is kept fresh by a test.
+`tools/stop-test-check.sh` runs the touched suites before "done".
 
 ## 🗂️ Where things live
-- **Code map:** `CODEMAP.md` · **change loop:** CONTRIBUTING.md · **releases:** RELEASE.md · **rules:** CLAUDE.md
+- **Code map:** `node desktop/scripts/codemap.mjs <words>` · **change loop:** CONTRIBUTING.md · **releases:** RELEASE.md · **rules:** CLAUDE.md
 - **Notion (product):** Project Hub → Session Handoff (current state), Run Log, Decision Log, 🧭 Product Brain · Decisions
 - **Numbers:** the owner's admin pages under `/admin` (overview, website, app, insights, self-healing, AI cost, form filling, feedback; one menu, the stats key; the old `/stats`, `/telemetry`, `/intel`, `/self-heal`, `/ai-cost`, `/feedback` addresses redirect the owner there), and `/api/signals` (JSON; the same key)
