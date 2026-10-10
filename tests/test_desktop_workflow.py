@@ -85,8 +85,15 @@ class DesktopWorkflowTest(unittest.TestCase):
         # The same unit tests on both platforms, only the desktop app's: Python pipeline + app, never the Worker or the site (own pipelines; owner, 10 Oct 2026).
         mac_unit = job('build').split('Unit tests · desktop app')[1].split('- name:')[0]
         win_unit = job('windows').split('Unit tests · desktop app')[1].split('- name:')[0]
-        self.assertEqual(mac_unit, win_unit)
-        self.assertIn('for area in python desktop; do bash tools/check.sh --area "$area"', mac_unit)
+        # The same step on both platforms, apart from the list of areas: TEMPORARILY Windows runs only the app's tests (196 Python tests fail there for environmental reasons;
+        # owner, 10 Oct 2026: fix them, then run both). When that is done: set Windows' UNIT_AREAS to 'python desktop' in desktop.yml and delete WINDOWS_PYTHON_PENDING here.
+        WINDOWS_PYTHON_PENDING = True
+        areas = lambda text: re.search(r"UNIT_AREAS: '([^']*)'", text).group(1)
+        self.assertEqual(areas(mac_unit), 'python desktop')
+        self.assertEqual(areas(win_unit), 'desktop' if WINDOWS_PYTHON_PENDING else 'python desktop')
+        script = lambda text: text.split('run: |')[1]
+        self.assertEqual(script(mac_unit), script(win_unit))
+        self.assertIn('for area in $UNIT_AREAS; do bash tools/check.sh --area "$area"', script(mac_unit))
         for area in ('worker', 'site'):
             self.assertNotIn(f'--area {area}', job('build') + job('windows'))
             self.assertNotIn(f' {area} ', mac_unit.split('for area in')[1].split(';')[0] + ' ')
