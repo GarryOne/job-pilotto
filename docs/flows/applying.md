@@ -72,7 +72,7 @@ forgotten` in the log).
 ## Never fix the same website twice (10 Oct 2026)
 Four layers keep a fix fixed (spec `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md`): journey scenarios (`desktop/test/journeys.test.js`), recorded pages
 (`desktop/e2e/recorded/`, captured from the twin, replayed offline with the real extension), the nightly live smoke, and per-board drops in the digest. A push that
-changes how the extension acts on pages brings its case (`tools/recorded-cases.mjs`). Layer 2 runs locally in the journey gate and on CI as the e2e suite `recorded`
+changes how the extension acts on pages brings its case (`tools/recorded-cases.mjs`). Layer 2 ("Fixed-site replays") runs locally in the journey gate and on CI as the e2e suite `recorded`
 (`desktop/e2e/suites/recorded.mjs`: one step per case; with every e2e run, so the beta gate and a gate by hand, and on a push touching `extension/` or `desktop/e2e/recorded/`).
 
 ## Changing a flow
