@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const SECRET_KEYS = /^(value|values|typed|cookie|cookies|password|passwd|token|authorization|secret|session)$/i;
+const SECRET_KEYS = /^(value|values|typed|cookie|cookies|password|passwd|token|authorization|secret|session)$/i;   // words-ok: object KEY names to drop from what is written, never page text or a judgment about a page
 const QUERY = /\?[\w%.~-]+=[^\s"'<>&]*(?:&[\w%.~-]+=[^\s"'<>&]*)*/g;
 const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, PHONE = /(\+\d[\d\s().-]{8,}\d)|(\b0\d{2}[\s.]\d{3}[\s.]\d{2}[\s.]\d{2}\b)/g;
 const text = value => value.replace(QUERY, '').replace(EMAIL, 'person@example.com').replace(PHONE, '');
