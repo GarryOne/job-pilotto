@@ -1,7 +1,7 @@
 // A closer look when the text sketch is not enough (spec: docs/superpowers/specs/2026-10-08-ai-escalation.md; owner, 8 Oct 2026: yes, account pages first, off until he turns it on).
 // The extension sends a SCREENSHOT of the visible page with typed values hidden, plus the text sketch (controls with their state and position, buttons, short texts, frame hosts). The
 // strongest model answers ONE action from a fixed list: click a control the page lists, wait, or ask the person. The control is checked against the sketch; floors the AI cannot lift: off
-// unless settings.escalation is 'on', account pages only, account automation 'assist' means the person clicks, 2 looks per page shape and 10 per day, never a stored picture. What worked
+// unless the assistant mode is "Do it for me" (accountAutomation full; its own switch until 10 Oct 2026), account pages only, 2 looks per page shape and 10 per day, never a stored picture. What worked
 // (the page changed after the click) is remembered per page shape, so the next visit is free. Guard: test/escalate.test.js.
 import fs from 'node:fs';
 import {accountSketch, listed} from './account-judge.js';
@@ -82,7 +82,7 @@ export async function escalate(storage, body, {client, now = Date.now()} = {}) {
     if (worked && ['click', 'fill', 'choose'].includes(action) && control && shape) fs.writeFileSync(file, JSON.stringify({...memo, recipes: {...memo.recipes, [slot]: {action, control, ...(action === 'fill' && DETAILS.includes(detail) ? {detail} : {}), ...(action === 'choose' && option ? {option: String(option).slice(0, 40)} : {}), at: new Date(now).toISOString()}}}));
     return {ok: true, remembered: !!worked};
   }
-  if (settings.escalation !== 'on') return {ok: true, action: 'none', why: 'off'};
+  if (automationOf(settings) !== 'full') return {ok: true, action: 'none', why: 'off'};   // the closer look is part of "Do it for me" (10 Oct 2026; it was its own opt-in switch)
   const form = body?.kind === 'form';   // an application form where a fill put nothing in (owner, 9 Oct 2026): the same look, its own instructions, click only
   if (body?.kind !== 'account' && !form) return {ok: true, action: 'none', why: 'account and application pages only'};
   if (!shape) return {ok: true, action: 'none', why: 'no address'};

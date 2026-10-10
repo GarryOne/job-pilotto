@@ -36,8 +36,9 @@ export function record(accounts, host, email, state = 'pending', now = Date.now(
 
 // How far the extension goes on a sign-up page (owner, 8 Oct 2026): 'full' = it also accepts the account's consent (a checkbox, or a link and the dialog's accept button, as the
 // AI names them) and presses the account button; 'assist' = it fills, and leaves the consent and the button to the person. Only the ACCOUNT's steps, never an application's Submit.
-// Settings → Automation has the switch (settings.accountAutomation). The default is assist (9 Oct 2026, before the app went to others): the extension fills, the person accepts the consent and presses the account button. The owner's own app is set to full in Settings.
-export const DEFAULT_AUTOMATION = 'assist';
+// Settings → Profile → Application assistant has the choice (renderer/assistant-mode.js): "Do it for me" = full, the DEFAULT since 10 Oct 2026 (owner: "users get most
+// of the automation by default"; it replaced the 9 Oct assist default), "Let me check each step" = assist. The closer look (lib/escalate.js) follows it.
+export const DEFAULT_AUTOMATION = 'full';
 // The settings as the window draws them: the account automation resolved to what the extension will do, whatever was never saved (every settings answer to the window goes through this, so a switch never shows ON for a setting that behaves as assist).
 export const forWindow = settings => ({...settings, accountAutomation: automationOf(settings)});
 export const automationOf = settings => (settings?.accountAutomation === 'assist' ? 'assist' : settings?.accountAutomation === 'full' ? 'full' : DEFAULT_AUTOMATION);

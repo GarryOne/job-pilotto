@@ -1,4 +1,5 @@
 // Settings page: the overview of every service (AI, Notion, Gmail, Telegram, Always on, extras) and each one's sub-page.
+import {showMode} from '../assistant-mode.js';
 import {openLogs} from './logs.js';
 import {el, tile} from '../components.js';
 import {icon} from '../icons.js';
@@ -53,8 +54,7 @@ async function openProfile() {
   shared.state = await window.pilot.state();
   contactDirty(false);
   $('claude-consent').checked = !!shared.state.settings.claudeConsent;
-  $('account-automation').checked = shared.state.settings.accountAutomation !== 'assist';
-  $('escalation').checked = shared.state.settings.escalation === 'on';
+  showMode(shared.state.settings);
   showContact();
   profileTab('details');
 }

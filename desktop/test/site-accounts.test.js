@@ -20,12 +20,12 @@ test('a confirmed account of this email is signed in to; recording one host keep
 
 import {DEFAULT_AUTOMATION, automationOf, forWindow} from '../lib/site-accounts.js';
 
-test('the account automation setting: full or assist, anything else is the default (assist)', () => {
+test('the assistant mode: full or assist, anything else is the default (full: "Do it for me")', () => {
   assert.equal(automationOf({accountAutomation: 'assist'}), 'assist');
   assert.equal(automationOf({accountAutomation: 'full'}), 'full');
   assert.equal(automationOf({accountAutomation: 'nonsense'}), DEFAULT_AUTOMATION);
   assert.equal(automationOf(undefined), DEFAULT_AUTOMATION);
-  assert.equal(DEFAULT_AUTOMATION, 'assist');   // 9 Oct 2026: assist is what a new install gets
+  assert.equal(DEFAULT_AUTOMATION, 'full');   // 10 Oct 2026 (owner): a new install gets "Do it for me"; it was assist from 9 Oct
 });
 
 import {withAccounts} from '../lib/site-accounts.js';
@@ -47,19 +47,14 @@ test('an account made earlier counts: the email recorded on the Credentials item
 
 import fs from 'node:fs';
 
-test('the account automation switch is in the window (Profile > Application assistant), saves full or assist, and the state the window gets carries the effective choice', () => {
+test('the assistant mode is one choice in the window (Profile > Application assistant): two buttons, saved as full or assist, drawn from the effective setting', () => {
   const read = file => fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
-  assert.ok(read('renderer/index.html').includes('id="account-automation"'));
-  assert.match(read('renderer/pages/startup.js'), /accountAutomation: \$\('account-automation'\)\.checked \? 'full' : 'assist'/);
-  assert.match(read('renderer/pages/settings.js'), /account-automation'\)\.checked = shared\.state\.settings\.accountAutomation !== 'assist'/);
+  const html = read('renderer/index.html');
+  assert.ok(html.includes('data-assistant-mode="full"') && html.includes('data-assistant-mode="assist"'));
+  assert.ok(!html.includes('id="account-automation"') && !html.includes('id="escalation"'), 'the two old switches are gone: one choice');
+  assert.match(read('renderer/pages/startup.js'), /wireMode\(/);
+  for (const file of ['renderer/pages/settings.js', 'renderer/pages/profile.js']) assert.match(read(file), /showMode\(shared\.state\.settings\)/, file);
   assert.match(read('main.js'), /settings: forWindow\(storage\.settings\(\)\)/);
-});
-
-test('the closer-look switch is in the window and off until turned on: saved as on or off, shown as on only when it says on', () => {
-  const read = file => fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
-  assert.ok(read('renderer/index.html').includes('id="escalation"'));
-  assert.match(read('renderer/pages/startup.js'), /escalation: \$\('escalation'\)\.checked \? 'on' : 'off'/);
-  assert.match(read('renderer/pages/settings.js'), /\$\('escalation'\)\.checked = shared\.state\.settings\.escalation === 'on'/);
 });
 
 test('a password just made for a sign-up under way is not an account: the next page stays a sign-up', () => {
@@ -68,8 +63,8 @@ test('a password just made for a sign-up under way is not an account: the next p
   assert.equal(modeOf(record(creating, 'auth.jobs.ch', 'me@example.com', 'confirmed'), 'auth.jobs.ch', 'me@example.com', 'me@example.com'), 'sign-in');   // the press overwrote it
 });
 
-test('every settings answer to the window is the effective one: an unset account automation draws as assist, in every handler (9 Oct 2026: the switch showed ON after saving another setting)', () => {
-  assert.equal(forWindow({}).accountAutomation, 'assist');
+test('every settings answer to the window is the effective one: an unset assistant mode draws as full, in every handler (9 Oct 2026: the switch showed ON after saving another setting)', () => {
+  assert.equal(forWindow({}).accountAutomation, 'full');
   assert.equal(forWindow({accountAutomation: 'full'}).accountAutomation, 'full');
   assert.equal(forWindow({escalation: 'on'}).escalation, 'on');   // the rest is kept
   // the class: a handler that hands the window the settings (or a saveSettings result) goes through forWindow

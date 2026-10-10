@@ -239,10 +239,14 @@ sites, run it live before and after a change, not only the matrix:
 - **Report what it shows**: what worked, what did not, what the log cannot tell (then add the log line). The owner's own app window and
   Chrome tabs I cannot drive; the harness's I can.
 
-## Account automation: full or assist (owner, 8 Oct 2026)
-`settings.accountAutomation` (`desktop/lib/site-accounts.js`, `DEFAULT_AUTOMATION`): **full** = on an account page the extension also accepts the account's consent (a checkbox, or the privacy link and its dialog's accept button, as
-the account AI names them: `needs_kind: consent`, at most 3 presses per tab) and presses the account button; **assist** = it fills and leaves the consent and the button to the person. The default is **assist** (9 Oct 2026, before the app went to others; the owner's own app is set to `full` in Settings → Automation, the switch). Read the setting only through `automationOf`, never raw. It covers the ACCOUNT's steps only: an application's Submit, a choice, a code and a bot check are never automated.
-
+## The assistant mode: "Do it for me" or "Let me check each step" (owner, 10 Oct 2026; was "Account automation", 8 Oct)
+Two modes, one choice (Settings → Profile → Application assistant, `renderer/assistant-mode.js`), stored as `settings.accountAutomation` and read only through `automationOf`
+(`desktop/lib/site-accounts.js`). **full = "Do it for me", the DEFAULT** (owner, 10 Oct 2026: "users get most of the automation by default"; it replaced the 9 Oct assist
+default): on an account page the extension accepts the account's consent (as the account AI names it, `needs_kind: consent`, at most 3 presses per tab) and presses the
+account button, the confirmation link from the mail is opened when Gmail is connected, and the closer look (`lib/escalate.js`) runs on an unclear account page (a screenshot,
+typed values hidden, at most 10 a day). **assist = "Let me check each step"**: it fills, the person does the consent, the button and the codes; no closer look. Never in
+either: an application's Submit, a captcha or bot check, an SMS code, a choice or consent on the application form. The setup asks the choice once (Yes is pre-selected).
+Changing what a mode does or its default is the owner's call, with a Decision Log entry.
 ## Applying flows: change one, run them all (owner, 8 Oct 2026)
 A fix for one flow (account creation) must never quietly break another (the application form). **[docs/flows/applying.md](docs/flows/applying.md)** is the map:
 the one page decision (the AI's kind, `desktop/lib/page-kind.js`; `extension/tab-pages.js` `pageRole` only without AI), every scenario, its code and its guard. Touching the decision core (`FLOW_CORE` in `desktop/e2e/flows.mjs`: which page is what, which tab is whose)

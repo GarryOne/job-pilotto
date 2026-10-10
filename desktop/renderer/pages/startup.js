@@ -1,4 +1,5 @@
 // Start-up: what the window opens on.
+import {showMode, wireMode} from '../assistant-mode.js';
 import {applyAiNames} from '../ai-name.js';
 import {shared} from './shared.js';
 import {$, show} from './core.js';
@@ -67,12 +68,9 @@ export async function init() {
   window.pilot.onOpenTarget(openTarget);   // a clicked system notification
 
   // Help improve Job Pilotto (opt-in anonymous form reports).
-  $('escalation').addEventListener('change', async () => {   // off until the owner turns it on (lib/escalate.js)
-    shared.state.settings = await window.pilot.saveSettings({escalation: $('escalation').checked ? 'on' : 'off'});
-  });
-  $('account-automation').addEventListener('change', async () => {   // full: the extension also accepts an account's consent and presses its button; assist: the person does (lib/site-accounts.js)
-    shared.state.settings = await window.pilot.saveSettings({accountAutomation: $('account-automation').checked ? 'full' : 'assist'});
-  });
+  // How much Job Pilotto does (renderer/assistant-mode.js): "Do it for me" (the default) or "Let me check each step".
+  wireMode(async patch => (shared.state.settings = await window.pilot.saveSettings(patch)));
+  showMode(shared.state?.settings || {});   // the setup's question and Settings show the same choice; nothing saved yet is "Do it for me"
   $('claude-consent').addEventListener('change', async () => {
     shared.state.settings = await window.pilot.saveSettings({claudeConsent: $('claude-consent').checked ? new Date().toISOString() : null});
     window.dispatchEvent(new Event('claude-help'));   // every Claude entry point redraws (claude-help.js)

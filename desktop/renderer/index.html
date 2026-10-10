@@ -225,6 +225,9 @@
           <h1>Optional extras</h1>
           <p class="muted subtitle">Everything works without these. You can add them later in Settings.</p></div>
       </header>
+      <div class="service-card is-row is-wide setup-assistant-mode"><span class="ui-tile tone-signal"><i data-icon="zap"></i></span>
+        <span class="service-text"><b>Should Job Pilotto create and sign in to employer accounts for you?</b><span class="muted small">It takes each application up to its Submit button and never submits for you. You can change this in Settings → Profile.</span></span>
+        <div class="segmented" role="group" aria-label="How much Job Pilotto does"><button data-assistant-mode="full">Yes, do it for me</button><button data-assistant-mode="assist">I'll do it myself</button></div></div>
       <div class="service-grid is-rows extras">
         <div class="service-card is-row is-wide"><span class="ui-tile tone-signal"><i data-icon="layers"></i></span>
           <span class="service-text"><b>Notion</b><span class="muted small">Keep your applications, kits and interviews in your own free Notion workspace instead of this Mac. Needed for Always on (runs while this Mac is off).</span>
@@ -1002,7 +1005,13 @@
             <span>When you tailor a CV, Job Pilotto reads this profile and your current CV.</span></div>
           <div class="setting panel" id="setting-claude" data-profile-panel="details">
             <div class="summary-head"><i data-icon="zap"></i><h3>Application assistant</h3></div>
-            <p class="muted panel-lead">The extension fills your applications. Claude can help when it gets stuck: slower, and it uses your Claude plan.</p>
+            <p class="muted panel-lead">Job Pilotto takes each application up to its Submit button. You check it and press Submit.</p>
+            <div class="assistant-mode">
+              <div class="segmented" role="group" aria-label="How much Job Pilotto does">
+                <button data-assistant-mode="full">Do it for me</button><button data-assistant-mode="assist">Let me check each step</button>
+              </div>
+              <p class="muted small" id="assistant-mode-text"></p>
+            </div>
             <div class="switch-line">
               <label class="switch-row"><span class="switch"><input type="checkbox" id="claude-consent"><span></span></span>
                 <span><span>Show Claude help (Apply with Claude, Resume Claude, Take over, Read with Claude)</span><span class="muted small">Off: only the extension's flow is shown. On: Claude is offered as a second option and works without asking before each step. It never clicks Submit.</span></span></label>
@@ -1011,14 +1020,6 @@
             <ul class="prereqs" id="claude-prereqs-settings" hidden></ul>
             <p class="muted small" id="claude-how-text" hidden>Its Claude Code windows then work without asking before each step, so they can run on their own.
               They never click Submit; any other command runs without asking, so watch the window while it works.</p>
-            <div class="switch-line">
-              <label class="switch-row"><span class="switch"><input type="checkbox" id="account-automation"><span></span></span>
-                <span><span>Create and sign in to employer accounts for me</span><span class="muted small">On: Job Pilotto accepts an account's terms and presses its button. Off: it fills the page and you do both. Never an application's Submit.</span></span></label>
-            </div>
-            <div class="switch-line">
-              <label class="switch-row"><span class="switch"><input type="checkbox" id="escalation"><span></span></span>
-                <span><span>Take a closer look when it is stuck</span><span class="muted small">On: when an account page stays unclear, Job Pilotto sends a screenshot of it, with what you typed hidden, to <span data-ai>Claude</span> and follows one suggested click. At most 10 a day.</span></span></label>
-            </div>
             <div class="switch-line" id="site-password-line">
               <span class="cv-card-text"><span>Job-site password: <b id="site-password">••••••••</b></span><span class="muted small">Job Pilotto signs up and signs in on employers' sites with it and your email; it is kept in this computer's Keychain.</span></span>
               <span class="inline"><button class="secondary small-button" id="site-password-show">Show</button><button class="secondary small-button" id="site-password-copy">Copy</button></span>

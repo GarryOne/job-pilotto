@@ -1,4 +1,5 @@
 // Settings → Application profile.
+import {showMode} from '../assistant-mode.js';
 import {contactHints} from '../audience.js';
 import {openInNotion, showNotionPanel} from './notion-connect.js';
 import {loadTextEditor, showStoreParts} from './text-editors.js';
@@ -218,8 +219,7 @@ export async function loadSettings() {
   showSchedule();
   showContact();
   $('claude-consent').checked = !!shared.state.settings.claudeConsent;
-  $('account-automation').checked = shared.state.settings.accountAutomation !== 'assist';
-  $('escalation').checked = shared.state.settings.escalation === 'on';
+  showMode(shared.state.settings);
   document.querySelectorAll('[data-secret]').forEach(line => {
     const set = shared.state.secrets[line.dataset.secret];
     line.textContent = set ? '✓ Connected' : 'Not set';

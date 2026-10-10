@@ -11,9 +11,9 @@ const storageOf = (settings = {escalation: 'on', accountAutomation: 'full'}) => 
 const fake = (answer, seen = []) => ({messages: {create: async body => { seen.push(body); return {content: [{type: 'text', text: JSON.stringify(answer)}], stop_reason: 'end_turn'}; }}});
 const ask = (extra = {}) => ({url: 'https://karriere.example/career?token=SECRET', kind: 'account', sketch, image: Buffer.from('jpeg-bytes').toString('base64'), reason: 'unsure twice', ...extra});
 
-test('off by default, and only on an account page: no AI call', async () => {
+test('off in "Let me check each step", and only on an account page: no AI call (10 Oct 2026: on by default, part of "Do it for me")', async () => {
   const seen = [];
-  assert.equal((await escalate(storageOf({}), ask(), {client: fake({action: 'wait', control: '', why: 'x', confidence: 1}, seen)})).why, 'off');
+  assert.equal((await escalate(storageOf({accountAutomation: 'assist'}), ask(), {client: fake({action: 'wait', control: '', why: 'x', confidence: 1}, seen)})).why, 'off');
   assert.equal((await escalate(storageOf(), ask({kind: 'search'}), {client: fake({}, seen)})).why, 'account and application pages only');
   assert.equal(seen.length, 0);
 });
@@ -28,11 +28,12 @@ test('a click on a control the page lists goes through; a made-up control become
   assert.deepEqual([made.action, made.why], ['ask_person', 'the control is not on the page']);
 });
 
-test('assist means the person clicks; no picture, a huge picture or no AI is "none"', async () => {
-  const assist = await escalate(storageOf({escalation: 'on', accountAutomation: 'assist'}), ask(), {client: fake({action: 'click', control: 'Anmelden', why: 'x', confidence: 0.9})});
-  assert.equal(assist.action, 'ask_person');
-  const unset = await escalate(storageOf({escalation: 'on'}), ask(), {client: fake({action: 'click', control: 'Anmelden', why: 'x', confidence: 0.9})});
-  assert.equal(unset.action, 'ask_person');   // nothing saved = the default = assist (9 Oct 2026): the person clicks
+test('"Let me check each step" never looks; nothing saved is "Do it for me" and its click goes through; no picture, a huge picture or no AI is "none"', async () => {
+  const seen = [];
+  const assist = await escalate(storageOf({accountAutomation: 'assist'}), ask(), {client: fake({action: 'click', control: 'Anmelden', why: 'x', confidence: 0.9}, seen)});
+  assert.deepEqual([assist.action, assist.why, seen.length], ['none', 'off', 0]);
+  const unset = await escalate(storageOf({}), ask(), {client: fake({action: 'click', control: 'Anmelden', why: 'x', confidence: 0.9})});
+  assert.equal(unset.action, 'click');   // nothing saved = the default = full (10 Oct 2026, owner: automatic by default)
   assert.equal((await escalate(storageOf(), ask({image: ''}), {client: fake({})})).why, 'no picture');
   assert.equal((await escalate(storageOf(), ask({image: 'A'.repeat(1_000_000)}), {client: fake({})})).why, 'no picture');
   assert.equal((await escalate(storageOf(), ask(), {client: null})).why, 'no AI');
@@ -80,10 +81,10 @@ test('choose: only a listed dropdown and one of its own options, in the page\'s 
   }
 });
 
-test('assist: the person fills and chooses too; the model is shown the dropdown\'s options and never a value', async () => {
+test('"Let me check each step" never looks to fill or choose; in "Do it for me" the model is shown the dropdown\'s options and never a value', async () => {
   const seen = [];
-  assert.equal((await looking({action: 'fill', control: 'E-Mail', detail: 'email'}, {escalation: 'on', accountAutomation: 'assist'}, seen)).why, 'assist: the person fills it');
-  assert.equal((await looking({action: 'choose', control: 'Land', option: 'Schweiz'}, {escalation: 'on', accountAutomation: 'assist'})).why, 'assist: the person chooses');
+  assert.equal((await looking({action: 'fill', control: 'E-Mail', detail: 'email'}, {accountAutomation: 'assist'})).why, 'off');
+  assert.equal((await looking({action: 'choose', control: 'Land', option: 'Schweiz'}, {accountAutomation: 'full'}, seen)).action, 'choose');
   assert.ok(JSON.stringify(seen[0]).includes('options: Bitte wählen | Schweiz | Deutschland'));
 });
 
@@ -113,9 +114,9 @@ test('an application page: asked from the sketch alone; a listed control is clic
   assert.equal(typed.action, 'ask_person', 'an application page is never typed into by a closer look');
 });
 
-test('an application page: off stays off, and the picture goes only when the extension sends one', async () => {
+test('an application page: "Let me check each step" stays off, and the picture goes only when the extension sends one', async () => {
   const seen = [];
-  assert.equal((await escalate(storageOf({}), askForm(), {client: fake({}, seen)})).why, 'off');
-  await escalate(storageOf({escalation: 'on'}), askForm({url: 'https://apply.example/Pic', image: Buffer.from('jpeg').toString('base64')}), {client: fake({action: 'wait', control: '', why: 'x', confidence: 1}, seen)});
+  assert.equal((await escalate(storageOf({accountAutomation: 'assist'}), askForm(), {client: fake({}, seen)})).why, 'off');
+  await escalate(storageOf({}), askForm({url: 'https://apply.example/Pic', image: Buffer.from('jpeg').toString('base64')}), {client: fake({action: 'wait', control: '', why: 'x', confidence: 1}, seen)});
   assert.ok(JSON.stringify(seen[0]).includes('"type":"image"'));
 });

@@ -8,7 +8,7 @@ import {test} from 'node:test';
 import {decideEscalation} from '../lib/server-pages.js';
 
 const sketch = {url: 'https://karriere.example/career', title: 'Konto', headings: [], controls: [{type: 'text', label: 'E-Mail', required: true, state: 'empty', at: '50,30'}], buttons: ['Weiter'], texts: [], frames: []};
-const storage = () => { const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-escv-')); return {settings: () => ({escalation: 'on', accountAutomation: 'full'}), path: name => path.join(dir, name)}; };
+const storage = () => { const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-escv-')); return {settings: () => ({accountAutomation: 'full'}), path: name => path.join(dir, name)}; };
 const body = () => ({url: 'https://karriere.example/career', kind: 'account', sketch, image: Buffer.from('jpeg').toString('base64'), reason: 'test'});
 const model = (seen = []) => ({messages: {create: async request => { seen.push(JSON.stringify(request)); return {content: [{type: 'text', text: JSON.stringify({action: 'fill', control: 'E-Mail', detail: 'email', option: '', why: 'the email box is empty', confidence: 0.9})}], stop_reason: 'end_turn'}; }}});
 
