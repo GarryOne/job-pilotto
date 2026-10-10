@@ -411,6 +411,16 @@ export async function consider(tab, jobUrl) {
       }
     }
   }
+  // The ladder ended at the person with nothing to say (the digest answered nothing usable): the picture rung looks once at the posting, from the sketch alone. It may press ONE control the page lists that the AI
+  // calls Apply and the Apply floor accepts (desktop/lib/ladder/rung4-picture.js vetPage); the press is the next-step press, which never presses a control that submits.
+  if (role === 'no-form' && kind?.botCheck !== true && !emailReport(stall || kind) && !toldReport(stall || kind) && otherReport(stall || kind, tab.id)) {
+    const look = await closerLook(tab, 0, 'the ladder ended at the person', {kind: 'page', picture: false}).catch(() => 'none');
+    if (look === 'click') {
+      const afterLook = await formAfterPress(tab.id, tab.url);
+      if (afterLook === 'navigated') { started.delete(key); return; }
+      if (afterLook) { role = 'form'; pressed = true; await noteRole(tab.id, tab.url, role); }
+    }
+  }
   if (role !== 'form') {
     await progress(tab.id, '');   // no fill here: the panel's "Starting…" ends now, not after its 20 s (owner, 9 Oct 2026: it spun on a sign-in page left to them)
     // A check that the visitor is human in front of the page (the page-kind AI's bot_check): the person solves it in this tab; the form is watched for two

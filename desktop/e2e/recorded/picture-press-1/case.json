@@ -1,0 +1,89 @@
+{
+ "shape": "a posting whose Apply control no earlier rung names (rung 2 sure of nothing, the digest answers `other`): the picture rung looks once and presses the one listed control the AI calls Apply",
+ "why": "10 Oct 2026, the ladder: when the ladder ended at the person with nothing to say, the page was reported as `other` and nobody tried. Now the picture rung (scope page) looks once from the sketch alone: it may press ONE control the page lists that the AI calls Apply and the Apply floor accepts (never a sign-in, share, alert or submit); the next-step press never presses a control that submits. The stub answers rung 2 sure of nothing, the digest `other`, and the closer look a click on the listed control, as the real chain answers on this shape (plan path, ladder fixtures)",
+ "sample": "www.jobs.aldi.ch posting (shape reconstructed by hand from the captured sketch and candidates; hosts and text invented)",
+ "rung": 4,
+ "pages": [
+  {
+   "url": "https://emplois.exemple.example.ch/emplois/apprenti-4711",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://emplois.exemple.example.ch/postuler/4711",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://emplois.exemple.example.ch/postuler/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   },
+   {
+    "when": {
+     "digest": true
+    },
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "digest",
+     "confidence": 0.8,
+     "rung": 3,
+     "signal": "confident",
+     "applyButton": "",
+     "applyRoute": "",
+     "applyBy": "",
+     "applyEmail": "",
+     "digest": {
+      "outcome": "other",
+      "verb": "none",
+      "numbers": [],
+      "chosen": []
+     }
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "",
+     "error": "unsure (0.4)",
+     "rung": 2,
+     "signal": "unsure"
+    }
+   }
+  ],
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  },
+  "/extension/escalate": {
+   "ok": true,
+   "action": "click",
+   "control": "Mitmachen",
+   "by": "ai"
+  }
+ },
+ "expect": {
+  "told": [
+   "closer look: click",
+   "closer look: pressed (pressed)"
+  ],
+  "filled": [
+   "#first"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 60
+ }
+}

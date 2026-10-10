@@ -9,7 +9,7 @@
 //   2     desktop/lib/account-judge.js          ./ladder/rung2-sketch.js (MODEL only)
 //   3     desktop/lib/ladder/rung3-digest.js          ./ai/models.js          (neither page-kind nor escalate)
 //   3     extension/ladder/rung3-candidates.js   nothing                 (a classic page script)
-//   4     desktop/lib/ladder/rung4-picture.js        node:fs, ./account-judge.js (accountSketch, listed), ./site-accounts.js, ./rung1-kept.js (pageShape only)
+//   4     desktop/lib/ladder/rung4-picture.js        node:fs, ./account-judge.js (accountSketch, listed), ./site-accounts.js, ./rung1-kept.js (pageShape only), ../../shared/alias-schema.js (the Apply floor of the posting scope: a shared format, not a rung)
 //   4     extension/ladder/rung4-picture.js          extension plumbing only (flow, log, account-fill, page-picture, account-act, next-step): no decision rung
 //   5     desktop/lib/ladder/rung5-takeover.js       nothing                 (no decision module)
 //   router extension/ladder/core.js      nothing
@@ -52,7 +52,7 @@ export const EDGES = {
   'desktop/lib/account-judge.js': {allow: ['desktop/lib/ladder/rung2-sketch.js'], only: {'desktop/lib/ladder/rung2-sketch.js': ['MODEL']}},
   'desktop/lib/ladder/rung3-digest.js': {allow: ['desktop/lib/ai/models.js']},
   'extension/ladder/rung3-candidates.js': {allow: []},
-  'desktop/lib/ladder/rung4-picture.js': {allow: ['node:fs', 'desktop/lib/account-judge.js', 'desktop/lib/ladder/rung1-kept.js', 'desktop/lib/site-accounts.js'], only: {'desktop/lib/ladder/rung1-kept.js': ['pageShape'], 'desktop/lib/account-judge.js': ['accountSketch', 'listed']}},
+  'desktop/lib/ladder/rung4-picture.js': {allow: ['node:fs', 'desktop/lib/account-judge.js', 'desktop/lib/ladder/rung1-kept.js', 'desktop/lib/site-accounts.js', 'desktop/shared/alias-schema.js'], only: {'desktop/lib/ladder/rung1-kept.js': ['pageShape'], 'desktop/lib/account-judge.js': ['accountSketch', 'listed']}},
   'extension/ladder/rung4-picture.js': {allow: EXTENSION_PLUMBING},
   'desktop/lib/ladder/rung5-takeover.js': {allow: []},
   'extension/ladder/core.js': {allow: []},

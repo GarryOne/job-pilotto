@@ -75,3 +75,20 @@ test('the account judgment and the closer look answer with the same fixed rung a
   const feedback = await decideEscalation(storage, {feedback: {action: 'click', worked: true}, url: 'https://a.example/x'}, {client: null});
   assert.equal('signal' in feedback, false, 'a feedback body is not a decision');
 });
+
+test('the log says which rung answered for a page shape, and a kept answer the page contradicts logs the signal "contradicted" (what /admin/applying reads)', async () => {
+  const {logTo, logFile} = await import('../lib/log.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-kind-log-'));
+  logTo(path.join(dir, 'logs'));
+  const storage = {path: name => path.join(dir, name), settings: () => ({})};
+  const answers = {'https://log.example/a/1': {kind: 'posting', role: 'no-form', by: 'ai', confidence: 0.9, shape: 'log.example/a/*', rung: 2, signal: 'confident'},
+    'https://log.example/b/1': {kind: 'form', role: 'form', by: 'remembered', confidence: 0.95, shape: 'log.example/b/*', rung: 1, signal: 'confident'},
+    'https://log.example/c/1': {kind: 'posting', role: 'no-form', by: 'digest', confidence: 0.9, shape: 'log.example/c/*', rung: 3, signal: 'confident'}};
+  for (const url of Object.keys(answers)) await decidePageKind(storage, {url}, {decide: async () => answers[url], client: null});
+  await decidePageKind(storage, {forget: true, url: 'https://log.example/b/1', controls: [], kind: 'form', reason: 'a form with no fields'}, {client: null});
+  const log = fs.readFileSync(logFile(), 'utf8');
+  assert.match(log, /page kind: posting[^\n]*"?rung"?[:=]"?2/, 'a sketch answer is rung 2');
+  assert.match(log, /page kind: form[^\n]*"?rung"?[:=]"?1/, 'a kept answer is rung 1');
+  assert.match(log, /page kind: posting[^\n]*"?rung"?[:=]"?3/, 'a digest answer is rung 3');
+  assert.match(log, /ladder: rung 1 signal contradicted/, 'the forget path says the kept answer was contradicted');
+});

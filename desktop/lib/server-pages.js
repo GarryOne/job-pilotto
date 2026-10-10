@@ -82,6 +82,7 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
     const dropped = forgetPageKind(kindCache, {url: body?.url, controls: body?.controls});
     if (shapeOf && ladderMiss(learnt, shapeOf)) appLog('extension', 'ladder: learned answer dropped (one miss)', {shape: shapeOf});
     appLog('extension', `page kind forgotten: ${String(body.reason || 'contradicted by the page').slice(0, 80)}`, {shape: dropped || '(nothing kept)', was: String(body.kind || '').slice(0, 20)});
+    appLog('extension', ladderLine({rung: 1, signal: 'contradicted'}), {shape: dropped || '(nothing kept)'});   // the kept answer (rung 1) the page contradicted: the line /admin/applying reads
     return {ok: true, forgotten: !!dropped};
   }
   if (body?.why === 'other') {   // the ladder ended with no usable answer: the shape is counted and logged, never its text (lib/ladder/other.js)
@@ -97,7 +98,7 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
   if (body?.confirmed === true) return {ok: true, hit: !!(shapeOf && ladderHit(learnt, shapeOf))};   // the page confirmed the learned answer
   const answer = await decide(client === undefined ? aiClient(storage) : client, sketchBody(body), kindCache, {fresh: body?.fresh === true, digest: body?.digest === true, learned: shape => ladderLookup(learnt, shape)});   // frames: the hosts of visible frames (a bot check), lib/page-kind.js
   if (kindWorthSaying(answer)) appLog('extension', answer.kind && !answer.error ? `page kind: ${answer.kind}` : `page kind: none (${answer.error || 'no answer'}), the structure rule decides`,
-    {shape: answer.shape || '', by: answer.by || '', confidence: answer.confidence ?? null, ...(answer.usd != null ? {usd: answer.usd} : {}), ...(answer.botCheck ? {botCheck: true} : {}), ...(answer.applyBy ? {applyBy: answer.applyBy} : {}), ...(answer.dropped ? {dropped: answer.dropped} : {})});   // applyBy 'other' and a dropped address are listed with the shape, never silent
+    {shape: answer.shape || '', by: answer.by || '', rung: answer.rung ?? null, confidence: answer.confidence ?? null, ...(answer.usd != null ? {usd: answer.usd} : {}), ...(answer.botCheck ? {botCheck: true} : {}), ...(answer.applyBy ? {applyBy: answer.applyBy} : {}), ...(answer.dropped ? {dropped: answer.dropped} : {})});   // applyBy 'other' and a dropped address are listed with the shape, never silent
   const climb = ladderLine({rung: answer.rung, signal: answer.signal});   // `ladder: rung N signal S`: the line the admin page reads; nothing for a confident rung
   if (climb) appLog('extension', climb, {shape: answer.shape || '', ...(answer.dropped ? {dropped: answer.dropped} : {})});
   // An Apply button the AI named for the first time goes to the shared label meanings (the button's wording only; 2-3 installs start a canary).

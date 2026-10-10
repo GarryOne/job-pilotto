@@ -50,7 +50,7 @@ async function picture(tab, frameId) {
 }
 
 // -> 'none' | 'click' | 'fill' | 'choose' | 'wait' | 'ask_person' (what was done or decided). reason: why we ask (for the log and the model).
-// kind 'form': an application page where a fill put nothing in (fill-flow.js ladder); picture false = the sketch alone (the cheap look first).
+// kind 'form': an application page where a fill put nothing in (fill-flow.js ladder); kind 'page': a job posting where the ladder ended at the person (an Apply control the sketch and the digest missed); picture false = the sketch alone (the cheap look first).
 export async function closerLook(tab, frameId, reason, {kind = 'account', picture: withPicture = true} = {}) {
   const config = await settings();
   if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return 'none';
@@ -64,7 +64,7 @@ export async function closerLook(tab, frameId, reason, {kind = 'account', pictur
   decide('fill', `closer look: ${action}`, {reason, by: answer?.by || '', why: String(answer?.why || '').slice(0, 80)});
   if (action === 'click' && answer.control) {
     // An application page is pressed with the next-step press (never a control that submits or reads like Submit); an account page with the register press.
-    const result = kind === 'form'
+    const result = kind === 'form' || kind === 'page'
       ? ((await chrome.scripting.executeScript({target: {tabId: tab.id, frameIds: [frameId ?? 0]}, world: 'MAIN', func: pressInPage, args: [answer.control]}).then(rows => rows?.[0]?.result).catch(() => null))?.pressed ? 'pressed' : 'refused')
       : await run(tab, frameId, pressRegister, [answer.control]);
     decide('fill', `closer look: pressed (${result})`, {});
