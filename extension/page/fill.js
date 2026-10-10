@@ -235,7 +235,7 @@
     });
     trace.push({label: 'CV', required: true, type: 'file', source: 'your CV', outcome: resumeAttached ? 'filled' : 'left',
       reason: resumeAttached ? '' : resume?.data ? 'no place to attach it was found on this page' : 'no CV in the app'});
-    const summary = {filled, unfilledRequired, contact: contact.length, resumeAttached, trace, operated: window.__jobPilottoOperated || [], unknownUploads: window.__jobPilottoUnknownUploads || [], todo: [...new Set([...todo, ...review, ...legal])].slice(0, 25)};
+    const summary = {filled, unfilledRequired, starred: window.__jobPilottoRequired.starred(document), contact: contact.length, resumeAttached, trace, operated: window.__jobPilottoOperated || [], unknownUploads: window.__jobPilottoUnknownUploads || [], todo: [...new Set([...todo, ...review, ...legal])].slice(0, 25)};
     for (const item of answers) {
       const row = rowOf[item.field];
       if (!row || contactFields.has(item.field) || row.legal || /your details|standard answer/.test(item.source || '')) continue;

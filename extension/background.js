@@ -89,7 +89,7 @@ async function arm(tabId, why = 'app tab') {
     armedLogged.add(mark);
     decide('panel', 'panel on a tab the app opened', {host, why});
   }
-  await chrome.scripting.executeScript({target: {tabId, allFrames: true}, files: ['page/skeleton.js', 'page/coverage.js', 'hook.js', 'panel-claude.js', 'review.js'], injectImmediately: true}).catch(() => {});
+  await chrome.scripting.executeScript({target: {tabId, allFrames: true}, files: ['page/skeleton.js', 'page/required-mark.js', 'page/coverage.js', 'hook.js', 'panel-claude.js', 'review.js'], injectImmediately: true}).catch(() => {});
 }
 // The mark in the address is what makes a page ours. A server redirect keeps it (a browser carries the #fragment through a
 // redirect). When an application tab moves on by itself (a link, a form, a script) and the new address has none, the mark is
@@ -268,7 +268,7 @@ function prefetch(config, url) {
 // How the generic operators fared on this form (kind, fingerprint, worked or not, why): the app turns the failures into
 // reports that help everyone. No questions, no answers.
 // `trace` carries only the rows no answer matched (the form's own wording: the app cleans it and drops what could be personal).
-function reportControls(config, tab, operated, trace, card = null, uploads = []) {
+function reportControls(config, tab, operated, trace, card = null, uploads = [], starred = 0) {
   // Every fill counts for the board it was on, even when the operators had nothing to do there.
   if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;
   let host = '';
@@ -286,7 +286,7 @@ function reportControls(config, tab, operated, trace, card = null, uploads = [])
   const required = (Array.isArray(trace) ? trace : []).filter(row => row && row.required && row.type !== 'file' && !/^legal/.test(String(row.reason || ''))).length;
   // The titles of upload slots whose wording no meaning knew (the slot was left empty): the service gives each a meaning once (alias keys resume, cover_letter).
   const uploadTitles = (Array.isArray(uploads) ? uploads : []).slice(0, 5).map(label => String(label || '').slice(0, 60));
-  api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: (Array.isArray(operated) ? operated : []).slice(0, 20), trace: unplaced, aliasUse, filled, required, uploads: uploadTitles,
+  api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: (Array.isArray(operated) ? operated : []).slice(0, 20), trace: unplaced, aliasUse, filled, required, starred: Math.max(0, Math.min(200, Math.round(Number(starred)) || 0)), uploads: uploadTitles,
     ...(card ? {card} : {})})}).catch(() => {});
 }
 // Labels of filled fields the person later changed by hand (page/fill.js watchCorrection): sent once, then forgotten.
@@ -338,7 +338,7 @@ async function fillOpenedTabNow(tab, url, force = false, {fast = false, quiet = 
     const me = await ready.me.catch(() => null);  // missing: fillTab fetches it and says what's wrong
     const result = await fillTab(tab, config, {jobUrl: url, kitAnswers: kit.kit?.answers || [], hasKit: !!kit.kit, coverLetter: kit.kit?.cover_letter || '', force, me,
       onStep: text => progress(tab.id, text, page)});
-    reportControls(config, tab, result?.operated, result?.trace, result?.card, result?.unknownUploads);
+    reportControls(config, tab, result?.operated, result?.trace, result?.card, result?.unknownUploads, result?.starred);
     // The kit's eligibility verdict, as a reminder (applying anyway was the user's choice).
     if (kit.kit?.eligible === false) await note(tab.id, `⛔ Reminder from your kit: ${kit.kit.eligibility_note}`, page);
     // Claude could not answer the form's own questions (not answering, a limit, no key): the fill went on without them and the panel said

@@ -174,7 +174,7 @@ export function registerExtServerHandlers(ctx) {
     for (const item of controlEvents.fromOperators(payload, {owner: owner()})) getTelemetry()?.record('control', item);
     recipeReporter.outcome(payload.items);   // counts per fingerprint and recipe: the canary's evidence
     const board = controlEvents.boardName(payload.host);
-    if (Array.isArray(payload.trace)) recipeReporter.fill(board, payload.required);   // one more form on this board (only a fill report carries the trace; a flow or alias event is not a fill)
+    if (Array.isArray(payload.trace)) recipeReporter.fill(board, payload.required, payload.starred);   // one more form on this board (only a fill report carries the trace; a flow or alias event is not a fill)
     recipeReporter.question((Array.isArray(payload.buttons) ? payload.buttons : []).map(label => ({label, kind: 'button'})), board);   // button texts of a page with no Apply button we knew
     recipeReporter.question((Array.isArray(payload.uploads) ? payload.uploads : []).map(label => ({label, kind: 'upload'})), board);   // titles of upload slots no meaning knew
     recipeReporter.alias(payload.aliasUse);   // which label meanings from the service placed a question, and whether the field took it
@@ -184,6 +184,7 @@ export function registerExtServerHandlers(ctx) {
     recipeReporter.unfilled(board, left);   // why fields stayed empty: counts per fixed reason word
     const unreadCount = left.find(c => c.reason === 'unread')?.n || 0;
     if (unreadCount) appLog('review', `fill: ${unreadCount} required question(s) on the page not read`, {board});
+    if (Array.isArray(payload.trace)) appLog('review', `fill: marks: ${Number(payload.starred) || 0} starred, ${Number(payload.required) || 0} required`, {board});   // the pool reads it back; starred well above required = the required rule missed a layout
     if (payload.flow) recipeReporter.flow(board, flowState(payload.flow));   // where an application got to on this board
     if (payload.card) recipeReporter.card(board, payload.card, payload.host);   // this fill's anonymous record (extension/fill-card.js)
     if (payload.byYou || payload.invalid || payload.fillId) {   // at Submit: what the fill missed (the person answered it, or the page flagged it)

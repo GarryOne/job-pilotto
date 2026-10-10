@@ -178,9 +178,10 @@ export async function controls(request, env, now = new Date()) {
     const board = text(item?.board, 40).toLowerCase();
     const n = Math.max(0, Math.min(1000, Math.round(Number(item?.n)) || 0));
     const required = Math.max(0, Math.min(200 * n, Math.round(Number(item?.required)) || 0));   // required questions on those forms (0: an older app)
+    const starred = Math.max(0, Math.min(200 * n, Math.round(Number(item?.starred)) || 0));   // labels those forms mark with a "*", counted apart from the rule (0: an older app)
     if (!/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(board) || !n) continue;
-    await env.STATS.prepare('INSERT INTO form_exposure (day, board, ai_family, n, required) VALUES (?, ?, ?, ?, ?) ON CONFLICT (day, board, ai_family) DO UPDATE SET n = n + excluded.n, required = required + excluded.required')
-      .bind(day(now), board, family, n, required).run();
+    await env.STATS.prepare('INSERT INTO form_exposure (day, board, ai_family, n, required, starred) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (day, board, ai_family) DO UPDATE SET n = n + excluded.n, required = required + excluded.required, starred = starred + excluded.starred')
+      .bind(day(now), board, family, n, required, starred).run();
   }
   for (const item of samples) {
     const fingerprint = String(item?.fingerprint || '');

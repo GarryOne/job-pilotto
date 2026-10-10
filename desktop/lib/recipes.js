@@ -88,17 +88,17 @@ export async function lookup(storage, fingerprints, {fetcher = globalThis.fetch,
 
 // ---- what goes back: operator outcomes (counts per fingerprint and recipe) and new control structures ----
 export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE, setTimer = setTimeout, onSent = null} = {}) {
-  let outcomes = new Map(), samples = [], fills = new Map(), questions = new Map(), flows = new Map(), aliasUse = new Map(), applications = new Map(), proposals = new Map(), proposalUses = new Map(), unfilled = new Map(), answers = new Map(), intel = emptyIntel(), timer = null, requiredBy = new Map(), cards = [], submits = new Map();
+  let outcomes = new Map(), samples = [], fills = new Map(), questions = new Map(), flows = new Map(), aliasUse = new Map(), applications = new Map(), proposals = new Map(), proposalUses = new Map(), unfilled = new Map(), answers = new Map(), intel = emptyIntel(), timer = null, requiredBy = new Map(), starredBy = new Map(), cards = [], submits = new Map();
   // The waiting batch is kept on disk too (data/learning-queue.json), so a restart (an update, the twin's refresh) before the 5-minute send loses
   // nothing (9 Oct 2026: a twin fill's record vanished when the app restarted 44 s after it). Counts and fixed words only, as sent.
   const MAPS = {outcomes: () => outcomes, fills: () => fills, questions: () => questions, flows: () => flows, aliasUse: () => aliasUse, applications: () => applications,
-    proposals: () => proposals, proposalUses: () => proposalUses, unfilled: () => unfilled, answers: () => answers, requiredBy: () => requiredBy, submits: () => submits};
+    proposals: () => proposals, proposalUses: () => proposalUses, unfilled: () => unfilled, answers: () => answers, requiredBy: () => requiredBy, starredBy: () => starredBy, submits: () => submits};
   const save = () => { try { storage.writeText(QUEUE, JSON.stringify({...Object.fromEntries(Object.entries(MAPS).map(([name, get]) => [name, [...get()]])), samples, cards})); } catch { /* best effort */ } };
   const schedule = () => { save(); if (!timer) { timer = setTimer(() => { timer = null; flush().catch(() => {}); }, FLUSH_MS); timer.unref?.(); } };
   try {
     const kept = JSON.parse(storage.readText(QUEUE) || 'null');
     if (kept && enabled(storage)) {
-      ({outcomes, fills, questions, flows, aliasUse, applications, proposals, proposalUses, unfilled, answers, requiredBy, submits} = Object.fromEntries(Object.keys(MAPS).map(name => [name, new Map(Array.isArray(kept[name]) ? kept[name] : [])])));
+      ({outcomes, fills, questions, flows, aliasUse, applications, proposals, proposalUses, unfilled, answers, requiredBy, starredBy, submits} = Object.fromEntries(Object.keys(MAPS).map(name => [name, new Map(Array.isArray(kept[name]) ? kept[name] : [])])));
       samples = Array.isArray(kept.samples) ? kept.samples : []; cards = Array.isArray(kept.cards) ? kept.cards : [];
       if ([...Object.values(MAPS)].some(get => get().size) || samples.length || cards.length) schedule();
     }
@@ -118,11 +118,13 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     },
     // One form filled on this board (lib/control-events.js boardName): how often users meet each board.
     // `required`: how many required questions it had, the denominator of the real-use rates on /smart-form-filling.
-    fill(board, required = 0) {
+    fill(board, required = 0, starred = 0) {
       if (!enabled(storage) || !/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(String(board || ''))) return;
       fills.set(board, (fills.get(board) || 0) + 1);
       const asked = Math.max(0, Math.min(200, Math.round(Number(required)) || 0));
       if (asked) requiredBy.set(board, (requiredBy.get(board) || 0) + asked);
+      const marked = Math.max(0, Math.min(200, Math.round(Number(starred)) || 0));   // labels the page marks with a "*", counted without the required rule: the cross-check
+      if (marked) starredBy.set(board, (starredBy.get(board) || 0) + marked);
       schedule();
     },
     // Questions of one fill that no answer matched (lib/question-labels.js unplaced): the form's own wording, counted per board.
@@ -305,14 +307,15 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
   }
   async function flush() {
     if (!enabled(storage) || (!outcomes.size && !samples.length && !fills.size && !questions.size && !flows.size && !aliasUse.size && !applications.size && !proposals.size && !proposalUses.size && !unfilled.size && !answers.size && !cards.length && !submits.size && !hasIntel())) return {sent: 0};
-    const body = {install: installId(storage), samples: samples.slice(0, 10), outcomes: [...outcomes.values()].slice(0, 40), exposure: [...fills].slice(0, 20).map(([board, n]) => ({board, n, ...(requiredBy.get(board) ? {required: requiredBy.get(board)} : {})})),
+    const body = {install: installId(storage), samples: samples.slice(0, 10), outcomes: [...outcomes.values()].slice(0, 40), exposure: [...fills].slice(0, 20).map(([board, n]) => ({board, n, ...(requiredBy.get(board) ? {required: requiredBy.get(board)} : {}), ...(starredBy.get(board) ? {starred: starredBy.get(board)} : {})})),
       questions: [...questions.values()].slice(0, 40), flows: [...flows.values()].slice(0, 20), aliasUse: [...aliasUse.values()].slice(0, 20),
       applications: [...applications.values()].slice(0, 20), proposals: [...proposals.values()].slice(0, 10), proposalUses: [...proposalUses.values()].slice(0, 40), unfilled: [...unfilled.values()].slice(0, 20), answers: [...answers.values()], cards: cards.slice(0, 20), submits: [...submits.values()].slice(0, 20), ...(hasIntel() ? {intel: takeIntel()} : {})};
-    const taken = {cards: cards.slice(0, 20), submits, samples: samples.slice(0, 10), outcomes, fills, requiredBy, questions, flows, aliasUse, applications, proposals, proposalUses, unfilled, answers, intel: body.intel};
+    const taken = {cards: cards.slice(0, 20), submits, samples: samples.slice(0, 10), outcomes, fills, requiredBy, starredBy, questions, flows, aliasUse, applications, proposals, proposalUses, unfilled, answers, intel: body.intel};
     samples = samples.slice(10);
     outcomes = new Map();
     fills = new Map();
     requiredBy = new Map();
+    starredBy = new Map();
     questions = new Map();
     flows = new Map();
     aliasUse = new Map();
@@ -339,6 +342,7 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
       }
       for (const [board, n] of taken.fills) fills.set(board, (fills.get(board) || 0) + n);
       for (const [board, n] of taken.requiredBy) requiredBy.set(board, (requiredBy.get(board) || 0) + n);
+      for (const [board, n] of taken.starredBy) starredBy.set(board, (starredBy.get(board) || 0) + n);
       for (const [key, entry] of taken.questions) questions.set(key, entry);
       for (const [key, entry] of taken.flows) flows.set(key, {...entry, n: entry.n + (flows.get(key)?.n || 0)});
       if (taken.intel) putBackIntel(taken.intel);

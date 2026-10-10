@@ -18,7 +18,7 @@ export const rungFields = result => ({...(result?.rung != null ? {rung: result.r
 // -> {reached, filled, left, rung (0-6 | null), signal (unsure|contradicted|stalled|failed | null), kinds: [page kinds seen], path: [{kind, host}] in order (consecutive repeats folded), errors: [lines]}
 export function parseLive(output) {
   const lines = String(output || '').split('\n');
-  let reached = 'none', filled = null, left = null;
+  let reached = 'none', filled = null, left = null, marks = null;
   const kinds = [], errors = [], path = [];
   let fieldList = [];   // the form's fields, one 'field ...' line each (apply-live.mjs prints them whole: the app's own line is cut at 230 characters)
   let derived = null, told = null;
@@ -36,13 +36,15 @@ export function parseLive(output) {
     if (/take over with Claude asked from the page/.test(line)) derived = 5;
     const ladder = line.match(/\bladder: rung (\d) signal (\w+)\s*$/);
     if (ladder && Number(ladder[1]) <= 6) told = {rung: Number(ladder[1]), signal: SIGNALS.includes(ladder[2]) ? ladder[2] : null};
+    const markLine = line.match(/fill: marks: (\d+) starred, (\d+) required/);
+    if (markLine && !/account page/.test(line)) marks = {starred: Number(markLine[1]), required: Number(markLine[2])};
     const fields = line.match(/fields: (\d+) filled, (\d+) left/);
     const field = line.match(/^\s+field (filled|left) (\S+) "(.*)" required=(true|false|\?) reason=(.*)$/);
     if (field) fieldList.push({outcome: field[1], type: field[2], label: field[3], required: field[4] === 'true' ? true : field[4] === 'false' ? false : null, reason: field[5]});
     if (fields && !/account page/.test(line)) { fieldList = []; filled = Number(fields[1]); left = Number(fields[2]); reach('form'); if (left === 0 && filled > 0) reach('ready'); }
     if (/(^|\s)(✗|not ok)\b|Error:|crash/.test(line)) errors.push(line.trim().slice(0, 200));
   }
-  return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, kinds: [...new Set(kinds)], path, errors};
+  return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, kinds: [...new Set(kinds)], path, errors};
 }
 
 // The same shape reaching an earlier step than last night, or filling fewer fields on the same posting, is a regression.
@@ -101,6 +103,13 @@ export function placeFound(shapes, posting, flow, day) {
   const added = {shape: `${posting.company || host(posting.url)} (found ${day})`, urls: [posting.url], signature: flow};
   shapes.push(added);
   return added;
+}
+
+// The "*" cross-check for one run (the same rule as site/src/formlearning.js marksCheck): the page marked at least 3 labels and the extension counted
+// fewer than half as many required questions, so its required rule missed a layout. {starred, required} or null.
+export function marksBlind(result) {
+  const marks = result?.marks;
+  return marks && marks.starred >= 3 && marks.starred > 2 * marks.required ? marks : null;
 }
 
 // A shortfall (owner, 10 Oct 2026: 4 of 13 filled showed blue, "reached the form"): the form was reached, and fewer than half of the fields the extension was asked to fill are filled.

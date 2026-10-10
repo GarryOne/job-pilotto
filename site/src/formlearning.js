@@ -97,10 +97,21 @@ export async function report(db, now = new Date(), family = '') {
 
   const results = resultsFrom((await db.prepare('SELECT day, board, state, SUM(n) AS n FROM flow_outcomes WHERE day >= ?' + FAMILY_SQL + ' GROUP BY day, board, state').bind(lastWeek, family, family).all().catch(() => ({results: []}))).results || [], thisWeek, lastWeek);
   const learning = await digest(db, now).catch(() => null);
+  const marks = await marksCheck(db, thisWeek, family).catch(() => []);   // the star count against the required count, per board (migration 0053)
   const families = await byFamily(db, thisWeek).catch(() => null);
   const answers = await answersByFamily(db, thisWeek, lastWeek).catch(() => null);   // the AI's own answers, per family (migration 0046)
-  return {family, families, answers, results, learning,
+  return {family, families, answers, results, learning, marks,
     use: {...use, unitNow: per('now').unit, reasons}, recipes, from: lastWeek, to: day(now)};
+}
+
+// The cross-check: forms whose labels carry far more "*" marks than the required rule counted. A board is flagged when it shows at least 3 marks
+// and more than twice as many as required questions: the rule missed a layout there (a recorded page and a shape test are due).
+export const MARKS_MIN = 3;
+export async function marksCheck(db, since, family = '') {
+  const rows = (await db.prepare('SELECT board, SUM(n) AS forms, SUM(required) AS required, SUM(starred) AS starred FROM form_exposure WHERE day >= ? AND starred > 0' + FAMILY_SQL + ' GROUP BY board ORDER BY starred DESC LIMIT 30')
+    .bind(since, family, family).all()).results || [];
+  return rows.map(row => ({board: row.board, forms: row.forms || 0, required: row.required || 0, starred: row.starred || 0,
+    blind: (row.starred || 0) >= MARKS_MIN && (row.starred || 0) > 2 * (row.required || 0)}));
 }
 
 const pct = cell => (cell?.rate == null ? '–' : `${Math.round(cell.rate * 100)}%`);
@@ -112,6 +123,15 @@ function trend(now, before, higherIsBetter = true) {
   if (Math.abs(delta) < 1e-9) return '<span class="muted">=</span>';
   const good = higherIsBetter ? delta > 0 : delta < 0;
   return `<span class="${good ? 'up' : 'down'}">${delta > 0 ? '▲' : '▼'}</span>`;
+}
+
+// The "*" cross-check (marksCheck): a board that marks far more labels than the app counted as required is a blind spot of the required rule.
+function marksSection(marks) {
+  const rows = Array.isArray(marks) ? marks : [];
+  const blind = rows.filter(row => row.blind);
+  return `<section class="card"><h2>⭐ Required marks: seen vs counted</h2><small class="muted">Labels a form marks with a "*", counted apart from the required rule, against the questions the app counted as required (this week; apps from 0.9.175). ${blind.length ? `<b>${blind.length} board${blind.length === 1 ? '' : 's'} flagged: the rule missed a layout there.</b>` : 'No board flagged.'} Flagged = at least ${MARKS_MIN} marks and more than twice the required count.</small>
+<div class="wrap"><table><tr><th>Board</th><th class="n">Forms</th><th class="n">Marks seen</th><th class="n">Counted required</th><th>Verdict</th></tr>
+${rows.map(row => `<tr><td>${esc(row.board)}</td><td class="n">${row.forms}</td><td class="n">${row.starred}</td><td class="n">${row.required}</td><td>${row.blind ? '<span class="down">Blind spot: add a recorded page</span>' : 'ok'}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No data yet: it starts with extension 0.9.175.</td></tr>'}</table></div></section>`;
 }
 
 // From the learning digest (src/digest.js): efficiency day by day from every fill's record, and the top weaknesses.
@@ -191,6 +211,7 @@ ${tile('🧩 Recipes', String(data.recipes.verified.n), `<span class="muted">+${
 ${resultsSection(data.results)}
 ${proposalCard(data.learning?.proposals, esc)}
 ${learningSections(data.learning)}
+${marksSection(data.marks)}
 <section class="card"><h2>🧭 Real use: what the fill missed</h2><small class="muted">From the apps that send technical reports, per 100 ${esc(data.use.unitNow)}. Blind spots are what the learning loop must catch; widgets get recipes; data is the profile's. Per platform, against the pool's tests: <a href="/admin/applying">Applying tests → platform scorecard</a>.</small>
 <div class="wrap"><table><tr><th>Why</th><th>Kind</th><th class="n">This week</th><th class="n">Per 100</th><th></th><th class="n">Last week</th></tr>
 ${data.use.reasons.filter(x => x.now || x.before).map(x => `<tr><td>${esc(x.text)}</td><td class="muted">${esc(x.group)}</td><td class="n">${x.now}</td><td class="n">${num(x.rateNow)}</td><td>${trend(x.rateNow, x.rateBefore, false)}</td><td class="n muted">${num(x.rateBefore)}</td></tr>`).join('')

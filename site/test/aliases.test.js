@@ -166,3 +166,14 @@ test('the learning tables keep what still decides something: old outcomes, decid
   assert.deepEqual([removed.alias_outcomes, removed.alias_proposals, removed.meaning_votes], [1, 2, 1]);
   assert.deepEqual(db.prepare('SELECT phrase FROM alias_proposals').all().map(r => r.phrase), ['frais']);
 });
+
+test('a fill report carries the star count into the board\'s exposure row, clamped, and an old app sends none', async () => {
+  const e = env();
+  e.STATS.db.exec(readFileSync(new URL('../migrations/0053_form_starred.sql', import.meta.url), 'utf8'));
+  const send = exposure => controls(new Request('https://x/api/controls', {method: 'POST', body: JSON.stringify({install: 'install-aaaa-1111', exposure})}), e, now);
+  await send([{board: 'recruitingapp-662.umantis.com', n: 2, required: 0, starred: 12}]);
+  await send([{board: 'recruitingapp-662.umantis.com', n: 1, required: 0, starred: 999999}, {board: 'ashby', n: 1, required: 5}]);
+  const rows = Object.fromEntries(e.STATS.db.prepare('SELECT board, SUM(n) AS n, SUM(starred) AS starred FROM form_exposure GROUP BY board').all().map(row => [row.board, [row.n, row.starred]]));
+  assert.deepEqual(rows['recruitingapp-662.umantis.com'], [3, 212]);   // 12, then clamped to 200 per form (n = 1)
+  assert.deepEqual(rows.ashby, [1, 0]);
+});

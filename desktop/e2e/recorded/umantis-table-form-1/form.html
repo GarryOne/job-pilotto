@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><title>Bewerbung | Stellenmarkt</title>
+<style>td{padding:6px;vertical-align:top} .lbl{text-align:right;color:#555} input[type=text],input[type=email]{width:320px}</style></head>
+<body>
+<h1>Persönliche Daten bitte hier erfassen.</h1>
+<form id="app" method="post" action="#" onsubmit="return false">
+  <h2>Login</h2>
+  <p>Bitte via Klick auf "Login" anmelden, falls bereits eine Bewerbung erfasst wurde.</p>
+  <p>Mit <span style="color:#d4560a">*</span> markierte Felder sind Pflichtfelder.</p>
+  <table>
+    <tr><td class="lbl">Anrede<span style="color:#d4560a">*</span>:</td>
+      <td><input type="radio" name="sal" id="sal1"><label for="sal1">Frau</label>
+          <input type="radio" name="sal" id="sal2"><label for="sal2">Herr</label>
+          <input type="radio" name="sal" id="sal3"><label for="sal3">Divers</label></td></tr>
+    <tr><td class="lbl"><label for="vorname">Vorname<span style="color:#d4560a">*</span>:</label></td><td><input type="text" id="vorname" name="vorname"></td></tr>
+    <tr><td class="lbl"><label for="nachname">Nachname<span style="color:#d4560a">*</span>:</label></td><td><input type="text" id="nachname" name="nachname"></td></tr>
+    <tr><td class="lbl"><label for="email">E-Mail-Adresse/Login<span style="color:#d4560a">*</span>:</label></td><td><input type="email" id="email" name="email"></td></tr>
+    <tr><td class="lbl"><label for="telefon">Telefon:</label></td><td><input type="text" id="telefon" name="telefon"></td></tr>
+  </table>
+  <button type="button">Weiter</button>
+</form>
+</body></html>

@@ -101,6 +101,10 @@ test('each filled form counts for its board and goes in the same batch; nothing 
   reporter.fill('ashby', 9); reporter.fill('ashby', 3); reporter.fill('lever', 'x');
   await reporter.flush();
   assert.deepEqual(sent[1].exposure, [{board: 'ashby', n: 2, required: 12}, {board: 'lever', n: 1}]);
+  // And the labels the page marks with a "*", counted apart from the rule: the cross-check (site /admin/form-filling, "Required marks").
+  reporter.fill('recruitingapp-662.umantis.com', 0, 6); reporter.fill('recruitingapp-662.umantis.com', 0, 6); reporter.fill('ashby', 4, 'x');
+  await reporter.flush();
+  assert.deepEqual(sent[2].exposure, [{board: 'recruitingapp-662.umantis.com', n: 2, starred: 12}, {board: 'ashby', n: 1, required: 4}]);
   storage.saveSettings({telemetry: false});
   reporter.fill('ashby');
   assert.deepEqual(await reporter.flush(), {sent: 0});

@@ -7,7 +7,7 @@
   window.__jobPilottoFillLabelsLoaded = true;
 
   const LEGAL = /\b(i agree|i accept|terms|privacy|consent\w*|acknowledg\w*|certif\w*|affirm\w*|i confirm i have read|i have read and understood)\b/i;
-  const clean = text => String(text || '').replace(/\s+/g, ' ').replace(/\*\s*$/, '').trim();
+  const clean = text => window.__jobPilottoRequired.clean(text, {leading: false});   // a group's name keeps its leading "*": the radios read it with `has`
   const norm = text => clean(text).toLowerCase();
   // Audit labels can repeat themselves (label text + aria-label): "First Name First Name" -> "First Name".
   const once = text => clean(text).replace(/^(.+?)\s+\1$/i, '$1');
@@ -35,9 +35,10 @@
   // a trailing "*", a "required" class, or a "*" drawn by CSS (Ashby marks its radio groups only that way, no attribute).
   const fieldsetTitle = set => set && (set.querySelector('legend') ||
     Array.from(set.querySelectorAll('label')).find(l => !l.control && !l.querySelector('input, select, textarea')));
-  const titleRequired = title => !!title && (/\*\s*$/.test(title.textContent || '') || /required/i.test(String(title.className || '')) ||
+  const titleRequired = title => !!title && (window.__jobPilottoRequired.has(title.textContent) || /required/i.test(String(title.className || '')) ||
     String(getComputedStyle(title, '::after').content || '').includes('*'));
   const questionOf = el => clean(fieldsetTitle(el.closest('fieldset'))?.textContent ||
+    (['radio', 'checkbox'].includes(el.type) ? window.__jobPilottoRequired.rowTitle(el)?.textContent : '') ||
     el.closest('[role=radiogroup], [role=group]')?.getAttribute('aria-label') ||
     el.closest('[role=radiogroup], [role=group]')?.querySelector('label, legend, span')?.textContent || '');
   const isCombo = el => el.getAttribute('role') === 'combobox';

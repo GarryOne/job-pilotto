@@ -71,6 +71,7 @@ test('how an alias fared is batched as counts per phrase, with no answer in it',
 function filler() {
   const window = {};
   const context = vm.createContext({window, document: {querySelectorAll: () => [], getElementById: () => null, body: {innerText: ''}}, getComputedStyle: () => ({}), setTimeout, console});
+  vm.runInContext(fs.readFileSync(new URL('../../extension/page/required-mark.js', import.meta.url), 'utf8'), context);   // the one required-mark rule
   vm.runInContext(fs.readFileSync(new URL('../../extension/page/radios.js', import.meta.url), 'utf8'), context);   // injected before fill.js
   for (const file of FILL_FILES) vm.runInContext(fs.readFileSync(new URL(`../../extension/${file}`, import.meta.url), 'utf8'), context);
   return window;

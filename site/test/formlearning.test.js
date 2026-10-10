@@ -75,3 +75,13 @@ test('the results block is honest when nothing was reported yet, and the site ac
 test('the page links to the applying scorecard, where real use meets the pool\'s tests', () => {
   assert.match(readFileSync(new URL('../src/formlearning.js', import.meta.url), 'utf8'), /href="\/admin\/applying">Applying tests → platform scorecard/);
 });
+
+test('the "*" cross-check flags a board whose marks far exceed the required count', async () => {
+  const db = d1();
+  db.db.exec(readFileSync(new URL('../migrations/0053_form_starred.sql', import.meta.url), 'utf8'));
+  db.db.prepare("INSERT INTO form_exposure (day, board, n, required, starred) VALUES ('2026-10-09', 'recruitingapp-662.umantis.com', 2, 0, 12), ('2026-10-09', 'ashby', 5, 50, 52), ('2026-10-09', 'small', 1, 0, 2)").run();
+  const data = await report(db, now);
+  const by = Object.fromEntries(data.marks.map(row => [row.board, row.blind]));
+  assert.deepEqual(by, {'recruitingapp-662.umantis.com': true, ashby: false, small: false});   // 12 marks vs 0 required; 52 vs 50 is fine; 2 marks is too few to say
+  assert.match(page(data), /Blind spot: add a recorded page/);
+});

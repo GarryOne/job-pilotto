@@ -5,7 +5,7 @@
 // 2026: two required radio groups were neither filled nor listed). Read only: it never changes the page. Loaded by the panel,
 // the fill and the form lab (job-pilotto-internal lab/form-lab.mjs), and by the tests (module.exports).
 (() => {
-  const clean = text => String(text || '').replace(/\s+/g, ' ').replace(/\s*\*+\s*$/, '').trim();
+  const clean = text => window.__jobPilottoRequired.clean(text);
   const norm = text => clean(text).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   // Where a question's title can be. Options' own labels are not marked required, so they never count.
   const TITLE = 'label, legend, [class*=question-title], [class*=questionTitle], [class*=field-label], [class*=fieldLabel], [class*=label], [class*=title], h3, h4, h5';
@@ -14,7 +14,7 @@
   // The page says this title's question is required: a trailing "*", a "required" class, a "*" drawn before/after it, or a
   // marker element inside it.
   function marked(title, view) {
-    if (/\*\s*$/.test(String(title.textContent || '').trim())) return true;
+    if (window.__jobPilottoRequired.has(title.textContent)) return true;
     if (/(^|[\s_-])required([\s_-]|$)/i.test(String(title.className?.baseVal ?? title.className ?? ''))) return true;
     if (title.querySelector('[class*=required], [aria-label*=required i], abbr[title*=required i]')) return true;
     try {

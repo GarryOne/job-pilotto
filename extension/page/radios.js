@@ -66,10 +66,10 @@
       const raw = groupName(group, radios);
       if (!clean(raw)) return [];
       if (!group.id && !group.dataset.jobpilottoGroup) group.dataset.jobpilottoGroup = `g${document.querySelectorAll('[data-jobpilotto-group]').length + 1}`;
-      const question = clean(raw.replace(/^\s*\*\s*/, '').replace(/\s*\*\s*$/, ''));
+      const question = clean(window.__jobPilottoRequired.clean(raw));
       const title = group.getAttribute('role') === 'radiogroup' ? null : titleAbove(group);
       return [{field: `aria:${group.id || group.dataset.jobpilottoGroup}`, label: question, type: 'radio',
-        required: /^\s*\*|\*\s*$/.test(raw) || /required/i.test(title?.className || '') || group.getAttribute('aria-required') === 'true' || radios.some(radio => radio.getAttribute('aria-required') === 'true'),
+        required: window.__jobPilottoRequired.has(raw) || /required/i.test(title?.className || '') || group.getAttribute('aria-required') === 'true' || radios.some(radio => radio.getAttribute('aria-required') === 'true'),
         options: radios.map(nameOf).filter(Boolean), filled: checked(radios), legal: LEGAL.test(question)}];
     });
     // The described ARIA fields as audit rows (the audit reads inputs only), with their state now.

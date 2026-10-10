@@ -1,7 +1,7 @@
 // The nightly smoke's logic (lib/smoke.mjs): how far a live run got, what counts as a regression, which posting is tried tonight.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {compare, fieldLines, parseLive, pickPosting, placeFound, rungFields, shortfall} from '../lib/smoke.mjs';
+import {compare, fieldLines, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall} from '../lib/smoke.mjs';
 
 const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detail/x/
   2026-10-10T12:20:27Z [extension] page kind: account {"shape":"auth.jobs.ch/u/login/identifier|1-2","by":"ai"}
@@ -9,7 +9,7 @@ const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detai
   2026-10-10T12:20:46Z [extension] account judgment result: needs_code {"botCheck":false}`;
 
 test('a run that stopped at the email code reached code/bot; an account page\'s fields are not the form', () => {
-  assert.deepEqual(parseLive(LIVE), {reached: 'code/bot', filled: null, left: null, rung: 2, signal: null, fieldList: [], kinds: ['account'], path: [{kind: 'account', host: 'auth.jobs.ch'}], errors: []});
+  assert.deepEqual(parseLive(LIVE), {reached: 'code/bot', filled: null, left: null, rung: 2, signal: null, fieldList: [], marks: null, kinds: ['account'], path: [{kind: 'account', host: 'auth.jobs.ch'}], errors: []});
 });
 
 test('a form filled to the end is ready; one with fields left is form', () => {
@@ -178,4 +178,12 @@ test('rungFields: the upload row carries a known rung and signal, nothing for an
   assert.deepEqual(rungFields({rung: 3, signal: 'stalled'}), {rung: 3, signal: 'stalled'});
   assert.deepEqual(rungFields({rung: null, signal: null}), {});
   assert.deepEqual(rungFields(undefined), {});
+});
+
+test('marks blind: more "*" labels than required questions counted means the required rule missed a layout', () => {
+  const run = (starred, required) => parseLive(`  live + 9s: x\n      log 19:03:13.8Z [review] fill: marks: ${starred} starred, ${required} required {"board":"recruitingapp-662.umantis.com"}`);
+  assert.deepEqual(marksBlind(run(12, 0)), {starred: 12, required: 0});   // the umantis form of 10 Oct 2026: six starred questions, none counted
+  assert.equal(marksBlind(run(12, 11)), null);   // the rule saw them
+  assert.equal(marksBlind(run(2, 0)), null);   // too few marks to say
+  assert.equal(marksBlind(parseLive('nothing')), null);   // an old app logs no marks line
 });

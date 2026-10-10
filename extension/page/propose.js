@@ -8,7 +8,7 @@
 (() => {
   if (window.__jobPilottoProposeLoaded) return;
   window.__jobPilottoProposeLoaded = true;
-  const clean = text => String(text || '').replace(/\s+/g, ' ').replace(/^\s*\*\s*|\s*\*\s*$/g, '').trim().toLowerCase();   // the required star before or after the words (SuccessFactors: "* Titre de civilité")
+  const clean = text => window.__jobPilottoRequired.clean(text).toLowerCase();   // the required star before or after the words (SuccessFactors: "* Titre de civilité")
   const elOf = field => (String(field).startsWith('radio:') ? document.querySelector(`[name="${CSS.escape(String(field).slice(6))}"]`)
     : String(field).startsWith('aria:') ? document.getElementById(String(field).slice(5)) || document.querySelector(`[data-jobpilotto-group="${CSS.escape(String(field).slice(5))}"]`)   // page/radios.js
     : document.getElementById(field) || document.querySelector(`[name="${CSS.escape(String(field))}"]`));

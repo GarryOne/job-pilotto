@@ -24,7 +24,7 @@
   // office attendance, a required licence or language). Marked first, because a wrong or rushed answer here decides more than anything else on the form.
   const KNOCKOUT = /authori[sz]ed to work|authori[sz]ation|right to work|legally (eligible|entitled)|sponsor|visa|work permit|citizen|relocat|willing(ness)? to (work|commute|come|travel)|on-?site|in[- ]office|office (days|attendance)|days (a|per) week|reside|currently located|security clearance|licen[sc]e/i;
   const AGREE = /agree|consent|acknowledg|terms|privacy|policy|arbitrat|certif|attest|pledge/i;
-  const clean = text => String(text || '').replace(/\s+/g, ' ').replace(/^\s*\*\s*|\s*\*\s*$/g, '').trim();
+  const clean = text => window.__jobPilottoRequired.clean(text);
   const norm = text => clean(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const visible = el => !!(el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
 
@@ -32,7 +32,7 @@
   function question(el) {
     const byIds = (el.getAttribute('aria-labelledby') || '').split(/\s+/).map(id => document.getElementById(id)?.textContent).filter(Boolean).join(' ');
     const own = byIds || el.getAttribute('aria-label') || Array.from(el.labels || [], label => label.textContent).join(' ');
-    const legend = fieldsetTitle(el.closest('fieldset'))?.textContent;
+    const legend = (fieldsetTitle(el.closest('fieldset')) || (['radio', 'checkbox'].includes(el.type) ? window.__jobPilottoRequired.rowTitle(el) : null))?.textContent;
     if (['checkbox', 'radio'].includes(el.type) && legend) return clean(legend);
     if (clean(own)) return clean(own);
     if (legend) return clean(legend);
@@ -47,11 +47,11 @@
   // by a "*" its CSS draws after that title (no attribute), so the class and the drawn "*" count too.
   const fieldsetTitle = set => set && (set.querySelector('legend') ||
     Array.from(set.querySelectorAll('label')).find(l => !l.control && !l.querySelector('input, select, textarea')));
-  const titleRequired = title => !!title && (/\*\s*$/.test(String(title.textContent || '').trim()) || /required/i.test(String(title.className || '')) ||
+  const titleRequired = title => !!title && (window.__jobPilottoRequired.has(title.textContent) || /required/i.test(String(title.className || '')) ||
     String(getComputedStyle(title, '::after').content || '').includes('*'));
   const required = el => el.required || el.getAttribute('aria-required') === 'true' ||
-    /\*\s*$/.test(String(el.labels?.[0]?.textContent || '').trim()) ||
-    (['checkbox', 'radio'].includes(el.type) && titleRequired(fieldsetTitle(el.closest('fieldset'))));
+    window.__jobPilottoRequired.has(el.labels?.[0]?.textContent) ||
+    (['checkbox', 'radio'].includes(el.type) && titleRequired(fieldsetTitle(el.closest('fieldset')) || window.__jobPilottoRequired.rowTitle(el)));
   // A custom dropdown keeps its answer beside the input (react-select: a value chip in the control around it) or in a hidden input a <label for> points
   // to, in the same field's area (SuccessFactors' picklist; 8 Oct 2026: a chosen "Monsieur" stayed "left for you"). Up 4 boxes, never into another field's.
   const comboFilled = el => {
@@ -120,14 +120,14 @@
       }
       if (!title) continue;
       groups.set(box, {el: box, label: clean(title.textContent), ai: false,
-        required: /required/i.test(title.className) || /\*\s*$/.test(title.textContent || ''),
+        required: /required/i.test(title.className) || window.__jobPilottoRequired.has(title.textContent),
         filled: buttons.some(button => button.getAttribute('aria-pressed') === 'true')});
     }
     const known = [...groups.values()];
     for (const {el} of window.__jobPilottoSkeleton?.widgets(document, visible) || []) {
       if (known.some(entry => entry.el === el || entry.el?.contains?.(el) || el.contains(entry.el))) continue;   // a field the readers above already count
       const named = (el.getAttribute('aria-labelledby') || '').split(/\s+/).map(id => document.getElementById(id)?.textContent || '').join(' ');
-      if (el.getAttribute('aria-required') !== 'true' && !/\*\s*$/.test(named.trim())) continue;
+      if (el.getAttribute('aria-required') !== 'true' && !window.__jobPilottoRequired.has(named)) continue;
       const state = widgetState(el);
       if (!firstState.has(el)) firstState.set(el, state);
       groups.set(el, {el, label: question(el), required: true, filled: state !== firstState.get(el), ai: false, custom: true});   // custom: still a miss for reportMisses
