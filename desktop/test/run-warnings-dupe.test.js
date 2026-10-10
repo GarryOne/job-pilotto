@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {groupWarnings, humanError, newDetails} from '../renderer/run-warnings.js';
+import {groupWarnings, humanError, newDetails, sentences} from '../renderer/run-warnings.js';
 import {setWhere} from '../renderer/store-name.js';
 import {activitySource} from './activity-source.js';
 
@@ -49,4 +49,13 @@ test('a failed run-history write names the store and what was not saved (#342)',
       assert.ok(notion || !/Notion/.test(groupWarnings([`run not opened in the run history: ${reason}`])[0]), 'a Mac store never says Notion');
     }
   } finally { setWhere('Notion'); }
+});
+
+// #342: "…: try again And 2 more." ran the sentence into the count. Every sentence ends before the next one starts.
+test('sentences: each ends with a full stop before the next, and "And N more." follows a finished sentence', () => {
+  assert.equal(sentences(['The run could not be saved: try again']), 'The run could not be saved: try again.');
+  assert.equal(sentences(['First one', 'Second one.']), 'First one. Second one.');
+  assert.equal(sentences(['First one', 'Second one', 'Third one'], true), 'First one. And 2 more.');
+  assert.equal(sentences(['Ends already?'], true), 'Ends already?');
+  assert.equal(sentences([]), '');
 });

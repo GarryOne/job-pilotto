@@ -2,7 +2,7 @@
 // Split out of activity.js as a pure move. Guarded by the tests that read the activity-*.js sources (desktop/test/activity-source.js) and the e2e activity suites.
 import {billingLabel} from '../ai-engine-view.js';
 import {claudeHelp} from '../claude-help.js';
-import {AI_BUSY, groupWarnings, humanError, limitedJobs} from '../run-warnings.js';
+import {AI_BUSY, groupWarnings, humanError, limitedJobs, sentences} from '../run-warnings.js';
 import {aiLimitHead, failedOutcome, stoppedHead, deliveryHead, notConnectedHead, waitedHead} from '../run-status.js';
 import {el} from '../components.js';
 import {parseRunMessage} from '../run-cards.js';
@@ -107,7 +107,7 @@ export function warningSummary(warnings) {
   }
   // Otherwise the warnings in plain words (run-warnings.js groupWarnings): one or two said here, more under "View N details".
   const plain = groupWarnings(warnings);
-  if (plain.length) return plain.length <= 2 ? plain.join(' ') : `${plain[0]} And ${plain.length - 1} more.`;
+  if (plain.length) return sentences(plain, plain.length > 2);
   return humanError(warnings[0]) || '';
 }
 // "<task> completed with warnings": which run it is, said in the box's title.

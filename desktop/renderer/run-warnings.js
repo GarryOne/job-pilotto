@@ -130,3 +130,12 @@ export function limitedJobs(warnings) {
   const left = warnings.map(text => Number(/(\d+) job\(s\) left/.exec(text)?.[1] || 0)).reduce((a, b) => a + b, 0);
   return failed + left;
 }
+
+// The grouped warnings as sentences: each ends before the next starts. `more`: the first one, then how many others there are (the rest is
+// one click away under "View N details"). "…: try again And 2 more." ran together (#342).
+export function sentences(lines, more = false) {
+  const end = text => (/[.!?]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`);
+  if (!lines.length) return '';
+  if (more && lines.length > 2) return `${end(lines[0])} And ${lines.length - 1} more.`;
+  return (more ? lines.slice(0, 1) : lines).map(end).join(' ');
+}
