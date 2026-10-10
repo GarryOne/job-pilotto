@@ -29,6 +29,8 @@ export function setSessionReporter(fn) { sessionReporter = fn; }
 // The application form page (extension/review.js) and its session: what is left in the form, what to show (lib/review.js).
 export let reviewHandler = () => ({matched: null, watch: [], commands: []});
 export let sitePasswordHandler = () => ({ok: false});
+export let accountCodeHandler = async () => ({ok: false});
+export function setAccountCodeHandler(fn) { accountCodeHandler = fn; }   // ({host, needs, session, job, url}) → {ok, code}: the email code, to the extension only (never logged)
 export function setSitePasswordHandler(fn) { sitePasswordHandler = fn; }   // ({host}) → {ok, password}: the extension fills a sign-in/sign-up page (lib/credentials.js)
 export function setReviewHandler(fn) { reviewHandler = fn; }
 export let learnedHandler = () => {};

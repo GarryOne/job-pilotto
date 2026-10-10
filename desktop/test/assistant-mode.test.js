@@ -12,7 +12,7 @@ test('two modes only, "Do it for me" unless the person chose to check each step'
 
 test('each mode names what is never automated: an application\'s Submit and a captcha in both; the SMS code never', () => {
   for (const text of Object.values(MODE_TEXT)) assert.match(text, /Never: an application's Submit, a captcha or bot check/);
-  assert.match(MODE_TEXT.full, /confirmation link from your email when Gmail is connected/);
+  assert.match(MODE_TEXT.full, /confirmation link or types the code from your email when Gmail is connected/);
   assert.match(MODE_TEXT.full, /an SMS code/);
   assert.match(MODE_TEXT.full, /a screenshot to the AI, what you typed hidden, at most 10 a day/);
 });

@@ -84,3 +84,15 @@ test('scenario: a sign-in tab that carries no session id: the app finds the appl
   assert.equal(card().step, 'confirm');
   assert.match(card().needs, /code/i);
 });
+
+test('scenario: the confirmation page asks for the mailed code: in "Do it for me" the app reads it and hands it to the extension; in "Let me check each step" the person types it (10 Oct 2026)', async () => {
+  const {accountCodeAnswer, codeFromMail} = await import('../lib/account-confirm.js');
+  const logs = [];
+  const read = found => codeFromMail({...found, run: async () => ({code: 0, stdout: JSON.stringify({code: '482913', links: []})}), log: (...line) => logs.push(JSON.stringify(line))});
+  assert.deepEqual(await accountCodeAnswer({mode: 'full', host: 'auth.jobs.ch', email: 'me@example.com', read}), {ok: true, code: '482913'});
+  assert.equal((await accountCodeAnswer({mode: 'assist', host: 'auth.jobs.ch', email: 'me@example.com', read})).ok, false);
+  assert.equal((await accountCodeAnswer({mode: 'full', host: 'auth.jobs.ch', email: '', read})).ok, false);
+  assert.ok(logs.length && !logs.join(' ').includes('482913'), 'the code is never logged');
+  const none = found => codeFromMail({...found, run: async () => ({code: 1, stdout: '{"error": "no confirmation email yet"}'}), log: () => {}});
+  assert.deepEqual(await accountCodeAnswer({mode: 'full', host: 'h.example', email: 'me@example.com', read: none}), {ok: false, why: 'no code in the mail'});
+});

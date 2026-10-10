@@ -243,7 +243,8 @@ sites, run it live before and after a change, not only the matrix:
 Two modes, one choice (Settings → Profile → Application assistant, `renderer/assistant-mode.js`), stored as `settings.accountAutomation` and read only through `automationOf`
 (`desktop/lib/site-accounts.js`). **full = "Do it for me", the DEFAULT** (owner, 10 Oct 2026: "users get most of the automation by default"; it replaced the 9 Oct assist
 default): on an account page the extension accepts the account's consent (as the account AI names it, `needs_kind: consent`, at most 3 presses per tab) and presses the
-account button, the confirmation link from the mail is opened when Gmail is connected, and the closer look (`lib/escalate.js`) runs on an unclear account page (a screenshot,
+account button, the confirmation link from the mail is opened, or its code typed into the box the account AI named, when Gmail is connected (the code is never
+logged; `lib/account-confirm.js` `codeFromMail`, `extension/account-fill.js` `fillCodeBox`), and the closer look (`lib/escalate.js`) runs on an unclear account page (a screenshot,
 typed values hidden, at most 10 a day). **assist = "Let me check each step"**: it fills, the person does the consent, the button and the codes; no closer look. Never in
 either: an application's Submit, a captcha or bot check, an SMS code, a choice or consent on the application form. The setup asks the choice once (Yes is pre-selected).
 Changing what a mode does or its default is the owner's call, with a Decision Log entry.

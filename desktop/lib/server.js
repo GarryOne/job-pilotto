@@ -16,7 +16,7 @@ import {me} from './server-contact.js';
 import {pageKey, sessionOfJob, markReportedConfirmations, judgeConfirmation, decidePageKind, decideAccountJudge, decideEscalation, pickChoice, pickPopup} from './server-pages.js';
 import {formIssue, jobName, notify, renderer, sessionReporter, tabsHandler, openHandler, joinHandler, focusHandler, learnedHandler, recipesHandler,
   aliasesHandler, controlsHandler, missesHandler, visitMore, visitFilters, visitHosts, visitHandler, sitePasswordHandler, reviewHandler,
-  accountPressedHandler, stuckHandler, takeOverHandler, tailorHandler} from './server-hooks.js';
+  accountPressedHandler, stuckHandler, takeOverHandler, tailorHandler, accountCodeHandler} from './server-hooks.js';
 
 export {extensionToken, sessionSubmitted, APPLIED, appliedSessions, reconcileAppliedSessions, localEnv, latestExtension, staleExtension, issueTicket, checkTicket} from './server-env.js';
 export {kept, contactSaved, me} from './server-contact.js';
@@ -24,7 +24,7 @@ export {sessionOfJob, pageKey, markReportedConfirmations, judgeConfirmation, dec
 export {setNotifier, setWindowSignal, setAppliedHook, setRenderer, setTabsHandler, setSharedLogger, setProposalReporter, setAnswerReporter, setSessionReporter,
   setSitePasswordHandler, setReviewHandler, setLearnedHandler, setVisitHandler, setVisitRoute, setVisitFilters, setVisitHosts, setMissesHandler,
   setControlsHandler, setAliasesHandler, setRecipesHandler, setJoinHandler, setFocusHandler, setStuckHandler, setAccountPressedHandler, setTakeOverHandler,
-  setTailorHandler, setFormIssueHandler, setOpenHandler} from './server-hooks.js';
+  setTailorHandler, setFormIssueHandler, setOpenHandler, setAccountCodeHandler} from './server-hooks.js';
 
 export const DEFAULT_PORT = 47111;
 // The port is fixed because the extension has it built in (extension/flow.js). JOB_PILOTTO_PORT moves it for a test app that runs next to the user's
@@ -221,7 +221,7 @@ export function start(storage, onError = () => {}) {
         res.end(JSON.stringify(answer));
         return;
       }
-      if (req.url === '/extension/site-password') {
+      if (req.url === '/extension/site-password' || req.url === '/extension/account-code') {   // both answer a secret: the extension's origin only
         // Only this extension's origin may read the answer, never a page. Chrome checks CORS for the extension's worker too: without
         // these headers every ask failed its preflight (8 Oct 2026) and no sign-in password was ever filled.
         const cors = {'Access-Control-Allow-Origin': `chrome-extension://${EXTENSION_ID}`, 'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -230,7 +230,7 @@ export function start(storage, onError = () => {}) {
         const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
         const payload = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
-        res.end(JSON.stringify(ok ? await sitePasswordHandler(payload) : {error: 'Wrong token'}));
+        res.end(JSON.stringify(ok ? await (req.url === '/extension/account-code' ? accountCodeHandler : sitePasswordHandler)(payload) : {error: 'Wrong token'}));
         return;
       }
       if (req.url === '/extension/review') {

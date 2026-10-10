@@ -32,6 +32,30 @@ export function fillAccountEmail(email) {
   return 1;
 }
 
+// The code from the confirmation mail (owner, 10 Oct 2026: "the email code we can automate if we're connected to Gmail"), typed into the box the account AI
+// named (its label, copied from the page's own list), else the page's one empty code-like box, or across a row of one-character boxes. Never a password box.
+// Marks what it filled, so pressAccountButton may press the form's button next. -> 1 when filled, else 0.
+export function fillCodeBox(label, code) {
+  const value = String(code || '').trim();
+  if (!value) return 0;
+  const visible = el => el.getClientRects().length && !el.disabled && !el.readOnly;
+  const set = (box, text) => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(box, text);
+    box.dispatchEvent(new Event('input', {bubbles: true})); box.dispatchEvent(new Event('change', {bubbles: true}));
+    box.setAttribute('data-jobpilotto-filled', '1');
+  };
+  const boxes = [...document.querySelectorAll('input')].filter(el => visible(el) && ['text', 'tel', 'number', ''].includes(el.type) && !String(el.value || '').trim());
+  const singles = boxes.filter(el => el.maxLength === 1);
+  if (singles.length >= 4 && singles.length === value.length) { singles.forEach((box, i) => set(box, value[i])); return 1; }
+  const norm = text => String(text || '').replace(/[*:]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const labelOf = el => norm((el.id && document.querySelector(`label[for="${CSS.escape(el.id)}"]`)?.innerText) || el.closest('label')?.innerText || el.getAttribute('aria-label') || el.placeholder || '');
+  const named = norm(label) ? boxes.filter(el => labelOf(el) === norm(label)) : [];
+  const box = named.length === 1 ? named[0] : boxes.length === 1 ? boxes[0] : null;
+  if (!box) return 0;
+  set(box, value);
+  return 1;
+}
+
 // Press the account form's own button, once (the caller asks the AI first: account-step.js): a box we filled is on the page (a password, else, on an
 // email-first page with no password yet (jobs.ch, 9 Oct 2026), the email the fill typed), no required control is empty (a second floor: the AI's "ready"
 // is the first), no frame inside the form (a bot check, whoever makes it). Returns a short reason code for the log.

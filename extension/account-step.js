@@ -10,7 +10,7 @@ import {askKind, sayStep, stuck} from './fill-flow.js';
 import {sessionGet} from './tab-memory.js';
 import {bindSession, identityOf} from './tab-identity.js';
 import {tabArmed} from './tab-pages.js';
-import {accountSketch, fillAccountBoxes, fillAccountEmail, flagAccount, markAccountStep, passwordWork, pressAccountButton, pressRegister} from './account-fill.js';
+import {accountSketch, fillAccountBoxes, fillAccountEmail, fillCodeBox, flagAccount, markAccountStep, passwordWork, pressAccountButton, pressRegister} from './account-fill.js';
 import {closerLook, unsureTwice} from './escalate.js';
 
 // -> 'register' | 'switch' | 'fill-press' | 'fill' | 'leave'. step: the AI's account step ('' when it gave none); mode: the app's 'sign-in' | 'sign-up' | 'confirm'.
@@ -149,6 +149,15 @@ async function outcomeOnce(tab, frameId, memo) {
   await chrome.storage.session.remove(memoKey(tab)).catch(() => {});
   const id = await identityOf(tab);
   api(config, '/extension/event', {method: 'POST', body: JSON.stringify({type: 'account-pressed', host, url: id.url, job: id.job, state: action, session: id.session})}).catch(() => {});
+  // The page asks for the code the site mailed (owner, 10 Oct 2026): in "Do it for me" the app reads it from Gmail (the AI picks it) and this types it into the box
+  // the account AI named, then presses the form's button once (pressAccountButton's floors). The code is never logged; "Let me check each step": the person types it.
+  if (result?.answer === 'needs_code') {
+    const got = await api(config, '/extension/account-code', {method: 'POST', body: JSON.stringify({host, needs: result.needs || '', ...id})}).catch(() => null);
+    if (!got?.code) { decide('fill', `account code: left to the person (${got?.why || 'no answer'})`, {host}); return; }
+    const filled = await run(tab, frameId, fillCodeBox, [result.needs || '', got.code]);
+    decide('fill', filled ? 'account code: typed from the mail' : 'account code: no box to type it in', {host});
+    if (filled) decide('fill', `account code: button ${await run(tab, frameId, pressAccountButton, [''])}`, {host});
+  }
 }
 
 export async function accountStep(tab, frameId) {

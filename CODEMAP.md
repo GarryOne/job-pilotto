@@ -292,6 +292,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/ai-name.js` — The name of the AI the user chose, for every text the window shows: "Claude" (Anthropic API key, Claude Code), "OpenAI" (OpenAI API key)
 - `desktop/renderer/answer-options.js` — What a "needs you" row can offer as an answer, kept free of the window so a test can check it (session-needs.js
 - `desktop/renderer/app.js` — The window: setup wizard on first run, then Focus, Jobs, Strategy, sessions and Settings, one module per page
+- `desktop/renderer/assistant-mode.js` — How much Job Pilotto does on an application (owner, 10 Oct 2026: "at most 2 modes", automatic by default): settings.accountAutomation 'full' = "Do it for me"
 - `desktop/renderer/audience.js` — Is this candidate looking for IT / engineering work? The same rule as src/coverage.py looks_technical (a table of cases in tests/fixtures/audience_cases.json holds both to it).
 - `desktop/renderer/browser-words.js` — The browser's name and its own extensions page, in the wording of the extension card: "Chrome" and chrome://extensions
 - `desktop/renderer/calendar.js` — Calendar page: every screening and interview on one calendar. Pure (tested in test/calendar.test.js); the page is

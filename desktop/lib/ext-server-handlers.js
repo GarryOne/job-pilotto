@@ -20,7 +20,7 @@ import * as terminals from './terminals.js';
 import * as visits from './visits.js';
 import {flowState, leftCounts, missedQuestions, submitCounts, unplaced} from './question-labels.js';
 import {log as appLog} from './log.js';
-import {confirmAccount} from './account-confirm.js';
+import {accountCodeAnswer, codeFromMail, confirmAccount} from './account-confirm.js';
 import {createAccountCheck} from './account-check.js';
 import {resolveSession} from './journey-identity.js';
 import {automationOf, modeOf, record} from './site-accounts.js';
@@ -62,6 +62,12 @@ export function registerExtServerHandlers(ctx) {
     if (mode === 'confirm' && email && !DEMO) checkAccount({host, email, session: sessionId, wait: 20, minutes: 180});   // a pending account's page is met: look for its mail now, not only right after the press
     // sign-in only where THIS email has an account on this site (recorded when a sign-up was confirmed); anywhere else the extension signs up.
     return answer.ok && email ? {...answer, email, mode, automation: automationOf(storage.settings()), session: sessionId} : {...answer, session: sessionId};   // the email goes into the account's email box, as the password goes into its password boxes
+  });
+  // The code a confirmation page asks for (owner, 10 Oct 2026): in "Do it for me" only, read from the mail sent to the account's email (Gmail, read-only; the AI picks the
+  // code) and handed to the extension, which types it; never logged. "Let me check each step", no email or no code: nothing, the person types it.
+  server.setAccountCodeHandler(async ({host} = {}) => {
+    const email = DEMO ? '' : await Promise.resolve(notionGate.tracking(storage) ? contactDetails.read(storage) : {}).then(contact => contact?.email || '').catch(() => '');
+    return accountCodeAnswer({mode: automationOf(storage.settings()), host, email, read: found => codeFromMail({...found, run: args => pipeline.run(storage, args)})});
   });
   // The extension pressed a sign-up page's button: this email has an account on this host now, unconfirmed until its mail's link is opened (never the address in a log).
   server.setAccountPressedHandler(async ({host, state, session: carried, job, url} = {}) => {

@@ -3,7 +3,7 @@
 // page), 'assist' = "Let me check each step". Never in either: an application's Submit, a captcha or bot check, an SMS code. Shown on Settings → Profile and
 // in the setup (pages/settings.js, pages/profile.js, pages/startup.js); desktop/lib/site-accounts.js automationOf reads it. Guard: test/assistant-mode.test.js.
 export const MODE_TEXT = {
-  full: 'Fills every form, creates and signs in to employer accounts (accepting the account\'s terms), opens the confirmation link from your email when Gmail is connected, and takes a closer look at an unclear account page (a screenshot to the AI, what you typed hidden, at most 10 a day). Never: an application\'s Submit, a captcha or bot check, an SMS code.',
+  full: 'Fills every form, creates and signs in to employer accounts (accepting the account\'s terms), opens the confirmation link or types the code from your email when Gmail is connected, and takes a closer look at an unclear account page (a screenshot to the AI, what you typed hidden, at most 10 a day). Never: an application\'s Submit, a captcha or bot check, an SMS code.',
   assist: 'Fills every form. You accept an account\'s terms, press its buttons and type its codes. Never: an application\'s Submit, a captcha or bot check.',
 };
 export const modeOfSettings = settings => (settings?.accountAutomation === 'assist' ? 'assist' : 'full');
