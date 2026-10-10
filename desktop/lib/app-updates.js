@@ -98,6 +98,7 @@ export function createAppUpdates(ctx) {
       return {ok: true};
     } catch (error) {
       appLog('update', `install failed: ${error.message}`);
+      storage.saveSettings({updateTried: null});   // it never got to quit: nothing to read back at the next start, or the offer reads as "did not take" (#333)
       return {ok: false, text: error.message, url: updateOffer.url};
     }
   }

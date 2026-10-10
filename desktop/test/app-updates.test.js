@@ -49,3 +49,16 @@ test('a different, newer version than the one that failed is tried automatically
   const {offer} = await updates.checkForUpdate(true);
   assert.ok(!offer.failedBefore);
 });
+
+// #333: an install that failed before the app quit (offline, 5xx) is not an update that "did not take effect": the next start must offer it again.
+test('an install that fails to download is not remembered as tried', async t => {
+  let calls = 0;
+  t.mock.method(globalThis, 'fetch', async () => (++calls === 1 ? {ok: true, json: async () => LATEST} : {ok: false, status: 500, statusText: 'Server Error'}));
+  const settings = {};
+  const {updates} = appUpdates('0.6.11', settings);
+  await updates.checkForUpdate(true);
+  const result = await updates.installUpdate();
+  assert.equal(result.ok, false);
+  assert.ok(calls > 1, 'the download was tried (the setup took effect)');
+  assert.equal(settings.updateTried, null, 'nothing left to read back');
+});
