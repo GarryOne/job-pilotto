@@ -1,6 +1,7 @@
 {
  "shape": "a start dialog whose manual route is a link-styled button, while the posting's own plain Apply stays behind it (Workday 'Start Your Application', real markup)",
  "why": "richemont, redhat, chanel (Workday), 10 Oct 2026: the dialog opened, the AI named Apply Manually, yet the press went to the posting's Apply behind it (pickApplyButton scored the shorter built-in word higher: 109 vs 103); case 1 used a <button> so it hid this",
+ "rung": 2,
  "sample": "richemont.wd3.myworkdayjobs.com: markup of the two <a role=button> read from the live page (structure only, no text but the buttons')",
  "pages": [
   {

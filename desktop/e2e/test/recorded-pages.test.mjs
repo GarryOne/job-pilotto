@@ -13,7 +13,7 @@ const only = process.env.REPLAY_ONLY || '';   // a part of a case name: replay j
 for (const item of loadCases().filter(one => one.name.includes(only))) {
   test(`${item.name}: ${item.shape}`, {skip}, async () => {
     const result = await runCase(item, {extensionDir});
-    results.push({name: item.name, ok: result.ok, note: result.failures.join('; ').slice(0, 200)});
+    results.push({name: item.name, ok: result.ok, ...(Number.isInteger(item.rung) ? {rung: item.rung} : {}), note: result.failures.join('; ').slice(0, 200)});
     assert.deepEqual(result.failures, [], `${item.name} (${item.why || ''})`);
   });
 }
