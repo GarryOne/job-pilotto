@@ -40,7 +40,8 @@ test('the pool: every site is listed, also one never run; platform and flow come
   await ingest(db, {kind: 'pool', day: '2026-10-12', rows: [
     {name: 'Acme', start_host: 'job-boards.greenhouse.io', signature: 'other>form@job-boards.greenhouse.io#form'},
     {name: 'Beta', start_host: 'job-boards.greenhouse.io', signature: 'form@job-boards.greenhouse.io#ready'},
-    {name: 'Gamma', start_host: 'career5.successfactors.eu'},
+    {name: 'Gamma', start_host: 'career5.successfactors.eu'}, {name: 'Delta', start_host: 'a.wd5.myworkdayjobs.com'},
+    {name: 'posting>form@x.com (found 2026-10-10)', start_host: 'careers.breitling.com', signature: 'posting>form@x.com#form'},
     {name: 'Leaky', start_host: 'https://x.com/jobs/1?token=abc', signature: 'form@x.com/path?q=1#form'}]}, now);
   const [leaky] = db.db.prepare("SELECT start_host, signature FROM applying_pool WHERE name = 'Leaky'").all();
   assert.deepEqual({...leaky}, {start_host: null, signature: null});
@@ -48,8 +49,11 @@ test('the pool: every site is listed, also one never run; platform and flow come
   await ingest(db, {kind: 'pool', day: '2026-10-12', rows: [{name: 'Gamma', signature: 'posting>account@career5.successfactors.eu#code/bot'}]}, now);   // a later row without a host keeps the start host
   const d = await data(db, now), by = Object.fromEntries(d.pool.map(item => [item.name, item]));
   assert.equal(by.Acme.platform, 'Greenhouse'); assert.equal(by.Acme.flow, by.Beta.flow); assert.equal(by.Acme.raw, 'other>form@job-boards.greenhouse.io#form');
-  assert.equal(by.Beta.reached, 'ready'); assert.deepEqual(by.Acme.history, []); assert.equal(by.Acme.reached, null);   // never run: "—"
+  assert.equal(by.Beta.reached, 'ready');
+  assert.deepEqual([by.Acme.reached, by.Acme.history], ['form', ['form']]);   // known only from its signature: the step it showed
+  assert.deepEqual([by.Delta.reached, by.Delta.history, by.Delta.flow], [null, [], null]);   // never run: "—"
+  assert.equal(by['posting>form@x.com (found 2026-10-10)'], undefined); assert.equal(by.Breitling.flow, 'posting → form');   // a discovered site is named by its host's domain
   assert.equal(by.Gamma.platform, 'SuccessFactors'); assert.equal(by.Gamma.start, 'career5.successfactors.eu'); assert.equal(by.Gamma.flow, 'posting → account → bot check');
-  assert.deepEqual(d.platforms.map(item => [item.name, item.sites, item.flows]), [['Greenhouse', 2, 1], ['Custom', 1, 0], ['SuccessFactors', 1, 1]]);
-  assert.equal(d.pool.length, 4);
+  assert.deepEqual(d.platforms.map(item => [item.name, item.sites, item.flows]), [['Greenhouse', 2, 1], ['Custom', 1, 0], ['Custom (x)', 1, 1], ['SuccessFactors', 1, 1], ['Workday', 1, 0]]);
+  assert.equal(d.pool.length, 6);
 });

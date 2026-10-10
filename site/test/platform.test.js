@@ -24,3 +24,12 @@ test('flow: the signature in words; a leading "other" page straight into a form 
   assert.equal(flowOf('').flow, null);
   assert.equal(signatureHost('posting>form@x.com#form'), 'x.com');
 });
+
+test('platform: a custom site that ends on another company\'s host names that host\'s domain', async () => {
+  const {platformLabel} = await import('../src/platform.js');
+  assert.equal(platformLabel('bulgari.recruitmentplatform.com', 'careers.bulgari.com'), 'Custom (recruitmentplatform)');
+  assert.equal(platformLabel('jobs.acme.co.uk', 'www.acme.co.uk'), 'Custom');   // the same site
+  assert.equal(platformLabel('careers.example.ch', 'careers.example.ch'), 'Custom');
+  assert.equal(platformLabel('', 'careers.example.ch'), 'Custom');
+  assert.equal(platformLabel('x.wd3.myworkdayjobs.com', 'careers.x.com'), 'Workday');
+});

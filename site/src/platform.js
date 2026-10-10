@@ -26,3 +26,19 @@ export function flowOf(signature, startHost = '') {
   if (reached === 'code/bot') steps.push('bot check');
   return {flow: steps.join(' → '), raw};
 }
+
+// The Platform cell: a known platform by name; a custom site that ends on another company's domain is "Custom (that domain's name)", so one shared
+// recruiting system still groups together; otherwise plain "Custom".
+const domainName = host => { const parts = String(host).split('.'); const n = parts.length; return n < 2 ? '' : (n > 2 && parts[n - 2].length <= 3 && parts[n - 1].length === 2 ? parts[n - 3] : parts[n - 2]); };
+export function platformLabel(end, start) {
+  const platform = platformOf(end || start);
+  if (platform !== 'Custom' || !end || !start) return platform;
+  const a = domainName(end), b = domainName(start);
+  return a && a !== b ? `Custom (${a})` : platform;
+}
+
+// A discovered site is named by its flow signature ("posting>form@x.com (found 2026-10-10)"): the table shows the employer instead, the start host's domain name.
+export const displayName = (name, startHost) => {
+  const word = /\(found \d{4}-\d\d-\d\d\)$/.test(name) ? domainName(startHost) : '';
+  return word ? word[0].toUpperCase() + word.slice(1) : name;
+};

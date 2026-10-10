@@ -4,7 +4,7 @@
 // site's host and fixed words only, never a posting's address or applicant data. Guard: test/applying.test.js.
 import {viewer} from './auth.js';
 import {digest} from './digest.js';
-import {flowOf, platformOf, SIGNATURE, signatureHost} from './platform.js';
+import {displayName, flowOf, platformLabel, SIGNATURE, signatureHost} from './platform.js';
 
 export const STEPS = ['none', 'posting', 'account', 'code/bot', 'form', 'ready'];
 const KINDS = ['smoke', 'recorded', 'pool'];
@@ -83,8 +83,9 @@ async function poolRows(db, sites, runs) {
   return names.map(name => {
     const row = known.get(name) || {}, site = byName[name], start = row.start_host || site?.host || '', end = signatureHost(row.signature) || '';
     const {flow, raw} = flowOf(row.signature, start);
-    return {name, platform: platformOf(end || start), flow, raw, start, end, reached: site?.reached ?? null, day: site?.day ?? null, note: site?.note ?? null,
-      regression: !!site?.regression, history: site?.history ?? []};
+    const step = row.signature?.match(/#([^#]+)$/)?.[1] || null, reached = site?.reached ?? step;
+    return {name: displayName(name, start), platform: platformLabel(end, start), flow, raw, start, end, reached, day: site?.day ?? null, note: site?.note ?? null,
+      regression: !!site?.regression, history: site?.history ?? (step ? [step] : [])};
   }).sort((a, b) => a.platform.localeCompare(b.platform) || a.name.localeCompare(b.name));
 }
 
@@ -147,7 +148,7 @@ fetch('?json').then(r => r.json()).then(d => {
       el('tr', {}, ...['Site', 'Platform', 'Flow it tests', 'Starts → ends on', 'Last reached', 'Last 10 runs'].map(h => el('th', {textContent: h}))),
       ...rows.map(s => el('tr', {}, el('td', {}, s.name, s.regression ? el('div', {className: 'flag', textContent: 'regression'}) : null, s.note ? el('div', {className: 'muted', textContent: s.note}) : null),
         el('td', {textContent: s.platform}), el('td', {title: s.raw || '', textContent: s.flow || '—'}),
-        el('td', {className: 'muted', textContent: (s.start || '—') + (s.end && s.end !== s.start ? ' → ' + s.end : s.end ? '' : '')}),
+        el('td', {className: 'muted', textContent: (s.start || '…') + (s.end && s.end !== s.start ? ' → ' + s.end : '')}),
         el('td', {}, s.reached ? pill(s.reached) : el('span', {className: 'muted', textContent: '—'}), s.day ? el('div', {className: 'muted', textContent: s.day}) : null),
         el('td', {}, s.history.length ? dots(s.history) : el('span', {className: 'muted', textContent: '—'}))))) : el('p', {className: 'muted', textContent: 'No site matches.'})); };
   app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, chips('platform', d.platforms, 'Platform'), chips('flow', d.flows, 'Flow'), table)
