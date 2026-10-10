@@ -357,3 +357,4 @@ and left 8 commits red), and a push is blocked while the latest `build` run on m
 it fixes it forward or reverts it, pushed with `CI_RED_OK=1 git push ...` (AGENTS.md "Red main"). The suites run on a
 clean checkout of what is pushed, one area at a time like CI, so leftovers in your folder can't hide a break.
 A Stop hook (`tools/stop-test-check.sh`) runs the suites your changes vs origin/main touch, as CI does, before you say done.
+The gate reuses a suite pass on identical inputs (`tools/gate-cache.sh`, key = whole tracked tree + node/python + area; `GATE_CACHE=0` off, `PUSH_FULL=1` re-runs; the Stop hook shares it). A fail is never cached. Each gate step's time is logged (`<git common dir>/gate-timing.log`, `GATE_TIMING=0` off).
