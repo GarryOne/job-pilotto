@@ -150,6 +150,13 @@ fetch('?json').then(r => r.json()).then(d => {
     tile(t.reachedForm == null ? '–' : t.reachedForm + '%', 'sites that reached the form', t.reachedForm >= 70 ? 'good' : ''),
     tile(t.regressions, 'regressions open' + (t.gone ? ' · ' + t.gone + ' posting(s) gone' : ''), t.regressions ? 'bad' : 'good'),
     tile(t.dropped, 'boards dropped in the fleet (layer 4)', t.dropped ? 'bad' : 'good')));
+  // What the colors mean (owner, 10 Oct 2026): the badge and the dots of the pool table are the step a run reached, not how well the form was filled.
+  const COLORS = {none: 'grey', posting: 'red', account: 'amber', 'code/bot': 'violet', form: 'blue', ready: 'green'};   // the page's own --muted, --red, --amber, --violet, --blue, --green
+  const MEANS = {none: 'nothing reached, or never run (the dash)', posting: 'stopped at the job posting, never got past it', account: 'reached an account or sign-in page', 'code/bot': 'stopped at an email code or a bot check (a documented hold)', form: 'reached the application form', ready: 'the form is filled with nothing required left'};
+  app.append(el('section', {className: 'legend'}, el('h2', {textContent: 'What the colors mean'}),
+    el('p', {className: 'muted', textContent: 'On the pool table, the "Last reached" badge and the dots of "Last 10 runs" show the step a run reached (a color is not a verdict on how well the form was filled). In the fixed-site replays a dot is green when the case passed and red when it failed.'}),
+    el('table', {}, el('tr', {}, ...['Color', 'Step', 'Meaning'].map(h => el('th', {textContent: h}))),
+      ...d.steps.map(step => el('tr', {}, el('td', {}, el('span', {className: 'pill s-' + step, textContent: COLORS[step] || step})), el('td', {textContent: step}), el('td', {className: 'muted', textContent: MEANS[step] || ''}))))));
   const dots = list => el('span', {className: 'dots'}, ...list.map(step => el('i', {title: step, style: 'background:' + (typeof step === 'number' ? (step ? 'var(--green)' : 'var(--red)') : color(step))})));
   // Sortable columns (owner, 10 Oct 2026: all the red ones first): every table's header sorts ascending, then descending, then back to the page's own order. The choice is kept per
   // table across the 15 s redraw. Empty cells go last either way. For a step or a run, ascending is the worst first (red before blue); the page's own order keeps running sites on top.

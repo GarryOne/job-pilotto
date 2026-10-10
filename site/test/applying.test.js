@@ -75,7 +75,15 @@ test('the pool: each site shows when it last ran; a site mid-run is flagged "run
 
 test('every table on the page gets its headers from the one sortable helper (owner, 10 Oct 2026: sort by any column, red first)', () => {
   // A table added with its own plain th cells would not sort: only the helper may create a th, and every table's headers come from it.
-  assert.equal(PAGE.split("el('th'").length - 1, 1, 'a table builds its own th instead of heads(...)');
+  // The one exception is the fixed color legend (6 rows, nothing to sort): its headers are plain, and it is the only table allowed to build them.
+  const legend = PAGE.slice(PAGE.indexOf('What the colors mean'), PAGE.indexOf('const dots = list'));
+  assert.equal(legend.split("el('th'").length - 1, 1, 'the legend lost its plain headers');
+  assert.equal(PAGE.replace(legend, '').split("el('th'").length - 1, 1, 'a table builds its own th instead of heads(...)');
   for (const key of ['pool', 'cases']) assert.match(PAGE, new RegExp("heads\\('" + key + "'"));
   assert.equal((PAGE.match(/heads\(key, labels/g) || []).length, 1);   // the next-sites and scorecard blocks share it
+});
+
+test('the page explains its colors: a legend row for every step the page draws', () => {
+  assert.match(PAGE, /What the colors mean/);
+  for (const step of ['none', 'posting', 'account', 'code/bot', 'form', 'ready']) assert.ok(PAGE.includes(step === 'code/bot' ? "'code/bot': '" : step + ': '), step + ' has no meaning in the legend');
 });
