@@ -110,3 +110,45 @@ export function choice(options, active, pick, label) {
   }
   return box;
 }
+
+// A strip of facts in one box, each with a round icon, a label, a value and a note (the Description tab's Employer / Posted / First found /
+// Saved posting). cells: [{icon, label, value, note}].
+export function factStrip(cells) {
+  const strip = el('div', 'jd-strip');
+  for (const cell of cells) {
+    const box = el('div', 'jd-strip-cell');
+    const mark = el('span', 'jd-strip-icon');
+    mark.append(icon(cell.icon));
+    const words = el('div', 'jd-tile-words');
+    words.append(el('span', 'muted small', cell.label), el('b', '', cell.value));
+    if (cell.note) words.append(el('span', 'muted small', cell.note));
+    box.append(mark, words);
+    strip.append(box);
+  }
+  return strip;
+}
+
+// A posting's blocks (renderer/job-page-view.js postingBlocks) as headings, bullet lists and paragraphs.
+export function postingBody(blocks) {
+  const body = el('div', 'jd-posting');
+  for (const block of blocks) {
+    if (block.kind === 'heading') body.append(el('h4', '', block.text));
+    else if (block.kind === 'list') {
+      const list = el('ul', 'jd-list');
+      list.append(...block.items.map(text => el('li', '', text)));
+      body.append(list);
+    } else body.append(el('p', '', block.text));
+  }
+  return body;
+}
+
+// Where the text came from, with the way to the original: an icon, "Source", the words and the button.
+export function sourceCard(words, original) {
+  const box = el('div', 'jd-source');
+  const mark = el('span', 'jd-strip-icon');
+  mark.append(icon('file'));
+  const text = el('div', 'jd-tile-words');
+  text.append(el('span', 'muted small', 'Source'), el('b', '', words));
+  box.append(mark, text, original);
+  return box;
+}

@@ -1,3 +1,10 @@
 {
- "https://example.com/jobs/4": "## Responsibilities\n- Design, operate and improve reliable cloud infrastructure across production environments.\n- Build automation, monitoring and incident response processes to keep services available.\n- Work with product and engineering teams to drive operational excellence.\n\n## Requirements\n- Strong experience with Linux, cloud infrastructure (AWS, GCP or Azure) and infrastructure as code.\n- Proven ability to implement observability, monitoring and incident management practices.\n- Excellent problem-solving skills and clear communication in a cross-functional team.\n\n## Salary\nCHF 130 – 150k / year"
+ "https://example.com/jobs/4": {
+  "description": "## Responsibilities\n- Design, operate and improve reliable cloud infrastructure across production environments.\n- Build automation, monitoring and incident response processes to keep services available.\n- Work with product and engineering teams to drive operational excellence.\n\n## Requirements\n- Strong experience with Linux, cloud infrastructure (AWS, GCP or Azure) and infrastructure as code.\n- Proven ability to implement observability, monitoring and incident management practices.\n- Excellent problem-solving skills and clear communication in a cross-functional team.\n\n## Salary\nCHF 130 – 150k / year",
+  "company": "Lakeside Payments",
+  "source": "Lakeside Payments",
+  "source_kind": "employer feed",
+  "first_seen_at": "2026-10-09T08:30:00Z",
+  "posted_at": ""
+ }
 }

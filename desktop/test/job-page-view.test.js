@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 import {shortDay} from '../renderer/date.js';
-import {SECTIONS, TABS, allAnswers, factPairs, appliedLine, callFacts, clarifyOf, foundLine, glanceTiles, headerFacts, kitParts, lines, matchGroups, matchView, nextInterview, pageParts, plain, readablePart, submittedOf, tabKey, technologiesOf} from '../renderer/job-page-view.js';
+import {SECTIONS, TABS, allAnswers, factPairs, appliedLine, callFacts, clarifyOf, foundLine, glanceTiles, headerFacts, kitParts, lines, matchGroups, matchView, nextInterview, pageParts, paragraphize, plain, postingBlocks, postingFacts, postingSource, readablePart, submittedOf, tabKey, technologiesOf} from '../renderer/job-page-view.js';
 
 const demo = JSON.parse(fs.readFileSync(new URL('../demo/job-pages.json', import.meta.url), 'utf8'));
 
@@ -143,4 +143,29 @@ test('Submitted: what was sent, from the frozen record; an edit from the draft i
   assert.equal(submittedOf({}), null, 'no record: nothing was captured');
   assert.equal(submittedOf({[SECTIONS.record]: 'only words'}), null);
   assert.equal(pageParts({sections: {[SECTIONS.record]: `x\n\n\`\`\`json\n${JSON.stringify(record)}\n\`\`\``}}).has.application, true);
+});
+
+test('a posting as blocks: headings, bullets and paragraphs; a flat old text is cut at sentence ends, by shape', () => {
+  assert.deepEqual(postingBlocks('## Responsibilities\n- Run on-call\n- Build automation\n\n## Requirements\nKubernetes.\n\nCHF 130k'),
+    [{kind: 'heading', text: 'Responsibilities'}, {kind: 'list', items: ['Run on-call', 'Build automation']}, {kind: 'heading', text: 'Requirements'},
+      {kind: 'text', text: 'Kubernetes.'}, {kind: 'text', text: 'CHF 130k'}]);
+  assert.deepEqual(postingBlocks('### Cover letter\n\nDear **team**'), [{kind: 'heading', text: 'Cover letter'}, {kind: 'text', text: 'Dear team'}], 'the Markdown sections use the same marks');
+  const flat = 'At Swarovski, your ideas are valued. '.repeat(30) + 'About the role Deliver service. Build trust. '.repeat(30);
+  const cut = paragraphize(flat);
+  assert.ok(cut.split('\n\n').length > 3, 'cut into several paragraphs');
+  assert.ok(cut.split('\n\n').every(part => part.length <= 420), 'each short');
+  assert.equal(cut.replace(/\n\n/g, ' '), flat.trim(), 'not one word changed');
+  assert.equal(paragraphize('Short text. Two sentences.'), 'Short text. Two sentences.', 'a short text is left alone');
+  assert.equal(paragraphize('A\nB '.repeat(300)), ('A\nB '.repeat(300)).trim(), 'text with its own lines is left alone');
+  assert.deepEqual(postingBlocks(''), []);
+});
+
+test('the Description\'s facts and source line: what is known, "Not stated" for the rest', () => {
+  const facts = postingFacts({company: 'Helvetic Cloud'}, {source: 'Helvetic Cloud', source_kind: 'employer feed', first_seen_at: '2026-10-09T08:00:00Z', posted_at: ''}, 'one two three');
+  assert.deepEqual(facts.map(fact => [fact.key, fact.value, fact.note]), [['employer', 'Helvetic Cloud', 'careers page'], ['posted', 'Not stated', ''],
+    ['found', shortDay('2026-10-09T08:00:00Z'), ''], ['saved', 'Saved', '3 words']]);
+  assert.equal(postingFacts({}, {}, '')[3].value, 'None');
+  assert.equal(postingSource({source: 'Helvetic Cloud', source_kind: 'employer feed'}), 'Job description from careers page (Helvetic Cloud)');
+  assert.equal(postingSource({source: 'jobs.ch', source_kind: 'job board'}), 'Job description from job board (jobs.ch)');
+  assert.equal(postingSource({}), 'Job description from the search');
 });

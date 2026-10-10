@@ -60,9 +60,15 @@ test('jobPosting: the crawl\'s saved text by the job\'s code; none, and a failur
   const handlers = {}, lines = [];
   const ipcMain = {handle: (name, fn) => { handlers[name] = fn; }};
   const asked = [];
-  const posting = async (_storage, code) => { asked.push(code); if (code === jobCode('https://x/none')) return {ok: false, error: 'job not found'}; if (code === jobCode('https://x/boom')) throw new Error('python died'); return {ok: true, description: 'Run SRE', url: 'https://x/1'}; };
+  const posting = async (_storage, code) => {
+    asked.push(code);
+    if (code === jobCode('https://x/none')) return {ok: false, error: 'job not found'};
+    if (code === jobCode('https://x/boom')) throw new Error('python died');
+    return {ok: true, description: 'Run SRE', url: 'https://x/1', company: 'Acme', source: 'Acme', source_kind: 'employer feed', first_seen_at: '2026-10-09T08:00:00Z', posted_at: '2026-10-03'};
+  };
   registerJobPageHandlers({ipcMain, storage: {}, DEMO: false, here: '.', log: (...line) => lines.push(line), posting});
-  assert.deepEqual(await handlers.jobPosting(null, ' https://x/1 '), {ok: true, description: 'Run SRE', url: 'https://x/1'});
+  assert.deepEqual(await handlers.jobPosting(null, ' https://x/1 '), {ok: true, description: 'Run SRE', url: 'https://x/1', company: 'Acme', source: 'Acme', source_kind: 'employer feed',
+    first_seen_at: '2026-10-09T08:00:00Z', posted_at: '2026-10-03'}, 'the text, and where and when it came from');
   assert.equal(asked[0], jobCode('https://x/1'), 'asked by the same code the engine makes from the trimmed URL');
   assert.deepEqual(await handlers.jobPosting(null, 'https://x/none'), {ok: false, error: 'job not found'});
   assert.deepEqual(await handlers.jobPosting(null, 'https://x/boom'), {ok: false, error: 'python died', failed: true});
@@ -74,6 +80,8 @@ test('jobPosting in demo mode: a fictional posting for a demo job, none for the 
   const handlers = {};
   const here = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
   registerJobPageHandlers({ipcMain: {handle: (name, fn) => { handlers[name] = fn; }}, storage: {}, DEMO: true, here, log: () => {}});
-  assert.match((await handlers.jobPosting(null, 'https://example.com/jobs/4')).description, /Responsibilities/);
+  const demo = await handlers.jobPosting(null, 'https://example.com/jobs/4');
+  assert.match(demo.description, /Responsibilities/);
+  assert.equal(demo.source_kind, 'employer feed');
   assert.deepEqual(await handlers.jobPosting(null, 'https://example.com/jobs/1'), {ok: false, error: 'job not found'});
 });

@@ -68,6 +68,9 @@ test('Description: reads the saved posting once per job, and offers Retry only a
   assert.match(source, /read\.has\(job\.url\)/, 'asked once per job');
   assert.match(source, /answer\.failed[\s\S]*button\('Retry'/, 'Retry only on a failed read');
   assert.match(source, /This job has no saved description/);
+  assert.match(source, /factStrip\(postingFacts\(/, 'the strip of facts');
+  assert.match(source, /postingBody\(postingBlocks\(text\)\)/, 'headings and bullets, not one block');
+  assert.match(source, /sourceCard\(postingSource\(found\)/, 'where it came from, with the way to the original');
   assert.match(fs.readFileSync(new URL('../preload.cjs', import.meta.url), 'utf8'), /jobPosting: call\('jobPosting'\)/);
 });
 

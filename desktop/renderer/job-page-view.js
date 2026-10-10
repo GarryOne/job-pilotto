@@ -165,6 +165,51 @@ export const callFacts = app => plain(app?.call_facts || '');
 // The next interview, for the header's bar: {when} or null.
 export const nextInterview = app => (app?.next_interview ? {when: day(app.next_interview)} : null);
 
+// A saved posting as blocks the Description tab draws: "## x" a heading, "- x" a list item (src/sources/posting_text.py writes them, and the
+// Markdown sections use the same marks), anything else a paragraph. [{kind: 'heading' | 'list' | 'text', text | items}].
+// Text saved before 10 Oct 2026 has no line breaks at all (138 of 139 on the owner's Mac): it is cut into short paragraphs at sentence ends,
+// by shape only (a full stop, then a capital or a digit), never by words.
+const SENTENCE_END = /(?<=[.!?])\s+(?=[\p{Lu}\d])/u;
+export function paragraphize(text, size = 380) {
+  const whole = String(text || '').trim();
+  if (whole.includes('\n') || whole.length < 500) return whole;
+  const paragraphs = [];
+  let current = '';
+  for (const sentence of whole.split(SENTENCE_END)) {
+    if (current && current.length + sentence.length > size) { paragraphs.push(current); current = sentence; }
+    else current = current ? `${current} ${sentence}` : sentence;
+  }
+  if (current) paragraphs.push(current);
+  return paragraphs.join('\n\n');
+}
+
+export function postingBlocks(text) {
+  const blocks = [];
+  let list = null;
+  for (const raw of paragraphize(text).split('\n')) {
+    const line = raw.trim();
+    if (!line) { list = null; continue; }
+    const heading = /^#{1,4}\s+(.*)$/.exec(line);
+    if (heading) { blocks.push({kind: 'heading', text: plain(heading[1])}); list = null; continue; }
+    const item = /^[-*•]\s+(.*)$/.exec(line);
+    if (item) { if (!list) blocks.push(list = {kind: 'list', items: []}); list.items.push(plain(item[1])); continue; }
+    list = null;
+    blocks.push({kind: 'text', text: plain(line)});
+  }
+  return blocks;
+}
+
+// The Description tab's facts (the owner's mock): who, when it was posted, when the search found it, and the saved copy. [{key, label, value, note}].
+const SOURCE_KIND = {'employer feed': 'careers page', 'job board': 'job board', you: 'added by you'};
+export function postingFacts(job = {}, found = {}, text = '') {
+  const words = String(text).trim().split(/\s+/).filter(Boolean).length;
+  return [{key: 'employer', label: 'Employer', value: job.company || found.company || 'Not stated', note: SOURCE_KIND[found.source_kind] || found.source || ''},
+    {key: 'posted', label: 'Posted', value: day(found.posted_at) || 'Not stated', note: ''},
+    {key: 'found', label: 'First found', value: day(found.first_seen_at || job.first_seen_at) || 'Not stated', note: ''},
+    {key: 'saved', label: 'Saved posting', value: text ? 'Saved' : 'None', note: text ? `${words} words` : ''}];
+}
+export const postingSource = (found = {}) => `Job description from ${SOURCE_KIND[found.source_kind] || found.source || 'the search'}${found.source && SOURCE_KIND[found.source_kind] ? ` (${found.source})` : ''}`;
+
 // The page's content: {tabs: TABS (every job has all eight), kit, groups: {match, prep, review, record, messages, description}, history, shots,
 // documents, has: {tab key → it has content, for its empty state}}.
 export function pageParts({sections = {}, kit = null, events = [], files = [], match = null, app = null} = {}) {
@@ -189,7 +234,9 @@ export function pageParts({sections = {}, kit = null, events = [], files = [], m
     application: (!!kitView && !!(kitView.groups?.length || kitView.letter || kitView.answers?.length || kitView.check?.length)) || documents.length > 0
       || groups.prep.length > 0 || submittedOf(sections, app) !== null,
     interviews: false, review: groups.review.length > 0, messages: messages.length > 0 || shots.length > 0, timeline: history.length > 0};
-  return {tabs: TABS, kit: kitView, groups, history, shots, documents, submitted: submittedOf(sections, app), has};
+  // The posting as text (the section, or the record's frozen copy): the Description tab draws it as blocks, else asks for the search's saved copy.
+  const descriptionText = readablePart(String(sections[SECTIONS.description] || jsonOf(sections[SECTIONS.record])?.job?.description || '')).trim();
+  return {tabs: TABS, kit: kitView, groups, history, shots, documents, submitted: submittedOf(sections, app), descriptionText, has};
 }
 
 // What was actually sent, from the application's frozen record (its JSON, src/notion/ledger_record.py build_fields): {facts, note, answers, letter}

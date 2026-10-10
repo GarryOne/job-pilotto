@@ -49,12 +49,14 @@ export function registerJobPageHandlers({ipcMain, storage, DEMO, here, log, dial
   // no description section (a job nobody applied to). {ok, description, url} or {ok: false, error}; a failure is an answer, logged.
   ipcMain.handle('jobPosting', async (_, url) => {
     if (DEMO) {   // fictional postings for a few demo jobs (demo/postings.json); the others have none saved
-      const text = JSON.parse(fs.readFileSync(path.join(here, 'demo', 'postings.json'), 'utf8'))[String(url || '').trim()];
-      return text ? {ok: true, description: text, url: String(url)} : {ok: false, error: 'job not found'};
+      const found = JSON.parse(fs.readFileSync(path.join(here, 'demo', 'postings.json'), 'utf8'))[String(url || '').trim()];
+      return found ? {ok: true, url: String(url), ...found} : {ok: false, error: 'job not found'};
     }
     try {
       const found = await posting(storage, jobCode(url));
-      return found.ok ? {ok: true, description: String(found.description || ''), url: found.url} : {ok: false, error: found.error || 'job not found'};
+      if (!found.ok) return {ok: false, error: found.error || 'job not found'};
+      const {source = '', source_kind: kind = '', first_seen_at: first = '', posted_at: posted = ''} = found;
+      return {ok: true, description: String(found.description || ''), url: found.url, company: found.company || '', source, source_kind: kind, first_seen_at: first, posted_at: posted};
     } catch (error) {
       log('jobs', 'job posting not read', {error: error.message});
       return {ok: false, error: error.message, failed: true};
