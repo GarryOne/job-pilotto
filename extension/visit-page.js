@@ -142,7 +142,7 @@ export function nextByRecipe(recipe) {
 export function closeConsent(want = null) {   // want: {list: true} -> the box's button labels; {press: label} -> press that one (visit.js asks the app which)
   const visible = node => { const box = node.getBoundingClientRect(); const look = getComputedStyle(node); return box.width > 0 && box.height > 0 && look.visibility !== 'hidden' && look.display !== 'none'; };
   const words = node => (node.innerText || node.value || node.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
-  const ABOUT = /cookie|consent|gdpr|privacy|datenschutz|confidentialit|traceurs|tracking/i;
+  const ABOUT = want?.cookiesOnly ? /cookie|gdpr|traceurs|tracking/i : /cookie|consent|gdpr|privacy|datenschutz|confidentialit|traceurs|tracking/i;   // cookiesOnly: the application flow never touches a privacy or terms box
   // Inside a frame that is itself the consent message (Sourcepoint, TrustArc draw theirs in an iframe), the whole frame is the box.
   const framed = window !== window.top && ABOUT.test(document.body?.innerText || '') && !document.querySelector('input[type=password]') ? [document.body] : [];
   const boxes = [...framed, ...document.querySelectorAll('[role=dialog], [aria-modal=true], dialog, [id*=cookie i], [class*=cookie i], [id*=consent i], [class*=consent i], [id*=onetrust i], [id*=didomi i], [id*=cmp i], [class*=cmp i]')]

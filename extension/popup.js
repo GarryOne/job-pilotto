@@ -42,6 +42,13 @@ const LINKEDIN = 'LinkedIn forbids reading its pages with an extension and may r
       return;
     }
     $('intro').textContent = 'The Job Pilotto app opened this page to apply: the panel on the page fills the form and tells you what is left.';
+    // Always there on a tab the app opened (owner, 9 Oct 2026: after a refresh nothing started and there was no way to start it): run the fill again, here.
+    $('apply-here').hidden = false;
+    $('apply-here').addEventListener('click', () => {
+      $('apply-here').disabled = true;
+      $('apply-progress').textContent = 'Starting…';
+      chrome.runtime.sendMessage({type: 'applyHere', tabId: tab.id}, answer => { $('apply-progress').textContent = answer?.ok ? 'Started: the panel on the page shows the steps.' : (answer?.why || 'Could not start here.'); $('apply-here').disabled = false; });
+    });
     return;
   }
   if (mode === 'none') return;

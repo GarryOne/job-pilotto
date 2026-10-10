@@ -87,6 +87,11 @@ export function createTabReport(ctx) {
   }
   // A closed tab's id comes back for another tab: forget everything kept for it, so no fill and no submitted-check is
   // ever carried over to whatever opens next (tab-pages.js).
+  // A refresh the person pressed is a new document: its page is looked at again (one fill per document, not one per page for the life of the tab; owner, 9 Oct 2026).
+  chrome.webNavigation.onCommitted.addListener(details => {
+    if (details.frameId !== 0 || details.transitionType !== 'reload') return;
+    for (const key of [...started]) if (key === details.tabId || (typeof key === 'string' && key.startsWith(`${details.tabId} `))) started.delete(key);
+  });
   chrome.tabs.onRemoved.addListener(async tabId => {
     reportTabs();  // the app's session page learns that a form tab was closed without waiting for the 30 s report
     await chrome.storage.session.remove([`from:${tabId}`, `job:${tabId}`, `session:${tabId}`, `role:${tabId}`, `armed:${tabId}`, `submit:${tabId}`, `judged:${tabId}`, `read:${tabId}`]).catch(() => {});

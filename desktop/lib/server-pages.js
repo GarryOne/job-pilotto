@@ -100,6 +100,14 @@ export async function pickChoice(storage, body, {client} = {}) {
   return {ok: true, choice: options.includes(found.choice) ? found.choice : ''};
 }
 
+// Which button of a popup in the way closes it without agreeing to anything (lib/popup-pick.js): the popup's text and its own buttons in, one of them or none out.
+export async function pickPopup(storage, body, {client} = {}) {
+  const {pickDismiss} = await import('./popup-pick.js');
+  const found = await pickDismiss(storage, {text: String(body?.text || '').slice(0, 600), buttons: Array.isArray(body?.buttons) ? body.buttons.slice(0, 20) : []}, {client: client === undefined ? aiClient(storage) : client, log: appLog});
+  appLog('extension', `popup: ${found.button ? 'closed by its button' : 'left alone'}`, {how: found.how});
+  return {ok: true, button: found.button};
+}
+
 // The AI's judgment on a sign-up page, before the account button ('ready') or after it ('result'): fixed answers, never a value the person typed (lib/account-judge.js).
 export async function decideAccountJudge(storage, body, {judge = judgeAccount, client} = {}) {
   const phase = body?.phase === 'result' ? 'result' : body?.phase === 'form' ? 'form' : 'ready';   // 'form': the application form's own readiness (lib/form-judge.js)

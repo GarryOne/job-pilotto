@@ -9,6 +9,7 @@ import {forgetAI} from './flow.js';
 import {settings} from './flow.js';
 import {sharedFixNote} from './tab-pages.js';
 import {sharedFixes} from './tab-pages.js';
+import {consider} from './fill-flow.js';
 
 export function createPanelMessages(ctx) {
   const {fillOpenedTab, jobOf, prefetch, started} = ctx;
@@ -37,6 +38,20 @@ export function createPanelMessages(ctx) {
         ok: !result?.error, error: result?.error || '', ineligible: !!result?.ineligible, note: result?.note || '',
         filled: result?.filled || 0, todo: (result?.todo || []).slice(0, 20), coverLetter: result?.coverLetter || '',
         sharedNote: sharedFixNote(sharedFixes(result?.operated))}));
+      return true;
+    }
+    // The toolbar popup's "Apply on this page": only a tab the app opened (the mark in its address, or armed), never any other page. The fill runs again from the start
+    // (a reload or a page that did nothing left it "started"), the panel is put back, and the answer says why when it could not.
+    if (message?.type === 'applyHere' && Number.isInteger(message.tabId)) {
+      (async () => {
+        const tab = await chrome.tabs.get(message.tabId).catch(() => null);
+        const armed = tab && (await chrome.storage.session.get(`armed:${tab.id}`).catch(() => ({})))[`armed:${tab.id}`];
+        if (!tab || !/^https:/.test(tab.url || '') || !(armed || tab.url.includes('#jobpilotto-fill'))) return {ok: false, why: 'This page was not opened by the Job Pilotto app: press Apply in the app.'};
+        for (const key of [...started]) if (key === tab.id || (typeof key === 'string' && key.startsWith(`${tab.id} `))) started.delete(key);
+        decide('fill', 'Apply pressed in the extension popup', {host: new URL(tab.url).hostname});
+        consider(tab, await jobOf(tab)).catch(() => {});
+        return {ok: true};
+      })().then(reply, () => reply({ok: false, why: 'Could not start here.'}));
       return true;
     }
     // The app asked to see this form: its tab and window come forward (the extension knows the tab; no Mac scripting).
