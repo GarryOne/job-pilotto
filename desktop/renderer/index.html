@@ -956,8 +956,11 @@
         <button class="secondary" id="cv-changed-open">Review what changes</button></div>
           <div class="setting panel" id="setting-experience-sources" data-profile-panel="experience" hidden>
             <div class="panel-top"><div class="summary-head"><i data-icon="layers"></i><h3>Where your experience comes from</h3></div>
-              <div class="panel-actions"><button class="secondary with-icon" id="exp-add"><i data-icon="upload"></i><span>Add another CV version</span></button></div></div>
+              <div class="panel-actions"><button class="secondary with-icon" id="exp-add-linkedin"><i data-icon="link"></i><span>Add LinkedIn data</span></button>
+                <button class="secondary with-icon" id="exp-add"><i data-icon="upload"></i><span>Add another CV version</span></button></div></div>
             <p class="muted panel-lead">Your main CV is the reference: a tailored CV keeps its jobs, titles and dates. Other versions only add facts to those jobs, so tailoring has more to choose from.</p>
+            <details class="muted small" id="exp-linkedin-help"><summary>How to get your LinkedIn data</summary>
+              <p>On LinkedIn: Settings → Data privacy → <b>Get a copy of your data</b> → tick Positions, Profile, Skills and Education (the fast option) → Request archive. LinkedIn emails a link within minutes: download the .zip and choose it here. It is read on this Mac; the file itself is not kept.</p></details>
             <ul class="item-rows" id="exp-sources"></ul>
             <p class="message" id="exp-message"></p>
           </div>

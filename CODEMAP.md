@@ -102,6 +102,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/learned.js` — What you answered yourself in a form: the extension reads the fields YOU changed at the Submit press (extension/review.js)
 - `desktop/lib/license.js` — The free allowance and license keys (Stage 1: checked here, offline). Free for the first 20 applications
 - `desktop/lib/lifecycle.js` — Testable Electron startup, activation, quit decisions and terminal shutdown; services are injected.
+- `desktop/lib/linkedin-export.js` — LinkedIn's own data export (Settings → Data privacy → Get a copy of your data) turned into a CV in the app's schema, so the experience bank
 - `desktop/lib/log-days.js` — The app's logs, one file per day for KEEP_DAYS days: today's is always <name>.log (app.log, engine.log), so every
 - `desktop/lib/log-view.js` — Settings → Logs: reads the app's log files for the window a page at a time, so a big log never reaches it whole:
 - `desktop/lib/log.js` — The app's own log, for debugging: <data folder>/logs/app.log for today, app-YYYY-MM-DD.log for each of the last 30
@@ -205,6 +206,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/visits.js` — Sites only you can open (owner, 7 Oct 2026): employers whose job site refuses automated visitors and portals with no API (LinkedIn,
 - `desktop/lib/win-path.js` — The PATH Windows has stored for this user and machine (the registry), not the one this app was started with.
 - `desktop/lib/window-log.js` — What happened to the main window, in logs/app.log (area `window`): how long it took to load, a load that failed, the
+- `desktop/lib/zip-read.js` — A small ZIP reader on node:zlib (no dependency): list the entries of a .zip file and read chosen ones, from the central directory,
 
 ## Desktop window: pages
 

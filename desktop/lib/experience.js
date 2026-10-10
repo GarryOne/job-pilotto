@@ -10,7 +10,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import {anthropicApi} from './ai/anthropic-api.js';
 import {nameOfClient} from './ai/names.js';
-import {baseCv, dir, MODEL, transcribePdf} from './cv.js';
+import {baseCv, dir, MODEL, transcribePdf, usd} from './cv.js';
+import {readExport} from './linkedin-export.js';
 
 export const MAX_SOURCES = 8;       // a person has a handful of CV versions; more is a mistake, not a bank
 export const MAX_EXTRA_PER_ROLE = 6;   // extra bullets offered to the tailor per role: the CV must stay as long as before
@@ -64,7 +65,7 @@ export async function matchAgainst(main, source, apiKey, client = null) {
   });
   if (response.stop_reason === 'refusal') throw new Error(`${nameOfClient(ai)} declined to compare these CVs`);
   if (response.stop_reason === 'max_tokens') throw new Error('The comparison was cut off; try again');
-  return {match: checkMatch(JSON.parse(response.content.find(block => block.type === 'text').text), main, source), response};
+  return {match: checkMatch(JSON.parse(response.content.find(block => block.type === 'text').text), main, source), usd: usd(response.usage)};
 }
 
 // ---------- the sources ----------
@@ -97,8 +98,24 @@ export async function addCv(storage, file, name, {apiKey = '', client = null, no
   fs.mkdirSync(sourcesDir(storage), {recursive: true});
   fs.copyFileSync(file, path.join(sourcesDir(storage), `${id}.pdf`));
   const source = {id, kind: 'cv', name: String(name || 'CV').slice(0, 120), addedAt: now.toISOString(), digest, cv: read.cv,
-    match: compared.match, mainKey: mainKey(main), usd: Math.round((read.usd) * 100) / 100};
+    match: compared.match, mainKey: mainKey(main), usd: Math.round((read.usd + compared.usd) * 100) / 100};
   write(storage, source);
+  return source;
+}
+
+// LinkedIn's data export (a .zip): its positions, skills and education as one more source, compared with the main CV like a CV version.
+// One LinkedIn source at a time: a new export replaces the old one (after the new one was read and matched). The ZIP itself is not kept.
+export async function addLinkedin(storage, file, {apiKey = '', client = null, now = new Date()} = {}) {
+  const main = baseCv(storage);
+  if (!main) throw new Error('Read your main CV first: LinkedIn is compared with it.');
+  const cv = readExport(file);
+  if (!cv.jobs.length) throw new Error('No positions found in this LinkedIn export.');
+  const compared = await matchAgainst(main, cv, apiKey, client);
+  const old = list(storage).filter(s => s.kind === 'linkedin');
+  const source = {id: crypto.randomBytes(5).toString('hex'), kind: 'linkedin', name: 'LinkedIn', addedAt: now.toISOString(),
+    digest: crypto.createHash('sha256').update(JSON.stringify(cv)).digest('hex'), cv, match: compared.match, mainKey: mainKey(main), usd: Math.round(compared.usd * 100) / 100};
+  write(storage, source);
+  for (const s of old) remove(storage, s.id);
   return source;
 }
 

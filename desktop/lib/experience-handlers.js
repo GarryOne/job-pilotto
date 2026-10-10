@@ -33,6 +33,18 @@ export function registerExperienceHandlers({DEMO, dialog, getWindow, ipcMain, st
       return {ok: true, ...experience.view(storage)};
     } catch (error) { return {ok: false, error: error.message}; }
   });
+  ipcMain.handle('experienceAddLinkedin', async () => {
+    if (noAi()) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
+    if (!experience.view(storage).main) return {ok: false, error: 'Read your main CV first (CV & details → Read my CV PDF): LinkedIn is compared with it.'};
+    const picked = await dialog.showOpenDialog(getWindow(), {title: 'Choose the .zip LinkedIn sent you', filters: [{name: 'ZIP', extensions: ['zip']}], properties: ['openFile']});
+    if (picked.canceled || !picked.filePaths[0]) return {ok: false, cancelled: true};
+    try {
+      const source = await experience.addLinkedin(storage, picked.filePaths[0], ai());
+      appLog('experience', 'LinkedIn export added', {id: source.id, roles: source.cv.jobs.reduce((n, j) => n + j.roles.length, 0), matched: source.match.filter(m => m.mainJob >= 0).length,
+        extraBullets: source.match.reduce((n, m) => n + m.newBullets.length, 0), skills: source.cv.skills ? source.cv.skills.split(',').length : 0, usd: source.usd});
+      return {ok: true, ...experience.view(storage)};
+    } catch (error) { return {ok: false, error: error.message}; }
+  });
   ipcMain.handle('experienceRemove', (_, id) => {
     const ok = experience.remove(storage, id);
     if (ok) appLog('experience', 'source removed', {id: String(id)});

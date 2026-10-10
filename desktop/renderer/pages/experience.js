@@ -15,7 +15,7 @@ export function sourceRow(source) {
   const meta = source.reference ? `${plural(source.roles, 'job role')}: tailored CVs keep its jobs, titles and dates` : `${plural(source.roles, 'job role')} · added ${runWhen(source.addedAt)}`;
   words.append(el('span', 'muted', meta));
   if (source.onlyHere?.length) words.append(el('span', 'muted', `Only in this version, not added to your CVs: ${source.onlyHere.map(r => [r.title, r.company].filter(Boolean).join(' · ')).join('; ')}`));
-  row.append(tile(source.reference ? 'file' : 'layers', source.reference ? 'info' : 'signal'), words);
+  row.append(tile(source.reference ? 'file' : source.kind === 'linkedin' ? 'link' : 'layers', source.reference ? 'info' : 'signal'), words);
   return row;
 }
 
@@ -59,7 +59,7 @@ export function showExperience(view) {
   const extras = view.roles.reduce((n, r) => n + r.bullets.filter(b => b.from !== 'Main CV').length, 0);
   $('exp-count').textContent = view.roles.length ? `${plural(view.roles.length, 'job role')} · ${extras} from other versions` : '';
   $('exp-roles').replaceChildren(...(view.roles.length ? view.roles.map(roleBlock) : [el('p', 'muted', 'Nothing yet: your main CV is read the first time you tailor one, or under CV & details.')]));
-  $('exp-add').disabled = !view.main;
+  $('exp-add').disabled = $('exp-add-linkedin').disabled = !view.main;
 }
 
 async function run(button, working, action) {
@@ -78,5 +78,6 @@ export async function loadExperience() {
 }
 
 export function initExperience() {
+  $('exp-add-linkedin').addEventListener('click', () => run($('exp-add-linkedin'), 'Reading your LinkedIn data and comparing it with your main CV… (about a minute)', () => window.pilot.experienceAddLinkedin()));
   $('exp-add').addEventListener('click', () => run($('exp-add'), 'Reading the CV and comparing it with your main one… (about a minute)', () => window.pilot.experienceAddCv()));
 }
