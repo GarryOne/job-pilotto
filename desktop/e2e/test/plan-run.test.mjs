@@ -200,6 +200,14 @@ test('quality: the nightly runs it; a beta by hand only after a change it watche
   assert.ok(nightly.windows_suites.split(',').includes('jobs'));
 });
 
+test('GATE_STORE_LEGS=one: the release run gets ONE Mac job per suite (its job copy never passes the leg\'s store, so a second leg was a duplicate)', async () => {
+  const stub = () => '[]';
+  const gate = await planRun({env: {REPO: 'o/r', EVENT: 'workflow_dispatch', SHA: 'cafe'.repeat(10), TARGET_REF: 'desktop-v2', GATE_TAG: 'desktop-v2', GATE_STORE_LEGS: 'one'}, gh: stub,
+    all: ['jobs', 'updates'], storeless: ['updates'], minutes: () => 15});
+  assert.deepEqual(JSON.parse(gate.matrix).include.map(({suite, key}) => `${suite}:${key}`), ['jobs:jobs', 'updates:updates']);
+  assert.equal(gate.count, '2');
+});
+
 test('the gate runs each suite that keeps data on both stores, one job each; other runs one job, the store left to the run number', async () => {
   const stub = args => (args[0] === 'run' && args[1] === 'list' ? '[]' : '[]');
   const gate = await planRun({env: {REPO: 'o/r', EVENT: 'workflow_dispatch', SHA: 'cafe'.repeat(10), TARGET_REF: 'desktop-v2', GATE_TAG: 'desktop-v2'}, gh: stub,

@@ -200,6 +200,7 @@ jobs:
           SHA: ${{ github.sha }}
           TARGET_REF: desktop-v${{ steps.version.outputs.version }}
           GATE_TAG: desktop-v${{ steps.version.outputs.version }}
+          GATE_STORE_LEGS: one   # one Mac job per suite: this workflow's copy of the job does not pass the leg's store to the suite (desktop/e2e/plan-run.mjs says why)
           GATE_KIND: ${{ (github.event_name == 'schedule' || inputs.nightly) && 'nightly' || 'beta' }}   # a beta by hand runs quality only when what it watches changed
           OVER: ${{ steps.spend.outputs.over }}
         run: |
@@ -427,9 +428,10 @@ jobs:
       fail-fast: false      # one suite failing must not hide what the others found
       matrix: ${{ fromJson(needs.changes.outputs.mac_matrix) }}
     concurrency:
-      # By matrix.key as in e2e.yml (the sqlite leg is `<suite>`, the stand-in leg `<suite>-standin`): a gate runs each suite twice on the Mac, and GitHub keeps ONE waiting job per
-      # group, so the Windows job of the same suite (group e2e-<suite>) cancelled the waiting Mac leg, 15 of 41 Mac jobs in the beta of 10 Oct 2026 (it only showed once the Windows build got faster).
-      group: e2e-${{ matrix.key }}   # a suite never overlaps itself (it owns one Notion page); different suites run together
+      # One group per SUITE, shared with the suite's Windows job: they use the same real Notion test page. GitHub keeps ONE waiting job per group, so a suite may have only two
+      # contenders (this job and its Windows twin): the gate plans one Mac job per suite (GATE_STORE_LEGS=one). A group per leg (c640e9a) let the Mac stand-in leg run beside the
+      # Windows job on the same page: wizard failed on both (10 Oct 2026).
+      group: e2e-${{ matrix.suite }}   # a suite never overlaps itself (it owns one Notion page); different suites run together
       cancel-in-progress: false
     env:
       # A suite whose secrets are missing FAILS here instead of a green "skipped" (lib/skip.mjs). 6 Oct 2026: failuresnotion and failureschannels

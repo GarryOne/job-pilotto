@@ -79,7 +79,10 @@ export async function planRun({env, gh = realGh, all, minutes, os = async () => 
   }
   // The store (lib/store.mjs, P7): the gate runs every suite that keeps data on BOTH stores of the same build (owner, 9 Oct 2026), as two jobs: `key` names
   // each one's job, artifacts, caches and group (the stand-in's ends in -standin: triage.mjs suiteOf drops it). Any other run: one job, the store alternating by run number.
-  const legs = suite => (env.GATE_TAG && !storeless.includes(suite) ? [{store: 'sqlite', key: suite}, {store: 'standin', key: `${suite}-standin`}] : [{store: '', key: suite}]);
+  // GATE_STORE_LEGS=one (the release run, desktop.yml): ONE job per suite. Its copy of the Mac job never passed `E2E_STORE` from the leg, so both legs ran the SAME store (the one the
+  // run number picks): a duplicate that waited on its twin in the suite's group, and a third contender for GitHub's single waiting slot there when the Windows job of the suite
+  // arrived (15 of 41 Mac jobs cancelled, 10 Oct 2026). Both stores in one job is the next step; until then one leg loses nothing the duplicate covered.
+  const legs = suite => (env.GATE_TAG && env.GATE_STORE_LEGS !== 'one' && !storeless.includes(suite) ? [{store: 'sqlite', key: suite}, {store: 'standin', key: `${suite}-standin`}] : [{store: '', key: suite}]);
   const include = [];
   for (const suite of suites) for (const leg of legs(suite)) include.push({suite, ...leg, minutes: await minutes(suite), os: await os(suite)});
   // Windows runs the same suites, less those that judge what is the same on every OS (quality: the AI's answers; owner, 7 Oct 2026: Windows paid $1.36 a day for it).
