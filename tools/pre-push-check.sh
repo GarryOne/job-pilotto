@@ -136,6 +136,12 @@ if command -v node >/dev/null && [ -f "$repo/tools/file-size.mjs" ]; then
   sizes="$(cd "$repo" && node tools/file-size.mjs 2>&1)" || { echo "Push blocked: a file is too big:
 $sizes" >&2; exit 2; }
 fi
+# The journey gate (owner, 10 Oct 2026): a push touching a flow file runs the applying scenarios as event sequences (tools/journey-gate.mjs, seconds,
+# no browser). Unlike the matrix below it needs no browser, and it runs even when the change is in extension/ only, which the affected-tests pick missed.
+if command -v node >/dev/null && [ -f "$repo/tools/journey-gate.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
+  journeys="$(cd "$repo" && node tools/journey-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $journeys" >&2; exit 2; }
+  [ -n "$journeys" ] && echo "$journeys" >&2
+fi
 # The Applying scenario matrix is not a push gate any more (owner, 9 Oct 2026): its steps run with every other e2e on CI (apply, applycv: schedule and beta gate);
 # `cd desktop && npm run flows` stays an on-demand check. (8 Oct-9 Oct it blocked pushes that touched FLOW_CORE: one recorded catch in 186 commits, 28 skips.)
 # A push that changes an e2e suite names the open failed-step issues of that suite (6 Oct 2026: #310 and #315 were fixed in the test by commits that never named them,

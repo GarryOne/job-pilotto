@@ -18,6 +18,10 @@ export const FLOW_FILES = [
 export const FLOW_CORE = ['extension/tab-pages.js', 'extension/tabs.js', 'extension/same-tab.js', 'extension/account.js', 'extension/fill-flow.js',
   'desktop/lib/session-flow.js', 'desktop/lib/page-kind.js', 'desktop/lib/review.js', 'desktop/lib/application-journey.js', 'desktop/lib/terminals.js', 'desktop/lib/journey-identity.js', 'extension/tab-identity.js'];
 
+// The journey tests: the applying scenarios as event sequences (no browser, seconds). tools/journey-gate.mjs runs them on every push that touches a flow file.
+export const JOURNEY_TESTS = ['test/journeys.test.js', 'test/application-journey.test.js', 'test/journey-identity.test.js', 'test/extension-tab-identity.test.js',
+  'test/session-flow.test.js', 'test/account-check.test.js'];
+
 // One row per scenario. `e2e`: words of its step in desktop/e2e/suites/apply.mjs or lib/apply-*.mjs (E2E_STEPS); `unit`: desktop/test files.
 export const MATRIX = [
   {scenario: 'What kind of page: the AI decides once per site and page shape, the structure rule only without AI', e2e: ['one page', 'wrong kind'], unit: ['test/page-kind.test.js', 'test/extension-tab-pages.test.js']},
