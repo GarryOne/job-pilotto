@@ -27,15 +27,15 @@ export const failedCandidate = caseJson => caseJson?.run?.reached !== 'form';
 export const selectCandidates = (list, {only = ''} = {}) => (only ? list.filter(item => item.name === only || item.name.includes(only)) : list.filter(item => failedCandidate(item.caseJson)));
 
 // The fixture file's content for a candidate: its sketch and numbered candidates as the extension's own builders made them (passed in), scrubbed.
-export function candidateFixture({name, day, caseJson, sketch, candidates, lang = ''}) {
+export function candidateFixture({name, day, caseJson, sketch, candidates, lang = '', observed = null, fromRequest = false}) {
   const run = caseJson.run || {};
   const path_ = (run.path || []).map(step => step.kind).join(' > ');
   const url = stripQuery(caseJson.pages?.[0]?.url);
   return {
     schemaVersion: 1, id: `cand-${slug(name)}`, source: 'captured', ...(lang ? {lang} : {}),
     why: `auto-captured from the pool run of ${day}: ${caseJson.shape || name}`.replace(/\s*\(auto-saved[^)]*\)/, '').slice(0, 200),
-    note: `smoke run ${day}: reached ${run.reached || 'nothing'}${path_ ? ` (${path_})` : ''}; the expectation is pending: say what the page really is`,
-    capture: {from: `replay-candidates/${day}/${name}`},
-    sketch: noPhone(noEmail({url, ...sketch})), candidates: noPhone(noEmail(candidates || [])), expect: {outcome: 'pending'},
+    note: `smoke run ${day}: reached ${run.reached || 'nothing'}${path_ ? ` (${path_})` : ''}${observed?.kind ? `; the app answered ${observed.kind} by ${observed.by || '?'} at ${observed.confidence ?? '?'}` : ''}; the expectation is pending: say what the page really is`,
+    capture: {from: `replay-candidates/${day}/${name}`, ...(fromRequest ? {request: 'ai-calls.json'} : {})},
+    sketch: (({url: own, ...rest}) => ({url: own ?? url, ...noPhone(noEmail(rest))}))({url, ...sketch}), candidates: noPhone(noEmail(candidates || [])), expect: {outcome: 'pending'},
   };
 }

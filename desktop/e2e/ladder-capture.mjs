@@ -11,6 +11,7 @@ import path from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {chromium} from 'playwright-core';
 import {CANDIDATES_DIR, candidateFixture, readCandidates, selectCandidates} from './lib/ladder-candidates.mjs';
+import {candidatesFromRequest, readAiCalls, requestOf, sketchFromRequest} from './lib/ladder-ai-calls.mjs';
 import {DIR, loadFixtures} from './lib/ladder-fixtures.mjs';
 import {noEmail, noPhone} from './lib/ladder-scrub.mjs';
 
@@ -56,6 +57,15 @@ async function fromCandidates(browser, {dir, only, day, root, force}) {
   for (const item of picked) {
     const file = path.join(dir, `cand-${item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60)}.json`);
     if (fs.existsSync(file) && !force) { console.log(`kept ${path.basename(file)} (exists; --force replaces it)`); continue; }
+    // What the app REALLY received in the failing run (ai-calls.json, the harness's capture): the sketch the model saw, frame candidates included. Preferred over a sketch rebuilt from page.html.
+    const asked = requestOf(readAiCalls(item.dir), {digest: false});
+    if (asked) {
+      const digest = requestOf(readAiCalls(item.dir), {digest: true});
+      const fixture = candidateFixture({name: item.name, day: item.day, caseJson: item.caseJson, sketch: sketchFromRequest(asked.request), candidates: digest ? candidatesFromRequest(digest.request) : [], observed: asked.answer, fromRequest: true});
+      fs.writeFileSync(file, `${JSON.stringify(fixture, null, 1)}\n`);
+      console.log(`${fixture.id}: built from ai-calls.json (what the app really sent): ${fixture.sketch.controls?.length ?? 0} controls, ${fixture.sketch.buttons?.length ?? 0} buttons, ${fixture.sketch.frameCandidates?.length ?? 0} frame candidates, ${fixture.candidates.length} candidates; run reached ${item.caseJson.run?.reached || 'nothing'}; expectation pending`);
+      continue;
+    }
     const context = await browser.newContext({viewport: {width: 1280, height: 900}, acceptDownloads: false});
     try {
       const page = await context.newPage();
