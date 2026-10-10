@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export const LIMIT = 500;
+export const WARN = 450;   // split before you reach it (owner, 11 Oct 2026): a warning, never a block
 // Files that stay over the limit on purpose, with the reason (owner, 8 Oct 2026). Chrome injects each as ONE classic content script (no import
 // without a build step, or without exposing modules to every page): they may not grow, and a new one needs the owner's yes.
 export const EXCEPTIONS = {
@@ -33,10 +34,20 @@ export function sizeProblems(files, linesOf, allowed) {
   return problems;
 }
 
+// The files a change touches that are between WARN and LIMIT lines (not already allowed over it): split them into 2 to 4 files by concern now.
+export function sizeWarnings(files, linesOf, allowed) {
+  return files.filter(file => SOURCE.test(file) && !SKIP.test(file) && !allowed[file] && !EXCEPTIONS[file])
+    .map(file => [file, linesOf(file)]).filter(([, lines]) => lines >= WARN && lines <= LIMIT)
+    .map(([file, lines]) => `WARNING (not a block): ${file} is ${lines} lines: split it into 2 to 4 files by concern before it reaches ${LIMIT}, as a pure move in its own commit (CLAUDE.md "Split before you reach it")`);
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const files = execFileSync('git', ['-C', root, 'ls-files'], {encoding: 'utf8'}).split('\n').filter(Boolean);
   const allowed = JSON.parse(fs.readFileSync(path.join(root, 'tools/file-size-allowed.json'), 'utf8'));
   const linesOf = file => { try { return fs.readFileSync(path.join(root, file), 'utf8').split('\n').length - 1; } catch { return 0; } };
   const problems = sizeProblems(files, linesOf, allowed);
+  let changed = [];
+  try { changed = execFileSync('git', ['-C', root, 'diff', '--name-only', 'origin/main...HEAD'], {encoding: 'utf8'}).split('\n').filter(Boolean); } catch { /* no origin/main: no warnings */ }
+  for (const line of sizeWarnings(changed, linesOf, allowed)) console.error(line);
   if (problems.length) { console.log(problems.join('\n')); process.exit(1); }
 }

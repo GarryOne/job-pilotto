@@ -214,6 +214,9 @@ size and may only shrink; `tools/file-size.mjs` (push hook + `desktop/test/file-
 **Documented exception (owner, 8 Oct 2026):** `extension/review.js` stays over 500 on purpose: Chrome injects it as ONE classic
 content script (no imports without a build step, or without exposing modules to every page). It may not grow; the reason lives in `EXCEPTIONS` in `tools/file-size.mjs`.
 A classic page script can still be split: `extension/page/fill.js` became six files on 9 Oct 2026, injected in order (`extension/page-files.js`) and sharing helpers through one window object (`window.__jobPilottoFillKit`).
+**Split before you reach it** (owner, 11 Oct 2026): a file near 450 lines is split into 2 to 4 files by concern, as a pure move in its own commit (rules below), not squeezed
+under the cap with helpers parked in a neighbour. Before adding to a file over ~450 lines, say so and hand the split to its own session with a brief (a flow-core file: with the
+claim and a quiet window). `tools/file-size.mjs` warns (never blocks) when a change touches a file of 450 to 500 lines.
 
 ### Splitting a file safely (8 Oct 2026: main.js 2,781 → 1,197 lines, a failed start and three near-misses)
 - **Pure move, nothing else.** Same code, same names; a new file starts with a header: what it owns, which tests guard it.

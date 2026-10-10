@@ -4,7 +4,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {test} from 'node:test';
-import {LIMIT, sizeProblems} from '../../tools/file-size.mjs';
+import {LIMIT, WARN, sizeProblems, sizeWarnings} from '../../tools/file-size.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');
 
@@ -24,4 +24,12 @@ test('the rule: a new file over 500 fails, a listed one may not grow, one that s
   assert.ok(problems.some(line => line.startsWith('d.mjs is 450 lines now')));
   assert.ok(problems.some(line => line.startsWith('e.js shrank to 800')));
   assert.ok(!problems.some(line => line.startsWith('c.js')));
+});
+
+test('a touched file between 450 and 500 lines gets a split warning, never a block; small, allowed and excepted files do not', () => {
+  const lines = {'a.js': WARN, 'b.js': 300, 'c.mjs': LIMIT, 'big.js': 900, 'extension/review.js': 480, 'notes.md': 470};
+  const warned = sizeWarnings(Object.keys(lines), file => lines[file], {'big.js': 900});
+  assert.deepEqual(warned.map(line => line.split(' ')[4]), ['a.js', 'c.mjs']);
+  assert.match(warned[0], /^WARNING \(not a block\).*2 to 4 files by concern/);
+  assert.deepEqual(sizeProblems(['a.js', 'c.mjs'], file => lines[file], {}), []);
 });
