@@ -1,0 +1,26 @@
+{
+ "shape": "a page that is not a form and says nothing about how to apply (the ladder ends at the person with nothing to quote)",
+ "why": "10 Oct 2026, the ladder: when rung 2 is unsure and the numbered digest answers `other` with nothing to tell or press, the page must not end silently as \"can't reach the form\": the extension reports `other` (a card that says Job Pilotto could not tell how to apply) and sends the page shape to be counted, without any text. The stub answers rung 2 unsure and the digest `other`, as the real digest prompt does on this shape (plan path, ladder fixtures)",
+ "sample": "an English studio page (constructed from the shape)",
+ "rung": 3,
+ "pages": [
+  {"url": "https://studio.example.com/team", "file": "page.html"}
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {"when": {"why": "other"}, "answer": {"ok": true}},
+   {"when": {"digest": true}, "answer": {"ok": true, "kind": "posting", "role": "no-form", "by": "digest", "confidence": 0.8, "rung": 3, "signal": "confident", "applyButton": "", "applyRoute": "", "applyBy": "", "applyEmail": "",
+     "digest": {"outcome": "other", "verb": "none", "numbers": [], "chosen": []}}},
+   {"answer": {"ok": true, "kind": "", "error": "unsure (0.4)", "rung": 2, "signal": "unsure"}}
+  ]
+ },
+ "expect": {
+  "told": [
+   "\"digest\":true",
+   "the ladder ended at the person",
+   "\"why\":\"other\""
+  ],
+  "maxNewTabs": 0,
+  "seconds": 45
+ }
+}

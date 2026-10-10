@@ -13,6 +13,7 @@
 import {model, priceOf} from './ai/models.js';
 import fs from 'node:fs';
 import {validateAlias} from '../shared/alias-schema.js';
+import {askDigest} from './digest.js';
 
 export const MODEL = model('small');   // the small tier (lib/ai/models.js); an OpenAI engine maps it to its own small model
 const PRICE = {input: 0.1, output: 0.5}; // USD per million tokens, the haiku price confirmation.js and form learning use
@@ -23,12 +24,20 @@ export const ROLE = {form: 'form', 'account-form': 'form', account: 'account', p
 // it named; only 'manual' is ever pressed. A third-party sign-in (LinkedIn, Google…) is never pressed: never log in automatically.
 export const ROUTES = ['manual', 'reuse_previous', 'third_party_account'];
 // How a posting is applied to (docs/superpowers/specs/2026-10-10-non-form-outcomes.md). Step 1 builds 'email'; phone, link, login_wall, expired, in_person fit the same answer later.
+// What the button named as apply_button does, judged by the AI in any language (never by the button's words): only 'apply' is ever kept as the Apply button, and the shared floor
+// (validateAlias) must accept it too (AND, never OR). Anything else, or no answer, leaves applyButton '' and the climb or stall path takes over. Same list in digest.js (rung 3 may not import this file).
+export const BUTTON_KINDS = ['apply', 'sign_in', 'sign_up', 'third_party', 'other', ''];
 export const APPLY_BY = ['form', 'email', 'other'];
+// The fields of the page sketch the extension sends (besides `url`): the one list the endpoint forwards, pageSketch reads and the real-extension test compares with what the
+// extension really sends, so a field added on one side can no longer be forgotten on the other (frames, 9 Oct 2026; mails, 10 Oct 2026).
+export const SKETCH_FIELDS = ['title', 'headings', 'controls', 'buttons', 'frames', 'mails', 'candidates'];
+export const sketchBody = body => Object.fromEntries(['url', ...SKETCH_FIELDS].map(name => [name, body?.[name]]));
 export const MIN_CONFIDENCE = 0.6;   // below it the structure rule decides, and the page is asked again next time
 
-const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 'confidence', 'apply_button', 'apply_route', 'apply_by', 'apply_email', 'account_step', 'register_control', 'signin_control', 'account_button', 'bot_check'], properties: {
+const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 'confidence', 'apply_button', 'apply_button_kind', 'apply_route', 'apply_by', 'apply_email', 'account_step', 'register_control', 'signin_control', 'account_button', 'bot_check'], properties: {
   kind: {type: 'string', enum: KINDS},
   apply_button: {type: 'string', description: 'For a posting: the exact text of the listed button that starts the application, else ""'},
+  apply_button_kind: {type: 'string', enum: BUTTON_KINDS, description: 'What the apply_button does: apply = starts or continues THIS job application; sign_in = logs in to an existing account; sign_up = creates an account; third_party = signs in or applies through another site\'s account (Google, LinkedIn, Apple, Indeed...); other. "" when apply_button is ""'},
   apply_route: {type: 'string', enum: [...ROUTES, ''], description: 'For a posting or a start step: the route of the apply_button named (manual = the candidate fills the application in by hand; reuse_previous = reuses an earlier application or profile; third_party_account = signs in with another site\'s account), or of the only routes offered when apply_button is ""; "" for an ordinary Apply button'},
   account_step: {type: 'string', enum: ['sign_in', 'sign_up', 'choose', ''], description: 'For an account page: sign_in = logs in to an EXISTING account; sign_up = creates a new account; choose = a notice with no form of its own that offers to sign in to the existing account (and maybe to reset its password); else ""'},
   register_control: {type: 'string', description: 'For a sign_in page: the exact text of the listed control that leads to creating a new account, else ""'},
@@ -53,7 +62,8 @@ bot_check: true when a check that the visitor is human stands in front of what t
 challenge drawn in a frame: the Frames line lists the hosts of the page's visible frames), in any language; the kind is then other.
 apply_button: for a posting, the exact text, copied from the Buttons list, of the one button that starts applying for this job, in whatever
 language; never sign in, sign up, submit, save, share, an alert, or applying through another site (LinkedIn, Indeed, "Easy Apply"); "" when
-there is none or for any other kind.
+there is none or for any other kind. apply_button_kind: judge what that button DOES, in any language, not by its words: apply only when it starts or continues this application
+(including the manual way of a start dialog); sign_in for a log-in to an existing account; sign_up for creating an account or registering; third_party for signing in or applying through another site's account; other for the rest; "" when apply_button is "".
 When a posting or a dialog offers SEVERAL ways to start (fill it in by hand, reuse an earlier application or profile, sign in with another site's account such as LinkedIn, Google or Apple), in any
 language: apply_button is the button of the manual way and apply_route is manual; if only the other ways are offered, apply_button is "" and apply_route names the route offered (reuse_previous or third_party_account); an ordinary Apply button has apply_route "".
 apply_by, for a posting, decided from what the page's own text tells the candidate to do: email when the text asks to send the application (CV, cover letter) to an email address, in any language, even if a button such as Apply is also listed (it may only scroll to that text); the address is apply_email, copied exactly from the Addresses list (an address that is only a contact, question or press address is not one); form when the page leads to a form to fill (an Apply button or a form) and does not ask for an email; other when it offers no way to apply or another way (a phone call, a visit); "" for any other kind.
@@ -74,7 +84,7 @@ export function pageShape(url) {
 }
 
 // What the model is allowed to see: no values the person typed, no query string, labels and texts capped.
-export function pageSketch({url, title, headings, controls, buttons, frames, mails} = {}) {
+export function pageSketch({url, title, headings, controls, buttons, frames, mails, candidates} = {}) {
   let path = '';
   try { path = new URL(String(url)).pathname.slice(0, 120); } catch { /* not a url */ }
   return {
@@ -84,6 +94,9 @@ export function pageSketch({url, title, headings, controls, buttons, frames, mai
       .filter(item => item.type),
     buttons: (Array.isArray(buttons) ? buttons : []).map(text => clean(text, 40)).filter(Boolean).slice(0, 20),
     mails: (Array.isArray(mails) ? mails : []).map(text => clean(text, 160)).filter(text => MAIL.test(text) || /^mailto:/i.test(text)).slice(0, 5),   // only sentences / mailto links that carry an address
+    // The numbered candidates of the digest (rung 3: extension/page/candidates.js): kept only as {n, kind, position, host, text}, capped, so nothing else the page or a caller adds reaches the AI.
+    candidates: (Array.isArray(candidates) ? candidates : []).filter(item => Number.isInteger(item?.n) && item.n >= 0).slice(0, 12)
+      .map(item => ({n: item.n, kind: clean(item.kind, 12), position: clean(item.position, 12), ...(item.host ? {host: clean(item.host, 80)} : {}), text: clean(item.text, 160)})).filter(item => item.kind),
     frames: (Array.isArray(frames) ? frames : []).map(host => clean(host, 80)).filter(Boolean).slice(0, 5),   // visible frames' hosts: a check drawn in a frame
   };
 }
@@ -136,13 +149,17 @@ export function addressOf(text, mails = []) {
 }
 
 // fresh: the page changed after a press (a dialog opened over the posting), so a kept answer for its shape is not used.
-export async function pageKind(client, raw, cache, {now = Date.now(), fresh = false} = {}) {
+export async function pageKind(client, raw, cache, {now = Date.now(), fresh = false, digest = false, learned = null} = {}) {
   const shape = kindKey(raw);
   if (!shape) return {error: 'no address'};
+  if (digest) return digestKind(client, raw, shape);   // rung 3: the extension climbed because rung 2 was unsure or a flow stalled
+  // What a higher rung decided and the page confirmed (lib/ladder-learning.js) answers like a kept answer, for free; an email outcome is a hint to ask again, never an answer.
+  const taught = fresh || !learned ? null : learned(shape);   // `learned`: shape -> the kept entry of lib/ladder-learning.js (injected, so this rung imports nothing of the learning store)
+  if (taught && !taught.askAgain && KINDS.includes(taught.kind)) return {kind: taught.kind, role: ROLE[taught.kind], confidence: 1, by: 'learned', rung: 1, signal: 'confident', shape, learnedBy: taught.by, outcome: taught.outcome, applyButton: '', accountStep: '', registerControl: '', signinControl: '', accountButton: ''};
   const stored = fresh ? null : cache?.get(shape);
   // A kept posting (or other page) is asked again when this page carries an address: a later posting of the shape may apply by email (one AI call, only on pages with an address). A kept form is final.
   const kept = stored && pageSketch(raw).mails.length && !['form', 'account-form', 'account'].includes(stored.kind) ? null : stored;
-  if (kept && KINDS.includes(kept.kind)) return {kind: kept.kind, role: ROLE[kept.kind], confidence: kept.confidence, by: 'remembered', shape, applyButton: kept.applyButton || '', accountStep: kept.accountStep || '', registerControl: kept.registerControl || '', accountButton: kept.accountButton || '', signinControl: kept.signinControl || ''};
+  if (kept && KINDS.includes(kept.kind)) return {kind: kept.kind, role: ROLE[kept.kind], confidence: kept.confidence, by: 'remembered', rung: 1, signal: 'confident', shape, applyButton: kept.applyButton || '', accountStep: kept.accountStep || '', registerControl: kept.registerControl || '', accountButton: kept.accountButton || '', signinControl: kept.signinControl || ''};
   if (!client) return {error: 'no AI', shape};
   const page = pageSketch(raw);
   if (!page.controls.length && !page.buttons.length && !page.headings.length && !page.frames.length) return {error: 'empty page', shape};
@@ -170,10 +187,11 @@ export async function pageKind(client, raw, cache, {now = Date.now(), fresh = fa
       : Math.round(((usage.input_tokens || 0) * priceOf(usage, PRICE).input + (usage.output_tokens || 0) * priceOf(usage, PRICE).output) / 1e4) / 100;
     const confidence = Math.max(0, Math.min(1, Number(answer?.confidence) || 0));
     if (!KINDS.includes(answer?.kind)) return {error: 'not a kind', shape, usd};
-    if (confidence < MIN_CONFIDENCE) return {error: `unsure (${confidence})`, kind: answer.kind, shape, usd};
+    if (confidence < MIN_CONFIDENCE) return {error: `unsure (${confidence})`, kind: answer.kind, shape, usd, rung: 2, signal: 'unsure'};   // the extension climbs (extension/ladder-core.js), it does not fall down to the structure rule
     const applyRoute = answer.kind === 'posting' && ROUTES.includes(answer.apply_route) ? answer.apply_route : '';
     // Floor: the named button is kept only for an ordinary Apply or the manual route; reuse and a third-party sign-in are never pressed, whatever the AI names.
-    const applyButton = answer.kind === 'posting' && (!applyRoute || applyRoute === 'manual') ? applyButtonOf(answer.apply_button, page.buttons) : '';
+    // AND with the AI's judgment of what the button does: a sign-in, a sign-up or a third-party control named as the Apply button is dropped, whatever its words (the word floor only knows some English).
+    const applyButton = answer.kind === 'posting' && answer.apply_button_kind === 'apply' && (!applyRoute || applyRoute === 'manual') ? applyButtonOf(answer.apply_button, page.buttons) : '';
     // Floors: an email outcome only for a posting; it never replaces the Apply button (the extension presses that first, and reports the email only when no form came); the address must literally stand in the page's own sentences or links, else it is dropped (reported as `dropped`) and the outcome is 'other'.
     let applyBy = answer.kind === 'posting' && APPLY_BY.includes(answer.apply_by) ? answer.apply_by : '', applyEmail = '', dropped = '';
     if (applyBy === 'email') {
@@ -191,7 +209,7 @@ export async function pageKind(client, raw, cache, {now = Date.now(), fresh = fa
     // A start step is a passing state of the posting, never kept for its shape (the next visit starts from the plain Apply, as a bot check does).
     if (!applyRoute && applyBy !== 'email') cache?.set(shape, {kind: answer.kind, confidence, at: new Date(now).toISOString(), ...(applyButton ? {applyButton} : {}),
       ...(accountStep ? {accountStep} : {}), ...(registerControl ? {registerControl} : {}), ...(signinControl ? {signinControl} : {}), ...(accountButton ? {accountButton} : {})});
-    return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', shape, usd, applyButton, applyRoute, applyBy, applyEmail, ...(dropped ? {dropped} : {}), accountStep, registerControl, signinControl, accountButton};
+    return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', rung: 2, signal: 'confident', shape, usd, applyButton, applyRoute, applyBy, applyEmail, ...(dropped ? {dropped} : {}), accountStep, registerControl, signinControl, accountButton};
   } catch (error) {
     return {error: clean(error?.message || 'AI failed', 120), shape};
   }
@@ -203,4 +221,21 @@ export async function pageKind(client, raw, cache, {now = Date.now(), fresh = fa
 export function forgetPageKind(cache, raw) {
   const key = kindKey(raw);
   return key && cache?.forget?.(key) ? key : '';
+}
+
+// Rung 3, the numbered digest (lib/digest.js): the AI answers an outcome and a closed verb by candidate number; the numbers are checked against the page's own candidates, so what it names is on
+// the page by construction. Never kept for the page shape (it is about this posting). -> a result shaped like pageKind's, with `digest` ({outcome, verb, numbers, chosen}), or {error, rung: 3, signal}.
+async function digestKind(client, raw, shape) {
+  const page = pageSketch(raw), failed = (error, extra = {}) => ({error, shape, rung: 3, signal: 'failed', ...extra});
+  if (!client) return failed('no AI');
+  if (!page.candidates.length) return failed('no candidates');
+  const got = await askDigest(client, page, page.candidates);
+  if (got.error) return failed(got.error);
+  if (got.dropped) return failed(`digest dropped: ${got.dropped}`, {dropped: got.dropped, usd: got.usd});
+  if (got.confidence < MIN_CONFIDENCE) return {error: `unsure (${got.confidence})`, shape, rung: 3, signal: 'unsure', usd: got.usd};
+  const email = got.outcome === 'email' ? got.chosen.find(item => item.kind === 'email') : null;
+  const pressed = got.verb === 'press' ? got.chosen[0] : null;   // the one button or link the digest named: it goes through the same floors as any Apply button (never a sign-in, submit, third-party control)
+  const applyButton = pressed && got.raw?.press_kind === 'apply' ? applyButtonOf(pressed.text, [pressed.text]) : '';   // AND with the digest's judgment of what the button does (press_kind): a sign-in, sign-up or third-party control is dropped in any language
+  return {kind: 'posting', role: ROLE.posting, confidence: got.confidence, by: 'digest', rung: 3, signal: 'confident', shape, usd: got.usd, applyButton, applyRoute: '',
+    applyBy: email ? 'email' : '', applyEmail: email ? email.text : '', digest: {outcome: got.outcome, verb: got.verb, numbers: got.numbers, chosen: got.chosen}};
 }

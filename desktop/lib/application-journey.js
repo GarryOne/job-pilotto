@@ -11,16 +11,17 @@
 //  4. 'incomplete' (a fill that put nothing in) is cleared only by clearStuck, which session-flow.js calls when something is filled (c1a2fcc).
 //  6. The account record (accountTerms: at most 3 terms the extension accepted, once each; accountCode: a code from the mail was typed) only grows, from fixed facts, on a running application (10 Oct 2026).
 //  5. Fields come from fixed values: stuck in STUCK, stage in STAGES, accountState in ACCOUNT_STATES, accountStep in ACCOUNT_STEPS; a need is a label of at most 80 characters.
-//  7. 'email' (the posting asks for the application by email, the need is its address) is reported like 'no-form': never over the account step (invariants 2 and 3 hold for it too), a later 'no-form' does not replace it, a later 'incomplete' does (10 Oct 2026).
+//  7. 'email' (the posting asks for the application by email, the need is its address) 'told' (the page tells the person what to do: a call, a visit, a closed notice; the need is the page's own sentence) and 'other' (the ladder ended with no usable answer: the need is the fixed label "how to apply is unclear", never page text) are reported like 'no-form': never over the account step (invariants 2 and 3 hold for them too), a later 'no-form' does not replace them, a later 'incomplete' does (10 Oct 2026).
 
-export const STUCK = ['account', 'incomplete', 'no-form', 'email'];
+export const STUCK = ['account', 'incomplete', 'no-form', 'email', 'told', 'other'];
+const INFORM = ['email', 'told', 'other'];   // the page itself says what to do: nothing for Claude to finish
 export const STAGES = ['account', 'form'];
 export const ACCOUNT_STATES = ['created', 'confirm', 'exists', 'refused'];
 export const ACCOUNT_STEPS = ['sign_in', 'sign_up'];
 export const STEPS = ['posting', 'account', 'confirm', 'form', 'ended'];
 
 const label = needs => String(needs || '').replace(/\s+/g, ' ').trim().slice(0, 80);
-const noteFor = (why, need) => (why === 'email' && need ? `Send your application to ${need}` : need ? `Needs you: ${need}` : why === 'account' ? 'This site needs an account' : 'The extension can\'t reach the form');
+const noteFor = (why, need) => (why === 'email' && need ? `Send your application to ${need}` : why === 'told' && need ? `The page says: ${need}` : why === 'other' ? 'Job Pilotto could not tell how to apply: open the page' : need ? `Needs you: ${need}` : why === 'account' ? 'This site needs an account' : 'The extension can\'t reach the form');
 
 // -> {set: {field: value} to apply (empty: nothing changed), result: what the old terminals function returned}.
 export function journey(session, event) {
@@ -47,11 +48,11 @@ export function journey(session, event) {
   }
   if (event.type === 'stuck') {
     if (session.kind !== 'form' || !STUCK.includes(event.why)) return none;
-    const why = event.why, need = label(event.needs), note = noteFor(why, need), set = {};
+    const why = event.why, need = why === 'other' ? 'how to apply is unclear' : label(event.needs), note = noteFor(why, need), set = {};
     const step = ACCOUNT_STEPS.includes(event.accountStep) ? event.accountStep : '';   // the AI's page type: only these two change the wording
     if (why === 'account' && step && session.accountStep !== step) set.accountStep = step;
-    if (why === 'no-form' && session.stuck === 'email') return {set, result: false};   // invariant 7
-    if ((why === 'no-form' || why === 'email') && (session.stage === 'account' || session.stuck === 'account')) return {set, result: false};   // invariants 2, 3
+    if (why === 'no-form' && INFORM.includes(session.stuck)) return {set, result: false};   // invariant 7
+    if ((why === 'no-form' || INFORM.includes(why)) && (session.stage === 'account' || session.stuck === 'account')) return {set, result: false};   // invariants 2, 3
     if (session.stuck === why) {   // reported again: only a new need changes anything
       if (!need || session.note === note) return {set, result: false};
       return {set: {...set, note, accountNeeds: need}, result: true};
@@ -59,7 +60,7 @@ export function journey(session, event) {
     if (session.stuck === 'account') return {set, result: false};   // invariant 3
     Object.assign(set, {stuck: why, note});
     if (why === 'account') Object.assign(set, {stage: 'account', accountHost: event.host || session.accountHost || ''});
-    if (why === 'account' || why === 'incomplete' || why === 'email') set.accountNeeds = need;
+    if (why === 'account' || why === 'incomplete' || INFORM.includes(why)) set.accountNeeds = need;
     return {set, result: true};
   }
   return none;
@@ -74,5 +75,7 @@ export function journeyStep(session) {
   if (session.accountState === 'confirm') return {step: 'confirm', needs};
   if (session.stage === 'account' || session.stuck === 'account' || session.accountState) return {step: 'account', needs};
   if (session.stuck === 'email') return {step: 'posting', needs: `Send your application to ${needs}`};
+  if (session.stuck === 'other') return {step: 'posting', needs: 'Job Pilotto could not tell how to apply: open the page'};
+  if (session.stuck === 'told') return {step: 'posting', needs: `The page says: ${needs}`};
   return {step: 'posting', needs: session.stuck === 'no-form' ? 'The extension can\'t reach the form' : ''};
 }

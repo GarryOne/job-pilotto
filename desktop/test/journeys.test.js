@@ -126,3 +126,17 @@ test('scenario: an email posting reported from a tab the application has left (i
   flow.stuck({url: POSTING, host: 'www.jobs.ch', why: 'email', needs: 'jobs@firma.ch', session: 'f1'});
   assert.equal(card().step, 'account');
 });
+
+test('scenario: a posting that tells the person to call: the card quotes the page\'s sentence, never "can\'t reach the form", and Claude is not offered', () => {
+  const {flow, card} = journeyOf();
+  flow.stuck({url: POSTING, host: 'www.jobs.ch', why: 'told', needs: 'Rufen Sie uns an: 044 555 01 00', session: 'f1'});
+  assert.deepEqual(card(), {step: 'posting', needs: 'The page says: Rufen Sie uns an: 044 555 01 00'});
+  assert.equal(terminals.get('f1').stuck, 'told');
+});
+
+test('scenario: the ladder ends with no usable answer (other): the card says Job Pilotto could not tell how to apply, never "can\'t reach the form", and Claude is not offered', () => {
+  const {flow, card} = journeyOf();
+  flow.stuck({url: POSTING, host: 'www.jobs.ch', why: 'other', session: 'f1'});
+  assert.deepEqual(card(), {step: 'posting', needs: 'Job Pilotto could not tell how to apply: open the page'});
+  assert.equal(terminals.get('f1').stuck, 'other');
+});

@@ -20,7 +20,9 @@ export function loadCases(dir = REPLAY_DIR) {
 
 // -> {ok, failures: [why], seen: {tabs, opened}}. expect: {told: [log words], notTold: [..], maxTabs, maxNewTabs (tabs opened during the run), attached: [selector], filled: [selector], pressed: [selector] (a pressable button, aria-pressed=true), asked: [question] (listed in the fields of an /extension/answer request: the reader saw it), empty: [selector], gone: [selector], seconds}
 export async function runCase(item, {extensionDir} = {}) {
-  const answer = Object.fromEntries(Object.entries(item.ai || {}).map(([route, body]) => [route, () => body]));
+  // A route's stubbed answer is one body, or a list of {when: {field: value}, answer} picked by what the extension sent (the ladder: an unsure answer, then a digest request); the last entry is the default.
+  const pick = (list, sent) => { let request = {}; try { request = JSON.parse(sent || '{}'); } catch { /* not JSON: the default */ } return (list.find(entry => Object.entries(entry.when || {}).every(([field, value]) => request[field] === value)) || list.at(-1)).answer; };
+  const answer = Object.fromEntries(Object.entries(item.ai || {}).map(([route, body]) => [route, Array.isArray(body) ? sent => pick(body, sent) : () => body]));
   const run = await startRealExtension({extensionDir, cv: item.cv !== false, allowAllSites: true, answer});
   const pages = new Map(item.pages.map(page => [pathKey(page.url), fs.readFileSync(path.join(item.dir, page.file), 'utf8')]));
   const failures = [];

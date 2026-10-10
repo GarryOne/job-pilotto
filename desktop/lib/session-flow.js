@@ -33,7 +33,7 @@ export function createSessionFlow({terminals, review, apply, appLog, toWindow = 
     }
     const match = carried ? (carried.kind === 'form' && !carried.outcome ? carried : null) : (terminals.get(resolveSession({job: event.job, url: event.url}, {get: terminals.get, list: terminals.list, isFormOf: apply.isFormOf})) || null);   // lib/journey-identity.js: by the tab's job, then the page
     appLog('extension', `can't reach the form: ${event.why}`, {host: event.host, matched: !!match, tab: event.tab ?? null, by: carried ? 'session' : 'job'});
-    const why = event.why === 'account' ? 'account' : event.why === 'incomplete' ? 'incomplete' : event.why === 'email' ? 'email' : 'no-form';
+    const why = event.why === 'account' ? 'account' : event.why === 'incomplete' ? 'incomplete' : event.why === 'email' ? 'email' : event.why === 'told' ? 'told' : event.why === 'other' ? 'other' : 'no-form';
     // A Claude session on the same job at a sign-in page: its card says it is at the account step.
     const claudes = carried ? (carried.kind === 'claude' ? [carried] : []) : terminals.list().filter(session => session.kind === 'claude' && !session.outcome && apply.isFormOf(event.url, session.url));
     if (why === 'account') for (const other of claudes) terminals.setStage(other.id, 'account', event.host);

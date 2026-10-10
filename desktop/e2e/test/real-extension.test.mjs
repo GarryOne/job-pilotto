@@ -202,3 +202,21 @@ test('a stuck page: the offer, the consent line on the first press, the countdow
     assert.ok(await run.assertIsolated());
   } finally { await run.close(); }
 });
+
+// The page sketch the extension SENDS to the app (desktop/lib/page-kind.js SKETCH_FIELDS): the same keys the app forwards, no more and no fewer. A field added on one side only is
+// the gap that dropped the bot check's frames (9 Oct 2026) and the address lines (10 Oct 2026) at the endpoint; this fails the day the two lists differ. Offline: a local posting page.
+test('the page sketch the extension sends has exactly the fields the app forwards, and carries an address line when the page has one', {skip}, async () => {
+  const {SKETCH_FIELDS} = await import('../../lib/page-kind.js');
+  const run = await startRealExtension({extensionDir, cv: false, allowAllSites: true, answer: {'/extension/page-kind': () => ({ok: true, kind: 'other', role: 'no-form', by: 'ai', confidence: 0.9})}});
+  try {
+    await serve(run, '<body><h1>Engineer</h1><main><p>Please send your application to jobs@example.com</p></main></body>');
+    await run.page.goto(`${DELOITTE}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'});
+    const sent = () => run.requests.filter(request => request.route === '/extension/page-kind' && !JSON.parse(request.body || '{}').forget).map(request => JSON.parse(request.body));
+    assert.ok(await waitUntil(async () => sent().length > 0, 40), 'the extension asks the app what kind of page this is');
+    const keys = Object.keys(sent()[0]).filter(name => name !== 'fresh').sort();
+    const ONLY_ON_A_DIGEST_ASK = ['candidates'];   // the numbered candidates travel only with a digest request (rung 3), never with the plain question
+    assert.deepEqual(keys, ['url', ...SKETCH_FIELDS.filter(name => !ONLY_ON_A_DIGEST_ASK.includes(name))].sort(), 'the extension sends exactly the fields the app forwards');
+    assert.ok(sent()[0].mails.some(line => line.includes('jobs@example.com')), 'the address line reaches the app');
+    assert.ok(await run.assertIsolated());
+  } finally { await run.close(); }
+});

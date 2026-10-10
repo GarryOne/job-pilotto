@@ -1,0 +1,27 @@
+{
+ "shape": "a page a kept answer calls an application form that has no field at all (a closed posting): the page contradicts the answer, the answer is forgotten and the ladder climbs to the numbered digest",
+ "why": "10 Oct 2026, the ladder: today a contradicted kept kind falls to the structure rule and the page's own notice is lost (\"can't reach the form\"). Now the contradiction is a signal: the extension forgets the answer, asks the digest, and reports the page's sentence. The stub answers rung 2 form (the wrong kept answer) and the digest request with an expired tell_person answer, as the real digest prompt does on this shape (plan path, ladder fixtures)",
+ "sample": "a German employer posting with a closed notice (constructed from the shape)",
+ "rung": 3,
+ "pages": [
+  {"url": "https://beispiel.example.ch/stellen/sachbearbeiter-4711", "file": "page.html"}
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {"when": {"forget": true}, "answer": {"ok": true, "forgotten": true}},
+   {"when": {"digest": true}, "answer": {"ok": true, "kind": "posting", "role": "no-form", "by": "digest", "confidence": 0.9, "rung": 3, "signal": "confident", "applyButton": "", "applyRoute": "", "applyBy": "", "applyEmail": "",
+     "digest": {"outcome": "expired", "verb": "tell_person", "numbers": [3], "chosen": [{"n": 3, "kind": "sentence", "position": "main", "text": "Die Stelle ist besetzt. Wir bedanken uns für Ihr Interesse an der Beispiel AG."}]}}},
+   {"answer": {"ok": true, "kind": "form", "role": "form", "by": "remembered", "confidence": 0.95, "rung": 1, "signal": "confident", "applyButton": "", "applyRoute": "", "applyBy": "", "applyEmail": ""}}
+  ]
+ },
+ "expect": {
+  "told": [
+   "\"forget\":true",
+   "\"digest\":true",
+   "besetzt",
+   "the page tells what to do"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 45
+ }
+}

@@ -1,0 +1,67 @@
+// What the extension does with a rung's signal (spec: docs/superpowers/specs/2026-10-10-ai-ladder.md; the rule itself is extension/ladder-core.js). The app's page-kind answer says which rung
+// answered and with what signal; an unsure page, or a page with nothing to press and no form, climbs to the numbered digest (rung 3: extension/page/candidates.js, desktop/lib/digest.js), once.
+// The digest only INFORMS or names a button the page lists (the Apply floors still apply in the app); what the page says to do is reported to the app as the application's need (`told`).
+// Invariants (flow core: read before editing; changing one is the owner's call, said in the commit; each names the test that guards it):
+//  1. An unsure answer climbs to the digest; a confident one, or no signal, never asks again (worker/test/ladder-climb.test.js).
+//  2. A page without a form asks the digest at most once per tab and page, and never when the digest already answered (worker/test/ladder-climb.test.js).
+//  3. Only a tell_person answer is reported as told, with the page's own sentence; an email has its own report (worker/test/ladder-climb.test.js).
+//  4. The picture rung (4) is not offered to the router yet: it is wired for account pages only (lib/escalate.js).
+import {nextRung} from './ladder-core.js';
+
+const signals = new Map();   // tab id -> the last {rung, signal} the app answered with
+const ended = new Set();     // tab ids whose digest answered nothing usable: the ladder ended at the person
+const looked = new Set();    // `${tab id} ${page}`: pages whose stall already asked the digest
+const OFF = [4];
+
+const sketched = new Map();  // tab id -> the controls the page-kind question carried (the page shape key needs them)
+export const noteSignal = (tabId, answer, controls = []) => { sketched.set(tabId, controls); if (answer?.signal) signals.set(tabId, {rung: answer.rung, signal: answer.signal}); else signals.delete(tabId); };
+export const controlsOf = tabId => sketched.get(tabId) || [];
+export const forgetClimb = tabId => { signals.delete(tabId); sketched.delete(tabId); ended.delete(tabId); for (const key of [...looked]) if (key.startsWith(`${tabId} `)) looked.delete(key); };
+
+// The numbered candidates of the page (extension/page/candidates.js). The page files live in the page's own (MAIN) world; the finder is injected when this page has not loaded it yet.
+const look = tabId => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: () => window.__jobPilottoCandidates?.candidatesOf?.()}).then(rows => rows?.[0]?.result).catch(() => undefined);
+export async function candidatesOf(tabId) {
+  let found = await look(tabId);
+  if (!found) { await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: ['page/candidates.js']}).catch(() => {}); found = await look(tabId); }
+  return Array.isArray(found) ? found : [];
+}
+
+// `ask(tab, {digest: true})` is fill-flow's askKind. -> the digest's answer, shaped like a page kind, or null.
+export async function climbOnUnsure(tab, ask) {
+  const seen = signals.get(tab.id);
+  if (!seen) return null;
+  const up = nextRung({...seen, off: OFF});
+  if (!(up.climbed && up.rung === 3)) return null;
+  const answer = await ask(tab, {digest: true});
+  if (!answer) ended.add(tab.id);
+  return answer;
+}
+export async function climbOnStall(tab, ask, key, kind) {
+  if (kind?.by === 'digest' || looked.has(key)) return null;
+  looked.add(key);
+  const answer = await ask(tab, {digest: true});
+  if (!answer) ended.add(tab.id);
+  return answer;
+}
+
+// -> {why: 'told', needs: <the page's own sentence>} when the digest said to tell the person what the page says (an email has its own report: non-form.js).
+export function toldReport(kind) {
+  const digest = kind?.digest;
+  return digest?.verb === 'tell_person' && digest.outcome !== 'email' && digest.chosen?.[0]?.text ? {why: 'told', needs: digest.chosen[0].text} : null;
+}
+
+// What the app is told when a digest-named press led to a form (the one verified signal that can be seen: the page moved on as the digest said): fixed values and the page's address
+// without its query, never a sentence or an address from the page (desktop/lib/ladder-learning.js keeps nothing else). null for anything but a digest press.
+export function verifiedBody(kind, url, controls = []) {
+  const digest = kind?.digest;
+  if (kind?.by !== 'digest' || kind.rung !== 3 || digest?.verb !== 'press' || !digest.outcome) return null;
+  return {verified: true, url: String(url || '').split('#')[0].split('?')[0], controls, rung: 3, outcome: digest.outcome, kind: 'posting', signal: 'confident'};
+}
+
+// -> {why: 'other', needs: ''} when the ladder ended at the person with nothing to say: the digest was asked and gave no usable answer, or said `other` with no sentence and no button. The app shows
+// a "needs your attention" card and counts the page shape (never text); null when the digest was never asked or gave an answer (a sentence to tell, a button to press).
+export function otherReport(kind, tabId) {
+  const digest = kind?.digest, usable = !!kind?.applyButton || !!digest?.chosen?.length;
+  if (kind?.by === 'digest' && !usable) return {why: 'other', needs: ''};
+  return ended.has(tabId) && !usable ? {why: 'other', needs: ''} : null;
+}

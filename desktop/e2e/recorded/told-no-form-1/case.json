@@ -1,0 +1,68 @@
+{
+ "shape": "a posting with no form and no Apply control that tells the candidate to come by in person (rung 2 unsure, then the numbered digest says what the page asks)",
+ "why": "10 Oct 2026, the ladder: today such a page ends on \"can't reach the form\" and the page's own instruction is lost. The extension climbs from the unsure page-kind answer to the digest (candidates in the request) and reports the page's sentence to the app. The stub answers the rung 2 question unsure and the digest request with an in_person tell_person answer, as the real digest prompt does on this shape (plan path, ladder fixtures)",
+ "sample": "a German hospital posting (constructed from the shape)",
+ "pages": [
+  {
+   "url": "https://spital.example.ch/stellen/pflege-4711",
+   "file": "page.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "digest": true
+    },
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "digest",
+     "confidence": 0.9,
+     "rung": 3,
+     "signal": "confident",
+     "applyButton": "",
+     "applyRoute": "",
+     "applyBy": "",
+     "applyEmail": "",
+     "digest": {
+      "outcome": "in_person",
+      "verb": "tell_person",
+      "numbers": [
+       3
+      ],
+      "chosen": [
+       {
+        "n": 3,
+        "kind": "sentence",
+        "position": "main",
+        "text": "Bewerbungen nehmen wir persönlich entgegen: Kommen Sie bei uns im Personalbüro vorbei und bringen Sie Ihre Unterlagen mit."
+       }
+      ]
+     }
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "",
+     "error": "unsure (0.4)",
+     "rung": 2,
+     "signal": "unsure"
+    }
+   }
+  ]
+ },
+ "expect": {
+  "told": [
+   "\"digest\":true",
+   "persönlich entgegen",
+   "the page tells what to do",
+   "no Apply button to press"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 40
+ },
+ "rung": 3
+}

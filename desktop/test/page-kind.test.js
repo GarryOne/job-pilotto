@@ -84,7 +84,7 @@ test('a posting in any language: the AI names its Apply button among the page\'s
   const posting = {url: 'https://emprego.example/oferta/123', title: 'Programador Python', headings: ['Programador Python'], controls: [],
     buttons: ['Partilhar', 'Guardar', 'Candidatar-me', 'Iniciar sessão']};
   const cache = cacheIn(), calls = [];
-  const answer = await pageKind(fake({kind: 'posting', confidence: 0.9, apply_button: 'Candidatar-me'}, calls), posting, cache);
+  const answer = await pageKind(fake({kind: 'posting', confidence: 0.9, apply_button_kind: 'apply', apply_button: 'Candidatar-me'}, calls), posting, cache);
   assert.equal(answer.applyButton, 'candidatar-me');
   assert.equal((await pageKind(fake({}), posting, cache)).applyButton, 'candidatar-me');   // remembered with the kind: no second call
   assert.equal(calls.length, 1);
@@ -173,24 +173,24 @@ test('a start dialog: only the manual route keeps its button; reuse and third-pa
   assert.deepEqual([...ROUTES], Object.keys(answers));   // a new route needs a row here
   for (const [route, button] of Object.entries(answers)) {
     const cache = cacheIn();
-    const got = await pageKind(fake({kind: 'posting', confidence: 0.95, apply_button: button, apply_route: route}), dialog, cache);
+    const got = await pageKind(fake({kind: 'posting', confidence: 0.95, apply_button_kind: 'apply', apply_button: button, apply_route: route}), dialog, cache);
     assert.equal(got.applyRoute, route);
     assert.equal(got.applyButton, route === 'manual' ? 'apply manually' : '', route);
     assert.equal(cache.get(kindKey(dialog)), null, `${route}: a passing step is never kept for the shape`);
   }
-  const outside = await pageKind(fake({kind: 'posting', confidence: 0.95, apply_button: 'Apply Manually', apply_route: 'something_else'}), dialog, cacheIn());
+  const outside = await pageKind(fake({kind: 'posting', confidence: 0.95, apply_button_kind: 'apply', apply_button: 'Apply Manually', apply_route: 'something_else'}), dialog, cacheIn());
   assert.equal(outside.applyRoute, '', 'a route outside the fixed answers is dropped');
-  const notListed = await pageKind(fake({kind: 'posting', confidence: 0.95, apply_button: 'Apply by hand', apply_route: 'manual'}), dialog, cacheIn());
+  const notListed = await pageKind(fake({kind: 'posting', confidence: 0.95, apply_button_kind: 'apply', apply_button: 'Apply by hand', apply_route: 'manual'}), dialog, cacheIn());
   assert.equal(notListed.applyButton, '', 'a button the page does not show is never named');
-  const plain = await pageKind(fake({kind: 'posting', confidence: 0.95, apply_button: 'Apply Manually', apply_route: ''}), dialog, cacheIn());
+  const plain = await pageKind(fake({kind: 'posting', confidence: 0.95, apply_button_kind: 'apply', apply_button: 'Apply Manually', apply_route: ''}), dialog, cacheIn());
   assert.equal(plain.applyRoute, '');
 });
 
 test('fresh: a kept answer is not used (the page changed after a press); the instructions and schema carry the route', async () => {
   const posting = {url: 'https://jobs.example/job/1', title: 'Job', headings: ['Job'], controls: [], buttons: ['Apply', 'Apply Manually']};
   const cache = cacheIn(), calls = [];
-  await pageKind(fake({kind: 'posting', confidence: 0.9, apply_button: 'Apply', apply_route: ''}, calls), posting, cache);
-  await pageKind(fake({kind: 'posting', confidence: 0.9, apply_button: 'Apply Manually', apply_route: 'manual'}, calls), posting, cache, {fresh: true});
+  await pageKind(fake({kind: 'posting', confidence: 0.9, apply_button_kind: 'apply', apply_button: 'Apply', apply_route: ''}, calls), posting, cache);
+  await pageKind(fake({kind: 'posting', confidence: 0.9, apply_button_kind: 'apply', apply_button: 'Apply Manually', apply_route: 'manual'}, calls), posting, cache, {fresh: true});
   assert.equal(calls.length, 2, 'fresh asks again');
   assert.equal((await pageKind(fake({}), posting, cache)).applyButton, 'apply', 'the kept answer is still the plain Apply');
   assert.ok(calls[0].output_config.format.schema.required.includes('apply_route'));
@@ -228,7 +228,7 @@ test('the sketch carries only short sentences with an address, capped, never the
 
 test('an email next to an Apply button keeps both: the extension presses the button first and reports the email only when no form came', async () => {
   const page = {...emailPages.de, buttons: ['Apply', 'Zurück']};
-  const got = await pageKind(fake({kind: 'posting', confidence: 0.9, apply_button: 'Apply', apply_by: 'email', apply_email: 'jobs@firma.ch'}), page, cacheIn());
+  const got = await pageKind(fake({kind: 'posting', confidence: 0.9, apply_button_kind: 'apply', apply_button: 'Apply', apply_by: 'email', apply_email: 'jobs@firma.ch'}), page, cacheIn());
   assert.deepEqual([got.applyButton, got.applyBy, got.applyEmail], ['apply', 'email', 'jobs@firma.ch']);
 });
 test('an email outcome is about this posting: it is not kept for the page shape', async () => {
@@ -251,4 +251,72 @@ test('a kept posting is asked again on a page that carries an address (a later e
   await pageKind(fake({kind: 'form', confidence: 0.9}, formCalls), plain, formCache);
   await pageKind(fake({kind: 'form', confidence: 0.9}, formCalls), emailPages.de, formCache);
   assert.equal(formCalls.length, 1, 'a form page carrying an address (a contact line) costs no second AI call');
+});
+
+// The ladder (extension/ladder-core.js, docs/superpowers/specs/2026-10-10-ai-ladder.md): page-kind says which rung answered and with what signal; an unsure answer no longer
+// falls silently down to the structure rule, it names the signal so the extension climbs; a digest request (rung 3) is answered from the page's numbered candidates.
+const seq = (answers, calls = []) => ({messages: {create: async request => { calls.push(request); const answer = answers[Math.min(calls.length - 1, answers.length - 1)];
+  return {stop_reason: 'end_turn', usage: {input_tokens: 700, output_tokens: 30}, content: [{type: 'text', text: JSON.stringify(answer)}]}; }}});
+const candidates = [
+  {n: 1, kind: 'sentence', position: 'main', text: 'Senior Engineer, Zurich'},
+  {n: 2, kind: 'sentence', position: 'main', text: 'Fragen? Rufen Sie uns an: 044 555 01 00'},
+  {n: 3, kind: 'phone', position: 'main', text: '044 555 01 00'},
+  {n: 4, kind: 'button', position: 'main', text: 'Jetzt bewerben'},
+];
+
+test('a confident answer says which rung decided and that it was confident; an unsure one names its signal (it does not fall silently to the structure rule)', async () => {
+  const sure = await pageKind(fake({kind: 'posting', confidence: 0.9}), emailPages.de, cacheIn());
+  assert.deepEqual([sure.rung, sure.signal], [2, 'confident']);
+  const unsure = await pageKind(fake({kind: 'other', confidence: 0.4}), emailPages.de, cacheIn());
+  assert.deepEqual([unsure.rung, unsure.signal], [2, 'unsure']);
+  assert.match(unsure.error, /unsure/, 'the old error text stays for every caller that reads it');
+  const kept = cacheIn(); await pageKind(fake({kind: 'form', confidence: 0.9}), coop, kept);
+  const again = await pageKind(fake({kind: 'form', confidence: 0.9}), coop, kept);
+  assert.deepEqual([again.by, again.rung, again.signal], ['remembered', 1, 'confident']);
+});
+
+test('a digest request is answered from the numbered candidates by number, never cached, and says rung 3', async () => {
+  const calls = [], cache = cacheIn();
+  const got = await pageKind(seq([{outcome: 'phone', verb: 'tell_person', numbers: [2, 3], confidence: 0.9}], calls), {...emailPages.de, candidates}, cache, {digest: true});
+  assert.deepEqual([got.by, got.rung, got.signal, got.digest.outcome, got.digest.verb], ['digest', 3, 'confident', 'phone', 'tell_person']);
+  assert.deepEqual(got.digest.chosen.map(item => item.n), [2, 3]);
+  assert.match(calls[0].messages[0].content, /044 555 01 00/, 'the AI saw the candidates');
+  assert.equal(cache.get(pageShape(emailPages.de.url) + '|' + pageBuild([])), null, 'a digest answer is about this posting: not kept for the shape');
+});
+
+test('a digest request: an unsure answer, an answer outside the candidates, or no candidates all say so with a signal, never a guess', async () => {
+  const page = {...emailPages.de, candidates};
+  const unsure = await pageKind(seq([{outcome: 'phone', verb: 'tell_person', numbers: [3], confidence: 0.3}]), page, cacheIn(), {digest: true});
+  assert.deepEqual([unsure.rung, unsure.signal], [3, 'unsure']);
+  const wrong = await pageKind(seq([{outcome: 'phone', verb: 'tell_person', numbers: [99], confidence: 0.95}]), page, cacheIn(), {digest: true});
+  assert.deepEqual([wrong.rung, wrong.signal, wrong.dropped], [3, 'failed', 'unknown candidate number']);
+  const none = await pageKind(seq([{outcome: 'phone', verb: 'tell_person', numbers: [3], confidence: 0.9}]), {...emailPages.de, candidates: []}, cacheIn(), {digest: true});
+  assert.deepEqual([none.rung, none.signal], [3, 'failed']);
+});
+
+test('an email from the digest becomes the same outcome the card already shows (apply_by email and the address), and the address is the candidate\'s own', async () => {
+  const page = {...emailPages.de, candidates: [{n: 1, kind: 'email', position: 'main', text: 'jobs@firma.ch'}]};
+  const got = await pageKind(seq([{outcome: 'email', verb: 'tell_person', numbers: [1], confidence: 0.9}]), page, cacheIn(), {digest: true});
+  assert.deepEqual([got.applyBy, got.applyEmail], ['email', 'jobs@firma.ch']);
+});
+
+test('the sketch carries the candidates, cleaned and capped, and nothing else about them', () => {
+  const sketch = pageSketch({...emailPages.de, candidates: [...candidates, ...Array.from({length: 20}, (_, i) => ({n: 10 + i, kind: 'sentence', position: 'main', text: 'x'.repeat(300), secret: 'no'}))]});
+  assert.ok(sketch.candidates.length <= 12 && sketch.candidates.every(item => item.text.length <= 160 && !('secret' in item)));
+  assert.deepEqual(pageSketch({url: 'https://a.test/x'}).candidates, []);
+});
+
+test('a digest "press" becomes the Apply button only when the AI judges the button apply, and the shared floor accepts it (AND, never OR)', async () => {
+  const page = {...emailPages.de, candidates: [{n: 1, kind: 'sentence', position: 'main', text: 'Apply below'}, {n: 2, kind: 'button', position: 'main', text: 'Postuler'}, {n: 3, kind: 'button', position: 'main', text: 'Sign in with LinkedIn'},
+    {n: 4, kind: 'button', position: 'main', text: 'Se connecter'}, {n: 5, kind: 'button', position: 'main', text: 'Konto erstellen'}]};
+  const press = (number, press_kind) => seq([{outcome: 'form', verb: 'press', numbers: [number], confidence: 0.9, ...(press_kind === undefined ? {} : {press_kind})}]);
+  const ok = await pageKind(press(2, 'apply'), page, cacheIn(), {digest: true});
+  assert.equal(ok.applyButton, 'postuler', 'the validated phrase of the one button the digest named');
+  for (const [number, kind] of [[3, 'third_party'], [4, 'sign_in'], [5, 'sign_up']]) {
+    assert.equal((await pageKind(press(number, kind), page, cacheIn(), {digest: true})).applyButton, '', `a ${kind} control is never pressed`);
+  }
+  for (const kind of [undefined, '', 'other', 'APPLY']) assert.equal((await pageKind(press(2, kind), page, cacheIn(), {digest: true})).applyButton, '', `press_kind ${JSON.stringify(kind)} judges nothing`);
+  assert.equal((await pageKind(press(3, 'apply'), page, cacheIn(), {digest: true})).applyButton, '', 'the AI saying apply does not lift the shared floor');
+  const told = await pageKind(seq([{outcome: 'phone', verb: 'tell_person', numbers: [1], confidence: 0.9}]), page, cacheIn(), {digest: true});
+  assert.ok(!told.applyButton, 'a tell_person answer names no button to press');
 });

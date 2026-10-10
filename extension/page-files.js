@@ -3,4 +3,4 @@
 // worker/test/page-propose.test.js (order) and the tests that load the filler (aliases, fill-categories, extension-files, fill-learning).
 export const FILL_FILES = ['page/fill-labels.js', 'page/fill-read.js', 'page/fill-menus.js', 'page/fill-checks.js', 'page/fill-marks.js', 'page/fill.js'];
 export const PAGE_FILES = ['page/browser-submit-guard.js', 'page/browser-form-fastpath.js', 'page/snapshot.js', 'page/skeleton.js', 'page/controls.js',
-  'page/required-mark.js', 'page/coverage.js', 'page/propose.js', 'page/upload.js', 'page/categories.js', 'page/dial-codes.js', 'page/radios.js', 'page/menu-pick.js', ...FILL_FILES];
+  'page/required-mark.js', 'page/coverage.js', 'page/propose.js', 'page/upload.js', 'page/categories.js', 'page/dial-codes.js', 'page/radios.js', 'page/menu-pick.js', 'page/candidates.js', ...FILL_FILES];

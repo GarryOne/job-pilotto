@@ -8,7 +8,10 @@ import {aiClient, judgePage, reportedConfirmations} from './confirmation.js';
 import {judgeAccount} from './account-judge.js';
 import {judgeForm} from './form-judge.js';
 import {escalate} from './escalate.js';
-import {forgetPageKind, pageKind, pageKindCache} from './page-kind.js';
+import {forgetPageKind, kindKey, pageKind, pageKindCache, sketchBody} from './page-kind.js';
+import {hit as ladderHit, ladderStore, lookup as ladderLookup, miss as ladderMiss, record as ladderRecord} from './ladder-learning.js';
+import {otherStore, record as otherRecord} from './ladder-other.js';
+import {ladderLine} from '../shared/ladder-core.js';
 import {isFormOf} from './apply.js';
 import {localEnv} from './server-env.js';
 import {proposalReporter} from './server-hooks.js';
@@ -62,28 +65,48 @@ let kindCache = null;
 export const KIND_SAID_MS = 10 * 60 * 1000;
 const kindSaid = new Map();   // shape -> {kind, at}
 export function kindWorthSaying(answer, said = kindSaid, now = Date.now()) {
-  if (answer?.by !== 'remembered' || !answer.shape) return true;
+  if (!['remembered', 'learned'].includes(answer?.by) || !answer.shape) return true;
   const last = said.get(answer.shape);
   if (last && last.kind === answer.kind && now - last.at < KIND_SAID_MS) return false;
   said.set(answer.shape, {kind: answer.kind, at: now});
   return true;
 }
+let others = null;   // the shapes the ladder could not read (lib/ladder-other.js)
+const othersOf = storage => { const file = storage.path('ladder-other.json'); if (others?.file !== file) others = {file, store: otherStore(file)}; return others.store; };
+let ladder = null;   // the ladder's learned answers (lib/ladder-learning.js), one store per file
+const ladderOf = storage => { const file = storage.path('ladder-learning.json'); if (ladder?.file !== file) ladder = {file, store: ladderStore(file)}; return ladder.store; };
 export async function decidePageKind(storage, body, {decide = pageKind, client} = {}) {
   kindCache ||= pageKindCache(storage.path('page-kinds.json'));
-  if (body?.forget) {   // the page contradicted its kept kind: dropped, asked again next visit
+  const learnt = ladderOf(storage), shapeOf = kindKey({url: body?.url, controls: body?.controls});
+  if (body?.forget || body?.signal === 'contradicted') {   // the page contradicted its kept kind: dropped, asked again next visit (a learned answer is dropped with it: one miss)
     const dropped = forgetPageKind(kindCache, {url: body?.url, controls: body?.controls});
+    if (shapeOf && ladderMiss(learnt, shapeOf)) appLog('extension', 'ladder: learned answer dropped (one miss)', {shape: shapeOf});
     appLog('extension', `page kind forgotten: ${String(body.reason || 'contradicted by the page').slice(0, 80)}`, {shape: dropped || '(nothing kept)', was: String(body.kind || '').slice(0, 20)});
     return {ok: true, forgotten: !!dropped};
   }
-  const answer = await decide(client === undefined ? aiClient(storage) : client, {url: body?.url, title: body?.title, headings: body?.headings,
-    controls: body?.controls, buttons: body?.buttons, frames: body?.frames, mails: body?.mails}, kindCache, {fresh: body?.fresh === true});   // frames: the hosts of visible frames (a bot check), lib/page-kind.js
+  if (body?.why === 'other') {   // the ladder ended with no usable answer: the shape is counted and logged, never its text (lib/ladder-other.js)
+    const reported = otherRecord(othersOf(storage), shapeOf);
+    if (reported) appLog('extension', `ladder: other shape=${shapeOf}`);
+    return {ok: true, reported};
+  }
+  if (body?.verified !== undefined) {   // the extension saw the page move on after a rung 3 or 4 answer (or the person did not override it): kept for the shape, fixed values only
+    const kept = ladderRecord(learnt, shapeOf, {rung: body.rung, outcome: body.outcome, kind: body.kind, signal: body.signal, verified: body.verified});
+    if (kept) appLog('extension', `ladder: learned by rung ${body.rung}`, {shape: shapeOf, outcome: body.outcome});
+    return {ok: true, learned: kept};
+  }
+  if (body?.confirmed === true) return {ok: true, hit: !!(shapeOf && ladderHit(learnt, shapeOf))};   // the page confirmed the learned answer
+  const answer = await decide(client === undefined ? aiClient(storage) : client, sketchBody(body), kindCache, {fresh: body?.fresh === true, digest: body?.digest === true, learned: shape => ladderLookup(learnt, shape)});   // frames: the hosts of visible frames (a bot check), lib/page-kind.js
   if (kindWorthSaying(answer)) appLog('extension', answer.kind && !answer.error ? `page kind: ${answer.kind}` : `page kind: none (${answer.error || 'no answer'}), the structure rule decides`,
     {shape: answer.shape || '', by: answer.by || '', confidence: answer.confidence ?? null, ...(answer.usd != null ? {usd: answer.usd} : {}), ...(answer.botCheck ? {botCheck: true} : {}), ...(answer.applyBy ? {applyBy: answer.applyBy} : {}), ...(answer.dropped ? {dropped: answer.dropped} : {})});   // applyBy 'other' and a dropped address are listed with the shape, never silent
+  const climb = ladderLine({rung: answer.rung, signal: answer.signal});   // `ladder: rung N signal S`: the line the admin page reads; nothing for a confident rung
+  if (climb) appLog('extension', climb, {shape: answer.shape || '', ...(answer.dropped ? {dropped: answer.dropped} : {})});
   // An Apply button the AI named for the first time goes to the shared label meanings (the button's wording only; 2-3 installs start a canary).
   if (answer.by === 'ai' && answer.applyButton && !answer.applyRoute) proposalReporter([{key: 'apply_button', phrase: answer.applyButton}]);
-  return answer.error ? {ok: true, kind: '', error: answer.error}
+  const ladder = {...(answer.rung != null ? {rung: answer.rung} : {}), ...(answer.signal ? {signal: answer.signal} : {})};   // which rung answered and with what signal: the extension climbs on it (extension/ladder-core.js)
+  return answer.error ? {ok: true, kind: '', error: answer.error, ...ladder}
     : {ok: true, kind: answer.kind, role: answer.role, by: answer.by, confidence: answer.confidence, applyButton: answer.applyButton || '', applyRoute: answer.applyRoute || '', applyBy: answer.applyBy || '', applyEmail: answer.applyEmail || '',
       accountStep: answer.accountStep || '', registerControl: answer.registerControl || '', signinControl: answer.signinControl || '', accountButton: answer.accountButton || '',
+      ...ladder, ...(answer.digest ? {digest: answer.digest} : {}),
       ...(answer.botCheck ? {botCheck: true} : {})};   // a check in front of the page: the extension hands it to the person (fill-flow.js)
 }
 

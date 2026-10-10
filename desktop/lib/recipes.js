@@ -4,6 +4,10 @@
 // the operators fared (counts), the structure of controls it could not read (no text), the wording of form questions no answer matched
 // (the form's own words, never what the user typed) and what happened on each page of an application (counts per board). All of it follows the Technical
 // reports switch: off means no fingerprint ever leaves this Mac.
+// The ladder's learned counts (lib/ladder-learning.js) go with the same batch as `ladder`: what changed since the last successful send, per page shape, fixed values and integers only:
+//   "ladder": [{"shape": "jobs.example.ch/careers/*|3-7", "rung": 3, "outcome": "form", "hits": 2, "misses": 1}, ...]   // at most 40; shape = host + path template + build, no query
+//   "ladderOther": [{"shape": "jobs.example.ch/careers/*|3-7", "n": 2}, ...]   // pages the ladder ended on with no usable answer (lib/ladder-other.js), the same delta rule, at most 40
+// The site (k>=3 installs per shape, fixed lists) aggregates them; that side is not built.
 import {validateAlias} from '../shared/alias-schema.js';
 import {validateRecipe} from '../shared/recipe-schema.js';
 import {installId} from './app-feedback.js';
@@ -13,11 +17,15 @@ import {addAnswer, mergeAnswers} from './answer-counts.js';
 import {log} from './log.js';
 import {LEFT_REASONS, cleanLabel} from './question-labels.js';
 import {cleanUse} from './proposal-use.js';
+import {counts as ladderCounts, ladderStore} from './ladder-learning.js';
+import {counts as otherCounts, otherStore} from './ladder-other.js';
 
 export const SITE = 'https://www.jobpilotto.top';
 const CACHE = 'recipes-cache.json';
 const TTL_MS = 6 * 3600 * 1000;
 const FLUSH_MS = 5 * 60 * 1000;
+const LADDER_OTHER_SENT = 'data/ladder-other-sent.json';   // the same, for the pages the ladder ended on with no usable answer
+const LADDER_SENT = 'data/ladder-sent.json';   // the ladder counts the site already has (a baseline, so only changes are sent)
 const QUEUE = 'data/learning-queue.json';   // the waiting batch, so a restart loses nothing
 const TERM = /^[a-z][a-z0-9+#.\- ]{1,38}[a-z0-9+#]$/;
 const tag = list => { const first = Array.isArray(list) ? String(list[0] || '') : String(list || ''); return /^[a-z_]{2,20}$/.test(first) ? first : ''; };
@@ -305,11 +313,37 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     for (const item of sent.replies) { const key = `${item.bucket}|${item.outcome}`; intel.replies.set(key, {...item, n: item.n + (intel.replies.get(key)?.n || 0)}); }
     for (const item of sent.fixes) { const again = intel.fixes.get(item.label) || {label: item.label, filled: 0, corrected: 0}; again.filled += item.filled; again.corrected += item.corrected; intel.fixes.set(item.label, again); }
   }
+  // The ladder's counts since the last successful send (the store holds running totals; the baseline of what the site already has is data/ladder-sent.json).
+  function ladderDelta() {
+    if (typeof storage.path !== 'function') return {rows: [], totals: {}};
+    let sentBefore = {}; try { sentBefore = JSON.parse(storage.readText(LADDER_SENT) || '{}') || {}; } catch { /* none yet */ }
+    const totals = {}, rows = [];
+    for (const row of ladderCounts(ladderStore(storage.path('ladder-learning.json')))) {
+      totals[row.shape] = {rung: row.rung, outcome: row.outcome, hits: row.hits, misses: row.misses};
+      const was = sentBefore[row.shape]?.rung === row.rung && sentBefore[row.shape]?.outcome === row.outcome ? sentBefore[row.shape] : null;
+      const hits = row.hits - (was?.hits || 0), misses = row.misses - (was?.misses || 0);
+      if (!was || hits > 0 || misses > 0) rows.push({shape: row.shape, rung: row.rung, outcome: row.outcome, hits: Math.max(0, hits), misses: Math.max(0, misses)});
+    }
+    return {rows: rows.slice(0, 40), totals};
+  }
+  function otherDelta() {
+    if (typeof storage.path !== 'function') return {rows: [], totals: {}};
+    let sentBefore = {}; try { sentBefore = JSON.parse(storage.readText(LADDER_OTHER_SENT) || '{}') || {}; } catch { /* none yet */ }
+    const totals = {}, rows = [];
+    for (const row of otherCounts(otherStore(storage.path('ladder-other.json')))) {
+      totals[row.shape] = row.n;
+      const n = row.n - (Number.isInteger(sentBefore[row.shape]) ? sentBefore[row.shape] : 0);
+      if (n > 0) rows.push({shape: row.shape, n});
+    }
+    return {rows: rows.slice(0, 40), totals};
+  }
   async function flush() {
-    if (!enabled(storage) || (!outcomes.size && !samples.length && !fills.size && !questions.size && !flows.size && !aliasUse.size && !applications.size && !proposals.size && !proposalUses.size && !unfilled.size && !answers.size && !cards.length && !submits.size && !hasIntel())) return {sent: 0};
+    const ladder = enabled(storage) ? ladderDelta() : {rows: [], totals: {}};
+    const other = enabled(storage) ? otherDelta() : {rows: [], totals: {}};
+    if (!enabled(storage) || (!ladder.rows.length && !other.rows.length && !outcomes.size && !samples.length && !fills.size && !questions.size && !flows.size && !aliasUse.size && !applications.size && !proposals.size && !proposalUses.size && !unfilled.size && !answers.size && !cards.length && !submits.size && !hasIntel())) return {sent: 0};
     const body = {install: installId(storage), samples: samples.slice(0, 10), outcomes: [...outcomes.values()].slice(0, 40), exposure: [...fills].slice(0, 20).map(([board, n]) => ({board, n, ...(requiredBy.get(board) ? {required: requiredBy.get(board)} : {}), ...(starredBy.get(board) ? {starred: starredBy.get(board)} : {})})),
       questions: [...questions.values()].slice(0, 40), flows: [...flows.values()].slice(0, 20), aliasUse: [...aliasUse.values()].slice(0, 20),
-      applications: [...applications.values()].slice(0, 20), proposals: [...proposals.values()].slice(0, 10), proposalUses: [...proposalUses.values()].slice(0, 40), unfilled: [...unfilled.values()].slice(0, 20), answers: [...answers.values()], cards: cards.slice(0, 20), submits: [...submits.values()].slice(0, 20), ...(hasIntel() ? {intel: takeIntel()} : {})};
+      applications: [...applications.values()].slice(0, 20), proposals: [...proposals.values()].slice(0, 10), proposalUses: [...proposalUses.values()].slice(0, 40), unfilled: [...unfilled.values()].slice(0, 20), answers: [...answers.values()], cards: cards.slice(0, 20), submits: [...submits.values()].slice(0, 20), ...(ladder.rows.length ? {ladder: ladder.rows} : {}), ...(other.rows.length ? {ladderOther: other.rows} : {}), ...(hasIntel() ? {intel: takeIntel()} : {})};
     const taken = {cards: cards.slice(0, 20), submits, samples: samples.slice(0, 10), outcomes, fills, requiredBy, starredBy, questions, flows, aliasUse, applications, proposals, proposalUses, unfilled, answers, intel: body.intel};
     samples = samples.slice(10);
     outcomes = new Map();
@@ -330,8 +364,10 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
       const response = await fetcher(`${base}/api/controls`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
       if (!response.ok) throw new Error(`controls ${response.status}`);
       save();   // what is left (anything added during the send)
+      if (ladder.rows.length) { try { storage.writeText(LADDER_SENT, JSON.stringify(ladder.totals)); } catch { /* sent again next time */ } }
+      if (other.rows.length) { try { storage.writeText(LADDER_OTHER_SENT, JSON.stringify(other.totals)); } catch { /* sent again next time */ } }
       onSent?.('shared counts → /api/controls', body);
-      return {sent: body.samples.length + body.outcomes.length + body.exposure.length + body.questions.length + body.flows.length + body.aliasUse.length + body.applications.length + body.proposals.length + body.proposalUses.length + body.unfilled.length + body.answers.length + body.cards.length + body.submits.length + (body.intel ? 1 : 0)};
+      return {sent: body.samples.length + body.outcomes.length + body.exposure.length + body.questions.length + body.flows.length + body.aliasUse.length + body.applications.length + body.proposals.length + body.proposalUses.length + body.unfilled.length + body.answers.length + body.cards.length + body.submits.length + (body.ladder?.length || 0) + (body.ladderOther?.length || 0) + (body.intel ? 1 : 0)};
     } catch (error) {
       log('recipes', `outcomes not sent: ${error.message}`);
       samples = [...taken.samples, ...samples].slice(-20);   // kept for the next try

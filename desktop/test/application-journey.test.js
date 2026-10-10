@@ -1,7 +1,7 @@
 // The journey reducer's invariants (lib/application-journey.js header), one test each; the scenarios are in test/journeys.test.js.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {journey, journeyStep} from '../lib/application-journey.js';
+import {STUCK, journey, journeyStep} from '../lib/application-journey.js';
 
 const form = (extra = {}) => ({kind: 'form', stuck: '', stage: '', accountState: '', accountNeeds: '', note: '', ...extra});
 
@@ -57,4 +57,23 @@ test('invariant 7: an email need is reported like no-form (never over the accoun
   assert.deepEqual([first.set.stuck, first.set.note, first.set.accountNeeds], ['email', 'Send your application to jobs@firma.ch', 'jobs@firma.ch']);
   assert.deepEqual(journey({...posting, ...first.set}, {type: 'stuck', why: 'no-form'}).set, {});
   assert.deepEqual(journey({...posting, stage: 'account'}, {type: 'stuck', why: 'email', needs: 'jobs@firma.ch'}).set, {});
+});
+
+test('invariant 7: a page that tells the person what to do (told: a phone number, a visit, a closed notice) is reported like email, with the page\'s own sentence as the need', () => {
+  const posting = {kind: 'form', stuck: '', stage: ''};
+  const first = journey(posting, {type: 'stuck', why: 'told', needs: 'Rufen Sie uns an: 044 555 01 00'});
+  assert.deepEqual([first.set.stuck, first.set.note, first.set.accountNeeds], ['told', 'The page says: Rufen Sie uns an: 044 555 01 00', 'Rufen Sie uns an: 044 555 01 00']);
+  assert.deepEqual(journey({...posting, ...first.set}, {type: 'stuck', why: 'no-form'}).set, {}, 'a later no-form does not replace it');
+  assert.deepEqual(journey({...posting, stage: 'account'}, {type: 'stuck', why: 'told', needs: 'x'}).set, {}, 'never over the account step');
+  assert.equal(journeyStep({...posting, ...first.set}).needs, 'The page says: Rufen Sie uns an: 044 555 01 00');
+});
+
+test('invariant 7: a page the ladder could not read (other) is reported like email and told, with a fixed label as the need, never page text', () => {
+  const posting = {kind: 'form', stuck: '', stage: ''};
+  const first = journey(posting, {type: 'stuck', why: 'other', needs: 'Send your CV to the address in the footer of this page'});
+  assert.deepEqual([first.set.stuck, first.set.note, first.set.accountNeeds], ['other', 'Job Pilotto could not tell how to apply: open the page', 'how to apply is unclear'], 'the page\'s sentence is not kept');
+  assert.deepEqual(journey({...posting, ...first.set}, {type: 'stuck', why: 'no-form'}).set, {}, 'a later no-form does not replace it');
+  assert.deepEqual(journey({...posting, stage: 'account'}, {type: 'stuck', why: 'other'}).set, {}, 'never over the account step');
+  assert.equal(journeyStep({...posting, ...first.set}).needs, 'Job Pilotto could not tell how to apply: open the page');
+  assert.ok(STUCK.includes('other'));
 });

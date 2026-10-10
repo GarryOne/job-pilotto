@@ -47,3 +47,11 @@ test('an email posting has no page for Claude to finish: the panel offers nothin
   assert.equal(next(info({stuck: 'email'}), fresh()).view, 'hidden');
   assert.equal(next(info({stuck: 'no-form'}), fresh()).view, 'offer');
 });
+
+test('a page that tells the person what to do has no page for Claude to finish either', () => {
+  assert.equal(next(info({stuck: 'told'}), fresh()).view, 'hidden');
+});
+
+test('a page the ladder could not read has no page for Claude to finish either: nothing offered', () => {
+  assert.equal(next(info({stuck: 'other'}), fresh()).view, 'hidden');
+});

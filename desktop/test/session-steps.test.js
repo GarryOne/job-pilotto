@@ -33,3 +33,15 @@ test('an email posting says where to send it once, not twice', () => {
   const email = {startedAt: 'x', status: 'running', stuck: 'email', note: 'Send your application to jobs@firma.ch'};
   assert.deepEqual(texts(sessionSteps(email, null, {time})), ['done: Opened the job in Chrome · 14:45', 'warn: Send your application to jobs@firma.ch']);
 });
+
+test('a page that tells the person what to do shows its own sentence once, like an email posting', () => {
+  const time = () => '14:45';
+  const told = {startedAt: 'x', status: 'running', stuck: 'told', note: 'The page says: Rufen Sie uns an: 044 555 01 00'};
+  assert.deepEqual(texts(sessionSteps(told, null, {time})), ['done: Opened the job in Chrome · 14:45', 'warn: The page says: Rufen Sie uns an: 044 555 01 00']);
+});
+
+test('a page the ladder could not read says so once and asks the person to open it', () => {
+  const time = () => '14:45';
+  const other = {startedAt: 'x', status: 'running', stuck: 'other', note: 'Job Pilotto could not tell how to apply: open the page'};
+  assert.deepEqual(texts(sessionSteps(other, null, {time})), ['done: Opened the job in Chrome · 14:45', 'warn: Job Pilotto could not tell how to apply: open the page']);
+});

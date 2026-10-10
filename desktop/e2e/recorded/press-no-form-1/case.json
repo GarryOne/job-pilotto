@@ -1,0 +1,27 @@
+{
+ "shape": "a posting with an Apply button that opens no form (the page only tells the candidate how to apply, here by post): the press leads nowhere, then the numbered digest says what the page asks",
+ "why": "10 Oct 2026, the ladder, Aldi Suisse: the extension pressed Postuler, nothing came, and the person got \"can't reach the form\" with no word on what the press did. Now the press is logged (\"after the press: no form came\") and a page with no form after the press asks the digest once and reports the page's own sentence. The stub answers rung 2 confident with the Apply button, and the digest request with a tell_person answer, as the real digest prompt does on this shape (plan path, ladder fixtures)",
+ "sample": "a French employer posting (constructed from the shape)",
+ "rung": 3,
+ "pages": [
+  {"url": "https://exemple.example.ch/emplois/employe-4711", "file": "page.html"}
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {"when": {"digest": true}, "answer": {"ok": true, "kind": "posting", "role": "no-form", "by": "digest", "confidence": 0.9, "rung": 3, "signal": "confident", "applyButton": "", "applyRoute": "", "applyBy": "", "applyEmail": "",
+     "digest": {"outcome": "other", "verb": "tell_person", "numbers": [3], "chosen": [{"n": 3, "kind": "sentence", "position": "main", "text": "Envoyez votre dossier par courrier postal à : Exemple SA, Ressources humaines, Rue de la Gare 1, 1000 Lausanne."}]}}},
+   {"answer": {"ok": true, "kind": "posting", "role": "no-form", "by": "ai", "confidence": 0.9, "rung": 2, "signal": "confident", "applyButton": "Postuler", "applyRoute": "", "applyBy": "", "applyEmail": ""}}
+  ]
+ },
+ "expect": {
+  "told": [
+   "pressed the Apply button",
+   "after the press: no form came",
+   "\"digest\":true",
+   "courrier postal",
+   "the page tells what to do"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 45
+ }
+}
