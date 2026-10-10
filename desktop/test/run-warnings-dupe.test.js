@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {groupWarnings, humanError, newDetails, sentences} from '../renderer/run-warnings.js';
+import {groupWarnings, humanError, newDetails, sentences, stepNote} from '../renderer/run-warnings.js';
 import {setWhere} from '../renderer/store-name.js';
 import {activitySource} from './activity-source.js';
 
@@ -58,4 +58,14 @@ test('sentences: each ends with a full stop before the next, and "And N more." f
   assert.equal(sentences(['First one', 'Second one', 'Third one'], true), 'First one. And 2 more.');
   assert.equal(sentences(['Ends already?'], true), 'Ends already?');
   assert.equal(sentences([]), '');
+});
+
+// #342: the step that stopped at "!" says why in one line under its name, from the same warnings the box above lists.
+test('a warned step carries the first warning as its one-line reason', () => {
+  assert.equal(stepNote(['Warning: run not opened in the run history: HTTPError: HTTP Error 502: <html>']), "The run's row could not be opened in Notion: the service was unavailable (HTTP 502). It is usually back within minutes: try again.");
+  assert.equal(stepNote([]), '');
+  assert.match(stepNote(['Skipped job 5: Error code: 429', 'x failed']), /^Skipped 1 job \(5\)/);
+});
+test('Recent activity draws the warned step\'s reason with the step-note class', () => {
+  assert.match(activitySource(), /stepNote\(/);
 });

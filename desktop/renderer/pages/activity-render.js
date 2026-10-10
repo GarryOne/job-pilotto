@@ -1,7 +1,7 @@
 // Recent activity: renderActivity, the Recent activity panel redraw, its panel height and its list state.
 // Split out of activity.js as a pure move. Guarded by the tests that read the activity-*.js sources (desktop/test/activity-source.js) and the e2e activity suites.
 import {billingLabel} from '../ai-engine-view.js';
-import {groupWarnings, limitedJobs, newDetails, runWarningLines} from '../run-warnings.js';
+import {groupWarnings, limitedJobs, newDetails, runWarningLines, stepNote} from '../run-warnings.js';
 import {aiLimitHead, barState, failureHead, phaseStatus, runStatus, runWarned, stoppedHead, deliveryHead, notConnectedHead, waitedHead, partialResult, stepCount} from '../run-status.js';
 import {el, moreButton, pill, tag} from '../components.js';
 import {icon} from '../icons.js';
@@ -314,6 +314,7 @@ export function renderActivity(fresh) {
       // The running step's live counter, outside the log (owner, 7 Oct 2026: "live updates on the job counter itself").
       const counter = run?.live && i === at ? lines.map(liveCount).filter(Boolean).pop() : '';
       if (counter) li.append(el('span', 'phase-note', counter));
+      if (li.className === 'warn' && detailWarnings.length) li.append(el('span', 'phase-note', stepNote(detailWarnings)));   // why this step has the !
       if (i === at && stopped) li.append(...[stopped.doing && `Stopped while ${stopped.doing}.`, stopped.last && `Last reported: ${stopped.last}`].filter(Boolean).map(text => el('span', 'phase-note', text)));
       return li;
     })));

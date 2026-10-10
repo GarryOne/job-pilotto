@@ -139,3 +139,6 @@ export function sentences(lines, more = false) {
   if (more && lines.length > 2) return `${end(lines[0])} And ${lines.length - 1} more.`;
   return (more ? lines.slice(0, 1) : lines).map(end).join(' ');
 }
+
+// A warned step's one line under its name: the first warning, in words (the box above the steps lists them all).
+export const stepNote = warnings => sentences(groupWarnings(warnings).slice(0, 1));
