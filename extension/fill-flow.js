@@ -123,7 +123,7 @@ export async function askKind(tab, {fresh = false, digest = false} = {}) {   // 
   const askedAt = Date.now();   // the three ways this returns null with no word from the app are logged below (Hornbach 0.9.176: null after 2.1 s, nothing said which)
   const sketch = await pageSketchOf(tab.id);
   if (!sketch) { decide('fill', 'page kind not asked: the page could not be sketched', {ms: Date.now() - askedAt, digest}); return null; }
-  if (fresh || digest) decide('fill', 'page sketched for a second look', {fresh, digest, buttons: sketch.buttons?.length ?? 0, modal: await modalTrace(tab.id)});   // the dialogs the page shows now (counts)
+  if (fresh || digest) decide('fill', 'page sketched for a second look', {fresh, digest, buttons: sketch.buttons?.length ?? 0, ...(await modalTrace(tab.id) || {})});   // the dialogs the page shows now (counts)
   const frameList = await framesOf(tab.id); noteFrames(tab.id, frameList); sketch.frameCandidates = frameSketch(frameList);   // the addresses stay in the extension (ladder/climb.js)
   sketch.mails = await mailsOf(tab.id);   // the sentences and mailto links that carry an address (ladder/outcomes.js)
   try {

@@ -35,6 +35,6 @@ export async function clickTrace(tabId) {
 export async function modalTrace(tabId) {
   return chrome.scripting.executeScript({target: {tabId}, func: () => {
     const found = [...document.querySelectorAll('dialog, [role=dialog], [role=alertdialog], [aria-modal=true]')], shown = found.filter(el => el.getClientRects().length > 0);
-    return {dialogs: found.length, shown: shown.length, buttons: shown.reduce((sum, el) => sum + el.querySelectorAll('button, [role=button], a').length, 0)};
+    return {dialogs: found.length, shown: shown.length, modalButtons: shown.reduce((sum, el) => sum + el.querySelectorAll('button, [role=button], a').length, 0)};
   }}).then(rows => rows?.[0]?.result || null).catch(() => null);
 }
