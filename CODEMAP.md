@@ -83,6 +83,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/github.js` — Always on: the user's own private GitHub repo runs the searches on a
 - `desktop/lib/goals.js` — The setup goals (level, work mode, minimum salary, languages), corrected on the Strategy page as the setup review does (owner, 7 Oct 2026:
 - `desktop/lib/google-keys.js` — The Google sign-in (Gmail and Calendar, read-only) as the Python side saved it (src/sources/google.py KEYCHAIN),
+- `desktop/lib/host-clean.js` — A host as the usage-weighted pool may send it (docs/superpowers/specs/2026-10-10-usage-weighted-pool.md): a plain host name, or null. Never trimmed into shape, so a
 - `desktop/lib/in-flight.js` — One paid call per question at a time: a second identical ask while the first is still running gets the same answer instead of paying again
 - `desktop/lib/install-source.js` — Where an install came from: the website's install command carries the channel (curl …/install?src=reddit-devops), and
 - `desktop/lib/interview-handlers.js` — The Interviews page's IPC (moved out of main.js, 8 Oct 2026): drafts on this Mac (recording, transcribing, editing), saved interviews in

@@ -63,7 +63,7 @@ const siteOf = value => { try { const url = new URL(String(value || '')); return
 const count = value => (Number.isFinite(value) ? Math.max(0, Math.min(100000, Math.round(value))) : null);
 const day = date => date.toISOString().slice(0, 10);
 
-async function hashed(env, install) {
+export async function hashed(env, install) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${env.STATS_SALT || ''}|pool|${install}`));
   return [...new Uint8Array(digest).slice(0, 8)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
@@ -292,4 +292,5 @@ export async function purge(env, now = new Date()) {
   await env.STATS.prepare('DELETE FROM nofeed WHERE day < ?').bind(oldest).run();
   await env.STATS.prepare('DELETE FROM sitefacts WHERE day < ?').bind(oldest).run();
   await env.STATS.prepare('DELETE FROM board_reads WHERE day < ?').bind(oldest).run();
+  await env.STATS.prepare('DELETE FROM host_uses WHERE day < ?').bind(oldest).run();   // src/hostuse.js
 }

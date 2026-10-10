@@ -281,6 +281,19 @@ test('AI answer calls go in the batch summed per engine, counts only; nothing wh
   assert.deepEqual(await reporter.flush(), {sent: 0});
 });
 
+test('a fill\'s record carries the host it ended on, as a plain host name only (usage-weighted pool)', async () => {
+  const storage = tempStorage();
+  const sent = [];
+  const fetcher = async (url, init) => { sent.push(JSON.parse(init.body)); return {ok: true, status: 200, json: async () => ({})}; };
+  const reporter = createReporter(storage, {fetcher, base: 'https://site.test', setTimer: () => ({})});
+  reporter.card('h:0123456789', {id: 'fill-0001-abc', required: 2, filled: 2}, 'Careers.Acme.MD');
+  reporter.card('h:0123456789', {id: 'fill-0002-abc'}, 'acme.md/jobs/123?token=abc');   // an address: no host is sent, the card still is
+  reporter.card('h:0123456789', {id: 'fill-0003-abc'});   // no host known
+  await reporter.flush();
+  assert.deepEqual(sent[0].cards.map(card => [card.id, card.host]), [['fill-0001-abc', 'careers.acme.md'], ['fill-0002-abc', undefined], ['fill-0003-abc', undefined]]);
+  assert.ok(!JSON.stringify(sent[0]).includes('token'), 'nothing of the address is sent');
+});
+
 test('each fill\'s record and what Submit added go in the batch, with the board; nothing when reports are off', async () => {
   const storage = tempStorage();
   const sent = [];

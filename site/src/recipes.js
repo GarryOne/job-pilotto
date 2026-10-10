@@ -13,6 +13,8 @@ import {familyOfInstall} from './engines.js';
 import {validateRecipe} from '../../extension/recipe-schema.js';
 import {betaOf, reaches, staged} from './canary-reach.js';
 import {cleanCard} from '../../extension/fill-card.js';
+import {recordUse} from './hostuse.js';
+import {hashed} from './pool.js';
 import {isOwner} from './stats.js';
 import {authorize, digestOf, equal, flag, honeypotAmong, revoke, tokenFor} from './guard.js';
 import {storeProposals as storeAliasProposals, storeUse as storeAliasUse} from './aliases.js';
@@ -155,9 +157,11 @@ export async function controls(request, env, now = new Date()) {
   for (const raw of (Array.isArray(body.cards) ? body.cards : []).slice(0, 20)) {
     const card = cleanCard(raw), board = text(raw?.board, 40).toLowerCase();
     if (!card || !/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(board)) continue;
-    await env.STATS.prepare(`INSERT OR IGNORE INTO fill_cards (id, day, board, version, required, filled, left_n, unread, optional, optional_filled, causes, kinds, ai, kit, seconds)
+    const added = await env.STATS.prepare(`INSERT OR IGNORE INTO fill_cards (id, day, board, version, required, filled, left_n, unread, optional, optional_filled, causes, kinds, ai, kit, seconds)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(card.id, day(now), board, card.v, card.required, card.filled, card.left, card.unread, card.optional,
       card.optionalFilled, JSON.stringify(card.causes), JSON.stringify(card.kinds), card.ai, card.kit ? 1 : 0, card.seconds).run();
+    // The host the application ended on, counted once per card (a resent card adds nothing), under the hashed install: only ever served as an aggregate of >= 3 installs (src/hostuse.js).
+    if ((added?.meta?.changes ?? added?.changes ?? 0) > 0 && raw?.host) await recordUse(env.STATS, {install: await hashed(env, install), day: day(now), host: raw.host, ready: card.left === 0 && card.required > 0});
   }
   for (const item of (Array.isArray(body.submits) ? body.submits : []).slice(0, 20)) {
     const id = String(item?.id || ''), n = value => Math.max(0, Math.min(100, Math.round(Number(value)) || 0));

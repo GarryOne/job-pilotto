@@ -7,6 +7,7 @@
 import {validateAlias} from '../shared/alias-schema.js';
 import {validateRecipe} from '../shared/recipe-schema.js';
 import {installId} from './app-feedback.js';
+import {cleanHost} from './host-clean.js';
 import {RESULT_STATES} from './application-result.js';
 import {addAnswer, mergeAnswers} from './answer-counts.js';
 import {log} from './log.js';
@@ -145,11 +146,12 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
       }
       schedule();
     },
-    // One anonymous record per fill (extension/fill-card.js) with its board: the learning digest's raw material.
-    card(board, card) {
+    // One anonymous record per fill (extension/fill-card.js) with its board and, as a plain host name, where it ended: the learning digest's raw material.
+    card(board, card, host) {
       if (!enabled(storage) || !/^(h:[0-9a-f]{10}|[a-z0-9.-]{2,40})$/.test(String(board || '')) || !card || typeof card !== 'object') return;
       if (!/^[\w-]{8,40}$/.test(String(card.id || '')) || JSON.stringify(card).length > 2000) return;
-      cards.push({...card, board});
+      const end = cleanHost(host);   // where the application ended: a plain host only, else not sent (the site counts it once >= 3 installs used it)
+      cards.push({...card, board, ...(end ? {host: end} : {})});
       cards = cards.slice(-40);
       schedule();
     },
