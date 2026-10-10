@@ -13,11 +13,13 @@ import {fileURLToPath} from 'node:url';
 import {compare, lastSeen, parseLive, pickPosting, placeFound, shortfall, signature, tonight} from './lib/smoke.mjs';
 import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
 import {earlierReports, recordSite} from './lib/smoke-record.mjs';
+import {dropCandidate, saveCandidate} from './lib/replay-candidate.mjs';
 import {fetchWanted, wantedFirst} from './lib/wanted-hosts.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const QA_DIR = path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA');   // survives profile resets and removed worktrees
 const REPORTS = process.env.SMOKE_REPORTS || path.join(QA_DIR, 'smoke-reports');
+const CANDIDATES = process.env.SMOKE_CANDIDATES || path.join(QA_DIR, 'replay-candidates');   // failing shapes' pages, scrubbed: on this Mac, never in the repo (lib/replay-candidate.mjs)
 export const LOCAL_SITES = process.env.SMOKE_SITES || path.join(QA_DIR, 'smoke-sites.json');   // never in the repo, nor in the app's folder (a profile reset wipes that: 10 Oct 2026)
 const JOBS_DB = path.join(os.homedir(), 'Library/Application Support/Job Pilotto/data/jobs.sqlite');
 
@@ -32,10 +34,10 @@ export async function postingStatus(url, fetcher = fetch) {
   try { const answer = await fetcher(url, {method: 'GET', redirect: 'follow', signal: AbortSignal.timeout(20000)}); return answer.status; } catch { return 0; }
 }
 
-function liveRun(posting, seconds) {
+function liveRun(posting, seconds, captureDir = '') {
   return new Promise(resolve => {
     const started = Date.now();
-    const child = spawn('node', ['run-all.mjs', '--only', 'applyflows'], {cwd: here, env: {...process.env, LIVE: '1', LIVE_URL: posting.url, LIVE_TITLE: posting.title || '', LIVE_COMPANY: posting.company || '', LIVE_SECONDS: String(seconds)}});
+    const child = spawn('node', ['run-all.mjs', '--only', 'applyflows'], {cwd: here, env: {...process.env, LIVE: '1', LIVE_URL: posting.url, LIVE_TITLE: posting.title || '', LIVE_COMPANY: posting.company || '', LIVE_SECONDS: String(seconds), LIVE_CAPTURE_DIR: captureDir}});
     let output = '';
     child.stdout.on('data', chunk => { output += chunk; });
     child.stderr.on('data', chunk => { output += chunk; });
@@ -117,12 +119,18 @@ async function main() {
     if (status === 404 || status === 410) { results[shape] = {url: posting.url, reached: 'none', note: `posting gone (HTTP ${status})`}; console.log(`smoke: ${shape}: posting gone (HTTP ${status}): replace it in smoke-sites.json`); await finish(shape); continue; }
     console.log(`smoke: ${shape}: ${posting.url} (HELD: no account button, never Submit; ~${seconds}s)`);
     await ping(shape, 'start');
-    const run = await liveRun(posting, seconds).finally(() => ping(shape, 'end'));
+    const captureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-capture-'));
+    const run = await liveRun(posting, seconds, captureDir).finally(() => ping(shape, 'end'));
     results[shape] = {url: posting.url, ...parseLive(run.output), exit: run.code, seconds: run.seconds};
     results[shape].signature = signature(results[shape]);
     results[shape].short = shortfall(results[shape]);   // reached the form but filled under half: a failure the step alone hides
     fs.mkdirSync(REPORTS, {recursive: true});
     fs.writeFileSync(path.join(REPORTS, `${day}-${shape.replace(/\W+/g, '-')}.log`), run.output);
+    // A failed run keeps its last page as a replay candidate (the owner's question "did we save a site replay?": no); a run that passed drops an older candidate of the day.
+    const html = (() => { try { return fs.readFileSync(path.join(captureDir, 'page.html'), 'utf8'); } catch { return ''; } })();
+    const kept = saveCandidate({dir: CANDIDATES, day, shape, result: results[shape], html, output: run.output});
+    if (kept) console.log(`smoke: ${shape}: replay candidate saved in ${kept}`); else dropCandidate({dir: CANDIDATES, day, shape});
+    fs.rmSync(captureDir, {recursive: true, force: true});
     console.log(`smoke: ${shape}: reached ${results[shape].reached}${results[shape].filled != null ? `, ${results[shape].filled} filled, ${results[shape].left} left` : ''} (${run.seconds}s)`);
     if (results[shape].short) console.log(`smoke: ${shape}: SHORTFALL ${results[shape].short.done} of ${results[shape].short.total} asked fields filled`);
     await finish(shape);

@@ -10,6 +10,7 @@ import path from 'node:path';
 import {appLogLines} from './app-log.mjs';
 import {fillState} from './extension.mjs';
 import {fieldLines} from './smoke.mjs';
+import {appProfileTexts, personalValues, scrub, snapshotInPage} from './capture-page.mjs';
 import {removeJobsByUrl} from './notion.mjs';
 import {modelClient} from './model.mjs';
 import {pause} from './apply-fixtures.mjs';
@@ -116,6 +117,11 @@ export async function runLive(ctx, h) {
         await pause(1500);
       }
       console.log(`  live ${at()}: watched ${seconds}s; frames in ${frames}`);
+      // LIVE_CAPTURE_DIR: the last page of the run, structure only and scrubbed (lib/capture-page.mjs), for a replay candidate (lib/replay-candidate.mjs): the nightly smoke keeps it only when the run failed.
+      if (process.env.LIVE_CAPTURE_DIR) {
+        const last = ctx.browser.context.pages().filter(item => /^https?:/.test(item.url())).at(-1), html = last ? await last.evaluate(snapshotInPage).catch(() => '') : '';
+        if (html) { fs.mkdirSync(process.env.LIVE_CAPTURE_DIR, {recursive: true}); fs.writeFileSync(path.join(process.env.LIVE_CAPTURE_DIR, 'page.html'), scrub(html, personalValues(appProfileTexts([ctx.profile])))); console.log(`  live: the page is kept for a replay candidate (${html.length} characters, structure only)`); }
+      }
       if (!ctx.browser.opened.length) throw new Error('Apply never opened the posting in the browser');
     } finally {   // the shared Notion page of this suite must not keep the live job (a stray "Applying" row broke another run's step, 8 Oct 2026)
       console.log(`  live: removed ${await removeJobsByUrl(NOTION, [posting.url]).catch(() => 0)} job row(s) of the live posting`);
