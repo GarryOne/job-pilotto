@@ -25,7 +25,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
   owning the e2e page, if one runs. Never two runs on the page: a peer's run holds it, wait or queue. **No coordinator in `ListAgents`, or the page free: you run everything yourself** (repro, re-run on the landed build, upload) and say so in one line; never stop to ask.
 - **Claim the flow core** (`FLOW_CORE`/`FLOW_FILES`, `desktop/e2e/flows.mjs`) **only once the cause is proven (1.4), never on a hypothesis** (11 Oct: a claim on a guess queued 3 sessions), before editing any file in it: one message to every peer "I own the flow core
   until I say released", and "released" when done. Read each file's `Invariants:` block first; changing one is the owner's call, said in the commit.
-- **Worktree:** `tools/worktree.sh fix-<shape>`, own scratch folder `<scratchpad>/fix-failing-forms/`. No subagents. Say the change tier (usually Tier 2: apply flow).
+- **Worktree:** `tools/worktree.sh fix-<shape>`, own scratch folder `<scratchpad>/fix-failing-forms/`. No subagents. Say the change tier (usually Tier 2: apply flow). **One row per session:** side work asked mid-round (a tool, a skill rewrite, a peer's request) goes to a new session with a brief unless it takes under ~15 min (11 Oct: one row doubled a session).
 
 ## 0b. Which kind of failure is it? (decide before reproducing; the owner types one command and never chooses)
 - **A rung problem**: the page was judged or climbed wrong. The row says "stopped at the posting" or "no-form", the log's `page kind:` line is wrong for what the page really is, or there was no apply route. Method: **3b**.
