@@ -46,6 +46,8 @@ done
 node22="$(ls -d "$HOME"/.nvm/versions/node/v22.* 2>/dev/null | sort -V | tail -1)"
 [ -n "$node22" ] && export PATH="$node22/bin:$PATH"
 tbin="$(command -v gtimeout || command -v timeout || true)"
+source "$(dirname "$0")/gate-cache.sh" 2>/dev/null || gate_cache_run() { shift 3; "$@"; }
+export GATE_CACHE_DIRTY=1 GATE_CACHE_NOTES; GATE_CACHE_NOTES="$(mktemp)"   # the working tree counts, uncommitted files too; the same pass store as the push gate
 boxed() { if [ -n "$tbin" ]; then "$tbin" -k 10 "$limit" "$@"; else "$@"; fi; }
 
 report=""; timeouts=""; notes=""
@@ -85,7 +87,8 @@ for repo in "${repos[@]}"; do
       continue
     fi
     out="$logs/$s.log"; [ "$s" = python ] && out=/dev/null   # unittest reports on stderr; the tests' prints are noise
-    ( cd "$dir" && boxed "${cmd[@]}" >"$out" 2>>"$logs/$s.log"; echo $? >"$logs/$s.code" ) &
+    if [ "$s" = codemap ]; then run=(boxed "${cmd[@]}"); else run=(gate_cache_run "$repo" "$s" "flag= args= pick=" boxed "${cmd[@]}"); fi
+    ( cd "$dir" && "${run[@]}" >"$out" 2>>"$logs/$s.log"; echo $? >"$logs/$s.code" ) &
     pids+=($!)
   done
   [ ${#pids[@]} -gt 0 ] && wait "${pids[@]}"
@@ -118,6 +121,8 @@ for repo in "${repos[@]}"; do
   fi
 done
 find "$cache" -type f -mtime +2 -delete 2>/dev/null
+[ -s "$GATE_CACHE_NOTES" ] && notes+="$(sort -u "$GATE_CACHE_NOTES" | tr '\n' ' ')"$'\n'
+rm -f "$GATE_CACHE_NOTES"
 
 msg=""
 [ -n "$timeouts" ] && msg+="Stop hook: $timeouts"

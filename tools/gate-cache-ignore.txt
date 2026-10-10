@@ -1,0 +1,5 @@
+# Paths (prefixes of git ls-tree lines) that no test reads: a change there does not invalidate a cached pass. Verified by tests/test_gate_cache.py.
+site-next/
+CODE_OF_CONDUCT.md
+SECURITY.md
+CONTRIBUTING.md

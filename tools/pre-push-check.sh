@@ -9,7 +9,9 @@
 set -uo pipefail
 source "$(dirname "$0")/gate-timing.sh" 2>/dev/null || { gate_timing_start() { :; }; timed() { shift; "$@"; }; gate_summary() { :; }; }
 gate_timing_start
-trap 'type slot_release >/dev/null 2>&1 && slot_release; gate_summary' EXIT   # one EXIT trap: the slot is freed and the timing printed on every way out
+source "$(dirname "$0")/gate-cache.sh" 2>/dev/null || gate_cache_run() { shift 3; "$@"; }   # a checkout without it (the hook's own test repo) runs everything
+export GATE_CACHE_NOTES="$(mktemp)"
+trap 'type slot_release >/dev/null 2>&1 && slot_release; [ -s "$GATE_CACHE_NOTES" ] && cat "$GATE_CACHE_NOTES" >&2; rm -f "$GATE_CACHE_NOTES"; gate_summary' EXIT   # one EXIT trap: the slot is freed and the timing printed on every way out
 
 input="$(cat)"
 command="$(jq -r '.tool_input.command // ""' <<<"$input")"
@@ -206,6 +208,9 @@ case "$command" in *PUSH_FULL=1*) affected_flag="" ;; esac
 [ -z "$changed" ] && affected_flag=""
 git -C "$repo" rev-parse --verify -q origin/main >/dev/null || affected_flag=""
 pids=(); names=(); outs=()
+# What the affected-tests pick says for every area: part of each cache key, so a rebase that changes which tests a push needs is a miss.
+picks=""; [ -n "$affected_flag" ] && picks="$(cd "$repo" && python3 tools/affected-tests.py --base origin/main 2>/dev/null | shasum | cut -c1-16)"
+case "$command" in *PUSH_FULL=1*) export GATE_CACHE_FRESH=1 ;; esac
 run() {  # name, then the command: started in the background, collected below
   local name="$1" out; shift; out="$(mktemp)"
   ( cd "$repo" && timed "$name" "$@" ) >"$out" 2>&1 &
@@ -222,9 +227,10 @@ ci_installs_dev() {
     return 1
   fi
 }
+e2e_npm_test() { (cd desktop/e2e && npm test); }
 e2e_unit() {
   [ -d desktop/e2e/node_modules ] || { echo "pre-push: desktop/e2e/node_modules is missing: the e2e unit tests were not run (npm ci there, or tools/worktree.sh links them)"; return 0; }
-  (cd desktop/e2e && npm test)
+  gate_cache_run "$repo" e2e-unit "" e2e_npm_test
 }
 # The suites run on exactly what is pushed, each area in its own fresh checkout of HEAD, as CI does: a forgotten file or a git-ignored
 # file left by another area's run (5 Oct 2026: desktop/shared/ from a desktop run let the worker's tests pass here, fa1f838 went red in CI and
@@ -244,7 +250,7 @@ verify_area() {  # area [extra check.sh flags]
     [ -e "$repo/$dir/node_modules" ] && ln -s "$repo/$dir/node_modules" "$tree/$dir/node_modules"
   done
   [ -e "$repo/.venv" ] && ln -s "$repo/.venv" "$tree/.venv"
-  (cd "$tree" && bash tools/check.sh --area "$area" $affected_flag "$@")
+  (cd "$tree" && gate_cache_run "$repo" "$area" "flag=$affected_flag args=$* pick=$picks" bash tools/check.sh --area "$area" $affected_flag "$@")
 }
 source "$repo/tools/check-slot.sh" 2>/dev/null || { slot_acquire() { :; }; slot_release() { :; }; }
 slot_acquire
