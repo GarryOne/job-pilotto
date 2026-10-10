@@ -23,3 +23,11 @@ test('every action the page calls is exposed to the window and answered by the a
     assert.match(handlers, new RegExp(`ipcMain.handle\\('${name}'`), `${name} has a handler`);
   }
 });
+
+test('"Match again" sits on the stale source\'s own row, and roles only in other versions have their own list', () => {
+  const stale = page.slice(page.indexOf('for (const {source, row} of remove)'), page.indexOf("const button = Object.assign(el('button', 'link item-action', 'Remove')"));
+  assert.match(stale, /if \(source\.stale\)[\s\S]*'Match again'[\s\S]*row\.append\(again\)/);
+  assert.doesNotMatch(page, /rows\[0\]\?\.append/);
+  assert.match(page, /'Not in your main CV'/);
+  assert.match(page, /filter\(source => !source\.stale\)/, 'a stale match is not listed');
+});

@@ -14,7 +14,6 @@ export function sourceRow(source) {
   words.append(name);
   const meta = source.reference ? `${plural(source.roles, 'job role')}: tailored CVs keep its jobs, titles and dates` : `${plural(source.roles, 'job role')} · added ${runWhen(source.addedAt)}`;
   words.append(el('span', 'muted', meta));
-  if (source.onlyHere?.length) words.append(el('span', 'muted', `Only in this version, not added to your CVs: ${source.onlyHere.map(r => [r.title, r.company].filter(Boolean).join(' · ')).join('; ')}`));
   row.append(tile(source.reference ? 'file' : source.kind === 'linkedin' ? 'link' : 'layers', source.reference ? 'info' : 'signal'), words);
   return row;
 }
@@ -36,12 +35,34 @@ export function roleBlock(role) {
   return box;
 }
 
+// Roles another version has and the main CV does not: listed, never added (a tailored CV keeps the main CV's jobs). Stale matches are left out.
+export function onlyHereBlock(sources) {
+  const items = sources.filter(source => !source.stale).flatMap(source => source.onlyHere.map(role => ({...role, from: source.name})));
+  if (!items.length) return null;
+  const box = el('details', 'exp-role');
+  const head = el('summary');
+  head.append(el('b', '', 'Not in your main CV'), ' ', pill(String(items.length), 'warn', {title: 'Roles found in other versions only'}));
+  const list = el('ul');
+  for (const role of items) {
+    const item = el('li', '', [role.title, role.company, role.period].filter(Boolean).join(' · '));
+    item.append(' ', pill(role.from, 'neutral'));
+    list.append(item);
+  }
+  box.append(head, el('p', 'muted small', 'Tailored CVs keep your main CV\'s jobs, so these are not used. If they belong on your CV, add them to it and replace the CV under CV & details.'), list);
+  return box;
+}
+
 export function showExperience(view) {
   const rows = [];
   if (view.main) rows.push(sourceRow({reference: true, name: 'Main CV', roles: view.main.roles}));
   rows.push(...view.sources.map(sourceRow));
   const remove = view.sources.map((source, i) => ({source, row: rows[view.main ? i + 1 : i]}));
   for (const {source, row} of remove) {
+    if (source.stale) {
+      const again = Object.assign(el('button', 'secondary item-action', 'Match again'), {type: 'button'});
+      again.addEventListener('click', () => run(again, 'Comparing with your main CV…', () => window.pilot.experienceRematch()));
+      row.append(again);
+    }
     const button = Object.assign(el('button', 'link item-action', 'Remove'), {type: 'button'});
     button.addEventListener('click', async () => {
       button.disabled = true;
@@ -50,15 +71,11 @@ export function showExperience(view) {
     });
     row.append(button);
   }
-  if (view.sources.some(s => s.stale)) {
-    const again = Object.assign(el('button', 'secondary item-action', 'Match again'), {type: 'button'});
-    again.addEventListener('click', () => run(again, 'Comparing with your main CV…', () => window.pilot.experienceRematch()));
-    rows[0]?.append(again);
-  }
   $('exp-sources').replaceChildren(...(rows.length ? rows : [el('li', 'muted', 'Read your main CV first (CV & details → Read my CV PDF).')]));
   const extras = view.roles.reduce((n, r) => n + r.bullets.filter(b => b.from !== 'Main CV').length, 0);
   $('exp-count').textContent = view.roles.length ? `${plural(view.roles.length, 'job role')} · ${extras} from other versions` : '';
-  $('exp-roles').replaceChildren(...(view.roles.length ? view.roles.map(roleBlock) : [el('p', 'muted', 'Nothing yet: your main CV is read the first time you tailor one, or under CV & details.')]));
+  const notInMain = onlyHereBlock(view.sources);
+  $('exp-roles').replaceChildren(...(view.roles.length ? view.roles.map(roleBlock) : [el('p', 'muted', 'Nothing yet: your main CV is read the first time you tailor one, or under CV & details.')]), ...(notInMain ? [notInMain] : []));
   $('exp-add').disabled = $('exp-add-linkedin').disabled = !view.main;
 }
 
