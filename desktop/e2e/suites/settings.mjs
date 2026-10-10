@@ -158,6 +158,7 @@ async function roundTrip(ctx) {
   if (!(await page.locator('#reset-backup').isChecked())) throw new Error('a reset does not keep a backup by default');
   await page.fill('#reset-confirm', 'RESET');
   await page.click('#reset-go').catch(() => {});   // the app exits under the click
+  await ctx.waitForExit();   // after its work (it disconnects Gmail first), not before: relaunch() closes the app
   await ctx.relaunch();
   await ctx.page.waitForSelector('.step[data-step="welcome"]', {state: 'visible', timeout: 60000})
     .catch(async () => { throw new Error(`after a reset the app should open at the setup, it shows "${await wizardStep(ctx.page)}"`); });
@@ -165,6 +166,7 @@ async function roundTrip(ctx) {
 
   await standIn();
   await ctx.page.click('#welcome-import').catch(() => {});   // the app exits under the click
+  await ctx.waitForExit();
   await ctx.relaunch();
   // page.evaluate, not waitForFunction: an async predicate returns a Promise, which counts as true at once.
   let setUp = false;

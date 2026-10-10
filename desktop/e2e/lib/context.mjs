@@ -126,6 +126,14 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   ctx.close = async () => { await session?.shot('last'); await ctx.browser?.close(); await session?.close({keepTrace: failed()}); await ctx.proxy?.close(); await ctx.openaiProxy?.close(); await ctx.notion?.close(); await ctx.telegram?.close(); await ctx.google?.close(); await ctx.releases?.close(); if (ctx.standIn) { try { fs.writeFileSync(path.join(ARTIFACTS, 'notion-standin.json'), JSON.stringify(ctx.standIn.dump(), null, 1)); } catch {} await ctx.standIn.close(); } await ctx.forms?.close(); };
   // Quit the app the hard way (as a crash or a power cut would: nothing gets to tidy up) and start it again on the same profile. `extra` adds to the environment; `between(profile)` runs while the app is down.
   ctx.relaunch = async (extra = {}, between) => { const profile = session.profile; await session.close({keepTrace: failed()}); await between?.(profile); adopt(await launch({env: {...env, ...extra}, profile, lang: ctx.place?.locale || ''})); };
+  // Some actions end with the app's OWN exit (a reset, an import): it finishes its work first (a reset disconnects the Gmail sign-in through a Python call since 645cef9), so a
+  // relaunch straight after the click closes the app half way and nothing was reset (10 Oct 2026, settings suite on Mac and Windows). Wait for that exit, then relaunch.
+  ctx.waitForExit = (timeout = 60000) => new Promise((resolve, reject) => {
+    const child = ctx.app.process();
+    if (child.exitCode !== null || child.signalCode) return resolve();
+    const timer = setTimeout(() => reject(new Error(`the app did not exit by itself within ${timeout / 1000} s`)), timeout);
+    child.once('exit', () => { clearTimeout(timer); resolve(); });
+  });
   ctx.expectStep = async (name, timeout = 20000) => {
     await ctx.page.waitForFunction(wanted => [...document.querySelectorAll('.step')].find(el => !el.hidden && el.offsetParent !== null)?.dataset.step === wanted, name, {timeout})
       .catch(async () => { throw new Error(`expected the "${name}" step, the app shows "${await step(ctx.page)}"`); });

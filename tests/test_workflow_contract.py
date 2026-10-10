@@ -100,7 +100,7 @@ class EngineAsTheWorkflowRunsItTests(unittest.TestCase):
 
     def run_engine(self, text):
         repo_vars = {SEARCH_PAGE: 'SETTINGS-PAGE', 'NOTION_PROFILE_PAGE_ID': 'PROFILE', 'NOTION_APPLICATIONS_DB': 'APPS'}
-        env = {k: v for k, v in os.environ.items() if k in ('PATH', 'HOME', 'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'SYSTEMROOT', 'TMPDIR')}   # Path.home() on Windows reads USERPROFILE
+        env = {k: v for k, v in os.environ.items() if k in ('PATH', 'HOME', 'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'SYSTEMROOT', 'TMPDIR', 'PYTHONUTF8')}   # Path.home() on Windows reads USERPROFILE
         env.update({'GITHUB_ACTIONS': 'true', 'NOTION_TOKEN': 'secret-for-test'})
         for name, source in passed_names(text).items():
             if source in repo_vars and name not in env:
