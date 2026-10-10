@@ -7,18 +7,17 @@
 import {createHash} from 'node:crypto';
 import {pickEngine} from './lib/engine.mjs';
 import {loadFixtures} from './lib/ladder-fixtures.mjs';
-import {SOURCE_GROUP, SURE, assertNoApiSpend} from './lib/ladder-score.mjs';
-import {modelClient} from './lib/model.mjs';
+import {SOURCE_GROUP, assertNoApiSpend} from './lib/ladder-score.mjs';
+import {scoringClient} from './lib/ladder-score-path.mjs';
+import {DIGEST_OUTCOME, digestRow, digestRowLine} from './lib/ladder-digest-row.mjs';
 import {askDigest} from '../lib/ladder/rung3-digest.js';
 import {model} from '../lib/ai/models.js';
 import {pageSketch} from '../lib/page-kind.js';
 
 const args = process.argv.slice(2), arg = name => (args.includes(name) ? args[args.indexOf(name) + 1] : '');
-// What the digest should say for a ladder outcome (a posting with an Apply control is "form": press it).
-const DIGEST_OUTCOME = {posting: ['form', 'link'], email: ['email'], phone: ['phone'], in_person: ['in_person'], expired: ['expired'], login_wall: ['login_wall'], other: ['other']};
 const engine = pickEngine({family: 'claude'});
 assertNoApiSpend({env: process.env, engine});
-const client = modelClient({key: '', engine: () => engine});
+const client = scoringClient();   // the app's own adapter, as the page-kind score (lib/ladder-score-path.mjs)
 const halfOf = id => (createHash('sha1').update(id).digest()[0] % 2 === 0 ? 'tune' : 'held');
 const wantHalf = arg('--half') || 'both';
 // Start dialogs (expect.digest) are never asked the digest, so they are not measured here.
@@ -29,16 +28,14 @@ const rows = [];
 const lanes = Array.from({length: 4}, (_, lane) => fixtures.filter((_, index) => index % 4 === lane));
 await Promise.all(lanes.map(async lane => { for (const f of lane) {
   const answer = await askDigest(client, pageSketch(f.sketch), f.candidates, modelName ? {model: modelName} : {});
-  const want = DIGEST_OUTCOME[f.expect.outcome], hit = !answer.error && want.includes(answer.outcome);
-  rows.push({id: f.id, source: f.source, trap: !!f.trap, expected: want[0], outcome: answer.error ? `error: ${answer.error}` : answer.outcome, verb: answer.verb, numbers: answer.numbers, confidence: answer.confidence ?? 0, dropped: answer.dropped,
-    status: hit ? 'hit' : !answer.error && (answer.confidence ?? 0) >= SURE ? 'wrong-confident' : 'miss', chosen: (answer.chosen || []).map(item => `${item.n}:${item.kind}`)});
+  rows.push(digestRow(f, answer));
 } }));
 rows.sort((a, b) => a.id.localeCompare(b.id));
 if (args.includes('--json')) { console.log(JSON.stringify(rows, null, 1)); process.exit(0); }
 for (const r of rows) r.half = halfOf(r.id);
 const pad = (text, width) => String(text).padEnd(width).slice(0, width);
 console.log(`digest score (live, plan path, ${modelName || 'small tier'}), ${rows.length} fixtures with candidates`);
-for (const r of rows.filter(r => r.half === 'tune' || wantHalf === 'held' && false)) console.log(`${pad(r.id, 36)} ${pad(r.source, 13)} want ${pad(r.expected, 10)} got ${pad(r.outcome, 10)} ${pad(r.verb || '-', 11)} ${pad(JSON.stringify(r.numbers || []), 8)} ${pad((r.confidence || 0).toFixed(2), 5)} ${r.status}${r.dropped ? ` (dropped: ${r.dropped})` : ''}${r.trap ? ' (trap)' : ''}`);
+for (const r of rows.filter(r => r.half === 'tune')) console.log(digestRowLine(r));
 const by = {};
 const count = list => `${list.filter(r => r.status === 'hit').length}/${list.length} hit, ${list.filter(r => r.status === 'wrong-confident').length} wrong-and-confident`;
 console.log(`tune half: ${count(rows.filter(r => r.half === 'tune'))}`);
