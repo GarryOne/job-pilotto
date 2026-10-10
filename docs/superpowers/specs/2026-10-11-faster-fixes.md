@@ -19,8 +19,8 @@ repro tool not on the app's path, ~25% waiting (e2e page, file claims, version r
 - [x] Live ladder-score asks through the app's own AI adapter (job-pilotto-eb, a322751)
 - [x] The digest score prints the raw answer, press_kind and drops (job-pilotto-eb, 6c69ef2)
 - [x] Every accepted extra outcome of a fixture states its reason (job-pilotto-eb, bce6a6d)
-- [ ] The stored answers re-recorded on the app's path (owner: "re-record"; job-pilotto-eb)
-- [ ] ladder-capture builds a fixture from a run's ai-calls.json (job-pilotto-eb)
+- [x] The stored answers re-recorded on the app's path (owner: "re-record"; job-pilotto-eb, dba133b)
+- [x] ladder-capture builds a fixture from a run's ai-calls.json (job-pilotto-eb, ebb1154)
 
 ### 3. No waiting in line (~25%)
 - [x] A claim per pool row (job-pilotto-81, d901855)
