@@ -142,10 +142,12 @@ export function nextByRecipe(recipe) {
 export function closeConsent(want = null) {   // want: {list: true} -> the box's button labels; {press: label} -> press that one (visit.js asks the app which)
   const visible = node => { const box = node.getBoundingClientRect(); const look = getComputedStyle(node); return box.width > 0 && box.height > 0 && look.visibility !== 'hidden' && look.display !== 'none'; };
   const words = node => (node.innerText || node.value || node.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
+  // Also inside open shadow roots: a banner drawn by web components (Usercentrics: div#usercentrics-root) is invisible to document.querySelectorAll (Hornbach, 11 Oct 2026). Same walk as fill-flow.js pageSketchOf.
+  const deep = selector => { const found = []; const walk = root => { found.push(...root.querySelectorAll(selector)); for (const el of root.querySelectorAll('*')) if (el.shadowRoot) walk(el.shadowRoot); }; walk(document); return found; };
   const ABOUT = want?.cookiesOnly ? /cookie|gdpr|traceurs|tracking/i : /cookie|consent|gdpr|privacy|datenschutz|confidentialit|traceurs|tracking/i;   // cookiesOnly: the application flow never touches a privacy or terms box
   // Inside a frame that is itself the consent message (Sourcepoint, TrustArc draw theirs in an iframe), the whole frame is the box.
   const framed = window !== window.top && ABOUT.test(document.body?.innerText || '') && !document.querySelector('input[type=password]') ? [document.body] : [];
-  const boxes = [...framed, ...document.querySelectorAll('[role=dialog], [aria-modal=true], dialog, [id*=cookie i], [class*=cookie i], [id*=consent i], [class*=consent i], [id*=onetrust i], [id*=didomi i], [id*=cmp i], [class*=cmp i]')]
+  const boxes = [...framed, ...deep('[role=dialog], [aria-modal=true], dialog, [id*=cookie i], [class*=cookie i], [id*=consent i], [class*=consent i], [id*=onetrust i], [id*=didomi i], [id*=cmp i], [class*=cmp i]')]
     .filter(node => visible(node) && ABOUT.test(node.innerText || '') && !node.querySelector('input[type=password]'));
   const least = /^(reject|decline|refuse|deny|necessary|essential|only necessary|use necessary|allow (technical|necessary|essential)|tout refuser|refuser|continuer sans accepter|nur (notwendige|erforderliche|technisch)|ablehnen|alle ablehnen|rifiuta|solo (necessari|tecnici))/i;
   const any = /^(accept|agree|allow all|got it|ok\b|okay|i understand|accepter|tout accepter|j'accepte|akzeptieren|alle akzeptieren|zustimmen|einverstanden|accetta|accetto)/i;

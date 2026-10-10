@@ -9,8 +9,10 @@ export function findPopup(want = null) {
   const page = Math.max(1, (window.innerWidth || 1) * (window.innerHeight || 1));
   const ours = node => node.closest('[id^=jobpilotto], [data-jobpilotto]');
   const layered = node => { const look = getComputedStyle(node); return (look.position === 'fixed' || look.position === 'sticky') && Number(look.zIndex) >= 10; };
-  const explicit = [...document.querySelectorAll('[role=dialog], [role=alertdialog], [aria-modal=true], dialog[open]')];
-  const floating = [...document.body.querySelectorAll('*')].slice(0, 3000).filter(layered);
+  // Also inside open shadow roots: a banner drawn by web components (Usercentrics: div#usercentrics-root) is invisible to document.querySelectorAll (Hornbach, 11 Oct 2026). Same walk as fill-flow.js pageSketchOf.
+  const deep = selector => { const found = []; const walk = root => { found.push(...root.querySelectorAll(selector)); for (const el of root.querySelectorAll('*')) if (el.shadowRoot) walk(el.shadowRoot); }; walk(document); return found; };
+  const explicit = deep('[role=dialog], [role=alertdialog], [aria-modal=true], dialog[open]');
+  const floating = deep('*').slice(0, 3000).filter(layered);
   const fields = box => [...box.querySelectorAll('input, select, textarea')].filter(node => !['hidden', 'checkbox', 'radio', 'button', 'submit', 'image'].includes(node.type)).length;
   let boxes = [...new Set([...explicit, ...floating])].filter(node => !ours(node) && visible(node) && area(node) >= page * 0.02
     && !node.querySelector('input[type=password]') && fields(node) <= 1);

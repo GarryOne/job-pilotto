@@ -56,3 +56,15 @@ test('a link that leaves the page is never offered as the way to close a popup',
     assert.equal(clicked, 'n');
   });
 });
+
+test('a popup drawn inside an open shadow root is found by structure and its named button pressed (Hornbach, 11 Oct 2026)', { skip: !JSDOM }, async () => {
+  await inPage('<main><p>Stelle</p></main><div id="host"></div>', ({ findPopup }, win) => {
+    const shadow = win.document.getElementById('host').attachShadow({ mode: 'open' });
+    shadow.innerHTML = '<div role="dialog"><p>Newsletter?</p><button id="n">Nein, danke</button><button id="y">Anmelden</button></div>';
+    let pressed = '';
+    shadow.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { pressed = b.id; }));
+    assert.deepEqual(findPopup({ list: true }).buttons, ['Nein, danke', 'Anmelden']);
+    assert.equal(findPopup({ press: 'Nein, danke' }), 'Nein, danke');
+    assert.equal(pressed, 'n');
+  });
+});

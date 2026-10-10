@@ -118,3 +118,16 @@ test('a link that leaves the page is never a dismiss control (listed, pressed or
     assert.deepEqual(clicked, ['ok']);
   });
 });
+
+test('a cookie banner drawn inside an open shadow root (Usercentrics) is found, listed and pressed (Hornbach, 11 Oct 2026)', { skip: !JSDOM }, async () => {
+  await inPage('<main><a>Apply</a></main><div id="usercentrics-root"></div>', ({ closeConsent }, win) => {
+    const shadow = win.document.getElementById('usercentrics-root').attachShadow({ mode: 'open' });
+    shadow.innerHTML = '<div role="dialog"><h2>Wir verwenden Cookies!</h2><button id="no">Alles ablehnen</button><button id="yes">Alles akzeptieren</button></div>';
+    let pressed = '';
+    shadow.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { pressed = b.id; }));
+    assert.equal(win.document.querySelectorAll('button').length, 0, 'the light DOM has no button: the banner is only in the shadow root');
+    assert.deepEqual(closeConsent({ list: true, cookiesOnly: true }), ['Alles ablehnen', 'Alles akzeptieren']);
+    assert.equal(closeConsent({ press: 'Alles ablehnen', cookiesOnly: true }), 'Alles ablehnen');
+    assert.equal(pressed, 'no');
+  });
+});

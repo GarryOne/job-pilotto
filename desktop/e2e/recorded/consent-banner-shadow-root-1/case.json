@@ -1,0 +1,72 @@
+{
+ "shape": "a cookie banner drawn inside an open shadow root (Usercentrics) covers a posting whose named Apply link does nothing while the banner is up: the banner is closed (the least consent), then the link is pressed",
+ "why": "11 Oct 2026, Hornbach (b8's live run on 0.9.184, frames 007 and 019): a Usercentrics consent modal stayed over the page and no 'closed a popup' line was written: its buttons live in div#usercentrics-root's open shadow root, and the consent closers (visit-page.js closeConsent, popup-page.js findPopup) searched the light DOM only. After the fix a live run closes it ('closed a popup' Alles ablehnen, 23:38:18, on both pages). That banner was NOT the reason Hornbach's 'ohne Anmeldung' click does nothing (it still did nothing with the banner closed: opens 0, tabs 1); this page models a site whose handler ignores clicks while a banner is up, to prove the banner is found and closed",
+ "sample": "invented posting (hosts and text), the banner's shape from Hornbach's Usercentrics; the gating handler is a model, not the site's code",
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://jobs.beispiel.example/de/stelle/verkaeufer-4711",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://jobs.beispiel.example/de/bewerbung/4711",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://jobs.beispiel.example/de/bewerbung/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.9,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "jetzt bewerben (ohne anmeldung)",
+     "applyRoute": "manual",
+     "applyBy": "form",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   }
+  ],
+  "/extension/pick-choice": {
+   "ok": true,
+   "choice": "Alles ablehnen"
+  }
+ },
+ "expect": {
+  "told": [
+   "closed a popup",
+   "\"label\":\"Alles ablehnen\"",
+   "pressed the Apply button"
+  ],
+  "notTold": [
+   "\"label\":\"Alles akzeptieren\""
+  ],
+  "filled": [
+   "#first"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 45
+ }
+}
