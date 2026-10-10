@@ -39,7 +39,7 @@ def bare_claude(root=ROOT):
     paths = [root / name for name in listed.stdout.split() if name.endswith('.py')] if listed.returncode == 0 and listed.stdout else \
         list((root / 'src').rglob('*.py'))
     for path in sorted(paths):
-        name = str(path.relative_to(root))
+        name = path.relative_to(root).as_posix()
         if name in CLAUDE_ONLY:
             continue
         tree = ast.parse(path.read_text())

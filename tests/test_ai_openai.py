@@ -4,6 +4,7 @@ Recorded answers only (the SDK's own response types; Codex's JSONL events): no n
 the adapter sends (model tier, strict schema, images, effort, tools off) and that the answer reads exactly like Claude's would.
 """
 import json
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -172,7 +173,7 @@ class CodexTests(unittest.TestCase):
         self.assertIn('model_reasoning_effort="low"', args)
         self.assertEqual(call['schema']['required'], ['answer', 'why', 'items'])     # strict, as OpenAI requires
         self.assertIn('image-1.png', call['files'])
-        self.assertEqual(args[args.index('-i') + 1].rsplit('/', 1)[-1], 'image-1.png')
+        self.assertEqual(os.path.basename(args[args.index('-i') + 1]), 'image-1.png')
         self.assertEqual(call['instructions'], 'Rules.\n\nProfile.')                       # Codex's own instructions, from a file
         self.assertIn(f'model_instructions_file={json.dumps(str(Path(args[args.index("-C") + 1]) / "instructions.md"))}', args)
         self.assertNotIn('Rules.', call['prompt'])                                           # never on stdin in front of the question

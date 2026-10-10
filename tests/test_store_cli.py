@@ -72,8 +72,9 @@ class StoreCliTests(unittest.TestCase):
             link = app_dir / 'cv' / 'tailored' / 'escape.pdf'   # a symlink inside the folder to a file outside it: refused after resolution
             link.symlink_to(outside)
             fifo = app_dir / 'cv' / 'tailored' / 'pipe'
-            os.mkfifo(fifo)                                      # not a regular file
-            for path in (link, fifo):
+            if hasattr(os, 'mkfifo'):                            # Unix only
+                os.mkfifo(fifo)                                  # not a regular file
+            for path in (link, fifo) if fifo.exists() else (link,):
                 code, answer = self.run_cli('call', 'applications', 'attach', json.dumps({**kwargs, 'path': str(path)}), stores=stores)
                 self.assertEqual(code, 2, path)
             with mock.patch.object(cli, 'FILE_CAP', 4):          # too big

@@ -7,6 +7,7 @@ import base64
 import json
 import os
 import stat
+import subprocess
 import sys
 import tempfile
 import threading
@@ -76,6 +77,8 @@ class FakeClaude:
         self.binary = str(Path(self.dir.name) / 'claude')
         Path(self.binary).write_text(FAKE.format(python=sys.executable))
         os.chmod(self.binary, os.stat(self.binary).st_mode | stat.S_IEXEC)
+        # Windows cannot run a script by its shebang: there the fake is run through the interpreter, by the `run` hook CliClient already takes (and flags() probes with).
+        self.run = (lambda args, **kwargs: subprocess.run([sys.executable, self.binary, *args[1:]], **kwargs)) if sys.platform == 'win32' else subprocess.run
         self.log = str(Path(self.dir.name) / 'calls.json')
         patcher = mock.patch.dict(os.environ, {'FAKE_CLAUDE_MODE': mode, 'FAKE_CLAUDE_LOG': self.log,
                                                'FAKE_CLAUDE_OLD': '1' if old else '0',
@@ -90,7 +93,7 @@ class FakeClaude:
         return json.loads(Path(self.log).read_text()) if os.path.exists(self.log) else []
 
     def client(self, **kwargs):
-        return engine.CliClient(binary=self.binary, log=kwargs.pop('log', lambda text: None), **kwargs)
+        return engine.CliClient(binary=self.binary, log=kwargs.pop('log', lambda text: None), **({'run': self.run} if sys.platform == 'win32' else {}), **kwargs)
 
 
 class CliClientTests(unittest.TestCase):
@@ -306,7 +309,8 @@ class SelectionTests(unittest.TestCase):
 
     def test_find_binary_prefers_the_apps_path(self):
         self.assertEqual(engine.find_binary({'JOB_PILOTTO_CLAUDE_BIN': '/x/claude', 'PATH': ''}, exists=lambda p: p == '/x/claude'), '/x/claude')
-        self.assertEqual(engine.find_binary({'PATH': '', 'HOME': '/h'}, exists=lambda p: p == '/h/.local/bin/claude'), '/h/.local/bin/claude')
+        installed = str(Path('/h') / '.local' / 'bin' / 'claude')   # the path as this OS writes it
+        self.assertEqual(engine.find_binary({'PATH': '', 'HOME': '/h'}, exists=lambda p: p == installed), installed)
         self.assertEqual(engine.find_binary({'PATH': '', 'HOME': '/h'}, exists=lambda p: False), '')
 
 

@@ -19,6 +19,7 @@ def as_notion_returns(blocks):
         for i, block in enumerate(blocks)]
 
 
+@unittest.skipUnless(hasattr(time, 'tzset'), 'time.tzset is Unix only: these tests pin the time zone through TZ')
 class ConversationTests(unittest.TestCase):
     def setUp(self):
         patch = mock.patch.dict(os.environ, {'TZ': 'UTC'})

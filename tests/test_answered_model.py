@@ -83,7 +83,7 @@ class AnsweredModelTests(unittest.TestCase):
         for path, pattern in writers.items():
             self.assertRegex((ROOT / path).read_text(), pattern, path)
         # Any other module writing a "Model" property or "Reviewed by" must be added above.
-        named = {str(p.relative_to(ROOT)) for p in (ROOT / 'src').rglob('*.py') if re.search(r"'Model': |Reviewed by \{", p.read_text())}
+        named = {p.relative_to(ROOT).as_posix() for p in (ROOT / 'src').rglob('*.py') if re.search(r"'Model': |Reviewed by \{", p.read_text())}
         self.assertLessEqual(named - set(writers), {'src/ai/interviews_blocks.py', 'src/ai/interview_insights.py', 'src/ai/learning.py', 'src/ai/insights.py'},
                              'a new page names its model: pass it cost.answered(model, usage) and list it here')
 
