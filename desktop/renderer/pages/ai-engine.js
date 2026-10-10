@@ -44,8 +44,8 @@ export function mountEngine(box, {context = 'settings', onChange = () => {}} = {
         note: id === CLI_OF[family] && status && !status.installed ? 'Not found on this Mac' : ''})),
       ...(context === 'wizard' && family === 'claude' ? [{id: 'trial', icon: 'sparkle', title: TEXT.trial.title, text: TEXT.trial.text}] : []),   // $1 free AI: Claude only
     ], {selected: picked, onPick: pick, label: TEXT.title});
-    // Settings: the key box under the chooser follows the family shown (Anthropic or OpenAI).
-    if (context === 'settings') for (const foot of document.querySelectorAll('#setting-ai [data-family]')) foot.hidden = foot.dataset.family !== family;
+    // Settings: the key box under the chooser follows the family shown (Anthropic or OpenAI), and is hidden while that family's CLI is the engine.
+    if (context === 'settings') for (const foot of document.querySelectorAll('#setting-ai [data-family]')) foot.hidden = foot.dataset.family !== family || picked === CLI_OF[family];
     const head = el('div', 'engine-head');
     head.append(el('h3', '', TEXT.title), el('p', 'muted small', context === 'settings' ? TEXT.settingsSubtitle : TEXT.subtitle));
     const parts = [head];
