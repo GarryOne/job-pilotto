@@ -188,7 +188,7 @@ fetch('?json').then(r => r.json()).then(d => {
   }
   // The AI ladder (owner, 10 Oct 2026): where each decision of a page is made, cheapest first; collapsed by default.
   const RUNGS = [[0, 'Structure rule, no AI', 'free', 'extension/tab-pages.js pageRole'], [1, 'Kept answer per page shape', 'free', 'page-kinds.json, kept by desktop/lib/server-pages.js'], [2, 'Text sketch to the small model', 'about 600 tokens', 'desktop/lib/page-kind.js'],
-    [3, 'Numbered digest to a small or middle model', 'about 1,500 to 2,500 tokens', 'not built yet'], [4, 'Screenshot plus sketch to the strongest model, one action', 'about 1.5k tokens plus the sketch, capped', 'desktop/lib/escalate.js'],
+    [3, 'Numbered digest to a small or middle model', 'about 1,500 to 2,500 tokens', 'desktop/lib/digest.js, extension/page/candidates.js'], [4, 'Screenshot plus sketch to the strongest model, one action', 'about 1.5k tokens plus the sketch, capped', 'desktop/lib/escalate.js'],
     [5, 'Claude takes over the page', 'a full agent session', 'desktop/lib/take-over.js'], [6, 'The person, with the page\\'s sentence quoted', 'the person\\'s time', 'the session card']];
   app.append(el('details', {className: 'ladder'}, el('summary', {textContent: 'The AI ladder · which rung decides a page'}),
     el('table', {}, el('tr', {}, ...['Rung', 'What it is', 'Cost', 'Where it lives'].map(h => el('th', {textContent: h}))),

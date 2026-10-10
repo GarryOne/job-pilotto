@@ -90,16 +90,16 @@ test('an upload keeps a rung (integer 0 to 6) and a signal (a fixed word) and dr
 test('the page shows the ladder as a legend collapsed by default, a Rung column in the pool and a Rung guarded column in the replays', () => {
   const legend = PAGE.slice(PAGE.indexOf('The AI ladder'), PAGE.indexOf('What the colors mean'));
   assert.match(PAGE, /<details|'details'/); assert.doesNotMatch(legend, /open: true/);   // collapsed
-  for (const where of ['extension/tab-pages.js', 'page-kinds.json', 'desktop/lib/page-kind.js', 'not built yet', 'desktop/lib/escalate.js', 'desktop/lib/take-over.js', 'the session card']) assert.ok(legend.includes(where), where);
+  for (const where of ['extension/tab-pages.js', 'page-kinds.json', 'desktop/lib/page-kind.js', 'desktop/lib/digest.js', 'extension/page/candidates.js', 'desktop/lib/escalate.js', 'desktop/lib/take-over.js', 'the session card']) assert.ok(legend.includes(where), where);
   assert.ok(legend.includes('A rung that is unsure or contradicted hands the page to the next; a rung never guesses.'));
   assert.match(PAGE, /heads\('pool', \[[^\]]*'Rung'/); assert.match(PAGE, /heads\('cases', \[[^\]]*'Rung guarded'/);
   assert.match(PAGE, /blocked at /);
 });
 
-test('every file the ladder legend names exists on disk (or the rung says "not built yet"), so the legend cannot drift', () => {
+test('every file the ladder legend names exists on disk, so the legend cannot drift (a rung not built yet says so instead of naming a file)', () => {
   const rungs = PAGE.slice(PAGE.indexOf('const RUNGS'), PAGE.indexOf('app.append(el(\'details\''));
   const files = [...rungs.matchAll(/[\w./-]+\.(?:js|json)\b/g)].map(match => match[0]).filter(file => file !== 'page-kinds.json');   // page-kinds.json is a per-install file, named with the code that keeps it
-  assert.ok(files.length >= 5); assert.match(rungs, /not built yet/);
+  assert.ok(files.length >= 7);
   for (const file of files) assert.ok(existsSync(new URL('../../' + file, import.meta.url)), file + ' is not in the repo');
 });
 
