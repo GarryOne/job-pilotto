@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {candidates, compare, lastSeen, parseLive, pickPosting, placeFound, signature, tonight} from './lib/smoke.mjs';
+import {compare, lastSeen, parseLive, pickPosting, placeFound, signature, tonight} from './lib/smoke.mjs';
 import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
 import {earlierReports, recordSite} from './lib/smoke-record.mjs';
 import {fetchWanted, wantedFirst} from './lib/wanted-hosts.mjs';
