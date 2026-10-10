@@ -22,7 +22,9 @@ export function loadCases(dir = REPLAY_DIR) {
 export async function runCase(item, {extensionDir} = {}) {
   // A route's stubbed answer is one body, or a list of {when: {field: value}, answer} picked by what the extension sent (the ladder: an unsure answer, then a digest request); the last entry is the default.
   const pick = (list, sent) => { let request = {}; try { request = JSON.parse(sent || '{}'); } catch { /* not JSON: the default */ } return (list.find(entry => Object.entries(entry.when || {}).every(([field, value]) => request[field] === value)) || list.at(-1)).answer; };
-  const answer = Object.fromEntries(Object.entries(item.ai || {}).map(([route, body]) => [route, Array.isArray(body) ? sent => pick(body, sent) : () => body]));
+  // ...or {"byHost": {<host>: answer}} when a journey crosses pages that the AI answers differently (the request's `url` says which).
+  const hostOf = text => { try { return new URL(JSON.parse(text).url).hostname; } catch { return ''; } };
+  const answer = Object.fromEntries(Object.entries(item.ai || {}).map(([route, body]) => [route, Array.isArray(body) ? sent => pick(body, sent) : body.byHost ? text => body.byHost[hostOf(text)] || {} : () => body]));
   const run = await startRealExtension({extensionDir, cv: item.cv !== false, allowAllSites: true, answer});
   const pages = new Map(item.pages.map(page => [pathKey(page.url), fs.readFileSync(path.join(item.dir, page.file), 'utf8')]));
   const failures = [];

@@ -63,8 +63,9 @@
  "schemaVersion": 1,
  "answer": {
   "kind": "posting",
-  "confidence": 0.95,
+  "confidence": 0.9,
   "apply_button": "Jetzt bewerben (ohne Anmeldung)",
+  "apply_button_kind": "apply",
   "apply_route": "manual",
   "apply_by": "form",
   "apply_email": "",

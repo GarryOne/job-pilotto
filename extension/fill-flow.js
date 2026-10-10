@@ -21,7 +21,7 @@ import {bindSession, identityOf, sessionOf} from './tab-identity.js';
 import {pageKey, pageRole, pickApplyButton, pickNamedButton} from './tab-pages.js';
 import {forgetRouteTries, startRoute} from './start-route.js';
 import {emailReport, mailsOf} from './non-form.js';
-import {candidatesOf, climbOnStall, climbOnUnsure, controlsOf, forgetClimb, noteSignal, otherReport, toldReport, verifiedBody} from './ladder.js';
+import {candidatesOf, claimFrame, climbOnStall, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, noteSignal, otherReport, toldReport, verifiedBody} from './ladder.js';
 
 let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true, fillsNow = new Set(), arm = async () => {}, progress = async () => {};
 export function initFillFlow(shared) {
@@ -118,6 +118,7 @@ export const sayStep = (tabId, text) => progress(tabId, text).catch(() => {});
 export async function askKind(tab, {fresh = false, digest = false} = {}) {   // fresh: the page changed after a press, a kept answer for its shape does not apply (start-route.js)
   const sketch = await pageSketchOf(tab.id);
   if (!sketch) return null;
+  const frameList = await framesOf(tab.id); noteFrames(tab.id, frameList); sketch.frameCandidates = frameSketch(frameList);   // the addresses stay in the extension (ladder.js)
   sketch.mails = await mailsOf(tab.id);   // the sentences and mailto links that carry an address (non-form.js)
   try {
     const config = await settings();
@@ -389,6 +390,27 @@ export async function consider(tab, jobUrl) {
   }
   // Self-correction: called a posting, but there was no Apply to press and the page has an application form's fields: it is the form.
   if (kind?.role === 'no-form' && !pressed && ruled === 'form') { await forgetKind(tab, kind, 'a posting with no Apply but a form\'s fields'); role = 'form'; await noteRole(tab.id, tab.url, role); }
+  // The application form is inside a frame of this page (Datadog, 10 Oct 2026): the page-kind AI named it by index; its stored address is opened in this same tab, https only, once per tab and page.
+  if (role === 'no-form' && Number.isInteger(kind?.form_frame) && kind.form_frame >= 0) {
+    const src = frameSrcOf(tab.id, kind.form_frame);
+    if (src && claimFrame(key)) { decide('fill', 'opening the application form frame as the page', {host, frame: new URL(src).hostname}); await chrome.tabs.update(tab.id, {url: src}); started.delete(key); return; }
+  }
+  // Nothing to press and no form: the numbered digest looks once (ladder.js). It may name a control the sketch lost (Aldi, 10 Oct 2026: 20 menu links ahead of "Postuler"): pressed through the same floors as any Apply button.
+  let stall = null;
+  if (role === 'no-form' && kind?.botCheck !== true && !emailReport(kind) && !toldReport(kind)) {
+    stall = await climbOnStall(tab, askKind, key, kind);
+    if (stall?.applyButton) {
+      applyPressed.set(tab.id, {at: Date.now(), url: tab.url});
+      const attempt = await pressApply(tab.id, [{key: 'apply_button', phrase: stall.applyButton}], stall.applyButton);
+      if (!attempt.pressed) applyPressed.delete(tab.id);
+      else {
+        decide('fill', 'pressed the control the digest named', {host, label: attempt.pressed});
+        const afterDigest = await formAfterPress(tab.id, tab.url);
+        if (afterDigest === 'navigated') { started.delete(key); return; }
+        if (afterDigest) { role = 'form'; pressed = true; await noteRole(tab.id, tab.url, role); }
+      }
+    }
+  }
   if (role !== 'form') {
     await progress(tab.id, '');   // no fill here: the panel's "Starting…" ends now, not after its 20 s (owner, 9 Oct 2026: it spun on a sign-in page left to them)
     // A check that the visitor is human in front of the page (the page-kind AI's bot_check): the person solves it in this tab; the form is watched for two
@@ -396,8 +418,7 @@ export async function consider(tab, jobUrl) {
     const botCheck = role === 'no-form' && kind?.botCheck === true;
     if (botCheck || (role === 'no-form' && counts && emptyShape(counts))) watchForFields(tab, jobUrl, undefined, botCheck ? 60 : 10, counts?.frameHosts || []).catch(() => {});   // judged while still empty: look again if fields come
     await writeState(tab.id, {state: role});
-    // Nothing to press and no form: the numbered digest looks once (ladder.js); it says what the page asks (an email, a call, a visit, a closed notice) in the page's own sentence.
-    const said = role === 'no-form' && !botCheck && !emailReport(kind) && !toldReport(kind) ? (await climbOnStall(tab, askKind, key, kind)) || kind : kind;
+    const said = stall || kind;   // the digest's answer at a stall, else what the page-kind said
     const email = role === 'no-form' ? emailReport(said) : null, told = role === 'no-form' && !email ? toldReport(said) : null, other = role === 'no-form' && !email && !told ? otherReport(said, tab.id) : null;   // the page asks for email (non-form.js) or tells what to do (ladder.js)
     decide('fill', role === 'account' ? 'account page left for Claude' : botCheck ? 'a bot check in front of the page: handed to the person' : email ? 'the posting asks for the application by email: reported to the app' : told ? 'the page tells what to do: reported to the app' : other ? 'the ladder ended at the person: reported as other' : 'no form on this page', {host, role, ...(kind?.applyBy ? {applyBy: kind.applyBy} : {})});
     if (other) api(await settings(), '/extension/page-kind', {method: 'POST', body: JSON.stringify({why: 'other', url: tab.url.split('#')[0], controls: controlsOf(tab.id)})}).catch(() => {});   // the shape is counted by the app (no text): the ladder ended at the person

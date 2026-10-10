@@ -11,7 +11,7 @@ import {escalate} from './escalate.js';
 import {forgetPageKind, kindKey, pageKind, pageKindCache, sketchBody} from './page-kind.js';
 import {hit as ladderHit, ladderStore, lookup as ladderLookup, miss as ladderMiss, record as ladderRecord} from './ladder-learning.js';
 import {otherStore, record as otherRecord} from './ladder-other.js';
-import {ladderLine} from '../shared/ladder-core.js';
+import {ladderLine, signalOf} from '../shared/ladder-core.js';
 import {isFormOf} from './apply.js';
 import {localEnv} from './server-env.js';
 import {proposalReporter} from './server-hooks.js';
@@ -106,7 +106,7 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
   return answer.error ? {ok: true, kind: '', error: answer.error, ...ladder}
     : {ok: true, kind: answer.kind, role: answer.role, by: answer.by, confidence: answer.confidence, applyButton: answer.applyButton || '', applyRoute: answer.applyRoute || '', applyBy: answer.applyBy || '', applyEmail: answer.applyEmail || '',
       accountStep: answer.accountStep || '', registerControl: answer.registerControl || '', signinControl: answer.signinControl || '', accountButton: answer.accountButton || '',
-      ...ladder, ...(answer.digest ? {digest: answer.digest} : {}),
+      ...ladder, ...(answer.digest ? {digest: answer.digest} : {}), form_frame: answer.formFrame ?? -1,
       ...(answer.botCheck ? {botCheck: true} : {})};   // a check in front of the page: the extension hands it to the person (fill-flow.js)
 }
 
@@ -146,8 +146,10 @@ export async function decideAccountJudge(storage, body, {judge = judgeAccount, c
   const phase = body?.phase === 'result' ? 'result' : body?.phase === 'form' ? 'form' : 'ready';   // 'form': the application form's own readiness (lib/form-judge.js)
   const answer = phase === 'form' ? await judgeForm(client === undefined ? aiClient(storage) : client, body?.sketch || {}) : await judge(client === undefined ? aiClient(storage) : client, body?.sketch || {}, phase);
   appLog('extension', answer.error ? `account judgment ${phase}: none (${answer.error})` : `account judgment ${phase}: ${answer.answer}`, {botCheck: !!answer.botCheck, ...(answer.needs ? {needs: answer.needs.slice(0, 60)} : {}), ...(answer.needsKind ? {needsKind: answer.needsKind} : {}), ...(answer.unlisted ? {unlisted: answer.unlisted} : {})});   // the page's own labels (and a label the AI named that the page lacks), never a value
+  const judged = {rung: 2, signal: signalOf(answer)}, climb = ladderLine(judged);   // the same fixed signals as page-kind
+  if (climb) appLog('extension', climb, {phase});
   const next = phase === 'form' && !answer.error ? {step: answer.step || 'unsure', nextControl: answer.nextControl || ''} : {};   // extension/next-step.js
-  return answer.error ? {ok: true, answer: '', error: answer.error} : {ok: true, answer: answer.answer, needs: answer.needs, needsKind: answer.needsKind || '', consentRequired: !!answer.consentRequired, botCheck: answer.botCheck, ...next};
+  return answer.error ? {ok: true, answer: '', error: answer.error, ...judged} : {ok: true, ...judged, answer: answer.answer, needs: answer.needs, needsKind: answer.needsKind || '', consentRequired: !!answer.consentRequired, botCheck: answer.botCheck, ...next};
 }
 
 // The closer look (lib/escalate.js): a picture with typed values hidden, one fixed action back; opt-in, capped, account pages only. A feedback body remembers what worked.
@@ -159,5 +161,8 @@ export async function decideEscalation(storage, body, {client, contact} = {}) {
     answer = value ? {...answer, value} : {ok: true, action: 'ask_person', why: 'that detail is not saved in Your details'};
   }
   if (!body?.feedback) appLog('extension', `closer look: ${answer.action}${answer.why ? ` (${answer.why})` : ''}`, {by: answer.by || '', ...(answer.control ? {control: answer.control.slice(0, 60)} : {}), ...(answer.detail ? {detail: answer.detail} : {}), ...(answer.option ? {option: answer.option.slice(0, 40)} : {})});   // which detail, never its value
-  return answer;
+  if (body?.feedback) return answer;
+  const looked = {rung: 4, signal: signalOf(answer)}, climb = ladderLine(looked);   // the closer look is rung 4: the same fixed signals
+  if (climb) appLog('extension', climb, {why: String(answer.why || '').slice(0, 60)});
+  return {...answer, ...looked};
 }

@@ -26,3 +26,12 @@ export function ladderLine(args) {
   const {rung, signal} = args || {};
   return Object.values(RUNGS).includes(rung) && SIGNALS.includes(signal) && signal !== 'confident' ? `ladder: rung ${rung} signal ${signal}` : '';
 }
+
+// The fixed signal of a judge's result, so every rung hands up the same way: an account judgment ({answer} or {error}) and the closer look ({action}) alike. A decision to act is confident; a page left to the
+// person (unsure, no action, ask the person) hands the page up; no answer at all is a failure. Never a value outside SIGNALS.
+export function signalOf(result) {
+  if (!result || typeof result !== 'object' || result.error) return 'failed';
+  if (result.answer) return result.answer === 'unsure' ? 'unsure' : 'confident';
+  if (result.action) return ['click', 'fill', 'choose', 'wait'].includes(result.action) ? 'confident' : 'unsure';
+  return 'unsure';
+}

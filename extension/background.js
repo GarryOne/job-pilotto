@@ -222,7 +222,7 @@ function stepBox(tabId, message) {
 
 // "Didn't fill: <reason>" with a Fill anyway button on the page itself.
 async function ineligibleNote(tabId, reason) {
-  await chrome.scripting.executeScript({target: {tabId}, args: [reason], func: text => {
+  await chrome.scripting.executeScript({target: {tabId}, args: [String(reason || 'not eligible')], func: text => {   // an app reply without a note must not crash the note (10 Oct 2026, the Aldi replay)
     document.getElementById('jobpilotto-note')?.remove();
     const box = Object.assign(document.createElement('div'), {id: 'jobpilotto-note'});
     box.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;max-width:340px;background:#132439;color:#fff;' +

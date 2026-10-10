@@ -59,3 +59,19 @@ test('the endpoint passes a digest request to the decision and returns the rung,
   const unsure = await decidePageKind(storage, {url: 'https://firma.ch/jobs/4'}, {decide: async () => ({error: 'unsure (0.4)', kind: 'other', shape: 'z', rung: 2, signal: 'unsure'}), client: null});
   assert.deepEqual([unsure.error, unsure.rung, unsure.signal], ['unsure (0.4)', 2, 'unsure']);
 });
+
+test('the account judgment and the closer look answer with the same fixed rung and signal as page-kind, and log a non-confident one', async () => {
+  const {decideAccountJudge, decideEscalation} = await import('../lib/server-pages.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-kind-endpoint-'));
+  const storage = {path: name => path.join(dir, name), settings: () => ({})};
+  const sure = await decideAccountJudge(storage, {phase: 'ready', sketch: {}}, {judge: async () => ({answer: 'ready', needs: ''}), client: null});
+  assert.deepEqual([sure.rung, sure.signal], [2, 'confident']);
+  const unsure = await decideAccountJudge(storage, {phase: 'ready', sketch: {}}, {judge: async () => ({answer: 'unsure'}), client: null});
+  assert.deepEqual([unsure.rung, unsure.signal], [2, 'unsure']);
+  const failed = await decideAccountJudge(storage, {phase: 'ready', sketch: {}}, {judge: async () => ({error: 'no AI'}), client: null});
+  assert.deepEqual([failed.rung, failed.signal], [2, 'failed']);
+  const off = await decideEscalation(storage, {kind: 'account', url: 'https://a.example/x'}, {client: null});   // automation is not "Do it for me": the look is off
+  assert.deepEqual([off.action, off.rung, off.signal], ['none', 4, 'unsure']);
+  const feedback = await decideEscalation(storage, {feedback: {action: 'click', worked: true}, url: 'https://a.example/x'}, {client: null});
+  assert.equal('signal' in feedback, false, 'a feedback body is not a decision');
+});

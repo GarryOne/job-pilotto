@@ -320,3 +320,23 @@ test('a digest "press" becomes the Apply button only when the AI judges the butt
   const told = await pageKind(seq([{outcome: 'phone', verb: 'tell_person', numbers: [1], confidence: 0.9}]), page, cacheIn(), {digest: true});
   assert.ok(!told.applyButton, 'a tell_person answer names no button to press');
 });
+
+// An application form inside a frame of the page (Datadog, 10 Oct 2026: a Greenhouse form in an iframe the extension never entered). The sketch lists the frames WITHOUT their address (a form
+// frame's address holds a token): host, path and size; the AI answers an INDEX; the code keeps it only when it points at a listed frame.
+const frames = [{host: 'job-boards.example-ats.io', path: '/embed/job_app', width: 650, height: 2432}, {host: 'cookies.example.com', path: '/banner', width: 400, height: 300}];
+test('the sketch lists the form-frame candidates by host, path and size only: never an address with a query or a token', () => {
+  const sketch = pageSketch({...emailPages.de, frameCandidates: [{...frames[0], src: 'https://job-boards.example-ats.io/embed/job_app?token=secret', query: '?token=secret'}, ...Array.from({length: 9}, () => frames[1])]});
+  assert.ok(sketch.frameCandidates.length <= 6);
+  assert.deepEqual(Object.keys(sketch.frameCandidates[0]).sort(), ['height', 'host', 'path', 'width']);
+  assert.equal(JSON.stringify(sketch).includes('secret'), false);
+  assert.deepEqual(pageSketch({url: 'https://a.test/x'}).frameCandidates, []);
+});
+test('the AI names the frame that holds the form by index; an index outside the list is dropped, never trusted', async () => {
+  const calls = [];
+  const named = await pageKind(seq([{kind: 'posting', confidence: 0.9, form_frame: 0}], calls), {...emailPages.de, frameCandidates: frames}, cacheIn());
+  assert.equal(named.formFrame, 0);
+  assert.match(calls[0].messages[0].content, /job-boards\.example-ats\.io/, 'the AI saw the frame candidates');
+  for (const bad of [5, -3, 1.5, 'zero', null]) assert.equal((await pageKind(seq([{kind: 'posting', confidence: 0.9, form_frame: bad}]), {...emailPages.de, frameCandidates: frames}, cacheIn())).formFrame, -1, `${bad}`);
+  assert.equal((await pageKind(seq([{kind: 'posting', confidence: 0.9, form_frame: 0}]), emailPages.de, cacheIn())).formFrame, -1, 'no frame listed: nothing to name');
+  assert.equal((await pageKind(seq([{kind: 'form', confidence: 0.9, form_frame: 0}]), {...emailPages.de, frameCandidates: frames}, cacheIn())).formFrame, -1, 'only a posting names a frame');
+});

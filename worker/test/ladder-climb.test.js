@@ -57,3 +57,16 @@ test('when the ladder ends with no usable answer (the digest answered nothing, o
   assert.equal(await climbOnStall({id: 14}, async () => null, '14 x', {by: 'ai'}), null);
   assert.deepEqual(otherReport({by: 'ai'}, 14), {why: 'other', needs: ''}, 'a stall whose digest answered nothing');
 });
+
+test('the extension keeps each frame candidate\'s address for itself and sends only host, path and size; the index the app answers opens the stored address, https only', async () => {
+  const {frameSketch, frameSrcOf, forgetClimb, noteFrames} = await import('../../extension/ladder.js');
+  forgetClimb(21);
+  const list = [{host: 'job-boards.example-ats.io', path: '/embed/job_app', src: 'https://job-boards.example-ats.io/embed/job_app?token=secret', width: 650, height: 2432}, {host: 'x.example', path: '/a', src: 'http://x.example/a', width: 400, height: 300}];
+  noteFrames(21, list);
+  assert.deepEqual(frameSketch(list), [{host: 'job-boards.example-ats.io', path: '/embed/job_app', width: 650, height: 2432}, {host: 'x.example', path: '/a', width: 400, height: 300}]);
+  assert.equal(JSON.stringify(frameSketch(list)).includes('secret'), false);
+  assert.equal(frameSrcOf(21, 0), 'https://job-boards.example-ats.io/embed/job_app?token=secret');
+  assert.equal(frameSrcOf(21, 1), '', 'never an http address');
+  for (const bad of [2, -1, 0.5, undefined, 'a']) assert.equal(frameSrcOf(21, bad), '');
+  assert.equal(frameSrcOf(99, 0), '', 'a tab with no frames noted');
+});

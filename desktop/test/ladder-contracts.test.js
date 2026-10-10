@@ -199,11 +199,12 @@ test('rung 3: validateDigest accepts only fixed outcomes and verbs, and numbers 
   assert.equal(validateDigest(dig('form', 'press', [4]), []).verb, 'none');
 });
 
-// HOLE (minor): a dropped answer keeps the model's unverified outcome (verb none, `dropped` set); pageKind ignores it, but a caller reading `outcome` alone would trust "email" with no address behind it.
-test('rung 3: a dropped answer does not carry an outcome that stands on nothing', {todo: 'hole: validateDigest keeps outcome email when tell_person has no number'}, () => {
-  for (const answer of [dig('email', 'tell_person', []), dig('phone', 'none', []), dig('email', 'none', [])]) {
+// A dropped answer carries no outcome of its own: validateDigest returns 'other', so a caller reading `outcome` alone never trusts an "email" with no address behind it.
+test('rung 3: a dropped answer does not carry an outcome that stands on nothing', () => {
+  for (const answer of [dig('email', 'tell_person', []), dig('phone', 'none', []), dig('email', 'none', []), dig('form', 'press', [99]), dig('email', 'press', [1])]) {
     const got = validateDigest(answer, candidates);
-    if (got.dropped) assert.ok(!['email', 'phone'].includes(got.outcome), `${got.outcome} survives in a dropped answer (${got.dropped})`);
+    assert.ok(got.dropped, `${JSON.stringify(answer)} was not dropped`);
+    assert.deepEqual([got.outcome, got.verb, got.numbers], ['other', 'none', []], `${got.outcome} survives in a dropped answer (${got.dropped})`);
   }
 });
 

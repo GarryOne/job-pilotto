@@ -213,7 +213,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     const cached = reuse && !withKit ? await cachedAI(tab) : null;
     if (withKit) { /* Claude after the fill */ } else if (cached) {
       ai = cached;
-      if (!ai.eligible && !force && config.checkEligibility !== false) return {ineligible: true, note: ai.eligibility_note, usd: 0};
+      if (!ai.eligible && !force && config.checkEligibility !== false) return {ineligible: true, note: ai.eligibility_note || '', usd: 0};
       const byAI = new Set(ai.answers.map(a => a.field));
       answers = [...ai.answers.map(a => ({...a, source: 'Claude (on the page)'})), ...answers.filter(a => !byAI.has(a.field))];
     } else if (open.length) {
@@ -225,7 +225,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
           body: JSON.stringify({url: tab.url, fields: open, page_text: pageText, test: !!config.testMode})});
         await chrome.storage.session.set({[cacheKey(tab)]: {url: tab.url.split('#')[0], ai, test: !!config.testMode}});
         // Settings → "Check eligibility before filling" off (for testing): fill regardless.
-        if (!ai.eligible && !force && config.checkEligibility !== false) return {ineligible: true, note: ai.eligibility_note, usd: ai.usd};
+        if (!ai.eligible && !force && config.checkEligibility !== false) return {ineligible: true, note: ai.eligibility_note || '', usd: ai.usd};
         // The AI saw the live form, so its answer wins; kit answers fill whatever it left out.
         const byAI = new Set(ai.answers.map(a => a.field));
         answers = [...ai.answers.map(a => ({...a, source: 'Claude (on the page)'})), ...answers.filter(a => !byAI.has(a.field))];

@@ -44,7 +44,8 @@ export const digestMessage = (page = {}, candidates = []) => [
   `Candidates (number · kind · position · host · text):\n${candidates.map(item => `${item.n} · ${item.kind} · ${item.position}${item.host ? ` · ${item.host}` : ''} · ${cleanLine(item.text, 160)}`).join('\n') || '(none)'}`,
 ].join('\n');
 
-const none = (answer, outcome, dropped) => ({outcome, verb: 'none', numbers: [], confidence: answer.confidence, dropped, chosen: []});
+// A dropped answer carries no outcome of its own: what the AI claimed stood on nothing the page shows, so a caller reading `outcome` alone gets 'other', never an unverified 'email'.
+const none = (answer, _claimed, dropped) => ({outcome: 'other', verb: 'none', numbers: [], confidence: answer.confidence, dropped, chosen: []});
 // The AI's answer against the page's own candidates -> {outcome, verb, numbers, confidence, chosen} or the same with verb 'none' and `dropped: <reason>`.
 export function validateDigest(raw, candidates = []) {
   const answer = {confidence: Math.max(0, Math.min(1, Number(raw?.confidence) || 0))};

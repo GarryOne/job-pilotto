@@ -56,3 +56,15 @@ test('the log line has the one shape the admin page parses, and says nothing for
   assert.equal(ladderLine({rung: 2, signal: 'bogus'}), '');
   for (const rung of [0, 1, 2, 3, 4, 5, 6]) for (const signal of SIGNALS.filter(one => one !== 'confident')) assert.match(ladderLine({rung, signal}), /^ladder: rung [0-6] signal (unsure|contradicted|stalled|failed)$/);
 });
+
+test('every judge answers with the same fixed signals: an account judgment, the closer look, anything unknown', async () => {
+  const {signalOf} = await import('../../extension/ladder-core.js');
+  assert.equal(signalOf({answer: 'ready'}), 'confident');
+  assert.equal(signalOf({answer: 'created'}), 'confident');
+  assert.equal(signalOf({answer: 'unsure'}), 'unsure');
+  assert.equal(signalOf({error: 'cut off'}), 'failed');
+  for (const action of ['click', 'fill', 'choose', 'wait']) assert.equal(signalOf({action}), 'confident', action);
+  for (const action of ['none', 'ask_person']) assert.equal(signalOf({action}), 'unsure', `${action} hands the page up`);
+  for (const nothing of [null, undefined, {}, 'x', 3]) assert.ok(SIGNALS.includes(signalOf(nothing)), 'never a value outside the fixed list');
+  assert.equal(signalOf(null), 'failed');
+});

@@ -1,0 +1,99 @@
+{
+ "shape": "a posting whose Apply link carries a word no shared phrase knows (\"Mitmachen\"), outside the sketch's 20 buttons: only the numbered digest can name it",
+ "why": "10 Oct 2026, the ladder: the stall's digest answer must be PRESSED, not only reported. On the landed build 1b24715 nothing is pressed and the form is not reached; with the stall press (\"pressed the control the digest named\") the form is reached and filled.",
+ "sample": "www.jobs.aldi.ch posting (shape reconstructed by hand from the captured sketch and candidates; hosts and text invented)",
+ "rung": 3,
+ "pages": [
+  {
+   "url": "https://emplois.exemple.example.ch/emplois/apprenti-4711",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://emplois.exemple.example.ch/postuler/4711",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://emplois.exemple.example.ch/postuler/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   },
+   {
+    "when": {
+     "digest": true
+    },
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "digest",
+     "confidence": 0.9,
+     "rung": 3,
+     "signal": "confident",
+     "applyButton": "mitmachen",
+     "applyRoute": "",
+     "applyBy": "",
+     "applyEmail": "",
+     "digest": {
+      "outcome": "form",
+      "verb": "press",
+      "numbers": [
+       1
+      ],
+      "chosen": [
+       {
+        "n": 1,
+        "kind": "link",
+        "host": "emplois.exemple.example.ch",
+        "position": "main",
+        "text": "Mitmachen"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.7,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "",
+     "applyRoute": "",
+     "applyBy": "other",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   }
+  ],
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  }
+ },
+ "expect": {
+  "filled": [
+   "#first"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 60
+ }
+}

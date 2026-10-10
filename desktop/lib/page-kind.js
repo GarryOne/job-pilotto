@@ -30,11 +30,11 @@ export const BUTTON_KINDS = ['apply', 'sign_in', 'sign_up', 'third_party', 'othe
 export const APPLY_BY = ['form', 'email', 'other'];
 // The fields of the page sketch the extension sends (besides `url`): the one list the endpoint forwards, pageSketch reads and the real-extension test compares with what the
 // extension really sends, so a field added on one side can no longer be forgotten on the other (frames, 9 Oct 2026; mails, 10 Oct 2026).
-export const SKETCH_FIELDS = ['title', 'headings', 'controls', 'buttons', 'frames', 'mails', 'candidates'];
+export const SKETCH_FIELDS = ['title', 'headings', 'controls', 'buttons', 'frames', 'mails', 'candidates', 'frameCandidates'];
 export const sketchBody = body => Object.fromEntries(['url', ...SKETCH_FIELDS].map(name => [name, body?.[name]]));
 export const MIN_CONFIDENCE = 0.6;   // below it the structure rule decides, and the page is asked again next time
 
-const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 'confidence', 'apply_button', 'apply_button_kind', 'apply_route', 'apply_by', 'apply_email', 'account_step', 'register_control', 'signin_control', 'account_button', 'bot_check'], properties: {
+const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 'confidence', 'apply_button', 'apply_button_kind', 'apply_route', 'apply_by', 'apply_email', 'form_frame', 'account_step', 'register_control', 'signin_control', 'account_button', 'bot_check'], properties: {
   kind: {type: 'string', enum: KINDS},
   apply_button: {type: 'string', description: 'For a posting: the exact text of the listed button that starts the application, else ""'},
   apply_button_kind: {type: 'string', enum: BUTTON_KINDS, description: 'What the apply_button does: apply = starts or continues THIS job application; sign_in = logs in to an existing account; sign_up = creates an account; third_party = signs in or applies through another site\'s account (Google, LinkedIn, Apple, Indeed...); other. "" when apply_button is ""'},
@@ -46,6 +46,7 @@ const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 
   apply_by: {type: 'string', enum: [...APPLY_BY, ''], description: 'For a posting: how the application is made: form (an Apply button or a form), email (the page asks to send the application to an email address), other (some other way, or no way offered); "" for any other kind'},
   apply_email: {type: 'string', description: 'When apply_by is email: the one address, copied exactly from the Addresses list, that the application goes to, else ""'},
   confidence: {type: 'number', description: 'From 0 to 1: how sure, from this page alone.'},
+  form_frame: {type: 'integer', description: 'For a posting whose application form sits in one of the listed Frame candidates: that frame\'s index; -1 for none, and for any other kind'},
   bot_check: {type: 'boolean', description: 'true when a check that the visitor is human (a puzzle or image test, a verification step, a challenge in a frame) stands in front of the page'},
 }};
 
@@ -84,7 +85,7 @@ export function pageShape(url) {
 }
 
 // What the model is allowed to see: no values the person typed, no query string, labels and texts capped.
-export function pageSketch({url, title, headings, controls, buttons, frames, mails, candidates} = {}) {
+export function pageSketch({url, title, headings, controls, buttons, frames, mails, candidates, frameCandidates} = {}) {
   let path = '';
   try { path = new URL(String(url)).pathname.slice(0, 120); } catch { /* not a url */ }
   return {
@@ -97,6 +98,8 @@ export function pageSketch({url, title, headings, controls, buttons, frames, mai
     // The numbered candidates of the digest (rung 3: extension/page/candidates.js): kept only as {n, kind, position, host, text}, capped, so nothing else the page or a caller adds reaches the AI.
     candidates: (Array.isArray(candidates) ? candidates : []).filter(item => Number.isInteger(item?.n) && item.n >= 0).slice(0, 12)
       .map(item => ({n: item.n, kind: clean(item.kind, 12), position: clean(item.position, 12), ...(item.host ? {host: clean(item.host, 80)} : {}), text: clean(item.text, 160)})).filter(item => item.kind),
+    // The frames that may hold the application form (extension/page/frames.js): host, path and size only, never an address with a query or a token (it stays in the extension).
+    frameCandidates: (Array.isArray(frameCandidates) ? frameCandidates : []).slice(0, 6).map(item => ({host: clean(item?.host, 80), path: clean(String(item?.path || '').split('?')[0], 120), width: Math.max(0, Number(item?.width) || 0), height: Math.max(0, Number(item?.height) || 0)})).filter(item => item.host),
     frames: (Array.isArray(frames) ? frames : []).map(host => clean(host, 80)).filter(Boolean).slice(0, 5),   // visible frames' hosts: a check drawn in a frame
   };
 }
@@ -175,6 +178,7 @@ export async function pageKind(client, raw, cache, {now = Date.now(), fresh = fa
         `Buttons: ${page.buttons.join(' | ') || '(none)'}`,
         `Addresses (sentences or links on the page that carry an email address):\n${page.mails.map(text => `- ${text}`).join('\n') || '(none)'}`,
         `Frames: ${page.frames.join(' | ') || '(none)'}`,
+        `Frame candidates (index · host · path · size; a posting whose application form is inside one of them names its index in form_frame):\n${page.frameCandidates.map((item, index) => `${index} · ${item.host} · ${item.path} · ${item.width}x${item.height}`).join('\n') || '(none)'}`,
       ].join('\n')}],
       output_config: {format: {type: 'json_schema', schema: SCHEMA}, effort: 'low'},
     });
@@ -198,6 +202,7 @@ export async function pageKind(client, raw, cache, {now = Date.now(), fresh = fa
       applyEmail = addressOf(answer.apply_email, page.mails);
       if (!applyEmail) { applyBy = 'other'; dropped = 'apply_email'; }
     }
+    const formFrame = answer.kind === 'posting' && Number.isInteger(answer.form_frame) && answer.form_frame >= 0 && answer.form_frame < page.frameCandidates.length ? answer.form_frame : -1;   // only an index into the listed frames
     const onAccount = answer.kind === 'account';   // the account step is asked of the AI for an account page only; the code never reads its words
     const accountStep = onAccount && ['sign_in', 'sign_up', 'choose'].includes(answer.account_step) ? answer.account_step : '';
     const registerControl = accountStep === 'sign_in' ? listedControl(answer.register_control, page.buttons) : '';
@@ -209,7 +214,7 @@ export async function pageKind(client, raw, cache, {now = Date.now(), fresh = fa
     // A start step is a passing state of the posting, never kept for its shape (the next visit starts from the plain Apply, as a bot check does).
     if (!applyRoute && applyBy !== 'email') cache?.set(shape, {kind: answer.kind, confidence, at: new Date(now).toISOString(), ...(applyButton ? {applyButton} : {}),
       ...(accountStep ? {accountStep} : {}), ...(registerControl ? {registerControl} : {}), ...(signinControl ? {signinControl} : {}), ...(accountButton ? {accountButton} : {})});
-    return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', rung: 2, signal: 'confident', shape, usd, applyButton, applyRoute, applyBy, applyEmail, ...(dropped ? {dropped} : {}), accountStep, registerControl, signinControl, accountButton};
+    return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', rung: 2, signal: 'confident', shape, usd, applyButton, applyRoute, applyBy, applyEmail, formFrame, ...(dropped ? {dropped} : {}), accountStep, registerControl, signinControl, accountButton};
   } catch (error) {
     return {error: clean(error?.message || 'AI failed', 120), shape};
   }

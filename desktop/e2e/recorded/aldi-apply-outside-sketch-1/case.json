@@ -1,0 +1,99 @@
+{
+ "shape": "a posting whose Apply control is not among the first 20 buttons the sketch keeps (25 navigation links come first): rung 2 names no button, the numbered digest finds it",
+ "why": "10 Oct 2026, the pool: Aldi Suisse's posting; its Apply control is outside the sketch's 20 buttons (rung 2: posting, no button, confident 0.70: the real stored answer of ladder-fixtures/aldi-suisse.json). The shared Apply phrases find \"Postuler\" themselves, so the extension presses it and reaches the form. PASSES on the landed build 1b24715 and on ai-ladder: a guard. (Its first version failed only because the stub app did not answer /extension/answer: the form's French labels are open questions, `{}` reads as not eligible with no note, and ineligibleNote(undefined) threw \"Value is unserializable\".)",
+ "sample": "www.jobs.aldi.ch posting (shape reconstructed by hand from the captured sketch and candidates; hosts and text invented)",
+ "rung": 3,
+ "pages": [
+  {
+   "url": "https://emplois.exemple.example.ch/emplois/apprenti-4711",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://emplois.exemple.example.ch/postuler/4711",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://emplois.exemple.example.ch/postuler/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   },
+   {
+    "when": {
+     "digest": true
+    },
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "digest",
+     "confidence": 0.9,
+     "rung": 3,
+     "signal": "confident",
+     "applyButton": "postuler",
+     "applyRoute": "",
+     "applyBy": "",
+     "applyEmail": "",
+     "digest": {
+      "outcome": "form",
+      "verb": "press",
+      "numbers": [
+       1
+      ],
+      "chosen": [
+       {
+        "n": 1,
+        "kind": "link",
+        "host": "emplois.exemple.example.ch",
+        "position": "main",
+        "text": "Postuler"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.7,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "",
+     "applyRoute": "",
+     "applyBy": "other",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   }
+  ],
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  }
+ },
+ "expect": {
+  "filled": [
+   "#first"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 60
+ }
+}

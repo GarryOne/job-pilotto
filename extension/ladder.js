@@ -12,11 +12,13 @@ const signals = new Map();   // tab id -> the last {rung, signal} the app answer
 const ended = new Set();     // tab ids whose digest answered nothing usable: the ladder ended at the person
 const looked = new Set();    // `${tab id} ${page}`: pages whose stall already asked the digest
 const OFF = [4];
+const opened = new Set();    // `${tab id} ${page}`: pages whose form frame was already opened (once per tab and page)
+const frames = new Map();    // tab id -> the page's form-frame candidates WITH their addresses (the addresses never leave the extension)
 
 const sketched = new Map();  // tab id -> the controls the page-kind question carried (the page shape key needs them)
 export const noteSignal = (tabId, answer, controls = []) => { sketched.set(tabId, controls); if (answer?.signal) signals.set(tabId, {rung: answer.rung, signal: answer.signal}); else signals.delete(tabId); };
 export const controlsOf = tabId => sketched.get(tabId) || [];
-export const forgetClimb = tabId => { signals.delete(tabId); sketched.delete(tabId); ended.delete(tabId); for (const key of [...looked]) if (key.startsWith(`${tabId} `)) looked.delete(key); };
+export const forgetClimb = tabId => { signals.delete(tabId); sketched.delete(tabId); ended.delete(tabId); frames.delete(tabId); for (const key of [...opened]) if (key.startsWith(`${tabId} `)) opened.delete(key); for (const key of [...looked]) if (key.startsWith(`${tabId} `)) looked.delete(key); };
 
 // The numbered candidates of the page (extension/page/candidates.js). The page files live in the page's own (MAIN) world; the finder is injected when this page has not loaded it yet.
 const look = tabId => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: () => window.__jobPilottoCandidates?.candidatesOf?.()}).then(rows => rows?.[0]?.result).catch(() => undefined);
@@ -64,4 +66,16 @@ export function otherReport(kind, tabId) {
   const digest = kind?.digest, usable = !!kind?.applyButton || !!digest?.chosen?.length;
   if (kind?.by === 'digest' && !usable) return {why: 'other', needs: ''};
   return ended.has(tabId) && !usable ? {why: 'other', needs: ''} : null;
+}
+
+// The frames that may hold the application form (extension/page/frames.js, in the page's world). The list with addresses stays here; the app is sent host, path and size only.
+export const noteFrames = (tabId, list) => frames.set(tabId, Array.isArray(list) ? list : []);
+export const frameSketch = list => (Array.isArray(list) ? list : []).map(({host, path, width, height}) => ({host, path, width, height}));
+export const frameSrcOf = (tabId, index) => { const src = Number.isInteger(index) ? frames.get(tabId)?.[index]?.src : ''; return typeof src === 'string' && src.startsWith('https://') ? src : ''; };
+export const claimFrame = key => (opened.has(key) ? false : (opened.add(key), true));
+const lookFrames = tabId => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: () => window.__jobPilottoFrames?.frameCandidates?.()}).then(rows => rows?.[0]?.result).catch(() => undefined);
+export async function framesOf(tabId) {
+  let found = await lookFrames(tabId);
+  if (!found) { await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: ['page/frames.js']}).catch(() => {}); found = await lookFrames(tabId); }
+  return Array.isArray(found) ? found : [];
 }
