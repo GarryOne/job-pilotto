@@ -227,20 +227,19 @@ jobs:
       - uses: actions/setup-python@v6   # only runs the pipeline tests; the app bundles its own Python
         with:
           python-version: '3.12'
-      - name: Install (app, Worker, site)
-        run: |
-          for area in desktop worker site; do (cd "$area" && npm ci > "../install-$area.log" 2>&1) & done
-          wait -n || true; wait   # a failed install is caught by its tests below, with the log
-          for area in desktop worker site; do echo "::group::npm ci in $area"; cat "install-$area.log"; echo "::endgroup::"; done
-      # EXACTLY what CI · Tests runs on every push (build.yml: python, worker, site, desktop; `tools/check.sh --area …`), side by side so the step takes the longest one
-      # (about 45 s) instead of their sum. A build is "compiles, the unit tests pass, a small smoke passes" (owner, 10 Oct 2026); each log is shown in its own group.
-      - name: Unit tests · Python, Worker, site and app (the suites of CI · Tests), side by side
+      - name: Install
+        working-directory: desktop
+        run: npm ci
+      # The desktop app's unit tests, the SAME on Mac and Windows (owner, 10 Oct 2026: "both should have the full set of unit tests, only related to the desktop app; no site,
+      # no Cloudflare workers"): the Python pipeline the app bundles (`tools/check.sh --area python`) and the app's own tests (`--area desktop`: lint + node tests), side by side
+      # so the step takes the longer one. The site and the Worker are tested by CI · Tests on every push and deployed by their own pipelines (site.yml, worker.yml).
+      - name: Unit tests · desktop app (Python pipeline and app, side by side)
         run: |
           pids=""
-          for area in python worker site desktop; do bash tools/check.sh --area "$area" > "unit-$area.log" 2>&1 & pids="$pids $area:$!"; done
+          for area in python desktop; do bash tools/check.sh --area "$area" > "unit-$area.log" 2>&1 & pids="$pids $area:$!"; done
           status=0
           for entry in $pids; do wait "${entry#*:}" || { status=1; echo "::error::The ${entry%%:*} unit tests failed"; }; done
-          for area in python worker site desktop; do echo "::group::unit tests · $area"; cat "unit-$area.log"; echo "::endgroup::"; done
+          for area in python desktop; do echo "::group::unit tests · $area"; cat "unit-$area.log"; echo "::endgroup::"; done
           exit $status
       - name: Add the shared Google app client
         env:
@@ -323,9 +322,17 @@ jobs:
       - name: Install
         working-directory: desktop
         run: npm ci
-      - name: Unit tests · app (on Windows)
-        working-directory: desktop
-        run: npm test
+      # The desktop app's unit tests, the SAME on Mac and Windows (owner, 10 Oct 2026: "both should have the full set of unit tests, only related to the desktop app; no site,
+      # no Cloudflare workers"): the Python pipeline the app bundles (`tools/check.sh --area python`) and the app's own tests (`--area desktop`: lint + node tests), side by side
+      # so the step takes the longer one. The site and the Worker are tested by CI · Tests on every push and deployed by their own pipelines (site.yml, worker.yml).
+      - name: Unit tests · desktop app (Python pipeline and app, side by side)
+        run: |
+          pids=""
+          for area in python desktop; do bash tools/check.sh --area "$area" > "unit-$area.log" 2>&1 & pids="$pids $area:$!"; done
+          status=0
+          for entry in $pids; do wait "${entry#*:}" || { status=1; echo "::error::The ${entry%%:*} unit tests failed"; }; done
+          for area in python desktop; do echo "::group::unit tests · $area"; cat "unit-$area.log"; echo "::endgroup::"; done
+          exit $status
       - name: Add the shared Google app client
         env:
           CLIENT: ${{ secrets.GOOGLE_SHARED_CLIENT_JSON }}

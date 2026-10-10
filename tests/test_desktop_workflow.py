@@ -82,12 +82,20 @@ class DesktopWorkflowTest(unittest.TestCase):
         self.assertNotIn('uses: ./.github/workflows/', WORKFLOW, 'a called workflow draws all its jobs in the graph')
         self.assertIn('needs: changes ', job('build'))
         self.assertIn('needs: changes ', job('windows'))
+        # The same unit tests on both platforms, only the desktop app's: Python pipeline + app, never the Worker or the site (own pipelines; owner, 10 Oct 2026).
+        mac_unit = job('build').split('Unit tests · desktop app')[1].split('- name:')[0]
+        win_unit = job('windows').split('Unit tests · desktop app')[1].split('- name:')[0]
+        self.assertEqual(mac_unit, win_unit)
+        self.assertIn('for area in python desktop; do bash tools/check.sh --area "$area"', mac_unit)
+        for area in ('worker', 'site'):
+            self.assertNotIn(f'--area {area}', job('build') + job('windows'))
+            self.assertNotIn(f' {area} ', mac_unit.split('for area in')[1].split(';')[0] + ' ')
         # A build is "compiles, the unit tests pass, a very small smoke passes" (owner, 10 Oct 2026), as NAMED STEPS of the one Build box, never boxes of their own
         # ("Put Compile, Smoke inside the Build"): the graph stays Anything new? -> Build -> E2E -> Release.
         for box in ('compile-mac', 'unit-mac', 'smoke-mac', 'compile-windows', 'unit-windows', 'smoke-windows', 'packaging-windows'):
             self.assertNotIn(f'\n  {box}:\n', WORKFLOW, f'{box} would be a box of its own in the graph')
-        for name, steps in (('build', ('Unit tests · Python, Worker, site and app (the suites of CI · Tests), side by side', 'tools/check.sh --area "$area"', 'Compile · build and sign the app', 'Smoke test · the built app', 'mac-smoke.mjs')),
-                            ('windows', ('Unit tests · app (on Windows)', 'Compile · build the installer', 'Smoke test · the installed app', 'windows-smoke.mjs'))):
+        for name, steps in (('build', ('Unit tests · desktop app (Python pipeline and app, side by side)', 'Compile · build and sign the app', 'Smoke test · the built app', 'mac-smoke.mjs')),
+                            ('windows', ('Unit tests · desktop app (Python pipeline and app, side by side)', 'Compile · build the installer', 'Smoke test · the installed app', 'windows-smoke.mjs'))):
             for step in steps:
                 self.assertIn(step, job(name))
             self.assertLess(job(name).index('Compile ·'), job(name).index('Smoke test ·'), 'the smoke test runs on what was compiled')
