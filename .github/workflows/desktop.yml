@@ -21,13 +21,10 @@ on:
   # Nightly, and by hand (gh workflow run desktop.yml). Not on every push: with several pushes an hour, a release per push
   # was mostly noise and a macOS + Windows build each (2 Oct 2026). A night with nothing new for the app builds nothing.
   schedule:
-    # 04:00 in Zurich all year: cron is UTC and Zurich is UTC+2 in summer, UTC+1 in winter, so both hours are scheduled and the step below lets only the one that falls
-    # between 04:00 and 15:59 Zurich time go on (GitHub starts scheduled runs late, by up to six hours). If both pass, the second finds nothing new to build.
-    # Not on the hour: 0 2 and 0 3 were started six hours late on 3 and 4 Oct 2026 (07:43/08:58 and 07:52/09:29 UTC), GitHub's busiest minute. Four slots at :17 give it four
-    # chances; every one after the first build finds nothing new since that release.
-    - cron: '17 2 * * *'
-    - cron: '17 3 * * *'
-    - cron: '17 4 * * *'
+    # ONE backup start only (owner, 10 Oct 2026: "the nightly beta should run only once"). The nightly is started on time by the Worker's cron (worker/src/scheduler.js, 04:00
+    # Zurich); this GitHub cron exists for the day the Worker fails, and runs only if no nightly has run yet today (the diff step below). It used to be four slots at :17 (02-05 UTC),
+    # because GitHub starts scheduled runs late, up to six hours: all four then ran every night, each one listed as a "Nightly beta" and, after a nightly whose gate failed, able to
+    # rebuild. A scheduled run is always recorded, so fewer crons is the only way to a shorter list. Not on the hour: :00 is GitHub's busiest minute.
     - cron: '17 5 * * *'
   workflow_dispatch:
     inputs:
@@ -81,6 +78,13 @@ jobs:
           NIGHTLY: ${{ inputs.nightly }}
         run: |
           if [ "$GITHUB_EVENT_NAME" != schedule ] && [ "$NIGHTLY" != true ]; then echo "build=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          # A nightly already ran today (the Worker's, on time): this backup schedule has nothing to do. Without the check every backup run compared against the last APPROVED
+          # release, so after a nightly whose gate failed it built the same night again (10 Oct 2026: four "Nightly beta" runs listed for one night).
+          if [ "$GITHUB_EVENT_NAME" = schedule ]; then
+            earlier=$(gh run list -R "$GITHUB_REPOSITORY" --workflow desktop.yml --limit 30 --json databaseId,displayTitle,createdAt \
+              -q "[.[] | select(.displayTitle == \"Nightly beta\") | select(.createdAt >= \"$(date -u +%Y-%m-%d)T00:00:00Z\") | select(.databaseId != $GITHUB_RUN_ID)] | length" || echo 0)
+            if [ "${earlier:-0}" -gt 0 ]; then echo "A nightly beta already ran today: the backup schedule has nothing to do."; echo "build=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          fi
           hour=$(TZ=Europe/Zurich date +%H)
           # 04:00-15:59: GitHub starts scheduled runs late, on 4 Oct 2026 by six hours (07:52 and 09:29 UTC), and the old 04:xx-05:xx guard skipped
           # both, so no build and no beta that day. A late run still builds; the second of the two finds nothing new since the first one's release.
