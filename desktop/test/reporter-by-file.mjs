@@ -30,11 +30,17 @@ export default async function* byFile(source) {
     } else if (type === 'test:diagnostic' && !/^(tests|suites|pass|fail|cancelled|skipped|todo|duration_ms) /.test(data.message)) diagnostics.push(data.message);
   }
   let pass = 0, fail = 0, skipped = 0;
-  for (const [file, entry] of [...files].sort(([a], [b]) => a.localeCompare(b))) {
-    pass += entry.pass; fail += entry.fail; skipped += entry.skipped;
+  const sorted = [...files].sort(([a], [b]) => a.localeCompare(b));
+  for (const [, entry] of sorted) { pass += entry.pass; fail += entry.fail; skipped += entry.skipped; }
+  // What failed comes FIRST, in full, so a red log opens on the error; then one line per file (OK / FAILED); then the summary.
+  if (fail) {
+    yield `${fail} failing test${fail === 1 ? '' : 's'}:\n`;
+    for (const [file, entry] of sorted) for (const failure of entry.failures) yield `\n  ✖ ${failure.name}   (${file})\n${failure.message.split('\n').map(line => `      ${line}`).join('\n')}\n`;
+    yield '\nAll files:\n';
+  }
+  for (const [file, entry] of sorted) {
     const count = `${entry.pass + entry.fail} test${entry.pass + entry.fail === 1 ? '' : 's'}`;
     yield `${entry.fail ? 'FAILED' : 'OK    '}  ${file}  (${count}, ${Math.round(entry.ms)} ms)\n`;
-    for (const failure of entry.failures) yield `    ✖ ${failure.name}\n${failure.message.split('\n').map(line => `        ${line}`).join('\n')}\n`;
   }
   for (const message of diagnostics) yield `note: ${message}\n`;
   yield `\n${fail ? 'FAILED' : 'OK'}: ${files.size} files, ${pass + fail} tests, ${pass} passed, ${fail} failed${skipped ? `, ${skipped} skipped` : ''}\n`;

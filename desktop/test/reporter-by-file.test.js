@@ -28,7 +28,8 @@ test('a failing test prints FAILED, its name and its error; a failing subtest is
   const result = run("test('the total', () => assert.equal(2 + 2, 5, 'two and two make four')); test('group', async t => { await t.test('inner bad', () => { throw new Error('boom'); }); });");
   assert.notEqual(result.status, 0, 'a failure fails the run');
   assert.match(result.stdout, /^FAILED {2}a\.test\.js/m);
-  assert.match(result.stdout, /✖ the total[\s\S]*two and two make four/);
+  assert.match(result.stdout, /✖ the total {3}\(a\.test\.js\)[\s\S]*two and two make four/);
+  assert.ok(result.stdout.indexOf('✖ the total') < result.stdout.indexOf('FAILED  a.test.js'), 'the errors come before the file list');
   assert.match(result.stdout, /✖ inner bad[\s\S]*boom/);
   assert.doesNotMatch(result.stdout, /✖ group/, 'the parent only says "1 subtest failed"');
   assert.doesNotMatch(result.stdout, /node:internal/, 'no runner frames');

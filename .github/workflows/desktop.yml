@@ -240,8 +240,17 @@ jobs:
           pids=""
           for area in python desktop; do bash tools/check.sh --area "$area" > "unit-$area.log" 2>&1 & pids="$pids $area:$!"; done
           status=0
-          for entry in $pids; do wait "${entry#*:}" || { status=1; echo "::error::The ${entry%%:*} unit tests failed"; }; done
-          for area in python desktop; do echo "::group::unit tests · $area"; cat "unit-$area.log"; echo "::endgroup::"; done
+          # The answer on top, the detail one click away (owner, 10 Oct 2026: "human readable, without scrolling a lot"): a passing suite is ONE line here and its per-file log
+          # is collapsed; a failing suite prints its log in full, whose first lines are the failing tests and their errors. The same lines go to the run's Summary page.
+          for entry in $pids; do
+            area="${entry%%:*}"
+            if wait "${entry#*:}"; then result=passed; else result=FAILED; status=1; fi
+            line=$(grep -E '^(OK|FAILED): |^py-shards: .*(passed|FAILED)' "unit-$area.log" | tail -1)
+            echo "| $area | $result | ${line:-no summary line} |" >> unit-table.md
+            if [ "$result" = passed ]; then echo "✔ $area: ${line}"; echo "::group::$area · every test file"; cat "unit-$area.log"; echo "::endgroup::"
+            else echo "::error::The $area unit tests failed"; cat "unit-$area.log"; fi
+          done
+          { echo "### Unit tests · desktop app"; echo; echo "| Suite | Result | Summary |"; echo "|---|---|---|"; cat unit-table.md; } >> "$GITHUB_STEP_SUMMARY"
           exit $status
       - name: Add the shared Google app client
         env:
@@ -337,8 +346,17 @@ jobs:
           pids=""
           for area in python desktop; do bash tools/check.sh --area "$area" > "unit-$area.log" 2>&1 & pids="$pids $area:$!"; done
           status=0
-          for entry in $pids; do wait "${entry#*:}" || { status=1; echo "::error::The ${entry%%:*} unit tests failed"; }; done
-          for area in python desktop; do echo "::group::unit tests · $area"; cat "unit-$area.log"; echo "::endgroup::"; done
+          # The answer on top, the detail one click away (owner, 10 Oct 2026: "human readable, without scrolling a lot"): a passing suite is ONE line here and its per-file log
+          # is collapsed; a failing suite prints its log in full, whose first lines are the failing tests and their errors. The same lines go to the run's Summary page.
+          for entry in $pids; do
+            area="${entry%%:*}"
+            if wait "${entry#*:}"; then result=passed; else result=FAILED; status=1; fi
+            line=$(grep -E '^(OK|FAILED): |^py-shards: .*(passed|FAILED)' "unit-$area.log" | tail -1)
+            echo "| $area | $result | ${line:-no summary line} |" >> unit-table.md
+            if [ "$result" = passed ]; then echo "✔ $area: ${line}"; echo "::group::$area · every test file"; cat "unit-$area.log"; echo "::endgroup::"
+            else echo "::error::The $area unit tests failed"; cat "unit-$area.log"; fi
+          done
+          { echo "### Unit tests · desktop app"; echo; echo "| Suite | Result | Summary |"; echo "|---|---|---|"; cat unit-table.md; } >> "$GITHUB_STEP_SUMMARY"
           exit $status
       - name: Add the shared Google app client
         env:
