@@ -35,6 +35,13 @@ function footer(job, page) {
   return bar;
 }
 
+// The next-interview bar's Prepare: the interview prep dialog (pages/prep.js, as Focus opens it) for this job's application. Loaded when asked: prep.js opens this panel.
+async function prepare() {
+  const {job, page} = state;
+  const {openPrep} = await import('./prep.js');
+  openPrep({page_id: page.app.id, job: job.title, company: job.company, via: '', url: job.url, notion_url: job.notion_url || '', badge: ''});
+}
+
 function pick(key) {
   state.tab = key;
   state.tabs.set(state.url, key);
@@ -47,7 +54,7 @@ function draw() {
   const head = drawerHeader(job, page, {
     at: index < 0 ? null : {index, total: urls.length}, expanded: state.expanded,
     back: state.back && {label: state.back.label, run: goBack},
-    on: {prev: () => go(-1), next: () => go(1), interviews: () => pick('interviews'), expand: () => { state.expanded = !state.expanded; draw(); }, close: closeJobPanel},
+    on: {prev: () => go(-1), next: () => go(1), interviews: () => pick('interviews'), prepare: prepare, expand: () => { state.expanded = !state.expanded; draw(); }, close: closeJobPanel},
   });
   panel.classList.toggle('is-expanded', state.expanded);
   const tabs = tabStrip(TABS, state.tab, pick);

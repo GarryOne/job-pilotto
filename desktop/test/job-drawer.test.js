@@ -117,6 +117,17 @@ test('Messages: an email waiting on this job asks first, and its answer reuses t
   assert.match(read('pages/focus.js'), /export const focusItems = \(\) => lastFocus\?\.items \|\| \[\]/);
 });
 
+test('The last states: Check now and scoring in progress, Add interview and Prepare, the gone-posting message', () => {
+  const match = read('job-drawer/tab-match.js');
+  assert.match(match, /Scoring in progress/);
+  assert.match(match, /lastActivity\?\.running/, 'a check is running');
+  assert.match(match, /document\.getElementById\('refresh'\)\.click\(\)/, 'Check now is the Jobs page\'s own');
+  assert.match(read('job-drawer/tab-interviews.js'), /button\('Add interview', \(\) => openLogFor\(job\.url, job\.title\)/);
+  assert.match(read('job-drawer/header.js'), /page\?\.app\?\.id \? 'Prepare →' : 'Open interviews →'/);
+  assert.match(read('pages/job-panel.js'), /openPrep\(\{page_id: page\.app\.id/);
+  assert.match(read('job-drawer/tab-description.js'), /The saved copy is no longer available/);
+});
+
 test('Overview: built from the shared card, tile and state-card parts, each part only when it has something', () => {
   const source = read('job-drawer/tab-overview.js');
   for (const part of ['card(', 'factTile(', 'iconRow(', 'stateCard(', 'glanceTiles(', 'clarifyOf(', 'callFacts(']) assert.ok(source.includes(part), part);

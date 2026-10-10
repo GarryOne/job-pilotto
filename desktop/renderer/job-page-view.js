@@ -89,6 +89,8 @@ export function kitParts(kit, markdown) {
 }
 
 const day = at => shortDay(at) || String(at || '').slice(0, 10);   // the screens' one format (date.js)
+// A job cannot have been found or posted in the future (a clock a day off aside): such a date is unknown, shown as none (the demo's 2099 marker, a bad feed).
+const pastDay = (at, now = Date.now()) => (Date.parse(String(at || '')) > now + 36 * 3600 * 1000 ? '' : day(at));
 
 // events.list(app_id) → the timeline, newest first: {when, kind, note}.
 export function historyItems(events = []) {
@@ -146,12 +148,12 @@ export function glanceTiles(match = null) {
     tile('contract', 'Contract', m.contract, m.workload ? `Workload ${m.workload}` : ''),
     tile('seniority', 'Seniority', m.seniority, m.role_family ? `Role family: ${m.role_family}` : ''),
     tile('languages', 'Languages', languages),
-    tile('posted', 'Posted', day(m.posted), m.deadline ? `Deadline ${day(m.deadline)}` : '')];
+    tile('posted', 'Posted', pastDay(m.posted), m.deadline ? `Deadline ${day(m.deadline)}` : '')];
 }
 
 // "First found 9 Oct · Scored 9 Oct" under the tiles.
 export function foundLine(job = {}, match = null) {
-  const found = day(match?.first_seen || job.first_seen_at), scored = day(match?.scored);
+  const found = pastDay(match?.first_seen || job.first_seen_at), scored = pastDay(match?.scored);
   return [found && `First found ${found}`, scored && `Scored ${scored}`].filter(Boolean).join(' · ');
 }
 
@@ -204,8 +206,8 @@ const SOURCE_KIND = {'employer feed': 'careers page', 'job board': 'job board', 
 export function postingFacts(job = {}, found = {}, text = '') {
   const words = String(text).trim().split(/\s+/).filter(Boolean).length;
   return [{key: 'employer', label: 'Employer', value: job.company || found.company || 'Not stated', note: SOURCE_KIND[found.source_kind] || found.source || ''},
-    {key: 'posted', label: 'Posted', value: day(found.posted_at) || 'Not stated', note: ''},
-    {key: 'found', label: 'First found', value: day(found.first_seen_at || job.first_seen_at) || 'Not stated', note: ''},
+    {key: 'posted', label: 'Posted', value: pastDay(found.posted_at) || 'Not stated', note: ''},
+    {key: 'found', label: 'First found', value: pastDay(found.first_seen_at || job.first_seen_at) || 'Not stated', note: ''},
     {key: 'saved', label: 'Saved posting', value: text ? 'Saved' : 'None', note: text ? `${words} words` : ''}];
 }
 export const postingSource = (found = {}) => `Job description from ${SOURCE_KIND[found.source_kind] || found.source || 'the search'}${found.source && SOURCE_KIND[found.source_kind] ? ` (${found.source})` : ''}`;
@@ -254,7 +256,7 @@ export function timelineOf(events = [], job = {}, match = null, parts = {}) {
       source: email ? `From ${plain(changes.from || 'an email')} (Gmail)` : event.source ? `Source: ${event.source}` : '', text: plain(event.note || ''), kinds, link};
   }).sort((a, b) => b.at.localeCompare(a.at));
   const found = match?.first_seen || job.first_seen_at;
-  if (found) items.push({key: 'discovered', at: String(found), when: day(found), time: clock(found), kind: 'Job discovered', title: 'Job discovered', source: '', text: 'Found by the search and added to your job list.', kinds: ['application'], link: null});
+  if (found && pastDay(found)) items.push({key: 'discovered', at: String(found), when: day(found), time: clock(found), kind: 'Job discovered', title: 'Job discovered', source: '', text: 'Found by the search and added to your job list.', kinds: ['application'], link: null});
   return items;
 }
 

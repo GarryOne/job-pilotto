@@ -46,7 +46,7 @@ const CASES = [
   ['23-loading', `window.__jp.openJob('https://example.com/jobs/6', 'overview'); ${wait(500)}`],
   ['24-error', open(7, 'overview')],
   ['28-overview-not-seen', open(9, 'overview')],
-  ['29-description-not-seen', open(9, 'description', wait(500))],
+  ['29-description-gone-not-seen', open(9, 'description', wait(500))],
   ['30-description-paste', open(2, 'description', click('button', 'Paste description'))],
   ['31-messages-which-job', open(2, 'messages')],
   ['26-review-interview', open(1, 'review', click('.jd-choice button', 'Screening call'))],

@@ -257,3 +257,13 @@ test('Emails waiting on a job: Focus\'s which-job questions whose suggested job 
   assert.equal(waitingEmails(items, 'https://x/1')[0].item, items[0], 'the Focus item itself, for the picker');
   assert.deepEqual([waitingEmails([], 'https://x/1'), waitingEmails(undefined, 'https://x/1'), waitingEmails(items, '')], [[], [], []]);
 });
+
+test('A date in the future is no date a job was found or posted: shown as unknown, never as 2099', () => {
+  const future = '2099-01-01T00:00:00Z';
+  assert.equal(foundLine({first_seen_at: future}, {scored: '2026-10-08'}), `Scored ${shortDay('2026-10-08')}`, 'only what is known');
+  assert.equal(foundLine({first_seen_at: future}, null), '');
+  assert.equal(glanceTiles({posted: future}).find(tile => tile.key === 'posted').value, 'Not stated');
+  assert.deepEqual(postingFacts({first_seen_at: future}, {first_seen_at: future, posted_at: future}, 'text').filter(fact => ['posted', 'found'].includes(fact.key)).map(fact => fact.value), ['Not stated', 'Not stated']);
+  assert.equal(timelineOf([], {first_seen_at: future}, null, {}).length, 0, 'no "Job discovered" in the year 2099');
+  assert.equal(foundLine({first_seen_at: new Date(Date.now() + 3600 * 1000).toISOString()}, null), shortDay(new Date(Date.now() + 3600 * 1000).toISOString()) ? `First found ${shortDay(new Date(Date.now() + 3600 * 1000).toISOString())}` : '', 'a clock an hour off is still a date');
+});

@@ -5,6 +5,7 @@ import {el} from '../components.js';
 import {shortDay} from '../date.js';
 import {callFacts, interviewsOf, lineOf} from '../job-page-view.js';
 import {button, foldCard, group, lineView, stateCard} from './parts.js';
+import {openLogFor} from '../pages/jobs-lead.js';
 import {showReview} from './tab-review.js';
 
 function slotCard(item, first, page) {
@@ -50,9 +51,13 @@ function recordCard(record, first, {job, pick}) {
 
 export function interviewsTab({job, page, pick}) {
   const {upcoming, past, records} = interviewsOf(page);
+  // Add interview: the Log box on this job (what you tell it about an interview becomes its event and record).
+  const add = button('Add interview', () => openLogFor(job.url, job.title), 'soft-button');
   const cards = [...upcoming.map(item => ({item, slot: true})), ...records.map(item => ({item})), ...past.map(item => ({item, slot: true}))];
   if (!cards.length) {
-    return [stateCard({icon: 'calendar', title: 'No interviews yet', text: 'When an interview is scheduled or practised for this job, it shows here with its prep, recording and transcript.'})];
+    return [stateCard({icon: 'calendar', title: 'No interviews yet', text: 'When an interview is scheduled or practised for this job, it shows here with its prep, recording and transcript.', actions: [add]})];
   }
-  return cards.map(({item, slot}, n) => (slot ? slotCard(item, n === 0, page) : recordCard(item, n === 0, {job, pick})));
+  const head = el('div', 'jd-filter');
+  head.append(el('b', '', 'Interviews'), add);
+  return [head, ...cards.map(({item, slot}, n) => (slot ? slotCard(item, n === 0, page) : recordCard(item, n === 0, {job, pick})))];
 }

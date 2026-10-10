@@ -39,6 +39,9 @@ function missing({job, page, reload}, box, paint, problem = '') {
   };
   function buttons() { return [button('Fetch original', fetchOriginal, 'soft-button'), button('Paste description', pasteIn, 'primary')]; }
   if (app) actions.push(...buttons());
+  if (notSeen(page) && !problem) {   // the posting is gone and no copy of its text is kept: the facts and the score are
+    return stateCard({icon: 'file', tone: 'warn', title: 'The saved copy is no longer available', text: 'The posting is no longer listed and no copy of its text is kept (the text of a posting you never acted on is removed 60 days after it was last seen). Its facts and score are kept.'});
+  }
   return stateCard({icon: 'file', tone: 'warn', title: problem || 'This job has no saved description',
     text: app ? 'We haven\'t saved a copy of the original posting yet.' : 'A copy of the original posting is saved with the job once the search reads it. Save the job to add one yourself.', actions});
 }

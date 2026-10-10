@@ -6,13 +6,5 @@
   "source_kind": "employer feed",
   "first_seen_at": "2026-10-09T08:30:00Z",
   "posted_at": ""
- },
- "https://example.com/jobs/9": {
-  "description": "## Responsibilities\n- Own the release pipeline for our Java services.\n- Keep builds fast and reproducible.\n\n## Requirements\n- Jenkins and Gradle in production.\n- Solid Java.",
-  "company": "Aare Software",
-  "source": "Aare Software",
-  "source_kind": "employer feed",
-  "first_seen_at": "2026-10-01T08:00:00Z",
-  "posted_at": "2026-09-28"
  }
 }

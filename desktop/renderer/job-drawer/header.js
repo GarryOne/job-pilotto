@@ -47,8 +47,9 @@ export function drawerHeader(job, page, {at, back, expanded, on}) {
   const next = nextInterview(page?.app);
   if (next) {   // the next step, on every tab: when, and the way to its interview
     const bar = el('div', 'jd-next');
-    const open = Object.assign(el('button', 'primary', 'Open interviews →'), {type: 'button'});
-    open.addEventListener('click', on.interviews);
+    // Prepare builds the interview prep kit (the Focus action); a job with no application has none to build: the bar leads to its interviews.
+    const open = Object.assign(el('button', 'primary', page?.app?.id ? 'Prepare →' : 'Open interviews →'), {type: 'button'});
+    open.addEventListener('click', page?.app?.id ? on.prepare : on.interviews);
     bar.append(icon('calendar'), el('span', '', `Next interview · ${next.when}`), open);
     head.append(bar);
   }
