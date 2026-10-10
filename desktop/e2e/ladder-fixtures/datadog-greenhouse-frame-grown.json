@@ -1,0 +1,105 @@
+{
+ "schemaVersion": 1,
+ "id": "datadog-greenhouse-frame-grown",
+ "source": "reconstructed",
+ "lang": "en",
+ "why": "pool 11 Oct 2026: the hosted board's frame is born 650x150 (under the frame finder's floor) and grows to 650x2432; this is the page AFTER the growth, so its sketch lists the frame candidate (job-boards host, /embed/job_app path). Unlike datadog-greenhouse-frame (the load-time sketch, no candidate) only form_in_frame is right",
+ "capture": {
+  "page": "ladder-fixtures/pages/datadog-greenhouse-frame-grown.html"
+ },
+ "url": "https://careers.example.com/detail/1",
+ "expect": {
+  "outcome": "form_in_frame",
+  "accept": [
+   "form_in_frame"
+  ]
+ },
+ "sketch": {
+  "url": "https://careers.example.com/detail/1",
+  "title": "Strategic Account Executive | Example Careers",
+  "headings": [
+   "Strategic Account Executive",
+   "The role",
+   "Apply for this job"
+  ],
+  "controls": [],
+  "buttons": [],
+  "frames": [
+   "job-boards.example-ats.io"
+  ],
+  "mails": [],
+  "frameCandidates": [
+   {
+    "host": "job-boards.example-ats.io",
+    "path": "/embed/job_app",
+    "width": 650,
+    "height": 2432
+   }
+  ]
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "sentence",
+   "text": "Strategic Account Executive",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "sentence",
+   "text": "About the team.",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "sentence",
+   "text": "We build monitoring for modern engineering teams and are growing our sales organisation.",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "sentence",
+   "text": "The role",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Own a book of strategic accounts",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "Work with solution engineers",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Run the sales cycle end to end",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Apply for this job",
+   "position": "main"
+  }
+ ],
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.7,
+  "apply_button": "",
+  "apply_button_kind": "",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "form_frame": 0,
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

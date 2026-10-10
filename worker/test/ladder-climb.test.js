@@ -70,3 +70,16 @@ test('the extension keeps each frame candidate\'s address for itself and sends o
   for (const bad of [2, -1, 0.5, undefined, 'a']) assert.equal(frameSrcOf(21, bad), '');
   assert.equal(frameSrcOf(99, 0), '', 'a tab with no frames noted');
 });
+
+test('a frame that BECOMES a form-frame candidate after the judgment is new; one the judgment already listed is not (Datadog, 11 Oct 2026: the embed is born 150 px high, below the 300x200 floor, and grows)', async () => {
+  const {frameGrew, noteFrames, forgetClimb} = await import('../../extension/ladder/climb.js');
+  const grown = {host: 'job-boards.example-ats.io', path: '/embed/job_app', src: 'https://job-boards.example-ats.io/embed/job_app', width: 650, height: 2432};
+  forgetClimb(31);
+  noteFrames(31, []);   // the judgment listed no candidate: the frame was too small then
+  assert.equal(frameGrew(31, []), false, 'nothing listed, nothing grown');
+  assert.equal(frameGrew(31, [grown]), true, 'now it qualifies: judge the page again');
+  noteFrames(31, [grown]);   // the new judgment listed it
+  assert.equal(frameGrew(31, [grown]), false, 'a candidate the judgment already carried is not new');
+  assert.equal(frameGrew(31, [{...grown, height: 3000}]), false, 'a bigger box of the same address is not new');
+  assert.equal(frameGrew(99, [grown]), true, 'a tab with no judgment noted: every candidate is new');
+});

@@ -14,6 +14,7 @@ export function outcomeOf(result = {}) {
   if (result.error) return 'unsure';
   if (result.kind === 'form' || result.kind === 'account-form') return 'form';
   if (result.kind === 'account') return 'account';
+  if (result.kind === 'posting' && Number.isInteger(result.formFrame) && result.formFrame >= 0) return 'form_in_frame';   // the form sits in a listed frame of the posting (Datadog)
   if (result.kind === 'posting') return result.applyBy === 'email' ? 'email' : result.applyBy === 'other' ? 'other' : 'posting';
   return 'other';
 }

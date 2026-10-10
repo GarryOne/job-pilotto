@@ -28,6 +28,10 @@
   {
    "date": "2026-10-10",
    "reason": "Rung 2: a board's own Easy apply counts as the Apply button (jobs.ch); jobs-ch-apply-not-found wrong-confident -> exact (live, recorded); other fixtures keep their stored answers, a live re-run of all showed only model noise (4 moved, 3 back on re-run)"
+  },
+  {
+   "date": "2026-10-10",
+   "reason": "datadog-greenhouse-frame-grown added (exact): the frame candidate listed after the embed grew; scorer reads form_frame as form_in_frame"
   }
  ],
  "promptFingerprint": {
@@ -367,6 +371,16 @@
    },
    "outcome": "posting",
    "status": "ok"
+  },
+  "datadog-greenhouse-frame-grown": {
+   "expect": {
+    "outcome": "form_in_frame",
+    "accept": [
+     "form_in_frame"
+    ]
+   },
+   "outcome": "form_in_frame",
+   "status": "exact"
   },
   "dialog-de-over-posting": {
    "expect": {

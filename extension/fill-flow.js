@@ -21,7 +21,7 @@ import {bindSession, identityOf, sessionOf} from './tab-identity.js';
 import {pageKey, pageRole, pickApplyButton, pickNamedButton} from './tab-pages.js';
 import {forgetRouteTries, startRoute} from './start-route.js';
 import {emailReport, mailsOf} from './ladder/outcomes.js';
-import {candidatesOf, claimFrame, climbOnStall, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, noteSignal, otherReport, toldReport, verifiedBody} from './ladder/climb.js';
+import {candidatesOf, claimFrame, climbOnStall, frameBecameCandidate, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, noteSignal, otherReport, toldReport, verifiedBody} from './ladder/climb.js';
 
 let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true, fillsNow = new Set(), arm = async () => {}, progress = async () => {};
 export function initFillFlow(shared) {
@@ -263,10 +263,13 @@ async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => s
     const shape = await pageShape(tab.id);
     // Fields came (the form drew late), or a frame did on a page that had none (a bot check injected seconds after the load: SmartRecruiters,
     // 9 Oct 2026): the page is judged again, now with what it shows (page-kind AI: bot_check).
-    const framed = (shape?.frameHosts || []).some(host => !hadHosts.includes(host));
+    const newHost = (shape?.frameHosts || []).some(host => !hadHosts.includes(host));
+    // ...or a frame that was there but became a form-frame candidate since (Datadog, 11 Oct 2026: the embed is born 150 px high and grows): by address (ladder/climb.js frameGrew).
+    const framed = newHost || (!!shape && await frameBecameCandidate(tab.id));
     if (!shape || (shape.fields + shape.textareas + shape.files < 2 && !framed)) continue;
     lookedAgain.add(key);
     started.delete(key);
+    if (framed && !newHost) await forgetKind(tab, null, 'a frame became a form-frame candidate');   // a kept answer for this page shape never saw the candidate
     let host = ''; try { host = new URL(live.url).hostname; } catch { /* no address */ }
     decide('fill', framed ? 'a frame appeared on a page judged without a form: looking again' : 'fields appeared on a page judged without a form: looking again', {host, fields: shape.fields + shape.textareas + shape.files, frames: shape.frames || 0, after: (i + 1) * 2});
     await arm(tab.id, 'fields appeared');

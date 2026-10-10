@@ -6,6 +6,7 @@
 //  2. A page without a form asks the digest at most once per tab and page, and never when the digest already answered (worker/test/ladder-climb.test.js).
 //  3. Only a tell_person answer is reported as told, with the page's own sentence; an email has its own report (worker/test/ladder-climb.test.js).
 //  4. The picture rung (4) is not offered to the router yet: it is wired for account pages only (lib/ladder/rung4-picture.js).
+//  5. A frame that becomes a form-frame candidate after the judgment makes the page be judged again, once; a candidate the judgment already carried never does (worker/test/ladder-climb.test.js).
 import {nextRung} from './core.js';
 
 const signals = new Map();   // tab id -> the last {rung, signal} the app answered with
@@ -74,6 +75,10 @@ export const frameSketch = list => (Array.isArray(list) ? list : []).map(({host,
 export const frameSrcOf = (tabId, index) => { const src = Number.isInteger(index) ? frames.get(tabId)?.[index]?.src : ''; return typeof src === 'string' && src.startsWith('https://') ? src : ''; };
 export const claimFrame = key => (opened.has(key) ? false : (opened.add(key), true));
 const lookFrames = tabId => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: () => window.__jobPilottoFrames?.frameCandidates?.()}).then(rows => rows?.[0]?.result).catch(() => undefined);
+// A frame that is a candidate NOW but was not in the list the judgment carried (Datadog, 11 Oct 2026: the hosted board's iframe is born 150 px high, below the finder's
+// size floor, and is 2432 px high 0.6 s later; its host was already counted, so the watch of a page judged without a form never looked again). By address, never by size.
+export const frameGrew = (tabId, now) => { const had = new Set((frames.get(tabId) || []).map(item => item.src)); return (Array.isArray(now) ? now : []).some(item => !had.has(item.src)); };
+export const frameBecameCandidate = async tabId => frameGrew(tabId, await framesOf(tabId));
 export async function framesOf(tabId) {
   let found = await lookFrames(tabId);
   if (!found) { await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: ['ladder/rung3-frames.js']}).catch(() => {}); found = await lookFrames(tabId); }

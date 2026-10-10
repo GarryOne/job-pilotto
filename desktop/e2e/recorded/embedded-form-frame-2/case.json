@@ -1,0 +1,72 @@
+{
+ "shape": "a posting whose embedded application frame is born small (the browser's default 150 px) and grows after the page was judged: the judgment saw no form-frame candidate, the frame became one later",
+ "why": "Datadog careers (Greenhouse behind its own site), 11 Oct 2026, pool: 'page kind: form/posting', 'closer look: wait (an embedded Greenhouse application frame is present and may still be loading)', 'watch ended: no form and no new frame'. In a bare browser the hosted board's iframe is created 650x150 and is 650x2432 about 0.6 s later; the frame finder's floor is 300x200, so the judgment listed no candidate, and the watch only looked for NEW frame hosts (this host was already counted), so nothing looked again. The page-kind AI names the frame only when the request lists it (the stub answers form_frame: 0 only then, as a real answer to an unasked question would hide the bug)",
+ "control": {
+  "build": "0.9.179",
+  "failed": "filled: #first_name"
+ },
+ "sample": "a careers page embedding job-boards.greenhouse.io/embed/job_app; the frame grows 150 -> 900 px after 8 s (structure measured 11 Oct 2026 with a bare Chromium; the frame address here has no query string or token)",
+ "pages": [
+  {
+   "url": "https://careers.example.com/detail/1",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://job-boards.example-ats.io/embed/job_app",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "byHost": {
+    "careers.example.com": [
+     {
+      "whenFilled": [
+       "frameCandidates"
+      ],
+      "answer": {
+       "ok": true,
+       "kind": "posting",
+       "role": "no-form",
+       "by": "ai",
+       "confidence": 0.6,
+       "form_frame": 0
+      }
+     },
+     {
+      "answer": {
+       "ok": true,
+       "kind": "posting",
+       "role": "no-form",
+       "by": "ai",
+       "confidence": 0.6,
+       "form_frame": -1
+      }
+     }
+    ],
+    "job-boards.example-ats.io": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.99,
+     "form_frame": -1
+    }
+   }
+  }
+ },
+ "expect": {
+  "filled": [
+   "#first_name",
+   "#email"
+  ],
+  "attached": [
+   "#resume"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 90
+ }
+}

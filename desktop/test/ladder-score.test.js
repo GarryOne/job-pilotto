@@ -17,6 +17,8 @@ test('a page-kind result becomes one outcome the ladder speaks in', () => {
   assert.equal(outcomeOf({kind: 'posting', applyBy: 'email', applyEmail: 'a@example.com'}), 'email');
   assert.equal(outcomeOf({kind: 'posting', applyBy: 'other'}), 'other');
   assert.equal(outcomeOf({kind: 'other'}), 'other');
+  assert.equal(outcomeOf({kind: 'posting', applyBy: 'form', formFrame: 0}), 'form_in_frame', 'a posting whose form the AI placed in a listed frame');
+  assert.equal(outcomeOf({kind: 'posting', applyBy: 'form', formFrame: -1}), 'posting');
   assert.equal(outcomeOf({error: 'unsure (0.4)', kind: 'form'}), 'unsure');   // today an unsure answer goes DOWN to the structure rule (spec gap 1)
   assert.equal(outcomeOf({error: 'no AI'}), 'unsure');
 });
