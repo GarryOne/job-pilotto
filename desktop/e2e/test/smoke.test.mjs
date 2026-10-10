@@ -54,6 +54,7 @@ test('the public site list holds only fixed job-feed postings: a profile\'s own 
   for (const shape of shapes) { assert.equal(shape.like, undefined, `${shape.shape}: a job-list query belongs in the local list`); assert.ok(shape.urls?.length, shape.shape); }
   const {LOCAL_SITES} = await import('../smoke.mjs');
   assert.ok(!LOCAL_SITES.includes('/desktop/e2e/'), 'the local list is outside the repo');
+  assert.ok(!/Job Pilotto\/smoke-sites/.test(LOCAL_SITES), 'and outside the app\'s folder, which a profile reset wipes');
 });
 
 test('rotation: 10 of 25 a night, every shape within 3 nights; a small pool runs whole', async () => {

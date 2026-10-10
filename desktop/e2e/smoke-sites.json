@@ -1,5 +1,5 @@
 {
- "about": "Layer 3, the nightly live smoke (e2e/smoke.mjs): one posting per shape per night. This file is PUBLIC: only postings from public job feeds (no profile's jobs). A Mac adds its own in the app's folder (~/Library/Application Support/Job Pilotto/smoke-sites.json, same shape: postings copied from the owner's profiles, so switching profile changes nothing; never in this repo); the runner merges both. A gone posting is reported, then replaced.",
+ "about": "Layer 3, the nightly live smoke (e2e/smoke.mjs): one posting per shape per night. This file is PUBLIC: only postings from public job feeds (no profile's jobs). A Mac adds its own in a QA folder the app never resets (~/Library/Application Support/Job Pilotto QA/smoke-sites.json, same shape: postings copied from the owner's profiles, so switching profile changes nothing; never in this repo); the runner merges both. A gone posting is reported, then replaced.",
  "shapes": [
   {
    "shape": "Workday: an account inside the system, multi-step",

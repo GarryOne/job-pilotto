@@ -2,7 +2,7 @@
 // Layer 3, the nightly live smoke (spec: docs/superpowers/specs/2026-10-10-applying-reliability-layers.md). For each shape of smoke-sites.json: one of the owner's
 // postings (read-only from the app's jobs.sqlite, rotating by day), run live through the e2e app with the real extension (the `npm run live` machinery,
 // headless, HELD: no account button, never Submit), read where it got to (lib/smoke.mjs parseLive), compare with the last report, and list the boards the
-// fleet digest flags as dropped (layer 4). Report: smoke-reports/<day>.json (not committed). Exit 1 when a shape reached less than last time.
+// fleet digest flags as dropped (layer 4). Report: <QA folder>/smoke-reports/<day>.json (outside the repo: it names real postings, and outlives worktrees). Exit 1 when a shape reached less than last time.
 // Usage: cd desktop/e2e && npm run smoke [-- --only <shape words> | --all] [SMOKE_PER_NIGHT=10] [SMOKE_SECONDS=90]: tonight's share of the pool (rotating), or
 // --all / --only. Each shape is compared with ITS last run, however many nights ago. It never schedules itself (the owner chooses).
 import {execFileSync, spawn} from 'node:child_process';
@@ -14,8 +14,9 @@ import {compare, lastSeen, parseLive, pickPosting, tonight} from './lib/smoke.mj
 import {hostOnly, upload} from './lib/applying-report.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const REPORTS = path.join(here, 'smoke-reports');
-export const LOCAL_SITES = process.env.SMOKE_SITES || path.join(os.homedir(), 'Library/Application Support/Job Pilotto/smoke-sites.json');   // never in the repo
+export const QA_DIR = path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA');   // survives profile resets and removed worktrees
+const REPORTS = process.env.SMOKE_REPORTS || path.join(QA_DIR, 'smoke-reports');
+export const LOCAL_SITES = process.env.SMOKE_SITES || path.join(QA_DIR, 'smoke-sites.json');   // never in the repo, nor in the app's folder (a profile reset wipes that: 10 Oct 2026)
 const JOBS_DB = path.join(os.homedir(), 'Library/Application Support/Job Pilotto/data/jobs.sqlite');
 
 export function postingsLike(likes, run = execFileSync) {
@@ -51,7 +52,7 @@ function droppedBoards() {
 async function main() {
   const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : '';
   const seconds = Number(process.env.SMOKE_SECONDS || 90);
-  // smoke-sites.json is public (job-feed postings only); this Mac's postings copied from the owner's profiles live outside the repo, in the app's folder.
+  // smoke-sites.json is public (job-feed postings only); this Mac's postings copied from the owner's profiles live outside the repo, in a QA folder the app never resets.
   const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')).shapes || []; } catch { return []; } };
   const shapes = [...read(path.join(here, 'smoke-sites.json')), ...read(LOCAL_SITES)];
   const day = new Date().toISOString().slice(0, 10), results = {};
