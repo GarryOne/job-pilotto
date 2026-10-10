@@ -6,7 +6,7 @@ import {NOT_CONNECTED} from './flow.js';
 import {NO_APP} from './flow.js';
 import {api} from './flow.js';
 import {autoRead} from './visit.js';
-import {consider} from './fill-flow.js';
+import {consider, forgetApplyTries} from './fill-flow.js';
 import {decide} from './log.js';
 import {ensureAlarm} from './report-alarm.js';
 import {fillKey} from './fill-flow.js';
@@ -90,6 +90,7 @@ export function createTabReport(ctx) {
   // A refresh the person pressed is a new document: its page is looked at again (one fill per document, not one per page for the life of the tab; owner, 9 Oct 2026).
   chrome.webNavigation.onCommitted.addListener(details => {
     if (details.frameId !== 0 || details.transitionType !== 'reload') return;
+    forgetApplyTries(details.tabId);
     for (const key of [...started]) if (key === details.tabId || (typeof key === 'string' && key.startsWith(`${details.tabId} `))) started.delete(key);
   });
   chrome.tabs.onRemoved.addListener(async tabId => {

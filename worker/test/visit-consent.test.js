@@ -81,6 +81,10 @@ test('the fill ends in a stuck report when nothing was filled and required field
 test('a refresh looks at the page again, and the popup has a permanent Apply for a tab the app opened', () => {
   const read = name => fs.readFileSync(new URL(`../../extension/${name}`, import.meta.url), 'utf8');
   assert.match(read('tab-report.js'), /onCommitted\.addListener\(details => \{\s*if \(details\.frameId !== 0 \|\| details\.transitionType !== 'reload'\) return;[\s\S]*started\.delete\(key\)/);
+  // The Apply press is tried again after a refresh (forgetApplyTries on reload), never after every press: a posting whose Apply opened the form in another tab
+  // must not press it a second time (beta e2e applycv on Windows, 10 Oct 2026: the second tab was not linked to the job, no kit).
+  assert.match(read('tab-report.js'), /transitionType !== 'reload'\) return;\s*forgetApplyTries\(details\.tabId\)/);
+  assert.doesNotMatch(read('fill-flow.js'), /noteRole\(tab\.id, tab\.url, role\); triedApply\.delete/);
   assert.match(read('popup.html'), /id="apply-here" hidden/);
   assert.match(read('popup.js'), /\$\('apply-here'\)\.hidden = false;[\s\S]*type: 'applyHere'/);
   const messages = read('messages-panel.js');

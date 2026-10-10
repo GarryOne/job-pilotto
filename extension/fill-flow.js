@@ -227,6 +227,8 @@ export async function stuck(job, host, why, tabId = null, page = '', needs = '',
   try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why, needs: String(needs || '').slice(0, 80), accountStep: String(accountStep || '').slice(0, 16), tab: tabId, session, page: String(page || '').split('#')[0]})}); } catch { /* the app is closed */ }
 }
 const triedApply = new Set();
+// A refresh the person pressed is a new document: its Apply may be pressed again (Deloitte, 10 Oct 2026: after ⌘R nothing happened). Not after every press: a posting whose Apply opened the form in another tab must not press it a second time (beta e2e applycv, Windows).
+export const forgetApplyTries = tabId => { for (const key of [...triedApply]) if (key.startsWith(`${tabId} `)) triedApply.delete(key); };
 export const fillKey = (tabId, url) => `${tabId} ${pageKey(url)}`;
 // A page judged "no form" while it had no field at all may still be drawing its form (a spinner first, or a sign-in that redirects to it:
 // SuccessFactors, 9 Oct 2026, where the form came after the judgment and neither the fill nor the panel ever came back). For 20 s it is read
@@ -349,7 +351,7 @@ export async function consider(tab, jobUrl) {
       const after = await formAfterPress(tab.id, tab.url);
       if (attempt.via) reportFlow(tab, null, {aliasUse: [{phrase: attempt.via, ok: after !== null}]});   // did a phrase from the service open the form?
       if (after === 'navigated') { started.delete(key); return; }   // the next page decides for itself (onUpdated)
-      if (after) { role = 'form'; await noteRole(tab.id, tab.url, role); triedApply.delete(key); }   // it opened the form: a refresh of this page starts from the chooser again and may press it again (Deloitte, 10 Oct 2026: after ⌘R nothing happened); a press that led nowhere stays tried
+      if (after) { role = 'form'; await noteRole(tab.id, tab.url, role); }
     }
   }
   // Self-correction: called a posting, but there was no Apply to press and the page has an application form's fields: it is the form.
