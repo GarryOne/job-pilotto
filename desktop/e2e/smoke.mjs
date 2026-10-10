@@ -11,6 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {compare, lastSeen, parseLive, pickPosting, tonight} from './lib/smoke.mjs';
+import {hostOnly, upload} from './lib/applying-report.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const REPORTS = path.join(here, 'smoke-reports');
@@ -78,6 +79,9 @@ async function main() {
   console.log(`smoke: ${regressions.length ? `REGRESSIONS: ${regressions.map(item => `${item.shape} (${item.why})`).join('; ')}` : 'no regression'}${previousFile ? ` vs ${previousFile}` : ' (first report)'}`);
   console.log(`smoke: fleet boards dropped: ${dropped == null ? 'not read' : dropped.length ? dropped.map(item => `${item.board} ${item.earlier}→${item.recent}`).join(', ') : 'none'}`);
   console.log(`smoke: report ${path.join(REPORTS, `${day}.json`)}`);
+  // /admin/applying: each site's host, step and counts (never the posting's address).
+  console.log(`smoke: ${await upload('smoke', Object.entries(results).map(([name, item]) => ({name, host: hostOnly(item.url), reached: item.reached, filled: item.filled, left: item.left,
+    note: item.note || '', regression: regressions.some(found => found.shape === name)})))}`);
   return regressions.length ? 1 : 0;
 }
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) process.exit(await main());

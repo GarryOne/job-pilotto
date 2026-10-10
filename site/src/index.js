@@ -13,6 +13,7 @@ import {ingest as jobCostIngest, spent as jobCostSpent, view as jobCostView} fro
 import {digestView, view as formLearningView} from './formlearning.js';
 import {adminPage, redirectOld} from './admin.js';
 import {reportFile as e2eReportFile, view as e2eView} from './e2e.js';
+import {view as applyingView} from './applying.js';
 import {view as sentryView} from './sentry.js';
 import {view as overviewView} from './overview.js';
 import {view as accessView} from './access.js';
@@ -109,7 +110,7 @@ export default {
     // The owner's admin pages (src/admin.js): one menu on all, the same key; never in public/, or they would be served to anyone.
     const admin = {'/admin': overviewView, '/admin/website': stats.stats, '/admin/app': telemetry.view, '/admin/insights': intelligenceView, '/admin/scouting': scoutingView,
       '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/form-filling': formLearningView, '/admin/feedback': feedbackView,
-      '/admin/access': accessView, '/admin/e2e': e2eView, '/admin/brain': brainView, '/admin/sentry': sentryView}[pathname];   // access: the super admin's only (src/access.js)
+      '/admin/access': accessView, '/admin/e2e': e2eView, '/admin/applying': applyingView, '/admin/brain': brainView, '/admin/sentry': sentryView}[pathname];   // access: the super admin's only (src/access.js)
     if (pathname.startsWith('/admin/e2e/trace/')) return e2eView(request, env);   // a trace file for the viewer (public/trace-viewer/)
     if (pathname.startsWith('/admin/e2e/run/')) return e2eView(request, env);   // a run's HTML report (the link on GitHub's Summary page)
     if (pathname.startsWith('/admin/e2e/report/')) return e2eReportFile(request, env);   // its files: a signed address, no cookie needed (src/e2e.js)
