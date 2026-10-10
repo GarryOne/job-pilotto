@@ -19,7 +19,7 @@ import {accountOutcome, accountStep} from './account-step.js';
 import {applyPressed} from './tabs.js';
 import {bindSession, identityOf, sessionOf} from './tab-identity.js';
 import {NAMED_BUTTONS, pageKey, pageRole, pickApplyButton, pickNamedButton} from './tab-pages.js';
-import {behindAStep, clickTrace, whyNotPressed} from './ladder/press-why.js';
+import {behindAStep, clickTrace, modalTrace, whyNotPressed} from './ladder/press-why.js';
 import {forgetRouteTries, startRoute} from './start-route.js';
 import {emailReport, mailsOf} from './ladder/outcomes.js';
 import {candidatesOf, claimFrame, climbOnStall, frameBecameCandidate, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, noteSignal, otherReport, toldReport, verifiedBody} from './ladder/climb.js';
@@ -95,8 +95,8 @@ function pageSketchOf(tabId) {
       .filter(el => !['submit', 'button', 'reset', 'image'].includes(el.type))
       .map(el => ({type: el.tagName === 'INPUT' ? el.type : el.tagName.toLowerCase(), label: labelOf(el).slice(0, 80), required: !!el.required || el.getAttribute('aria-required') === 'true'}));
     // An open modal dialog (a start step over the posting: jobs.ch "Create an account to apply faster", 11 Oct 2026) sits last in the DOM, behind the page's own navigation, so the 20-button cap cut it off and
-    // the AI never saw its routes. What a person can act on is the dialog: its buttons and headings come first (found by structure only; the AI still decides what they mean). Order only: the list is the same.
-    const modalFirst = els => { const inModal = el => !!el.closest?.('dialog[open], [role=dialog], [role=alertdialog], [aria-modal=true]'); return [...els.filter(inModal), ...els.filter(el => !inModal(el))]; };
+    // the AI never saw its routes. What a person can act on is the dialog: its buttons and headings come first (found by structure only: a dialog the page shows, with or without the `open` attribute (jobs.ch shows its <dialog> by CSS, no `open`; its buttons are only listed when shown, so a closed one adds nothing); the AI still decides what they mean). Order only: the list is the same.
+    const modalFirst = els => { const inModal = el => !!el.closest?.('dialog, [role=dialog], [role=alertdialog], [aria-modal=true]'); return [...els.filter(inModal), ...els.filter(el => !inModal(el))]; };
     const buttons = modalFirst(all('button, input[type=submit], [role=button], a').filter(shown))
       .map(el => (el.tagName === 'INPUT' ? el.value : text(el))).filter(words => words && words.length <= 40);
     // The hosts of visible frames (a check drawn in a frame): the AI decides what they are (desktop/lib/page-kind.js bot_check).
@@ -123,6 +123,7 @@ export async function askKind(tab, {fresh = false, digest = false} = {}) {   // 
   const askedAt = Date.now();   // the three ways this returns null with no word from the app are logged below (Hornbach 0.9.176: null after 2.1 s, nothing said which)
   const sketch = await pageSketchOf(tab.id);
   if (!sketch) { decide('fill', 'page kind not asked: the page could not be sketched', {ms: Date.now() - askedAt, digest}); return null; }
+  if (fresh || digest) decide('fill', 'page sketched for a second look', {fresh, digest, buttons: sketch.buttons?.length ?? 0, modal: await modalTrace(tab.id)});   // the dialogs the page shows now (counts)
   const frameList = await framesOf(tab.id); noteFrames(tab.id, frameList); sketch.frameCandidates = frameSketch(frameList);   // the addresses stay in the extension (ladder/climb.js)
   sketch.mails = await mailsOf(tab.id);   // the sentences and mailto links that carry an address (ladder/outcomes.js)
   try {

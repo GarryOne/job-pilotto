@@ -29,3 +29,12 @@ export async function clickTrace(tabId) {
   const tabs = await chrome.tabs.query({currentWindow: true}).then(list => list.length).catch(() => -1);
   return {opens: read ? read.calls : -1, openMs: read ? read.firstMs : -1, tabs};
 }
+
+// What dialogs the page shows right now (counts only), logged with a fresh or digest ask so "the AI never saw the modal" can be told from "no modal was open yet" (jobs.ch, 11 Oct 2026: the log could not say).
+// A closed script like pageSketchOf: no arguments. Never throws.
+export async function modalTrace(tabId) {
+  return chrome.scripting.executeScript({target: {tabId}, func: () => {
+    const found = [...document.querySelectorAll('dialog, [role=dialog], [role=alertdialog], [aria-modal=true]')], shown = found.filter(el => el.getClientRects().length > 0);
+    return {dialogs: found.length, shown: shown.length, buttons: shown.reduce((sum, el) => sum + el.querySelectorAll('button, [role=button], a').length, 0)};
+  }}).then(rows => rows?.[0]?.result || null).catch(() => null);
+}
