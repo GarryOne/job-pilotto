@@ -258,6 +258,13 @@ Why: in 8 days `extension/background.js` took 48 commits and `fill-flow.js` 29, 
 - **Read the file's "Invariants:" block first** (the top of each flow-core file). Changing an invariant is the owner's call: say so in the commit.
   A new invariant gets its test in the same change (`desktop/test/flow-invariants.test.js` fails on a core file without the block, or one naming a missing test).
 - **A live bug becomes a scenario first** in `desktop/test/journeys.test.js` (it must fail on the old code), then the fix; the journey gate runs them on every push.
+- **Never fix the same website twice: four layers** (owner, 10 Oct 2026; spec `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md`):
+  1. journey scenarios (`desktop/test/journeys.test.js`, every flow push); 2. **recorded pages** (`desktop/e2e/recorded/<shape>-<n>/`, `npm run recorded` in
+  `desktop/e2e`, replayed by the journey gate when the extension changes): a fixed site's pages, captured from the twin with
+  `npm run twin:drive -- capture <tab> <case> <page> <your worktree>/desktop/e2e/recorded` (scrubbed; `desktop/test/recorded-privacy.test.js` keeps personal data
+  out of this public repo), named by shape, seen failing on the old build (`REAL_EXTENSION_DIR`); 3. the nightly live smoke; 4. per-board drops in the digest
+  (`/admin/form-filling/digest.json`, `boards[].dropped`). **A push changing how the extension acts on pages must add a recorded page, a scenario or a fill
+  replay, or say `Recorded-unneeded: <why>` in a commit** (`tools/recorded-cases.mjs`, push hook).
 - **One owner per state:** where an application stands is `desktop/lib/application-journey.js` (app) and `extension/tab-identity.js` (which application a tab is);
   never a new field or storage key for it elsewhere.
 

@@ -69,6 +69,11 @@ forgotten` in the log).
 | Start-up "Checking…", then "Chrome isn't reporting" | no stale state while unknown; Open Chrome when the extension is silent | `renderer/session-state.js` checkingTabs/chromeSilent | `session-state.test.js` |
 | Never submits, never contacts another host | across every step above | the whole suite | e2e: through all of it |
 
+## Never fix the same website twice (10 Oct 2026)
+Four layers keep a fix fixed (spec `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md`): journey scenarios (`desktop/test/journeys.test.js`), recorded pages
+(`desktop/e2e/recorded/`, captured from the twin, replayed offline with the real extension), the nightly live smoke, and per-board drops in the digest. A push that
+changes how the extension acts on pages brings its case (`tools/recorded-cases.mjs`).
+
 ## Changing a flow
 
 1. Find its row above. If the scenario is new, add a row here **and** in `desktop/e2e/flows.mjs` `MATRIX`, with an e2e step or unit test that fails before your change.

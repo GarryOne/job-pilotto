@@ -671,6 +671,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/prune-releases.sh` — Keep the release list short: every stable release stays, and only the newest few test builds (pre-releases), plus each platform's newest beta.
 - `tools/publish-starter.sh` — Publishes templates/github-actions to the public starter template repo (GarryOne/job-pilotto-starter),
 - `tools/py-shards.py` — Run the Python unit tests in parallel shards (one `unittest` process per shard); guarded by tests/test_py_shards.py.
+- `tools/recorded-cases.mjs` — Pre-push check (tools/pre-push-check.sh), owner 10 Oct 2026: "never fix the same website twice". A push that changes how the extension acts on a page
 - `tools/release-checks.sh` — The release checks every platform's beta approval shares (e2e.yml promote for Mac/Linux, e2e-windows.yml approve-windows): the unit suites are green on the
 - `tools/release-stable.sh` — Promote a desktop build to the stable release: friends' apps offer it as an update ("Update to …" in the menu),
 - `tools/score_eval.py` — What would a cheaper fit-scoring setup cost in QUALITY? Measured, not guessed.

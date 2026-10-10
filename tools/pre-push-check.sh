@@ -142,6 +142,11 @@ if command -v node >/dev/null && [ -f "$repo/tools/journey-gate.mjs" ] && git -C
   journeys="$(cd "$repo" && node tools/journey-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $journeys" >&2; exit 2; }
   [ -n "$journeys" ] && echo "$journeys" >&2
 fi
+# Never fix the same website twice (owner, 10 Oct 2026): a push changing how the extension acts on pages brings its recorded page (desktop/e2e/recorded) or
+# journey scenario, or a commit says "Recorded-unneeded: <why>" (tools/recorded-cases.mjs).
+if command -v node >/dev/null && [ -f "$repo/tools/recorded-cases.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
+  cases="$(cd "$repo" && node tools/recorded-cases.mjs --base origin/main 2>&1)" || { echo "Push blocked: $cases" >&2; exit 2; }
+fi
 # The Applying scenario matrix is not a push gate any more (owner, 9 Oct 2026): its steps run with every other e2e on CI (apply, applycv: schedule and beta gate);
 # `cd desktop && npm run flows` stays an on-demand check. (8 Oct-9 Oct it blocked pushes that touched FLOW_CORE: one recorded catch in 186 commits, 28 skips.)
 # A push that changes an e2e suite names the open failed-step issues of that suite (6 Oct 2026: #310 and #315 were fixed in the test by commits that never named them,
