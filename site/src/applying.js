@@ -108,11 +108,11 @@ export const PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 *{box-sizing:border-box}.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:14px 0}
 .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}.tile b{display:block;font-size:26px}.tile span{color:var(--muted);font-size:12px}
 .tile.bad b{color:var(--red)}.tile.good b{color:var(--green)}section{margin:22px 0}table{width:100%;border-collapse:collapse}
-th{text-align:left;color:var(--muted);font-weight:500;font-size:12px}td,th{padding:7px 8px 7px 0;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
+th{text-align:left;color:var(--muted);font-weight:500;font-size:12px;white-space:nowrap}td,th{padding:7px 8px 7px 0;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
 .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;color:#0b0d10}
 .s-none{background:var(--muted)}.s-posting{background:var(--red)}.s-account{background:var(--amber)}.s-code\\/bot{background:var(--violet)}.s-form{background:var(--blue)}.s-ready{background:var(--green)}
 .dots{white-space:nowrap}.dots i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px}
-.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0}.chip{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:3px 11px;font:inherit;font-size:12px;cursor:pointer}.chip.on{border-color:var(--amber);color:var(--amber)}
+.filters{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;margin:10px 0 6px;font-size:13px}.pick{display:flex;gap:8px;align-items:center}.pick select{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit;font-size:13px;max-width:100%}.chip{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:3px 11px;font:inherit;font-size:12px;cursor:pointer}.chip.on{border-color:var(--amber);color:var(--amber)}
 .flag{color:var(--red);font-weight:600}.muted{color:var(--muted)}.bars{display:flex;gap:6px;align-items:flex-end;height:110px;margin-top:8px}
 .bar{display:flex;flex-direction:column-reverse;width:26px}.bar i{display:block}.bar small{color:var(--muted);font-size:10px;text-align:center}
 </style></head><body><main>
@@ -138,12 +138,11 @@ fetch('?json').then(r => r.json()).then(d => {
   const dots = list => el('span', {className: 'dots'}, ...list.map(step => el('i', {title: step, style: 'background:' + (typeof step === 'number' ? (step ? 'var(--green)' : 'var(--red)') : color(step))})));
   // The pool: every smoke site, also one never run; filters by platform and by flow combine.
   const chosen = {platform: null, flow: null}, table = el('div'), bars = {};
-  const chips = (key, list, label) => { const bar = el('div', {className: 'chips'}); bars[key] = bar;
-    bar.append(el('span', {className: 'muted', textContent: label}), ...list.map(item => { const chip = el('button', {className: 'chip', type: 'button', title: item.name,
-      textContent: item.name + ' ' + item.sites + ' site' + (item.sites === 1 ? '' : 's') + (key === 'platform' ? ' · ' + item.flows + ' flow' + (item.flows === 1 ? '' : 's') : '')});
-      chip.onclick = () => { chosen[key] = chosen[key] === item.name ? null : item.name; chip.parentNode.querySelectorAll('.chip').forEach(node => node.classList.toggle('on', node === chip && chosen[key] != null)); draw(); }; return chip; }));
-    return bar; };
-  const draw = () => { const rows = d.pool.filter(s => (!chosen.platform || s.platform === chosen.platform) && (!chosen.flow || s.flow === chosen.flow)); table.textContent = '';
+  const pick = (key, list, label, all) => el('label', {className: 'pick'}, el('span', {className: 'muted', textContent: label}), Object.assign(el('select', {onchange: event => { chosen[key] = event.target.value || null; draw(); }},
+    el('option', {value: '', textContent: all}), ...list.map(item => el('option', {value: item.name, textContent: item.name + ' · ' + item.sites + (item.sites === 1 ? ' site' : ' sites') + (key === 'platform' ? ' · ' + item.flows + (item.flows === 1 ? ' flow' : ' flows') : '')})), ), {}));
+  const count = el('span', {className: 'muted'}), clear = el('button', {className: 'chip', type: 'button', textContent: 'Clear', hidden: true, onclick: () => { chosen.platform = chosen.flow = null; filters.querySelectorAll('select').forEach(node => { node.value = ''; }); draw(); }});
+  const filters = el('div', {className: 'filters'}, pick('platform', d.platforms, 'Platform', 'All platforms · ' + d.pool.length + ' sites'), pick('flow', d.flows, 'Flow', 'All flows'), count, clear);
+  const draw = () => { const rows = d.pool.filter(s => (!chosen.platform || s.platform === chosen.platform) && (!chosen.flow || s.flow === chosen.flow)); table.textContent = ''; count.textContent = 'Showing ' + rows.length + ' of ' + d.pool.length; clear.hidden = !chosen.platform && !chosen.flow;
     table.append(rows.length ? el('table', {},
       el('tr', {}, ...['Site', 'Platform', 'Flow it tests', 'Starts → ends on', 'Last reached', 'Last 10 runs'].map(h => el('th', {textContent: h}))),
       ...rows.map(s => el('tr', {}, el('td', {}, s.name, s.regression ? el('div', {className: 'flag', textContent: 'regression'}) : null, s.note ? el('div', {className: 'muted', textContent: s.note}) : null),
@@ -151,7 +150,7 @@ fetch('?json').then(r => r.json()).then(d => {
         el('td', {className: 'muted', textContent: (s.start || '…') + (s.end && s.end !== s.start ? ' → ' + s.end : '')}),
         el('td', {}, s.reached ? pill(s.reached) : el('span', {className: 'muted', textContent: '—'}), s.day ? el('div', {className: 'muted', textContent: s.day}) : null),
         el('td', {}, s.history.length ? dots(s.history) : el('span', {className: 'muted', textContent: '—'}))))) : el('p', {className: 'muted', textContent: 'No site matches.'})); };
-  app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, chips('platform', d.platforms, 'Platform'), chips('flow', d.flows, 'Flow'), table)
+  app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table)
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
   app.append(el('section', {}, el('h2', {textContent: 'Recorded pages · every fixed site, replayed'}), d.cases.length ? el('table', {},
     el('tr', {}, ...['Case', 'Result', 'Last 10 runs', 'Last run', 'Since'].map(h => el('th', {textContent: h}))),
