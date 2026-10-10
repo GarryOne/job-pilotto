@@ -1,6 +1,9 @@
 {
  "shape": "a posting with two Apply links, one that needs an account and one that does not (Hornbach: \"Jetzt bewerben (ohne Anmeldung)\" / \"(mit Anmeldung)\")",
  "why": "10 Oct 2026, the pool: Hornbach's SuccessFactors posting offers two Apply routes; rung 2 names the one without an account (apply_button + apply_route manual + apply_button_kind apply, the real answer recorded on the plan path: desktop/e2e/ladder-fixtures/hornbach-successfactors.json) and the digest is not asked. The extension must press that link, never the sign-in one, and reach the form",
+ "control": {
+  "guard": "landed before the control rule (10 Oct 2026); a new case names the older build it failed on"
+ },
  "sample": "jobs.hornbach.com posting (shape reconstructed by hand from the captured sketch; hosts, text and the contact address are invented)",
  "rung": 2,
  "pages": [

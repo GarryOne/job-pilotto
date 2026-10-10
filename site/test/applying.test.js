@@ -192,3 +192,14 @@ test('Needs a fix is ordered worst first: a regression, then the most used platf
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'regression first, then the big platform by its earliest stop (posting, account, then the form), then the small site');
   assert.ok(section.includes('54%'), 'the platform use is shown');
 });
+
+test('the owner can delete one run row (a case that should never have been sent): by kind, name and day; a missing name or an unknown kind removes nothing', async () => {
+  const {forget} = await import('../src/applying.js');
+  const db = d1();
+  await ingest(db, {kind: 'recorded', day: '2026-10-12', rows: [{name: 'bad-case-1', ok: true}, {name: 'good-case-1', ok: true}]}, now);
+  assert.deepEqual(await forget(db, {kind: 'recorded', day: '2026-10-12'}), {ok: false, error: 'kind, day and name are needed'});
+  assert.equal((await forget(db, {kind: 'running', day: '2026-10-12', name: 'bad-case-1'})).ok, false);
+  assert.equal(db.db.prepare('SELECT count(*) AS n FROM applying_runs').get().n, 2);
+  assert.deepEqual(await forget(db, {kind: 'recorded', day: '2026-10-12', name: 'bad-case-1'}), {ok: true, removed: 1});
+  assert.deepEqual(db.db.prepare('SELECT name FROM applying_runs').all().map(row => row.name), ['good-case-1']);
+});

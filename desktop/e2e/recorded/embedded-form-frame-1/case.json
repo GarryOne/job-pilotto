@@ -1,6 +1,9 @@
 {
  "shape": "a posting page that shows no form of its own and embeds the applicant form from another site in one big iframe (careers pages over a hosted job board)",
  "why": "Datadog careers (Greenhouse behind its own site), 10 Oct 2026, pool: page-kind posting 0.6, 'no form on this page', frames: true, nothing pressed. The fill only runs in the top frame, so the form in the frame was never seen. The page-kind AI names the frame (form_frame: an index into the page's frame candidates); the extension opens that frame's own address as the application page",
+ "control": {
+  "guard": "landed before the control rule (10 Oct 2026); a new case names the older build it failed on"
+ },
  "sample": "a careers page embedding job-boards.greenhouse.io/embed/job_app (structure recorded 10 Oct 2026; the frame address here has no query string or token)",
  "pages": [
   {

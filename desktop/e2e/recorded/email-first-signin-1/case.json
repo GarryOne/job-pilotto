@@ -1,6 +1,9 @@
 {
  "shape": "email-first sign-in: one email box and Continue, a 'Create an account' link, social sign-in buttons",
  "why": "jobs.ch, 10 Oct 2026: the account step of the Deloitte sessions; captured from the twin with twin:drive capture",
+ "control": {
+  "guard": "landed before the control rule (10 Oct 2026); a new case names the older build it failed on"
+ },
  "rung": 2,
  "sample": "auth.jobs.ch",
  "pages": [

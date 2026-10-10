@@ -17,6 +17,26 @@ export function ownerKey(key) {
   try { return execFileSync('security', ['find-generic-password', '-s', 'job-pilotto.site.api_key', '-w'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim(); } catch { return ''; }
 }
 
+// A recorded case uploads only with its control (owner, 10 Oct 2026: a case that passed on the old build reached /admin/applying as a pass). case.json `control` is
+// {build: <the older extension version it was seen failing on>, failed: <the check that failed>}, or {guard: <why it cannot fail on an old build>}. -> '' or why not.
+const parts = text => (/^\d+(\.\d+)*$/.test(text || '') ? text.split('.').map(Number) : null);
+const older = (a, b) => { for (let i = 0; i < Math.max(a.length, b.length); i++) { if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) < (b[i] || 0); } return false; };
+export function controlProblem(item, current) {
+  const control = item.control || {};
+  if (typeof control.guard === 'string' && control.guard.trim()) return '';
+  if (!control.build && !control.failed) return 'no control (case.json "control": {build, failed} seen on an older build, or {guard})';
+  const build = parts(control.build), now = parts(current);
+  if (!build) return 'control.build is not an extension version';
+  if (!control.failed) return 'control has no failed check';
+  return now && older(build, now) ? '' : `control.build ${control.build} is not older than this build ${current}`;
+}
+// The rows to send and the cases held back: {rows, held: [{name, why}]}.
+export function uploadable(results, current) {
+  const held = [], rows = [];
+  for (const result of results) { const why = controlProblem(result, current); if (why) held.push({name: result.name, why}); else rows.push(result); }
+  return {rows, held};
+}
+
 // -> a one-line outcome, for the run's own output.
 export async function upload(kind, rows, {env = process.env, key, fetcher = fetch, day = new Date().toISOString().slice(0, 10)} = {}) {
   const why = skipReason(env);

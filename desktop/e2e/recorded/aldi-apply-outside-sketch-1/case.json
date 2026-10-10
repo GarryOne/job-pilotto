@@ -1,6 +1,9 @@
 {
  "shape": "a posting whose Apply control is not among the first 20 buttons the sketch keeps (25 navigation links come first): rung 2 names no button, the numbered digest finds it",
  "why": "10 Oct 2026, the pool: Aldi Suisse's posting; its Apply control is outside the sketch's 20 buttons (rung 2: posting, no button, confident 0.70: the real stored answer of ladder-fixtures/aldi-suisse.json). The shared Apply phrases find \"Postuler\" themselves, so the extension presses it and reaches the form. PASSES on the landed build 1b24715 and on ai-ladder: a guard. (Its first version failed only because the stub app did not answer /extension/answer: the form's French labels are open questions, `{}` reads as not eligible with no note, and ineligibleNote(undefined) threw \"Value is unserializable\".)",
+ "control": {
+  "guard": "landed before the control rule (10 Oct 2026); a new case names the older build it failed on"
+ },
  "sample": "www.jobs.aldi.ch posting (shape reconstructed by hand from the captured sketch and candidates; hosts and text invented)",
  "rung": 3,
  "pages": [

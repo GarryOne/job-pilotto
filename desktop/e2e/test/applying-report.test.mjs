@@ -43,3 +43,28 @@ test('the running ping: a site starts or ends its run, sent as fixed words and t
   assert.equal(sent, null);   // nothing leaves from CI
   await ping('Lever form', 'start', {env: {}, key: 'K', fetcher: async () => { throw new Error('offline'); }});   // must not throw
 });
+
+// A recorded case is uploaded only with its control (10 Oct 2026: a case that passed on the old build reached /admin/applying as a pass): `control: {build, failed}` names the
+// older extension version it was seen failing on and the check that failed, or `control: {guard}` says why it cannot fail on an old build. No control, nothing uploads.
+test('a recorded case uploads only with a control seen on an older build, or a stated guard', async () => {
+  const {controlProblem, uploadable} = await import('../lib/applying-report.mjs');
+  assert.match(controlProblem({name: 'a'}, '0.9.179'), /no control/);
+  assert.match(controlProblem({name: 'a', control: {build: '0.9.179', failed: 'x'}}, '0.9.179'), /older/);
+  assert.match(controlProblem({name: 'a', control: {build: '0.9.180', failed: 'x'}}, '0.9.179'), /older/);
+  assert.match(controlProblem({name: 'a', control: {build: '0.9.178'}}, '0.9.179'), /failed check/);
+  assert.match(controlProblem({name: 'a', control: {build: 'old', failed: 'x'}}, '0.9.179'), /version/);
+  assert.match(controlProblem({name: 'a', control: {guard: ''}}, '0.9.179'), /no control/);
+  assert.equal(controlProblem({name: 'a', control: {build: '0.9.99', failed: 'pressed #apply'}}, '0.9.179'), '');
+  assert.equal(controlProblem({name: 'a', control: {build: '0.9.178', failed: 'x'}}, '0.10.0'), '');   // 0.9.99 < 0.10.0: numbers, not text
+  assert.equal(controlProblem({name: 'a', control: {guard: 'a guard: it passes on every build'}}, '0.9.179'), '');
+  const {rows, held} = uploadable([{name: 'good', ok: true, control: {guard: 'g'}}, {name: 'bad', ok: true}, {name: 'weak', ok: true, control: {build: '0.9.179', failed: 'x'}}], '0.9.179');
+  assert.deepEqual(rows.map(row => row.name), ['good']);
+  assert.deepEqual(held.map(one => one.name), ['bad', 'weak']);
+});
+
+test('every recorded case in the repo already carries a control (the rule is not skipped for the old ones)', async () => {
+  const {controlProblem, extensionVersion} = await import('../lib/applying-report.mjs');
+  const {loadCases} = await import('../lib/page-replay.mjs');
+  const bad = loadCases().map(item => [item.name, controlProblem(item, extensionVersion())]).filter(([, why]) => why);
+  assert.deepEqual(bad, []);
+});

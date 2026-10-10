@@ -1,6 +1,9 @@
 {
  "shape": "a posting that asks for the application by email (address in the text and in a mailto link), no Apply button, no form",
  "why": "10 Oct 2026, owner: postings applied to by email; today the app said \"can't reach the form\" and the address was lost. The extension reports the address; nothing is sent or opened. Guard for the apply_by outcome (docs/superpowers/specs/2026-10-10-non-form-outcomes.md). It also asserts the sketch sent to the app carries the address sentence (the app endpoint only forwards what the extension sends)",
+ "control": {
+  "guard": "landed before the control rule (10 Oct 2026); a new case names the older build it failed on"
+ },
  "rung": 2,
  "sample": "a German employer posting (constructed from the shape; AI answer taken from a real run on the plan path, 10 Oct 2026)",
  "pages": [

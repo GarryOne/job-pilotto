@@ -1,6 +1,9 @@
 {
  "shape": "a start dialog offering manual / reuse a previous application / sign in with a third-party account (Workday 'Start Your Application')",
  "why": "richemont.wd3.myworkdayjobs.com, 10 Oct 2026: Apply opened the dialog and the extension stopped there; the same dialog is on every Workday tenant. Only the manual route is pressed; LinkedIn and the like never",
+ "control": {
+  "guard": "landed before the control rule (10 Oct 2026); a new case names the older build it failed on"
+ },
  "rung": 2,
  "sample": "richemont.wd3.myworkdayjobs.com posting (shape recorded by hand from the live page)",
  "pages": [

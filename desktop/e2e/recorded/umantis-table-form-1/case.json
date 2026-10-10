@@ -1,6 +1,9 @@
 {
  "shape": "a table form whose required marks read \"Label*:\" (a star, then a colon) and whose radio group is named by a text cell in its row, no fieldset (Haufe umantis, German)",
  "why": "Migros on umantis (recruitingapp-662), 10 Oct 2026 (0.9.173): six questions were marked \"Anrede*:\", \"Vorname*:\"... and the panel said 'No required fields' while Anrede stayed empty: every reader looked for a \"*\" at the very end of the label, and a radio group with no fieldset had no question. One required-mark rule (page/required-mark.js) and a row title now name them",
+ "control": {
+  "guard": "landed before the control rule (10 Oct 2026); a new case names the older build it failed on"
+ },
  "sample": "recruitingapp-662.umantis.com application step 1 (structure recorded 10 Oct 2026 from the screenshot, values removed)",
  "pages": [
   {

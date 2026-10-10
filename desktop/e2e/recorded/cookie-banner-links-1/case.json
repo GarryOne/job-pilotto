@@ -1,6 +1,9 @@
 {
  "shape": "a cookie banner with links beside its close button (the AI names a link)",
  "why": "jobs.ch, 10 Oct 2026: the kept pick was the 'Cookie notice' link; it opened a tab per page, each with the same banner: a loop of tabs (fixed fdd9638)",
+ "control": {
+  "guard": "landed before the control rule (10 Oct 2026); a new case names the older build it failed on"
+ },
  "rung": 3,
  "sample": "www.jobs.ch posting (shape recorded by hand from the live page)",
  "pages": [

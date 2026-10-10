@@ -1,6 +1,7 @@
 {
  "shape": "a posting with an Apply button that opens no form (the page only tells the candidate how to apply, here by post): the press leads nowhere, then the numbered digest says what the page asks",
  "why": "10 Oct 2026, the ladder, Aldi Suisse: the extension pressed Postuler, nothing came, and the person got \"can't reach the form\" with no word on what the press did. Now the press is logged (\"after the press: no form came\") and a page with no form after the press asks the digest once and reports the page's own sentence. The stub answers rung 2 confident with the Apply button, and the digest request with a tell_person answer, as the real digest prompt does on this shape (plan path, ladder fixtures)",
+ "control": {"guard": "landed before the control rule (10 Oct 2026); a new case names the older build it failed on"},
  "sample": "a French employer posting (constructed from the shape)",
  "rung": 3,
  "pages": [

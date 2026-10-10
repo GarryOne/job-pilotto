@@ -120,9 +120,22 @@ async function poolRows(db, sites, now) {
   }).sort((a, b) => Number(b.running) - Number(a.running) || a.platform.localeCompare(b.platform) || a.name.localeCompare(b.name));
 }
 
+// The owner removes one uploaded run (a case that should never have been sent): DELETE with {kind: 'recorded'|'smoke', day, name}. Nothing else is deleted.
+export async function forget(db, body) {
+  const kind = body?.kind, day = text(body?.day, 10), name = text(body?.name, 200);
+  if (!kind || !day || !name) return {ok: false, error: 'kind, day and name are needed'};
+  if (!['recorded', 'smoke'].includes(kind)) return {ok: false, error: 'kind must be recorded or smoke'};
+  const done = await db.prepare('DELETE FROM applying_runs WHERE kind = ? AND day = ? AND name = ?').bind(kind, day, name).run();
+  return {ok: true, removed: done?.meta?.changes ?? done?.changes ?? 0};
+}
+
 export async function view(request, env, now = new Date()) {
   if (!await viewer(request, env) || !env.STATS) return new Response('Not found', {status: 404});
   const noStore = {'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'};
+  if (request.method === 'DELETE') {
+    const result = await forget(env.STATS, await request.json().catch(() => null));
+    return Response.json(result, {status: result.ok ? 200 : 400, headers: noStore});
+  }
   if (request.method === 'POST') {
     const body = await request.json().catch(() => null);
     const result = await ingest(env.STATS, body, now);

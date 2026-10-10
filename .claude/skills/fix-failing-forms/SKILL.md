@@ -59,7 +59,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
    the owner runs; otherwise record the page from the harness run's DOM, scrubbed: no values, no scripts, no query strings, no personal data;
    `desktop/test/recorded-privacy.test.js`). **Its AI answers must be what the real AI answered in the failing run** (from the log / decisions), **and only to what the extension asked** (the `asked` check reads the /extension/answer request's fields; a stub that answers an unasked question lets the old build pass), never an answer
    written by hand to make the case pass (10 Oct 2026: `workday-start-dialog-1` was given `applyButton: "Apply Manually"` by hand, the live AI answered "Apply").
-2. Run `cd desktop/e2e && npm run recorded` against the build from before the fix (`REAL_EXTENSION_DIR=<that build's extension/>`): it **must fail**; then on the fix: pass.
+2. Run `cd desktop/e2e && npm run recorded` against the build from before the fix (`REAL_EXTENSION_DIR=<that build's extension/>`): it **must fail**; then on the fix: pass. Write what you saw into the case: `"control": {"build": "<the older extension version it failed on>", "failed": "<the failing check>"}` in its case.json; without it (or `{"guard": "<why it cannot fail on an old build>"}`) the run uploads no row to /admin/applying.
    Also a journey scenario in `desktop/test/journeys.test.js` when the logic of the flow changes (failing first).
 3. Fix the root cause through the shared mechanism for the whole class; every sibling in the class in the same change. File size <= 500 lines.
 4. After a fix to form filling, also `cd desktop/e2e && npm run real-extension` (isolated; positive control with `REAL_EXTENSION_DIR`).

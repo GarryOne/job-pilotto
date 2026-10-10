@@ -1,6 +1,9 @@
 {
  "shape": "a step that offers ways to give the CV, each revealing its own part (upload / paste / later)",
  "why": "Deloitte, 9-10 Oct 2026: the CV must go into the hidden file input, the paste way never opened",
+ "control": {
+  "guard": "landed before the control rule (10 Oct 2026); a new case names the older build it failed on"
+ },
  "rung": 2,
  "sample": "apply.deloitte.ch application methods (shape recorded by hand)",
  "pages": [
