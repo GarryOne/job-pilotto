@@ -39,6 +39,12 @@ class AffectedTests(unittest.TestCase):
         self.assertTrue(scanners)
         self.assertLessEqual(scanners, picked)              # they read the whole tree: any change can break them
 
+    def test_an_extension_change_selects_the_guards_that_scan_the_tree_through_an_imported_module(self):
+        # 10 Oct 2026: 73ebe2b changed extension/ only; the version and page-words guards read the tree through scripts/extension-fingerprint.mjs and
+        # tools/hardcoded-page-words.mjs (their own text has no scan call), were not picked, and main went red.
+        picked = set(affected.select(['extension/fill-flow.js'])['desktop'])
+        self.assertLessEqual({'test/extension-version.test.js', 'test/hardcoded-page-words.test.js'}, picked)
+
     def test_a_worker_change_runs_worker_tests_only(self):
         got = affected.select(['worker/src/report.js'])
         self.assertTrue(got['worker'])

@@ -87,6 +87,12 @@ def py_graph():
     return edges
 
 
+def is_tree_reader(f):
+    """A module a guard test imports to read the repo (scripts/, tools/, test helpers). App code under lib/ scans the user's data folders, not the repo."""
+    parts = f.relative_to(ROOT).parts if f.is_relative_to(ROOT) else ()
+    return bool(parts) and ('scripts' in parts or 'tools' in parts or 'test' in parts or 'e2e' in parts)
+
+
 def closure(start, edges):
     seen, stack = set(), [start]
     while stack:
@@ -178,11 +184,12 @@ def select(changed, base_ref=None):
         graph = graph or js_graph()
         changed_js = {(ROOT / f).resolve() for f in relevant}
         tests = sorted((ROOT / folder).glob('*.test.*')) if (ROOT / folder).is_dir() else []
-        picked = []
+        picked, scans = [], {}   # scans: file -> does its text scan the tree (a guard may scan through a module it imports, 10 Oct 2026)
         for t in tests:
             text = read(t)
             reach = closure(t.resolve(), graph)
-            if (reach & changed_js) or mentions(text, relevant, {}) or SCANNER_RE.search(text) \
+            scanner = bool(SCANNER_RE.search(text)) or any(scans.setdefault(f, bool(SCANNER_RE.search(read(f)))) for f in reach if is_tree_reader(f))
+            if (reach & changed_js) or mentions(text, relevant, {}) or scanner \
                     or (area == 'desktop' and engine_changed and ENGINE_RE.search(text)):
                 picked.append(rel(t)[len(area) + 1:])
         result[area] = picked
