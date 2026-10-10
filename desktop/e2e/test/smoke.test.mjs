@@ -1,7 +1,7 @@
 // The nightly smoke's logic (lib/smoke.mjs): how far a live run got, what counts as a regression, which posting is tried tonight.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {compare, fieldLines, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall} from '../lib/smoke.mjs';
+import {compare, fieldLines, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, verdictOf} from '../lib/smoke.mjs';
 
 const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detail/x/
   2026-10-10T12:20:27Z [extension] page kind: account {"shape":"auth.jobs.ch/u/login/identifier|1-2","by":"ai"}
@@ -129,15 +129,6 @@ test('a form run keeps each field with its outcome, requirement and reason (the 
   assert.equal(result.fieldList[4].required, false);
 });
 
-test('a shortfall: the form was reached but fewer than half of the asked fields are filled (an optional field is not asked)', () => {
-  assert.equal(shortfall(parseLive(FORM)), null);   // 2 of the 4 required fields (the optional cover letter is not asked): half is not a shortfall
-  assert.deepEqual(shortfall(parseLive(FORM.replace('      field filled email', '      field left email'))), {done: 1, total: 4});   // 1 of 4
-  assert.equal(shortfall({reached: 'form', filled: 4, left: 8}) && shortfall({reached: 'form', filled: 4, left: 8}).total, 12);   // counts only: 4 of 12
-  assert.equal(shortfall({reached: 'form', filled: 6, left: 6}), null);   // half is not a shortfall
-  assert.equal(shortfall({reached: 'posting', filled: null, left: null}), null);   // never reached the form: its own failure
-  assert.equal(shortfall({reached: 'ready', filled: 5, left: 0}), null);
-});
-
 test('the fields line the app writes (far longer than 230 characters) becomes one line per field that parseLive reads back', () => {
   const fields = Array.from({length: 12}, (_, i) => ({label: `Question number ${i} about something long enough`, type: i % 2 ? 'radio' : 'text', outcome: i < 4 ? 'filled' : 'left', required: i !== 11, source: 'your details', reason: i < 4 ? '' : 'no answer known'}));
   const line = `2026-10-10T19:21:10.153Z [extension] fill: fields: 4 filled, 8 left ${JSON.stringify({fields})}`;
@@ -147,7 +138,7 @@ test('the fields line the app writes (far longer than 230 characters) becomes on
   const back = parseLive(['  live 0s: Apply pressed on https://x/', '  l [extension] page kind: form {"host":"x"}', '  l [extension] fill: fields: 4 filled, 8 left {"fields":[', ...lines].join('\n'));
   assert.equal(back.fieldList.length, 12);
   assert.equal(back.fieldList[11].required, false);
-  assert.deepEqual(shortfall(back), {done: 4, total: 11});   // 4 of the 11 asked fields (the 12th is optional)
+  assert.equal(shortfall(back).total, 11);   // the 11 asked fields (the 12th is optional)
   assert.deepEqual(fieldLines('fill: fields: 1 filled, 1 left {"fields":[]} account page'), []);   // an account page's fields are not the form's
   assert.deepEqual(fieldLines('fill: fields: 4 filled, 8 left {"fields":[{"label":"Full name","type"'), []);   // a cut line gives none, never a wrong one
 });
@@ -186,4 +177,30 @@ test('marks blind: more "*" labels than required questions counted means the req
   assert.equal(marksBlind(run(12, 11)), null);   // the rule saw them
   assert.equal(marksBlind(run(2, 0)), null);   // too few marks to say
   assert.equal(marksBlind(parseLive('nothing')), null);   // an old app logs no marks line
+});
+
+// The owner's test for a left field (10 Oct 2026): did we really not know it, and did we suggest an answer? Both yes: expected. The reasons are the extension's own fixed texts.
+const left = (reason, type = 'text', required = true) => ({outcome: 'left', type, label: 'Q', required, reason});
+const NO_ANSWER = 'no answer in the kit, Profile or your details';
+
+test('a left field is expected when a suggestion was shown or the choice is the person\'s; a miss when the extension failed; no suggestion when nothing was proposed', () => {
+  assert.equal(verdictOf({outcome: 'filled', type: 'text', reason: 'your details'}), 'filled');
+  assert.equal(verdictOf(left('proposed for you to confirm')), 'expected');
+  assert.equal(verdictOf(left('legal/consent: always your choice', 'checkbox')), 'expected');
+  assert.equal(verdictOf(left(NO_ANSWER)), 'no_suggestion');
+  assert.equal(verdictOf(left(NO_ANSWER), {aiOff: true}), 'unknown');   // the AI was not asked: no suggestion could exist
+  assert.equal(verdictOf(left('answer given, but the field did not take it')), 'miss');
+  assert.equal(verdictOf(left('question text not found on the page', 'radio')), 'miss');
+});
+
+test('a form is a shortfall when any asked field is unexplained, not when under half is filled', () => {
+  const form = fieldList => ({reached: 'form', filled: 1, left: 1, fieldList});
+  const filled = {outcome: 'filled', type: 'text', label: 'Name', required: true, reason: 'your details'};
+  assert.equal(shortfall(form([filled, left('proposed for you to confirm'), left('legal/consent: always your choice', 'checkbox')])), null);   // everything left is expected: ok, however little is filled
+  assert.deepEqual(shortfall(form([filled, left(NO_ANSWER), left('answer given, but the field did not take it')])), {done: 1, total: 3, miss: 1, noSuggestion: 1});
+  assert.equal(shortfall(form([filled, left(NO_ANSWER, 'text', false)])), null);   // an optional field is not asked
+  assert.equal(shortfall(form([filled, left(NO_ANSWER)]), {aiOff: true}), null);   // no AI, so no suggestion could exist: not judged
+  assert.deepEqual(shortfall({reached: 'form', filled: 4, left: 8}), {done: 4, total: 12, miss: 0, noSuggestion: 0});   // no field list (an old run): the counts, under half
+  assert.equal(shortfall({reached: 'form', filled: 6, left: 6}), null);
+  assert.equal(shortfall({reached: 'posting'}), null);
 });

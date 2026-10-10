@@ -18,7 +18,7 @@ export function saveCandidate({dir, day, shape, result, html, output = ''}) {
   fs.writeFileSync(path.join(folder, 'page.html'), html);
   const pageKinds = String(output).split('\n').filter(line => /page kind/.test(line)).map(line => line.trim().slice(0, 400)).slice(0, 20);
   const item = {
-    shape: `${shape}: ${result.short ? `a form reached with ${result.short.done} of ${result.short.total} asked fields filled` : `a run that stopped at the ${result.reached}`} (auto-saved, TODO: the shape in words)`,
+    shape: `${shape}: ${result.short ? `a form reached with ${(result.short.miss || 0) + (result.short.noSuggestion || 0)} unexplained of ${result.short.total} asked fields` : `a run that stopped at the ${result.reached}`} (auto-saved, TODO: the shape in words)`,
     why: `auto-saved by the smoke run of ${day}: reached ${result.reached}${result.filled != null ? `, ${result.filled} filled, ${result.left} left` : ''}`,
     sample: address ? new URL(address).host : '',
     pages: [{url: address, file: 'page.html'}],

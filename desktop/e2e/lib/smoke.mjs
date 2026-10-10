@@ -1,6 +1,7 @@
 // Layer 3 of applying reliability (spec: docs/superpowers/specs/2026-10-10-applying-reliability-layers.md): the nightly live smoke's logic, no browser here.
 // parseLive reads where a live run got to from its own printed log lines (lib/apply-live.mjs), compare finds what reached less than last time, pickPosting
 // rotates through the owner's postings of each site shape. Runner: e2e/smoke.mjs. Guard: e2e/test/smoke.test.mjs.
+import {causeOf} from '../../../extension/fill-card.js';
 export const STEPS = ['none', 'posting', 'account', 'code/bot', 'form', 'ready'];
 // Sites read only through the person's own visit, never by an automated run (CLAUDE.md: LinkedIn, Glassdoor, Indeed, levels.fyi and Reddit; 10 Oct 2026: discovery
 // opened an Indeed posting). Never a smoke or discovery candidate, whatever list it comes from.
@@ -112,13 +113,36 @@ export function marksBlind(result) {
   return marks && marks.starred >= 3 && marks.starred > 2 * marks.required ? marks : null;
 }
 
-// A shortfall (owner, 10 Oct 2026: 4 of 13 filled showed blue, "reached the form"): the form was reached, and fewer than half of the fields the extension was asked to fill are filled.
-// Fields the form marks optional are not asked; with no field list the counts decide. Returns {done, total} or null. Knockout questions are left for the person on purpose and count as left.
-export function shortfall(result) {
+// The owner's test for a left field (10 Oct 2026, after "4 of 12" for a form whose left fields were all questions only the person can answer): (1) did we really not know the answer
+// (the kit, the Profile, the person's details were checked), and (2) did we suggest one? Both yes: expected, however little is filled. Else a failure. The reasons are the extension's own fixed
+// texts and its own cause words (extension/fill-card.js causeOf), never a word list of ours.
+//   filled       the extension filled it
+//   expected     a suggestion was shown for the person to confirm, or it is a legal / consent choice (always the person's)
+//   miss         the extension had it or failed to apply it: the field did not take it, the question text was not read, a menu did not open or select
+//   no_suggestion  nothing known and nothing proposed (the AI declined, was unsure or was not asked)
+//   unknown      the same, but the AI was off in this run (an AuthenticationError in the log): no suggestion could exist, so it is not judged
+export function verdictOf(field, {aiOff = false} = {}) {
+  if (field.outcome === 'filled') return 'filled';
+  const reason = String(field.reason || '');
+  if (/^legal/.test(reason)) return 'expected';
+  const cause = causeOf({reason, field: field.label});
+  if (cause === 'proposed') return 'expected';
+  if (['no_data', 'ai_declined', 'ai_unsure', 'ai_off', 'ai_error'].includes(cause)) return aiOff ? 'unknown' : 'no_suggestion';
+  return 'miss';
+}
+
+// A shortfall: the form was reached and at least one asked field (a required one, not a file slot) is a miss or has no suggestion. With no field list (an old run) the counts decide:
+// under half filled. Returns {done, total, miss, noSuggestion} or null.
+export function shortfall(result, {aiOff = result?.aiOff} = {}) {
   if (result?.reached !== 'form' || result.filled == null) return null;
-  const asked = (result.fieldList || []).filter(item => item.required !== false);
-  const total = asked.length || result.filled + (result.left || 0), done = asked.length ? asked.filter(item => item.outcome === 'filled').length : result.filled;
-  return total > 0 && done / total < 0.5 ? {done, total} : null;
+  const list = (result.fieldList || []).filter(item => item.required !== false && item.type !== 'file');
+  if (!list.length) {
+    const total = result.filled + (result.left || 0);
+    return total > 0 && result.filled / total < 0.5 ? {done: result.filled, total, miss: 0, noSuggestion: 0} : null;
+  }
+  const verdicts = list.map(item => verdictOf(item, {aiOff}));
+  const miss = verdicts.filter(item => item === 'miss').length, noSuggestion = verdicts.filter(item => item === 'no_suggestion').length;
+  return miss + noSuggestion > 0 ? {done: verdicts.filter(item => item === 'filled' || item === 'expected').length, total: list.length, miss, noSuggestion} : null;
 }
 
 // The one-per-field lines for the app's "fill: fields: N filled, M left {...}" log line (the app's line is cut at 230 characters in the run's timeline, so a run lost which fields were left and why);

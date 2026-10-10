@@ -38,7 +38,7 @@ export async function postingStatus(url, fetcher = fetch) {
 function liveRun(posting, seconds, captureDir = '') {
   return new Promise(resolve => {
     const started = Date.now();
-    const child = spawn('node', ['run-all.mjs', '--only', 'applyflows'], {cwd: here, env: {...process.env, LIVE: '1', LIVE_URL: posting.url, LIVE_TITLE: posting.title || '', LIVE_COMPANY: posting.company || '', LIVE_SECONDS: String(seconds), LIVE_CAPTURE_DIR: captureDir}});
+    const child = spawn('node', ['run-all.mjs', '--only', 'applyflows'], {cwd: here, env: {...process.env, LIVE: '1', LIVE_URL: posting.url, LIVE_TITLE: posting.title || '', LIVE_COMPANY: posting.company || '', LIVE_SECONDS: String(seconds), LIVE_CAPTURE_DIR: captureDir, LIVE_ENGINE: process.env.LIVE_ENGINE || 'cli'}});
     let output = '';
     child.stdout.on('data', chunk => { output += chunk; });
     child.stderr.on('data', chunk => { output += chunk; });
@@ -136,7 +136,7 @@ async function main() {
     fs.rmSync(captureDir, {recursive: true, force: true});
     console.log(`smoke: ${shape}: reached ${results[shape].reached}${results[shape].filled != null ? `, ${results[shape].filled} filled, ${results[shape].left} left` : ''} (${run.seconds}s)`);
     if (results[shape].marksBlind) console.log(`smoke: ${shape}: MARKS BLIND ${results[shape].marksBlind.starred} labels marked "*", ${results[shape].marksBlind.required} counted required: the required rule missed a layout`);
-    if (results[shape].short) console.log(`smoke: ${shape}: SHORTFALL ${results[shape].short.done} of ${results[shape].short.total} asked fields filled`);
+    if (results[shape].short) console.log(`smoke: ${shape}: SHORTFALL ${results[shape].short.miss} missed and ${results[shape].short.noSuggestion} with no suggestion, of ${results[shape].short.total} asked fields (${results[shape].short.done} filled or expected)`);
     await finish(shape);
     try { await sendPool(shapes, earlierList, results); } catch (error) { console.log(`smoke: pool upload failed, the run goes on (${String(error?.message || error).slice(0, 100)})`); }   // the page follows each site (its flow too), not only the run's end
   }
@@ -149,7 +149,7 @@ async function main() {
   const blindMarks = Object.entries(results).filter(([, item]) => item.marksBlind);
   console.log(`smoke: ${blindMarks.length ? `MARKS BLIND (more "*" labels than required questions counted): ${blindMarks.map(([name, item]) => `${name} (${item.marksBlind.starred} vs ${item.marksBlind.required})`).join('; ')}` : 'no marks blind spot'}`);
   const shorts = Object.entries(results).filter(([, item]) => item.short);
-  console.log(`smoke: ${shorts.length ? `SHORTFALLS (reached the form, under half filled): ${shorts.map(([name, item]) => `${name} (${item.short.done} of ${item.short.total})`).join('; ')}` : 'no shortfall'}`);
+  console.log(`smoke: ${shorts.length ? `SHORTFALLS (reached the form, under half filled): ${shorts.map(([name, item]) => `${name} (${item.short.miss + item.short.noSuggestion} unexplained of ${item.short.total})`).join('; ')}` : 'no shortfall'}`);
   console.log(`smoke: fleet boards dropped: ${dropped == null ? 'not read' : dropped.length ? dropped.map(item => `${item.board} ${item.earlier}→${item.recent}`).join(', ') : 'none'}`);
   console.log(`smoke: report ${path.join(REPORTS, `${day}.json`)}`);
   console.log(`smoke: ${await sendPool(shapes, earlierList, results)}`);
