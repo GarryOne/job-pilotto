@@ -98,6 +98,12 @@ test('the app records a refused sign-in as state refused, without a confirmation
   assert.match(source, /modeOf\(storage\.settings\(\)\.siteAccounts, host, email, credentials\.emailOf\(host\), !!answer\.ok, company\)/);
 });
 
+test('a refused sign-in reaches the session card, and the password log says which mode the app chose (10 Oct 2026: the log could not say why Deloitte was signed in to)', () => {
+  const source = fs.readFileSync(new URL('../lib/ext-server-handlers.js', import.meta.url), 'utf8');
+  assert.match(source, /sign-in refused: no account[\s\S]{0,260}terminals\.setAccount\(session, 'refused'\)/);
+  assert.match(source, /'site password given for a sign-in page', \{host: [^}]*given: !!answer\.ok, mode, email: !!email\}/);
+});
+
 test('one host, several employers: each employer keeps its own state, and a new employer on a host with a saved password signs in first (SuccessFactors: Coop, Migros)', () => {
   let accounts = record({}, 'career2.successfactors.eu', 'me@example.com', 'confirmed', 0, 'Coop Suisse');
   assert.equal(modeOf(accounts, 'career2.successfactors.eu', 'me@example.com', '', true, 'Coop Suisse'), 'sign-in');

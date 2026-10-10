@@ -232,7 +232,7 @@ export function setStage(id, stage, host = '') {
   save();
   return true;
 }
-// The account made for this application (account-step.js): 'created' (usable), 'confirm' (a confirmation is awaited), 'exists' (it was there already). Shown on the session.
+// The account made for this application (account-step.js): 'created' (usable), 'confirm' (a confirmation is awaited), 'exists' (it was there already), 'refused' (a sign-in was refused: tried once, the sign-up comes next). Shown on the session.
 export function setAccount(id, state) {
   const session = sessions.get(id);
   if (!session || session.outcome || session.accountState === state) return false;

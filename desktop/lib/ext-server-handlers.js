@@ -49,7 +49,7 @@ export function registerExtServerHandlers(ctx) {
       // The password item now carries this email, which the next page would read as "an account made earlier": say the sign-up is only under way.
       if (made && email && !storage.settings().siteAccounts?.[String(host).trim().toLowerCase()]) storage.saveSettings({siteAccounts: record(storage.settings().siteAccounts, host, email, 'creating', Date.now(), company)});
     }
-    appLog('extension', 'site password given for a sign-in page', {host: String(host || '').slice(0, 120), made, given: !!answer.ok});   // which site, never the password
+    appLog('extension', 'site password given for a sign-in page', {host: String(host || '').slice(0, 120), made, given: !!answer.ok, mode, email: !!email});   // which site, never the password
     // sign-in only where THIS email has an account on this site (recorded when a sign-up was confirmed); anywhere else the extension signs up.
     return answer.ok && email ? {...answer, email, mode, automation: automationOf(storage.settings())} : answer;   // the email goes into the account's email box, as the password goes into its password boxes
   });
@@ -60,6 +60,7 @@ export function registerExtServerHandlers(ctx) {
     if (state === 'refused') {   // a sign-in with this email was refused here (the account judge, any language): no account yet; the next look signs up (under full)
       storage.saveSettings({siteAccounts: record(storage.settings().siteAccounts, host, email, 'refused', Date.now(), terminals.record(String(session || ''))?.company || '')});
       appLog('extension', 'sign-in refused: no account for this email on this site, sign-up next', {host: String(host).slice(0, 120)});
+      if (session) terminals.setAccount(session, 'refused');   // the session card says so (it said nothing: "Form open" over a rejected sign-in, 10 Oct 2026)
       return;
     }
     // confirmed: usable at once (signed in, or the site moved on); exists: it was there before, the sign-in is tried; pending: a confirmation mail (or a code) is awaited.
