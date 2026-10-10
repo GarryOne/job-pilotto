@@ -30,21 +30,28 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
 ## 0b. Which kind of failure is it? (decide before reproducing; the owner types one command and never chooses)
 - **A rung problem**: the page was judged or climbed wrong. The row says "stopped at the posting" or "no-form", the log's `page kind:` line is wrong for what the page really is, or there was no apply route. Method: **3b**.
 - **A field problem**: the page was read right (the form was reached) and fields stayed unexplained ("form · N unexplained of M"): a field not filled, a control not operated, a question text not read. Method: **3a**.
+- **A lost answer** (a `page kind:` line `by structure rule`, no confidence, in under ~3 s): the extension got no answer from the app. Not a rung problem yet: compare the extension line with the app's line for the same request (step 1.1) before touching any rung.
 - **Unsure**: it is a rung problem first if the page-kind answer is wrong, a field problem if the page was read right and fields stayed unexplained.
+- **Stale row**: the row's `version` is older than main's `extension/manifest.json`, or a later run of the shape reached further: check `smoke-reports/` for a newer run before building anything (10 Oct 2026: Hornbach reached the form on 0.9.178 and 0.9.179).
 - Both on one site: fix the rung first (the form is never reached otherwise), re-run, then the fields. Say which kind it is in one line before you start.
 
 ## 1. Reproduce (small, isolated, with a positive control)
-1. **Read the artifacts before running anything:** the shape's `.log` (page kinds, `fill:` lines, STALL dump with `controls` and `buttons`), its
-   `live-frames/*.png` (look at 2-3 frames: what the page really showed), the report's reached step and signature. Name what the log cannot tell and add the log line.
-   A frames folder is overwritten by the next run: check that the frame is from YOUR shape's run (host in the log vs the picture).
+1. **Read the artifacts before running anything, in this order:** (a) `smoke-reports/<day>-<shape>.app.log` (the app's whole log, kept per run since 11 Oct 2026; older runs
+   have none: find the e2e app's `jp-e2e-*/logs/app.log` in the temp folder by the run's time and host): `page kind:`, `page kind: none (<error>)`, `ladder:` lines; (b) the shape's `.log` (the
+   extension's `fill:` lines, STALL dump with `controls` and `buttons`); (c) `live-frames/*.png` (2-3 frames: what the page really showed; the folder is overwritten by the next run, so check the host in the log vs the picture);
+   (d) the report's reached step. **Pair each extension line with the app's line for the same request:** an extension answer with no app line means the request never got there or the
+   extension returned before the app answered. **Name what the logs cannot tell, and `grep` the code for the message before adding a log line** (10 Oct 2026: a line was added that `server-pages.js` already wrote).
 2. **Run it in the harness, never the twin, never the owner's data:** `cd desktop/e2e && npm run smoke -- --only <shape words>` (the e2e app, its own profile and
    Notion test page, fake applicant, fixture CV, a headless Chrome with the real extension through `lib/extension.mjs`). It is a HELD run: the consent and the
    account button are NOT pressed, never Submit. **Say before it starts** what the window does and what is HELD, and how long (`SMOKE_SECONDS`, default 90).
 3. **Watch it with `Monitor`, not sleep** (global rules): background run to a log, then
    `tail -n 0 -F <log> | grep --line-buffered -E "^\s+live \+|STALL|\[extension\] (fill: (page kind|pressed)|can't reach)|^(✓|✗)"`. Test the pattern once with `grep -c`
    on the log so far. Each event: one line on what it shows (progressing / done / stuck). First sign of life within ~20 s or say the experiment failed.
-4. **Prove the repro:** the page the run saw is the page you think (frame + `buttons` list), the stub/AI answer you rely on really applied. A shape that only
-   fails once (a moody site) is run twice before it counts.
+4. **Prove the repro (a repro is proved by evidence, not by a pass or a fail):** the page the run saw is the page you think (frame + `buttons` list), the stub/AI answer you rely on really applied
+   (the request was received: count the asks, with times), and **the case FAILS on the build before the fix** (`REAL_EXTENSION_DIR=<old extension/>`). A case that passes on the old build proves nothing:
+   find why before you build on it (10 Oct 2026: a replay page starts 3 parallel asks, so a stub that drops one lets a sibling ask rescue the old build). A shape that only fails once (a moody site) is run twice before it counts.
+5. **Offline, no e2e page, seconds:** `cd desktop && node scripts/stage.mjs` once per fresh worktree (builds `shared/`), then `npm run ladder-score -- --offline --only <fixture>` (what the stored AI answer says) and
+   `cd e2e && JP_REPLAY=1 REPLAY_ONLY=<case> node --test test/recorded-pages.test.mjs` (the real extension on a recorded page). The shared e2e page is a queue (the coordinator, `coordinator.txt`): read the offline result and the newest logs first.
 
 ## 2. Say what the fix is, before coding (one block)
 - **Which part of the mechanism it improves** (CLAUDE.md "A form bug is fixed in the self-improving mechanism"): an operator, the fingerprint, a meaning in the
@@ -132,3 +139,6 @@ Flow-core files (`page-kind.js`, `fill-flow.js`, `session-flow.js`, `escalate.js
 - Submit, a consent, an account button, a captcha or SMS code; the owner's live app, profile, CV, Keychain or paid AI; a fix named after one website.
 - A recorded case whose expected result or AI answer was written to fit the fix rather than taken from the live run.
 - A long foreground wait: background plus `Monitor`.
+- A fix, a retry or a log line built on a guess: if the cause is not shown by a log, a count or a failing case, add the evidence first and send it to the flow-core coordinator before the fix.
+- A first run of a new recorded case through `npm run recorded` on the build you are fixing: it UPLOADS a row to `/admin/applying`, which has no delete path (a production table). Run an unproven case with `REAL_EXTENSION_DIR` set (nothing is uploaded) until it fails on the old build and passes on the fix.
+- Fixing a gap in the debugging process (a missing log, a report that hides evidence, a harness that cannot fail) silently: list it and send it to the pool coordinator (`coordinator.txt`) and the flow-core coordinator; the report side (`desktop/e2e/lib/smoke.mjs`) is the pool coordinator's.
