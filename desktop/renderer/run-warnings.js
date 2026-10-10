@@ -1,5 +1,6 @@
 // Lines of a run's log that are warnings (Notion busy, a step skipped or failed…), each once. A count of zero is not
 // one: "Enriched 1 of 1 job(s); 0 failed" is a normal report line, not a warning.
+import {where} from './store-name.js';
 const WARNING = /^Warning|\b429\b|Too Many Requests|\b(?:skipped|failed)\b|^AI limit reached/i;
 const ZERO = /\b0 (?:failed|skipped)\b/gi;
 const CAP = 180;
@@ -73,7 +74,18 @@ const PLAIN = [
 ];
 // A line that still ends in a raw exception ("<what>: KeyError: 'watch'"): what failed, and where its details are.
 const RAW_EXCEPTION = /^(.{3,80}?):\s*(?:[\w.]+\.)?\w+(?:Error|Exception)\b.*$/;
+// The run's own row in the run history (opened at the start, its result saved at the end), said by the engine without the store's name
+// ("run not opened in the run history", Notion's "cronjob run not logged to Notion"): the person is told which store and what was not saved (#342).
+const RUN_ROW = /^(?:cronjob )?run not (opened|logged) (?:in|to) (?:the run history|Notion):\s*(.*)$/i;   // about Notion: the engine's own wording
+function runRowWarning(raw) {
+  const m = RUN_ROW.exec(raw);
+  if (!m) return null;
+  const reason = humanError(m[2]);
+  return `${m[1].toLowerCase() === 'opened' ? "The run's row could not be opened in" : "The run's result could not be saved to"} ${where()}${reason ? `: ${reason}` : ''}`;
+}
 export function plainWarning(raw) {
+  const row = runRowWarning(raw);
+  if (row) return row;
   for (const [pattern, words] of PLAIN) { const m = pattern.exec(raw); if (m) return words(m); }
   return null;
 }
