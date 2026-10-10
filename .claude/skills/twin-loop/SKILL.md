@@ -16,7 +16,10 @@ exception, for what no data can express (a new kind of operator, a reader blind 
 So the loop is judged on two things: forms closer to ready, and **the share of each round's improvement that came from data, not code**.
 
 ## How it is invoked
-- `/twin-loop`: the **active Applying sessions** (status `input` or `done`, last 3 days).
+- `/twin-loop`: the **active Applying sessions** (status `input` or `done`, last 3 days), **plus the pool's worst sites** when the sessions are few or
+  all wait on the person (10 Oct 2026: two jobs.ch sessions stuck on an email code made a whole round useless): the nightly smoke's regressions
+  first, then the sites that reached the earliest step (`/admin/applying`, or the latest `~/Library/Application Support/Job Pilotto QA/smoke-reports/<day>.json`).
+- `/twin-loop pool`: only the pool's sites (layer 3 of the applying reliability spec), worst first.
 - `/twin-loop jobs <n>`: also **n new jobs** from the owner's list (top fit, not yet applied, different sites/ATS than the sessions).
 - `/twin-loop <company or session id>`: just that one.
 - `/twin-loop rounds <n>`: stop after n fix rounds (default: keep going until nothing improves or the owner stops it).
@@ -25,16 +28,26 @@ So the loop is judged on two things: forms closer to ready, and **the share of e
 ## Before the first round (once)
 1. Read `docs/live-test.md` ("Working with the twin as an agent"), `docs/flows/applying.md` (the scenario map), and the Notion page
    "Self-improving form filling: design & plan". The repo rules in `CLAUDE.md` apply in full: worktrees, `tools/ship.sh`, universal fixes, 500 lines per file.
-2. **Twin up:** `pgrep -f e2e/twin.mjs`. If it is not running, start it (docs/live-test.md step 1) in the background, with a Monitor on `^twin: (running|refresh)`.
+2. **Twin up:** `pgrep -f e2e/twin.mjs`. If it is not running, start it (docs/live-test.md step 1) in the background, with a Monitor on `^twin: (running|refresh)`,
+   **from a worktree of its own that you never edit or ship from** (`tools/worktree.sh twin-host-<date>`): `tools/ship.sh` removes the worktree it lands,
+   and a twin whose folder is gone can no longer refresh (10 Oct 2026: a forced restart, the tabs lost). Fixes go in other worktrees.
+   **Account steps in full mode:** the twin's Settings → Profile → "Create and sign in to employer accounts for me" is on (owner, 10 Oct 2026), so it
+   gets past account pages to the form; a profile reset turns it off again: check it (`accountAutomation` in the twin's `home/settings.json`), and
+   switch it on through the screen (`twin:drive press`), never by editing the file.
    Then `cd desktop && npm run twin:drive -- refresh` so it is on `origin/main`. Check that the printed version is the latest.
 3. **Peers:** `ListAgents`, then tell the other sessions that you hold the twin, and for how long. Ask whether anyone is fixing the same flow (`git log --oneline -15 origin/main` first).
-4. **Tell the owner in one line** what the window will do: open postings, fill forms, maybe create site accounts.
+4. **Tell the owner in one line** what the window will do: open postings, fill forms, create site accounts (full mode: it accepts an account's
+   terms and presses its button).
    And what it never does: **Submit, a bot check, a password value, an email code**.
 5. Arm one Monitor for the whole loop (re-arm it when it expires):
-   `tail -n 0 -F "$HOME/Library/Application Support/Job Pilotto (live test)/home/logs/app.log" | grep --line-buffered -E "page kind|fill: (filling|filled the form)|fields: [0-9]+ filled|account (judgment|button|result|step)|consent accepted|could not|picked for you|stage .*: the|bot|proposed answer (used|edited)|application ended|dropdown (not clicked|clicked, but|option clicked|selected, but)"`
+   `tail -n 0 -F "$HOME/Library/Application Support/Job Pilotto (live test)/home/logs/app.log" | grep --line-buffered -E "\[extension\] (fill: (filled the form|fields: [0-9]+ filled|account (button|result)|pressed the Apply|closed a popup)|account judgment|consent accepted|account: )|\[review\] stage .*: the|application ended"`
+   (narrow on purpose, 10 Oct 2026: `picked for you` and a bare `bot` matched the visit list and filled the session with noise). Test it once with
+   `grep -cE '<pattern>'` on the log so far before arming it.
 
 ## One round
 For each target, one at a time (only one fill at a time, so the log lines stay readable):
+
+0. **Twin still alive?** `pgrep -f e2e/twin.mjs` at the start of every round (a profile reset or an app quit stops it: 10 Oct 2026, found late).
 
 1. **Run it.** For a session: `npm run twin:drive -- app "window.pilot.sessions().then(l=>JSON.stringify(l.map(s=>[s.id,s.company,s.status])))"`
    (reopen takes an **id**), then `npm run twin:drive -- reopen <id>`. For a new job, use `npm run twin:drive -- press "<text>"` on its Apply in the app.
@@ -51,6 +64,11 @@ For each target, one at a time (only one fill at a time, so the log lines stay r
    |---|---|---|---|---|---|---|
 
    **Reached** is one of: posting, account, code/bot (the person's), form, or **ready** (filled, and every empty field has a suggested answer).
+   Fill it from the log, not by hand: the twin's `app.log` lines since the run started, read by the smoke's own parser
+   (`node -e "import('./desktop/e2e/lib/smoke.mjs').then(m => console.log(m.parseLive(require('fs').readFileSync(process.argv[1], 'utf8'))))" <log slice>`):
+   reached, filled, left, page kinds; `signature()` names the flow, the same words as the pool.
+   **A code or a bot check: mark it and move on at once.** The Gmail check runs by itself after a sign-up and on a pending account's page; the session
+   card says what the person must do. Never wait on it inside a round.
 5. **Pick the biggest blocker** across all targets. The earliest step comes first: a session that never reaches the form loses every field after it.
 
 ## Measure the self-improving mechanism (every round)
