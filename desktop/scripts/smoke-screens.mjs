@@ -11,6 +11,12 @@ const DONE = {setupDone: true, autoSearch: false, lastSearchAt: '2099-01-01T00:0
 const WAIT_FOR_JOBS = `new Promise(resolve => setTimeout(resolve, 8000))`;
 const REPORT = `({view: ([...document.querySelectorAll('.view')].find(v => !v.hidden) || {}).dataset?.view || '', wizard: !document.getElementById('wizard').hidden})`;
 
+// What a `sample` run found the busiest thread doing: its "top of stack" summary (the leaves of the call graph), where a blocking call shows, not the 70 frames above it.
+const topOfStack = report => {
+  const at = report.indexOf('Sort by top of stack');
+  return at < 0 ? report.split('\n').slice(-60).join('\n') : report.slice(at).split('\n').slice(0, 40).join('\n');
+};
+
 export async function jobsScreen({exe, out, prefix, say}) {
   const name = 'jobs-without-notion';
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-smoke-'));
@@ -30,7 +36,7 @@ export async function jobsScreen({exe, out, prefix, say}) {
     if (!fs.existsSync(png)) {
       const run = (file, args) => { try { return execFileSync(file, args, {encoding: 'utf8', timeout: 30000, maxBuffer: 20 * 1024 * 1024}); } catch (error) { return `(${file}: ${error.message.split('\n')[0]})`; } };
       stuck = process.platform === 'darwin'
-        ? `${run('ps', ['-axo', 'pid,ppid,stat,etime,command']).split('\n').filter(line => /Job Pilotto/i.test(line)).join('\n')}\n${run('sample', [String(child.pid), '2']).split('\n').slice(0, 70).join('\n')}`
+        ? `${run('ps', ['-axo', 'pid,ppid,stat,etime,command']).split('\n').filter(line => /Job Pilotto/i.test(line)).join('\n')}\n${topOfStack(run('sample', [String(child.pid), '2']))}`
         : run('tasklist', ['/FI', 'IMAGENAME eq Job Pilotto.exe', '/FO', 'LIST']);
     }
     return Promise.race([exited, wait(40000).then(() => { child.kill('SIGKILL'); return exited; })]);
