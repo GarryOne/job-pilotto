@@ -1,6 +1,7 @@
 // Settings → Profile → Experience: the sources of what tailoring knows about the person (the main CV, other CV versions) and, per job,
 // the facts they add. Data and AI match: lib/experience.js (IPC experienceGet / AddCv / Remove / Rematch). Guarded by test/experience-page.test.js.
 import {el, pill, tile} from '../components.js';
+import {icon} from '../icons.js';
 import {$, message, runWhen} from './core.js';
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -88,7 +89,44 @@ async function run(button, working, action) {
   else message('exp-message', answer.cancelled ? '' : answer.error || 'That did not work.', answer.cancelled ? '' : 'error');
 }
 
+// "Connect with LinkedIn": who you are on LinkedIn (name, email), not your experience (that comes from the export above). Never a token kept.
+const OWN = [['first_name', 'givenName'], ['last_name', 'familyName'], ['email', 'email']];
+export function showLinkedin(status) {
+  const line = $('exp-linkedin-line');
+  const button = (text, className, onClick, glyph) => {
+    const node = Object.assign(el('button', className, glyph ? null : text), {type: 'button'});
+    if (glyph) { node.className = `${className} with-icon`; node.append(icon(glyph), el('span', '', text)); }
+    node.addEventListener('click', () => onClick(node));
+    return node;
+  };
+  if (!status) {
+    line.replaceChildren(button('Connect with LinkedIn', 'secondary', async node => {
+      node.classList.add('busy'); node.disabled = true;
+      message('exp-message', 'Waiting for LinkedIn… approve in your browser, then come back here.');
+      const answer = await window.pilot.linkedinConnect().catch(error => ({ok: false, error: error.message}));
+      node.classList.remove('busy'); node.disabled = false;
+      if (answer.ok) { message('exp-message', 'Connected ✓', 'ok'); showLinkedin(answer); }
+      else message('exp-message', answer.error || 'That did not work.', 'error');
+    }, 'link'), el('span', 'muted small', 'Your name and email only: LinkedIn shares positions and skills only with registered companies, so add your data export for those.'));
+    return;
+  }
+  line.replaceChildren(pill('LinkedIn connected', 'good'), el('span', '', ` ${status.name || ''}${status.email ? ` · ${status.email}` : ''}`),
+    button('Use my name and email', 'secondary', async node => {
+      node.disabled = true;
+      const contact = await window.pilot.contact().catch(() => ({}));
+      const filled = [];
+      for (const [key, own] of OWN) if (status[own] && !String(contact?.[key] || '').trim()) {
+        const saved = await window.pilot.saveContactField(key, status[own]).catch(() => ({ok: false}));
+        if (saved?.ok) filled.push(key.replace('_', ' '));
+      }
+      node.disabled = false;
+      message('exp-message', filled.length ? `Filled in your details: ${filled.join(', ')}. Check them under CV & details.` : 'Your details already have them.', filled.length ? 'ok' : '');
+    }),
+    button('Disconnect', 'link', async node => { node.disabled = true; await window.pilot.linkedinDisconnect(); showLinkedin(null); }));
+}
+
 export async function loadExperience() {
+  showLinkedin(await window.pilot.linkedinStatus().catch(() => null));
   message('exp-message', '');
   const view = await window.pilot.experienceGet().catch(() => null);
   if (view) showExperience(view);

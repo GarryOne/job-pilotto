@@ -2455,3 +2455,5 @@ button.is-busy { cursor: progress; opacity: .7; }
 .profile-notes { margin-top: var(--sp-3); }
 .profile-notes > summary { cursor: pointer; }
 .profile-notes textarea { width: 100%; margin-top: var(--sp-2); }
+#exp-linkedin-line { align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-3); }
+#exp-linkedin-line button { white-space: nowrap; flex: none; }

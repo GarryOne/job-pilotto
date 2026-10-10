@@ -3,6 +3,7 @@
 // sign-ups in Cloudflare KV (binding WAITLIST). List them: npx wrangler@4 kv key list --binding WAITLIST --remote
 // Optional: with TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID set as secrets, each new sign-up is also sent to Telegram.
 import {apexRedirect} from './hosts.js';
+import * as linkedin from './linkedin.js';
 import * as notion from './notion.js';
 import * as stats from './stats.js';
 import * as telemetry from './telemetry.js';
@@ -155,6 +156,9 @@ export default {
     if (pathname === '/api/notion/start') return notion.start(request, env);
     if (pathname === notion.CALLBACK) return notion.callback(request, env);
     if (pathname === '/api/notion/token') return notion.collect(request, env);
+    if (pathname === '/api/linkedin/start') return linkedin.start(request, env);
+    if (pathname === linkedin.CALLBACK) return linkedin.callback(request, env);
+    if (pathname === '/api/linkedin/token') return linkedin.collect(request, env);
     return env.ASSETS.fetch(request);
   },
   // Daily (wrangler.toml [triggers]): app reports older than 90 days dropped; the top problems go to GitHub triage.

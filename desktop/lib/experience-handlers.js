@@ -2,6 +2,7 @@
 // again after the main CV changed. The data and the AI match are lib/experience.js; guarded by test/experience.test.js.
 import * as claudeCode from './claude-code.js';
 import * as experience from './experience.js';
+import * as linkedinOAuth from './linkedin-oauth.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import {log as appLog} from './log.js';
@@ -15,7 +16,7 @@ const DEMO_VIEW = {main: {name: 'Ada Example', roles: 2, skills: 'AWS, Terraform
     {company: 'Beta', title: 'Developer', period: '2020 – 2023', place: 'Remote', bullets: [{text: 'Built APIs in Node.js.', from: 'Main CV'}]}],
   extraSkills: 'Python, Spark'};
 
-export function registerExperienceHandlers({DEMO, dialog, getWindow, ipcMain, storage}) {
+export function registerExperienceHandlers({DEMO, dialog, getWindow, ipcMain, shell, storage}) {
   const ai = () => ({apiKey: storage.secret('ANTHROPIC_API_KEY'), client: claudeCode.client(storage)});
   const noAi = () => { const {apiKey, client} = ai(); return !apiKey && !client; };
   ipcMain.handle('experienceGet', () => (DEMO ? DEMO_VIEW : experience.view(storage)));
@@ -55,4 +56,16 @@ export function registerExperienceHandlers({DEMO, dialog, getWindow, ipcMain, st
     try { const done = await experience.rematchStale(storage, ai()); appLog('experience', 'matched again', {sources: done}); return {ok: true, ...experience.view(storage)}; }
     catch (error) { return {ok: false, error: error.message}; }
   });
+  // Connect with LinkedIn (identity only: name, email, LinkedIn id). The app keeps who it is, never a token (lib/linkedin-oauth.js).
+  ipcMain.handle('linkedinStatus', () => (DEMO ? null : storage.settings().linkedin || null));
+  ipcMain.handle('linkedinConnect', async () => {
+    if (DEMO) return {ok: false, error: 'Not available in the demo.'};
+    const signedIn = await linkedinOAuth.connect(url => shell.openExternal(url));
+    if (!signedIn.ok) return signedIn;
+    const connection = linkedinOAuth.kept(signedIn);
+    storage.saveSettings({linkedin: connection});
+    appLog('linkedin', 'connected');   // that it happened, never who
+    return {ok: true, ...connection};
+  });
+  ipcMain.handle('linkedinDisconnect', () => { linkedinOAuth.cancel(); storage.saveSettings({linkedin: null}); appLog('linkedin', 'disconnected'); return {ok: true}; });
 }

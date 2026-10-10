@@ -281,7 +281,7 @@ function handlers() {
     getUpdateCheckedAt, getWindow: () => window, channels});   // lib/app-meta-handlers.js
   const {showForm} = registerApplyHandlers({DEMO, allowanceBlock, claudeConsent, cloud, here, ipcMain, log, needsNotion, prepareKitFor, getRecipeReporter: () => recipeReporterRef, shell, startClaude, storage, toWindow, track});   // lib/apply-handlers.js
   registerCvAndLettersHandlers({BrowserWindow, DEMO, cvOf, handleImportant, ipcMain, keepLook, openTailoredCv, printPdf, shell, storage, tailorCv, tailoring, toWindow});   // lib/cv-handlers.js
-  registerExperienceHandlers({DEMO, dialog, getWindow: () => window, ipcMain, storage});   // lib/experience-handlers.js
+  registerExperienceHandlers({DEMO, dialog, getWindow: () => window, ipcMain, shell, storage});   // lib/experience-handlers.js
   registerVisitsHandlers({DEMO, allowanceBlock, here, ipcMain, log, readSites, shell, storage});   // lib/visits-handlers.js
   registerBrowserHandlers({app, clipboard, ipcMain, openNotion, shell, showForm, storage});   // lib/browser-handlers.js
 }
