@@ -62,14 +62,18 @@ async function discover(limit) {
   const reports = fs.existsSync(REPORTS) ? fs.readdirSync(REPORTS).filter(name => /^\d{4}-\d\d-\d\d\.json$/.test(name)).map(name => read(path.join(REPORTS, name))) : [];
   const knownSignatures = new Set([...pool.map(item => item.signature), ...Object.values(lastSeen(reports)).map(item => item.signature)].filter(Boolean));
   const jobs = postingsLike(['http%'], undefined, 3000).filter(item => !/mail\.google\./.test(item.url));
-  const chosen = candidates(jobs, knownUrls).slice(0, limit), day = new Date().toISOString().slice(0, 10), seen = [];
+  const day = new Date().toISOString().slice(0, 10), reportFile = path.join(REPORTS, `discover-${day}.json`);
+  const seen = [...(read(reportFile).seen || [])];   // a restart the same day carries on: what the report already holds is not visited again (a stopped run used to start over, 10 Oct 2026)
+  const chosen = candidates(jobs, new Set([...knownUrls, ...seen.map(item => item.url)])).slice(0, limit);
+  const save = () => { fs.mkdirSync(REPORTS, {recursive: true}); fs.writeFileSync(reportFile, `${JSON.stringify({day, seen}, null, 1)}\n`); };   // after every candidate, not only at the end
   console.log(`smoke discover: ${chosen.length} candidate(s) from ${jobs.length} job(s); ${knownSignatures.size} signature(s) already in the pool`);
   for (const posting of chosen) {
     const status = await postingStatus(posting.url);
-    if (status === 404 || status === 410) { seen.push({url: posting.url, note: `gone (HTTP ${status})`}); continue; }
+    if (status === 404 || status === 410) { seen.push({url: posting.url, note: `gone (HTTP ${status})`}); save(); continue; }
     const run = await liveRun(posting, Number(process.env.SMOKE_SECONDS || 90)), result = parseLive(run.output), flow = signature(result);
     const fresh = result.reached !== 'none' && flow !== 'unclear' && !knownSignatures.has(flow);   // an unclear run teaches nothing: listed for the twin loop, not added
     seen.push({url: posting.url, signature: flow, reached: result.reached, added: fresh});
+    save();
     console.log(`smoke discover: ${flow} ${fresh ? 'NEW: added to the pool' : 'known'} (${hostOnly(posting.url)})`);
     if (fresh) {
       knownSignatures.add(flow);
@@ -80,8 +84,7 @@ async function discover(limit) {
       try { console.log(`smoke discover: ${await sendPool([...read(path.join(here, 'smoke-sites.json')).shapes, ...local.shapes], reports)}`); } catch (error) { console.log(`smoke discover: upload failed, the run goes on (${String(error?.message || error).slice(0, 120)})`); }
     }
   }
-  fs.mkdirSync(REPORTS, {recursive: true});
-  fs.writeFileSync(path.join(REPORTS, `discover-${day}.json`), `${JSON.stringify({day, seen}, null, 1)}\n`);
+  save();
   console.log(`smoke discover: ${seen.filter(item => item.added).length} new shape(s) added to ${LOCAL_SITES}`);
   console.log(`smoke discover: ${await sendPool([...read(path.join(here, 'smoke-sites.json')).shapes, ...local.shapes], reports)}`);
   return 0;
