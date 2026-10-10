@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {compare, lastSeen, parseLive, pickPosting, tonight} from './lib/smoke.mjs';
+import {candidates, compare, lastSeen, parseLive, pickPosting, signature, tonight} from './lib/smoke.mjs';
 import {hostOnly, upload} from './lib/applying-report.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -19,9 +19,9 @@ const REPORTS = process.env.SMOKE_REPORTS || path.join(QA_DIR, 'smoke-reports');
 export const LOCAL_SITES = process.env.SMOKE_SITES || path.join(QA_DIR, 'smoke-sites.json');   // never in the repo, nor in the app's folder (a profile reset wipes that: 10 Oct 2026)
 const JOBS_DB = path.join(os.homedir(), 'Library/Application Support/Job Pilotto/data/jobs.sqlite');
 
-export function postingsLike(likes, run = execFileSync) {
+export function postingsLike(likes, run = execFileSync, limit = 40) {
   const where = likes.map(like => `jobs.url like '${String(like).replace(/'/g, "''")}'`).join(' or ');
-  const out = run('sqlite3', ['-readonly', '-separator', '\t', JOBS_DB, `select jobs.url, jobs.title, companies.name from jobs join companies on companies.id = jobs.company_id where ${where} order by jobs.url limit 40`], {encoding: 'utf8'});
+  const out = run('sqlite3', ['-readonly', '-separator', '\t', JOBS_DB, `select jobs.url, jobs.title, companies.name from jobs join companies on companies.id = jobs.company_id where ${where} order by jobs.url limit ${Number(limit) || 40}`], {encoding: 'utf8'});
   return String(out).split('\n').filter(Boolean).map(line => { const [url, title, company] = line.split('\t'); return {url, title, company}; });
 }
 
@@ -49,7 +49,39 @@ function droppedBoards() {
   } catch { return null; }   // no key or no network: the report says the fleet was not read
 }
 
+// --discover [--limit N]: candidates from the loaded profile's jobs (a few per host, more from job boards; none already in the pool), each run once live
+// (held); one that shows a flow signature the pool does not have joins this Mac's list as a new shape. Its report: <QA folder>/smoke-reports/discover-<day>.json.
+async function discover(limit) {
+  const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return {shapes: []}; } };
+  const local = read(LOCAL_SITES), pool = [...read(path.join(here, 'smoke-sites.json')).shapes, ...local.shapes];
+  const knownUrls = new Set(pool.flatMap(item => item.urls || []));
+  const reports = fs.existsSync(REPORTS) ? fs.readdirSync(REPORTS).filter(name => /^\d{4}-\d\d-\d\d\.json$/.test(name)).map(name => read(path.join(REPORTS, name))) : [];
+  const knownSignatures = new Set([...pool.map(item => item.signature), ...Object.values(lastSeen(reports)).map(item => item.signature)].filter(Boolean));
+  const jobs = postingsLike(['http%'], undefined, 3000).filter(item => !/mail\.google\./.test(item.url));
+  const chosen = candidates(jobs, knownUrls).slice(0, limit), day = new Date().toISOString().slice(0, 10), seen = [];
+  console.log(`smoke discover: ${chosen.length} candidate(s) from ${jobs.length} job(s); ${knownSignatures.size} signature(s) already in the pool`);
+  for (const posting of chosen) {
+    const status = await postingStatus(posting.url);
+    if (status === 404 || status === 410) { seen.push({url: posting.url, note: `gone (HTTP ${status})`}); continue; }
+    const run = await liveRun(posting, Number(process.env.SMOKE_SECONDS || 90)), result = parseLive(run.output), flow = signature(result);
+    const fresh = result.reached !== 'none' && !knownSignatures.has(flow);
+    seen.push({url: posting.url, signature: flow, reached: result.reached, added: fresh});
+    console.log(`smoke discover: ${flow} ${fresh ? 'NEW: added to the pool' : 'known'} (${hostOnly(posting.url)})`);
+    if (fresh) {
+      knownSignatures.add(flow);
+      local.shapes.push({shape: `${flow.split('#')[0]} (found ${day})`, urls: [posting.url], signature: flow});
+      fs.mkdirSync(path.dirname(LOCAL_SITES), {recursive: true});
+      fs.writeFileSync(LOCAL_SITES, `${JSON.stringify(local, null, 1)}\n`);
+    }
+  }
+  fs.mkdirSync(REPORTS, {recursive: true});
+  fs.writeFileSync(path.join(REPORTS, `discover-${day}.json`), `${JSON.stringify({day, seen}, null, 1)}\n`);
+  console.log(`smoke discover: ${seen.filter(item => item.added).length} new shape(s) added to ${LOCAL_SITES}`);
+  return 0;
+}
+
 async function main() {
+  if (process.argv.includes('--discover')) return discover(Number(process.argv[process.argv.indexOf('--limit') + 1]) || 30);
   const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : '';
   const seconds = Number(process.env.SMOKE_SECONDS || 90);
   // smoke-sites.json is public (job-feed postings only); this Mac's postings copied from the owner's profiles live outside the repo, in a QA folder the app never resets.
@@ -67,6 +99,7 @@ async function main() {
     console.log(`smoke: ${shape}: ${posting.url} (HELD: no account button, never Submit; ~${seconds}s)`);
     const run = await liveRun(posting, seconds);
     results[shape] = {url: posting.url, ...parseLive(run.output), exit: run.code, seconds: run.seconds};
+    results[shape].signature = signature(results[shape]);
     fs.mkdirSync(REPORTS, {recursive: true});
     fs.writeFileSync(path.join(REPORTS, `${day}-${shape.replace(/\W+/g, '-')}.log`), run.output);
     console.log(`smoke: ${shape}: reached ${results[shape].reached}${results[shape].filled != null ? `, ${results[shape].filled} filled, ${results[shape].left} left` : ''} (${run.seconds}s)`);

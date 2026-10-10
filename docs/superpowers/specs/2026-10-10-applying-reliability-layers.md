@@ -32,6 +32,9 @@ extension (`REAL_EXTENSION_DIR`), then pass.
   `urls` (fixed public postings from public job feeds).
 - **A big pool, rotated** (owner, 10 Oct 2026: 50–100 sites, 10 a night): `SMOKE_PER_NIGHT` (10) shapes a night, a window moving each day, so all are run every
   pool/10 nights; each shape is compared with ITS last run, however many nights ago (`--all` runs the whole pool, `--only` some).
+- **Distinct flows, not distinct addresses** (owner, 10 Oct 2026): each run records a flow signature (the page kinds in order, the host the journey
+  ended on, how far it got). `npm run smoke -- --discover [--limit N]` runs candidates from the loaded profile's jobs (a few per host, more from job
+  boards) once each and adds to the Mac's list only those with a signature the pool does not have.
 - Each run: the e2e app + a headless Chromium + the real extension (the `npm run live` machinery, its isolation), Apply pressed through the app's API,
   stopped before any account button or Submit (HELD), a report per posting: reached step, filled/left, page kinds, errors.
 - The report is compared with the last run: a shape that reached less than before is a regression, listed first; a posting gone (HTTP 404/410) is noted,

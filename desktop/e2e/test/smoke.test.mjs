@@ -9,7 +9,7 @@ const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detai
   2026-10-10T12:20:46Z [extension] account judgment result: needs_code {"botCheck":false}`;
 
 test('a run that stopped at the email code reached code/bot; an account page\'s fields are not the form', () => {
-  assert.deepEqual(parseLive(LIVE), {reached: 'code/bot', filled: null, left: null, kinds: ['account'], errors: []});
+  assert.deepEqual(parseLive(LIVE), {reached: 'code/bot', filled: null, left: null, kinds: ['account'], path: [{kind: 'account', host: 'auth.jobs.ch'}], errors: []});
 });
 
 test('a form filled to the end is ready; one with fields left is form', () => {
@@ -70,4 +70,24 @@ test('each shape is compared with its own last run, however many nights ago', as
   const {lastSeen} = await import('../lib/smoke.mjs');
   const seen = lastSeen([{day: '2026-10-01', results: {a: {reached: 'form'}, b: {reached: 'account'}}}, {day: '2026-10-05', results: {a: {reached: 'posting'}}}]);
   assert.deepEqual([seen.a.reached, seen.a.day, seen.b.reached, seen.b.day], ['posting', '2026-10-05', 'account', '2026-10-01']);
+});
+
+test('a flow signature: page kinds in order and the host the journey ended on; one signature per distinct flow', async () => {
+  const {signature} = await import('../lib/smoke.mjs');
+  const run = parseLive(`Apply pressed on u
+  [extension] fill: page kind: posting {"by":"ai","host":"www.jobs.ch"}
+  [extension] fill: page kind: posting {"by":"remembered","host":"www.jobs.ch"}
+  [extension] fill: page kind: account {"by":"ai","host":"apply.deloitte.ch"}
+  [extension] account judgment result: needs_code {"botCheck":false}`);
+  assert.deepEqual(run.path, [{kind: 'posting', host: 'www.jobs.ch'}, {kind: 'account', host: 'apply.deloitte.ch'}]);
+  assert.equal(signature(run), 'posting>account@apply.deloitte.ch#code/bot');
+  assert.equal(signature({reached: 'none'}), 'none@?');
+});
+
+test('discovery candidates: a few per host, more from job boards, none already in the pool', async () => {
+  const {candidates} = await import('../lib/smoke.mjs');
+  const jobs = [...Array.from({length: 20}, (_, i) => ({url: `https://www.jobs.ch/en/vacancies/detail/${i}/`})), ...Array.from({length: 5}, (_, i) => ({url: `https://career.hm.com/job/${i}`}))];
+  const picked = candidates(jobs, new Set(['https://career.hm.com/job/0']));
+  assert.equal(picked.filter(item => item.url.includes('jobs.ch')).length, 12);
+  assert.deepEqual(picked.filter(item => item.url.includes('hm.com')).map(item => item.url), ['https://career.hm.com/job/1', 'https://career.hm.com/job/2']);
 });
