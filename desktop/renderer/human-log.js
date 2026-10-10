@@ -29,7 +29,12 @@ const RULES = [
   [/^Titles: asking \S+/, () => null],
   [/^Titles: \S+ sorted (\d+) new title\(s\) in your places; (\d+) could fit/, m => `🏷️ ${aiName()} checked ${plural(m[1], 'job title')}: ${m[2]} could fit you`],
   [/^Added (\d+) new job\(s\): (.+)$/, m => `➕ Added ${plural(m[1], 'new job')}: ${m[2]}`],
-  [/^Closed 0 job\(s\)/, () => null],
+  [/^(Closed|Expired|Unmatched|Removed) 0 job\(s\)/, () => null],
+  // Since 10 Oct 2026 the engine says what happened to a job: expired (the posting is gone) or unmatched (outside your search); older runs said Closed.
+  [/^Expired (\d+) job\(s\) not seen for (\d+) days/, m => `🗓️ ${plural(m[1], 'job')} expired: no longer listed for ${m[2]} days`],
+  [/^Expired (\d+) job\(s\) from employers your search no longer reads/, m => `🗓️ ${plural(m[1], 'job')} expired: from employers you no longer search`],
+  [/^Unmatched (\d+) job\(s\) outside your places: (.+)$/, m => `↪️ ${plural(m[1], 'job')} set aside outside your places: ${m[2]}`],
+  [/^Removed (\d+) old unmatched or expired job\(s\)/, m => `🧹 Removed ${plural(m[1], 'old job')} from this computer's cache`],
   [/^Closed (\d+) job\(s\) not seen for (\d+) days/, m => `🗑️ Closed ${plural(m[1], 'job')} no longer listed for ${m[2]} days`],
   [/^Closed (\d+) job\(s\) outside your places: (.+)$/, m => `🗑️ Closed ${plural(m[1], 'job')} outside your places: ${m[2]}`],
   [/^Closed (\d+) job\(s\) from employers your search no longer reads/, m => `🗑️ Closed ${plural(m[1], 'job')} from employers you no longer search`],

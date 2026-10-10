@@ -109,11 +109,11 @@ def search(args, stores=None):
                 # Only full crawls can tell that a job disappeared.
                 gone_from = Counter()
                 run['closed_stale'] = store.close_stale(db, STALE_DAYS, who=gone_from)
-                print(f"Closed {run['closed_stale']} job(s) not seen for {STALE_DAYS} days" + (f': {store.grouped(gone_from)}' if gone_from else ''))
+                print(f"Expired {run['closed_stale']} job(s) not seen for {STALE_DAYS} days" + (f': {store.grouped(gone_from)}' if gone_from else ''))
                 if not employer_index.problem:   # a list that failed to download is not a list of dropped employers
                     dropped = store.close_dropped(db, {source['company'] for source in feed_list})
                     if dropped:
-                        print(f'Closed {dropped} job(s) from employers your search no longer reads')
+                        print(f'Expired {dropped} job(s) from employers your search no longer reads')
         if args.mode != 'more' and args.company_report.exists():
             company_report = json.loads(args.company_report.read_text())
             imported += store.import_company_report(db, company_report)
@@ -125,7 +125,10 @@ def search(args, stores=None):
             feed_places.place_open_jobs(db)
             elsewhere = store.close_elsewhere(db, feed_places.keep_open, where=outside)
             if elsewhere:
-                print(f'Closed {elsewhere} job(s) outside your places: {store.grouped(outside)}')
+                print(f'Unmatched {elsewhere} job(s) outside your places: {store.grouped(outside)}')
+            pruned = store.prune_gone(db)   # unmatched or expired, unseen for 60 days, never acted on: the cache stops growing for ever
+            if pruned:
+                print(f'Removed {pruned} old unmatched or expired job(s) from this computer\'s cache')
         # Jobs that came without a description (SmartRecruiters' list, a jobs.ch page that failed) get it now, or
         # they'd never be enriched or scored. A few per run; a failure is tried again next run.
         try:

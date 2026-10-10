@@ -194,8 +194,8 @@ def backfill(db, limit=20, days=14, fetcher=fetch, now=None):
         if isinstance(error, Refused):
             refused_at[host(url)] += 1
             refused_before[host(url)] = now.isoformat()
-        elif getattr(error, 'code', None) in (404, 410):   # the posting was taken down: the job is closed, not unscored
-            db.execute("UPDATE jobs SET state='closed' WHERE id=?", (job_id,))
+        elif getattr(error, 'code', None) in (404, 410):   # the posting was taken down: the job expired, not unscored
+            db.execute("UPDATE jobs SET state='expired' WHERE id=?", (job_id,))
             gone += 1
         elif error is not None:
             failed += 1   # tried again next run

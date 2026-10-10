@@ -62,8 +62,8 @@ class ClosedOutsideTests(unittest.TestCase):
             with mock.patch.object(feeds, 'PLACE', ROMANDIE):
                 self.assertEqual(store.close_elsewhere(db, feeds.wanted_location), 2)
             states = {name: db.execute('SELECT state FROM jobs WHERE id = ?', (job_id,)).fetchone()[0] for name, job_id in ids.items()}
-            self.assertEqual(states, {'vevey': 'open', 'gallen': 'closed', 'applied': 'open', 'mine': 'open', 'blank': 'open',
-                                      'saved': 'closed', 'talking': 'open'})
+            self.assertEqual(states, {'vevey': 'open', 'gallen': 'unmatched', 'applied': 'open', 'mine': 'open', 'blank': 'open',
+                                      'saved': 'unmatched', 'talking': 'open'})
 
 
 def jobsch_page(job_id, town):

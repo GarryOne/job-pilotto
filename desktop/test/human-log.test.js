@@ -52,3 +52,11 @@ test('no Claude timing, pool, Notion link or digest text reaches the readable lo
   const text = readableLog(REFRESH).join('\n');
   for (const raw of ['model 3 s', 'Pool labels', 'app.notion.com', '✈️ Job digest', '(so far)', 'tokens in']) assert.ok(!text.includes(raw), raw);
 });
+
+// 10 Oct 2026: the engine says what happened to a job (expired, unmatched, removed); a run from before still says Closed and still reads.
+test('job states in the readable log: expired, unmatched and removed, and the old Closed lines', () => {
+  assert.deepEqual(readableLog(['Expired 0 job(s) not seen for 7 days', 'Expired 4 job(s) not seen for 7 days', 'Expired 2 job(s) from employers your search no longer reads',
+    'Unmatched 18 job(s) outside your places: Switzerland 18', "Removed 120 old unmatched or expired job(s) from this computer's cache", 'Closed 3 job(s) outside your places: Basel 3']), [
+    '🗓️ 4 jobs expired: no longer listed for 7 days', '🗓️ 2 jobs expired: from employers you no longer search', '↪️ 18 jobs set aside outside your places: Switzerland 18',
+    "🧹 Removed 120 old jobs from this computer's cache", '🗑️ Closed 3 jobs outside your places: Basel 3']);
+});

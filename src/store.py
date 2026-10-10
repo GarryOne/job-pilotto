@@ -243,6 +243,13 @@ def import_company_report(db, report):
     return statuses
 
 
+# A job's state (owner, 10 Oct 2026: "closed" said nothing): open; UNMATCHED = found, but outside your search (place or title); EXPIRED = the posting is gone
+# (not seen for days, dropped from its feed, or 404/410); deleted = you deleted it. A job seen again is reopened by upsert_job, then filtered again.
+UNMATCHED, EXPIRED = 'unmatched', 'expired'
+NOT_OPEN = ('unmatched', 'expired', 'closed')   # 'closed': rows written before 10 Oct 2026, sorted into the two by close_elsewhere
+PRUNE_DAYS = 60
+
+
 def close_stale(db, days=7, now=None, who=None):
     """Close open jobs not seen for `days`; a job seen again is reopened by upsert_job. Returns the count. who: a Counter filled with their
     employers, for the refresh's log line."""
@@ -251,7 +258,7 @@ def close_stale(db, days=7, now=None, who=None):
     if who is not None:
         who.update(row[0] for row in db.execute("""SELECT companies.name FROM jobs JOIN companies ON companies.id = jobs.company_id
             WHERE jobs.state = 'open' AND jobs.last_seen_at < ?""", (cutoff,)))
-    closed = db.execute("UPDATE jobs SET state='closed' WHERE state='open' AND last_seen_at < ?", (cutoff,)).rowcount
+    closed = db.execute("UPDATE jobs SET state=? WHERE state='open' AND last_seen_at < ?", (EXPIRED, cutoff)).rowcount
     db.commit()
     return closed
 
@@ -285,9 +292,33 @@ def close_elsewhere(db, wanted, where=None):
     if where is not None:   # the places they were in, for the refresh's log line
         where.update(place_name(row[1]) for row in gone)
     gone = [row[0] for row in gone]
-    db.executemany("UPDATE jobs SET state='closed' WHERE id = ?", [(job_id,) for job_id in gone])
+    db.executemany("UPDATE jobs SET state=? WHERE id = ?", [(UNMATCHED, job_id) for job_id in gone])
+    # Rows closed before the two names existed: outside your search now -> unmatched, else the posting went away -> expired (schema evolution).
+    legacy = db.execute("SELECT id, location, work_mode, title, url, description FROM jobs WHERE state = 'closed'").fetchall()
+    for row in legacy:
+        fits = wanted({'location': row[1] or '', 'remote': 'remote' in (row[2] or '').lower(), 'title': row[3] or '', 'url': row[4] or '', 'description': row[5] or ''})
+        db.execute("UPDATE jobs SET state=? WHERE id=?", (EXPIRED if fits else UNMATCHED, row[0]))
     db.commit()
     return len(gone)
+
+
+def prune_gone(db, days=PRUNE_DAYS, now=None):
+    """Delete jobs unmatched or expired and not seen by any feed for `days`, that you never acted on (unreviewed or dismissed, not imported, no
+    Notion row): their dedupe value is gone (a feed that dropped them for 60 days will not bring them back as new). With their scores, enrichments
+    and shown marks. Returns the count. Owner, 10 Oct 2026: the cache only grew."""
+    from datetime import timedelta
+    cutoff = ((now or datetime.now(timezone.utc)) - timedelta(days=days)).isoformat(timespec='seconds')
+    has_notion = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='notion_matches'").fetchone()
+    in_notion = 'AND jobs.url NOT IN (SELECT url FROM notion_matches)' if has_notion else ''
+    ids = [row[0] for row in db.execute(f"""SELECT jobs.id FROM jobs LEFT JOIN applications ON applications.job_id = jobs.id
+        WHERE jobs.state IN ({','.join('?' * len(NOT_OPEN))}) AND jobs.last_seen_at < ? AND COALESCE(applications.status, 'unreviewed') IN ('unreviewed', 'dismissed')
+        AND COALESCE(jobs.notes, '') != 'imported' {in_notion}""", (*NOT_OPEN, cutoff))]
+    tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}   # the AI tables are made by their own modules
+    for table in [name for name in ('scores', 'enrichments', 'shown', 'applications') if name in tables]:
+        db.executemany(f'DELETE FROM {table} WHERE job_id = ?', [(job_id,) for job_id in ids])
+    db.executemany('DELETE FROM jobs WHERE id = ?', [(job_id,) for job_id in ids])
+    db.commit()
+    return len(ids)
 
 
 def close_dropped(db, read_names, grace_hours=12, now=None, most=0.5):
@@ -305,7 +336,7 @@ def close_dropped(db, read_names, grace_hours=12, now=None, most=0.5):
     dropped = [row[0] for row in rows if row[1] not in names]
     if not dropped or len(dropped) > most * total:
         return 0
-    db.executemany("UPDATE jobs SET state='closed' WHERE id = ?", [(job_id,) for job_id in dropped])
+    db.executemany("UPDATE jobs SET state=? WHERE id = ?", [(EXPIRED, job_id) for job_id in dropped])
     db.commit()
     names = sorted({row[1] for row in rows if row[1] not in names})
     print(f"Closed jobs of employers your search no longer reads: {', '.join(names[:15])}{f' and {len(names) - 15} more' if len(names) > 15 else ''}")

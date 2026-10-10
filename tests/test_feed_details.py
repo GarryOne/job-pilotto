@@ -63,7 +63,7 @@ class DescriptionBackfillTest(unittest.TestCase):
             return answer
 
         self.assertEqual(describe.backfill(db, fetcher=fetcher), 'Descriptions: read 1 of 3 missing job texts, 1 posting(s) taken down (closed), 1 failed (tried again next time)')
-        self.assertEqual(db.execute('SELECT state FROM jobs WHERE id=6').fetchone()[0], 'closed')
+        self.assertEqual(db.execute('SELECT state FROM jobs WHERE id=6').fetchone()[0], 'expired')
         self.assertEqual(db.execute('SELECT description FROM jobs WHERE id=1').fetchone()[0], 'Run Kubernetes.')
         self.assertEqual(describe.SMARTRECRUITERS.search('https://jobs.smartrecruiters.com/canva/6000000001379105').groups(),
                          ('canva', '6000000001379105'))

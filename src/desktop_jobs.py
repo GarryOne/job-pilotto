@@ -52,7 +52,7 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
     # Closed on this Mac (gone from its site, or outside your places) while its Notion row still says Open: Notion is told at the end of the
     # refresh; the list leaves it out now, so the count drops as the refresh works (owner, 7 Oct 2026). A job you acted on stays (NOT_YET).
     try:
-        closed_here = {(row[0] or '').strip() for row in db.execute("SELECT url FROM jobs WHERE state = 'closed'")}
+        closed_here = {(row[0] or '').strip() for row in db.execute("SELECT url FROM jobs WHERE state IN ('unmatched', 'expired', 'closed')")}
     except sqlite3.Error:   # a test's bare database
         closed_here = set()
     rows = []
