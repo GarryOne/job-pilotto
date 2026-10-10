@@ -13,7 +13,10 @@
   "accept": [
    "expired",
    "other"
-  ]
+  ],
+  "accept_reasons": {
+   "other": "Rung 2 has no `expired` kind: its INSTRUCTIONS call a page that needs nothing from the candidate `other`; the numbered digest (rung 3) names the outcome expired."
+  }
  },
  "sketch": {
   "url": "https://logistica.example.ch/lavoro/responsabile-magazzino",

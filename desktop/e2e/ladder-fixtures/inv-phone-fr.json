@@ -13,7 +13,10 @@
   "accept": [
    "phone",
    "other"
-  ]
+  ],
+  "accept_reasons": {
+   "other": "Rung 2 has no `phone` kind: its INSTRUCTIONS call a page that needs nothing from the candidate `other`; the numbered digest (rung 3) names the outcome phone."
+  }
  },
  "sketch": {
   "url": "https://restaurant.example.ch/emplois/aide-cuisine",

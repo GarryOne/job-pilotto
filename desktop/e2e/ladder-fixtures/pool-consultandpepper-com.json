@@ -11,7 +11,10 @@
   "accept": [
    "form",
    "posting"
-  ]
+  ],
+  "accept_reasons": {
+   "posting": "The application form is on the page (3 controls, file inputs further down) beside contact addresses and phone numbers (the fixture's note), so the page also reads as a posting with contact details; no stricter reason was recorded (audit 11 Oct 2026). Confirm or tighten."
+  }
  },
  "lang": "de",
  "sketch": {

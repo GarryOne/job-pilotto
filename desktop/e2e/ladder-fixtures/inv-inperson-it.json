@@ -13,7 +13,10 @@
   "accept": [
    "in_person",
    "other"
-  ]
+  ],
+  "accept_reasons": {
+   "other": "Rung 2 has no `in_person` kind: its INSTRUCTIONS call a page that needs nothing from the candidate `other`; the numbered digest (rung 3) names the outcome in_person."
+  }
  },
  "sketch": {
   "url": "https://ristorante.example.ch/lavoro/cameriere",

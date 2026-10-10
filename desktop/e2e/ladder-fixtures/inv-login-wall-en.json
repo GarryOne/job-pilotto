@@ -14,7 +14,11 @@
    "login_wall",
    "account",
    "other"
-  ]
+  ],
+  "accept_reasons": {
+   "account": "To rung 2 a sign-in wall is a sign-in page (kind account); the numbered digest (rung 3) tells a login wall from a real account step.",
+   "other": "Rung 2 has no `login_wall` kind: its INSTRUCTIONS call a page that needs nothing from the candidate `other`; the numbered digest (rung 3) names the outcome login_wall."
+  }
  },
  "sketch": {
   "url": "https://network.example.com/jobs/data-analyst",

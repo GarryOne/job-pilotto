@@ -18,7 +18,7 @@ export const JUDGE_SKETCH_FIELDS = ['title', 'headings', 'controls', 'buttons', 
 // admin page; `expect` may later carry form_frame (an index into frameCandidates) and a closed verb with candidate numbers (slice B).
 export const FIELDS = ['schemaVersion', 'id', 'question', 'source', 'lang', 'why', 'note', 'trap', 'url', 'capture', 'sketch', 'candidates', 'expect', 'answer', 'answer_path', 'rung', 'signal', 'file'];
 // `apply_route` (manual | reuse_previous | third_party_account) and `digest` (not_asked: rung 2 names the manual route and its button, so the numbered digest is not needed; asked: it is) are for start dialogs.
-export const EXPECT_FIELDS = ['outcome', 'accept', 'apply_route', 'digest', 'form_frame', 'verb', 'candidates'];
+export const EXPECT_FIELDS = ['outcome', 'accept', 'accept_reasons', 'apply_route', 'digest', 'form_frame', 'verb', 'candidates'];
 export const LANGS = ['de', 'fr', 'en', 'it'];
 export const SOURCES = ['recorded', 'captured', 'reconstructed', 'invented'];
 

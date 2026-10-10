@@ -11,7 +11,10 @@
   "accept": [
    "form",
    "posting"
-  ]
+  ],
+  "accept_reasons": {
+   "posting": "No reason was recorded when this was added (audit 11 Oct 2026); The sketch has 13 controls and an Apply button, so a posting answer that presses Apply reaches the same form. Confirm or tighten."
+  }
  },
  "lang": "en",
  "sketch": {

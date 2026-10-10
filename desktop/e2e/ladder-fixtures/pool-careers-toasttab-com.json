@@ -11,7 +11,10 @@
   "accept": [
    "posting",
    "form"
-  ]
+  ],
+  "accept_reasons": {
+   "form": "No reason was recorded when this was added (audit 11 Oct 2026); The sketch has 10 controls beside a posting's navigation buttons. Confirm or tighten."
+  }
  },
  "lang": "en",
  "sketch": {

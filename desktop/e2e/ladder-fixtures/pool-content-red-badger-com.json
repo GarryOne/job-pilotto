@@ -12,7 +12,11 @@
    "form_in_frame",
    "posting",
    "other"
-  ]
+  ],
+  "accept_reasons": {
+   "posting": "Captured at page load, before the hosted board's iframe grew past the frame finder's 300x200 floor: the sketch lists no frame candidate, so rung 2 can only call it a posting; the extension judges again once the frame qualifies (extension/ladder/climb.js frameGrew).",
+   "other": "Same load-time sketch (no controls, no listed frame candidate): rung 2 may call it `other`; the ladder does not end there, the extension judges again when the frame qualifies. Tighten once this page is re-captured with its candidate (see datadog-greenhouse-frame-grown)."
+  }
  },
  "lang": "en",
  "sketch": {

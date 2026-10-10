@@ -11,7 +11,10 @@
   "accept": [
    "email",
    "other"
-  ]
+  ],
+  "accept_reasons": {
+   "other": "Rung 2 answered other at 0.6 on this small employer's page (pool capture, 10 Oct 2026); the address is found by the numbered digest (rung 3), which the extension asks when a no-form page stalls, so the ladder climbs from here."
+  }
  },
  "sketch": {
   "url": "https://www.fidag-sa.ch/offres/vous-etes-comptable/",

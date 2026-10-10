@@ -11,7 +11,10 @@
   "accept": [
    "form_in_frame",
    "posting"
-  ]
+  ],
+  "accept_reasons": {
+   "posting": "Captured at page load, before the hosted board's iframe grew past the frame finder's 300x200 floor: the sketch lists no frame candidate, so rung 2 can only call it a posting; the extension judges again once the frame qualifies (extension/ladder/climb.js frameGrew). The grown sketch is datadog-greenhouse-frame-grown, which accepts only form_in_frame."
+  }
  },
  "sketch": {
   "url": "https://careers.datadoghq.com/detail/7131404/",
