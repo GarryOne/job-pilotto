@@ -15,6 +15,13 @@ test('a change to the extension runs the apply suite', () => {
   assert.deepEqual(suitesFor(['extension/content/fill.js', 'extension/manifest.json'], ALL), ['apply']);
 });
 
+test('layer 2: an extension change, a recorded case or the replay harness runs the recorded suite', () => {
+  const all = [...ALL, 'recorded'];
+  for (const file of ['extension/background.js', 'desktop/e2e/recorded/workday-start-dialog-2/case.json', 'desktop/e2e/lib/page-replay.mjs'])
+    assert.ok(suitesFor([file], all).includes('recorded'), file);
+  assert.ok(!suitesFor(['desktop/e2e/suites/jobs.mjs', 'docs/x.md'], all).includes('recorded'));
+});
+
 test('shared test code runs the cheap, AI-free settings suite as a smoke test, not everything', () => {
   for (const file of ['desktop/e2e/lib/layout.mjs', 'desktop/e2e/suite.mjs', 'desktop/e2e/fixtures/feeds/acme.json', 'desktop/e2e/package.json', '.github/workflows/e2e.yml'])
     assert.deepEqual(suitesFor([file], ALL), ['settings'], file);
