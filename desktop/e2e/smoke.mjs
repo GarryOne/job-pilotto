@@ -12,6 +12,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {candidates, compare, lastSeen, parseLive, pickPosting, placeFound, signature, tonight} from './lib/smoke.mjs';
 import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
+import {earlierReports, recordSite} from './lib/smoke-record.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const QA_DIR = path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA');   // survives profile resets and removed worktrees
@@ -97,15 +98,20 @@ async function main() {
   // smoke-sites.json is public (job-feed postings only); this Mac's postings copied from the owner's profiles live outside the repo, in a QA folder the app never resets.
   const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')).shapes || []; } catch { return []; } };
   const shapes = [...read(path.join(here, 'smoke-sites.json')), ...read(LOCAL_SITES)];
-  const day = new Date().toISOString().slice(0, 10), results = {};
+  const day = new Date().toISOString().slice(0, 10), results = {}, earlierList = earlierReports(REPORTS, day), previous = lastSeen(earlierList);
+  // Each site is saved to the day's report and sent to /admin/applying the moment it ends, so stopping a run loses only the site in progress (lib/smoke-record.mjs).
+  const finish = async shape => {
+    const item = results[shape], found = recordSite({dir: REPORTS, day, shape, result: item, earlier: previous});
+    console.log(`smoke: ${await upload('smoke', [{name: shape, host: hostOnly(item.url), reached: item.reached, filled: item.filled, left: item.left, note: item.note || '', regression: !!found}])}`);
+  };
   const pool = shapes.filter(item => !only || item.shape.includes(only));
   const chosen = only || process.argv.includes('--all') ? pool : tonight(pool, Number(process.env.SMOKE_PER_NIGHT || 10));
   console.log(`smoke: ${chosen.length} of ${shapes.length} shapes tonight`);
   for (const {shape, like = [], urls = []} of chosen) {
     const posting = pickPosting([...urls.map(url => ({url, title: '', company: ''})), ...(like.length ? postingsLike(like) : [])]);
-    if (!posting) { results[shape] = {reached: 'none', note: 'no posting of this shape in the job list'}; console.log(`smoke: ${shape}: no posting`); continue; }
+    if (!posting) { results[shape] = {reached: 'none', note: 'no posting of this shape in the job list'}; console.log(`smoke: ${shape}: no posting`); await finish(shape); continue; }
     const status = await postingStatus(posting.url);
-    if (status === 404 || status === 410) { results[shape] = {url: posting.url, reached: 'none', note: `posting gone (HTTP ${status})`}; console.log(`smoke: ${shape}: posting gone (HTTP ${status}): replace it in smoke-sites.json`); continue; }
+    if (status === 404 || status === 410) { results[shape] = {url: posting.url, reached: 'none', note: `posting gone (HTTP ${status})`}; console.log(`smoke: ${shape}: posting gone (HTTP ${status}): replace it in smoke-sites.json`); await finish(shape); continue; }
     console.log(`smoke: ${shape}: ${posting.url} (HELD: no account button, never Submit; ~${seconds}s)`);
     await ping(shape, 'start');
     const run = await liveRun(posting, seconds).finally(() => ping(shape, 'end'));
@@ -114,20 +120,17 @@ async function main() {
     fs.mkdirSync(REPORTS, {recursive: true});
     fs.writeFileSync(path.join(REPORTS, `${day}-${shape.replace(/\W+/g, '-')}.log`), run.output);
     console.log(`smoke: ${shape}: reached ${results[shape].reached}${results[shape].filled != null ? `, ${results[shape].filled} filled, ${results[shape].left} left` : ''} (${run.seconds}s)`);
+    await finish(shape);
   }
-  const earlierReports = fs.existsSync(REPORTS) ? fs.readdirSync(REPORTS).filter(name => /^\d{4}-\d\d-\d\d\.json$/.test(name) && name < `${day}.json`)
-    .map(name => { try { return JSON.parse(fs.readFileSync(path.join(REPORTS, name), 'utf8')); } catch { return null; } }).filter(Boolean) : [];
-  const previous = lastSeen(earlierReports), previousFile = earlierReports.length ? `${earlierReports.length} earlier report(s)` : null;
+  const previousFile = earlierList.length ? `${earlierList.length} earlier report(s)` : null;
   const regressions = compare(previous, results), dropped = droppedBoards();
   fs.mkdirSync(REPORTS, {recursive: true});
-  fs.writeFileSync(path.join(REPORTS, `${day}.json`), `${JSON.stringify({day, results, regressions, dropped, comparedWith: previousFile}, null, 1)}\n`);
+  const saved = (() => { try { return JSON.parse(fs.readFileSync(path.join(REPORTS, `${day}.json`), 'utf8')); } catch { return {}; } })();   // what this run and the day's other runs saved site by site
+  fs.writeFileSync(path.join(REPORTS, `${day}.json`), `${JSON.stringify({...saved, day, results: {...saved.results, ...results}, regressions, dropped, comparedWith: previousFile}, null, 1)}\n`);
   console.log(`smoke: ${regressions.length ? `REGRESSIONS: ${regressions.map(item => `${item.shape} (${item.why})`).join('; ')}` : 'no regression'}${previousFile ? ` vs ${previousFile}` : ' (first report)'}`);
   console.log(`smoke: fleet boards dropped: ${dropped == null ? 'not read' : dropped.length ? dropped.map(item => `${item.board} ${item.earlier}→${item.recent}`).join(', ') : 'none'}`);
   console.log(`smoke: report ${path.join(REPORTS, `${day}.json`)}`);
-  // /admin/applying: each site's host, step and counts (never the posting's address).
-  console.log(`smoke: ${await upload('smoke', Object.entries(results).map(([name, item]) => ({name, host: hostOnly(item.url), reached: item.reached, filled: item.filled, left: item.left,
-    note: item.note || '', regression: regressions.some(found => found.shape === name)})))}`);
-  console.log(`smoke: ${await sendPool(shapes, earlierReports, results)}`);
+  console.log(`smoke: ${await sendPool(shapes, earlierList, results)}`);
   return regressions.length ? 1 : 0;
 }
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) process.exit(await main());
