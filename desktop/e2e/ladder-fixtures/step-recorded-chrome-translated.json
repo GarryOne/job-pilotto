@@ -1,0 +1,76 @@
+{
+ "schemaVersion": 1,
+ "id": "step-recorded-chrome-translated",
+ "question": "form_step",
+ "source": "recorded",
+ "lang": "en",
+ "why": "recorded case chrome-translated-form-1: a German form Chrome translated to English",
+ "capture": {
+  "page": "recorded/chrome-translated-form-1/form.html"
+ },
+ "expect": {
+  "outcome": "final"
+ },
+ "url": "https://jobs.example.com/translated/form",
+ "sketch": {
+  "url": "file:///Users/mac/job-pilotto/.claude/worktrees/ladder-fixtures/desktop/e2e/recorded/chrome-translated-form-1/form.html",
+  "title": "<font style=\"vertical-align: inherit;\"><font style=\"vertical-align: inherit;\">Application: Accountant (m/f/d)</font></font>",
+  "headings": [
+   "Your application"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "First name *",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Last name *",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "email",
+    "label": "E-mail address *",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "file",
+    "label": "Upload CV *",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "textarea",
+    "label": "Message (optional)",
+    "required": false,
+    "state": "empty"
+   }
+  ],
+  "buttons": [
+   "Submit application"
+  ],
+  "texts": [
+   "Your application",
+   "Fields marked with * are mandatory.",
+   "First name",
+   "Last name",
+   "E-mail address",
+   "Upload CV",
+   "Message (optional)",
+   "Submit application"
+  ],
+  "frames": []
+ },
+ "answer": {
+  "answer": "needs_person",
+  "needs": "First name *",
+  "needs_kind": "field",
+  "step": "final",
+  "next_control": "",
+  "confidence": 0.95
+ }
+}

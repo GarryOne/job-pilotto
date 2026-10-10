@@ -1,0 +1,247 @@
+{
+ "schemaVersion": 1,
+ "id": "step-pool-greenhouse-nice",
+ "question": "form_step",
+ "source": "captured",
+ "lang": "en",
+ "why": "a real application page of the pool, read once (read-only): boards.eu.greenhouse.io",
+ "capture": {
+  "url": "https://boards.eu.greenhouse.io/nice/jobs/4728093101?gh_jid=4728093101"
+ },
+ "expect": {
+  "outcome": "final"
+ },
+ "sketch": {
+  "url": "https://job-boards.eu.greenhouse.io/nice/jobs/4728093101",
+  "title": "Job Application for Senior Site Reliability Engineer at NICE",
+  "headings": [
+   "Senior Site Reliability Engineer",
+   "Apply for this job"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "First Name*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Last Name*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Email*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Country*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "tel",
+    "label": "Phone*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "file",
+    "label": "Attach",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "file",
+    "label": "Attach",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "LinkedIn Profile",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Do you have any first-degree relatives (spouse, parent, child, sibling) that are",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Have you ever worked at NICE or any of it's subsidiaries? *",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Do you now or in the future require visa sponsorship?*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "This role may require security clearance. Security clearance eligibility can inc",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "For research purposes only and unrelated to your application: Were you familiar ",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "checkbox",
+    "label": "Hybrid work model",
+    "required": true,
+    "state": "unchecked"
+   },
+   {
+    "type": "checkbox",
+    "label": "Meaningful professional challenges",
+    "required": true,
+    "state": "unchecked"
+   },
+   {
+    "type": "checkbox",
+    "label": "Hands-on work with AI and AI skill development",
+    "required": true,
+    "state": "unchecked"
+   },
+   {
+    "type": "checkbox",
+    "label": "Career growth and development",
+    "required": true,
+    "state": "unchecked"
+   },
+   {
+    "type": "checkbox",
+    "label": "Compensation and benefits",
+    "required": true,
+    "state": "unchecked"
+   },
+   {
+    "type": "checkbox",
+    "label": "Employee events and social culture",
+    "required": true,
+    "state": "unchecked"
+   },
+   {
+    "type": "checkbox",
+    "label": "Supportive, people-centric managers",
+    "required": true,
+    "state": "unchecked"
+   },
+   {
+    "type": "checkbox",
+    "label": "Long-term job stability",
+    "required": true,
+    "state": "unchecked"
+   },
+   {
+    "type": "checkbox",
+    "label": "Global company with enterprise customers worldwide",
+    "required": true,
+    "state": "unchecked"
+   },
+   {
+    "type": "checkbox",
+    "label": "Volunteering and community involvement",
+    "required": true,
+    "state": "unchecked"
+   }
+  ],
+  "buttons": [
+   "Back to jobs",
+   "Apply",
+   "Create alert",
+   "Autofill my application",
+   "Toggle flyout",
+   "Attach",
+   "Dropbox",
+   "Google Drive",
+   "Enter manually",
+   "Submit application"
+  ],
+  "texts": [
+   "Senior Site Reliability Engineer",
+   "United Kingdom - London; United Kingdom - Southampton",
+   "At NiCE, we don’t limit our challenges. We challenge our limits. Always. We’re ambitious. We’re game changers. And we play to win. We set the highest standards ",
+   "So, what’s the role all about?",
+   "Run the production environment by monitoring availability and taking a holistic view of system health",
+   "Build software and systems to manage platform infrastructure and applications",
+   "Improve reliability, quality, and time-to-market of our suite of software solutions",
+   "Measure and optimize system performance, with an eye toward pushing our capabilities forward, getting ahead of customer needs, and innovating to continually imp",
+   "Provide primary operational support and engineering for multiple large distributed software applications",
+   "How will you make an impact?",
+   "Gather and analyze metrics from both operating systems and applications to assist in performance tuning and fault finding",
+   "Partner with development teams to improve services through rigorous testing and release procedures",
+   "Participate in system design consulting, platform management, and capacity planning",
+   "Create sustainable systems and services through automation and uplifts",
+   "Balance feature development speed and reliability with well-defined service level objectives",
+   "#LI-Remote",
+   "About NiCE",
+   "NICE Ltd. (NASDAQ: NICE) software products are used by 25,000+ global businesses, including 85 of the Fortune 100 corporations, to deliver extraordinary custome",
+   "Known as an innovation powerhouse that excels in AI, cloud and digital, NiCE is consistently recognized as the market leader in its domains, with over 8,500 emp",
+   "NiCE is proud to be an equal opportunity employer. All qualified applicants will receive consideration for employment without regard to race, color, religion, n",
+   "Create a Job Alert",
+   "Interested in building your career at NICE? Get future opportunities sent straight to your email.",
+   "Apply for this job",
+   "indicates a required field",
+   "Phone",
+   "Accepted file types: pdf, doc, docx, txt, rtf",
+   "Cover Letter",
+   "Select...",
+   "Powered by",
+   "Greenhouse"
+  ],
+  "frames": [
+   "www.recaptcha.net"
+  ]
+ },
+ "answer": {
+  "answer": "needs_person",
+  "needs": "First Name*",
+  "needs_kind": "field",
+  "step": "final",
+  "next_control": "",
+  "confidence": 0.95
+ }
+}

@@ -1,0 +1,173 @@
+{
+ "schemaVersion": 1,
+ "id": "step-pool-duolingo",
+ "question": "form_step",
+ "source": "captured",
+ "lang": "en",
+ "why": "a real application page of the pool, read once (read-only): careers.duolingo.com",
+ "capture": {
+  "url": "https://careers.duolingo.com/jobs/8778700002?gh_jid=8778700002"
+ },
+ "expect": {
+  "outcome": "final"
+ },
+ "sketch": {
+  "url": "https://careers.duolingo.com/jobs/8778700002",
+  "title": "Duolingo Careers",
+  "headings": [
+   "Platform Engineer II",
+   "Apply for this job",
+   "Voluntary Self Identification"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "First Name*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Last Name*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "email",
+    "label": "Email*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "tel",
+    "label": "Phone*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "search",
+    "label": "",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "search",
+    "label": "",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "file",
+    "label": "ATTACH",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "file",
+    "label": "ATTACH",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Preferred First Name*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "How do you pronounce your name? (e.g., 'An-na' or 'Ah-na')",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "LinkedIn Profile",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "If you're less than 3 years out of school, what is your undergraduate GPA?*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "textarea",
+    "label": "How has AI changed the way you approach your work?*",
+    "required": true,
+    "state": "empty"
+   }
+  ],
+  "buttons": [
+   "BACK TO HOME",
+   "APPLY",
+   "innovative solutions to complex technical problems",
+   "Play video",
+   "here",
+   "contact@example.com",
+   "Duolingo Applicant Privacy Notice",
+   "Opt-out here",
+   "DROPBOX",
+   "GOOGLE DRIVE",
+   "ENTER MANUALLY",
+   "SUBMIT APPLICATION",
+   "Courses",
+   "Mission",
+   "Approach",
+   "Efficacy",
+   "Research",
+   "Press",
+   "Investors",
+   "Contact us",
+   "Duolingo",
+   "Duolingo English Test",
+   "Duolingo for Business",
+   "Super Duolingo",
+   "Store"
+  ],
+  "texts": [
+   "Back to home",
+   "Platform Engineer II",
+   "New York, NY",
+   "Req ID: R-01228",
+   "Apply",
+   "Our mission at Duolingo is to develop the best education in the world and make it universally available. It’s a big mission, and that’s where you come in!",
+   "Join our life-changing mission to develop education for our half a billion (and growing!) learners around the world.",
+   "About the role...",
+   "As a Platform Engineer on the Compute team, you’ll improve how engineers build and run services, helping ensure our compute platform is reliable at scale for ou",
+   "The Compute team builds and operates the core compute platform that powers our applications. We build paved roads (self-service platform primitives, templates, ",
+   "🧠 You will...",
+   "Build and operate core compute primitives that power production workloads based on Kubernetes, across different regions and cloud providers.",
+   "Improve the delivery pipeline from commit to production by evolving our GitOps and deployment patterns, making rollouts safer and faster.",
+   "Raise the operational bar: define SLOs, build dashboards/alerts, write runbooks, and participate in on-call/incident response to keep the platform dependable.",
+   "Enable effective self-service by turning platform capabilities into reusable abstractions.",
+   "Dropbox",
+   "Google Drive",
+   "Enter manually",
+   "Accepted file types: pdf, doc, docx, txt, rtf",
+   "Select...",
+   "Voluntary Self Identification",
+   "To fulfill our mission of developing the best education in the world and making it universally available, we seek exceptional talent for every role. We recruit ",
+   "Submit application",
+   "About us",
+   "Products",
+   "Apps",
+   "Help and support",
+   "Privacy and terms",
+   "Social",
+   "©2026 Duolingo. All rights reserved."
+  ],
+  "frames": [
+   "www.youtube-nocookie.com"
+  ]
+ },
+ "answer": {
+  "answer": "needs_person",
+  "needs": "First Name*",
+  "needs_kind": "field",
+  "step": "final",
+  "next_control": "",
+  "confidence": 0.9
+ }
+}

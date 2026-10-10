@@ -35,7 +35,7 @@ const lanes = Array.from({length: offline ? 1 : 4}, (_, lane) => fixtures.filter
 const rows = (await Promise.all(lanes.map(lane => scoreFixtures(lane, {clientFor})))).flat().sort((a, b) => a.id.localeCompare(b.id));
 
 if (record) {
-  for (const row of rows) if (row.answer?.kind) {
+  for (const row of rows) if (row.answer?.kind || row.answer?.answer !== undefined) {   // a page-kind answer has a kind, a judge's an answer
     const fixture = fixtures.find(f => f.id === row.id), {file, ...kept} = fixture;
     fs.writeFileSync(path.join(DIR, file), `${JSON.stringify({...kept, answer: row.answer}, null, 1)}\n`);
   }
@@ -50,10 +50,12 @@ if (args.includes('--json')) { console.log(JSON.stringify({rows, summary}, null,
 
 const pad = (text, width) => String(text).padEnd(width).slice(0, width);
 console.log(`ladder-score (${offline ? 'offline: stored answers' : record ? 'live, recording answers' : 'live, plan path'}), ${rows.length} fixtures`);
-console.log(`${pad('fixture', 36)} ${pad('source', 13)} ${pad('expected', 14)} ${pad('got', 8)} ${pad('conf', 5)} rung status`);
-for (const row of rows) console.log(`${pad(row.id, 36)} ${pad(row.source, 13)} ${pad(row.expected, 14)} ${pad(row.outcome || '-', 8)} ${pad(row.confidence.toFixed(2), 5)} ${pad(row.rung, 4)} ${row.status}${row.trap ? '  (trap)' : ''}${row.digestOk === null ? '' : `  [digest ${row.digest || 'route only'}: ${row.digestOk ? 'as expected' : 'NOT as expected'}; route ${row.route || '-'}]`}`);
+console.log(`${pad('fixture', 36)} ${pad('question', 14)} ${pad('source', 13)} ${pad('expected', 14)} ${pad('got', 8)} ${pad('conf', 5)} rung status`);
+for (const row of rows) console.log(`${pad(row.id, 36)} ${pad(row.question || 'page_kind', 14)} ${pad(row.source, 13)} ${pad(row.expected, 14)} ${pad(row.outcome || '-', 8)} ${pad(row.confidence.toFixed(2), 5)} ${pad(row.rung, 4)} ${row.status}${row.trap ? '  (trap)' : ''}${row.digestOk === null ? '' : `  [digest ${row.digest || 'route only'}: ${row.digestOk ? 'as expected' : 'NOT as expected'}; route ${row.route || '-'}]`}`);
 console.log('\nHit rate per source (never blended; "hit" = exact or accepted):');
 for (const [source, entry] of Object.entries(summary.bySource)) console.log(`  ${pad(source, 14)} ${entry.hits}/${entry.total} hit, ${entry.exact} exact`);
+console.log('Per question, then per source (the judges are questions of rung 2; never blended across questions):');
+for (const [question, groups] of Object.entries(summary.byQuestion)) for (const [source, entry] of Object.entries(groups)) console.log(`  ${pad(question, 15)} ${pad(source, 14)} ${entry.hits}/${entry.total} hit, ${entry.exact} exact`);
 console.log('Per rung that decides today (0 = structure rule after an unsure answer, 1 = kept answer, 2 = AI sketch):');
 for (const [rung, entry] of Object.entries(summary.byRung).sort()) console.log(`  ${pad(rung, 14)} ${entry.hits}/${entry.total} hit`);
 console.log(`Wrong and confident (answer >= 0.8, outside the accepted outcomes): ${summary.wrongConfident.length}`);

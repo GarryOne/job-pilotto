@@ -73,6 +73,35 @@ test('a start dialog: the digest is not asked when the manual route is named and
   assert.equal((await scoreFixtures([fixture('p', 'invented', 'posting', answer('posting', 0.9))]))[0].digestOk, null);   // no expectation, nothing claimed
 });
 
+const judgeSketch = {url: 'https://jobs.example.ch/konto', title: 'Konto erstellen', headings: ['Konto erstellen'], controls: [{type: 'email', label: 'E-Mail', required: true, state: 'filled'}, {type: 'checkbox', label: 'Ich akzeptiere die Nutzungsbedingungen', required: true, state: 'unchecked'}],
+  buttons: ['Konto erstellen', 'Weiter'], texts: ['Bitte bestätigen Sie die Bedingungen.'], frames: []};
+const judged = (id, question, outcome, answer, extra = {}) => ({id, source: 'invented', lang: 'de', question, sketch: judgeSketch, expect: {outcome}, answer, ...extra});
+
+test('the judges are questions of rung 2: each fixture is scored through the REAL judge, per question', async () => {
+  const rows = await scoreFixtures([
+    judged('r1', 'account_ready', 'needs_person', {answer: 'needs_person', needs: 'Ich akzeptiere die Nutzungsbedingungen', needs_kind: 'consent', consent_required: true, bot_check: false, confidence: 0.9}),
+    judged('r2', 'account_result', 'needs_code', {answer: 'needs_code', needs: '', needs_kind: 'code', consent_required: false, bot_check: false, confidence: 0.92}),
+    judged('r3', 'form_step', 'middle', {answer: 'ready', needs: '', needs_kind: '', step: 'middle', next_control: 'Weiter', confidence: 0.85}),
+    judged('r4', 'account_ready', 'ready', {answer: 'needs_person', needs: 'nothing the page lists', needs_kind: 'field', consent_required: false, bot_check: false, confidence: 0.9}),
+    judged('r5', 'form_step', 'final', {answer: 'banana', step: 'final', confidence: 0.9}),
+  ]);
+  assert.deepEqual(rows.map(row => [row.id, row.question, row.outcome, row.status, row.rung]), [['r1', 'account_ready', 'needs_person', 'exact', 2], ['r2', 'account_result', 'needs_code', 'exact', 2], ['r3', 'form_step', 'middle', 'exact', 2],
+    ['r4', 'account_ready', 'needs_person', 'wrong-confident', 2], ['r5', 'form_step', 'unsure', 'miss', 0]]);   // a judge answer outside its fixed list is an error: unsure, rung 0
+});
+
+test('rates are per question and then per source, never blended across questions', async () => {
+  const rows = await scoreFixtures([
+    fixture('p1', 'invented', 'posting', answer('posting', 0.9)),
+    judged('j1', 'account_ready', 'ready', {answer: 'ready', needs: '', needs_kind: '', consent_required: false, bot_check: false, confidence: 0.9}),
+    judged('j2', 'form_step', 'final', {answer: 'ready', step: 'final', next_control: '', confidence: 0.9}, {source: 'recorded'}),
+  ]);
+  const summary = summarize(rows);
+  assert.deepEqual(Object.keys(summary.byQuestion).sort(), ['account_ready', 'form_step', 'page_kind']);
+  assert.deepEqual(summary.byQuestion.form_step, {real: {total: 1, hits: 1, exact: 1}});
+  assert.deepEqual(summary.byQuestion.account_ready, {invented: {total: 1, hits: 1, exact: 1}});
+  assert.deepEqual(summary.bySource, {invented: {total: 1, hits: 1, exact: 1}});   // bySource stays the page-kind question's
+});
+
 test('the live run refuses an API key, a CI run and any engine but the plan\'s Claude Code', () => {
   assert.throws(() => assertNoApiSpend({env: {ANTHROPIC_API_KEY: 'sk-x'}, engine: 'cli'}), /ANTHROPIC_API_KEY/);
   assert.throws(() => assertNoApiSpend({env: {CI: 'true'}, engine: 'cli'}), /CI/);

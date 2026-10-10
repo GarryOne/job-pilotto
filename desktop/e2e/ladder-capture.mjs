@@ -28,6 +28,21 @@ export function builderSource(file, marker) {
 // The numbered candidates of rung 3 (extension/ladder/rung3-candidates.js, a classic page script): run in the page as the extension would.
 export const candidatesOfPage = page => page.evaluate(`${fs.readFileSync(path.join(ROOT, 'extension/ladder/rung3-candidates.js'), 'utf8')}\nwindow.__jobPilottoCandidates.candidatesOf()`);
 
+// The whole `export function <name>() {…}` of an extension file (balanced braces), as an expression to run in the page.
+export function functionSource(file, header) {
+  const text = fs.readFileSync(path.join(ROOT, 'extension', file), 'utf8'), start = text.indexOf(header);
+  if (start < 0) throw new Error(`cannot find "${header}" in extension/${file}`);
+  let depth = 0, end = -1;
+  for (let at = text.indexOf('{', start); at < text.length; at++) { if (text[at] === '{') depth++; else if (text[at] === '}' && --depth === 0) { end = at + 1; break; } }
+  return `(${text.slice(start, end).replace(/^export\s+/, '')})()`;
+}
+// What the judges are shown (extension/account-fill.js accountSketch: controls with their state, never their values), the page's own `at` positions dropped; fromPath/sameForm from the fixture (a result question).
+export async function judgeSketchOf(page, capture = {}) {
+  const found = await page.evaluate(functionSource('account-fill.js', 'export function accountSketch'));
+  const {url: _url, ...rest} = found;   // the fixture's own url (query-free) is written by the caller
+  return {...rest, controls: found.controls.map(({at: _at, ...control}) => control), ...(capture.fromPath ? {fromPath: capture.fromPath} : {}), ...(capture.sameForm ? {sameForm: capture.sameForm} : {})};
+}
+
 export async function sketchOf(page) {
   const sketch = await page.evaluate(builderSource('fill-flow.js', 'function pageSketchOf'));
   sketch.mails = await page.evaluate(builderSource('ladder/outcomes.js', 'export function mailsOf'));
@@ -75,13 +90,14 @@ async function main() {
           url = (await page.evaluate(() => location.href)).split(/[?#]/)[0];
         }
         const detected = fixture.lang ? '' : String(await page.evaluate(() => document.documentElement.lang || '')).slice(0, 2).toLowerCase();   // a new fixture learns its page's language
-        const candidates = noPhone(noEmail(await candidatesOfPage(page)));
-        const fresh = args.includes('--candidates') && fixture.sketch ? null : noEmail(await sketchOf(page));   // --candidates keeps the sketch (a real page changes) and only adds the numbered candidates
+        const judge = fixture.question && fixture.question !== 'page_kind';   // a judge question: the judges' sketch, no numbered candidates
+        const candidates = judge ? undefined : noPhone(noEmail(await candidatesOfPage(page)));
+        const fresh = args.includes('--candidates') && fixture.sketch ? null : noPhone(noEmail(judge ? await judgeSketchOf(page, fixture.capture) : await sketchOf(page)));   // --candidates keeps the sketch (a real page changes) and only adds the numbered candidates
         await context.close();
         const sketch = fresh || fixture.sketch;
         const file = path.join(dir, fixture.file), {file: _, ...kept} = fixture;
-        fs.writeFileSync(file, `${JSON.stringify({...kept, ...(detected ? {lang: detected} : {}), sketch: fresh ? {url: fixture.capture.page ? fixture.url || fixture.sketch?.url || '' : url, ...fresh} : fixture.sketch, candidates}, null, 1)}\n`);
-        console.log(`${fixture.id}: ${sketch.controls.length} controls, ${sketch.buttons.length} buttons, ${sketch.headings.length} headings, ${sketch.mails.length} addresses, ${sketch.frames.length} frames`);
+        fs.writeFileSync(file, `${JSON.stringify({...kept, ...(detected ? {lang: detected} : {}), sketch: fresh ? {url: fixture.capture.page ? fixture.url || fixture.sketch?.url || '' : url, ...fresh} : fixture.sketch, ...(candidates ? {candidates} : {})}, null, 1)}\n`);
+        console.log(`${fixture.id}: ${sketch.controls.length} controls, ${sketch.buttons.length} buttons, ${sketch.headings.length} headings, ${sketch.mails?.length ?? 0} addresses, ${sketch.frames.length} frames${judge ? ` (${fixture.question})` : ''}`);
       } catch (error) { console.log(`FAILED ${fixture.id}: ${String(error.message).split('\n')[0]}`); }
     }
   } finally { await browser.close(); }

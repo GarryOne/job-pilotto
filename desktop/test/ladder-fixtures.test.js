@@ -1,9 +1,11 @@
 // Guards the ladder fixture set (desktop/e2e/ladder-fixtures): its shape, its coverage of the pool's shapes, languages and traps, and that it holds no personal data.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {EXPECT_FIELDS, FIELDS, LANGS, OUTCOMES, SCHEMA_VERSION, SOURCES, loadFixtures} from '../e2e/lib/ladder-fixtures.mjs';
+import {EXPECT_FIELDS, FIELDS, JUDGE_SKETCH_FIELDS, LANGS, OUTCOMES_BY_QUESTION, QUESTIONS, SCHEMA_VERSION, SOURCES, loadFixtures, questionOf} from '../e2e/lib/ladder-fixtures.mjs';
 import {SKETCH_FIELDS} from '../lib/page-kind.js';
 import {SCHEMA} from '../lib/ladder/rung2-sketch.js';
+import {schema as accountSchema, READY, RESULT} from '../lib/account-judge.js';
+import {schema as formSchema} from '../lib/form-judge.js';
 
 const fixtures = loadFixtures();
 const EMAIL = /[\w.+-]+@[\w-]+(\.[\w-]+)+/g, PHONE = /(\+\d[\d\s().-]{8,}\d)|(\b0\d{2}[\s.]\d{3}[\s.]\d{2}[\s.]\d{2}\b)/;
@@ -21,12 +23,14 @@ test('every fixture has its sketch, an expected outcome and a source', () => {
     for (const key of Object.keys(f.expect || {})) assert.ok(EXPECT_FIELDS.includes(key), `${f.id}: expect field ${key} is not declared in EXPECT_FIELDS`);
     assert.ok(['asked', 'not_asked', undefined].includes(f.expect?.digest), `${f.id}: expect.digest`);
     assert.ok(['manual', 'reuse_previous', 'third_party_account', undefined].includes(f.expect?.apply_route), `${f.id}: expect.apply_route`);
-    assert.ok(OUTCOMES.includes(f.expect?.outcome) || f.expect?.outcome === 'pending', `${f.id}: expected outcome ${f.expect?.outcome}`);
+    assert.ok(QUESTIONS.includes(questionOf(f)), `${f.id}: question ${f.question}`);
+    assert.ok(OUTCOMES_BY_QUESTION[questionOf(f)].includes(f.expect?.outcome) || f.expect?.outcome === 'pending', `${f.id}: expected outcome ${f.expect?.outcome}`);
     assert.ok(f.expect.outcome !== 'pending' || (f.source === 'captured' && f.note), `${f.id}: a pending fixture is a captured candidate with a note`);
-    for (const word of f.expect.accept || []) assert.ok(OUTCOMES.includes(word), `${f.id}: accept ${word}`);
+    for (const word of f.expect.accept || []) assert.ok(OUTCOMES_BY_QUESTION[questionOf(f)].includes(word), `${f.id}: accept ${word}`);
     assert.ok(!f.expect.accept || f.expect.outcome === 'pending' || f.expect.accept.includes(f.expect.outcome), `${f.id}: accept must include the expected outcome`);
     assert.ok(f.sketch && typeof f.sketch.url === 'string', `${f.id}: sketch.url`);
-    for (const key of Object.keys(f.sketch)) assert.ok(['url', ...SKETCH_FIELDS].includes(key), `${f.id}: sketch field ${key} is not in SKETCH_FIELDS`);
+    for (const key of Object.keys(f.sketch)) assert.ok(['url', ...(questionOf(f) === 'page_kind' ? SKETCH_FIELDS : JUDGE_SKETCH_FIELDS)].includes(key), `${f.id}: sketch field ${key} is not in its question's field list`);
+    if (questionOf(f) !== 'page_kind') for (const control of f.sketch.controls) assert.ok(!('value' in control) && !('at' in control), `${f.id}: a judge control carries only type, label, required, state, options`);
     assert.ok(typeof f.why === 'string' && f.why.length > 10, `${f.id}: say why it is in the set`);
   }
 });
@@ -45,10 +49,25 @@ test('the pool\'s shapes are all in the set, and the four languages, with traps'
 test('a stored answer is a fixed-values object the page-kind schema knows, and nothing but the sketch is page text', () => {
   for (const f of fixtures) {
     if (!f.answer) continue;
-    assert.ok(['form', 'account-form', 'account', 'posting', 'other'].includes(f.answer.kind), `${f.id}: answer kind`);
+    if (questionOf(f) === 'page_kind') assert.ok(['form', 'account-form', 'account', 'posting', 'other'].includes(f.answer.kind), `${f.id}: answer kind`);
+    else assert.ok(f.answer.answer !== undefined, `${f.id}: a judge answer has an answer`);
     assert.equal(typeof f.answer.confidence, 'number', `${f.id}: answer confidence`);
-    for (const key of Object.keys(f.answer)) assert.ok(Object.keys(SCHEMA.properties).includes(key), `${f.id}: answer field ${key} is not in rung 2's SCHEMA`);   // the schema is the one list
+    const allowedAnswer = {page_kind: SCHEMA, account_ready: accountSchema(READY), account_result: accountSchema(RESULT), form_step: formSchema}[questionOf(f)];
+    for (const key of Object.keys(f.answer)) assert.ok(Object.keys(allowedAnswer.properties).includes(key), `${f.id}: answer field ${key} is not in rung 2's SCHEMA`);   // the schema is the one list
   }
+});
+
+test('the judges are questions of rung 2: real and invented pages, the four languages, traps, per question', () => {
+  const of = question => fixtures.filter(f => questionOf(f) === question);
+  for (const question of ['account_ready', 'account_result', 'form_step']) {
+    assert.ok(of(question).length >= 8, `${question}: only ${of(question).length} fixtures`);
+    for (const lang of LANGS) assert.ok(of(question).filter(f => f.source === 'invented' && f.lang === lang).length >= 1, `${question}: no invented fixture in ${lang}`);
+  }
+  assert.ok(of('form_step').filter(f => ['recorded', 'captured'].includes(f.source)).length >= 6, 'form_step needs real pages (recorded and read from the pool)');
+  assert.ok(of('account_ready').some(f => f.source === 'recorded'), 'account_ready needs a recorded page');
+  for (const question of ['account_ready', 'form_step']) assert.ok(of(question).some(f => f.trap), `${question}: no confidently-wrong trap`);
+  for (const outcome of ['needs_code', 'created', 'created_confirm', 'already_exists', 'refused', 'unsure']) assert.ok(of('account_result').some(f => f.expect.outcome === outcome), `account_result: no ${outcome}`);
+  for (const f of of('account_result')) assert.ok(f.sketch.fromPath !== undefined && f.sketch.sameForm !== undefined, `${f.id}: a result fixture knows the path before the press and whether the form is the same`);
 });
 
 test('no personal data: only example.* emails, no phone number, no URL query string, no typed value', () => {

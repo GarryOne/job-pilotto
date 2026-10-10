@@ -1,0 +1,47 @@
+{
+ "schemaVersion": 1,
+ "id": "step-fr-final",
+ "question": "form_step",
+ "source": "invented",
+ "lang": "fr",
+ "why": "dernière étape: envoyer la candidature",
+ "capture": {
+  "page": "ladder-fixtures/pages/step-fr-final.html"
+ },
+ "url": "https://konto.example.com/step-fr-final",
+ "expect": {
+  "outcome": "final"
+ },
+ "sketch": {
+  "url": "file:///Users/mac/job-pilotto/.claude/worktrees/ladder-fixtures/desktop/e2e/ladder-fixtures/pages/step-fr-final.html",
+  "title": "Candidature",
+  "headings": [
+   "Récapitulatif"
+  ],
+  "controls": [
+   {
+    "type": "checkbox",
+    "label": "Je certifie que les informations sont exactes",
+    "required": true,
+    "state": "checked"
+   }
+  ],
+  "buttons": [
+   "Précédent",
+   "Envoyer ma candidature"
+  ],
+  "texts": [
+   "Récapitulatif",
+   "Étape 3 sur 3"
+  ],
+  "frames": []
+ },
+ "answer": {
+  "answer": "ready",
+  "needs": "",
+  "needs_kind": "",
+  "step": "final",
+  "next_control": "",
+  "confidence": 0.95
+ }
+}

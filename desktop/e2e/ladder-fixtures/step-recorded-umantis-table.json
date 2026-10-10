@@ -1,0 +1,85 @@
+{
+ "schemaVersion": 1,
+ "id": "step-recorded-umantis-table",
+ "question": "form_step",
+ "source": "recorded",
+ "lang": "de",
+ "why": "recorded case umantis-table-form-1: a table form (Haufe Umantis)",
+ "capture": {
+  "page": "recorded/umantis-table-form-1/form.html"
+ },
+ "expect": {
+  "outcome": "middle"
+ },
+ "url": "https://jobs.example.com/umantis/form",
+ "sketch": {
+  "url": "file:///Users/mac/job-pilotto/.claude/worktrees/ladder-fixtures/desktop/e2e/recorded/umantis-table-form-1/form.html",
+  "title": "Bewerbung | Stellenmarkt",
+  "headings": [
+   "Persönliche Daten bitte hier erfassen.",
+   "Login"
+  ],
+  "controls": [
+   {
+    "type": "radio",
+    "label": "Frau",
+    "required": false,
+    "state": "unchecked"
+   },
+   {
+    "type": "radio",
+    "label": "Herr",
+    "required": false,
+    "state": "unchecked"
+   },
+   {
+    "type": "radio",
+    "label": "Divers",
+    "required": false,
+    "state": "unchecked"
+   },
+   {
+    "type": "text",
+    "label": "Vorname*:",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Nachname*:",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "email",
+    "label": "E-Mail-Adresse/Login*:",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Telefon:",
+    "required": false,
+    "state": "empty"
+   }
+  ],
+  "buttons": [
+   "Weiter"
+  ],
+  "texts": [
+   "Persönliche Daten bitte hier erfassen.",
+   "Login",
+   "Bitte via Klick auf \"Login\" anmelden, falls bereits eine Bewerbung erfasst wurde."
+  ],
+  "frames": []
+ },
+ "note": "expectation set to middle AFTER the first live answer (I had guessed final without reading the page): the page is \"Persönliche Daten bitte hier erfassen\" with one button, \"Weiter\", the first step of a multi-step Umantis application",
+ "answer": {
+  "answer": "needs_person",
+  "needs": "Vorname*:",
+  "needs_kind": "field",
+  "step": "middle",
+  "next_control": "Weiter",
+  "confidence": 0.9
+ }
+}

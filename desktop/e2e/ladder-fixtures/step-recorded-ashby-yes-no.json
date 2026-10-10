@@ -1,0 +1,56 @@
+{
+ "schemaVersion": 1,
+ "id": "step-recorded-ashby-yes-no",
+ "question": "form_step",
+ "source": "recorded",
+ "lang": "en",
+ "why": "recorded case ashby-yes-no-buttons-1: an Ashby form page",
+ "capture": {
+  "page": "recorded/ashby-yes-no-buttons-1/form.html"
+ },
+ "expect": {
+  "outcome": "final"
+ },
+ "url": "https://jobs.example.com/ashby/form",
+ "sketch": {
+  "url": "file:///Users/mac/job-pilotto/.claude/worktrees/ladder-fixtures/desktop/e2e/recorded/ashby-yes-no-buttons-1/form.html",
+  "title": "Software Engineer @ Example",
+  "headings": [],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Legal Name",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "email",
+    "label": "Email",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "tel",
+    "label": "Phone Number",
+    "required": true,
+    "state": "empty"
+   }
+  ],
+  "buttons": [
+   "Yes",
+   "No"
+  ],
+  "texts": [
+   "We may provide immigration and sponsorship support to new employees based on their unique circumstances."
+  ],
+  "frames": []
+ },
+ "answer": {
+  "answer": "needs_person",
+  "needs": "Legal Name",
+  "needs_kind": "field",
+  "step": "unsure",
+  "next_control": "",
+  "confidence": 0.9
+ }
+}

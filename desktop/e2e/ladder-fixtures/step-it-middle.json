@@ -1,0 +1,52 @@
+{
+ "schemaVersion": 1,
+ "id": "step-it-middle",
+ "question": "form_step",
+ "source": "invented",
+ "lang": "it",
+ "why": "passo 1 di 2: Avanti porta al passo successivo",
+ "capture": {
+  "page": "ladder-fixtures/pages/step-it-middle.html"
+ },
+ "url": "https://konto.example.com/step-it-middle",
+ "expect": {
+  "outcome": "middle"
+ },
+ "sketch": {
+  "url": "file:///Users/mac/job-pilotto/.claude/worktrees/ladder-fixtures/desktop/e2e/ladder-fixtures/pages/step-it-middle.html",
+  "title": "Candidatura",
+  "headings": [
+   "La tua candidatura"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Nome",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "text",
+    "label": "Cognome",
+    "required": true,
+    "state": "filled"
+   }
+  ],
+  "buttons": [
+   "Avanti"
+  ],
+  "texts": [
+   "La tua candidatura",
+   "Passo 1 di 2: Dati personali"
+  ],
+  "frames": []
+ },
+ "answer": {
+  "answer": "ready",
+  "needs": "",
+  "needs_kind": "",
+  "step": "middle",
+  "next_control": "Avanti",
+  "confidence": 0.9
+ }
+}

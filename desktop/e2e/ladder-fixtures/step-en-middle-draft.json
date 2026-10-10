@@ -1,0 +1,55 @@
+{
+ "schemaVersion": 1,
+ "id": "step-en-middle-draft",
+ "question": "form_step",
+ "source": "invented",
+ "lang": "en",
+ "why": "TRAP: a middle step with \"Save draft\" beside \"Continue\": only Continue goes on",
+ "capture": {
+  "page": "ladder-fixtures/pages/step-en-middle-draft.html"
+ },
+ "url": "https://konto.example.com/step-en-middle-draft",
+ "expect": {
+  "outcome": "middle"
+ },
+ "trap": true,
+ "sketch": {
+  "url": "file:///Users/mac/job-pilotto/.claude/worktrees/ladder-fixtures/desktop/e2e/ladder-fixtures/pages/step-en-middle-draft.html",
+  "title": "Application",
+  "headings": [
+   "Your application"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "School",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "text",
+    "label": "Degree",
+    "required": true,
+    "state": "filled"
+   }
+  ],
+  "buttons": [
+   "Save draft",
+   "Continue",
+   "Back"
+  ],
+  "texts": [
+   "Your application",
+   "Step 2 of 3: Education"
+  ],
+  "frames": []
+ },
+ "answer": {
+  "answer": "ready",
+  "needs": "",
+  "needs_kind": "",
+  "step": "middle",
+  "next_control": "Continue",
+  "confidence": 0.9
+ }
+}

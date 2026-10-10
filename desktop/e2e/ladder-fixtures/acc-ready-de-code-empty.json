@@ -1,0 +1,46 @@
+{
+ "schemaVersion": 1,
+ "id": "acc-ready-de-code-empty",
+ "question": "account_ready",
+ "source": "invented",
+ "lang": "de",
+ "why": "a code field (sent by mail) is still empty",
+ "capture": {
+  "page": "ladder-fixtures/pages/acc-ready-de-code-empty.html"
+ },
+ "url": "https://konto.example.com/acc-ready-de-code-empty",
+ "expect": {
+  "outcome": "needs_person"
+ },
+ "sketch": {
+  "url": "file:///Users/mac/job-pilotto/.claude/worktrees/ladder-fixtures/desktop/e2e/ladder-fixtures/pages/acc-ready-de-code-empty.html",
+  "title": "E-Mail bestätigen",
+  "headings": [
+   "Code eingeben"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Bestätigungscode",
+    "required": true,
+    "state": "empty"
+   }
+  ],
+  "buttons": [
+   "Bestätigen"
+  ],
+  "texts": [
+   "Code eingeben",
+   "Wir haben Ihnen einen Code gesendet."
+  ],
+  "frames": []
+ },
+ "answer": {
+  "answer": "needs_person",
+  "needs": "Bestätigungscode",
+  "needs_kind": "code",
+  "consent_required": false,
+  "bot_check": false,
+  "confidence": 0.95
+ }
+}

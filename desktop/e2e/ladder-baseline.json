@@ -16,6 +16,14 @@
   {
    "date": "2026-10-10",
    "reason": "prompt fingerprints re-based on main a96b07e: rung 4 gained PAGE_INSTRUCTIONS (the picture rung looks at a posting, f63b0f6) and is now fingerprinted with it; no fixture answers depend on rung 4 (the picture rung is not scored here)"
+  },
+  {
+   "date": "2026-10-10",
+   "reason": "judge questions added: account_ready, account_result, form_step (39 fixtures: invented in de/fr/en/it, recorded, read from the pool); umantis expectation corrected to middle with its reason in the fixture's note"
+  },
+  {
+   "date": "2026-10-10",
+   "reason": "judge questions added with their stored answers (account_ready, account_result, form_step): 39 fixtures; umantis expectation set to middle after reading the page (note in the fixture)"
   }
  ],
  "promptFingerprint": {
@@ -26,6 +34,259 @@
   "rung4": "b69068d6b5b1a559"
  },
  "fixtures": {
+  "acc-ready-de-code-empty": {
+   "question": "account_ready",
+   "expect": {
+    "outcome": "needs_person",
+    "accept": [
+     "needs_person"
+    ]
+   },
+   "outcome": "needs_person",
+   "status": "exact"
+  },
+  "acc-ready-de-filled-optional-unchecked": {
+   "question": "account_ready",
+   "expect": {
+    "outcome": "ready",
+    "accept": [
+     "ready"
+    ]
+   },
+   "outcome": "ready",
+   "status": "exact"
+  },
+  "acc-ready-de-signup-all-done": {
+   "question": "account_ready",
+   "expect": {
+    "outcome": "ready",
+    "accept": [
+     "ready"
+    ]
+   },
+   "outcome": "ready",
+   "status": "exact"
+  },
+  "acc-ready-de-terms-unchecked": {
+   "question": "account_ready",
+   "expect": {
+    "outcome": "needs_person",
+    "accept": [
+     "needs_person"
+    ]
+   },
+   "outcome": "needs_person",
+   "status": "exact"
+  },
+  "acc-ready-en-bot-check": {
+   "question": "account_ready",
+   "expect": {
+    "outcome": "needs_person",
+    "accept": [
+     "needs_person"
+    ]
+   },
+   "outcome": "needs_person",
+   "status": "exact"
+  },
+  "acc-ready-en-newsletter-only": {
+   "question": "account_ready",
+   "expect": {
+    "outcome": "ready",
+    "accept": [
+     "ready"
+    ]
+   },
+   "outcome": "ready",
+   "status": "exact"
+  },
+  "acc-ready-en-signin-filled": {
+   "question": "account_ready",
+   "expect": {
+    "outcome": "ready",
+    "accept": [
+     "ready"
+    ]
+   },
+   "outcome": "ready",
+   "status": "exact"
+  },
+  "acc-ready-fr-declaration-unchecked": {
+   "question": "account_ready",
+   "expect": {
+    "outcome": "needs_person",
+    "accept": [
+     "needs_person"
+    ]
+   },
+   "outcome": "needs_person",
+   "status": "exact"
+  },
+  "acc-ready-fr-signin-filled": {
+   "question": "account_ready",
+   "expect": {
+    "outcome": "ready",
+    "accept": [
+     "ready"
+    ]
+   },
+   "outcome": "ready",
+   "status": "exact"
+  },
+  "acc-ready-fr-terms-unchecked": {
+   "question": "account_ready",
+   "expect": {
+    "outcome": "needs_person",
+    "accept": [
+     "needs_person"
+    ]
+   },
+   "outcome": "needs_person",
+   "status": "exact"
+  },
+  "acc-ready-it-filled-alerts-unchecked": {
+   "question": "account_ready",
+   "expect": {
+    "outcome": "ready",
+    "accept": [
+     "ready"
+    ]
+   },
+   "outcome": "ready",
+   "status": "exact"
+  },
+  "acc-ready-it-password-empty": {
+   "question": "account_ready",
+   "expect": {
+    "outcome": "needs_person",
+    "accept": [
+     "needs_person"
+    ]
+   },
+   "outcome": "needs_person",
+   "status": "exact"
+  },
+  "acc-ready-recorded-email-first-signin": {
+   "question": "account_ready",
+   "expect": {
+    "outcome": "needs_person",
+    "accept": [
+     "needs_person"
+    ]
+   },
+   "outcome": "needs_person",
+   "status": "exact"
+  },
+  "acc-result-de-confirm-link": {
+   "question": "account_result",
+   "expect": {
+    "outcome": "created_confirm",
+    "accept": [
+     "created_confirm"
+    ]
+   },
+   "outcome": "created_confirm",
+   "status": "exact"
+  },
+  "acc-result-de-needs-code": {
+   "question": "account_result",
+   "expect": {
+    "outcome": "needs_code",
+    "accept": [
+     "needs_code"
+    ]
+   },
+   "outcome": "needs_code",
+   "status": "exact"
+  },
+  "acc-result-de-refused-password": {
+   "question": "account_result",
+   "expect": {
+    "outcome": "refused",
+    "accept": [
+     "refused"
+    ]
+   },
+   "outcome": "refused",
+   "status": "exact"
+  },
+  "acc-result-en-already-exists": {
+   "question": "account_result",
+   "expect": {
+    "outcome": "already_exists",
+    "accept": [
+     "already_exists"
+    ]
+   },
+   "outcome": "already_exists",
+   "status": "exact"
+  },
+  "acc-result-en-created": {
+   "question": "account_result",
+   "expect": {
+    "outcome": "created",
+    "accept": [
+     "created"
+    ]
+   },
+   "outcome": "created",
+   "status": "exact"
+  },
+  "acc-result-en-needs-code": {
+   "question": "account_result",
+   "expect": {
+    "outcome": "needs_code",
+    "accept": [
+     "needs_code"
+    ]
+   },
+   "outcome": "needs_code",
+   "status": "exact"
+  },
+  "acc-result-fr-confirm-link": {
+   "question": "account_result",
+   "expect": {
+    "outcome": "created_confirm",
+    "accept": [
+     "created_confirm"
+    ]
+   },
+   "outcome": "created_confirm",
+   "status": "exact"
+  },
+  "acc-result-fr-unchanged": {
+   "question": "account_result",
+   "expect": {
+    "outcome": "unsure",
+    "accept": [
+     "unsure"
+    ]
+   },
+   "outcome": "unsure",
+   "status": "exact"
+  },
+  "acc-result-it-created": {
+   "question": "account_result",
+   "expect": {
+    "outcome": "created",
+    "accept": [
+     "created"
+    ]
+   },
+   "outcome": "created",
+   "status": "exact"
+  },
+  "acc-result-it-refused-mail": {
+   "question": "account_result",
+   "expect": {
+    "outcome": "refused",
+    "accept": [
+     "refused"
+    ]
+   },
+   "outcome": "refused",
+   "status": "exact"
+  },
   "aldi-suisse": {
    "expect": {
     "outcome": "posting",
@@ -861,6 +1122,182 @@
    },
    "outcome": "posting",
    "status": "miss"
+  },
+  "step-de-final": {
+   "question": "form_step",
+   "expect": {
+    "outcome": "final",
+    "accept": [
+     "final"
+    ]
+   },
+   "outcome": "final",
+   "status": "exact"
+  },
+  "step-de-middle": {
+   "question": "form_step",
+   "expect": {
+    "outcome": "middle",
+    "accept": [
+     "middle"
+    ]
+   },
+   "outcome": "middle",
+   "status": "exact"
+  },
+  "step-en-final-one-page": {
+   "question": "form_step",
+   "expect": {
+    "outcome": "final",
+    "accept": [
+     "final"
+    ]
+   },
+   "outcome": "final",
+   "status": "exact"
+  },
+  "step-en-middle-draft": {
+   "question": "form_step",
+   "expect": {
+    "outcome": "middle",
+    "accept": [
+     "middle"
+    ]
+   },
+   "outcome": "middle",
+   "status": "exact"
+  },
+  "step-fr-final": {
+   "question": "form_step",
+   "expect": {
+    "outcome": "final",
+    "accept": [
+     "final"
+    ]
+   },
+   "outcome": "final",
+   "status": "exact"
+  },
+  "step-fr-middle": {
+   "question": "form_step",
+   "expect": {
+    "outcome": "middle",
+    "accept": [
+     "middle"
+    ]
+   },
+   "outcome": "middle",
+   "status": "exact"
+  },
+  "step-it-final": {
+   "question": "form_step",
+   "expect": {
+    "outcome": "final",
+    "accept": [
+     "final"
+    ]
+   },
+   "outcome": "final",
+   "status": "exact"
+  },
+  "step-it-middle": {
+   "question": "form_step",
+   "expect": {
+    "outcome": "middle",
+    "accept": [
+     "middle"
+    ]
+   },
+   "outcome": "middle",
+   "status": "exact"
+  },
+  "step-pool-duolingo": {
+   "question": "form_step",
+   "expect": {
+    "outcome": "final",
+    "accept": [
+     "final"
+    ]
+   },
+   "outcome": "final",
+   "status": "exact"
+  },
+  "step-pool-greenhouse-eqt": {
+   "question": "form_step",
+   "expect": {
+    "outcome": "final",
+    "accept": [
+     "final"
+    ]
+   },
+   "outcome": "final",
+   "status": "exact"
+  },
+  "step-pool-greenhouse-nice": {
+   "question": "form_step",
+   "expect": {
+    "outcome": "final",
+    "accept": [
+     "final"
+    ]
+   },
+   "outcome": "final",
+   "status": "exact"
+  },
+  "step-reconstructed-lever": {
+   "question": "form_step",
+   "expect": {
+    "outcome": "final",
+    "accept": [
+     "final"
+    ]
+   },
+   "outcome": "final",
+   "status": "exact"
+  },
+  "step-recorded-ashby-yes-no": {
+   "question": "form_step",
+   "expect": {
+    "outcome": "final",
+    "accept": [
+     "final"
+    ]
+   },
+   "outcome": "unsure",
+   "status": "miss"
+  },
+  "step-recorded-chrome-translated": {
+   "question": "form_step",
+   "expect": {
+    "outcome": "final",
+    "accept": [
+     "final"
+    ]
+   },
+   "outcome": "final",
+   "status": "exact"
+  },
+  "step-recorded-embedded-frame-form": {
+   "question": "form_step",
+   "expect": {
+    "outcome": "final",
+    "accept": [
+     "final"
+    ]
+   },
+   "outcome": "final",
+   "status": "exact"
+  },
+  "step-recorded-umantis-table": {
+   "question": "form_step",
+   "expect": {
+    "outcome": "middle",
+    "accept": [
+     "middle"
+    ]
+   },
+   "outcome": "middle",
+   "status": "exact"
   },
   "trap-closed-notice-with-form-en": {
    "expect": {

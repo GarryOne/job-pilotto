@@ -9,7 +9,7 @@ Spec: `docs/superpowers/specs/2026-10-10-ai-ladder.md` (checklist = what is buil
 |---|---|---|---|---|
 | 0 | structure rule | `extension/tab-pages.js` `pageRole` | `form` · `account` · `no-form` | yes: answers only without AI |
 | 1 | kept answer per page shape | `desktop/lib/ladder/rung1-kept.js` `pageKindCache`, `kindKey` | the kept `kind` (+ buttons) | yes |
-| 2 | text sketch to a small model | `desktop/lib/ladder/rung2-sketch.js` `pageKind`; `account-judge.js` | `KINDS`, `APPLY_BY`, `ROUTES`, `account_step`, `bot_check` | yes |
+| 2 | text sketch to a small model (three questions: the page kind, the account judge, the form judge) | `desktop/lib/ladder/rung2-sketch.js` `pageKind`; `account-judge.js`; `form-judge.js` | `KINDS`, `APPLY_BY`, `ROUTES`, `account_step`, `bot_check` | yes |
 | 3 | numbered digest | none yet | outcome + closed verb + candidate numbers | **not built** |
 | 4 | screenshot + sketch, strongest model, one action | `desktop/lib/ladder/rung4-picture.js`, `extension/ladder/rung4-picture.js` | one action from the page's own controls | yes: accounts; forms when a fill put nothing in |
 | 5 | Claude takes over | `desktop/lib/ladder/rung5-takeover.js`, `extension/panel-claude.js` | none (a session) | yes: once per application |
@@ -34,7 +34,7 @@ no AI = nothing pressed. A rung's answer is accepted only when it is one of the 
 ## How a change is judged (the safety net)
 | Layer | What | Run |
 |---|---|---|
-| Fixtures | 38+ page sketches (real captures, recorded pages, reconstructed, invented, traps) with expected outcome and the model's stored answer | `desktop/e2e/ladder-fixtures/` |
+| Fixtures | 120+ page sketches (real captures, recorded pages, reconstructed, invented, traps) with expected outcome and the model's stored answer | `desktop/e2e/ladder-fixtures/` |
 | Score | per fixture expected vs got, rung that decides, rates **per source** (never blended), the wrong-and-confident list | `cd desktop && npm run ladder-score` (live, plan path) · `-- --offline` (stored answers) |
 | Ratchet | no fixture may get worse than `desktop/e2e/ladder-baseline.json` | `desktop/test/ladder-ratchet.test.js` (runs offline in seconds; `tools/ladder-gate.mjs` on a flow push) |
 | Recorded pages | a fixed site replayed with the real extension | `cd desktop/e2e && npm run recorded` |
@@ -45,6 +45,8 @@ no AI = nothing pressed. A rung's answer is accepted only when it is one of the 
 **A prompt or schema changed** (the gate says "the prompt of rung N changed"): re-run `npm run ladder-score` live (plan path), `--record` the changed answers, then `--offline --update-baseline "<why>"` (it rewrites the fingerprints too).
 
 **Auto-capture of the pool run's failures:** `node desktop/e2e/ladder-capture.mjs --from-candidates [--only <shape>]` turns the replay candidates that did NOT reach the form (`~/Library/Application Support/Job Pilotto QA/replay-candidates/<day>/<shape>/`, read-only) into `cand-<shape>` fixtures with `expect: pending`, scrubbed; `npm run ladder-score` lists them "to confirm", never scores them, the ratchet ignores them. Confirm one by writing its real `expect.outcome` (then `--record` and `--update-baseline`).
+
+**The judges are questions of rung 2** (`desktop/lib/account-judge.js` phases `ready` and `result`, `desktop/lib/form-judge.js` the step): one fixture per question, a `question` field (`page_kind` when absent, `account_ready`, `account_result`, `form_step`; the schema is versioned and additive), scored per question and per source by `npm run ladder-score` ("Per question, then per source", never blended across questions), covered by the ratchet and the prompt fingerprint. Fixtures live beside the page-kind ones in `desktop/e2e/ladder-fixtures/`: `acc-ready-*`, `acc-result-*`, `step-*` (a judge fixture's `sketch` is the extension's `accountSketch`, `extension/account-fill.js`, captured by `desktop/e2e/ladder-capture.mjs`).
 
 **Trailers on a flow push** (`tools/rung-trailer.mjs`, in the push hook): a commit message of a push that touches flow code (FLOW_FILES, `desktop/lib/ladder/`, the page-kind facade, the judges, `extension/ladder/`) carries `Rung: <0-6|router|judges>` and `Fixture: <id of desktop/e2e/ladder-fixtures/ | none: <why>>` (`none` only for a pure move or refactor). A push touching no flow file is not asked.
 

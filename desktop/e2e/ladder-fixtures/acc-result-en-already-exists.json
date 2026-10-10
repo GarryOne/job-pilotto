@@ -1,0 +1,56 @@
+{
+ "schemaVersion": 1,
+ "id": "acc-result-en-already-exists",
+ "question": "account_result",
+ "source": "invented",
+ "lang": "en",
+ "why": "after the press: the mail is already registered",
+ "capture": {
+  "page": "ladder-fixtures/pages/acc-result-en-already-exists.html",
+  "fromPath": "/register",
+  "sameForm": "yes"
+ },
+ "url": "https://konto.example.com/acc-result-en-already-exists",
+ "expect": {
+  "outcome": "already_exists"
+ },
+ "sketch": {
+  "url": "file:///Users/mac/job-pilotto/.claude/worktrees/ladder-fixtures/desktop/e2e/ladder-fixtures/pages/acc-result-en-already-exists.html",
+  "title": "Create account",
+  "headings": [
+   "Create account"
+  ],
+  "controls": [
+   {
+    "type": "email",
+    "label": "Email",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "password",
+    "label": "Password",
+    "required": true,
+    "state": "filled"
+   }
+  ],
+  "buttons": [
+   "Create account"
+  ],
+  "texts": [
+   "Create account",
+   "An account with this email address already exists. Please sign in instead."
+  ],
+  "frames": [],
+  "fromPath": "/register",
+  "sameForm": "yes"
+ },
+ "answer": {
+  "answer": "already_exists",
+  "needs": "",
+  "needs_kind": "",
+  "consent_required": false,
+  "bot_check": false,
+  "confidence": 0.95
+ }
+}

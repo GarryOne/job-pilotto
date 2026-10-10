@@ -1,0 +1,52 @@
+{
+ "schemaVersion": 1,
+ "id": "acc-ready-recorded-email-first-signin",
+ "question": "account_ready",
+ "source": "recorded",
+ "lang": "en",
+ "why": "recorded case email-first-signin-1: one required email box, empty, with Continue and social sign-ins",
+ "capture": {
+  "page": "recorded/email-first-signin-1/login.html"
+ },
+ "expect": {
+  "outcome": "needs_person"
+ },
+ "url": "https://auth.example.com/login",
+ "sketch": {
+  "url": "file:///Users/mac/job-pilotto/.claude/worktrees/ladder-fixtures/desktop/e2e/recorded/email-first-signin-1/login.html",
+  "title": "",
+  "headings": [
+   "Log in"
+  ],
+  "controls": [
+   {
+    "type": "email",
+    "label": "Email address *",
+    "required": true,
+    "state": "empty"
+   }
+  ],
+  "buttons": [
+   "Continue",
+   "Create an account",
+   "Continue with Google",
+   "Continue with Apple"
+  ],
+  "texts": [
+   "Log in",
+   "Please enter an email address",
+   "Email is not valid.",
+   "Continue with Google",
+   "Continue with Apple"
+  ],
+  "frames": []
+ },
+ "answer": {
+  "answer": "needs_person",
+  "needs": "Email address",
+  "needs_kind": "field",
+  "consent_required": false,
+  "bot_check": false,
+  "confidence": 0.9
+ }
+}

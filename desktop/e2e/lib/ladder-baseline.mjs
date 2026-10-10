@@ -26,6 +26,6 @@ export function compareToBaseline(allRows, baseline) {
 // A baseline from the rows now, with the reason appended to the old list.
 export function nextBaseline(allRows, old, reason, today = new Date().toISOString().slice(0, 10), promptFingerprint = old.promptFingerprint) {
   const rows = allRows.filter(row => row.status !== 'pending');
-  const fixtures = Object.fromEntries(rows.map(row => [row.id, {expect: {outcome: row.expected, accept: row.accept}, outcome: row.outcome, status: row.status}]));
+  const fixtures = Object.fromEntries(rows.map(row => [row.id, {...(row.question && row.question !== 'page_kind' ? {question: row.question} : {}), expect: {outcome: row.expected, accept: row.accept}, outcome: row.outcome, status: row.status}]));
   return {schemaVersion: 1, reasons: [...(old.reasons || []), {date: today, reason}], ...(promptFingerprint ? {promptFingerprint} : {}), fixtures};
 }

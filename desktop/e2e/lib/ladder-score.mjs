@@ -1,6 +1,9 @@
 // Scores page-kind decisions against the ladder fixtures: each fixture's sketch goes through the REAL pageKind (desktop/lib/page-kind.js, the endpoint's sketchBody), with either the stored answer
 // (offline: no model, what the push gate runs) or the real model on the plan path (live). Rates are per source, never one blended number. Used by: ladder-score.mjs, test/ladder-ratchet.test.js. Guard: test/ladder-score.test.js.
+import {judgeAccount} from '../../lib/account-judge.js';
+import {judgeForm} from '../../lib/form-judge.js';
 import {pageKind, sketchBody} from '../../lib/page-kind.js';
+import {questionOf} from './ladder-fixtures.mjs';
 
 export const RANK = {exact: 0, ok: 1, miss: 2, 'wrong-confident': 3, 'no-answer': 4};   // higher is worse (the ratchet compares these)
 export const SURE = 0.8;   // an answer at or above this that is wrong is "confidently wrong"
@@ -27,10 +30,24 @@ export function statusOf(expect, outcome, confidence = 0) {
 const replayClient = answer => ({messages: {create: async () => ({stop_reason: 'end_turn', usage: {input_tokens: 0, output_tokens: 0, billing: 'subscription'}, content: [{type: 'text', text: JSON.stringify(answer)}]})}});
 
 // -> rows [{id, source, lang, trap, expected, outcome, confidence, rung, status, answer}]. `clientFor(fixture)` gives a live client; without it the stored answers are replayed.
+// One of the judges' questions (account ready / account result / form step), through the real judge with the stored answer or the live client.
+async function scoreJudge(fixture, base, {clientFor, pending}) {
+  const question = questionOf(fixture);
+  if (!clientFor && !fixture.answer) return {...base, outcome: '', confidence: 0, rung: -1, route: '', digestOk: null, status: pending ? 'pending' : 'no-answer'};
+  let captured = null;
+  const client = clientFor ? clientFor(fixture) : replayClient(fixture.answer);
+  const tee = {messages: {create: async body => { const response = await client.messages.create(body); try { captured = JSON.parse(response.content?.find(block => block.type === 'text')?.text || ''); } catch { /* the judge says so */ } return response; }}};
+  const result = question === 'form_step' ? await judgeForm(tee, fixture.sketch) : await judgeAccount(tee, fixture.sketch, question === 'account_result' ? 'result' : 'ready');
+  const outcome = result.error ? 'unsure' : question === 'form_step' ? result.step : result.answer;
+  const confidence = Number(result.confidence ?? captured?.confidence) || 0;
+  return {...base, outcome, confidence, rung: result.error ? 0 : 2, route: '', digestOk: null, status: pending ? 'pending' : statusOf(fixture.expect, outcome, confidence), note: fixture.note || '', answer: captured || fixture.answer || null};
+}
+
 export async function scoreFixtures(fixtures, {clientFor} = {}) {
   const rows = [];
   for (const fixture of fixtures) {
-    const base = {id: fixture.id, source: fixture.source, lang: fixture.lang, trap: !!fixture.trap, expected: fixture.expect.outcome, accept: fixture.expect.accept || [fixture.expect.outcome], digest: fixture.expect.digest || '', wantRoute: fixture.expect.apply_route || ''};
+    if (questionOf(fixture) !== 'page_kind') { rows.push(await scoreJudge(fixture, {id: fixture.id, source: fixture.source, lang: fixture.lang, question: questionOf(fixture), trap: !!fixture.trap, expected: fixture.expect.outcome, accept: fixture.expect.accept || [fixture.expect.outcome], digest: '', wantRoute: ''}, {clientFor, pending: fixture.expect.outcome === 'pending'})); continue; }
+    const base = {id: fixture.id, source: fixture.source, lang: fixture.lang, question: 'page_kind', trap: !!fixture.trap, expected: fixture.expect.outcome, accept: fixture.expect.accept || [fixture.expect.outcome], digest: fixture.expect.digest || '', wantRoute: fixture.expect.apply_route || ''};
     const pending = fixture.expect.outcome === 'pending';   // a captured candidate whose real outcome a person has not confirmed yet: shown, never scored
     if (!clientFor && !fixture.answer) { rows.push({...base, outcome: '', confidence: 0, rung: -1, route: '', digestOk: null, status: pending ? 'pending' : 'no-answer'}); continue; }
     let captured = null;
@@ -50,10 +67,14 @@ export async function scoreFixtures(fixtures, {clientFor} = {}) {
 
 // Hit rates per source group and per rung; the wrong-and-confident list. Never one blended number: reconstructed and invented fixtures must not lift the real ones.
 export function summarize(rows) {
-  const bySource = {}, byRung = {};
+  const bySource = {}, byRung = {}, byQuestion = {};
   const add = (bucket, key, row) => { const entry = bucket[key] ||= {total: 0, hits: 0, exact: 0}; entry.total++; if (row.status === 'exact' || row.status === 'ok') entry.hits++; if (row.status === 'exact') entry.exact++; };
-  for (const row of rows.filter(row => row.status !== 'pending')) { add(bySource, SOURCE_GROUP[row.source] || row.source, row); add(byRung, `rung ${row.rung}`, row); }
-  return {bySource, byRung, wrongConfident: rows.filter(row => row.status === 'wrong-confident'), noAnswer: rows.filter(row => row.status === 'no-answer'), pending: rows.filter(row => row.status === 'pending')};
+  for (const row of rows.filter(row => row.status !== 'pending')) {
+    const question = row.question || 'page_kind', group = SOURCE_GROUP[row.source] || row.source;
+    add(byQuestion[question] ||= {}, group, row);
+    if (question === 'page_kind') { add(bySource, group, row); add(byRung, `rung ${row.rung}`, row); }   // the page-kind question's own rates (the judges' are in byQuestion)
+  }
+  return {bySource, byRung, byQuestion, wrongConfident: rows.filter(row => row.status === 'wrong-confident'), noAnswer: rows.filter(row => row.status === 'no-answer'), pending: rows.filter(row => row.status === 'pending')};
 }
 
 // The live run is on the plan (Claude Code), never on an API key.

@@ -1,0 +1,76 @@
+{
+ "schemaVersion": 1,
+ "id": "step-recorded-embedded-frame-form",
+ "question": "form_step",
+ "source": "recorded",
+ "lang": "en",
+ "why": "recorded case embedded-form-frame-1: the applicant form shown by itself",
+ "capture": {
+  "page": "recorded/embedded-form-frame-1/form.html"
+ },
+ "expect": {
+  "outcome": "final"
+ },
+ "url": "https://jobs.example.com/embedded/form",
+ "sketch": {
+  "url": "file:///Users/mac/job-pilotto/.claude/worktrees/ladder-fixtures/desktop/e2e/recorded/embedded-form-frame-1/form.html",
+  "title": "Job Application for Strategic Account Executive at Example",
+  "headings": [
+   "Apply for this job"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "First Name*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Last Name*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Preferred First Name*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Email*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "tel",
+    "label": "Phone*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "file",
+    "label": "Resume/CV*",
+    "required": false,
+    "state": "empty"
+   }
+  ],
+  "buttons": [
+   "Attach",
+   "Submit application"
+  ],
+  "texts": [
+   "Apply for this job"
+  ],
+  "frames": []
+ },
+ "answer": {
+  "answer": "needs_person",
+  "needs": "First Name*",
+  "needs_kind": "field",
+  "step": "final",
+  "next_control": "",
+  "confidence": 0.9
+ }
+}

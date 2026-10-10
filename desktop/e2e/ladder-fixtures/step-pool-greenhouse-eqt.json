@@ -1,0 +1,347 @@
+{
+ "schemaVersion": 1,
+ "id": "step-pool-greenhouse-eqt",
+ "question": "form_step",
+ "source": "captured",
+ "lang": "en",
+ "why": "a real application page of the pool, read once (read-only): job-boards.greenhouse.io",
+ "capture": {
+  "url": "https://job-boards.greenhouse.io/eqtcorporation/jobs/5387838008"
+ },
+ "expect": {
+  "outcome": "final"
+ },
+ "sketch": {
+  "url": "https://job-boards.greenhouse.io/eqtcorporation/jobs/(phone)",
+  "title": "Job Application for Compliance Specialist - Operations & Risk at EQT Corporation",
+  "headings": [
+   "Compliance Specialist - Operations & Risk",
+   "Apply for this job",
+   "U.S. Standard Demographic Questions",
+   "Voluntary Self-Identification"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "First Name*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Last Name*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Preferred First Name",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Email*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Country*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "tel",
+    "label": "Phone*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "file",
+    "label": "Attach",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "School",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Degree*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "number",
+    "label": "Start date year",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "number",
+    "label": "End date year",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Address*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Residing State*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Are you willing to relocate?*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Previous EQT Employee*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Current EQT Employee or Active Contractor*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Current Company*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Current Job Title*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Desired Base Salary Range*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Total Compensation Expectations (including bonus and/or equity)",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Related Employee(s)*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Are you legally authorized to work in the United States?*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Will you immediately require EQT to sponsor you for an employment visa, such as ",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Will you at any point in the future require EQT to sponsor you for an employment",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Source*",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "",
+    "required": true,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "How would you describe your gender identity?",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "How would you describe your racial/ethnic background?",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "How would you describe your sexual orientation?",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Do you identify as transgender?",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Do you have a disability or chronic condition (physical, visual, auditory, cogni",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Are you a veteran or active member of the United States Armed Forces?",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Gender",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Are you Hispanic/Latino?",
+    "required": false,
+    "state": "empty"
+   },
+   {
+    "type": "text",
+    "label": "Veteran Status",
+    "required": false,
+    "state": "empty"
+   }
+  ],
+  "buttons": [
+   "Back to jobs",
+   "Apply",
+   "Create alert",
+   "Autofill my application",
+   "Toggle flyout",
+   "Attach",
+   "Dropbox",
+   "Google Drive",
+   "Enter manually",
+   "Add another",
+   "Race & Ethnicity Definitions",
+   "Submit application"
+  ],
+  "texts": [
+   "Compliance Specialist - Operations & Risk",
+   "Remote",
+   "Join our Qrew!",
+   "Here is how the Compliance Specialist role will impact our business:",
+   "As a key member of EQT's Compliance Operations & Risk team, the Compliance Specialist will execute day-to-day Know Your Customer (KYC) operations within EQT's T",
+   "The Compliance Specialist, Operations & Risk responsibilities include but are not limited to:",
+   "Execute day-to-day KYC operations within EQT’s Third Party Diligence program for LNG & LPG counterparties and approved high-risk exceptions, applying the progra",
+   "Track open diligence requests, follow up on missing counterparty documents, publish and hand off request notices, and maintain dashboard-based status reporting ",
+   "Manage outreach for KYC packets and maintain complete, accurate Salesforce records of counterparty documentation.",
+   "Perform sanctions screening and apply risk tiers, and support Enhanced Due Diligence (EDD) on elevated-risk counterparties under the direction of the Manager, C",
+   "Run the ongoing rescreening cadence, perform Customer Due Diligence (CDD) refreshes, complete annual certifications, and escalate elevated-risk and potential tr",
+   "Administer intake, logging, and triage of Compliance Operations & Risk cases, maintaining case records for completeness, accuracy, and audit readiness.",
+   "Maintain program metrics and reporting, and maintain Salesforce data quality and reporting within established standards.",
+   "As the Third Party Diligence program matures, responsibilities will expand to include:",
+   "Execute compliance control tests under the Compliance Operations & Risk control testing process, documenting test results and supporting evidence.",
+   "If applicable, what are your total compensation expectations (including bonus and/or equity)?",
+   "Are you related to anyone employed by EQT Corporation or any of its subsidiaries?",
+   "How did you hear about this position/EQT?",
+   "U.S. Standard Demographic Questions",
+   "We invite applicants to share their demographic background. If you choose to complete this survey, your responses may be used to identify areas of improvement i",
+   "Voluntary Self-Identification",
+   "For government reporting purposes, we ask candidates to respond to the below self-identification survey. Completion of the form is entirely voluntary. Whatever ",
+   "As set forth in EQT Corporation’s Equal Employment Opportunity policy, we do not discriminate on the basis of any protected group status under any applicable la",
+   "If you believe you belong to any of the categories of protected veterans listed below, please indicate by making the appropriate selection. As a government cont",
+   "A \"disabled veteran\" is one of the following: a veteran of the U.S. military, ground, naval or air service who is entitled to compensation (or who but for the r",
+   "A \"recently separated veteran\" means any veteran during the three-year period beginning on the date of such veteran's discharge or release from active duty in t",
+   "An \"active duty wartime or campaign badge veteran\" means a veteran who served on active duty in the U.S. military, ground, naval or air service during a war, or",
+   "An \"Armed forces service medal veteran\" means a veteran who, while serving on active duty in the U.S. military, ground, naval or air service, participated in a ",
+   "Powered by",
+   "Greenhouse"
+  ],
+  "frames": [
+   "www.recaptcha.net"
+  ]
+ },
+ "answer": {
+  "answer": "needs_person",
+  "needs": "First Name*",
+  "needs_kind": "field",
+  "step": "final",
+  "next_control": "",
+  "confidence": 0.95
+ }
+}

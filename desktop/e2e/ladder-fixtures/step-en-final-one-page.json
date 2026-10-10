@@ -1,0 +1,52 @@
+{
+ "schemaVersion": 1,
+ "id": "step-en-final-one-page",
+ "question": "form_step",
+ "source": "invented",
+ "lang": "en",
+ "why": "TRAP: a one-page form whose button says \"Continue\" but is the last one (nothing follows): final is the judge's call on the page",
+ "capture": {
+  "page": "ladder-fixtures/pages/step-en-final-one-page.html"
+ },
+ "url": "https://konto.example.com/step-en-final-one-page",
+ "expect": {
+  "outcome": "final"
+ },
+ "trap": true,
+ "sketch": {
+  "url": "file:///Users/mac/job-pilotto/.claude/worktrees/ladder-fixtures/desktop/e2e/ladder-fixtures/pages/step-en-final-one-page.html",
+  "title": "Apply",
+  "headings": [
+   "Apply for Support agent"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Full name",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "email",
+    "label": "Email",
+    "required": true,
+    "state": "filled"
+   }
+  ],
+  "buttons": [
+   "Submit application"
+  ],
+  "texts": [
+   "Apply for Support agent"
+  ],
+  "frames": []
+ },
+ "answer": {
+  "answer": "ready",
+  "needs": "",
+  "needs_kind": "",
+  "step": "final",
+  "next_control": "",
+  "confidence": 0.9
+ }
+}

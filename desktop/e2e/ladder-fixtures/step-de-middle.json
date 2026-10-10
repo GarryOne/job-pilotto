@@ -1,0 +1,59 @@
+{
+ "schemaVersion": 1,
+ "id": "step-de-middle",
+ "question": "form_step",
+ "source": "invented",
+ "lang": "de",
+ "why": "Schritt 1 von 3 einer Bewerbung: Weiter führt zum nächsten Schritt",
+ "capture": {
+  "page": "ladder-fixtures/pages/step-de-middle.html"
+ },
+ "url": "https://konto.example.com/step-de-middle",
+ "expect": {
+  "outcome": "middle"
+ },
+ "sketch": {
+  "url": "file:///Users/mac/job-pilotto/.claude/worktrees/ladder-fixtures/desktop/e2e/ladder-fixtures/pages/step-de-middle.html",
+  "title": "Bewerbung",
+  "headings": [
+   "Ihre Bewerbung"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Vorname",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "text",
+    "label": "Nachname",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "email",
+    "label": "E-Mail",
+    "required": true,
+    "state": "filled"
+   }
+  ],
+  "buttons": [
+   "Zurück",
+   "Weiter"
+  ],
+  "texts": [
+   "Ihre Bewerbung",
+   "Schritt 1 von 3: Persönliche Angaben"
+  ],
+  "frames": []
+ },
+ "answer": {
+  "answer": "ready",
+  "needs": "",
+  "needs_kind": "",
+  "step": "middle",
+  "next_control": "Weiter",
+  "confidence": 0.93
+ }
+}

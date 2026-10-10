@@ -1,0 +1,64 @@
+{
+ "schemaVersion": 1,
+ "id": "acc-ready-it-filled-alerts-unchecked",
+ "question": "account_ready",
+ "source": "invented",
+ "lang": "it",
+ "why": "TRAP: required fields and terms done; the job-alert box is optional and unchecked",
+ "capture": {
+  "page": "ladder-fixtures/pages/acc-ready-it-filled-alerts-unchecked.html"
+ },
+ "url": "https://konto.example.com/acc-ready-it-filled-alerts-unchecked",
+ "expect": {
+  "outcome": "ready"
+ },
+ "trap": true,
+ "sketch": {
+  "url": "file:///Users/mac/job-pilotto/.claude/worktrees/ladder-fixtures/desktop/e2e/ladder-fixtures/pages/acc-ready-it-filled-alerts-unchecked.html",
+  "title": "Crea account",
+  "headings": [
+   "Crea account"
+  ],
+  "controls": [
+   {
+    "type": "email",
+    "label": "E-mail",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "password",
+    "label": "Password",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "checkbox",
+    "label": "Accetto i termini d'uso",
+    "required": true,
+    "state": "checked"
+   },
+   {
+    "type": "checkbox",
+    "label": "Voglio ricevere avvisi di lavoro",
+    "required": false,
+    "state": "unchecked"
+   }
+  ],
+  "buttons": [
+   "Crea account"
+  ],
+  "texts": [
+   "Crea account"
+  ],
+  "frames": []
+ },
+ "answer": {
+  "answer": "ready",
+  "needs": "",
+  "needs_kind": "",
+  "consent_required": false,
+  "bot_check": false,
+  "confidence": 0.95
+ }
+}
