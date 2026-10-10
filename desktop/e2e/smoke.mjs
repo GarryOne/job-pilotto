@@ -13,6 +13,7 @@ import {fileURLToPath} from 'node:url';
 import {candidates, compare, lastSeen, parseLive, pickPosting, placeFound, signature, tonight} from './lib/smoke.mjs';
 import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
 import {earlierReports, recordSite} from './lib/smoke-record.mjs';
+import {fetchWanted, wantedFirst} from './lib/wanted-hosts.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const QA_DIR = path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA');   // survives profile resets and removed worktrees
@@ -65,8 +66,10 @@ async function discover(limit) {
   const jobs = postingsLike(['http%'], undefined, 3000).filter(item => !/mail\.google\./.test(item.url));
   const day = new Date().toISOString().slice(0, 10), reportFile = path.join(REPORTS, `discover-${day}.json`);
   const seen = [...(read(reportFile).seen || [])];   // a restart the same day carries on: what the report already holds is not visited again (a stopped run used to start over, 10 Oct 2026)
-  const chosen = candidates(jobs, new Set([...knownUrls, ...seen.map(item => item.url)])).slice(0, limit);
-  const save = () => { fs.mkdirSync(REPORTS, {recursive: true}); fs.writeFileSync(reportFile, `${JSON.stringify({day, seen}, null, 1)}\n`); };   // after every candidate, not only at the end
+  const wanted = await fetchWanted(), ordered = wantedFirst(jobs, wanted.hosts, new Set([...knownUrls, ...seen.map(item => item.url)]));   // hosts real users apply on that the pool lacks come first (lib/wanted-hosts.mjs)
+  const chosen = ordered.chosen.slice(0, limit);
+  const save = () => { fs.mkdirSync(REPORTS, {recursive: true}); fs.writeFileSync(reportFile, `${JSON.stringify({day, seen, suggested: wanted.hosts.map(item => item.host), noPosting: ordered.missing}, null, 1)}\n`); };   // after every candidate, not only at the end
+  console.log(`smoke discover: ${wanted.hosts.length} suggested host(s) from real use${wanted.why ? ` (${wanted.why})` : ''}${ordered.missing.length ? `; no posting among your jobs for: ${ordered.missing.join(', ')}` : ''}`);
   console.log(`smoke discover: ${chosen.length} candidate(s) from ${jobs.length} job(s); ${knownSignatures.size} signature(s) already in the pool`);
   for (const posting of chosen) {
     const status = await postingStatus(posting.url);

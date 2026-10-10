@@ -30,6 +30,8 @@ Spec: `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md` (four l
 | The whole pool (~55 x 2 min) | `npm run smoke -- --all` |
 | Find new flow shapes from the loaded profile's jobs (a few per host, more from boards) | `npm run smoke -- --discover --limit 30` (~45 min) |
 
+`--discover` also asks /admin/applying for "Next sites to add" (hosts real users apply on that the pool lacks, each used by >= 3 installs; `lib/wanted-hosts.mjs`, owner key from the Keychain) and tries postings on those hosts first; a suggested host with no posting among the profile's jobs is printed and put in the discover report (`noPosting`), never skipped silently. Everything stays on this Mac: discovery writes only the Mac-only list, never the public `smoke-sites.json` (test guard). The site list is empty until 3 installs share a host.
+
 `--discover` names a new shape by the posting's employer and, when the same host has a shape that was never run, fills that one instead of adding a row (474c641).
 Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is noted and replaced, never a regression. Exit 1 = a shape reached less than ITS last run.
 
