@@ -31,6 +31,9 @@ test('only the controls that were new to this Mac are reported as missed', () =>
 
 test('a board is named in short for the known ones, any other site is a hash', () => {
   assert.deepEqual(['job-boards.greenhouse.io', 'jobs.ashbyhq.com', 'jobs.lever.co', 'acme.recruitee.com'].map(boardName), ['greenhouse', 'ashby', 'lever', 'recruitee']);
+  // Platforms the pool compares with real use (docs/superpowers/specs/2026-10-10-usage-weighted-pool.md): named, not hashed, so applications on them can be counted.
+  assert.deepEqual(['acme.wd3.myworkdayjobs.com', 'career5.successfactors.eu', 'jobs.sapsf.com', 'join.com', 'acme.umantis.com'].map(boardName), ['workday', 'successfactors', 'successfactors', 'join', 'umantis']);
+  assert.match(boardName('myjoin.com'), /^h:[0-9a-f]{10}$/, 'a look-alike host is not the platform');
   assert.match(boardName('api.easytemp.ch'), /^h:[0-9a-f]{10}$/);
   assert.equal(boardName(''), '');
 });

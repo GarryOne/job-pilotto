@@ -29,7 +29,8 @@ export function fromMisses(payload, freshPrints, options = {}) {
 
 // The job board a form is on, as the lab and the site name it: a short name for the known boards, any other site a hash.
 const BOARDS = [['greenhouse', /greenhouse\.io$/], ['ashby', /ashbyhq\.com$/], ['lever', /lever\.co$/], ['workable', /workable\.com$/],
-  ['smartrecruiters', /smartrecruiters\.com$/], ['recruitee', /recruitee\.com$/], ['personio', /personio\.(de|com)$/], ['teamtailor', /teamtailor\.com$/]];
+  ['smartrecruiters', /smartrecruiters\.com$/], ['recruitee', /recruitee\.com$/], ['personio', /personio\.(de|com)$/], ['teamtailor', /teamtailor\.com$/],
+  ['workday', /(^|\.)myworkdayjobs\.com$/], ['successfactors', /(^|\.)(successfactors\.(com|eu)|sapsf\.(com|eu))$/], ['join', /(^|\.)join\.com$/], ['umantis', /(^|\.)umantis\.com$/]];   // the last four: 10 Oct 2026, so the pool can compare real use with its tests (they were a hash before)
 export const boardName = host => {
   const name = clip(host, 80).toLowerCase();
   if (!name) return '';

@@ -3,7 +3,7 @@
 // user goes up for this; what comes down is a share and a coarse number of days per known job board.
 const FILE = 'data/benchmarks.json';
 const DAYS = ['0-3', '4-7', '8-14', '15-30', '31+'];
-const NAMES = {greenhouse: 'Greenhouse', ashby: 'Ashby', lever: 'Lever', workable: 'Workable', smartrecruiters: 'SmartRecruiters', recruitee: 'Recruitee', personio: 'Personio', teamtailor: 'Teamtailor'};
+const NAMES = {greenhouse: 'Greenhouse', ashby: 'Ashby', lever: 'Lever', workable: 'Workable', smartrecruiters: 'SmartRecruiters', recruitee: 'Recruitee', personio: 'Personio', teamtailor: 'Teamtailor', workday: 'Workday', successfactors: 'SuccessFactors', join: 'Join', umantis: 'Umantis'};
 
 export const clean = list => (Array.isArray(list) ? list : []).filter(item => NAMES[item?.board] && Number(item.n) >= 30 && Number(item.heard) >= 0 && Number(item.heard) <= 1 && (item.days === '' || DAYS.includes(item.days)))
   .slice(0, 12).map(item => ({board: item.board, n: Math.round(Number(item.n)), heard: Math.round(Number(item.heard) * 100) / 100, days: item.days || ''}));
