@@ -28,7 +28,7 @@ contextBridge.exposeInMainWorld('pilot', {
   tailorCv: call('tailorCv'), tailorTop: call('tailorTop'), openTailoredCv: call('openTailoredCv'), cvStatus: call('cvStatus'), cvOf: call('cvOf'), matchCheck: call('matchCheck'), tuneProposals: call('tuneProposals'), tuneApply: call('tuneApply'), matchSaved: call('matchSaved'), cvCheckStatus: call('cvCheckStatus'), cvCheckRun: call('cvCheckRun'), cvCheckAi: call('cvCheckAi'), importCv: call('importCv'), experienceGet: call('experienceGet'), experienceAddCv: call('experienceAddCv'), experienceRemove: call('experienceRemove'), experienceRematch: call('experienceRematch'), viewBaseCv: call('viewBaseCv'), showCvFolder: call('showCvFolder'),
   coverLetter: call('coverLetter'), coverLetterDraft: call('coverLetterDraft'), coverLetterSave: call('coverLetterSave'), coverLetterApprove: call('coverLetterApprove'), coverLetterOpen: call('coverLetterOpen'),
   ivRecord: call('ivRecord'),
-  jobPage: call('jobPage'), jobFileSave: call('jobFileSave'), textGet: call('textGet'), textSave: call('textSave'), reportsInsights: call('reportsInsights'), insightFeedback: call('insightFeedback'),
+  jobPage: call('jobPage'), jobPosting: call('jobPosting'), jobFileSave: call('jobFileSave'), textGet: call('textGet'), textSave: call('textSave'), reportsInsights: call('reportsInsights'), insightFeedback: call('insightFeedback'),
   employers: call('employers'),
   employerActive: call('employerActive'),
   formFills: call('formFills'),

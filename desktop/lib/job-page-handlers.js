@@ -2,9 +2,11 @@
 // record, messages, description) and its events, from the active store through the engine (lib/store/engine.js), so it reads the same on
 // every store. "Open in Notion" only when the store has pages to open (caps LINKS). Demo mode: demo/job-pages.json (fictional).
 // Guarded by test/job-page-handlers.test.js.
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as engine from './store/engine.js';
+import {posting as crawledPosting} from './pipeline-commands.js';
 import * as store from './store/index.js';
 import {KIT_SECTION, kitOf} from './store/extension-store.js';
 import {jobFiles} from './store/files.js';
@@ -30,7 +32,10 @@ export function fileBytes(url) {
   return found ? Buffer.from(found[1], 'base64') : null;
 }
 
-export function registerJobPageHandlers({ipcMain, storage, DEMO, here, log, dialog, call = engine.call}) {
+// A job's code, as src/notion/client.py job_code makes it: the first 8 hex digits of the SHA-1 of its trimmed URL.
+export const jobCode = url => crypto.createHash('sha1').update(String(url || '').trim()).digest('hex').slice(0, 8);
+
+export function registerJobPageHandlers({ipcMain, storage, DEMO, here, log, dialog, call = engine.call, posting = crawledPosting}) {
   ipcMain.handle('jobFileSave', async (_, name, url) => {
     const bytes = fileBytes(url);
     if (!bytes || !dialog) return {ok: false};
@@ -39,6 +44,21 @@ export function registerJobPageHandlers({ipcMain, storage, DEMO, here, log, dial
     fs.writeFileSync(picked.filePath, bytes);
     log('jobs', 'job file saved', {bytes: bytes.length});
     return {ok: true};
+  });
+  // The posting the search saved for a job (the crawl's own copy, on every store): the Description tab asks for it when the job's page has
+  // no description section (a job nobody applied to). {ok, description, url} or {ok: false, error}; a failure is an answer, logged.
+  ipcMain.handle('jobPosting', async (_, url) => {
+    if (DEMO) {   // fictional postings for a few demo jobs (demo/postings.json); the others have none saved
+      const text = JSON.parse(fs.readFileSync(path.join(here, 'demo', 'postings.json'), 'utf8'))[String(url || '').trim()];
+      return text ? {ok: true, description: text, url: String(url)} : {ok: false, error: 'job not found'};
+    }
+    try {
+      const found = await posting(storage, jobCode(url));
+      return found.ok ? {ok: true, description: String(found.description || ''), url: found.url} : {ok: false, error: found.error || 'job not found'};
+    } catch (error) {
+      log('jobs', 'job posting not read', {error: error.message});
+      return {ok: false, error: error.message, failed: true};
+    }
   });
   ipcMain.handle('jobPage', async (_, url) => {
     if (DEMO) {

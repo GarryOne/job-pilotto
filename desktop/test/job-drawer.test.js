@@ -42,6 +42,15 @@ test('the tab strip scrolls sideways, the header and tabs stay, the body scrolls
   assert.match(css, /\.jd-head \{ flex: none/);
 });
 
+test('Description: reads the saved posting once per job, and offers Retry only after a failure', () => {
+  const source = read('job-drawer/tab-description.js');
+  assert.match(source, /window\.pilot\.jobPosting\(job\.url\)/);
+  assert.match(source, /read\.has\(job\.url\)/, 'asked once per job');
+  assert.match(source, /answer\.failed[\s\S]*button\('Retry'/, 'Retry only on a failed read');
+  assert.match(source, /This job has no saved description/);
+  assert.match(fs.readFileSync(new URL('../preload.cjs', import.meta.url), 'utf8'), /jobPosting: call\('jobPosting'\)/);
+});
+
 test('one score ring for the list and the drawer', () => {
   assert.match(read('pages/jobs-render.js'), /fitRing\(job\.fit\)/);
   assert.match(read('job-drawer/header.js'), /fitRing\(job\.fit, 'lg'\)/);
