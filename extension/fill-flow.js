@@ -13,6 +13,7 @@ import {formNext} from './form-ready.js';
 import {accountOutcome, accountStep} from './account-step.js';
 import {applyPressed} from './tabs.js';
 import {sessionGet} from './tab-memory.js';
+import {bindSession, identityOf} from './tab-identity.js';
 import {pageKey, pageRole, pickApplyButton} from './tab-pages.js';
 
 let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true, fillsNow = new Set(), arm = async () => {}, progress = async () => {};
@@ -322,7 +323,9 @@ export async function consider(tab, jobUrl) {
   // the person's details go in by the normal fill (the label meanings, any language); the passwords and the account button are account-step.js.
   if (role === 'account' && kind?.accountStep) {
     const host0 = (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })();
-    const peek = await api(await settings(), '/extension/site-password', {method: 'POST', body: JSON.stringify({host: host0, peek: true, session: (await sessionGet(`session:${tab.id}`))[`session:${tab.id}`] || ''})}).catch(() => null);
+    const id = await identityOf(tab);
+    const peek = await api(await settings(), '/extension/site-password', {method: 'POST', body: JSON.stringify({host: host0, peek: true, session: id.session, job: id.job, url: id.url})}).catch(() => null);
+    await bindSession(tab.id, peek?.session, id.session);
     if (peek?.ok && peek.email && ((kind.accountStep === 'sign_up' && peek.mode === 'sign-up') || (kind.accountStep === 'sign_in' && peek.mode === 'sign-in'))) { role = 'form'; noted = 'account'; decide('fill', `${kind.accountStep} page: filled with your details`, {host: host0}); }
   }
   decide('fill', `page kind: ${kind?.kind || ruled}`, {by: kind ? kind.by : 'structure rule', confidence: kind?.confidence ?? null, ms: Date.now() - lookedAt, outcomeMs,

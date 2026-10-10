@@ -4,6 +4,8 @@
 // "Two applications side by side" (stuck reports). Guards: test/session-flow.test.js, the apply e2e rows (npm run flows).
 // Every service is passed in (terminals, review, apply, the log, the window, startClaude), so a test drives these with fakes.
 
+import {resolveSession} from './journey-identity.js';
+
 const hostOf = url => { try { return new URL(String(url)).hostname; } catch { return ''; } };
 
 export function createSessionFlow({terminals, review, apply, appLog, toWindow = () => {}, startClaude, claudeAllowed, closeTab}) {
@@ -23,8 +25,7 @@ export function createSessionFlow({terminals, review, apply, appLog, toWindow = 
       appLog('review', `stuck report about a page ${carried.id}'s tab has left: ignored`, {host: event.host, why: event.why});
       return 'stale-page';
     }
-    const forms = terminals.list().filter(session => session.kind === 'form' && !session.outcome);
-    const match = carried ? (carried.kind === 'form' && !carried.outcome ? carried : null) : forms.find(session => apply.isFormOf(event.url, session.url));
+    const match = carried ? (carried.kind === 'form' && !carried.outcome ? carried : null) : (terminals.get(resolveSession({job: event.job, url: event.url}, {get: terminals.get, list: terminals.list, isFormOf: apply.isFormOf})) || null);   // lib/journey-identity.js: by the tab's job, then the page
     appLog('extension', `can't reach the form: ${event.why}`, {host: event.host, matched: !!match, tab: event.tab ?? null, by: carried ? 'session' : 'job'});
     const why = event.why === 'account' ? 'account' : event.why === 'incomplete' ? 'incomplete' : 'no-form';
     // A Claude session on the same job at a sign-in page: its card says it is at the account step.

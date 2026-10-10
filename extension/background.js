@@ -12,8 +12,9 @@ import {claimAppTab, closePosting, followOpener, noteSource} from './tabs.js';
 import {consider, initFillFlow} from './fill-flow.js';
 import {autoRead, markListed, siteUnreachable, startWaiting} from './visit.js';
 import {MEMORY_KEY, memoryReadyIs, sessionGet, snapshot, startRun} from './tab-memory.js';
-import {startsOwnJob, pageKey, sameSite, navigationKind, neverForm, sharedFixes, tabArmed, withMark} from './tab-pages.js';
+import {startsOwnJob, sameSite, navigationKind, neverForm, sharedFixes, tabArmed, withMark} from './tab-pages.js';
 import {noteStart} from './panel-start.js';
+import {jobOf} from './tab-identity.js';
 import {fillWaitsForAllow, resumeFillWaiting, watchUnallowedFillTabs} from './site-allow.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
@@ -77,10 +78,6 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   await consider(tab, await jobOf(tab));
 });
 
-async function jobOf(tab) {
-  const stored = await sessionGet([`from:${tab.id}`, `job:${tab.id}`]);
-  return stored[`job:${tab.id}`] || stored[`from:${tab.id}`] || pageKey(tab.url);
-}
 // The panel is injected only into a tab the desktop app opened, a later page in that tab, or a tab that tab
 // opened. A new document gets the scripts again. Nothing is injected into a tab the user opened themselves.
 async function arm(tabId, why = 'app tab') {

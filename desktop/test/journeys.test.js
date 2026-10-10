@@ -72,3 +72,15 @@ test('scenario: no form and no Apply on the posting itself: the card says the ex
   assert.equal(card().step, 'posting');
   assert.match(card().needs, /can't reach/);
 });
+
+test('scenario: a sign-in tab that carries no session id: the app finds the application by the tab\'s job, so "enter the code" reaches its card (10 Oct 2026)', async () => {
+  const {card} = journeyOf();
+  const {resolveSession} = await import('../lib/journey-identity.js');
+  const session = resolveSession({session: '', job: POSTING, url: SIGNIN}, {get: terminals.get, list: terminals.list, isFormOf: apply.isFormOf});
+  assert.equal(session, 'f1');
+  terminals.setAccount(session, 'confirm');
+  const check = createAccountCheck({confirm: async () => 'code', noteStuck: (...args) => terminals.noteStuck(...args), log: () => {}});
+  await check({host: 'auth.jobs.ch', email: 'me@example.com', session, force: true});
+  assert.equal(card().step, 'confirm');
+  assert.match(card().needs, /code/i);
+});

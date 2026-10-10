@@ -89,6 +89,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/job-line.js` — The job a Logged activity run created or updated, from the engine's output line (dependency-free: pipeline.js and
 - `desktop/lib/job-page-handlers.js` — A job's page in the app (Jobs → a row → the side panel, renderer/pages/job-panel.js): the job's record, its sections (kit, prep, review,
 - `desktop/lib/jobs-handlers.js` — The jobs and runs IPC (moved out of main.js, 8 Oct 2026): the page's view of a run, the runs list and a run's detail, checking mail, the first search,
+- `desktop/lib/journey-identity.js` — Which application an extension report is about, decided ONE way for every handler (spec: docs/superpowers/specs/2026-10-10-application-journey.md, step 2).
 - `desktop/lib/keychain.js` — Every Keychain read of the app goes through here, and what a test or a live-test twin may reach (8 Oct 2026: a local e2e run that reached
 - `desktop/lib/kit-handlers.js` — The application kit and tailored CVs' IPC (moved out of main.js, 8 Oct 2026): drafting a job's kit (questions, answers, cover letter) onto
 - `desktop/lib/knowledge.js` — 🧠 Form knowledge: what Job Pilotto learned from your form fills (learn.js), used by every later kit and fill.
@@ -422,6 +423,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/sections.js` — Collapsed form sections, opened before the form is read (owner, 9 Oct 2026; live: SuccessFactors draws "Informations sur le profil" and
 - `extension/site-allow.js` — One Allow for every tab the app opens on a site the extension may not run on yet ("Work on every job site" off, the site not one
 - `extension/submit-watch.js` — Did the person submit? (moved out of background.js, 8 Oct 2026): the submit press starts a short watch; a redirect or a change on the same page is read by the app, which decides
+- `extension/tab-identity.js` — A tab's identity: which application it is (spec: docs/superpowers/specs/2026-10-10-application-journey.md, step 2). Every report to the app carries it,
 - `extension/tab-memory.js` — The extension's memory of its tabs (which session and job each tab is, which the app opened, the sites being read) lives in
 - `extension/tab-pages.js` — Which tab may the extension touch, and with which page? Chrome reuses a tab id after its tab closes, and the
 - `extension/tab-report.js` — Telling the app which tabs are open (moved out of background.js, 8 Oct 2026): the report of open job and form tabs (the app's "Opened in Chrome" and "form closed"), every 30 s

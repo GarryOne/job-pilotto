@@ -8,6 +8,7 @@ import {api, settings} from './flow.js';
 import {decide} from './log.js';
 import {askKind, sayStep, stuck} from './fill-flow.js';
 import {sessionGet} from './tab-memory.js';
+import {bindSession, identityOf} from './tab-identity.js';
 import {tabArmed} from './tab-pages.js';
 import {accountSketch, fillAccountBoxes, fillAccountEmail, flagAccount, markAccountStep, passwordWork, pressAccountButton, pressRegister} from './account-fill.js';
 import {closerLook, unsureTwice} from './escalate.js';
@@ -138,16 +139,16 @@ async function outcomeOnce(tab, frameId, memo) {
   decide('fill', `account result: ${result?.answer || 'no AI'}`, {host, action});
   if (action === 'flag' && memo.signin) {   // a sign-in the site refused (any language: the account AI's word): no account for this email here. Said to the app, which answers sign-up the next look (once per tab: a rejected sign-in is never retried)
     await chrome.storage.session.remove(memoKey(tab)).catch(() => {});
-    const refusedFor = (await sessionGet(`session:${tab.id}`))[`session:${tab.id}`] || '';
+    const id = await identityOf(tab);
     decide('fill', 'sign-in refused: sign-up next', {host});
-    api(config, '/extension/event', {method: 'POST', body: JSON.stringify({type: 'account-pressed', host, url: tab.url.split('#')[0], state: 'refused', session: refusedFor})}).catch(() => {});
+    api(config, '/extension/event', {method: 'POST', body: JSON.stringify({type: 'account-pressed', host, url: id.url, job: id.job, state: 'refused', session: id.session})}).catch(() => {});
     return;
   }
   if (action === 'flag') { await flag(tab, frameId, result.needs || ''); await giveUp(tab, host, 'the site did not accept it', result.needs || ''); return; }   // the form stays: the person finishes it, and the memo stays for the next look
   if (action === 'none') return;
   await chrome.storage.session.remove(memoKey(tab)).catch(() => {});
-  const session = (await sessionGet(`session:${tab.id}`))[`session:${tab.id}`] || '';
-  api(config, '/extension/event', {method: 'POST', body: JSON.stringify({type: 'account-pressed', host, url: tab.url.split('#')[0], state: action, session})}).catch(() => {});
+  const id = await identityOf(tab);
+  api(config, '/extension/event', {method: 'POST', body: JSON.stringify({type: 'account-pressed', host, url: id.url, job: id.job, state: action, session: id.session})}).catch(() => {});
 }
 
 export async function accountStep(tab, frameId) {
@@ -169,8 +170,9 @@ async function accountStepOnce(tab, frameId) {
   await run(tab, frameId, markAccountStep, [step]);
   stepOf.set(tab.id, step);
   if (work && !step && !work.empty) return {filled: 0};   // no step the AI knows: the password only, and every box already has one
-  const sessionId = (await sessionGet(`session:${tab.id}`))[`session:${tab.id}`] || '';
-  const answer = await api(config, '/extension/site-password', {method: 'POST', body: JSON.stringify({host, session: sessionId})});
+  const id = await identityOf(tab);
+  const answer = await api(config, '/extension/site-password', {method: 'POST', body: JSON.stringify({host, session: id.session, job: id.job, url: id.url})});
+  await bindSession(tab.id, answer?.session, id.session);   // the app resolved which application this tab is (by its job): kept for the next report
   if (!answer?.ok || !answer.password) return {filled: 0};
   const move = accountMove({step, mode: answer.mode, hasEmail: !!answer.email, registerControl: kind?.registerControl, signinControl: kind?.signinControl});
   const said = `${move} ${step} ${answer.mode}`;
