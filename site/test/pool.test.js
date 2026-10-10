@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
-import {test} from 'node:test';
+import {test, mock} from 'node:test';
 import worker from '../src/index.js';
 import {purge, rollup} from '../src/pool.js';
 
@@ -42,10 +42,14 @@ test('invalid bodies and a wrong method are refused', async () => {
 });
 
 test('many small shares a minute per install (each find as it is made), then a pause', async () => {
-  const env = setup();
-  for (let i = 0; i < 30; i++) assert.equal((await post(env, body('install-aaaa1111', [feed(`f${i}`)]))).status, 200, `share ${i}`);
-  assert.equal((await post(env, body('install-aaaa1111', [feed('one-too-many')]))).status, 429);
-  assert.equal((await post(env, body('install-bbbb2222', [feed('b')]))).status, 200, 'another install is not held back');
+  // The limiter counts per wall-clock minute: on the real clock the 31 posts could straddle a minute and the 31st would pass (a flake under load, 10 Oct 2026). The clock is pinned mid-minute.
+  mock.timers.enable({apis: ['Date'], now: Date.UTC(2026, 9, 10, 12, 0, 30)});
+  try {
+    const env = setup();
+    for (let i = 0; i < 30; i++) assert.equal((await post(env, body('install-aaaa1111', [feed(`f${i}`)]))).status, 200, `share ${i}`);
+    assert.equal((await post(env, body('install-aaaa1111', [feed('one-too-many')]))).status, 429);
+    assert.equal((await post(env, body('install-bbbb2222', [feed('b')]))).status, 200, 'another install is not held back');
+  } finally { mock.timers.reset(); }
 });
 
 test('the aggregate is for the scout only, counts distinct installs, and keeps tags of matched installs', async () => {
