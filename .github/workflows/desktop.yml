@@ -402,7 +402,9 @@ jobs:
       fail-fast: false      # one suite failing must not hide what the others found
       matrix: ${{ fromJson(needs.changes.outputs.mac_matrix) }}
     concurrency:
-      group: e2e-${{ matrix.suite }}   # a suite never overlaps itself (it owns one Notion page); different suites run together
+      # By matrix.key as in e2e.yml (the sqlite leg is `<suite>`, the stand-in leg `<suite>-standin`): a gate runs each suite twice on the Mac, and GitHub keeps ONE waiting job per
+      # group, so the Windows job of the same suite (group e2e-<suite>) cancelled the waiting Mac leg, 15 of 41 Mac jobs in the beta of 10 Oct 2026 (it only showed once the Windows build got faster).
+      group: e2e-${{ matrix.key }}   # a suite never overlaps itself (it owns one Notion page); different suites run together
       cancel-in-progress: false
     env:
       # A suite whose secrets are missing FAILS here instead of a green "skipped" (lib/skip.mjs). 6 Oct 2026: failuresnotion and failureschannels

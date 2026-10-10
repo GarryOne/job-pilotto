@@ -104,6 +104,11 @@ class DesktopWorkflowTest(unittest.TestCase):
         self.assertIn('needs: [changes, windows]', job('test-windows'))
         self.assertIn('fromJson(needs.changes.outputs.mac_matrix)', job('test-mac'))
         self.assertIn('fromJson(needs.changes.outputs.windows_matrix)', job('test-windows'))
+        # The Mac legs of a suite (sqlite and stand-in) are separate concurrency groups, as in e2e.yml: GitHub keeps one WAITING job per group, so a third contender
+        # (the Windows job of the same suite) cancels one (10 Oct 2026: 15 of 41 Mac gate jobs cancelled). The Windows job shares the sqlite leg's group, `e2e-<suite>`.
+        self.assertIn('group: e2e-${{ matrix.key }}', job('test-mac'))
+        self.assertIn('group: e2e-${{ matrix.suite }}', job('test-windows'))
+        self.assertIn('group: e2e-${{ matrix.key }}', (pathlib.Path(__file__).resolve().parent.parent / '.github/workflows/e2e.yml').read_text())   # the copy it is kept in step with
         for e2e in ('test-mac', 'test-windows'):   # the gate's settings: the fixed path
             self.assertIn("E2E_SEED: '0'", job(e2e))
         # The paid AI judge (owner, 7 Oct 2026: "$30 a week"): the nightly beta's Mac lane only, and not once today's e2e budget is spent; never on Windows.
