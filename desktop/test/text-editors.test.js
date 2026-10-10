@@ -3,13 +3,15 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 
+const read = path => fs.readFileSync(new URL(path, import.meta.url), 'utf8');
 const html = fs.readFileSync(new URL('../renderer/index.html', import.meta.url), 'utf8');
 const profile = fs.readFileSync(new URL('../renderer/pages/profile.js', import.meta.url), 'utf8');
 
 test('each of the store\'s texts has its editor panel, opened by its tab', () => {
   for (const name of ['profile', 'answers', 'knowledge']) {
     assert.match(html, new RegExp(`data-text-editor="${name}"`), name);
-    assert.match(profile, new RegExp(`loadTextEditor\\('${name}'\\)`), name);
+    // The Profile opens its form (pages/profile-form.js), which falls back to this editor; the others open the editor directly.
+    assert.match(name === 'profile' ? profile + read('../renderer/pages/profile-form.js') : profile, new RegExp(`loadTextEditor\\('${name}'\\)`), name);
   }
   for (const tab of ['profiletext', 'knowledge']) assert.match(html, new RegExp(`data-profile-tab="${tab}"`));
 });

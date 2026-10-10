@@ -263,6 +263,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/open-target.js` — A clicked notification or pop-up opens what it is about (lib/targets.js): the result of a finished task, a page, a section, a job's row.
 - `desktop/renderer/pages/pool.js` — Settings → Help the pool grow (opt-in; lib/pool-share.js): the switch and, on request, exactly what would be sent.
 - `desktop/renderer/pages/prep.js` — Interview prep kit (Focus → Prepare): built from the job's description, your Profile and your past interviews,
+- `desktop/renderer/pages/profile-form.js` — Settings → Profile → Profile text as a form: the rows of "Hard constraints", "Compensation" and "Preferences" as labelled inputs (a suggestion
 - `desktop/renderer/pages/profile.js` — Settings → Application profile.
 - `desktop/renderer/pages/reassign.js` — Where an email belongs, in your words: Focus → "Is this about …?" (an email the Gmail check wasn't sure about).
 - `desktop/renderer/pages/reports.js` — Reports (owner's choice, 9 Oct 2026: one page, tabs Weekly · Insights · Funnel · Form fills): what Notion's 💡 Insights and 🎯 Pipeline
@@ -351,6 +352,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/palette.js` — ⌘K (Ctrl+K on Windows): a command palette. Type a few words ("check gmail", "record", "settings"), then
 - `desktop/renderer/practice-session.js` — Interviews → Insights → "Start practice session": rehearse the "Practice next" steps out loud, one at a time, with a
 - `desktop/renderer/prep-card.js` — The Focus card of an interview to prepare for: its meta line, its main button and its ⋯ entries, from the item
+- `desktop/renderer/profile-model.js` — The Profile text as a form's data (Settings → Profile → Profile text) and back, without losing a word. The Profile is one markdown page the AI
 - `desktop/renderer/proposal-pick.js` — The proposed answer for a field the form still has empty (no DOM: the session page's row asks this, a test feeds it every source).
 - `desktop/renderer/question-words.js` — The words of a "Which job is this email about?" question, shared by the Gmail card (pages/activity.js) and its popup (pages/reassign.js).
 - `desktop/renderer/questions-view.js` — What the "Answer once" card says when its questions couldn't be read: nothing while Notion isn't connected, else one plain line.

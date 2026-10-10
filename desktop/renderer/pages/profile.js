@@ -5,6 +5,7 @@ import {contactHints} from '../audience.js';
 import {openInNotion, showNotionPanel} from './notion-connect.js';
 import {loadTextEditor, showStoreParts} from './text-editors.js';
 import {initExperience, loadExperience} from './experience.js';
+import {loadProfileForm} from './profile-form.js';
 import {collapsiblePanel, el, pill, tile} from '../components.js';
 import {icon} from '../icons.js';
 import {shared} from './shared.js';
@@ -29,7 +30,7 @@ export function profileTab(name) {
   showStoreParts();
   if (name === 'answers') { loadAnswers(); loadTextEditor('answers'); }
   else if (name === 'experience') loadExperience();
-  else if (name === 'profiletext') loadTextEditor('profile');
+  else if (name === 'profiletext') loadProfileForm();
   else if (name === 'knowledge') loadTextEditor('knowledge');
   else if (name === 'letter') loadLetter();
   else { loadCvSetting(); showCvChanged(); }
