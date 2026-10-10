@@ -10,7 +10,7 @@ import path from 'node:path';
 import {launch} from '../lib/app.mjs';
 import {DUMMY_KEY} from '../lib/engine.mjs';
 import {buildStandIn, startNotionFake} from '../lib/notion-fake.mjs';
-import {NOTION_PROFILE, TEXTS, answerImport, answerSave, copyProcess, fileBlocks, journalOf, pageText, rowsIn, sameScreens, screens, seedStore,
+import {NOTION_PROFILE, TEXTS, answerImport, answerSave, copyProcess, fileBlocks, journalOf, pageText, rowsIn, sameScreens, screens, seedStore, standInRows,
   afterFirstSearch, logLines, searches, settingsOf, pressMove, storeMessage, writeProfile, yourData} from '../lib/storemove-steps.mjs';
 
 export const name = 'storemove';
@@ -172,9 +172,8 @@ export async function run(ctx) {
       await second.page.waitForSelector('.view:not([hidden])', {timeout: 60000});
       try { sameScreens(expected, await screens(second.page)); } catch (error) {
         // Evidence for a failure only seen on Windows CI (10 Oct 2026: the hidden "Orrin AG" shows after the move there): what the second install's store holds, and its own log.
-        const rows = await ctx.data('matches', 'list', {}, {profile: second.profile}).catch(problem => `unreadable: ${problem.message}`);
-        throw new Error(`${error.message}\n  the second install's matches after the move: ${JSON.stringify(Array.isArray(rows) ? rows.map(match => ({company: match.company, status: match.status})) : rows)}`
-          + `\n  searches seen by its log: ${JSON.stringify(searches(second.profile))} (before the connect: ${JSON.stringify(mark)}); its log: ${JSON.stringify(logLines(second.profile, /\[(store|data|run)\]|search|daily/i))}`);
+        throw new Error(`${error.message}\n  Job Matches in the second Notion after the move: ${JSON.stringify(standInRows(standIn2, 'Job Matches'))}; Job Tracker: ${JSON.stringify(standInRows(standIn2, 'Job Tracker').map(row => row.title))}`
+          + `\n  searches seen by its log: ${JSON.stringify(searches(second.profile))} (before the connect: ${JSON.stringify(mark)}); its log: ${JSON.stringify(logLines(second.profile, /\\[(store|data|run)\\]|search|daily/i))}`);
       }
       if (standIn2.stats.unknown.length) throw new Error(`the second stand-in met requests it does not know: ${standIn2.stats.unknown.join('; ')}`);
     });

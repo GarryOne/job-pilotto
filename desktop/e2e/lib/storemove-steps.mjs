@@ -120,6 +120,16 @@ export const journalOf = profile => { try { return JSON.parse(fs.readFileSync(pa
 // What the stand-in holds: rows per database (by a word of its title), file blocks, and a page's text.
 export const rowsIn = (standIn, word) => standIn.dump().filter(item => item.object === 'database' && item.title.includes(word)).reduce((sum, db) => sum + db.rows, 0);
 export const fileBlocks = standIn => [...standIn.objects.values()].filter(item => item.object === 'block' && ['file', 'image', 'pdf'].includes(item.type) && !item.archived).length;
+// The rows of the stand-in's database whose title has `word`: title, Status, archived. For evidence when screens differ after a move (read from the stand-in itself:
+// the engine's store call needs the app's token, and the second install's is not the suite's).
+export function standInRows(standIn, word) {
+  const plain = rich => (rich || []).map(part => part.plain_text ?? part.text?.content ?? '').join('');
+  const bare = id => String(id || '').replace(/-/g, '');
+  const all = [...standIn.objects.values()];
+  const databases = new Set(all.filter(item => item.object === 'database' && plain(item.title).includes(word)).map(item => bare(item.id)));
+  return all.filter(item => item.object === 'page' && databases.has(bare(item.parent?.database_id)))
+    .map(page => ({title: plain(Object.values(page.properties || {}).find(property => property.type === 'title')?.title), status: page.properties?.Status?.select?.name ?? null, archived: !!page.archived}));
+}
 export function pageText(standIn, pageId) {
   const {body} = standIn.handle('GET', `blocks/${pageId}/children`, {}, new URLSearchParams());
   return (body.results || []).map(block => (block[block.type]?.rich_text || []).map(part => part.plain_text || part.text?.content || '').join('')).join('\n');
