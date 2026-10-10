@@ -17,7 +17,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
 - **The list is the page's "Needs a fix" section** (right under the tiles of `/admin/applying`; owner-only; Bearer = Keychain `job-pilotto.site.api_key`, see memory
   `reference-owner-pages-access`; the same rows are in the page's `?json`: pool rows with `regression`, `short`, `shares`, `reached`). It is worst first: regressions, then the earliest
   stop, then the least filled form. A form reached with under half of the asked fields filled is a **shortfall** (red "form · 4 of 12"): a failure, not a success. A code or bot check is a documented
-  hold and is not on the list. Take the TOP row, one shape per round. Its evidence is on this Mac: `~/Library/Application Support/Job Pilotto QA/smoke-reports/` (`<day>.json` with each
+  hold and is not on the list. Take the TOP row **that no other session holds**, one shape per round: go down the list and, for each row, `node tools/claim-shape.mjs claim "<row name>" --session <your session name> --alive <the names `ListAgents` shows, comma-separated>` (exit 0 = yours; exit 1 prints the holder: go to the next row). A claim is a file per row in the Mac's QA folder, so several `/fix-failing-forms` sessions in parallel never take the same shape; it goes stale after 6 h or when its session is gone from `ListAgents`. `node tools/claim-shape.mjs list` shows who holds what. **Release it** (`release "<row name>" --session <you>`) when the row is confirmed cleared, or when you stop or hand the shape back. Its evidence is on this Mac: `~/Library/Application Support/Job Pilotto QA/smoke-reports/` (`<day>.json` with each
   site's `fieldList`: label, type, outcome, required, reason per field; one `.log` per run) and **`replay-candidates/<day>/<shape>/`** (the failing run's last page, structure only and scrubbed, with a
   `case.json` skeleton: the run's fields, page path and page-kind lines): start the recorded page from that candidate, take the AI's answers from its `evidence`, never invent them.
   Say: N rows, the top three, the one you take. After the landing, the next night's "Filled, last runs" column of that row is the proof: it must go up or the row must leave the list.
@@ -125,6 +125,7 @@ Flow-core files (`page-kind.js`, `fill-flow.js`, `session-flow.js`, `escalate.js
 - Say "released" for the flow core to every peer.
 
 ## Stop conditions
+- Whatever the reason you stop, release your claim (`tools/claim-shape.mjs release`), so another session can take the row.
 - Reached the form (filled/left counted) or a documented hold (an email code, a captcha, a bot check, a login wall): stop, never get past them.
 - Two fix rounds without reaching further: stop, write what is known (log lines, frames, what you tried) and hand the shape back; do not keep guessing.
 - A site that blocks automation (401/403/429, a bot check) is a no: note it in the report, leave it.
