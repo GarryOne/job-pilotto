@@ -104,10 +104,11 @@ class DesktopWorkflowTest(unittest.TestCase):
         for name in ('build', 'windows'):
             smoke = job(name).split('Smoke test ·')[1].split('- name:')[0]
             self.assertIn("if: needs.changes.outputs.gate == 'true'", smoke)
-        # the slow packaging checks only when e2e follows, and before the publish step
-        packaging = job('windows').split('Smoke test · packaging checks')[1]
-        self.assertIn("if: needs.changes.outputs.gate == 'true'", packaging.split('- name:')[0])
-        self.assertLess(job('windows').index('Smoke test · packaging checks'), job('windows').index('Add to the release'))
+        # Windows is not slower than the Mac in beta mode (owner, 10 Oct 2026: "why can't it be just like on Mac?"): its smoke is the same small set (mode smoke), and the slow
+        # installed-app checks (add-on, update in place, in-app terminal: windows-smoke.mjs mode packaging) are the weekly run's (windows-smoke.yml, mode full), never a build step.
+        self.assertNotIn('packaging', re.sub(r'#.*', '', job('windows')).replace('windows-smoke.mjs', ''))
+        self.assertIn('windows-smoke.mjs "dist/Job-Pilotto-${VERSION}-x64.exe" smoke smoke', job('windows'))
+        self.assertNotIn(' packaging', (pathlib.Path(__file__).resolve().parent.parent / '.github/workflows/windows-smoke.yml').read_text())   # the weekly run takes the default: full
         self.assertIn('needs: [changes, build]', job('test-mac'))
         self.assertIn('needs: [changes, windows]', job('test-windows'))
         self.assertIn('fromJson(needs.changes.outputs.mac_matrix)', job('test-mac'))

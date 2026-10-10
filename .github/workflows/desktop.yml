@@ -355,17 +355,6 @@ jobs:
         if: needs.changes.outputs.gate == 'true'
         working-directory: desktop
         run: node scripts/windows-smoke.mjs "dist/Job-Pilotto-${VERSION}-x64.exe" smoke smoke
-      # The slow checks of the installed app that the e2e cannot see because it runs from source (the transcription add-on's pip install and PyAV, the installer updating
-      # the app over itself, the in-app terminal): only when e2e follows (a nightly or a beta by hand), so a "Build only" run stays fast. Before the publish step: a failure
-      # here leaves the release without this Windows installer, like any failed build step (owner, 10 Oct 2026).
-      - name: Smoke test · packaging checks (only when e2e follows)
-        if: needs.changes.outputs.gate == 'true'
-        working-directory: desktop
-        run: node scripts/windows-smoke.mjs "dist/Job-Pilotto-${VERSION}-x64.exe" smoke-packaging packaging
-      - name: Build provenance (anyone can verify the download was built here, from this commit)
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-path: desktop/dist/Job-Pilotto-*-x64.exe
       - name: Keep the Windows screenshots
         if: always() && needs.changes.outputs.gate == 'true'
         uses: actions/upload-artifact@v6
