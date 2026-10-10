@@ -4,6 +4,14 @@ name = "www"   # https://www.jobpilotto.workers.dev (the account's workers.dev s
 main = "src/index.js"
 compatibility_date = "2026-09-01"
 
+# Hosts: workers.dev stays on (installed apps and old engine tags call it, forever); jobpilotto.top is an alias on the same worker
+# (src/hosts.js: the bare name redirects to www). Replaceable: another domain is two more lines here.
+workers_dev = true
+routes = [
+  {pattern = "www.jobpilotto.top", custom_domain = true},
+  {pattern = "jobpilotto.top", custom_domain = true},
+]
+
 [assets]
 directory = "./public"
 binding = "ASSETS"

@@ -2,6 +2,7 @@
 // POST /api/waitlist which keeps Pro early-access
 // sign-ups in Cloudflare KV (binding WAITLIST). List them: npx wrangler@4 kv key list --binding WAITLIST --remote
 // Optional: with TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID set as secrets, each new sign-up is also sent to Telegram.
+import {apexRedirect} from './hosts.js';
 import * as notion from './notion.js';
 import * as stats from './stats.js';
 import * as telemetry from './telemetry.js';
@@ -102,6 +103,8 @@ export async function judgeLearning(db, now = new Date()) {
 
 export default {
   async fetch(request, env, ctx) {
+    const alias = apexRedirect(request);   // jobpilotto.top -> www.jobpilotto.top; workers.dev is never redirected (src/hosts.js)
+    if (alias) return alias;
     const {pathname} = new URL(request.url);
     if (pathname.startsWith('/download/')) return stats.download(request, env, ctx);
     if (pathname === '/install') return install(request, env, ctx, stats.record);
