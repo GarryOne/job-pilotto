@@ -169,6 +169,7 @@ export function showJobsIn(label, urls, from = '') {
 export async function startSearch(why = undefined) {
   refreshBusy(true);   // "Your search changed": this refresh applies it
   $('refresh').disabled = true;
+  renderJobs();   // the empty list stops offering "Refresh jobs" while one runs
   shared.selectedRun = null;
   setTimeout(() => { showSearchStatus(); refreshActivity(); }, 300);
   try {
@@ -289,7 +290,14 @@ export async function init() {
     refreshActivity();
     if (LIST_CHANGED.test(line)) reloadQuietly();
   });
-  $('search-status').addEventListener('click', () => openActivity(true));
+  // Running: its progress; done: the last Refresh jobs run itself, not whichever task happens to be running now.
+  $('search-status').addEventListener('click', async () => {
+    const {running, runs} = await window.pilot.runs();
+    const searching = running && (running.kind || 'search') === 'search';
+    shared.selectedRun = searching ? null : (runs || []).find(run => (run.kind || 'search') === 'search')?.id ?? null;
+    openActivity(true);
+    refreshActivity();   // draws the selected run's detail
+  });
   $('refresh').addEventListener('click', () => startSearch());
 
   $('jobs-unscored-go').addEventListener('click', () => $('refresh').click());

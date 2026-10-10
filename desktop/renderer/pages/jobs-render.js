@@ -429,13 +429,17 @@ export function renderJobs() {
   const emptyFor = {saved: 'No saved jobs yet. On any job, <b>⋯ → Save</b> keeps it here for later.',
     applied: 'No applications yet. Apply from a job, or add one you sent elsewhere with <b>+ Applied elsewhere…</b>',
     dismissed: 'No dismissed jobs.', inbound: 'Nothing found you yet. A recruiter\'s message you log (<b>+ Log job activity…</b>) shows here.'};
-  $('jobs-empty').innerHTML = !shared.allJobs.length ? 'No jobs here yet. Click <b>Refresh jobs</b>; the first refresh takes a few minutes.'
+  $('jobs-empty').innerHTML = !shared.allJobs.length ? ($('refresh').disabled ? 'Refreshing jobs now: the first refresh takes a few minutes, and the jobs appear here as it finishes.'
+      : 'No jobs here yet. Click <button type="button" class="link" data-refresh-jobs><b>Refresh jobs</b></button>; the first refresh takes a few minutes.')
     : anyStatus ? 'That job isn\'t in your list: not found by a search yet, or hidden by your language or company filters.'
     : !text && !jobsState.statFilter && emptyFor[filter] ? emptyFor[filter]
     : text || jobsState.statFilter || filter !== 'all' ? 'No job matches this filter.' : 'No open jobs right now.';
   // The board shows applications only (rows with a Stage), whatever the menu says; a view or counter and the words narrow it.
   paintViews((counted || shared.allJobs).filter(job => columnOf(job) && matches(job, text)));   // a job the board has a column for (jobs-board-rules.js)
 }
+
+// "Refresh jobs" in the empty list is the same trigger as the header button (a disabled one, while a refresh runs, ignores it).
+document.addEventListener('click', event => { if (event.target.closest?.('[data-refresh-jobs]')) $('refresh')?.click(); });
 
 // While the list loads from Notion (a few seconds): a spinner in the empty list the first time; afterwards the
 // list stays and the subtitle says it's refreshing.

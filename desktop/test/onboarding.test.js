@@ -68,11 +68,10 @@ test('Focus: all of it with Notion; only Get started without; the gate once Get 
   assert.equal(focusMode({notionConnected: false, gettingStarted: hidden.show}), 'locked');
 });
 
-test('data kept on this Mac: the Notion step is done in its own words, and Focus is whole', () => {
+test('data kept on this Mac: no Notion step (it is the default), Focus is whole', () => {
   const state = onboarding({keptOnMac: true});
-  const step = state.steps.find(each => each.key === 'notion');
-  assert.equal(step.done, true);
-  assert.equal(step.label, 'Keep your data on this Mac');
+  assert.equal(state.steps.some(each => each.key === 'notion'), false);
+  assert.equal(state.steps.length, STEPS.length - 1);
   assert.equal(onboarding({notionConnected: true}).steps.find(each => each.key === 'notion').label, 'Connect Notion');
 });
 

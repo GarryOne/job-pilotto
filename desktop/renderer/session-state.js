@@ -25,7 +25,7 @@ export const sessionReview = (item, formReady = false) => item.status === 'done'
 // A session whose application was submitted is finished, whatever its process did: "Submitted", never "Applying".
 export const sessionState = (item, formReady = false) => (item?.outcome === 'submitted' && !isLive(item) ? SESSION_STATE.submitted
   : item.kind === 'form' && item.accountState === 'confirm' ? ['Confirm your email', 'info']   // the account is made and awaits its confirmation mail
-  : item.kind === 'form' && item.stuck ? [item.stuck === 'account' ? (item.accountNeeds ? 'Needs you' : item.accountStep === 'sign_in' ? 'Needs sign-in' : 'Needs an account') : 'Can\'t reach form', 'warn']
+  : item.kind === 'form' && item.stuck ? [item.stuck === 'account' ? (item.accountNeeds ? 'Needs you' : item.accountStep === 'sign_in' ? 'Needs sign-in' : 'Needs an account') : item.stuck === 'incomplete' ? 'Needs you' : 'Can\'t reach form', 'warn']
   // Claude at work on a sign-in or sign-up page: it is creating the account, not filling the application (owner, 8 Oct 2026: "Applying").
   : item.kind !== 'form' && item.status === 'running' && item.stage === 'account' ? ['Creating account', 'info']
   : (item.kind === 'form' || item.inChrome) && !formReady && sessionReview(item, formReady) ? ['Form open', 'info']   // the Apply button's session: no Claude, the form is open in Chrome

@@ -85,7 +85,7 @@ export function renderActionsPage(data) {
     if (spinner) spinner.hidden = waitsOnYou;   // blocked on the person: no "working" spinner, the button says what to do
     const log = $('run-banner-log');
     log.hidden = !running.rowUrl;
-    log.dataset.url = running.rowUrl || '';
+    log.dataset.url = /^https:\/\//.test(running.rowUrl || '') ? running.rowUrl : '';   // a store ref (data kept on this Mac: store:cron_runs/…) is no web page
   }
   const rows = runs.slice(0, 5).map(run => {
     const kind = kindOf(run);
@@ -104,7 +104,12 @@ export function renderActionsPage(data) {
 
 // Run at start-up, in the order the window has always done it (app.js calls each page's init in turn).
 export async function init() {
-  $('run-banner-log').addEventListener('click', event => { event.preventDefault(); window.pilot.openExternal(event.currentTarget.dataset.url); });
+  $('run-banner-log').addEventListener('click', event => { 
+    event.preventDefault();
+    const url = event.currentTarget.dataset.url;
+    if (url) window.pilot.openExternal(url);
+    else { shared.selectedRun = null; openActivity(true); }   // no web page for the log: the running task's own log, in Recent activity
+  });
   $('run-banner-stop').addEventListener('click', event => stopRunning(event.currentTarget));
   $('run-banner-view').addEventListener('click', () => { shared.selectedRun = null; openActivity(true); });   // null = the running task, not whichever row was open last
   $('actions-result-close').addEventListener('click', () => show($('actions-result'), false));

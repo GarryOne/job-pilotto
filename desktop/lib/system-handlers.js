@@ -5,6 +5,7 @@ import * as backup from './backup.js';
 import * as contactDetails from './contact.js';
 import * as notion from './notion.js';   // Notion-only: archives the Notion workspace on a reset with a fresh workspace
 import * as notionGate from './notion-gate.js';
+import * as pipeline from './pipeline.js';
 import * as reset from './reset.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -30,13 +31,18 @@ export function registerSystemHandlers(ctx) {
       detail: `Your keys, CV, tailored CVs, recordings, interview drafts, job list and settings on this computer ${backup
         ? 'are moved to a backup folder' : 'are deleted for good'}, and Job Pilotto restarts at the setup. ${freshNotion
         ? 'Your Job Pilotto page in Notion is renamed "… (archived)" and kept as it is; the setup then builds a new workspace in a new empty page.'   // about Notion
-        : 'Your Notion workspace, Gmail sign-in and GitHub repo are not changed.'}`});
+        : 'Your Notion workspace and GitHub repo are not changed.'} Your Gmail sign-in is disconnected, so the next setup starts clean.`});
     if (answer !== 1) return {ok: false};
     let archived = null;
     if (freshNotion && notionGate.notionInUse(storage)) {   // a Notion that isn't the store holds none of this data: left alone
       const when = new Date().toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'}).replace('Sept', 'Sep');
       try { archived = await notion.archiveWorkspace(storage.secret('NOTION_TOKEN'), storage.settings().notionIds || {}, when); }
       catch (error) { return {ok: false, error: `Notion: ${error.message}. Nothing was reset.`}; }
+    }
+    // The Gmail sign-in lives in the Keychain, outside the data folder: forgotten too, or the fresh setup shows the old account (9 Oct 2026).
+    if (!DEMO) {
+      try { await pipeline.run(storage, ['src.sources.google', 'disconnect']); appLog('connections', 'Gmail disconnected', {from: 'reset'}); }
+      catch (error) { appLog('connections', 'Gmail not disconnected at reset', {error: error.message}); }
     }
     reset.request(storage.dir, {backup, archived});
     restartApp('reset');

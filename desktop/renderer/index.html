@@ -362,7 +362,7 @@
         <aside class="card job-panel" id="job-panel" aria-label="Job page" hidden></aside>
       </div>
       <div class="callout tone-warn" id="jobs-unscored" hidden><span id="jobs-unscored-text"></span> <button class="link" id="jobs-unscored-go" type="button">Check now</button></div>
-      <p class="empty" id="jobs-empty" hidden>No jobs here yet. Click <b>Refresh jobs</b>; the first refresh takes a few minutes.</p>
+      <p class="empty" id="jobs-empty" hidden>No jobs here yet. Click <button type="button" class="link" data-refresh-jobs><b>Refresh jobs</b></button>; the first refresh takes a few minutes.</p>
     </div>
 
     <div class="view" data-view="focus" hidden>
@@ -1433,7 +1433,7 @@
             <div id="reset-options" hidden>
               <p class="small"><b>Removed from this computer:</b> your AI, <span data-about-notion>Notion</span>, Telegram and GitHub keys, your CV and tailored CVs, call recordings and
                 interview drafts, the job list, schedule and settings. Job Pilotto restarts at the setup, like the first time.</p>
-              <p class="small muted"><b>Not changed:</b> your Notion workspace (unless you tick "fresh Notion workspace" below), your Gmail sign-in, your GitHub repo.
+              <p class="small muted"><b>Not changed:</b> your Notion workspace (unless you tick "fresh Notion workspace" below), your GitHub repo. <b>Disconnected:</b> your Gmail sign-in.
                 The Chrome extension has to be connected again.</p>
               <label class="radio"><input type="checkbox" id="reset-backup" checked><span>Keep a backup of this data (moved to a folder next to it; recommended)</span></label>
         <label class="radio"><input type="checkbox" id="reset-notion"><span><b>Also start a fresh Notion workspace</b> (a new job search, or

@@ -2,8 +2,8 @@
 // The app can't replace its own data folder while it runs (Chromium keeps files open there), so import and
 // reset are requested, the app restarts, and the folder is swapped at the very start of the next launch,
 // before anything opens it. The current data is moved to a backup folder first (reset can delete instead).
-// Nothing outside the folder is touched: the Notion workspace, the Keychain (Gmail sign-in, employer
-// passwords) and a GitHub repo stay as they are. Two explicit extras (main.js): a reset can also archive the
+// Outside the folder, a reset touches only the Gmail sign-in (system-handlers.js disconnects it first); the Notion workspace, employer
+// passwords in the Keychain and a GitHub repo stay as they are. Two explicit extras (main.js): a reset can also archive the
 // Notion workspace (renamed, never deleted), and an export can carry a read-only copy of it (notion.json).
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';

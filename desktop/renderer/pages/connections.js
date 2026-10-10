@@ -3,7 +3,7 @@ import {aiFamily} from '../ai-name.js';
 import {notionConnected, openNotionConnect} from './notion-connect.js';
 import {shared} from './shared.js';
 import {$, message, osPick, osText, show} from './core.js';
-import {moreButton, pill} from '../components.js';
+import {pill} from '../components.js';
 import {saveDailyTarget} from './focus.js';
 import {loadSettings} from './profile.js';
 import {extensionState} from '../service-status.js';
@@ -34,6 +34,9 @@ const EXT_LINE = {
   checking: 'Looking for it in Chrome…',
 };
 let browserApp = 'Google Chrome';  // the browser the extension is (or will be) installed in, from the app
+// A connection's way out: a red button beside Connect/Reconnect, not hidden in a ⋯ menu (owner, 9 Oct 2026).
+const wayOut = (label, run) => { const button = document.createElement('button'); button.className = 'danger'; button.textContent = label; button.addEventListener('click', run); return button; };
+
 export async function showExtensionStatus() {
   const [seen, found] = await Promise.all([window.pilot.extensionSeen().catch(() => null), window.pilot.extensionInstall().catch(() => null)]);
   const state = extensionState({known: !!found || !!seen, installed: found?.installed || [], seen, browserRunning: found?.browserUp ?? null});
@@ -151,7 +154,7 @@ export function showCloud() {
     ? osText(`${cloud.repo} · runs the schedule above, even with the Mac off`) : 'Now: runs on this Mac while the app is open. With GitHub: runs 24/7, even with the Mac off.';
   $('cloud-connect').textContent = cloud?.repo ? 'Update' : 'Turn on';
   $('cloud-open').hidden = $('cloud-more').hidden = !cloud?.repo;
-  $('cloud-more').replaceChildren(...(cloud?.repo ? [moreButton([{label: 'Turn off Always on', danger: true, run: () => $('cloud-off').click()}])] : []));
+  $('cloud-more').replaceChildren(...(cloud?.repo ? [wayOut('Turn off Always on', () => $('cloud-off').click())] : []));
   showCloudPill();
   showCloudNeeds();
   $('auto-search').disabled = !!cloud?.repo;
@@ -231,7 +234,7 @@ function showTelegramCloud() {
   if (on) $('tg-cloud-actions').prepend($('tg-cloud-on')); else $('tg-cloud-form').querySelector('.inline').append($('tg-cloud-on'));
   $('tg-cloud-on').textContent = on ? 'Update' : 'Turn on';
   show($('tg-cloud-more'), !!on);
-  $('tg-cloud-more').replaceChildren(...(on ? [moreButton([{label: 'Turn off Telegram buttons', danger: true, run: () => $('tg-cloud-off').click()}])] : []));
+  $('tg-cloud-more').replaceChildren(...(on ? [wayOut('Turn off Telegram buttons', () => $('tg-cloud-off').click())] : []));
   refreshServices();  // Settings → Connections: the GitHub and Cloudflare cards move between Available and Connected
 }
 let cloudUrls = null;
@@ -245,14 +248,14 @@ export async function showGoogle() {
   $('google-connect').textContent = google.connected ? 'Reconnect' : 'Connect Google';
   // A way out, like Always on's and Telegram buttons' (owner, 7 Oct 2026: "there is no way for me to disconnect from Gmail").
   $('google-more').hidden = !google.connected;
-  $('google-more').replaceChildren(...(google.connected ? [moreButton([{label: 'Disconnect Gmail', danger: true, run: disconnectGoogle}])] : []));
+  $('google-more').replaceChildren(...(google.connected ? [wayOut('Disconnect Gmail', disconnectGoogle)] : []));
   noteCheck({google: {connected: !!google.connected, email: google.email || ''}});  // the cards above follow
 }
 // Telegram's way out, the same ⋯ menu as Gmail's (owner, 7 Oct 2026).
 export function showTelegram() {
   const on = !!(shared.state.secrets.TELEGRAM_BOT_TOKEN && shared.state.settings.telegramChatId);
   $('telegram-more').hidden = !on;
-  $('telegram-more').replaceChildren(...(on ? [moreButton([{label: 'Disconnect Telegram', danger: true, run: disconnectTelegram}])] : []));
+  $('telegram-more').replaceChildren(...(on ? [wayOut('Disconnect Telegram', disconnectTelegram)] : []));
 }
 async function disconnectTelegram() {
   message('telegram-message', 'Disconnecting…', 'waiting');

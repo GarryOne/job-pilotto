@@ -13,7 +13,7 @@ const finished = (runs, kind) => (runs || []).filter(run => run.kind === kind &&
 const newest = list => Math.max(0, ...list.map(run => Number(run.id) || 0));
 
 // What each step's state is now. runs: Recent activity's records; funnel: Focus's (its "Applied" step); saved: settings.onboarding.
-// keptOnMac: the person chose to keep the data on this Mac (lib/store): the Notion step is done and says so in its own words.
+// keptOnMac: the data is kept on this Mac (lib/store, the default): the Notion step is left out until Notion is connected.
 export function onboarding({runs = [], settings = {}, notionConnected = false, keptOnMac = false, funnel = null} = {}) {
   const saved = settings.onboarding || {};
   const scoutAt = Math.max(newest(finished(runs, 'scout')), Date.parse(settings.lastScoutAt || '') || 0);
@@ -27,8 +27,9 @@ export function onboarding({runs = [], settings = {}, notionConnected = false, k
     tailor: finished(runs, 'tailor').length > 0,
     apply: applied > 0,
   };
-  const steps = STEPS.map(step => ({...step, done: !!(saved[step.key] || now[step.key]),
-    ...(step.key === 'notion' && keptOnMac && !notionConnected ? {label: 'Keep your data on this Mac', hint: 'Notion later, for Always on'} : {})}));   // about Notion
+  // Data kept on this Mac is the default, so there is nothing to tick: the Notion step shows only until Notion is connected or a choice was made elsewhere.
+  const steps = STEPS.filter(step => !(step.key === 'notion' && keptOnMac && !notionConnected))
+    .map(step => ({...step, done: !!(saved[step.key] || now[step.key])}));
   const next = steps.find(step => !step.done) || null;
   const doneCount = steps.filter(step => step.done).length;
   const remember = Object.fromEntries(steps.filter(step => step.done && !saved[step.key]).map(step => [step.key, true]));
