@@ -33,3 +33,10 @@ test('platform: a custom site that ends on another company\'s host names that ho
   assert.equal(platformLabel('', 'careers.example.ch'), 'Custom');
   assert.equal(platformLabel('x.wd3.myworkdayjobs.com', 'careers.x.com'), 'Workday');
 });
+
+test('display name: a discovered site shows its company; an old signature-named one shows its host\'s domain', async () => {
+  const {displayName} = await import('../src/platform.js');
+  assert.equal(displayName('Acme AG (found 2026-10-10)', 'careers.other.com'), 'Acme AG');
+  assert.equal(displayName('posting>form@x.com (found 2026-10-10)', 'careers.breitling.com'), 'Breitling');
+  assert.equal(displayName('Workday: an account inside the system', 'x.com'), 'Workday: an account inside the system');
+});

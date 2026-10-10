@@ -37,8 +37,11 @@ export function platformLabel(end, start) {
   return a && a !== b ? `Custom (${a})` : platform;
 }
 
-// A discovered site is named by its flow signature ("posting>form@x.com (found 2026-10-10)"): the table shows the employer instead, the start host's domain name.
+// A discovered site is named "<company> (found 2026-10-10)": the table shows the company. Older ones carry a raw flow signature ("posting>form@x.com (found …)"): those
+// show the start host's domain name instead.
 export const displayName = (name, startHost) => {
-  const word = /\(found \d{4}-\d\d-\d\d\)$/.test(name) ? domainName(startHost) : '';
+  const found = String(name).match(/^(.*?)\s*\(found \d{4}-\d\d-\d\d\)$/);
+  if (!found) return name;
+  const word = /[>@#]/.test(found[1]) ? domainName(startHost) : found[1];
   return word ? word[0].toUpperCase() + word.slice(1) : name;
 };
