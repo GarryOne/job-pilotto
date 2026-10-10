@@ -147,9 +147,10 @@ function paletteCommands() {
       section.scrollIntoView({block: 'start'});
     };
     add('Settings', title, '', `settings ${page}`, open);
-    section.querySelectorAll('button[id]').forEach(node => {
-      if (node.disabled || !shown(node) || twins.has(node)) return;
+    const buttons = [...section.querySelectorAll('button[id]')].filter(node => !node.disabled && shown(node) && !twins.has(node));
+    buttons.forEach(node => {
       const danger = !!node.closest('.danger-zone') || /danger/.test(node.className);
+      if (danger && buttons.length === 1) return;   // only focused, so a section's sole danger button lands where its own entry does: a duplicate row
       add('Settings', `${title}: ${labelOf(node)}`, node.title, `settings ${page}`, () => { open(); if (danger) node.focus(); else node.click(); });
     });
   });
