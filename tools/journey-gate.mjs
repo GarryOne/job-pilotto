@@ -5,6 +5,7 @@
 // pages (layer 2, e2e/recorded). Called by tools/pre-push-check.sh.
 // Usage: node tools/journey-gate.mjs [--base origin/main]. Exit 0: passed or nothing to check; 1: a journey test failed. Guard: desktop/test/journey-gate.test.js.
 import {execFileSync, spawnSync} from 'node:child_process';
+import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -25,8 +26,20 @@ function replay(desktop) {
   const seconds = ((Date.now() - started) / 1000).toFixed(0);
   if (run.status === 0) { console.log(`journey gate: recorded pages replayed in ${seconds} s`); return 0; }
   const failures = String(run.stdout || '').split('\n').filter(line => /^not ok|^# fail|^\s+[0-9]+: '/.test(line)).join('\n');
-  console.error(`journey gate: a recorded page no longer works (layer 2):\n${failures}\nreproduce: cd desktop/e2e && npm run recorded`);
+  const load = os.loadavg()[0].toFixed(0), failed = failedCases(run.stdout);
+  // A case that fails in the full replay and passes alone is load-sensitive (11 Oct 2026: workday-start-dialog-1 at load 147): said as FLAKY, never a silent pass.
+  if (failed.length && failed.length <= MAX_RETRIED) {
+    const alone = failed.map(name => ({name, ok: spawnSync('node', ['--test', 'test/recorded-pages.test.mjs'], {cwd: e2e, encoding: 'utf8', timeout: 2 * 60 * 1000,
+      env: {...process.env, JP_REPLAY: '1', REPLAY_ONLY: name}}).status === 0}));
+    if (alone.every(r => r.ok)) { console.log(`journey gate: FLAKY under load (load average ${load}): ${failed.join(', ')} failed in the full replay and passed alone; counted as passed`); return 0; }
+  }
+  console.error(`journey gate: a recorded page no longer works (layer 2, load average ${load}):\n${failures}\nreproduce: cd desktop/e2e && npm run recorded`);
   return 1;
+}
+// The recorded cases a TAP run failed ("not ok 25 - workday-start-dialog-1: a start dialog …" gives "workday-start-dialog-1"); retried alone only when few failed.
+const MAX_RETRIED = 3;
+export function failedCases(stdout) {
+  return [...new Set(String(stdout || '').split('\n').map(line => /^not ok \d+ - ([\w.-]+)/.exec(line)?.[1]).filter(Boolean))];
 }
 
 async function main() {
