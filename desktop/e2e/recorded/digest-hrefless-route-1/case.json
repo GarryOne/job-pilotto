@@ -1,0 +1,157 @@
+{
+ "shape": "a posting whose Apply route without an account is an <a> with no href (a script handles the click), and rung 2 names no button: only the numbered digest can choose, and it can only choose what the candidate list shows",
+ "why": "11 Oct 2026, Hornbach SuccessFactors (pool): the digest's candidate finder listed only a[href], so the href-less route was never a candidate and the digest pressed the other route (with an account). The stub answers like the real AI: it names the route without an account only when the extension listed it (whenCandidate), else the account route. Old build: the login page, no form. Fixed: the form is reached and filled.",
+ "control": {
+  "build": "0.9.185",
+  "failed": "filled: #first"
+ },
+ "sample": "same invented posting as two-apply-routes-2 (Hornbach markup: no href, onclick, pointer cursor)",
+ "rung": 3,
+ "pages": [
+  {
+   "url": "https://jobs.beispiel.example/de/stelle/verkaeufer-4711",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://jobs.beispiel.example/de/bewerbung/4711",
+   "file": "form.html"
+  },
+  {
+   "url": "https://jobs.beispiel.example/de/anmeldung/4711",
+   "file": "login.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://jobs.beispiel.example/de/bewerbung/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   },
+   {
+    "when": {
+     "url": "https://jobs.beispiel.example/de/anmeldung/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "account",
+     "role": "account",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident",
+     "accountStep": "sign_in",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": "Anmelden"
+    }
+   },
+   {
+    "when": {
+     "digest": true
+    },
+    "whenCandidate": "Jetzt bewerben (ohne Anmeldung)",
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "digest",
+     "confidence": 0.9,
+     "rung": 3,
+     "signal": "confident",
+     "applyButton": "jetzt bewerben (ohne anmeldung)",
+     "applyRoute": "",
+     "applyBy": "",
+     "applyEmail": "",
+     "digest": {
+      "outcome": "form",
+      "verb": "press",
+      "numbers": [
+       1
+      ],
+      "chosen": [
+       {
+        "n": 1,
+        "kind": "button",
+        "position": "main",
+        "text": "Jetzt bewerben (ohne Anmeldung)"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "when": {
+     "digest": true
+    },
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "digest",
+     "confidence": 0.9,
+     "rung": 3,
+     "signal": "confident",
+     "applyButton": "jetzt bewerben (mit anmeldung)",
+     "applyRoute": "",
+     "applyBy": "",
+     "applyEmail": "",
+     "digest": {
+      "outcome": "form",
+      "verb": "press",
+      "numbers": [
+       1
+      ],
+      "chosen": [
+       {
+        "n": 1,
+        "kind": "link",
+        "position": "main",
+        "text": "Jetzt bewerben (mit Anmeldung)",
+        "host": "jobs.beispiel.example"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.7,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "",
+     "applyRoute": "",
+     "applyBy": "other",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   }
+  ]
+ },
+ "expect": {
+  "told": [
+   "pressed the control the digest named"
+  ],
+  "filled": [
+   "#first"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 60
+ }
+}

@@ -103,3 +103,22 @@ test('a link drawn as a button, or a call to action shown twice, outranks plain 
   const actions = Array.from(window.__jobPilottoCandidates.candidatesOf()).filter((item) => item.kind === 'link').map((item) => item.text);
   assert.deepEqual(actions.slice(0, 2).sort(), ['Again', 'Go now']);
 });
+
+// Hornbach shape (11 Oct 2026): the route without an account is an <a> with NO href (a script handles the click), the route with an account is an a[href].
+// The digest listed only a[href], so it named the other route. An href-less control that is clickable by structure (an onclick, a tabindex, a pointer
+// cursor or drawn as a button) is a candidate of kind button, with no host; a plain <a name> anchor is not.
+const TWO_ROUTES = `<main><h1>Verkäufer (m/w/d)</h1><p>Wir freuen uns auf Ihre Bewerbung.</p>
+  <a class="apply dialogApplyBtn" style="cursor:pointer">Jetzt bewerben (ohne Anmeldung)</a>
+  <a href="https://career.example.net/login?company=x">Jetzt bewerben (mit Anmeldung)</a>
+  <a onclick="void 0">Merken</a><a tabindex="0">Teilen</a><a name="top">Seitenanfang</a></main>`;
+
+test('Hornbach shape: an Apply control without href is a candidate (kind button, no host); a plain anchor is not', { skip: !JSDOM }, () => {
+  const found = of(TWO_ROUTES);
+  const texts = found.map((item) => item.text);
+  const noAccount = found.find((item) => item.text === 'Jetzt bewerben (ohne Anmeldung)');
+  assert.ok(noAccount, `the href-less route is listed: ${texts.join(' | ')}`);
+  assert.deepEqual([noAccount.kind, noAccount.host, noAccount.position], ['button', undefined, 'main']);
+  assert.ok(texts.includes('Jetzt bewerben (mit Anmeldung)'), 'the link route stays listed');
+  assert.ok(texts.includes('Merken') && texts.includes('Teilen'), 'onclick and tabindex anchors are clickable by structure');
+  assert.ok(!texts.includes('Seitenanfang'), 'a plain <a name> anchor is not a control');
+});

@@ -66,23 +66,28 @@
         else if (position === 'main') add('sentence', {kind: 'sentence', text, position});
       }
     }
+    // An <a> without href is a control only when it is clickable by structure (11 Oct 2026, Hornbach: the route without an account had no href).
+    const CONTROLS = 'a, button, [role="button"], input[type="button"], input[type="submit"]';
+    const clickable = (el) => el.tagName !== 'A' || el.hasAttribute('href') || el.hasAttribute('onclick') || el.getAttribute('tabindex') !== null
+      || el.ownerDocument.defaultView.getComputedStyle(el).cursor === 'pointer' || drawnAsButton(el);
     // A call to action is often shown twice (top and bottom of the posting): an action whose text repeats is ranked up.
     const counts = new Map();
-    for (const el of doc.body.querySelectorAll('a[href], button, [role="button"]')) { const key = clean(el.textContent, 80).toLowerCase(); if (key && shown(el)) counts.set(key, (counts.get(key) || 0) + 1); }
+    for (const el of doc.body.querySelectorAll(CONTROLS)) { if (!clickable(el)) continue; const key = clean(el.textContent, 80).toLowerCase(); if (key && shown(el)) counts.set(key, (counts.get(key) || 0) + 1); }
     const repeated = new Set([...counts].filter(([, count]) => count >= 2).map(([key]) => key));
     // mailto and tel links, then links and buttons (a link keeps its host, never its address).
-    for (const el of doc.body.querySelectorAll('a[href], button, [role="button"], input[type="button"], input[type="submit"]')) {
-      if (!shown(el)) continue;
-      const position = positionOf(el, root, hasMain), href = el.tagName === 'A' ? el.getAttribute('href') || '' : '';
+    for (const el of doc.body.querySelectorAll(CONTROLS)) {
+      if (!shown(el) || !clickable(el)) continue;
+      const link = el.tagName === 'A' && el.hasAttribute('href');   // an href-less <a> acts as a button (a script handles it): no host
+      const position = positionOf(el, root, hasMain), href = link ? el.getAttribute('href') || '' : '';
       const text = clean(el.tagName === 'INPUT' ? el.value : el.textContent, 80);
       if (/^mailto:/i.test(href)) { const address = href.slice(7).split('?')[0]; if (MAIL.test(address)) add(position === 'main' ? 'email' : 'outside', {kind: 'email', text: clean(address), position}); continue; }
       if (/^tel:/i.test(href)) continue;   // the number is the phone's own text; never read from an address
       if (!text) continue;
       let host = '';
-      if (el.tagName === 'A') {
+      if (link) {
         try { const url = new URL(href, doc.location?.href || undefined); if (!/^https?:$/.test(url.protocol)) continue; host = url.hostname; } catch { continue; }
       }
-      const item = {kind: el.tagName === 'A' ? 'link' : 'button', text, ...(host ? {host} : {}), position};
+      const item = {kind: link ? 'link' : 'button', text, ...(host ? {host} : {}), position};
       // Which actions come first, by structure: a real button or a link to ANOTHER site (an application system) before a link of the same site; a link inside a menu (a list of 5+ links) last.
       const menu = el.closest('ul, ol, nav, [role="menu"], [role="list"]');
       const rank = (overlay(el) ? 4 : 0) + (menu && menu.querySelectorAll('a[href]').length >= 5 ? 2 : 0) + (item.kind === 'button' || (host && host !== (doc.location?.hostname || '')) || drawnAsButton(el) || repeated.has(item.text.toLowerCase()) ? 0 : 1);
