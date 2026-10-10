@@ -325,6 +325,9 @@ jobs:
       # The desktop app's unit tests, the SAME on Mac and Windows (owner, 10 Oct 2026: "both should have the full set of unit tests, only related to the desktop app; no site,
       # no Cloudflare workers"): the Python pipeline the app bundles (`tools/check.sh --area python`) and the app's own tests (`--area desktop`: lint + node tests), side by side
       # so the step takes the longer one. The site and the Worker are tested by CI · Tests on every push and deployed by their own pipelines (site.yml, worker.yml).
+      # Windows has no time-zone database, and the Python tests load Europe/Zurich: the same tzdata the app bundles for Windows (requirements.txt, sys_platform == win32).
+      - name: Install · time-zone data for the Python tests
+        run: python -m pip install tzdata
       - name: Unit tests · desktop app (Python pipeline and app, side by side)
         run: |
           pids=""
