@@ -117,7 +117,7 @@ th{text-align:left;color:var(--muted);font-weight:500;font-size:12px;white-space
 .bar{display:flex;flex-direction:column-reverse;width:26px}.bar i{display:block}.bar small{color:var(--muted);font-size:10px;text-align:center}
 </style></head><body><main>
 <header><h1>🛡️ Applying tests</h1></header>
-<p class="muted">Is applying reliable? <b>Recorded pages</b>: every site we fixed, replayed offline with the real extension on each push. <b>Nightly smoke</b>: real postings,
+<p class="muted">Is applying reliable? <b>Fixed-site replays</b>: every site we fixed, replayed offline with the real extension in the e2e run (every e2e run, and a push touching the extension). <b>Nightly smoke</b>: real postings,
 live, stopped before any account button or Submit, a rotating share each night. A site that reached less than its last run is a regression. Logs and screenshots stay on the Mac.</p>
 <div id="app"><p class="muted">Loading…</p></div>
 <script>
@@ -130,7 +130,7 @@ fetch('?json').then(r => r.json()).then(d => {
   const legend = el('div', {hidden: true}, ...d.steps.map(step => pill(step))); app.append(legend);
   const t = d.tiles;
   app.append(el('div', {className: 'tiles'},
-    tile(t.cases ? (t.cases - t.casesFailing) + ' / ' + t.cases : 0, 'recorded pages passing' + (t.casesLast ? ' · last ' + t.casesLast : ''), t.casesFailing ? 'bad' : t.cases ? 'good' : ''),
+    tile(t.cases ? (t.cases - t.casesFailing) + ' / ' + t.cases : 0, 'fixed-site replays passing' + (t.casesLast ? ' · last ' + t.casesLast : ''), t.casesFailing ? 'bad' : t.cases ? 'good' : ''),
     tile(t.sites ? t.sitesRecent + ' / ' + t.sites : 0, 'smoke sites run in the last 10 nights'),
     tile(t.reachedForm == null ? '–' : t.reachedForm + '%', 'sites that reached the form', t.reachedForm >= 70 ? 'good' : ''),
     tile(t.regressions, 'regressions open' + (t.gone ? ' · ' + t.gone + ' posting(s) gone' : ''), t.regressions ? 'bad' : 'good'),
@@ -154,14 +154,14 @@ fetch('?json').then(r => r.json()).then(d => {
       table.append(el('div', {className: 'pager'}, el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: chosen.page === 0, onclick: go(-1)}),
         el('span', {className: 'muted', textContent: (chosen.page * PER + 1) + '–' + (chosen.page * PER + shown.length) + ' of ' + rows.length}),
         el('button', {className: 'chip', type: 'button', textContent: 'Next →', disabled: chosen.page >= pages - 1, onclick: go(1)}))); } };
-  app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table)
-    : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
-  app.append(el('section', {}, el('h2', {textContent: 'Recorded pages · every fixed site, replayed'}), d.cases.length ? el('table', {},
+  app.append(el('section', {}, el('h2', {textContent: 'Fixed-site replays · every fixed site, replayed'}), d.cases.length ? el('table', {},
     el('tr', {}, ...['Case', 'Result', 'Last 10 runs', 'Last run', 'Since'].map(h => el('th', {textContent: h}))),
     ...d.cases.map(c => el('tr', {}, el('td', {textContent: c.name}), el('td', {}, c.ok ? el('span', {className: 'pill s-ready', textContent: 'passed'}) : el('span', {className: 'pill s-posting', textContent: 'failed'}),
       c.note ? el('div', {className: 'muted', textContent: c.note}) : null), el('td', {}, dots(c.history)), el('td', {className: 'muted', textContent: c.day + (c.version ? ' · ' + c.version : '')}),
       el('td', {className: 'muted', textContent: c.since}))))
     : el('p', {className: 'muted', textContent: 'No recorded-page run uploaded yet: cd desktop/e2e && npm run recorded'})));
+  app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table)
+    : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
   if (d.nights.length) {
     const most = Math.max(...d.nights.map(n => Object.values(n.counts).reduce((a, b) => a + b, 0)));
     app.append(el('section', {}, el('h2', {textContent: 'Nights · where each site got to'}), el('div', {className: 'bars'}, ...d.nights.map(n => el('div', {className: 'bar', title: n.day},
