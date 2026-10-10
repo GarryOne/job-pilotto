@@ -21,12 +21,16 @@ execFileSync('ditto', ['-x', '-k', path.resolve(archive), unpacked], {stdio: 'in
 const app = fs.readdirSync(unpacked).map(name => path.join(unpacked, name)).find(d => d.endsWith('.app'));
 if (!app) throw new Error(`no .app inside ${archive}`);
 const exe = path.join(app, 'Contents', 'MacOS', fs.readdirSync(path.join(app, 'Contents', 'MacOS'))[0]);
+// The signature first, before anything runs from the bundle: running its Python writes .pyc files into it, and a file the seal does not list breaks the seal
+// (10 Oct 2026: "a sealed resource is missing or invalid" on a build that was fine).
+execFileSync('codesign', ['--verify', '--deep', '--strict', app], {stdio: 'inherit'});
+say('codesign: the signature is valid');
 const pilot = path.join(app, 'Contents', 'Resources', 'pilot');
 const python = path.join(pilot, 'python', 'bin', 'python3');
 if (!fs.existsSync(python)) throw new Error(`the bundled Python is missing: ${python}`);
 say(`unpacked: ${app}`);
 
-const py = (args, env = {}) => execFileSync(python, args, {cwd: pilot, encoding: 'utf8', timeout: 120000, env: {...process.env, PYTHONUTF8: '1', ...env}}).trim();
+const py = (args, env = {}) => execFileSync(python, args, {cwd: pilot, encoding: 'utf8', timeout: 120000, env: {...process.env, PYTHONUTF8: '1', PYTHONDONTWRITEBYTECODE: '1', ...env}}).trim();
 // no keyring here: on the Mac src/secret_store.py talks to the Keychain through the `security` tool (keyring is the Windows Credential Manager's)
 say(py(['-c', 'import anthropic, sqlite3, ssl, sys; from importlib.metadata import version; ' +
   "print('Python', sys.version.split()[0], 'anthropic', version('anthropic'))"]));
@@ -44,8 +48,6 @@ say(`pipeline jobs list ok: ${jobs.slice(0, 80)}`);
 // The packaged binary itself, with no window and no Keychain prompt: ELECTRON_RUN_AS_NODE makes it run a little Node code, which proves the signature holds, the Electron
 // runtime starts, and the native terminal module (node-pty, unpacked from the asar) loads. Opening the window on a bare CI Mac hung (10 Oct 2026: a smoke run sat for
 // minutes after the Python checks): the window comes last, with a hard timeout and the app's own output, so a hang names its cause.
-execFileSync('codesign', ['--verify', '--deep', '--strict', app], {stdio: 'inherit'});
-say('codesign: the signature is valid');
 const asNode = code => execFileSync(exe, ['-e', code, path.join(app, 'Contents', 'Resources')], {encoding: 'utf8', timeout: 60000, env: {...process.env, ELECTRON_RUN_AS_NODE: '1'}}).trim();
 say(asNode("console.log('Electron', process.versions.electron, 'runs the packaged binary')"));
 say(asNode(`const path = require('path'); const pty = require(path.join(process.argv[1], 'app.asar.unpacked', 'node_modules', '@lydell', 'node-pty'));
