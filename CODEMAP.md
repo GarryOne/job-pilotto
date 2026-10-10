@@ -104,6 +104,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/lifecycle.js` — Testable Electron startup, activation, quit decisions and terminal shutdown; services are injected.
 - `desktop/lib/linkedin-export.js` — LinkedIn's own data export (Settings → Data privacy → Get a copy of your data) turned into a CV in the app's schema, so the experience bank
 - `desktop/lib/linkedin-oauth.js` — "Connect with LinkedIn": LinkedIn's own consent page (Sign In with LinkedIn using OpenID Connect). Same shape as lib/notion-oauth.js: the app opens
+- `desktop/lib/live-capture.js` — The live page-kind calls, kept for the pool's replay candidates (owner, 11 Oct 2026: a rung-2/3 fixture is built from what the app really received, not from a
 - `desktop/lib/log-days.js` — The app's logs, one file per day for KEEP_DAYS days: today's is always <name>.log (app.log, engine.log), so every
 - `desktop/lib/log-view.js` — Settings → Logs: reads the app's log files for the window a page at a time, so a big log never reaches it whole:
 - `desktop/lib/log.js` — The app's own log, for debugging: <data folder>/logs/app.log for today, app-YYYY-MM-DD.log for each of the last 30

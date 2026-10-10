@@ -132,7 +132,8 @@ async function main() {
     // A failed run keeps its last page as a replay candidate (the owner's question "did we save a site replay?": no); a run that passed drops an older candidate of the day.
     const html = (() => { try { return fs.readFileSync(path.join(captureDir, 'page.html'), 'utf8'); } catch { return ''; } })();
     try { fs.writeFileSync(path.join(REPORTS, `${day}-${shape.replace(/\W+/g, '-')}.app.log`), fs.readFileSync(path.join(captureDir, 'app.log'), 'utf8')); } catch { /* no app log kept: the run did not get that far */ }
-    const kept = saveCandidate({dir: CANDIDATES, day, shape, result: results[shape], html, output: run.output});
+    const aiCalls = (() => { try { return fs.readFileSync(path.join(captureDir, 'ai-calls.json'), 'utf8'); } catch { return ''; } })();   // the app's live page-kind calls (desktop/lib/live-capture.js)
+    const kept = saveCandidate({dir: CANDIDATES, day, shape, result: results[shape], html, output: run.output, aiCalls});
     if (kept) console.log(`smoke: ${shape}: replay candidate saved in ${kept}`); else dropCandidate({dir: CANDIDATES, day, shape});
     fs.rmSync(captureDir, {recursive: true, force: true});
     console.log(`smoke: ${shape}: reached ${results[shape].reached}${results[shape].filled != null ? `, ${results[shape].filled} filled, ${results[shape].left} left` : ''} (${run.seconds}s)`);

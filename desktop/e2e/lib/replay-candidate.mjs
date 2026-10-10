@@ -11,11 +11,12 @@ export const worthSaving = result => !!result && !result.note && (!!result.short
 export const slug = text => String(text).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'site';
 
 // Writes <dir>/<day>/<slug>/{page.html, case.json}; returns the folder, or null when there is no page. The address keeps no query or fragment.
-export function saveCandidate({dir, day, shape, result, html, output = ''}) {
+export function saveCandidate({dir, day, shape, result, html, output = '', aiCalls = ''}) {
   if (!html || !worthSaving(result)) return null;
   const folder = path.join(dir, day, slug(shape)), address = String(result.url || '').replace(/[?#].*$/, '');
   fs.mkdirSync(folder, {recursive: true});
   fs.writeFileSync(path.join(folder, 'page.html'), html);
+  try { if (Array.isArray(JSON.parse(aiCalls))) fs.writeFileSync(path.join(folder, 'ai-calls.json'), aiCalls); } catch { /* the app kept none (no LIVE_CAPTURE_DIR, or an unreadable file): none kept */ }   // the app's live page-kind calls, scrubbed where they were written
   const pageKinds = String(output).split('\n').filter(line => /page kind/.test(line)).map(line => line.trim().slice(0, 400)).slice(0, 20);
   const item = {
     shape: `${shape}: ${result.short ? `a form reached with ${(result.short.miss || 0) + (result.short.noSuggestion || 0)} unexplained of ${result.short.total} asked fields` : `a run that stopped at the ${result.reached}`} (auto-saved, TODO: the shape in words)`,

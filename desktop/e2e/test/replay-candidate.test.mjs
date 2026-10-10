@@ -39,3 +39,15 @@ test('no page or no failure saves nothing', () => {
   assert.equal(saveCandidate({dir, day: 'd', shape: 's', result: {reached: 'ready'}, html: '<p/>'}), null);
   assert.equal(slug('H&M careers (career.hm.com)'), 'h-m-careers-career-hm-com');
 });
+
+test('the live AI calls of the run (ai-calls.json from the app, desktop/lib/live-capture.js) are kept next to the page; none, none kept', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-candidates-'));
+  const result = {url: 'https://jobs.example.com/o/role', reached: 'posting'};
+  const calls = JSON.stringify([{route: '/extension/page-kind', at: 1, request: {url: 'https://jobs.example.com/o/role', candidates: []}, answer: {kind: 'posting'}}]);
+  const withCalls = saveCandidate({dir, day: '2026-10-11', shape: 'With calls', result, html: '<p>x</p>', aiCalls: calls});
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(withCalls, 'ai-calls.json'), 'utf8'))[0].answer, {kind: 'posting'});
+  const without = saveCandidate({dir, day: '2026-10-11', shape: 'No calls', result, html: '<p>x</p>'});
+  assert.equal(fs.existsSync(path.join(without, 'ai-calls.json')), false);
+  const broken = saveCandidate({dir, day: '2026-10-11', shape: 'Broken calls', result, html: '<p>x</p>', aiCalls: 'not json'});
+  assert.equal(fs.existsSync(path.join(broken, 'ai-calls.json')), false);   // never a file nobody can read
+});

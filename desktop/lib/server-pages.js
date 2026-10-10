@@ -8,6 +8,7 @@ import {aiClient, judgePage, reportedConfirmations} from './confirmation.js';
 import {judgeAccount} from './account-judge.js';
 import {judgeForm} from './form-judge.js';
 import {escalate} from './ladder/rung4-picture.js';
+import {captureCall} from './live-capture.js';
 import {forgetPageKind, kindKey, pageKind, pageKindCache, sketchBody} from './page-kind.js';
 import {hit as ladderHit, ladderStore, lookup as ladderLookup, miss as ladderMiss, record as ladderRecord} from './ladder/learning.js';
 import {otherStore, record as otherRecord} from './ladder/other.js';
@@ -101,6 +102,7 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
   if (kindWorthSaying(answer)) appLog('extension', answer.kind && !answer.error ? `page kind: ${answer.kind}` : `page kind: none (${answer.error || 'no answer'}), the structure rule decides`,
     {shape: answer.shape || '', by: answer.by || '', rung: answer.rung ?? null, confidence: answer.confidence ?? null, ...(answer.usd != null ? {usd: answer.usd} : {}), ...(answer.botCheck ? {botCheck: true} : {}), ...(answer.applyBy ? {applyBy: answer.applyBy} : {}), frames: Array.isArray(body?.frameCandidates) ? body.frameCandidates.length : 0, ...(Number.isInteger(answer.formFrame) && answer.formFrame >= 0 ? {formFrame: answer.formFrame} : {}), ...(body?.digest === true ? {digest: true} : {}), ...(answer.dropped ? {dropped: answer.dropped} : {})});   // applyBy 'other' and a dropped address are listed with the shape, never silent
   if (answer.digestSaid) appLog('extension', digestLine(answer.digestSaid), {shape: answer.shape || ''});   // the digest's validated answer: ids and fixed words only
+  captureCall({route: '/extension/page-kind', request: {...sketchBody(body), digest: body?.digest === true, fresh: body?.fresh === true}, answer});   // written only under the e2e harness (lib/live-capture.js)
   const climb = ladderLine({rung: answer.rung, signal: answer.signal});   // `ladder: rung N signal S`: the line the admin page reads; nothing for a confident rung
   if (climb) appLog('extension', climb, {shape: answer.shape || '', ...(answer.dropped ? {dropped: answer.dropped} : {})});
   // An Apply button the AI named for the first time goes to the shared label meanings (the button's wording only; 2-3 installs start a canary).
