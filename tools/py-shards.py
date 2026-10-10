@@ -1,7 +1,7 @@
 """Run the Python unit tests in parallel shards (one `unittest` process per shard); guarded by tests/test_py_shards.py.
 
 Same tests as `python -m unittest discover -s tests`, split by module so wall time drops from the sum to roughly the slowest shard.
-  python3 tools/py-shards.py [--jobs N] [module ...]   (no module = every tests/test_*.py)
+  python3 tools/py-shards.py [--jobs N] [--app-only] [module ...]   (no module = every tests/test_*.py)
 Modules are balanced by file size, biggest first (a cheap stand-in for run time; a wrong guess only costs speed, never coverage).
 Exit 0 when every shard passed; otherwise 1 with each failing shard's output on stderr.
 """
@@ -16,6 +16,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 TESTS = ROOT / 'tests'
 BOOTSTRAP = 'test_0_notion_ids'
+# Tests of this repo's own scripts and hooks (git, bash, the push hook, ship, worktrees): not the desktop app. The release run's Build box leaves them out with --app-only
+# (owner, 10 Oct 2026: "unit tests only related to the desktop app"); CI · Tests, without the flag, still runs them on every push.
+DEV_TOOLING = ('test_affected_tests', 'test_check', 'test_check_slot', 'test_commit_subject', 'test_pre_push_check',
+               'test_release_stable_guard', 'test_ship', 'test_stop_means_stop', 'test_worktree')
 
 
 def all_modules():
@@ -36,9 +40,12 @@ def split(modules, jobs):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('modules', nargs='*', help='test modules to run (default: all)')
+    parser.add_argument('--app-only', action='store_true', help='leave out the tests of this repo\'s own dev tooling (DEV_TOOLING)')
     parser.add_argument('--jobs', type=int, default=int(os.environ.get('JOB_PILOTTO_PY_JOBS', 0)) or min(4, os.cpu_count() or 2))
     args = parser.parse_args(argv)
     modules = args.modules or all_modules()
+    if args.app_only:
+        modules = [m for m in modules if m not in DEV_TOOLING]
     if not modules:
         print('py-shards: no test modules found', file=sys.stderr)
         return 2

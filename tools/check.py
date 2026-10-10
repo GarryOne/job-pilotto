@@ -47,14 +47,14 @@ def affected(base):
         return None
 
 
-def commands(area, fast, node, npm, picked='all'):
+def commands(area, fast, node, npm, picked='all', app_only=False):
     """picked: 'all' or the list of this area's test files/modules to run (everything else is left to CI)."""
     if area == 'python':
         if picked != 'all':
             return [(ROOT, [sys.executable, 'tools/py-shards.py', *picked])] if picked else []
         if os.environ.get('JOB_PILOTTO_PY_SERIAL'):      # the old single-process run, to compare with the shards
             return [(ROOT, [sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-q'])]
-        return [(ROOT, [sys.executable, 'tools/py-shards.py'])]
+        return [(ROOT, [sys.executable, 'tools/py-shards.py', *(['--app-only'] if app_only else [])])]
     folder = ROOT / area
     if picked != 'all':
         pre = {'desktop': [(folder, [node, 'scripts/stage.mjs']), (folder, [npm, 'run', 'lint'])],
@@ -70,6 +70,7 @@ def commands(area, fast, node, npm, picked='all'):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--area', choices=AREAS, action='append', help='repeat to select suites; default: all')
+    parser.add_argument('--app-only', action='store_true', help='python: leave out the tests of the repo\'s own dev tooling (the release run\'s Build box); other areas ignore it')
     parser.add_argument('--fast', action='store_true', help='desktop lint and focused lifecycle/contract checks (default area: desktop)')
     parser.add_argument('--affected-from', metavar='REF', help='local pushes: run only the tests this change (HEAD vs REF) can break; without it everything runs, as on CI')
     parser.add_argument('--clean-install', action='store_true', help='verify desktop/Worker/site lockfiles in temporary folders before checks')
@@ -119,7 +120,7 @@ def main(argv=None):
         started = time.monotonic()
         picked = plan.get(area, 'all') if plan else 'all'
         print(f'check: {area} started' + ('' if picked == 'all' else f' ({len(picked)} affected test files; the full suite runs on CI)'), flush=True)
-        for folder, command in commands(area, args.fast, node, npm, picked):
+        for folder, command in commands(area, args.fast, node, npm, picked, args.app_only):
             try:
                 result = subprocess.run(command, cwd=folder, env=env, check=False)
             except OSError as error:

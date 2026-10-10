@@ -20,6 +20,14 @@ class ShardTests(unittest.TestCase):
     def test_the_bootstrap_module_that_sets_the_fake_ids_exists(self):
         self.assertIn(shards.BOOTSTRAP, shards.all_modules())
 
+    def test_the_dev_tooling_left_out_of_the_build_exist_and_are_the_only_difference(self):
+        everything = shards.all_modules()
+        for name in shards.DEV_TOOLING:
+            self.assertIn(name, everything, f'{name} is listed as dev tooling but there is no tests/{name}.py: a renamed file would silently join the Build box')
+        app = [m for m in everything if m not in shards.DEV_TOOLING]
+        self.assertEqual(len(app) + len(shards.DEV_TOOLING), len(everything))
+        self.assertGreater(len(app), 150, 'the Build box still runs the product\'s Python tests')
+
 
 if __name__ == '__main__':
     unittest.main()
