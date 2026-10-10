@@ -10,9 +10,10 @@ import * as viewCache from './view-cache.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import {log as appLog} from './log.js';
-import {sharedRead} from './shared-read.js';
+import {afterWrite, sharedRead} from './shared-read.js';
 
 export function registerFocusHandlers(ctx) {
+  const writeHandle = (channel, fn) => ipcMain.handle(channel, afterWrite(fn));   // a finished write closes the running reads' join (shared-read.js)
   const {DEMO, aiReady, app, applyTheme, clearlyTechnical, here, ipcMain, log, needsNotion, settingsDeps, storage, toWindow, track} = ctx;
   ipcMain.handle('setTheme', (_, value) => { const theme = applyTheme(value); storage.saveSettings({theme}); return theme; });
   ipcMain.handle('setAutomation', (_, patch) => {
@@ -125,7 +126,7 @@ export function registerFocusHandlers(ctx) {
   ipcMain.handle('focusHistory', () => (DEMO ? demoHistory() : needsNotion('focus') || pipeline.focusHistory(storage)));
   ipcMain.handle('focusDone', (_, pageId, what = 'replied') => (DEMO ? {ok: true} : needsNotion('focus') || pipeline.focusDone(storage, String(pageId), String(what))));
   // Focus → "Did the interview happen?": held (notes), moved (a new time) or cancelled; Notion first.
-  ipcMain.handle('interviewHappened', (_, pageId, answer, detail = {}) => (DEMO ? {ok: true, review: false}
+  writeHandle('interviewHappened', (_, pageId, answer, detail = {}) => (DEMO ? {ok: true, review: false}
     : pipeline.interviewHappened(storage, String(pageId), String(answer), detail || {})));
   ipcMain.handle('feedbackAction', (_, pageId, action, text = '') => (DEMO ? {ok: true}
     : pipeline.feedbackAction(storage, String(pageId), String(action), String(text))));

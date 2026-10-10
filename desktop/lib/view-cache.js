@@ -3,6 +3,7 @@
 // data rules' sense: rebuilt by the next read, never the only copy, edited only to mirror a write the app has just
 // made to Notion (statusChanged). Tied to the Notion workspace, so
 // switching workspaces never shows another workspace's jobs.
+import {readsChanged} from './shared-read.js';
 export const NAMES = ['jobs', 'focus', 'strategy', 'contact', 'knowledge', 'interviews', 'calendar', 'calendarRecordings'];
 // contact, knowledge: what a form fill needs from Notion (your details, learned answers), so a fill never waits on
 // Notion nor fails when it's busy (lib/server.js me(): answered from here, refreshed in the background).
@@ -37,12 +38,14 @@ export function recall(storage, name) {
 // change, a dismissed interview back as "Interview scheduled" until the fresh read landed (focus e2e, 3 Oct 2026).
 // A job deleted: out of the cached list, so the next start does not paint it back (main.js deleteJob).
 export function jobDeleted(storage, url) {
+  readsChanged();   // a read running now began before this write (shared-read.js)
   const saved = recall(storage, 'jobs');
   if (!saved?.result?.jobs) return;
   saved.result.jobs = saved.result.jobs.filter(item => item.url !== url);
   storage.writeText(file('jobs'), JSON.stringify({at: saved.at, workspace: workspace(storage), result: saved.result}));
 }
 export function statusChanged(storage, url, status, stage) {
+  readsChanged();
   const saved = recall(storage, 'jobs');
   if (saved?.result?.jobs) {
     const job = saved.result.jobs.find(item => item.url === url);

@@ -1,6 +1,7 @@
 // The strategy draft's IPC (moved out of main.js, 8 Oct 2026): drafting a Strategy from the CV, the cached draft and the edits kept on it, how a rebuild
 // would change the search, and saving it to Notion with its progress. main.js passes in the services they share. Guards: the strategy, draft
 // and save-progress tests in desktop/test.
+import {afterWrite} from './shared-read.js';
 import {aiNameOf, aiText} from './ai/names.js';
 import * as claudeCode from './claude-code.js';
 import * as contactDetails from './contact.js';
@@ -13,6 +14,7 @@ import path from 'node:path';
 import {log as appLog} from './log.js';
 
 export function registerStrategyDraftHandlers(ctx) {
+  const writeHandle = (channel, fn) => ipcMain.handle(channel, afterWrite(fn));   // a finished write closes the running reads' join (shared-read.js)
   const {DEMO, here, ipcMain, storage, syncCv, toWindow, trackSetup} = ctx;
   ipcMain.handle('draftStrategy', async (_, answers) => {
     storage.saveSettings({questionnaire: {...storage.settings().questionnaire, ...answers}});  // the note (older fields kept)
@@ -69,7 +71,7 @@ export function registerStrategyDraftHandlers(ctx) {
     } catch (error) { return {ok: false, error: error.message}; }
   });
   // parts: the review's accepted groups (search, filters, profile, answers); null = everything (first setup).
-  ipcMain.handle('saveStrategy', (_, draft, parts = null) => {
+  writeHandle('saveStrategy', (_, draft, parts = null) => {
     const take = part => !parts || parts.includes(part);
     saving ||= (async () => {
       const token = storage.secret('NOTION_TOKEN'), ids = storage.settings().notionIds || {};

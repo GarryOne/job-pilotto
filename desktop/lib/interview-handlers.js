@@ -1,12 +1,14 @@
 // The Interviews page's IPC (moved out of main.js, 8 Oct 2026): drafts on this Mac (recording, transcribing, editing), saved interviews in
 // Notion 🎤 Interviews, their review and the recordings folder. Demo mode shows fictional ones and changes nothing. main.js passes in the
 // services it shares (registerInterviewHandlers). Guards: interviews tests in desktop/test and the interviews e2e suite.
+import {afterWrite} from './shared-read.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as storeEngine from './store/engine.js';
 import {byStore} from './store/words.js';
 
 export function registerInterviewHandlers(ctx) {
+  const writeHandle = (channel, fn) => ipcMain.handle(channel, afterWrite(fn));   // a finished write closes the running reads' join (shared-read.js)
   const {appLog, calltap, cloud, DEMO, dialog, dispatchCloud, handleImportant, here, interviews, ipcMain, needsNotion, notify, reminders, sharedRead, shell, storage, toWindow, viewCache, getWindow} = ctx;
   // Interviews: drafts on this Mac (recording, transcribing, editing), saved ones in Notion 🎤 Interviews.
   // Demo mode shows fictional ones (demo/interviews.json) and changes nothing.
@@ -79,7 +81,7 @@ export function registerInterviewHandlers(ctx) {
   });
   ipcMain.handle('ivSaveDraft', (_, id, patch) => (DEMO ? true : interviews.saveDraft(storage, id, patch)));
   ipcMain.handle('ivDiscard', async (_, id) => (DEMO ? (interviews.discard(storage, id), true) : (await interviews.drop(storage, id)).ok));
-  ipcMain.handle('ivSave', (_, id) => needsNotion('interviews') || interviews.save(storage, id));
+  writeHandle('ivSave', (_, id) => needsNotion('interviews') || interviews.save(storage, id));
   ipcMain.handle('ivLink', (_, pageId, jobUrl) => needsNotion('interviews') || interviews.link(storage, pageId, jobUrl));
   // A row already reviewed is reviewed again by the same run (⋯ Review again: src/ai/interviews.py review_again).
   // One review costs ~$0.25 and takes about a minute, so a second ask for the same interview inside that window is a
@@ -109,7 +111,7 @@ export function registerInterviewHandlers(ctx) {
       return result;
     });
   });
-  ipcMain.handle('ivDelete', (_, pageId) => (DEMO ? {ok: true} : interviews.remove(storage, pageId)));
+  writeHandle('ivDelete', (_, pageId) => (DEMO ? {ok: true} : interviews.remove(storage, pageId)));
   // Interviews → Open review with no page to open (the data on this Mac): the interview's record from the store, for the app's own view.
   ipcMain.handle('ivRecord', async (_, id) => {
     if (DEMO) return demoInterviews().records?.[String(id)] || null;   // a fictional interview with no Notion page: its review in the app
