@@ -30,10 +30,10 @@ test('the answer is read per id; a real verdict without code that exists is not 
 });
 
 test('the register keeps its JSON through its body, and a remembered finding is suppressed next run even in other words', () => {
-  const entry = entryOf(finding('a', 'medium'), 'false-positive\nWhy: the menu scrolls on purpose.', '2026-10-05');
+  const entry = entryOf(finding('a', 'medium'), 'false-positive\nWhy: the menu scrolls on purpose.', '2026-10-10');
   const body = registerBody([entry]);
   assert.deepEqual(registerEntries(body), [entry]);
-  assert.match(body, /\| 2026-10-05 \| app-chrome \| Sidebar clipped a \| false-positive \| the menu scrolls on purpose\. \|/);
+  assert.match(body, /\| 2026-10-10 \| app-chrome \| Sidebar clipped a \| false-positive \| the menu scrolls on purpose\. \|/);
   const again = {...finding('x', 'medium'), title: 'Sidebar clipped icon', detail: 'the last icon is cut at 640 px high'};
   assert.ok(suppressedBy(again, asIssues([entry])), 'alike words on the same page and kind');
   assert.equal(suppressedBy({...again, view: 'jobs'}, asIssues([entry])), null, 'another page is not the same finding');
@@ -82,8 +82,8 @@ test('noise judged before filing still counts: a false positive of its detector 
   const {classify, detectorOf, build} = await import('../lib/selfheal-stats.mjs');
   const {noiseTripped} = await import('../lib/plan.mjs');
   const {weekFacts} = await import('../lib/finder-review.mjs');
-  const entry = n => entryOf({...finding(`n${n}`, 'medium'), source: 'ai-review', title: `Ticker cut ${n}`}, `false-positive\nWhy: the ticker scrolls on purpose ${n}.`, '2026-10-06');
-  const judged = asIssues([entry(1), entry(2), entry(3), entry(4), entry(5), entry(6), entryOf({...finding('h', 'medium'), source: 'layout-check'}, 'harness\nWhy: the demo data.', '2026-10-06')]);
+  const entry = n => entryOf({...finding(`n${n}`, 'medium'), source: 'ai-review', title: `Ticker cut ${n}`}, `false-positive\nWhy: the ticker scrolls on purpose ${n}.`, '2026-10-11');
+  const judged = asIssues([entry(1), entry(2), entry(3), entry(4), entry(5), entry(6), entryOf({...finding('h', 'medium'), source: 'layout-check'}, 'harness\nWhy: the demo data.', '2026-10-11')]);
   assert.equal(detectorOf(judged[0]), 'ai-review');
   assert.equal(classify(judged[0]), 'falsePositive');
   assert.equal(classify(judged[6]), 'harness');
@@ -92,7 +92,7 @@ test('noise judged before filing still counts: a false positive of its detector 
   assert.equal(snapshot.totals.filed, 7);
   assert.equal(snapshot.totals.falsePositive, 6);
   assert.equal(snapshot.verdicts.falsePositive, 6, 'the decorated verdict is counted');
-  const facts = weekFacts(judged, {now: Date.parse('2026-10-07T00:00:00Z')});
+  const facts = weekFacts(judged, {now: Date.parse('2026-10-12T00:00:00Z')});
   assert.match(facts, /the ticker scrolls on purpose 1/);
 });
 

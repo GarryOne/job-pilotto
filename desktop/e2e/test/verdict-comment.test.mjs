@@ -32,7 +32,7 @@ test('the loop still reads its own decorated comments: the verdict count, the re
   assert.match(body, MARK);
   assert.equal(whyOf(body), 'the handler loses the filter.');
   assert.equal(whyOf('Closed as noise: old plain comment.'), 'Closed as noise: old plain comment.');
-  const issue = {number: 1, state: 'OPEN', title: 't', createdAt: '2026-10-05T10:00:00Z', labels: [{name: 'source:ai-review'}, {name: 'confirmed'}], comments: [{body, createdAt: '2026-10-05T11:00:00Z', authorAssociation: 'OWNER'}]};
+  const issue = {number: 1, state: 'OPEN', title: 't', createdAt: '2026-10-10T10:00:00Z', labels: [{name: 'source:ai-review'}, {name: 'confirmed'}], comments: [{body, createdAt: '2026-10-10T11:00:00Z', authorAssociation: 'OWNER'}]};
   assert.equal(build({issues: [issue]}).verdicts.real, 1, 'counted as a verdict');
   assert.deepEqual(peopleSaid(issue), [], 'a loop comment never steers the fixer');
 });
@@ -49,7 +49,7 @@ test('a real verdict that cites code which does not exist is not trusted', () =>
 
 import {afterEpoch} from '../lib/stats-epoch.mjs';
 test('findings filed before the last recalibration are left out of the statistics', () => {
-  assert.equal(afterEpoch({createdAt: '2026-10-04T10:00:00Z'}), false);
-  assert.equal(afterEpoch({createdAt: '2026-10-05T10:00:00Z'}), true);
-  assert.equal(build({issues: [{number: 1, state: 'CLOSED', title: 't', createdAt: '2026-10-03T10:00:00Z', labels: [{name: 'source:ai-review'}], comments: []}]}).totals.filed, 0);
+  assert.equal(afterEpoch({createdAt: '2026-10-08T23:00:00Z'}), false);
+  assert.equal(afterEpoch({createdAt: '2026-10-09T10:00:00Z'}), true);
+  assert.equal(build({issues: [{number: 1, state: 'CLOSED', title: 't', createdAt: '2026-10-08T10:00:00Z', labels: [{name: 'source:ai-review'}], comments: []}]}).totals.filed, 0);
 });

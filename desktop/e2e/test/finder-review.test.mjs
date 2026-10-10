@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {reasonOf, weekFacts} from '../lib/finder-review.mjs';
 
-const now = Date.parse('2026-10-04T12:00:00Z');
+const now = Date.parse('2026-10-09T12:00:00Z');
 const bot = body => ({body, author: {login: 'github-actions'}, authorAssociation: 'NONE'});
 const stranger = body => ({body, author: {login: 'someone'}, authorAssociation: 'NONE'});
-const issue = (number, labels, extra = {}) => ({number, title: `[auto-ui] jobs: thing ${number}`, state: 'CLOSED', createdAt: '2026-10-05T10:00:00Z',
+const issue = (number, labels, extra = {}) => ({number, title: `[auto-ui] jobs: thing ${number}`, state: 'CLOSED', createdAt: '2026-10-10T10:00:00Z',
   labels: labels.map(name => ({name})), comments: [], ...extra});
 
 test('a reason is the last trusted comment: a stranger cannot put words into the review', () => {

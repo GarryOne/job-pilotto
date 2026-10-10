@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {build, classify} from '../lib/selfheal-stats.mjs';
 
-const issue = (number, state, labels, comments = [], extra = {}) => ({number, state, title: `[auto-ui] x: bug ${number}`, url: `https://github.com/o/r/issues/${number}`, createdAt: '2026-10-05T10:00:00Z',
-  labels: labels.map(name => ({name})), comments: comments.map(body => ({body, createdAt: '2026-10-03T12:00:00Z'})), ...extra});
+const issue = (number, state, labels, comments = [], extra = {}) => ({number, state, title: `[auto-ui] x: bug ${number}`, url: `https://github.com/o/r/issues/${number}`, createdAt: '2026-10-10T10:00:00Z',
+  labels: labels.map(name => ({name})), comments: comments.map(body => ({body, createdAt: '2026-10-08T12:00:00Z'})), ...extra});
 
 test('each way an issue ends is told apart: fixed, queued, false positive, duplicate, harness, unclear, open', () => {
   assert.equal(classify(issue(1, 'CLOSED', ['source:ai-review', 'wontfix-auto'])), 'falsePositive');
@@ -22,7 +22,7 @@ test('the snapshot: totals, precision, detectors, fixer (landed by hand counts),
   const issues = [issue(1, 'CLOSED', ['source:ai-review', 'wontfix-auto'], ['Closed by the UI loop as a false positive: ticker']), issue(4, 'OPEN', ['source:ai-review', 'confirmed'], ['Judged real by the UI loop\'s verdict pass (no edits made): x']),
     issue(6, 'CLOSED', ['source:code-review', 'severity:medium'], ['Fixed by 258e752'])];
   const prs = [{state: 'MERGED'}, {state: 'CLOSED', closingNote: 'Landed on main as 73de6d0 after review'}, {state: 'CLOSED', closingNote: 'not right'}, {state: 'OPEN'}];
-  const data = build({issues, prs, costs: [{job: 'fixer', usd: 0.5, at: '2026-10-05T09:00:00Z'}, {job: 'verdict of issue 4', usd: 0.1, at: '2026-10-05T09:30:00Z'}], recall: {planted: 13, caught: 12, rows: [{id: 'tiny-text', caught: false}]}, now: new Date('2026-10-04T00:00:00Z')});
+  const data = build({issues, prs, costs: [{job: 'fixer', usd: 0.5, at: '2026-10-10T09:00:00Z'}, {job: 'verdict of issue 4', usd: 0.1, at: '2026-10-10T09:30:00Z'}], recall: {planted: 13, caught: 12, rows: [{id: 'tiny-text', caught: false}]}, now: new Date('2026-10-09T00:00:00Z')});
   assert.deepEqual([data.totals.filed, data.totals.real, data.totals.fixed, data.totals.queued, data.totals.falsePositive, data.totals.precision], [3, 2, 1, 1, 1, 67]);
   assert.deepEqual(data.fixer, {opened: 4, merged: 1, closed: 2, open: 1, landed: 2});
   assert.deepEqual(data.verdicts, {real: 1, falsePositive: 1});
@@ -40,46 +40,46 @@ test('a person\'s "not planned" closure is a rejection the stats and the weekly 
 
 test('cost per real bug counts only the runs inside the issues\' window, and the snapshot says where the window starts', () => {
   const issues = [issue(4, 'OPEN', ['source:ai-review', 'confirmed']), issue(6, 'CLOSED', ['source:code-review'], ['Fixed by 258e752'])];
-  const costs = [{job: 'fixer', usd: 1, at: '2026-10-05T09:00:00Z'}, {job: 'fixer', usd: 8, at: '2026-10-02T09:00:00Z'}, {job: 'verdict', usd: 5}];   // before the epoch; no date
-  const data = build({issues, costs, now: new Date('2026-10-05T12:00:00Z')});
+  const costs = [{job: 'fixer', usd: 1, at: '2026-10-10T09:00:00Z'}, {job: 'fixer', usd: 8, at: '2026-10-07T09:00:00Z'}, {job: 'verdict', usd: 5}];   // before the epoch; no date
+  const data = build({issues, costs, now: new Date('2026-10-10T12:00:00Z')});
   assert.deepEqual([data.cost.usd, data.cost.runs, data.cost.outside, data.cost.perRealBug], [1, 1, 2, 0.5], 'the $8 of 2 Oct is not charged to bugs filed on 5 Oct');
-  assert.equal(data.since, '2026-10-04T13:44:50Z');
+  assert.equal(data.since, '2026-10-09T00:00:00Z');
 });
 
 test('issues before the cutoff are counted as excluded, so the page can say how much it leaves out', () => {
-  const old = issue(9, 'CLOSED', ['source:suite-failure', 'harness'], [], {createdAt: '2026-10-03T10:00:00Z'});
-  const data = build({issues: [old, issue(4, 'OPEN', ['source:ai-review', 'confirmed'])], now: new Date('2026-10-05T12:00:00Z')});
+  const old = issue(9, 'CLOSED', ['source:suite-failure', 'harness'], [], {createdAt: '2026-10-08T10:00:00Z'});
+  const data = build({issues: [old, issue(4, 'OPEN', ['source:ai-review', 'confirmed'])], now: new Date('2026-10-10T12:00:00Z')});
   assert.deepEqual([data.totals.filed, data.excluded], [1, 1]);
 });
 
 test('precision counts a test or harness mistake against its detector; a duplicate and an open issue are not judged', () => {
   const issues = [issue(1, 'CLOSED', ['source:suite-failure', 'confirmed']), issue(2, 'CLOSED', ['source:suite-failure', 'harness']), issue(3, 'CLOSED', ['source:suite-failure', 'harness']),
     issue(4, 'CLOSED', ['source:suite-failure'], ['Duplicate of #1.']), issue(5, 'OPEN', ['source:suite-failure'])];
-  const data = build({issues, now: new Date('2026-10-05T12:00:00Z')});
+  const data = build({issues, now: new Date('2026-10-10T12:00:00Z')});
   assert.deepEqual([data.totals.real, data.totals.harness, data.totals.duplicate, data.totals.unjudged, data.totals.judged, data.totals.precision], [1, 2, 1, 1, 3, 33]);
 });
 
 test('the history is every issue by the day it was filed and how it ended, continuous, not cut at the cutoff', async () => {
   const {dailyHistory} = await import('../lib/selfheal-stats.mjs');
   const at = (number, date, labels, extra = {}) => ({number, state: 'CLOSED', stateReason: 'COMPLETED', title: `[auto-ui] x: t${number}`, createdAt: `${date}T10:00:00Z`, labels: labels.map(name => ({name})), comments: [], ...extra});
-  const history = dailyHistory([at(1, '2026-10-02', ['auto-ui', 'resolution:fixed']), at(2, '2026-10-02', ['auto-ui', 'resolution:fp:detector']), at(3, '2026-10-04', ['auto-ui', 'resolution:stale-sighting']),
-    at(4, '2026-10-04', ['auto-ui', 'resolution:fp:harness']), at(5, '2026-10-04', ['auto-ui'], {state: 'OPEN', stateReason: null}), at(6, '2026-10-04', ['auto-ui', 'confirmed'], {state: 'OPEN', stateReason: null})]);
-  assert.deepEqual(history.map(row => row.day), ['2026-10-02', '2026-10-03', '2026-10-04'], 'a day with nothing filed is a zero, not a gap');
-  assert.deepEqual(history[0], {day: '2026-10-02', filed: 2, real: 1, falsePositive: 1, stale: 0, open: 0});
-  assert.deepEqual(history[1], {day: '2026-10-03', filed: 0, real: 0, falsePositive: 0, stale: 0, open: 0});
-  assert.deepEqual(history[2], {day: '2026-10-04', filed: 4, real: 1, falsePositive: 1, stale: 1, open: 1});
+  const history = dailyHistory([at(1, '2026-10-07', ['auto-ui', 'resolution:fixed']), at(2, '2026-10-07', ['auto-ui', 'resolution:fp:detector']), at(3, '2026-10-09', ['auto-ui', 'resolution:stale-sighting']),
+    at(4, '2026-10-09', ['auto-ui', 'resolution:fp:harness']), at(5, '2026-10-09', ['auto-ui'], {state: 'OPEN', stateReason: null}), at(6, '2026-10-09', ['auto-ui', 'confirmed'], {state: 'OPEN', stateReason: null})]);
+  assert.deepEqual(history.map(row => row.day), ['2026-10-07', '2026-10-08', '2026-10-09'], 'a day with nothing filed is a zero, not a gap');
+  assert.deepEqual(history[0], {day: '2026-10-07', filed: 2, real: 1, falsePositive: 1, stale: 0, open: 0});
+  assert.deepEqual(history[1], {day: '2026-10-08', filed: 0, real: 0, falsePositive: 0, stale: 0, open: 0});
+  assert.deepEqual(history[2], {day: '2026-10-09', filed: 4, real: 1, falsePositive: 1, stale: 1, open: 1});
   assert.deepEqual(dailyHistory([]), []);
-  const data = build({issues: [at(1, '2026-10-02', ['auto-ui', 'resolution:fixed'])], costs: [{job: 'fixer', usd: 0.4, at: '2026-10-02T09:00:00Z'}, {job: 'review', usd: 0.1, at: '2026-10-02T11:00:00Z'}, {job: 'x', usd: 1, at: '2026-10-03T09:00:00Z'}], now: new Date('2026-10-05T12:00:00Z')});
+  const data = build({issues: [at(1, '2026-10-07', ['auto-ui', 'resolution:fixed'])], costs: [{job: 'fixer', usd: 0.4, at: '2026-10-07T09:00:00Z'}, {job: 'review', usd: 0.1, at: '2026-10-07T11:00:00Z'}, {job: 'x', usd: 1, at: '2026-10-08T09:00:00Z'}], now: new Date('2026-10-10T12:00:00Z')});
   assert.equal(data.history.length, 1);
-  assert.deepEqual(data.costDays, {'2026-10-02': 0.5, '2026-10-03': 1}, 'cost per day over every dated run');
+  assert.deepEqual(data.costDays, {'2026-10-07': 0.5, '2026-10-08': 1}, 'cost per day over every dated run');
 });
 
 test('the snapshot carries three periods: all time, the last 7 days and since the cutoff, each with its totals, detectors and cost', async () => {
   const {summarize} = await import('../lib/selfheal-stats.mjs');
   const at = (number, date, labels, source = 'ai-review') => ({number, state: 'CLOSED', stateReason: 'COMPLETED', title: `[auto-ui] x: t${number}`, createdAt: `${date}T10:00:00Z`, labels: [...labels, `source:${source}`, 'auto-ui'].map(name => ({name})), comments: []});
-  const issues = [at(1, '2026-10-02', ['resolution:fixed']), at(2, '2026-10-03', ['resolution:fp:detector'], 'layout-check'), at(3, '2026-10-05', ['resolution:fixed']), at(4, '2026-10-05', ['resolution:stale-sighting'])];
-  const costs = [{job: 'review', usd: 1, at: '2026-10-02T09:00:00Z'}, {job: 'review', usd: 2, at: '2026-10-05T09:00:00Z'}];
-  const data = build({issues, costs, now: new Date('2026-10-09T12:00:00Z')});
+  const issues = [at(1, '2026-10-07', ['resolution:fixed']), at(2, '2026-10-08', ['resolution:fp:detector'], 'layout-check'), at(3, '2026-10-10', ['resolution:fixed']), at(4, '2026-10-10', ['resolution:stale-sighting'])];
+  const costs = [{job: 'review', usd: 1, at: '2026-10-07T09:00:00Z'}, {job: 'review', usd: 2, at: '2026-10-10T09:00:00Z'}];
+  const data = build({issues, costs, now: new Date('2026-10-14T12:00:00Z')});
   assert.deepEqual([data.periods.all.totals.filed, data.periods.all.totals.real, data.periods.all.totals.falsePositive, data.periods.all.totals.stale, data.periods.all.totals.precision], [4, 2, 1, 1, 67]);
   assert.deepEqual([data.periods.last7.totals.filed, data.periods.last7.totals.real], [3, 1], '9 Oct minus 7 days is 2 Oct 12:00: the issue of 2 Oct 10:00 is out; 3 Oct and both of 5 Oct are in');
   assert.deepEqual([data.periods.cutoff.totals.filed, data.periods.all.cost.usd, data.periods.cutoff.cost.usd, data.periods.cutoff.cost.perRealBug], [2, 3, 2, 2], 'cost counts the same window as the issues');
