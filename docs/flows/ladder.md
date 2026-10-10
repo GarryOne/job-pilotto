@@ -8,8 +8,8 @@ Spec: `docs/superpowers/specs/2026-10-10-ai-ladder.md` (checklist = what is buil
 | Rung | What | Owner (file) | Fixed answers | Built |
 |---|---|---|---|---|
 | 0 | structure rule | `extension/tab-pages.js` `pageRole` | `form` · `account` · `no-form` | yes: answers only without AI |
-| 1 | kept answer per page shape | `desktop/lib/page-kind.js` `pageKindCache`, `kindKey` | the kept `kind` (+ buttons) | yes |
-| 2 | text sketch to a small model | `desktop/lib/page-kind.js` `pageKind`; `account-judge.js` | `KINDS`, `APPLY_BY`, `ROUTES`, `account_step`, `bot_check` | yes |
+| 1 | kept answer per page shape | `desktop/lib/ladder/rung1-kept.js` `pageKindCache`, `kindKey` | the kept `kind` (+ buttons) | yes |
+| 2 | text sketch to a small model | `desktop/lib/ladder/rung2-sketch.js` `pageKind`; `account-judge.js` | `KINDS`, `APPLY_BY`, `ROUTES`, `account_step`, `bot_check` | yes |
 | 3 | numbered digest | none yet | outcome + closed verb + candidate numbers | **not built** |
 | 4 | screenshot + sketch, strongest model, one action | `desktop/lib/ladder/rung4-picture.js`, `extension/ladder/rung4-picture.js` | one action from the page's own controls | yes: accounts; forms when a fill put nothing in |
 | 5 | Claude takes over | `desktop/lib/ladder/rung5-takeover.js`, `extension/panel-claude.js` | none (a session) | yes: once per application |
@@ -17,7 +17,7 @@ Spec: `docs/superpowers/specs/2026-10-10-ai-ladder.md` (checklist = what is buil
 
 The router (which rung to ask next, from a rung's signal): `extension/ladder/core.js` (`RUNGS`, `SIGNALS`, `nextRung`, `ladderLine`); the climb that uses it is extension/ladder/climb.js (landing on branch ai-ladder).
 
-The sketch every rung reads is one list: `SKETCH_FIELDS` in `page-kind.js` (extension builds it in `fill-flow.js` `pageSketchOf` + `extension/ladder/outcomes.js` `mailsOf`).
+The sketch every rung reads is one list: `SKETCH_FIELDS` in `desktop/lib/ladder/rung2-sketch.js` (extension builds it in `fill-flow.js` `pageSketchOf` + `extension/ladder/outcomes.js` `mailsOf`).
 
 ## What may change when you fix one site
 | You may | You may not |

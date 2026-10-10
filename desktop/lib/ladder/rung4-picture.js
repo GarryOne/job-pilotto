@@ -5,7 +5,7 @@
 // (the page changed after the click) is remembered per page shape, so the next visit is free. Guard: test/escalate.test.js.
 import fs from 'node:fs';
 import {accountSketch, listed} from '../account-judge.js';
-import {pageShape} from '../page-kind.js';
+import {pageShape} from './rung1-kept.js';
 import {automationOf} from '../site-accounts.js';
 
 export const MODEL = 'claude-opus-5-5';

@@ -4,7 +4,7 @@
 //   result  AFTER the press: what became of it?  created | needs_code | already_exists | refused (which control needs the person) | unsure
 // The model sees a sketch of the page (controls with their state but never their values, buttons and links, the page's short visible texts such as its error
 // messages, the host names of its frames) and may only name a control the sketch lists. Without AI nothing is pressed: the person finishes. Guard: test/account-judge.test.js.
-import {MODEL} from './page-kind.js';
+import {MODEL} from './ladder/rung2-sketch.js';
 
 const clean = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 export const READY = ['ready', 'needs_person', 'unsure'];

@@ -3,11 +3,13 @@
 // ALLOWED EDGES (verified against the real imports on 10 Oct 2026; a new edge needs this table updated in the same commit, and a reason in the commit):
 //   rung  file                           may import
 //   0     extension/tab-pages.js         ./alias-schema.js
-//   1-2   desktop/lib/page-kind.js       ./ai/models.js, node:fs, ../shared/alias-schema.js, ./digest.js (askDigest only)
-//   2     desktop/lib/account-judge.js   ./page-kind.js (MODEL only)
+//   1     desktop/lib/ladder/rung1-kept.js      node:fs                 (no AI, no page text)
+//   2     desktop/lib/ladder/rung2-sketch.js    ../ai/models.js, ../../shared/alias-schema.js, ./rung1-kept.js (kindKey only), ./rung3-digest.js (askDigest only)
+//   1-2   desktop/lib/page-kind.js              the facade: re-exports rung1 and rung2, nothing else
+//   2     desktop/lib/account-judge.js          ./ladder/rung2-sketch.js (MODEL only)
 //   3     desktop/lib/ladder/rung3-digest.js          ./ai/models.js          (neither page-kind nor escalate)
 //   3     extension/ladder/rung3-candidates.js   nothing                 (a classic page script)
-//   4     desktop/lib/ladder/rung4-picture.js        node:fs, ./account-judge.js (accountSketch, listed), ./site-accounts.js, ./page-kind.js (pageShape only)
+//   4     desktop/lib/ladder/rung4-picture.js        node:fs, ./account-judge.js (accountSketch, listed), ./site-accounts.js, ./rung1-kept.js (pageShape only)
 //   4     extension/ladder/rung4-picture.js          extension plumbing only (flow, log, account-fill, page-picture, account-act, next-step): no decision rung
 //   5     desktop/lib/ladder/rung5-takeover.js       nothing                 (no decision module)
 //   router extension/ladder/core.js      nothing
@@ -44,11 +46,13 @@ const EXTENSION_PLUMBING = ['extension/flow.js', 'extension/log.js', 'extension/
 // file -> the exact set of things it imports. `only`: for a cross-rung edge, the one binding set it may take.
 export const EDGES = {
   'extension/tab-pages.js': {allow: ['extension/alias-schema.js']},
-  'desktop/lib/page-kind.js': {allow: ['desktop/lib/ai/models.js', 'node:fs', 'desktop/shared/alias-schema.js', 'desktop/lib/ladder/rung3-digest.js'], only: {'desktop/lib/ladder/rung3-digest.js': ['askDigest']}},
-  'desktop/lib/account-judge.js': {allow: ['desktop/lib/page-kind.js'], only: {'desktop/lib/page-kind.js': ['MODEL']}},
+  'desktop/lib/ladder/rung1-kept.js': {allow: ['node:fs']},
+  'desktop/lib/ladder/rung2-sketch.js': {allow: ['desktop/lib/ai/models.js', 'desktop/shared/alias-schema.js', 'desktop/lib/ladder/rung1-kept.js', 'desktop/lib/ladder/rung3-digest.js'], only: {'desktop/lib/ladder/rung3-digest.js': ['askDigest'], 'desktop/lib/ladder/rung1-kept.js': ['kindKey']}},
+  'desktop/lib/page-kind.js': {allow: ['desktop/lib/ladder/rung1-kept.js', 'desktop/lib/ladder/rung2-sketch.js']},
+  'desktop/lib/account-judge.js': {allow: ['desktop/lib/ladder/rung2-sketch.js'], only: {'desktop/lib/ladder/rung2-sketch.js': ['MODEL']}},
   'desktop/lib/ladder/rung3-digest.js': {allow: ['desktop/lib/ai/models.js']},
   'extension/ladder/rung3-candidates.js': {allow: []},
-  'desktop/lib/ladder/rung4-picture.js': {allow: ['node:fs', 'desktop/lib/account-judge.js', 'desktop/lib/page-kind.js', 'desktop/lib/site-accounts.js'], only: {'desktop/lib/page-kind.js': ['pageShape'], 'desktop/lib/account-judge.js': ['accountSketch', 'listed']}},
+  'desktop/lib/ladder/rung4-picture.js': {allow: ['node:fs', 'desktop/lib/account-judge.js', 'desktop/lib/ladder/rung1-kept.js', 'desktop/lib/site-accounts.js'], only: {'desktop/lib/ladder/rung1-kept.js': ['pageShape'], 'desktop/lib/account-judge.js': ['accountSketch', 'listed']}},
   'extension/ladder/rung4-picture.js': {allow: EXTENSION_PLUMBING},
   'desktop/lib/ladder/rung5-takeover.js': {allow: []},
   'extension/ladder/core.js': {allow: []},
@@ -81,7 +85,8 @@ for (const [file, rule] of Object.entries(EDGES)) {
 test('no rung file imports another rung file except through a listed edge with named bindings', () => {
   for (const file of RUNG_FILES.filter(one => fs.existsSync(path.join(repo, one)))) {
     for (const item of edgesOf(file).filter(one => RUNG_FILES.includes(one.to))) {
-      const only = EDGES[file].only?.[item.to] || (file === 'extension/ladder/climb.js' && item.to === 'extension/ladder/core.js' ? ['*'] : null);
+      const FACADE = file === 'desktop/lib/page-kind.js';   // the one import path for rungs 1 and 2: it re-exports both rung files whole and decides nothing
+      const only = EDGES[file].only?.[item.to] || (file === 'extension/ladder/climb.js' && item.to === 'extension/ladder/core.js' ? ['*'] : null) || (FACADE ? ['*'] : null);
       assert.ok(only, `${file} reads the rung file ${item.to}`);
       assert.ok(!item.names.includes('*') || only.includes('*'), `${file} takes a whole namespace of ${item.to}`);
     }
@@ -89,12 +94,12 @@ test('no rung file imports another rung file except through a listed edge with n
 });
 
 test('the dependency direction: digest and take-over and the router import no decision module; nothing below a rung imports a rung above it', () => {
-  const decisions = ['desktop/lib/page-kind.js', 'desktop/lib/ladder/rung4-picture.js', 'desktop/lib/account-judge.js', 'extension/tab-pages.js'];
+  const decisions = ['desktop/lib/page-kind.js', 'desktop/lib/ladder/rung1-kept.js', 'desktop/lib/ladder/rung2-sketch.js', 'desktop/lib/ladder/rung4-picture.js', 'desktop/lib/account-judge.js', 'extension/tab-pages.js'];
   for (const file of ['desktop/lib/ladder/rung3-digest.js', 'desktop/lib/ladder/rung5-takeover.js', 'extension/ladder/core.js', 'extension/ladder/rung3-candidates.js']) {
     for (const item of edgesOf(file)) assert.ok(!decisions.includes(item.to), `${file} imports the decision module ${item.to}`);
   }
   // Rung 3's validator is below rung 2's caller, never the other way round.
-  assert.ok(!edgesOf('desktop/lib/ladder/rung3-digest.js').some(item => item.to === 'desktop/lib/page-kind.js'));
+  assert.ok(!edgesOf('desktop/lib/ladder/rung3-digest.js').some(item => ['desktop/lib/page-kind.js', 'desktop/lib/ladder/rung1-kept.js', 'desktop/lib/ladder/rung2-sketch.js'].includes(item.to)));
 });
 
 // ---- The rung map (docs/flows/ladder.md) against the code.

@@ -12,7 +12,7 @@
 import fs from 'node:fs';
 import {CAPS} from './rung4-picture.js';
 import {OUTCOMES} from './rung3-digest.js';
-import {KINDS} from '../page-kind.js';
+import {KINDS} from './rung2-sketch.js';
 
 const SIGNALS = ['confident', 'unsure', 'contradicted', 'stalled', 'failed'];   // as extension/ladder/core.js SIGNALS (a classic script, not importable here)
 const MIN_RUNG = 3, MAX_RUNG = 6, MAX_SHAPES = 500;

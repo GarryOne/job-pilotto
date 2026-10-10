@@ -126,7 +126,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/option-pick.js` — The form's own choice for an answer ("Monsieur" in a Madam/Sir menu → "Sir"), for a session page row whose field is a menu. The same
 - `desktop/lib/orphans.js` — An engine run (`python -m src daily|check|scout|discover|feeds`) the app started and then lost: the app restarted, so the run's parent is now
 - `desktop/lib/outcomes.js` — "How did it go?" (Notion: Pricing & Plans, the outcome tap): the user tells Job Pilotto what an employer did, with one click on a job.
-- `desktop/lib/page-kind.js` — What kind of page is this, in an application's journey? The AI decides, from a sketch of the page in whatever language it is in
+- `desktop/lib/page-kind.js` — What kind of page is this, in an application's journey? One import path for the two rungs that answer it: rung 1, the kept answer per page shape (ladder/rung1-kept.js), and rung 2, the text sketch to
 - `desktop/lib/page-render.js` — Careers pages that only exist after their scripts run, rendered for the engine (src/sources/render.py) in the app's own Chromium, so the Mac
 - `desktop/lib/pending-license.js` — The one-command install for invited testers: `curl …/install | bash -s JP1.…` leaves the founder key in
 - `desktop/lib/pipeline-args.js` — Owns: the command lines the app gives the engine: dailyArgs (the workflow's own command), mailArgs, visitsArgs, syncMatchesArgs,
