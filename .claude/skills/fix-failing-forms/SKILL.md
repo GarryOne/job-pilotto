@@ -14,9 +14,13 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
 **Test failing**. **Not in the pool** is `run-applying-smoke-pool`'s to add first. Rank by "Of matched jobs": the most-used platform that fails comes first (skill `run-applying-smoke-pool` "Reading real use").
 
 ## 0. Before starting (one line each to the owner)
-- **The list**, worst first: regressions, then shapes that reached the earliest step. Sources: `/admin/applying` (owner-only; Bearer = Keychain
-  `job-pilotto.site.api_key`, see memory `reference-owner-pages-access`), and the newest files in
-  `~/Library/Application Support/Job Pilotto QA/smoke-reports/` (`<day>.json`, one `.log` per run). Say: N shapes, the worst three, the one you take.
+- **The list is the page's "Needs a fix" section** (right under the tiles of `/admin/applying`; owner-only; Bearer = Keychain `job-pilotto.site.api_key`, see memory
+  `reference-owner-pages-access`; the same rows are in the page's `?json`: pool rows with `regression`, `short`, `shares`, `reached`). It is worst first: regressions, then the earliest
+  stop, then the least filled form. A form reached with under half of the asked fields filled is a **shortfall** (red "form · 4 of 12"): a failure, not a success. A code or bot check is a documented
+  hold and is not on the list. Take the TOP row, one shape per round. Its evidence is on this Mac: `~/Library/Application Support/Job Pilotto QA/smoke-reports/` (`<day>.json` with each
+  site's `fieldList`: label, type, outcome, required, reason per field; one `.log` per run) and **`replay-candidates/<day>/<shape>/`** (the failing run's last page, structure only and scrubbed, with a
+  `case.json` skeleton: the run's fields, page path and page-kind lines): start the recorded page from that candidate, take the AI's answers from its `evidence`, never invent them.
+  Say: N rows, the top three, the one you take. After the landing, the next night's "Filled, last runs" column of that row is the proof: it must go up or the row must leave the list.
 - **Peers:** `ListAgents`; message the pool owner (session in memory `project-handover-smoke-coordinator`) with the shape you take, and ask whether the
   e2e page is free (suites share one Notion test page: never two runs at once). A pool or applying run by a peer: wait, or queue yours.
 - **Claim the flow core** (`FLOW_CORE`/`FLOW_FILES`, `desktop/e2e/flows.mjs`) before editing any file in it: one message to every peer "I own the flow core
