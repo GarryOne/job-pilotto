@@ -173,6 +173,14 @@ test('the proposer\'s targets: failing controls without a recipe being tried, wo
   assert.equal((await targets(new Request('https://x/api/recipes/targets', {method: 'POST', headers: {Authorization: 'Bearer secret'}}), e, now)).status, 405);
 });
 
+test('a control the extension left and Claude filled (one failed outcome, no recipe, plus its sample) is a proposer target (desktop/lib/takeover-teach.js)', async () => {
+  const e = env();
+  const send = body => controls(new Request('https://x/api/controls', {method: 'POST', body: JSON.stringify({install: 'install-1234', ...body})}), e, now);
+  await send({outcomes: [{fp: 'taught001', recipe: 0, ok: 0, failed: 1}], samples: [{fingerprint: 'taught001', kind: 'select', skeleton: {t: 'div', a: {role: 'combobox'}, c: [], k: []}, question: 'Country of residence'}]});
+  const {targets: list} = await (await targets(new Request('https://x/api/recipes/targets', {headers: {Authorization: 'Bearer secret'}}), e, now)).json();
+  assert.deepEqual(list.map(item => [item.fingerprint, item.userFailed]), [['taught001', 1]]);
+});
+
 const mintFor = async (e, install, purpose, ip = '198.51.100.20') => (await (await installToken(new Request('https://x/api/install-token', {method: 'POST', headers: {'CF-Connecting-IP': ip},
   body: JSON.stringify({install, purpose})}), e, now)).json()).token;
 const lookupAs = (e, install, token, fingerprints) => lookup(new Request('https://x/api/recipes/lookup', {method: 'POST', headers: {Authorization: `Bearer ${token}`}, body: JSON.stringify({install, fingerprints})}), e, now);

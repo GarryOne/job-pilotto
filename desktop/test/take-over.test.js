@@ -29,3 +29,11 @@ test('a start that failed gives the claim back; "Continue" in the panel is the c
   assert.equal((await s.takeOver({url: URL1})).ok, true, 'asked again after a failed start');
   assert.equal(s.started.length, 2);
 });
+
+test('a started takeover begins a teaching run on that application (lib/takeover-teach.js); a refused or failed one does not', async () => {
+  const runs = [];
+  const make = results => { const s = setup(results); return {...s, takeOver: createTakeOver({startClaude: async () => results[0], storage: {settings: () => ({}), saveSettings() {}}, appLog() {}, toWindow() {}, onStarted: url => runs.push(url)})}; };
+  await make([{ok: true, session: {id: 'c1'}}]).takeOver({url: URL1});
+  await make([{ok: false, error: 'no'}]).takeOver({url: 'https://x.example/1'});
+  assert.deepEqual(runs, [URL1]);
+});

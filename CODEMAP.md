@@ -187,6 +187,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/strategy.js` — Strategy builder: CV (PDF) + an optional note from the user -> proposed goals, a draft Profile, standard answers
 - `desktop/lib/system-handlers.js` — The system IPC (moved out of main.js, 8 Oct 2026): the microphone and screen permissions, relaunching the app, resetting the profile, backups
 - `desktop/lib/take-over.js` — "Let Claude finish this page" from the form panel (spec docs/superpowers/specs/2026-10-10-claude-finishes-stuck-pages.md): the app's side of the panel's take-over event.
+- `desktop/lib/takeover-teach.js` — Claude teaches the extension (owner, 10 Oct 2026; spec docs/superpowers/specs/2026-10-10-claude-finishes-stuck-pages.md part 5). When a takeover leaves the page filled further, the controls
 - `desktop/lib/tar.js` — The tar to run: on Windows the system's own (bsdtar, Windows 10+), named by its full path. A Git for Windows
 - `desktop/lib/telegram-cloud.js` — "Telegram buttons, always on": the user's own small Cloudflare Worker (free plan) runs the
 - `desktop/lib/telegram.js` — Telegram from the desktop app: the user's own bot (made with @BotFather), no webhook, no Cloudflare.

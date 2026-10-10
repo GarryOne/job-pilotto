@@ -3,7 +3,7 @@
 // refused and logged; a start that failed gives the claim back). Guarded by test/take-over.test.js. Starting itself is main.js startClaude (passed in).
 const keyOf = url => String(url || '').split('#')[0].replace(/\/+$/, '').toLowerCase();
 
-export function createTakeOver({startClaude, storage, appLog, toWindow}) {
+export function createTakeOver({startClaude, storage, appLog, toWindow, onStarted = () => {}}) {
   const took = new Set();   // applications Claude was started on from a panel this run
   return async function takeOver(event) {
     const job = event.job, key = keyOf(event.url);
@@ -16,7 +16,7 @@ export function createTakeOver({startClaude, storage, appLog, toWindow}) {
     }
     took.add(key);
     const result = await startClaude(String(event.url || ''), job ? {title: job.title, company: job.company, location: job.location, workMode: job.work_mode} : null);
-    if (result?.ok) { if (result.session?.id) toWindow('session', 'open', {id: result.session.id}); } else {
+    if (result?.ok) { onStarted(String(event.url || '')); if (result.session?.id) toWindow('session', 'open', {id: result.session.id}); } else {
       took.delete(key);   // it did not start: the person may ask again
       toWindow('toast', {title: 'Claude could not start', body: result?.error || 'Try again from the Applying page.'});
     }
