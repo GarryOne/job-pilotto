@@ -136,3 +136,11 @@ export function accountCardOf(item, state) {
 }
 // The short line after the title of an account stop: how far the page is, or nothing was reported yet.
 export const accountProgress = state => (state?.account && state.total > 0 ? `· ${Math.max(0, state.total - state.left)} of ${state.total} filled` : '· nothing filled yet');
+
+// The account record on a session's card (owner, 10 Oct 2026): where an account was made, which terms the extension accepted (the page's own wording) and whether a code came from the
+// mail. '' for an application with no account made by us (an existing account, a refused sign-in). Guarded by test/account-record.test.js.
+export function accountRecordLine(item) {
+  if (!item || !item.accountHost || !['created', 'confirm'].includes(item.accountState)) return '';
+  const terms = Array.isArray(item.accountTerms) ? item.accountTerms : [];
+  return [`Account created on ${item.accountHost.replace(/^www\./, '')}`, ...(terms.length ? [`terms accepted: ${terms.map(term => `\u2018${term}\u2019`).join(', ')}`] : []), ...(item.accountCode ? ['code from your email'] : [])].join(' \u00b7 ');
+}

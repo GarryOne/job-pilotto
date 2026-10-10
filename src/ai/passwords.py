@@ -4,9 +4,10 @@ The session never sees or types a password: `new` stores one in this computer's 
 (Keychain / Credential Manager, item job-pilotto.<host>.password) and puts it on the clipboard, the
 session pastes it (cmd+v / ctrl+v), then `clear` empties the clipboard.
 
-Every site gets the user's one job-site password (owner, 8 Oct 2026: one they can remember and type, e.g.
-Maple-Rocket-42), made once and kept as job-pilotto.sites.password; Settings → Application assistant shows it.
-Only a site whose rule it breaks (--length shorter, --no-symbols) gets a random one of its own.
+Every NEW account gets its own generated password (owner, 10 Oct 2026: a different one per site, so one leaked site
+opens no other; it replaces the 8 Oct one-password-everywhere). Accounts made before keep theirs: the old shared
+job-site password (job-pilotto.sites.password, e.g. Maple-Rocket-42) is read, never made again for a new site.
+A site's rule (--length, --no-symbols) is followed. Settings → Credentials shows each one on demand.
 
   python3 -m src.ai.passwords have <host>    exit 0 when one is stored for that site
   python3 -m src.ai.passwords new <host>     the job-site password (or, for the rule a site shows,
@@ -68,14 +69,9 @@ def note(email='', job=''):
 
 
 def for_site(length=None, symbols=True):
-    """The job-site password, fitted to a site's rule: without its hyphens when symbols are refused; a random one when
-    the site wants it shorter."""
-    password = shared_password()
-    if not symbols:
-        password = password.replace('-', '')
-    if length and len(password) > length:
-        return generate(max(8, length), '!#%+-=?@_' if symbols else '')
-    return password
+    """A new password for one site, generated for it alone (never the shared one), fitted to the site's rule: 16 characters
+    with every class by default; shorter when the site caps the length, without symbols when it refuses them."""
+    return generate(max(8, length or 16), '!#%+-=?@_' if symbols else '')
 
 
 def generate(length=16, symbols='!#%+-=?@_'):

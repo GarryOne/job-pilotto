@@ -9,6 +9,7 @@
 //     sign-in tab); the card must not say "can't reach the form" over a sign-in page (10 Oct 2026).
 //  3. Once stuck at the account step, only a new need changes it; a later 'no-form' or 'incomplete' does not.
 //  4. 'incomplete' (a fill that put nothing in) is cleared only by clearStuck, which session-flow.js calls when something is filled (c1a2fcc).
+//  6. The account record (accountTerms: at most 3 terms the extension accepted, once each; accountCode: a code from the mail was typed) only grows, from fixed facts, on a running application (10 Oct 2026).
 //  5. Fields come from fixed values: stuck in STUCK, stage in STAGES, accountState in ACCOUNT_STATES, accountStep in ACCOUNT_STEPS; a need is a label of at most 80 characters.
 
 export const STUCK = ['account', 'incomplete', 'no-form'];
@@ -36,6 +37,12 @@ export function journey(session, event) {
   if (event.type === 'account') {
     if (!ACCOUNT_STATES.includes(event.state) || session.accountState === event.state) return none;
     return {set: {accountState: event.state}, result: true};
+  }
+  if (event.type === 'account-fact') {   // invariant 6: what the extension did on the account page, kept as the card's record
+    if (event.fact === 'code') return session.accountCode ? none : {set: {accountCode: true}, result: true};
+    const text = event.fact === 'terms' ? label(event.text) : '';
+    const have = Array.isArray(session.accountTerms) ? session.accountTerms : [];
+    return !text || have.includes(text) || have.length >= 3 ? none : {set: {accountTerms: [...have, text]}, result: true};
   }
   if (event.type === 'stuck') {
     if (session.kind !== 'form' || !STUCK.includes(event.why)) return none;

@@ -368,8 +368,8 @@ per page where you can:
    - **Have one:** type the email from the CV; the extension fills the password box within ~6 s.
    - **None:** follow "Create an account" / "Register" / "Not a registered user yet?".
 3. **Create the account.** Fill name, email, phone, country from the CV/Profile as for any form.
-   Password: nothing to do. The owner's one job-site password (made once, shown in Settings →
-   Credentials) is stored for this site and filled into every empty password box (password and
+   Password: nothing to do. A new password, generated for this site alone (shown in Settings →
+   Credentials), is stored for it and filled into every empty password box (password and
    confirm) by the extension within ~6 s. Optionally record the job beside it first:
    `python3 -m src.ai.passwords new <host> --no-copy --email <the email you typed> --job <job url>`.
    Check with the audit (`filled: true`), never by reading the value. If the site rejects the
@@ -389,8 +389,8 @@ per page where you can:
    say in one line exactly what to do in Chrome ("tick I'm not a robot and the terms box, then
    reply ok") and wait. Never try to solve or bypass a CAPTCHA. After the reply, click Create
    account / Sign in and continue. Account exists but no stored password: sign in once with the
-   job-site password (the extension fills it); if refused, use the site's "Forgot password" to the
-   owner's email, read the reset link with the Gmail command of step 4, set the job-site password, carry on.
+   the site's stored password (the extension fills it); if refused, use the site's "Forgot password" to the
+   owner's email, read the reset link with the Gmail command of step 4, set the stored password, carry on.
 6. **After sign-in** the site usually lands on the application or a profile step; on a dashboard,
    open the job again from the careers page and press Apply. Fill page by page (Next / Save and
    continue is fine), audit each page before leaving it, and stop at the review or Submit page.

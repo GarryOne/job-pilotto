@@ -139,9 +139,11 @@ export function registerApplyHandlers(ctx) {
     return result;
   });
   ipcMain.handle('claudeReady', () => apply.claudeReady(storage));
-  // Settings → Application assistant: the job-site password. Copy makes it the first time (the engine, on the clipboard, never printed).
+  // Settings → Application assistant: the old job-site password, for accounts made before 10 Oct 2026 (each new account has its own, in Credentials). Never made here on a Mac
+  // where none exists; Copy puts it on the clipboard through the engine, never printed.
   ipcMain.handle('sitePassword', async (_, action) => {
     if (DEMO) return {ok: true, password: 'Maple-Rocket-42'};
+    if (process.platform === 'darwin' && !sitePassword.read()) return {ok: false, error: 'No shared password: every account made by Job Pilotto has its own. Show it in Credentials.'};
     if (action === 'show' && sitePassword.read()) return {ok: true, password: sitePassword.read()};
     const {code} = await pipeline.run(storage, ['src.ai.passwords', 'shared']);
     appLog('apply', `job-site password ${action === 'show' ? 'shown' : 'copied'}`, {ok: code === 0});

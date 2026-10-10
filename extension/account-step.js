@@ -156,8 +156,13 @@ async function outcomeOnce(tab, frameId, memo) {
     if (!got?.code) { decide('fill', `account code: left to the person (${got?.why || 'no answer'})`, {host}); return; }
     const filled = await run(tab, frameId, fillCodeBox, [result.needs || '', got.code]);
     decide('fill', filled ? 'account code: typed from the mail' : 'account code: no box to type it in', {host});
-    if (filled) decide('fill', `account code: button ${await run(tab, frameId, pressAccountButton, [''])}`, {host});
+    if (filled) { tellFact(config, tab, host, 'code'); decide('fill', `account code: button ${await run(tab, frameId, pressAccountButton, [''])}`, {host}); }   // the record says a code came from the mail, never the code
   }
+}
+
+// What the extension did on the account page, for the session card's record (lib/application-journey.js invariant 6): a consent accepted (its wording) or a code typed (never its value).
+function tellFact(config, tab, host, fact, text = '') {
+  identityOf(tab).then(id => api(config, '/extension/event', {method: 'POST', body: JSON.stringify({type: 'account-fact', fact, text: String(text).slice(0, 80), host, url: id.url, job: id.job, session: id.session})})).catch(() => {});
 }
 
 export async function accountStep(tab, frameId) {
@@ -212,7 +217,9 @@ async function accountStepOnce(tab, frameId) {
       const accept = ready && !ready.botCheck && ready.answer === 'needs_person' && consentMove({automation: answer.automation, needsKind: ready.needsKind, consentRequired: ready.consentRequired, needs: ready.needs, presses}) === 'accept';
       if (accept) {   // the owner's setting: the extension accepts the account's consent itself (link, dialog, checkbox), then looks again
         await chrome.storage.session.set({[key]: presses + 1}).catch(() => {});
-        decide('fill', `consent accepted: ${await run(tab, frameId, pressConsent, [ready.needs])}`, {host, press: presses + 1});
+        const pressed = await run(tab, frameId, pressConsent, [ready.needs]);
+        decide('fill', `consent accepted: ${pressed}`, {host, press: presses + 1});
+        if (pressed === 'pressed') tellFact(config, tab, host, 'terms', ready.needs);   // the session card's record: which terms were accepted, in the page's own words
       } else {
         sayOnce(tab, 'button', `account button: not pressed (${ready ? (ready.botCheck ? 'a bot check' : ready.answer) : 'no AI'})`, {host, automation: answer.automation || ''});
         if (ready && (ready.botCheck || ready.answer === 'needs_person')) await flag(tab, frameId, ready.botCheck ? botCheckNeed(kind?.accountButton) : ready.needs || '');

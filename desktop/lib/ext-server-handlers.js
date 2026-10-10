@@ -37,8 +37,8 @@ export function registerExtServerHandlers(ctx) {
   const accountCheck = createAccountCheck({confirm: confirmAccount, noteStuck: (...args) => terminals.noteStuck(...args)});
   const checkAccount = ({host, email, session, ...rest}) => accountCheck({host, email, session, run: args => pipeline.run(storage, args), open: link => applyLib.openOne(link),
     mark: () => { storage.saveSettings({siteAccounts: record(storage.settings().siteAccounts, host, email, 'confirmed', Date.now(), terminals.record(String(session || ''))?.company || '')}); if (session) terminals.setAccount(session, 'created'); }, ...rest});
-  // A site with no account item yet gets the one job-site password (made the first time), kept under its own name so Settings →
-  // Credentials lists it with the profile's email (owner, 8 Oct 2026: the whole flow by itself, one password reused everywhere).
+  // A site with no account item yet gets its OWN generated password (owner, 10 Oct 2026: a different one per site; it replaced the 8 Oct one-password-everywhere), kept under the
+  // site's name so Settings → Credentials lists it with the profile's email. An account with an item keeps the one it has.
   server.setSitePasswordHandler(async ({host, peek, session: carried, job, url} = {}) => {
     const sessionId = resolveSession({session: carried, job, url}, ids);   // the tab's identity, resolved one way (lib/journey-identity.js); answered so the extension binds it
     const company = String(terminals.record(String(sessionId || ''))?.company || '');   // the job's company: one host can serve several employers, each with its own account
@@ -69,6 +69,10 @@ export function registerExtServerHandlers(ctx) {
   server.setAccountCodeHandler(async ({host} = {}) => {
     const email = DEMO ? '' : await Promise.resolve(notionGate.tracking(storage) ? contactDetails.read(storage) : {}).then(contact => contact?.email || '').catch(() => '');
     return accountCodeAnswer({mode: automationOf(storage.settings()), host, email, read: found => codeFromMail({...found, run: args => pipeline.run(storage, args)})});
+  });
+  server.setAccountFactHandler(({fact, text, session: carried, job, url} = {}) => {   // the card's account record: a consent accepted (the page's own wording), a code typed
+    const session = resolveSession({session: carried, job, url}, ids);
+    if (session && terminals.setAccountFact(session, fact === 'code' ? 'code' : 'terms', text)) appLog('extension', fact === 'code' ? 'account record: a code from the mail was typed' : 'account record: a consent was accepted', {terms: fact === 'code' ? undefined : String(text || '').length});
   });
   // The extension pressed a sign-up page's button: this email has an account on this host now, unconfirmed until its mail's link is opened (never the address in a log).
   server.setAccountPressedHandler(async ({host, state, session: carried, job, url} = {}) => {

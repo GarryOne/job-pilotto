@@ -37,3 +37,16 @@ test('5: only fixed values are written, a need at most 80 characters', () => {
   assert.equal(journey(form(), {type: 'stuck', why: 'account', needs: 'x'.repeat(200)}).set.accountNeeds.length, 80);
   assert.deepEqual(journey(form(), {type: 'stuck', why: 'account', accountStep: 'teleport'}).set.accountStep, undefined);
 });
+
+test('6: the account record: terms accepted (at most 3, 80 characters each, once each) and the code from the mail, only on a running application', () => {
+  const a = form({});
+  assert.deepEqual(journey(a, {type: 'account-fact', fact: 'terms', text: '  I accept   the terms '}).set, {accountTerms: ['I accept the terms']});
+  assert.deepEqual(journey(form({accountTerms: ['I accept the terms']}), {type: 'account-fact', fact: 'terms', text: 'I accept the terms'}).set, {}, 'once');
+  assert.deepEqual(journey(form({accountTerms: ['a', 'b', 'c']}), {type: 'account-fact', fact: 'terms', text: 'd'}).set, {}, 'at most 3');
+  assert.equal(journey(a, {type: 'account-fact', fact: 'terms', text: 'x'.repeat(200)}).set.accountTerms[0].length, 80);
+  assert.deepEqual(journey(a, {type: 'account-fact', fact: 'terms', text: ''}).set, {}, 'nothing named, nothing recorded');
+  assert.deepEqual(journey(a, {type: 'account-fact', fact: 'code'}).set, {accountCode: true});
+  assert.deepEqual(journey(form({accountCode: true}), {type: 'account-fact', fact: 'code'}).set, {});
+  assert.deepEqual(journey(a, {type: 'account-fact', fact: 'password'}).set, {}, 'only fixed facts');
+  assert.deepEqual(journey(form({outcome: 'submitted'}), {type: 'account-fact', fact: 'code'}).set, {}, 'a finished application never changes');
+});

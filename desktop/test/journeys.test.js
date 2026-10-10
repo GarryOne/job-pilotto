@@ -8,6 +8,7 @@ import * as apply from '../lib/apply.js';
 import {createSessionFlow} from '../lib/session-flow.js';
 import {createAccountCheck} from '../lib/account-check.js';
 import {journeyStep} from '../lib/application-journey.js';
+import {accountRecordLine} from '../renderer/session-state.js';
 
 const POSTING = 'https://www.jobs.ch/en/vacancies/detail/12181ac1/', SIGNIN = 'https://auth.jobs.ch/u/login/identifier', FORM = 'https://apply.example/form';
 function journeyOf(id = 'f1') {
@@ -95,4 +96,17 @@ test('scenario: the confirmation page asks for the mailed code: in "Do it for me
   assert.ok(logs.length && !logs.join(' ').includes('482913'), 'the code is never logged');
   const none = found => codeFromMail({...found, run: async () => ({code: 1, stdout: '{"error": "no confirmation email yet"}'}), log: () => {}});
   assert.deepEqual(await accountCodeAnswer({mode: 'full', host: 'h.example', email: 'me@example.com', read: none}), {ok: false, why: 'no code in the mail'});
+});
+
+test('scenario: a sign-up accepts the required terms, is created, and the code from the mail is typed: the card keeps a record of it (10 Oct 2026)', () => {
+  const {flow, card} = journeyOf();
+  flow.reported({id: 'f1', url: SIGNIN, total: 3, left: 3, account: true});
+  terminals.setAccountFact('f1', 'terms', 'I accept the terms of use');
+  terminals.setAccount('f1', 'confirm');
+  terminals.setAccountFact('f1', 'code');
+  terminals.setAccount('f1', 'created');
+  const item = terminals.get('f1');
+  assert.deepEqual([item.accountTerms, item.accountCode, item.accountState], [['I accept the terms of use'], true, 'created']);
+  assert.equal(accountRecordLine(item).includes('terms accepted: ‘I accept the terms of use’'), true);
+  assert.equal(card().step !== 'ended', true);
 });

@@ -65,6 +65,8 @@ export let takeOverHandler = () => {};  // the panel's "Take over with Claude": 
 export function setTakeOverHandler(fn) { takeOverHandler = fn; }
 export let claudeAutoHandler = () => {};  // the panel's "Always let Claude finish when I'm stuck" box (set by apply-handlers.js)
 export function setClaudeAutoHandler(fn) { claudeAutoHandler = fn; }
+export let accountFactHandler = () => {};  // the extension handled something on an account page (a consent accepted, a code typed): the session card's record (set by ext-server-handlers.js)
+export function setAccountFactHandler(fn) { accountFactHandler = fn; }
 export let tailorHandler = () => {};  // the panel's "Tailor my CV for this job" (set by main.js)
 export function setTailorHandler(fn) { tailorHandler = fn; }
 export let formIssue = () => {};  // technical reports: a field the extension couldn't fill (lib/telemetry.js, set by main.js)

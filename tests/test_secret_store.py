@@ -59,10 +59,10 @@ class SecretStoreTest(unittest.TestCase):
         with mock.patch.object(sys, 'platform', 'win32'), mock.patch.object(secret_store, '_keyring', return_value=store), \
                 mock.patch.object(passwords, 'copy', copied.append), mock.patch('builtins.print') as printed:
             self.assertEqual(passwords.main(['new', 'auth.jobs.ch', '--no-copy']), 0)
-        shared = store.items[('job-pilotto.sites.password', 'job-pilotto')]
-        self.assertEqual(store.items[('job-pilotto.auth.jobs.ch.password', 'job-pilotto')], shared)   # the one password, reused
+        own = store.items[('job-pilotto.auth.jobs.ch.password', 'job-pilotto')]
+        self.assertNotIn(('job-pilotto.sites.password', 'job-pilotto'), store.items, 'a new account no longer makes or reuses the one job-site password')
         self.assertEqual(copied, [])
-        self.assertNotIn(shared, str(printed.call_args_list))
+        self.assertNotIn(own, str(printed.call_args_list))
         self.assertEqual(passwords.note('a b@c', 'https://x'), 'job=https://x')   # a value with a space is left out
 
     def test_no_store_elsewhere_reads_nothing(self):
@@ -161,14 +161,13 @@ class EndToEndIsolationTest(unittest.TestCase):
                         mock.patch.dict('os.environ', {flag: '1', 'JOB_PILOTTO_ISOLATED_SECRETS': path}), \
                         mock.patch.object(passwords, 'copy'), mock.patch('sys.stdout'):
                     self.assertEqual(passwords.main(['new', 'e2e.wd3.myworkdayjobs.com', '--email', 'e2e@example.com']), 0)
-                    shared = secret_store.get(passwords.SHARED, passwords.ACCOUNT)
-                    self.assertTrue(shared)   # made in the run's file and read back from it
-                    self.assertEqual(secret_store.get('job-pilotto.e2e.wd3.myworkdayjobs.com.password', 'job-pilotto'), shared)
+                    own = secret_store.get('job-pilotto.e2e.wd3.myworkdayjobs.com.password', 'job-pilotto')
+                    self.assertTrue(own)   # made in the run's file and read back from it
+                    self.assertIsNone(secret_store.get(passwords.SHARED, passwords.ACCOUNT), 'no shared job-site password is made for a new account')
                     secret_store.delete('job-pilotto.e2e.wd3.myworkdayjobs.com.password', 'job-pilotto')
                     self.assertIsNone(secret_store.get('job-pilotto.e2e.wd3.myworkdayjobs.com.password', 'job-pilotto'))
                 asked.assert_not_called()   # no `security` call at all: neither the read, the write nor the delete
-                with open(path, encoding='utf-8') as handle:
-                    self.assertIn(passwords.SHARED, handle.read())
+                self.assertTrue(os.path.exists(path), 'the run\'s own file was written')
 
     def test_an_isolated_run_without_its_own_file_keeps_nothing(self):
         with mock.patch.object(sys, 'platform', 'darwin'), self._keychain_answers() as asked, mock.patch.dict('os.environ', {'JOB_PILOTTO_E2E': '1'}):
@@ -194,6 +193,23 @@ class PasswordsTest(unittest.TestCase):
             self.assertTrue(any(c.isdigit() for c in password) and any(not c.isalnum() for c in password))
             self.assertTrue(passwords.generate(12, '').isalnum())
 
+    def test_every_new_account_gets_its_own_password_and_existing_ones_are_left_alone(self):
+        """10 Oct 2026 (owner): a different generated password per site for NEW accounts; accounts made before keep theirs (one leaked site must not open the others)."""
+        store = FakeKeyring()
+        store.items[('job-pilotto.sites.password', 'job-pilotto')] = 'Maple-Rocket-42'
+        store.items[('job-pilotto.old.example.com.password', 'job-pilotto')] = 'Maple-Rocket-42'
+        with mock.patch.object(sys, 'platform', 'win32'), mock.patch.object(secret_store, '_keyring', return_value=store), \
+                mock.patch.object(passwords, 'copy', lambda text: None), mock.patch('builtins.print'):
+            for host in ('a.example.com', 'b.example.com'):
+                self.assertEqual(passwords.main(['new', host, '--no-copy']), 0)
+            self.assertEqual(passwords.main(['new', 'c.example.com', '--no-copy', '--no-symbols', '--length', '12']), 0)
+        made = [store.items[(f'job-pilotto.{host}.password', 'job-pilotto')] for host in ('a.example.com', 'b.example.com', 'c.example.com')]
+        self.assertEqual(len(set(made)), 3, 'a different password each')
+        self.assertNotIn('Maple-Rocket-42', made)
+        self.assertEqual(len(made[0]), 16)
+        self.assertTrue(made[2].isalnum() and len(made[2]) == 12, 'a site\'s rule (no symbols, shorter) is still followed')
+        self.assertEqual(store.items[('job-pilotto.old.example.com.password', 'job-pilotto')], 'Maple-Rocket-42', 'an existing account keeps its password')
+
     def test_new_stores_and_copies_without_printing_the_password(self):
         store, copied = FakeKeyring(), []
         with mock.patch.object(sys, 'platform', 'win32'), mock.patch.object(secret_store, '_keyring', return_value=store), \
@@ -207,23 +223,20 @@ class PasswordsTest(unittest.TestCase):
         self.assertEqual(copied, [stored, stored, ''])
         self.assertNotIn(stored, str(printed.call_args_list))
 
-    def test_every_site_gets_the_one_memorable_job_site_password_made_once(self):
+    def test_the_old_job_site_password_is_still_made_on_request_but_a_new_site_never_gets_it(self):
         store, copied = FakeKeyring(), []
         with mock.patch.object(sys, 'platform', 'win32'), mock.patch.object(secret_store, '_keyring', return_value=store), \
                 mock.patch.object(passwords, 'copy', copied.append), mock.patch('builtins.print') as printed:
+            self.assertEqual(passwords.main(['shared']), 0)   # Settings' "Show" for the accounts made before 10 Oct 2026
             self.assertEqual(passwords.main(['new', 'careers.a.com']), 0)
             self.assertEqual(passwords.main(['new', 'auth.b.ch']), 0)
-            self.assertEqual(passwords.main(['shared']), 0)
-            self.assertEqual(passwords.main(['new', 'c.com', '--no-symbols']), 0)   # a site that refuses symbols: no hyphens
-            self.assertEqual(passwords.main(['new', 'd.com', '--length', '10']), 0)  # shorter than ours: a random one of its own
         shared = store.items[('job-pilotto.sites.password', 'job-pilotto')]
         self.assertRegex(shared, r'^[A-Z][a-x]{2,5}-[A-Z][a-x]{2,5}-[1-9][0-9]$')   # Maple-Rocket-42: no y/z (QWERTZ)
         self.assertEqual([w for w in __import__('src.ai.passwords', fromlist=['WORDS']).WORDS if set(w) & set('yz')], [], 'no y/z in any word (8 Oct 2026: "Hazel" failed one run in ~60)')
-        self.assertEqual(store.items[('job-pilotto.careers.a.com.password', 'job-pilotto')], shared)
-        self.assertEqual(store.items[('job-pilotto.auth.b.ch.password', 'job-pilotto')], shared)
-        self.assertEqual(store.items[('job-pilotto.c.com.password', 'job-pilotto')], shared.replace('-', ''))
-        self.assertEqual(len(store.items[('job-pilotto.d.com.password', 'job-pilotto')]), 10)
-        self.assertEqual(copied[:3], [shared, shared, shared])
+        own = [store.items[('job-pilotto.careers.a.com.password', 'job-pilotto')], store.items[('job-pilotto.auth.b.ch.password', 'job-pilotto')]]
+        self.assertNotIn(shared, own)
+        self.assertNotEqual(own[0], own[1])
+        self.assertEqual(copied, [shared, own[0], own[1]])
         self.assertNotIn(shared, str(printed.call_args_list))   # the app's run log keeps what is printed
 
     def test_memorable_passwords_fit_common_sign_up_rules(self):

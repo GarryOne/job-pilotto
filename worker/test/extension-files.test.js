@@ -182,6 +182,13 @@ test('the panel\'s Claude offer (panel-claude.js) shows only when Claude is read
   assert.match(read('desktop/lib/ext-server-handlers.js'), /claudeHelp: claudeOffered\(storage\), claudeAlways: !!storage\.settings\(\)\.claudeAuto/);
 });
 
+test('the account page reports what it did for the session card\'s record: the consent accepted (its wording) and a code typed (never the code)', () => {
+  const step = read('extension/account-step.js');
+  assert.match(step, /if \(pressed === 'pressed'\) tellFact\(config, tab, host, 'terms', ready\.needs\);/);
+  assert.match(step, /if \(filled\) \{ tellFact\(config, tab, host, 'code'\);/);
+  assert.doesNotMatch(step.slice(step.indexOf('function tellFact')), /got\.code/);   // the value of the code never goes into the report
+});
+
 test('a tab the app opened for a job never inherits the session of the tab that was in front (its mark is seen at once)', async () => {
   const tabs = read('extension/tabs.js'), background = read('extension/background.js');
   assert.equal(tabs.match(/export const APP_TAB_MARK = '([^']+)'/)[1], background.match(/export const FILL_MARK = '([^']+)'/)[1]);   // the same mark

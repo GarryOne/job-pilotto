@@ -3,7 +3,7 @@ import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {avatar} from '../jobs-view.js';
 import {PROBLEM, isDevTalk, latestStep, readSessionMessage, sortChecks, splitLabel} from '../session-message.js';
-import {accountProgress, applyingBadge, asksYou, dockCounts, dockOrder, firstLine, isLive, isSubmitted, panelAnswered, sessionDuration, sessionReview, sessionStage, sessionState} from '../session-state.js';
+import {accountProgress, applyingBadge, asksYou, dockCounts, dockOrder, firstLine, isLive, isSubmitted, panelAnswered, sessionDuration, sessionReview, sessionStage, sessionState, accountRecordLine} from '../session-state.js';
 import {shared} from './shared.js';
 import {claudeHelp} from '../claude-help.js';
 import {offerParts} from '../claude-offer.js';
@@ -267,6 +267,8 @@ export function renderNextStep(item) {
   if (fullFor !== item.id) { full.hidden = true; fullFor = item.id; }
   // At the bottom of "What happened", folded: once the form is filled the cards say what to do; the report is there
   // for its exact words.
+  const record = accountRecordLine(item);   // "Account created on X · terms accepted: '…' · code from your email" (session-state.js)
+  if (record) $('ss-question').append(el('p', 'muted small', record));
   const toggle = $('ss-full-toggle');
   const label = () => { toggle.textContent = full.hidden ? 'Claude\'s full report ▾' : 'Claude\'s full report ▴'; };
   show(toggle, !!(review && item.question));
