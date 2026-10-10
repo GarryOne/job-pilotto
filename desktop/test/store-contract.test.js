@@ -89,3 +89,13 @@ test('the store: a chosen store wins; else Notion as before (connected, or tryin
   assert.equal(store.trying(storageWith({store: 'sqlite'})), false);
   assert.throws(() => store.openStore(storageWith({store: 'postgres'})), /No store called "postgres"/);
 });
+
+// #340: a cell holding a pipe ("Remote | hybrid") stays one cell, in the outline and when its neighbours are rewritten.
+test('markdown page: a cell with a pipe reads back whole and survives other cells being set', () => {
+  const page = '| Q | A |\n| --- | --- |\n| Work mode | x |\n';
+  const rowOf = text => md.outline(text)[0].rows[1];
+  const first = md.setCell(page, rowOf(page), 1, 'Remote | hybrid');
+  assert.deepEqual(rowOf(first).cells, ['Work mode', 'Remote | hybrid']);
+  const second = md.setCell(first, rowOf(first), 0, 'Mode');
+  assert.deepEqual(rowOf(second).cells, ['Mode', 'Remote | hybrid'], 'rewriting the other cell kept this one');
+});

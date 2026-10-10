@@ -11,7 +11,9 @@ const NUMBERED = /^\s*\d+[.)]\s+(.*)$/;
 const ROW = /^\s*\|(.*)\|\s*$/;
 const RULE = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/;
 
-const cellsOf = line => line.match(ROW)[1].split('|').map(cell => cell.trim());
+// A cell's own pipe is written `\|` (setCell): split only on the others, and read it back as `|` (#340).
+const rawCellsOf = line => line.match(ROW)[1].split(/(?<!\\)\|/).map(cell => cell.trim());
+const cellsOf = line => rawCellsOf(line).map(cell => cell.replace(/\\\|/g, '|'));
 const id = n => `L${n}`;
 const lineOf = blockId => Number(String(blockId).replace(/^[LT]/, ''));
 
@@ -97,7 +99,7 @@ export function appendHeading(text, value) {
 // One cell of a table row, the others kept.
 export function setCell(text, row, index, value) {
   const lines = String(text).split('\n'), n = at(lines, row.id);
-  const cells = cellsOf(lines[n]);
+  const cells = rawCellsOf(lines[n]);   // still escaped: written back as they were
   cells[index] = one(value).replace(/\|/g, '\\|');
   lines[n] = `| ${cells.join(' | ')} |`;
   return lines.join('\n');
