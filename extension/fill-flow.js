@@ -18,7 +18,7 @@ import {formNext} from './form-ready.js';
 import {accountOutcome, accountStep} from './account-step.js';
 import {applyPressed} from './tabs.js';
 import {bindSession, identityOf, sessionOf} from './tab-identity.js';
-import {pageKey, pageRole, pickApplyButton} from './tab-pages.js';
+import {pageKey, pageRole, pickApplyButton, pickNamedButton} from './tab-pages.js';
 import {forgetRouteTries, startRoute} from './start-route.js';
 
 let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true, fillsNow = new Set(), arm = async () => {}, progress = async () => {};
@@ -166,9 +166,9 @@ async function applyPhrases() {
 }
 // -> {pressed: the button's text or null, via: the service phrase that found it ('' for a built-in word), buttons: the visible button texts
 // when none was found (the app counts them, to learn new words; texts only, from a page with no form)}.
-async function pressApply(tabId, phrases = []) {
+async function pressApply(tabId, phrases = [], named = '') {   // named: a button the page-kind AI chose (the start route): pressed by its own text, not ranked (tab-pages.js pickNamedButton)
   const candidates = await applyCandidates(tabId);
-  const pick = pickApplyButton(candidates, phrases);
+  const pick = named ? pickNamedButton(candidates, named) : pickApplyButton(candidates, phrases);
   if (!pick) {
     const seen = [...new Set(candidates.filter(item => item.visible && !item.disabled).sort((a, b) => b.area - a.area).map(item => String(item.text || '').replace(/\s+/g, ' ').trim())
       .filter(text => text && text.length <= 40))].slice(0, 25);
@@ -364,7 +364,7 @@ export async function consider(tab, jobUrl) {
         // No form and the page did not move: it may be a step that offers several ways to start (Workday's dialog). The AI names the route of its button; only the manual one is pressed (start-route.js).
         const chosen = await startRoute(key, {ask: () => askKind(tab, {fresh: true}), press: async routePhrases => {
           applyPressed.set(tab.id, {at: Date.now(), url: tab.url});
-          const next = await pressApply(tab.id, routePhrases);
+          const next = await pressApply(tab.id, routePhrases, routePhrases[0]?.phrase || '');
           if (!next.pressed) applyPressed.delete(tab.id);
           return next;
         }});

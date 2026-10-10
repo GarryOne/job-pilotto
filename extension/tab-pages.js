@@ -66,6 +66,24 @@ export function pickApplyButton(candidates = [], phrases = []) {
   return best;
 }
 
+// A button the page-kind AI NAMED (the start route's: Workday's "Apply Manually"): found by its own text, never ranked against the built-in apply words,
+// which would pick the posting's plain "Apply" behind the dialog (10 Oct 2026: 109 vs 103 on Richemont, Red Hat, Chanel). The AI decides which button;
+// structure only finds it (same words, case and spacing aside). Floors as above: never a Submit, a sign-in or "apply with…", a mail link, a hidden or disabled one.
+// → the candidate, or null (not on the page: nothing is pressed, never a guess). Tested in desktop/test/extension-tab-pages.test.js.
+export function pickNamedButton(candidates = [], named = '') {
+  const same = text => String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const wanted = same(named);
+  if (!wanted) return null;
+  let best = null;
+  for (const item of candidates) {
+    const text = same(item?.text);
+    if (text !== wanted || item.submits || !item.visible || item.disabled || NOT_APPLY.test(text)) continue;
+    if (/^(mailto|tel|javascript):/i.test(String(item.href || ''))) continue;
+    if (!best || (Number(item.area) || 0) > (Number(best.area) || 0)) best = item;
+  }
+  return best;
+}
+
 // How a fill treats the job's kit. A kit that exists (hasKit: drafted when the job was prepared, eligibility judged then) means
 // applying was the user's decision: fill what is known at once, ask Claude about the form's own questions afterwards, and never
 // stop on an eligibility check. A kit with no answer for any of this form's fields is still a kit.

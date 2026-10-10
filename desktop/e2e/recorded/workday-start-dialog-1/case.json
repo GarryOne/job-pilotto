@@ -20,8 +20,12 @@
   }
  },
  "expect": {
-  "told": ["pressed the start route: manual"],
-  "gone": ["#start"],
+  "told": [
+   "pressed the start route: manual"
+  ],
+  "filled": [
+   "#first"
+  ],
   "maxNewTabs": 0,
   "seconds": 40
  }

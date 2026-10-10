@@ -4,7 +4,7 @@
 // submitted-check read the text of any other host.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {startsOwnJob, kitStance, pickApplyButton, confirmationOf, forJob, missedConfirmation, navigationKind, neverForm, reportedIds, withMark, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed, popupMode} from '../../extension/tab-pages.js';
+import {startsOwnJob, kitStance, pickApplyButton, pickNamedButton, confirmationOf, forJob, missedConfirmation, navigationKind, neverForm, reportedIds, withMark, originOf, pageFingerprint, pageKey, pageRole, samePage, sameSite, submissionOutcome, SUBMIT_SETTLE_MS, SUBMIT_WAIT_MS, tabArmed, popupMode} from '../../extension/tab-pages.js';
 
 const JOB = 'https://job-boards.greenhouse.io/canonical/jobs/3014391';
 
@@ -286,4 +286,18 @@ test('a Portuguese Apply button the page-kind AI named is pressed with the same 
     {index: 2, text: 'Candidatar-me', tag: 'a', area: 1200, visible: true, href: 'mailto:rh@emprego.example'}];
   assert.equal(pickApplyButton(buttons, []), null, 'no built-in word knows it');
   assert.equal(pickApplyButton(buttons, [{key: 'apply_button', phrase: 'candidatar-me'}])?.index, 1, 'the AI\'s phrase; never the mail link');
+});
+
+test('a button the page-kind AI named is pressed by its own text, not outscored by the posting\'s plain Apply behind a dialog (Workday, 10 Oct 2026)', () => {
+  const b = (text, extra = {}) => ({text, tag: 'a', area: 15040, visible: true, disabled: false, href: '/apply/applyManually', ...extra});
+  const list = [b('Apply', {area: 3840, href: '/apply'}), b('Apply Manually'), b('Use My Last Application'), b('Apply With LinkedIn')].map((item, index) => ({...item, index}));
+  assert.equal(pickApplyButton(list, [{key: 'apply_button', phrase: 'Apply Manually'}]).text, 'Apply');   // the generic picker: the shorter built-in word wins (why the route press needs its own)
+  assert.equal(pickNamedButton(list, 'Apply Manually').text, 'Apply Manually');
+  assert.equal(pickNamedButton(list, 'apply  manually').text, 'Apply Manually');                           // case and spacing only
+  assert.equal(pickNamedButton(list, 'Apply').index, 0);                                                     // an ordinary Apply named: that one
+  assert.equal(pickNamedButton(list, 'Apply With LinkedIn'), null);                                           // floor: a third-party sign-in is never pressed
+  assert.equal(pickNamedButton(list, 'Apply Later'), null);                                                  // not on the page: nothing, never a guess
+  assert.equal(pickNamedButton(list, ''), null);
+  assert.equal(pickNamedButton([b('Apply Manually', {submits: true}), b('Apply Manually', {visible: false}), b('Apply Manually', {disabled: true})], 'Apply Manually'), null);
+  assert.equal(pickNamedButton([b('Apply Manually', {href: 'mailto:a@b.c'})], 'Apply Manually'), null);
 });

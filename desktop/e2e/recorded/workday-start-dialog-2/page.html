@@ -1,0 +1,20 @@
+<!doctype html><html lang="en"><head><title>Sales Associate - Geneva</title><style>
+a[role=button]{display:block;box-sizing:border-box;height:40px;line-height:40px;text-align:center;background:#222;color:#fff;border-radius:20px;text-decoration:none}
+#apply{width:96px}
+#start{display:none;position:fixed;top:10%;left:30%;width:376px;background:#fff;border:1px solid #888;padding:16px}
+#start a[role=button]{width:100%;margin:8px 0}
+</style></head><body>
+<main id="posting"><h1>Sales Associate - 60%</h1><p>Geneva · Part time</p><p>Join our boutique team.</p>
+<a role="button" id="apply" href="/richemont/job/GENEVA/Sales-Associate_JR1/apply" data-automation-id="adventureButton" onclick="document.getElementById('start').style.display='block'; return false;">Apply</a></main>
+<div id="start" role="dialog" aria-modal="true">
+  <h2>Start Your Application</h2>
+  <a role="button" id="manual" href="#" data-automation-id="applyManually" onclick="document.getElementById('start').remove(); document.getElementById('posting').remove(); document.getElementById('form').style.display='block'; return false;">Apply Manually</a>
+  <a role="button" id="reuse" href="#" data-automation-id="useMyLastApplication" onclick="window.open('https://reuse.example.test/'); return false;">Use My Last Application</a>
+  <a role="button" id="linkedin" href="#" onclick="window.open('https://linkedin-signin.example.test/'); return false;">Apply With LinkedIn</a>
+</div>
+<form id="form" style="display:none"><h1>My Information</h1>
+  <label>First Name <input id="first" name="firstName" type="text"></label>
+  <label>Last Name <input id="last" name="lastName" type="text"></label>
+  <label>Email <input id="email" name="email" type="email"></label>
+  <label>Phone <input id="phone" name="phone" type="tel"></label>
+</form></body></html>
