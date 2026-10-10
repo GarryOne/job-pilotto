@@ -17,6 +17,7 @@
 // redraws it in place many times a second, so replaying its output at another size, or from a cut-off tail,
 // leaves a blank or garbled screen. A headless terminal (the mirror) follows each session at its real size, and
 // snapshot() serializes it: what a real terminal shows now. The saved record keeps that screen too.
+import {journey} from './application-journey.js';
 import {assertSession} from './session-contracts.js';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -200,53 +201,29 @@ export function startForm({id, url, title = '', company = '', location = '', wor
 // later 'no-form' from a tab earlier in it (the posting the Apply button left behind) never takes it back (owner, 8 Oct 2026:
 // Manor's sign-in page was reported, then its posting tabs said "no form" and the card lost the account step).
 export function noteStuck(id, why, host = '', needs = '', accountStep = '') {
-  const session = sessions.get(id);
-  if (!session || session.kind !== 'form' || session.outcome) return false;
-  const label = String(needs || '').replace(/\s+/g, ' ').trim().slice(0, 80);
-  const step = ['sign_in', 'sign_up'].includes(accountStep) ? accountStep : '';   // the AI's page type, from the extension: only these two change the wording
-  if (why === 'account' && step && session.accountStep !== step) { session.accountStep = step; listener('update', publicView(session)); save(); }
-  const note = label ? `Needs you: ${label}` : why === 'account' ? 'This site needs an account' : 'The extension can\'t reach the form';   // a need (a bot check in front of the form) is said on any page
-  if (session.stuck === why) {   // reported again: only a new need changes anything
-    if (!label || session.note === note) return false;
-    session.note = note; session.accountNeeds = label;
-    listener('update', publicView(session)); save();
-    return true;
-  }
-  if (session.stuck === 'account') return false;
-  session.stuck = why;
-  if (why === 'account') Object.assign(session, {stage: 'account', accountHost: host || session.accountHost || ''});
-  session.note = note;
-  if (why === 'account' || why === 'incomplete') session.accountNeeds = label;
-  listener('update', publicView(session));
-  save();
-  return true;
+  return applyJourney(id, {type: 'stuck', why, host, needs, accountStep});
 }
 // Where the application is, from what the extension sees in its tab: 'account' (a sign-in or sign-up page, on `host`) or 'form'
 // (the application form, its fields reported). The account's site is kept, so the form step can say it is step 2 of 2.
 export function setStage(id, stage, host = '') {
-  const session = sessions.get(id);
-  if (!session || session.outcome || (session.stage === stage && (!host || session.accountHost === host))) return false;
-  session.stage = stage;
-  if (stage === 'account' && host) session.accountHost = host;
-  listener('update', publicView(session));
-  save();
-  return true;
+  return applyJourney(id, {type: 'stage', stage, host});
 }
 // The account made for this application (account-step.js): 'created' (usable), 'confirm' (a confirmation is awaited), 'exists' (it was there already), 'refused' (a sign-in was refused: tried once, the sign-up comes next). Shown on the session.
 export function setAccount(id, state) {
-  const session = sessions.get(id);
-  if (!session || session.outcome || session.accountState === state) return false;
-  session.accountState = state;
-  listener('update', publicView(session));
-  save();
-  return true;
+  return applyJourney(id, {type: 'account', state});
 }
 export function clearStuck(id) {
+  applyJourney(id, {type: 'clear-stuck'});
+}
+// The one writer of a session's journey fields (lib/application-journey.js decides; this applies, tells the window and saves).
+function applyJourney(id, event) {
   const session = sessions.get(id);
-  if (!session?.stuck) return;
-  Object.assign(session, {stuck: '', accountNeeds: '', note: 'Form open in Chrome'});
+  const {set, result} = journey(session, event);
+  if (!Object.keys(set).length) return result;
+  Object.assign(session, set);
   listener('update', publicView(session));
   save();
+  return result;
 }
 // Apply with Claude took over the job: its form session is not needed any more.
 export function dropForm(url) {

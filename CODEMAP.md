@@ -27,6 +27,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/app-notify.js` — The app's notifications and Recent activity (moved out of main.js, 8 Oct 2026): a notification (macOS, or a toast in the window when macOS won't show it), the run list
 - `desktop/lib/app-reminders.js` — The app's reminders and what needs the user (moved out of main.js, 8 Oct 2026): the Focus reminders at 11:00, 15:00 and 19:00, resuming the queue after a start,
 - `desktop/lib/app-updates.js` — The app's updates and menu (moved out of main.js, 8 Oct 2026): the check for a newer release, installing it, the application menu with Check for Updates, the beta and tester
+- `desktop/lib/application-journey.js` — Where an application stands, owned in ONE place (spec: docs/superpowers/specs/2026-10-10-application-journey.md). A pure reducer: a session's
 - `desktop/lib/application-result.js` — How an application ended, as one fixed word (owner, 9 Oct 2026: "how many forms were submitted, how many failed, how many assisted"). Counted per board and day with the
 - `desktop/lib/applications.js` — On the Mac the app belongs in Applications: opened from the disk image (or from Downloads, where macOS runs
 - `desktop/lib/apply-handlers.js` — The application flow's IPC (moved out of main.js, 8 Oct 2026): Apply and Apply with Claude, the form page's review state, watch and focus, showing a

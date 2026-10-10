@@ -8,7 +8,7 @@ export const FLOW_FILES = [
   'extension/background.js', 'extension/tab-pages.js', 'extension/same-tab.js', 'extension/review.js', 'extension/flow.js',
   'extension/tabs.js', 'extension/account.js', 'extension/account-step.js', 'extension/form-ready.js', 'extension/next-step.js', 'extension/escalate.js', 'extension/account-fill.js', 'extension/log.js', 'extension/tab-memory.js', 'extension/fill-flow.js',
   'extension/messages-learning.js', 'extension/messages-panel.js', 'extension/messages-app.js', 'extension/submit-watch.js', 'extension/tab-report.js',
-  'desktop/lib/review.js', 'desktop/lib/terminals.js', 'desktop/lib/apply.js', 'desktop/lib/session-handlers.js', 'desktop/lib/form-tab.js',
+  'desktop/lib/review.js', 'desktop/lib/terminals.js', 'desktop/lib/application-journey.js', 'desktop/lib/apply.js', 'desktop/lib/session-handlers.js', 'desktop/lib/form-tab.js',
   'desktop/lib/session-flow.js', 'desktop/lib/page-kind.js', 'desktop/lib/apply-handlers.js', 'desktop/lib/browser-handlers.js', 'desktop/lib/kit-handlers.js', 'desktop/lib/ext-server-handlers.js',
 ];
 
@@ -16,7 +16,7 @@ export const FLOW_FILES = [
 // a big change here deserves the whole matrix (npm run flows, on demand). Any other flow file is checked with the best-fit method (owner, 8 Oct
 // 2026: "let's not run it so often… the best fit one for every case"; AGENTS.md "Which test for which question").
 export const FLOW_CORE = ['extension/tab-pages.js', 'extension/tabs.js', 'extension/same-tab.js', 'extension/account.js', 'extension/fill-flow.js',
-  'desktop/lib/session-flow.js', 'desktop/lib/page-kind.js', 'desktop/lib/review.js'];
+  'desktop/lib/session-flow.js', 'desktop/lib/page-kind.js', 'desktop/lib/review.js', 'desktop/lib/application-journey.js', 'desktop/lib/terminals.js'];
 
 // One row per scenario. `e2e`: words of its step in desktop/e2e/suites/apply.mjs or lib/apply-*.mjs (E2E_STEPS); `unit`: desktop/test files.
 export const MATRIX = [
