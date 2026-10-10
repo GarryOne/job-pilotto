@@ -51,6 +51,7 @@ export const neverForm = url => {
 // → the candidate, or null. Tested in desktop/test/extension-tab-pages.test.js.
 const APPLY_PHRASE = /^(to apply|apply( now| here| online| today)?( for (this|the) (job|role|position|opening))?|apply to this (job|role|position)|i['\u2019]?m interested|start (your |the )?application|jetzt bewerben|online bewerben|bewerben|zur bewerbung|bewerbung starten|postuler( maintenant| en ligne)?|candidater|postuler [a\u00e0] (ce|cette) (poste|offre)|candidati( ora)?|invia candidatura|inscribirme|aplicar( ahora)?)[\s\p{P}\p{S}]*$/iu;   // any trailing marks: "Postuler »" (Coop, 8 Oct 2026), "Apply →", "Apply ❯"
 const NOT_APPLY = /sign.?in|log.?in|register|create (an )?account|submit|save|share|alert|easy apply|apply with |already applied|follow|subscribe/i;
+const notAPage = href => /^(mailto|tel|javascript):/i.test(String(href || ''));   // a mail, phone or script link is no way into the application
 export function pickApplyButton(candidates = [], phrases = []) {
   let best = null, bestScore = -1;
   for (const item of candidates) {
@@ -59,7 +60,7 @@ export function pickApplyButton(candidates = [], phrases = []) {
     const learned = buttonPhrase(text, phrases);
     if (item?.submits) continue;   // never a form's Submit, whatever its words (applyCandidates: by structure)
     if (!item?.visible || item.disabled || !text || text.length > 40 || !(APPLY_PHRASE.test(text) || learned) || NOT_APPLY.test(text)) continue;
-    if (/^(mailto|tel|javascript):/i.test(String(item.href || ''))) continue;
+    if (notAPage(item.href)) continue;
     const score = 100 - text.length + (item.tag === 'button' ? 5 : 0) + Math.min(20, Math.log10(Math.max(1, Number(item.area) || 1)) * 4);
     if (score > bestScore) { best = learned && !APPLY_PHRASE.test(text) ? {...item, viaPhrase: learned} : item; bestScore = score; }
   }
@@ -78,7 +79,7 @@ export function pickNamedButton(candidates = [], named = '') {
   for (const item of candidates) {
     const text = same(item?.text);
     if (text !== wanted || item.submits || !item.visible || item.disabled || NOT_APPLY.test(text)) continue;
-    if (/^(mailto|tel|javascript):/i.test(String(item.href || ''))) continue;
+    if (notAPage(item.href)) continue;
     if (!best || (Number(item.area) || 0) > (Number(best.area) || 0)) best = item;
   }
   return best;
