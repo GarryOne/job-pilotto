@@ -45,7 +45,7 @@ test('a middle step keeps the next control the page lists; a final step, an inve
 
 test('the route passes a middle step\'s control on and has no mode: there is no setting to say otherwise', async () => {
   const client = fake({answer: 'ready', needs: '', needs_kind: '', confidence: 0.9, step: 'middle', next_control: 'Continuer'});
-  const answer = await decideAccountJudge({settings: () => ({applicationNext: 'assist'})}, {phase: 'form', sketch: steps}, {client});
+  const answer = await decideAccountJudge({settings: () => ({})}, {phase: 'form', sketch: steps}, {client});
   assert.deepEqual([answer.nextControl, answer.step, 'nextMode' in answer], ['Continuer', 'middle', false]);
 });
 

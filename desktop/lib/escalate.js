@@ -33,14 +33,14 @@ const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
 const FORM_INSTRUCTIONS = `You help a browser extension that is stuck on a page of a JOB APPLICATION on an employer's site, in any language. It filled the page and put nothing in: required things are still empty and it does not know what to do next. You get a sketch of the page (and sometimes a screenshot with the person's typed values hidden): its controls with their state, its buttons and links, short texts.
 Say what to do next, as ONE action: click (the exact label of one listed button or link that moves this step forward or reveals the part of the page where the answer goes, for example a choice between uploading a document, pasting it or doing it later: pick the way that needs the person's own document uploaded, never one that postpones or skips it), wait (the page is still loading or reacting), or ask_person (something only the person can do, or nothing listed helps). Never choose a control that submits, sends or finishes the application, accepts terms, a consent or a privacy statement, signs in, or leaves the site. Copy the control's label exactly as listed.`;
 
-// The same check for an application page: a click on a listed control moves it on only when the person turned on "Go to the next step of an application for me" (applicationNext 'full'), else the person clicks and is told which control;
-// fill and choose are not for application pages. -> {ok, action, control?, why?}
-export function vetForm(found, sketch, settings) {
+// The same check for an application page: a click on a control the page lists goes through (the extension presses it with next-step.js pressInPage, which never presses a control that submits or reads like Submit);
+// fill and choose are not for application pages. The look itself stays opt-in and capped (settings.escalation, CAPS). -> {ok, action, control?, why?}
+export function vetForm(found, sketch) {
   const asked = {ok: true, action: 'ask_person'};
   if (found.action === 'click') {
     const control = listed(found.control, sketch);
     if (!control) return {...asked, why: 'the control is not on the page'};
-    return settings.applicationNext === 'full' ? {ok: true, action: 'click', control} : {...asked, control, why: 'assist: the person clicks'};
+    return {ok: true, action: 'click', control};
   }
   if (found.action === 'wait') return {ok: true, action: 'wait'};
   return asked;

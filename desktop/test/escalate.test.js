@@ -100,15 +100,13 @@ test('a fill that worked is remembered with its detail and replayed only while t
 const formSketch = {url: 'https://apply.example/Methods', title: 'My CV', headings: [], controls: [{type: 'textarea', label: 'Copy and paste CV', required: true, state: 'empty', at: '50,60'}], buttons: ['Upload CV', 'Copy and paste CV', 'Upload later', 'Continue'], texts: ['Choose from one of the options below'], frames: []};
 const askForm = (extra = {}) => ({url: 'https://apply.example/Methods?tempJobid=1', kind: 'form', sketch: formSketch, image: '', reason: 'nothing filled', ...extra});
 
-test('an application page: asked from the sketch alone, a click on a listed control is vetted; assist means the person clicks and is told which; Submit-like answers are not controls', async () => {
+test('an application page: asked from the sketch alone; a listed control is clicked, an unlisted one (Submit application) never; typing is never done', async () => {
   const seen = [];
-  const settings = {escalation: 'on', applicationNext: 'full'};
+  const settings = {escalation: 'on'};
   const good = await escalate(storageOf(settings), askForm(), {client: fake({action: 'click', control: 'upload cv', why: 'reveals the file box', confidence: 0.9}, seen)});
   assert.deepEqual([good.action, good.control], ['click', 'Upload CV']);
   assert.ok(!JSON.stringify(seen[0]).includes('"type":"image"'), 'no picture in the cheap look');
   assert.match(JSON.stringify(seen[0]), /JOB APPLICATION/);
-  const assist = await escalate(storageOf({escalation: 'on'}), askForm({url: 'https://apply.example/Other'}), {client: fake({action: 'click', control: 'Upload CV', why: 'x', confidence: 0.9})});
-  assert.deepEqual([assist.action, assist.control, assist.why], ['ask_person', 'Upload CV', 'assist: the person clicks']);
   const made = await escalate(storageOf(settings), askForm({url: 'https://apply.example/Third'}), {client: fake({action: 'click', control: 'Submit application', why: 'x', confidence: 0.9})});
   assert.deepEqual([made.action, made.why], ['ask_person', 'the control is not on the page']);
   const typed = await escalate(storageOf(settings), askForm({url: 'https://apply.example/Fourth'}), {client: fake({action: 'fill', control: 'Copy and paste CV', why: 'x', confidence: 0.9})});
@@ -118,6 +116,6 @@ test('an application page: asked from the sketch alone, a click on a listed cont
 test('an application page: off stays off, and the picture goes only when the extension sends one', async () => {
   const seen = [];
   assert.equal((await escalate(storageOf({}), askForm(), {client: fake({}, seen)})).why, 'off');
-  await escalate(storageOf({escalation: 'on', applicationNext: 'full'}), askForm({url: 'https://apply.example/Pic', image: Buffer.from('jpeg').toString('base64')}), {client: fake({action: 'wait', control: '', why: 'x', confidence: 1}, seen)});
+  await escalate(storageOf({escalation: 'on'}), askForm({url: 'https://apply.example/Pic', image: Buffer.from('jpeg').toString('base64')}), {client: fake({action: 'wait', control: '', why: 'x', confidence: 1}, seen)});
   assert.ok(JSON.stringify(seen[0]).includes('"type":"image"'));
 });
