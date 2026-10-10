@@ -53,6 +53,12 @@ export async function ingest(db, body, now = new Date()) {
 const all = async (db, sql, ...args) => (await db.prepare(sql).bind(...args).all()).results || [];
 const dayOf = date => date.toISOString().slice(0, 10);
 
+// A shortfall as the page sees it (the upload carries counts only; the runner's own rule is desktop/e2e/lib/smoke.mjs shortfall, same threshold): the form was reached and fewer than half of its fields are filled.
+export const shortOf = (reached, filled, left) => (reached === 'form' && Number.isInteger(filled) && Number.isInteger(left) && filled + left > 0 && filled / (filled + left) < 0.5 ? {done: filled, total: filled + left} : null);
+const shareOf = (filled, left) => (Number.isInteger(filled) && Number.isInteger(left) && filled + left > 0 ? Math.round((100 * filled) / (filled + left)) : null);
+// Needs a fix: not a posting that is gone, and a regression, a shortfall, or a stop before the form (a code or bot check is a documented hold, not a fix).
+const needsFix = site => !site.note && !!site.reached && (site.regression || !!site.short || ['none', 'posting', 'account'].includes(site.reached));
+
 export async function data(db, now = new Date()) {
   const since = dayOf(new Date(now.getTime() - 30 * 86400000)), tenDays = dayOf(new Date(now.getTime() - 9 * 86400000));
   const runs = await all(db, 'SELECT * FROM applying_runs WHERE day >= ? ORDER BY day, id', since);
@@ -60,7 +66,7 @@ export async function data(db, now = new Date()) {
   const sites = Object.entries(byName('smoke')).map(([name, list]) => {
     const last = list.at(-1);
     return {name, at: last.at, host: last.host, reached: last.reached, filled: last.filled, left: last.left_n, day: last.day, version: last.version, note: last.note, rung: last.rung ?? null, signal: last.signal ?? null,
-      regression: !!last.regression, history: list.slice(-10).map(run => run.reached || 'none')};
+      regression: !!last.regression, short: shortOf(last.reached, last.filled, last.left_n), shares: list.slice(-10).map(run => shareOf(run.filled, run.left_n)), history: list.slice(-10).map(run => run.reached || 'none')};
   }).sort((a, b) => Number(b.regression) - Number(a.regression) || STEPS.indexOf(a.reached) - STEPS.indexOf(b.reached));
   const cases = Object.entries(byName('recorded')).map(([name, list]) => {
     const last = list.at(-1);
@@ -81,7 +87,7 @@ export async function data(db, now = new Date()) {
       cases: cases.length, casesFailing: cases.filter(item => !item.ok).length, casesLast: cases.map(item => item.day).sort().at(-1) || null,
       sites: sites.length, sitesRecent: sites.filter(site => site.day >= tenDays).length,
       reachedForm: live.length ? Math.round((100 * live.filter(site => ['form', 'ready'].includes(site.reached)).length) / live.length) : null,
-      regressions: sites.filter(site => site.regression).length, gone: sites.filter(site => site.note).length, dropped: dropped.length},
+      needFix: sites.filter(needsFix).length, regressions: sites.filter(site => site.regression).length, gone: sites.filter(site => site.note).length, dropped: dropped.length},
     sites, pool, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, now: now.toISOString()};
 }
 
@@ -100,7 +106,7 @@ async function poolRows(db, sites, now) {
     const {flow, raw} = flowOf(row.signature, start);
     const step = row.signature?.match(/#([^#]+)$/)?.[1] || null, reached = site?.reached ?? step;
     return {name: displayName(name, start), platform: platformLabel(end, start), flow, raw, start, end, reached, day: site?.day ?? null, at: site?.at ?? null, running: running.has(name), note: site?.note ?? null, rung: site?.rung ?? null, signal: site?.signal ?? null,
-      regression: !!site?.regression, history: site?.history ?? (step ? [step] : [])};
+      regression: !!site?.regression, filled: site?.filled ?? null, left: site?.left ?? null, short: site?.short ?? null, shares: site?.shares ?? [], history: site?.history ?? (step ? [step] : [])};
   }).sort((a, b) => Number(b.running) - Number(a.running) || a.platform.localeCompare(b.platform) || a.name.localeCompare(b.name));
 }
 
@@ -155,7 +161,9 @@ fetch('?json').then(r => r.json()).then(d => {
     tile(t.sites ? t.sitesRecent + ' / ' + t.sites : 0, 'smoke sites run in the last 10 nights'),
     tile(t.reachedForm == null ? '–' : t.reachedForm + '%', 'sites that reached the form', t.reachedForm >= 70 ? 'good' : ''),
     tile(t.regressions, 'regressions open' + (t.gone ? ' · ' + t.gone + ' posting(s) gone' : ''), t.regressions ? 'bad' : 'good'),
+    tile(t.needFix, 'sites need a fix (stopped early, under half filled, or a regression)', t.needFix ? 'bad' : 'good'),
     tile(t.dropped, 'boards dropped in the fleet (layer 4)', t.dropped ? 'bad' : 'good')));
+  const fixBox = el('section', {className: 'fix'}); app.append(fixBox);   // Needs a fix: right under the tiles, drawn once block() exists (drawFix)
   // Nights · where each site got to (owner, 10 Oct 2026: more readable, at the top): one bar per night, newest first, every site of that night split by the step it reached
   // (the segment's width is its share, its number the count), then how many sites ran and the share that reached the form.
   if (d.nights.length) {
@@ -179,10 +187,11 @@ fetch('?json').then(r => r.json()).then(d => {
   // What the colors mean (owner, 10 Oct 2026): the badge and the dots of the pool table are the step a run reached, not how well the form was filled.
   const COLORS = {none: 'grey', posting: 'red', account: 'amber', 'code/bot': 'violet', form: 'blue', ready: 'green'};   // the page's own --muted, --red, --amber, --violet, --blue, --green
   const MEANS = {none: 'nothing reached, or never run (the dash)', posting: 'stopped at the job posting, never got past it', account: 'reached an account or sign-in page', 'code/bot': 'stopped at an email code or a bot check (a documented hold)', form: 'reached the application form', ready: 'the form is filled with nothing required left'};
+  const SHORT_ROW = el('tr', {}, el('td', {}, el('span', {className: 'pill s-posting', textContent: 'red · form'})), el('td', {textContent: 'form, under half'}), el('td', {className: 'muted', textContent: 'reached the form, but fewer than half of the fields are filled: it counts as a failure and goes on the "Needs a fix" list'}));
   const colorLegend = el('div', {className: 'legend'}, el('h3', {textContent: 'What the colors mean'}),   // the foot of the pool table (owner, 10 Oct 2026)
-    el('p', {className: 'muted', textContent: 'On the pool table, the "Last reached" badge and the dots of "Last 10 runs" show the step a run reached (a color is not a verdict on how well the form was filled). In the fixed-site replays a dot is green when the case passed and red when it failed.'}),
+    el('p', {className: 'muted', textContent: 'On the pool table, the "Last reached" badge and the dots of "Last 10 runs" show the step a run reached; a red "form · 4 of 12" means the form was reached but under half of it was filled. In the fixed-site replays a dot is green when the case passed and red when it failed.'}),
     el('table', {}, el('tr', {}, ...['Color', 'Step', 'Meaning'].map(h => el('th', {textContent: h}))),
-      ...d.steps.map(step => el('tr', {}, el('td', {}, el('span', {className: 'pill s-' + step, textContent: COLORS[step] || step})), el('td', {textContent: step}), el('td', {className: 'muted', textContent: MEANS[step] || ''})))));
+      ...d.steps.map(step => el('tr', {}, el('td', {}, el('span', {className: 'pill s-' + step, textContent: COLORS[step] || step})), el('td', {textContent: step}), el('td', {className: 'muted', textContent: MEANS[step] || ''}))), SHORT_ROW));
   const dots = list => el('span', {className: 'dots'}, ...list.map(step => el('i', {title: step, style: 'background:' + (typeof step === 'number' ? (step ? 'var(--green)' : 'var(--red)') : color(step))})));
   // Sortable columns (owner, 10 Oct 2026: all the red ones first): every table's header sorts ascending, then descending, then back to the page's own order. The choice is kept per
   // table across the 15 s redraw. Empty cells go last either way. For a step or a run, ascending is the worst first (red before blue); the page's own order keeps running sites on top.
@@ -203,14 +212,14 @@ fetch('?json').then(r => r.json()).then(d => {
   const blocked = s => !!s.reached && !['form', 'ready'].includes(s.reached) && s.rung != null;
   const rungCell = s => (s.rung == null ? el('span', {className: 'muted', title: 'not reported', textContent: s.reached ? '?' : '—'}) : blocked(s)
     ? el('span', {}, el('span', {className: 'flag', textContent: 'blocked at ' + s.rung}), s.signal ? el('div', {className: 'muted', textContent: s.signal}) : null) : el('span', {textContent: s.rung}));
-  const POOL_GET = [s => s.name.toLowerCase(), s => s.platform, s => s.flow, s => s.start, s => (s.reached ? rankOf(s.reached) : null), s => (s.rung == null ? null : s.rung + (blocked(s) ? 10 : 0)), s => (s.at ? Date.parse(s.at) : null), s => (s.history.length ? rankOf(s.history.at(-1)) : null)];
+  const POOL_GET = [s => s.name.toLowerCase(), s => s.platform, s => s.flow, s => s.start, s => (s.reached ? rankOf(s.reached) - (s.short ? 0.5 : 0) : null), s => (s.rung == null ? null : s.rung + (blocked(s) ? 10 : 0)), s => (s.at ? Date.parse(s.at) : null), s => (s.history.length ? rankOf(s.history.at(-1)) : null)];
   const draw = () => { const rows = sortRows('pool', d.pool.filter(s => (!chosen.platform || s.platform === chosen.platform) && (!chosen.flow || s.flow === chosen.flow)), POOL_GET), pages = Math.max(1, Math.ceil(rows.length / PER)); chosen.page = Math.min(chosen.page, pages - 1); const shown = rows.slice(chosen.page * PER, (chosen.page + 1) * PER); table.textContent = ''; count.textContent = 'Showing ' + (rows.length ? chosen.page * PER + 1 : 0) + '–' + (chosen.page * PER + shown.length) + ' of ' + rows.length + (rows.length < d.pool.length ? ' (' + d.pool.length + ' in the pool)' : ''); pager.textContent = ''; clear.hidden = !chosen.platform && !chosen.flow;
     table.append(rows.length ? el('table', {},
       el('tr', {}, ...heads('pool', ['Site', 'Platform', 'Flow it tests', 'Starts → ends on', 'Last reached', 'Rung', 'Last run', 'Last 10 runs'], () => { chosen.page = 0; draw(); })),
       ...shown.map(s => el('tr', {}, el('td', {}, s.name, s.regression ? el('div', {className: 'flag', textContent: 'regression'}) : null, s.note ? el('div', {className: 'muted', textContent: s.note}) : null),
         el('td', {textContent: s.platform}), el('td', {title: s.raw || '', textContent: s.flow || '—'}),
         el('td', {className: 'muted', textContent: (s.start || '…') + (s.end && s.end !== s.start ? ' → ' + s.end : '')}),
-        el('td', {}, s.reached ? pill(s.reached) : el('span', {className: 'muted', textContent: '—'}), s.day ? el('div', {className: 'muted', textContent: s.day}) : null),
+        el('td', {}, s.reached ? (s.short ? el('span', {className: 'pill s-posting', title: 'reached the form, under half of the fields filled', textContent: 'form · ' + s.short.done + ' of ' + s.short.total}) : pill(s.reached)) : el('span', {className: 'muted', textContent: '—'}), s.day ? el('div', {className: 'muted', textContent: s.day}) : null),
         el('td', {}, rungCell(s)),
         el('td', {className: 'muted', title: s.at || ''}, s.running ? el('span', {}, el('i', {className: 'spin'}), 'running…') : el('span', {textContent: s.at ? ago(s.at) : '—'})),
         el('td', {}, s.history.length ? dots(s.history) : el('span', {className: 'muted', textContent: '—'}))))) : el('p', {className: 'muted', textContent: 'No site matches.'}));
@@ -220,7 +229,7 @@ fetch('?json').then(r => r.json()).then(d => {
   // Next sites to add: first the platforms most matched jobs are on that the pool covers too little (from any number of installs), then the hosts real applications ended on
   // that the pool lacks, each used by >= 3 installs (src/nextsites.js). Top 5 of each, the rest on request.
   // Each list is a bar (its title, "Showing 1-5 of N", Previous / Next) over a table: the pool table's own pattern, 5 rows a page.
-  const nextPage = {platforms: 0, sites: 0, score: 0}, NEXT_PER = 5, nextBox = el('div'), scoreBox = el('div');
+  const nextPage = {platforms: 0, sites: 0, score: 0, fix: 0}, NEXT_PER = 5, nextBox = el('div'), scoreBox = el('div');
   const block = (key, title, what, allRows, labels, row, none, redraw = () => drawNext(), getters = []) => {
     const rows = sortRows(key, allRows, getters), pages = Math.max(1, Math.ceil(rows.length / NEXT_PER)); nextPage[key] = Math.min(nextPage[key], pages - 1);
     const from = nextPage[key] * NEXT_PER, shown = rows.slice(from, from + NEXT_PER), go = step => () => { nextPage[key] += step; redraw(); };
@@ -245,13 +254,25 @@ fetch('?json').then(r => r.json()).then(d => {
   // The platform scorecard: real use against the pool's tests, one verdict per platform (src/scorecard.js).
   const TONE = {'Not in the pool': 'posting', 'Weak in both': 'posting', 'Blind spot': 'account', 'Test failing': 'code\\/bot', Fine: 'ready'};
   const pct = value => (value == null ? '—' : value + '%');
+  // Needs a fix (owner, 10 Oct 2026: "all the red first"): the sites where applying stops, worst first: regressions, then the earliest stop, then the least filled form. A code or bot check is a documented hold, not here.
+  const needs = s => !s.note && !!s.reached && (s.regression || !!s.short || ['none', 'posting', 'account'].includes(s.reached));
+  const worst = s => (s.regression ? 0 : s.short ? 100 + s.short.done / s.short.total : 1 + rankOf(s.reached));
+  const filledRuns = s => (s.shares || []).filter(value => value != null);
+  const drawFix = () => { fixBox.textContent = '';
+    fixBox.append(el('h2', {textContent: 'Needs a fix · where applying stops'}),
+      el('p', {className: 'muted', textContent: 'A regression, a stop before the form, or a form reached with under half of the fields filled. The last column is the share of fields filled in each of the last runs: a fix shows there the next night.'}),
+      ...block('fix', 'Sites', 'Worst first', d.pool.filter(needs).sort((a, b) => worst(a) - worst(b) || a.name.localeCompare(b.name)), ['Site', 'Platform', 'Why', 'Filled, last runs', 'Last run'],
+        s => el('tr', {}, el('td', {textContent: s.name}), el('td', {textContent: s.platform}),
+          el('td', {}, el('span', {className: 'flag', textContent: s.regression ? 'regression' : s.short ? 'form · ' + s.short.done + ' of ' + s.short.total + ' filled' : 'stopped at the ' + s.reached})),
+          el('td', {className: 'muted', textContent: filledRuns(s).length ? filledRuns(s).join(' → ') + '%' : '—'}), el('td', {className: 'muted', textContent: s.at ? ago(s.at) : '—'})),
+        'Nothing needs a fix', () => drawFix(), [s => s.name.toLowerCase(), s => s.platform, worst, s => filledRuns(s).at(-1) ?? null, s => (s.at ? Date.parse(s.at) : null)]).filter(Boolean)); };
   const drawScore = () => { scoreBox.textContent = '';
     scoreBox.append(...block('score', 'Platforms', 'Real use against the tests', d.scorecard || [], ['Platform', 'Verdict', 'Of matched jobs', 'Real forms', 'Required filled', 'Pool sites', 'Reached the form'],
       s => el('tr', {}, el('td', {textContent: s.platform}), el('td', {}, el('span', {className: 'pill s-' + TONE[s.verdict], textContent: s.verdict})), el('td', {textContent: pct(s.matchShare)}),
         el('td', {className: 'muted', textContent: s.forms || '—'}), el('td', {className: 'muted', textContent: pct(s.filledShare)}), el('td', {className: 'muted', textContent: s.poolSites || 'none'}), el('td', {className: 'muted', textContent: pct(s.poolReached)})),
       'No platform seen yet', () => drawScore(), [s => s.platform, s => Object.keys(TONE).indexOf(s.verdict), s => s.matchShare, s => s.forms, s => s.filledShare, s => s.poolSites, s => s.poolReached]).filter(Boolean)); };
   app.append(el('section', {}, el('h2', {textContent: 'Platform scorecard · real use against the tests'}),
-    el('p', {className: 'muted', textContent: 'Per platform: its share of the matched jobs and how well real forms are filled (the form-filling page), against the pool sites on it and how many reached the form. Verdicts, in the order to act: not in the pool; weak in both; blind spot (tests reach the form, real users do not fill it); test failing (real use is fine). Under 5 real forms is no evidence.'}), scoreBox)); drawScore();
+    el('p', {className: 'muted', textContent: 'Per platform: its share of the matched jobs and how well real forms are filled (the form-filling page), against the pool sites on it and how many reached the form. Verdicts, in the order to act: not in the pool; weak in both; blind spot (tests reach the form, real users do not fill it); test failing (real use is fine). Under 5 real forms is no evidence.'}), scoreBox)); drawScore(); drawFix();
   const caseBox = el('div'), CASE_GET = [c => c.name.toLowerCase(), c => c.rung, c => (c.ok ? 1 : 0), c => c.history.at(-1), c => c.day, c => c.since];
   const drawCases = () => { caseBox.textContent = ''; caseBox.append(el('table', {},
     el('tr', {}, ...heads('cases', ['Case', 'Rung guarded', 'Result', 'Last 10 runs', 'Last run', 'Since'], drawCases)),
@@ -263,6 +284,6 @@ fetch('?json').then(r => r.json()).then(d => {
   app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table, colorLegend)
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
   // Fetch again every 15 s while the tab is visible and redraw the pool, so the spinner and the times follow a run without a reload.
-  setInterval(() => { if (!document.hidden) fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; d.scorecard = fresh.scorecard; draw(); drawNext(); drawScore(); }).catch(() => {}); }, 15000);
+  setInterval(() => { if (!document.hidden) fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; d.scorecard = fresh.scorecard; draw(); drawFix(); drawNext(); drawScore(); }).catch(() => {}); }, 15000);
 }).catch(error => { document.getElementById('app').textContent = 'Could not load: ' + error.message; });
 </script></main></body></html>`;

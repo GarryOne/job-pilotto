@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {existsSync, readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
-import {PAGE, data, ingest} from '../src/applying.js';
+import {PAGE, data, ingest, shortOf} from '../src/applying.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -133,4 +133,22 @@ test('the Nights chart sits right under the tiles: one row per night, newest fir
 test('the page explains its colors: a legend row for every step the page draws', () => {
   assert.match(PAGE, /What the colors mean/);
   for (const step of ['none', 'posting', 'account', 'code/bot', 'form', 'ready']) assert.ok(PAGE.includes(step === 'code/bot' ? "'code/bot': '" : step + ': '), step + ' has no meaning in the legend');
+});
+
+test('a form reached with under half of its fields filled is a shortfall: red on the page, on the needs-a-fix count, with the filled share of each run (owner, 10 Oct 2026: 4 of 13 showed blue)', async () => {
+  assert.deepEqual(shortOf('form', 4, 8), {done: 4, total: 12});
+  assert.equal(shortOf('form', 6, 6), null);   // half is not a shortfall
+  assert.equal(shortOf('ready', 5, 0), null);
+  assert.equal(shortOf('posting', 0, 0), null);   // an earlier stop is its own failure
+  assert.equal(shortOf('form', null, null), null);
+  const db = d1();
+  await ingest(db, {kind: 'smoke', day: '2026-10-11', rows: [{name: 'Short', host: 's.com', reached: 'form', filled: 3, left: 9}, {name: 'Half', host: 'h.com', reached: 'form', filled: 6, left: 6}, {name: 'Early', host: 'e.com', reached: 'posting'}]}, now);
+  await ingest(db, {kind: 'smoke', day: '2026-10-12', rows: [{name: 'Short', host: 's.com', reached: 'form', filled: 4, left: 8}, {name: 'Hold', host: 'b.com', reached: 'code/bot'}, {name: 'Gone', host: 'g.com', reached: 'none', note: 'posting gone (HTTP 404)'}, {name: 'Ready', host: 'r.com', reached: 'ready', filled: 5, left: 0}]}, now);
+  const d = await data(db, now), by = Object.fromEntries(d.pool.map(item => [item.name, item]));
+  assert.deepEqual(by.Short.short, {done: 4, total: 12});
+  assert.deepEqual(by.Short.shares, [25, 33]);   // each run's filled share, oldest first
+  assert.equal(by.Half.short, null);
+  assert.equal(by.Early.short, null);
+  assert.equal(d.tiles.needFix, 2);   // Short (under half) and Early (stopped at the posting); a bot check, a posting gone, a ready form and half-filled are not
+  assert.ok(PAGE.includes('Needs a fix') && PAGE.includes("'form · ' + s.short.done"), 'the page lists them and draws the red pill');
 });
