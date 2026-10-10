@@ -14,6 +14,7 @@ import {compare, lastSeen, marksBlind, parseLive, pickPosting, placeFound, rungF
 import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
 import {poolCard, sendPoolCard} from './lib/pool-card.mjs';
 import {earlierReports, recordSite} from './lib/smoke-record.mjs';
+import {evidenceLines, runFinished, writeBundle} from './lib/evidence-bundle.mjs';
 import {dropCandidate, saveCandidate} from './lib/replay-candidate.mjs';
 import {fetchWanted, wantedFirst} from './lib/wanted-hosts.mjs';
 
@@ -42,7 +43,7 @@ function liveRun(posting, seconds, captureDir = '') {
     let output = '';
     child.stdout.on('data', chunk => { output += chunk; });
     child.stderr.on('data', chunk => { output += chunk; });
-    child.on('close', code => resolve({output, code, seconds: Math.round((Date.now() - started) / 1000)}));
+    child.on('close', (code, signal) => resolve({output, code, signal, seconds: Math.round((Date.now() - started) / 1000)}));
   });
 }
 
@@ -123,6 +124,11 @@ async function main() {
     await ping(shape, 'start');
     const captureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-capture-'));
     const run = await liveRun(posting, seconds, captureDir).finally(() => ping(shape, 'end'));
+    if (!runFinished(run)) {   // killed or cut short (eb's 23 s Datadog row, 11 Oct 2026): nothing is recorded, uploaded or saved as a candidate
+      fs.rmSync(captureDir, {recursive: true, force: true});
+      console.log(`smoke: ${shape}: the run did not finish (${run.signal ? `killed by ${run.signal}` : `no end of the watch, exit ${run.code}`}, ${run.seconds}s): nothing recorded, nothing uploaded`);
+      continue;
+    }
     results[shape] = {url: posting.url, ...parseLive(run.output), exit: run.code, seconds: run.seconds};
     results[shape].signature = signature(results[shape]);
     results[shape].marksBlind = marksBlind(results[shape]);
@@ -133,6 +139,10 @@ async function main() {
     const html = (() => { try { return fs.readFileSync(path.join(captureDir, 'page.html'), 'utf8'); } catch { return ''; } })();
     try { fs.writeFileSync(path.join(REPORTS, `${day}-${shape.replace(/\W+/g, '-')}.app.log`), fs.readFileSync(path.join(captureDir, 'app.log'), 'utf8')); } catch { /* no app log kept: the run did not get that far */ }
     const aiCalls = (() => { try { return fs.readFileSync(path.join(captureDir, 'ai-calls.json'), 'utf8'); } catch { return ''; } })();   // the app's live page-kind calls (desktop/lib/live-capture.js)
+    const appLog = (() => { try { return fs.readFileSync(path.join(captureDir, 'app.log'), 'utf8'); } catch { return ''; } })();
+    results[shape].evidence = path.relative(REPORTS, writeBundle({dir: path.join(REPORTS, 'evidence'), day, shape, output: run.output, appLog, aiCalls, result: results[shape]}));   // one bundle per shape (lib/evidence-bundle.mjs)
+    results[shape].lines = evidenceLines(appLog);   // the four lines that matter, quoted in the day's report
+    console.log(`smoke: ${shape}: evidence ${path.join(REPORTS, results[shape].evidence, 'evidence.md')}`);
     const kept = saveCandidate({dir: CANDIDATES, day, shape, result: results[shape], html, output: run.output, aiCalls});
     if (kept) console.log(`smoke: ${shape}: replay candidate saved in ${kept}`); else dropCandidate({dir: CANDIDATES, day, shape});
     fs.rmSync(captureDir, {recursive: true, force: true});
