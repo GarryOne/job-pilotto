@@ -1,7 +1,7 @@
 // The nightly smoke's logic (lib/smoke.mjs): how far a live run got, what counts as a regression, which posting is tried tonight.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {compare, parseLive, pickPosting} from '../lib/smoke.mjs';
+import {compare, parseLive, pickPosting, placeFound} from '../lib/smoke.mjs';
 
 const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detail/x/
   2026-10-10T12:20:27Z [extension] page kind: account {"shape":"auth.jobs.ch/u/login/identifier|1-2","by":"ai"}
@@ -100,4 +100,15 @@ test('never an automated visit to LinkedIn, Glassdoor, Indeed, levels.fyi or Red
   assert.equal(mayVisit('https://career.hm.com/job/1'), true);
   assert.deepEqual(candidates([{url: 'https://ch.indeed.com/viewjob?jk=1'}, {url: 'https://career.hm.com/job/1'}]).map(item => item.url), ['https://career.hm.com/job/1']);
   assert.equal(pickPosting([{url: 'https://ch.indeed.com/viewjob?jk=1'}]), null);
+});
+
+test('a discovered flow names the employer, and fills a never-run shape of the same host instead of adding a duplicate', () => {
+  const shapes = [{shape: 'Richemont Workday', urls: ['https://richemont.wd3.myworkdayjobs.com/a']}, {shape: 'Known', urls: ['https://x.com/1'], signature: 'form@x.com#ready'}];
+  placeFound(shapes, {url: 'https://richemont.wd3.myworkdayjobs.com/b', company: 'Richemont'}, 'posting@richemont.wd3.myworkdayjobs.com#posting', '2026-10-10');
+  assert.equal(shapes.length, 2);
+  assert.equal(shapes[0].signature, 'posting@richemont.wd3.myworkdayjobs.com#posting');
+  placeFound(shapes, {url: 'https://jobs.ashbyhq.com/c/1', company: 'Acme'}, 'form@jobs.ashbyhq.com#form', '2026-10-10');
+  assert.equal(shapes[2].shape, 'Acme (found 2026-10-10)');
+  placeFound(shapes, {url: 'https://x.com/2'}, 'other@x.com#form', '2026-10-10');   // same host but already run: a new shape, named by host
+  assert.equal(shapes[3].shape, 'x.com (found 2026-10-10)');
 });

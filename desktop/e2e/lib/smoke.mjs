@@ -74,3 +74,14 @@ export function candidates(postings, known = new Set(), {perHost = 2, perBoard =
   }
   return Object.entries(byHost).flatMap(([host, list]) => list.slice(0, boards.test(host) ? perBoard : perHost));
 }
+
+// Where a discovered flow goes in this Mac's list: a never-run shape on the posting's own host gets the signature (no duplicate row), else a new shape named
+// by the employer ("Breitling (found 2026-10-10)"; the host's name when the list has no company). Returns the shape touched.
+export function placeFound(shapes, posting, flow, day) {
+  const host = url => { try { return new URL(url).hostname; } catch { return ''; } };
+  const own = shapes.find(item => !item.signature && (item.urls || []).some(url => host(url) === host(posting.url)));
+  if (own) { own.signature = flow; return own; }
+  const added = {shape: `${posting.company || host(posting.url)} (found ${day})`, urls: [posting.url], signature: flow};
+  shapes.push(added);
+  return added;
+}

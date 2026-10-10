@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {candidates, compare, lastSeen, parseLive, pickPosting, signature, tonight} from './lib/smoke.mjs';
+import {candidates, compare, lastSeen, parseLive, pickPosting, placeFound, signature, tonight} from './lib/smoke.mjs';
 import {hostOnly, poolRows, upload} from './lib/applying-report.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -73,7 +73,7 @@ async function discover(limit) {
     console.log(`smoke discover: ${flow} ${fresh ? 'NEW: added to the pool' : 'known'} (${hostOnly(posting.url)})`);
     if (fresh) {
       knownSignatures.add(flow);
-      local.shapes.push({shape: `${flow.split('#')[0]} (found ${day})`, urls: [posting.url], signature: flow});
+      placeFound(local.shapes, posting, flow, day);
       fs.mkdirSync(path.dirname(LOCAL_SITES), {recursive: true});
       fs.writeFileSync(LOCAL_SITES, `${JSON.stringify(local, null, 1)}\n`);
     }
