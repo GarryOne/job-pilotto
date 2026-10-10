@@ -5,6 +5,7 @@
 import {viewer} from './auth.js';
 import {digest} from './digest.js';
 import {nextToAdd} from './nextsites.js';
+import {platformScorecard} from './scorecard.js';
 import {displayName, flowOf, platformLabel, SIGNATURE, signatureHost} from './platform.js';
 
 export const STEPS = ['none', 'posting', 'account', 'code/bot', 'form', 'ready'];
@@ -68,6 +69,7 @@ export async function data(db, now = new Date()) {
     return out;
   }, {})).map(([day, counts]) => ({day, counts}));
   const pool = await poolRows(db, sites, now);
+  const scorecard = await platformScorecard(db, pool, now).catch(() => []);   // real use against the pool's tests, per platform (src/scorecard.js)
   const next = await nextToAdd(db, pool, now).catch(() => ({sites: [], hidden: {hosts: 0}}));   // real users' end hosts the pool lacks (src/nextsites.js)
   const live = sites.filter(site => !site.note);
   const dropped = await digest(db, now).then(d => d.boards.filter(board => board.dropped).map(board => ({board: board.board, earlier: board.earlierFilledShare, recent: board.recentFilledShare}))).catch(() => []);
@@ -77,7 +79,7 @@ export async function data(db, now = new Date()) {
       sites: sites.length, sitesRecent: sites.filter(site => site.day >= tenDays).length,
       reachedForm: live.length ? Math.round((100 * live.filter(site => ['form', 'ready'].includes(site.reached)).length) / live.length) : null,
       regressions: sites.filter(site => site.regression).length, gone: sites.filter(site => site.note).length, dropped: dropped.length},
-    sites, pool, next, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, now: now.toISOString()};
+    sites, pool, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, now: now.toISOString()};
 }
 
 // "Greenhouse: 4 sites, 3 flows": each group's size and how many different flows (or platforms) it holds.
@@ -170,10 +172,10 @@ fetch('?json').then(r => r.json()).then(d => {
   // Next sites to add: first the platforms most matched jobs are on that the pool covers too little (from any number of installs), then the hosts real applications ended on
   // that the pool lacks, each used by >= 3 installs (src/nextsites.js). Top 5 of each, the rest on request.
   // Each list is a bar (its title, "Showing 1-5 of N", Previous / Next) over a table: the pool table's own pattern, 5 rows a page.
-  const nextPage = {platforms: 0, sites: 0}, NEXT_PER = 5, nextBox = el('div');
-  const block = (key, title, what, rows, heads, row, none) => {
+  const nextPage = {platforms: 0, sites: 0, score: 0}, NEXT_PER = 5, nextBox = el('div'), scoreBox = el('div');
+  const block = (key, title, what, rows, heads, row, none, redraw = () => drawNext()) => {
     const pages = Math.max(1, Math.ceil(rows.length / NEXT_PER)); nextPage[key] = Math.min(nextPage[key], pages - 1);
-    const from = nextPage[key] * NEXT_PER, shown = rows.slice(from, from + NEXT_PER), go = step => () => { nextPage[key] += step; drawNext(); };
+    const from = nextPage[key] * NEXT_PER, shown = rows.slice(from, from + NEXT_PER), go = step => () => { nextPage[key] += step; redraw(); };
     return [el('div', {className: 'filters'}, el('label', {className: 'pick'}, el('span', {className: 'muted', textContent: title}), el('b', {textContent: what})),
         el('span', {className: 'muted count', textContent: rows.length ? 'Showing ' + (from + 1) + '–' + (from + shown.length) + ' of ' + rows.length : none}),
       pages > 1 ? el('div', {className: 'pager'}, el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: nextPage[key] === 0, onclick: go(-1)}),
@@ -192,6 +194,16 @@ fetch('?json').then(r => r.json()).then(d => {
         'Nothing yet: a site shows once 3 installs applied on it')].filter(Boolean)); };   // append() writes a null as the text "null"
   app.append(el('section', {}, el('h2', {textContent: 'Next sites to add · where people apply, not in the pool'}),
     el('p', {className: 'muted', textContent: 'Platforms: the share of matched jobs on each platform against its share of the pool, from any number of installs (a platform is a name from a fixed list). Sites: the site each application ended on, listed only once 3 different installs used it' + (d.next.hidden.hosts ? ' (' + d.next.hidden.hosts + ' more are below that and stay hidden)' : '') + '; under 3 installs a country is "other". Never a posting or an address.'}), nextBox)); drawNext();
+  // The platform scorecard: real use against the pool's tests, one verdict per platform (src/scorecard.js).
+  const TONE = {'Not in the pool': 'posting', 'Weak in both': 'posting', 'Blind spot': 'account', 'Test failing': 'code\\/bot', Fine: 'ready'};
+  const pct = value => (value == null ? '—' : value + '%');
+  const drawScore = () => { scoreBox.textContent = '';
+    scoreBox.append(...block('score', 'Platforms', 'Real use against the tests', d.scorecard || [], ['Platform', 'Verdict', 'Of matched jobs', 'Real forms', 'Required filled', 'Pool sites', 'Reached the form'],
+      s => el('tr', {}, el('td', {textContent: s.platform}), el('td', {}, el('span', {className: 'pill s-' + TONE[s.verdict], textContent: s.verdict})), el('td', {textContent: pct(s.matchShare)}),
+        el('td', {className: 'muted', textContent: s.forms || '—'}), el('td', {className: 'muted', textContent: pct(s.filledShare)}), el('td', {className: 'muted', textContent: s.poolSites || 'none'}), el('td', {className: 'muted', textContent: pct(s.poolReached)})),
+      'No platform seen yet', () => drawScore()).filter(Boolean)); };
+  app.append(el('section', {}, el('h2', {textContent: 'Platform scorecard · real use against the tests'}),
+    el('p', {className: 'muted', textContent: 'Per platform: its share of the matched jobs and how well real forms are filled (the form-filling page), against the pool sites on it and how many reached the form. Verdicts, in the order to act: not in the pool; weak in both; blind spot (tests reach the form, real users do not fill it); test failing (real use is fine). Under 5 real forms is no evidence.'}), scoreBox)); drawScore();
   app.append(el('section', {}, el('h2', {textContent: 'Fixed-site replays · every fixed site, replayed'}), d.cases.length ? el('table', {},
     el('tr', {}, ...['Case', 'Result', 'Last 10 runs', 'Last run', 'Since'].map(h => el('th', {textContent: h}))),
     ...d.cases.map(c => el('tr', {}, el('td', {textContent: c.name}), el('td', {}, c.ok ? el('span', {className: 'pill s-ready', textContent: 'passed'}) : el('span', {className: 'pill s-posting', textContent: 'failed'}),
@@ -201,7 +213,7 @@ fetch('?json').then(r => r.json()).then(d => {
   app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table)
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
   // Fetch again every 15 s while the tab is visible and redraw the pool, so the spinner and the times follow a run without a reload.
-  setInterval(() => { if (!document.hidden) fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; draw(); drawNext(); }).catch(() => {}); }, 15000);
+  setInterval(() => { if (!document.hidden) fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; d.scorecard = fresh.scorecard; draw(); drawNext(); drawScore(); }).catch(() => {}); }, 15000);
   if (d.nights.length) {
     const most = Math.max(...d.nights.map(n => Object.values(n.counts).reduce((a, b) => a + b, 0)));
     app.append(el('section', {}, el('h2', {textContent: 'Nights · where each site got to'}), el('div', {className: 'bars'}, ...d.nights.map(n => el('div', {className: 'bar', title: n.day},

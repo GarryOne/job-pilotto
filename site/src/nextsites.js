@@ -13,15 +13,21 @@ const PLATFORM_OF_ATS = {greenhouse: 'Greenhouse', lever: 'Lever', ashby: 'Ashby
 const bare = host => String(host || '').toLowerCase().replace(/^www\./, '');
 
 // Platforms with no site in the pool, or whose share of the matched jobs is 2 points or more above their share of the pool (a smaller gap is noise), biggest gap first. Counts of fixed names only: no employer, no install.
-async function platformGaps(db, pool, now) {
+// Matched jobs per platform over the last 90 days (contributions.hits) and applications on a named board (fill_cards): -> {rows: [{ats, platform, hits, installs}], apps: {ats: n}, total}.
+export async function platformDemand(db, now = new Date()) {
   const since = new Date(now.getTime() - DAYS * 86400000).toISOString().slice(0, 10), names = Object.keys(PLATFORM_OF_ATS), marks = names.map(() => '?').join(',');
   const rows = (await db.prepare(`SELECT ats, SUM(COALESCE(hits, 0)) AS hits, COUNT(DISTINCT install) AS installs FROM contributions WHERE day >= ? AND ats IN (${marks}) GROUP BY ats`).bind(since, ...names).all()).results || [];
   const apps = Object.fromEntries(((await db.prepare(`SELECT board, COUNT(*) AS n FROM fill_cards WHERE day >= ? AND board IN (${marks}) GROUP BY board`).bind(since, ...names).all()).results || []).map(row => [row.board, row.n]));
-  const total = rows.reduce((sum, row) => sum + (row.hits || 0), 0);
+  return {rows: rows.map(row => ({ats: row.ats, platform: PLATFORM_OF_ATS[row.ats], hits: row.hits || 0, installs: row.installs})), apps, total: rows.reduce((sum, row) => sum + (row.hits || 0), 0)};
+}
+export const PLATFORMS = Object.entries(PLATFORM_OF_ATS).map(([ats, platform]) => ({ats, platform}));
+
+async function platformGaps(db, pool, now) {
+  const {rows, apps, total} = await platformDemand(db, now);
   return rows.map(row => {
-    const platform = PLATFORM_OF_ATS[row.ats], poolSites = pool.filter(site => site.platform === platform).length;
-    const match = total ? (row.hits || 0) / total : 0, inPool = pool.length ? poolSites / pool.length : 0;
-    return {platform, matchShare: row.hits ? Math.max(1, Math.round(100 * match)) : 0, poolShare: Math.round(100 * inPool), poolSites, installs: row.installs, applications: apps[row.ats] || 0, gap: match - inPool, hits: row.hits || 0};
+    const poolSites = pool.filter(site => site.platform === row.platform).length;
+    const match = total ? row.hits / total : 0, inPool = pool.length ? poolSites / pool.length : 0;
+    return {platform: row.platform, matchShare: row.hits ? Math.max(1, Math.round(100 * match)) : 0, poolShare: Math.round(100 * inPool), poolSites, installs: row.installs, applications: apps[row.ats] || 0, gap: match - inPool, hits: row.hits};
   }).filter(item => item.poolSites === 0 || item.gap >= 0.02).sort((a, b) => b.gap - a.gap || b.hits - a.hits).map(({gap, hits, ...item}) => item);
 }
 
