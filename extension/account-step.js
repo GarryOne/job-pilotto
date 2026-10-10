@@ -10,7 +10,7 @@ import {askKind, sayStep, stuck} from './fill-flow.js';
 import {sessionGet} from './tab-memory.js';
 import {bindSession, identityOf} from './tab-identity.js';
 import {tabArmed} from './tab-pages.js';
-import {accountSketch, fillAccountBoxes, fillAccountEmail, fillCodeBox, flagAccount, markAccountStep, passwordWork, pressAccountButton, pressRegister} from './account-fill.js';
+import {accountSketch, fillAccountBoxes, fillAccountEmail, fillCodeBox, flagAccount, markAccountStep, passwordWork, pressAccountButton, pressConsent, pressRegister} from './account-fill.js';
 import {closerLook, unsureTwice} from './escalate.js';
 
 // -> 'register' | 'switch' | 'fill-press' | 'fill' | 'leave'. step: the AI's account step ('' when it gave none); mode: the app's 'sign-in' | 'sign-up' | 'confirm'.
@@ -36,8 +36,8 @@ export function pressMove(result) {
   if (result === 'already-pressed') return 'quiet';
   return 'person';
 }
-export function consentMove({automation, needsKind, needs, presses = 0}) {
-  return automation === 'full' && needsKind === 'consent' && !!needs && presses < MAX_CONSENT_PRESSES ? 'accept' : 'person';
+export function consentMove({automation, needsKind, needs, presses = 0, consentRequired = false}) {   // consentRequired: the AI says the account cannot be made without it (10 Oct 2026)
+  return automation === 'full' && needsKind === 'consent' && consentRequired === true && !!needs && presses < MAX_CONSENT_PRESSES ? 'accept' : 'person';
 }
 
 // What the account AI's answer after the press means for us: 'confirmed' (the account exists and is usable: signed in, or the site moved on), 'pending' (it exists but
@@ -209,10 +209,10 @@ async function accountStepOnce(tab, frameId) {
     if (ready?.answer === 'unsure' && unsureTwice(unsureSeen, tab.id, JSON.stringify([ready.needs, step, answer.mode]))) await closerLook(tab, frameId, 'the AI was unsure twice about this page');   // opt-in (lib/escalate.js)
     if (!ready || ready.answer !== 'ready' || ready.botCheck) {
       const key = `accountConsent:${tab.id}`, presses = Number((await sessionGet(key))[key]) || 0;
-      const accept = ready && !ready.botCheck && ready.answer === 'needs_person' && consentMove({automation: answer.automation, needsKind: ready.needsKind, needs: ready.needs, presses}) === 'accept';
+      const accept = ready && !ready.botCheck && ready.answer === 'needs_person' && consentMove({automation: answer.automation, needsKind: ready.needsKind, consentRequired: ready.consentRequired, needs: ready.needs, presses}) === 'accept';
       if (accept) {   // the owner's setting: the extension accepts the account's consent itself (link, dialog, checkbox), then looks again
         await chrome.storage.session.set({[key]: presses + 1}).catch(() => {});
-        decide('fill', `consent accepted: ${await run(tab, frameId, pressRegister, [ready.needs])}`, {host, press: presses + 1});
+        decide('fill', `consent accepted: ${await run(tab, frameId, pressConsent, [ready.needs])}`, {host, press: presses + 1});
       } else {
         sayOnce(tab, 'button', `account button: not pressed (${ready ? (ready.botCheck ? 'a bot check' : ready.answer) : 'no AI'})`, {host, automation: answer.automation || ''});
         if (ready && (ready.botCheck || ready.answer === 'needs_person')) await flag(tab, frameId, ready.botCheck ? botCheckNeed(kind?.accountButton) : ready.needs || '');

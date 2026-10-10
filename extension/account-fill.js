@@ -124,6 +124,30 @@ export function pressRegister(named) {
   return 'pressed';
 }
 
+// A consent the AI named, accepted once (owner, 10 Oct 2026: never an optional box in the person's name): found like pressRegister, and a CHECKBOX (or its label) only when
+// the page itself says it is needed, i.e. the box is required or the form's own button is disabled while it is unticked. Newsletters, job alerts, talent pools and sharing
+// with other companies are optional: never ticked, even if named. A link or a dialog's accept button (a privacy statement to open and accept) is pressed as before.
+export function pressConsent(named) {
+  const wanted = String(named || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  if (!wanted) return 'not-named';
+  const text = el => String((el.innerText ?? el.textContent) || el.value || el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const all = [...document.querySelectorAll('a, button, input[type=submit], input[type=button], [role=button], label, input[type=checkbox]')].filter(el => el.getClientRects().length && !el.disabled && text(el));
+  const exact = all.filter(el => text(el) === wanted), near = all.filter(el => text(el).length >= 3 && wanted.length >= 3 && (text(el).includes(wanted) || wanted.includes(text(el))));
+  const found = exact.length ? exact : near;
+  if (found.length !== 1) return found.length ? 'several' : 'not-found';
+  const el = found[0];
+  const box = el.matches('input[type=checkbox]') ? el : el.matches('label') ? (el.control || el.querySelector('input[type=checkbox]')) : null;
+  if (box) {
+    if (box.checked) return 'already';
+    const scope = box.form || document;
+    const button = [...scope.querySelectorAll('button[type=submit], input[type=submit], button:not([type])')].find(b => b.getClientRects().length);
+    const needed = box.required || box.getAttribute('aria-required') === 'true' || !!(button && button.disabled);
+    if (!needed) return 'optional-box';
+  }
+  el.click();
+  return 'pressed';
+}
+
 // What is left to do on this page's password boxes, cheaply, before anything is asked of the app (the panel calls every 2 s): `boxes` visible, `empty` still to fill; `pending` = a box we
 // filled whose account button the AI-judged flow has not pressed yet. Injected into the page.
 export function passwordWork() {

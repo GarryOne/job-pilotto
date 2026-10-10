@@ -10,8 +10,9 @@ const fake = (answer, seen = []) => ({messages: {create: async body => { seen.pu
 
 test('before the press: the AI says needs_person and names the consent LINK; the code keeps it only because the page lists it', async () => {
   const seen = [];
-  const got = await judgeAccount(fake({answer: 'needs_person', needs: 'datenschutzerklärung lesen und akzeptieren.', needs_kind: 'consent', bot_check: false, confidence: 0.9}, seen), page, 'ready');
-  assert.deepEqual([got.answer, got.needs, got.needsKind, got.botCheck], ['needs_person', 'Datenschutzerklärung lesen und akzeptieren.', 'consent', false]);
+  const got = await judgeAccount(fake({answer: 'needs_person', needs: 'datenschutzerklärung lesen und akzeptieren.', needs_kind: 'consent', consent_required: true, bot_check: false, confidence: 0.9}, seen), page, 'ready');
+  assert.deepEqual([got.answer, got.needs, got.needsKind, got.consentRequired, got.botCheck], ['needs_person', 'Datenschutzerklärung lesen und akzeptieren.', 'consent', true, false]);
+  assert.ok(JSON.stringify(seen[0]).includes('consent_required') && JSON.stringify(seen[0]).includes('talent pool'), 'the model is told optional boxes are never needed');
   const sent = JSON.stringify(seen[0]);
   assert.ok(!sent.includes('me@example.com') && !sent.includes('SECRET'), 'no typed value and no query string reach the model');
   assert.ok(sent.includes('Datenschutzerklärung ist erforderlich'), 'the page\'s own error text does');

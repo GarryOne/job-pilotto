@@ -33,8 +33,10 @@ test('what the account AI\'s word after the press means: a usable account is con
 import {consentMove} from '../../extension/account-step.js';
 
 test('the account\'s consent is accepted by the extension only on "full", only when the AI calls it a consent and names a control, and at most three times; a choice, a code or a field is always the person\'s', () => {
-  const ask = over => consentMove({automation: 'full', needsKind: 'consent', needs: 'Akzeptieren', presses: 0, ...over});
+  const ask = over => consentMove({automation: 'full', needsKind: 'consent', consentRequired: true, needs: 'Akzeptieren', presses: 0, ...over});
   assert.equal(ask({}), 'accept');
+  assert.equal(ask({consentRequired: false}), 'person', 'an optional consent (newsletter, talent pool) is the person\'s, 10 Oct 2026');
+  assert.equal(ask({consentRequired: undefined}), 'person');
   assert.equal(ask({automation: 'assist'}), 'person');
   assert.equal(ask({automation: undefined}), 'person');
   for (const needsKind of ['choice', 'code', 'field', 'other', '']) assert.equal(ask({needsKind}), 'person');
