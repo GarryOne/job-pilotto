@@ -47,6 +47,10 @@ export const digestMessage = (page = {}, candidates = []) => [
 // A dropped answer carries no outcome of its own: what the AI claimed stood on nothing the page shows, so a caller reading `outcome` alone gets 'other', never an unverified 'email'.
 const none = (answer, _claimed, dropped) => ({outcome: 'other', verb: 'none', numbers: [], confidence: answer.confidence, dropped, chosen: []});
 // The AI's answer against the page's own candidates -> {outcome, verb, numbers, confidence, chosen} or the same with verb 'none' and `dropped: <reason>`.
+// The one app-log line for a digest answer: fixed words, numbers and the validator's own reason, never a page's text (a candidate's words, an address, a name).
+const WORD = value => (/^[a-z_]{1,24}$/.test(String(value ?? '')) ? String(value) : '-');
+export const digestLine = ({outcome, verb, numbers, pressKind, dropped} = {}) => `digest: outcome=${WORD(outcome)} verb=${WORD(verb)} numbers=[${(Array.isArray(numbers) ? numbers : []).filter(Number.isInteger).join(',')}] press_kind=${WORD(pressKind)} dropped=${/^[a-z ]{1,60}$/.test(String(dropped || '')) ? dropped : '-'}`;
+
 export function validateDigest(raw, candidates = []) {
   const answer = {confidence: Math.max(0, Math.min(1, Number(raw?.confidence) || 0))};
   if (!OUTCOMES.includes(raw?.outcome)) return none(answer, 'other', 'outcome');
