@@ -1,4 +1,4 @@
-/* global document */
+/* global document, window */
 // Recall: how many KNOWN bugs the detectors catch. Each plant puts one defect into the real app page (inside #recall-plant, in the page showing), runs the detector
 // that should catch it, and takes it out again. Without this, "the Finder got better" counts only false positives, never what it misses (3 Oct 2026).
 // Planted errors are removed from the journey's record afterwards, so they are never filed as real window errors.
@@ -41,8 +41,17 @@ export const PLANTS = [
   {id: 'unhandled-rejection', detector: 'journey', expect: 'recall planted rejection', run: () => { Promise.reject(Object.assign(new Error('recall planted rejection'), {name: 'RecallPlant'})); }},
 ];
 
-const insert = html => { document.getElementById('recall-plant')?.remove(); const box = document.createElement('div'); box.id = 'recall-plant'; box.innerHTML = html; (document.querySelector('.view:not([hidden])') || document.body).prepend(box); box.scrollIntoView({block: 'nearest'}); };   // at the top, in view: axe leaves an off-screen element's contrast "incomplete" (#115)
-const takeOut = () => document.getElementById('recall-plant')?.remove();
+// A plant may reuse a real element's id (the detectors read by id), and the app looks elements up by id on every poll: it moves its real
+// nodes (a warnings box) beside the plant's list, i.e. into the plant. So every real element with an id is remembered where it was, and
+// put back when the plant goes (#321: the plant took #activity-warnings out with it and the app threw on null from then on).
+const insert = html => { document.getElementById('recall-plant')?.remove();
+  window.__recallReal = [...document.querySelectorAll('[id]')].map(real => ({real, parent: real.parentNode, next: real.nextSibling}));
+  const box = document.createElement('div'); box.id = 'recall-plant'; box.innerHTML = html; (document.querySelector('.view:not([hidden])') || document.body).prepend(box); box.scrollIntoView({block: 'nearest'}); };   // at the top, in view: axe leaves an off-screen element's contrast "incomplete" (#115)
+const takeOut = () => {
+  document.getElementById('recall-plant')?.remove();
+  for (const {real, parent, next} of window.__recallReal || []) if (!real.isConnected && parent?.isConnected) parent.insertBefore(real, next?.isConnected && next.parentNode === parent ? next : null);
+  window.__recallReal = [];
+};
 
 // -> {planted, caught, rows: [{id, detector, caught, saw}]}. `view`: the page showing; `ipc`: as for the probe.
 export async function measureRecall({page, view, ipc, wait = ms => new Promise(done => setTimeout(done, ms))}) {

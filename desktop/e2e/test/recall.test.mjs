@@ -1,4 +1,4 @@
-/* global document */
+/* global document, window */
 // The recall benchmark: on a page like the app's, every planted bug is caught by the detector it was planted for, nothing planted is left behind,
 // and the planted window errors are removed from the journey's record (never filed as real ones).
 import assert from 'node:assert/strict';
@@ -25,5 +25,26 @@ test('every planted bug is caught by its detector, and nothing planted stays', a
     assert.deepEqual([...journey.pageErrors, ...journey.consoleErrors, ...journey.failedLoads], [], 'nothing the plants caused is left for filing (#116, #117: the broken-image plant leaked)');
     assert.deepEqual(recallFindings(result), []);
     assert.match(recallFindings({rows: [{id: 'tiny-text', detector: 'layout', caught: false, saw: ''}]})[0].detail, /^tiny-text was planted for the layout check and not caught/);
+  } finally { await browser.close(); }
+});
+
+// #321: a plant that reuses a real element's id (activity-phases, cal-grid…) used to receive the real nodes the app moves next to
+// "its" element on every poll; taking the plant out then deleted them, and the app threw on `null.querySelector` from then on.
+test('a plant that reuses the app\'s ids never takes the real elements out with it (#321)', async () => {
+  resetJourney();
+  const browser = await chromium.launch({channel: 'chrome'});
+  try {
+    const page = await browser.newPage({viewport: {width: 1200, height: 800}});
+    await page.setContent('<html lang="en"><head><title>t</title></head><body style="margin:0"><main><section class="view" data-view="focus"><h1>Focus</h1>'
+      + '<div id="activity-warnings">warn</div><ol id="activity-phases"><li>real step</li></ol><b id="cal-title">real</b><div id="cal-grid"></div></section></main></body></html>');
+    // Like pages/activity-render.js: every tick looks the list up by id and moves the warnings box beside it.
+    await page.evaluate(() => { window.__ticks = 0; setInterval(() => { document.getElementById('activity-phases').before(document.getElementById('activity-warnings')); window.__ticks += 1; }, 20); });
+    const ipc = {mark: async () => 0, since: async () => []};
+    await measureRecall({page, view: 'focus', ipc});
+    const state = await page.evaluate(() => ({ticks: window.__ticks, warnings: !!document.getElementById('activity-warnings'), phases: document.getElementById('activity-phases')?.textContent, plant: !!document.getElementById('recall-plant')}));
+    assert.ok(state.ticks > 20, 'the app\'s own tick ran during the plants (positive control)');
+    assert.equal(state.warnings, true, 'the real warnings box is still in the page');
+    assert.equal(state.phases, 'real step', 'the real list is the one the page has');
+    assert.equal(state.plant, false);
   } finally { await browser.close(); }
 });
