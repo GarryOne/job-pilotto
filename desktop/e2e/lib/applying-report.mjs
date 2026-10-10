@@ -25,3 +25,13 @@ export async function upload(kind, rows, {env = process.env, key, fetcher = fetc
     return answer.ok ? `applying report: ${body.stored ?? 0} ${kind} row(s) sent to /admin/applying` : `applying report: refused (${answer.status} ${body.error || ''})`;
   } catch (error) { return `applying report: not sent (${String(error?.message || error).slice(0, 80)})`; }
 }
+
+// The pool as the site lists it ("The pool" table, site/src/applying.js): every site of the pool, also one never run, with its start host and, when a run showed it,
+// its flow signature (page kinds @ end host # step). Hosts and fixed words only: a signature that is not exactly that is dropped, never sent.
+const SIGNATURE = /^(unclear|[a-z-]+(>[a-z-]+)*@[a-z0-9.-]+#(none|posting|account|code\/bot|form|ready))$/;
+export const poolRows = (shapes, signatures = {}) => shapes.map(({shape, urls = []}) => {
+  const row = {name: shape}, host = hostOnly(urls[0] || ''), signature = signatures[shape];
+  if (host) row.start_host = host;
+  if (SIGNATURE.test(signature || '')) row.signature = signature;
+  return row;
+});

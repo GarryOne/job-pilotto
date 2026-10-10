@@ -20,3 +20,14 @@ test('the upload sends the rows with the key as a Bearer, and the outcome line n
   assert.ok(!line.includes('SECRET'));
   assert.match(await upload('smoke', [], {env: {CI: 'true'}}), /not sent \(CI\)/);
 });
+
+test('the pool upload: every site with its start host and signature, never a posting address (a path or query fails this)', async () => {
+  const {poolRows} = await import('../lib/applying-report.mjs');
+  const shapes = [{shape: 'Acme', urls: ['https://job-boards.greenhouse.io/acme/jobs/123?gh_src=secret&token=abc']}, {shape: 'Never run', like: ['%x.com%']}, {shape: 'Local', urls: ['https://a.b.ch/x/y']}];
+  const rows = poolRows(shapes, {Acme: 'other>form@job-boards.greenhouse.io#form', Local: 'form@a.b.ch/x?q=1#form'});
+  assert.deepEqual(rows, [{name: 'Acme', start_host: 'job-boards.greenhouse.io', signature: 'other>form@job-boards.greenhouse.io#form'}, {name: 'Never run'},
+    {name: 'Local', start_host: 'a.b.ch'}]);   // a signature carrying a path is dropped, not sent
+  assert.ok(!/[?=]|\/(acme|x)|token|secret/.test(JSON.stringify(rows)));
+  let sent; await (await import('../lib/applying-report.mjs')).upload('pool', rows, {env: {}, key: 'K', fetcher: async (url, init) => { sent = init.body; return {ok: true, json: async () => ({stored: 3})}; }});
+  assert.equal(JSON.parse(sent).kind, 'pool');
+});

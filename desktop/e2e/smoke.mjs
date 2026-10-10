@@ -11,7 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {candidates, compare, lastSeen, parseLive, pickPosting, signature, tonight} from './lib/smoke.mjs';
-import {hostOnly, upload} from './lib/applying-report.mjs';
+import {hostOnly, poolRows, upload} from './lib/applying-report.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const QA_DIR = path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA');   // survives profile resets and removed worktrees
@@ -40,6 +40,10 @@ function liveRun(posting, seconds) {
     child.on('close', code => resolve({output, code, seconds: Math.round((Date.now() - started) / 1000)}));
   });
 }
+
+// The whole pool to /admin/applying, also sites never run: each shape's newest known flow signature (this run, else the last report, else the one stored with it).
+const sendPool = (shapes, reports, results = {}) => upload('pool', poolRows(shapes, {...Object.fromEntries(shapes.filter(item => item.signature).map(item => [item.shape, item.signature])),
+  ...Object.fromEntries(Object.entries(lastSeen(reports)).map(([shape, item]) => [shape, item.signature])), ...Object.fromEntries(Object.entries(results).map(([shape, item]) => [shape, item.signature]))}));
 
 function droppedBoards() {
   try {
@@ -77,6 +81,7 @@ async function discover(limit) {
   fs.mkdirSync(REPORTS, {recursive: true});
   fs.writeFileSync(path.join(REPORTS, `discover-${day}.json`), `${JSON.stringify({day, seen}, null, 1)}\n`);
   console.log(`smoke discover: ${seen.filter(item => item.added).length} new shape(s) added to ${LOCAL_SITES}`);
+  console.log(`smoke discover: ${await sendPool([...read(path.join(here, 'smoke-sites.json')).shapes, ...local.shapes], reports)}`);
   return 0;
 }
 
@@ -116,6 +121,7 @@ async function main() {
   // /admin/applying: each site's host, step and counts (never the posting's address).
   console.log(`smoke: ${await upload('smoke', Object.entries(results).map(([name, item]) => ({name, host: hostOnly(item.url), reached: item.reached, filled: item.filled, left: item.left,
     note: item.note || '', regression: regressions.some(found => found.shape === name)})))}`);
+  console.log(`smoke: ${await sendPool(shapes, earlierReports, results)}`);
   return regressions.length ? 1 : 0;
 }
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) process.exit(await main());

@@ -34,3 +34,22 @@ test('the page data: each site\'s last step and last runs, regressions first; ca
   assert.deepEqual([d.tiles.cases, d.tiles.casesFailing, d.tiles.sites, d.tiles.regressions, d.tiles.reachedForm], [2, 1, 2, 1, 50]);
   assert.deepEqual(d.nights.map(night => [night.day, night.counts['code/bot'], night.counts.ready, night.counts.posting]), [['2026-10-10', 1, 1, 0], ['2026-10-11', 0, 0, 1]]);
 });
+
+test('the pool: every site is listed, also one never run; platform and flow come from the host and signature; a path or query never gets in', async () => {
+  const db = d1();
+  await ingest(db, {kind: 'pool', day: '2026-10-12', rows: [
+    {name: 'Acme', start_host: 'job-boards.greenhouse.io', signature: 'other>form@job-boards.greenhouse.io#form'},
+    {name: 'Beta', start_host: 'job-boards.greenhouse.io', signature: 'form@job-boards.greenhouse.io#ready'},
+    {name: 'Gamma', start_host: 'career5.successfactors.eu'},
+    {name: 'Leaky', start_host: 'https://x.com/jobs/1?token=abc', signature: 'form@x.com/path?q=1#form'}]}, now);
+  const [leaky] = db.db.prepare("SELECT start_host, signature FROM applying_pool WHERE name = 'Leaky'").all();
+  assert.deepEqual({...leaky}, {start_host: null, signature: null});
+  await ingest(db, {kind: 'smoke', day: '2026-10-12', rows: [{name: 'Beta', host: 'job-boards.greenhouse.io', reached: 'ready'}]}, now);
+  await ingest(db, {kind: 'pool', day: '2026-10-12', rows: [{name: 'Gamma', signature: 'posting>account@career5.successfactors.eu#code/bot'}]}, now);   // a later row without a host keeps the start host
+  const d = await data(db, now), by = Object.fromEntries(d.pool.map(item => [item.name, item]));
+  assert.equal(by.Acme.platform, 'Greenhouse'); assert.equal(by.Acme.flow, by.Beta.flow); assert.equal(by.Acme.raw, 'other>form@job-boards.greenhouse.io#form');
+  assert.equal(by.Beta.reached, 'ready'); assert.deepEqual(by.Acme.history, []); assert.equal(by.Acme.reached, null);   // never run: "—"
+  assert.equal(by.Gamma.platform, 'SuccessFactors'); assert.equal(by.Gamma.start, 'career5.successfactors.eu'); assert.equal(by.Gamma.flow, 'posting → account → bot check');
+  assert.deepEqual(d.platforms.map(item => [item.name, item.sites, item.flows]), [['Greenhouse', 2, 1], ['Custom', 1, 0], ['SuccessFactors', 1, 1]]);
+  assert.equal(d.pool.length, 4);
+});
