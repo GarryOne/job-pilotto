@@ -24,20 +24,38 @@
   },
   "events": [
    {
+    "id": "ev-3",
+    "kind": "Interview scheduled",
+    "at": "2026-10-07T14:22:00",
+    "source": "Gmail",
+    "source_id": "18f3a1b2c3d4e5f6",
+    "note": "We'd like to invite you to a technical interview for the Senior Site Reliability Engineer role on Tuesday 14 October at 10:00 via Google Meet. It will be a 60-minute technical discussion with our Platform Engineering team.",
+    "changes": {
+     "fields": {},
+     "from": "Sarah Keller <sarah.keller@helvetic.cloud>",
+     "subject": "Technical interview invitation – 14 Oct"
+    }
+   },
+   {
+    "id": "ev-2",
+    "kind": "Confirmation received",
+    "at": "2026-10-01T09:10:00",
+    "source": "Gmail",
+    "source_id": "18f2e0d9c8b7a654",
+    "note": "Thank you for applying. We received your application and will review it within a week.",
+    "changes": {
+     "fields": {},
+     "from": "Helvetic Cloud <careers@helvetic.cloud>",
+     "subject": "Application received"
+    }
+   },
+   {
     "id": "e1",
     "app_id": "demo-app-1",
     "kind": "Applied",
     "at": "2026-10-01",
     "source": "Job Pilotto",
     "note": "Applied with the extension"
-   },
-   {
-    "id": "e2",
-    "app_id": "demo-app-1",
-    "kind": "Replied",
-    "at": "2026-10-03",
-    "source": "Gmail",
-    "note": "Recruiter asked for a call"
    },
    {
     "id": "e3",

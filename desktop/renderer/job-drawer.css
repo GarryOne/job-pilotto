@@ -73,3 +73,15 @@
 .jd-posting .jd-list li + li { margin-top: var(--sp-1); }
 .jd-source { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
 .jd-source > .jd-tile-words { flex: 1; }
+
+/* Messages (job-drawer/tab-messages.js): the filter row and the folding message cards. */
+.jd-filter { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.jd-message { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.jd-message-head { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); cursor: pointer; list-style: none; }
+.jd-message-head::-webkit-details-marker { display: none; }
+.jd-message-icon { flex: none; color: var(--ink-2); display: grid; place-items: center; }
+.jd-message-icon svg { width: 20px; height: 20px; }
+.jd-message-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.jd-message[open] > .jd-message-head { border-bottom: 1px solid var(--line); }
+.jd-message-body { padding: var(--sp-3) var(--sp-4) var(--sp-4); display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
+.jd-message-body > p { margin: 0; }

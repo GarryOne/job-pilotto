@@ -210,6 +210,28 @@ export function postingFacts(job = {}, found = {}, text = '') {
 }
 export const postingSource = (found = {}) => `Job description from ${SOURCE_KIND[found.source_kind] || found.source || 'the search'}${found.source && SOURCE_KIND[found.source_kind] ? ` (${found.source})` : ''}`;
 
+// The Messages tab: what was communicated about the job. Emails are the job's Gmail events (src/ai/mail_record.py: the subject and sender in `changes`, the
+// message id in `source_id`); notes are what you logged or a recruiter wrote (the 📥 sections). A Gmail link is the one the app always builds
+// (src/ai/mail_record.py); an id from a calendar invite, a paste or a chat has none.
+const NOT_EMAIL = /^(cal:|paste:|chat:)/;
+export const gmailUrl = id => (id && !NOT_EMAIL.test(String(id)) ? `https://mail.google.com/mail/u/0/#all/${id}` : '');
+const changesOf = event => {
+  const changes = event?.changes;
+  if (changes && typeof changes === 'object') return changes;
+  try { return JSON.parse(changes || '{}') || {}; } catch { return {}; }
+};
+export function messagesOf(parts = {}, events = []) {
+  const emails = (events || []).filter(event => event?.source === 'Gmail' && gmailUrl(event.source_id))
+    .sort((a, b) => String(b.at || b.created_at || '').localeCompare(String(a.at || a.created_at || '')))
+    .map(event => {
+      const changes = changesOf(event);
+      return {key: String(event.id || event.source_id), kind: 'email', title: plain(changes.subject || event.kind || 'Email'), outcome: String(event.kind || ''),
+        when: day(event.at || event.created_at), from: plain(changes.from || ''), text: plain(event.note || ''), url: gmailUrl(event.source_id)};
+    });
+  const notes = ((parts.groups || {}).messages || []).map((each, n) => ({key: `note${n}`, kind: 'note', title: each.title || 'Message', lines: each.lines}));
+  return {emails, notes, counts: {all: emails.length + notes.length, email: emails.length, note: notes.length}};
+}
+
 // The page's content: {tabs: TABS (every job has all eight), kit, groups: {match, prep, review, record, messages, description}, history, shots,
 // documents, has: {tab key → it has content, for its empty state}}.
 export function pageParts({sections = {}, kit = null, events = [], files = [], match = null, app = null} = {}) {

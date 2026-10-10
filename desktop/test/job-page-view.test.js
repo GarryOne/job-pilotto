@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 import {shortDay} from '../renderer/date.js';
-import {SECTIONS, TABS, allAnswers, factPairs, appliedLine, callFacts, clarifyOf, foundLine, glanceTiles, headerFacts, kitParts, lines, matchGroups, matchView, nextInterview, pageParts, paragraphize, plain, postingBlocks, postingFacts, postingSource, readablePart, submittedOf, tabKey, technologiesOf} from '../renderer/job-page-view.js';
+import {SECTIONS, TABS, allAnswers, factPairs, appliedLine, callFacts, clarifyOf, foundLine, glanceTiles, gmailUrl, headerFacts, kitParts, lines, matchGroups, matchView, messagesOf, nextInterview, pageParts, paragraphize, plain, postingBlocks, postingFacts, postingSource, readablePart, submittedOf, tabKey, technologiesOf} from '../renderer/job-page-view.js';
 
 const demo = JSON.parse(fs.readFileSync(new URL('../demo/job-pages.json', import.meta.url), 'utf8'));
 
@@ -168,4 +168,24 @@ test('the Description\'s facts and source line: what is known, "Not stated" for 
   assert.equal(postingSource({source: 'Helvetic Cloud', source_kind: 'employer feed'}), 'Job description from careers page (Helvetic Cloud)');
   assert.equal(postingSource({source: 'jobs.ch', source_kind: 'job board'}), 'Job description from job board (jobs.ch)');
   assert.equal(postingSource({}), 'Job description from the search');
+});
+
+test('Messages: the job\'s Gmail events as email items (newest first), its logged entries as notes; calendar and pasted ids have no Gmail link', () => {
+  const events = [
+    {id: 'a', kind: 'Confirmation received', at: '2026-10-01T09:10:00', source: 'Gmail', source_id: 'abc123', note: 'Thanks', changes: {from: 'HR <hr@x.com>', subject: 'Application received'}},
+    {id: 'b', kind: 'Interview scheduled', at: '2026-10-07T14:22:00', source: 'Gmail', source_id: 'def456', changes: JSON.stringify({subject: 'Invitation'})},
+    {id: 'c', kind: 'Applied', at: '2026-10-01', source: 'Extension'},
+    {id: 'd', kind: 'Interview scheduled', at: '2026-10-08', source: 'Gmail', source_id: 'cal:xyz'},
+  ];
+  const parts = {groups: {messages: [{title: '📥 29 Sep · what it said', lines: [{text: 'Hi'}]}]}};
+  const found = messagesOf(parts, events);
+  assert.deepEqual(found.emails.map(email => [email.title, email.outcome, email.url]),
+    [['Invitation', 'Interview scheduled', 'https://mail.google.com/mail/u/0/#all/def456'], ['Application received', 'Confirmation received', 'https://mail.google.com/mail/u/0/#all/abc123']]);
+  assert.equal(found.emails[1].from, 'HR <hr@x.com>');
+  assert.deepEqual(found.counts, {all: 3, email: 2, note: 1});
+  assert.equal(found.notes[0].title, '📥 29 Sep · what it said');
+  assert.deepEqual(messagesOf({}, undefined).counts, {all: 0, email: 0, note: 0});
+  assert.equal(gmailUrl('paste:1'), '');
+  assert.equal(gmailUrl('chat:1'), '');
+  assert.equal(gmailUrl(''), '');
 });

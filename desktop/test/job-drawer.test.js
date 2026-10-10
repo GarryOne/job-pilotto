@@ -54,6 +54,18 @@ test('Application: Preparation and Submitted through the shared choice, each wit
   assert.doesNotMatch(submitted, /contenteditable|<textarea|createElement\('textarea'/, 'a snapshot is read-only');
 });
 
+test('Messages: a filter with counts, folding email cards, Add note, and Gmail-not-connected says so', () => {
+  const source = read('job-drawer/tab-messages.js');
+  assert.match(source, /choice\(\[\['all', `All \$\{counts\.all\}`\], \['email'/);
+  assert.match(source, /foldCard\(/);
+  assert.match(source, /openLogFor\(job\.url, job\.title\)/, 'Add note opens the Log box on this job');
+  assert.match(source, /gmailConnected\(\) === false/, 'only when known not connected');
+  assert.match(source, /openSetting\('google'\)/);
+  assert.match(source, /No linked messages yet/);
+  assert.match(source, /No emails linked to this job/);
+  assert.match(read('pages/job-panel.js'), /close: closeJobPanel/);
+});
+
 test('Overview: built from the shared card, tile and state-card parts, each part only when it has something', () => {
   const source = read('job-drawer/tab-overview.js');
   for (const part of ['card(', 'factTile(', 'iconRow(', 'stateCard(', 'glanceTiles(', 'clarifyOf(', 'callFacts(']) assert.ok(source.includes(part), part);

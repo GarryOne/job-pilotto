@@ -152,3 +152,21 @@ export function sourceCard(words, original) {
   box.append(mark, text, original);
   return box;
 }
+
+// A message as a card that folds: an icon, its title, a pill with what it was (Interview scheduled), the date; folded content below.
+// open: shown unfolded (the newest).
+export function foldCard({iconName = 'mail', title, tag: pillText = '', when = '', open = false}, ...content) {
+  const card = el('details', 'jd-message');
+  card.open = open;
+  const head = el('summary', 'jd-message-head');
+  const mark = el('span', 'jd-message-icon');
+  mark.append(icon(iconName));
+  const words = el('span', 'jd-message-title');
+  words.append(el('b', '', title));
+  if (pillText) words.append(el('span', 'ui-pill tone-info', pillText));
+  head.append(mark, words, el('span', 'muted small', when));
+  const body = el('div', 'jd-message-body');
+  body.append(...content);
+  card.append(head, body);
+  return card;
+}
