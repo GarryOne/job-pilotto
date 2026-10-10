@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {compare, lastSeen, parseLive, pickPosting, placeFound, signature, tonight} from './lib/smoke.mjs';
+import {compare, lastSeen, parseLive, pickPosting, placeFound, shortfall, signature, tonight} from './lib/smoke.mjs';
 import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
 import {earlierReports, recordSite} from './lib/smoke-record.mjs';
 import {fetchWanted, wantedFirst} from './lib/wanted-hosts.mjs';
@@ -120,10 +120,13 @@ async function main() {
     const run = await liveRun(posting, seconds).finally(() => ping(shape, 'end'));
     results[shape] = {url: posting.url, ...parseLive(run.output), exit: run.code, seconds: run.seconds};
     results[shape].signature = signature(results[shape]);
+    results[shape].short = shortfall(results[shape]);   // reached the form but filled under half: a failure the step alone hides
     fs.mkdirSync(REPORTS, {recursive: true});
     fs.writeFileSync(path.join(REPORTS, `${day}-${shape.replace(/\W+/g, '-')}.log`), run.output);
     console.log(`smoke: ${shape}: reached ${results[shape].reached}${results[shape].filled != null ? `, ${results[shape].filled} filled, ${results[shape].left} left` : ''} (${run.seconds}s)`);
+    if (results[shape].short) console.log(`smoke: ${shape}: SHORTFALL ${results[shape].short.done} of ${results[shape].short.total} asked fields filled`);
     await finish(shape);
+    try { await sendPool(shapes, earlierList, results); } catch (error) { console.log(`smoke: pool upload failed, the run goes on (${String(error?.message || error).slice(0, 100)})`); }   // the page follows each site (its flow too), not only the run's end
   }
   const previousFile = earlierList.length ? `${earlierList.length} earlier report(s)` : null;
   const regressions = compare(previous, results), dropped = droppedBoards();
@@ -131,6 +134,8 @@ async function main() {
   const saved = (() => { try { return JSON.parse(fs.readFileSync(path.join(REPORTS, `${day}.json`), 'utf8')); } catch { return {}; } })();   // what this run and the day's other runs saved site by site
   fs.writeFileSync(path.join(REPORTS, `${day}.json`), `${JSON.stringify({...saved, day, results: {...saved.results, ...results}, regressions, dropped, comparedWith: previousFile}, null, 1)}\n`);
   console.log(`smoke: ${regressions.length ? `REGRESSIONS: ${regressions.map(item => `${item.shape} (${item.why})`).join('; ')}` : 'no regression'}${previousFile ? ` vs ${previousFile}` : ' (first report)'}`);
+  const shorts = Object.entries(results).filter(([, item]) => item.short);
+  console.log(`smoke: ${shorts.length ? `SHORTFALLS (reached the form, under half filled): ${shorts.map(([name, item]) => `${name} (${item.short.done} of ${item.short.total})`).join('; ')}` : 'no shortfall'}`);
   console.log(`smoke: fleet boards dropped: ${dropped == null ? 'not read' : dropped.length ? dropped.map(item => `${item.board} ${item.earlier}→${item.recent}`).join(', ') : 'none'}`);
   console.log(`smoke: report ${path.join(REPORTS, `${day}.json`)}`);
   console.log(`smoke: ${await sendPool(shapes, earlierList, results)}`);

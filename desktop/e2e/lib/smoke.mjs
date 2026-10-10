@@ -13,6 +13,7 @@ export function parseLive(output) {
   const lines = String(output || '').split('\n');
   let reached = 'none', filled = null, left = null;
   const kinds = [], errors = [], path = [];
+  let fieldList = [];   // the form's fields, one 'field ...' line each (apply-live.mjs prints them whole: the app's own line is cut at 230 characters)
   const reach = step => { if (rank(step) > rank(reached)) reached = step; };
   for (const line of lines) {
     if (/Apply pressed on /.test(line)) reach('posting');
@@ -22,10 +23,12 @@ export function parseLive(output) {
       kinds.push(kind[1]); if (kind[1] === 'account') reach('account'); if (/^(form|account-form)$/.test(kind[1])) reach('form'); }
     if (/account (judgment|result)[^:]*: needs_code|"botCheck":true|bot check/.test(line)) reach('code/bot');
     const fields = line.match(/fields: (\d+) filled, (\d+) left/);
-    if (fields && !/account page/.test(line)) { filled = Number(fields[1]); left = Number(fields[2]); reach('form'); if (left === 0 && filled > 0) reach('ready'); }
+    const field = line.match(/^\s+field (filled|left) (\S+) "(.*)" required=(true|false|\?) reason=(.*)$/);
+    if (field) fieldList.push({outcome: field[1], type: field[2], label: field[3], required: field[4] === 'true' ? true : field[4] === 'false' ? false : null, reason: field[5]});
+    if (fields && !/account page/.test(line)) { fieldList = []; filled = Number(fields[1]); left = Number(fields[2]); reach('form'); if (left === 0 && filled > 0) reach('ready'); }
     if (/(^|\s)(✗|not ok)\b|Error:|crash/.test(line)) errors.push(line.trim().slice(0, 200));
   }
-  return {reached, filled, left, kinds: [...new Set(kinds)], path, errors};
+  return {reached, filled, left, fieldList, kinds: [...new Set(kinds)], path, errors};
 }
 
 // The same shape reaching an earlier step than last night, or filling fewer fields on the same posting, is a regression.
@@ -84,4 +87,23 @@ export function placeFound(shapes, posting, flow, day) {
   const added = {shape: `${posting.company || host(posting.url)} (found ${day})`, urls: [posting.url], signature: flow};
   shapes.push(added);
   return added;
+}
+
+// A shortfall (owner, 10 Oct 2026: 4 of 13 filled showed blue, "reached the form"): the form was reached, and fewer than half of the fields the extension was asked to fill are filled.
+// Fields the form marks optional are not asked; with no field list the counts decide. Returns {done, total} or null. Knockout questions are left for the person on purpose and count as left.
+export function shortfall(result) {
+  if (result?.reached !== 'form' || result.filled == null) return null;
+  const asked = (result.fieldList || []).filter(item => item.required !== false);
+  const total = asked.length || result.filled + (result.left || 0), done = asked.length ? asked.filter(item => item.outcome === 'filled').length : result.filled;
+  return total > 0 && done / total < 0.5 ? {done, total} : null;
+}
+
+// The one-per-field lines for the app's "fill: fields: N filled, M left {...}" log line (the app's line is cut at 230 characters in the run's timeline, so a run lost which fields were left and why);
+// parseLive reads them back. An account page's fields are not the form's, and a line that is not whole JSON gives none.
+export function fieldLines(line) {
+  const at = String(line).indexOf('{"fields":');
+  if (at < 0 || !/fill: fields: \d+ filled/.test(line) || /account page/.test(line)) return [];
+  try {
+    return JSON.parse(line.slice(at, line.lastIndexOf('}') + 1)).fields.slice(0, 40).map(item => `      field ${item.outcome} ${item.type} "${String(item.label || '').replace(/\s+/g, ' ').slice(0, 60)}" required=${item.required === undefined ? '?' : item.required} reason=${String(item.reason || item.source || '').replace(/\s+/g, ' ').slice(0, 80)}`);
+  } catch { return []; }
 }

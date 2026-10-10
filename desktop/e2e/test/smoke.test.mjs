@@ -1,7 +1,7 @@
 // The nightly smoke's logic (lib/smoke.mjs): how far a live run got, what counts as a regression, which posting is tried tonight.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {compare, parseLive, pickPosting, placeFound} from '../lib/smoke.mjs';
+import {compare, fieldLines, parseLive, pickPosting, placeFound, shortfall} from '../lib/smoke.mjs';
 
 const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detail/x/
   2026-10-10T12:20:27Z [extension] page kind: account {"shape":"auth.jobs.ch/u/login/identifier|1-2","by":"ai"}
@@ -9,7 +9,7 @@ const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detai
   2026-10-10T12:20:46Z [extension] account judgment result: needs_code {"botCheck":false}`;
 
 test('a run that stopped at the email code reached code/bot; an account page\'s fields are not the form', () => {
-  assert.deepEqual(parseLive(LIVE), {reached: 'code/bot', filled: null, left: null, kinds: ['account'], path: [{kind: 'account', host: 'auth.jobs.ch'}], errors: []});
+  assert.deepEqual(parseLive(LIVE), {reached: 'code/bot', filled: null, left: null, fieldList: [], kinds: ['account'], path: [{kind: 'account', host: 'auth.jobs.ch'}], errors: []});
 });
 
 test('a form filled to the end is ready; one with fields left is form', () => {
@@ -111,4 +111,43 @@ test('a discovered flow names the employer, and fills a never-run shape of the s
   assert.equal(shapes[2].shape, 'Acme (found 2026-10-10)');
   placeFound(shapes, {url: 'https://x.com/2'}, 'other@x.com#form', '2026-10-10');   // same host but already run: a new shape, named by host
   assert.equal(shapes[3].shape, 'x.com (found 2026-10-10)');
+});
+
+const FORM = `  live 0s: Apply pressed on https://jobs.example.com/o/x
+  2026-10-10T19:21:09Z [extension] page kind: form {"by":"ai","host":"jobs.example.com"}
+  2026-10-10T19:21:10Z [extension] fill: fields: 2 filled, 3 left {"fields":[{"label":"Full name","type":"text","outcome":"filled"
+      field filled text "Full name" required=true reason=your details
+      field filled email "Email address" required=true reason=your details
+      field left text "How did you find out about us?" required=true reason=no answer known
+      field left radio "Work permit" required=true reason=knockout question
+      field left file "Cover letter" required=false reason=optional`;
+
+test('a form run keeps each field with its outcome, requirement and reason (the line in the log is cut at 230 characters, so the runner prints them one per line)', () => {
+  const result = parseLive(FORM);
+  assert.equal(result.fieldList.length, 5);
+  assert.deepEqual(result.fieldList[2], {outcome: 'left', type: 'text', label: 'How did you find out about us?', required: true, reason: 'no answer known'});
+  assert.equal(result.fieldList[4].required, false);
+});
+
+test('a shortfall: the form was reached but fewer than half of the asked fields are filled (an optional field is not asked)', () => {
+  assert.equal(shortfall(parseLive(FORM)), null);   // 2 of the 4 required fields (the optional cover letter is not asked): half is not a shortfall
+  assert.deepEqual(shortfall(parseLive(FORM.replace('      field filled email', '      field left email'))), {done: 1, total: 4});   // 1 of 4
+  assert.equal(shortfall({reached: 'form', filled: 4, left: 8}) && shortfall({reached: 'form', filled: 4, left: 8}).total, 12);   // counts only: 4 of 12
+  assert.equal(shortfall({reached: 'form', filled: 6, left: 6}), null);   // half is not a shortfall
+  assert.equal(shortfall({reached: 'posting', filled: null, left: null}), null);   // never reached the form: its own failure
+  assert.equal(shortfall({reached: 'ready', filled: 5, left: 0}), null);
+});
+
+test('the fields line the app writes (far longer than 230 characters) becomes one line per field that parseLive reads back', () => {
+  const fields = Array.from({length: 12}, (_, i) => ({label: `Question number ${i} about something long enough`, type: i % 2 ? 'radio' : 'text', outcome: i < 4 ? 'filled' : 'left', required: i !== 11, source: 'your details', reason: i < 4 ? '' : 'no answer known'}));
+  const line = `2026-10-10T19:21:10.153Z [extension] fill: fields: 4 filled, 8 left ${JSON.stringify({fields})}`;
+  assert.ok(line.length > 1000);
+  const lines = fieldLines(line);
+  assert.equal(lines.length, 12);
+  const back = parseLive(['  live 0s: Apply pressed on https://x/', '  l [extension] page kind: form {"host":"x"}', '  l [extension] fill: fields: 4 filled, 8 left {"fields":[', ...lines].join('\n'));
+  assert.equal(back.fieldList.length, 12);
+  assert.equal(back.fieldList[11].required, false);
+  assert.deepEqual(shortfall(back), {done: 4, total: 11});   // 4 of the 11 asked fields (the 12th is optional)
+  assert.deepEqual(fieldLines('fill: fields: 1 filled, 1 left {"fields":[]} account page'), []);   // an account page's fields are not the form's
+  assert.deepEqual(fieldLines('fill: fields: 4 filled, 8 left {"fields":[{"label":"Full name","type"'), []);   // a cut line gives none, never a wrong one
 });

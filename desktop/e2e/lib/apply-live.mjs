@@ -9,6 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {appLogLines} from './app-log.mjs';
 import {fillState} from './extension.mjs';
+import {fieldLines} from './smoke.mjs';
 import {removeJobsByUrl} from './notion.mjs';
 import {modelClient} from './model.mjs';
 import {pause} from './apply-fixtures.mjs';
@@ -102,6 +103,8 @@ export async function runLive(ctx, h) {
         // The app's own lines, as they arrive (what the extension decided and why).
         const all = appLogLines(ctx.profile);
         for (const line of all.slice(seen.lines).filter(item => /\[(extension|review)\]/.test(item))) { const shown = line.slice(11, 230), same = shown.replace(/^\S+ /, ''); if (same !== lastLine) console.log(`      log ${shown}`); lastLine = same; }   // a repeated line is said once
+        // The fill's field list, whole, one line a field (lib/smoke.mjs fieldLines); parseLive reads them.
+        for (const line of all.slice(seen.lines)) for (const text of fieldLines(line)) console.log(text);
         seen.lines = all.length;
         // A picture of every tab every 3 s (the newest is what a person sees now), named so they sort in time.
         if (frame++ % 2 === 0) for (const [index, tab] of tabs.entries()) await tab.screenshot({path: path.join(frames, `${String(frame).padStart(3, '0')}-tab${index}.png`)}).catch(() => {});
