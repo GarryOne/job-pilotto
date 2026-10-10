@@ -25,6 +25,18 @@ class BudgetTests(unittest.TestCase):
         self.assertFalse(budget.over('score', now=175))
         self.assertTrue(budget.over('score', now=180))
 
+    def test_a_refresh_that_scores_first_leaves_the_facts_their_time(self):
+        # 10 Oct 2026: scoring took all 180 s, the facts started with "Time is up", and 0 of 103 jobs ever had them.
+        budget.start(180, now=0)
+        budget.score_first()
+        self.assertFalse(budget.over('score', now=119))
+        self.assertTrue(budget.over('score', now=120), 'scoring stops 60 s early')
+        self.assertFalse(budget.over('enrich', now=170), 'the facts run to the end of the budget')
+        self.assertTrue(budget.over('enrich', now=180))
+        self.assertEqual(budget.batch('score', 1000, now=0), int((180 - 60) * 1.0 / budget.PACE['score']), 'the batch is sized without their 60 s')
+        budget.start(180, now=0)
+        self.assertTrue(budget.over('enrich', now=145), 'a fresh budget is back to reading first')
+
     def test_no_budget_never_stops(self):
         budget.start(0)
         self.assertFalse(budget.over('score', now=10 ** 9))

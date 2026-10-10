@@ -9,19 +9,37 @@ import time
 DEADLINE = None
 STARTED = None
 RESERVE = {'titles': 75, 'enrich': 40, 'score': 0}   # seconds kept for the AI steps that come after this one
+FACTS = 60   # a refresh that scores first keeps this many seconds for reading the postings' facts after it (score_first)
+SCORE_FIRST = False
 
 
 def start(seconds, now=None):
     global DEADLINE, STARTED
     STARTED = now if now is not None else time.monotonic()
     DEADLINE = STARTED + seconds if seconds else None
+    score_first(False)
+
+
+def score_first(on=True):
+    """This refresh scores first and reads the facts after (src/daily_search.py). Scoring then stops FACTS seconds early and the reading goes
+    to the end of the budget. 10 Oct 2026: scoring took every second, the reading started with "Time is up" on every refresh, and no job ever
+    had its facts (seniority, salary, languages...): 0 of 103 read."""
+    global SCORE_FIRST
+    SCORE_FIRST = on
+
+
+def reserve(step):
+    """Seconds before the deadline at which `step` starts no new call."""
+    if SCORE_FIRST:
+        return {'titles': RESERVE['titles'], 'enrich': 0, 'score': FACTS}.get(step, 0)
+    return RESERVE.get(step, 0)
 
 
 def over(step='score', now=None):
     """True when `step` must not start another AI call: the run's budget, minus what the later steps keep, is spent."""
     if DEADLINE is None:
         return False
-    return (now if now is not None else time.monotonic()) >= DEADLINE - RESERVE.get(step, 0)
+    return (now if now is not None else time.monotonic()) >= DEADLINE - reserve(step)
 
 
 # Each step's share of the time left when it starts: title sorting least (a backlog that shrinks to a few dozen titles a day), scoring all
@@ -47,7 +65,7 @@ def batch(step, wanted, now=None, say=True):
     plan in the log when it takes fewer (say=False: a step that tops up with further batches says what is left once, at its end). Without a budget: all of them."""
     if DEADLINE is None or wanted <= 0:
         return wanted
-    left = DEADLINE - (now if now is not None else time.monotonic())
+    left = DEADLINE - (now if now is not None else time.monotonic()) - (FACTS if SCORE_FIRST and step in ('score', 'job') else 0)
     pace = max(0.5, _paces().get(step, PACE[step]))
     n = max(0, min(wanted, int(left * SHARE[step] / pace)))
     if not say:

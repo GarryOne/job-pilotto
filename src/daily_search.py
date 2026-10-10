@@ -141,6 +141,7 @@ def search(args, stores=None):
         if time_budget_on() and args.score_max and read_profile:
             try:
                 from . import time_budget
+                time_budget.score_first()   # the facts are read after scoring: scoring leaves them their time (src/time_budget.py)
                 waiting = score.queue(db, to_score(db, hidden), read_profile())
                 taken = time_budget.batch('score', len(waiting))
                 batch, batch_started = {job['id'] for job in waiting[:taken]}, __import__('time').monotonic()
