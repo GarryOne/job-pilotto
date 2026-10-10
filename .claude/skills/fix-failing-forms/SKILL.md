@@ -50,6 +50,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
 4. **Prove the repro (a repro is proved by evidence, not by a pass or a fail):** the page the run saw is the page you think (frame + `buttons` list), the stub/AI answer you rely on really applied
    (the request was received: count the asks, with times), and **the case FAILS on the build before the fix** (`REAL_EXTENSION_DIR=<old extension/>`). A case that passes on the old build proves nothing:
    find why before you build on it (10 Oct 2026: a replay page starts 3 parallel asks, so a stub that drops one lets a sibling ask rescue the old build). A shape that only fails once (a moody site) is run twice before it counts.
+   **A case that fails is not evidence until the machine is quiet:** check `uptime` (a load of ~14 failed cases that pass at 4: 10 Oct 2026, "main is red" was said and was wrong), rerun it alone, and run it with `REPLAY_LOG=1` (the extension's own decision lines; the line that explained a regression was `no Apply button to press {found:1, visible:0}`).
 5. **Offline, no e2e page, seconds:** `cd desktop && node scripts/stage.mjs` once per fresh worktree (builds `shared/`), then `npm run ladder-score -- --offline --only <fixture>` (what the stored AI answer says) and
    `cd e2e && JP_REPLAY=1 REPLAY_ONLY=<case> node --test test/recorded-pages.test.mjs` (the real extension on a recorded page). The shared e2e page is a queue (the coordinator, `coordinator.txt`): read the offline result and the newest logs first.
 
@@ -113,6 +114,8 @@ Flow-core files (`page-kind.js`, `fill-flow.js`, `session-flow.js`, `escalate.js
 - Never edit a fixture's `expect` to make it pass; the ratchet fails on an edited expectation unless the baseline is updated with a reason.
 
 ## 4. Land and confirm
+- **A change to a path every site uses (press, kind, fill) runs the FULL recorded replay before it lands**, not only its own cases (10 Oct 2026: a "never press a phrase match when the AI named a control" rule passed its three cases and broke Workday's two-step dialog; only workday-start-dialog-1/-2 caught it). A guard case (passes on the old build too) is proved by breaking its rule on a copy of the extension and seeing it fail; its `control` says so.
+- **What the AI is shown must be findable by the code that acts on it:** one shared selector, never two lists (the sketch listed every `a`, the press finder only `a[href]`). A recorded page is a shape, not a site: scripts, CSS and redirects are not replayed.
 - `tools/ship.sh` (never from the twin's worktree: it deletes the worktree it lands). A push changing how the extension acts on pages needs the recorded page,
   or a scenario (a fill replay alone does not count), or `Recorded-unneeded: <why>` in the commit only when no real site's failure is fixed. Commit subject <= 72 characters.
 - **Re-run `npm run smoke -- --only <shape>` on the landed build** (a held run, said before it starts) and compare with the first run: **it must reach further**
