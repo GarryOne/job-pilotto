@@ -11,7 +11,7 @@ import {sessionGet} from './tab-memory.js';
 import {bindSession, identityOf} from './tab-identity.js';
 import {tabArmed} from './tab-pages.js';
 import {accountSketch, fillAccountBoxes, fillAccountEmail, fillCodeBox, flagAccount, markAccountStep, passwordWork, pressAccountButton, pressConsent, pressRegister} from './account-fill.js';
-import {closerLook, unsureTwice} from './escalate.js';
+import {closerLook, unsureTwice} from './ladder/rung4-picture.js';
 
 // -> 'register' | 'switch' | 'fill-press' | 'fill' | 'leave'. step: the AI's account step ('' when it gave none); mode: the app's 'sign-in' | 'sign-up' | 'confirm'.
 export function accountMove({step, mode, hasEmail, registerControl, signinControl}) {
@@ -200,7 +200,7 @@ async function accountStepOnce(tab, frameId) {
       const result = await run(tab, frameId, pressRegister, [move === 'register' ? kind.registerControl : kind.signinControl]);
       if (result === 'pressed') await markTried(tab, move);
       sayOnce(tab, 'control', `${move} control: ${result}`, {host});
-      if (result === 'not-found') await closerLook(tab, frameId, `the ${move} control the AI named was not found`);   // opt-in (lib/escalate.js)
+      if (result === 'not-found') await closerLook(tab, frameId, `the ${move} control the AI named was not found`);   // opt-in (lib/ladder/rung4-picture.js)
     }
     return {filled: 0};
   }
@@ -211,7 +211,7 @@ async function accountStepOnce(tab, frameId) {
   const submitKey = `submit-${step}`;   // one press per tab and STEP: a sign-up pressed here must not block the sign-in that follows in the same tab
   if (move === 'fill-press' && !(await alreadyTried(tab, submitKey))) {
     const ready = await judge(tab, frameId, 'ready', config);   // also when nothing new was filled: a page the person finished since is pressed
-    if (ready?.answer === 'unsure' && unsureTwice(unsureSeen, tab.id, JSON.stringify([ready.needs, step, answer.mode]))) await closerLook(tab, frameId, 'the AI was unsure twice about this page');   // opt-in (lib/escalate.js)
+    if (ready?.answer === 'unsure' && unsureTwice(unsureSeen, tab.id, JSON.stringify([ready.needs, step, answer.mode]))) await closerLook(tab, frameId, 'the AI was unsure twice about this page');   // opt-in (lib/ladder/rung4-picture.js)
     if (!ready || ready.answer !== 'ready' || ready.botCheck) {
       const key = `accountConsent:${tab.id}`, presses = Number((await sessionGet(key))[key]) || 0;
       const accept = ready && !ready.botCheck && ready.answer === 'needs_person' && consentMove({automation: answer.automation, needsKind: ready.needsKind, consentRequired: ready.consentRequired, needs: ready.needs, presses}) === 'accept';

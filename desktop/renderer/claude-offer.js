@@ -1,6 +1,6 @@
 // The stuck session card's Claude offer (owner, 10 Oct 2026; spec docs/superpowers/specs/2026-10-10-claude-finishes-stuck-pages.md part 3): the same three choices as the page's panel
 // (extension/panel-claude.js): "Let Claude finish this page", "I'll do it myself", "Always let Claude finish when I'm stuck", the consent line on the first press, and the line "Claude
-// works in this tab and stops before Submit". A press goes through the app's one guarded take-over (lib/take-over.js: at most one per application). No countdown here: the panel does that
+// works in this tab and stops before Submit". A press goes through the app's one guarded take-over (lib/ladder/rung5-takeover.js: at most one per application). No countdown here: the panel does that
 // where the tab is open. Only while Claude is ready (claude-help.js). Guarded by test/claude-offer.test.js.
 import {el} from './components.js';
 import {cardOffer} from './claude-offer-view.js';

@@ -1,4 +1,4 @@
-// Frame candidates (extension/page/frames.js): the iframes of a page that could hold its application form, by structure only. The page-kind AI picks
+// Frame candidates (extension/ladder/rung3-frames.js): the iframes of a page that could hold its application form, by structure only. The page-kind AI picks
 // the form among them by index; the frame's full address (with its token) never leaves the extension. Shape of Datadog's careers page (10 Oct 2026):
 // a posting with no form of its own and one Greenhouse iframe far down the page.
 import test from 'node:test';

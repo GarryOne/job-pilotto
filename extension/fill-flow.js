@@ -13,15 +13,15 @@ import {decide} from './log.js';
 import {noteRole} from './account.js';
 import {expandSections} from './sections.js';
 import {closeConsentEverywhere} from './consent.js';
-import {closerLook, lastLook} from './escalate.js';
+import {closerLook, lastLook} from './ladder/rung4-picture.js';
 import {formNext} from './form-ready.js';
 import {accountOutcome, accountStep} from './account-step.js';
 import {applyPressed} from './tabs.js';
 import {bindSession, identityOf, sessionOf} from './tab-identity.js';
 import {pageKey, pageRole, pickApplyButton, pickNamedButton} from './tab-pages.js';
 import {forgetRouteTries, startRoute} from './start-route.js';
-import {emailReport, mailsOf} from './non-form.js';
-import {candidatesOf, claimFrame, climbOnStall, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, noteSignal, otherReport, toldReport, verifiedBody} from './ladder.js';
+import {emailReport, mailsOf} from './ladder/outcomes.js';
+import {candidatesOf, claimFrame, climbOnStall, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, noteSignal, otherReport, toldReport, verifiedBody} from './ladder/climb.js';
 
 let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true, fillsNow = new Set(), arm = async () => {}, progress = async () => {};
 export function initFillFlow(shared) {
@@ -118,14 +118,14 @@ export const sayStep = (tabId, text) => progress(tabId, text).catch(() => {});
 export async function askKind(tab, {fresh = false, digest = false} = {}) {   // fresh: the page changed after a press, a kept answer for its shape does not apply (start-route.js)
   const sketch = await pageSketchOf(tab.id);
   if (!sketch) return null;
-  const frameList = await framesOf(tab.id); noteFrames(tab.id, frameList); sketch.frameCandidates = frameSketch(frameList);   // the addresses stay in the extension (ladder.js)
-  sketch.mails = await mailsOf(tab.id);   // the sentences and mailto links that carry an address (non-form.js)
+  const frameList = await framesOf(tab.id); noteFrames(tab.id, frameList); sketch.frameCandidates = frameSketch(frameList);   // the addresses stay in the extension (ladder/climb.js)
+  sketch.mails = await mailsOf(tab.id);   // the sentences and mailto links that carry an address (ladder/outcomes.js)
   try {
     const config = await settings();
     if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return null;   // your own Worker: no app to ask
     const answer = await Promise.race([api(config, '/extension/page-kind', {method: 'POST', body: JSON.stringify({url: tab.url.split('#')[0], ...(fresh ? {fresh: true} : {}), ...(digest ? {digest: true, candidates: await candidatesOf(tab.id)} : {}), ...sketch})}),
       new Promise(resolve => setTimeout(() => resolve(null), 40000))]);   // a first visit asks the AI cold (the app's AI is the `claude` command: 5-25 s); the structure rule decides only after this, and a wrong rule costs more than the wait
-    noteSignal(tab.id, answer, sketch.controls);   // which rung answered and with what signal: an unsure one climbs (ladder.js)
+    noteSignal(tab.id, answer, sketch.controls);   // which rung answered and with what signal: an unsure one climbs (ladder/climb.js)
     return answer?.role ? answer : null;
   } catch { return null; }
 }
@@ -331,7 +331,7 @@ export async function consider(tab, jobUrl) {
   const controls = (Number(counts.fields) || 0) + (Number(counts.files) || 0) + (Number(counts.textareas) || 0) + (Number(counts.passwords) || 0);
   if (kind && role === 'form' && controls === 0) {
     await forgetKind(tab, kind, 'a form with no fields'); role = ruled;
-    if (role === 'no-form') { noteSignal(tab.id, {rung: kind.rung ?? 2, signal: 'contradicted'}, controlsOf(tab.id)); kind = (await climbOnUnsure(tab, askKind)) || kind; role = kind?.role === 'no-form' ? 'no-form' : role; }   // the page contradicts the kept answer: a signal, so the ladder climbs (ladder.js)
+    if (role === 'no-form') { noteSignal(tab.id, {rung: kind.rung ?? 2, signal: 'contradicted'}, controlsOf(tab.id)); kind = (await climbOnUnsure(tab, askKind)) || kind; role = kind?.role === 'no-form' ? 'no-form' : role; }   // the page contradicts the kept answer: a signal, so the ladder climbs (ladder/climb.js)
   }
   // A sign-in or sign-up page whose step matches what the app says about this email on this site (sign_up while we have no account here, sign_in once we do):
   // the person's details go in by the normal fill (the label meanings, any language); the passwords and the account button are account-step.js.
@@ -395,7 +395,7 @@ export async function consider(tab, jobUrl) {
     const src = frameSrcOf(tab.id, kind.form_frame);
     if (src && claimFrame(key)) { decide('fill', 'opening the application form frame as the page', {host, frame: new URL(src).hostname}); await chrome.tabs.update(tab.id, {url: src}); started.delete(key); return; }
   }
-  // Nothing to press and no form: the numbered digest looks once (ladder.js). It may name a control the sketch lost (Aldi, 10 Oct 2026: 20 menu links ahead of "Postuler"): pressed through the same floors as any Apply button.
+  // Nothing to press and no form: the numbered digest looks once (ladder/climb.js). It may name a control the sketch lost (Aldi, 10 Oct 2026: 20 menu links ahead of "Postuler"): pressed through the same floors as any Apply button.
   let stall = null;
   if (role === 'no-form' && kind?.botCheck !== true && !emailReport(kind) && !toldReport(kind)) {
     stall = await climbOnStall(tab, askKind, key, kind);
@@ -419,7 +419,7 @@ export async function consider(tab, jobUrl) {
     if (botCheck || (role === 'no-form' && counts && emptyShape(counts))) watchForFields(tab, jobUrl, undefined, botCheck ? 60 : 10, counts?.frameHosts || []).catch(() => {});   // judged while still empty: look again if fields come
     await writeState(tab.id, {state: role});
     const said = stall || kind;   // the digest's answer at a stall, else what the page-kind said
-    const email = role === 'no-form' ? emailReport(said) : null, told = role === 'no-form' && !email ? toldReport(said) : null, other = role === 'no-form' && !email && !told ? otherReport(said, tab.id) : null;   // the page asks for email (non-form.js) or tells what to do (ladder.js)
+    const email = role === 'no-form' ? emailReport(said) : null, told = role === 'no-form' && !email ? toldReport(said) : null, other = role === 'no-form' && !email && !told ? otherReport(said, tab.id) : null;   // the page asks for email (ladder/outcomes.js) or tells what to do (ladder/climb.js)
     decide('fill', role === 'account' ? 'account page left for Claude' : botCheck ? 'a bot check in front of the page: handed to the person' : email ? 'the posting asks for the application by email: reported to the app' : told ? 'the page tells what to do: reported to the app' : other ? 'the ladder ended at the person: reported as other' : 'no form on this page', {host, role, ...(kind?.applyBy ? {applyBy: kind.applyBy} : {})});
     if (other) api(await settings(), '/extension/page-kind', {method: 'POST', body: JSON.stringify({why: 'other', url: tab.url.split('#')[0], controls: controlsOf(tab.id)})}).catch(() => {});   // the shape is counted by the app (no text): the ladder ended at the person
     if (email || told || other) stuck(String(jobUrl || tab.url).split('#')[0], host, (email || told || other).why, tab.id, tab.url, (email || told || other).needs);   // the address is the need: the card says where to send it
@@ -438,7 +438,7 @@ export async function consider(tab, jobUrl) {
   const open = (result?.trace || []).filter(row => row.required && row.outcome === 'left').map(row => String(row.label || '').replace(/\s+/g, ' ').trim()).filter(Boolean);
   if (!result?.error && !(result?.filled > 0) && result?.unfilledRequired > 0 && open.length) {
     // The ladder (owner, 9 Oct 2026: "3 levels of solving"): 1 the rules did their part; 2 the page AI looks again from the page's own controls (never the remembered answer);
-    // 3 the same look with the picture; 4 the person is told, with the control the AI named when it may not press it. Levels 2 and 3 are the closer look (opt-in, capped, lib/escalate.js).
+    // 3 the same look with the picture; 4 the person is told, with the control the AI named when it may not press it. Levels 2 and 3 are the closer look (opt-in, capped, lib/ladder/rung4-picture.js).
     let moved = false, named = '';
     for (const picture of [false, true]) {
       const did = await closerLook(live, 0, 'the fill put nothing in and required fields are left', {kind: 'form', picture}).catch(() => 'none');

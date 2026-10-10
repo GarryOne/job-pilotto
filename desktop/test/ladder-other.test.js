@@ -1,4 +1,4 @@
-// The shape report of an "other" outcome (lib/ladder-other.js): a page the ladder could not read is counted per page shape (fixed values, no text) and logged as `ladder: other shape=<key>`.
+// The shape report of an "other" outcome (lib/ladder/other.js): a page the ladder could not read is counted per page shape (fixed values, no text) and logged as `ladder: other shape=<key>`.
 // Through the real endpoint (lib/server-pages.js decidePageKind); the counts are what the pack reporter will send (lib/recipes.js, wired by the learning owner).
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -7,7 +7,7 @@ import path from 'node:path';
 import {test} from 'node:test';
 import {decidePageKind} from '../lib/server-pages.js';
 import {logFile, logTo} from '../lib/log.js';
-import {counts, otherStore, record} from '../lib/ladder-other.js';
+import {counts, otherStore, record} from '../lib/ladder/other.js';
 
 const newStorage = () => { const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-ladder-other-')); return {dir, path: name => path.join(dir, name), settings: () => ({}), readText: () => '', writeText() {}, saveSettings() {}}; };
 const page = n => ({url: `https://jobs.other.test/careers/${n}000?token=secret`, controls: [{type: 'text', label: 'x'}], title: 'T', headings: [], buttons: []});

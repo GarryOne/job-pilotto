@@ -38,9 +38,9 @@ The action list that worked is kept per page shape (`host/path shape`) like the 
 ## Where it lives
 | Piece | File |
 |---|---|
-| Capture + value hiding (injected) | `extension/page-picture.js` (new) |
-| The escalation call, caps, action execution | `extension/escalate.js` (new) |
-| The model question + validation | `desktop/lib/escalate.js`, route `/extension/escalate` (new) |
+| Capture + value hiding (injected) | `extension/ladder/rung4-page-picture.js` (new) |
+| The escalation call, caps, action execution | `extension/ladder/rung4-picture.js` (new) |
+| The model question + validation | `desktop/lib/ladder/rung4-picture.js`, route `/extension/escalate` (new) |
 | Remembered recipe per page shape | `desktop/lib/page-kind.js` cache (a `recipe` field) |
 | Switch | Settings > Profile > Application assistant, next to the account switch |
 

@@ -63,13 +63,11 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/cv.js` — Tailored CVs. The base CV is data (cv/cv.json in the user's folder: summary, jobs, bullets, skills, links),
 - `desktop/lib/demo.js` — "Look around first": the app restarts on a fresh copy of the fictional demo data (demo/) and back to the user's
 - `desktop/lib/dev-marker.js` — Running from source (npm start / electron .) must never look like the installed app: a "DEV" badge on the Dock
-- `desktop/lib/digest.js` — The numbered digest's answer (rung 3 of the ladder, docs/flows/ladder.md): the page's candidates (extension/page/candidates.js: sentences, links, buttons, addresses, numbered, found by structure) go t
 - `desktop/lib/e2e-hidden.js` — E2E only (JOB_PILOTTO_E2E_HIDDEN=1, set by e2e/lib/app.mjs): the app runs with hidden windows and never takes focus, so a test run
 - `desktop/lib/e2e-ipc.js` — E2E only: wraps ipcMain.handle so every call the window makes to the app is logged (channel, start, duration, failed), newest MAX kept. The journey reads the log to tell a
 - `desktop/lib/e2e-timing.js` — Waits the end-to-end journey may shorten so a test does not sit through them (never for a user): JOB_PILOTTO_E2E_<NAME> in milliseconds, only with JOB_PILOTTO_E2E set.
 - `desktop/lib/employers-handlers.js` — Employers & Sources (renderer/pages/employers.js): every employer and job board the person tracks, from the active store through the
 - `desktop/lib/engine-log.js` — What the engine printed, in full: <data folder>/logs/engine.log, one file per day (see below). The app's own log says a run
-- `desktop/lib/escalate.js` — A closer look when the text sketch is not enough (spec: docs/superpowers/specs/2026-10-08-ai-escalation.md; owner, 8 Oct 2026: yes, account pages first, off until he turns it on).
 - `desktop/lib/experience-handlers.js` — The experience bank's IPC (Settings → Profile → Experience): what the window shows, adding another CV version, removing one, matching
 - `desktop/lib/experience.js` — The experience bank (Settings → Profile → Experience): what the candidate has done, beyond the one main CV.
 - `desktop/lib/ext-server-handlers.js` — The extension server's wiring (moved out of main.js's start-up, 8 Oct 2026): what the local server asks of the app when the Chrome extension calls it: the site
@@ -99,8 +97,6 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/keychain.js` — Every Keychain read of the app goes through here, and what a test or a live-test twin may reach (8 Oct 2026: a local e2e run that reached
 - `desktop/lib/kit-handlers.js` — The application kit and tailored CVs' IPC (moved out of main.js, 8 Oct 2026): drafting a job's kit (questions, answers, cover letter) onto
 - `desktop/lib/knowledge.js` — 🧠 Form knowledge: what Job Pilotto learned from your form fills (learn.js), used by every later kit and fill.
-- `desktop/lib/ladder-learning.js` — Write-back of the ladder (docs/superpowers/specs/2026-10-10-ai-ladder.md "Learning"): what a higher rung (3 digest, 4 picture, 5 takeover, 6 person) decided AND the page confirmed becomes the
-- `desktop/lib/ladder-other.js` — The shapes whose ladder ended with no usable answer ("other"): a count per page shape (host + path template | build, as page-kind.js kindKey), nothing else. Fixed values and integers only:
 - `desktop/lib/leads-handlers.js` — The "log anything" IPC (moved out of main.js, 8 Oct 2026): the clipboard's image, proposing a lead from a pasted message or screenshot (the one AI
 - `desktop/lib/learn.js` — Learning from each form fill: after a fill that left fields, one small Claude call reads that run's
 - `desktop/lib/learned.js` — What you answered yourself in a form: the extension reads the fields YOU changed at the Submit press (extension/review.js)
@@ -192,8 +188,6 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/strategy-settings.js` — Strategy, saving and tuning: accepting a draft (Profile, answers, search settings), the ⚙️ Search settings page, the daily target, widening
 - `desktop/lib/strategy.js` — Strategy builder: CV (PDF) + an optional note from the user -> proposed goals, a draft Profile, standard answers
 - `desktop/lib/system-handlers.js` — The system IPC (moved out of main.js, 8 Oct 2026): the microphone and screen permissions, relaunching the app, resetting the profile, backups
-- `desktop/lib/take-over.js` — "Let Claude finish this page" from the form panel (spec docs/superpowers/specs/2026-10-10-claude-finishes-stuck-pages.md): the app's side of the panel's take-over event.
-- `desktop/lib/takeover-teach.js` — Claude teaches the extension (owner, 10 Oct 2026; spec docs/superpowers/specs/2026-10-10-claude-finishes-stuck-pages.md part 5). When a takeover leaves the page filled further, the controls
 - `desktop/lib/tar.js` — The tar to run: on Windows the system's own (bsdtar, Windows 10+), named by its full path. A Git for Windows
 - `desktop/lib/telegram-cloud.js` — "Telegram buttons, always on": the user's own small Cloudflare Worker (free plan) runs the
 - `desktop/lib/telegram.js` — Telegram from the desktop app: the user's own bot (made with @BotFather), no webhook, no Cloudflare.
@@ -413,7 +407,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 ## Chrome extension
 
-- `extension/account-act.js` — The closer look's two hands besides a click (extension/escalate.js; spec docs/superpowers/specs/2026-10-08-ai-escalation.md), injected into the page.
+- `extension/account-act.js` — The closer look's two hands besides a click (extension/ladder/rung4-picture.js; spec docs/superpowers/specs/2026-10-08-ai-escalation.md), injected into the page.
 - `extension/account-fill.js` — What the extension types into a sign-in or sign-up page and presses (owner, 8 Oct 2026): the one site password into its password boxes, then the
 - `extension/account-step.js` — What the extension does on a sign-in or sign-up page in a tab the app opened (owner, 8 Oct 2026; the extension first, docs/flows/applying.md). The AI decides the
 - `extension/account.js` — Account pages (sign-in, sign-up) kept apart from the application form (docs/flows/applying.md, owner 8 Oct 2026): each tab's page
@@ -421,24 +415,19 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/allow.js` — The extension's own page with the one Allow button (Chrome asks for a site permission only from the extension's own page, on a click).
 - `extension/background.js` — The background worker: tabs the app opens to fill (#jobpilotto-fill), the next page in that tab, a tab that tab
 - `extension/consent.js` — Closing a cookie banner, in every frame of a tab (moved out of visit.js, 9 Oct 2026: the apply flow needs it too; Deloitte's application page sat
-- `extension/escalate.js` — The closer look (spec: docs/superpowers/specs/2026-10-08-ai-escalation.md; owner, 8 Oct 2026: off until he turns it on, account pages first). When the account AI is unsure twice about a page, or a con
 - `extension/fill-card.js` — One anonymous record per fill (a "fill card"), for learning how well the form filling does and why: counts and fixed words only,
 - `extension/fill-flow.js` — The fill flow (moved out of background.js, 8 Oct 2026): what one page of an application's journey is (the AI's kind, the structure rule
 - `extension/flow.js` — One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
 - `extension/form-ready.js` — The AI's veto on an APPLICATION form's "Ready to submit" (owner, 8 Oct 2026: the account page's "ready?" judgment, ported). The panel counts required boxes by HTML; when that count says
 - `extension/hook.js` — Apply with Claude → extension hand-off. A Claude session driving this tab (Claude in Chrome) asks for the
-- `extension/ladder-core.js` — The ladder's signals and the one rule that says which rung to ask next (spec: docs/superpowers/specs/2026-10-10-ai-ladder.md). Pure: no chrome API, no AI, no storage, so the
-- `extension/ladder.js` — What the extension does with a rung's signal (spec: docs/superpowers/specs/2026-10-10-ai-ladder.md; the rule itself is extension/ladder-core.js). The app's page-kind answer says which rung
 - `extension/log.js` — The extension's decision log (moved out of background.js, 8 Oct 2026): every part that decides something (fill, tabs, account pages)
 - `extension/menu-reason.js` — Why a drop-down menu was left empty, as OBSERVED by the pick (flow.js clickCombos: opened, found, selectedAfter, trusted), never assumed.
 - `extension/messages-app.js` — The extension worker's messages from the page: the site password for a sign-in page and the form review relay to the app (moved out of background.js, 8 Oct 2026).
 - `extension/messages-learning.js` — The extension worker's messages about what the page learned (moved out of background.js, 8 Oct 2026): reading a job list, arming a tab, the fill's misses and the
 - `extension/messages-panel.js` — The extension worker's messages from the page's panel (moved out of background.js, 8 Oct 2026): the job it shows, Fill, bringing the tab forward or closing it, taking over with
 - `extension/next-step.js` — The next step of a multi-step application (owner, 10 Oct 2026: always on, the setting was dropped; the floors below are what keep it safe). When the form judge (form-ready.js) says THIS page state is
-- `extension/non-form.js` — A posting that is applied to some other way than a form (spec: docs/superpowers/specs/2026-10-10-non-form-outcomes.md). Step 1: by email.
 - `extension/options.js` — Settings: only the connection to the Job Pilotto app — filled in by itself when this page opens, or by Connect.
 - `extension/page-files.js` — The page scripts the extension injects into an application form (main world), in order: one list for flow.js, fill-flow.js and the tests.
-- `extension/page-picture.js` — What the closer look takes of a page (spec: docs/superpowers/specs/2026-10-08-ai-escalation.md): the typed values are hidden BEFORE the screenshot and shown again right after, so labels and
 - `extension/panel-claude.js` — The stuck page's Claude offer in the form panel (owner, 10 Oct 2026; spec docs/superpowers/specs/2026-10-10-claude-finishes-stuck-pages.md parts 1-4).
 - `extension/panel-start.js` — The panel's first seconds on a page the app opened to fill: its button spins with "Starting…" until the fill says its own first step
 - `extension/popup-page.js` — Runs inside a page (injected by consent.js): finds a popup in the way (a dialog, a modal, a layer fixed over the page: a cookie notice, a newsletter

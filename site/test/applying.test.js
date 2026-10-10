@@ -90,7 +90,7 @@ test('an upload keeps a rung (integer 0 to 6) and a signal (a fixed word) and dr
 test('the page shows the ladder as a legend collapsed by default, a Rung column in the pool and a Rung guarded column in the replays', () => {
   const legend = PAGE.slice(PAGE.indexOf('The AI ladder'), PAGE.indexOf('What the colors mean'));
   assert.match(PAGE, /<details|'details'/); assert.doesNotMatch(legend, /open: true/);   // collapsed
-  for (const where of ['extension/tab-pages.js', 'page-kinds.json', 'desktop/lib/page-kind.js', 'desktop/lib/digest.js', 'extension/page/candidates.js', 'desktop/lib/escalate.js', 'desktop/lib/take-over.js', 'the session card']) assert.ok(legend.includes(where), where);
+  for (const where of ['extension/tab-pages.js', 'page-kinds.json', 'desktop/lib/page-kind.js', 'desktop/lib/ladder/rung3-digest.js', 'extension/ladder/rung3-candidates.js', 'desktop/lib/ladder/rung4-picture.js', 'desktop/lib/ladder/rung5-takeover.js', 'the session card']) assert.ok(legend.includes(where), where);
   assert.ok(legend.includes('A rung that is unsure or contradicted hands the page to the next; a rung never guesses.'));
   assert.match(PAGE, /heads\('pool', \[[^\]]*'Rung'/); assert.match(PAGE, /heads\('cases', \[[^\]]*'Rung guarded'/);
   assert.match(PAGE, /blocked at /);

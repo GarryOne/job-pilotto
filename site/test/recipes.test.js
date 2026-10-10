@@ -173,7 +173,7 @@ test('the proposer\'s targets: failing controls without a recipe being tried, wo
   assert.equal((await targets(new Request('https://x/api/recipes/targets', {method: 'POST', headers: {Authorization: 'Bearer secret'}}), e, now)).status, 405);
 });
 
-test('a control the extension left and Claude filled (one failed outcome, no recipe, plus its sample) is a proposer target (desktop/lib/takeover-teach.js)', async () => {
+test('a control the extension left and Claude filled (one failed outcome, no recipe, plus its sample) is a proposer target (desktop/lib/ladder/rung5-takeover-teach.js)', async () => {
   const e = env();
   const send = body => controls(new Request('https://x/api/controls', {method: 'POST', body: JSON.stringify({install: 'install-1234', ...body})}), e, now);
   await send({outcomes: [{fp: 'taught001', recipe: 0, ok: 0, failed: 1}], samples: [{fingerprint: 'taught001', kind: 'select', skeleton: {t: 'div', a: {role: 'combobox'}, c: [], k: []}, question: 'Country of residence'}]});

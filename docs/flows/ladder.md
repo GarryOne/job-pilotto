@@ -11,13 +11,13 @@ Spec: `docs/superpowers/specs/2026-10-10-ai-ladder.md` (checklist = what is buil
 | 1 | kept answer per page shape | `desktop/lib/page-kind.js` `pageKindCache`, `kindKey` | the kept `kind` (+ buttons) | yes |
 | 2 | text sketch to a small model | `desktop/lib/page-kind.js` `pageKind`; `account-judge.js` | `KINDS`, `APPLY_BY`, `ROUTES`, `account_step`, `bot_check` | yes |
 | 3 | numbered digest | none yet | outcome + closed verb + candidate numbers | **not built** |
-| 4 | screenshot + sketch, strongest model, one action | `desktop/lib/escalate.js`, `extension/escalate.js` | one action from the page's own controls | yes: accounts; forms when a fill put nothing in |
-| 5 | Claude takes over | `desktop/lib/take-over.js`, `extension/panel-claude.js` | none (a session) | yes: once per application |
+| 4 | screenshot + sketch, strongest model, one action | `desktop/lib/ladder/rung4-picture.js`, `extension/ladder/rung4-picture.js` | one action from the page's own controls | yes: accounts; forms when a fill put nothing in |
+| 5 | Claude takes over | `desktop/lib/ladder/rung5-takeover.js`, `extension/panel-claude.js` | none (a session) | yes: once per application |
 | 6 | the person | cards (`renderer/`), `application-journey.js` `stuck` | the sentence quoted from the page | yes: generic text; quoted for email only |
 
-The router (which rung to ask next, from a rung's signal): `extension/ladder-core.js` (`RUNGS`, `SIGNALS`, `nextRung`, `ladderLine`); the climb that uses it is extension/ladder.js (landing on branch ai-ladder).
+The router (which rung to ask next, from a rung's signal): `extension/ladder/core.js` (`RUNGS`, `SIGNALS`, `nextRung`, `ladderLine`); the climb that uses it is extension/ladder/climb.js (landing on branch ai-ladder).
 
-The sketch every rung reads is one list: `SKETCH_FIELDS` in `page-kind.js` (extension builds it in `fill-flow.js` `pageSketchOf` + `non-form.js` `mailsOf`).
+The sketch every rung reads is one list: `SKETCH_FIELDS` in `page-kind.js` (extension builds it in `fill-flow.js` `pageSketchOf` + `extension/ladder/outcomes.js` `mailsOf`).
 
 ## What may change when you fix one site
 | You may | You may not |

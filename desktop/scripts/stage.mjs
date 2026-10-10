@@ -22,8 +22,8 @@ copy('worker/src', path.join(desktop, 'shared', 'worker'));
 fs.copyFileSync(path.join(repo, 'extension', 'recipe-schema.js'), path.join(desktop, 'shared', 'recipe-schema.js'));
 // The label meanings format (extension/alias-schema.js): the app validates the aliases it passes on and cleans question wording with it.
 fs.copyFileSync(path.join(repo, 'extension', 'alias-schema.js'), path.join(desktop, 'shared', 'alias-schema.js'));
-// The ladder's signals and router (extension/ladder-core.js): the app decides the next rung the same way the extension does.
-fs.copyFileSync(path.join(repo, 'extension', 'ladder-core.js'), path.join(desktop, 'shared', 'ladder-core.js'));
+// The ladder's signals and router (extension/ladder/core.js): the app decides the next rung the same way the extension does.
+fs.copyFileSync(path.join(repo, 'extension', 'ladder', 'core.js'), path.join(desktop, 'shared', 'ladder-core.js'));
 if (filesOnly) { console.log('Staged shared/ (files only, no bot bundle)'); process.exit(0); }
 // The Telegram bot as ONE file (its Anthropic dependency inside), which the app uploads to the user's own
 // Cloudflare account for "Telegram buttons, always on" (lib/telegram-cloud.js).

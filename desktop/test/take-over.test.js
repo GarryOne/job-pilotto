@@ -1,7 +1,7 @@
-// The app's side of the panel's "Let Claude finish this page" (lib/take-over.js): one takeover per application, the panel's Continue is the consent, a failed start gives the claim back.
+// The app's side of the panel's "Let Claude finish this page" (lib/ladder/rung5-takeover.js): one takeover per application, the panel's Continue is the consent, a failed start gives the claim back.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {createTakeOver} from '../lib/take-over.js';
+import {createTakeOver} from '../lib/ladder/rung5-takeover.js';
 
 function setup(results = [{ok: true, session: {id: 'c1'}}]) {
   const started = [], logs = [], windows = [], settings = {};
@@ -30,7 +30,7 @@ test('a start that failed gives the claim back; "Continue" in the panel is the c
   assert.equal(s.started.length, 2);
 });
 
-test('a started takeover begins a teaching run on that application (lib/takeover-teach.js); a refused or failed one does not', async () => {
+test('a started takeover begins a teaching run on that application (lib/ladder/rung5-takeover-teach.js); a refused or failed one does not', async () => {
   const runs = [];
   const make = results => { const s = setup(results); return {...s, takeOver: createTakeOver({startClaude: async () => results[0], storage: {settings: () => ({}), saveSettings() {}}, appLog() {}, toWindow() {}, onStarted: url => runs.push(url)})}; };
   await make([{ok: true, session: {id: 'c1'}}]).takeOver({url: URL1});

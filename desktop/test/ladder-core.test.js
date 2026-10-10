@@ -1,8 +1,8 @@
-// The ladder's signals and router (extension/ladder-core.js): the fixed signals every rung returns, and the one pure rule that says which rung to ask next.
+// The ladder's signals and router (extension/ladder/core.js): the fixed signals every rung returns, and the one pure rule that says which rung to ask next.
 // Guards its invariants: fixed values only, never past a rung that is off or capped, Claude's takeover offered and never started by the router, nothing unknown guessed.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {RUNGS, SIGNALS, ladderLine, nextRung} from '../../extension/ladder-core.js';
+import {RUNGS, SIGNALS, ladderLine, nextRung} from '../../extension/ladder/core.js';
 
 test('the rungs and signals are fixed lists (the admin page and the log parser read these exact values)', () => {
   assert.deepEqual(Object.values(RUNGS), [0, 1, 2, 3, 4, 5, 6]);
@@ -58,7 +58,7 @@ test('the log line has the one shape the admin page parses, and says nothing for
 });
 
 test('every judge answers with the same fixed signals: an account judgment, the closer look, anything unknown', async () => {
-  const {signalOf} = await import('../../extension/ladder-core.js');
+  const {signalOf} = await import('../../extension/ladder/core.js');
   assert.equal(signalOf({answer: 'ready'}), 'confident');
   assert.equal(signalOf({answer: 'created'}), 'confident');
   assert.equal(signalOf({answer: 'unsure'}), 'unsure');

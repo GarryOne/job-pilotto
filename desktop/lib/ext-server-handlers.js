@@ -3,7 +3,7 @@
 // passes in the services they share. A FLOW FILE (docs/flows/applying.md). Guards: the server, review, credentials and visits tests in desktop/test and
 // the matrix (npm run flows).
 import {claudeOffered, claudeAutoStart} from './claude-ready.js';
-import {noteReport, observe, pageKeyOf} from './takeover-teach.js';
+import {noteReport, observe, pageKeyOf} from './ladder/rung5-takeover-teach.js';
 import * as aliasLibrary from './aliases.js';
 import * as applyLib from './apply.js';
 import * as contactDetails from './contact.js';
@@ -97,7 +97,7 @@ export function registerExtServerHandlers(ctx) {
   const formSeen = id => { if (id && terminals.formInChrome(id)) appLog('sessions', 'form open in Chrome: the session is active again', {id}); };
   server.setReviewHandler(payload => {
     const report = review.report(terminals.list(), payload);
-    if (report.session?.url) { const key = pageKeyOf(report.session.url); noteReport(key, payload); observe(key, payload, {misses: misses.read(storage), report: items => recipeReporter.outcome(items), log: appLog}); }   // Claude teaches the extension (lib/takeover-teach.js)
+    if (report.session?.url) { const key = pageKeyOf(report.session.url); noteReport(key, payload); observe(key, payload, {misses: misses.read(storage), report: items => recipeReporter.outcome(items), log: appLog}); }   // Claude teaches the extension (lib/ladder/rung5-takeover-teach.js)
     if (report.matched && report.session) formSeen(report.matched);
     return report.session ? {...report, cv: cvOf(report.session.url), claudeHelp: claudeOffered(storage), claudeAlways: !!storage.settings().claudeAuto, claudeAuto: claudeAutoStart(storage), claudeConsent: !!storage.settings().claudeConsent} : report;   // the one Claude switch (renderer/claude-help.js)
   });

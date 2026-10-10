@@ -1,5 +1,5 @@
 // The ladder's write-back through the real endpoint (lib/server-pages.js decidePageKind -> page-kind.js pageKind): a verified rung 3/4 answer becomes the kept answer, one contradiction drops it,
-// an email outcome is never reused, and the learned counts go out as deltas with the shared counts (lib/recipes.js). Guard for lib/ladder-learning.js's wiring.
+// an email outcome is never reused, and the learned counts go out as deltas with the shared counts (lib/recipes.js). Guard for lib/ladder/learning.js's wiring.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -93,7 +93,7 @@ test('only what changed since the last successful send is sent again; a failed s
 });
 
 test('the "other" shape counts leave as deltas too (ladderOther: [{shape, n}]), a failed send is sent again', async () => {
-  const {otherStore, record} = await import('../lib/ladder-other.js');
+  const {otherStore, record} = await import('../lib/ladder/other.js');
   const storage = newStorage(), store = otherStore(storage.path('ladder-other.json'));
   const shape = 'jobs.wire.test/careers/*|1-2';
   record(store, shape); record(store, shape);

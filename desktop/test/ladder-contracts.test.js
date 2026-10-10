@@ -7,10 +7,10 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import {pageRole} from '../../extension/tab-pages.js';
-import {RUNGS, SIGNALS, ladderLine, nextRung} from '../../extension/ladder-core.js';
+import {RUNGS, SIGNALS, ladderLine, nextRung} from '../../extension/ladder/core.js';
 import {APPLY_BY, KINDS, ROLE, ROUTES, pageKind, pageKindCache} from '../lib/page-kind.js';
-import {OUTCOMES, VERBS, askDigest, validateDigest} from '../lib/digest.js';
-import {ACTIONS, DETAILS, escalate} from '../lib/escalate.js';
+import {OUTCOMES, VERBS, askDigest, validateDigest} from '../lib/ladder/rung3-digest.js';
+import {ACTIONS, DETAILS, escalate} from '../lib/ladder/rung4-picture.js';
 
 const reply = (answer, extra = {}) => ({messages: {create: async () => ({stop_reason: 'end_turn', usage: {input_tokens: 500, output_tokens: 20}, ...extra,
   content: [{type: 'text', text: typeof answer === 'string' ? answer : JSON.stringify(answer)}]})}});

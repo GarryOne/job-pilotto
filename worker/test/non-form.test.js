@@ -1,7 +1,7 @@
-// The non-form outcomes (extension/non-form.js): only an AI answer of apply_by email with its address becomes an email report.
+// The non-form outcomes (extension/ladder/outcomes.js): only an AI answer of apply_by email with its address becomes an email report.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {emailReport} from '../../extension/non-form.js';
+import {emailReport} from '../../extension/ladder/outcomes.js';
 
 test('an email answer with its address is reported as the application\'s need', () => {
   assert.deepEqual(emailReport({applyBy: 'email', applyEmail: 'jobs@firma.ch'}), {why: 'email', needs: 'jobs@firma.ch'});

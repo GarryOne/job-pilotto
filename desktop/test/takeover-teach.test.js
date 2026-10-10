@@ -1,8 +1,8 @@
-// Claude teaches the extension (spec 2026-10-10-claude-finishes-stuck-pages.md part 5; lib/takeover-teach.js): the controls a takeover filled that the extension had left are reported as
+// Claude teaches the extension (spec 2026-10-10-claude-finishes-stuck-pages.md part 5; lib/ladder/rung5-takeover-teach.js): the controls a takeover filled that the extension had left are reported as
 // "the extension failed here" outcomes by fingerprint (counts, no label, no value), which puts them in the proposer's targets (site/src/recipes.js targets: failed outcomes + a sample).
 import assert from 'node:assert/strict';
 import {beforeEach, test} from 'node:test';
-import {_reset, noteReport, observe, startRun} from '../lib/takeover-teach.js';
+import {_reset, noteReport, observe, startRun} from '../lib/ladder/rung5-takeover-teach.js';
 
 const JOB = 'https://boards.example.com/jobs/1';
 const misses = [

@@ -1,6 +1,6 @@
 /* global document, location */
 // Fills the `sketch` of each ladder fixture (desktop/e2e/ladder-fixtures/<id>.json) with the page sketch exactly as the extension builds it: it runs the extension's OWN builder functions
-// (extension/fill-flow.js pageSketchOf, extension/non-form.js mailsOf, read from their source) in a bare headless Chromium, with no extension, no profile and no app.
+// (extension/fill-flow.js pageSketchOf, extension/ladder/outcomes.js mailsOf, read from their source) in a bare headless Chromium, with no extension, no profile and no app.
 //   capture.page: a page of this repo (relative to desktop/e2e/), loaded from disk with the network blocked.
 //   capture.url:  a public posting, read once (a plain GET, nothing pressed, nothing typed); the sketch is stored without its query string, with any email turned into contact@example.com.
 //   node desktop/e2e/ladder-capture.mjs [--only <id>] [--force] [--candidates] [--dir <fixtures folder>]      Used when a fixture is added or a page changed; the committed sketch is what the tests use.
@@ -28,12 +28,12 @@ const noEmail = value => (typeof value === 'string' ? value.replace(EMAIL, email
 const PHONE = /\+?\d[\d\s().\/-]{6,}\d/g;
 const noPhone = value => (typeof value === 'string' ? value.replace(PHONE, number => (number.replace(/\D/g, '').length >= 8 ? '(phone)' : number)) : Array.isArray(value) ? value.map(noPhone)
   : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, noPhone(item)])) : value);
-// The numbered candidates of rung 3 (extension/page/candidates.js, a classic page script): run in the page as the extension would.
-export const candidatesOfPage = page => page.evaluate(`${fs.readFileSync(path.join(ROOT, 'extension/page/candidates.js'), 'utf8')}\nwindow.__jobPilottoCandidates.candidatesOf()`);
+// The numbered candidates of rung 3 (extension/ladder/rung3-candidates.js, a classic page script): run in the page as the extension would.
+export const candidatesOfPage = page => page.evaluate(`${fs.readFileSync(path.join(ROOT, 'extension/ladder/rung3-candidates.js'), 'utf8')}\nwindow.__jobPilottoCandidates.candidatesOf()`);
 
 export async function sketchOf(page) {
   const sketch = await page.evaluate(builderSource('fill-flow.js', 'function pageSketchOf'));
-  sketch.mails = await page.evaluate(builderSource('non-form.js', 'export function mailsOf'));
+  sketch.mails = await page.evaluate(builderSource('ladder/outcomes.js', 'export function mailsOf'));
   return sketch;
 }
 

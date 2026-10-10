@@ -64,7 +64,7 @@ export async function actAsPerson(tab, say) {
   // The consent and the account button are the extension's, by the setting settings.accountAutomation ('full' by default; LIVE_ASSIST=1 tests 'assist': the person's part is then yours).
 }
 
-// Asks the extension's worker for one closer look (extension/escalate.js) at this tab, as it would on an unclear account page: the picture, the app's answer, one action.
+// Asks the extension's worker for one closer look (extension/ladder/rung4-picture.js) at this tab, as it would on an unclear account page: the picture, the app's answer, one action.
 export async function lookViaWorker(ctx, tab, say) {
   await tab.bringToFront().catch(() => {});
   const worker = await ctx.browser.serviceWorker();
@@ -72,7 +72,7 @@ export async function lookViaWorker(ctx, tab, say) {
   const action = await worker.evaluate(async address => {
     const tabs = await chrome.tabs.query({}), found = tabs.find(item => String(item.url).startsWith(address));
     const decided = await globalThis.__jobPilottoCloserLook(found, 0, 'the live test asked for a closer look');
-    return `${decided} (tabs: ${JSON.stringify(tabs.map(item => [item.id, item.active, item.windowId, String(item.url).slice(0, 30)]))})`;   // set by extension/escalate.js
+    return `${decided} (tabs: ${JSON.stringify(tabs.map(item => [item.id, item.active, item.windowId, String(item.url).slice(0, 30)]))})`;   // set by extension/ladder/rung4-picture.js
   }, url).catch(error => `error: ${String(error).slice(0, 100)}`);
   say(`  live look: the closer look decided ${JSON.stringify(action)}`);
 }

@@ -4,9 +4,9 @@
 // the operators fared (counts), the structure of controls it could not read (no text), the wording of form questions no answer matched
 // (the form's own words, never what the user typed) and what happened on each page of an application (counts per board). All of it follows the Technical
 // reports switch: off means no fingerprint ever leaves this Mac.
-// The ladder's learned counts (lib/ladder-learning.js) go with the same batch as `ladder`: what changed since the last successful send, per page shape, fixed values and integers only:
+// The ladder's learned counts (lib/ladder/learning.js) go with the same batch as `ladder`: what changed since the last successful send, per page shape, fixed values and integers only:
 //   "ladder": [{"shape": "jobs.example.ch/careers/*|3-7", "rung": 3, "outcome": "form", "hits": 2, "misses": 1}, ...]   // at most 40; shape = host + path template + build, no query
-//   "ladderOther": [{"shape": "jobs.example.ch/careers/*|3-7", "n": 2}, ...]   // pages the ladder ended on with no usable answer (lib/ladder-other.js), the same delta rule, at most 40
+//   "ladderOther": [{"shape": "jobs.example.ch/careers/*|3-7", "n": 2}, ...]   // pages the ladder ended on with no usable answer (lib/ladder/other.js), the same delta rule, at most 40
 // The site (k>=3 installs per shape, fixed lists) aggregates them; that side is not built.
 import {validateAlias} from '../shared/alias-schema.js';
 import {validateRecipe} from '../shared/recipe-schema.js';
@@ -17,8 +17,8 @@ import {addAnswer, mergeAnswers} from './answer-counts.js';
 import {log} from './log.js';
 import {LEFT_REASONS, cleanLabel} from './question-labels.js';
 import {cleanUse} from './proposal-use.js';
-import {counts as ladderCounts, ladderStore} from './ladder-learning.js';
-import {counts as otherCounts, otherStore} from './ladder-other.js';
+import {counts as ladderCounts, ladderStore} from './ladder/learning.js';
+import {counts as otherCounts, otherStore} from './ladder/other.js';
 
 export const SITE = 'https://www.jobpilotto.top';
 const CACHE = 'recipes-cache.json';

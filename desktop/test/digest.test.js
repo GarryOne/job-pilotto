@@ -1,7 +1,7 @@
-// The numbered digest's answer (lib/digest.js, rung 3): the AI names an outcome and one closed verb by CANDIDATE NUMBER; the code accepts only what the page's own candidates allow.
+// The numbered digest's answer (lib/ladder/rung3-digest.js, rung 3): the AI names an outcome and one closed verb by CANDIDATE NUMBER; the code accepts only what the page's own candidates allow.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {DIGEST_SCHEMA, OUTCOMES, VERBS, askDigest, validateDigest} from '../lib/digest.js';
+import {DIGEST_SCHEMA, OUTCOMES, VERBS, askDigest, validateDigest} from '../lib/ladder/rung3-digest.js';
 
 const candidates = [
   {n: 1, kind: 'sentence', text: 'Bitte senden Sie Ihre Unterlagen an jobs@example.ch.', position: 'main'},

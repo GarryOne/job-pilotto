@@ -1,11 +1,11 @@
-// Write-back of the ladder (lib/ladder-learning.js): only a verified decision of rung 3+ is kept for a page shape, one miss drops it, counts carry fixed values only.
+// Write-back of the ladder (lib/ladder/learning.js): only a verified decision of rung 3+ is kept for a page shape, one miss drops it, counts carry fixed values only.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {capsFor, counts, hit, ladderStore, lookup, miss, record} from '../lib/ladder-learning.js';
-import {CAPS} from '../lib/escalate.js';
+import {capsFor, counts, hit, ladderStore, lookup, miss, record} from '../lib/ladder/learning.js';
+import {CAPS} from '../lib/ladder/rung4-picture.js';
 
 const fileIn = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-ladder-')), 'ladder-learning.json');
 const storeIn = () => { const file = fileIn(); return {file, store: ladderStore(file)}; };
@@ -125,7 +125,7 @@ test('caps: rung 4 reads the closer look\'s limits, rung 3 has its own', () => {
 });
 
 test('the shape pattern is exported for the other ladder stores (one regex, no copies)', async () => {
-  const {SHAPE} = await import('../lib/ladder-learning.js');
+  const {SHAPE} = await import('../lib/ladder/learning.js');
   assert.ok(SHAPE.test('jobs.example.ch/careers/*|3-7'));
   for (const bad of ['https://a.ch/x?token=1', 'a b/c|0', 'jane@x.example|0', 'host/path']) assert.ok(!SHAPE.test(bad), bad);
 });

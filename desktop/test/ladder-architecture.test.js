@@ -5,13 +5,13 @@
 //   0     extension/tab-pages.js         ./alias-schema.js
 //   1-2   desktop/lib/page-kind.js       ./ai/models.js, node:fs, ../shared/alias-schema.js, ./digest.js (askDigest only)
 //   2     desktop/lib/account-judge.js   ./page-kind.js (MODEL only)
-//   3     desktop/lib/digest.js          ./ai/models.js          (neither page-kind nor escalate)
-//   3     extension/page/candidates.js   nothing                 (a classic page script)
-//   4     desktop/lib/escalate.js        node:fs, ./account-judge.js (accountSketch, listed), ./site-accounts.js, ./page-kind.js (pageShape only)
-//   4     extension/escalate.js          extension plumbing only (flow, log, account-fill, page-picture, account-act, next-step): no decision rung
-//   5     desktop/lib/take-over.js       nothing                 (no decision module)
-//   router extension/ladder-core.js      nothing
-//   climb  extension/ladder.js           ladder-core.js only     (the file does not exist yet: pinned for when it does)
+//   3     desktop/lib/ladder/rung3-digest.js          ./ai/models.js          (neither page-kind nor escalate)
+//   3     extension/ladder/rung3-candidates.js   nothing                 (a classic page script)
+//   4     desktop/lib/ladder/rung4-picture.js        node:fs, ./account-judge.js (accountSketch, listed), ./site-accounts.js, ./page-kind.js (pageShape only)
+//   4     extension/ladder/rung4-picture.js          extension plumbing only (flow, log, account-fill, page-picture, account-act, next-step): no decision rung
+//   5     desktop/lib/ladder/rung5-takeover.js       nothing                 (no decision module)
+//   router extension/ladder/core.js      nothing
+//   climb  extension/ladder/climb.js           ladder-core.js only     (the file does not exist yet: pinned for when it does)
 // Guards the ladder spec's last box: "no rung reads another's internals" (docs/superpowers/specs/2026-10-10-ai-ladder.md) and the rung map's consistency.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -19,7 +19,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
 import {FLOW_CORE} from '../e2e/flows.mjs';
-import {RUNGS} from '../../extension/ladder-core.js';
+import {RUNGS} from '../../extension/ladder/core.js';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = file => fs.readFileSync(path.join(repo, file), 'utf8');
@@ -40,19 +40,19 @@ export function importsOf(source) {
 // A relative import resolved to a repo path; a bare specifier (node:fs) stays as it is.
 const resolveFrom = (file, from) => from.startsWith('.') ? path.posix.normalize(path.posix.join(path.posix.dirname(file), from)) : from;
 
-const EXTENSION_PLUMBING = ['extension/flow.js', 'extension/log.js', 'extension/account-fill.js', 'extension/page-picture.js', 'extension/account-act.js', 'extension/next-step.js'];
+const EXTENSION_PLUMBING = ['extension/flow.js', 'extension/log.js', 'extension/account-fill.js', 'extension/ladder/rung4-page-picture.js', 'extension/account-act.js', 'extension/next-step.js'];
 // file -> the exact set of things it imports. `only`: for a cross-rung edge, the one binding set it may take.
 export const EDGES = {
   'extension/tab-pages.js': {allow: ['extension/alias-schema.js']},
-  'desktop/lib/page-kind.js': {allow: ['desktop/lib/ai/models.js', 'node:fs', 'desktop/shared/alias-schema.js', 'desktop/lib/digest.js'], only: {'desktop/lib/digest.js': ['askDigest']}},
+  'desktop/lib/page-kind.js': {allow: ['desktop/lib/ai/models.js', 'node:fs', 'desktop/shared/alias-schema.js', 'desktop/lib/ladder/rung3-digest.js'], only: {'desktop/lib/ladder/rung3-digest.js': ['askDigest']}},
   'desktop/lib/account-judge.js': {allow: ['desktop/lib/page-kind.js'], only: {'desktop/lib/page-kind.js': ['MODEL']}},
-  'desktop/lib/digest.js': {allow: ['desktop/lib/ai/models.js']},
-  'extension/page/candidates.js': {allow: []},
-  'desktop/lib/escalate.js': {allow: ['node:fs', 'desktop/lib/account-judge.js', 'desktop/lib/page-kind.js', 'desktop/lib/site-accounts.js'], only: {'desktop/lib/page-kind.js': ['pageShape'], 'desktop/lib/account-judge.js': ['accountSketch', 'listed']}},
-  'extension/escalate.js': {allow: EXTENSION_PLUMBING},
-  'desktop/lib/take-over.js': {allow: []},
-  'extension/ladder-core.js': {allow: []},
-  'extension/ladder.js': {allow: ['extension/ladder-core.js'], optional: true},
+  'desktop/lib/ladder/rung3-digest.js': {allow: ['desktop/lib/ai/models.js']},
+  'extension/ladder/rung3-candidates.js': {allow: []},
+  'desktop/lib/ladder/rung4-picture.js': {allow: ['node:fs', 'desktop/lib/account-judge.js', 'desktop/lib/page-kind.js', 'desktop/lib/site-accounts.js'], only: {'desktop/lib/page-kind.js': ['pageShape'], 'desktop/lib/account-judge.js': ['accountSketch', 'listed']}},
+  'extension/ladder/rung4-picture.js': {allow: EXTENSION_PLUMBING},
+  'desktop/lib/ladder/rung5-takeover.js': {allow: []},
+  'extension/ladder/core.js': {allow: []},
+  'extension/ladder/climb.js': {allow: ['extension/ladder/core.js'], optional: true},
 };
 // The files that are decision rungs: another rung's file may be imported only through a listed `only` edge.
 const RUNG_FILES = Object.keys(EDGES);
@@ -81,7 +81,7 @@ for (const [file, rule] of Object.entries(EDGES)) {
 test('no rung file imports another rung file except through a listed edge with named bindings', () => {
   for (const file of RUNG_FILES.filter(one => fs.existsSync(path.join(repo, one)))) {
     for (const item of edgesOf(file).filter(one => RUNG_FILES.includes(one.to))) {
-      const only = EDGES[file].only?.[item.to] || (file === 'extension/ladder.js' && item.to === 'extension/ladder-core.js' ? ['*'] : null);
+      const only = EDGES[file].only?.[item.to] || (file === 'extension/ladder/climb.js' && item.to === 'extension/ladder/core.js' ? ['*'] : null);
       assert.ok(only, `${file} reads the rung file ${item.to}`);
       assert.ok(!item.names.includes('*') || only.includes('*'), `${file} takes a whole namespace of ${item.to}`);
     }
@@ -89,12 +89,12 @@ test('no rung file imports another rung file except through a listed edge with n
 });
 
 test('the dependency direction: digest and take-over and the router import no decision module; nothing below a rung imports a rung above it', () => {
-  const decisions = ['desktop/lib/page-kind.js', 'desktop/lib/escalate.js', 'desktop/lib/account-judge.js', 'extension/tab-pages.js'];
-  for (const file of ['desktop/lib/digest.js', 'desktop/lib/take-over.js', 'extension/ladder-core.js', 'extension/page/candidates.js']) {
+  const decisions = ['desktop/lib/page-kind.js', 'desktop/lib/ladder/rung4-picture.js', 'desktop/lib/account-judge.js', 'extension/tab-pages.js'];
+  for (const file of ['desktop/lib/ladder/rung3-digest.js', 'desktop/lib/ladder/rung5-takeover.js', 'extension/ladder/core.js', 'extension/ladder/rung3-candidates.js']) {
     for (const item of edgesOf(file)) assert.ok(!decisions.includes(item.to), `${file} imports the decision module ${item.to}`);
   }
   // Rung 3's validator is below rung 2's caller, never the other way round.
-  assert.ok(!edgesOf('desktop/lib/digest.js').some(item => item.to === 'desktop/lib/page-kind.js'));
+  assert.ok(!edgesOf('desktop/lib/ladder/rung3-digest.js').some(item => item.to === 'desktop/lib/page-kind.js'));
 });
 
 // ---- The rung map (docs/flows/ladder.md) against the code.

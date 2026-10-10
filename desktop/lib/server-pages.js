@@ -7,10 +7,10 @@ import {log as appLog} from './log.js';
 import {aiClient, judgePage, reportedConfirmations} from './confirmation.js';
 import {judgeAccount} from './account-judge.js';
 import {judgeForm} from './form-judge.js';
-import {escalate} from './escalate.js';
+import {escalate} from './ladder/rung4-picture.js';
 import {forgetPageKind, kindKey, pageKind, pageKindCache, sketchBody} from './page-kind.js';
-import {hit as ladderHit, ladderStore, lookup as ladderLookup, miss as ladderMiss, record as ladderRecord} from './ladder-learning.js';
-import {otherStore, record as otherRecord} from './ladder-other.js';
+import {hit as ladderHit, ladderStore, lookup as ladderLookup, miss as ladderMiss, record as ladderRecord} from './ladder/learning.js';
+import {otherStore, record as otherRecord} from './ladder/other.js';
 import {ladderLine, signalOf} from '../shared/ladder-core.js';
 import {isFormOf} from './apply.js';
 import {localEnv} from './server-env.js';
@@ -71,9 +71,9 @@ export function kindWorthSaying(answer, said = kindSaid, now = Date.now()) {
   said.set(answer.shape, {kind: answer.kind, at: now});
   return true;
 }
-let others = null;   // the shapes the ladder could not read (lib/ladder-other.js)
+let others = null;   // the shapes the ladder could not read (lib/ladder/other.js)
 const othersOf = storage => { const file = storage.path('ladder-other.json'); if (others?.file !== file) others = {file, store: otherStore(file)}; return others.store; };
-let ladder = null;   // the ladder's learned answers (lib/ladder-learning.js), one store per file
+let ladder = null;   // the ladder's learned answers (lib/ladder/learning.js), one store per file
 const ladderOf = storage => { const file = storage.path('ladder-learning.json'); if (ladder?.file !== file) ladder = {file, store: ladderStore(file)}; return ladder.store; };
 export async function decidePageKind(storage, body, {decide = pageKind, client} = {}) {
   kindCache ||= pageKindCache(storage.path('page-kinds.json'));
@@ -84,7 +84,7 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
     appLog('extension', `page kind forgotten: ${String(body.reason || 'contradicted by the page').slice(0, 80)}`, {shape: dropped || '(nothing kept)', was: String(body.kind || '').slice(0, 20)});
     return {ok: true, forgotten: !!dropped};
   }
-  if (body?.why === 'other') {   // the ladder ended with no usable answer: the shape is counted and logged, never its text (lib/ladder-other.js)
+  if (body?.why === 'other') {   // the ladder ended with no usable answer: the shape is counted and logged, never its text (lib/ladder/other.js)
     const reported = otherRecord(othersOf(storage), shapeOf);
     if (reported) appLog('extension', `ladder: other shape=${shapeOf}`);
     return {ok: true, reported};
@@ -102,7 +102,7 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
   if (climb) appLog('extension', climb, {shape: answer.shape || '', ...(answer.dropped ? {dropped: answer.dropped} : {})});
   // An Apply button the AI named for the first time goes to the shared label meanings (the button's wording only; 2-3 installs start a canary).
   if (answer.by === 'ai' && answer.applyButton && !answer.applyRoute) proposalReporter([{key: 'apply_button', phrase: answer.applyButton}]);
-  const ladder = {...(answer.rung != null ? {rung: answer.rung} : {}), ...(answer.signal ? {signal: answer.signal} : {})};   // which rung answered and with what signal: the extension climbs on it (extension/ladder-core.js)
+  const ladder = {...(answer.rung != null ? {rung: answer.rung} : {}), ...(answer.signal ? {signal: answer.signal} : {})};   // which rung answered and with what signal: the extension climbs on it (extension/ladder/core.js)
   return answer.error ? {ok: true, kind: '', error: answer.error, ...ladder}
     : {ok: true, kind: answer.kind, role: answer.role, by: answer.by, confidence: answer.confidence, applyButton: answer.applyButton || '', applyRoute: answer.applyRoute || '', applyBy: answer.applyBy || '', applyEmail: answer.applyEmail || '',
       accountStep: answer.accountStep || '', registerControl: answer.registerControl || '', signinControl: answer.signinControl || '', accountButton: answer.accountButton || '',
@@ -152,7 +152,7 @@ export async function decideAccountJudge(storage, body, {judge = judgeAccount, c
   return answer.error ? {ok: true, answer: '', error: answer.error, ...judged} : {ok: true, ...judged, answer: answer.answer, needs: answer.needs, needsKind: answer.needsKind || '', consentRequired: !!answer.consentRequired, botCheck: answer.botCheck, ...next};
 }
 
-// The closer look (lib/escalate.js): a picture with typed values hidden, one fixed action back; opt-in, capped, account pages only. A feedback body remembers what worked.
+// The closer look (lib/ladder/rung4-picture.js): a picture with typed values hidden, one fixed action back; opt-in, capped, account pages only. A feedback body remembers what worked.
 export async function decideEscalation(storage, body, {client, contact} = {}) {
   let answer = await escalate(storage, body, {client: client === undefined ? aiClient(storage) : client});
   if (answer.action === 'fill') {   // the value comes from the person's own contact details, here, and goes only to the extension: never to the model, never to the log

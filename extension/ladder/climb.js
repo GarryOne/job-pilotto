@@ -1,12 +1,12 @@
-// What the extension does with a rung's signal (spec: docs/superpowers/specs/2026-10-10-ai-ladder.md; the rule itself is extension/ladder-core.js). The app's page-kind answer says which rung
-// answered and with what signal; an unsure page, or a page with nothing to press and no form, climbs to the numbered digest (rung 3: extension/page/candidates.js, desktop/lib/digest.js), once.
+// What the extension does with a rung's signal (spec: docs/superpowers/specs/2026-10-10-ai-ladder.md; the rule itself is extension/ladder/core.js). The app's page-kind answer says which rung
+// answered and with what signal; an unsure page, or a page with nothing to press and no form, climbs to the numbered digest (rung 3: extension/ladder/rung3-candidates.js, desktop/lib/ladder/rung3-digest.js), once.
 // The digest only INFORMS or names a button the page lists (the Apply floors still apply in the app); what the page says to do is reported to the app as the application's need (`told`).
 // Invariants (flow core: read before editing; changing one is the owner's call, said in the commit; each names the test that guards it):
 //  1. An unsure answer climbs to the digest; a confident one, or no signal, never asks again (worker/test/ladder-climb.test.js).
 //  2. A page without a form asks the digest at most once per tab and page, and never when the digest already answered (worker/test/ladder-climb.test.js).
 //  3. Only a tell_person answer is reported as told, with the page's own sentence; an email has its own report (worker/test/ladder-climb.test.js).
-//  4. The picture rung (4) is not offered to the router yet: it is wired for account pages only (lib/escalate.js).
-import {nextRung} from './ladder-core.js';
+//  4. The picture rung (4) is not offered to the router yet: it is wired for account pages only (lib/ladder/rung4-picture.js).
+import {nextRung} from './core.js';
 
 const signals = new Map();   // tab id -> the last {rung, signal} the app answered with
 const ended = new Set();     // tab ids whose digest answered nothing usable: the ladder ended at the person
@@ -20,11 +20,11 @@ export const noteSignal = (tabId, answer, controls = []) => { sketched.set(tabId
 export const controlsOf = tabId => sketched.get(tabId) || [];
 export const forgetClimb = tabId => { signals.delete(tabId); sketched.delete(tabId); ended.delete(tabId); frames.delete(tabId); for (const key of [...opened]) if (key.startsWith(`${tabId} `)) opened.delete(key); for (const key of [...looked]) if (key.startsWith(`${tabId} `)) looked.delete(key); };
 
-// The numbered candidates of the page (extension/page/candidates.js). The page files live in the page's own (MAIN) world; the finder is injected when this page has not loaded it yet.
+// The numbered candidates of the page (extension/ladder/rung3-candidates.js). The page files live in the page's own (MAIN) world; the finder is injected when this page has not loaded it yet.
 const look = tabId => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: () => window.__jobPilottoCandidates?.candidatesOf?.()}).then(rows => rows?.[0]?.result).catch(() => undefined);
 export async function candidatesOf(tabId) {
   let found = await look(tabId);
-  if (!found) { await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: ['page/candidates.js']}).catch(() => {}); found = await look(tabId); }
+  if (!found) { await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: ['ladder/rung3-candidates.js']}).catch(() => {}); found = await look(tabId); }
   return Array.isArray(found) ? found : [];
 }
 
@@ -53,7 +53,7 @@ export function toldReport(kind) {
 }
 
 // What the app is told when a digest-named press led to a form (the one verified signal that can be seen: the page moved on as the digest said): fixed values and the page's address
-// without its query, never a sentence or an address from the page (desktop/lib/ladder-learning.js keeps nothing else). null for anything but a digest press.
+// without its query, never a sentence or an address from the page (desktop/lib/ladder/learning.js keeps nothing else). null for anything but a digest press.
 export function verifiedBody(kind, url, controls = []) {
   const digest = kind?.digest;
   if (kind?.by !== 'digest' || kind.rung !== 3 || digest?.verb !== 'press' || !digest.outcome) return null;
@@ -68,7 +68,7 @@ export function otherReport(kind, tabId) {
   return ended.has(tabId) && !usable ? {why: 'other', needs: ''} : null;
 }
 
-// The frames that may hold the application form (extension/page/frames.js, in the page's world). The list with addresses stays here; the app is sent host, path and size only.
+// The frames that may hold the application form (extension/ladder/rung3-frames.js, in the page's world). The list with addresses stays here; the app is sent host, path and size only.
 export const noteFrames = (tabId, list) => frames.set(tabId, Array.isArray(list) ? list : []);
 export const frameSketch = list => (Array.isArray(list) ? list : []).map(({host, path, width, height}) => ({host, path, width, height}));
 export const frameSrcOf = (tabId, index) => { const src = Number.isInteger(index) ? frames.get(tabId)?.[index]?.src : ''; return typeof src === 'string' && src.startsWith('https://') ? src : ''; };
@@ -76,6 +76,6 @@ export const claimFrame = key => (opened.has(key) ? false : (opened.add(key), tr
 const lookFrames = tabId => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: () => window.__jobPilottoFrames?.frameCandidates?.()}).then(rows => rows?.[0]?.result).catch(() => undefined);
 export async function framesOf(tabId) {
   let found = await lookFrames(tabId);
-  if (!found) { await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: ['page/frames.js']}).catch(() => {}); found = await lookFrames(tabId); }
+  if (!found) { await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', files: ['ladder/rung3-frames.js']}).catch(() => {}); found = await lookFrames(tabId); }
   return Array.isArray(found) ? found : [];
 }

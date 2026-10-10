@@ -1,4 +1,4 @@
-// Numbered candidates (extension/page/candidates.js, rung 3): the sentences, links, buttons and addresses of a posting, found by structure only, at most 12, so the AI can answer by number.
+// Numbered candidates (extension/ladder/rung3-candidates.js, rung 3): the sentences, links, buttons and addresses of a posting, found by structure only, at most 12, so the AI can answer by number.
 // Shapes: Aldi (30 navigation links crowd a sketch's 20 buttons; the Apply control is in the main text), a closed notice above a working form, a press address beside an Apply button.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import { loadJsdom, openPage } from './helpers/page.js';
 
 const JSDOM = await loadJsdom();
-const SOURCE = fs.readFileSync(new URL('../../extension/page/candidates.js', import.meta.url), 'utf8');   // not in PAGE_FILES yet: loaded by hand
+const SOURCE = fs.readFileSync(new URL('../../extension/ladder/rung3-candidates.js', import.meta.url), 'utf8');   // not in PAGE_FILES yet: loaded by hand
 const open = (html, url = 'https://jobs.example.ch/job/1') => { const window = openPage(JSDOM, html, { url }); window.eval(SOURCE); return window; };
 const of = (html, url) => Array.from(open(html, url).__jobPilottoCandidates.candidatesOf());
 

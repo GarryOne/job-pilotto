@@ -1,7 +1,7 @@
-// The extension's climb (extension/ladder.js): what it does with a rung's signal, using the router (extension/ladder-core.js). Fake `ask`, no browser.
+// The extension's climb (extension/ladder/climb.js): what it does with a rung's signal, using the router (extension/ladder/core.js). Fake `ask`, no browser.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {climbOnStall, climbOnUnsure, forgetClimb, noteSignal, toldReport} from '../../extension/ladder.js';
+import {climbOnStall, climbOnUnsure, forgetClimb, noteSignal, toldReport} from '../../extension/ladder/climb.js';
 
 const digestAnswer = {role: 'no-form', kind: 'posting', by: 'digest', rung: 3, signal: 'confident', digest: {outcome: 'phone', verb: 'tell_person', numbers: [2], chosen: [{n: 2, kind: 'sentence', text: 'Call us: 044 555 01 00'}]}};
 
@@ -35,7 +35,7 @@ test('only a tell_person answer is reported as told, with the page\'s own senten
 });
 
 test('what the app is told when a digest-named press led to a form: fixed values only, never a sentence, never an address', async () => {
-  const {verifiedBody} = await import('../../extension/ladder.js');
+  const {verifiedBody} = await import('../../extension/ladder/climb.js');
   const kind = {by: 'digest', rung: 3, digest: {outcome: 'form', verb: 'press', chosen: [{n: 2, kind: 'button', text: 'Postuler'}]}};
   assert.deepEqual(verifiedBody(kind, 'https://jobs.example/x?token=secret#frag', [{type: 'text'}]), {verified: true, url: 'https://jobs.example/x', controls: [{type: 'text'}], rung: 3, outcome: 'form', kind: 'posting', signal: 'confident'});
   for (const nope of [null, {}, {by: 'ai', rung: 2, digest: {outcome: 'form'}}, {by: 'digest', rung: 3}]) assert.equal(verifiedBody(nope, 'https://jobs.example/x', []), null, 'only a digest answer is reported');
@@ -43,7 +43,7 @@ test('what the app is told when a digest-named press led to a form: fixed values
 });
 
 test('when the ladder ends with no usable answer (the digest answered nothing, or said other with nothing to tell), the page is reported as other, never silently', async () => {
-  const {climbOnStall, climbOnUnsure, forgetClimb, noteSignal, otherReport} = await import('../../extension/ladder.js');
+  const {climbOnStall, climbOnUnsure, forgetClimb, noteSignal, otherReport} = await import('../../extension/ladder/climb.js');
   forgetClimb(11);
   noteSignal(11, {rung: 2, signal: 'unsure'});
   await climbOnUnsure({id: 11}, async () => null);   // the digest was unsure or failed: no answer
@@ -59,7 +59,7 @@ test('when the ladder ends with no usable answer (the digest answered nothing, o
 });
 
 test('the extension keeps each frame candidate\'s address for itself and sends only host, path and size; the index the app answers opens the stored address, https only', async () => {
-  const {frameSketch, frameSrcOf, forgetClimb, noteFrames} = await import('../../extension/ladder.js');
+  const {frameSketch, frameSrcOf, forgetClimb, noteFrames} = await import('../../extension/ladder/climb.js');
   forgetClimb(21);
   const list = [{host: 'job-boards.example-ats.io', path: '/embed/job_app', src: 'https://job-boards.example-ats.io/embed/job_app?token=secret', width: 650, height: 2432}, {host: 'x.example', path: '/a', src: 'http://x.example/a', width: 400, height: 300}];
   noteFrames(21, list);

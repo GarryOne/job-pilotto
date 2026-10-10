@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// `node e2e/ladder-digest-score.mjs`: a measurement of rung 3 on the ladder fixtures: does the numbered digest (lib/digest.js prompt + each fixture's `candidates`) answer the non-form pages right? The real model on the plan path
+// `node e2e/ladder-digest-score.mjs`: a measurement of rung 3 on the ladder fixtures: does the numbered digest (lib/ladder/rung3-digest.js prompt + each fixture's `candidates`) answer the non-form pages right? The real model on the plan path
 // (Claude Code; ANTHROPIC_API_KEY must be unset), one call per fixture whose page is not a form or an account. Rates per source, never blended; the wrong-and-confident list. Not a gate: the digest is not wired yet.
 //   [--only <id>] [--ids a,b,c] [--tier small|main|big] [--json]
 //   --real   only real pages (recorded + captured), none invented or reconstructed: the set the prompt may be judged on (owner's coordinator, 10 Oct 2026: no more tuning on invented fixtures)
@@ -9,7 +9,7 @@ import {pickEngine} from './lib/engine.mjs';
 import {loadFixtures} from './lib/ladder-fixtures.mjs';
 import {SOURCE_GROUP, SURE, assertNoApiSpend} from './lib/ladder-score.mjs';
 import {modelClient} from './lib/model.mjs';
-import {askDigest} from '../lib/digest.js';
+import {askDigest} from '../lib/ladder/rung3-digest.js';
 import {model} from '../lib/ai/models.js';
 import {pageSketch} from '../lib/page-kind.js';
 

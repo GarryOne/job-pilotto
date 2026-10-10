@@ -1,13 +1,13 @@
 // The closer look (spec: docs/superpowers/specs/2026-10-08-ai-escalation.md; owner, 8 Oct 2026: off until he turns it on, account pages first). When the account AI is unsure twice about a page, or a control it
-// named cannot be found, the worker takes a screenshot of the tab (typed values hidden for the capture), asks the app (lib/escalate.js: opt-in, capped, validated, remembered per page shape) and carries out
+// named cannot be found, the worker takes a screenshot of the tab (typed values hidden for the capture), asks the app (lib/ladder/rung4-picture.js: opt-in, capped, validated, remembered per page shape) and carries out
 // ONE action: click a control the page lists, wait, or ask the person. A click that moved the page on is reported back so the app remembers it. Only a tab in front can be photographed. Guard: worker/test/escalate.test.js.
-import {api, settings} from './flow.js';
-import {decide} from './log.js';
-import {accountSketch} from './account-fill.js';
-import {hideValues, showValues} from './page-picture.js';
-import {pressRegister} from './account-fill.js';
-import {chooseOption, fillControl} from './account-act.js';
-import {pressInPage} from './next-step.js';
+import {api, settings} from '../flow.js';
+import {decide} from '../log.js';
+import {accountSketch} from '../account-fill.js';
+import {hideValues, showValues} from './rung4-page-picture.js';
+import {pressRegister} from '../account-fill.js';
+import {chooseOption, fillControl} from '../account-act.js';
+import {pressInPage} from '../next-step.js';
 
 // What the last look said, per tab (the application ladder tells the person which control to press when it may not press it itself).
 export const lastLook = new Map();

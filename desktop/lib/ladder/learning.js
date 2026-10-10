@@ -10,11 +10,11 @@
 // counts() -> the learned counts for the token-gated pack path (lib/recipes.js createReporter: one more map, sent in the batch; the site aggregates with k>=3 and fixed lists, never a second delivery path):
 //   [{"shape": "jobs.example.ch/careers/*|3-7", "rung": 3, "outcome": "form", "hits": 2, "misses": 1}, ...]   // fixed values and integers only, sorted by shape
 import fs from 'node:fs';
-import {CAPS} from './escalate.js';
-import {OUTCOMES} from './digest.js';
-import {KINDS} from './page-kind.js';
+import {CAPS} from './rung4-picture.js';
+import {OUTCOMES} from './rung3-digest.js';
+import {KINDS} from '../page-kind.js';
 
-const SIGNALS = ['confident', 'unsure', 'contradicted', 'stalled', 'failed'];   // as extension/ladder-core.js SIGNALS (a classic script, not importable here)
+const SIGNALS = ['confident', 'unsure', 'contradicted', 'stalled', 'failed'];   // as extension/ladder/core.js SIGNALS (a classic script, not importable here)
 const MIN_RUNG = 3, MAX_RUNG = 6, MAX_SHAPES = 500;
 export const SHAPE = /^[a-z0-9._-]{1,80}(\/[a-z0-9._*-]{0,60}){0,8}\|[a-z0-9-]{1,12}$/;   // host / path template | build: no query, no space, no @, no sentence
 const count = value => (Number.isInteger(value) && value >= 0 ? Math.min(value, 1e6) : 0);

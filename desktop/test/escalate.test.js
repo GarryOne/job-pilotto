@@ -1,10 +1,10 @@
-// The closer look (lib/escalate.js): opt-in, account pages only, capped, a control only if the page lists it, remembered when it worked, a picture only of the right shape; no AI call otherwise.
+// The closer look (lib/ladder/rung4-picture.js): opt-in, account pages only, capped, a control only if the page lists it, remembered when it worked, a picture only of the right shape; no AI call otherwise.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {CAPS, escalate} from '../lib/escalate.js';
+import {CAPS, escalate} from '../lib/ladder/rung4-picture.js';
 
 const sketch = {url: 'https://karriere.example/career', title: 'Anmelden', headings: [], controls: [{type: 'text', label: 'E-Mail', required: true, state: 'empty', at: '50,30'}], buttons: ['Anmelden', 'Noch kein Profil? Hier registrieren'], texts: [], frames: []};
 const storageOf = (settings = {escalation: 'on', accountAutomation: 'full'}) => { const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-esc-')); return {settings: () => settings, path: name => path.join(dir, name)}; };

@@ -253,7 +253,7 @@ test('a kept posting is asked again on a page that carries an address (a later e
   assert.equal(formCalls.length, 1, 'a form page carrying an address (a contact line) costs no second AI call');
 });
 
-// The ladder (extension/ladder-core.js, docs/superpowers/specs/2026-10-10-ai-ladder.md): page-kind says which rung answered and with what signal; an unsure answer no longer
+// The ladder (extension/ladder/core.js, docs/superpowers/specs/2026-10-10-ai-ladder.md): page-kind says which rung answered and with what signal; an unsure answer no longer
 // falls silently down to the structure rule, it names the signal so the extension climbs; a digest request (rung 3) is answered from the page's numbered candidates.
 const seq = (answers, calls = []) => ({messages: {create: async request => { calls.push(request); const answer = answers[Math.min(calls.length - 1, answers.length - 1)];
   return {stop_reason: 'end_turn', usage: {input_tokens: 700, output_tokens: 30}, content: [{type: 'text', text: JSON.stringify(answer)}]}; }}});

@@ -1,5 +1,5 @@
 // The session card's Claude offer (renderer/claude-offer.js; spec 2026-10-10-claude-finishes-stuck-pages.md part 3): the same three choices as the page's panel, through the same
-// one-takeover-per-application guard. The view as a pure function, and the wiring (the card asks it, the press goes through lib/take-over.js).
+// one-takeover-per-application guard. The view as a pure function, and the wiring (the card asks it, the press goes through lib/ladder/rung5-takeover.js).
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';

@@ -4,9 +4,9 @@
 // unless the assistant mode is "Do it for me" (accountAutomation full; its own switch until 10 Oct 2026), account pages only, 2 looks per page shape and 10 per day, never a stored picture. What worked
 // (the page changed after the click) is remembered per page shape, so the next visit is free. Guard: test/escalate.test.js.
 import fs from 'node:fs';
-import {accountSketch, listed} from './account-judge.js';
-import {pageShape} from './page-kind.js';
-import {automationOf} from './site-accounts.js';
+import {accountSketch, listed} from '../account-judge.js';
+import {pageShape} from '../page-kind.js';
+import {automationOf} from '../site-accounts.js';
 
 export const MODEL = 'claude-opus-5-5';
 export const CAPS = {perShape: 2, perDay: 10};

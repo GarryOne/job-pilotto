@@ -1,9 +1,9 @@
-// What the closer look takes of a page: typed values hidden for the capture and shown again; the "unsure twice" rule (extension/page-picture.js, extension/escalate.js).
+// What the closer look takes of a page: typed values hidden for the capture and shown again; the "unsure twice" rule (extension/ladder/rung4-page-picture.js, extension/ladder/rung4-picture.js).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {JSDOM} from 'jsdom';
-import {hideValues, showValues} from '../../extension/page-picture.js';
-import {unsureTwice} from '../../extension/escalate.js';
+import {hideValues, showValues} from '../../extension/ladder/rung4-page-picture.js';
+import {unsureTwice} from '../../extension/ladder/rung4-picture.js';
 
 test('values are hidden by one style and shown again by removing it; nothing else on the page changes', () => {
   const dom = new JSDOM('<body><input id="e" value="ada@example.com"><p id="t">Label</p></body>');
