@@ -1,12 +1,12 @@
 name: CI · Mac smoke (by hand)
 
 # The Mac smoke test (desktop/scripts/mac-smoke.mjs) on an already published build, in about a minute and with no e2e: for fixing the smoke test itself (10 Oct 2026: the packaged
-# app opened no window on a CI Mac, and each try was a 45-minute beta by hand). Empty tag = the newest published release.
+# app opened no window on a CI Mac, and each try was a 45-minute beta by hand). Empty tag = the newest release that has a Mac zip.
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag whose Mac .zip to smoke-test (empty: the newest published release)'
+        description: 'Release tag whose Mac .zip to smoke-test (empty: the newest release with a Mac zip)'
         required: false
         default: ''
 
@@ -28,7 +28,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
         run: |
-          [ -n "$TAG" ] || TAG=$(gh release list --limit 10 --json tagName,isDraft -q '[.[] | select(.isDraft | not)][0].tagName')
+          if [ -z "$TAG" ]; then   # the newest release that has a Mac zip (a build whose Mac lane failed has none; old builds are pruned)
+            for candidate in $(gh release list --limit 15 --json tagName,isDraft -q '.[] | select(.isDraft | not) | .tagName'); do
+              if gh release view "$candidate" --json assets -q '.assets[].name' | grep -q '^Job-Pilotto-[0-9].*-arm64\.zip$'; then TAG=$candidate; break; fi
+            done
+          fi
+          [ -n "$TAG" ] || { echo "::error::No release with a Mac zip"; exit 1; }
           echo "Smoke-testing $TAG"
           gh release download "$TAG" -p 'Job-Pilotto-[0-9]*-arm64.zip' -D dist
           ls -la dist
