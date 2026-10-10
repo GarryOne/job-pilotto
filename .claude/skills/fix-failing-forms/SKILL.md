@@ -110,6 +110,10 @@ Flow-core files (`page-kind.js`, `fill-flow.js`, `session-flow.js`, `escalate.js
   or a scenario (a fill replay alone does not count), or `Recorded-unneeded: <why>` in the commit only when no real site's failure is fixed. Commit subject <= 72 characters.
 - **Re-run `npm run smoke -- --only <shape>` on the landed build** (a held run, said before it starts) and compare with the first run: **it must reach further**
   (a later page kind, a fill count > 0). Report: before -> after, counts, what still stops it. Not further = not done: back to step 1 with the new log.
+- **Landing does not clear the row** (11 Oct 2026, jobs.ch "Easy apply"): `/admin/applying` lists a site by its LATEST uploaded smoke result, so the row leaves "Needs a fix" only after a run on the landed
+  build uploads a better one (a later step, more fields filled, or a documented hold). A recorded page passing is a separate table (Fixed-site replays) and does not clear it. The e2e page is the coordinator's
+  (`coordinator.txt`): hand it the shape and the version ("landed <hash>, extension <x.y.z>, run <shape>") and wait for its result instead of running on the page yourself. Until that result is in, say
+  "landed, unconfirmed", never "done". Proof: the row's "Filled, last runs" goes up or the row leaves the list.
 - **A rung fix** (3b): Commit subject ≤ 72 chars; body: the rung, the shape, the before/after status line from `ladder-score`; `Recorded-unneeded:` only when no real-site failure is fixed. Land with `tools/ship.sh`; tell what other sites this helps and what it does not cover. The commit carries the trailers `Rung: <n>` and `Fixture: <id>` (a hook check for them is being built: ladder-fixtures-ed).
 - Report to the owner and the coordinator in one line per shape: shape, fix (mechanism part), reached before -> after, commit, sibling sites helped.
 - Say "released" for the flow core to every peer.
@@ -118,6 +122,8 @@ Flow-core files (`page-kind.js`, `fill-flow.js`, `session-flow.js`, `escalate.js
 - Reached the form (filled/left counted) or a documented hold (an email code, a captcha, a bot check, a login wall): stop, never get past them.
 - Two fix rounds without reaching further: stop, write what is known (log lines, frames, what you tried) and hand the shape back; do not keep guessing.
 - A site that blocks automation (401/403/429, a bot check) is a no: note it in the report, leave it.
+- **A red row is a stated rule, not a bug** (the code refuses it on purpose, e.g. "Easy Apply", a consent, a Submit): do not change the rule yourself. Say what the rule is, what the row would need, and ask the owner;
+  a change is a Decision Log entry.
 - The shape needs the owner's real state (their account, their Gmail): hand it to the twin skill, never use it here.
 - The coordinator or a peer holds the e2e page or the flow core: wait or hand over; never two runs on one page.
 - The owner says stop.

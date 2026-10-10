@@ -62,6 +62,8 @@ Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is not
 4. **Hand off** each failing shape, one line each, to `/fix-failing-forms` (the shape, the log path, the frame folder, what the log cannot tell). Several sessions may each take a different shape:
    give every one its own worktree and scratch folder (global rule "Several agents at once"), and the flow core goes to one session at a time (claim message).
    A shape that needs the owner's accounts or Gmail goes to `/fix-live-applying-in-twin`.
+   **Landed fixes come back to you:** a fixer hands you "landed <hash>, extension <version>, run <shape>". Update the runner to that build, run just that shape (held, Monitor), upload it, and send the fixer the step
+   reached, the page-kind lines and the app.log path. A row clears on `/admin/applying` only through such an uploaded run (or the nightly one); a recorded page passing does not clear it.
 5. **Grow the pool** (when asked or after a profile change): `--discover`; read what it added to the Mac's list and why (the new signature). Never add a posting address to the public file unless it is from a public feed.
 6. **Report to the owner:** counts (run, reached form / posting / bot, regressions, new shapes), what moved since the last report, what was handed to whom. Say "done" to the peers.
 
