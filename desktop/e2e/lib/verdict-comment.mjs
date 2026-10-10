@@ -48,7 +48,7 @@ export function checkEvidence(raw, lines) {
   return {word: 'needs-human', note: refs.length ? `Its cited code (${refs.join(', ')}) does not exist, so the verdict was not trusted.` : 'It cited no file and line, so the verdict was not trusted.'};
 }
 
-// by: who judged. The CI verdict pass is read-only; a triage session (the triage-issues skill) may also have fixed it.
+// by: who judged. The CI verdict pass is read-only; a triage session (the triage-github-open-issues skill) may also have fixed it.
 export function verdictComment(raw, {number = 0, by = 'verdict pass'} = {}) {
   const {word, why, check} = parse(raw);
   const key = BANNER[word] ? word : 'needs-human';

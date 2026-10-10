@@ -5,10 +5,10 @@ description: Fix the applying flow's failing or low-reaching shapes one at a tim
 
 # Fix failing forms: one shape at a time, from the pool's numbers
 
-Pattern of `triage-issues` (a list of failures; one at a time: validate, fix, close, score) applied to the applying flow.
+Pattern of `triage-github-open-issues` (a list of failures; one at a time: validate, fix, close, score) applied to the applying flow.
 Goal (owner, 9-10 Oct 2026): from the posting to a filled form, stopped before Submit, on any site, and **never fix the same website twice**.
 This skill works on the pool (real postings, layer 3 of `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md`). Live sessions on the
-owner's twin are `fix-live-applying-in-twin` (twin-loop until renamed). The pool's own upkeep (running, growing, coordinating it) is a later skill.
+owner's twin are `fix-live-applying-in-twin`. The pool's own upkeep (running, growing, coordinating it) is a later skill.
 
 ## 0. Before starting (one line each to the owner)
 - **The list**, worst first: regressions, then shapes that reached the earliest step. Sources: `/admin/applying` (owner-only; Bearer = Keychain

@@ -356,7 +356,7 @@ async function fillOpenedTabNow(tab, url, force = false, {fast = false, quiet = 
     // How each field was handled, so "what happened to <field>?" is answered from the log (8 Oct 2026: it took page probes). Labels and kinds, never a value.
     // One row per field: a later pass (Claude on the page) wins.
     const fields = [...new Map((result.trace || []).map(row => [row.label, row])).values()].slice(0, 40).map(row => ({label: String(row.label || '').slice(0, 50), type: row.type || '', outcome: row.outcome, source: row.source || '', reason: row.reason || '', ...(row.alias ? {alias: String(row.alias).slice(0, 30)} : {})}));   // alias: the pack meaning's field key, never a value
-    if (fields.length) decide('fill', `fields: ${fields.filter(row => row.outcome === 'filled').length} filled, ${fields.filter(row => row.outcome !== 'filled').length} left`, {url: page, fields, recipes: sharedFixes(result.operated).count});   // did the learned layer act (twin-loop, 9 Oct 2026)
+    if (fields.length) decide('fill', `fields: ${fields.filter(row => row.outcome === 'filled').length} filled, ${fields.filter(row => row.outcome !== 'filled').length} left`, {url: page, fields, recipes: sharedFixes(result.operated).count});   // did the learned layer act (fix-live-applying-in-twin, 9 Oct 2026)
     chrome.action.setBadgeText({tabId: tab.id, text: result.ineligible ? '!' : '✓'}).catch(() => {});  // the tab may already be closed
     return result;
   } catch (error) {

@@ -1,6 +1,6 @@
 ---
-name: twin-loop
-description: The live improvement loop for Job Pilotto's applying flow. Apply to real jobs in the twin, watch each step, find what failed, fix it universally, test, land, refresh, run again, until more forms reach "ready for your check". It also measures the self-improving form-filling mechanism every round (does what it learns get used, does it help, where is it blind) and improves the mechanism itself. Use when the owner says "twin loop", "/twin-loop", "run the apply loop", or "make the active sessions perfect".
+name: fix-live-applying-in-twin
+description: The live improvement loop for Job Pilotto's applying flow. Apply to real jobs in the twin, watch each step, find what failed, fix it universally, test, land, refresh, run again, until more forms reach "ready for your check". It also measures the self-improving form-filling mechanism every round (does what it learns get used, does it help, where is it blind) and improves the mechanism itself. Use when the owner says "twin loop", "/fix-live-applying-in-twin", "run the apply loop", or "make the active sessions perfect".
 ---
 
 # Twin loop: apply live, observe, fix, test, repeat
@@ -16,14 +16,14 @@ exception, for what no data can express (a new kind of operator, a reader blind 
 So the loop is judged on two things: forms closer to ready, and **the share of each round's improvement that came from data, not code**.
 
 ## How it is invoked
-- `/twin-loop`: the **active Applying sessions** (status `input` or `done`, last 3 days), **plus the pool's worst sites** when the sessions are few or
-  all wait on the person (10 Oct 2026: two jobs.ch sessions stuck on an email code made a whole round useless): the nightly smoke's regressions
-  first, then the sites that reached the earliest step (`/admin/applying`, or the latest `~/Library/Application Support/Job Pilotto QA/smoke-reports/<day>.json`).
-- `/twin-loop pool`: only the pool's sites (layer 3 of the applying reliability spec), worst first.
-- `/twin-loop jobs <n>`: also **n new jobs** from the owner's list (top fit, not yet applied, different sites/ATS than the sessions).
-- `/twin-loop <company or session id>`: just that one.
-- `/twin-loop rounds <n>`: stop after n fix rounds (default: keep going until nothing improves or the owner stops it).
-- `/twin-loop mechanism`: only the mechanism check below (fleet numbers, gaps, one fix), no live runs.
+- `/fix-live-applying-in-twin`: the **active Applying sessions** (status `input` or `done`, last 3 days) on the owner's twin.
+  The pool of real test sites (the nightly smoke, `/admin/applying`, the QA smoke-reports) is NOT worked here: that is the skill
+  **`fix-failing-forms`** (`/fix-failing-forms`), which reproduces each failing shape in the e2e harness with fake data. A pool shape that needs the
+  owner's real state (their account, their Gmail) is handed to this skill by name, one at a time.
+- `/fix-live-applying-in-twin jobs <n>`: also **n new jobs** from the owner's list (top fit, not yet applied, different sites/ATS than the sessions).
+- `/fix-live-applying-in-twin <company or session id>`: just that one.
+- `/fix-live-applying-in-twin rounds <n>`: stop after n fix rounds (default: keep going until nothing improves or the owner stops it).
+- `/fix-live-applying-in-twin mechanism`: only the mechanism check below (fleet numbers, gaps, one fix), no live runs.
 
 ## Before the first round (once)
 1. Read `docs/live-test.md` ("Working with the twin as an agent"), `docs/flows/applying.md` (the scenario map), and the Notion page
@@ -58,7 +58,7 @@ For each target, one at a time (only one fill at a time, so the log lines stay r
    - `npm run twin:drive -- inspect <id>` shows what is left, what is pending and what is proposed, plus the page's own state for each field.
    - The trace's `fields` (outcome + reason per field) is in the `fields: N filled` line.
    - `twin:drive page <host> "<js>"` reads the page's structure (buttons, labels, `hasValue`), **never a value**.
-4. **Score it** (one row per target in `<scratchpad>/twin-loop/scorecard.md`, kept across rounds):
+4. **Score it** (one row per target in `<scratchpad>/fix-live-applying-in-twin/scorecard.md`, kept across rounds):
 
    | Target | Site/ATS | Reached | Filled / total | Left (reason) | Stuck at | Version |
    |---|---|---|---|---|---|---|
@@ -66,7 +66,7 @@ For each target, one at a time (only one fill at a time, so the log lines stay r
    **Reached** is one of: posting, account, code/bot (the person's), form, or **ready** (filled, and every empty field has a suggested answer).
    Fill it from the log, not by hand: the twin's `app.log` lines since the run started, read by the smoke's own parser
    (`node -e "import('./desktop/e2e/lib/smoke.mjs').then(m => console.log(m.parseLive(require('fs').readFileSync(process.argv[1], 'utf8'))))" <log slice>`):
-   reached, filled, left, page kinds; `signature()` names the flow, the same words as the pool.
+   reached, filled, left, page kinds; `signature()` names the flow, the same words as the pool (`fix-failing-forms`).
    **A code or a bot check: mark it and move on at once.** The Gmail check runs by itself after a sign-up and on a pending account's page; the session
    card says what the person must do. Never wait on it inside a round.
 5. **Pick the biggest blocker** across all targets. The earliest step comes first: a session that never reaches the form loses every field after it.
@@ -87,7 +87,7 @@ Twin fills count as real use since d8cbe63, so they feed it both ways.
    K=$(security find-generic-password -s job-pilotto.site.api_key -w); curl -s -H "Authorization: Bearer $K" https://www.jobpilotto.top/admin/form-filling/digest.json
    ```
 
-   Save each read as `<scratchpad>/twin-loop/digest-r<N>.json` (round 0 = before the first round) and diff it against round 0: the weekly
+   Save each read as `<scratchpad>/fix-live-applying-in-twin/digest-r<N>.json` (round 0 = before the first round) and diff it against round 0: the weekly
    windows barely move inside one loop, the diff and the recent vs earlier window do. The fleet numbers include the twin's fills (since d8cbe63
    it reports under the owner's install id, so it is never counted as another install): a jump after a round is the twin, not new users.
    Read these, and keep them in the scorecard's **Mechanism** table with the round they were read in, so a trend shows:

@@ -1,4 +1,4 @@
-// apply-verdict.sh: one verdict -> the comment, labels and closing the stats read, the same for the CI verdict pass and the triage-issues skill. gh is a fake that records its calls.
+// apply-verdict.sh: one verdict -> the comment, labels and closing the stats read, the same for the CI verdict pass and the triage-github-open-issues skill. gh is a fake that records its calls.
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';

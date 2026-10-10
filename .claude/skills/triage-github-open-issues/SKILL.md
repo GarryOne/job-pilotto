@@ -1,5 +1,5 @@
 ---
-name: triage-issues
+name: triage-github-open-issues
 description: Work through the open GitHub issues of GarryOne/job-pilotto - validate each one, fix the real ones, close the false positives with their cause - then score the UI Finder (precision per detector, why false positives were false, severity accuracy, trend) and propose changes that make it find more real bugs and fewer false ones. Use when asked to "triage the issues", "go through the GitHub issues", "handle the open issues", review the Finder's accuracy, or on the weekly triage.
 ---
 

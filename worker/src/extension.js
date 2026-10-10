@@ -464,6 +464,6 @@ function fieldRows(rows) {
   const keep = {label: 50, type: 16, outcome: 12, source: 30, reason: 80};
   return rows.slice(0, 40).filter(row => row && typeof row === 'object')
     .map(row => ({...Object.fromEntries(Object.entries(keep).map(([key, max]) => [key, typeof row[key] === 'string' ? row[key].slice(0, max) : ''])),
-      // The pack meaning that placed the field (a field key such as "location", never a value), only when there was one (twin-loop, 9 Oct 2026).
+      // The pack meaning that placed the field (a field key such as "location", never a value), only when there was one (fix-live-applying-in-twin, 9 Oct 2026).
       ...(typeof row.alias === 'string' && /^[a-z_]{1,30}$/.test(row.alias) ? {alias: row.alias} : {})}));
 }

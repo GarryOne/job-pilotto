@@ -1,5 +1,5 @@
 // The Finder's scorecard (lib/finder-scorecard.mjs): node finder-scorecard.mjs [--post] [--out file.md]. Needs gh. Prints the comment; --post adds it to the pinned issue
-// labelled finder-scorecard (made once), where the previous scorecard is read back for the change. Run by the triage-issues skill at the end of each triage.
+// labelled finder-scorecard (made once), where the previous scorecard is read back for the change. Run by the triage-github-open-issues skill at the end of each triage.
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import {SCORECARD_LABEL, previousOf, scorecard, scorecardComment} from './lib/finder-scorecard.mjs';
@@ -20,7 +20,7 @@ if (args.includes('--post')) {
   let number = home?.number;
   if (!number) {
     gh(['label', 'create', SCORECARD_LABEL, '--force', '--color', '5319E7', '--description', 'The Finder scorecard, one comment per triage (desktop/e2e/finder-scorecard.mjs)']);
-    const url = gh(['issue', 'create', '--title', '🎯 Finder scorecard', '--label', SCORECARD_LABEL, '--body', 'One comment per triage (the triage-issues skill): the Finder\'s precision by detector, why its false positives were false, how often a judge changed the filed severity, and the change since the last one. Kept open; never a bug.']).trim();
+    const url = gh(['issue', 'create', '--title', '🎯 Finder scorecard', '--label', SCORECARD_LABEL, '--body', 'One comment per triage (the triage-github-open-issues skill): the Finder\'s precision by detector, why its false positives were false, how often a judge changed the filed severity, and the change since the last one. Kept open; never a bug.']).trim();
     number = Number(url.split('/').pop());
   }
   gh(['issue', 'comment', String(number), '--body', comment]);
