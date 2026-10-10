@@ -5,8 +5,7 @@ description: Fix the applying flow's failing or low-reaching shapes one at a tim
 
 # Fix failing forms: one shape at a time, from the pool's numbers
 
-Pattern of `triage-github-open-issues` (a list of failures; one at a time: validate, fix, close, score) applied to the applying flow.
-Goal (owner, 9-10 Oct 2026): from the posting to a filled form, stopped before Submit, on any site, and **never fix the same website twice**.
+Goal (owner, 9-10 Oct 2026): from the posting to a filled form, stopped before Submit, on any site, and **never fix the same website twice**; one failure at a time: validate, fix, close, score.
 This skill works on the pool (real postings, layer 3 of `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md`). Live sessions on the
 owner's twin are `fix-live-applying-in-twin`. The pool's own upkeep (running, growing, coordinating it) is the skill `run-applying-smoke-pool`, which hands failing shapes to this one.
 
@@ -20,10 +19,11 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
   hold and is not on the list. Take the TOP row **that no other session holds**, one shape per round: go down the list and, for each row, `node tools/claim-shape.mjs claim "<row name>" --session <your session name> --alive <the names `ListAgents` shows, comma-separated>` (exit 0 = yours; exit 1 prints the holder: go to the next row). A claim is a file per row in the Mac's QA folder, so several `/fix-failing-forms` sessions in parallel never take the same shape; it goes stale after 6 h or when its session is gone from `ListAgents`. `node tools/claim-shape.mjs list` shows who holds what. **Release it** (`release "<row name>" --session <you>`) when the row is confirmed cleared, or when you stop or hand the shape back. Its evidence is on this Mac: `~/Library/Application Support/Job Pilotto QA/smoke-reports/` (`<day>.json` with each
   site's `fieldList`: label, type, outcome, required, reason per field; one `.log` per run) and **`replay-candidates/<day>/<shape>/`** (the failing run's last page, structure only and scrubbed, with a
   `case.json` skeleton: the run's fields, page path and page-kind lines): start the recorded page from that candidate, take the AI's answers from its `evidence`, never invent them.
+  **Skip what is not a failure:** an email/told outcome (a correct hold), a site answering 5xx (note it), a row already fixed on main (`git log origin/main --grep '<site>'`, `Pool-row:` trailers): 3 of 4 top rows were these on 11 Oct.
   Say: N rows, the top three, the one you take. After the landing, the next night's "Filled, last runs" column of that row is the proof: it must go up or the row must leave the list.
 - **Peers (a courtesy, never a dependency; owner, 11 Oct 2026: "run on its own, without a coordinator"):** `ListAgents`; `coordinator.txt` in `~/Library/Application Support/Job Pilotto QA/` names the session
   owning the e2e page, if one runs. Never two runs on the page: a peer's run holds it, wait or queue. **No coordinator in `ListAgents`, or the page free: you run everything yourself** (repro, re-run on the landed build, upload) and say so in one line; never stop to ask.
-- **Claim the flow core** (`FLOW_CORE`/`FLOW_FILES`, `desktop/e2e/flows.mjs`) before editing any file in it: one message to every peer "I own the flow core
+- **Claim the flow core** (`FLOW_CORE`/`FLOW_FILES`, `desktop/e2e/flows.mjs`) **only once the cause is proven (1.4), never on a hypothesis** (11 Oct: a claim on a guess queued 3 sessions), before editing any file in it: one message to every peer "I own the flow core
   until I say released", and "released" when done. Read each file's `Invariants:` block first; changing one is the owner's call, said in the commit.
 - **Worktree:** `tools/worktree.sh fix-<shape>`, own scratch folder `<scratchpad>/fix-failing-forms/`. No subagents. Say the change tier (usually Tier 2: apply flow).
 
@@ -35,7 +35,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
 - Both on one site: fix the rung first (the form is never reached otherwise), re-run, then the fields. Say which kind it is in one line before you start.
 
 ## 1. Reproduce (small, isolated, with a positive control)
-1. **Read the artifacts before running anything, in this order:** (a) `smoke-reports/<day>-<shape>.app.log` (the app's whole log, kept per run; older runs: the e2e app's `jp-e2e-*/logs/app.log` in the temp folder, by time and host):
+1. **ASKED, ANSWERED, DONE before any hypothesis** (owner, 11 Oct 2026: ~40% of each fix went to a wrong first guess). Write three lines from the run's evidence: ASKED (the sketch: buttons listed, candidates, frames, digest flag), ANSWERED (`page kind:` with `formFrame`, the `digest:` line: outcome, verb, numbers, dropped), DONE (what was pressed, where the page went: 54's press trace). A hypothesis that does not explain all three is not a diagnosis; a missing line is step 1.4b. **Read the artifacts, in this order:** (a) `smoke-reports/<day>-<shape>.app.log` (the app's whole log, kept per run; older runs: the e2e app's `jp-e2e-*/logs/app.log` in the temp folder, by time and host):
    `page kind:`, `page kind: none (<error>)`, `ladder:`; (b) the shape's `.log` (the extension's `fill:` lines, the STALL dump with `controls` and `buttons`); (c) `live-frames/*.png` (check the host in the log vs the picture: the folder is overwritten);
    (d) the report's reached step. **Pair each extension line with the app's line for the same request** (an extension answer with no app line: the request never arrived or the extension returned first).
    **`grep` the code for a log message before adding one** (a duplicate was written once).
@@ -67,6 +67,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
    `desktop/test/recorded-privacy.test.js`). **Its AI answers must be what the real AI answered in the failing run** (from the log / decisions), **and only to what the extension asked** (the `asked` check reads the /extension/answer request's fields; a stub that answers an unasked question lets the old build pass), never an answer
    written by hand to make the case pass (10 Oct 2026: `workday-start-dialog-1` was given `applyButton: "Apply Manually"` by hand, the live AI answered "Apply").
 2. Run `cd desktop/e2e && npm run recorded` against the build from before the fix (`REAL_EXTENSION_DIR=<that build's extension/>`): it **must fail**; then on the fix: pass. Write what you saw into the case: `"control": {"build": "<the older extension version it failed on>", "failed": "<the failing check>"}` in its case.json; without it (or `{"guard": "<why it cannot fail on an old build>"}`) the run uploads no row to /admin/applying.
+   **An app-side fix (extension unchanged) cannot fail a recorded page on the old build:** its control is a unit test failing first plus the REAL AI answer (`ladder-score` live or `ladder-digest-score`); its recorded page is a `guard`.
    Also a journey scenario in `desktop/test/journeys.test.js` when the logic of the flow changes (failing first).
 3. Fix the root cause through the shared mechanism for the whole class; every sibling in the class in the same change. File size <= 500 lines.
 4. After a fix to form filling, also `cd desktop/e2e && npm run real-extension` (isolated; positive control with `REAL_EXTENSION_DIR`).
@@ -79,7 +80,7 @@ Non-negotiables (the ladder designer's, job-pilotto-cc): the rung map first; the
 
 ### R1. Find the rung that decided wrong (5 min, no edits)
 - `/admin/applying` pool table "Rung" column, or `logs/app.log`: `page kind: <kind> by ai|remembered`, `structure rule`, `closer look`, `takeover`.
-- Map: by `ai` = rung 2, `remembered` = 1, structure rule = 0 (after unsure or no AI), closer look = 4, takeover = 5.
+- Map: by `ai` = rung 2, `remembered` = 1, structure rule = 0 (after unsure or no AI), digest = 3 (read its own answer: verb, numbers, what the app DROPPED), closer look = 4, takeover = 5.
 - Say in one line: "decided at rung N, said X, truth is Y, because <the sketch shows / lacks Z>".
 - Look at the sketch the rung really saw: `cd desktop && node e2e/ladder-capture.mjs --dir <scratch dir with one fixture json>` (read-only GET, bare Chromium) or the fixture of that shape in `desktop/e2e/ladder-fixtures/`.
   The usual causes: the Apply control is not in the first 20 buttons (navigation crowds it out); the page is a frame (`frames` only); the instruction is in text the sketch does not carry.
@@ -92,6 +93,7 @@ Non-negotiables (the ladder designer's, job-pilotto-cc): the rung map first; the
 ### R3. The smallest fix, lowest rung first (in this order)
 1. **Data** at the rung that can see it: a kept answer, an alias/meaning in the pack, a recipe, an example in the prompt. 2. **A prompt line about the shape** (not the site) at that rung.
 3. **The sketch**: carry what was missing (a candidate, a frame host), found by structure only. 4. **A signal** so a higher rung is asked (flow core: claim it, read its "Invariants:" block, say so to the coordinator).
+**A prompt line reaches only its shape:** conditional on the sketch field that shows the shape (e.g. only when frames are listed), with its own fingerprint key, so other fixtures keep their stored answers (an unconditional line cost a 129-fixture re-record, 11 Oct).
 Never: a site name, a vendor or word list, a regex over natural language (`tools/hardcoded-page-words.mjs`), a fix in a higher rung for what a lower rung could see.
 Flow-core files (`page-kind.js`, `fill-flow.js`, `session-flow.js`, `escalate.js`…) are claimed first (CLAUDE.md "The flow core").
 
@@ -120,15 +122,13 @@ Flow-core files (`page-kind.js`, `fill-flow.js`, `session-flow.js`, `escalate.js
 - **Landing does not clear the row** (11 Oct 2026, jobs.ch "Easy apply"): `/admin/applying` lists a site by its LATEST uploaded smoke result, so the row leaves "Needs a fix" only after a run on the landed
   build uploads a better one (a later step, more fields filled, or a documented hold). A recorded page passing is a separate table (Fixed-site replays) and does not clear it. Run it yourself: update your runner to the landed build and `npm run smoke -- --only <shape>` (held, Monitor, upload as the pool does), once the e2e page is free (a peer's run on it: wait or queue). A running
   coordinator may run it for you ("landed <hash>, extension <x.y.z>, run <shape>"), but you never wait on one that is not there. Until the uploaded run is in, say "landed, unconfirmed", never "done". Proof: the row's "Filled, last runs" goes up or the row leaves the list.
-- **A rung fix** (3b): Commit subject ≤ 72 chars; body: the rung, the shape, the before/after status line from `ladder-score`; `Recorded-unneeded:` only when no real-site failure is fixed. Land with `tools/ship.sh`; tell what other sites this helps and what it does not cover. The commit carries the trailers `Rung: <n>` and `Fixture: <id>` (a hook check for them is being built: ladder-fixtures-ed).
-- Report to the owner (and the coordinator, if one runs) in one line per shape: shape, fix (mechanism part), reached before -> after, commit, sibling sites helped.
-- Say "released" for the flow core to every peer.
+- **A rung fix** (3b): Commit subject ≤ 72 chars; body: the rung, the shape, the before/after status line from `ladder-score`; `Recorded-unneeded:` only when no real-site failure is fixed. Land with `tools/ship.sh`; tell what other sites this helps and what it does not cover. Trailers `Rung:`/`Fixture:` (hook-checked).
+- Report in one line per shape (owner, coordinator if any): shape, fix (mechanism part), reached before -> after, commit, siblings helped. Say "released" for the flow core to every peer.
 
 ## Stop conditions
 - Whatever the reason you stop, release your claim (`tools/claim-shape.mjs release`), so another session can take the row.
-- Reached the form (filled/left counted) or a documented hold (an email code, a captcha, a bot check, a login wall): stop, never get past them.
+- Reached the form (filled/left counted) or a documented hold (an email code, a captcha, a bot check, a login wall, a 401/403/429): stop, never get past them; note it.
 - Two fix rounds without reaching further: stop, write what is known (log lines, frames, what you tried) and hand the shape back; do not keep guessing.
-- A site that blocks automation (401/403/429, a bot check) is a no: note it in the report, leave it.
 - **A red row is a stated rule, not a bug** (the code refuses it on purpose, e.g. "Easy Apply", a consent, a Submit): do not change the rule yourself. Say what the rule is, what the row would need, and ask the owner;
   a change is a Decision Log entry.
 - The shape needs the owner's real state (their account, their Gmail): hand it to the twin skill, never use it here.
