@@ -1,4 +1,4 @@
-// Settings → License: the free allowance ("12 of 40 free applications · 41 days left"), also as a small counter in the sidebar, pasting a key (checked on this
+// Settings → License: the free allowance ("12 of 20 free applications · 41 days left"), also as a small counter in the sidebar, pasting a key (checked on this
 // Mac, lib/license.js), and the friendly dialog when the allowance ends (main asks for it, 'allowance' event).
 import {$, message} from './core.js';
 import {openSetting} from './settings.js';
@@ -7,7 +7,7 @@ import {byStore} from '../store-words.js';
 
 const KIND = {founder: 'Founder', friend: 'Friend', pass: 'Pass'};
 
-// The sidebar counter: "28 free applications left" with a thin bar; a click opens Settings → License. Hidden for a licensed install.
+// The sidebar counter: "12 of 20 applications used" with a thin bar; a click opens Settings → License. Hidden for a licensed install.
 function showChip(state) {
   const shown = chip(state);
   const button = $('allowance-chip');
@@ -25,14 +25,17 @@ export function showLicense(state) {
   const {licensed, ended} = state;
   $('license-pill').textContent = licensed ? `${KIND[state.license.kind]} key` : ended ? 'Free period over' : 'Free';
   $('license-pill').className = `ui-pill tone-${licensed ? 'good' : ended ? 'warn' : 'info'}`;
-  // Same count as the sidebar chip: what is LEFT, draining, like "Days left" beside it (not "used", which read 0 of 40 next to the chip's 40 of 40).
+  // Same count as the sidebar chip: applications USED, filling, red for the last 5.
   const shown = chip(state);
-  $('license-used-label').textContent = licensed ? 'Applications sent' : 'Applications left';
-  $('license-used').textContent = licensed ? `${state.used} · no limit` : `${shown.left} of ${state.limit}`;
+  $('license-used-label').textContent = licensed ? 'Applications sent' : 'Applications used';
+  $('license-used').textContent = licensed ? `${state.used} · no limit` : `${shown.used} of ${state.limit}`;
   $('license-days-label').textContent = licensed ? 'Licensed to' : 'Days left';
   $('license-days').textContent = licensed ? state.license.name : `${state.daysLeft} of 60`;
   $('license-bar').hidden = licensed;
-  if (shown) $('license-bar').firstElementChild.style.width = `${shown.percent}%`;
+  if (shown) {
+    $('license-bar').firstElementChild.style.width = `${shown.percent}%`;
+    $('license-bar').dataset.tone = shown.tone;
+  }
   $('license-note').textContent = licensed ? (state.license.until ? `Valid until ${state.license.until}.` : 'No end date.')
     : ended ? `New applications, kits and searches are paused. ${byStore('Tracking, Notion, export and your data keep working.', 'Tracking, export and your data keep working.')}`
       : `Free until you reach ${state.limit} applications and 60 days have passed, whichever comes later.`;

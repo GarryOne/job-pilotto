@@ -11,7 +11,7 @@ export function createAppAllowance(ctx) {
   const {DEMO, getLicense, log, getStorage, getTelemetry, toWindow} = ctx;
   const HEALTH_VERSION = 5;  // bump when the daily health line gets new fields (2: outcome counts, 3: runsOk/runsFailed, 4: allowance, 5: licenseId)
   // Where the user stands (demo mode: a fixed fictional state for screenshots).
-  const licenseState = () => (DEMO ? {licensed: false, license: null, keyProblem: '', used: 12, limit: 40, daysLeft: 41, ended: false} : getLicense().state());
+  const licenseState = () => (DEMO ? {licensed: false, license: null, keyProblem: '', used: 12, limit: 20, daysLeft: 41, ended: false} : getLicense().state());
   // Guard for what starts NEW work (Prepare kit, Fill in Chrome / Apply with Claude, manual searches): once the free allowance
   // is over and there is no key, the window says so and the action answers with why. Never used for what is already under way.
   function allowanceBlock() {

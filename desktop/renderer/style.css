@@ -318,6 +318,7 @@ details.questions > p { margin: 0 0 6px; }
 .notice.setup { border-left-color: var(--teal); }
 .notice.setup > .spinner { flex: none; min-width: 0; }
 .notice.setup > .setup-text { flex: 1; min-width: 280px; }
+.license-bar[data-tone="bad"] span { background: var(--bad-bright); }
 .notice.setup .bar { flex-basis: 100%; height: 6px; }
 .notice-actions { display: flex; gap: 8px; align-items: center; }
 .small-btn { padding: 4px 10px; font-size: var(--fs-sm); }
@@ -1024,7 +1025,7 @@ main { min-width: 0; }
 .app.rail .palette-hint kbd, .app.rail .palette-hint span { display: none; }
 .app.rail .palette-hint .icon { display: block; width: 20px; height: 20px; }
 
-/* The free-allowance counter in the sidebar: a line of text and a thin bar; warn tone when the free period is ending or over. */
+/* The free-allowance counter in the sidebar: a line of text and a thin bar; red (bad) tone for the last 5 applications and when the free period is over. */
 .allowance-chip { -webkit-app-region: no-drag; display: block; width: 100%; margin-top: 10px; padding: 8px 10px; text-align: left; background: transparent;
   border: 1px solid var(--navy-hover); border-radius: var(--r-md); color: var(--on-navy-2); font-size: var(--fs-xs); cursor: pointer; }
 .allowance-chip[hidden] { display: none; }
@@ -1033,7 +1034,7 @@ main { min-width: 0; }
 .allowance-chip-text { display: block; margin-bottom: 6px; }
 .allowance-chip-bar { display: block; height: 4px; border-radius: var(--r-pill); background: var(--navy-hover); overflow: hidden; }
 .allowance-chip-bar i { display: block; height: 100%; width: 0; border-radius: var(--r-pill); background: var(--info); }
-.allowance-chip[data-tone="warn"] .allowance-chip-bar i { background: var(--warn-bright); }
+.allowance-chip[data-tone="bad"] .allowance-chip-bar i { background: var(--bad-bright); }
 .app.rail .allowance-chip { width: 48px; padding: 10px 8px; }   /* the plan and the count are in its tooltip; the bar stays */
 .app.rail .allowance-chip-plan, .app.rail .allowance-chip-text { display: none; }
 .app.rail .allowance-chip-bar { margin: 0; }
