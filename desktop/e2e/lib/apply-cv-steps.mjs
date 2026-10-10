@@ -16,6 +16,11 @@ export async function runCvSteps(ctx, h) {
     const code = crypto.createHash('sha1').update(form.url.trim()).digest('hex').slice(0, 8);
     const tailoredPdf = path.join(ctx.profile, 'cv', 'tailored', `${code}.pdf`);
     await page.click('.nav[data-view="jobs"]');
+    // Under "Everything", whatever filter an earlier step left on the list: this job is Opened/Form filled by now and is not under "New matches" (10 Oct 2026: Windows CI,
+    // "waiting for the More actions button of E2E Greenhouse Labs" for 30 s, the list showing other jobs).
+    await page.evaluate(() => { const filter = document.getElementById('filter-status'); filter.value = 'everything'; filter.dispatchEvent(new Event('change')); });
+    await page.locator('article.job-row').filter({hasText: form.company}).first().waitFor({timeout: 60000})
+      .catch(() => { throw new Error(`${form.company} is not in the Jobs list even under Everything`); });
     // The list redraws while sessions update, which closes an open ⋯ menu: open it again until the item is there.
     let items = [];
     for (let attempt = 0; attempt < 8; attempt++) {
