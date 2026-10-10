@@ -82,3 +82,13 @@ test('parity: one run as a Notion row and as a store record reads the same in Re
   assert.equal(fromRow(page, Date.parse(started) + 3600000).runId, 'run-7f3a')
   assert.deepEqual(pick(fromRecord(record, Date.parse(started) + 3600000)), pick(fromRow(page, Date.parse(started) + 3600000)));
 });
+
+// #339: a run killed hard keeps Status Running; the engine's heartbeat (started + elapsed seconds) is its last sign of life, as a Notion row's last edit is.
+test('a Running store row with no sign of life for 30 minutes is not live, one with a recent heartbeat is', () => {
+  const row = (startedAgoMin, seconds) => ({id: 'k', kind: 'scheduled', where: 'mac', status: 'Running', started_at: iso(now - startedAgoMin * 60000),
+    summary: '', progress: ['⏳ Reading 12 feeds'], stats: seconds == null ? {} : {duration_s: seconds}});
+  assert.equal(fromRecord(row(40, 120), now).live, undefined, 'started 40 min ago, last beat at 2 min: lost');
+  assert.equal(fromRecord(row(40, null), now).live, undefined, 'started 40 min ago, never beat: lost');
+  assert.equal(fromRecord(row(40, 39 * 60), now).live, true, 'started 40 min ago, beat a minute ago: alive');
+  assert.equal(fromRecord(row(1, null), now).live, true, 'just started: alive');
+});

@@ -77,8 +77,11 @@ export function fromRecord(row, now = Date.now()) {
   const stats = row.stats || {};
   const startedAt = row.started_at, mode = row.mode || row.kind || 'scheduled', status = row.status || '', trigger = row.trigger || '';
   const summary = String(row.summary || ''), progress = Array.isArray(row.progress) ? row.progress : [];
-  const running = status === 'Running' && now - Date.parse(startedAt) < STALE_MS;
   const seconds = stats.duration_s;
+  // The engine's heartbeat rewrites the elapsed seconds while the run lives (src/run_log.py): started + elapsed is its last sign of life, as a Notion row's
+  // last edit is. A run killed hard (force-quit, crash) keeps Status Running and went quiet: not live after LOST_MS (#339).
+  const seen = Date.parse(startedAt) + (Number(seconds) || 0) * 1000;
+  const running = status === 'Running' && now - Date.parse(startedAt) < STALE_MS && now - seen < LOST_MS;
   const ended = running ? undefined : row.finished_at || (seconds != null ? new Date(Date.parse(startedAt) + seconds * 1000).toISOString() : startedAt);
   const kind = mode === 'insight' && /^Interview insights\b/.test(summary) ? 'interviewInsight' : KIND[mode] || 'action';
   const where = placeOf(row.where, row.run_url, trigger);
