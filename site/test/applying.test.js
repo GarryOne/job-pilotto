@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
-import {data, ingest} from '../src/applying.js';
+import {PAGE, data, ingest} from '../src/applying.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -71,4 +71,11 @@ test('the pool: each site shows when it last ran; a site mid-run is flagged "run
   d = await data(db, new Date('2026-10-12T12:30:00Z')); by = Object.fromEntries(d.pool.map(item => [item.name, item]));
   assert.equal(by.Gamma.running, false);   // the run died without an end ping: stale after 5 minutes
   assert.equal((await ingest(db, {kind: 'running', day: '2026-10-12', rows: [{name: 'x', state: 'weird'}]}, now)).stored, 0);   // fixed words only
+});
+
+test('every table on the page gets its headers from the one sortable helper (owner, 10 Oct 2026: sort by any column, red first)', () => {
+  // A table added with its own plain th cells would not sort: only the helper may create a th, and every table's headers come from it.
+  assert.equal(PAGE.split("el('th'").length - 1, 1, 'a table builds its own th instead of heads(...)');
+  for (const key of ['pool', 'cases']) assert.match(PAGE, new RegExp("heads\\('" + key + "'"));
+  assert.equal((PAGE.match(/heads\(key, labels/g) || []).length, 1);   // the next-sites and scorecard blocks share it
 });

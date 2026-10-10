@@ -123,7 +123,7 @@ export const PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 th{text-align:left;color:var(--muted);font-weight:500;font-size:12px;white-space:nowrap}td,th{padding:7px 8px 7px 0;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
 .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;color:#0b0d10}
 .s-none{background:var(--muted)}.s-posting{background:var(--red)}.s-account{background:var(--amber)}.s-code\\/bot{background:var(--violet)}.s-form{background:var(--blue)}.s-ready{background:var(--green)}
-.dots{white-space:nowrap}.dots i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px}
+th.sortable{cursor:pointer;user-select:none}th.sortable:hover,th.sortable.on{color:var(--text)}.dots{white-space:nowrap}.dots i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px}
 .filters{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;margin:10px 0 12px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;font-size:13px}.pick{display:flex;flex-direction:column;gap:4px;min-width:200px}.pick b{line-height:34px;font-weight:600}.pick>span{font-size:11px;text-transform:uppercase;letter-spacing:.04em}.pick select{background:var(--bg,var(--card));color:var(--text);border:1px solid var(--line);border-radius:8px;padding:0 10px;height:34px;box-sizing:border-box;font:inherit;font-size:13px;max-width:100%}.filters .count,.filters .pager{align-self:flex-end;box-sizing:border-box;height:34px;display:flex;align-items:center}.filters .count{padding-left:4px}.filters .pager{margin:0 0 0 auto;justify-content:flex-end}.chip{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:3px 11px;font:inherit;font-size:12px;cursor:pointer}.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;font-size:13px}.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes spin{to{transform:rotate(360deg)}}.chip:disabled{opacity:.4;cursor:default}.chip.on{border-color:var(--amber);color:var(--amber)}
 .flag{color:var(--red);font-weight:600}.muted{color:var(--muted)}.bars{display:flex;gap:6px;align-items:flex-end;height:110px;margin-top:8px}
 .bar{display:flex;flex-direction:column-reverse;width:26px}.bar i{display:block}.bar small{color:var(--muted);font-size:10px;text-align:center}
@@ -151,15 +151,25 @@ fetch('?json').then(r => r.json()).then(d => {
     tile(t.regressions, 'regressions open' + (t.gone ? ' · ' + t.gone + ' posting(s) gone' : ''), t.regressions ? 'bad' : 'good'),
     tile(t.dropped, 'boards dropped in the fleet (layer 4)', t.dropped ? 'bad' : 'good')));
   const dots = list => el('span', {className: 'dots'}, ...list.map(step => el('i', {title: step, style: 'background:' + (typeof step === 'number' ? (step ? 'var(--green)' : 'var(--red)') : color(step))})));
+  // Sortable columns (owner, 10 Oct 2026: all the red ones first): every table's header sorts ascending, then descending, then back to the page's own order. The choice is kept per
+  // table across the 15 s redraw. Empty cells go last either way. For a step or a run, ascending is the worst first (red before blue); the page's own order keeps running sites on top.
+  const sorts = {}, rankOf = step => (typeof step === 'number' ? step : d.steps.indexOf(step));
+  const blank = value => value == null || value === '' || (typeof value === 'number' && isNaN(value));
+  const sortRows = (key, rows, getters) => { const pick = sorts[key]; if (!pick || !getters[pick.col]) return rows; const dir = pick.dir === 'desc' ? -1 : 1;
+    return rows.map((row, index) => ({row, index, value: getters[pick.col](row)})).sort((a, b) => (blank(a.value) - blank(b.value)) || (blank(a.value) ? 0 : a.value < b.value ? -dir : a.value > b.value ? dir : 0) || a.index - b.index).map(item => item.row); };
+  const heads = (key, labels, redraw) => labels.map((label, col) => { const pick = sorts[key], on = !!pick && pick.col === col;
+    const flip = () => { sorts[key] = !on ? {col, dir: 'asc'} : pick.dir === 'asc' ? {col, dir: 'desc'} : null; redraw(); };
+    return el('th', {className: 'sortable' + (on ? ' on' : ''), tabIndex: 0, title: 'Sort by ' + label, textContent: label + (on ? (pick.dir === 'asc' ? ' ▲' : ' ▼') : ''), onclick: flip, onkeydown: event => { if (event.key === 'Enter') flip(); }}); });
   // The pool: every smoke site, also one never run; filters by platform and by flow combine.
   const PER = 15, chosen = {platform: null, flow: null, page: 0}, table = el('div'), bars = {};
   const pick = (key, list, label, all) => el('label', {className: 'pick'}, el('span', {className: 'muted', textContent: label}), Object.assign(el('select', {onchange: event => { chosen[key] = event.target.value || null; chosen.page = 0; draw(); }},
     el('option', {value: '', textContent: all}), ...list.map(item => el('option', {value: item.name, textContent: item.name + ' · ' + item.sites + (item.sites === 1 ? ' site' : ' sites') + (key === 'platform' ? ' · ' + item.flows + (item.flows === 1 ? ' flow' : ' flows') : '')})), ), {}));
   const count = el('span', {className: 'muted count'}), pager = el('div', {className: 'pager'}), clear = el('button', {className: 'chip', type: 'button', textContent: 'Clear', hidden: true, onclick: () => { chosen.platform = chosen.flow = null; chosen.page = 0; filters.querySelectorAll('select').forEach(node => { node.value = ''; }); draw(); }});
   const filters = el('div', {className: 'filters'}, pick('platform', d.platforms, 'Platform', 'All platforms · ' + d.pool.length + ' sites'), pick('flow', d.flows, 'Flow', 'All flows'), count, clear, pager);
-  const draw = () => { const rows = d.pool.filter(s => (!chosen.platform || s.platform === chosen.platform) && (!chosen.flow || s.flow === chosen.flow)), pages = Math.max(1, Math.ceil(rows.length / PER)); chosen.page = Math.min(chosen.page, pages - 1); const shown = rows.slice(chosen.page * PER, (chosen.page + 1) * PER); table.textContent = ''; count.textContent = 'Showing ' + (rows.length ? chosen.page * PER + 1 : 0) + '–' + (chosen.page * PER + shown.length) + ' of ' + rows.length + (rows.length < d.pool.length ? ' (' + d.pool.length + ' in the pool)' : ''); pager.textContent = ''; clear.hidden = !chosen.platform && !chosen.flow;
+  const POOL_GET = [s => s.name.toLowerCase(), s => s.platform, s => s.flow, s => s.start, s => (s.reached ? rankOf(s.reached) : null), s => (s.at ? Date.parse(s.at) : null), s => (s.history.length ? rankOf(s.history.at(-1)) : null)];
+  const draw = () => { const rows = sortRows('pool', d.pool.filter(s => (!chosen.platform || s.platform === chosen.platform) && (!chosen.flow || s.flow === chosen.flow)), POOL_GET), pages = Math.max(1, Math.ceil(rows.length / PER)); chosen.page = Math.min(chosen.page, pages - 1); const shown = rows.slice(chosen.page * PER, (chosen.page + 1) * PER); table.textContent = ''; count.textContent = 'Showing ' + (rows.length ? chosen.page * PER + 1 : 0) + '–' + (chosen.page * PER + shown.length) + ' of ' + rows.length + (rows.length < d.pool.length ? ' (' + d.pool.length + ' in the pool)' : ''); pager.textContent = ''; clear.hidden = !chosen.platform && !chosen.flow;
     table.append(rows.length ? el('table', {},
-      el('tr', {}, ...['Site', 'Platform', 'Flow it tests', 'Starts → ends on', 'Last reached', 'Last run', 'Last 10 runs'].map(h => el('th', {textContent: h}))),
+      el('tr', {}, ...heads('pool', ['Site', 'Platform', 'Flow it tests', 'Starts → ends on', 'Last reached', 'Last run', 'Last 10 runs'], () => { chosen.page = 0; draw(); })),
       ...shown.map(s => el('tr', {}, el('td', {}, s.name, s.regression ? el('div', {className: 'flag', textContent: 'regression'}) : null, s.note ? el('div', {className: 'muted', textContent: s.note}) : null),
         el('td', {textContent: s.platform}), el('td', {title: s.raw || '', textContent: s.flow || '—'}),
         el('td', {className: 'muted', textContent: (s.start || '…') + (s.end && s.end !== s.start ? ' → ' + s.end : '')}),
@@ -173,25 +183,25 @@ fetch('?json').then(r => r.json()).then(d => {
   // that the pool lacks, each used by >= 3 installs (src/nextsites.js). Top 5 of each, the rest on request.
   // Each list is a bar (its title, "Showing 1-5 of N", Previous / Next) over a table: the pool table's own pattern, 5 rows a page.
   const nextPage = {platforms: 0, sites: 0, score: 0}, NEXT_PER = 5, nextBox = el('div'), scoreBox = el('div');
-  const block = (key, title, what, rows, heads, row, none, redraw = () => drawNext()) => {
-    const pages = Math.max(1, Math.ceil(rows.length / NEXT_PER)); nextPage[key] = Math.min(nextPage[key], pages - 1);
+  const block = (key, title, what, allRows, labels, row, none, redraw = () => drawNext(), getters = []) => {
+    const rows = sortRows(key, allRows, getters), pages = Math.max(1, Math.ceil(rows.length / NEXT_PER)); nextPage[key] = Math.min(nextPage[key], pages - 1);
     const from = nextPage[key] * NEXT_PER, shown = rows.slice(from, from + NEXT_PER), go = step => () => { nextPage[key] += step; redraw(); };
     return [el('div', {className: 'filters'}, el('label', {className: 'pick'}, el('span', {className: 'muted', textContent: title}), el('b', {textContent: what})),
         el('span', {className: 'muted count', textContent: rows.length ? 'Showing ' + (from + 1) + '–' + (from + shown.length) + ' of ' + rows.length : none}),
       pages > 1 ? el('div', {className: 'pager'}, el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: nextPage[key] === 0, onclick: go(-1)}),
         el('button', {className: 'chip', type: 'button', textContent: 'Next →', disabled: nextPage[key] >= pages - 1, onclick: go(1)})) : null),
-      rows.length ? el('table', {}, el('tr', {}, ...heads.map(h => el('th', {textContent: h}))), ...shown.map(row)) : null];
+      rows.length ? el('table', {}, el('tr', {}, ...heads(key, labels, () => { nextPage[key] = 0; redraw(); })), ...shown.map(row)) : null];
   };
   const drawNext = () => { nextBox.textContent = '';
     nextBox.append(...[...block('platforms', 'Platforms', 'Matched jobs against the pool', d.next.platforms || [], ['Platform', 'Of matched jobs', 'Of the pool', 'Pool sites', 'Installs', 'Applications'],
         s => el('tr', {}, el('td', {textContent: s.platform}), el('td', {textContent: s.matchShare + '%'}), el('td', {className: 'muted', textContent: s.poolShare + '%'}),
           el('td', {className: 'muted', textContent: s.poolSites || 'none'}), el('td', {className: 'muted', textContent: s.installs}), el('td', {className: 'muted', textContent: s.applications || '—'})),
-        'Nothing under-covered'),
+        'Nothing under-covered', undefined, [s => s.platform, s => s.matchShare, s => s.poolShare, s => s.poolSites || 0, s => s.installs, s => s.applications || 0]),
       ...block('sites', 'Sites', 'Used by 3 or more installs', d.next.sites, ['Site', 'Platform', 'Used by', 'Applications', 'Filled, nothing left', 'Countries'],
         s => el('tr', {}, el('td', {textContent: s.host}), el('td', {textContent: s.platform + (s.poolSites ? ' · ' + s.poolSites + ' in the pool' : s.platform === 'Custom' ? '' : ' · none in the pool')}),
           el('td', {className: 'muted', textContent: s.installs + ' installs'}), el('td', {className: 'muted', textContent: s.uses}), el('td', {className: 'muted', textContent: s.readyShare + '%'}),
           el('td', {className: 'muted', textContent: s.countries.map(c => c.country + ' ' + c.installs).join(', ') || '—'})),
-        'Nothing yet: a site shows once 3 installs applied on it')].filter(Boolean)); };   // append() writes a null as the text "null"
+        'Nothing yet: a site shows once 3 installs applied on it', undefined, [s => s.host, s => s.platform, s => s.installs, s => s.uses, s => s.readyShare, s => s.countries.length])].filter(Boolean)); };   // append() writes a null as the text "null"
   app.append(el('section', {}, el('h2', {textContent: 'Next sites to add · where people apply, not in the pool'}),
     el('p', {className: 'muted', textContent: 'Platforms: the share of matched jobs on each platform against its share of the pool, from any number of installs (a platform is a name from a fixed list). Sites: the site each application ended on, listed only once 3 different installs used it' + (d.next.hidden.hosts ? ' (' + d.next.hidden.hosts + ' more are below that and stay hidden)' : '') + '; under 3 installs a country is "other". Never a posting or an address.'}), nextBox)); drawNext();
   // The platform scorecard: real use against the pool's tests, one verdict per platform (src/scorecard.js).
@@ -201,15 +211,17 @@ fetch('?json').then(r => r.json()).then(d => {
     scoreBox.append(...block('score', 'Platforms', 'Real use against the tests', d.scorecard || [], ['Platform', 'Verdict', 'Of matched jobs', 'Real forms', 'Required filled', 'Pool sites', 'Reached the form'],
       s => el('tr', {}, el('td', {textContent: s.platform}), el('td', {}, el('span', {className: 'pill s-' + TONE[s.verdict], textContent: s.verdict})), el('td', {textContent: pct(s.matchShare)}),
         el('td', {className: 'muted', textContent: s.forms || '—'}), el('td', {className: 'muted', textContent: pct(s.filledShare)}), el('td', {className: 'muted', textContent: s.poolSites || 'none'}), el('td', {className: 'muted', textContent: pct(s.poolReached)})),
-      'No platform seen yet', () => drawScore()).filter(Boolean)); };
+      'No platform seen yet', () => drawScore(), [s => s.platform, s => Object.keys(TONE).indexOf(s.verdict), s => s.matchShare, s => s.forms, s => s.filledShare, s => s.poolSites, s => s.poolReached]).filter(Boolean)); };
   app.append(el('section', {}, el('h2', {textContent: 'Platform scorecard · real use against the tests'}),
     el('p', {className: 'muted', textContent: 'Per platform: its share of the matched jobs and how well real forms are filled (the form-filling page), against the pool sites on it and how many reached the form. Verdicts, in the order to act: not in the pool; weak in both; blind spot (tests reach the form, real users do not fill it); test failing (real use is fine). Under 5 real forms is no evidence.'}), scoreBox)); drawScore();
-  app.append(el('section', {}, el('h2', {textContent: 'Fixed-site replays · every fixed site, replayed'}), d.cases.length ? el('table', {},
-    el('tr', {}, ...['Case', 'Result', 'Last 10 runs', 'Last run', 'Since'].map(h => el('th', {textContent: h}))),
-    ...d.cases.map(c => el('tr', {}, el('td', {textContent: c.name}), el('td', {}, c.ok ? el('span', {className: 'pill s-ready', textContent: 'passed'}) : el('span', {className: 'pill s-posting', textContent: 'failed'}),
+  const caseBox = el('div'), CASE_GET = [c => c.name.toLowerCase(), c => (c.ok ? 1 : 0), c => c.history.at(-1), c => c.day, c => c.since];
+  const drawCases = () => { caseBox.textContent = ''; caseBox.append(el('table', {},
+    el('tr', {}, ...heads('cases', ['Case', 'Result', 'Last 10 runs', 'Last run', 'Since'], drawCases)),
+    ...sortRows('cases', d.cases, CASE_GET).map(c => el('tr', {}, el('td', {textContent: c.name}), el('td', {}, c.ok ? el('span', {className: 'pill s-ready', textContent: 'passed'}) : el('span', {className: 'pill s-posting', textContent: 'failed'}),
       c.note ? el('div', {className: 'muted', textContent: c.note}) : null), el('td', {}, dots(c.history)), el('td', {className: 'muted', textContent: c.day + (c.version ? ' · ' + c.version : '')}),
-      el('td', {className: 'muted', textContent: c.since}))))
-    : el('p', {className: 'muted', textContent: 'No recorded-page run uploaded yet: cd desktop/e2e && npm run recorded'})));
+      el('td', {className: 'muted', textContent: c.since}))))); };
+  app.append(el('section', {}, el('h2', {textContent: 'Fixed-site replays · every fixed site, replayed'}), d.cases.length ? caseBox
+    : el('p', {className: 'muted', textContent: 'No recorded-page run uploaded yet: cd desktop/e2e && npm run recorded'}))); if (d.cases.length) drawCases();
   app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table)
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
   // Fetch again every 15 s while the tab is visible and redraw the pool, so the spinner and the times follow a run without a reload.
