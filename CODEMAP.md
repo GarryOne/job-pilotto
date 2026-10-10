@@ -12,6 +12,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 ## Desktop app: main-process modules
 
+- `desktop/lib/account-check.js` — The Gmail check for a site account that awaits its confirmation mail (owner, 10 Oct 2026: "after the signup it should automatically trigger the Gmail check").
 - `desktop/lib/account-confirm.js` — After the extension pressed a sign-up page's button (owner, 8 Oct 2026): find the confirmation mail the site sent to the address the account was made with
 - `desktop/lib/account-judge.js` — Two judgments on a sign-up or sign-in page that the AI makes, in any language, with answers the code knows (owner, 8 Oct 2026: it must work on thousands of sites;
 - `desktop/lib/ai-trial.js` — The free AI credit for invited testers ($1, lib site/src/trial.js on the website): instead of their own Anthropic

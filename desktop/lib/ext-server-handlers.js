@@ -21,6 +21,7 @@ import * as visits from './visits.js';
 import {flowState, leftCounts, missedQuestions, submitCounts, unplaced} from './question-labels.js';
 import {log as appLog} from './log.js';
 import {confirmAccount} from './account-confirm.js';
+import {createAccountCheck} from './account-check.js';
 import {automationOf, modeOf, record} from './site-accounts.js';
 import {resultOf} from './application-result.js';
 // A test run never counts; a live-test twin does: its fills are real use (owner, 9 Oct 2026; lib/telemetry.js learningOff).
@@ -28,6 +29,11 @@ const testRun = () => !!process.env.JOB_PILOTTO_E2E;
 
 export function registerExtServerHandlers(ctx) {
   const {DEMO, app, createWindow, cvOf, flow, notify, readSites, scoreVisitJobs, sessionNeedsYou, storage, getTelemetry, toWindow, getWindow, setRecipeReporter} = ctx;
+  // The Gmail check for an account awaiting its confirmation mail (lib/account-check.js): after the account button, and again when its sign-in page is met (10 Oct 2026: the page
+  // sat untouched in 'confirm' mode with no check and no word to the person). A link in the mail is opened; a code, or no mail, is told to the session.
+  const accountCheck = createAccountCheck({confirm: confirmAccount, noteStuck: (...args) => terminals.noteStuck(...args)});
+  const checkAccount = ({host, email, session, ...rest}) => accountCheck({host, email, session, run: args => pipeline.run(storage, args), open: link => applyLib.openOne(link),
+    mark: () => { storage.saveSettings({siteAccounts: record(storage.settings().siteAccounts, host, email, 'confirmed', Date.now(), terminals.record(String(session || ''))?.company || '')}); if (session) terminals.setAccount(session, 'created'); }, ...rest});
   // A site with no account item yet gets the one job-site password (made the first time), kept under its own name so Settings →
   // Credentials lists it with the profile's email (owner, 8 Oct 2026: the whole flow by itself, one password reused everywhere).
   server.setSitePasswordHandler(async ({host, peek, session: sessionId} = {}) => {
@@ -50,6 +56,7 @@ export function registerExtServerHandlers(ctx) {
       if (made && email && !storage.settings().siteAccounts?.[String(host).trim().toLowerCase()]) storage.saveSettings({siteAccounts: record(storage.settings().siteAccounts, host, email, 'creating', Date.now(), company)});
     }
     appLog('extension', 'site password given for a sign-in page', {host: String(host || '').slice(0, 120), made, given: !!answer.ok, mode, email: !!email});   // which site, never the password
+    if (mode === 'confirm' && email && !DEMO) checkAccount({host, email, session: sessionId, wait: 20, minutes: 180});   // a pending account's page is met: look for its mail now, not only right after the press
     // sign-in only where THIS email has an account on this site (recorded when a sign-up was confirmed); anywhere else the extension signs up.
     return answer.ok && email ? {...answer, email, mode, automation: automationOf(storage.settings())} : answer;   // the email goes into the account's email box, as the password goes into its password boxes
   });
@@ -69,8 +76,7 @@ export function registerExtServerHandlers(ctx) {
     if (session) terminals.setAccount(session, state === 'confirmed' ? 'created' : state === 'exists' ? 'exists' : 'confirm');   // the session card says so
     appLog('extension', usable ? `account ${state === 'exists' ? 'already exists: the sign-in is tried' : 'created: usable at once'}` : 'account created: waiting for the confirmation', {host: String(host).slice(0, 120)});
     // A mail to confirm: looked for in the background (Gmail, read-only; the AI picks the link or code): its link opens in the extension's Chrome.
-    if (!usable && !DEMO) confirmAccount({host, email, run: args => pipeline.run(storage, args), open: link => applyLib.openOne(link),
-      mark: () => { storage.saveSettings({siteAccounts: record(storage.settings().siteAccounts, host, email, 'confirmed', Date.now(), terminals.record(String(session || ''))?.company || '')}); if (session) terminals.setAccount(session, 'created'); }}).catch(error => appLog('extension', 'account confirmation failed', {error: String(error?.message || error).slice(0, 120)}));
+    if (!usable && !DEMO) checkAccount({host, email, session, force: true});
   });
   // A page of a session's form reported: its tab is open, so a stopped Claude session is not "Ended" (terminals.formInChrome).
   const formSeen = id => { if (id && terminals.formInChrome(id)) appLog('sessions', 'form open in Chrome: the session is active again', {id}); };
