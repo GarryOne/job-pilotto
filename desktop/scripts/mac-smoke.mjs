@@ -16,10 +16,14 @@ fs.mkdirSync(out, {recursive: true});
 const t0 = Date.now();
 const say = line => console.log(`• [${String(Math.round((Date.now() - t0) / 1000)).padStart(3)}s] ${line}`);
 
-const unpacked = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-mac-smoke-app-'));
-execFileSync('ditto', ['-x', '-k', path.resolve(archive), unpacked], {stdio: 'inherit'});   // ditto keeps the bundle's symlinks and signature, unzip may not
-const app = fs.readdirSync(unpacked).map(name => path.join(unpacked, name)).find(d => d.endsWith('.app'));
-if (!app) throw new Error(`no .app inside ${archive}`);
+// Installed where a user puts it, /Applications: a packaged Mac app running from anywhere else opens a native "Move to Applications?" question (lib/applications.js
+// offerMove) before it makes its window, and on a runner nobody answers it (10 Oct 2026: no window for 60 s, the process sampled idle). CI only: this puts a copy
+// in /Applications, which must never replace somebody's real install.
+if (!process.env.CI) throw new Error('mac-smoke.mjs installs into /Applications and runs only on CI (CI=true)');
+const app = '/Applications/Job Pilotto.app';
+if (fs.existsSync(app)) throw new Error(`${app} already exists: not replacing it`);
+execFileSync('ditto', ['-x', '-k', path.resolve(archive), '/Applications'], {stdio: 'inherit'});   // ditto keeps the bundle's symlinks and signature, unzip may not
+if (!fs.existsSync(app)) throw new Error(`no ${app} inside ${archive}`);
 const exe = path.join(app, 'Contents', 'MacOS', fs.readdirSync(path.join(app, 'Contents', 'MacOS'))[0]);
 // The signature first, before anything runs from the bundle: running its Python writes .pyc files into it, and a file the seal does not list breaks the seal
 // (10 Oct 2026: "a sealed resource is missing or invalid" on a build that was fine).
@@ -28,7 +32,7 @@ say('codesign: the signature is valid');
 const pilot = path.join(app, 'Contents', 'Resources', 'pilot');
 const python = path.join(pilot, 'python', 'bin', 'python3');
 if (!fs.existsSync(python)) throw new Error(`the bundled Python is missing: ${python}`);
-say(`unpacked: ${app}`);
+say(`installed: ${app}`);
 
 const py = (args, env = {}) => execFileSync(python, args, {cwd: pilot, encoding: 'utf8', timeout: 120000, env: {...process.env, PYTHONUTF8: '1', PYTHONDONTWRITEBYTECODE: '1', ...env}}).trim();
 // no keyring here: on the Mac src/secret_store.py talks to the Keychain through the `security` tool (keyring is the Windows Credential Manager's)
