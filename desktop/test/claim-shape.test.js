@@ -42,3 +42,11 @@ test('many sessions claiming at once: exactly one wins', async () => {
   const results = await Promise.all(Array.from({length: 12}, (_, i) => Promise.resolve().then(() => claim('Swatch Group careers', `s${i}`, {dir: d, now: NOW}))));
   assert.equal(results.filter(r => r.ok).length, 1);
 });
+
+test('a lock with its own short life (the e2e page, 30 min) expires before the 6 h default, and the holder renews it', () => {
+  const d = dir(), HALF_HOUR = 30 * 60 * 1000;
+  assert.equal(claim('e2e-page', 'a', {dir: d, now: NOW, ttl: HALF_HOUR}).ok, true);
+  assert.equal(claim('e2e-page', 'b', {dir: d, now: NOW + HALF_HOUR - 1000}).ok, false);
+  assert.equal(claim('e2e-page', 'a', {dir: d, now: NOW + HALF_HOUR - 1000, ttl: HALF_HOUR}).ok, true, 'renewed');
+  assert.equal(claim('e2e-page', 'b', {dir: d, now: NOW + 2 * HALF_HOUR}).ok, true, 'expired after the renewed 30 min');
+});
