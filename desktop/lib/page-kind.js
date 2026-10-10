@@ -19,11 +19,15 @@ const PRICE = {input: 0.1, output: 0.5}; // USD per million tokens, the haiku pr
 export const KINDS = ['form', 'account-form', 'account', 'posting', 'other'];
 // The role the extension's flows go by (tab-pages.js pageRole's words): an account-form page is the form.
 export const ROLE = {form: 'form', 'account-form': 'form', account: 'account', posting: 'no-form', other: 'no-form'};
+// The ways a "how do you want to start?" step can begin an application (Workday's "Start Your Application", 10 Oct 2026). Fixed answers the AI gives for the button
+// it named; only 'manual' is ever pressed. A third-party sign-in (LinkedIn, Google…) is never pressed: never log in automatically.
+export const ROUTES = ['manual', 'reuse_previous', 'third_party_account'];
 export const MIN_CONFIDENCE = 0.6;   // below it the structure rule decides, and the page is asked again next time
 
-const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 'confidence', 'apply_button', 'account_step', 'register_control', 'signin_control', 'account_button', 'bot_check'], properties: {
+const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 'confidence', 'apply_button', 'apply_route', 'account_step', 'register_control', 'signin_control', 'account_button', 'bot_check'], properties: {
   kind: {type: 'string', enum: KINDS},
   apply_button: {type: 'string', description: 'For a posting: the exact text of the listed button that starts the application, else ""'},
+  apply_route: {type: 'string', enum: [...ROUTES, ''], description: 'For a posting or a start step: the route of the apply_button named (manual = the candidate fills the application in by hand; reuse_previous = reuses an earlier application or profile; third_party_account = signs in with another site\'s account), or of the only routes offered when apply_button is ""; "" for an ordinary Apply button'},
   account_step: {type: 'string', enum: ['sign_in', 'sign_up', 'choose', ''], description: 'For an account page: sign_in = logs in to an EXISTING account; sign_up = creates a new account; choose = a notice with no form of its own that offers to sign in to the existing account (and maybe to reset its password); else ""'},
   register_control: {type: 'string', description: 'For a sign_in page: the exact text of the listed control that leads to creating a new account, else ""'},
   signin_control: {type: 'string', description: 'For a sign_up or choose page: the exact text of the listed control that leads to signing in to an existing account, else ""'},
@@ -46,6 +50,8 @@ challenge drawn in a frame: the Frames line lists the hosts of the page's visibl
 apply_button: for a posting, the exact text, copied from the Buttons list, of the one button that starts applying for this job, in whatever
 language; never sign in, sign up, submit, save, share, an alert, or applying through another site (LinkedIn, Indeed, "Easy Apply"); "" when
 there is none or for any other kind.
+When a posting or a dialog offers SEVERAL ways to start (fill it in by hand, reuse an earlier application or profile, sign in with another site's account such as LinkedIn, Google or Apple), in any
+language: apply_button is the button of the manual way and apply_route is manual; if only the other ways are offered, apply_button is "" and apply_route names the route offered (reuse_previous or third_party_account); an ordinary Apply button has apply_route "".
 For an account page only: account_step is sign_in when the form logs in to an existing account (it asks for an email or username and a password, nothing more), sign_up when it creates
 a new account (it chooses and confirms a password, or asks for more details), choose when the page only tells that an account already exists and offers to sign in or to reset the password (no form), "" for any other kind. register_control: on a sign_in page, the exact text, copied from the Buttons list,
 of the one control that leads to creating a new account, in whatever language, else "". signin_control: on a sign_up or choose page, the exact text, copied from the Buttons list, of the one control that leads to signing in to the existing account (never the password-reset control), else "". account_button: on an account page, the exact text, copied from the Buttons list, of the one
@@ -116,10 +122,11 @@ export function listedControl(text, buttons = []) {
   return wanted && buttons.some(button => clean(button, 40).toLowerCase() === wanted.toLowerCase()) ? wanted : '';
 }
 
-export async function pageKind(client, raw, cache, {now = Date.now()} = {}) {
+// fresh: the page changed after a press (a dialog opened over the posting), so a kept answer for its shape is not used.
+export async function pageKind(client, raw, cache, {now = Date.now(), fresh = false} = {}) {
   const shape = kindKey(raw);
   if (!shape) return {error: 'no address'};
-  const kept = cache?.get(shape);
+  const kept = fresh ? null : cache?.get(shape);
   if (kept && KINDS.includes(kept.kind)) return {kind: kept.kind, role: ROLE[kept.kind], confidence: kept.confidence, by: 'remembered', shape, applyButton: kept.applyButton || '', accountStep: kept.accountStep || '', registerControl: kept.registerControl || '', accountButton: kept.accountButton || '', signinControl: kept.signinControl || ''};
   if (!client) return {error: 'no AI', shape};
   const page = pageSketch(raw);
@@ -148,17 +155,20 @@ export async function pageKind(client, raw, cache, {now = Date.now()} = {}) {
     const confidence = Math.max(0, Math.min(1, Number(answer?.confidence) || 0));
     if (!KINDS.includes(answer?.kind)) return {error: 'not a kind', shape, usd};
     if (confidence < MIN_CONFIDENCE) return {error: `unsure (${confidence})`, kind: answer.kind, shape, usd};
-    const applyButton = answer.kind === 'posting' ? applyButtonOf(answer.apply_button, page.buttons) : '';
+    const applyRoute = answer.kind === 'posting' && ROUTES.includes(answer.apply_route) ? answer.apply_route : '';
+    // Floor: the named button is kept only for an ordinary Apply or the manual route; reuse and a third-party sign-in are never pressed, whatever the AI names.
+    const applyButton = answer.kind === 'posting' && (!applyRoute || applyRoute === 'manual') ? applyButtonOf(answer.apply_button, page.buttons) : '';
     const onAccount = answer.kind === 'account';   // the account step is asked of the AI for an account page only; the code never reads its words
     const accountStep = onAccount && ['sign_in', 'sign_up', 'choose'].includes(answer.account_step) ? answer.account_step : '';
     const registerControl = accountStep === 'sign_in' ? listedControl(answer.register_control, page.buttons) : '';
     const signinControl = ['sign_up', 'choose'].includes(accountStep) ? listedControl(answer.signin_control, page.buttons) : '';
     const accountButton = onAccount ? listedControl(answer.account_button, page.buttons) : '';
     // A check in front of the page is a passing state, not its kind: never kept for the shape (the form behind it is judged fresh once solved).
-    if (answer.bot_check === true) return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', shape, usd, botCheck: true, applyButton: '', accountStep: '', registerControl: '', signinControl: '', accountButton: ''};
-    cache?.set(shape, {kind: answer.kind, confidence, at: new Date(now).toISOString(), ...(applyButton ? {applyButton} : {}),
+    if (answer.bot_check === true) return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', shape, usd, botCheck: true, applyButton: '', accountStep: '', registerControl: '', signinControl: '', accountButton: '', applyRoute: ''};
+    // A start step is a passing state of the posting, never kept for its shape (the next visit starts from the plain Apply, as a bot check does).
+    if (!applyRoute) cache?.set(shape, {kind: answer.kind, confidence, at: new Date(now).toISOString(), ...(applyButton ? {applyButton} : {}),
       ...(accountStep ? {accountStep} : {}), ...(registerControl ? {registerControl} : {}), ...(signinControl ? {signinControl} : {}), ...(accountButton ? {accountButton} : {})});
-    return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', shape, usd, applyButton, accountStep, registerControl, signinControl, accountButton};
+    return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', shape, usd, applyButton, applyRoute, accountStep, registerControl, signinControl, accountButton};
   } catch (error) {
     return {error: clean(error?.message || 'AI failed', 120), shape};
   }

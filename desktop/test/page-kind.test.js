@@ -162,3 +162,38 @@ test('a page with only a frame is still asked; a bot check in front of it is the
   assert.equal((await pageKind(fake({kind: 'other', confidence: 1}), {...check, frames: []}, cacheIn())).error, 'empty page', 'nothing at all: still not asked');
   assert.deepEqual(pageSketch({...check, frames: ['a.example', '', 'b.example']}).frames, ['a.example', 'b.example']);
 });
+
+// The start dialog (Workday "Start Your Application", 10 Oct 2026): a step that offers several ways to begin. The AI names the ROUTE of the button it
+// picked (fixed answers); the code keeps the button only for the manual route, only among the page's own buttons, and never keeps this passing step for the shape.
+test('a start dialog: only the manual route keeps its button; reuse and third-party sign-in never do, whatever the AI says', async () => {
+  const {ROUTES} = await import('../lib/page-kind.js');
+  const dialog = {url: 'https://richemont.wd3.myworkdayjobs.com/en-US/External/job/Geneva/Buyer_R123', title: 'Buyer', headings: ['Start Your Application'], controls: [],
+    buttons: ['Apply Manually', 'Use My Last Application', 'Apply With LinkedIn']};
+  const answers = {manual: 'Apply Manually', reuse_previous: 'Use My Last Application', third_party_account: 'Apply With LinkedIn'};
+  assert.deepEqual([...ROUTES], Object.keys(answers));   // a new route needs a row here
+  for (const [route, button] of Object.entries(answers)) {
+    const cache = cacheIn();
+    const got = await pageKind(fake({kind: 'posting', confidence: 0.95, apply_button: button, apply_route: route}), dialog, cache);
+    assert.equal(got.applyRoute, route);
+    assert.equal(got.applyButton, route === 'manual' ? 'apply manually' : '', route);
+    assert.equal(cache.get(kindKey(dialog)), null, `${route}: a passing step is never kept for the shape`);
+  }
+  const outside = await pageKind(fake({kind: 'posting', confidence: 0.95, apply_button: 'Apply Manually', apply_route: 'something_else'}), dialog, cacheIn());
+  assert.equal(outside.applyRoute, '', 'a route outside the fixed answers is dropped');
+  const notListed = await pageKind(fake({kind: 'posting', confidence: 0.95, apply_button: 'Apply by hand', apply_route: 'manual'}), dialog, cacheIn());
+  assert.equal(notListed.applyButton, '', 'a button the page does not show is never named');
+  const plain = await pageKind(fake({kind: 'posting', confidence: 0.95, apply_button: 'Apply Manually', apply_route: ''}), dialog, cacheIn());
+  assert.equal(plain.applyRoute, '');
+});
+
+test('fresh: a kept answer is not used (the page changed after a press); the instructions and schema carry the route', async () => {
+  const posting = {url: 'https://jobs.example/job/1', title: 'Job', headings: ['Job'], controls: [], buttons: ['Apply', 'Apply Manually']};
+  const cache = cacheIn(), calls = [];
+  await pageKind(fake({kind: 'posting', confidence: 0.9, apply_button: 'Apply', apply_route: ''}, calls), posting, cache);
+  await pageKind(fake({kind: 'posting', confidence: 0.9, apply_button: 'Apply Manually', apply_route: 'manual'}, calls), posting, cache, {fresh: true});
+  assert.equal(calls.length, 2, 'fresh asks again');
+  assert.equal((await pageKind(fake({}), posting, cache)).applyButton, 'apply', 'the kept answer is still the plain Apply');
+  assert.ok(calls[0].output_config.format.schema.required.includes('apply_route'));
+  assert.deepEqual(calls[0].output_config.format.schema.properties.apply_route.enum, ['manual', 'reuse_previous', 'third_party_account', '']);
+  assert.match(calls[0].system, /apply_route/);
+});

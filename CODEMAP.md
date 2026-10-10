@@ -441,6 +441,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/same-tab.js` — One tab per application (owner, 8 Oct 2026: Manor's Apply opened the sign-in in a second tab, and the app lost track of which
 - `extension/sections.js` — Collapsed form sections, opened before the form is read (owner, 9 Oct 2026; live: SuccessFactors draws "Informations sur le profil" and
 - `extension/site-allow.js` — One Allow for every tab the app opens on a site the extension may not run on yet ("Work on every job site" off, the site not one
+- `extension/start-route.js` — The "how do you want to start?" step (Workday's "Start Your Application": Apply Manually / Use My Last Application / Apply With LinkedIn, 10 Oct 2026):
 - `extension/submit-watch.js` — Did the person submit? (moved out of background.js, 8 Oct 2026): the submit press starts a short watch; a redirect or a change on the same page is read by the app, which decides
 - `extension/tab-identity.js` — A tab's identity: which application it is (spec: docs/superpowers/specs/2026-10-10-application-journey.md, step 2). Every report to the app carries it,
 - `extension/tab-memory.js` — The extension's memory of its tabs (which session and job each tab is, which the app opened, the sites being read) lives in

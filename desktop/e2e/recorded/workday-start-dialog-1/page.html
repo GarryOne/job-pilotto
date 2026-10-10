@@ -1,0 +1,15 @@
+<!doctype html><html lang="en"><head><title>Buyer - Geneva</title></head><body>
+<main id="posting"><h1>Buyer</h1><p>Geneva · Full time</p><p>Join our purchasing team.</p>
+<a role="button" id="apply" href="#" onclick="document.getElementById('start').style.display='block'; return false;">Apply</a></main>
+<div id="start" role="dialog" aria-modal="true" style="display:none;position:fixed;top:20%;left:20%;right:20%;background:#fff;border:1px solid #888;padding:16px">
+  <h2>Start Your Application</h2>
+  <button type="button" id="manual" onclick="document.getElementById('start').remove(); document.getElementById('posting').remove(); document.getElementById('form').style.display='block';">Apply Manually</button>
+  <button type="button" id="reuse" onclick="window.open('https://reuse.example.test/')">Use My Last Application</button>
+  <button type="button" id="linkedin" onclick="window.open('https://linkedin-signin.example.test/')">Apply With LinkedIn</button>
+</div>
+<form id="form" style="display:none"><h1>My Information</h1>
+  <label>First Name <input id="first" name="firstName" type="text"></label>
+  <label>Last Name <input id="last" name="lastName" type="text"></label>
+  <label>Email <input id="email" name="email" type="email"></label>
+  <label>Phone <input id="phone" name="phone" type="tel"></label>
+</form></body></html>

@@ -19,6 +19,7 @@ import {accountOutcome, accountStep} from './account-step.js';
 import {applyPressed} from './tabs.js';
 import {bindSession, identityOf, sessionOf} from './tab-identity.js';
 import {pageKey, pageRole, pickApplyButton} from './tab-pages.js';
+import {forgetRouteTries, startRoute} from './start-route.js';
 
 let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true, fillsNow = new Set(), arm = async () => {}, progress = async () => {};
 export function initFillFlow(shared) {
@@ -112,13 +113,13 @@ async function forgetKind(tab, kind, reason) {
 }
 // What the person sees while the app waits for the AI (the panel's step line; nothing is drawn when the tab has no panel yet). Never throws.
 export const sayStep = (tabId, text) => progress(tabId, text).catch(() => {});
-export async function askKind(tab) {
+export async function askKind(tab, {fresh = false} = {}) {   // fresh: the page changed after a press, a kept answer for its shape does not apply (start-route.js)
   const sketch = await pageSketchOf(tab.id);
   if (!sketch) return null;
   try {
     const config = await settings();
     if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return null;   // your own Worker: no app to ask
-    const answer = await Promise.race([api(config, '/extension/page-kind', {method: 'POST', body: JSON.stringify({url: tab.url.split('#')[0], ...sketch})}),
+    const answer = await Promise.race([api(config, '/extension/page-kind', {method: 'POST', body: JSON.stringify({url: tab.url.split('#')[0], ...(fresh ? {fresh: true} : {}), ...sketch})}),
       new Promise(resolve => setTimeout(() => resolve(null), 40000))]);   // a first visit asks the AI cold (the app's AI is the `claude` command: 5-25 s); the structure rule decides only after this, and a wrong rule costs more than the wait
     return answer?.role ? answer : null;
   } catch { return null; }
@@ -233,7 +234,7 @@ export async function stuck(job, host, why, tabId = null, page = '', needs = '',
 }
 const triedApply = new Set();
 // A refresh the person pressed is a new document: its Apply may be pressed again (Deloitte, 10 Oct 2026: after ⌘R nothing happened). Not after every press: a posting whose Apply opened the form in another tab must not press it a second time (beta e2e applycv, Windows).
-export const forgetApplyTries = tabId => { for (const key of [...triedApply]) if (key.startsWith(`${tabId} `)) triedApply.delete(key); };
+export const forgetApplyTries = tabId => { forgetRouteTries(tabId); for (const key of [...triedApply]) if (key.startsWith(`${tabId} `)) triedApply.delete(key); };
 export const fillKey = (tabId, url) => `${tabId} ${pageKey(url)}`;
 // A page judged "no form" while it had no field at all may still be drawing its form (a spinner first, or a sign-in that redirects to it:
 // SuccessFactors, 9 Oct 2026, where the form came after the judgment and neither the fill nor the panel ever came back). For 20 s it is read
@@ -359,6 +360,21 @@ export async function consider(tab, jobUrl) {
       if (attempt.via) reportFlow(tab, null, {aliasUse: [{phrase: attempt.via, ok: after !== null}]});   // did a phrase from the service open the form?
       if (after === 'navigated') { started.delete(key); return; }   // the next page decides for itself (onUpdated)
       if (after) { role = 'form'; await noteRole(tab.id, tab.url, role); }
+      else {
+        // No form and the page did not move: it may be a step that offers several ways to start (Workday's dialog). The AI names the route of its button; only the manual one is pressed (start-route.js).
+        const chosen = await startRoute(key, {ask: () => askKind(tab, {fresh: true}), press: async routePhrases => {
+          applyPressed.set(tab.id, {at: Date.now(), url: tab.url});
+          const next = await pressApply(tab.id, routePhrases);
+          if (!next.pressed) applyPressed.delete(tab.id);
+          return next;
+        }});
+        if (chosen.route) decide('fill', chosen.pressed ? 'pressed the start route: manual' : `start route not pressed: ${chosen.route}`, {host, route: chosen.route, label: chosen.pressed});
+        if (chosen.pressed) {
+          const afterRoute = await formAfterPress(tab.id, tab.url);
+          if (afterRoute === 'navigated') { started.delete(key); return; }
+          if (afterRoute) { role = 'form'; pressed = true; await noteRole(tab.id, tab.url, role); }
+        }
+      }
     }
   }
   // Self-correction: called a posting, but there was no Apply to press and the page has an application form's fields: it is the form.
