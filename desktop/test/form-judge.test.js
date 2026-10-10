@@ -43,9 +43,16 @@ test('a middle step keeps the next control the page lists; a final step, an inve
   assert.equal((await ask({step: 'maybe', next_control: 'Continuer'})).step, 'unsure');
 });
 
-test('the route says the person\'s choice: assist unless Settings turned it on', async () => {
+test('the route says the person\'s choice: full unless Settings turned it off', async () => {
   const client = fake({answer: 'ready', needs: '', needs_kind: '', confidence: 0.9, step: 'middle', next_control: 'Continuer'});
-  const off = await decideAccountJudge({settings: () => ({})}, {phase: 'form', sketch: steps}, {client});
-  const on = await decideAccountJudge({settings: () => ({applicationNext: 'full'})}, {phase: 'form', sketch: steps}, {client});
+  const off = await decideAccountJudge({settings: () => ({applicationNext: 'assist'})}, {phase: 'form', sketch: steps}, {client});
+  const on = await decideAccountJudge({settings: () => ({})}, {phase: 'form', sketch: steps}, {client});
   assert.deepEqual([off.nextControl, off.step, off.nextMode, on.nextMode], ['Continuer', 'middle', 'assist', 'full']);
+});
+
+test('alternatives (Upload CV / Copy and paste CV / LinkedIn) are one need, and a middle step is judged on its own: the rule is in the AI\'s instructions', async () => {
+  const seen = [];
+  await judgeForm(fake({answer: 'ready', needs: '', needs_kind: '', confidence: 0.9, step: 'middle', next_control: 'Continue'}, seen), {...steps});
+  assert.match(seen[0].system, /alternatives/);
+  assert.match(seen[0].system, /judge only what THIS step needs/);
 });

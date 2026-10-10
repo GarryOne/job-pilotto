@@ -21,7 +21,7 @@ The person is about to review and submit it. Answer ready when every required th
 // when it is one of the page's own controls. The extension presses it only when the person turned it on (settings.applicationNext 'full').
 const STEP_RULE = ` Also say step: middle when this page is one step of a multi-step application and a later step follows (a Next, Continue or Save and continue that leads on), final when this
 page itself sends the application or the form has one page, unsure otherwise; and next_control: on a middle step only, the exact text, copied from the Buttons list, of the one control that goes on
-to the next step of this same application (never one that submits, sends, applies, saves as a draft, or leaves the application), else "".`;
+to the next step of this same application (never one that submits, sends, applies, saves as a draft, or leaves the application), else "". Several controls that give the SAME thing in different ways (Upload CV, Copy and paste CV, Apply with LinkedIn, or a choice among them) are alternatives: when one of them is given, or the page offers the choice and one way is enough, the others are not missing, so never put an alternative in needs; only the thing itself counts. On a middle step judge only what THIS step needs, never what a later step will ask.`;
 const plain = text => String(text ?? '').replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 80);
 // One of the page's own buttons or links (never a field's label), as the page writes it.
 export const listedButton = (text, sketch) => (plain(text) ? sketch.buttons.find(button => plain(button) === plain(text)) || '' : '');
