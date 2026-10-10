@@ -13,7 +13,7 @@ test('the page sketch and the named-button finder read one list, not two copies'
   assert.equal(NAMED_BUTTONS, 'button, input[type=submit], [role=button], a');
   // pageSketchOf is a closed script (desktop/e2e/ladder-capture.mjs runs its body with no arguments), so its list is a literal: pinned equal to the shared one.
   const sketch = flow.slice(flow.indexOf('function pageSketchOf'));
-  assert.equal(sketch.match(/const buttons = all\('([^']*)'\)/)?.[1], NAMED_BUTTONS, 'the page sketch lists what the named-button finder searches');
+  assert.equal(sketch.match(/const buttons = (?:modalFirst\()?all\('([^']*)'\)/)?.[1], NAMED_BUTTONS, 'the page sketch lists what the named-button finder searches');
   assert.match(sketch.slice(0, 200), /func: \(\) => \{/, 'a closed script, no argument (the capture tool extracts it)');
   assert.match(flow, /listed = target \? NAMED_BUTTONS : PAGE_BUTTONS/, 'the named path searches the shared list');
 });

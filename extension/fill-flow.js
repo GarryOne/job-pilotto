@@ -94,12 +94,15 @@ function pageSketchOf(tabId) {
       .filter(el => el.type === 'file' || (el.type !== 'hidden' && shown(el)))   // an upload behind a button keeps its input hidden
       .filter(el => !['submit', 'button', 'reset', 'image'].includes(el.type))
       .map(el => ({type: el.tagName === 'INPUT' ? el.type : el.tagName.toLowerCase(), label: labelOf(el).slice(0, 80), required: !!el.required || el.getAttribute('aria-required') === 'true'}));
-    const buttons = all('button, input[type=submit], [role=button], a').filter(shown)
+    // An open modal dialog (a start step over the posting: jobs.ch "Create an account to apply faster", 11 Oct 2026) sits last in the DOM, behind the page's own navigation, so the 20-button cap cut it off and
+    // the AI never saw its routes. What a person can act on is the dialog: its buttons and headings come first (found by structure only; the AI still decides what they mean). Order only: the list is the same.
+    const modalFirst = els => { const inModal = el => !!el.closest?.('dialog[open], [role=dialog], [role=alertdialog], [aria-modal=true]'); return [...els.filter(inModal), ...els.filter(el => !inModal(el))]; };
+    const buttons = modalFirst(all('button, input[type=submit], [role=button], a').filter(shown))
       .map(el => (el.tagName === 'INPUT' ? el.value : text(el))).filter(words => words && words.length <= 40);
     // The hosts of visible frames (a check drawn in a frame): the AI decides what they are (desktop/lib/page-kind.js bot_check).
     const frames = [...document.querySelectorAll('iframe')].filter(el => { const box = el.getBoundingClientRect(); return box.width > 40 && box.height > 40; })
       .map(el => { try { return new URL(el.src, location.href).hostname; } catch { return ''; } }).filter(Boolean);
-    return {title: document.title, headings: all('h1, h2, h3').filter(shown).map(text).filter(Boolean).slice(0, 8),
+    return {title: document.title, headings: modalFirst(all('h1, h2, h3').filter(shown)).map(text).filter(Boolean).slice(0, 8),
       controls: controls.slice(0, 50), buttons: [...new Set(buttons)].slice(0, 20), frames: [...new Set(frames)].slice(0, 5)};
   }}).then(rows => rows?.[0]?.result || null).catch(() => null);
 }

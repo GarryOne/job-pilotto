@@ -1,6 +1,6 @@
 {
  "shape": "a posting whose Easy apply opens a start dialog (Login here / Create an account / Continue without an account): the AI names Easy apply, the press opens the dialog, the AI names the manual route, the extension presses it",
- "why": "11 Oct 2026, the pool run on 0.9.180: the posting's Easy apply was pressed only through the digest and the dialog it opened was never judged (\"no form\"). The generic press refused the AI's \"easy apply\" (pickApplyButton's NOT_APPLY). Stubbed answers are what the real AI answered: the posting answer of ladder-fixtures/jobs-ch-apply-not-found.json and the dialog answer of ladder-fixtures/dialog-en-continue-without-account.json (reconstructed from the real modal's text), only to /extension/page-kind.",
+ "why": "11 Oct 2026, the pool run on 0.9.180: the posting's Easy apply was pressed only through the digest and the dialog it opened was never judged (\"no form\"). The generic press refused the AI's \"easy apply\" (pickApplyButton's NOT_APPLY). Stubbed answers are what the real AI answered: the posting answer of ladder-fixtures/jobs-ch-apply-not-found.json and the dialog answer of ladder-fixtures/dialog-en-continue-without-account.json (reconstructed from the real modal's text), only to /extension/page-kind. The request's sketch must list the modal's own buttons (a native <dialog open> that sits last in the DOM, behind 25+ navigation links: the sketch keeps 20 buttons), else the stub gives the posting answer again, as the real AI saw on 0.9.183.",
  "control": {
   "build": "0.9.180",
   "failed": "expected told: pressed the start route: manual (the AI-named Easy apply was refused by the generic press, so the dialog was never reached)"
@@ -53,7 +53,10 @@
      "registerControl": "",
      "signinControl": "",
      "accountButton": ""
-    }
+    },
+    "whenButtons": [
+     "Continue without an account"
+    ]
    },
    {
     "answer": {
