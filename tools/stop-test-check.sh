@@ -89,6 +89,9 @@ for repo in "${repos[@]}"; do
     pids+=($!)
   done
   [ ${#pids[@]} -gt 0 ] && wait "${pids[@]}"
+  # tools/ship.sh removes the worktree it landed, possibly while these tests ran in it (10 Oct 2026: 40 "No such file" errors for a push that had
+  # passed the same suites): a repo whose .git is gone has no result worth reporting.
+  if [ ! -e "$repo/.git" ]; then notes+="$repo was removed while its tests ran (landed by tools/ship.sh): its results are dropped, not failures."$'\n'; rm -rf "$logs"; continue; fi
 
   failed=""
   for s in "${suites[@]}"; do
