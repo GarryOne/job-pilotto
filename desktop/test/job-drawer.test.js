@@ -108,6 +108,15 @@ test('Review: a rejection shows the employer\'s words, or that the email gave no
   assert.match(source, /active\.key === 'rejection'/);
 });
 
+test('Messages: an email waiting on this job asks first, and its answer reuses the Focus actions', () => {
+  const source = read('job-drawer/tab-messages.js');
+  assert.match(source, /waitingEmails\(focusItems\(\), job\.url\)/);
+  assert.match(source, /Does this email belong to this job\?/);
+  assert.match(source, /moveEmail\(email\.eventId, job\.url, email\.item\)/, 'Link to this job: the Focus move');
+  assert.match(source, /whichJob\(email\.item/, 'Choose another job: the Focus picker');
+  assert.match(read('pages/focus.js'), /export const focusItems = \(\) => lastFocus\?\.items \|\| \[\]/);
+});
+
 test('Overview: built from the shared card, tile and state-card parts, each part only when it has something', () => {
   const source = read('job-drawer/tab-overview.js');
   for (const part of ['card(', 'factTile(', 'iconRow(', 'stateCard(', 'glanceTiles(', 'clarifyOf(', 'callFacts(']) assert.ok(source.includes(part), part);

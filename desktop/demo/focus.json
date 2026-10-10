@@ -194,6 +194,30 @@
       "stage": "Interviewing",
       "after_interview": true,
       "next_step": "Call with the CTO next week"
+    },
+    {
+      "priority": 1,
+      "kind": "which_job",
+      "emoji": "❓",
+      "title": "Re: Technical interview invitation",
+      "detail": "Confirming our call for 9 Oct. Looking forward!",
+      "company": "Northwind Robotics",
+      "job": "Platform Engineer, Developer Experience",
+      "via": "",
+      "stage": "Screening",
+      "salary": "",
+      "location": "Zurich",
+      "reached": "Email",
+      "job_url": "",
+      "page_id": "",
+      "notion_url": "",
+      "link": "",
+      "link_label": "",
+      "done": false,
+      "event_id": "demo-ev-q1",
+      "event_kind": "Reply",
+      "note": "Confirming our call for 9 Oct. Looking forward!",
+      "suggested_url": "https://example.com/jobs/2"
     }
   ],
   "today": {
@@ -310,10 +334,32 @@
       "interviews": 1,
       "offers": 0,
       "steps": [
-        {"step": "📥 Contacted you", "reached": 3, "of_contacted": 1, "urls": ["https://example.com/lead/9"]},
-        {"step": "📞 Screening", "reached": 2, "of_contacted": 0.67, "urls": []},
-        {"step": "🧑‍💻 Interviews", "reached": 1, "of_contacted": 0.33, "urls": []},
-        {"step": "🏆 Offers", "reached": 0, "of_contacted": 0, "urls": []}
+        {
+          "step": "📥 Contacted you",
+          "reached": 3,
+          "of_contacted": 1,
+          "urls": [
+            "https://example.com/lead/9"
+          ]
+        },
+        {
+          "step": "📞 Screening",
+          "reached": 2,
+          "of_contacted": 0.67,
+          "urls": []
+        },
+        {
+          "step": "🧑‍💻 Interviews",
+          "reached": 1,
+          "of_contacted": 0.33,
+          "urls": []
+        },
+        {
+          "step": "🏆 Offers",
+          "reached": 0,
+          "of_contacted": 0,
+          "urls": []
+        }
       ]
     }
   }

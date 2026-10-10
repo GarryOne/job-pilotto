@@ -48,6 +48,7 @@ const CASES = [
   ['28-overview-not-seen', open(9, 'overview')],
   ['29-description-not-seen', open(9, 'description', wait(500))],
   ['30-description-paste', open(2, 'description', click('button', 'Paste description'))],
+  ['31-messages-which-job', open(2, 'messages')],
   ['26-review-interview', open(1, 'review', click('.jd-choice button', 'Screening call'))],
   ['27-interviews-recorded-open', open(1, 'interviews', click('.jd-message-head', 'Screening call'))],
   ['25-expanded', open(1, 'overview', "document.querySelector('.jd-control[title^=\"Expand\"]').click(); " + wait(400))],

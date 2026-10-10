@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 import {shortDay} from '../renderer/date.js';
-import {SECTIONS, TABS, allAnswers, factPairs, appliedLine, callFacts, clarifyOf, foundLine, glanceTiles, gmailUrl, headerFacts, kitParts, lines, matchGroups, matchView, messagesOf, nextInterview, pageParts, paragraphize, plain, postingBlocks, postingFacts, interviewsOf, notSeen, postingSource, rejectionOf, reviewsOf, timelineOf, readablePart, submittedOf, tabKey, technologiesOf} from '../renderer/job-page-view.js';
+import {SECTIONS, TABS, allAnswers, factPairs, appliedLine, callFacts, clarifyOf, foundLine, glanceTiles, gmailUrl, headerFacts, kitParts, lines, matchGroups, matchView, messagesOf, nextInterview, pageParts, paragraphize, plain, postingBlocks, postingFacts, interviewsOf, notSeen, postingSource, rejectionOf, reviewsOf, timelineOf, waitingEmails, readablePart, submittedOf, tabKey, technologiesOf} from '../renderer/job-page-view.js';
 
 const demo = JSON.parse(fs.readFileSync(new URL('../demo/job-pages.json', import.meta.url), 'utf8'));
 
@@ -248,4 +248,12 @@ test('Rejection: what the email said apart from the AI; none when there is no re
   assert.equal(rejectionOf({}), null);
   assert.equal(notSeen({match: {status: 'Not seen'}}), true);
   assert.deepEqual([notSeen({match: {status: 'Open'}}), notSeen({match: null}), notSeen(null)], [false, false, false]);
+});
+
+test('Emails waiting on a job: Focus\'s which-job questions whose suggested job is this one', () => {
+  const items = [{kind: 'which_job', event_id: 'e1', title: 'Re: Interview', note: 'Confirming', suggested_url: 'https://x/1'}, {kind: 'which_job', event_id: 'e2', title: 'Other', suggested_url: 'https://x/2'},
+    {kind: 'reply', event_id: 'e3', suggested_url: 'https://x/1'}, {kind: 'which_job', title: 'no id', suggested_url: 'https://x/1'}, {kind: 'which_job', event_id: 'e4', title: 'No guess', suggested_url: ''}];
+  assert.deepEqual(waitingEmails(items, 'https://x/1').map(email => [email.eventId, email.subject, email.note]), [['e1', 'Re: Interview', 'Confirming']]);
+  assert.equal(waitingEmails(items, 'https://x/1')[0].item, items[0], 'the Focus item itself, for the picker');
+  assert.deepEqual([waitingEmails([], 'https://x/1'), waitingEmails(undefined, 'https://x/1'), waitingEmails(items, '')], [[], [], []]);
 });

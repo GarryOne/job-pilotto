@@ -3,9 +3,11 @@
 // the way to connect it (existing messages still show); "Add note" opens the Log box on this job. Screenshots of a logged message are listed
 // below. Words and data: renderer/job-page-view.js messagesOf, gmailUrl.
 import {el} from '../components.js';
-import {messagesOf} from '../job-page-view.js';
+import {messagesOf, waitingEmails} from '../job-page-view.js';
 import {gmailConnected} from '../pages/activity-basics.js';
+import {focusItems} from '../pages/focus.js';
 import {openLogFor} from '../pages/jobs-lead.js';
+import {moveEmail, whichJob} from '../pages/reassign.js';
 import {openSetting} from '../pages/settings.js';
 import {button, choice, foldCard, group, lineView, stateCard} from './parts.js';
 
@@ -36,12 +38,23 @@ function emailCard(email, first) {
   return foldCard({title: email.title, tag: email.outcome, when: email.when, open: first}, ...body);
 }
 
+// An email the Gmail check could not place for certain, which it would put on this job: your answer places it (the Focus question, here).
+function waitingCard(email, job, reload) {
+  const link = button('Link to this job', async event => {
+    event.currentTarget.disabled = true;
+    if (await moveEmail(email.eventId, job.url, email.item)) reload();
+    else event.currentTarget.disabled = false;
+  }, 'primary');
+  const other = button('Choose another job', () => whichJob(email.item, () => reload()), 'soft-button');
+  return stateCard({icon: 'alert', tone: 'warn', title: 'Does this email belong to this job?', text: `“${email.subject}”${email.note ? `: ${email.note}` : ''} This email isn't linked to this job yet.`, actions: [link, other]});
+}
+
 const noteCard = (note, first) => foldCard({iconName: 'chat', title: note.title, open: first}, ...note.lines.map(lineView));
 
-export function messagesTab({job, page, parts, close}, redraw) {
+export function messagesTab({job, page, parts, close, reload}, redraw) {
   const {emails, notes, counts} = messagesOf(parts, page?.events);
   const add = button('Add note', () => openLogFor(job.url, job.title), 'soft-button');
-  const nodes = [];
+  const nodes = waitingEmails(focusItems(), job.url).map(email => waitingCard(email, job, reload));   // first: it needs an answer
   if (gmailConnected() === false) {   // known not connected (null = not known yet: say nothing)
     nodes.push(stateCard({icon: 'alert', tone: 'warn', title: 'Connect Gmail to read new messages', text: 'Messages already linked to this job still show here.',
       actions: [button('Connect Gmail', () => { close(); openSetting('google'); }, 'primary')]}));

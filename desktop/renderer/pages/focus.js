@@ -106,6 +106,8 @@ async function finishItem(item, save) {
   if (focusLoading) await focusLoading.catch(() => {});
   loadFocus();
 }
+// The Focus items as last read (the job drawer's Messages tab asks which emails wait on a job): [] before Focus has loaded.
+export const focusItems = () => lastFocus?.items || [];
 export function loadFocus() {
   focusLoading ||= loadFocusOnce().catch(error => {
     // Never a blank page: say what went wrong where the list goes.

@@ -310,6 +310,13 @@ export function rejectionOf(page = {}) {
 // A posting the last full search no longer listed: the match row's status "Not seen" (src/stores/matches_sync.py: "not proof the posting closed").
 export const notSeen = page => page?.match?.status === 'Not seen';
 
+// The emails waiting on this job: Focus's "Which job is this email about?" items (kind which_job) whose suggested job is this one. [{key, eventId, subject, note, item}].
+// `item` is the Focus item itself, as pages/reassign.js whichJob takes it.
+export function waitingEmails(items = [], url = '') {
+  return (items || []).filter(item => item?.kind === 'which_job' && item.event_id && url && item.suggested_url === url)
+    .map(item => ({key: String(item.event_id), eventId: String(item.event_id), subject: plain(item.title || 'An email'), note: plain(item.note || item.detail || ''), item}));
+}
+
 // The page's content: {tabs: TABS (every job has all eight), kit, groups: {match, prep, review, record, messages, description}, history, shots,
 // documents, has: {tab key → it has content, for its empty state}}.
 export function pageParts({sections = {}, kit = null, events = [], files = [], match = null, app = null, interviews = []} = {}) {
