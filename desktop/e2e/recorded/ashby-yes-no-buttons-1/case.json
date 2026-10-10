@@ -1,0 +1,58 @@
+{
+ "shape": "a form whose Yes/No questions are two aria-pressed buttons under one parent, with a display:none checkbox beside them (Ashby)",
+ "why": "OpenAI and Colonist on Ashby, 6 Oct 2026 (0.8.97): three required questions (work authorization, sponsorship, office days) were 'question on the page not read', so the form stayed at Needs input. The reader now lists such a group by structure; the answer presses the button named by it",
+ "sample": "jobs.ashbyhq.com public application page (structure recorded 10 Oct 2026, values and links removed)",
+ "pages": [
+  {
+   "url": "https://jobs.ashbyhq.com/example/00000000-0000-0000-0000-000000000000/application",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "aria:g1",
+     "question": "Are you authorized to work in the country where the job is located?",
+     "value": "Yes"
+    },
+    {
+     "field": "aria:g2",
+     "question": "Will you now or in the future require sponsorship for employment visa status in this country?",
+     "value": "No"
+    },
+    {
+     "field": "aria:g3",
+     "question": "Are you able to work from our US office three days per week?",
+     "value": "Yes"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "pressed": [
+   ".ashby-application-form-field-entry:nth-of-type(4) [data-option=yes]",
+   ".ashby-application-form-field-entry:nth-of-type(5) [data-option=no]",
+   ".ashby-application-form-field-entry:nth-of-type(6) [data-option=yes]"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60,
+  "asked": [
+   "Are you authorized to work in the country where the job is located?",
+   "Will you now or in the future require sponsorship for employment visa status in this country?",
+   "Are you able to work from our US office three days per week?"
+  ]
+ },
+ "start": "panel"
+}

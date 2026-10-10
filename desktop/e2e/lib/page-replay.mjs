@@ -18,7 +18,7 @@ export function loadCases(dir = REPLAY_DIR) {
     .map(name => ({name, dir: path.join(dir, name), ...JSON.parse(fs.readFileSync(path.join(dir, name, 'case.json'), 'utf8'))}));
 }
 
-// -> {ok, failures: [why], seen: {tabs, opened}}. expect: {told: [log words], notTold: [..], maxTabs, maxNewTabs (tabs opened during the run), attached: [selector], filled: [selector], empty: [selector], gone: [selector], seconds}
+// -> {ok, failures: [why], seen: {tabs, opened}}. expect: {told: [log words], notTold: [..], maxTabs, maxNewTabs (tabs opened during the run), attached: [selector], filled: [selector], pressed: [selector] (a pressable button, aria-pressed=true), asked: [question] (listed in the fields of an /extension/answer request: the reader saw it), empty: [selector], gone: [selector], seconds}
 export async function runCase(item, {extensionDir} = {}) {
   const answer = Object.fromEntries(Object.entries(item.ai || {}).map(([route, body]) => [route, () => body]));
   const run = await startRealExtension({extensionDir, cv: item.cv !== false, allowAllSites: true, answer});
@@ -41,6 +41,8 @@ export async function runCase(item, {extensionDir} = {}) {
       told: word => run.told(word),
       attached: selector => page().evaluate(css => (document.querySelector(css)?.files?.length || 0) > 0, selector).catch(() => false),
       filled: selector => page().evaluate(css => !!document.querySelector(css)?.value, selector).catch(() => false),
+      pressed: selector => page().evaluate(css => document.querySelector(css)?.getAttribute('aria-pressed') === 'true', selector).catch(() => false),
+      asked: label => run.requests.some(request => request.route === '/extension/answer' && request.body.split('"page_text"')[0].includes(`"label":${JSON.stringify(label)}`)),
       gone: selector => page().evaluate(css => !document.querySelector(css)?.getClientRects().length, selector).catch(() => false),
     };
     const pending = Object.entries(checks).flatMap(([kind, check]) => (expect[kind] || []).map(arg => ({kind, arg, check})));
