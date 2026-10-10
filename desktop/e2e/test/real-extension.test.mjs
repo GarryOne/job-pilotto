@@ -1,4 +1,4 @@
-/* global document */
+/* global document, chrome */
 // Validates the upload fix on the REAL extension in a real (headless) Chrome, on a REAL Coop (SuccessFactors) application form, isolated from the owner's
 // app, profile, CV, Keychain and AI (lib/real-extension.mjs proves it). Opt-in, because it needs the live site: `npm run real-extension` (JP_LIVE=1).
 // What it checks that the shape tests (upload-slot.test.mjs) cannot: the extension's own wiring (injection, permissions, the panel's Fill button) and that
@@ -114,6 +114,34 @@ test('a choice step that reveals its own file input: the CV is attached, the pas
     const attached = () => run.page.evaluate(() => document.getElementById('resumeFile')?.files.length || 0).catch(() => 0);
     assert.ok(await waitUntil(async () => (await attached()) === 1, 60), 'the CV is in the page\'s file input');
     assert.equal(await run.page.evaluate(() => !!document.getElementById('resumePaste')?.getClientRects().length), false, 'the paste box was not opened');
+    assert.ok(await run.assertIsolated());
+  } finally { await run.close(); }
+});
+
+// 10 Oct 2026: after a refresh nothing started and there was no button. The toolbar popup's "Apply on this page" (message applyHere) fills again on a tab the app opened, never on another page;
+// a real reload does the same. WHAT THIS PROVES: the wiring (the message is accepted, the fill runs, a reload refills, a page the app did not open is refused). WHAT IT DOES NOT: that the
+// popup's press needs forgetApplyTries (messages-panel.js): this fixture shows its file input at once, so the build without that call also passes (control run, 10 Oct 2026). The case that needs it
+// is a fresh document with the input hidden after an Apply press was tried: on the real Deloitte page the press failed without the call and filled with it; worker/test/visit-consent.test.js guards the call.
+test('Apply on this page refills a tab the app opened, a reload refills, any other page is refused', {skip}, async () => {
+  const run = await startRealExtension({extensionDir, cv: true, allowAllSites: true, answer: {'/extension/page-kind': () => ({ok: true, kind: 'posting', role: 'no-form', by: 'ai', confidence: 0.98, applyButton: 'upload cv'})}});
+  try {
+    await serve(run, CHOICE_STEP);
+    // The popup's page is opened first, before any tab is armed: a tab created right after an Apply press is taken for "the tab Apply opened" and the posting tab is closed (tabs.js followOpener).
+    const popup = await run.context.newPage();
+    await popup.goto(`chrome-extension://${new URL(run.context.serviceWorkers()[0].url()).host}/popup.html`);
+    await run.page.bringToFront();
+    const attached = () => run.page.evaluate(() => document.getElementById('resumeFile')?.files.length || 0).catch(() => -1);
+    const ask = (address) => popup.evaluate(async url => { const [tab] = await chrome.tabs.query({url}); return chrome.runtime.sendMessage({type: 'applyHere', tabId: tab.id}); }, address);
+    await run.page.goto(`${DELOITTE}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'});
+    assert.ok(await waitUntil(async () => (await attached()) === 1, 60), 'the first fill attaches the CV');
+    await run.page.evaluate(() => { document.getElementById('resumeFile').value = ''; });   // the person emptied it (or the page lost it): nothing is attached any more
+    assert.equal(await attached(), 0, 'the input is empty');
+    assert.equal((await ask('https://apply.deloitte.ch/*'))?.ok, true, 'accepted on the tab the app opened');
+    assert.ok(await waitUntil(async () => (await attached()) === 1, 60), 'the page is filled again');
+    await run.page.reload({waitUntil: 'domcontentloaded'});
+    assert.ok(await waitUntil(async () => (await attached()) === 1, 60), 'a real reload fills it again');
+    const other = await popup.evaluate(async () => { const tab = await chrome.tabs.create({url: 'https://example.com/'}); await new Promise(resolve => setTimeout(resolve, 1500)); return chrome.runtime.sendMessage({type: 'applyHere', tabId: tab.id}); });
+    assert.equal(other?.ok, false, 'a page the app did not open is refused');
     assert.ok(await run.assertIsolated());
   } finally { await run.close(); }
 });

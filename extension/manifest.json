@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "version": "0.9.159",
+  "version": "0.9.160",
   "name": "Job Pilotto",
   "description": "Fills a job application from your drafted kit. You review and click Submit yourself.",
   "action": {

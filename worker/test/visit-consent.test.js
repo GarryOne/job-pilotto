@@ -90,3 +90,13 @@ test('a refresh looks at the page again, and the popup has a permanent Apply for
   const messages = read('messages-panel.js');
   assert.match(messages, /message\?\.type === 'applyHere'[\s\S]*#jobpilotto-fill[\s\S]*not opened by the Job Pilotto app/);
 });
+
+// 10 Oct 2026: the popup's "Apply on this page" cleared `started` but not the "Apply already pressed on this page" memory (dede94a clears that on a reload only), so on a page
+// whose Apply press had been tried once, nothing was filled. Seen on the real Deloitte page (before: not filled, after: filled). The fixture test cannot tell (its input is visible at once).
+test('the popup\'s Apply on this page forgets the tried Apply press, only for the person\'s own press', () => {
+  const read = name => fs.readFileSync(new URL(`../../extension/${name}`, import.meta.url), 'utf8');
+  const messages = read('messages-panel.js');
+  assert.match(messages, /import \{consider, forgetApplyTries\} from '\.\/fill-flow\.js'/);
+  assert.match(messages, /message\?\.type === 'applyHere'[\s\S]*forgetApplyTries\(tab\.id\);[\s\S]*consider\(tab, await jobOf\(tab\)\)/);
+  assert.equal([...read('fill-flow.js').matchAll(/forgetApplyTries\(/g)].length, 0, 'fill-flow.js only defines it: it never calls it by itself after an Apply press');
+});

@@ -9,7 +9,7 @@ import {forgetAI} from './flow.js';
 import {settings} from './flow.js';
 import {sharedFixNote} from './tab-pages.js';
 import {sharedFixes} from './tab-pages.js';
-import {consider} from './fill-flow.js';
+import {consider, forgetApplyTries} from './fill-flow.js';
 
 export function createPanelMessages(ctx) {
   const {fillOpenedTab, jobOf, prefetch, started} = ctx;
@@ -48,6 +48,7 @@ export function createPanelMessages(ctx) {
         const armed = tab && (await chrome.storage.session.get(`armed:${tab.id}`).catch(() => ({})))[`armed:${tab.id}`];
         if (!tab || !/^https:/.test(tab.url || '') || !(armed || tab.url.includes('#jobpilotto-fill'))) return {ok: false, why: 'This page was not opened by the Job Pilotto app: press Apply in the app.'};
         for (const key of [...started]) if (key === tab.id || (typeof key === 'string' && key.startsWith(`${tab.id} `))) started.delete(key);
+        forgetApplyTries(tab.id);   // a page whose Apply press was tried once is pressed again: this is the person asking (a reload does the same, tab-report.js)
         decide('fill', 'Apply pressed in the extension popup', {host: new URL(tab.url).hostname});
         consider(tab, await jobOf(tab)).catch(() => {});
         return {ok: true};
