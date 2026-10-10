@@ -46,7 +46,7 @@ def main(argv=None):
     env['PYTHONPATH'] = os.pathsep.join([str(TESTS), env.get('PYTHONPATH', '')]).rstrip(os.pathsep)
     started = time.monotonic()
     # test_0_notion_ids sets the fake IDs the whole suite imports against; discovery loads it first, so every shard does too.
-    procs = [(shard, subprocess.Popen([sys.executable, '-m', 'unittest', '-q', BOOTSTRAP, *[m for m in shard if m != BOOTSTRAP]], cwd=ROOT, env=env,
+    procs = [(shard, subprocess.Popen([sys.executable, '-m', 'unittest', '-q', '-b', BOOTSTRAP, *[m for m in shard if m != BOOTSTRAP]], cwd=ROOT, env=env,
                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True))
              for shard in split(modules, args.jobs)]
     failed = ran = 0
