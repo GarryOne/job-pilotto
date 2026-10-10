@@ -42,3 +42,25 @@ test('the page data carries the list, and it is empty and harmless with no host 
   await use(env, 'careers.acme.md', 3);
   assert.equal((await data(env, now)).next.sites.length, 1);
 });
+
+// Run the page's own script on a tiny DOM that, like a browser, writes a null child as the text "null" (the page once showed "null" under an empty list).
+test('the page draws the section with no stray text, with and without suggestions', async () => {
+  const {PAGE} = await import('../src/applying.js');
+  const script = PAGE.split('<script>')[1].split('</script>')[0];
+  const make = tag => ({tag, children: [], hidden: false, style: {}, set textContent(value) { this.children = value === '' ? [] : [String(value)]; }, get textContent() { return this.children.map(String).join(''); },
+    append(...kids) { this.children.push(...kids.map(kid => (typeof kid === 'object' && kid !== null ? kid : String(kid)))); },
+    text() { return this.children.map(kid => (typeof kid === 'string' ? kid : kid.text())).join('|'); }});
+  const run = async next => {
+    const app = make('div');
+    const document = {createElement: make, getElementById: () => app, querySelector: () => null, hidden: true, body: make('body')};
+    const pool = {tiles: {}, cases: [], pool: [], platforms: [], flows: [], nights: [], steps: [], sites: [], dropped: [], now: '2026-10-10T12:00:00Z', next};
+    const fetch = async () => ({json: async () => pool});
+    new Function('document', 'fetch', 'getComputedStyle', 'CSS', 'setInterval', 'Object', script)(document, fetch, () => ({}), {escape: x => x}, () => 0, Object);
+    await new Promise(resolve => setTimeout(resolve, 20));
+    return app.text();
+  };
+  assert.ok(!/null/.test(await run({sites: [], hidden: {hosts: 0}})), 'no "null" with an empty list');
+  const text = await run({sites: Array.from({length: 7}, (_, i) => ({host: `h${i}.acme.md`, platform: 'Custom', poolSites: 0, installs: 3, uses: 3, readyShare: 50, countries: []})), hidden: {hosts: 0}});
+  assert.ok(text.indexOf('Next sites to add') >= 0 && text.indexOf('Next sites to add') < text.indexOf('Fixed-site replays'), 'the list is the first section, above the replays');
+  assert.ok(!/null/.test(text) && text.includes('h0.acme.md') && !text.includes('h5.acme.md') && text.includes('Show all 7'), 'top 5 and the button');
+});

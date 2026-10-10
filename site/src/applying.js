@@ -167,6 +167,18 @@ fetch('?json').then(r => r.json()).then(d => {
     if (pages > 1) { const go = step => () => { chosen.page += step; draw(); };
       pager.append(el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: chosen.page === 0, onclick: go(-1)}),
         el('button', {className: 'chip', type: 'button', textContent: 'Next →', disabled: chosen.page >= pages - 1, onclick: go(1)})); } };
+  // Next sites to add: the hosts real applications ended on that the pool lacks, each used by >= 3 installs (src/nextsites.js). Top 5, the rest on request.
+  let allNext = false; const nextBox = el('div');
+  const drawNext = () => { nextBox.textContent = ''; const list = d.next.sites, shown = allNext ? list : list.slice(0, 5);
+    nextBox.append(...[list.length ? el('table', {},
+      el('tr', {}, ...['Site', 'Platform', 'Used by', 'Applications', 'Filled, nothing left', 'Countries'].map(h => el('th', {textContent: h}))),
+      ...shown.map(s => el('tr', {}, el('td', {textContent: s.host}),
+        el('td', {textContent: s.platform + (s.poolSites ? ' · ' + s.poolSites + ' in the pool' : s.platform === 'Custom' ? '' : ' · none in the pool')}),
+        el('td', {textContent: s.installs + ' installs'}), el('td', {textContent: s.uses}), el('td', {textContent: s.readyShare + '%'}),
+        el('td', {className: 'muted', textContent: s.countries.map(c => c.country + ' ' + c.installs).join(', ')})))) : el('p', {className: 'muted', textContent: 'Nothing yet: a site shows here once 3 installs have applied on it and the pool lacks it.'}),
+      list.length > 5 ? el('p', {}, el('button', {className: 'chip', type: 'button', textContent: allNext ? 'Show top 5' : 'Show all ' + list.length, onclick: () => { allNext = !allNext; drawNext(); }})) : null].filter(Boolean)); };   // append() writes a null as the text "null"
+  app.append(el('section', {}, el('h2', {textContent: 'Next sites to add · where people apply, not in the pool'}),
+    el('p', {className: 'muted', textContent: 'The site each application ended on, counted per install. A site is listed only once 3 different installs used it' + (d.next.hidden.hosts ? ' (' + d.next.hidden.hosts + ' more are below that and stay hidden)' : '') + '. Country = where those installs search; under 3 installs it is "other". Never a posting or an address.'}), nextBox)); drawNext();
   app.append(el('section', {}, el('h2', {textContent: 'Fixed-site replays · every fixed site, replayed'}), d.cases.length ? el('table', {},
     el('tr', {}, ...['Case', 'Result', 'Last 10 runs', 'Last run', 'Since'].map(h => el('th', {textContent: h}))),
     ...d.cases.map(c => el('tr', {}, el('td', {textContent: c.name}), el('td', {}, c.ok ? el('span', {className: 'pill s-ready', textContent: 'passed'}) : el('span', {className: 'pill s-posting', textContent: 'failed'}),
@@ -175,18 +187,6 @@ fetch('?json').then(r => r.json()).then(d => {
     : el('p', {className: 'muted', textContent: 'No recorded-page run uploaded yet: cd desktop/e2e && npm run recorded'})));
   app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table)
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
-  // Next sites to add: the hosts real applications ended on that the pool lacks, each used by >= 3 installs (src/nextsites.js). Top 5, the rest on request.
-  let allNext = false; const nextBox = el('div');
-  const drawNext = () => { nextBox.textContent = ''; const list = d.next.sites, shown = allNext ? list : list.slice(0, 5);
-    nextBox.append(list.length ? el('table', {},
-      el('tr', {}, ...['Site', 'Platform', 'Used by', 'Applications', 'Filled, nothing left', 'Countries'].map(h => el('th', {textContent: h}))),
-      ...shown.map(s => el('tr', {}, el('td', {textContent: s.host}),
-        el('td', {textContent: s.platform + (s.poolSites ? ' · ' + s.poolSites + ' in the pool' : s.platform === 'Custom' ? '' : ' · none in the pool')}),
-        el('td', {textContent: s.installs + ' installs'}), el('td', {textContent: s.uses}), el('td', {textContent: s.readyShare + '%'}),
-        el('td', {className: 'muted', textContent: s.countries.map(c => c.country + ' ' + c.installs).join(', ')})))) : el('p', {className: 'muted', textContent: 'Nothing yet: a site shows here once 3 installs have applied on it and the pool lacks it.'}),
-      list.length > 5 ? el('p', {}, el('button', {className: 'chip', type: 'button', textContent: allNext ? 'Show top 5' : 'Show all ' + list.length, onclick: () => { allNext = !allNext; drawNext(); }})) : null); };
-  app.append(el('section', {}, el('h2', {textContent: 'Next sites to add · where people apply, not in the pool'}),
-    el('p', {className: 'muted', textContent: 'The site each application ended on, counted per install. A site is listed only once 3 different installs used it' + (d.next.hidden.hosts ? ' (' + d.next.hidden.hosts + ' more are below that and stay hidden)' : '') + '. Country = where those installs search; under 3 installs it is "other". Never a posting or an address.'}), nextBox)); drawNext();
   // Fetch again every 15 s while the tab is visible and redraw the pool, so the spinner and the times follow a run without a reload.
   setInterval(() => { if (!document.hidden) fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; draw(); drawNext(); }).catch(() => {}); }, 15000);
   if (d.nights.length) {
