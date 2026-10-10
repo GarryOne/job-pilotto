@@ -114,8 +114,7 @@ Flow-core files (`page-kind.js`, `fill-flow.js`, `session-flow.js`, `escalate.js
 - Never edit a fixture's `expect` to make it pass; the ratchet fails on an edited expectation unless the baseline is updated with a reason.
 
 ## 4. Land and confirm
-- **A change to a path every site uses (press, kind, fill) runs the FULL recorded replay before it lands**, not only its own cases (10 Oct 2026: a "never press a phrase match when the AI named a control" rule passed its three cases and broke Workday's two-step dialog; only workday-start-dialog-1/-2 caught it). A guard case (passes on the old build too) is proved by breaking its rule on a copy of the extension and seeing it fail; its `control` says so.
-- **What the AI is shown must be findable by the code that acts on it:** one shared selector, never two lists (the sketch listed every `a`, the press finder only `a[href]`). A recorded page is a shape, not a site: scripts, CSS and redirects are not replayed.
+- **Before landing:** a change to a path every site uses (press, kind, fill) runs the FULL recorded replay, not only its own cases; a guard case is proved by breaking its rule (lessons.md).
 - `tools/ship.sh` (never from the twin's worktree: it deletes the worktree it lands). A push changing how the extension acts on pages needs the recorded page,
   or a scenario (a fill replay alone does not count), or `Recorded-unneeded: <why>` in the commit only when no real site's failure is fixed. Commit subject <= 72 characters.
 - **Re-run `npm run smoke -- --only <shape>` on the landed build** (a held run, said before it starts) and compare with the first run: **it must reach further**
@@ -145,3 +144,11 @@ Flow-core files (`page-kind.js`, `fill-flow.js`, `session-flow.js`, `escalate.js
 - A fix, a retry or a log line built on a guess: if the cause is not shown by a log, a count or a failing case, add the evidence first and send it to the flow-core coordinator before the fix.
 - A first run of a new recorded case through `npm run recorded` on the build you are fixing: it UPLOADS a row to `/admin/applying`, which has no delete path (a production table). Run an unproven case with `REAL_EXTENSION_DIR` set (nothing is uploaded) until it fails on the old build and passes on the fix.
 - Fixing a gap in the debugging process (a missing log, a report that hides evidence, a harness that cannot fail) silently: list it and send it to the pool coordinator (`coordinator.txt`) and the flow-core coordinator; the report side (`desktop/e2e/lib/smoke.mjs`) is the pool coordinator's.
+
+## Lessons and self-improve (owner, 11 Oct 2026)
+- **Read `lessons.md` (this folder) once at the start:** each lesson has what to do, the incident and whether it is verified or second-hand. Follow it; a lesson that proves wrong is deleted.
+- **Self-improve: every time a round teaches something, the skill gets it before you say "done".** A lesson is a surprise, a claim you had to retract, a harness or report gap, a peer's correction, a failure the skill did not warn about.
+  1. **Triage:** is it new (grep `lessons.md`)? Is it shown by a log, a count or a failing case (verified), or only reported (second-hand: say so, spot-check the code)? Is it about a class of problems, not one site? Drop what is a guess, one site's quirk or a duplicate.
+  2. **Write it** in `lessons.md` under the right heading: the rule first, then the incident (date, row), then verified or second-hand. Promote it into a SKILL.md step only when it changes what to do first or what never to do.
+  3. **Keep SKILL.md under 150 lines:** detail goes to `lessons.md`, steps stay short. Commit the skill on its own (`Skill fix-failing-forms: <lesson>`), and send the process gaps you could not fix yourself to the coordinators.
+  4. Lessons from another session's summary or screenshot are triaged the same way and labelled second-hand until a run of yours confirms them.
