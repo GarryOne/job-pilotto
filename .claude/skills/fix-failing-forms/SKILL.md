@@ -21,10 +21,8 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
   site's `fieldList`: label, type, outcome, required, reason per field; one `.log` per run) and **`replay-candidates/<day>/<shape>/`** (the failing run's last page, structure only and scrubbed, with a
   `case.json` skeleton: the run's fields, page path and page-kind lines): start the recorded page from that candidate, take the AI's answers from its `evidence`, never invent them.
   Say: N rows, the top three, the one you take. After the landing, the next night's "Filled, last runs" column of that row is the proof: it must go up or the row must leave the list.
-- **Peers (a courtesy, never a dependency; owner, 11 Oct 2026: "the skill should be able to run on its own, without a coordinator"):** `ListAgents`; `cat "~/Library/Application Support/Job Pilotto QA/coordinator.txt"`
-  names the session that owns the applying test pool and the shared e2e page, if one runs. Suites share one Notion test page, so never two runs at once: if a peer's run holds it, wait or queue yours. **If no
-  coordinator is in `ListAgents`, or the page is free, you run everything yourself** (the reproduction, the re-run on the landed build and its upload) and say so in one line; you do not stop to ask the owner.
-  With a coordinator running, one line to it saying the shape you take is enough.
+- **Peers (a courtesy, never a dependency; owner, 11 Oct 2026: "run on its own, without a coordinator"):** `ListAgents`; `coordinator.txt` in `~/Library/Application Support/Job Pilotto QA/` names the session
+  owning the e2e page, if one runs. Never two runs on the page: a peer's run holds it, wait or queue. **No coordinator in `ListAgents`, or the page free: you run everything yourself** (repro, re-run on the landed build, upload) and say so in one line; never stop to ask.
 - **Claim the flow core** (`FLOW_CORE`/`FLOW_FILES`, `desktop/e2e/flows.mjs`) before editing any file in it: one message to every peer "I own the flow core
   until I say released", and "released" when done. Read each file's `Invariants:` block first; changing one is the owner's call, said in the commit.
 - **Worktree:** `tools/worktree.sh fix-<shape>`, own scratch folder `<scratchpad>/fix-failing-forms/`. No subagents. Say the change tier (usually Tier 2: apply flow).

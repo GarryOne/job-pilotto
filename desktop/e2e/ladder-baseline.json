@@ -36,6 +36,10 @@
   {
    "date": "2026-10-10",
    "reason": "cand-swatch-group-careers: added, wrong-confident at rung 2 (the sketch's first 20 buttons are menu links; rung 3 names the link and its verb open is now honoured); rung 3 prompt: press_kind also for open"
+  },
+  {
+   "date": "2026-10-10",
+   "reason": "Added dialog-en-continue-without-account (a board's start dialog after Easy apply): exact, route manual; no other fixture changed"
   }
  ],
  "promptFingerprint": {
@@ -417,6 +421,16 @@
    "status": "exact"
   },
   "dialog-en-autofill-resume": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "dialog-en-continue-without-account": {
    "expect": {
     "outcome": "posting",
     "accept": [
