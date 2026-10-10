@@ -1,0 +1,75 @@
+{
+ "schemaVersion": 1,
+ "id": "datadog-greenhouse-frame-live-sketch",
+ "source": "reconstructed",
+ "lang": "en",
+ "why": "pool 11 Oct 2026, run on 0.9.181: the REAL sketch of the Datadog posting (captured at load: no controls, 20 buttons, frame host) plus the frame candidate the extension listed at ask time (frames: 1 in the app log; the embed is 650x2432 by then). The live model answered kind 'form' (0.6-0.7), which cannot carry form_frame; the right answer is posting with form_frame 0",
+ "capture": {
+  "page": "ladder-fixtures/pages/datadog-greenhouse-frame-grown.html"
+ },
+ "url": "https://careers.datadoghq.com/detail/7131404/",
+ "expect": {
+  "outcome": "form_in_frame",
+  "accept": [
+   "form_in_frame"
+  ]
+ },
+ "sketch": {
+  "url": "https://careers.datadoghq.com/detail/7131404/",
+  "title": "Strategic Account Executive | Datadog Careers",
+  "headings": [
+   "Careers",
+   "Strategic Account Executive"
+  ],
+  "controls": [],
+  "buttons": [
+   "Careers",
+   "Welcome",
+   "All Jobs",
+   "Instagram",
+   "LinkedIn,",
+   "Datadog Learning Center.",
+   "equal employment opportunity",
+   "Candidate Legal Notices",
+   "this form",
+   "Applicant and Candidate Privacy Notice",
+   "Interviewing at Datadog AI Guidelines",
+   "Product",
+   "Observability",
+   "Infrastructure Monitoring",
+   "Custom Metrics",
+   "Network Monitoring",
+   "Container Monitoring",
+   "Kubernetes Autoscaling",
+   "Serverless Monitoring",
+   "Cloud Cost Management"
+  ],
+  "frames": [
+   "job-boards.greenhouse.io"
+  ],
+  "mails": [],
+  "frameCandidates": [
+   {
+    "host": "job-boards.greenhouse.io",
+    "path": "/embed/job_app",
+    "width": 650,
+    "height": 2432
+   }
+  ]
+ },
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.8,
+  "apply_button": "",
+  "apply_button_kind": "",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "form_frame": 0,
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

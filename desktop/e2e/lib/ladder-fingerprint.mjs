@@ -8,6 +8,7 @@ const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 // key: the baseline's name · label: how the failure names it · file: repo-relative · parts: the exported constants that reach the model (an object is hashed as JSON, a function by its source)
 export const PROMPT_FILES = [
   {key: 'rung2', label: 'rung 2', file: 'desktop/lib/ladder/rung2-sketch.js', parts: ['SCHEMA', 'INSTRUCTIONS']},
+  {key: 'rung2-frames', label: 'rung 2 (the frame rule, only asked with frame candidates)', file: 'desktop/lib/ladder/rung2-sketch.js', parts: ['FRAME_RULE']},
   {key: 'rung3', label: 'rung 3', file: 'desktop/lib/ladder/rung3-digest.js', parts: ['DIGEST_INSTRUCTIONS', 'DIGEST_SCHEMA']},
   {key: 'account-judge', label: 'the account judge', file: 'desktop/lib/account-judge.js', parts: ['INSTRUCTIONS', 'schema']},
   {key: 'form-judge', label: 'the form judge', file: 'desktop/lib/form-judge.js', parts: ['INSTRUCTIONS', 'STEP_RULE', 'schema']},

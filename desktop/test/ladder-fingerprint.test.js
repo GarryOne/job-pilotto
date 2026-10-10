@@ -26,9 +26,9 @@ test('every model-facing prompt and schema is exported, and the fingerprint is s
   const first = await fingerprints(), second = await fingerprints();
   assert.deepEqual(first, second);
   assert.deepEqual(Object.keys(first), PROMPT_FILES.map(item => item.key));
-  assert.deepEqual(Object.keys(first), ['rung2', 'rung3', 'account-judge', 'form-judge', 'rung4']);
+  assert.deepEqual(Object.keys(first), ['rung2', 'rung2-frames', 'rung3', 'account-judge', 'form-judge', 'rung4']);
   assert.ok(Object.values(first).every(hash => /^[0-9a-f]{16}$/.test(hash)));
-  assert.equal(new Set(Object.values(first)).size, 5, 'two rungs hash the same: a part is missing');
+  assert.equal(new Set(Object.values(first)).size, 6, 'two rungs hash the same: a part is missing');
 });
 
 test('control: an unchanged tree matches the committed baseline', async () => {

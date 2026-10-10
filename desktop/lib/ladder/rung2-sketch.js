@@ -72,6 +72,10 @@ a new account (it chooses and confirms a password, or asks for more details), ch
 of the one control that leads to creating a new account, in whatever language, else "". signin_control: on a sign_up or choose page, the exact text, copied from the Buttons list, of the one control that leads to signing in to the existing account (never the password-reset control), else "". account_button: on an account page, the exact text, copied from the Buttons list, of the one
 button that submits this sign-in or sign-up form (never "forgot password", a social sign-in, or a language switch), else "".`;
 
+// Appended to the request ONLY when the sketch lists frame candidates, so every other page is asked exactly as before (its own fingerprint key: e2e/lib/ladder-fingerprint.mjs).
+// Datadog, 11 Oct 2026: with the form in a listed frame and the page's own Controls empty, the small model answered kind "form" (the page embeds a form), which cannot carry form_frame.
+export const FRAME_RULE = `If the page's own Controls hold no application form and the application sits inside one of these frames (a hosted job board embedded in the employer's page), the page itself is a posting, never a form: answer posting, form_frame is that frame's index and apply_by stays form. A frame that is not clearly the application changes nothing: form_frame -1.`;
+
 const MAIL = /[^\s@<>()]+@[^\s@<>()]+\.[a-z]{2,}/i;
 const clean = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 // What the model is allowed to see: no values the person typed, no query string, labels and texts capped.
@@ -145,7 +149,7 @@ export async function pageKind(client, raw, cache, {now = Date.now(), fresh = fa
         `Buttons: ${page.buttons.join(' | ') || '(none)'}`,
         `Addresses (sentences or links on the page that carry an email address):\n${page.mails.map(text => `- ${text}`).join('\n') || '(none)'}`,
         `Frames: ${page.frames.join(' | ') || '(none)'}`,
-        `Frame candidates (index · host · path · size; a posting whose application form is inside one of them names its index in form_frame):\n${page.frameCandidates.map((item, index) => `${index} · ${item.host} · ${item.path} · ${item.width}x${item.height}`).join('\n') || '(none)'}`,
+        `Frame candidates (index · host · path · size; a posting whose application form is inside one of them names its index in form_frame):\n${page.frameCandidates.map((item, index) => `${index} · ${item.host} · ${item.path} · ${item.width}x${item.height}`).join('\n') || '(none)'}${page.frameCandidates.length ? `\n${FRAME_RULE}` : ''}`,
       ].join('\n')}],
       output_config: {format: {type: 'json_schema', schema: SCHEMA}, effort: 'low'},
     });

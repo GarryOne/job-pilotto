@@ -40,10 +40,15 @@
   {
    "date": "2026-10-10",
    "reason": "Added dialog-en-continue-without-account (a board's start dialog after Easy apply): exact, route manual; no other fixture changed"
+  },
+  {
+   "date": "2026-10-10",
+   "reason": "added datadog-greenhouse-frame-live-sketch (the app's real request sketch) and the frame rule's own fingerprint key (rung2-frames): the rule is appended only when a sketch lists frame candidates, so no other fixture's prompt changed"
   }
  ],
  "promptFingerprint": {
   "rung2": "f195b59f9e204185",
+  "rung2-frames": "062eb0c3862f408e",
   "rung3": "992bf04b97d0b065",
   "account-judge": "82bb54b889d5f14d",
   "form-judge": "ac2382fd98ef6780",
@@ -391,6 +396,16 @@
    "status": "ok"
   },
   "datadog-greenhouse-frame-grown": {
+   "expect": {
+    "outcome": "form_in_frame",
+    "accept": [
+     "form_in_frame"
+    ]
+   },
+   "outcome": "form_in_frame",
+   "status": "exact"
+  },
+  "datadog-greenhouse-frame-live-sketch": {
    "expect": {
     "outcome": "form_in_frame",
     "accept": [
