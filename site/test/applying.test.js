@@ -106,7 +106,7 @@ test('every file the ladder legend names exists on disk, so the legend cannot dr
 test('every table on the page gets its headers from the one sortable helper (owner, 10 Oct 2026: sort by any column, red first)', () => {
   // A table added with its own plain th cells would not sort: only the helper may create a th, and every table's headers come from it.
   // The exceptions are the two fixed legends, the AI ladder and the colors (7 and 6 rows, nothing to sort): their headers are plain, and they are the only tables allowed to build them.
-  const legend = PAGE.slice(PAGE.indexOf('The AI ladder'), PAGE.indexOf('const dots = list'));   // the two fixed legends: the ladder at the top, the colors (the pool table's foot)
+  const legend = PAGE.slice(PAGE.indexOf('The AI ladder'), PAGE.indexOf('const dots = (list'));   // the two fixed legends: the ladder at the top, the colors (the pool table's foot)
   assert.equal(legend.split("el('th'").length - 1, 2, 'a legend lost its plain headers');
   assert.equal(PAGE.replace(legend, '').split("el('th'").length - 1, 1, 'a table builds its own th instead of heads(...)');
   for (const key of ['pool', 'cases']) assert.match(PAGE, new RegExp("heads\\('" + key + "'"));
