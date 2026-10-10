@@ -65,6 +65,7 @@ trap 'code=$?; if [ "$code" -ne 0 ]; then echo "ship: FAILED (exit $code), log: 
 
 rebase() {
   git fetch -q origin
+  git config merge.ladder-baseline.driver 'node tools/merge-baseline.mjs %O %A %B'   # two sessions' ladder-baseline updates merge (.gitattributes)
   if ! git rebase origin/main >/dev/null 2>&1; then
     git rebase --abort >/dev/null 2>&1 || true
     echo "ship: the rebase onto origin/main has conflicts. Resolve them keeping both sides' work, then run this again." >&2

@@ -679,6 +679,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/mail_eval.py` — Does the model still read the Gmail check's emails right? (the AI half of the check, which its unit tests stub)
 - `tools/meanings_parity.py` — Before an "AI instead of keyword lists" change ships: the owner's real search and data, AI off, on a baseline commit and on this tree;
 - `tools/meanings_seed.py` — Builds the meanings pack's seed (config/meanings_seed.json) from the keyword lists the code used before they became AI decisions, read
+- `tools/merge-baseline.mjs` — A git merge driver for desktop/e2e/ladder-baseline.json: two sessions that each updated the baseline for their own fixtures merge
 - `tools/new-e2e-steps.mjs` — Pre-push check (tools/pre-push-check.sh): every e2e step this push adds was seen passing, or the commit says why not (desktop/e2e/lib/new-steps.mjs).
 - `tools/notify.sh` — notify.sh <job URL> <message> — macOS notification about one job, e.g.
 - `tools/notion_copy.py` — Copy a Job Pilotto Notion workspace into another one: every database row (all fields, page body, links

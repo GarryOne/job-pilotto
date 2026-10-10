@@ -6,3 +6,5 @@
 *.pdf binary
 *.woff2 binary
 *.sqlite binary
+# Two sessions' updates of the ladder baseline merge per fixture (tools/merge-baseline.mjs; ship.sh registers the driver)
+desktop/e2e/ladder-baseline.json merge=ladder-baseline
