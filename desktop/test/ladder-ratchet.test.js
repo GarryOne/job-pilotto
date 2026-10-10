@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {BASELINE_FILE, compareToBaseline, readBaseline} from '../e2e/lib/ladder-baseline.mjs';
+import {fingerprintProblems, fingerprints} from '../e2e/lib/ladder-fingerprint.mjs';
 import {loadFixtures} from '../e2e/lib/ladder-fixtures.mjs';
 import {scoreFixtures} from '../e2e/lib/ladder-score.mjs';
 
@@ -34,5 +35,9 @@ test('the committed fixtures are no worse than the baseline', async () => {
 });
 
 test('every fixture has a stored answer, so the gate replays it without a model', () => {
-  assert.deepEqual(loadFixtures().filter(fixture => !fixture.answer).map(fixture => fixture.id), []);
+  assert.deepEqual(loadFixtures().filter(fixture => !fixture.answer && fixture.expect.outcome !== 'pending').map(fixture => fixture.id), []);   // a pending candidate may wait for its answer
+});
+
+test('the prompts and schemas of every rung are the ones the stored answers were recorded with', async () => {
+  assert.deepEqual(fingerprintProblems(await fingerprints(), readBaseline()), []);
 });

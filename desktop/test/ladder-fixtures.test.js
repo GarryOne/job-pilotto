@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {EXPECT_FIELDS, FIELDS, LANGS, OUTCOMES, SCHEMA_VERSION, SOURCES, loadFixtures} from '../e2e/lib/ladder-fixtures.mjs';
 import {SKETCH_FIELDS} from '../lib/page-kind.js';
+import {SCHEMA} from '../lib/ladder/rung2-sketch.js';
 
 const fixtures = loadFixtures();
 const EMAIL = /[\w.+-]+@[\w-]+(\.[\w-]+)+/g, PHONE = /(\+\d[\d\s().-]{8,}\d)|(\b0\d{2}[\s.]\d{3}[\s.]\d{2}[\s.]\d{2}\b)/;
@@ -20,9 +21,10 @@ test('every fixture has its sketch, an expected outcome and a source', () => {
     for (const key of Object.keys(f.expect || {})) assert.ok(EXPECT_FIELDS.includes(key), `${f.id}: expect field ${key} is not declared in EXPECT_FIELDS`);
     assert.ok(['asked', 'not_asked', undefined].includes(f.expect?.digest), `${f.id}: expect.digest`);
     assert.ok(['manual', 'reuse_previous', 'third_party_account', undefined].includes(f.expect?.apply_route), `${f.id}: expect.apply_route`);
-    assert.ok(OUTCOMES.includes(f.expect?.outcome), `${f.id}: expected outcome ${f.expect?.outcome}`);
+    assert.ok(OUTCOMES.includes(f.expect?.outcome) || f.expect?.outcome === 'pending', `${f.id}: expected outcome ${f.expect?.outcome}`);
+    assert.ok(f.expect.outcome !== 'pending' || (f.source === 'captured' && f.note), `${f.id}: a pending fixture is a captured candidate with a note`);
     for (const word of f.expect.accept || []) assert.ok(OUTCOMES.includes(word), `${f.id}: accept ${word}`);
-    assert.ok(!f.expect.accept || f.expect.accept.includes(f.expect.outcome), `${f.id}: accept must include the expected outcome`);
+    assert.ok(!f.expect.accept || f.expect.outcome === 'pending' || f.expect.accept.includes(f.expect.outcome), `${f.id}: accept must include the expected outcome`);
     assert.ok(f.sketch && typeof f.sketch.url === 'string', `${f.id}: sketch.url`);
     for (const key of Object.keys(f.sketch)) assert.ok(['url', ...SKETCH_FIELDS].includes(key), `${f.id}: sketch field ${key} is not in SKETCH_FIELDS`);
     assert.ok(typeof f.why === 'string' && f.why.length > 10, `${f.id}: say why it is in the set`);
@@ -45,7 +47,7 @@ test('a stored answer is a fixed-values object the page-kind schema knows, and n
     if (!f.answer) continue;
     assert.ok(['form', 'account-form', 'account', 'posting', 'other'].includes(f.answer.kind), `${f.id}: answer kind`);
     assert.equal(typeof f.answer.confidence, 'number', `${f.id}: answer confidence`);
-    for (const key of Object.keys(f.answer)) assert.ok(['kind', 'confidence', 'apply_button', 'apply_route', 'account_step', 'register_control', 'signin_control', 'account_button', 'apply_by', 'apply_email', 'bot_check', 'apply_button_kind'].includes(key), `${f.id}: answer field ${key}`);
+    for (const key of Object.keys(f.answer)) assert.ok(Object.keys(SCHEMA.properties).includes(key), `${f.id}: answer field ${key} is not in rung 2's SCHEMA`);   // the schema is the one list
   }
 });
 

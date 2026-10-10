@@ -8,7 +8,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const OWN = /^desktop\/(e2e\/ladder-fixtures\/|e2e\/ladder-baseline\.json$|e2e\/lib\/ladder-|lib\/page-kind\.js$|test\/ladder-ratchet\.test\.js$)/;
+const OWN = /^desktop\/(e2e\/ladder-fixtures\/|e2e\/ladder-baseline\.json$|e2e\/lib\/ladder-|lib\/(page-kind|account-judge|form-judge)\.js$|lib\/ladder\/|test\/ladder-ratchet\.test\.js$)/;
 
 export const touchedLadderFiles = (changed, flowFiles) => { const flows = new Set(flowFiles); return changed.map(file => file.trim()).filter(file => flows.has(file) || OWN.test(file)); };
 

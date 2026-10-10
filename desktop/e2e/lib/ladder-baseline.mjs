@@ -9,7 +9,8 @@ export const BASELINE_FILE = path.join(path.dirname(fileURLToPath(import.meta.ur
 export const readBaseline = (file = BASELINE_FILE) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return {schemaVersion: 1, reasons: [], fixtures: {}}; } };
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-export function compareToBaseline(rows, baseline) {
+export function compareToBaseline(allRows, baseline) {
+  const rows = allRows.filter(row => row.status !== 'pending');   // a pending fixture (a captured candidate nobody confirmed yet) is outside the ratchet
   const kept = baseline.fixtures || {}, ids = new Set(rows.map(row => row.id));
   const verdict = {worse: [], better: [], added: [], removed: Object.keys(kept).filter(id => !ids.has(id)), changedExpectation: []};
   for (const row of rows) {
@@ -23,7 +24,8 @@ export function compareToBaseline(rows, baseline) {
 }
 
 // A baseline from the rows now, with the reason appended to the old list.
-export function nextBaseline(rows, old, reason, today = new Date().toISOString().slice(0, 10)) {
+export function nextBaseline(allRows, old, reason, today = new Date().toISOString().slice(0, 10), promptFingerprint = old.promptFingerprint) {
+  const rows = allRows.filter(row => row.status !== 'pending');
   const fixtures = Object.fromEntries(rows.map(row => [row.id, {expect: {outcome: row.expected, accept: row.accept}, outcome: row.outcome, status: row.status}]));
-  return {schemaVersion: 1, reasons: [...(old.reasons || []), {date: today, reason}], fixtures};
+  return {schemaVersion: 1, reasons: [...(old.reasons || []), {date: today, reason}], ...(promptFingerprint ? {promptFingerprint} : {}), fixtures};
 }

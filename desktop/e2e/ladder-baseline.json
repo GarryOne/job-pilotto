@@ -8,8 +8,23 @@
   {
    "date": "2026-10-10",
    "reason": "grown real set (38 pool pages read once), 9 start-dialog fixtures, expect.apply_route/digest on the two recorded Workday dialogs (their stored rung 2 answer names no manual route: digest-not-asked fails)"
+  },
+  {
+   "date": "2026-10-10",
+   "reason": "prompt fingerprints added (rung 2, 3, 4, account judge, form judge); no fixture changed"
+  },
+  {
+   "date": "2026-10-10",
+   "reason": "prompt fingerprints re-based on main a96b07e: rung 4 gained PAGE_INSTRUCTIONS (the picture rung looks at a posting, f63b0f6) and is now fingerprinted with it; no fixture answers depend on rung 4 (the picture rung is not scored here)"
   }
  ],
+ "promptFingerprint": {
+  "rung2": "5393c1cd563f8955",
+  "rung3": "10d7aa414a43a90a",
+  "account-judge": "82bb54b889d5f14d",
+  "form-judge": "ac2382fd98ef6780",
+  "rung4": "b69068d6b5b1a559"
+ },
  "fixtures": {
   "aldi-suisse": {
    "expect": {

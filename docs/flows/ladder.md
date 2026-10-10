@@ -2,7 +2,7 @@
 
 **Verdict (5 s):** a page decision climbs from the cheapest rung to the next only when unsure. **Fix a site at the lowest rung where the information exists, and fix it as data
 (a kept answer, a recipe, a prompt example) before code.** Never fix a site in a higher rung than needed, never in a rung that already answered right.
-Spec: `docs/superpowers/specs/2026-10-10-ai-ladder.md` (checklist = what is built). Applying flows: `docs/flows/applying.md`. Skill for the work: `.claude/skills/fix-site-at-its-rung/SKILL.md`.
+Spec: `docs/superpowers/specs/2026-10-10-ai-ladder.md` (checklist = what is built). Applying flows: `docs/flows/applying.md`. Skill for the work: `.claude/skills/fix-failing-forms/SKILL.md`.
 
 ## The rungs
 | Rung | What | Owner (file) | Fixed answers | Built |
@@ -39,6 +39,14 @@ no AI = nothing pressed. A rung's answer is accepted only when it is one of the 
 | Ratchet | no fixture may get worse than `desktop/e2e/ladder-baseline.json` | `desktop/test/ladder-ratchet.test.js` (runs offline in seconds; `tools/ladder-gate.mjs` on a flow push) |
 | Recorded pages | a fixed site replayed with the real extension | `cd desktop/e2e && npm run recorded` |
 | Real extension | the extension alone on a real form | `cd desktop/e2e && npm run real-extension` |
+
+| Prompt fingerprint | a hash of every model-facing prompt and schema (rung 2, 3, 4, account judge, form judge) in the baseline: the gate replays STORED answers, so only the hash sees a changed prompt | `desktop/e2e/lib/ladder-fingerprint.mjs`, `desktop/test/ladder-fingerprint.test.js` |
+
+**A prompt or schema changed** (the gate says "the prompt of rung N changed"): re-run `npm run ladder-score` live (plan path), `--record` the changed answers, then `--offline --update-baseline "<why>"` (it rewrites the fingerprints too).
+
+**Auto-capture of the pool run's failures:** `node desktop/e2e/ladder-capture.mjs --from-candidates [--only <shape>]` turns the replay candidates that did NOT reach the form (`~/Library/Application Support/Job Pilotto QA/replay-candidates/<day>/<shape>/`, read-only) into `cand-<shape>` fixtures with `expect: pending`, scrubbed; `npm run ladder-score` lists them "to confirm", never scores them, the ratchet ignores them. Confirm one by writing its real `expect.outcome` (then `--record` and `--update-baseline`).
+
+**Trailers on a flow push** (`tools/rung-trailer.mjs`, in the push hook): a commit message of a push that touches flow code (FLOW_FILES, `desktop/lib/ladder/`, the page-kind facade, the judges, `extension/ladder/`) carries `Rung: <0-6|router|judges>` and `Fixture: <id of desktop/e2e/ladder-fixtures/ | none: <why>>` (`none` only for a pure move or refactor). A push touching no flow file is not asked.
 
 **Updating the baseline honestly:** improve a fixture, then `npm run ladder-score -- --offline --update-baseline "<why>"`; the reason is dated in the file.
 A fixture that got worse is a bug, not a baseline edit; the only exception is a deliberate trade-off the owner agrees to, said in the commit.

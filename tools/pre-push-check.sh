@@ -152,6 +152,10 @@ fi
 if command -v node >/dev/null && [ -f "$repo/tools/recorded-cases.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
   cases="$(cd "$repo" && node tools/recorded-cases.mjs --base origin/main 2>&1)" || { echo "Push blocked: $cases" >&2; exit 2; }
 fi
+# The rung trailer (docs/flows/ladder.md): a push touching the ladder's flow code carries "Rung: <0-6|router|judges>" and "Fixture: <id | none: why>" in a commit message (tools/rung-trailer.mjs).
+if command -v node >/dev/null && [ -f "$repo/tools/rung-trailer.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
+  trailer="$(cd "$repo" && node tools/rung-trailer.mjs --base origin/main 2>&1)" || { echo "Push blocked: $trailer" >&2; exit 2; }
+fi
 # The Applying scenario matrix is not a push gate any more (owner, 9 Oct 2026): its steps run with every other e2e on CI (apply, applycv: schedule and beta gate);
 # `cd desktop && npm run flows` stays an on-demand check. (8 Oct-9 Oct it blocked pushes that touched FLOW_CORE: one recorded catch in 186 commits, 28 skips.)
 # A push that changes an e2e suite names the open failed-step issues of that suite (6 Oct 2026: #310 and #315 were fixed in the test by commits that never named them,
@@ -182,6 +186,11 @@ else
   done <<<"$changed"
 fi
 case "$command" in *PUSH_FULL=1*) want_python=1; want_worker=1; want_site=1; want_desktop=1; want_workflows=1; clean_install=--clean-install ;; esac
+# The e2e harness's own unit tests (cd desktop/e2e && npm test: CI's e2e.yml "plan" job, about a minute) when the push touches the harness, the extension or the ladder (tools/e2e-unit-wanted.mjs):
+# the 10 Oct 2026 move left 19 of them red and this hook, which ran desktop and worker only, did not see it.
+want_e2e=0
+if [ -z "$changed" ] || printf '%s\n' "$changed" | node "$repo/tools/e2e-unit-wanted.mjs"; then want_e2e=1; fi
+case "$command" in *PUSH_FULL=1*) want_e2e=1 ;; esac
 
 failed=()
 log="$(mktemp)"
@@ -207,6 +216,10 @@ ci_installs_dev() {
     echo "build.yml: the test jobs must install dev dependencies like a developer does (drop --omit/--production)"
     return 1
   fi
+}
+e2e_unit() {
+  [ -d desktop/e2e/node_modules ] || { echo "pre-push: desktop/e2e/node_modules is missing: the e2e unit tests were not run (npm ci there, or tools/worktree.sh links them)"; return 0; }
+  (cd desktop/e2e && npm test)
 }
 # The suites run on exactly what is pushed, each area in its own fresh checkout of HEAD, as CI does: a forgotten file or a git-ignored
 # file left by another area's run (5 Oct 2026: desktop/shared/ from a desktop run let the worker's tests pass here, fa1f838 went red in CI and
@@ -243,6 +256,7 @@ done
 [ "$want_worker" = 1 ] && run "worker (clean checkout)" verify_area worker
 [ "$want_site" = 1 ] && run "site (clean checkout)" verify_area site
 [ "$want_desktop" = 1 ] && run "desktop (clean checkout)" verify_area desktop
+[ "$want_e2e" = 1 ] && run "e2e unit tests (desktop/e2e npm test, as CI)" e2e_unit
 for i in "${!pids[@]}"; do
   wait "${pids[$i]}" || failed+=("${names[$i]}")
   cat "${outs[$i]}" >>"$log"; rm -f "${outs[$i]}"

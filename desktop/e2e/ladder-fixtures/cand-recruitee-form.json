@@ -1,0 +1,259 @@
+{
+ "schemaVersion": 1,
+ "id": "cand-recruitee-form",
+ "source": "captured",
+ "lang": "en",
+ "why": "auto-captured from the pool run of 2026-10-10: Recruitee form: a form reached with 2 unexplained of 11 asked fields",
+ "note": "smoke run 2026-10-10: reached form (posting > form); the expectation is pending: say what the page really is",
+ "capture": {
+  "from": "replay-candidates/2026-10-10/recruitee-form"
+ },
+ "sketch": {
+  "url": "https://jobs.channable.com/o/talent-acquisition-partner",
+  "title": "Channable - Talent Acquisition Partner - Application",
+  "headings": [
+   "Talent Acquisition Partner",
+   "Please watch out for recruitment scams!"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Full name *",
+    "required": true
+   },
+   {
+    "type": "email",
+    "label": "Email address *",
+    "required": true
+   },
+   {
+    "type": "tel",
+    "label": "Phone number *",
+    "required": true
+   },
+   {
+    "type": "file",
+    "label": "CV or resume *",
+    "required": false
+   },
+   {
+    "type": "file",
+    "label": "Cover letter",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "How did you find out about Channable? *",
+    "required": true
+   },
+   {
+    "type": "radio",
+    "label": "EU citizenship",
+    "required": true
+   },
+   {
+    "type": "radio",
+    "label": "Valid work permit",
+    "required": true
+   },
+   {
+    "type": "radio",
+    "label": "I need sponsorship",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Where do you live? (City) *",
+    "required": true
+   },
+   {
+    "type": "radio",
+    "label": "Yes",
+    "required": true
+   },
+   {
+    "type": "radio",
+    "label": "No",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "How many hours per week are you available to work? *",
+    "required": true
+   },
+   {
+    "type": "radio",
+    "label": "Yes",
+    "required": true
+   },
+   {
+    "type": "radio",
+    "label": "No",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Which one of our company values resonates the most with you and why? *",
+    "required": true
+   },
+   {
+    "type": "file",
+    "label": "Can you please attach your motivational letter? *",
+    "required": true
+   },
+   {
+    "type": "file",
+    "label": "",
+    "required": false
+   },
+   {
+    "type": "file",
+    "label": "",
+    "required": false
+   },
+   {
+    "type": "file",
+    "label": "Upload a file",
+    "required": false
+   },
+   {
+    "type": "file",
+    "label": "Upload a file",
+    "required": false
+   },
+   {
+    "type": "file",
+    "label": "",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "A motivation letter is not required; instead, take this chance to introduce your",
+    "required": true
+   },
+   {
+    "type": "checkbox",
+    "label": "candidate.agreements.0.consent",
+    "required": true
+   }
+  ],
+  "buttons": [
+   "Skip to content",
+   "ChannableHomepage",
+   "Working at Channable",
+   "How we hire",
+   "What we do",
+   "About us",
+   "Job details",
+   "Application",
+   "NetherlandsNetherlands",
+   "Change file",
+   "Write it here instead",
+   "test.candidate@example.com",
+   "Send",
+   "Homepage",
+   "Contact",
+   "Report wrongdoing",
+   "×"
+  ],
+  "frames": [],
+  "mails": [
+   "mailto:test.candidate@example.com",
+   "We value your privacy. The personal data that you provide for your application will be processed in accordance with our Job Applicant Privacy Policy and will be"
+  ]
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "email",
+   "text": "You can withdraw your consent at any time by contacting us via test.candidate@example.com .",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "email",
+   "text": "test.candidate@example.com",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Job details",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Application",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "button",
+   "text": "NetherlandsNetherlands",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "button",
+   "text": "Change file",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "button",
+   "text": "Write it here instead",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "button",
+   "text": "Send",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Talent Acquisition Partner",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Hybrid",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "link",
+   "text": "What we do",
+   "host": "www.channable.com",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "About us",
+   "host": "www.channable.com",
+   "position": "header"
+  }
+ ],
+ "expect": {
+  "outcome": "pending"
+ },
+ "answer": {
+  "kind": "form",
+  "confidence": 0.93,
+  "apply_button": "",
+  "apply_button_kind": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "form_frame": -1,
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

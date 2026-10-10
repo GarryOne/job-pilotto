@@ -665,6 +665,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/commit-subject.py` — The subject a `git commit` command line would write, when it is given inline (-m "...", or -m "$(cat <<'EOF' ...)"); else nothing.
 - `tools/e2e_gate.py` — The end-to-end gate of tools/release-stable.sh: may this build be promoted, judging by the e2e runs GitHub lists (newest first)?
 - `tools/e2e-issue-links.mjs` — Pre-push check (tools/pre-push-check.sh): a push that changes an e2e suite names its open failed-step issues (desktop/e2e/lib/issue-links.mjs).
+- `tools/e2e-unit-wanted.mjs` — Does this push need the e2e harness's own unit tests (`cd desktop/e2e && npm test`, what CI's e2e.yml "plan" job runs: about a minute)? Called by tools/pre-push-check.sh with the changed files on stdi
 - `tools/file-size.mjs` — No source file over 500 lines (owner, 8 Oct 2026): a big file is read in parts, so its far-away shared state and imports get missed,
 - `tools/fill-failures.py` — What the Chrome extension failed to fill, across recent runs: the input for improving it.
 - `tools/fill-fixture.mjs` — Turns a fill-failure issue's snapshot into a replay test fixture (worker/test/fixtures/fill/<site>--<label>.html + .json).
@@ -693,6 +694,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/recorded-cases.mjs` — Pre-push check (tools/pre-push-check.sh), owner 10 Oct 2026: "never fix the same website twice". A push that changes how the extension acts on a page
 - `tools/release-checks.sh` — The release checks every platform's beta approval shares (e2e.yml promote for Mac/Linux, e2e-windows.yml approve-windows): the unit suites are green on the
 - `tools/release-stable.sh` — Promote a desktop build to the stable release: friends' apps offer it as an update ("Update to …" in the menu),
+- `tools/rung-trailer.mjs` — The rung trailer (docs/flows/ladder.md): a push that touches the ladder's flow code (desktop/e2e/flows.mjs FLOW_FILES, desktop/lib/ladder/, the page-kind facade, the account and form judges, extension
 - `tools/score_eval.py` — What would a cheaper fit-scoring setup cost in QUALITY? Measured, not guessed.
 - `tools/send-to-chatgpt.sh` — paste (and optionally send) a prompt into the ChatGPT/Codex desktop app.
 - `tools/ship.sh` — Land this worktree's branch on main in one command (AGENTS.md "Change tiers"). It does what the checklist did by hand, and retries the

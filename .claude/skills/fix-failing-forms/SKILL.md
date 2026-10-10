@@ -100,6 +100,9 @@ Flow-core files (`page-kind.js`, `fill-flow.js`, `session-flow.js`, `escalate.js
 ### R5. Update the baseline honestly
 - Better fixtures: `npm run ladder-score -- --offline --update-baseline "<what improved and why>"` (re-record the answers first with `--record` if the prompt changed).
 - A fixture that got **worse** is a bug to fix, not a baseline edit. A deliberate trade-off needs the owner's say-so, written in the commit.
+- A changed prompt or schema also fails the ratchet ("the prompt of rung N changed") until the answers are re-recorded (`--record`) and `--update-baseline` rewrites the prompt fingerprints.
+- The push hook wants two trailers in a commit message of any push that touches flow code: `Rung: <0-6|router|judges>` and `Fixture: <fixture id | none: <why>>` (`tools/rung-trailer.mjs`; the id must exist in `desktop/e2e/ladder-fixtures/`).
+- For a shape the pool run saved as a replay candidate: `node desktop/e2e/ladder-capture.mjs --from-candidates --only <shape>` writes a `cand-<shape>` fixture with `expect: pending`; set its real `expect.outcome` first.
 - Never edit a fixture's `expect` to make it pass; the ratchet fails on an edited expectation unless the baseline is updated with a reason.
 
 ## 4. Land and confirm

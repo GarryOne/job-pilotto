@@ -10,6 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {pickEngine} from './lib/engine.mjs';
+import {fingerprints} from './lib/ladder-fingerprint.mjs';
 import {BASELINE_FILE, nextBaseline, readBaseline} from './lib/ladder-baseline.mjs';
 import {DIR, loadFixtures} from './lib/ladder-fixtures.mjs';
 import {assertNoApiSpend, scoreFixtures, summarize} from './lib/ladder-score.mjs';
@@ -41,7 +42,7 @@ if (record) {
 }
 if (arg('--update-baseline')) {
   if (!offline || arg('--only') || arg('--source')) { console.error('--update-baseline needs --offline and the whole set (no --only/--source)'); process.exit(1); }
-  fs.writeFileSync(BASELINE_FILE, `${JSON.stringify(nextBaseline(rows, readBaseline(), arg('--update-baseline')), null, 1)}\n`);
+  fs.writeFileSync(BASELINE_FILE, `${JSON.stringify(nextBaseline(rows, readBaseline(), arg('--update-baseline'), undefined, await fingerprints()), null, 1)}\n`);
   console.log(`baseline written: ${rows.length} fixtures, reason "${arg('--update-baseline')}"`);
 }
 const summary = summarize(rows);
@@ -57,4 +58,8 @@ console.log('Per rung that decides today (0 = structure rule after an unsure ans
 for (const [rung, entry] of Object.entries(summary.byRung).sort()) console.log(`  ${pad(rung, 14)} ${entry.hits}/${entry.total} hit`);
 console.log(`Wrong and confident (answer >= 0.8, outside the accepted outcomes): ${summary.wrongConfident.length}`);
 for (const row of summary.wrongConfident) console.log(`  ${row.id}: expected ${row.expected}, got ${row.outcome} at ${row.confidence.toFixed(2)}`);
+if (summary.pending.length) {
+  console.log(`To confirm (expectation pending, not scored, not in the ratchet): ${summary.pending.length}`);
+  for (const row of summary.pending) console.log(`  ${row.id}: rung 2 says ${row.outcome || '(no stored answer yet)'}${row.confidence ? ` at ${row.confidence.toFixed(2)}` : ''}; ${row.note || ''}`.slice(0, 220));
+}
 if (summary.noAnswer.length) console.log(`No stored answer yet: ${summary.noAnswer.map(row => row.id).join(', ')} (run: npm run ladder-score -- --record)`);

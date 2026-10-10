@@ -1,0 +1,288 @@
+{
+ "schemaVersion": 1,
+ "id": "cand-lever-single-page-no-account",
+ "source": "captured",
+ "why": "auto-captured from the pool run of 2026-10-10: Lever: single page, no account: a form reached with 9 unexplained of 17 asked fields",
+ "note": "smoke run 2026-10-10: reached form (form); the expectation is pending: say what the page really is",
+ "capture": {
+  "from": "replay-candidates/2026-10-10/lever-single-page-no-account"
+ },
+ "sketch": {
+  "url": "https://jobs.lever.co/sonarsource/(phone)ad7-4be7-bcbe-67f660e9c381",
+  "title": "Sonar - Account Based Marketing (ABM) Manager",
+  "headings": [
+   "Account Based Marketing (ABM) Manager"
+  ],
+  "controls": [
+   {
+    "type": "file",
+    "label": "Resume/CV ✱cv.pdfATTACH RESUME/CVCouldn't auto-read resume.Analyzing resume...Su",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "Full name✱",
+    "required": true
+   },
+   {
+    "type": "email",
+    "label": "Email✱",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Phone ✱",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Current location ✱No location found. Try entering a different locationLoading",
+    "required": true
+   },
+   {
+    "type": "text",
+    "label": "Current company",
+    "required": false
+   },
+   {
+    "type": "text",
+    "label": "LinkedIn URL✱",
+    "required": true
+   },
+   {
+    "type": "textarea",
+    "label": "cards[47649f05-f086-4e9f-ad17-4b49cfc75467][field0]",
+    "required": false
+   },
+   {
+    "type": "textarea",
+    "label": "cards[47649f05-f086-4e9f-ad17-4b49cfc75467][field1]",
+    "required": false
+   },
+   {
+    "type": "textarea",
+    "label": "cards[144cb968-d9cd-4e8e-948b-8041add7325b][field0]",
+    "required": true
+   },
+   {
+    "type": "textarea",
+    "label": "cards[d44410c4-7a1f-43e1-af1f-7f98a67a7a41][field0]",
+    "required": true
+   },
+   {
+    "type": "select",
+    "label": "GenderSelect ...MaleFemaleDecline to self-identify",
+    "required": false
+   },
+   {
+    "type": "select",
+    "label": "RaceSelect ...Hispanic or LatinoWhite (Not Hispanic or Latino)Black or African A",
+    "required": false
+   },
+   {
+    "type": "select",
+    "label": "Veteran statusSelect ...I am a veteranI am not a veteranDecline to self-identify",
+    "required": false
+   },
+   {
+    "type": "radio",
+    "label": "18-20",
+    "required": false
+   },
+   {
+    "type": "radio",
+    "label": "21-29",
+    "required": false
+   },
+   {
+    "type": "radio",
+    "label": "30-39",
+    "required": false
+   },
+   {
+    "type": "radio",
+    "label": "40-49",
+    "required": false
+   },
+   {
+    "type": "radio",
+    "label": "50-59",
+    "required": false
+   },
+   {
+    "type": "radio",
+    "label": "60 or older",
+    "required": false
+   },
+   {
+    "type": "checkbox",
+    "label": "White / Caucasian",
+    "required": false
+   },
+   {
+    "type": "checkbox",
+    "label": "Hispanic, Latino, or Spanish origin",
+    "required": false
+   },
+   {
+    "type": "checkbox",
+    "label": "Black or African American",
+    "required": false
+   },
+   {
+    "type": "checkbox",
+    "label": "Asian",
+    "required": false
+   },
+   {
+    "type": "checkbox",
+    "label": "Native Hawaiian or other Pacific Islander",
+    "required": false
+   },
+   {
+    "type": "checkbox",
+    "label": "Indigenous Peoples, First Nations, Native American, or Alaska Native",
+    "required": false
+   },
+   {
+    "type": "checkbox",
+    "label": "Middle Eastern or North African",
+    "required": false
+   },
+   {
+    "type": "checkbox",
+    "label": "Some other race, ethnicity, or origin",
+    "required": false
+   },
+   {
+    "type": "radio",
+    "label": "Female",
+    "required": false
+   },
+   {
+    "type": "radio",
+    "label": "Male",
+    "required": false
+   },
+   {
+    "type": "radio",
+    "label": "Non-binary",
+    "required": false
+   },
+   {
+    "type": "radio",
+    "label": "Prefer not to say",
+    "required": false
+   },
+   {
+    "type": "checkbox",
+    "label": "Yes, Sonar can contact me about future job opportunities for up to 2 yearsPrivac",
+    "required": false
+   }
+  ],
+  "buttons": [
+   "cv.pdfATTACH RESUME/CV",
+   "Privacy policy",
+   "Submit application",
+   "Sonar Home Page",
+   "Jobs powered by"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "link",
+   "text": "Privacy policy",
+   "host": "www.sonarsource.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Submit application",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "Sonar Home Page",
+   "host": "www.sonarsource.com",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "link",
+   "text": "Jobs powered by",
+   "host": "www.lever.co",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "sentence",
+   "text": "Account Based Marketing (ABM) Manager",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "sentence",
+   "text": "London",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "GoToMarket – Corporate Marketing /",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Employee / Full-Time /",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "On-site",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Submit your application",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "sentence",
+   "text": "Resume/CV ✱",
+   "position": "main"
+  },
+  {
+   "n": 12,
+   "kind": "sentence",
+   "text": "Success!",
+   "position": "main"
+  }
+ ],
+ "expect": {
+  "outcome": "pending"
+ },
+ "answer": {
+  "kind": "form",
+  "confidence": 0.97,
+  "apply_button": "",
+  "apply_button_kind": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "form_frame": -1,
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

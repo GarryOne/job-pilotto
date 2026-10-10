@@ -1,0 +1,145 @@
+{
+ "schemaVersion": 1,
+ "id": "cand-jobs-ch-posting-whose-apply-the-extension-did-not-find-10-oc",
+ "source": "captured",
+ "lang": "en",
+ "why": "auto-captured from the pool run of 2026-10-10: jobs.ch posting whose Apply the extension did not find (10 Oct 2026): a run that stopped at the posting",
+ "note": "smoke run 2026-10-10: reached posting (posting); the expectation is pending: say what the page really is",
+ "capture": {
+  "from": "replay-candidates/2026-10-10/jobs-ch-posting-whose-apply-the-extension-did-not-find-10-oc"
+ },
+ "sketch": {
+  "url": "https://www.jobs.ch/en/vacancies/detail/a47dffef-1a4f-45cd-bc12-8c(phone)f/",
+  "title": "Real Estate Accountant - Job Offer at Agence Immobilière Rodolphe Burger SA - jobs.ch",
+  "headings": [
+   "Comptable immobilier",
+   "About the job",
+   "About the company",
+   "Benefits",
+   "Categories:",
+   "Others have also looked at",
+   "Comptable Général Abacus",
+   "Comptable fiduciaire"
+  ],
+  "controls": [],
+  "buttons": [
+   "Skip to content",
+   "jobs.ch Navigation logo",
+   "Find a job",
+   "Explore companies",
+   "Salary estimator",
+   "Recruiter Area",
+   "Deutsch",
+   "Français",
+   "English",
+   "Login",
+   "Sign up",
+   "Job search",
+   "Job recommendations",
+   "Job alerts",
+   "Saved jobs",
+   "Applications",
+   "Agence Immobilière Rodolphe Burger SA",
+   "Save",
+   "Easy apply",
+   "Rue de Lyon 93, 1203 Genève"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "button",
+   "text": "Save",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Easy apply",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "link",
+   "text": "Rue de Lyon 93, 1203 Genève",
+   "host": "www.google.com",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "See my match",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "link",
+   "text": "http://www.burger-sa.ch",
+   "host": "www.burger-sa.ch",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "button",
+   "text": "Report this job ad",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "Genève",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "3 weeks ago",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "Comptable immobilier",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "16 September 2026",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "button",
+   "text": "Skip to content",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "Recruiter Area",
+   "host": "b2b.jobs.ch",
+   "position": "header"
+  }
+ ],
+ "expect": {
+  "outcome": "pending"
+ },
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.8,
+  "apply_button": "",
+  "apply_button_kind": "",
+  "apply_route": "third_party_account",
+  "apply_by": "other",
+  "apply_email": "",
+  "form_frame": -1,
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

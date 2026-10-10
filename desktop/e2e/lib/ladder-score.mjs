@@ -31,7 +31,8 @@ export async function scoreFixtures(fixtures, {clientFor} = {}) {
   const rows = [];
   for (const fixture of fixtures) {
     const base = {id: fixture.id, source: fixture.source, lang: fixture.lang, trap: !!fixture.trap, expected: fixture.expect.outcome, accept: fixture.expect.accept || [fixture.expect.outcome], digest: fixture.expect.digest || '', wantRoute: fixture.expect.apply_route || ''};
-    if (!clientFor && !fixture.answer) { rows.push({...base, outcome: '', confidence: 0, rung: -1, route: '', digestOk: null, status: 'no-answer'}); continue; }
+    const pending = fixture.expect.outcome === 'pending';   // a captured candidate whose real outcome a person has not confirmed yet: shown, never scored
+    if (!clientFor && !fixture.answer) { rows.push({...base, outcome: '', confidence: 0, rung: -1, route: '', digestOk: null, status: pending ? 'pending' : 'no-answer'}); continue; }
     let captured = null;
     const client = clientFor ? clientFor(fixture) : replayClient(fixture.answer);
     const tee = {messages: {create: async body => { const response = await client.messages.create(body); try { captured = JSON.parse(response.content?.find(block => block.type === 'text')?.text || ''); } catch { /* not JSON: pageKind says so */ } return response; }}};
@@ -41,8 +42,8 @@ export async function scoreFixtures(fixtures, {clientFor} = {}) {
     const route = result.applyRoute || '', button = result.applyButton || '', {digest, apply_route: wantRoute} = fixture.expect;
     const needsNoDigest = outcome === 'posting' && route === 'manual' && !!button;
     const digestOk = !digest && !wantRoute ? null : (digest === 'not_asked' ? needsNoDigest : digest === 'asked' ? !needsNoDigest : true) && (!wantRoute || route === wantRoute);
-    const status = statusOf(fixture.expect, outcome, confidence);
-    rows.push({...base, outcome, confidence, rung: rungOf(result), route, digestOk, status: digestOk === false && (status === 'exact' || status === 'ok') ? 'miss' : status, answer: captured || fixture.answer || null});
+    const status = pending ? 'pending' : statusOf(fixture.expect, outcome, confidence);
+    rows.push({...base, outcome, confidence, rung: rungOf(result), route, digestOk, status: digestOk === false && (status === 'exact' || status === 'ok') ? 'miss' : status, note: fixture.note || '', answer: captured || fixture.answer || null});
   }
   return rows;
 }
@@ -51,8 +52,8 @@ export async function scoreFixtures(fixtures, {clientFor} = {}) {
 export function summarize(rows) {
   const bySource = {}, byRung = {};
   const add = (bucket, key, row) => { const entry = bucket[key] ||= {total: 0, hits: 0, exact: 0}; entry.total++; if (row.status === 'exact' || row.status === 'ok') entry.hits++; if (row.status === 'exact') entry.exact++; };
-  for (const row of rows) { add(bySource, SOURCE_GROUP[row.source] || row.source, row); add(byRung, `rung ${row.rung}`, row); }
-  return {bySource, byRung, wrongConfident: rows.filter(row => row.status === 'wrong-confident'), noAnswer: rows.filter(row => row.status === 'no-answer')};
+  for (const row of rows.filter(row => row.status !== 'pending')) { add(bySource, SOURCE_GROUP[row.source] || row.source, row); add(byRung, `rung ${row.rung}`, row); }
+  return {bySource, byRung, wrongConfident: rows.filter(row => row.status === 'wrong-confident'), noAnswer: rows.filter(row => row.status === 'no-answer'), pending: rows.filter(row => row.status === 'pending')};
 }
 
 // The live run is on the plan (Claude Code), never on an API key.

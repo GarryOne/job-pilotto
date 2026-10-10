@@ -15,3 +15,6 @@ node_modules
 
 # Written by the Playwright MCP of a twin's Claude session (desktop/lib/twin.js), in the cwd
 .playwright-mcp/
+
+# The playwright blob report a harness test writes (it was committed by mistake)
+desktop/e2e/blob-report/
