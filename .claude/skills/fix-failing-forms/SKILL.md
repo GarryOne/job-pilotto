@@ -1,6 +1,6 @@
 ---
 name: fix-failing-forms
-description: Fix the applying flow's failing or low-reaching shapes one at a time, from the smoke pool's results (/admin/applying and the QA smoke-reports). For each shape, reproduce it in the e2e harness with fake applicant data, say which part of the self-improving mechanism the fix improves, fix it for every site, add a recorded page that fails on the old build, land with tools/ship.sh and re-run to confirm it reached further. Use when the owner says "fix failing forms", "/fix-failing-forms", "fix the pool's worst sites" or names a shape that stops early (e.g. Workday "Start Your Application").
+description: Fix the applying flow's failing or low-reaching shapes one at a time, from the smoke pool's results (/admin/applying and the QA smoke-reports). For each shape, reproduce it in the e2e harness with fake applicant data, say which part of the self-improving mechanism the fix improves, fix it for every site, add a recorded page that fails on the old build, land with tools/ship.sh and re-run to confirm it reached further. Use when the owner says "fix failing forms", "/fix-failing-forms", "fix the pool's worst sites" or names a shape that stops early (e.g. Workday "Start Your Application"). Also the fix for a page that stops at "posting"/"no-form", has no apply route or was classified wrong: the rung method (the rung of the ladder that decided wrong, the smallest fix, `npm run ladder-score`); one command for every applying failure.
 ---
 
 # Fix failing forms: one shape at a time, from the pool's numbers
@@ -27,6 +27,12 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
   until I say released", and "released" when done. Read each file's `Invariants:` block first; changing one is the owner's call, said in the commit.
 - **Worktree:** `tools/worktree.sh fix-<shape>`, own scratch folder `<scratchpad>/fix-failing-forms/`. No subagents. Say the change tier (usually Tier 2: apply flow).
 
+## 0b. Which kind of failure is it? (decide before reproducing; the owner types one command and never chooses)
+- **A rung problem**: the page was judged or climbed wrong. The row says "stopped at the posting" or "no-form", the log's `page kind:` line is wrong for what the page really is, or there was no apply route. Method: **3b**.
+- **A field problem**: the page was read right (the form was reached) and fields stayed unexplained ("form · N unexplained of M"): a field not filled, a control not operated, a question text not read. Method: **3a**.
+- **Unsure**: it is a rung problem first if the page-kind answer is wrong, a field problem if the page was read right and fields stayed unexplained.
+- Both on one site: fix the rung first (the form is never reached otherwise), re-run, then the fields. Say which kind it is in one line before you start.
+
 ## 1. Reproduce (small, isolated, with a positive control)
 1. **Read the artifacts before running anything:** the shape's `.log` (page kinds, `fill:` lines, STALL dump with `controls` and `buttons`), its
    `live-frames/*.png` (look at 2-3 frames: what the page really showed), the report's reached step and signature. Name what the log cannot tell and add the log line.
@@ -48,7 +54,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
 - **The shape, not the site:** "a start dialog before the form", "a cookie banner over the dialog", not "Workday". List the sibling shapes and sites it also helps
   and what it does not cover. A variant the fix cannot handle is reported with its fingerprint and listed for the person, never skipped silently.
 
-## 3. Fix, with the recorded page first
+## 3a. A field problem: fix with the recorded page first
 1. **A recorded page that fails on the old build** (layer 2, `desktop/e2e/recorded/<shape>-<n>/`): capture the real page (`twin:drive capture` only from a twin
    the owner runs; otherwise record the page from the harness run's DOM, scrubbed: no values, no scripts, no query strings, no personal data;
    `desktop/test/recorded-privacy.test.js`). **Its AI answers must be what the real AI answered in the failing run** (from the log / decisions), **and only to what the extension asked** (the `asked` check reads the /extension/answer request's fields; a stub that answers an unasked question lets the old build pass), never an answer
@@ -59,11 +65,49 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
 4. After a fix to form filling, also `cd desktop/e2e && npm run real-extension` (isolated; positive control with `REAL_EXTENSION_DIR`).
 5. New wording the AI sees: update the website's Intelligence page and count (CLAUDE.md), if a user can see a new AI step or rule.
 
+## 3b. A rung problem: the lowest rung that has the information, data first
+Map: `docs/flows/ladder.md` (rungs, owners, fixed answers, what may change). Spec: `docs/superpowers/specs/2026-10-10-ai-ladder.md`. Rule of the product: **never fix a website; fix a shape.** The site is one live sample.
+Non-negotiables (the ladder designer's, job-pilotto-cc): the rung map first; the failing page captured as a fixture BEFORE the fix (`node desktop/e2e/ladder-capture.mjs`, seen wrong); the smallest fix at the lowest rung that has the information, data before code;
+`npm run ladder-score` live and `--offline`; the baseline updated only with `--update-baseline "<why>"` (never edit an expectation to pass); a recorded page that fails on the old build; the commit trailers `Rung: <n>` and `Fixture: <id>`.
+
+### R1. Find the rung that decided wrong (5 min, no edits)
+- `/admin/applying` pool table "Rung" column, or `logs/app.log`: `page kind: <kind> by ai|remembered`, `structure rule`, `closer look`, `takeover`.
+- Map: by `ai` = rung 2, `remembered` = 1, structure rule = 0 (after unsure or no AI), closer look = 4, takeover = 5.
+- Say in one line: "decided at rung N, said X, truth is Y, because <the sketch shows / lacks Z>".
+- Look at the sketch the rung really saw: `cd desktop && node e2e/ladder-capture.mjs --dir <scratch dir with one fixture json>` (read-only GET, bare Chromium) or the fixture of that shape in `desktop/e2e/ladder-fixtures/`.
+  The usual causes: the Apply control is not in the first 20 buttons (navigation crowds it out); the page is a frame (`frames` only); the instruction is in text the sketch does not carry.
+
+### R2. Make the case a fixture first (it must fail or be wrong-and-confident)
+- Add `desktop/e2e/ladder-fixtures/<shape>.json` (`source`: captured for a real page via `capture.url`; invented/reconstructed for a shape written as `pages/<id>.html`), `expect.outcome` from the real page, `accept` only for what the code cannot say yet.
+- `node e2e/ladder-capture.mjs --only <id>`, then `npm run ladder-score -- --only <id> --record` (plan path, no API key) stores what the model says today.
+- Add it to the baseline: `npm run ladder-score -- --offline --update-baseline "<shape>: added, <status today>"`.
+
+### R3. The smallest fix, lowest rung first (in this order)
+1. **Data** at the rung that can see it: a kept answer, an alias/meaning in the pack, a recipe, an example in the prompt. 2. **A prompt line about the shape** (not the site) at that rung.
+3. **The sketch**: carry what was missing (a candidate, a frame host), found by structure only. 4. **A signal** so a higher rung is asked (flow core: claim it, read its "Invariants:" block, say so to the coordinator).
+Never: a site name, a vendor or word list, a regex over natural language (`tools/hardcoded-page-words.mjs`), a fix in a higher rung for what a lower rung could see.
+Flow-core files (`page-kind.js`, `fill-flow.js`, `session-flow.js`, `escalate.js`…) are claimed first (CLAUDE.md "The flow core").
+
+### R4. What to run (say each result)
+| Run | Shows |
+|---|---|
+| `cd desktop && npm run ladder-score` | live on the plan: the fixture now right? rates per source; the wrong-and-confident list did not grow |
+| `npm run ladder-score -- --offline` and `node --test test/ladder-ratchet.test.js` | no stored fixture got worse (what the push gate runs) |
+| `cd desktop/e2e && npm run recorded` | fixed sites still replay (also with `REAL_EXTENSION_DIR=<old extension/>` it must FAIL: the positive control) |
+| `cd desktop/e2e && npm run real-extension` | the extension alone, if `extension/` changed |
+| `cd desktop && npm test`, `cd worker && npm test` | the rest |
+
+### R5. Update the baseline honestly
+- Better fixtures: `npm run ladder-score -- --offline --update-baseline "<what improved and why>"` (re-record the answers first with `--record` if the prompt changed).
+- A fixture that got **worse** is a bug to fix, not a baseline edit. A deliberate trade-off needs the owner's say-so, written in the commit.
+- Never edit a fixture's `expect` to make it pass; the ratchet fails on an edited expectation unless the baseline is updated with a reason.
+
 ## 4. Land and confirm
 - `tools/ship.sh` (never from the twin's worktree: it deletes the worktree it lands). A push changing how the extension acts on pages needs the recorded page,
   or a scenario (a fill replay alone does not count), or `Recorded-unneeded: <why>` in the commit only when no real site's failure is fixed. Commit subject <= 72 characters.
 - **Re-run `npm run smoke -- --only <shape>` on the landed build** (a held run, said before it starts) and compare with the first run: **it must reach further**
   (a later page kind, a fill count > 0). Report: before -> after, counts, what still stops it. Not further = not done: back to step 1 with the new log.
+- **A rung fix** (3b): Commit subject ≤ 72 chars; body: the rung, the shape, the before/after status line from `ladder-score`; `Recorded-unneeded:` only when no real-site failure is fixed. Land with `tools/ship.sh`; tell what other sites this helps and what it does not cover. The commit carries the trailers `Rung: <n>` and `Fixture: <id>` (a hook check for them is being built: ladder-fixtures-ed).
 - Report to the owner and the coordinator in one line per shape: shape, fix (mechanism part), reached before -> after, commit, sibling sites helped.
 - Say "released" for the flow core to every peer.
 
