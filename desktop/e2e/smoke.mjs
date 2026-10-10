@@ -76,6 +76,8 @@ async function discover(limit) {
       placeFound(local.shapes, posting, flow, day);
       fs.mkdirSync(path.dirname(LOCAL_SITES), {recursive: true});
       fs.writeFileSync(LOCAL_SITES, `${JSON.stringify(local, null, 1)}\n`);
+      // the page follows each find, not only the end of the run: a run that stops early (session closed, 10 Oct 2026) used to leave the page behind
+      try { console.log(`smoke discover: ${await sendPool([...read(path.join(here, 'smoke-sites.json')).shapes, ...local.shapes], reports)}`); } catch (error) { console.log(`smoke discover: upload failed, the run goes on (${String(error?.message || error).slice(0, 120)})`); }
     }
   }
   fs.mkdirSync(REPORTS, {recursive: true});
