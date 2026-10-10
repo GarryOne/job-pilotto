@@ -1,0 +1,5 @@
+<!doctype html><html><head><title>Application methods</title></head><body><h1>Choose from one of the options below to start your application</h1>
+<div class="how"><a role="button" onclick="show('fileBox')">Upload CV</a> <a role="button" onclick="show('pasteBox')">Copy and paste CV</a> <a role="button" onclick="show('')">Upload later</a></div>
+<fieldset id="fileBox" style="display:none"><label>Upload CV * <input type="file" id="resumeFile"></label></fieldset>
+<fieldset id="pasteBox" style="display:none"><label>Copy and paste CV * <textarea id="resumePaste" required></textarea></label></fieldset>
+<script>function show(id) { for (const box of ['fileBox', 'pasteBox']) document.getElementById(box).style.display = box === id ? 'block' : 'none'; }</script></body></html>

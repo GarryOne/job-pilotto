@@ -1,0 +1,33 @@
+{
+ "shape": "a cookie banner with links beside its close button (the AI names a link)",
+ "why": "jobs.ch, 10 Oct 2026: the kept pick was the 'Cookie notice' link; it opened a tab per page, each with the same banner: a loop of tabs (fixed fdd9638)",
+ "sample": "www.jobs.ch posting (shape recorded by hand from the live page)",
+ "pages": [
+  {
+   "url": "https://www.jobs.ch/en/vacancies/detail/replay-0001/",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://www.jobs.ch/en/privacy-policy/",
+   "file": "privacy.html"
+  }
+ ],
+ "ai": {
+  "/extension/pick-choice": {
+   "ok": true,
+   "choice": "Cookie notice"
+  },
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "posting",
+   "role": "no-form",
+   "by": "ai",
+   "confidence": 0.99,
+   "applyButton": "Apply"
+  }
+ },
+ "expect": {
+  "maxNewTabs": 0,
+  "seconds": 15
+ }
+}

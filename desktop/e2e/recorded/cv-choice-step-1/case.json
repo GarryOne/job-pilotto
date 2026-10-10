@@ -1,0 +1,30 @@
+{
+ "shape": "a step that offers ways to give the CV, each revealing its own part (upload / paste / later)",
+ "why": "Deloitte, 9-10 Oct 2026: the CV must go into the hidden file input, the paste way never opened",
+ "sample": "apply.deloitte.ch application methods (shape recorded by hand)",
+ "pages": [
+  {
+   "url": "https://apply.deloitte.ch/CHCareers/ApplicationMethods",
+   "file": "choice.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "posting",
+   "role": "no-form",
+   "by": "ai",
+   "confidence": 0.98,
+   "applyButton": "upload cv"
+  }
+ },
+ "expect": {
+  "attached": [
+   "#resumeFile"
+  ],
+  "empty": [
+   "#resumePaste"
+  ],
+  "seconds": 60
+ }
+}
