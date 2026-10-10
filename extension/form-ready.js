@@ -27,7 +27,7 @@ export async function formReady(tab, frameId, payload) {
     if (!answer?.answer) return;   // no AI or no answer: the panel keeps its own count
     judged.set(tab.id, sig);
     let host = ''; try { host = new URL(tab.url).hostname; } catch { /* no address */ }
-    decide('panel', `application form ready?: ${answer.answer}`, {host, ...(answer.needs ? {needs: answer.needs.slice(0, 60)} : {})});
+    decide('panel', `application form ready?: ${answer.answer}`, {host, ...(answer.needs ? {needs: answer.needs.slice(0, 60), seen: sketch.controls.filter(item => item.required).map(item => `${item.type}:${item.state}`).join(',').slice(0, 120)} : {})});   // seen: what the AI was shown of the required controls (types and states, never labels or values)
     await run(tab, frameId, flagAccount, [answer.answer === 'needs_person' ? answer.needs || '' : null]);
     await pressNext(tab, frameId, answer, sig);   // a multi-step form's next step, when the person turned it on (next-step.js)
   } finally { looking.delete(tab.id); }

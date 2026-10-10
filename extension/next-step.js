@@ -1,6 +1,5 @@
-// The next step of a multi-step application (owner, 8 Oct 2026: approved, "assist" by default). When the form judge (form-ready.js) says THIS page state is
-// ready and names the control that goes on to the next step (desktop/lib/form-judge.js: a middle step, one of the page's own buttons), and the person turned
-// it on (Settings → "Go to the next step of an application for me": applicationNext 'full'), the extension presses it: once per page state per tab, kept in
+// The next step of a multi-step application (owner, 10 Oct 2026: always on, the setting was dropped; the floors below are what keep it safe). When the form judge (form-ready.js) says THIS page state is
+// ready and names the control that goes on to the next step (desktop/lib/form-judge.js: a middle step, one of the page's own buttons), the extension presses it: once per page state per tab, kept in
 // session storage so a reload or a restarted worker never presses twice. Hard floor, by structure: never a control that submits a form, never one that reads
 // like Submit, never the last step. Logged with the control's own wording, never a value. Guarded by worker/test/next-step.test.js.
 import {decide} from './log.js';
@@ -19,7 +18,7 @@ export function pressInPage(text) {
 }
 
 export async function pressNext(tab, frameId, answer, sig) {
-  if (answer?.answer !== 'ready' || answer.step !== 'middle' || !answer.nextControl || answer.nextMode !== 'full') return false;
+  if (answer?.answer !== 'ready' || answer.step !== 'middle' || !answer.nextControl) return false;
   const key = `next:${tab.id}`;
   const done = (await chrome.storage.session.get(key).catch(() => ({})))[key] || [];
   if (done.includes(sig)) return false;   // this page state was pressed on already

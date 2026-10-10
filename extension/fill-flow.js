@@ -343,7 +343,7 @@ export async function consider(tab, jobUrl) {
       const after = await formAfterPress(tab.id, tab.url);
       if (attempt.via) reportFlow(tab, null, {aliasUse: [{phrase: attempt.via, ok: after !== null}]});   // did a phrase from the service open the form?
       if (after === 'navigated') { started.delete(key); return; }   // the next page decides for itself (onUpdated)
-      if (after) { role = 'form'; await noteRole(tab.id, tab.url, role); }
+      if (after) { role = 'form'; await noteRole(tab.id, tab.url, role); triedApply.delete(key); }   // it opened the form: a refresh of this page starts from the chooser again and may press it again (Deloitte, 10 Oct 2026: after ⌘R nothing happened); a press that led nowhere stays tried
     }
   }
   // Self-correction: called a posting, but there was no Apply to press and the page has an application form's fields: it is the form.

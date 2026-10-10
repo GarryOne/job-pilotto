@@ -34,7 +34,7 @@ export const MATRIX = [
   {scenario: 'Form tab closed → the app sees it → Reopen fills it again', e2e: ['tab is closed'], unit: ['test/form-tab-closed.test.js', 'test/session-state.test.js']},
   {scenario: 'A second browser with the extension (another profile, a test Chrome): each browser\'s tabs kept apart, its report never closes another\'s form', e2e: ['second browser'], unit: ['test/tab-identity.test.js']},
   {scenario: 'Open in Chrome: the session\'s own tab by its id; two sessions on one form address never take each other\'s tab', e2e: [], unit: ['test/form-tab.test.js']},
-  {scenario: 'Multi-step application: the next step is pressed when the person turned it on, never a control that submits', e2e: [], unit: ['test/form-judge.test.js']},
+  {scenario: 'Multi-step application: the next step is pressed, never a control that submits', e2e: [], unit: ['test/form-judge.test.js']},
   {scenario: 'The person submits → Applied, session leaves the list', e2e: ['person submits a form'], unit: []},
   {scenario: 'Claude takes over an account page; the unfilled tab closes', e2e: [], unit: ['test/apply-form-session.test.js', 'test/session-flow.test.js']},
   {scenario: 'Start-up "Checking…", then "Chrome isn\'t reporting"', e2e: [], unit: ['test/session-state.test.js']},
