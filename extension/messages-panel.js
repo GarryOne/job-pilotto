@@ -74,7 +74,16 @@ export function createPanelMessages(ctx) {
         const job = String(await jobOf(sender.tab)).split('#')[0];
         const host = (() => { try { return new URL(sender.tab.url).hostname; } catch { return ''; } })();
         decide('panel', 'asked Claude to take over', {host});
-        const data = await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'take-over', url: job, page: sender.tab.url.split('#')[0], host})});
+        const data = await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'take-over', url: job, page: sender.tab.url.split('#')[0], host, consent: !!message.consent})});
+        reply({ok: !!data?.ok});
+      })().catch(() => reply({ok: false}));
+      return true;
+    }
+    // "Always let Claude finish when I'm stuck" ticked or cleared in the panel's offer: the app keeps it as settings.claudeAuto (the same switch as Settings).
+    if (message?.type === 'panelClaudeAuto' && sender.tab) {
+      (async () => {
+        decide('panel', 'always let Claude finish: ' + (message.on ? 'on' : 'off'), {});
+        const data = await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'claude-auto', on: !!message.on})});
         reply({ok: !!data?.ok});
       })().catch(() => reply({ok: false}));
       return true;

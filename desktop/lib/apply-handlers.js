@@ -18,6 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {GOOGLE_KEYCHAIN} from './google-keys.js';
 import {log as appLog} from './log.js';
+import {createTakeOver} from './take-over.js';
 import {mergeTabs, openFormTab, withOpenForm} from './form-tab.js';
 import {sharedCheck} from './shared-check.js';
 import {withAccounts, withCompanies, withoutHost} from './site-accounts.js';
@@ -39,11 +40,10 @@ export function registerApplyHandlers(ctx) {
   });
   // Checked session workflows share the production registration with the offline app scenario tests.
   ipcMain.handle('applyWithClaude', (_, url, details = null) => startClaude(url, details));
-  server.setTakeOverHandler(async event => {   // the panel's button: the person's own request, the same start as the session card's Apply with Claude
-    const job = event.job;
-    appLog('extension', 'take over with Claude asked from the page', {host: event.host, known: !!job});
-    const result = await startClaude(String(event.url || ''), job ? {title: job.title, company: job.company, location: job.location, workMode: job.work_mode} : null);
-    if (result?.ok) { if (result.session?.id) toWindow('session', 'open', {id: result.session.id}); } else toWindow('toast', {title: 'Claude could not start', body: result?.error || 'Try again from the Applying page.'});
+  server.setTakeOverHandler(createTakeOver({startClaude, storage, appLog, toWindow}));   // the panel's button or countdown: the person's own request, once per application (lib/take-over.js)
+  server.setClaudeAutoHandler(event => {   // the panel's "Always let Claude finish when I'm stuck" box: the same switch as Settings
+    storage.saveSettings({claudeAuto: !!event.on});
+    appLog('extension', `always let Claude finish when stuck: ${event.on ? 'on' : 'off'} (from the panel)`);
   });
   // The form page and this page in step (lib/review.js): what to track in the form, and "show me this field".
   // Demo: each form's tab opened 12 minutes ago, so the card's "open for" reads the same in every screenshot.

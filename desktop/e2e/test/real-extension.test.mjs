@@ -145,3 +145,60 @@ test('Apply on this page refills a tab the app opened, a reload refills, any oth
     assert.ok(await run.assertIsolated());
   } finally { await run.close(); }
 });
+
+// 10 Oct 2026, "Claude finishes a stuck page" (extension/panel-claude.js): on a stuck page the panel offers three choices; the first press asks the consent line once; "always" shows a
+// 5 s countdown with Cancel. A LOCAL fixture at the real host's address; the stand-in app answers the panel's report as the real app does for a stuck session (lib/ext-server-handlers.js).
+// WHAT THIS PROVES: the real panel script is injected, draws each view from the app's facts, and what leaves the extension (a take-over event with the consent, the claude-auto box).
+// WHAT IT DOES NOT: that the app then starts Claude (desktop/test/take-over-open.test.js, the app's journey step).
+const STUCK_PAGE = '<body><h1>Create your account</h1><form><label>Name <input id="n" required></label><label>Email <input id="e" type="email" required></label><label>Country <input id="c" required></label><label>City <input id="t" required></label></form></body>';
+const takeOvers = run => run.requests.filter(request => request.route === '/extension/event' && request.body.includes('"take-over"')).map(request => JSON.parse(request.body));
+const offerOf = run => run.page.evaluate(() => {
+  const root = document.getElementById('jobpilotto-review-host')?.shadowRoot, box = root?.querySelector('.claude-offer');
+  if (root?.querySelector('.card')?.hidden) root.querySelector('.pill')?.click();
+  return {shown: !!box && !box.hidden, text: (box?.textContent || '').replace(/\s+/g, ' ').trim(), buttons: [...(box?.querySelectorAll('button') || [])].map(button => button.textContent.trim())};
+});
+const pressInOffer = (run, name) => run.page.evaluate(label => [...document.getElementById('jobpilotto-review-host').shadowRoot.querySelectorAll('.claude-offer button')].find(button => button.textContent.trim() === label)?.click(), name);
+
+test('a stuck page: the offer, the consent line on the first press, the countdown with Cancel for "always", and what is needed when Claude is not ready', {skip}, async () => {
+  const facts = {claudeHelp: true, claudeAlways: false, claudeAuto: false, claudeConsent: false};
+  const run = await startRealExtension({extensionDir, allowAllSites: true, answer: {'/extension/review': () => ({matched: 's1', session: {id: 's1', stuck: 'account', live: false, status: '', kind: 'form', url: DELOITTE}, ...facts})}});
+  try {
+    await serve(run, STUCK_PAGE);
+    const open = async () => { await run.page.goto('about:blank'); await run.page.goto(`${DELOITTE}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'}); };   // a new document each time (the same address + fragment would not reload)
+    // 1. offer: three choices, nothing started
+    await open();
+    assert.ok(await waitUntil(async () => (await offerOf(run)).buttons.includes('Let Claude finish this page'), 40), 'the stuck page offers "Let Claude finish this page"');
+    const offer = await offerOf(run);
+    assert.ok(offer.buttons.includes('I\'ll do it myself') && /Always let Claude finish when I'm stuck/.test(offer.text) && /stops before Submit/.test(offer.text), JSON.stringify(offer));
+    // 2. first press: the consent line; Continue sends the take-over WITH the consent
+    await pressInOffer(run, 'Let Claude finish this page');
+    assert.ok(await waitUntil(async () => /never presses Submit/.test((await offerOf(run)).text), 5), 'the consent line opens');
+    assert.equal(takeOvers(run).length, 0, 'nothing is sent before Continue');
+    await pressInOffer(run, 'Continue');
+    assert.ok(await waitUntil(() => takeOvers(run).length === 1, 10), 'Continue asks the app to start Claude');
+    assert.equal(takeOvers(run)[0].consent, true, 'the consent travels with it');
+    // 3. "I'll do it myself" hides the offer for this page, sends nothing
+    await open();
+    assert.ok(await waitUntil(async () => (await offerOf(run)).buttons.includes('I\'ll do it myself'), 40));
+    await pressInOffer(run, 'I\'ll do it myself');
+    assert.ok(await waitUntil(async () => !(await offerOf(run)).shown, 5), 'the offer is gone');
+    // 4. "always" with the consent given: a visible countdown; Cancel keeps it manual
+    Object.assign(facts, {claudeAlways: true, claudeAuto: true, claudeConsent: true});
+    const before = takeOvers(run).length;
+    await open();
+    assert.ok(await waitUntil(async () => /takes over in/.test((await offerOf(run)).text), 40), 'the countdown shows');
+    await pressInOffer(run, 'Cancel');
+    await run.page.waitForTimeout(7000);
+    assert.equal(takeOvers(run).length, before, 'Cancel: Claude was not started');
+    // 5. the countdown left alone ends in a take-over (no consent flag: it was given before)
+    await open();
+    assert.ok(await waitUntil(() => takeOvers(run).length === before + 1, 30), 'after 5 s Claude is asked to take over');
+    assert.equal(takeOvers(run).at(-1).consent, false);
+    // 6. Claude not ready: no offer, "Tell me what's needed" instead
+    Object.assign(facts, {claudeHelp: false, claudeAuto: false});
+    await open();
+    assert.ok(await waitUntil(async () => (await offerOf(run)).buttons.includes('Tell me what\'s needed'), 40), 'what is needed is offered');
+    assert.ok(!(await offerOf(run)).buttons.includes('Let Claude finish this page'), 'and Claude is not');
+    assert.ok(await run.assertIsolated());
+  } finally { await run.close(); }
+});

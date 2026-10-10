@@ -113,7 +113,7 @@ test('an out-of-date extension in Chrome loads the new copy by itself, and only 
   assert.equal(newer('0.7.1', '0.7.1'), false);
   assert.equal(newer('0.10.0', '0.9.9'), true);
   assert.match(background, /reloadedFor !== answer\.latest/);  // once per version: no reload loop
-  assert.match(background, /executeScript\(\{target: \{tabId, allFrames: true\}, files: \['page\/skeleton\.js', 'page\/coverage\.js', 'hook\.js', 'review\.js'\], injectImmediately: true\}\)/);
+  assert.match(background, /executeScript\(\{target: \{tabId, allFrames: true\}, files: \['page\/skeleton\.js', 'page\/coverage\.js', 'hook\.js', 'panel-claude\.js', 'review\.js'\], injectImmediately: true\}\)/);
   assert.match(background, /jobpilotto-review-host/);
   assert.match(read('extension/review.js'), /send\(\{type: 'panelAllowed'\}\)/);
   // A copy left behind by a reload gives way to the fresh one instead of blocking it.
@@ -172,12 +172,14 @@ test('the form report sends the AI-read knockouts: its key is code, not the tail
   assert.match(line, /f\.category === 'knockout'/);
 });
 
-test('the panel\'s "Take over with Claude" shows only with Claude help on and the extension stuck; the app sends both', () => {
+test('the panel\'s Claude offer (panel-claude.js) shows only when Claude is ready and the extension stuck; the app sends both, and the panel hands the offer its facts', () => {
   const panel = read('extension/review.js');
-  assert.match(panel, /\$\('\.take-over'\)\.hidden = [^;]*!claudeHelp \|\| !session\?\.stuck/);
-  assert.match(panel, /claudeHelp = !!reply\?\.claudeHelp;/);
+  assert.match(panel, /__jobPilottoClaude\?\.render\(\{on: [^}]*!!claudeAsk\.help, stuck: !!session\?\.stuck/);
+  assert.match(panel, /claudeAsk = \{help: !!reply\?\.claudeHelp, always: !!reply\?\.claudeAlways, auto: !!reply\?\.claudeAuto, consent: !!reply\?\.claudeConsent\};/);
+  assert.match(panel, /__jobPilottoClaude\?\.mount\(root, send\)/);
+  assert.match(read('extension/background.js'), /'hook\.js', 'panel-claude\.js', 'review\.js'/);   // the offer's script is there before the panel mounts
   assert.match(read('desktop/lib/review.js'), /kind: session\.kind \|\| 'claude', stuck: session\.stuck \|\| ''\}/);
-  assert.match(read('desktop/lib/ext-server-handlers.js'), /claudeHelp: !!storage\.settings\(\)\.claudeConsent/);
+  assert.match(read('desktop/lib/ext-server-handlers.js'), /claudeHelp: claudeOffered\(storage\), claudeAlways: !!storage\.settings\(\)\.claudeAuto/);
 });
 
 test('a tab the app opened for a job never inherits the session of the tab that was in front (its mark is seen at once)', async () => {

@@ -63,6 +63,8 @@ export let stuckHandler = () => {};  // the extension can't get to a form (no fo
 export function setStuckHandler(fn) { stuckHandler = fn; }
 export let takeOverHandler = () => {};  // the panel's "Take over with Claude": the person asks for Claude on this application (set by main.js)
 export function setTakeOverHandler(fn) { takeOverHandler = fn; }
+export let claudeAutoHandler = () => {};  // the panel's "Always let Claude finish when I'm stuck" box (set by apply-handlers.js)
+export function setClaudeAutoHandler(fn) { claudeAutoHandler = fn; }
 export let tailorHandler = () => {};  // the panel's "Tailor my CV for this job" (set by main.js)
 export function setTailorHandler(fn) { tailorHandler = fn; }
 export let formIssue = () => {};  // technical reports: a field the extension couldn't fill (lib/telemetry.js, set by main.js)

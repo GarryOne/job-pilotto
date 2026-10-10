@@ -89,7 +89,7 @@ async function arm(tabId, why = 'app tab') {
     armedLogged.add(mark);
     decide('panel', 'panel on a tab the app opened', {host, why});
   }
-  await chrome.scripting.executeScript({target: {tabId, allFrames: true}, files: ['page/skeleton.js', 'page/coverage.js', 'hook.js', 'review.js'], injectImmediately: true}).catch(() => {});
+  await chrome.scripting.executeScript({target: {tabId, allFrames: true}, files: ['page/skeleton.js', 'page/coverage.js', 'hook.js', 'panel-claude.js', 'review.js'], injectImmediately: true}).catch(() => {});
 }
 // The mark in the address is what makes a page ours. A server redirect keeps it (a browser carries the #fragment through a
 // redirect). When an application tab moves on by itself (a link, a form, a script) and the new address has none, the mark is

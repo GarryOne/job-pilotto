@@ -186,6 +186,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/strategy-settings.js` — Strategy, saving and tuning: accepting a draft (Profile, answers, search settings), the ⚙️ Search settings page, the daily target, widening
 - `desktop/lib/strategy.js` — Strategy builder: CV (PDF) + an optional note from the user -> proposed goals, a draft Profile, standard answers
 - `desktop/lib/system-handlers.js` — The system IPC (moved out of main.js, 8 Oct 2026): the microphone and screen permissions, relaunching the app, resetting the profile, backups
+- `desktop/lib/take-over.js` — "Let Claude finish this page" from the form panel (spec docs/superpowers/specs/2026-10-10-claude-finishes-stuck-pages.md): the app's side of the panel's take-over event.
 - `desktop/lib/tar.js` — The tar to run: on Windows the system's own (bsdtar, Windows 10+), named by its full path. A Git for Windows
 - `desktop/lib/telegram-cloud.js` — "Telegram buttons, always on": the user's own small Cloudflare Worker (free plan) runs the
 - `desktop/lib/telegram.js` — Telegram from the desktop app: the user's own bot (made with @BotFather), no webhook, no Cloudflare.
@@ -422,6 +423,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/options.js` — Settings: only the connection to the Job Pilotto app — filled in by itself when this page opens, or by Connect.
 - `extension/page-files.js` — The page scripts the extension injects into an application form (main world), in order: one list for flow.js, fill-flow.js and the tests.
 - `extension/page-picture.js` — What the closer look takes of a page (spec: docs/superpowers/specs/2026-10-08-ai-escalation.md): the typed values are hidden BEFORE the screenshot and shown again right after, so labels and
+- `extension/panel-claude.js` — The stuck page's Claude offer in the form panel (owner, 10 Oct 2026; spec docs/superpowers/specs/2026-10-10-claude-finishes-stuck-pages.md parts 1-4).
 - `extension/panel-start.js` — The panel's first seconds on a page the app opened to fill: its button spins with "Starting…" until the fill says its own first step
 - `extension/popup-page.js` — Runs inside a page (injected by consent.js): finds a popup in the way (a dialog, a modal, a layer fixed over the page: a cookie notice, a newsletter
 - `extension/popup.js` — The toolbar popup: whether the extension can reach the Job Pilotto app, and "Read the jobs on this page" (visit.js) for a job list the app

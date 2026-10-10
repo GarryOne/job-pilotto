@@ -50,10 +50,10 @@ export async function runJourneys(ctx, h) {
     // Floating labels: a filled field was left like a person leaves it (focus, then blur), so the site moved its label out of the way.
     const stuckLabels = await tab.evaluate(() => ['first_name', 'last_name', 'email', 'question_3001'].filter(id => !document.querySelector(`label[for=${id}]`)?.classList.contains('up')));
     if (stuckLabels.length) throw new Error(`filled, but the site never saw the field being left (its floating label stayed over the value): ${stuckLabels.join(', ')}`);
-    // "Take over with Claude" only with Claude help on and the extension stuck (extension 0.9.121; owner, 9 Oct 2026): this form was filled and Claude help is off
-    // (a new install's default), so the panel must not offer it. The on-and-stuck case: worker/test/extension-files.test.js and the twin (Migros, 9 Oct 2026).
-    const offered = await tab.evaluate(() => { const button = document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.take-over'); return !!button && !button.hidden; });
-    if (offered) throw new Error('the panel offers "Take over with Claude" on a filled form with Claude help off');
+    // "Let Claude finish this page" only when Claude is ready and the extension is stuck (owner, 9-10 Oct 2026): this form was filled, so the panel must not offer it.
+    // The stuck case: worker/test/extension-files.test.js, desktop/test/panel-claude.test.js and the twin.
+    const offered = await tab.evaluate(() => { const offer = document.getElementById('jobpilotto-review-host')?.shadowRoot?.querySelector('.claude-offer'); return !!offer && !offer.hidden; });
+    if (offered) throw new Error('the panel offers Claude on a filled form (nothing is stuck)');
   }, {needs: ctx.needs});
 
   // Two applications side by side (8 Oct 2026: Coop and Manor started seconds apart; Migros's sign-in page showed on Manor's card). SCRIPTED's Apply opens its
@@ -215,27 +215,27 @@ export async function runJourneys(ctx, h) {
     if (!/account result: refused/.test(log)) problems.push('the account AI\'s "refused" is not in the app log');
     if (!/account page: the extension could not finish it/.test(log)) problems.push('the account step was not handed to the person after the refused sign-in');
     // The session is stuck on the sign-up page the refusal led to (a box only a person can tick): Claude is OFFERED there, never started (owner, 9 Oct 2026).
-    // Read as a person sees it: the panel open (the button is drawn only in its open card, extension/review.js). Claude help off (the default): no Take over;
-    // on (Settings → Application assistant): offered at the panel's next report. No Claude session starts by itself. Back to off for the steps after.
+    // Read as a person sees it: the panel open (the offer is drawn only in its open card, extension/panel-claude.js). Claude not ready (no Claude Code): no "Let Claude finish this page";
+    // ready (settings.claudeReadyTest, which only the e2e run honours): offered at the panel's next report. No Claude session starts by itself. Back to off for the steps after.
     const panelTakeOver = async () => {
       await tab.evaluate(() => { const root = document.getElementById('jobpilotto-review-host')?.shadowRoot; if (root?.querySelector('.card')?.hidden) root.querySelector('.pill')?.click(); }).catch(() => {});
       await pause(500);
-      return tab.evaluate(() => { const root = document.getElementById('jobpilotto-review-host')?.shadowRoot, card = root?.querySelector('.card'), button = root?.querySelector('.take-over');
-        return {url: location.pathname, panel: !!card && !card.hidden, offered: !!card && !card.hidden && !!button && !button.hidden}; }).catch(error => ({error: String(error.message).slice(0, 80)}));
+      return tab.evaluate(() => { const root = document.getElementById('jobpilotto-review-host')?.shadowRoot, card = root?.querySelector('.card'), offer = root?.querySelector('.claude-offer');
+        return {url: location.pathname, panel: !!card && !card.hidden, offered: !!card && !card.hidden && !!offer && !offer.hidden && [...offer.querySelectorAll('button')].some(button => /Let Claude finish this page/.test(button.textContent))}; }).catch(error => ({error: String(error.message).slice(0, 80)}));
     };
     const claudes = async () => (await page.evaluate(() => window.pilot.sessions())).filter(item => (item.kind || 'claude') === 'claude' && String(item.url || '').replace(/\/$/, '') === SIGNIN_REFUSED.url).length;
     const claudesBefore = await claudes();
     const off = await panelTakeOver();
     if (!off.panel) problems.push(`the stuck page has no panel to open (${JSON.stringify(off)}): Take over cannot be checked`);
-    else if (off.offered) problems.push('Claude help is off, yet the stuck page offers "Take over with Claude"');
-    await page.evaluate(() => window.pilot.saveSettings({claudeConsent: '2026-10-09T00:00:00.000Z'}));
+    else if (off.offered) problems.push('Claude is not ready, yet the stuck page offers "Let Claude finish this page"');
+    await page.evaluate(() => window.pilot.saveSettings({claudeReadyTest: 'on'}));
     let on = null;
     for (let waited = 0; waited < (ctx.family === 'openai' ? 8000 : 20000) && !on?.offered; waited += 2000) { await pause(2000); on = await panelTakeOver(); }   // OpenAI: a few reports, still nothing   // the panel learns the switch at its next report
     // An OpenAI engine (odd CI runs, lib/engine.mjs): Claude is never offered, whatever the switch (owner, 9 Oct 2026; the app's claudeHelp needs the Claude family).
-    if (ctx.family === 'openai') { if (on?.offered) problems.push('an OpenAI engine is chosen, yet the panel offers "Take over with Claude"'); }
-    else if (off.panel && !on?.offered) problems.push(`Claude help on and the page stuck, yet the panel does not offer "Take over with Claude" (${JSON.stringify(on)})`);
+    if (ctx.family === 'openai') { if (on?.offered) problems.push('an OpenAI engine is chosen, yet the panel offers "Let Claude finish this page"'); }
+    else if (off.panel && !on?.offered) problems.push(`Claude help on and the page stuck, yet the panel does not offer "Let Claude finish this page" (${JSON.stringify(on)})`);
     if (await claudes() !== claudesBefore) problems.push('a Claude session started by itself: Claude is only ever offered, the person starts it');
-    await page.evaluate(() => window.pilot.saveSettings({claudeConsent: null}));
+    await page.evaluate(() => window.pilot.saveSettings({claudeReadyTest: null}));
     fail(problems);
   }, {needs: ctx.needs});
 

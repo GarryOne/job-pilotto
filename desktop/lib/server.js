@@ -16,14 +16,14 @@ import {me} from './server-contact.js';
 import {pageKey, sessionOfJob, markReportedConfirmations, judgeConfirmation, decidePageKind, decideAccountJudge, decideEscalation, pickChoice, pickPopup} from './server-pages.js';
 import {formIssue, jobName, notify, renderer, sessionReporter, tabsHandler, openHandler, joinHandler, focusHandler, learnedHandler, recipesHandler,
   aliasesHandler, controlsHandler, missesHandler, visitMore, visitFilters, visitHosts, visitHandler, sitePasswordHandler, reviewHandler,
-  accountPressedHandler, stuckHandler, takeOverHandler, tailorHandler, accountCodeHandler} from './server-hooks.js';
+  accountPressedHandler, stuckHandler, takeOverHandler, claudeAutoHandler, tailorHandler, accountCodeHandler} from './server-hooks.js';
 
 export {extensionToken, sessionSubmitted, APPLIED, appliedSessions, reconcileAppliedSessions, localEnv, latestExtension, staleExtension, issueTicket, checkTicket} from './server-env.js';
 export {kept, contactSaved, me} from './server-contact.js';
 export {sessionOfJob, pageKey, markReportedConfirmations, judgeConfirmation, decidePageKind, decideAccountJudge, decideEscalation} from './server-pages.js';
 export {setNotifier, setWindowSignal, setAppliedHook, setRenderer, setTabsHandler, setSharedLogger, setProposalReporter, setAnswerReporter, setSessionReporter,
   setSitePasswordHandler, setReviewHandler, setLearnedHandler, setVisitHandler, setVisitRoute, setVisitFilters, setVisitHosts, setMissesHandler,
-  setControlsHandler, setAliasesHandler, setRecipesHandler, setJoinHandler, setFocusHandler, setStuckHandler, setAccountPressedHandler, setTakeOverHandler,
+  setControlsHandler, setAliasesHandler, setRecipesHandler, setJoinHandler, setFocusHandler, setStuckHandler, setClaudeAutoHandler, setAccountPressedHandler, setTakeOverHandler,
   setTailorHandler, setFormIssueHandler, setOpenHandler, setAccountCodeHandler} from './server-hooks.js';
 
 export const DEFAULT_PORT = 47111;
@@ -259,6 +259,7 @@ export function start(storage, onError = () => {}) {
           if (event.type === 'stuck') stuckHandler(event);
           if (event.type === 'account-pressed') accountPressedHandler(event);
           if (event.type === 'take-over') takeOverHandler({...event, job});
+          if (event.type === 'claude-auto') claudeAutoHandler(event);
           if (event.type === 'tailor-cv') tailorHandler({...event, job});
           if (event.type === 'ai-failed') formIssue({type: 'ai', site: String(event.host || '').slice(0, 80), reason: String(event.why || '').slice(0, 160)});
           // A click opens this application's session (the newest one open on this job), not just the list.

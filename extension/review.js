@@ -284,7 +284,7 @@
         <div class="tailor" hidden><span class="t-text"></span><button class="secondary t-btn">Tailor my CV for this job (~12¢)</button></div>
         <div class="left" hidden><h4>Left for you</h4><p class="knock" hidden></p><div class="list"></div></div>
         <div class="actions">
-          <button class="secondary take-over" hidden title="Claude drives this application in Chrome, from where you are now. It never clicks Submit.">Take over with Claude</button>
+          <div class="claude-offer" hidden></div>
           <button class="secondary open-app" hidden>Open in Job Pilotto</button>
         </div>
       </div>
@@ -295,7 +295,8 @@
   </div>`;
   const $ = selector => root.querySelector(selector);
   const jp = $('.jp'), card = $('.card'), pill = $('.pill');
-  let moved = false, open = false, shown = [], job = null, session = null, connection = null, claudeHelp = false, filling = false, userMoved = false, cv = null, asked = false, tipFor = null;
+  window.__jobPilottoClaude?.mount(root, send);   // the stuck page's Claude offer: its own script (panel-claude.js)
+  let moved = false, open = false, shown = [], job = null, session = null, connection = null, claudeAsk = {}, filling = false, userMoved = false, cv = null, asked = false, tipFor = null;
 
   const setOpen = value => { open = value; card.hidden = !open; if (open) render(); };
   pill.onclick = () => { userMoved = true; setOpen(!open); };
@@ -381,8 +382,7 @@
     if (tipFor !== prefer && connection?.connected) { tipFor = prefer; askTip(); }
     // actions + connection
     $('.open-app').hidden = !session;
-    // Offered whenever the app is connected and Claude is not already on this form; the person's click, never automatic (it uses Claude).
-    $('.take-over').hidden = !connection?.connected || !connection.app || !claudeHelp || !session?.stuck || !!(session?.live && ['running', 'input'].includes(session.status));   // only with Claude help on and the extension stuck (owner, 9 Oct 2026)
+    window.__jobPilottoClaude?.render({on: !!connection?.connected && !!connection.app && !!claudeAsk.help, stuck: !!session?.stuck && !(session?.live && ['running', 'input'].includes(session.status)), always: !!claudeAsk.always, auto: !!claudeAsk.auto, consent: !!claudeAsk.consent, needs: () => shown[0] && flash(shown[0].el)});   // offered, never automatic unless "always" (panel-claude.js)
     const foot = $('.foot');
     foot.classList.toggle('on', !!connection?.connected);
     foot.textContent = connection?.connected ? (connection.app ? (session ? 'In sync with Job Pilotto' : 'Connected to Job Pilotto') : 'Connected to your Worker')
@@ -435,14 +435,6 @@
   }
   $('.fill').onclick = () => fill();
   $('.anyway').onclick = () => fill(true);
-  $('.take-over').onclick = async event => {
-    const button = event.currentTarget;
-    button.disabled = true;
-    button.textContent = 'Asking Job Pilotto…';
-    const answer = await send({type: 'panelTakeOver'}).catch(() => null);
-    button.textContent = answer?.ok ? 'Claude is starting in Job Pilotto' : 'Job Pilotto did not answer';
-    setTimeout(() => { button.disabled = false; button.textContent = 'Take over with Claude'; }, 8000);
-  };
   const LABEL = {research: 'Fact', recruiters: 'Recruiters say', advice: 'Tip', 'to-test': 'Worth trying'};
   async function askTip() {
     const answer = await send({type: 'panelTip', host: location.hostname, prefer: tipFor}).catch(() => null);
@@ -516,7 +508,7 @@
         watch: watch.map(({id, label}) => { const field = find(label, state.list); return {id, filled: field ? field.filled : null}; })};
       const reply = await send({type: 'review', payload});
       moved = !!reply?.moved;
-      session = reply?.session || null; claudeHelp = !!reply?.claudeHelp;   // the app's one Claude switch (Settings → Application assistant)
+      session = reply?.session || null; claudeAsk = {help: !!reply?.claudeHelp, always: !!reply?.claudeAlways, auto: !!reply?.claudeAuto, consent: !!reply?.claudeConsent};   // the app's Claude readiness and choices (lib/claude-ready.js)
       cv = reply?.cv || null;
       const before = JSON.stringify(watch);
       watch = Array.isArray(reply?.watch) ? reply.watch : [];

@@ -2,7 +2,7 @@
 // signed in (and Git for Windows on Windows); "always let Claude finish" only counts when that holds. Spec docs/superpowers/specs/2026-10-10-claude-finishes-stuck-pages.md.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {claudeOffered, claudeAutoOn, _resetClaudeReady} from '../lib/claude-ready.js';
+import {claudeOffered, claudeAutoOn, claudeAutoStart, _resetClaudeReady} from '../lib/claude-ready.js';
 
 const storage = (settings = {}, secrets = {}) => ({settings: () => settings, secret: name => secrets[name]});
 const ok = {claude: true, signedIn: true, git: null, windows: false};
@@ -28,4 +28,12 @@ test('"always let Claude finish" counts only while Claude is offered', () => {
   assert.equal(claudeAutoOn(storage({aiEngine: 'cli'}), () => ok), false, 'off by default');
   _resetClaudeReady();
   assert.equal(claudeAutoOn(storage({aiEngine: 'cli', claudeAuto: true}), () => ({...ok, claude: false})), false);
+});
+
+test('the countdown ("auto") needs "Do it for me": in "Let me check each step" it is never on, even with Always ticked', () => {
+  const settings = mode => ({aiEngine: 'cli', claudeAuto: true, ...(mode ? {accountAutomation: mode} : {})});
+  _resetClaudeReady();
+  assert.equal(claudeAutoStart(storage(settings()), () => ok), true, 'Do it for me is the default');
+  assert.equal(claudeAutoStart(storage(settings('full')), () => ok), true);
+  assert.equal(claudeAutoStart(storage(settings('assist')), () => ok), false);
 });
