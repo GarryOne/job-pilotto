@@ -67,3 +67,48 @@ class WorktreeTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class PruneTest(WorktreeTest):
+    """prune removes only a landed, untouched, clean worktree's folder; the branch stays (owner, 11 Oct 2026)."""
+
+    def prune(self, *args, days='0'):
+        import os
+        done = subprocess.run(['sh', str(self.main / 'tools' / 'worktree.sh'), 'prune', *args], cwd=self.main, capture_output=True, text=True,
+                              env={**os.environ, 'JP_PRUNE_DAYS': days})
+        self.assertEqual(done.returncode, 0, done.stderr)
+        return done.stdout
+
+    def land(self, tree, name):
+        (tree / f'{name}.txt').write_text(name)
+        git(tree, 'add', '-A')
+        git(tree, 'commit', '-qm', name)
+        git(tree, 'push', '-q', 'origin', f'HEAD:main')
+
+    def test_a_landed_clean_untouched_worktree_is_listed_then_removed_and_its_branch_kept(self):
+        tree = self.make('landed')
+        self.land(tree, 'landed')
+        out = self.prune()
+        self.assertIn('would remove landed (branch kept)', out)
+        self.assertTrue(tree.exists(), 'a dry run removes nothing')
+        out = self.prune('--yes')
+        self.assertIn('removed landed (branch kept)', out)
+        self.assertFalse(tree.exists())
+        self.assertIn('landed', git(self.main, 'branch', '--list', 'landed'))
+
+    def test_unlanded_dirty_or_recently_touched_worktrees_are_kept(self):
+        unlanded = self.make('unlanded')
+        (unlanded / 'work.txt').write_text('mine')
+        git(unlanded, 'add', '-A')
+        git(unlanded, 'commit', '-qm', 'not pushed')
+        dirty = self.make('dirty')
+        self.land(dirty, 'dirty')
+        (dirty / 'scratch.txt').write_text('uncommitted')
+        recent = self.make('recent')
+        self.land(recent, 'recent')
+        out = self.prune('--yes', days='7')
+        self.assertIn('keep unlanded: commits not on main', out)
+        self.assertIn('keep dirty: uncommitted or untracked work', out)
+        self.assertIn('keep recent: touched in the last 7 days', out)
+        for tree in (unlanded, dirty, recent):
+            self.assertTrue(tree.exists(), tree.name)
