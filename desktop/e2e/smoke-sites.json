@@ -1,12 +1,6 @@
 {
- "about": "Layer 3, the nightly live smoke (e2e/smoke.mjs): one posting per shape per night. `like`: rotating through the owner's own jobs whose address matches (read-only); `urls`: fixed public postings (from public job feeds; a gone one is reported, then replaced here). Chosen 10 Oct 2026 for different flows.",
+ "about": "Layer 3, the nightly live smoke (e2e/smoke.mjs): one posting per shape per night. This file is PUBLIC: only postings from public job feeds (no profile's jobs). A Mac adds its own in the app's folder (~/Library/Application Support/Job Pilotto/smoke-sites.json, same shape: postings copied from the owner's profiles, so switching profile changes nothing; never in this repo); the runner merges both. A gone posting is reported, then replaced.",
  "shapes": [
-  {
-   "shape": "jobs.ch posting, then an email-first account and code",
-   "like": [
-    "%www.jobs.ch%"
-   ]
-  },
   {
    "shape": "Workday: an account inside the system, multi-step",
    "urls": [
@@ -32,33 +26,15 @@
    ]
   },
   {
-   "shape": "Recruitee form",
-   "urls": [
-    "https://jobs.channable.com/o/talent-acquisition-partner"
-   ]
-  },
-  {
    "shape": "Personio form in German",
    "urls": [
     "https://seitenbau-gmbh.jobs.personio.de/job/2825574"
    ]
   },
   {
-   "shape": "Greenhouse board form",
-   "like": [
-    "%greenhouse.io%"
-   ]
-  },
-  {
-   "shape": "Ashby form in an embedded app",
-   "like": [
-    "%ashbyhq.com%"
-   ]
-  },
-  {
-   "shape": "jobup.ch posting, then the employer's site",
-   "like": [
-    "%jobup.ch%"
+   "shape": "Recruitee form",
+   "urls": [
+    "https://jobs.channable.com/o/talent-acquisition-partner"
    ]
   }
  ]

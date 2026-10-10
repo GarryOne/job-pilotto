@@ -46,3 +46,12 @@ test('a gone posting (404/410) is noted, and a note is never a regression', asyn
   assert.equal(await postingStatus('https://x.example/job', async () => { throw new Error('offline'); }), 0);
   assert.deepEqual(compare({a: {reached: 'form', url: 'u'}}, {a: {reached: 'none', url: 'u', note: 'posting gone (HTTP 404)'}}), []);
 });
+
+test('the public site list holds only fixed job-feed postings: a profile\'s own jobs live in the app\'s folder, never in this repo', async () => {
+  const fs = await import('node:fs');
+  const {shapes} = JSON.parse(fs.readFileSync(new URL('../smoke-sites.json', import.meta.url), 'utf8'));
+  assert.ok(shapes.length >= 5);
+  for (const shape of shapes) { assert.equal(shape.like, undefined, `${shape.shape}: a job-list query belongs in the local list`); assert.ok(shape.urls?.length, shape.shape); }
+  const {LOCAL_SITES} = await import('../smoke.mjs');
+  assert.ok(!LOCAL_SITES.includes('/desktop/e2e/'), 'the local list is outside the repo');
+});

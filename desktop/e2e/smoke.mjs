@@ -13,6 +13,7 @@ import {compare, parseLive, pickPosting} from './lib/smoke.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const REPORTS = path.join(here, 'smoke-reports');
+export const LOCAL_SITES = process.env.SMOKE_SITES || path.join(os.homedir(), 'Library/Application Support/Job Pilotto/smoke-sites.json');   // never in the repo
 const JOBS_DB = path.join(os.homedir(), 'Library/Application Support/Job Pilotto/data/jobs.sqlite');
 
 export function postingsLike(likes, run = execFileSync) {
@@ -48,7 +49,9 @@ function droppedBoards() {
 async function main() {
   const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : '';
   const seconds = Number(process.env.SMOKE_SECONDS || 90);
-  const {shapes} = JSON.parse(fs.readFileSync(path.join(here, 'smoke-sites.json'), 'utf8'));
+  // smoke-sites.json is public (job-feed postings only); this Mac's postings copied from the owner's profiles live outside the repo, in the app's folder.
+  const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')).shapes || []; } catch { return []; } };
+  const shapes = [...read(path.join(here, 'smoke-sites.json')), ...read(LOCAL_SITES)];
   const day = new Date().toISOString().slice(0, 10), results = {};
   for (const {shape, like = [], urls = []} of shapes.filter(item => !only || item.shape.includes(only))) {
     const posting = pickPosting([...urls.map(url => ({url, title: '', company: ''})), ...(like.length ? postingsLike(like) : [])]);
