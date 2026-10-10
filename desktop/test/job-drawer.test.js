@@ -12,8 +12,8 @@ test('every tab has a body module, wired by its key, and each says "nothing yet"
   const bodies = read('job-drawer/tabs-body.js');
   for (const [key] of TABS) {
     assert.match(bodies, new RegExp(`\\b${key}: ${key}Tab\\b`), `${key} is wired`);
-    const source = read(`job-drawer/tab-${key}.js`);
-    assert.match(source, /stateCard\(/, `${key} has its empty state`);
+    const source = read(`job-drawer/tab-${key}.js`) + (key === 'application' ? read('job-drawer/application-preparation.js') + read('job-drawer/application-submitted.js') : '');
+    assert.match(source, /stateCard\(/, `${key} has its empty state (Application: in its two parts)`);
     assert.doesNotMatch(source, /createElement|innerHTML/, `${key} is built from the shared parts`);
   }
   assert.equal((bodies.match(/Tab\b/g) || []).length >= TABS.length * 2, true);
@@ -40,6 +40,18 @@ test('the tab strip scrolls sideways, the header and tabs stay, the body scrolls
   assert.match(css, /\.jd-tabs \{[^}]*overflow-x: auto; white-space: nowrap/);
   assert.match(css, /\.jd-body \{ flex: 1; min-height: 0; overflow-y: auto/);
   assert.match(css, /\.jd-head \{ flex: none/);
+});
+
+test('Application: Preparation and Submitted through the shared choice, each with its own empty state; Submitted never edits', () => {
+  const tab = read('job-drawer/tab-application.js');
+  assert.match(tab, /choice\(OPTIONS, active/);
+  assert.match(tab, /ctx\.parts\.submitted \? 'submitted' : 'preparation'/, 'opens on what was sent when there is a snapshot');
+  assert.match(read('job-drawer/application-preparation.js'), /Not prepared/);
+  const submitted = read('job-drawer/application-submitted.js');
+  assert.match(submitted, /No application snapshot captured/);
+  assert.match(submitted, /Not submitted yet/);
+  assert.match(submitted, /do not change this snapshot/);
+  assert.doesNotMatch(submitted, /contenteditable|<textarea|createElement\('textarea'/, 'a snapshot is read-only');
 });
 
 test('Overview: built from the shared card, tile and state-card parts, each part only when it has something', () => {

@@ -167,7 +167,7 @@ export const nextInterview = app => (app?.next_interview ? {when: day(app.next_i
 
 // The page's content: {tabs: TABS (every job has all eight), kit, groups: {match, prep, review, record, messages, description}, history, shots,
 // documents, has: {tab key → it has content, for its empty state}}.
-export function pageParts({sections = {}, kit = null, events = [], files = [], match = null} = {}) {
+export function pageParts({sections = {}, kit = null, events = [], files = [], match = null, app = null} = {}) {
   const named = Object.entries(sections || {});
   const messages = named.filter(([name]) => isMessages(name))
     .flatMap(([name, markdown]) => groupsOf(markdown, plain(name)));
@@ -187,9 +187,25 @@ export function pageParts({sections = {}, kit = null, events = [], files = [], m
   const has = {
     overview: groups.match.length > 0, match: groups.match.length > 0, description: groups.description.length > 0,
     application: (!!kitView && !!(kitView.groups?.length || kitView.letter || kitView.answers?.length || kitView.check?.length)) || documents.length > 0
-      || groups.prep.length > 0 || groups.record.length > 0,
+      || groups.prep.length > 0 || submittedOf(sections, app) !== null,
     interviews: false, review: groups.review.length > 0, messages: messages.length > 0 || shots.length > 0, timeline: history.length > 0};
-  return {tabs: TABS, kit: kitView, groups, history, shots, documents, has};
+  return {tabs: TABS, kit: kitView, groups, history, shots, documents, submitted: submittedOf(sections, app), has};
+}
+
+// What was actually sent, from the application's frozen record (its JSON, src/notion/ledger_record.py build_fields): {facts, note, answers, letter}
+// or null when nothing was captured. It never changes when the kit or the CV are edited afterwards: the record is written once at submission.
+const HOW = {Form: 'Answers read from the form just before Submit.', 'Kit draft': 'Answers are the kit drafts; edits made in the form before Submit are unknown.',
+  None: 'No answers were captured.'};
+export function submittedOf(sections = {}, app = null) {
+  const record = jsonOf(sections[SECTIONS.record]);
+  if (!record || !(record.recorded_at || record.job || record.answers)) return null;   // an empty or foreign JSON is not a snapshot
+  const site = record.job?.ats ? record.job.ats.charAt(0).toUpperCase() + record.job.ats.slice(1) : '';
+  const facts = [['Recorded', day(record.recorded_at)], ['Site', site], ['Channel', app?.channel],
+    ['Via', app?.via], ['CV version', record.cv], ['Kit variant', record.variant], ['Agent', record.run?.agent]].filter(([, value]) => value);
+  const answers = (Array.isArray(record.answers) ? record.answers : []).filter(item => item?.question)
+    .map(item => ({question: String(item.question), answer: String(item.answer ?? ''), edited: item.draft != null && item.draft !== item.answer}));
+  return {facts, note: HOW[record.answers_captured] || '', answers, letter: String(record.cover_letter || '').trim(),
+    when: day(record.job?.applied_on || record.recorded_at)};
 }
 
 // "Next interview 14 Oct 2026 · prep 13 Oct 2026" and the call's facts (Applications Next interview, Interview prep, Call facts).

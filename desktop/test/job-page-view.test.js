@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 import {shortDay} from '../renderer/date.js';
-import {SECTIONS, TABS, allAnswers, factPairs, appliedLine, callFacts, clarifyOf, foundLine, glanceTiles, headerFacts, kitParts, lines, matchGroups, matchView, nextInterview, pageParts, plain, readablePart, tabKey, technologiesOf} from '../renderer/job-page-view.js';
+import {SECTIONS, TABS, allAnswers, factPairs, appliedLine, callFacts, clarifyOf, foundLine, glanceTiles, headerFacts, kitParts, lines, matchGroups, matchView, nextInterview, pageParts, plain, readablePart, submittedOf, tabKey, technologiesOf} from '../renderer/job-page-view.js';
 
 const demo = JSON.parse(fs.readFileSync(new URL('../demo/job-pages.json', import.meta.url), 'utf8'));
 
@@ -127,4 +127,20 @@ test('the Overview\'s lines: responsibilities a line each, technologies as chips
   assert.deepEqual(nextInterview({next_interview: '2026-10-14T10:00:00'}), {when: shortDay('2026-10-14T10:00:00')});
   assert.equal(nextInterview({}), null);
   assert.equal(foundLine({first_seen_at: '2026-10-09T10:00:00Z'}, {scored: '2026-10-09'}), `First found ${shortDay('2026-10-09T10:00:00Z')} · Scored ${shortDay('2026-10-09')}`);
+});
+
+test('Submitted: what was sent, from the frozen record; an edit from the draft is marked; none captured is null', () => {
+  const record = {recorded_at: '2026-10-01T09:14:00', job: {applied_on: '2026-10-01', ats: 'greenhouse'}, answers_captured: 'Form',
+    answers: [{question: 'Notice', answer: '3 months', draft: '3 months'}, {question: 'Salary', answer: '140k CHF', draft: '140k'}, {question: '', answer: 'x'}],
+    cover_letter: ' Dear team ', variant: 'v2', run: {agent: 'claude'}, cv: 'CV.pdf · 3fa8'};
+  const sent = submittedOf({[SECTIONS.record]: `Frozen.\n\n### Machine-readable record\n\n\`\`\`json\n${JSON.stringify(record)}\n\`\`\``}, {channel: 'Direct'});
+  assert.deepEqual(sent.answers, [{question: 'Notice', answer: '3 months', edited: false}, {question: 'Salary', answer: '140k CHF', edited: true}]);
+  assert.equal(sent.letter, 'Dear team');
+  assert.equal(sent.note, 'Answers read from the form just before Submit.');
+  assert.equal(sent.when, shortDay('2026-10-01'));
+  assert.deepEqual(sent.facts.map(([label]) => label), ['Recorded', 'Site', 'Channel', 'CV version', 'Kit variant', 'Agent']);
+  assert.equal(sent.facts.find(([label]) => label === 'Site')[1], 'Greenhouse');
+  assert.equal(submittedOf({}), null, 'no record: nothing was captured');
+  assert.equal(submittedOf({[SECTIONS.record]: 'only words'}), null);
+  assert.equal(pageParts({sections: {[SECTIONS.record]: `x\n\n\`\`\`json\n${JSON.stringify(record)}\n\`\`\``}}).has.application, true);
 });

@@ -96,3 +96,17 @@ export function iconRow(name, text) {
   row.append(mark, el('span', '', text));
   return row;
 }
+
+// A choice of a few options, one active (components.css .segmented): Application's Preparation / Submitted. options: [[key, label]].
+export function choice(options, active, pick, label) {
+  const box = el('div', 'segmented jd-choice');
+  box.setAttribute('role', 'group');
+  box.setAttribute('aria-label', label);
+  for (const [key, text] of options) {
+    const node = Object.assign(el('button', key === active ? 'is-active' : '', text), {type: 'button'});
+    node.setAttribute('aria-pressed', String(key === active));
+    node.addEventListener('click', () => pick(key));
+    box.append(node);
+  }
+  return box;
+}

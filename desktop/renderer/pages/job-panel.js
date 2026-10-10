@@ -56,7 +56,7 @@ function draw() {
   else if (page.error) {
     body.append(stateCard({icon: 'alert', tone: 'bad', title: 'Could not read this job', text: page.error,
       actions: [button('Retry', () => load(job))]}));   // Retry only after a failure
-  } else body.append(...BODIES[state.tab]({job, page, parts: pageParts(page)}));
+  } else body.append(...BODIES[state.tab]({job, page, parts: pageParts(page)}, draw));
   panel.replaceChildren(head, tabs, body, footer(job, page));
   panel.setAttribute('aria-label', `${job.title}, job details`);
 }
