@@ -20,7 +20,7 @@ export const FLOW_CORE = ['extension/tab-pages.js', 'extension/tabs.js', 'extens
 
 // The journey tests: the applying scenarios as event sequences (no browser, seconds). tools/journey-gate.mjs runs them on every push that touches a flow file.
 export const JOURNEY_TESTS = ['test/journeys.test.js', 'test/application-journey.test.js', 'test/journey-identity.test.js', 'test/extension-tab-identity.test.js',
-  'test/session-flow.test.js', 'test/account-check.test.js'];
+  'test/session-flow.test.js', 'test/account-check.test.js', 'test/flow-invariants.test.js'];
 
 // One row per scenario. `e2e`: words of its step in desktop/e2e/suites/apply.mjs or lib/apply-*.mjs (E2E_STEPS); `unit`: desktop/test files.
 export const MATRIX = [

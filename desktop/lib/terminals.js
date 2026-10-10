@@ -17,6 +17,9 @@
 // redraws it in place many times a second, so replaying its output at another size, or from a cut-off tail,
 // leaves a blank or garbled screen. A headless terminal (the mirror) follows each session at its real size, and
 // snapshot() serializes it: what a real terminal shows now. The saved record keeps that screen too.
+// Invariants (flow core: read before editing; changing one is the owner's call, said in the commit; each names the test that guards it):
+//  1. The journey fields (stuck, stage, accountState, accountStep, accountNeeds, accountHost) are written only through applyJourney -> lib/application-journey.js (desktop/test/application-journey.test.js, desktop/test/journeys.test.js).
+//  2. A session outlives the app: saved when it changes, restored at the next start (desktop/test/terminals.test.js).
 import {journey} from './application-journey.js';
 import {assertSession} from './session-contracts.js';
 import fs from 'node:fs';

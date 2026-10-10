@@ -4,6 +4,10 @@
 // was painted onto a Google search page, and the submitted-check would read the text of any other host.
 //
 // Kept free of chrome.* so the decisions can be tested (like report-alarm.js): the callers pass URLs.
+// Invariants (flow core: read before editing; changing one is the owner's call, said in the commit; each names the test that guards it):
+//  1. A later page is a form, an account page, or neither; the same page ignores the fill mark and a trailing slash (desktop/test/extension-tab-pages.test.js).
+//  2. A fill may keep drawing while the form moves inside its own site, never onto another site (desktop/test/extension-tab-pages.test.js).
+//  3. pageRole is the structure rule: it answers only when no AI kind exists (desktop/test/page-kind.test.js).
 
 import {buttonPhrase} from './alias-schema.js';
 

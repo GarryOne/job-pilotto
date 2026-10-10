@@ -251,6 +251,16 @@ To chase one step locally: `E2E_STEPS='the app has an applicant,<journey>,<step>
 Other flow files: their area's suites plus the best-fit method (AGENTS.md "Which test for which question"); the matrix before a release and on demand.
 A new scenario gets a row there and in `MATRIX`, with a step or test that fails first. Never add a second page classifier.
 
+## The flow core: one session at a time, invariants first (owner, 10 Oct 2026)
+Why: in 8 days `extension/background.js` took 48 commits and `fill-flow.js` 29, from several sessions at once; a fix for one site or flow kept breaking another.
+- **Claim it before editing** `FLOW_CORE` / `FLOW_FILES` (`desktop/e2e/flows.mjs`): one message to every peer ("I own the flow core until I say released"), and
+  "released" when done. A peer holding it: wait, or send your change to them. No new applying feature while a journey refactor is landing.
+- **Read the file's "Invariants:" block first** (the top of each flow-core file). Changing an invariant is the owner's call: say so in the commit.
+  A new invariant gets its test in the same change (`desktop/test/flow-invariants.test.js` fails on a core file without the block, or one naming a missing test).
+- **A live bug becomes a scenario first** in `desktop/test/journeys.test.js` (it must fail on the old code), then the fix; the journey gate runs them on every push.
+- **One owner per state:** where an application stands is `desktop/lib/application-journey.js` (app) and `extension/tab-identity.js` (which application a tab is);
+  never a new field or storage key for it elsewhere.
+
 ## Facts that are easy to get wrong
 - **A ⏱️ Search runs row's `Summary` is only the report's first line** (`src/notion/cron_runs.py`,
   `Summary: _text(lines[0])`). The rest — where a GitHub run's `Warning: …` lines are — is the page's Report bullets:

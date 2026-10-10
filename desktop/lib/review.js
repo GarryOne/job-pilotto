@@ -3,6 +3,9 @@
 // tick in the form, and its "Open the form to tick it" makes the page scroll to that field.
 //   page -> app  POST /extension/review {url, title, left, total, missing: [label], filled: [label], watch: [{id, filled: true|false|null}]}
 //   app -> page  the reply: {matched, watch: [{id, label}], commands: [{focus: label}]}
+// Invariants (flow core: read before editing; changing one is the owner's call, said in the commit; each names the test that guards it):
+//  1. A form page is matched to its session by the job, the company, or neither (never a guess) (desktop/test/review.test.js).
+//  2. The last form states come back after a restart only for sessions that still exist (desktop/test/review.test.js).
 import fs from 'node:fs';
 import {ATS, scoreTab} from './form-tab.js';
 import {LABELS} from './contact.js';

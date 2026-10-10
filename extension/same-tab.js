@@ -3,6 +3,9 @@
 // browser goes there itself (a form keeps its posted data, the page loads once). A tab the page still opens by script right
 // after the press is followed as the application and the posting's tab closes; nothing is loaded twice. A tab the user opens,
 // or one a page opens later (a sign-in pop-up, a PDF), is left alone.
+// Invariants (flow core: read before editing; changing one is the owner's call, said in the commit; each names the test that guards it):
+//  1. A tab the posting opens by script right after Apply is the application, and only its own posting closes (desktop/test/extension-same-tab.test.js).
+//  2. Never closed: a later pop-up, another tab's child, a tab the person opened, a posting that already moved on (desktop/test/extension-same-tab.test.js).
 export const FOLD_MS = 10 * 1000;
 // The posting tab to close for `tab` (just created), or null. `pressed`: tab id → {at, url}, when and where the extension pressed
 // Apply. `postingUrl`: what that tab shows now: once it moved on (a link was pointed at it), it is the application, never closed.

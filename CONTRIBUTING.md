@@ -48,6 +48,11 @@ Your own keys live in the macOS Keychain (`job-pilotto.*`), never in files you c
 - AI agents add their `Co-Authored-By:` trailer.
 </details>
 
+### The applying flow core (10 Oct 2026)
+Files in `FLOW_CORE` / `FLOW_FILES` (`desktop/e2e/flows.mjs`) are owned by one session at a time (claim it with the other sessions, release it when done).
+Read the file's **Invariants:** block before editing; a bug becomes a scenario in `desktop/test/journeys.test.js` that fails first; the push hook's
+journey gate (`tools/journey-gate.mjs`) runs them. Spec: `docs/superpowers/specs/2026-10-10-application-journey.md`.
+
 ## 3 · Where things go
 
 | You add… | It goes… |

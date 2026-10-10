@@ -2,6 +2,9 @@
 // application (it inherits its job and session), and a tab the page opens by script right after the extension pressed Apply is followed
 // while the posting tab closes (same-tab.js decides which). Scenarios owned: "Apply opens its form from the page's script", "Two
 // applications side by side". Guards: extension-same-tab.test.js, review.test.js, the e2e rows "Apply opens a new tab" and "side by side".
+// Invariants (flow core: read before editing; changing one is the owner's call, said in the commit; each names the test that guards it):
+//  1. A tab an application's page opens follows its opener (same job and session); a tab the app opened for another job stays that job's, whatever order the events come in (desktop/test/extension-opener-race.test.js).
+//  2. Tab identity keys are named only in tab-identity.js (desktop/test/extension-tab-identity.test.js).
 import {IDENTITY_KEYS, fromOf, inheritedEntries} from './tab-identity.js';
 import {FOLD_MS, postingToClose, realOpener} from './same-tab.js';
 import {pageKey} from './tab-pages.js';

@@ -3,6 +3,10 @@
 // form tab Claude's hand-over closes. Scenarios owned: "Sign-up page before the form", "Claude takes over an account page",
 // "Two applications side by side" (stuck reports). Guards: test/session-flow.test.js, the apply e2e rows (npm run flows).
 // Every service is passed in (terminals, review, apply, the log, the window, startClaude), so a test drives these with fakes.
+// Invariants (flow core: read before editing; changing one is the owner's call, said in the commit; each names the test that guards it):
+//  1. A stuck report from a tab the session has left is ignored (desktop/test/session-flow.test.js).
+//  2. Claude is offered on an account page the extension could not finish, never started by itself (desktop/test/session-flow.test.js).
+//  3. The session is found one way (lib/journey-identity.js) and its step changes only through terminals.js -> lib/application-journey.js (desktop/test/journeys.test.js).
 
 import {resolveSession} from './journey-identity.js';
 
