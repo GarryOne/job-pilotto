@@ -19,6 +19,7 @@ import {accountOutcome, accountStep} from './account-step.js';
 import {applyPressed} from './tabs.js';
 import {bindSession, identityOf, sessionOf} from './tab-identity.js';
 import {pageKey, pageRole, pickApplyButton, pickNamedButton} from './tab-pages.js';
+import {whyNotPressed} from './ladder/press-why.js';
 import {forgetRouteTries, startRoute} from './start-route.js';
 import {emailReport, mailsOf} from './ladder/outcomes.js';
 import {candidatesOf, claimFrame, climbOnStall, frameBecameCandidate, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, noteSignal, otherReport, toldReport, verifiedBody} from './ladder/climb.js';
@@ -116,8 +117,9 @@ async function forgetKind(tab, kind, reason) {
 // What the person sees while the app waits for the AI (the panel's step line; nothing is drawn when the tab has no panel yet). Never throws.
 export const sayStep = (tabId, text) => progress(tabId, text).catch(() => {});
 export async function askKind(tab, {fresh = false, digest = false} = {}) {   // fresh: the page changed after a press, a kept answer for its shape does not apply (start-route.js)
+  const askedAt = Date.now();   // the three ways this returns null with no word from the app are logged below (Hornbach 0.9.176: null after 2.1 s, nothing said which)
   const sketch = await pageSketchOf(tab.id);
-  if (!sketch) return null;
+  if (!sketch) { decide('fill', 'page kind not asked: the page could not be sketched', {ms: Date.now() - askedAt, digest}); return null; }
   const frameList = await framesOf(tab.id); noteFrames(tab.id, frameList); sketch.frameCandidates = frameSketch(frameList);   // the addresses stay in the extension (ladder/climb.js)
   sketch.mails = await mailsOf(tab.id);   // the sentences and mailto links that carry an address (ladder/outcomes.js)
   try {
@@ -125,9 +127,10 @@ export async function askKind(tab, {fresh = false, digest = false} = {}) {   // 
     if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return null;   // your own Worker: no app to ask
     const answer = await Promise.race([api(config, '/extension/page-kind', {method: 'POST', body: JSON.stringify({url: tab.url.split('#')[0], ...(fresh ? {fresh: true} : {}), ...(digest ? {digest: true, candidates: await candidatesOf(tab.id)} : {}), ...sketch})}),
       new Promise(resolve => setTimeout(() => resolve(null), 40000))]);   // a first visit asks the AI cold (the app's AI is the `claude` command: 5-25 s); the structure rule decides only after this, and a wrong rule costs more than the wait
+    if (answer == null) decide('fill', 'page kind: the app gave no answer in time', {ms: Date.now() - askedAt, digest});   // an answer WITH an error is the app's own line (server-pages.js)
     noteSignal(tab.id, answer, sketch.controls);   // which rung answered and with what signal: an unsure one climbs (ladder/climb.js)
     return answer?.role ? answer : null;
-  } catch { return null; }
+  } catch (error) { decide('fill', 'page kind: the app could not be asked', {class: String(error?.name || 'Error').slice(0, 40), ms: Date.now() - askedAt, digest}); return null; }   // the class only: a message can carry page text
 }
 // Claude reads this on <html data-jobpilotto-fill>. States: running, done, error, no-form, account.
 function writeState(tabId, value) {
@@ -171,13 +174,13 @@ async function applyPhrases() {
 }
 // -> {pressed: the button's text or null, via: the service phrase that found it ('' for a built-in word), buttons: the visible button texts
 // when none was found (the app counts them, to learn new words; texts only, from a page with no form)}.
-async function pressApply(tabId, phrases = [], named = '') {   // named: a button the page-kind AI chose (the start route): pressed by its own text, not ranked (tab-pages.js pickNamedButton)
+async function pressApply(tabId, phrases = [], named = '', want = '') {   // named: a button the page-kind AI chose (the start route): pressed by its own text, not ranked (tab-pages.js pickNamedButton); want: the name the AI gave, only for the log
   const candidates = await applyCandidates(tabId);
   const pick = named ? pickNamedButton(candidates, named) : pickApplyButton(candidates, phrases);
   if (!pick) {
     const seen = [...new Set(candidates.filter(item => item.visible && !item.disabled).sort((a, b) => b.area - a.area).map(item => String(item.text || '').replace(/\s+/g, ' ').trim())
       .filter(text => text && text.length <= 40))].slice(0, 25);
-    return {pressed: null, via: '', buttons: seen};
+    return {pressed: null, via: '', buttons: seen, why: whyNotPressed(candidates, named || want)};   // why: flags of the control the AI named (ladder/press-why.js), for the log
   }
   const done = await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: (selector, index) => {   // MAIN: the page's own window.open, below
     const el = document.querySelectorAll(selector)[index];
@@ -361,11 +364,11 @@ export async function consider(tab, jobUrl) {
     // The shared phrases, and the button the page-kind AI named on this page (any language; already checked against the page and the schema).
     const phrases = [...await applyPhrases(), ...(kind?.applyButton ? [{key: 'apply_button', phrase: kind.applyButton}] : [])];
     applyPressed.set(tab.id, {at: Date.now(), url: tab.url});   // before the click: the site opens its new tab during it (same-tab.js)
-    const attempt = await pressApply(tab.id, phrases);
+    const attempt = await pressApply(tab.id, phrases, '', kind?.applyButton || '');
     if (!attempt.pressed) applyPressed.delete(tab.id);
     const label = attempt.pressed;
     buttonsSeen = attempt.buttons;
-    if (!label) decide('fill', 'no Apply button to press', {host, listed: attempt.buttons?.length ?? 0, named: !!kind?.applyButton});   // why nothing was pressed (Hornbach, 10 Oct 2026: no line said)
+    if (!label) decide('fill', 'no Apply button to press', {host, listed: attempt.buttons?.length ?? 0, named: !!kind?.applyButton, ...(attempt.why || {})});   // why nothing was pressed (Hornbach, 10 Oct 2026: no line said); the named control's flags: found, visible, enabled, submits, href kinds, pickable
     if (label) {
       pressed = true;
       decide('fill', 'pressed the Apply button', {host, label, tag: attempt.tag, aimed: attempt.aimed, sameTab: attempt.same});   // sameTab: a link/form aimed at a new tab, pointed at this one
