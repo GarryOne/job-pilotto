@@ -227,7 +227,7 @@ export function registerApplyHandlers(ctx) {
   ipcMain.handle('rememberAnswer', (_, question, answer) => (DEMO ? Promise.resolve({ok: true}) : needsNotion('profile') || questions.remember(storage, question, answer))
     .catch(error => ({ok: false, error: `Notion: ${error.message}`})));
   // Saved keys as dots plus their last 4 characters, so Settings can show which key is stored (never the key).
-  ipcMain.handle('secretHints', () => Object.fromEntries(['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY', 'ADZUNA_APP_ID', 'ADZUNA_APP_KEY', 'JOOBLE_API_KEY']
+  ipcMain.handle('secretHints', () => Object.fromEntries(['ANTHROPIC_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY', 'ADZUNA_APP_ID', 'ADZUNA_APP_KEY', 'JOOBLE_API_KEY', 'OPENAI_API_KEY', 'BRAVE_SEARCH_API_KEY']
     .map(name => [name, storage.secret(name)]).filter(([, value]) => value).map(([name, value]) => [name, `${'•'.repeat(12)}${value.slice(-4)}`])));
   return {showForm};   // the browser handlers (lib/browser-handlers.js) show a job's form tab through it
 }
