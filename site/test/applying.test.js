@@ -172,3 +172,23 @@ test('the runner\'s verdict decides: a form whose left fields are all expected i
   assert.deepEqual(by.Red.short, {done: 9, total: 12, unexplained: 3});
   assert.equal(by.Junk.short, null);   // a bad verdict is dropped and the counts decide: 1 of 2 is half, not under
 });
+
+test('Needs a fix is ordered worst first: a regression, then the most used platform, then the earliest stop, never alphabetical (owner, 10 Oct 2026)', async () => {
+  const script = PAGE.split('<script>')[1].split('</script>')[0];
+  const make = tag => ({tag, children: [], hidden: false, style: {}, set textContent(value) { this.children = value === '' ? [] : [String(value)]; }, get textContent() { return this.children.map(String).join(''); },
+    append(...kids) { this.children.push(...kids.map(kid => (typeof kid === 'object' && kid !== null ? kid : String(kid)))); },
+    text() { return this.children.map(kid => (typeof kid === 'string' ? kid : kid.text())).join('|'); }});
+  const row = (name, platform, reached, extra = {}) => ({name, platform, flow: '', start: 'x.com', end: '', reached, history: [reached], at: '2026-10-10T10:00:00Z', day: '2026-10-10', raw: '', short: null, shares: [], regression: false, running: false, note: null, rung: null, signal: null, cause: null, ...extra});
+  const body = {tiles: {}, cases: [], platforms: [], flows: [], nights: [], steps: ['none', 'posting', 'account', 'code/bot', 'form', 'ready'], sites: [], dropped: [], now: '2026-10-10T12:00:00Z', next: {sites: [], hidden: {hosts: 0}},
+    pool: [row('Aaa small site', 'Custom', 'posting'), row('Bbb big platform', 'Greenhouse', 'posting'), row('Ccc regressed', 'Custom', 'account', {regression: true}), row('Ddd big form', 'Greenhouse', 'form', {short: {done: 9, total: 12, unexplained: 3}}), row('Eee other big', 'Greenhouse', 'account')],
+    scorecard: [{platform: 'Greenhouse', verdict: 'Fine', matchShare: 54}, {platform: 'Custom', verdict: 'Fine', matchShare: 1}]};
+  const app = make('div');
+  const document = {createElement: make, getElementById: () => app, querySelector: () => null, hidden: true, body: make('body')};
+  new Function('document', 'fetch', 'getComputedStyle', 'CSS', 'setInterval', 'Object', script)(document, async () => ({json: async () => body}), () => ({}), {escape: x => x}, () => 0, Object);
+  await new Promise(resolve => setTimeout(resolve, 20));
+  const text = app.text(), section = text.slice(text.indexOf('Needs a fix'), text.indexOf('The pool'));
+  const order = ['Ccc regressed', 'Bbb big platform', 'Eee other big', 'Ddd big form', 'Aaa small site'].map(name => section.indexOf(name));
+  assert.ok(order.every(at => at > 0), 'every row is listed: ' + order);
+  assert.deepEqual([...order].sort((a, b) => a - b), order, 'regression first, then the big platform by its earliest stop (posting, account, then the form), then the small site');
+  assert.ok(section.includes('54%'), 'the platform use is shown');
+});
