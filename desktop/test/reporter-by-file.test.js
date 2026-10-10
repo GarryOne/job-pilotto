@@ -4,14 +4,14 @@ import {spawnSync} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath, pathToFileURL} from 'node:url';
 import {test} from 'node:test';
 
 const reporter = path.join(path.dirname(fileURLToPath(import.meta.url)), 'reporter-by-file.mjs');
 const run = body => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-reporter-'));
   fs.writeFileSync(path.join(dir, 'a.test.js'), `import test from 'node:test'; import assert from 'node:assert/strict';\n${body}`);
-  const result = spawnSync(process.execPath, ['--test', `--test-reporter=${reporter}`, 'a.test.js'], {cwd: dir, encoding: 'utf8', env: Object.fromEntries(Object.entries(process.env).filter(([name]) => name !== 'NODE_TEST_CONTEXT'))});   // inside a test run this variable makes a nested `node --test` run nothing
+  const result = spawnSync(process.execPath, ['--test', `--test-reporter=${pathToFileURL(reporter).href}`, 'a.test.js'], {cwd: dir, encoding: 'utf8', env: Object.fromEntries(Object.entries(process.env).filter(([name]) => name !== 'NODE_TEST_CONTEXT'))});   // inside a test run this variable makes a nested `node --test` run nothing
   fs.rmSync(dir, {recursive: true, force: true});
   return result;
 };
