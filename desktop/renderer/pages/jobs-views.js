@@ -5,7 +5,6 @@ import {el} from '../components.js';
 import {VIEWS} from '../jobs-board-rules.js';
 import {shared} from './shared.js';
 import {$, show} from './core.js';
-import {closeJobPanel} from './job-panel.js';
 import {jobsState} from './jobs-state.js';
 import {renderBoard} from './jobs-board.js';
 
@@ -43,17 +42,15 @@ export function paintViews(boardJobs) {
   renderBoard(boardJobs);
 }
 
-// A board card's click: the job's page, which lives beside the list.
+// A board card's click: the job's drawer, over the board.
 export function openFromBoard(open) {
-  setMode('list');
   open();
 }
 
 function setMode(mode, render = true) {
   jobsState.mode = mode === 'board' ? 'board' : 'list';
   try { localStorage.setItem(MODE_KEY, jobsState.mode); } catch {}
-  if (jobsState.mode === 'board') closeJobPanel();   // the panel sits beside the list, never beside an empty one
-  else $('jobs-head').hidden = $('jobs-body').classList.contains('compact');
+  if (jobsState.mode !== 'board') $('jobs-head').hidden = $('jobs-body').classList.contains('compact');
   if (render) document.dispatchEvent(new CustomEvent('jobs-rerender'));
 }
 

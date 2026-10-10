@@ -5,6 +5,7 @@ import {claudeHelp} from '../claude-help.js';
 import {columnOf} from '../jobs-board-rules.js';
 import {isInbound} from '../origin.js';
 import {looksLikeLink, matches} from '../filter.js';
+import {fitRing} from '../fit-ring.js';
 import {icon} from '../icons.js';
 import {ago, avatar, band, byFilter, byStat, inConversation, inStatus, isStuck, fitTooltip, matchesOnly, matchLabel, placeAndMode, prepareState, preparing, shortPlace, sorted, statPressed, statusPill, tags, workMode} from '../jobs-view.js';
 import {shared} from './shared.js';
@@ -110,9 +111,7 @@ export function renderJobs() {
     // Fit: a ring filled to the score (the compact list adds "Strong match" under it). A row whose score has a
     // breakdown behind it says so with a caret, and the ring opens it.
     const fit = el('div', `fit-cell ${band(job.fit)}`);
-    const ring = el('div', 'fit-ring');
-    ring.style.setProperty('--p', job.fit ?? 0);
-    ring.append(el('span', '', job.fit ?? '–'));
+    const ring = fitRing(job.fit);
     const canOpen = job.fit != null && !!job.fit_detail;
     const caret = icon('chevron', `icon fit-caret${canOpen ? '' : ' is-hidden'}`);  // on every row: the rings line up
     const ringRow = el('div', 'fit-ring-row');
@@ -127,8 +126,8 @@ export function renderJobs() {
     const titleLine = el('div', 'title-line');
     // An opportunity that found you has no posting (its link is the email or chat): the title opens its Notion page.
     const inNotion = isInbound(job) && !!job.notion_url;
-    const link = Object.assign(el('a', '', job.title), {href: '#', title: inNotion ? 'Open in Notion' : 'Open the posting'});
-    link.addEventListener('click', event => { event.preventDefault(); if (inNotion) window.pilot.openNotion(job.notion_url, event.metaKey); else window.pilot.openExternal(job.url); });
+    const link = Object.assign(el('a', '', job.title), {href: '#', title: inNotion ? 'Open in Notion' : 'Open the job\'s details'});
+    link.addEventListener('click', event => { event.preventDefault(); if (inNotion) window.pilot.openNotion(job.notion_url, event.metaKey); else openJobPanel(job, 'overview'); });   // the posting itself: the drawer's "Open posting"
     titleLine.append(link, Object.assign(pill(statusLabel, statusTone), {className: `ui-pill tone-${statusTone} status-inline`}));
     role.append(titleLine);
     // Compact list: company · place · mode · age on one line, in place of those columns.
@@ -402,7 +401,7 @@ export function renderJobs() {
         if (row.querySelector('.fit-detail')) { close(); return; }
         fit.classList.add('is-open');
         fit.title = 'Hide the match analysis';
-        row.append(fitDetail(job, close));
+        row.append(fitDetail(job, close, () => openJobPanel(job, 'match')));
       });
     }
     body.append(row);

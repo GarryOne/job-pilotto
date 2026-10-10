@@ -60,5 +60,8 @@ test('messages: the recruiter\'s message with its Full message folded, a logged 
 });
 
 test('every tab the real shapes give', () => {
-  assert.deepEqual(pageParts({sections, kit: jsonOf(sections[SECTIONS.kit])}).tabs.map(([key]) => key), ['kit', 'prep', 'review', 'record', 'messages', 'description']);
+  const parts = pageParts({sections, kit: jsonOf(sections[SECTIONS.kit])});
+  assert.deepEqual(parts.tabs.map(([key]) => key), ['overview', 'match', 'description', 'application', 'interviews', 'review', 'messages', 'timeline']);
+  // The real shapes give content for these (kit, prep and record are all under Application now); Match, Interviews and Timeline have none here.
+  assert.deepEqual(Object.keys(parts.has).filter(key => parts.has[key]).sort(), ['application', 'description', 'messages', 'review']);
 });

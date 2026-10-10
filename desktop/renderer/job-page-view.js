@@ -1,6 +1,6 @@
-// A job's page in the app (Jobs → a row → the side panel): what the job's Notion page shows, read from the store, so it shows for
-// every store (the data on this Mac too). Pure: the tabs a job has, and each tab's parts as text (never HTML). Drawn by
-// pages/job-panel.js; guarded by test/job-page-view.test.js. The sections are the engine's own headings (src/ai/kit.py KIT_HEADING,
+// A job's page in the app (Jobs → a row → the right-side drawer): what the job's Notion page shows, read from the store, so it shows for
+// every store (the data on this Mac too). Pure: the drawer's eight tabs, and each tab's parts as text (never HTML). Drawn by
+// pages/job-panel.js and job-drawer/; guarded by test/job-page-view.test.js. The sections are the engine's own headings (src/ai/kit.py KIT_HEADING,
 // prep.py HEADING, rejection.py HEADING, notion/ledger_record.py RECORD_HEADING, inbox_notion.py DESCRIPTION_HEADING, opportunity.py HEADING).
 import {shortDay} from './date.js';
 export const SECTIONS = {
@@ -10,9 +10,13 @@ export const SECTIONS = {
 // Logged messages ("📥 29 Sep · what it said"): every section named with 📥, after the recruiter's own message.
 const isMessages = name => name === SECTIONS.recruiter || /^📥/.test(name);
 
-// [key, label] in the mockup's order; a tab shows only when the job has its content.
-export const TABS = [['kit', 'Kit'], ['match', 'Match'], ['prep', 'Prep'], ['review', 'Review'], ['record', 'Record'], ['messages', 'Messages'],
-  ['description', 'Description'], ['history', 'History']];
+// [key, label] in the owner's order (10 Oct 2026): fixed for every job, so a tab is where it was last time; a tab with nothing yet says so
+// (job-drawer/tab-*.js). Kit and Prep became Application, Record its Submitted part, History the Timeline.
+export const TABS = [['overview', 'Overview'], ['match', 'Match'], ['description', 'Description'], ['application', 'Application'],
+  ['interviews', 'Interviews'], ['review', 'Review'], ['messages', 'Messages'], ['timeline', 'Timeline']];
+// The tabs' old names (a kit chip, a rejection chip, the prep card) → where that content lives now.
+export const TAB_ALIASES = {kit: 'application', prep: 'application', record: 'application', history: 'timeline'};
+export const tabKey = tab => (TABS.some(([key]) => key === tab) ? tab : TAB_ALIASES[tab] || 'overview');
 
 // A line of the store's Markdown as plain words: links keep their label, marks and escapes go (notion_blocks.py writes them).
 export function plain(line) {
@@ -95,24 +99,43 @@ export function historyItems(events = []) {
 
 // The search's facts about the job (its 🎯 Job Matches row on every store, src/stores/matches_sync.py facts): what a Notion user reads in
 // those columns. Strengths and gaps are on the row's fit ring (jobs-fit.js), not repeated here. [] when the job has no match.
+// [label, value] of what the search read from the posting, only what it has (the Overview's key facts; the Match tab's "About the job").
+export function factPairs(match = null) {
+  if (!match) return [];
+  const languages = (Array.isArray(match.languages) ? match.languages : []).map(name => name.replace(/ \+$/, ' (a plus)')).join(', ');
+  const pairs = [['Posted', day(match.posted)], ['Deadline', day(match.deadline)], ['Seniority', match.seniority], ['Role family', match.role_family],
+    ['Contract', match.contract], ['Work mode', match.work_mode], ['Remote scope', match.remote_scope], ['Workload', match.workload],
+    ['On call', match.on_call], ['Visa sponsorship', match.visa], ['Languages', languages], ['Technologies', match.technologies],
+    ['Salary', match.salary]].filter(([, value]) => value);
+  return match.recruiter === true ? [...pairs, ['Posted by', 'a recruiter']] : pairs;
+}
+
+// The search's facts about the job (its 🎯 Job Matches row on every store, src/stores/matches_sync.py facts): what a Notion user reads in
+// those columns. Strengths and gaps are on the row's fit ring (jobs-fit.js), not repeated here. [] when the job has no match.
 export function matchGroups(match = null) {
   if (!match) return [];
   const score = [match.fit != null && match.fit !== '' ? `🎯 ${match.fit}` : '', match.tier, match.confidence && `confidence ${match.confidence}`]
     .filter(Boolean).join(' · ');
   const scored = match.scored ? `Scored ${day(match.scored)}${match.scoring_method === 'Previous' ? ' (from your earlier Profile)' : ''}` : '';
-  const languages = (Array.isArray(match.languages) ? match.languages : []).map(name => name.replace(/ \+$/, ' (a plus)')).join(', ');
-  const facts = [['Posted', day(match.posted)], ['Deadline', day(match.deadline)], ['Seniority', match.seniority], ['Role family', match.role_family],
-    ['Contract', match.contract], ['Work mode', match.work_mode], ['Remote scope', match.remote_scope], ['Workload', match.workload],
-    ['On call', match.on_call], ['Visa sponsorship', match.visa], ['Languages', languages], ['Technologies', match.technologies],
-    ['Salary', match.salary]].filter(([, value]) => value).map(([label, value]) => `${label} · ${value}`);
-  if (match.recruiter === true) facts.push('Posted by a recruiter');
+  const facts = factPairs(match).map(([label, value]) => (label === 'Posted by' ? `Posted by ${value}` : `${label} · ${value}`));
   const groups = [];
   if (score || scored) groups.push({title: 'Fit', lines: [score, scored].filter(Boolean)});
   if (facts.length) groups.push({title: 'About the job', lines: facts});
   return groups;
 }
 
-// The page's tabs and their content: {tabs: [[key, label]], kit, groups: {match, prep, review, record, messages, description}, history}.
+// The job's match as the tabs read it: the list row's own fields first (fresher), the store's Job Matches row for what it lacks (a job opened
+// from the calendar or a run has no fit_detail on it). null when the job was never scored.
+export function matchView(job = {}, page = null) {
+  const stored = page?.match || {};
+  const fit = job.fit ?? stored.fit;
+  if (fit == null || fit === '') return null;
+  return {...stored, ...Object.fromEntries(Object.entries(job).filter(([, value]) => value != null && value !== '')), fit,
+    fit_detail: job.fit_detail || stored.fit_detail || null};
+}
+
+// The page's content: {tabs: TABS (every job has all eight), kit, groups: {match, prep, review, record, messages, description}, history, shots,
+// documents, has: {tab key → it has content, for its empty state}}.
 export function pageParts({sections = {}, kit = null, events = [], files = [], match = null} = {}) {
   const named = Object.entries(sections || {});
   const messages = named.filter(([name]) => isMessages(name))
@@ -130,11 +153,12 @@ export function pageParts({sections = {}, kit = null, events = [], files = [], m
   const shots = (files || []).filter(file => /^image\//.test(file?.type || ''));
   // The other files the app keeps on the job (a tailored CV, lib/store/files.js attachToJob): listed with the kit, to open or save.
   const documents = (files || []).filter(file => file && !/^image\//.test(file.type || ''));
-  const has = {kit: !!kitView && !!(kitView.groups?.length || kitView.letter || kitView.answers?.length || kitView.check?.length),
-    history: history.length > 0, ...Object.fromEntries(Object.entries(groups).map(([key, value]) => [key, value.length > 0]))};
-  has.messages ||= shots.length > 0;
-  has.kit ||= documents.length > 0;
-  return {tabs: TABS.filter(([key]) => has[key]), kit: kitView, groups, history, shots, documents};
+  const has = {
+    overview: groups.match.length > 0, match: groups.match.length > 0, description: groups.description.length > 0,
+    application: (!!kitView && !!(kitView.groups?.length || kitView.letter || kitView.answers?.length || kitView.check?.length)) || documents.length > 0
+      || groups.prep.length > 0 || groups.record.length > 0,
+    interviews: false, review: groups.review.length > 0, messages: messages.length > 0 || shots.length > 0, timeline: history.length > 0};
+  return {tabs: TABS, kit: kitView, groups, history, shots, documents, has};
 }
 
 // "Next interview 14 Oct 2026 · prep 13 Oct 2026" and the call's facts (Applications Next interview, Interview prep, Call facts).
@@ -142,6 +166,12 @@ export function interviewFacts(app = null) {
   if (!app) return '';
   return [app.next_interview && `Next interview ${day(app.next_interview)}`, app.interview_prep && `prep ${day(app.interview_prep)}`,
     app.call_facts && `From the calls: ${plain(app.call_facts)}`].filter(Boolean).join(' · ');
+}
+
+// "applied 1 Oct" (the drawer header's chip row; the place and the score are already in the header).
+export function appliedLine(job = {}, app = null) {
+  const applied = app?.applied_on || job.applied_on;
+  return applied ? `applied ${day(applied)}` : '';
 }
 
 // "Applied 1 Oct 2026 · Zurich · 🎯 82" (the mockup's line under the title).

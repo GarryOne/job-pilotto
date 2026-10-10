@@ -1,5 +1,6 @@
 // Recent activity: the header filter, the open/close of the panel and the run announcements.
 // Split out of activity.js as a pure move. Guarded by the tests that read the activity-*.js sources (desktop/test/activity-source.js) and the e2e activity suites.
+import {claimOverlay, registerOverlay, releaseOverlay} from '../overlay-slot.js';
 import {humanError} from '../run-warnings.js';
 import {doneTitle} from '../run-status.js';
 import {kindCounts} from '../run-list.js';
@@ -35,6 +36,7 @@ export const PANEL_KEY = 'activityPanel';
 export const panelMemory = (open, run) => (open ? (run == null ? 'live' : String(run)) : '');
 export function openActivity(open, {fromHistory = false} = {}) {
   if (!fromHistory && open === $('activity-panel').hidden) (open ? panelOpened : panelClosed)(shared.selectedRun);
+  if (open) claimOverlay('activity'); else releaseOverlay('activity');   // a job's drawer and this panel take turns (renderer/overlay-slot.js)
   show($('activity-panel'), open);
   remembered(PANEL_KEY, panelMemory(open, shared.selectedRun));
   if (open) refreshGmailConnection();   // Gmail's connection as it is now, for the header button and the schedule
@@ -45,6 +47,8 @@ export function openActivity(open, {fromHistory = false} = {}) {
   barLabel();
   if (lastActivity) renderActivity(lastActivity);  // the bar drops "Next jobs check" while the panel shows it
 }
+
+registerOverlay('activity', {close: () => openActivity(false), open: () => openActivity(true)});
 
 // In-app notifications: a scheduled job starting, and any job ending (with its result); click one to see it.
 let announced = null;  // {running: id of the run announced as started, done: ids of finished runs already seen}

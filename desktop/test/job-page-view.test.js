@@ -3,17 +3,25 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 import {shortDay} from '../renderer/date.js';
-import {SECTIONS, TABS, allAnswers, headerFacts, kitParts, matchGroups, pageParts, plain, readablePart} from '../renderer/job-page-view.js';
+import {SECTIONS, TABS, allAnswers, factPairs, appliedLine, headerFacts, kitParts, matchGroups, matchView, pageParts, plain, readablePart, tabKey} from '../renderer/job-page-view.js';
 
 const demo = JSON.parse(fs.readFileSync(new URL('../demo/job-pages.json', import.meta.url), 'utf8'));
 
-test('a tab shows only when the job has its content, in the mockup order', () => {
-  assert.deepEqual(pageParts({}).tabs, []);
-  assert.deepEqual(pageParts({sections: {[SECTIONS.prep]: '### Ask them\n\n- On-call?'}}).tabs, [['prep', 'Prep']]);
-  assert.deepEqual(pageParts({sections: {[SECTIONS.record]: '```json\n{}\n```'}}).tabs, [], 'only machine-readable JSON: nothing to read');
+test('every job has the same eight tabs in the same order; `has` says which have content', () => {
+  const order = ['overview', 'match', 'description', 'application', 'interviews', 'review', 'messages', 'timeline'];
+  assert.deepEqual(TABS.map(([key]) => key), order);
+  assert.deepEqual(pageParts({}).tabs, TABS, 'a job with nothing saved still has them all (each says "nothing yet")');
+  assert.ok(Object.values(pageParts({}).has).every(value => value === false));
+  assert.equal(pageParts({sections: {[SECTIONS.prep]: '### Ask them\n\n- On-call?'}}).has.application, true);
+  assert.equal(pageParts({sections: {[SECTIONS.record]: '```json\n{}\n```'}}).has.application, false, 'only machine-readable JSON: nothing to read');
   const all = Object.fromEntries(Object.values(SECTIONS).map(name => [name, '- something']));
-  assert.deepEqual(pageParts({sections: all, events: [{kind: 'Applied', at: '2026-10-01'}], match: {fit: 80, tier: 'Strong'}}).tabs.map(([key]) => key),
-    TABS.map(([key]) => key));
+  const has = pageParts({sections: all, events: [{kind: 'Applied', at: '2026-10-01'}], match: {fit: 80, tier: 'Strong'}}).has;
+  assert.deepEqual(Object.keys(has).filter(key => has[key]).sort(), ['application', 'description', 'match', 'messages', 'overview', 'review', 'timeline']);
+});
+
+test('the old tab names land where their content lives now', () => {
+  assert.deepEqual(['kit', 'prep', 'record', 'history', 'review', 'nonsense', ''].map(tabKey),
+    ['application', 'application', 'application', 'timeline', 'review', 'overview', 'overview']);
 });
 
 // The search's facts (src/stores/matches_sync.py facts, the Job Matches columns), on every store: what a Notion user reads in those columns.
@@ -28,7 +36,7 @@ test('Match: the fit line and the job\'s facts, only those it has; none for a jo
     'Contract · Permanent', 'Work mode · Hybrid', 'Workload · 80-100%', 'On call · No', 'Visa sponsorship · Not offered', 'Languages · English, German (a plus)',
     'Technologies · Kubernetes; Terraform', 'Salary · CHF 140-160k', 'Posted by a recruiter']);
   assert.deepEqual(matchGroups({fit: 60, tier: '', languages: '', recruiter: false}).map(group => group.lines), [['🎯 60']], 'only what it has');
-  assert.deepEqual(pageParts({match: {fit: 70}}).tabs, [['match', 'Match']], 'a match nobody acted on still has its page');
+  assert.equal(pageParts({match: {fit: 70}}).has.match, true, 'a match nobody acted on still has its page');
 });
 
 test('the kit: from its JSON when it has one (copyable answers), else its text', () => {
@@ -60,13 +68,14 @@ test('Markdown to words: links, marks, escapes, toggles and to-dos', () => {
 
 test('screenshots belong with the messages: an image alone shows the Messages tab; other files stay out', () => {
   const parts = pageParts({files: [{name: 'chat.png', type: 'image/png', url: 'data:image/png;base64,AA'}, {name: 'cv.pdf', type: 'application/pdf', url: 'data:x'}]});
-  assert.deepEqual(parts.tabs, [['kit', 'Kit'], ['messages', 'Messages']], 'the PDF goes with the kit');
+  assert.equal(parts.has.messages, true);
+  assert.equal(parts.has.application, true, 'the PDF goes with the application');
   assert.deepEqual(parts.shots.map(shot => shot.name), ['chat.png']);
 });
 
 test('the job\'s other files (a tailored CV) are listed with the kit, even with no kit section', () => {
   const parts = pageParts({files: [{name: 'CV · Acme.pdf', type: 'application/pdf', url: 'data:application/pdf;base64,AA'}]});
-  assert.deepEqual(parts.tabs, [['kit', 'Kit']]);
+  assert.equal(parts.has.application, true);
   assert.deepEqual(parts.documents.map(file => file.name), ['CV · Acme.pdf']);
 });
 
@@ -75,10 +84,23 @@ test('the header: stage, applied date, place and fit', () => {
   assert.equal(headerFacts({stage: 'Saved'}), 'Saved');
 });
 
-test('the demo job has every tab, and its kit reads from the JSON', () => {
+test('the demo job has content for its tabs, and its kit reads from the JSON', () => {
   const page = demo['https://example.com/jobs/1'];
   const kit = JSON.parse(/```json\n([\s\S]*?)\n```/.exec(page.sections[SECTIONS.kit])[1]);
   const parts = pageParts({...page, kit});
-  assert.deepEqual(parts.tabs.map(([key]) => key), TABS.map(([key]) => key));
+  assert.deepEqual(Object.keys(parts.has).filter(key => parts.has[key]).sort(), ['application', 'description', 'match', 'messages', 'overview', 'review', 'timeline']);
   assert.equal(parts.kit.answers.length, 2);
+});
+
+test('the key facts as pairs, and the list row\'s fields win over the stored match', () => {
+  assert.deepEqual(factPairs({posted: '2026-10-03', salary: 'CHF 140k', recruiter: true}), [['Posted', shortDay('2026-10-03')], ['Salary', 'CHF 140k'], ['Posted by', 'a recruiter']]);
+  assert.deepEqual(factPairs(null), []);
+  assert.equal(matchView({url: 'u'}, {match: null}), null, 'never scored');
+  const view = matchView({fit: 90, reason: ''}, {match: {fit: 80, reason: 'Stored', fit_detail: {gaps: 'Go'}}});
+  assert.deepEqual([view.fit, view.reason, view.fit_detail.gaps], [90, 'Stored', 'Go']);
+});
+
+test('the drawer header\'s applied chip: only when it was applied', () => {
+  assert.equal(appliedLine({}, {applied_on: '2026-10-01'}), `applied ${shortDay('2026-10-01')}`);
+  assert.equal(appliedLine({stage: 'Saved'}), '');
 });

@@ -18,6 +18,6 @@ test('the kit chip, the rejection chip and "View rejection review" open the job 
 test('⌘K lists every tracked job\'s page; the panel and its markup exist', () => {
   assert.match(read('pages/nav.js'), /`Open job page: \$\{job\.title\} · \$\{job\.company\}`/);
   const html = read('index.html');
-  assert.match(html, /<div class="job-split" id="jobs-split">\s*<div class="job-list" id="jobs-body"><\/div>\s*<aside class="card job-panel" id="job-panel"/);
-  assert.match(read('pages/job-panel.js'), /page\.links && job\.notion_url/, '"Open in Notion" only with a store that has pages');
+  assert.match(html, /<div class="job-drawer-layer" id="job-drawer-layer" hidden>\s*<div class="job-drawer-backdrop" id="job-drawer-backdrop"><\/div>\s*<aside class="job-drawer" id="job-panel"/);
+  assert.match(read('pages/job-panel.js'), /page\?\.links && job\.notion_url/, '"Open in Notion" only with a store that has pages');
 });

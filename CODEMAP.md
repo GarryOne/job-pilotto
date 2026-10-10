@@ -236,7 +236,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/pages/interview-practice.js` — Interviews page, small parts: the supporting-moments dialog, the practice session, the loading skeleton rows and
 - `desktop/renderer/pages/interview-recorder.js` — Interviews page, recording: the macOS permission panel and the recorder (your microphone on the left channel, the
 - `desktop/renderer/pages/interviews.js` — Interviews page: record a call, then list, relink and review its transcript, notes and recording (saved in Notion).
-- `desktop/renderer/pages/job-panel.js` — Jobs → a job's page beside the list (owner's mockup, 9 Oct 2026): the title, "Applied 1 Oct · Zurich · 🎯 82", tabs for what the job
+- `desktop/renderer/pages/job-panel.js` — Jobs → a job's drawer (owner's boards, 10 Oct 2026): a right-side overlay over the unchanged list or board, between the title bar and the
 - `desktop/renderer/pages/jobs-board.js` — Jobs → Board: the applications in columns by Stage (the 🎯 Pipeline page's board in Notion), a card per job like the "In conversation"
 - `desktop/renderer/pages/jobs-fit.js` — Jobs page, match analysis: the panel a score ring opens (parts as bars, risk, strengths and gaps). Guarded by: npm run shot -- jobs (no unit test reads it).
 - `desktop/renderer/pages/jobs-lead.js` — Jobs page, Log a message: the recruiter-lead dialog (screenshots, confirm step, job picker) and wireLead(). Guarded by: test/lead-confirm.test.js.
@@ -303,6 +303,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/extension-looked.js` — The line under the extension's install steps: where the app looked for the browser profiles on this computer.
 - `desktop/renderer/filter.js` — The Jobs filter box: words match title, company and place; a pasted link matches the job's own link,
 - `desktop/renderer/find-bar.js` — ⌘F, find in the page (pages/find.js draws the bar and highlights the matches with the CSS Highlight API): the matching,
+- `desktop/renderer/fit-ring.js` — The score ring: a circle filled to the fit, the number inside (style.css .fit-ring). Drawn by the Jobs list rows and the job drawer's
 - `desktop/renderer/form-fills-view.js` — Form-fill history, without a window (pages/form-fills.js draws it): one agent run (src/stores/base.py AGENT_RUN_FIELDS + EXTRAS) as
 - `desktop/renderer/funnel-view.js` — Focus → the two funnel cards (Application funnel: jobs you went after; Inbound funnel: opportunities that found
 - `desktop/renderer/gallery.js` — The component gallery: every token and component, built with the same code the screens use.
@@ -316,7 +317,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/interview-review-view.js` — An interview's review in the app (Interviews → Open review), for a store with no page to open (the data on this Mac): the same content as
 - `desktop/renderer/interview-review.js` — An interview review's message as the parts the owner reads. src/ai/interviews.py writes it as:
 - `desktop/renderer/job-link.js` — Logged activity: the green box that links to the job a run created or updated ("Job created — <title>", Open job
-- `desktop/renderer/job-page-view.js` — A job's page in the app (Jobs → a row → the side panel): what the job's Notion page shows, read from the store, so it shows for
+- `desktop/renderer/job-page-view.js` — A job's page in the app (Jobs → a row → the right-side drawer): what the job's Notion page shows, read from the store, so it shows for
 - `desktop/renderer/jobs-board-rules.js` — Jobs → Board and the saved views, the rules without a window: the stage columns in funnel order, the Applications database's 10 views
 - `desktop/renderer/jobs-view.js` — The Jobs page's derived bits, kept free of the DOM so the tests can check them.
 - `desktop/renderer/kits-ready.js` — The "Prepare top matches" message as the card's parts. src/daily.py (--mode kits) writes it as:
@@ -334,6 +335,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/renderer/origin.js` — Outbound or inbound: did you go after this opportunity, or did it find you? The same reading as src/notion/origin.py,
 - `desktop/renderer/os.js` — The window's words are written for the Mac; on Windows these swaps name the PC's equivalents. Order matters: the
 - `desktop/renderer/outcome-tap.js` — The "How did it go?" choices on a job's menu: which outcomes make sense for the stage it is at (desktop/lib/outcomes.js writes them).
+- `desktop/renderer/overlay-slot.js` — The one overlay the app shows at a time: Recent activity and a job's drawer take turns, never stack (owner, 10 Oct 2026). Each registers
 - `desktop/renderer/palette.js` — ⌘K (Ctrl+K on Windows): a command palette. Type a few words ("check gmail", "record", "settings"), then
 - `desktop/renderer/practice-session.js` — Interviews → Insights → "Start practice session": rehearse the "Practice next" steps out loud, one at a time, with a
 - `desktop/renderer/prep-card.js` — The Focus card of an interview to prepare for: its meta line, its main button and its ⋯ entries, from the item

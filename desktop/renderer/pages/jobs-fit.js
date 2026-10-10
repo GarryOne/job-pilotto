@@ -23,16 +23,24 @@ function fitCard(tone, title, text) {
   card.append(el('b', 'fit-card-title', title), ul);
   return card;
 }
-export function fitDetail(job, close) {
+// close: the list's Collapse; full: "Open full details" (the drawer's Match tab). Either is left out where it has no meaning (the drawer's own Match tab).
+export function fitDetail(job, close = null, full = null) {
   const {parts = {}, strengths = '', gaps = ''} = job.fit_detail || {};
   const box = el('div', 'fit-detail');
   const head = el('div', 'fit-head');
   head.append(el('b', 'fit-title', 'Match analysis'));
   // The second way to close it, next to the ring (Collapse: the standard wording for one).
-  const collapse = Object.assign(el('button', 'fit-collapse', 'Collapse'), {type: 'button'});
-  collapse.append(icon('chevron'));
-  collapse.addEventListener('click', close);
-  head.append(collapse);
+  if (full) {
+    const open = Object.assign(el('button', 'link', 'Open full details'), {type: 'button'});
+    open.addEventListener('click', full);
+    head.append(open);
+  }
+  if (close) {
+    const collapse = Object.assign(el('button', 'fit-collapse', 'Collapse'), {type: 'button'});
+    collapse.append(icon('chevron'));
+    collapse.addEventListener('click', close);
+    head.append(collapse);
+  }
   const lead = el('div', 'fit-lead');
   lead.append(head);
   if (job.reason) lead.append(el('p', 'fit-summary', job.reason));

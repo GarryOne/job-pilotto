@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="components.css">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="job-drawer.css">
   <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
 </head>
 <body>
@@ -359,7 +360,6 @@
       <div class="board shows-scrollbar" id="jobs-board" hidden></div>
       <div class="job-split" id="jobs-split">
         <div class="job-list" id="jobs-body"></div>
-        <aside class="card job-panel" id="job-panel" aria-label="Job page" hidden></aside>
       </div>
       <div class="callout tone-warn" id="jobs-unscored" hidden><span id="jobs-unscored-text"></span> <button class="link" id="jobs-unscored-go" type="button">Check now</button></div>
       <p class="empty" id="jobs-empty" hidden>No jobs here yet. Click <button type="button" class="link" data-refresh-jobs><b>Refresh jobs</b></button>; the first refresh takes a few minutes.</p>
@@ -1483,6 +1483,11 @@
       </div>
     </div>
   </main>
+  <!-- A job's drawer (pages/job-panel.js): over the main column, between the title bar and the bottom bars; shares its slot with Recent activity. -->
+  <div class="job-drawer-layer" id="job-drawer-layer" hidden>
+    <div class="job-drawer-backdrop" id="job-drawer-backdrop"></div>
+    <aside class="job-drawer" id="job-panel" role="dialog" aria-label="Job details"></aside>
+  </div>
 
   <!-- Always visible: what's running now (your searches and scheduled ones), or the last and next search. -->
   <section class="sessions-dock" id="sessions-dock" hidden>
