@@ -9,7 +9,8 @@ import fs from 'node:fs';
 import {test} from 'node:test';
 import {chromium} from 'playwright-core';
 
-const PAGE_FILES = ['browser-submit-guard', 'browser-form-fastpath', 'snapshot', 'skeleton', 'controls', 'coverage', 'propose', 'upload', 'radios', 'menu-pick', 'fill-labels', 'fill-read', 'fill-menus', 'fill-checks', 'fill-marks', 'fill'];   // radios before fill, as extension/flow.js injects them
+// The page scripts are the extension's own list (extension/page-files.js), never a copy: a copy went stale when required-mark.js was added (10 Oct 2026, 19 tests red on main).
+import {PAGE_FILES} from '../../../extension/page-files.js';
 const file = (name, label) => ({data: Buffer.from(`%PDF ${label}`).toString('base64'), name, type: 'application/pdf'});
 const CV = {...file('cv.pdf', 'cv'), coverLetterFile: file('letter.pdf', 'letter')};
 const CV_ONLY = file('cv.pdf', 'cv');
@@ -54,7 +55,7 @@ const open = async (html, run) => {
   try {
     const page = await browser.newPage({locale: 'en-US'});
     await page.setContent(html);
-    for (const name of PAGE_FILES) await page.addScriptTag({content: fs.readFileSync(new URL(`../../../extension/page/${name}.js`, import.meta.url), 'utf8')});
+    for (const file of PAGE_FILES) await page.addScriptTag({content: fs.readFileSync(new URL(`../../../extension/${file}`, import.meta.url), 'utf8')});
     await run(page);
   } finally { await browser.close(); }
 };
@@ -153,7 +154,7 @@ test('the real Coop form takes the CV and the cover letter (JP_LIVE=1)', {skip: 
     await page.getByRole('link', {name: /Apply|Postuler/i}).first().click();
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(3000);
-    for (const name of PAGE_FILES) await page.addScriptTag({content: fs.readFileSync(new URL(`../../../extension/page/${name}.js`, import.meta.url), 'utf8')});
+    for (const file of PAGE_FILES) await page.addScriptTag({content: fs.readFileSync(new URL(`../../../extension/${file}`, import.meta.url), 'utf8')});
     const out = await fill(page, CV);
     assert.deepEqual(out.rowsBefore.map(row => [row.field, row.filled]), [['resume', false], ['cover_letter', false]]);
     assert.deepEqual(out.uploads.map(item => item.ok), [true, true]);

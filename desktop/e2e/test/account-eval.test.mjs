@@ -6,7 +6,7 @@ import {fixtureProblems, loadCases, runAll, runJudge, runKind, score} from '../l
 
 const cases = loadCases();
 const reply = answer => ({messages: {create: async () => ({stop_reason: 'end_turn', content: [{type: 'text', text: JSON.stringify(answer)}], usage: {input_tokens: 10, output_tokens: 10}})}});
-const rightKind = item => reply({kind: item.expect.kind, confidence: 0.9, apply_button: item.expect.apply_button || '', account_step: item.expect.account_step || '', register_control: item.expect.register_control || '', signin_control: item.expect.signin_control || '', account_button: item.expect.account_button || ''});
+const rightKind = item => reply({kind: item.expect.kind, confidence: 0.9, apply_button: item.expect.apply_button || '', apply_button_kind: item.expect.apply_button ? 'apply' : '', account_step: item.expect.account_step || '', register_control: item.expect.register_control || '', signin_control: item.expect.signin_control || '', account_button: item.expect.account_button || ''});
 const rightJudge = item => reply({answer: item.expect.answer || (item.expect.bot_check ? 'needs_person' : 'ready'), needs: item.expect.needs || '', needs_kind: item.expect.needs_kind || '', bot_check: !!item.expect.bot_check, confidence: 0.9});
 
 test('the fixture is consistent: known answers, named controls on their page, unique ids, every language shape has a strict case', async () => {

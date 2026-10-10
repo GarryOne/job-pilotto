@@ -7,7 +7,8 @@ import fs from 'node:fs';
 import {test} from 'node:test';
 import {chromium} from 'playwright-core';
 
-const PAGE_FILES = ['browser-submit-guard', 'browser-form-fastpath', 'snapshot', 'skeleton', 'controls', 'coverage', 'propose', 'upload', 'radios', 'menu-pick', 'fill-labels', 'fill-read', 'fill-menus', 'fill-checks', 'fill-marks', 'fill'];
+// The page scripts are the extension's own list (extension/page-files.js), never a copy: a copy went stale when required-mark.js was added (10 Oct 2026, 19 tests red on main).
+import {PAGE_FILES} from '../../../extension/page-files.js';
 const FORM = `<body><form>
   <div><label for="first">* Prénom</label><input id="first" required></div>
   <div><label for="last">Nom *</label><input id="last" required></div>
@@ -19,7 +20,7 @@ test('a field asked for by its label is found with the required star before or a
   try {
     const page = await browser.newPage({locale: 'fr-CH'});
     await page.setContent(FORM);
-    for (const name of PAGE_FILES) await page.addScriptTag({content: fs.readFileSync(new URL(`../../../extension/page/${name}.js`, import.meta.url), 'utf8')});
+    for (const file of PAGE_FILES) await page.addScriptTag({content: fs.readFileSync(new URL(`../../../extension/${file}`, import.meta.url), 'utf8')});
     const one = (label, value) => page.evaluate(([l, v]) => window.__jobPilottoFillOne(l, v), [label, value]);
     const leading = await one('Prénom', 'Ada'), trailing = await one('Nom', 'Tester'), menu = await one('Titre de civilité', 'M.');
     const values = await page.evaluate(() => ({first: document.getElementById('first').value, last: document.getElementById('last').value, title: document.getElementById('title').selectedOptions[0]?.text}));

@@ -8,7 +8,8 @@ import fs from 'node:fs';
 import {test} from 'node:test';
 import {chromium} from 'playwright-core';
 
-const PAGE_FILES = ['browser-submit-guard', 'browser-form-fastpath', 'snapshot', 'skeleton', 'controls', 'coverage', 'propose', 'upload', 'radios', 'menu-pick', 'fill-labels', 'fill-read', 'fill-menus', 'fill-checks', 'fill-marks', 'fill'];
+// The page scripts are the extension's own list (extension/page-files.js), never a copy: a copy went stale when required-mark.js was added (10 Oct 2026, 19 tests red on main).
+import {PAGE_FILES} from '../../../extension/page-files.js';
 // A combobox input that opens a list on mousedown; `accept` decides which option clicks select: 'trusted' (SuccessFactors-like), 'any', or 'none'.
 const MENU = accept => `<body><form><div class="field"><label for="pays">* Pays de résidence</label>
   <input id="pays" role="combobox" aria-expanded="false" readonly value="Aucune sélection" style="width:240px">
@@ -28,7 +29,7 @@ async function pick(accept) {
   try {
     const page = await browser.newPage();
     await page.setContent(MENU(accept));
-    for (const name of PAGE_FILES) await page.addScriptTag({content: fs.readFileSync(new URL(`../../../extension/page/${name}.js`, import.meta.url), 'utf8')});
+    for (const file of PAGE_FILES) await page.addScriptTag({content: fs.readFileSync(new URL(`../../../extension/${file}`, import.meta.url), 'utf8')});
     await page.evaluate(() => window.__jobPilottoExtensionFill([{field: 'pays', value: 'Suisse'}], {}, null, '', false));
     const armedBefore = await page.evaluate(() => window.__jobPilottoArmedCount());
     const spot = await page.evaluate(() => window.__jobPilottoNextCombo(0));
