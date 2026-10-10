@@ -234,6 +234,8 @@ jobs:
       # no Cloudflare workers"): the Python pipeline the app bundles (`tools/check.sh --area python`) and the app's own tests (`--area desktop`: lint + node tests), side by side
       # so the step takes the longer one. The site and the Worker are tested by CI · Tests on every push and deployed by their own pipelines (site.yml, worker.yml).
       - name: Unit tests · desktop app (Python pipeline and app, side by side)
+        env:
+          PYTHONUTF8: '1'   # as the app runs its own engine (lib/pipeline-env.js): files in UTF-8 on Windows too, whose default is the ANSI code page (the tests read UTF-8 files)
         run: |
           pids=""
           for area in python desktop; do bash tools/check.sh --area "$area" > "unit-$area.log" 2>&1 & pids="$pids $area:$!"; done
@@ -329,6 +331,8 @@ jobs:
       - name: Install · time-zone data for the Python tests
         run: python -m pip install tzdata
       - name: Unit tests · desktop app (Python pipeline and app, side by side)
+        env:
+          PYTHONUTF8: '1'   # as the app runs its own engine (lib/pipeline-env.js): files in UTF-8 on Windows too, whose default is the ANSI code page (the tests read UTF-8 files)
         run: |
           pids=""
           for area in python desktop; do bash tools/check.sh --area "$area" > "unit-$area.log" 2>&1 & pids="$pids $area:$!"; done
