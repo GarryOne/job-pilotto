@@ -283,7 +283,7 @@ Why: in 8 days `extension/background.js` took 48 commits and `fill-flow.js` 29, 
   1. journey scenarios (`desktop/test/journeys.test.js`, every flow push); 2. **recorded pages** (`desktop/e2e/recorded/<shape>-<n>/`, `npm run recorded` in
   `desktop/e2e`, replayed by the journey gate when the extension changes): a fixed site's pages, captured from the twin with
   `npm run twin:drive -- capture <tab> <case> <page> <your worktree>/desktop/e2e/recorded` (scrubbed; `desktop/test/recorded-privacy.test.js` keeps personal data
-  out of this public repo), named by shape, seen failing on the old build (`REAL_EXTENSION_DIR`); 3. the nightly live smoke; 4. per-board drops in the digest
+  out of this public repo), named by shape, seen failing on the old build (`REAL_EXTENSION_DIR`); 3. the live smoke pool (run by hand only, owner 11 Oct 2026); 4. per-board drops in the digest
   (`/admin/form-filling/digest.json`, `boards[].dropped`). **A push changing how the extension acts on pages must add a recorded page or a scenario**
   (`tools/recorded-cases.mjs`, push hook). A field replay (`worker/test/fixtures/fill/`) is a second layer, never the proof: it does not reach the Fixed-site replays list. The recorded page must **fail on
   the build before the fix** (`REAL_EXTENSION_DIR=<old extension/>`, name the failing check in the commit) and its stubbed AI answers only what the extension asked (an answer to an unasked question hides

@@ -1,6 +1,6 @@
 ---
 name: run-applying-smoke-pool
-description: Run, grow and coordinate the pool of real sites the applying flow is tested on (layer 3 of the applying reliability spec): the nightly smoke, discovery of new flow shapes, the report on /admin/applying, the e2e page that sessions share, and the hand-off of failing shapes to fix-failing-forms. Use when the owner says "run the smoke pool", "/run-applying-smoke-pool", "grow the pool", "run discovery", or when taking over the applying test pool from another session.
+description: Run, grow and coordinate the pool of real sites the applying flow is tested on (layer 3 of the applying reliability spec): the hand-started smoke, discovery of new flow shapes, the report on /admin/applying, the e2e page that sessions share, and the hand-off of failing shapes to fix-failing-forms. Use when the owner says "run the smoke pool", "/run-applying-smoke-pool", "grow the pool", "run discovery", or when taking over the applying test pool from another session.
 ---
 
 # Run the applying smoke pool
@@ -15,7 +15,7 @@ Whoever owns the pool and the e2e page writes its own session name into `~/Libra
 
 ## What exists
 - **Runner** `desktop/e2e/smoke.mjs` (`cd desktop/e2e && npm run smoke`), logic in `lib/smoke.mjs` (rotation `tonight`, `parseLive`, `signature`, `compare`,
-  `NEVER_VISIT`), upload in `lib/applying-report.mjs`. It never schedules itself: the nightly schedule (launchd vs by hand) is the owner's choice, ask once.
+  `NEVER_VISIT`), upload in `lib/applying-report.mjs`. It never schedules itself: there is no schedule: the owner decided (11 Oct 2026) that the pool runs BY HAND only, ask once.
 - **The pool, two lists, merged:** public `desktop/e2e/smoke-sites.json` (postings from PUBLIC job feeds only) and this Mac's
   `~/Library/Application Support/Job Pilotto QA/smoke-sites.json` (postings copied from the owner's profiles; outside the repo AND outside the app folder, because a
   profile reset wiped the app folder once). **Never commit a posting taken from a profile to the public repo** (stopped once before a push).
@@ -64,7 +64,7 @@ Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is not
    give every one its own worktree and scratch folder (global rule "Several agents at once"), and the flow core goes to one session at a time (claim message).
    A shape that needs the owner's accounts or Gmail goes to `/fix-live-applying-in-twin`.
    **Landed fixes come back to you:** a fixer hands you "landed <hash>, extension <version>, run <shape>". Update the runner to that build, run just that shape (held, Monitor), upload it, and send the fixer the step
-   reached, the page-kind lines and the app.log path. A row clears on `/admin/applying` only through such an uploaded run (or the nightly one); a recorded page passing does not clear it.
+   reached, the page-kind lines and the app.log path. A row clears on `/admin/applying` only through such an uploaded run (there is no nightly run: the owner runs it by hand only); a recorded page passing does not clear it.
 5. **Grow the pool** (when asked or after a profile change): `--discover`; read what it added to the Mac's list and why (the new signature). Never add a posting address to the public file unless it is from a public feed.
 6. **Report to the owner:** counts (run, reached form / posting / bot, regressions, new shapes), what moved since the last report, what was handed to whom. Say "done" to the peers.
 
@@ -85,7 +85,7 @@ Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is not
 
 ## Open threads to carry (10 Oct 2026; drop each when closed)
 - Discovery is serial (~90 s a candidate, ~45 min per 30) because every run shares one e2e app and Notion test page. A `--workers` option (own port and profile per worker) is not built; the owner asked about it, the pool owner will brief it.
-- Ask the owner: the nightly schedule (launchd or by hand); a `prestart` that prints npm's error on failure; renaming the Jobs "Closed" counter; multi-step AI answers for account recorded cases.
+- Ask the owner: a `prestart` that prints npm's error on failure; renaming the Jobs "Closed" counter; multi-step AI answers for account recorded cases.
 - Chanel's Workday dialog has a fourth option, "Autofill with Resume", with no route in the page-kind answers (`desktop/lib/page-kind.js` `ROUTES`); the run still reached the form. Decide with the owner whether it needs a route.
 
 ## Traps found while building the pool (each cost time)
