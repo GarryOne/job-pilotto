@@ -129,8 +129,10 @@ th{text-align:left;color:var(--muted);font-weight:500;font-size:12px;white-space
 th.sortable{cursor:pointer;user-select:none}th.sortable:hover,th.sortable.on{color:var(--text)}.dots{white-space:nowrap}.dots i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px}
 .filters{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;margin:10px 0 12px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;font-size:13px}.pick{display:flex;flex-direction:column;gap:4px;min-width:200px}.pick b{line-height:34px;font-weight:600}.pick>span{font-size:11px;text-transform:uppercase;letter-spacing:.04em}.pick select{background:var(--bg,var(--card));color:var(--text);border:1px solid var(--line);border-radius:8px;padding:0 10px;height:34px;box-sizing:border-box;font:inherit;font-size:13px;max-width:100%}.filters .count,.filters .pager{align-self:flex-end;box-sizing:border-box;height:34px;display:flex;align-items:center}.filters .count{padding-left:4px}.filters .pager{margin:0 0 0 auto;justify-content:flex-end}.chip{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:3px 11px;font:inherit;font-size:12px;cursor:pointer}.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;font-size:13px}.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes spin{to{transform:rotate(360deg)}}.chip:disabled{opacity:.4;cursor:default}.chip.on{border-color:var(--amber);color:var(--amber)}
 .legend{margin:18px 0 0}.legend h3{margin:0 0 6px}.ladder{margin:10px 0 0;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}.ladder summary{cursor:pointer;font-weight:600}.ladder table{margin-top:8px}
-.flag{color:var(--red);font-weight:600}.muted{color:var(--muted)}.bars{display:flex;gap:6px;align-items:flex-end;height:110px;margin-top:8px}
-.bar{display:flex;flex-direction:column-reverse;width:26px}.bar i{display:block}.bar small{color:var(--muted);font-size:10px;text-align:center}
+.flag{color:var(--red);font-weight:600}.muted{color:var(--muted)}
+.nights{margin-top:24px;padding-top:18px}.nights .key{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.night{display:grid;grid-template-columns:48px minmax(0,1fr) 240px;gap:12px;align-items:center;margin:6px 0}
+.nightbar{display:flex;gap:2px;height:28px;border-radius:7px;overflow:hidden}.nightbar i{display:flex;align-items:center;justify-content:center;min-width:0;font-style:normal;font-size:12px;font-weight:600;color:#0b0d10;overflow:hidden}
+@media (max-width:640px){.night{grid-template-columns:44px minmax(0,1fr)}.night>span{grid-column:2}}
 </style></head><body><main>
 <header><h1>🛡️ Applying tests</h1></header>
 <p class="muted">Is applying reliable? <b>Fixed-site replays</b>: every site we fixed, replayed offline with the real extension in the e2e run (every e2e run, and a push touching the extension). <b>Nightly smoke</b>: real postings,
@@ -154,6 +156,18 @@ fetch('?json').then(r => r.json()).then(d => {
     tile(t.reachedForm == null ? '–' : t.reachedForm + '%', 'sites that reached the form', t.reachedForm >= 70 ? 'good' : ''),
     tile(t.regressions, 'regressions open' + (t.gone ? ' · ' + t.gone + ' posting(s) gone' : ''), t.regressions ? 'bad' : 'good'),
     tile(t.dropped, 'boards dropped in the fleet (layer 4)', t.dropped ? 'bad' : 'good')));
+  // Nights · where each site got to (owner, 10 Oct 2026: more readable, at the top): one bar per night, newest first, every site of that night split by the step it reached
+  // (the segment's width is its share, its number the count), then how many sites ran and the share that reached the form.
+  if (d.nights.length) {
+    const rows = d.nights.slice(-14).reverse().map(night => { const total = d.steps.reduce((sum, step) => sum + night.counts[step], 0), form = night.counts.form + night.counts.ready;
+      return el('div', {className: 'night'}, el('b', {textContent: night.day.slice(5)}),
+        el('div', {className: 'nightbar'}, ...d.steps.filter(step => night.counts[step]).map(step => { const count = night.counts[step];
+          return el('i', {className: 's-' + step, title: step + ': ' + count + ' of ' + total, style: 'flex:' + count + ' 1 0', textContent: count}); })),
+        el('span', {className: 'muted', textContent: total + (total === 1 ? ' site' : ' sites') + ' · ' + (total ? Math.round(100 * form / total) : 0) + '% reached the form'})); });
+    app.append(el('section', {className: 'nights'}, el('h2', {textContent: 'Nights · where each site got to'}),
+      el('p', {className: 'muted', textContent: 'Each bar is the sites of one night, split by the step they reached (the colors are explained under the pool table); the last 14 nights, the latest first.'}),
+      el('div', {className: 'key'}, ...d.steps.map(step => pill(step))), ...rows));
+  }
   // The AI ladder (owner, 10 Oct 2026): where each decision of a page is made, cheapest first; collapsed by default.
   const RUNGS = [[0, 'Structure rule, no AI', 'free', 'extension/tab-pages.js pageRole'], [1, 'Kept answer per page shape', 'free', 'page-kinds.json, kept by desktop/lib/server-pages.js'], [2, 'Text sketch to the small model', 'about 600 tokens', 'desktop/lib/page-kind.js'],
     [3, 'Numbered digest to a small or middle model', 'about 1,500 to 2,500 tokens', 'not built yet'], [4, 'Screenshot plus sketch to the strongest model, one action', 'about 1.5k tokens plus the sketch, capped', 'desktop/lib/escalate.js'],
@@ -250,10 +264,5 @@ fetch('?json').then(r => r.json()).then(d => {
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
   // Fetch again every 15 s while the tab is visible and redraw the pool, so the spinner and the times follow a run without a reload.
   setInterval(() => { if (!document.hidden) fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; d.scorecard = fresh.scorecard; draw(); drawNext(); drawScore(); }).catch(() => {}); }, 15000);
-  if (d.nights.length) {
-    const most = Math.max(...d.nights.map(n => Object.values(n.counts).reduce((a, b) => a + b, 0)));
-    app.append(el('section', {}, el('h2', {textContent: 'Nights · where each site got to'}), el('div', {className: 'bars'}, ...d.nights.map(n => el('div', {className: 'bar', title: n.day},
-      el('small', {textContent: n.day.slice(5)}), ...d.steps.filter(step => n.counts[step]).map(step => el('i', {title: step + ': ' + n.counts[step], style: 'height:' + Math.round(90 * n.counts[step] / most) + 'px;background:' + color(step)})))))));
-  }
 }).catch(error => { document.getElementById('app').textContent = 'Could not load: ' + error.message; });
 </script></main></body></html>`;

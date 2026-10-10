@@ -119,6 +119,17 @@ test('the colors legend is the foot of the pool table, not a section of its own'
   assert.ok(PAGE.indexOf('The AI ladder') < PAGE.indexOf('What the colors mean'));
 });
 
+test('the Nights chart sits right under the tiles: one row per night, newest first, a labelled segment per step, a key and a reached-the-form share', () => {
+  const nights = PAGE.slice(PAGE.indexOf('Nights · where each site got to'));
+  assert.ok(PAGE.indexOf('Nights · where each site got to') < PAGE.indexOf('The pool · every smoke site'), 'the chart is at the top');
+  assert.ok(PAGE.indexOf("className: 'tiles'") < PAGE.indexOf('Nights · where each site got to'));
+  assert.doesNotMatch(PAGE, /className: 'bars'/);   // the old thin vertical bars are gone
+  assert.match(nights, /\.slice\(-14\)\.reverse\(\)/);   // the last 14 nights, newest first
+  assert.match(nights, /textContent: count/);   // the count is written in its segment
+  assert.match(nights, /reached the form/);
+  assert.match(nights, /pill\(step\)/);   // a key of the steps
+});
+
 test('the page explains its colors: a legend row for every step the page draws', () => {
   assert.match(PAGE, /What the colors mean/);
   for (const step of ['none', 'posting', 'account', 'code/bot', 'form', 'ready']) assert.ok(PAGE.includes(step === 'code/bot' ? "'code/bot': '" : step + ': '), step + ' has no meaning in the legend');
