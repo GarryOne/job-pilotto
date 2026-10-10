@@ -50,3 +50,16 @@ test('a menu on the page\'s own preselected choice is asked before the fill and 
   assert.deepEqual(rows.Langue, ['filled', ''], 'one we set is a plain answer');
   window.close();
 });
+
+// #331: a value of 0 on a real option after the first is an answer ("Number of children" 0), only a first option reads as a placeholder.
+test('a menu answered with a real option whose value is 0 counts as chosen', { skip: !JSDOM }, () => {
+  const window = openPage(JSDOM, `<form>
+    <label for="kids">Number of children*</label><select id="kids"><option value="">Choose</option><option value="0">Zero</option><option value="1">One</option></select>
+    <label for="sel">Pick</label><select id="sel"><option value="-1">Select…</option><option value="1">One</option></select>
+  </form>`, { url: 'https://example.test/form' });
+  const kids = window.document.getElementById('kids'), sel = window.document.getElementById('sel');
+  kids.selectedIndex = 1;
+  assert.equal(window.__jobPilottoChosen(kids), true);
+  assert.equal(window.__jobPilottoChosen(sel), false, 'a placeholder first option is still empty');
+  window.close();
+});

@@ -93,11 +93,11 @@
     return {field: 'resume', label: 'Resume/CV', type: 'file', required: /\*/.test(heading.textContent || '') || starred(box),
       legal: false, filled: named || !!fileInput?.files?.length};
   };
-  // A menu holds an answer when its selected option is a real choice: text, not disabled or hidden, a value that is not empty or a placeholder
-  // sentinel (0, -1). By structure only. Not "any index but the first": a menu with no blank first option (easytemp, 9 Oct 2026) starts on a real
+  // A menu holds an answer when its selected option is a real choice: text, not disabled or hidden, a value that is not, on the first option, empty or a
+  // placeholder sentinel (0, -1): further down 0 is an answer ("Number of children" 0, a Yes/No menu where No=0; #331). By structure only. Not "any index but the first": a menu with no blank first option (easytemp, 9 Oct 2026) starts on a real
   // choice, and "Monsieur" set there read as empty ("empty again at the end of the fill"). One rule for the audit, coverage.js, fill-read.js
   // (the end of a fill) and the panel (extension/review.js, its own copy; test worker/test/select-chosen.test.js keeps them equal).
-  window.__jobPilottoChosen = el => (o => !!o && !o.disabled && !o.hidden && !!o.text.trim() && !/^(|0|-1)$/.test(o.value))(el.options[el.selectedIndex]);
+  window.__jobPilottoChosen = el => (o => !!o && !o.disabled && !o.hidden && !!o.text.trim() && !(o.index === 0 && /^(|0|-1)$/.test(o.value)))(el.options[el.selectedIndex]);
   // A menu still on the page's own initial choice (the option its HTML marks selected, else the first): a page default nobody answered.
   // easytemp (9 Oct 2026) preselects Nationalité "Suisse" and Langue maternelle "Suisse-allemand": read as answered, never asked, wrong for the person.
   window.__jobPilottoAtPageDefault = el => { const first = [...el.options].findIndex(option => option.defaultSelected); return el.selectedIndex === (first >= 0 ? first : 0); };
