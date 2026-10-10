@@ -167,18 +167,25 @@ fetch('?json').then(r => r.json()).then(d => {
     if (pages > 1) { const go = step => () => { chosen.page += step; draw(); };
       pager.append(el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: chosen.page === 0, onclick: go(-1)}),
         el('button', {className: 'chip', type: 'button', textContent: 'Next →', disabled: chosen.page >= pages - 1, onclick: go(1)})); } };
-  // Next sites to add: the hosts real applications ended on that the pool lacks, each used by >= 3 installs (src/nextsites.js). Top 5, the rest on request.
+  // Next sites to add: first the platforms most matched jobs are on that the pool covers too little (from any number of installs), then the hosts real applications ended on
+  // that the pool lacks, each used by >= 3 installs (src/nextsites.js). Top 5 of each, the rest on request.
   let allNext = false; const nextBox = el('div');
-  const drawNext = () => { nextBox.textContent = ''; const list = d.next.sites, shown = allNext ? list : list.slice(0, 5);
-    nextBox.append(...[list.length ? el('table', {},
-      el('tr', {}, ...['Site', 'Platform', 'Used by', 'Applications', 'Filled, nothing left', 'Countries'].map(h => el('th', {textContent: h}))),
-      ...shown.map(s => el('tr', {}, el('td', {textContent: s.host}),
-        el('td', {textContent: s.platform + (s.poolSites ? ' · ' + s.poolSites + ' in the pool' : s.platform === 'Custom' ? '' : ' · none in the pool')}),
-        el('td', {textContent: s.installs + ' installs'}), el('td', {textContent: s.uses}), el('td', {textContent: s.readyShare + '%'}),
-        el('td', {className: 'muted', textContent: s.countries.map(c => c.country + ' ' + c.installs).join(', ')})))) : el('p', {className: 'muted', textContent: 'Nothing yet: a site shows here once 3 installs have applied on it and the pool lacks it.'}),
-      list.length > 5 ? el('p', {}, el('button', {className: 'chip', type: 'button', textContent: allNext ? 'Show top 5' : 'Show all ' + list.length, onclick: () => { allNext = !allNext; drawNext(); }})) : null].filter(Boolean)); };   // append() writes a null as the text "null"
+  const more = (list, redraw) => (list.length > 5 ? el('p', {}, el('button', {className: 'chip', type: 'button', textContent: allNext ? 'Show top 5' : 'Show all ' + list.length, onclick: () => { allNext = !allNext; redraw(); }})) : null);
+  const drawNext = () => { nextBox.textContent = ''; const platforms = d.next.platforms || [], list = d.next.sites, pick5 = rows => (allNext ? rows : rows.slice(0, 5));
+    nextBox.append(...[el('h3', {textContent: 'Platforms'}),
+      platforms.length ? el('table', {}, el('tr', {}, ...['Platform', 'Of matched jobs', 'Of the pool', 'Pool sites', 'Installs', 'Applications'].map(h => el('th', {textContent: h}))),
+        ...pick5(platforms).map(s => el('tr', {}, el('td', {textContent: s.platform}), el('td', {textContent: s.matchShare + '%'}), el('td', {textContent: s.poolShare + '%'}),
+          el('td', {textContent: s.poolSites || 'none'}), el('td', {textContent: s.installs}), el('td', {textContent: s.applications || '–'})))) : el('p', {className: 'muted', textContent: 'Nothing under-covered: no platform has more of the matched jobs than of the pool.'}),
+      more(platforms, drawNext),
+      el('h3', {textContent: 'Sites'}),
+      list.length ? el('table', {}, el('tr', {}, ...['Site', 'Platform', 'Used by', 'Applications', 'Filled, nothing left', 'Countries'].map(h => el('th', {textContent: h}))),
+        ...pick5(list).map(s => el('tr', {}, el('td', {textContent: s.host}),
+          el('td', {textContent: s.platform + (s.poolSites ? ' · ' + s.poolSites + ' in the pool' : s.platform === 'Custom' ? '' : ' · none in the pool')}),
+          el('td', {textContent: s.installs + ' installs'}), el('td', {textContent: s.uses}), el('td', {textContent: s.readyShare + '%'}),
+          el('td', {className: 'muted', textContent: s.countries.map(c => c.country + ' ' + c.installs).join(', ')})))) : el('p', {className: 'muted', textContent: 'Nothing yet: a site shows here once 3 installs have applied on it and the pool lacks it.'}),
+      more(list, drawNext)].filter(Boolean)); };   // append() writes a null as the text "null"
   app.append(el('section', {}, el('h2', {textContent: 'Next sites to add · where people apply, not in the pool'}),
-    el('p', {className: 'muted', textContent: 'The site each application ended on, counted per install. A site is listed only once 3 different installs used it' + (d.next.hidden.hosts ? ' (' + d.next.hidden.hosts + ' more are below that and stay hidden)' : '') + '. Country = where those installs search; under 3 installs it is "other". Never a posting or an address.'}), nextBox)); drawNext();
+    el('p', {className: 'muted', textContent: 'Platforms: the share of matched jobs on each platform against its share of the pool, from any number of installs (a platform is a name from a fixed list). Sites: the site each application ended on, listed only once 3 different installs used it' + (d.next.hidden.hosts ? ' (' + d.next.hidden.hosts + ' more are below that and stay hidden)' : '') + '; under 3 installs a country is "other". Never a posting or an address.'}), nextBox)); drawNext();
   app.append(el('section', {}, el('h2', {textContent: 'Fixed-site replays · every fixed site, replayed'}), d.cases.length ? el('table', {},
     el('tr', {}, ...['Case', 'Result', 'Last 10 runs', 'Last run', 'Since'].map(h => el('th', {textContent: h}))),
     ...d.cases.map(c => el('tr', {}, el('td', {textContent: c.name}), el('td', {}, c.ok ? el('span', {className: 'pill s-ready', textContent: 'passed'}) : el('span', {className: 'pill s-posting', textContent: 'failed'}),

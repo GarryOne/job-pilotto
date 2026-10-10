@@ -60,7 +60,36 @@ test('the page draws the section with no stray text, with and without suggestion
     return app.text();
   };
   assert.ok(!/null/.test(await run({sites: [], hidden: {hosts: 0}})), 'no "null" with an empty list');
+  const withPlatforms = await run({platforms: [{platform: 'Workday', matchShare: 82, poolShare: 0, poolSites: 0, installs: 1, applications: 0}], sites: [], hidden: {hosts: 0}});
+  assert.ok(withPlatforms.includes('Workday') && withPlatforms.includes('82%') && !/null/.test(withPlatforms), 'a platform from one install is listed');
   const text = await run({sites: Array.from({length: 7}, (_, i) => ({host: `h${i}.acme.md`, platform: 'Custom', poolSites: 0, installs: 3, uses: 3, readyShare: 50, countries: []})), hidden: {hosts: 0}});
   assert.ok(text.indexOf('Next sites to add') >= 0 && text.indexOf('Next sites to add') < text.indexOf('Fixed-site replays'), 'the list is the first section, above the replays');
   assert.ok(!/null/.test(text) && text.includes('h0.acme.md') && !text.includes('h5.acme.md') && text.includes('Show all 7'), 'top 5 and the button');
+});
+
+// The owner (10 Oct 2026): the list must not rely only on installs: if most matched jobs are on Workday and the pool has no Workday site, that comes first, even from one install.
+const feed = (env, install, ats, hits, slug = ats) => env.db.exec(`INSERT INTO contributions (install, day, ats, slug, company, matched, own, roles, regions, hits) VALUES ('${install}', '2026-10-09', '${ats}', '${slug}', 'c', 1, 0, '', '', ${hits})`);
+
+test('a platform most matched jobs are on and the pool lacks comes first, from one install; a platform the pool already over-covers is not listed', async () => {
+  const env = d1();
+  feed(env, 'i1', 'workday', 80, 'a'); feed(env, 'i1', 'workday', 40, 'b');   // one install, 120 of 150 matched jobs
+  feed(env, 'i2', 'greenhouse', 20, 'c'); feed(env, 'i3', 'greenhouse', 6, 'd');
+  feed(env, 'i2', 'careers', 500, 'own');   // an employer's own site, not a platform: ignored
+  env.db.exec("INSERT INTO fill_cards (id, day, board, version) VALUES ('f1', '2026-10-09', 'greenhouse', 'v'), ('f2', '2026-10-09', 'greenhouse', 'v'), ('f3', '2026-10-09', 'h:0123456789', 'v')");
+  const pool = [{name: 'g1', start: 'boards.greenhouse.io', end: '', platform: 'Greenhouse'}, {name: 'g2', start: 'x.greenhouse.io', end: '', platform: 'Greenhouse'}, {name: 'c1', start: 'a.ch', end: '', platform: 'Custom'}];
+  const {platforms} = await nextToAdd(env, pool, now);
+  assert.deepEqual(platforms.map(item => [item.platform, item.poolSites, item.matchShare, item.installs]), [['Workday', 0, 82, 1]]);
+  assert.equal(platforms[0].poolShare, 0);
+  assert.ok(!JSON.stringify(platforms).includes('careers') && !/"i\d"/.test(JSON.stringify(platforms)), 'no own-site system, no install id');
+  env.db.exec("DELETE FROM contributions WHERE ats = 'workday'");
+  const without = await nextToAdd(env, pool, now);
+  assert.deepEqual(without.platforms.map(item => [item.platform, item.matchShare, item.poolShare]), [['Greenhouse', 100, 67]], 'alone, greenhouse is still 100% of the matches against 67% of the pool');
+});
+
+test('applications on a known board count beside the matched jobs', async () => {
+  const env = d1();
+  feed(env, 'i1', 'ashby', 10);
+  env.db.exec("INSERT INTO fill_cards (id, day, board, version) VALUES ('f1', '2026-10-09', 'ashby', 'v'), ('f2', '2026-10-09', 'ashby', 'v')");
+  const {platforms} = await nextToAdd(env, [], now);
+  assert.deepEqual(platforms.map(item => [item.platform, item.applications]), [['Ashby', 2]]);
 });
