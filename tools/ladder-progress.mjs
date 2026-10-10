@@ -1,4 +1,4 @@
-// The AI ladder's progress report: reads the checklist at the end of docs/superpowers/specs/2026-10-10-ai-ladder.md ("## Progress", one "### X. title" per item,
+// A checklist's progress report (any spec; the AI ladder's by default): reads the checklist at the end of docs/superpowers/specs/2026-10-10-ai-ladder.md ("## Progress", one "### X. title" per item,
 // "- [x]" done, "- [ ] " open) and prints one ASCII bar per item plus the whole. Nothing is estimated: a bar is boxes ticked over boxes. Guard: desktop/test/ladder-progress.test.js.
 //   node tools/ladder-progress.mjs [--spec <file>]
 import fs from 'node:fs';
@@ -28,16 +28,17 @@ export const bar = (done, total, width = WIDTH) => {
   return `[${'█'.repeat(filled)}${'░'.repeat(width - filled)}]`;
 };
 
-export function report(items) {
+export function report(items, title = 'all items') {
   const lines = items.map(({title, done, total}) => `${bar(done, total)} ${String(Math.round((done / total) * 100)).padStart(3)}%  ${done}/${total}  ${title}`);
   const done = items.reduce((sum, item) => sum + item.done, 0), total = items.reduce((sum, item) => sum + item.total, 0);
-  return [...lines, '', `${bar(done, total)} ${String(total ? Math.round((done / total) * 100) : 0).padStart(3)}%  ${done}/${total}  THE LADDER (all items)`].join('\n');
+  return [...lines, '', `${bar(done, total)} ${String(total ? Math.round((done / total) * 100) : 0).padStart(3)}%  ${done}/${total}  ${title.toUpperCase()}`].join('\n');
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
   const at = process.argv.indexOf('--spec');
   const file = at > 0 ? path.resolve(process.argv[at + 1]) : SPEC;
-  console.log(report(progressOf(fs.readFileSync(file, 'utf8'))));
+  const markdown = fs.readFileSync(file, 'utf8'), title = (markdown.match(/^# (.+)/m)?.[1] || 'all items').split(':')[0].trim();   // the total is named after the spec
+  console.log(report(progressOf(markdown), title));
   try {
     const log = execFileSync('git', ['log', '--since=12 hours ago', '--format=%h %ar  %s', '-5'], {cwd: path.dirname(file), encoding: 'utf8'}).trim();
     if (log) console.log(`\nlast commits:\n${log}`);

@@ -1,14 +1,14 @@
 ---
-name: report-ladder-progress
-description: Report where the AI ladder work stands, with one ASCII progress bar per item and one for the whole, read from the checklist in docs/superpowers/specs/2026-10-10-ai-ladder.md. Use after every commit or small step of the ladder work, at least every ~5 minutes while it runs, and whenever the owner asks "where do we stand" or says "/report-ladder-progress".
+name: report-progress
+description: Report where any checklisted work stands (the AI ladder, the faster-fixes post-mortem actions, any spec with a "## Progress" checklist), with one ASCII progress bar per item and one for the whole, read from the spec's ticked boxes. Use after every commit or small step of such work, at least every ~5 minutes while it runs, and whenever the owner asks "where do we stand", "progress?", "give me a progress bar" or says "/report-progress". To track new work this way, write its spec with a "## Progress" section first.
 ---
 
-# Report the ladder's progress: bars from ticked boxes, never from feelings
+# Report progress: bars from ticked boxes, never from feelings
 
 The owner (10 Oct 2026): "report me back where we stand with the ladder and its gaps, with a nice ASCII progress bar for each item, to see how fast I'm progressing."
 
 ## The report (run it, paste it, add three lines)
-1. `node tools/ladder-progress.mjs` (in the ladder's worktree). A bar is boxes ticked over boxes in the spec's `## Progress` list; nothing is estimated.
+1. `node tools/ladder-progress.mjs --spec <the spec>` (default: the AI ladder, `docs/superpowers/specs/2026-10-10-ai-ladder.md`; the post-mortem actions: `docs/superpowers/specs/2026-10-11-faster-fixes.md`). New work: write its spec with `## Progress`, one `### N. item` per item, `- [ ]` boxes, a box ticked only with its landed hash. A bar is boxes ticked over boxes in the spec's `## Progress` list; nothing is estimated.
 2. Under the bars, three short lines: **Done since the last report** (commits, what they closed), **Now** (the one thing in progress, and what the next box is), **Blocked or waiting** (a peer, the owner's yes, a run on the shared e2e page).
 3. Say the **change since the last report** in one number ("3/19 -> 5/19, +2 boxes in 14 min"): keep the previous total in your head from the last report; if you do not have it, say "first report".
 
@@ -19,7 +19,7 @@ The owner (10 Oct 2026): "report me back where we stand with the ladder and its 
 
 ## When to run it
 - After every commit of the ladder work, before the next step.
-- At least every ~5 minutes of a long run (a ship, a suite): between steps, not by blocking. A timed ping while idle needs the owner's `/loop 5m /report-ladder-progress`: do not start a loop on your own.
+- At least every ~5 minutes of a long run (a ship, a suite): between steps, not by blocking. A timed ping while idle needs the owner's `/loop 5m /report-progress`: do not start a loop on your own.
 - When the owner asks.
 
 ## Example of the shape

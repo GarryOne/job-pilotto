@@ -14,7 +14,8 @@ test('a bar is filled by the share done, full only when everything is', () => {
   assert.equal(bar(0, 4, 8), '[░░░░░░░░]');
   assert.equal(bar(2, 4, 8), '[████░░░░]');
   assert.equal(bar(4, 4, 8), '[████████]');
-  assert.match(report(progressOf(SPEC)), /75%  3\/4  THE LADDER/);
+  assert.match(report(progressOf(SPEC)), /75%  3\/4  ALL ITEMS/);
+  assert.match(report(progressOf(SPEC), 'Faster fixes'), /75%  3\/4  FASTER FIXES$/);
 });
 test('the real spec has a checklist, so the report is never empty', () => {
   const items = progressOf(fs.readFileSync(new URL('../../docs/superpowers/specs/2026-10-10-ai-ladder.md', import.meta.url), 'utf8'));

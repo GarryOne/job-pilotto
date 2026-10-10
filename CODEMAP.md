@@ -676,7 +676,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/hardcoded-page-words.mjs` — A ratchet against hard-coded page knowledge (owner, 8 Oct 2026: "universal: any website, any form, any language; AI decides, not regex or lists"). It counts, per file in
 - `tools/journey-gate.mjs` — The journey gate (spec: docs/superpowers/specs/2026-10-10-application-journey.md, step 4): a push that touches a flow file (desktop/e2e/flows.mjs FLOW_FILES)
 - `tools/ladder-gate.mjs` — The ladder gate (docs/flows/ladder.md): a push that touches a flow file, the page-kind decision, a ladder fixture, the baseline or the scorer replays every fixture offline (stored answers through
-- `tools/ladder-progress.mjs` — The AI ladder's progress report: reads the checklist at the end of docs/superpowers/specs/2026-10-10-ai-ladder.md ("## Progress", one "### X. title" per item,
+- `tools/ladder-progress.mjs` — A checklist's progress report (any spec; the AI ladder's by default): reads the checklist at the end of docs/superpowers/specs/2026-10-10-ai-ladder.md ("## Progress", one "### X. title" per item,
 - `tools/mail_eval.py` — Does the model still read the Gmail check's emails right? (the AI half of the check, which its unit tests stub)
 - `tools/meanings_parity.py` — Before an "AI instead of keyword lists" change ships: the owner's real search and data, AI off, on a baseline commit and on this tree;
 - `tools/meanings_seed.py` — Builds the meanings pack's seed (config/meanings_seed.json) from the keyword lists the code used before they became AI decisions, read
