@@ -23,6 +23,7 @@ export function parseLive(output) {
   const kinds = [], errors = [], path = [];
   let fieldList = [];   // the form's fields, one 'field ...' line each (apply-live.mjs prints them whole: the app's own line is cut at 230 characters)
   let derived = null, told = null;
+  const pageKindErrors = [];   // the AI's own words when a page-kind answer had no kind (usage limit, CLI failure...): job-pilotto-54 found a fast null answer with nothing saying why
   const reach = step => { if (rank(step) > rank(reached)) reached = step; };
   for (const line of lines) {
     if (/Apply pressed on /.test(line)) reach('posting');
@@ -33,7 +34,11 @@ export function parseLive(output) {
       derived = BY_RUNG[by] ?? (/page kind: none/.test(line) ? 0 : derived);
       kinds.push(kind[1]); if (kind[1] === 'account') reach('account'); if (/^(form|account-form)$/.test(kind[1])) reach('form'); }
     if (/account (judgment|result)[^:]*: needs_code|"botCheck":true|bot check/.test(line)) reach('code/bot');
+    const noKind = line.match(/page kind: none \(([^)]*)\)/);
+    if (noKind && noKind[1] && !pageKindErrors.includes(noKind[1].slice(0, 120)) && pageKindErrors.length < 5) pageKindErrors.push(noKind[1].slice(0, 120));
+    if (/pressed the control the digest named|the page tells what to do/.test(line)) derived = 3;   // the ladder's rung 3 (the numbered digest) decided
     if (/\bcloser look: /.test(line)) derived = 4;
+    if (/the ladder ended at the person/.test(line)) derived = 6;
     if (/take over with Claude asked from the page/.test(line)) derived = 5;
     const ladder = line.match(/\bladder: rung (\d) signal (\w+)\s*$/);
     if (ladder && Number(ladder[1]) <= 6) told = {rung: Number(ladder[1]), signal: SIGNALS.includes(ladder[2]) ? ladder[2] : null};
@@ -45,7 +50,7 @@ export function parseLive(output) {
     if (fields && !/account page/.test(line)) { fieldList = []; filled = Number(fields[1]); left = Number(fields[2]); reach('form'); if (left === 0 && filled > 0) reach('ready'); }
     if (/(^|\s)(✗|not ok)\b|Error:|crash/.test(line)) errors.push(line.trim().slice(0, 200));
   }
-  return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, kinds: [...new Set(kinds)], path, errors};
+  return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, pageKindErrors, kinds: [...new Set(kinds)], path, errors};
 }
 
 // The same shape reaching an earlier step than last night, or filling fewer fields on the same posting, is a regression.

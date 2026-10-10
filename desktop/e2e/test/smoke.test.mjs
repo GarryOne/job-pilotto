@@ -9,7 +9,7 @@ const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detai
   2026-10-10T12:20:46Z [extension] account judgment result: needs_code {"botCheck":false}`;
 
 test('a run that stopped at the email code reached code/bot; an account page\'s fields are not the form', () => {
-  assert.deepEqual(parseLive(LIVE), {reached: 'code/bot', filled: null, left: null, rung: 2, signal: null, fieldList: [], marks: null, kinds: ['account'], path: [{kind: 'account', host: 'auth.jobs.ch'}], errors: []});
+  assert.deepEqual(parseLive(LIVE), {reached: 'code/bot', filled: null, left: null, rung: 2, signal: null, fieldList: [], marks: null, pageKindErrors: [], kinds: ['account'], path: [{kind: 'account', host: 'auth.jobs.ch'}], errors: []});
 });
 
 test('a form filled to the end is ready; one with fields left is form', () => {
@@ -211,4 +211,16 @@ test('the upload carries the verdict only for a form reached with a field list: 
   assert.deepEqual(verdictFields({reached: 'form', filled: 1, left: 1, fieldList: [filled, left('proposed for you to confirm')]}), {asked: 2, unexplained: 0});
   assert.deepEqual(verdictFields({reached: 'form', fieldList: []}), {});   // an old run: no verdict, the page counts
   assert.deepEqual(verdictFields({reached: 'posting', fieldList: [filled]}), {});
+});
+
+test('the app\'s page-kind answers with no kind keep their error words, and the ladder\'s own log lines give the rung (3 digest, 4 closer look, 6 the person)', () => {
+  const log = lines => parseLive(['  live 0s: Apply pressed on https://x/', ...lines.map(line => `      log 20:00:00.000Z [extension] ${line}`)].join('\n'));
+  const none = log(['page kind: none (usage limit reached: try again later)', 'page kind: none (usage limit reached: try again later)']);
+  assert.deepEqual(none.pageKindErrors, ['usage limit reached: try again later']);   // said once, with the AI\'s own words
+  assert.equal(none.rung, 0);   // no answer: the structure rule decided
+  assert.equal(log(['fill: pressed the control the digest named {"label":"Apply"}']).rung, 3);
+  assert.equal(log(['fill: the page tells what to do {"how":"email"}']).rung, 3);
+  assert.equal(log(['fill: closer look: click {"host":"x"}']).rung, 4);
+  assert.equal(log(['page kind: posting {"by":"digest"}', 'fill: the ladder ended at the person']).rung, 6);   // the last decision wins
+  assert.deepEqual(log(['page kind: posting {"by":"ai"}']).pageKindErrors, []);
 });
