@@ -5,7 +5,7 @@
 // - Notion: the mirror's token from JOB_PILOTTO_TWIN_NOTION_TOKEN, never a token found in the cloned secrets.json;
 // - no Telegram polling, no schedules, no telemetry, no AppleScript on Chrome or Terminal (no Apply with Claude); form LEARNING is the one
 //   exchange with the site it keeps (lib/telemetry.js learningOff): its fills are real use, and it fills with the shared recipes and meanings;
-// - the engine sees no Keychain (src/secret_store.py isolated(): no Telegram bot, no Google sign-in).
+// - the engine sees no Keychain (src/secret_store.py isolated(): no Telegram bot); it may READ the owner's Google sign-in, never write it (TWIN_MAY_READ, 10 Oct 2026).
 // Guarded by desktop/test/twin.test.js.
 import fs from 'node:fs';
 import os from 'node:os';

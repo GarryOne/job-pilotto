@@ -52,9 +52,20 @@ def _isolated_save(path, items):
         json.dump(items, handle)
 
 
+# What a live-test twin may READ from the owner's real store (owner, 10 Oct 2026: "let the twin use the original app Gmail connection"): the Google
+# sign-in (read-only Gmail and Calendar), so the sign-up's confirmation mail can be found. Nothing else, and never a write (put/delete stay in the twin's file).
+TWIN_MAY_READ = ('job-pilotto.google.client-id', 'job-pilotto.google.client-secret', 'job-pilotto.google.refresh-token')
+
+
+def _twin_may_read(service):
+    return bool(os.getenv('JOB_PILOTTO_TWIN')) and not os.getenv('JOB_PILOTTO_E2E') and service in TWIN_MAY_READ
+
+
 def get(service, user=None):
     if isolated():
-        return (_isolated_items()[1].get(service) or {}).get('value') or None
+        own = (_isolated_items()[1].get(service) or {}).get('value') or None
+        if own or not _twin_may_read(service):
+            return own
     user = account() if user is None else user
     if sys.platform == 'darwin':
         result = subprocess.run(['security', 'find-generic-password', '-a', user, '-s', service, '-w'],

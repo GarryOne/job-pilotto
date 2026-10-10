@@ -92,6 +92,29 @@ class EndToEndIsolationTest(unittest.TestCase):
             self.assertIsNone(secret_store.get('job-pilotto.google.refresh-token', 'igor'))
         asked.assert_not_called()
 
+    def test_a_twin_reads_the_owners_google_sign_in_and_nothing_else_and_never_writes_it(self):
+        """10 Oct 2026 (owner: "let the twin use the original app Gmail connection"): the twin's sign-up needs the confirmation mail. Only the three
+        Google items are read through from the real store (read-only Gmail and Calendar); Telegram, the admin key and every write stay cut off."""
+        import tempfile
+        google_items = ('job-pilotto.google.client-id', 'job-pilotto.google.client-secret', 'job-pilotto.google.refresh-token')
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, 'isolated-secrets.json')
+            with mock.patch.object(sys, 'platform', 'darwin'), self._keychain_answers() as asked, \
+                    mock.patch.dict('os.environ', {'JOB_PILOTTO_TWIN': '1', 'JOB_PILOTTO_ISOLATED_SECRETS': path}):
+                for service in google_items:
+                    self.assertEqual(secret_store.get(service, 'igor'), 'real-secret', service)
+                asked.reset_mock()
+                for service in ('job-pilotto.telegram.bot-token', 'job-pilotto.anthropic.admin-key', 'job-pilotto.google.auth-at'):
+                    self.assertIsNone(secret_store.get(service, 'igor'), service)
+                asked.assert_not_called()
+                secret_store.put('job-pilotto.google.refresh-token', 'twin-made', 'igor')   # a write stays in the twin's own file, and wins over the real one
+                self.assertEqual(secret_store.get('job-pilotto.google.refresh-token', 'igor'), 'twin-made')
+                writes = [call for call in asked.call_args_list if 'add-generic-password' in call.args[0]]
+                self.assertEqual(writes, [])
+        with mock.patch.object(sys, 'platform', 'darwin'), self._keychain_answers() as asked, mock.patch.dict('os.environ', {'JOB_PILOTTO_TWIN': '1', 'JOB_PILOTTO_E2E': '1'}):
+            self.assertIsNone(secret_store.get('job-pilotto.google.refresh-token', 'igor'))   # a test run is never a twin: it reads nothing
+        asked.assert_not_called()
+
     def test_without_the_flag_the_keychain_is_read_as_before(self):
         with mock.patch.object(sys, 'platform', 'darwin'), self._keychain_answers(), mock.patch.dict('os.environ'):
             os.environ.pop('JOB_PILOTTO_E2E', None)

@@ -15,7 +15,8 @@
 | Form learning with the site (fill records, reasons, proposal use out; recipes and meanings in) | on | on: its fills are real use (`desktop/lib/telemetry.js` learningOff, 9 Oct 2026) |
 | AppleScript on Chrome / Terminal | yes | off |
 | Apply with Claude / Take over with Claude | your Chrome (`--chrome`) | the twin's own Chromium only: `--no-chrome` + a Playwright MCP on its port, the submit guard as init script, job-site passwords masked (`--secrets`) |
-| Engine's Keychain (Telegram bot, Google sign-in) | yes | none (`src/secret_store.py` `isolated()`) |
+| Engine's Keychain (Telegram bot) | yes | none (`src/secret_store.py` `isolated()`) |
+| Google sign-in (read-only Gmail and Calendar: the sign-up's confirmation mail) | yes | **read from the real store** (owner, 10 Oct 2026), the three `job-pilotto.google.*` items only (`TWIN_MAY_READ`); never written |
 | Real websites, Keychain site passwords, AI | yes | yes (real AI spend: say the cost) |
 | Keychain writes (a new site password, a Google sign-in) | yes | never: the twin's own file `isolated-secrets.json` in its folder (`desktop/lib/keychain.js`, `src/secret_store.py`); it reads that file first, then the real site passwords only |
 

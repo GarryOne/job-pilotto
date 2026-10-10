@@ -139,7 +139,7 @@ Twin fills count as real use since d8cbe63, so they feed it both ways.
 ## What is never ours
 - **Submit** on an application.
 - **A bot check:** the owner solves it in the twin's Chromium. Say so and move on to another target meanwhile.
-- **An email or SMS code:** left to the person. In the twin Gmail is off, so the mail is never read.
+- **An email or SMS code:** left to the person. Since 10 Oct 2026 the twin reads the owner's Gmail (read-only) for a sign-up's confirmation LINK; a code mail is still left to the person.
 - **Consent boxes on the application form.**
 - When a target reaches one of these, mark it in the scorecard and continue with the others.
 
