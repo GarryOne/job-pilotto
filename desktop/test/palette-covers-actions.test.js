@@ -33,5 +33,6 @@ test('a button that starts a task an Actions card offers is not listed twice in 
   assert.ok(carded.has('run') && carded.has('mail'), 'the Actions cards were not found');
   for (const [kind, ...selectors] of buttons) for (const selector of selectors) assert.ok(html.includes(`id="${selector.slice(1)}"`), `${kind}: ${selector} is not in the page`);
   assert.match(nav, /if \(node && !twins\.has\(node\)/);                         // button(view, id, …)
-  assert.match(nav, /if \(node\.disabled \|\| !shown\(node\) \|\| twins\.has\(node\)\) return;/);   // the Settings sweep
+  assert.match(nav, /!node\.disabled && shown\(node\) && !twins\.has\(node\)/);   // the Settings sweep
+  assert.match(nav, /if \(danger && buttons\.length === 1\) return;/);   // a section's sole danger button is its own entry ("Reset Job Pilotto" was listed twice)
 });
