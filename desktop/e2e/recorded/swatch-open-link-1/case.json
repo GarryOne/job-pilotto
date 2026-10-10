@@ -1,0 +1,102 @@
+{
+ "shape": "a posting whose menu fills the first 20 sketch buttons and whose Apply link goes to another site and opens in a new tab: rung 2 names no button, the digest opens the link (verb open, press_kind apply)",
+ "why": "11 Oct 2026, the pool: Swatch Group careers. The real digest answered outcome form, verb open, number 1 (the link), press_kind apply (asked twice); the app dropped `open`, so the run ended \"no form on this page\". Fixed in digestKind (open of a link = the Apply button). The AI answers here are what the app now gives for that digest answer.",
+ "control": {
+  "guard": "the app side is the fix (desktop/test/page-kind.test.js fails on the old code); this page proves the extension presses a cross-host new-tab link named by the digest"
+ },
+ "sample": "www.swatchgroup.com posting (shape reconstructed from the captured page and the real digest answer; hosts and text invented)",
+ "rung": 3,
+ "pages": [
+  {
+   "url": "https://jobs.beispiel.example.ch/de/job/4711",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://bewerben.ats-beispiel.example.ch/apply/4711",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://bewerben.ats-beispiel.example.ch/apply/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   },
+   {
+    "when": {
+     "digest": true
+    },
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "digest",
+     "confidence": 0.9,
+     "rung": 3,
+     "signal": "confident",
+     "applyButton": "für diese stelle bewerben",
+     "applyRoute": "",
+     "applyBy": "",
+     "applyEmail": "",
+     "digest": {
+      "outcome": "form",
+      "verb": "open",
+      "numbers": [
+       1
+      ],
+      "chosen": [
+       {
+        "n": 1,
+        "kind": "link",
+        "host": "bewerben.ats-beispiel.example.ch",
+        "position": "main",
+        "text": "Für diese Stelle bewerben"
+       }
+      ]
+     }
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.7,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "",
+     "applyRoute": "",
+     "applyBy": "other",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   }
+  ],
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  }
+ },
+ "expect": {
+  "filled": [
+   "#first"
+  ],
+  "maxNewTabs": 1,
+  "seconds": 60
+ }
+}

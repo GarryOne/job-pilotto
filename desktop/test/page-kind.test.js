@@ -332,6 +332,20 @@ test('a digest "press" becomes the Apply button only when the AI judges the butt
   assert.ok(!told.applyButton, 'a tell_person answer names no button to press');
 });
 
+// Swatch, 11 Oct 2026: the real digest answered outcome link, verb open, number 1 (a main-area link to the employer's application system) and the answer was dropped: "no form on this page".
+test('a digest "open" of a link becomes the Apply button exactly like a press: only when the AI judges the link apply, the shared floor accepts it, and a number outside the list names nothing', async () => {
+  const page = {...emailPages.de, candidates: [{n: 1, kind: 'link', host: 'apply5.ats.example', position: 'main', text: 'Für diese Stelle bewerben'}, {n: 2, kind: 'link', host: 'sso.example', position: 'main', text: 'Sign in with LinkedIn'},
+    {n: 3, kind: 'link', host: 'apply5.ats.example', position: 'main', text: 'Se connecter'}, {n: 4, kind: 'button', position: 'main', text: 'Postuler'}, {n: 5, kind: 'email', position: 'main', text: 'jobs@firma.ch'}]};
+  const open = (number, press_kind, outcome = 'link') => seq([{outcome, verb: 'open', numbers: [number], confidence: 0.85, ...(press_kind === undefined ? {} : {press_kind})}]);
+  const got = await pageKind(open(1, 'apply'), page, cacheIn(), {digest: true});
+  assert.equal(got.applyButton, 'für diese stelle bewerben', 'the validated phrase of the one link the digest opened');
+  assert.equal((await pageKind(open(1, 'apply', 'form'), page, cacheIn(), {digest: true})).applyButton, 'für diese stelle bewerben', 'outcome form with open is the same');
+  for (const [number, kind] of [[2, 'third_party'], [3, 'sign_in'], [1, 'sign_up']]) assert.equal((await pageKind(open(number, kind), page, cacheIn(), {digest: true})).applyButton, '', `a ${kind} link is never pressed`);
+  for (const kind of [undefined, '', 'other', 'APPLY']) assert.equal((await pageKind(open(1, kind), page, cacheIn(), {digest: true})).applyButton, '', `press_kind ${JSON.stringify(kind)} judges nothing`);
+  assert.equal((await pageKind(open(2, 'apply'), page, cacheIn(), {digest: true})).applyButton, '', 'the AI saying apply does not lift the shared floor');
+  for (const number of [4, 5, 99]) assert.equal((await pageKind(open(number, 'apply'), page, cacheIn(), {digest: true})).applyButton || '', '', `open of candidate ${number} (a button, an address, none) names no link to press`);
+});
+
 // An application form inside a frame of the page (Datadog, 10 Oct 2026: a Greenhouse form in an iframe the extension never entered). The sketch lists the frames WITHOUT their address (a form
 // frame's address holds a token): host, path and size; the AI answers an INDEX; the code keeps it only when it points at a listed frame.
 const frames = [{host: 'job-boards.example-ats.io', path: '/embed/job_app', width: 650, height: 2432}, {host: 'cookies.example.com', path: '/banner', width: 400, height: 300}];

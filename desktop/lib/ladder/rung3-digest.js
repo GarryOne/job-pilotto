@@ -15,7 +15,7 @@ export const DIGEST_SCHEMA = {type: 'object', additionalProperties: false, requi
   outcome: {type: 'string', enum: OUTCOMES, description: 'How the candidate applies to this job, from the page\'s own text'},
   verb: {type: 'string', enum: VERBS, description: 'tell_person: the person must act, quote the numbered candidates; press: press the one numbered button or link; open: open the one numbered link; none'},
   numbers: {type: 'array', items: {type: 'integer'}, maxItems: MAX_NUMBERS, description: 'The numbers of the candidates the verb is about (tell_person: the ones that say how to apply; press/open: exactly one), else []'},
-  press_kind: {type: 'string', enum: BUTTON_KINDS, description: 'For verb press: what the numbered button or link does: apply = starts or continues THIS job application; sign_in; sign_up; third_party = signs in or applies through another site\'s account; other. "" for any other verb'},
+  press_kind: {type: 'string', enum: BUTTON_KINDS, description: 'For verb press or open: what the numbered button or link does: apply = starts or continues THIS job application; sign_in; sign_up; third_party = signs in or applies through another site\'s account; other. "" for any other verb'},
   confidence: {type: 'number', description: 'From 0 to 1: how sure, from this page alone.'},
 }};
 
@@ -32,7 +32,7 @@ Answer how the candidate applies for THIS job, deciding from what the page asks 
 - link: the way to apply is another page that is not an application form of this site (open, with that link's number).
 - other: none of these, or you cannot tell (verb none).
 Beware: a closed notice above a working Apply button or form is not "expired"; a press, contact or question address is not how to apply.
-press_kind: for verb press, judge what the button does, in any language, not by its words: apply only when it starts or continues this application; never apply for a sign-in, a sign-up/account creation, or a sign-in through another site (Google, LinkedIn, Apple...).
+press_kind: for verb press or open, judge what the button or link does, in any language, not by its words: apply only when it starts or continues this application; never apply for a sign-in, a sign-up/account creation, or a sign-in through another site (Google, LinkedIn, Apple...).
 Use verb none with numbers [] when nothing is clear. Name only numbers from the list. Give your confidence from 0 to 1.`;
 
 const cleanLine = (text, max) => String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, max);

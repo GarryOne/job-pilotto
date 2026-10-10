@@ -198,7 +198,7 @@ async function digestKind(client, raw, shape) {
   if (got.dropped) return failed(`digest dropped: ${got.dropped}`, {dropped: got.dropped, usd: got.usd});
   if (got.confidence < MIN_CONFIDENCE) return {error: `unsure (${got.confidence})`, shape, rung: 3, signal: 'unsure', usd: got.usd};
   const email = got.outcome === 'email' ? got.chosen.find(item => item.kind === 'email') : null;
-  const pressed = got.verb === 'press' ? got.chosen[0] : null;   // the one button or link the digest named: it goes through the same floors as any Apply button (never a sign-in, submit, third-party control)
+  const pressed = got.verb === 'press' || got.verb === 'open' ? got.chosen[0] : null;   // the one button or link the digest named (an `open` of a link is the same press on that link: Swatch, 11 Oct 2026): it goes through the same floors as any Apply button (never a sign-in, submit, third-party control)
   const applyButton = pressed && got.raw?.press_kind === 'apply' ? applyButtonOf(pressed.text, [pressed.text]) : '';   // AND with the digest's judgment of what the button does (press_kind): a sign-in, sign-up or third-party control is dropped in any language
   return {kind: 'posting', role: ROLE.posting, confidence: got.confidence, by: 'digest', rung: 3, signal: 'confident', shape, usd: got.usd, applyButton, applyRoute: '',
     applyBy: email ? 'email' : '', applyEmail: email ? email.text : '', digest: {outcome: got.outcome, verb: got.verb, numbers: got.numbers, chosen: got.chosen}};

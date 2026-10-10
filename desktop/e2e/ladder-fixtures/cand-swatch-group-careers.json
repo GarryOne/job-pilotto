@@ -1,0 +1,151 @@
+{
+ "schemaVersion": 1,
+ "id": "cand-swatch-group-careers",
+ "source": "captured",
+ "lang": "de",
+ "why": "auto-captured from the pool run of 2026-10-10: Swatch Group careers: a run that stopped at the posting",
+ "note": "Swatch Group posting (11 Oct 2026 pool): 20 menu links fill the sketch buttons, so \"Für diese Stelle bewerben\" (main, link to the employer's application system) is not listed; the digest saw it as candidate 1",
+ "capture": {
+  "from": "replay-candidates/2026-10-10/swatch-group-careers"
+ },
+ "sketch": {
+  "url": "https://www.swatchgroup.com/de/job/33345",
+  "title": "SALES REPRESENTATIVE - OMEGA BOUTIQUE ZÜRICH (M/W) - Swatch Group",
+  "headings": [
+   "SALES REPRESENTATIVE - OMEGA BOUTIQUE ZÜRICH (M/W)",
+   "Firmenbeschreibung",
+   "Stellenbeschreibung",
+   "Profil",
+   "Berufliche Anforderungen",
+   "Sprachkenntnisse",
+   "Kontaktperson",
+   "Main navigation"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Suche",
+    "required": false
+   }
+  ],
+  "buttons": [
+   "Direkt zum Inhalt",
+   "Swatch Group",
+   "Gremien",
+   "Mitteilung des Managements",
+   "Innovation Powerhouse",
+   "Tochtergesellschaften",
+   "Geschichte der Swatch Group",
+   "Der Gründer",
+   "Marken & Gesellschaften",
+   "Uhren und Schmuck",
+   "Produktion",
+   "Elektronische Systeme",
+   "Corporate",
+   "Landmarks",
+   "Distribution",
+   "Nachhaltigkeit",
+   "Nachhaltigkeitsstrategie",
+   "Kennzahlen",
+   "Wirtschaft und Governance",
+   "Umwelt"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "candidates": [
+  {
+   "n": 1,
+   "kind": "link",
+   "text": "Für diese Stelle bewerben",
+   "host": "apply5.lumessetalentlink.com",
+   "position": "main"
+  },
+  {
+   "n": 2,
+   "kind": "button",
+   "text": "Map",
+   "position": "main"
+  },
+  {
+   "n": 3,
+   "kind": "button",
+   "text": "Satellite",
+   "position": "main"
+  },
+  {
+   "n": 4,
+   "kind": "button",
+   "text": "Keyboard shortcuts",
+   "position": "main"
+  },
+  {
+   "n": 5,
+   "kind": "button",
+   "text": "Map Data",
+   "position": "main"
+  },
+  {
+   "n": 6,
+   "kind": "link",
+   "text": "Terms",
+   "host": "www.google.com",
+   "position": "main"
+  },
+  {
+   "n": 7,
+   "kind": "sentence",
+   "text": "SALES REPRESENTATIVE - OMEGA BOUTIQUE ZÜRICH (M/W)",
+   "position": "main"
+  },
+  {
+   "n": 8,
+   "kind": "sentence",
+   "text": "Firmenbeschreibung",
+   "position": "main"
+  },
+  {
+   "n": 9,
+   "kind": "sentence",
+   "text": "OMEGA ist eine prestigeträchtige globale Marke, die seit mehr als 170 Jahren nach höchster Qualität, äusserster Präzision und immer neuen Innovationen strebt.",
+   "position": "main"
+  },
+  {
+   "n": 10,
+   "kind": "sentence",
+   "text": "Unsere Uhren gehören zu den besten der Welt, sie sind das Ergebnis von Technologien, die führend in der Uhrenbranche sind und sich durch ein zeitloses Design au",
+   "position": "main"
+  },
+  {
+   "n": 11,
+   "kind": "phone",
+   "text": "(phone) – 00:35:37 – Internet Time: @983",
+   "position": "header"
+  },
+  {
+   "n": 12,
+   "kind": "link",
+   "text": "(phone) – 00:35:37 – Internet Time: @983",
+   "host": "www.swatch.com",
+   "position": "header"
+  }
+ ],
+ "expect": {
+  "outcome": "posting"
+ },
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.85,
+  "apply_button": "",
+  "apply_button_kind": "",
+  "apply_route": "",
+  "apply_by": "other",
+  "apply_email": "",
+  "form_frame": -1,
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ }
+}

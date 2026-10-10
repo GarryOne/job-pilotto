@@ -32,11 +32,15 @@
   {
    "date": "2026-10-10",
    "reason": "datadog-greenhouse-frame-grown added (exact): the frame candidate listed after the embed grew; scorer reads form_frame as form_in_frame"
+  },
+  {
+   "date": "2026-10-10",
+   "reason": "cand-swatch-group-careers: added, wrong-confident at rung 2 (the sketch's first 20 buttons are menu links; rung 3 names the link and its verb open is now honoured); rung 3 prompt: press_kind also for open"
   }
  ],
  "promptFingerprint": {
   "rung2": "f195b59f9e204185",
-  "rung3": "10d7aa414a43a90a",
+  "rung3": "992bf04b97d0b065",
   "account-judge": "82bb54b889d5f14d",
   "form-judge": "ac2382fd98ef6780",
   "rung4": "b69068d6b5b1a559"
@@ -326,6 +330,16 @@
    },
    "outcome": "other",
    "status": "ok"
+  },
+  "cand-swatch-group-careers": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "other",
+   "status": "wrong-confident"
   },
   "cloudera-workday": {
    "expect": {
