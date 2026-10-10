@@ -24,3 +24,11 @@ test('job: the job key wins over from, and a tab with neither is its own page', 
   assert.equal(await jobOf({id: 8, url: 'https://c.example/'}), 'https://a.example/job/1');
   assert.equal(String(await jobOf({id: 9, url: 'https://c.example/apply'})).startsWith('https://c.example'), true);
 });
+
+test('one owner: no extension file but tab-identity.js builds a session:/job:/from: key name (spec step 3)', async () => {
+  const fs = await import('node:fs');
+  const dir = new URL('../../extension/', import.meta.url);
+  const offenders = fs.readdirSync(dir).filter(name => name.endsWith('.js') && name !== 'tab-identity.js')
+    .filter(name => /`(session|job|from):\$\{/.test(fs.readFileSync(new URL(name, dir), 'utf8')));
+  assert.deepEqual(offenders, [], 'use KEY / the helpers of extension/tab-identity.js');
+});

@@ -1,5 +1,6 @@
 // One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
 // Shared by the popup (the tab you're on) and the background worker (tabs the app opens to fill).
+import {KEY} from './tab-identity.js';
 import {MENU_REASONS, OLD_MENU_REASON, menuReason} from './menu-reason.js';
 import {kitStance} from './tab-pages.js';
 import {fillCard} from './fill-card.js';
@@ -143,7 +144,7 @@ export {PAGE_FILES};   // extension/page-files.js
 export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], hasKit = false, onStep = () => {}, reuse = true, coverLetter = '', jobUrl = '', me: early = null} = {}) {
   const startedAt = new Date();
   const job = (jobUrl || tab.url).split('#')[0];
-  chrome.storage.session.set({[`job:${tab.id}`]: job, [`from:${tab.id}`]: job});
+  chrome.storage.session.set({[KEY.job(tab.id)]: job, [KEY.from(tab.id)]: job});
   const event = (type, extra = {}) => api(config, '/extension/event', {method: 'POST',
     body: JSON.stringify({type, url: job, ...extra})}).catch(() => {});
   event('fill-started');

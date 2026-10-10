@@ -1,6 +1,7 @@
 // Telling the app which tabs are open (moved out of background.js, 8 Oct 2026): the report of open job and form tabs (the app's "Opened in Chrome" and "form closed"), every 30 s
 // and when a tab changes, the badge that says whether the app is reachable, and looking at an armed page that finished loading before anything looked at it. A FLOW FILE
 // (docs/flows/applying.md). Guards: the tab-pages, forms-open and tab-memory tests in desktop/test and the matrix (npm run flows).
+import {IDENTITY_KEYS} from './tab-identity.js';
 import {JOB_SITES} from './flow.js';
 import {NOT_CONNECTED} from './flow.js';
 import {NO_APP} from './flow.js';
@@ -95,7 +96,7 @@ export function createTabReport(ctx) {
   });
   chrome.tabs.onRemoved.addListener(async tabId => {
     reportTabs();  // the app's session page learns that a form tab was closed without waiting for the 30 s report
-    await chrome.storage.session.remove([`from:${tabId}`, `job:${tabId}`, `session:${tabId}`, `role:${tabId}`, `armed:${tabId}`, `submit:${tabId}`, `judged:${tabId}`, `read:${tabId}`]).catch(() => {});
+    await chrome.storage.session.remove([...IDENTITY_KEYS(tabId), `role:${tabId}`, `armed:${tabId}`, `submit:${tabId}`, `judged:${tabId}`, `read:${tabId}`]).catch(() => {});
     for (const mark of [...armedLogged]) if (mark.startsWith(`${tabId}:`)) armedLogged.delete(mark);
     // A closed tab's id is reused for the next tab. `started` holds that id as a number, so a string check never
     // matched it and the new tab was treated as already filled.

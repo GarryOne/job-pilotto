@@ -14,7 +14,7 @@ import {autoRead, markListed, siteUnreachable, startWaiting} from './visit.js';
 import {MEMORY_KEY, memoryReadyIs, sessionGet, snapshot, startRun} from './tab-memory.js';
 import {startsOwnJob, sameSite, navigationKind, neverForm, sharedFixes, tabArmed, withMark} from './tab-pages.js';
 import {noteStart} from './panel-start.js';
-import {jobOf} from './tab-identity.js';
+import {KEY, fromOf, jobOf, startJob} from './tab-identity.js';
 import {fillWaitsForAllow, resumeFillWaiting, watchUnallowedFillTabs} from './site-allow.js';
 
 // The tab we may touch: Chrome reuses a tab id after its tab closes, and the user can navigate the tab elsewhere
@@ -64,11 +64,10 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   // A page the app opened starts its own job: nothing a tab that happened to open it handed over (followOpener) stays. The same page
   // loading again (a form's own result after Submit) is not a new start: its job must stay, or the confirmation has no job to mark.
   if (carried !== tab.url) {
-    const prior = (await sessionGet(`from:${tabId}`))[`from:${tabId}`];
+    const prior = await fromOf(tabId);
     if (!startsOwnJob(prior, tab.url)) { /* same page again: keep its job */ } else {
       // Nor the session a tab that happened to be active handed it (8 Oct 2026, e2e: the app's new tab for one job reported as another job's).
-      await chrome.storage.session.remove([`job:${tabId}`, `session:${tabId}`]);
-      await chrome.storage.session.set({[`from:${tabId}`]: tab.url.replace(`#${FILL_MARK}`, '')});
+      await startJob(tabId, tab.url.replace(`#${FILL_MARK}`, ''));
     }
   }
   await arm(tabId, 'fill mark');  // while the document loads, so Apply with Claude finds the hook
@@ -96,7 +95,7 @@ async function arm(tabId, why = 'app tab') {
 // redirect). When an application tab moves on by itself (a link, a form, a script) and the new address has none, the mark is
 // put back in place, without a reload. When a person walks away (types an address, searches, opens a bookmark), the tab is
 // let go. Without the permission this needs, tabs stay armed until closed (webNavigation).
-const forget = tabId => chrome.storage.session.remove([`armed:${tabId}`, `from:${tabId}`, `job:${tabId}`, `carried:${tabId}`, `submit:${tabId}`, `judged:${tabId}`]).catch(() => {});
+const forget = tabId => chrome.storage.session.remove([`armed:${tabId}`, KEY.from(tabId), KEY.job(tabId), `carried:${tabId}`, `submit:${tabId}`, `judged:${tabId}`]).catch(() => {});
 async function markPage(tabId, url) {
   const marked = withMark(url);
   if (!marked) return false;
@@ -160,7 +159,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   // Notion is where the kit lives, never a form: an armed tab sent there is let go (no panel, no fill) until the app arms it again.
   if (neverForm(tab.url)) {
     if ((await sessionGet(key))[key]) {
-      await chrome.storage.session.remove([key, `from:${tabId}`, `job:${tabId}`, `submit:${tabId}`, `judged:${tabId}`]).catch(() => {});
+      await chrome.storage.session.remove([key, KEY.from(tabId), KEY.job(tabId), `submit:${tabId}`, `judged:${tabId}`]).catch(() => {});
       decide('panel', 'tab left for Notion: no longer armed', {host: new URL(tab.url).hostname});
     }
     return;

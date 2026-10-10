@@ -1,6 +1,7 @@
 // Did the person submit? (moved out of background.js, 8 Oct 2026): the submit press starts a short watch; a redirect or a change on the same page is read by the app, which decides
 // if it is the site's confirmation. The address alone is not a submission, and a press that leaves the page unchanged is not one either. A FLOW FILE (docs/flows/applying.md).
 // Guards: the confirmation, submit-outcome and tab-pages tests in desktop/test and the e2e row "the person submits a form" (npm run flows).
+import {KEY} from './tab-identity.js';
 import {LATE_CONFIRMATION_MS} from './tab-pages.js';
 import {SUBMIT_WAIT_MS} from './tab-pages.js';
 import {accountOutcomePending} from './account-step.js';
@@ -40,7 +41,7 @@ export function createSubmitWatch(ctx) {
     return frame?.result || null;
   }
   async function askAboutOutcome(tabId, tab, reading, gate, pressAt) {
-    const jobKey = `job:${tabId}`;
+    const jobKey = KEY.job(tabId);
     const {[jobKey]: job} = await sessionGet(jobKey);
     if (!job) {
       logOnce(tabId, 'submit, then the page changed, no job stored on this tab: not marked', {host: gate.host, path: gate.path});
@@ -134,14 +135,14 @@ export function createSubmitWatch(ctx) {
   async function onTabSettled(tabId, tab) {
     if (!tab?.url || !/^https:/.test(tab.url)) return;
     const armedKey = `armed:${tabId}`;
-    const stored = await sessionGet([`job:${tabId}`, `submit:${tabId}`, `judged:${tabId}`, armedKey]);
+    const stored = await sessionGet([KEY.job(tabId), `submit:${tabId}`, `judged:${tabId}`, armedKey]);
     if (!tabArmed({url: tab.url, armed: stored[armedKey]})) return;
     const submit = stored[`submit:${tabId}`];
     if (submit?.at && !submit.closed && stored[`judged:${tabId}`] !== submit.at && Date.now() - submit.at < SUBMIT_WAIT_MS) {
       watchSubmission(tabId);
       return;
     }
-    const job = stored[`job:${tabId}`];
+    const job = stored[KEY.job(tabId)];
     // The watch gave up on a page that did not change in time, then the site's confirmation page arrived: read it now.
     const page = confirmationOf(tab.url);
     if (page && submit?.at && stored[`judged:${tabId}`] !== submit.at && Date.now() - submit.at < LATE_CONFIRMATION_MS && forJob(tab.url, job)) {

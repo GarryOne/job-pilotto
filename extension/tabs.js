@@ -2,6 +2,7 @@
 // application (it inherits its job and session), and a tab the page opens by script right after the extension pressed Apply is followed
 // while the posting tab closes (same-tab.js decides which). Scenarios owned: "Apply opens its form from the page's script", "Two
 // applications side by side". Guards: extension-same-tab.test.js, review.test.js, the e2e rows "Apply opens a new tab" and "side by side".
+import {IDENTITY_KEYS, fromOf, inheritedEntries} from './tab-identity.js';
 import {FOLD_MS, postingToClose, realOpener} from './same-tab.js';
 import {pageKey} from './tab-pages.js';
 import {decide} from './log.js';
@@ -33,13 +34,11 @@ export async function followOpener(tab) {
   if ([tab.url, tab.pendingUrl].some(address => String(address || '').includes(`#${APP_TAB_MARK}`))) return false;
   const opener = await openerOf(tab);
   if (opener == null) return false;
-  if ((await sessionGet(`from:${tab.id}`))[`from:${tab.id}`]) return false;   // a tab the app opened for a job already has its own: the tab that was in front is not its parent (8 Oct 2026, side by side)
-  const stored = await sessionGet([`armed:${opener}`, `from:${opener}`, `job:${opener}`, `session:${opener}`]);
+  if (await fromOf(tab.id)) return false;   // a tab the app opened for a job already has its own: the tab that was in front is not its parent (8 Oct 2026, side by side)
+  const stored = await sessionGet([`armed:${opener}`, ...IDENTITY_KEYS(opener)]);
   if (!stored[`armed:${opener}`]) return false;
   const next = {[`armed:${tab.id}`]: true};
-  if (stored[`session:${opener}`]) next[`session:${tab.id}`] = stored[`session:${opener}`];   // the same application: the newest tab is its tab now
-  if (stored[`from:${opener}`]) next[`from:${tab.id}`] = stored[`from:${opener}`];
-  if (stored[`job:${opener}`]) next[`job:${tab.id}`] = stored[`job:${opener}`];
+  Object.assign(next, inheritedEntries(stored, opener, tab.id));   // the same application: the newest tab is its tab now
   if (appTabs.has(tab.id)) { decide('panel', 'a tab the app opened for a job: not its opener\'s', {tab: tab.id, opener}); return false; }
   await chrome.storage.session.set(next);
   return true;
