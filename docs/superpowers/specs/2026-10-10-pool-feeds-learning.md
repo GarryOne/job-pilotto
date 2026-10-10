@@ -1,6 +1,6 @@
 # Pool failures feed the learning loop (10 Oct 2026)
 
-> **Status: Step 0, awaiting go from job-pilotto-b8.** Owner, 10 Oct 2026: a real form filled 4 of 13 and nothing was learned from it.
+> **Status: Step 1 built (go from job-pilotto-b8); step 2 (/admin/applying "Needs a fix") waits for b8.** Built as specified; the pool section lives in `site/src/digest-pool.js`; the runner side in `desktop/e2e/lib/pool-card.mjs`. Other readers of `fill_cards` (`overview.js`, `nextsites.js`) filter `source = 'user'`. Not user-visible, so no Intelligence-page entry. Owner, 10 Oct 2026: a real form filled 4 of 13 and nothing was learned from it.
 
 **Verdict:** the nightly pool becomes a second, **labelled** source for the same fill cards users send. A form that fails in the pool shows up in the
 digest as a ranked weakness with its cause, in its own section, before a user hits it. Pool rows never touch a user-facing number.

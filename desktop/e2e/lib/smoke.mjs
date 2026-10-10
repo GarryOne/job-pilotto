@@ -118,6 +118,6 @@ export function fieldLines(line) {
   const at = String(line).indexOf('{"fields":');
   if (at < 0 || !/fill: fields: \d+ filled/.test(line) || /account page/.test(line)) return [];
   try {
-    return JSON.parse(line.slice(at, line.lastIndexOf('}') + 1)).fields.slice(0, 40).map(item => `      field ${item.outcome} ${item.type} "${String(item.label || '').replace(/\s+/g, ' ').slice(0, 60)}" required=${item.required === undefined ? '?' : item.required} reason=${String(item.reason || item.source || '').replace(/\s+/g, ' ').slice(0, 80)}`);
+    return JSON.parse(line.slice(at, line.lastIndexOf('}') + 1)).fields.slice(0, 40).map(item => `      field ${item.outcome} ${item.type} "${String(item.label || '').replace(/\s+/g, ' ').slice(0, 60)}" required=${item.required === undefined ? '?' : item.required} reason=${String(item.reason || item.source || '').replace(/\s+/g, ' ').slice(0, 160)}`);
   } catch { return []; }
 }

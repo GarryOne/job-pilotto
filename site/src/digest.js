@@ -5,6 +5,7 @@
 // (digest/propose.mjs) that turns the top weaknesses into proposals. Design: Notion "The self-learning loop".
 
 import {proposalLines, proposalSection} from './proposal-digest.js';
+import {poolMarkdown, poolSection} from './digest-pool.js';
 
 const DAY = 86400000;
 const dayOf = date => date.toISOString().slice(0, 10);
@@ -54,7 +55,7 @@ function summarize(cards) {
 export const DROP_POINTS = 0.1, DROP_MIN_FORMS = 5;
 export async function digest(db, now = new Date()) {
   const today = dayOf(now), weekAgo = dayOf(new Date(now.getTime() - 6 * DAY)), twoWeeks = dayOf(new Date(now.getTime() - 13 * DAY)), month = dayOf(new Date(now.getTime() - 27 * DAY));
-  const cards = (await rows(db, 'SELECT * FROM fill_cards WHERE day >= ?', month)).map(c => ({...c, causes: json(c.causes), kinds: json(c.kinds)}));
+  const cards = (await rows(db, "SELECT * FROM fill_cards WHERE source = 'user' AND day >= ?", month)).map(c => ({...c, causes: json(c.causes), kinds: json(c.kinds)}));
   const thisWeek = cards.filter(c => c.day >= weekAgo), lastWeek = cards.filter(c => c.day >= twoWeeks && c.day < weekAgo);
   const group = (list, key) => list.reduce((out, c) => ((out[key(c)] ||= []).push(c), out), {});
   const daily = Object.entries(group(cards, c => c.day)).sort(([a], [b]) => a.localeCompare(b)).map(([day, list]) => ({day, ...summarize(list)}));
@@ -112,6 +113,7 @@ export async function digest(db, now = new Date()) {
   return {generated: now.toISOString(), period: {from: weekAgo, to: today, compare: twoWeeks}, thisWeek: summarize(thisWeek), lastWeek: summarize(lastWeek),
     recent: {from: recentFrom, ...summarize(recent)}, earlier: summarize(earlier),
     daily, versions, boards, proposals, weaknesses: weaknesses.slice(0, 25),
+    pool: poolSection(await rows(db, "SELECT * FROM fill_cards WHERE source = 'pool' AND day >= ?", weekAgo), thisWeek, AREA),
     notes: ['Counts and fixed words only; question wording is the forms\' own, kept once 3+ installs reported it.',
       'impact = forms affected x required questions lost (widgets: failures; wording: times met).',
       'filledShare = required questions the fill answered / required questions; formsNeedingNothing = forms left complete with nothing answered by hand.']};
@@ -138,7 +140,7 @@ export function markdown(d) {
     ...d.boards.map(b => `| ${b.board}${b.dropped ? ` ⚠ dropped (${pct(b.earlierFilledShare)} → ${pct(b.recentFilledShare)})` : ''} | ${b.forms} | ${pct(b.filledShare)} | ${pct(b.formsNeedingNothing)} |`),
     '', '## Day by day', '', '| Day | Forms | Filled | Proposed | Missing | Needing nothing | Submitted |', '|---|---|---|---|---|---|---|',
     ...d.daily.map(x => `| ${x.day} | ${x.forms} | ${pct(x.filledShare)} | ${pct(x.proposedShare)} | ${pct(x.missingShare)} | ${pct(x.formsNeedingNothing)} | ${pct(x.submittedShare)} |`),
-    ...proposalLines(d.proposals),
+    ...proposalLines(d.proposals), ...poolMarkdown(d.pool),
     '', ...d.notes.map(n => `> ${n}`));
   return lines.join('\n');
 }

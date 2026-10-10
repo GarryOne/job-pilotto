@@ -11,12 +11,17 @@ export const extensionVersion = () => { try { return JSON.parse(fs.readFileSync(
 export const hostOnly = url => { try { return new URL(url).hostname; } catch { return ''; } };
 export const skipReason = (env = process.env) => (env.CI ? 'CI' : env.REAL_EXTENSION_DIR ? 'a control run on another build' : env.JP_NO_REPORT ? 'JP_NO_REPORT' : '');
 
+// The owner's site key from the Keychain (or the one given), '' when there is none. Never printed.
+export function ownerKey(key) {
+  if (key) return key;
+  try { return execFileSync('security', ['find-generic-password', '-s', 'job-pilotto.site.api_key', '-w'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim(); } catch { return ''; }
+}
+
 // -> a one-line outcome, for the run's own output.
 export async function upload(kind, rows, {env = process.env, key, fetcher = fetch, day = new Date().toISOString().slice(0, 10)} = {}) {
   const why = skipReason(env);
   if (why) return `applying report: not sent (${why})`;
-  let token = key;
-  try { token ??= execFileSync('security', ['find-generic-password', '-s', 'job-pilotto.site.api_key', '-w'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim(); } catch { token = ''; }
+  const token = ownerKey(key);
   if (!token) return 'applying report: not sent (no site key in the Keychain)';
   try {
     const answer = await fetcher(SITE, {method: 'POST', headers: {Authorization: `Bearer ${token}`, 'Content-Type': 'application/json'},

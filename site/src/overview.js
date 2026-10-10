@@ -17,7 +17,7 @@ export async function report(db, now = new Date()) {
   const [app, insights] = await Promise.all([appTrends(db, now), insightTrends(db, now)]);
   const visits = await rows(db, 'SELECT day, visitor FROM visits WHERE day >= ?', from);
   const downloads = await rows(db, 'SELECT day FROM downloads WHERE day >= ?', from);
-  const filled = await rows(db, 'SELECT day, filled AS ok, required AS n FROM fill_cards WHERE day >= ?', from);   // real fills (the form lab was retired 9 Oct 2026)
+  const filled = await rows(db, "SELECT day, filled AS ok, required AS n FROM fill_cards WHERE source = 'user' AND day >= ?", from);   // real fills (the form lab was retired 9 Oct 2026)
   const blind = await rows(db, "SELECT day, SUM(n) AS blind FROM fill_reasons WHERE reason IN ('unread', 'by_you_unread') AND day >= ? GROUP BY day", from);
   const exposure = (await rows(db, 'SELECT day, SUM(n) AS n, SUM(required) AS required FROM form_exposure WHERE day >= ? GROUP BY day', from)).map(row => ({day: row.day, base: row.required || row.n}));
   const jobCost = await rows(db, 'SELECT day, usd FROM ai_cost_runs WHERE day >= ?', from);

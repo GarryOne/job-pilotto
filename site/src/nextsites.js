@@ -17,7 +17,7 @@ const bare = host => String(host || '').toLowerCase().replace(/^www\./, '');
 export async function platformDemand(db, now = new Date()) {
   const since = new Date(now.getTime() - DAYS * 86400000).toISOString().slice(0, 10), names = Object.keys(PLATFORM_OF_ATS), marks = names.map(() => '?').join(',');
   const rows = (await db.prepare(`SELECT ats, SUM(COALESCE(hits, 0)) AS hits, COUNT(DISTINCT install) AS installs FROM contributions WHERE day >= ? AND ats IN (${marks}) GROUP BY ats`).bind(since, ...names).all()).results || [];
-  const apps = Object.fromEntries(((await db.prepare(`SELECT board, COUNT(*) AS n FROM fill_cards WHERE day >= ? AND board IN (${marks}) GROUP BY board`).bind(since, ...names).all()).results || []).map(row => [row.board, row.n]));
+  const apps = Object.fromEntries(((await db.prepare(`SELECT board, COUNT(*) AS n FROM fill_cards WHERE source = 'user' AND day >= ? AND board IN (${marks}) GROUP BY board`).bind(since, ...names).all()).results || []).map(row => [row.board, row.n]));
   return {rows: rows.map(row => ({ats: row.ats, platform: PLATFORM_OF_ATS[row.ats], hits: row.hits || 0, installs: row.installs})), apps, total: rows.reduce((sum, row) => sum + (row.hits || 0), 0)};
 }
 export const PLATFORMS = Object.entries(PLATFORM_OF_ATS).map(([ats, platform]) => ({ats, platform}));

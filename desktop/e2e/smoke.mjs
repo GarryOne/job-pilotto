@@ -12,6 +12,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {compare, lastSeen, parseLive, pickPosting, placeFound, rungFields, shortfall, signature, tonight} from './lib/smoke.mjs';
 import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
+import {poolCard, sendPoolCard} from './lib/pool-card.mjs';
 import {earlierReports, recordSite} from './lib/smoke-record.mjs';
 import {dropCandidate, saveCandidate} from './lib/replay-candidate.mjs';
 import {fetchWanted, wantedFirst} from './lib/wanted-hosts.mjs';
@@ -107,6 +108,7 @@ async function main() {
   // Each site is saved to the day's report and sent to /admin/applying the moment it ends, so stopping a run loses only the site in progress (lib/smoke-record.mjs).
   const finish = async shape => {
     const item = results[shape], found = recordSite({dir: REPORTS, day, shape, result: item, earlier: previous});
+    console.log(`smoke: ${shape}: ${await sendPoolCard(poolCard(shape, item, {day}))}`);   // the same loop users' fills feed (lib/pool-card.mjs)
     console.log(`smoke: ${await upload('smoke', [{name: shape, host: hostOnly(item.url), reached: item.reached, filled: item.filled, left: item.left, note: item.note || '', regression: !!found, ...rungFields(item)}])}`);
   };
   const pool = shapes.filter(item => !only || item.shape.includes(only));
