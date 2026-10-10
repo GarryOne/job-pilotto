@@ -28,11 +28,13 @@ phone, address) is replaced by the fake applicant's. `desktop/test/replay-privac
 extension (`REAL_EXTENSION_DIR`), then pass.
 
 ## Layer 3: nightly live smoke
-- A list `desktop/e2e/smoke-sites.json`: shapes, each with a few postings (read-only from the owner's job list, rotating: one ATS per night per shape).
+- A list `desktop/e2e/smoke-sites.json`: 10 shapes chosen for different flows (10 Oct 2026), each `like` (the owner's own jobs, read-only, rotating by day) or
+  `urls` (fixed public postings from public job feeds).
 - Each run: the e2e app + a headless Chromium + the real extension (the `npm run live` machinery, its isolation), Apply pressed through the app's API,
   stopped before any account button or Submit (HELD), a report per posting: reached step, filled/left, page kinds, errors.
-- The report is compared with the last run: a posting that reached less than before is a regression, listed first. Saved to `logs/smoke/<date>.json`
-  and a one-screen summary; a regression opens a Bug Tracker row (Notion) with the shape and the log lines.
+- The report is compared with the last run: a shape that reached less than before is a regression, listed first; a posting gone (HTTP 404/410) is noted,
+  never a regression. Saved to `desktop/e2e/smoke-reports/<day>.json` (git-ignored: it names real postings) with each run's log; exit 1 on a regression.
+  The session that reads it files the Bug Tracker row (a script holds no Notion token). `npm run smoke [-- --only <shape words>]` in `desktop/e2e`.
 - Scheduling is the owner's choice (a launchd job on the Mac, or by hand); the runner itself never schedules.
 
 ## Layer 4: fleet numbers per board

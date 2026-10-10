@@ -2,3 +2,6 @@ artifacts/
 node_modules/
 .review-cache/
 .ai-cache/
+
+# The nightly live smoke (smoke.mjs): its reports name the owner's real postings, never committed
+smoke-reports/

@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "real-extension": "JP_LIVE=1 node --test test/real-extension.test.mjs",
+    "smoke": "node smoke.mjs",
     "recorded": "JP_REPLAY=1 node --test --test-concurrency=2 test/recorded-pages.test.mjs",
     "wizard": "node suite.mjs wizard",
     "jobs": "node suite.mjs jobs",

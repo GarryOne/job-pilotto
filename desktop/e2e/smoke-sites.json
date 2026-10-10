@@ -1,0 +1,65 @@
+{
+ "about": "Layer 3, the nightly live smoke (e2e/smoke.mjs): one posting per shape per night. `like`: rotating through the owner's own jobs whose address matches (read-only); `urls`: fixed public postings (from public job feeds; a gone one is reported, then replaced here). Chosen 10 Oct 2026 for different flows.",
+ "shapes": [
+  {
+   "shape": "jobs.ch posting, then an email-first account and code",
+   "like": [
+    "%www.jobs.ch%"
+   ]
+  },
+  {
+   "shape": "Workday: an account inside the system, multi-step",
+   "urls": [
+    "https://redhat.wd5.myworkdayjobs.com/jobs/job/Remote-US-NC/TDP-Architect---RHEL_R-054302-2"
+   ]
+  },
+  {
+   "shape": "SuccessFactors: account and form",
+   "urls": [
+    "https://careers.adnovum.com/job/Switzerland-Business-Application-Manager-%28a%29/1165424355/"
+   ]
+  },
+  {
+   "shape": "SmartRecruiters: one page, no account",
+   "urls": [
+    "https://jobs.smartrecruiters.com/Nexthink/744000154703604"
+   ]
+  },
+  {
+   "shape": "Lever: single page, no account",
+   "urls": [
+    "https://jobs.lever.co/sonarsource/54743786-1ad7-4be7-bcbe-67f660e9c381"
+   ]
+  },
+  {
+   "shape": "Recruitee form",
+   "urls": [
+    "https://jobs.channable.com/o/talent-acquisition-partner"
+   ]
+  },
+  {
+   "shape": "Personio form in German",
+   "urls": [
+    "https://seitenbau-gmbh.jobs.personio.de/job/2825574"
+   ]
+  },
+  {
+   "shape": "Greenhouse board form",
+   "like": [
+    "%greenhouse.io%"
+   ]
+  },
+  {
+   "shape": "Ashby form in an embedded app",
+   "like": [
+    "%ashbyhq.com%"
+   ]
+  },
+  {
+   "shape": "jobup.ch posting, then the employer's site",
+   "like": [
+    "%jobup.ch%"
+   ]
+  }
+ ]
+}
