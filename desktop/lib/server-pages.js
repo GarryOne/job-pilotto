@@ -94,7 +94,12 @@ export async function pickChoice(storage, body, {client} = {}) {
   const options = (Array.isArray(body?.options) ? body.options : []).map(text => String(text).replace(/\s+/g, ' ').trim().slice(0, 60)).filter(Boolean).slice(0, 20);
   const value = String(body?.value || '').slice(0, 80), label = String(body?.label || '').slice(0, 80);
   if (!options.length || !value) return {ok: true, choice: ''};
-  const {pickOption} = await import('./option-pick.js');
+  const {pickOption, forgetOption} = await import('./option-pick.js');
+  if (body?.forget) {   // the button was pressed and the banner is still there: the kept answer was wrong (lib/kept-decisions.js)
+    const dropped = forgetOption(storage, {value, options});
+    appLog('extension', `button by meaning: kept answer ${dropped ? 'forgotten' : 'not kept'}: the page still shows it`, {meaning: value.slice(0, 40), buttons: options.length});
+    return {ok: true, forgotten: dropped};
+  }
   const found = await pickOption(storage, {label, value, options}, {client: client === undefined ? aiClient(storage) : client});
   appLog('extension', `button by meaning: ${found.choice ? 'picked' : 'none'}`, {meaning: value.slice(0, 40), how: found.how, buttons: options.length});
   return {ok: true, choice: options.includes(found.choice) ? found.choice : ''};
@@ -102,7 +107,12 @@ export async function pickChoice(storage, body, {client} = {}) {
 
 // Which button of a popup in the way closes it without agreeing to anything (lib/popup-pick.js): the popup's text and its own buttons in, one of them or none out.
 export async function pickPopup(storage, body, {client} = {}) {
-  const {pickDismiss} = await import('./popup-pick.js');
+  const {pickDismiss, forgetDismiss} = await import('./popup-pick.js');
+  if (body?.forget) {   // its button was pressed and the popup is still there: the kept answer was wrong (lib/kept-decisions.js)
+    const dropped = forgetDismiss(storage, {text: String(body?.text || '').slice(0, 600), buttons: Array.isArray(body?.buttons) ? body.buttons.slice(0, 20) : []});
+    appLog('extension', `popup: kept button ${dropped ? 'forgotten' : 'not kept'}: the popup is still there`, {buttons: Array.isArray(body?.buttons) ? body.buttons.length : 0});
+    return {ok: true, forgotten: dropped};
+  }
   const found = await pickDismiss(storage, {text: String(body?.text || '').slice(0, 600), buttons: Array.isArray(body?.buttons) ? body.buttons.slice(0, 20) : []}, {client: client === undefined ? aiClient(storage) : client, log: appLog});
   appLog('extension', `popup: ${found.button ? 'closed by its button' : 'left alone'}`, {how: found.how});
   return {ok: true, button: found.button};

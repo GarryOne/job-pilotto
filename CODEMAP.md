@@ -90,6 +90,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/job-page-handlers.js` — A job's page in the app (Jobs → a row → the side panel, renderer/pages/job-panel.js): the job's record, its sections (kit, prep, review,
 - `desktop/lib/jobs-handlers.js` — The jobs and runs IPC (moved out of main.js, 8 Oct 2026): the page's view of a run, the runs list and a run's detail, checking mail, the first search,
 - `desktop/lib/journey-identity.js` — Which application an extension report is about, decided ONE way for every handler (spec: docs/superpowers/specs/2026-10-10-application-journey.md, step 2).
+- `desktop/lib/kept-decisions.js` — Decisions the AI made once and the app keeps (spec: docs/superpowers/specs/2026-10-10-application-journey.md, step 5): every kept answer carries when it was
 - `desktop/lib/keychain.js` — Every Keychain read of the app goes through here, and what a test or a live-test twin may reach (8 Oct 2026: a local e2e run that reached
 - `desktop/lib/kit-handlers.js` — The application kit and tailored CVs' IPC (moved out of main.js, 8 Oct 2026): drafting a job's kit (questions, answers, cover letter) onto
 - `desktop/lib/knowledge.js` — 🧠 Form knowledge: what Job Pilotto learned from your form fills (learn.js), used by every later kit and fill.

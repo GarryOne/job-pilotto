@@ -26,3 +26,12 @@ test('none: a button not on the popup, a popup that is the task, no AI', async (
 test('the extension\'s question reaches it', async () => {
   assert.deepEqual(await pickPopup(memory(), popup, {client: claude('Nein, danke')}), {ok: true, button: 'Nein, danke'});
 });
+
+// 10 Oct 2026 (spec step 5): a kept answer the page contradicts is dropped, so one bad pick cannot repeat on every visit.
+test('the popup still there after its kept button: the answer is forgotten through the app, and asked again', async () => {
+  const storage = memory(), sent = [];
+  await pickDismiss(storage, popup, {client: claude('Jetzt anmelden', sent)});
+  assert.deepEqual(await pickPopup(storage, {...popup, forget: true}, {client: null}), {ok: true, forgotten: true});
+  assert.deepEqual(await pickDismiss(storage, popup, {client: claude('Nein, danke', sent)}), {button: 'Nein, danke', how: 'ai'});
+  assert.equal(sent.length, 2);
+});

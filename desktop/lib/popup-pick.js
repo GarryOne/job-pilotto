@@ -2,6 +2,7 @@
 // The page's structure finds the popup (extension/popup-page.js); Claude sees its text and its own buttons and answers with one of them, or none:
 // none for a popup that is part of the task (a form, a choice that must be made, a sign-in) or when no button just closes it. The answer is kept per
 // popup text and set of buttons. No AI, or none: nothing is pressed. Guarded by test/popup-pick.test.js.
+import {forget, keep, keptValue, readKept} from './kept-decisions.js';
 export const MODEL = 'claude-haiku-5-5';
 export const FILE = 'popup-picks.json';
 const norm = text => String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -13,14 +14,16 @@ neither, the one that merely accepts cookies. Copy the button exactly. Return ""
 needs the person's answer, a sign-in, a robot check) or when no button simply closes it. Never pick a button that agrees to terms, a privacy policy or the
 processing of application data.`;
 
+const keyOf = (text, choices) => `${norm(text).slice(0, 120)}|${choices.map(item => norm(String(item).trim())).filter(Boolean).sort().join('|')}`;
+// The page contradicted the kept answer (the popup is still there after its button was pressed): dropped, asked again next time.
+export const forgetDismiss = (storage, {text = '', buttons = []}) => forget(storage, FILE, keyOf(text, (buttons || []).map(String).filter(item => item.trim()).slice(0, 20)));
 // → {button, how: 'ai' | 'kept' | 'none'}; button '' when none is right (or no AI to ask).
 export async function pickDismiss(storage, {text = '', buttons = []}, {client, log = () => {}} = {}) {
   const choices = (buttons || []).map(String).map(item => item.trim()).filter(Boolean).slice(0, 20);
   if (!choices.length) return {button: '', how: 'none'};
-  let kept = {};
-  try { kept = JSON.parse(storage.readText(FILE) || '{}') || {}; } catch {}
-  const key = `${norm(text).slice(0, 120)}|${choices.map(norm).sort().join('|')}`;
-  if (key in kept) return {button: choices.includes(kept[key]) ? kept[key] : '', how: 'kept'};
+  const kept = readKept(storage, FILE), key = keyOf(text, choices);
+  const known = keptValue(kept, key);   // young answers only; a contradicted one was forgotten (lib/kept-decisions.js)
+  if (known.found) return {button: choices.includes(known.value) ? known.value : '', how: 'kept'};
   if (!client) return {button: '', how: 'none'};
   const started = Date.now();
   try {
@@ -30,10 +33,10 @@ export async function pickDismiss(storage, {text = '', buttons = []}, {client, l
         properties: {button: {type: 'string', enum: [...choices, '']}}}}}});
     if (response.stop_reason === 'max_tokens') throw new Error('answer cut short');
     const button = JSON.parse(response.content?.find(block => block.type === 'text')?.text || '{}').button;
-    kept[key] = choices.includes(button) ? button : '';
-    storage.writeText(FILE, JSON.stringify(kept));
-    log('extension', kept[key] ? 'popup: a button closes it' : 'popup: left alone', {buttons: choices.length, ms: Date.now() - started});
-    return {button: kept[key], how: 'ai'};
+    const picked = choices.includes(button) ? button : '';
+    keep(storage, FILE, kept, key, picked);
+    log('extension', picked ? 'popup: a button closes it' : 'popup: left alone', {buttons: choices.length, ms: Date.now() - started});
+    return {button: picked, how: 'ai'};
   } catch (error) {
     log('extension', `popup button not picked: ${String(error?.message || error).slice(0, 160)}`, {buttons: choices.length});
     return {button: '', how: 'none'};

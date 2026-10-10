@@ -87,3 +87,15 @@ test('the same form reopened in a new tab gets its menu armed again (live twin, 
   await new Promise(resolve => setTimeout(resolve, 20));
   assert.equal(queued.length, 2);
 });
+
+// 10 Oct 2026 (spec step 5): the banner still shows the pressed button: the kept answer is forgotten and asked again.
+test('a kept banner choice the page contradicted is forgotten, then asked again', async () => {
+  const {pickOption, forgetOption} = await import('../lib/option-pick.js');
+  const files = {}, storage = {readText: name => files[name] ?? null, writeText: (name, text) => { files[name] = text; }}, sent = [];
+  const ask = {label: 'A cookie banner', value: 'Reject all cookies that are not necessary', options: ['OK', 'Cookie notice']};
+  const ai = choice => ({messages: {create: async request => { sent.push(request); return {stop_reason: 'end_turn', content: [{type: 'text', text: JSON.stringify({choice})}]}; }}});
+  assert.equal((await pickOption(storage, ask, {client: ai('Cookie notice')})).choice, 'Cookie notice');
+  assert.equal(forgetOption(storage, ask), true);
+  assert.deepEqual(await pickOption(storage, ask, {client: ai('OK')}), {choice: 'OK', how: 'ai'});
+  assert.equal(sent.length, 2);
+});
