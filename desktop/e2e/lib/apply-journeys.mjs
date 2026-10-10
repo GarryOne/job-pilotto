@@ -225,6 +225,8 @@ export async function runJourneys(ctx, h) {
     };
     const claudes = async () => (await page.evaluate(() => window.pilot.sessions())).filter(item => (item.kind || 'claude') === 'claude' && String(item.url || '').replace(/\/$/, '') === SIGNIN_REFUSED.url).length;
     const claudesBefore = await claudes();
+    await page.evaluate(() => window.pilot.saveSettings({claudeReadyTest: 'off'}));   // this Mac may have Claude Code: the step says "not ready" itself
+    await pause(6000);   // the panel learns it at its next report
     const off = await panelTakeOver();
     if (!off.panel) problems.push(`the stuck page has no panel to open (${JSON.stringify(off)}): Take over cannot be checked`);
     else if (off.offered) problems.push('Claude is not ready, yet the stuck page offers "Let Claude finish this page"');
