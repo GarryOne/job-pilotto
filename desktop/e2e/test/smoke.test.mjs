@@ -1,7 +1,7 @@
 // The nightly smoke's logic (lib/smoke.mjs): how far a live run got, what counts as a regression, which posting is tried tonight.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {compare, fieldLines, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, verdictOf} from '../lib/smoke.mjs';
+import {compare, fieldLines, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, verdictFields, verdictOf} from '../lib/smoke.mjs';
 
 const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detail/x/
   2026-10-10T12:20:27Z [extension] page kind: account {"shape":"auth.jobs.ch/u/login/identifier|1-2","by":"ai"}
@@ -203,4 +203,12 @@ test('a form is a shortfall when any asked field is unexplained, not when under 
   assert.deepEqual(shortfall({reached: 'form', filled: 4, left: 8}), {done: 4, total: 12, miss: 0, noSuggestion: 0});   // no field list (an old run): the counts, under half
   assert.equal(shortfall({reached: 'form', filled: 6, left: 6}), null);
   assert.equal(shortfall({reached: 'posting'}), null);
+});
+
+test('the upload carries the verdict only for a form reached with a field list: how many fields were asked and how many are unexplained', () => {
+  const filled = {outcome: 'filled', type: 'text', label: 'Name', required: true, reason: 'your details'};
+  assert.deepEqual(verdictFields({reached: 'form', filled: 1, left: 2, fieldList: [filled, left('proposed for you to confirm'), left(NO_ANSWER)]}), {asked: 3, unexplained: 1});
+  assert.deepEqual(verdictFields({reached: 'form', filled: 1, left: 1, fieldList: [filled, left('proposed for you to confirm')]}), {asked: 2, unexplained: 0});
+  assert.deepEqual(verdictFields({reached: 'form', fieldList: []}), {});   // an old run: no verdict, the page counts
+  assert.deepEqual(verdictFields({reached: 'posting', fieldList: [filled]}), {});
 });

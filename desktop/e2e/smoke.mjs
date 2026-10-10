@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {compare, lastSeen, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, signature, tonight} from './lib/smoke.mjs';
+import {compare, lastSeen, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, signature, tonight, verdictFields} from './lib/smoke.mjs';
 import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
 import {poolCard, sendPoolCard} from './lib/pool-card.mjs';
 import {earlierReports, recordSite} from './lib/smoke-record.mjs';
@@ -109,7 +109,7 @@ async function main() {
   const finish = async shape => {
     const item = results[shape], found = recordSite({dir: REPORTS, day, shape, result: item, earlier: previous});
     console.log(`smoke: ${shape}: ${await sendPoolCard(poolCard(shape, item, {day}))}`);   // the same loop users' fills feed (lib/pool-card.mjs)
-    console.log(`smoke: ${await upload('smoke', [{name: shape, host: hostOnly(item.url), reached: item.reached, filled: item.filled, left: item.left, note: item.note || '', regression: !!found, ...rungFields(item)}])}`);
+    console.log(`smoke: ${await upload('smoke', [{name: shape, host: hostOnly(item.url), reached: item.reached, filled: item.filled, left: item.left, note: item.note || '', regression: !!found, ...rungFields(item), ...verdictFields(item)}])}`);
   };
   const pool = shapes.filter(item => !only || item.shape.includes(only));
   const chosen = only || process.argv.includes('--all') ? pool : tonight(pool, Number(process.env.SMOKE_PER_NIGHT || 10));

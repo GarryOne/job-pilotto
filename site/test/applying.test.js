@@ -136,7 +136,7 @@ test('the page explains its colors: a legend row for every step the page draws',
 });
 
 test('a form reached with under half of its fields filled is a shortfall: red on the page, on the needs-a-fix count, with the filled share of each run (owner, 10 Oct 2026: 4 of 13 showed blue)', async () => {
-  assert.deepEqual(shortOf('form', 4, 8), {done: 4, total: 12});
+  assert.deepEqual(shortOf('form', 4, 8), {done: 4, total: 12, unexplained: null});
   assert.equal(shortOf('form', 6, 6), null);   // half is not a shortfall
   assert.equal(shortOf('ready', 5, 0), null);
   assert.equal(shortOf('posting', 0, 0), null);   // an earlier stop is its own failure
@@ -145,16 +145,30 @@ test('a form reached with under half of its fields filled is a shortfall: red on
   await ingest(db, {kind: 'smoke', day: '2026-10-11', rows: [{name: 'Short', host: 's.com', reached: 'form', filled: 3, left: 9}, {name: 'Half', host: 'h.com', reached: 'form', filled: 6, left: 6}, {name: 'Early', host: 'e.com', reached: 'posting'}]}, now);
   await ingest(db, {kind: 'smoke', day: '2026-10-12', rows: [{name: 'Short', host: 's.com', reached: 'form', filled: 4, left: 8}, {name: 'Hold', host: 'b.com', reached: 'code/bot'}, {name: 'Gone', host: 'g.com', reached: 'none', note: 'posting gone (HTTP 404)'}, {name: 'Ready', host: 'r.com', reached: 'ready', filled: 5, left: 0}]}, now);
   const d = await data(db, now), by = Object.fromEntries(d.pool.map(item => [item.name, item]));
-  assert.deepEqual(by.Short.short, {done: 4, total: 12});
+  assert.deepEqual(by.Short.short, {done: 4, total: 12, unexplained: null});
   assert.deepEqual(by.Short.shares, [25, 33]);   // each run's filled share, oldest first
   assert.equal(by.Half.short, null);
   assert.equal(by.Early.short, null);
   assert.equal(d.tiles.needFix, 2);   // Short (under half) and Early (stopped at the posting); a bot check, a posting gone, a ready form and half-filled are not
-  assert.ok(PAGE.includes('Needs a fix') && PAGE.includes("'form · ' + s.short.done"), 'the page lists them and draws the red pill');
+  assert.ok(PAGE.includes('Needs a fix') && PAGE.includes("'form · ' + shortText(s)"), 'the page lists them and draws the red pill');
 });
 
 test('no column but the first breaks its text over lines, and the badge and its date share one line (owner, 10 Oct 2026)', () => {
   assert.ok(PAGE.includes('table td:not(:first-child),table th:not(:first-child){white-space:nowrap}'), 'cells after the first never wrap');
   assert.ok(PAGE.includes('.legend td:last-child{white-space:normal}'), 'the legend\'s long meaning column may wrap');
   assert.ok(!PAGE.includes("s.day ? el('div', {className: 'muted', textContent: s.day})"), 'the date is a span beside the badge, not a block under it');
+});
+
+test('the runner\'s verdict decides: a form whose left fields are all expected is fine however little is filled; unexplained fields make it red (owner, 10 Oct 2026)', async () => {
+  assert.equal(shortOf('form', 4, 8, 12, 0), null);   // 4 of 12 filled, but every left field is expected (a suggestion shown, or a legal choice)
+  assert.deepEqual(shortOf('form', 9, 3, 12, 3), {done: 9, total: 12, unexplained: 3});   // 9 filled, yet 3 left fields are unexplained
+  assert.deepEqual(shortOf('form', 4, 8), {done: 4, total: 12, unexplained: null});   // no verdict (an older run): the counts, under half
+  assert.equal(shortOf('posting', 0, 0, 5, 5), null);
+  const db = d1();
+  await ingest(db, {kind: 'smoke', day: '2026-10-12', rows: [{name: 'Fine', host: 'f.com', reached: 'form', filled: 4, left: 8, asked: 12, unexplained: 0}, {name: 'Red', host: 'r.com', reached: 'form', filled: 9, left: 3, asked: 12, unexplained: 3},
+    {name: 'Junk', host: 'j.com', reached: 'form', filled: 1, left: 1, asked: 'many', unexplained: -1}]}, now);
+  const d = await data(db, now), by = Object.fromEntries(d.pool.map(item => [item.name, item]));
+  assert.equal(by.Fine.short, null);
+  assert.deepEqual(by.Red.short, {done: 9, total: 12, unexplained: 3});
+  assert.equal(by.Junk.short, null);   // a bad verdict is dropped and the counts decide: 1 of 2 is half, not under
 });

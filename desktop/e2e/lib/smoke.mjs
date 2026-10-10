@@ -154,3 +154,10 @@ export function fieldLines(line) {
     return JSON.parse(line.slice(at, line.lastIndexOf('}') + 1)).fields.slice(0, 40).map(item => `      field ${item.outcome} ${item.type} "${String(item.label || '').replace(/\s+/g, ' ').slice(0, 60)}" required=${item.required === undefined ? '?' : item.required} reason=${String(item.reason || item.source || '').replace(/\s+/g, ' ').slice(0, 160)}`);
   } catch { return []; }
 }
+
+// What the page needs of the verdict (site/src/applying.js shortOf): the asked fields and how many are unexplained, only for a form reached with a field list; an older run sends nothing and the page counts.
+export function verdictFields(result) {
+  if (result?.reached !== 'form' || !(result.fieldList || []).length) return {};
+  const asked = result.fieldList.filter(item => item.required !== false && item.type !== 'file').length, short = shortfall(result);
+  return {asked, unexplained: short ? short.miss + short.noSuggestion : 0};
+}
