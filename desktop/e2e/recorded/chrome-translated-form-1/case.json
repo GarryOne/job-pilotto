@@ -1,0 +1,35 @@
+{
+ "shape": "an application form in German that Chrome has translated to English (text wrapped in <font>, html marked translated-ltr)",
+ "why": "10 Oct 2026, owner: people in Switzerland translate German/French job pages with Chrome; its translation rewrites every text the extension reads. A guard: no known bug. Built from Chrome's translated DOM structure (Playwright's Chromium cannot translate)",
+ "sample": "a German employer form, translated (constructed in Chrome's exact structure)",
+ "pages": [
+  {
+   "url": "https://karriere.example.ch/bewerbung/buchhalter",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  }
+ },
+ "expect": {
+  "filled": [
+   "#vorname",
+   "#nachname",
+   "#email"
+  ],
+  "attached": [
+   "#lebenslauf"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60
+ },
+ "start": "panel"
+}

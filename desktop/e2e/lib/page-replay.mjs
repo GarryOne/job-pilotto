@@ -1,7 +1,7 @@
 /* global document */
 // Layer 2 of applying reliability (spec: docs/superpowers/specs/2026-10-10-applying-reliability-layers.md): recorded pages replayed with the REAL extension,
 // offline. A case (e2e/recorded/<shape>-<n>/case.json) serves its pages at their real addresses (context.route), answers the app's AI calls from the case
-// (no AI, no network), opens the first page as an application tab and checks `expect`. Isolation: lib/real-extension.mjs (fake applicant, stub app).
+// (no AI, no network), opens the first page as an application tab (`start: "panel"`: then presses the panel's Fill) and checks `expect`. Isolation: lib/real-extension.mjs (fake applicant, stub app).
 // Guard: e2e/test/recorded-pages.test.mjs runs every case; desktop/test/replay-privacy.test.js keeps personal data out of the cases.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -34,6 +34,7 @@ export async function runCase(item, {extensionDir} = {}) {
     let opened = 0;   // every tab a page or the extension opened during the run (a tab loop closes the tab behind it: the count at the end stays 1)
     run.context.on('page', open => { if (!open.url().startsWith('chrome-extension://')) opened += 1; });
     await run.page.goto(`${item.pages[0].url}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'});
+    if (item.start === 'panel') await run.fillWithPanel();   // a form page's fill starts from the panel's Fill button (as the person, or the app's start signal, would)
     const expect = item.expect || {}, deadline = Date.now() + (expect.seconds || 40) * 1000;
     const page = () => run.context.pages().filter(open => !open.url().startsWith('chrome-extension://')).at(-1) || run.page;
     const checks = {
