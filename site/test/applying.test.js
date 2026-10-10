@@ -152,3 +152,9 @@ test('a form reached with under half of its fields filled is a shortfall: red on
   assert.equal(d.tiles.needFix, 2);   // Short (under half) and Early (stopped at the posting); a bot check, a posting gone, a ready form and half-filled are not
   assert.ok(PAGE.includes('Needs a fix') && PAGE.includes("'form · ' + s.short.done"), 'the page lists them and draws the red pill');
 });
+
+test('no column but the first breaks its text over lines, and the badge and its date share one line (owner, 10 Oct 2026)', () => {
+  assert.ok(PAGE.includes('table td:not(:first-child),table th:not(:first-child){white-space:nowrap}'), 'cells after the first never wrap');
+  assert.ok(PAGE.includes('.legend td:last-child{white-space:normal}'), 'the legend\'s long meaning column may wrap');
+  assert.ok(!PAGE.includes("s.day ? el('div', {className: 'muted', textContent: s.day})"), 'the date is a span beside the badge, not a block under it');
+});
