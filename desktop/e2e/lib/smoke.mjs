@@ -2,6 +2,10 @@
 // parseLive reads where a live run got to from its own printed log lines (lib/apply-live.mjs), compare finds what reached less than last time, pickPosting
 // rotates through the owner's postings of each site shape. Runner: e2e/smoke.mjs. Guard: e2e/test/smoke.test.mjs.
 export const STEPS = ['none', 'posting', 'account', 'code/bot', 'form', 'ready'];
+// Sites read only through the person's own visit, never by an automated run (CLAUDE.md: LinkedIn, Glassdoor, Indeed, levels.fyi and Reddit; 10 Oct 2026: discovery
+// opened an Indeed posting). Never a smoke or discovery candidate, whatever list it comes from.
+export const NEVER_VISIT = /(^|\.)(linkedin\.com|glassdoor\.[a-z.]+|indeed\.[a-z.]+|levels\.fyi|reddit\.com)$/i;
+export const mayVisit = url => { try { return !NEVER_VISIT.test(new URL(url).hostname); } catch { return true; } };   // only the named sites are blocked
 const rank = step => STEPS.indexOf(step);
 
 // -> {reached, filled, left, kinds: [page kinds seen], path: [{kind, host}] in order (consecutive repeats folded), errors: [lines]}
@@ -37,7 +41,7 @@ export function compare(previous = {}, current = {}) {
 }
 
 // One of a shape's postings, rotating by day (the list is the owner's own jobs matching the shape's patterns).
-export const pickPosting = (postings, day = new Date()) => (postings.length ? postings[Math.floor(day.getTime() / 86400000) % postings.length] : null);
+export const pickPosting = (postings, day = new Date()) => { const allowed = postings.filter(item => mayVisit(item?.url || item)); return allowed.length ? allowed[Math.floor(day.getTime() / 86400000) % allowed.length] : null; };
 
 // Tonight's share of a big pool (owner, 10 Oct 2026: "100 sites, 10 a night, all of them in 10 days"): a window that moves by perNight each day, wrapping.
 export function tonight(shapes, perNight = 10, day = new Date()) {
@@ -57,14 +61,14 @@ export function lastSeen(reports) {
 // host where the journey ended, and how far it got. Two sites with one signature test the same thing; a new signature is a new shape for the pool.
 export function signature(result) {
   const path = (result?.path || []).filter(step => step.kind);
-  if (!path.length) return `${result?.reached || 'none'}@?`;
+  if (!path.length) return 'unclear';   // no page kind was decided: nothing learned about the site's flow (10 Oct 2026: Richemont's first run)
   return `${path.map(step => step.kind).join('>')}@${path.at(-1).host || '?'}#${result.reached}`;
 }
 // Discovery candidates from a job list: a few postings per host (more from job boards, whose postings lead to different employers), none already in the pool.
 export function candidates(postings, known = new Set(), {perHost = 2, perBoard = 12, boards = /(^|\.)(jobs\.ch|jobup\.ch|indeed\.|arbeitnow\.ch|linkedin\.)/} = {}) {
   const byHost = {};
   for (const posting of postings) {
-    if (known.has(posting.url)) continue;
+    if (known.has(posting.url) || !mayVisit(posting.url)) continue;
     let host = ''; try { host = new URL(posting.url).hostname; } catch { continue; }
     (byHost[host] ||= []).push(posting);
   }

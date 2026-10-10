@@ -26,6 +26,7 @@ test('a regression: an earlier step than last time, or fewer fields on the same 
 
 test('postings rotate by day', () => {
   const day = n => new Date(n * 86400000);
+  assert.deepEqual([pickPosting(['https://a.example/1', 'https://b.example/2', 'https://c.example/3'], day(0)), pickPosting(['https://a.example/1', 'https://b.example/2', 'https://c.example/3'], day(1))], ['https://a.example/1', 'https://b.example/2']);
   assert.deepEqual([pickPosting(['a', 'b', 'c'], day(0)), pickPosting(['a', 'b', 'c'], day(1)), pickPosting(['a', 'b', 'c'], day(3))], ['a', 'b', 'a']);
   assert.equal(pickPosting([]), null);
 });
@@ -81,7 +82,8 @@ test('a flow signature: page kinds in order and the host the journey ended on; o
   [extension] account judgment result: needs_code {"botCheck":false}`);
   assert.deepEqual(run.path, [{kind: 'posting', host: 'www.jobs.ch'}, {kind: 'account', host: 'apply.deloitte.ch'}]);
   assert.equal(signature(run), 'posting>account@apply.deloitte.ch#code/bot');
-  assert.equal(signature({reached: 'none'}), 'none@?');
+  assert.equal(signature({reached: 'none'}), 'unclear');
+  assert.equal(signature({reached: 'posting', path: []}), 'unclear');
 });
 
 test('discovery candidates: a few per host, more from job boards, none already in the pool', async () => {
@@ -90,4 +92,12 @@ test('discovery candidates: a few per host, more from job boards, none already i
   const picked = candidates(jobs, new Set(['https://career.hm.com/job/0']));
   assert.equal(picked.filter(item => item.url.includes('jobs.ch')).length, 12);
   assert.deepEqual(picked.filter(item => item.url.includes('hm.com')).map(item => item.url), ['https://career.hm.com/job/1', 'https://career.hm.com/job/2']);
+});
+
+test('never an automated visit to LinkedIn, Glassdoor, Indeed, levels.fyi or Reddit: not a discovery candidate, not a nightly pick', async () => {
+  const {candidates, mayVisit} = await import('../lib/smoke.mjs');
+  for (const url of ['https://ch.indeed.com/viewjob?jk=1', 'https://www.linkedin.com/jobs/view/1', 'https://www.glassdoor.ch/job/1', 'https://www.levels.fyi/jobs', 'https://www.reddit.com/r/jobs']) assert.equal(mayVisit(url), false, url);
+  assert.equal(mayVisit('https://career.hm.com/job/1'), true);
+  assert.deepEqual(candidates([{url: 'https://ch.indeed.com/viewjob?jk=1'}, {url: 'https://career.hm.com/job/1'}]).map(item => item.url), ['https://career.hm.com/job/1']);
+  assert.equal(pickPosting([{url: 'https://ch.indeed.com/viewjob?jk=1'}]), null);
 });

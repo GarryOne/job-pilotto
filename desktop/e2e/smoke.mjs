@@ -64,7 +64,7 @@ async function discover(limit) {
     const status = await postingStatus(posting.url);
     if (status === 404 || status === 410) { seen.push({url: posting.url, note: `gone (HTTP ${status})`}); continue; }
     const run = await liveRun(posting, Number(process.env.SMOKE_SECONDS || 90)), result = parseLive(run.output), flow = signature(result);
-    const fresh = result.reached !== 'none' && !knownSignatures.has(flow);
+    const fresh = result.reached !== 'none' && flow !== 'unclear' && !knownSignatures.has(flow);   // an unclear run teaches nothing: listed for the twin loop, not added
     seen.push({url: posting.url, signature: flow, reached: result.reached, added: fresh});
     console.log(`smoke discover: ${flow} ${fresh ? 'NEW: added to the pool' : 'known'} (${hostOnly(posting.url)})`);
     if (fresh) {
