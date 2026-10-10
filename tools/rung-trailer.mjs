@@ -3,6 +3,7 @@
 // says in a commit message of the pushed range which rung it changes and which fixture shows it, like "Recorded-unneeded" (tools/recorded-cases.mjs):
 //   Rung: <0-6 | router | judges>          (a list "2, 3" is fine)
 //   Fixture: <fixture id of desktop/e2e/ladder-fixtures/, or several, or "none: <why>" for a pure move or refactor>
+//   Pool-row: <the pool row this fixes, as /admin/applying shows its name>   (optional, any commit: it fills the Fixed tab, desktop/e2e/lib/fix-ledger.mjs; never an address or a query string)
 // Usage: node tools/rung-trailer.mjs [--base origin/main]   exit 1 with the reason when a flow push lacks them. Guard: desktop/test/rung-trailer.test.js.
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -15,6 +16,12 @@ export const isFlowPush = (changed, flowFiles) => { const flows = new Set(flowFi
 const RUNG = /^Rung:[ \t]*(.*)$/gm, FIXTURE = /^Fixture:[ \t]*(.*)$/gm;
 const RUNG_VALUE = /^(?:[0-6]|router|judges)(?:\s*,\s*(?:[0-6]|router|judges))*$/;
 const HOW = 'Add to a commit message of the push:\n  Rung: <0-6 | router | judges>\n  Fixture: <a fixture id of desktop/e2e/ladder-fixtures/ | none: <why> (a pure move or refactor)>\n(docs/flows/ladder.md, skill fix-site-at-its-rung)';
+
+// "Pool-row:" is optional; when present it is a plain site name (it is published on the owner page). -> '' or the problem.
+export const poolRowProblem = messages => {
+  const bad = messages.flatMap(message => [...String(message).matchAll(/^Pool-row:[ \t]*(.*)$/gm)].map(found => found[1].trim())).filter(name => !name || name.length > 120 || /[?=@]|:\/\/|https?:/i.test(name));
+  return bad.length ? `"Pool-row: ${bad[0]}" must be a pool row's name as /admin/applying shows it: no address, no query string, at most 120 characters` : '';
+};
 
 // -> '' when fine, else the message. changed: the push's files; messages: its commit messages; fixtureIds: the ids in desktop/e2e/ladder-fixtures/.
 export function missingTrailer(changed, messages, flowFiles, fixtureIds) {
@@ -40,7 +47,7 @@ async function main() {
   try { changed = git('diff', '--name-only', `${base}...HEAD`).split('\n').filter(Boolean); messages = git('log', '--format=%B%x00', `${base}..HEAD`).split('\0'); } catch { return 0; }
   const {FLOW_FILES} = await import(path.join(root, 'desktop/e2e/flows.mjs'));
   const ids = fs.readdirSync(path.join(root, 'desktop/e2e/ladder-fixtures')).filter(name => name.endsWith('.json')).map(name => name.slice(0, -5));
-  const why = missingTrailer(changed, messages, FLOW_FILES, ids);
+  const why = poolRowProblem(messages) || missingTrailer(changed, messages, FLOW_FILES, ids);
   if (why) { console.error(why); return 1; }
   return 0;
 }

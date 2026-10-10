@@ -3,6 +3,7 @@
 // fleet's dropped boards (layer 4, src/digest.js). The owner's Mac uploads each run (POST here, the owner key; desktop/e2e/lib/applying-report.mjs): the
 // site's host and fixed words only, never a posting's address or applicant data. Guard: test/applying.test.js.
 import {viewer} from './auth.js';
+import {FIX_KINDS, FIXED_SCRIPT, fixedData, ingestFixes} from './applying-fixed.js';
 import {digest} from './digest.js';
 import {topCauses} from './applying-cause.js';
 import {nextToAdd} from './nextsites.js';
@@ -21,6 +22,7 @@ const hostOf = value => { const host = text(value, 120).toLowerCase(); return /^
 
 // -> {ok, stored} | {ok: false, error}. body: {kind, day, version, rows: [{name, start_host?, signature?} for 'pool'; {name, host?, reached?, filled?, left?, ok?, note?, regression?}]}
 export async function ingest(db, body, now = new Date()) {
+  if (FIX_KINDS.includes(body?.kind)) return ingestFixes(db, body, now);   // the fix ledger and the claims: snapshots (src/applying-fixed.js)
   const kind = KINDS.includes(body?.kind) ? body.kind : null, day = DAY.test(body?.day || '') ? body.day : null;
   const rows = Array.isArray(body?.rows) ? body.rows.slice(0, 200) : [];
   if (!kind || !day || !rows.length) return {ok: false, error: 'kind, day and rows are required'};
@@ -65,6 +67,7 @@ export const shortOf = (reached, filled, left, asked = null, unexplained = null)
 };
 const shareOf = (filled, left) => (Number.isInteger(filled) && Number.isInteger(left) && filled + left > 0 ? Math.round((100 * filled) / (filled + left)) : null);
 // Needs a fix: not a posting that is gone, and a regression, a shortfall, or a stop before the form (a code or bot check is a documented hold, not a fix).
+const runNeedsFix = run => (run.note ? null : !run.reached ? null : !!run.regression || !!shortOf(run.reached, run.filled, run.left_n, run.asked, run.unexplained) || ['none', 'posting', 'account'].includes(run.reached));
 const needsFix = site => !site.note && !!site.reached && (site.regression || !!site.short || ['none', 'posting', 'account'].includes(site.reached));
 
 export async function data(db, now = new Date()) {
@@ -73,7 +76,7 @@ export async function data(db, now = new Date()) {
   const byName = kind => runs.filter(run => run.kind === kind).reduce((out, run) => ((out[run.name] ||= []).push(run), out), {});
   const sites = Object.entries(byName('smoke')).map(([name, list]) => {
     const last = list.at(-1);
-    return {name, at: last.at, host: last.host, reached: last.reached, filled: last.filled, left: last.left_n, day: last.day, version: last.version, note: last.note, rung: last.rung ?? null, signal: last.signal ?? null,
+    return {name, at: last.at, host: last.host, runs: list.slice(-20).map(run => ({day: run.day, at: run.at, reached: run.reached, filled: run.filled, left: run.left_n, version: run.version, needsFix: runNeedsFix(run)})), reached: last.reached, filled: last.filled, left: last.left_n, day: last.day, version: last.version, note: last.note, rung: last.rung ?? null, signal: last.signal ?? null,
       regression: !!last.regression, short: shortOf(last.reached, last.filled, last.left_n, last.asked, last.unexplained), shares: list.slice(-10).map(run => shareOf(run.filled, run.left_n)), history: list.slice(-10).map(run => run.reached || 'none'), days: list.slice(-10).map(run => run.day)};
   }).sort((a, b) => Number(b.regression) - Number(a.regression) || STEPS.indexOf(a.reached) - STEPS.indexOf(b.reached));
   const cases = Object.entries(byName('recorded')).map(([name, list]) => {
@@ -90,6 +93,7 @@ export async function data(db, now = new Date()) {
   for (const item of pool) item.cause = causes[item.name] || null;
   const scorecard = await platformScorecard(db, pool, now).catch(() => []);   // real use against the pool's tests, per platform (src/scorecard.js)
   const next = await nextToAdd(db, pool, now).catch(() => ({sites: [], hidden: {hosts: 0}}));   // real users' end hosts the pool lacks (src/nextsites.js)
+  const fixed = await fixedData(db, pool, cases, now).catch(() => ({day: dayOf(now), rows: [], inProgress: [], claimsAt: null, fixesAt: null, replays: []}));   // the Fixed tab, and the Back / In progress marks on the pool rows
   const live = sites.filter(site => !site.note);
   const dropped = await digest(db, now).then(d => d.boards.filter(board => board.dropped).map(board => ({board: board.board, earlier: board.earlierFilledShare, recent: board.recentFilledShare}))).catch(() => []);
   return {
@@ -98,7 +102,7 @@ export async function data(db, now = new Date()) {
       sites: sites.length, sitesRecent: sites.filter(site => site.day >= tenDays).length,
       reachedForm: live.length ? Math.round((100 * live.filter(site => ['form', 'ready'].includes(site.reached)).length) / live.length) : null,
       needFix: sites.filter(needsFix).length, regressions: sites.filter(site => site.regression).length, gone: sites.filter(site => site.note).length, dropped: dropped.length},
-    sites, pool, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, now: now.toISOString()};
+    sites, pool, fixed, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, now: now.toISOString()};
 }
 
 // "Greenhouse: 4 sites, 3 flows": each group's size and how many different flows (or platforms) it holds.
@@ -115,7 +119,7 @@ async function poolRows(db, sites, now) {
     const row = known.get(name) || {}, site = byName[name], start = row.start_host || site?.host || '', end = signatureHost(row.signature) || '';
     const {flow, raw} = flowOf(row.signature, start);
     const step = row.signature?.match(/#([^#]+)$/)?.[1] || null, reached = site?.reached ?? step;
-    return {name: displayName(name, start), platform: platformLabel(end, start), flow, raw, start, end, reached, day: site?.day ?? null, at: site?.at ?? null, running: running.has(name), note: site?.note ?? null, rung: site?.rung ?? null, signal: site?.signal ?? null,
+    return {name: displayName(name, start), shape: name, runs: site?.runs ?? [], platform: platformLabel(end, start), flow, raw, start, end, reached, day: site?.day ?? null, at: site?.at ?? null, running: running.has(name), note: site?.note ?? null, rung: site?.rung ?? null, signal: site?.signal ?? null,
       regression: !!site?.regression, filled: site?.filled ?? null, left: site?.left ?? null, short: site?.short ?? null, shares: site?.shares ?? [], history: site?.history ?? (step ? [step] : []), days: site?.days ?? []};
   }).sort((a, b) => Number(b.running) - Number(a.running) || a.platform.localeCompare(b.platform) || a.name.localeCompare(b.name));
 }
@@ -158,7 +162,7 @@ th{text-align:left;color:var(--muted);font-weight:500;font-size:12px;white-space
 th.sortable{cursor:pointer;user-select:none}th.sortable:hover,th.sortable.on{color:var(--text)}.dots{white-space:nowrap}.dots i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px}
 .filters{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;margin:10px 0 12px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;font-size:13px}.pick{display:flex;flex-direction:column;gap:4px;min-width:200px}.pick b{line-height:34px;font-weight:600}.pick>span{font-size:11px;text-transform:uppercase;letter-spacing:.04em}.pick.search{min-width:240px}.pick input[type=search],.pick select{background:var(--bg,var(--card));color:var(--text);border:1px solid var(--line);border-radius:8px;padding:0 10px;height:34px;box-sizing:border-box;font:inherit;font-size:13px;max-width:100%}.filters .count,.filters .pager{align-self:flex-end;box-sizing:border-box;height:34px;display:flex;align-items:center}.filters .count{padding-left:4px}.filters .pager{margin:0 0 0 auto;justify-content:flex-end}.chip{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:3px 11px;font:inherit;font-size:12px;cursor:pointer}.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;font-size:13px}.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes spin{to{transform:rotate(360deg)}}.chip:disabled{opacity:.4;cursor:default}.chip.on{border-color:var(--amber);color:var(--amber)}
 table td:not(:first-child),table th:not(:first-child){white-space:nowrap}.legend td:last-child{white-space:normal}section{overflow-x:auto}.legend{margin:18px auto 0;max-width:760px}.legend h3,.legend>p{text-align:center;margin:0 0 6px}.legend table{margin:0 auto}.ladder{margin:10px 0 0;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}.ladder summary{cursor:pointer;font-weight:600}.ladder table{margin-top:8px}
-.flag{color:var(--red);font-weight:600}.muted{color:var(--muted)}
+.flag{color:var(--red);font-weight:600}.inprogress{color:var(--amber);font-weight:600}.tabs{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 0}.tabs .chip{text-decoration:none;padding:6px 14px;font-size:13px}section[hidden]{display:none}.muted{color:var(--muted)}
 .pooltable{table-layout:fixed}.pooltable td,.pooltable th{white-space:normal!important;overflow-wrap:anywhere}.pooltable tr.site{cursor:pointer}.pooltable tr.site:hover td,.pooltable tr.site.open td{background:var(--card)}.pooltable tr.site td{vertical-align:middle;padding:10px 10px 10px 0}
 .sitecell{display:flex;gap:4px;align-items:flex-start}.pooltable th.c-site{width:30%}.pooltable th.c-flow{width:21%}.pooltable th.c-result{width:25%}.pooltable th.c-rung{width:10%}.pooltable th.c-runs{width:14%}.chev{display:inline-block;width:24px;color:var(--muted);transition:transform .15s;flex:none;background:none;border:0;padding:0 0 0 8px;font:inherit;font-size:18px;line-height:1.2;cursor:pointer}.open .chev{transform:rotate(90deg);color:var(--text)}.sitename b{display:block;font-size:14px}.sitename span{display:block;margin-top:2px}.stack{display:block;margin-top:2px}.stack.bad{color:var(--red);font-weight:600}
 .rungbox{display:inline-block;min-width:32px;text-align:center;padding:3px 8px;border-radius:7px;background:var(--card);border:1px solid var(--line);font-weight:600}.pooltable td.c-rung,.pooltable th.c-rung{text-align:center}
@@ -170,7 +174,7 @@ tr.more td{padding:0 0 12px}.detail{display:grid;grid-template-columns:minmax(0,
 @media (max-width:640px){.night{grid-template-columns:44px minmax(0,1fr)}.night>span{grid-column:2}}
 </style></head><body><main>
 <header><h1>🛡️ Applying tests</h1></header>
-<p class="muted">Is applying reliable? <b>Fixed-site replays</b>: every site we fixed, replayed offline with the real extension in the e2e run (every e2e run, and a push touching the extension). <b>Nightly smoke</b>: real postings,
+<p class="muted">Is applying reliable? <b>Fixed</b> (tab): every site we fixed, whether a run after the fix confirmed it, and its replay offline with the real extension (every e2e run, and a push touching the extension). <b>Nightly smoke</b>: real postings,
 live, stopped before any account button or Submit, a rotating share each night. A site that reached less than its last run is a regression. Logs and screenshots stay on the Mac.</p>
 <div id="app"><p class="muted">Loading…</p></div>
 <script>
@@ -192,7 +196,7 @@ fetch('?json').then(r => r.json()).then(d => {
     tile(t.regressions, 'regressions open' + (t.gone ? ' · ' + t.gone + ' posting(s) gone' : ''), t.regressions ? 'bad' : 'good'),
     tile(t.needFix, 'sites need a fix (stopped early, unexplained fields, or a regression)', t.needFix ? 'bad' : 'good'),
     tile(t.dropped, 'boards dropped in the fleet (layer 4)', t.dropped ? 'bad' : 'good')));
-  const fixBox = el('section', {className: 'fix'}); app.append(fixBox);   // Needs a fix: right under the tiles, drawn once block() exists (drawFix)
+  const tabs = el('nav', {className: 'tabs'}), fixBox = el('section', {className: 'fix'}), fixedBox = el('section', {className: 'fixed'}); app.append(tabs, fixBox, fixedBox);   // Needs a fix: right under the tiles, drawn once block() exists (drawFix)
   // Nights · where each site got to (owner, 10 Oct 2026: more readable, at the top): one bar per night, newest first, every site of that night split by the step it reached
   // (the segment's width is its share, its number the count), then how many sites ran and the share that reached the form.
   if (d.nights.length) {
@@ -218,7 +222,7 @@ fetch('?json').then(r => r.json()).then(d => {
   const MEANS = {none: 'nothing reached, or never run (the dash)', posting: 'stopped at the job posting, never got past it', account: 'reached an account or sign-in page', 'code/bot': 'stopped at an email code or a bot check (a documented hold)', form: 'reached the application form', ready: 'the form is filled with nothing required left'};
   const SHORT_ROW = el('tr', {}, el('td', {}, el('span', {className: 'pill s-posting', textContent: 'red · form'})), el('td', {textContent: 'form, unexplained fields'}), el('td', {className: 'muted', textContent: 'reached the form, but some fields were left without a good reason (the extension missed them, or no answer was suggested; a question only the person can answer, with a suggestion shown, is fine): it counts as a failure and goes on the "Needs a fix" list'}));
   const colorLegend = el('div', {className: 'legend'}, el('h3', {textContent: 'What the colors mean'}),   // the foot of the pool table (owner, 10 Oct 2026)
-    el('p', {className: 'muted', textContent: 'On the pool table, the dots of "Recent runs" (hover one for its date) show the step a run reached; a red "3 unexplained of 12" under "Form reached" means the form was reached but fields were left that we should have known or suggested an answer for. In the fixed-site replays a dot is green when the case passed and red when it failed.'}),
+    el('p', {className: 'muted', textContent: 'On the pool table, the dots of "Recent runs" (hover one for its date) show the step a run reached; a red "3 unexplained of 12" under "Form reached" means the form was reached but fields were left that we should have known or suggested an answer for. In the Fixed tab, in the Guard column, a dot is green when the case passed and red when it failed.'}),
     el('table', {}, el('tr', {}, ...['Color', 'Step', 'Meaning'].map(h => el('th', {textContent: h}))),
       ...d.steps.map(step => el('tr', {}, el('td', {}, el('span', {className: 'pill s-' + step, textContent: COLORS[step] || step})), el('td', {textContent: step}), el('td', {className: 'muted', textContent: MEANS[step] || ''}))), SHORT_ROW));
   const dots = (list, days = []) => el('span', {className: 'dots'}, ...list.map((step, at) => el('i', {title: (days[at] ? days[at] + ' · ' : '') + (typeof step === 'number' ? (step ? 'passed' : 'failed') : step), tabIndex: 0, style: 'background:' + (typeof step === 'number' ? (step ? 'var(--green)' : 'var(--red)') : color(step))})));
@@ -275,7 +279,7 @@ fetch('?json').then(r => r.json()).then(d => {
   // Next sites to add: first the platforms most matched jobs are on that the pool covers too little (from any number of installs), then the hosts real applications ended on
   // that the pool lacks, each used by >= 3 installs (src/nextsites.js). Top 5 of each, the rest on request.
   // Each list is a bar (its title, "Showing 1-5 of N", Previous / Next) over a table: the pool table's own pattern, 5 rows a page.
-  const nextPage = {platforms: 0, sites: 0, score: 0, fix: 0}, NEXT_PER = 5, nextBox = el('div'), scoreBox = el('div');
+  const nextPage = {platforms: 0, sites: 0, score: 0, fix: 0, fixed: 0}, NEXT_PER = 5, nextBox = el('div'), scoreBox = el('div');
   const block = (key, title, what, allRows, labels, row, none, redraw = () => drawNext(), getters = []) => {
     const rows = sortRows(key, allRows, getters), pages = Math.max(1, Math.ceil(rows.length / NEXT_PER)); nextPage[key] = Math.min(nextPage[key], pages - 1);
     const from = nextPage[key] * NEXT_PER, shown = rows.slice(from, from + NEXT_PER), go = step => () => { nextPage[key] += step; redraw(); };
@@ -314,7 +318,8 @@ fetch('?json').then(r => r.json()).then(d => {
       el('p', {className: 'muted', textContent: 'A regression, a stop before the form, or a form reached with fields left that we should have known or suggested an answer for. The last column is the share of fields filled in each of the last runs: a fix shows there the next night.'}),
       ...block('fix', 'Sites', 'Worst first: regressions, then the platform most used', d.pool.filter(needs).sort(byWorst), ['Site', 'Platform', 'Platform use', 'Why', 'Top cause', 'Filled, last runs', 'Last run'],
         s => el('tr', {}, el('td', {textContent: s.name}), el('td', {textContent: s.platform}), el('td', {className: 'muted', title: 'its share of the matched jobs', textContent: useOf(s) ? useOf(s) + '%' : '—'}),
-          el('td', {}, el('span', {className: 'flag', textContent: s.regression ? 'regression' : s.short ? 'form · ' + shortText(s) : 'stopped at the ' + s.reached})),
+          el('td', {}, el('span', {className: 'flag', textContent: s.regression ? 'regression' : s.short ? 'form · ' + shortText(s) : 'stopped at the ' + s.reached}),
+            s.back ? el('span', {className: 'stack flag', textContent: 'Back · fixed before, listed again'}) : null, s.claimed ? el('span', {className: 'stack inprogress', textContent: 'In progress · since ' + ago(s.claimed)}) : null),
           el('td', {className: 'muted', textContent: s.cause ? s.cause.cause + ' · ' + s.cause.lost + ' on ' + s.cause.nights + ' night' + (s.cause.nights === 1 ? '' : 's') : '—'}),
           el('td', {className: 'muted', textContent: filledRuns(s).length ? filledRuns(s).join(' → ') + '%' : '—'}), el('td', {className: 'muted', textContent: s.at ? ago(s.at) : '—'})),
         'Nothing needs a fix', () => drawFix(), [s => s.name.toLowerCase(), s => s.platform, s => useOf(s) || null, s => fixOrder.get(s.name), s => s.cause?.lost ?? null, s => filledRuns(s).at(-1) ?? null, s => (s.at ? Date.parse(s.at) : null)]).filter(Boolean)); };
@@ -325,17 +330,11 @@ fetch('?json').then(r => r.json()).then(d => {
       'No platform seen yet', () => drawScore(), [s => s.platform, s => Object.keys(TONE).indexOf(s.verdict), s => s.matchShare, s => s.forms, s => s.filledShare, s => s.poolSites, s => s.poolReached]).filter(Boolean)); };
   app.append(el('section', {}, el('h2', {textContent: 'Platform scorecard · real use against the tests'}),
     el('p', {className: 'muted', textContent: 'Per platform: its share of the matched jobs and how well real forms are filled (the form-filling page), against the pool sites on it and how many reached the form. Verdicts, in the order to act: not in the pool; weak in both; blind spot (tests reach the form, real users do not fill it); test failing (real use is fine). Under 5 real forms is no evidence.'}), scoreBox)); drawScore(); drawFix();
-  const caseBox = el('div'), CASE_GET = [c => c.name.toLowerCase(), c => c.rung, c => (c.ok ? 1 : 0), c => c.history.at(-1), c => c.day, c => c.since];
-  const drawCases = () => { caseBox.textContent = ''; caseBox.append(el('table', {},
-    el('tr', {}, ...heads('cases', ['Case', 'Rung guarded', 'Result', 'Last 10 runs', 'Last run', 'Since'], drawCases)),
-    ...sortRows('cases', d.cases, CASE_GET).map(c => el('tr', {}, el('td', {textContent: c.name}), el('td', {className: 'muted', textContent: c.rung ?? '—'}), el('td', {}, c.ok ? el('span', {className: 'pill s-ready', textContent: 'passed'}) : el('span', {className: 'pill s-posting', textContent: 'failed'}),
-      c.note ? el('div', {className: 'muted', textContent: c.note}) : null), el('td', {}, dots(c.history)), el('td', {className: 'muted', textContent: c.day + (c.version ? ' · ' + c.version : '')}),
-      el('td', {className: 'muted', textContent: c.since}))))); };
-  app.append(el('section', {}, el('h2', {textContent: 'Fixed-site replays · every fixed site, replayed'}), d.cases.length ? caseBox
-    : el('p', {className: 'muted', textContent: 'No recorded-page run uploaded yet: cd desktop/e2e && npm run recorded'}))); if (d.cases.length) drawCases();
+${FIXED_SCRIPT}
+  drawFixed(); showTab();
   app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table, colorLegend)
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
   // Fetch again every 15 s while the tab is visible and redraw the pool, so the spinner and the times follow a run without a reload.
-  setInterval(() => { if (!document.hidden) fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; d.scorecard = fresh.scorecard; draw(); drawFix(); drawNext(); drawScore(); }).catch(() => {}); }, 15000);
+  setInterval(() => { if (!document.hidden) fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; d.scorecard = fresh.scorecard; d.fixed = fresh.fixed; d.cases = fresh.cases; draw(); drawFix(); drawFixed(); showTab(); drawNext(); drawScore(); }).catch(() => {}); }, 15000);
 }).catch(error => { document.getElementById('app').textContent = 'Could not load: ' + error.message; });
 </script></main></body></html>`;

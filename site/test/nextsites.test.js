@@ -53,7 +53,7 @@ test('the page draws the section with no stray text, with and without suggestion
   const run = async (next, scorecard = []) => {
     const app = make('div');
     const document = {createElement: make, getElementById: () => app, querySelector: () => null, hidden: true, body: make('body')};
-    const pool = {tiles: {}, cases: [], pool: [], platforms: [], flows: [], nights: [], steps: [], sites: [], dropped: [], now: '2026-10-10T12:00:00Z', next, scorecard};
+    const pool = {tiles: {}, cases: [], pool: [], platforms: [], flows: [], nights: [], steps: [], sites: [], dropped: [], fixed: {rows: [], replays: [], inProgress: []}, now: '2026-10-10T12:00:00Z', next, scorecard};
     const fetch = async () => ({json: async () => pool});
     new Function('document', 'fetch', 'getComputedStyle', 'CSS', 'setInterval', 'Object', script)(document, fetch, () => ({}), {escape: x => x}, () => 0, Object);
     await new Promise(resolve => setTimeout(resolve, 20));
@@ -61,12 +61,12 @@ test('the page draws the section with no stray text, with and without suggestion
   };
   assert.ok(!/null/.test(await run({sites: [], hidden: {hosts: 0}})), 'no "null" with an empty list');
   const card = await run({sites: [], hidden: {hosts: 0}}, [{platform: 'Greenhouse', verdict: 'Blind spot', matchShare: 54, forms: 6, filledShare: 30, poolSites: 3, poolReached: 100, installs: 4}]);
-  assert.ok(card.indexOf('Platform scorecard') > card.indexOf('Next sites to add') && card.indexOf('Platform scorecard') < card.indexOf('Fixed-site replays'), 'second section, under the next sites');
+  assert.ok(card.indexOf('Platform scorecard') > card.indexOf('Next sites to add') && card.indexOf('Platform scorecard') < card.indexOf('The pool'), 'second section, under the next sites');
   assert.ok(card.includes('Blind spot') && card.includes('Greenhouse') && card.includes('Platform scorecard') && !/null/.test(card), 'the scorecard row is drawn');
   const withPlatforms = await run({platforms: [{platform: 'Workday', matchShare: 82, poolShare: 0, poolSites: 0, installs: 1, applications: 0}], sites: [], hidden: {hosts: 0}});
   assert.ok(withPlatforms.includes('Workday') && withPlatforms.includes('82%') && !/null/.test(withPlatforms), 'a platform from one install is listed');
   const text = await run({sites: Array.from({length: 7}, (_, i) => ({host: `h${i}.acme.md`, platform: 'Custom', poolSites: 0, installs: 3, uses: 3, readyShare: 50, countries: []})), hidden: {hosts: 0}});
-  assert.ok(text.indexOf('Next sites to add') >= 0 && text.indexOf('Next sites to add') < text.indexOf('Fixed-site replays'), 'the list is the first section, above the replays');
+  assert.ok(text.indexOf('Next sites to add') >= 0 && text.indexOf('Next sites to add') < text.indexOf('The pool'), 'the list is the first section, above the pool');
   assert.ok(!/null/.test(text) && text.includes('h0.acme.md') && !text.includes('h5.acme.md') && text.includes('Showing 1–5 of 7') && text.includes('Next →'), 'top 5, the count and the pager');
 });
 

@@ -12,6 +12,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {compare, lastSeen, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, signature, tonight, verdictFields} from './lib/smoke.mjs';
 import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
+import {uploadLedger} from './lib/fix-ledger.mjs';
 import {poolCard, sendPoolCard} from './lib/pool-card.mjs';
 import {earlierReports, recordSite} from './lib/smoke-record.mjs';
 import {evidenceLines, runFinished, writeBundle} from './lib/evidence-bundle.mjs';
@@ -165,6 +166,7 @@ async function main() {
   console.log(`smoke: fleet boards dropped: ${dropped == null ? 'not read' : dropped.length ? dropped.map(item => `${item.board} ${item.earlier}→${item.recent}`).join(', ') : 'none'}`);
   console.log(`smoke: report ${path.join(REPORTS, `${day}.json`)}`);
   console.log(`smoke: ${await sendPool(shapes, earlierList, results)}`);
+  console.log(`smoke: ${await uploadLedger()}`);   // the Fixed tab's ledger and claims (lib/fix-ledger.mjs)
   return regressions.length ? 1 : 0;
 }
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) process.exit(await main());
