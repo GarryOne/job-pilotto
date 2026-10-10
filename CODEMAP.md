@@ -662,6 +662,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `tools/check-slot.sh` — Machine-wide queue for the push checks: at most JOB_PILOTTO_CHECK_SLOTS (default 2) run at once on this Mac, so three sessions
 - `tools/check.py` — Run consistent fast, area or full project verification with supported runtimes and actionable failures."""
 - `tools/check.sh` — Every agent uses this entry point; select a supported Python, then let check.py select Node and run CI checks.
+- `tools/claim-shape.mjs` — A claim per pool row, so parallel /fix-failing-forms sessions never take the same shape (owner, 11 Oct 2026). One file per row in the Mac's QA folder
 - `tools/commit-subject.py` — The subject a `git commit` command line would write, when it is given inline (-m "...", or -m "$(cat <<'EOF' ...)"); else nothing.
 - `tools/e2e_gate.py` — The end-to-end gate of tools/release-stable.sh: may this build be promoted, judging by the e2e runs GitHub lists (newest first)?
 - `tools/e2e-issue-links.mjs` — Pre-push check (tools/pre-push-check.sh): a push that changes an e2e suite names its open failed-step issues (desktop/e2e/lib/issue-links.mjs).
