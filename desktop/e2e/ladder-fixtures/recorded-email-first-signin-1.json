@@ -37,9 +37,11 @@
   "kind": "account",
   "confidence": 0.8,
   "apply_button": "",
+  "apply_button_kind": "",
   "apply_route": "",
   "apply_by": "",
   "apply_email": "",
+  "form_frame": -1,
   "account_step": "sign_in",
   "register_control": "Create an account",
   "signin_control": "",
@@ -95,5 +97,6 @@
    "text": "Create an account",
    "position": "main"
   }
- ]
+ ],
+ "answer_path": "app"
 }

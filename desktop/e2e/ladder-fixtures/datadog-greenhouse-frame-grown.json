@@ -101,5 +101,6 @@
   "signin_control": "",
   "account_button": "",
   "bot_check": false
- }
+ },
+ "answer_path": "app"
 }

@@ -35,9 +35,11 @@
   "kind": "other",
   "confidence": 0.5,
   "apply_button": "",
+  "apply_button_kind": "",
   "apply_route": "",
   "apply_by": "",
   "apply_email": "",
+  "form_frame": -1,
   "account_step": "",
   "register_control": "",
   "signin_control": "",
@@ -57,5 +59,6 @@
    "text": "Per candidarsi, presentarsi di persona al ristorante con il curriculum, dal martedì alla domenica.",
    "position": "main"
   }
- ]
+ ],
+ "answer_path": "app"
 }

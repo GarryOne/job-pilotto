@@ -149,15 +149,18 @@
  ],
  "answer": {
   "kind": "posting",
-  "confidence": 0.6,
+  "confidence": 0.8,
   "apply_button": "Apply",
-  "apply_route": "manual",
+  "apply_button_kind": "apply",
+  "apply_route": "",
   "apply_by": "form",
   "apply_email": "",
+  "form_frame": -1,
   "account_step": "",
   "register_control": "",
   "signin_control": "",
   "account_button": "",
   "bot_check": false
- }
+ },
+ "answer_path": "app"
 }

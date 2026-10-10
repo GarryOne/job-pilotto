@@ -129,11 +129,11 @@
  },
  "answer": {
   "kind": "posting",
-  "confidence": 0.8,
-  "apply_button": "",
-  "apply_button_kind": "",
-  "apply_route": "third_party_account",
-  "apply_by": "other",
+  "confidence": 0.9,
+  "apply_button": "Easy apply",
+  "apply_button_kind": "apply",
+  "apply_route": "",
+  "apply_by": "form",
   "apply_email": "",
   "form_frame": -1,
   "account_step": "",
@@ -141,5 +141,6 @@
   "signin_control": "",
   "account_button": "",
   "bot_check": false
- }
+ },
+ "answer_path": "app"
 }

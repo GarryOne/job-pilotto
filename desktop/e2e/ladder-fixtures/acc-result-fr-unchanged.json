@@ -50,6 +50,7 @@
   "needs_kind": "",
   "consent_required": false,
   "bot_check": false,
-  "confidence": 0.4
- }
+  "confidence": 0.5
+ },
+ "answer_path": "app"
 }

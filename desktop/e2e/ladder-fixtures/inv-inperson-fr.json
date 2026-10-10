@@ -36,9 +36,11 @@
   "kind": "other",
   "confidence": 0.6,
   "apply_button": "",
+  "apply_button_kind": "",
   "apply_route": "",
   "apply_by": "",
   "apply_email": "",
+  "form_frame": -1,
   "account_step": "",
   "register_control": "",
   "signin_control": "",
@@ -64,5 +66,6 @@
    "text": "Présentez-vous directement à la boutique avec votre CV, du mardi au samedi.",
    "position": "main"
   }
- ]
+ ],
+ "answer_path": "app"
 }

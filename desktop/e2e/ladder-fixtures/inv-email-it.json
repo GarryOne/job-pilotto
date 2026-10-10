@@ -33,11 +33,13 @@
  },
  "answer": {
   "kind": "posting",
-  "confidence": 0.92,
+  "confidence": 0.85,
   "apply_button": "",
+  "apply_button_kind": "",
   "apply_route": "",
   "apply_by": "email",
   "apply_email": "lavoro@example.ch",
+  "form_frame": -1,
   "account_step": "",
   "register_control": "",
   "signin_control": "",
@@ -75,5 +77,6 @@
    "text": "Come candidarsi",
    "position": "main"
   }
- ]
+ ],
+ "answer_path": "app"
 }

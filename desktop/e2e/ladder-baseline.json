@@ -44,6 +44,10 @@
   {
    "date": "2026-10-10",
    "reason": "added datadog-greenhouse-frame-live-sketch (the app's real request sketch) and the frame rule's own fingerprint key (rung2-frames): the rule is appended only when a sketch lists frame candidates, so no other fixture's prompt changed"
+  },
+  {
+   "date": "2026-10-10",
+   "reason": "answers re-recorded on the app's Claude Code adapter path (a322751), owner's go 11 Oct 2026; prompts unchanged. WORSE 3: acc-result-de-needs-code [invented] exact->wrong-confident (the judge says created_confirm at 0.9 in 2 of 5 live draws: a real weakness of the account-result judge); auterion-greenhouse-embed [captured] ok->miss (unsure in 5 of 5: the load-time embed sketch, no frame candidate, is unsure on the app path); datadog-greenhouse-frame [captured] ok->miss (unsure or other in 3 of 5, same load-time sketch). BETTER 5: dialog-en-no-manual-route and pool-job-boards-greenhouse-io wrong-confident->exact; cand-swatch-group-careers, inv-phone-de, recorded-cv-choice-step-1 wrong-confident->miss. pool-consultandpepper-com was drawn again (unsure in 2 of 8 draws; the stored one is an exact draw). 119 of 131 rows unchanged."
   }
  ],
  "promptFingerprint": {
@@ -217,8 +221,8 @@
      "needs_code"
     ]
    },
-   "outcome": "needs_code",
-   "status": "exact"
+   "outcome": "created_confirm",
+   "status": "wrong-confident"
   },
   "acc-result-de-refused-password": {
    "question": "account_result",
@@ -337,8 +341,8 @@
      "other"
     ]
    },
-   "outcome": "other",
-   "status": "ok"
+   "outcome": "unsure",
+   "status": "miss"
   },
   "cand-swatch-group-careers": {
    "expect": {
@@ -348,7 +352,7 @@
     ]
    },
    "outcome": "other",
-   "status": "wrong-confident"
+   "status": "miss"
   },
   "cloudera-workday": {
    "expect": {
@@ -392,8 +396,8 @@
      "posting"
     ]
    },
-   "outcome": "posting",
-   "status": "ok"
+   "outcome": "other",
+   "status": "miss"
   },
   "datadog-greenhouse-frame-grown": {
    "expect": {
@@ -472,8 +476,8 @@
      "posting"
     ]
    },
-   "outcome": "other",
-   "status": "wrong-confident"
+   "outcome": "posting",
+   "status": "exact"
   },
   "dialog-en-three-social": {
    "expect": {
@@ -674,7 +678,7 @@
     ]
    },
    "outcome": "posting",
-   "status": "wrong-confident"
+   "status": "miss"
   },
   "inv-phone-fr": {
    "expect": {
@@ -931,8 +935,8 @@
      "form"
     ]
    },
-   "outcome": "other",
-   "status": "wrong-confident"
+   "outcome": "form",
+   "status": "exact"
   },
   "pool-jobs-ashbyhq-com": {
    "expect": {
@@ -1142,7 +1146,7 @@
     ]
    },
    "outcome": "form",
-   "status": "wrong-confident"
+   "status": "miss"
   },
   "recorded-email-application-1": {
    "expect": {

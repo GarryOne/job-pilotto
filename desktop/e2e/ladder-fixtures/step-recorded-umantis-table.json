@@ -81,5 +81,6 @@
   "step": "middle",
   "next_control": "Weiter",
   "confidence": 0.9
- }
+ },
+ "answer_path": "app"
 }

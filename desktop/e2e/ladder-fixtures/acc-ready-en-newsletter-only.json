@@ -60,5 +60,6 @@
   "consent_required": false,
   "bot_check": false,
   "confidence": 0.95
- }
+ },
+ "answer_path": "app"
 }

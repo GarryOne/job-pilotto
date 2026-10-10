@@ -52,12 +52,13 @@
  "schemaVersion": 1,
  "answer": {
   "kind": "posting",
-  "confidence": 0.7,
+  "confidence": 0.6,
   "apply_button": "",
   "apply_button_kind": "",
   "apply_route": "",
   "apply_by": "other",
   "apply_email": "",
+  "form_frame": -1,
   "account_step": "",
   "register_control": "",
   "signin_control": "",
@@ -140,5 +141,6 @@
    "host": "www.jobs.aldi.ch",
    "position": "header"
   }
- ]
+ ],
+ "answer_path": "app"
 }

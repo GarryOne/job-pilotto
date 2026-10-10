@@ -49,9 +49,10 @@
  "answer": {
   "answer": "needs_person",
   "needs": "Je certifie l'exactitude des informations fournies",
-  "needs_kind": "other",
-  "consent_required": false,
+  "needs_kind": "consent",
+  "consent_required": true,
   "bot_check": false,
-  "confidence": 0.85
- }
+  "confidence": 0.9
+ },
+ "answer_path": "app"
 }

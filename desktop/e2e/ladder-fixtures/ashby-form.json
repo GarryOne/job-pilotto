@@ -39,11 +39,13 @@
  "schemaVersion": 1,
  "answer": {
   "kind": "posting",
-  "confidence": 0.93,
+  "confidence": 0.95,
   "apply_button": "Apply for this Job",
-  "apply_route": "",
+  "apply_button_kind": "apply",
+  "apply_route": "manual",
   "apply_by": "form",
   "apply_email": "",
+  "form_frame": -1,
   "account_step": "",
   "register_control": "",
   "signin_control": "",
@@ -126,5 +128,6 @@
    "host": "jobs.ashbyhq.com",
    "position": "header"
   }
- ]
+ ],
+ "answer_path": "app"
 }

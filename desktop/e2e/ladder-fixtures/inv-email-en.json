@@ -34,11 +34,13 @@
  },
  "answer": {
   "kind": "posting",
-  "confidence": 0.9,
+  "confidence": 0.85,
   "apply_button": "Apply now",
+  "apply_button_kind": "apply",
   "apply_route": "",
   "apply_by": "email",
   "apply_email": "hiring@example.com",
+  "form_frame": -1,
   "account_step": "",
   "register_control": "",
   "signin_control": "",
@@ -70,5 +72,6 @@
    "text": "How to apply",
    "position": "main"
   }
- ]
+ ],
+ "answer_path": "app"
 }

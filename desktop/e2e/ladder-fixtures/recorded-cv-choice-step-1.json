@@ -34,11 +34,13 @@
  },
  "answer": {
   "kind": "form",
-  "confidence": 0.85,
+  "confidence": 0.6,
   "apply_button": "",
+  "apply_button_kind": "",
   "apply_route": "",
   "apply_by": "",
   "apply_email": "",
+  "form_frame": -1,
   "account_step": "",
   "register_control": "",
   "signin_control": "",
@@ -52,5 +54,6 @@
    "text": "Choose from one of the options below to start your application",
    "position": "main"
   }
- ]
+ ],
+ "answer_path": "app"
 }

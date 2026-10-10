@@ -41,11 +41,13 @@
  },
  "answer": {
   "kind": "form",
-  "confidence": 0.92,
+  "confidence": 0.85,
   "apply_button": "",
+  "apply_button_kind": "",
   "apply_route": "",
   "apply_by": "",
   "apply_email": "",
+  "form_frame": -1,
   "account_step": "",
   "register_control": "",
   "signin_control": "",
@@ -71,5 +73,6 @@
    "text": "We may provide immigration and sponsorship support to new employees based on their unique circumstances.",
    "position": "main"
   }
- ]
+ ],
+ "answer_path": "app"
 }

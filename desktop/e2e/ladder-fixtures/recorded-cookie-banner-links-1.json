@@ -31,9 +31,11 @@
   "kind": "posting",
   "confidence": 0.9,
   "apply_button": "Apply",
-  "apply_route": "",
+  "apply_button_kind": "apply",
+  "apply_route": "manual",
   "apply_by": "form",
   "apply_email": "",
+  "form_frame": -1,
   "account_step": "",
   "register_control": "",
   "signin_control": "",
@@ -65,5 +67,6 @@
    "text": "Join our audit team in Geneva.",
    "position": "main"
   }
- ]
+ ],
+ "answer_path": "app"
 }

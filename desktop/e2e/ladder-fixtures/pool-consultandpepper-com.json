@@ -159,15 +159,18 @@
  "note": "contact addresses and phone numbers beside an on-page application form (file inputs further down)",
  "answer": {
   "kind": "form",
-  "confidence": 0.6,
+  "confidence": 0.7,
   "apply_button": "",
+  "apply_button_kind": "",
   "apply_route": "",
   "apply_by": "",
   "apply_email": "",
+  "form_frame": -1,
   "account_step": "",
   "register_control": "",
   "signin_control": "",
   "account_button": "",
   "bot_check": false
- }
+ },
+ "answer_path": "app"
 }

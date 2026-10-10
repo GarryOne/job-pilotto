@@ -55,11 +55,13 @@
  "schemaVersion": 1,
  "answer": {
   "kind": "other",
-  "confidence": 0.6,
+  "confidence": 0.5,
   "apply_button": "",
+  "apply_button_kind": "",
   "apply_route": "",
   "apply_by": "",
   "apply_email": "",
+  "form_frame": -1,
   "account_step": "",
   "register_control": "",
   "signin_control": "",
@@ -92,5 +94,6 @@
    "host": "auterion.com",
    "position": "header"
   }
- ]
+ ],
+ "answer_path": "app"
 }

@@ -33,11 +33,13 @@
  },
  "answer": {
   "kind": "posting",
-  "confidence": 0.9,
+  "confidence": 0.85,
   "apply_button": "Postuler",
-  "apply_route": "",
+  "apply_button_kind": "apply",
+  "apply_route": "manual",
   "apply_by": "form",
   "apply_email": "",
+  "form_frame": -1,
   "account_step": "",
   "register_control": "",
   "signin_control": "",
@@ -63,5 +65,6 @@
    "text": "Une question sur le poste ?",
    "position": "main"
   }
- ]
+ ],
+ "answer_path": "app"
 }

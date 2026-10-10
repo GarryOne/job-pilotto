@@ -142,5 +142,6 @@
    "host": "www.jobs.ch",
    "position": "header"
   }
- ]
+ ],
+ "answer_path": "app"
 }

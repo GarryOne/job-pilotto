@@ -38,9 +38,11 @@
   "kind": "posting",
   "confidence": 0.9,
   "apply_button": "",
+  "apply_button_kind": "",
   "apply_route": "",
   "apply_by": "email",
   "apply_email": "recrutement@example.ch",
+  "form_frame": -1,
   "account_step": "",
   "register_control": "",
   "signin_control": "",
@@ -84,5 +86,6 @@
    "text": "Postuler",
    "position": "main"
   }
- ]
+ ],
+ "answer_path": "app"
 }

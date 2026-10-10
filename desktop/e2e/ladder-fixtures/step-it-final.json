@@ -42,6 +42,7 @@
   "needs_kind": "",
   "step": "final",
   "next_control": "",
-  "confidence": 0.95
- }
+  "confidence": 0.9
+ },
+ "answer_path": "app"
 }

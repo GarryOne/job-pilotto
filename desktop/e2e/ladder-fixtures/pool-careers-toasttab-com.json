@@ -188,15 +188,18 @@
  ],
  "answer": {
   "kind": "form",
-  "confidence": 0.92,
+  "confidence": 0.85,
   "apply_button": "",
+  "apply_button_kind": "",
   "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "form_frame": -1,
   "account_step": "",
   "register_control": "",
   "signin_control": "",
   "account_button": "",
-  "apply_by": "",
-  "apply_email": "",
   "bot_check": false
- }
+ },
+ "answer_path": "app"
 }

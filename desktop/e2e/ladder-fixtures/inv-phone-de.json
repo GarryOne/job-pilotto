@@ -34,11 +34,13 @@
  },
  "answer": {
   "kind": "posting",
-  "confidence": 0.85,
+  "confidence": 0.7,
   "apply_button": "Start",
-  "apply_route": "",
+  "apply_button_kind": "apply",
+  "apply_route": "manual",
   "apply_by": "form",
   "apply_email": "",
+  "form_frame": -1,
   "account_step": "",
   "register_control": "",
   "signin_control": "",
@@ -76,5 +78,6 @@
    "text": "Wir freuen uns auf Ihren Anruf.",
    "position": "main"
   }
- ]
+ ],
+ "answer_path": "app"
 }
