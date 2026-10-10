@@ -96,3 +96,24 @@ test('an account page left to the person says which kind it is: a sign-in is wor
   s.flow.stuck({url: 'https://example.org/jobs/2', host: 'x.example', why: 'account', accountStep: 'junk', session: 'f2'});
   assert.equal(terminals.get('f2').accountStep || '', '');   // only the two known steps are kept
 });
+
+// 9 Oct 2026, Deloitte's "how will you give your CV" step: the fill put nothing in and left required fields, and the session said "Form open".
+test('a fill that filled nothing: stuck "incomplete" with what is left, kept while the panel reports fields, cleared once something is filled', () => {
+  const s = setup();
+  terminals.startForm({id: 'f1', url: URL1});
+  s.flow.stuck({url: URL1, host: 'apply.deloitte.ch', why: 'incomplete', needs: 'Copy and paste CV, CV'});
+  const session = terminals.get('f1');
+  assert.deepEqual([session.stuck, session.note, session.accountNeeds], ['incomplete', 'Needs you: Copy and paste CV, CV', 'Copy and paste CV, CV']);
+  s.flow.reported({id: 'f1', url: URL1, total: 2, left: 2});   // the form is there, nothing filled: still stuck
+  assert.equal(terminals.get('f1').stuck, 'incomplete');
+  s.flow.reported({id: 'f1', url: URL1, total: 2, left: 1});    // the person (or Claude) filled one
+  assert.equal(terminals.get('f1').stuck, '');
+});
+
+test('the window says it: pill "Needs you", a warn step with the note, Claude offered like any stuck session', async () => {
+  const {sessionState} = await import('../renderer/session-state.js');
+  const {sessionSteps} = await import('../renderer/session-steps-list.js');
+  const item = {kind: 'form', stuck: 'incomplete', note: 'Needs you: Copy and paste CV'};
+  assert.deepEqual(sessionState(item), ['Needs you', 'warn']);
+  assert.ok(sessionSteps(item).some(step => step.tone === 'warn' && step.text === 'Needs you: Copy and paste CV'));
+});

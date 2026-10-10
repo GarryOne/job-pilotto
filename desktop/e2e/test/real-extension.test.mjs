@@ -1,3 +1,4 @@
+/* global document */
 // Validates the upload fix on the REAL extension in a real (headless) Chrome, on a REAL Coop (SuccessFactors) application form, isolated from the owner's
 // app, profile, CV, Keychain and AI (lib/real-extension.mjs proves it). Opt-in, because it needs the live site: `npm run real-extension` (JP_LIVE=1).
 // What it checks that the shape tests (upload-slot.test.mjs) cannot: the extension's own wiring (injection, permissions, the panel's Fill button) and that
@@ -69,4 +70,34 @@ test('an apply tab on a site not allowed yet opens the Allow page and tells the 
   } finally {
     await run.close();
   }
+});
+
+// 9 Oct 2026: Deloitte's application page sat behind a cookie dialog and the extension never closed it (only the job-reading flow had a closer). Any
+// popup over a page the extension works on is closed the same way (extension/consent.js); here a real cookie dialog, closed by the free word rule
+// (the harness has no AI). Nothing on the page is typed or submitted.
+const COOKIE_PAGE = 'https://apply.deloitte.ch/CHCareers/ApplicationMethods?tempJobid=19243';
+test('a cookie dialog over an application page is closed by the extension', {skip}, async () => {
+  const run = await startRealExtension({extensionDir});
+  try {
+    await run.page.goto(`${COOKIE_PAGE}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'});
+    const dialog = run.page.getByRole('button', {name: /optional cookies/i}).first();
+    await dialog.waitFor({timeout: 30000});
+    assert.ok(await waitUntil(async () => !(await dialog.isVisible().catch(() => false)), 60), 'the cookie dialog is gone');
+    assert.ok(await waitUntil(() => run.told('closed a popup'), 20), 'the app log says it');
+    assert.ok(await run.assertIsolated());
+  } finally { await run.close(); }
+});
+
+// 9 Oct 2026, Deloitte's "how will you give your CV" step (Upload CV / Copy and paste CV / Upload later): the input is hidden until "Upload CV", the operator
+// waited for a NEW input, and "Copy and paste CV" (also an upload trigger) was pressed after, hiding it. The page-kind AI's word is stubbed as the real log has it
+// (posting, button "upload cv"). The fake CV goes to a real third-party page (fixture, not the owner's), nothing else is typed, never Submit.
+test('a choice step that reveals its own file input: the CV is attached, the paste way is not pressed', {skip}, async () => {
+  const run = await startRealExtension({extensionDir, cv: true, answer: {'/extension/page-kind': () => ({ok: true, kind: 'posting', role: 'no-form', by: 'ai', confidence: 0.98, applyButton: 'upload cv'})}});
+  try {
+    await run.page.goto(`${COOKIE_PAGE}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'});
+    const attached = () => run.page.evaluate(() => document.getElementById('resumeFile')?.files.length || 0).catch(() => 0);
+    assert.ok(await waitUntil(async () => (await attached()) === 1, 60), 'the CV is in the page\'s file input');
+    assert.equal(await run.page.evaluate(() => !!document.getElementById('resumePaste')?.getClientRects().length), false, 'the paste box was not opened');
+    assert.ok(await run.assertIsolated());
+  } finally { await run.close(); }
 });

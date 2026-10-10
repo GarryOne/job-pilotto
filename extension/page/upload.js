@@ -62,7 +62,7 @@
   }
 
   // Press the slot's trigger (or the one a recipe names) and wait for the file input the page creates.
-  async function reveal(slot, params = {}) {
+  async function reveal(slot, params = {}, owned = new Set()) {
     let trigger = slot.trigger;
     if (params.trigger) { try { trigger = slot.el.querySelector(params.trigger) || trigger; } catch { /* a recipe's selector is data: ignore a bad one */ } }
     if (!trigger || trigger.type === 'submit') return null;
@@ -70,7 +70,9 @@
     trigger.click();
     for (let tries = 0; tries < 10; tries++) {
       await sleep(150);
-      const fresh = Array.from(document.querySelectorAll('input[type=file]')).find(el => !before.has(el));
+      // The input the page creates, or one it already had and SHOWS now, empty and not another slot's (a choice among ways to give the CV: Upload / Paste / Later
+      // reveals its own part, and an earlier press may have shown it already).
+      const fresh = Array.from(document.querySelectorAll('input[type=file]')).find(el => !before.has(el) || (!owned.has(el) && !el.files?.length && el.getClientRects().length));
       if (fresh) return fresh;
     }
     return null;
@@ -81,7 +83,8 @@
   async function attach(slot, input, file, revealed) {
     const ours = input.dataset.jobPilottoFile;
     if (input.files?.length && !(ours && input.files[0].name === ours && ours !== file.name)) return {ok: true, why: 'already holds a file'};
-    const before = slot.el.outerHTML.length;
+    const holder = revealed ? input.closest('fieldset, form') || input.parentElement || slot.el : slot.el;   // a revealed input's own area, not the trigger's
+    const before = holder.outerHTML.length;
     const bytes = Uint8Array.from(atob(file.data), c => c.charCodeAt(0));
     const transfer = new DataTransfer();
     transfer.items.add(new File([bytes], file.name, {type: file.type || 'application/pdf'}));
@@ -93,7 +96,7 @@
     await sleep(revealed ? 800 : 150);
     if (revealed) document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
     const kept = input.isConnected ? input.files?.[0]?.name === file.name : true;
-    const changed = slot.el.outerHTML.length !== before || !input.isConnected;
+    const changed = holder.outerHTML.length !== before || slot.el.outerHTML.length !== before || !input.isConnected;
     return kept && (changed || !revealed) ? {ok: true} : {ok: false, why: kept ? 'the page did not show the file' : 'the page cleared the file'};
   }
 
@@ -103,6 +106,7 @@
   async function fill(files, {aliases = window.__jobPilottoAliases || [], recipes = window.__jobPilottoRecipes || {}, doc = document} = {}) {
     const all = slots(doc);
     const results = [];
+    const given = new Set();   // a document given by one slot is not given again by another way of giving it (Upload CV, then Copy and paste CV: the second press hid the first's input)
     for (const slot of all) {
       // A lone slot with a wording nobody knows takes the CV, as a lone file input always did.
       const meaning = meaningOf(slot, aliases) || (all.length === 1 ? 'resume' : '');
@@ -112,11 +116,17 @@
       const file = meaning === 'resume' ? files.resume : meaning === 'cover_letter' ? files.coverLetter : null;
       if (!meaning) { results.push({...base, why: 'wording unknown'}); continue; }
       if (!file?.data) { results.push({...base, why: 'no file for it'}); continue; }
+      if (given.has(meaning)) { results.push({...base, why: 'already given through another slot'}); continue; }
+      // A file input on the page already holds a file (the person chose one, or an earlier pass attached it) and belongs to this meaning or to no known one: a trigger is NOT pressed again,
+      // since pressing it opens the system's file dialog over the person's page (owner, 9 Oct 2026: "I uploaded the CV, but then it opened again").
+      if (!slot.input && all.some(item => item.input?.files?.length && (meaningOf(item, aliases) || meaning) === meaning)) { given.add(meaning); results.push({...base, ok: true, why: 'already holds a file'}); continue; }
       try {
         const revealed = !slot.input;
-        const input = slot.input || await reveal(slot, recipe?.params || {});
+        const input = slot.input || await reveal(slot, recipe?.params || {}, new Set(all.filter(item => item.input && (meaningOf(item, aliases) || meaning) !== meaning).map(item => item.input)));   // another slot's input only when its wording is known and differs: an unnamed one beside the triggers is the part the trigger reveals
         if (!input) { results.push({...base, ok: false, why: 'no file input appeared'}); continue; }
-        results.push({...base, ...await attach(slot, input, file, revealed)});
+        const done = await attach(slot, input, file, revealed);
+        if (done.ok) given.add(meaning);
+        results.push({...base, ...done});
       } catch (error) { results.push({...base, ok: false, why: String(error.message || error).slice(0, 80)}); }
     }
     return results;

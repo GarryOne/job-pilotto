@@ -129,6 +129,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `desktop/lib/pipeline-tasks.js` — Owns: the tracked tasks the Mac starts: refresh (Find jobs), syncMatches, checkMail, scout, work, task, scoreVisits, mailResult.
 - `desktop/lib/pipeline.js` — Runs the existing Python pipeline (src/) for this user: their folder, their keys, their models.
 - `desktop/lib/pool-share.js` — "Help the pool grow" (docs/superpowers/specs/2026-09-30-pool-contributions.md): opt-out, on by default for every install
+- `desktop/lib/popup-pick.js` — Which button of a popup closes it without agreeing to anything (owner, 9 Oct 2026: "it should close/handle any popup, no matter what flow or scenario").
 - `desktop/lib/proposal-use.js` — What people do with a proposed answer on the session page ("Needs your attention"), counted so the product sees, per release and per
 - `desktop/lib/question-labels.js` — The wording of a form question the filler could not answer, cleaned for the product's learning (Notion: "Knowledge as data: build plan").
 - `desktop/lib/questions.js` — "Answer once": questions Job Pilotto needs you to answer. With Notion connected they are the ❓ lines of
@@ -393,6 +394,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/alias-schema.js` — Label meanings as DATA: "Heimatort" means the profile field place_of_origin. An alias says that a form question's wording (a short
 - `extension/allow.js` — The extension's own page with the one Allow button (Chrome asks for a site permission only from the extension's own page, on a click).
 - `extension/background.js` — The background worker: tabs the app opens to fill (#jobpilotto-fill), the next page in that tab, a tab that tab
+- `extension/consent.js` — Closing a cookie banner, in every frame of a tab (moved out of visit.js, 9 Oct 2026: the apply flow needs it too; Deloitte's application page sat
 - `extension/escalate.js` — The closer look (spec: docs/superpowers/specs/2026-10-08-ai-escalation.md; owner, 8 Oct 2026: off until he turns it on, account pages first). When the account AI is unsure twice about a page, or a con
 - `extension/fill-card.js` — One anonymous record per fill (a "fill card"), for learning how well the form filling does and why: counts and fixed words only,
 - `extension/fill-flow.js` — The fill flow (moved out of background.js, 8 Oct 2026): what one page of an application's journey is (the AI's kind, the structure rule
@@ -409,6 +411,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 - `extension/page-files.js` — The page scripts the extension injects into an application form (main world), in order: one list for flow.js, fill-flow.js and the tests.
 - `extension/page-picture.js` — What the closer look takes of a page (spec: docs/superpowers/specs/2026-10-08-ai-escalation.md): the typed values are hidden BEFORE the screenshot and shown again right after, so labels and
 - `extension/panel-start.js` — The panel's first seconds on a page the app opened to fill: its button spins with "Starting…" until the fill says its own first step
+- `extension/popup-page.js` — Runs inside a page (injected by consent.js): finds a popup in the way (a dialog, a modal, a layer fixed over the page: a cookie notice, a newsletter
 - `extension/popup.js` — The toolbar popup: whether the extension can reach the Job Pilotto app, and "Read the jobs on this page" (visit.js) for a job list the app
 - `extension/recipe-schema.js` — A recipe: how to operate one kind of control, as DATA (never code), attached to the control's structural fingerprint
 - `extension/report-alarm.js` — The alarm that reports a tab's state every 30 seconds. Chrome keeps an alarm across service-worker restarts — and

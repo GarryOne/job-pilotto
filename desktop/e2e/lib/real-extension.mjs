@@ -22,7 +22,7 @@ export const FAKE_CONTACT = {first_name: 'Test', last_name: 'Candidate', email: 
 
 // options: {extensionDir (default: this checkout's extension/), cv: true|false (the CV the app has), letter: true|false (an approved cover letter file),
 // contact (fake details)}. -> {context, page, port, requests, assertIsolated, panel, fillWithPanel, told, controlReports, close}
-export async function startRealExtension({extensionDir = EXTENSION_DIR, cv = true, letter = false, contact = FAKE_CONTACT} = {}) {
+export async function startRealExtension({extensionDir = EXTENSION_DIR, cv = true, letter = false, contact = FAKE_CONTACT, answer = {}} = {}) {   // answer: {route: () => body} the stub app gives instead of {} (e.g. the page-kind AI's word)
   const port = await freePort();
   const copy = copyExtension(port, extensionDir);
   const requests = [];
@@ -37,7 +37,7 @@ export async function startRealExtension({extensionDir = EXTENSION_DIR, cv = tru
       const route = request.url.split('?')[0];
       requests.push({route, body: body.slice(0, 20000)});
       response.writeHead(200, headers);
-      response.end(JSON.stringify(answers[route] ? answers[route]() : {}));
+      response.end(JSON.stringify(answers[route] ? answers[route]() : answer[route] ? answer[route](body) : {}));
     });
   });
   await new Promise(resolve => stub.listen(port, '127.0.0.1', resolve));

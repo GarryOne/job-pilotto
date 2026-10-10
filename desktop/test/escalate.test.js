@@ -14,7 +14,7 @@ const ask = (extra = {}) => ({url: 'https://karriere.example/career?token=SECRET
 test('off by default, and only on an account page: no AI call', async () => {
   const seen = [];
   assert.equal((await escalate(storageOf({}), ask(), {client: fake({action: 'wait', control: '', why: 'x', confidence: 1}, seen)})).why, 'off');
-  assert.equal((await escalate(storageOf(), ask({kind: 'form'}), {client: fake({}, seen)})).why, 'account pages only');
+  assert.equal((await escalate(storageOf(), ask({kind: 'search'}), {client: fake({}, seen)})).why, 'account and application pages only');
   assert.equal(seen.length, 0);
 });
 
@@ -94,4 +94,30 @@ test('a fill that worked is remembered with its detail and replayed only while t
   assert.deepEqual([again.action, again.control, again.detail, again.by], ['fill', 'E-Mail', 'email', 'remembered']);
   const filled = {...FORM, controls: FORM.controls.map(item => (item.label === 'E-Mail' ? {...item, state: 'filled'} : item))};
   assert.equal((await escalate(storage, ask({sketch: filled}), {client: null})).why, 'no AI');   // not empty any more: not replayed, back to asking
+});
+
+// 9 Oct 2026, Deloitte's CV step: an application page where the fill put nothing in is looked at again, from its sketch alone first, then with the picture.
+const formSketch = {url: 'https://apply.example/Methods', title: 'My CV', headings: [], controls: [{type: 'textarea', label: 'Copy and paste CV', required: true, state: 'empty', at: '50,60'}], buttons: ['Upload CV', 'Copy and paste CV', 'Upload later', 'Continue'], texts: ['Choose from one of the options below'], frames: []};
+const askForm = (extra = {}) => ({url: 'https://apply.example/Methods?tempJobid=1', kind: 'form', sketch: formSketch, image: '', reason: 'nothing filled', ...extra});
+
+test('an application page: asked from the sketch alone, a click on a listed control is vetted; assist means the person clicks and is told which; Submit-like answers are not controls', async () => {
+  const seen = [];
+  const settings = {escalation: 'on', applicationNext: 'full'};
+  const good = await escalate(storageOf(settings), askForm(), {client: fake({action: 'click', control: 'upload cv', why: 'reveals the file box', confidence: 0.9}, seen)});
+  assert.deepEqual([good.action, good.control], ['click', 'Upload CV']);
+  assert.ok(!JSON.stringify(seen[0]).includes('"type":"image"'), 'no picture in the cheap look');
+  assert.match(JSON.stringify(seen[0]), /JOB APPLICATION/);
+  const assist = await escalate(storageOf({escalation: 'on'}), askForm({url: 'https://apply.example/Other'}), {client: fake({action: 'click', control: 'Upload CV', why: 'x', confidence: 0.9})});
+  assert.deepEqual([assist.action, assist.control, assist.why], ['ask_person', 'Upload CV', 'assist: the person clicks']);
+  const made = await escalate(storageOf(settings), askForm({url: 'https://apply.example/Third'}), {client: fake({action: 'click', control: 'Submit application', why: 'x', confidence: 0.9})});
+  assert.deepEqual([made.action, made.why], ['ask_person', 'the control is not on the page']);
+  const typed = await escalate(storageOf(settings), askForm({url: 'https://apply.example/Fourth'}), {client: fake({action: 'fill', control: 'Copy and paste CV', why: 'x', confidence: 0.9})});
+  assert.equal(typed.action, 'ask_person', 'an application page is never typed into by a closer look');
+});
+
+test('an application page: off stays off, and the picture goes only when the extension sends one', async () => {
+  const seen = [];
+  assert.equal((await escalate(storageOf({}), askForm(), {client: fake({}, seen)})).why, 'off');
+  await escalate(storageOf({escalation: 'on', applicationNext: 'full'}), askForm({url: 'https://apply.example/Pic', image: Buffer.from('jpeg').toString('base64')}), {client: fake({action: 'wait', control: '', why: 'x', confidence: 1}, seen)});
+  assert.ok(JSON.stringify(seen[0]).includes('"type":"image"'));
 });

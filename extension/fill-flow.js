@@ -7,6 +7,9 @@ import {PAGE_FILES, api, clickCombos, settings} from './flow.js';
 import {decide} from './log.js';
 import {noteRole} from './account.js';
 import {expandSections} from './sections.js';
+import {closeConsentEverywhere} from './consent.js';
+import {closerLook, lastLook} from './escalate.js';
+import {formNext} from './form-ready.js';
 import {accountOutcome, accountStep} from './account-step.js';
 import {applyPressed} from './tabs.js';
 import {sessionGet} from './tab-memory.js';
@@ -269,6 +272,9 @@ export async function consider(tab, jobUrl) {
   await new Promise(resolve => setTimeout(resolve, 1500)); // the form renders after the load event
   const live = await chrome.tabs.get(tab.id).catch(() => null);
   if (!live || pageKey(live.url) !== pageKey(tab.url)) { started.delete(key); return; }
+  // A popup over the page (a cookie banner: Deloitte, 9 Oct 2026; any other, in any flow) is closed the way a person would, before the page is read (consent.js).
+  const banner = await closeConsentEverywhere(tab.id, {cookiesOnly: true}).catch(() => '');
+  if (banner) { decide('fill', 'closed a popup', {label: banner.slice(0, 40)}); sayStep(tab.id, `Closed a popup ("${banner.slice(0, 30)}")`); await new Promise(resolve => setTimeout(resolve, 800)); }
   await expandSections(live);   // a form drawn with collapsed sections (SuccessFactors) is read open, or it looks empty and is judged "no form" (sections.js)
   // The page can refuse a read right after its load (still swapping documents, the worker just woke): look again before giving up,
   // or the tab is left with no fill and no state at all, for Claude and the app to wait on.
@@ -366,5 +372,29 @@ export async function consider(tab, jobUrl) {
   await writeState(tab.id, result?.error ? {state: 'error', error: String(result.error).slice(0, 160)}
     : {state: 'done', filled: result?.filled || 0, left: (result?.todo || []).length, todo: (result?.todo || []).slice(0, 20)});
   reportFlow(tab, {role: 'form', ok: !result?.error});
+  // A fill that put nothing in and left required fields open has no next move of its own (Deloitte's "how will you give your CV" step, 9 Oct 2026: "Form open",
+  // 0 filled, 2 left, nobody told): the session says what is left and offers Claude. Counted from the fill's own rows, no word of any page.
+  const open = (result?.trace || []).filter(row => row.required && row.outcome === 'left').map(row => String(row.label || '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+  if (!result?.error && !(result?.filled > 0) && result?.unfilledRequired > 0 && open.length) {
+    // The ladder (owner, 9 Oct 2026: "3 levels of solving"): 1 the rules did their part; 2 the page AI looks again from the page's own controls (never the remembered answer);
+    // 3 the same look with the picture; 4 the person is told, with the control the AI named when it may not press it. Levels 2 and 3 are the closer look (opt-in, capped, lib/escalate.js).
+    let moved = false, named = '';
+    for (const picture of [false, true]) {
+      const did = await closerLook(live, 0, 'the fill put nothing in and required fields are left', {kind: 'form', picture}).catch(() => 'none');
+      if (did === 'click') { moved = true; break; }
+      named = lastLook.get(tab.id)?.control || named;
+      if (did === 'none' && !picture) break;   // off, capped or no AI: a picture would not change that
+    }
+    if (moved) {   // the page moved on by that press: the fill looks at it once more (a new state, a new look, never more than once)
+      started.delete(key);
+      decide('fill', 'the closer look pressed a control: the page is filled again', {host});
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      await consider(tab, jobUrl).catch(() => {});
+      return;
+    }
+    decide('fill', 'nothing filled, required fields left: the person is told, Claude is offered', {host, left: open.length, aiNamed: !!named});
+    stuck(String(jobUrl || tab.url).split('#')[0], host, 'incomplete', tab.id, tab.url, [...new Set(open)].slice(0, 3).join(', ') + (named ? ` · try "${named}"` : ''));
+  }
+  if (!result?.error && !accountPage) formNext(live, 0).catch(() => {});   // the AI says what this page needs next, and a middle step's Continue is pressed (next-step.js)
   if (accountAfterFill) accountStep(tab, 0).catch(() => {});   // the account page, now with your details in (above)
 }

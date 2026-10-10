@@ -1,4 +1,4 @@
-/* global window */
+/* global window, document, DataTransfer, File */
 // The upload operator (extension/page/upload.js) on the SHAPES of upload slots, not on sites: a native input, a hidden input behind a styled
 // label, a drop zone, a slot that creates its input when + is pressed (SuccessFactors / Coop), a page that swallows the input into a file
 // chip. Also: which file goes to which slot comes from the wording's meaning (service phrases, then the floor), an unknown wording is left
@@ -28,7 +28,16 @@ const REVEAL_JS = `<div id="popup" hidden>Select a source <button type="button">
 const REVEAL_SLOT = (id, title, decoy = '') => `<div class="field"><div class="lab">${title}</div><div class="attachWrapper"><div class="box">Add file</div>${decoy}
   <span role="button" tabindex="0" class="addAttachments real-plus" id="${id}" onclick="openPopup('${id}')">+</span><div class="ok" hidden>done</div></div></div>`;
 
+// A choice among ways to give the CV (Deloitte's "Upload CV / Copy and paste CV / Upload later"): each button reveals its own part of the page, and the file
+// input exists all along inside a hidden container. Pressing one hides the other (9 Oct 2026: the paste press hid the file input the upload press had shown).
+const CHOICE = `<body><div class="how"><a role="button" class="uploadResumeTriggerFile" onclick="show('fileBox')">Upload CV</a><a role="button" class="uploadResumeTriggerPaste" onclick="show('pasteBox')">Copy and paste CV</a>
+  <a role="button" class="uploadResumeTriggerLater" onclick="show('')">Upload later</a></div>
+  <fieldset id="fileBox" style="display:none"><div class="fieldContainer"><input type="file" id="resumeFile" onchange="window.got = {resumeFile: this.files[0].name}"></div></fieldset>
+  <fieldset id="pasteBox" style="display:none"><label>Copy and paste CV * <textarea id="resumePaste" required></textarea></label></fieldset>
+  <script>function show(id) { for (const box of ['fileBox', 'pasteBox']) document.getElementById(box).style.display = box === id ? 'block' : 'none'; }</script></body>`;
+
 const SHAPES = {
+  choice: CHOICE,
   native: '<body><label>Resume/CV * <input type="file" id="r" onchange="window.got = {r: this.files[0].name}"></label><label>Email * <input id="e" type="email" required></label></body>',
   hiddenInput: '<body><div class="up"><label class="btn" for="f">Upload your CV *</label><input type="file" id="f" style="display:none" onchange="window.got = {f: this.files[0].name}"></div><input id="e" required></body>',
   dropzone: '<body><div class="dropzone"><p>Lebenslauf *</p><input type="file" id="d" style="opacity:0;position:absolute" onchange="window.got = {d: this.files[0].name}"></div><input id="e" required></body>',
@@ -152,4 +161,29 @@ test('the real Coop form takes the CV and the cover letter (JP_LIVE=1)', {skip: 
     const shown = await page.$$eval('[id$=_attachSuccess]', els => els.filter(el => !el.classList.contains('displayNone')).length);
     assert.equal(shown, 2, 'the site itself shows both slots as uploaded');
   } finally { await browser.close(); }
+});
+
+test('a choice that reveals an existing hidden input: the CV goes in, and the paste way is not pressed afterwards', async () => {
+  await open(SHAPES.choice, async page => {
+    await page.evaluate(() => document.querySelector('.uploadResumeTriggerFile').click());   // the Apply press had shown the input before the fill starts (9 Oct 2026)
+    const out = await fill(page, CV_ONLY);
+    assert.equal(out.got.resumeFile, 'cv.pdf', JSON.stringify(out.uploads));
+    assert.equal(out.resumeAttached, true);
+    assert.equal(await page.evaluate(() => document.getElementById('pasteBox').style.display), 'none', 'Copy and paste CV was not pressed after the upload worked');
+    assert.ok(out.uploads.some(item => /already given/.test(item.why || '')) || out.uploads.length >= 1);
+  });
+});
+
+test('a file already in the input: no trigger is pressed again (it would open the system file dialog over the person\'s page)', async () => {
+  await open(SHAPES.choice.replace('<script>', '<script>window.pressed = 0; document.addEventListener("click", e => { if (e.target.closest(".how a")) window.pressed++; }, true);'), async page => {
+    await page.evaluate(() => {   // the person pressed Upload CV and chose their own file
+      document.querySelector('.uploadResumeTriggerFile').click(); window.pressed = 0;
+      const input = document.getElementById('resumeFile'), transfer = new DataTransfer();
+      transfer.items.add(new File(['%PDF mine'], 'mine.pdf', {type: 'application/pdf'})); input.files = transfer.files;
+    });
+    const out = await fill(page, CV_ONLY);
+    assert.equal(await page.evaluate(() => window.pressed), 0, 'no trigger was pressed');
+    assert.equal(await page.evaluate(() => document.getElementById('resumeFile').files[0].name), 'mine.pdf', 'their file stays');
+    assert.equal(out.resumeAttached, true, JSON.stringify(out.uploads));
+  });
 });

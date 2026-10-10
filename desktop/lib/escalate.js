@@ -30,6 +30,22 @@ Two more actions, only when the screenshot and the sketch show an EMPTY listed b
 const dayKey = now => new Date(now).toISOString().slice(0, 10);
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return {}; } };
 
+const FORM_INSTRUCTIONS = `You help a browser extension that is stuck on a page of a JOB APPLICATION on an employer's site, in any language. It filled the page and put nothing in: required things are still empty and it does not know what to do next. You get a sketch of the page (and sometimes a screenshot with the person's typed values hidden): its controls with their state, its buttons and links, short texts.
+Say what to do next, as ONE action: click (the exact label of one listed button or link that moves this step forward or reveals the part of the page where the answer goes, for example a choice between uploading a document, pasting it or doing it later: pick the way that needs the person's own document uploaded, never one that postpones or skips it), wait (the page is still loading or reacting), or ask_person (something only the person can do, or nothing listed helps). Never choose a control that submits, sends or finishes the application, accepts terms, a consent or a privacy statement, signs in, or leaves the site. Copy the control's label exactly as listed.`;
+
+// The same check for an application page: a click on a listed control moves it on only when the person turned on "Go to the next step of an application for me" (applicationNext 'full'), else the person clicks and is told which control;
+// fill and choose are not for application pages. -> {ok, action, control?, why?}
+export function vetForm(found, sketch, settings) {
+  const asked = {ok: true, action: 'ask_person'};
+  if (found.action === 'click') {
+    const control = listed(found.control, sketch);
+    if (!control) return {...asked, why: 'the control is not on the page'};
+    return settings.applicationNext === 'full' ? {ok: true, action: 'click', control} : {...asked, control, why: 'assist: the person clicks'};
+  }
+  if (found.action === 'wait') return {ok: true, action: 'wait'};
+  return asked;
+}
+
 // One answer, checked against what the page lists: a control the page does not list, a box that is not an empty text box, a detail or an option outside the fixed ones becomes
 // "ask the person"; under assist the person acts. -> {ok, action, control?, detail?, option?, why?}
 export function vet(found, sketch, settings) {
@@ -62,30 +78,35 @@ export async function escalate(storage, body, {client, now = Date.now()} = {}) {
   const memo = read(file), shape = pageShape(body?.url);
   if (body?.feedback) {   // the extension saw what its click did: a click that moved the page on is remembered for this shape
     const {action, control, worked, detail, option} = body.feedback;
-    if (worked && ['click', 'fill', 'choose'].includes(action) && control && shape) fs.writeFileSync(file, JSON.stringify({...memo, recipes: {...memo.recipes, [shape]: {action, control, ...(action === 'fill' && DETAILS.includes(detail) ? {detail} : {}), ...(action === 'choose' && option ? {option: String(option).slice(0, 40)} : {}), at: new Date(now).toISOString()}}}));
+    const slot = body.feedback.kind === 'form' ? `form:${shape}` : shape;
+    if (worked && ['click', 'fill', 'choose'].includes(action) && control && shape) fs.writeFileSync(file, JSON.stringify({...memo, recipes: {...memo.recipes, [slot]: {action, control, ...(action === 'fill' && DETAILS.includes(detail) ? {detail} : {}), ...(action === 'choose' && option ? {option: String(option).slice(0, 40)} : {}), at: new Date(now).toISOString()}}}));
     return {ok: true, remembered: !!worked};
   }
   if (settings.escalation !== 'on') return {ok: true, action: 'none', why: 'off'};
-  if (body?.kind !== 'account') return {ok: true, action: 'none', why: 'account pages only'};
+  const form = body?.kind === 'form';   // an application form where a fill put nothing in (owner, 9 Oct 2026): the same look, its own instructions, click only
+  if (body?.kind !== 'account' && !form) return {ok: true, action: 'none', why: 'account and application pages only'};
   if (!shape) return {ok: true, action: 'none', why: 'no address'};
   const sketch = accountSketch(body.sketch || {});
-  const kept = memo.recipes?.[shape];
-  if (kept) { const again = vet(kept, sketch, settings); if (again.action === kept.action) return {...again, by: 'remembered'}; }   // the same check as a fresh answer: what worked once is still only done when the page still shows it
+  const memoKey = form ? `form:${shape}` : shape;
+  const kept = memo.recipes?.[memoKey];
+  if (kept) { const again = (form ? vetForm : vet)(kept, sketch, settings); if (again.action === kept.action) return {...again, by: 'remembered'}; }   // the same check as a fresh answer: what worked once is still only done when the page still shows it
   const day = memo.days?.[dayKey(now)] || {total: 0, shapes: {}};
-  if (day.total >= CAPS.perDay || (day.shapes[shape] || 0) >= CAPS.perShape) return {ok: true, action: 'none', why: 'cap'};
+  if (day.total >= CAPS.perDay || (day.shapes[memoKey] || 0) >= CAPS.perShape) return {ok: true, action: 'none', why: 'cap'};
   const image = String(body.image || '');
-  if (!image || image.length > MAX_IMAGE || !/^[A-Za-z0-9+/=]+$/.test(image)) return {ok: true, action: 'none', why: 'no picture'};
+  const picture = !!image;   // an application form is first asked from its sketch alone (the cheap look), the picture only when that did not settle it
+  if (picture && (image.length > MAX_IMAGE || !/^[A-Za-z0-9+/=]+$/.test(image))) return {ok: true, action: 'none', why: 'no picture'};
+  if (!picture && !form) return {ok: true, action: 'none', why: 'no picture'};
   if (!client) return {ok: true, action: 'none', why: 'no AI'};
-  fs.writeFileSync(file, JSON.stringify({...memo, days: {[dayKey(now)]: {total: day.total + 1, shapes: {...day.shapes, [shape]: (day.shapes[shape] || 0) + 1}}}, recipes: memo.recipes || {}}));   // counted before the call: a failure still counts
+  fs.writeFileSync(file, JSON.stringify({...memo, days: {[dayKey(now)]: {total: day.total + 1, shapes: {...day.shapes, [memoKey]: (day.shapes[memoKey] || 0) + 1}}}, recipes: memo.recipes || {}}));   // counted before the call: a failure still counts
   try {
-    const response = await client.messages.create({model: MODEL, max_tokens: 1000, system: INSTRUCTIONS, output_config: {format: {type: 'json_schema', schema: SCHEMA}, effort: 'low'},
-      messages: [{role: 'user', content: [{type: 'image', source: {type: 'base64', media_type: 'image/jpeg', data: image}}, {type: 'text', text: [
+    const response = await client.messages.create({model: MODEL, max_tokens: 1000, system: form ? FORM_INSTRUCTIONS : INSTRUCTIONS, output_config: {format: {type: 'json_schema', schema: SCHEMA}, effort: 'low'},
+      messages: [{role: 'user', content: [...(picture ? [{type: 'image', source: {type: 'base64', media_type: 'image/jpeg', data: image}}] : []), {type: 'text', text: [
         `Why asked: ${String(body.reason || '').slice(0, 80)}`, `Address path: ${sketch.path || '(none)'}`, `Title: ${sketch.title || '(none)'}`, `Headings: ${sketch.headings.join(' | ') || '(none)'}`,
         `Controls (type · label · required · state · position x,y of 100):\n${sketch.controls.map(item => `- ${item.type} · ${item.label || '(no label)'}${item.required ? ' · required' : ''}${item.state ? ` · ${item.state}` : ''}${item.at ? ` · ${item.at}` : ''}${item.options?.length ? ` · options: ${item.options.join(' | ')}` : ''}`).join('\n') || '(none)'}`,
         `Buttons and links: ${sketch.buttons.join(' | ') || '(none)'}`, `Visible texts:\n${sketch.texts.map(text => `- ${text}`).join('\n') || '(none)'}`, `Frames: ${sketch.frames.join(' | ') || '(none)'}`].join('\n')}]}]});
     const found = JSON.parse(response.content?.find(block => block.type === 'text')?.text || '');
     if (!ACTIONS.includes(found?.action)) return {ok: true, action: 'none', why: 'not an action'};
-    const checked = vet(found, sketch, settings);
+    const checked = (form ? vetForm : vet)(found, sketch, settings);
     return {...checked, by: 'ai', why: checked.why || String(found.why || '').replace(/\s+/g, ' ').slice(0, 120)};
   } catch (error) { return {ok: true, action: 'none', why: String(error?.message || 'AI failed').replace(/\s+/g, ' ').slice(0, 120)}; }
 }

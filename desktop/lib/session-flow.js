@@ -26,7 +26,7 @@ export function createSessionFlow({terminals, review, apply, appLog, toWindow = 
     const forms = terminals.list().filter(session => session.kind === 'form' && !session.outcome);
     const match = carried ? (carried.kind === 'form' && !carried.outcome ? carried : null) : forms.find(session => apply.isFormOf(event.url, session.url));
     appLog('extension', `can't reach the form: ${event.why}`, {host: event.host, matched: !!match, tab: event.tab ?? null, by: carried ? 'session' : 'job'});
-    const why = event.why === 'account' ? 'account' : 'no-form';
+    const why = event.why === 'account' ? 'account' : event.why === 'incomplete' ? 'incomplete' : 'no-form';
     // A Claude session on the same job at a sign-in page: its card says it is at the account step.
     const claudes = carried ? (carried.kind === 'claude' ? [carried] : []) : terminals.list().filter(session => session.kind === 'claude' && !session.outcome && apply.isFormOf(event.url, session.url));
     if (why === 'account') for (const other of claudes) terminals.setStage(other.id, 'account', event.host);
@@ -43,7 +43,8 @@ export function createSessionFlow({terminals, review, apply, appLog, toWindow = 
   // step (its fields are not the form's); the application form's fields move it to the form step and clear "can't reach the form".
   function reported(state) {
     if (state.account) { if (terminals.setStage(state.id, 'account', hostOf(state.url))) appLog('review', `stage ${state.id}: the account page`, {fields: state.total}); }
-    else if (state.total > 0) { terminals.clearStuck(state.id); if (terminals.setStage(state.id, 'form')) appLog('review', `stage ${state.id}: the application form`, {fields: state.total}); }
+    // 'incomplete' (nothing filled) stays until something is filled
+    else if (state.total > 0 && !(terminals.get(state.id)?.stuck === 'incomplete' && state.left >= state.total)) { terminals.clearStuck(state.id); if (terminals.setStage(state.id, 'form')) appLog('review', `stage ${state.id}: the application form`, {fields: state.total}); }
     appLog('review', `form ${state.id}: ${state.left}/${state.total} left, ${Object.keys(state.states || {}).length} watched field(s) seen`, {states: state.states});
     toWindow('review', state);
   }

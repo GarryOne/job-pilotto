@@ -7,6 +7,10 @@ import {accountSketch} from './account-fill.js';
 import {hideValues, showValues} from './page-picture.js';
 import {pressRegister} from './account-fill.js';
 import {chooseOption, fillControl} from './account-act.js';
+import {pressInPage} from './next-step.js';
+
+// What the last look said, per tab (the application ladder tells the person which control to press when it may not press it itself).
+export const lastLook = new Map();
 
 const run = (tab, frameId, func, args = []) => chrome.scripting.executeScript({target: {tabId: tab.id, frameIds: [frameId ?? 0]}, func, args}).then(rows => rows?.[0]?.result).catch(() => undefined);
 export const UNSURE_BEFORE_LOOKING = 2;
@@ -46,24 +50,29 @@ async function picture(tab, frameId) {
 }
 
 // -> 'none' | 'click' | 'fill' | 'choose' | 'wait' | 'ask_person' (what was done or decided). reason: why we ask (for the log and the model).
-export async function closerLook(tab, frameId, reason) {
+// kind 'form': an application page where a fill put nothing in (fill-flow.js ladder); picture false = the sketch alone (the cheap look first).
+export async function closerLook(tab, frameId, reason, {kind = 'account', picture: withPicture = true} = {}) {
   const config = await settings();
   if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return 'none';
   const sketch = await run(tab, frameId, accountSketch);
-  const image = sketch ? await picture(tab, frameId) : null;
-  if (!sketch || !image) { decide('fill', 'closer look: no picture (not in front, or no sketch)', {}); return 'none'; }
+  const image = sketch && withPicture ? await picture(tab, frameId) : null;
+  if (!sketch || (withPicture && !image)) { decide('fill', 'closer look: no picture (not in front, or no sketch)', {}); return 'none'; }
   const url = tab.url.split('#')[0];
-  const answer = await api(config, '/extension/escalate', {method: 'POST', body: JSON.stringify({url, kind: 'account', sketch, image, reason})}).catch(() => null);
+  const answer = await api(config, '/extension/escalate', {method: 'POST', body: JSON.stringify({url, kind, sketch, image: image || '', reason})}).catch(() => null);
   const action = answer?.action || 'none';
+  lastLook.set(tab.id, {action, control: String(answer?.control || ''), why: String(answer?.why || '')});
   decide('fill', `closer look: ${action}`, {reason, by: answer?.by || '', why: String(answer?.why || '').slice(0, 80)});
   if (action === 'click' && answer.control) {
-    const result = await run(tab, frameId, pressRegister, [answer.control]);
+    // An application page is pressed with the next-step press (never a control that submits or reads like Submit); an account page with the register press.
+    const result = kind === 'form'
+      ? ((await chrome.scripting.executeScript({target: {tabId: tab.id, frameIds: [frameId ?? 0]}, world: 'MAIN', func: pressInPage, args: [answer.control]}).then(rows => rows?.[0]?.result).catch(() => null))?.pressed ? 'pressed' : 'refused')
+      : await run(tab, frameId, pressRegister, [answer.control]);
     decide('fill', `closer look: pressed (${result})`, {});
     if (result === 'pressed') {   // did the page move on? then the app remembers this click for the page shape
       await new Promise(resolve => setTimeout(resolve, 3000));
       const after = await run(tab, frameId, accountSketch);
       const worked = !!after && JSON.stringify([after.controls.map(item => item.label), after.buttons]) !== JSON.stringify([sketch.controls.map(item => item.label), sketch.buttons]);
-      api(config, '/extension/escalate', {method: 'POST', body: JSON.stringify({url, feedback: {action: 'click', control: answer.control, worked}})}).catch(() => {});
+      api(config, '/extension/escalate', {method: 'POST', body: JSON.stringify({url, feedback: {kind, action: 'click', control: answer.control, worked}})}).catch(() => {});
     }
   }
   // fill: the app resolved the value from the person's contact details (never logged, never sent to the model); choose: one of the dropdown's own options. Both only when the app allowed them (full).

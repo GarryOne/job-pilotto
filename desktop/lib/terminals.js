@@ -216,7 +216,7 @@ export function noteStuck(id, why, host = '', needs = '', accountStep = '') {
   session.stuck = why;
   if (why === 'account') Object.assign(session, {stage: 'account', accountHost: host || session.accountHost || ''});
   session.note = note;
-  if (why === 'account') session.accountNeeds = label;
+  if (why === 'account' || why === 'incomplete') session.accountNeeds = label;
   listener('update', publicView(session));
   save();
   return true;
