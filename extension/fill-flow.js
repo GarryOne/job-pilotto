@@ -19,7 +19,7 @@ import {accountOutcome, accountStep} from './account-step.js';
 import {applyPressed} from './tabs.js';
 import {bindSession, identityOf, sessionOf} from './tab-identity.js';
 import {NAMED_BUTTONS, pageKey, pageRole, pickApplyButton, pickNamedButton} from './tab-pages.js';
-import {behindAStep, whyNotPressed} from './ladder/press-why.js';
+import {behindAStep, clickTrace, whyNotPressed} from './ladder/press-why.js';
 import {forgetRouteTries, startRoute} from './start-route.js';
 import {emailReport, mailsOf} from './ladder/outcomes.js';
 import {candidatesOf, claimFrame, climbOnStall, frameBecameCandidate, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, noteSignal, otherReport, toldReport, verifiedBody} from './ladder/climb.js';
@@ -208,7 +208,10 @@ async function pressApply(tabId, phrases = [], named = '', want = '') {   // nam
     // like a link pointed here. A sized pop-up (a sign-in window: features given) is left to the page. Restored a few seconds later.
     const open = window.open;
     const here = address => { try { location.assign(new URL(String(address), location.href).href); } catch { /* not an address */ } };
+    const clickedAt = Date.now(), seen = window.__jpOpen = {calls: 0, firstMs: -1};   // evidence only: how often, and how soon after the click, the page opened a window (press-why.js clickTrace)
+    const noted = () => { seen.calls += 1; if (seen.firstMs < 0) seen.firstMs = Date.now() - clickedAt; };
     window.open = function (url, name, features) {
+      noted();
       if (features) return open.apply(this, arguments);
       same = 'script';
       const address = String(url ?? '');
@@ -218,7 +221,9 @@ async function pressApply(tabId, phrases = [], named = '', want = '') {   // nam
       Object.defineProperty(later, 'location', {get: () => ({assign: here, replace: here, set href(value) { here(value); }}), set: here});
       return later;
     };
-    setTimeout(() => { if (window.open !== open) window.open = open; }, 5000);
+    const counting = function () { noted(); return open.apply(this, arguments); };   // after the redirect window: the page's own behaviour, only counted
+    setTimeout(() => { if (window.open !== open) window.open = counting; }, 5000);
+    setTimeout(() => { if (window.open === counting) window.open = open; }, 25000);
     el.click();
     return {same, tag: el.tagName.toLowerCase(), aimed};
   }, args: [listed, pick.index]}).then(rows => rows?.[0]?.result || null).catch(error => ({error: String(error?.message || error).slice(0, 120)}));
@@ -381,7 +386,7 @@ export async function consider(tab, jobUrl) {
       pressed = true;
       decide('fill', 'pressed the Apply button', {host, label, tag: attempt.tag, aimed: attempt.aimed, sameTab: attempt.same});   // sameTab: a link/form aimed at a new tab, pointed at this one
       const after = await formAfterPress(tab.id, tab.url);
-      decide('fill', `after the press: ${after === 'navigated' ? 'the page moved' : after ? 'a form came' : 'no form came'}`, {host, label});   // what the press did (Aldi, 10 Oct 2026: no line said)
+      decide('fill', `after the press: ${after === 'navigated' ? 'the page moved' : after ? 'a form came' : 'no form came'}`, {host, label, ...(after ? {} : await clickTrace(tab.id))});   // what the press did (Aldi, 10 Oct 2026: no line said)
       if (attempt.via) reportFlow(tab, null, {aliasUse: [{phrase: attempt.via, ok: after !== null}]});   // did a phrase from the service open the form?
       if (after === 'navigated') { started.delete(key); return; }   // the next page decides for itself (onUpdated)
       if (after) { role = 'form'; await noteRole(tab.id, tab.url, role); const proof = verifiedBody(kind, tab.url, controlsOf(tab.id)); if (proof) api(await settings(), '/extension/page-kind', {method: 'POST', body: JSON.stringify(proof)}).catch(() => {}); }   // a digest-named press led to a form: the app may keep it (ladder-learning.js)

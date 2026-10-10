@@ -21,3 +21,11 @@ export function whyNotPressed(candidates = [], named = '') {
 // The named control EXISTS on the page but is not visible yet: a step comes first (Workday: "Apply Manually" is in the dialog the posting's plain "Apply" opens), so the phrase path may press the
 // page's own Apply once. Absent from the page (found 0), or visible but refused by a floor (a Submit, disabled, sign-in, mail): nothing else is pressed in its place (Hornbach).
 export const behindAStep = why => !!why && why.found > 0 && !why.visible;
+
+// What a press that led nowhere did, for the log: `opens` = calls of window.open the page made after the click (-1: the page's hook is gone, it navigated or reloaded), `openMs` = ms to the first, `tabs` = tabs in this window.
+// Counts only. Hornbach 11 Oct 2026: "ohne Anmeldung" pressed twice, the page never left the posting, and nothing said whether the click opened anything.
+export async function clickTrace(tabId) {
+  const read = await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: () => window.__jpOpen || null}).then(rows => rows?.[0]?.result).catch(() => null);
+  const tabs = await chrome.tabs.query({currentWindow: true}).then(list => list.length).catch(() => -1);
+  return {opens: read ? read.calls : -1, openMs: read ? read.firstMs : -1, tabs};
+}
