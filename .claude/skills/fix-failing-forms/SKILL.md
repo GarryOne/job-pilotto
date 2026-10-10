@@ -21,8 +21,10 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
   site's `fieldList`: label, type, outcome, required, reason per field; one `.log` per run) and **`replay-candidates/<day>/<shape>/`** (the failing run's last page, structure only and scrubbed, with a
   `case.json` skeleton: the run's fields, page path and page-kind lines): start the recorded page from that candidate, take the AI's answers from its `evidence`, never invent them.
   Say: N rows, the top three, the one you take. After the landing, the next night's "Filled, last runs" column of that row is the proof: it must go up or the row must leave the list.
-- **Peers:** `ListAgents`; message the coordinator: `cat "~/Library/Application Support/Job Pilotto QA/coordinator.txt"` names the session that owns the applying test pool and the shared e2e page (it rewrites the file when it starts or its session name changes). If that name is not in `ListAgents`, no coordinator is running: ask the owner before any run on the e2e page. Send it the shape you take, and ask whether the
-  e2e page is free (suites share one Notion test page: never two runs at once). A pool or applying run by a peer: wait, or queue yours.
+- **Peers (a courtesy, never a dependency; owner, 11 Oct 2026: "the skill should be able to run on its own, without a coordinator"):** `ListAgents`; `cat "~/Library/Application Support/Job Pilotto QA/coordinator.txt"`
+  names the session that owns the applying test pool and the shared e2e page, if one runs. Suites share one Notion test page, so never two runs at once: if a peer's run holds it, wait or queue yours. **If no
+  coordinator is in `ListAgents`, or the page is free, you run everything yourself** (the reproduction, the re-run on the landed build and its upload) and say so in one line; you do not stop to ask the owner.
+  With a coordinator running, one line to it saying the shape you take is enough.
 - **Claim the flow core** (`FLOW_CORE`/`FLOW_FILES`, `desktop/e2e/flows.mjs`) before editing any file in it: one message to every peer "I own the flow core
   until I say released", and "released" when done. Read each file's `Invariants:` block first; changing one is the owner's call, said in the commit.
 - **Worktree:** `tools/worktree.sh fix-<shape>`, own scratch folder `<scratchpad>/fix-failing-forms/`. No subagents. Say the change tier (usually Tier 2: apply flow).
@@ -118,11 +120,10 @@ Flow-core files (`page-kind.js`, `fill-flow.js`, `session-flow.js`, `escalate.js
 - **Re-run `npm run smoke -- --only <shape>` on the landed build** (a held run, said before it starts) and compare with the first run: **it must reach further**
   (a later page kind, a fill count > 0). Report: before -> after, counts, what still stops it. Not further = not done: back to step 1 with the new log.
 - **Landing does not clear the row** (11 Oct 2026, jobs.ch "Easy apply"): `/admin/applying` lists a site by its LATEST uploaded smoke result, so the row leaves "Needs a fix" only after a run on the landed
-  build uploads a better one (a later step, more fields filled, or a documented hold). A recorded page passing is a separate table (Fixed-site replays) and does not clear it. The e2e page is the coordinator's
-  (`coordinator.txt`): hand it the shape and the version ("landed <hash>, extension <x.y.z>, run <shape>") and wait for its result instead of running on the page yourself. Until that result is in, say
-  "landed, unconfirmed", never "done". Proof: the row's "Filled, last runs" goes up or the row leaves the list.
+  build uploads a better one (a later step, more fields filled, or a documented hold). A recorded page passing is a separate table (Fixed-site replays) and does not clear it. Run it yourself: update your runner to the landed build and `npm run smoke -- --only <shape>` (held, Monitor, upload as the pool does), once the e2e page is free (a peer's run on it: wait or queue). A running
+  coordinator may run it for you ("landed <hash>, extension <x.y.z>, run <shape>"), but you never wait on one that is not there. Until the uploaded run is in, say "landed, unconfirmed", never "done". Proof: the row's "Filled, last runs" goes up or the row leaves the list.
 - **A rung fix** (3b): Commit subject ≤ 72 chars; body: the rung, the shape, the before/after status line from `ladder-score`; `Recorded-unneeded:` only when no real-site failure is fixed. Land with `tools/ship.sh`; tell what other sites this helps and what it does not cover. The commit carries the trailers `Rung: <n>` and `Fixture: <id>` (a hook check for them is being built: ladder-fixtures-ed).
-- Report to the owner and the coordinator in one line per shape: shape, fix (mechanism part), reached before -> after, commit, sibling sites helped.
+- Report to the owner (and the coordinator, if one runs) in one line per shape: shape, fix (mechanism part), reached before -> after, commit, sibling sites helped.
 - Say "released" for the flow core to every peer.
 
 ## Stop conditions
@@ -132,7 +133,7 @@ Flow-core files (`page-kind.js`, `fill-flow.js`, `session-flow.js`, `escalate.js
 - **A red row is a stated rule, not a bug** (the code refuses it on purpose, e.g. "Easy Apply", a consent, a Submit): do not change the rule yourself. Say what the rule is, what the row would need, and ask the owner;
   a change is a Decision Log entry.
 - The shape needs the owner's real state (their account, their Gmail): hand it to the twin skill, never use it here.
-- The coordinator or a peer holds the e2e page or the flow core: wait or hand over; never two runs on one page.
+- A peer holds the e2e page or the flow core: wait or queue yours; never two runs on one page. No coordinator running is not a stop: you run it yourself.
 - The owner says stop.
 
 ## Never
