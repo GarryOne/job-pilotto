@@ -68,5 +68,9 @@
   ],
   "maxNewTabs": 0,
   "seconds": 45
+ },
+ "control": {
+  "build": "0.9.184",
+  "failed": "told: closed a popup; filled: #first (the banner in the shadow root was never closed, the Apply link stayed inert)"
  }
 }
