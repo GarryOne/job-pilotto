@@ -66,6 +66,17 @@ test('Messages: a filter with counts, folding email cards, Add note, and Gmail-n
   assert.match(read('pages/job-panel.js'), /close: closeJobPanel/);
 });
 
+test('Timeline: a filter with counts, entries with the way to their detail, Add note; the capture script covers every tab', () => {
+  const source = read('job-drawer/tab-timeline.js');
+  assert.match(source, /choice\(options, active/);
+  assert.match(source, /timelineOf\(page\?\.events, job, page\?\.match, parts\)/);
+  assert.match(source, /openLogFor\(job\.url, job\.title\)/);
+  assert.match(source, /showSubmitted\(job\.url\); pick\(tab\)/, 'View snapshot opens what was sent');
+  assert.match(source, /Nothing has happened yet/);
+  const shots = fs.readFileSync(new URL('../scripts/drawer-shots.mjs', import.meta.url), 'utf8');
+  for (const [key] of TABS) assert.ok(shots.includes(`'${key}'`), `drawer-shots has a picture of ${key}`);
+});
+
 test('Overview: built from the shared card, tile and state-card parts, each part only when it has something', () => {
   const source = read('job-drawer/tab-overview.js');
   for (const part of ['card(', 'factTile(', 'iconRow(', 'stateCard(', 'glanceTiles(', 'clarifyOf(', 'callFacts(']) assert.ok(source.includes(part), part);

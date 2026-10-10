@@ -151,7 +151,7 @@ export function glanceTiles(match = null) {
 
 // "First found 9 Oct · Scored 9 Oct" under the tiles.
 export function foundLine(job = {}, match = null) {
-  const found = day(job.first_seen_at || match?.first_seen), scored = day(match?.scored);
+  const found = day(match?.first_seen || job.first_seen_at), scored = day(match?.scored);
   return [found && `First found ${found}`, scored && `Scored ${scored}`].filter(Boolean).join(' · ');
 }
 
@@ -230,6 +230,32 @@ export function messagesOf(parts = {}, events = []) {
     });
   const notes = ((parts.groups || {}).messages || []).map((each, n) => ({key: `note${n}`, kind: 'note', title: each.title || 'Message', lines: each.lines}));
   return {emails, notes, counts: {all: emails.length + notes.length, email: emails.length, note: notes.length}};
+}
+
+// The Timeline tab (board 08): what happened and when, newest first, one short entry each: the job's events (src/stores/base.py EVENT_FIELDS), then
+// "Job discovered" from when the search first found it. Each entry says which kinds of event it is (the filter), where it came from, and where its
+// detail is (the email in Messages, the snapshot in Application, the interviews). [{key, at, when, time, kind, title, source, text, kinds, link}].
+const APPLICATION_KINDS = new Set(['Applied', 'Confirmation received', 'Offer', 'Rejected', 'Withdrawn']);
+const clock = at => {
+  const text = String(at || '');
+  if (!/T\d\d:\d\d/.test(text)) return '';
+  const when = new Date(text);
+  return Number.isNaN(when.getTime()) ? '' : when.toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'});
+};
+export function timelineOf(events = [], job = {}, match = null, parts = {}) {
+  const items = (events || []).filter(event => event?.kind).map(event => {
+    const email = event.source === 'Gmail' && !!gmailUrl(event.source_id);
+    const changes = changesOf(event);
+    const interview = event.kind === 'Interview scheduled' || !!event.interview_at;
+    const kinds = [...(APPLICATION_KINDS.has(event.kind) ? ['application'] : []), ...(email ? ['message'] : []), ...(interview ? ['interview'] : [])];
+    const link = interview ? 'interviews' : email ? 'messages' : event.kind === 'Applied' && parts.submitted ? 'snapshot' : null;
+    return {key: String(event.id || `${event.kind}-${event.at}`), at: String(event.at || event.created_at || ''), when: day(event.at || event.created_at),
+      time: clock(event.at), kind: String(event.kind), title: plain(changes.subject && email ? `${event.kind}: ${changes.subject}` : event.kind),
+      source: email ? `From ${plain(changes.from || 'an email')} (Gmail)` : event.source ? `Source: ${event.source}` : '', text: plain(event.note || ''), kinds, link};
+  }).sort((a, b) => b.at.localeCompare(a.at));
+  const found = match?.first_seen || job.first_seen_at;
+  if (found) items.push({key: 'discovered', at: String(found), when: day(found), time: clock(found), kind: 'Job discovered', title: 'Job discovered', source: '', text: 'Found by the search and added to your job list.', kinds: ['application'], link: null});
+  return items;
 }
 
 // The page's content: {tabs: TABS (every job has all eight), kit, groups: {match, prep, review, record, messages, description}, history, shots,

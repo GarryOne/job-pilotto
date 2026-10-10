@@ -46,6 +46,7 @@ import {init as whyStop} from './pages/why-stop.js';
 import {init as notionConnect} from './pages/notion-connect.js';
 import {init as employers} from './pages/employers.js';
 import {startListening as saveProgress} from './save-progress.js';
+import {openJobPanel} from './pages/job-panel.js';
 
 await core();
 notionConnect();
@@ -95,7 +96,7 @@ await runsPage();
 employers();
 
 // For checks and debugging (npm run shot -- --eval, the DevTools console): the window's state, read-only by convention.
-window.__jp = {shared, get sessions() { return sessionList; }, get openSession() { return sessionList.find(item => item.id === shared.openSessionId) || null; },
+window.__jp = {shared, openJob: (url, tab) => { const job = shared.allJobs.find(each => each.url === url); return job ? openJobPanel(job, tab) : null; }, get sessions() { return sessionList; }, get openSession() { return sessionList.find(item => item.id === shared.openSessionId) || null; },
   terminal: () => { const term = shared.xterm; if (!term) return null; const buffer = term.buffer.active;
     return {rows: term.rows, cols: term.cols, screen: buffer.type, mouse: term.modes.mouseTrackingMode, viewportY: buffer.viewportY,
       lines: Array.from({length: term.rows}, (_, i) => buffer.getLine(buffer.viewportY + i)?.translateToString(true) || '')}; }};

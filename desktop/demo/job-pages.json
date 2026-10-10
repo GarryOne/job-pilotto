@@ -113,7 +113,207 @@
      "risk": 20
     }
    },
-   "reason": "Strong SRE and cloud infrastructure match; aligns with your background."
+   "reason": "Strong SRE and cloud infrastructure match; aligns with your background.",
+   "first_seen": "2026-09-29"
   }
+ },
+ "https://example.com/jobs/2": {
+  "app": {
+   "id": "demo-app-2",
+   "url": "https://example.com/jobs/2",
+   "title": "Platform Engineer, Developer Experience",
+   "company": "Northwind Robotics",
+   "stage": "Screening",
+   "applied_on": "2026-10-03",
+   "location": "Zurich",
+   "channel": "Direct"
+  },
+  "sections": {
+   "📝 Application kit": "Drafted by claude-sonnet-5-5 for Platform Engineer, Developer Experience — Northwind Robotics. Review before sending; nothing was submitted.\n\n### 💡 Lead with\n\n- Built the internal developer platform for 120 engineers\n\n### ✉️ Cover letter\n\nDear Northwind team,\n\nI build the paved road that product teams ship on.\n\n### 🧾 Form answers\n\n**Notice period**\n\n3 months\n"
+  },
+  "events": [
+   {
+    "id": "e2a",
+    "kind": "Applied",
+    "at": "2026-10-03T10:05:00",
+    "source": "Extension"
+   },
+   {
+    "id": "e2b",
+    "kind": "Confirmation received",
+    "at": "2026-10-03T10:07:00",
+    "source": "Gmail",
+    "source_id": "19a1b2c3d4e5f607",
+    "note": "We received your application and will be in touch within a week.",
+    "changes": {
+     "fields": {},
+     "from": "Northwind Robotics <jobs@northwind.example>",
+     "subject": "Thanks for applying to Northwind"
+    }
+   }
+  ],
+  "files": [],
+  "match": {
+   "url": "https://example.com/jobs/2",
+   "fit": 86,
+   "tier": "Strong",
+   "confidence": "High",
+   "scored": "2026-10-04",
+   "seniority": "Senior",
+   "role_family": "platform",
+   "work_mode": "Hybrid",
+   "languages": [
+    "English"
+   ],
+   "technologies": "Backstage; Kubernetes; Go",
+   "salary": "CHF 120–140k",
+   "contract": "Permanent",
+   "posted": "2026-09-30",
+   "responsibilities": "Build the internal developer platform.\nImprove build and deploy speed for product teams.",
+   "first_seen": "2026-10-01"
+  }
+ },
+ "https://example.com/jobs/3": {
+  "app": {
+   "id": "demo-app-3",
+   "url": "https://example.com/jobs/3",
+   "title": "Staff SRE, Observability",
+   "company": "Alpine Data",
+   "stage": "Applied",
+   "applied_on": "2026-09-28",
+   "location": "Zurich"
+  },
+  "sections": {},
+  "events": [],
+  "files": [],
+  "match": {
+   "url": "https://example.com/jobs/3",
+   "fit": 84,
+   "first_seen": "2026-09-26",
+   "scored": "2026-09-27",
+   "tier": "Strong",
+   "confidence": "Medium",
+   "seniority": "Senior",
+   "work_mode": "Remote",
+   "salary": "CHF 125–145k",
+   "languages": [
+    "English"
+   ],
+   "technologies": "Prometheus; Grafana; Go"
+  }
+ },
+ "https://example.com/jobs/5": {
+  "app": {
+   "id": "demo-app-5",
+   "url": "https://example.com/jobs/5",
+   "title": "Senior Infrastructure Engineer",
+   "company": "Glacier Labs",
+   "stage": "Rejected",
+   "applied_on": "2026-09-25",
+   "location": "Zurich"
+  },
+  "sections": {
+   "🔎 Why it was rejected": "> [!🛠] 🛠 Hard skills (medium confidence) · CV screen (no call). They asked for Go.\n\n**Evidence**\n\n- The posting lists Go first\n- Your CV names Python only\n\n**What to improve next time**\n\n- [ ] Add the Go service you ran\n- [ ] Lead with SLOs\n\nReviewed by claude-sonnet-5-5. A best guess from what Job Pilotto kept, not what the company said.",
+   "🗂 Application record": "Frozen 2026-09-25 for Senior Infrastructure Engineer — Glacier Labs.\n\n### Machine-readable record\n\n```json\n{\n \"version\": 1,\n \"recorded_at\": \"2026-09-25T09:00:00\",\n \"url\": \"https://example.com/jobs/5\",\n \"job\": {\n  \"title\": \"Senior Infrastructure Engineer\",\n  \"company\": \"Glacier Labs\",\n  \"applied_on\": \"2026-09-25\",\n  \"ats\": \"greenhouse\",\n  \"description\": \"\"\n },\n \"answers_captured\": \"Form\",\n \"answers\": [\n  {\n   \"question\": \"Notice period\",\n   \"answer\": \"3 months\",\n   \"draft\": \"3 months\"\n  },\n  {\n   \"question\": \"Salary expectation\",\n   \"answer\": \"140,000 CHF\",\n   \"draft\": \"140,000\"\n  }\n ],\n \"cover_letter\": \"Dear team,\\n\\nI run reliability today.\",\n \"variant\": \"v2\",\n \"run\": {\n  \"agent\": \"claude\"\n },\n \"cv\": \"CV · Helvetic Cloud · Senior SRE.pdf · 3fa81c20d1\"\n}\n```"
+  },
+  "events": [
+   {
+    "id": "e5a",
+    "kind": "Applied",
+    "at": "2026-09-25T09:00:00",
+    "source": "Extension"
+   },
+   {
+    "id": "e5b",
+    "kind": "Rejected",
+    "at": "2026-10-02T16:40:00",
+    "source": "Gmail",
+    "source_id": "19b2c3d4e5f60718",
+    "note": "We have decided to move forward with other candidates.",
+    "changes": {
+     "fields": {},
+     "from": "Glacier Labs <talent@glacier.example>",
+     "subject": "Your application to Glacier Labs"
+    }
+   }
+  ],
+  "files": [],
+  "match": {
+   "url": "https://example.com/jobs/5",
+   "fit": 74,
+   "tier": "Good",
+   "confidence": "Medium",
+   "scored": "2026-09-24",
+   "seniority": "Senior",
+   "role_family": "devops",
+   "work_mode": "On-site",
+   "languages": [
+    "English",
+    "German +"
+   ],
+   "technologies": "Terraform; AWS",
+   "salary": "",
+   "contract": "Permanent",
+   "first_seen": "2026-09-24"
+  }
+ },
+ "https://example.com/jobs/6": {
+  "app": {
+   "id": "demo-app-2",
+   "url": "https://example.com/jobs/2",
+   "title": "Platform Engineer, Developer Experience",
+   "company": "Northwind Robotics",
+   "stage": "Screening",
+   "applied_on": "2026-10-03",
+   "location": "Zurich",
+   "channel": "Direct"
+  },
+  "sections": {
+   "📝 Application kit": "Drafted by claude-sonnet-5-5 for Platform Engineer, Developer Experience — Northwind Robotics. Review before sending; nothing was submitted.\n\n### 💡 Lead with\n\n- Built the internal developer platform for 120 engineers\n\n### ✉️ Cover letter\n\nDear Northwind team,\n\nI build the paved road that product teams ship on.\n\n### 🧾 Form answers\n\n**Notice period**\n\n3 months\n"
+  },
+  "events": [
+   {
+    "id": "e2a",
+    "kind": "Applied",
+    "at": "2026-10-03T10:05:00",
+    "source": "Extension"
+   },
+   {
+    "id": "e2b",
+    "kind": "Confirmation received",
+    "at": "2026-10-03T10:07:00",
+    "source": "Gmail",
+    "source_id": "19a1b2c3d4e5f607",
+    "note": "We received your application and will be in touch within a week.",
+    "changes": {
+     "fields": {},
+     "from": "Northwind Robotics <jobs@northwind.example>",
+     "subject": "Thanks for applying to Northwind"
+    }
+   }
+  ],
+  "files": [],
+  "match": {
+   "url": "https://example.com/jobs/2",
+   "fit": 86,
+   "tier": "Strong",
+   "confidence": "High",
+   "scored": "2026-10-04",
+   "seniority": "Senior",
+   "role_family": "platform",
+   "work_mode": "Hybrid",
+   "languages": [
+    "English"
+   ],
+   "technologies": "Backstage; Kubernetes; Go",
+   "salary": "CHF 120–140k",
+   "contract": "Permanent",
+   "posted": "2026-09-30",
+   "responsibilities": "Build the internal developer platform.\nImprove build and deploy speed for product teams."
+  },
+  "__delay": 9000
+ },
+ "https://example.com/jobs/7": {
+  "__error": "The store did not answer (timeout after 20 s)."
  }
 }

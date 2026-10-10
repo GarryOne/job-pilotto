@@ -22,6 +22,7 @@
     "build:win": "node scripts/stage.mjs --app && electron-builder --win --publish never",
     "ui-shots": "node scripts/stage.mjs && node scripts/ui-shots.mjs",
     "shot": "node scripts/stage.mjs && node scripts/shot.mjs",
+    "drawer-shots": "node scripts/drawer-shots.mjs",
     "site-demo": "node scripts/stage.mjs && node scripts/site-demo.mjs",
     "apply-demo": "node scripts/apply-demo.mjs",
     "lint": "cd .. && eslint --config eslint.config.mjs --max-warnings 0 desktop extension",

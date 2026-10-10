@@ -85,3 +85,15 @@
 .jd-message[open] > .jd-message-head { border-bottom: 1px solid var(--line); }
 .jd-message-body { padding: var(--sp-3) var(--sp-4) var(--sp-4); display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
 .jd-message-body > p { margin: 0; }
+
+/* Timeline (job-drawer/tab-timeline.js): entries on a line. */
+.jd-timeline { list-style: none; margin: 0; padding: 0; }
+.jd-event { display: grid; grid-template-columns: 96px 40px minmax(0, 1fr) auto; gap: var(--sp-3); align-items: start; padding: var(--sp-3) 0; position: relative; }
+.jd-event + .jd-event { border-top: 1px solid var(--line); }
+.jd-event::before { content: ''; position: absolute; left: calc(96px + var(--sp-3) + 19px); top: 0; bottom: 0; width: 2px; background: var(--line); z-index: 0; }
+.jd-event:first-child::before { top: 24px; }
+.jd-event:last-child::before { bottom: calc(100% - 24px); }
+.jd-event-when { display: flex; flex-direction: column; padding-top: var(--sp-2); }
+.jd-event-icon { z-index: 1; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line); background: var(--surface); color: var(--info); }
+.jd-event-icon svg { width: 20px; height: 20px; }
+.jd-event-words { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-top: var(--sp-1); overflow-wrap: anywhere; }

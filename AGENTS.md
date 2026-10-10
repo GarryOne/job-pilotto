@@ -162,6 +162,7 @@ The tier says how much to check; this says **how**. Pick the cheapest method tha
 |---|---|---|
 | Does this logic/parser/decision give the right answer? | unit test (`desktop/test`, `tests/`), a failing one first | seconds |
 | Does this screen/state look right? | `npm run shot -- <page> --js "<force it>"` | ~5 s |
+| Does the **job drawer** (any tab, any state: none, loading, failed, filtered) look right? | `cd desktop && npm run drawer-shots` (25 states on the demo's fictional jobs, cropped to the drawer, six to a contact sheet; `-- --only 20,21` for some); add a state in `scripts/drawer-shots.mjs`, seed it in `demo/job-pages.json` | ~1 min |
 | Does a page script handle this control's **shape**? | fixture shape test (`e2e/test/upload-slot.test.mjs` style) | seconds |
 | Does the real extension work on a real site, without the app's flow? | `cd desktop/e2e && npm run real-extension` (isolated Chromium, stand-in app); a case is added there | ~1 min |
 | Does a change to the flows' **decision core** break another flow? | `npm run flows` (the matrix, on demand; on CI its steps run with every e2e, no push gate since 9 Oct 2026) | ~5 min |

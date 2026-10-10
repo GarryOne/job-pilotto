@@ -386,6 +386,7 @@ skill `desktop-change` (the edit → check → push loop and known traps), skill
 
 - `desktop/scripts/apply-demo.mjs` — The website's "How automatic apply works" videos, recorded in real time from staged pages (a Greenhouse-style form,
 - `desktop/scripts/codemap.mjs` — CODEMAP.md at the repo root: every source file and what it's for, from its own first comment (JS) or docstring
+- `desktop/scripts/drawer-shots.mjs` — Every tab and state of a job's drawer, on the demo's fictional jobs (demo/job-pages.json), one picture each cropped to the drawer, then contact
 - `desktop/scripts/extension-fingerprint.mjs` — The Chrome extension's fingerprint (extension/fingerprint.json): a hash of its files, with the version it shipped as.
 - `desktop/scripts/mac-smoke.mjs` — Mac smoke test (CI, after the app is built): unpacks the built .zip the way a user's Mac would and checks the packaged app, not the source tree.
 - `desktop/scripts/record-page.cjs` — Records a web page as frames while it animates (Electron offscreen, a fixed frame rate), for the website's videos.

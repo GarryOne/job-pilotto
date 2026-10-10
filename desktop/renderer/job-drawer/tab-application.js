@@ -6,6 +6,8 @@ import {submittedView} from './application-submitted.js';
 
 const chosen = new Map();   // job url → 'preparation' | 'submitted'
 const OPTIONS = [['preparation', 'Preparation'], ['submitted', 'Submitted']];
+// The Timeline's "View snapshot": the next time the Application tab opens for this job, it opens on what was sent.
+export const showSubmitted = url => chosen.set(url, 'submitted');
 
 export function applicationTab(ctx, redraw) {
   const active = chosen.get(ctx.job.url) || (ctx.parts.submitted ? 'submitted' : 'preparation');

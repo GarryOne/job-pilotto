@@ -66,6 +66,9 @@ export function registerJobPageHandlers({ipcMain, storage, DEMO, here, log, dial
     if (DEMO) {
       const pages = JSON.parse(fs.readFileSync(path.join(here, 'demo', 'job-pages.json'), 'utf8'));
       const page = pages[url] || {app: null, sections: {}, events: []};
+      // Demo fixtures for the states a screenshot needs: __error answers {error}, __delay_ms waits first (the loading state), as a slow store would.
+      if (page.__delay) await new Promise(resolve => setTimeout(resolve, page.__delay));
+      if (page.__error) return {error: page.__error};
       return {...page, kit: kitOf(page.sections?.[KIT_SECTION]), links: false};
     }
     const started = Date.now();

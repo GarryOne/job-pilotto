@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
 import {shortDay} from '../renderer/date.js';
-import {SECTIONS, TABS, allAnswers, factPairs, appliedLine, callFacts, clarifyOf, foundLine, glanceTiles, gmailUrl, headerFacts, kitParts, lines, matchGroups, matchView, messagesOf, nextInterview, pageParts, paragraphize, plain, postingBlocks, postingFacts, postingSource, readablePart, submittedOf, tabKey, technologiesOf} from '../renderer/job-page-view.js';
+import {SECTIONS, TABS, allAnswers, factPairs, appliedLine, callFacts, clarifyOf, foundLine, glanceTiles, gmailUrl, headerFacts, kitParts, lines, matchGroups, matchView, messagesOf, nextInterview, pageParts, paragraphize, plain, postingBlocks, postingFacts, postingSource, timelineOf, readablePart, submittedOf, tabKey, technologiesOf} from '../renderer/job-page-view.js';
 
 const demo = JSON.parse(fs.readFileSync(new URL('../demo/job-pages.json', import.meta.url), 'utf8'));
 
@@ -188,4 +188,27 @@ test('Messages: the job\'s Gmail events as email items (newest first), its logge
   assert.equal(gmailUrl('paste:1'), '');
   assert.equal(gmailUrl('chat:1'), '');
   assert.equal(gmailUrl(''), '');
+});
+
+test('Timeline: the job\'s events newest first, the filter kinds, where the detail is, and "Job discovered" last', () => {
+  const events = [
+    {id: 'a', kind: 'Applied', at: '2026-10-01T09:00:00', source: 'Extension'},
+    {id: 'b', kind: 'Confirmation received', at: '2026-10-01T09:10:00', source: 'Gmail', source_id: 'abc123', note: 'Thanks', changes: {from: 'HR <hr@x.com>', subject: 'Application received'}},
+    {id: 'c', kind: 'Interview scheduled', at: '2026-10-07', source: 'Gmail', source_id: 'def456', changes: {from: 'S <s@x.com>', subject: 'Invitation'}},
+    {id: 'd', kind: 'Interview scheduled', at: '2026-10-06', source: 'Calendar', interview_at: '2026-10-14T10:00'},
+    {kind: ''},
+  ];
+  const items = timelineOf(events, {first_seen_at: '2099-01-01'}, {first_seen: '2026-09-29'}, {submitted: {facts: []}});
+  assert.deepEqual(items.map(item => item.key), ['c', 'd', 'b', 'a', 'discovered']);
+  const by = Object.fromEntries(items.map(item => [item.key, item]));
+  assert.deepEqual([by.c.kinds, by.c.link], [['message', 'interview'], 'interviews'], 'an invitation by email is both; its detail is the interviews');
+  assert.deepEqual([by.d.kinds, by.d.link], [['interview'], 'interviews']);
+  assert.deepEqual([by.b.kinds, by.b.link, by.b.source], [['application', 'message'], 'messages', 'From HR <hr@x.com> (Gmail)']);
+  assert.equal(by.b.title, 'Confirmation received: Application received');
+  assert.deepEqual([by.a.kinds, by.a.link], [['application'], 'snapshot'], 'Applied links to what was sent, when a snapshot exists');
+  assert.equal(timelineOf([{id: 'x', kind: 'Applied', at: '2026-10-01'}], {}, null, {}).find(item => item.key === 'x').link, null, 'no snapshot, no link');
+  assert.equal(by.discovered.when, shortDay('2026-09-29'), 'the match\'s own first-seen date, not the list row\'s');
+  assert.equal(by.a.time, '09:00');
+  assert.equal(by.c.time, '', 'a date with no time shows none');
+  assert.deepEqual(timelineOf([], {}, null, {}), [], 'no events and never found: nothing');
 });
