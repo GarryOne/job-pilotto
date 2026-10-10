@@ -11,7 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {candidates, compare, lastSeen, parseLive, pickPosting, placeFound, signature, tonight} from './lib/smoke.mjs';
-import {hostOnly, poolRows, upload} from './lib/applying-report.mjs';
+import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const QA_DIR = path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA');   // survives profile resets and removed worktrees
@@ -102,7 +102,8 @@ async function main() {
     const status = await postingStatus(posting.url);
     if (status === 404 || status === 410) { results[shape] = {url: posting.url, reached: 'none', note: `posting gone (HTTP ${status})`}; console.log(`smoke: ${shape}: posting gone (HTTP ${status}): replace it in smoke-sites.json`); continue; }
     console.log(`smoke: ${shape}: ${posting.url} (HELD: no account button, never Submit; ~${seconds}s)`);
-    const run = await liveRun(posting, seconds);
+    await ping(shape, 'start');
+    const run = await liveRun(posting, seconds).finally(() => ping(shape, 'end'));
     results[shape] = {url: posting.url, ...parseLive(run.output), exit: run.code, seconds: run.seconds};
     results[shape].signature = signature(results[shape]);
     fs.mkdirSync(REPORTS, {recursive: true});

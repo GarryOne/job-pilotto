@@ -31,3 +31,15 @@ test('the pool upload: every site with its start host and signature, never a pos
   let sent; await (await import('../lib/applying-report.mjs')).upload('pool', rows, {env: {}, key: 'K', fetcher: async (url, init) => { sent = init.body; return {ok: true, json: async () => ({stored: 3})}; }});
   assert.equal(JSON.parse(sent).kind, 'pool');
 });
+
+test('the running ping: a site starts or ends its run, sent as fixed words and the site name only; never from CI; a failed send never throws', async () => {
+  const {ping} = await import('../lib/applying-report.mjs');
+  let sent; const fetcher = async (url, init) => { sent = JSON.parse(init.body); return {ok: true, json: async () => ({stored: 1})}; };
+  await ping('Lever form', 'start', {env: {}, key: 'K', fetcher});
+  assert.deepEqual([sent.kind, sent.rows], ['running', [{name: 'Lever form', state: 'start'}]]);
+  await ping('Lever form', 'end', {env: {}, key: 'K', fetcher});
+  assert.equal(sent.rows[0].state, 'end');
+  sent = null; await ping('Lever form', 'start', {env: {CI: '1'}, key: 'K', fetcher});
+  assert.equal(sent, null);   // nothing leaves from CI
+  await ping('Lever form', 'start', {env: {}, key: 'K', fetcher: async () => { throw new Error('offline'); }});   // must not throw
+});

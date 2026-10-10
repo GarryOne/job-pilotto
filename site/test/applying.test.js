@@ -57,3 +57,18 @@ test('the pool: every site is listed, also one never run; platform and flow come
   assert.deepEqual(d.platforms.map(item => [item.name, item.sites, item.flows]), [['Greenhouse', 2, 1], ['Custom', 1, 0], ['Custom (x)', 1, 1], ['SuccessFactors', 1, 1], ['Workday', 1, 0]]);
   assert.equal(d.pool.length, 6);
 });
+
+test('the pool: each site shows when it last ran; a site mid-run is flagged "running" and sorted first, and a ping older than 5 minutes is stale', async () => {
+  const db = d1();
+  await ingest(db, {kind: 'pool', day: '2026-10-12', rows: [{name: 'Acme', start_host: 'jobs.acme.com'}, {name: 'Beta', start_host: 'jobs.beta.com'}, {name: 'Gamma', start_host: 'jobs.gamma.com'}]}, now);
+  await ingest(db, {kind: 'smoke', day: '2026-10-12', rows: [{name: 'Beta', host: 'jobs.beta.com', reached: 'form'}]}, new Date('2026-10-12T10:00:00Z'));
+  await ingest(db, {kind: 'running', day: '2026-10-12', rows: [{name: 'Gamma', state: 'start'}, {name: 'Acme', state: 'start'}]}, new Date('2026-10-12T11:58:00Z'));
+  await ingest(db, {kind: 'running', day: '2026-10-12', rows: [{name: 'Acme', state: 'end'}]}, new Date('2026-10-12T11:59:00Z'));
+  let d = await data(db, now), by = Object.fromEntries(d.pool.map(item => [item.name, item]));
+  assert.deepEqual([by.Gamma.running, by.Acme.running, by.Beta.running], [true, false, false]);   // Acme's run ended; Beta is not running
+  assert.equal(by.Beta.at, '2026-10-12T10:00:00.000Z'); assert.equal(by.Acme.at, null);   // never run: no time
+  assert.equal(d.pool[0].name, 'Gamma');   // running sites come first
+  d = await data(db, new Date('2026-10-12T12:30:00Z')); by = Object.fromEntries(d.pool.map(item => [item.name, item]));
+  assert.equal(by.Gamma.running, false);   // the run died without an end ping: stale after 5 minutes
+  assert.equal((await ingest(db, {kind: 'running', day: '2026-10-12', rows: [{name: 'x', state: 'weird'}]}, now)).stored, 0);   // fixed words only
+});

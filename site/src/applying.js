@@ -7,7 +7,8 @@ import {digest} from './digest.js';
 import {displayName, flowOf, platformLabel, SIGNATURE, signatureHost} from './platform.js';
 
 export const STEPS = ['none', 'posting', 'account', 'code/bot', 'form', 'ready'];
-const KINDS = ['smoke', 'recorded', 'pool'];
+const KINDS = ['smoke', 'recorded', 'pool', 'running'];
+const RUNNING_MINUTES = 5;   // a start ping older than this is a run that died
 const DAY = /^\d{4}-\d\d-\d\d$/;
 const text = (value, max) => String(value ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
 const int = value => (Number.isInteger(value) && value >= 0 && value < 10000 ? value : null);
@@ -23,6 +24,12 @@ export async function ingest(db, body, now = new Date()) {
   for (const row of rows) {
     const name = text(row?.name, 120);
     if (!name) continue;
+    if (kind === 'running') {   // a site starts or ends its run: fixed words only
+      if (row.state === 'start') await db.prepare('INSERT INTO applying_running (name, at) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET at = excluded.at').bind(name, at).run();
+      else if (row.state === 'end') await db.prepare('DELETE FROM applying_running WHERE name = ?').bind(name).run();
+      else continue;
+      stored += 1; continue;
+    }
     if (kind === 'pool') {   // a pool site: its start host and flow signature, fixed words only (a later row without them keeps what is known)
       const signature = SIGNATURE.test(text(row.signature, 200)) ? text(row.signature, 200) : null;
       await db.prepare(`INSERT INTO applying_pool (name, start_host, signature, at, version) VALUES (?, ?, ?, ?, ?) ON CONFLICT(name) DO UPDATE SET
@@ -47,7 +54,7 @@ export async function data(db, now = new Date()) {
   const byName = kind => runs.filter(run => run.kind === kind).reduce((out, run) => ((out[run.name] ||= []).push(run), out), {});
   const sites = Object.entries(byName('smoke')).map(([name, list]) => {
     const last = list.at(-1);
-    return {name, host: last.host, reached: last.reached, filled: last.filled, left: last.left_n, day: last.day, version: last.version, note: last.note,
+    return {name, at: last.at, host: last.host, reached: last.reached, filled: last.filled, left: last.left_n, day: last.day, version: last.version, note: last.note,
       regression: !!last.regression, history: list.slice(-10).map(run => run.reached || 'none')};
   }).sort((a, b) => Number(b.regression) - Number(a.regression) || STEPS.indexOf(a.reached) - STEPS.indexOf(b.reached));
   const cases = Object.entries(byName('recorded')).map(([name, list]) => {
@@ -59,7 +66,7 @@ export async function data(db, now = new Date()) {
     counts[run.reached || 'none'] += 1;
     return out;
   }, {})).map(([day, counts]) => ({day, counts}));
-  const pool = await poolRows(db, sites, runs);
+  const pool = await poolRows(db, sites, now);
   const live = sites.filter(site => !site.note);
   const dropped = await digest(db, now).then(d => d.boards.filter(board => board.dropped).map(board => ({board: board.board, earlier: board.earlierFilledShare, recent: board.recentFilledShare}))).catch(() => []);
   return {
@@ -76,17 +83,18 @@ const counts = (pool, key, other) => Object.entries(pool.reduce((out, item) => (
   .map(([name, list]) => ({name, sites: list.length, flows: new Set(list.map(item => item[other]).filter(Boolean)).size})).sort((a, b) => b.sites - a.sites || a.name.localeCompare(b.name));
 
 // Every pool site (also one never run), joined with its smoke runs by name; a site that ran before it was uploaded as pool still shows, by its run host.
-async function poolRows(db, sites, runs) {
+async function poolRows(db, sites, now) {
   const uploaded = await all(db, 'SELECT * FROM applying_pool ORDER BY name'), known = new Map(uploaded.map(row => [row.name, row]));
   const names = [...new Set([...uploaded.map(row => row.name), ...sites.map(site => site.name)])];
-  const byName = Object.fromEntries(sites.map(site => [site.name, site]));
+  const byName = Object.fromEntries(sites.map(site => [site.name, site])), fresh = new Date(now.getTime() - RUNNING_MINUTES * 60000).toISOString();
+  const running = new Set((await all(db, 'SELECT name FROM applying_running WHERE at > ?', fresh)).map(row => row.name));
   return names.map(name => {
     const row = known.get(name) || {}, site = byName[name], start = row.start_host || site?.host || '', end = signatureHost(row.signature) || '';
     const {flow, raw} = flowOf(row.signature, start);
     const step = row.signature?.match(/#([^#]+)$/)?.[1] || null, reached = site?.reached ?? step;
-    return {name: displayName(name, start), platform: platformLabel(end, start), flow, raw, start, end, reached, day: site?.day ?? null, note: site?.note ?? null,
+    return {name: displayName(name, start), platform: platformLabel(end, start), flow, raw, start, end, reached, day: site?.day ?? null, at: site?.at ?? null, running: running.has(name), note: site?.note ?? null,
       regression: !!site?.regression, history: site?.history ?? (step ? [step] : [])};
-  }).sort((a, b) => a.platform.localeCompare(b.platform) || a.name.localeCompare(b.name));
+  }).sort((a, b) => Number(b.running) - Number(a.running) || a.platform.localeCompare(b.platform) || a.name.localeCompare(b.name));
 }
 
 export async function view(request, env, now = new Date()) {
@@ -112,7 +120,7 @@ th{text-align:left;color:var(--muted);font-weight:500;font-size:12px;white-space
 .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;color:#0b0d10}
 .s-none{background:var(--muted)}.s-posting{background:var(--red)}.s-account{background:var(--amber)}.s-code\\/bot{background:var(--violet)}.s-form{background:var(--blue)}.s-ready{background:var(--green)}
 .dots{white-space:nowrap}.dots i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px}
-.filters{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;margin:10px 0 12px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;font-size:13px}.pick{display:flex;flex-direction:column;gap:4px;min-width:200px}.pick>span{font-size:11px;text-transform:uppercase;letter-spacing:.04em}.pick select{background:var(--bg,var(--card));color:var(--text);border:1px solid var(--line);border-radius:8px;padding:0 10px;height:34px;box-sizing:border-box;font:inherit;font-size:13px;max-width:100%}.filters .count,.filters .pager{align-self:flex-end;box-sizing:border-box;height:34px;display:flex;align-items:center}.filters .count{padding-left:4px}.filters .pager{margin:0 0 0 auto;justify-content:flex-end}.chip{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:3px 11px;font:inherit;font-size:12px;cursor:pointer}.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;font-size:13px}.chip:disabled{opacity:.4;cursor:default}.chip.on{border-color:var(--amber);color:var(--amber)}
+.filters{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;margin:10px 0 12px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;font-size:13px}.pick{display:flex;flex-direction:column;gap:4px;min-width:200px}.pick>span{font-size:11px;text-transform:uppercase;letter-spacing:.04em}.pick select{background:var(--bg,var(--card));color:var(--text);border:1px solid var(--line);border-radius:8px;padding:0 10px;height:34px;box-sizing:border-box;font:inherit;font-size:13px;max-width:100%}.filters .count,.filters .pager{align-self:flex-end;box-sizing:border-box;height:34px;display:flex;align-items:center}.filters .count{padding-left:4px}.filters .pager{margin:0 0 0 auto;justify-content:flex-end}.chip{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:3px 11px;font:inherit;font-size:12px;cursor:pointer}.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;font-size:13px}.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes spin{to{transform:rotate(360deg)}}.chip:disabled{opacity:.4;cursor:default}.chip.on{border-color:var(--amber);color:var(--amber)}
 .flag{color:var(--red);font-weight:600}.muted{color:var(--muted)}.bars{display:flex;gap:6px;align-items:flex-end;height:110px;margin-top:8px}
 .bar{display:flex;flex-direction:column-reverse;width:26px}.bar i{display:block}.bar small{color:var(--muted);font-size:10px;text-align:center}
 </style></head><body><main>
@@ -124,8 +132,11 @@ live, stopped before any account button or Submit, a rotating share each night. 
 const el = (tag, props = {}, ...kids) => { const node = Object.assign(document.createElement(tag), props); node.append(...kids.filter(kid => kid != null)); return node; };
 const pill = step => el('span', {className: 'pill s-' + step, textContent: step});
 const color = step => getComputedStyle(document.querySelector('.s-' + CSS.escape(step)) || document.body).backgroundColor;
+let serverNow = Date.now();
+const ago = at => { const minutes = Math.max(0, Math.round((serverNow - Date.parse(at)) / 60000)); return minutes < 1 ? 'just now' : minutes < 60 ? minutes + ' min ago' : minutes < 1440 ? Math.round(minutes / 60) + ' h ago' : Math.round(minutes / 1440) + ' d ago'; };
 const tile = (value, label, tone) => el('div', {className: 'tile ' + (tone || '')}, el('b', {textContent: value ?? '–'}), el('span', {textContent: label}));
 fetch('?json').then(r => r.json()).then(d => {
+  serverNow = Date.parse(d.now);
   const app = document.getElementById('app'); app.textContent = '';
   const legend = el('div', {hidden: true}, ...d.steps.map(step => pill(step))); app.append(legend);
   const t = d.tiles;
@@ -144,11 +155,12 @@ fetch('?json').then(r => r.json()).then(d => {
   const filters = el('div', {className: 'filters'}, pick('platform', d.platforms, 'Platform', 'All platforms · ' + d.pool.length + ' sites'), pick('flow', d.flows, 'Flow', 'All flows'), count, clear, pager);
   const draw = () => { const rows = d.pool.filter(s => (!chosen.platform || s.platform === chosen.platform) && (!chosen.flow || s.flow === chosen.flow)), pages = Math.max(1, Math.ceil(rows.length / PER)); chosen.page = Math.min(chosen.page, pages - 1); const shown = rows.slice(chosen.page * PER, (chosen.page + 1) * PER); table.textContent = ''; count.textContent = 'Showing ' + (rows.length ? chosen.page * PER + 1 : 0) + '–' + (chosen.page * PER + shown.length) + ' of ' + rows.length + (rows.length < d.pool.length ? ' (' + d.pool.length + ' in the pool)' : ''); pager.textContent = ''; clear.hidden = !chosen.platform && !chosen.flow;
     table.append(rows.length ? el('table', {},
-      el('tr', {}, ...['Site', 'Platform', 'Flow it tests', 'Starts → ends on', 'Last reached', 'Last 10 runs'].map(h => el('th', {textContent: h}))),
+      el('tr', {}, ...['Site', 'Platform', 'Flow it tests', 'Starts → ends on', 'Last reached', 'Last run', 'Last 10 runs'].map(h => el('th', {textContent: h}))),
       ...shown.map(s => el('tr', {}, el('td', {}, s.name, s.regression ? el('div', {className: 'flag', textContent: 'regression'}) : null, s.note ? el('div', {className: 'muted', textContent: s.note}) : null),
         el('td', {textContent: s.platform}), el('td', {title: s.raw || '', textContent: s.flow || '—'}),
         el('td', {className: 'muted', textContent: (s.start || '…') + (s.end && s.end !== s.start ? ' → ' + s.end : '')}),
         el('td', {}, s.reached ? pill(s.reached) : el('span', {className: 'muted', textContent: '—'}), s.day ? el('div', {className: 'muted', textContent: s.day}) : null),
+        el('td', {className: 'muted', title: s.at || ''}, s.running ? el('span', {}, el('i', {className: 'spin'}), 'running…') : el('span', {textContent: s.at ? ago(s.at) : '—'})),
         el('td', {}, s.history.length ? dots(s.history) : el('span', {className: 'muted', textContent: '—'}))))) : el('p', {className: 'muted', textContent: 'No site matches.'}));
     if (pages > 1) { const go = step => () => { chosen.page += step; draw(); };
       pager.append(el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: chosen.page === 0, onclick: go(-1)}),
@@ -161,6 +173,8 @@ fetch('?json').then(r => r.json()).then(d => {
     : el('p', {className: 'muted', textContent: 'No recorded-page run uploaded yet: cd desktop/e2e && npm run recorded'})));
   app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table)
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
+  // Fetch again every 15 s while the tab is visible and redraw the pool, so the spinner and the times follow a run without a reload.
+  setInterval(() => { if (!document.hidden) fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; draw(); }).catch(() => {}); }, 15000);
   if (d.nights.length) {
     const most = Math.max(...d.nights.map(n => Object.values(n.counts).reduce((a, b) => a + b, 0)));
     app.append(el('section', {}, el('h2', {textContent: 'Nights · where each site got to'}), el('div', {className: 'bars'}, ...d.nights.map(n => el('div', {className: 'bar', title: n.day},
