@@ -139,7 +139,7 @@ every 30 seconds. Keep the guardrails that catch real breakage; stop paying the 
 - **What the hook starts is decided by the affected-tests pick** (`tools/affected-tests.py`, 11 Oct 2026): an area with no affected test is not started
   (a docs, skill or tools-only push: lint + the touched unit tests, under ~1 min; a changed JS file keeps desktop's lint). `extension/` and flow-core
   pushes keep the journey, ladder and recorded gates, which run on their own file lists. `JOB_PILOTTO_TIERS=0` starts every area the paths want.
-- **One heavy run at a time per Mac** (`tools/heavy-lock.sh`): e2e suites, `run-all`, `smoke`, `npm run real-extension` and `recorded` take a lock, say who
+- **One heavy run at a time per Mac** (`tools/heavy-lock.sh`): e2e suites, `run-all`, `smoke`, `npm run real-extension` and `recorded` take a lock in arrival order (a run that re-asks never jumps a waiter), say who
   holds it, and wait while the 1-minute load is above 1.5 x the cores. Unit tests never wait. `JOB_PILOTTO_HEAVY=0` skips it.
 - The e2e suites run nightly and on demand, not per change; the Finder files what they find. Do not run one to "be sure" at Tier 0/1.
 

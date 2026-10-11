@@ -1,4 +1,5 @@
-"""tools/heavy-lock.sh: one heavy run at a time per machine, stale locks taken over, a busy machine waited out, every escape hatch said in the log."""
+"""tools/heavy-lock.sh: one heavy run at a time per machine, in arrival order (a run that re-asks never jumps a waiter), stale locks and dead waiters
+dropped, a busy machine waited out, every wait logged, every escape hatch said in the log."""
 import os
 import shutil
 import subprocess
@@ -17,7 +18,8 @@ class HeavyLockTest(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.env = {**{k: v for k, v in os.environ.items() if not k.startswith(('JOB_PILOTTO_HEAVY', 'JP_HEAVY'))},
-                    'JOB_PILOTTO_HEAVY_DIR': str(self.tmp / 'heavy'), 'JOB_PILOTTO_HEAVY_LOAD': '0'}
+                    'JOB_PILOTTO_HEAVY_DIR': str(self.tmp / 'heavy'), 'JOB_PILOTTO_HEAVY_LOAD': '0',
+                    'JOB_PILOTTO_HEAVY_TIMING_LOG': str(self.tmp / 'gate-timing.log')}
 
     def start(self, what, *command, **env):
         return subprocess.Popen(['bash', str(LOCK), what, *command], env={**self.env, **env}, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -79,6 +81,44 @@ class HeavyLockTest(unittest.TestCase):
         self.assertEqual(result.stdout.strip(), 'ran')
         self.assertIn('waits for the machine: 1-minute load 99 is above 8', result.stderr)
         self.assertIn('running browser suite anyway', result.stderr)
+
+    def ticket(self, pid, what, age_ns=10**9):
+        """A waiter's place in the queue, older than anything this test starts next."""
+        queue = self.tmp / 'heavy' / 'queue'
+        queue.mkdir(parents=True, exist_ok=True)
+        path = queue / f'{time.time_ns() - age_ns}-{pid}'
+        path.write_text(f'{pid} {what}\n')
+        return path
+
+    def test_an_earlier_waiter_goes_first_even_when_the_lock_is_free(self):
+        # 11 Oct 2026: the pool's per-site runs re-took a just-freed lock while a replay had waited 6+ min. Arrival order decides, not who polls next.
+        waiter = subprocess.Popen(['sleep', '60'])
+        self.addCleanup(waiter.kill)
+        self.ticket(waiter.pid, 'replay that waited')
+        late = self.start('pool site', 'echo', 'ran')
+        time.sleep(2)
+        self.assertIsNone(late.poll(), 'the later run waits while the earlier waiter lives, though the lock is free')
+        waiter.kill(); waiter.wait()   # reaped: a zombie still answers kill -0
+        out, err = late.communicate(timeout=30)
+        self.assertEqual(out.strip(), 'ran')
+        self.assertIn('pool site waits: replay that waited', err)
+
+    def test_a_dead_waiter_is_dropped_from_the_queue(self):
+        dead = self.ticket(999999, 'crashed waiter')
+        began = time.monotonic()
+        result = self.run_lock('next', 'echo', 'ran')
+        self.assertEqual(result.stdout.strip(), 'ran')
+        self.assertLess(time.monotonic() - began, 2, 'a dead waiter holds nobody up')
+        self.assertFalse(dead.exists(), 'its ticket is removed')
+        self.assertEqual(list((self.tmp / 'heavy' / 'queue').iterdir()), [], 'no ticket is left behind, mine included')
+
+    def test_a_wait_is_logged_for_the_next_measurement(self):
+        holder = self.start('holder', 'sleep', '2')
+        time.sleep(0.7)
+        result = self.run_lock('second', 'echo', 'ran')
+        holder.communicate(timeout=30)
+        self.assertIn('got the lock after', result.stderr)
+        self.assertRegex((self.tmp / 'gate-timing.log').read_text(), r'heavy lock wait=\d+s what=second')
 
     def test_the_e2e_package_scripts_that_open_browsers_take_the_lock(self):
         scripts = (ROOT / 'desktop' / 'e2e' / 'package.json').read_text()
