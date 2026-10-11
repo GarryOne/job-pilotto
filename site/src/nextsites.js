@@ -14,7 +14,10 @@ const bare = host => String(host || '').toLowerCase().replace(/^www\./, '');
 
 // Platforms with no site in the pool, or whose share of the matched jobs is 2 points or more above their share of the pool (a smaller gap is noise), biggest gap first. Counts of fixed names only: no employer, no install.
 // Matched jobs per platform over the last 90 days (contributions.hits) and applications on a named board (fill_cards): -> {rows: [{ats, platform, hits, installs}], apps: {ats: n}, total}.
-export async function platformDemand(db, now = new Date()) {
+export async function platformDemand(db, now = new Date(), slow = (key, fn) => fn()) {
+  return slow('demand', () => readDemand(db, now));
+}
+async function readDemand(db, now) {
   const since = new Date(now.getTime() - DAYS * 86400000).toISOString().slice(0, 10), names = Object.keys(PLATFORM_OF_ATS), marks = names.map(() => '?').join(',');
   const rows = (await db.prepare(`SELECT ats, SUM(COALESCE(hits, 0)) AS hits, COUNT(DISTINCT install) AS installs FROM contributions WHERE day >= ? AND ats IN (${marks}) GROUP BY ats`).bind(since, ...names).all()).results || [];
   const apps = Object.fromEntries(((await db.prepare(`SELECT board, COUNT(*) AS n FROM fill_cards WHERE source = 'user' AND day >= ? AND board IN (${marks}) GROUP BY board`).bind(since, ...names).all()).results || []).map(row => [row.board, row.n]));
@@ -22,8 +25,8 @@ export async function platformDemand(db, now = new Date()) {
 }
 export const PLATFORMS = Object.entries(PLATFORM_OF_ATS).map(([ats, platform]) => ({ats, platform}));
 
-async function platformGaps(db, pool, now) {
-  const {rows, apps, total} = await platformDemand(db, now);
+async function platformGaps(db, pool, now, slow) {
+  const {rows, apps, total} = await platformDemand(db, now, slow);
   return rows.map(row => {
     const poolSites = pool.filter(site => site.platform === row.platform).length;
     const match = total ? row.hits / total : 0, inPool = pool.length ? poolSites / pool.length : 0;
@@ -32,11 +35,11 @@ async function platformGaps(db, pool, now) {
 }
 
 // pool: the page's pool rows ({start, end, platform}). -> {sites: [...all, best first], hidden: {hosts}}; the page shows the top 5 and offers the rest.
-export async function nextToAdd(db, pool, now = new Date()) {
+export async function nextToAdd(db, pool, now = new Date(), slow = (key, fn) => fn()) {
   const covered = new Set(pool.flatMap(site => [bare(site.start), bare(site.end)]).filter(Boolean));
   const perPlatform = pool.reduce((out, site) => ((out[site.platform] = (out[site.platform] || 0) + 1), out), {});
-  const {sites, hidden} = await nextSites(db, {now, limit: 200});
-  return {hidden, platforms: await platformGaps(db, pool, now), sites: sites.filter(site => !covered.has(site.host)).map(site => {
+  const {sites, hidden} = await slow('nextsites', () => nextSites(db, {now, limit: 200}));
+  return {hidden, platforms: await platformGaps(db, pool, now, slow), sites: sites.filter(site => !covered.has(site.host)).map(site => {
     const platform = platformOf(site.host);
     return {host: site.host, platform, poolSites: platform === 'Custom' ? 0 : perPlatform[platform] || 0, installs: site.installs, uses: site.uses, readyShare: site.uses ? Math.round((100 * site.ready) / site.uses) : 0, countries: site.countries};
   })};

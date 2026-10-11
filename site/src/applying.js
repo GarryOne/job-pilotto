@@ -7,6 +7,7 @@ import {FIX_KINDS, FIXED_CSS, FIXED_SCRIPT, fixedData, ingestFixes} from './appl
 import {ORDER_SOURCE} from './applying-order.js';
 import {GROUPS_SOURCE} from './applying-groups.js';
 import {digest} from './digest.js';
+import {cachedData, dropSnapshot, latestRuns, refreshLatest, slowCache} from './applying-store.js';
 import {topCauses} from './applying-cause.js';
 import {nextToAdd} from './nextsites.js';
 import {platformScorecard} from './scorecard.js';
@@ -24,12 +25,18 @@ const hostOf = value => { const host = text(value, 120).toLowerCase(); return /^
 
 // -> {ok, stored} | {ok: false, error}. body: {kind, day, version, rows: [{name, start_host?, signature?} for 'pool'; {name, host?, reached?, filled?, left?, ok?, note?, regression?}]}
 export async function ingest(db, body, now = new Date()) {
+  const result = await ingestRows(db, body, now);
+  if (result.ok) await dropSnapshot(db);   // the page's snapshot is recomputed on the next view (src/applying-store.js)
+  return result;
+}
+async function ingestRows(db, body, now) {
   if (FIX_KINDS.includes(body?.kind)) return ingestFixes(db, body, now);   // the fix ledger and the claims: snapshots (src/applying-fixed.js)
   const kind = KINDS.includes(body?.kind) ? body.kind : null, day = DAY.test(body?.day || '') ? body.day : null;
   const rows = Array.isArray(body?.rows) ? body.rows.slice(0, 200) : [];
   if (!kind || !day || !rows.length) return {ok: false, error: 'kind, day and rows are required'};
   const version = text(body.version, 20) || null, at = now.toISOString();
   let stored = 0;
+  const touched = [];
   for (const row of rows) {
     const name = text(row?.name, 120);
     if (!name) continue;
@@ -51,8 +58,10 @@ export async function ingest(db, body, now = new Date()) {
         int(row.filled), int(row.left), kind === 'recorded' ? (row.ok ? 1 : 0) : null, text(row.note, 200) || null, row.regression ? 1 : 0, version,
         rungOf(row.rung), kind === 'smoke' && SIGNALS.includes(row.signal) ? row.signal : null,
         kind === 'smoke' ? int(row.asked) : null, kind === 'smoke' ? int(row.unexplained) : null).run();
+    touched.push({kind, name});
     stored += 1;
   }
+  await refreshLatest(db, touched);
   return {ok: true, stored};
 }
 
@@ -78,9 +87,10 @@ export const isHold = note => /^(account-first: held|eligibility stop:|site refu
 export const isAccountHold = note => /^account-first: held/.test(note || '');
 const needsFix = site => !site.note && !!site.reached && (site.regression || !!site.short || ['none', 'posting', 'account'].includes(site.reached));
 
-export async function data(db, now = new Date()) {
+// slow(key, fn): the big readers' results kept for an hour (src/applying-store.js); the default computes them every time.
+export async function data(db, now = new Date(), slow = (key, fn) => fn()) {
   const since = dayOf(new Date(now.getTime() - 30 * 86400000)), tenDays = dayOf(new Date(now.getTime() - 9 * 86400000));
-  const runs = await all(db, 'SELECT * FROM applying_runs WHERE day >= ? ORDER BY day, id', since);
+  const runs = (await latestRuns(db)).filter(run => run.day >= since);   // each site's last runs, one row each (a scan of applying_runs read thousands of rows per load)
   const byName = kind => runs.filter(run => run.kind === kind).reduce((out, run) => ((out[run.name] ||= []).push(run), out), {});
   const sites = Object.entries(byName('smoke')).map(([name, list]) => {
     const last = list.at(-1);
@@ -97,13 +107,13 @@ export async function data(db, now = new Date()) {
     return out;
   }, {})).map(([day, counts]) => ({day, counts}));
   const pool = await poolRows(db, sites, now);
-  const causes = await topCauses(db, pool.map(item => item.shape), now).catch(() => ({}));   // the pool's own fill cards: why the form's fields stayed empty (src/applying-cause.js)
+  const causes = await slow('causes', () => topCauses(db, pool.map(item => item.shape), now)).catch(() => ({}));   // the pool's own fill cards: why the form's fields stayed empty (src/applying-cause.js)
   for (const item of pool) item.cause = causes[item.shape] || null;
-  const scorecard = await platformScorecard(db, pool, now).catch(() => []);   // real use against the pool's tests, per platform (src/scorecard.js)
-  const next = await nextToAdd(db, pool, now).catch(() => ({sites: [], hidden: {hosts: 0}}));   // real users' end hosts the pool lacks (src/nextsites.js)
+  const scorecard = await platformScorecard(db, pool, now, slow).catch(() => []);   // real use against the pool's tests, per platform (src/scorecard.js)
+  const next = await nextToAdd(db, pool, now, slow).catch(() => ({sites: [], hidden: {hosts: 0}}));   // real users' end hosts the pool lacks (src/nextsites.js)
   const fixed = await fixedData(db, pool, cases, now).catch(() => ({day: dayOf(now), rows: [], inProgress: [], claimsAt: null, fixesAt: null, replays: []}));   // the Fixed tab, and the Back / In progress marks on the pool rows
   const live = sites.filter(site => !site.note || site.hold);
-  const dropped = await digest(db, now).then(d => d.boards.filter(board => board.dropped).map(board => ({board: board.board, earlier: board.earlierFilledShare, recent: board.recentFilledShare}))).catch(() => []);
+  const dropped = await slow('boards', async () => (await digest(db, now)).boards).then(boards => boards.filter(board => board.dropped).map(board => ({board: board.board, earlier: board.earlierFilledShare, recent: board.recentFilledShare}))).catch(() => []);
   return {
     tiles: {
       cases: cases.length, casesFailing: cases.filter(item => !item.ok).length, casesLast: cases.map(item => item.day).sort().at(-1) || null,
@@ -138,6 +148,7 @@ export async function forget(db, body) {
   if (!kind || !day || !name) return {ok: false, error: 'kind, day and name are needed'};
   if (!['recorded', 'smoke'].includes(kind)) return {ok: false, error: 'kind must be recorded or smoke'};
   const done = await db.prepare('DELETE FROM applying_runs WHERE kind = ? AND day = ? AND name = ?').bind(kind, day, name).run();
+  await refreshLatest(db, [{kind, name}]); await dropSnapshot(db);
   return {ok: true, removed: done?.meta?.changes ?? done?.changes ?? 0};
 }
 
@@ -153,7 +164,7 @@ export async function view(request, env, now = new Date()) {
     const result = await ingest(env.STATS, body, now);
     return Response.json(result, {status: result.ok ? 200 : 400, headers: noStore});
   }
-  if (new URL(request.url).searchParams.has('json')) return Response.json(await data(env.STATS, now), {headers: noStore});
+  if (new URL(request.url).searchParams.has('json')) return Response.json(await cachedData(env.STATS, () => data(env.STATS, now, slowCache(env.STATS, now)), now), {headers: noStore});
   return new Response(PAGE, {headers: {'Content-Type': 'text/html; charset=utf-8', ...noStore}});
 }
 
@@ -377,7 +388,11 @@ ${FIXED_SCRIPT}
     : el('p', {className: 'muted', textContent: 'No recorded-page run uploaded yet: cd desktop/e2e && npm run recorded'}))); if (d.cases.length) drawCases();
   app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table, colorLegend)
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
-  // Fetch again every 15 s while the tab is visible and redraw the pool, so the spinner and the times follow a run without a reload.
-  setInterval(() => { if (!document.hidden) fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; d.scorecard = fresh.scorecard; d.fixed = fresh.fixed; d.cases = fresh.cases; draw(); drawFix(); drawFixed(); drawCauses(); showTab(); drawNext(); drawScore(); }).catch(() => {}); }, 15000);
+  // Fetch again every 5 minutes while the tab is visible (and once when it becomes visible after longer), so the spinner and the times follow a run without a reload.
+  // The server keeps the data for up to 10 minutes (src/applying-store.js), so a faster refresh would only repeat the same answer.
+  let fetchedAt = Date.now();
+  const refresh = () => { if (document.hidden) return; fetchedAt = Date.now(); fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; d.scorecard = fresh.scorecard; d.fixed = fresh.fixed; d.cases = fresh.cases; draw(); drawFix(); drawFixed(); drawCauses(); showTab(); drawNext(); drawScore(); }).catch(() => {}); };
+  setInterval(refresh, 300000);
+  document.addEventListener?.('visibilitychange', () => { if (!document.hidden && Date.now() - fetchedAt > 300000) refresh(); });
 }).catch(error => { document.getElementById('app').textContent = 'Could not load: ' + error.message; });
 </script></main></body></html>`;

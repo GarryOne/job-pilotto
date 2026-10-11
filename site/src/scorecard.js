@@ -10,9 +10,9 @@ const GOOD = 0.7;      // a share of required questions filled, or of pool sites
 const REACHED = ['form', 'ready'];
 
 // pool: the page's pool rows ({platform, reached}). -> [{platform, verdict, matchShare, forms, filledShare, poolSites, poolReached, installs}], the ones to act on first.
-export async function platformScorecard(db, pool, now = new Date()) {
-  const {rows, total} = await platformDemand(db, now);
-  const boards = await digest(db, now).then(result => result.boards).catch(() => []);
+export async function platformScorecard(db, pool, now = new Date(), slow = (key, fn) => fn()) {
+  const {rows, total} = await platformDemand(db, now, slow);
+  const boards = await slow('boards', async () => (await digest(db, now)).boards).catch(() => []);
   const byAts = Object.fromEntries(PLATFORMS.map(item => [item.platform, item.ats]));
   const names = [...new Set([...rows.map(row => row.platform), ...pool.map(site => site.platform).filter(name => byAts[name])])];
   const cards = Object.fromEntries(boards.map(board => [board.board, board]));

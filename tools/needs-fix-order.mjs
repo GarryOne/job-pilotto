@@ -1,16 +1,15 @@
 #!/usr/bin/env node
 // Prints the "Needs a fix" order of /admin/applying, worst first, with the page's own sort (site/src/applying-order.js: the page embeds the same function, so they cannot disagree).
-// Reads the owner page's data with the Keychain key job-pilotto.site.api_key (never printed). Read-only: one GET.
+// Reads the owner page's data with the Keychain key job-pilotto.site.api_key (never printed). Read-only: a saved copy of the page's data at most 15 minutes old (--refresh fetches it again).
 // Usage: node tools/needs-fix-order.mjs [--json <file>]   (--json reads a saved copy of the page's ?json instead of the site)
 // Columns: rank, shape (the pool row's name), platform, reached, filled/left of the last run, claimed (when a session took the shape: its time only, never the session).
 // Guard: site/test/needs-fix-order.test.js.
-import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
+import {pageJson} from './applying-page-copy.mjs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {needsFixOrder} from '../site/src/applying-order.js';
 
-const SITE = 'https://www.jobpilotto.top/admin/applying?json';
 
 // The sites that need a fix, worst first, from the page's ?json.
 export const rankRows = json => needsFixOrder(json.pool || [], json.scorecard || [], json.steps || []).rows;
@@ -23,10 +22,7 @@ export function orderLines(json) {
   return table.map(row => row.map((text, col) => (col === row.length - 1 ? text : text.padEnd(width[col]))).join('  '));
 }
 
-function fetchJson() {
-  const key = execFileSync('security', ['find-generic-password', '-s', 'job-pilotto.site.api_key', '-w'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim();   // never printed
-  return JSON.parse(execFileSync('curl', ['-s', '--fail', '--max-time', '30', '-H', `Authorization: Bearer ${key}`, SITE], {encoding: 'utf8', maxBuffer: 64 << 20}));
-}
+const fetchJson = () => pageJson({refresh: process.argv.includes('--refresh')});   // the saved copy, at most 15 minutes old (tools/applying-page-copy.mjs)
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const at = process.argv.indexOf('--json');
