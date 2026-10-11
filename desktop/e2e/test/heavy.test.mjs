@@ -28,6 +28,9 @@ test('a class given by the entry point reaches the lock; none leaves the environ
   calls.length = 0;
   heavy('e2e-smoke', pathToFileURL(script).href, {argv: ['node', script], env: {}, ...fake});
   assert.equal(calls[0][2].env, undefined);
+  calls.length = 0;   // an explicit class in the environment wins over the entry point's default (the capture pass's per-row runs are pool, not proof)
+  heavy('e2e-smoke', pathToFileURL(script).href, {argv: ['node', script, '--only', 'x'], env: {JOB_PILOTTO_HEAVY_CLASS: 'pool'}, klass: 'proof', ...fake});
+  assert.notEqual(calls[0][2]?.env?.JOB_PILOTTO_HEAVY_CLASS, 'proof');
 });
 
 test('an import, a held lock, the off switch and --list do nothing', () => {
