@@ -53,6 +53,17 @@ tbin="$(command -v gtimeout || command -v timeout || true)"
 source "$(dirname "$0")/gate-cache.sh" 2>/dev/null || gate_cache_run() { shift 3; "$@"; }
 export GATE_CACHE_DIRTY=1 GATE_CACHE_NOTES; GATE_CACHE_NOTES="$(mktemp)"   # the working tree counts, uncommitted files too; the same pass store as the push gate
 boxed() { if [ -n "$tbin" ]; then "$tbin" -k 10 "$limit" "$@"; else "$@"; fi; }
+# The suites wait for a check slot like a push gate does (tools/check-slot.sh, JOB_PILOTTO_CHECK_SLOTS at a time on this Mac): several sessions' Stop hooks plus pushes plus a hand-run `npm test` ran
+# whole lint and test suites at once (11 Oct 2026: 1-minute load 160-205, live proofs held for minutes). One line says it waits; JOB_PILOTTO_STOP_SLOT_WAIT seconds at most (default 120, then it runs
+# anyway: a Stop hook must not hang a session); STOP_CHECK_NO_SLOT=1 skips the slot. Guarded by tests/test_stop_hook_slot.py.
+slot_taken=""
+take_slot() {
+  [ -z "$slot_taken" ] || return 0; slot_taken=1
+  [ -z "${STOP_CHECK_NO_SLOT:-}" ] || return 0
+  source "$(dirname "$0")/check-slot.sh" 2>/dev/null || return 0
+  JOB_PILOTTO_CHECK_WAIT="${JOB_PILOTTO_STOP_SLOT_WAIT:-120}" slot_acquire
+  trap 'slot_release' EXIT
+}
 
 report=""; timeouts=""; notes=""
 for repo in "${repos[@]}"; do
@@ -101,6 +112,7 @@ for repo in "${repos[@]}"; do
     fi
     out="$logs/$s.log"; [ "$s" = python ] && out=/dev/null   # unittest reports on stderr; the tests' prints are noise
     if [ "$s" = codemap ]; then run=(boxed "${cmd[@]}"); else run=(gate_cache_run "$repo" "$s" "flag=$affected_flag args= pick=$pick" boxed "${cmd[@]}"); fi
+    take_slot
     ( cd "$dir" && JOB_PILOTTO_AFFECTED_FILES="$files" "${run[@]}" >"$out" 2>>"$logs/$s.log"; echo $? >"$logs/$s.code" ) &
     pids+=($!)
   done
