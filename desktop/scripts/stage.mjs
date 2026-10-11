@@ -16,20 +16,29 @@ const repo = path.resolve(desktop, '..');
 const copy = (from, to) => fs.cpSync(path.join(repo, from), to, {recursive: true, filter: src => !/__pycache__|node_modules|\.DS_Store/.test(src)});
 
 const filesOnly = process.argv.includes('--files-only');
-if (!filesOnly) fs.rmSync(path.join(desktop, 'shared'), {recursive: true, force: true});   // --files-only copies over: test files staging at once never see an empty folder
-copy('worker/src', path.join(desktop, 'shared', 'worker'));
+// A full staging builds into its own temporary folder and swaps it in at the end (11 Oct 2026: the Stop hook's npm test re-staged while ship.sh's push
+// gate ran in the same worktree; the gate's tests saw a half-deleted shared/ and failed in 0 s). --files-only copies over, as before.
+const shared = path.join(desktop, 'shared');
+const out = filesOnly ? shared : path.join(desktop, `.shared-staging-${process.pid}`);
+if (!filesOnly) fs.rmSync(out, {recursive: true, force: true});
+copy('worker/src', path.join(out, 'worker'));
 // The recipe format, one source for the site, the extension and the app (extension/recipe-schema.js).
-fs.copyFileSync(path.join(repo, 'extension', 'recipe-schema.js'), path.join(desktop, 'shared', 'recipe-schema.js'));
+fs.copyFileSync(path.join(repo, 'extension', 'recipe-schema.js'), path.join(out, 'recipe-schema.js'));
 // The label meanings format (extension/alias-schema.js): the app validates the aliases it passes on and cleans question wording with it.
-fs.copyFileSync(path.join(repo, 'extension', 'alias-schema.js'), path.join(desktop, 'shared', 'alias-schema.js'));
+fs.copyFileSync(path.join(repo, 'extension', 'alias-schema.js'), path.join(out, 'alias-schema.js'));
 // The ladder's signals and router (extension/ladder/core.js): the app decides the next rung the same way the extension does.
-fs.copyFileSync(path.join(repo, 'extension', 'ladder', 'core.js'), path.join(desktop, 'shared', 'ladder-core.js'));
+fs.copyFileSync(path.join(repo, 'extension', 'ladder', 'core.js'), path.join(out, 'ladder-core.js'));
 if (filesOnly) { console.log('Staged shared/ (files only, no bot bundle)'); process.exit(0); }
 // The Telegram bot as ONE file (its Anthropic dependency inside), which the app uploads to the user's own
 // Cloudflare account for "Telegram buttons, always on" (lib/telegram-cloud.js).
 await (await import('esbuild')).build({entryPoints: [path.join(repo, 'worker', 'src', 'index.js')], bundle: true,
   format: 'esm', platform: 'browser', conditions: ['workerd', 'worker', 'browser'], target: 'es2022', minify: true,
-  nodePaths: [path.join(desktop, 'node_modules')], outfile: path.join(desktop, 'shared', 'bot-worker.js'), logLevel: 'warning'});
+  nodePaths: [path.join(desktop, 'node_modules')], outfile: path.join(out, 'bot-worker.js'), logLevel: 'warning'});
+// The swap: two renames, so a reader never sees a half-built shared/ (only the instant between them); the old copy is removed afterwards.
+const old = `${shared}.old-${process.pid}`;
+if (fs.existsSync(shared)) fs.renameSync(shared, old);
+fs.renameSync(out, shared);
+fs.rmSync(old, {recursive: true, force: true});
 
 if (process.argv.includes('--app')) {
   const pilot = path.join(desktop, 'build', 'pilot');

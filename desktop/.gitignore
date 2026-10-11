@@ -1,5 +1,7 @@
 node_modules/
 dist/
 shared/
+.shared-staging-*/
+shared.old-*/
 build/
 build-info.json
