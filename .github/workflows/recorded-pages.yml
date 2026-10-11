@@ -1,0 +1,43 @@
+name: CI · Recorded pages (all cases, real extension, Linux)
+# The net under the local push gate (owner, 11 Oct 2026, "CI heavy, local light"): every push to main replays ALL recorded cases (desktop/e2e/recorded) with the real extension,
+# offline, sharded across the matrix, 4 tabs at a time in one browser per job (desktop/e2e/lib/replay-browser.mjs). The local pre-push replays only the cases a change can affect.
+# A failing case fails the run; the push hook then treats main as red (tools/pre-push-check.sh, AGENTS.md "Red main"). No AI, no network: the pages and answers come from the cases.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: recorded-pages-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JP_REPLAY_SHARD_COUNT: 4
+
+jobs:
+  replay:
+    name: shard ${{ matrix.shard }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Install the tests
+        working-directory: desktop/e2e
+        run: npm ci || npm install
+      - name: Chromium (the real extension needs the full browser, not the headless shell)
+        working-directory: desktop/e2e
+        run: npx playwright install --with-deps chromium
+      - name: Replay this shard's recorded cases
+        working-directory: desktop/e2e
+        env:
+          JP_REPLAY: 1
+          JP_REPLAY_TABS: 4
+          JP_REPLAY_SHARD: ${{ matrix.shard }}/${{ env.JP_REPLAY_SHARD_COUNT }}
+        run: node --test --test-concurrency=1 test/recorded-pages.test.mjs

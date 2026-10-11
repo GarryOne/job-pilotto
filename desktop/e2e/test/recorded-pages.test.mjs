@@ -5,6 +5,7 @@ import {after, test} from 'node:test';
 import {extensionVersion, upload, uploadable} from '../lib/applying-report.mjs';
 import {loadCases, runCase} from '../lib/page-replay.mjs';
 import {replayInTabs} from '../lib/replay-browser.mjs';
+import {parseShard, shardOf} from '../lib/replay-shard.mjs';
 
 const extensionDir = process.env.REAL_EXTENSION_DIR || undefined;
 const skip = process.env.JP_REPLAY ? false : 'opt-in: set JP_REPLAY=1 (npm run recorded); it starts Chromium with the real extension';
@@ -17,7 +18,9 @@ after(async () => {   // a case without its control (case.json: seen failing on 
 const only = process.env.REPLAY_ONLY || '';   // a part of a case name: replay just those
 // The cases run N tabs at a time in ONE browser (lib/replay-browser.mjs; JP_REPLAY_TABS, default 4; 1 = one browser per case, in turn, as before: said in the log). A case that fails in
 // parallel is run again alone in its own browser: it counts as passed only if it passes alone, and it is said as FLAKY (never a silent pass).
-const cases = loadCases().filter(one => one.name.includes(only));
+const shard = parseShard(process.env.JP_REPLAY_SHARD || '');   // CI: JP_REPLAY_SHARD=i/n runs one slice of the cases (lib/replay-shard.mjs)
+const everyCase = loadCases().filter(one => one.name.includes(only));
+const cases = shard ? shardOf(everyCase, shard.index, shard.count) : everyCase;
 const tabs = Math.max(1, Number(process.env.JP_REPLAY_TABS || 4));
 const batchStarted = Date.now();
 let batch = null;   // started by the first test, once: every test awaits its own case's result

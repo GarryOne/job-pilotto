@@ -47,6 +47,12 @@ case "$command" in *CI_RED_OK=1*) ;; *)
   if command -v gh >/dev/null; then
     last="$(cd "$repo" && gh run list --workflow build.yml --branch main --status completed -L 1 \
       --json conclusion,headSha,url --jq '.[0] | "\(.conclusion) \(.headSha[0:7]) \(.url)"' 2>/dev/null)"
+    # The recorded pages (all cases, CI, recorded-pages.yml) are the net under the local replay of only the affected cases: a red run is a red main too (11 Oct 2026).
+    case "$last" in failure*|cancelled*|timed_out*) ;; *)
+      pages="$(cd "$repo" && gh run list --workflow recorded-pages.yml --branch main --status completed -L 1 \
+        --json conclusion,headSha,url --jq '.[0] | "\(.conclusion) \(.headSha[0:7]) \(.url)"' 2>/dev/null)"
+      case "$pages" in failure*) last="$pages" ;; esac ;;
+    esac
     case "$last" in failure*|cancelled*|timed_out*)
       # A run whose jobs were only cancelled or never started (a busy runner pool, 6 Oct 2026: 15 min queued, then cancelled) has no broken
       # test in it: it is re-run, and nobody is blocked. Only a run with a job that really failed blocks.

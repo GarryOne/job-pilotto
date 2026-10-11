@@ -134,6 +134,9 @@ every 30 seconds. Keep the guardrails that catch real breakage; stop paying the 
   data, spend money, or break the install. A state that is hard to reach (a first-run banner, an error) is forced with `--js`, not with a harness,
   a real download or a fake backend.
 - **Stop when the tier is met.** No extra harness, no real end-to-end run, no new check "while we're here" at Tier 0/1.
+- **CI heavy, local light** (owner, 11 Oct 2026). CI does the heavy work: ALL recorded pages (`.github/workflows/recorded-pages.yml`: Linux, sharded, 4 tabs each, every push to main), the full suites and
+  the Windows checks. The local push gate stays minimal and fast: the suites and cases a change can affect, no local run of the e2e harness's own unit tests (`JP_E2E_UNIT=1` opts in).
+  A red recorded-pages run on main is a red main (the hook blocks pushes until it is fixed or reverted).
 - **One change, one push.** A follow-up you think of (prefetch, a Finder check, a new tool) is offered in one line and built only when the owner says yes.
 - **Land with `tools/ship.sh`**, not by hand. The pre-push hook runs only the suites of the areas the push touches (docs: none; engine: python +
   desktop; an unknown path: everything; `PUSH_FULL=1` forces all). Do not wait for CI of your own push before the next task: look at it later.
