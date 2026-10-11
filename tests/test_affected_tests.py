@@ -96,6 +96,15 @@ class AffectedTests(unittest.TestCase):
                     found.append(f'{test.name}:{number}')
         self.assertEqual(found, [])
 
+    def test_the_import_graphs_are_read_once_per_process(self):
+        # 11 Oct 2026: every select() re-parsed the whole tree (~1.5 s); the module's own tests took 21 s of the push gate's Python step.
+        affected.py_graph.cache_clear(); affected.js_graph.cache_clear()
+        first = affected.select(['src/store.py', 'desktop/lib/ladder/index.js'])
+        again = affected.select(['src/store.py', 'desktop/lib/ladder/index.js'])
+        self.assertEqual(first, again)
+        self.assertGreaterEqual(affected.py_graph.cache_info().hits, 1)
+        self.assertEqual(affected.py_graph.cache_info().misses, 1)
+
 
 if __name__ == '__main__':
     unittest.main()

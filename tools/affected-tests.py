@@ -9,6 +9,7 @@ maps (dependency files, config, unknown top-level paths, an unreadable source) s
 """
 import argparse
 import ast
+import functools
 import json
 import re
 import subprocess
@@ -59,6 +60,8 @@ def py_module_name(p):
     return '.'.join(parts)
 
 
+
+@functools.lru_cache(maxsize=None)   # one parse of the tree per process: select() is called 13x by its tests (21 s -> 9 s); the tree does not change during a run
 def py_graph():
     files = [p for p in walk({'.py'}) if p.relative_to(ROOT).parts[0] in ('src', 'tests', 'tools')]
     names = {py_module_name(p): p for p in files}
@@ -119,6 +122,7 @@ def resolve_js(base, spec):
     return None
 
 
+@functools.lru_cache(maxsize=None)
 def js_graph():
     files = walk(set(JS_EXT))
     edges = {}
