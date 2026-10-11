@@ -1,0 +1,55 @@
+{
+ "shape": "fixture: a form whose autofill empties the boxes after an upload",
+ "why": "synthetic",
+ "sample": "jobs.example.test",
+ "seed": "9132320a047e",
+ "replay": "row",
+ "pages": [
+  {
+   "at": 1791738472408,
+   "state": 0,
+   "ask": true,
+   "view": {
+    "width": 1200,
+    "height": 818,
+    "doc": 1
+   },
+   "url": "https://jobs.example.test/o/sre/application",
+   "file": "pages/1.html"
+  },
+  {
+   "at": 1791738475408,
+   "state": 1,
+   "url": "https://jobs.example.test/o/sre/application",
+   "file": "pages/2.html"
+  }
+ ],
+ "baseline": {
+  "pageKinds": [
+   "page kind: form {\"by\":\"ai\"}"
+  ],
+  "reached": "form",
+  "filled": null,
+  "short": null,
+  "path": [],
+  "fields": [],
+  "pressed": []
+ },
+ "expect": {
+  "kinds": [
+   "form"
+  ],
+  "pressed": [],
+  "fields": {
+   "First name": "filled: ",
+   "Last name": "filled: ",
+   "Email": "filled: ",
+   "CV": "filled: "
+  },
+  "boxes": {
+   "First name": "filled",
+   "Last name": "filled",
+   "Email": "filled"
+  }
+ }
+}
