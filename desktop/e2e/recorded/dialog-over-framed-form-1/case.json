@@ -1,0 +1,77 @@
+{
+ "shape": "an application form embedded in an iframe, with a newsletter layer in the TOP page drawn over it (the frame cannot see it): the layer is closed with its non-agreeing button and the frame's fields are filled",
+ "why": "11 Oct 2026, owner rule on popups at any point; cc: a layer in the top page can cover a form that lives in an iframe (an employer page with an embedded board)",
+ "control": {
+  "build": "0.9.222",
+  "failed": "none: a regression guard that passes on the build before too (the layer in the top page is closed before the frame is filled)"
+ },
+ "sample": "the framed form is Greenhouse-shaped (embedded-form-frame-2); the top-page layer is invented",
+ "pages": [
+  {
+   "url": "https://careers.example.com/detail/1",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://job-boards.example-ats.io/embed/job_app",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "byHost": {
+    "careers.example.com": [
+     {
+      "whenFilled": [
+       "frameCandidates"
+      ],
+      "answer": {
+       "ok": true,
+       "kind": "posting",
+       "role": "no-form",
+       "by": "ai",
+       "confidence": 0.6,
+       "form_frame": 0
+      }
+     },
+     {
+      "answer": {
+       "ok": true,
+       "kind": "posting",
+       "role": "no-form",
+       "by": "ai",
+       "confidence": 0.6,
+       "form_frame": -1
+      }
+     }
+    ],
+    "job-boards.example-ats.io": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.99,
+     "form_frame": -1
+    }
+   }
+  },
+  "/extension/dismiss-popup": {
+   "ok": true,
+   "button": "No thanks"
+  }
+ },
+ "expect": {
+  "told": [
+   "closed a popup",
+   "\"label\":\"No thanks\""
+  ],
+  "filled": [
+   "#first_name",
+   "#email"
+  ],
+  "attached": [
+   "#resume"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 90
+ }
+}

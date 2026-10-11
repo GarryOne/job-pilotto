@@ -1,0 +1,77 @@
+{
+ "shape": "a modal wakes 60 ms after the first typed value, while the fill is on its way to the upload: the gate between the fill's stages sees it, the extension closes it with CANCELAR, and the fill goes on to attach the CV",
+ "why": "11 Oct 2026, owner rule: 'a popup can appear at any time: at page load, during filling or at the end'. Before this, only the page load and the end were checked",
+ "sample": "invented posting and form; the modal's wake-on-typing script is a model, not a real site's code",
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://jobs.beispiel.example/es/oferta/4711",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://jobs.beispiel.example/es/solicitud/4711",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://jobs.beispiel.example/es/solicitud/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.9,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "jetzt bewerben (ohne anmeldung)",
+     "applyRoute": "manual",
+     "applyBy": "form",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   }
+  ],
+  "/extension/dismiss-popup": {
+   "ok": true,
+   "button": "CANCELAR"
+  }
+ },
+ "expect": {
+  "told": [
+   "closed a dialog during the fill",
+   "\"label\":\"CANCELAR\""
+  ],
+  "filled": [
+   "#first",
+   "#last",
+   "#mail"
+  ],
+  "attached": [
+   "#cv"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 45
+ },
+ "control": {
+  "build": "0.9.222",
+  "failed": "told: closed a dialog during the fill (the old build looked only before the fill and at its end)"
+ }
+}

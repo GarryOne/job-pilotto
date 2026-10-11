@@ -12,6 +12,7 @@ import {hasEarly, keepEarly, takeEarly} from './early-answers.js';
 import {decide} from './log.js';
 import {closePopup} from './consent.js';   // a cycle again (consent.js uses api and settings from here at run time)
 import {HELD, clearBeforeFill, layerOnTop} from './dialog-after-fill.js';
+import './popup-guard.js';   // the worker's answer to the page's gate (page/guard-gate.js)
 import {verdictFields} from './eligibility-verdict.js';   // a cycle (log.js reads settings from here) that ES modules allow: both use the other only at run time
 export const JOB_SITES = [
   'https://*.greenhouse.io/*', 'https://jobs.lever.co/*', 'https://jobs.ashbyhq.com/*',
@@ -191,6 +192,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   // No Submit guard for the extension: it never submits, and the user presses Submit themselves.
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', func: () => { window.__jobPilottoNoGuard = true; }});
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', files: PAGE_FILES});
+  await chrome.scripting.executeScript({target: {tabId: tab.id, allFrames: true}, files: ['guard-bridge.js']}).catch(() => {});   // the gate's isolated-world half (guard-bridge.js); without it the fill never waits
   // Recipes for the kinds of control on this form, asked of the app by fingerprint (it asks the site, and remembers). A recipe
   // only configures a generic operator; no recipe, or no answer, and the operators work with their own defaults.
   try {
@@ -288,6 +290,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   const letter = coverLetter || ai?.cover_letter || '';
   const summary = await inPage(tab.id, (list, profile, resume, letter, consents) => window.__jobPilottoExtensionFill(list, profile, resume, letter, consents),
     [answers, me?.contact || config.profile || {}, withLetterFile(me?.resume || config.resume || null, me?.coverLetterFile), letter, config.acceptConsents === true]);
+  if (summary?.held) return {held: true, layer: await layerOnTop(tab.id), note: HELD, usd: 0};   // a layer opened mid-fill and nothing closed it: nothing more is typed (page/guard-gate.js)
   const armedLeft = () => inPage(tab.id, () => window.__jobPilottoArmedCount?.() || 0);
   step('filled the page');
   if (pendingAI) decide('fill', 'first fields filled', {fields: summary?.filled || 0, waiting: later.length}).catch(() => {});   // before Claude's answers
@@ -345,6 +348,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
         // Only Claude's answers this time: no contact details or CV again (they're in already).
         const more = await inPage(tab.id, (list, letter, consents) => window.__jobPilottoExtensionFill(list, {}, null, letter, consents),
           [extra, withKit ? '' : coverLetter || ai?.cover_letter || '', config.acceptConsents === true]);
+        if (more?.held) return {held: true, layer: await layerOnTop(tab.id), note: HELD, usd: 0};   // the same, in the later pass
         let clickError = '';
         const combos = config.clickDropdowns !== false ? await clickCombos(tab.id).catch(error => { clickError = error.message; return []; }) : [];
         debug.laterDropdowns = combos;

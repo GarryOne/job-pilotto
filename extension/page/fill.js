@@ -35,6 +35,9 @@
     if (!('__jobPilottoGuardActive' in window)) return {error: 'The page helpers did not load; nothing was filled.'};
     // The AI's likely answers it was not told (use: "propose", worker/src/extension.js): shown to you as proposals, never typed.
     // A kind only (use: "kind", no value): the AI's reading of a legal question, marked below and never filled (worker/src/extension.js answerForm).
+    // The popup guard (page/guard-gate.js): between the stages a layer that opened over the form is closed by the extension, or the fill is held and types nothing more.
+    let held = false;
+    const gate = async () => { if (!held && await (window.__jobPilottoGate?.() ?? true) === false) held = true; return !held; };
     const answers = (all || []).filter(a => a.use !== 'propose' && a.use !== 'kind'), proposedOf = Object.fromEntries((all || []).filter(a => a.use === 'propose').map(a => [a.field, a]));
     const form = await window.__jobPilottoDescribeForm();
     for (const group of window.__jobPilottoCheckboxQuestions()) {
@@ -103,7 +106,7 @@
     if (armed.length) todo.unshift(`Click the ${armed.length} highlighted dropdown(s); each picks its answer when opened`);
     // Controls the form reader above does not set (pressable Yes/No groups, custom dropdowns, date pickers): the generic
     // operators (page/controls.js) get the same answers, act only on a control an answer was matched to, and verify each.
-    if (window.__jobPilottoControls) {
+    if (window.__jobPilottoControls && await gate()) {
       const operated = await window.__jobPilottoControls.fill(answers, {skip: question => LEGAL.test(question)}).catch(() => []);
       for (const result of operated) {
         if (result.ok) filled += 1; else todo.push(`Pick "${result.value}" for: ${result.question}${result.why ? ` (${result.why})` : ''}`);
@@ -113,7 +116,7 @@
       window.__jobPilottoOperated = operated.map(({kind, fp, recipe, ok, why}) => ({kind, fp, recipe: recipe || 0, ok, why: why || ''}));
     }
     // The files (page/upload.js): each upload slot is operated by what it asks for; a miss is reported by fingerprint like any control's.
-    const uploads = await window.__jobPilottoUpload.fill({resume: resume?.data ? resume : null, coverLetter: resume?.coverLetterFile || null}).catch(() => []);
+    const uploads = !(await gate()) ? [] : await window.__jobPilottoUpload.fill({resume: resume?.data ? resume : null, coverLetter: resume?.coverLetterFile || null}).catch(() => []);
     const resumeAttached = uploads.some(item => item.meaning === 'resume' && item.ok);
     const letterFileAttached = uploads.some(item => item.meaning === 'cover_letter' && item.ok);
     window.__jobPilottoOperated = [...(window.__jobPilottoOperated || []), ...uploads.filter(item => item.ok !== undefined)
@@ -121,7 +124,8 @@
     // Wordings nobody knew (no text of yours: the slot's own title), for the service to give a meaning once.
     window.__jobPilottoUnknownUploads = uploads.filter(item => item.why === 'wording unknown' && item.label).map(item => item.label);
     if (letterFileAttached) filled += 1;
-    if (coverLetter && await fillCoverLetter(coverLetter)) filled += 1;
+    await gate();   // after the upload's own waits: a layer the page opened meanwhile
+    if (coverLetter && !held && await fillCoverLetter(coverLetter)) filled += 1;
     await sleep(300);
     // One row per checkbox group (not per option); legal boxes named by their question, not their id.
     const groupOf = new Map();
@@ -253,6 +257,7 @@
     }
     const letterBox = Array.from(document.querySelectorAll('textarea')).find(el => /cover\s*letter/i.test(`${el.id} ${el.name} ${labelOf(el)}`));
     if (coverLetter && letterBox?.value) markAttention(letterBox.id || letterBox.name, 'Cover letter');
+    summary.held = held;   // a layer the extension could not close: nothing more was typed (flow.js turns it into the held result)
     return summary;
   };
 })();

@@ -120,3 +120,24 @@ test('the background hands that look to the after-fill check', async () => {
   const bg = fs.readFileSync(new URL('../../extension/background.js', import.meta.url), 'utf8');
   assert.match(bg, /closeFillDialogs\(tab, \{close: closePopup, look: layerOnTop, decide\}\)/);
 });
+
+// The worker's answer to the page's gate (extension/popup-guard.js answerGate): the same rule as the gate before the fill, asked mid-fill.
+test('the gate asked mid-fill: a layer is closed and the fill goes on; one nothing closes holds it', async () => {
+  globalThis.chrome ||= {};
+  const { answerGate } = await import('../../extension/popup-guard.js');
+  let open = true;
+  assert.equal((await answerGate(3, { look: async () => (open ? { text: 'Hinweis', buttons: ['CANCELAR'] } : null), close: async () => { open = false; return 'CANCELAR'; }, say: () => {} })).held, false);
+  const held = await answerGate(3, { look: async () => ({ text: 'Roboter?', buttons: ['Ja'] }), close: async () => '', say: () => {} });
+  assert.equal(held.held, true);
+  assert.match(held.layer.text, /Roboter/);
+});
+
+test('the fill\'s stages ask the gate, and the bridge is injected with the page scripts', async () => {
+  const fs = await import('node:fs');
+  const read = path => fs.readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
+  const fill = read('extension/page/fill.js');
+  assert.ok((fill.match(/await gate\(\)/g) || []).length >= 3, 'a gate between the stages');
+  assert.match(fill, /summary\.held = held/);
+  assert.match(read('extension/flow.js'), /files: \['guard-bridge\.js'\]/);
+  assert.match(read('extension/flow.js'), /summary\?\.held\) return \{held: true/);
+});

@@ -1,0 +1,19 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Bewerbung</title></head><body><h1>Ihre Bewerbung</h1>
+<form action="/senden" method="post">
+<div><label for="first">Vorname *</label><input id="first" name="first" type="text" required></div>
+<div><label for="last">Nachname *</label><input id="last" name="last" type="text" required></div>
+<div><label for="mail">E-Mail *</label><input id="mail" name="mail" type="email" required></div>
+<div><label for="cv">Lebenslauf *</label><input id="cv" name="cv" type="file"></div>
+<button type="submit">Bewerbung absenden</button></form>
+<script>
+// Models a site whose first typed value wakes a modal a moment later (while the fill is still on its way to the upload).
+let opened = false;
+document.getElementById('first').addEventListener('input', () => { if (opened) return; opened = true; setTimeout(() => {
+  const box = document.createElement('div'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+  box.style.cssText = 'position:fixed;z-index:100000;top:10%;left:10%;right:10%;bottom:10%;background:#fff;border:2px solid #333;padding:24px';
+  box.innerHTML = '<h2>HINWEIS</h2><p>Es posible que se sustituyan los campos que ya haya rellenado. ¿Está seguro de que desea continuar?</p><button type="button" id="go">CONTINUAR</button><button type="button" id="no">CANCELAR</button><button type="button" id="x">X</button>';
+  document.body.appendChild(box);
+  for (const id of ['no', 'x']) { const b = box.querySelector('#' + id); if (b) b.onclick = () => box.remove(); }
+  const go = box.querySelector('#go'); if (go) go.onclick = () => { document.querySelectorAll('input[type=text],input[type=email]').forEach(input => { input.value = ''; }); box.remove(); };
+}, 60); });
+</script></body></html>
