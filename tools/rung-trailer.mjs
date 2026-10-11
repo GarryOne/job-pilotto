@@ -3,12 +3,13 @@
 // says in a commit message of the pushed range which rung it changes and which fixture shows it, like "Recorded-unneeded" (tools/recorded-cases.mjs):
 //   Rung: <0-6 | router | judges>          (a list "2, 3" is fine; "none: <why>" for a flow edit no rung decides, e.g. a log line: then no Fixture)
 //   Fixture: <fixture id of desktop/e2e/ladder-fixtures/, or several, or "none: <why>" for a pure move or refactor>
-//   Pool-row: <the pool row this fixes, as /admin/applying shows its name>   (optional, any commit: it fills the Fixed tab, desktop/e2e/lib/fix-ledger.mjs; never an address or a query string)
+//   Pool-row: <the pool row this fixes, its exact name in the pool>   (optional, any commit: it fills the Fixed tab, desktop/e2e/lib/fix-ledger.mjs; never an address, a query string or a slug)
 // Usage: node tools/rung-trailer.mjs [--base origin/main]   exit 1 with the reason when a flow push lacks them. Guard: desktop/test/rung-trailer.test.js.
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {poolRowNames, rowNameProblem} from './pool-rows.mjs';
 
 const FLOW_CODE = /^(desktop\/lib\/(ladder\/|page-kind\.js$|account-judge\.js$|form-judge\.js$)|extension\/ladder\/)/;
 export const isFlowPush = (changed, flowFiles) => { const flows = new Set(flowFiles); return changed.some(file => flows.has(file) || FLOW_CODE.test(file)); };
@@ -17,10 +18,14 @@ const RUNG = /^Rung:[ \t]*(.*)$/gm, FIXTURE = /^Fixture:[ \t]*(.*)$/gm;
 const RUNG_VALUE = /^(?:[0-6]|router|judges)(?:\s*,\s*(?:[0-6]|router|judges))*$/;
 const HOW = 'Add to a commit message of the push:\n  Rung: <0-6 | router | judges | none: <why> (no rung decides it, e.g. a log line; then no Fixture)>\n  Fixture: <a fixture id of desktop/e2e/ladder-fixtures/ | none: <why> (a pure move or refactor)>\n(docs/flows/ladder.md, skill fix-site-at-its-rung)';
 
-// "Pool-row:" is optional; when present it is a plain site name (it is published on the owner page). -> '' or the problem.
-export const poolRowProblem = messages => {
-  const bad = messages.flatMap(message => [...String(message).matchAll(/^Pool-row:[ \t]*(.*)$/gm)].map(found => found[1].trim())).filter(name => !name || name.length > 120 || /[?=@]|:\/\/|https?:/i.test(name));
-  return bad.length ? `"Pool-row: ${bad[0]}" must be a pool row's name as /admin/applying shows it: no address, no query string, at most 120 characters` : '';
+// "Pool-row:" is optional; when present it is a pool row's name exactly as the pool has it (tools/pool-rows.mjs; it is published on the owner page, and a capture
+// folder's slug made a second Fixed row on 11 Oct 2026). pool: {names, complete} of poolRowNames(); without it, or with an incomplete pool (no own list on this
+// machine), only the form is checked and a slug of a known row. -> '' or the problem.
+export const poolRowProblem = (messages, pool = {names: [], complete: false}) => {
+  const values = messages.flatMap(message => [...String(message).matchAll(/^Pool-row:[ \t]*(.*)$/gm)].map(found => found[1].trim()));
+  const bad = values.filter(name => !name || name.length > 120 || /[?=@]|:\/\/|https?:/i.test(name));
+  if (bad.length) return `"Pool-row: ${bad[0]}" must be a pool row's name as /admin/applying shows it: no address, no query string, at most 120 characters`;
+  return values.map(name => rowNameProblem(name, pool, 'Pool-row: ')).find(Boolean) || '';
 };
 
 const isNone = value => /^none\b/i.test(value);   // a flow edit no rung decides (a log line, a timing): "Rung: none: <why>", no fixture
@@ -59,7 +64,7 @@ async function main() {
   try { changed = git('diff', '--name-only', `${base}...HEAD`).split('\n').filter(Boolean); messages = git('log', '--format=%B%x00', `${base}..HEAD`).split('\0'); } catch { return 0; }
   const {FLOW_FILES} = await import(path.join(root, 'desktop/e2e/flows.mjs'));
   const ids = fs.readdirSync(path.join(root, 'desktop/e2e/ladder-fixtures')).filter(name => name.endsWith('.json')).map(name => name.slice(0, -5));
-  const why = poolRowProblem(messages) || missingTrailer(changed, messages, FLOW_FILES, ids);
+  const why = poolRowProblem(messages, poolRowNames({root})) || missingTrailer(changed, messages, FLOW_FILES, ids);
   if (why) { console.error(why); return 1; }
   return 0;
 }

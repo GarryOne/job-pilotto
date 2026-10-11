@@ -102,3 +102,12 @@ test('part claims are not pool rows (the Fixed tab lists only rows)', async () =
   claimPart('extension/tabs.js', 'x', 'a', {dir: d, now: NOW}); claimPart('', '', 'a', {dir: d, now: NOW}); claim('Some pool row', 'a', {dir: d, now: NOW});
   assert.deepEqual(claimRows(list({dir: d, now: NOW})).map(row => row.name), ['Some pool row']);
 });
+
+test('a claim names a pool row: a slug is refused before any claim is written, with the row it means (11 Oct 2026)', async () => {
+  const {execFileSync} = await import('node:child_process'), {fileURLToPath} = await import('node:url');
+  const pool = path.join(dir(), 'pool.json');
+  fs.writeFileSync(pool, JSON.stringify({shapes: [{shape: 'Acme jobs, French', urls: []}]}));   // this Mac's own list, so the pool is complete
+  let out = '';
+  try { execFileSync(process.execPath, [fileURLToPath(new URL('../../tools/claim-shape.mjs', import.meta.url)), 'claim', 'acme-jobs-french', '--session', 't'], {env: {...process.env, SMOKE_SITES: pool}, encoding: 'utf8', stdio: 'pipe'}); } catch (error) { out = `${error.status} ${error.stderr}`; }
+  assert.match(out, /^2 not claimed: "acme-jobs-french" is not a row name of the pool.*did you mean "Acme jobs, French"/);
+});

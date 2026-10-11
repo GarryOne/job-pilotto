@@ -152,7 +152,7 @@ Flow-core files (`page-kind.js`, `fill-flow.js`, `session-flow.js`, `escalate.js
 - Never edit a fixture's `expect` to make it pass; the ratchet fails on an edited expectation unless the baseline is updated with a reason.
 
 ## 4. Land and confirm
-- Put `Pool-row: <the row's name as /admin/applying shows it>` in the fix commit's message: it fills the Fixed tab (never an address or a query string; `tools/rung-trailer.mjs` checks it).
+- Put `Pool-row: <the row's exact name in the pool>` in the fix commit's message: it fills the Fixed tab (never an address, a query string or the capture folder's slug; the commit hook refuses a value that is no row name and suggests the closest).
 - `tools/ship.sh` (never from the twin's worktree: shipping rebases it, and a `ship.sh` without keep-by-default removes it). A push changing how the extension acts on pages needs the recorded page,
   or a scenario (a fill replay alone does not count), or `Recorded-unneeded: <why>` in the commit only when no real site's failure is fixed. Commit subject <= 72 characters.
 - **Re-run `npm run smoke -- --only <shape>` on the landed build** (a held run, said before it starts) and compare with the first run: **it must reach further**

@@ -28,3 +28,27 @@ test("git's own comment lines are not the message", () => {
 test('a trailer name inside a sentence is not a trailer', () => {
   assert.deepEqual(messageProblems('Fix\n\nthe Rung: line is checked at commit time', IDS), []);
 });
+
+// 11 Oct 2026: e5e68c7 named its row "ashby-form-in-an-embedded-app" (the capture folder's slug), and the Fixed tab showed Ashby twice.
+const POOL = {names: ['Ashby form in an embedded app', 'Hornbach SuccessFactors', 'Acme Corp'], complete: true};
+test('a Pool-row value must be a row name of the pool; a slug or a typo is refused with the row it means', () => {
+  assert.deepEqual(messageProblems('Fix\n\nPool-row: Ashby form in an embedded app', IDS, POOL), []);
+  assert.match(messageProblems('Fix\n\nPool-row: ashby-form-in-an-embedded-app', IDS, POOL).join('\n'), /not a row name of the pool.*did you mean "Pool-row: Ashby form in an embedded app"/);
+  assert.match(messageProblems('Fix\n\nPool-row: Hornbach Successfactor', IDS, POOL).join('\n'), /did you mean "Pool-row: Hornbach SuccessFactors"/);
+});
+
+test('without this Mac\'s own list only a slug of a known row is refused (another machine cannot know every row)', () => {
+  const partial = {names: POOL.names, complete: false};
+  assert.deepEqual(messageProblems('Fix\n\nPool-row: A row only the owner\'s Mac lists', IDS, partial), []);
+  assert.match(messageProblems('Fix\n\nPool-row: hornbach-successfactors', IDS, partial).join('\n'), /did you mean "Pool-row: Hornbach SuccessFactors"/);
+});
+
+test('every row of the public pool is accepted as itself and refused as its slug', async () => {
+  const {poolRowNames, slugOf} = await import('../../tools/pool-rows.mjs');
+  const {names} = poolRowNames({env: {SMOKE_SITES: '/no/such/file'}});
+  assert.ok(names.length > 3, 'the public pool is read');
+  for (const name of names) {
+    assert.deepEqual(messageProblems(`Fix\n\nPool-row: ${name}`, IDS, {names, complete: true}), [], name);
+    if (slugOf(name) !== name) assert.match(messageProblems(`Fix\n\nPool-row: ${slugOf(name)}`, IDS, {names, complete: true}).join('\n'), /did you mean/, name);
+  }
+});

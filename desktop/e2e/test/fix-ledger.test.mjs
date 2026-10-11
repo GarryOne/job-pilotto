@@ -26,6 +26,13 @@ test('the ledger joins the data file and the Pool-row trailers: version from the
     ['Swatch Group careers', 'bbbbbbb', '0.9.182', '3', ['fixture:cand-swatch-group-careers']]]);   // an unknown commit is dropped; an address as a Pool-row is dropped; "none" is no fixture
 });
 
+test('a Pool-row trailer that holds a row\'s slug is sent as that row, so the Fixed tab has one row per site (e5e68c7, 11 Oct 2026)', () => {
+  const git = (...args) => (args[0] === 'log' && args.includes('--grep=^Pool-row:') ? `${OTHER}\0Fix\n\nPool-row: swatch-group-careers\x01` : fakeGit(...args));
+  const pool = {names: ['Swatch Group careers', 'Hornbach SuccessFactors']};
+  assert.deepEqual(buildLedger({git, fixes: [], pool}).map(item => item.site), ['Swatch Group careers']);
+  assert.deepEqual(buildLedger({git, fixes: [], pool: {names: []}}).map(item => item.site), ['swatch-group-careers']);   // no row to map to: kept as written
+});
+
 test('privacy: nothing but fixed words leaves the Mac, no address, no query string, no session name', () => {
   assert.equal(cleanRow('https://jobs.x.com/job/1?token=abc'), ''); assert.equal(cleanRow('Site ?q=1'), ''); assert.equal(cleanRow('a@b.com'), ''); assert.equal(cleanRow('Hornbach SuccessFactors'), 'Hornbach SuccessFactors');
   const rows = claimRows([{name: 'Hornbach SuccessFactors', session: 'job-pilotto-81', at: Date.parse('2026-10-11T06:00:00Z')}, {name: 'e2e-page', session: 'x', at: 1}, {name: 'flow-core', session: 'y', at: 1}]);

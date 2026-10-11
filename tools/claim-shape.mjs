@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {poolRowNames, rowNameProblem} from './pool-rows.mjs';
 
 export const TTL_MS = 6 * 60 * 60 * 1000;
 export const CLAIMS = path.join(os.homedir(), 'Library', 'Application Support', 'Job Pilotto QA', 'claims');
@@ -88,6 +89,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     if (!done.ok) { console.error(`held by ${done.holder}${done.since ? ` since ${new Date(done.since).toISOString()}` : ''}`); process.exit(1); }
     console.log('ok'); process.exit(0);
   }
+  const notRow = command === 'claim' && name !== 'e2e-page' && !String(name).startsWith(CORE) ? rowNameProblem(String(name || '').trim(), poolRowNames()) : '';   // a claim is joined to its row by name on /admin/applying
+  if (notRow) { console.error(`not claimed: ${notRow}`); process.exit(2); }
   const result = command === 'claim' ? claim(name, session, {alive, ttl: (Number(flag('--ttl')) || 0) * 60000}) : command === 'release' ? release(name, session) : {ok: false, error: 'usage: claim|release "<row name>" --session <me> | list'};
   if (!result.ok) { console.error(result.error || `held by ${result.holder}${result.since ? ` since ${new Date(result.since).toISOString()}` : ''}`); process.exit(1); }
   console.log('ok');

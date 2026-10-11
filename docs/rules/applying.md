@@ -87,8 +87,8 @@ Spec: `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md`.
 - **A push changing how the extension acts on pages must add a recorded page or a scenario** (`tools/recorded-cases.mjs`, push hook).
   `Recorded-unneeded: <why>` only for a change that fixes no failure seen on a real site. A field replay (`worker/test/fixtures/fill/`) is a second
   layer, never the proof.
-- **The Fixed tab** on `/admin/applying` (`#fixed`) holds each fix's status and guard. Optional commit trailer `Pool-row: <the pool row's name as
-  /admin/applying shows it>` fills it (`tools/rung-trailer.mjs` checks it; no address or query string). Close a fix only when the Fixed tab shows
+- **The Fixed tab** on `/admin/applying` (`#fixed`) holds each fix's status and guard. Optional commit trailer `Pool-row: <the pool row's exact name
+  in the pool>` fills it (the commit hook and push gate refuse a value that is no row name, e.g. a capture folder's slug: `tools/pool-rows.mjs`). Close a fix only when the Fixed tab shows
   Confirmed, never on "it clears by itself".
 
 ## The ladder: fix a site at its rung (owner, 10 Oct 2026)

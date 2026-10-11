@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {list as listClaims} from '../../../tools/claim-shape.mjs';
+import {poolRowNames, rowFor} from '../../../tools/pool-rows.mjs';
 import {upload} from './applying-report.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -20,7 +21,8 @@ export const cleanRow = value => { const name = String(value || '').trim(); retu
 const defaultGit = (...args) => execFileSync('git', ['-C', ROOT, ...args], {encoding: 'utf8', maxBuffer: 64 << 20});
 
 // -> [{site, commit, extensionVersion, rung, landedAt, guard: ['recorded:<case>', 'fixture:<id>']}], newest last. git: (...args) => stdout, injectable for tests.
-export function buildLedger({git = defaultGit, fixes = JSON.parse(fs.readFileSync(FIXES_FILE, 'utf8')).fixes} = {}) {
+// pool: {names} of tools/pool-rows.mjs: a trailer that holds a row's capture-folder slug (e5e68c7) is sent as that row's name, so the Fixed tab has one row per site.
+export function buildLedger({git = defaultGit, fixes = JSON.parse(fs.readFileSync(FIXES_FILE, 'utf8')).fixes, pool = poolRowNames()} = {}) {
   const found = new Map();   // full hash -> site names
   for (const item of fixes) {
     let hash; try { hash = git('rev-parse', '--verify', '--quiet', `${item.commit}^{commit}`).trim(); } catch { hash = ''; }
@@ -28,7 +30,7 @@ export function buildLedger({git = defaultGit, fixes = JSON.parse(fs.readFileSyn
   }
   for (const entry of git('log', '--format=%H%x00%B%x01', '--grep=^Pool-row:', '-E').split('\x01').map(text => text.trim()).filter(Boolean)) {
     const [hash, body] = entry.split('\0');
-    const rows = line(body, 'Pool-row').map(cleanRow).filter(Boolean);
+    const rows = line(body, 'Pool-row').map(cleanRow).filter(Boolean).map(value => rowFor(value, pool.names) || value);
     if (rows.length) found.set(hash, [...new Set([...(found.get(hash) || []), ...rows])]);
   }
   const ledger = [];

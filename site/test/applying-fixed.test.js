@@ -211,3 +211,14 @@ test('a pool site with a display name finds its top cause, claim and "back" stat
   assert.equal(site.cause?.cause, 'menu_not_opened', 'its top cause is found by the shape');
   assert.equal(site.claimed, '2026-10-11T10:00:00.000Z', 'its claim is found by the shape');
 });
+
+test('a fix whose Pool-row was the capture folder\'s slug joins its pool row: one Fixed row per site (e5e68c7, 11 Oct 2026); an ambiguous slug stays as written', async () => {
+  const db = d1();
+  await smoke(db, '2026-10-10T22:00:00Z', {reached: 'posting'});
+  await ingest(db, {kind: 'fixes', day: '2026-10-11', rows: [FIX, {...FIX, site: 'hornbach-successfactors', commit: 'e5e68c7', landedAt: '2026-10-11T01:00:00+02:00'}]}, at('2026-10-11T08:00:00Z'));
+  const {rows} = (await data(db, at('2026-10-11T09:00:00Z'))).fixed;
+  assert.deepEqual(rows.map(row => [row.site, row.commits, row.host]), [['Hornbach SuccessFactors', ['fdbdc23', 'e5e68c7'], 'jobs.hornbach.com']]);
+  const {rowName} = await import('../src/applying-fixed.js');
+  assert.equal(rowName('acme-jobs', [{shape: 'Acme jobs', name: 'Acme'}, {shape: 'ACME Jobs', name: 'ACME'}]), 'acme-jobs');
+  assert.equal(rowName('acme-jobs', [{shape: 'Acme jobs', name: 'Acme'}]), 'Acme jobs');
+});

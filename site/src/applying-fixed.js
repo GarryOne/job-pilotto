@@ -55,13 +55,22 @@ export function statusOf(runs, landedAt) {
   return {status: after.at(-1).needsFix ? 'back' : 'confirmed', confirmedAt: clean[1].at, failingRuns: 0, cleanRuns: clean.length, filledBefore, filledAfter};
 }
 
+// A fix's (or a claim's) site as its pool row is named: itself when a row has that shape or name, else the one row whose capture-folder slug it is (desktop/e2e/lib/replay-candidate.mjs slug;
+// e5e68c7's "Pool-row: ashby-form-in-an-embedded-app" made Ashby a second Fixed row, 11 Oct 2026). Two rows with that slug, or none: kept as written.
+const slugOf = value => String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+export function rowName(site, pool) {
+  if (pool.some(row => row.shape === site || row.name === site)) return site;
+  const matches = pool.filter(row => slugOf(row.shape) === site);
+  return matches.length === 1 ? matches[0].shape : site;
+}
+
 // -> {day, rows, inProgress, claimsAt, fixesAt}. pool: the page's pool rows (name as shown, shape, platform, runs); cases: the recorded cases.
 // Marks each pool row with `back` and `claimed` for the Needs a fix tab.
 export async function fixedData(db, pool, cases, now = new Date()) {
   const fixes = await all(db, 'SELECT * FROM applying_fixes ORDER BY landed_at');
   const snapshots = Object.fromEntries((await all(db, 'SELECT kind, at FROM applying_snapshots')).map(row => [row.kind, row.at]));
   const claims = await all(db, 'SELECT site, since FROM applying_claims ORDER BY since');
-  const bySite = fixes.reduce((out, fix) => ((out[fix.site] ||= []).push(fix), out), {}), caseByName = new Map(cases.map(item => [item.name, item]));
+  const bySite = fixes.reduce((out, fix) => ((out[rowName(fix.site, pool)] ||= []).push(fix), out), {}), caseByName = new Map(cases.map(item => [item.name, item]));
   const rows = Object.entries(bySite).map(([site, list]) => {
     const last = list.at(-1), item = pool.find(row => row.name === site || row.shape === site);
     const guard = [...new Set(list.flatMap(fix => JSON.parse(fix.guard || '[]')))];
@@ -71,9 +80,9 @@ export async function fixedData(db, pool, cases, now = new Date()) {
       fixes: list.map(fix => ({commit: fix.commit_hash, extensionVersion: fix.version, rung: fix.rung, landedAt: fix.landed_at})), runs,
       ...statusOf(item?.runs || [], last.landed_at), guard, cases: linked.map(found => ({name: found.name, ok: found.ok, history: found.history, day: found.day}))};
   }).sort((a, b) => b.landedAt.localeCompare(a.landedAt));
-  const claimed = new Map(claims.map(row => [row.site, row.since])), back = new Set(rows.filter(row => row.status === 'back').map(row => row.site));
+  const claimed = new Map(claims.map(row => [rowName(row.site, pool), row.since])), back = new Set(rows.filter(row => row.status === 'back').map(row => row.site));
   for (const item of pool) { item.claimed = claimed.get(item.shape) ?? claimed.get(item.name) ?? null; item.back = back.has(item.shape) || back.has(item.name); }
-  return {day: now.toISOString().slice(0, 10), rows, inProgress: claims.map(row => ({site: row.site, since: row.since})), claimsAt: snapshots.claims ?? null, fixesAt: snapshots.fixes ?? null};
+  return {day: now.toISOString().slice(0, 10), rows, inProgress: claims.map(row => ({site: rowName(row.site, pool), since: row.since})), claimsAt: snapshots.claims ?? null, fixesAt: snapshots.fixes ?? null};
 }
 
 export const FIXED_CSS = `
