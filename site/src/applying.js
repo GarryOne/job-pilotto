@@ -5,7 +5,7 @@
 import {viewer} from './auth.js';
 import {FIX_KINDS, FIXED_CSS, FIXED_SCRIPT, fixedData, ingestFixes} from './applying-fixed.js';
 import {ORDER_SOURCE} from './applying-order.js';
-import {GROUPS_SOURCE, newestVersion} from './applying-groups.js';
+import {GROUPS_SOURCE} from './applying-groups.js';
 import {digest} from './digest.js';
 import {topCauses} from './applying-cause.js';
 import {nextToAdd} from './nextsites.js';
@@ -96,7 +96,6 @@ export async function data(db, now = new Date()) {
   const scorecard = await platformScorecard(db, pool, now).catch(() => []);   // real use against the pool's tests, per platform (src/scorecard.js)
   const next = await nextToAdd(db, pool, now).catch(() => ({sites: [], hidden: {hosts: 0}}));   // real users' end hosts the pool lacks (src/nextsites.js)
   const fixed = await fixedData(db, pool, cases, now).catch(() => ({day: dayOf(now), rows: [], inProgress: [], claimsAt: null, fixesAt: null, replays: []}));   // the Fixed tab, and the Back / In progress marks on the pool rows
-  const latestBuild = newestVersion(fixed.rows.flatMap(row => row.fixes.map(fix => fix.extensionVersion))) || newestVersion(runs.map(run => run.version));   // the newest build the fix ledger names (a build that landed a fix), else the newest any run reports (src/applying-groups.js)
   const live = sites.filter(site => !site.note);
   const dropped = await digest(db, now).then(d => d.boards.filter(board => board.dropped).map(board => ({board: board.board, earlier: board.earlierFilledShare, recent: board.recentFilledShare}))).catch(() => []);
   return {
@@ -105,7 +104,7 @@ export async function data(db, now = new Date()) {
       sites: sites.length, sitesRecent: sites.filter(site => site.day >= tenDays).length,
       reachedForm: live.length ? Math.round((100 * live.filter(site => ['form', 'ready'].includes(site.reached)).length) / live.length) : null,
       needFix: sites.filter(needsFix).length, regressions: sites.filter(site => site.regression).length, gone: sites.filter(site => site.note).length, dropped: dropped.length},
-    sites, pool, fixed, latestBuild, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, now: now.toISOString()};
+    sites, pool, fixed, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, now: now.toISOString()};
 }
 
 // "Greenhouse: 4 sites, 3 flows": each group's size and how many different flows (or platforms) it holds.
@@ -340,7 +339,7 @@ fetch('?json').then(r => r.json()).then(d => {
   // tools/needs-fix-causes.mjs. A row opens to its sites. The session that holds a claim never reaches the site, so the column counts claimed rows.
   const causeOpen = new Set();
   const causeDetail = g => el('div', {className: 'detail'}, el('div', {}, el('h4', {textContent: g.hint || 'Sites'}),
-    el('ul', {className: 'fixguard'}, ...g.rows.map(s => el('li', {}, s.name, el('span', {className: 'muted', textContent: ' · ' + s.platform + (s.at ? ' · last run ' + ago(s.at) : ' · never run') + (s.version ? ' · build ' + s.version : '') + (s.claimed ? ' · claimed' : '')}))))));
+    el('ul', {className: 'fixguard'}, ...g.rows.map(s => el('li', {}, s.name, el('span', {className: 'muted', textContent: ' · ' + s.platform + (s.at ? ' · last run ' + ago(s.at) : ' · never run') + (s.version ? ' · build ' + s.version : '') + (g.reasons[g.rows.indexOf(s)] && g.reasons[g.rows.indexOf(s)] !== 'never run' ? ' · ' + g.reasons[g.rows.indexOf(s)] : '') + (s.claimed ? ' · claimed' : '')}))))));
   const causeRow = g => { const on = causeOpen.has(g.key), flip = () => { toggleOpen(causeOpen, g.key); drawCauses(); };
     const main = el('tr', {className: 'site' + (on ? ' open' : ''), onclick: flip},
       el('td', {}, el('div', {className: 'sitename'}, el('b', {textContent: g.label}), g.hint ? el('span', {className: 'muted', textContent: g.hint}) : null)),
@@ -348,10 +347,10 @@ fetch('?json').then(r => r.json()).then(d => {
       el('td', {className: 'muted', textContent: g.neverRun ? 'never run' + (g.neverRun < g.count && g.oldest ? ' (+ ' + ago(g.oldest) + ')' : '') : g.oldest ? ago(g.oldest) : '—'}),
       el('td', {}, el('button', {className: 'chev', type: 'button', 'aria-expanded': String(on), 'aria-label': (on ? 'Collapse ' : 'Expand ') + g.label, textContent: '›', onclick: event => { event.stopPropagation(); flip(); }})));
     return on ? [main, el('tr', {className: 'more'}, el('td', {colSpan: 5}, causeDetail(g)))] : [main]; };
-  const causeGroups = () => needsFixGroups(d.pool, d.scorecard, d.steps, d.latestBuild);
+  const causeGroups = () => needsFixGroups(d.pool, d.scorecard, d.steps, d.fixed.rows);
   const drawCauses = () => { causeBox.textContent = '';
     causeBox.append(el('div', {className: 'fixpanel'}, el('div', {className: 'fixhead'}, el('h2', {textContent: 'By cause · what to fix first'}),
-      el('p', {className: 'muted', textContent: 'The rows that need a fix, grouped by their top cause, the biggest first. The rows listed first need a pool run, not a fix: their last run is older than the latest landed build' + (d.latestBuild ? ' (' + d.latestBuild + ')' : '') + ' or they never ran.'})),
+      el('p', {className: 'muted', textContent: 'The rows that need a fix, grouped by their top cause, the biggest first. The rows listed first need a pool run, not a fix: they never ran, or their last run is older than a fix that landed for them. Every row is in exactly one group.'})),
       ...block('causes', 'Groups', 'Run first, then the biggest cause', causeGroups(), ['Cause', 'Rows', 'Claimed', 'Oldest run', 'Details'], causeRow, 'Nothing needs a fix', () => drawCauses(), [g => g.label.toLowerCase(), g => g.count, g => g.claimed, g => (g.oldest ? Date.parse(g.oldest) : null)]).filter(Boolean))); };
   const drawScore = () => { scoreBox.textContent = '';
     scoreBox.append(...block('score', 'Platforms', 'Real use against the tests', d.scorecard || [], ['Platform', 'Verdict', 'Of matched jobs', 'Real forms', 'Required filled', 'Pool sites', 'Reached the form'],
@@ -373,6 +372,6 @@ ${FIXED_SCRIPT}
   app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table, colorLegend)
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
   // Fetch again every 15 s while the tab is visible and redraw the pool, so the spinner and the times follow a run without a reload.
-  setInterval(() => { if (!document.hidden) fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; d.scorecard = fresh.scorecard; d.fixed = fresh.fixed; d.cases = fresh.cases; d.latestBuild = fresh.latestBuild; draw(); drawFix(); drawFixed(); drawCauses(); showTab(); drawNext(); drawScore(); }).catch(() => {}); }, 15000);
+  setInterval(() => { if (!document.hidden) fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; d.scorecard = fresh.scorecard; d.fixed = fresh.fixed; d.cases = fresh.cases; draw(); drawFix(); drawFixed(); drawCauses(); showTab(); drawNext(); drawScore(); }).catch(() => {}); }, 15000);
 }).catch(error => { document.getElementById('app').textContent = 'Could not load: ' + error.message; });
 </script></main></body></html>`;

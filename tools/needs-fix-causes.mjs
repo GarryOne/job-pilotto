@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Prints the "Needs a fix" rows grouped by cause, as /admin/applying's "By cause" tab does (site/src/applying-groups.js: the page embeds the same function, so they cannot disagree):
-// "Run first" (the last run is older than the latest landed build, or there is no run: a pool run, not a fix), one group per top cause, then the rows with no cause recorded.
+// "Run first" (never run, or the last run is older than a fix landed for that row: a pool run, not a fix), one group per top cause, then the rows with no cause recorded.
 // Reads the owner page's data with the Keychain key job-pilotto.site.api_key (never printed). Read-only: one GET.
 // Usage: node tools/needs-fix-causes.mjs [--rows] [--json <file>]   (--rows lists the shapes under each group; --json reads a saved copy of the page's ?json)
 // Columns: cause, rows, claimed (rows a session holds; the session itself is never on the site), oldest run. Guard: site/test/needs-fix-causes.test.js.
@@ -13,7 +13,7 @@ import {needsFixGroups} from '../site/src/applying-groups.js';
 const SITE = 'https://www.jobpilotto.top/admin/applying?json';
 
 // The groups from the page's ?json.
-export const groupsOf = json => needsFixGroups(json.pool || [], json.scorecard || [], json.steps || [], json.latestBuild || null);
+export const groupsOf = json => needsFixGroups(json.pool || [], json.scorecard || [], json.steps || [], (json.fixed || {}).rows || []);
 
 const when = at => new Date(at).toISOString().slice(0, 16).replace('T', ' ');
 export function groupLines(json, {rows = false} = {}) {

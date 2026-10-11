@@ -3,33 +3,33 @@
 // No backticks, template or backslash characters: the source is pasted into the page. Guard: test/needs-fix-causes.test.js.
 import {needsFixOrder} from './applying-order.js';
 
-// The newest of some dotted versions ("0.9.188"), numeric not alphabetical; null when there is none. Used by the server to find the latest landed build (the uploaded runs and the fix ledger).
-export const newestVersion = versions => (versions || []).filter(v => /^\d+(\.\d+)*$/.test(String(v || ''))).reduce((best, v) => {
-  const a = String(v).split('.').map(Number), b = String(best || '').split('.').map(Number);
-  for (let i = 0; i < Math.max(a.length, b.length); i++) { if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) > (b[i] || 0) ? v : best; }
-  return best;
-}, null);
-
-// pool: the page's pool rows (name, shape, platform, at, version, claimed, cause: {cause} | null ...); latestBuild: the newest landed build, or null.
-// -> groups, in this order: "Run first" (rows whose last run is older than latestBuild, or that never ran: they need a pool run, not a fix), then one group per top cause, the biggest first,
-//    then "No cause recorded". Each: {key, label, hint, count, rows (worst first; Run first: never run, then the oldest), claimed (rows a session holds), neverRun, oldest (the oldest run time, or null)}.
-// A row is listed when it needs a fix (needsFixOrder) or has never run (also when only its flow signature is known); a stale row with nothing to fix is not listed. The session that holds a claim is never on the site.
-export function needsFixGroups(pool, scorecard, steps, latestBuild) {
+// pool: the page's pool rows (name, shape, platform, at, version, claimed, cause: {cause} | null ...); fixedRows: the Fixed tab's rows ({site, fixes: [{extensionVersion, landedAt}]}).
+// Groups the rows that NEED A FIX (needsFixOrder), each in exactly one group, so the groups add up to the Needs a fix count. In this order: "Run first" (a row that never ran, or whose last run predates
+// a fix landed FOR THAT ROW: it needs a pool run, not a fix), then one group per top cause, the biggest first, then "No cause recorded". A new build alone moves no row: only a fix for the row does.
+// -> [{key, label, hint, count, rows (worst first; Run first: never run, then the oldest), reasons (Run first: why each row is there), claimed (rows a session holds), neverRun, oldest (oldest run time or null)}].
+// The session that holds a claim is never on the site.
+export function needsFixGroups(pool, scorecard, steps, fixedRows) {
   const older = (a, b) => {
     const x = String(a || '').split('.').map(Number), y = String(b || '').split('.').map(Number);
     for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0); }
     return false;
   };
-  const needing = needsFixOrder(pool, scorecard, steps).rows;
-  const staleRun = s => !!s.at && !!latestBuild && (!s.version || older(s.version, latestBuild));
-  const firstSet = new Set([...pool.filter(s => !s.at), ...needing.filter(s => staleRun(s))]);   // no run at all (also a row known only by its flow signature), or a run on an older build
-  const first = [...firstSet];
+  const fixOf = {};   // the newest fix landed for each site
+  for (const row of fixedRows || []) for (const fix of row.fixes || []) { const have = fixOf[row.site]; if (!have || Date.parse(fix.landedAt) > Date.parse(have.landedAt)) fixOf[row.site] = fix; }
+  const reasonOf = s => {
+    if (!s.at) return 'never run';
+    const fix = fixOf[s.name] || fixOf[s.shape];
+    if (!fix) return '';
+    const before = s.version && fix.extensionVersion ? older(s.version, fix.extensionVersion) : Date.parse(s.at) < Date.parse(fix.landedAt);
+    return before ? 'fix ' + (fix.extensionVersion || 'build') + ' landed since its last run' : '';
+  };
+  const needing = needsFixOrder(pool, scorecard, steps).rows, first = needing.filter(s => reasonOf(s));
   first.sort((a, b) => (!b.at - !a.at) || String(a.at || '').localeCompare(String(b.at || '')));
-  const byCause = {};
+  const firstSet = new Set(first), byCause = {};
   for (const s of needing) if (!firstSet.has(s)) (byCause[s.cause && s.cause.cause ? s.cause.cause : ''] ||= []).push(s);
-  const make = (key, label, hint, rows) => ({key, label, hint, count: rows.length, rows,
+  const make = (key, label, hint, rows, reasons) => ({key, label, hint, count: rows.length, rows, reasons: reasons || [],
     claimed: rows.filter(s => s.claimed).length, neverRun: rows.filter(s => !s.at).length, oldest: rows.map(s => s.at).filter(Boolean).sort()[0] || null});
-  const groups = [make('run-first', 'Run first', 'Last run older than the latest build, or never run: a pool run, not a fix', first)];
+  const groups = [make('run-first', 'Run first', 'Never run, or run before a fix landed for it: a pool run, not a fix', first, first.map(reasonOf))];
   Object.keys(byCause).filter(cause => cause).sort((a, b) => byCause[b].length - byCause[a].length || a.localeCompare(b)).forEach(cause => groups.push(make('cause:' + cause, cause, '', byCause[cause])));
   groups.push(make('no-cause', 'No cause recorded', 'No fill card names a cause for these rows', byCause[''] || []));
   return groups.filter(group => group.rows.length);
