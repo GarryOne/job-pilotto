@@ -96,8 +96,9 @@ export function accountSketch() {
         if (box.querySelector('[class*=single-value], [class*=multi-value]') || [...box.querySelectorAll('input[type=hidden][id]')].some(h => h.value && document.querySelector(`label[for="${CSS.escape(h.id)}"]`))) return true;
       return false;
     })() : !!String(el.value || '').trim();
-  // A field is named as the panel and the fill trace name it (page/fill-labels.js labelOf, in the page's own world: form-ready.js runs this there) when the page has that reader; else by the old chain.
-  const nameOf = el => (window.__jobPilottoFillKit?.labelOf ? window.__jobPilottoFillKit.labelOf(el) : '') || el.labels?.[0]?.innerText || el.getAttribute('aria-label') || el.placeholder || el.name || '';
+  // A field the page gives no label is named as the panel and the fill trace name it (page/fill-labels.js labelOf, in the page's own world: form-ready.js runs this there), else by its raw name.
+  // The label the page gives the field keeps its required mark ("Country*": the judge reads the mark); only a field the old chain would call by its raw name asks the kit's reader for the question first.
+  const nameOf = el => el.labels?.[0]?.innerText || el.getAttribute('aria-label') || el.placeholder || (window.__jobPilottoFillKit?.labelOf ? window.__jobPilottoFillKit.labelOf(el) : '') || el.name || '';
   const controls = [...document.querySelectorAll('input, select, textarea')].filter(el => shown(el) && !['hidden', 'submit', 'button', 'image', 'reset'].includes(el.type)).map(el => ({
     type: el.type, label: clean(nameOf(el), 80),
     required: !!el.required || el.getAttribute('aria-required') === 'true',

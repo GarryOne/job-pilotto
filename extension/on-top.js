@@ -12,7 +12,7 @@ export function onTop() {
     }
     return null;
   };
-  const nameOf = el => (window.__jobPilottoFillKit?.labelOf ? window.__jobPilottoFillKit.labelOf(el) : '') || el.labels?.[0]?.innerText || el.getAttribute('aria-label') || el.name;   // as the panel names a field (page/fill-labels.js), when the page has that reader
+  const nameOf = el => el.labels?.[0]?.innerText || el.getAttribute('aria-label') || (window.__jobPilottoFillKit?.labelOf ? window.__jobPilottoFillKit.labelOf(el) : '') || el.name;   // as the panel names a field (page/fill-labels.js), when the page has that reader
   const own = node => node.closest('[id^=jobpilotto], [id^=job-pilotto]');
   const points = [...document.querySelectorAll('input, select, textarea')].filter(el => el.getClientRects().length && !['hidden', 'submit', 'button', 'image', 'reset'].includes(el.type)).slice(0, 12)
     .map(el => ({el, box: el.getBoundingClientRect()})).filter(({box}) => box.width && box.height).map(({el, box}) => ({el, x: box.left + box.width / 2, y: box.top + box.height / 2}));
