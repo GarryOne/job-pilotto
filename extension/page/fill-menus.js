@@ -56,7 +56,7 @@
     const done = () => { control.style.outline = ''; badge.remove(); delete control.dataset.jobpilottoArmed; control.removeEventListener('mousedown', onOpen, true); };
     const onOpen = event => {
       if (!event.isTrusted) return;
-      setTimeout(async () => {
+      setTimeout(async () => { window.__jobPilottoPicking = true; try {   // flow.js/combo-click.js waits for it: no second click while the page is still deciding
         let option = matchOption(answer);
         if (!option) {
           // The menu as it opened (before typing filters it): for the fill-failure report's snapshot (snapshot.js).
@@ -69,10 +69,11 @@
         // Picked only when the page shows it (page/menu-pick.js); what was seen goes to flow.js clickCombos and the fill card's reason (observed, not assumed: 9 Oct 2026).
         const opened = el.getAttribute('aria-expanded') === 'true' || optionNodes().length > 0;   // before the pick closes it
         const took = option ? await (window.__jobPilottoMenuPick?.({el, option, control, readValue: comboValue}) ?? (option.click(), {selectedAfter: true, trusted: false})) : {selectedAfter: false, trusted: false};
-        window.__jobPilottoLastPick = {asked: String(answer).split(' || ')[0], got: option ? clean(option.textContent) : '', opened, found: !!option, choices: option ? [] : (shown || []).slice(0, 8).map(text => text.slice(0, 60)), ...took};   // choices: the form's own wording of a menu nothing matched, for the log (never the answer)
+        window.__jobPilottoLastPick = {asked: String(answer).split(' || ')[0], got: option ? clean(option.textContent) : '', opened, found: !!option, choices: option ? [] : (shown || []).slice(0, 8).map(text => text.slice(0, 60)),
+          peek: option ? '' : clean(Array.from(document.querySelectorAll('[class*="menu"], [role="listbox"]')).map(m => m.textContent).join(' | ')).slice(0, 160), ...took};   // choices: the form's own wording of a menu nothing matched, for the log (never the answer)
         if (took.selectedAfter) { done(); return; }
         badge.textContent = `✈️ Suggested: ${answer} (pick it yourself)`; if (!option) window.__jobPilottoMenuMissed?.(el, shown);   // page/propose.js: no text left in the box; its choices go to the app
-      }, 120);
+      } finally { window.__jobPilottoPicking = false; } }, 120);
     };
     control.addEventListener('mousedown', onOpen, true); control.__jobPilottoDisarm = done;
     return true;

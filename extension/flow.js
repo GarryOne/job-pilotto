@@ -2,6 +2,7 @@
 // Shared by the popup (the tab you're on) and the background worker (tabs the app opens to fill).
 import {KEY} from './tab-identity.js';
 import {MENU_REASONS, OLD_MENU_REASON, applyCombos} from './menu-reason.js';
+import {clickCombo} from './combo-click.js';
 import {kitStance} from './tab-pages.js';
 import {fillCard} from './fill-card.js';
 import {settleTrace} from './trace-settle.js';
@@ -40,33 +41,12 @@ export async function clickCombos(tabId) {
       const spot = await page(n => window.__jobPilottoNextCombo(n), [skip]);
       if (!spot) break;
       const started = Date.now();
-      let picked = false;
-      for (let attempt = 1; attempt <= 2 && !picked; attempt++) {
-        const before = await page(() => window.__jobPilottoArmedCount());
-        const at = attempt === 1 ? spot : await page(n => window.__jobPilottoNextCombo(n), [skip]);
-        if (!at) break;
-        await click(at.x, at.y);
-        // The page opens the menu, filters it and picks the answer: a fixed list picks within a few tenths of a second,
-        // so it gets 1.5 s; a search field that is still loading its suggestions from the server gets up to 5 s.
-        const loading = () => page(() => !!document.querySelector('[class*=loading-indicator], [class*=loadingIndicator], [class*=menu-notice--loading], [class*=loadingMessage]'));
-        let spotClicked = false;
-        for (let waited = 0, limit = 1500; waited < limit; waited += 100) {
-          await new Promise(r => setTimeout(r, 100));
-          if ((await page(() => window.__jobPilottoArmedCount())) < before) break;
-          // The menu ignored a scripted click on its option: the page left the option's spot, clicked here for real once (page/fill.js armCombo).
-          const spotAt = spotClicked ? null : await page(() => window.__jobPilottoPickSpot || null);
-          if (spotAt) { spotClicked = true; await click(spotAt.x, spotAt.y); limit = Math.max(limit, waited + 4500); }
-          if (limit < 5000 && await loading()) limit = 5000;
-        }
-        picked = (await page(() => window.__jobPilottoArmedCount())) < before;
-        if (!picked) { await click(5, 5).catch(() => {}); await new Promise(r => setTimeout(r, 100)); }  // close the menu
-      }
+      const {picked, last} = await clickCombo({page, click, spot, skip});
       // Did the page pick what it was asked for? (8 Oct 2026: an automatic click selected the item after "Suisse".) A yes/no, never the value.
-      const last = await page(() => { const pick = window.__jobPilottoLastPick; window.__jobPilottoLastPick = null; return pick; });
       const matched = !picked || !last ? null : String(last.asked).trim().toLowerCase() === String(last.got).trim().toLowerCase();
       // What was observed for this menu (fill card reasons: opened, found, selectedAfter, trusted), never assumed.
       results.push({label: spot.label, picked, matched, ms: Date.now() - started, opened: last?.opened ?? null, found: last?.found ?? null, selectedAfter: last?.selectedAfter ?? null, trusted: last?.trusted ?? null});
-      if (!picked && last?.choices?.length) decide('fill', 'a menu showed no choice that matched', {field: spot.label.slice(0, 60), choices: last.choices}).catch(() => {});   // the form's wording, not the answer
+      if (!picked && last && last.found === false) decide('fill', 'a menu showed no choice that matched', {field: spot.label.slice(0, 60), choices: last.choices || [], peek: last.peek || ''}).catch(() => {});   // the form's wording, not the answer
       if (!picked) skip += 1;
     }
     // A phone widget whose country was just picked: type the number for real, so the form registers it.
