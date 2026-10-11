@@ -109,6 +109,7 @@ Flow-core files (`page-kind.js`, `fill-flow.js`, `session-flow.js`, `escalate.js
 | Run | Shows |
 |---|---|
 | `cd desktop && npm run ladder-score` | live on the plan: the fixture now right? rates per source; the wrong-and-confident list did not grow |
+| **3 real asks** of the app's own AI on the fixture's page (`npm run ladder-score -- --only <id>` three times, plan path, no API key) | the fix must hold on **3 of 3**, not on the one answer you recorded: the AI's choice varies (11 Oct: Hornbach's first "Confirmed" was one lucky ask that named the working link; the next run named the dead one). A fix that holds 2 of 3 is not done; say the three results |
 | `npm run ladder-score -- --offline` and `node --test test/ladder-ratchet.test.js` | no stored fixture got worse (what the push gate runs) |
 | `cd desktop/e2e && npm run recorded` | fixed sites still replay (also with `REAL_EXTENSION_DIR=<old extension/>` it must FAIL: the positive control) |
 | `cd desktop/e2e && npm run real-extension` | the extension alone, if `extension/` changed |
