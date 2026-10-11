@@ -10,5 +10,6 @@ test('a later pass keeps the rows of questions the AI proposed for, under the re
   const flow = read('extension/flow.js'), fill = read('extension/page/fill.js');
   const reason = flow.match(/const PROPOSED = '([^']+)'/)?.[1];
   assert.ok(reason && fill.includes(`reason = '${reason}'`), 'flow.js PROPOSED is page/fill.js\'s own reason');
-  assert.match(flow, /\.filter\(row => row\.source === 'Claude \(on the page\)' \|\| row\.reason === PROPOSED\)/);
+  assert.match(flow, /\.filter\(row => row\.source === 'Claude \(on the page\)' \|\| row\.reason === PROPOSED \|\| String\(row\.reason \|\| ''\)\.startsWith\(WRITTEN\)\)/);
+  assert.ok(fill.includes(`reason = '${flow.match(/const WRITTEN = '([^']+)'/)?.[1]}: your own words to write'`), 'flow.js WRITTEN is page/fill.js\'s own reason word');
 });

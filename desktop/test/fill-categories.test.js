@@ -59,3 +59,31 @@ test('a question the form reader called legal stays legal in the trace when the 
   const summary = await fill([]);
   assert.deepEqual(summary.trace.filter(row => row.label.startsWith('I certify')).map(row => [row.outcome, row.reason]), [['left', 'legal/consent: always your choice']]);
 });
+
+test('an open question the AI returned as a "written" kind (no value) is left as the person\'s to write: never "no answer", never typed', async () => {
+  // 11 Oct 2026, Ashby "Quelles sont vos motivations pour rejoindre ...?": the AI left it out, so ~12 pool rows without a kit counted it as a failure.
+  const rows = [{field: 'why', label: 'Quelles sont vos motivations pour rejoindre Pennylane ?', type: 'text', required: true, filled: false, legal: false}];
+  const {elements, fill} = fakeFillPage(rows);
+  const summary = await fill([{field: 'why', value: '', category: 'written', use: 'kind'}]);
+  assert.equal(elements.why.dataset.jobpilottoCategory, 'written');
+  const row = summary.trace.find(item => item.label.startsWith('Quelles'));
+  assert.deepEqual([row.outcome, row.reason, row.source], ['left', 'written: your own words to write', '']);
+});
+
+test('the siblings of a "written" left field agree: the pool verdict, the fill card and the service count treat it like a legal one', async () => {
+  const {verdictOf} = await import('../e2e/lib/smoke.mjs');
+  const {fillCard} = await import('../../extension/fill-card.js');
+  const field = {outcome: 'left', required: true, type: 'text', label: 'Why us?', reason: 'written: your own words to write'};
+  assert.equal(verdictOf(field), 'expected');
+  assert.equal(fillCard({trace: [field]}).required, 0, 'not counted as a fill loss');
+  assert.match(fs.readFileSync(new URL('../../extension/background.js', import.meta.url), 'utf8'), /!\/\^\(legal\|written\)\/\.test\(String\(row\.reason/);
+});
+
+test('only a left field the AI read as written is an expected hold: every other kind of left field still makes the row a shortfall', async () => {
+  const {verdictOf} = await import('../e2e/lib/smoke.mjs');
+  const left = reason => ({outcome: 'left', required: true, type: 'text', label: 'Q', reason});
+  const want = {'written: your own words to write': 'expected', 'legal/consent: always your choice': 'expected', 'proposed for you to confirm': 'expected',
+    'no answer in the kit, Profile or your details': 'no_suggestion', 'answer given, but the field did not take it': 'miss', 'question on the page not read': 'miss',
+    'question text not found on the page': 'miss', 'dropdown that opens only on a real click': 'miss'};
+  for (const [reason, verdict] of Object.entries(want)) assert.equal(verdictOf(left(reason)), verdict, reason);
+});

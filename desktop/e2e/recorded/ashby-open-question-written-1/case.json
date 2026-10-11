@@ -1,0 +1,66 @@
+{
+ "shape": "an open question in the person's own words (\"why do you want to join us?\") that nothing given answers, beside radios the AI answers",
+ "why": "Ashby application form (embedded), pool run of 11 Oct 2026 (0.9.199): the AI left the motivation question out, so the field read \"no answer in the kit\" and the row counted as an unexplained field (about a third of the 'Needs a fix' rows with a left open question; the pool drafts no kit). Now the answers call returns such a question as a kind only (value \"\", category \"written\", use \"kind\"), the page marks it, and the trace says it is the person's own words to write. The stubbed answer is what the real model answered to the new prompt through the app's Claude Code adapter (11 Oct 2026, 3 of 3 asks gave the written kind or a proposal for this field; this is the first). It answers only the fields the extension asks.",
+ "control": {
+  "build": "0.9.201",
+  "failed": "told: the open question traced as \"no answer in the kit\" instead of written: your own words to write"
+ },
+ "sample": "jobs.ashbyhq.com application form (structure saved by the smoke run of 11 Oct 2026, scrubbed)",
+ "pages": [
+  {
+   "url": "https://jobs.ashbyhq.com/example/00000000-0000-0000-0000-000000000000/application",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": [
+    {
+     "field": "aria:g1",
+     "value": "Yes",
+     "confidence": "high",
+     "note": "",
+     "category": "knockout",
+     "use": "propose"
+    },
+    {
+     "field": "aria:g2",
+     "value": "Yes",
+     "confidence": "high",
+     "note": "",
+     "category": "knockout",
+     "use": "propose"
+    },
+    {
+     "field": "94cd2c93-6bbf-47d9-af12-eb1fedba643c",
+     "value": "",
+     "category": "written",
+     "use": "kind"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "told": [
+   "\"outcome\":\"left\",\"reason\":\"written: your own words to write\",\"required\":true"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60,
+  "asked": [
+   "Quelles sont vos motivations pour rejoindre Pennylane ?"
+  ]
+ }
+}

@@ -284,7 +284,7 @@ function reportControls(config, tab, operated, trace, card = null, uploads = [],
   // The questions the fill did answer (form wording only), so corrections can be counted against them.
   const filled = (Array.isArray(trace) ? trace : []).filter(row => row && row.outcome === 'filled' && row.source && row.type !== 'file').slice(0, 30).map(row => String(row.label || '').slice(0, 100));
   // How many required questions the form had (the CV and consents aside): the denominator of the per-board rates.
-  const required = (Array.isArray(trace) ? trace : []).filter(row => row && row.required && row.type !== 'file' && !/^legal/.test(String(row.reason || ''))).length;
+  const required = (Array.isArray(trace) ? trace : []).filter(row => row && row.required && row.type !== 'file' && !/^(legal|written)/.test(String(row.reason || ''))).length;
   // The titles of upload slots whose wording no meaning knew (the slot was left empty): the service gives each a meaning once (alias keys resume, cover_letter).
   const uploadTitles = (Array.isArray(uploads) ? uploads : []).slice(0, 5).map(label => String(label || '').slice(0, 60));
   api(config, '/extension/controls', {method: 'POST', body: JSON.stringify({host, items: (Array.isArray(operated) ? operated : []).slice(0, 20), trace: unplaced, aliasUse, filled, required, starred: Math.max(0, Math.min(200, Math.round(Number(starred)) || 0)), uploads: uploadTitles,

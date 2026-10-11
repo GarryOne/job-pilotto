@@ -43,7 +43,7 @@ const count = (list, key) => list.reduce((out, item) => { const k = key(item); i
 // asked of Claude. -> the card.
 export function fillCard({id, trace = [], form = [], sent = [], ai = null, aiError = '', useAI = true, kit = false, version = '', startedAt, endedAt = new Date()}) {
   const fieldOf = new Map(form.map(row => [String(row.label || '').trim(), row.field]));
-  const rows = trace.filter(row => row && row.type !== 'file' && !/^legal/.test(String(row.reason || '')))
+  const rows = trace.filter(row => row && row.type !== 'file' && !/^(legal|written)/.test(String(row.reason || '')))
     .map(row => ({...row, field: row.field || fieldOf.get(String(row.label || '').trim())}));
   const required = rows.filter(row => row.required);
   const left = required.filter(row => row.outcome !== 'filled');
