@@ -43,6 +43,15 @@ export async function postingStatus(url, fetcher = fetch) {
 function liveRun(posting, seconds, captureDir = '') {
   return new Promise(resolve => {
     const started = Date.now();
+    // SMOKE_NO_ELECTRON=1 (speed-5x landing 3): the row on the app's own path without Electron (live.mjs), printing the same lines parseLive reads.
+    if (process.env.SMOKE_NO_ELECTRON === '1') {
+      const child = spawn('node', ['live.mjs', posting.url, '--title', posting.title || '', '--company', posting.company || '', ...(captureDir ? ['--capture', captureDir] : [])],
+        {cwd: here, env: {...process.env, LIVE_SECONDS: String(seconds)}});
+      let output = '';
+      child.stdout.on('data', chunk => { output += chunk; }); child.stderr.on('data', chunk => { output += chunk; });
+      child.on('close', (code, signal) => resolve({output, code, signal, seconds: Math.round((Date.now() - started) / 1000)}));
+      return;
+    }
     const child = spawn('node', ['run-all.mjs', '--only', 'applyflows'], {cwd: here, env: {...process.env, E2E_ARTIFACTS: runArtifacts(), LIVE: '1', LIVE_URL: posting.url, LIVE_TITLE: posting.title || '', LIVE_COMPANY: posting.company || '', LIVE_SECONDS: String(seconds), LIVE_CAPTURE_DIR: captureDir, ...(captureDir ? {JOB_PILOTTO_MODEL_MEMO: path.join(captureDir, 'model-memo.json')} : {}), LIVE_ENGINE: process.env.LIVE_ENGINE || 'cli'}});
     let output = '';
     child.stdout.on('data', chunk => { output += chunk; });

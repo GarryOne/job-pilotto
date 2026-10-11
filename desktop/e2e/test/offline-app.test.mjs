@@ -42,3 +42,20 @@ test('the offline app never asks the model by default: a page-kind ask outside t
     assert.match(app.logText() + JSON.stringify(answer), /not in the row's kept answers/);
   } finally { await app.close(); }
 });
+
+test('the harness drives the app as its window would: settings, the contact, Apply (the address handed to the harness browser) and the sessions', async () => {
+  const app = await startOfflineApp();
+  try {
+    const opened = [];
+    app.onOpen(url => opened.push(url));
+    assert.equal((await app.call('saveSettings', {escalation: 'on'})).escalation, 'on');
+    assert.equal((await app.call('settings')).escalation, 'on');
+    assert.equal((await app.call('saveContact', {first_name: 'Test', last_name: 'Candidate', email: 'test.candidate@example.com'})).ok, true);
+    const applied = await app.call('applyOne', 'https://jobs.example.org/job/42', {title: 'Engineer', company: 'Example'});
+    assert.equal(applied.ok, true, JSON.stringify(applied));
+    await new Promise(resolve => setTimeout(resolve, 200));
+    assert.ok(opened.some(url => url.startsWith('https://jobs.example.org/job/42') && url.includes('#jobpilotto-fill')), `opened: ${JSON.stringify(opened)}`);
+    assert.ok((await app.call('sessions')).some(session => session.url === 'https://jobs.example.org/job/42'));
+    await assert.rejects(app.call('noSuchCommand'), /unknown command/);
+  } finally { await app.close(); }
+});

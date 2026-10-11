@@ -50,4 +50,8 @@ Owner decisions: landing 1 (11 Oct), step 0 then landing 2 (11 Oct), the privacy
 - [x] Offline app, memo-only, npm run row/rows, the follow, the trust check on main (this landing)
 
 ### 9. Landing 3: live and smoke runs off Electron
-- [ ] The plain-node app serves live and smoke runs
+- [x] The app's own commands without a window: Apply, the contact, settings, sessions (offline-app-commands.mjs; this landing)
+- [x] A live row on the plain-node app and the harness browser, with the ask capture and the tripwire (live-row.mjs, npm run live; this landing)
+- [x] Smoke runs a row this way (SMOKE_NO_ELECTRON=1), printing the lines it parses (this landing)
+- [x] Trust: the same rows on both paths reach the same step and fill the same fields (Recruitee form 4/1, jobs.ch form 6/2, coreweave form 10/12)
+- [ ] Landed; the default for smoke once trusted

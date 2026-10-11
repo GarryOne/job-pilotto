@@ -16,14 +16,16 @@ const LIVE_PORT = 47111;   // the person's app
 
 // ask: false (the default) answers only from the row's kept answers and refuses a miss (lib/ai/model-memo.js memoOnly): the plan's claude -p carries the signed-in
 // account, so it is asked only when the caller says so. A memo file always exists (an empty one refuses every ask): without one the app would ask the model.
-export async function startOfflineApp({memo = '', ask = false, dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-offline-app-')), timeoutMs = 20000} = {}) {
+// captureDir: a live run's capture folder (the app writes its page-kind calls and asks there: lib/live-capture.js), as the Electron app does under the harness.
+export async function startOfflineApp({memo = '', ask = false, captureDir = '', dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-offline-app-')), timeoutMs = 20000} = {}) {
   if (!memo) { memo = path.join(dir, 'model-memo.json'); fs.mkdirSync(dir, {recursive: true}); }
   // The app imports the worker from desktop/shared/ (scripts/stage.mjs, run by npm start and npm test): a fresh worktree has none yet.
   if (!fs.existsSync(path.join(DESKTOP, 'shared', 'worker', 'extension.js'))) execFileSync(process.execPath, [path.join(DESKTOP, 'scripts', 'stage.mjs'), '--files-only'], {cwd: DESKTOP, stdio: 'ignore'});
   const port = await freePort();
   if (port === LIVE_PORT) throw new Error('offline app: never the live app\'s port');
-  const env = {...offlineEnv(dir), JOB_PILOTTO_PORT: String(port), JOB_PILOTTO_MODEL_MEMO: memo, ...(ask ? {} : {JOB_PILOTTO_MODEL_MEMO_ONLY: '1'})};
-  const child = spawn(process.execPath, [CHILD], {env, stdio: ['ignore', 'pipe', 'pipe']});
+  const env = {...offlineEnv(dir), JOB_PILOTTO_PORT: String(port), JOB_PILOTTO_MODEL_MEMO: memo, ...(ask ? {} : {JOB_PILOTTO_MODEL_MEMO_ONLY: '1'}),
+    JOB_PILOTTO_E2E_OPENER: 'offline-app', ...(captureDir ? {LIVE_CAPTURE_DIR: captureDir} : {})};   // an Apply hands its address to the harness (lib/browser-launch.js), never a browser of this computer
+  const child = spawn(process.execPath, [CHILD], {env, stdio: ['pipe', 'pipe', 'pipe']});
   let out = '', err = '';
   child.stderr.on('data', chunk => { err += chunk; });
   const ready = await new Promise((resolve, reject) => {
@@ -36,8 +38,20 @@ export async function startOfflineApp({memo = '', ask = false, dir = fs.mkdtempS
     child.on('exit', code => { clearTimeout(timer); reject(new Error(`offline app: exited ${code} ${err.slice(-400)}`)); });
   });
   const logFile = path.join(dir, 'logs', 'app.log');
+  // The command channel (lib/offline-app-commands.mjs): call(cmd, ...args) -> its result; onOpen(fn): each address an Apply opens.
+  const waiting = new Map(), openers = [];
+  let next = 0, seen = out.length;
+  child.stdout.on('data', () => {
+    const lines = out.slice(seen).split('\n'); seen = out.length - lines.at(-1).length;
+    for (const line of lines.slice(0, -1)) {
+      let message; try { message = JSON.parse(line); } catch { continue; }
+      if (message.event === 'open') for (const fn of openers) fn(message.url);
+      else if (waiting.has(message.id)) { const {resolve, reject} = waiting.get(message.id); waiting.delete(message.id); if (message.ok) resolve(message.result); else reject(new Error(message.error)); }
+    }
+  });
+  const call = (cmd, ...args) => new Promise((resolve, reject) => { const id = ++next; waiting.set(id, {resolve, reject}); child.stdin.write(`${JSON.stringify({id, cmd, args})}\n`); });
   return {
-    ...ready, url: `http://127.0.0.1:${ready.port}`,
+    ...ready, url: `http://127.0.0.1:${ready.port}`, call, onOpen: fn => openers.push(fn),
     logText: () => { try { return fs.readFileSync(logFile, 'utf8'); } catch { return ''; } },
     stderr: () => err,
     close: () => new Promise(resolve => { if (child.exitCode != null) return resolve(); child.once('exit', () => resolve()); child.kill('SIGTERM'); setTimeout(() => child.kill('SIGKILL'), 3000).unref(); }),

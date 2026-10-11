@@ -5,14 +5,13 @@
 // an address the run did not record gets a 404 and a finding "route not recorded: <address>". Ends on the live run's still-clock and prints the same evidence lines.
 // -> {seconds, evidence, unrecorded, asks, coldAsks, requests}. CLI: row.mjs (npm run row). Guard: e2e/test/row-replay.test.mjs.
 import fs from 'node:fs';
-import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import {evidenceLines} from './evidence-bundle.mjs';
-import {freePort} from './extension.mjs';
 import {nextRunnable} from './replay-browser.mjs';
 import {PAGE_LINE, stillClock} from './live-still.mjs';
 import {replayPresses, samePress, stateAfter, swapInPage} from './row-follow.mjs';
+import {frontOf} from './app-front.mjs';
 import {startOfflineApp} from './offline-app.mjs';
 import {startRealExtension} from './real-extension.mjs';
 
@@ -52,30 +51,6 @@ export function findRow(name, root) {
 // The one place the browser comes from: the real extension built for the front at `port` (lib/real-extension.mjs appPort: no stub of its own), any site allowed,
 // offline (nothing but this computer resolves). -> {context, page, close}.
 export const openBrowser = ({extensionDir, port}) => startRealExtension({extensionDir, appPort: port, allowAllSites: true, offline: true});
-
-// In front of the offline app: pairing is answered here (the extension pairs with this front), every other call goes to the app with its token; each is recorded.
-async function frontOf(app) {
-  const port = await freePort(), requests = [];
-  const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'};
-  const server = http.createServer((request, response) => {
-    if (request.method === 'OPTIONS') { response.writeHead(204, cors); response.end(); return; }
-    const chunks = [];
-    request.on('data', chunk => chunks.push(chunk));
-    request.on('end', async () => {
-      const route = request.url.split('?')[0], body = Buffer.concat(chunks);
-      requests.push({route, at: Date.now(), body: body.toString().slice(0, 20000)});
-      if (route === '/extension/pair') { response.writeHead(200, {...cors, 'Content-Type': 'application/json'}); response.end(JSON.stringify({url: `http://127.0.0.1:${port}`, token: 'front'})); return; }
-      try {
-        const upstream = await fetch(`${app.url}${request.url}`, {method: request.method, headers: {'content-type': request.headers['content-type'] || 'application/json',
-          authorization: `Bearer ${app.token}`, origin: `chrome-extension://${app.extensionId}`}, ...(['GET', 'HEAD'].includes(request.method) ? {} : {body})});
-        response.writeHead(upstream.status, {...cors, 'Content-Type': upstream.headers.get('content-type') || 'application/json'});
-        response.end(Buffer.from(await upstream.arrayBuffer()));
-      } catch (error) { response.writeHead(502, cors); response.end(JSON.stringify({error: String(error?.message || error)})); }
-    });
-  });
-  await new Promise(resolve => server.listen(port, '127.0.0.1', resolve));
-  return {port, url: `http://127.0.0.1:${port}`, requests, close: () => new Promise(resolve => server.close(() => resolve()))};
-}
 
 // One offline app, front and browser for one or more rows (their kept model answers merged: a key is a hash of the ask). -> {use(caseDir), replay(caseDir, opts), close()}
 export async function openReplay(caseDirs, {extensionDir} = {}) {

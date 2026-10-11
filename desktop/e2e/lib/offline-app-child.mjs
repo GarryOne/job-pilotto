@@ -7,6 +7,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {guardNetwork} from './offline-guard.mjs';
 import {realClaude} from './real-claude.mjs';
+import {serveCommands} from './offline-app-commands.mjs';
 
 const E2E = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dir = process.env.JOB_PILOTTO_USER_DATA;
@@ -43,4 +44,5 @@ if (String(PORT) !== process.env.JOB_PILOTTO_PORT) throw new Error(`offline app:
 const server = start(storage, error => console.error(`offline app: server error ${error?.message || error}`));
 await new Promise(resolve => server.once('listening', resolve));
 console.log(JSON.stringify({ready: true, guarded, port: PORT, token: extensionToken(storage), extensionId: EXTENSION_ID, dir}));
+serveCommands(storage);   // the harness drives the app as its window would (lib/offline-app-commands.mjs)
 process.on('SIGTERM', () => server.close(() => process.exit(0)));
