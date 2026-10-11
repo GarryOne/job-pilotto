@@ -85,6 +85,7 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 `python3 -m unittest discover -s tests`, `cd worker && npm test`, `cd desktop && npm test` (`tools/check.sh` runs them as CI does).
 - The pre-push hook (`.claude/settings.json` → `tools/pre-push-check.sh`) runs the suites of the areas the push touches on a clean checkout
   (`PUSH_FULL=1`: all), lints workflows, proves `npm ci` when a lock file changed, and blocks a push on a red main (AGENTS.md "Red main").
+  The e2e harness's own unit tests (`desktop/e2e` npm test) run on CI only (owner, 11 Oct 2026); `JP_E2E_UNIT=1` runs them before a push.
 - The Stop hook (`tools/stop-test-check.sh`) runs the suites your changes touch before you say done.
 - The gate reuses a suite pass on identical inputs (`tools/gate-cache.sh`; `GATE_CACHE=0` off, `PUSH_FULL=1` re-runs); a fail is never cached.
   Each step's time is logged (`<git common dir>/gate-timing.log`, `GATE_TIMING=0` off).

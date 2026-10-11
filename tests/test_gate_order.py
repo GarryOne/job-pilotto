@@ -42,6 +42,15 @@ class GateOrderTest(unittest.TestCase):
         self.assertIn('JP_GATE_SERIAL', GATE)
         self.assertIn('JP_GATE_SERIAL=1: the journey and ladder gates run before the suites', GATE)   # said in the log when the fallback is used
 
+    def test_the_e2e_unit_tests_are_not_run_locally_unless_asked(self):
+        # owner, 11 Oct 2026: "I want the local e2e run dropped entirely" (143 s of a push under load; CI's e2e.yml plan job still runs them all)
+        self.assertNotIn('want_e2e=1; fi\n  case "$command" in *PUSH_FULL=1*) want_e2e=1', GATE)
+        self.assertIn('JP_E2E_UNIT', GATE)
+        start = GATE.index('want_e2e=0')
+        block = GATE[start:GATE.index('failed=()')]
+        self.assertNotIn('PUSH_FULL', block, 'PUSH_FULL=1 does not bring the e2e unit tests back')
+        self.assertIn('[ "${JP_E2E_UNIT:-0}" = 1 ]', block)
+
 
 if __name__ == '__main__':
     unittest.main()

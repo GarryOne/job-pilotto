@@ -209,12 +209,12 @@ else
   done <<<"$changed"
 fi
 case "$command" in *PUSH_FULL=1*) want_python=1; want_worker=1; want_site=1; want_desktop=1; want_workflows=1; clean_install=--clean-install ;; esac
-# The e2e harness's own unit tests (cd desktop/e2e && npm test: CI's e2e.yml "plan" job, about a minute) when the push touches the harness, the extension or the ladder (tools/e2e-unit-wanted.mjs):
-# the 10 Oct 2026 move left 19 of them red and this hook, which ran desktop and worker only, did not see it.
+# The e2e harness's own unit tests (cd desktop/e2e && npm test, 72-143 s) are NOT run on a local push any more (owner, 11 Oct 2026: "I want the local e2e run dropped entirely"):
+# CI's e2e.yml "plan" job runs all of them on every push. `JP_E2E_UNIT=1 git push ...` (or tools/ship.sh with it set) runs them here when a change to the harness needs the answer now
+# (the 10 Oct 2026 move left 19 red); PUSH_FULL=1 does not bring them back.
 want_e2e=0
-if command -v node >/dev/null && [ -f "$repo/tools/e2e-unit-wanted.mjs" ]; then   # a checkout without the tool (the hook's own test repo) runs none
+if [ "${JP_E2E_UNIT:-0}" = 1 ] && command -v node >/dev/null && [ -f "$repo/tools/e2e-unit-wanted.mjs" ]; then   # a checkout without the tool (the hook's own test repo) runs none
   if [ -z "$changed" ] || printf '%s\n' "$changed" | node "$repo/tools/e2e-unit-wanted.mjs"; then want_e2e=1; fi
-  case "$command" in *PUSH_FULL=1*) want_e2e=1 ;; esac
 fi
 
 failed=()
