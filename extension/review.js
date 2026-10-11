@@ -555,7 +555,6 @@
   // confirmation (1 Oct 2026: an unsubmitted job was marked Applied because a page said "thank you for applying").
   // A submit control, not an "Apply" link that only opens the form. The press is recorded. Marking waits
   // for the tab to land on another page, which the app then reads.
-  const submitWords = /\b(submit|send application)\b/i;
   // Taken at the press, before the site navigates or replaces the form, so the later read can see what changed.
   const snapshot = () => {
     const clip = value => String(value || '').replace(/\s+/g, ' ').trim();
@@ -646,7 +645,7 @@
     const button = event.target?.closest?.('button, input[type=submit], [role=button]');
     if (!button) return;
     const words = `${button.textContent || ''} ${button.getAttribute?.('aria-label') || ''} ${button.name || ''} ${button.value || ''}`;
-    if (button.type === 'submit' || submitWords.test(words)) noteSubmit();
+    if (window.__jobPilottoSubmitPress?.counts(button, words)) noteSubmit();   // page/submit-press.js: written type=submit, or the Submit floor; never the typeless default
   }, true);
   if (document.documentElement) new MutationObserver(soon).observe(document.documentElement, {childList: true, subtree: true});
   const tick = setInterval(sync, 2000);

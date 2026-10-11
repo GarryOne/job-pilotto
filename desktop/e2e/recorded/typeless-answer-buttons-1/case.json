@@ -1,0 +1,63 @@
+{
+ "shape": "a form whose answer choices are typeless buttons (no type attribute, so the browser reports type=submit) that the page handles itself; answering them must never read as the form's Submit",
+ "why": "11 Oct 2026, live (0.9.199): pressing an answer button logged 'submitted: submit pressed' and started the submission watch though the form was never submitted: a false 'applied' risk. The panel now counts a click only when the control says type=submit, the form fires its own submit event, or the Submit floor's words name it (page/submit-press.js)",
+ "control": {
+  "build": "0.9.199",
+  "failed": "notTold: submit pressed"
+ },
+ "sample": "application form structure (recorded 10 Oct 2026, values and links removed; vendor classes removed)",
+ "pages": [
+  {
+   "url": "https://jobs.example.example/example/00000000-0000-0000-0000-000000000000/application",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "aria:g1",
+     "question": "Are you authorized to work in the country where the job is located?",
+     "value": "Yes"
+    },
+    {
+     "field": "aria:g2",
+     "question": "Will you now or in the future require sponsorship for employment visa status in this country?",
+     "value": "No"
+    },
+    {
+     "field": "aria:g3",
+     "question": "Are you able to work from our US office three days per week?",
+     "value": "Yes"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "pressed": [
+   "._fieldEntry_1e3gg_28:nth-of-type(4) [data-option=yes]",
+   "._fieldEntry_1e3gg_28:nth-of-type(5) [data-option=no]",
+   "._fieldEntry_1e3gg_28:nth-of-type(6) [data-option=yes]"
+  ],
+  "notTold": [
+   "pressed the submit",
+   "submit pressed"
+  ],
+  "seconds": 60,
+  "asked": [
+   "Are you authorized to work in the country where the job is located?",
+   "Will you now or in the future require sponsorship for employment visa status in this country?",
+   "Are you able to work from our US office three days per week?"
+  ]
+ },
+ "start": "panel"
+}
