@@ -5,7 +5,7 @@
 //  - a paired sample each pass: a few rows run on both paths, the least recently paired first; the report's first line says whether they agree within +-1.
 // "Less than its last result" is lib/smoke.mjs compare() itself, so the re-run covers every kind of regression the pool counts. Used by smoke.mjs.
 // Guard: e2e/test/smoke-paths.test.mjs.
-import {compare, rank} from './smoke.mjs';
+import {SITE_REFUSED, compare, rank} from './smoke.mjs';
 
 // The row reached less than its last result (compare()'s regression, for this one row). -> the reason ('' when not).
 export const lessThanLast = (previous, now) => (previous ? compare({row: previous}, {row: now})[0]?.why || '' : '');
@@ -56,3 +56,16 @@ export const pathDifferenceLine = (results = {}) => {
   const rows = Object.entries(results).filter(([, result]) => result?.pathDifference);
   return rows.length ? `PATH DIFFERENCE (not a regression: Electron did not show it): ${rows.map(([shape, result]) => `${shape}: ${result.pathDifference}`).join('; ')}` : '';
 };
+
+// A site that refuses the plain path but not Electron (cc, 11 Oct 2026: Louis Vuitton, a CDN's block page on plain node, the form with 6 filled on Electron) is no hold: real users take
+// the Electron path. -> null (the result stands: not refused, or Electron is refused too: the hold stands), else the fields to put on the row:
+// Electron's own result (judged as usual) with `pathDifference` saying so; with no Electron verdict the row is just not called refused (`note` cleared).
+const ADOPTED = ['reached', 'filled', 'left', 'rung', 'signal', 'fieldList', 'marks', 'kinds', 'path', 'errors', 'verdict', 'note'];
+export function settleRefusal(node, electron) {
+  if (node?.note !== SITE_REFUSED) return null;
+  if (!electron) return {note: undefined};
+  if (electron.note === SITE_REFUSED) return null;
+  if (rank(electron.reached) <= rank(node.reached)) return {note: undefined};   // Electron saw no refusal and got no further: a real stop at the posting, no hold
+  const fields = Object.fromEntries(ADOPTED.map(key => [key, electron[key]]));
+  return {...fields, pathDifference: `plain node ${brief(node)}, Electron ${brief(electron)} (the site refused the plain path)`};
+}

@@ -5,8 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {compare} from '../lib/smoke.mjs';
-import {agree, lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pathDifferenceLine} from '../lib/smoke-paths.mjs';
+import {SITE_REFUSED, compare} from '../lib/smoke.mjs';
+import {agree, lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pathDifferenceLine, settleRefusal} from '../lib/smoke-paths.mjs';
 
 const E2E = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const URL = 'https://jobs.example.org/1';
@@ -75,4 +75,26 @@ test('a row with a path difference is no regression anywhere the pool counts one
   const before = {url: URL, reached: 'form', filled: 5}, now = {url: URL, reached: 'posting', filled: null};
   assert.equal(compare({s: before}, {s: now}).length, 1);
   assert.deepEqual(compare({s: before}, {s: {...now, pathDifference: 'plain node posting, Electron form 5 filled'}}), []);
+});
+
+// A site that refuses the plain path (CDNs) is no hold when Electron, the path real users take, gets through (cc, 11 Oct 2026: Louis Vuitton, plain node refused, Electron form with 6 filled).
+const REFUSED = {url: URL, reached: 'posting', filled: null, left: null, note: SITE_REFUSED, kinds: ['other', 'posting'], fieldList: []};
+test('plain refused, Electron through: the row takes the Electron run\'s result and is judged as usual; the hold is gone', () => {
+  const electron = {url: URL, reached: 'form', filled: 6, left: 4, rung: 2, signal: null, fieldList: [{outcome: 'filled'}], marks: null, kinds: ['form'], path: [], errors: []};
+  const settled = settleRefusal(REFUSED, electron);
+  assert.deepEqual([settled.reached, settled.filled, settled.left, settled.note], ['form', 6, 4, undefined]);
+  assert.match(settled.pathDifference, /plain node posting.*Electron form 6 filled/);
+});
+
+test('plain refused, Electron refused too the hold stands; Electron no further without a refusal, or not finished: no hold is claimed', () => {
+  assert.equal(settleRefusal(REFUSED, {...REFUSED}), null, 'both refused: nothing changes, the hold stands');
+  assert.deepEqual(settleRefusal(REFUSED, {...REFUSED, note: undefined}), {note: undefined}, 'Electron stopped at the posting too but saw no refusal: a real stop, no hold');
+  assert.deepEqual(settleRefusal(REFUSED, null), {note: undefined}, 'no Electron verdict: the row is not called refused');
+  assert.equal(settleRefusal({...REFUSED, note: undefined}, {reached: 'form'}), null, 'a row that was not refused is never touched');
+});
+
+test('smoke.mjs re-runs a refused row on Electron and applies the settled result', () => {
+  const source = fs.readFileSync(path.join(E2E, 'smoke.mjs'), 'utf8');
+  assert.match(source, /SITE_REFUSED/, 'a refused plain run is re-run on Electron');
+  assert.match(source, /settleRefusal\(/, 'and its result is settled by the Electron run');
 });

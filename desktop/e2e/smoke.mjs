@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {compare, engineLine, lastSeen, runShare, shareSize, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, signature, smokeEngine, verdictFields} from './lib/smoke.mjs';
+import {SITE_REFUSED, compare, engineLine, lastSeen, runShare, shareSize, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, signature, smokeEngine, verdictFields} from './lib/smoke.mjs';
 import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
 import {uploadLedger} from './lib/fix-ledger.mjs';
 import {poolCard, sendPoolCard} from './lib/pool-card.mjs';
@@ -22,7 +22,7 @@ import {fetchWanted, wantedFirst} from './lib/wanted-hosts.mjs';
 import {heavy, yieldHeavy} from './lib/heavy.mjs';
 import {runArtifacts} from './lib/run-artifacts.mjs';
 import {POOL_LINE, eligibilityOff, poolEnv} from './lib/pool-eligibility.mjs';
-import {lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pathDifferenceLine} from './lib/smoke-paths.mjs';
+import {settleRefusal, lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pathDifferenceLine} from './lib/smoke-paths.mjs';
 heavy('e2e-smoke', import.meta.url, {klass: process.argv.includes('--only') ? 'proof' : process.argv.includes('--discover') ? 'explore' : 'pool'});   // one heavy run at a time on this Mac (tools/heavy-lock.sh); a held row proof goes before the pool's whole list
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -162,10 +162,17 @@ async function main() {
     results[shape].short = shortfall(results[shape]);   // reached the form but filled under half: a failure the step alone hides
     // Less than its last result on plain node: once more on Electron at once, the same posting; a regression only if Electron shows it too (lib/smoke-paths.mjs).
     const fell = smokeEngine() === 'node' ? lessThanLast(previous[shape], results[shape]) : '';
-    if (fell || pairs.has(shape)) {
-      console.log(`smoke: ${shape}: ${fell ? `less than its last result on plain node (${fell}): once more on Electron, the same posting` : 'paired sample: the same posting on Electron'}`);
+    const refused = smokeEngine() === 'node' && results[shape].note === SITE_REFUSED;   // a block page on plain node: Electron decides whether the site refuses (lib/smoke-paths.mjs settleRefusal)
+    if (fell || refused || pairs.has(shape)) {
+      console.log(`smoke: ${shape}: ${fell ? `less than its last result on plain node (${fell}): once more on Electron, the same posting` : refused ? 'refused on plain node: once more on Electron, the same posting' : 'paired sample: the same posting on Electron'}`);
       const again = await liveRun(posting, seconds, '', 'electron'), electron = runFinished(again) ? parseLive(again.output) : null;
       Object.assign(results[shape], pairResult(results[shape], electron, {day, previous: previous[shape]}));
+      const settled = settleRefusal(results[shape], electron);   // the paired line above keeps the plain/Electron difference; the row itself becomes Electron's result
+      if (settled) {
+        Object.assign(results[shape], settled);
+        if (!settled.note) delete results[shape].note;
+        results[shape].signature = signature(results[shape]); results[shape].marksBlind = marksBlind(results[shape]); results[shape].short = shortfall(results[shape]);
+      }
       console.log(`smoke: ${shape}: Electron reached ${electron ? `${electron.reached}${electron.filled != null ? `, ${electron.filled} filled` : ''}` : `nothing (the run did not finish: ${lastError(again.output)})`}${results[shape].pathDifference ? ': PATH DIFFERENCE, not a regression' : ''}`);
     }
     fs.mkdirSync(REPORTS, {recursive: true});
