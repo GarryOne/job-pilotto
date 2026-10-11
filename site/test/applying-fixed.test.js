@@ -224,13 +224,25 @@ test('a fix whose Pool-row was the capture folder\'s slug joins its pool row: on
 });
 
 // Hornbach's "33% -> 73%" was the sign-up page (owner, 11 Oct 2026: an account-first site is a documented hold): a held run is a stop on purpose, so its counts are not
-// the application's filled share, and it neither confirms nor fails the fix.
-test('a held run shows no filled share and counts as neither a clean nor a failing run', async () => {
+// the application's filled share. A documented hold is an accepted end (owner, 11 Oct 2026: "hold = clean"), so it counts as a clean run: two of them confirm the fix
+// (Hornbach could never confirm while holds counted as neither). Every hold kind (applying.js isHold: account-first, eligibility stop), and a posting gone still counts as neither.
+test('a held run shows no filled share and counts as a clean run; two confirm the fix as held', async () => {
   const db = d1();
   await smoke(db, '2026-10-10T22:00:00Z', {reached: 'account', filled: 8, left: 3, note: 'account-first: held'});
   await ingest(db, {kind: 'fixes', day: '2026-10-11', rows: [FIX]}, at('2026-10-11T08:00:00Z'));
   await smoke(db, '2026-10-11T10:00:00Z', {reached: 'account', filled: 8, left: 3, note: 'account-first: held'});
-  const row = await fixedRow(db, '2026-10-11T11:00:00Z');
-  assert.deepEqual([row.status, row.failingRuns, row.cleanRuns, row.filledBefore, row.filledAfter], ['landed', 0, 0, [null], []]);
+  let row = await fixedRow(db, '2026-10-11T11:00:00Z');
+  assert.deepEqual([row.status, row.failingRuns, row.cleanRuns, row.heldRuns, row.filledBefore, row.filledAfter], ['landed', 0, 1, 1, [null], [null]]);
   assert.deepEqual(row.runs.map(run => run.share), [null, null]);
+  await smoke(db, '2026-10-11T12:00:00Z', {reached: 'form', filled: 0, left: 0, note: 'eligibility stop: not eligible'});
+  row = await fixedRow(db, '2026-10-11T13:00:00Z');
+  assert.deepEqual([row.status, row.cleanRuns, row.heldRuns], ['confirmed', 2, 2]);
+});
+
+test('a posting gone after the fix counts as neither clean nor failing', async () => {
+  const db = d1();
+  await ingest(db, {kind: 'fixes', day: '2026-10-11', rows: [FIX]}, at('2026-10-11T08:00:00Z'));
+  await smoke(db, '2026-10-11T10:00:00Z', {reached: 'posting', note: 'posting gone'});
+  const row = await fixedRow(db, '2026-10-11T11:00:00Z');
+  assert.deepEqual([row.status, row.failingRuns, row.cleanRuns, row.heldRuns], ['landed', 0, 0, 0]);
 });
