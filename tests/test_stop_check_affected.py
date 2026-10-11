@@ -63,7 +63,7 @@ class StopCheckAffected(unittest.TestCase):
     def stop(self, cwd, transcript=None, **env):
         payload = {'cwd': str(cwd), 'transcript_path': str(transcript or ''), 'stop_hook_active': False}
         done = subprocess.run(['bash', str(HOOK)], input=json.dumps(payload), capture_output=True, text=True, cwd=cwd,
-                              env={**os.environ, 'TMPDIR': str(self.tmp), 'CHECK_LOG': str(self.log), 'CLAUDE_PROJECT_DIR': str(self.repo), **env})
+                              env={**{k: v for k, v in os.environ.items() if k != 'JOB_PILOTTO_SESSION'}, 'TMPDIR': str(self.tmp), 'CHECK_LOG': str(self.log), 'CLAUDE_PROJECT_DIR': str(self.repo), **env})
         return done.returncode, done.stdout + done.stderr
 
     def calls(self):
