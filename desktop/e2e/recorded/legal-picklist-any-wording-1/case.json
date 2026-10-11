@@ -1,9 +1,9 @@
 {
  "shape": "a required legal picklist whose wording the English legal floor misses (an attestation: \"I certify that the information provided ... is true\"), beside an optional text field left empty",
- "why": "Datadog careers on Greenhouse, 10 and 11 Oct 2026 (0.9.182, 0.9.189): the attestation was left as \"no answer in the kit\" (the answer prompt told the AI to leave legal questions out, so no category came back, and the post-fill audit read legal from the English words only), and the optional Website was logged with no `required`, so the smoke report counted both as unexplained. Now the AI returns a legal question as a kind only (value \"\", use \"kind\"), the page marks it legal, the audit honours that mark, and the logged field line carries `required`. The stubbed answer is what the real model answered to the new prompt through the app's Claude Code adapter (11 Oct 2026, twice the same for this field). The `told` strings follow the order the logged rows reach the app in: alphabetical keys (they pass through chrome.storage.local)",
+ "why": "Datadog careers on Greenhouse, 10 and 11 Oct 2026 (0.9.182, 0.9.189): the attestation was left as \"no answer in the kit\" (the answer prompt told the AI to leave legal questions out, so no category came back, and the post-fill audit read legal from the English words only), and the optional Website was logged with no `required`, so the smoke report counted both as unexplained. Now the AI returns a legal question as a kind only (value \"\", use \"kind\"), the page marks it legal, the audit honours that mark, and the logged field line carries `required`. The stubbed answer is what the real model answered to the new prompt through the app's Claude Code adapter (11 Oct 2026, twice the same for this field). The `told` strings follow the order the logged rows reach the app in: alphabetical keys (they pass through chrome.storage.local). Round 2 (11 Oct 2026): the live answer request never carried the attestation (the form reader marks it legal, so it is not asked); the post-fill audit decided legal with its own word list and lost that, so the trace said \"no answer\". The stub answers only what the extension asks (round 1 answered the attestation too, which let the case pass while the live run failed); Website's required is guarded at the app-log layer (desktop/test/fill-fields.test.js)",
  "control": {
-  "build": "0.9.189",
-  "failed": "told: the attestation logged as \"dropdown not clicked\" (the legal-only row filled as an answer) and Website logged with no required"
+  "build": "0.9.192",
+  "failed": "told: the attestation (marked legal by the form reader, never asked) traced as \"no answer in the kit\" instead of legal/consent"
  },
  "sample": "job-boards.greenhouse.io embedded application form (structure saved by the smoke run of 11 Oct 2026, scrubbed; scripts and the extension's marks removed)",
  "pages": [
@@ -57,20 +57,13 @@
      "note": "",
      "category": "normal",
      "use": "propose"
-    },
-    {
-     "field": "question_62972259",
-     "value": "",
-     "category": "legal",
-     "use": "kind"
     }
    ]
   }
  },
  "expect": {
   "told": [
-   "\"label\":\"I certify that the information provided in this ap\",\"outcome\":\"left\",\"reason\":\"legal/consent: always your choice\",\"required\":true",
-   "\"label\":\"Website\",\"outcome\":\"left\",\"reason\":\"a detail of yours not saved yet (website)\",\"required\":false"
+   "\"label\":\"I certify that the information provided in this ap\",\"outcome\":\"left\",\"reason\":\"legal/consent: always your choice\",\"required\":true"
   ],
   "notTold": [
    "pressed the submit"

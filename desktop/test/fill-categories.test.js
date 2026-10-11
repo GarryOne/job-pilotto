@@ -50,3 +50,12 @@ test('a legal question the AI returned as a kind only (no value) is marked legal
   const audit = fs.readFileSync(new URL('../../extension/page/browser-form-fastpath.js', import.meta.url), 'utf8');
   assert.match(audit, /legal: forbidden\.test\(label\(el\)\) \|\| el\.dataset\?\.jobpilottoCategory === 'legal'/, 'the post-fill audit honours the AI\'s legal mark');
 });
+
+test('a question the form reader called legal stays legal in the trace when the post-fill audit\'s own floor misses its wording', async () => {
+  // 11 Oct 2026, Datadog round 2: the reader marked the attestation legal (so it was never asked), the audit's separate word list did not, and the trace
+  // said "no answer in the kit". One decision: the reader's.
+  const rows = [{field: 'certify', label: 'I certify that the information provided in this application is true', type: 'combobox', required: true, filled: false, legal: true}];
+  const {fill} = fakeFillPage(rows, {audit: rows.map(row => ({...row, legal: false}))});
+  const summary = await fill([]);
+  assert.deepEqual(summary.trace.filter(row => row.label.startsWith('I certify')).map(row => [row.outcome, row.reason]), [['left', 'legal/consent: always your choice']]);
+});

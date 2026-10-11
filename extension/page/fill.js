@@ -153,6 +153,9 @@
     // Required questions the page shows that nothing above read (page/coverage.js): a layout the reader doesn't know. Each is
     // listed for you, counted as required, and traced as a reading failure, so it is reported (with its HTML) and learned.
     after.push(...radioOps.ariaRows(form));   // not in the audit (no <input>): listed, and counted when picked
+    // Legal is decided once, by the form reader (and the AI's reading of it): the audit has its own word floor, and a row it missed must not fall to
+    // "no answer" (11 Oct 2026, Datadog: an attestation the reader marked legal, so never asked, was traced as "no answer in the kit").
+    for (const row of after) if (rowOf[row.field]?.legal) row.legal = true;
     const unread = [];
     if (window.__jobPilottoCoverage) {
       // Read = asked about: the described fields and the widgets an operator answered. Not the audit's rows: a field can be on

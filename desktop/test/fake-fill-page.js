@@ -10,7 +10,8 @@ import {FILL_FILES} from '../../extension/page-files.js';
 
 const PAGE_SCRIPTS = ['page/required-mark.js', 'page/categories.js', 'page/radios.js', ...FILL_FILES];
 
-export function fakeFillPage(rows) {
+// audit: rows the post-fill audit returns instead (the real one reads the page on its own, with its own legal floor: page/browser-form-fastpath.js).
+export function fakeFillPage(rows, {audit = null} = {}) {
   const elements = Object.fromEntries(rows.map(row => [row.field, {id: row.field, type: row.type, checked: false, dataset: {}, clicks: 0,
     click() { this.clicks++; this.checked = !this.checked; }, getAttribute: () => null, closest: () => null, labels: [], value: ''}]));
   const window = {__jobPilottoGuardActive: true};
@@ -27,7 +28,7 @@ export function fakeFillPage(rows) {
     __jobPilottoProfileEntries: () => [],
     __jobPilottoArmCombo: (field, value) => armed.push([field, value]),
     __jobPilottoUpload: {fill: async () => []},
-    __jobPilottoAuditVisibleFields: () => rows.map(row => ({...row, legal: !!row.legal || elements[row.field].dataset.jobpilottoCategory === 'legal'})),
+    __jobPilottoAuditVisibleFields: () => (audit || rows).map(row => ({...row, legal: !!row.legal || elements[row.field]?.dataset.jobpilottoCategory === 'legal'})),
   });
   // The fill as flow.js starts it: answers [{field, value, category?, use?}] -> its summary {trace, todo, ...}. A thrown error is the test's failure.
   const fill = (answers, {profile = {}, resume = null, letter = '', consents = false} = {}) => window.__jobPilottoExtensionFill(answers, profile, resume, letter, consents);
