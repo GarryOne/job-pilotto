@@ -1,0 +1,52 @@
+{
+ "shape": "a form that draws itself again after an upload: the name and link boxes are replaced by new elements of the same id, empty, twice (right after the upload and a few seconds later)",
+ "why": "Pool row 'Ashby form in an embedded app', 11 Oct 2026 (0.9.205, live): 'Linkedin' and 'Email' (and 'Votre Pr\u00e9nom' in another run) ended 'empty again at the end of the fill' although the retype of 2f6a91e ran: the page had replaced the typed element, the retype held the old one. Hand-made page: the row replay cannot play a re-render or a late wipe (one later state per file attach)",
+ "control": {
+  "build": "0.9.205",
+  "failed": "kept: #first_name (and #last_name, #profile_link): the page replaced the box and emptied it after the retype"
+ },
+ "sample": "the shape of the Ashby application form after its resume autofill, rebuilt small (names and values removed)",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/acme/00000000-0000-0000-0000-000000000000/application",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "profile_link",
+     "question": "Linkedin",
+     "value": "https://www.linkedin.com/in/ada-tester"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "attached": [
+   "#resume"
+  ],
+  "kept": [
+   "#first_name",
+   "#last_name",
+   "#profile_link",
+   "#email"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 40,
+  "keptAfter": 11000
+ },
+ "start": "panel"
+}

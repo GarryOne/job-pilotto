@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Application: Support Specialist</title></head><body>
+<h1>Your application</h1>
+<p>Autofill from resume: upload a file and we read it for you.</p>
+<form id="application" action="/apply/send" method="post">
+  <div><label for="first_name">First name *</label><input id="first_name" name="first_name" type="text" required></div>
+  <div><label for="last_name">Last name *</label><input id="last_name" name="last_name" type="text" required></div>
+  <div><label for="profile_link">Linkedin *</label><input id="profile_link" name="profile_link" type="url" required></div>
+  <div><label for="email">Email *</label><input id="email" name="email" type="email" required></div>
+  <div><label for="resume">Resume *</label><input id="resume" name="resume" type="file" required></div>
+  <button type="submit">Submit Application</button>
+</form>
+<script>
+// The page draws the form again after an upload: the name and link boxes are replaced by NEW elements (same id, empty), once when its autofill reads nothing and
+// again a few seconds later (a second render). What was typed into the old elements is gone, and a retype that holds the old element types into the void.
+const redraw = () => { for (const id of ['first_name', 'last_name', 'profile_link']) { const old = document.getElementById(id), fresh = old.cloneNode(false); fresh.value = ''; fresh.removeAttribute('value'); old.replaceWith(fresh); } };
+document.getElementById('resume').addEventListener('change', () => { setTimeout(redraw, 2500); setTimeout(redraw, 7000); });
+</script></body></html>
