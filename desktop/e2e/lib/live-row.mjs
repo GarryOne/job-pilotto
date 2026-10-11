@@ -6,7 +6,8 @@
 // CLI: live-row.mjs. Guard: e2e/test/live-row.test.mjs (a fake site, memo-only).
 /* global document, location */
 import fs from 'node:fs';
-import {takeEndShot} from './end-shot.mjs';
+import {endShotLine, takeEndShot} from './end-shot.mjs';
+import {kindFromLog, stepLines, stepShooter} from './step-shots.mjs';
 import {ensureStagedWorker} from './staged-worker.mjs';
 import path from 'node:path';
 import {frontOf} from './app-front.mjs';
@@ -37,6 +38,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
   const run = await browser({extensionDir, appPort: front.port, allowAllSites: true});
   const owner = ownerValues(), values = personalValues([`Name: ${CONTACT.full_name}\nEmail: ${CONTACT.email}\nPhone: ${CONTACT.phone}`]);
   const journey = journeyRecorder(run.context, {scrub: html => scrubPage(html, values)}), styles = cssRecorder(run.context);
+  const steps = stepShooter({tabOf: () => run.context.pages().filter(page => /^https?:/.test(page.url())).at(-1), kindOf: () => kindFromLog(app.logText()), dir: captureDir});   // one full-page picture per page or step reached (lib/step-shots.mjs)
   let asksSeen = 0, tripped = '';
   const asks = setInterval(() => {   // each ask noted by the app as it arrives (asks.jsonl): that page kept at once, as the extension saw it
     let lines = [];
@@ -75,13 +77,15 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
       clock.see(JSON.stringify([lines, shape]), Date.now());
       if (clock.over(Date.now(), {opened: true})) break;
       await journey.tick();
+      await steps.tick();
       if (turn % 4 === 0 && (tripped = await trip())) break;
       await wait(1500);
     }
     clearInterval(asks);
     shotAsked = true;
     const shot = await takeEndShot(run.context, captureDir);   // before the final privacy check: a hit deletes it with the capture (lib/end-shot.mjs); said out loud either way
-    say(shot.file ? 'live: end screenshot kept' : `live: no end screenshot: ${shot.why}`);
+    say(endShotLine(shot));
+    for (const line of stepLines(steps, captureDir)) say(line);
     if (tripped || (tripped = await trip())) { say(`live: ${tripped}`); return {seconds: (Date.now() - started) / 1000, opened: url, evidence: evidenceLines(''), tripped}; }
     await journey.finish();
     const pages = journey.write(captureDir);
@@ -92,7 +96,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     fs.writeFileSync(path.join(captureDir, 'app.log'), app.logText());
     return {seconds: Math.round((Date.now() - started) / 100) / 10, opened: url, evidence: evidenceLines(app.logText()), tripped: '', requests: front.requests.length, appLog: app.logText()};
   } finally {
-    if (!shotAsked) { const shot = await takeEndShot(run.context, captureDir).catch(error => ({file: '', why: String(error?.message || error).slice(0, 80)})); say(shot.file ? 'live: end screenshot kept' : `live: no end screenshot: ${shot.why}`); }   // the run stopped early (an error): the picture of where it stopped is still a must
+    if (!shotAsked) { const shot = await takeEndShot(run.context, captureDir).catch(error => ({file: '', why: String(error?.message || error).slice(0, 80)})); say(endShotLine(shot)); }   // the run stopped early (an error): the picture of where it stopped is still a must
     clearInterval(asks);
     await run.close().catch(() => {});
     await front.close().catch(() => {});

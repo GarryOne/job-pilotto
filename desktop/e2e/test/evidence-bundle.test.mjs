@@ -100,9 +100,10 @@ test('takeEndShot photographs the last http tab into end.png and says why when i
 test('both live paths say it out loud: "end screenshot kept" or "no end screenshot: <why>"', () => {
   for (const file of ['../lib/apply-live.mjs', '../lib/live-row.mjs']) {
     const source = fs.readFileSync(new URL(file, import.meta.url), 'utf8');
-    assert.match(source, /end screenshot kept/, file);
-    assert.match(source, /no end screenshot: \$\{/, file);
+    assert.match(source, /endShotLine\(shot\)/, file);   // the one wording, lib/end-shot.mjs
   }
+  const words = fs.readFileSync(new URL('../lib/end-shot.mjs', import.meta.url), 'utf8');
+  assert.match(words, /end screenshot kept/); assert.match(words, /no end screenshot: \$\{/);
 });
 
 test('the Electron leg keeps its run log, app log and end picture beside the plain bundle; a leg that got nowhere keeps just its log', () => {

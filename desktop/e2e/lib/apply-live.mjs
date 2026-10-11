@@ -5,7 +5,8 @@
 // pick one; LIVE_SECONDS=120 how long to watch). Not part of the matrix: it needs the real internet and the real site's mood. Guard: desktop/test/apply-live.test.js.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
-import {takeEndShot} from './end-shot.mjs';
+import {endShotLine, takeEndShot} from './end-shot.mjs';
+import {kindFromLog, stepLines, stepShooter} from './step-shots.mjs';
 import os from 'node:os';
 import path from 'node:path';
 import {appLogLines} from './app-log.mjs';
@@ -120,6 +121,7 @@ export async function runLive(ctx, h) {
       const owner = ownerValues(), saved = [process.env.LIVE_CAPTURE_DIR, frames];
       const tripped = async () => { for (const tab of ctx.browser.context.pages().filter(item => /^https?:/.test(item.url()))) { const check = await tripwire(pageFields(tab), {values: owner, saved}); if (!check.ok) return check.reason; } return ''; };
       let trip = '';
+      const steps = stepShooter({tabOf: () => ctx.browser.context.pages().filter(tab => /^https?:/.test(tab.url())).at(-1), kindOf: () => kindFromLog(appLogLines(ctx.profile).join('\n')), dir: process.env.LIVE_CAPTURE_DIR || ''});   // one full-page picture per page or step reached (lib/step-shots.mjs)
       while (Date.now() - started < seconds * 1000) {
         const tabs = ctx.browser.context.pages().filter(tab => /^https?:/.test(tab.url()));
         const states = await Promise.all(tabs.map(async tab => `${tab.url().split('#')[0].slice(0, 70)} [${(await fillState(tab).catch(() => null))?.state || '-'}]`));
@@ -144,10 +146,11 @@ export async function runLive(ctx, h) {
           if (process.env.LIVE_PERSON && ++acts <= 5) { await actAsPerson(tabs.at(-1), console.log); changedAt = Date.now(); stalled = false; }   // the person acts again after each pause: a choice, then a consent
         }
         if (journey) await journey.tick();
+        await steps.tick();
         if (frame % 4 === 0 && (trip = await tripped())) break;
         await pause(1500);
       }
-      { const shot = await takeEndShot(ctx.browser.context, process.env.LIVE_CAPTURE_DIR || ''); console.log(shot.file ? '  live: end screenshot kept' : `  live: no end screenshot: ${shot.why}`); }   // the last picture of the application tab, BEFORE the final privacy check (lib/end-shot.mjs)
+      { const shot = await takeEndShot(ctx.browser.context, process.env.LIVE_CAPTURE_DIR || ''); console.log(`  ${endShotLine(shot)}`); for (const line of stepLines(steps, process.env.LIVE_CAPTURE_DIR || '')) console.log(`  ${line}`); }   // the last picture of the application tab, BEFORE the final privacy check (lib/end-shot.mjs)
       if (trip || (trip = await tripped())) { console.log(`  live: ${trip}`); throw new Error(trip); }
       if (asks) clearInterval(asks);
       console.log(`  live ${at()}: watched ${Math.round((Date.now() - started) / 1000)}s; frames in ${frames}`);

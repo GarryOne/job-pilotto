@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {seedVersion} from './applicant-seed.mjs';
+import {stepFilesIn} from './step-shots.mjs';
 
 // A failure worth keeping: a form reached with a shortfall, or a run that stopped before the form (not a documented hold: a code or bot check, nor a posting gone).
 export const worthSaving = result => !!result && !result.note && (!!result.short || ['none', 'posting', 'account'].includes(result.reached));
@@ -35,7 +36,8 @@ export function saveCandidate({dir, day, shape, result, html, output = '', aiCal
     fs.cpSync(path.join(captureDir, 'pages'), path.join(folder, 'pages'), {recursive: true});
     for (const name of ['styles.har.json', 'model-memo.json']) if (fs.existsSync(path.join(captureDir, name))) fs.copyFileSync(path.join(captureDir, name), path.join(folder, name));
   } else fs.writeFileSync(path.join(folder, 'page.html'), html);
-  if (captureDir && fs.existsSync(path.join(captureDir, 'end.png'))) fs.copyFileSync(path.join(captureDir, 'end.png'), path.join(folder, 'end.png'));   // the live run's last picture, beside the replay's end-replay.png (local QA folder, never uploaded)
+  if (captureDir && fs.existsSync(path.join(captureDir, 'end.png'))) fs.copyFileSync(path.join(captureDir, 'end.png'), path.join(folder, 'end.png'));
+  for (const name of captureDir ? stepFilesIn(captureDir) : []) fs.copyFileSync(path.join(captureDir, name), path.join(folder, name));   // and its step pictures, in order   // the live run's last picture, beside the replay's end-replay.png (local QA folder, never uploaded)
   const presses = livePresses(appLog);   // what the live run pressed, in order: a row replay follows the live run's states after each (lib/row-replay.mjs)
   if (presses.length) fs.writeFileSync(path.join(folder, 'presses.json'), `${JSON.stringify(presses, null, 1)}\n`);
   try { if (Array.isArray(JSON.parse(aiCalls))) fs.writeFileSync(path.join(folder, 'ai-calls.json'), aiCalls); } catch { /* the app kept none (no LIVE_CAPTURE_DIR, or an unreadable file): none kept */ }   // the app's live page-kind calls, scrubbed where they were written

@@ -4,6 +4,7 @@
 // Also: a run that was killed or cut short did not finish, and records and uploads nothing (eb's killed Datadog run left a 23 s row). Guard: test/evidence-bundle.test.mjs.
 import fs from 'node:fs';
 import path from 'node:path';
+import {stepFilesIn} from './step-shots.mjs';
 import {slug} from './replay-candidate.mjs';
 
 // The run's watch ended by itself (apply-live.mjs prints this line at the end of the watch): a killed or cut-short run never prints it.
@@ -33,7 +34,9 @@ export function writeBundle({dir, day, shape, output = '', appLog = '', aiCalls 
   fs.mkdirSync(folder, {recursive: true});
   const shot = captureDir && fs.existsSync(path.join(captureDir, 'end.png')) ? path.join(captureDir, 'end.png') : '';   // the last picture of the application tab (apply-live.mjs): fake applicant only, local, never uploaded
   const step = `reached ${result.reached || 'none'}${result.filled != null ? `, ${result.filled} filled, ${result.left} left` : ''}`;
-  const text = [`# ${shape}: ${day}`, '', `${step}. Files here: run.log (the run's output), app.log (the app's whole log), ai-calls.json (the page-kind asks and answers, and which fields the AI was asked to answer).${shot ? ' end.png is the last picture of the application tab: look at it first.' : ''}`, '',
+  const stepShots = captureDir ? stepFilesIn(captureDir) : [];
+  const pictures = `${shot ? `Pictures are full page (the whole page, also a panel that scrolls inside it; a cut says "cut at <n> px" in run.log), local only, with the extension's own panel in them as the person sees it. ${stepShots.length ? `Look at ${stepShots.join(', ')} in order, then end.png (where it stopped).` : 'end.png is the last picture of the application tab: look at it first.'}` : ''}`;
+  const text = [`# ${shape}: ${day}`, '', `${step}. Files here: run.log (the run's output), app.log (the app's whole log), ai-calls.json (the page-kind asks and answers, and which fields the AI was asked to answer). ${pictures}`.trim(), '',
     section('Page kind (what was asked, with frames and the digest flag)', lines.pageKind), section('The digest\'s validated answer', lines.digest),
     section('What was pressed', lines.pressed), section('Where the page went', lines.wentTo),
     section('The eligibility verdict (the AI\'s own: aiEligible; what passed a "no": forced)', lines.verdict)].join('\n');
@@ -42,6 +45,7 @@ export function writeBundle({dir, day, shape, output = '', appLog = '', aiCalls 
   if (appLog) fs.writeFileSync(path.join(folder, 'app.log'), appLog);
   if (aiCalls) fs.writeFileSync(path.join(folder, 'ai-calls.json'), aiCalls);
   if (shot) fs.copyFileSync(shot, path.join(folder, 'end.png'));
+  for (const name of stepShots) fs.copyFileSync(path.join(captureDir, name), path.join(folder, name));
   return folder;
 }
 
@@ -51,7 +55,7 @@ export function saveElectronLeg({dir, day, shape, output = '', captureDir = ''})
   const folder = path.join(dir, day, slug(shape), 'electron');
   fs.mkdirSync(folder, {recursive: true});
   fs.writeFileSync(path.join(folder, 'run.log'), output);
-  for (const name of ['app.log', 'end.png']) {
+  for (const name of ['app.log', 'end.png', ...stepFilesIn(captureDir)]) {
     try { fs.copyFileSync(path.join(captureDir, name), path.join(folder, name)); } catch { /* the leg did not get that far */ }
   }
   return folder;

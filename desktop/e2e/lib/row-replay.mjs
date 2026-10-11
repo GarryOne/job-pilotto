@@ -18,6 +18,7 @@ import {CONTACT} from './apply-fixtures.mjs';
 import {startOfflineApp} from './offline-app.mjs';
 import {startRealExtension} from './real-extension.mjs';
 import {shotTab} from './end-shot.mjs';
+import {kindFromLog, stepShooter} from './step-shots.mjs';
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 // The live harness's window (lib/extension.mjs: viewport null under --headless=new), measured on 11 Oct 2026: for a capture made before it recorded its own (journey view).
@@ -197,6 +198,7 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
       say(`row: ${name}: ${row.documents.size} pages, ${row.sheets.size} stylesheets, ${presses.length} live presses`);
       await tab.goto(`${start.url.replace(/#.*$/, '')}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'}).catch(() => {});
       const clock = stillClock({seconds: stillSeconds, startedAt: Date.now()});
+      const steps = stepShooter({tabOf: () => tab, kindOf: () => kindFromLog(log()), dir: shotDir || caseDir, prefix: 'replay-step'});   // one full-page picture per recorded state the replay reaches, beside end-replay.png
       let followed = 0, divergence = '', firstMissMs = null, endedBy = 'cap';
       while (Date.now() - started < capSeconds * 1000 && !divergence) {
         // Each press the replay made, against the live run's (lib/row-follow.mjs); the click handler above moved the page.
@@ -209,12 +211,13 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
         if (firstMissMs == null && /not in the row's kept answers/.test(log())) firstMissMs = Date.now();
         const why = mayEnd({quietMs: clock.stillFor(Date.now()), stillMs: stillSeconds * 1000, followed, livePresses: presses.length, firstMissMs, nowMs: Date.now()});
         if (why) { endedBy = why; break; }
+        await steps.tick();
         await wait(500);
       }
       const boxes = await boxesOf(tab);
       const endShot = await shotTab(tab, path.join(shotDir || caseDir, shotName));   // where the replay ended, beside the live run's end.png (local only). shotDir: a tool that copies caseDir elsewhere (row-to-case's staging copy) names another folder so the picture never travels with it; never throws, never part of the result's signature
       for (const request of requests().filter(one => one.route === '/extension/log')) { try { for (const entry of JSON.parse(request.body).entries || []) if (/typed|again|attach|upload|empt|retype|fill|page kind|pressed|closed/i.test(String(entry.text))) timeline.push({ms: Date.parse(entry.at) - started, text: `ext: ${String(entry.text).slice(0, 90)}`}); } catch { /* a body cut at the limit */ } }
-      return {row: name, boxes, endShot, timeline: timeline.filter(item => Number.isFinite(item.ms)).sort((a, b) => a.ms - b.ms).slice(0, 40).map(item => `+${(item.ms / 1000).toFixed(1)}s ${item.text}`), seconds: Math.round((Date.now() - started) / 100) / 10, evidence: evidenceLines(log()), unrecorded: [...row.unrecorded], followed: Math.min(followed, row.applied),
+      return {row: name, boxes, endShot, stepShots: steps.files(), stepNotes: steps.notes(), timeline: timeline.filter(item => Number.isFinite(item.ms)).sort((a, b) => a.ms - b.ms).slice(0, 40).map(item => `+${(item.ms / 1000).toFixed(1)}s ${item.text}`), seconds: Math.round((Date.now() - started) / 100) / 10, evidence: evidenceLines(log()), unrecorded: [...row.unrecorded], followed: Math.min(followed, row.applied),
         divergence, endedBy, livePresses: presses.length, asks: requests().filter(request => request.route === '/extension/page-kind').length,
         misses: (log().match(/not in the row's kept answers/g) || []).length, missParts: missesOf(missLog).parts, missVolatile: missesOf(missLog).volatile, requests: requests(), appLog: log()};
     } finally {

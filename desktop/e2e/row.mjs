@@ -34,6 +34,8 @@ if (all) {
   if (!loose && seedNote(dir)) console.log(`row: ${path.basename(dir)}: ${seedNote(dir)}`);   // its fill asks miss the kept answers (lib/applicant-seed.mjs)
   const result = await replayRow(dir, {extensionDir, loose, say: console.log});
   console.log(line(result));
+  for (const file of result.stepShots || []) console.log(`row: step picture: ${file}`);
+  for (const note of result.stepNotes || []) console.log(`row: step picture warning: ${note}`);
   console.log(result.endShot?.file ? `row: end screenshot: ${result.endShot.file}` : `row: no end screenshot: ${result.endShot?.why || 'the replay gave none'}`);   // the replay's last picture, to set beside the live end.png (lib/end-shot.mjs)
   if (loose) console.log(`row: ${looseSummary(result.looseHits) || 'no loose memo hit: every ask matched its kept answer exactly'}`);
   if (result.misses) {   // the live run's own asks (the app's capture) against what the replayed extension sent: what the kept answer was asked about, line by line
