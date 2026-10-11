@@ -13,6 +13,7 @@ import {decide} from './log.js';
 import {noteRole} from './account.js';
 import {expandSections} from './sections.js';
 import {closeConsentEverywhere} from './consent.js';
+import {sweepConsent} from './consent-sweep.js';
 import {closerLook, lastLook} from './ladder/rung4-picture.js';
 import {formNext} from './form-ready.js';
 import {accountOutcome, accountStep} from './account-step.js';
@@ -170,6 +171,7 @@ async function formAfterPress(tabId, url, ms = 8000) {
 // session back from the form to the account step (8 Oct 2026, the matrix's sign-up row). The app checks it too (lib/session-flow.js).
 export async function stuck(job, host, why, tabId = null, page = '', needs = '', accountStep = '') {
   if (tabId != null && page && !(await onPage(tabId, page))) { decide('fill', 'the page moved on: no "can\'t reach" report for it', {host, why}); return; }
+  if (tabId != null) await sweepConsent(tabId, 'reporting the form as out of reach');   // a hold or error never leaves a cookie layer open
   const session = await sessionOf(tabId);
   try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why, needs: String(needs || '').slice(0, 80), accountStep: String(accountStep || '').slice(0, 16), tab: tabId, session, page: String(page || '').split('#')[0]})}); } catch { /* the app is closed */ }
 }
@@ -196,6 +198,7 @@ async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => s
     // The same page when only its query string changed (a bot-check service appends its own parameter after the load: SmartRecruiters, 9 Oct 2026).
     const samePage = url => { try { const a = new URL(url), b = new URL(tab.url); return a.origin === b.origin && a.pathname.replace(/\/+$/, '') === b.pathname.replace(/\/+$/, ''); } catch { return false; } };
     if (!live || !samePage(live.url)) { decide('fill', 'watch ended: the tab moved on', {host: hostOf(tab.url), after: (i + 1) * 2, closed: !live, sameHost: !!live && hostOf(live.url) === hostOf(tab.url)}); return false; }   // the next page decides for itself
+    await sweepConsent(tab.id, 'watching a page without a form');   // a banner that drew itself after the first look (consent-sweep.js)
     const shape = await pageShape(tab.id);
     // Fields came (the form drew late), or a frame did on a page that had none (a bot check injected seconds after the load: SmartRecruiters,
     // 9 Oct 2026): the page is judged again, now with what it shows (page-kind AI: bot_check).
@@ -213,6 +216,7 @@ async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => s
     return true;
   }
   decide('fill', 'watch ended: no form and no new frame', {host: hostOf(tab.url), after: looks * 2});
+  await sweepConsent(tab.id, 'the watch ended');   // the run ends here: no cookie layer is left open
   return false;
 }
 // One page of an armed tab. A form is filled. A password page and a page with no form are left for Claude,
