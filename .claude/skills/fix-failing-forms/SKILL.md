@@ -40,6 +40,17 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
   the owner's name before sharing it.
 - **Worktree:** `tools/worktree.sh fix-<shape>`, own scratch folder `<scratchpad>/fix-failing-forms/`. No subagents. Say the change tier (usually Tier 2: apply flow). **One row per session:** side work asked mid-round (a tool, a skill rewrite, a peer's request) goes to a new session with a brief unless it takes under ~15 min (11 Oct: one row doubled a session).
 
+## 0a. Decisions already made, and the fast path (owner, 11 Oct 2026: a fix took 24 min, 18 of them before the first test)
+- **Do not ask the owner about these, they are decided:**
+  - An open written question that nothing given answers ("why us", cover letter) is an **expected hold**: the AI returns it as category `written` with value `""`, the pool verdict counts it expected, it is never drafted, typed or invented. Any other left field still makes a shortfall.
+  - A click on a typeless button is not a "submit press" (explicit `type=submit`/`image`, the form's submit event, or the Submit-words floor only). A script-submit button with another label is a known, accepted gap (`gaps-after-round.md`).
+  - An account-first site (sign-up page, SuccessFactors) is a documented hold, not a fill failure.
+- **Order of proof, fastest first:** (1) the unit test that fails first and the 3 real asks of the app's AI; (2) the row's FRESH capture replayed offline, `cd desktop/e2e && npm run row -- "<row>"` (if there is none, or it says STALE, ask the pool owner/capture session for one capture: one live run, ~1 min; do not hand-build a page instead); (3) a recorded page only for the shape, built from that capture (hand-written HTML is the last resort); (4) one live row from your worktree; (5) the pool owner's batch. Never land on a unit-test guard alone.
+- **Time box:** 10 minutes on any stub or replay probe; then use the real capture or tell the coordinator. A hand-made stub cannot tell a bad fix from a bad fixture.
+- **Before writing a recorded page** run `cd desktop && node --test test/recorded-privacy.test.js` on it (no email but `example.*`, no phone, no typed value, no URL query): it failed late and cost 7 minutes.
+- **Start from the named cause:** take one cause and its rows from `node tools/needs-fix-causes.mjs` (the By-cause tab), not from scratch; the coordinator's brief gives the evidence.
+- **When the fix lands, report five lines:** time per step (pick the cause, decide, code and failing tests, real asks, replay/capture, live row, ship), the ladder numbers, and the hash **on origin/main** ("landed" means on `origin/main`, not a WIP commit).
+
 ## 0b. Which kind of failure is it? (decide before reproducing; the owner types one command and never chooses)
 - **A rung problem**: the page was judged or climbed wrong. The row says "stopped at the posting" or "no-form", the log's `page kind:` line is wrong for what the page really is, or there was no apply route. Method: **3b**.
 - **A field problem**: the page was read right (the form was reached) and fields stayed unexplained ("form · N unexplained of M"): a field not filled, a control not operated, a question text not read. Method: **3a**.
