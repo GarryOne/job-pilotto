@@ -74,3 +74,15 @@ test('the session tools read a saved copy of the page, fetched again only when o
   const old = new Date(Date.now() - 16 * 60000); utimesSync(file, old, old);
   assert.equal(pageJson({file, fetchLive}).n, 3);                  // an old copy is fetched again
 });
+
+test('a failed migration 0056 never takes the page or an upload down: it computes without the tables', async () => {
+  const db = d1(); await seed(db);
+  db.db.exec('DROP TABLE applying_latest; DROP TABLE applying_view;');
+  const warn = console.warn, warnings = []; console.warn = message => warnings.push(message);
+  try {
+    assert.equal((await cachedData(db, () => data(db, now, slowCache(db, now)), now)).pool.length, 77);
+    assert.equal((await ingest(db, {kind: 'smoke', day: '2026-10-12', rows: [{name: 'late', host: 'x.example.com', reached: 'form'}]}, now)).ok, true);
+    assert.equal((await forget(db, {kind: 'smoke', day: '2026-10-12', name: 'late'})).ok, true);
+  } finally { console.warn = warn; }
+  assert.ok(warnings.some(message => /migration 0056 missing/.test(message)));
+});

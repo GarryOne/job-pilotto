@@ -90,7 +90,7 @@ const needsFix = site => !site.note && !!site.reached && (site.regression || !!s
 // slow(key, fn): the big readers' results kept for an hour (src/applying-store.js); the default computes them every time.
 export async function data(db, now = new Date(), slow = (key, fn) => fn()) {
   const since = dayOf(new Date(now.getTime() - 30 * 86400000)), tenDays = dayOf(new Date(now.getTime() - 9 * 86400000));
-  const runs = (await latestRuns(db)).filter(run => run.day >= since);   // each site's last runs, one row each (a scan of applying_runs read thousands of rows per load)
+  const runs = (await latestRuns(db, since)).filter(run => run.day >= since);   // each site's last runs, one row each (a scan of applying_runs read thousands of rows per load)
   const byName = kind => runs.filter(run => run.kind === kind).reduce((out, run) => ((out[run.name] ||= []).push(run), out), {});
   const sites = Object.entries(byName('smoke')).map(([name, list]) => {
     const last = list.at(-1);
