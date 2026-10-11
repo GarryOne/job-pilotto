@@ -9,6 +9,7 @@ import {PAGE, data, ingest} from '../src/applying.js';
 import {GROUPS_SOURCE, needsFixGroups} from '../src/applying-groups.js';
 import {needsFixOrder} from '../src/applying-order.js';
 import {groupLines, groupsOf} from '../../tools/needs-fix-causes.mjs';
+import {buildBrief, captureOf} from '../../tools/fixer-brief.mjs';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -113,4 +114,47 @@ test('there is one grouping: the page embeds the function\'s own source, has a B
   assert.match(PAGE, /#by-cause/); assert.match(PAGE, /'By cause · '/);
   assert.match(PAGE, /block\('causes', [^\n]*\['Cause', 'Rows', 'Claimed', 'Oldest run', 'Details'\]/);
   assert.equal(typeof needsFixGroups, 'function');
+});
+
+// The fixer brief (tools/fixer-brief.mjs): built from the same groups plus a capture-folder listing, so it needs no network.
+test('the fixer brief holds every row of the cause, the newest capture folder and the exact commands', async () => {
+  const json = await seeded(), groups = groupsOf(json), unread = groups.find(group => group.label === 'unread');
+  const listing = {'2026-10-10': ['ccc-unread', 'ddd-unread-too'], '2026-10-11': ['ccc-unread-v2', 'other-row']};
+  const brief = buildBrief(groups, 'unread', listing, {oneLine: 'start with the first row'});
+  assert.equal(brief.ok, true);
+  assert.match(brief.text, /job-pilotto-fix-unread/);
+  assert.match(brief.text, /start with the first row/);
+  for (const row of unread.rows) {
+    assert.ok(brief.text.includes(`"${row.name}"`), 'row ' + row.name);
+    assert.ok(brief.text.includes(`npm run row -- "${row.name}"`), 'replay command for ' + row.name);
+    assert.ok(brief.text.includes('npm run row-to-case -- '), 'case command');
+  }
+  assert.match(brief.text, /replay-candidates\/2026-10-11\/ccc-unread-v2/);          // the newest day wins over 2026-10-10
+  assert.doesNotMatch(brief.text, /replay-candidates\/2026-10-10\/ccc-unread/);
+  assert.match(brief.text, /replay-candidates\/2026-10-10\/ddd-unread-too/);       // a row whose newest folder is older is still found
+  assert.match(brief.text, /Pool-row:/);
+  assert.match(brief.text, /Never Submit/);
+  assert.match(brief.text, /tools\/ship\.sh --background/);
+  assert.match(brief.text, /Confirmed by a pool run/);
+});
+
+test('a row with no capture folder says so, and a brief names the row targets', async () => {
+  const json = await seeded(), groups = groupsOf(json);
+  const brief = buildBrief(groups, 'no_option', {});
+  assert.equal(brief.ok, true);
+  assert.match(brief.text, /none: ask the pool owner for a capture/);
+  assert.ok(captureOf({name: 'X y', shape: 'x-y'}, {'2026-10-09': ['x-y'], '2026-10-11': ['x-y-2']}).startsWith('2026-10-11/'));
+});
+
+test('Run first never gets a fixer brief; an unknown cause lists the known ones', async () => {
+  const json = await seeded(), groups = groupsOf(json);
+  const first = buildBrief(groups, 'Run first', {});
+  assert.equal(first.ok, false);
+  assert.match(first.text, /run these first/);
+  assert.ok(first.text.includes('Aaa fixed since') || first.text.includes('Bbb never run'));
+  const unknown = buildBrief(groups, 'nope', {});
+  assert.equal(unknown.ok, false);
+  assert.match(unknown.text, /unknown cause "nope"/);
+  assert.match(unknown.text, /"unread"/);
+  assert.doesNotMatch(unknown.text, /"Run first"/);
 });

@@ -2,13 +2,16 @@
 // Prints the "Needs a fix" rows grouped by cause, as /admin/applying's "By cause" tab does (site/src/applying-groups.js: the page embeds the same function, so they cannot disagree):
 // "Run first" (never run, or the last run is older than a fix landed for that row: a pool run, not a fix), one group per top cause, then the rows with no cause recorded.
 // Reads the owner page's data with the Keychain key job-pilotto.site.api_key (never printed). Read-only: one GET.
-// Usage: node tools/needs-fix-causes.mjs [--rows] [--json <file>]   (--rows lists the shapes under each group; --json reads a saved copy of the page's ?json)
+// Usage: node tools/needs-fix-causes.mjs [--rows] [--json <file>] [--brief "<cause>" [--note "<one line>"]]   (--brief prints a ready fixer prompt for that cause: tools/fixer-brief.mjs; "Run first" refuses, exit 1)
+//   (--rows lists the shapes under each group; --json reads a saved copy of the page's ?json)
 // Columns: cause, rows, claimed (rows a session holds; the session itself is never on the site), oldest run. Guard: site/test/needs-fix-causes.test.js.
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import os from 'node:os';
 import {needsFixGroups} from '../site/src/applying-groups.js';
+import {buildBrief} from './fixer-brief.mjs';
 
 const SITE = 'https://www.jobpilotto.top/admin/applying?json';
 
@@ -30,7 +33,22 @@ function fetchJson() {
   return JSON.parse(execFileSync('curl', ['-s', '--fail', '--max-time', '30', '-H', `Authorization: Bearer ${key}`, SITE], {encoding: 'utf8', maxBuffer: 64 << 20}));
 }
 
+// The capture folders on this Mac: {<day>: [folder]} under SMOKE_CANDIDATES (default: the QA folder's replay-candidates), {} when there are none.
+function captureListing() {
+  const root = process.env.SMOKE_CANDIDATES || path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA', 'replay-candidates'), listing = {};
+  try { for (const day of fs.readdirSync(root).filter(name => /^\d{4}-\d\d-\d\d$/.test(name))) listing[day] = fs.readdirSync(path.join(root, day)).filter(folder => fs.existsSync(path.join(root, day, folder, 'case.json'))); } catch { /* none */ }
+  return listing;
+}
+const argOf = flag => { const at = process.argv.indexOf(flag); return at > 0 ? process.argv[at + 1] : undefined; };
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const at = process.argv.indexOf('--json');
-  try { console.log(groupLines(at > 0 ? JSON.parse(fs.readFileSync(process.argv[at + 1], 'utf8')) : fetchJson(), {rows: process.argv.includes('--rows')}).join('\n')); } catch (error) { console.error('needs-fix-causes: ' + String(error?.message || error).split('\n')[0]); process.exit(1); }
+  try {
+    if (process.argv.includes('--brief')) {
+      const json = at > 0 ? JSON.parse(fs.readFileSync(process.argv[at + 1], 'utf8')) : fetchJson(), brief = buildBrief(groupsOf(json), argOf('--brief'), captureListing(), {oneLine: argOf('--note') || ''});
+      (brief.ok ? console.log : console.error)(brief.ok ? brief.text : 'needs-fix-causes: ' + brief.text);
+      process.exit(brief.ok ? 0 : 1);
+    }
+    console.log(groupLines(at > 0 ? JSON.parse(fs.readFileSync(process.argv[at + 1], 'utf8')) : fetchJson(), {rows: process.argv.includes('--rows')}).join('\n'));
+  } catch (error) { console.error('needs-fix-causes: ' + String(error?.message || error).split('\n')[0]); process.exit(1); }
 }

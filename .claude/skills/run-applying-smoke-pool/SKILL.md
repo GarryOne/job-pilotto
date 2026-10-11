@@ -70,7 +70,7 @@ A row that stops at the posting keeps no folder (nothing to replay). A capture m
 2. **Run** (a run's share, or `--only`/`--all`, or `--discover` when the owner loaded a new profile), held, with Monitor. Report per site as it lands.
 3. **Read the result:** regressions first (a shape that reached less than its last run), then the sites that reached the earliest step, then bot/code holds (documented, left alone).
    Compare with the last report; a site that failed once is run again before it counts.
-4. **Hand off** each failing shape, one line each, to `/fix-failing-forms` (the shape, the log path, the frame folder, what the log cannot tell). Several sessions may each take a different shape:
+4. **Hand off** each failing shape, one line each, to `/fix-failing-forms` (the shape, the log path, the frame folder, what the log cannot tell). The ready prompt per cause: `node tools/needs-fix-causes.mjs --brief "<cause>"` (docs/rules/rounds.md step 3). Several sessions may each take a different shape:
    give every one its own worktree and scratch folder (global rule "Several agents at once"), and the flow core goes to one session at a time (claim message).
    A shape that needs the owner's accounts or Gmail goes to `/fix-live-applying-in-twin`.
    **Landed fixes come back to you:** a fixer hands you "landed <hash>, extension <version>, run <shape>". Update the runner to that build, run just that shape (held, Monitor), upload it, and send the fixer the step

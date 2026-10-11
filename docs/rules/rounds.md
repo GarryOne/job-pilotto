@@ -13,7 +13,7 @@ the wrong cause for the waiting ([why.md](why.md)).
    ("Of matched jobs"; 11 Oct: Greenhouse 55%, Ashby 34%, everything else 0-3%). A cause on a 0-3% platform waits unless its fix is generic and cheap; a
    platform with a high share and a low real fill ("Blind spot": Ashby real forms filled 57%) comes first even when no pool row is red. Success of the round
    is also the real-use fill share of the big platforms, not only pool rows confirmed.
-3. **One session per cause** (the biggest unclaimed), not per row. The brief says its target: "rows of this cause confirmed by a pool run", and the
+3. **One session per cause** (the biggest unclaimed), not per row. The brief = `node tools/needs-fix-causes.mjs --brief "<cause>"` (rows, newest captures, exact commands, proof order, rules) + your one line of judgment (`--note "..."`); "Run first" refuses. The brief says its target: "rows of this cause confirmed by a pool run", and the
    owner pastes it into a NEW session (the paste is the owner's approval; a message to a running session waits for the owner in that window).
 4. **Prove a fix in four steps, fastest first** (owner, 11 Oct 2026: proof used to take hours): (1) 3 of 3 real asks of the app's AI on the saved page
    (`ladder-score`, plan path); (2) the row replayed offline (`npm run row -- "<pool row>"`, 15-90 s: its pages, the live run's AI answers, the app's own server, the real
