@@ -121,7 +121,6 @@ them from colliding in one checkout:
 - Read-only work and Notion-only updates don't need a worktree.
 
 ### Change tiers: pick one, say it in one line, stop when it is met (6 Oct 2026)
-**CI heavy, local light** (owner, 11 Oct 2026): every check before a push takes under a minute; the heavy ones (the e2e suites, all recorded pages, Windows) run in CI, and a red result there follows the red-main rule. Live runs on real sites stay local and by hand.
 A transcription banner took 1–2 hours: harnesses, real downloads, e2e runs, CI waits, three rejected pushes. Before the gates, commits landed
 every 30 seconds. Keep the guardrails that catch real breakage; stop paying the full price for every change.
 
@@ -137,7 +136,7 @@ every 30 seconds. Keep the guardrails that catch real breakage; stop paying the 
 - **Stop when the tier is met.** No extra harness, no real end-to-end run, no new check "while we're here" at Tier 0/1.
 - **CI heavy, local light** (owner, 11 Oct 2026). CI does the heavy work: ALL recorded pages (`.github/workflows/recorded-pages.yml`: Linux, sharded, 4 tabs each, every push to main), the full suites and
   the Windows checks. The local push gate stays minimal and fast: the suites and cases a change can affect, no local run of the e2e harness's own unit tests (`JP_E2E_UNIT=1` opts in).
-  A red recorded-pages run on main is a red main (the hook blocks pushes until it is fixed or reverted).
+  A red recorded-pages run on main is a red main (the hook blocks pushes until it is fixed or reverted). Every local check takes under a minute; live runs on real sites stay local and by hand.
 - **One change, one push.** A follow-up you think of (prefetch, a Finder check, a new tool) is offered in one line and built only when the owner says yes.
 - **Land with `tools/ship.sh`**, not by hand. The pre-push hook runs only the suites of the areas the push touches (docs: none; engine: python +
   desktop; an unknown path: everything; `PUSH_FULL=1` forces all). Do not wait for CI of your own push before the next task: look at it later.
