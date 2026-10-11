@@ -36,8 +36,8 @@ Extended by the owner in this window (11 Oct 2026, ~06:35): A journey headline, 
 - [ ] measured before -> after (first field, fill done)
 
 ### 8. Independent questions in parallel (D)
-- [ ] questions that do not need each other's answer are asked together (flow core claimed, invariants kept)
-- [ ] measured before -> after
+- [x] questions that do not need each other's answer are asked together (flow core claimed, invariants kept): the form's answers beside its page-kind ask (this commit)
+- [x] measured before -> after: offline replay, saved Recruitee form, real binary, 3 runs each: fill done median 10.1 s -> 6.1 s (this commit)
 
 ### 9. A faster model per question type (C)
 - [x] per question type, the faster model on the plan path scored on the 132 fixtures (nothing to score: page kind and the judges already run on the smallest model, Haiku 5.5, low effort)

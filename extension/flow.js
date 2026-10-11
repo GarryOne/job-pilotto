@@ -7,6 +7,7 @@ import {fillCard} from './fill-card.js';
 import {settleTrace} from './trace-settle.js';
 import {expandSections} from './sections.js';
 import {PAGE_FILES} from './page-files.js';
+import {hasEarly, keepEarly, takeEarly} from './early-answers.js';
 export const JOB_SITES = [
   'https://*.greenhouse.io/*', 'https://jobs.lever.co/*', 'https://jobs.ashbyhq.com/*',
   'https://*.myworkdayjobs.com/*', 'https://*.smartrecruiters.com/*', 'https://apply.workable.com/*',
@@ -137,6 +138,42 @@ export async function cachedAI(tab) {
 }
 export function forgetAI(tab) { return chrome.storage.session.remove(cacheKey(tab)); }
 
+// The form as the AI is told about it: its fields and its checkbox questions (page scripts loaded).
+const readForm = tab => inPage(tab.id, async () => [...await window.__jobPilottoDescribeForm(),
+  ...window.__jobPilottoCheckboxQuestions().map(g => ({field: `group:${g.question}`, label: g.question, type: 'checkbox-group', options: g.options}))]);
+// What goes to Claude is only what nothing else answers: not a field the kit covers (answered, or left empty on purpose: an optional question it
+// chose to skip), not your contact details and CV (the app's, filled by the fill itself), not a file. A form the kit was drafted from needs no call.
+async function openQuestions(tab, form, kitAnswers, me, config) {
+  const fromKit = new Set(kitAnswers.map(a => a.field).filter(Boolean));
+  const contact = new Set((await inPage(tab.id, (rows, profile) => window.__jobPilottoProfileEntries(rows, profile).map(e => e.field),
+    [form || [], me?.contact || config.profile || {}]).catch(() => [])) || []);
+  const PERSONAL = /^(first_name|last_name|preferred_name|email|phone|resume|resume_text|cover_letter|cover_letter_text|longitude|latitude)$/;
+  const open = (form || []).filter(f => !f.filled && !f.legal && f.type !== 'file' && !fromKit.has(f.field) && !contact.has(f.field) &&
+    !PERSONAL.test(f.field)).map(({field, label, type, required, options}) => ({field, label, type, required, options}));
+  return {fromKit, open};
+}
+const askAnswers = async (tab, config, open) => api(config, '/extension/answer', {method: 'POST',
+  body: JSON.stringify({url: tab.url, fields: open, page_text: await inPage(tab.id, () => window.__jobPilottoPageText()), test: !!config.testMode})});
+// A page that already shows a form (fill-flow.js consider): its open questions go to the AI now, beside the page-kind ask; the fill takes the answer
+// if this page is filled as a form with the same questions (early-answers.js). Not with a kit (Claude answers after that fill) or a cached answer.
+export async function askEarly(tab, config, jobUrl = '') {
+  if (hasEarly(tab.id, tab.url) || await cachedAI(tab)) return false;
+  const job = (jobUrl || tab.url).split('#')[0];
+  const [kit, me] = await Promise.all([api(config, `/extension/kit?url=${encodeURIComponent(job)}`).catch(() => ({})),
+    api(config, `/extension/me?url=${encodeURIComponent(job)}`).catch(() => null)]);
+  if (kitStance({kitAnswers: kit?.kit?.answers || [], hasKit: !!kit?.kit}).withKit) return false;
+  await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', func: () => { window.__jobPilottoNoGuard = true; }});
+  await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', files: PAGE_FILES});
+  try {   // the label meanings, as the fill loads them, so both read the form alike
+    const packs = await api(config, '/extension/aliases', {method: 'POST', body: '{}'});
+    await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', args: [Array.isArray(packs?.aliases) ? packs.aliases.slice(0, 2000) : []], func: aliases => { window.__jobPilottoAliases = aliases; }});
+  } catch { /* aliases are a bonus */ }
+  const {open} = await openQuestions(tab, await readForm(tab), [], me, config);
+  if (!open.length) return false;
+  keepEarly(tab.id, tab.url, open, askAnswers(tab, config, open));
+  return true;
+}
+
 // jobUrl: the posting the kit belongs to, when the form lives elsewhere (a job board's Apply led to the employer's site).
 // me: your contact details and CV when already fetched (the panel prefetches them), so the fill starts at once.
 // The page scripts a fill needs, in order (also loaded for one field's "Use" from the app: fill-flow.js).
@@ -191,20 +228,11 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   // then Claude only for the questions they don't cover, so nothing is left empty that could be answered. A form
   // the kit covers fully costs nothing (no call when nothing is open).
   if (useAI) {
-    const form = await inPage(tab.id, async () => [...await window.__jobPilottoDescribeForm(),
-      ...window.__jobPilottoCheckboxQuestions().map(g => ({field: `group:${g.question}`, label: g.question, type: 'checkbox-group', options: g.options}))]);
+    const form = await readForm(tab);
     step('read the form');
     debug.form = (form || []).map(({field, label, type, required, filled, legal, options}) =>
       ({field, label, type, required, filled, legal, options: (options || []).slice(0, 30)}));
-    // What goes to Claude is only what nothing else answers: not a field the kit covers (answered, or left empty on
-    // purpose: an optional question it chose to skip), not your contact details and CV (the app's, filled below),
-    // not a file. A form the kit was drafted from therefore needs no Claude call at all.
-    const fromKit = new Set(kitAnswers.map(a => a.field).filter(Boolean));
-    const contact = new Set((await inPage(tab.id, (rows, profile) => window.__jobPilottoProfileEntries(rows, profile).map(e => e.field),
-      [form || [], me?.contact || config.profile || {}]).catch(() => [])) || []);
-    const PERSONAL = /^(first_name|last_name|preferred_name|email|phone|resume|resume_text|cover_letter|cover_letter_text|longitude|latitude)$/;
-    const open = (form || []).filter(f => !f.filled && !f.legal && f.type !== 'file' && !fromKit.has(f.field) && !contact.has(f.field) &&
-      !PERSONAL.test(f.field)).map(({field, label, type, required, options}) => ({field, label, type, required, options}));
+    const {fromKit, open} = await openQuestions(tab, form, kitAnswers, me, config);
     debug.sentToClaude = open.map(f => f.field);
     // With a kit, applying was the user's decision (they prepared it): no eligibility stop, and no waiting: everything
     // known fills at once, and Claude answers what's left afterwards (below), while you already see the form filled.
@@ -220,9 +248,9 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       onStep(withKit ? `Claude is answering ${open.length} question${open.length === 1 ? '' : 's'} the kit doesn't cover (10–30 s)…`
         : `Claude is answering ${open.length} question${open.length === 1 ? '' : 's'} and checking you're eligible (usually 10–30 s)…`);
       try {
-        const pageText = await inPage(tab.id, () => window.__jobPilottoPageText());
-        ai = await api(config, '/extension/answer', {method: 'POST',
-          body: JSON.stringify({url: tab.url, fields: open, page_text: pageText, test: !!config.testMode})});
+        const askedEarly = takeEarly(tab.id, tab.url, open);   // asked beside the page-kind ask (askEarly), when it was for these same questions
+        debug.earlyAnswers = !!askedEarly;
+        ai = (askedEarly && await askedEarly) || await askAnswers(tab, config, open);
         await chrome.storage.session.set({[cacheKey(tab)]: {url: tab.url.split('#')[0], ai, test: !!config.testMode}});
         // Settings → "Check eligibility before filling" off (for testing): fill regardless.
         if (!ai.eligible && !force && config.checkEligibility !== false) return {ineligible: true, note: ai.eligibility_note || '', usd: ai.usd};
@@ -317,9 +345,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   if (later.length && useAI) {
     onStep(`Claude is answering ${later.length} more question${later.length === 1 ? '' : 's'}…`);
     try {
-      const pageText = await inPage(tab.id, () => window.__jobPilottoPageText());
-      ai = await api(config, '/extension/answer', {method: 'POST',
-        body: JSON.stringify({url: tab.url, fields: later, page_text: pageText, test: !!config.testMode})});
+      ai = await askAnswers(tab, config, later);
       step('Claude answered (after the fill)');
       const extra = useRemembered(ai.answers.filter(a => later.some(f => f.field === a.field)).map(a => ({...a, source: 'Claude (on the page)'})));
       if (extra.length) {

@@ -8,7 +8,7 @@
 //  2. A popup is closed before the page is read, and a link that leaves the page is never pressed (fdd9638; worker/test/visit-consent.test.js, worker/test/popup-page.test.js).
 //  3. A fill that put nothing in climbs the closer-look ladder, then reports 'incomplete', kept until something is filled (c1a2fcc; desktop/test/session-flow.test.js).
 //  4. After a fill the AI is asked what the page needs next; a middle step's Next is pressed under the Submit floors, Submit never (worker/test/form-ready.test.js).
-import {PAGE_FILES, api, clickCombos, settings} from './flow.js';
+import {PAGE_FILES, api, askEarly, clickCombos, settings} from './flow.js';
 import {decide} from './log.js';
 import {noteRole} from './account.js';
 import {expandSections} from './sections.js';
@@ -250,6 +250,9 @@ export async function consider(tab, jobUrl) {
   }
   // A sign-up form was open in this tab (we filled it) and the page changed: what became of it is the account AI's word (account-step.js accountOutcome).
   // The two AI looks do not depend on each other (the outcome of a sign-up, the kind of this page): asked together, the wait is the longer one, not the sum (9 Oct 2026, Migros: 13 s then 9 s, one after the other).
+  // A page that already shows a form (2+ fields, no password): its questions go to the AI now, beside the page-kind ask; the fill takes the answer only if
+  // this page is filled as a form (flow.js askEarly, early-answers.js). A count of controls only starts a question early: it never decides what the page is.
+  if (counts.fields + counts.textareas >= 2 && !counts.passwords) askEarly(live, await settings(), jobUrl).catch(() => {});
   const lookedAt = Date.now();
   sayStep(tab.id, 'Reading this page…');
   const kindAsk = askKind(tab), outcomeLook = accountOutcome(tab).catch(() => {});
