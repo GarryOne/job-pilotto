@@ -7,7 +7,7 @@ export const STEPS = ['none', 'posting', 'account', 'code/bot', 'form', 'ready']
 // opened an Indeed posting). Never a smoke or discovery candidate, whatever list it comes from.
 export const NEVER_VISIT = /(^|\.)(linkedin\.com|glassdoor\.[a-z.]+|indeed\.[a-z.]+|levels\.fyi|reddit\.com)$/i;
 export const mayVisit = url => { try { return !NEVER_VISIT.test(new URL(url).hostname); } catch { return true; } };   // only the named sites are blocked
-const rank = step => STEPS.indexOf(step);
+export const rank = step => STEPS.indexOf(step);
 
 // The AI ladder's rung (0 to 6) of a decision, read from the app's own log lines (docs/flows/ladder.md); the app's exact line `ladder: rung N signal S` overrides what is derived.
 const BY_RUNG = {ai: 2, remembered: 1, 'structure rule': 0};
@@ -64,7 +64,7 @@ export function compare(previous = {}, current = {}) {
   const out = [];
   for (const [shape, now] of Object.entries(current)) {
     const before = previous[shape];
-    if (!before || now.note || before.note) continue;   // a posting gone, or no posting: not a regression of ours
+    if (!before || now.note || before.note || now.pathDifference) continue;   // a posting gone, or no posting: not a regression of ours; nor a fall Electron did not show (lib/smoke-paths.mjs)
     if (rank(now.reached) < rank(before.reached)) out.push({shape, why: `reached ${now.reached}, last time ${before.reached}`, url: now.url});
     else if (now.url === before.url && before.filled != null && now.filled != null && now.filled < before.filled) out.push({shape, why: `filled ${now.filled}, last time ${before.filled}`, url: now.url});
   }

@@ -22,6 +22,7 @@ import {fetchWanted, wantedFirst} from './lib/wanted-hosts.mjs';
 import {heavy, yieldHeavy} from './lib/heavy.mjs';
 import {runArtifacts} from './lib/run-artifacts.mjs';
 import {POOL_LINE, eligibilityOff, poolEnv} from './lib/pool-eligibility.mjs';
+import {lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pathDifferenceLine} from './lib/smoke-paths.mjs';
 heavy('e2e-smoke', import.meta.url, {klass: process.argv.includes('--only') ? 'proof' : process.argv.includes('--discover') ? 'explore' : 'pool'});   // one heavy run at a time on this Mac (tools/heavy-lock.sh); a held row proof goes before the pool's whole list
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -42,11 +43,11 @@ export async function postingStatus(url, fetcher = fetch) {
   try { const answer = await fetcher(url, {method: 'GET', redirect: 'follow', signal: AbortSignal.timeout(20000)}); return answer.status; } catch { return 0; }
 }
 
-function liveRun(posting, seconds, captureDir = '') {
+function liveRun(posting, seconds, captureDir = '', engine = smokeEngine()) {
   return new Promise(resolve => {
     const started = Date.now();
     // The default (lib/smoke.mjs smokeEngine): the row on the app's own path without Electron (live.mjs), printing the same lines parseLive reads.
-    if (smokeEngine() === 'node') {
+    if (engine === 'node') {
       const child = spawn('node', ['live.mjs', posting.url, '--title', posting.title || '', '--company', posting.company || '', ...(captureDir ? ['--capture', captureDir] : [])],
         {cwd: here, env: {...poolEnv(), LIVE_SECONDS: String(seconds)}});
       let output = '';
@@ -134,6 +135,9 @@ async function main() {
   console.log(`smoke: ${chosen.length} of ${shapes.length} shapes in this run's share (the least recently run first)`);
   console.log(engineLine(smokeEngine()));
   console.log(`smoke: ${eligibilityOff(poolEnv()) ? POOL_LINE : 'eligibility check: ON in this run (SMOKE_ELIGIBILITY=on)'}`);
+  // The pool runs on plain node; a few rows each pass run on Electron too, the least recently paired first (lib/smoke-paths.mjs; SMOKE_PAIRED=0 skips).
+  const pairs = new Set(smokeEngine() === 'node' ? pairedSample(chosen, lastPaired([...earlierList, ...today]), Number(process.env.SMOKE_PAIRED ?? 2)) : []);
+  console.log(`smoke: paired sample this pass (plain node and Electron): ${[...pairs].join(', ') || 'none'}`);
   for (const {shape, like = [], urls = []} of chosen) {
     yieldHeavy();   // between two sites a waiting proof (or shorter run) goes first; this run waits for its place back (tools/heavy-lock.sh yield)
     const posting = pickPosting([...urls.map(url => ({url, title: '', company: ''})), ...(like.length ? postingsLike(like) : [])]);
@@ -153,6 +157,14 @@ async function main() {
     results[shape].signature = signature(results[shape]);
     results[shape].marksBlind = marksBlind(results[shape]);
     results[shape].short = shortfall(results[shape]);   // reached the form but filled under half: a failure the step alone hides
+    // Less than its last result on plain node: once more on Electron at once, the same posting; a regression only if Electron shows it too (lib/smoke-paths.mjs).
+    const fell = smokeEngine() === 'node' ? lessThanLast(previous[shape], results[shape]) : '';
+    if (fell || pairs.has(shape)) {
+      console.log(`smoke: ${shape}: ${fell ? `less than its last result on plain node (${fell}): once more on Electron, the same posting` : 'paired sample: the same posting on Electron'}`);
+      const again = await liveRun(posting, seconds, '', 'electron'), electron = runFinished(again) ? parseLive(again.output) : null;
+      Object.assign(results[shape], pairResult(results[shape], electron, {day, previous: previous[shape]}));
+      console.log(`smoke: ${shape}: Electron reached ${electron ? `${electron.reached}${electron.filled != null ? `, ${electron.filled} filled` : ''}` : 'nothing (the run did not finish)'}${results[shape].pathDifference ? ': PATH DIFFERENCE, not a regression' : ''}`);
+    }
     fs.mkdirSync(REPORTS, {recursive: true});
     fs.writeFileSync(path.join(REPORTS, `${day}-${shape.replace(/\W+/g, '-')}.log`), run.output);
     // A failed run keeps its last page as a replay candidate (the owner's question "did we save a site replay?": no); a run that passed drops an older candidate of the day.
@@ -174,9 +186,12 @@ async function main() {
   }
   const previousFile = earlierList.length ? `${earlierList.length} earlier report(s)` : null;
   const regressions = compare(previous, results), dropped = droppedBoards();
+  const differs = pathDifferenceLine(results);   // a fall on plain node that Electron did not show (lib/smoke-paths.mjs)
   fs.mkdirSync(REPORTS, {recursive: true});
   const saved = (() => { try { return JSON.parse(fs.readFileSync(path.join(REPORTS, `${day}.json`), 'utf8')); } catch { return {}; } })();   // what this run and the day's other runs saved site by site
-  fs.writeFileSync(path.join(REPORTS, `${day}.json`), `${JSON.stringify({...saved, day, results: {...saved.results, ...results}, regressions, dropped, comparedWith: previousFile}, null, 1)}\n`);
+  fs.writeFileSync(path.join(REPORTS, `${day}.json`), `${JSON.stringify({paired: pairedLine({...saved.results, ...results}), ...(differs ? {pathDifference: differs} : {}), ...saved, day, results: {...saved.results, ...results}, regressions, dropped, comparedWith: previousFile}, null, 1)}\n`);
+  console.log(`smoke: ${pairedLine(results)}`);   // the report's first lines: do the paths agree, and what fell on plain node only
+  if (differs) console.log(`smoke: ${differs}`);
   console.log(`smoke: ${regressions.length ? `REGRESSIONS: ${regressions.map(item => `${item.shape} (${item.why})`).join('; ')}` : 'no regression'}${previousFile ? ` vs ${previousFile}` : ' (first report)'}`);
   const blindMarks = Object.entries(results).filter(([, item]) => item.marksBlind);
   console.log(`smoke: ${blindMarks.length ? `MARKS BLIND (more "*" labels than required questions counted): ${blindMarks.map(([name, item]) => `${name} (${item.marksBlind.starred} vs ${item.marksBlind.required})`).join('; ')}` : 'no marks blind spot'}`);
