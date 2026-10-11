@@ -252,6 +252,7 @@ fetch('?json').then(r => r.json()).then(d => {
   const shortText = s => (s.short.unexplained != null ? s.short.unexplained + ' unexplained of ' + s.short.total : s.short.done + ' of ' + s.short.total + ' filled');   // the verdict, or the old count
   const POOL_GET = [s => s.name.toLowerCase(), s => s.flow, s => (s.reached ? rankOf(s.reached) - (s.short ? 0.5 : 0) : null), s => (s.rung == null ? null : s.rung + (blocked(s) ? 10 : 0)), s => (s.history.length ? rankOf(s.history.at(-1)) : null)];
   // The pool table (owner mockup, 10 Oct 2026: five columns that fit the page, the route and the exact time in an expandable row). The site name carries its host in brackets: it moves under the name, next to the platform.
+  const toggleOpen = (set, key) => { const was = set.has(key); set.clear(); if (!was) set.add(key); };   // one row open at a time in every expandable table
   const open = new Set(), STAGE = {none: 'Nothing reached', posting: 'Posting reached', account: 'Account reached', 'code/bot': 'Code or bot check', form: 'Form reached', ready: 'Ready for your check'};
   const split = s => { const host = (s.name.match(/\\(([^()\\s]+\\.[a-z]{2,})\\)/) || [])[1] || s.start; return {title: s.name.replace(/\\s*\\([^()\\s]+\\.[a-z]{2,}\\)/, ''), sub: s.platform + (host ? ' (' + host + ')' : '')}; };
   const flowText = s => (s.flow ? s.flow.replace(' and form on one page', ' + form').replace('no-form', 'no form').replace(/^./, c => c.toUpperCase()) : '—');
@@ -262,7 +263,7 @@ fetch('?json').then(r => r.json()).then(d => {
   const lastRun = s => el('div', {}, el('h4', {textContent: s.at ? 'Last completed run · ' + new Date(s.at).toUTCString().slice(5, 22) + ' UTC' : 'Last completed run'}),
     el('div', {}, ...resultOf(s)), s.signal ? el('div', {className: 'muted', textContent: 'rung ' + s.rung + ' handed on: ' + s.signal}) : null,
     s.cause ? el('div', {className: 'muted', textContent: 'Top cause: ' + s.cause.cause + ' · ' + s.cause.lost + ' on ' + s.cause.nights + ' night' + (s.cause.nights === 1 ? '' : 's')}) : null);
-  const siteRows = s => { const on = open.has(s.name), flip = () => { if (on) open.delete(s.name); else open.add(s.name); draw(); }, parts = split(s), runs = () => (s.history.length ? dots(s.history, s.days) : el('span', {className: 'muted', textContent: '—'}));
+  const siteRows = s => { const on = open.has(s.name), flip = () => { toggleOpen(open, s.name); draw(); }, parts = split(s), runs = () => (s.history.length ? dots(s.history, s.days) : el('span', {className: 'muted', textContent: '—'}));
     const main = el('tr', {className: 'site' + (on ? ' open' : ''), onclick: flip},
       el('td', {className: 'c-site'}, el('div', {className: 'sitecell'}, el('button', {className: 'chev', type: 'button', 'aria-expanded': String(on), 'aria-label': (on ? 'Collapse ' : 'Expand ') + parts.title, textContent: '›', onclick: event => { event.stopPropagation(); flip(); }}), el('div', {className: 'sitename'}, el('b', {textContent: parts.title}), el('span', {className: 'muted', textContent: parts.sub})))),
       el('td', {className: 'c-flow', title: s.raw || '', textContent: flowText(s)}),
@@ -287,7 +288,7 @@ fetch('?json').then(r => r.json()).then(d => {
         el('span', {className: 'muted count', textContent: rows.length ? 'Showing ' + (from + 1) + '–' + (from + shown.length) + ' of ' + rows.length : none}),
       pages > 1 ? el('div', {className: 'pager'}, el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: nextPage[key] === 0, onclick: go(-1)}),
         el('button', {className: 'chip', type: 'button', textContent: 'Next →', disabled: nextPage[key] >= pages - 1, onclick: go(1)})) : null),
-      rows.length ? el('table', {}, el('tr', {}, ...heads(key, labels, () => { nextPage[key] = 0; redraw(); })), ...shown.map(row)) : null];
+      rows.length ? el('table', {className: key === 'fix' ? 'fixtable' : ''}, el('tr', {}, ...heads(key, labels, () => { nextPage[key] = 0; redraw(); })), ...shown.flatMap(row)) : null];
   };
   const drawNext = () => { nextBox.textContent = '';
     nextBox.append(...[...block('platforms', 'Platforms', 'Matched jobs against the pool', d.next.platforms || [], ['Platform', 'Of matched jobs', 'Of the pool', 'Pool sites', 'Installs', 'Applications'],
@@ -313,25 +314,36 @@ fetch('?json').then(r => r.json()).then(d => {
   const byWorst = (a, b) => (Number(!!b.regression) - Number(!!a.regression)) || (useOf(b) - useOf(a)) || (stageOf(a) - stageOf(b)) || ((b.short?.unexplained || 0) - (a.short?.unexplained || 0)) || a.name.localeCompare(b.name);
   const filledRuns = s => (s.shares || []).filter(value => value != null);
   let fixOrder = new Map();   // each row's place in the worst-first order, for sorting the Why column the same way
+  // The Needs a fix row (owner, 11 Oct 2026: seven columns overflowed the panel): the site with its platform, why, when; platform use, top cause and the filled runs open in the row.
+  const needOpen = new Set();
+  const needDetail = s => el('div', {className: 'detail'},
+    el('div', {}, fixShort(s.name) !== s.name ? el('div', {}, el('h4', {textContent: 'Scenario'}), el('div', {textContent: s.name})) : null,
+      el('h4', {textContent: 'Platform use'}), el('div', {textContent: useOf(s) ? useOf(s) + '% of the matched jobs' : '—'}),
+      el('h4', {textContent: 'Top cause'}), el('div', {textContent: s.cause ? s.cause.cause + ' · ' + s.cause.lost + ' on ' + s.cause.nights + ' night' + (s.cause.nights === 1 ? '' : 's') : '—'})),
+    el('div', {}, el('h4', {textContent: 'Filled, last runs'}), el('div', {textContent: filledRuns(s).length ? filledRuns(s).join(' → ') + '%' : '—'}),
+      el('h4', {textContent: s.at ? 'Last run · ' + new Date(s.at).toUTCString().slice(5, 22) + ' UTC' : 'Last run'}), el('div', {textContent: s.at ? ago(s.at) : '—'})));
+  const needRow = s => { const on = needOpen.has(s.name), flip = () => { toggleOpen(needOpen, s.name); drawFix(); };
+    const main = el('tr', {className: 'site' + (on ? ' open' : ''), onclick: flip},
+      el('td', {}, el('div', {className: 'sitename'}, el('b', {textContent: fixShort(s.name)}), el('span', {className: 'muted', textContent: s.platform + (s.start ? ' (' + s.start + ')' : '')}))),
+      el('td', {}, el('span', {className: 'flag', textContent: s.regression ? 'regression' : s.short ? 'form · ' + shortText(s) : 'stopped at the ' + s.reached}),
+        s.back ? el('span', {className: 'stack flag', textContent: 'Back · fixed before, listed again'}) : null, s.claimed ? el('span', {className: 'stack inprogress', textContent: 'In progress · since ' + ago(s.claimed)}) : null),
+      el('td', {className: 'muted', textContent: s.at ? ago(s.at) : '—'}),
+      el('td', {}, el('button', {className: 'chev', type: 'button', 'aria-expanded': String(on), 'aria-label': (on ? 'Collapse ' : 'Expand ') + s.name, textContent: '›', onclick: event => { event.stopPropagation(); flip(); }})));
+    return on ? [main, el('tr', {className: 'more'}, el('td', {colSpan: 4}, needDetail(s)))] : [main]; };
   const drawFix = () => { fixBox.textContent = ''; fixOrder = new Map(d.pool.filter(needs).sort(byWorst).map((s, i) => [s.name, i]));
     fixBox.append(el('div', {className: 'fixpanel'}, el('div', {className: 'fixhead'}, el('h2', {textContent: 'Needs a fix · where applying stops'}),
-      el('p', {className: 'muted', textContent: 'A regression, a stop before the form, or a form reached with fields left that we should have known or suggested an answer for. The last column is the share of fields filled in each of the last runs: a fix shows there the next night.'})),
-      ...block('fix', 'Sites', 'Worst first: regressions, then the platform most used', d.pool.filter(needs).sort(byWorst), ['Site', 'Platform', 'Platform use', 'Why', 'Top cause', 'Filled, last runs', 'Last run'],
-        s => el('tr', {}, el('td', {textContent: s.name}), el('td', {textContent: s.platform}), el('td', {className: 'muted', title: 'its share of the matched jobs', textContent: useOf(s) ? useOf(s) + '%' : '—'}),
-          el('td', {}, el('span', {className: 'flag', textContent: s.regression ? 'regression' : s.short ? 'form · ' + shortText(s) : 'stopped at the ' + s.reached}),
-            s.back ? el('span', {className: 'stack flag', textContent: 'Back · fixed before, listed again'}) : null, s.claimed ? el('span', {className: 'stack inprogress', textContent: 'In progress · since ' + ago(s.claimed)}) : null),
-          el('td', {className: 'muted', textContent: s.cause ? s.cause.cause + ' · ' + s.cause.lost + ' on ' + s.cause.nights + ' night' + (s.cause.nights === 1 ? '' : 's') : '—'}),
-          el('td', {className: 'muted', textContent: filledRuns(s).length ? filledRuns(s).join(' → ') + '%' : '—'}), el('td', {className: 'muted', textContent: s.at ? ago(s.at) : '—'})),
-        'Nothing needs a fix', () => drawFix(), [s => s.name.toLowerCase(), s => s.platform, s => useOf(s) || null, s => fixOrder.get(s.name), s => s.cause?.lost ?? null, s => filledRuns(s).at(-1) ?? null, s => (s.at ? Date.parse(s.at) : null)]).filter(Boolean))); };
+      el('p', {className: 'muted', textContent: 'A regression, a stop before the form, or a form reached with fields left that we should have known or suggested an answer for. Open a row for the platform use, the top cause and the share of fields filled in each of the last runs: a fix shows there the next night.'})),
+      ...block('fix', 'Sites', 'Worst first: regressions, then the platform most used', d.pool.filter(needs).sort(byWorst), ['Site / platform', 'Why', 'Last run', 'Details'], needRow,
+        'Nothing needs a fix', () => drawFix(), [s => s.name.toLowerCase(), s => fixOrder.get(s.name), s => (s.at ? Date.parse(s.at) : null)]).filter(Boolean))); };
   const drawScore = () => { scoreBox.textContent = '';
     scoreBox.append(...block('score', 'Platforms', 'Real use against the tests', d.scorecard || [], ['Platform', 'Verdict', 'Of matched jobs', 'Real forms', 'Required filled', 'Pool sites', 'Reached the form'],
       s => el('tr', {}, el('td', {textContent: s.platform}), el('td', {}, el('span', {className: 'pill s-' + TONE[s.verdict], textContent: s.verdict})), el('td', {textContent: pct(s.matchShare)}),
         el('td', {className: 'muted', textContent: s.forms || '—'}), el('td', {className: 'muted', textContent: pct(s.filledShare)}), el('td', {className: 'muted', textContent: s.poolSites || 'none'}), el('td', {className: 'muted', textContent: pct(s.poolReached)})),
       'No platform seen yet', () => drawScore(), [s => s.platform, s => Object.keys(TONE).indexOf(s.verdict), s => s.matchShare, s => s.forms, s => s.filledShare, s => s.poolSites, s => s.poolReached]).filter(Boolean)); };
   app.append(el('section', {}, el('h2', {textContent: 'Platform scorecard · real use against the tests'}),
-    el('p', {className: 'muted', textContent: 'Per platform: its share of the matched jobs and how well real forms are filled (the form-filling page), against the pool sites on it and how many reached the form. Verdicts, in the order to act: not in the pool; weak in both; blind spot (tests reach the form, real users do not fill it); test failing (real use is fine). Under 5 real forms is no evidence.'}), scoreBox)); drawScore(); drawFix();
+    el('p', {className: 'muted', textContent: 'Per platform: its share of the matched jobs and how well real forms are filled (the form-filling page), against the pool sites on it and how many reached the form. Verdicts, in the order to act: not in the pool; weak in both; blind spot (tests reach the form, real users do not fill it); test failing (real use is fine). Under 5 real forms is no evidence.'}), scoreBox)); drawScore();
 ${FIXED_SCRIPT}
-  drawFixed(); showTab();
+  drawFix(); drawFixed(); showTab();
   const caseBox = el('div'), CASE_GET = [c => c.name.toLowerCase(), c => c.rung, c => (c.ok ? 1 : 0), c => c.history.at(-1), c => c.day, c => c.since];
   const drawCases = () => { caseBox.textContent = ''; caseBox.append(el('table', {},
     el('tr', {}, ...heads('cases', ['Case', 'Rung guarded', 'Result', 'Last 10 runs', 'Last run', 'Since'], drawCases)),

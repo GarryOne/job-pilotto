@@ -146,3 +146,21 @@ test('the six metrics sit in one row: one strip, a big number, a short label and
   assert.match(PAGE, /Stopped early, unexplained fields, or a regression/);   // the explanation is kept, as the tile's note and tooltip
   assert.equal((PAGE.match(/ tile\(/g) || []).length, 6, 'still six metrics, none dropped');
 });
+
+test('Needs a fix fits its panel: the row keeps Site / platform, Why, Last run and a Details expander; platform use, top cause and the filled runs live in the expander (owner, 11 Oct 2026)', () => {
+  assert.match(PAGE, /block\('fix', 'Sites', [^\n]*\['Site \/ platform', 'Why', 'Last run', 'Details'\]/);
+  const detail = PAGE.slice(PAGE.indexOf('const needDetail'), PAGE.indexOf('const drawFix = '));
+  for (const part of ['Platform use', 'Top cause', 'Filled, last runs', 'Last run']) assert.ok(detail.includes(part), part + ' is reachable in the expander');
+  assert.doesNotMatch(PAGE, /\['Site', 'Platform', 'Platform use', 'Why'/);   // the seven-column header is gone
+});
+
+test('one row open at a time in every table with an expander (the pool, Fixed, Needs a fix): they all flip through one helper that closes the others (owner, 11 Oct 2026)', () => {
+  const helper = PAGE.match(/const toggleOpen = [^\n]*/)?.[0];
+  assert.ok(helper, 'toggleOpen exists');
+  const toggle = new Function(helper.replace(/^const toggleOpen = /, 'return ').replace(/;$/, ''))();
+  const set = new Set();
+  toggle(set, 'a'); toggle(set, 'b'); assert.deepEqual([...set], ['b']);   // opening b closes a
+  toggle(set, 'b'); assert.deepEqual([...set], []);   // pressing the open one closes it
+  for (const call of ['toggleOpen(open, s.name)', 'toggleOpen(fixOpen, r.site)', 'toggleOpen(needOpen, s.name)']) assert.ok(PAGE.includes(call), call);
+  assert.doesNotMatch(PAGE, /\b\w*[oO]pen\.add\(/);   // nobody adds to an open set by hand
+});

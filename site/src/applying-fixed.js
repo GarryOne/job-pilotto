@@ -111,7 +111,7 @@ export const FIXED_SCRIPT = `
         return el('li', {}, id.replace(':', ' '), found ? el('span', {}, ' ', dots(found.history), ' ', found.ok ? 'passed' : 'failed', found.day ? ' · last ' + found.day : '') : el('span', {className: 'muted', textContent: id.startsWith('fixture:') ? ' (ladder fixture)' : ' (not replayed in the last uploaded run)'})); }))),
     el('div', {}, el('h4', {textContent: 'Runs · filled' + (r.runs.length ? '' : '')}), r.runs.length ? el('ul', {className: 'fixguard'}, ...r.runs.map(run => el('li', {}, run.day + ' · ' + (STAGE[run.reached] || run.reached || 'Nothing reached') + (run.share != null ? ' · ' + run.share + '% filled' : ''), run.after ? el('span', {className: 'muted', textContent: ' · after the fix'}) : null)))
       : el('div', {className: 'muted', textContent: 'No smoke run uploaded for this site.'})));
-  const fixRows = r => { const on = fixOpen.has(r.site), kind = fixKind(r), flip = () => { if (on) fixOpen.delete(r.site); else fixOpen.add(r.site); drawFixed(); };
+  const fixRows = r => { const on = fixOpen.has(r.site), kind = fixKind(r), flip = () => { toggleOpen(fixOpen, r.site); drawFixed(); };
     const main = el('tr', {className: 'site' + (on ? ' open' : ''), onclick: flip},
       el('td', {}, el('div', {className: 'sitename'}, el('b', {textContent: fixShort(r.site)}), el('span', {className: 'muted', textContent: r.platform + (r.host ? ' (' + r.host + ')' : '')}))),
       el('td', {}, el('span', {className: 'pill s-' + FIX_TONE[kind], textContent: FIX_WORD[kind]}), el('span', {className: 'stack muted', textContent: fixReason(r)})),
