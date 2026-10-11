@@ -121,3 +121,10 @@ test('the two tabs are real tabs joined to the content: a tablist whose active t
   assert.match(PAGE, /\.tabs ~ section\.fixed\{[^}]*margin-top:0/);   // no gap under the strip
   assert.doesNotMatch(PAGE, /className: 'chip' \+ \(fixed/);   // the old chip buttons are gone
 });
+
+test('both tabs sit in the same panel: Needs a fix is a .fixpanel with the same card background, header, flat toolbar and 12px/16px cells as Fixed', () => {
+  assert.match(PAGE, /fixBox\.append\(el\('div', \{className: 'fixpanel'\}, el\('div', \{className: 'fixhead'\}/);
+  assert.match(PAGE, /\.tabs ~ section \.fixpanel\{[^}]*border-radius:0 0 12px 12px/);   // one rule for both panels
+  assert.match(PAGE, /\.fixpanel \.filters\{[^}]*border:0/);   // the toolbar is flat inside the panel, not a second box
+  assert.match(PAGE, /\.fixpanel td,\.fixpanel th\{padding:12px 16px/);
+});

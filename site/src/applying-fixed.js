@@ -80,7 +80,8 @@ export const FIXED_CSS = `
 .tabs{display:flex;gap:6px;margin:18px 0 0;padding:0 0 0 12px;border-bottom:1px solid var(--line)}
 .tabs a{position:relative;display:inline-block;margin-bottom:-1px;padding:10px 18px;border:1px solid var(--line);border-bottom:0;border-radius:10px 10px 0 0;background:var(--bg);color:var(--muted);font-size:14px;text-decoration:none}
 .tabs a:hover{color:var(--text)}.tabs a:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}.tabs a.on{background:var(--card);color:var(--text);font-weight:600;border-bottom:1px solid var(--card);box-shadow:inset 0 2px 0 var(--amber)}
-.tabs ~ section.fix,.tabs ~ section.fixed{margin-top:0;padding-top:16px;border-top:0}.tabs ~ section.fixed{padding-top:0}.fixed .fixpanel{border-top:0;border-radius:0 0 12px 12px}
+.tabs ~ section.fix,.tabs ~ section.fixed{margin-top:0;padding-top:0;border-top:0}.tabs ~ section .fixpanel{border-top:0;border-radius:0 0 12px 12px}
+.fixpanel .filters{margin:0;padding:12px 16px;background:none;border:0;border-top:1px solid var(--line);border-radius:0}.fixpanel td,.fixpanel th{padding:12px 16px}.fixpanel th{border-top:1px solid var(--line)}
 .fixpanel{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}.fixhead{padding:16px}.fixhead h2{margin:0 0 4px;font-size:18px}.fixhead p{margin:0 0 8px}
 .how{font-size:13px}.how summary{cursor:pointer;color:var(--muted)}.how summary:hover{color:var(--text)}.how dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;margin:10px 0 0}.how dt{font-weight:600}.how dd{margin:0;color:var(--muted)}
 .fixbar,.fixfoot{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;align-items:center;padding:12px 16px;border-top:1px solid var(--line);font-size:13px}.fixfoot .pager{margin:0}
