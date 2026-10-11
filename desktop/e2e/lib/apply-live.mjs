@@ -101,6 +101,15 @@ export async function runLive(ctx, h) {
       // LIVE_CAPTURE_DIR: every page and frame of the run under its own address, and the stylesheets, for an offline replay (lib/capture-journey.mjs)
       const values = process.env.LIVE_CAPTURE_DIR ? personalValues(appProfileTexts([ctx.profile])) : null;
       const journey = values && journeyRecorder(ctx.browser.context, {scrub: html => scrub(html, values)}), styles = values && cssRecorder(ctx.browser.context);
+      // Each page-kind ask, noted by the app the moment it arrives (lib/live-capture.js noteAsk: asks.jsonl, before the AI answers): that page is kept at once, as the
+      // extension saw it (capture-journey.mjs atAsk). ai-calls.json is written only once answered, when the extension may already have pressed on.
+      let asksSeen = 0;
+      const asks = journey && setInterval(() => {
+        let lines = [];
+        try { lines = fs.readFileSync(path.join(process.env.LIVE_CAPTURE_DIR, 'asks.jsonl'), 'utf8').split('\n').filter(Boolean); } catch { return; }
+        for (const line of lines.slice(asksSeen)) { try { journey.atAsk(JSON.parse(line).url).catch(() => {}); } catch { /* a line still being written */ } }
+        asksSeen = lines.length;
+      }, 200);
       const clock = stillClock({seconds: stillSeconds(), startedAt: Date.now()});   // lib/live-still.mjs: the watch ends early when nothing has changed for LIVE_STILL_SECONDS (20); `seconds` stays the limit
       let last = '', changedAt = Date.now(), stalled = false, frame = 0, acts = 0, looked = false, lastLine = '';
       // The privacy tripwire (lib/privacy-tripwire.mjs): the owner's own values are never typed into a real page. Checked every few seconds and once at the end, before
@@ -136,6 +145,7 @@ export async function runLive(ctx, h) {
         await pause(1500);
       }
       if (trip || (trip = await tripped())) { console.log(`  live: ${trip}`); throw new Error(trip); }
+      if (asks) clearInterval(asks);
       console.log(`  live ${at()}: watched ${Math.round((Date.now() - started) / 1000)}s; frames in ${frames}`);
       // The app's whole log of this run, kept with the report (job-pilotto-54: the smoke report did not copy app.log, so an error nothing printed was lost): identity and counts only, per the app's logging rule.
       if (process.env.LIVE_CAPTURE_DIR) { fs.mkdirSync(process.env.LIVE_CAPTURE_DIR, {recursive: true}); fs.writeFileSync(path.join(process.env.LIVE_CAPTURE_DIR, 'app.log'), appLogLines(ctx.profile).join('\n') + '\n'); }

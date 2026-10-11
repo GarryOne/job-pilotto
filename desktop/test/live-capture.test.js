@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {captureAnswer, captureCall, scrub} from '../lib/live-capture.js';
+import {captureAnswer, captureCall, noteAsk, scrub} from '../lib/live-capture.js';
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'jp-live-capture-'));
 const request = {url: 'https://jobs.example.ch/job/42?token=SECRET&utm=1', title: 'Seller (m/f) mail anna.muster@gmail.com', headings: ['Apply, call +41 79 123 45 67'],
@@ -94,4 +94,13 @@ test('the app\'s own env writes the answer call into ai-calls.json under the har
     const calls = JSON.parse(fs.readFileSync(path.join(dir, 'ai-calls.json'), 'utf8'));
     assert.deepEqual(calls.map(call => [call.route, call.request.fields.map(f => f.field), call.answer.answers]), [['/extension/answer', ['q1'], [{field: 'q1', category: 'contact', use: 'fill'}]]]);
   } finally { if (before === undefined) delete process.env.LIVE_CAPTURE_DIR; else process.env.LIVE_CAPTURE_DIR = before; }
+});
+
+test('an ask is noted the moment it arrives, before the AI answers (asks.jsonl: the address and the time, scrubbed); outside the harness nothing', () => {
+  const dir = tmp();
+  assert.equal(noteAsk('https://jobs.example.ch/job/42?token=SECRET', {env: {LIVE_CAPTURE_DIR: dir}, now: () => 7}), true);
+  assert.deepEqual(fs.readFileSync(path.join(dir, 'asks.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line)), [{url: 'https://jobs.example.ch/job/42', at: 7}]);
+  assert.equal(noteAsk('https://x.example/', {env: {}}), false);
+  const source = fs.readFileSync(new URL('../lib/server-pages.js', import.meta.url), 'utf8');
+  assert.ok(source.indexOf('noteAsk(') > 0 && source.indexOf('noteAsk(') < source.indexOf('await decide('), 'the page-kind route notes the ask before it asks the AI');
 });

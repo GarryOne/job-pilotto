@@ -1,0 +1,203 @@
+/* global document, history, PopStateEvent, window */
+// One pool row replayed offline on the app's own path (speed-5x landing 2, owner 11 Oct 2026): the row's saved journey (every page and frame under its own address,
+// its stylesheets from styles.har.json) served to the real extension in one browser, the extension talking to the app's own server under plain node
+// (lib/offline-app.mjs: the fake applicant, the row's model answers from model-memo.json, a miss asks the plan's claude -p once and is kept). Nothing reaches a site:
+// an address the run did not record gets a 404 and a finding "route not recorded: <address>". Ends on the live run's still-clock and prints the same evidence lines.
+// -> {seconds, evidence, unrecorded, asks, coldAsks, requests}. CLI: row.mjs (npm run row). Guard: e2e/test/row-replay.test.mjs.
+import fs from 'node:fs';
+import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
+import {evidenceLines} from './evidence-bundle.mjs';
+import {freePort} from './extension.mjs';
+import {nextRunnable} from './replay-browser.mjs';
+import {PAGE_LINE, stillClock} from './live-still.mjs';
+import {replayPresses, samePress, stateAfter, swapInPage} from './row-follow.mjs';
+import {startOfflineApp} from './offline-app.mjs';
+import {startRealExtension} from './real-extension.mjs';
+
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+// The live harness's window (lib/extension.mjs: viewport null under --headless=new), measured on 11 Oct 2026: for a capture made before it recorded its own (journey view).
+const LIVE_WINDOW = {width: 1200, height: 818};
+export const addressOf = url => String(url).replace(/[?#].*$/, '').replace(/\/$/, '');
+const readJson = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
+
+// The row's recorded files -> {start, documents: Map(address -> html of its first state), sheets: Map(address -> css), states: the main page's states in order
+// [{url, at, state, html}], presses: the live run's presses (presses.json)}.
+export function rowFiles(caseDir) {
+  const item = readJson(path.join(caseDir, 'case.json'), null);
+  if (!item?.pages?.length) throw new Error(`no recorded pages in ${caseDir}/case.json`);
+  const html = page => fs.readFileSync(path.join(caseDir, page.file), 'utf8'), documents = new Map();
+  // First as the extension saw a page when it asked (the capture's ask state), else the first state kept.
+  for (const page of [...item.pages.filter(one => one.ask), ...item.pages]) if (!documents.has(addressOf(page.url))) documents.set(addressOf(page.url), html(page));
+  const states = item.pages.filter(page => !page.frameOf && page.at != null).map(page => ({url: addressOf(page.url), href: String(page.url), at: page.at, state: page.state || 0, ask: !!page.ask, view: page.view || null, html: html(page)})).sort((a, b) => a.at - b.at);
+  const entries = readJson(path.join(caseDir, 'styles.har.json'), {log: {entries: []}}).log?.entries || [];
+  const sheets = new Map(entries.map(entry => [addressOf(entry.request.url), entry.response?.content?.text || '']));
+  return {start: item.pages.find(page => !page.frameOf) || item.pages[0], documents, sheets, states, presses: readJson(path.join(caseDir, 'presses.json'), [])};
+}
+
+// A pool row by its case folder, or by its name (as smoke prints it): the newest day's candidate whose folder name holds it. -> the folder, or ''.
+export function findRow(name, root) {
+  if (fs.existsSync(path.join(name, 'case.json'))) return path.resolve(name);
+  const want = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  let days = [];
+  try { days = fs.readdirSync(root).filter(day => /^\d{4}-\d\d-\d\d$/.test(day)).sort().reverse(); } catch { return ''; }
+  for (const day of days) {
+    const hit = fs.readdirSync(path.join(root, day)).find(folder => folder.includes(want) && fs.existsSync(path.join(root, day, folder, 'case.json')));
+    if (hit) return path.join(root, day, hit);
+  }
+  return '';
+}
+
+// The one place the browser comes from: the real extension built for the front at `port` (lib/real-extension.mjs appPort: no stub of its own), any site allowed,
+// offline (nothing but this computer resolves). -> {context, page, close}.
+export const openBrowser = ({extensionDir, port}) => startRealExtension({extensionDir, appPort: port, allowAllSites: true, offline: true});
+
+// In front of the offline app: pairing is answered here (the extension pairs with this front), every other call goes to the app with its token; each is recorded.
+async function frontOf(app) {
+  const port = await freePort(), requests = [];
+  const cors = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'};
+  const server = http.createServer((request, response) => {
+    if (request.method === 'OPTIONS') { response.writeHead(204, cors); response.end(); return; }
+    const chunks = [];
+    request.on('data', chunk => chunks.push(chunk));
+    request.on('end', async () => {
+      const route = request.url.split('?')[0], body = Buffer.concat(chunks);
+      requests.push({route, at: Date.now(), body: body.toString().slice(0, 20000)});
+      if (route === '/extension/pair') { response.writeHead(200, {...cors, 'Content-Type': 'application/json'}); response.end(JSON.stringify({url: `http://127.0.0.1:${port}`, token: 'front'})); return; }
+      try {
+        const upstream = await fetch(`${app.url}${request.url}`, {method: request.method, headers: {'content-type': request.headers['content-type'] || 'application/json',
+          authorization: `Bearer ${app.token}`, origin: `chrome-extension://${app.extensionId}`}, ...(['GET', 'HEAD'].includes(request.method) ? {} : {body})});
+        response.writeHead(upstream.status, {...cors, 'Content-Type': upstream.headers.get('content-type') || 'application/json'});
+        response.end(Buffer.from(await upstream.arrayBuffer()));
+      } catch (error) { response.writeHead(502, cors); response.end(JSON.stringify({error: String(error?.message || error)})); }
+    });
+  });
+  await new Promise(resolve => server.listen(port, '127.0.0.1', resolve));
+  return {port, url: `http://127.0.0.1:${port}`, requests, close: () => new Promise(resolve => server.close(() => resolve()))};
+}
+
+// One offline app, front and browser for one or more rows (their kept model answers merged: a key is a hash of the ask). -> {use(caseDir), replay(caseDir, opts), close()}
+export async function openReplay(caseDirs, {extensionDir} = {}) {
+  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-row-'));
+  const memo = path.join(workDir, 'model-memo.json');   // a copy: each row's own answers stay as the live run kept them
+  const merged = Object.assign({}, ...caseDirs.map(dir => readJson(path.join(dir, 'model-memo.json'), {})));
+  fs.writeFileSync(memo, JSON.stringify(merged));
+  const app = await startOfflineApp({memo, dir: path.join(workDir, 'app')});
+  const front = await frontOf(app);
+  const run = await openBrowser({extensionDir, port: front.port});
+  // Rows replay side by side, one tab each; rows that share a host never run together (replayRows), so an address, a request or a log line names its row by host.
+  const rows = new Map(), active = new Set();   // page -> its row; the rows running now
+  const rowOf = page => rows.get(page) || [...active].find(row => row.hosts.has(new URL(page.url() || 'about:blank').host)) || null;
+  run.context.on('page', page => { const opener = rows.get(page.opener?.() || null); if (opener) rows.set(page, opener); });   // a tab a row's page opened is that row's
+  // The site reacts at the click, not when the extension's log arrives (batched: 11 Oct 2026, the page moved after the extension's after-press watch had ended): a
+  // click on a control the live run pressed next moves the page to the live run's next state at once (lib/row-follow.mjs).
+  const norm = text => String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  await run.context.exposeBinding('__jpReplayPressed', async ({page}, label) => {
+    const row = rowOf(page), k = row?.applied, live = row?.presses[k];
+    if (!live || norm(label) !== norm(live.label)) return;
+    row.applied += 1;
+    const next = stateAfter(row.states, row.presses, k);
+    if (!next) return;
+    row.documents.set(next.url, next.html); row.pageStates.set(next.url, next.html);
+    await new Promise(resolve => setTimeout(resolve, 150));   // the site's own reaction time
+    const was = row.states[row.states.indexOf(next) - 1], sameDocument = next.view?.doc && was?.view?.doc ? next.view.doc === was.view.doc : new URL(next.url).host === new URL(page.url()).host;
+    if (addressOf(page.url()) === next.url) await page.evaluate(swapInPage, next.html).catch(() => {});
+    else if (sameDocument) await page.evaluate(url => { history.pushState({}, '', url); window.dispatchEvent(new PopStateEvent('popstate')); }, next.href || next.url).then(() => page.evaluate(swapInPage, next.html)).catch(() => {});   // a single-page app's route
+    else {   // a new document: followed as the site did (a link inside the page), never typed into the address bar (the extension would read that as the person leaving)
+      await Promise.all([page.waitForNavigation({waitUntil: 'domcontentloaded', timeout: 15000}).catch(() => {}),
+        page.evaluate(url => { const link = Object.assign(document.createElement('a'), {href: url}); document.body.append(link); link.click(); }, next.href || next.url).catch(() => {})]);
+    }
+    row.say?.(`row: ${row.name}: press ${k + 1} "${label}" as live: the live run's next state (${next.url}, state ${next.state})`);
+  });
+  await run.context.addInitScript(() => document.addEventListener('click', event => {
+    const control = event.target?.closest?.('button, a, [role=button], input[type=submit], input[type=button]');
+    if (control) window.__jpReplayPressed?.((control.innerText || control.value || control.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().slice(0, 80));
+  }, true));
+  // One catch-all route before any page loads (a route added while a tab loads let a request out, 11 Oct 2026); this computer's calls pass.
+  await run.context.route('**/*', route => {
+    const url = route.request().url(), key = addressOf(url);
+    if (/^http:\/\/(127\.0\.0\.1|localhost)[:/]/.test(url)) return route.continue();
+    const owner = [...active].find(row => row.documents.has(key) || row.sheets.has(key));
+    // The tab itself loading an address the live run saw as a page of its own (a form frame opened in the tab): that page's state, not its frame snapshot.
+    const asPage = owner && route.request().resourceType() === 'document' && !route.request().frame()?.parentFrame() && owner.pageStates.get(key);
+    if (asPage) return route.fulfill({status: 200, contentType: 'text/html; charset=utf-8', body: asPage});
+    if (owner?.documents.has(key)) return route.fulfill({status: 200, contentType: 'text/html; charset=utf-8', body: owner.documents.get(key)});
+    if (owner) return route.fulfill({status: 200, contentType: 'text/css', body: owner.sheets.get(key)});
+    if (['document', 'stylesheet'].includes(route.request().resourceType())) { const page = route.request().frame()?.page(); (rows.get(page) || [...active][0])?.unrecorded.add(key); }
+    return route.fulfill({status: 404, body: ''});
+  });
+  let blank = run.page;   // the browser's first, empty tab: closed once a row has its own, so the extension counts the tabs the live run had
+  const close = async () => { await run.close().catch(() => {}); await front.close().catch(() => {}); await app.close().catch(() => {}); };
+  const replay = async (caseDir, {stillSeconds = 10, capSeconds = 90, say = () => {}, alone = true} = {}) => {   // alone: no other row runs beside it (nothing to attribute)
+    const started = Date.now(), files = rowFiles(caseDir), {start, states, presses} = files;
+    const hosts = new Set([...files.documents.keys()].map(url => new URL(url).host)), name = path.basename(caseDir);
+    const pageStates = new Map();   // address -> the first state the live run kept of it as the tab's own page
+    for (const state of [...states.filter(one => one.ask), ...states]) if (!pageStates.has(state.url)) pageStates.set(state.url, state.html);
+    const row = {name, documents: files.documents, sheets: files.sheets, pageStates, unrecorded: new Set(), states, presses, applied: 0, say, hosts};
+    const mine = text => alone || [...hosts].some(host => String(text).includes(host));
+    const fromRequest = front.requests.length, fromLog = app.logText().length;
+    const requests = () => front.requests.slice(fromRequest).filter(request => mine(request.body));
+    const log = () => app.logText().slice(fromLog).split('\n').filter(mine).join('\n');
+    active.add(row);
+    const tab = await run.context.newPage();
+    rows.set(tab, row);
+    if (blank) { await blank.close().catch(() => {}); blank = null; }
+    try {
+      const view = states[0]?.view?.width ? states[0].view : LIVE_WINDOW;
+      await tab.setViewportSize({width: view.width, height: view.height}).catch(() => {});   // the live run's window size (a frame's size is in the AI's sketch)
+      say(`row: ${name}: ${row.documents.size} pages, ${row.sheets.size} stylesheets, ${presses.length} live presses`);
+      await tab.goto(`${start.url.replace(/#.*$/, '')}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'}).catch(() => {});
+      const clock = stillClock({seconds: stillSeconds, startedAt: Date.now()});
+      let followed = 0, divergence = '';
+      while (Date.now() - started < capSeconds * 1000 && !divergence) {
+        // Each press the replay made, against the live run's (lib/row-follow.mjs); the click handler above moved the page.
+        const pressed = replayPresses(requests(), alone ? null : hosts);
+        for (; followed < pressed.length && !divergence; followed++) {
+          const check = samePress(pressed[followed], presses[followed], followed);
+          if (!check.same) divergence = check.finding;
+        }
+        clock.see(JSON.stringify([requests().length, log().split('\n').filter(line => PAGE_LINE.test(line)).length, [...rows.values()].filter(one => one === row).length]), Date.now());
+        if (clock.over(Date.now(), {opened: true})) break;
+        await wait(500);
+      }
+      return {row: name, seconds: Math.round((Date.now() - started) / 100) / 10, evidence: evidenceLines(log()), unrecorded: [...row.unrecorded], followed: Math.min(followed, row.applied),
+        divergence, livePresses: presses.length, asks: requests().filter(request => request.route === '/extension/page-kind').length,
+        misses: (log().match(/not in the row's kept answers/g) || []).length, requests: requests(), appLog: log()};
+    } finally {
+      active.delete(row);
+      for (const [page, owner] of [...rows]) if (owner === row) { rows.delete(page); await page.close().catch(() => {}); }
+    }
+  };
+  return {replay, close, keptAnswers: Object.keys(merged).length};
+}
+
+export async function replayRow(caseDir, {extensionDir, ...options} = {}) {
+  const session = await openReplay([caseDir], {extensionDir});
+  try { return await session.replay(caseDir, options); } finally { await session.close(); }
+}
+
+// Every row in one browser and one app, `tabs` at a time; rows that share a host wait for each other (replay-browser.mjs nextRunnable). -> [result] in the rows' order
+export async function replayRows(caseDirs, {extensionDir, tabs = 4, ...options} = {}) {
+  const session = await openReplay(caseDirs, {extensionDir}), results = new Map(), running = new Map();   // dir -> its hosts
+  const queue = caseDirs.map(dir => ({dir, pages: [...rowFiles(dir).documents.keys()].map(url => ({url}))}));
+  try {
+    await new Promise(resolve => {
+      const next = () => {
+        if (!queue.length && !running.size) return resolve();
+        while (running.size < tabs && queue.length) {
+          const at = nextRunnable(queue, new Set([...running.values()].flat()));
+          if (at < 0) break;
+          const [item] = queue.splice(at, 1);
+          running.set(item.dir, item.pages.map(page => new URL(page.url).host));
+          session.replay(item.dir, {...options, alone: tabs === 1}).catch(error => ({row: path.basename(item.dir), error: String(error?.message || error)}))
+            .then(result => { results.set(item.dir, result); running.delete(item.dir); next(); });
+        }
+      };
+      next();
+    });
+    // A press line may name no host ("closed a popup"): a row that diverged beside others is re-run alone before its result counts (as replay-browser.mjs does for told/notTold).
+    for (const dir of caseDirs) if (tabs > 1 && results.get(dir)?.divergence) results.set(dir, {...await session.replay(dir, {...options, alone: true}), rerunAlone: true});
+  } finally { await session.close(); }
+  return caseDirs.map(dir => results.get(dir));
+}

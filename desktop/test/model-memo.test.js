@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {memoFile, memoKey, withMemo} from '../lib/ai/model-memo.js';
+import {memoFile, memoKey, memoOnly, withMemo} from '../lib/ai/model-memo.js';
 
 const ask = (text, extra = {}) => ({model: 'claude-haiku-5-5', max_tokens: 500, system: 'Say what kind of page this is.', messages: [{role: 'user', content: text}], ...extra});
 
@@ -66,4 +66,38 @@ test('the app\'s AI client is memoized through one place only', () => {
   const users = fs.readdirSync(lib, {recursive: true}).map(file => String(file).split(path.sep).join('/')).filter(file => file.endsWith('.js'))
     .filter(file => fs.readFileSync(path.join(lib, file), 'utf8').includes('withMemo('));
   assert.deepEqual(users.sort(), ['ai/index.js', 'ai/model-memo.js']);
+});
+
+test('memo-only (an offline row replay): a kept answer is given, a miss is refused and never asked', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-memo-')), 'model-memo.json');
+  const asking = {messages: {create: async () => ({content: [{type: 'text', text: 'kept'}]})}};
+  withMemo(asking, file);
+  await asking.messages.create(ask('a kept page'));
+  let asked = 0;
+  const offline = {messages: {create: async () => { asked += 1; return {content: []}; }}};
+  withMemo(offline, file, {only: true});
+  assert.deepEqual((await offline.messages.create(ask('a kept page'))).content, [{type: 'text', text: 'kept'}]);
+  await assert.rejects(offline.messages.create(ask('a page the live run never asked about')), /not in the row's kept answers/);
+  assert.equal(asked, 0, 'the model is never asked');
+  assert.equal(memoOnly({JOB_PILOTTO_E2E: '1', JOB_PILOTTO_MODEL_MEMO_ONLY: '1'}), true);
+  assert.equal(memoOnly({JOB_PILOTTO_MODEL_MEMO_ONLY: '1'}), false, 'only under the e2e env');
+});
+
+test('the key scrubs contacts as the page capture does: the live ask (the page\'s real email) and its replay (the scrubbed page) are one key', () => {
+  const live = ask('Buttons: Apply | rh@fidag-sa.ch | Call +41 22 555 12 34\n- mailto:rh@fidag-sa.ch');
+  const replay = ask('Buttons: Apply | test.candidate@example.com | Call (phone)\n- mailto:test.candidate@example.com');
+  assert.equal(memoKey(live), memoKey(replay));
+  assert.notEqual(memoKey(ask('Buttons: Apply | Share')), memoKey(ask('Buttons: Apply | rh@fidag-sa.ch')), 'an address is still part of the page');
+});
+
+test('memo-only answers are scrubbed like the replayed page: an email the AI read off the live page matches the scrubbed one', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-memo-')), 'model-memo.json');
+  const live = {messages: {create: async () => ({content: [{type: 'text', text: '{"kind":"posting","apply_email":"rh@fidag-sa.ch","apply_by":"email"}'}]})}};
+  withMemo(live, file);
+  await live.messages.create(ask('Addresses: rh@fidag-sa.ch'));
+  const replay = {messages: {create: async () => { throw new Error('never asked'); }}};
+  withMemo(replay, file, {only: true});
+  const answer = await replay.messages.create(ask('Addresses: test.candidate@example.com'));
+  assert.match(answer.content[0].text, /"apply_email":"test\.candidate@example\.com"/);
+  assert.match(JSON.parse(fs.readFileSync(file, 'utf8'))[Object.keys(JSON.parse(fs.readFileSync(file, 'utf8')))[0]].content[0].text, /rh@fidag-sa\.ch/, 'the kept answer itself is unchanged');
 });

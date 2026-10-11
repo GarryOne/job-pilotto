@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {fakeContacts} from '../live-capture.js';
 
 // Volatile parts of a request: an address's query or fragment, a timestamp, a uuid, a long hex id, a run of 6+ digits (an epoch, a job id in a path).
 // Short numbers stay (a field id, a count, the digest's [n]); the order of everything stays (a numbered list's number is the answer).
@@ -16,7 +17,9 @@ const NORMALISE = [
   [/\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{16,}\b/gi, '<hex>'],
   [/\d{6,}/g, '<n>'],
 ];
-export const normalise = text => NORMALISE.reduce((out, [pattern, to]) => out.replace(pattern, to), text);
+// Contacts last (after the volatile parts, so a long id is not read as a phone), as the page capture scrubs them (lib/live-capture.js fakeContacts): the live run's ask saw the page's real email or phone, its replay sees the
+// scrubbed page; both must be one key (11 Oct 2026: every page with an address missed its kept answer).
+export const normalise = text => fakeContacts(NORMALISE.reduce((out, [pattern, to]) => out.replace(pattern, to), text));
 
 // The request as the model sees it: model, system, messages, output schema, tools (max_tokens and the like do not change the answer's meaning).
 // tag: the adapter's format when it is not the default (ClaudeCode memoTag 'schema-in-prompt'); no tag keeps every key as it was.
@@ -33,15 +36,26 @@ export function memoFile(env = process.env) {
   return file && !insideRealData(file) ? file : '';
 }
 
+// Memo-only (an offline row replay, e2e/lib/offline-app.mjs): a miss is refused, never asked: the plan's claude -p carries the signed-in account (11 Oct 2026:
+// a form answer guessed the owner's name from it), so an offline replay answers only what the live run already asked.
+export const memoOnly = (env = process.env) => !!env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_MODEL_MEMO_ONLY === '1';
+
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return {}; } };
 
 // Wraps the client's messages.create in place (the adapter keeps its engine, billing, fallback). A failed ask is not kept. -> the same client.
-export function withMemo(client, file = memoFile()) {
+export function withMemo(client, file = memoFile(), {only = memoOnly()} = {}) {
   if (!client || !file) return client;
   const ask = client.messages.create.bind(client.messages);
   client.messages = {...client.messages, create: async params => {
     const key = memoKey(params, client.memoTag || ''), kept = read(file);
-    if (kept[key]) return kept[key];
+    // An offline replay serves the page scrubbed (lib/live-capture.js fakeContacts): the answer the AI gave to the live page is scrubbed the same way, so an address it
+    // read off the page (apply_email) is still on the replayed page.
+    if (kept[key]) return only ? JSON.parse(fakeContacts(JSON.stringify(kept[key]))) : kept[key];
+    if (only) {
+      // JOB_PILOTTO_MODEL_MEMO_MISSES=<file> (e2e only): the normalised request of each miss, to see what differs from the live run's ask.
+      if (process.env.JOB_PILOTTO_E2E && process.env.JOB_PILOTTO_MODEL_MEMO_MISSES) try { fs.appendFileSync(process.env.JOB_PILOTTO_MODEL_MEMO_MISSES, `${normalise(JSON.stringify({model: params.model, system: params.system ?? '', messages: params.messages ?? [], output_config: params.output_config ?? null, tools: params.tools ?? null}))}\n`); } catch { /* a debug aid */ }
+      throw new Error('model memo: not in the row\'s kept answers (an offline replay never asks the model)');
+    }
     const answer = await ask(params);
     try {
       fs.mkdirSync(path.dirname(file), {recursive: true});

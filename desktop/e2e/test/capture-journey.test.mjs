@@ -1,3 +1,4 @@
+/* global document */
 // What a live run keeps of the pages it saw, for an offline replay (lib/capture-page.mjs, lib/capture-journey.mjs): the applied CSS (a CSS-shown dialog, a
 // frame's size), each iframe's document as its own page at its own address, every page under its own address, the cross-origin sheets as a text/css HAR.
 // Headless Chromium, network blocked (pages served by routes); skipped without Chromium.
@@ -83,5 +84,42 @@ test('the journey keeps every page and every frame once settled, each under its 
     assert.ok(!/typed/.test(frame), 'a value typed into the page is never kept');
     assert.match(fs.readFileSync(path.join(out, pages[0].file), 'utf8'), /Rôle/, 'every page goes through the scrub');
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(out, 'journey.json'), 'utf8')), pages);
+  } finally { await browser.close(); }
+});
+
+test('a page that changes in place (a dialog a press opens) is kept again once settled, in order, with its time; the extension\'s own boxes are no change', {skip}, async () => {
+  const {browser, context} = await open();
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-journey-states-'));
+  try {
+    const journey = journeyRecorder(context);
+    const page = await context.newPage();
+    await page.goto('https://jobs.example.test/o/role/apply');
+    for (let i = 0; i < 3; i++) await journey.tick();
+    await page.evaluate(() => { const box = Object.assign(document.createElement('div'), {id: 'jobpilotto-note'}); box.innerHTML = '<button>Fill anyway</button><button>Close</button>'; document.body.append(box); });
+    for (let i = 0; i < 3; i++) await journey.tick();
+    await page.evaluate(() => { document.body.insertAdjacentHTML('beforeend', '<dialog open><h2>Create an account</h2><button>Continue without an account</button><button>Sign in</button></dialog>'); });
+    for (let i = 0; i < 3; i++) await journey.tick();
+    const pages = journey.write(out);
+    assert.deepEqual(pages.map(item => [item.url, item.state]), [['https://jobs.example.test/o/role/apply', 0], ['https://jobs.example.test/o/role/apply', 1]], 'two states, not three: our own box is not a change');
+    assert.ok(pages[1].at >= pages[0].at && typeof pages[0].at === 'number');
+    assert.match(fs.readFileSync(path.join(out, pages[1].file), 'utf8'), /Continue without an account/);
+    assert.doesNotMatch(fs.readFileSync(path.join(out, pages[0].file), 'utf8'), /Continue without an account/);
+  } finally { await browser.close(); }
+});
+
+test('at the extension\'s ask the asked page is kept at once, marked as what the extension saw (before its fill changes the page)', {skip}, async () => {
+  const {browser, context} = await open();
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-journey-ask-'));
+  try {
+    const journey = journeyRecorder(context);
+    const page = await context.newPage();
+    await page.goto('https://jobs.example.test/o/role/apply');
+    await journey.atAsk('https://jobs.example.test/o/role/apply?x=1');   // the page-kind call names the page's address (its query cut)
+    await page.evaluate(() => document.querySelector('input').replaceWith(Object.assign(document.createElement('span'), {textContent: 'cv.pdf'})));   // the fill changes the page
+    for (let i = 0; i < 3; i++) await journey.tick();
+    const pages = journey.write(out);
+    assert.equal(pages[0].ask, true);
+    assert.match(fs.readFileSync(path.join(out, pages[0].file), 'utf8'), /<input/, 'kept as the extension saw it, before the fill');
+    await journey.atAsk('https://elsewhere.example/x');   // an address no tab shows: nothing kept, no error
   } finally { await browser.close(); }
 });

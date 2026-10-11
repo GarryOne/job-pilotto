@@ -30,3 +30,10 @@ test('the page capture and the live sketch scrub an email and a phone the same w
     assert.equal(scrub(`Mail ${email} now`), scrubLive(`Mail ${email} now`), email);
   }
 });
+
+test('a name word is scrubbed, an acronym that spells it is not (the fake applicant "Ada" and "the Americans with Disabilities Act (ADA)")', () => {
+  const values = personalValues(['Name: Ada Tester']);
+  const out = scrub('<p>Hello Ada, ada tester here. The Americans with Disabilities Act (ADA) applies.</p>', values);
+  assert.match(out, /\(ADA\)/);
+  assert.doesNotMatch(out, /Hello Ada|ada tester/i);
+});

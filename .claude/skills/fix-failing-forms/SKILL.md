@@ -32,7 +32,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
      report confirmed rows of your cause, before -> after, when you stop.
 - **Peers (a courtesy, never a dependency; owner, 11 Oct 2026: "run on its own, without a coordinator"):** `ListAgents`; `coordinator.txt` in `~/Library/Application Support/Job Pilotto QA/` names the session
   owning the pool's run queue, if one runs. Never two runs at once: the heavy lock queues them, a peer's run holds it, wait. **No coordinator in `ListAgents`, or the lock free: you run everything yourself** (repro, re-run on the landed build, upload) and say so in one line; never stop to ask.
-- **Claim the flow core** (`FLOW_CORE`/`FLOW_FILES`, `desktop/e2e/flows.mjs`) **only once the cause is proven (1.4), never on a hypothesis** (11 Oct: a claim on a guess queued 3 sessions), before editing any file in it: one message to every peer "I own the flow core
+- **Claim the flow core** (`FLOW_CORE`/`FLOW_FILES`, `desktop/e2e/flows.mjs`) **only once the cause is proven (1.5), never on a hypothesis** (11 Oct: a claim on a guess queued 3 sessions), before editing any file in it: one message to every peer "I own the flow core
   until I say released", and "released" when done. Read each file's `Invariants:` block first; changing one is the owner's call, said in the commit.
 - **Privacy, before any live run (11 Oct 2026):** the plan's `claude -p` carries the signed-in account, and a held fill once typed the owner's first name into a fake applicant's
   form. Run live only from a worktree that has `e0fce93` (the privacy tripwire in `lib/apply-live.mjs` runLive) and `7d8b948` (the harness never runs a terminal's `claude` wrapper).
@@ -48,22 +48,28 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
 - Both on one site: fix the rung first (the form is never reached otherwise), re-run, then the fields. Say which kind it is in one line before you start.
 
 ## 1. Reproduce (small, isolated, with a positive control)
-1. **ASKED, ANSWERED, DONE before any hypothesis** (owner, 11 Oct 2026: ~40% of each fix went to a wrong first guess). Write three lines from the run's evidence: ASKED (the sketch: buttons listed, candidates, frames, digest flag), ANSWERED (`page kind:` with `formFrame`, the `digest:` line: outcome, verb, numbers, dropped), DONE (what was pressed, where the page went: 54's press trace). A hypothesis that does not explain all three is not a diagnosis; a missing line is step 1.4b. **Read the artifacts, in this order:** (a) `smoke-reports/<day>-<shape>.app.log` (the app's whole log, kept per run; older runs: the e2e app's `jp-e2e-*/logs/app.log` in the temp folder, by time and host):
+1. **ASKED, ANSWERED, DONE before any hypothesis** (owner, 11 Oct 2026: ~40% of each fix went to a wrong first guess). Write three lines from the run's evidence: ASKED (the sketch: buttons listed, candidates, frames, digest flag), ANSWERED (`page kind:` with `formFrame`, the `digest:` line: outcome, verb, numbers, dropped), DONE (what was pressed, where the page went: 54's press trace). A hypothesis that does not explain all three is not a diagnosis; a missing line is step 1.5b. **Read the artifacts, in this order:** (a) `smoke-reports/<day>-<shape>.app.log` (the app's whole log, kept per run; older runs: the e2e app's `jp-e2e-*/logs/app.log` in the temp folder, by time and host):
    `page kind:`, `page kind: none (<error>)`, `ladder:`; (b) the shape's `.log` (the extension's `fill:` lines, the STALL dump with `controls` and `buttons`); (c) `live-frames/*.png` (check the host in the log vs the picture: the folder is overwritten);
    (d) the report's reached step. **Pair each extension line with the app's line for the same request** (an extension answer with no app line: the request never arrived or the extension returned first).
    **`grep` the code for a log message before adding one** (a duplicate was written once).
-2. **Run it in the harness, never the twin, never the owner's data:** `cd desktop/e2e && npm run smoke -- --only <shape words>` (the e2e app, its own profile and
+2. **Replay the row offline first (seconds, no site, no AI cost):** `cd desktop/e2e && npm run row -- "<pool row name>"` replays the row's own candidate (its pages, frames, CSS and
+   the app's AI answers of that run) on the app's own server under plain node, with the real extension, the fake applicant and memo-only AI (a question the live run never asked is
+   reported, never sent to claude -p). It prints the same evidence lines as a live run, `followed N/M live presses` (the site's reaction to each press is played back from the live
+   run), and `DIVERGED: press k: pressed "X"; live pressed "Y"` where the extension did otherwise: that line, or the evidence lines matching the live failure, is the repro.
+   A fix is proven first here: the row must now reach further (`--old <old extension/>` must still fail). `npm run rows` replays every row of the newest day in one browser.
+   Its limits: a page the live run never reached cannot be replayed, and a changed ask (a new sketch or prompt) is not in the row's kept answers: confirm live once (step 3).
+3. **Then confirm live in the harness, never the twin, never the owner's data:** `cd desktop/e2e && npm run smoke -- --only <shape words>` (the e2e app, its own profile and
    SQLite store in a throwaway profile (no Notion), fake applicant, fixture CV, a headless Chrome with the real extension through `lib/extension.mjs`). It is a HELD run: the consent and the
    account button are NOT pressed, never Submit. **Say before it starts** what the window does and what is HELD, and how long (`SMOKE_SECONDS`, default 90).
-3. **Watch it with `Monitor`, not sleep** (global rules): background run to a log, then
+4. **Watch it with `Monitor`, not sleep** (global rules): background run to a log, then
    `tail -n 0 -F <log> | grep --line-buffered -E "^\s+live \+|STALL|\[extension\] (fill: (page kind|pressed)|can't reach)|^(✓|✗)"`. Test the pattern once with `grep -c`
    on the log so far. Each event: one line on what it shows (progressing / done / stuck). First sign of life within ~20 s or say the experiment failed.
-4. **Prove the repro: two hard rules.** (a) **The SAME signature:** a repro counts only when it shows the same log lines as the live failure (the same `page kind:` and `ladder:` lines); one that fails for another reason proves another bug
+5. **Prove the repro: two hard rules.** (a) **The SAME signature:** a repro counts only when it shows the same log lines as the live failure (the same `page kind:` and `ladder:` lines); one that fails for another reason proves another bug
    (Datadog: the frame did grow, but the AI had answered "form", which cannot carry `form_frame`, so a real but different blocker came first). (b) **Which blocker?** Before any fix the log must answer it; if it cannot (frame count, `form_frame`,
    digest flag, the named button's flags: `no Apply button to press {found, visible, pickable…}`), add that line, run once, then fix. Also: the stub was really called (count the asks), and the case FAILS on the build before the fix
    (`REAL_EXTENSION_DIR=<old extension/>`); one that passes there is only a guard. **Which layer proves what:** a hand-stubbed AI answer in a recorded page proves the extension handles a CORRECT answer, never that the model gives it
    (that is `ladder-score` and the live pool). A shape that fails once (a moody site) is run twice before it counts.
-5. **Offline, no app run, seconds:** `cd desktop && node scripts/stage.mjs` once per fresh worktree (builds `shared/`), then `npm run ladder-score -- --offline --only <fixture>` (what the stored AI answer says) and
+6. **Offline, no app run, seconds:** `cd desktop && node scripts/stage.mjs` once per fresh worktree (builds `shared/`), then `npm run ladder-score -- --offline --only <fixture>` (what the stored AI answer says) and
    `cd e2e && JP_REPLAY=1 REPLAY_ONLY=<case> node --test test/recorded-pages.test.mjs` (the real extension on a recorded page). The shared e2e page is a queue (the coordinator, `coordinator.txt`): read the offline result and the newest logs first.
 
 ## 2. Say what the fix is, before coding (one block)

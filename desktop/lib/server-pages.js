@@ -9,7 +9,7 @@ import {fastFirst} from './ai/fast-first.js';
 import {judgeAccount} from './account-judge.js';
 import {judgeForm} from './form-judge.js';
 import {escalate} from './ladder/rung4-picture.js';
-import {captureCall} from './live-capture.js';
+import {captureCall, noteAsk} from './live-capture.js';
 import {forgetPageKind, kindKey, pageKind, pageKindCache, sketchBody} from './page-kind.js';
 import {hit as ladderHit, ladderStore, lookup as ladderLookup, miss as ladderMiss, record as ladderRecord} from './ladder/learning.js';
 import {otherStore, record as otherRecord} from './ladder/other.js';
@@ -99,6 +99,7 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
     return {ok: true, learned: kept};
   }
   if (body?.confirmed === true) return {ok: true, hit: !!(shapeOf && ladderHit(learnt, shapeOf))};   // the page confirmed the learned answer
+  if (!body?.forget) noteAsk(body?.url);   // the moment of the ask, for the e2e capture only (lib/live-capture.js)
   // The page-kind question tries the fast format first, the strict one on doubt (ai/fast-first.js); the digest goes strict.
   const ai = client !== undefined ? client : fastFirst({fast: aiClient(storage, {lane: 'page', schemaInPrompt: true}), strict: aiClient(storage, {lane: 'page'})});
   const answer = await decide(ai, sketchBody(body), kindCache, {fresh: body?.fresh === true, digest: body?.digest === true, learned: shape => ladderLookup(learnt, shape)});   // frames: the hosts of visible frames (a bot check), lib/page-kind.js

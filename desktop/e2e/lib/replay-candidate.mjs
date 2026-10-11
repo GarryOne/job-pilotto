@@ -13,9 +13,19 @@ export const slug = text => String(text).toLowerCase().replace(/[^a-z0-9]+/g, '-
 // Writes <dir>/<day>/<slug>/{page.html, case.json}; returns the folder, or null when there is no page. The address keeps no query or fragment.
 // captureDir (the live run's capture, lib/capture-journey.mjs): every page under its own address (journey.json + pages/), the stylesheets (styles.har.json) and the
 // model answers (model-memo.json) are copied; the journey then replaces the single last page. Without it: the last page, as before.
-export function saveCandidate({dir, day, shape, result, html, output = '', aiCalls = '', captureDir = ''}) {
+// The extension's presses in the app's log (our own wording: "pressed ..." and "closed a popup"), in order. -> [{at (ms), what, label}]
+const PRESS = /^(\S+Z) \[extension\] [a-z-]+: ((?:pressed [^{:]*?|closed a popup))(?::[^{]*)?\s*(\{.*\})?\s*$/;   // words-ok: our own log's wording, not page text
+export function livePresses(appLog) {
+  return String(appLog || '').split('\n').map(line => line.match(PRESS)).filter(Boolean).map(([, at, what, fields]) => {
+    let label = '';
+    try { label = String(JSON.parse(fields || '{}').label || ''); } catch { /* a line cut at its limit */ }
+    return {at: Date.parse(at), what: what.trim(), label};
+  });
+}
+
+export function saveCandidate({dir, day, shape, result, html, output = '', aiCalls = '', captureDir = '', appLog = '', always = false}) {   // always: a passing row too (SMOKE_KEEP_CANDIDATES=1: a row replay's trust check needs rows that pass)
   const journey = (() => { try { return JSON.parse(fs.readFileSync(path.join(captureDir, 'journey.json'), 'utf8')); } catch { return null; } })();
-  if ((!html && !journey?.length) || !worthSaving(result)) return null;
+  if ((!html && !journey?.length) || (!always && !worthSaving(result))) return null;
   const folder = path.join(dir, day, slug(shape)), address = String(result.url || '').replace(/[?#].*$/, '');
   fs.mkdirSync(folder, {recursive: true});
   if (journey?.length) {
@@ -23,6 +33,8 @@ export function saveCandidate({dir, day, shape, result, html, output = '', aiCal
     fs.cpSync(path.join(captureDir, 'pages'), path.join(folder, 'pages'), {recursive: true});
     for (const name of ['styles.har.json', 'model-memo.json']) if (fs.existsSync(path.join(captureDir, name))) fs.copyFileSync(path.join(captureDir, name), path.join(folder, name));
   } else fs.writeFileSync(path.join(folder, 'page.html'), html);
+  const presses = livePresses(appLog);   // what the live run pressed, in order: a row replay follows the live run's states after each (lib/row-replay.mjs)
+  if (presses.length) fs.writeFileSync(path.join(folder, 'presses.json'), `${JSON.stringify(presses, null, 1)}\n`);
   try { if (Array.isArray(JSON.parse(aiCalls))) fs.writeFileSync(path.join(folder, 'ai-calls.json'), aiCalls); } catch { /* the app kept none (no LIVE_CAPTURE_DIR, or an unreadable file): none kept */ }   // the app's live page-kind calls, scrubbed where they were written
   const pageKinds = String(output).split('\n').filter(line => /page kind/.test(line)).map(line => line.trim().slice(0, 400)).slice(0, 20);
   const item = {

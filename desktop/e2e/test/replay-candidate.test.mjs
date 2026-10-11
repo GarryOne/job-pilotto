@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {dropCandidate, saveCandidate, slug, worthSaving} from '../lib/replay-candidate.mjs';
+import {dropCandidate, livePresses, saveCandidate, slug, worthSaving} from '../lib/replay-candidate.mjs';
 
 test('a failure is worth keeping; a pass, a documented hold and a posting that is gone are not', () => {
   assert.equal(worthSaving({reached: 'form', filled: 4, left: 8, short: {done: 4, total: 12}}), true);   // 4 of 13 showed blue
@@ -68,4 +68,25 @@ test('a run that kept its journey saves every page under its own address, the po
   assert.equal(fs.readFileSync(path.join(folder, 'pages', '2.html'), 'utf8'), '<form>frame</form>');
   assert.ok(fs.existsSync(path.join(folder, 'styles.har.json')) && fs.existsSync(path.join(folder, 'model-memo.json')));
   assert.ok(!fs.existsSync(path.join(folder, 'page.html')), 'the last page is one of the journey\'s pages, never filed under the posting\'s address');
+});
+
+test('a passing row is kept only when asked (always: SMOKE_KEEP_CANDIDATES=1, for a row replay\'s trust check)', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-cand-'));
+  const passed = {reached: 'form', filled: 6, left: 0, url: 'https://jobs.example.org/a'};
+  assert.equal(saveCandidate({dir, day: '2026-10-11', shape: 'x', result: passed, html: '<p>x</p>'}), null);
+  assert.ok(saveCandidate({dir, day: '2026-10-11', shape: 'x', result: passed, html: '<p>x</p>', always: true}));
+});
+
+test('the live run\'s presses come with the row (presses.json): time, what and label, from the app log, in order', () => {
+  const log = ['2026-10-11T06:00:01.000Z [extension] fill: closed a popup {"label":"Ok","version":"0.9.199"}',
+    '2026-10-11T06:00:02.500Z [extension] page kind: posting {"by":"ai"}',
+    '2026-10-11T06:00:03.000Z [extension] fill: pressed the Apply button {"aimed":"","host":"www.jobs.ch","label":"Easy apply","tag":"button"}',
+    '2026-10-11T06:00:09.000Z [extension] fill: pressed the start route: manual {"host":"www.jobs.ch","label":"Continue without an account","route":"manual"}'].join('\n');
+  assert.deepEqual(livePresses(log), [
+    {at: Date.parse('2026-10-11T06:00:01.000Z'), what: 'closed a popup', label: 'Ok'},
+    {at: Date.parse('2026-10-11T06:00:03.000Z'), what: 'pressed the Apply button', label: 'Easy apply'},
+    {at: Date.parse('2026-10-11T06:00:09.000Z'), what: 'pressed the start route', label: 'Continue without an account'}]);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-cand-'));
+  const folder = saveCandidate({dir, day: '2026-10-11', shape: 'x', result: {reached: 'posting', url: 'https://a.example/x'}, html: '<p>x</p>', appLog: log});
+  assert.equal(JSON.parse(fs.readFileSync(path.join(folder, 'presses.json'), 'utf8')).length, 3);
 });

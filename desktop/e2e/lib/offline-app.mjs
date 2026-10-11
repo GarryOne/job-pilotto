@@ -1,0 +1,45 @@
+// Starts the app's own extension server offline for a row replay (speed-5x landing 2): its own process (lib/offline-app-child.mjs), a temp folder with the fake
+// applicant, a free port (never the person's app's), the e2e env without keys or the twin (offlineEnv), the real Claude Code install (never a terminal's wrapper),
+// and the row's model answers (memo: the case's model-memo.json; a miss is refused unless ask: true). -> {port, token, url, dir, logText(), close()}.
+// Guard: e2e/test/offline-app.test.mjs.
+import {execFileSync, spawn} from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {freePort} from './extension.mjs';
+import {offlineEnv} from './offline-guard.mjs';
+
+const CHILD = path.join(path.dirname(fileURLToPath(import.meta.url)), 'offline-app-child.mjs');
+const DESKTOP = path.resolve(path.dirname(CHILD), '..', '..');
+const LIVE_PORT = 47111;   // the person's app
+
+// ask: false (the default) answers only from the row's kept answers and refuses a miss (lib/ai/model-memo.js memoOnly): the plan's claude -p carries the signed-in
+// account, so it is asked only when the caller says so. A memo file always exists (an empty one refuses every ask): without one the app would ask the model.
+export async function startOfflineApp({memo = '', ask = false, dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-offline-app-')), timeoutMs = 20000} = {}) {
+  if (!memo) { memo = path.join(dir, 'model-memo.json'); fs.mkdirSync(dir, {recursive: true}); }
+  // The app imports the worker from desktop/shared/ (scripts/stage.mjs, run by npm start and npm test): a fresh worktree has none yet.
+  if (!fs.existsSync(path.join(DESKTOP, 'shared', 'worker', 'extension.js'))) execFileSync(process.execPath, [path.join(DESKTOP, 'scripts', 'stage.mjs'), '--files-only'], {cwd: DESKTOP, stdio: 'ignore'});
+  const port = await freePort();
+  if (port === LIVE_PORT) throw new Error('offline app: never the live app\'s port');
+  const env = {...offlineEnv(dir), JOB_PILOTTO_PORT: String(port), JOB_PILOTTO_MODEL_MEMO: memo, ...(ask ? {} : {JOB_PILOTTO_MODEL_MEMO_ONLY: '1'})};
+  const child = spawn(process.execPath, [CHILD], {env, stdio: ['ignore', 'pipe', 'pipe']});
+  let out = '', err = '';
+  child.stderr.on('data', chunk => { err += chunk; });
+  const ready = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error(`offline app: not ready in ${timeoutMs} ms ${err.slice(-400)}`)); }, timeoutMs);
+    child.stdout.on('data', chunk => {
+      out += chunk;
+      const line = out.split('\n').find(one => one.startsWith('{"ready"'));
+      if (line) { clearTimeout(timer); resolve(JSON.parse(line)); }
+    });
+    child.on('exit', code => { clearTimeout(timer); reject(new Error(`offline app: exited ${code} ${err.slice(-400)}`)); });
+  });
+  const logFile = path.join(dir, 'logs', 'app.log');
+  return {
+    ...ready, url: `http://127.0.0.1:${ready.port}`,
+    logText: () => { try { return fs.readFileSync(logFile, 'utf8'); } catch { return ''; } },
+    stderr: () => err,
+    close: () => new Promise(resolve => { if (child.exitCode != null) return resolve(); child.once('exit', () => resolve()); child.kill('SIGTERM'); setTimeout(() => child.kill('SIGKILL'), 3000).unref(); }),
+  };
+}

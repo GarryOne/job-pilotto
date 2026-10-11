@@ -147,7 +147,7 @@ async function main() {
     results[shape].evidence = path.relative(REPORTS, writeBundle({dir: path.join(REPORTS, 'evidence'), day, shape, output: run.output, appLog, aiCalls, result: results[shape]}));   // one bundle per shape (lib/evidence-bundle.mjs)
     results[shape].lines = evidenceLines(appLog);   // the four lines that matter, quoted in the day's report
     console.log(`smoke: ${shape}: evidence ${path.join(REPORTS, results[shape].evidence, 'evidence.md')}`);
-    const kept = saveCandidate({dir: CANDIDATES, day, shape, result: results[shape], html, output: run.output, aiCalls, captureDir});   // with the journey, the sheets and the model answers (lib/capture-journey.mjs)
+    const kept = saveCandidate({dir: CANDIDATES, day, shape, result: results[shape], html, output: run.output, aiCalls, captureDir, appLog, always: process.env.SMOKE_KEEP_CANDIDATES === '1'});   // with the journey, the sheets and the model answers (lib/capture-journey.mjs)
     if (kept) console.log(`smoke: ${shape}: replay candidate saved in ${kept}`); else dropCandidate({dir: CANDIDATES, day, shape});
     fs.rmSync(captureDir, {recursive: true, force: true});
     console.log(`smoke: ${shape}: reached ${results[shape].reached}${results[shape].filled != null ? `, ${results[shape].filled} filled, ${results[shape].left} left` : ''} (${run.seconds}s)`);

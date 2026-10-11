@@ -27,7 +27,8 @@ const escape = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 export function scrub(html, values = new Map()) {
   let out = fakeContacts(html);
   for (const [value, kind] of values) {
-    if (kind === 'name') out = out.replace(new RegExp(`\\b${escape(value)}\\b`, 'gi'), FAKE.name);
+    // A name word in any case but all capitals: "ADA" is the Americans with Disabilities Act, not the fake applicant Ada (11 Oct 2026, coreweave's form).
+    if (kind === 'name') out = out.replace(new RegExp(`\\b${escape(value)}\\b`, 'gi'), found => (found.length > 1 && found === found.toUpperCase() ? found : FAKE.name));
     if (kind === 'email') out = out.replace(new RegExp(escape(value), 'gi'), FAKE.email);
   }
   return out;
