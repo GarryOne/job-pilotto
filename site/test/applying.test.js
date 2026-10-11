@@ -250,6 +250,6 @@ test('a hold is in no Needs-a-fix group, is not counted as a posting gone, and s
 // The digest's own stops (desktop/e2e/lib/smoke.mjs SITE_REFUSED, LOGIN_WALL) are documented holds like the account-first one, but only account-first is a clean run.
 test('a refusing site and a login wall are holds, not fixes, and not clean runs', async () => {
   const {isHold, isAccountHold} = await import('../src/applying.js');
-  for (const note of ['site refused: retry later', 'login wall: held', 'account-first: held']) assert.equal(isHold(note), true, note);
-  assert.deepEqual(['site refused: retry later', 'login wall: held'].map(isAccountHold), [false, false]);
+  for (const note of ['site refused: retry later', 'login wall: held', 'applies by email: told', 'page tells how to apply: told', 'account-first: held']) assert.equal(isHold(note), true, note);
+  assert.deepEqual(['site refused: retry later', 'login wall: held', 'applies by email: told', 'page tells how to apply: told'].map(isAccountHold), [false, false, false, false]);
 });

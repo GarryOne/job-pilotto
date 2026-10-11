@@ -1,7 +1,7 @@
 // The hand-started smoke's logic (lib/smoke.mjs): how far a live run got, what counts as a regression, which posting a run tries, which shapes it takes.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {LOGIN_WALL, SITE_REFUSED, compare, engineLine, fieldLines, marksBlind, parseLive, pickPosting, placeFound, rungFields, runShare, shareSize, shortfall, smokeEngine, verdictFields, verdictOf} from '../lib/smoke.mjs';
+import {APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED, compare, engineLine, fieldLines, marksBlind, parseLive, pickPosting, placeFound, rungFields, runShare, shareSize, shortfall, smokeEngine, verdictFields, verdictOf} from '../lib/smoke.mjs';
 
 const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detail/x/
   2026-10-10T12:20:27Z [extension] page kind: account {"shape":"auth.jobs.ch/u/login/identifier|1-2","by":"ai"}
@@ -337,4 +337,16 @@ test('a form reached after the refusal clears the hold (the block came and went)
   const later = parseLive([...DIGEST('refused'), '      log 10:01:00.000Z [extension] fill: fields: 5 filled, 1 left {"fields":[]}'].join('\n'));
   assert.deepEqual([later.reached, later.note], ['form', undefined]);
   assert.equal(parseLive([...SIGN_UP, '      log 22:07:04.000Z [extension] digest: outcome=login_wall verb=none numbers=[] press_kind=- dropped=-'].join('\n')).note, 'account-first: held');
+});
+
+// A posting that says how to apply without a form (11 Oct 2026, the small French employer: "the posting asks for the application by email: reported to the app"): the app tells the person,
+// so the run ended where it should. The extension's own fixed lines name it (never the page's words); like the other holds it is no clean run, and a form reached later clears it.
+const TOLD = line => ['  live +  0s: Apply pressed on https://jobs.example.com/job/1/',
+  '      log 10:00:00.000Z [extension] page kind: posting {"shape":"jobs.example.com/job/*|0","by":"ai","rung":2}', `      log 10:00:01.000Z [extension] fill: ${line} {"host":"jobs.example.com"}`];
+
+test('a posting that asks for the application by email, or tells what to do, is a documented hold at the posting', () => {
+  assert.deepEqual([parseLive(TOLD('the posting asks for the application by email: reported to the app').join('\n'))].map(r => [r.reached, r.note]), [['posting', APPLY_BY_EMAIL]]);
+  assert.deepEqual([parseLive(TOLD('the page tells what to do: reported to the app').join('\n'))].map(r => [r.reached, r.note]), [['posting', PAGE_TELLS]]);
+  assert.equal(parseLive(TOLD('the ladder ended at the person: reported as other').join('\n')).note, undefined, 'the ladder giving up is a stop to fix, not a hold');
+  assert.equal(parseLive([...TOLD('the posting asks for the application by email: reported to the app'), '      log 10:01:00.000Z [extension] fill: fields: 5 filled, 1 left {"fields":[]}'].join('\n')).note, undefined, 'a form reached later clears it');
 });

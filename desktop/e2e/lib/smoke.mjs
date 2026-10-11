@@ -26,6 +26,9 @@ export const ACCOUNT_HELD = 'account-first: held';
 // neither counts as a clean run on the Fixed tab (only account-first does), and a later run that gets through and fails lists the row again.
 export const SITE_REFUSED = 'site refused: retry later';
 export const LOGIN_WALL = 'login wall: held';
+// The extension's own fixed lines for a posting that says how to apply without a form (the app tells the person: fill-flow.js `decide('fill', ...)`): documented holds too.
+export const APPLY_BY_EMAIL = 'applies by email: told';
+export const PAGE_TELLS = 'page tells how to apply: told';
 const DIGEST_HOLD = {refused: SITE_REFUSED, login_wall: LOGIN_WALL};
 export function parseLive(output) {
   const lines = String(output || '').split('\n');
@@ -45,6 +48,8 @@ export function parseLive(output) {
       onAccount = kind[1] === 'account';
       kinds.push(kind[1]); if (kind[1] === 'account') reach('account'); if (/^(form|account-form)$/.test(kind[1])) reach('form'); }
     if (/account (judgment|result)[^:]*: needs_code|"botCheck":true|bot check/.test(line)) reach('code/bot');
+    if (/fill: the posting asks for the application by email: reported to the app/.test(line)) digestHold = APPLY_BY_EMAIL;
+    if (/fill: the page tells what to do: reported to the app/.test(line)) digestHold = PAGE_TELLS;
     const digestOutcome = line.match(/\bdigest: outcome=(\w+)/);
     if (digestOutcome) digestHold = DIGEST_HOLD[digestOutcome[1]] || '';
     const noKind = line.match(/page kind: none \(([^)]*)\)/);
