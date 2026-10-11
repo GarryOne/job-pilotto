@@ -38,8 +38,9 @@ Whoever owns the pool and its run queue writes its own session name into `~/Libr
 
 `--discover` names a new shape by the posting's employer and, when the same host has a shape that was never run, fills that one instead of adding a row (474c641).
 Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is noted and replaced, never a regression. Exit 1 = a shape reached less than ITS last run.
-**Without Electron** (speed-5x landing 3, bfa4ae1): `SMOKE_NO_ELECTRON=1` runs each row on the app's own server under plain node (same reached/filled on 3 paired rows,
-~1.5-2x faster, ~0.33 GB instead of ~0.9 GB, no 27 s start); the default stays Electron until a pool night on it matches the last Electron night.
+**Rows run without Electron by default** (owner, 11 Oct 2026; speed-5x landing 3): each row runs on the app's own server under plain node (`live.mjs`): ~35-65 s a
+row instead of 69-97 s, no 27 s app start, the same reached/filled on 3 paired rows, the privacy tripwire on. `SMOKE_ELECTRON=1` (or `SMOKE_NO_ELECTRON=0`) runs the
+Electron app for a row that needs the real app; the run's first lines say which path ran.
 **What a candidate holds** (`replay-candidates/<day>/<shape>/`): every page and frame at the extension's ask, its CSS, the live AI answers (`model-memo.json`), the live presses
 (`presses.json`); `SMOKE_KEEP_CANDIDATES=1` keeps passing rows too. **After a fix batch lands, `npm run rows` replays the day's rows offline** (4 tabs, minutes, no AI cost):
 a row that now stops earlier than its live run is a regression found before the next night.

@@ -54,4 +54,4 @@ Owner decisions: landing 1 (11 Oct), step 0 then landing 2 (11 Oct), the privacy
 - [x] A live row on the plain-node app and the harness browser, with the ask capture and the tripwire (live-row.mjs, npm run live; this landing)
 - [x] Smoke runs a row this way (SMOKE_NO_ELECTRON=1), printing the lines it parses (this landing)
 - [x] Trust: the same rows on both paths reach the same step and fill the same fields (Recruitee form 4/1, jobs.ch form 6/2, coreweave form 10/12)
-- [ ] Landed; the default for smoke once trusted
+- [x] Landed (bfa4ae1); the default for smoke (owner, 11 Oct 2026; SMOKE_ELECTRON=1 is the way back)

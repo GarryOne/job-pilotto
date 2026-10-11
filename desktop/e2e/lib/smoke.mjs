@@ -166,3 +166,9 @@ export function verdictFields(result) {
   const asked = result.fieldList.filter(item => item.required !== false && item.type !== 'file').length, short = shortfall(result);
   return {asked, unexplained: short ? short.miss + short.noSuggestion : 0};
 }
+
+// Which path a smoke row runs on (owner, 11 Oct 2026: "make SMOKE_NO_ELECTRON the default"): the app's own server under plain node (live.mjs, speed-5x landing 3:
+// ~35-65 s a row instead of 69-97 s, no 27 s app start, the same reached and filled on the paired rows) unless SMOKE_ELECTRON=1 or SMOKE_NO_ELECTRON=0 asks for the
+// Electron app (a row that needs the real app). The privacy tripwire runs on both. -> 'node' | 'electron'
+export const smokeEngine = (env = process.env) => (env.SMOKE_ELECTRON === '1' || env.SMOKE_NO_ELECTRON === '0' ? 'electron' : 'node');
+export const engineLine = engine => (engine === 'node' ? 'smoke: rows run on the app\'s own path without Electron (SMOKE_ELECTRON=1 runs the Electron app)' : 'smoke: rows run in the Electron app (SMOKE_ELECTRON=1)');

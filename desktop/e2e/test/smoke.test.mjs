@@ -1,7 +1,7 @@
 // The nightly smoke's logic (lib/smoke.mjs): how far a live run got, what counts as a regression, which posting is tried tonight.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {compare, fieldLines, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, verdictFields, verdictOf} from '../lib/smoke.mjs';
+import {compare, engineLine, fieldLines, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, smokeEngine, verdictFields, verdictOf} from '../lib/smoke.mjs';
 
 const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detail/x/
   2026-10-10T12:20:27Z [extension] page kind: account {"shape":"auth.jobs.ch/u/login/identifier|1-2","by":"ai"}
@@ -223,4 +223,13 @@ test('the app\'s page-kind answers with no kind keep their error words, and the 
   assert.equal(log(['fill: closer look: click {"host":"x"}']).rung, 4);
   assert.equal(log(['page kind: posting {"by":"digest"}', 'fill: the ladder ended at the person']).rung, 6);   // the last decision wins
   assert.deepEqual(log(['page kind: posting {"by":"ai"}']).pageKindErrors, []);
+});
+
+test('a smoke row runs on the app\'s own path without Electron by default; SMOKE_ELECTRON=1 (or SMOKE_NO_ELECTRON=0) is the way back to the Electron app', () => {
+  assert.equal(smokeEngine({}), 'node', 'the default (owner, 11 Oct 2026: ~35-65 s instead of 69-97 s a row, no 27 s app start)');
+  assert.equal(smokeEngine({SMOKE_NO_ELECTRON: '1'}), 'node');
+  assert.equal(smokeEngine({SMOKE_ELECTRON: '1'}), 'electron');
+  assert.equal(smokeEngine({SMOKE_NO_ELECTRON: '0'}), 'electron');
+  assert.match(engineLine('node'), /without Electron.*SMOKE_ELECTRON=1/);
+  assert.match(engineLine('electron'), /Electron app/);
 });

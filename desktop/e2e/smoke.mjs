@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {compare, lastSeen, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, signature, tonight, verdictFields} from './lib/smoke.mjs';
+import {compare, engineLine, lastSeen, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, signature, smokeEngine, tonight, verdictFields} from './lib/smoke.mjs';
 import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
 import {uploadLedger} from './lib/fix-ledger.mjs';
 import {poolCard, sendPoolCard} from './lib/pool-card.mjs';
@@ -43,8 +43,8 @@ export async function postingStatus(url, fetcher = fetch) {
 function liveRun(posting, seconds, captureDir = '') {
   return new Promise(resolve => {
     const started = Date.now();
-    // SMOKE_NO_ELECTRON=1 (speed-5x landing 3): the row on the app's own path without Electron (live.mjs), printing the same lines parseLive reads.
-    if (process.env.SMOKE_NO_ELECTRON === '1') {
+    // The default (lib/smoke.mjs smokeEngine): the row on the app's own path without Electron (live.mjs), printing the same lines parseLive reads.
+    if (smokeEngine() === 'node') {
       const child = spawn('node', ['live.mjs', posting.url, '--title', posting.title || '', '--company', posting.company || '', ...(captureDir ? ['--capture', captureDir] : [])],
         {cwd: here, env: {...process.env, LIVE_SECONDS: String(seconds)}});
       let output = '';
@@ -128,6 +128,7 @@ async function main() {
   const pool = shapes.filter(item => !only || item.shape.includes(only));
   const chosen = only || process.argv.includes('--all') ? pool : tonight(pool, Number(process.env.SMOKE_PER_NIGHT || 10));
   console.log(`smoke: ${chosen.length} of ${shapes.length} shapes tonight`);
+  console.log(engineLine(smokeEngine()));
   for (const {shape, like = [], urls = []} of chosen) {
     const posting = pickPosting([...urls.map(url => ({url, title: '', company: ''})), ...(like.length ? postingsLike(like) : [])]);
     if (!posting) { results[shape] = {reached: 'none', note: 'no posting of this shape in the job list'}; console.log(`smoke: ${shape}: no posting`); await finish(shape); continue; }
