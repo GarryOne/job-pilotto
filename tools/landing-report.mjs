@@ -32,7 +32,7 @@ export function report(landings, heavy) {
     const proofRun = known ? mine.reduce((a, h) => a + (secs(h.run) ?? 0), 0) : null;
     const editSecs = first !== null && start !== null ? Math.max(0, Math.round((start - first) / 1000) - (lockWait ?? 0) - (proofRun ?? 0)) : null;
     return {branch: l.branch, session: l.session, result: l.result, end: l.ts_end, edit: editSecs, lockWait, proofRun, queue: secs(l.queue), rebase: secs(l.rebase), gate: secs(l.checks),
-      wfWait: secs(l.wf_wait), push: secs(l.push), ship: secs(l.total), refused: l.refused, skipped: l.skipped, gateSteps: l.gate_steps, proofRuns: mine.map((h) => `${h.what} wait ${h.wait} run ${h.run} load ${h.load_q}->${h.load_start}`)};
+      wfWait: secs(l.wf_wait), push: secs(l.push), ship: secs(l.total), refused: l.refused, skipped: l.skipped, gateSteps: l.gate_steps, proofRuns: mine.map((h) => `${h.what} wait ${h.wait} run ${h.run} load ${h.load_q}->${h.load_start}${h.top ? ", top " + h.top : ""}`)};
   });
 }
 const cell = (v) => (v === null || v === undefined ? 'not measured' : `${v}s`);

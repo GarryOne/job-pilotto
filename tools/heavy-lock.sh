@@ -110,6 +110,12 @@ cores="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 8)"
 limit="${JOB_PILOTTO_HEAVY_LOAD:-$(( cores * 3 / 2 ))}"; load_wait="${JOB_PILOTTO_HEAVY_LOAD_WAIT:-300}"; load_began=""; load_gave_up=0
 load1() { uptime | sed -E 's/.*load averages?: *//' | awk -F'[ ,]+' '{ printf "%d", $1 + 0.5 }'; }
 load_queue="$(load1)"
+# Who loads the Mac (owner, 11 Oct 2026: waits could not be attributed): the 3 programs using the most CPU right now, as "name 120%, ..." (JOB_PILOTTO_HEAVY_TOP=0 leaves it out). Nothing is killed.
+top_cpu() {  # $1 = separator between name and percent, $2 = separator between entries
+  [ "${JOB_PILOTTO_HEAVY_TOP:-1}" = 0 ] && return 0
+  ps -Ao pcpu=,comm= 2>/dev/null | awk '{c = $1; $1 = ""; sub(/^ +/, ""); n = split($0, p, "/"); cpu[p[n]] += c} END {for (k in cpu) printf "%d\t%s\n", cpu[k], k}' | sort -rn | head -3 \
+    | awk -F'\t' -v a="$1" -v b="$2" '$1 > 0 {printf "%s%s%s%s%%", sep, $2, a, $1; sep = b}'
+}
 mark() { printf '%s %s\n%s\n%s\n' "$$" "$what" "$1" "$session" >"$ticket"; }   # the ticket keeps its name (its place in line); only its second line changes
 machine_ready() {  # sets $why when not
   [ "$limit" -gt 0 ] 2>/dev/null || return 0
@@ -118,7 +124,7 @@ machine_ready() {  # sets $why when not
   if [ "$(load1)" -le "$limit" ]; then load_began=""; return 0; fi
   [ -n "$load_began" ] || load_began=$(date +%s)
   if [ $(( $(date +%s) - load_began )) -ge "$load_wait" ]; then say "load is still $(load1) (limit $limit) after ${load_wait}s: running $what anyway"; load_gave_up=1; return 0; fi
-  why="the machine is busy: 1-minute load $(load1) is above $limit (up to ${load_wait}s)"; return 1
+  why="the machine is busy: 1-minute load $(load1) is above $limit (up to ${load_wait}s); using the CPU: $(top_cpu ' ' ', ')"; return 1
 }
 while :; do
   first=""; why=""; busy="$(held)"
@@ -134,7 +140,7 @@ while :; do
   if [ "$waited" -ge "$wait_max" ]; then say "waited ${wait_max}s for the lock held by $(holders): running anyway"; break; fi
   if [ "$told" = 0 ] || [ $((waited % 30)) -lt 2 ]; then
     if [ -n "$why" ]; then say "$what waits for the machine, holding no slot: $why"
-    elif [ "$busy" != 0 ]; then say "$what waits: the lock is held by $(holders)${first:+, then $first is ahead}; waited ${waited}s (JOB_PILOTTO_HEAVY=0 skips this)"
+    elif [ "$busy" != 0 ]; then say "$what waits: the lock is held by $(holders)${first:+, then $first is ahead}; waited ${waited}s; load $(load1), using the CPU: $(top_cpu ' ' ', ') (JOB_PILOTTO_HEAVY=0 skips this)"
     else say "$what waits: $first asked first; waited ${waited}s (JOB_PILOTTO_HEAVY=0 skips this)"; fi
     told=1; sleep "$poll"
   fi
@@ -149,7 +155,7 @@ timing_log() {  # <text after the time stamp>
   [ "$timing" = /gate-timing.log ] || echo "# $(date -u +%Y-%m-%dT%H:%M:%SZ) $1" >>"$timing" 2>/dev/null || true
 }
 waited_s=$(( $(date +%s) - began )); load_start="$(load1)"
-ident="what=$what branch=$branch_now session=$session load_q=$load_queue load_start=$load_start"
+ident="what=$what branch=$branch_now session=$session load_q=$load_queue load_start=$load_start top=$(top_cpu : , | tr ' ' _)"
 if [ "$told" = 1 ]; then
   say "got the lock after ${waited_s}s"
   timing_log "heavy lock wait=${waited_s}s $ident"   # every wait, for the next measurement
