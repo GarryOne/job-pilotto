@@ -63,12 +63,12 @@ export function findRow(name, root) {
 export const openBrowser = ({extensionDir, port}) => startRealExtension({extensionDir, appPort: port, allowAllSites: true, offline: true});
 
 // One offline app, front and browser for one or more rows (their kept model answers merged: a key is a hash of the ask). -> {use(caseDir), replay(caseDir, opts), close()}
-export async function openReplay(caseDirs, {extensionDir} = {}) {
+export async function openReplay(caseDirs, {extensionDir, ask = false} = {}) {   // ask: a model call not in the kept answers goes to the plan's claude -p once and is kept (row-to-case --ask-cold)
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-row-'));
   const memo = path.join(workDir, 'model-memo.json');   // a copy: each row's own answers stay as the live run kept them
   const merged = Object.assign({}, ...caseDirs.map(dir => readJson(path.join(dir, 'model-memo.json'), {})));
   fs.writeFileSync(memo, JSON.stringify(merged));
-  const app = await startOfflineApp({memo, dir: path.join(workDir, 'app')});
+  const app = await startOfflineApp({memo, ask, dir: path.join(workDir, 'app')});
   const front = await frontOf(app);
   const run = await openBrowser({extensionDir, port: front.port});
   // Rows replay side by side, one tab each; rows that share a host never run together (replayRows), so an address, a request or a log line names its row by host.
@@ -154,12 +154,12 @@ export async function openReplay(caseDirs, {extensionDir} = {}) {
       for (const [page, owner] of [...rows]) if (owner === row) { rows.delete(page); await page.close().catch(() => {}); }
     }
   };
-  return {replay, close, keptAnswers: Object.keys(merged).length};
+  return {replay, close, keptAnswers: Object.keys(merged).length, memoNow: () => readJson(memo, {})};
 }
 
-export async function replayRow(caseDir, {extensionDir, ...options} = {}) {
-  const session = await openReplay([caseDir], {extensionDir});
-  try { return await session.replay(caseDir, options); } finally { await session.close(); }
+export async function replayRow(caseDir, {extensionDir, ask = false, ...options} = {}) {
+  const session = await openReplay([caseDir], {extensionDir, ask});
+  try { const result = await session.replay(caseDir, options); return ask ? {...result, memoAfter: session.memoNow()} : result; } finally { await session.close(); }
 }
 
 // Every row in one browser and one app, `tabs` at a time; rows that share a host wait for each other (replay-browser.mjs nextRunnable). -> [result] in the rows' order
