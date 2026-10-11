@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {addressOf, findRow, rowFiles} from '../lib/row-replay.mjs';
+import {addressOf, findRow, rowFiles, staleCapture} from '../lib/row-replay.mjs';
 
 const write = (file, text) => { fs.mkdirSync(path.dirname(file), {recursive: true}); fs.writeFileSync(file, text); };
 const caseIn = (dir, pages) => { write(path.join(dir, 'case.json'), JSON.stringify({pages})); for (const page of pages) write(path.join(dir, page.file), `<p>${page.url}</p>`); };
@@ -39,4 +39,14 @@ test('a page is first served as the extension saw it at its ask, when the live r
   write(path.join(dir, 'pages/1.html'), 'settled'); write(path.join(dir, 'pages/2.html'), 'at the ask');
   write(path.join(dir, 'case.json'), JSON.stringify({pages: [{url: 'https://a.example/p', file: 'pages/1.html', at: 1, state: 0}, {url: 'https://a.example/p', file: 'pages/2.html', at: 2, state: 1, ask: true}]}));
   assert.equal(rowFiles(dir).documents.get('https://a.example/p'), 'at the ask');
+});
+
+test('a capture from before the replay format (no window size or ask state on its pages) is named stale, with what to do; a current one is not', () => {
+  const old = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-row-old-'));
+  caseIn(old, [{url: 'https://a.example/p', file: 'page.html'}]);
+  assert.match(staleCapture(old), /predates the replay format.*npm run smoke -- --only/);
+  const current = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-row-new-'));
+  write(path.join(current, 'pages/1.html'), '<p>x</p>');
+  write(path.join(current, 'case.json'), JSON.stringify({pages: [{url: 'https://a.example/p', file: 'pages/1.html', at: 1, state: 0, ask: true, view: {width: 1200, height: 818, doc: 5}}]}));
+  assert.equal(staleCapture(current), '');
 });

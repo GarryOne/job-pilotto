@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {findRow, replayRow, replayRows} from './lib/row-replay.mjs';
+import {findRow, replayRow, replayRows, staleCapture} from './lib/row-replay.mjs';
 
 const args = process.argv.slice(2), at = args.indexOf('--old'), all = args.includes('--all');
 const extensionDir = at >= 0 ? path.resolve(args[at + 1]) : undefined, name = args.filter((arg, i) => !(at >= 0 && (i === at || i === at + 1)) && arg !== '--all').join(' ');
@@ -16,12 +16,17 @@ if (all) {
   const day = (() => { try { return fs.readdirSync(root).filter(d => /^\d{4}-\d\d-\d\d$/.test(d)).sort().at(-1); } catch { return ''; } })();
   const dirs = day ? fs.readdirSync(path.join(root, day)).map(d => path.join(root, day, d)).filter(d => fs.existsSync(path.join(d, 'case.json'))) : [];
   if (!dirs.length) { console.error(`rows: no candidates in ${root}`); process.exit(2); }
-  const started = Date.now(), results = await replayRows(dirs, {extensionDir});
+  const stale = dirs.filter(dir => staleCapture(dir));
+  for (const dir of stale) console.log(`row: ${path.basename(dir)}: STALE: ${staleCapture(dir)}`);
+  if (stale.length === dirs.length) process.exit(3);
+  const started = Date.now(), results = await replayRows(dirs.filter(dir => !stale.includes(dir)), {extensionDir});
   for (const r of results) console.log(line(r));
   console.log(`rows: ${results.length} rows of ${day} in ${Math.round((Date.now() - started) / 1000)} s; ${results.filter(r => !r.error && !r.divergence).length} followed the live run to its end`);
 } else {
   const dir = name && findRow(name, root);
   if (!dir) { console.error(`row: no candidate for "${name}" in ${root} (give a pool row's name or a case folder)`); process.exit(2); }
+  const stale = staleCapture(dir);
+  if (stale) { console.error(`row: ${path.basename(dir)}: ${stale}`); process.exit(3); }
   const result = await replayRow(dir, {extensionDir, say: console.log});
   console.log(line(result));
   for (const address of result.unrecorded) console.log(`row: route not recorded: ${address}`);

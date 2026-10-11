@@ -35,6 +35,14 @@ export function rowFiles(caseDir) {
   return {start: item.pages.find(page => !page.frameOf) || item.pages[0], documents, sheets, states, presses: readJson(path.join(caseDir, 'presses.json'), [])};
 }
 
+// A capture made before the replay format (11 Oct 2026: no page state carries its window size or the extension's ask) replays without the live run's states,
+// presses or matching AI answers, so it would mislead: it is named, with what to do, instead of replayed. -> the reason, or '' (current).
+export function staleCapture(caseDir) {
+  const item = readJson(path.join(caseDir, 'case.json'), null);
+  const current = (item?.pages || []).some(page => !page.frameOf && (page.view || page.ask));
+  return current ? '' : `this row's capture predates the replay format (no per-page states, presses or window size): capture it once with npm run smoke -- --only "<row>" (or npm run live -- <posting url>) and replay again`;
+}
+
 // A pool row by its case folder, or by its name (as smoke prints it): the newest day's candidate whose folder name holds it. -> the folder, or ''.
 export function findRow(name, root) {
   if (fs.existsSync(path.join(name, 'case.json'))) return path.resolve(name);
