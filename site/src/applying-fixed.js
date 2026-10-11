@@ -104,7 +104,7 @@ export const FIXED_SCRIPT = `
   const fixShare = list => { const v = (list || []).filter(value => value != null); return v.length ? v.at(-1) + '%' : '—'; };
   const fixFilled = r => (r.status === 'replay' || (fixShare(r.filledBefore) === '—' && fixShare(r.filledAfter) === '—') ? '—' : fixShare(r.filledBefore) + ' → ' + fixShare(r.filledAfter));
   const fixedList = () => [...d.fixed.rows, ...d.fixed.replays.map(c => ({site: c.name, platform: 'Replay fixture', host: '', status: 'replay', commit: null, fixes: [], runs: [], guard: ['recorded:' + c.name], cases: [c], filledBefore: [], filledAfter: [], landedAt: null}))];
-  const fixOpen = new Set(), fixPage = {n: 0}, FIX_PER = 5;
+  const fixOpen = new Set(), fixPage = {n: 0}, FIX_PER = NEXT_PER;
   const fixDetail = r => el('div', {className: 'detail'},
     el('div', {}, fixShort(r.site) !== r.site ? el('div', {}, el('h4', {textContent: 'Scenario'}), el('div', {textContent: r.site})) : null,
       el('div', {className: 'narrow'}, el('h4', {textContent: 'Filled before → after'}), el('div', {textContent: fixFilled(r)})),

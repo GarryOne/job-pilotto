@@ -277,9 +277,9 @@ fetch('?json').then(r => r.json()).then(d => {
       pager.append(el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: chosen.page === 0, onclick: go(-1)}),
         el('button', {className: 'chip', type: 'button', textContent: 'Next →', disabled: chosen.page >= pages - 1, onclick: go(1)})); } };
   // Next sites to add: first the platforms most matched jobs are on that the pool covers too little (from any number of installs), then the hosts real applications ended on
-  // that the pool lacks, each used by >= 3 installs (src/nextsites.js). Top 5 of each, the rest on request.
-  // Each list is a bar (its title, "Showing 1-5 of N", Previous / Next) over a table: the pool table's own pattern, 5 rows a page.
-  const nextPage = {platforms: 0, sites: 0, score: 0, fix: 0, fixed: 0}, NEXT_PER = 5, nextBox = el('div'), scoreBox = el('div');
+  // that the pool lacks, each used by >= 3 installs (src/nextsites.js). Top 10 of each, the rest on request.
+  // Each list is a bar (its title, "Showing 1-10 of N", Previous / Next) over a table: the pool table's own pattern, 10 rows a page (NEXT_PER, shared by the Fixed table).
+  const nextPage = {platforms: 0, sites: 0, score: 0, fix: 0, fixed: 0}, NEXT_PER = 10, nextBox = el('div'), scoreBox = el('div');
   const block = (key, title, what, allRows, labels, row, none, redraw = () => drawNext(), getters = []) => {
     const rows = sortRows(key, allRows, getters), pages = Math.max(1, Math.ceil(rows.length / NEXT_PER)); nextPage[key] = Math.min(nextPage[key], pages - 1);
     const from = nextPage[key] * NEXT_PER, shown = rows.slice(from, from + NEXT_PER), go = step => () => { nextPage[key] += step; redraw(); };

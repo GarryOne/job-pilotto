@@ -65,9 +65,9 @@ test('the page draws the section with no stray text, with and without suggestion
   assert.ok(card.includes('Blind spot') && card.includes('Greenhouse') && card.includes('Platform scorecard') && !/null/.test(card), 'the scorecard row is drawn');
   const withPlatforms = await run({platforms: [{platform: 'Workday', matchShare: 82, poolShare: 0, poolSites: 0, installs: 1, applications: 0}], sites: [], hidden: {hosts: 0}});
   assert.ok(withPlatforms.includes('Workday') && withPlatforms.includes('82%') && !/null/.test(withPlatforms), 'a platform from one install is listed');
-  const text = await run({sites: Array.from({length: 7}, (_, i) => ({host: `h${i}.acme.md`, platform: 'Custom', poolSites: 0, installs: 3, uses: 3, readyShare: 50, countries: []})), hidden: {hosts: 0}});
+  const text = await run({sites: Array.from({length: 13}, (_, i) => ({host: `h${i}.acme.md`, platform: 'Custom', poolSites: 0, installs: 3, uses: 3, readyShare: 50, countries: []})), hidden: {hosts: 0}});
   assert.ok(text.indexOf('Next sites to add') >= 0 && text.indexOf('Next sites to add') < text.indexOf('The pool'), 'the list is the first section, above the pool');
-  assert.ok(!/null/.test(text) && text.includes('h0.acme.md') && !text.includes('h5.acme.md') && text.includes('Showing 1–5 of 7') && text.includes('Next →'), 'top 5, the count and the pager');
+  assert.ok(!/null/.test(text) && text.includes('h0.acme.md') && text.includes('h9.acme.md') && !text.includes('h10.acme.md') && text.includes('Showing 1–10 of 13') && text.includes('Next →'), 'top 10, the count and the pager');
 });
 
 // The owner (10 Oct 2026): the list must not rely only on installs: if most matched jobs are on Workday and the pool has no Workday site, that comes first, even from one install.

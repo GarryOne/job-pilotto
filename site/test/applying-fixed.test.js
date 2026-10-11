@@ -128,3 +128,10 @@ test('both tabs sit in the same panel: Needs a fix is a .fixpanel with the same 
   assert.match(PAGE, /\.fixpanel \.filters\{[^}]*border:0/);   // the toolbar is flat inside the panel, not a second box
   assert.match(PAGE, /\.fixpanel td,\.fixpanel th\{padding:12px 16px/);
 });
+
+test('every paged table of the tabs and sections that share the block() helper shows 10 rows a page, the Fixed table too (owner, 11 Oct 2026); the pool keeps its own 15', () => {
+  assert.match(PAGE, /NEXT_PER = 10\b/);
+  assert.match(PAGE, /FIX_PER = NEXT_PER\b/);   // Fixed follows the same size, never its own number
+  assert.match(PAGE, /const PER = 15\b/);
+  assert.doesNotMatch(PAGE, /NEXT_PER = 5\b|FIX_PER = 5\b/);
+});
