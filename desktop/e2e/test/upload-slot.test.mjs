@@ -196,11 +196,13 @@ test('a file already in the input: no trigger is pressed again (it would open th
 const IMPORT_SHAPE = `<body><div class="fast"><button type="button" id="importBtn"><span id="importLbl">Importar datos desde mi CV</span></button>
   <form id="imp" aria-hidden="true"><input type="file" id="imp" class="hidden" aria-labelledby="importLbl" onchange="window.got = Object.assign(window.got || {}, {imp: this.files[0].name})"></form></div>
   <form id="main"><div class="field"><label>Nombre * <input id="n"></label></div>
-  <div class="field"><div class="lab"><span>Currículo</span> <em>*</em></div><input type="file" id="own" class="hidden" onchange="window.got = Object.assign(window.got || {}, {own: this.files[0].name})"></div></form></body>`;
+  <style>.hidden{display:none}</style><div class="field"><div class="lab"><span>Currículo</span> <em>*</em></div><div class="drop"><button type="button" class="btn-upload" onclick="window.pressed = (window.pressed || 0) + 1">cargar archivo</button></div><input type="file" id="own" class="hidden" onchange="window.got = Object.assign(window.got || {}, {own: this.files[0].name})"></div></form></body>`;
 test('an import-from-CV input beside the form\'s own CV slot: the AI\'s choice gets the CV, the import input gets nothing', async () => {
   await open(IMPORT_SHAPE, async page => {
-    const result = await fill(page, CV_ONLY, {choice: {resume: 'Currículo *'}});
+    const wide = (await page.evaluate(() => window.__jobPilottoUpload.cvCandidates())).find(title => /Currículo/.test(title));
+    const result = await fill(page, CV_ONLY, {choice: {resume: wide}});
     assert.deepEqual(result.got, {own: 'cv.pdf'});
+    assert.equal(await page.evaluate(() => window.pressed || 0), 0, 'the button is not pressed: it would open the system file dialog over the page');
   });
 });
 test('no choice (no AI, or it said none): the operator behaves as before', async () => {
@@ -212,7 +214,7 @@ test('no choice (no AI, or it said none): the operator behaves as before', async
 test('the slots\' titles are listed for the app to ask about, only when two or more slots could take the CV', async () => {
   await open(IMPORT_SHAPE, async page => {
     const titles = await page.evaluate(() => window.__jobPilottoUpload.cvCandidates());
-    assert.deepEqual(titles.sort(), ['Currículo *', 'Importar datos desde mi CV']);
+    assert.equal(titles.length, 2); assert.ok(titles.some(title => /Currículo/.test(title)) && titles.some(title => /Importar datos/.test(title)), titles.join(' | '));
   });
   await open('<body><label>Attachment <input type="file" id="x"></label></body>', async page => {
     assert.deepEqual(await page.evaluate(() => window.__jobPilottoUpload.cvCandidates()), []);

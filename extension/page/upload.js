@@ -53,14 +53,26 @@
   const meaningOf = (slot, aliases) => fileKind(slot.title, aliases) || fileKind(slot.hints, aliases);
   // The app's AI picked, from the titles of the slots that could take the CV, the one that takes it as a document (window.__jobPilottoUploadChoice = {resume: title}, set by flow.js):
   // that slot is the CV slot, and another that only a word called a CV (an "Import data from my CV" feature that reads the file to fill the form) gets no file.
-  const choice = () => cleanLabel(window.__jobPilottoUploadChoice?.resume || '');
-  const named = (slot, aliases) => {
-    const meaning = meaningOf(slot, aliases), picked = choice();
-    return !picked ? meaning : cleanLabel(slot.title) === picked ? 'resume' : meaning === 'resume' ? '' : meaning;
+  // A slot's own title can miss its field's label (Louis Vuitton: the label block sits more than 6 levels above the hidden input): the AI sees the wider title, climbed further
+  // by the same stops (never past a parent that holds another slot or any other control).
+  const OTHERS = 'input:not([type=file]):not([type=hidden]):not([type=submit]):not([type=button]), select, textarea';
+  const wideTitle = (slot, all) => {
+    let el = slot.el;
+    for (let i = 0; i < 10; i++) {
+      const parent = el.parentElement;
+      if (!parent || parent === document.body || parent.querySelector(OTHERS) || all.some(other => other !== slot && parent.contains(other.el))) break;
+      el = parent;
+    }
+    return clean(textOf(el)).slice(0, 160);
   };
-  // The titles of the slots that could take the CV (not a cover-letter slot), when two or more could: what the app is asked to choose among. Fewer: nothing to choose.
+  const choice = () => cleanLabel(window.__jobPilottoUploadChoice?.resume || '');
+  const named = (slot, aliases, all) => {
+    const meaning = meaningOf(slot, aliases), picked = choice();
+    return !picked ? meaning : cleanLabel(wideTitle(slot, all)) === picked ? 'resume' : meaning === 'resume' ? '' : meaning;
+  };
+  // The wider titles of the slots that could take the CV (not a cover-letter slot), when two or more could: what the app is asked to choose among. Fewer: nothing to choose.
   function cvCandidates(doc = document, aliases = window.__jobPilottoAliases || []) {
-    const titles = slots(doc).filter(slot => meaningOf(slot, aliases) !== 'cover_letter').map(slot => slot.title).filter(Boolean);
+    const all = slots(doc), titles = all.filter(slot => meaningOf(slot, aliases) !== 'cover_letter').map(slot => wideTitle(slot, all)).filter(Boolean);
     return titles.length >= 2 ? [...new Set(titles)] : [];
   }
 
@@ -68,9 +80,21 @@
   function rows(doc = document, aliases = window.__jobPilottoAliases || []) {
     const all = slots(doc);
     return all.map((slot, i) => {
-      const meaning = named(slot, aliases) || (all.length === 1 ? 'resume' : '');
+      const meaning = named(slot, aliases, all) || (all.length === 1 ? 'resume' : '');
       return {field: meaning || `upload_${i + 1}`, label: slot.title || 'Upload', type: 'file', required: slot.required, legal: false, filled: slot.filled};
     });
+  }
+
+  // A pressable slot whose file input already exists beside it, hidden (Louis Vuitton: a "cargar archivo" button, its input in the same field): that input, with no press (a press
+  // opens the system's file dialog over the person's page). The nearest ancestor of the trigger that holds exactly one file input, empty and not another slot's. Else null.
+  function nearbyInput(slot, owned = new Set()) {
+    if (!slot.trigger) return null;
+    for (let el = slot.trigger.parentElement, i = 0; el && el !== document.body && i < 8; el = el.parentElement, i++) {
+      const inputs = [...el.querySelectorAll('input[type=file]')];
+      if (!inputs.length) continue;
+      return inputs.length === 1 && !inputs[0].files?.length && !owned.has(inputs[0]) ? inputs[0] : null;
+    }
+    return null;
   }
 
   // Press the slot's trigger (or the one a recipe names) and wait for the file input the page creates.
@@ -121,7 +145,7 @@
     const given = new Set();   // a document given by one slot is not given again by another way of giving it (Upload CV, then Copy and paste CV: the second press hid the first's input)
     for (const slot of all) {
       // A lone slot with a wording nobody knows takes the CV, as a lone file input always did.
-      const meaning = named(slot, aliases) || (all.length === 1 ? 'resume' : '');
+      const meaning = named(slot, aliases, all) || (all.length === 1 ? 'resume' : '');
       const label = cleanLabel(slot.title).slice(0, 60);
       const recipe = recipes[slot.fp]?.operator === 'upload' ? recipes[slot.fp] : null;
       const base = {meaning, fp: slot.fp, recipe: recipe ? recipe.version : 0, label};
@@ -131,10 +155,11 @@
       if (given.has(meaning)) { results.push({...base, why: 'already given through another slot'}); continue; }
       // A file input on the page already holds a file (the person chose one, or an earlier pass attached it) and belongs to this meaning or to no known one: a trigger is NOT pressed again,
       // since pressing it opens the system's file dialog over the person's page (owner, 9 Oct 2026: "I uploaded the CV, but then it opened again").
-      if (!slot.input && all.some(item => item.input?.files?.length && (named(item, aliases) || meaning) === meaning)) { given.add(meaning); results.push({...base, ok: true, why: 'already holds a file'}); continue; }
+      if (!slot.input && all.some(item => item.input?.files?.length && (named(item, aliases, all) || meaning) === meaning)) { given.add(meaning); results.push({...base, ok: true, why: 'already holds a file'}); continue; }
       try {
-        const revealed = !slot.input;
-        const input = slot.input || await reveal(slot, recipe?.params || {}, new Set(all.filter(item => item.input && (named(item, aliases) || meaning) !== meaning).map(item => item.input)));   // another slot's input only when its wording is known and differs: an unnamed one beside the triggers is the part the trigger reveals
+        const near = slot.input ? null : nearbyInput(slot, new Set(all.filter(item => item.input && (named(item, aliases, all) || meaning) !== meaning).map(item => item.input)));
+        const revealed = !slot.input && !near;
+        const input = slot.input || near || await reveal(slot, recipe?.params || {}, new Set(all.filter(item => item.input && (named(item, aliases, all) || meaning) !== meaning).map(item => item.input)));   // another slot's input only when its wording is known and differs: an unnamed one beside the triggers is the part the trigger reveals
         if (!input) { results.push({...base, ok: false, why: 'no file input appeared'}); continue; }
         const done = await attach(slot, input, file, revealed);
         if (done.ok) given.add(meaning);
