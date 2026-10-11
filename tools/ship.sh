@@ -127,14 +127,10 @@ run_checks() {  # [why]
 run_checks
 
 # A push that changes workflow files while a desktop build runs would make GitHub refuse that build's release, if the build could not tag at its
-# start (desktop.yml "Tag this build now"): wait for the build, up to 20 minutes (SHIP_NO_WAIT=1 skips the wait). Other pushes never wait.
+# start (desktop.yml "Tag this build now"): wait until the build has tagged itself, not for the whole build (tools/wait-build-tag.sh; 11 Oct 2026; it was up
+# to 20 minutes). SHIP_NO_WAIT=1 skips the wait, SHIP_WAIT_FOR_BUILD=1 waits for the whole build as before. Other pushes never wait.
 if [ -z "${SHIP_NO_WAIT:-}" ] && ! git diff --quiet origin/main HEAD -- .github/workflows 2>/dev/null; then
-  for wait in $(seq 1 40); do
-    running="$(gh run list -R GarryOne/job-pilotto --workflow desktop.yml --status in_progress -L 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)"
-    [ -z "$running" ] && break
-    [ "$wait" = 1 ] && echo "ship: this push changes workflow files and desktop build $running is running: waiting for it (at most 20 min)" >&2
-    sleep 30
-  done
+  if [ -f "$here/tools/wait-build-tag.sh" ]; then bash "$here/tools/wait-build-tag.sh"; fi
 fi
 
 step "pushing to main"
