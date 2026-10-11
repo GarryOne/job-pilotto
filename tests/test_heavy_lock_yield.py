@@ -7,6 +7,8 @@ import time
 import unittest
 from pathlib import Path
 
+from tests.heavy_wait import wait_registered
+
 LOCK = Path(__file__).resolve().parent.parent / 'tools' / 'heavy-lock.sh'
 
 
@@ -22,8 +24,9 @@ class HeavyLockYieldTest(unittest.TestCase):
                     'JOB_PILOTTO_HEAVY_SLOTS': '1'}
 
     def pool(self, **env):
-        """A pool run: part 1 (1.5 s), a yield point, part 2 (0.3 s)."""
-        body = f'echo +pool1 >> {self.trace}; sleep 1.5; bash {LOCK} yield; echo +pool2 >> {self.trace}; sleep 0.3; echo -pool >> {self.trace}'
+        """A pool run: part 1 (until the test says go), a yield point, part 2 (0.3 s)."""
+        self.go = self.tmp / 'go'
+        body = f'echo +pool1 >> {self.trace}; while [ ! -f {self.go.as_posix()} ]; do sleep 0.1; done; bash {LOCK} yield; echo +pool2 >> {self.trace}; sleep 0.3; echo -pool >> {self.trace}'
         return subprocess.Popen(['bash', str(LOCK), 'e2e-smoke', 'bash', '-c', body], env={**self.env, **env}, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
     def waiter(self, what, name, nap='0.3', **env):
@@ -36,8 +39,10 @@ class HeavyLockYieldTest(unittest.TestCase):
 
     def test_a_pool_run_gives_its_place_to_a_waiting_proof_at_the_yield_point_and_gets_it_back(self):
         pool = self.pool()
-        time.sleep(0.6)
+        wait_registered(self.env['JOB_PILOTTO_HEAVY_DIR'], 1)
         proof = self.waiter('real-extension', 'proof')
+        wait_registered(self.env['JOB_PILOTTO_HEAVY_DIR'], 2)
+        self.go.write_text('go')
         trace, errs = self.finish(pool, proof)
         self.assertEqual(trace, ['+pool1', '+proof', '-proof', '+pool2', '-pool'])
         self.assertIn('yields its place to real-extension', errs[0])
@@ -48,8 +53,10 @@ class HeavyLockYieldTest(unittest.TestCase):
 
     def test_with_nobody_of_a_higher_class_waiting_it_returns_at_once_and_keeps_the_lock(self):
         pool = self.pool()
-        time.sleep(0.6)
+        wait_registered(self.env['JOB_PILOTTO_HEAVY_DIR'], 1)
         other = self.waiter('e2e-smoke', 'pool-b')     # the same class: no reason to yield
+        wait_registered(self.env['JOB_PILOTTO_HEAVY_DIR'], 2)
+        self.go.write_text('go')
         trace, errs = self.finish(pool, other)
         self.assertEqual(trace, ['+pool1', '+pool2', '-pool', '+pool-b', '-pool-b'])
         self.assertNotIn('yields', errs[0])

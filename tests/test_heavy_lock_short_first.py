@@ -8,6 +8,8 @@ import time
 import unittest
 from pathlib import Path
 
+from tests.heavy_wait import wait_registered
+
 ROOT = Path(__file__).resolve().parent.parent
 LOCK = ROOT / 'tools' / 'heavy-lock.sh'
 
@@ -28,10 +30,12 @@ class HeavyLockShortFirstTest(unittest.TestCase):
     def order(self, **env):
         """A holder runs 2 s; a longer run of the same class (real-extension) queues, then a row replay; returns the order they ran in."""
         mark = lambda name, nap: f'echo {name} >> {self.trace}; sleep {nap}'
+        heavy = self.env['JOB_PILOTTO_HEAVY_DIR']
         holder = self.start('recorded-replay-holder', mark('holder', 2), **env)
-        time.sleep(0.5)
+        wait_registered(heavy, 1)
         longer = self.start('real-extension', mark('long', 0.2), **env)
-        time.sleep(0.5)
+        wait_registered(heavy, 2)
+        time.sleep(0.2)
         row = self.start('row-replay', mark('row', 0.2), **env)
         for p in (holder, longer, row):
             p.communicate(timeout=30)

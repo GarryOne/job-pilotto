@@ -7,6 +7,8 @@ import time
 import unittest
 from pathlib import Path
 
+from tests.heavy_wait import wait_registered
+
 LOCK = Path(__file__).resolve().parent.parent / 'tools' / 'heavy-lock.sh'
 
 
@@ -27,10 +29,11 @@ class HeavyLockClassesTest(unittest.TestCase):
     def order(self, waiters, **env):
         """A holder runs 2 s; the waiters queue in the order given as (what, name, extra env); returns the run order."""
         procs = [self.start('real-extension', 'holder', '2', **env)]
-        time.sleep(0.5)
+        wait_registered(self.env['JOB_PILOTTO_HEAVY_DIR'], 1)
         for what, name, extra in waiters:
             procs.append(self.start(what, name, **{**env, **extra}))
-            time.sleep(0.4)
+            wait_registered(self.env['JOB_PILOTTO_HEAVY_DIR'], len(procs))
+            time.sleep(0.2)
         for p in procs:
             p.communicate(timeout=60)
         return Path(self.trace).read_text().split()

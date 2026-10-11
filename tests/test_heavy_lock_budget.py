@@ -7,6 +7,8 @@ import time
 import unittest
 from pathlib import Path
 
+from tests.heavy_wait import wait_registered
+
 LOCK = Path(__file__).resolve().parent.parent / 'tools' / 'heavy-lock.sh'
 
 
@@ -38,6 +40,7 @@ class HeavyLockBudgetTest(unittest.TestCase):
         procs = []
         for what, name, nap in runs:
             procs.append(self.start(what, name, nap, **env))
+            wait_registered(self.env['JOB_PILOTTO_HEAVY_DIR'], len(procs))   # it is in the books (a loaded Mac may take a second to start it)
             time.sleep(gap)
         for p in procs:
             p.communicate(timeout=90)
