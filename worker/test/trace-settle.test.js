@@ -25,3 +25,10 @@ test('passwords and files keep their own outcome; no final read leaves the rows 
   assert.ok(settled.every((r) => r.outcome === 'filled'));
   assert.equal(settleTrace([row('A', 'left')], null)[0].outcome, 'left');
 });
+
+test('a box the page kept emptying says so in its reason', () => {
+  const settled = settleTrace([row('Prénom', 'filled', { type: 'text' }), row('Nom', 'filled', { type: 'text' })],
+    [{ label: 'Prénom', field: 'first', filled: false }, { label: 'Nom', field: 'last', filled: false }], [{ field: 'first', times: 5 }]);
+  assert.match(settled[0].reason, /^empty again at the end of the fill: the page emptied it after we typed it 5 times/);
+  assert.equal(settled[1].reason, 'empty again at the end of the fill');
+});

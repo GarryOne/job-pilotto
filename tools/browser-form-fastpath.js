@@ -36,13 +36,16 @@
     window.__jobPilottoSteps.push({name: String(name).slice(0, 40), at: new Date().toISOString()});
     return window.__jobPilottoSteps.length;
   };
-  // What the fill typed, per box: the value, whether the person has touched the box since, whether it was typed again. A page can clear a box
-  // after the fill (an upload's own autofill reads the file a few seconds later and rewrites the boxes): retypeWiped puts back what WE typed, once.
+  // What the fill typed, per box: the value, whether the person has touched the box since, how many times it was typed again. A page can clear a box
+  // after the fill, more than once (an upload's own autofill reads the file seconds later and rewrites the boxes; a re-render empties it again):
+  // retypeWiped puts back what WE typed, up to RETYPE_LIMIT times per box, so a page that keeps clearing it is not typed into forever.
+  const RETYPE_LIMIT = 5;
+  const WATCH_CAP_MS = 60000;
   const typedHere = new Map();
   const noteTyped = (element, value) => {
     const known = typedHere.get(element);
-    if (known) { Object.assign(known, {value, retyped: false}); return; }
-    const record = {value, edited: false, retyped: false};
+    if (known) { Object.assign(known, {value, retypes: 0}); return; }
+    const record = {value, edited: false, retypes: 0, field: element.id || element.name || ''};
     typedHere.set(element, record);
     element.addEventListener('input', event => { if (event.isTrusted) record.edited = true; }, true);
   };
@@ -84,15 +87,16 @@
     }
     return {filled, skipped};
   };
-  // After the fill: a box we typed that is empty now, that the person never touched and the page did not fill itself, is typed again, once. A page's autofill
-  // can land seconds after the upload (11 Oct 2026: during the wait for Claude's answers), so the check runs now and then again every 700 ms for watchMs.
+  // After the fill: a box we typed that is empty now, that the person never touched and the page did not fill itself, is typed again (up to RETYPE_LIMIT
+  // times). A page's autofill can land seconds after the upload, so the check runs now and then every 700 ms for watchMs; each box typed again extends
+  // the watch by watchMs (a page that empties again is still watched), never past WATCH_CAP_MS in all.
   // -> how many boxes were typed again by this call (a count only, never a value).
-  let watching = 0;
+  let watching = 0, watchUntil = 0, watchEnd = 0;
   const retypeNow = () => {
     const back = [];
     for (const [element, record] of typedHere) {
-      if (record.edited || record.retyped || !element.isConnected || String(element.value || '') !== '' || !writable(element)) continue;
-      record.retyped = true;
+      if (record.edited || record.retypes >= RETYPE_LIMIT || !element.isConnected || String(element.value || '') !== '' || !writable(element)) continue;
+      record.retypes++;
       const prototype = element.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
       Object.getOwnPropertyDescriptor(prototype, 'value').set.call(element, record.value);
       element.dispatchEvent(new Event('input', {bubbles: true}));
@@ -104,12 +108,20 @@
   };
   window.__jobPilottoRetypeWiped = (watchMs = 0) => {
     const now = retypeNow();
-    if (watchMs > 0 && !watching) {
-      const until = Date.now() + watchMs;
-      watching = setInterval(() => { retypeNow(); if (Date.now() > until) { clearInterval(watching); watching = 0; } }, 700);
+    if (watchMs > 0) {
+      const start = Date.now();
+      if (!watching) { watchEnd = start + WATCH_CAP_MS; watchUntil = start + watchMs; }
+      if (now) watchUntil = Math.min(watchEnd, Math.max(watchUntil, start + watchMs));
+      if (!watching) watching = setInterval(() => {
+        if (retypeNow()) watchUntil = Math.min(watchEnd, Math.max(watchUntil, Date.now() + watchMs));
+        if (Date.now() > watchUntil) { clearInterval(watching); watching = 0; }
+      }, 700);
     }
     return now;
   };
+  // The boxes the page emptied after the last typing-again, with the limit spent: [{field, times}], so the fill's reason can say the page kept clearing it.
+  window.__jobPilottoRetypeGaveUp = () => [...typedHere].filter(([element, record]) => !record.edited && record.retypes >= RETYPE_LIMIT && element.isConnected && String(element.value || '') === '')
+    .map(([, record]) => ({field: record.field, times: record.retypes}));
   // Greenhouse removes the file input once a file is attached and shows its name instead, so the
   // resume counts as attached when its section shows a document filename.
   // The * of an upload slot can sit in a label above the box ("* CV and diplomas"): look a few levels up, never into a box that holds text fields.
