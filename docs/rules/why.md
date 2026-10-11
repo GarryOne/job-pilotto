@@ -80,3 +80,4 @@ what stop a rule from being relaxed back into the old bug. Add an entry when a n
   commits were tooling; 10 of 29 "Needs a fix" rows had never run; an optional empty field counted as a failure on every site (the logged fill line dropped
   `required`); the coordinator named a wrong cause for the waiting (a shared Notion page; the runs were on SQLite) and the Mac was swapping (load 31).
   Rules and start-of-round order: [rounds.md](rounds.md).
+
