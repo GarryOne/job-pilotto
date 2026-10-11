@@ -30,6 +30,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 export async function runLiveRow({posting, captureDir, extensionDir, ask = true, seconds = 120, stillSeconds = STILL_SECONDS, browser = startRealExtension, say = () => {}} = {}) {
   ensureStagedWorker({say});   // a worker edit since the last staging would run the old prompt
   const started = Date.now();
+  let shotAsked = false;
   fs.mkdirSync(captureDir, {recursive: true});
   const app = await startOfflineApp({ask, captureDir, memo: path.join(captureDir, 'model-memo.json')});
   const front = await frontOf(app);
@@ -78,7 +79,9 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
       await wait(1500);
     }
     clearInterval(asks);
-    await takeEndShot(run.context, captureDir);   // before the final privacy check: a hit deletes it with the capture (lib/end-shot.mjs)
+    shotAsked = true;
+    const shot = await takeEndShot(run.context, captureDir);   // before the final privacy check: a hit deletes it with the capture (lib/end-shot.mjs); said out loud either way
+    say(shot.file ? 'live: end screenshot kept' : `live: no end screenshot: ${shot.why}`);
     if (tripped || (tripped = await trip())) { say(`live: ${tripped}`); return {seconds: (Date.now() - started) / 1000, opened: url, evidence: evidenceLines(''), tripped}; }
     await journey.finish();
     const pages = journey.write(captureDir);
@@ -89,6 +92,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     fs.writeFileSync(path.join(captureDir, 'app.log'), app.logText());
     return {seconds: Math.round((Date.now() - started) / 100) / 10, opened: url, evidence: evidenceLines(app.logText()), tripped: '', requests: front.requests.length, appLog: app.logText()};
   } finally {
+    if (!shotAsked) { const shot = await takeEndShot(run.context, captureDir).catch(error => ({file: '', why: String(error?.message || error).slice(0, 80)})); say(shot.file ? 'live: end screenshot kept' : `live: no end screenshot: ${shot.why}`); }   // the run stopped early (an error): the picture of where it stopped is still a must
     clearInterval(asks);
     await run.close().catch(() => {});
     await front.close().catch(() => {});

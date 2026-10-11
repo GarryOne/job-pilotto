@@ -367,3 +367,10 @@ test('a run whose last form judgment is blocked has an error naming the kind; on
   const freed = parseLive(run('[extension] panel: application form ready?: needs_person {"host":"x.example"}'));
   assert.deepEqual([freed.blocked, freed.errors], [undefined, []]);
 });
+
+// Owner, 11 Oct 2026: the screenshot where the extension stopped is a must; a run that ends without one is an error with its reason, a run with one is not.
+test('a run that printed "no end screenshot: <why>" has an error naming why; "end screenshot kept" has none', () => {
+  const base = 'Apply pressed on u\n[extension] page kind: form {}\n[extension] fill: fields: 9 filled, 0 left\n';
+  assert.deepEqual(parseLive(`${base}  live: no end screenshot: no page tab was open`).errors, ['no end screenshot: no page tab was open']);
+  assert.deepEqual(parseLive(`${base}  live: end screenshot kept`).errors, []);
+});

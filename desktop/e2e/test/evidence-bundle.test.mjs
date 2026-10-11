@@ -86,13 +86,23 @@ test('both live paths take the end-of-run picture before their last privacy chec
   }
 });
 
-test('takeEndShot photographs the last http tab into end.png, and does nothing without one', async () => {
+test('takeEndShot photographs the last http tab into end.png and says why when it cannot (owner, 11 Oct 2026: the end picture is a must)', async () => {
   const {takeEndShot} = await import('../lib/end-shot.mjs');
   const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-shot-')), 'cap');
-  const tab = url => ({url: () => url, screenshot: async ({path: file}) => fs.writeFileSync(file, 'png')});
-  assert.equal(await takeEndShot({pages: () => [tab('chrome-extension://x/options'), tab('https://a.example/apply')]}, dir), path.join(dir, 'end.png'));
+  const tab = (url, shoot = file => fs.writeFileSync(file, 'png')) => ({url: () => url, screenshot: async ({path: file}) => shoot(file)});
+  assert.deepEqual(await takeEndShot({pages: () => [tab('chrome-extension://x/options'), tab('https://a.example/apply')]}, dir), {file: path.join(dir, 'end.png'), why: ''});
   assert.ok(fs.existsSync(path.join(dir, 'end.png')));
-  assert.equal(await takeEndShot({pages: () => [tab('chrome-extension://x/options')]}, path.join(dir, 'none')), '');
+  assert.match((await takeEndShot({pages: () => [tab('chrome-extension://x/options')]}, path.join(dir, 'none'))).why, /no page tab/);
+  assert.match((await takeEndShot({pages: () => [tab('https://a.example/apply', () => { throw new Error('page crashed'); })]}, path.join(dir, 'bad'))).why, /page crashed/);
+  assert.match((await takeEndShot({pages: () => [tab('https://a.example/apply')]}, '')).why, /no capture folder/);
+});
+
+test('both live paths say it out loud: "end screenshot kept" or "no end screenshot: <why>"', () => {
+  for (const file of ['../lib/apply-live.mjs', '../lib/live-row.mjs']) {
+    const source = fs.readFileSync(new URL(file, import.meta.url), 'utf8');
+    assert.match(source, /end screenshot kept/, file);
+    assert.match(source, /no end screenshot: \$\{/, file);
+  }
 });
 
 test('the Electron leg keeps its run log, app log and end picture beside the plain bundle; a leg that got nowhere keeps just its log', () => {

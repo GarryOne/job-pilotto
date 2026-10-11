@@ -3,12 +3,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-// -> the file, or '' when there is no http tab or no folder.
+// -> {file, why}: the picture, or '' and the reason in words (the run says it out loud: "no end screenshot: <why>", an error in its verdict; owner, 11 Oct 2026: the picture is a must).
 export async function takeEndShot(context, captureDir) {
+  if (!captureDir) return {file: '', why: 'no capture folder'};
   const tab = context.pages().filter(page => /^https?:/.test(page.url())).at(-1);
-  if (!tab || !captureDir) return '';
-  fs.mkdirSync(captureDir, {recursive: true});
+  if (!tab) return {file: '', why: 'no page tab was open'};
   const file = path.join(captureDir, 'end.png');
-  await tab.screenshot({path: file}).catch(() => {});
-  return fs.existsSync(file) ? file : '';
+  try { fs.mkdirSync(captureDir, {recursive: true}); await tab.screenshot({path: file}); } catch (error) { return {file: '', why: `the screenshot failed: ${String(error?.message || error).replace(/\s+/g, ' ').slice(0, 80)}`}; }
+  return fs.existsSync(file) && fs.statSync(file).size > 0 ? {file, why: ''} : {file: '', why: 'the screenshot file is empty'};
 }
+
+// What the run prints about it (lib/smoke.mjs parseLive turns the second form into an error).
+export const endShotLine = shot => (shot.file ? 'live: end screenshot kept' : `live: no end screenshot: ${shot.why}`);
