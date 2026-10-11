@@ -169,7 +169,8 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
     env.ANSWERS_TEXT ?? (env.NOTION_ANSWERS_PAGE_ID ? pageText(env, env.NOTION_ANSWERS_PAGE_ID) : ''),
   ]).then(async ([p, a]) => {
     // What earlier fills learned about forms (🧠 Form knowledge), as extra standard answers.
-    const known = env.KNOWLEDGE_TEXT ?? (env.NOTION_KNOWLEDGE_PAGE ? await pageText(env, env.NOTION_KNOWLEDGE_PAGE).catch(() => '') : '');
+    // The desktop env's getters are promises: awaited here (an unawaited one printed "[object Promise]" into every prompt, 8-11 Oct 2026).
+    const known = (await env.KNOWLEDGE_TEXT) ?? (env.NOTION_KNOWLEDGE_PAGE ? await pageText(env, env.NOTION_KNOWLEDGE_PAGE).catch(() => '') : '');
     return [p, known ? `${a}\n\n# Learned from earlier forms\n${known}` : a];
   });
   // The strategy's search settings (roles, places, what the user aims for): a proposal should serve that, not just the CV.

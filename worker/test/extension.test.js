@@ -364,3 +364,22 @@ test('an open question nothing answers comes back as a "written" kind (no value)
   assert.deepEqual((result.answers || []).map((a) => [a.field, a.value, a.use, a.category]), [['city', 'Zurich', 'fill', 'contact'], ['why', '', 'kind', 'written']], JSON.stringify(result).slice(0, 300));
   assert.ok(prompt.includes('written = an open question'), 'the prompt asks for the written row');
 });
+
+test('every env getter the answers prompt reads may be a promise (the desktop app\'s): its text reaches the prompt, never "[object Promise]"', async () => {
+  // 11 Oct 2026: the desktop env's KNOWLEDGE_TEXT is a promise and answerForm used it without await since 25ed270 (8 Oct), so every prompt ended with
+  // "# Learned from earlier forms\n[object Promise]" and the AI never got the learned form knowledge.
+  const { answerForm } = await import('../src/extension.js');
+  const asked = async (env) => {
+    let prompt = '';
+    const client = { messages: { create: async (args) => { prompt = JSON.stringify(args); return { stop_reason: 'end_turn', usage: { billing: 'subscription' },
+      content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers: [] }) }] }; } } };
+    await answerForm(env, { url: 'https://forms.example.com/apply', fields: [{ field: 'q', label: 'q', type: 'text' }], page_text: '' }, client);
+    return prompt;
+  };
+  const base = { PROFILE_TEXT: Promise.resolve('PROFILE-MARK'), ANSWERS_TEXT: Promise.resolve('ANSWERS-MARK'), SEARCH_TEXT: Promise.resolve('SEARCH-MARK'), KNOWLEDGE_TEXT: Promise.resolve('KNOWLEDGE-MARK') };
+  const prompt = await asked(base);
+  for (const mark of ['PROFILE-MARK', 'ANSWERS-MARK', 'SEARCH-MARK', 'KNOWLEDGE-MARK']) assert.ok(prompt.includes(mark), `${mark} is in the prompt`);
+  assert.ok(!prompt.includes('[object Promise]'), 'no promise printed into the prompt');
+  const empty = await asked({ ...base, KNOWLEDGE_TEXT: Promise.resolve('') });
+  assert.ok(!empty.includes('Learned from earlier forms'), 'an empty knowledge page adds no block');
+});
