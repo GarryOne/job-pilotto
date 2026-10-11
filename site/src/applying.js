@@ -4,6 +4,7 @@
 // site's host and fixed words only, never a posting's address or applicant data. Guard: test/applying.test.js.
 import {viewer} from './auth.js';
 import {FIX_KINDS, FIXED_CSS, FIXED_SCRIPT, fixedData, ingestFixes} from './applying-fixed.js';
+import {ORDER_SOURCE} from './applying-order.js';
 import {digest} from './digest.js';
 import {topCauses} from './applying-cause.js';
 import {nextToAdd} from './nextsites.js';
@@ -178,6 +179,7 @@ tr.more td{padding:0 0 12px}.detail{display:grid;grid-template-columns:minmax(0,
 live, stopped before any account button or Submit, a rotating share each night. A site that reached less than its last run is a regression. Logs and screenshots stay on the Mac.</p>
 <div id="app"><p class="muted">Loading…</p></div>
 <script>
+const needsFixOrder = ${ORDER_SOURCE};
 const el = (tag, props = {}, ...kids) => { const node = Object.assign(document.createElement(tag), props); node.append(...kids.filter(kid => kid != null)); return node; };
 const pill = step => el('span', {className: 'pill s-' + step, textContent: step});
 const color = step => getComputedStyle(document.querySelector('.s-' + CSS.escape(step)) || document.body).backgroundColor;
@@ -305,15 +307,10 @@ fetch('?json').then(r => r.json()).then(d => {
   // The platform scorecard: real use against the pool's tests, one verdict per platform (src/scorecard.js).
   const TONE = {'Not in the pool': 'posting', 'Weak in both': 'posting', 'Blind spot': 'account', 'Test failing': 'code\\/bot', Fine: 'ready'};
   const pct = value => (value == null ? '—' : value + '%');
-  // Needs a fix (owner, 10 Oct 2026: "all the red first"): the sites where applying stops, worst first: regressions, then the earliest stop, then the least filled form. A code or bot check is a documented hold, not here.
-  const needs = s => !s.note && !!s.reached && (s.regression || !!s.short || ['none', 'posting', 'account'].includes(s.reached));
-  // Worst first (owner, 10 Oct 2026: the first row was only the first in the alphabet): a regression, then the platform real people use most (its share of the matched jobs, from the scorecard),
-  // then the earliest stop (a form last), then the most unexplained fields, then the name.
-  const useOf = s => (d.scorecard || []).find(item => item.platform === s.platform)?.matchShare ?? 0;
-  const stageOf = s => (s.short ? 100 : rankOf(s.reached));
-  const byWorst = (a, b) => (Number(!!b.regression) - Number(!!a.regression)) || (useOf(b) - useOf(a)) || (stageOf(a) - stageOf(b)) || ((b.short?.unexplained || 0) - (a.short?.unexplained || 0)) || a.name.localeCompare(b.name);
+  // Needs a fix and its worst-first order live in src/applying-order.js, one function shared with tools/needs-fix-order.mjs (the source is embedded at the top of this script).
+  let ORDER = needsFixOrder(d.pool, d.scorecard, d.steps);   // recomputed on every draw: the page refreshes its data
+  const useOf = s => ORDER.useOf(s);
   const filledRuns = s => (s.shares || []).filter(value => value != null);
-  let fixOrder = new Map();   // each row's place in the worst-first order, for sorting the Why column the same way
   // The Needs a fix row (owner, 11 Oct 2026: seven columns overflowed the panel): the site with its platform, why, when; platform use, top cause and the filled runs open in the row.
   const needOpen = new Set();
   const needDetail = s => el('div', {className: 'detail'},
@@ -330,11 +327,11 @@ fetch('?json').then(r => r.json()).then(d => {
       el('td', {className: 'muted', textContent: s.at ? ago(s.at) : '—'}),
       el('td', {}, el('button', {className: 'chev', type: 'button', 'aria-expanded': String(on), 'aria-label': (on ? 'Collapse ' : 'Expand ') + s.name, textContent: '›', onclick: event => { event.stopPropagation(); flip(); }})));
     return on ? [main, el('tr', {className: 'more'}, el('td', {colSpan: 4}, needDetail(s)))] : [main]; };
-  const drawFix = () => { fixBox.textContent = ''; fixOrder = new Map(d.pool.filter(needs).sort(byWorst).map((s, i) => [s.shape, i]));
+  const drawFix = () => { fixBox.textContent = ''; ORDER = needsFixOrder(d.pool, d.scorecard, d.steps);
     fixBox.append(el('div', {className: 'fixpanel'}, el('div', {className: 'fixhead'}, el('h2', {textContent: 'Needs a fix · where applying stops'}),
       el('p', {className: 'muted', textContent: 'A regression, a stop before the form, or a form reached with fields left that we should have known or suggested an answer for. Open a row for the platform use, the top cause and the share of fields filled in each of the last runs: a fix shows there the next night.'})),
-      ...block('fix', 'Sites', 'Worst first: regressions, then the platform most used', d.pool.filter(needs).sort(byWorst), ['Site / platform', 'Why', 'Last run', 'Details'], needRow,
-        'Nothing needs a fix', () => drawFix(), [s => s.name.toLowerCase(), s => fixOrder.get(s.shape), s => (s.at ? Date.parse(s.at) : null)]).filter(Boolean))); };
+      ...block('fix', 'Sites', 'Worst first: regressions, then the platform most used', ORDER.rows, ['Site / platform', 'Why', 'Last run', 'Details'], needRow,
+        'Nothing needs a fix', () => drawFix(), [s => s.name.toLowerCase(), s => ORDER.rank.get(s.shape), s => (s.at ? Date.parse(s.at) : null)]).filter(Boolean))); };
   const drawScore = () => { scoreBox.textContent = '';
     scoreBox.append(...block('score', 'Platforms', 'Real use against the tests', d.scorecard || [], ['Platform', 'Verdict', 'Of matched jobs', 'Real forms', 'Required filled', 'Pool sites', 'Reached the form'],
       s => el('tr', {}, el('td', {textContent: s.platform}), el('td', {}, el('span', {className: 'pill s-' + TONE[s.verdict], textContent: s.verdict})), el('td', {textContent: pct(s.matchShare)}),

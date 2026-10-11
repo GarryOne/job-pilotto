@@ -89,7 +89,7 @@ export const FIXED_CSS = `
 .fixguard{margin:0;padding:0;list-style:none}.fixguard li{margin:4px 0;overflow-wrap:anywhere}.fixtable .detail{text-align:left}@media (max-width:900px){.fixtable .c-fill,.fixtable .c-fix{display:none}.fixtable td,.fixtable th{padding:12px 10px}.fixtable .pill{white-space:normal;border-radius:12px}.fixtable td:first-child,.fixtable th:first-child{padding-left:16px}.fixtable td:last-child,.fixtable th:last-child{width:48px;padding-right:16px}}.fixtable .detail h4{margin:14px 0 6px}.fixtable .detail>div>:first-child,.fixtable .detail>div>:first-child h4{margin-top:0}
 `;
 
-// The tab's client code, inside the page's fetch callback (needs el, heads, sortRows, dots, ago, STAGE, d, fixBox, fixedBox, tabs, needs). Plain quotes only: it sits in a template literal.
+// The tab's client code, inside the page's fetch callback (needs el, heads, sortRows, dots, ago, STAGE, d, fixBox, fixedBox, tabs, needsFixOrder). Plain quotes only: it sits in a template literal.
 export const FIXED_SCRIPT = `
   // The Fixed tab (owner mockup, 11 Oct 2026; src/applying-fixed.js): one charcoal panel, five columns, the guard names, replay results and run history in a row expander.
   const FIX_WORD = {landed: 'Awaiting verification', failing: 'Still failing', confirmed: 'Confirmed', back: 'Regressed'};
@@ -136,7 +136,7 @@ export const FIXED_SCRIPT = `
       el('div', {className: 'fixfoot'}, el('span', {className: 'muted', textContent: rows.length ? 'Showing ' + (from + 1) + '–' + (from + shown.length) + ' of ' + rows.length + ' fixes' : '0 fixes'}),
         pages > 1 ? el('div', {className: 'pager'}, el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: fixPage.n === 0, onclick: go(-1)}), el('button', {className: 'chip', type: 'button', textContent: 'Next →', disabled: fixPage.n >= pages - 1, onclick: go(1)})) : null))); };
   const showTab = () => { const fixed = typeof location !== 'undefined' && location.hash === '#fixed'; fixBox.hidden = fixed; fixedBox.hidden = !fixed;
-    tabs.textContent = ''; tabs.append(el('a', {href: '#needs-fix', role: 'tab', 'aria-selected': String(!fixed), className: fixed ? '' : 'on', textContent: 'Needs a fix · ' + d.pool.filter(needs).length}),
+    tabs.textContent = ''; tabs.append(el('a', {href: '#needs-fix', role: 'tab', 'aria-selected': String(!fixed), className: fixed ? '' : 'on', textContent: 'Needs a fix · ' + needsFixOrder(d.pool, d.scorecard, d.steps).rows.length}),
       el('a', {href: '#fixed', role: 'tab', 'aria-selected': String(fixed), className: fixed ? 'on' : '', title: 'Sites with a landed fix. The recorded replays are in the Fixed-site replays table below.', textContent: 'Fixed · ' + d.fixed.rows.length})); };
   if (typeof window !== 'undefined') window.addEventListener('hashchange', showTab);
 `;
