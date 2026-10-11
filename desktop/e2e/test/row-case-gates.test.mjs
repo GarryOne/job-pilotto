@@ -21,3 +21,10 @@ test('size: a case warns at 200 KB and fails at 300 KB; the folder fails at 8 MB
   assert.equal(folderVerdict(FOLDER_FAIL - 1), 'ok');
   assert.equal(folderVerdict(FOLDER_FAIL + 1), 'fail');
 });
+
+test('privacy: a long unbroken run (a base64 blob) is scanned at once, not quadratically', () => {
+  const started = Date.now(), text = `mail a@example.com ${'x'.repeat(400 * 1024)}`;
+  assert.deepEqual(privacyFindings({'a/p.html': text}), []);
+  assert.deepEqual(privacyFindings({'a/q.html': `${text} b@gmail.com`}), ['a/q.html: an email']);
+  assert.ok(Date.now() - started < 2000);
+});

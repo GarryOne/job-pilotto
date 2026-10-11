@@ -5,13 +5,22 @@ export const CASE_WARN = 200 * 1024, CASE_FAIL = 300 * 1024, FOLDER_FAIL = 8 * 1
 export const sizeVerdict = bytes => (bytes > CASE_FAIL ? 'fail' : bytes > CASE_WARN ? 'warn' : 'ok');
 export const folderVerdict = bytes => (bytes > FOLDER_FAIL ? 'fail' : 'ok');
 
-const EMAIL = /[\w.+-]+@[\w-]+(\.[\w-]+)+/g, PHONE = /(\+\d[\d\s().-]{8,}\d)|(\b0\d{2}[\s.]\d{3}[\s.]\d{2}[\s.]\d{2}\b)/;
+// Emails by their @ (a global pattern is quadratic over a long unbroken run, a base64 blob: 310 KB of x hung the gate): the address around each @, at most 64 characters before it and 255 after.
+function emailsIn(text) {
+  const found = [];
+  for (let at = text.indexOf('@'); at >= 0; at = text.indexOf('@', at + 1)) {
+    const before = /[\w.+-]+$/.exec(text.slice(Math.max(0, at - 64), at))?.[0], after = /^[\w-]+(?:\.[\w-]+)+/.exec(text.slice(at + 1, at + 256))?.[0];
+    if (before && after) found.push(`${before}@${after}`);
+  }
+  return found;
+}
+const PHONE = /(\+\d[\d\s().-]{8,}\d)|(\b0\d{2}[\s.]\d{3}[\s.]\d{2}[\s.]\d{2}\b)/;
 
 // files: {<folder/name>: text}; own: the person's own values {value: kind} (capture-page.mjs personalValues). -> ["<file>: <kind>"]
 export function privacyFindings(files, own = new Map()) {
   const found = [];
   for (const [name, text] of Object.entries(files)) {
-    for (const email of text.match(EMAIL) || []) if (!/@example\.(com|org|net)$/i.test(email)) found.push(`${name}: an email`);
+    for (const email of emailsIn(text)) if (!/@example\.(com|org|net)$/i.test(email)) found.push(`${name}: an email`);
     if (PHONE.test(text)) found.push(`${name}: a phone number`);
     if (/<(input|option)\b[^>]*\bvalue="[^"]+"[^>]*>/i.test(text) && !/type="(submit|button|hidden)"/i.test(text.match(/<input\b[^>]*\bvalue="[^"]+"[^>]*>/i)?.[0] || 'type="button"')) found.push(`${name}: a typed value`);
     if (/https?:\/\/[^"'\s]+\?[^"'\s]+/i.test(text)) found.push(`${name}: a URL query string`);
