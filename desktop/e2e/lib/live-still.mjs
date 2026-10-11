@@ -16,3 +16,7 @@ export function stillClock({seconds = STILL_SECONDS, startedAt = 0} = {}) {
     over: (at, {opened = false} = {}) => seconds > 0 && opened && at - changedAt >= seconds * 1000,
   };
 }
+
+// How many of the app's log lines are about the page and the fill (the extension's, the review's, the page-kind's): the app's own heartbeat (a store call every 15 s) is not news.
+export const PAGE_LINE = /\[(extension|review|page-kind|applied|misses)\]/;
+export const pageLines = lines => lines.filter(line => PAGE_LINE.test(line)).length;
