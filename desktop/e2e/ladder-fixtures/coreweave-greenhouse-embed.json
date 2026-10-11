@@ -4,19 +4,18 @@
  "lang": "en",
  "why": "pool: Greenhouse behind the employer site (CoreWeave)",
  "capture": {
-  "url": "https://coreweave.com/careers/job?4553828006&board=coreweave&gh_jid=4553828006"
+  "url": "https://coreweave.com/careers/job?4553828006&board=coreweave&gh_jid=4553828006",
+  "frame": {
+   "read": "live load",
+   "qualified": true,
+   "after_s": 0
+  }
  },
  "expect": {
   "outcome": "form_in_frame",
   "accept": [
-   "form_in_frame",
-   "posting",
-   "other"
-  ],
-  "accept_reasons": {
-   "posting": "Captured at page load, before the hosted board's iframe grew past the frame finder's 300x200 floor: the sketch lists no frame candidate, so rung 2 can only call it a posting; the extension judges again once the frame qualifies (extension/ladder/climb.js frameGrew).",
-   "other": "Same load-time sketch (no controls, no listed frame candidate): rung 2 may call it `other`; the ladder does not end there, the extension judges again when the frame qualifies. Tighten once this page is re-captured with its candidate (see datadog-greenhouse-frame-grown)."
-  }
+   "form_in_frame"
+  ]
  },
  "sketch": {
   "url": "https://coreweave.com/careers/job",
@@ -31,6 +30,8 @@
   ],
   "controls": [],
   "buttons": [
+   "Manage My Cookies Settings",
+   "Learn More",
    "Read more",
    "CoreWeave Cloud",
    "Infrastructure",
@@ -48,25 +49,31 @@
    "CPU Compute",
    "Storage Services",
    "Networking Services",
-   "Managed Services",
-   "Bare Metal Servers",
-   "Fleet LifeCycle Controller"
+   "Managed Services"
   ],
   "frames": [
    "job-boards.greenhouse.io"
   ],
-  "mails": []
+  "mails": [],
+  "frameCandidates": [
+   {
+    "host": "job-boards.greenhouse.io",
+    "path": "/embed/job_app",
+    "width": 1216,
+    "height": 6993
+   }
+  ]
  },
  "schemaVersion": 1,
  "answer": {
-  "kind": "other",
-  "confidence": 0.8,
+  "kind": "posting",
+  "confidence": 0.7,
   "apply_button": "",
   "apply_button_kind": "",
   "apply_route": "",
-  "apply_by": "",
+  "apply_by": "form",
   "apply_email": "",
-  "form_frame": -1,
+  "form_frame": 0,
   "account_step": "",
   "register_control": "",
   "signin_control": "",

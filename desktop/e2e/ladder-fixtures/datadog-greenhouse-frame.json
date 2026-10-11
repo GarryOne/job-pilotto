@@ -4,17 +4,18 @@
  "lang": "en",
  "why": "pool: the Greenhouse form is a frame of the posting (frameCandidates, checklist C)",
  "capture": {
-  "url": "https://careers.datadoghq.com/detail/7131404/?gh_jid=7131404"
+  "url": "https://careers.datadoghq.com/detail/7131404/?gh_jid=7131404",
+  "frame": {
+   "read": "live load",
+   "qualified": true,
+   "after_s": 0
+  }
  },
  "expect": {
   "outcome": "form_in_frame",
   "accept": [
-   "form_in_frame",
-   "posting"
-  ],
-  "accept_reasons": {
-   "posting": "Captured at page load, before the hosted board's iframe grew past the frame finder's 300x200 floor: the sketch lists no frame candidate, so rung 2 can only call it a posting; the extension judges again once the frame qualifies (extension/ladder/climb.js frameGrew). The grown sketch is datadog-greenhouse-frame-grown, which accepts only form_in_frame."
-  }
+   "form_in_frame"
+  ]
  },
  "sketch": {
   "url": "https://careers.datadoghq.com/detail/7131404/",
@@ -49,18 +50,26 @@
   "frames": [
    "job-boards.greenhouse.io"
   ],
-  "mails": []
+  "mails": [],
+  "frameCandidates": [
+   {
+    "host": "job-boards.greenhouse.io",
+    "path": "/embed/job_app",
+    "width": 650,
+    "height": 2432
+   }
+  ]
  },
  "schemaVersion": 1,
  "answer": {
   "kind": "posting",
-  "confidence": 0.6,
+  "confidence": 0.8,
   "apply_button": "",
   "apply_button_kind": "",
   "apply_route": "",
-  "apply_by": "other",
+  "apply_by": "form",
   "apply_email": "",
-  "form_frame": -1,
+  "form_frame": 0,
   "account_step": "",
   "register_control": "",
   "signin_control": "",

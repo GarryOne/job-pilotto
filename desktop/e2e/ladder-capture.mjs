@@ -3,6 +3,8 @@
 // (extension/fill-flow.js pageSketchOf, extension/ladder/outcomes.js mailsOf, read from their source) in a bare headless Chromium, with no extension, no profile and no app.
 //   capture.page: a page of this repo (relative to desktop/e2e/), loaded from disk with the network blocked.
 //   capture.url:  a public posting, read once (a plain GET, nothing pressed, nothing typed); the sketch is stored without its query string, with any email turned into contact@example.com.
+//                 A page with another host's iframe waits (<= 20 s) for one to pass the frame finder's floor and lists it in frameCandidates (extension/ladder/rung3-frames.js + climb.js frameSketch);
+//                 capture.frame says whether one qualified (none = a finding). Guard: e2e/test/ladder-capture-frames.test.mjs.
 //   --from-candidates [--day <YYYY-MM-DD>] [--candidates-dir <folder>] [--only <shape>]: the pool run's replay candidates (e2e/lib/ladder-candidates.mjs) that did NOT reach the form become fixtures with expect `pending` (the page.html
 //     of the candidate, loaded from disk with the network blocked; scrubbed); a fixture that exists is kept (--force replaces it); --only takes a candidate whatever it reached.
 //   node desktop/e2e/ladder-capture.mjs [--only <id>] [--force] [--candidates] [--dir <fixtures folder>]      Used when a fixture is added or a page changed; the committed sketch is what the tests use.
@@ -14,6 +16,7 @@ import {CANDIDATES_DIR, candidateFixture, readCandidates, selectCandidates} from
 import {candidatesFromRequest, readAiCalls, requestOf, sketchFromRequest} from './lib/ladder-ai-calls.mjs';
 import {DIR, loadFixtures} from './lib/ladder-fixtures.mjs';
 import {noEmail, noPhone} from './lib/ladder-scrub.mjs';
+import {frameSketch} from '../../extension/ladder/climb.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const E2E = path.dirname(fileURLToPath(import.meta.url));
@@ -42,6 +45,21 @@ export async function judgeSketchOf(page, capture = {}) {
   const found = await page.evaluate(functionSource('account-fill.js', 'export function accountSketch'));
   const {url: _url, ...rest} = found;   // the fixture's own url (query-free) is written by the caller
   return {...rest, controls: found.controls.map(({at: _at, ...control}) => control), ...(capture.fromPath ? {fromPath: capture.fromPath} : {}), ...(capture.sameForm ? {sameForm: capture.sameForm} : {})};
+}
+
+// The frame candidates as the extension lists them (extension/ladder/rung3-frames.js run in the page, then climb.js frameSketch: host, path, size; the address never kept).
+export const frameCandidatesOfPage = page => page.evaluate(`${fs.readFileSync(path.join(ROOT, 'extension/ladder/rung3-frames.js'), 'utf8')}\nwindow.__jobPilottoFrames.frameCandidates()`).then(frameSketch);
+// A live page with another host's iframe: wait (at most waitMs) until one qualifies as a candidate (the finder's own floor), as the extension judges again when a frame grows
+// (climb.js frameGrew; a hosted board's iframe is born ~150 px high). -> {frameCandidates, frame: {read, qualified, after_s}}; `frame` is null when the page has no other host's iframe.
+export async function grownFramesOf(page, {waitMs = 20000, stepMs = 500} = {}) {
+  const foreign = () => page.evaluate(() => [...document.querySelectorAll('iframe[src]')].some(frame => { try { const url = new URL(frame.getAttribute('src'), location.href); return url.protocol === 'https:' && url.host !== location.host; } catch { return false; } }));
+  const started = Date.now();
+  let list = await frameCandidatesOfPage(page);
+  if (!list.length && !(await foreign())) return {frameCandidates: [], frame: null};
+  while (!list.length && Date.now() - started < waitMs) { await page.waitForTimeout(stepMs); list = await frameCandidatesOfPage(page); }
+  const waited = Math.round((Date.now() - started) / 100) / 10;   // seconds after the load wait until one qualified (or the whole wait, when none did)
+  if (list.length) { await page.waitForTimeout(1500); list = await frameCandidatesOfPage(page); }   // a growing frame settles its size
+  return {frameCandidates: list, frame: {read: 'live load', qualified: list.length > 0, after_s: waited}};
 }
 
 export async function sketchOf(page) {
@@ -90,7 +108,7 @@ async function main() {
       try {
         const context = await browser.newContext({viewport: {width: 1280, height: 900}, acceptDownloads: false});
         const page = await context.newPage();
-        let url = fixture.sketch?.url || '';
+        let url = fixture.sketch?.url || '', grown = null;
         if (fixture.capture.page) {
           await page.route(url => !url.href.startsWith('file:'), route => route.abort());
           await page.goto(pathToFileURL(path.join(E2E, fixture.capture.page)).href, {waitUntil: 'load'});
@@ -98,16 +116,19 @@ async function main() {
           await page.goto(fixture.capture.url, {waitUntil: 'domcontentloaded', timeout: 30000});
           await page.waitForTimeout(4000);
           url = (await page.evaluate(() => location.href)).split(/[?#]/)[0];
+          if (!fixture.question || fixture.question === 'page_kind') grown = await grownFramesOf(page);   // only a live load proves a frame (an offline scrubbed page has no CSS); a finding when none qualified
         }
         const detected = fixture.lang ? '' : String(await page.evaluate(() => document.documentElement.lang || '')).slice(0, 2).toLowerCase();   // a new fixture learns its page's language
         const judge = fixture.question && fixture.question !== 'page_kind';   // a judge question: the judges' sketch, no numbered candidates
         const candidates = judge ? undefined : noPhone(noEmail(await candidatesOfPage(page)));
         const fresh = args.includes('--candidates') && fixture.sketch ? null : noPhone(noEmail(judge ? await judgeSketchOf(page, fixture.capture) : await sketchOf(page)));   // --candidates keeps the sketch (a real page changes) and only adds the numbered candidates
         await context.close();
+        if (fresh && grown) fresh.frameCandidates = grown.frameCandidates;
         const sketch = fresh || fixture.sketch;
         const file = path.join(dir, fixture.file), {file: _, ...kept} = fixture;
-        fs.writeFileSync(file, `${JSON.stringify({...kept, ...(detected ? {lang: detected} : {}), sketch: fresh ? {url: fixture.capture.page ? fixture.url || fixture.sketch?.url || '' : url, ...fresh} : fixture.sketch, ...(candidates ? {candidates} : {})}, null, 1)}\n`);
-        console.log(`${fixture.id}: ${sketch.controls.length} controls, ${sketch.buttons.length} buttons, ${sketch.headings.length} headings, ${sketch.mails?.length ?? 0} addresses, ${sketch.frames.length} frames${judge ? ` (${fixture.question})` : ''}`);
+        const capture = grown?.frame ? {...kept.capture, frame: grown.frame} : kept.capture;
+        fs.writeFileSync(file, `${JSON.stringify({...kept, capture, ...(detected ? {lang: detected} : {}), sketch: fresh ? {url: fixture.capture.page ? fixture.url || fixture.sketch?.url || '' : url, ...fresh} : fixture.sketch, ...(candidates ? {candidates} : {})}, null, 1)}\n`);
+        console.log(`${fixture.id}: ${sketch.controls.length} controls, ${sketch.buttons.length} buttons, ${sketch.headings.length} headings, ${sketch.mails?.length ?? 0} addresses, ${sketch.frames.length} frames${grown?.frame ? `, ${grown.frameCandidates.length} frame candidates (${grown.frame.qualified ? `qualified after ${grown.frame.after_s} s` : `NONE qualified in ${grown.frame.after_s} s: a finding`})` : ''}${judge ? ` (${fixture.question})` : ''}`);
       } catch (error) { console.log(`FAILED ${fixture.id}: ${String(error.message).split('\n')[0]}`); }
     }
   } finally { await browser.close(); }

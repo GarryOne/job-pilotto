@@ -4,30 +4,33 @@
  "lang": "en",
  "why": "pool: Greenhouse behind the employer site (Databricks)",
  "capture": {
-  "url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8532682002"
+  "url": "https://databricks.com/company/careers/open-positions/job?gh_jid=8532682002",
+  "frame": {
+   "read": "live load",
+   "qualified": true,
+   "after_s": 0
+  }
  },
  "expect": {
   "outcome": "form_in_frame",
   "accept": [
-   "form_in_frame",
-   "posting",
-   "other"
-  ],
-  "accept_reasons": {
-   "posting": "Captured at page load, before the hosted board's iframe grew past the frame finder's 300x200 floor: the sketch lists no frame candidate, so rung 2 can only call it a posting; the extension judges again once the frame qualifies (extension/ladder/climb.js frameGrew).",
-   "other": "Same load-time sketch (no controls, no listed frame candidate): rung 2 may call it `other`; the ladder does not end there, the extension judges again when the frame qualifies. Tighten once this page is re-captured with its candidate (see datadog-greenhouse-frame-grown)."
-  }
+   "form_in_frame"
+  ]
  },
  "sketch": {
   "url": "https://www.databricks.com/company/careers/executive-engineering---pipeline/staff-software-engineer---ai-research-infrastructure-8532682002",
   "title": "Staff Software Engineer - AI Research Infrastructure - Databricks",
   "headings": [
+   "We Care About Your Privacy",
    "Staff Software Engineer - AI Research Infrastructure",
-   "Staff Software Engineer - AI Research Infrastructure",
-   "We Care About Your Privacy"
+   "Staff Software Engineer - AI Research Infrastructure"
   ],
   "controls": [],
   "buttons": [
+   "Cookie Notice",
+   "Manage Preferences",
+   "Reject All",
+   "Accept All",
    "Skip to main content",
    "Why Databricks",
    "Product",
@@ -43,27 +46,31 @@
    "Diversity",
    "Engineering",
    "Research",
-   "Students & new grads",
-   "Back to search results",
-   "Apply now",
-   "here",
-   "LinkedIn"
+   "Students & new grads"
   ],
   "frames": [
    "job-boards.greenhouse.io"
   ],
-  "mails": []
+  "mails": [],
+  "frameCandidates": [
+   {
+    "host": "job-boards.greenhouse.io",
+    "path": "/embed/job_app",
+    "width": 463,
+    "height": 1464
+   }
+  ]
  },
  "schemaVersion": 1,
  "answer": {
   "kind": "posting",
   "confidence": 0.85,
-  "apply_button": "Apply now",
-  "apply_button_kind": "apply",
-  "apply_route": "manual",
+  "apply_button": "",
+  "apply_button_kind": "",
+  "apply_route": "",
   "apply_by": "form",
   "apply_email": "",
-  "form_frame": -1,
+  "form_frame": 0,
   "account_step": "",
   "register_control": "",
   "signin_control": "",

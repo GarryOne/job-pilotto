@@ -48,6 +48,10 @@
   {
    "date": "2026-10-10",
    "reason": "answers re-recorded on the app's Claude Code adapter path (a322751), owner's go 11 Oct 2026; prompts unchanged. WORSE 3: acc-result-de-needs-code [invented] exact->wrong-confident (the judge says created_confirm at 0.9 in 2 of 5 live draws: a real weakness of the account-result judge); auterion-greenhouse-embed [captured] ok->miss (unsure in 5 of 5: the load-time embed sketch, no frame candidate, is unsure on the app path); datadog-greenhouse-frame [captured] ok->miss (unsure or other in 3 of 5, same load-time sketch). BETTER 5: dialog-en-no-manual-route and pool-job-boards-greenhouse-io wrong-confident->exact; cand-swatch-group-careers, inv-phone-de, recorded-cv-choice-step-1 wrong-confident->miss. pool-consultandpepper-com was drawn again (unsure in 2 of 8 draws; the stored one is an exact draw). 119 of 131 rows unchanged."
+  },
+  {
+   "date": "2026-10-11",
+   "reason": "re-captured live with their frame candidate (ladder-capture waits for a qualifying frame): auterion unsure->exact, formlabs unsure->exact, datadog-greenhouse-frame other->exact, coreweave/nebius/red-badger other(accepted)->exact, databricks posting(accepted)->exact; accept tightened to form_in_frame"
   }
  ],
  "promptFingerprint": {
@@ -336,13 +340,11 @@
    "expect": {
     "outcome": "form_in_frame",
     "accept": [
-     "form_in_frame",
-     "posting",
-     "other"
+     "form_in_frame"
     ]
    },
-   "outcome": "unsure",
-   "status": "miss"
+   "outcome": "form_in_frame",
+   "status": "exact"
   },
   "cand-swatch-group-careers": {
    "expect": {
@@ -368,36 +370,31 @@
    "expect": {
     "outcome": "form_in_frame",
     "accept": [
-     "form_in_frame",
-     "posting",
-     "other"
+     "form_in_frame"
     ]
    },
-   "outcome": "other",
-   "status": "ok"
+   "outcome": "form_in_frame",
+   "status": "exact"
   },
   "databricks-greenhouse-embed": {
    "expect": {
     "outcome": "form_in_frame",
     "accept": [
-     "form_in_frame",
-     "posting",
-     "other"
+     "form_in_frame"
     ]
    },
-   "outcome": "posting",
-   "status": "ok"
+   "outcome": "form_in_frame",
+   "status": "exact"
   },
   "datadog-greenhouse-frame": {
    "expect": {
     "outcome": "form_in_frame",
     "accept": [
-     "form_in_frame",
-     "posting"
+     "form_in_frame"
     ]
    },
-   "outcome": "other",
-   "status": "miss"
+   "outcome": "form_in_frame",
+   "status": "exact"
   },
   "datadog-greenhouse-frame-grown": {
    "expect": {
@@ -534,13 +531,11 @@
    "expect": {
     "outcome": "form_in_frame",
     "accept": [
-     "form_in_frame",
-     "posting",
-     "other"
+     "form_in_frame"
     ]
    },
-   "outcome": "unsure",
-   "status": "miss"
+   "outcome": "form_in_frame",
+   "status": "exact"
   },
   "greenhouse-form": {
    "expect": {
@@ -715,13 +710,11 @@
    "expect": {
     "outcome": "form_in_frame",
     "accept": [
-     "form_in_frame",
-     "posting",
-     "other"
+     "form_in_frame"
     ]
    },
-   "outcome": "other",
-   "status": "ok"
+   "outcome": "form_in_frame",
+   "status": "exact"
   },
   "pool-apply-workable-com": {
    "expect": {
@@ -920,13 +913,11 @@
    "expect": {
     "outcome": "form_in_frame",
     "accept": [
-     "form_in_frame",
-     "posting",
-     "other"
+     "form_in_frame"
     ]
    },
-   "outcome": "other",
-   "status": "ok"
+   "outcome": "form_in_frame",
+   "status": "exact"
   },
   "pool-job-boards-greenhouse-io": {
    "expect": {
