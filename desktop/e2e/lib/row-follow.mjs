@@ -24,18 +24,23 @@ export function replayPresses(requests, hosts = null) {   // hosts: only this ro
 // changes no journey: it is in neither list (replayPresses leaves it out of the replay's, this out of the live run's) before presses are compared or states are indexed. The 2nd argument is kept for old callers.
 export const keptPresses = presses => presses.filter(press => press.what !== 'closed a popup');
 
-// Which later states follow a MODEL ASK, not an attach (12 Oct 2026, Lever: the page the form judge saw, the resume widget reading "CV.PDF Success!", was a state kept 1 s after the form answers came back; the replay's
-// judge asked before any clock-timed swap and saw the page before the upload). The first later state is the attach's (Ashby: the page's autofill after the upload, seconds after the extension typed). Each of the others is
-// bound to the last ask the live run had answered within `withinMs` before it: {state, route, n} = swap before the n-th answer on that route is delivered; the rest stay with the attach list. asks: [{route, at}] by time.
-export function bindToAsks(later, asks = [], withinMs = 5000) {
+// Which later states follow an EVENT of the live run, not the extension's attach (12 Oct 2026, Lever): the cookie banner is hidden (display:none) 1.3 s after the popup was closed, and the form judge saw the resume widget
+// reading "CV.PDF Success!" 1 s after the form answers came back. A replay that plays states by the clock (or by the attach alone) showed the extension's asks the page BEFORE those changes. Each later state is bound to the
+// last live event within reach before it: a popup close or an answered model ask (5 s: a state is kept when the page has settled, a moment after the change): {state, kind: 'popup', k} = after the k-th popup the replay's extension closes; {state, kind: 'ask', route, n} = before the
+// n-th answer on that route is delivered. The first later state stays the attach's (Ashby: the page's autofill after the upload) unless a popup close precedes it. asks: [{route, at}], popups: [{at, label}], by time.
+export function bindToEvents(later, {asks = [], popups = []} = {}) {
   const bound = [], free = [];
-  for (const state of later.slice(1)) {
-    const seen = {};
+  later.forEach((state, index) => {
     let hit = null;
-    for (const ask of asks) { seen[ask.route] = (seen[ask.route] || 0) + 1; if (ask.at <= state.at && state.at - ask.at <= withinMs) hit = {route: ask.route, n: seen[ask.route]}; }
-    if (hit) bound.push({state, ...hit}); else free.push(state);
-  }
-  return {bound, free: later.slice(0, 1).concat(free)};
+    popups.forEach((popup, k) => { if (popup.at <= state.at && state.at - popup.at <= 5000 && (!hit || popup.at >= hit.at)) hit = {kind: 'popup', k, at: popup.at}; });
+    const seen = {};
+    for (const ask of asks) {
+      seen[ask.route] = (seen[ask.route] || 0) + 1;
+      if (ask.at <= state.at && state.at - ask.at <= 5000 && (!hit || ask.at >= hit.at)) hit = {kind: 'ask', route: ask.route, n: seen[ask.route], at: ask.at};
+    }
+    if (hit && (index > 0 || hit.kind === 'popup')) bound.push({state, ...hit}); else free.push(state);
+  });
+  return {bound, free};
 }
 
 // How long after the extension's file attach the page moves to the live run's next state: the gap the live run had between that state and the one before it, within 150 ms and 8 s. The site's autofill

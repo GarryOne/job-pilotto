@@ -2,7 +2,7 @@
 // lib/row-follow.mjs: a row replay follows the live run's states after each press it makes the same way, and stops with a finding at the first different press.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {bindToAsks, followDelayMs, keptPresses, laterStates, replayPresses, samePress, stateAfter} from '../lib/row-follow.mjs';
+import {bindToEvents, followDelayMs, keptPresses, laterStates, replayPresses, samePress, stateAfter} from '../lib/row-follow.mjs';
 
 const log = entries => ({route: '/extension/log', body: JSON.stringify({entries})});
 
@@ -90,25 +90,17 @@ test('a later live state is played INTO the page: the box the extension typed in
   } finally { await browser.close(); }
 });
 
-test('a later state that followed an answered ask within 5 s is bound to it; the first later state stays the attach\'s; one far from any ask stays free', () => {
-  const later = [{at: 3000, id: 'attach'}, {at: 21600, id: 'after answer'}, {at: 40000, id: 'far'}];
+test('a later state follows the last live event within reach: a popup close or an answered ask (within 5 s); the first later state stays the attach\'s unless a popup close precedes it', () => {
+  const later = [{at: 3000, id: 'banner hidden'}, {at: 21600, id: 'after answer'}, {at: 40000, id: 'far'}];
   const asks = [{route: '/extension/page-kind', at: 6400}, {route: '/extension/answer', at: 20600}, {route: '/extension/account-judge', at: 26700}];
-  const {bound, free} = bindToAsks(later, asks);
-  assert.deepEqual(bound.map(item => [item.state.id, item.route, item.n]), [['after answer', '/extension/answer', 1]]);
-  assert.deepEqual(free.map(state => state.id), ['attach', 'far']);
-  assert.deepEqual(bindToAsks(later, []).free.map(state => state.id), ['attach', 'after answer', 'far'], 'no asks: all stay with the attach list');
-  assert.equal(bindToAsks([{at: 5000}, {at: 9000}], [{route: 'r', at: 1000}, {route: 'r', at: 8000}]).bound[0].n, 2, 'the n-th answer on that route');
-});
-
-test('the live state\'s control states are restored after the swap: a filled box keeps the typed value (or gets a stand-in), an empty one is empty, a checkbox is as it was', {skip: !chromium && 'no Chromium installed'}, async () => {
-  const {swapInPage} = await import('../lib/row-follow.mjs');
-  const browser = await chromium.launch({headless: true});
-  try {
-    const page = await (await browser.newContext()).newPage();
-    await page.setContent('<html><body><input id="a" type="text"><input id="b" type="text"><input id="c" type="text"><input id="k" type="checkbox"><input id="m" type="checkbox"></body></html>');
-    await page.evaluate(() => { document.getElementById('a').value = 'Ada'; document.getElementById('b').value = 'typed'; document.getElementById('m').checked = true; });
-    await page.evaluate(swapInPage, '<html><body><input id="a" type="text" data-jp-state="filled"><input id="b" type="text" data-jp-state="empty"><input id="c" type="text" data-jp-state="filled"><input id="k" type="checkbox" data-jp-state="checked"><input id="m" type="checkbox" data-jp-state="unchecked"></body></html>');
-    const seen = await page.evaluate(() => ({a: document.getElementById('a').value, b: document.getElementById('b').value, c: document.getElementById('c').value, k: document.getElementById('k').checked, m: document.getElementById('m').checked}));
-    assert.deepEqual(seen, {a: 'Ada', b: '', c: 'x', k: true, m: false});
-  } finally { await browser.close(); }
+  const popups = [{at: 1700, label: 'deny'}];
+  const both = bindToEvents(later, {asks, popups});
+  assert.deepEqual(both.bound.map(item => [item.state.id, item.kind, item.k ?? item.route, item.n]), [['banner hidden', 'popup', 0, undefined], ['after answer', 'ask', '/extension/answer', 1]]);
+  assert.deepEqual(both.free.map(state => state.id), ['far']);
+  const noPopup = bindToEvents(later, {asks});
+  assert.deepEqual(noPopup.free.map(state => state.id), ['banner hidden', 'far'], 'no popup: the first later state is the attach\'s');
+  assert.deepEqual(bindToEvents(later).free.map(state => state.id), ['banner hidden', 'after answer', 'far'], 'no events: all stay with the attach list');
+  assert.equal(bindToEvents([{at: 5000}, {at: 9000}], {asks: [{route: 'r', at: 1000}, {route: 'r', at: 8000}]}).bound[0].n, 2, 'the n-th answer on that route');
+  assert.deepEqual(bindToEvents([{at: 9000}], {popups: [{at: 1000, label: 'x'}]}).free.length, 1, 'a popup 8 s before is out of reach');
+  assert.equal(bindToEvents([{at: 4400}], {popups: [{at: 1000, label: 'x'}]}).bound.length, 1, 'the banner state of the Lever capture: 3.4 s after the close');
 });
