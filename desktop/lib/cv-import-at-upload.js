@@ -1,7 +1,7 @@
 // Setting the CV and reading it once: every path that picks a CV goes through setCv, which puts the file in place and, in the
 // background, imports it into cv/cv.json (the facts the form AI, Tailor and the match read). The same file is never read twice
 // (cv/import.json holds the hash of the PDF cv.json came from); a failure is logged and toasted, never blocks the upload; Tailor
-// and the cover letter call ensure() too, so a missed import is retried there and two imports at once share one call.
+// and the cover letter call ensure() too, so a missed import is retried there and two imports at once share one call (a CV set while one runs is read after it).
 // Guarded by test/cv-import-at-upload.test.js (it also fails when a new caller bypasses these functions).
 import * as cvChange from './cv-change.js';
 import * as cvlib from './cv.js';
@@ -14,7 +14,8 @@ const inflight = new Map();   // the CV folder -> the running import
 export function ensure(storage, {client = null, key = '', look = null, force = false, atUpload = false} = {}) {
   if (!fs.existsSync(storage.path('cv.pdf'))) return Promise.resolve({skipped: 'no CV'});
   const folder = cvlib.dir(storage);
-  if (inflight.has(folder)) return inflight.get(folder);
+  // An import already running read the PDF that was there when it started: if another CV was set meanwhile, that one is read next (issue #355).
+  if (inflight.has(folder)) return inflight.get(folder).then(result => (cvlib.importedFrom(storage) === cvlib.pdfHash(storage) ? result : ensure(storage, {client, key, look, atUpload})));
   const from = cvlib.importedFrom(storage);
   if (!force && cvlib.baseCv(storage) && (from ? from === cvlib.pdfHash(storage) : !atUpload)) return Promise.resolve({skipped: 'already imported'});
   const run = cvlib.importPdf(storage, key, client, {look}).finally(() => inflight.delete(folder));

@@ -65,17 +65,19 @@ export async function transcribePdf(pdf, apiKey, client = null) {
   return {cv: clean, usd: usd(response.usage)};
 }
 
-export const pdfHash = storage => { try { return crypto.createHash('sha256').update(fs.readFileSync(storage.path('cv.pdf'))).digest('hex').slice(0, 16); } catch { return ''; } };
+const hashOf = bytes => crypto.createHash('sha256').update(bytes).digest('hex').slice(0, 16);
+export const pdfHash = storage => { try { return hashOf(fs.readFileSync(storage.path('cv.pdf'))); } catch { return ''; } };
 export const importedFrom = storage => { try { return JSON.parse(fs.readFileSync(path.join(dir(storage), 'import.json'), 'utf8')).pdf || ''; } catch { return ''; } };
 
 // look: async cv => cv, keeps the PDF's photo, icons, logos and page breaks (lib/cv-look.js; needs a window, so main.js passes it). A failure there keeps the plain CV.
 export async function importPdf(storage, apiKey, client = null, {look = null} = {}) {
-  const {cv: clean, usd: cost} = await transcribePdf(fs.readFileSync(storage.path('cv.pdf')), apiKey, client);
+  const bytes = fs.readFileSync(storage.path('cv.pdf'));   // the hash below is of these bytes: a PDF swapped in while the AI reads must not be named as this cv.json's source
+  const {cv: clean, usd: cost} = await transcribePdf(bytes, apiKey, client);
   let kept = clean;
   if (look) { try { kept = await look(clean); } catch (error) { console.error(`CV look not kept: ${error.message}`); } }
   fs.mkdirSync(dir(storage), {recursive: true});
   fs.writeFileSync(path.join(dir(storage), 'cv.json'), JSON.stringify(kept, null, 2) + '\n', {mode: 0o600});
-  fs.writeFileSync(path.join(dir(storage), 'import.json'), JSON.stringify({pdf: pdfHash(storage)}) + '\n', {mode: 0o600});   // which PDF cv.json was read from (lib/cv-import-at-upload.js)
+  fs.writeFileSync(path.join(dir(storage), 'import.json'), JSON.stringify({pdf: hashOf(bytes)}) + '\n', {mode: 0o600});   // which PDF cv.json was read from (lib/cv-import-at-upload.js)
   return {cv: kept, usd: cost};
 }
 

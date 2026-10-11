@@ -88,3 +88,21 @@ test('every importPdf caller goes through ensure (hash-checked, shared in-flight
   const raw = callers.flatMap(([f, s]) => s.split('\n').filter(l => /importPdf\(/.test(l) && !/atUpload\.ensure|force/.test(l)).map(l => `${f}: ${l.trim().slice(0, 60)}`));
   assert.deepEqual(raw, [], 'use atUpload.ensure(storage, {...}) (or {force: true} for the explicit re-import button)');
 });
+
+test('a second CV picked while the first is still being read is read too, and import.json never names a PDF its cv.json was not read from (issue #355)', async () => {
+  const calls = [], storage = tempStorage();
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const slow = {messages: {create: async () => {
+    const n = calls.push(1);
+    if (n === 1) await gate;   // the first read is slow: the person picks another CV meanwhile
+    return {stop_reason: 'end_turn', content: [{type: 'text', text: JSON.stringify({...CV, name: n === 1 ? 'From CV A' : 'From CV B'})}], usage: {input_tokens: 10, output_tokens: 10}};
+  }}};
+  const first = atUpload.setCv(storage, pdf('A'), 'cv.pdf', {client: slow, key: '', toast: () => {}});
+  const second = atUpload.setCv(storage, pdf('B'), 'cv.pdf', {client: slow, key: '', toast: () => {}});
+  release();
+  await Promise.all([first.done, second.done]);
+  assert.equal(calls.length, 2, 'B is read, not skipped because A was running');
+  assert.equal(cv.baseCv(storage).name, 'From CV B');
+  assert.equal(cv.importedFrom(storage), cv.pdfHash(storage), 'the facts on disk come from the PDF on disk');
+});
