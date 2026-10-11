@@ -27,6 +27,8 @@ export function missesOf(file) {
   try { lines = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line)); } catch { /* no miss, or no file */ }
   return {parts: [...new Set(lines.flatMap(line => line.differs || []))], volatile: [...new Set(lines.flatMap(line => line.volatile || []))]};
 }
+// Each loose memo hit the app noted (lib/ai/model-memo.js): [{differs: [part, ...]}].
+const looseHitsOf = file => { try { return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line)); } catch { return []; } };
 export const addressOf = url => String(url).replace(/[?#].*$/, '').replace(/\/$/, '');
 const readJson = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
 

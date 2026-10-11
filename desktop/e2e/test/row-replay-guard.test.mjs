@@ -61,3 +61,8 @@ test('a row replay plays the live run\'s next state when the extension attaches 
   assert.match(replay, /event\.target\?\.type === 'file' && event\.target\.files\?\.length/);
   assert.match(replay, /laterStates\(states, presses, -1\)/, 'a row with 0 presses starts with its later states');
 });
+
+test('every helper the replay session calls is defined in row-replay.mjs (a removed one crashed a replay at its end: looseHitsOf, 12 Oct 2026)', () => {
+  const source = fs.readFileSync(new URL('../lib/row-replay.mjs', import.meta.url), 'utf8');
+  for (const name of ['looseHitsOf', 'missesOf']) assert.match(source, new RegExp(`(const|function) ${name}\\b`), `${name} is defined`);
+});
