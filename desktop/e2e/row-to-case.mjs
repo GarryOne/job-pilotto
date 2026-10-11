@@ -12,10 +12,12 @@ import {oldExtension} from './lib/old-extension.mjs';
 import {rowToCase} from './lib/row-to-case.mjs';
 
 const args = process.argv.slice(2), at = args.indexOf('--old'), commitAt = args.indexOf('--old-commit'), askCold = args.includes('--ask-cold'), fixed = args.includes('--fixed');
+const stubAt = args.flatMap((arg, i) => (arg === '--stub-page' ? [i] : [])), stub = stubAt.map(i => Number(args[i + 1]) - 1).filter(n => Number.isInteger(n) && n >= 0);   // --stub-page <n> (1-based, as pages/<n>.html; repeatable): that page kept as its links, buttons and controls only
 let oldDir = at >= 0 ? path.resolve(args[at + 1] || '') : process.env.OLD_EXTENSION_DIR ? path.resolve(process.env.OLD_EXTENSION_DIR) : '';
-const rest = args.filter((arg, i) => !(at >= 0 && (i === at || i === at + 1)) && !(commitAt >= 0 && (i === commitAt || i === commitAt + 1)) && arg !== '--ask-cold' && arg !== '--fixed'), name = rest.pop(), row = rest.join(' ');
+const skipAt = new Set([...(at >= 0 ? [at, at + 1] : []), ...(commitAt >= 0 ? [commitAt, commitAt + 1] : []), ...stubAt.flatMap(i => [i, i + 1])]);
+const rest = args.filter((arg, i) => !skipAt.has(i) && arg !== '--ask-cold' && arg !== '--fixed'), name = rest.pop(), row = rest.join(' ');
 const root = process.env.SMOKE_CANDIDATES || path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA', 'replay-candidates');
-if (!row || !name) { console.error('row-to-case: usage: npm run row-to-case -- "<row>" <case-name> --old <extension folder> [--ask-cold] [--fixed]  (or --old-commit <sha> in place of --old)'); process.exit(2); }
+if (!row || !name) { console.error('row-to-case: usage: npm run row-to-case -- "<row>" <case-name> --old <extension folder> [--ask-cold] [--fixed] [--stub-page <n>]  (or --old-commit <sha> in place of --old)'); process.exit(2); }
 const dir = findRow(row, root);
 if (!dir) { console.error(`row-to-case: no candidate for "${row}" in ${root}`); process.exit(2); }
 const stale = staleCapture(dir);
@@ -27,7 +29,7 @@ if (commitAt >= 0 && !oldDir) {
   try { built = oldExtension({sha: args[commitAt + 1]}); oldDir = built.extensionDir; } catch (error) { console.error(`row-to-case: ${error.message}`); process.exit(2); }
   console.error(built.note ? `row-to-case: ${built.note}` : `row-to-case: old extension = this checkout minus ${args[commitAt + 1]}, in ${built.extensionDir}`);
 }
-const {code, lines} = await rowToCase({rowDir: dir, name, outDir: REPLAY_DIR, oldDir, askCold, fixed, say: line => console.error(`${new Date().toTimeString().slice(0, 8)} ${line}`)});
+const {code, lines} = await rowToCase({rowDir: dir, name, outDir: REPLAY_DIR, oldDir, askCold, fixed, stub, say: line => console.error(`${new Date().toTimeString().slice(0, 8)} ${line}`)});
 built?.remove();
 for (const line of lines) console.log(line);
 process.exit(code);

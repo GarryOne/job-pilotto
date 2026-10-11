@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {appProfileTexts, personalValues, scrub, scrubPage} from './capture-page.mjs';
-import {folderVerdict, privacyFindings, sizeVerdict, CASE_FAIL} from './row-case-gates.mjs';
+import {folderVerdict, privacyFindings, sizeVerdict, CASE_FAIL, CASE_WARN} from './row-case-gates.mjs';
 import {shrinkPages} from './row-case-shrink.mjs';
 import {keptPresses} from './row-follow.mjs';
 
@@ -22,7 +22,7 @@ const baselineOf = (item, presses) => ({pageKinds: [...new Set((item.evidence?.p
   fields: (item.run?.fields || []).map(({label, outcome, reason}) => ({label, outcome, reason})), pressed: presses.map(press => press.what)});
 
 // -> {dir, bytes, verdict}. shrink: injectable for tests (default: the headless-Chromium pruning). values: the person's own values to scrub (default: this Mac's app profile).
-export async function buildCase({rowDir, name, outDir, shrink = shrinkPages, values = personalValues(appProfileTexts()), chromium = null, exe}) {
+export async function buildCase({rowDir, name, outDir, shrink = shrinkPages, values = personalValues(appProfileTexts()), chromium = null, exe, gate = true, stub = []}) {   // gate false: measuring only (what each file weighs), never a case that is written
   if (!/^[a-z0-9][a-z0-9-]{0,80}$/.test(String(name))) throw new Error(`case name "${name}": use lowercase letters, digits and dashes (<shape>-<n>)`);
   if (!outDir) throw new Error('no cases folder: the private evaluation data is absent (lib/eval-data.mjs casesDir()); nothing written');
   const item = readJson(path.join(rowDir, 'case.json'), null);
@@ -30,7 +30,14 @@ export async function buildCase({rowDir, name, outDir, shrink = shrinkPages, val
   const har = readJson(path.join(rowDir, 'styles.har.json'), {log: {entries: []}}).log?.entries || [];
   const harCss = har.filter(entry => /css/.test(entry.response?.content?.mimeType || '')).map(entry => scrubPage(entry.response.content.text || '', values));
   const pages = item.pages.map(page => ({url: String(page.url).replace(/[?#].*$/, ''), file: page.file, html: stripQueries(scrubPage(fs.readFileSync(path.join(rowDir, page.file), 'utf8'), values)), meta: page}));
-  const {pages: shrunk, sheets} = await shrink(chromium || (await import('playwright-core')).chromium, pages.map(({url, file, html}) => ({url, file, html})), harCss, {exe});
+  const browser = chromium || (await import('playwright-core')).chromium, input = pages.map(({url, file, html}) => ({url, file, html}));
+  let {pages: shrunk, sheets} = await shrink(browser, input, harCss, {exe, stub}), budget = '';
+  const weigh = (list, map) => list.reduce((sum, page) => sum + Buffer.byteLength(page.html), 0) + [...map.values()].reduce((sum, text) => sum + Buffer.byteLength(text), 0);
+  if (weigh(shrunk, sheets) > CASE_WARN) {   // the page budget: over the size warning, the rules of the sheets are cut to what decides what is visible, where and how big (the case is proved by the replay afterwards, as any case)
+    const before = weigh(shrunk, sheets);
+    ({pages: shrunk, sheets} = await shrink(browser, input, harCss, {exe, layoutOnly: true, stub}));
+    budget = `page budget: styles cut to layout and visibility, ${Math.round(before / 1024)} KB -> ${Math.round(weigh(shrunk, sheets) / 1024)} KB of pages and sheets`;
+  }
   const files = {};
   const meta = item.pages.map((page, at) => ({...Object.fromEntries(['at', 'state', 'ask', 'answerAsk', 'view', 'frameOf'].filter(key => page[key] !== undefined).map(key => [key, page[key]])), url: pages[at].url, file: `pages/${at + 1}.html`}));
   shrunk.forEach((page, at) => { files[meta[at].file] = page.html; });
@@ -44,11 +51,11 @@ export async function buildCase({rowDir, name, outDir, shrink = shrinkPages, val
   const found = privacyFindings(Object.fromEntries(Object.entries(files).map(([file, text]) => [`${name}/${file}`, text])), values);
   if (found.length) throw new Error(`privacy gate: ${found.join('; ')}; nothing written`);
   const bytes = Object.values(files).reduce((sum, text) => sum + Buffer.byteLength(text), 0), verdict = sizeVerdict(bytes);
-  if (verdict === 'fail') throw new Error(`size gate: ${name} is ${Math.round(bytes / 1024)} KB, over ${CASE_FAIL / 1024} KB; nothing written`);
+  if (verdict === 'fail' && gate) throw new Error(`size gate: ${name} is ${Math.round(bytes / 1024)} KB, over ${CASE_FAIL / 1024} KB; nothing written`);
   const dir = path.join(outDir, name);
   if (folderVerdict(folderBytes(outDir) + bytes) === 'fail') throw new Error(`size gate: the cases folder would pass 8 MB; nothing written`);
   for (const [file, text] of Object.entries(files)) { fs.mkdirSync(path.dirname(path.join(dir, file)), {recursive: true}); fs.writeFileSync(path.join(dir, file), text); }
-  return {dir, bytes, verdict};
+  return {dir, bytes, verdict, budget};
 }
 
 const folderBytes = dir => { let total = 0; try { for (const entry of fs.readdirSync(dir, {withFileTypes: true})) total += entry.isDirectory() ? folderBytes(path.join(dir, entry.name)) : fs.statSync(path.join(dir, entry.name)).size; } catch { /* none yet */ } return total; };

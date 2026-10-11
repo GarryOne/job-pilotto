@@ -171,3 +171,12 @@ test('--ask-cold repeats while the strict replay still misses: the cold replay i
   assert.equal(never.code, 4);
   assert.equal(colds, 3, 'it stops after 3 rounds');
 });
+
+test('the page budget the build applied and the pages stubbed are passed through and said in the output', async () => {
+  let seen = null;
+  const budgeted = async options => { seen = options.stub; const built = await build(options); return {...built, budget: 'page budget: styles cut to layout and visibility, 400 KB -> 250 KB of pages and sheets'}; };
+  const done = await go(replayBy(['posting', 'form'], ['posting']), {build: budgeted, stub: [0, 2]});
+  assert.equal(done.code, 0, done.lines.join('\n'));
+  assert.deepEqual(seen, [0, 2]);
+  assert.match(done.lines.join('\n'), /page budget: styles cut to layout and visibility, 400 KB -> 250 KB/);
+});

@@ -27,7 +27,7 @@ export const labelMatcher = labels => {
 
 const readJson = file => JSON.parse(fs.readFileSync(file, 'utf8'));
 
-export async function rowToCase({rowDir, name, outDir, oldDir, askCold = false, fixed = false, build = buildCase, replay = replayRow, values = personalValues(appProfileTexts()), say = () => {}}) {
+export async function rowToCase({rowDir, name, outDir, oldDir, askCold = false, fixed = false, stub = [], build = buildCase, replay = replayRow, values = personalValues(appProfileTexts()), say = () => {}}) {
   const step = text => say(`row-to-case: ${text}`);   // one line per stage as it starts (a replay takes up to 90 s and prints nothing else)
   const lines = [], end = (code, line) => { lines.push(line); return {code, lines}; };
   if (!oldDir) return end(2, 'row-to-case: name the OLD build (the fix\'s parent): --old <extension folder> (a case that cannot fail on the old build proves nothing)');
@@ -36,7 +36,8 @@ export async function rowToCase({rowDir, name, outDir, oldDir, askCold = false, 
   try {
     let built;
     step('building the case (scrub, shrink, privacy and size gates)');
-    try { built = await build({rowDir, name, outDir: staging, values}); } catch (error) { return end(2, `row-to-case: ${error.message}`); }
+    try { built = await build({rowDir, name, outDir: staging, values, stub}); } catch (error) { return end(2, `row-to-case: ${error.message}`); }
+    if (built.budget) lines.push(`row-to-case: ${built.budget}`);
     const caseFile = path.join(built.dir, 'case.json'), memoFile = path.join(built.dir, 'model-memo.json'), item = readJson(caseFile), asCase = expect => ({...item, name, dir: built.dir, expect});
     // The new build's cold asks, on the plan path (the offline app is the fake applicant; no API key), kept scrubbed beside their part hashes. Round 1 asks what the capture lacks; if the strict replay then still misses an ask
     // (the cold replay waits for the real model, so the extension's concurrent flows interleave differently from the strict replay's and make other asks), those are asked in the next round: up to 3, until a strict replay misses nothing.

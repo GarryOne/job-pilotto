@@ -33,3 +33,23 @@ test('a data: image goes from the page; the page text and structure stay', {skip
   assert.doesNotMatch(pages[0].html, /data:image/);
   assert.match(pages[0].html, /<h1>Seller \(m\/f\)<\/h1>/);
 });
+
+test('layoutOnly (the page budget): a rule keeps only what decides what is visible, where and how big; colours, fonts, backgrounds and a rule with nothing of that go', {skip}, async () => {
+  const states = [page('https://jobs.example.test/a', '<p class="a b">x</p><i class="paint"></i>')];
+  const {sheets} = await shrinkPages(chromium, states, ['.a{color:red;display:none;font-size:20px;margin:3px;background:blue} .b{color:green} .paint{color:red;box-shadow:0 0 3px #000}'], {layoutOnly: true});
+  const css = [...sheets.values()].join('\n');
+  assert.match(css, /\.a \{[^}]*display: none/);
+  assert.match(css, /\.a \{[^}]*margin/);
+  for (const gone of ['color', 'font-size', 'background', 'box-shadow', '.paint', '.b ']) assert.ok(!css.includes(gone), `${gone} gone`);
+});
+
+test('a stubbed page (--stub-page) keeps its title and the links, buttons, controls, labels and forms (the outermost of each), nothing else', {skip}, async () => {
+  const body = '<header><nav><a href="/jobs">Jobs</a></nav></header><main><p>A very long job description that the replay never reads.</p><a href="/apply" class="cta">Apply now</a><form><label for="e">Email</label><input id="e" type="text"></form></main><footer>(c)</footer>';
+  const states = [{...page('https://jobs.example.test/a', body), html: `<!doctype html><html><head><title>Role</title></head><body>${body}</body></html>`}, page('https://jobs.example.test/b', '<p>kept whole</p>')];
+  const {pages} = await shrinkPages(chromium, states, [], {stub: [0]});
+  assert.match(pages[0].html, /<title>Role<\/title>/);
+  for (const kept of ['href="/jobs"', 'Apply now', '<form>', 'for="e"']) assert.ok(pages[0].html.includes(kept), `${kept} kept`);
+  for (const gone of ['A very long job description', '(c)', '<header', '<footer']) assert.ok(!pages[0].html.includes(gone), `${gone} gone`);
+  assert.equal((pages[0].html.match(/<label/g) || []).length, 1, 'a label inside a form is not kept twice');
+  assert.match(pages[1].html, /kept whole/, 'another page is untouched');
+});
