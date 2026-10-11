@@ -44,5 +44,5 @@ Extended by the owner in this window (11 Oct 2026, ~06:35): A journey headline, 
 - [x] landed only for the types that pass; measured before -> after (no faster model exists for these types; the form answers use Sonnet 5.5, outside C, raised with the owner)
 
 ### 10. Leaner call per question type (B)
-- [x] the change 3 result broken down per question type: account ready 4/0 and account result 1/0 (misses / wrong-confident) vs 0/0 native: they stay strict; form step even; page kind 4/7 vs 11/3-4 (this commit)
-- [x] the faster format only for types with no loss (tuned prompt, strict re-ask on unsure or invalid); scored and measured: page kind fast-first (strict re-ask below 0.85 or invalid), 132 fixtures live: misses 6, wrong-confident 4 vs native 9-12 / 3-4; page kind 5.6 s -> 3.2 s mean on the recorded Recruitee asks (this commit)
+- [x] the change 3 result broken down per question type: account ready 4/0 and account result 1/0 (misses / wrong-confident) vs 0/0 native: they stay strict; form step even; page kind 4/7 vs 11/3-4
+- [x] the faster format only for types with no loss, scored and measured: landed d5bfa19 (one ladder run: misses 6 / WC 4), then REVERTED with the owner's go (11 Oct 2026): a second run scored WC 7 (2 of 3 fast-format runs at 7 vs native 3-4), and live it netted ~0 (posting ask 5.6 -> 3.2 s, framed form ask 5.9 -> 9.2 s: the fast format calls a frame a bot check, 6 of 6 tries)

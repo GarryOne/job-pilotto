@@ -22,9 +22,8 @@ const NORMALISE = [
 export const normalise = text => fakeContacts(NORMALISE.reduce((out, [pattern, to]) => out.replace(pattern, to), text));
 
 // The request as the model sees it: model, system, messages, output schema, tools (max_tokens and the like do not change the answer's meaning).
-// tag: the adapter's format when it is not the default (ClaudeCode memoTag 'schema-in-prompt'); no tag keeps every key as it was.
-export function memoKey(params = {}, tag = '') {
-  const asked = {model: params.model, system: params.system ?? '', messages: params.messages ?? [], output_config: params.output_config ?? null, tools: params.tools ?? null, ...(tag ? {tag} : {})};
+export function memoKey(params = {}) {
+  const asked = {model: params.model, system: params.system ?? '', messages: params.messages ?? [], output_config: params.output_config ?? null, tools: params.tools ?? null};
   return crypto.createHash('sha256').update(normalise(JSON.stringify(asked))).digest('hex');
 }
 
@@ -47,7 +46,7 @@ export function withMemo(client, file = memoFile(), {only = memoOnly()} = {}) {
   if (!client || !file) return client;
   const ask = client.messages.create.bind(client.messages);
   client.messages = {...client.messages, create: async params => {
-    const key = memoKey(params, client.memoTag || ''), kept = read(file);
+    const key = memoKey(params), kept = read(file);
     // An offline replay serves the page scrubbed (lib/live-capture.js fakeContacts): the answer the AI gave to the live page is scrubbed the same way, so an address it
     // read off the page (apply_email) is still on the replayed page.
     if (kept[key]) return only ? JSON.parse(fakeContacts(JSON.stringify(kept[key]))) : kept[key];

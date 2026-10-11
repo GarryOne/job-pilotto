@@ -95,9 +95,7 @@ export class ClaudeCode extends CliAdapter {
   static queue = slots(2);
   static spares = sparePool();   // pre-started processes for the page's questions (cli-spares.js)
 
-  // schemaInPrompt: the schema is stated in the prompt and validated here instead of --json-schema (fast-first.js: the page-kind question only).
-  constructor({run = execFile, schemaInPrompt = false, ...options} = {}) { super(options); this.run = run; this.schemaInPrompt = schemaInPrompt; }
-  get memoTag() { return this.schemaInPrompt ? 'schema-in-prompt' : ''; }   // the e2e model-call cache keys the two formats apart (model-memo.js)
+  constructor({run = execFile, ...options} = {}) { super(options); this.run = run; }
 
   env() { return cleanEnv(); }
 
@@ -111,7 +109,7 @@ export class ClaudeCode extends CliAdapter {
     args.push('--tools', files.length ? 'Read' : '');
     if (files.length) args.push('--allowedTools', 'Read(./**)');
     if (flags.has('--permission-mode')) args.push('--permission-mode', 'dontAsk');
-    const native = !!request.schema && flags.has('--json-schema') && !this.schemaInPrompt;
+    const native = !!request.schema && flags.has('--json-schema');
     if (native) args.push('--json-schema', JSON.stringify(request.schema));
     if (request.effort && flags.has('--effort')) args.push('--effort', request.effort);
     for (const flag of ['--no-session-persistence', '--strict-mcp-config', '--safe-mode']) if (flags.has(flag)) args.push(flag);

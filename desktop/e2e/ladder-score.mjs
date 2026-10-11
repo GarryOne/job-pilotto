@@ -15,8 +15,6 @@ import {BASELINE_FILE, nextBaseline, readBaseline} from './lib/ladder-baseline.m
 import {DIR, loadFixtures} from './lib/ladder-fixtures.mjs';
 import {assertNoApiSpend, scoreFixtures, summarize} from './lib/ladder-score.mjs';
 import {answerPathNote, scoringClient} from './lib/ladder-score-path.mjs';
-import {fastFirst} from '../lib/ai/fast-first.js';
-import {questionOf} from './lib/ladder-fixtures.mjs';
 
 const args = process.argv.slice(2), arg = name => (args.includes(name) ? args[args.indexOf(name) + 1] : '');
 const offline = args.includes('--offline'), record = args.includes('--record');
@@ -30,9 +28,7 @@ if (!offline) {
   const engine = pickEngine({family: 'claude'});
   assertNoApiSpend({env: process.env, engine});
   const client = scoringClient();   // the app's own adapter: same effort, same schema handling (lib/ladder-score-path.mjs)
-  // The page-kind question as the app asks it: the fast format first, the strict one on doubt (lib/ai/fast-first.js); the judges strict.
-  const pageKindClient = fastFirst({fast: scoringClient({schemaInPrompt: true}), strict: client});
-  clientFor = fixture => (questionOf(fixture) === 'page_kind' ? pageKindClient : client);
+  clientFor = () => client;
 }
 // Live: four calls at a time. Rows come back in fixture order.
 const lanes = Array.from({length: offline ? 1 : 4}, (_, lane) => fixtures.filter((_, index) => index % (offline ? 1 : 4) === lane));
