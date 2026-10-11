@@ -41,11 +41,12 @@ export function conversation(request, names = []) {
   }).join('\n\n');
 }
 
-// One process: {stdout, stderr, code}, or {error: {kind: 'timeout' | 'missing', text}}. The prompt goes on stdin.
-export function runProcess(binary, args, prompt, {cwd, env, timeout = TIMEOUT_MS, spawnFn = spawn, tool = 'The AI'} = {}) {
+// One process: {stdout, stderr, code}, or {error: {kind: 'timeout' | 'missing', text}}. The prompt goes on stdin. started: a process already
+// started with these args (cli-spares.js), used instead of starting one.
+export function runProcess(binary, args, prompt, {cwd, env, timeout = TIMEOUT_MS, spawnFn = spawn, tool = 'The AI', started = null} = {}) {
   return new Promise(resolve => {
-    let child;
-    try { child = spawnFn(binary, args, {cwd, env, stdio: ['pipe', 'pipe', 'pipe']}); }
+    let child = started;
+    try { child ||= spawnFn(binary, args, {cwd, env, stdio: ['pipe', 'pipe', 'pipe']}); }
     catch (error) { resolve({error: {kind: 'missing', text: `${tool} could not start: ${error.message}`}}); return; }
     let stdout = '', stderr = '', done = false;
     const finish = value => { if (!done) { done = true; clearTimeout(timer); resolve(value); } };
@@ -97,14 +98,16 @@ export class CliAdapter extends Adapter {
   usage(data) { throw new Error('not implemented'); }
   normalize(value, schema) { return value; }   // a structured answer back in the caller's schema's shape
   env() { return {...process.env}; }
+  runCall(args, prompt, folder) {   // one process for one call (Claude Code: a pre-started one for a page ask)
+    return runProcess(this.binary, args, prompt, {cwd: folder, env: this.env(), timeout: this.timeout, spawnFn: this.spawnFn, tool: this.constructor.tool});
+  }
 
   // ----- shared -----
   async call(args, prompt, folder) {
     const {tool} = this.constructor;
     if (!this.binary) throw cliError({kind: 'missing', text: this.constructor.missingText});
     if (this.timeouts >= TIMEOUTS_BEFORE_STOP) throw cliError({kind: 'limit', text: `${tool} is not answering (it timed out twice in a row); this run stops here.`});
-    const finished = await this.constructor.queue(() => runProcess(this.binary, args, prompt,
-      {cwd: folder, env: this.env(), timeout: this.timeout, spawnFn: this.spawnFn, tool}), this.lane);
+    const finished = await this.constructor.queue(() => this.runCall(args, prompt, folder), this.lane);
     if (finished.error?.kind === 'timeout') {
       this.timeouts += 1;
       if (this.timeouts >= TIMEOUTS_BEFORE_STOP) throw cliError({kind: 'limit', text: `${finished.error.text}, twice in a row; this run stops here.`});

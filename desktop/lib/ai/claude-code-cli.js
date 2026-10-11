@@ -1,12 +1,15 @@
 // The Claude Code engine ('cli'): the app's own AI calls on the user's own signed-in `claude -p` (moved out of lib/claude-code.js,
 // which re-exports cliClient, runJson, problem, cleanEnv, alias, promptAndFiles and parseJson so callers are unchanged). Each call: a
 // fresh folder, only the Read tool and only inside it, the user's skills/slash commands/settings not loaded, the schema enforced by
-// `--json-schema` when this Claude Code offers it. Billing 'subscription'. Guarded by test/claude-code.test.js and test/ai-contract.test.js.
+// `--json-schema` when this Claude Code offers it. A page ask (lane 'page') reads its prompt as one stream-json message on a process started
+// before it came (cli-spares.js). Billing 'subscription'. Guarded by test/claude-code.test.js, test/ai-contract.test.js and test/cli-spares.test.js.
 import {execFile, spawn} from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import {usage as usageOf} from './contract.js';
 import {CliAdapter, TIMEOUT_MS, cliError, conversation, runProcess, slots} from './cli-base.js';
+import {sparePool} from './cli-spares.js';
 export {parseJson} from './schema.js';
 
 const ALIASES = [['claude-haiku', 'haiku'], ['claude-sonnet', 'sonnet'], ['claude-opus', 'opus']];
@@ -31,7 +34,10 @@ export function problem(text) {
 // A finished `claude -p --output-format json`: {data} or {error: {kind, text}}.
 function resultOf({stdout, stderr, code}) {
   let data = null;
-  try { data = JSON.parse(stdout); if (Array.isArray(data)) data = data.findLast(item => item.type === 'result'); } catch {}
+  try { data = JSON.parse(stdout); if (Array.isArray(data)) data = data.findLast(item => item.type === 'result'); }
+  catch {   // --output-format stream-json: one event per line, the last 'result' is the answer
+    data = String(stdout).split('\n').map(line => { try { return JSON.parse(line); } catch { return null; } }).findLast(item => item?.type === 'result') || null;
+  }
   if (!data) return {error: problem(`${stdout}\n${stderr}`.trim() || `exit code ${code}`)};
   if (data.is_error || code !== 0 || String(data.subtype || 'success').startsWith('error')) return {error: problem(`${data.result || ''}\n${stderr}\n${data.subtype || ''}`)};
   return {data};
@@ -87,6 +93,7 @@ export class ClaudeCode extends CliAdapter {
   static folder = 'claude';
   static missingText = 'Claude Code is not installed on this Mac: install it, or switch to an API key in Settings → Connections → AI.';
   static queue = slots(2);
+  static spares = sparePool();   // pre-started processes for the page's questions (cli-spares.js)
 
   constructor({run = execFile, ...options} = {}) { super(options); this.run = run; }
 
@@ -94,7 +101,10 @@ export class ClaudeCode extends CliAdapter {
 
   async build(request, folder, files) {
     const flags = await offered(this.binary, this.run);
-    const args = ['-p', '--output-format', 'json', '--model', alias(request.model)];
+    // A page ask (lane 'page', no file) reads its prompt as a stream-json message: a process started before the prompt waits for it (cli-spares.js);
+    // with plain text on stdin `claude -p` gives up after 3 s without input.
+    const streamed = this.lane === 'page' && !files.length && flags.has('--input-format');
+    const args = ['-p', ...(streamed ? ['--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose'] : ['--output-format', 'json']), '--model', alias(request.model)];
     if (request.system) args.push('--system-prompt', request.system);
     args.push('--tools', files.length ? 'Read' : '');
     if (files.length) args.push('--allowedTools', 'Read(./**)');
@@ -108,6 +118,22 @@ export class ClaudeCode extends CliAdapter {
     if (flags.has('--disable-slash-commands')) args.push('--disable-slash-commands');
     if (flags.has('--setting-sources')) args.push('--setting-sources', '');
     return {args, prompt: readFirst(conversation(request, files), files), native};
+  }
+
+  // A page ask: the process started for its kind of question (same args) if one waits, and the next one started now for the next page.
+  runCall(args, prompt, folder) {
+    if (!args.includes('--input-format')) return super.runCall(args, prompt, folder);
+    const key = `${this.binary}\0${JSON.stringify(args)}`, env = this.env();
+    const started = this.constructor.spares.take(key);
+    const message = `${JSON.stringify({type: 'user', message: {role: 'user', content: prompt}})}\n`;
+    const answered = runProcess(this.binary, args, message, {cwd: folder, env, timeout: this.timeout, spawnFn: this.spawnFn, tool: this.constructor.tool, started});
+    this.constructor.spares.keep(key, () => {   // after this question's own process, so its start never waits behind the spare's
+      const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'job-pilotto-claude-'));
+      const child = this.spawnFn(this.binary, args, {cwd, env, stdio: ['pipe', 'pipe', 'pipe']});
+      child.on?.('close', () => fs.rmSync(cwd, {recursive: true, force: true}));
+      return child;
+    });
+    return answered;
   }
 
   parse(finished) {
