@@ -58,6 +58,7 @@
    "pressed the Apply button"
   ],
   "maxNewTabs": 0,
-  "seconds": 20
- }
+  "seconds": 8
+ },
+  "windowWhy": {"decidesAt": 1.1, "forbiddenAt": 1.1, "longestWait": 1.1, "margin": "8 s is 7x the measured decision time on a calm Mac: the extension decides at its first look at the page (the page-kind answer, then the press)", "measuredOn": "11 Oct 2026, calm Mac, extension log timestamps after the page loaded", "control": "a copy of the extension with the guard removed presses at that same first decision: it fails within this window"}
 }
