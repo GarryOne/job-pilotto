@@ -63,7 +63,12 @@
       if (!parent || parent === document.body || parent.querySelector(OTHERS) || all.some(other => other !== slot && parent.contains(other.el))) break;
       el = parent;
     }
-    return clean(textOf(el)).slice(0, 160);
+    // What the page itself says labels the slot, by reference (aria-labelledby / aria-describedby of its input or trigger, a <label for>): the label block can sit where no climb reaches.
+    const control = slot.input || slot.trigger, named = new Set();
+    const ids = [control?.getAttribute('aria-labelledby'), control?.getAttribute('aria-describedby')].join(' ').split(/\s+/).filter(Boolean);
+    const refs = [...ids.map(id => document.getElementById(id)), ...(control?.labels ? [...control.labels] : [])].filter(Boolean);
+    const said = refs.map(ref => clean(textOf(ref)).slice(0, 80)).filter(text => text && !named.has(text) && named.add(text));
+    return clean([...said, textOf(el)].join(' ')).slice(0, 160);
   };
   const choice = () => cleanLabel(window.__jobPilottoUploadChoice?.resume || '');
   const named = (slot, aliases, all) => {

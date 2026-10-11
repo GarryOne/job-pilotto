@@ -220,3 +220,14 @@ test('the slots\' titles are listed for the app to ask about, only when two or m
     assert.deepEqual(await page.evaluate(() => window.__jobPilottoUpload.cvCandidates()), []);
   });
 });
+
+// Louis Vuitton, live (11 Oct 2026, plan-path engine): the own CV slot's label block sits where no climb reaches (another control shares its container), but the trigger names it
+// through aria-describedby. The AI must see that label, or it can only answer "none".
+test('a slot\'s label reached only through aria-describedby/labelledby is part of the title the AI sees', async () => {
+  await open(`<body><div class="fast"><button type="button" id="importBtn"><span id="importLbl">Importar datos desde mi CV</span></button><form><input type="file" id="imp" aria-labelledby="importLbl"></form></div>
+    <div class="row"><div id="label_cv" class="lab">Currículo <em>*</em></div></div>
+    <div class="box"><input type="text" id="decoy"><div class="drop"><button type="button" class="btn-upload" aria-describedby="help_cv label_cv">cargar archivo</button></div><input type="file" id="own" style="display:none"></div></body>`, async page => {
+    const titles = await page.evaluate(() => window.__jobPilottoUpload.cvCandidates());
+    assert.ok(titles.some(title => /Currículo/.test(title)), titles.join(' | '));
+  });
+});
