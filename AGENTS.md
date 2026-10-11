@@ -209,8 +209,12 @@ until the owner stepped in. So whoever meets it fixes it, in the same turn, befo
 
 The hook runs the suites on a **clean checkout of what is pushed**, one area at a time, as CI does, so leftovers in your
 folder can't hide a break: `fa1f838` passed locally on a `desktop/shared/` left by a desktop run, and the worker's CI job,
-which never stages it, went red. While a fix on top of a red commit is still building, a push that contains it goes
-through (its own suites still run).
+which never stages it, went red. A fix still building does **not** let anyone through (11 Oct 2026: four landings went in
+on top of a fix attempt that ended red): main is green again when a later commit's run has completed green
+(`tools/red-main.sh`). While it is red every landing but the fix waits (`tools/ship.sh` says so); after **5 minutes** red
+with nobody claiming the fix (`tools/red-main.sh claim <sha> --session <name>` extends it to 15, once) the next landing
+says loudly to run `tools/revert-red.sh <sha>`, which reverts the commit and ships it with `--fix`. Every red period is
+logged to `gate-timing.log` (`red-main ended ... minutes=N waited=K`). `SHIP_IGNORE_RED=1` only with the owner's OK.
 
 ### Commit messages
 - **Every fix leaves a permanent check** (3 Oct 2026). A commit that says `Fixes #N` also adds the test that would have caught the bug: a unit test, an e2e unit test,

@@ -58,6 +58,7 @@ echo "ship: log: $log"
 started=$SECONDS
 if [ -f "$here/tools/landing-lock.sh" ]; then source "$here/tools/landing-lock.sh"; else landing_acquire() { :; }; landing_release() { :; }; fi   # a queue only with SHIP_LANDING_LOCK=1 (off by default: a refused push rebases and re-runs the checks)
 if [ -f "$here/tools/ship-timeline.sh" ]; then source "$here/tools/ship-timeline.sh"; timeline_begin "$log"; else timeline_mark() { :; }; timeline_write() { :; }; fi   # one line per landing in ship-timeline.log
+if [ -f "$here/tools/ship-red.sh" ]; then source "$here/tools/ship-red.sh"; else ship_red_gate() { :; }; fi   # while main is red every landing but the fix waits (tools/red-main.sh)
 step() { timeline_mark "$*"; echo "ship: [$((SECONDS - started))s] $*"; }
 # DONE is printed only by a run that reached one of its two real ends (`finished=1`: pushed, or deliberately nothing to push). A signal exits non-zero
 # and stops the push checks it started; an exit 0 that never got to an end is reported as such, never as DONE (10 Oct 2026: a killed background run logged
@@ -111,6 +112,7 @@ step "rebasing $branch onto origin/main"
 rebase
 [ "$(git rev-list --count origin/main..HEAD)" -gt 0 ] || { echo "ship: nothing to push, $branch has no commits beyond origin/main"; finished=1; exit 0; }
 
+ship_red_gate "before the checks"
 # The hook is a Claude Code hook, so a script's own `git push` never meets it: run its checks here as it would see the push (again after a refused push).
 payload="$(jq -n --arg command "${flags}git push origin $branch:main" --arg cwd "$here" '{tool_input: {command: $command}, cwd: $cwd}')"
 # It prints nothing while it passes and takes minutes: a heartbeat every 20 s says it is still working; its own words show only on failure.
@@ -138,6 +140,7 @@ if [ -z "${SHIP_NO_WAIT:-}" ] && ! git diff --quiet origin/main HEAD -- .github/
   if [ -f "$here/tools/wait-build-tag.sh" ]; then bash "$here/tools/wait-build-tag.sh"; fi
 fi
 
+ship_red_gate "before the push"
 step "pushing to main"
 pushed=""
 for attempt in 1 2 3 4 5; do
