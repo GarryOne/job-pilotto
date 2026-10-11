@@ -71,6 +71,8 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
    Its limits: a page the live run never reached cannot be replayed, and a changed ask (a new sketch or prompt) is not in the row's kept answers: confirm live once (step 3).
    **A capture from before the replay format (11 Oct 2026) is refused as STALE** (exit 3, it says so): capture the row once (`npm run smoke -- --only "<row>"`; it keeps a
    failing row's capture, `SMOKE_KEEP_CANDIDATES=1` keeps it either way), then replay. Never debug from a stale capture's replay.
+   **`captured with an older applicant seed`** (the capture recorded another e2e applicant, or none: before 9f6ff67): its fill asks miss the kept answers, so its fill
+   result is not your fix's; re-capture the row live first. Page kinds and presses still replay.
 3. **Then confirm live in the harness, never the twin, never the owner's data:** `cd desktop/e2e && npm run live -- <posting url>` (no Electron, ~1 min) or `npm run smoke -- --only <shape words>` (the e2e app, its own profile and
    SQLite store in a throwaway profile (no Notion), fake applicant, fixture CV, a headless Chrome with the real extension through `lib/extension.mjs`). It is a HELD run: the consent and the
    account button are NOT pressed, never Submit. **Say before it starts** what the window does and what is HELD, and how long (`SMOKE_SECONDS`, default 90).

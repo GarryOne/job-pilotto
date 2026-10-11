@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {seedNote} from './lib/applicant-seed.mjs';
 import {findRow, replayRow, replayRows, staleCapture} from './lib/row-replay.mjs';
 
 const args = process.argv.slice(2), at = args.indexOf('--old'), all = args.includes('--all');
@@ -19,6 +20,7 @@ if (all) {
   const stale = dirs.filter(dir => staleCapture(dir));
   for (const dir of stale) console.log(`row: ${path.basename(dir)}: STALE: ${staleCapture(dir)}`);
   if (stale.length === dirs.length) process.exit(3);
+  for (const dir of dirs.filter(one => !stale.includes(one) && seedNote(one))) console.log(`row: ${path.basename(dir)}: ${seedNote(dir)}`);   // lib/applicant-seed.mjs
   const started = Date.now(), results = await replayRows(dirs.filter(dir => !stale.includes(dir)), {extensionDir});
   for (const r of results) console.log(line(r));
   console.log(`rows: ${results.length} rows of ${day} in ${Math.round((Date.now() - started) / 1000)} s; ${results.filter(r => !r.error && !r.divergence).length} followed the live run to its end`);
@@ -27,6 +29,7 @@ if (all) {
   if (!dir) { console.error(`row: no candidate for "${name}" in ${root} (give a pool row's name or a case folder)`); process.exit(2); }
   const stale = staleCapture(dir);
   if (stale) { console.error(`row: ${path.basename(dir)}: ${stale}`); process.exit(3); }
+  if (seedNote(dir)) console.log(`row: ${path.basename(dir)}: ${seedNote(dir)}`);   // its fill asks miss the kept answers (lib/applicant-seed.mjs)
   const result = await replayRow(dir, {extensionDir, say: console.log});
   console.log(line(result));
   for (const address of result.unrecorded) console.log(`row: route not recorded: ${address}`);

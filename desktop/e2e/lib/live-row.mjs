@@ -8,6 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {frontOf} from './app-front.mjs';
+import {seedVersion} from './applicant-seed.mjs';
 import {CONTACT} from './apply-fixtures.mjs';
 import {cssRecorder, personalValues, scrub} from './capture-page.mjs';
 import {journeyRecorder} from './capture-journey.mjs';
@@ -71,7 +72,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     await journey.finish();
     const pages = journey.write(captureDir);
     // The capture is a row a replay can start from (npm run row -- <captureDir>): its pages and the live presses, as the pool keeps them (lib/replay-candidate.mjs).
-    fs.writeFileSync(path.join(captureDir, 'case.json'), `${JSON.stringify({shape: posting.title || posting.url, pages}, null, 1)}\n`);
+    fs.writeFileSync(path.join(captureDir, 'case.json'), `${JSON.stringify({shape: posting.title || posting.url, pages, seed: seedVersion()}, null, 1)}\n`);
     fs.writeFileSync(path.join(captureDir, 'presses.json'), `${JSON.stringify(livePresses(app.logText()), null, 1)}\n`);
     fs.writeFileSync(path.join(captureDir, 'styles.har.json'), JSON.stringify(await styles.har()));
     fs.writeFileSync(path.join(captureDir, 'app.log'), app.logText());

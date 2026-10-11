@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
+import {seedVersion} from '../lib/applicant-seed.mjs';
 import {runLiveRow} from '../lib/live-row.mjs';
 import {startRealExtension} from '../lib/real-extension.mjs';
 
@@ -34,5 +35,6 @@ test('a live row runs on the app\'s own path without Electron: Apply opens the p
   assert.ok(fs.existsSync(path.join(captureDir, 'asks.jsonl')), 'the app noted the ask as it arrived');
   const journey = JSON.parse(fs.readFileSync(path.join(captureDir, 'journey.json'), 'utf8'));
   assert.ok(fs.existsSync(path.join(captureDir, 'case.json')) && fs.existsSync(path.join(captureDir, 'presses.json')), 'a row a replay can start from');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(captureDir, 'case.json'), 'utf8')).seed, seedVersion(), 'the capture records the applicant seed it ran with (lib/applicant-seed.mjs)');
   assert.ok(journey.some(page => page.url.startsWith('https://jobs.example.org/job/42') && page.ask), JSON.stringify(journey.map(page => [page.url, page.ask])));
 });

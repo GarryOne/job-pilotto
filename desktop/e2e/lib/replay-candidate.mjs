@@ -4,6 +4,7 @@
 // desktop/e2e/recorded/ only when they fix the shape, with the AI answers of the failing run, and it must fail on the build before the fix (skill fix-failing-forms). Guard: test/replay-candidate.test.mjs.
 import fs from 'node:fs';
 import path from 'node:path';
+import {seedVersion} from './applicant-seed.mjs';
 
 // A failure worth keeping: a form reached with a shortfall, or a run that stopped before the form (not a documented hold: a code or bot check, nor a posting gone).
 export const worthSaving = result => !!result && !result.note && (!!result.short || ['none', 'posting', 'account'].includes(result.reached));
@@ -46,6 +47,7 @@ export function saveCandidate({dir, day, shape, result, html, output = '', aiCal
     expect: {},
     run: {day, reached: result.reached, filled: result.filled, left: result.left, short: result.short || null, path: result.path || [], fields: result.fieldList || []},
     evidence: {pageKinds},
+    seed: seedVersion(),   // the applicant the run's app held (lib/applicant-seed.mjs): a replay names a capture made with another
   };
   fs.writeFileSync(path.join(folder, 'case.json'), `${JSON.stringify(item, null, 1)}\n`);
   return folder;
