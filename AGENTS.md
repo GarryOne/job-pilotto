@@ -97,7 +97,7 @@ them from colliding in one checkout:
   areas you touched), push, update the main checkout. **A landing that runs the slow gates queues** (flow or extension files; owner, 11 Oct 2026: three long landings at once refused each other's pushes and re-ran 10-20 min of checks up to three times); others run side by side; when another
   session pushed in between, git refuses the push and `ship.sh` rebases, re-takes the extension version and **runs the checks again** before
   the next push, so what reaches main was checked as pushed (the gate cache keeps unchanged areas instant; `SHIP_LANDING_LOCK=1` queues instead).
-  `--full` for Tier 2, `--fix` for the fix/revert of a red main. **The worktree is kept** (owner, 11 Oct 2026; `--remove` removes it).
+  `--full` runs every suite locally (a rare choice, not the Tier 2 default), `--fix` for the fix/revert of a red main. **The worktree is kept** (owner, 11 Oct 2026; `--remove` removes it).
   After every rebase `ship.sh` takes the next free extension version and writes `extension/fingerprint.json` once, amended into your last
   commit (never bump the version by hand to land). While an extension change is not landed yet, the fingerprint test (`desktop/test/extension-version.test.js`)
   fails at the Stop hook: write both locally in their own local commit (`node desktop/scripts/extension-fingerprint.mjs --write` + the next version in
@@ -121,6 +121,7 @@ them from colliding in one checkout:
 - Read-only work and Notion-only updates don't need a worktree.
 
 ### Change tiers: pick one, say it in one line, stop when it is met (6 Oct 2026)
+**CI heavy, local light** (owner, 11 Oct 2026): every check before a push takes under a minute; the heavy ones (the e2e suites, all recorded pages, Windows) run in CI, and a red result there follows the red-main rule. Live runs on real sites stay local and by hand.
 A transcription banner took 1–2 hours: harnesses, real downloads, e2e runs, CI waits, three rejected pushes. Before the gates, commits landed
 every 30 seconds. Keep the guardrails that catch real breakage; stop paying the full price for every change.
 
@@ -128,7 +129,7 @@ every 30 seconds. Keep the guardrails that catch real breakage; stop paying the 
 |---|---|---|---|
 | **0** | copy, CSS, a label, a small UI or logic fix | the affected tests, `tools/ship.sh`; CI runs after | ~1 min |
 | **1** (default) | a feature, a new screen or state | Tier 0 + **one** look at the new state: `npm run shot -- <page> --js "<force the state>" --select '#id'` (~5 s) | ~5 min |
-| **2** | money, writes to Notion, the apply flow, the installer, the engine pipeline, data migrations | the area's e2e suite (`E2E_STEPS=…` for one step), a real run once, `tools/ship.sh --full` | as long as it takes |
+| **2** | money, writes to Notion, the apply flow, the installer, the engine pipeline, data migrations | the fast loop, **no local e2e suite** (owner, 11 Oct 2026): the touched tests, `npm run row` for apply-flow work once it is on main, the affected recorded cases; CI runs the area's e2e suite (its schedule and the beta gate) and the full recorded set; a real run once on a quiet Mac only if the change spends money or writes data; `tools/ship.sh --full` is a rare explicit choice | ~1 min locally |
 
 - **Say the tier in one line before you start** ("Tier 1: new banner"). Unsure: take the lower one and say why. Go up only when the change can lose
   data, spend money, or break the install. A state that is hard to reach (a first-run banner, an error) is forced with `--js`, not with a harness,
@@ -162,7 +163,7 @@ The tier says how much to check; this says **how**. Pick the cheapest method tha
 | Does the real extension work on a real site, without the app's flow? | `cd desktop/e2e && npm run real-extension` (isolated Chromium, stand-in app); a case is added there | ~1 min |
 | Does a change to the flows' **decision core** break another flow? | `npm run flows` (the matrix, on demand; on CI its steps run with every e2e, no push gate since 9 Oct 2026) | ~5 min |
 | Does a new producer feed an existing screen with all its features? | parity test (one test, every producer) | seconds |
-| Does the whole journey still work on fixtures? | the area's e2e step (`E2E_STEPS=…`), when the change breaks it or at Tier 2 | minutes |
+| Does the whole journey still work on fixtures? | CI's e2e suites; locally the area's e2e step (`E2E_STEPS=…`) only when the change breaks it, never as a Tier 2 routine | minutes |
 | **Does it work on the owner's real state and real sites?** | **the twin** (`npm run twin`, [docs/live-test.md](docs/live-test.md)) | minutes, real AI |
 
 **The twin is for what fixtures cannot show**, typically when:

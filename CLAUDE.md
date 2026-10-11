@@ -53,7 +53,7 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 2. **Say the tier** (AGENTS.md "Change tiers") and **the test method** (AGENTS.md "Which test for which question"); stop when the tier is met.
    - Tier 0 (copy, CSS, small fix): the touched tests, no screenshot.
    - Tier 1 (feature, screen): + one targeted `npm run shot`.
-   - Tier 2 (money, store writes, apply flow, installer, engine, migrations): the area's e2e suite, `tools/ship.sh --full`.
+   - Tier 2 (money, store writes, apply flow, installer, engine, migrations): the fast loop too, no local e2e suite: CI runs the e2e suites and all recorded pages; `--full` only by choice.
 3. **Tests first** for new behaviour and for any bug the owner saw (watch it fail). A behaviour change updates the e2e step it breaks in the same commit.
 4. **Land:** `tools/ship.sh` (rebase, the touched suites, push with retry). Commit subject ≤ 72 characters, imperative, no reasons in it.
    Never a CI e2e run by hand ([docs/rules/change-loop.md](docs/rules/change-loop.md)).
