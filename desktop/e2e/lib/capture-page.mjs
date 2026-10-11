@@ -64,7 +64,8 @@ export function snapshotInPage() {
   for (const node of root.querySelectorAll('*')) {
     for (const attr of [...node.attributes]) {
       if (/^on/i.test(attr.name) || /^data-jobpilotto/i.test(attr.name)) node.removeAttribute(attr.name);
-      else if (['href', 'src', 'action', 'srcset'].includes(attr.name)) node.setAttribute(attr.name, attr.value.replace(/[?#][^\s,"]*/g, ''));
+      else if (attr.name === 'srcset') node.setAttribute(attr.name, attr.value.replace(/[?#][^\s,"]*/g, ''));   // a list: each address loses its own query
+      else if (['href', 'src', 'action'].includes(attr.name)) node.setAttribute(attr.name, attr.value.replace(/[?#].*$/s, ''));   // one address: the whole query goes, commas included (css?family=Lato:400,400i left ",400i" behind: an address no replay could serve)
     }
     if (node.tagName === 'INPUT') { if (!['submit', 'button', 'reset', 'image'].includes((node.getAttribute('type') || '').toLowerCase())) node.removeAttribute('value'); node.removeAttribute('checked'); }
     if (node.tagName === 'TEXTAREA') node.textContent = '';

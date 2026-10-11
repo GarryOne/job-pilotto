@@ -123,3 +123,15 @@ test('at the extension\'s ask the asked page is kept at once, marked as what the
     await journey.atAsk('https://elsewhere.example/x');   // an address no tab shows: nothing kept, no error
   } finally { await browser.close(); }
 });
+
+test('the snapshot cuts a link\'s whole query, commas included (a Google Fonts href: css?family=Lato:400,400i), and keeps a srcset list\'s separate addresses', {skip}, async () => {
+  const browser = await chromium.launch({headless: true});
+  try {
+    const page = await (await browser.newContext()).newPage();
+    await page.setContent('<html><head><link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,400i,700&display=swap"></head><body><img srcset="https://x.example/a.png?s=1 1x, https://x.example/b.png?s=2 2x" alt="x"><a href="https://x.example/p?a=1,2#frag">p</a></body></html>');
+    const html = await page.evaluate(snapshotInPage);
+    assert.match(html, /href="https:\/\/fonts\.googleapis\.com\/css"/, 'the whole query goes: no ",400i,700&display=swap" left behind');
+    assert.match(html, /srcset="https:\/\/x\.example\/a\.png 1x, https:\/\/x\.example\/b\.png 2x"/);
+    assert.match(html, /<a href="https:\/\/x\.example\/p">/);
+  } finally { await browser.close(); }
+});
