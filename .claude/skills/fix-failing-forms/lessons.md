@@ -17,6 +17,10 @@ Each lesson: what to do, the incident (date, row) and how sure it is. **verified
 - **A stuck row can be a rule, not a bug** (jobs.ch "Easy apply": the product refused it by design). Ask the owner before changing a rule; a rule change gets a Decision Log entry (second-hand).
 - **A row can be stale:** compare its `version` with main and look for a newer run before building (verified: Hornbach reached the form on 0.9.178 and 0.9.179).
 
+- **A new log line counts once one REAL line was seen in a run's log** (job-pilotto-81, 11 Oct, verified live: a new line stored an object as "" until b8's run showed it). Print the line from the run, not only from a unit test.
+- **An offline capture of a scrubbed page cannot prove a CSS-shown element is found** (no stylesheets offline: a dialog shown by CSS looks hidden). Say so, and add the log line that would show it in a live run, in the same change (job-pilotto-81, jobs.ch modal, verified).
+- **A recorded case must model the REAL markup, and its stub answers only when the request carries what the AI needs** (`whenButtons`, `whenCandidate` in desktop/e2e/lib/page-replay.mjs): a hand-set `open` dialog passed while the real page failed (job-pilotto-81, verified).
+
 ## Designing the fix
 - **A floor or a list can sit in two places; fix every copy.** "Easy apply / apply with" is refused in `extension/alias-schema.js`, `extension/tab-pages.js`, `desktop/shared/alias-schema.js` (a staged copy) and the rung-2 prompt text: fixing the AI side alone would never press the button (second-hand; copies confirmed in code, 11 Oct 2026). Grep the refusal before editing.
 - **Two places that decide the same thing with different thresholds leave a gap.** The sketch listed every `a`, the press finder `a[href]` (Hornbach, verified); the frame watch counts 40 px, the candidate finder 300x200 (second-hand; both numbers confirmed in code). What the AI is shown must be findable by the code that acts: one shared constant.

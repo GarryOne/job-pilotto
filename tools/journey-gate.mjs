@@ -60,8 +60,8 @@ async function main() {
     console.log(`journey gate: ${JOURNEY_TESTS.length} test files passed in ${seconds} s (flow files touched: ${touched.length})`);
     return touched.some(file => file.startsWith('extension/') || file.startsWith('desktop/e2e/recorded/')) ? replay(desktop) : 0;
   }
-  const failures = String(run.stdout || '').split('\n').filter(line => /^not ok|^# fail/.test(line)).join('\n');
-  console.error(`journey gate: a journey scenario failed (${touched.slice(0, 5).join(', ')}${touched.length > 5 ? ', …' : ''} changed):\n${failures}\nreproduce: cd desktop && node --test ${JOURNEY_TESTS.join(' ')}`);
+  const failures = String(run.stdout || '').split('\n').filter(line => /^\s*not ok|^# fail/.test(line)).join('\n');   // nested subtests too: the failing scenario is named, not only its file (11 Oct 2026: a failure at load ~36 named no case)
+  console.error(`journey gate: a journey scenario failed (load average ${os.loadavg()[0].toFixed(0)})  (${touched.slice(0, 5).join(', ')}${touched.length > 5 ? ', …' : ''} changed):\n${failures}\nreproduce: cd desktop && node --test ${JOURNEY_TESTS.join(' ')}`);
   return 1;
 }
 
