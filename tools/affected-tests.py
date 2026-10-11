@@ -23,6 +23,9 @@ SCANNER_RE = re.compile(r'readdirSync|globSync|git ls-files|git ls-tree')
 ENGINE_RE = re.compile(r'python|(?:^|[^A-Za-z])src[/.]')
 NODE_AREAS = {'desktop': 'desktop/test', 'worker': 'worker/test', 'site': 'site/test'}
 ALL_TRIGGERS = re.compile(r'(^|/)(package(-lock)?\.json|requirements[^/]*\.txt|pyproject\.toml|eslint\.config\.mjs)$|^\.github/workflows/build\.yml$')
+# A dependency file inside one JS area (desktop/e2e/package.json) makes THAT area run whole; the other areas still pick by imports and mentions (11 Oct 2026: 1 of 150 commits, the e2e
+# harness's package.json, ran Python, worker and site whole for nothing). A root-level file (package.json, requirements, pyproject) still runs everything.
+SCOPED_DEPS = re.compile(r'^(desktop|worker|site)/(.+/)?package(-lock)?\.json$')
 NO_TEST_EFFECT = re.compile(r'\.md$|^docs/|^LICENSE|\.gitignore$')
 
 
@@ -144,12 +147,13 @@ def select(changed, base_ref=None):
     relevant = [f for f in changed if not NO_TEST_EFFECT.search(f)]
     if not relevant:
         return result
-    everything = [f for f in relevant if ALL_TRIGGERS.search(f) or f == 'tests/test_0_notion_ids.py']
-    areas = {'python': (lambda f: f.startswith(('src/', 'tests/', 'tools/', 'config/', 'templates/'))),
-             'desktop': (lambda f: f.startswith(('desktop/', 'extension/'))),
+    scoped = [f for f in relevant if SCOPED_DEPS.match(f)]
+    everything = [f for f in relevant if (ALL_TRIGGERS.search(f) and f not in scoped) or f == 'tests/test_0_notion_ids.py']
+    areas = {'python': (lambda f: f.startswith(('src/', 'tests/', 'tools/', 'config/', 'templates/')) or f == '.gitattributes'),
+             'desktop': (lambda f: f.startswith(('desktop/', 'extension/')) or f == '.gitattributes'),
              'worker': (lambda f: f.startswith(('worker/', 'extension/'))),
              'site': (lambda f: f.startswith('site/'))}
-    known = tuple(['src/', 'tests/', 'tools/', 'config/', 'templates/', 'desktop/', 'extension/', 'worker/', 'site/', '.github/', 'docs/'])
+    known = tuple(['src/', 'tests/', 'tools/', 'config/', 'templates/', 'desktop/', 'extension/', 'worker/', 'site/', '.github/', 'docs/', '.gitattributes'])   # .gitattributes: the tests that name it (test_ship, merge-baseline) are picked by mention
     unknown = [f for f in relevant if not f.startswith(known)]
     if everything or unknown:
         why['all'] = everything + unknown
@@ -193,6 +197,8 @@ def select(changed, base_ref=None):
                     or (area == 'desktop' and engine_changed and ENGINE_RE.search(text)):
                 picked.append(rel(t)[len(area) + 1:])
         result[area] = picked
+    for f in scoped:
+        result[f.split('/')[0]] = 'all'; why[f.split('/')[0]] = f'dependency file: {f}'
     return result
 
 

@@ -168,7 +168,7 @@ esac
 # Both gates key their pass on the files they read, not the whole tree (owner, 11 Oct 2026: a push refused because main moved re-ran ~10 min of replay after a rebase
 # over commits that touched neither): the extension, the app's lib/tests/e2e/scripts, the worker, the flow docs, the gate tools. Unsure = add the path.
 # The extra text is the changed files inside those paths (they decide which parts run). A new reader of a file outside this list: add it (tests/test_gate_order.py).
-gate_paths="extension desktop/lib desktop/test desktop/e2e desktop/scripts desktop/package.json desktop/package-lock.json worker/src docs/flows tools/journey-gate.mjs tools/ladder-gate.mjs tools/gate-cache.sh"
+gate_paths="extension desktop/lib desktop/test desktop/e2e desktop/scripts desktop/package.json desktop/package-lock.json worker/src docs/flows tools/journey-gate.mjs tools/ladder-gate.mjs"
 gate_touched() { git -C "$repo" diff --name-only origin/main..HEAD -- $gate_paths 2>/dev/null | shasum -a 256 | cut -c1-16; }
 # The two gates run BESIDE the area suites (owner, 11 Oct 2026: a fresh flow-code push took the lock wait, then the journey gate, then the slowest suite, one after another):
 # started with the suites below, collected with them; their whole output is shown when one fails. JP_GATE_SERIAL=1 runs them first, one after the other, as before (said below).

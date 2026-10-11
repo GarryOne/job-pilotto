@@ -17,9 +17,21 @@ class AffectedTests(unittest.TestCase):
         self.assertEqual([got[a] for a in ('python', 'desktop', 'worker', 'site')], [[], [], [], []])
 
     def test_dependency_and_unknown_files_run_everything(self):
-        for f in ('desktop/package.json', 'requirements.txt', 'tests/test_0_notion_ids.py', 'something/new.bin', '.github/workflows/build.yml'):
+        for f in ('package.json', 'requirements.txt', 'tests/test_0_notion_ids.py', 'something/new.bin', '.github/workflows/build.yml'):
             got = affected.select([f])
             self.assertEqual([got[a] for a in ('python', 'desktop', 'worker', 'site')], ['all'] * 4, f)
+
+    def test_a_dependency_file_inside_one_area_runs_that_area_whole_and_the_others_by_mention(self):
+        # 11 Oct 2026: desktop/e2e/package.json ran Python, worker and site whole for nothing
+        for f, area in (('desktop/package.json', 'desktop'), ('desktop/e2e/package.json', 'desktop'), ('worker/package-lock.json', 'worker')):
+            got = affected.select([f])
+            self.assertEqual(got[area], 'all', f)
+            self.assertTrue(all(got[other] != 'all' for other in ('python', 'desktop', 'worker', 'site') if other != area), f)
+
+    def test_gitattributes_picks_the_tests_that_name_it_instead_of_everything(self):
+        got = affected.select(['.gitattributes'])
+        self.assertIn('test_ship', got['python'])
+        self.assertTrue(all(got[a] != 'all' for a in ('python', 'desktop', 'worker', 'site')))
 
     def test_a_tool_script_selects_the_test_that_names_it(self):
         self.assertIn('test_ship', affected.select(['tools/ship.sh'])['python'])
