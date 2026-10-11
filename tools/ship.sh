@@ -90,10 +90,17 @@ take_extension_version() {
   if git diff --cached --quiet; then step "extension version already right: $decided"; else git commit -q --amend --no-edit && step "extension version taken: $decided"; fi
 }
 
-# No landing queue by default (owner, 11 Oct 2026): a push to main is refused when main moved, and the retry below rebases, re-takes the extension
-# version and RE-RUNS the push checks, so what reaches main was checked as pushed (the gate cache keeps unchanged areas instant). SHIP_LANDING_LOCK=1 queues.
-if [ "${SHIP_LANDING_LOCK:-0}" = 1 ]; then
-  step "queueing for the landing lock (SHIP_LANDING_LOCK=1)"
+# The landing queue (owner, 11 Oct 2026): a landing that runs the slow gates (it changes a file they read: the gate paths of pre-push-check.sh) waits
+# for the landings ahead of it, so it checks once on the main it will push to; three such landings at once refused each other's pushes and re-ran
+# 10-20 min of checks up to three times for one commit. Other landings (docs, site, tools) go straight through. A refused push still rebases and
+# re-checks. SHIP_LANDING_LOCK=1 always queues, =0 never.
+slow_gate_paths="extension desktop/lib desktop/test desktop/e2e desktop/scripts desktop/package.json desktop/package-lock.json worker/src docs/flows"
+case "${SHIP_LANDING_LOCK:-auto}" in
+  1) queue=1 ;; 0) queue=0 ;;
+  *) git fetch -q origin; if [ -n "$(git diff --name-only origin/main...HEAD -- $slow_gate_paths 2>/dev/null)" ]; then queue=1; else queue=0; fi ;;
+esac
+if [ "$queue" = 1 ]; then
+  step "queueing for the landing lock (this landing runs the slow gates; SHIP_LANDING_LOCK=0 skips the queue)"
   landing_acquire "$branch"
 fi
 step "rebasing $branch onto origin/main"

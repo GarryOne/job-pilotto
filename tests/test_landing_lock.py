@@ -58,7 +58,8 @@ class LandingLockTest(unittest.TestCase):
 
     def test_ship_sh_queues_only_when_asked_and_releases(self):
         ship = (ROOT / 'tools' / 'ship.sh').read_text()
-        self.assertIn('if [ "${SHIP_LANDING_LOCK:-0}" = 1 ]; then', ship, 'no landing queue by default (owner, 11 Oct 2026)')
+        self.assertIn('case "${SHIP_LANDING_LOCK:-auto}" in', ship, 'the queue is decided per landing (owner, 11 Oct 2026)')
+        self.assertIn('git diff --name-only origin/main...HEAD -- $slow_gate_paths', ship, 'a landing that runs the slow gates queues; others go straight through')
         self.assertLess(ship.index('landing_acquire "$branch"'), ship.index('rebase\n[ "$(git rev-list'), 'when asked, queued before the first rebase')
         self.assertIn('landing_release;', ship)   # in the exit trap
 

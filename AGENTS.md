@@ -94,7 +94,7 @@ them from colliding in one checkout:
   checkout's `node_modules` and Python `.venv` linked in, so the tests run at once; both are git-ignored: leave the links alone).
   Another base: `tools/worktree.sh <topic> origin/<branch>` (a release lane), never a bare `git worktree add`, which links nothing.
 - Commit there, then land it with **`tools/ship.sh`** (since 6 Oct 2026): fetch + rebase, the push hook's checks (the suites of the
-  areas you touched), push, update the main checkout. **No landing queue** (owner, 11 Oct 2026): landings run side by side; when another
+  areas you touched), push, update the main checkout. **A landing that runs the slow gates queues** (flow or extension files; owner, 11 Oct 2026: three long landings at once refused each other's pushes and re-ran 10-20 min of checks up to three times); others run side by side; when another
   session pushed in between, git refuses the push and `ship.sh` rebases, re-takes the extension version and **runs the checks again** before
   the next push, so what reaches main was checked as pushed (the gate cache keeps unchanged areas instant; `SHIP_LANDING_LOCK=1` queues instead).
   `--full` for Tier 2, `--fix` for the fix/revert of a red main. **The worktree is kept** (owner, 11 Oct 2026; `--remove` removes it).
