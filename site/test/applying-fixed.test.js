@@ -55,14 +55,15 @@ test('landed -> not better yet -> confirmed -> back: computed from the runs uplo
   assert.equal(d.pool.find(item => item.name === FIX.site).back, true);   // tab 1 shows a Back marker on the row
 });
 
-test('a fix for a site the pool does not list still shows, as landed; the guard keeps its recorded case\'s dots', async () => {
+test('a fix for a site the pool does not list still shows, as landed; the guard keeps its recorded case\'s dots; a replay no fix names is not listed', async () => {
   const db = d1();
   await ingest(db, {kind: 'recorded', day: '2026-10-11', version: '0.9.181', rows: [{name: 'named-control-absent-1', ok: true}, {name: 'cookie-banner-links-1', ok: false}]}, at('2026-10-11T09:00:00Z'));
   await ingest(db, {kind: 'fixes', day: '2026-10-11', rows: [FIX]}, at('2026-10-11T08:00:00Z'));
   const d = await data(db, at('2026-10-11T10:00:00Z'));
   const [row] = d.fixed.rows;
   assert.deepEqual([row.status, row.platform, row.cases.map(item => [item.name, item.history])], ['landed', '—', [['named-control-absent-1', [1]]]]);
-  assert.deepEqual(d.fixed.replays.map(item => item.name), ['cookie-banner-links-1']);   // a replay no fix names keeps its row in the same table
+  assert.equal(d.fixed.replays, undefined);   // a replay no fix names is not a fix: it stays in the Fixed-site replays table (d.cases), not here
+  assert.deepEqual(d.cases.map(item => item.name).sort(), ['cookie-banner-links-1', 'named-control-absent-1']);
 });
 
 test('claims: a snapshot of names and since, "as of" the upload; the Needs a fix row carries "In progress"', async () => {
@@ -102,15 +103,16 @@ test('each fixed row carries what the expander shows: its host, every commit, an
 test('the page: two tabs by URL hash, one charcoal panel (title, one sentence, "How verification works", toolbar, table, footer), five columns from heads(), a row expander', () => {
   assert.match(PAGE, /#needs-fix/); assert.match(PAGE, /#fixed/); assert.match(PAGE, /hashchange/);
   assert.match(PAGE, /heads\('fixed', \['Site \/ platform', 'Verification', 'Filled before → after', 'Fix', 'Details'\]/);
-  assert.doesNotMatch(PAGE, /heads\('cases'/); assert.doesNotMatch(PAGE, /Fixed-site replays · every fixed site, replayed/);
+  assert.match(PAGE, /heads\('cases', \['Case', 'Rung guarded', 'Result', 'Last 10 runs', 'Last run', 'Since'\]/);   // the Fixed-site replays table is back, as it was (owner, 11 Oct 2026)
+  assert.match(PAGE, /Fixed-site replays · every fixed site, replayed/);
   assert.doesNotMatch(PAGE, /'Guard'/);   // the Guard column is the expander now
   assert.match(PAGE, /Every landed fix is "Awaiting verification" until an uploaded run clears it\./);
   assert.match(PAGE, /How verification works/);
-  for (const word of ['Awaiting verification', 'Still failing', 'Confirmed', 'Regressed', 'Replay only', 'No confirming run yet', 'Live result not verified']) assert.ok(PAGE.includes(word), word);
+  for (const word of ['Awaiting verification', 'Still failing', 'Confirmed', 'Regressed', 'No confirming run yet']) assert.ok(PAGE.includes(word), word);
   for (const old of ['Landed, unconfirmed', 'Landed, not better yet']) assert.ok(!PAGE.includes(old), old + ' is gone');
   assert.match(PAGE, /does not say how much more was filled/);   // Confirmed never implies the fill went up
-  assert.match(PAGE, /record/);   // the footer counts records; the tab counts sites with a landed fix, and says so
-  assert.match(PAGE, /Sites with a landed fix/);
+  assert.match(PAGE, /Sites with a landed fix/);   // the tab's tooltip says what it counts
+  assert.doesNotMatch(PAGE, /Replay only|replay-only/);   // the replays are their own table again, never rows here
   assert.match(PAGE, /padding:12px 16px/);
 });
 

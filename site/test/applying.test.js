@@ -92,7 +92,7 @@ test('the page shows the ladder as a legend collapsed by default, a Rung column 
   assert.match(PAGE, /<details|'details'/); assert.doesNotMatch(legend, /open: true/);   // collapsed
   for (const where of ['extension/tab-pages.js', 'page-kinds.json', 'desktop/lib/page-kind.js', 'desktop/lib/ladder/rung3-digest.js', 'extension/ladder/rung3-candidates.js', 'desktop/lib/ladder/rung4-picture.js', 'desktop/lib/ladder/rung5-takeover.js', 'the session card']) assert.ok(legend.includes(where), where);
   assert.ok(legend.includes('A rung that is unsure or contradicted hands the page to the next; a rung never guesses.'));
-  assert.match(PAGE, /heads\('pool', \[[^\]]*'Rung'/); assert.match(PAGE, /heads\('fixed', \[[^\]]*'Details'/);   // the replays' guarded rung lives in the Fixed tab's Fix and Guard columns
+  assert.match(PAGE, /heads\('pool', \[[^\]]*'Rung'/); assert.match(PAGE, /heads\('cases', \[[^\]]*'Rung guarded'/); assert.match(PAGE, /heads\('fixed', \[[^\]]*'Details'/);   // the replays' guarded rung lives in the Fixed tab's Fix and Guard columns
   assert.match(PAGE, /blocked at /);
 });
 
@@ -109,7 +109,7 @@ test('every table on the page gets its headers from the one sortable helper (own
   const legend = PAGE.slice(PAGE.indexOf('The AI ladder'), PAGE.indexOf('const dots = (list'));   // the two fixed legends: the ladder at the top, the colors (the pool table's foot)
   assert.equal(legend.split("el('th'").length - 1, 2, 'a legend lost its plain headers');
   assert.equal(PAGE.replace(legend, '').split("el('th'").length - 1, 1, 'a table builds its own th instead of heads(...)');
-  for (const key of ['pool']) assert.match(PAGE, new RegExp("heads\\('" + key + "'"));
+  for (const key of ['pool', 'cases']) assert.match(PAGE, new RegExp("heads\\('" + key + "'"));
   assert.equal((PAGE.match(/heads\(key, labels/g) || []).length, 1);   // the next-sites and scorecard blocks share it
 });
 
@@ -179,7 +179,7 @@ test('Needs a fix is ordered worst first: a regression, then the most used platf
     append(...kids) { this.children.push(...kids.map(kid => (typeof kid === 'object' && kid !== null ? kid : String(kid)))); },
     text() { return this.children.map(kid => (typeof kid === 'string' ? kid : kid.text())).join('|'); }});
   const row = (name, platform, reached, extra = {}) => ({name, platform, flow: '', start: 'x.com', end: '', reached, history: [reached], at: '2026-10-10T10:00:00Z', day: '2026-10-10', raw: '', short: null, shares: [], regression: false, running: false, note: null, rung: null, signal: null, cause: null, ...extra});
-  const body = {tiles: {}, cases: [], fixed: {rows: [], replays: [], inProgress: []}, platforms: [], flows: [], nights: [], steps: ['none', 'posting', 'account', 'code/bot', 'form', 'ready'], sites: [], dropped: [], now: '2026-10-10T12:00:00Z', next: {sites: [], hidden: {hosts: 0}},
+  const body = {tiles: {}, cases: [], fixed: {rows: [], inProgress: []}, platforms: [], flows: [], nights: [], steps: ['none', 'posting', 'account', 'code/bot', 'form', 'ready'], sites: [], dropped: [], now: '2026-10-10T12:00:00Z', next: {sites: [], hidden: {hosts: 0}},
     pool: [row('Aaa small site', 'Custom', 'posting'), row('Bbb big platform', 'Greenhouse', 'posting'), row('Ccc regressed', 'Custom', 'account', {regression: true}), row('Ddd big form', 'Greenhouse', 'form', {short: {done: 9, total: 12, unexplained: 3}}), row('Eee other big', 'Greenhouse', 'account')],
     scorecard: [{platform: 'Greenhouse', verdict: 'Fine', matchShare: 54}, {platform: 'Custom', verdict: 'Fine', matchShare: 1}]};
   const app = make('div');

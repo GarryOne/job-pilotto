@@ -53,7 +53,7 @@ test('the page draws the section with no stray text, with and without suggestion
   const run = async (next, scorecard = []) => {
     const app = make('div');
     const document = {createElement: make, getElementById: () => app, querySelector: () => null, hidden: true, body: make('body')};
-    const pool = {tiles: {}, cases: [], pool: [], platforms: [], flows: [], nights: [], steps: [], sites: [], dropped: [], fixed: {rows: [], replays: [], inProgress: []}, now: '2026-10-10T12:00:00Z', next, scorecard};
+    const pool = {tiles: {}, cases: [], pool: [], platforms: [], flows: [], nights: [], steps: [], sites: [], dropped: [], fixed: {rows: [], inProgress: []}, now: '2026-10-10T12:00:00Z', next, scorecard};
     const fetch = async () => ({json: async () => pool});
     new Function('document', 'fetch', 'getComputedStyle', 'CSS', 'setInterval', 'Object', script)(document, fetch, () => ({}), {escape: x => x}, () => 0, Object);
     await new Promise(resolve => setTimeout(resolve, 20));

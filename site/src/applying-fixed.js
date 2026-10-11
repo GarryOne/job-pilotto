@@ -53,18 +53,17 @@ export function statusOf(runs, landedAt) {
   return {status: after.at(-1).needsFix ? 'back' : 'confirmed', confirmedAt: after[cleared].at, failingRuns: 0, filledBefore, filledAfter};
 }
 
-// -> {day, rows, inProgress, claimsAt, fixesAt, replays}. pool: the page's pool rows (name as shown, shape, platform, runs); cases: the recorded cases.
+// -> {day, rows, inProgress, claimsAt, fixesAt}. pool: the page's pool rows (name as shown, shape, platform, runs); cases: the recorded cases.
 // Marks each pool row with `back` and `claimed` for the Needs a fix tab.
 export async function fixedData(db, pool, cases, now = new Date()) {
   const fixes = await all(db, 'SELECT * FROM applying_fixes ORDER BY landed_at');
   const snapshots = Object.fromEntries((await all(db, 'SELECT kind, at FROM applying_snapshots')).map(row => [row.kind, row.at]));
   const claims = await all(db, 'SELECT site, since FROM applying_claims ORDER BY since');
-  const bySite = fixes.reduce((out, fix) => ((out[fix.site] ||= []).push(fix), out), {}), caseByName = new Map(cases.map(item => [item.name, item])), guarded = new Set();
+  const bySite = fixes.reduce((out, fix) => ((out[fix.site] ||= []).push(fix), out), {}), caseByName = new Map(cases.map(item => [item.name, item]));
   const rows = Object.entries(bySite).map(([site, list]) => {
     const last = list.at(-1), item = pool.find(row => row.name === site || row.shape === site);
     const guard = [...new Set(list.flatMap(fix => JSON.parse(fix.guard || '[]')))];
     const linked = guard.filter(id => id.startsWith('recorded:')).map(id => caseByName.get(id.slice(9))).filter(Boolean);
-    linked.forEach(found => guarded.add(found.name));
     const landed = Date.parse(last.landed_at), runs = (item?.runs || []).slice(-10).map(run => ({day: run.day, at: run.at, reached: run.reached, share: shareOf(run), needsFix: run.needsFix, after: Date.parse(run.at) > landed}));
     return {site, platform: item?.platform ?? '—', host: item?.start || '', commit: last.commit_hash, commits: list.map(fix => fix.commit_hash), extensionVersion: last.version, rung: last.rung, landedAt: last.landed_at,
       fixes: list.map(fix => ({commit: fix.commit_hash, extensionVersion: fix.version, rung: fix.rung, landedAt: fix.landed_at})), runs,
@@ -72,8 +71,7 @@ export async function fixedData(db, pool, cases, now = new Date()) {
   }).sort((a, b) => b.landedAt.localeCompare(a.landedAt));
   const claimed = new Map(claims.map(row => [row.site, row.since])), back = new Set(rows.filter(row => row.status === 'back').map(row => row.site));
   for (const item of pool) { item.claimed = claimed.get(item.name) ?? claimed.get(item.shape) ?? null; item.back = back.has(item.name); }
-  return {day: now.toISOString().slice(0, 10), rows, inProgress: claims.map(row => ({site: row.site, since: row.since})), claimsAt: snapshots.claims ?? null, fixesAt: snapshots.fixes ?? null,
-    replays: cases.filter(item => !guarded.has(item.name)).map(item => ({name: item.name, ok: item.ok, rung: item.rung, history: item.history, day: item.day, version: item.version}))};
+  return {day: now.toISOString().slice(0, 10), rows, inProgress: claims.map(row => ({site: row.site, since: row.since})), claimsAt: snapshots.claims ?? null, fixesAt: snapshots.fixes ?? null};
 }
 
 export const FIXED_CSS = `
@@ -94,16 +92,16 @@ export const FIXED_CSS = `
 // The tab's client code, inside the page's fetch callback (needs el, heads, sortRows, dots, ago, STAGE, d, fixBox, fixedBox, tabs, needs). Plain quotes only: it sits in a template literal.
 export const FIXED_SCRIPT = `
   // The Fixed tab (owner mockup, 11 Oct 2026; src/applying-fixed.js): one charcoal panel, five columns, the guard names, replay results and run history in a row expander.
-  const FIX_WORD = {landed: 'Awaiting verification', failing: 'Still failing', confirmed: 'Confirmed', back: 'Regressed', replay: 'Replay only'};
-  const FIX_TONE = {landed: 'account', failing: 'posting', confirmed: 'ready', back: 'posting', replay: 'none'}, FIX_ORDER = ['back', 'failing', 'landed', 'confirmed', 'replay'];
+  const FIX_WORD = {landed: 'Awaiting verification', failing: 'Still failing', confirmed: 'Confirmed', back: 'Regressed'};
+  const FIX_TONE = {landed: 'account', failing: 'posting', confirmed: 'ready', back: 'posting'}, FIX_ORDER = ['back', 'failing', 'landed', 'confirmed'];
   const fixKind = r => (r.status === 'landed' && r.failingRuns ? 'failing' : r.status);
   const fixReason = r => ({landed: 'No confirming run yet', failing: r.failingRuns + (r.failingRuns === 1 ? ' run' : ' runs') + ' since fix', confirmed: r.confirmedAt ? 'Cleared ' + ago(r.confirmedAt) : 'Cleared',
-    back: 'Listed again after confirmation', replay: 'Live result not verified'})[fixKind(r)];
+    back: 'Listed again after confirmation'})[fixKind(r)];
   const fixShort = name => { const cut = name.indexOf(' ('); let t = cut > 0 ? name.slice(0, cut) : name; if (t.length > 44) t = t.slice(0, Math.max(20, t.lastIndexOf(' ', 44))) + '…'; return t; };
   const fixDate = iso => new Date(iso).toUTCString().slice(5, 11);
   const fixShare = list => { const v = (list || []).filter(value => value != null); return v.length ? v.at(-1) + '%' : '—'; };
-  const fixFilled = r => (r.status === 'replay' || (fixShare(r.filledBefore) === '—' && fixShare(r.filledAfter) === '—') ? '—' : fixShare(r.filledBefore) + ' → ' + fixShare(r.filledAfter));
-  const fixedList = () => [...d.fixed.rows, ...d.fixed.replays.map(c => ({site: c.name, platform: 'Replay fixture', host: '', status: 'replay', commit: null, fixes: [], runs: [], guard: ['recorded:' + c.name], cases: [c], filledBefore: [], filledAfter: [], landedAt: null}))];
+  const fixFilled = r => ((fixShare(r.filledBefore) === '—' && fixShare(r.filledAfter) === '—') ? '—' : fixShare(r.filledBefore) + ' → ' + fixShare(r.filledAfter));
+  const fixedList = () => d.fixed.rows;
   const fixOpen = new Set(), fixPage = {n: 0}, FIX_PER = NEXT_PER;
   const fixDetail = r => el('div', {className: 'detail'},
     el('div', {}, fixShort(r.site) !== r.site ? el('div', {}, el('h4', {textContent: 'Scenario'}), el('div', {textContent: r.site})) : null,
@@ -112,7 +110,7 @@ export const FIXED_SCRIPT = `
       el('h4', {textContent: 'Guard · replay results'}), el('ul', {className: 'fixguard'}, ...r.guard.map(id => { const found = (r.cases || []).find(c => 'recorded:' + c.name === id);
         return el('li', {}, id.replace(':', ' '), found ? el('span', {}, ' ', dots(found.history), ' ', found.ok ? 'passed' : 'failed', found.day ? ' · last ' + found.day : '') : el('span', {className: 'muted', textContent: id.startsWith('fixture:') ? ' (ladder fixture)' : ' (not replayed in the last uploaded run)'})); }))),
     el('div', {}, el('h4', {textContent: 'Runs · filled' + (r.runs.length ? '' : '')}), r.runs.length ? el('ul', {className: 'fixguard'}, ...r.runs.map(run => el('li', {}, run.day + ' · ' + (STAGE[run.reached] || run.reached || 'Nothing reached') + (run.share != null ? ' · ' + run.share + '% filled' : ''), run.after ? el('span', {className: 'muted', textContent: ' · after the fix'}) : null)))
-      : el('div', {className: 'muted', textContent: r.status === 'replay' ? 'A replay is not a live run.' : 'No smoke run uploaded for this site.'})));
+      : el('div', {className: 'muted', textContent: 'No smoke run uploaded for this site.'})));
   const fixRows = r => { const on = fixOpen.has(r.site), kind = fixKind(r), flip = () => { if (on) fixOpen.delete(r.site); else fixOpen.add(r.site); drawFixed(); };
     const main = el('tr', {className: 'site' + (on ? ' open' : ''), onclick: flip},
       el('td', {}, el('div', {className: 'sitename'}, el('b', {textContent: fixShort(r.site)}), el('span', {className: 'muted', textContent: r.platform + (r.host ? ' (' + r.host + ')' : '')}))),
@@ -125,7 +123,7 @@ export const FIXED_SCRIPT = `
   const fixShares0 = r => ((r.filledAfter || []).filter(value => value != null).at(-1));
   const HOW = [['Awaiting verification', 'The fix landed and no uploaded run since then has cleared the site: none yet, or the runs say nothing.'], ['Still failing', 'Runs uploaded after the fix still list the site under Needs a fix; the count is those runs.'],
     ['Confirmed', 'An uploaded run after the fix no longer lists the site under Needs a fix. It does not say how much more was filled: read the filled column for that.'], ['Regressed', 'It was confirmed, then a later run lists the site again (it is on Needs a fix too).'],
-    ['Replay only', 'A recorded replay no fix names: it passes offline, its live result is not verified.'], ['Filled before → after', 'The share of fields filled in the last run before the fix and in the last run after it; the expander lists every run.'],
+    ['Filled before → after', 'The share of fields filled in the last run before the fix and in the last run after it; the expander lists every run.'],
     ['Source', 'Git trailers (Pool-row, Rung, Fixture) and the uploaded smoke runs, as of ' + (d.fixed.fixesAt ? ago(d.fixed.fixesAt) : 'no upload yet') + '.']];
   const drawFixed = () => { fixedBox.textContent = '';
     const all = fixedList().sort((a, b) => FIX_ORDER.indexOf(fixKind(a)) - FIX_ORDER.indexOf(fixKind(b)) || String(b.landedAt || '').localeCompare(String(a.landedAt || ''))), rows = sortRows('fixed', all, FIX_GET);
@@ -133,12 +131,12 @@ export const FIXED_SCRIPT = `
     fixedBox.append(el('div', {className: 'fixpanel'},
       el('div', {className: 'fixhead'}, el('h2', {textContent: 'Fix verification'}), el('p', {className: 'muted', textContent: 'Every landed fix is "Awaiting verification" until an uploaded run clears it.'}),
         el('details', {className: 'how'}, el('summary', {textContent: 'How verification works'}), el('dl', {}, ...HOW.flatMap(([word, text]) => [el('dt', {textContent: word}), el('dd', {textContent: text})])))),
-      el('div', {className: 'fixbar'}, el('span', {className: 'muted', textContent: 'Regressed first, then newest'}), el('span', {className: 'muted', textContent: all.length + ' records · ' + d.fixed.rows.length + ' sites with a landed fix · ' + d.fixed.replays.length + ' replay-only'})),
+      el('div', {className: 'fixbar'}, el('span', {className: 'muted', textContent: 'Regressed first, then newest'}), el('span', {className: 'muted', textContent: all.length + (all.length === 1 ? ' site' : ' sites') + ' with a landed fix'})),
       rows.length ? el('table', {className: 'fixtable'}, el('tr', {}, ...heads('fixed', ['Site / platform', 'Verification', 'Filled before → after', 'Fix', 'Details'], () => { fixPage.n = 0; drawFixed(); }).map((th, at) => Object.assign(th, {className: th.className + (at === 2 ? ' c-fill' : at === 3 ? ' c-fix' : '')}))), ...shown.flatMap(fixRows)) : el('p', {className: 'muted', textContent: 'No fix landed yet'}),
-      el('div', {className: 'fixfoot'}, el('span', {className: 'muted', textContent: rows.length ? 'Showing ' + (from + 1) + '–' + (from + shown.length) + ' of ' + rows.length + ' records' : '0 records'}),
+      el('div', {className: 'fixfoot'}, el('span', {className: 'muted', textContent: rows.length ? 'Showing ' + (from + 1) + '–' + (from + shown.length) + ' of ' + rows.length + ' fixes' : '0 fixes'}),
         pages > 1 ? el('div', {className: 'pager'}, el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: fixPage.n === 0, onclick: go(-1)}), el('button', {className: 'chip', type: 'button', textContent: 'Next →', disabled: fixPage.n >= pages - 1, onclick: go(1)})) : null))); };
   const showTab = () => { const fixed = typeof location !== 'undefined' && location.hash === '#fixed'; fixBox.hidden = fixed; fixedBox.hidden = !fixed;
     tabs.textContent = ''; tabs.append(el('a', {href: '#needs-fix', role: 'tab', 'aria-selected': String(!fixed), className: fixed ? '' : 'on', textContent: 'Needs a fix · ' + d.pool.filter(needs).length}),
-      el('a', {href: '#fixed', role: 'tab', 'aria-selected': String(fixed), className: fixed ? 'on' : '', title: 'Sites with a landed fix. The table also lists replay-only checks that no fix names.', textContent: 'Fixed · ' + d.fixed.rows.length})); };
+      el('a', {href: '#fixed', role: 'tab', 'aria-selected': String(fixed), className: fixed ? 'on' : '', title: 'Sites with a landed fix. The recorded replays are in the Fixed-site replays table below.', textContent: 'Fixed · ' + d.fixed.rows.length})); };
   if (typeof window !== 'undefined') window.addEventListener('hashchange', showTab);
 `;

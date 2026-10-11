@@ -332,6 +332,14 @@ fetch('?json').then(r => r.json()).then(d => {
     el('p', {className: 'muted', textContent: 'Per platform: its share of the matched jobs and how well real forms are filled (the form-filling page), against the pool sites on it and how many reached the form. Verdicts, in the order to act: not in the pool; weak in both; blind spot (tests reach the form, real users do not fill it); test failing (real use is fine). Under 5 real forms is no evidence.'}), scoreBox)); drawScore(); drawFix();
 ${FIXED_SCRIPT}
   drawFixed(); showTab();
+  const caseBox = el('div'), CASE_GET = [c => c.name.toLowerCase(), c => c.rung, c => (c.ok ? 1 : 0), c => c.history.at(-1), c => c.day, c => c.since];
+  const drawCases = () => { caseBox.textContent = ''; caseBox.append(el('table', {},
+    el('tr', {}, ...heads('cases', ['Case', 'Rung guarded', 'Result', 'Last 10 runs', 'Last run', 'Since'], drawCases)),
+    ...sortRows('cases', d.cases, CASE_GET).map(c => el('tr', {}, el('td', {textContent: c.name}), el('td', {className: 'muted', textContent: c.rung ?? '—'}), el('td', {}, c.ok ? el('span', {className: 'pill s-ready', textContent: 'passed'}) : el('span', {className: 'pill s-posting', textContent: 'failed'}),
+      c.note ? el('div', {className: 'muted', textContent: c.note}) : null), el('td', {}, dots(c.history)), el('td', {className: 'muted', textContent: c.day + (c.version ? ' · ' + c.version : '')}),
+      el('td', {className: 'muted', textContent: c.since}))))); };
+  app.append(el('section', {}, el('h2', {textContent: 'Fixed-site replays · every fixed site, replayed'}), d.cases.length ? caseBox
+    : el('p', {className: 'muted', textContent: 'No recorded-page run uploaded yet: cd desktop/e2e && npm run recorded'}))); if (d.cases.length) drawCases();
   app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table, colorLegend)
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
   // Fetch again every 15 s while the tab is visible and redraw the pool, so the spinner and the times follow a run without a reload.
