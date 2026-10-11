@@ -152,14 +152,26 @@ top_cpu() {  # $1 = separator between name and percent, $2 = separator between e
     | awk -F'\t' -v a="$1" -v b="$2" '$1 > 0 {printf "%s%s%s%s%%", sep, $2, a, $1; sep = b}'
 }
 mark() { printf '%s %s\n%s\n%s\n%s\n%s\n' "$$" "$what" "$1" "$session" "$klass" "$(is_exclusive && echo exclusive)" >"$ticket"; }   # the ticket keeps its name (its place in line); only its second line changes
+# What "the machine is busy" is read from (JOB_PILOTTO_HEAVY_SIGNAL, default load): the 1-minute load average, the CPU in use (sum of the processes' CPU over the cores; busy above
+# JOB_PILOTTO_HEAVY_CPU_BUSY percent, default 90) or the free memory percentage of `memory_pressure` (busy below JOB_PILOTTO_HEAVY_MEM_FREE_PCT percent, default 15). All three are logged on every
+# hold (cpu_busy=, mem_free=) so the signal that predicts slow or failed runs can be chosen from data (11 Oct 2026: no failure-versus-load data existed before the new log).
+cpu_busy() { ps -Ao pcpu= 2>/dev/null | awk -v n="$cores" '{s += $1} END {printf "%d", s / (n > 0 ? n : 1)}'; }
+mem_free_pct() { memory_pressure -Q 2>/dev/null | sed -nE 's/.*free percentage: *([0-9]+)%.*/\1/p' | head -n 1; }
+machine_calm() {  # 0 when the chosen signal says the machine is not busy; sets $signal_text to what it read
+  case "${JOB_PILOTTO_HEAVY_SIGNAL:-load}" in
+    cpu) local c; c="$(cpu_busy)"; signal_text="CPU in use ${c}% of ${cores} cores (busy above ${JOB_PILOTTO_HEAVY_CPU_BUSY:-90}%)"; [ "${c:-0}" -le "${JOB_PILOTTO_HEAVY_CPU_BUSY:-90}" ] ;;
+    memory) local m; m="$(mem_free_pct)"; signal_text="free memory ${m:-?}% (busy below ${JOB_PILOTTO_HEAVY_MEM_FREE_PCT:-15}%)"; [ -z "$m" ] || [ "$m" -ge "${JOB_PILOTTO_HEAVY_MEM_FREE_PCT:-15}" ] ;;
+    *) signal_text="1-minute load $(load1) is above $limit"; [ "$(load1)" -le "$limit" ] ;;
+  esac
+}
 machine_ready() {  # sets $why when not
   [ "$limit" -gt 0 ] 2>/dev/null || return 0
   [ "$load_gave_up" = 1 ] && return 0
   is_replay "$what" && [ "${JOB_PILOTTO_HEAVY_REPLAY_LOAD:-0}" != 1 ] && return 0   # replays wait for the memory gate, not the load
-  if [ "$(load1)" -le "$limit" ]; then load_began=""; return 0; fi
+  if machine_calm; then load_began=""; return 0; fi
   [ -n "$load_began" ] || load_began=$(date +%s)
-  if [ $(( $(date +%s) - load_began )) -ge "$load_wait" ]; then say "load is still $(load1) (limit $limit) after ${load_wait}s: running $what anyway"; load_gave_up=1; return 0; fi
-  why="the machine is busy: 1-minute load $(load1) is above $limit (up to ${load_wait}s); using the CPU: $(top_cpu ' ' ', ')"; return 1
+  if [ $(( $(date +%s) - load_began )) -ge "$load_wait" ]; then say "the machine is still busy ($signal_text) after ${load_wait}s: running $what anyway"; load_gave_up=1; return 0; fi
+  why="the machine is busy: $signal_text (up to ${load_wait}s); using the CPU: $(top_cpu ' ' ', ')"; return 1
 }
 while :; do
   first=""; why=""; busy="$(held)"
@@ -186,7 +198,7 @@ done
 rm -f "$ticket"
 if [ -n "$lock" ]; then echo "$([ "$yield_mode" = 1 ] && echo "$JP_HEAVY_HELD" || echo $$)" >"$lock/pid"; echo "$what" >"$lock/what"; echo "$session" >"$lock/session"; echo "$klass" >"$lock/class"; date +%s >"$lock/since"; pwd >"$lock/cwd"; fi
 waited_s=$(( $(date +%s) - began )); load_start="$(load1)"
-ident="what=$what class=$klass branch=$branch_now session=$session load_q=$load_queue load_start=$load_start top=$(top_cpu : , | tr ' ' _)"
+ident="what=$what class=$klass branch=$branch_now session=$session load_q=$load_queue load_start=$load_start cpu_busy=$(cpu_busy) mem_free=$(mem_free_pct) top=$(top_cpu : , | tr ' ' _)"
 if [ "$told" = 1 ]; then
   say "got the lock after ${waited_s}s"
   timing_log "heavy lock wait=${waited_s}s $ident"   # every wait, for the next measurement
