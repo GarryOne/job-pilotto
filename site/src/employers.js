@@ -123,7 +123,8 @@ async function slice(env, regions) {
   const nofeed = JSON.parse((await env.WAITLIST?.get(NOFEED_KEY)) || '[]').filter(item => !/^e2e/.test(item?.key || ''));   // stored before the filter
   const boards = JSON.parse((await env.WAITLIST?.get(BOARDS_KEY)) || '[]');
   const sites = await agreedSites(env);
-  return JSON.stringify({version: 2, generated: rows[0].generated, regions, feeds: rows.map(row => JSON.parse(row.body)), nofeed, boards, ...(sites.length ? {sites} : {})});
+  const generated = (await env.WAITLIST?.get(GENERATED_KEY)) || rows.reduce((last, row) => (row.generated > last ? row.generated : last), '');   // the publish's own time: rows a publish left unchanged keep an older one
+  return JSON.stringify({version: 2, generated, regions, feeds: rows.map(row => JSON.parse(row.body)), nofeed, boards, ...(sites.length ? {sites} : {})});
 }
 
 // Facts about sites that at least SITES_K installs shared in the last 90 days (src/pool.js sitefacts): a company's job page, a site only a
@@ -210,15 +211,24 @@ async function publish(request, env) {
   return Response.json({ok: true, feeds: feeds.length, d1: !!env.STATS, legacy: kept ? 'updated' : 'too large, unchanged'});
 }
 
-// Replace the D1 index with this list, in batches (D1 runs a batch as one transaction).
+// Make the D1 index this list, writing only what differs (11 Oct 2026: a full rewrite of ~4.3k feeds, three times a day, wrote 8.5k rows a time and spent a quarter of the free plan's daily
+// writes): one read of the stored feeds, then an INSERT for a feed that is new or whose body changed, a DELETE for one no longer listed. A same-list publish writes nothing.
+// In batches (D1 runs a batch as one transaction).
+const regionsOf_ = feed => `,${feed.regions.join(',')}${feed.regions.length ? ',' : ''}`;
 async function store(db, feeds, generated) {
-  const statements = [db.prepare('DELETE FROM index_feeds')];
+  const old = new Map((((await db.prepare('SELECT ats, slug, regions, body FROM index_feeds').all()).results) || []).map(row => [`${row.ats}\n${row.slug}`, row]));
+  const statements = [], keep = new Set();
   for (const feed of feeds) {
-    statements.push(db.prepare('INSERT OR REPLACE INTO index_feeds (ats, slug, regions, body, generated) VALUES (?, ?, ?, ?, ?)')
-      .bind(feed.ats, feed.slug, `,${feed.regions.join(',')}${feed.regions.length ? ',' : ''}`, JSON.stringify(feed), generated));
+    const key = `${feed.ats}\n${feed.slug}`, body = JSON.stringify(feed), regions = regionsOf_(feed), was = old.get(key);
+    keep.add(key);
+    if (was && was.body === body && was.regions === regions) continue;
+    statements.push(db.prepare('INSERT OR REPLACE INTO index_feeds (ats, slug, regions, body, generated) VALUES (?, ?, ?, ?, ?)').bind(feed.ats, feed.slug, regions, body, generated));
   }
+  for (const [key, row] of old) if (!keep.has(key)) statements.push(db.prepare('DELETE FROM index_feeds WHERE ats = ? AND slug = ?').bind(row.ats, row.slug));
+  if (!statements.length) return 0;
   if (db.batch) await db.batch(statements);
   else for (const statement of statements) await statement.run();
+  return statements.length;
 }
 
 export function index(request, env) {

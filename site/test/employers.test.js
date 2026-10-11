@@ -248,3 +248,21 @@ test('"still this publish?" is answered 304 from KV alone and not counted agains
   assert.ok(check > 0 && check < quota, 'the publish-time check comes before the daily count');
   assert.match(source, /await env\.WAITLIST\?\.put\(GENERATED_KEY, generated\)/);
 });
+
+test('a publish writes only the feeds that changed (11 Oct 2026: the full rewrite spent a quarter of the day\'s D1 writes), and removes the ones no longer listed', async () => {
+  store.clear();
+  const e = {...env(), STATS: d1()}, changes = () => e.STATS.db.prepare('SELECT total_changes() AS n').get().n;
+  const feeds = Array.from({length: 12}, (_, i) => feed(`f${i}`, {regions: ['europe']}));
+  await call(e, 'PUT', auth, {feeds});
+  let before = changes();
+  assert.equal((await call(e, 'PUT', auth, {feeds})).status, 200);
+  assert.equal(changes() - before, 0, 'a publish of the same list wrote rows');
+  before = changes();
+  await call(e, 'PUT', auth, {feeds: feeds.map((item, at) => (at === 3 ? {...item, jobs: 99} : item))});
+  assert.ok(changes() - before <= 2, `one changed feed wrote ${changes() - before} rows`);
+  assert.equal(JSON.parse(e.STATS.db.prepare("SELECT body FROM index_feeds WHERE slug = 'f3'").get().body).jobs, 99);
+  await call(e, 'PUT', auth, {feeds: feeds.slice(0, 11)});
+  assert.equal(e.STATS.db.prepare('SELECT COUNT(*) AS n FROM index_feeds').get().n, 11, 'a feed no longer listed stays');
+  const got = await (await sliced(e, 'europe', await holder())).json();
+  assert.equal(got.generated, store.get('index:generated'), 'the slice says when the LAST publish was, not when its newest row changed');
+});
