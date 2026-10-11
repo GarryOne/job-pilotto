@@ -12,6 +12,7 @@ import {fillState} from './extension.mjs';
 import {fieldLines} from './smoke.mjs';
 import {appProfileTexts, cssRecorder, personalValues, scrub, snapshotInPage} from './capture-page.mjs';
 import {journeyRecorder} from './capture-journey.mjs';
+import {ownerValues, pageFields, tripwire} from './privacy-tripwire.mjs';
 import {removeJobsByUrl} from './seed-data.mjs';
 import {modelClient} from './model.mjs';
 import {pause} from './apply-fixtures.mjs';
@@ -102,6 +103,11 @@ export async function runLive(ctx, h) {
       const journey = values && journeyRecorder(ctx.browser.context, {scrub: html => scrub(html, values)}), styles = values && cssRecorder(ctx.browser.context);
       const clock = stillClock({seconds: stillSeconds(), startedAt: Date.now()});   // lib/live-still.mjs: the watch ends early when nothing has changed for LIVE_STILL_SECONDS (20); `seconds` stays the limit
       let last = '', changedAt = Date.now(), stalled = false, frame = 0, acts = 0, looked = false, lastLine = '';
+      // The privacy tripwire (lib/privacy-tripwire.mjs): the owner's own values are never typed into a real page. Checked every few seconds and once at the end, before
+      // anything is written; a hit clears those fields, deletes the run's saved files (capture, screenshots) and fails the run.
+      const owner = ownerValues(), saved = [process.env.LIVE_CAPTURE_DIR, frames];
+      const tripped = async () => { for (const tab of ctx.browser.context.pages().filter(item => /^https?:/.test(item.url()))) { const check = await tripwire(pageFields(tab), {values: owner, saved}); if (!check.ok) return check.reason; } return ''; };
+      let trip = '';
       while (Date.now() - started < seconds * 1000) {
         const tabs = ctx.browser.context.pages().filter(tab => /^https?:/.test(tab.url()));
         const states = await Promise.all(tabs.map(async tab => `${tab.url().split('#')[0].slice(0, 70)} [${(await fillState(tab).catch(() => null))?.state || '-'}]`));
@@ -126,8 +132,10 @@ export async function runLive(ctx, h) {
           if (process.env.LIVE_PERSON && ++acts <= 5) { await actAsPerson(tabs.at(-1), console.log); changedAt = Date.now(); stalled = false; }   // the person acts again after each pause: a choice, then a consent
         }
         if (journey) await journey.tick();
+        if (frame % 4 === 0 && (trip = await tripped())) break;
         await pause(1500);
       }
+      if (trip || (trip = await tripped())) { console.log(`  live: ${trip}`); throw new Error(trip); }
       console.log(`  live ${at()}: watched ${Math.round((Date.now() - started) / 1000)}s; frames in ${frames}`);
       // The app's whole log of this run, kept with the report (job-pilotto-54: the smoke report did not copy app.log, so an error nothing printed was lost): identity and counts only, per the app's logging rule.
       if (process.env.LIVE_CAPTURE_DIR) { fs.mkdirSync(process.env.LIVE_CAPTURE_DIR, {recursive: true}); fs.writeFileSync(path.join(process.env.LIVE_CAPTURE_DIR, 'app.log'), appLogLines(ctx.profile).join('\n') + '\n'); }
