@@ -40,6 +40,7 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 - **The extension first, Claude as the safety net:** Claude finishes a stuck page on the person's press or a visible 5-second countdown, at most once
   per application. Detail: [docs/rules/applying.md](docs/rules/applying.md).
 - **Files: one concern each, ≤ 500 lines; split near 450** as a pure move. Detail: [docs/rules/files.md](docs/rules/files.md).
+- **Tests also run on Windows CI** (main went red twice on 11 Oct 2026): temp folders via `os.tmpdir()`, never `/tmp`; compare paths after turning `\` into `/`.
 - **Screens:** reuse cards, components and tokens; every new screen or action goes in the ⌘K palette. Detail: [docs/rules/desktop-ui.md](docs/rules/desktop-ui.md),
   skill **ui-look-and-feel**; `desktop/` changes: skill **desktop-change**.
 - **Every lesson lands in its strongest form** (a failing test, a gate, a skill step, memory, a spec checklist; a note is the weakest).

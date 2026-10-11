@@ -141,17 +141,8 @@ if command -v node >/dev/null && [ -f "$repo/tools/file-size.mjs" ]; then
   sizes="$(cd "$repo" && timed "file size" node tools/file-size.mjs 2>&1)" || { echo "Push blocked: a file is too big:
 $sizes" >&2; exit 2; }
 fi
-# The journey gate (owner, 10 Oct 2026): a push touching a flow file runs the applying scenarios as event sequences (tools/journey-gate.mjs, seconds,
-# no browser). Unlike the matrix below it needs no browser, and it runs even when the change is in extension/ only, which the affected-tests pick missed.
-if command -v node >/dev/null && [ -f "$repo/tools/journey-gate.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
-  journeys="$(cd "$repo" && timed "journey gate" node tools/journey-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $journeys" >&2; exit 2; }
-  [ -n "$journeys" ] && echo "$journeys" >&2
-fi
-# The ladder gate (docs/flows/ladder.md): a push touching a flow file, the page-kind decision or the ladder fixtures replays every fixture offline against the baseline: none may get worse (tools/ladder-gate.mjs, seconds, no model).
-if command -v node >/dev/null && [ -f "$repo/tools/ladder-gate.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
-  ladder="$(cd "$repo" && timed "ladder gate" node tools/ladder-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $ladder" >&2; exit 2; }
-  [ -n "$ladder" ] && echo "$ladder" >&2
-fi
+# The cheap checks on commit messages run BEFORE the journey and ladder gates (owner, 11 Oct 2026: a missing "Rung:" line was found only after a
+# 255 s journey gate, three times in one landing): seconds first, minutes last.
 # Never fix the same website twice (owner, 10 Oct 2026): a push changing how the extension acts on pages brings its recorded page (desktop/e2e/recorded) or
 # journey scenario, or a commit says "Recorded-unneeded: <why>" (tools/recorded-cases.mjs).
 if command -v node >/dev/null && [ -f "$repo/tools/recorded-cases.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
@@ -170,7 +161,17 @@ case "$command" in *E2E_ISSUE_OK=1*) ;; *)
     links="$(cd "$repo" && timed "e2e issue links" node tools/e2e-issue-links.mjs --base origin/main 2>&1)" || { echo "Push blocked: $links" >&2; exit 2; }
   fi ;;
 esac
-
+# The journey gate (owner, 10 Oct 2026): a push touching a flow file runs the applying scenarios as event sequences (tools/journey-gate.mjs, seconds,
+# no browser). Unlike the matrix below it needs no browser, and it runs even when the change is in extension/ only, which the affected-tests pick missed.
+if command -v node >/dev/null && [ -f "$repo/tools/journey-gate.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
+  journeys="$(cd "$repo" && timed "journey gate" node tools/journey-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $journeys" >&2; exit 2; }
+  [ -n "$journeys" ] && echo "$journeys" >&2
+fi
+# The ladder gate (docs/flows/ladder.md): a push touching a flow file, the page-kind decision or the ladder fixtures replays every fixture offline against the baseline: none may get worse (tools/ladder-gate.mjs, seconds, no model).
+if command -v node >/dev/null && [ -f "$repo/tools/ladder-gate.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
+  ladder="$(cd "$repo" && timed "ladder gate" node tools/ladder-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $ladder" >&2; exit 2; }
+  [ -n "$ladder" ] && echo "$ladder" >&2
+fi
 # Which suites this push needs (AGENTS.md "Change tiers"). `PUSH_FULL=1 git push ...` runs everything (Tier 2). Docs alone run nothing; a path
 # this list does not know runs everything. The engine (src/, tests/) also runs desktop: its callers. A clean pip install only when dependencies changed.
 changed="$(git -C "$repo" diff --name-only origin/main..HEAD 2>/dev/null)"
