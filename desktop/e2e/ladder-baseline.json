@@ -68,6 +68,10 @@
   {
    "date": "2026-10-11",
    "reason": "form judge gains blocked (dialog|error|overlay|gone) and the ON TOP line; 3 fixtures (dialog over form, error banner, clean form) asked 3 of 3 each on the plan path"
+  },
+  {
+   "date": "2026-10-11",
+   "reason": "page-kind gains the ON TOP line and covered digest candidates (extension/on-top.js), said only when a layer exists: no prompt text changed for other pages; one new fixture modal-over-posting-cookie-wall asked 3 of 3 exact; stored answers of the other fixtures unchanged"
   }
  ],
  "promptFingerprint": {
@@ -742,6 +746,16 @@
     ]
    },
    "outcome": "form",
+   "status": "exact"
+  },
+  "modal-over-posting-cookie-wall": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
    "status": "exact"
   },
   "nebius-greenhouse-embed": {

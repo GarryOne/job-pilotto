@@ -365,3 +365,26 @@ test('the AI names the frame that holds the form by index; an index outside the 
   assert.equal((await pageKind(seq([{kind: 'posting', confidence: 0.9, form_frame: 0}]), emailPages.de, cacheIn())).formFrame, -1, 'no frame listed: nothing to name');
   assert.equal((await pageKind(seq([{kind: 'form', confidence: 0.9, form_frame: 0}]), {...emailPages.de, frameCandidates: frames}, cacheIn())).formFrame, -1, 'only a posting names a frame');
 });
+
+// 11 Oct 2026 (Louis Vuitton: "popup: left alone" before any fill): a layer drawn over the page (extension/on-top.js) changes what the page is and which control can be reached. The page-kind ask says what is on top.
+const layered = {url: 'https://jobs.example.com/job/1', title: 'Stock controller', headings: ['Stock controller'], controls: [], buttons: ['Apply', 'Accept all', 'Settings'],
+  onTop: {shape: 'dialog', role: 'dialog', text: 'We use cookies to improve your experience', buttons: ['Accept all', 'Settings'], covered: ['ignored']}};
+test('the page-kind ask carries the layer ON TOP (shape, text, its buttons) and nothing else the caller adds', async () => {
+  const calls = [];
+  await pageKind(fake({kind: 'posting', confidence: 0.9, apply_button: 'Apply', apply_button_kind: 'apply', apply_route: '', apply_by: 'form', apply_email: '', form_frame: -1, account_step: '', register_control: '', signin_control: '', account_button: '', bot_check: false}, calls), layered, cacheIn());
+  const sent = JSON.stringify(calls[0].messages);
+  assert.ok(sent.includes('ON TOP of the page: dialog (dialog): We use cookies to improve your experience') && sent.includes('Accept all | Settings'));
+  assert.ok(!sent.includes('ignored'));
+  assert.ok(!/ON TOP/.test(calls[0].system), 'the system prompt is unchanged: the rule rides with the line');
+  assert.match(sent, /this layer decides what can be reached now/);
+  const plain = [];
+  await pageKind(fake({kind: 'posting', confidence: 0.9, apply_button: '', apply_button_kind: '', apply_route: '', apply_by: 'form', apply_email: '', form_frame: -1, account_step: '', register_control: '', signin_control: '', account_button: '', bot_check: false}, plain), {...layered, onTop: null}, cacheIn());
+  assert.ok(!JSON.stringify(plain[0].messages).includes('ON TOP'), 'no layer, no line: other pages\' asks are unchanged');
+});
+
+test('a bad layer shape is dropped; the field is a known sketch field', async () => {
+  const {SKETCH_FIELDS} = await import('../lib/ladder/rung2-sketch.js');
+  assert.ok(SKETCH_FIELDS.includes('onTop'));
+  assert.equal(pageSketch({...layered, onTop: {shape: 'banner words', text: 'x'}}).onTop, null);
+  assert.equal(pageSketch(layered).onTop.shape, 'dialog');
+});

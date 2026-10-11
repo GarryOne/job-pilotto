@@ -1,0 +1,81 @@
+{
+ "schemaVersion": 1,
+ "id": "modal-over-posting-cookie-wall",
+ "source": "reconstructed",
+ "lang": "es",
+ "why": "a cookie wall (a dialog drawn over the whole page) sits over a job posting whose Apply button is behind it: the page is still a posting (the posting is what is behind the layer), not \"other\"; the ON TOP line says what covers it",
+ "url": "https://jobs.example.com/es/job/4711",
+ "expect": {
+  "outcome": "posting"
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/es/job/4711",
+  "title": "Controlador de stock | Empleos",
+  "headings": [
+   "Controlador de stock",
+   "Descripción del puesto"
+  ],
+  "controls": [],
+  "buttons": [
+   "Aceptar todas",
+   "Configurar cookies",
+   "Solicitar",
+   "Guardar oferta"
+  ],
+  "frames": [],
+  "mails": [],
+  "candidates": [
+   {
+    "n": 1,
+    "kind": "button",
+    "text": "Aceptar todas",
+    "position": "other"
+   },
+   {
+    "n": 2,
+    "kind": "button",
+    "text": "Solicitar",
+    "position": "main",
+    "covered": true
+   },
+   {
+    "n": 3,
+    "kind": "button",
+    "text": "Guardar oferta",
+    "position": "main",
+    "covered": true
+   },
+   {
+    "n": 4,
+    "kind": "sentence",
+    "text": "Buscamos un controlador de stock para nuestra tienda.",
+    "position": "main"
+   }
+  ],
+  "onTop": {
+   "shape": "dialog",
+   "role": "dialog",
+   "text": "Utilizamos cookies para mejorar su experiencia",
+   "buttons": [
+    "Aceptar todas",
+    "Configurar cookies"
+   ]
+  }
+ },
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.8,
+  "apply_button": "Solicitar",
+  "apply_button_kind": "apply",
+  "apply_route": "manual",
+  "apply_by": "form",
+  "apply_email": "",
+  "form_frame": -1,
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "answer_path": "app"
+}

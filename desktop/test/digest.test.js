@@ -70,3 +70,16 @@ test('refused: the site turns the visitor away (a block page, no job shown); it 
   assert.deepEqual(ok({outcome: 'refused', verb: 'none'}), {outcome: 'refused', verb: 'none', numbers: [], confidence: 0.9, chosen: []});
   assert.equal(ok({outcome: 'refused', verb: 'press', numbers: [4]}).dropped, 'verb does not fit the outcome');
 });
+
+// 11 Oct 2026: a candidate drawn under another layer cannot be pressed by a person until that layer is dealt with: the numbered list says so, and the digest ask says what is on top.
+import {digestMessage as messageOf, DIGEST_INSTRUCTIONS as RULES} from '../lib/ladder/rung3-digest.js';
+test('the digest list marks a covered candidate and names the layer on top; without them the message is unchanged', () => {
+  const candidates = [{n: 1, kind: 'button', position: 'main', text: 'Apply', covered: true}, {n: 2, kind: 'button', position: 'main', text: 'Accept all'}];
+  const text = messageOf({path: '/job/1', title: 'T', headings: [], onTop: {shape: 'dialog', role: 'dialog', text: 'We use cookies', buttons: ['Accept all']}}, candidates);
+  assert.match(text, /1 · button · main · Apply · covered|1 · button · main · covered · Apply/);
+  assert.ok(!/2 · button · main[^\n]*covered/.test(text));
+  assert.match(text, /ON TOP of the page: dialog \(dialog\): We use cookies/);
+  assert.match(text, /Candidates marked covered are drawn under another layer/);
+  assert.ok(!/covered/.test(RULES), 'the system prompt is unchanged');
+  assert.ok(!/covered|ON TOP/.test(messageOf({path: '/job/1', title: 'T', headings: []}, [{n: 1, kind: 'button', position: 'main', text: 'Apply'}])));
+});

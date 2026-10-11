@@ -12,6 +12,8 @@ import {onTop} from './on-top.js';
 const BLOCKED_WORDS = {dialog: 'a dialog is open over the form', error: 'the site shows an error about what was entered', overlay: 'something is covering the form', gone: 'the application is no longer on the page'};
 export const blockedWords = kind => BLOCKED_WORDS[kind] || BLOCKED_WORDS.overlay;
 
+// A blocked page is judged once more a little later (11 Oct 2026, Louis Vuitton: a "wait, importing" dialog covered the form for a few seconds and then went): a page that recovers is not a failure, one that does not stays blocked.
+export const timing = {recheckMs: 8000};
 const looking = new Set(), judged = new Map();
 // The structure says the form is ready: every counted required field is filled, on an application page (not an account page).
 export const claimsReady = payload => !!payload && !payload.account && Number(payload.total) > 0 && Number(payload.left) === 0;
@@ -27,7 +29,7 @@ export async function formReady(tab, frameId, payload) {
 // the AI looks at the page's real state once per page state, and a middle step's own next button is pressed (next-step.js).
 export const formNext = (tab, frameId = 0) => askForm(tab, frameId);
 
-async function askForm(tab, frameId) {
+async function askForm(tab, frameId, again = false) {
   if (looking.has(tab.id)) return;
   looking.add(tab.id);
   try {
@@ -45,6 +47,7 @@ async function askForm(tab, frameId) {
     decide('panel', `application form ready?: ${answer.answer}`, {host, step: answer.step || '', ...(answer.answer === 'blocked' ? {blocked: answer.blockedKind || 'overlay'} : {}), ...(answer.needs ? {needs: answer.needs.slice(0, 60), seen: sketch.controls.filter(item => item.required).map(item => `${item.type}:${item.state}`).join(',').slice(0, 120)} : {})});   // seen: what the AI was shown of the required controls (types and states, never labels or values)
     await run(tab, frameId, flagAccount, [answer.answer === 'blocked' ? blockedWords(answer.blockedKind) : answer.answer === 'needs_person' ? answer.needs || '' : null]);
     if (answer.answer === 'blocked') decide('fill', `the page is blocked after the fill: ${answer.blockedKind || 'overlay'}`, {host});   // the fill log and the smoke verdict read this line
+    if (answer.answer === 'blocked' && !again) setTimeout(() => { judged.delete(tab.id); askForm(tab, frameId, true).catch(() => {}); }, timing.recheckMs);
     await pressNext(tab, frameId, answer, sig);   // a multi-step form's next step, when the person turned it on (next-step.js)
   } finally { looking.delete(tab.id); }
 }

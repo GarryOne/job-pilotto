@@ -32,6 +32,15 @@
     return false;
   }
 
+  // Drawn UNDER another layer (a dialog or a fixed overlay is what the page shows at its centre): a person cannot reach it until that layer is dealt with. Structure only (elementFromPoint); the AI is told.
+  function coveredByLayer(el, doc) {
+    if (typeof doc.elementFromPoint !== 'function' || overlay(el)) return false;
+    const box = el.getBoundingClientRect();
+    if (!box.width || !box.height) return false;
+    const top = doc.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    return !!top && !el.contains(top) && !top.contains(el) && overlay(top);
+  }
+
   // A link or control drawn as a button: a filled background and a button-sized box (style, not words).
   function drawnAsButton(el) {
     const background = el.ownerDocument.defaultView.getComputedStyle(el).backgroundColor || '';
@@ -87,7 +96,7 @@
       if (link) {
         try { const url = new URL(href, doc.location?.href || undefined); if (!/^https?:$/.test(url.protocol)) continue; host = url.hostname; } catch { continue; }
       }
-      const item = {kind: link ? 'link' : 'button', text, ...(host ? {host} : {}), position};
+      const item = {kind: link ? 'link' : 'button', text, ...(host ? {host} : {}), position, ...(coveredByLayer(el, doc) ? {covered: true} : {})};
       // Which actions come first, by structure: a real button or a link to ANOTHER site (an application system) before a link of the same site; a link inside a menu (a list of 5+ links) last.
       const menu = el.closest('ul, ol, nav, [role="menu"], [role="list"]');
       const rank = (overlay(el) ? 4 : 0) + (menu && menu.querySelectorAll('a[href]').length >= 5 ? 2 : 0) + (item.kind === 'button' || (host && host !== (doc.location?.hostname || '')) || drawnAsButton(el) || repeated.has(item.text.toLowerCase()) ? 0 : 1);

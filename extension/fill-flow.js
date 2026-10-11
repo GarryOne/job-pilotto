@@ -25,6 +25,7 @@ import {forgetNoEffect, noEffectOf, noteNoEffect} from './no-effect.js';
 import {clickTrace, modalTrace} from './ladder/press-why.js';
 import {forgetRouteTries, startRoute} from './start-route.js';
 import {emailReport, mailsOf} from './ladder/outcomes.js';
+import {onTop} from './on-top.js';
 import {candidatesOf, claimFrame, climbOnStall, frameBecameCandidate, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, noteSignal, otherReport, toldReport, verifiedBody} from './ladder/climb.js';
 
 let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true, fillsNow = new Set(), arm = async () => {}, progress = async () => {};
@@ -131,6 +132,7 @@ export async function askKind(tab, {fresh = false, digest = false} = {}) {   // 
   if (fresh || digest) decide('fill', 'page sketched for a second look', {fresh, digest, buttons: sketch.buttons?.length ?? 0, ...(await modalTrace(tab.id) || {})});   // the dialogs the page shows now (counts)
   const frameList = await framesOf(tab.id); noteFrames(tab.id, frameList); sketch.frameCandidates = frameSketch(frameList);   // the addresses stay in the extension (ladder/climb.js)
   sketch.mails = await mailsOf(tab.id);   // the sentences and mailto links that carry an address (ladder/outcomes.js)
+  sketch.onTop = await chrome.scripting.executeScript({target: {tabId: tab.id, frameIds: [0]}, func: onTop}).then(rows => rows?.[0]?.result ?? null).catch(() => null);   // a dialog or overlay drawn over the page, by structure (on-top.js): the AI is told
   try {
     const config = await settings();
     if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return null;   // your own Worker: no app to ask

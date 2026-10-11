@@ -36,13 +36,20 @@ Beware: a closed notice above a working Apply button or form is not "expired"; a
 press_kind: for verb press or open, judge what the button or link does, in any language, not by its words: apply only when it starts or continues this application; never apply for a sign-in, a sign-up/account creation, or a sign-in through another site (Google, LinkedIn, Apple...).
 Use verb none with numbers [] when nothing is clear. Name only numbers from the list. Give your confidence from 0 to 1.`;
 
+// The layer drawn over the page (extension/on-top.js: structure only): kept as {shape, role, text, buttons} or null, and told to the AI in one line. Shared with rung 2 (which imports this file).
+export const cleanLayer = raw => (['dialog', 'overlay'].includes(raw?.shape) ? {shape: raw.shape, role: cleanLine(raw.role, 20), text: cleanLine(raw.text, 160), buttons: (Array.isArray(raw.buttons) ? raw.buttons : []).map(text => cleanLine(text, 40)).filter(Boolean).slice(0, 6)} : null);
+export const layerLine = layer => (layer ? `ON TOP of the page: ${layer.shape} (${layer.role || layer.shape}): ${layer.text || '(no text)'} · buttons: [${layer.buttons.join(' | ')}]` : '');
+// Said only when a layer or a covered candidate exists (the system prompt stays as it was for every other page): a covered candidate is drawn under another layer and cannot be reached until it is dealt with.
+const COVERED_RULE = 'Candidates marked covered are drawn under another layer (a dialog or banner on top): a person cannot reach them until that layer is dealt with. Judge the application from the page itself, never from the layer\'s own buttons, and never name a covered candidate when an uncovered one does the same.';
 const cleanLine = (text, max) => String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 // What the AI is shown for the candidates: numbered, with kind, position and host, no query string (candidates carry none).
 export const digestMessage = (page = {}, candidates = []) => [
   `Address path: ${cleanLine(page.path, 120) || '(none)'}`,
   `Title: ${cleanLine(page.title, 160) || '(none)'}`,
   `Headings: ${(page.headings || []).map(text => cleanLine(text, 100)).filter(Boolean).slice(0, 8).join(' | ') || '(none)'}`,
-  `Candidates (number · kind · position · host · text):\n${candidates.map(item => `${item.n} · ${item.kind} · ${item.position}${item.host ? ` · ${item.host}` : ''} · ${cleanLine(item.text, 160)}`).join('\n') || '(none)'}`,
+  `Candidates (number · kind · position · host · text):\n${candidates.map(item => `${item.n} · ${item.kind} · ${item.position}${item.host ? ` · ${item.host}` : ''}${item.covered ? ' · covered' : ''} · ${cleanLine(item.text, 160)}`).join('\n') || '(none)'}`,
+  ...(cleanLayer(page.onTop) ? [layerLine(cleanLayer(page.onTop))] : []),
+  ...(cleanLayer(page.onTop) || candidates.some(item => item.covered) ? [COVERED_RULE] : []),
   ...((page.noEffect || []).length ? [`Pressed already and nothing happened (never name these again; name another way to start the application): ${page.noEffect.join(' | ')}`] : []),
 ].join('\n');
 

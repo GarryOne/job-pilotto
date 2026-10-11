@@ -43,8 +43,8 @@ export async function judgeCase(item, scope) {
     asked: label => list().some(request => request.route === '/extension/answer' && request.body.split('"page_text"')[0].includes(`"label":${JSON.stringify(label)}`)),
     // What the extension showed the form judge (form-ready.js: /extension/account-judge, phase form): "<label>:<state>" of one control of the sketch it sent.
     judged: spec => list().some(request => { try { const body = JSON.parse(request.body); return request.route === '/extension/account-judge' && body.phase === 'form' && body.sketch.controls.some(control => `${control.label}:${control.state}` === spec); } catch { return false; } }),
-    // What sits on top of the form, as the sketch the extension sent the form judge says (extension/on-top.js): the layer's shape.
-    onTop: shape => list().some(request => { try { const body = JSON.parse(request.body); return request.route === '/extension/account-judge' && body.phase === 'form' && body.sketch.onTop?.shape === shape; } catch { return false; } }),
+    // What sits on top of the page, as the sketch the extension sent the form judge or the page-kind ask says (extension/on-top.js): the layer's shape.
+    onTop: shape => list().some(request => { try { const body = JSON.parse(request.body); return (request.route === '/extension/account-judge' && body.phase === 'form' ? body.sketch : request.route === '/extension/page-kind' ? body : null)?.onTop?.shape === shape; } catch { return false; } }),
   });
   const checks = {
     ...requestChecks(mine),

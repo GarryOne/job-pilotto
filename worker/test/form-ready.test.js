@@ -46,3 +46,20 @@ test('a blocked answer flags the panel with its kind in words and presses no nex
   try { await formNext({id: 72, url: 'https://apply.example/m'}, 0); await new Promise(resolve => setTimeout(resolve, 30)); } finally { Object.assign(globalThis, keep); }
   assert.deepEqual(flagged, [blockedWords('dialog')]);
 });
+
+// 11 Oct 2026, the real Louis Vuitton run: the site's "importing your data, wait" dialog covered the form for a few seconds, the judge said blocked, and the page cleared itself.
+// A blocked answer is asked once more a little later, so a page that recovers does not stay a failure (and one that does not, stays blocked).
+test('a blocked answer is judged again once; the page recovered: the flag is cleared and the log says so', async () => {
+  const mod = await import('../../extension/form-ready.js');
+  mod.timing.recheckMs = 20;
+  const flagged = [], answers = [{answer: 'blocked', blockedKind: 'dialog'}, {answer: 'ready', step: 'final'}];
+  let page = 0;
+  const keep = {chrome: globalThis.chrome, fetch: globalThis.fetch};
+  globalThis.chrome = {
+    storage: {local: {get: async () => ({workerUrl: 'http://127.0.0.1:47111', token: 't'}), set: async () => {}}, session: {get: async () => ({}), set: async () => {}}},
+    scripting: {executeScript: async ({args, func}) => { if (args?.length) { flagged.push(args[0]); return [{result: undefined}]; } if (String(func).includes('elementFromPoint')) return [{result: page === 0 ? {shape: 'dialog', role: 'dialog', text: 'Importing', buttons: ['Close'], covered: []} : null}]; page += func.name === 'accountSketch' ? 1 : 0; return [{result: {url: 'https://apply.example/m', title: 'Apply', headings: [], controls: [{type: 'text', label: String(page), state: 'filled'}], buttons: ['Send'], texts: [], frames: []}}]; }},
+    runtime: {getManifest: () => ({version: '0'})}};
+  globalThis.fetch = async () => ({ok: true, status: 200, json: async () => answers.shift() || {}, text: async () => ''});
+  try { await mod.formNext({id: 73, url: 'https://apply.example/m'}, 0); await new Promise(resolve => setTimeout(resolve, 250)); } finally { Object.assign(globalThis, keep); mod.timing.recheckMs = 8000; }
+  assert.deepEqual(flagged, [mod.blockedWords('dialog'), null]);
+});

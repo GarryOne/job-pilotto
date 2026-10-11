@@ -29,7 +29,7 @@ export const BUTTON_KINDS = ['apply', 'sign_in', 'sign_up', 'third_party', 'othe
 export const APPLY_BY = ['form', 'email', 'other'];
 // The fields of the page sketch the extension sends (besides `url`): the one list the endpoint forwards, pageSketch reads and the real-extension test compares with what the
 // extension really sends, so a field added on one side can no longer be forgotten on the other (frames, 9 Oct 2026; mails, 10 Oct 2026).
-export const SKETCH_FIELDS = ['title', 'headings', 'controls', 'buttons', 'frames', 'mails', 'candidates', 'frameCandidates', 'noEffect'];
+export const SKETCH_FIELDS = ['title', 'headings', 'controls', 'buttons', 'frames', 'mails', 'candidates', 'frameCandidates', 'noEffect', 'onTop'];
 export const sketchBody = body => Object.fromEntries(['url', ...SKETCH_FIELDS].map(name => [name, body?.[name]]));
 // A control pressed already with no effect is never named again: said to the AI in the message, and refused here whatever it answers (AND). The line exists only when the list does, so no other page's prompt changes.
 const norm = text => clean(text, 40).toLowerCase();
@@ -82,8 +82,11 @@ export const FRAME_RULE = `If the page's own Controls hold no application form a
 
 const MAIL = /[^\s@<>()]+@[^\s@<>()]+\.[a-z]{2,}/i;
 const clean = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+// The layer drawn over the page (extension/on-top.js: structure only), kept as {shape, role, text, buttons} or null. The same small helper stands in rung3-digest.js (a rung does not import another's internals).
+const cleanLayer = raw => (['dialog', 'overlay'].includes(raw?.shape) ? {shape: raw.shape, role: clean(raw.role, 20), text: clean(raw.text, 160), buttons: (Array.isArray(raw.buttons) ? raw.buttons : []).map(text => clean(text, 40)).filter(Boolean).slice(0, 6)} : null);
+const layerLine = layer => `ON TOP of the page: ${layer.shape} (${layer.role || layer.shape}): ${layer.text || '(no text)'} · buttons: [${layer.buttons.join(' | ')}]. A layer is drawn over the page: judge what the page is from the page itself, but this layer decides what can be reached now (a button of the layer is not the page's own Apply).`;   // the rule rides with the line: a page with no layer gets the prompt it always had
 // What the model is allowed to see: no values the person typed, no query string, labels and texts capped.
-export function pageSketch({url, title, headings, controls, buttons, frames, mails, candidates, frameCandidates, noEffect} = {}) {
+export function pageSketch({url, title, headings, controls, buttons, frames, mails, candidates, frameCandidates, noEffect, onTop} = {}) {
   let path = '';
   try { path = new URL(String(url)).pathname.slice(0, 120); } catch { /* not a url */ }
   return {
@@ -95,11 +98,12 @@ export function pageSketch({url, title, headings, controls, buttons, frames, mai
     mails: (Array.isArray(mails) ? mails : []).map(text => clean(text, 160)).filter(text => MAIL.test(text) || /^mailto:/i.test(text)).slice(0, 5),   // only sentences / mailto links that carry an address
     // The numbered candidates of the digest (rung 3: extension/ladder/rung3-candidates.js): kept only as {n, kind, position, host, text}, capped, so nothing else the page or a caller adds reaches the AI.
     candidates: (Array.isArray(candidates) ? candidates : []).filter(item => Number.isInteger(item?.n) && item.n >= 0).slice(0, 12)
-      .map(item => ({n: item.n, kind: clean(item.kind, 12), position: clean(item.position, 12), ...(item.host ? {host: clean(item.host, 80)} : {}), text: clean(item.text, 160)})).filter(item => item.kind),
+      .map(item => ({n: item.n, kind: clean(item.kind, 12), position: clean(item.position, 12), ...(item.host ? {host: clean(item.host, 80)} : {}), ...(item.covered === true ? {covered: true} : {}), text: clean(item.text, 160)})).filter(item => item.kind),
     // The frames that may hold the application form (extension/ladder/rung3-frames.js): host, path and size only, never an address with a query or a token (it stays in the extension).
     frameCandidates: (Array.isArray(frameCandidates) ? frameCandidates : []).slice(0, 6).map(item => ({host: clean(item?.host, 80), path: clean(String(item?.path || '').split('?')[0], 120), width: Math.max(0, Number(item?.width) || 0), height: Math.max(0, Number(item?.height) || 0)})).filter(item => item.host),
     noEffect: (Array.isArray(noEffect) ? noEffect : []).map(text => clean(text, 40)).filter(Boolean).slice(0, 5),   // controls the extension already pressed on this page with nothing happening (extension/no-effect.js)
     frames: (Array.isArray(frames) ? frames : []).map(host => clean(host, 80)).filter(Boolean).slice(0, 5),   // visible frames' hosts: a check drawn in a frame
+    onTop: cleanLayer(onTop),   // a layer drawn over the page (extension/on-top.js), by structure
   };
 }
 
@@ -155,6 +159,7 @@ export async function pageKind(client, raw, cache, {now = Date.now(), fresh = fa
         `Addresses (sentences or links on the page that carry an email address):\n${page.mails.map(text => `- ${text}`).join('\n') || '(none)'}`,
         `Frames: ${page.frames.join(' | ') || '(none)'}`,
         `Frame candidates (index · host · path · size; a posting whose application form is inside one of them names its index in form_frame):\n${page.frameCandidates.map((item, index) => `${index} · ${item.host} · ${item.path} · ${item.width}x${item.height}`).join('\n') || '(none)'}${page.frameCandidates.length ? `\n${FRAME_RULE}` : ''}`,
+        ...(page.onTop ? [layerLine(page.onTop)] : []),
         ...(page.noEffect.length ? [noEffectLine(page.noEffect)] : []),
       ].join('\n')}],
       output_config: {format: {type: 'json_schema', schema: SCHEMA}, effort: 'low'},

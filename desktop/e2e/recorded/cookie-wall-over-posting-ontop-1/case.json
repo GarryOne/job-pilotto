@@ -1,0 +1,37 @@
+{
+ "shape": "a cookie wall drawn over a posting: the page-kind ask is shown what sits on top (structure), with the posting's own Apply behind it",
+ "why": "11 Oct 2026 (owner: a cookie wall or sign-in modal over a posting changes what the page is and which candidate can be reached; Louis Vuitton logged popup left alone before any fill). The sketch the extension sends to /extension/page-kind now carries onTop (extension/on-top.js: dialog, its text and buttons). Hand-built page",
+ "control": {
+  "build": "0.9.213",
+  "failed": "onTop: the page-kind sketch had no ON TOP layer"
+ },
+ "rung": 2,
+ "sample": "hand-built (hosts and text invented)",
+ "pages": [
+  {
+   "url": "https://emplois.exemple.example.es/empleo/4711",
+   "file": "posting.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "posting",
+   "role": "no-form",
+   "by": "ai",
+   "confidence": 0.9,
+   "applyButton": "Solicitar"
+  },
+  "/extension/pick-choice": {
+   "ok": true,
+   "choice": ""
+  }
+ },
+ "expect": {
+  "onTop": [
+   "dialog"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 25
+ }
+}
