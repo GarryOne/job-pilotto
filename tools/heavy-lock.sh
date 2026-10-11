@@ -7,6 +7,10 @@
 # peaks at 3.3 GB, two need ~6.6 GB); never a 3rd. Ports are free per run and the real Notion page has its own lock (desktop/e2e/lib/notion-page-lock.mjs).
 # First come, first served (11 Oct 2026: the pool's per-site runs re-took a just-freed lock while a replay starved 6+ min): each waiter holds a ticket
 # <root>/queue/<nanoseconds>-<pid> ("<pid> <what>") and takes a slot only when no live older ticket is ahead; a dead waiter's ticket is dropped.
+# Shortest first (owner, 11 Oct 2026: a ~15 s row replay waited 1-3 min behind ~70 s live runs): a waiter whose `what` is `row` or `row-*` goes ahead of older
+# longer waiters, and a longer waiter yields to a younger row waiter, each only while it has waited under JOB_PILOTTO_HEAVY_SHORT_AGE seconds (default 120),
+# so nobody starves. Replays (row*, recorded-replay) wait for the memory gate, never for the load. A ticket names its session (JOB_PILOTTO_SESSION, else the
+# branch of the working folder) and the log lines say it. JOB_PILOTTO_HEAVY_SHORT_FIRST=0 = strict arrival order; JOB_PILOTTO_HEAVY_REPLAY_LOAD=1 = replays wait for the load too.
 # Every wait is logged to <git common dir>/gate-timing.log (JOB_PILOTTO_HEAVY_TIMING_LOG elsewhere, GATE_TIMING=0 off).
 # A nested call (a suite started by `npm run all`) sees JP_HEAVY_HELD and runs at once. Escape hatches, all said in the log when used:
 #   JOB_PILOTTO_HEAVY=0                 no lock, no load wait
@@ -34,7 +38,7 @@ say() { echo "heavy-lock: $*" >&2; }
 SLOT_DIRS="$root/lock"; [ "${JOB_PILOTTO_HEAVY_SLOTS:-2}" -ge 2 ] 2>/dev/null && SLOT_DIRS="$SLOT_DIRS $root/lock.2"
 holders() { local dir pid what since out=""
   for dir in $SLOT_DIRS; do [ -d "$dir" ] || continue; pid="$(cat "$dir/pid" 2>/dev/null)"; what="$(cat "$dir/what" 2>/dev/null)"; since="$(cat "$dir/since" 2>/dev/null)"
-    out="${out:+$out and }pid ${pid:-?} (${what:-?}) since $(date -r "${since:-0}" +%T 2>/dev/null || echo ?), $(( $(date +%s) - ${since:-$(date +%s)} ))s ago"; done
+    out="${out:+$out and }pid ${pid:-?} (${what:-?}, session $(cat "$dir/session" 2>/dev/null || echo ?)) since $(date -r "${since:-0}" +%T 2>/dev/null || echo ?), $(( $(date +%s) - ${since:-$(date +%s)} ))s ago"; done
   echo "${out:-nobody}"; }
 stale() {  # a slot's owner is gone (or never wrote its pid within 10 s)
   local pid; pid="$(cat "$1/pid" 2>/dev/null)"
@@ -53,7 +57,7 @@ held() {  # live slots, after dropping stale ones
 memory_ok() {  # a 2nd heavy run fits: free+inactive memory over the floor and swap low; sets $why when not
   local free swap floor="${JOB_PILOTTO_HEAVY_MEM_GB:-7}" most="${JOB_PILOTTO_HEAVY_SWAP_PCT:-50}"
   # A recorded-page replay is counted by its real cost (owner's brief, 11 Oct 2026): ~1.5 GB of Chrome at 4 tabs (2.1 GB at 6), not a pool run's 3.3 GB; a row replay (npm run row: one offline browser, ~1 GB) the same.
-  case "$what" in recorded-replay|row-replay) floor="${JOB_PILOTTO_HEAVY_MEM_REPLAY_GB:-3}"; most="${JOB_PILOTTO_HEAVY_SWAP_REPLAY_PCT:-70}" ;; esac
+  case "$what" in recorded-replay|row|row-*) floor="${JOB_PILOTTO_HEAVY_MEM_REPLAY_GB:-3}"; most="${JOB_PILOTTO_HEAVY_SWAP_REPLAY_PCT:-70}" ;; esac
   free="$(vm_stat 2>/dev/null | awk '/page size of/ {for (i = 1; i < NF; i++) if ($i == "of") size = $(i + 1)} /^Pages (free|inactive):/ {v = $NF; sub(/\./, "", v); pages += v} END {printf "%.1f", pages * size / 1073741824}')"
   swap="$(sysctl -n vm.swapusage 2>/dev/null | awk '{for (i = 1; i < NF; i++) {if ($i == "total") t = $(i + 2) + 0; if ($i == "used") u = $(i + 2) + 0}} END {printf "%d", (t > 0 ? u * 100 / t : 0)}')"
   why=""
@@ -64,16 +68,34 @@ memory_ok() {  # a 2nd heavy run fits: free+inactive memory over the floor and s
 take() { local dir; for dir in $SLOT_DIRS; do mkdir "$dir" 2>/dev/null && { lock="$dir"; return 0; }; done; return 1; }
 release() { [ -n "$lock" ] && [ "$(cat "$lock/pid" 2>/dev/null)" = "$$" ] && rm -rf "$lock"; return 0; }
 queue="$root/queue"; mkdir -p "$queue"
-ticket="$queue/$(python3 -c 'import time; print(time.time_ns())' 2>/dev/null || echo "$(date +%s)000000000")-$$"; printf '%s %s\n' "$$" "$what" >"$ticket"
+session="${JOB_PILOTTO_SESSION:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo ?)}"
+is_short() { case "$1" in row|row-*) return 0 ;; *) return 1 ;; esac; }   # a row replay: one offline browser, ~15 s
+is_replay() { case "$1" in row|row-*|recorded-replay) return 0 ;; *) return 1 ;; esac; }
+short_first="${JOB_PILOTTO_HEAVY_SHORT_FIRST:-1}"; short_age="${JOB_PILOTTO_HEAVY_SHORT_AGE:-120}"
+ticket="$queue/$(python3 -c 'import time; print(time.time_ns())' 2>/dev/null || echo "$(date +%s)000000000")-$$"; printf '%s %s\n\n%s\n' "$$" "$what" "$session" >"$ticket"
 trap 'rm -f "$ticket"; release' EXIT
 trap 'exit 143' TERM; trap 'exit 130' INT; trap 'exit 129' HUP
-ahead() {  # the oldest live waiter before my ticket, as "<what> (pid N)"; dead waiters are dropped on the way
-  local name pid
+age_of() { local ns="${1%%-*}"; echo $(( $(date +%s) - ns / 1000000000 )); }   # seconds a ticket has waited (its name starts with the nanosecond clock)
+ticket_label() { echo "$(head -n 1 "$queue/$1" | cut -d' ' -f2-) (pid $2, session $(sed -n 3p "$queue/$1" 2>/dev/null || echo ?))"; }
+ahead() {  # the waiter I must let go first, as "<what> (pid N, session S)"; dead waiters are dropped on the way
+  local name pid mine=0 mname="${ticket##*/}"
   for name in $(ls "$queue" 2>/dev/null | sort); do
-    [ "$queue/$name" = "$ticket" ] && return 0
+    if [ "$name" = "$mname" ]; then
+      mine=1
+      # a longer waiter yields to a younger row waiter, while it has waited under short_age seconds
+      if [ "$short_first" = 1 ] && ! is_short "$what" && [ "$(age_of "$mname")" -lt "$short_age" ]; then continue; else return 0; fi
+    fi
     pid="$(head -n 1 "$queue/$name" 2>/dev/null | cut -d' ' -f1)"
     [ "$(sed -n 2p "$queue/$name" 2>/dev/null)" = loadwait ] && continue   # it waits for the machine, holding no slot: it does not hold anyone up
-    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then echo "$(head -n 1 "$queue/$name" | cut -d' ' -f2-) (pid $pid)"; return 0; fi
+    if [ "$mine" = 1 ]; then   # only younger row waiters count here
+      is_short "$(head -n 1 "$queue/$name" | cut -d' ' -f2-)" && kill -0 "$pid" 2>/dev/null && { ticket_label "$name" "$pid"; return 0; }
+      continue
+    fi
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+      # a row waiter goes ahead of an older longer waiter that has waited under short_age seconds
+      if [ "$short_first" = 1 ] && is_short "$what" && ! is_short "$(head -n 1 "$queue/$name" | cut -d' ' -f2-)" && [ "$(age_of "$name")" -lt "$short_age" ]; then continue; fi
+      ticket_label "$name" "$pid"; return 0
+    fi
     rm -f "$queue/$name"
   done
 }
@@ -85,10 +107,11 @@ wait_max="${JOB_PILOTTO_HEAVY_WAIT:-1800}"; poll="${JOB_PILOTTO_HEAVY_POLL:-1}";
 cores="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 8)"
 limit="${JOB_PILOTTO_HEAVY_LOAD:-$(( cores * 3 / 2 ))}"; load_wait="${JOB_PILOTTO_HEAVY_LOAD_WAIT:-300}"; load_began=""; load_gave_up=0
 load1() { uptime | sed -E 's/.*load averages?: *//' | awk -F'[ ,]+' '{ printf "%d", $1 + 0.5 }'; }
-mark() { printf '%s %s\n%s\n' "$$" "$what" "$1" >"$ticket"; }   # the ticket keeps its name (its place in line); only its second line changes
+mark() { printf '%s %s\n%s\n%s\n' "$$" "$what" "$1" "$session" >"$ticket"; }   # the ticket keeps its name (its place in line); only its second line changes
 machine_ready() {  # sets $why when not
   [ "$limit" -gt 0 ] 2>/dev/null || return 0
   [ "$load_gave_up" = 1 ] && return 0
+  is_replay "$what" && [ "${JOB_PILOTTO_HEAVY_REPLAY_LOAD:-0}" != 1 ] && return 0   # replays wait for the memory gate, not the load
   if [ "$(load1)" -le "$limit" ]; then load_began=""; return 0; fi
   [ -n "$load_began" ] || load_began=$(date +%s)
   if [ $(( $(date +%s) - load_began )) -ge "$load_wait" ]; then say "load is still $(load1) (limit $limit) after ${load_wait}s: running $what anyway"; load_gave_up=1; return 0; fi
@@ -115,7 +138,7 @@ while :; do
   sleep "$poll"
 done
 rm -f "$ticket"
-if [ -n "$lock" ]; then echo $$ >"$lock/pid"; echo "$what" >"$lock/what"; date +%s >"$lock/since"; pwd >"$lock/cwd"; fi
+if [ -n "$lock" ]; then echo $$ >"$lock/pid"; echo "$what" >"$lock/what"; echo "$session" >"$lock/session"; date +%s >"$lock/since"; pwd >"$lock/cwd"; fi
 if [ "$told" = 1 ]; then
   say "got the lock after $(( $(date +%s) - began ))s"
   if [ "${GATE_TIMING:-1}" != 0 ]; then   # every wait, for the next measurement

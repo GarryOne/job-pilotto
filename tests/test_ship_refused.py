@@ -2,6 +2,7 @@
 import os
 import subprocess
 import unittest
+from pathlib import Path
 
 from tests.ship_fixture import ShipFixture, git
 
@@ -11,9 +12,10 @@ class ShipRefusedTest(ShipFixture):
         """Ship with a stub hook that counts its runs; on its first run another session pushes (`other_edit` = (file, text)), so ship's push is refused.
         Returns (result, how many times the hook ran)."""
         counter = self.tmp / 'runs'
+        posix = lambda p: Path(p).as_posix()   # the hook script is shell: forward slashes on Windows too
         (name, text) = other_edit
-        script = (f'#!/bin/sh\ncat > /dev/null\necho run >> {counter}\n'
-                  f'if [ "$(wc -l < {counter} | tr -d " ")" = 1 ]; then (cd {self.other} && git pull -q origin main && mkdir -p $(dirname {name}) && printf "{text}" > {name} '
+        script = (f'#!/bin/sh\ncat > /dev/null\necho run >> {posix(counter)}\n'
+                  f'if [ "$(wc -l < {posix(counter)} | tr -d " ")" = 1 ]; then (cd {posix(self.other)} && git pull -q origin main && mkdir -p $(dirname {name}) && printf "{text}" > {name} '
                   f'&& git add -A && git commit -qm "Another session" && git push -q origin main); fi\n')
         self.change(self.tree, 'tools/pre-push-check.sh', script, 'Hook that counts')
         (mine_name, mine_text) = mine_edit
