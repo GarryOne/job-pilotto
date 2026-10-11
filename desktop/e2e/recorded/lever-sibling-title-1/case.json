@@ -1,0 +1,42 @@
+{
+ "shape": "required text questions whose title sits in a sibling block (div.application-label), not a <label for>, marked with a heavy star",
+ "why": "Lever application form, pool run of 11 Oct 2026 (0.9.203): two required textareas were read by their name (cards[...][field0]) and listed 'question on the page not read'. Markup cut from the real capture (structure only, scrubbed). The stubbed answers return no value for the two questions (the fake applicant has nothing for them); the check is that the fill names each field by its question.",
+ "control": {
+  "build": "0.9.205",
+  "failed": "told: the textareas traced as cards[...][field0] instead of their question"
+ },
+ "sample": "jobs.lever.co application form (structure saved by the smoke run of 11 Oct 2026, scrubbed)",
+ "pages": [
+  {
+   "url": "https://jobs.lever.co/example/00000000-0000-0000-0000-000000000000/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.9,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": []
+  }
+ },
+ "expect": {
+  "told": [
+   "\"label\":\"What is your current notice period?\"",
+   "\"label\":\"Would you now or at any time require employer sponsorship to work in the country this role is located?\""
+  ],
+  "notTold": [
+   "question on the page not read",
+   "pressed the submit"
+  ],
+  "seconds": 60
+ }
+}

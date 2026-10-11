@@ -24,11 +24,27 @@
     }
     return '';
   };
+  // A field's question when it sits in a sibling block, not a <label> (Lever: <div class="application-label"> beside the textarea, 11 Oct 2026):
+  // within three levels, the one label/title-like block that holds no control, is not the field's own ancestor and comes before it; never two,
+  // and only for a field alone in its entry (a text box beside pressable choices is that group's "other", not the title's answer).
+  const TITLE_BLOCK = '[class*=label], [class*=Label], [class*=title], [class*=Title], [class*=question-text], legend';
+  const blockTitle = el => {
+    const ACTIVE = 'input:not([type=hidden]), select, textarea, button, [tabindex], [role=radio], [role=checkbox], [role=button], [role=combobox]';
+    for (let up = el.parentElement, i = 0; up && i < 3; up = up.parentElement, i++) {
+      if (Array.from(up.querySelectorAll(ACTIVE)).some(other => other !== el && !el.contains(other))) return '';
+      const found = Array.from(up.querySelectorAll(TITLE_BLOCK)).filter(b => !b.contains(el) && !b.querySelector('input, select, textarea, button') &&
+        clean(b.textContent) && b.textContent.length <= 200 && (b.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING));
+      const innermost = found.filter(b => !found.some(o => o !== b && b.contains(o)));
+      if (innermost.length === 1) return innermost[0].textContent;
+      if (innermost.length > 1) return '';
+    }
+    return '';
+  };
   const labelOf = el => {
     const own = Array.from(el.labels || [], l => l.textContent).join(' ') || el.getAttribute('aria-label');
     const byId = el.getAttribute('aria-labelledby');
     const labelled = byId && byId.split(/\s+/).map(id => document.getElementById(id)?.textContent || '').join(' ');
-    return clean(own || labelled || looseLabel(el) || el.getAttribute('placeholder') || el.name || el.id);
+    return clean(own || labelled || looseLabel(el) || el.getAttribute('placeholder') || (el.type !== 'hidden' && blockTitle(el)) || el.name || el.id);
   };
   // The question a radio group or checkbox belongs to: its fieldset legend or group label.
   // A fieldset's title: its <legend>, or (Ashby) a <label> whose `for` points at no control. Required when the title says so:

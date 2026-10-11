@@ -1,10 +1,10 @@
-// The required mark, one rule for every reader: a "*" (also ∗ ＊) leading a label, or trailing it with an optional ":" or "." after it
+// The required mark, one rule for every reader: a "*" (also ∗ ＊ ✱ ✳) leading a label, or trailing it with an optional ":" or "." after it
 // ("Name *", "Anrede*:", "Nom* :"). Structure only: no word, no language, no site. The panel (review.js), the fill (page/fill-labels.js),
 // the coverage (page/coverage.js), the radio groups (page/radios.js) and the proposer (page/propose.js) all ask it, so they cannot disagree.
 // Injected in both worlds (page-files.js, and the panel's list in background.js). Guarded by worker/test/required-mark.test.js.
 (() => {
   if (window.__jobPilottoRequired) return;
-  const STAR = '[*\\u2217\\uFF0A]';
+  const STAR = '[*\\u2217\\uFF0A\\u2731\\u2733]';   // * ∗ ＊ ✱ ✳
   const TRAILING = new RegExp(`\\s*${STAR}+\\s*[:\\uFF1A.]?\\s*$`);
   const LEADING = new RegExp(`^\\s*${STAR}+\\s*`);
   const text = value => String(value || '').replace(/\s+/g, ' ').trim();
