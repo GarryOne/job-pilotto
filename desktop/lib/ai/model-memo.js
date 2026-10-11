@@ -84,7 +84,7 @@ export function nearestDiffers(parts, kept, lines = {}) {
     return changed.length ? `${part} (lines ${changed.length > 3 ? `${changed[0]}-${changed.at(-1)}, ${changed.length} in all` : changed.join(', ')} of ${mine.length})` : part;
   });
 }
-const PARTS = '#parts', LINES = '#lines', VOLATILE = '#volatile';
+const PARTS = '#parts', LINES = '#lines', VOLATILE = '#volatile', MS = '#ms';
 
 const insideRealData = file => (path.resolve(file) + path.sep).startsWith(path.join(os.homedir(), 'Library', 'Application Support', 'Job Pilotto') + path.sep);
 
@@ -102,6 +102,11 @@ export const memoOnly = (env = process.env) => !!env.JOB_PILOTTO_E2E && env.JOB_
 // (instructions, profile, search, knowledge) or the model changed since the capture: a prompt or seed change would otherwise turn every row case's answer asks cold, and CI has no claude -p. Each such hit is
 // appended to the file named by JOB_PILOTTO_MODEL_MEMO_LOOSE (e2e only) with the parts that differ. A changed job / form_fields block is still a miss.
 // JOB_PILOTTO_MODEL_MEMO_MISSLOG=<file> (e2e only): each memo-only miss as a JSON line {differs, volatile}, whole (a log line is cut at its length: "differs in use) {"). Read by the row replay.
+// JOB_PILOTTO_MODEL_MEMO_LATENCY=1 (e2e only): a replay serves a kept answer after the time the live ask took (recorded as `<key>#ms`, at most LATENCY_CAP_MS): the extension's concurrent flows (a popup dismissed
+// while the page-kind ask is out, a widget reacting to the upload) then interleave as they did live, not by how fast this machine answers (12 Oct 2026: a row case green on a Mac, red on the Linux runner).
+export const latencyOn = (env = process.env) => !!env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_MODEL_MEMO_LATENCY === '1';
+export const LATENCY_CAP_MS = 8000;
+const later = ms => (ms > 0 ? new Promise(resolve => setTimeout(resolve, Math.min(LATENCY_CAP_MS, ms))) : null);
 export const missLogFile = (env = process.env) => (env.JOB_PILOTTO_E2E ? String(env.JOB_PILOTTO_MODEL_MEMO_MISSLOG || '') : '');
 export const looseFile = (env = process.env) => (env.JOB_PILOTTO_E2E ? String(env.JOB_PILOTTO_MODEL_MEMO_LOOSE || '') : '');
 const isPageSide = name => name === 'output' || /^(user|assistant):/.test(name);
@@ -120,18 +125,19 @@ export function looseMatch(parts, kept) {
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return {}; } };
 
 // Wraps the client's messages.create in place (the adapter keeps its engine, billing, fallback). A failed ask is not kept. -> the same client.
-export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = looseFile(), missLog = missLogFile()} = {}) {
+export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = looseFile(), missLog = missLogFile(), latency = latencyOn()} = {}) {
   if (!client || !file) return client;
   const ask = client.messages.create.bind(client.messages);
   client.messages = {...client.messages, create: async params => {
     const key = memoKey(params), kept = read(file);
     // An offline replay serves the page scrubbed (lib/live-capture.js fakeContacts): the answer the AI gave to the live page is scrubbed the same way, so an address it
     // read off the page (apply_email) is still on the replayed page.
-    if (kept[key]) return only ? JSON.parse(fakeContacts(JSON.stringify(kept[key]))) : kept[key];
+    if (kept[key]) { if (only && latency) await later(Number(kept[key + MS])); return only ? JSON.parse(fakeContacts(JSON.stringify(kept[key]))) : kept[key]; }
     if (only && loose) {
       const hit = looseMatch(memoParts(params), kept);
       if (hit) {
         try { fs.appendFileSync(loose, `${JSON.stringify({differs: hit.differs})}\n`); } catch { /* the count is a report only */ }
+        if (latency) await later(Number(kept[hit.key + MS]));
         return JSON.parse(fakeContacts(JSON.stringify(kept[hit.key])));
       }
     }
@@ -142,11 +148,11 @@ export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = 
       if (missLog) try { fs.appendFileSync(missLog, `${JSON.stringify({differs: differs || [], volatile})}\n`); } catch { /* a report only */ }
       throw new Error(`model memo: not in the row's kept answers (an offline replay never asks the model)${differs ? `; the nearest kept ask differs in: ${differs.join(', ') || 'nothing I can see (the same parts)'}` : ''}${volatile.length ? `; a clock time or date in ${volatile.join(', ')} can never match` : ''}`);
     }
-    const answer = await ask(params);
+    const askedAt = Date.now(), answer = await ask(params), tookMs = Date.now() - askedAt;
     try {
       fs.mkdirSync(path.dirname(file), {recursive: true});
       const tmp = `${file}.${process.pid}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify({...read(file), [key]: answer, [key + PARTS]: memoParts(params), [key + LINES]: memoLines(params), ...(volatileParts(params).length ? {[key + VOLATILE]: volatileParts(params)} : {})}));
+      fs.writeFileSync(tmp, JSON.stringify({...read(file), [key]: answer, [key + PARTS]: memoParts(params), [key + LINES]: memoLines(params), [key + MS]: tookMs, ...(volatileParts(params).length ? {[key + VOLATILE]: volatileParts(params)} : {})}));
       fs.renameSync(tmp, file);
     } catch { /* the cache is only a speed-up */ }
     return answer;

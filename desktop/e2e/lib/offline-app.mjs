@@ -23,7 +23,8 @@ export async function startOfflineApp({memo = '', ask = false, loose = '', missL
   if (!fs.existsSync(path.join(DESKTOP, 'shared', 'worker', 'extension.js'))) execFileSync(process.execPath, [path.join(DESKTOP, 'scripts', 'stage.mjs'), '--files-only'], {cwd: DESKTOP, stdio: 'ignore'});
   const port = await freePort();
   if (port === LIVE_PORT) throw new Error('offline app: never the live app\'s port');
-  const env = {...offlineEnv(dir), JOB_PILOTTO_PORT: String(port), JOB_PILOTTO_MODEL_MEMO: memo, ...(ask ? {} : {JOB_PILOTTO_MODEL_MEMO_ONLY: '1'}), ...(loose && !ask ? {JOB_PILOTTO_MODEL_MEMO_LOOSE: loose} : {}), ...(missLog && !ask ? {JOB_PILOTTO_MODEL_MEMO_MISSLOG: missLog} : {}),   // loose: the file a loose memo hit is noted in (lib/ai/model-memo.js looseFile)
+  const env = {...offlineEnv(dir), JOB_PILOTTO_PORT: String(port), JOB_PILOTTO_MODEL_MEMO: memo, ...(ask ? {} : {JOB_PILOTTO_MODEL_MEMO_ONLY: '1', JOB_PILOTTO_MODEL_MEMO_LATENCY: '1'}),   // latency: a kept answer comes after the time the live ask took (lib/ai/model-memo.js: the live interleaving, not this machine's speed)
+   ...(loose && !ask ? {JOB_PILOTTO_MODEL_MEMO_LOOSE: loose} : {}), ...(missLog && !ask ? {JOB_PILOTTO_MODEL_MEMO_MISSLOG: missLog} : {}),   // loose: the file a loose memo hit is noted in (lib/ai/model-memo.js looseFile)
    
     JOB_PILOTTO_E2E_OPENER: 'offline-app', ...(captureDir ? {LIVE_CAPTURE_DIR: captureDir} : {})};   // an Apply hands its address to the harness (lib/browser-launch.js), never a browser of this computer
   const child = spawn(process.execPath, [CHILD], {env, stdio: ['pipe', 'pipe', 'pipe']});

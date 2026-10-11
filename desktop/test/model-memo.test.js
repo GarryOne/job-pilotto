@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {memoFile, memoKey, memoOnly, memoParts, volatileParts, withMemo} from '../lib/ai/model-memo.js';
+import {LATENCY_CAP_MS, latencyOn, memoFile, memoKey, memoOnly, memoParts, volatileParts, withMemo} from '../lib/ai/model-memo.js';
 
 const ask = (text, extra = {}) => ({model: 'claude-haiku-5-5', max_tokens: 500, system: 'Say what kind of page this is.', messages: [{role: 'user', content: text}], ...extra});
 
@@ -38,7 +38,7 @@ test('a hit answers without asking; a miss asks once and is kept on disk for the
   withMemo(again, file);
   assert.deepEqual((await again.messages.create(ask('a form page'))).content, first.content);
   const stored = JSON.parse(fs.readFileSync(file, 'utf8'));
-  assert.equal(Object.keys(stored).filter(name => !/#(parts|lines)$/.test(name)).length, 1, 'one answer, and beside it its parts (hashes)');
+  assert.equal(Object.keys(stored).filter(name => !/#(parts|lines|volatile|ms)$/.test(name)).length, 1, 'one answer, and beside it its parts (hashes) and how long the ask took');
   assert.ok(!JSON.stringify(stored).includes('a form page'), 'the request text is not stored, only its hash and the answer');
 });
 
@@ -196,4 +196,18 @@ test('a miss is also written to the miss log with its differing parts and the pa
   assert.deepEqual(recorded.map(entry => entry.differs), [['user:job (lines 2 of 3)']]);
   assert.deepEqual(recorded[0].volatile, ['user:job'], 'the part with a clock time and a date is named');
   assert.deepEqual(volatileParts(answerAsk('Seller in Zurich')), []);
+});
+
+test('the live ask\'s duration is kept beside its answer (#ms); a replay serves the kept answer after that time only when asked to, and never longer than the cap', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-memo-ms-')), 'model-memo.json');
+  const slow = {engine: 'cli', messages: {create: async () => { await new Promise(resolve => setTimeout(resolve, 60)); return {content: [{type: 'text', text: '{"kind":"form"}'}], stop_reason: 'end_turn'}; }}};
+  await withMemo(slow, file, {only: false}).messages.create(ask('a page'));
+  const kept = JSON.parse(fs.readFileSync(file, 'utf8')), key = memoKey(ask('a page'));
+  assert.ok(kept[`${key}#ms`] >= 50 && kept[`${key}#ms`] < 5000, `the live duration is kept: ${kept[`${key}#ms`]}`);
+  const replayed = async options => { const client = {engine: 'cli', messages: {create: async () => { throw new Error('never asked'); }}}; const at = Date.now(); await withMemo(client, file, {only: true, ...options}).messages.create(ask('a page')); return Date.now() - at; };
+  assert.ok(await replayed({latency: false}) < 40, 'off: answered at once');
+  assert.ok(await replayed({latency: true}) >= 45, 'on: after the live duration');
+  assert.equal(LATENCY_CAP_MS, 8000, 'the cap');
+  assert.equal(latencyOn({JOB_PILOTTO_E2E: '1', JOB_PILOTTO_MODEL_MEMO_LATENCY: '1'}), true);
+  assert.equal(latencyOn({JOB_PILOTTO_MODEL_MEMO_LATENCY: '1'}), false, 'only under the e2e env');
 });
