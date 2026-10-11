@@ -38,8 +38,9 @@ export function pageBrief({url, title, headings, text, inputs} = {}) {
   };
 }
 
-export function aiClient(storage) {
-  return ai.client(storage);
+// options.lane 'page': the extension's questions while a form is open go ahead of side work (lib/ai/cli-base.js slots).
+export function aiClient(storage, options = {}) {
+  return ai.client(storage, options);
 }
 
 // One small call. confirmation is true only on an explicit true. Anything else, including a failure, is not a mark.

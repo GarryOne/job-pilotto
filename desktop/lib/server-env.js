@@ -90,7 +90,7 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
     EXTENSION_TOKEN: extensionToken(storage),
     ANTHROPIC_API_KEY: storage.secret('ANTHROPIC_API_KEY'),
     // The user's own Claude Code answers the form when they chose it (Settings → AI); the API key otherwise.
-    get aiClient() { return claudeCode.client(storage); },
+    get aiClient() { return claudeCode.client(storage, {lane: 'page'}); },   // the page lane: ahead of side work
     NOTION_TOKEN: notionToken,
     NOTION_APPLICATIONS_DB: ids.NOTION_APPLICATIONS_DB || '',
     NOTION_AGENT_RUNS_DB: ids.NOTION_AGENT_RUNS_DB || '',

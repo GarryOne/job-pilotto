@@ -59,14 +59,23 @@ export function runProcess(binary, args, prompt, {cwd, env, timeout = TIMEOUT_MS
   });
 }
 
-// At most `size` callers at once; the rest wait their turn.
+// At most `size` callers at once; the rest wait their turn. A 'page' ask (the extension's questions while a form is open: page kind, digest,
+// judges, answers) is served before waiting side work and has one more slot of its own, so it never waits behind the app's background
+// asks (details from the CV, contact keys: 11.5 s measured ahead of a page's first question, 11 Oct 2026). Guard: test/ai-lanes.test.js.
 export function slots(size = 2) {
   let busy = 0;
-  const waiting = [];
-  return async work => {
-    if (busy >= size) await new Promise(resolve => waiting.push(resolve));
-    busy += 1;
-    try { return await work(); } finally { busy -= 1; waiting.shift()?.(); }
+  const waiting = [];   // [{lane, go}], page asks first
+  const fits = lane => busy < size + (lane === 'page' ? 1 : 0);
+  const next = () => {
+    const at = waiting.findIndex(item => item.lane === 'page' && fits('page'));
+    const pick = at >= 0 ? at : waiting.findIndex(item => fits(item.lane));
+    if (pick >= 0) { busy += 1; waiting.splice(pick, 1)[0].go(); }
+  };
+  return async (work, lane) => {
+    const page = lane === 'page', ahead = page ? waiting.filter(item => item.lane === 'page').length : waiting.length;
+    if (!ahead && fits(lane)) busy += 1;
+    else await new Promise(go => waiting.splice(ahead, 0, {lane, go}));   // page asks stay in front, in order
+    try { return await work(); } finally { busy -= 1; next(); }
   };
 }
 
@@ -76,9 +85,9 @@ export class CliAdapter extends Adapter {
   static folder = '';    // the call folders' name: job-pilotto-<folder>-…
   static missingText = '';
 
-  constructor({binary = '', timeout = TIMEOUT_MS, spawnFn = spawn, ...options} = {}) {
+  constructor({binary = '', timeout = TIMEOUT_MS, spawnFn = spawn, lane, ...options} = {}) {
     super(options);
-    Object.assign(this, {binary, timeout, spawnFn, timeouts: 0});
+    Object.assign(this, {binary, timeout, spawnFn, lane, timeouts: 0});   // lane: 'page' for the extension's questions (slots)
   }
 
   // ----- what a subclass says -----
@@ -95,7 +104,7 @@ export class CliAdapter extends Adapter {
     if (!this.binary) throw cliError({kind: 'missing', text: this.constructor.missingText});
     if (this.timeouts >= TIMEOUTS_BEFORE_STOP) throw cliError({kind: 'limit', text: `${tool} is not answering (it timed out twice in a row); this run stops here.`});
     const finished = await this.constructor.queue(() => runProcess(this.binary, args, prompt,
-      {cwd: folder, env: this.env(), timeout: this.timeout, spawnFn: this.spawnFn, tool}));
+      {cwd: folder, env: this.env(), timeout: this.timeout, spawnFn: this.spawnFn, tool}), this.lane);
     if (finished.error?.kind === 'timeout') {
       this.timeouts += 1;
       if (this.timeouts >= TIMEOUTS_BEFORE_STOP) throw cliError({kind: 'limit', text: `${finished.error.text}, twice in a row; this run stops here.`});

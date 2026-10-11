@@ -50,7 +50,7 @@ export async function markReportedConfirmations(_storage, tabUrls, {
 export async function judgeConfirmation(storage, body, {judge = judgePage, client, mark} = {}) {
   const job = String(body?.job || '');
   if (!/^https?:\/\//.test(job)) return {ok: false, confirmation: false, error: 'job url is required'};
-  const verdict = await judge(client === undefined ? aiClient(storage) : client, {url: body?.page || '', title: body?.title, headings: body?.headings, text: body?.text, inputs: body?.inputs});
+  const verdict = await judge(client === undefined ? aiClient(storage, {lane: 'page'}) : client, {url: body?.page || '', title: body?.title, headings: body?.headings, text: body?.text, inputs: body?.inputs});
   appLog('extension', verdict.confirmation ? 'page after submit read as a confirmation' : `page after submit is not a confirmation${verdict.error ? `: ${verdict.error}` : ''}`,
     {host: verdict.host, path: verdict.path, inputs: verdict.inputs, ...(verdict.usd != null ? {usd: verdict.usd} : {})});
   if (!verdict.confirmation) return {ok: true, confirmation: false, error: verdict.error || ''};
@@ -98,7 +98,7 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
     return {ok: true, learned: kept};
   }
   if (body?.confirmed === true) return {ok: true, hit: !!(shapeOf && ladderHit(learnt, shapeOf))};   // the page confirmed the learned answer
-  const answer = await decide(client === undefined ? aiClient(storage) : client, sketchBody(body), kindCache, {fresh: body?.fresh === true, digest: body?.digest === true, learned: shape => ladderLookup(learnt, shape)});   // frames: the hosts of visible frames (a bot check), lib/page-kind.js
+  const answer = await decide(client === undefined ? aiClient(storage, {lane: 'page'}) : client, sketchBody(body), kindCache, {fresh: body?.fresh === true, digest: body?.digest === true, learned: shape => ladderLookup(learnt, shape)});   // frames: the hosts of visible frames (a bot check), lib/page-kind.js
   if (kindWorthSaying(answer)) appLog('extension', answer.kind && !answer.error ? `page kind: ${answer.kind}` : `page kind: none (${answer.error || 'no answer'}), the structure rule decides`,
     {shape: answer.shape || '', by: answer.by || '', rung: answer.rung ?? null, confidence: answer.confidence ?? null, ...(answer.usd != null ? {usd: answer.usd} : {}), ...(answer.botCheck ? {botCheck: true} : {}), ...(answer.applyBy ? {applyBy: answer.applyBy} : {}), frames: Array.isArray(body?.frameCandidates) ? body.frameCandidates.length : 0, ...(Number.isInteger(answer.formFrame) && answer.formFrame >= 0 ? {formFrame: answer.formFrame} : {}), ...(body?.digest === true ? {digest: true} : {}), ...(answer.dropped ? {dropped: answer.dropped} : {})});   // applyBy 'other' and a dropped address are listed with the shape, never silent
   if (answer.digestSaid) appLog('extension', digestLine(answer.digestSaid), {shape: answer.shape || ''});   // the digest's validated answer: ids and fixed words only
@@ -128,7 +128,7 @@ export async function pickChoice(storage, body, {client} = {}) {
     appLog('extension', `button by meaning: kept answer ${dropped ? 'forgotten' : 'not kept'}: the page still shows it`, {meaning: value.slice(0, 40), buttons: options.length});
     return {ok: true, forgotten: dropped};
   }
-  const found = await pickOption(storage, {label, value, options}, {client: client === undefined ? aiClient(storage) : client});
+  const found = await pickOption(storage, {label, value, options}, {client: client === undefined ? aiClient(storage, {lane: 'page'}) : client});
   appLog('extension', `button by meaning: ${found.choice ? 'picked' : 'none'}`, {meaning: value.slice(0, 40), how: found.how, buttons: options.length});
   return {ok: true, choice: options.includes(found.choice) ? found.choice : ''};
 }
@@ -141,7 +141,7 @@ export async function pickPopup(storage, body, {client} = {}) {
     appLog('extension', `popup: kept button ${dropped ? 'forgotten' : 'not kept'}: the popup is still there`, {buttons: Array.isArray(body?.buttons) ? body.buttons.length : 0});
     return {ok: true, forgotten: dropped};
   }
-  const found = await pickDismiss(storage, {text: String(body?.text || '').slice(0, 600), buttons: Array.isArray(body?.buttons) ? body.buttons.slice(0, 20) : []}, {client: client === undefined ? aiClient(storage) : client, log: appLog});
+  const found = await pickDismiss(storage, {text: String(body?.text || '').slice(0, 600), buttons: Array.isArray(body?.buttons) ? body.buttons.slice(0, 20) : []}, {client: client === undefined ? aiClient(storage, {lane: 'page'}) : client, log: appLog});
   appLog('extension', `popup: ${found.button ? 'closed by its button' : 'left alone'}`, {how: found.how});
   return {ok: true, button: found.button};
 }
@@ -149,7 +149,7 @@ export async function pickPopup(storage, body, {client} = {}) {
 // The AI's judgment on a sign-up page, before the account button ('ready') or after it ('result'): fixed answers, never a value the person typed (lib/account-judge.js).
 export async function decideAccountJudge(storage, body, {judge = judgeAccount, client} = {}) {
   const phase = body?.phase === 'result' ? 'result' : body?.phase === 'form' ? 'form' : 'ready';   // 'form': the application form's own readiness (lib/form-judge.js)
-  const answer = phase === 'form' ? await judgeForm(client === undefined ? aiClient(storage) : client, body?.sketch || {}) : await judge(client === undefined ? aiClient(storage) : client, body?.sketch || {}, phase);
+  const answer = phase === 'form' ? await judgeForm(client === undefined ? aiClient(storage, {lane: 'page'}) : client, body?.sketch || {}) : await judge(client === undefined ? aiClient(storage, {lane: 'page'}) : client, body?.sketch || {}, phase);
   appLog('extension', answer.error ? `account judgment ${phase}: none (${answer.error})` : `account judgment ${phase}: ${answer.answer}`, {botCheck: !!answer.botCheck, ...(answer.needs ? {needs: answer.needs.slice(0, 60)} : {}), ...(answer.needsKind ? {needsKind: answer.needsKind} : {}), ...(answer.unlisted ? {unlisted: answer.unlisted} : {})});   // the page's own labels (and a label the AI named that the page lacks), never a value
   const judged = {rung: 2, signal: signalOf(answer)}, climb = ladderLine(judged);   // the same fixed signals as page-kind
   if (climb) appLog('extension', climb, {phase});
@@ -159,7 +159,7 @@ export async function decideAccountJudge(storage, body, {judge = judgeAccount, c
 
 // The closer look (lib/ladder/rung4-picture.js): a picture with typed values hidden, one fixed action back; opt-in, capped, account pages only. A feedback body remembers what worked.
 export async function decideEscalation(storage, body, {client, contact} = {}) {
-  let answer = await escalate(storage, body, {client: client === undefined ? aiClient(storage) : client});
+  let answer = await escalate(storage, body, {client: client === undefined ? aiClient(storage, {lane: 'page'}) : client});
   if (answer.action === 'fill') {   // the value comes from the person's own contact details, here, and goes only to the extension: never to the model, never to the log
     const details = await Promise.resolve(contact ? contact() : notionGate.tracking(storage) ? contactDetails.read(storage) : {}).catch(() => ({})) || {};
     const value = String(details[answer.detail] || (answer.detail === 'full_name' ? [details.first_name, details.last_name].filter(Boolean).join(' ') : '') || '').trim();
