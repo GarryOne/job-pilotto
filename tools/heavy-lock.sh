@@ -16,6 +16,7 @@
 #   JOB_PILOTTO_HEAVY_SWAP_PCT=<n>      most swap used, in percent, for a 2nd run (default 50)
 #   JOB_PILOTTO_HEAVY_SHARED=<path>     the shared copy to run (default the primary checkout's); this script never hands off to itself
 #   JOB_PILOTTO_HEAVY_LOAD=<n>          1-minute load average above which a run waits (default 1.5 x cores); 0 = never wait for load
+#   JOB_PILOTTO_HEAVY_POLL=<s>          seconds between looks at the queue and the load (default 1; the tests use 0.1)
 #   JOB_PILOTTO_HEAVY_LOAD_WAIT=<s>     longest wait for the load to drop before running anyway (default 300)
 # Owner: landing-speed (11 Oct 2026, spec faster-fixes §6). Guarded by tests/test_heavy_lock.py.
 what="${1:-heavy run}"; shift || true
@@ -77,7 +78,7 @@ ahead() {  # the oldest live waiter before my ticket, as "<what> (pid N)"; dead 
   done
 }
 
-wait_max="${JOB_PILOTTO_HEAVY_WAIT:-1800}"; began=$(date +%s); told=0
+wait_max="${JOB_PILOTTO_HEAVY_WAIT:-1800}"; poll="${JOB_PILOTTO_HEAVY_POLL:-1}"; began=$(date +%s); told=0
 # A busy machine (seven sessions' suites at once: load 40-147 on 11 Oct 2026) makes browser runs time out; wait for it to calm down. The wait is IN THE QUEUE, holding no slot
 # (11 Oct 2026: a run took the slot and then sat 12 min in the load wait while two landings queued behind it), and a waiter that waits only for the machine does not hold up
 # the ones behind it (its ticket says "loadwait"): whoever is ready first goes, the older first.
@@ -109,9 +110,9 @@ while :; do
     if [ -n "$why" ]; then say "$what waits for the machine, holding no slot: $why"
     elif [ "$busy" != 0 ]; then say "$what waits: the lock is held by $(holders)${first:+, then $first is ahead}; waited ${waited}s (JOB_PILOTTO_HEAVY=0 skips this)"
     else say "$what waits: $first asked first; waited ${waited}s (JOB_PILOTTO_HEAVY=0 skips this)"; fi
-    told=1; sleep 1
+    told=1; sleep "$poll"
   fi
-  sleep 1
+  sleep "$poll"
 done
 rm -f "$ticket"
 if [ -n "$lock" ]; then echo $$ >"$lock/pid"; echo "$what" >"$lock/what"; date +%s >"$lock/since"; pwd >"$lock/cwd"; fi

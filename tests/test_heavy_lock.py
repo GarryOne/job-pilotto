@@ -1,6 +1,7 @@
 """tools/heavy-lock.sh: one heavy run per machine (a 2nd beside it only when memory allows, never a 3rd),
 in arrival order, through the primary checkout's copy (a run that re-asks never jumps a waiter), stale locks and dead waiters
 dropped, a busy machine waited out, every wait logged, every escape hatch said in the log."""
+import concurrent.futures
 import os
 import shutil
 import subprocess
@@ -19,7 +20,7 @@ class HeavyLockTest(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.env = {**{k: v for k, v in os.environ.items() if not k.startswith(('JOB_PILOTTO_HEAVY', 'JP_HEAVY'))},
-                    'JOB_PILOTTO_HEAVY_DIR': str(self.tmp / 'heavy'), 'JOB_PILOTTO_HEAVY_LOAD': '0',
+                    'JOB_PILOTTO_HEAVY_DIR': str(self.tmp / 'heavy'), 'JOB_PILOTTO_HEAVY_LOAD': '0', 'JOB_PILOTTO_HEAVY_POLL': '0.1',   # the script looks at the queue every 0.1 s here, not every second
                     'JOB_PILOTTO_HEAVY_TIMING_LOG': str(self.tmp / 'gate-timing.log'),
                     'JOB_PILOTTO_HEAVY_SHARED': str(LOCK),   # this file IS the copy under test: never hand off to the primary checkout's
                     'JOB_PILOTTO_HEAVY_SLOTS': '1'}          # one at a time unless a test opens the memory-gated 2nd slot
@@ -49,9 +50,9 @@ class HeavyLockTest(unittest.TestCase):
 
     def test_two_runs_never_overlap_and_the_second_says_who_holds_it(self):
         trace = self.tmp / 'trace'
-        body = f'echo start >> {trace}; sleep 2; echo end >> {trace}'
+        body = f'echo start >> {trace}; sleep 1.2; echo end >> {trace}'
         first = self.start('first suite', 'bash', '-c', body)
-        time.sleep(0.7)
+        time.sleep(0.4)
         second = self.start('second suite', 'bash', '-c', body)
         _, err = second.communicate(timeout=30)
         first.communicate(timeout=30)
@@ -69,19 +70,21 @@ class HeavyLockTest(unittest.TestCase):
         self.assertIn('taking over a stale lock: crashed run', result.stderr)
 
     def test_waiting_has_a_limit_and_runs_anyway_saying_so(self):
-        holder = self.start('holder', 'sleep', '8')
-        time.sleep(0.7)
-        result = self.run_lock('impatient', 'echo', 'ran', JOB_PILOTTO_HEAVY_WAIT='2')
+        holder = self.start('holder', 'sleep', '2')   # killed below, but its `sleep` child keeps the pipe: not longer than needed
+        time.sleep(0.4)
+        result = self.run_lock('impatient', 'echo', 'ran', JOB_PILOTTO_HEAVY_WAIT='1')
         holder.kill()
         holder.communicate()
         self.assertEqual(result.stdout.strip(), 'ran')
         self.assertIn('running anyway', result.stderr)
 
     def test_a_nested_call_and_the_off_switch_run_at_once(self):
-        holder = self.start('holder', 'sleep', '5')
-        time.sleep(0.7)
+        holder = self.start('holder', 'sleep', '2')
+        time.sleep(0.4)
         for env in ({'JP_HEAVY_HELD': '1'}, {'JOB_PILOTTO_HEAVY': '0'}):
+            began = time.monotonic()
             self.assertEqual(self.run_lock('inner', 'echo', 'ran', **env).stdout.strip(), 'ran')
+            self.assertLess(time.monotonic() - began, 1.2, f'{env}: it ran at once, not after the 2 s holder')
         holder.kill()
         holder.communicate()
 
@@ -91,7 +94,7 @@ class HeavyLockTest(unittest.TestCase):
         (bin_dir / 'uptime').write_text('#!/bin/sh\necho "10:00  up 1 day,  3 users,  load averages: 99.00 90.00 80.00"\n')
         (bin_dir / 'uptime').chmod(0o755)
         result = self.run_lock('browser suite', 'echo', 'ran', PATH=f'{bin_dir}{os.pathsep}{os.environ["PATH"]}',
-                               JOB_PILOTTO_HEAVY_LOAD='8', JOB_PILOTTO_HEAVY_LOAD_WAIT='2')
+                               JOB_PILOTTO_HEAVY_LOAD='8', JOB_PILOTTO_HEAVY_LOAD_WAIT='1')
         self.assertEqual(result.stdout.strip(), 'ran')
         self.assertIn('waits for the machine, holding no slot: the machine is busy: 1-minute load 99 is above 8', result.stderr)
         self.assertIn('running browser suite anyway', result.stderr)
@@ -106,7 +109,7 @@ class HeavyLockTest(unittest.TestCase):
     def test_a_run_waiting_for_the_machine_holds_no_slot_and_never_blocks_a_later_run_that_fits(self):
         # 11 Oct 2026: a replay took the slot, then sat 12 minutes in the load wait while two landings queued behind it
         waiting = self.start('waits for load', 'echo', 'late', **self.busy_machine(), JOB_PILOTTO_HEAVY_LOAD='8', JOB_PILOTTO_HEAVY_LOAD_WAIT='30')
-        time.sleep(1.5)
+        time.sleep(0.8)
         self.assertFalse((self.tmp / 'heavy' / 'lock').exists(), 'while it waits for the machine it holds no slot')
         began = time.time()
         later = self.run_lock('fits now', 'echo', 'went')   # this run has no load limit: it is ready, and it is behind the waiter in line
@@ -117,8 +120,8 @@ class HeavyLockTest(unittest.TestCase):
         waiting.communicate()
 
     def test_the_load_wait_still_ends_and_the_run_goes_anyway_in_its_turn(self):
-        first = self.start('first', 'bash', '-c', 'sleep 2; echo first')
-        time.sleep(0.5)
+        first = self.start('first', 'bash', '-c', 'sleep 1.2; echo first')
+        time.sleep(0.3)
         second = self.start('second', 'echo', 'second', **self.busy_machine(), JOB_PILOTTO_HEAVY_LOAD='8', JOB_PILOTTO_HEAVY_LOAD_WAIT='1')
         out, err = second.communicate(timeout=30)
         first.communicate(timeout=30)
@@ -139,7 +142,7 @@ class HeavyLockTest(unittest.TestCase):
         self.addCleanup(waiter.kill)
         self.ticket(waiter.pid, 'replay that waited')
         late = self.start('pool site', 'echo', 'ran')
-        time.sleep(2)
+        time.sleep(1)
         self.assertIsNone(late.poll(), 'the later run waits while the earlier waiter lives, though the lock is free')
         waiter.kill(); waiter.wait()   # reaped: a zombie still answers kill -0
         out, err = late.communicate(timeout=30)
@@ -156,15 +159,16 @@ class HeavyLockTest(unittest.TestCase):
         self.assertEqual(list((self.tmp / 'heavy' / 'queue').iterdir()), [], 'no ticket is left behind, mine included')
 
     def test_a_wait_is_logged_for_the_next_measurement(self):
-        holder = self.start('holder', 'sleep', '2')
-        time.sleep(0.7)
+        holder = self.start('holder', 'sleep', '1.2')
+        time.sleep(0.4)
         result = self.run_lock('second', 'echo', 'ran')
         holder.communicate(timeout=30)
         self.assertIn('got the lock after', result.stderr)
         self.assertRegex((self.tmp / 'gate-timing.log').read_text(), r'heavy lock wait=\d+s what=second')
 
-    def overlap(self, second='replay', **env):
-        """Starts a 3 s holder, then a second run; True when the second ran while the holder still ran."""
+    def overlap(self, second='replay', heavy_dir='heavy', **env):
+        """Starts a 3 s holder, then a second run; True when the second ran while the holder still ran. heavy_dir: its own lock folder, so scenarios can run side by side."""
+        env = {**env, 'JOB_PILOTTO_HEAVY_DIR': str(self.tmp / heavy_dir)}
         holder = self.start('pool run', 'sleep', '3', **env)
         self.addCleanup(holder.kill)
         time.sleep(0.7)
@@ -175,32 +179,34 @@ class HeavyLockTest(unittest.TestCase):
         self.assertEqual(result.stdout.strip(), 'ran')
         return took < 1.5, result.stderr
 
+    def overlaps(self, scenarios):
+        """[(second run's name, env)] -> [(beside, stderr)]: every scenario in its own lock folder, all at once (3 s in all, not 3 s each)."""
+        with concurrent.futures.ThreadPoolExecutor(len(scenarios)) as pool:
+            return [future.result() for future in [pool.submit(self.overlap, second, f'heavy-{n}', **env) for n, (second, env) in enumerate(scenarios)]]
+
     def test_a_second_run_starts_beside_the_first_when_memory_allows(self):
         beside, _ = self.overlap(**self.memory(free_gb=12, swap_used_pct=10))
         self.assertTrue(beside, '12 GB free+inactive and little swap: the 2nd run starts at once')
 
     def test_a_second_run_waits_when_memory_is_short_or_swap_is_high(self):
-        for free_gb, swap, why in ((5, 10, 'free+inactive'), (12, 80, 'swap')):
-            beside, err = self.overlap(**self.memory(free_gb=free_gb, swap_used_pct=swap))
+        cases = ((5, 10, 'free+inactive'), (12, 80, 'swap'))
+        for (free_gb, swap, why), (beside, err) in zip(cases, self.overlaps([('replay', self.memory(free_gb=free_gb, swap_used_pct=swap)) for free_gb, swap, _ in cases])):
             self.assertFalse(beside, f'{free_gb} GB, swap {swap}%: the 2nd run waits')
             self.assertIn(why, err, 'the wait says which memory check held it')
 
     def test_a_recorded_replay_is_counted_by_its_real_cost_beside_a_pool_run(self):
         # 11 Oct 2026: a replay is ~1.5 GB (4 tabs in one browser; 2.1 GB at 6), a pool run ~3.3 GB: it needs 3 GB free and swap up to 70%, not 7 GB and 50%
-        for free_gb, swap, beside_expected in ((5, 60, True), (2, 10, False), (5, 85, False)):
-            beside, err = self.overlap('recorded-replay', **self.memory(free_gb=free_gb, swap_used_pct=swap))
-            self.assertEqual(beside, beside_expected, f'{free_gb} GB free, swap {swap}%: {err}')
-        beside, err = self.overlap('row-replay', **self.memory(free_gb=5, swap_used_pct=60))
-        self.assertTrue(beside, f'a row replay (one offline browser, ~1 GB) is counted like a recorded replay: {err}')
-        beside, _ = self.overlap('some pool run', **self.memory(free_gb=5, swap_used_pct=60))
-        self.assertFalse(beside, 'any other heavy run keeps the 7 GB / 50% rule')
+        runs = (('recorded-replay', 5, 60, True), ('recorded-replay', 2, 10, False), ('recorded-replay', 5, 85, False), ('row-replay', 5, 60, True), ('some pool run', 5, 60, False))
+        results = self.overlaps([(what, self.memory(free_gb=free_gb, swap_used_pct=swap)) for what, free_gb, swap, _ in runs])
+        for (what, free_gb, swap, expected), (beside, err) in zip(runs, results):
+            self.assertEqual(beside, expected, f'{what} with {free_gb} GB free, swap {swap}%: {err}')   # a row replay (one offline browser, ~1 GB) counts like a recorded replay; any other run keeps the 7 GB / 50% rule
 
     def test_never_a_third_heavy_run(self):
         env = self.memory(free_gb=30, swap_used_pct=0)
-        first, second = self.start('first', 'sleep', '3', **env), None
+        first, second = self.start('first', 'sleep', '2.5', **env), None
         self.addCleanup(first.kill)
         time.sleep(0.7)
-        second = self.start('second', 'sleep', '3', **env)
+        second = self.start('second', 'sleep', '2.5', **env)
         self.addCleanup(second.kill)
         time.sleep(0.7)
         began = time.monotonic()
