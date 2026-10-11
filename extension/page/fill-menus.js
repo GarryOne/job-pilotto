@@ -19,6 +19,13 @@
   // The innermost option elements of an open menu (not the phone field's hidden country list).
   const optionNodes = () => Array.from(document.querySelectorAll(OPTION))
     .filter(o => o.offsetParent !== null && !o.querySelector(OPTION) && !/iti__/.test(o.className));
+  // A menu that draws its choices page by page (SuccessFactors: 100 of 200 countries) loads the next page when its list is scrolled: scroll the open list's own scroller to its end.
+  const loadMoreOptions = () => {
+    const last = optionNodes().pop();
+    for (let node = last?.parentElement; node && node !== document.body; node = node.parentElement) {
+      if (node.scrollHeight > node.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(node).overflowY)) { node.scrollTop = node.scrollHeight; return; }
+    }
+  };
   const matchOption = answer => {
     if (String(answer).includes(' || ')) {
       for (const alternative of String(answer).split(' || ')) { const hit = matchOption(alternative); if (hit) return hit; }
@@ -64,7 +71,7 @@
           // Long menus (countries, cities) show only their first entries: type the answer to filter, which the menu accepts once your click has opened it; search-as-you-type fields (Location) load suggestions from the server: type the first part, wait for them.
           if (!option) Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, String(answer).split(' || ')[0].split(',')[0].trim());
           if (!option) el.dispatchEvent(new Event('input', {bubbles: true}));
-          for (let waited = 0; waited < 4000 && !option; waited += 250) { await sleep(250); option = matchOption(answer); }
+          for (let waited = 0; waited < 4000 && !option; waited += 250) { loadMoreOptions(); await sleep(250); option = matchOption(answer); }
         }
         // Picked only when the page shows it (page/menu-pick.js); what was seen goes to flow.js clickCombos and the fill card's reason (observed, not assumed: 9 Oct 2026).
         const opened = el.getAttribute('aria-expanded') === 'true' || optionNodes().length > 0;   // before the pick closes it

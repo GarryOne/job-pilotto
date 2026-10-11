@@ -1,0 +1,52 @@
+{
+ "shape": "a required Country combobox whose list draws 20 choices at a time and loads the next page when scrolled (the answer is not in the page when the menu opens)",
+ "why": "Breitling on SuccessFactors, 11 Oct 2026 (0.9.224): the required Country stayed at \"No Selection\" with \"Suggested: Switzerland (pick it yourself)\" although the answer was known: the list held the first 100 of 200 countries and loaded the rest only on scroll, so no option matched. The filler now scrolls the open list's own scroller while it waits for a match",
+ "control": {
+  "guard": "new case; fails on the build before f3e4596 (the answer is only proposed)"
+ },
+ "sample": "hand-cut page (structure of the SuccessFactors paginated picklist, 12 Oct 2026; no real site text)",
+ "pages": [
+  {
+   "url": "https://careers.example.test/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": [
+    {
+     "field": "country",
+     "value": "Switzerland",
+     "confidence": "high",
+     "note": "",
+     "category": "normal",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "filled": [
+   "#country_code"
+  ],
+  "asked": [
+   "Country"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60
+ },
+ "start": "panel"
+}
