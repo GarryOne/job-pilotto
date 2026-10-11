@@ -4,7 +4,7 @@ import subprocess
 import time
 import unittest
 
-from tests.heavy_lock_fixture import HeavyLockFixture
+from tests.heavy_lock_fixture import HeavyLockFixture, LOCK
 
 
 class HeavyLockMemoryTest(HeavyLockFixture):
@@ -17,16 +17,17 @@ class HeavyLockMemoryTest(HeavyLockFixture):
         deadline = time.monotonic() + 30
         while not (self.tmp / heavy_dir / 'lock' / 'what').exists() and time.monotonic() < deadline:   # the holder holds: not a guess of how long a loaded Mac takes to start it
             time.sleep(0.05)
-        began = time.monotonic()
-        second_run = self.start(second, 'echo', 'ran', **env)
-        try:
-            out, err = second_run.communicate(timeout=1.5)   # it ran beside the holder within 1.5 s, or it is waiting for it
-            beside = True
-        except subprocess.TimeoutExpired:
-            beside = False
-            go.write_text('go')   # let the holder end; the second run then goes
-            out, err = second_run.communicate(timeout=30)
-        go.write_text('go')
+        err_file = self.tmp / f'err-{heavy_dir}'
+        with open(err_file, 'w') as err_out:
+            second_run = subprocess.Popen(['bash', str(LOCK), second, 'echo', 'ran'], env={**self.env, **env}, stdout=subprocess.PIPE, stderr=err_out, text=True)
+            # Beside the holder = it ran while the holder was still held; not beside = it says it waits. Whichever comes first, however slow the Mac: no clock decides.
+            deadline = time.monotonic() + 60
+            while second_run.poll() is None and 'waits' not in err_file.read_text() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            beside = second_run.poll() is not None
+            go.write_text('go')   # let the holder end; a waiting second run then goes
+            out, _ = second_run.communicate(timeout=60)
+        err = err_file.read_text()
         holder.communicate(timeout=30)
         self.assertEqual(out.strip(), 'ran')
         return beside, err
