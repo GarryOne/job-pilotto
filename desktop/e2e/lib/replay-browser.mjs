@@ -22,12 +22,12 @@ export function nextRunnable(queue, runningHosts) {
 }
 
 // -> {run, live, serve, close}: one browser, the stand-in answering by case. items: every case that may run in it (their AI routes are known up front).
-export async function startReplayBrowser(items, {extensionDir, appPort = 0} = {}) {   // appPort: the caller's own stand-in app (row replay); then the AI answers and the request lists below are the caller's
+export async function startReplayBrowser(items, {extensionDir, appPort = 0, cdp = false} = {}) {   // appPort: the caller's own stand-in app (row replay); then the AI answers and the request lists below are the caller's
   const live = [];   // states of the cases running now: {item, hosts, answer, from, tabs: Set, opened: [pages], shared}
   const allHosts = [...new Set(items.flatMap(caseHosts))];   // a request that names none of them could belong to any tab
   const routes = [...new Set(items.flatMap(item => Object.keys(item.ai || {})))];
   const answer = Object.fromEntries(routes.map(route => [route, sent => { const state = caseForRequest(live, route, sent); return state?.answer[route] ? state.answer[route](sent) : {}; }]));
-  const run = await startRealExtension({extensionDir, cv: items.some(item => item.cv !== false), allowAllSites: true, answer, offline: true, appPort});
+  const run = await startRealExtension({extensionDir, cv: items.some(item => item.cv !== false), allowAllSites: true, answer, offline: true, appPort, cdp});
   const files = new Map();   // pathKey -> html of every live case
   await run.context.route('**/*', route => {   // ONE route for the browser, before any tab navigates: a route added while another tab loads let a request out (example.ch, 11 Oct 2026)
     const url = route.request().url(), host = new URL(url).hostname;

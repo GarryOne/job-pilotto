@@ -20,13 +20,23 @@ export function touchedFlowFiles(changed, flowFiles) {
 // Layer 2 (recorded pages, e2e/recorded): the local push gate opens NO browser and takes NO heavy lock (owner, 11 Oct 2026: "CI heavy, local light"): CI replays all the cases after the push
 // (.github/workflows/recorded-pages.yml). JP_GATE_REPLAY=1 (or JP_GATE_FULL=1 / PUSH_FULL=1) replays here, every case until the affected-case map lands.
 export const replayWanted = (env, touched) => touched.some(file => file.startsWith('extension/') || file.startsWith('desktop/e2e/recorded/')) && (env.JP_GATE_REPLAY === '1' || env.JP_GATE_FULL === '1' || env.PUSH_FULL === '1');
-function replay(desktop) {
+async function replay(desktop, changed) {
   const e2e = path.join(desktop, 'e2e');
   if (!fs.existsSync(path.join(e2e, 'node_modules', 'playwright-core'))) { console.log('journey gate: recorded pages skipped (no desktop/e2e/node_modules: npm ci there)'); return 0; }
   const started = Date.now();
   // `npm run recorded` takes the heavy-run lock (tools/heavy-lock.sh) and may wait for it and for a busy machine: the 6 minutes are for the replay itself.
   const waitS = process.env.JOB_PILOTTO_HEAVY === '0' ? 0 : Number(process.env.JOB_PILOTTO_HEAVY_WAIT || 1800) + Number(process.env.JOB_PILOTTO_HEAVY_LOAD_WAIT || 300);
-  const run = spawnSync('npm', ['run', '-s', 'recorded'], {cwd: e2e, encoding: 'utf8', timeout: (6 * 60 + waitS) * 1000});
+  // Only the cases the change can affect (e2e/lib/replay-select.mjs, from the measured case map); every case when a shared, flow-core or replay-tool file changed, a file is unmapped or the map is stale;
+  // JP_GATE_FULL=1 / PUSH_FULL=1: all. CI replays all of them after the push.
+  const {FLOW_CORE} = await import(path.join(repo, 'desktop/e2e/flows.mjs'));
+  const {loadCases, REPLAY_DIR} = await import(path.join(e2e, 'lib/page-replay.mjs'));
+  const {selectCases, readMap, extensionFiles} = await import(path.join(e2e, 'lib/replay-select.mjs'));
+  const names = loadCases().map(item => item.name);
+  const full = process.env.JP_GATE_FULL === '1' || process.env.PUSH_FULL === '1';
+  const pick = full ? {all: true, why: 'the full run was asked for'} : selectCases({changed, cases: names, map: readMap(REPLAY_DIR), flowCore: FLOW_CORE, files: extensionFiles(repo)});
+  if (!pick.all && !pick.names.length) { console.log(`journey gate: no recorded case to replay (${pick.why})`); return 0; }
+  console.log(`journey gate: replaying ${pick.all ? `all ${names.length}` : `${pick.names.length} of ${names.length}`} recorded cases (${pick.why})`);
+  const run = spawnSync('npm', ['run', '-s', 'recorded'], {cwd: e2e, encoding: 'utf8', timeout: (6 * 60 + waitS) * 1000, env: {...process.env, ...(pick.all ? {} : {JP_REPLAY_CASES: pick.names.join(',')})}});
   const seconds = ((Date.now() - started) / 1000).toFixed(0);
   if (run.status === 0) { console.log(`journey gate: recorded pages replayed in ${seconds} s`); return 0; }
   const failures = String(run.stdout || '').split('\n').filter(line => /^not ok|^# fail|^\s+[0-9]+: '/.test(line)).join('\n');
@@ -60,7 +70,7 @@ async function main() {
   const seconds = ((Date.now() - started) / 1000).toFixed(1);
   if (run.status === 0) {
     console.log(`journey gate: ${JOURNEY_TESTS.length} test files passed in ${seconds} s (flow files touched: ${touched.length})`);
-    if (replayWanted(process.env, touched)) return replay(desktop);
+    if (replayWanted(process.env, touched)) return replay(desktop, changed);
     if (touched.some(file => file.startsWith('extension/') || file.startsWith('desktop/e2e/recorded/'))) console.log('journey gate: recorded pages are replayed in CI after the push (recorded-pages.yml); JP_GATE_REPLAY=1 replays them here');
     return 0;
   }

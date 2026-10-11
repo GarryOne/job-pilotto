@@ -19,7 +19,8 @@ const only = process.env.REPLAY_ONLY || '';   // a part of a case name: replay j
 // The cases run N tabs at a time in ONE browser (lib/replay-browser.mjs; JP_REPLAY_TABS, default 4; 1 = one browser per case, in turn, as before: said in the log). A case that fails in
 // parallel is run again alone in its own browser: it counts as passed only if it passes alone, and it is said as FLAKY (never a silent pass).
 const shard = parseShard(process.env.JP_REPLAY_SHARD || '');   // CI: JP_REPLAY_SHARD=i/n runs one slice of the cases (lib/replay-shard.mjs)
-const everyCase = loadCases().filter(one => one.name.includes(only));
+const picked = (process.env.JP_REPLAY_CASES || '').split(',').filter(Boolean);   // the exact cases a change can affect (lib/replay-select.mjs, tools/journey-gate.mjs); none: every case
+const everyCase = loadCases().filter(one => one.name.includes(only) && (!picked.length || picked.includes(one.name)));
 const cases = shard ? shardOf(everyCase, shard.index, shard.count) : everyCase;
 const tabs = Math.max(1, Number(process.env.JP_REPLAY_TABS || 4));
 const batchStarted = Date.now();
