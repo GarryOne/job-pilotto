@@ -20,6 +20,7 @@ import {applyPressed} from './tabs.js';
 import {bindSession, identityOf, sessionOf} from './tab-identity.js';
 import {pageKey, pageRole} from './tab-pages.js';
 import {applyPhrases, pressApply} from './apply-press.js';
+import {forgetNoEffect, noEffectOf, noteNoEffect} from './no-effect.js';
 import {clickTrace, modalTrace} from './ladder/press-why.js';
 import {forgetRouteTries, startRoute} from './start-route.js';
 import {emailReport, mailsOf} from './ladder/outcomes.js';
@@ -130,7 +131,7 @@ export async function askKind(tab, {fresh = false, digest = false} = {}) {   // 
   try {
     const config = await settings();
     if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return null;   // your own Worker: no app to ask
-    const answer = await Promise.race([api(config, '/extension/page-kind', {method: 'POST', body: JSON.stringify({url: tab.url.split('#')[0], ...(fresh ? {fresh: true} : {}), ...(digest ? {digest: true, candidates: await candidatesOf(tab.id)} : {}), ...sketch})}),
+    const answer = await Promise.race([api(config, '/extension/page-kind', {method: 'POST', body: JSON.stringify({url: tab.url.split('#')[0], ...(fresh ? {fresh: true} : {}), ...(noEffectOf(fillKey(tab.id, tab.url)).length ? {noEffect: noEffectOf(fillKey(tab.id, tab.url))} : {}), ...(digest ? {digest: true, candidates: await candidatesOf(tab.id)} : {}), ...sketch})}),
       new Promise(resolve => setTimeout(() => resolve(null), 40000))]);   // a first visit asks the AI cold (the app's AI is the `claude` command: 5-25 s); the structure rule decides only after this, and a wrong rule costs more than the wait
     if (answer == null) decide('fill', 'page kind: the app gave no answer in time', {ms: Date.now() - askedAt, digest});   // an answer WITH an error is the app's own line (server-pages.js)
     noteSignal(tab.id, answer, sketch.controls);   // which rung answered and with what signal: an unsure one climbs (ladder/climb.js)
@@ -169,7 +170,7 @@ export async function stuck(job, host, why, tabId = null, page = '', needs = '',
 }
 const triedApply = new Set();
 // A refresh the person pressed is a new document: its Apply may be pressed again (Deloitte, 10 Oct 2026: after ⌘R nothing happened). Not after every press: a posting whose Apply opened the form in another tab must not press it a second time (beta e2e applycv, Windows).
-export const forgetApplyTries = tabId => { forgetRouteTries(tabId); forgetClimb(tabId); for (const key of [...triedApply]) if (key.startsWith(`${tabId} `)) triedApply.delete(key); };
+export const forgetApplyTries = tabId => { forgetNoEffect(tabId); forgetRouteTries(tabId); forgetClimb(tabId); for (const key of [...triedApply]) if (key.startsWith(`${tabId} `)) triedApply.delete(key); };
 export const fillKey = (tabId, url) => `${tabId} ${pageKey(url)}`;
 // A page judged "no form" while it had no field at all may still be drawing its form (a spinner first, or a sign-in that redirects to it:
 // SuccessFactors, 9 Oct 2026, where the form came after the judgment and neither the fill nor the panel ever came back). For 20 s it is read
@@ -291,7 +292,7 @@ export async function consider(tab, jobUrl) {
     // The shared phrases, and the button the page-kind AI named on this page (any language; already checked against the page and the schema).
     const phrases = [...await applyPhrases(), ...(kind?.applyButton ? [{key: 'apply_button', phrase: kind.applyButton}] : [])];
     applyPressed.set(tab.id, {at: Date.now(), url: tab.url});   // before the click: the site opens its new tab during it (same-tab.js)
-    const attempt = await pressApply(tab.id, phrases, '', kind?.applyButton || '');
+    const attempt = await pressApply(tab.id, phrases, '', kind?.applyButton || '', noEffectOf(key));
     if (!attempt.pressed) applyPressed.delete(tab.id);
     const label = attempt.pressed;
     buttonsSeen = attempt.buttons;
@@ -305,10 +306,11 @@ export async function consider(tab, jobUrl) {
       if (after === 'navigated') { started.delete(key); return; }   // the next page decides for itself (onUpdated)
       if (after) { role = 'form'; await noteRole(tab.id, tab.url, role); const proof = verifiedBody(kind, tab.url, controlsOf(tab.id)); if (proof) api(await settings(), '/extension/page-kind', {method: 'POST', body: JSON.stringify(proof)}).catch(() => {}); }   // a digest-named press led to a form: the app may keep it (ladder-learning.js)
       else {
+        noteNoEffect(key, label);   // pressed, nothing came: never pressed again on this page, and the AI's next look is told so (no-effect.js)
         // No form and the page did not move: it may be a step that offers several ways to start (Workday's dialog). The AI names the route of its button; only the manual one is pressed (start-route.js).
         const chosen = await startRoute(key, {ask: () => askKind(tab, {fresh: true}), press: async routePhrases => {
           applyPressed.set(tab.id, {at: Date.now(), url: tab.url});
-          const next = await pressApply(tab.id, routePhrases, routePhrases[0]?.phrase || '');
+          const next = await pressApply(tab.id, routePhrases, routePhrases[0]?.phrase || '', '', noEffectOf(key));
           if (!next.pressed) applyPressed.delete(tab.id);
           return next;
         }});
@@ -316,7 +318,7 @@ export async function consider(tab, jobUrl) {
         if (chosen.pressed) {
           const afterRoute = await formAfterPress(tab.id, tab.url);
           if (afterRoute === 'navigated') { started.delete(key); return; }
-          if (afterRoute) { role = 'form'; pressed = true; await noteRole(tab.id, tab.url, role); }
+          if (afterRoute) { role = 'form'; pressed = true; await noteRole(tab.id, tab.url, role); } else noteNoEffect(key, chosen.pressed);
         }
       }
     }
@@ -334,13 +336,13 @@ export async function consider(tab, jobUrl) {
     stall = await climbOnStall(tab, askKind, key, kind);
     if (stall?.applyButton) {
       applyPressed.set(tab.id, {at: Date.now(), url: tab.url});
-      const attempt = await pressApply(tab.id, [{key: 'apply_button', phrase: stall.applyButton}], stall.applyButton);
+      const attempt = await pressApply(tab.id, [{key: 'apply_button', phrase: stall.applyButton}], stall.applyButton, '', noEffectOf(key));
       if (!attempt.pressed) applyPressed.delete(tab.id);
       else {
         decide('fill', 'pressed the control the digest named', {host, label: attempt.pressed});
         const afterDigest = await formAfterPress(tab.id, tab.url);
         if (afterDigest === 'navigated') { started.delete(key); return; }
-        if (afterDigest) { role = 'form'; pressed = true; await noteRole(tab.id, tab.url, role); }
+        if (afterDigest) { role = 'form'; pressed = true; await noteRole(tab.id, tab.url, role); } else noteNoEffect(key, attempt.pressed);
       }
     }
   }

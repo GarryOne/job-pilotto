@@ -42,6 +42,7 @@ export const digestMessage = (page = {}, candidates = []) => [
   `Title: ${cleanLine(page.title, 160) || '(none)'}`,
   `Headings: ${(page.headings || []).map(text => cleanLine(text, 100)).filter(Boolean).slice(0, 8).join(' | ') || '(none)'}`,
   `Candidates (number · kind · position · host · text):\n${candidates.map(item => `${item.n} · ${item.kind} · ${item.position}${item.host ? ` · ${item.host}` : ''} · ${cleanLine(item.text, 160)}`).join('\n') || '(none)'}`,
+  ...((page.noEffect || []).length ? [`Pressed already and nothing happened (never name these again; name another way to start the application): ${page.noEffect.join(' | ')}`] : []),
 ].join('\n');
 
 // A dropped answer carries no outcome of its own: what the AI claimed stood on nothing the page shows, so a caller reading `outcome` alone gets 'other', never an unverified 'email'.

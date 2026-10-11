@@ -29,8 +29,12 @@ export const BUTTON_KINDS = ['apply', 'sign_in', 'sign_up', 'third_party', 'othe
 export const APPLY_BY = ['form', 'email', 'other'];
 // The fields of the page sketch the extension sends (besides `url`): the one list the endpoint forwards, pageSketch reads and the real-extension test compares with what the
 // extension really sends, so a field added on one side can no longer be forgotten on the other (frames, 9 Oct 2026; mails, 10 Oct 2026).
-export const SKETCH_FIELDS = ['title', 'headings', 'controls', 'buttons', 'frames', 'mails', 'candidates', 'frameCandidates'];
+export const SKETCH_FIELDS = ['title', 'headings', 'controls', 'buttons', 'frames', 'mails', 'candidates', 'frameCandidates', 'noEffect'];
 export const sketchBody = body => Object.fromEntries(['url', ...SKETCH_FIELDS].map(name => [name, body?.[name]]));
+// A control pressed already with no effect is never named again: said to the AI in the message, and refused here whatever it answers (AND). The line exists only when the list does, so no other page's prompt changes.
+const norm = text => clean(text, 40).toLowerCase();
+export const pressedBefore = (list, text) => !!norm(text) && (list || []).some(item => norm(item) === norm(text));
+export const noEffectLine = list => (list?.length ? `Pressed already and nothing happened (never name these again; name another way to start the application): ${list.join(' | ')}` : '');
 export const MIN_CONFIDENCE = 0.6;   // below it the structure rule decides, and the page is asked again next time
 
 export const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 'confidence', 'apply_button', 'apply_button_kind', 'apply_route', 'apply_by', 'apply_email', 'form_frame', 'account_step', 'register_control', 'signin_control', 'account_button', 'bot_check'], properties: {
@@ -79,7 +83,7 @@ export const FRAME_RULE = `If the page's own Controls hold no application form a
 const MAIL = /[^\s@<>()]+@[^\s@<>()]+\.[a-z]{2,}/i;
 const clean = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 // What the model is allowed to see: no values the person typed, no query string, labels and texts capped.
-export function pageSketch({url, title, headings, controls, buttons, frames, mails, candidates, frameCandidates} = {}) {
+export function pageSketch({url, title, headings, controls, buttons, frames, mails, candidates, frameCandidates, noEffect} = {}) {
   let path = '';
   try { path = new URL(String(url)).pathname.slice(0, 120); } catch { /* not a url */ }
   return {
@@ -94,6 +98,7 @@ export function pageSketch({url, title, headings, controls, buttons, frames, mai
       .map(item => ({n: item.n, kind: clean(item.kind, 12), position: clean(item.position, 12), ...(item.host ? {host: clean(item.host, 80)} : {}), text: clean(item.text, 160)})).filter(item => item.kind),
     // The frames that may hold the application form (extension/ladder/rung3-frames.js): host, path and size only, never an address with a query or a token (it stays in the extension).
     frameCandidates: (Array.isArray(frameCandidates) ? frameCandidates : []).slice(0, 6).map(item => ({host: clean(item?.host, 80), path: clean(String(item?.path || '').split('?')[0], 120), width: Math.max(0, Number(item?.width) || 0), height: Math.max(0, Number(item?.height) || 0)})).filter(item => item.host),
+    noEffect: (Array.isArray(noEffect) ? noEffect : []).map(text => clean(text, 40)).filter(Boolean).slice(0, 5),   // controls the extension already pressed on this page with nothing happening (extension/no-effect.js)
     frames: (Array.isArray(frames) ? frames : []).map(host => clean(host, 80)).filter(Boolean).slice(0, 5),   // visible frames' hosts: a check drawn in a frame
   };
 }
@@ -150,6 +155,7 @@ export async function pageKind(client, raw, cache, {now = Date.now(), fresh = fa
         `Addresses (sentences or links on the page that carry an email address):\n${page.mails.map(text => `- ${text}`).join('\n') || '(none)'}`,
         `Frames: ${page.frames.join(' | ') || '(none)'}`,
         `Frame candidates (index · host · path · size; a posting whose application form is inside one of them names its index in form_frame):\n${page.frameCandidates.map((item, index) => `${index} · ${item.host} · ${item.path} · ${item.width}x${item.height}`).join('\n') || '(none)'}${page.frameCandidates.length ? `\n${FRAME_RULE}` : ''}`,
+        ...(page.noEffect.length ? [noEffectLine(page.noEffect)] : []),
       ].join('\n')}],
       output_config: {format: {type: 'json_schema', schema: SCHEMA}, effort: 'low'},
     });
@@ -166,7 +172,8 @@ export async function pageKind(client, raw, cache, {now = Date.now(), fresh = fa
     const applyRoute = answer.kind === 'posting' && ROUTES.includes(answer.apply_route) ? answer.apply_route : '';
     // Floor: the named button is kept only for an ordinary Apply or the manual route; reuse and a third-party sign-in are never pressed, whatever the AI names.
     // AND with the AI's judgment of what the button does: a sign-in, a sign-up or a third-party control named as the Apply button is dropped, whatever its words (the word floor only knows some English).
-    const applyButton = answer.kind === 'posting' && answer.apply_button_kind === 'apply' && (!applyRoute || applyRoute === 'manual') ? applyButtonOf(answer.apply_button, page.buttons) : '';
+    const namedButton = answer.kind === 'posting' && answer.apply_button_kind === 'apply' && (!applyRoute || applyRoute === 'manual') ? applyButtonOf(answer.apply_button, page.buttons) : '';
+    const applyButton = pressedBefore(page.noEffect, namedButton) ? '' : namedButton;   // a control already pressed with no effect is dropped whatever the AI names, so the climb takes over
     // Floors: an email outcome only for a posting; it never replaces the Apply button (the extension presses that first, and reports the email only when no form came); the address must literally stand in the page's own sentences or links, else it is dropped (reported as `dropped`) and the outcome is 'other'.
     let applyBy = answer.kind === 'posting' && APPLY_BY.includes(answer.apply_by) ? answer.apply_by : '', applyEmail = '', dropped = '';
     if (applyBy === 'email') {
@@ -204,6 +211,7 @@ async function digestKind(client, raw, shape) {
   if (got.confidence < MIN_CONFIDENCE) return {error: `unsure (${got.confidence})`, shape, rung: 3, signal: 'unsure', usd: got.usd, digestSaid};
   const email = got.outcome === 'email' ? got.chosen.find(item => item.kind === 'email') : null;
   const pressed = got.verb === 'press' || got.verb === 'open' ? got.chosen[0] : null;   // the one button or link the digest named (an `open` of a link is the same press on that link: Swatch, 11 Oct 2026): it goes through the same floors as any Apply button (never a sign-in, submit, third-party control)
+  if (pressed && pressedBefore(page.noEffect, pressed.text)) return failed('digest named a control already pressed', {usd: got.usd, digestSaid});   // pressed with no effect: never again, the ladder ends at the person
   const applyButton = pressed && got.raw?.press_kind === 'apply' ? applyButtonOf(pressed.text, [pressed.text]) : '';   // AND with the digest's judgment of what the button does (press_kind): a sign-in, sign-up or third-party control is dropped in any language
   return {kind: 'posting', role: ROLE.posting, confidence: got.confidence, by: 'digest', rung: 3, signal: 'confident', shape, usd: got.usd, applyButton, applyRoute: '',
     applyBy: email ? 'email' : '', applyEmail: email ? email.text : '', digestSaid, digest: {outcome: got.outcome, verb: got.verb, numbers: got.numbers, chosen: got.chosen}};

@@ -1,0 +1,93 @@
+{
+ "shape": "a posting whose AI-named Apply control does nothing when pressed (a script handler that never fires), beside a second route that works: the dead control must not be pressed again, the AI is told it had no effect and names the other route (Hornbach 0.9.189: 'ohne Anmeldung' pressed 3 times, 'mit Anmeldung' never)",
+ "why": "11 Oct 2026, the pool, Hornbach 0.9.189: after 'no form came' the same control was pressed as the start route and again by the digest, then 'no form on this page'. Stub: the plain ask names the dead control (as the live AI did, 3 of 3); a request that carries noEffect names the working route (the stub proves the extension sends and honours it; whether the AI follows is ladder-score / the live pool)",
+ "sample": "same invented posting as two-apply-routes-2; the named link's handler does nothing, the other link goes to the form",
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://jobs.beispiel.example/de/stelle/verkaeufer-4711",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://jobs.beispiel.example/de/bewerbung/4711",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://jobs.beispiel.example/de/bewerbung/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   },
+   {
+    "whenFilled": [
+     "noEffect"
+    ],
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.9,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "jetzt bewerben (mit anmeldung)",
+     "applyRoute": "manual",
+     "applyBy": "form",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.9,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "jetzt bewerben (ohne anmeldung)",
+     "applyRoute": "manual",
+     "applyBy": "form",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   }
+  ]
+ },
+ "expect": {
+  "told": [
+   "pressed the Apply button",
+   "pressed the start route: manual"
+  ],
+  "filled": [
+   "#first"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 60,
+  "notTold": [
+   "pressed the control the digest named"
+  ]
+ },
+ "control": {
+  "build": "0.9.192",
+  "failed": "told: pressed the start route: manual; filled: #first"
+ }
+}

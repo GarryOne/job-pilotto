@@ -9,6 +9,7 @@ import {api, settings} from './flow.js';
 import {decide} from './log.js';
 import {NAMED_BUTTONS, pickApplyButton, pickNamedButton} from './tab-pages.js';
 import {behindAStep, whyNotPressed} from './ladder/press-why.js';
+import {sameControl} from './no-effect.js';
 
 // The posting before its form: a page with no form and one "Apply" button (chosen by rule: tab-pages.js pickApplyButton).
 const PAGE_BUTTONS = 'a[href], button, [role="button"], input[type="button"]';
@@ -46,15 +47,17 @@ export async function applyPhrases() {
 }
 // -> {pressed: the button's text or null, via: the service phrase that found it ('' for a built-in word), buttons: the visible button texts
 // when none was found (the app counts them, to learn new words; texts only, from a page with no form)}.
-export async function pressApply(tabId, phrases = [], named = '', want = '') {   // named: a button the page-kind AI chose (the start route): pressed by its own text, not ranked (tab-pages.js pickNamedButton); want: the name the AI gave, only for the log
+export async function pressApply(tabId, phrases = [], named = '', want = '', noEffect = []) {   // named: a button the page-kind AI chose (the start route): pressed by its own text, not ranked (tab-pages.js pickNamedButton); want: the name the AI gave, only for the log
   // The AI named a control (the start route's, or the posting's Apply): the finder searches the list the AI's sketch came from and presses that control only. Never another route found by a phrase
   // in its place when the named one is on the page and visible but a floor refuses it (Hornbach: the digest pressed "(mit Anmeldung)" when "(ohne Anmeldung)" was named). A posting's named control that is
   // hidden or absent sits behind a step (Workday: "Apply Manually" is in the dialog the posting's plain "Apply" opens): then the phrase path runs as before. No name: the phrase path, its own list.
   const target = named || want;
-  let listed = target ? NAMED_BUTTONS : PAGE_BUTTONS, candidates = await applyCandidates(tabId, listed);
+  // noEffect: labels of controls already pressed on this page with nothing happening (no-effect.js): never pressed again, whoever names them (Hornbach 0.9.189: the dead "ohne Anmeldung" link three times). Left out of the list, so a named one is simply not on the page.
+  const live = list => list.filter(item => !noEffect.some(label => sameControl(label, item.text)));
+  let listed = target ? NAMED_BUTTONS : PAGE_BUTTONS, candidates = live(await applyCandidates(tabId, listed));
   let pick = target ? pickNamedButton(candidates, target) : pickApplyButton(candidates, phrases);
   const why = pick || !target ? null : whyNotPressed(candidates, target);   // the named control's flags, for the log
-  if (!pick && want && !named && behindAStep(why)) { listed = PAGE_BUTTONS; candidates = await applyCandidates(tabId, listed); pick = pickApplyButton(candidates, phrases); }
+  if (!pick && want && !named && behindAStep(why)) { listed = PAGE_BUTTONS; candidates = live(await applyCandidates(tabId, listed)); pick = pickApplyButton(candidates, phrases); }
   if (!pick) {
     const seen = [...new Set(candidates.filter(item => item.visible && !item.disabled).sort((a, b) => b.area - a.area).map(item => String(item.text || '').replace(/\s+/g, ' ').trim())
       .filter(text => text && text.length <= 40))].slice(0, 25);
