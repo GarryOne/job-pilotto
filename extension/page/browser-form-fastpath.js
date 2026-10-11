@@ -42,12 +42,21 @@
   const RETYPE_LIMIT = 5;
   const WATCH_CAP_MS = 60000;
   const typedHere = new Map();
+  const follow = (element, record) => { typedHere.set(element, record); element.addEventListener('input', event => { if (event.isTrusted) record.edited = true; }, true); };
   const noteTyped = (element, value) => {
     const known = typedHere.get(element);
     if (known) { Object.assign(known, {value, retypes: 0}); return; }
-    const record = {value, edited: false, retypes: 0, field: element.id || element.name || ''};
-    typedHere.set(element, record);
-    element.addEventListener('input', event => { if (event.isTrusted) record.edited = true; }, true);
+    follow(element, {value, edited: false, retypes: 0, field: element.id || element.name || ''});
+  };
+  // A page that draws its form again after an upload (a re-render) replaces the box with a new element of the same id or name: the record moves to it,
+  // so what we typed is put back there; the person's edits to the old element still count (the record says so).
+  const stillThere = (element, record) => {
+    if (element.isConnected) return element;
+    const same = record.field && byField(record.field);
+    if (!same || !same.isConnected || typedHere.has(same)) return null;
+    typedHere.delete(element);
+    follow(same, record);
+    return same;
   };
   window.__jobPilottoFillKnownFields = entries => {
     // The Chrome extension turns the guard off on purpose (it never clicks Submit itself).
@@ -94,8 +103,9 @@
   let watching = 0, watchUntil = 0, watchEnd = 0;
   const retypeNow = () => {
     const back = [];
-    for (const [element, record] of typedHere) {
-      if (record.edited || record.retypes >= RETYPE_LIMIT || !element.isConnected || String(element.value || '') !== '' || !writable(element)) continue;
+    for (const [was, record] of [...typedHere]) {
+      const element = record.edited ? was : stillThere(was, record);
+      if (!element || record.edited || record.retypes >= RETYPE_LIMIT || String(element.value || '') !== '' || !writable(element)) continue;
       record.retypes++;
       const prototype = element.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
       Object.getOwnPropertyDescriptor(prototype, 'value').set.call(element, record.value);

@@ -27,7 +27,9 @@ function page(clock = {now: 0}) {
     getComputedStyle: () => ({visibility: 'visible'}), Event: class {}, Date: Object.assign(function () { return new globalThis.Date(clock.now); }, {now: () => clock.now}),
     setInterval: fn => { clock.tick = fn; return 1; }, clearInterval: () => { clock.tick = null; }});
   window.__jobPilottoFillKnownFields(boxes.map(box => ({field: box.id, value: `typed-${box.id}`})));
-  return {window, boxes};
+  // A re-render: the element leaves the page, a new empty one with the same id takes its place.
+  const replace = index => { const old = boxes[index], fresh = new HTMLInputElement(old.id); old.isConnected = false; old._value = ''; boxes[index] = fresh; return fresh; };
+  return {window, boxes, replace};
 }
 
 test('a box the page emptied after the fill is typed again, once', () => {
@@ -71,4 +73,22 @@ test('a box the person touched, or the page filled itself, is never typed over',
   assert.equal(boxes[0].value, '');
   assert.equal(boxes[1].value, 'the page wrote this');
   assert.equal(boxes[2].value, 'typed-link');
+});
+
+test('a box the page replaced by a new element (a re-render keeps its id) is found again and typed', () => {
+  const {window, boxes, replace} = page();
+  const old = boxes[0];
+  const fresh = replace(0);   // the old element is gone from the page, a new empty one stands in its place
+  assert.equal(fresh.value, '');
+  assert.equal(window.__jobPilottoRetypeWiped(), 1);
+  assert.equal(fresh.value, 'typed-first');
+  assert.equal(old.isConnected, false);
+});
+
+test('a replaced box the person touched is left alone', () => {
+  const {window, boxes, replace} = page();
+  boxes[0].listeners.forEach(fn => fn({isTrusted: true}));
+  const fresh = replace(0);
+  assert.equal(window.__jobPilottoRetypeWiped(), 0);
+  assert.equal(fresh.value, '');
 });
