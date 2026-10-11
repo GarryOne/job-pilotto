@@ -21,8 +21,15 @@ echo "$PWD $*" >> "$CHECK_LOG"
 '''
 # The stub gh: `run list --status completed` answers the last finished build, any other `run list` the newest build.
 GH = '''#!/usr/bin/env bash
-case "$*" in *"--status completed"*) echo "$GH_COMPLETED" ;; *"run view"*) echo "$GH_FAILED_JOBS" ;; *"run rerun"*) echo "$*" >> "$CHECK_LOG.rerun" ;; *"run list"*) echo "$GH_LATEST" ;; esac
+case "$*" in *"run view"*) echo "$GH_FAILED_JOBS" ;; *"run rerun"*) echo "$*" >> "$CHECK_LOG.rerun" ;; *"run list"*) echo "$GH_RUNS" ;; esac
 '''
+
+
+def runs_json(sha, tests=('completed', 'success'), pages=('completed', 'success'), run_id=42):
+    """What `gh run list --json ...` says about main's CI runs of one commit (tools/red-main.sh reads it)."""
+    rows = [{'workflowName': name, 'headSha': sha, 'status': st, 'conclusion': conc, 'databaseId': run_id + n, 'updatedAt': '2026-10-11T15:00:00Z', 'url': f'https://x/runs/{run_id + n}'}
+            for n, (name, (st, conc)) in enumerate((('CI · Tests', tests), ('CI · Recorded pages (all cases, real extension, Linux)', pages)))]
+    return json.dumps(rows)
 
 
 def git(cwd, *args):
@@ -43,6 +50,7 @@ class PrePushFixture(unittest.TestCase):
         shutil.copy(HOOK, self.repo / 'tools' / 'pre-push-check.sh')
         shutil.copy(ROOT / 'tools' / 'commit-subject.py', self.repo / 'tools' / 'commit-subject.py')
         shutil.copy(ROOT / 'tools' / 'gate-watchdog.sh', self.repo / 'tools' / 'gate-watchdog.sh')   # the hook sources it when it sits beside it
+        shutil.copy(ROOT / 'tools' / 'red-main.sh', self.repo / 'tools' / 'red-main.sh')   # main's state: green, red or unknown
         (self.repo / 'tools' / 'stale-expectations.mjs').write_text('')
         for path, text in ((self.repo / 'tools' / 'check.sh', CHECK), (self.bin / 'gh', GH), (self.bin / 'actionlint', '#!/bin/sh\n')):
             path.write_text(text)
@@ -57,7 +65,7 @@ class PrePushFixture(unittest.TestCase):
         git(self.repo, 'push', '-q', 'origin', 'main')
         self.log = self.tmp / 'check.log'
         self.env = {**os.environ, 'PATH': f'{self.bin}{os.pathsep}{os.environ["PATH"]}', 'CHECK_LOG': str(self.log),
-                    'GH_COMPLETED': f'success {git(self.repo, "rev-parse", "--short=7", "HEAD")} https://x/runs/1', 'GH_LATEST': '', 'GH_FAILED_JOBS': ''}
+                    'GH_RUNS': runs_json(git(self.repo, 'rev-parse', 'origin/main')), 'GH_FAILED_JOBS': ''}
 
     def hook(self, command, **env):
         payload = json.dumps({'tool_input': {'command': command}, 'cwd': str(self.repo)})

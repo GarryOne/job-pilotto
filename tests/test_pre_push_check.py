@@ -62,42 +62,38 @@ class PrePushCheckTest(PrePushFixture):
         self.assertEqual(Path(f'{self.log}.seen').read_text().split(), ['kept'] * 3)
         self.assertEqual(len(git(self.repo, 'worktree', 'list').splitlines()), 1, 'every checkout removed at the end')
 
+    def tip(self):
+        return git(self.repo, 'rev-parse', 'origin/main')
+
     def test_a_red_main_with_no_failed_job_is_rerun_not_blocking(self):
         self.needed_committed()
-        bad = git(self.repo, 'rev-parse', '--short=7', 'HEAD')
-        code, err = self.hook('git push origin HEAD:main', GH_COMPLETED=f'cancelled {bad} https://x/runs/42', GH_FAILED_JOBS='0')
+        code, err = self.hook('git push origin HEAD:main', GH_RUNS=runs_json(self.tip(), tests=('completed', 'cancelled')), GH_FAILED_JOBS='0')
         self.assertEqual(code, 0, err)
-        self.assertIn('re-running it', err)
         self.assertIn('run rerun 42 --failed', Path(f'{self.log}.rerun').read_text())
         # One job that really failed still blocks.
-        code, _ = self.hook('git push origin HEAD:main', GH_COMPLETED=f'failure {bad} https://x/runs/42', GH_FAILED_JOBS='1')
+        code, _ = self.hook('git push origin HEAD:main', GH_RUNS=runs_json(self.tip(), tests=('completed', 'failure')), GH_FAILED_JOBS='1')
         self.assertEqual(code, 2)
 
     def test_a_red_main_blocks_with_the_way_to_unblock_it(self):
         self.needed_committed()
-        bad = git(self.repo, 'rev-parse', '--short=7', 'HEAD')
-        code, err = self.hook('git push origin HEAD:main', GH_COMPLETED=f'failure {bad} https://x/runs/42')
+        bad = git(self.repo, 'rev-parse', '--short=7', 'origin/main')
+        red = {'GH_RUNS': runs_json(self.tip(), tests=('completed', 'failure')), 'GH_FAILED_JOBS': '1'}
+        code, err = self.hook('git push origin HEAD:main', **red)
         self.assertEqual(code, 2)
         self.assertIn(f'git revert --no-edit {bad}', err)
         self.assertIn('gh run view --log-failed 42', err)
-        subject, author = git(self.repo, 'log', '-1', '--format=%s'), git(self.repo, 'log', '-1', '--format=%an')
+        subject, author = git(self.repo, 'log', '-1', '--format=%s', 'origin/main'), git(self.repo, 'log', '-1', '--format=%an', 'origin/main')
         self.assertIn(f'main is RED: run 42 failed at {bad}, "{subject}" by {author} (https://x/runs/42)', err)   # one line: run, commit, author
-        code, err = self.hook('git push origin HEAD:main', GH_COMPLETED='failure deadbee https://x/runs/42')
-        self.assertIn('failed at deadbee, commit not in this clone', err)
-        self.assertEqual(self.hook('CI_RED_OK=1 git push origin HEAD:main', GH_COMPLETED=f'failure {bad} https://x/runs/42')[0], 0)
+        self.assertEqual(self.hook('CI_RED_OK=1 git push origin HEAD:main', **red)[0], 0, 'the fix itself goes through')
+        self.assertEqual(self.hook('git push origin HEAD:main', SHIP_IGNORE_RED='1', **red)[0], 0, 'the explicit off switch')
 
-    def test_a_fix_in_flight_on_top_of_red_lets_a_push_that_contains_it_through(self):
-        self.commit('Break it')
-        bad = git(self.repo, 'rev-parse', '--short=7', 'HEAD')
+    def test_a_fix_in_flight_on_top_of_red_does_not_let_anyone_through(self):
+        # 11 Oct 2026: four landings went in on top of b6dd70e, a fix attempt that was still building and ended red
         self.needed_committed()
-        fix = git(self.repo, 'rev-parse', 'HEAD')
-        red = {'GH_COMPLETED': f'failure {bad} https://x/runs/42', 'GH_LATEST': fix}
-        code, err = self.hook('git push origin HEAD:main', **red)
-        self.assertEqual(code, 0, err)
-        self.assertIn('is building', err)
-        # A build of a commit this push does not contain proves nothing about it.
-        code, _ = self.hook('git push origin HEAD:main', **{**red, 'GH_LATEST': 'f' * 40})
-        self.assertEqual(code, 2)
+        red = runs_json(self.tip(), tests=('completed', 'failure'))
+        building = json.loads(runs_json('f' * 40, tests=('in_progress', ''), pages=('in_progress', '')))
+        code, err = self.hook('git push origin HEAD:main', GH_RUNS=json.dumps(building + json.loads(red)), GH_FAILED_JOBS='1')
+        self.assertEqual(code, 2, err)
 
     @unittest.skipUnless(shutil.which('node'), 'needs node')
     def test_the_journey_gate_runs_beside_the_suites_and_a_failing_gate_blocks_with_its_output(self):

@@ -42,49 +42,26 @@ fi
 repo="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || exit 0
 [ -f "$repo/src/daily.py" ] && [ -d "$repo/worker" ] || exit 0   # only this project
 
-# Don't stack commits on a red main: when the latest finished `build` run on main failed, block the push unless the command says it
-# is the fix or a revert: `CI_RED_OK=1 git push ...`. No gh or no network: skip. A newer main commit still building (a fix in flight)
-# lets a push that contains it through: its own suites still run below, on a clean checkout that includes that fix.
-# The first session to meet a red main unblocks everyone (AGENTS.md "Red main"): fix it forward if it is small, else revert it.
+# Don't stack commits on a red main: when main's state (tools/red-main.sh: the newest commit with a finished verdict, a failed job in a running build counts) is red, block the push unless the
+# command says it is the fix or a revert: `CI_RED_OK=1 git push ...`. A fix still building does NOT let others through (11 Oct 2026: four landings went in on top of a fix attempt that ended red):
+# main is green again only when a later commit's run has completed green. No gh or no network: skip. The first session to meet a red main unblocks everyone (AGENTS.md "Red main").
 case "$command" in *CI_RED_OK=1*) ;; *)
-  if command -v gh >/dev/null; then
-    last="$(cd "$repo" && gh run list --workflow build.yml --branch main --status completed -L 1 \
-      --json conclusion,headSha,url --jq '.[0] | "\(.conclusion) \(.headSha[0:7]) \(.url)"' 2>/dev/null)"
-    # The recorded pages (all cases, CI, recorded-pages.yml) are the net under the local replay of only the affected cases: a red run is a red main too (11 Oct 2026).
-    case "$last" in failure*|cancelled*|timed_out*) ;; *)
-      pages="$(cd "$repo" && gh run list --workflow recorded-pages.yml --branch main --status completed -L 1 \
-        --json conclusion,headSha,url --jq '.[0] | "\(.conclusion) \(.headSha[0:7]) \(.url)"' 2>/dev/null)"
-      case "$pages" in failure*) last="$pages" ;; esac ;;
-    esac
-    case "$last" in failure*|cancelled*|timed_out*)
-      # A run whose jobs were only cancelled or never started (a busy runner pool, 6 Oct 2026: 15 min queued, then cancelled) has no broken
-      # test in it: it is re-run, and nobody is blocked. Only a run with a job that really failed blocks.
-      url="${last##* }"; run_id="${url##*/runs/}"
-      real="$(cd "$repo" && gh run view "$run_id" --json jobs --jq '[.jobs[] | select(.conclusion == "failure")] | length' 2>/dev/null)"
-      if [ "$real" = "0" ]; then
-        echo "pre-push: main's last build ($run_id) has no failed job (cancelled or never started): re-running it, not blocking this push." >&2
-        (cd "$repo" && gh run rerun "$run_id" --failed >/dev/null 2>&1) || true
-      else
-      bad="$(cut -d' ' -f2 <<<"$last")"
-      building="$(cd "$repo" && gh run list --workflow build.yml --branch main -L 1 \
-        --json status,headSha --jq '.[0] | select(.status != "completed") | .headSha' 2>/dev/null)"
-      if [ -n "$building" ] && [ "${building:0:7}" != "$bad" ] && git -C "$repo" merge-base --is-ancestor "$building" HEAD 2>/dev/null; then
-        echo "pre-push: main is red at $bad, but ${building:0:7} (on top of it, in this push) is building: checking this push on its own." >&2
-      else
-        # One clear line first: which run, which commit, who wrote it (no gh api, no daemon: the commit is in this clone after the gate's fetch).
-        culprit="$(git -C "$repo" log -1 --format='"%s" by %an' "$bad" 2>/dev/null)"
-        {
-          echo "Push blocked: main is RED: run ${run_id:-?} failed at $bad, ${culprit:-commit not in this clone} ($url)."
-          echo "CI 'build' on main is red ($last)."
-          echo "Unblock it now, you are not waiting for its author (AGENTS.md \"Red main\"):"
-          echo "  1. See why: gh run view --log-failed $(sed 's|.*/runs/||' <<<"$last")"
-          echo "  2. A small, obvious fix (missing file, import, test expectation): fix it forward, push it with CI_RED_OK=1 git push ..."
-          echo "  3. Otherwise: git revert --no-edit $bad (a new commit, never a force-push), push it with CI_RED_OK=1, and tell the user what was reverted."
-          echo "  Then push your own work normally. Never just add commits on top of a red build."
-        } >&2
-        exit 2
-      fi
-      fi ;;
+  if [ "${SHIP_IGNORE_RED:-}" != 1 ] && [ -f "$repo/tools/red-main.sh" ]; then
+    state="$(bash "$repo/tools/red-main.sh" 2>/dev/null)" || true
+    case "$state" in red*)
+      IFS="|" read -r _ bad workflow url finished run_id <<<"$state"
+      # One clear line first: which run, which commit, who wrote it (no gh api, no daemon: the commit is in this clone after the gate's fetch).
+      culprit="$(git -C "$repo" log -1 --format='"%s" by %an' "$bad" 2>/dev/null)"
+      {
+        echo "Push blocked: main is RED: run ${run_id:-?} failed at $bad, ${culprit:-commit not in this clone} ($url)."
+        echo "CI '$workflow' on main is red (finished $finished)."
+        echo "Unblock it now, you are not waiting for its author (AGENTS.md \"Red main\"):"
+        echo "  1. See why: gh run view --log-failed ${run_id:-?}"
+        echo "  2. A small, obvious fix (missing file, import, test expectation): fix it forward, push it with CI_RED_OK=1 git push ... (tools/ship.sh --fix)"
+        echo "  3. Otherwise: git revert --no-edit $bad (a new commit, never a force-push), push it with CI_RED_OK=1, and tell the user what was reverted (tools/revert-red.sh)."
+        echo "  Then push your own work normally. A fix still building does not unblock anyone: main is green when a later run has completed green. Never just add commits on top of a red build."
+      } >&2
+      exit 2 ;;
     esac
   fi ;;
 esac
