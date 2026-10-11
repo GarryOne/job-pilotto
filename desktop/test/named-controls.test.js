@@ -1,5 +1,5 @@
 // The control the page-kind AI names is found with the list its sketch came from (extension/tab-pages.js NAMED_BUTTONS, used by fill-flow.js pageSketchOf and the named-button
-// finder), and the floors still refuse a Submit by another name. Hornbach, 10 Oct 2026: the AI named a link with no href that the finder never listed.
+// finder in apply-press.js), and the floors still refuse a Submit by another name. Hornbach, 10 Oct 2026: the AI named a link with no href that the finder never listed.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
@@ -7,6 +7,7 @@ import {NAMED_BUTTONS, pickApplyButton, pickNamedButton} from '../../extension/t
 import {behindAStep, whyNotPressed} from '../../extension/ladder/press-why.js';
 
 const flow = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta.url), 'utf8');
+const press = fs.readFileSync(new URL('../../extension/apply-press.js', import.meta.url), 'utf8');   // the Apply press (moved out of fill-flow.js)
 const row = (text, extra = {}) => ({index: 0, tag: 'a', text, area: 4000, visible: true, disabled: false, href: '', submits: false, ...extra});
 
 test('the page sketch and the named-button finder read one list, not two copies', () => {
@@ -15,7 +16,7 @@ test('the page sketch and the named-button finder read one list, not two copies'
   const sketch = flow.slice(flow.indexOf('function pageSketchOf'));
   assert.equal(sketch.match(/const buttons = (?:modalFirst\()?all\('([^']*)'\)/)?.[1], NAMED_BUTTONS, 'the page sketch lists what the named-button finder searches');
   assert.match(sketch.slice(0, 200), /func: \(\) => \{/, 'a closed script, no argument (the capture tool extracts it)');
-  assert.match(flow, /listed = target \? NAMED_BUTTONS : PAGE_BUTTONS/, 'the named path searches the shared list');
+  assert.match(press, /listed = target \? NAMED_BUTTONS : PAGE_BUTTONS/, 'the named path searches the shared list');
 });
 
 test('a named control with no href is found; the floors still refuse a Submit by another name', () => {

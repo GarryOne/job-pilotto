@@ -189,7 +189,7 @@ test('the Apply button in front of a form is picked by rule: an apply phrase on 
   assert.equal(pick([b('Apply now', {tag: 'a', href: 'mailto:jobs@acme.com'})]), undefined);
   assert.equal(pick([b('Apply to jobs at Acme and 40 other companies today, sign up now!')]), undefined);   // a sentence, not a button
   // A form's own Submit is never the posting's Apply, whatever its words: "Postuler" on a SuccessFactors form still loading was its submit button
-  // (SPAN#357:_submitBtn.rcmSaveButton, 9 Oct 2026). `submits` is read by structure in the page (fill-flow.js applyCandidates).
+  // (SPAN#357:_submitBtn.rcmSaveButton, 9 Oct 2026). `submits` is read by structure in the page (apply-press.js applyCandidates).
   assert.equal(pick([b('Postuler', {tag: 'span', submits: true})]), undefined);
   assert.equal(pick([b('Postuler', {tag: 'span', submits: true}), b('Apply now')]), 'Apply now');
   assert.equal(pick([b('Apply', {tag: 'a', area: 900, href: '/x'}), b('Apply now', {area: 90000})]), 'Apply now');   // the larger, button-like one
