@@ -62,3 +62,10 @@ test('--ask-cold: the new build\'s cold asks are kept in the case\'s memo (scrub
   const memo = fs.readFileSync(path.join(done.outDir, 'start-dialog-1', 'model-memo.json'), 'utf8');
   assert.ok(memo.includes('k1#parts') && !memo.includes('gmail'));
 });
+
+test('each stage says so as it starts, in order (a replay is silent for up to 90 s)', async () => {
+  const said = [];
+  await go(replayBy(['posting', 'form'], ['posting']), {askCold: true, say: line => said.push(line)});
+  const order = ['building the case', 'asking the new build', 'replaying on the NEW build (', 'replaying on the OLD build', 'against the written expect'];
+  assert.deepEqual(order.map(part => said.findIndex(line => line.includes(part))), [0, 1, 2, 3, 4]);
+});

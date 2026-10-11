@@ -19,6 +19,6 @@ const stale = staleCapture(dir);
 if (stale) { console.error(`row-to-case: ${path.basename(dir)}: ${stale}`); process.exit(2); }
 const thin = seedNote(dir);   // a capture made with another applicant seed (or before the seed was recorded): its fill asks miss
 if (thin) { console.error(`row-to-case: ${path.basename(dir)}: ${thin}`); process.exit(2); }
-const {code, lines} = await rowToCase({rowDir: dir, name, outDir: REPLAY_DIR, oldDir, askCold});
+const {code, lines} = await rowToCase({rowDir: dir, name, outDir: REPLAY_DIR, oldDir, askCold, say: line => console.error(`${new Date().toTimeString().slice(0, 8)} ${line}`)});
 for (const line of lines) console.log(line);
 process.exit(code);
