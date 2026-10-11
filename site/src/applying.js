@@ -302,7 +302,7 @@ fetch('?json').then(r => r.json()).then(d => {
       rows.length ? el('table', {className: key === 'fix' || key === 'causes' ? 'fixtable' : ''}, el('tr', {}, ...heads(key, labels, () => { nextPage[key] = 0; redraw(); })), ...shown.flatMap(row)) : null];
   };
   const drawNext = () => { nextBox.textContent = '';
-    nextBox.append(...[...block('platforms', 'Platforms', 'Matched jobs against the pool', d.next.platforms || [], ['Platform', 'Of matched jobs', 'Of the pool', 'Pool sites', 'Installs', 'Applications'],
+    nextBox.append(...[...block('platforms', 'Platforms', 'Matched jobs against the pool', d.next.platforms || [], ['Platform', 'Of matched jobs', 'Of the pool', 'Pool sites', 'Feed installs', 'Applications'],
         s => el('tr', {}, el('td', {textContent: s.platform}), el('td', {textContent: s.matchShare + '%'}), el('td', {className: 'muted', textContent: s.poolShare + '%'}),
           el('td', {className: 'muted', textContent: s.poolSites || 'none'}), el('td', {className: 'muted', textContent: s.installs}), el('td', {className: 'muted', textContent: s.applications || '—'})),
         'Nothing under-covered', undefined, [s => s.platform, s => s.matchShare, s => s.poolShare, s => s.poolSites || 0, s => s.installs, s => s.applications || 0]),
@@ -312,7 +312,7 @@ fetch('?json').then(r => r.json()).then(d => {
           el('td', {className: 'muted', textContent: s.countries.map(c => c.country + ' ' + c.installs).join(', ') || '—'})),
         'Nothing yet: a site shows once 3 installs applied on it', undefined, [s => s.host, s => s.platform, s => s.installs, s => s.uses, s => s.readyShare, s => s.countries.length])].filter(Boolean)); };   // append() writes a null as the text "null"
   app.append(el('section', {}, el('h2', {textContent: 'Next sites to add · where people apply, not in the pool'}),
-    el('p', {className: 'muted', textContent: 'Platforms: the share of matched jobs on each platform against its share of the pool, from any number of installs (a platform is a name from a fixed list). Sites: the site each application ended on, listed only once 3 different installs used it' + (d.next.hidden.hosts ? ' (' + d.next.hidden.hosts + ' more are below that and stay hidden)' : '') + '; under 3 installs a country is "other". Never a posting or an address.'}), nextBox)); drawNext();
+    el('p', {className: 'muted', textContent: 'Platforms: the share of matched jobs on each platform against its share of the pool, from any number of installs (Feed installs: installs whose crawl reads the feeds of that platform, not installs that filled a form; Applications: real forms filled) (a platform is a name from a fixed list). Sites: the site each application ended on, listed only once 3 different installs used it' + (d.next.hidden.hosts ? ' (' + d.next.hidden.hosts + ' more are below that and stay hidden)' : '') + '; under 3 installs a country is "other". Never a posting or an address.'}), nextBox)); drawNext();
   // The platform scorecard: real use against the pool's tests, one verdict per platform (src/scorecard.js).
   const TONE = {'Not in the pool': 'posting', 'Weak in both': 'posting', 'Blind spot': 'account', 'Test failing': 'code\\/bot', Fine: 'ready'};
   const pct = value => (value == null ? '—' : value + '%');
