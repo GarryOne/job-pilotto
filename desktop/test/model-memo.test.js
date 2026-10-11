@@ -235,3 +235,14 @@ test('ordinal (CI row cases): an ask with no kept answer gets the n-th kept answ
   assert.equal(fs.readFileSync(note, 'utf8').trim().split('\n').length, 2, 'each served by order is noted');
   await assert.rejects(make({ordinal: ''})(ask('a different first page')), /not in the row's kept answers/, 'off: a miss');
 });
+
+test('ordinal picks, among the kept answers of the kind, the one whose parts differ least; a tie goes by order', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-memo-near-')), file = path.join(dir, 'model-memo.json'), note = path.join(dir, 'ordinal.jsonl');
+  const kept = {};
+  const variant = (id, text) => ({system: [{type: 'text', text: 'Fill the form.'}, {type: 'text', text: `<profile>p</profile>`}], messages: [{role: 'user', content: `<job>${text}</job>\n<form_fields>${id}</form_fields>`}], model: 'claude-sonnet-5-5', max_tokens: 500});
+  for (const [id, text] of [['fields A', 'page with banner'], ['fields B', 'page without banner']]) { const params = variant(id, text); kept[memoKey(params)] = {content: [{type: 'text', text: `{"v":"${id}"}`}]}; kept[memoKey(params) + '#parts'] = memoParts(params); }
+  fs.writeFileSync(file, JSON.stringify(kept));
+  const create = withMemo({messages: {create: async () => { throw new Error('never asked'); }}}, file, {only: true, ordinal: note}).messages.create;
+  const got = async params => JSON.parse((await create(params)).content[0].text).v;
+  assert.equal(await got(variant('fields B', 'page with something new')), 'fields B', 'the fields part matches variant B: the 1st ask of the kind still gets B, not the 1st kept');
+});

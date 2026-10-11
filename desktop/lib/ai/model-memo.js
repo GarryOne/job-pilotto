@@ -149,7 +149,9 @@ export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = 
       }
     }
     if (only && ordinal) {
-      const same = Object.entries(kept).filter(([name, other]) => name.endsWith(PARTS) && kindOf(other) === kind).map(([name]) => name.slice(0, -PARTS.length)), taken = same[served[kind] - 1];
+      // Among the kept answers of the kind (several variants of one ask: each cold round records the ask a little differently) the one whose parts differ from this ask in the FEWEST places; a tie goes by order (the n-th).
+      const same = Object.entries(kept).filter(([name, other]) => name.endsWith(PARTS) && kindOf(other) === kind).map(([name, other]) => ({key: name.slice(0, -PARTS.length), gap: [...new Set([...Object.keys(parts), ...Object.keys(other)])].filter(part => parts[part] !== other[part]).length}));
+      const best = Math.min(...same.map(item => item.gap)), tied = same.filter(item => item.gap === best), taken = served[kind] <= same.length ? (tied[Math.min(served[kind] - 1, tied.length - 1)] || {}).key : '';   // more asks of the kind than the live run made: a miss (a retry loop must not be fed for ever)
       if (taken && kept[taken]) {
         try { fs.appendFileSync(ordinal, `${JSON.stringify({n: served[kind], of: same.length, differs: nearestDiffers(parts, kept, memoLines(params)) || []})}\n`); } catch { /* a report only */ }
         if (latency) await later(Number(kept[taken + MS]), env);
