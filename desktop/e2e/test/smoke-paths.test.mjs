@@ -66,6 +66,7 @@ test('smoke.mjs wires both guards: the Electron re-run on a fall, the paired sam
   assert.match(source, /lessThanLast\(/, 'a fall on plain node is checked');
   assert.match(source, /liveRun\(posting, seconds, '', 'electron'\)/, 'the re-run is on Electron, the same posting');
   assert.match(source, /pairedSample\(/, 'a paired sample is chosen each pass');
+  assert.match(source, /the run did not finish: \$\{lastError\(again\.output\)\}/, 'an Electron leg that did not finish says why');
   const first = source.indexOf('console.log(`smoke: ${pairedLine(results)}`)'), regressionsLine = source.indexOf("REGRESSIONS:");
   assert.ok(first > 0 && first < regressionsLine, 'the paired line comes before the regressions');
 });

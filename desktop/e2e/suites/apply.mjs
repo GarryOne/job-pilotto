@@ -106,7 +106,8 @@ export async function runApply(ctx, parts) {
     await page.reload();
     await page.waitForSelector('.view:not([hidden])', {timeout: 60000});
     await page.click('.nav[data-view="jobs"]');
-    await page.waitForFunction(wanted => wanted.every(url => (window.__jp.shared.allJobs || []).some(job => job.url === url && job.kit)), urls, {timeout: 120000, polling: 2000})
+    // Every fixture job with its kit; the live posting is a fresh job with none (lib/seed-data.mjs seedLivePosting): listed is enough.
+    await page.waitForFunction(([wanted, liveUrl]) => wanted.every(url => (window.__jp.shared.allJobs || []).some(job => job.url === url && (job.kit || url === liveUrl))), [urls, live?.url || ''], {timeout: 120000, polling: 2000})
       .catch(async () => {
         const seen = await page.evaluate(() => (window.__jp.shared.allJobs || []).map(job => `${job.company} [${job.stage}${job.kit ? ', kit' : ''}]`));
         throw new Error(`the Jobs list never showed every kit job with an Apply button; it holds ${seen.length}: ${seen.join('; ')}`);

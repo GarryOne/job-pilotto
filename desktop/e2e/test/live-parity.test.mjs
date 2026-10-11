@@ -29,4 +29,6 @@ test('both live paths seed the posting through seedLivePosting before Apply', ()
   // Electron: lib/apply-live.mjs presses Apply on the posting the apply suite seeded; the suite gives the live posting no kit.
   const suite = read('suites/apply.mjs');
   assert.match(suite, /form === live \? seedLivePosting\(ctx, live\)/, 'suites/apply.mjs seeds the live posting another way than seedLivePosting');
+  // ...and its wait for the seeded jobs accepts the live posting without a kit (18:20, 11 Oct 2026: it waited for a kit the fresh job never has, and the Electron leg failed).
+  assert.match(suite, /job\.url === url && \(job\.kit \|\| url === liveUrl\)/, 'suites/apply.mjs waits for a kit on the live posting, which a fresh job never has');
 });

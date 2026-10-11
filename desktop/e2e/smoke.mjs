@@ -43,6 +43,9 @@ export async function postingStatus(url, fetcher = fetch) {
   try { const answer = await fetcher(url, {method: 'GET', redirect: 'follow', signal: AbortSignal.timeout(20000)}); return answer.status; } catch { return 0; }
 }
 
+// The last error line of a run's output, so a leg that did not finish says why (18:20, 11 Oct 2026: the Electron leg's seed failed, and only a temp folder knew).
+const lastError = output => (String(output || '').split('\n').filter(line => /Error|✗|not ok|never /.test(line)).at(-1) || 'no error line').trim().slice(0, 200);
+
 function liveRun(posting, seconds, captureDir = '', engine = smokeEngine()) {
   return new Promise(resolve => {
     const started = Date.now();
@@ -163,7 +166,7 @@ async function main() {
       console.log(`smoke: ${shape}: ${fell ? `less than its last result on plain node (${fell}): once more on Electron, the same posting` : 'paired sample: the same posting on Electron'}`);
       const again = await liveRun(posting, seconds, '', 'electron'), electron = runFinished(again) ? parseLive(again.output) : null;
       Object.assign(results[shape], pairResult(results[shape], electron, {day, previous: previous[shape]}));
-      console.log(`smoke: ${shape}: Electron reached ${electron ? `${electron.reached}${electron.filled != null ? `, ${electron.filled} filled` : ''}` : 'nothing (the run did not finish)'}${results[shape].pathDifference ? ': PATH DIFFERENCE, not a regression' : ''}`);
+      console.log(`smoke: ${shape}: Electron reached ${electron ? `${electron.reached}${electron.filled != null ? `, ${electron.filled} filled` : ''}` : `nothing (the run did not finish: ${lastError(again.output)})`}${results[shape].pathDifference ? ': PATH DIFFERENCE, not a regression' : ''}`);
     }
     fs.mkdirSync(REPORTS, {recursive: true});
     fs.writeFileSync(path.join(REPORTS, `${day}-${shape.replace(/\W+/g, '-')}.log`), run.output);
