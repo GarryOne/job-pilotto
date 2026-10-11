@@ -239,3 +239,24 @@ test('a run\'s share is the shapes least recently run (never run first), never o
   assert.equal(shareSize({SMOKE_PER_NIGHT: '6'}), 6, 'the old name still works');
   assert.equal(shareSize({}), 10);
 });
+
+// Each line that proves the form was reached, with or without a "fields:" line after it (Teamtailor, 11 Oct 2026: the form came, the fill's AI judged the fake applicant
+// ineligible, no "fields:" line followed, and the run was scored "posting"). An eligibility stop keeps its reason as the run's note: the pool shows it, not a fill failure.
+test('parseLive: a form that came after the press, or an eligibility stop on it, reached the form; the stop is noted with its reason', () => {
+  const pressed = '  live +  0s: Apply pressed on https://career.teamtailor.com/jobs/1\n      log 14:55:25.382Z [extension] page kind: posting {"shape":"career.teamtailor.com/jobs/*|0","by":"ai"}\n      log 14:55:25.416Z [extension] fill: pressed the Apply button {"label":"Apply for this job"}';
+  const proofs = {
+    'a form came': '      log 14:55:26.431Z [extension] fill: after the press: a form came {"host":"career.teamtailor.com","label":"Apply for this job"}',
+    'an eligibility stop': '      log 14:55:32.156Z [extension] fill: did not fill: The role requires being based in Sydney, Australia (hybrid). The profile places the applicant in Zurich {"ineligible":true,"url":"https://career.teamtailor.com/jobs/1"}',
+    'an eligibility stop cut at 230 characters': `      log 14:55:32.156Z [extension] fill: did not fill: ${'The role requires being based in Sydney. '.repeat(6)}`,
+  };
+  assert.equal(parseLive(pressed).reached, 'posting', 'the press alone is the posting');
+  for (const [name, line] of Object.entries(proofs)) {
+    const result = parseLive(`${pressed}\n${line}`);
+    assert.equal(result.reached, 'form', name);
+    assert.equal(result.filled, null, `${name}: no fields counted`);
+    if (/eligibility/.test(name)) assert.match(result.note, /^eligibility stop: The role requires being based in Sydney/, name);
+    else assert.equal(result.note, undefined, `${name}: nothing to note`);
+  }
+  assert.equal(parseLive(`${pressed}\n${proofs['a form came']}\n      log x [extension] fill: fields: 6 filled, 3 left {}`).reached, 'form', 'a fill after it still counts as before');
+  assert.equal(parseLive(`${pressed}\n      log x [extension] fill: after the press: no form came {}`).reached, 'posting', 'no form came is no form');
+});
