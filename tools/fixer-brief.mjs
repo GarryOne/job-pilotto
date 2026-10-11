@@ -3,7 +3,7 @@
 
 const slugOf = text => String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 const when = at => (at ? new Date(at).toISOString().slice(0, 16).replace('T', ' ') : 'never run');
-const QA_ROOT = '~/Library/Application Support/Job Pilotto QA/replay-candidates';
+const QA_ROOT = '$HOME/Library/Application Support/Job Pilotto QA/replay-candidates';
 
 // The freshest capture folder of a row: listing = {<day>: [folder names]}, the newest day whose folder name holds the row's slug (as lib/row-replay.mjs findRow does). -> 'day/folder' or ''.
 export function captureOf(row, listing) {

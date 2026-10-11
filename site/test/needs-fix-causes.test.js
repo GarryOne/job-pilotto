@@ -132,6 +132,8 @@ test('the fixer brief holds every row of the cause, the newest capture folder an
   assert.match(brief.text, /replay-candidates\/2026-10-11\/ccc-unread-v2/);          // the newest day wins over 2026-10-10
   assert.doesNotMatch(brief.text, /replay-candidates\/2026-10-10\/ccc-unread/);
   assert.match(brief.text, /replay-candidates\/2026-10-10\/ddd-unread-too/);       // a row whose newest folder is older is still found
+  assert.doesNotMatch(brief.text, /"~\//);   // a ~ inside double quotes is never expanded by the shell: the pasted command would fail
+  assert.match(brief.text, /row-to-case -- "\$HOME\/Library\/Application Support\/Job Pilotto QA\/replay-candidates\/2026-10-11\/ccc-unread-v2"/);
   assert.match(brief.text, /Pool-row:/);
   assert.match(brief.text, /Never Submit/);
   assert.match(brief.text, /tools\/ship\.sh --background/);
