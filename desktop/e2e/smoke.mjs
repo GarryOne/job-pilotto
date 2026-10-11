@@ -5,6 +5,7 @@
 // fleet digest flags as dropped (layer 4). Report: <QA folder>/smoke-reports/<day>.json (outside the repo: it names real postings, and outlives worktrees). Exit 1 when a shape reached less than last time.
 // Usage: cd desktop/e2e && npm run smoke [-- --only <shape words> | --all] [SMOKE_SHARE=10] [SMOKE_SECONDS=90]: this run's share of the pool (the least recently run first), or
 // --all / --only. Each shape is compared with ITS last run, however long ago. It never schedules itself: the owner starts it by hand.
+import {ensureStagedWorker} from './lib/staged-worker.mjs';
 import {execFileSync, spawn} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -112,6 +113,7 @@ async function discover(limit) {
 }
 
 async function main() {
+  ensureStagedWorker();   // a worker edit since the last staging would run the old prompt (lib/staged-worker.mjs)
   if (process.argv.includes('--discover')) return discover(Number(process.argv[process.argv.indexOf('--limit') + 1]) || 30);
   const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : '';
   const seconds = Number(process.env.SMOKE_SECONDS || 90);

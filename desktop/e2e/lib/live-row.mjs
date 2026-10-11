@@ -6,6 +6,7 @@
 // CLI: live-row.mjs. Guard: e2e/test/live-row.test.mjs (a fake site, memo-only).
 /* global document, location */
 import fs from 'node:fs';
+import {ensureStagedWorker} from './staged-worker.mjs';
 import path from 'node:path';
 import {frontOf} from './app-front.mjs';
 import {seedVersion} from './applicant-seed.mjs';
@@ -23,6 +24,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // posting: {url, title, company}; captureDir: where the journey, the AI calls and the asks go; ask: false keeps the AI to kept answers (a test), true asks live.
 export async function runLiveRow({posting, captureDir, extensionDir, ask = true, seconds = 120, stillSeconds = STILL_SECONDS, browser = startRealExtension, say = () => {}} = {}) {
+  ensureStagedWorker({say});   // a worker edit since the last staging would run the old prompt
   const started = Date.now();
   fs.mkdirSync(captureDir, {recursive: true});
   const app = await startOfflineApp({ask, captureDir, memo: path.join(captureDir, 'model-memo.json')});
