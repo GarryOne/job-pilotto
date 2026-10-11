@@ -162,7 +162,7 @@ test('AI answers: profile and answers from Notion, one Claude call, only known f
   // The log line: why answers were dropped, in counts and ids, never an answer or the profile's text (8 Oct 2026: Coop got 0 back, untraceable).
   const { ms, engine, provider, billing, model, ...trace } = traces[0];
   assert.deepEqual([engine, provider], ['api', 'anthropic']);   // a client with no .engine is the raw Anthropic SDK
-  assert.deepEqual(trace, { fields: 2, returned: 3, kept: 1, unknownIds: ['invented'], empty: 1, profileChars: 13, answersChars: trace.answersChars, kit: true, stop: 'end_turn', proposed: 0, floored: [], categories: {} });
+  assert.deepEqual(trace, { fields: 2, returned: 3, kept: 1, unknownIds: ['invented'], empty: 1, emptyKinds: ['q2:'], profileChars: 13, answersChars: trace.answersChars, kit: true, stop: 'end_turn', proposed: 0, floored: [], categories: {} });
   assert.ok(trace.answersChars > 0 && Number.isInteger(ms));
   assert.ok(!JSON.stringify(traces).includes('1 month') && !JSON.stringify(traces).includes('B permit'));
   assert.equal(result.eligible, true);
@@ -339,7 +339,11 @@ test('a legal question comes back as a kind only (no value), so the extension ma
   const client = { messages: { create: async () => ({ stop_reason: 'end_turn', usage: { billing: 'subscription' },
     content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers }) }] }) } };
   const fields = answers.map((a) => ({ field: a.field, label: a.field, type: 'combobox' }));
-  const result = await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '' }, { url: 'https://forms.example.com/apply', fields, page_text: '' }, client);
+  const traces = [];
+  const result = await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t) }, { url: 'https://forms.example.com/apply', fields, page_text: '' }, client);
+  // Each empty answer's field id and category reach the log (round 2, 11 Oct 2026: the live run said only "empty 1" and categories in totals, so which
+  // kind the attestation got could not be read back). Ids and category words only, never a value.
+  assert.deepEqual(traces[0].emptyKinds, ['certify:legal', 'gender:demographic']);
   assert.deepEqual(result.answers.map((a) => [a.field, a.value, a.use, a.category]),
     [['city', 'Zurich', 'fill', 'contact'], ['certify', '', 'kind', 'legal'], ['terms', '', 'kind', 'legal']]);
   const source = fs.readFileSync(new URL('../src/extension.js', import.meta.url), 'utf8');

@@ -213,7 +213,11 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   // (an empty profile) from "answered, but under other ids" from "answered nothing" (8 Oct 2026: Coop, 11 fields sent, 0 back, no trace).
   await env.onAnswer?.({ fields: fields.length, returned: raw.length, kept: raw.filter((a) => known.has(a.field) && a.value !== '').length,
     unknownIds: raw.filter((a) => !known.has(a.field)).map((a) => String(a.field).slice(0, 60)).slice(0, 10),
-    empty: raw.filter((a) => known.has(a.field) && a.value === '').length, profileChars: String(profile || '').length,
+    empty: raw.filter((a) => known.has(a.field) && a.value === '').length,
+    // Which kind each empty answer got, by field id (a legal one is kept as a kind; any other empty one is dropped): 11 Oct 2026, an attestation came back
+    // empty and the log could not say whether as legal or normal. Ids and category words only, never a value.
+    emptyKinds: all.filter((a) => known.has(a.field) && a.value === '').map((a) => `${String(a.field).slice(0, 60)}:${String(a.category || '').slice(0, 12)}`).slice(0, 10),
+    profileChars: String(profile || '').length,
     answersChars: String(standard || '').length, kit: !!kit, stop: response.stop_reason || '', ms: Date.now() - startedAt,
     proposed: raw.filter((a) => known.has(a.field) && a.value !== '' && a.use === 'propose').length,
     // Who answered (9 Oct 2026: "The AI answered" could not say whether Codex or Claude did): the adapter's engine, the provider and billing
