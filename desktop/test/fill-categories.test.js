@@ -35,3 +35,18 @@ test('every calling code names a country; the codes the filler named before keep
   assert.match(fill, /const DIAL = \{\.\.\.\(window\.__jobPilottoDial \|\| \{\}\), '\+1': 'United States'/);   // the old names win (after the spread)
   assert.match(fill, /'\+420': 'Czech Republic'/);
 });
+
+test('a legal question the AI returned as a kind only (no value) is marked legal: left as the person\'s choice, never "no answer", never filled', async () => {
+  // 11 Oct 2026, Datadog: "I certify that the information provided is true" (a picklist) fell to "no answer in the kit": the English floor missed it and the AI had left it out.
+  const rows = [{field: 'certify', label: 'I certify that the information provided in this application is true', type: 'combobox', required: true, filled: false, legal: false}];
+  const {elements, armed, fill} = fakeFillPage(rows);   // the post-fill audit reads legal as the real one does (fake-fill-page.js)
+  const summary = await fill([{field: 'certify', value: '', category: 'legal', use: 'kind'}]);
+  assert.equal(elements.certify.dataset.jobpilottoCategory, 'legal');
+  assert.deepEqual(armed, []);
+  const row = (summary.trace || []).find(item => item.label.startsWith('I certify'));
+  assert.ok(row, `the trace lists it: ${JSON.stringify(summary.trace).slice(0, 300)}`);
+  assert.equal(row.reason, 'legal/consent: always your choice');
+  assert.equal(row.source, '');
+  const audit = fs.readFileSync(new URL('../../extension/page/browser-form-fastpath.js', import.meta.url), 'utf8');
+  assert.match(audit, /legal: forbidden\.test\(label\(el\)\) \|\| el\.dataset\?\.jobpilottoCategory === 'legal'/, 'the post-fill audit honours the AI\'s legal mark');
+});

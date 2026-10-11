@@ -1,0 +1,80 @@
+{
+ "shape": "a required legal picklist whose wording the English legal floor misses (an attestation: \"I certify that the information provided ... is true\"), beside an optional text field left empty",
+ "why": "Datadog careers on Greenhouse, 10 and 11 Oct 2026 (0.9.182, 0.9.189): the attestation was left as \"no answer in the kit\" (the answer prompt told the AI to leave legal questions out, so no category came back, and the post-fill audit read legal from the English words only), and the optional Website was logged with no `required`, so the smoke report counted both as unexplained. Now the AI returns a legal question as a kind only (value \"\", use \"kind\"), the page marks it legal, the audit honours that mark, and the logged field line carries `required`. The stubbed answer is what the real model answered to the new prompt through the app's Claude Code adapter (11 Oct 2026, twice the same for this field). The `told` strings follow the order the logged rows reach the app in: alphabetical keys (they pass through chrome.storage.local)",
+ "control": {
+  "build": "0.9.189",
+  "failed": "told: the attestation logged as \"dropdown not clicked\" (the legal-only row filled as an answer) and Website logged with no required"
+ },
+ "sample": "job-boards.greenhouse.io embedded application form (structure saved by the smoke run of 11 Oct 2026, scrubbed; scripts and the extension's marks removed)",
+ "pages": [
+  {
+   "url": "https://job-boards.greenhouse.io/embed/job_app",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.9,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": [
+    {
+     "field": "question_62972261",
+     "value": "Yes",
+     "confidence": "high",
+     "note": "",
+     "category": "knockout",
+     "use": "fill"
+    },
+    {
+     "field": "question_62972262[]",
+     "value": "Zurich, Switzerland",
+     "confidence": "medium",
+     "note": "",
+     "category": "knockout",
+     "use": "propose"
+    },
+    {
+     "field": "question_62972263[]",
+     "value": "English, German",
+     "confidence": "high",
+     "note": "",
+     "category": "knockout",
+     "use": "fill"
+    },
+    {
+     "field": "question_62972264",
+     "value": "Datadog careers website",
+     "confidence": "low",
+     "note": "",
+     "category": "normal",
+     "use": "propose"
+    },
+    {
+     "field": "question_62972259",
+     "value": "",
+     "category": "legal",
+     "use": "kind"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "told": [
+   "\"label\":\"I certify that the information provided in this ap\",\"outcome\":\"left\",\"reason\":\"legal/consent: always your choice\",\"required\":true",
+   "\"label\":\"Website\",\"outcome\":\"left\",\"reason\":\"a detail of yours not saved yet (website)\",\"required\":false"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60
+ }
+}

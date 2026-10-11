@@ -110,7 +110,7 @@
       .map(el => ({field: el.id || el.name || label(el), label: label(el),
         type: isCombo(el) ? 'combobox' : el.type || el.tagName.toLowerCase(),
         required: !!(el.required || el.getAttribute('aria-required') === 'true'),
-        legal: forbidden.test(label(el)), filled: el.type === 'file' ? !!el.files?.length :
+        legal: forbidden.test(label(el)) || el.dataset?.jobpilottoCategory === 'legal', filled:   // the AI's reading too, any language (page/categories.js) el.type === 'file' ? !!el.files?.length :
           isCombo(el) ? comboFilled(el) :
           ['checkbox', 'radio'].includes(el.type) ? !!el.checked : el.tagName === 'SELECT' ? window.__jobPilottoChosen(el) : !!String(el.value || '').trim()}));
     // The upload slots (page/upload.js, found by structure) are the file rows; where that script is not loaded (the Playwright launchers), the CV heading is guessed.

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import fs from 'node:fs';
 import worker from '../src/index.js';
 import { jobKey } from '../src/extension.js';
 
@@ -287,7 +288,7 @@ test('a likely answer the profile does not state comes back as a proposal (a kno
   const fields = answers.map((a) => ({ field: a.field, label: a.field, type: 'text' }));
   const result = await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t) },
     { url: 'https://forms.example.com/apply', fields, page_text: '50% contract' }, client);
-  assert.deepEqual(result.answers.map((a) => [a.field, a.use]), [['hours', 'propose'], ['visa', 'propose'], ['sms', 'propose'], ['email', 'fill']]);
+  assert.deepEqual(result.answers.map((a) => [a.field, a.use]), [['hours', 'propose'], ['visa', 'propose'], ['sms', 'propose'], ['email', 'fill'], ['terms', 'kind']]);   // the floored legal one still says it is legal (a kind, no value)
   assert.equal(traces[0].proposed, 3);
   assert.deepEqual(traces[0].floored, ['demographic', 'legal']);   // the log says what the floor took out (9 Oct 2026: Coop's SMS opt-in, no trace)
   assert.equal(traces[0].categories.preference, 1);
@@ -323,4 +324,25 @@ test('a fill row says who paid for its answer: the engine and its billing, a val
   assert.equal(billedTo({ billing: 'subscription', provider: 'openai' }), 'ChatGPT plan');
   assert.equal(billedTo({}), 'Anthropic API credits', 'the Worker\'s own SDK answer: no provider, Anthropic');
   for (const usage of [{ billing: 'api', provider: 'openai' }, { billing: 'subscription', provider: 'openai' }]) assert.ok(BILLED.includes(billedTo(usage)));
+});
+
+test('a legal question comes back as a kind only (no value), so the extension marks it the person\'s choice in any wording; the prompt asks for that row', async () => {
+  const { answerForm } = await import('../src/extension.js');
+  // 11 Oct 2026, Datadog: "I certify that the information provided is true" was left out by the AI as legal, with no category, so the
+  // extension (whose English floor missed the wording) called it "no answer in the kit".
+  const answers = [
+    { field: 'certify', value: '', confidence: 'high', note: 'an attestation', category: 'legal', use: 'fill' },
+    { field: 'terms', value: 'checked', confidence: 'low', note: '', category: 'legal', use: 'propose' },
+    { field: 'gender', value: '', confidence: 'low', note: '', category: 'demographic', use: 'fill' },
+    { field: 'city', value: 'Zurich', confidence: 'high', note: '', category: 'contact', use: 'fill' },
+  ];
+  const client = { messages: { create: async () => ({ stop_reason: 'end_turn', usage: { billing: 'subscription' },
+    content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers }) }] }) } };
+  const fields = answers.map((a) => ({ field: a.field, label: a.field, type: 'combobox' }));
+  const result = await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '' }, { url: 'https://forms.example.com/apply', fields, page_text: '' }, client);
+  assert.deepEqual(result.answers.map((a) => [a.field, a.value, a.use, a.category]),
+    [['city', 'Zurich', 'fill', 'contact'], ['certify', '', 'kind', 'legal'], ['terms', '', 'kind', 'legal']]);
+  const source = fs.readFileSync(new URL('../src/extension.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /Leave out legal consents/);
+  assert.match(source, /legal question[^.]*value ""[^.]*category "legal"/);
 });

@@ -34,14 +34,15 @@
   window.__jobPilottoExtensionFill = async (all, profile, resume, coverLetter = '', acceptConsents = false) => {
     if (!('__jobPilottoGuardActive' in window)) return {error: 'The page helpers did not load; nothing was filled.'};
     // The AI's likely answers it was not told (use: "propose", worker/src/extension.js): shown to you as proposals, never typed.
-    const answers = (all || []).filter(a => a.use !== 'propose'), proposedOf = Object.fromEntries((all || []).filter(a => a.use === 'propose').map(a => [a.field, a]));
+    // A kind only (use: "kind", no value): the AI's reading of a legal question, marked below and never filled (worker/src/extension.js answerForm).
+    const answers = (all || []).filter(a => a.use !== 'propose' && a.use !== 'kind'), proposedOf = Object.fromEntries((all || []).filter(a => a.use === 'propose').map(a => [a.field, a]));
     const form = await window.__jobPilottoDescribeForm();
     for (const group of window.__jobPilottoCheckboxQuestions()) {
       form.push({field: `group:${group.question}`, question: group.question, label: group.question, type: 'checkbox-group', options: group.options,
         filled: false, legal: LEGAL.test(group.question)});
     }
     const rowOf = Object.fromEntries(form.map(row => [row.field, row]));
-    window.__jobPilottoMarkCategories?.(answers, rowOf);   // the AI's reading, any language: legal never filled (page/categories.js)
+    window.__jobPilottoMarkCategories?.([...answers, ...(all || []).filter(a => a.use === 'kind')], rowOf);   // the AI's reading, any language: legal never filled (page/categories.js)
     // Kit answers name fields as the job board does (question_123[]); a checkbox group is matched by its question.
     for (const item of answers) {
       if (rowOf[item.field] || !item.question) continue;
