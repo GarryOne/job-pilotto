@@ -1,0 +1,89 @@
+{
+ "schemaVersion": 1,
+ "id": "cand-louis-vuitton-jobs",
+ "source": "captured",
+ "why": "The site refuses the visitor: a block page instead of the job",
+ "note": "smoke run 2026-10-11: reached posting (other > posting > other > posting); the app answered other by ai at 0.85; the expectation is pending: say what the page really is",
+ "capture": {
+  "from": "replay-candidates/2026-10-11/louis-vuitton-jobs",
+  "request": "ai-calls.json"
+ },
+ "sketch": {
+  "url": "https://jobs.louisvuitton.com/en/search-page/job/stock-controller-athens-part-time-greece-athens-LVM34193",
+  "title": "LOUIS VUITTON",
+  "headings": [
+   "REF #0.7f161502.(phone).212fddbc",
+   "Access denied. We invite you to return at a later time to complete your purchase.",
+   "Accès refusé. Nous vous invitons à revenir plus tard pour effectuer votre achat."
+  ],
+  "controls": [],
+  "buttons": [],
+  "frames": [],
+  "mails": [],
+  "frameCandidates": []
+ },
+ "candidates": [
+  {
+   "kind": "phone",
+   "n": 1,
+   "position": "main",
+   "text": "REF #0.7f161502.(phone).212fddbc"
+  },
+  {
+   "kind": "phone",
+   "n": 2,
+   "position": "main",
+   "text": "(phone)"
+  },
+  {
+   "kind": "sentence",
+   "n": 3,
+   "position": "main",
+   "text": "Access denied."
+  },
+  {
+   "kind": "sentence",
+   "n": 4,
+   "position": "main",
+   "text": "We invite you to return at a later time to complete your purchase."
+  },
+  {
+   "kind": "sentence",
+   "n": 5,
+   "position": "main",
+   "text": "Accès refusé."
+  },
+  {
+   "kind": "sentence",
+   "n": 6,
+   "position": "main",
+   "text": "Nous vous invitons à revenir plus tard pour effectuer votre achat."
+  }
+ ],
+ "expect": {
+  "outcome": "refused",
+  "accept": [
+   "refused",
+   "other"
+  ],
+  "accept_reasons": {
+   "other": "Rung 2 has no `refused` kind: a page that shows nothing to do is `other`; the numbered digest (rung 3) names the outcome refused."
+  }
+ },
+ "answer": {
+  "kind": "other",
+  "confidence": 0.9,
+  "apply_button": "",
+  "apply_button_kind": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "form_frame": -1,
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "answer_path": "app"
+}

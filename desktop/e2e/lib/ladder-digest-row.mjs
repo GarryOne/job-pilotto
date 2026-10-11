@@ -4,7 +4,7 @@
 import {SURE} from './ladder-score.mjs';
 
 // What the digest should say for a ladder outcome (a posting with an Apply control is "form": press it).
-export const DIGEST_OUTCOME = {posting: ['form', 'link'], email: ['email'], phone: ['phone'], in_person: ['in_person'], expired: ['expired'], login_wall: ['login_wall'], other: ['other']};
+export const DIGEST_OUTCOME = {posting: ['form', 'link'], email: ['email'], phone: ['phone'], in_person: ['in_person'], expired: ['expired'], login_wall: ['login_wall'], refused: ['refused'], other: ['other']};
 
 export function digestRow(fixture, answer) {
   const want = DIGEST_OUTCOME[fixture.expect.outcome], hit = !answer.error && want.includes(answer.outcome);

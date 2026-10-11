@@ -1,7 +1,7 @@
 // The hand-started smoke's logic (lib/smoke.mjs): how far a live run got, what counts as a regression, which posting a run tries, which shapes it takes.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {compare, engineLine, fieldLines, marksBlind, parseLive, pickPosting, placeFound, rungFields, runShare, shareSize, shortfall, smokeEngine, verdictFields, verdictOf} from '../lib/smoke.mjs';
+import {LOGIN_WALL, SITE_REFUSED, compare, engineLine, fieldLines, marksBlind, parseLive, pickPosting, placeFound, rungFields, runShare, shareSize, shortfall, smokeEngine, verdictFields, verdictOf} from '../lib/smoke.mjs';
 
 const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detail/x/
   2026-10-10T12:20:27Z [extension] page kind: account {"shape":"auth.jobs.ch/u/login/identifier|1-2","by":"ai"}
@@ -315,4 +315,26 @@ test('past the account page the application form counts again, and no hold is no
   assert.deepEqual([routed.reached, routed.note], ['account', 'account-first: held']);
   // An eligibility stop keeps its own note.
   assert.match(parseLive([...SIGN_UP.slice(0, 3), '      log 15:38:32.019Z [extension] fill: did not fill: The role is in Sydney. {"url":"x"}'].join('\n')).note, /^eligibility stop: /);
+});
+
+// A stop the ladder already named (owner/cc, 11 Oct 2026, Louis Vuitton, H&M, Cloudera: "No cause recorded"): the numbered digest's own outcome is the cause. A site that
+// refuses the visitor or a sign-in wall is a documented hold, never a fix; neither is a clean run (only account-first is).
+const DIGEST = outcome => ['  live +  0s: Apply pressed on https://jobs.example.com/job/1/',
+  '      log 10:00:00.000Z [extension] page kind: other {"shape":"jobs.example.com/job/*|0","by":"ai","rung":2}',
+  '      log 10:00:01.000Z [extension] page kind: posting {"shape":"jobs.example.com/job/*|0","by":"digest","rung":3}',
+  `      log 10:00:01.100Z [extension] digest: outcome=${outcome} verb=none numbers=[] press_kind=- dropped=-`];
+
+test('the digest outcome refused is the hold "site refused: retry later"; login_wall is "login wall: held"; both leave the step at the posting', () => {
+  for (const [outcome, note] of [['refused', SITE_REFUSED], ['login_wall', LOGIN_WALL]]) {
+    const result = parseLive(DIGEST(outcome).join('\n'));
+    assert.deepEqual([result.reached, result.note], ['posting', note], outcome);
+  }
+  assert.equal(parseLive(DIGEST('other').join('\n')).note, undefined, 'an outcome that names no stop is no hold');
+  assert.equal(parseLive(DIGEST('expired').join('\n')).note, undefined);
+});
+
+test('a form reached after the refusal clears the hold (the block came and went); an account-first hold keeps its own note', () => {
+  const later = parseLive([...DIGEST('refused'), '      log 10:01:00.000Z [extension] fill: fields: 5 filled, 1 left {"fields":[]}'].join('\n'));
+  assert.deepEqual([later.reached, later.note], ['form', undefined]);
+  assert.equal(parseLive([...SIGN_UP, '      log 22:07:04.000Z [extension] digest: outcome=login_wall verb=none numbers=[] press_kind=- dropped=-'].join('\n')).note, 'account-first: held');
 });

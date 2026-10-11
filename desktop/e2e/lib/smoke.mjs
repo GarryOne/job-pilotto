@@ -21,12 +21,18 @@ export const rungFields = result => ({...(result?.rung != null ? {rung: result.r
 // Account-first (owner, 11 Oct 2026: a documented hold): a sign-up page is filled like a form, but the run never presses its account button. While the extension's
 // own last page kind is 'account' (the AI's decision), fields and marks are the account page's, never the application's; a run that ends there is ACCOUNT_HELD.
 export const ACCOUNT_HELD = 'account-first: held';
+// A stop the ladder's numbered digest already named (its own fixed outcome, never the page's words; cc/owner, 11 Oct 2026: Louis Vuitton and H&M answered with a block page,
+// Cloudera with a sign-in wall, all "No cause recorded"): the site refuses the visitor (it comes and goes: retry later), or the job is behind a sign-in. Documented holds, not fixes;
+// neither counts as a clean run on the Fixed tab (only account-first does), and a later run that gets through and fails lists the row again.
+export const SITE_REFUSED = 'site refused: retry later';
+export const LOGIN_WALL = 'login wall: held';
+const DIGEST_HOLD = {refused: SITE_REFUSED, login_wall: LOGIN_WALL};
 export function parseLive(output) {
   const lines = String(output || '').split('\n');
   let reached = 'none', filled = null, left = null, marks = null, note = '', verdict;
   const kinds = [], errors = [], path = [];
   let fieldList = [];   // the form's fields, one 'field ...' line each (apply-live.mjs prints them whole: the app's own line is cut at 230 characters)
-  let derived = null, told = null, onAccount = false;
+  let derived = null, told = null, onAccount = false, digestHold = '';
   const pageKindErrors = [];   // the AI's own words when a page-kind answer had no kind (usage limit, CLI failure...): job-pilotto-54 found a fast null answer with nothing saying why
   const reach = step => { if (rank(step) > rank(reached)) reached = step; };
   for (const line of lines) {
@@ -39,6 +45,8 @@ export function parseLive(output) {
       onAccount = kind[1] === 'account';
       kinds.push(kind[1]); if (kind[1] === 'account') reach('account'); if (/^(form|account-form)$/.test(kind[1])) reach('form'); }
     if (/account (judgment|result)[^:]*: needs_code|"botCheck":true|bot check/.test(line)) reach('code/bot');
+    const digestOutcome = line.match(/\bdigest: outcome=(\w+)/);
+    if (digestOutcome) digestHold = DIGEST_HOLD[digestOutcome[1]] || '';
     const noKind = line.match(/page kind: none \(([^)]*)\)/);
     if (noKind && noKind[1] && !pageKindErrors.includes(noKind[1].slice(0, 120)) && pageKindErrors.length < 5) pageKindErrors.push(noKind[1].slice(0, 120));
     if (/pressed the control the digest named|the page tells what to do/.test(line)) derived = 3;   // the ladder's rung 3 (the numbered digest) decided
@@ -52,9 +60,9 @@ export function parseLive(output) {
     const fields = line.match(/fields: (\d+) filled, (\d+) left/);
     const field = line.match(/^\s+field (filled|left) (\S+) "(.*)" required=(true|false|\?) reason=(.*)$/);
     if (field && !onAccount) fieldList.push({outcome: field[1], type: field[2], label: field[3], required: field[4] === 'true' ? true : field[4] === 'false' ? false : null, reason: field[5]});
-    if (fields && !onAccount && !/account page/.test(line)) { fieldList = []; filled = Number(fields[1]); left = Number(fields[2]); reach('form'); if (left === 0 && filled > 0) reach('ready'); }
+    if (fields && !onAccount && !/account page/.test(line)) { fieldList = []; filled = Number(fields[1]); left = Number(fields[2]); reach('form'); digestHold = ''; if (left === 0 && filled > 0) reach('ready'); }
     // The form came after the Apply press (the same page drew it): reached, whatever the fill did next (Teamtailor, 11 Oct 2026: scored "posting").
-    if (/fill: after the press: a form came/.test(line)) reach('form');
+    if (/fill: after the press: a form came/.test(line)) { reach('form'); digestHold = ''; }
     // The fill's AI judged the applicant ineligible (extension/background.js: the only "did not fill:" line): the form was reached and the run stopped there on
     // purpose. Kept as the note, so the pool shows an eligibility stop, not a fill failure (the line is cut at 230 characters: the reason is read up to its own end).
     // The AI's own verdict and what passed a "not eligible" (extension/eligibility-verdict.js); an older extension's line carries neither.
@@ -66,6 +74,7 @@ export function parseLive(output) {
   }
   // "a form came" after the Apply press can be the route to the sign-up page (adnovum, 11 Oct 2026): with no application field counted, the run still ended at the account step.
   if (!note && ['account', 'form'].includes(reached) && filled == null && path.at(-1)?.kind === 'account') { reached = 'account'; note = ACCOUNT_HELD; }
+  if (!note && digestHold && rank(reached) < rank('form')) note = digestHold;
   return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, pageKindErrors, kinds: [...new Set(kinds)], path, errors, ...(note ? {note} : {}), ...(verdict ? {verdict} : {})};
 }
 

@@ -60,12 +60,16 @@
   {
    "date": "2026-10-11",
    "reason": "ready-en-chosen-picklists: wrong-confident -> exact (accountSketch reads a chosen picklist as filled)"
+  },
+  {
+   "date": "2026-10-11",
+   "reason": "rung 3: new outcome refused (a site that turns the visitor away); 2 captured refusal pages added"
   }
  ],
  "promptFingerprint": {
   "rung2": "f195b59f9e204185",
   "rung2-frames": "062eb0c3862f408e",
-  "rung3": "992bf04b97d0b065",
+  "rung3": "e80807ed89849855",
   "account-judge": "82bb54b889d5f14d",
   "form-judge": "ac2382fd98ef6780",
   "rung4": "b69068d6b5b1a559"
@@ -353,6 +357,28 @@
    },
    "outcome": "form_in_frame",
    "status": "exact"
+  },
+  "cand-louis-vuitton-jobs": {
+   "expect": {
+    "outcome": "refused",
+    "accept": [
+     "refused",
+     "other"
+    ]
+   },
+   "outcome": "other",
+   "status": "ok"
+  },
+  "cand-no-form-career-hm-com-found-2026-10-10": {
+   "expect": {
+    "outcome": "refused",
+    "accept": [
+     "refused",
+     "other"
+    ]
+   },
+   "outcome": "other",
+   "status": "ok"
   },
   "cand-swatch-group-careers": {
    "expect": {

@@ -1,0 +1,69 @@
+{
+ "schemaVersion": 1,
+ "id": "cand-no-form-career-hm-com-found-2026-10-10",
+ "source": "captured",
+ "why": "The site refuses the visitor: a block page instead of the job",
+ "note": "smoke run 2026-10-11: reached posting (other > posting > other > posting); the app answered other by ai at 0.85; the expectation is pending: say what the page really is",
+ "capture": {
+  "from": "replay-candidates/2026-10-11/no-form-career-hm-com-found-2026-10-10",
+  "request": "ai-calls.json"
+ },
+ "sketch": {
+  "url": "https://career.hm.com/job/3ee4ab7c-44f4-4324-9d61-0549a61f887f",
+  "title": "Access Denied",
+  "headings": [
+   "Access Denied"
+  ],
+  "controls": [],
+  "buttons": [],
+  "frames": [],
+  "mails": [],
+  "frameCandidates": []
+ },
+ "candidates": [
+  {
+   "kind": "phone",
+   "n": 1,
+   "position": "main",
+   "text": "Reference #18.2d6cdead.(phone).4f243fdc"
+  },
+  {
+   "kind": "phone",
+   "n": 2,
+   "position": "main",
+   "text": "https://errors.edgesuite.net/18.2d6cdead.(phone).4f243fdc"
+  },
+  {
+   "kind": "sentence",
+   "n": 3,
+   "position": "main",
+   "text": "Access Denied"
+  }
+ ],
+ "expect": {
+  "outcome": "refused",
+  "accept": [
+   "refused",
+   "other"
+  ],
+  "accept_reasons": {
+   "other": "Rung 2 has no `refused` kind: a page that shows nothing to do is `other`; the numbered digest (rung 3) names the outcome refused."
+  }
+ },
+ "answer": {
+  "kind": "other",
+  "confidence": 0.85,
+  "apply_button": "",
+  "apply_button_kind": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "form_frame": -1,
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "answer_path": "app"
+}

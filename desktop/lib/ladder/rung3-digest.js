@@ -4,7 +4,7 @@
 // The wiring (when it is asked, the card, the kept answer) belongs to the flow core; this file only asks and validates. Guard: desktop/test/digest.test.js.
 import {model, priceOf} from '../ai/models.js';
 
-export const OUTCOMES = ['form', 'email', 'phone', 'link', 'login_wall', 'expired', 'in_person', 'other'];
+export const OUTCOMES = ['form', 'email', 'phone', 'link', 'login_wall', 'refused', 'expired', 'in_person', 'other'];
 export const VERBS = ['tell_person', 'press', 'open', 'none'];
 export const BUTTON_KINDS = ['apply', 'sign_in', 'sign_up', 'third_party', 'other', ''];   // what a pressed button does, judged by the AI in any language
 export const MODEL = model('small');
@@ -29,6 +29,7 @@ Answer how the candidate applies for THIS job, deciding from what the page asks 
 - in_person: the page asks to come by or hand something in (tell_person with that sentence).
 - expired: the job is closed, filled or no longer accepts applications, and nothing on the page still offers to apply (tell_person with that sentence).
 - login_wall: the job itself is hidden until the visitor signs in, or the only way to apply is a sign-in. When the posting is shown and a button or link starts the application (even one that says an account is needed or offers a choice with and without an account), the outcome is form, not login_wall.
+- refused: the site turns the visitor away instead of showing the job (a blocked or access-denied page, a forbidden notice), and no job or Apply is shown (verb none).
 - link: the way to apply is another page that is not an application form of this site (open, with that link's number).
 - other: none of these, or you cannot tell (verb none).
 Beware: a closed notice above a working Apply button or form is not "expired"; a press, contact or question address is not how to apply.

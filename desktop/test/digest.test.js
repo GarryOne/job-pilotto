@@ -14,7 +14,7 @@ const candidates = [
 const ok = (answer) => validateDigest({confidence: 0.9, numbers: [], ...answer}, candidates);
 
 test('the fixed answers: outcomes from the apply_by values extended, and four closed verbs', () => {
-  assert.deepEqual(OUTCOMES, ['form', 'email', 'phone', 'link', 'login_wall', 'expired', 'in_person', 'other']);
+  assert.deepEqual(OUTCOMES, ['form', 'email', 'phone', 'link', 'login_wall', 'refused', 'expired', 'in_person', 'other']);
   assert.deepEqual(VERBS, ['tell_person', 'press', 'open', 'none']);
   assert.deepEqual(DIGEST_SCHEMA.properties.outcome.enum, OUTCOMES);
   assert.deepEqual(DIGEST_SCHEMA.properties.verb.enum, VERBS);
@@ -64,4 +64,9 @@ test('askDigest sends the candidates numbered, validates the reply and counts th
   assert.equal(calls[0].output_config.format.schema, DIGEST_SCHEMA);
   const failing = await askDigest({messages: {create: async () => { throw new Error('down'); }}}, {}, candidates);
   assert.equal(failing.error, 'down');
+});
+
+test('refused: the site turns the visitor away (a block page, no job shown); it stands on no candidate and takes no verb but none or tell_person', () => {
+  assert.deepEqual(ok({outcome: 'refused', verb: 'none'}), {outcome: 'refused', verb: 'none', numbers: [], confidence: 0.9, chosen: []});
+  assert.equal(ok({outcome: 'refused', verb: 'press', numbers: [4]}).dropped, 'verb does not fit the outcome');
 });

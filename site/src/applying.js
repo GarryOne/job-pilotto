@@ -72,7 +72,7 @@ const shareOf = (filled, left) => (Number.isInteger(filled) && Number.isInteger(
 const runNeedsFix = run => (run.note ? null : !run.reached ? null : !!run.regression || !!shortOf(run.reached, run.filled, run.left_n, run.asked, run.unexplained) || ['none', 'posting', 'account'].includes(run.reached));
 // A documented hold (owner, 11 Oct 2026): a stop the runner made on purpose and noted (desktop/e2e/lib/smoke.mjs parseLive): an account-first site (the smoke never creates the account)
 // or an eligibility stop. A live site, never a fix and never a posting gone; any other note (a posting gone, no posting) is gone.
-export const isHold = note => /^(account-first: held|eligibility stop:)/.test(note || '');
+export const isHold = note => /^(account-first: held|eligibility stop:|site refused: retry later|login wall: held)/.test(note || '');
 // The site's own lasting property (it asks for an account first), unlike an eligibility stop (the posting against the profile, says nothing about the site):
 // only this hold verifies a fix on the Fixed tab (applying-fixed.js statusOf).
 export const isAccountHold = note => /^account-first: held/.test(note || '');
