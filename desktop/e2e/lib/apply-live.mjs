@@ -1,5 +1,5 @@
 /* global window, document, location, Event, chrome */
-// The LIVE run of the apply flow (8 Oct 2026): the real extension in a visible Chrome, on a REAL posting from this Mac's job list (read-only), pressed
+// The LIVE run of the apply flow (8 Oct 2026): the real extension in a headless Chromium (E2E_HEADED=1 to watch; lib/extension.mjs launchBrowser), on a REAL posting from this Mac's job list (read-only), pressed
 // through the app's own Apply, watched for a while, and reported as a timeline. Nothing is pressed on the page: no account button, never Submit.
 // The app under test is the e2e one (its own profile and Notion test page, never the owner's data). Run: `npm run live` in desktop/ (LIVE_URL=<posting> to
 // pick one; LIVE_SECONDS=120 how long to watch). Not part of the matrix: it needs the real internet and the real site's mood. Guard: desktop/test/apply-live.test.js.
