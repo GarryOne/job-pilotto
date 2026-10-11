@@ -26,3 +26,10 @@ test('the fill returns the verdict fields, from the press as asked (before a kit
   assert.match(flow, /return \{\.\.\.summary, usd: ai\?\.usd, aiError, coverLetter: ai\?\.cover_letter, \.\.\.verdictFields\(\{ai, askedAnyway, kit: withKit \|\| kitSkips, checkOff: config\.checkEligibility === false\}\)\};/);
   assert.match(background, /\{url: page, ineligible: !!result\.ineligible, aiEligible: result\.aiEligible \?\? null, forced: result\.forced \|\| ''\}/);
 });
+
+// A stop carries the verdict too, so its line says aiEligible:false, never null (11 Oct 2026: the partly stop's line said null after df9f592).
+test('every eligibility stop returns the AI\'s verdict', () => {
+  const stops = [...flow.matchAll(/return \{[^;]*ineligible: true[^;]*;/g)].map(([whole]) => whole);
+  assert.ok(stops.length >= 2, `both stops are found (${stops.length})`);
+  for (const stop of stops) assert.match(stop, /\.\.\.verdictFields\(\{ai\}\)\};$/, `a stop without the AI's verdict: ${stop}`);
+});

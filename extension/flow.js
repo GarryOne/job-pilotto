@@ -247,7 +247,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     const cached = reuse && !withKit ? await cachedAI(tab) : null;
     if (withKit) { /* Claude after the fill */ } else if (cached) {
       ai = cached;
-      if (!ai.eligible && !force && config.checkEligibility !== false) return {ineligible: true, note: ai.eligibility_note || '', usd: 0};
+      if (!ai.eligible && !force && config.checkEligibility !== false) return {ineligible: true, note: ai.eligibility_note || '', usd: 0, ...verdictFields({ai})};
       const byAI = new Set(ai.answers.map(a => a.field));
       answers = [...ai.answers.map(a => ({...a, source: 'Claude (on the page)'})), ...answers.filter(a => !byAI.has(a.field))];
     } else if (open.length) {
@@ -349,7 +349,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
         await chrome.storage.session.set({[cacheKey(tab)]: {url: tab.url.split('#')[0], ai, test: !!config.testMode}});
         // Settings → "Check eligibility before filling" off (for testing): fill regardless. Not eligible: what is filled stays (owner, 11 Oct 2026), the rest waits;
         // the first pass's rows go with the stop, so its fields are logged as on every other end (the smoke counted them as none, 11 Oct 2026).
-        if (!ai.eligible && !force && config.checkEligibility !== false) return {...summary, ineligible: true, partly: true, note: ai.eligibility_note || '', usd: ai.usd};
+        if (!ai.eligible && !force && config.checkEligibility !== false) return {...summary, ineligible: true, partly: true, note: ai.eligibility_note || '', usd: ai.usd, ...verdictFields({ai})};
       }
       const extra = useRemembered(ai.answers.filter(a => later.some(f => f.field === a.field)).map(a => ({...a, source: 'Claude (on the page)'})));
       if (extra.length) {

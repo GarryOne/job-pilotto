@@ -17,7 +17,7 @@ test('without a kit, Claude is asked and the known fields are filled before its 
 });
 
 test('not eligible after the first pass: what is filled stays, and the note says only your details were filled', () => {
-  assert.match(flow, /return \{\.\.\.summary, ineligible: true, partly: true, note: ai\.eligibility_note \|\| '', usd: ai\.usd\}/);
+  assert.match(flow, /return \{\.\.\.summary, ineligible: true, partly: true, note: ai\.eligibility_note \|\| '', usd: ai\.usd, \.\.\.verdictFields\(\{ai\}\)\}/);
   assert.match(background, /await ineligibleNote\(tab\.id, result\.note, result\.partly\)/);
 });
 
