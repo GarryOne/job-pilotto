@@ -4,39 +4,19 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {test} from 'node:test';
-import {FILL_FILES} from '../../extension/page-files.js';
-
-function page(rows) {
-  const elements = Object.fromEntries(rows.map(row => [row.field, {id: row.field, type: row.type, checked: false, dataset: {}, clicks: 0,
-    click() { this.clicks++; this.checked = !this.checked; }, getAttribute: () => null, closest: () => null, labels: [], value: ''}]));
-  const window = {__jobPilottoGuardActive: true};
-  const document = {getElementById: id => elements[id] || null, querySelector: () => null, querySelectorAll: () => [], body: {innerText: ''},
-    documentElement: {className: ''}};
-  const context = vm.createContext({window, document, getComputedStyle: () => ({}), setTimeout, clearTimeout, CSS: {escape: s => s}, console,
-    Event: class {}, HTMLInputElement: class {}, HTMLTextAreaElement: class {}});
-  for (const file of ['page/categories.js', 'page/radios.js', ...FILL_FILES]) vm.runInContext(fs.readFileSync(new URL(`../../extension/${file}`, import.meta.url), 'utf8'), context);
-  window.__jobPilottoDescribeForm = async () => rows.map(row => ({...row}));
-  window.__jobPilottoCheckboxQuestions = () => [];
-  window.__jobPilottoFillKnownFields = () => ({filled: []});
-  return {window, elements};
-}
+import {fakeFillPage} from './fake-fill-page.js';
 
 test('a consent the AI read as legal is never ticked, in any language; its kind is marked for the review panel', async () => {
   const rows = [{field: 'privacidade', label: 'Li e aceito a política de privacidade', type: 'checkbox', required: true, filled: false, legal: false},
     {field: 'visto', label: 'Precisa de visto para trabalhar em Portugal?', type: 'text', required: true, filled: false, legal: false}];
-  const {window, elements} = page(rows);
-  await window.__jobPilottoExtensionFill([{field: 'privacidade', value: 'checked', category: 'legal'},
-    {field: 'visto', value: 'Não', category: 'knockout'}], {}, null).catch(() => null);
+  const {elements, fill} = fakeFillPage(rows);
+  await fill([{field: 'privacidade', value: 'checked', category: 'legal'}, {field: 'visto', value: 'Não', category: 'knockout'}]);
   assert.equal(elements.privacidade.clicks, 0, 'never ticked by us');
   assert.equal(elements.privacidade.dataset.jobpilottoCategory, 'legal');
   assert.equal(elements.visto.dataset.jobpilottoCategory, 'knockout');
 });
 
 test('a voluntary question the AI read as demographic is declined, in any language, like the English words', async () => {
-  const rows = [{field: 'geschlecht', label: 'Geschlecht', type: 'combobox', required: false, filled: false, legal: false}];
-  const {window} = page(rows);
-  const armed = [];
-  window.__jobPilottoArmCombo = (field, value) => armed.push([field, value]);
   const fill = fs.readFileSync(new URL('../../extension/page/fill.js', import.meta.url), 'utf8');
   assert.match(fill, /!\(row\.demographic \|\| DEMOGRAPHIC\.test\(row\.label/);
   const categories = fs.readFileSync(new URL('../../extension/page/categories.js', import.meta.url), 'utf8');
