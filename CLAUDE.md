@@ -77,6 +77,7 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 | Habits, big changes, e2e steps, debugging e2e | [docs/rules/change-loop.md](docs/rules/change-loop.md) |
 | Facts easy to get wrong, code layout | [docs/rules/facts-and-layout.md](docs/rules/facts-and-layout.md) |
 | How knowledge is kept between sessions | [docs/rules/knowledge.md](docs/rules/knowledge.md) |
+| Running a fix round (coordinator): order, target, no tooling mid-round | [docs/rules/rounds.md](docs/rules/rounds.md) |
 | Why each rule exists | [docs/rules/why.md](docs/rules/why.md) |
 
 ## Tests

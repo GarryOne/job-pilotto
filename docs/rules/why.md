@@ -76,3 +76,7 @@ what stop a rule from being relaxed back into the old bug. Add an entry when a n
   dated 3 Oct) and 1 the Technical Reference; the Run Log repeated the commit messages. Lessons now land in stronger forms ([knowledge.md](knowledge.md)).
 - **After each change, only what applies** (owner, 11 Oct 2026): Tier 0 targets ~1 minute, but every change was also asked to update three Notion
   pages, a Bug Tracker row, a two-table to-do list and the Intelligence page; agents over-verified and over-reported.
+- **Fix rounds: by cause, judged by confirmed rows** (owner, 11 Oct 2026): a ~3 h round of 6+ sessions (one per row) confirmed 2 pool rows; 75 of 131
+  commits were tooling; 10 of 29 "Needs a fix" rows had never run; an optional empty field counted as a failure on every site (the logged fill line dropped
+  `required`); the coordinator named a wrong cause for the waiting (a shared Notion page; the runs were on SQLite) and the Mac was swapping (load 31).
+  Rules and start-of-round order: [rounds.md](rounds.md).

@@ -21,6 +21,13 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
   `case.json` skeleton: the run's fields, page path and page-kind lines): start the recorded page from that candidate, take the AI's answers from its `evidence`, never invent them.
   **Skip what is not a failure:** an email/told outcome (a correct hold), a site answering 5xx (note it), a row already fixed on main (`git log origin/main --grep '<site>'`, `Pool-row:` trailers): 3 of 4 top rows were these on 11 Oct.
   Say: N rows, the top three, the one you take. After the landing, the next night's "Filled, last runs" column of that row is the proof: it must go up or the row must leave the list.
+- **Take a CAUSE, not a row** (owner, 11 Oct 2026: a 3 h round of 6+ sessions, one per row, confirmed 2 rows; [docs/rules/rounds.md](../../../docs/rules/rounds.md)). Read the
+  **By cause** tab of `/admin/applying` or `node tools/needs-fix-causes.mjs --rows` (the Needs-a-fix rows grouped by top cause; `node tools/needs-fix-order.mjs` is the plain order).
+  1. **"Run first" is not yours:** a row never run, or with no run since its fix, needs a pool run, not a fix (11 Oct: 10 of 29 had never run). Hand the list to the pool owner (`coordinator.txt`).
+  2. **Take the biggest cause no session holds:** claim every row of it (`node tools/claim-shape.mjs claim "<row>" ...`; exit 1 on one: take the next cause). "No cause recorded": read the
+     row's evidence (1.1, ASKED/ANSWERED/DONE) and name its cause before fixing.
+  3. **Your target is rows confirmed by a pool run** (Fixed tab "Confirmed"), never "fix landed" or "recorded page passes". Ask the pool owner to run your shapes on your build and go idle;
+     report confirmed rows of your cause, before -> after, when you stop.
 - **Peers (a courtesy, never a dependency; owner, 11 Oct 2026: "run on its own, without a coordinator"):** `ListAgents`; `coordinator.txt` in `~/Library/Application Support/Job Pilotto QA/` names the session
   owning the e2e page, if one runs. Never two runs on the page: a peer's run holds it, wait or queue. **No coordinator in `ListAgents`, or the page free: you run everything yourself** (repro, re-run on the landed build, upload) and say so in one line; never stop to ask.
 - **Claim the flow core** (`FLOW_CORE`/`FLOW_FILES`, `desktop/e2e/flows.mjs`) **only once the cause is proven (1.4), never on a hypothesis** (11 Oct: a claim on a guess queued 3 sessions), before editing any file in it: one message to every peer "I own the flow core
