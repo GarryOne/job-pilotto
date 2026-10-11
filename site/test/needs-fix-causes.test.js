@@ -20,8 +20,8 @@ const now = new Date('2026-10-12T12:00:00Z');
 
 async function seeded() {
   const db = d1();
-  const names = ['Aaa stale', 'Bbb never run', 'Ccc unread', 'Ddd unread too', 'Eee no option', 'Fff no cause', 'Ggg fine', 'Hhh stale but fine'];
-  await ingest(db, {kind: 'pool', day: '2026-10-12', rows: names.map(name => ({name, start_host: 'jobs.example.com'}))}, now);
+  const names = ['Aaa stale', 'Bbb never run', 'Ccc unread', 'Ddd unread too', 'Eee no option', 'Fff no cause', 'Ggg fine', 'Hhh stale but fine', 'Iii signature only'];
+  await ingest(db, {kind: 'pool', day: '2026-10-12', rows: names.map(name => ({name, start_host: 'jobs.example.com', ...(name === 'Iii signature only' ? {signature: 'posting@jobs.example.com#posting'} : {})}))}, now);
   const run = (version, name, row) => ingest(db, {kind: 'smoke', day: '2026-10-12', version, rows: [{name, host: 'jobs.example.com', ...row}]}, now);
   await run('0.9.180', 'Aaa stale', {reached: 'posting'});            // older than the latest build: a run, not a fix
   await run('0.9.188', 'Ccc unread', {reached: 'posting'});
@@ -52,9 +52,13 @@ async function pageText(json) {
   return text.slice(from, text.indexOf('Nights', from));
 }
 
-test('the latest landed build is the newest version seen in the uploaded runs and in the fix ledger', async () => {
+test('the latest landed build is the newest build the fix ledger names; with no ledger it is the newest version any run reports', async () => {
   const json = await seeded();
-  assert.equal(json.latestBuild, '0.9.188');
+  assert.equal(json.latestBuild, '0.9.185');   // the ledger's fix (0.9.185), not the newest run (0.9.188): every extension bump would otherwise make every row stale
+  const db = d1();
+  await ingest(db, {kind: 'smoke', day: '2026-10-12', version: '0.9.181', rows: [{name: 'x', host: 'jobs.example.com', reached: 'posting'}]}, now);
+  await ingest(db, {kind: 'smoke', day: '2026-10-12', version: '0.9.190', rows: [{name: 'y', host: 'jobs.example.com', reached: 'posting'}]}, now);
+  assert.equal((await data(db, now)).latestBuild, '0.9.190');   // no ledger: the newest run
   assert.equal(newestVersion(['0.9.9', '0.9.10', null, '', '0.9.188', '0.9.180']), '0.9.188');   // numeric, not alphabetical
   assert.equal(newestVersion([]), null);
 });
@@ -63,11 +67,11 @@ test('rows group by top cause; Run first (stale build or never run) comes first;
   const json = await seeded();
   const groups = needsFixGroups(json.pool, json.scorecard, json.steps, json.latestBuild);
   assert.deepEqual(groups.map(group => [group.label, group.count, group.rows.map(row => row.name)]), [
-    ['Run first', 2, ['Bbb never run', 'Aaa stale']],   // never run first, then the oldest build
+    ['Run first', 3, ['Bbb never run', 'Iii signature only', 'Aaa stale']],   // never run first (also a row known only by its signature), then the oldest build
     ['unread', 2, ['Ccc unread', 'Ddd unread too']],
     ['no_option', 1, ['Eee no option']],
     ['No cause recorded', 1, ['Fff no cause']]]);
-  assert.deepEqual(groups.map(group => [group.claimed, group.neverRun]), [[1, 1], [1, 0], [0, 0], [0, 0]]);   // claims count rows; the session is never on the site
+  assert.deepEqual(groups.map(group => [group.claimed, group.neverRun]), [[1, 2], [1, 0], [0, 0], [0, 0]]);   // claims count rows; the session is never on the site
   assert.ok(groups[0].oldest && groups[1].oldest && groups[3].oldest, 'the oldest run of the rows that have one');
   assert.ok(!groups.flatMap(group => group.rows.map(row => row.name)).some(name => ['Ggg fine', 'Hhh stale but fine'].includes(name)));
 });
@@ -86,7 +90,7 @@ test('the page and the command give the same groups on the same data', async () 
   }
   const lines = groupLines(json);
   assert.match(lines[0], /cause\s+rows\s+claimed\s+oldest run/);
-  assert.match(lines[1], /^Run first\s+2\s+1 of 2\s+never run/);
+  assert.match(lines[1], /^Run first\s+3\s+1 of 3\s+never run/);
   assert.match(lines[2], /^unread\s+2\s+1 of 2\s+\d{4}-\d\d-\d\d/);
   assert.equal(lines.length, 5);
   assert.doesNotMatch(lines.join('\n'), /job-pilotto-\d|token|key/i);

@@ -96,7 +96,7 @@ export async function data(db, now = new Date()) {
   const scorecard = await platformScorecard(db, pool, now).catch(() => []);   // real use against the pool's tests, per platform (src/scorecard.js)
   const next = await nextToAdd(db, pool, now).catch(() => ({sites: [], hidden: {hosts: 0}}));   // real users' end hosts the pool lacks (src/nextsites.js)
   const fixed = await fixedData(db, pool, cases, now).catch(() => ({day: dayOf(now), rows: [], inProgress: [], claimsAt: null, fixesAt: null, replays: []}));   // the Fixed tab, and the Back / In progress marks on the pool rows
-  const latestBuild = newestVersion([...runs.map(run => run.version), ...fixed.rows.flatMap(row => row.fixes.map(fix => fix.extensionVersion))]);   // the newest landed build any run or fix names (src/applying-groups.js)
+  const latestBuild = newestVersion(fixed.rows.flatMap(row => row.fixes.map(fix => fix.extensionVersion))) || newestVersion(runs.map(run => run.version));   // the newest build the fix ledger names (a build that landed a fix), else the newest any run reports (src/applying-groups.js)
   const live = sites.filter(site => !site.note);
   const dropped = await digest(db, now).then(d => d.boards.filter(board => board.dropped).map(board => ({board: board.board, earlier: board.earlierFilledShare, recent: board.recentFilledShare}))).catch(() => []);
   return {
