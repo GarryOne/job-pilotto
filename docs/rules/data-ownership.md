@@ -59,4 +59,4 @@ only what is wrong, say what changed). Never one-off repair code for one edge ca
 backfill, runtime guards).
 
 ## Big features
-A short spec in `docs/superpowers/specs/` with a "Data ownership" section (store vs cache) before code; link it from the Notion Decision Log.
+A short spec in `docs/superpowers/specs/` with a "Data ownership" section (store vs cache) before code; link it from the Notion Decision Log when it records an owner decision.

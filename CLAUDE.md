@@ -9,8 +9,8 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 ## Start here
 1. **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** once per session; **[docs/HOW-IT-RUNS.md](docs/HOW-IT-RUNS.md)** only when the task touches an
    automatic loop (trigger, what it may change, where the owner approves).
-2. Notion **Session Handoff — Start Here (for Claude)** (`3e562be8fd8681af9a4dd8732964fd94`), then **Technical Reference** (`3e562be8fd868124a28ee7c044dc83dc`),
-   the latest **Run Log** and the **Decision Log**. Any other Notion ID: skill **notion-map**.
+2. The skill for your task (listed by Claude Code), and the `## Progress` checklist of the spec you work on (`/report-progress`).
+   No Notion page is read at start (owner, 11 Oct 2026). Any Notion ID, when a task needs one: skill **notion-map**.
 3. **Code: `node desktop/scripts/codemap.mjs <words>`** (every file → its purpose, live from each file's first comment), then open only that file.
 4. Rules for any agent: [AGENTS.md](AGENTS.md) (git, worktrees, change tiers, which test, red main, commits). Humans too: [CONTRIBUTING.md](CONTRIBUTING.md), [RELEASE.md](RELEASE.md).
 5. New file: start it with a one-line comment (docstring in Python) saying what it's for (at least 25 characters): the code map reads it.
@@ -55,9 +55,10 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 4. **Land:** `tools/ship.sh` (rebase, the touched suites, push with retry). Commit subject ≤ 72 characters, imperative, no reasons in it.
    Never a CI e2e run by hand ([docs/rules/change-loop.md](docs/rules/change-loop.md)).
 5. **After landing, only what applies:**
-   - Notion **Run Log**: one line per finished task, signal only (not per commit, not tiny UI tweaks).
-   - **Technical Reference**: when a module, command, table or setting changes. **Decision Log**: when a decision changes. **Handoff**: at session end.
-   - **Bug Tracker**: a row only for a UI-relevant bug.
+   - The history is the commit messages (the Notion Run Log and Session Handoff were retired on 11 Oct 2026).
+   - **Decision Log** (Notion): a row only for an owner decision that changes what agents may do; read it on demand, never at start.
+   - **Bug Tracker** (Notion, read by the UI Finder in CI): a row only for a UI bug a person found that the Finder missed.
+   - **Technical Reference** is the owner's design page, not agent input: a big feature's spec checklist may include updating it.
    - **Intelligence page** (`site/public/intelligence.html`, its teaser, the README "AI at every step"): only when a user-visible AI step changes.
    - The to-do list: after a finished task, not per commit.
 6. **Big changes** (a feature, migration, refactor): spec with a `## Progress` checklist, safety net first, ONE full run at landing, 1-3 commits

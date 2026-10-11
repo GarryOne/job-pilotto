@@ -77,5 +77,5 @@ off in Settings; never from `npm start`).
 
 ## 🗂️ Where things live
 - **Code map:** `node desktop/scripts/codemap.mjs <words>` · **change loop:** CONTRIBUTING.md · **releases:** RELEASE.md · **rules:** CLAUDE.md
-- **Notion (product):** Project Hub → Session Handoff (current state), Run Log, Decision Log, 🧭 Product Brain · Decisions
+- **Notion (product):** Project Hub → Decision Log (owner decisions, read on demand), 🐞 Bug Tracker, 🧭 Product Brain · Decisions (the Run Log and Session Handoff were retired on 11 Oct 2026: history is in commit messages)
 - **Numbers:** the owner's admin pages under `/admin` (overview, website, app, insights, self-healing, AI cost, form filling, feedback; one menu, the stats key; the old `/stats`, `/telemetry`, `/intel`, `/self-heal`, `/ai-cost`, `/feedback` addresses redirect the owner there), and `/api/signals` (JSON; the same key)

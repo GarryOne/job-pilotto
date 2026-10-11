@@ -170,8 +170,7 @@ Twin fills count as real use since d8cbe63, so they feed it both ways.
 - **What was fixed:** commit, version, the shape it covers, and which other sites and users it helps.
 - **The mechanism:** its table with the trend since the loop started, the learns/uses/helps/sees verdict, gaps opened or closed.
 - **What is next, and what waits on the owner** (a bot check, a code, a decision).
-- **Run Log:** one Notion Run Log entry per session of the loop (signal only).
-- **Bugs:** the Notion Bug Tracker row for each user-visible bug fixed.
+- **Bugs:** a Notion Bug Tracker row for a user-visible bug the UI Finder had missed.
 
 ## Stop when
 - Every target is **ready** or waits on the person.

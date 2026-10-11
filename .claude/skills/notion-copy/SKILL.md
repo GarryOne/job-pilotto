@@ -55,4 +55,4 @@ uploaded to Notion (expiring links), views.
 - Telegram bot: `worker/wrangler.toml` `NOTION_*` vars → new IDs, `npx wrangler@4 secret put NOTION_TOKEN`, deploy.
 - GitHub: the engine repo's `NOTION_TOKEN` secret (fill-failure intake) and, if cloud runs are on, the private
   repo's secret and `NOTION_*` variables (the app's Always on sets these itself).
-- The old databases stay as an archive; say so in the Session Handoff.
+- The old databases stay as an archive; say so in your report to the owner.

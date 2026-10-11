@@ -226,7 +226,8 @@ cd desktop && npm test
 - **The smoke hooks** (`desktop/main.js`): `JOB_PILOTTO_SMOKE_JS` must be an IIFE — top-level `await` hangs the window —
   `JOB_PILOTTO_SMOKE_EVAL`'s result is written to `<JOB_PILOTTO_SMOKE>.json`, and `..._SELECTOR` crops the picture.
 - **Notion, if your harness has no tool for it**: the change loop (CLAUDE.md, step 5 "After landing, only what applies")
-  expects the Run Log, and when they apply the Technical Reference, Decision Log and Handoff, to be updated. Say plainly that it wasn't done rather than implying it was; the HTTP API is reachable with
+  expects a Decision Log row for an owner decision that changes what agents may do, and a Bug Tracker row for a UI bug the
+  Finder missed (the Run Log and Session Handoff are retired; history is in commit messages). Say plainly that it wasn't done rather than implying it was; the HTTP API is reachable with
   the Keychain token (`job-pilotto.notion.token`) and `gh` is authenticated, so reads and repairs are possible when
   asked.
 

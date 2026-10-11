@@ -71,7 +71,7 @@ For each issue, oldest high-severity first:
 - Land with `tools/ship.sh`; commit body `Fixes #<number>`.
 - Then rewrite the verdict file's first line as `fixed`, name the commit under `Why:`, and run `apply-verdict.sh` again: it closes the issue as
   completed with `resolution:fixed`.
-- A UI-relevant bug also gets its Notion Bug Tracker row (memory "Log UI-relevant bugs in Notion").
+- A real UI bug a person filed (no `auto-ui`: the Finder missed it) gets its Notion Bug Tracker row; the Finder's own findings reach the tracker through `tracker-sync.yml`.
 - A real one you cannot fix in this session: leave it `confirmed` with a comment saying what is missing; never close it.
 
 ## 3. Score the Finder: consult everything collected
