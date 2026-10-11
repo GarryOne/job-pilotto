@@ -17,7 +17,9 @@ export function touchedFlowFiles(changed, flowFiles) {
   return changed.map(file => file.trim()).filter(file => flows.has(file) || /^desktop\/test\/(journeys|application-journey|journey-identity|extension-tab-identity)\.test\.js$/.test(file));
 }
 
-// Layer 2 (recorded pages, e2e/recorded): when the extension changed, every recorded case is replayed with the real extension, offline (about a minute).
+// Layer 2 (recorded pages, e2e/recorded): the local push gate opens NO browser and takes NO heavy lock (owner, 11 Oct 2026: "CI heavy, local light"): CI replays all the cases after the push
+// (.github/workflows/recorded-pages.yml). JP_GATE_REPLAY=1 (or JP_GATE_FULL=1 / PUSH_FULL=1) replays here, every case until the affected-case map lands.
+export const replayWanted = (env, touched) => touched.some(file => file.startsWith('extension/') || file.startsWith('desktop/e2e/recorded/')) && (env.JP_GATE_REPLAY === '1' || env.JP_GATE_FULL === '1' || env.PUSH_FULL === '1');
 function replay(desktop) {
   const e2e = path.join(desktop, 'e2e');
   if (!fs.existsSync(path.join(e2e, 'node_modules', 'playwright-core'))) { console.log('journey gate: recorded pages skipped (no desktop/e2e/node_modules: npm ci there)'); return 0; }
@@ -58,7 +60,9 @@ async function main() {
   const seconds = ((Date.now() - started) / 1000).toFixed(1);
   if (run.status === 0) {
     console.log(`journey gate: ${JOURNEY_TESTS.length} test files passed in ${seconds} s (flow files touched: ${touched.length})`);
-    return touched.some(file => file.startsWith('extension/') || file.startsWith('desktop/e2e/recorded/')) ? replay(desktop) : 0;
+    if (replayWanted(process.env, touched)) return replay(desktop);
+    if (touched.some(file => file.startsWith('extension/') || file.startsWith('desktop/e2e/recorded/'))) console.log('journey gate: recorded pages are replayed in CI after the push (recorded-pages.yml); JP_GATE_REPLAY=1 replays them here');
+    return 0;
   }
   const failures = String(run.stdout || '').split('\n').filter(line => /^\s*not ok|^# fail/.test(line)).join('\n');   // nested subtests too: the failing scenario is named, not only its file (11 Oct 2026: a failure at load ~36 named no case)
   console.error(`journey gate: a journey scenario failed (load average ${os.loadavg()[0].toFixed(0)})  (${touched.slice(0, 5).join(', ')}${touched.length > 5 ? ', …' : ''} changed):\n${failures}\nreproduce: cd desktop && node --test ${JOURNEY_TESTS.join(' ')}`);

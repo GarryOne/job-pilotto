@@ -9,7 +9,7 @@ on:
 
 concurrency:
   group: recorded-pages-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false   # every push to main is checked: this run is the net under the local gate, so a newer push queues behind it instead of cancelling it
 
 env:
   JP_REPLAY_SHARD_COUNT: 4

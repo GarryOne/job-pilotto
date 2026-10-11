@@ -134,9 +134,14 @@ every 30 seconds. Keep the guardrails that catch real breakage; stop paying the 
   data, spend money, or break the install. A state that is hard to reach (a first-run banner, an error) is forced with `--js`, not with a harness,
   a real download or a fake backend.
 - **Stop when the tier is met.** No extra harness, no real end-to-end run, no new check "while we're here" at Tier 0/1.
-- **CI heavy, local light** (owner, 11 Oct 2026). CI does the heavy work: ALL recorded pages (`.github/workflows/recorded-pages.yml`: Linux, sharded, 4 tabs each, every push to main), the full suites and
-  the Windows checks. The local push gate stays minimal and fast: the suites and cases a change can affect, no local run of the e2e harness's own unit tests (`JP_E2E_UNIT=1` opts in).
-  A red recorded-pages run on main is a red main (the hook blocks pushes until it is fixed or reverted). Every local check takes under a minute; live runs on real sites stay local and by hand.
+- **CI heavy, local light** (owner, 11 Oct 2026): every local check before a push takes **under a minute** (target 30-45 s, bounded by the desktop suite).
+  | Where | What runs |
+  |---|---|
+  | **Local push gate** | the cheap commit checks (subject, trailers, file size, stale words, new e2e steps), the **affected** unit tests of each area (desktop, Python, worker, site: those that import or name a changed file), the journey tests (no browser, ~1 s), the ladder gate (offline). **No browser, no heavy lock.** |
+  | **CI, after the push** | ALL recorded pages (`.github/workflows/recorded-pages.yml`: Linux, 4 shards, 4 tabs each, ~80 s), the full suites (`build.yml`), the Windows checks, the e2e harness's own unit tests (`e2e.yml`). A red run on main is a red main: the hook blocks pushes until it is fixed or reverted. |
+  | **On request** | `JP_GATE_REPLAY=1` replays the recorded pages here; `JP_E2E_UNIT=1` the e2e harness's unit tests; `JP_GATE_FULL=1` (or `PUSH_FULL=1`) the old full run, no watchdog. |
+  A ~55 s watchdog (`tools/gate-watchdog.sh`, `JP_GATE_BUDGET`) stops a heavy step still running (a whole suite, not an affected-test list) and says **"DEFERRED TO CI"** with its name: never failed, never dropped.
+  A push over 60 s is marked SLOW in the summary and in `gate-timing.log`. A change that CI would catch but the local pick cannot name is a gap in `tools/affected-tests.py`: fix the pick, with a test.
 - **One change, one push.** A follow-up you think of (prefetch, a Finder check, a new tool) is offered in one line and built only when the owner says yes.
 - **Land with `tools/ship.sh`**, not by hand. The pre-push hook runs only the suites of the areas the push touches (docs: none; engine: python +
   desktop; an unknown path: everything; `PUSH_FULL=1` forces all). Do not wait for CI of your own push before the next task: look at it later.

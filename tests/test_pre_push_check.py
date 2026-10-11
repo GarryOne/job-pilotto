@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 import textwrap
 import unittest
 from pathlib import Path
@@ -42,6 +43,7 @@ class PrePushCheckTest(unittest.TestCase):
         (self.repo / 'desktop' / '.gitignore').write_text('shared/\n')
         shutil.copy(HOOK, self.repo / 'tools' / 'pre-push-check.sh')
         shutil.copy(ROOT / 'tools' / 'commit-subject.py', self.repo / 'tools' / 'commit-subject.py')
+        shutil.copy(ROOT / 'tools' / 'gate-watchdog.sh', self.repo / 'tools' / 'gate-watchdog.sh')   # the hook sources it when it sits beside it
         (self.repo / 'tools' / 'stale-expectations.mjs').write_text('')
         for path, text in ((self.repo / 'tools' / 'check.sh', CHECK), (self.bin / 'gh', GH), (self.bin / 'actionlint', '#!/bin/sh\n')):
             path.write_text(text)
@@ -254,6 +256,39 @@ class PrePushCheckTest(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertLess(order.index('gate-end'), order.index('suite-start'), 'serial: the gate is done before the suite starts')
         self.assertIn('JP_GATE_SERIAL=1', err)
+
+    def slow_suite(self, seconds, whole=False):
+        check = self.repo / 'tools' / 'check.sh'
+        check.write_text(f'#!/usr/bin/env bash\necho "$PWD $*" >> "$CHECK_LOG"\nsleep {seconds}\n')
+        check.chmod(0o755)
+        self.commit('Slow suite stub', {'desktop/shared/needed.js': 'export {};\n', 'worker/a.js': 'x'})
+        git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
+        self.commit('Worker change', {'Makefile': str(seconds)} if whole else {'worker/b.js': str(seconds)})   # an unknown top-level path: the picker says "all", the whole suite runs, and it may be deferred
+
+    def test_a_heavy_step_still_running_at_the_budget_is_deferred_to_ci_not_failed(self):
+        # owner, 11 Oct 2026: every local check before a push takes under 60 s; a heavy step still running at ~55 s is "deferred to CI", never failed, never dropped
+        self.slow_suite(8, whole=True)
+        began = time.monotonic()
+        code, err = self.hook('git push origin HEAD:main', JP_GATE_BUDGET='2')
+        self.assertEqual(code, 0, err)
+        self.assertLess(time.monotonic() - began, 7, 'the hook did not wait the suite out')
+        self.assertIn('DEFERRED TO CI', err)
+        self.assertIn('(clean checkout)', err.split('DEFERRED TO CI')[1], 'it names what was deferred')
+
+    def test_jp_gate_full_waits_the_suite_out_and_blocks_on_its_failure(self):
+        self.slow_suite(4, whole=True)
+        began = time.monotonic()
+        code, err = self.hook('git push origin HEAD:main', JP_GATE_BUDGET='1', JP_GATE_FULL='1')
+        self.assertEqual(code, 0, err)
+        self.assertGreaterEqual(time.monotonic() - began, 4, 'JP_GATE_FULL=1 runs the old full run: no watchdog')
+        self.assertNotIn('DEFERRED TO CI', err)
+
+    def test_a_push_over_the_budget_is_listed_in_the_summary(self):
+        shutil.copy(ROOT / 'tools' / 'gate-timing.sh', self.repo / 'tools' / 'gate-timing.sh')
+        self.slow_suite(3)
+        code, err = self.hook('git push origin HEAD:main', JP_GATE_BUDGET='60', JP_GATE_SLOW_AFTER='2')
+        self.assertEqual(code, 0, err)
+        self.assertIn('over the 2 s budget', err)
 
 if __name__ == '__main__':
     unittest.main()

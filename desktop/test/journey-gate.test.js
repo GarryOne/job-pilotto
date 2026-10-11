@@ -25,3 +25,13 @@ test('a failed recorded case is named from the TAP line, so it can be retried al
   assert.deepEqual(failedCases(''), []);
   assert.match(fs.readFileSync(new URL('../../tools/journey-gate.mjs', import.meta.url), 'utf8'), /FLAKY under load/);
 });
+
+test('the local push gate opens no browser: the recorded pages replay only on request (JP_GATE_REPLAY=1); CI replays them all after the push', async () => {
+  const {replayWanted} = await import('../../tools/journey-gate.mjs');
+  const touched = ['extension/flow.js'];
+  assert.equal(replayWanted({}, touched), false, 'no env: no replay, no browser, no heavy lock');
+  assert.equal(replayWanted({JP_GATE_REPLAY: '1'}, touched), true);
+  assert.equal(replayWanted({JP_GATE_REPLAY: '1'}, ['desktop/lib/apply.js']), false, 'a change outside the extension has nothing to replay');
+  assert.equal(replayWanted({JP_GATE_FULL: '1'}, touched), true, 'the old full run replays');
+  assert.equal(replayWanted({PUSH_FULL: '1'}, touched), true);
+});

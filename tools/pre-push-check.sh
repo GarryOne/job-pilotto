@@ -9,12 +9,15 @@
 set -uo pipefail
 source "$(dirname "$0")/gate-timing.sh" 2>/dev/null || { gate_timing_start() { :; }; timed() { shift; "$@"; }; gate_summary() { :; }; }
 gate_timing_start
+GATE_DEFERRABLE=""; GATE_DEFERRED=""
+source "$(dirname "$0")/gate-watchdog.sh" 2>/dev/null || { gate_budget() { echo 0; }; gate_wait_budget() { wait; }; gate_was_deferred() { return 1; }; }
 source "$(dirname "$0")/gate-cache.sh" 2>/dev/null || gate_cache_run() { shift 3; "$@"; }   # a checkout without it (the hook's own test repo) runs everything
 export GATE_CACHE_NOTES="$(mktemp)"
 trap 'type slot_release >/dev/null 2>&1 && slot_release; [ -s "$GATE_CACHE_NOTES" ] && cat "$GATE_CACHE_NOTES" >&2; rm -f "$GATE_CACHE_NOTES"; gate_summary' EXIT   # one EXIT trap: the slot is freed and the timing printed on every way out
 
 input="$(cat)"
 command="$(jq -r '.tool_input.command // ""' <<<"$input")"
+case "$command" in *PUSH_FULL=1*) PUSH_FULL_RUN=1 ;; esac   # a full run has no watchdog (tools/gate-watchdog.sh)
 # A `git commit` whose subject is over 72 characters is stopped here, before it exists: fixing it after the commit needs an amend, which
 # Claude Code's auto mode may deny, and then the push below stays blocked (5 Oct 2026). `COMMIT_LONG_OK=1` skips it.
 case "$command" in *"git commit"*)
@@ -249,10 +252,15 @@ if [ -n "$affected_flag" ] && [ "${JOB_PILOTTO_TIERS:-1}" != 0 ] && command -v j
   done
   [ -n "$skipped" ] && echo "pre-push: nothing in$skipped can break from this change (no affected tests): not run (JOB_PILOTTO_TIERS=0 runs them)" >&2
 fi
+area_whole() {  # 1 when this area runs its WHOLE suite (no affected-test list, a clean install, or the picker says "all"): such a step may be deferred to CI at the budget; a picked list never is
+  if [ -z "$affected_flag" ] || [ -n "$clean_install" ] || [ -z "${pick_json:-}" ]; then echo 1; return; fi
+  jq -r --arg a "$1" '.[$a] | if . == "all" then 1 else 0 end' <<<"$pick_json" 2>/dev/null || echo 1
+}
 run() {  # name, then the command: started in the background, collected below
   local name="$1" out; shift; out="$(mktemp)"
-  ( cd "$repo" && timed "$name" "$@" ) >"$out" 2>&1 &
+  ( cd "$repo" && timed "$name" "$@"; echo $? >"$out.code" ) >"$out" 2>&1 &   # the exit code goes to a file: a finished step is read from it, never `wait`ed for (bash 3.2 forgets children reaped while polling)
   pids+=($!); names+=("$name"); outs+=("$out")
+  [ "${DEFER:-0}" = 1 ] && GATE_DEFERRABLE="$GATE_DEFERRABLE $! "
 }
 # CI-only failure classes the tests can't see:
 # - workflow files: actionlint (also shellchecks each run: script; info-level notes are allowed)
@@ -302,22 +310,31 @@ for area in python worker site desktop; do
 done
 gate_pids=()
 for gate in ${gates_wanted[@]+"${gates_wanted[@]}"}; do   # first: they are the longest, and wait for the heavy lock on their own
-  out="$(mktemp)"; "${gate}_gate" >"$out" 2>&1 & gate_pids+=($!); gate_outs+=("$out"); gate_names+=("$gate")
+  out="$(mktemp)"; ( "${gate}_gate"; echo $? >"$out.code" ) >"$out" 2>&1 & gate_pids+=($!); gate_outs+=("$out"); gate_names+=("$gate"); GATE_DEFERRABLE="$GATE_DEFERRABLE $! "
 done
-[ "$want_python" = 1 ] && run "python (clean checkout)" verify_area python $clean_install
-[ "$want_worker" = 1 ] && run "worker (clean checkout)" verify_area worker
-[ "$want_site" = 1 ] && run "site (clean checkout)" verify_area site
-[ "$want_desktop" = 1 ] && run "desktop (clean checkout)" verify_area desktop
+[ "$want_python" = 1 ] && DEFER="$(area_whole python)" run "python (clean checkout)" verify_area python $clean_install
+[ "$want_worker" = 1 ] && DEFER="$(area_whole worker)" run "worker (clean checkout)" verify_area worker
+[ "$want_site" = 1 ] && DEFER="$(area_whole site)" run "site (clean checkout)" verify_area site
+[ "$want_desktop" = 1 ] && DEFER="$(area_whole desktop)" run "desktop (clean checkout)" verify_area desktop
 [ "$want_e2e" = 1 ] && run "e2e unit tests (desktop/e2e npm test, as CI)" e2e_unit
+watch=(); for i in "${!pids[@]}"; do watch+=("${pids[$i]}:${outs[$i]}.code"); done
+for i in "${!gate_pids[@]}"; do watch+=("${gate_pids[$i]}:${gate_outs[$i]}.code"); done
+gate_wait_budget ${watch[@]+"${watch[@]}"}   # the budget's watchdog: a deferrable step still running at ~55 s is stopped and reported
+deferred_names=""
 for i in "${!pids[@]}"; do
-  wait "${pids[$i]}" || failed+=("${names[$i]}")
-  cat "${outs[$i]}" >>"$log"; rm -f "${outs[$i]}"
+  if gate_was_deferred "${pids[$i]}"; then deferred_names="$deferred_names${deferred_names:+, }${names[$i]}"; rm -f "${outs[$i]}" "${outs[$i]}.code"; continue; fi
+  [ "$(cat "${outs[$i]}.code" 2>/dev/null || echo 1)" = 0 ] || failed+=("${names[$i]}")
+  cat "${outs[$i]}" >>"$log"; rm -f "${outs[$i]}" "${outs[$i]}.code"
 done
 for ((i = 0; i < ${#gate_pids[@]}; i++)); do
-  if wait "${gate_pids[$i]}"; then [ -s "${gate_outs[$i]}" ] && cat "${gate_outs[$i]}" >&2
+  if gate_was_deferred "${gate_pids[$i]}"; then
+    deferred_names="$deferred_names${deferred_names:+, }the ${gate_names[$i]} gate$(grep -q 'passed in' "${gate_outs[$i]}" 2>/dev/null && echo ' (its tests passed; the replay was cut)')"; rm -f "${gate_outs[$i]}" "${gate_outs[$i]}.code"; continue
+  fi
+  if [ "$(cat "${gate_outs[$i]}.code" 2>/dev/null || echo 1)" = 0 ]; then [ -s "${gate_outs[$i]}" ] && cat "${gate_outs[$i]}" >&2
   else { echo "Push blocked: the ${gate_names[$i]} gate failed:"; cat "${gate_outs[$i]}"; } >&2; gate_failed=1; fi
-  rm -f "${gate_outs[$i]}"
+  rm -f "${gate_outs[$i]}" "${gate_outs[$i]}.code"
 done
+[ -n "$deferred_names" ] && echo "pre-push: DEFERRED TO CI (still running at the $(gate_budget) s budget, not failed, not dropped): $deferred_names. CI runs them on main (build.yml suites, recorded-pages.yml replays); JP_GATE_FULL=1 runs them here." >&2
 slot_release
 for tree in ${trees[@]+"${trees[@]}"}; do
   git -C "$repo" worktree remove --force "$tree" >/dev/null 2>&1 || rm -rf "$tree"

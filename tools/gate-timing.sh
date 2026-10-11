@@ -20,12 +20,14 @@ timed() {  # name, command...
 gate_summary() {  # label: one line per step, slowest first (top 6), and the whole run appended to the shared log
   [ -n "$GATE_STEPS" ] && [ -s "$GATE_STEPS" ] || { rm -f "$GATE_STEPS"; return 0; }
   local label="${1:-push gate}" total=$((SECONDS - GATE_STARTED)) common log
+  local slow="${JP_GATE_SLOW_AFTER:-60}"
   echo "gate-timing: $label took ${total}s; slowest steps:" >&2
+  [ "$total" -gt "$slow" ] && echo "gate-timing: SLOW: this push took ${total}s, over the $slow s budget (every local check before a push should take under a minute): the steps above are why; JP_GATE_FULL=1 is the old full run" >&2
   sort -rn "$GATE_STEPS" | head -6 | awk '{ s=$1; c=$2; $1=""; $2=""; sub(/^  /, ""); printf "  %4ds  %s%s\n", s, $0, (c != 0 ? "  (exit " c ")" : "") }' >&2
   common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || common=""
   if [ -n "$common" ] && [ -d "$common" ]; then
     log="$common/gate-timing.log"
-    { echo "# $(date -u +%FT%TZ) $label total=${total}s branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"; cat "$GATE_STEPS"; } >>"$log" 2>/dev/null || true
+    { echo "# $(date -u +%FT%TZ) $label total=${total}s$([ "$total" -gt "$slow" ] && echo " SLOW") branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"; cat "$GATE_STEPS"; } >>"$log" 2>/dev/null || true
   fi
   rm -f "$GATE_STEPS"; GATE_STEPS=""
 }

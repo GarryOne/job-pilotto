@@ -37,8 +37,8 @@ class GateOrderTest(unittest.TestCase):
 
     def test_the_slow_gates_run_beside_the_area_suites_unless_serial_is_asked(self):
         # owner, 11 Oct 2026: a fresh flow-code push took lock wait + journey gate + slowest suite, one after another; now the longest of them
-        self.assertLess(GATE.index('"${gate}_gate" >"$out" 2>&1 &'), GATE.index('for i in "${!pids[@]}"'), 'started before the suites are collected')
-        self.assertLess(GATE.index('wait "${gate_pids[$i]}"'), GATE.index('slot_release\nfor tree'), 'collected with them')
+        self.assertLess(GATE.index('"${gate}_gate"; echo $? >"$out.code"'), GATE.index('gate_wait_budget ${watch'), 'started before the suites are collected')
+        self.assertLess(GATE.index('gate_wait_budget ${watch'), GATE.index('slot_release\nfor tree'), 'collected with them')
         self.assertIn('JP_GATE_SERIAL', GATE)
         self.assertIn('JP_GATE_SERIAL=1: the journey and ladder gates run before the suites', GATE)   # said in the log when the fallback is used
 

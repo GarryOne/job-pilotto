@@ -128,8 +128,13 @@ def js_graph():
 
 
 # --- selection -----------------------------------------------------------------------------------------------------------------------
+WORKFLOW_DIR_RE = re.compile(r"\.github['\"]?\s*[/,]\s*['\"]?workflows")   # a test that scans the workflows folder (path or pathlib pieces) without naming a file
+
+
 def mentions(text, changed, py_names):
     """Does the test's text name a changed file: its path, its file name (6+ characters), or its Python dotted name?"""
+    if WORKFLOW_DIR_RE.search(text) and any(f.startswith('.github/workflows/') for f in changed):
+        return True
     for f in changed:
         base = Path(f).name
         dotted = py_names.get(f)
@@ -149,7 +154,7 @@ def select(changed, base_ref=None):
         return result
     scoped = [f for f in relevant if SCOPED_DEPS.match(f)]
     everything = [f for f in relevant if (ALL_TRIGGERS.search(f) and f not in scoped) or f == 'tests/test_0_notion_ids.py']
-    areas = {'python': (lambda f: f.startswith(('src/', 'tests/', 'tools/', 'config/', 'templates/')) or f == '.gitattributes'),
+    areas = {'python': (lambda f: f.startswith(('src/', 'tests/', 'tools/', 'config/', 'templates/', '.github/workflows/')) or f == '.gitattributes'),
              'desktop': (lambda f: f.startswith(('desktop/', 'extension/')) or f == '.gitattributes'),
              'worker': (lambda f: f.startswith(('worker/', 'extension/'))),
              'site': (lambda f: f.startswith('site/'))}
