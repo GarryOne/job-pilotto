@@ -61,7 +61,7 @@ class HeavyLockTest(HeavyLockFixture):
         (bin_dir / 'uptime').write_text('#!/bin/sh\necho "10:00  up 1 day,  3 users,  load averages: 99.00 90.00 80.00"\n')
         (bin_dir / 'uptime').chmod(0o755)
         result = self.run_lock('browser suite', 'echo', 'ran', PATH=f'{bin_dir}{os.pathsep}{os.environ["PATH"]}',
-                               JOB_PILOTTO_HEAVY_LOAD='8', JOB_PILOTTO_HEAVY_LOAD_WAIT='1')
+                               JOB_PILOTTO_HEAVY_LOAD='8', JOB_PILOTTO_HEAVY_SIGNAL='load', JOB_PILOTTO_HEAVY_LOAD_WAIT='1')
         self.assertEqual(result.stdout.strip(), 'ran')
         self.assertIn('waits for the machine, holding no slot: the machine is busy: 1-minute load 99 is above 8', result.stderr)
         self.assertIn('running browser suite anyway', result.stderr)
@@ -75,7 +75,7 @@ class HeavyLockTest(HeavyLockFixture):
 
     def test_a_run_waiting_for_the_machine_holds_no_slot_and_never_blocks_a_later_run_that_fits(self):
         # 11 Oct 2026: a replay took the slot, then sat 12 minutes in the load wait while two landings queued behind it
-        waiting = self.start('waits for load', 'echo', 'late', **self.busy_machine(), JOB_PILOTTO_HEAVY_LOAD='8', JOB_PILOTTO_HEAVY_LOAD_WAIT='30')
+        waiting = self.start('waits for load', 'echo', 'late', **self.busy_machine(), JOB_PILOTTO_HEAVY_LOAD='8', JOB_PILOTTO_HEAVY_SIGNAL='load', JOB_PILOTTO_HEAVY_LOAD_WAIT='30')
         time.sleep(0.8)
         self.assertFalse((self.tmp / 'heavy' / 'lock').exists(), 'while it waits for the machine it holds no slot')
         began = time.time()
@@ -89,7 +89,7 @@ class HeavyLockTest(HeavyLockFixture):
     def test_the_load_wait_still_ends_and_the_run_goes_anyway_in_its_turn(self):
         first = self.start('first', 'bash', '-c', 'sleep 1.2; echo first')
         time.sleep(0.3)
-        second = self.start('second', 'echo', 'second', **self.busy_machine(), JOB_PILOTTO_HEAVY_LOAD='8', JOB_PILOTTO_HEAVY_LOAD_WAIT='1')
+        second = self.start('second', 'echo', 'second', **self.busy_machine(), JOB_PILOTTO_HEAVY_LOAD='8', JOB_PILOTTO_HEAVY_SIGNAL='load', JOB_PILOTTO_HEAVY_LOAD_WAIT='1')
         out, err = second.communicate(timeout=30)
         first.communicate(timeout=30)
         self.assertEqual(out.strip(), 'second')

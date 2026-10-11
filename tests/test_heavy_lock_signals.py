@@ -39,10 +39,17 @@ class HeavyLockSignalsTest(unittest.TestCase):
         self.assertIn('cpu_busy=50', line)        # 400 % of 8 cores
         self.assertIn('mem_free=60', line)
 
-    def test_the_default_signal_is_the_load_average(self):
-        calm = self.run_lock(CPU_TOTAL='790', MEM_FREE='5', LOAD='2')
-        self.assertNotIn('waits for the machine', calm.stderr, 'the load is low: the busy CPU and low memory do not hold a run')
-        busy = self.run_lock(LOAD='99', JOB_PILOTTO_HEAVY_LOAD='8')
+    def test_the_default_signal_is_auto_cpu_and_memory_not_the_load_average(self):
+        # 11 Oct 2026: load 160-205 at 36-51% CPU and 53% free memory held three proofs for minutes
+        calm = self.run_lock(LOAD='199', JOB_PILOTTO_HEAVY_LOAD='8', CPU_TOTAL='400', MEM_FREE='60')
+        self.assertNotIn('waits for the machine', calm.stderr, 'a huge load average alone does not hold a run')
+        hot = self.run_lock(CPU_TOTAL='790', JOB_PILOTTO_HEAVY_LOAD='8', LOAD='1')
+        self.assertIn('CPU in use 98% of 8 cores', hot.stderr)
+        short = self.run_lock(MEM_FREE='5', JOB_PILOTTO_HEAVY_LOAD='8', LOAD='1')
+        self.assertIn('free memory 5% (busy below 15%)', short.stderr)
+
+    def test_the_load_average_is_still_a_choice(self):
+        busy = self.run_lock(JOB_PILOTTO_HEAVY_SIGNAL='load', LOAD='99', JOB_PILOTTO_HEAVY_LOAD='8')
         self.assertIn('1-minute load 99 is above 8', busy.stderr)
 
     def test_the_cpu_signal_waits_on_cpu_in_use_not_on_load(self):

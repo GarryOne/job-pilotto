@@ -154,16 +154,20 @@ top_cpu() {  # $1 = separator between name and percent, $2 = separator between e
     | awk -F'\t' -v a="$1" -v b="$2" '$1 > 0 {printf "%s%s%s%s%%", sep, $2, a, $1; sep = b}'
 }
 mark() { printf '%s %s\n%s\n%s\n%s\n%s\n' "$$" "$what" "$1" "$session" "$klass" "$(is_exclusive && echo exclusive)" >"$ticket"; }   # the ticket keeps its name (its place in line); only its second line changes
-# What "the machine is busy" is read from (JOB_PILOTTO_HEAVY_SIGNAL, default load): the 1-minute load average, the CPU in use (sum of the processes' CPU over the cores; busy above
+# What "the machine is busy" is read from (JOB_PILOTTO_HEAVY_SIGNAL, default auto since 11 Oct 2026: load 160-205 held three proofs for minutes at 36-51% CPU and 53% free memory, the
+# average counts the runnable threads of many short-lived test processes). auto = cpu and memory together (busy when either is); load = the 1-minute load average; or one of: the CPU in use (sum of the processes' CPU over the cores; busy above
 # JOB_PILOTTO_HEAVY_CPU_BUSY percent, default 90) or the free memory percentage of `memory_pressure` (busy below JOB_PILOTTO_HEAVY_MEM_FREE_PCT percent, default 15). All three are logged on every
 # hold (cpu_busy=, mem_free=) so the signal that predicts slow or failed runs can be chosen from data (11 Oct 2026: no failure-versus-load data existed before the new log).
 cpu_busy() { ps -Ao pcpu= 2>/dev/null | awk -v n="$cores" '{s += $1} END {printf "%d", s / (n > 0 ? n : 1)}'; }
 mem_free_pct() { memory_pressure -Q 2>/dev/null | sed -nE 's/.*free percentage: *([0-9]+)%.*/\1/p' | head -n 1; }
 machine_calm() {  # 0 when the chosen signal says the machine is not busy; sets $signal_text to what it read
-  case "${JOB_PILOTTO_HEAVY_SIGNAL:-load}" in
+  case "${JOB_PILOTTO_HEAVY_SIGNAL:-auto}" in
     cpu) local c; c="$(cpu_busy)"; signal_text="CPU in use ${c}% of ${cores} cores (busy above ${JOB_PILOTTO_HEAVY_CPU_BUSY:-90}%)"; [ "${c:-0}" -le "${JOB_PILOTTO_HEAVY_CPU_BUSY:-90}" ] ;;
     memory) local m; m="$(mem_free_pct)"; signal_text="free memory ${m:-?}% (busy below ${JOB_PILOTTO_HEAVY_MEM_FREE_PCT:-15}%)"; [ -z "$m" ] || [ "$m" -ge "${JOB_PILOTTO_HEAVY_MEM_FREE_PCT:-15}" ] ;;
-    *) signal_text="1-minute load $(load1) is above $limit"; [ "$(load1)" -le "$limit" ] ;;
+    load) signal_text="1-minute load $(load1) is above $limit"; [ "$(load1)" -le "$limit" ] ;;
+    *) local c m; c="$(cpu_busy)"; m="$(mem_free_pct)"   # auto: busy only when the CPU is used up or memory is short
+       signal_text="CPU in use ${c}% of ${cores} cores (busy above ${JOB_PILOTTO_HEAVY_CPU_BUSY:-90}%), free memory ${m:-?}% (busy below ${JOB_PILOTTO_HEAVY_MEM_FREE_PCT:-15}%)"
+       [ "${c:-0}" -le "${JOB_PILOTTO_HEAVY_CPU_BUSY:-90}" ] && { [ -z "$m" ] || [ "$m" -ge "${JOB_PILOTTO_HEAVY_MEM_FREE_PCT:-15}" ]; } ;;
   esac
 }
 machine_ready() {  # sets $why when not

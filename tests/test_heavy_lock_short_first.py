@@ -56,7 +56,7 @@ class HeavyLockShortFirstTest(unittest.TestCase):
         bin_dir.mkdir()
         (bin_dir / 'uptime').write_text('#!/bin/sh\necho "10:00  up 1 day, load averages: 99.00 99.00 99.00"\n')
         (bin_dir / 'uptime').chmod(0o755)
-        busy = {'PATH': f'{bin_dir}{os.pathsep}{os.environ["PATH"]}', 'JOB_PILOTTO_HEAVY_LOAD': '4', 'JOB_PILOTTO_HEAVY_LOAD_WAIT': '2'}
+        busy = {'PATH': f'{bin_dir}{os.pathsep}{os.environ["PATH"]}', 'JOB_PILOTTO_HEAVY_SIGNAL': 'load', 'JOB_PILOTTO_HEAVY_LOAD': '4', 'JOB_PILOTTO_HEAVY_LOAD_WAIT': '2'}
         for what in ('row-replay', 'row-try', 'recorded-replay'):
             _, err = self.start(what, 'true', **busy).communicate(timeout=30)
             self.assertNotIn('waits for the machine', err, what)
