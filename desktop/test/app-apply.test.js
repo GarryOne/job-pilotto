@@ -80,6 +80,16 @@ test('Tailor CVs for top matches: open jobs without a tailored CV, saved first, 
   assert.deepEqual(apply.pickUntailored(jobs, 2).map(job => job.code), ['c', 'e']);
 });
 
+test('Tailor CVs for top matches: with nothing to tailor it says why, and never claims CVs are ready when there are no jobs (issue #347)', () => {
+  const tailored = [{code: 'a', url: 'u', status: 'unreviewed', fit: 90, tailored: true}];
+  assert.match(apply.nothingToTailor(tailored), /already has a tailored CV/);
+  for (const jobs of [[], [{code: 'd', url: 'u', status: 'dismissed', fit: 99}], [{code: 'x', status: 'unreviewed'}]]) {
+    const said = apply.nothingToTailor(jobs);
+    assert.match(said, /no jobs/i);
+    assert.doesNotMatch(said, /already has a tailored CV/);
+  }
+});
+
 test('Apply on one job opens it in Chrome with the fill marker; no link, no Chrome', {skip: process.platform === 'win32' && 'Mac launcher (open -a, Terminal); Windows is covered below'}, () => {
   const calls = [];
   const open = (...args) => { calls.push(args); return {unref() {}}; };

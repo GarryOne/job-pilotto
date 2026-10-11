@@ -108,10 +108,11 @@ export function registerKitHandlers(ctx) {
       let done = 0, failed = 0, usd = 0;
       const tailored = [];
       tee(`Finding your ${n} best matches without a tailored CV…`);   // reading the job list takes a few seconds: the banner is already up
-      const picked = apply.pickUntailored((await pipeline.jobs(storage)).jobs, n);
+      const jobs = (await pipeline.jobs(storage)).jobs;
+      const picked = apply.pickUntailored(jobs, n);
       appLog('cv', 'tailor top matches picked', {asked: n, jobs: picked.length});
       if (!picked.length) {
-        const none = 'Every one of your best matches already has a tailored CV.';
+        const none = apply.nothingToTailor(jobs);
         tee(none); tee('<<<message'); tee(none); tee('message>>>');
         return true;
       }

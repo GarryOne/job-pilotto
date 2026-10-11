@@ -31,6 +31,13 @@ export function pickMissing(jobs, n) {
   return jobs.filter(job => open(job) && job.code && !job.kit).sort(best).slice(0, n);
 }
 
+// What to say when "Tailor CVs for top matches" finds nothing to do: every open job has its CV, or there is no open job at all (then no CV is "ready").
+export function nothingToTailor(jobs) {
+  return jobs.some(job => open(job) && job.code)
+    ? 'Every one of your best matches already has a tailored CV.'
+    : 'There are no jobs to tailor CVs for yet. Run Refresh jobs first.';
+}
+
 // The best open jobs without a tailored CV (saved first, then by fit): what "Tailor CVs for top matches" works through.
 export function pickUntailored(jobs, n) {
   return jobs.filter(job => open(job) && job.code && !job.tailored).sort(best).slice(0, n);

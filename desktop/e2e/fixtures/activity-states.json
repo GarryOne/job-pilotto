@@ -328,6 +328,19 @@
    }
   },
   {
+   "name": "tailor--no-jobs-yet",
+   "run": {
+    "trigger": "you",
+    "log": [
+     "There are no jobs to tailor CVs for yet. Run Refresh jobs first."
+    ],
+    "kind": "tailor",
+    "ok": true,
+    "summary": "There are no jobs to tailor CVs for yet. Run Refresh jobs first.",
+    "message": "There are no jobs to tailor CVs for yet. Run Refresh jobs first."
+   }
+  },
+  {
    "name": "tailor--failed-ai-usage-limit-claude-subscription",
    "run": {
     "trigger": "you",
