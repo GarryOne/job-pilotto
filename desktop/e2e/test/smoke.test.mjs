@@ -374,3 +374,9 @@ test('a run that printed "no end screenshot: <why>" has an error naming why; "en
   assert.deepEqual(parseLive(`${base}  live: no end screenshot: no page tab was open`).errors, ['no end screenshot: no page tab was open']);
   assert.deepEqual(parseLive(`${base}  live: end screenshot kept`).errors, []);
 });
+
+test('a fill held by a dialog nothing closes: a needs-fix reason, never ready', () => {
+  const out = parseLive('Apply pressed on u\n[extension] page kind: form {}\n[extension] fill: held: a dialog covers the form {"host":"h","text":"robot check","buttons":1}');
+  assert.ok(out.errors.some(line => /held: a dialog covers the form/.test(line)));
+  assert.notEqual(out.reached, 'ready');
+});

@@ -77,6 +77,7 @@ export function parseLive(output) {
     const stop = line.match(/fill: did not fill: (.*?)(?:\s+\{"|$)/);
     if (stop) { reach('form'); note = `eligibility stop: ${stop[1].trim().slice(0, 160)}`; }
     if (/(^|\s)(✗|not ok)\b|Error:|crash/.test(line)) errors.push(line.trim().slice(0, 200));
+    if (/fill: held: a dialog covers the form/.test(line)) { dialogLeft = true; errors.push('held: a dialog covers the form (nothing was typed)'); }   // the gate before the fill (extension/dialog-after-fill.js): nothing closed it
     if (/fill: a dialog was left open over the form/.test(line)) { dialogLeft = true; errors.push('a dialog was left open over the form'); }   // extension/dialog-after-fill.js: never a silent "ready"
     const noShot = line.match(/live: no end screenshot: (.*)$/);   // lib/end-shot.mjs: the last picture is a must, a run without one says why
     if (noShot) errors.push(`no end screenshot: ${noShot[1].trim().slice(0, 100)}`);

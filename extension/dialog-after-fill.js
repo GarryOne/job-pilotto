@@ -18,3 +18,30 @@ export async function closeFillDialogs(tab, {close, look, decide}) {
   if (dialogs.left) decide('fill', LEFT_OPEN, {host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })(), buttons: dialogs.left.buttons.length});
   return dialogs;
 }
+
+// The gate before the fill (owner, 11 Oct 2026: "we should not start filling any form before we close all the popups/overlays"). look(tabId) -> what covers the form's controls
+// (on-top.js: {text, buttons, ...}) or null; close(tabId) -> the label of the AI's non-agreeing button pressed, or ''. A layer is closed and looked at again, at most 3 times;
+// one nothing closes (the AI says none: a sign-in, a robot check, a consent the person must give) holds the fill, and nothing is typed. -> {held, closed: [labels], layer}
+export const HELD = 'a dialog covers the form';
+export async function clearBeforeFill(tabId, {close, look, tries = 3, settleMs = 600}) {
+  const closed = [];
+  for (let attempt = 0; attempt < tries; attempt++) {
+    const layer = await look(tabId).catch(() => null);
+    if (!layer) return {held: false, closed, layer: null};
+    const pressed = await close(tabId).catch(() => '');
+    if (!pressed) return {held: true, closed, layer};
+    closed.push(pressed);
+    await sleep(settleMs);
+  }
+  const layer = await look(tabId).catch(() => null);
+  return {held: !!layer, closed, layer: layer || null};
+}
+
+// A held fill, said everywhere: the log line the pool reads (smoke.mjs parseLive), and the person told on the page.
+export async function holdFill(tab, page, result, {decide, progress, note}) {
+  const why = String(result.layer?.text || '').slice(0, 120);
+  decide('fill', `held: ${result.note}`, {host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })(), text: why, buttons: result.layer?.buttons?.length || 0});
+  await progress(tab.id, '', page);
+  await note(tab.id, `✈️ A dialog is in the way${why ? `: "${why}"` : ''}. Close it, then press Fill again.`, page);
+  return result;
+}

@@ -12,7 +12,7 @@ import {createAppMessages} from './messages-app.js';
 import {claimAppTab, closePosting, followOpener, noteSource} from './tabs.js';
 import {consider, initFillFlow} from './fill-flow.js';
 import {closePopup, popupLeft} from './consent.js';
-import {closeFillDialogs} from './dialog-after-fill.js';
+import {closeFillDialogs, holdFill} from './dialog-after-fill.js';
 import {autoRead, markListed, siteUnreachable, startWaiting} from './visit.js';
 import {MEMORY_KEY, memoryReadyIs, sessionGet, snapshot, startRun} from './tab-memory.js';
 import {startsOwnJob, sameSite, navigationKind, neverForm, sharedFixes, tabArmed, withMark} from './tab-pages.js';
@@ -341,6 +341,7 @@ async function fillOpenedTabNow(tab, url, force = false, {fast = false, quiet = 
     const me = await ready.me.catch(() => null);  // missing: fillTab fetches it and says what's wrong
     const result = await fillTab(tab, config, {jobUrl: url, kitAnswers: kit.kit?.answers || [], hasKit: !!kit.kit, coverLetter: kit.kit?.cover_letter || '', force, me,
       onStep: text => progress(tab.id, text, page)});
+    if (result?.held) return holdFill(tab, page, result, {decide, progress, note});   // a dialog covers the form and nothing closes it: nothing was typed (dialog-after-fill.js)
     reportControls(config, tab, result?.operated, result?.trace, result?.card, result?.unknownUploads, result?.starred);
     // The kit's eligibility verdict, as a reminder (applying anyway was the user's choice).
     if (kit.kit?.eligible === false) await note(tab.id, `⛔ Reminder from your kit: ${kit.kit.eligibility_note}`, page);

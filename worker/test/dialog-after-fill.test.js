@@ -57,3 +57,45 @@ test('the fill\'s end logs what it closed and what is left', async () => {
   await closeFillDialogs({ id: 1, url: 'https://jobs.example/apply' }, { close: async () => 'CANCELAR', look: async () => ({ text: 't', buttons: ['A'] }), decide: (_k, text) => lines.push(text) });
   assert.deepEqual(lines, ['closed a dialog opened by the fill', LEFT_OPEN]);
 });
+
+// The gate before the fill (owner, 11 Oct 2026: "we should not start filling any form before we close all the popups/overlays"): what covers the form is closed with the
+// AI's non-agreeing button, checked again, at most 3 times; one that cannot be closed holds the fill, and nothing is typed.
+test('the gate: a layer over the form is closed, checked again, and the fill goes on', async () => {
+  const { clearBeforeFill } = await import('../../extension/dialog-after-fill.js');
+  let open = true; const pressed = [];
+  const out = await clearBeforeFill(7, { look: async () => (open ? { text: 'Subscribe', buttons: ['No thanks'] } : null), close: async () => { open = false; pressed.push('No thanks'); return 'No thanks'; }, settleMs: 0 });
+  assert.deepEqual(out, { held: false, closed: ['No thanks'], layer: null });
+});
+
+test('the gate: a layer nothing closes (the AI says none: a sign-in, a robot check) holds the fill, with its text', async () => {
+  const { clearBeforeFill, HELD } = await import('../../extension/dialog-after-fill.js');
+  const out = await clearBeforeFill(7, { look: async () => ({ text: 'Please verify you are human', buttons: ['Verify'] }), close: async () => '', settleMs: 0 });
+  assert.equal(out.held, true);
+  assert.match(out.layer.text, /verify/i);
+  assert.match(HELD, /dialog covers the form/);
+});
+
+test('the gate: a button that closes nothing is tried at most 3 times, then the fill is held', async () => {
+  const { clearBeforeFill } = await import('../../extension/dialog-after-fill.js');
+  let presses = 0;
+  const out = await clearBeforeFill(7, { look: async () => ({ text: 'x', buttons: ['Close'] }), close: async () => { presses++; return 'Close'; }, settleMs: 0 });
+  assert.equal(presses, 3);
+  assert.equal(out.held, true);
+});
+
+test('the gate: nothing covers the form (a cookie bar away from its controls reads as none): no press, no hold; a failing look is no layer', async () => {
+  const { clearBeforeFill } = await import('../../extension/dialog-after-fill.js');
+  const out = await clearBeforeFill(7, { look: async () => null, close: async () => { throw new Error('must not press'); }, settleMs: 0 });
+  assert.deepEqual(out, { held: false, closed: [], layer: null });
+  assert.equal((await clearBeforeFill(7, { look: async () => { throw new Error('x'); }, close: async () => '', settleMs: 0 })).held, false);
+});
+
+test('the fill asks the gate first and a held fill types nothing', async () => {
+  const fs = await import('node:fs');
+  const flow = fs.readFileSync(new URL('../../extension/flow.js', import.meta.url), 'utf8');
+  assert.match(flow, /clearBeforeFill\(tab\.id/);
+  const gateAt = flow.indexOf('clearBeforeFill(tab.id');
+  assert.ok(!flow.slice(flow.indexOf('export async function fillTab'), gateAt).includes('files: PAGE_FILES'), 'the gate comes before the fill injects its page scripts');
+  const bg = fs.readFileSync(new URL('../../extension/background.js', import.meta.url), 'utf8');
+  assert.match(bg, /result\?\.held\) return holdFill/);
+});

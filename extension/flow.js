@@ -9,6 +9,9 @@ import {expandSections} from './sections.js';
 import {PAGE_FILES} from './page-files.js';
 import {hasEarly, keepEarly, takeEarly} from './early-answers.js';
 import {decide} from './log.js';
+import {closePopup} from './consent.js';   // a cycle again (consent.js uses api and settings from here at run time)
+import {onTop} from './on-top.js';
+import {HELD, clearBeforeFill} from './dialog-after-fill.js';
 import {verdictFields} from './eligibility-verdict.js';   // a cycle (log.js reads settings from here) that ES modules allow: both use the other only at run time
 export const JOB_SITES = [
   'https://*.greenhouse.io/*', 'https://jobs.lever.co/*', 'https://jobs.ashbyhq.com/*',
@@ -201,6 +204,10 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   let stepAt = Date.now();
   const step = name => { const now = Date.now(); debug.steps.push({step: name, ms: now - stepAt}); stepAt = now; };
   onStep('Reading the form…');
+  // Nothing is typed under a dialog: what covers the form's controls is closed first (the AI's non-agreeing button, kept), or the fill is held and the person told (dialog-after-fill.js).
+  const gate = await clearBeforeFill(tab.id, {close: closePopup, look: tabId => chrome.scripting.executeScript({target: {tabId, frameIds: [0]}, func: onTop}).then(rows => rows?.[0]?.result ?? null)});
+  if (gate.closed.length) decide('fill', 'closed a dialog before the fill', {label: gate.closed[0].slice(0, 40)});
+  if (gate.held) return {held: true, layer: gate.layer, note: HELD, usd: 0};
   await expandSections(tab);   // collapsed sections open first, so their fields are read (a no-op when consider already did: sections.js marks what it opened)
   // No Submit guard for the extension: it never submits, and the user presses Submit themselves.
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', func: () => { window.__jobPilottoNoGuard = true; }});

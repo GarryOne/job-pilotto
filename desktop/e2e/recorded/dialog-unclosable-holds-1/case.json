@@ -1,0 +1,76 @@
+{
+ "shape": "a robot check over the form that no non-agreeing button closes (the AI answers none): the fill is HELD, the person is told, and nothing is typed under the dialog",
+ "why": "11 Oct 2026, owner rule: 'we should not start filling any form before we close all the popups/overlays'. A layer the AI cannot close without agreeing (a sign-in, a robot check, a consent the person must give) holds the fill instead of typing under it",
+ "sample": "invented posting and form; the layer's words are generic; nothing models a real site's script",
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://jobs.beispiel.example/es/oferta/4711",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://jobs.beispiel.example/es/solicitud/4711",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://jobs.beispiel.example/es/solicitud/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.9,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "jetzt bewerben (ohne anmeldung)",
+     "applyRoute": "manual",
+     "applyBy": "form",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   }
+  ],
+  "/extension/dismiss-popup": {
+   "ok": true,
+   "button": ""
+  }
+ },
+ "expect": {
+  "told": [
+   "held: a dialog covers the form"
+  ],
+  "notTold": [
+   "filled the form"
+  ],
+  "empty": [
+   "#first",
+   "#last",
+   "#mail"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 30
+ },
+ "control": {
+  "build": "0.9.214",
+  "failed": "empty: #first (the old build typed under the dialog)"
+ }
+}

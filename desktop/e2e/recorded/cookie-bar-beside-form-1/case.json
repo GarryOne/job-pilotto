@@ -1,0 +1,76 @@
+{
+ "shape": "a small bar fixed to the bottom of the page, away from the form's controls: it covers none of them, so it does not block the fill (the guard must not over-block)",
+ "why": "11 Oct 2026, owner rule on popups: only a layer over the form's controls (or the page centre) holds the fill; a cookie bar beside the form does not",
+ "sample": "invented posting and form; the layer's words are generic; nothing models a real site's script",
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://jobs.beispiel.example/es/oferta/4711",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://jobs.beispiel.example/es/solicitud/4711",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://jobs.beispiel.example/es/solicitud/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.9,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "jetzt bewerben (ohne anmeldung)",
+     "applyRoute": "manual",
+     "applyBy": "form",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   }
+  ],
+  "/extension/dismiss-popup": {
+   "ok": true,
+   "button": ""
+  }
+ },
+ "expect": {
+  "told": [
+   "pressed the Apply button"
+  ],
+  "notTold": [
+   "held: a dialog covers the form"
+  ],
+  "filled": [
+   "#first",
+   "#last",
+   "#mail"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 45
+ },
+ "control": {
+  "build": "0.9.214",
+  "failed": "none: a regression guard that passes on the build before too"
+ }
+}
