@@ -22,7 +22,7 @@ class HeavyLockBudgetTest(unittest.TestCase):
         self.procs = []
         self.addCleanup(lambda: [p.kill() for p in self.procs])
         self.env = {**{k: v for k, v in os.environ.items() if not k.startswith(('JOB_PILOTTO_HEAVY', 'JP_HEAVY'))}, 'JOB_PILOTTO_HEAVY_DIR': (self.tmp / 'heavy').as_posix(),
-                    'JOB_PILOTTO_HEAVY_LOAD': '0', 'JOB_PILOTTO_HEAVY_POLL': '0.05', 'JOB_PILOTTO_HEAVY_TIMING_LOG': (self.tmp / 'gate-timing.log').as_posix(), 'JOB_PILOTTO_HEAVY_SHARED': str(LOCK)}
+                    'JOB_PILOTTO_HEAVY_LOAD': '0', 'JOB_PILOTTO_HEAVY_POLL': '0.1', 'JOB_PILOTTO_HEAVY_TIMING_LOG': (self.tmp / 'gate-timing.log').as_posix(), 'JOB_PILOTTO_HEAVY_SHARED': str(LOCK)}
 
     def memory(self, free_gb, swap_used_pct=10):
         bin_dir = self.tmp / 'bin'
