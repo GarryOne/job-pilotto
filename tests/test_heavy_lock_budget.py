@@ -120,7 +120,7 @@ class HeavyLockBudgetTest(unittest.TestCase):
     def test_the_slot_cap_can_be_set_back_to_two(self):
         self.memory(free_gb=20)
         for n in 'abc':
-            self.launch('recorded-replay', n, JOB_PILOTTO_HEAVY_SLOTS='2')
+            self.launch('recorded-replay', n, JOB_PILOTTO_HEAVY_SLOTS='2', JOB_PILOTTO_HEAVY_REPLAY_SKIP='0')   # (replays may skip the queue: here only the cap is looked at, in arrival order)
         wait_trace(self.trace, 2)
         self.assertEqual(sorted(self.settle()), ['+a', '+b'])
         release(self.gates, 'a')

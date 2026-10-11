@@ -91,6 +91,8 @@ memory_ok() {  # a 2nd heavy run fits: free+inactive memory over the floor and s
   [ -z "$why" ]
 }
 take() { local dir; for dir in $SLOT_DIRS; do mkdir "$dir" 2>/dev/null && { lock="$dir"; my_cost >"$dir/cost"; date +%s >"$dir/since"; is_exclusive && echo 1 >"$dir/exclusive"; return 0; }; done; return 1; }
+# After taking a slot: a timing run must be the only holder and nobody may have started beside it; if two took at the same moment, both give the slot back and try again in their turn.
+alone_ok() { if is_exclusive; then [ "$(held)" -le 1 ]; else ! exclusive_held; fi || { rm -rf "$lock"; lock=""; return 1; }; }
 release() { [ -n "$lock" ] && [ "$(cat "$lock/pid" 2>/dev/null)" = "$$" ] && rm -rf "$lock"; return 0; }
 queue="$root/queue"; mkdir -p "$queue"
 age_of() { local ns="${1%%-*}"; echo $(( $(date +%s) - ns / 1000000000 )); }   # seconds a ticket has waited (its name starts with the nanosecond clock)
@@ -178,11 +180,12 @@ while :; do
   if machine_ready; then
     mark ""
     first_raw="$(ahead)"; first="${first_raw#*|}"; skip=0
+    busy="$(held)"   # read AFTER the queue: the lock may have been taken while the queue was being read (a timing run's neighbour started beside it in a loaded run, 11 Oct 2026)
     # A replay beside the runs that hold the lock, with room in the budget, does not queue behind a waiter that has waited under the cap (JOB_PILOTTO_HEAVY_REPLAY_SKIP=0 off).
     case "$first" in *'[exclusive]') ;; *) [ -n "$first" ] && [ "$busy" != 0 ] && is_replay "$what" && [ "${JOB_PILOTTO_HEAVY_REPLAY_SKIP:-1}" != 0 ] && [ "${first_raw%%|*}" -lt "${JOB_PILOTTO_HEAVY_STARVE:-600}" ] && skip=1 ;; esac
     if [ -z "$first" ] || [ "$skip" = 1 ]; then
-      if [ "$busy" = 0 ]; then take && break
-      elif ! is_exclusive && ! exclusive_held && [ "$busy" -lt "$max_slots" ] && memory_ok; then take && break; fi
+      if [ "$busy" = 0 ]; then take && alone_ok && break
+      elif ! is_exclusive && ! exclusive_held && [ "$busy" -lt "$max_slots" ] && memory_ok; then take && alone_ok && break; fi
     fi
   else mark loadwait; fi
   waited=$(( $(date +%s) - began ))
