@@ -4,7 +4,8 @@
 import os from 'node:os';
 import path from 'node:path';
 import {REPLAY_DIR} from './lib/page-replay.mjs';
-import {findRow, staleCapture, thinProfileCapture} from './lib/row-replay.mjs';
+import {seedNote} from './lib/applicant-seed.mjs';
+import {findRow, staleCapture} from './lib/row-replay.mjs';
 import {rowToCase} from './lib/row-to-case.mjs';
 
 const args = process.argv.slice(2), at = args.indexOf('--old'), askCold = args.includes('--ask-cold');
@@ -16,7 +17,7 @@ const dir = findRow(row, root);
 if (!dir) { console.error(`row-to-case: no candidate for "${row}" in ${root}`); process.exit(2); }
 const stale = staleCapture(dir);
 if (stale) { console.error(`row-to-case: ${path.basename(dir)}: ${stale}`); process.exit(2); }
-const thin = thinProfileCapture(dir);
+const thin = seedNote(dir);   // a capture made with another applicant seed (or before the seed was recorded): its fill asks miss
 if (thin) { console.error(`row-to-case: ${path.basename(dir)}: ${thin}`); process.exit(2); }
 const {code, lines} = await rowToCase({rowDir: dir, name, outDir: REPLAY_DIR, oldDir, askCold});
 for (const line of lines) console.log(line);

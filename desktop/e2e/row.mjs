@@ -11,7 +11,7 @@ import {findRow, replayRow, replayRows, staleCapture} from './lib/row-replay.mjs
 const args = process.argv.slice(2), at = args.indexOf('--old'), all = args.includes('--all');
 const extensionDir = at >= 0 ? path.resolve(args[at + 1]) : undefined, name = args.filter((arg, i) => !(at >= 0 && (i === at || i === at + 1)) && arg !== '--all').join(' ');
 const root = process.env.SMOKE_CANDIDATES || path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA', 'replay-candidates');
-const line = r => (r.error ? `row: ${r.row}: ERROR ${r.error}` : `row: ${r.row}: ${r.seconds} s, ${r.asks} asks (${r.misses} not in its kept answers${r.missParts?.length ? `; the nearest kept ask differs in ${r.missParts.join(', ')}` : ''}), followed ${r.followed}/${r.livePresses} live presses${r.divergence ? `, DIVERGED: ${r.divergence}` : ''}${r.unrecorded.length ? `, ${r.unrecorded.length} addresses not recorded` : ''}`);
+const line = r => (r.error ? `row: ${r.row}: ERROR ${r.error}` : `row: ${r.row}: ${r.seconds} s${r.endedBy ? ` (ended: ${r.endedBy})` : ''}, ${r.asks} asks (${r.misses} not in its kept answers${r.missParts?.length ? `; the nearest kept ask differs in ${r.missParts.join(', ')}` : ''}), followed ${r.followed}/${r.livePresses} live presses${r.divergence ? `, DIVERGED: ${r.divergence}` : ''}${r.unrecorded.length ? `, ${r.unrecorded.length} addresses not recorded` : ''}`);
 
 if (all) {
   const day = (() => { try { return fs.readdirSync(root).filter(d => /^\d{4}-\d\d-\d\d$/.test(d)).sort().at(-1); } catch { return ''; } })();

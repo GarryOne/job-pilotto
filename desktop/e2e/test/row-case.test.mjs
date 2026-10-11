@@ -16,7 +16,7 @@ function row(extra = {}) {
   const dir = tmp('jp-row-src-');
   write(path.join(dir, 'pages/1.html'), extra.page || '<h1>Seller</h1><p>mail anna.muster@gmail.com</p>');
   write(path.join(dir, 'pages/2.html'), '<h1>Seller</h1><dialog open>x</dialog>');
-  write(path.join(dir, 'case.json'), {shape: 'a start dialog', why: 'auto-saved', sample: 'jobs.example.test', ai: {}, expect: {},
+  write(path.join(dir, 'case.json'), {seed: 'abc123def456', shape: 'a start dialog', why: 'auto-saved', sample: 'jobs.example.test', ai: {}, expect: {},
     pages: [{url: 'https://jobs.example.test/o/1', file: 'pages/1.html', at: 100, state: 0, ask: true, view: {width: 1200, height: 818, doc: 5}}, {url: 'https://jobs.example.test/o/1', file: 'pages/2.html', at: 200, state: 1, answerAsk: true}],
     run: {day: '2026-10-11', reached: 'posting', filled: null, short: null, path: [{kind: 'posting', host: 'jobs.example.test'}], fields: []},
     evidence: {pageKinds: ['log 14:33:13.748Z [extension] page kind: posting {"by":"ai"}', '14:33:13 [extension] page kind: posting {"by":"ai"}']}});
@@ -32,6 +32,7 @@ test('a row becomes a case: pages scrubbed and shrunk, answers and presses scrub
   const dir = path.join(out, 'start-dialog-1'), item = JSON.parse(fs.readFileSync(path.join(dir, 'case.json'), 'utf8'));
   assert.equal(result.dir, dir);
   assert.equal(item.replay, 'row');
+  assert.equal(item.seed, 'abc123def456', 'the capture\'s applicant seed travels with the case');
   assert.deepEqual(item.pages.map(page => [page.file, page.state, !!page.ask, !!page.answerAsk]), [['pages/1.html', 0, true, false], ['pages/2.html', 1, false, true]]);
   assert.ok(!fs.readFileSync(path.join(dir, 'pages/1.html'), 'utf8').includes('gmail'), 'the page is scrubbed');
   assert.ok(fs.readFileSync(path.join(dir, 'pages/1.html'), 'utf8').includes(FAKE.email));

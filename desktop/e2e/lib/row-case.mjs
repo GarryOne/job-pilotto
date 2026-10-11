@@ -37,7 +37,7 @@ export async function buildCase({rowDir, name, outDir, shrink = shrinkPages, val
   const optional = (file, fallback) => { try { return fs.readFileSync(path.join(rowDir, file), 'utf8'); } catch { return fallback; } };   // a run with no presses writes no presses.json (the Ashby capture: 0 presses)
   files['model-memo.json'] = stripQueries(scrub(optional('model-memo.json', '{}'), values));
   files['presses.json'] = scrub(optional('presses.json', '[]'), values);
-  const keep = {shape: item.shape, why: item.why, sample: item.sample, ...(item.control ? {control: item.control} : {})};
+  const keep = {shape: item.shape, why: item.why, sample: item.sample, ...(item.seed ? {seed: item.seed} : {}), ...(item.control ? {control: item.control} : {})};   // seed: the applicant the capture was made with (lib/applicant-seed.mjs): a case keeps it, the replay names a stale one
   files['case.json'] = `${JSON.stringify({...keep, replay: 'row', pages: meta, baseline: baselineOf(item, readJson(path.join(rowDir, 'presses.json'), [])), expect: {}}, null, 1)}\n`;
   const found = privacyFindings(Object.fromEntries(Object.entries(files).map(([file, text]) => [`${name}/${file}`, text])), values);
   if (found.length) throw new Error(`privacy gate: ${found.join('; ')}; nothing written`);

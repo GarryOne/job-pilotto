@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {addressOf, findRow, missParts, rowFiles, SEEDED_APPLICANT_AT, staleCapture, thinProfileCapture} from '../lib/row-replay.mjs';
+import {addressOf, findRow, missParts, rowFiles, staleCapture} from '../lib/row-replay.mjs';
 
 const write = (file, text) => { fs.mkdirSync(path.dirname(file), {recursive: true}); fs.writeFileSync(file, text); };
 const caseIn = (dir, pages) => { write(path.join(dir, 'case.json'), JSON.stringify({pages})); for (const page of pages) write(path.join(dir, page.file), `<p>${page.url}</p>`); };
@@ -56,11 +56,4 @@ test('a miss names the parts that differ from the nearest kept ask, read from th
   assert.deepEqual(missParts(log), ['user:job', 'system:1']);
   assert.deepEqual(missParts('the nearest kept ask differs in: system:1, system:1:profile (lines 33-34, 2 in all of 50), user:job'), ['system:1', 'system:1:profile (lines 33-34, 2 in all of 50)', 'user:job'], 'a line list inside parentheses is one part');
   assert.deepEqual(missParts('model memo: not in the row\'s kept answers (an offline replay never asks the model)'), [], 'an old memo (no parts kept): nothing to name');
-});
-
-test('a capture taken before the applicant seeding fix (9f6ff67) is named thin-profile, with what to do; a later one is not', () => {
-  const caseAt = at => { const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-row-thin-')); write(path.join(dir, 'case.json'), JSON.stringify({pages: [{url: 'https://a.example/p', file: 'p.html', at}]})); return dir; };
-  assert.match(thinProfileCapture(caseAt(SEEDED_APPLICANT_AT - 1)), /before the offline app seeded the full applicant.*capture the row once more/);
-  assert.equal(thinProfileCapture(caseAt(SEEDED_APPLICANT_AT + 1)), '');
-  assert.equal(thinProfileCapture(caseAt(0)), '');
 });

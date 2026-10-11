@@ -104,6 +104,14 @@ a row that now stops earlier than its live run is a regression found before the 
 - The `/admin/applying` pool count changes only when a run ENDS (`sendPool` at the end of smoke or discover); the Mac's own list changes at once. A half-finished run shows nothing there.
 - Never `git checkout` in the primary checkout: other sessions and uncommitted changes live there. Work in your own worktree.
 
+## When a row must be captured again (12 Oct 2026)
+A row capture (the pool's candidate, on this Mac: `~/Library/Application Support/Job Pilotto QA/replay-candidates/<day>/<row>/`, never in the repo) is only as good as the build and applicant that made it.
+- **Capture again** (one held run: `SMOKE_KEEP_CANDIDATES=1 JP_NO_REPORT=1 npm run smoke -- --only "<row>"`, heavy-lock class proof, fake applicant, never Submit) when: the capture predates the offline app's full applicant (9f6ff67, 11 Oct 17:07 +02) or the live row's contact fix (6b857a6): its form-answer asks miss; or the prompt of an AI ask changed (the answers prompt: 34b349d 16:50 and 279556b 17:28 +02) and your fix does not need that change.
+- **What refuses a stale one:** `npm run row` says STALE (before the replay format); `npm run row-to-case` refuses a thin-profile capture (before 9f6ff67) with the command above, and a cold ask says "run again with --ask-cold"
+  (the new build's own model asks, once on the plan path, kept in the case); a replay whose memo misses names the differing parts ("system:1:profile (lines 30-37 of 36)": `lib/ai/model-memo.js`).
+- **The case:** `cd desktop/e2e && npm run row-to-case -- "<row>" <case-name> --old <extension/ of the build before the fix> [--ask-cold]` (exit 3: the old build passes; exit 4: not provable). Its `expect` is the tool's, never typed.
+- A site that asks for removal gets its case deleted.
+
 ## Stop conditions
 - The heavy lock is held by a peer, or a peer asks for your slot back: stop your own run by PID and say so.
 - A run shows the isolation assertion failing, or lines in the live app's log: stop everything, say what was reached, fix the isolation first.
