@@ -172,7 +172,9 @@ class HeavyLockTest(unittest.TestCase):
         env = {**env, 'JOB_PILOTTO_HEAVY_DIR': str(self.tmp / heavy_dir)}
         holder = self.start('pool run', 'sleep', '3', **env)
         self.addCleanup(holder.kill)
-        time.sleep(0.7)
+        deadline = time.monotonic() + 30
+        while not (self.tmp / heavy_dir / 'lock' / 'what').exists() and time.monotonic() < deadline:   # the holder holds: not a guess of how long a loaded Mac takes to start it
+            time.sleep(0.05)
         began = time.monotonic()
         result = self.run_lock(second, 'echo', 'ran', **env)
         took = time.monotonic() - began   # before waiting out the holder
