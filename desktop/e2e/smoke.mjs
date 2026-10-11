@@ -20,7 +20,7 @@ import {dropCandidate, saveCandidate} from './lib/replay-candidate.mjs';
 import {fetchWanted, wantedFirst} from './lib/wanted-hosts.mjs';
 import {heavy} from './lib/heavy.mjs';
 import {runArtifacts} from './lib/run-artifacts.mjs';
-heavy('e2e-smoke', import.meta.url);   // one heavy run at a time on this Mac (tools/heavy-lock.sh)
+heavy('e2e-smoke', import.meta.url, {klass: process.argv.includes('--only') ? 'proof' : process.argv.includes('--discover') ? 'explore' : 'pool'});   // one heavy run at a time on this Mac (tools/heavy-lock.sh); a held row proof goes before the pool's whole list
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const QA_DIR = path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA');   // survives profile resets and removed worktrees

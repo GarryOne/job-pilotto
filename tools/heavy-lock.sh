@@ -11,6 +11,7 @@
 # longer waiters, and a longer waiter yields to a younger row waiter, each only while it has waited under JOB_PILOTTO_HEAVY_SHORT_AGE seconds (default 120),
 # so nobody starves. Replays (row*, recorded-replay) wait for the memory gate, never for the load. A ticket names its session (JOB_PILOTTO_SESSION, else the
 # branch of the working folder) and the log lines say it. JOB_PILOTTO_HEAVY_SHORT_FIRST=0 = strict arrival order; JOB_PILOTTO_HEAVY_REPLAY_LOAD=1 = replays wait for the load too.
+#   bash tools/heavy-lock.sh status     who holds it, who waits (class, how long), load, memory, about how long a new run would wait (tools/heavy-lock-status.sh)
 # Every wait is logged to <git common dir>/gate-timing.log (JOB_PILOTTO_HEAVY_TIMING_LOG elsewhere, GATE_TIMING=0 off).
 # A nested call (a suite started by `npm run all`) sees JP_HEAVY_HELD and runs at once. Escape hatches, all said in the log when used:
 #   JOB_PILOTTO_HEAVY=0                 no lock, no load wait
@@ -23,6 +24,7 @@
 #   JOB_PILOTTO_HEAVY_POLL=<s>          seconds between looks at the queue and the load (default 1; the tests use 0.1)
 #   JOB_PILOTTO_HEAVY_LOAD_WAIT=<s>     longest wait for the load to drop before running anyway (default 300)
 # Owner: landing-speed (11 Oct 2026, spec faster-fixes §6). Guarded by tests/test_heavy_lock.py.
+[ "${1:-}" = status ] && exec bash "$(dirname "$0")/heavy-lock-status.sh"   # read-only readout of holders, waiters, load and expected waits
 what="${1:-heavy run}"; shift || true
 [ "$#" -gt 0 ] || { echo "usage: heavy-lock.sh <what> <command...>" >&2; exit 2; }
 if [ "${JOB_PILOTTO_HEAVY:-1}" = 0 ] || [ -n "${JP_HEAVY_HELD:-}" ]; then exec "$@"; fi
@@ -71,34 +73,27 @@ queue="$root/queue"; mkdir -p "$queue"
 branch_now="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo ?)"
 [ -f "$(dirname "$0")/session-name.sh" ] && source "$(dirname "$0")/session-name.sh" && session="$(session_name)" || session="${JOB_PILOTTO_SESSION:-?}"
 [ "$session" = ? ] && session="$branch_now"   # no session name found: the branch still says whose run it is
-is_short() { case "$1" in row|row-*) return 0 ;; *) return 1 ;; esac; }   # a row replay: one offline browser, ~15 s
-is_replay() { case "$1" in row|row-*|recorded-replay) return 0 ;; *) return 1 ;; esac; }
-short_first="${JOB_PILOTTO_HEAVY_SHORT_FIRST:-1}"; short_age="${JOB_PILOTTO_HEAVY_SHORT_AGE:-120}"
-ticket="$queue/$(python3 -c 'import time; print(time.time_ns())' 2>/dev/null || echo "$(date +%s)000000000")-$$"; printf '%s %s\n\n%s\n' "$$" "$what" "$session" >"$ticket"
+[ -f "$(dirname "$0")/heavy-lock-classes.sh" ] && source "$(dirname "$0")/heavy-lock-classes.sh" || { is_short() { return 1; }; is_replay() { return 1; }; lock_class() { echo other; }; prio_of() { echo 3; }; ticket_prio() { echo 3; }; can_overtake() { return 1; }; }
+klass="$(lock_class "$what" "${JOB_PILOTTO_HEAVY_CLASS:-}")"; my_prio="$(prio_of "$what" "$klass")"
+ticket="$queue/$(python3 -c 'import time; print(time.time_ns())' 2>/dev/null || echo "$(date +%s)000000000")-$$"; printf '%s %s\n\n%s\n%s\n' "$$" "$what" "$session" "$klass" >"$ticket"
 trap 'rm -f "$ticket"; release' EXIT
 trap 'exit 143' TERM; trap 'exit 130' INT; trap 'exit 129' HUP
 age_of() { local ns="${1%%-*}"; echo $(( $(date +%s) - ns / 1000000000 )); }   # seconds a ticket has waited (its name starts with the nanosecond clock)
 ticket_label() { echo "$(head -n 1 "$queue/$1" | cut -d' ' -f2-) (pid $2, session $(sed -n 3p "$queue/$1" 2>/dev/null || echo ?))"; }
 ahead() {  # the waiter I must let go first, as "<what> (pid N, session S)"; dead waiters are dropped on the way
-  local name pid mine=0 mname="${ticket##*/}"
+  local name pid mine=0 mname="${ticket##*/}" theirs
   for name in $(ls "$queue" 2>/dev/null | sort); do
-    if [ "$name" = "$mname" ]; then
-      mine=1
-      # a longer waiter yields to a younger row waiter, while it has waited under short_age seconds
-      if [ "$short_first" = 1 ] && ! is_short "$what" && [ "$(age_of "$mname")" -lt "$short_age" ]; then continue; else return 0; fi
-    fi
+    [ "$name" = "$mname" ] && { mine=1; continue; }
     pid="$(head -n 1 "$queue/$name" 2>/dev/null | cut -d' ' -f1)"
     [ "$(sed -n 2p "$queue/$name" 2>/dev/null)" = loadwait ] && continue   # it waits for the machine, holding no slot: it does not hold anyone up
-    if [ "$mine" = 1 ]; then   # only younger row waiters count here
-      is_short "$(head -n 1 "$queue/$name" | cut -d' ' -f2-)" && kill -0 "$pid" 2>/dev/null && { ticket_label "$name" "$pid"; return 0; }
-      continue
+    if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then rm -f "$queue/$name"; continue; fi
+    theirs="$(ticket_prio "$queue/$name")"
+    if [ "$mine" = 0 ]; then   # older: it goes first, unless I outrank it and it has not waited past the cap
+      can_overtake "$my_prio" "$theirs" "$(age_of "$name")" && continue
+    else                       # younger: I yield to it when it outranks me while I have not waited past the cap
+      can_overtake "$theirs" "$my_prio" "$(age_of "$mname")" || continue
     fi
-    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-      # a row waiter goes ahead of an older longer waiter that has waited under short_age seconds
-      if [ "$short_first" = 1 ] && is_short "$what" && ! is_short "$(head -n 1 "$queue/$name" | cut -d' ' -f2-)" && [ "$(age_of "$name")" -lt "$short_age" ]; then continue; fi
-      ticket_label "$name" "$pid"; return 0
-    fi
-    rm -f "$queue/$name"
+    ticket_label "$name" "$pid"; return 0
   done
 }
 
@@ -116,7 +111,7 @@ top_cpu() {  # $1 = separator between name and percent, $2 = separator between e
   ps -Ao pcpu=,comm= 2>/dev/null | awk '{c = $1; $1 = ""; sub(/^ +/, ""); n = split($0, p, "/"); cpu[p[n]] += c} END {for (k in cpu) printf "%d\t%s\n", cpu[k], k}' | sort -rn | head -3 \
     | awk -F'\t' -v a="$1" -v b="$2" '$1 > 0 {printf "%s%s%s%s%%", sep, $2, a, $1; sep = b}'
 }
-mark() { printf '%s %s\n%s\n%s\n' "$$" "$what" "$1" "$session" >"$ticket"; }   # the ticket keeps its name (its place in line); only its second line changes
+mark() { printf '%s %s\n%s\n%s\n%s\n' "$$" "$what" "$1" "$session" "$klass" >"$ticket"; }   # the ticket keeps its name (its place in line); only its second line changes
 machine_ready() {  # sets $why when not
   [ "$limit" -gt 0 ] 2>/dev/null || return 0
   [ "$load_gave_up" = 1 ] && return 0
@@ -147,7 +142,7 @@ while :; do
   sleep "$poll"
 done
 rm -f "$ticket"
-if [ -n "$lock" ]; then echo $$ >"$lock/pid"; echo "$what" >"$lock/what"; echo "$session" >"$lock/session"; date +%s >"$lock/since"; pwd >"$lock/cwd"; fi
+if [ -n "$lock" ]; then echo $$ >"$lock/pid"; echo "$what" >"$lock/what"; echo "$session" >"$lock/session"; echo "$klass" >"$lock/class"; date +%s >"$lock/since"; pwd >"$lock/cwd"; fi
 # Every hold is logged with the branch and session it belongs to and the load at queueing and at start, so a fix's proof waits can be summed (tools/landing-report.mjs).
 timing_log() {  # <text after the time stamp>
   [ "${GATE_TIMING:-1}" != 0 ] || return 0
@@ -155,7 +150,7 @@ timing_log() {  # <text after the time stamp>
   [ "$timing" = /gate-timing.log ] || echo "# $(date -u +%Y-%m-%dT%H:%M:%SZ) $1" >>"$timing" 2>/dev/null || true
 }
 waited_s=$(( $(date +%s) - began )); load_start="$(load1)"
-ident="what=$what branch=$branch_now session=$session load_q=$load_queue load_start=$load_start top=$(top_cpu : , | tr ' ' _)"
+ident="what=$what class=$klass branch=$branch_now session=$session load_q=$load_queue load_start=$load_start top=$(top_cpu : , | tr ' ' _)"
 if [ "$told" = 1 ]; then
   say "got the lock after ${waited_s}s"
   timing_log "heavy lock wait=${waited_s}s $ident"   # every wait, for the next measurement

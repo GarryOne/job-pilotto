@@ -20,6 +20,16 @@ test('the main script re-runs itself under the lock and exits with the run\'s co
   assert.deepEqual(calls[1], ['exit', 7]);
 });
 
+test('a class given by the entry point reaches the lock; none leaves the environment alone', () => {
+  calls.length = 0;
+  heavy('e2e-smoke', pathToFileURL(script).href, {argv: ['node', script], env: {A: '1'}, klass: 'proof', ...fake});
+  assert.equal(calls[0][2].env.JOB_PILOTTO_HEAVY_CLASS, 'proof');
+  assert.equal(calls[0][2].env.A, '1');
+  calls.length = 0;
+  heavy('e2e-smoke', pathToFileURL(script).href, {argv: ['node', script], env: {}, ...fake});
+  assert.equal(calls[0][2].env, undefined);
+});
+
 test('an import, a held lock, the off switch and --list do nothing', () => {
   for (const [argv, env] of [[['node', here + 'other.mjs'], {}], [['node', script], {JP_HEAVY_HELD: '1'}], [['node', script], {JOB_PILOTTO_HEAVY: '0'}], [['node', script, '--list'], {}]]) {
     calls.length = 0;
@@ -29,5 +39,5 @@ test('an import, a held lock, the off switch and --list do nothing', () => {
 });
 
 test('every heavy entry point calls it (a new browser suite entry must too)', () => {
-  for (const file of ['suite.mjs', 'run-all.mjs', 'smoke.mjs']) assert.match(fs.readFileSync(here + file, 'utf8'), /heavy\(['`][$\w{}.\[\]-]+['`], import\.meta\.url\)/, file);
+  for (const file of ['suite.mjs', 'run-all.mjs', 'smoke.mjs']) assert.match(fs.readFileSync(here + file, 'utf8'), /heavy\(['`][$\w{}.\[\]-]+['`], import\.meta\.url[,)]/, file);
 });

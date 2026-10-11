@@ -8,11 +8,12 @@ import {fileURLToPath} from 'node:url';
 
 const LOCK = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'tools', 'heavy-lock.sh');
 
-export function heavy(what, metaUrl, {argv = process.argv, env = process.env, run = spawnSync, exit = process.exit} = {}) {
+// klass: the lock's priority class for this run (proof | pool | explore | other; tools/heavy-lock-classes.sh); without it the lock reads it from `what`.
+export function heavy(what, metaUrl, {argv = process.argv, env = process.env, run = spawnSync, exit = process.exit, klass} = {}) {
   if (env.JP_HEAVY_HELD || env.JOB_PILOTTO_HEAVY === '0') return false;
   if (!argv[1] || path.resolve(argv[1]) !== fileURLToPath(metaUrl)) return false;
   if (argv.some(arg => arg === '--list' || arg === '--help') || !fs.existsSync(LOCK)) return false;
-  const result = run('bash', [LOCK, what, process.execPath, ...process.execArgv, ...argv.slice(1)], {stdio: 'inherit'});
+  const result = run('bash', [LOCK, what, process.execPath, ...process.execArgv, ...argv.slice(1)], {stdio: 'inherit', ...(klass ? {env: {...env, JOB_PILOTTO_HEAVY_CLASS: klass}} : {})});
   if (result.error) return false;   // no bash: run without the lock
   exit(result.status ?? 1);
   return true;

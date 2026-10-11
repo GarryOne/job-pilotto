@@ -26,11 +26,11 @@ class HeavyLockShortFirstTest(unittest.TestCase):
         return subprocess.Popen(['bash', str(LOCK), what, 'bash', '-c', body], env={**self.env, **env}, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
     def order(self, **env):
-        """A holder runs 2 s; a longer run (e2e-smoke) queues, then a row replay; returns the order they ran in."""
+        """A holder runs 2 s; a longer run of the same class (real-extension) queues, then a row replay; returns the order they ran in."""
         mark = lambda name, nap: f'echo {name} >> {self.trace}; sleep {nap}'
         holder = self.start('recorded-replay-holder', mark('holder', 2), **env)
         time.sleep(0.5)
-        longer = self.start('e2e-smoke', mark('long', 0.2), **env)
+        longer = self.start('real-extension', mark('long', 0.2), **env)
         time.sleep(0.5)
         row = self.start('row-replay', mark('row', 0.2), **env)
         for p in (holder, longer, row):
