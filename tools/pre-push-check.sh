@@ -279,6 +279,7 @@ verify_area() {  # area [extra check.sh flags]
   (cd "$tree" && gate_cache_run "$repo" "$area" "flag=$affected_flag args=$* pick=$picks" bash tools/check.sh --area "$area" $affected_flag "$@")
 }
 source "$repo/tools/check-slot.sh" 2>/dev/null || { slot_acquire() { :; }; slot_release() { :; }; }
+case "$command" in *CI_RED_OK=1*) export JOB_PILOTTO_RED_FIX=1 ;; esac   # the fix of a red main does not wait for a slot (tools/check-slot.sh)
 slot_acquire
 if [ "$want_workflows" = 1 ]; then
   run "CI installs dev dependencies (build.yml)" ci_installs_dev

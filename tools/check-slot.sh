@@ -23,6 +23,8 @@ slot_claim() {  # try every slot; sets SLOT_MINE
 }
 
 slot_acquire() {
+  # The landing of a red-main fix does not wait for a slot (JOB_PILOTTO_RED_FIX=1, set by tools/ship.sh --fix and by a push with CI_RED_OK=1): it runs beside the others, said in one line.
+  if [ "${JOB_PILOTTO_RED_FIX:-}" = 1 ]; then echo "check-slot: this is the fix of a red main: it does not wait for a slot" >&2; return 0; fi
   local slots="${JOB_PILOTTO_CHECK_SLOTS:-2}" wait_max="${JOB_PILOTTO_CHECK_WAIT:-600}" started told=0
   [ "$slots" -gt 0 ] 2>/dev/null || return 0
   started="$(date +%s)"

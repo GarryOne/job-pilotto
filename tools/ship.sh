@@ -19,7 +19,7 @@ flags=""; keep=1; background=0; args=()
 for arg in "$@"; do
   case "$arg" in
     --full) flags="PUSH_FULL=1 $flags"; args+=("$arg") ;;
-    --fix) flags="CI_RED_OK=1 $flags"; args+=("$arg") ;;
+    --fix) flags="CI_RED_OK=1 $flags"; export JOB_PILOTTO_RED_FIX=1; args+=("$arg") ;;   # the fix of a red main goes first: no landing queue, no check-slot wait, heavy-lock class fix
     --keep) keep=1; args+=("$arg") ;;
     --remove) keep=0; args+=("$arg") ;;
     --background) background=1 ;;
@@ -102,7 +102,7 @@ take_extension_version() {
 slow_gate_paths="extension desktop/lib desktop/test desktop/e2e desktop/scripts desktop/package.json desktop/package-lock.json worker/src docs/flows"
 case "${SHIP_LANDING_LOCK:-auto}" in
   1) queue=1 ;; 0) queue=0 ;;
-  *) git fetch -q origin; if [ -n "$(git diff --name-only origin/main...HEAD -- $slow_gate_paths 2>/dev/null)" ]; then queue=1; else queue=0; fi ;;
+  *) if [ "${JOB_PILOTTO_RED_FIX:-}" = 1 ]; then queue=0; else git fetch -q origin; if [ -n "$(git diff --name-only origin/main...HEAD -- $slow_gate_paths 2>/dev/null)" ]; then queue=1; else queue=0; fi; fi ;;
 esac
 if [ "$queue" = 1 ]; then
   step "queueing for the landing lock (this landing runs the slow gates; SHIP_LANDING_LOCK=0 skips the queue)"
