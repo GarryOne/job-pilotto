@@ -101,7 +101,7 @@ test('each fixed row carries what the expander shows: its host, every commit, an
 });
 
 test('the page: two tabs by URL hash, one charcoal panel (title, one sentence, "How verification works", toolbar, table, footer), five columns from heads(), a row expander', () => {
-  assert.match(PAGE, /#needs-fix/); assert.match(PAGE, /#fixed/); assert.match(PAGE, /hashchange/);
+  assert.match(PAGE, /tab\('needs-fix'/); assert.match(PAGE, /tab\('fixed'/); assert.match(PAGE, /hash === '#fixed'/); assert.match(PAGE, /hashchange/);   // tabs by URL hash
   assert.match(PAGE, /heads\('fixed', \['Site \/ platform', 'Verification', 'Filled before → after', 'Fix', 'Details'\]/);
   assert.match(PAGE, /heads\('cases', \['Case', 'Rung guarded', 'Result', 'Last 10 runs', 'Last run', 'Since'\]/);   // the Fixed-site replays table is back, as it was (owner, 11 Oct 2026)
   assert.match(PAGE, /Fixed-site replays · every fixed site, replayed/);
@@ -120,7 +120,7 @@ test('the two tabs are real tabs joined to the content: a tablist whose active t
   assert.match(PAGE, /role: 'tablist'/); assert.match(PAGE, /role: 'tab'/); assert.match(PAGE, /'aria-selected'/);
   assert.match(PAGE, /\.tabs a\{[^}]*margin-bottom:-1px/);   // the tab overlaps the strip's line
   assert.match(PAGE, /\.tabs a\.on\{[^}]*background:var\(--card\)/);   // the active tab is the panel's own colour
-  assert.match(PAGE, /\.tabs ~ section\.fixed\{[^}]*margin-top:0/);   // no gap under the strip
+  assert.match(PAGE, /\.tabs ~ section\.bycause\{[^}]*margin-top:0/);   // no gap under the strip
   assert.doesNotMatch(PAGE, /className: 'chip' \+ \(fixed/);   // the old chip buttons are gone
 });
 

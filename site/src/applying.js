@@ -5,6 +5,7 @@
 import {viewer} from './auth.js';
 import {FIX_KINDS, FIXED_CSS, FIXED_SCRIPT, fixedData, ingestFixes} from './applying-fixed.js';
 import {ORDER_SOURCE} from './applying-order.js';
+import {GROUPS_SOURCE, newestVersion} from './applying-groups.js';
 import {digest} from './digest.js';
 import {topCauses} from './applying-cause.js';
 import {nextToAdd} from './nextsites.js';
@@ -95,6 +96,7 @@ export async function data(db, now = new Date()) {
   const scorecard = await platformScorecard(db, pool, now).catch(() => []);   // real use against the pool's tests, per platform (src/scorecard.js)
   const next = await nextToAdd(db, pool, now).catch(() => ({sites: [], hidden: {hosts: 0}}));   // real users' end hosts the pool lacks (src/nextsites.js)
   const fixed = await fixedData(db, pool, cases, now).catch(() => ({day: dayOf(now), rows: [], inProgress: [], claimsAt: null, fixesAt: null, replays: []}));   // the Fixed tab, and the Back / In progress marks on the pool rows
+  const latestBuild = newestVersion([...runs.map(run => run.version), ...fixed.rows.flatMap(row => row.fixes.map(fix => fix.extensionVersion))]);   // the newest landed build any run or fix names (src/applying-groups.js)
   const live = sites.filter(site => !site.note);
   const dropped = await digest(db, now).then(d => d.boards.filter(board => board.dropped).map(board => ({board: board.board, earlier: board.earlierFilledShare, recent: board.recentFilledShare}))).catch(() => []);
   return {
@@ -103,7 +105,7 @@ export async function data(db, now = new Date()) {
       sites: sites.length, sitesRecent: sites.filter(site => site.day >= tenDays).length,
       reachedForm: live.length ? Math.round((100 * live.filter(site => ['form', 'ready'].includes(site.reached)).length) / live.length) : null,
       needFix: sites.filter(needsFix).length, regressions: sites.filter(site => site.regression).length, gone: sites.filter(site => site.note).length, dropped: dropped.length},
-    sites, pool, fixed, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, now: now.toISOString()};
+    sites, pool, fixed, latestBuild, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, now: now.toISOString()};
 }
 
 // "Greenhouse: 4 sites, 3 flows": each group's size and how many different flows (or platforms) it holds.
@@ -120,7 +122,7 @@ async function poolRows(db, sites, now) {
     const row = known.get(name) || {}, site = byName[name], start = row.start_host || site?.host || '', end = signatureHost(row.signature) || '';
     const {flow, raw} = flowOf(row.signature, start);
     const step = row.signature?.match(/#([^#]+)$/)?.[1] || null, reached = site?.reached ?? step;
-    return {name: displayName(name, start), shape: name, runs: site?.runs ?? [], platform: platformLabel(end, start), flow, raw, start, end, reached, day: site?.day ?? null, at: site?.at ?? null, running: running.has(name), note: site?.note ?? null, rung: site?.rung ?? null, signal: site?.signal ?? null,
+    return {name: displayName(name, start), shape: name, version: site?.version ?? null, runs: site?.runs ?? [], platform: platformLabel(end, start), flow, raw, start, end, reached, day: site?.day ?? null, at: site?.at ?? null, running: running.has(name), note: site?.note ?? null, rung: site?.rung ?? null, signal: site?.signal ?? null,
       regression: !!site?.regression, filled: site?.filled ?? null, left: site?.left ?? null, short: site?.short ?? null, shares: site?.shares ?? [], history: site?.history ?? (step ? [step] : []), days: site?.days ?? []};
   }).sort((a, b) => Number(b.running) - Number(a.running) || a.platform.localeCompare(b.platform) || a.name.localeCompare(b.name));
 }
@@ -181,6 +183,7 @@ live, stopped before any account button or Submit, a rotating share each night. 
 <script>
 const __name = target => target;   // the bundler wraps inner functions in __name(...) (esbuild keepNames); a pasted function source calls it, so the page defines it (test/needs-fix-order.test.js)
 const needsFixOrder = ${ORDER_SOURCE};
+const needsFixGroups = ${GROUPS_SOURCE};
 const el = (tag, props = {}, ...kids) => { const node = Object.assign(document.createElement(tag), props); node.append(...kids.filter(kid => kid != null)); return node; };
 const pill = step => el('span', {className: 'pill s-' + step, textContent: step});
 const color = step => getComputedStyle(document.querySelector('.s-' + CSS.escape(step)) || document.body).backgroundColor;
@@ -199,7 +202,7 @@ fetch('?json').then(r => r.json()).then(d => {
     tile(t.regressions, 'Open regressions', t.regressions ? 'bad' : 'good', t.gone ? t.gone + ' posting(s) gone' : 'Reached less than before', 'A site that reached less than its last run' + (t.gone ? '; ' + t.gone + ' posting(s) are gone' : '')),
     tile(t.needFix, 'Sites needing a fix', t.needFix ? 'bad' : 'good', 'Stopped early, unexplained fields, or a regression', 'Stopped early, unexplained fields, or a regression'),
     tile(t.dropped, 'Boards dropped', t.dropped ? 'bad' : 'good', 'Fleet · layer 4', 'Boards dropped in the fleet (layer 4)')));
-  const tabs = el('nav', {className: 'tabs', role: 'tablist', 'aria-label': 'Applying results'}), fixBox = el('section', {className: 'fix'}), fixedBox = el('section', {className: 'fixed'}); app.append(tabs, fixBox, fixedBox);   // Needs a fix: right under the tiles, drawn once block() exists (drawFix)
+  const tabs = el('nav', {className: 'tabs', role: 'tablist', 'aria-label': 'Applying results'}), fixBox = el('section', {className: 'fix'}), fixedBox = el('section', {className: 'fixed'}), causeBox = el('section', {className: 'bycause'}); app.append(tabs, fixBox, fixedBox, causeBox);   // Needs a fix: right under the tiles, drawn once block() exists (drawFix)
   // Nights · where each site got to (owner, 10 Oct 2026: more readable, at the top): one bar per night, newest first, every site of that night split by the step it reached
   // (the segment's width is its share, its number the count), then how many sites ran and the share that reached the form.
   if (d.nights.length) {
@@ -283,7 +286,7 @@ fetch('?json').then(r => r.json()).then(d => {
   // Next sites to add: first the platforms most matched jobs are on that the pool covers too little (from any number of installs), then the hosts real applications ended on
   // that the pool lacks, each used by >= 3 installs (src/nextsites.js). Top 10 of each, the rest on request.
   // Each list is a bar (its title, "Showing 1-10 of N", Previous / Next) over a table: the pool table's own pattern, 10 rows a page (NEXT_PER, shared by the Fixed table).
-  const nextPage = {platforms: 0, sites: 0, score: 0, fix: 0, fixed: 0}, NEXT_PER = 10, nextBox = el('div'), scoreBox = el('div');
+  const nextPage = {platforms: 0, sites: 0, score: 0, fix: 0, fixed: 0, causes: 0}, NEXT_PER = 10, nextBox = el('div'), scoreBox = el('div');
   const block = (key, title, what, allRows, labels, row, none, redraw = () => drawNext(), getters = []) => {
     const rows = sortRows(key, allRows, getters), pages = Math.max(1, Math.ceil(rows.length / NEXT_PER)); nextPage[key] = Math.min(nextPage[key], pages - 1);
     const from = nextPage[key] * NEXT_PER, shown = rows.slice(from, from + NEXT_PER), go = step => () => { nextPage[key] += step; redraw(); };
@@ -291,7 +294,7 @@ fetch('?json').then(r => r.json()).then(d => {
         el('span', {className: 'muted count', textContent: rows.length ? 'Showing ' + (from + 1) + '–' + (from + shown.length) + ' of ' + rows.length : none}),
       pages > 1 ? el('div', {className: 'pager'}, el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: nextPage[key] === 0, onclick: go(-1)}),
         el('button', {className: 'chip', type: 'button', textContent: 'Next →', disabled: nextPage[key] >= pages - 1, onclick: go(1)})) : null),
-      rows.length ? el('table', {className: key === 'fix' ? 'fixtable' : ''}, el('tr', {}, ...heads(key, labels, () => { nextPage[key] = 0; redraw(); })), ...shown.flatMap(row)) : null];
+      rows.length ? el('table', {className: key === 'fix' || key === 'causes' ? 'fixtable' : ''}, el('tr', {}, ...heads(key, labels, () => { nextPage[key] = 0; redraw(); })), ...shown.flatMap(row)) : null];
   };
   const drawNext = () => { nextBox.textContent = '';
     nextBox.append(...[...block('platforms', 'Platforms', 'Matched jobs against the pool', d.next.platforms || [], ['Platform', 'Of matched jobs', 'Of the pool', 'Pool sites', 'Installs', 'Applications'],
@@ -333,6 +336,23 @@ fetch('?json').then(r => r.json()).then(d => {
       el('p', {className: 'muted', textContent: 'A regression, a stop before the form, or a form reached with fields left that we should have known or suggested an answer for. Open a row for the platform use, the top cause and the share of fields filled in each of the last runs: a fix shows there the next night.'})),
       ...block('fix', 'Sites', 'Worst first: regressions, then the platform most used', ORDER.rows, ['Site / platform', 'Why', 'Last run', 'Details'], needRow,
         'Nothing needs a fix', () => drawFix(), [s => s.name.toLowerCase(), s => ORDER.rank.get(s.shape), s => (s.at ? Date.parse(s.at) : null)]).filter(Boolean))); };
+  // By cause (owner, 11 Oct 2026): the Needs a fix rows grouped by their top cause, biggest first, after "Run first" (rows that need a pool run, not a fix); src/applying-groups.js, shared with
+  // tools/needs-fix-causes.mjs. A row opens to its sites. The session that holds a claim never reaches the site, so the column counts claimed rows.
+  const causeOpen = new Set();
+  const causeDetail = g => el('div', {className: 'detail'}, el('div', {}, el('h4', {textContent: g.hint || 'Sites'}),
+    el('ul', {className: 'fixguard'}, ...g.rows.map(s => el('li', {}, s.name, el('span', {className: 'muted', textContent: ' · ' + s.platform + (s.at ? ' · last run ' + ago(s.at) : ' · never run') + (s.version ? ' · build ' + s.version : '') + (s.claimed ? ' · claimed' : '')}))))));
+  const causeRow = g => { const on = causeOpen.has(g.key), flip = () => { toggleOpen(causeOpen, g.key); drawCauses(); };
+    const main = el('tr', {className: 'site' + (on ? ' open' : ''), onclick: flip},
+      el('td', {}, el('div', {className: 'sitename'}, el('b', {textContent: g.label}), g.hint ? el('span', {className: 'muted', textContent: g.hint}) : null)),
+      el('td', {textContent: String(g.count)}), el('td', {className: 'muted', textContent: g.claimed ? g.claimed + ' of ' + g.count : '—'}),
+      el('td', {className: 'muted', textContent: g.neverRun ? 'never run' + (g.neverRun < g.count && g.oldest ? ' (+ ' + ago(g.oldest) + ')' : '') : g.oldest ? ago(g.oldest) : '—'}),
+      el('td', {}, el('button', {className: 'chev', type: 'button', 'aria-expanded': String(on), 'aria-label': (on ? 'Collapse ' : 'Expand ') + g.label, textContent: '›', onclick: event => { event.stopPropagation(); flip(); }})));
+    return on ? [main, el('tr', {className: 'more'}, el('td', {colSpan: 5}, causeDetail(g)))] : [main]; };
+  const causeGroups = () => needsFixGroups(d.pool, d.scorecard, d.steps, d.latestBuild);
+  const drawCauses = () => { causeBox.textContent = '';
+    causeBox.append(el('div', {className: 'fixpanel'}, el('div', {className: 'fixhead'}, el('h2', {textContent: 'By cause · what to fix first'}),
+      el('p', {className: 'muted', textContent: 'The rows that need a fix, grouped by their top cause, the biggest first. The rows listed first need a pool run, not a fix: their last run is older than the latest landed build' + (d.latestBuild ? ' (' + d.latestBuild + ')' : '') + ' or they never ran.'})),
+      ...block('causes', 'Groups', 'Run first, then the biggest cause', causeGroups(), ['Cause', 'Rows', 'Claimed', 'Oldest run', 'Details'], causeRow, 'Nothing needs a fix', () => drawCauses(), [g => g.label.toLowerCase(), g => g.count, g => g.claimed, g => (g.oldest ? Date.parse(g.oldest) : null)]).filter(Boolean))); };
   const drawScore = () => { scoreBox.textContent = '';
     scoreBox.append(...block('score', 'Platforms', 'Real use against the tests', d.scorecard || [], ['Platform', 'Verdict', 'Of matched jobs', 'Real forms', 'Required filled', 'Pool sites', 'Reached the form'],
       s => el('tr', {}, el('td', {textContent: s.platform}), el('td', {}, el('span', {className: 'pill s-' + TONE[s.verdict], textContent: s.verdict})), el('td', {textContent: pct(s.matchShare)}),
@@ -341,7 +361,7 @@ fetch('?json').then(r => r.json()).then(d => {
   app.append(el('section', {}, el('h2', {textContent: 'Platform scorecard · real use against the tests'}),
     el('p', {className: 'muted', textContent: 'Per platform: its share of the matched jobs and how well real forms are filled (the form-filling page), against the pool sites on it and how many reached the form. Verdicts, in the order to act: not in the pool; weak in both; blind spot (tests reach the form, real users do not fill it); test failing (real use is fine). Under 5 real forms is no evidence.'}), scoreBox)); drawScore();
 ${FIXED_SCRIPT}
-  drawFix(); drawFixed(); showTab();
+  drawFix(); drawFixed(); drawCauses(); showTab();
   const caseBox = el('div'), CASE_GET = [c => c.name.toLowerCase(), c => c.rung, c => (c.ok ? 1 : 0), c => c.history.at(-1), c => c.day, c => c.since];
   const drawCases = () => { caseBox.textContent = ''; caseBox.append(el('table', {},
     el('tr', {}, ...heads('cases', ['Case', 'Rung guarded', 'Result', 'Last 10 runs', 'Last run', 'Since'], drawCases)),
@@ -353,6 +373,6 @@ ${FIXED_SCRIPT}
   app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table, colorLegend)
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
   // Fetch again every 15 s while the tab is visible and redraw the pool, so the spinner and the times follow a run without a reload.
-  setInterval(() => { if (!document.hidden) fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; d.scorecard = fresh.scorecard; d.fixed = fresh.fixed; d.cases = fresh.cases; draw(); drawFix(); drawFixed(); showTab(); drawNext(); drawScore(); }).catch(() => {}); }, 15000);
+  setInterval(() => { if (!document.hidden) fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; d.scorecard = fresh.scorecard; d.fixed = fresh.fixed; d.cases = fresh.cases; d.latestBuild = fresh.latestBuild; draw(); drawFix(); drawFixed(); drawCauses(); showTab(); drawNext(); drawScore(); }).catch(() => {}); }, 15000);
 }).catch(error => { document.getElementById('app').textContent = 'Could not load: ' + error.message; });
 </script></main></body></html>`;
