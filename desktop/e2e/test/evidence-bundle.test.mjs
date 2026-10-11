@@ -116,3 +116,18 @@ test('the Electron leg keeps its run log, app log and end picture beside the pla
   assert.deepEqual(fs.readdirSync(bare), ['run.log']);
   fs.rmSync(tmp, {recursive: true, force: true});
 });
+
+test('shotTab: a replay row\'s tab goes to the named file; no tab or a failing shot says why', async () => {
+  const {shotTab} = await import('../lib/end-shot.mjs');
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-shot-')), 'end-replay.png');
+  assert.deepEqual(await shotTab({screenshot: async ({path: out}) => fs.writeFileSync(out, 'png')}, file), {file, why: ''});
+  assert.match((await shotTab(null, file)).why, /no page tab/);
+  assert.match((await shotTab({screenshot: async () => { throw new Error('closed'); }}, file + '2')).why, /closed/);
+});
+
+test('row-replay takes its end picture of the row\'s tab (the replay twin of the live end.png) and row.mjs says where it is or why not', () => {
+  const replay = fs.readFileSync(new URL('../lib/row-replay.mjs', import.meta.url), 'utf8'), row = fs.readFileSync(new URL('../row.mjs', import.meta.url), 'utf8');
+  assert.match(replay, /shotTab\(tab, path\.join\(shotDir \|\| caseDir, shotName\)/);
+  assert.match(row, /end screenshot/);
+  assert.match(row, /no end screenshot: \$\{/);
+});

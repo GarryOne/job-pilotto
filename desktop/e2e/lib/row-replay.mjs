@@ -17,6 +17,7 @@ import {applyPoolEligibility} from './pool-eligibility.mjs';
 import {CONTACT} from './apply-fixtures.mjs';
 import {startOfflineApp} from './offline-app.mjs';
 import {startRealExtension} from './real-extension.mjs';
+import {shotTab} from './end-shot.mjs';
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 // The live harness's window (lib/extension.mjs: viewport null under --headless=new), measured on 11 Oct 2026: for a capture made before it recorded its own (journey view).
@@ -171,7 +172,7 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
   });
   let blank = run.page;   // the browser's first, empty tab: closed once a row has its own, so the extension counts the tabs the live run had
   const close = async () => { await run.close().catch(() => {}); await front.close().catch(() => {}); await app.close().catch(() => {}); };
-  const replay = async (caseDir, {stillSeconds = 10, capSeconds = 90, say = () => {}, alone = true} = {}) => {   // alone: no other row runs beside it (nothing to attribute)
+  const replay = async (caseDir, {stillSeconds = 10, capSeconds = 90, say = () => {}, alone = true, shotName = 'end-replay.png', shotDir = ''} = {}) => {   // alone: no other row runs beside it (nothing to attribute)
     const started = Date.now(), files = rowFiles(caseDir), {start, states, presses} = files;
     const hosts = new Set([...files.documents.keys()].map(url => new URL(url).host)), name = path.basename(caseDir);
     const pageStates = new Map();   // address -> the first state the live run kept of it as the tab's own page
@@ -211,8 +212,9 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
         await wait(500);
       }
       const boxes = await boxesOf(tab);
+      const endShot = await shotTab(tab, path.join(shotDir || caseDir, shotName));   // where the replay ended, beside the live run's end.png (local only). shotDir: a tool that copies caseDir elsewhere (row-to-case's staging copy) names another folder so the picture never travels with it; never throws, never part of the result's signature
       for (const request of requests().filter(one => one.route === '/extension/log')) { try { for (const entry of JSON.parse(request.body).entries || []) if (/typed|again|attach|upload|empt|retype|fill|page kind|pressed|closed/i.test(String(entry.text))) timeline.push({ms: Date.parse(entry.at) - started, text: `ext: ${String(entry.text).slice(0, 90)}`}); } catch { /* a body cut at the limit */ } }
-      return {row: name, boxes, timeline: timeline.filter(item => Number.isFinite(item.ms)).sort((a, b) => a.ms - b.ms).slice(0, 40).map(item => `+${(item.ms / 1000).toFixed(1)}s ${item.text}`), seconds: Math.round((Date.now() - started) / 100) / 10, evidence: evidenceLines(log()), unrecorded: [...row.unrecorded], followed: Math.min(followed, row.applied),
+      return {row: name, boxes, endShot, timeline: timeline.filter(item => Number.isFinite(item.ms)).sort((a, b) => a.ms - b.ms).slice(0, 40).map(item => `+${(item.ms / 1000).toFixed(1)}s ${item.text}`), seconds: Math.round((Date.now() - started) / 100) / 10, evidence: evidenceLines(log()), unrecorded: [...row.unrecorded], followed: Math.min(followed, row.applied),
         divergence, endedBy, livePresses: presses.length, asks: requests().filter(request => request.route === '/extension/page-kind').length,
         misses: (log().match(/not in the row's kept answers/g) || []).length, missParts: missesOf(missLog).parts, missVolatile: missesOf(missLog).volatile, requests: requests(), appLog: log()};
     } finally {

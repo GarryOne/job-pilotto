@@ -24,7 +24,7 @@ if (all) {
   if (stale.length === dirs.length) process.exit(3);
   for (const dir of dirs.filter(one => !stale.includes(one) && seedNote(one))) console.log(`row: ${path.basename(dir)}: ${seedNote(dir)}`);   // lib/applicant-seed.mjs
   const started = Date.now(), results = await replayRows(dirs.filter(dir => !stale.includes(dir)), {extensionDir});
-  for (const r of results) console.log(line(r));
+  for (const r of results) { console.log(line(r)); if (!r.error) console.log(r.endShot?.file ? `row: ${r.row}: end screenshot: ${r.endShot.file}` : `row: ${r.row}: no end screenshot: ${r.endShot?.why || 'the replay gave none'}`); }
   console.log(`rows: ${results.length} rows of ${day} in ${Math.round((Date.now() - started) / 1000)} s; ${results.filter(r => !r.error && !r.divergence).length} followed the live run to its end`);
 } else {
   const dir = name && findRow(name, root);
@@ -34,6 +34,7 @@ if (all) {
   if (!loose && seedNote(dir)) console.log(`row: ${path.basename(dir)}: ${seedNote(dir)}`);   // its fill asks miss the kept answers (lib/applicant-seed.mjs)
   const result = await replayRow(dir, {extensionDir, loose, say: console.log});
   console.log(line(result));
+  console.log(result.endShot?.file ? `row: end screenshot: ${result.endShot.file}` : `row: no end screenshot: ${result.endShot?.why || 'the replay gave none'}`);   // the replay's last picture, to set beside the live end.png (lib/end-shot.mjs)
   if (loose) console.log(`row: ${looseSummary(result.looseHits) || 'no loose memo hit: every ask matched its kept answer exactly'}`);
   if (result.misses) {   // the live run's own asks (the app's capture) against what the replayed extension sent: what the kept answer was asked about, line by line
     let calls = []; try { calls = JSON.parse(fs.readFileSync(path.join(dir, 'ai-calls.json'), 'utf8')); } catch { /* a capture without it */ }

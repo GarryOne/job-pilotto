@@ -3,6 +3,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+// One tab into one file (a replay's row tab: lib/row-replay.mjs). -> {file, why}
+export async function shotTab(tab, file) {
+  if (!tab || !file) return {file: '', why: !tab ? 'no page tab was open' : 'no file given'};
+  try { fs.mkdirSync(path.dirname(file), {recursive: true}); await tab.screenshot({path: file}); } catch (error) { return {file: '', why: `the screenshot failed: ${String(error?.message || error).replace(/\s+/g, ' ').slice(0, 80)}`}; }
+  return fs.existsSync(file) && fs.statSync(file).size > 0 ? {file, why: ''} : {file: '', why: 'the screenshot file is empty'};
+}
+
 // -> {file, why}: the picture, or '' and the reason in words (the run says it out loud: "no end screenshot: <why>", an error in its verdict; owner, 11 Oct 2026: the picture is a must).
 export async function takeEndShot(context, captureDir) {
   if (!captureDir) return {file: '', why: 'no capture folder'};
