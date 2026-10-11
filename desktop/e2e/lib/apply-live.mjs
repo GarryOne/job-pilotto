@@ -113,7 +113,7 @@ export async function runLive(ctx, h) {
         for (const line of lines.slice(asksSeen)) { try { { const ask = JSON.parse(line); journey.atAsk(ask.url, ask.route).catch(() => {}); } } catch { /* a line still being written */ } }
         asksSeen = lines.length;
       }, 200);
-      const clock = stillClock({seconds: stillSeconds(), startedAt: Date.now()});   // lib/live-still.mjs: the watch ends early when nothing has changed for LIVE_STILL_SECONDS (20); `seconds` stays the limit
+      const clock = stillClock({seconds: stillSeconds(process.env, ctx.engine), startedAt: Date.now()});   // lib/live-still.mjs: the watch ends early when nothing has changed for LIVE_STILL_SECONDS (20); `seconds` stays the limit
       let last = '', changedAt = Date.now(), stalled = false, frame = 0, acts = 0, looked = false, lastLine = '';
       // The privacy tripwire (lib/privacy-tripwire.mjs): the owner's own values are never typed into a real page. Checked every few seconds and once at the end, before
       // anything is written; a hit clears those fields, deletes the run's saved files (capture, screenshots) and fails the run.
@@ -135,7 +135,7 @@ export async function runLive(ctx, h) {
         // The page's shape (address, title, how many controls and buttons it shows) and the app's log feed the still-clock: a slow page changes one of them (lib/live-still.mjs).
         const shape = await tabs.at(-1)?.evaluate(() => `${location.href.split('#')[0].slice(0, 90)}|${document.title.slice(0, 40)}|${[...document.querySelectorAll('input, select, textarea, button, a')].filter(el => el.getClientRects().length).length}`).catch(() => '') || '';
         clock.see(signature({states, stage: session?.stage, status: session?.status, shape, logLines: pageLines(all)}), Date.now());
-        if (clock.over(Date.now(), {opened: ctx.browser.opened.length > 0})) { console.log(`  live ${at()}: nothing changed for ${stillSeconds()} s: the watch ends here (limit ${seconds} s; LIVE_STILL_SECONDS=0 watches to the limit)`); break; }
+        if (clock.over(Date.now(), {opened: ctx.browser.opened.length > 0})) { console.log(`  live ${at()}: nothing changed for ${stillSeconds(process.env, ctx.engine)} s: the watch ends here (limit ${seconds} s; LIVE_STILL_SECONDS=0 watches to the limit)`); break; }
         // A picture of every tab every 3 s (the newest is what a person sees now), named so they sort in time.
         if (frame++ % 2 === 0) for (const [index, tab] of tabs.entries()) await tab.screenshot({path: path.join(frames, `${String(frame).padStart(3, '0')}-tab${index}.png`)}).catch(() => {});
         if (!stalled && Date.now() - changedAt > 12000) {

@@ -63,3 +63,9 @@ test('the app\'s heartbeat lines do not move the clock; the extension\'s lines d
 test('apply-live.mjs feeds the clock only the page lines', () => {
   assert.match(fs.readFileSync(new URL('../lib/apply-live.mjs', import.meta.url), 'utf8'), /logLines: pageLines\(all\)/);
 });
+
+test('the quiet window is 45 s on the Claude Code engine (its asks take 5-12 s), 20 s on the API engine; the env wins', () => {
+  assert.equal(stillSeconds({}, 'cli'), 45);
+  assert.equal(stillSeconds({}, 'api'), 20);
+  assert.equal(stillSeconds({LIVE_STILL_SECONDS: '30'}, 'cli'), 30);
+});
