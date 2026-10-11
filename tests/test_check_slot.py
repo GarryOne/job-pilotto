@@ -9,8 +9,10 @@ from pathlib import Path
 SCRIPT = str(Path(__file__).resolve().parent.parent / 'tools/check-slot.sh')
 
 
-def run(args, slot_dir, slots='1', wait='20', **kw):
+def run(args, slot_dir, slots='1', wait='20', timing=None, **kw):
     env = dict(os.environ, JOB_PILOTTO_CHECK_SLOT_DIR=slot_dir, JOB_PILOTTO_CHECK_SLOTS=slots, JOB_PILOTTO_CHECK_WAIT=wait)
+    if timing:
+        env['JOB_PILOTTO_CHECK_TIMING_LOG'] = timing
     return subprocess.Popen(['bash', SCRIPT, *args], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, **kw)
 
 
@@ -32,6 +34,23 @@ class SlotTests(unittest.TestCase):
             self.assertGreaterEqual(time.time() - started, 2)
             self.assertIn('waiting for a free slot', err)
             first.communicate()
+
+    def test_a_wait_is_logged_for_the_next_measurement_and_a_free_slot_logs_nothing(self):
+        with tempfile.TemporaryDirectory() as d, tempfile.TemporaryDirectory() as t:
+            log = os.path.join(t, 'gate-timing.log')
+            run(['true'], d, timing=log).communicate(timeout=20)
+            self.assertFalse(os.path.exists(log), 'no wait, no line')
+            first = run(['sleep', '3'], d, timing=log)
+            time.sleep(0.5)
+            run(['true'], d, timing=log).communicate(timeout=30)
+            first.communicate()
+            self.assertRegex(Path(log).read_text(), r'# \S+ check slot wait=\d+s slots=1')
+            off = run(['sleep', '3'], d, timing=log)
+            time.sleep(0.5)
+            second = subprocess.Popen(['bash', SCRIPT, 'true'], env=dict(os.environ, JOB_PILOTTO_CHECK_SLOT_DIR=d, JOB_PILOTTO_CHECK_SLOTS='1', GATE_TIMING='0', JOB_PILOTTO_CHECK_TIMING_LOG=log), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            second.communicate(timeout=30)
+            off.communicate()
+            self.assertEqual(Path(log).read_text().count('check slot wait'), 1, 'GATE_TIMING=0 logs nothing')
 
     def test_a_slot_whose_owner_is_gone_is_taken_over_at_once(self):
         with tempfile.TemporaryDirectory() as d:

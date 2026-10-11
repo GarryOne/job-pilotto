@@ -4,6 +4,7 @@
 #   tools/check-slot.sh <command...>           waits for a free slot (says so), runs the command, frees the slot, keeps its exit code
 #   source tools/check-slot.sh; slot_acquire   ...  slot_release     (used by tools/pre-push-check.sh around its suites)
 # A slot is a directory holding the owner's pid; one whose process is gone (killed run, reboot) is taken over at once.
+# Every wait is logged to <git common dir>/gate-timing.log (JOB_PILOTTO_CHECK_TIMING_LOG elsewhere, GATE_TIMING=0 off).
 # JOB_PILOTTO_CHECK_SLOTS=0 skips the queue; a wait longer than JOB_PILOTTO_CHECK_WAIT seconds (default 600) runs anyway.
 SLOT_MINE=""
 
@@ -30,7 +31,13 @@ slot_acquire() {
     [ "$told" = 0 ] && echo "check-slot: $slots other check run(s) are using this Mac; waiting for a free slot (up to ${wait_max}s)" >&2
     told=1; sleep 2
   done
-  [ "$told" = 1 ] && echo "check-slot: got a slot after $(( $(date +%s) - started ))s" >&2
+  if [ "$told" = 1 ]; then
+    echo "check-slot: got a slot after $(( $(date +%s) - started ))s" >&2
+    if [ "${GATE_TIMING:-1}" != 0 ]; then   # every wait, for the next measurement (11 Oct 2026: none was logged, so the slot count could not be sized)
+      local timing="${JOB_PILOTTO_CHECK_TIMING_LOG:-$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)/gate-timing.log}"
+      [ "$timing" = /gate-timing.log ] || echo "# $(date -u +%Y-%m-%dT%H:%M:%SZ) check slot wait=$(( $(date +%s) - started ))s slots=$slots" >>"$timing" 2>/dev/null || true
+    fi
+  fi
   return 0
 }
 
