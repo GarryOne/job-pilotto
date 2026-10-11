@@ -40,7 +40,8 @@ def affected(base):
     """The tests a change can break (tools/affected-tests.py), or None: run everything. Local pushes only; CI never passes --affected-from."""
     if not base:
         return None
-    out = subprocess.run([sys.executable, str(ROOT / 'tools/affected-tests.py'), '--base', base], capture_output=True, text=True, check=False)
+    listed = os.environ.get('JOB_PILOTTO_AFFECTED_FILES', '').splitlines()   # the Stop hook: the changed files incl. uncommitted ones (a commit-only diff misses them)
+    out = subprocess.run([sys.executable, str(ROOT / 'tools/affected-tests.py'), *(['--files', *listed] if listed else ['--base', base])], capture_output=True, text=True, check=False)
     try:
         return json.loads(out.stdout)
     except ValueError:

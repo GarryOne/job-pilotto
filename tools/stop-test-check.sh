@@ -19,12 +19,16 @@ cwd="$(jqr '.cwd // ""')"; transcript="$(jqr '.transcript_path // ""')"; again="
 limit="${JOB_PILOTTO_STOP_TIMEBOX:-240}"   # seconds per suite
 cache="${TMPDIR:-/tmp}/job-pilotto-stop-hook"; mkdir -p "$cache"
 
-# Worktrees to check: the session's cwd, the project dir, and every worktree this session's tool calls named.
-dirs=("$cwd" "${CLAUDE_PROJECT_DIR:-}")
+# Worktrees to check: the one the session runs in, and every worktree it CHANGED: an Edit/Write/NotebookEdit path in it, or a Bash call naming it that
+# writes (git commit/add/apply/checkout/restore, sed -i, tools/ship.sh). One it only read or ran tests in is another session's work, not tested here (11 Oct 2026).
+dirs=("$cwd")
 if [ -f "$transcript" ]; then
   while IFS= read -r p; do dirs+=("$p"); done < <(
     tail -n 4000 "$transcript" | jq -r 'select(.type=="assistant") | .message.content[]?
-      | select(.type=="tool_use") | .input | (.file_path // .notebook_path // empty), (.command // empty)' 2>/dev/null |
+      | select(.type=="tool_use") | . as $call | .input
+      | if ($call.name | test("^(Edit|Write|NotebookEdit|MultiEdit)$")) then (.file_path // .notebook_path // empty)
+        elif ($call.name == "Bash") and ((.command // "") | test("git +(-C +[^ ]+ +)?(commit|add|apply|checkout|restore|mv|rm|stash)|sed +-i|tools/ship\\.sh")) then .command
+        else empty end' 2>/dev/null |
       grep -oE '(/[^[:space:]"'"'"'`;|&()]+)' | grep -E '\.claude/worktrees/|/job-pilotto' |
       sed -E 's#(\.claude/worktrees/[^/]+).*#\1#' | sort -u | head -50)
 fi
@@ -69,8 +73,17 @@ for repo in "${repos[@]}"; do
   fi
   [ ${#suites[@]} -gt 0 ] || continue
 
+  # What the push gate would run: only the tests this change can break (tools/affected-tests.py, via check.sh --affected-from; "all" for dependency, config and unknown paths
+  # stays the whole suite). STOP_CHECK_FULL=1 = the old whole-suite run. The pick is part of the cache key, so a different pick is a different run.
+  affected_flag=""; pick=""; picked_files=()
+  if [ "${STOP_CHECK_FULL:-0}" != 1 ] && [ -f "$repo/tools/affected-tests.py" ]; then
+    while IFS= read -r f; do picked_files+=("$f"); done <<<"$files"
+    pick="$(cd "$repo" && $py tools/affected-tests.py --files "${picked_files[@]}" 2>/dev/null | shasum | cut -c1-16)"
+    [ -n "$pick" ] && affected_flag="--affected-from $base"
+  fi
+
   # Same tree as a run that already passed (or already failed and was reported): don't run again.
-  key="$( { echo "$repo ${suites[*]}"; git -C "$repo" rev-parse HEAD; git -C "$repo" diff "$base";
+  key="$( { echo "$repo ${suites[*]} $affected_flag $pick"; git -C "$repo" rev-parse HEAD; git -C "$repo" diff "$base";
     [ -n "$untracked" ] && (cd "$repo" && tr '\n' '\0' <<<"$untracked" | xargs -0 shasum 2>/dev/null); } | shasum | cut -c1-16)"
   [ -f "$cache/$key.pass" ] && continue
   if [ -f "$cache/$key.fail" ]; then report+="$(cat "$cache/$key.fail")"$'\n'; continue; fi
@@ -78,17 +91,17 @@ for repo in "${repos[@]}"; do
   logs="$(mktemp -d)"; pids=()
   for s in "${suites[@]}"; do
     case "$s" in
-      python) cmd=(bash tools/check.sh --area python); dir="$repo" ;;
+      python) cmd=(bash tools/check.sh --area python $affected_flag); dir="$repo" ;;
       codemap) cmd=(node --test test/codemap.test.js); dir="$repo/desktop" ;;
-      *) cmd=(bash tools/check.sh --area "$s"); dir="$repo" ;;
+      *) cmd=(bash tools/check.sh --area "$s" $affected_flag); dir="$repo" ;;
     esac
     if [ "$s" != python ] && [ ! -e "$dir/node_modules" ] && [ ! -e "$repo/$s/node_modules" ]; then   # an area keeps its own node_modules (desktop/, worker/, site/): the repo root has none (11 Oct 2026: every worktree said "not tested")
       notes+="$s not tested in $repo: no node_modules (run npm ci there in the owner's terminal, or tools/worktree.sh links them)."$'\n'
       continue
     fi
     out="$logs/$s.log"; [ "$s" = python ] && out=/dev/null   # unittest reports on stderr; the tests' prints are noise
-    if [ "$s" = codemap ]; then run=(boxed "${cmd[@]}"); else run=(gate_cache_run "$repo" "$s" "flag= args= pick=" boxed "${cmd[@]}"); fi
-    ( cd "$dir" && "${run[@]}" >"$out" 2>>"$logs/$s.log"; echo $? >"$logs/$s.code" ) &
+    if [ "$s" = codemap ]; then run=(boxed "${cmd[@]}"); else run=(gate_cache_run "$repo" "$s" "flag=$affected_flag args= pick=$pick" boxed "${cmd[@]}"); fi
+    ( cd "$dir" && JOB_PILOTTO_AFFECTED_FILES="$files" "${run[@]}" >"$out" 2>>"$logs/$s.log"; echo $? >"$logs/$s.code" ) &
     pids+=($!)
   done
   [ ${#pids[@]} -gt 0 ] && wait "${pids[@]}"
@@ -102,6 +115,10 @@ for repo in "${repos[@]}"; do
     code="$(cat "$logs/$s.code")"
     if [ "$code" = 124 ] || [ "$code" = 137 ]; then timeouts+="$s in $repo took over ${limit}s (not counted as a failure). "; continue; fi
     [ "$code" = 0 ] && continue
+    # The extension fingerprint test fails by design until tools/ship.sh takes the new version after its rebase (a hand-made bump collides with other sessions): expected, not a failure to fix.
+    if [ "$s" = desktop ] && [ "$(grep -E '^ *✖ ' "$logs/$s.log" | sed -E 's/.*\(([^)]*)\)$/\1/' | sort -u)" = "test/extension-version.test.js" ]; then
+      notes+="desktop: only test/extension-version.test.js fails in $repo (the extension fingerprint): expected before landing, tools/ship.sh takes the version and fingerprint after its rebase. Do not bump it by hand."$'\n'; continue
+    fi
     case "$s" in
       python) how="JOB_PILOTTO_DISABLE=mail,notion,telegram,google_jobs $py -m unittest discover -s tests" ;;
       codemap) how="cd desktop && node --test test/codemap.test.js (a new file needs a one-line header saying what it does)" ;;
