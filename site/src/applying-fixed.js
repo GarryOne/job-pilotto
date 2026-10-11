@@ -26,17 +26,19 @@ export async function ingestFixes(db, body, now = new Date()) {
       await db.prepare('INSERT OR REPLACE INTO applying_claims (site, since) VALUES (?, ?)').bind(site, since).run();
       stored += 1;
     }
-  } else {
-    await db.prepare('DELETE FROM applying_fixes').bind().run();
+  } else {   // the whole ledger, written as a diff: only rows that are new or changed, and only rows no longer listed are deleted (the D1 write budget)
+    const old = new Map((await all(db, 'SELECT site, commit_hash, version, rung, landed_at, guard FROM applying_fixes')).map(row => [row.site + '\n' + row.commit_hash, row])), keep = new Set();
     for (const row of rows) {
       const site = siteOf(row?.site), hash = text(row?.commit, 40).toLowerCase(), landed = isoOf(row?.landedAt);
       if (!site || !HASH.test(hash) || !landed) continue;
       const version = VERSION.test(text(row.extensionVersion, 20)) ? text(row.extensionVersion, 20) : null, rung = RUNG.test(text(row.rung, 40)) ? text(row.rung, 40) : null;
-      const guard = (Array.isArray(row.guard) ? row.guard : []).map(item => text(item, 90)).filter(item => GUARD.test(item)).slice(0, 10);
-      await db.prepare('INSERT OR REPLACE INTO applying_fixes (site, commit_hash, version, rung, landed_at, guard, at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-        .bind(site, hash, version, rung, landed, JSON.stringify(guard), at).run();
-      stored += 1;
+      const guard = JSON.stringify((Array.isArray(row.guard) ? row.guard : []).map(item => text(item, 90)).filter(item => GUARD.test(item)).slice(0, 10));
+      keep.add(site + '\n' + hash); stored += 1;
+      const was = old.get(site + '\n' + hash);
+      if (was && was.version === version && was.rung === rung && was.landed_at === landed && was.guard === guard) continue;
+      await db.prepare('INSERT OR REPLACE INTO applying_fixes (site, commit_hash, version, rung, landed_at, guard, at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(site, hash, version, rung, landed, guard, at).run();
     }
+    for (const [key, row] of old) if (!keep.has(key)) await db.prepare('DELETE FROM applying_fixes WHERE site = ? AND commit_hash = ?').bind(row.site, row.commit_hash).run();
   }
   await db.prepare('INSERT INTO applying_snapshots (kind, at) VALUES (?, ?) ON CONFLICT(kind) DO UPDATE SET at = excluded.at').bind(body.kind, at).run();
   return {ok: true, stored};

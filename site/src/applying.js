@@ -37,6 +37,7 @@ async function ingestRows(db, body, now) {
   const version = text(body.version, 20) || null, at = now.toISOString();
   let stored = 0;
   const touched = [];
+  let known = null;   // the pool's rows as stored, read once per upload
   for (const row of rows) {
     const name = text(row?.name, 120);
     if (!name) continue;
@@ -47,10 +48,11 @@ async function ingestRows(db, body, now) {
       stored += 1; continue;
     }
     if (kind === 'pool') {   // a pool site: its start host and flow signature, fixed words only (a later row without them keeps what is known)
-      const signature = SIGNATURE.test(text(row.signature, 200)) ? text(row.signature, 200) : null;
+      const signature = SIGNATURE.test(text(row.signature, 200)) ? text(row.signature, 200) : null, start = hostOf(row.start_host), old = (known ||= await knownPool(db)).get(name);
+      if (old && old.version === version && (start == null || start === old.start_host) && (signature == null || signature === old.signature)) continue;   // unchanged: nothing is written (the D1 write budget)
       await db.prepare(`INSERT INTO applying_pool (name, start_host, signature, at, version) VALUES (?, ?, ?, ?, ?) ON CONFLICT(name) DO UPDATE SET
         start_host = COALESCE(excluded.start_host, start_host), signature = COALESCE(excluded.signature, signature), at = excluded.at, version = excluded.version`)
-        .bind(name, hostOf(row.start_host), signature, at, version).run();
+        .bind(name, start, signature, at, version).run();
       stored += 1; continue;
     }
     await db.prepare(`INSERT INTO applying_runs (kind, day, at, name, host, reached, filled, left_n, ok, note, regression, version, rung, signal, asked, unexplained) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
@@ -65,6 +67,7 @@ async function ingestRows(db, body, now) {
   return {ok: true, stored};
 }
 
+const knownPool = async db => new Map(((await db.prepare('SELECT name, start_host, signature, version FROM applying_pool').all()).results || []).map(row => [row.name, row]));
 const all = async (db, sql, ...args) => (await db.prepare(sql).bind(...args).all()).results || [];
 const dayOf = date => date.toISOString().slice(0, 10);
 

@@ -86,3 +86,26 @@ test('a failed migration 0056 never takes the page or an upload down: it compute
   } finally { console.warn = warn; }
   assert.ok(warnings.some(message => /migration 0056 missing/.test(message)));
 });
+
+test('writes: a full pool pass writes at most 400 rows, an unchanged pool upload writes none, a changed row writes one', async () => {
+  const db = d1();
+  const pool = rows => ingest(db, {kind: 'pool', day: '2026-10-12', version: '0.9.1', rows}, now);
+  const rows = names.map(name => ({name, start_host: 'jobs.example.com', signature: 'posting>form@jobs.example.com#form'}));
+  db.log.writes = 0; await pool(rows);
+  assert.ok(db.log.writes <= 400, `a first pool pass wrote ${db.log.writes} rows`);
+  db.log.writes = 0; await pool(rows);
+  assert.ok(db.log.writes <= 1, `an unchanged pool upload wrote ${db.log.writes} rows`);   // at most the snapshot drop
+  db.log.writes = 0; await pool([{...rows[0], signature: 'posting>form>done@jobs.example.com#ready'}]);
+  assert.ok(db.log.writes >= 1 && db.log.writes <= 2, `one changed row wrote ${db.log.writes}`);
+});
+
+test('writes: the fixes snapshot is a diff, an unchanged ledger writes nothing but its stamp', async () => {
+  const db = d1();
+  const fixes = Array.from({length: 40}, (_, at) => ({site: `site-${at}`, commit: `abcdef${at}`.padEnd(7, '0'), landedAt: '2026-10-11T10:00:00Z', extensionVersion: '0.9.1', rung: '2', guard: ['recorded:case-1']}));
+  await ingest(db, {kind: 'fixes', rows: fixes}, now);
+  db.log.writes = 0; await ingest(db, {kind: 'fixes', rows: fixes}, now);
+  assert.ok(db.log.writes <= 2, `an unchanged ledger wrote ${db.log.writes} rows`);
+  db.log.writes = 0; await ingest(db, {kind: 'fixes', rows: fixes.slice(1)}, now);
+  assert.ok(db.log.writes <= 3, `dropping one fix wrote ${db.log.writes} rows`);
+  assert.equal(db.db.prepare('SELECT COUNT(*) AS n FROM applying_fixes').get().n, 39);
+});
