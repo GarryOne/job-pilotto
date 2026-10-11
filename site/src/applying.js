@@ -209,7 +209,7 @@ const color = step => getComputedStyle(document.querySelector('.s-' + CSS.escape
 let serverNow = Date.now();
 const ago = at => { const minutes = Math.max(0, Math.round((serverNow - Date.parse(at)) / 60000)); return minutes < 1 ? 'just now' : minutes < 60 ? minutes + ' min ago' : minutes < 1440 ? Math.round(minutes / 60) + ' h ago' : Math.round(minutes / 1440) + ' d ago'; };
 const tile = (value, label, tone, note, title) => el('div', {className: 'tile ' + (tone || ''), title: title || ''}, el('b', {textContent: value ?? '–'}), el('span', {className: 'what', textContent: label}), note ? el('span', {className: 'note', textContent: note}) : null);
-fetch('?json').then(r => r.json()).then(d => {
+fetch('?json', {headers: {'X-Caller': 'page-tab'}}).then(r => r.json()).then(d => {
   serverNow = Date.parse(d.now);
   const app = document.getElementById('app'); app.textContent = '';
   const legend = el('div', {hidden: true}, ...d.steps.map(step => pill(step))); app.append(legend);
@@ -394,7 +394,7 @@ ${FIXED_SCRIPT}
   // Fetch again every 5 minutes while the tab is visible (and once when it becomes visible after longer), so the spinner and the times follow a run without a reload.
   // The server keeps the data for up to 10 minutes (src/applying-store.js), so a faster refresh would only repeat the same answer.
   let fetchedAt = Date.now();
-  const refresh = () => { if (document.hidden) return; fetchedAt = Date.now(); fetch('?json').then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; d.scorecard = fresh.scorecard; d.fixed = fresh.fixed; d.cases = fresh.cases; draw(); drawFix(); drawFixed(); drawCauses(); showTab(); drawNext(); drawScore(); }).catch(() => {}); };
+  const refresh = () => { if (document.hidden) return; fetchedAt = Date.now(); fetch('?json', {headers: {'X-Caller': 'page-tab'}}).then(r => r.json()).then(fresh => { serverNow = Date.parse(fresh.now); d.pool = fresh.pool; d.next = fresh.next; d.scorecard = fresh.scorecard; d.fixed = fresh.fixed; d.cases = fresh.cases; draw(); drawFix(); drawFixed(); drawCauses(); showTab(); drawNext(); drawScore(); }).catch(() => {}); };
   setInterval(refresh, 300000);
   document.addEventListener?.('visibilitychange', () => { if (!document.hidden && Date.now() - fetchedAt > 300000) refresh(); });
 }).catch(error => { document.getElementById('app').textContent = 'Could not load: ' + error.message; });

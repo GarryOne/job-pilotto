@@ -2,6 +2,7 @@
 // POST /api/waitlist which keeps Pro early-access
 // sign-ups in Cloudflare KV (binding WAITLIST). List them: npx wrangler@4 kv key list --binding WAITLIST --remote
 // Optional: with TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID set as secrets, each new sign-up is also sent to Telegram.
+import {meter, newTally, requestLine} from './d1-meter.js';
 import {apexRedirect} from './hosts.js';
 import * as linkedin from './linkedin.js';
 import * as notion from './notion.js';
@@ -102,65 +103,74 @@ export async function judgeLearning(db, now = new Date()) {
   return actions;
 }
 
+// Every request runs against a metered database (src/d1-meter.js): its rows read and written, its route and its caller go to Workers Logs as one JSON line.
+async function metered(request, env, ctx) {
+  const tally = newTally(), withMeter = env.STATS ? {...env, STATS: meter(env.STATS, tally)} : env;
+  let status = 500;
+  try { const response = await route(request, withMeter, ctx); status = response.status; return response; } finally { const line = requestLine(request, status, tally); if (line) console.log(line); }
+}
+
+async function route(request, env, ctx) {
+  const alias = apexRedirect(request);   // jobpilotto.top -> www.jobpilotto.top; workers.dev is never redirected (src/hosts.js)
+  if (alias) return alias;
+  const {pathname} = new URL(request.url);
+  if (pathname.startsWith('/download/')) return stats.download(request, env, ctx);
+  if (pathname === '/install') return install(request, env, ctx, stats.record);
+  if (pathname === '/api/hit') return stats.hit(request, env);
+  if (isReleasesPath(pathname)) return releases(request, env, ctx);   // the app's update check (src/releases.js)
+  // The owner's admin pages (src/admin.js): one menu on all, the same key; never in public/, or they would be served to anyone.
+  const admin = {'/admin': overviewView, '/admin/website': stats.stats, '/admin/app': telemetry.view, '/admin/insights': intelligenceView, '/admin/scouting': scoutingView,
+    '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/form-filling': formLearningView, '/admin/feedback': feedbackView,
+    '/admin/access': accessView, '/admin/e2e': e2eView, '/admin/applying': applyingView, '/admin/brain': brainView, '/admin/sentry': sentryView}[pathname];   // access: the super admin's only (src/access.js)
+  if (pathname.startsWith('/admin/e2e/trace/')) return e2eView(request, env);   // a trace file for the viewer (public/trace-viewer/)
+  if (pathname.startsWith('/admin/e2e/run/')) return e2eView(request, env);   // a run's HTML report (the link on GitHub's Summary page)
+  if (pathname.startsWith('/admin/e2e/report/')) return e2eReportFile(request, env);   // its files: a signed address, no cookie needed (src/e2e.js)
+  if (pathname === '/admin/join') return join(request, env);   // an invite link
+  if (pathname === '/admin/form-filling/digest.json' || pathname === '/admin/form-filling/digest.md') return digestView(request, env);
+  if (admin) {
+    const who = await viewer(request, env);
+    return adminPage(await admin(request, env), pathname, who || undefined);
+  }
+  const moved = await redirectOld(request, env);   // /stats, /telemetry, /intel, /self-heal, /ai-cost, /smart-form-filling, /feedback
+  if (moved) return moved;
+  if (pathname === '/report/fill-failure') return handleReport(request, env, dispatch);
+  if (pathname === '/report/telemetry') return telemetry.collect(request, env);
+  if (pathname === '/self-heal/data' && request.method === 'PUT') return selfHealIngest(request, env);   // CI publishes the loop's numbers (Bearer SELFHEAL_PUBLISH_KEY)
+  if (pathname === '/ai-cost/data' && request.method === 'GET') return jobCostSpent(request, env);   // a day's reported spend for CI's budget guard (same key)
+  if (pathname === '/ai-cost/data' && request.method === 'PUT') return jobCostIngest(request, env);   // each scheduled job reports its AI cost (Bearer AI_COST_PUBLISH_KEY)
+  if (pathname === '/api/index') return employerIndex(request, env);
+  if (pathname === '/api/recipes') return recipeLibrary.recipes(request, env);
+  if (pathname === '/api/recipes/lookup') return recipeLibrary.lookup(request, env);
+  if (pathname === '/api/recipes/targets') return recipeLibrary.targets(request, env);
+  if (pathname === '/api/guard') return guard(request, env);
+  if (pathname === '/api/knowledge') return knowledge(request, env);
+  if (pathname === '/api/packs/aliases') return aliasPack(request, env);
+  if (pathname === '/api/aliases') return aliases(request, env);
+  if (pathname === '/api/playbook') return playbook(request, env);
+  if (pathname === '/api/install-token') return recipeLibrary.installToken(request, env);
+  if (pathname === '/api/controls') { judgeSoon(env, ctx); return recipeLibrary.controls(request, env); }   // fill data in: the judges may act on it
+  if (pathname === '/api/triage') return triageQueue.triage(request, env);
+  if (pathname === '/api/contribute') return pool.contribute(request, env);
+  if (pathname === '/api/contributions') return pool.aggregate(request, env);
+  if (pathname === '/api/signals') return signals(request, env);
+  if (pathname === '/api/feedback') return feedback(request, env);
+  if (pathname === '/api/attribution') return attribution(request, env);   // a downloaded app's first start: its channel
+  if (pathname.startsWith('/api/ai/')) return trial(request, env);
+  if (pathname === '/api/brain/telegram') return brain(request, env, dispatch);
+  if (pathname === '/api/brain/log') return brainLog(request, env);   // tools/product_brain.py, the scripts' key
+  if (pathname === '/telemetry/version') return telemetry.evidence(request, env);
+  if (pathname === '/api/waitlist') return waitlist(request, env);
+  if (pathname === '/api/notion/start') return notion.start(request, env);
+  if (pathname === notion.CALLBACK) return notion.callback(request, env);
+  if (pathname === '/api/notion/token') return notion.collect(request, env);
+  if (pathname === '/api/linkedin/start') return linkedin.start(request, env);
+  if (pathname === linkedin.CALLBACK) return linkedin.callback(request, env);
+  if (pathname === '/api/linkedin/token') return linkedin.collect(request, env);
+  return env.ASSETS.fetch(request);
+}
+
 export default {
-  async fetch(request, env, ctx) {
-    const alias = apexRedirect(request);   // jobpilotto.top -> www.jobpilotto.top; workers.dev is never redirected (src/hosts.js)
-    if (alias) return alias;
-    const {pathname} = new URL(request.url);
-    if (pathname.startsWith('/download/')) return stats.download(request, env, ctx);
-    if (pathname === '/install') return install(request, env, ctx, stats.record);
-    if (pathname === '/api/hit') return stats.hit(request, env);
-    if (isReleasesPath(pathname)) return releases(request, env, ctx);   // the app's update check (src/releases.js)
-    // The owner's admin pages (src/admin.js): one menu on all, the same key; never in public/, or they would be served to anyone.
-    const admin = {'/admin': overviewView, '/admin/website': stats.stats, '/admin/app': telemetry.view, '/admin/insights': intelligenceView, '/admin/scouting': scoutingView,
-      '/admin/self-healing': selfHealView, '/admin/ai-cost': jobCostView, '/admin/form-filling': formLearningView, '/admin/feedback': feedbackView,
-      '/admin/access': accessView, '/admin/e2e': e2eView, '/admin/applying': applyingView, '/admin/brain': brainView, '/admin/sentry': sentryView}[pathname];   // access: the super admin's only (src/access.js)
-    if (pathname.startsWith('/admin/e2e/trace/')) return e2eView(request, env);   // a trace file for the viewer (public/trace-viewer/)
-    if (pathname.startsWith('/admin/e2e/run/')) return e2eView(request, env);   // a run's HTML report (the link on GitHub's Summary page)
-    if (pathname.startsWith('/admin/e2e/report/')) return e2eReportFile(request, env);   // its files: a signed address, no cookie needed (src/e2e.js)
-    if (pathname === '/admin/join') return join(request, env);   // an invite link
-    if (pathname === '/admin/form-filling/digest.json' || pathname === '/admin/form-filling/digest.md') return digestView(request, env);
-    if (admin) {
-      const who = await viewer(request, env);
-      return adminPage(await admin(request, env), pathname, who || undefined);
-    }
-    const moved = await redirectOld(request, env);   // /stats, /telemetry, /intel, /self-heal, /ai-cost, /smart-form-filling, /feedback
-    if (moved) return moved;
-    if (pathname === '/report/fill-failure') return handleReport(request, env, dispatch);
-    if (pathname === '/report/telemetry') return telemetry.collect(request, env);
-    if (pathname === '/self-heal/data' && request.method === 'PUT') return selfHealIngest(request, env);   // CI publishes the loop's numbers (Bearer SELFHEAL_PUBLISH_KEY)
-    if (pathname === '/ai-cost/data' && request.method === 'GET') return jobCostSpent(request, env);   // a day's reported spend for CI's budget guard (same key)
-    if (pathname === '/ai-cost/data' && request.method === 'PUT') return jobCostIngest(request, env);   // each scheduled job reports its AI cost (Bearer AI_COST_PUBLISH_KEY)
-    if (pathname === '/api/index') return employerIndex(request, env);
-    if (pathname === '/api/recipes') return recipeLibrary.recipes(request, env);
-    if (pathname === '/api/recipes/lookup') return recipeLibrary.lookup(request, env);
-    if (pathname === '/api/recipes/targets') return recipeLibrary.targets(request, env);
-    if (pathname === '/api/guard') return guard(request, env);
-    if (pathname === '/api/knowledge') return knowledge(request, env);
-    if (pathname === '/api/packs/aliases') return aliasPack(request, env);
-    if (pathname === '/api/aliases') return aliases(request, env);
-    if (pathname === '/api/playbook') return playbook(request, env);
-    if (pathname === '/api/install-token') return recipeLibrary.installToken(request, env);
-    if (pathname === '/api/controls') { judgeSoon(env, ctx); return recipeLibrary.controls(request, env); }   // fill data in: the judges may act on it
-    if (pathname === '/api/triage') return triageQueue.triage(request, env);
-    if (pathname === '/api/contribute') return pool.contribute(request, env);
-    if (pathname === '/api/contributions') return pool.aggregate(request, env);
-    if (pathname === '/api/signals') return signals(request, env);
-    if (pathname === '/api/feedback') return feedback(request, env);
-    if (pathname === '/api/attribution') return attribution(request, env);   // a downloaded app's first start: its channel
-    if (pathname.startsWith('/api/ai/')) return trial(request, env);
-    if (pathname === '/api/brain/telegram') return brain(request, env, dispatch);
-    if (pathname === '/api/brain/log') return brainLog(request, env);   // tools/product_brain.py, the scripts' key
-    if (pathname === '/telemetry/version') return telemetry.evidence(request, env);
-    if (pathname === '/api/waitlist') return waitlist(request, env);
-    if (pathname === '/api/notion/start') return notion.start(request, env);
-    if (pathname === notion.CALLBACK) return notion.callback(request, env);
-    if (pathname === '/api/notion/token') return notion.collect(request, env);
-    if (pathname === '/api/linkedin/start') return linkedin.start(request, env);
-    if (pathname === linkedin.CALLBACK) return linkedin.callback(request, env);
-    if (pathname === '/api/linkedin/token') return linkedin.collect(request, env);
-    return env.ASSETS.fetch(request);
-  },
+  fetch: metered,
   // Daily (wrangler.toml [triggers]): app reports older than 90 days dropped; the top problems go to GitHub triage.
   async scheduled(event, env, ctx) {
     // The day's totals first (kept for good), then the 90-day purge of raw rows.

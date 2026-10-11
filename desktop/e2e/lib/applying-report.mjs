@@ -46,7 +46,7 @@ export async function upload(kind, rows, {env = process.env, key, fetcher = fetc
   const token = ownerKey(key);
   if (!token) return 'applying report: not sent (no site key in the Keychain)';
   try {
-    const answer = await fetcher(SITE, {method: 'POST', headers: {Authorization: `Bearer ${token}`, 'Content-Type': 'application/json'},
+    const answer = await fetcher(SITE, {method: 'POST', headers: {Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'X-Caller': 'applying-upload'},
       body: JSON.stringify({kind, day, version: extensionVersion(), rows}), signal: AbortSignal.timeout(20000)});
     const body = await answer.json().catch(() => ({}));
     return answer.ok ? `applying report: ${body.stored ?? 0} ${kind} row(s) sent to /admin/applying` : `applying report: refused (${answer.status} ${body.error || ''})`;

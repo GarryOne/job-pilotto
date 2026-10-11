@@ -10,7 +10,7 @@ export const MAX_AGE_MS = 15 * 60000;
 export const COPY = path.join(os.tmpdir(), 'job-pilotto-applying-page.json');
 
 // -> the page's data: the saved copy when it is younger than maxAge (and refresh is false), else a fresh GET saved to the copy. fetchLive and file are injectable for tests.
-export function pageJson({refresh = false, maxAge = MAX_AGE_MS, file = COPY, now = Date.now(), fetchLive = liveJson} = {}) {
+export function pageJson({caller = 'page-copy', refresh = false, maxAge = MAX_AGE_MS, file = COPY, now = Date.now(), fetchLive = () => liveJson(caller)} = {}) {
   try {
     if (!refresh && now - fs.statSync(file).mtimeMs < maxAge) return JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch { /* no usable copy: fetch */ }
@@ -19,7 +19,7 @@ export function pageJson({refresh = false, maxAge = MAX_AGE_MS, file = COPY, now
   return json;
 }
 
-function liveJson() {
+function liveJson(caller) {   // X-Caller names this tool in the Worker's logs (site/src/d1-meter.js)
   const key = execFileSync('security', ['find-generic-password', '-s', 'job-pilotto.site.api_key', '-w'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}).trim();   // never printed
-  return JSON.parse(execFileSync('curl', ['-s', '--fail', '--max-time', '30', '-H', `Authorization: Bearer ${key}`, SITE], {encoding: 'utf8', maxBuffer: 64 << 20}));
+  return JSON.parse(execFileSync('curl', ['-s', '--fail', '--max-time', '30', '-H', `Authorization: Bearer ${key}`, '-H', `X-Caller: ${caller}`, SITE], {encoding: 'utf8', maxBuffer: 64 << 20}));
 }

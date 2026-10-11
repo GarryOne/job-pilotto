@@ -22,7 +22,7 @@ export function orderLines(json) {
   return table.map(row => row.map((text, col) => (col === row.length - 1 ? text : text.padEnd(width[col]))).join('  '));
 }
 
-const fetchJson = () => pageJson({refresh: process.argv.includes('--refresh')});   // the saved copy, at most 15 minutes old (tools/applying-page-copy.mjs)
+const fetchJson = () => pageJson({caller: 'needs-fix-order', refresh: process.argv.includes('--refresh')});   // the saved copy, at most 15 minutes old (tools/applying-page-copy.mjs)
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const at = process.argv.indexOf('--json');

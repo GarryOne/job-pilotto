@@ -27,7 +27,7 @@ export function groupLines(json, {rows = false} = {}) {
   return groupsOf(json).flatMap((g, at) => [out[at + 1], ...g.rows.map(s => '    ' + (s.shape || s.name) + (s.claimed ? '  (claimed)' : ''))]).reduce((all, line) => (all.push(line), all), [out[0]]);
 }
 
-const fetchJson = () => pageJson({refresh: process.argv.includes('--refresh')});   // the saved copy, at most 15 minutes old (tools/applying-page-copy.mjs)
+const fetchJson = () => pageJson({caller: 'needs-fix-causes', refresh: process.argv.includes('--refresh')});   // the saved copy, at most 15 minutes old (tools/applying-page-copy.mjs)
 
 // The capture folders on this Mac: {<day>: [folder]} under SMOKE_CANDIDATES (default: the QA folder's replay-candidates), {} when there are none.
 function captureListing() {

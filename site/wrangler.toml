@@ -60,3 +60,9 @@ migrations_dir = "migrations"
 # day are queued (D1 triage_queue) for the private repo's triage to pull (one issue per problem).
 [triggers]
 crons = ["30 5 * * *"]   # daily. The learning judges also run when fill data arrives (src/index.js judgeSoon): the account has no cron triggers left
+
+# Workers Logs (11 Oct 2026: the D1 limit was hit and nothing recorded who called what): one invocation log per request, every request (about 5k a day).
+# Kept here so a deploy never switches them off; src/index.js adds one JSON line per D1-touching request with its rows (src/d1-meter.js).
+[observability]
+enabled = true
+head_sampling_rate = 1
