@@ -23,6 +23,16 @@ CONTRACT = {'permanent': 'Permanent', 'fixed_term': 'Fixed term', 'freelance': '
 PARTS = ('role_fit', 'location', 'compensation', 'growth', 'risk')
 
 
+def _day(text):
+    """Only a real calendar day (YYYY-MM-DD, a longer timestamp is cut to it): the extraction's deadline and posted are free text
+    ('rolling', '2026-10', '3 days ago') and Notion refuses a row whose date column holds anything else."""
+    day = str(text or '').strip()[:10]
+    try:
+        return day if len(day) == 10 and datetime.strptime(day, '%Y-%m-%d') else ''
+    except ValueError:
+        return ''
+
+
 def posting_facts(job):
     """What the posting says about the job (the extraction's own words, src/ai/enrich.py SCHEMA), as the Job Matches columns hold
     them; src/notion/matches.py writes the same. A job read by an older extractor lacks the newer ones: they stay empty until
@@ -37,9 +47,9 @@ def posting_facts(job):
             'visa': VISA.get((ai.get('visa_sponsorship') or {}).get('value'), ''),
             'remote_scope': ((ai.get('work_mode') or {}).get('remote_scope') or '')[:2000],
             'contract': CONTRACT.get(plain(ai.get('contract')), ''),
-            'deadline': plain(ai.get('deadline'))[:10],
+            'deadline': _day(plain(ai.get('deadline'))),
             'responsibilities': '\n'.join(str(item).strip() for item in (ai.get('responsibilities') or []) if str(item).strip())[:2000],   # one a line
-            'posted': (job.get('posted_at') or plain(ai.get('posted')))[:10]}
+            'posted': _day(job.get('posted_at')) or _day(plain(ai.get('posted')))}
 
 
 def facts(job):

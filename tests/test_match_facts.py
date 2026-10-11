@@ -47,6 +47,18 @@ class MatchFactsTests(unittest.TestCase):
         self.assertSameColumns(job)
         self.assertEqual((matches_sync.facts(job)['salary'], matches_sync.facts(job)['scoring_method']), ('', 'Previous'))
 
+    def test_a_date_that_is_not_a_day_is_left_empty_so_notion_does_not_refuse_the_row(self):
+        # Issue #345: 'rolling', '2026-10' or '3 days ago' went to Notion as a date (400) and the whole row write failed.
+        for text in ('rolling', '2026-10', '3 days ago', '2026-13-45', 'ASAP, by 2026-10-31'):
+            job = {**scored('https://jobs.example/e', 70), 'ai': {**AI, 'deadline': text, 'posted': text}, 'posted_at': ''}
+            facts = matches_sync.posting_facts(job)
+            self.assertEqual((facts['deadline'], facts['posted']), ('', ''), text)
+            self.assertNotIn('Deadline', job_matches.properties(job, 'Open'))
+            self.assertNotIn('Posted', job_matches.properties(job, 'Open'))
+        job = {**scored('https://jobs.example/f', 70), 'ai': {**AI, 'deadline': '2026-10-31T00:00'}, 'posted_at': '2026-10-01'}
+        self.assertEqual(matches_sync.posting_facts(job)['deadline'], '2026-10-31')
+        self.assertEqual(job_matches.properties(job, 'Open')['Posted'], {'date': {'start': '2026-10-01'}})
+
 
 if __name__ == '__main__':
     unittest.main()
