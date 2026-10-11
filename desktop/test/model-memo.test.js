@@ -38,7 +38,7 @@ test('a hit answers without asking; a miss asks once and is kept on disk for the
   withMemo(again, file);
   assert.deepEqual((await again.messages.create(ask('a form page'))).content, first.content);
   const stored = JSON.parse(fs.readFileSync(file, 'utf8'));
-  assert.equal(Object.keys(stored).filter(name => !name.endsWith('#parts')).length, 1, 'one answer, and beside it its parts (hashes)');
+  assert.equal(Object.keys(stored).filter(name => !/#(parts|lines)$/.test(name)).length, 1, 'one answer, and beside it its parts (hashes)');
   assert.ok(!JSON.stringify(stored).includes('a form page'), 'the request text is not stored, only its hash and the answer');
 });
 
@@ -107,7 +107,7 @@ const answerAsk = (job, system = 'You fill forms.') => ({model: 'claude-sonnet-5
 
 test('a request\'s parts are hashes of the model, each system block and each tag block of the user message; same request, same parts, no text in them', () => {
   const parts = memoParts(answerAsk('Seller in Zurich'));
-  assert.deepEqual(Object.keys(parts), ['model', 'system:0', 'system:1', 'user:job', 'user:form_fields', 'output']);
+  assert.deepEqual(Object.keys(parts), ['model', 'system:0', 'system:1', 'system:1:profile', 'user:job', 'user:form_fields', 'output']);
   assert.deepEqual(parts, memoParts(answerAsk('Seller in Zurich')));
   assert.ok(Object.values(parts).every(hash => /^[0-9a-f]{12}$/.test(hash)));
   assert.ok(!JSON.stringify(parts).includes('Zurich'));
@@ -124,4 +124,16 @@ test('a kept answer keeps its parts; a miss names the nearest kept ask\'s differ
   await assert.rejects(replay.messages.create(answerAsk('Seller in Zurich', 'You fill forms, learned: x')), /differs in: system:0\b/);
   await assert.rejects(replay.messages.create({...answerAsk('Seller in Zurich'), model: 'claude-haiku-5-5'}), /differs in: model/);
   assert.ok((await replay.messages.create(answerAsk('Seller in Zurich'))).content, 'the same ask still hits');
+});
+
+test('a miss in a tagged section names the lines that differ ("system:1:profile (lines 2)"), by hashes kept beside the answer', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-memo-lines-')), 'model-memo.json');
+  const withProfile = text => ({model: 'claude-sonnet-5-5', system: [{type: 'text', text: 'You fill forms.'}, {type: 'text', text: `<profile>\n${text}\n</profile>`}], messages: [{role: 'user', content: '<job>\nx\n</job>'}]});
+  const live = {engine: 'cli', messages: {create: async () => ({content: [{type: 'text', text: '{}'}], stop_reason: 'end_turn', usage: {}})}};
+  withMemo(live, file);
+  await live.messages.create(withProfile('First name: Ada\nLast name: Tester\nCity: Zurich'));
+  const replay = {messages: {create: async () => { throw new Error('must not ask'); }}};
+  withMemo(replay, file, {only: true});
+  await assert.rejects(replay.messages.create(withProfile('First name: Test\nLast name: Tester\nCity: Zurich')), /differs in: system:1, system:1:profile \(lines 2 of 5\)/);
+  assert.ok(!JSON.stringify(memoParts(withProfile('First name: Ada'))).includes('Ada'));
 });

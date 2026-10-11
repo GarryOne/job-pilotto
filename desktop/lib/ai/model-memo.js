@@ -29,12 +29,14 @@ export function memoKey(params = {}) {
 
 // The request's PARTS, as short hashes (never text): the model, each system block, and the user message cut by its <tag> blocks (or, for a message without tags, by its "Label:" lines).
 // Kept beside each answer, so a replay's miss can say WHICH part differs from the live ask ("job differs", "system:1 differs") instead of only "not in its kept answers" (12 Oct 2026, Ashby).
+const TAGGED = /<([a-z_]+)>([\s\S]*?)<\/\1>/g;
 const piece = text => crypto.createHash('sha256').update(normalise(String(text))).digest('hex').slice(0, 12);
 const textOf = content => (Array.isArray(content) ? content.map(block => block?.text ?? '').join('\n') : String(content ?? ''));
 export function memoParts(params = {}) {
   const parts = {model: piece(params.model ?? '')}, add = (name, text) => { let at = name, n = 1; while (at in parts) at = `${name}#${++n}`; parts[at] = piece(text); };
   const system = params.system ?? '';
-  if (Array.isArray(system)) system.forEach((block, i) => add(`system:${i}`, block?.text ?? '')); else add('system', system);
+  const blocks = Array.isArray(system) ? system.map(block => block?.text ?? '') : [system];
+  blocks.forEach((text, i) => { const at = Array.isArray(system) ? `system:${i}` : 'system'; add(at, text); for (const [, tag, inner] of text.matchAll(TAGGED)) add(`${at}:${tag}`, inner); });   // a system block's own <tag> sections too: which one differs
   for (const message of params.messages ?? []) {
     const text = textOf(message.content), tagged = [...text.matchAll(/<([a-z_]+)>([\s\S]*?)<\/\1>/g)];
     if (tagged.length) { for (const [, tag, inner] of tagged) add(`${message.role}:${tag}`, inner); add(`${message.role}:rest`, text.replace(/<([a-z_]+)>[\s\S]*?<\/\1>/g, '').trim()); if (parts[`${message.role}:rest`] === piece('')) delete parts[`${message.role}:rest`]; }
@@ -43,17 +45,34 @@ export function memoParts(params = {}) {
   add('output', JSON.stringify([params.output_config ?? null, params.tools ?? null]));
   return parts;
 }
+// The hash of each line of every <tag> section of the system blocks and the user message: {"system:1:profile": [hash, ...]}, kept beside the answer (hashes only), so a miss can say WHICH LINE of a
+// section differs from the live ask (12 Oct 2026: a profile block differed and nothing said where).
+export function memoLines(params = {}) {
+  const lines = {}, system = params.system ?? '', blocks = Array.isArray(system) ? system.map(block => block?.text ?? '') : [system];
+  const section = (name, text) => { lines[name] = String(text).split('\n').map(piece); };
+  blocks.forEach((text, i) => { for (const [, tag, inner] of text.matchAll(TAGGED)) section(`${Array.isArray(system) ? `system:${i}` : 'system'}:${tag}`, inner); });
+  for (const message of params.messages ?? []) for (const [, tag, inner] of textOf(message.content).matchAll(TAGGED)) section(`${message.role}:${tag}`, inner);
+  return lines;
+}
 // The kept ask nearest to this one (fewest differing parts), among the answers kept with their parts: -> the names of the parts that differ, or null when none was kept with parts.
-export function nearestDiffers(parts, kept) {
-  let best = null;
+// -> the names of the parts that differ, with, for a section whose line hashes were kept, the lines that differ ("system:1:profile (lines 33-34)"); or null.
+export function nearestDiffers(parts, kept, lines = {}) {
+  let best = null, bestKey = '';
   for (const [name, other] of Object.entries(kept)) {
     if (!name.endsWith(PARTS)) continue;
     const names = new Set([...Object.keys(parts), ...Object.keys(other)]), differs = [...names].filter(part => parts[part] !== other[part]);
-    if (!best || differs.length < best.length) best = differs;
+    if (!best || differs.length < best.length) { best = differs; bestKey = name.slice(0, -PARTS.length); }
   }
-  return best;
+  if (!best) return null;
+  const was = kept[bestKey + LINES] || {};
+  return best.map(part => {
+    const mine = lines[part], theirs = was[part];
+    if (!mine || !theirs) return part;
+    const changed = []; for (let at = 0; at < Math.max(mine.length, theirs.length); at++) if (mine[at] !== theirs[at]) changed.push(at + 1);
+    return changed.length ? `${part} (lines ${changed.length > 3 ? `${changed[0]}-${changed.at(-1)}, ${changed.length} in all` : changed.join(', ')} of ${mine.length})` : part;
+  });
 }
-const PARTS = '#parts';
+const PARTS = '#parts', LINES = '#lines';
 
 const insideRealData = file => (path.resolve(file) + path.sep).startsWith(path.join(os.homedir(), 'Library', 'Application Support', 'Job Pilotto') + path.sep);
 
@@ -81,14 +100,14 @@ export function withMemo(client, file = memoFile(), {only = memoOnly()} = {}) {
     if (only) {
       // JOB_PILOTTO_MODEL_MEMO_MISSES=<file> (e2e only): the normalised request of each miss, to see what differs from the live run's ask.
       if (process.env.JOB_PILOTTO_E2E && process.env.JOB_PILOTTO_MODEL_MEMO_MISSES) try { fs.appendFileSync(process.env.JOB_PILOTTO_MODEL_MEMO_MISSES, `${normalise(JSON.stringify({model: params.model, system: params.system ?? '', messages: params.messages ?? [], output_config: params.output_config ?? null, tools: params.tools ?? null}))}\n`); } catch { /* a debug aid */ }
-      const differs = nearestDiffers(memoParts(params), kept);
+      const differs = nearestDiffers(memoParts(params), kept, memoLines(params));
       throw new Error(`model memo: not in the row's kept answers (an offline replay never asks the model)${differs ? `; the nearest kept ask differs in: ${differs.join(', ') || 'nothing I can see (the same parts)'}` : ''}`);
     }
     const answer = await ask(params);
     try {
       fs.mkdirSync(path.dirname(file), {recursive: true});
       const tmp = `${file}.${process.pid}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify({...read(file), [key]: answer, [key + PARTS]: memoParts(params)}));
+      fs.writeFileSync(tmp, JSON.stringify({...read(file), [key]: answer, [key + PARTS]: memoParts(params), [key + LINES]: memoLines(params)}));
       fs.renameSync(tmp, file);
     } catch { /* the cache is only a speed-up */ }
     return answer;
