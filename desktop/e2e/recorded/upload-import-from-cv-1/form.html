@@ -6,7 +6,8 @@
 <div><label for="first">Vorname *</label><input id="first" name="first" type="text" required></div>
 <div><label for="last">Nachname *</label><input id="last" name="last" type="text" required></div>
 <div><label for="mail">E-Mail *</label><input id="mail" name="mail" type="email" required></div></form>
-<form class="apply-main-form row" id="attached_resume"><div class="group attached_resume_11 apply-attached-document-component"><div class="grid"><div class="row apply-answer-row"><div class="col-sm-12 apply-answer-row-label-block"><div id="label_attached_resume_11" class="apply-attached-document-label"><span id="apply-answer-row-label-attached_resume_11" class="apply-answer-row-label">Currículo</span> <em class="text-required apply-required">*</em></div></div>
-<div class="col-xs-12 form-control-container apply-file-upload-container"><div class="drop-message"><button type="button" class="btn-upload" id="upload_btn_attached_resume_11"><span class="uplBtnMessage">cargar archivo</span></button> <span>o coloque un archivo aquí</span></div>
-<input id="own" class="hidden upload_attached_resume_11 form-control" type="file" name="file" autocomplete="off" aria-invalid="false" onchange="document.body.dataset.own = this.files[0].name"></div></div></div></div></form>
+<div class="row apply-answer-row-label-block"><div id="label_attached_resume_11" class="apply-attached-document-label"><span class="apply-answer-row-label">Currículo</span> <em class="text-required apply-required">*</em></div></div>
+<form class="apply-main-form row" id="attached_resume"><div class="apply-file-upload-container"><input type="text" id="note" aria-label="Nota" placeholder="Nota">
+<div class="drop-message"><button type="button" class="btn-upload" id="upload_btn_attached_resume_11" aria-describedby="help-block_attached_resume_11 label_attached_resume_11"><span class="uplBtnMessage">cargar archivo</span></button> <span>o coloque un archivo aquí</span></div>
+<input id="own" class="hidden upload_attached_resume_11 form-control" type="file" name="file" autocomplete="off" aria-invalid="false" onchange="document.body.dataset.own = this.files[0].name"></div></form>
 <style>.hidden{display:none}</style></body></html>
