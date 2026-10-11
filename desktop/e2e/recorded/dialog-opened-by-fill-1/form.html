@@ -1,0 +1,18 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Solicitud</title></head>
+<body><h1>Su solicitud</h1><form action="/enviar" method="post">
+<div><label for="first">Vorname *</label><input id="first" name="first" type="text" required></div>
+<div><label for="last">Nachname *</label><input id="last" name="last" type="text" required></div>
+<div><label for="mail">E-Mail *</label><input id="mail" name="mail" type="email" required></div>
+<button type="submit">Enviar solicitud</button></form>
+<script>
+// Models a site whose first typed value wakes a confirm modal (the site's "import data" dialog): CONTINUAR wipes what was typed, CANCELAR keeps it.
+let opened = false;
+document.getElementById('first').addEventListener('input', () => { if (opened) return; opened = true; setTimeout(() => {
+  const box = document.createElement('div'); box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+  box.style.cssText = 'position:fixed;z-index:100000;top:20%;left:20%;right:20%;background:#fff;border:1px solid #888;padding:16px';
+  box.innerHTML = '<h2>IMPORTACIÓN DE DATOS</h2><p>Es posible que se sustituyan los campos que ya haya rellenado. ¿Está seguro de que desea continuar?</p><button type="button" id="go">CONTINUAR</button><button type="button" id="no">CANCELAR</button><button type="button" id="x">X</button>';
+  document.body.appendChild(box);
+  box.querySelector('#go').onclick = () => { document.querySelectorAll('input').forEach(input => { input.value = ''; }); box.remove(); };
+  box.querySelector('#no').onclick = () => box.remove(); box.querySelector('#x').onclick = () => box.remove();
+}, 300); });
+</script></body></html>

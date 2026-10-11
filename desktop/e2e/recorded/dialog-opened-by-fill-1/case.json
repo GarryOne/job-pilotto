@@ -1,0 +1,77 @@
+{
+ "shape": "a site's own confirm modal (\"your fields may be replaced, continue?\") opens after the first value is typed and covers the form: it is closed with the non-agreeing button, which keeps the fill",
+ "why": "11 Oct 2026, Louis Vuitton jobs (owner watched, ext 0.9.209): CONTINUAR/CANCELAR/X sat over the form after the fill; no press, no popup line, the run ended '5 of 8 filled' with no warning. The popup check ran only before filling",
+ "sample": "invented posting and form (hosts, text); the modal's words and buttons are Louis Vuitton's; the wake-on-typing handler is a model, not the site's code",
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://jobs.beispiel.example/es/oferta/4711",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://jobs.beispiel.example/es/solicitud/4711",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://jobs.beispiel.example/es/solicitud/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.9,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "jetzt bewerben (ohne anmeldung)",
+     "applyRoute": "manual",
+     "applyBy": "form",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   }
+  ],
+  "/extension/dismiss-popup": {
+   "ok": true,
+   "button": "CANCELAR"
+  }
+ },
+ "expect": {
+  "told": [
+   "closed a dialog opened by the fill",
+   "\"label\":\"CANCELAR\""
+  ],
+  "notTold": [
+   "a dialog was left open over the form"
+  ],
+  "filled": [
+   "#first",
+   "#last",
+   "#mail"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 45
+ },
+ "control": {
+  "build": "0.9.211",
+  "failed": "told: closed a dialog opened by the fill (nothing looked for a dialog after the fill)"
+ }
+}
