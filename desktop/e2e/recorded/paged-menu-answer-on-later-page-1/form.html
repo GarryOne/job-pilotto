@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Apply</title></head><body>
+<form onsubmit="return false" style="font:14px system-ui;padding:20px">
+<h1>Apply for this job</h1>
+<p><label for="first_name">First Name: *</label> <input id="first_name" name="first_name" type="text" required aria-required="true"></p>
+<p><label for="last_name">Last Name: *</label> <input id="last_name" name="last_name" type="text" required aria-required="true"></p>
+<p><label for="email">Email Address: *</label> <input id="email" name="email" type="email" required aria-required="true"></p>
+<p><label id="country_label" for="country">Country *</label>
+<span style="display:inline-block;position:relative">
+<input id="country" name="country" type="text" role="combobox" aria-label="Country" aria-required="true" aria-expanded="false" aria-owns="country_list" autocomplete="off" placeholder="No Selection" style="width:240px">
+<div id="country_scroll" class="globalMenu sf-combo-listselect" hidden style="position:absolute;top:28px;left:0;width:240px;height:120px;overflow:auto;background:#fff;border:1px solid #888;z-index:5">
+<ul id="country_list" class="sf-list-select" role="listbox" style="list-style:none;margin:0;padding:0"></ul></div></span>
+<input id="country_code" name="country_code" type="hidden"></p>
+<p><button type="button">Apply</button></p>
+</form>
+<script>
+// A menu that draws its choices page by page (20 at a time) and loads the next page when its list is scrolled to the end.
+var names = ['No Selection','Afghanistan','Albania','Algeria','Andorra','Angola','Argentina','Armenia','Australia','Austria','Azerbaijan','Belgium','Bolivia','Brazil','Bulgaria','Canada','Chile','China','Colombia','Croatia','Cyprus','Czechia','Denmark','Ecuador','Egypt','Estonia','Finland','France','Georgia','Germany','Greece','Hungary','Iceland','India','Ireland','Israel','Italy','Japan','Latvia','Lithuania','Luxembourg','Malta','Mexico','Netherlands','Norway','Poland','Portugal','Romania','Serbia','Slovakia','Slovenia','Spain','Sweden','Switzerland','Turkey','Ukraine','United Kingdom','United States'];
+var input = document.getElementById('country'), box = document.getElementById('country_scroll'), list = document.getElementById('country_list'), shown = 0;
+function more() { names.slice(shown, shown + 20).forEach(function (name) { var li = document.createElement('li'); li.setAttribute('role', 'option'); li.className = 'globalMenuItem'; li.style.padding = '4px 8px'; li.textContent = name;
+  li.addEventListener('click', function () { input.value = name === 'No Selection' ? '' : name; document.getElementById('country_code').value = name === 'No Selection' ? '' : name.slice(0, 2).toUpperCase(); box.hidden = true; input.setAttribute('aria-expanded', 'false'); }); list.appendChild(li); }); shown += 20; }
+more();
+box.addEventListener('scroll', function () { if (box.scrollTop + box.clientHeight >= box.scrollHeight - 5 && shown < names.length) more(); });
+input.addEventListener('mousedown', function () { box.hidden = false; input.setAttribute('aria-expanded', 'true'); });
+</script></body></html>
