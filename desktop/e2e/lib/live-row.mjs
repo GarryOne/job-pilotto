@@ -6,6 +6,7 @@
 // CLI: live-row.mjs. Guard: e2e/test/live-row.test.mjs (a fake site, memo-only).
 /* global document, location */
 import fs from 'node:fs';
+import {takeEndShot} from './end-shot.mjs';
 import {ensureStagedWorker} from './staged-worker.mjs';
 import path from 'node:path';
 import {frontOf} from './app-front.mjs';
@@ -77,6 +78,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
       await wait(1500);
     }
     clearInterval(asks);
+    await takeEndShot(run.context, captureDir);   // before the final privacy check: a hit deletes it with the capture (lib/end-shot.mjs)
     if (tripped || (tripped = await trip())) { say(`live: ${tripped}`); return {seconds: (Date.now() - started) / 1000, opened: url, evidence: evidenceLines(''), tripped}; }
     await journey.finish();
     const pages = journey.write(captureDir);

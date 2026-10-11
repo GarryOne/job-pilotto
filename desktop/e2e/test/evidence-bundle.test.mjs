@@ -79,8 +79,18 @@ test('the run\'s end-of-run screenshot (LIVE_CAPTURE_DIR/end.png) is kept in the
   assert.ok(!fs.readdirSync(without).includes('end.png'));
 });
 
-test('apply-live takes the end-of-run picture before its last privacy check, so a tripwire hit deletes it with the rest', () => {
-  const source = fs.readFileSync(new URL('../lib/apply-live.mjs', import.meta.url), 'utf8');
-  const shot = source.indexOf("'end.png'"), final = source.indexOf('if (trip || (trip = await tripped()))');
-  assert.ok(shot > 0 && final > shot, 'end.png is written before the final tripwire check');
+test('both live paths take the end-of-run picture before their last privacy check, so a tripwire hit deletes it with the rest', () => {
+  for (const [file, final] of [['../lib/apply-live.mjs', 'if (trip || (trip = await tripped()))'], ['../lib/live-row.mjs', 'if (tripped || (tripped = await trip()))']]) {
+    const source = fs.readFileSync(new URL(file, import.meta.url), 'utf8'), shot = source.indexOf('takeEndShot('), last = source.indexOf(final);
+    assert.ok(shot > 0 && last > shot, `${file}: the end picture is taken before the final tripwire check`);
+  }
+});
+
+test('takeEndShot photographs the last http tab into end.png, and does nothing without one', async () => {
+  const {takeEndShot} = await import('../lib/end-shot.mjs');
+  const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-shot-')), 'cap');
+  const tab = url => ({url: () => url, screenshot: async ({path: file}) => fs.writeFileSync(file, 'png')});
+  assert.equal(await takeEndShot({pages: () => [tab('chrome-extension://x/options'), tab('https://a.example/apply')]}, dir), path.join(dir, 'end.png'));
+  assert.ok(fs.existsSync(path.join(dir, 'end.png')));
+  assert.equal(await takeEndShot({pages: () => [tab('chrome-extension://x/options')]}, path.join(dir, 'none')), '');
 });
