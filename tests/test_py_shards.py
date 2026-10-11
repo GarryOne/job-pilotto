@@ -9,6 +9,26 @@ shards = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(shards)
 
 
+class WidthTests(unittest.TestCase):
+    def test_width_is_cores_over_slots_plus_two_extra_with_spare_memory(self):
+        self.assertEqual(shards.default_jobs(8, 2, 8.0), 6)   # the measured gain: 52 s -> 39 s on a loaded 8-core Mac, 11 Oct 2026
+        self.assertEqual(shards.default_jobs(16, 2, 8.0), 10)
+
+    def test_a_busy_mac_keeps_the_base_width(self):
+        self.assertEqual(shards.default_jobs(8, 2, 1.0), 4)
+        self.assertEqual(shards.default_jobs(8, 2, None), 4)   # memory unknown (Windows): never wider than the base
+
+    def test_the_width_never_exceeds_three_quarters_of_the_cores_and_is_at_least_two(self):
+        self.assertEqual(shards.default_jobs(2, 2, 8.0), 2)
+        self.assertEqual(shards.default_jobs(4, 4, 8.0), 3)
+        self.assertEqual(shards.default_jobs(8, 0, 8.0), 8)   # slots 0 = no queue
+
+    def test_free_memory_is_read_from_vm_stat_text(self):
+        text = 'Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:   10000.\nPages inactive:   90000.\nPages active: 5.\n'
+        self.assertAlmostEqual(shards.free_gb_from_vm_stat(text), 100000 * 16384 / 1073741824, places=3)
+        self.assertIsNone(shards.free_gb_from_vm_stat('nothing useful'))
+
+
 class ShardTests(unittest.TestCase):
     def test_every_module_lands_in_exactly_one_shard_for_any_job_count(self):
         modules = shards.all_modules()
