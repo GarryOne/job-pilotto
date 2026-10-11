@@ -17,6 +17,7 @@ import {evidenceLines} from './evidence-bundle.mjs';
 import {PAGE_LINE, STILL_SECONDS, stillClock} from './live-still.mjs';
 import {startOfflineApp} from './offline-app.mjs';
 import {ownerValues, pageFields, tripwire} from './privacy-tripwire.mjs';
+import {applyPoolEligibility} from './pool-eligibility.mjs';
 import {startRealExtension} from './real-extension.mjs';
 import {livePresses} from './replay-candidate.mjs';
 
@@ -47,6 +48,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     return '';
   };
   try {
+    await applyPoolEligibility(run.context.serviceWorkers()[0] || await run.context.waitForEvent('serviceworker', {timeout: 30000}), {say});   // before Apply: a pool run measures filling
     await app.call('saveContact', CONTACT);
     const opened = new Promise((resolve, reject) => { app.onOpen(resolve); setTimeout(() => reject(new Error('Apply never opened the posting')), 15000).unref(); });
     const applied = await app.call('applyOne', posting.url, {title: posting.title || '', company: posting.company || ''});

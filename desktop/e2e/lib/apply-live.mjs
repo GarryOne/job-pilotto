@@ -16,6 +16,7 @@ import {ownerValues, pageFields, tripwire} from './privacy-tripwire.mjs';
 import {removeJobsByUrl} from './seed-data.mjs';
 import {modelClient} from './model.mjs';
 import {pause} from './apply-fixtures.mjs';
+import {applyPoolEligibility} from './pool-eligibility.mjs';
 import {pageLines, signature, stillClock, stillSeconds} from './live-still.mjs';
 import {writeAtomic} from './run-artifacts.mjs';
 export {livePosting} from './live-posting.mjs';
@@ -94,6 +95,7 @@ export async function runLive(ctx, h) {
         [process.env.LIVE_ACCOUNT_HOST || 'career2.successfactors.eu', process.env.LIVE_EMAIL || 'live@example.com']);
       if (process.env.LIVE_ESCALATION) await page.evaluate(() => window.pilot.saveSettings({escalation: 'on'}));   // the closer look is opt-in: this run turns it on
       console.log(`  live: this run ${process.env.LIVE_SUBMIT ? 'WILL press the consent and the account button on the real site' : 'is HELD: the extension will NOT accept the consent or press the account button (LIVE_SUBMIT=1 lets it)'}; watching ${seconds}s`);
+      await applyPoolEligibility(await ctx.browser.serviceWorker(), {say: line => console.log(`  live: ${line}`)});   // before Apply: a pool run measures filling (lib/pool-eligibility.mjs)
       await page.click('.nav[data-view="jobs"]');
       await page.evaluate(job => window.pilot.applyOne(job.url, {title: job.title, company: job.company, location: '', workMode: ''}), posting);
       console.log(`  live ${at()}: Apply pressed on ${posting.url}`);

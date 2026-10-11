@@ -21,6 +21,7 @@ import {dropCandidate, saveCandidate} from './lib/replay-candidate.mjs';
 import {fetchWanted, wantedFirst} from './lib/wanted-hosts.mjs';
 import {heavy, yieldHeavy} from './lib/heavy.mjs';
 import {runArtifacts} from './lib/run-artifacts.mjs';
+import {POOL_LINE, eligibilityOff, poolEnv} from './lib/pool-eligibility.mjs';
 heavy('e2e-smoke', import.meta.url, {klass: process.argv.includes('--only') ? 'proof' : process.argv.includes('--discover') ? 'explore' : 'pool'});   // one heavy run at a time on this Mac (tools/heavy-lock.sh); a held row proof goes before the pool's whole list
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -47,13 +48,13 @@ function liveRun(posting, seconds, captureDir = '') {
     // The default (lib/smoke.mjs smokeEngine): the row on the app's own path without Electron (live.mjs), printing the same lines parseLive reads.
     if (smokeEngine() === 'node') {
       const child = spawn('node', ['live.mjs', posting.url, '--title', posting.title || '', '--company', posting.company || '', ...(captureDir ? ['--capture', captureDir] : [])],
-        {cwd: here, env: {...process.env, LIVE_SECONDS: String(seconds)}});
+        {cwd: here, env: {...poolEnv(), LIVE_SECONDS: String(seconds)}});
       let output = '';
       child.stdout.on('data', chunk => { output += chunk; }); child.stderr.on('data', chunk => { output += chunk; });
       child.on('close', (code, signal) => resolve({output, code, signal, seconds: Math.round((Date.now() - started) / 1000)}));
       return;
     }
-    const child = spawn('node', ['run-all.mjs', '--only', 'applyflows'], {cwd: here, env: {...process.env, E2E_ARTIFACTS: runArtifacts(), LIVE: '1', LIVE_URL: posting.url, LIVE_TITLE: posting.title || '', LIVE_COMPANY: posting.company || '', LIVE_SECONDS: String(seconds), LIVE_CAPTURE_DIR: captureDir, ...(captureDir ? {JOB_PILOTTO_MODEL_MEMO: path.join(captureDir, 'model-memo.json')} : {}), LIVE_ENGINE: process.env.LIVE_ENGINE || 'cli'}});
+    const child = spawn('node', ['run-all.mjs', '--only', 'applyflows'], {cwd: here, env: {...poolEnv(), E2E_ARTIFACTS: runArtifacts(), LIVE: '1', LIVE_URL: posting.url, LIVE_TITLE: posting.title || '', LIVE_COMPANY: posting.company || '', LIVE_SECONDS: String(seconds), LIVE_CAPTURE_DIR: captureDir, ...(captureDir ? {JOB_PILOTTO_MODEL_MEMO: path.join(captureDir, 'model-memo.json')} : {}), LIVE_ENGINE: process.env.LIVE_ENGINE || 'cli'}});
     let output = '';
     child.stdout.on('data', chunk => { output += chunk; });
     child.stderr.on('data', chunk => { output += chunk; });
@@ -132,6 +133,7 @@ async function main() {
   const chosen = only || process.argv.includes('--all') ? pool : runShare(pool, shareSize(), lastSeen([...earlierList, ...today]));
   console.log(`smoke: ${chosen.length} of ${shapes.length} shapes in this run's share (the least recently run first)`);
   console.log(engineLine(smokeEngine()));
+  console.log(`smoke: ${eligibilityOff(poolEnv()) ? POOL_LINE : 'eligibility check: ON in this run (SMOKE_ELIGIBILITY=on)'}`);
   for (const {shape, like = [], urls = []} of chosen) {
     yieldHeavy();   // between two sites a waiting proof (or shorter run) goes first; this run waits for its place back (tools/heavy-lock.sh yield)
     const posting = pickPosting([...urls.map(url => ({url, title: '', company: ''})), ...(like.length ? postingsLike(like) : [])]);
