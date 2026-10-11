@@ -12,7 +12,7 @@
 #   JOB_PILOTTO_HEAVY=0                 no lock, no load wait
 #   JOB_PILOTTO_HEAVY_WAIT=<s>          longest wait for a slot before running anyway (default 1800)
 #   JOB_PILOTTO_HEAVY_SLOTS=<n>         1 = one heavy run at a time; default 2 (the 2nd behind the memory check)
-#   JOB_PILOTTO_HEAVY_MEM_GB=<n>        free+inactive memory a 2nd run needs, in GB (default 7)
+#   JOB_PILOTTO_HEAVY_MEM_GB=<n>        free+inactive memory a 2nd run needs, in GB (default 7); a `recorded-replay` needs JOB_PILOTTO_HEAVY_MEM_REPLAY_GB (3) and swap up to JOB_PILOTTO_HEAVY_SWAP_REPLAY_PCT (70)
 #   JOB_PILOTTO_HEAVY_SWAP_PCT=<n>      most swap used, in percent, for a 2nd run (default 50)
 #   JOB_PILOTTO_HEAVY_SHARED=<path>     the shared copy to run (default the primary checkout's); this script never hands off to itself
 #   JOB_PILOTTO_HEAVY_LOAD=<n>          1-minute load average above which a run waits (default 1.5 x cores); 0 = never wait for load
@@ -51,6 +51,8 @@ held() {  # live slots, after dropping stale ones
 }
 memory_ok() {  # a 2nd heavy run fits: free+inactive memory over the floor and swap low; sets $why when not
   local free swap floor="${JOB_PILOTTO_HEAVY_MEM_GB:-7}" most="${JOB_PILOTTO_HEAVY_SWAP_PCT:-50}"
+  # A recorded-page replay is counted by its real cost (owner's brief, 11 Oct 2026): ~1.5 GB of Chrome at 4 tabs (2.1 GB at 6), not a pool run's 3.3 GB.
+  case "$what" in recorded-replay) floor="${JOB_PILOTTO_HEAVY_MEM_REPLAY_GB:-3}"; most="${JOB_PILOTTO_HEAVY_SWAP_REPLAY_PCT:-70}" ;; esac
   free="$(vm_stat 2>/dev/null | awk '/page size of/ {for (i = 1; i < NF; i++) if ($i == "of") size = $(i + 1)} /^Pages (free|inactive):/ {v = $NF; sub(/\./, "", v); pages += v} END {printf "%.1f", pages * size / 1073741824}')"
   swap="$(sysctl -n vm.swapusage 2>/dev/null | awk '{for (i = 1; i < NF; i++) {if ($i == "total") t = $(i + 2) + 0; if ($i == "used") u = $(i + 2) + 0}} END {printf "%d", (t > 0 ? u * 100 / t : 0)}')"
   why=""

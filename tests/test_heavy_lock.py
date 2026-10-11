@@ -27,7 +27,7 @@ class HeavyLockTest(unittest.TestCase):
     def memory(self, free_gb, swap_used_pct):
         """Fake vm_stat and sysctl on PATH: free+inactive memory and swap use as given; returns the env for a 2-slot run."""
         bin_dir = self.tmp / f'bin-{free_gb}-{swap_used_pct}'
-        bin_dir.mkdir()
+        bin_dir.mkdir(exist_ok=True)
         pages = int(free_gb * 1024 ** 3 / 16384 / 2)
         (bin_dir / 'vm_stat').write_text('#!/bin/sh\n' f'printf "Mach Virtual Memory Statistics: (page size of 16384 bytes)\\nPages free:  {pages}.\\nPages active:  999.\\nPages inactive:  {pages}.\\n"\n')
         (bin_dir / 'sysctl').write_text('#!/bin/sh\ncase "$*" in *swapusage*) ' f'echo "total = 4096.00M  used = {4096 * swap_used_pct / 100:.2f}M  free = 0.00M  (encrypted)";; *) echo 8;; esac\n')
@@ -163,13 +163,13 @@ class HeavyLockTest(unittest.TestCase):
         self.assertIn('got the lock after', result.stderr)
         self.assertRegex((self.tmp / 'gate-timing.log').read_text(), r'heavy lock wait=\d+s what=second')
 
-    def overlap(self, **env):
+    def overlap(self, second='replay', **env):
         """Starts a 3 s holder, then a second run; True when the second ran while the holder still ran."""
         holder = self.start('pool run', 'sleep', '3', **env)
         self.addCleanup(holder.kill)
         time.sleep(0.7)
         began = time.monotonic()
-        result = self.run_lock('replay', 'echo', 'ran', **env)
+        result = self.run_lock(second, 'echo', 'ran', **env)
         took = time.monotonic() - began   # before waiting out the holder
         holder.communicate(timeout=30)
         self.assertEqual(result.stdout.strip(), 'ran')
@@ -184,6 +184,14 @@ class HeavyLockTest(unittest.TestCase):
             beside, err = self.overlap(**self.memory(free_gb=free_gb, swap_used_pct=swap))
             self.assertFalse(beside, f'{free_gb} GB, swap {swap}%: the 2nd run waits')
             self.assertIn(why, err, 'the wait says which memory check held it')
+
+    def test_a_recorded_replay_is_counted_by_its_real_cost_beside_a_pool_run(self):
+        # 11 Oct 2026: a replay is ~1.5 GB (4 tabs in one browser; 2.1 GB at 6), a pool run ~3.3 GB: it needs 3 GB free and swap up to 70%, not 7 GB and 50%
+        for free_gb, swap, beside_expected in ((5, 60, True), (2, 10, False), (5, 85, False)):
+            beside, err = self.overlap('recorded-replay', **self.memory(free_gb=free_gb, swap_used_pct=swap))
+            self.assertEqual(beside, beside_expected, f'{free_gb} GB free, swap {swap}%: {err}')
+        beside, _ = self.overlap('some pool run', **self.memory(free_gb=5, swap_used_pct=60))
+        self.assertFalse(beside, 'any other heavy run keeps the 7 GB / 50% rule')
 
     def test_never_a_third_heavy_run(self):
         env = self.memory(free_gb=30, swap_used_pct=0)
