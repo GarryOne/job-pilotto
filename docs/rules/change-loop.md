@@ -44,4 +44,6 @@ Why each rule exists: [why.md](why.md#change-loop).
   assigning to it does nothing. A step run alone lacks what skipped steps built: list what you removed.
 - **Other sessions share the suite's Notion token.** Check `logs/notion-requests.log` for 429s and runs you did not start; the app's Notion calls
   queue (~340 ms apart, 25 s+ after a start).
+- **No clock in a test:** wait for the event or state (poll, a gate), never a fixed nap or a race against a timer. Heavy-lock tests were fixed again and again on 11 Oct 2026 (`129651a9`, `dae3c4b8`, `1f85f0af`, `5fab1fbb`); a timed recorded case was pulled (`55ee2494`).
+- **A new recorded case lands only after it replays green in a clean checkout**, no network, only `desktop/e2e` deps (3 reverted on 11 Oct 2026: `e4fa2d7f`, `e9554635`, `55ee2494`).
 - **Nothing is swallowed silently.** A `.catch(() => …)` logs what it caught. A failing step saves the app's state before it closes anything.
