@@ -16,7 +16,7 @@ import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
 import {uploadLedger} from './lib/fix-ledger.mjs';
 import {poolCard, sendPoolCard} from './lib/pool-card.mjs';
 import {earlierReports, recordSite} from './lib/smoke-record.mjs';
-import {evidenceLines, runFinished, writeBundle} from './lib/evidence-bundle.mjs';
+import {evidenceLines, runFinished, saveElectronLeg, writeBundle} from './lib/evidence-bundle.mjs';
 import {dropCandidate, saveCandidate} from './lib/replay-candidate.mjs';
 import {fetchWanted, wantedFirst} from './lib/wanted-hosts.mjs';
 import {heavy, yieldHeavy} from './lib/heavy.mjs';
@@ -165,7 +165,10 @@ async function main() {
     const refused = smokeEngine() === 'node' && results[shape].note === SITE_REFUSED;   // a block page on plain node: Electron decides whether the site refuses (lib/smoke-paths.mjs settleRefusal)
     if (fell || refused || pairs.has(shape)) {
       console.log(`smoke: ${shape}: ${fell ? `less than its last result on plain node (${fell}): once more on Electron, the same posting` : refused ? 'refused on plain node: once more on Electron, the same posting' : 'paired sample: the same posting on Electron'}`);
-      const again = await liveRun(posting, seconds, '', 'electron'), electron = runFinished(again) ? parseLive(again.output) : null;
+      const electronCapture = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-capture-electron-'));
+      const again = await liveRun(posting, seconds, electronCapture, 'electron'), electron = runFinished(again) ? parseLive(again.output) : null;
+      saveElectronLeg({dir: path.join(REPORTS, 'evidence'), day, shape, output: again.output, captureDir: electronCapture});   // what Electron saw, beside the plain run's bundle (lib/evidence-bundle.mjs)
+      fs.rmSync(electronCapture, {recursive: true, force: true});
       Object.assign(results[shape], pairResult(results[shape], electron, {day, previous: previous[shape]}));
       const settled = settleRefusal(results[shape], electron);   // the paired line above keeps the plain/Electron difference; the row itself becomes Electron's result
       if (settled) {

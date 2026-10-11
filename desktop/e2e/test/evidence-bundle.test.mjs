@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {evidenceLines, runFinished, writeBundle} from '../lib/evidence-bundle.mjs';
+import {evidenceLines, runFinished, saveElectronLeg, writeBundle} from '../lib/evidence-bundle.mjs';
 
 const LOG = `2026-10-10T23:22:02.048Z [extension] page kind: posting {"shape":"jobs.hornbach.com/austria/job/*/*|1-2","by":"ai","rung":2,"confidence":0.85,"usd":0,"applyBy":"form","frames":0}
 2026-10-10T23:22:02.212Z [extension] fill: page kind: posting {"by":"ai","confidence":0.85,"host":"jobs.hornbach.com","ms":4461,"version":"0.9.184"}
@@ -93,4 +93,16 @@ test('takeEndShot photographs the last http tab into end.png, and does nothing w
   assert.equal(await takeEndShot({pages: () => [tab('chrome-extension://x/options'), tab('https://a.example/apply')]}, dir), path.join(dir, 'end.png'));
   assert.ok(fs.existsSync(path.join(dir, 'end.png')));
   assert.equal(await takeEndShot({pages: () => [tab('chrome-extension://x/options')]}, path.join(dir, 'none')), '');
+});
+
+test('the Electron leg keeps its run log, app log and end picture beside the plain bundle; a leg that got nowhere keeps just its log', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-electron-leg-')), capture = path.join(tmp, 'capture');
+  fs.mkdirSync(capture);
+  fs.writeFileSync(path.join(capture, 'app.log'), 'APP'); fs.writeFileSync(path.join(capture, 'end.png'), 'PNG');
+  const folder = saveElectronLeg({dir: path.join(tmp, 'evidence'), day: '2026-10-11', shape: 'no-form@career.hm.com', output: 'OUT', captureDir: capture});
+  assert.equal(path.basename(folder), 'electron');
+  assert.deepEqual(fs.readdirSync(folder).sort(), ['app.log', 'end.png', 'run.log']);
+  const bare = saveElectronLeg({dir: path.join(tmp, 'evidence'), day: '2026-10-12', shape: 'x', output: 'OUT', captureDir: path.join(tmp, 'none')});
+  assert.deepEqual(fs.readdirSync(bare), ['run.log']);
+  fs.rmSync(tmp, {recursive: true, force: true});
 });

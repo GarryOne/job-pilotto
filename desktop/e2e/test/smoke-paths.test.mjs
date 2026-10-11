@@ -64,7 +64,8 @@ test('the report\'s first line says the sample agrees, or names the rows that di
 test('smoke.mjs wires both guards: the Electron re-run on a fall, the paired sample, and both lines first in the summary', () => {
   const source = fs.readFileSync(path.join(E2E, 'smoke.mjs'), 'utf8');
   assert.match(source, /lessThanLast\(/, 'a fall on plain node is checked');
-  assert.match(source, /liveRun\(posting, seconds, '', 'electron'\)/, 'the re-run is on Electron, the same posting');
+  assert.match(source, /liveRun\(posting, seconds, electronCapture, 'electron'\)/, 'the re-run is on Electron, the same posting');
+  assert.match(source, /saveElectronLeg\(/, 'and what Electron saw is kept with the row\'s evidence');
   assert.match(source, /pairedSample\(/, 'a paired sample is chosen each pass');
   assert.match(source, /the run did not finish: \$\{lastError\(again\.output\)\}/, 'an Electron leg that did not finish says why');
   const first = source.indexOf('console.log(`smoke: ${pairedLine(results)}`)'), regressionsLine = source.indexOf("REGRESSIONS:");

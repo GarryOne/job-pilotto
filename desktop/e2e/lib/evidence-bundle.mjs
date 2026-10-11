@@ -44,3 +44,15 @@ export function writeBundle({dir, day, shape, output = '', appLog = '', aiCalls 
   if (shot) fs.copyFileSync(shot, path.join(folder, 'end.png'));
   return folder;
 }
+
+// The paired Electron leg's own evidence (the app log and the end picture its capture folder holds), kept beside the plain run's bundle in <bundle>/electron/, so a row whose
+// plain run was refused shows what Electron saw (job-pilotto-cc, 11 Oct 2026: the H&M settle dropped a hold and the Electron output was gone). -> the folder, or '' when nothing was kept.
+export function saveElectronLeg({dir, day, shape, output = '', captureDir = ''}) {
+  const folder = path.join(dir, day, slug(shape), 'electron');
+  fs.mkdirSync(folder, {recursive: true});
+  fs.writeFileSync(path.join(folder, 'run.log'), output);
+  for (const name of ['app.log', 'end.png']) {
+    try { fs.copyFileSync(path.join(captureDir, name), path.join(folder, name)); } catch { /* the leg did not get that far */ }
+  }
+  return folder;
+}
