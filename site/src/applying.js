@@ -7,7 +7,7 @@ import {FIX_KINDS, FIXED_CSS, FIXED_SCRIPT, fixedData, ingestFixes} from './appl
 import {ORDER_SOURCE} from './applying-order.js';
 import {GROUPS_SOURCE} from './applying-groups.js';
 import {digest} from './digest.js';
-import {cachedData, dropSnapshot, latestRuns, refreshLatest, slowCache} from './applying-store.js';
+import {cachedJson, dropSnapshot, latestRuns, refreshLatest, slowCache} from './applying-store.js';
 import {topCauses} from './applying-cause.js';
 import {nextToAdd} from './nextsites.js';
 import {platformScorecard} from './scorecard.js';
@@ -167,7 +167,7 @@ export async function view(request, env, now = new Date()) {
     const result = await ingest(env.STATS, body, now);
     return Response.json(result, {status: result.ok ? 200 : 400, headers: noStore});
   }
-  if (new URL(request.url).searchParams.has('json')) return Response.json(await cachedData(env.STATS, () => data(env.STATS, now, slowCache(env.STATS, now)), now), {headers: noStore});
+  if (new URL(request.url).searchParams.has('json')) return new Response(await cachedJson(env.STATS, () => data(env.STATS, now, slowCache(env.STATS, now)), now), {headers: {'Content-Type': 'application/json', ...noStore}});
   return new Response(PAGE, {headers: {'Content-Type': 'text/html; charset=utf-8', ...noStore}});
 }
 

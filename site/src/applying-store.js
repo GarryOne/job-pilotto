@@ -39,14 +39,17 @@ async function readLatest(db) {
   return rows.flatMap(row => { try { return JSON.parse(row.runs); } catch { return []; } }).sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : a.id - b.id));
 }
 
-// The page's data is computed at most every FAST_MINUTES, and again after an upload dropped it.
-export async function cachedData(db, compute, now = new Date()) {
+// The page's data is computed at most every FAST_MINUTES, and again after an upload dropped it. cachedJson returns the JSON TEXT as stored (only the trailing "now" is replaced):
+// no parse and no stringify on a warm load, the free plan allows 10 ms of CPU a request. cachedData is the parsed form.
+const withNow = (body, now) => { const at = body.lastIndexOf('"now":"'); return at < 0 ? body : body.slice(0, at) + '"now":"' + now.toISOString() + '"}'; };
+export async function cachedJson(db, compute, now = new Date()) {
   const row = await db.prepare("SELECT at, body FROM applying_view WHERE key = 'fast'").bind().first().catch(error => (missing(error), null));
-  if (row && minutesSince(row.at, now) < FAST_MINUTES) { try { return {...JSON.parse(row.body), now: now.toISOString()}; } catch { /* a bad snapshot is recomputed */ } }
-  const fresh = await compute();
-  await db.prepare("INSERT INTO applying_view (key, at, body) VALUES ('fast', ?, ?) ON CONFLICT(key) DO UPDATE SET at = excluded.at, body = excluded.body").bind(now.toISOString(), JSON.stringify(fresh)).run().catch(missing);
-  return fresh;
+  if (row && minutesSince(row.at, now) < FAST_MINUTES) return withNow(row.body, now);
+  const body = JSON.stringify(await compute());
+  await db.prepare("INSERT INTO applying_view (key, at, body) VALUES ('fast', ?, ?) ON CONFLICT(key) DO UPDATE SET at = excluded.at, body = excluded.body").bind(now.toISOString(), body).run().catch(missing);
+  return body;
 }
+export const cachedData = async (db, compute, now = new Date()) => JSON.parse(await cachedJson(db, compute, now));
 export const dropSnapshot = db => db.prepare("DELETE FROM applying_view WHERE key = 'fast'").bind().run().catch(missing);
 
 // A big reader's result kept SLOW_MINUTES: slow(db, now)(key, fn) -> fn's JSON result.
