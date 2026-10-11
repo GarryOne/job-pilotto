@@ -16,7 +16,8 @@ class ShipRefusedTest(ShipFixture):
         (name, text) = other_edit
         script = (f'#!/bin/sh\ncat > /dev/null\necho run >> {posix(counter)}\n'
                   f'if [ "$(wc -l < {posix(counter)} | tr -d " ")" = 1 ]; then (cd {posix(self.other)} && git pull -q origin main && mkdir -p $(dirname {name}) && printf "{text}" > {name} '
-                  f'&& git add -A && git commit -qm "Another session" && git push -q origin main); fi\n')
+                  f'&& git add -A && git commit -qm "Another session" && git push -q origin main); fi\n'
+                  f'git -C {posix(self.tree)} fetch -q origin\n')   # the real hook fetches origin too: origin/main already shows the new commits when the push is refused
         self.change(self.tree, 'tools/pre-push-check.sh', script, 'Hook that counts')
         (mine_name, mine_text) = mine_edit
         (self.tree / mine_name).parent.mkdir(exist_ok=True)

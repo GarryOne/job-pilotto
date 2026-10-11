@@ -127,6 +127,7 @@ run_checks() {  # [why]
   [ "$check_code" = 0 ] || exit "$check_code"
   step "the push checks passed"
 }
+checked_base="$(git merge-base HEAD origin/main)"   # the main these commits were rebased on and are checked against; the push gate fetches origin itself, so origin/main is no "before"
 run_checks
 
 # A push that changes workflow files while a desktop build runs would make GitHub refuse that build's release, if the build could not tag at its
@@ -149,11 +150,11 @@ for attempt in 1 2 3 4 5; do
   # SHIP_RECHECK=1 re-runs the checks after every refusal, as before.
   verdict="recheck: SHIP_RECHECK=1"
   if [ -z "${SHIP_RECHECK:-}" ]; then
-    verdict="$(python3 -I "$here/tools/recheck-needed.py" --mine $(git diff --name-only origin/main HEAD) --incoming $(git diff --name-only "$before" origin/main) 2>&1)" || [ $? = 1 ] || verdict="recheck: the decision tool failed"
+    verdict="$(python3 -I "$here/tools/recheck-needed.py" --mine $(git diff --name-only origin/main HEAD) --incoming $(git diff --name-only "$checked_base" origin/main) 2>&1)" || [ $? = 1 ] || verdict="recheck: the decision tool failed"
   fi
   case "$verdict" in
     skip:*) step "not re-running the checks (SHIP_RECHECK=1 re-runs them): ${verdict#skip: }" ;;
-    *) run_checks "again, on the new main (${verdict#recheck: })" ;;   # the combination with what just landed is checked before it is pushed
+    *) checked_base="$(git merge-base HEAD origin/main)"; run_checks "again, on the new main (${verdict#recheck: })" ;;   # the combination with what just landed is checked before it is pushed
   esac
   [ "${GATE_TIMING:-1}" = 0 ] || echo "# $(date -u +%Y-%m-%dT%H:%M:%SZ) refused push recheck=${verdict%%:*} why=${verdict#*: }" >>"$(git rev-parse --path-format=absolute --git-common-dir)/gate-timing.log"
 done
