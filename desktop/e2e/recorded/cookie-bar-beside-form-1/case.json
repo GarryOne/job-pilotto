@@ -59,7 +59,8 @@
    "pressed the Apply button"
   ],
   "notTold": [
-   "held: a dialog covers the form"
+   "held: a dialog covers the form",
+   "a dialog was left open over the form"
   ],
   "filled": [
    "#first",
@@ -70,7 +71,7 @@
   "seconds": 45
  },
  "control": {
-  "build": "0.9.214",
-  "failed": "none: a regression guard that passes on the build before too"
+  "build": "0.9.221",
+  "failed": "notTold: a dialog was left open over the form (the end check listed any high layer, a bar that covers no control too)"
  }
 }

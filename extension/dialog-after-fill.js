@@ -2,6 +2,7 @@
 // with the button the app's AI names for "close without agreeing" (consent.js closePopup, popup-pick.js), and one still over the form after that is reported,
 // so a run never ends "5 of 8 filled" with a modal covering the form (Louis Vuitton jobs, 11 Oct 2026). Found by structure (popup-page.js), no words here.
 // Guards: worker/test/dialog-after-fill.test.js.
+import {onTop} from './on-top.js';
 export const LEFT_OPEN = 'a dialog was left open over the form';
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 // close(tabId) -> label pressed or ''; look(tabId) -> {text, buttons} of a dialog still in the way, or null. -> {closed, left}
@@ -45,3 +46,7 @@ export async function holdFill(tab, page, result, {decide, progress, note}) {
   await note(tab.id, `✈️ A dialog is in the way${why ? `: "${why}"` : ''}. Close it, then press Fill again.`, page);
   return result;
 }
+
+// What covers the form's controls, found by occlusion (on-top.js), as {text, buttons} for settleDialogs / clearBeforeFill; null when nothing does (a layer that covers no control is none).
+export const layerOnTop = tabId => chrome.scripting.executeScript({target: {tabId, frameIds: [0]}, func: onTop})
+  .then(rows => { const layer = rows?.[0]?.result; return layer ? {text: layer.text, buttons: layer.buttons} : null; }).catch(() => null);

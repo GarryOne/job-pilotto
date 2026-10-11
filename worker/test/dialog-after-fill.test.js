@@ -48,7 +48,7 @@ test('no dialog: nothing closed, nothing left; a failing look is not a dialog', 
 test('the background asks after every fill', async () => {
   const fs = await import('node:fs');
   const text = fs.readFileSync(new URL('../../extension/background.js', import.meta.url), 'utf8');
-  assert.match(text, /closeFillDialogs\(tab, \{close: closePopup, look: popupLeft, decide\}\)/);
+  assert.match(text, /closeFillDialogs\(tab, \{close: closePopup, look: layerOnTop, decide\}\)/);
 });
 
 test('the fill\'s end logs what it closed and what is left', async () => {
@@ -98,4 +98,25 @@ test('the fill asks the gate first and a held fill types nothing', async () => {
   assert.ok(!flow.slice(flow.indexOf('export async function fillTab'), gateAt).includes('files: PAGE_FILES'), 'the gate comes before the fill injects its page scripts');
   const bg = fs.readFileSync(new URL('../../extension/background.js', import.meta.url), 'utf8');
   assert.match(bg, /result\?\.held\) return holdFill/);
+});
+
+// The end check looks for what COVERS the form (on-top.js, by occlusion), not for any high layer: a live Louis Vuitton run listed a 4-button layer that covered nothing (11 Oct 2026).
+test('the after-fill look is the occlusion finder: a layer that covers nothing is none', async () => {
+  const { layerOnTop } = await import('../../extension/dialog-after-fill.js');
+  const run = result => ({ scripting: { executeScript: async ({ func }) => { assert.equal(typeof func, 'function'); return [{ result }]; } } });
+  const keep = globalThis.chrome;
+  try {
+    globalThis.chrome = run({ shape: 'dialog', text: 'Importación de datos', buttons: ['Cerrar la ventana'], covered: ['Apellidos'] });
+    assert.deepEqual(await layerOnTop(7), { text: 'Importación de datos', buttons: ['Cerrar la ventana'] });
+    globalThis.chrome = run(null);
+    assert.equal(await layerOnTop(7), null);
+    globalThis.chrome = { scripting: { executeScript: async () => { throw new Error('no tab'); } } };
+    assert.equal(await layerOnTop(7), null);
+  } finally { globalThis.chrome = keep; }
+});
+
+test('the background hands that look to the after-fill check', async () => {
+  const fs = await import('node:fs');
+  const bg = fs.readFileSync(new URL('../../extension/background.js', import.meta.url), 'utf8');
+  assert.match(bg, /closeFillDialogs\(tab, \{close: closePopup, look: layerOnTop, decide\}\)/);
 });

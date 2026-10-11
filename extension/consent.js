@@ -13,7 +13,6 @@ const inFrames = async (tabId, args = []) => (await chrome.scripting.executeScri
 const popupIn = async (tabId, args) => (await chrome.scripting.executeScript({target: {tabId, allFrames: true}, func: findPopup, args}).catch(() => [])).map(frame => frame?.result);
 // Any other popup in the way (a newsletter offer, an alert prompt, a chat invitation, a notice nobody's word list knows): found by structure, closed by the
 // button the app's AI names (popup-pick.js), never one that agrees, subscribes or sends; no AI answer, nothing pressed. -> the label pressed, or ''.
-export const popupLeft = async tabId => (await popupIn(tabId, [{list: true}])).find(found => found?.buttons?.length) || null;
 export const closePopup = async tabId => {
   const seen = (await popupIn(tabId, [{list: true}])).find(found => found?.buttons?.length);
   if (!seen) return '';
