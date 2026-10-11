@@ -58,7 +58,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
    run), and `DIVERGED: press k: pressed "X"; live pressed "Y"` where the extension did otherwise: that line, or the evidence lines matching the live failure, is the repro.
    A fix is proven first here: the row must now reach further (`--old <old extension/>` must still fail). `npm run rows` replays every row of the newest day in one browser.
    Its limits: a page the live run never reached cannot be replayed, and a changed ask (a new sketch or prompt) is not in the row's kept answers: confirm live once (step 3).
-3. **Then confirm live in the harness, never the twin, never the owner's data:** `cd desktop/e2e && npm run smoke -- --only <shape words>` (the e2e app, its own profile and
+3. **Then confirm live in the harness, never the twin, never the owner's data:** `cd desktop/e2e && npm run live -- <posting url>` (no Electron, ~1 min) or `npm run smoke -- --only <shape words>` (the e2e app, its own profile and
    SQLite store in a throwaway profile (no Notion), fake applicant, fixture CV, a headless Chrome with the real extension through `lib/extension.mjs`). It is a HELD run: the consent and the
    account button are NOT pressed, never Submit. **Say before it starts** what the window does and what is HELD, and how long (`SMOKE_SECONDS`, default 90).
 4. **Watch it with `Monitor`, not sleep** (global rules): background run to a log, then

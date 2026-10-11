@@ -16,8 +16,9 @@ the wrong cause for the waiting ([why.md](why.md)).
 3. **One session per cause** (the biggest unclaimed), not per row. The brief says its target: "rows of this cause confirmed by a pool run", and the
    owner pastes it into a NEW session (the paste is the owner's approval; a message to a running session waits for the owner in that window).
 4. **Prove a fix in four steps, fastest first** (owner, 11 Oct 2026: proof used to take hours): (1) 3 of 3 real asks of the app's AI on the saved page
-   (`ladder-score`, plan path); (2) the saved page replayed in the real extension (live AI asks once that exists); (3) ONE live run of the single row from the
-   fixer's own worktree before landing, held, 2 min, through the fair heavy lock (never uploaded); (4) the scoreboard: the pool owner runs all fixed rows in one
+   (`ladder-score`, plan path); (2) the row replayed offline (`npm run row -- "<pool row>"`, 15-90 s: its pages, the live run's AI answers, the app's own server, the real
+   extension; it must reach further, and `--old` must not); (3) ONE live run of the single row from the fixer's own worktree before landing, held, ~1 min
+   (`npm run live -- <url>`, no Electron, or `npm run smoke -- --only`), through the fair heavy lock (never uploaded); (4) the scoreboard: the pool owner runs all fixed rows in one
    batch on main, and "Confirmed" needs two clean runs. A fixer lands after step 3 and then goes idle; it never queues for the batch.
 5. **No new tooling during the round.** A gap goes on a list for after, unless it blocks the fix itself (then say so to the owner).
 

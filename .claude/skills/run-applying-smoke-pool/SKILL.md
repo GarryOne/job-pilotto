@@ -38,6 +38,11 @@ Whoever owns the pool and its run queue writes its own session name into `~/Libr
 
 `--discover` names a new shape by the posting's employer and, when the same host has a shape that was never run, fills that one instead of adding a row (474c641).
 Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is noted and replaced, never a regression. Exit 1 = a shape reached less than ITS last run.
+**Without Electron** (speed-5x landing 3, bfa4ae1): `SMOKE_NO_ELECTRON=1` runs each row on the app's own server under plain node (same reached/filled on 3 paired rows,
+~1.5-2x faster, ~0.33 GB instead of ~0.9 GB, no 27 s start); the default stays Electron until a pool night on it matches the last Electron night.
+**What a candidate holds** (`replay-candidates/<day>/<shape>/`): every page and frame at the extension's ask, its CSS, the live AI answers (`model-memo.json`), the live presses
+(`presses.json`); `SMOKE_KEEP_CANDIDATES=1` keeps passing rows too. **After a fix batch lands, `npm run rows` replays the day's rows offline** (4 tabs, minutes, no AI cost):
+a row that now stops earlier than its live run is a regression found before the next night.
 
 ## The rules that bite
 - **The machine-wide heavy lock decides when a pool run starts** (`tools/heavy-lock.sh`, the primary checkout's copy for every session, first come first served): one run, and a 2nd beside it only while free+inactive memory is over 7 GB and swap is low (one pool run peaks at 3.3 GB); never a 3rd. It queues you and prints the holder. Pool and live runs are on SQLite in a throwaway profile: **no Notion page, no shared port** (11 Oct 2026: 59/59 logs "store under test: sqlite", `notion-requests.log` empty; each run has its own ports, profile and artifacts folder). Only `notion-real` takes a Notion page lock (`lib/notion-page-lock.mjs`). **No slot messaging** (owner, 11 Oct 2026): don't ask peers for the page or a slot, don't send "done"; just start, and the lock queues you fairly. Never bypass it (`JOB_PILOTTO_HEAVY=0`).
