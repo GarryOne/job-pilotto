@@ -17,6 +17,16 @@ class ShardTests(unittest.TestCase):
             flat = [m for shard in shards.split(modules, jobs) for m in shard]
             self.assertEqual(sorted(flat), sorted(modules), f'jobs={jobs}')
 
+    def test_the_slow_modules_land_in_different_shards_and_the_weights_name_real_modules(self):
+        # 11 Oct 2026: balanced by file size, test_ship and test_heavy_lock (50 s each) could share a shard; the weights are measured seconds
+        weights = shards.weights()
+        modules = shards.all_modules()
+        self.assertTrue(set(weights) <= set(modules), f'weights for modules that do not exist: {sorted(set(weights) - set(modules))}')
+        slowest = sorted(weights, key=weights.get, reverse=True)[:4]
+        placed = shards.split(modules, 8)
+        homes = [next(i for i, shard in enumerate(placed) if name in shard) for name in slowest]
+        self.assertEqual(len(set(homes)), len(slowest), f'the slowest modules {slowest} share a shard')
+
     def test_the_bootstrap_module_that_sets_the_fake_ids_exists(self):
         self.assertIn(shards.BOOTSTRAP, shards.all_modules())
 

@@ -1,0 +1,23 @@
+{
+"test_affected_tests": 27.6,
+"test_ai_engine": 6.5,
+"test_check_slot": 5.5,
+"test_coverage": 1.6,
+"test_daily_store_notion": 4.9,
+"test_employer_index": 6.9,
+"test_engine_words": 1.6,
+"test_gate_cache": 14.3,
+"test_gate_timing": 1.7,
+"test_heavy_lock": 49.0,
+"test_import_first": 6.7,
+"test_interviews_saved": 5.5,
+"test_landing_lock": 12.6,
+"test_matching_matrix": 9.9,
+"test_pre_push_check": 39.1,
+"test_release_stable_guard": 5.7,
+"test_scout": 2.0,
+"test_ship": 49.8,
+"test_stop_means_stop": 7.2,
+"test_workflow_contract": 1.8,
+"test_worktree": 8.3
+}
