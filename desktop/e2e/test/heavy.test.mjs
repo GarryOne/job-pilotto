@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 import {fileURLToPath, pathToFileURL} from 'node:url';
-import {heavy} from '../lib/heavy.mjs';
+import {heavy, yieldHeavy} from '../lib/heavy.mjs';
 
 const here = fileURLToPath(new URL('..', import.meta.url));
 const script = here + 'suite.mjs';
@@ -40,4 +40,15 @@ test('an import, a held lock, the off switch and --list do nothing', () => {
 
 test('every heavy entry point calls it (a new browser suite entry must too)', () => {
   for (const file of ['suite.mjs', 'run-all.mjs', 'smoke.mjs']) assert.match(fs.readFileSync(here + file, 'utf8'), /heavy\(['`][$\w{}.\[\]-]+['`], import\.meta\.url[,)]/, file);
+});
+
+test('yieldHeavy asks the lock only inside a hold, never throws, and smoke calls it once per site', () => {
+  calls.length = 0;
+  assert.equal(yieldHeavy({env: {}, run: (...call) => { calls.push(call); return {status: 0}; }}), false);
+  assert.equal(yieldHeavy({env: {JP_HEAVY_HELD: '1', JOB_PILOTTO_HEAVY: '0'}, run: (...call) => { calls.push(call); return {status: 0}; }}), false);
+  assert.equal(calls.length, 0);
+  assert.equal(yieldHeavy({env: {JP_HEAVY_HELD: '1'}, run: (...call) => { calls.push(call); return {status: 0}; }}), true);
+  assert.deepEqual(calls[0][1].slice(1), ['yield']);
+  assert.equal(yieldHeavy({env: {JP_HEAVY_HELD: '1'}, run: () => { throw new Error('no bash'); }}), false);
+  assert.match(fs.readFileSync(here + 'smoke.mjs', 'utf8'), /for \(const \{shape, like = \[\], urls = \[\]\} of chosen\) \{\n\s+yieldHeavy\(\);/);
 });

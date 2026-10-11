@@ -18,3 +18,10 @@ export function heavy(what, metaUrl, {argv = process.argv, env = process.env, ru
   exit(result.status ?? 1);
   return true;
 }
+
+// Between two parts of a run that holds the lock (the pool, between sites): gives the place to a waiting proof or shorter run and waits for it back (`heavy-lock.sh yield`). A no-op outside a hold,
+// with JOB_PILOTTO_HEAVY=0, or without bash; never throws.
+export function yieldHeavy({env = process.env, run = spawnSync} = {}) {
+  if (!env.JP_HEAVY_HELD || env.JOB_PILOTTO_HEAVY === '0' || !fs.existsSync(LOCK)) return false;
+  try { return run('bash', [LOCK, 'yield'], {stdio: 'inherit', env}).status === 0; } catch { return false; }
+}

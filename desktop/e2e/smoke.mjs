@@ -18,7 +18,7 @@ import {earlierReports, recordSite} from './lib/smoke-record.mjs';
 import {evidenceLines, runFinished, writeBundle} from './lib/evidence-bundle.mjs';
 import {dropCandidate, saveCandidate} from './lib/replay-candidate.mjs';
 import {fetchWanted, wantedFirst} from './lib/wanted-hosts.mjs';
-import {heavy} from './lib/heavy.mjs';
+import {heavy, yieldHeavy} from './lib/heavy.mjs';
 import {runArtifacts} from './lib/run-artifacts.mjs';
 heavy('e2e-smoke', import.meta.url, {klass: process.argv.includes('--only') ? 'proof' : process.argv.includes('--discover') ? 'explore' : 'pool'});   // one heavy run at a time on this Mac (tools/heavy-lock.sh); a held row proof goes before the pool's whole list
 
@@ -131,6 +131,7 @@ async function main() {
   console.log(`smoke: ${chosen.length} of ${shapes.length} shapes in this run's share (the least recently run first)`);
   console.log(engineLine(smokeEngine()));
   for (const {shape, like = [], urls = []} of chosen) {
+    yieldHeavy();   // between two sites a waiting proof (or shorter run) goes first; this run waits for its place back (tools/heavy-lock.sh yield)
     const posting = pickPosting([...urls.map(url => ({url, title: '', company: ''})), ...(like.length ? postingsLike(like) : [])]);
     if (!posting) { results[shape] = {reached: 'none', note: 'no posting of this shape in the job list'}; console.log(`smoke: ${shape}: no posting`); await finish(shape); continue; }
     const status = await postingStatus(posting.url);

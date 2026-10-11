@@ -25,9 +25,13 @@
 #   JOB_PILOTTO_HEAVY_LOAD_WAIT=<s>     longest wait for the load to drop before running anyway (default 300)
 # Owner: landing-speed (11 Oct 2026, spec faster-fixes §6). Guarded by tests/test_heavy_lock.py.
 [ "${1:-}" = status ] && exec bash "$(dirname "$0")/heavy-lock-status.sh"   # read-only readout of holders, waiters, load and expected waits
+# `yield`, called by a run that holds the lock between two parts of its work (the pool, between sites): when a waiter of a higher class or a shorter run is queued, it gives its place up and
+# waits for it back in the queue (class and age as a new waiter); otherwise it returns at once. No-op outside a hold or with JOB_PILOTTO_HEAVY=0. desktop/e2e/lib/heavy.mjs yieldHeavy() calls it.
+yield_mode=0
+if [ "${1:-}" = yield ]; then yield_mode=1; { [ -n "${JP_HEAVY_HELD:-}" ] && [ "${JOB_PILOTTO_HEAVY:-1}" != 0 ]; } || exit 0; set -- yield true; fi
 what="${1:-heavy run}"; shift || true
 [ "$#" -gt 0 ] || { echo "usage: heavy-lock.sh <what> <command...>" >&2; exit 2; }
-if [ "${JOB_PILOTTO_HEAVY:-1}" = 0 ] || [ -n "${JP_HEAVY_HELD:-}" ]; then exec "$@"; fi
+if [ "$yield_mode" = 0 ] && { [ "${JOB_PILOTTO_HEAVY:-1}" = 0 ] || [ -n "${JP_HEAVY_HELD:-}" ]; }; then exec "$@"; fi
 
 shared="${JOB_PILOTTO_HEAVY_SHARED:-}"
 if [ -z "$shared" ]; then common="$(git -C "$(dirname "$0")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; [ -n "$common" ] && shared="$(dirname "$common")/tools/heavy-lock.sh"; fi
@@ -37,6 +41,12 @@ if [ -n "$shared" ] && [ -f "$shared" ] && [ "$(real "$shared")" != "$(real "$0"
 root="${JOB_PILOTTO_HEAVY_DIR:-${TMPDIR:-/tmp}/job-pilotto-heavy}"; lock=""
 mkdir -p "$root"
 say() { echo "heavy-lock: $*" >&2; }
+# Every hold is logged with the branch and session it belongs to and the load at queueing and at start, so a fix's proof waits can be summed (tools/landing-report.mjs).
+timing_log() {  # <text after the time stamp>
+  [ "${GATE_TIMING:-1}" != 0 ] || return 0
+  local timing="${JOB_PILOTTO_HEAVY_TIMING_LOG:-$(git -C "$(dirname "$0")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)/gate-timing.log}"
+  [ "$timing" = /gate-timing.log ] || echo "# $(date -u +%Y-%m-%dT%H:%M:%SZ) $1" >>"$timing" 2>/dev/null || true
+}
 max_slots="${JOB_PILOTTO_HEAVY_SLOTS:-4}"; [ "$max_slots" -ge 1 ] 2>/dev/null || max_slots=1
 SLOT_DIRS="$root/lock"; for _i in $(seq 2 "$max_slots"); do SLOT_DIRS="$SLOT_DIRS $root/lock.$_i"; done
 holders() { local dir pid what since out=""
@@ -83,16 +93,32 @@ memory_ok() {  # a 2nd heavy run fits: free+inactive memory over the floor and s
 take() { local dir; for dir in $SLOT_DIRS; do mkdir "$dir" 2>/dev/null && { lock="$dir"; my_cost >"$dir/cost"; date +%s >"$dir/since"; is_exclusive && echo 1 >"$dir/exclusive"; return 0; }; done; return 1; }
 release() { [ -n "$lock" ] && [ "$(cat "$lock/pid" 2>/dev/null)" = "$$" ] && rm -rf "$lock"; return 0; }
 queue="$root/queue"; mkdir -p "$queue"
+age_of() { local ns="${1%%-*}"; echo $(( $(date +%s) - ns / 1000000000 )); }   # seconds a ticket has waited (its name starts with the nanosecond clock)
+ticket_label() { echo "$(head -n 1 "$queue/$1" | cut -d' ' -f2-) (pid $2, session $(sed -n 3p "$queue/$1" 2>/dev/null || echo ?))$([ "$(sed -n 5p "$queue/$1" 2>/dev/null)" = exclusive ] && echo ' [exclusive]')"; }
 branch_now="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo ?)"
 [ -f "$(dirname "$0")/session-name.sh" ] && source "$(dirname "$0")/session-name.sh" && session="$(session_name)" || session="${JOB_PILOTTO_SESSION:-?}"
 [ "$session" = ? ] && session="$branch_now"   # no session name found: the branch still says whose run it is
 [ -f "$(dirname "$0")/heavy-lock-classes.sh" ] && source "$(dirname "$0")/heavy-lock-classes.sh" || { is_short() { return 1; }; is_replay() { return 1; }; lock_class() { echo other; }; prio_of() { echo 3; }; ticket_prio() { echo 3; }; can_overtake() { return 1; }; }
 klass="$(lock_class "$what" "${JOB_PILOTTO_HEAVY_CLASS:-}")"; my_prio="$(prio_of "$what" "$klass")"
+if [ "$yield_mode" = 1 ]; then
+  slot=""; for dir in $SLOT_DIRS; do [ "$(cat "$dir/pid" 2>/dev/null)" = "$JP_HEAVY_HELD" ] && slot="$dir"; done
+  [ -n "$slot" ] || exit 0
+  what="$(cat "$slot/what" 2>/dev/null || echo heavy)"; klass="$(lock_class "$what" "$(cat "$slot/class" 2>/dev/null)")"; my_prio="$(prio_of "$what" "$klass")"
+  yield_to=""
+  for name in $(ls "$queue" 2>/dev/null | sort); do
+    pid="$(head -n 1 "$queue/$name" 2>/dev/null | cut -d' ' -f1)"
+    [ "$(sed -n 2p "$queue/$name" 2>/dev/null)" = loadwait ] && continue
+    [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null || continue
+    [ "$(ticket_prio "$queue/$name")" -lt "$my_prio" ] && { yield_to="$(ticket_label "$name" "$pid")"; break; }
+  done
+  [ -n "$yield_to" ] || exit 0
+  say "$what yields its place to $yield_to between two parts of its work, and waits for it back"
+  timing_log "heavy lock yield what=$what class=$klass session=$session to=$(echo "$yield_to" | tr ' ' _)"
+  rm -rf "$slot"
+fi
 ticket="$queue/$(python3 -c 'import time; print(time.time_ns())' 2>/dev/null || echo "$(date +%s)000000000")-$$"; printf '%s %s\n\n%s\n%s\n' "$$" "$what" "$session" "$klass" >"$ticket"
 trap 'rm -f "$ticket"; release' EXIT
 trap 'exit 143' TERM; trap 'exit 130' INT; trap 'exit 129' HUP
-age_of() { local ns="${1%%-*}"; echo $(( $(date +%s) - ns / 1000000000 )); }   # seconds a ticket has waited (its name starts with the nanosecond clock)
-ticket_label() { echo "$(head -n 1 "$queue/$1" | cut -d' ' -f2-) (pid $2, session $(sed -n 3p "$queue/$1" 2>/dev/null || echo ?))$([ "$(sed -n 5p "$queue/$1" 2>/dev/null)" = exclusive ] && echo ' [exclusive]')"; }
 ahead() {  # the waiter I must let go first, as "<what> (pid N, session S)"; dead waiters are dropped on the way
   local name pid mine=0 mname="${ticket##*/}" theirs
   for name in $(ls "$queue" 2>/dev/null | sort); do
@@ -158,13 +184,7 @@ while :; do
   sleep "$poll"
 done
 rm -f "$ticket"
-if [ -n "$lock" ]; then echo $$ >"$lock/pid"; echo "$what" >"$lock/what"; echo "$session" >"$lock/session"; echo "$klass" >"$lock/class"; date +%s >"$lock/since"; pwd >"$lock/cwd"; fi
-# Every hold is logged with the branch and session it belongs to and the load at queueing and at start, so a fix's proof waits can be summed (tools/landing-report.mjs).
-timing_log() {  # <text after the time stamp>
-  [ "${GATE_TIMING:-1}" != 0 ] || return 0
-  local timing="${JOB_PILOTTO_HEAVY_TIMING_LOG:-$(git -C "$(dirname "$0")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)/gate-timing.log}"
-  [ "$timing" = /gate-timing.log ] || echo "# $(date -u +%Y-%m-%dT%H:%M:%SZ) $1" >>"$timing" 2>/dev/null || true
-}
+if [ -n "$lock" ]; then echo "$([ "$yield_mode" = 1 ] && echo "$JP_HEAVY_HELD" || echo $$)" >"$lock/pid"; echo "$what" >"$lock/what"; echo "$session" >"$lock/session"; echo "$klass" >"$lock/class"; date +%s >"$lock/since"; pwd >"$lock/cwd"; fi
 waited_s=$(( $(date +%s) - began )); load_start="$(load1)"
 ident="what=$what class=$klass branch=$branch_now session=$session load_q=$load_queue load_start=$load_start top=$(top_cpu : , | tr ' ' _)"
 if [ "$told" = 1 ]; then
@@ -172,6 +192,7 @@ if [ "$told" = 1 ]; then
   timing_log "heavy lock wait=${waited_s}s $ident"   # every wait, for the next measurement
 fi
 
+if [ "$yield_mode" = 1 ]; then say "$what has its place back after ${waited_s}s"; timing_log "heavy lock yield-back wait=${waited_s}s what=$what class=$klass session=$session"; exit 0; fi   # the caller goes on holding it
 say "$what runs (pid $$)"
 run_began=$(date +%s); code=0
 JP_HEAVY_HELD=$$ "$@" || code=$?

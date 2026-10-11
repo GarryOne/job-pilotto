@@ -14,6 +14,7 @@
 "test_heavy_lock_readout": 4.5,
 "test_heavy_lock_short_first": 14.9,
 "test_heavy_lock_status": 3.3,
+"test_heavy_lock_yield": 6.0,
 "test_import_first": 6.7,
 "test_interviews_saved": 5.5,
 "test_landing_lock": 12.6,
