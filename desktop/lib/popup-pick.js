@@ -11,7 +11,7 @@ const INSTRUCTIONS = `A popup is in the way of a web page the applicant is using
 gets rid of it WITHOUT agreeing to, accepting, subscribing to, signing in to, submitting or sending anything: a close or dismiss button ("No thanks",
 "Not now", "x", "Close"), or, on a cookie notice, the button that refuses optional cookies or keeps only the necessary ones; only when the notice offers
 neither, the one that merely accepts cookies. Copy the button exactly. Return "" when the popup is part of the task (an application form or question that
-needs the person's answer, a sign-in, a robot check) or when no button simply closes it. Never pick a button that agrees to terms, a privacy policy or the
+needs the person's answer, a sign-in, a robot check) or when no button simply closes it. A dialog that asks whether to continue with something that would replace or overwrite what the applicant already typed or attached ("your fields may be replaced, continue?") is closed with its cancel or close button, never its continue button. Never pick a button that agrees to terms, a privacy policy or the
 processing of application data.`;
 
 const keyOf = (text, choices) => `${norm(text).slice(0, 120)}|${choices.map(item => norm(String(item).trim())).filter(Boolean).sort().join('|')}`;

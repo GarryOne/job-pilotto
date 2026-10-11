@@ -35,3 +35,11 @@ test('the popup still there after its kept button: the answer is forgotten throu
   assert.deepEqual(await pickDismiss(storage, popup, {client: claude('Nein, danke', sent)}), {button: 'Nein, danke', how: 'ai'});
   assert.equal(sent.length, 2);
 });
+
+// 11 Oct 2026 (Louis Vuitton jobs): a site's own "your fields may be replaced, continue?" after our upload: the closing button keeps the fill; the prompt says so.
+test('a dialog that would replace what the applicant typed: the prompt tells to cancel, never continue', async () => {
+  const sent = [], dialog = {text: 'Es posible que se sustituyan los campos que ya haya rellenado. ¿Está seguro de que desea continuar?', buttons: ['CONTINUAR', 'CANCELAR', 'X']};
+  assert.equal((await pickDismiss(memory(), dialog, {client: claude('CANCELAR', sent)})).button, 'CANCELAR');
+  assert.match(sent[0].system, /replace|overwrite/i);
+  assert.match(sent[0].system, /cancel/i);
+});

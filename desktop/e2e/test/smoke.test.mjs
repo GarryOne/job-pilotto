@@ -350,3 +350,11 @@ test('a posting that asks for the application by email, or tells what to do, is 
   assert.equal(parseLive(TOLD('the ladder ended at the person: reported as other').join('\n')).note, undefined, 'the ladder giving up is a stop to fix, not a hold');
   assert.equal(parseLive([...TOLD('the posting asks for the application by email: reported to the app'), '      log 10:01:00.000Z [extension] fill: fields: 5 filled, 1 left {"fields":[]}'].join('\n')).note, undefined, 'a form reached later clears it');
 });
+
+// 11 Oct 2026 (Louis Vuitton jobs): a run ended "5 of 8 filled" with a site dialog over the form and no warning. The extension's line now says so; it is a needs-fix reason, never ready.
+test('a dialog left open over the form: not ready, an error with the reason', () => {
+  const out = parseLive('Apply pressed on u\n[extension] page kind: form {}\n[extension] fill: fields: 9 filled, 0 left\n[extension] fill: a dialog was left open over the form {"host":"h","buttons":3}');
+  assert.equal(out.reached, 'form');
+  assert.ok(out.errors.some(line => /dialog was left open over the form/.test(line)));
+  assert.equal(parseLive('Apply pressed on u\n[extension] page kind: form {}\n[extension] fill: fields: 9 filled, 0 left').reached, 'ready');
+});

@@ -11,6 +11,8 @@ import {createPanelMessages} from './messages-panel.js';
 import {createAppMessages} from './messages-app.js';
 import {claimAppTab, closePosting, followOpener, noteSource} from './tabs.js';
 import {consider, initFillFlow} from './fill-flow.js';
+import {closePopup, popupLeft} from './consent.js';
+import {closeFillDialogs} from './dialog-after-fill.js';
 import {autoRead, markListed, siteUnreachable, startWaiting} from './visit.js';
 import {MEMORY_KEY, memoryReadyIs, sessionGet, snapshot, startRun} from './tab-memory.js';
 import {startsOwnJob, sameSite, navigationKind, neverForm, sharedFixes, tabArmed, withMark} from './tab-pages.js';
@@ -350,6 +352,7 @@ async function fillOpenedTabNow(tab, url, force = false, {fast = false, quiet = 
       await note(tab.id, `✈️ Claude couldn't answer the questions this form asks (${why}). Answer them yourself, or press Fill again.`, page);
       api(config, '/extension/event', {method: 'POST', body: JSON.stringify({type: 'ai-failed', url, host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })(), why})}).catch(() => {});
     }
+    await closeFillDialogs(tab, {close: closePopup, look: popupLeft, decide});   // dialog-after-fill.js
     await progress(tab.id, '', page);
     if (result.ineligible && await onPage(tab.id, page)) await ineligibleNote(tab.id, result.note, result.partly);
     decide('fill', result.ineligible ? `did not fill: ${result.note || 'ineligible'}` : 'filled the form',

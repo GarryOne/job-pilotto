@@ -35,7 +35,7 @@ export function parseLive(output) {
   let reached = 'none', filled = null, left = null, marks = null, note = '', verdict;
   const kinds = [], errors = [], path = [];
   let fieldList = [];   // the form's fields, one 'field ...' line each (apply-live.mjs prints them whole: the app's own line is cut at 230 characters)
-  let derived = null, told = null, onAccount = false, digestHold = '';
+  let derived = null, told = null, onAccount = false, digestHold = '', dialogLeft = false;
   const pageKindErrors = [];   // the AI's own words when a page-kind answer had no kind (usage limit, CLI failure...): job-pilotto-54 found a fast null answer with nothing saying why
   const reach = step => { if (rank(step) > rank(reached)) reached = step; };
   for (const line of lines) {
@@ -76,7 +76,9 @@ export function parseLive(output) {
     const stop = line.match(/fill: did not fill: (.*?)(?:\s+\{"|$)/);
     if (stop) { reach('form'); note = `eligibility stop: ${stop[1].trim().slice(0, 160)}`; }
     if (/(^|\s)(✗|not ok)\b|Error:|crash/.test(line)) errors.push(line.trim().slice(0, 200));
+    if (/fill: a dialog was left open over the form/.test(line)) { dialogLeft = true; errors.push('a dialog was left open over the form'); }   // extension/dialog-after-fill.js: never a silent "ready"
   }
+  if (dialogLeft && reached === 'ready') reached = 'form';
   // "a form came" after the Apply press can be the route to the sign-up page (adnovum, 11 Oct 2026): with no application field counted, the run still ended at the account step.
   if (!note && ['account', 'form'].includes(reached) && filled == null && path.at(-1)?.kind === 'account') { reached = 'account'; note = ACCOUNT_HELD; }
   if (!note && digestHold && rank(reached) < rank('form')) note = digestHold;
