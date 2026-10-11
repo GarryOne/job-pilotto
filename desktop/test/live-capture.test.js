@@ -71,7 +71,7 @@ test('the answer call is kept as the fields asked and each answer\'s kind, never
   assert.equal(captureAnswer({url: 'https://forms.example.com/apply?token=SECRET', fields, page_text: 'Anna Muster, Zurich', answers}, {env, now: () => 3}), true);
   const [call] = JSON.parse(fs.readFileSync(path.join(dir, 'ai-calls.json'), 'utf8'));
   assert.deepEqual(call, {route: '/extension/answer', at: 3, request: {url: 'https://forms.example.com/apply', fields: [
-    {field: 'question_1', label: 'Website', type: 'text', required: false}, {field: 'question_2', label: 'How did you hear about us? Mail person@example.com', type: 'combobox', required: true}]},
+    {field: 'question_1', label: 'Website', type: 'text', required: false}, {field: 'question_2', label: 'How did you hear about us? Mail test.candidate@example.com', type: 'combobox', required: true}]},
     answer: {answers: [{field: 'question_2', category: 'normal', use: 'propose'}]}});
   assert.ok(!/A friend|Anna Muster|SECRET|guess/.test(JSON.stringify(call)), 'no value, page text, note or query');
   assert.equal(captureAnswer({url: 'x', fields, answers}, {env: {}}), false);   // outside the harness: nothing

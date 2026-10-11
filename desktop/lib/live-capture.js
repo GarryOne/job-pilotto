@@ -9,8 +9,14 @@ import path from 'node:path';
 
 const SECRET_KEYS = /^(value|values|typed|cookie|cookies|password|passwd|token|authorization|secret|session)$/i;   // words-ok: object KEY names to drop from what is written, never page text or a judgment about a page
 const QUERY = /\?[\w%.~-]+=[^\s"'<>&]*(?:&[\w%.~-]+=[^\s"'<>&]*)*/g;
-const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, PHONE = /(\+\d[\d\s().-]{8,}\d)|(\b0\d{2}[\s.]\d{3}[\s.]\d{2}[\s.]\d{2}\b)/g;
-const text = value => value.replace(QUERY, '').replace(EMAIL, 'person@example.com').replace(PHONE, '');
+// One fake contact for every scrub: the page capture (e2e/lib/capture-page.mjs) uses the same rule, so a replay of a captured page sends the sketch the live run
+// sent (speed-5x, 11 Oct 2026: two fake emails made 3 of 18 replayed pages differ). An example.* email is kept; a number of 9+ digits is a phone.
+export const FAKE_EMAIL = 'test.candidate@example.com', FAKE_PHONE = '(phone)';
+export const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, PHONE = /\+?\d[\d\s().-]{8,}\d/g;
+const EXAMPLE = /@example\.(com|org|net)$/i;   // words-ok: the reserved example domains (RFC 2606), never page text
+export const fakeContacts = value => value.replace(EMAIL, email => (EXAMPLE.test(email) ? email : FAKE_EMAIL))
+  .replace(PHONE, number => (number.replace(/\D/g, '').length >= 9 ? FAKE_PHONE : number));
+const text = value => fakeContacts(value.replace(QUERY, ''));
 
 // -> the same shape without what a public repo and a log must not hold.
 export function scrub(value) {

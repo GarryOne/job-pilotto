@@ -85,7 +85,7 @@ export function pressAccountButton(named = '') {
 // What the AI is shown of the page (lib/account-judge.js): controls with their state but never their values, buttons and links, the short visible texts (messages,
 // errors) and the host names of visible frames. Injected into the page.
 export function accountSketch() {
-  const shown = el => el.getClientRects().length > 0;
+  const shown = el => el.getClientRects().length > 0 && !el.closest('[id^=jobpilotto], [id^=job-pilotto]');   // never the extension's own UI (desktop/e2e/test/own-ui-not-read.test.mjs)
   const clean = (value, max) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
   // A picklist's choice, read as the panel reads it (review.js comboFilled, page/browser-form-fastpath.js __jobPilottoChosen): a menu on a real option, not its first-option
   // placeholder ('', 0, -1); a combobox whose chip (react-select) or labelled hidden input holds the choice in the field's own area (up 4 boxes, never into another field's).

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
+import {scrub as scrubLive} from '../../lib/live-capture.js';
 import {FAKE, personalValues, scrub, writeCapture} from '../lib/capture-page.mjs';
 
 test('emails but example.*, phone numbers and the person\'s own name and email are replaced', () => {
@@ -22,4 +23,10 @@ test('a capture is written into its case folder and listed in case.json without 
   const item = JSON.parse(fs.readFileSync(path.join(out, 'email-first-signup-1', 'case.json'), 'utf8'));
   assert.deepEqual(item.pages, [{url: 'https://auth.example.org/u/login/identifier', file: 'login.html'}]);
   assert.equal(fs.readFileSync(path.join(out, 'email-first-signup-1', 'login.html'), 'utf8'), '<p>y</p>');
+});
+
+test('the page capture and the live sketch scrub an email and a phone the same way: a replay of the page sends the sketch the live run sent', () => {
+  for (const email of ['jobs@hornbach.example.com', 'ana.popescu@gmail.com', 'hr@firma.ch', 'jobs@example.com', 'talent@example.org', '+41 79 555 12 34', '079 555 12 34', 'Ref 2026-10-11']) {
+    assert.equal(scrub(`Mail ${email} now`), scrubLive(`Mail ${email} now`), email);
+  }
 });

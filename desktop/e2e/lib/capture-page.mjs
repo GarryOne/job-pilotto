@@ -7,10 +7,10 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {EMAIL, FAKE_EMAIL, FAKE_PHONE, PHONE, fakeContacts} from '../../lib/live-capture.js';   // one fake contact for the page and the live sketch
 
-export const EMAIL = /[\w.+-]+@[\w-]+(\.[\w-]+)+/g;
-export const PHONE = /\+?\d[\d\s().-]{8,}\d/g;
-export const FAKE = {email: 'test.candidate@example.com', name: 'Candidate', phone: '(phone)'};
+export {EMAIL, PHONE};
+export const FAKE = {email: FAKE_EMAIL, name: 'Candidate', phone: FAKE_PHONE};
 
 // The person's own values from the app's files, as {value: kind}; never printed. Emails, phone digits, the words of any "name:" line.
 export function personalValues(texts) {
@@ -25,7 +25,7 @@ export const appProfileTexts = (folders = [path.join(os.homedir(), 'Library/Appl
 
 const escape = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 export function scrub(html, values = new Map()) {
-  let out = html.replace(EMAIL, email => (/@example\.(com|org|net)$/i.test(email) ? email : FAKE.email)).replace(PHONE, number => (number.replace(/\D/g, '').length >= 9 ? FAKE.phone : number));
+  let out = fakeContacts(html);
   for (const [value, kind] of values) {
     if (kind === 'name') out = out.replace(new RegExp(`\\b${escape(value)}\\b`, 'gi'), FAKE.name);
     if (kind === 'email') out = out.replace(new RegExp(escape(value), 'gi'), FAKE.email);

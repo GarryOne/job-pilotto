@@ -87,11 +87,13 @@ function pageShape(tabId) {
 // (never its value), and the buttons and short links a person could press. In the page's own language: nothing here matches words.
 function pageSketchOf(tabId) {
   return chrome.scripting.executeScript({target: {tabId}, func: () => {   // a closed script: desktop/e2e/ladder-capture.mjs runs its body on its own (no arguments)
-    const shown = el => el.getClientRects().length > 0;
+    // Never the extension's own UI (the panel's shadow root, the step box, the note, the Submit guard: ids jobpilotto-*, job-pilotto-*): what the AI is shown is the page,
+    // not our panel's state at that moment (speed-5x, 11 Oct 2026: "Tailor my CV", "77 left required fields" in the sketch). Guard: desktop/e2e/test/own-ui-not-read.test.mjs.
+    const shown = el => el.getClientRects().length > 0 && !el.closest('[id^=jobpilotto], [id^=job-pilotto]');
     const text = el => String(el?.textContent || '').replace(/\s+/g, ' ').trim();
     const labelOf = el => text(el.labels?.[0]) || el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.name || '';
     // Also inside open shadow roots: a page built of web components (SmartRecruiters, 9 Oct 2026) otherwise reads as empty.
-    const all = selector => { const found = []; const walk = root => { found.push(...root.querySelectorAll(selector)); for (const el of root.querySelectorAll('*')) if (el.shadowRoot) walk(el.shadowRoot); }; walk(document); return found; };
+    const all = selector => { const found = []; const walk = root => { found.push(...root.querySelectorAll(selector)); for (const el of root.querySelectorAll('*')) if (el.shadowRoot && !/^job-?pilotto/.test(el.id)) walk(el.shadowRoot); }; walk(document); return found; };
     const controls = all('input, select, textarea')
       .filter(el => el.type === 'file' || (el.type !== 'hidden' && shown(el)))   // an upload behind a button keeps its input hidden
       .filter(el => !['submit', 'button', 'reset', 'image'].includes(el.type))
