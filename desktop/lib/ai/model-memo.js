@@ -106,7 +106,8 @@ export const memoOnly = (env = process.env) => !!env.JOB_PILOTTO_E2E && env.JOB_
 // while the page-kind ask is out, a widget reacting to the upload) then interleave as they did live, not by how fast this machine answers (12 Oct 2026: a row case green on a Mac, red on the Linux runner).
 export const latencyOn = (env = process.env) => !!env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_MODEL_MEMO_LATENCY === '1';
 export const LATENCY_CAP_MS = 8000;
-const later = ms => (ms > 0 ? new Promise(resolve => setTimeout(resolve, Math.min(LATENCY_CAP_MS, ms))) : null);
+// JOB_PILOTTO_MODEL_MEMO_LATENCY_SCALE / _PAD_MS (e2e only): a slowed replay (row-to-case's second speed): every kept answer takes SCALE times as long and PAD ms more, also one with no recorded time.
+const later = (ms, env) => { const wait = Math.min(LATENCY_CAP_MS, Math.max(0, ms || 0) * (Number(env.JOB_PILOTTO_MODEL_MEMO_LATENCY_SCALE) || 1)) + (Number(env.JOB_PILOTTO_MODEL_MEMO_LATENCY_PAD_MS) || 0); return wait > 0 ? new Promise(resolve => setTimeout(resolve, wait)) : null; };
 export const missLogFile = (env = process.env) => (env.JOB_PILOTTO_E2E ? String(env.JOB_PILOTTO_MODEL_MEMO_MISSLOG || '') : '');
 export const looseFile = (env = process.env) => (env.JOB_PILOTTO_E2E ? String(env.JOB_PILOTTO_MODEL_MEMO_LOOSE || '') : '');
 const isPageSide = name => name === 'output' || /^(user|assistant):/.test(name);
@@ -125,19 +126,19 @@ export function looseMatch(parts, kept) {
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return {}; } };
 
 // Wraps the client's messages.create in place (the adapter keeps its engine, billing, fallback). A failed ask is not kept. -> the same client.
-export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = looseFile(), missLog = missLogFile(), latency = latencyOn()} = {}) {
+export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = looseFile(), missLog = missLogFile(), latency = latencyOn(), env = process.env} = {}) {
   if (!client || !file) return client;
   const ask = client.messages.create.bind(client.messages);
   client.messages = {...client.messages, create: async params => {
     const key = memoKey(params), kept = read(file);
     // An offline replay serves the page scrubbed (lib/live-capture.js fakeContacts): the answer the AI gave to the live page is scrubbed the same way, so an address it
     // read off the page (apply_email) is still on the replayed page.
-    if (kept[key]) { if (only && latency) await later(Number(kept[key + MS])); return only ? JSON.parse(fakeContacts(JSON.stringify(kept[key]))) : kept[key]; }
+    if (kept[key]) { if (only && latency) await later(Number(kept[key + MS]), env); return only ? JSON.parse(fakeContacts(JSON.stringify(kept[key]))) : kept[key]; }
     if (only && loose) {
       const hit = looseMatch(memoParts(params), kept);
       if (hit) {
         try { fs.appendFileSync(loose, `${JSON.stringify({differs: hit.differs})}\n`); } catch { /* the count is a report only */ }
-        if (latency) await later(Number(kept[hit.key + MS]));
+        if (latency) await later(Number(kept[hit.key + MS]), env);
         return JSON.parse(fakeContacts(JSON.stringify(kept[hit.key])));
       }
     }

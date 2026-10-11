@@ -12,10 +12,10 @@ export function looseSummary(hits = []) {
 }
 export const isRowCase = item => item?.replay === 'row';
 
-export async function runRowCase(item, {extensionDir, replay = replayRow} = {}) {
+export async function runRowCase(item, {extensionDir, replay = replayRow, slow = false} = {}) {
   const failures = [];
   if (!item.expect || !Object.keys(item.expect).length) failures.push('no expect: a row case gets its expect from row-to-case (the new build\'s replay), never by hand');
-  const result = await replay(item.dir, {extensionDir, loose: true});   // loose: a prompt or seed change since the capture is a warning, not a cold ask (CI has no claude -p)
+  const result = await replay(item.dir, {extensionDir, loose: true, ...(slow ? {slow: true} : {})});   // loose: a prompt or seed change since the capture is a warning, not a cold ask (CI has no claude -p)
   failures.push(...checkSignature(signatureOf(result), item.expect));
   if (result.misses) failures.push(`${result.misses} model ask(s) not in the case's kept answers (CI has no claude -p; row-to-case --ask-cold keeps them)${result.missParts?.length ? `; the nearest kept ask differs in ${result.missParts.join(', ')}` : ''}${result.missVolatile?.length ? `; a clock time or date in ${result.missVolatile.join(', ')}` : ''}`);   // CI shows only this line: say WHICH parts moved (a Linux runner's timing or layout)
   for (const address of result.unrecorded || []) failures.push(`address not recorded: ${address}`);

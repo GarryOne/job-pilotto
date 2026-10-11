@@ -144,3 +144,12 @@ test('the rename a fix makes is asserted: the live (unfixed) label has no replay
     assert.match(done.lines.join('\n'), /field What is your age range\?: absent/);
   }
 });
+
+test('a case that passes at normal speed and not slowed is refused as timing-dependent, with what differed; green at both it is written', async () => {
+  const flaky = (dir, options = {}) => Promise.resolve(options.extensionDir ? result(['posting'], {requests: []}) : result(options.slow ? ['posting'] : ['posting', 'form']));
+  const refused = await go(flaky);
+  assert.equal(refused.code, 4, refused.lines.join('\n'));
+  assert.match(refused.lines.join('\n'), /timing-dependent: the new build passes its case at normal speed and not slowed: page kinds: posting, expected posting, form/);
+  assert.equal(fs.existsSync(path.join(refused.outDir, 'start-dialog-1')), false, 'nothing written');
+  assert.equal((await go(replayBy(['posting', 'form'], ['posting']))).code, 0, 'the same at both speeds: written');
+});

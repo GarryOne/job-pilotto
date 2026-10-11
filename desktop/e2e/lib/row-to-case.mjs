@@ -80,6 +80,11 @@ export async function rowToCase({rowDir, name, outDir, oldDir, askCold = false, 
     step('replaying on the NEW build against the written expect (up to 90 s)');
     const own = await runRowCase(withExpect, {replay});
     if (!own.ok) return end(1, `row-to-case: the new build fails its own case: ${own.failures.join('; ')}`);
+    // The second speed (a slower machine: CPU x4 in the page, answers x1.6 + 0.3 s, the site's reactions x1.6): a case whose result depends on the clock fails CI on a slow runner and not here (12 Oct 2026: the Lever
+    // case and the synthetic boxes case, both green on the Mac and red on Linux CI). Written only when it replays green at both.
+    step('replaying on the NEW build again, slowed (CPU x4, answers x1.6 + 0.3 s)');
+    const slowed = await runRowCase(withExpect, {replay, slow: true});
+    if (!slowed.ok) return end(4, `row-to-case: timing-dependent: the new build passes its case at normal speed and not slowed: ${slowed.failures.join('; ').slice(0, 400)}; nothing written (the case would flake in CI)`);
     fs.writeFileSync(caseFile, `${JSON.stringify({...item, expect: derived.expect}, null, 1)}\n`);
     fs.cpSync(built.dir, path.join(outDir, name), {recursive: true});
     lines.push(`row-to-case: ${name} written (${Math.round(built.bytes / 1024)} KB, ${built.verdict}); expect: ${JSON.stringify(derived.expect)}`);

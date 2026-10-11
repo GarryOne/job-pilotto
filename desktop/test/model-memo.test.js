@@ -211,3 +211,12 @@ test('the live ask\'s duration is kept beside its answer (#ms); a replay serves 
   assert.equal(latencyOn({JOB_PILOTTO_E2E: '1', JOB_PILOTTO_MODEL_MEMO_LATENCY: '1'}), true);
   assert.equal(latencyOn({JOB_PILOTTO_MODEL_MEMO_LATENCY: '1'}), false, 'only under the e2e env');
 });
+
+test('a slowed replay scales the live duration and pads every kept answer, also one with no recorded time (row-to-case\'s second speed)', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-memo-slow-')), 'model-memo.json');
+  const key = memoKey(ask('a page'));
+  fs.writeFileSync(file, JSON.stringify({[key]: {content: [{type: 'text', text: '{}'}]}}));   // no #ms: answered at once unless padded
+  const timed = async env => { const client = {messages: {create: async () => { throw new Error('never asked'); }}}; const at = Date.now(); await withMemo(client, file, {only: true, latency: true, env}).messages.create(ask('a page')); return Date.now() - at; };
+  assert.ok(await timed({}) < 40, 'normal speed: at once');
+  assert.ok(await timed({JOB_PILOTTO_MODEL_MEMO_LATENCY_PAD_MS: '80'}) >= 70, 'slowed: padded');
+});

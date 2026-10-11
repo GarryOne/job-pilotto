@@ -85,13 +85,13 @@ export function findRow(name, root) {
 export const openBrowser = ({extensionDir, port}) => startRealExtension({extensionDir, appPort: port, allowAllSites: true, offline: true});
 
 // One offline app, front and browser for one or more rows (their kept model answers merged: a key is a hash of the ask). -> {use(caseDir), replay(caseDir, opts), close()}
-export async function openReplay(caseDirs, {extensionDir, ask = false, loose = false} = {}) {   // loose: kept answers also serve an ask whose system side changed since the capture (CI row cases; every hit counted)   // ask: a model call not in the kept answers goes to the plan's claude -p once and is kept (row-to-case --ask-cold)
+export async function openReplay(caseDirs, {extensionDir, ask = false, loose = false, slow = false} = {}) {   // slow: the second speed of the row-to-case gate: CPU x4 in the tab, answers x1.6 + 0.3 s, the site's reaction times x1.6   // loose: kept answers also serve an ask whose system side changed since the capture (CI row cases; every hit counted)   // ask: a model call not in the kept answers goes to the plan's claude -p once and is kept (row-to-case --ask-cold)
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-row-'));
   const memo = path.join(workDir, 'model-memo.json');   // a copy: each row's own answers stay as the live run kept them
   const merged = Object.assign({}, ...caseDirs.map(dir => readJson(path.join(dir, 'model-memo.json'), {})));
   fs.writeFileSync(memo, JSON.stringify(merged));
   const looseHits = loose ? path.join(workDir, 'loose-hits.jsonl') : '', missLog = path.join(workDir, 'miss-log.jsonl');
-  const app = await startOfflineApp({memo, ask, loose: looseHits, missLog, dir: path.join(workDir, 'app')});
+  const app = await startOfflineApp({memo, ask, loose: looseHits, missLog, slow, dir: path.join(workDir, 'app')});
   // The applicant's contact exactly as the live row set it (live-row.mjs: saveContact(CONTACT)): the profile in every form-answer ask carries it, and its lines (name, phone, e-mail, links) are part of
   // the memo key; with the stand-in contact the whole ask missed its kept answer (12 Oct 2026, Ashby: profile lines 30-37 differed, found by the memo's line hashes).
   await app.call('saveContact', CONTACT);
@@ -106,7 +106,7 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
   run.context.on('page', page => { const opener = rows.get(page.opener?.() || null); if (opener) rows.set(page, opener); });   // a tab a row's page opened is that row's
   // The live run's next state, played into the tab: the page's own script, a route it changed, or a new document (after a press, or after the extension attached a file).
   const advance = async (row, page, next, why, delayMs = 150) => {   // delayMs: the site's own reaction time (a press: at once; an attach: the live gap, row-follow.mjs followDelayMs)
-    await new Promise(resolve => setTimeout(resolve, delayMs));
+    await new Promise(resolve => setTimeout(resolve, slow ? delayMs * 1.6 : delayMs));
     row.documents.set(next.url, next.html); row.pageStates.set(next.url, next.html);
     const was = row.states[row.states.indexOf(next) - 1], sameDocument = next.view?.doc && was?.view?.doc ? next.view.doc === was.view.doc : new URL(next.url).host === new URL(page.url()).host;
     if (addressOf(page.url()) === next.url) await page.evaluate(swapInPage, next.html).catch(() => {});
@@ -168,6 +168,7 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
     const log = () => app.logText().slice(fromLog).split('\n').filter(mine).join('\n');
     active.add(row);
     const tab = await run.context.newPage();
+    if (slow) await (await run.context.newCDPSession(tab)).send('Emulation.setCPUThrottlingRate', {rate: 4}).catch(() => {});   // a slower machine: the page's own timers and the extension's page script run behind
     rows.set(tab, row);
     if (blank) { await blank.close().catch(() => {}); blank = null; }
     try {
@@ -203,8 +204,8 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
   return {replay, close, keptAnswers: Object.keys(merged).length, memoNow: () => readJson(memo, {}), looseNow: () => looseHitsOf(looseHits), missesNow: () => missesOf(missLog)};
 }
 
-export async function replayRow(caseDir, {extensionDir, ask = false, loose = false, ...options} = {}) {
-  const session = await openReplay([caseDir], {extensionDir, ask, loose});
+export async function replayRow(caseDir, {extensionDir, ask = false, loose = false, slow = false, ...options} = {}) {
+  const session = await openReplay([caseDir], {extensionDir, ask, loose, slow});
   try { const result = {...(await session.replay(caseDir, options)), looseHits: session.looseNow()}; return ask ? {...result, memoAfter: session.memoNow()} : result; } finally { await session.close(); }
 }
 
