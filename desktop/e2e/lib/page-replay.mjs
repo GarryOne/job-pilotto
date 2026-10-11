@@ -25,7 +25,7 @@ export async function runCase(item, {extensionDir} = {}) {
   // ...or {"byHost": {<host>: answer}} when a journey crosses pages that the AI answers differently (the request's `url` says which).
   const hostOf = text => { try { return new URL(JSON.parse(text).url).hostname; } catch { return ''; } };
   const answer = Object.fromEntries(Object.entries(item.ai || {}).map(([route, body]) => [route, Array.isArray(body) ? sent => pick(body, sent) : body.byHost ? text => { const entry = body.byHost[hostOf(text)]; return Array.isArray(entry) ? pick(entry, text) : entry || {}; } : () => body]));
-  const run = await startRealExtension({extensionDir, cv: item.cv !== false, allowAllSites: true, answer});
+  const run = await startRealExtension({extensionDir, cv: item.cv !== false, allowAllSites: true, answer, offline: true});   // offline: nothing but the case's pages
   const pages = new Map(item.pages.map(page => [pathKey(page.url), fs.readFileSync(path.join(item.dir, page.file), 'utf8')]));
   const failures = [];
   try {

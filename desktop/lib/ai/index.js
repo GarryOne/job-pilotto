@@ -7,6 +7,7 @@ import {AnthropicApi} from './anthropic-api.js';
 import {ClaudeCode} from './claude-code-cli.js';
 import {Codex} from './codex-cli.js';
 import {OpenAiApi} from './openai-api.js';
+import {withMemo} from './model-memo.js';
 
 // localOnly: runs the user's own CLI, so this computer only, never GitHub (Always on). key: the secret an API engine needs.
 export const ENGINES = {
@@ -37,7 +38,10 @@ export const keysOf = storage => ({ANTHROPIC_API_KEY: storage.secret('ANTHROPIC_
 
 // The app's AI client for this user: an adapter for the chosen engine, or null when nothing is chosen or the Anthropic API is chosen
 // without its key (callers then skip AI, as before). The CLI engines use the binary their Verify found; their fallback is the user's own tick.
-export function client(storage, {only = null, ...options} = {}) {
+export function client(storage, options = {}) {
+  return withMemo(engineClient(storage, options));   // the e2e harness's model-call cache; nothing outside the e2e env (model-memo.js)
+}
+function engineClient(storage, {only = null, ...options} = {}) {
   const settings = storage.settings(), keys = keysOf(storage);
   const name = chosen(settings, keys);
   if (!name || (only && !only.includes(name))) return null;

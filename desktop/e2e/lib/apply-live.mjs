@@ -10,7 +10,8 @@ import path from 'node:path';
 import {appLogLines} from './app-log.mjs';
 import {fillState} from './extension.mjs';
 import {fieldLines} from './smoke.mjs';
-import {appProfileTexts, personalValues, scrub, snapshotInPage} from './capture-page.mjs';
+import {appProfileTexts, cssRecorder, personalValues, scrub, snapshotInPage} from './capture-page.mjs';
+import {journeyRecorder} from './capture-journey.mjs';
 import {removeJobsByUrl} from './seed-data.mjs';
 import {modelClient} from './model.mjs';
 import {pause} from './apply-fixtures.mjs';
@@ -96,6 +97,9 @@ export async function runLive(ctx, h) {
       await page.evaluate(job => window.pilot.applyOne(job.url, {title: job.title, company: job.company, location: '', workMode: ''}), posting);
       console.log(`  live ${at()}: Apply pressed on ${posting.url}`);
       const sessionStage = async () => (await page.evaluate(() => window.pilot.sessions()).catch(() => [])).find(item => String(item.url || '').replace(/\/$/, '') === posting.url.replace(/\/$/, ''));
+      // LIVE_CAPTURE_DIR: every page and frame of the run under its own address, and the stylesheets, for an offline replay (lib/capture-journey.mjs)
+      const values = process.env.LIVE_CAPTURE_DIR ? personalValues(appProfileTexts([ctx.profile])) : null;
+      const journey = values && journeyRecorder(ctx.browser.context, {scrub: html => scrub(html, values)}), styles = values && cssRecorder(ctx.browser.context);
       const clock = stillClock({seconds: stillSeconds(), startedAt: Date.now()});   // lib/live-still.mjs: the watch ends early when nothing has changed for LIVE_STILL_SECONDS (20); `seconds` stays the limit
       let last = '', changedAt = Date.now(), stalled = false, frame = 0, acts = 0, looked = false, lastLine = '';
       while (Date.now() - started < seconds * 1000) {
@@ -121,11 +125,18 @@ export async function runLive(ctx, h) {
           if (process.env.LIVE_LOOK && !looked) { looked = true; await lookViaWorker(ctx, tabs.at(-1), console.log); }   // LIVE_LOOK=1: one closer look at the first stall, as the extension would take it
           if (process.env.LIVE_PERSON && ++acts <= 5) { await actAsPerson(tabs.at(-1), console.log); changedAt = Date.now(); stalled = false; }   // the person acts again after each pause: a choice, then a consent
         }
+        if (journey) await journey.tick();
         await pause(1500);
       }
       console.log(`  live ${at()}: watched ${Math.round((Date.now() - started) / 1000)}s; frames in ${frames}`);
       // The app's whole log of this run, kept with the report (job-pilotto-54: the smoke report did not copy app.log, so an error nothing printed was lost): identity and counts only, per the app's logging rule.
       if (process.env.LIVE_CAPTURE_DIR) { fs.mkdirSync(process.env.LIVE_CAPTURE_DIR, {recursive: true}); fs.writeFileSync(path.join(process.env.LIVE_CAPTURE_DIR, 'app.log'), appLogLines(ctx.profile).join('\n') + '\n'); }
+      if (journey) {
+        await journey.finish();
+        const kept = journey.write(process.env.LIVE_CAPTURE_DIR);
+        fs.writeFileSync(path.join(process.env.LIVE_CAPTURE_DIR, 'styles.har.json'), JSON.stringify(await styles.har()));
+        console.log(`  live: the journey is kept for a replay: ${kept.length} page(s) (${kept.filter(item => item.frameOf).length} frame(s)), each under its own address`);
+      }
       // LIVE_CAPTURE_DIR: the last page of the run, structure only and scrubbed (lib/capture-page.mjs), for a replay candidate (lib/replay-candidate.mjs): the nightly smoke keeps it only when the run failed.
       if (process.env.LIVE_CAPTURE_DIR) {
         const last = ctx.browser.context.pages().filter(item => /^https?:/.test(item.url())).at(-1), html = last ? await last.evaluate(snapshotInPage).catch(() => '') : '';

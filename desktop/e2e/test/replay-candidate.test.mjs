@@ -51,3 +51,21 @@ test('the live AI calls of the run (ai-calls.json from the app, desktop/lib/live
   const broken = saveCandidate({dir, day: '2026-10-11', shape: 'Broken calls', result, html: '<p>x</p>', aiCalls: 'not json'});
   assert.equal(fs.existsSync(path.join(broken, 'ai-calls.json')), false);   // never a file nobody can read
 });
+
+test('a run that kept its journey saves every page under its own address, the posting first, with its frames, sheets and model answers', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-candidates-')), capture = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-capture-'));
+  fs.mkdirSync(path.join(capture, 'pages'));
+  const pages = [{url: 'https://careers.example.com/job/1', file: 'pages/1.html'}, {url: 'https://boards.example.net/embed/job_app', file: 'pages/2.html', frameOf: 'https://careers.example.com/job/1'}];
+  fs.writeFileSync(path.join(capture, 'pages', '1.html'), '<p>posting</p>');
+  fs.writeFileSync(path.join(capture, 'pages', '2.html'), '<form>frame</form>');
+  fs.writeFileSync(path.join(capture, 'journey.json'), JSON.stringify(pages));
+  fs.writeFileSync(path.join(capture, 'styles.har.json'), '{"log":{"entries":[]}}');
+  fs.writeFileSync(path.join(capture, 'model-memo.json'), '{"k":{"content":[]}}');
+  const result = {url: 'https://careers.example.com/job/1?src=mail', reached: 'posting'};
+  const folder = saveCandidate({dir, day: '2026-10-11', shape: 'Datadog careers', result, html: '<p>last page</p>', captureDir: capture});
+  const item = JSON.parse(fs.readFileSync(path.join(folder, 'case.json'), 'utf8'));
+  assert.deepEqual(item.pages, pages);
+  assert.equal(fs.readFileSync(path.join(folder, 'pages', '2.html'), 'utf8'), '<form>frame</form>');
+  assert.ok(fs.existsSync(path.join(folder, 'styles.har.json')) && fs.existsSync(path.join(folder, 'model-memo.json')));
+  assert.ok(!fs.existsSync(path.join(folder, 'page.html')), 'the last page is one of the journey\'s pages, never filed under the posting\'s address');
+});

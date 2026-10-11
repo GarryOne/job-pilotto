@@ -1,9 +1,9 @@
 /* global document */
 // Capturing a page for the recorded pages (layer 2, spec docs/superpowers/specs/2026-10-10-applying-reliability-layers.md): its STRUCTURE only. In the page
-// (snapshotInPage): scripts, frames and event handlers dropped, every typed value, check and choice removed, URL queries and fragments cut, the extension's
+// (snapshotInPage): scripts and event handlers dropped, frames kept as elements, the applied CSS kept (11 Oct 2026), every typed value, check and choice removed, URL queries and fragments cut, the extension's
 // own elements left out. Here (scrub): any email but example.*, any phone number and the person's own values (personalValues: from the app's profile.md /
 // answers.md) replaced by the fake applicant's. The result goes into a PUBLIC repo; desktop/test/recorded-privacy.test.js checks it again.
-// Used by: twin-drive.mjs `capture`. Guard: e2e/test/capture-page.test.mjs.
+// Used by: twin-drive.mjs `capture`, lib/capture-journey.mjs (every page of a live run). Guard: e2e/test/capture-page.test.mjs, capture-journey.test.mjs.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -33,10 +33,32 @@ export function scrub(html, values = new Map()) {
   return out;
 }
 
-// Runs IN the page (passed to page.evaluate): the page's structure as one HTML string.
+// Runs IN the page (passed to page.evaluate): the page's structure as one HTML string. The rules the page APPLIES are kept (speed-5x landing 1, 11 Oct 2026:
+// the extension decides on geometry: a dialog shown by a class, a frame born 150 px high): a readable sheet (same origin, or a <style>, or rules a script
+// inserted) becomes a <style> of its rules; a cross-origin sheet the page cannot read stays a <link> (its text is in the run's styles.har.json, cssRecorder).
+// Frames stay as elements (address without query): each frame's own document is captured as its own page (lib/capture-journey.mjs).
 export function snapshotInPage() {
   const root = document.documentElement.cloneNode(true);
-  for (const node of root.querySelectorAll('script, noscript, iframe, frame, object, embed, template, link[rel=preload], link[rel=prefetch], link[rel=modulepreload], meta[http-equiv]')) node.remove();
+  const SHEETS = 'link[rel~="stylesheet"], style';
+  const live = [...document.querySelectorAll(SHEETS)], copies = [...root.querySelectorAll(SHEETS)];
+  live.forEach((node, at) => {
+    const copy = copies[at];
+    if (!copy) return;
+    let rules = null;
+    try { rules = node.sheet ? [...node.sheet.cssRules].map(rule => rule.cssText).join('\n') : null; } catch { rules = null; }   // a cross-origin sheet: SecurityError
+    if (rules === null) { if (copy.tagName === 'STYLE') copy.textContent = ''; return; }
+    const style = document.createElement('style');
+    style.setAttribute('data-captured', node.tagName === 'LINK' ? 'sheet' : 'style');
+    if (node.media && node.media.length) style.setAttribute('media', node.media.mediaText || '');
+    style.textContent = rules;
+    copy.replaceWith(style);
+  });
+  try {
+    const adopted = (document.adoptedStyleSheets || []).map(sheet => [...sheet.cssRules].map(rule => rule.cssText).join('\n')).join('\n');
+    if (adopted) { const style = document.createElement('style'); style.setAttribute('data-captured', 'adopted'); style.textContent = adopted; (root.querySelector('head') || root).append(style); }
+  } catch { /* none readable */ }
+  for (const node of root.querySelectorAll('script, noscript, object, embed, template, link[rel=preload], link[rel=prefetch], link[rel=modulepreload], meta[http-equiv]')) node.remove();
+  for (const node of root.querySelectorAll('iframe[srcdoc], frame[srcdoc]')) node.removeAttribute('srcdoc');
   for (const node of root.querySelectorAll('[id^="jobpilotto"], [class*="jobpilotto"], [data-jobpilotto-panel]')) node.remove();
   for (const node of root.querySelectorAll('*')) {
     for (const attr of [...node.attributes]) {
@@ -61,4 +83,23 @@ export function writeCapture({out, caseName, pageName, url, html}) {
   if (!item.sample) item.sample = new URL(address).host;
   fs.writeFileSync(casePath, `${JSON.stringify(item, null, 1)}\n`);
   return {dir, file};
+}
+
+// The run's stylesheets as they came over the network, a text/css HAR (HAR 1.2, the fields a replay's routeFromHAR reads): what a page cannot read of a
+// cross-origin sheet. Addresses without query; one entry per address; at most 2 MB a sheet, 20 MB in all. Public static files: no person's data.
+export function cssRecorder(context, {maxSheet = 2e6, maxAll = 2e7} = {}) {
+  const sheets = new Map(), pending = new Set();
+  let size = 0;
+  context.on('response', response => {
+    if (response.request().resourceType() !== 'stylesheet' || response.status() >= 400) return;
+    const url = response.url().replace(/[?#].*$/, '');
+    if (sheets.has(url) || !/^https?:/.test(url)) return;
+    const read = response.text().then(text => { if (text.length <= maxSheet && size + text.length <= maxAll) { sheets.set(url, text); size += text.length; } }).catch(() => {}).finally(() => pending.delete(read));
+    pending.add(read);
+  });
+  const entry = (url, text) => ({startedDateTime: new Date(0).toISOString(), time: 0, cache: {}, timings: {send: 0, wait: 0, receive: 0},
+    request: {method: 'GET', url, httpVersion: 'HTTP/1.1', headers: [], queryString: [], cookies: [], headersSize: -1, bodySize: -1},
+    response: {status: 200, statusText: 'OK', httpVersion: 'HTTP/1.1', headers: [{name: 'content-type', value: 'text/css'}], cookies: [], redirectURL: '', headersSize: -1, bodySize: -1,
+      content: {size: text.length, mimeType: 'text/css', text}}});
+  return {har: async () => { await Promise.all([...pending]); return {log: {version: '1.2', creator: {name: 'job-pilotto capture', version: '1'}, entries: [...sheets].map(([url, text]) => entry(url, text))}}; }};
 }
