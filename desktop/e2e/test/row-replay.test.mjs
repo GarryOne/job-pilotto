@@ -54,7 +54,7 @@ test('a capture from before the replay format (no window size or ask state on it
 test('a miss names the parts that differ from the nearest kept ask, read from the app log, without repeats', () => {
   const log = 'x model memo: not in the row\'s kept answers (an offline replay never asks the model); the nearest kept ask differs in: user:job, system:1\ny model memo: not in the row\'s kept answers; the nearest kept ask differs in: user:job\n';
   assert.deepEqual(missParts(log), ['user:job', 'system:1']);
-  assert.deepEqual(missParts('differs in: system:1, system:1:profile (lines 33-34, 2 in all of 50), user:job'), ['system:1', 'system:1:profile (lines 33-34, 2 in all of 50)', 'user:job'], 'a line list inside parentheses is one part');
+  assert.deepEqual(missParts('the nearest kept ask differs in: system:1, system:1:profile (lines 33-34, 2 in all of 50), user:job'), ['system:1', 'system:1:profile (lines 33-34, 2 in all of 50)', 'user:job'], 'a line list inside parentheses is one part');
   assert.deepEqual(missParts('model memo: not in the row\'s kept answers (an offline replay never asks the model)'), [], 'an old memo (no parts kept): nothing to name');
 });
 
