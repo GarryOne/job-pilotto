@@ -1,0 +1,51 @@
+{
+ "shape": "a site dialog stays open over the form after the fill: the form judge is shown what sits on top (structure) and says blocked, never needs_person for a field behind it",
+ "why": "11 Oct 2026, Louis Vuitton jobs (the owner saw it by eye): after the fill a site dialog 'your filled fields may be replaced, continue?' covered the form and the run read '5 of 8 required filled'. The judge got a sketch with no sign of the dialog. The sketch now carries onTop (extension/on-top.js): a dialog layer drawn over the form's controls, with its text and buttons. Hand-built page (the real site refuses a headless browser); the stub judge answers blocked only because the ask carries it",
+ "control": {
+  "build": "0.9.211",
+  "failed": "onTop: the form judge's sketch had no ON TOP layer (the dialog over the form was invisible to it)"
+ },
+ "sample": "hand-built from the Louis Vuitton careers form (hosts and text invented)",
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://emplois.exemple.example.es/postular/4711",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.9,
+   "rung": 2
+  },
+  "/extension/account-judge": {
+   "ok": true,
+   "answer": "blocked",
+   "blockedKind": "dialog",
+   "needs": "",
+   "needsKind": "",
+   "step": "unsure",
+   "nextControl": "",
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": []
+  }
+ },
+ "expect": {
+  "onTop": [
+   "dialog"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60
+ }
+}

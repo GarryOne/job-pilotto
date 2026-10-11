@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Postular</title>
+<style>body{font-family:sans-serif;margin:0;padding:24px}label{display:block;margin-top:12px}input,select{display:block;width:320px;padding:6px}
+.site-dialog{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:100}.site-dialog div{background:#fff;padding:24px;max-width:420px}</style></head>
+<body>
+<h1>Postular</h1>
+<form action="/apply" method="post">
+<label for="fn">Nombre *</label><input id="fn" name="first_name" type="text" required>
+<label for="ln">Apellidos *</label><input id="ln" name="last_name" type="text" required>
+<label for="em">Correo electrónico *</label><input id="em" name="email" type="email" required>
+<label for="ph">Teléfono *</label><input id="ph" name="phone" type="tel" required>
+</form>
+<!-- the site's own dialog, open over the form after the fill (a "your filled fields may be replaced" prompt): structure only, hand-built from the Louis Vuitton run of 11 Oct 2026 -->
+<div class="site-dialog" role="dialog" aria-modal="true" id="site-dialog"><div><p>Sus campos rellenados pueden ser reemplazados. ¿Desea continuar?</p><button type="button" id="dlg-continue">Continuar</button> <button type="button" id="dlg-cancel">Cancelar</button></div></div>
+</body></html>
