@@ -27,7 +27,7 @@ class StopCheckAffected(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.tmp, True)
-        self.repo, origin = self.tmp / 'repo', self.tmp / 'origin.git'
+        self.repo, origin = self.tmp / 'job-pilotto', self.tmp / 'origin.git'   # (the hook follows paths of a folder named like the project)
         self.log = self.tmp / 'check.log'
         for folder in ('src', 'worker', 'tools', 'tests', 'desktop/node_modules', 'desktop/test'):
             (self.repo / folder).mkdir(parents=True)
@@ -61,6 +61,8 @@ class StopCheckAffected(unittest.TestCase):
         return file
 
     def stop(self, cwd, transcript=None, **env):
+        # a session that did not change anything in its folder gets no test run (11 Oct 2026): these tests are about a session that did
+        transcript = transcript or self.transcript(('Edit', {'file_path': str(Path(cwd) / 'tests' / 'test_x.py')}))
         payload = {'cwd': str(cwd), 'transcript_path': str(transcript or ''), 'stop_hook_active': False}
         done = subprocess.run(['bash', str(HOOK)], input=json.dumps(payload), capture_output=True, text=True, cwd=cwd,
                               env={**{k: v for k, v in os.environ.items() if k != 'JOB_PILOTTO_SESSION'}, 'TMPDIR': str(self.tmp), 'CHECK_LOG': str(self.log), 'CLAUDE_PROJECT_DIR': str(self.repo), **env})

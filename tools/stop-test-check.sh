@@ -21,7 +21,9 @@ cache="${TMPDIR:-/tmp}/job-pilotto-stop-hook"; mkdir -p "$cache"
 
 # Worktrees to check: the one the session runs in, and every worktree it CHANGED: an Edit/Write/NotebookEdit path in it, or a Bash call naming it that
 # writes (git commit/add/apply/checkout/restore, sed -i, tools/ship.sh). One it only read or ran tests in is another session's work, not tested here (11 Oct 2026).
-dirs=("$cwd")
+# Only a worktree this session CHANGED is tested; the folder it runs in counts only if the transcript shows a change there (owner, 11 Oct 2026: "this shouldn't happen by default, on local":
+# sessions started in the primary checkout ran its whole desktop suite at every stop though they changed nothing there). STOP_CHECK_CWD=1 brings the old "cwd always" back.
+dirs=(); [ "${STOP_CHECK_CWD:-0}" = 1 ] && dirs=("$cwd")
 if [ -f "$transcript" ]; then
   while IFS= read -r p; do dirs+=("$p"); done < <(
     tail -n 4000 "$transcript" | jq -r 'select(.type=="assistant") | .message.content[]?
@@ -33,7 +35,7 @@ if [ -f "$transcript" ]; then
       sed -E 's#(\.claude/worktrees/[^/]+).*#\1#' | sort -u | head -50)
 fi
 repos=()
-for d in "${dirs[@]}"; do
+for d in ${dirs[@]+"${dirs[@]}"}; do
   [ -n "$d" ] || continue
   while [ ! -d "$d" ] && [ "$d" != "/" ] && [ -n "$d" ]; do d="$(dirname "$d")"; done
   top="$(git -C "$d" rev-parse --show-toplevel 2>/dev/null)" || continue
@@ -72,6 +74,14 @@ for repo in "${repos[@]}"; do
   status="$(git -C "$repo" diff --name-status "$base" 2>/dev/null)"
   untracked="$(git -C "$repo" ls-files --others --exclude-standard 2>/dev/null)"
   files="$( { cut -f2- <<<"$status" | tr '\t' '\n'; printf '%s\n' "$untracked"; } | sed '/^$/d' | sort -u)"
+  # What counts is what THIS tree still differs from origin/main in (11 Oct 2026: a worktree behind main whose own commit had landed was tested again; origin/main is fetched now): a file that
+  # equals main's copy is landed work, not a change. Text-only paths (docs, *.md, .claude/, LICENSE, .gitignore) run nothing, as the push gate says "docs alone run nothing".
+  git -C "$repo" fetch -q origin main 2>/dev/null || true
+  if [ -n "$files" ] && [ "${STOP_CHECK_LANDED:-0}" != 1 ]; then
+    differs="$(cd "$repo" && git diff --name-only origin/main -- $(printf '%s\n' "$files" | tr '\n' ' ') 2>/dev/null; printf '%s\n' "$untracked")"
+    files="$(comm -12 <(printf '%s\n' "$files" | sort -u) <(printf '%s\n' "$differs" | sed '/^$/d' | sort -u))"
+  fi
+  files="$(printf '%s\n' "$files" | grep -vE '\.md$|^docs/|^\.claude/|^LICENSE|(^|/)\.gitignore$' || true)"
   [ -n "$files" ] || continue
 
   suites=()
@@ -137,6 +147,9 @@ for repo in "${repos[@]}"; do
       *) how="cd $s && npm test" ;;
     esac
     failed+="--- $s failed (exit $code). Reproduce in $repo: $how"$'\n'
+    names="$(grep -E '^ *✖ ' "$logs/$s.log" 2>/dev/null | sed -E 's/ \([0-9.]+ms\)$//' | sort -u | head -15)"   # the failing test files and tests, named (not only counted)
+    [ -n "$names" ] && failed+="Failing tests:"$'\n'"$names"$'\n'
+    keep="$cache/fail-logs/$key-$s"; mkdir -p "$keep" && cp -R "$logs"/. "$keep"/ 2>/dev/null && failed+="Full logs kept in $keep"$'\n'   # deleted after 2 days with the rest of the cache
     failed+="$(grep -E '^(FAIL|ERROR):|^# fail|npm (ERR|error)' "$logs/$s.log" | sort -u | head -20)"$'\n'
     if [ "$s" = python ]; then   # the unittest failure blocks (====== FAIL: ... traceback), not the tests' prints
       failed+="$(awk '/^={40,}$/{p=1} p' "$logs/$s.log" | head -60)"$'\n'
@@ -149,7 +162,7 @@ for repo in "${repos[@]}"; do
     printf '%s' "$failed" >"$cache/$key.fail"; report+="$failed"
   fi
 done
-find "$cache" -type f -mtime +2 -delete 2>/dev/null
+find "$cache" -type f -mtime +2 -delete 2>/dev/null; find "$cache/fail-logs" -mindepth 1 -maxdepth 1 -type d -mtime +2 -exec rm -rf {} + 2>/dev/null
 [ -s "$GATE_CACHE_NOTES" ] && notes+="$(sort -u "$GATE_CACHE_NOTES" | tr '\n' ' ')"$'\n'
 rm -f "$GATE_CACHE_NOTES"
 

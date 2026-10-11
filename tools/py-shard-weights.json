@@ -34,6 +34,7 @@
 "test_ship_red": 18.0,
 "test_ship_refused": 13.4,
 "test_ship_timeline": 8.3,
+"test_stop_hook_changed_only": 6.0,
 "test_stop_hook_slot": 7.0,
 "test_stop_means_stop": 7.2,
 "test_wait_build_tag": 7.8,
