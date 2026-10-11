@@ -23,17 +23,20 @@ class HeavyLockClassesTest(unittest.TestCase):
                     'JOB_PILOTTO_HEAVY_LOAD': '0', 'JOB_PILOTTO_HEAVY_POLL': '0.1', 'JOB_PILOTTO_HEAVY_TIMING_LOG': self.log.as_posix(), 'JOB_PILOTTO_HEAVY_SHARED': str(LOCK),
                     'JOB_PILOTTO_HEAVY_SLOTS': '1'}
 
-    def start(self, what, name, nap='0.2', **env):
-        return subprocess.Popen(['bash', str(LOCK), what, 'bash', '-c', f'echo {name} >> {self.trace}; sleep {nap}'], env={**self.env, **env}, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    def start(self, what, name, body=None, **env):
+        body = body or f'echo {name} >> {self.trace}'
+        return subprocess.Popen(['bash', str(LOCK), what, 'bash', '-c', body], env={**self.env, **env}, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
     def order(self, waiters, **env):
-        """A holder runs 2 s; the waiters queue in the order given as (what, name, extra env); returns the run order."""
-        procs = [self.start('real-extension', 'holder', '2', **env)]
-        wait_registered(self.env['JOB_PILOTTO_HEAVY_DIR'], 1)
+        """A gated holder runs until every waiter is queued; the waiters (what, name, extra env) then run in the order the lock picks; returns the run order."""
+        heavy, go = self.env['JOB_PILOTTO_HEAVY_DIR'], (self.tmp / 'go').as_posix()
+        procs = [self.start('real-extension', 'holder', f'echo holder >> {self.trace}; while [ ! -f {go} ]; do sleep 0.05; done', **env)]
+        wait_registered(heavy, 1)
         for what, name, extra in waiters:
             procs.append(self.start(what, name, **{**env, **extra}))
-            wait_registered(self.env['JOB_PILOTTO_HEAVY_DIR'], len(procs))
-            time.sleep(0.2)
+            wait_registered(heavy, len(procs))
+            time.sleep(0.2)   # the next ticket gets a later clock reading
+        Path(go).write_text('go')
         for p in procs:
             p.communicate(timeout=60)
         return Path(self.trace).read_text().split()

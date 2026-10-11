@@ -14,3 +14,27 @@ def wait_registered(heavy_dir, n, timeout=30):
     deadline = time.monotonic() + timeout
     while registered(heavy_dir) < n and time.monotonic() < deadline:
         time.sleep(0.05)
+
+
+def gated(trace, name, gate_dir):
+    """A run body that logs "+name", waits until the test releases it (a file gate_dir/<name>, or gate_dir/all), logs "-name": no fixed naps, so the test takes as long as the lock needs."""
+    gate = Path(gate_dir).as_posix()
+    return f'echo +{name} >> {Path(trace).as_posix()}; while [ ! -f {gate}/{name} ] && [ ! -f {gate}/all ]; do sleep 0.05; done; echo -{name} >> {Path(trace).as_posix()}'
+
+
+def release(gate_dir, *names):
+    Path(gate_dir).mkdir(parents=True, exist_ok=True)
+    for name in names or ('all',):
+        (Path(gate_dir) / name).write_text('go')
+
+
+def wait_trace(trace, n, timeout=30):
+    """Wait until the trace has n words (starts and ends)."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            if len(Path(trace).read_text().split()) >= n:
+                return
+        except OSError:
+            pass
+        time.sleep(0.05)
