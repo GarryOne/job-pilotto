@@ -30,7 +30,10 @@ class AffectedTests(unittest.TestCase):
 
     def test_gitattributes_picks_the_tests_that_name_it_instead_of_everything(self):
         got = affected.select(['.gitattributes'])
-        self.assertIn('test_ship', got['python'])
+        named = sorted(path.stem for path in (ROOT / 'tests').glob('test_*.py') if '.gitattributes' in path.read_text(encoding='utf-8') and path.stem != 'test_affected_tests')
+        self.assertTrue(named, 'some test names .gitattributes')   # test_ship_background today; a module move must not break this test
+        for name in named:
+            self.assertIn(name, got['python'], name)
         self.assertTrue(all(got[a] != 'all' for a in ('python', 'desktop', 'worker', 'site')))
 
     def test_a_workflow_file_selects_the_tests_that_scan_the_workflows_folder(self):
