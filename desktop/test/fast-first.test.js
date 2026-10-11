@@ -20,7 +20,8 @@ function clients(fastValue, {engine = 'cli', fails = false} = {}) {
 
 test('page kind: a confident valid fast answer is kept; unsure, invalid or failed is asked again strictly', async () => {
   for (const [value, options, want] of [[{kind: 'posting', confidence: ACCEPT}, {}, ['fast']], [{kind: 'posting', confidence: 0.6}, {}, ['fast', 'strict']],
-    ['not json', {}, ['fast', 'strict']], [{}, {fails: true}, ['fast', 'strict']]]) {
+    ['not json', {}, ['fast', 'strict']], [{}, {fails: true}, ['fast', 'strict']],
+    [{kind: 'other', confidence: 0.95, bot_check: true}, {}, ['fast', 'strict']]]) {   // a bot check is always confirmed strictly
     const {calls, client} = clients(value, options);
     await client.messages.create(asks(PAGE_KIND));
     assert.deepEqual(calls, want, JSON.stringify(value));

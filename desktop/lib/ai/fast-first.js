@@ -6,7 +6,9 @@
 export const ACCEPT = 0.85;
 // The page-kind question by its schema (lib/ladder/rung2-sketch.js SCHEMA names apply_button); the digest and every judge go strict.
 export const isPageKind = params => !!params?.output_config?.format?.schema?.properties?.apply_button;
-export const confident = answer => Number(answer?.confidence) >= ACCEPT;
+// Kept from the fast format: a confident answer that hands nothing to the person. A bot check sends the page to the person, so the strict format confirms it
+// (live Recruitee run, 11 Oct 2026: one fast draw called the form's frame a bot check at 0.85; the extension's floor caught it, the strict re-ask is the real fix).
+export const confident = answer => Number(answer?.confidence) >= ACCEPT && answer?.bot_check !== true;
 
 // -> a client: {messages: {create}}. fast / strict: clients of the same engine; when(params): this question may go fast; accept(answer): keep it.
 export function fastFirst({fast, strict, when = isPageKind, accept = confident}) {
