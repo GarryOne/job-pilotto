@@ -5,6 +5,7 @@ import {after, test} from 'node:test';
 import {extensionVersion, upload, uploadable} from '../lib/applying-report.mjs';
 import {loadCases, runCase} from '../lib/page-replay.mjs';
 import {replayInTabs} from '../lib/replay-browser.mjs';
+import {isRowCase, runRowCase} from '../lib/row-case-run.mjs';
 import {parseShard, shardOf} from '../lib/replay-shard.mjs';
 
 const extensionDir = process.env.REAL_EXTENSION_DIR || undefined;
@@ -22,6 +23,7 @@ const shard = parseShard(process.env.JP_REPLAY_SHARD || '');   // CI: JP_REPLAY_
 const picked = (process.env.JP_REPLAY_CASES || '').split(',').filter(Boolean);   // the exact cases a change can affect (lib/replay-select.mjs, tools/journey-gate.mjs); none: every case
 const everyCase = loadCases().filter(one => one.name.includes(only) && (!picked.length || picked.includes(one.name)));
 const cases = shard ? shardOf(everyCase, shard.index, shard.count) : everyCase;
+const pageCases = cases.filter(one => !isRowCase(one));   // a row case (case.json replay: "row", made by npm run row-to-case) is replayed on the row path, one at a time, below
 const tabs = Math.max(1, Number(process.env.JP_REPLAY_TABS || 4));
 const batchStarted = Date.now();
 let batch = null;   // started by the first test, once: every test awaits its own case's result
@@ -29,11 +31,11 @@ let batch = null;   // started by the first test, once: every test awaits its ow
 const alone = async list => {
   const queue = list.filter(one => !one.ok || one.confirm?.length), done = new Map();
   await Promise.all(Array.from({length: Math.min(2, queue.length)}, async () => {
-    for (let one = queue.shift(); one; one = queue.shift()) done.set(one.name, {first: one, again: await runCase(cases.find(item => item.name === one.name), {extensionDir})});
+    for (let one = queue.shift(); one; one = queue.shift()) done.set(one.name, {first: one, again: await runCase(pageCases.find(item => item.name === one.name), {extensionDir})});
   }));
   return done;
 };
-const batchResults = () => batch ||= tabs === 1 ? Promise.resolve(null) : replayInTabs(cases, {tabs, extensionDir}).then(async list => {
+const batchResults = () => batch ||= tabs === 1 ? Promise.resolve(null) : replayInTabs(pageCases, {tabs, extensionDir}).then(async list => {
   const slow = [...list].sort((a, b) => b.seconds - a.seconds).slice(0, 6).map(one => `${one.name} ${one.seconds.toFixed(0)}s`);   // where the batch's time goes
   console.log(`# recorded pages: ${list.length} cases in ${((Date.now() - batchStarted) / 1000).toFixed(0)} s; slowest: ${slow.join(', ')}`);
   const again = await alone(list);
@@ -48,7 +50,7 @@ const batchResults = () => batch ||= tabs === 1 ? Promise.resolve(null) : replay
 if (!skip) console.log(tabs === 1 ? 'recorded pages: JP_REPLAY_TABS=1, one browser per case, in turn' : `recorded pages: ${tabs} tabs at a time in one browser (JP_REPLAY_TABS=1: serial)`);
 for (const item of cases) {
   test(`${item.name}: ${item.shape}`, {skip}, async () => {
-    let result = (await batchResults())?.get(item.name) || await runCase(item, {extensionDir});   // JP_REPLAY_TABS=1: one browser per case, in turn
+    let result = isRowCase(item) ? await runRowCase(item, {extensionDir}) : (await batchResults())?.get(item.name) || await runCase(item, {extensionDir});   // JP_REPLAY_TABS=1: one browser per case, in turn
     results.push({name: item.name, control: item.control, ok: result.ok, ...(Number.isInteger(item.rung) ? {rung: item.rung} : {}), note: result.failures.join('; ').slice(0, 200)});
     assert.deepEqual(result.failures, [], `${item.name} (${item.why || ''})`);
   });

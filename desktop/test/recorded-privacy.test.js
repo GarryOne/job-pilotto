@@ -10,10 +10,9 @@ import {appProfileTexts, personalValues} from '../e2e/lib/capture-page.mjs';
 import {privacyFindings} from '../e2e/lib/row-case-gates.mjs';   // one function for this test and for npm run row-to-case's own gate
 
 const REPLAY = new URL('../e2e/recorded/', import.meta.url);
-const files = () => Object.fromEntries(fs.existsSync(REPLAY) ? fs.readdirSync(REPLAY).flatMap(dir => {
-  const folder = new URL(`${dir}/`, REPLAY);
-  return fs.statSync(folder).isDirectory() ? fs.readdirSync(folder).map(name => [`${dir}/${name}`, fs.readFileSync(new URL(name, folder), 'utf8')]) : [];
-}) : []);
+// Every file of every case folder, at any depth (a row case keeps its pages in pages/): {"<case>/<path>": text}
+const walk = (folder, prefix) => fs.readdirSync(folder, {withFileTypes: true}).flatMap(entry => (entry.isDirectory() ? walk(new URL(`${entry.name}/`, folder), `${prefix}${entry.name}/`) : [[`${prefix}${entry.name}`, fs.readFileSync(new URL(entry.name, folder), 'utf8')]]));
+const files = () => Object.fromEntries(fs.existsSync(REPLAY) ? fs.readdirSync(REPLAY).flatMap(dir => (fs.statSync(new URL(`${dir}/`, REPLAY)).isDirectory() ? walk(new URL(`${dir}/`, REPLAY), `${dir}/`) : [])) : []);
 
 test('recorded pages hold no email but example.*, no phone, no typed value, no URL query', () => {
   assert.deepEqual(privacyFindings(files()), []);

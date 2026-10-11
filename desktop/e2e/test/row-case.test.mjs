@@ -41,6 +41,8 @@ test('a row becomes a case: pages scrubbed and shrunk, answers and presses scrub
   assert.ok(!fs.existsSync(path.join(dir, 'ai-calls.json')), 'the run\'s ai-calls are not copied');
   assert.deepEqual(item.baseline.pageKinds, ['page kind: posting {"by":"ai"}'], 'the live run\'s evidence without its times; duplicate wording once');
   assert.equal(item.baseline.reached, 'posting');
+  assert.deepEqual(item.baseline.pressed, ['pressed the Apply button']);
+  assert.deepEqual(item.baseline.fields, []);
   assert.deepEqual(item.expect, {}, 'expect is filled by the proof, never here');
   const har = JSON.parse(fs.readFileSync(path.join(dir, 'styles.har.json'), 'utf8')).log.entries;
   assert.deepEqual(har.map(entry => entry.request.url), ['https://jobs.example.test/__case/styles.css']);

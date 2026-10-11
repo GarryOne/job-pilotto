@@ -13,8 +13,9 @@ const TIME = /^(?:log )?\d\d:\d\d:\d\d(?:\.\d+)?Z? /;   // the evidence lines' o
 const bare = line => String(line).replace(TIME, '').replace(/^\[extension\]/, '[extension]');
 
 // The live run's evidence as the baseline the OLD build must replay to: page-kind lines in order without their times, each wording once, and what the run reached.
-const baselineOf = item => ({pageKinds: [...new Set((item.evidence?.pageKinds || []).map(bare))].map(line => line.replace(/^\[extension\] /, '')), reached: item.run?.reached ?? null,
-  filled: item.run?.filled ?? null, short: item.run?.short ?? null, path: item.run?.path || []});
+const baselineOf = (item, presses) => ({pageKinds: [...new Set((item.evidence?.pageKinds || []).map(bare))].map(line => line.replace(/^\[extension\] /, '')), reached: item.run?.reached ?? null,
+  filled: item.run?.filled ?? null, short: item.run?.short ?? null, path: item.run?.path || [],
+  fields: (item.run?.fields || []).map(({label, outcome, reason}) => ({label, outcome, reason})), pressed: presses.map(press => press.what)});
 
 // -> {dir, bytes, verdict}. shrink: injectable for tests (default: the headless-Chromium pruning). values: the person's own values to scrub (default: this Mac's app profile).
 export async function buildCase({rowDir, name, outDir, shrink = shrinkPages, values = personalValues(appProfileTexts()), chromium = null, exe}) {
@@ -33,7 +34,7 @@ export async function buildCase({rowDir, name, outDir, shrink = shrinkPages, val
   files['model-memo.json'] = scrub(fs.readFileSync(path.join(rowDir, 'model-memo.json'), 'utf8'), values);
   files['presses.json'] = scrub(fs.readFileSync(path.join(rowDir, 'presses.json'), 'utf8'), values);
   const keep = {shape: item.shape, why: item.why, sample: item.sample, ...(item.control ? {control: item.control} : {})};
-  files['case.json'] = `${JSON.stringify({...keep, replay: 'row', pages: meta, baseline: baselineOf(item), expect: {}}, null, 1)}\n`;
+  files['case.json'] = `${JSON.stringify({...keep, replay: 'row', pages: meta, baseline: baselineOf(item, readJson(path.join(rowDir, 'presses.json'), [])), expect: {}}, null, 1)}\n`;
   const found = privacyFindings(Object.fromEntries(Object.entries(files).map(([file, text]) => [`${name}/${file}`, text])), values);
   if (found.length) throw new Error(`privacy gate: ${found.join('; ')}; nothing written`);
   const bytes = Object.values(files).reduce((sum, text) => sum + Buffer.byteLength(text), 0), verdict = sizeVerdict(bytes);
