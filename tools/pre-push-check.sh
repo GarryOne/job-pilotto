@@ -161,15 +161,17 @@ case "$command" in *E2E_ISSUE_OK=1*) ;; *)
     links="$(cd "$repo" && timed "e2e issue links" node tools/e2e-issue-links.mjs --base origin/main 2>&1)" || { echo "Push blocked: $links" >&2; exit 2; }
   fi ;;
 esac
+# The journey and ladder gates reuse a pass on exactly the same tree (tools/gate-cache.sh; owner, 11 Oct 2026: a retry that only changed a commit
+# message re-ran the 255 s journey gate); a failure is never cached; GATE_CACHE=0 or PUSH_FULL=1 runs them anyway.
 # The journey gate (owner, 10 Oct 2026): a push touching a flow file runs the applying scenarios as event sequences (tools/journey-gate.mjs, seconds,
 # no browser). Unlike the matrix below it needs no browser, and it runs even when the change is in extension/ only, which the affected-tests pick missed.
 if command -v node >/dev/null && [ -f "$repo/tools/journey-gate.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
-  journeys="$(cd "$repo" && timed "journey gate" node tools/journey-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $journeys" >&2; exit 2; }
+  journeys="$(cd "$repo" && timed "journey gate" gate_cache_run "$repo" journey-gate "" node tools/journey-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $journeys" >&2; exit 2; }
   [ -n "$journeys" ] && echo "$journeys" >&2
 fi
 # The ladder gate (docs/flows/ladder.md): a push touching a flow file, the page-kind decision or the ladder fixtures replays every fixture offline against the baseline: none may get worse (tools/ladder-gate.mjs, seconds, no model).
 if command -v node >/dev/null && [ -f "$repo/tools/ladder-gate.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
-  ladder="$(cd "$repo" && timed "ladder gate" node tools/ladder-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $ladder" >&2; exit 2; }
+  ladder="$(cd "$repo" && timed "ladder gate" gate_cache_run "$repo" ladder-gate "" node tools/ladder-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $ladder" >&2; exit 2; }
   [ -n "$ladder" ] && echo "$ladder" >&2
 fi
 # Which suites this push needs (AGENTS.md "Change tiers"). `PUSH_FULL=1 git push ...` runs everything (Tier 2). Docs alone run nothing; a path

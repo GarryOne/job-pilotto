@@ -13,5 +13,10 @@ class GateOrderTest(unittest.TestCase):
             self.assertLess(GATE.index(cheap), slow, f'{cheap} must run before the journey and ladder gates')
 
 
+    def test_the_slow_gates_reuse_a_pass_on_the_same_tree(self):
+        for gate in ('"journey gate" gate_cache_run "$repo" journey-gate', '"ladder gate" gate_cache_run "$repo" ladder-gate'):
+            self.assertIn(gate, GATE, 'a retry that only changed a commit message must not re-run a slow gate')
+
+
 if __name__ == '__main__':
     unittest.main()
