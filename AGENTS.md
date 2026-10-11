@@ -227,7 +227,7 @@ through (its own suites still run).
 
 Everything above applies. Only the *automatic* checks are Claude Code's: `.claude/settings.json` hooks
 (`tools/pre-push-check.sh` before a Bash call, `tools/stop-test-check.sh` at the end of a turn) — they are not git
-hooks, so no other agent gets them (`.git/hooks/` holds only samples, `core.hooksPath` is unset). **Run them yourself,
+hooks, so no other agent gets them (`.git/hooks/` holds only samples; the one git hook is `tools/githooks/commit-msg`, `core.hooksPath` set by `tools/worktree.sh` and `tools/ship.sh`: it checks the trailer values of a commit message, `COMMIT_TRAILERS_OK=1` skips). **Run them yourself,
 then say what passed** (learned 30 Sep 2026, each of these cost real time):
 
 ```sh

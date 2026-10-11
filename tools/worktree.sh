@@ -39,6 +39,7 @@ base=${2:-origin/main}
 tree="$main/.claude/worktrees/$topic"
 git -C "$main" fetch -q origin
 git -C "$main" worktree add -q "$tree" -b "$topic" "$base"
+git -C "$main" config core.hooksPath tools/githooks   # the commit-msg hook (trailer values); shared by every worktree, relative so each uses its own copy
 for dir in desktop desktop/e2e worker site; do
   if [ -d "$main/$dir/node_modules" ] && [ ! -e "$tree/$dir/node_modules" ]; then
     ln -s "$main/$dir/node_modules" "$tree/$dir/node_modules"

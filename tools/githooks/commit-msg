@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Git commit-msg hook (core.hooksPath = tools/githooks, set by tools/worktree.sh and tools/ship.sh): checks the trailer values of the message being committed (tools/commit-trailers.mjs).
+# COMMIT_TRAILERS_OK=1 skips it; no node, or a checkout without the tool: skipped. The push gate (tools/pre-push-check.sh) checks the same values again.
+[ "${COMMIT_TRAILERS_OK:-0}" = 1 ] && exit 0
+command -v node >/dev/null || exit 0
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+[ -f "$root/tools/commit-trailers.mjs" ] || exit 0
+exec node "$root/tools/commit-trailers.mjs" "$1"

@@ -23,6 +23,22 @@ export const poolRowProblem = messages => {
   return bad.length ? `"Pool-row: ${bad[0]}" must be a pool row's name as /admin/applying shows it: no address, no query string, at most 120 characters` : '';
 };
 
+const isNone = value => /^none\b/i.test(value);   // a flow edit no rung decides (a log line, a timing): "Rung: none: <why>", no fixture
+
+// What is wrong with the VALUES of the Rung and Fixture lines (presence is missingTrailer's, it needs the push's files). Also run on one message at commit time (tools/commit-trailers.mjs).
+export function valueProblems(rungs, fixtures, fixtureIds) {
+  const problems = [];
+  for (const value of rungs) {
+    if (isNone(value)) { if (!/^none:\s*\S.{2,}/i.test(value)) problems.push('"Rung: none" needs a reason ("Rung: none: <why>")'); continue; }
+    if (!RUNG_VALUE.test(value)) problems.push(`"Rung: ${value}" is not 0-6, router, judges or none: <why>`);
+  }
+  for (const value of fixtures) {
+    if (isNone(value)) { if (!/^none:\s*\S.{2,}/i.test(value)) problems.push('"Fixture: none" needs a reason ("Fixture: none: <why>")'); continue; }
+    for (const id of value.split(/\s*,\s*/).filter(Boolean)) if (!fixtureIds.includes(id)) problems.push(`no fixture "${id}" in desktop/e2e/ladder-fixtures/`);
+  }
+  return problems;
+}
+
 // -> '' when fine, else the message. changed: the push's files; messages: its commit messages; fixtureIds: the ids in desktop/e2e/ladder-fixtures/.
 export function missingTrailer(changed, messages, flowFiles, fixtureIds) {
   if (!isFlowPush(changed, flowFiles)) return '';
@@ -30,16 +46,8 @@ export function missingTrailer(changed, messages, flowFiles, fixtureIds) {
   const fixtures = messages.flatMap(message => [...String(message).matchAll(FIXTURE)].map(found => found[1].trim()));
   const problems = [];
   if (!rungs.length) problems.push('no "Rung:" line');
-  const isNone = value => /^none\b/i.test(value);   // a flow edit no rung decides (a log line, a timing): "Rung: none: <why>", no fixture
-  for (const value of rungs) {
-    if (isNone(value)) { if (!/^none:\s*\S.{2,}/i.test(value)) problems.push('"Rung: none" needs a reason ("Rung: none: <why>")'); continue; }
-    if (!RUNG_VALUE.test(value)) problems.push(`"Rung: ${value}" is not 0-6, router, judges or none: <why>`);
-  }
+  problems.push(...valueProblems(rungs, fixtures, fixtureIds));
   if (!fixtures.length && rungs.some(value => !isNone(value))) problems.push('no "Fixture:" line');
-  for (const value of fixtures) {
-    if (/^none\b/i.test(value)) { if (!/^none:\s*\S.{2,}/i.test(value)) problems.push('"Fixture: none" needs a reason ("Fixture: none: <why>")'); continue; }
-    for (const id of value.split(/\s*,\s*/).filter(Boolean)) if (!fixtureIds.includes(id)) problems.push(`no fixture "${id}" in desktop/e2e/ladder-fixtures/`);
-  }
   return problems.length ? `this push changes the ladder's flow code and its commit messages have ${problems.join('; ')}.\n${HOW}` : '';
 }
 

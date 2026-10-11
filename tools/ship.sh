@@ -28,6 +28,7 @@ for arg in "$@"; do
 done
 
 here="$(git rev-parse --show-toplevel)"
+git config core.hooksPath tools/githooks 2>/dev/null || true   # the commit-msg hook (trailer values) for every worktree of this repo; the setting is shared and relative
 branch="$(git rev-parse --abbrev-ref HEAD)"
 main="$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd)"
 [ "$branch" != main ] || { echo "ship: this is the main checkout. Work in a worktree (tools/worktree.sh <topic>), then run this there." >&2; exit 2; }
