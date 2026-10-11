@@ -24,9 +24,10 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
 - **Take a CAUSE, not a row** (owner, 11 Oct 2026: a 3 h round of 6+ sessions, one per row, confirmed 2 rows; [docs/rules/rounds.md](../../../docs/rules/rounds.md)). Read the
   **By cause** tab of `/admin/applying` or `node tools/needs-fix-causes.mjs --rows` (the Needs-a-fix rows grouped by top cause; `node tools/needs-fix-order.mjs` is the plain order).
   1. **"Run first" is not yours:** a row never run, or with no run since its fix, needs a pool run, not a fix (11 Oct: 10 of 29 had never run). Hand the list to the pool owner (`coordinator.txt`).
-  2. **Take the biggest cause no session holds:** claim every row of it (`node tools/claim-shape.mjs claim "<row>" ...`; exit 1 on one: take the next cause). "No cause recorded": read the
+  2. **Weigh by demand:** `/admin/applying`'s scorecard ("Of matched jobs") says which platforms real users apply on (11 Oct: Greenhouse 55%, Ashby 34%, the rest 0-3%); a cause on a 0-3% platform waits unless generic and cheap, and a big platform filled well under its pool result (Ashby "Blind spot") goes first.
+  3. **Take the biggest cause no session holds:** claim every row of it (`node tools/claim-shape.mjs claim "<row>" ...`; exit 1 on one: take the next cause). "No cause recorded": read the
      row's evidence (1.1, ASKED/ANSWERED/DONE) and name its cause before fixing.
-  3. **Your target is rows confirmed by a pool run** (Fixed tab "Confirmed"), never "fix landed" or "recorded page passes". Ask the pool owner to run your shapes on your build and go idle;
+  4. **Your target is rows confirmed by a pool run** (Fixed tab "Confirmed"), never "fix landed" or "recorded page passes". Ask the pool owner to run your shapes on your build and go idle;
      report confirmed rows of your cause, before -> after, when you stop.
 - **Peers (a courtesy, never a dependency; owner, 11 Oct 2026: "run on its own, without a coordinator"):** `ListAgents`; `coordinator.txt` in `~/Library/Application Support/Job Pilotto QA/` names the session
   owning the pool's run queue, if one runs. Never two runs at once: the heavy lock queues them, a peer's run holds it, wait. **No coordinator in `ListAgents`, or the lock free: you run everything yourself** (repro, re-run on the landed build, upload) and say so in one line; never stop to ask.
