@@ -19,8 +19,9 @@ const NORMALISE = [
 export const normalise = text => NORMALISE.reduce((out, [pattern, to]) => out.replace(pattern, to), text);
 
 // The request as the model sees it: model, system, messages, output schema, tools (max_tokens and the like do not change the answer's meaning).
-export function memoKey(params = {}) {
-  const asked = {model: params.model, system: params.system ?? '', messages: params.messages ?? [], output_config: params.output_config ?? null, tools: params.tools ?? null};
+// tag: the adapter's format when it is not the default (ClaudeCode memoTag 'schema-in-prompt'); no tag keeps every key as it was.
+export function memoKey(params = {}, tag = '') {
+  const asked = {model: params.model, system: params.system ?? '', messages: params.messages ?? [], output_config: params.output_config ?? null, tools: params.tools ?? null, ...(tag ? {tag} : {})};
   return crypto.createHash('sha256').update(normalise(JSON.stringify(asked))).digest('hex');
 }
 
@@ -39,7 +40,7 @@ export function withMemo(client, file = memoFile()) {
   if (!client || !file) return client;
   const ask = client.messages.create.bind(client.messages);
   client.messages = {...client.messages, create: async params => {
-    const key = memoKey(params), kept = read(file);
+    const key = memoKey(params, client.memoTag || ''), kept = read(file);
     if (kept[key]) return kept[key];
     const answer = await ask(params);
     try {
