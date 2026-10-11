@@ -21,4 +21,5 @@ if (result.opened) console.log(`  live +  0s: Apply pressed on ${url}`);
 for (const line of (result.appLog || '').split('\n').filter(one => PAGE_LINE.test(one))) { console.log(`      log ${line.slice(11, 230)}`); for (const text of fieldLines(line)) console.log(text); }
 console.log(`  live +${String(Math.round(result.seconds)).padStart(3)}s: watched ${Math.round(result.seconds)}s; frames in ${captureDir}`);
 for (const [part, lines] of Object.entries(result.evidence)) console.log(`${part}:\n${lines.length ? lines.map(line => `  ${line}`).join('\n') : '  (none in the app log)'}`);
+if (result.endedWhileDeciding) { console.log('live: ERROR ended while deciding: the time limit came while the extension was still on a step (its panel still showed it); raise the limit or find the slow step'); process.exit(1); }
 if (result.tripped) process.exit(1);

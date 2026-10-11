@@ -14,7 +14,7 @@ export function stillClock({seconds = STILL_SECONDS, startedAt = 0} = {}) {
   return {
     see(sig, at) { if (sig !== last) { last = sig; changedAt = at; return true; } return false; },
     stillFor: at => at - changedAt,
-    over: (at, {opened = false} = {}) => seconds > 0 && opened && at - changedAt >= seconds * 1000,
+    over: (at, {opened = false, deciding = false} = {}) => seconds > 0 && opened && !deciding && at - changedAt >= seconds * 1000,   // deciding: the extension's own step line is up (lib/deciding.mjs): the limit, not the quiet window, ends the run
   };
 }
 

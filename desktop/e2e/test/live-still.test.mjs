@@ -69,3 +69,33 @@ test('the quiet window is 45 s on the Claude Code engine (its asks take 5-12 s),
   assert.equal(stillSeconds({}, 'api'), 20);
   assert.equal(stillSeconds({LIVE_STILL_SECONDS: '30'}, 'cli'), 30);
 });
+
+// 12 Oct 2026, FNAC: the run ended at 31 s with "Reading this page…" still on screen. While the extension's own step line is up the quiet window never ends the run; the limit is the cap and says so.
+test('a still page does not end the run while the extension is still deciding, and does once it is not', () => {
+  const clock = stillClock({seconds: 20, startedAt: 0});
+  clock.see('same', 0);
+  assert.equal(clock.over(60000, {opened: true, deciding: true}), false, 'ended on a quiet window while the step line was up');
+  assert.equal(clock.over(60000, {opened: true, deciding: false}), true);
+});
+
+test('the deciding signal: the panel button busy or the floating step box, nothing else', async () => {
+  const {chromium} = await import('playwright-core');
+  const {isDeciding} = await import('../lib/deciding.mjs');
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    const shadow = busy => page.setContent(`<body><div id="jobpilotto-review-host"></div><script>document.getElementById('jobpilotto-review-host').attachShadow({mode:'open'}).innerHTML='<button class="fill" ${busy ? 'aria-busy="true"' : ''}></button>'</script></body>`);
+    await shadow(true); assert.equal(await isDeciding(page), true, 'panel busy');
+    await shadow(false); assert.equal(await isDeciding(page), false, 'panel idle');
+    await page.setContent('<body><div id="jobpilotto-progress">Reading this page…</div></body>'); assert.equal(await isDeciding(page), true, 'floating step box');
+    await page.setContent('<body>plain</body>'); assert.equal(await isDeciding(page), false);
+  } finally { await browser.close(); }
+});
+
+test('live-row waits for the decision (the limit is the cap), uses the cli window, and live.mjs says "ended while deciding" as an error', () => {
+  const row = fs.readFileSync(new URL('../lib/live-row.mjs', import.meta.url), 'utf8'), cli = fs.readFileSync(new URL('../live.mjs', import.meta.url), 'utf8');
+  assert.match(row, /isDeciding\(/);
+  assert.match(row, /clock\.over\(Date\.now\(\), \{opened: true, deciding\}\)/);
+  assert.match(row, /stillSecondsFor\(process\.env, 'cli'\)/);
+  assert.match(cli, /ended while deciding[\s\S]*process\.exit\(1\)/);
+});
