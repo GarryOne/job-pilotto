@@ -12,14 +12,15 @@ export function looseSummary(hits = []) {
 }
 export const isRowCase = item => item?.replay === 'row';
 
-export async function runRowCase(item, {extensionDir, replay = replayRow, slow = false} = {}) {
+export async function runRowCase(item, {extensionDir, replay = replayRow, slow = false, ordinal = false} = {}) {   // ordinal: CI only; row-to-case's own proof never serves an ask by order
   const failures = [];
   if (!item.expect || !Object.keys(item.expect).length) failures.push('no expect: a row case gets its expect from row-to-case (the new build\'s replay), never by hand');
-  const result = await replay(item.dir, {extensionDir, loose: true, ...(slow ? {slow: true} : {})});   // loose: a prompt or seed change since the capture is a warning, not a cold ask (CI has no claude -p)
+  const result = await replay(item.dir, {extensionDir, loose: true, ...(slow ? {slow: true} : {}), ...(ordinal ? {ordinal: true} : {})});   // loose: a prompt or seed change since the capture is a warning, not a cold ask (CI has no claude -p)
   failures.push(...checkSignature(signatureOf(result), item.expect));
   if (result.misses) failures.push(`${result.misses} model ask(s) not in the case's kept answers (CI has no claude -p; row-to-case --ask-cold keeps them)${result.missParts?.length ? `; the nearest kept ask differs in ${result.missParts.join(', ')}` : ''}${result.missVolatile?.length ? `; a clock time or date in ${result.missVolatile.join(', ')}` : ''}`);   // CI shows only this line: say WHICH parts moved (a Linux runner's timing or layout)
   for (const address of result.unrecorded || []) failures.push(`address not recorded: ${address}`);
   if (failures.length && result.timeline?.length) failures.push(`replay timeline: ${result.timeline.join(' | ').slice(0, 1800)}`);   // CI keeps no artifact of a failed replay: its own output is the evidence
+  const byOrder = (result.ordinalHits || []).length ? `${result.ordinalHits.length} ask(s) served by ORDER (the n-th kept answer of their kind: no kept answer matched): the case holds only as far as the order does; row-to-case --ask-cold keeps them` : '';
   const loose = looseSummary(result.looseHits);
-  return {name: item.name, ok: !failures.length, failures, confirm: [], seconds: result.seconds, signature: signatureOf(result), loose};
+  return {name: item.name, ok: !failures.length, failures, confirm: [], seconds: result.seconds, signature: signatureOf(result), loose, ordinal: byOrder};
 }

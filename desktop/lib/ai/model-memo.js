@@ -108,6 +108,10 @@ export const latencyOn = (env = process.env) => !!env.JOB_PILOTTO_E2E && env.JOB
 export const LATENCY_CAP_MS = 3000;
 // JOB_PILOTTO_MODEL_MEMO_LATENCY_SCALE / _PAD_MS (e2e only): a slowed replay (row-to-case's second speed): every kept answer takes SCALE times as long and PAD ms more, also one with no recorded time.
 const later = (ms, env) => { const wait = Math.min(LATENCY_CAP_MS, Math.max(0, ms || 0) * (Number(env.JOB_PILOTTO_MODEL_MEMO_LATENCY_SCALE) || 1)) + (Number(env.JOB_PILOTTO_MODEL_MEMO_LATENCY_PAD_MS) || 0); return wait > 0 ? new Promise(resolve => setTimeout(resolve, wait)) : null; };
+// JOB_PILOTTO_MODEL_MEMO_ORDINAL=<file> (e2e only; CI's row cases, never the row-to-case proof): an ask with no kept answer, exact or loose, gets the n-th kept answer of its kind (same model and system prompt), n = how many
+// asks of that kind this replay has made; each is noted in the file. A row case then holds in CI whatever the order the extension's concurrent flows ask in (12 Oct 2026), and the run prints it as a warning.
+export const ordinalFile = (env = process.env) => (env.JOB_PILOTTO_E2E ? String(env.JOB_PILOTTO_MODEL_MEMO_ORDINAL || '') : '');
+const kindOf = parts => `${parts.model}|${parts.system ?? parts['system:0'] ?? ''}`;
 export const missLogFile = (env = process.env) => (env.JOB_PILOTTO_E2E ? String(env.JOB_PILOTTO_MODEL_MEMO_MISSLOG || '') : '');
 export const looseFile = (env = process.env) => (env.JOB_PILOTTO_E2E ? String(env.JOB_PILOTTO_MODEL_MEMO_LOOSE || '') : '');
 const isPageSide = name => name === 'output' || /^(user|assistant):/.test(name);
@@ -126,11 +130,13 @@ export function looseMatch(parts, kept) {
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return {}; } };
 
 // Wraps the client's messages.create in place (the adapter keeps its engine, billing, fallback). A failed ask is not kept. -> the same client.
-export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = looseFile(), missLog = missLogFile(), latency = latencyOn(), env = process.env} = {}) {
+export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = looseFile(), missLog = missLogFile(), latency = latencyOn(), env = process.env, ordinal = ordinalFile(env)} = {}) {
   if (!client || !file) return client;
+  const served = {};   // asks made per kind (ordinal)
   const ask = client.messages.create.bind(client.messages);
   client.messages = {...client.messages, create: async params => {
-    const key = memoKey(params), kept = read(file);
+    const key = memoKey(params), kept = read(file), parts = ordinal ? memoParts(params) : null, kind = parts ? kindOf(parts) : '';
+    if (ordinal) served[kind] = (served[kind] || 0) + 1;
     // An offline replay serves the page scrubbed (lib/live-capture.js fakeContacts): the answer the AI gave to the live page is scrubbed the same way, so an address it
     // read off the page (apply_email) is still on the replayed page.
     if (kept[key]) { if (only && latency) await later(Number(kept[key + MS]), env); return only ? JSON.parse(fakeContacts(JSON.stringify(kept[key]))) : kept[key]; }
@@ -140,6 +146,14 @@ export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = 
         try { fs.appendFileSync(loose, `${JSON.stringify({differs: hit.differs})}\n`); } catch { /* the count is a report only */ }
         if (latency) await later(Number(kept[hit.key + MS]), env);
         return JSON.parse(fakeContacts(JSON.stringify(kept[hit.key])));
+      }
+    }
+    if (only && ordinal) {
+      const same = Object.entries(kept).filter(([name, other]) => name.endsWith(PARTS) && kindOf(other) === kind).map(([name]) => name.slice(0, -PARTS.length)), taken = same[served[kind] - 1];
+      if (taken && kept[taken]) {
+        try { fs.appendFileSync(ordinal, `${JSON.stringify({n: served[kind], of: same.length, differs: nearestDiffers(parts, kept, memoLines(params)) || []})}\n`); } catch { /* a report only */ }
+        if (latency) await later(Number(kept[taken + MS]), env);
+        return JSON.parse(fakeContacts(JSON.stringify(kept[taken])));
       }
     }
     if (only) {

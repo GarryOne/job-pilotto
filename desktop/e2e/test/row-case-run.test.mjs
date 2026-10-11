@@ -39,3 +39,13 @@ test('a failed replay carries its timeline (swaps and extension lines with times
   assert.match(done.failures.at(-1), /replay timeline: \+0\.4s ext: typed 3 boxes \| \+3\.1s the extension attached a file.* \| \+4\.0s ext: typed 3 boxes again/);
   assert.equal((await runRowCase(item, {replay: async () => result(['posting', 'form'], {timeline: ['+1s x']})})).failures.length, 0, 'a green replay says nothing');
 });
+
+test('CI\'s row case run says when asks were served by order, and asks the replay for it only on request (the tool\'s own proof never does)', async () => {
+  const seen = [];
+  const replay = async (dir, options) => { seen.push(options.ordinal === true); return result(['posting', 'form'], {ordinalHits: [{n: 1, of: 2, differs: ['user:job']}]}); };
+  const ci = await runRowCase(item, {replay, ordinal: true});
+  assert.match(ci.ordinal, /1 ask\(s\) served by ORDER/);
+  assert.equal(ci.ok, true, 'a warning, not a failure');
+  await runRowCase(item, {replay});
+  assert.deepEqual(seen, [true, false]);
+});

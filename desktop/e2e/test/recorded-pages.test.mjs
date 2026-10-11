@@ -50,7 +50,8 @@ const batchResults = () => batch ||= tabs === 1 ? Promise.resolve(null) : replay
 if (!skip) console.log(tabs === 1 ? 'recorded pages: JP_REPLAY_TABS=1, one browser per case, in turn' : `recorded pages: ${tabs} tabs at a time in one browser (JP_REPLAY_TABS=1: serial)`);
 for (const item of cases) {
   test(`${item.name}: ${item.shape}`, {skip}, async () => {
-    let result = isRowCase(item) ? await runRowCase(item, {extensionDir}) : (await batchResults())?.get(item.name) || await runCase(item, {extensionDir});   // JP_REPLAY_TABS=1: one browser per case, in turn
+    let result = isRowCase(item) ? await runRowCase(item, {extensionDir, ordinal: true}) : (await batchResults())?.get(item.name) || await runCase(item, {extensionDir});   // JP_REPLAY_TABS=1: one browser per case, in turn
+    if (result.ordinal) console.log(`row case ${item.name}: WARNING: ${result.ordinal}`);
     if (result.loose) console.log(`row case ${item.name}: ${result.loose}`);   // a prompt or seed change since the capture: a warning, never a failure
     results.push({name: item.name, control: item.control, ok: result.ok, ...(Number.isInteger(item.rung) ? {rung: item.rung} : {}), note: result.failures.join('; ').slice(0, 200)});
     assert.deepEqual(result.failures, [], `${item.name} (${item.why || ''})`);

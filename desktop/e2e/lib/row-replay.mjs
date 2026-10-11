@@ -85,13 +85,14 @@ export function findRow(name, root) {
 export const openBrowser = ({extensionDir, port}) => startRealExtension({extensionDir, appPort: port, allowAllSites: true, offline: true});
 
 // One offline app, front and browser for one or more rows (their kept model answers merged: a key is a hash of the ask). -> {use(caseDir), replay(caseDir, opts), close()}
-export async function openReplay(caseDirs, {extensionDir, ask = false, loose = false, slow = false} = {}) {   // slow: the second speed of the row-to-case gate: CPU x4 in the tab, answers x1.6 + 0.3 s, the site's reaction times x1.6   // loose: kept answers also serve an ask whose system side changed since the capture (CI row cases; every hit counted)   // ask: a model call not in the kept answers goes to the plan's claude -p once and is kept (row-to-case --ask-cold)
+export async function openReplay(caseDirs, {extensionDir, ask = false, loose = false, slow = false, ordinal = false} = {}) {   // ordinal: CI's row cases: an ask with no kept answer gets the n-th kept answer of its kind (model-memo.js), counted and warned; slow: the second speed of the row-to-case gate: CPU x4 in the tab, answers x1.6 + 0.3 s, the site's reaction times x1.6   // loose: kept answers also serve an ask whose system side changed since the capture (CI row cases; every hit counted)   // ask: a model call not in the kept answers goes to the plan's claude -p once and is kept (row-to-case --ask-cold)
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-row-'));
   const memo = path.join(workDir, 'model-memo.json');   // a copy: each row's own answers stay as the live run kept them
   const merged = Object.assign({}, ...caseDirs.map(dir => readJson(path.join(dir, 'model-memo.json'), {})));
   fs.writeFileSync(memo, JSON.stringify(merged));
+  const ordinalHits = ordinal ? path.join(workDir, 'ordinal-hits.jsonl') : '';
   const looseHits = loose ? path.join(workDir, 'loose-hits.jsonl') : '', missLog = path.join(workDir, 'miss-log.jsonl');
-  const app = await startOfflineApp({memo, ask, loose: looseHits, missLog, slow, dir: path.join(workDir, 'app')});
+  const app = await startOfflineApp({memo, ask, loose: looseHits, missLog, slow, ordinal: ordinalHits, dir: path.join(workDir, 'app')});
   // The applicant's contact exactly as the live row set it (live-row.mjs: saveContact(CONTACT)): the profile in every form-answer ask carries it, and its lines (name, phone, e-mail, links) are part of
   // the memo key; with the stand-in contact the whole ask missed its kept answer (12 Oct 2026, Ashby: profile lines 30-37 differed, found by the memo's line hashes).
   await app.call('saveContact', CONTACT);
@@ -219,12 +220,12 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
       for (const [page, owner] of [...rows]) if (owner === row) { rows.delete(page); await page.close().catch(() => {}); }
     }
   };
-  return {replay, close, keptAnswers: Object.keys(merged).length, memoNow: () => readJson(memo, {}), looseNow: () => looseHitsOf(looseHits), missesNow: () => missesOf(missLog)};
+  return {replay, close, keptAnswers: Object.keys(merged).length, memoNow: () => readJson(memo, {}), looseNow: () => looseHitsOf(looseHits), ordinalNow: () => looseHitsOf(ordinalHits), missesNow: () => missesOf(missLog)};
 }
 
-export async function replayRow(caseDir, {extensionDir, ask = false, loose = false, slow = false, ...options} = {}) {
-  const session = await openReplay([caseDir], {extensionDir, ask, loose, slow});
-  try { const result = {...(await session.replay(caseDir, options)), looseHits: session.looseNow()}; return ask ? {...result, memoAfter: session.memoNow()} : result; } finally { await session.close(); }
+export async function replayRow(caseDir, {extensionDir, ask = false, loose = false, slow = false, ordinal = false, ...options} = {}) {
+  const session = await openReplay([caseDir], {extensionDir, ask, loose, slow, ordinal});
+  try { const result = {...(await session.replay(caseDir, options)), looseHits: session.looseNow(), ordinalHits: session.ordinalNow()}; return ask ? {...result, memoAfter: session.memoNow()} : result; } finally { await session.close(); }
 }
 
 // Every row in one browser and one app, `tabs` at a time; rows that share a host wait for each other (replay-browser.mjs nextRunnable). -> [result] in the rows' order

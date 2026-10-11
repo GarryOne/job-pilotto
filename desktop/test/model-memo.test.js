@@ -220,3 +220,18 @@ test('a slowed replay scales the live duration and pads every kept answer, also 
   assert.ok(await timed({}) < 40, 'normal speed: at once');
   assert.ok(await timed({JOB_PILOTTO_MODEL_MEMO_LATENCY_PAD_MS: '80'}) >= 70, 'slowed: padded');
 });
+
+test('ordinal (CI row cases): an ask with no kept answer gets the n-th kept answer of its kind, and says so; another kind is a miss; without the option nothing is served by order', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-memo-ord-')), file = path.join(dir, 'model-memo.json'), note = path.join(dir, 'ordinal.jsonl');
+  const kept = {};
+  for (const [at, text] of [['one', 'first page'], ['two', 'second page']]) { const params = ask(text); kept[memoKey(params)] = {content: [{type: 'text', text: `{"answer":"${at}"}`}]}; kept[memoKey(params) + '#parts'] = memoParts(params); }
+  fs.writeFileSync(file, JSON.stringify(kept));
+  const make = options => { const client = {messages: {create: async () => { throw new Error('never asked'); }}}; return withMemo(client, file, {only: true, ...options}).messages.create; };
+  const create = make({ordinal: note});
+  assert.equal(JSON.parse((await create(ask('a different first page'))).content[0].text).answer, 'one', 'the 1st ask of its kind: the 1st kept answer');
+  assert.equal(JSON.parse((await create(ask('a different second page'))).content[0].text).answer, 'two', 'the 2nd: the 2nd');
+  await assert.rejects(create(ask('a third page')), /not in the row's kept answers/, 'no 3rd kept answer of that kind: a miss');
+  await assert.rejects(make({ordinal: note})(ask('x', {system: 'Another kind of ask.'})), /not in the row's kept answers/, 'another kind: a miss');
+  assert.equal(fs.readFileSync(note, 'utf8').trim().split('\n').length, 2, 'each served by order is noted');
+  await assert.rejects(make({ordinal: ''})(ask('a different first page')), /not in the row's kept answers/, 'off: a miss');
+});
