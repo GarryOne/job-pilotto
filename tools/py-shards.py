@@ -20,7 +20,7 @@ TESTS = ROOT / 'tests'
 BOOTSTRAP = 'test_0_notion_ids'
 # Tests of this repo's own scripts and hooks (git, bash, the push hook, ship, worktrees): not the desktop app. The release run's Build box leaves them out with --app-only
 # (owner, 10 Oct 2026: "unit tests only related to the desktop app"); CI · Tests, without the flag, still runs them on every push.
-DEV_TOOLING = ('test_affected_tests', 'test_check', 'test_check_slot', 'test_commit_subject', 'test_pre_push_check',
+DEV_TOOLING = ('test_affected_tests', 'test_check', 'test_check_slot', 'test_commit_subject', 'test_pre_push_areas', 'test_pre_push_budget', 'test_pre_push_check',
                'test_release_stable_guard', 'test_ship', 'test_stop_means_stop', 'test_worktree')
 
 

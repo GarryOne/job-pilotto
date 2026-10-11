@@ -1,83 +1,15 @@
-"""tools/pre-push-check.sh, the Claude Code hook before every git commit/push: run on a throwaway repo with a stub `gh` and a stub
-tools/check.sh, so each guard is checked in seconds without GitHub or the real suites (5 Oct 2026: four sessions were blocked by a red
-main that passed this hook on leftover files, and by a long subject whose amend was denied)."""
-import json
-import os
-import shutil
-import subprocess
-import tempfile
-import time
-import textwrap
+"""tools/pre-push-check.sh, the Claude Code hook before every git commit/push (1 of 3: commit subjects, red main, the clean checkouts, the gates beside the suites). Fixture: pre_push_fixture.py."""
 import unittest
+import shutil
+import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-HOOK = ROOT / 'tools' / 'pre-push-check.sh'
-
-# The stub suite: fails when the file a test needs is missing from the checkout it runs in, and logs where it ran.
-CHECK = '''#!/usr/bin/env bash
-echo "$PWD $*" >> "$CHECK_LOG"
-[ -f desktop/shared/needed.js ] || { echo "not ok - needed.js missing"; exit 1; }
-'''
-# The stub gh: `run list --status completed` answers the last finished build, any other `run list` the newest build.
-GH = '''#!/usr/bin/env bash
-case "$*" in *"--status completed"*) echo "$GH_COMPLETED" ;; *"run view"*) echo "$GH_FAILED_JOBS" ;; *"run rerun"*) echo "$*" >> "$CHECK_LOG.rerun" ;; *"run list"*) echo "$GH_LATEST" ;; esac
-'''
-
-
-def git(cwd, *args):
-    return subprocess.run(['git', *args], cwd=cwd, check=True, capture_output=True, text=True).stdout.strip()
+from tests.pre_push_fixture import *   # noqa: F401,F403 (the fixture: setUp, hook, commit, ...)
+from tests.pre_push_fixture import PrePushFixture
 
 
 @unittest.skipUnless(shutil.which('jq') and shutil.which('bash'), 'needs jq and bash')
-class PrePushCheckTest(unittest.TestCase):
-    def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, self.tmp, True)
-        self.repo, origin, self.bin = self.tmp / 'repo', self.tmp / 'origin.git', self.tmp / 'bin'
-        for folder in ('src', 'worker', 'tools', 'desktop'):
-            (self.repo / folder).mkdir(parents=True)
-        self.bin.mkdir()
-        (self.repo / 'src' / 'daily.py').write_text('')
-        (self.repo / 'worker' / 'package.json').write_text('{}')
-        (self.repo / 'desktop' / '.gitignore').write_text('shared/\n')
-        shutil.copy(HOOK, self.repo / 'tools' / 'pre-push-check.sh')
-        shutil.copy(ROOT / 'tools' / 'commit-subject.py', self.repo / 'tools' / 'commit-subject.py')
-        shutil.copy(ROOT / 'tools' / 'gate-watchdog.sh', self.repo / 'tools' / 'gate-watchdog.sh')   # the hook sources it when it sits beside it
-        (self.repo / 'tools' / 'stale-expectations.mjs').write_text('')
-        for path, text in ((self.repo / 'tools' / 'check.sh', CHECK), (self.bin / 'gh', GH), (self.bin / 'actionlint', '#!/bin/sh\n')):
-            path.write_text(text)
-            path.chmod(0o755)
-        subprocess.run(['git', 'init', '-q', '--bare', '-b', 'main', str(origin)], check=True)
-        git(self.repo, 'init', '-q', '-b', 'main')
-        git(self.repo, 'config', 'user.email', 't@example.com')
-        git(self.repo, 'config', 'user.name', 'Test')
-        git(self.repo, 'add', '-A')
-        git(self.repo, 'commit', '-qm', 'Start')
-        git(self.repo, 'remote', 'add', 'origin', str(origin))
-        git(self.repo, 'push', '-q', 'origin', 'main')
-        self.log = self.tmp / 'check.log'
-        self.env = {**os.environ, 'PATH': f'{self.bin}{os.pathsep}{os.environ["PATH"]}', 'CHECK_LOG': str(self.log),
-                    'GH_COMPLETED': f'success {git(self.repo, "rev-parse", "--short=7", "HEAD")} https://x/runs/1', 'GH_LATEST': '', 'GH_FAILED_JOBS': ''}
-
-    def hook(self, command, **env):
-        payload = json.dumps({'tool_input': {'command': command}, 'cwd': str(self.repo)})
-        result = subprocess.run(['bash', str(self.repo / 'tools' / 'pre-push-check.sh')], input=payload, capture_output=True,
-                                text=True, env={**self.env, **env}, timeout=120)
-        return result.returncode, result.stderr
-
-    def commit(self, subject, files=None):
-        for name, text in (files or {'change.txt': subject}).items():
-            path = self.repo / name
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text)
-        git(self.repo, 'add', '-A')
-        git(self.repo, 'commit', '-qm', subject)
-
-    def needed_committed(self):
-        (self.repo / 'desktop' / '.gitignore').write_text('')
-        self.commit('Add the needed file', {'desktop/shared/needed.js': 'export {};\n'})
-
+class PrePushCheckTest(PrePushFixture):
     def test_other_commands_pass_untouched(self):
         self.assertEqual(self.hook('git status')[0], 0)
         self.assertFalse(self.log.exists())
@@ -130,45 +62,6 @@ class PrePushCheckTest(unittest.TestCase):
         self.assertEqual(Path(f'{self.log}.seen').read_text().split(), ['kept'] * 3)
         self.assertEqual(len(git(self.repo, 'worktree', 'list').splitlines()), 1, 'every checkout removed at the end')
 
-    def test_a_local_push_asks_for_the_affected_tests_and_push_full_asks_for_everything(self):
-        self.needed_committed()
-        self.hook('git push origin HEAD:main')
-        self.assertTrue(all('--affected-from origin/main' in line for line in self.log.read_text().splitlines()))
-        self.log.unlink()
-        self.hook('PUSH_FULL=1 git push origin HEAD:main')
-        self.assertFalse(any('--affected-from' in line for line in self.log.read_text().splitlines()))
-
-    def areas_run(self, command='git push origin HEAD:main'):
-        self.log.unlink(missing_ok=True)
-        code, err = self.hook(command)
-        runs = self.log.read_text().splitlines() if self.log.exists() else []
-        return code, sorted(line.split(' --area ')[1].split()[0] for line in runs), err   # areas run side by side (9 Oct 2026): compare as a set
-
-    def test_only_the_areas_a_push_touches_run(self):
-        self.needed_committed()
-        self.assertEqual(self.areas_run()[:2], (0, ['desktop']))
-        self.commit('Worker only', {'worker/a.js': 'x'})
-        self.assertEqual(self.areas_run()[:2], (0, ['desktop', 'worker']))   # origin/main..HEAD still holds the desktop commit
-        git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
-        self.commit('Engine change', {'src/ai/x.py': 'x'})
-        self.assertEqual(self.areas_run()[:2], (0, ['desktop', 'python']), 'the engine also runs its desktop callers')
-        git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
-        self.commit('Site only', {'site/p.html': 'x'})
-        self.assertEqual(self.areas_run()[:2], (0, ['site']))
-        git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
-        self.commit('Unknown top-level file', {'Makefile': 'x'})
-        self.assertEqual(self.areas_run()[:2], (0, ['desktop', 'python', 'site', 'worker']), 'an unknown path runs everything')
-
-    def test_docs_alone_run_no_suite_and_full_forces_all(self):
-        self.needed_committed()
-        git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
-        self.commit('Docs', {'README.md': 'x', 'docs/a.md': 'y'})
-        code, areas, err = self.areas_run()
-        self.assertEqual((code, areas), (0, []), err)
-        # The hook's own output on failure (9 Oct 2026: a Mac CI run got (2, no desktop) once, with nothing saying why).
-        code, areas, err = self.areas_run('PUSH_FULL=1 git push origin HEAD:main')
-        self.assertEqual((code, areas), (0, ['desktop', 'python', 'site', 'worker']), err)
-
     def test_a_red_main_with_no_failed_job_is_rerun_not_blocking(self):
         self.needed_committed()
         bad = git(self.repo, 'rev-parse', '--short=7', 'HEAD')
@@ -202,36 +95,6 @@ class PrePushCheckTest(unittest.TestCase):
         code, _ = self.hook('git push origin HEAD:main', **{**red, 'GH_LATEST': 'f' * 40})
         self.assertEqual(code, 2)
 
-    def test_an_area_with_no_affected_tests_is_not_started(self):
-        # Tiers (11 Oct 2026): a push nothing tests no longer starts every area just for stage + lint. The empty pick is the premise: no tests exist in this repo.
-        shutil.copy(ROOT / 'tools' / 'affected-tests.py', self.repo / 'tools' / 'affected-tests.py')
-        self.needed_committed()
-        git(self.repo, 'push', '-q', 'origin', 'main')
-        self.log.unlink(missing_ok=True)
-        self.commit('Change a helper', {'tools/helper.sh': 'echo hi\n'})
-        code, err = self.hook('git push origin HEAD:main')
-        self.assertEqual(code, 0)
-        self.assertIn('no affected tests', err)
-        self.assertFalse(self.log.exists(), 'no suite started')
-        self.assertEqual(self.hook('git push origin HEAD:main', JOB_PILOTTO_TIERS='0')[0], 0)
-        self.assertEqual(len(self.log.read_text().splitlines()), 4, 'the escape hatch runs every area the paths want')
-        self.log.unlink()
-        self.commit('Change a script', {'desktop/lib/x.js': 'export {};\n'})
-        self.hook('git push origin HEAD:main')
-        self.assertIn('--area desktop', self.log.read_text(), 'a changed JS file keeps desktop (its lint)')
-
-
-    def gate_stubs(self, journey_exit=0, seconds=1):
-        # a journey gate and a suite that each take `seconds` and log when they start and end; the ladder gate is absent (the hook skips a gate that is not there)
-        (self.repo / 'tools' / 'journey-gate.mjs').write_text(f"import fs from 'node:fs'; fs.appendFileSync(process.env.CHECK_LOG + '.order', 'gate-start\\n'); await new Promise(r => setTimeout(r, {seconds * 1000})); fs.appendFileSync(process.env.CHECK_LOG + '.order', 'gate-end\\n'); console.log('journey gate: stub says {'no' if journey_exit else 'yes'}'); process.exit({journey_exit});\n")
-        check = self.repo / 'tools' / 'check.sh'
-        check.write_text(f'#!/usr/bin/env bash\necho suite-start >> "$CHECK_LOG.order"; sleep {seconds}; echo suite-end >> "$CHECK_LOG.order"\n')
-        check.chmod(0o755)
-        self.commit('Gate stubs', {'desktop/shared/needed.js': 'export {};\n', 'worker/a.js': 'x'})
-        git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
-        self.commit('Worker change', {'worker/b.js': str(journey_exit) + str(seconds)})
-        Path(str(self.log) + '.order').unlink(missing_ok=True)
-
     @unittest.skipUnless(shutil.which('node'), 'needs node')
     def test_the_journey_gate_runs_beside_the_suites_and_a_failing_gate_blocks_with_its_output(self):
         # owner, 11 Oct 2026: lock wait + journey gate + slowest suite, one after another; the gate now starts with the suites
@@ -257,38 +120,6 @@ class PrePushCheckTest(unittest.TestCase):
         self.assertLess(order.index('gate-end'), order.index('suite-start'), 'serial: the gate is done before the suite starts')
         self.assertIn('JP_GATE_SERIAL=1', err)
 
-    def slow_suite(self, seconds, whole=False):
-        check = self.repo / 'tools' / 'check.sh'
-        check.write_text(f'#!/usr/bin/env bash\necho "$PWD $*" >> "$CHECK_LOG"\nsleep {seconds}\n')
-        check.chmod(0o755)
-        self.commit('Slow suite stub', {'desktop/shared/needed.js': 'export {};\n', 'worker/a.js': 'x'})
-        git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
-        self.commit('Worker change', {'Makefile': str(seconds)} if whole else {'worker/b.js': str(seconds)})   # an unknown top-level path: the picker says "all", the whole suite runs, and it may be deferred
-
-    def test_a_heavy_step_still_running_at_the_budget_is_deferred_to_ci_not_failed(self):
-        # owner, 11 Oct 2026: every local check before a push takes under 60 s; a heavy step still running at ~55 s is "deferred to CI", never failed, never dropped
-        self.slow_suite(8, whole=True)
-        began = time.monotonic()
-        code, err = self.hook('git push origin HEAD:main', JP_GATE_BUDGET='2')
-        self.assertEqual(code, 0, err)
-        self.assertLess(time.monotonic() - began, 7, 'the hook did not wait the suite out')
-        self.assertIn('DEFERRED TO CI', err)
-        self.assertIn('(clean checkout)', err.split('DEFERRED TO CI')[1], 'it names what was deferred')
-
-    def test_jp_gate_full_waits_the_suite_out_and_blocks_on_its_failure(self):
-        self.slow_suite(4, whole=True)
-        began = time.monotonic()
-        code, err = self.hook('git push origin HEAD:main', JP_GATE_BUDGET='1', JP_GATE_FULL='1')
-        self.assertEqual(code, 0, err)
-        self.assertGreaterEqual(time.monotonic() - began, 4, 'JP_GATE_FULL=1 runs the old full run: no watchdog')
-        self.assertNotIn('DEFERRED TO CI', err)
-
-    def test_a_push_over_the_budget_is_listed_in_the_summary(self):
-        shutil.copy(ROOT / 'tools' / 'gate-timing.sh', self.repo / 'tools' / 'gate-timing.sh')
-        self.slow_suite(3)
-        code, err = self.hook('git push origin HEAD:main', JP_GATE_BUDGET='60', JP_GATE_SLOW_AFTER='2')
-        self.assertEqual(code, 0, err)
-        self.assertIn('over the 2 s budget', err)
 
 if __name__ == '__main__':
     unittest.main()
