@@ -207,7 +207,7 @@ test('the live ask\'s duration is kept beside its answer (#ms); a replay serves 
   const replayed = async options => { const client = {engine: 'cli', messages: {create: async () => { throw new Error('never asked'); }}}; const at = Date.now(); await withMemo(client, file, {only: true, ...options}).messages.create(ask('a page')); return Date.now() - at; };
   assert.ok(await replayed({latency: false}) < 40, 'off: answered at once');
   assert.ok(await replayed({latency: true}) >= 45, 'on: after the live duration');
-  assert.equal(LATENCY_CAP_MS, 8000, 'the cap');
+  assert.equal(LATENCY_CAP_MS, 3000, 'the cap');
   assert.equal(latencyOn({JOB_PILOTTO_E2E: '1', JOB_PILOTTO_MODEL_MEMO_LATENCY: '1'}), true);
   assert.equal(latencyOn({JOB_PILOTTO_MODEL_MEMO_LATENCY: '1'}), false, 'only under the e2e env');
 });

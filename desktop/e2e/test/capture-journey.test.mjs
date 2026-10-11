@@ -137,3 +137,16 @@ test('the snapshot cuts a link\'s whole query, commas included (a Google Fonts h
     assert.match(html, /<a href="https:\/\/x\.example\/p">/);
   } finally { await browser.close(); }
 });
+
+test('the snapshot marks each control\'s state (filled, empty, checked, unchecked) and still keeps no value', {skip}, async () => {
+  const {browser, context} = await open();
+  try {
+    const page = await context.newPage();
+    await page.setContent('<html><body><input id="a" type="text"><input id="b" type="text"><input id="k" type="checkbox"><input id="m" type="checkbox"><textarea id="t"></textarea><select id="s"><option value="">-</option><option value="1">one</option></select></body></html>');
+    await page.evaluate(() => { document.getElementById('a').value = 'Ada Lovelace'; document.getElementById('m').checked = true; document.getElementById('t').value = 'a note'; document.getElementById('s').value = '1'; });
+    const html = await page.evaluate(snapshotInPage);
+    const state = id => html.match(new RegExp(`id="${id}"[^>]*data-jp-state="(\\w+)"|data-jp-state="(\\w+)"[^>]*id="${id}"`)).slice(1).find(Boolean);
+    assert.deepEqual(['a', 'b', 'k', 'm', 't', 's'].map(state), ['filled', 'empty', 'unchecked', 'checked', 'filled', 'filled']);
+    assert.ok(!html.includes('Ada Lovelace') && !html.includes('a note'), 'no value');
+  } finally { await browser.close(); }
+});

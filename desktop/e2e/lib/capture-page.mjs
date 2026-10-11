@@ -53,6 +53,13 @@ export function scrubPage(html, values = new Map()) {
 // Frames stay as elements (address without query): each frame's own document is captured as its own page (lib/capture-journey.mjs).
 export function snapshotInPage() {
   const root = document.documentElement.cloneNode(true);
+  // Each control's state at this moment, never its value (12 Oct 2026: the sketch the extension's asks carry lists "filled"/"empty"/"checked"; a replayed page that lost them made the ask differ): data-jp-state on the copy.
+  const FIELDS = 'input, textarea, select', liveFields = [...document.querySelectorAll(FIELDS)], copyFields = [...root.querySelectorAll(FIELDS)];
+  liveFields.forEach((field, at) => {
+    const copy = copyFields[at], type = String(field.type || '').toLowerCase();
+    if (!copy || /^(file|submit|button|image|reset|hidden)$/.test(type)) return;
+    copy.setAttribute('data-jp-state', /^(checkbox|radio)$/.test(type) ? (field.checked ? 'checked' : 'unchecked') : field.tagName === 'SELECT' ? (field.selectedIndex > 0 ? 'filled' : 'empty') : String(field.value || '') !== '' ? 'filled' : 'empty');
+  });
   const SHEETS = 'link[rel~="stylesheet"], style';
   const live = [...document.querySelectorAll(SHEETS)], copies = [...root.querySelectorAll(SHEETS)];
   live.forEach((node, at) => {

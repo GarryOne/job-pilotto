@@ -12,16 +12,31 @@ export function replayPresses(requests, hosts = null) {   // hosts: only this ro
     try { entries = JSON.parse(request.body).entries || []; } catch { continue; }   // a body cut at the recording limit
     for (const entry of entries) {
       const text = String(entry.text || '').replace(/^[a-z-]+: /, ''), found = text.match(PRESS);
-      if (found && (!hosts || !entry.fields?.host || hosts.has(String(entry.fields.host)))) presses.push({what: found[1].trim(), label: String(entry.fields?.label || '')});
+      if (found && found[1].trim() !== 'closed a popup' && (!hosts || !entry.fields?.host || hosts.has(String(entry.fields.host)))) presses.push({what: found[1].trim(), label: String(entry.fields?.label || '')});
     }
   }
   return presses;
 }
 
 // The main page's state the live run reached after its press `k` (between that press and the next one: the one kept at the extension's ask, else the first), or null.
-// A popup the live run closed BEFORE its first kept page (a cookie banner: the capture's first page is the one after it, without the banner) cannot be pressed by the replay, whose page never offers it:
-// it is not part of the journey the replay follows (12 Oct 2026, Teamtailor: the replay's first press was Apply, the live run's the banner, so it diverged at press 1). firstAt: the time of the first kept page.
-export const keptPresses = (presses, firstAt) => (firstAt == null ? presses : presses.filter(press => !(press.what === 'closed a popup' && press.at < firstAt)));
+// A popup close is optional on BOTH sides (12 Oct 2026): the replayed page may or may not offer the banner the live run closed (Teamtailor: the page kept after the close has none; Lever: the banner's markup stays in every
+// kept state, so the replay's extension closes it again and "pressed deny; the live run pressed nothing more" ended the replay at 1.6 s), and the owner's continuous popup guard closes popups at any moment. A popup
+// changes no journey: it is in neither list (replayPresses leaves it out of the replay's, this out of the live run's) before presses are compared or states are indexed. The 2nd argument is kept for old callers.
+export const keptPresses = presses => presses.filter(press => press.what !== 'closed a popup');
+
+// Which later states follow a MODEL ASK, not an attach (12 Oct 2026, Lever: the page the form judge saw, the resume widget reading "CV.PDF Success!", was a state kept 1 s after the form answers came back; the replay's
+// judge asked before any clock-timed swap and saw the page before the upload). The first later state is the attach's (Ashby: the page's autofill after the upload, seconds after the extension typed). Each of the others is
+// bound to the last ask the live run had answered within `withinMs` before it: {state, route, n} = swap before the n-th answer on that route is delivered; the rest stay with the attach list. asks: [{route, at}] by time.
+export function bindToAsks(later, asks = [], withinMs = 5000) {
+  const bound = [], free = [];
+  for (const state of later.slice(1)) {
+    const seen = {};
+    let hit = null;
+    for (const ask of asks) { seen[ask.route] = (seen[ask.route] || 0) + 1; if (ask.at <= state.at && state.at - ask.at <= withinMs) hit = {route: ask.route, n: seen[ask.route]}; }
+    if (hit) bound.push({state, ...hit}); else free.push(state);
+  }
+  return {bound, free: later.slice(0, 1).concat(free)};
+}
 
 // How long after the extension's file attach the page moves to the live run's next state: the gap the live run had between that state and the one before it, within 150 ms and 8 s. The site's autofill
 // took seconds (Ashby: 2.6-4.6 s); a swap at 150 ms made the extension's first page-kind ask see the AUTOFILLED page the live ask never saw (12 Oct 2026: cold ask, "Autofill completed!" in its headings).
@@ -66,7 +81,7 @@ export function swapInPage(html) {
     if (from.nodeType === 3 || from.nodeType === 8) { if (from.nodeValue !== to.nodeValue) from.nodeValue = to.nodeValue; return; }
     for (const attr of [...from.attributes]) if (!to.hasAttribute(attr.name) && !/^data-jobpilotto/.test(attr.name) && attr.name !== 'value') from.removeAttribute(attr.name);
     for (const attr of [...to.attributes]) if (attr.name !== 'value' && from.getAttribute(attr.name) !== attr.value) from.setAttribute(attr.name, attr.value);
-    if (/^(INPUT|TEXTAREA)$/.test(from.tagName) && !/^(file|checkbox|radio|submit|button|image|reset|hidden)$/i.test(from.type || '')) from.value = to.getAttribute('value') ?? (to.tagName === 'TEXTAREA' ? to.textContent : '');
+    if (/^(INPUT|TEXTAREA)$/.test(from.tagName) && !/^(file|checkbox|radio|submit|button|image|reset|hidden)$/i.test(from.type || '') && to.getAttribute('data-jp-state') !== 'filled') from.value = to.getAttribute('value') ?? (to.tagName === 'TEXTAREA' ? to.textContent : '');   // a box the live state had FILLED keeps what the extension typed
     if (from.tagName === 'TEXTAREA') return;
     const mine = [...from.childNodes].filter(node => !ours(node)), theirs = [...to.childNodes];
     for (let at = 0; at < Math.max(mine.length, theirs.length); at++) {
@@ -77,6 +92,14 @@ export function swapInPage(html) {
     }
   };
   morph(document.body, next.body);
+  // The live state's control states (lib/capture-page.mjs data-jp-state, no values): a box the page had filled is filled (a typed value stays, else a stand-in), a checkbox is as it was, a select has a choice or none.
+  for (const field of document.querySelectorAll('[data-jp-state]')) {
+    const mark = field.getAttribute('data-jp-state');
+    if (/^(checkbox|radio)$/i.test(field.type || '')) field.checked = mark === 'checked';
+    else if (field.tagName === 'SELECT') { if (mark === 'filled' && field.selectedIndex <= 0 && field.options.length > 1) field.selectedIndex = 1; if (mark === 'empty') field.selectedIndex = 0; }
+    else if (mark === 'filled' && !String(field.value || '')) field.value = 'x';
+    else if (mark === 'empty') field.value = '';
+  }
   document.head.innerHTML = next.head.innerHTML;
   document.title = next.title;
 }

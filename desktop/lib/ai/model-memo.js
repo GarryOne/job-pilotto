@@ -105,7 +105,7 @@ export const memoOnly = (env = process.env) => !!env.JOB_PILOTTO_E2E && env.JOB_
 // JOB_PILOTTO_MODEL_MEMO_LATENCY=1 (e2e only): a replay serves a kept answer after the time the live ask took (recorded as `<key>#ms`, at most LATENCY_CAP_MS): the extension's concurrent flows (a popup dismissed
 // while the page-kind ask is out, a widget reacting to the upload) then interleave as they did live, not by how fast this machine answers (12 Oct 2026: a row case green on a Mac, red on the Linux runner).
 export const latencyOn = (env = process.env) => !!env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_MODEL_MEMO_LATENCY === '1';
-export const LATENCY_CAP_MS = 8000;
+export const LATENCY_CAP_MS = 3000;
 // JOB_PILOTTO_MODEL_MEMO_LATENCY_SCALE / _PAD_MS (e2e only): a slowed replay (row-to-case's second speed): every kept answer takes SCALE times as long and PAD ms more, also one with no recorded time.
 const later = (ms, env) => { const wait = Math.min(LATENCY_CAP_MS, Math.max(0, ms || 0) * (Number(env.JOB_PILOTTO_MODEL_MEMO_LATENCY_SCALE) || 1)) + (Number(env.JOB_PILOTTO_MODEL_MEMO_LATENCY_PAD_MS) || 0); return wait > 0 ? new Promise(resolve => setTimeout(resolve, wait)) : null; };
 export const missLogFile = (env = process.env) => (env.JOB_PILOTTO_E2E ? String(env.JOB_PILOTTO_MODEL_MEMO_MISSLOG || '') : '');

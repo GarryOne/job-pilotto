@@ -58,10 +58,10 @@ test('a replay reads its misses from the memo\'s own miss log (whole lines, not 
   assert.deepEqual(missesOf(path.join(path.dirname(file), 'none.jsonl')), {parts: [], volatile: []}, 'no miss: no file');
 });
 
-test('the journey a replay follows leaves out a popup the live run closed before its first kept page (the cookie banner), not one closed later', () => {
+test('the journey a replay follows leaves out every popup the live run closed (before or after its first kept page): a popup close is optional on both sides', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-row-popup-'));
   write(path.join(dir, 'pages/1.html'), '<p>after the banner</p>');
   write(path.join(dir, 'case.json'), JSON.stringify({pages: [{url: 'https://a.example/p', file: 'pages/1.html', at: 100, state: 0, ask: true, view: {width: 1200, height: 818, doc: 5}}]}));
   write(path.join(dir, 'presses.json'), JSON.stringify([{at: 90, what: 'closed a popup', label: 'Decline all non-necessary cookies'}, {at: 150, what: 'pressed the Apply button', label: 'Apply'}, {at: 160, what: 'closed a popup', label: 'Ok'}]));
-  assert.deepEqual(rowFiles(dir).presses.map(press => press.label), ['Apply', 'Ok']);
+  assert.deepEqual(rowFiles(dir).presses.map(press => press.label), ['Apply']);
 });

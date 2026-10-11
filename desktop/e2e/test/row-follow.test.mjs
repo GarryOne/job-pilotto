@@ -2,14 +2,14 @@
 // lib/row-follow.mjs: a row replay follows the live run's states after each press it makes the same way, and stops with a finding at the first different press.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {followDelayMs, keptPresses, laterStates, replayPresses, samePress, stateAfter} from '../lib/row-follow.mjs';
+import {bindToAsks, followDelayMs, keptPresses, laterStates, replayPresses, samePress, stateAfter} from '../lib/row-follow.mjs';
 
 const log = entries => ({route: '/extension/log', body: JSON.stringify({entries})});
 
 test('the replay\'s presses are read from its own log calls, in order, with their labels', () => {
   const requests = [log([{text: 'fill: closed a popup', fields: {label: 'Ok'}}, {text: 'page kind: posting', fields: {}}]),
     {route: '/extension/page-kind', body: '{}'}, log([{text: 'fill: pressed the Apply button', fields: {label: 'Easy apply'}}]), {route: '/extension/log', body: '{"entries":[{"te'}];
-  assert.deepEqual(replayPresses(requests), [{what: 'closed a popup', label: 'Ok'}, {what: 'pressed the Apply button', label: 'Easy apply'}]);
+  assert.deepEqual(replayPresses(requests), [{what: 'pressed the Apply button', label: 'Easy apply'}], 'a popup close is no press of the journey');
 });
 
 test('after press k the state is the first one kept after it and before the next press; none, the page stayed', () => {
@@ -31,8 +31,8 @@ test('the same press follows; a different one is the finding, with both labels',
 test('side by side, a row reads only its own presses (by host); a press line that names no host is kept', () => {
   const requests = [log([{text: 'fill: pressed the Apply button', fields: {label: 'Apply', host: 'a.example'}}, {text: 'fill: pressed the Apply button', fields: {label: 'Easy apply', host: 'b.example'}},
     {text: 'fill: closed a popup', fields: {label: 'Ok'}}])];
-  assert.deepEqual(replayPresses(requests, new Set(['a.example'])).map(press => press.label), ['Apply', 'Ok']);
-  assert.equal(replayPresses(requests).length, 3);
+  assert.deepEqual(replayPresses(requests, new Set(['a.example'])).map(press => press.label), ['Apply']);
+  assert.equal(replayPresses(requests).length, 2);
 });
 
 test('after a press, the state kept at the extension\'s ask wins over one kept earlier as the page settled', () => {
@@ -53,12 +53,13 @@ test('states the page reached on its own after the first one (the extension atta
   assert.deepEqual(laterStates(states, [{at: 50}], 0), [], 'a press with nothing after it: nothing follows');
 });
 
-test('a popup the live run closed BEFORE its first kept page (the cookie banner: the capture\'s first page is the one after it) is not a press the replay can make: dropped; later presses and other kinds stay', () => {
+test('a popup close is in neither list: not the live run\'s (before or after its first page, one or several) and not the replay\'s (Lever keeps the banner in every state, Teamtailor has none)', () => {
   const presses = [{at: 5, what: 'closed a popup', label: 'Decline all non-necessary cookies'}, {at: 6, what: 'pressed the Apply button', label: 'Apply'}, {at: 20, what: 'closed a popup', label: 'Ok'}];
-  assert.deepEqual(keptPresses(presses, 10).map(press => press.what), ['pressed the Apply button', 'closed a popup']);
-  assert.deepEqual(keptPresses(presses, 3).map(press => press.label), ['Decline all non-necessary cookies', 'Apply', 'Ok'], 'a popup after the first page is kept');
-  assert.deepEqual(keptPresses(presses, null), presses, 'no first page time: nothing dropped');
-  assert.deepEqual(keptPresses([{at: 5, what: 'closed a popup', label: 'A'}, {at: 6, what: 'closed a popup', label: 'B'}], 10), [], 'several leading popups all go');
+  assert.deepEqual(keptPresses(presses, 10).map(press => press.what), ['pressed the Apply button']);
+  assert.deepEqual(keptPresses(presses, 3).map(press => press.label), ['Apply'], 'a popup after the first page goes too');
+  assert.deepEqual(keptPresses(presses, null).map(press => press.label), ['Apply']);
+  const log = entries => [{route: '/extension/log', body: JSON.stringify({entries})}];
+  assert.deepEqual(replayPresses(log([{text: 'closed a popup: deny', fields: {label: 'deny'}}, {text: 'pressed the Apply button: Apply', fields: {label: 'Apply'}}])).map(press => press.label), ['Apply'], 'the replay\'s popup close is left out');
 });
 
 test('the page follows an attach after the gap the live run had between its two states, within 150 ms and 8 s, so the extension\'s first ask sees the page the live ask saw', () => {
@@ -86,5 +87,28 @@ test('a later live state is played INTO the page: the box the extension typed in
     assert.equal(seen.more, true);
     assert.equal(seen.ui, true);
     assert.equal(seen.title, 'b');
+  } finally { await browser.close(); }
+});
+
+test('a later state that followed an answered ask within 5 s is bound to it; the first later state stays the attach\'s; one far from any ask stays free', () => {
+  const later = [{at: 3000, id: 'attach'}, {at: 21600, id: 'after answer'}, {at: 40000, id: 'far'}];
+  const asks = [{route: '/extension/page-kind', at: 6400}, {route: '/extension/answer', at: 20600}, {route: '/extension/account-judge', at: 26700}];
+  const {bound, free} = bindToAsks(later, asks);
+  assert.deepEqual(bound.map(item => [item.state.id, item.route, item.n]), [['after answer', '/extension/answer', 1]]);
+  assert.deepEqual(free.map(state => state.id), ['attach', 'far']);
+  assert.deepEqual(bindToAsks(later, []).free.map(state => state.id), ['attach', 'after answer', 'far'], 'no asks: all stay with the attach list');
+  assert.equal(bindToAsks([{at: 5000}, {at: 9000}], [{route: 'r', at: 1000}, {route: 'r', at: 8000}]).bound[0].n, 2, 'the n-th answer on that route');
+});
+
+test('the live state\'s control states are restored after the swap: a filled box keeps the typed value (or gets a stand-in), an empty one is empty, a checkbox is as it was', {skip: !chromium && 'no Chromium installed'}, async () => {
+  const {swapInPage} = await import('../lib/row-follow.mjs');
+  const browser = await chromium.launch({headless: true});
+  try {
+    const page = await (await browser.newContext()).newPage();
+    await page.setContent('<html><body><input id="a" type="text"><input id="b" type="text"><input id="c" type="text"><input id="k" type="checkbox"><input id="m" type="checkbox"></body></html>');
+    await page.evaluate(() => { document.getElementById('a').value = 'Ada'; document.getElementById('b').value = 'typed'; document.getElementById('m').checked = true; });
+    await page.evaluate(swapInPage, '<html><body><input id="a" type="text" data-jp-state="filled"><input id="b" type="text" data-jp-state="empty"><input id="c" type="text" data-jp-state="filled"><input id="k" type="checkbox" data-jp-state="checked"><input id="m" type="checkbox" data-jp-state="unchecked"></body></html>');
+    const seen = await page.evaluate(() => ({a: document.getElementById('a').value, b: document.getElementById('b').value, c: document.getElementById('c').value, k: document.getElementById('k').checked, m: document.getElementById('m').checked}));
+    assert.deepEqual(seen, {a: 'Ada', b: '', c: 'x', k: true, m: false});
   } finally { await browser.close(); }
 });

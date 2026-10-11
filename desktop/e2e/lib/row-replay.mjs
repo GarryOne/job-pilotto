@@ -10,7 +10,7 @@ import path from 'node:path';
 import {evidenceLines} from './evidence-bundle.mjs';
 import {nextRunnable} from './replay-browser.mjs';
 import {PAGE_LINE, stillClock} from './live-still.mjs';
-import {followDelayMs, keptPresses, laterStates, replayPresses, samePress, stateAfter, swapInPage} from './row-follow.mjs';
+import {bindToAsks, followDelayMs, keptPresses, laterStates, replayPresses, samePress, stateAfter, swapInPage} from './row-follow.mjs';
 import {frontOf} from './app-front.mjs';
 import {activityOf, mayEnd} from './row-end.mjs';
 import {applyPoolEligibility} from './pool-eligibility.mjs';
@@ -56,7 +56,7 @@ export function rowFiles(caseDir) {
   const states = item.pages.filter(page => !page.frameOf && page.at != null).map(page => ({url: addressOf(page.url), href: String(page.url), at: page.at, state: page.state || 0, ask: !!page.ask, view: page.view || null, html: html(page)})).sort((a, b) => a.at - b.at);
   const entries = readJson(path.join(caseDir, 'styles.har.json'), {log: {entries: []}}).log?.entries || [];
   const sheets = new Map(entries.map(entry => [addressOf(entry.request.url), entry.response?.content?.text || '']));
-  return {start: item.pages.find(page => !page.frameOf) || item.pages[0], documents, sheets, states, presses: keptPresses(readJson(path.join(caseDir, 'presses.json'), []), states[0]?.at ?? null)};
+  return {start: item.pages.find(page => !page.frameOf) || item.pages[0], documents, sheets, states, presses: keptPresses(readJson(path.join(caseDir, 'presses.json'), []), states[0]?.at ?? null), asks: Array.isArray(item.asks) ? item.asks : readJson(path.join(caseDir, 'ai-calls.json'), []).map(call => ({route: String(call.route), at: call.at})).filter(call => Number.isFinite(call.at)).sort((a, b) => a.at - b.at)};   // a built case keeps them in case.json; a pool candidate has ai-calls.json
 }
 
 // A capture made before the replay format (11 Oct 2026: no page state carries its window size or the extension's ask) replays without the live run's states,
@@ -96,6 +96,14 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
   // the memo key; with the stand-in contact the whole ask missed its kept answer (12 Oct 2026, Ashby: profile lines 30-37 differed, found by the memo's line hashes).
   await app.call('saveContact', CONTACT);
   const front = await frontOf(app);
+  // A page state that followed a model ask in the live run (row-follow.mjs bindToAsks) is played in BEFORE that ask's answer goes back: the extension's next step then sees the page as it did live, however fast this
+  // machine answers. The ask is the row's n-th on its route; a row side by side with others is found by its hosts in the request.
+  front.beforeRespond = async (route, body) => {
+    const row = [...active].find(one => active.size === 1 || [...one.hosts].some(host => body.includes(host)));
+    if (!row?.bound?.length || !row.tab) return;
+    const n = row.countRoute(route);
+    for (const hit of row.bound.filter(item => item.route === route && item.n === n && !item.done)) { hit.done = true; await advance(row, row.tab, hit.state, `ask ${route} #${n} answered`, 0); }
+  };
   const run = await openBrowser({extensionDir, port: front.port});
   // The eligibility stop is OFF, as in the live pool row that made the capture (lib/pool-eligibility.mjs, cbf5ccc): with it on, a French posting stopped the fill before any field (12 Oct 2026, Ashby), so a fix
   // that acts on the fields could never show. Set through the extension's own switch before the tab opens, and read back.
@@ -160,7 +168,8 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
     const pageStates = new Map();   // address -> the first state the live run kept of it as the tab's own page
     for (const state of [...states.filter(one => one.ask), ...states]) if (!pageStates.has(state.url)) pageStates.set(state.url, state.html);
     const timeline = [];   // what happened when, from this replay's start: the page's swaps (here) and the extension's own log lines (below): all CI keeps of a failed replay (12 Oct 2026: a case flaked and nothing said why)
-    const row = {name, documents: files.documents, sheets: files.sheets, pageStates, unrecorded: new Set(), states, presses, applied: 0, later: laterStates(states, presses, -1), hosts,
+    const split = bindToAsks(laterStates(states, presses, -1), files.asks);
+    const row = {name, documents: files.documents, sheets: files.sheets, pageStates, unrecorded: new Set(), states, presses, applied: 0, later: split.free, bound: split.bound, hosts,
       say: line => { say(line); timeline.push({ms: Date.now() - started, text: String(line).replace(/^row: [^:]+: /, '')}); }};
     const mine = text => alone || [...hosts].some(host => String(text).includes(host));
     const fromRequest = front.requests.length, fromLog = app.logText().length;
@@ -170,6 +179,7 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
     const tab = await run.context.newPage();
     if (slow) await (await run.context.newCDPSession(tab)).send('Emulation.setCPUThrottlingRate', {rate: 4}).catch(() => {});   // a slower machine: the page's own timers and the extension's page script run behind
     rows.set(tab, row);
+    row.tab = tab; row.countRoute = route => requests().filter(request => request.route === route).length;
     if (blank) { await blank.close().catch(() => {}); blank = null; }
     try {
       const view = states[0]?.view?.width ? states[0].view : LIVE_WINDOW;
