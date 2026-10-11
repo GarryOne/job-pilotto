@@ -73,11 +73,16 @@ class WaitBuildTagTest(unittest.TestCase):
 
     def test_the_old_wait_for_the_whole_build_is_one_switch_away(self):
         self.build(tag_status='completed')
-        end = subprocess.Popen(['bash', '-c', f'sleep 0.6; : > "{(self.state / "running").as_posix()}"'])
-        result, took = self.run_tool(SHIP_WAIT_FOR_BUILD='1')
-        end.wait()
-        self.assertIn('until it ends', result.stderr)
-        self.assertGreaterEqual(took, 0.5)
+        err_file = self.tmp / 'err'
+        with open(err_file, 'w') as err_out:
+            proc = subprocess.Popen(['bash', str(TOOL)], stderr=err_out, text=True, env={**self.env, 'SHIP_WAIT_FOR_BUILD': '1'})
+            deadline = time.monotonic() + 60
+            while 'until it ends' not in err_file.read_text() and proc.poll() is None and time.monotonic() < deadline:   # it says it waits: then the build ends
+                time.sleep(0.05)
+            self.assertIsNone(proc.poll(), 'tagged already, yet it waits for the build to end')
+            (self.state / 'running').write_text('')
+            proc.wait(timeout=60)
+        self.assertIn('until it ends', err_file.read_text())
 
     def test_it_gives_up_after_its_looks_and_never_fails_the_push(self):
         self.build()
