@@ -55,9 +55,10 @@ test('it never writes into the real data folder of the app', () => {
   assert.equal(captureCall({route: '/x', request, answer}, {env: {LIVE_CAPTURE_DIR: path.join(real, 'Job Pilotto', 'x')}}), false);
 });
 
-test('the shipped app source calls it in one place and only through captureCall', () => {
+test('the shipped app source calls it in one place per kept route (page-kind, form judge) and only through captureCall', () => {
   const source = fs.readFileSync(new URL('../lib/server-pages.js', import.meta.url), 'utf8');
-  assert.equal((source.match(/captureCall\(/g) || []).length, 1);
+  assert.equal((source.match(/captureCall\(/g) || []).length, 2);
+  for (const route of ['/extension/page-kind', '/extension/account-judge']) assert.equal((source.match(new RegExp(`captureCall\\(\\{route: '${route}'`, 'g')) || []).length, 1, route);
   assert.ok(!/LIVE_CAPTURE_DIR/.test(source), 'the env var is read only inside lib/live-capture.js');
 });
 

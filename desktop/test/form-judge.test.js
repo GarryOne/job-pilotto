@@ -1,5 +1,8 @@
 // The AI's readiness judgment on an application form (lib/form-judge.js): fixed answers, a control only if the page lists it, no AI means no answer, no typed value is sent.
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {test} from 'node:test';
 import {judgeForm} from '../lib/form-judge.js';
 import {decideAccountJudge} from '../lib/server-pages.js';
@@ -54,4 +57,19 @@ test('alternatives (Upload CV / Copy and paste CV / LinkedIn) are one need, and 
   await judgeForm(fake({answer: 'ready', needs: '', needs_kind: '', confidence: 0.9, step: 'middle', next_control: 'Continue'}, seen), {...steps});
   assert.match(seen[0].system, /alternatives/);
   assert.match(seen[0].system, /judge only what THIS step needs/);
+});
+
+test('under the e2e capture the form judge\'s ask is kept for the replay to compare with: the sketch, scrubbed (no typed value, no query), and the fixed answer', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-judge-capture-')), before = process.env.LIVE_CAPTURE_DIR;
+  process.env.LIVE_CAPTURE_DIR = dir;
+  try {
+    await decideAccountJudge({}, {phase: 'form', sketch: page}, {client: fake({answer: 'needs_person', needs: 'Envoyer', needs_kind: 'other', confidence: 0.8})});
+  } finally { if (before === undefined) delete process.env.LIVE_CAPTURE_DIR; else process.env.LIVE_CAPTURE_DIR = before; }
+  const [call] = JSON.parse(fs.readFileSync(path.join(dir, 'ai-calls.json'), 'utf8'));
+  assert.equal(call.route, '/extension/account-judge');
+  assert.equal(call.request.phase, 'form');
+  assert.deepEqual(call.request.sketch.controls.map(item => [item.label, item.state]), [['Prénom', 'filled'], ['Formule d\'appel', 'filled']], 'the control states are what the replay must restore');
+  const text = JSON.stringify(call);
+  assert.ok(!text.includes('Ada') && !text.includes('SECRET'), 'no typed value, no query');
+  assert.equal(call.answer.answer, 'needs_person');
 });

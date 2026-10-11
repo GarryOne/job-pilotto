@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {askDiff} from './lib/ask-diff.mjs';
 import {seedNote} from './lib/applicant-seed.mjs';
 import {looseSummary} from './lib/row-case-run.mjs';
 import {findRow, replayRow, replayRows, staleCapture} from './lib/row-replay.mjs';
@@ -34,6 +35,10 @@ if (all) {
   const result = await replayRow(dir, {extensionDir, loose, say: console.log});
   console.log(line(result));
   if (loose) console.log(`row: ${looseSummary(result.looseHits) || 'no loose memo hit: every ask matched its kept answer exactly'}`);
+  if (result.misses) {   // the live run's own asks (the app's capture) against what the replayed extension sent: what the kept answer was asked about, line by line
+    let calls = []; try { calls = JSON.parse(fs.readFileSync(path.join(dir, 'ai-calls.json'), 'utf8')); } catch { /* a capture without it */ }
+    for (const text of askDiff(calls, result.requests)) console.log(`row: ask differs: ${text}`);
+  }
   for (const address of result.unrecorded) console.log(`row: route not recorded: ${address}`);
   for (const [part, lines] of Object.entries(result.evidence)) console.log(`${part}:\n${lines.length ? lines.map(text => `  ${text}`).join('\n') : '  (none in the app log)'}`);
 }
