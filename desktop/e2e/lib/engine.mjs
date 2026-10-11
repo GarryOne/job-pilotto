@@ -51,3 +51,8 @@ export function pickEngine({env = process.env, suiteEngine = '', installed = cla
 export const familyOf = engine => (engine === 'openai' || engine === 'codex' ? 'openai' : 'claude');
 export const keySecret = engine => (familyOf(engine) === 'openai' ? 'E2E_OPENAI_KEY' : 'E2E_ANTHROPIC_KEY');
 export const appSecretName = engine => (familyOf(engine) === 'openai' ? 'OPENAI_API_KEY' : 'ANTHROPIC_API_KEY');
+
+// The applyflows suite's engine (npm run live / flows / the pool's smoke). A live run on a real site asks the AI things no proxy answer covers (which popup button, which
+// upload slot, a picture), so it runs on this Mac's Claude Code, never the proxy with its placeholder key (that key answered those asks with 401, 11 Oct 2026).
+// Only the offline matrix uses the proxy; LIVE_ENGINE=api forces it for a live run, LIVE_ENGINE=cli for the matrix.
+export const flowsEngine = (env = process.env) => (env.LIVE_ENGINE ? (env.LIVE_ENGINE === 'cli' ? 'cli' : 'api') : env.LIVE ? 'cli' : 'api');

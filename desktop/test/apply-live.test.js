@@ -32,3 +32,18 @@ test('the live run removes its job through the store-aware helper, not the Notio
   assert.match(source, /removeJobsByUrl\} from '\.\/seed-data\.mjs'/);
   assert.match(source, /removeJobsByUrl\(ctx, \[posting\.url\]\)/);
 });
+
+// A live run's page-lane asks (popup button, upload slot, closer look) must not reach the proxy's placeholder key: 401 "invalid x-api-key" (11 Oct 2026).
+import {flowsEngine} from '../e2e/lib/engine.mjs';
+test('a live run is on Claude Code, the matrix on the proxy; LIVE_ENGINE overrides either', () => {
+  assert.equal(flowsEngine({LIVE: '1'}), 'cli');
+  assert.equal(flowsEngine({}), 'api');
+  assert.equal(flowsEngine({LIVE: '1', LIVE_ENGINE: 'api'}), 'api');
+  assert.equal(flowsEngine({LIVE_ENGINE: 'cli'}), 'cli');
+});
+test('every live-capable suite takes its engine from flowsEngine', () => {
+  const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'e2e', 'suites');
+  const live = fs.readdirSync(dir).filter(file => /process\.env\.LIVE\b/.test(fs.readFileSync(path.join(dir, file), 'utf8')));
+  assert.ok(live.length);
+  for (const file of live) assert.match(fs.readFileSync(path.join(dir, file), 'utf8'), /engine = flowsEngine\(\)/, file);
+});

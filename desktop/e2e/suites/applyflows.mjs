@@ -3,6 +3,7 @@
 // (runApply), on its own Notion page and token (E2E_NOTION_TOKEN_APPLYFLOWS, Keychain job-pilotto.e2e.notion_token_applyflows), so it runs in parallel with `apply`.
 // CI does not schedule it: GitHub's Free plan allows 5 macOS jobs and this needs the Mac (`open` to Chrome, the Keychain), so CI runs these steps inside applycv.
 import {runApply, stepNeeds as applyNeeds} from './apply.mjs';
+import {flowsEngine} from '../lib/engine.mjs';
 
 export const stepNeeds = applyNeeds;   // what a step needs when E2E_STEPS picks it (lib/runner.mjs wantedWords)
 
@@ -11,6 +12,6 @@ export const minutes = 12;
 export const budgetMinutes = 10;   // a manual suite may ask for more than 7: its first run builds the workspace once with the wizard's path
 export const cadence = 'manual';   // never chosen by a push or a schedule (lib/plan.mjs); the scenario matrix names it
 export const browser = true;
-export const engine = process.env.LIVE_ENGINE === 'cli' ? 'cli' : 'api';   // LIVE_ENGINE=cli: the app uses this Mac's Claude Code itself (its own flags and image support), not the proxy   // the proxy answers the app's AI calls (the page kinds, the open question)
+export const engine = flowsEngine();   // a live run: this Mac's Claude Code (its own flags and image support), never the proxy's placeholder key; LIVE_ENGINE=api|cli overrides (lib/engine.mjs)
 export const name = 'applyflows';
 export const run = ctx => runApply(ctx, process.env.LIVE ? ['live'] : ['flows']);   // LIVE=1: the live run on a real posting (npm run live), not the matrix
