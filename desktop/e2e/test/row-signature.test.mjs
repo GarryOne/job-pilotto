@@ -2,7 +2,7 @@
 // shows over the live run (the case's `expect`, written by the tool, never by the fixer) and the check a replay must pass against it.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {baselineSignature, checkSignature, expectFrom, signatureOf} from '../lib/row-signature.mjs';
+import {baselineSignature, checkSignature, expectFrom, filledBoxes, signatureOf} from '../lib/row-signature.mjs';
 
 const log = entries => ({route: '/extension/log', body: JSON.stringify({entries})});
 const run = trace => ({route: '/extension/run', body: JSON.stringify({trace})});
@@ -11,7 +11,7 @@ const replay = (kinds, trace, presses = []) => ({appLog: kinds.map((kind, at) =>
 
 test('a replay\'s signature: page kinds in order (a repeat once), presses, fields as outcome and reason without timings', () => {
   const sig = signatureOf(replay(['posting', 'posting', 'form'], [{label: 'Email', outcome: 'filled', reason: 'your details'}, {label: 'Country', outcome: 'left', reason: 'dropdown clicked for you (1.2 s)'}], ['Apply']));
-  assert.deepEqual(sig, {kinds: ['posting', 'form'], pressed: ['pressed the Apply button'], fields: {Email: 'filled: your details', Country: 'left: dropdown clicked for you'}, diverged: false});
+  assert.deepEqual(sig, {kinds: ['posting', 'form'], pressed: ['pressed the Apply button'], fields: {Email: 'filled: your details', Country: 'left: dropdown clicked for you'}, boxes: {}, diverged: false});
 });
 
 test('the live run\'s baseline in the same shape, from what the capture kept', () => {
@@ -34,4 +34,15 @@ test('a replay passes the check when it shows every part of expect; the old buil
   assert.deepEqual(checkSignature(good, expect), []);
   const old = {kinds: ['posting'], pressed: [], fields: {Why: 'left: no answer in the kit, Profile or your details'}, diverged: false};
   assert.deepEqual(checkSignature(old, expect), ['page kinds: posting, expected posting, form', 'presses: none, expected pressed the Apply button', 'field Why: left: no answer in the kit, Profile or your details, expected left: proposed for you to confirm']);
+});
+
+test('boxes: the text boxes that hold a value when the replay ends (labels only, never a value) are part of the signature, so a fix that retypes a box the page emptied shows', () => {
+  const withBoxes = (boxes, extra = {}) => ({...replay(['form'], []), boxes, ...extra});
+  assert.deepEqual(signatureOf(withBoxes({Prénom: 'filled', Nom: 'empty'})).boxes, {Prénom: 'filled', Nom: 'empty'});
+  assert.deepEqual(signatureOf(replay(['form'], [])).boxes, {}, 'a replay that read none');
+  const expect = {boxes: {Prénom: 'filled', Linkedin: 'filled'}};
+  assert.deepEqual(checkSignature({...signatureOf(withBoxes({Prénom: 'filled', Linkedin: 'filled', Nom: 'empty'}))}, expect), []);
+  assert.deepEqual(checkSignature(signatureOf(withBoxes({Prénom: 'filled', Linkedin: 'empty'})), expect), ['box Linkedin: empty, expected filled']);
+  assert.deepEqual(checkSignature(signatureOf(withBoxes({Prénom: 'filled'})), expect), ['box Linkedin: absent, expected filled']);
+  assert.deepEqual(filledBoxes({Prénom: 'filled', Nom: 'empty', Mail: 'filled'}), {Prénom: 'filled', Mail: 'filled'});
 });

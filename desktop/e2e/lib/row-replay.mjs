@@ -30,6 +30,18 @@ export function missesOf(file) {
 }
 // Each loose memo hit the app noted (lib/ai/model-memo.js): [{differs: [part, ...]}].
 const looseHitsOf = file => { try { return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line)); } catch { return []; } };
+// The text boxes of the page the replay ends on (every frame of the row's tab): {label: 'filled' | 'empty'} by the label a person sees, never the value. A page that autofilled after the CV
+// upload emptied the boxes the extension typed; a build that retypes them ends with them filled (fix 2f6a91e), one that does not, empty.
+/* global document */
+export async function boxesOf(tab) {
+  const read = () => [...document.querySelectorAll('input, textarea')].filter(el => el.getClientRects().length && !el.closest('[id^=jobpilotto], [id^=job-pilotto]') && !/^(hidden|file|submit|button|image|reset|checkbox|radio|password)$/i.test(el.type || '')).map(el => {
+    const label = (el.labels?.[0]?.innerText || el.getAttribute('aria-label') || el.placeholder || el.name || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    return label ? [label, el.value.trim() ? 'filled' : 'empty'] : null;
+  }).filter(Boolean);
+  const boxes = {};
+  for (const frame of tab.frames()) for (const [label, state] of await frame.evaluate(read).catch(() => [])) boxes[label] = boxes[label] === 'filled' ? 'filled' : state;
+  return boxes;
+}
 export const addressOf = url => String(url).replace(/[?#].*$/, '').replace(/\/$/, '');
 const readJson = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
 
@@ -176,7 +188,8 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
         if (why) { endedBy = why; break; }
         await wait(500);
       }
-      return {row: name, seconds: Math.round((Date.now() - started) / 100) / 10, evidence: evidenceLines(log()), unrecorded: [...row.unrecorded], followed: Math.min(followed, row.applied),
+      const boxes = await boxesOf(tab);
+      return {row: name, boxes, seconds: Math.round((Date.now() - started) / 100) / 10, evidence: evidenceLines(log()), unrecorded: [...row.unrecorded], followed: Math.min(followed, row.applied),
         divergence, endedBy, livePresses: presses.length, asks: requests().filter(request => request.route === '/extension/page-kind').length,
         misses: (log().match(/not in the row's kept answers/g) || []).length, missParts: missesOf(missLog).parts, missVolatile: missesOf(missLog).volatile, requests: requests(), appLog: log()};
     } finally {

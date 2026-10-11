@@ -12,8 +12,11 @@ export function signatureOf(result) {
   const kinds = once(String(result.appLog || '').split('\n').map(line => line.match(PAGE_KIND)?.[1]).filter(Boolean));
   let trace = [];
   for (const request of (result.requests || []).filter(one => one.route === '/extension/run')) { try { trace = JSON.parse(request.body).trace || trace; } catch { /* a body cut at the limit */ } }
-  return {kinds, pressed: replayPresses(result.requests || []).map(press => press.what), fields: Object.fromEntries(trace.map(row => [row.label, fieldValue(row)])), diverged: !!result.divergence};
+  return {kinds, pressed: replayPresses(result.requests || []).map(press => press.what), fields: Object.fromEntries(trace.map(row => [row.label, fieldValue(row)])), boxes: result.boxes || {}, diverged: !!result.divergence};
 }
+
+// The boxes that hold a value, as the expectation of a case taken on the fixed build (--fixed): a fix that retypes a box the page's autofill emptied shows only here, in the page the replay ends on. -> {label: 'filled'}
+export const filledBoxes = boxes => Object.fromEntries(Object.entries(boxes || {}).filter(([, state]) => state === 'filled'));
 
 // A case's stored `baseline` (lib/row-case.mjs: the live run's page-kind lines, its fields {label, outcome, reason} and the `what` of its presses) as a signature: what the LIVE run did.
 export function baselineSignature({pageKinds = [], fields = [], pressed = []}) {
@@ -37,6 +40,7 @@ export function checkSignature(sig, expect = {}) {
   if (expect.kinds && sig.kinds.join() !== expect.kinds.join()) failures.push(`page kinds: ${sig.kinds.join(', ') || 'none'}, expected ${expect.kinds.join(', ')}`);
   if (expect.pressed && sig.pressed.join() !== expect.pressed.join()) failures.push(`presses: ${sig.pressed.join(', ') || 'none'}, expected ${expect.pressed.join(', ')}`);
   for (const [label, value] of Object.entries(expect.fields || {})) if (sig.fields[label] !== value) failures.push(`field ${label}: ${sig.fields[label] ?? 'absent'}, expected ${value}`);
+  for (const [label, value] of Object.entries(expect.boxes || {})) if (sig.boxes?.[label] !== value) failures.push(`box ${label}: ${sig.boxes?.[label] ?? 'absent'}, expected ${value}`);
   if (sig.diverged) failures.push('diverged from the live run\'s presses');
   return failures;
 }
