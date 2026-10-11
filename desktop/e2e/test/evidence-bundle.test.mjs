@@ -16,11 +16,13 @@ const LOG = `2026-10-10T23:22:02.048Z [extension] page kind: posting {"shape":"j
 2026-10-10T23:22:43.640Z [extension] fill: pressed the control the digest named {"host":"jobs.hornbach.com","label":"Jetzt bewerben (mit Anmeldung)"}
 2026-10-10T23:22:51.296Z [extension] page kind: account {"shape":"career5.successfactors.eu/careers|p1-2","by":"ai","rung":2,"confidence":0.93}
 2026-10-10T23:22:52.000Z [run] start: python -m src.desktop visit-list {"run_id":"x"}
-2026-10-10T23:22:53.000Z [extension] fill: no form on this page {"role":"no-form"}`;
+2026-10-10T23:22:53.000Z [extension] fill: no form on this page {"role":"no-form"}
+2026-10-10T23:22:59.000Z [extension] fill: filled the form {"ineligible":false,"aiEligible":false,"forced":"kit","url":"https://x"}`;
 
 test('the four lines that matter: what was asked, the digest answer, what was pressed, where the page went', () => {
   const lines = evidenceLines(LOG);
-  assert.deepEqual(Object.keys(lines), ['pageKind', 'digest', 'pressed', 'wentTo']);
+  assert.deepEqual(Object.keys(lines), ['pageKind', 'digest', 'pressed', 'wentTo', 'verdict']);
+  assert.match(lines.verdict[0], /filled the form .*"aiEligible":false,"forced":"kit"/, 'the AI\'s own verdict and what passed it');
   assert.equal(lines.pageKind.length, 3);   // the three decisions, with frames and the digest flag in them
   assert.match(lines.pageKind[1], /by":"digest".*"digest":true/);
   assert.match(lines.digest[0], /digest: outcome=apply verb=press numbers=\[4\]/);
@@ -32,8 +34,8 @@ test('the four lines that matter: what was asked, the digest answer, what was pr
 });
 
 test('no log, no lines: empty lists, never a throw', () => {
-  assert.deepEqual(evidenceLines(''), {pageKind: [], digest: [], pressed: [], wentTo: []});
-  assert.deepEqual(evidenceLines(undefined), {pageKind: [], digest: [], pressed: [], wentTo: []});
+  assert.deepEqual(evidenceLines(''), {pageKind: [], digest: [], pressed: [], wentTo: [], verdict: []});
+  assert.deepEqual(evidenceLines(undefined), {pageKind: [], digest: [], pressed: [], wentTo: [], verdict: []});
 });
 
 test('a run that was killed or cut short did not finish: it records and uploads nothing', () => {

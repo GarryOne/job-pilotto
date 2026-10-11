@@ -16,10 +16,13 @@ const PAGE_KIND = /\[extension\] page kind:/, DIGEST = /\[extension\] digest:/;
 const PRESSED = /\[extension\] fill: (pressed |closed a popup|no Apply button to press|after the press)/;   // words-ok: our own log's wording, not page text
 const WENT_TO = /\[extension\] (fill: (no form on this page|account page|register control|watch ended|form frame)|can't reach the form|page kind: (account|form|account-form))/;   // words-ok: our own log's wording
 
-// -> {pageKind, digest, pressed, wentTo}: each a list of at most EACH lines, cut and shown from their time.
+// The fill's end with the AI's own eligibility verdict and what passed a "no" (extension/eligibility-verdict.js): "judged eligible" is told from "skipped".
+const VERDICT = /\[extension\] fill: (filled the form|did not fill)/;   // words-ok: our own log's wording
+
+// -> {pageKind, digest, pressed, wentTo, verdict}: each a list of at most EACH lines, cut and shown from their time.
 export function evidenceLines(appLog) {
   const lines = String(appLog || '').split('\n'), pick = pattern => lines.filter(line => pattern.test(line)).map(cut).slice(0, EACH);
-  return {pageKind: pick(PAGE_KIND), digest: pick(DIGEST), pressed: pick(PRESSED), wentTo: pick(WENT_TO)};
+  return {pageKind: pick(PAGE_KIND), digest: pick(DIGEST), pressed: pick(PRESSED), wentTo: pick(WENT_TO), verdict: pick(VERDICT)};
 }
 
 const section = (title, list) => `## ${title}\n${list.length ? list.map(line => `- ${line}`).join('\n') : '- (none in the app log)'}\n`;
@@ -31,7 +34,8 @@ export function writeBundle({dir, day, shape, output = '', appLog = '', aiCalls 
   const step = `reached ${result.reached || 'none'}${result.filled != null ? `, ${result.filled} filled, ${result.left} left` : ''}`;
   const text = [`# ${shape}: ${day}`, '', `${step}. Files here: run.log (the run's output), app.log (the app's whole log), ai-calls.json (the page-kind asks and answers, and which fields the AI was asked to answer).`, '',
     section('Page kind (what was asked, with frames and the digest flag)', lines.pageKind), section('The digest\'s validated answer', lines.digest),
-    section('What was pressed', lines.pressed), section('Where the page went', lines.wentTo)].join('\n');
+    section('What was pressed', lines.pressed), section('Where the page went', lines.wentTo),
+    section('The eligibility verdict (the AI\'s own: aiEligible; what passed a "no": forced)', lines.verdict)].join('\n');
   fs.writeFileSync(path.join(folder, 'evidence.md'), text);
   fs.writeFileSync(path.join(folder, 'run.log'), output);
   if (appLog) fs.writeFileSync(path.join(folder, 'app.log'), appLog);

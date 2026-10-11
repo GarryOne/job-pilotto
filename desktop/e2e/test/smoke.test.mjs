@@ -198,6 +198,14 @@ test('a form is a shortfall when any asked field is unexplained, not when under 
 
 // An eligibility stop is deliberate (parseLive's note): the fields it left wait for a person, not a fill fix. Its first pass's fields are logged since 11 Oct 2026,
 // so a stopped form now has a field list and would otherwise read as a shortfall.
+// The fill's verdict line (extension/eligibility-verdict.js): the AI's own verdict and who passed a "no", so "judged eligible" is told from "eligibility skipped".
+test('a run keeps the AI\'s own eligibility verdict and what passed a "not eligible"', () => {
+  const kit = parseLive('      log 16:01:02.000Z [extension] fill: filled the form {"ineligible":false,"aiEligible":false,"forced":"kit","url":"x"}');
+  assert.deepEqual(kit.verdict, {aiEligible: false, forced: 'kit'});
+  assert.deepEqual(parseLive('      log 16:01:02.000Z [extension] fill: filled the form {"ineligible":false,"aiEligible":true,"forced":"","url":"x"}').verdict, {aiEligible: true, forced: ''});
+  assert.equal(parseLive('      log 16:01:02.000Z [extension] fill: filled the form {"ineligible":false,"url":"x"}').verdict, undefined, 'an older extension says nothing: no verdict invented');
+});
+
 test('a form stopped by the eligibility check is not a shortfall', () => {
   const stop = ['      log 15:38:26.235Z [extension] fill: first fields filled {"fields":4}', '      log 15:38:32.019Z [extension] fill: did not fill: The role is in Sydney. {"url":"x"}',
     '      log 15:38:32.020Z [extension] fill: fields: 4 filled, 2 left {"fields":[]}', '      field filled text "First name" required=true reason=',

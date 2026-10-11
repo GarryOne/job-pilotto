@@ -19,7 +19,7 @@ export const rungFields = result => ({...(result?.rung != null ? {rung: result.r
 // -> {reached, filled, left, rung (0-6 | null), signal (unsure|contradicted|stalled|failed | null), kinds: [page kinds seen], path: [{kind, host}] in order (consecutive repeats folded), errors: [lines], note? (an eligibility stop and its reason)}
 export function parseLive(output) {
   const lines = String(output || '').split('\n');
-  let reached = 'none', filled = null, left = null, marks = null, note = '';
+  let reached = 'none', filled = null, left = null, marks = null, note = '', verdict;
   const kinds = [], errors = [], path = [];
   let fieldList = [];   // the form's fields, one 'field ...' line each (apply-live.mjs prints them whole: the app's own line is cut at 230 characters)
   let derived = null, told = null;
@@ -52,11 +52,14 @@ export function parseLive(output) {
     if (/fill: after the press: a form came/.test(line)) reach('form');
     // The fill's AI judged the applicant ineligible (extension/background.js: the only "did not fill:" line): the form was reached and the run stopped there on
     // purpose. Kept as the note, so the pool shows an eligibility stop, not a fill failure (the line is cut at 230 characters: the reason is read up to its own end).
+    // The AI's own verdict and what passed a "not eligible" (extension/eligibility-verdict.js); an older extension's line carries neither.
+    const judged = /fill: filled the form/.test(line) && line.match(/"aiEligible":(true|false|null),"forced":"([^"]*)"/);
+    if (judged) verdict = {aiEligible: JSON.parse(judged[1]), forced: judged[2]};
     const stop = line.match(/fill: did not fill: (.*?)(?:\s+\{"|$)/);
     if (stop) { reach('form'); note = `eligibility stop: ${stop[1].trim().slice(0, 160)}`; }
     if (/(^|\s)(✗|not ok)\b|Error:|crash/.test(line)) errors.push(line.trim().slice(0, 200));
   }
-  return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, pageKindErrors, kinds: [...new Set(kinds)], path, errors, ...(note ? {note} : {})};
+  return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, pageKindErrors, kinds: [...new Set(kinds)], path, errors, ...(note ? {note} : {}), ...(verdict ? {verdict} : {})};
 }
 
 // The same shape reaching an earlier step than its last run, or filling fewer fields on the same posting, is a regression.

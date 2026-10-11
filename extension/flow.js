@@ -8,7 +8,8 @@ import {settleTrace} from './trace-settle.js';
 import {expandSections} from './sections.js';
 import {PAGE_FILES} from './page-files.js';
 import {hasEarly, keepEarly, takeEarly} from './early-answers.js';
-import {decide} from './log.js';   // a cycle (log.js reads settings from here) that ES modules allow: both use the other only at run time
+import {decide} from './log.js';
+import {verdictFields} from './eligibility-verdict.js';   // a cycle (log.js reads settings from here) that ES modules allow: both use the other only at run time
 export const JOB_SITES = [
   'https://*.greenhouse.io/*', 'https://jobs.lever.co/*', 'https://jobs.ashbyhq.com/*',
   'https://*.myworkdayjobs.com/*', 'https://*.smartrecruiters.com/*', 'https://apply.workable.com/*',
@@ -182,6 +183,8 @@ export async function askEarly(tab, config, jobUrl = '') {
 export {PAGE_FILES};   // extension/page-files.js
 export async function fillTab(tab, config, {useAI = true, force = false, kitAnswers = [], hasKit = false, onStep = () => {}, reuse = true, coverLetter = '', jobUrl = '', me: early = null} = {}) {
   const startedAt = new Date();
+  const askedAnyway = force;   // the person's "Fill anyway", kept before a kit turns force on (the log line names who passed a "not eligible": eligibility-verdict.js)
+  let kitSkips = false;
   const job = (jobUrl || tab.url).split('#')[0];
   chrome.storage.session.set({[KEY.job(tab.id)]: job, [KEY.from(tab.id)]: job});
   const event = (type, extra = {}) => api(config, '/extension/event', {method: 'POST',
@@ -238,7 +241,8 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     debug.sentToClaude = open.map(f => f.field);
     // With a kit, applying was the user's decision (they prepared it): no eligibility stop, and no waiting: everything
     // known fills at once, and Claude answers what's left afterwards (below), while you already see the form filled.
-    if (kitStance({kitAnswers, hasKit, matched: fromKit.size}).skipEligibility) force = true;
+    kitSkips = kitStance({kitAnswers, hasKit, matched: fromKit.size}).skipEligibility;
+    if (kitSkips) force = true;
     if (withKit) later = open;
     const cached = reuse && !withKit ? await cachedAI(tab) : null;
     if (withKit) { /* Claude after the fill */ } else if (cached) {
@@ -389,5 +393,5 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     ended: new Date().toISOString(), fields: summary.filled || 0, unfilled: summary.unfilledRequired || 0, usd: ai?.usd || 0, billed_to: ai?.billed_to || '',
     kit: withKit, todo: (summary.todo || []).slice(0, 8), trace: summary.trace || [], snapshots: snapshots || {}, debug: {...debug, aiUsd: ai?.usd || 0}})})
     .then(logged => logged?.url && chrome.storage.session.set({[`run:${tab.id}`]: logged.url})).catch(() => {});
-  return {...summary, usd: ai?.usd, aiError, coverLetter: ai?.cover_letter};
+  return {...summary, usd: ai?.usd, aiError, coverLetter: ai?.cover_letter, ...verdictFields({ai, askedAnyway, kit: withKit || kitSkips, checkOff: config.checkEligibility === false})};
 }

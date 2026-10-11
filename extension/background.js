@@ -353,7 +353,7 @@ async function fillOpenedTabNow(tab, url, force = false, {fast = false, quiet = 
     await progress(tab.id, '', page);
     if (result.ineligible && await onPage(tab.id, page)) await ineligibleNote(tab.id, result.note, result.partly);
     decide('fill', result.ineligible ? `did not fill: ${result.note || 'ineligible'}` : 'filled the form',
-      {url: page, ineligible: !!result.ineligible});
+      {url: page, ineligible: !!result.ineligible, aiEligible: result.aiEligible ?? null, forced: result.forced || ''});   // the AI's own verdict and who passed a "no" (eligibility-verdict.js)
     // How each field was handled, so "what happened to <field>?" is answered from the log (8 Oct 2026: it took page probes). Labels and kinds, never a value.
     // One row per field: a later pass (Claude on the page) wins.
     const fields = loggedFields(result.trace);   // with `required`, so an optional field left empty is not a failure (extension/fill-fields.js)
