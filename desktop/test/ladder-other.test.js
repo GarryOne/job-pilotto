@@ -23,7 +23,8 @@ test('a request with why: other counts the page shape, logs one line with the sh
   const log = fs.readFileSync(logFile(), 'utf8').split('\n').filter(line => line.includes('ladder: other shape='));
   assert.equal(log.length, 2); assert.ok(log[0].includes(`shape=${rows[0].shape}`));
   const everything = log.join('\n') + fs.readFileSync(storage.path('ladder-other.json'), 'utf8');
-  for (const leak of ['anna@', 'firma', '044', 'secret', 'token']) assert.ok(!everything.includes(leak), `${leak} leaked`);
+  // The phone as written, not bare '044': a log timestamp's milliseconds (".044Z") or a port held those digits and failed this at random (CI, 11 Oct 2026).
+  for (const leak of ['anna@', 'firma', '044 555', 'Call ', 'secret', 'token']) assert.ok(!everything.includes(leak), `${leak} leaked`);
 });
 
 test('only a real page shape is counted: no address, no odd value, a bounded list', () => {
