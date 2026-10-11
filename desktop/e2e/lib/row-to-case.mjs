@@ -49,7 +49,10 @@ export async function rowToCase({rowDir, name, outDir, oldDir, askCold = false, 
     step('replaying on the NEW build (up to 90 s)');
     const fresh = await replay(built.dir, {});
     if (fresh.misses) return end(4, `row-to-case: ${fresh.misses} model ask(s) of the new build are not in the case's kept answers (CI has no claude -p): run again with --ask-cold${fresh.missParts?.length ? ` (the nearest kept ask differs in ${fresh.missParts.join(', ')})` : ''}`);
-    const base = baselineSignature(item.baseline), derived = expectFrom(base, signatureOf(fresh));
+    // The OLD build is replayed now, before the verdict on the new one: the regression check and the control both need it (one replay, reused below).
+    step('replaying on the OLD build (up to 90 s)');
+    const oldRaw = await replay(built.dir, {extensionDir: oldDir, loose: true});
+    const base = baselineSignature(item.baseline), derived = expectFrom(base, signatureOf(fresh), signatureOf(oldRaw));
     // --fixed: the capture was taken on a build that already has the fix (a regression case): the live run IS the expected behavior (plus whatever else the new build shows beyond it), the boxes the new
     // build ends with filled are expected too, and the old build must fail it. (An earlier version added the boxes only when the replay matched the live run exactly: with any difference the old build
     // had nothing to fail and "passed", 12 Oct 2026.)
@@ -68,8 +71,7 @@ export async function rowToCase({rowDir, name, outDir, oldDir, askCold = false, 
     if (derived.refused) return end(4, `row-to-case: ${derived.refused}`);
     const withExpect = asCase(derived.expect);
     // The OLD build: it must fail the case (else the control proves nothing) and replay the live run (else this case is not that run).
-    step('replaying on the OLD build (up to 90 s)');
-    const old = await runRowCase(withExpect, {extensionDir: oldDir, replay});
+    const old = await runRowCase(withExpect, {extensionDir: oldDir, replay: async () => oldRaw});
     if (old.ok) return end(3, 'row-to-case: the OLD build passes this case: the control proves nothing; nothing written');
     if (old.signature.kinds.join() !== base.kinds.join() || old.signature.pressed.join() !== base.pressed.join()) {
       return end(4, `row-to-case: the old build (${oldDir}) does not replay the live run: page kinds ${old.signature.kinds.join(', ') || 'none'} (live ${base.kinds.join(', ') || 'none'}), presses ${old.signature.pressed.join(', ') || 'none'} (live ${base.pressed.join(', ') || 'none'})`);

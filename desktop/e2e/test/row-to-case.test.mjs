@@ -117,12 +117,30 @@ test('--fixed: a live field matched by label with the same outcome is asserted w
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(done.outDir, 'start-dialog-1', 'case.json'), 'utf8')).expect.fields, {Email: 'filled: your details'});
 });
 
-test('--fixed: a field filled live and not in the replay (the cold ask answered it another way) is no regression: it is left out, and the case is still written', async () => {
+test('a field filled live and not now is a regression only where the OLD build\'s replay fills it; --fixed has no regression to find and leaves the field out', async () => {
   const filledLive = async ({name, outDir}) => { const built = await build({name, outDir}); const file = path.join(built.dir, 'case.json'), item = JSON.parse(fs.readFileSync(file, 'utf8'));
     item.baseline = {...base, fields: [...base.fields, {label: 'Gender', outcome: 'filled', reason: 'Female'}]}; fs.writeFileSync(file, JSON.stringify(item)); return built; };
-  const replay = (dir, options = {}) => Promise.resolve(options.extensionDir ? result(['posting'], {requests: []}) : result(['posting'], {requests: [{route: '/extension/run', body: JSON.stringify({trace: [{label: 'Email', outcome: 'filled', reason: 'your details'}, {label: 'Gender', outcome: 'left', reason: 'no answer'}]})}]}));
-  assert.equal((await go(replay, {build: filledLive})).code, 4, 'without --fixed it is a regression and refused');
-  const done = await go(replay, {fixed: true, build: filledLive});
-  assert.equal(done.code, 0, done.lines.join('\n'));
-  assert.deepEqual(Object.keys(JSON.parse(fs.readFileSync(path.join(done.outDir, 'start-dialog-1', 'case.json'), 'utf8')).expect.fields), ['Email']);
+  const trace = rows => ({requests: [{route: '/extension/run', body: JSON.stringify({trace: rows})}]});
+  const email = {label: 'Email', outcome: 'filled', reason: 'your details'}, left = {label: 'Gender', outcome: 'left', reason: 'no answer'}, filled = {label: 'Gender', outcome: 'filled', reason: 'Female'};
+  const replayOld = oldRows => (dir, options = {}) => Promise.resolve(options.extensionDir ? result(['posting'], oldRows) : result(['posting'], trace([email, left])));
+  assert.equal((await go(replayOld(trace([email, filled])), {build: filledLive})).code, 4, 'the old build fills it, the new does not: a regression');
+  const noise = await go(replayOld(trace([email, left])), {build: filledLive});
+  assert.doesNotMatch(noise.lines.join('\n'), /regressed/, 'the old build does not fill it either: the replay\'s AI answered another way, no regression');
+  const done = await go(replayOld(trace([email, filled])), {fixed: true, build: filledLive});
+  assert.match(done.lines.join('\n'), /not asserted: Gender/, 'the field the replay\'s AI answered another way is named and left out');
+  assert.equal(done.code, 3, 'and with nothing else to tell the builds apart the control proves nothing (the tool says so)');
+});
+
+test('the rename a fix makes is asserted: the live (unfixed) label has no replay field, the new label has no live one: the old build fails "absent" in both modes', async () => {
+  const unfixed = async ({name, outDir}) => { const built = await build({name, outDir}); const file = path.join(built.dir, 'case.json'), item = JSON.parse(fs.readFileSync(file, 'utf8'));
+    item.baseline = {...base, fields: [...base.fields, {label: '18-20', outcome: 'left', reason: 'no answer'}]}; fs.writeFileSync(file, JSON.stringify(item)); return built; };
+  const run = rows => ({requests: [{route: '/extension/run', body: JSON.stringify({trace: rows})}]});
+  const email = {label: 'Email', outcome: 'filled', reason: 'your details'};
+  const replay = (dir, options = {}) => Promise.resolve(options.extensionDir ? result(['posting'], run([email, {label: '18-20', outcome: 'left', reason: 'no answer'}])) : result(['posting'], run([email, {label: 'What is your age range?', outcome: 'left', reason: 'no answer'}])));
+  for (const fixed of [true, false]) {
+    const done = await go(replay, {fixed, build: unfixed});
+    assert.equal(done.code, 0, `fixed=${fixed}: ${done.lines.join('\n')}`);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(done.outDir, 'start-dialog-1', 'case.json'), 'utf8')).expect.fields['What is your age range?'], 'left: no answer');
+    assert.match(done.lines.join('\n'), /field What is your age range\?: absent/);
+  }
 });

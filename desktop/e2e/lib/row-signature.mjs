@@ -23,16 +23,19 @@ export function baselineSignature({pageKinds = [], fields = [], pressed = []}) {
   return {kinds: once(pageKinds.map(line => String(line).match(KIND_LINE)?.[1]).filter(Boolean)), pressed, fields: Object.fromEntries(fields.map(row => [row.label, fieldValue(row)])), diverged: false};
 }
 
-export function expectFrom(base, now) {
-  if (now.diverged) return {refused: 'the new build\'s replay diverged from the live run\'s presses; the case would not be a replay of the live run'};
-  const lost = Object.keys(base.fields).filter(label => base.fields[label].startsWith('filled') && label in now.fields && !now.fields[label].startsWith('filled'));
-  if (lost.length) return {refused: `the new build regressed: ${lost.join(', ')} was filled live and is not now`};
+// old: the OLD build's replay of the same case, when there is one: a field filled live and not now is a regression only where the old build's replay fills it too (the live AI's answer is not the replay's:
+// a cold ask answers "Current company" another way, 12 Oct 2026). The improvements are worked out whatever the verdict (--fixed uses them).
+export function expectFrom(base, now, old = null) {
   const expect = {};
   if (now.kinds.join() !== base.kinds.join() && now.kinds.length >= base.kinds.length) expect.kinds = now.kinds;
   if (now.pressed.join() !== base.pressed.join() && now.pressed.length >= base.pressed.length) expect.pressed = now.pressed;
-  const fields = Object.fromEntries(Object.entries(now.fields).filter(([label, value]) => base.fields[label] !== value));
+  const lost = Object.keys(base.fields).filter(label => base.fields[label].startsWith('filled') && label in now.fields && !now.fields[label].startsWith('filled') && (!old || String(old.fields[label] || '').startsWith('filled')));
+  const dropped = Object.keys(base.fields).filter(label => base.fields[label].startsWith('filled') && label in now.fields && !now.fields[label].startsWith('filled'));   // lost live or by the replay's AI: never an improvement to assert
+  const fields = Object.fromEntries(Object.entries(now.fields).filter(([label, value]) => base.fields[label] !== value && !dropped.includes(label)));
   if (Object.keys(fields).length) expect.fields = fields;
-  return Object.keys(expect).length ? {ok: true, expect} : {refused: 'nothing improved: the new build\'s replay shows the same page kinds, presses and field outcomes as the live run'};
+  if (now.diverged) return {refused: 'the new build\'s replay diverged from the live run\'s presses; the case would not be a replay of the live run', expect};
+  if (lost.length) return {refused: `the new build regressed: ${lost.join(', ')} was filled live and is not now`, expect};
+  return Object.keys(expect).length ? {ok: true, expect} : {refused: 'nothing improved: the new build\'s replay shows the same page kinds, presses and field outcomes as the live run', expect};
 }
 
 export function checkSignature(sig, expect = {}) {
