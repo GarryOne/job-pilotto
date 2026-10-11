@@ -127,6 +127,41 @@ class RedMainTest(unittest.TestCase):
         result = subprocess.run(['bash', str(SCRIPT)], capture_output=True, text=True, env=env, timeout=30)
         self.assertEqual((result.stdout.strip(), result.returncode), ('unknown', 0))
 
+    def track(self):
+        env = {'PATH': f'{self.bin.as_posix()}:{__import__("os").environ["PATH"]}', 'RED_MAIN_REPO': str(self.repo)}
+        (self.tmp / 'gh' / 'runs.json').write_text(json.dumps(list(reversed(self.runs))))
+        result = subprocess.run(['bash', str(SCRIPT), 'track'], capture_output=True, text=True, env=env, timeout=60)
+        return result.stdout.strip(), result.returncode
+
+    def reruns(self):
+        path = self.tmp / 'gh' / 'reruns'
+        return path.read_text().split() if path.exists() else []
+
+    def test_a_red_run_gets_exactly_one_rerun_and_the_clock_does_not_move(self):
+        self.green_at(1)
+        self.run_at(3, TESTS, conclusion='failure', failed_jobs=1); self.run_at(3, PAGES)
+        first, code = self.track()
+        self.assertEqual(code, 1)
+        self.assertEqual(len(self.reruns()), 1, 'the failed jobs are re-run once')
+        self.runs[-2]['updatedAt'] = '2026-10-11T15:59:00Z'   # the re-run touched the run again: still red
+        again, _ = self.track()
+        self.assertEqual(len(self.reruns()), 1, 'never a second re-run of the same run')
+        self.assertEqual(first.split('|')[4], again.split('|')[4], 'the 5 minute clock stays at the first red completion')
+
+    def test_while_the_rerun_is_going_main_is_not_green_and_a_green_rerun_clears_the_red(self):
+        self.green_at(1)
+        self.run_at(3, TESTS, conclusion='failure', failed_jobs=1); self.run_at(3, PAGES)
+        self.track()
+        self.runs[-2].update({'status': 'in_progress', 'conclusion': ''})   # the re-run: no failed job showing, commit 3 unfinished, commit 1 green behind it
+        (self.tmp / 'gh' / f'jobs-{self.runs[-2]["databaseId"]}.json').write_text(json.dumps({'jobs': [{'conclusion': None}]}))
+        out, code = self.track()
+        self.assertEqual((code, out.split('|')[0], out.split('|')[1]), (1, 'red', self.shas[3][:7]), 'the older green commit does not make main green while the red commit is being re-run')
+        self.runs[-2].update({'status': 'completed', 'conclusion': 'success'})
+        out, code = self.track()
+        self.assertEqual((code, out), (0, f'green {self.shas[3][:7]}'))
+        log = (self.repo / '.git' / 'gate-timing.log').read_text()
+        self.assertRegex(log, r'red-main ended start=\S+ cause=CI_·_Tests sha=\S+ claim=- fix=\S+ minutes=')
+
     def test_every_workflow_is_classified_and_the_counted_ones_are_the_scripts_list(self):
         names = {re.search(r'^name:\s*(.+?)\s*$', p.read_text(), re.M).group(1).strip('"\'') for p in (ROOT / '.github' / 'workflows').glob('*.yml')}
         self.assertEqual(sorted(names - set(CLASSIFIED)), [], 'a workflow with no classification: add it to CLASSIFIED (counted or ignored with a reason)')

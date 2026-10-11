@@ -33,11 +33,25 @@ class ShipRedTest(ShipFixture):
         (self.gh / 'runs.json').write_text(json.dumps(rows))
 
     def ship_red(self, *flags, **env):
-        return subprocess.run(['bash', str(self.tree / 'tools' / 'ship.sh'), *flags], cwd=self.tree, capture_output=True, text=True, timeout=60, env={**self.env, **env})
+        return subprocess.run(['bash', str(self.tree / 'tools' / 'ship.sh'), *flags], cwd=self.tree, capture_output=True, text=True, timeout=90, env={**self.env, 'SHIP_LOG': str(self.tmp / 'ship.log'), **env})
+
+    def green_once_it_waits(self):
+        """Main turns green when the landing has said it waits (not after a guessed time: a loaded Mac may take seconds to start it)."""
+        def watch():
+            deadline = time.monotonic() + 60
+            log = self.tmp / 'ship.log'
+            while time.monotonic() < deadline:
+                if log.exists() and 'main is red at' in log.read_text():
+                    time.sleep(0.5)
+                    return self.runs(red=False)
+                time.sleep(0.1)
+        thread = threading.Thread(target=watch, daemon=True)
+        thread.start()
+        return thread
 
     def test_a_landing_waits_while_main_is_red_says_so_and_goes_on_when_it_is_green(self):
         self.runs(minutes_ago=1)
-        threading.Timer(2.0, lambda: self.runs(red=False)).start()
+        self.green_once_it_waits()
         result = self.ship_red()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertRegex(result.stdout, rf'main is red at {self.tip[:7]} \(CI · Tests, \d+s ago\), nobody has claimed it; a revert is advised after 5 min: waiting for the fix, before the checks \(SHIP_IGNORE_RED=1 only with the owner')
@@ -58,10 +72,11 @@ class ShipRedTest(ShipFixture):
     def test_a_claim_extends_the_limit_to_fifteen_minutes_once(self):
         self.runs(minutes_ago=6)
         subprocess.run(['bash', str(self.tree / 'tools' / 'red-main.sh'), 'claim', self.tip, '--session', 'fixer-session'], cwd=self.tree, check=True, capture_output=True, env=self.env)
-        threading.Timer(1.5, lambda: self.runs(red=False)).start()
+        self.green_once_it_waits()
         result = self.ship_red()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('fixer-session is fixing it, waits up to 15 min', result.stdout)
+        (self.tmp / 'ship.log').unlink(missing_ok=True)
         self.runs(minutes_ago=16)
         self.change(self.tree, 'again.txt', 'y\n', 'Another change')
         late = self.ship_red()

@@ -49,18 +49,34 @@ case "${1:-status}" in
     mkdir -p "$dir"; echo "$session" >"$dir/claim-$sha"; timing_log "red-main claim sha=$sha session=$session"; echo "claimed $sha for $session" ;;
   claim-of) [ -f "$dir/claim-${2:0:7}" ] && cat "$dir/claim-${2:0:7}" ;;
   track)
-    state="$(red_status)"; code=$?; echo "$state"
+    state="$(red_status)"; code=$?
+    period_field() { sed -n "s/^$1=//p" "$dir/period" 2>/dev/null; }
+    # A period is open (a red was seen) and the verdict now is green at a commit that is not the red one or a descendant of it: the red commit's own re-run is still going, or only older commits have
+    # finished runs. That is not green yet.
+    case "$state" in green*) if [ -f "$dir/period" ]; then
+      ok_sha="${state#green }"; red_sha="$(period_field sha)"
+      if [ "$ok_sha" != "$red_sha" ] && ! git -C "$repo" merge-base --is-ancestor "$red_sha" "$ok_sha" 2>/dev/null; then
+        state="red|$red_sha|$(period_field cause)|$(period_field url)|$(period_field start)|$(period_field run)"; code=1
+      fi
+    fi ;; esac
     case "$state" in
       red*) IFS="|" read -r _ bad workflow url finished run_id <<<"$state"; mkdir -p "$dir"
-            if [ ! -f "$dir/period" ]; then printf 'start=%s\ncause=%s\nsha=%s\nwaited=0\n' "$finished" "$workflow" "$bad" >"$dir/period"; timing_log "red-main begins sha=$bad cause=$(echo "$workflow" | tr ' ' _) finished=$finished"; fi
-            if [ "${2:-}" = --waiting ]; then w="$(sed -n 's/^waited=//p' "$dir/period")"; sed -i.bak "s/^waited=.*/waited=$(( ${w:-0} + 1 ))/" "$dir/period" && rm -f "$dir/period.bak"; fi ;;
+            if [ ! -f "$dir/period" ]; then
+              printf 'start=%s\ncause=%s\nsha=%s\nurl=%s\nrun=%s\nwaited=0\n' "$finished" "$workflow" "$bad" "$url" "$run_id" >"$dir/period"; timing_log "red-main begins sha=$bad cause=$(echo "$workflow" | tr ' ' _) finished=$finished"
+            fi
+            # A flake costs one re-run, a real break is still reverted at the limit: the failed jobs of that run are re-run ONCE (never a second time), and the clock is not moved by it.
+            if [ ! -f "$dir/rerun-$run_id" ] && [ -n "$run_id" ]; then
+              : >"$dir/rerun-$run_id"; (cd "$repo" && gh run rerun "$run_id" --failed >/dev/null 2>&1) || true; timing_log "red-main rerun run=$run_id sha=$bad"
+            fi
+            state="red|$bad|$workflow|$url|$(period_field start)|$run_id"   # the clock stays at the first red completion
+            if [ "${2:-}" = --waiting ]; then w="$(period_field waited)"; sed -i.bak "s/^waited=.*/waited=$(( ${w:-0} + 1 ))/" "$dir/period" && rm -f "$dir/period.bak"; fi ;;
       green*) if [ -f "$dir/period" ]; then
-                start="$(sed -n 's/^start=//p' "$dir/period")"; bad="$(sed -n 's/^sha=//p' "$dir/period")"; cause="$(sed -n 's/^cause=//p' "$dir/period")"; waited="$(sed -n 's/^waited=//p' "$dir/period")"
+                start="$(period_field start)"; bad="$(period_field sha)"; cause="$(period_field cause)"; waited="$(period_field waited)"
                 begun="$(iso_epoch "$start")"; minutes="$(python3 -c 'import sys; print(round((float(sys.argv[1]) - float(sys.argv[2])) / 60, 1))' "$(date +%s)" "${begun:-0}" 2>/dev/null)"
                 timing_log "red-main ended start=$start cause=$(echo "$cause" | tr ' ' _) sha=$bad claim=$(cat "$dir/claim-$bad" 2>/dev/null || echo -) fix=${state#green } minutes=${minutes:-?} waited=${waited:-0}"
-                rm -f "$dir/period"
+                rm -f "$dir/period" "$dir"/rerun-*
               fi ;;
     esac
-    exit "$code" ;;
+    echo "$state"; exit "$code" ;;
   *) red_status; exit $? ;;
 esac
