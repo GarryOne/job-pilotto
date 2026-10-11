@@ -67,3 +67,20 @@ test('smoke.mjs: an unfinished run is dropped before anything is recorded or upl
   assert.ok(bundle > record, 'the bundle is written from a finished run');
   assert.match(source, /signal/, 'liveRun passes the exit signal on');
 });
+
+// 11 Oct 2026: a fixer and the owner see the final state of the application tab without a live run. One picture a run, kept next to the bundle's other files, never uploaded.
+test('the run\'s end-of-run screenshot (LIVE_CAPTURE_DIR/end.png) is kept in the bundle as end.png; with none, nothing is made up', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-bundle-')), capture = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-cap-'));
+  fs.writeFileSync(path.join(capture, 'end.png'), 'png bytes');
+  const withShot = writeBundle({dir, day: '2026-10-11', shape: 'With picture', output: 'o', appLog: LOG, result: {reached: 'form'}, captureDir: capture});
+  assert.ok(fs.readdirSync(withShot).includes('end.png'));
+  assert.match(fs.readFileSync(path.join(withShot, 'evidence.md'), 'utf8'), /end\.png/);
+  const without = writeBundle({dir, day: '2026-10-11', shape: 'No picture', output: 'o', appLog: LOG, result: {reached: 'form'}, captureDir: fs.mkdtempSync(path.join(os.tmpdir(), 'jp-cap-'))});
+  assert.ok(!fs.readdirSync(without).includes('end.png'));
+});
+
+test('apply-live takes the end-of-run picture before its last privacy check, so a tripwire hit deletes it with the rest', () => {
+  const source = fs.readFileSync(new URL('../lib/apply-live.mjs', import.meta.url), 'utf8');
+  const shot = source.indexOf("'end.png'"), final = source.indexOf('if (trip || (trip = await tripped()))');
+  assert.ok(shot > 0 && final > shot, 'end.png is written before the final tripwire check');
+});

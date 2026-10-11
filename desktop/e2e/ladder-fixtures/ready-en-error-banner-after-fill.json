@@ -1,0 +1,64 @@
+{
+ "schemaVersion": 1,
+ "id": "ready-en-error-banner-after-fill",
+ "question": "form_ready",
+ "source": "reconstructed",
+ "lang": "en",
+ "why": "after our fill the site shows its own error banner about the phone value; nothing covers the form but the page says the entry is refused: blocked (error)",
+ "url": "https://jobs.example.com/apply/4711",
+ "expect": {
+  "outcome": "blocked"
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/apply/4711",
+  "title": "Apply",
+  "headings": [
+   "Apply for this job"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "First name *",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "text",
+    "label": "Last name *",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "email",
+    "label": "Email *",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "tel",
+    "label": "Phone *",
+    "required": true,
+    "state": "filled"
+   }
+  ],
+  "buttons": [
+   "Submit application",
+   "Back"
+  ],
+  "texts": [
+   "There was a problem with your application",
+   "Invalid phone format: use +country code and digits only"
+  ],
+  "frames": []
+ },
+ "answer": {
+  "answer": "blocked",
+  "blocked_kind": "error",
+  "needs": "",
+  "needs_kind": "",
+  "step": "final",
+  "next_control": "",
+  "confidence": 0.9
+ },
+ "answer_path": "app"
+}

@@ -1,0 +1,87 @@
+{
+ "schemaVersion": 1,
+ "id": "ready-es-dialog-over-filled-form",
+ "question": "form_ready",
+ "source": "reconstructed",
+ "lang": "es",
+ "why": "pool 11 Oct 2026 (a luxury-brand careers site): after the fill the site opened its own dialog \"your filled fields may be replaced, continue?\" over the form; the judge asked for a field behind it and the run read \"5 of 8 filled\". The structure line ON TOP names the dialog; the answer is blocked (dialog)",
+ "url": "https://jobs.example.com/apply/4711",
+ "expect": {
+  "outcome": "blocked"
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/apply/4711",
+  "title": "Postular",
+  "headings": [
+   "Postular"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Nombre *",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "text",
+    "label": "Apellidos *",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "email",
+    "label": "Correo electrónico *",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "select-one",
+    "label": "País *",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "text",
+    "label": "Teléfono *",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "text",
+    "label": "¿Cómo se enteró de este trabajo? *",
+    "required": true,
+    "state": "empty"
+   }
+  ],
+  "buttons": [
+   "Continuar",
+   "Cancelar",
+   "Cerrar"
+  ],
+  "texts": [
+   "Sus campos rellenados pueden ser reemplazados. ¿Desea continuar?",
+   "Información personal"
+  ],
+  "frames": [],
+  "onTop": {
+   "shape": "dialog",
+   "role": "dialog",
+   "text": "Sus campos rellenados pueden ser reemplazados. ¿Desea continuar?",
+   "buttons": [
+    "Continuar",
+    "Cancelar",
+    "Cerrar"
+   ]
+  }
+ },
+ "answer": {
+  "answer": "blocked",
+  "blocked_kind": "dialog",
+  "needs": "",
+  "needs_kind": "",
+  "step": "unsure",
+  "next_control": "",
+  "confidence": 0.85
+ },
+ "answer_path": "app"
+}

@@ -11,9 +11,9 @@ export const SCHEMA_VERSION = 1;
 export const QUESTIONS = ['page_kind', 'account_ready', 'account_result', 'form_step', 'form_ready'];   // form_ready: the form judge's ready/needs_person (form_step: its step)
 export const questionOf = fixture => fixture.question || 'page_kind';
 // The fixed answers each question can give (an expectation is one of them; `pending` too, for a captured candidate nobody confirmed).
-export const OUTCOMES_BY_QUESTION = {page_kind: OUTCOMES, account_ready: ['ready', 'needs_person', 'unsure'], account_result: ['created', 'created_confirm', 'needs_code', 'already_exists', 'refused', 'unsure'], form_step: ['middle', 'final', 'unsure'], form_ready: ['ready', 'needs_person', 'unsure']};
+export const OUTCOMES_BY_QUESTION = {page_kind: OUTCOMES, account_ready: ['ready', 'needs_person', 'unsure'], account_result: ['created', 'created_confirm', 'needs_code', 'already_exists', 'refused', 'unsure'], form_step: ['middle', 'final', 'unsure'], form_ready: ['ready', 'needs_person', 'blocked', 'unsure']};
 // What the judges' sketch holds (the extension's accountSketch, extension/account-fill.js: never a typed value); fromPath and sameForm only after a press (account_result).
-export const JUDGE_SKETCH_FIELDS = ['title', 'headings', 'controls', 'buttons', 'texts', 'frames', 'fromPath', 'sameForm'];
+export const JUDGE_SKETCH_FIELDS = ['title', 'headings', 'controls', 'buttons', 'texts', 'frames', 'onTop', 'fromPath', 'sameForm'];
 // The fields a fixture may carry (adding one is a one-line change here; the test fails on an undeclared one). `rung` (0-6) and `signal` (unsure|contradicted|stalled|failed) are for the
 // admin page; `expect` may later carry form_frame (an index into frameCandidates) and a closed verb with candidate numbers (slice B).
 export const FIELDS = ['schemaVersion', 'id', 'question', 'source', 'lang', 'why', 'note', 'trap', 'url', 'capture', 'sketch', 'candidates', 'expect', 'answer', 'answer_path', 'rung', 'signal', 'file'];

@@ -32,7 +32,7 @@ export const PAGE_TELLS = 'page tells how to apply: told';
 const DIGEST_HOLD = {refused: SITE_REFUSED, login_wall: LOGIN_WALL};
 export function parseLive(output) {
   const lines = String(output || '').split('\n');
-  let reached = 'none', filled = null, left = null, marks = null, note = '', verdict;
+  let blocked = '', reached = 'none', filled = null, left = null, marks = null, note = '', verdict;
   const kinds = [], errors = [], path = [];
   let fieldList = [];   // the form's fields, one 'field ...' line each (apply-live.mjs prints them whole: the app's own line is cut at 230 characters)
   let derived = null, told = null, onAccount = false, digestHold = '', dialogLeft = false;
@@ -77,12 +77,15 @@ export function parseLive(output) {
     if (stop) { reach('form'); note = `eligibility stop: ${stop[1].trim().slice(0, 160)}`; }
     if (/(^|\s)(✗|not ok)\b|Error:|crash/.test(line)) errors.push(line.trim().slice(0, 200));
     if (/fill: a dialog was left open over the form/.test(line)) { dialogLeft = true; errors.push('a dialog was left open over the form'); }   // extension/dialog-after-fill.js: never a silent "ready"
+    const judgedForm = line.match(/panel: application form ready\?: (\w+)/);   // the form judge's last word on the page (extension/form-ready.js)
+    if (judgedForm) blocked = judgedForm[1] === 'blocked' ? (line.match(/"blocked":"(\w+)"/) || [])[1] || 'overlay' : '';
   }
-  if (dialogLeft && reached === 'ready') reached = 'form';
+  if (blocked) errors.push(`form judge: the page is blocked after the fill (${blocked})`);
+  if ((dialogLeft || blocked) && reached === 'ready') reached = 'form';
   // "a form came" after the Apply press can be the route to the sign-up page (adnovum, 11 Oct 2026): with no application field counted, the run still ended at the account step.
   if (!note && ['account', 'form'].includes(reached) && filled == null && path.at(-1)?.kind === 'account') { reached = 'account'; note = ACCOUNT_HELD; }
   if (!note && digestHold && rank(reached) < rank('form')) note = digestHold;
-  return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, pageKindErrors, kinds: [...new Set(kinds)], path, errors, ...(note ? {note} : {}), ...(verdict ? {verdict} : {})};
+  return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, pageKindErrors, kinds: [...new Set(kinds)], path, errors, ...(blocked ? {blocked} : {}), ...(note ? {note} : {}), ...(verdict ? {verdict} : {})};
 }
 
 // The same shape reaching an earlier step than its last run, or filling fewer fields on the same posting, is a regression.

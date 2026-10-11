@@ -152,11 +152,11 @@ export async function decideAccountJudge(storage, body, {judge = judgeAccount, c
   const phase = body?.phase === 'result' ? 'result' : body?.phase === 'form' ? 'form' : 'ready';
   noteAsk(body?.sketch?.url, {route: '/extension/account-judge'});   // the page as this ask saw it, kept by the e2e capture (lib/live-capture.js)   // 'form': the application form's own readiness (lib/form-judge.js)
   const answer = phase === 'form' ? await judgeForm(client === undefined ? aiClient(storage, {lane: 'page'}) : client, body?.sketch || {}) : await judge(client === undefined ? aiClient(storage, {lane: 'page'}) : client, body?.sketch || {}, phase);
-  captureCall({route: '/extension/account-judge', request: {phase, sketch: body?.sketch || {}}, answer: {answer: answer.answer || '', error: answer.error || '', needsKind: answer.needsKind || '', step: answer.step || ''}});   // the live ask a replay's miss is compared with (e2e only, scrubbed: lib/live-capture.js)
+  captureCall({route: '/extension/account-judge', request: {phase, sketch: body?.sketch || {}}, answer: {answer: answer.answer || '', error: answer.error || '', needsKind: answer.needsKind || '', step: answer.step || '', blockedKind: answer.blockedKind || ''}});   // the live ask a replay's miss is compared with (e2e only, scrubbed: lib/live-capture.js)
   appLog('extension', answer.error ? `account judgment ${phase}: none (${answer.error})` : `account judgment ${phase}: ${answer.answer}`, {botCheck: !!answer.botCheck, ...(answer.needs ? {needs: answer.needs.slice(0, 60)} : {}), ...(answer.needsKind ? {needsKind: answer.needsKind} : {}), ...(answer.unlisted ? {unlisted: answer.unlisted} : {})});   // the page's own labels (and a label the AI named that the page lacks), never a value
   const judged = {rung: 2, signal: signalOf(answer)}, climb = ladderLine(judged);   // the same fixed signals as page-kind
   if (climb) appLog('extension', climb, {phase});
-  const next = phase === 'form' && !answer.error ? {step: answer.step || 'unsure', nextControl: answer.nextControl || ''} : {};   // extension/next-step.js
+  const next = phase === 'form' && !answer.error ? {step: answer.step || 'unsure', nextControl: answer.nextControl || '', blockedKind: answer.blockedKind || ''} : {};   // extension/next-step.js
   return answer.error ? {ok: true, answer: '', error: answer.error, ...judged} : {ok: true, ...judged, answer: answer.answer, needs: answer.needs, needsKind: answer.needsKind || '', consentRequired: !!answer.consentRequired, botCheck: answer.botCheck, ...next};
 }
 

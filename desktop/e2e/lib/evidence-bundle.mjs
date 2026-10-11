@@ -28,11 +28,12 @@ export function evidenceLines(appLog) {
 const section = (title, list) => `## ${title}\n${list.length ? list.map(line => `- ${line}`).join('\n') : '- (none in the app log)'}\n`;
 
 // -> the folder. A part that is missing (no app log, no AI calls) is skipped, never an empty file.
-export function writeBundle({dir, day, shape, output = '', appLog = '', aiCalls = '', result = {}}) {
+export function writeBundle({dir, day, shape, output = '', appLog = '', aiCalls = '', result = {}, captureDir = ''}) {
   const folder = path.join(dir, day, slug(shape)), lines = evidenceLines(appLog);
   fs.mkdirSync(folder, {recursive: true});
+  const shot = captureDir && fs.existsSync(path.join(captureDir, 'end.png')) ? path.join(captureDir, 'end.png') : '';   // the last picture of the application tab (apply-live.mjs): fake applicant only, local, never uploaded
   const step = `reached ${result.reached || 'none'}${result.filled != null ? `, ${result.filled} filled, ${result.left} left` : ''}`;
-  const text = [`# ${shape}: ${day}`, '', `${step}. Files here: run.log (the run's output), app.log (the app's whole log), ai-calls.json (the page-kind asks and answers, and which fields the AI was asked to answer).`, '',
+  const text = [`# ${shape}: ${day}`, '', `${step}. Files here: run.log (the run's output), app.log (the app's whole log), ai-calls.json (the page-kind asks and answers, and which fields the AI was asked to answer).${shot ? ' end.png is the last picture of the application tab: look at it first.' : ''}`, '',
     section('Page kind (what was asked, with frames and the digest flag)', lines.pageKind), section('The digest\'s validated answer', lines.digest),
     section('What was pressed', lines.pressed), section('Where the page went', lines.wentTo),
     section('The eligibility verdict (the AI\'s own: aiEligible; what passed a "no": forced)', lines.verdict)].join('\n');
@@ -40,5 +41,6 @@ export function writeBundle({dir, day, shape, output = '', appLog = '', aiCalls 
   fs.writeFileSync(path.join(folder, 'run.log'), output);
   if (appLog) fs.writeFileSync(path.join(folder, 'app.log'), appLog);
   if (aiCalls) fs.writeFileSync(path.join(folder, 'ai-calls.json'), aiCalls);
+  if (shot) fs.copyFileSync(shot, path.join(folder, 'end.png'));
   return folder;
 }

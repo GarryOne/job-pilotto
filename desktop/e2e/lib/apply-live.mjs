@@ -146,6 +146,8 @@ export async function runLive(ctx, h) {
         if (frame % 4 === 0 && (trip = await tripped())) break;
         await pause(1500);
       }
+      // The last picture of the application tab, kept with the run's evidence (smoke.mjs copies it into the bundle): taken BEFORE the final privacy check, so a hit deletes it with the rest.
+      if (process.env.LIVE_CAPTURE_DIR) { const lastTab = ctx.browser.context.pages().filter(item => /^https?:/.test(item.url())).at(-1); fs.mkdirSync(process.env.LIVE_CAPTURE_DIR, {recursive: true}); if (lastTab) await lastTab.screenshot({path: path.join(process.env.LIVE_CAPTURE_DIR, 'end.png')}).catch(() => {}); }
       if (trip || (trip = await tripped())) { console.log(`  live: ${trip}`); throw new Error(trip); }
       if (asks) clearInterval(asks);
       console.log(`  live ${at()}: watched ${Math.round((Date.now() - started) / 1000)}s; frames in ${frames}`);

@@ -79,5 +79,5 @@ export async function tripwire(source, {values = ownerValues(), saved = []} = {}
   if (!hits.length) return {ok: true, checked: typed.length};
   for (const dir of saved.filter(Boolean)) fs.rmSync(dir, {recursive: true, force: true});
   await source.clear?.([...new Set(hits.map(hit => hit.label))]);
-  return {ok: false, checked: typed.length, reason: `privacy tripwire: ${hits.map(hit => `${hit.kind} typed into "${hit.label}"`).join(', ')}; the run's saved files were deleted and those fields cleared`};
+  return {ok: false, checked: typed.length, reason: `privacy tripwire: ${hits.map(hit => `${hit.kind} typed into "${hit.label}"`).join(', ')}; the run's saved files (screenshots included) were deleted and those fields cleared`};
 }

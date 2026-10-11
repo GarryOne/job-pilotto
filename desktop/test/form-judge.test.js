@@ -73,3 +73,29 @@ test('under the e2e capture the form judge\'s ask is kept for the replay to comp
   assert.ok(!text.includes('Ada') && !text.includes('SECRET'), 'no typed value, no query');
   assert.equal(call.answer.answer, 'needs_person');
 });
+
+// After the fill (11 Oct 2026, a site dialog "your filled fields may be replaced, continue?" sat over the form and the judge said needs_person about a field behind it):
+// a fourth fixed answer, blocked, with a kind the code validates; the page's own layers and covered controls are structure the AI is shown.
+const covered = {...page, onTop: {shape: 'dialog', role: 'dialog', text: 'Vos champs peuvent être remplacés. Continuer ?', buttons: ['Annuler', 'Continuer']}};
+test('blocked: a dialog over the form is its own answer, with a kind from the fixed list (anything else is "overlay"), never a needed control', async () => {
+  const seen = [];
+  const got = await judgeForm(fake({answer: 'blocked', blocked_kind: 'dialog', needs: 'Prénom', needs_kind: 'field', confidence: 0.9}, seen), covered);
+  assert.deepEqual([got.answer, got.blockedKind, got.needs], ['blocked', 'dialog', '']);
+  assert.equal((await judgeForm(fake({answer: 'blocked', blocked_kind: 'banner words', confidence: 0.9}), covered)).blockedKind, 'overlay');
+  for (const kind of ['dialog', 'error', 'overlay', 'gone']) assert.equal((await judgeForm(fake({answer: 'blocked', blocked_kind: kind, confidence: 0.8}), covered)).blockedKind, kind);
+  assert.equal((await judgeForm(fake({answer: 'ready', blocked_kind: 'dialog', confidence: 0.8}), page)).blockedKind, '', 'a kind only goes with blocked');
+  const sent = JSON.stringify(seen[0]);
+  assert.ok(sent.includes('Vos champs peuvent être remplacés') && sent.includes('ON TOP of the form'), 'the page\'s layers and covered controls reach the model');
+  assert.match(seen[0].system, /blocked/);
+});
+
+test('a page with no layer and no covered control sends neither line', async () => {
+  const seen = [];
+  await judgeForm(fake({answer: 'ready', needs: '', needs_kind: '', confidence: 0.9}, seen), page);
+  assert.ok(!JSON.stringify(seen[0].messages).includes('ON TOP') && !JSON.stringify(seen[0].messages).includes('ON TOP'));
+});
+
+test('the route passes blocked and its kind on', async () => {
+  const answer = await decideAccountJudge({}, {phase: 'form', sketch: covered}, {client: fake({answer: 'blocked', blocked_kind: 'dialog', needs: '', needs_kind: '', confidence: 0.9})});
+  assert.deepEqual([answer.answer, answer.blockedKind], ['blocked', 'dialog']);
+});

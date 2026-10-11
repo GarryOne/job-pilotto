@@ -29,3 +29,20 @@ test('after a fill the AI is asked what the page needs next, whatever the count 
   assert.equal(judge.length, 1, `asked ${judge.length} times: ${JSON.stringify(asked.map(([url]) => url))}`);
   assert.equal(judge[0][1].phase, 'form');
 });
+
+// 11 Oct 2026 (Louis Vuitton): a site dialog sat over the form after the fill and the run read as "5 of 8 filled". A blocked answer reaches the panel (its own words, per kind),
+// and nothing is pressed on a blocked page.
+test('a blocked answer flags the panel with its kind in words and presses no next step', async () => {
+  const {blockedWords, formNext} = await import('../../extension/form-ready.js');
+  assert.deepEqual(['dialog', 'error', 'overlay', 'gone'].map(kind => !!blockedWords(kind)), [true, true, true, true]);
+  assert.equal(blockedWords('anything else'), blockedWords('overlay'));
+  const flagged = [];
+  const keep = {chrome: globalThis.chrome, fetch: globalThis.fetch};
+  globalThis.chrome = {
+    storage: {local: {get: async () => ({workerUrl: 'http://127.0.0.1:47111', token: 't'}), set: async () => {}}, session: {get: async () => ({}), set: async () => {}}},
+    scripting: {executeScript: async ({args}) => { if (args?.length) flagged.push(args[0]); return [{result: {url: 'https://apply.example/m', title: 'Apply', headings: [], controls: [], buttons: ['Continue', 'Cancel'], texts: ['Your filled fields may be replaced'], frames: [], }}]; }},
+    runtime: {getManifest: () => ({version: '0'})}};
+  globalThis.fetch = async () => ({ok: true, status: 200, json: async () => ({answer: 'blocked', blockedKind: 'dialog', step: 'middle', nextControl: 'Continue'}), text: async () => ''});
+  try { await formNext({id: 72, url: 'https://apply.example/m'}, 0); await new Promise(resolve => setTimeout(resolve, 30)); } finally { Object.assign(globalThis, keep); }
+  assert.deepEqual(flagged, [blockedWords('dialog')]);
+});

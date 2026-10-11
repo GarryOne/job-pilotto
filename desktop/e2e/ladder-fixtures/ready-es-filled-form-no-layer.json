@@ -1,0 +1,76 @@
+{
+ "schemaVersion": 1,
+ "id": "ready-es-filled-form-no-layer",
+ "question": "form_ready",
+ "source": "reconstructed",
+ "lang": "es",
+ "why": "trap, no false alarm: the same Spanish form fully filled, no layer on top, only a cookie bar away from the form",
+ "url": "https://jobs.example.com/apply/4711",
+ "expect": {
+  "outcome": "ready"
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/apply/4711",
+  "title": "Postular",
+  "headings": [
+   "Postular"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Nombre *",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "text",
+    "label": "Apellidos *",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "email",
+    "label": "Correo electrónico *",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "select-one",
+    "label": "País *",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "text",
+    "label": "Teléfono *",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "text",
+    "label": "¿Cómo se enteró de este trabajo? *",
+    "required": true,
+    "state": "filled"
+   }
+  ],
+  "buttons": [
+   "Enviar solicitud",
+   "Aceptar cookies"
+  ],
+  "texts": [
+   "Información personal",
+   "Usamos cookies para mejorar su experiencia"
+  ],
+  "frames": []
+ },
+ "answer": {
+  "answer": "ready",
+  "blocked_kind": "",
+  "needs": "",
+  "needs_kind": "",
+  "step": "final",
+  "next_control": "",
+  "confidence": 0.9
+ },
+ "answer_path": "app"
+}

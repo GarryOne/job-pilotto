@@ -358,3 +358,12 @@ test('a dialog left open over the form: not ready, an error with the reason', ()
   assert.ok(out.errors.some(line => /dialog was left open over the form/.test(line)));
   assert.equal(parseLive('Apply pressed on u\n[extension] page kind: form {}\n[extension] fill: fields: 9 filled, 0 left').reached, 'ready');
 });
+
+// The form judge found the page blocked after the fill (11 Oct 2026, Louis Vuitton: "5 of 8 required filled" read as a success with a dialog over the form): its own reason, never a silent success.
+test('a run whose last form judgment is blocked has an error naming the kind; one that was blocked and then ready does not', () => {
+  const run = last => `Apply pressed on u\n[extension] page kind: form {}\n[extension] fill: fields: 5 filled, 3 left\n[extension] panel: application form ready?: blocked {"host":"x.example","blocked":"dialog"}\n${last}`;
+  const blocked = parseLive(run(''));
+  assert.deepEqual([blocked.blocked, blocked.errors], ['dialog', ['form judge: the page is blocked after the fill (dialog)']]);
+  const freed = parseLive(run('[extension] panel: application form ready?: needs_person {"host":"x.example"}'));
+  assert.deepEqual([freed.blocked, freed.errors], [undefined, []]);
+});

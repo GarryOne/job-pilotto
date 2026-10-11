@@ -182,7 +182,7 @@ async function main() {
     try { fs.writeFileSync(path.join(REPORTS, `${day}-${shape.replace(/\W+/g, '-')}.app.log`), fs.readFileSync(path.join(captureDir, 'app.log'), 'utf8')); } catch { /* no app log kept: the run did not get that far */ }
     const aiCalls = (() => { try { return fs.readFileSync(path.join(captureDir, 'ai-calls.json'), 'utf8'); } catch { return ''; } })();   // the app's live page-kind calls (desktop/lib/live-capture.js)
     const appLog = (() => { try { return fs.readFileSync(path.join(captureDir, 'app.log'), 'utf8'); } catch { return ''; } })();
-    results[shape].evidence = path.relative(REPORTS, writeBundle({dir: path.join(REPORTS, 'evidence'), day, shape, output: run.output, appLog, aiCalls, result: results[shape]}));   // one bundle per shape (lib/evidence-bundle.mjs)
+    results[shape].evidence = path.relative(REPORTS, writeBundle({dir: path.join(REPORTS, 'evidence'), day, shape, output: run.output, appLog, aiCalls, result: results[shape], captureDir}));   // one bundle per shape (lib/evidence-bundle.mjs)
     results[shape].lines = evidenceLines(appLog);   // the four lines that matter, quoted in the day's report
     console.log(`smoke: ${shape}: evidence ${path.join(REPORTS, results[shape].evidence, 'evidence.md')}`);
     const kept = saveCandidate({dir: CANDIDATES, day, shape, result: results[shape], html, output: run.output, aiCalls, captureDir, appLog, always: process.env.SMOKE_KEEP_CANDIDATES === '1'});   // with the journey, the sheets and the model answers (lib/capture-journey.mjs)
@@ -190,6 +190,7 @@ async function main() {
     fs.rmSync(captureDir, {recursive: true, force: true});
     console.log(`smoke: ${shape}: reached ${results[shape].reached}${results[shape].filled != null ? `, ${results[shape].filled} filled, ${results[shape].left} left` : ''} (${run.seconds}s)`);
     if (results[shape].marksBlind) console.log(`smoke: ${shape}: MARKS BLIND ${results[shape].marksBlind.starred} labels marked "*", ${results[shape].marksBlind.required} counted required: the required rule missed a layout`);
+    if (results[shape].blocked) console.log(`smoke: ${shape}: BLOCKED (${results[shape].blocked}): the form judge saw the page covered or gone after the fill: needs a fix, not a success`);
     if (results[shape].short) console.log(`smoke: ${shape}: SHORTFALL ${results[shape].short.miss} missed and ${results[shape].short.noSuggestion} with no suggestion, of ${results[shape].short.total} asked fields (${results[shape].short.done} filled or expected)`);
     await finish(shape);
     try { await sendPool(shapes, earlierList, results); } catch (error) { console.log(`smoke: pool upload failed, the run goes on (${String(error?.message || error).slice(0, 100)})`); }   // the page follows each site (its flow too), not only the run's end
@@ -205,6 +206,8 @@ async function main() {
   console.log(`smoke: ${regressions.length ? `REGRESSIONS: ${regressions.map(item => `${item.shape} (${item.why})`).join('; ')}` : 'no regression'}${previousFile ? ` vs ${previousFile}` : ' (first report)'}`);
   const blindMarks = Object.entries(results).filter(([, item]) => item.marksBlind);
   console.log(`smoke: ${blindMarks.length ? `MARKS BLIND (more "*" labels than required questions counted): ${blindMarks.map(([name, item]) => `${name} (${item.marksBlind.starred} vs ${item.marksBlind.required})`).join('; ')}` : 'no marks blind spot'}`);
+  const blockedRows = Object.entries(results).filter(([, item]) => item.blocked);
+  console.log(`smoke: ${blockedRows.length ? `BLOCKED AFTER THE FILL (a dialog, error or overlay over the form): ${blockedRows.map(([name, item]) => `${name} (${item.blocked})`).join('; ')}` : 'none blocked after the fill'}`);
   const shorts = Object.entries(results).filter(([, item]) => item.short);
   console.log(`smoke: ${shorts.length ? `SHORTFALLS (reached the form, under half filled): ${shorts.map(([name, item]) => `${name} (${item.short.miss + item.short.noSuggestion} unexplained of ${item.short.total})`).join('; ')}` : 'no shortfall'}`);
   console.log(`smoke: fleet boards dropped: ${dropped == null ? 'not read' : dropped.length ? dropped.map(item => `${item.board} ${item.earlier}→${item.recent}`).join(', ') : 'none'}`);

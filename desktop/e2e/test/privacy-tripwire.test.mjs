@@ -88,3 +88,14 @@ test('in a real page: fields in the page, a shadow root and a frame are read and
     assert.equal(await page.inputValue('#f'), 'Test', 'the fake applicant\'s value stays');
   } finally { await browser.close(); }
 });
+
+// 11 Oct 2026: the end-of-run picture (LIVE_CAPTURE_DIR/end.png) keeps on disk what a text scan cannot see: a hit deletes it with the capture folder, and the reason says so.
+test('a match deletes the end-of-run screenshot with the capture folder and says screenshots went', async () => {
+  const capture = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-tripwire-'));
+  fs.writeFileSync(path.join(capture, 'end.png'), 'png bytes');
+  const page = {typed: async () => [{label: 'Preferred name', value: 'Ana'}]};
+  const result = await tripwire(page, {values: OWNER, saved: [capture]});
+  assert.equal(result.ok, false);
+  assert.equal(fs.existsSync(path.join(capture, 'end.png')), false);
+  assert.match(result.reason, /screenshots/);
+});
