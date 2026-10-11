@@ -31,6 +31,10 @@ jobs:
       - name: Install the tests
         working-directory: desktop/e2e
         run: npm ci || npm install
+      # A row case starts the offline app, which imports desktop/lib/server.js and its packages (@anthropic-ai/sdk).
+      - name: Install the app's own packages
+        working-directory: desktop
+        run: npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts
       - name: Chromium (the real extension needs the full browser, not the headless shell)
         working-directory: desktop/e2e
         run: npx playwright install --with-deps chromium
