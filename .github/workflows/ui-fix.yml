@@ -6,7 +6,7 @@ name: CI · UI fixer
 # Claude only edits files (no git, no gh, no network); the last step checks the paths (desktop/renderer and its tests only), requires a test, runs the whole desktop suite,
 # and only then pushes a branch `auto-fix/<fingerprint>` and opens the PR with the finding's screenshot as "Before". At most 3 automatic PRs may be open at once.
 # A false positive is closed with the label `wontfix-auto`; a finding a person looked at and found real gets `confirmed`.
-# Needs: ANTHROPIC_API_KEY (the same repository secret as the weekly self-review).
+# Needs: ANTHROPIC_API_KEY (a repository secret).
 on:
   schedule:
     - cron: '30 5,11,15,19 * * *'   # four a day (owner, 3 Oct 2026: too many open issues): the early one after the nightly build, then ~1.5 h after each daytime e2e run is filed

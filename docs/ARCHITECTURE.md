@@ -85,7 +85,7 @@ The employer index is product data on the website, not user data. Nothing about 
 
 ## Product loops around the engine
 
-User runs and product runs are separate. The product side, described in `docs/HOW-IT-RUNS.md`, is a closed loop: apps send scrubbed telemetry and form-structure reports, those become GitHub issues, a daily job asks Claude for a tested fix on a branch, and the owner merges. A canary that stays healthy for 48 hours can become the stable desktop release. A weekly self-review may edit the rules, again only as a pull request.
+User runs and product runs are separate. The product side, described in `docs/HOW-IT-RUNS.md`, is a closed loop: apps send scrubbed telemetry and form-structure reports, those become GitHub issues, a daily job asks Claude for a tested fix on a branch, and the owner merges. A canary that stays healthy for 48 hours can become the stable desktop release.
 
 ## Constraints that shape the design
 

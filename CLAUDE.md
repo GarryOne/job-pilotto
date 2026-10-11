@@ -68,7 +68,7 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
    - The to-do list: after a finished task, not per commit.
 6. **Big changes** (a feature, migration, refactor): spec with a `## Progress` checklist, safety net first, ONE full run at landing, 1-3 commits
    ([docs/rules/change-loop.md](docs/rules/change-loop.md)).
-7. Weekly self-review (`.github/workflows/weekly-self-review.yml`) proposes rule edits as a PR; the owner merges.
+7. The weekly self-review (rule-edit PRs) was retired on 12 Oct 2026 (owner); rule edits come from sessions through the change loop.
 
 ## Where the detail is
 | Topic | File |

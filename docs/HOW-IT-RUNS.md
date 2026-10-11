@@ -19,7 +19,6 @@ flowchart LR
   issues -- owner fixes by hand or PR --> main[(main)]
   main --> ci[build: tests] & desktop[desktop: pre-release] & site[site: deploy]
   desktop --> canary[soak: e2e top-ups + 48 h beta use] --> stable[stable release] --> apps
-  main -. weekly facts .-> review[weekly-self-review: rules PR]
   tel & issues & main --> brain[product-brain: ONE action a day] -- owner taps --> plan[plan in Notion]
 ```
 
@@ -58,7 +57,6 @@ flowchart LR
 | `worker.yml` · Release · Worker | push touching `worker/src/`, its `wrangler.toml`, `package*.json` or `scripts/` (not this workflow file); by hand | the Worker's tests, then `npm run deploy` (wrangler deploy + the secrets check) of `sre-job-pilotto-bot`: the Telegram bot and the on-time schedules; independent of the desktop release run and of the site | the live Worker | Cloudflare | — |
 | `site-next.yml` · Release · Website preview (next) | push touching `site-next/` | deploys the preview worker | the website preview (no data of its own) | next.jobpilotto.workers.dev | — |
 | Triage · private repo `GarryOne/job-pilotto-internal` (`triage.yml`, daily 05:47 UTC) | pulls recurring problems from the site's queue (several installs, or very often) → one issue per problem in the private repo | issues (private) | `telemetry` / `fill-failure` issues there | act on the issue |
-| `weekly-self-review.yml` | Sunday 18:00 UTC | reads the week's rework → ≤ 3 rule/skill edits | CLAUDE.md, AGENTS.md, skills (PR) | `self-review/<date>` PR | merge the PR |
 | `product-brain.yml` · Product brain | daily 05:00 UTC; Sunday 16:00 strategy review | reads the owner's 📍 Product Compass, numbers, the website (screenshots), GitHub → ONE action serving the phase; Sunday: proposes Compass changes (Opus, web) | Notion Decisions (+ Compass on ✅) | Brain bot card | ✅ Explore, ✅ Approve, ✅ Update the compass |
 | `daily.yml` · Find new jobs | user's private repo (every 4 h) | crawl, score, digest, kits | the user's Notion | Telegram digest | user submits |
 | `scout.yml` · Find new employers | user's private repo, **optional** (off for new installs) | probes public job-feed APIs | the user's employer list | Telegram | — |

@@ -18,5 +18,4 @@ Both were retired on 11 Oct 2026 ([why.md](why.md#change-loop)).
 
 **Before saying done:** what did this task teach, and what is the strongest form that can hold it?
 
-**Kept alive by:** each skill's self-improve step, a post-mortem when a task takes much longer than it should, and the weekly self-review
-workflow (`.github/workflows/weekly-self-review.yml`).
+**Kept alive by:** each skill's self-improve step, and a post-mortem when a task takes much longer than it should (the weekly self-review workflow was retired on 12 Oct 2026).

@@ -22,7 +22,7 @@ CLASSIFIED = {
     'Release · Worker': 'ignored: worker deploy', 'CI · Account-page eval': 'ignored: AI eval', 'CI · Judge exam': 'ignored: AI eval', 'CI · Mutation test': 'ignored: nightly measurement',
     'CI · AI code review': 'ignored: advice on a PR', 'CI · AI cost billed': 'ignored: report', 'CI · Schedule watchdog': 'ignored: report', 'CI · Self-heal stats': 'ignored: report',
     'CI · UI findings': 'ignored: UI loop', 'CI · UI fixer': 'ignored: UI loop', 'CI · UI verdicts': 'ignored: UI loop', 'CI · Top issues list': 'ignored: UI loop', 'CI · Bug Tracker rows': 'ignored: UI loop',
-    'CI · Sentry fixer': 'ignored: fixer loop', 'UI loop · Finder self-review': 'ignored: UI loop', 'Weekly self-review': 'ignored: weekly advice',
+    'CI · Sentry fixer': 'ignored: fixer loop', 'UI loop · Finder self-review': 'ignored: UI loop',
     'Pipeline · Find new jobs': 'ignored: product pipeline', 'Pipeline · Gmail and Calendar': 'ignored: product pipeline', 'Pipeline · Find new employers': 'ignored: product pipeline',
     'Product brain · Daily brief': 'ignored: report',
 }
