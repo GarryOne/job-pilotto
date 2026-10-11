@@ -32,7 +32,7 @@ repro tool not on the app's path, ~25% waiting (e2e page, file claims, version r
 - [x] A failed recorded case is retried alone and reported FLAKY with the load (job-pilotto-cc, c912b8b)
 - [x] Two sessions' baseline updates merge without a conflict (job-pilotto-cc, d5503ae)
 - [x] Heavy runs wait when the machine's load is high (c93ed10)
-- [ ] A one-minute local check before the gate (the touched area's unit tests, e2e harness tests)
+- Dropped (11 Oct, job-pilotto-ac): A one-minute local check before the gate (the touched area's unit tests, e2e harness tests) — it repeats the gate's own tests, and sharing the gate cache from a working tree with git-ignored leftovers is unsound
 
 ### 5. The skill (fix-failing-forms)
 - [x] Asked / answered / done before any guess (e87c82a)
@@ -48,4 +48,4 @@ repro tool not on the app's path, ~25% waiting (e2e page, file claims, version r
 - [x] 3. One heavy run at a time per machine (lock) and heavy runs wait when the load is high (c93ed10)
 - [x] 4. Tiers: docs, skills, tools-only and tests-only pushes run lint + touched unit tests only (db0c63a)
 - [x] 5. Landing lock in ship.sh, and the extension version taken at ship time under it (f99fb46)
-- [ ] 6. A one-minute local check before the gate
+- Dropped (11 Oct, job-pilotto-ac): 6. A one-minute local check before the gate — it repeats the gate's own tests, and sharing the gate cache from a working tree with git-ignored leftovers is unsound
