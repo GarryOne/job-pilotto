@@ -68,7 +68,9 @@ memory_ok() {  # a 2nd heavy run fits: free+inactive memory over the floor and s
 take() { local dir; for dir in $SLOT_DIRS; do mkdir "$dir" 2>/dev/null && { lock="$dir"; return 0; }; done; return 1; }
 release() { [ -n "$lock" ] && [ "$(cat "$lock/pid" 2>/dev/null)" = "$$" ] && rm -rf "$lock"; return 0; }
 queue="$root/queue"; mkdir -p "$queue"
-session="${JOB_PILOTTO_SESSION:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo ?)}"
+branch_now="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo ?)"
+[ -f "$(dirname "$0")/session-name.sh" ] && source "$(dirname "$0")/session-name.sh" && session="$(session_name)" || session="${JOB_PILOTTO_SESSION:-?}"
+[ "$session" = ? ] && session="$branch_now"   # no session name found: the branch still says whose run it is
 is_short() { case "$1" in row|row-*) return 0 ;; *) return 1 ;; esac; }   # a row replay: one offline browser, ~15 s
 is_replay() { case "$1" in row|row-*|recorded-replay) return 0 ;; *) return 1 ;; esac; }
 short_first="${JOB_PILOTTO_HEAVY_SHORT_FIRST:-1}"; short_age="${JOB_PILOTTO_HEAVY_SHORT_AGE:-120}"
@@ -107,6 +109,7 @@ wait_max="${JOB_PILOTTO_HEAVY_WAIT:-1800}"; poll="${JOB_PILOTTO_HEAVY_POLL:-1}";
 cores="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 8)"
 limit="${JOB_PILOTTO_HEAVY_LOAD:-$(( cores * 3 / 2 ))}"; load_wait="${JOB_PILOTTO_HEAVY_LOAD_WAIT:-300}"; load_began=""; load_gave_up=0
 load1() { uptime | sed -E 's/.*load averages?: *//' | awk -F'[ ,]+' '{ printf "%d", $1 + 0.5 }'; }
+load_queue="$(load1)"
 mark() { printf '%s %s\n%s\n%s\n' "$$" "$what" "$1" "$session" >"$ticket"; }   # the ticket keeps its name (its place in line); only its second line changes
 machine_ready() {  # sets $why when not
   [ "$limit" -gt 0 ] 2>/dev/null || return 0
@@ -139,13 +142,21 @@ while :; do
 done
 rm -f "$ticket"
 if [ -n "$lock" ]; then echo $$ >"$lock/pid"; echo "$what" >"$lock/what"; echo "$session" >"$lock/session"; date +%s >"$lock/since"; pwd >"$lock/cwd"; fi
+# Every hold is logged with the branch and session it belongs to and the load at queueing and at start, so a fix's proof waits can be summed (tools/landing-report.mjs).
+timing_log() {  # <text after the time stamp>
+  [ "${GATE_TIMING:-1}" != 0 ] || return 0
+  local timing="${JOB_PILOTTO_HEAVY_TIMING_LOG:-$(git -C "$(dirname "$0")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)/gate-timing.log}"
+  [ "$timing" = /gate-timing.log ] || echo "# $(date -u +%Y-%m-%dT%H:%M:%SZ) $1" >>"$timing" 2>/dev/null || true
+}
+waited_s=$(( $(date +%s) - began )); load_start="$(load1)"
+ident="what=$what branch=$branch_now session=$session load_q=$load_queue load_start=$load_start"
 if [ "$told" = 1 ]; then
-  say "got the lock after $(( $(date +%s) - began ))s"
-  if [ "${GATE_TIMING:-1}" != 0 ]; then   # every wait, for the next measurement
-    timing="${JOB_PILOTTO_HEAVY_TIMING_LOG:-$(git -C "$(dirname "$0")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)/gate-timing.log}"
-    [ "$timing" = /gate-timing.log ] || echo "# $(date -u +%Y-%m-%dT%H:%M:%SZ) heavy lock wait=$(( $(date +%s) - began ))s what=$what" >>"$timing" 2>/dev/null || true
-  fi
+  say "got the lock after ${waited_s}s"
+  timing_log "heavy lock wait=${waited_s}s $ident"   # every wait, for the next measurement
 fi
 
 say "$what runs (pid $$)"
-JP_HEAVY_HELD=$$ "$@"
+run_began=$(date +%s); code=0
+JP_HEAVY_HELD=$$ "$@" || code=$?
+timing_log "heavy lock run=$(( $(date +%s) - run_began ))s wait=${waited_s}s exit=$code $ident"
+exit "$code"

@@ -34,7 +34,9 @@ main="$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd)
 if ! git diff --quiet || ! git diff --cached --quiet; then echo "ship: uncommitted changes in tracked files: commit them first" >&2; exit 2; fi
 
 log="${SHIP_LOG:-${TMPDIR:-/tmp}/ship-${branch//\//-}.log}"
+[ -f "$here/tools/session-name.sh" ] && source "$here/tools/session-name.sh" || session_name() { echo "${JOB_PILOTTO_SESSION:-?}"; }
 if [ "$background" = 1 ]; then
+  export JOB_PILOTTO_SESSION="$(session_name)"   # the detached run has no Claude session among its parents any more
   : > "$log"
   # Its own session (setsid; macOS has no such command, python's os.setsid does the same): the caller's process-group kill or hangup when its
   # call ends (a tool timeout, a closed terminal) must not reach the run. nohup alone only ignores SIGHUP (10 Oct 2026: a killed run logged DONE).
@@ -54,7 +56,8 @@ exec > >(tee -a "$log") 2> >(tee -a "$log" >&2)
 echo "ship: log: $log"
 started=$SECONDS
 if [ -f "$here/tools/landing-lock.sh" ]; then source "$here/tools/landing-lock.sh"; else landing_acquire() { :; }; landing_release() { :; }; fi   # a queue only with SHIP_LANDING_LOCK=1 (off by default: a refused push rebases and re-runs the checks)
-step() { echo "ship: [$((SECONDS - started))s] $*"; }
+if [ -f "$here/tools/ship-timeline.sh" ]; then source "$here/tools/ship-timeline.sh"; timeline_begin "$log"; else timeline_mark() { :; }; timeline_write() { :; }; fi   # one line per landing in ship-timeline.log
+step() { timeline_mark "$*"; echo "ship: [$((SECONDS - started))s] $*"; }
 # DONE is printed only by a run that reached one of its two real ends (`finished=1`: pushed, or deliberately nothing to push). A signal exits non-zero
 # and stops the push checks it started; an exit 0 that never got to an end is reported as such, never as DONE (10 Oct 2026: a killed background run logged
 # "DONE nothing to push" with its commit unpushed).
@@ -64,7 +67,7 @@ on_signal() { echo "ship: stopped by signal $1" >&2; [ -n "$check_pid" ] && kill
 trap 'on_signal TERM 15' TERM
 trap 'on_signal INT 2' INT
 trap 'on_signal HUP 1' HUP
-trap 'code=$?; landing_release; if [ "$code" -ne 0 ]; then echo "ship: FAILED (exit $code), log: $log"; elif [ -n "$finished" ]; then echo "ship: DONE ${sha:-nothing to push}"; else echo "ship: FAILED (ended early without pushing or finishing), log: $log"; fi' EXIT
+trap 'code=$?; landing_release; timeline_write "$code"; if [ "$code" -ne 0 ]; then echo "ship: FAILED (exit $code), log: $log"; elif [ -n "$finished" ]; then echo "ship: DONE ${sha:-nothing to push}"; else echo "ship: FAILED (ended early without pushing or finishing), log: $log"; fi' EXIT
 
 rebase() {
   git fetch -q origin
