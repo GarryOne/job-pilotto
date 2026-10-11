@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {memoFile, memoKey, memoOnly, withMemo} from '../lib/ai/model-memo.js';
+import {memoFile, memoKey, memoOnly, memoParts, withMemo} from '../lib/ai/model-memo.js';
 
 const ask = (text, extra = {}) => ({model: 'claude-haiku-5-5', max_tokens: 500, system: 'Say what kind of page this is.', messages: [{role: 'user', content: text}], ...extra});
 
@@ -38,7 +38,7 @@ test('a hit answers without asking; a miss asks once and is kept on disk for the
   withMemo(again, file);
   assert.deepEqual((await again.messages.create(ask('a form page'))).content, first.content);
   const stored = JSON.parse(fs.readFileSync(file, 'utf8'));
-  assert.equal(Object.keys(stored).length, 1);
+  assert.equal(Object.keys(stored).filter(name => !name.endsWith('#parts')).length, 1, 'one answer, and beside it its parts (hashes)');
   assert.ok(!JSON.stringify(stored).includes('a form page'), 'the request text is not stored, only its hash and the answer');
 });
 
@@ -100,4 +100,28 @@ test('memo-only answers are scrubbed like the replayed page: an email the AI rea
   const answer = await replay.messages.create(ask('Addresses: test.candidate@example.com'));
   assert.match(answer.content[0].text, /"apply_email":"test\.candidate@example\.com"/);
   assert.match(JSON.parse(fs.readFileSync(file, 'utf8'))[Object.keys(JSON.parse(fs.readFileSync(file, 'utf8')))[0]].content[0].text, /rh@fidag-sa\.ch/, 'the kept answer itself is unchanged');
+});
+
+const answerAsk = (job, system = 'You fill forms.') => ({model: 'claude-sonnet-5-5', system: [{type: 'text', text: system}, {type: 'text', text: '<profile>Ada</profile>'}],
+  messages: [{role: 'user', content: `<job>\n${job}\n</job>\n\n<form_fields>\n[{"field":"q1"}]\n</form_fields>`}]});
+
+test('a request\'s parts are hashes of the model, each system block and each tag block of the user message; same request, same parts, no text in them', () => {
+  const parts = memoParts(answerAsk('Seller in Zurich'));
+  assert.deepEqual(Object.keys(parts), ['model', 'system:0', 'system:1', 'user:job', 'user:form_fields', 'output']);
+  assert.deepEqual(parts, memoParts(answerAsk('Seller in Zurich')));
+  assert.ok(Object.values(parts).every(hash => /^[0-9a-f]{12}$/.test(hash)));
+  assert.ok(!JSON.stringify(parts).includes('Zurich'));
+});
+
+test('a kept answer keeps its parts; a miss names the nearest kept ask\'s differing parts ("job differs"), in the refusal and never by text', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-memo-parts-')), 'model-memo.json');
+  const live = {engine: 'cli', messages: {create: async () => ({content: [{type: 'text', text: '{"answers":[]}'}], stop_reason: 'end_turn', usage: {}})}};
+  withMemo(live, file);
+  await live.messages.create(answerAsk('Seller in Zurich'));
+  const replay = {messages: {create: async () => { throw new Error('must not ask'); }}};
+  withMemo(replay, file, {only: true});
+  await assert.rejects(replay.messages.create(answerAsk('Seller in Zurich, page text read a second later')), /nearest kept ask differs in: user:job\b(?!.*system)/);
+  await assert.rejects(replay.messages.create(answerAsk('Seller in Zurich', 'You fill forms, learned: x')), /differs in: system:0\b/);
+  await assert.rejects(replay.messages.create({...answerAsk('Seller in Zurich'), model: 'claude-haiku-5-5'}), /differs in: model/);
+  assert.ok((await replay.messages.create(answerAsk('Seller in Zurich'))).content, 'the same ask still hits');
 });

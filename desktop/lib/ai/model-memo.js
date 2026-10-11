@@ -27,6 +27,34 @@ export function memoKey(params = {}) {
   return crypto.createHash('sha256').update(normalise(JSON.stringify(asked))).digest('hex');
 }
 
+// The request's PARTS, as short hashes (never text): the model, each system block, and the user message cut by its <tag> blocks (or, for a message without tags, by its "Label:" lines).
+// Kept beside each answer, so a replay's miss can say WHICH part differs from the live ask ("job differs", "system:1 differs") instead of only "not in its kept answers" (12 Oct 2026, Ashby).
+const piece = text => crypto.createHash('sha256').update(normalise(String(text))).digest('hex').slice(0, 12);
+const textOf = content => (Array.isArray(content) ? content.map(block => block?.text ?? '').join('\n') : String(content ?? ''));
+export function memoParts(params = {}) {
+  const parts = {model: piece(params.model ?? '')}, add = (name, text) => { let at = name, n = 1; while (at in parts) at = `${name}#${++n}`; parts[at] = piece(text); };
+  const system = params.system ?? '';
+  if (Array.isArray(system)) system.forEach((block, i) => add(`system:${i}`, block?.text ?? '')); else add('system', system);
+  for (const message of params.messages ?? []) {
+    const text = textOf(message.content), tagged = [...text.matchAll(/<([a-z_]+)>([\s\S]*?)<\/\1>/g)];
+    if (tagged.length) { for (const [, tag, inner] of tagged) add(`${message.role}:${tag}`, inner); add(`${message.role}:rest`, text.replace(/<([a-z_]+)>[\s\S]*?<\/\1>/g, '').trim()); if (parts[`${message.role}:rest`] === piece('')) delete parts[`${message.role}:rest`]; }
+    else for (const line of text.split('\n')) add(`${message.role}:${/^([A-Za-z][^:]{0,30}):/.exec(line)?.[1] || 'line'}`, line);
+  }
+  add('output', JSON.stringify([params.output_config ?? null, params.tools ?? null]));
+  return parts;
+}
+// The kept ask nearest to this one (fewest differing parts), among the answers kept with their parts: -> the names of the parts that differ, or null when none was kept with parts.
+export function nearestDiffers(parts, kept) {
+  let best = null;
+  for (const [name, other] of Object.entries(kept)) {
+    if (!name.endsWith(PARTS)) continue;
+    const names = new Set([...Object.keys(parts), ...Object.keys(other)]), differs = [...names].filter(part => parts[part] !== other[part]);
+    if (!best || differs.length < best.length) best = differs;
+  }
+  return best;
+}
+const PARTS = '#parts';
+
 const insideRealData = file => (path.resolve(file) + path.sep).startsWith(path.join(os.homedir(), 'Library', 'Application Support', 'Job Pilotto') + path.sep);
 
 // -> the cache file for this process, or '' (no cache).
@@ -53,13 +81,14 @@ export function withMemo(client, file = memoFile(), {only = memoOnly()} = {}) {
     if (only) {
       // JOB_PILOTTO_MODEL_MEMO_MISSES=<file> (e2e only): the normalised request of each miss, to see what differs from the live run's ask.
       if (process.env.JOB_PILOTTO_E2E && process.env.JOB_PILOTTO_MODEL_MEMO_MISSES) try { fs.appendFileSync(process.env.JOB_PILOTTO_MODEL_MEMO_MISSES, `${normalise(JSON.stringify({model: params.model, system: params.system ?? '', messages: params.messages ?? [], output_config: params.output_config ?? null, tools: params.tools ?? null}))}\n`); } catch { /* a debug aid */ }
-      throw new Error('model memo: not in the row\'s kept answers (an offline replay never asks the model)');
+      const differs = nearestDiffers(memoParts(params), kept);
+      throw new Error(`model memo: not in the row's kept answers (an offline replay never asks the model)${differs ? `; the nearest kept ask differs in: ${differs.join(', ') || 'nothing I can see (the same parts)'}` : ''}`);
     }
     const answer = await ask(params);
     try {
       fs.mkdirSync(path.dirname(file), {recursive: true});
       const tmp = `${file}.${process.pid}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify({...read(file), [key]: answer}));
+      fs.writeFileSync(tmp, JSON.stringify({...read(file), [key]: answer, [key + PARTS]: memoParts(params)}));
       fs.renameSync(tmp, file);
     } catch { /* the cache is only a speed-up */ }
     return answer;

@@ -18,6 +18,8 @@ import {startRealExtension} from './real-extension.mjs';
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 // The live harness's window (lib/extension.mjs: viewport null under --headless=new), measured on 11 Oct 2026: for a capture made before it recorded its own (journey view).
 const LIVE_WINDOW = {width: 1200, height: 818};
+// Which parts of the ask differ from the nearest kept one, read from the app's log (lib/ai/model-memo.js names them in its refusal). -> ["user:job", ...] without repeats
+export const missParts = text => [...new Set([...String(text).matchAll(/nearest kept ask differs in: ([^\n"\\]+)/g)].flatMap(found => found[1].split(', ').map(part => part.trim())).filter(Boolean))];
 export const addressOf = url => String(url).replace(/[?#].*$/, '').replace(/\/$/, '');
 const readJson = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
 
@@ -146,7 +148,7 @@ export async function openReplay(caseDirs, {extensionDir} = {}) {
       }
       return {row: name, seconds: Math.round((Date.now() - started) / 100) / 10, evidence: evidenceLines(log()), unrecorded: [...row.unrecorded], followed: Math.min(followed, row.applied),
         divergence, livePresses: presses.length, asks: requests().filter(request => request.route === '/extension/page-kind').length,
-        misses: (log().match(/not in the row's kept answers/g) || []).length, requests: requests(), appLog: log()};
+        misses: (log().match(/not in the row's kept answers/g) || []).length, missParts: missParts(log()), requests: requests(), appLog: log()};
     } finally {
       active.delete(row);
       for (const [page, owner] of [...rows]) if (owner === row) { rows.delete(page); await page.close().catch(() => {}); }
