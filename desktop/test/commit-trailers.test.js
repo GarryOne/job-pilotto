@@ -17,7 +17,7 @@ test('every wrong value names its line (the "Rung: 1 " that cost a ship cycle is
     ['x\n\nRung: 7', /"Rung: 7" is not 0-6/], ['x\n\nRung: one', /"Rung: one"/], ['x\n\nRung: none', /"Rung: none" needs a reason/],
     ['x\n\nFixture: nope', /no fixture "nope"/], ['x\n\nFixture: none', /"Fixture: none" needs a reason/],
     ['x\n\nPool-row: https://a.example/jobs?id=1', /Pool-row/], ['x\n\nPool-row:', /Pool-row/],
-    ['x\n\nRecorded-unneeded:', /Recorded-unneeded/], ['x\n\nE2E-issue: none', /E2E-issue/], ['x\n\nE2E-issue: 12', /E2E-issue/],
+    ['x\n\nRecorded-unneeded:', /Recorded-unneeded/], ['x\n\nRecorded-pins:', /Recorded-pins/], ['x\n\nE2E-issue: none', /E2E-issue/], ['x\n\nE2E-issue: 12', /E2E-issue/],
   ]) assert.match(bad(message), pattern, message);
 });
 
