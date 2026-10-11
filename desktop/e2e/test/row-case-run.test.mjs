@@ -45,6 +45,7 @@ test('CI\'s row case run says when asks were served by order, and asks the repla
   const replay = async (dir, options) => { seen.push(options.ordinal === true); return result(['posting', 'form'], {ordinalHits: [{n: 1, of: 2, differs: ['user:job']}]}); };
   const ci = await runRowCase(item, {replay, ordinal: true});
   assert.match(ci.ordinal, /1 ask\(s\) served by ORDER/);
+  assert.match(ci.ordinal, /differ from the closest kept ask in user:job/, 'the warning names the parts that differ');
   assert.equal(ci.ok, true, 'a warning, not a failure');
   await runRowCase(item, {replay});
   assert.deepEqual(seen, [true, false]);
