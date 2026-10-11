@@ -77,6 +77,10 @@ export async function fixedData(db, pool, cases, now = new Date()) {
 }
 
 export const FIXED_CSS = `
+.tabs{display:flex;gap:6px;margin:18px 0 0;padding:0 0 0 12px;border-bottom:1px solid var(--line)}
+.tabs a{position:relative;display:inline-block;margin-bottom:-1px;padding:10px 18px;border:1px solid var(--line);border-bottom:0;border-radius:10px 10px 0 0;background:var(--bg);color:var(--muted);font-size:14px;text-decoration:none}
+.tabs a:hover{color:var(--text)}.tabs a:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}.tabs a.on{background:var(--card);color:var(--text);font-weight:600;border-bottom:1px solid var(--card);box-shadow:inset 0 2px 0 var(--amber)}
+.tabs ~ section.fix,.tabs ~ section.fixed{margin-top:0;padding-top:16px;border-top:0}.tabs ~ section.fixed{padding-top:0}.fixed .fixpanel{border-top:0;border-radius:0 0 12px 12px}
 .fixpanel{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}.fixhead{padding:16px}.fixhead h2{margin:0 0 4px;font-size:18px}.fixhead p{margin:0 0 8px}
 .how{font-size:13px}.how summary{cursor:pointer;color:var(--muted)}.how summary:hover{color:var(--text)}.how dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;margin:10px 0 0}.how dt{font-weight:600}.how dd{margin:0;color:var(--muted)}
 .fixbar,.fixfoot{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;align-items:center;padding:12px 16px;border-top:1px solid var(--line);font-size:13px}.fixfoot .pager{margin:0}
@@ -133,7 +137,7 @@ export const FIXED_SCRIPT = `
       el('div', {className: 'fixfoot'}, el('span', {className: 'muted', textContent: rows.length ? 'Showing ' + (from + 1) + '–' + (from + shown.length) + ' of ' + rows.length + ' records' : '0 records'}),
         pages > 1 ? el('div', {className: 'pager'}, el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: fixPage.n === 0, onclick: go(-1)}), el('button', {className: 'chip', type: 'button', textContent: 'Next →', disabled: fixPage.n >= pages - 1, onclick: go(1)})) : null))); };
   const showTab = () => { const fixed = typeof location !== 'undefined' && location.hash === '#fixed'; fixBox.hidden = fixed; fixedBox.hidden = !fixed;
-    tabs.textContent = ''; tabs.append(el('a', {href: '#needs-fix', className: 'chip' + (fixed ? '' : ' on'), textContent: 'Needs a fix · ' + d.pool.filter(needs).length}),
-      el('a', {href: '#fixed', className: 'chip' + (fixed ? ' on' : ''), title: 'Sites with a landed fix. The table also lists replay-only checks that no fix names.', textContent: 'Fixed · ' + d.fixed.rows.length})); };
+    tabs.textContent = ''; tabs.append(el('a', {href: '#needs-fix', role: 'tab', 'aria-selected': String(!fixed), className: fixed ? '' : 'on', textContent: 'Needs a fix · ' + d.pool.filter(needs).length}),
+      el('a', {href: '#fixed', role: 'tab', 'aria-selected': String(fixed), className: fixed ? 'on' : '', title: 'Sites with a landed fix. The table also lists replay-only checks that no fix names.', textContent: 'Fixed · ' + d.fixed.rows.length})); };
   if (typeof window !== 'undefined') window.addEventListener('hashchange', showTab);
 `;

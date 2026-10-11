@@ -113,3 +113,11 @@ test('the page: two tabs by URL hash, one charcoal panel (title, one sentence, "
   assert.match(PAGE, /Sites with a landed fix/);
   assert.match(PAGE, /padding:12px 16px/);
 });
+
+test('the two tabs are real tabs joined to the content: a tablist whose active tab shares the panel background, no gap between the strip and the panel', () => {
+  assert.match(PAGE, /role: 'tablist'/); assert.match(PAGE, /role: 'tab'/); assert.match(PAGE, /'aria-selected'/);
+  assert.match(PAGE, /\.tabs a\{[^}]*margin-bottom:-1px/);   // the tab overlaps the strip's line
+  assert.match(PAGE, /\.tabs a\.on\{[^}]*background:var\(--card\)/);   // the active tab is the panel's own colour
+  assert.match(PAGE, /\.tabs ~ section\.fixed\{[^}]*margin-top:0/);   // no gap under the strip
+  assert.doesNotMatch(PAGE, /className: 'chip' \+ \(fixed/);   // the old chip buttons are gone
+});
