@@ -1,0 +1,86 @@
+{
+ "schemaVersion": 1,
+ "id": "jobsch-account-layer-continue-without",
+ "source": "recorded",
+ "lang": "en",
+ "why": "jobs.ch 11 Oct 2026 (pool row): Easy apply opened a layer 'Create an account to apply faster' with 'Continue without an account'; the live ask answered apply_button '' and apply_route '' at 0.6, so the layer stayed open. The no-account button is the manual route.",
+ "url": "https://www.jobs.ch/en/vacancies/detail/a47dffef-1a4f-45cd-bc12-8c585918466f/",
+ "expect": {
+  "outcome": "posting",
+  "accept": [
+   "posting"
+  ],
+  "apply_route": "manual",
+  "digest": "not_asked"
+ },
+ "sketch": {
+  "url": "https://www.jobs.ch/en/vacancies/detail/a47dffef-1a4f-45cd-bc12-8c585918466f/",
+  "title": "Real Estate Accountant - Job Offer at Agence Immobilière Rodolphe Burger SA - jobs.ch",
+  "headings": [
+   "Create an account to apply faster",
+   "Real Estate Accountant",
+   "Categories:",
+   "Others have also looked at",
+   "Comptable Général Abacus",
+   "Comptable fiduciaire",
+   "Comptable Général - Lausanne - CDI",
+   "Salary estimator"
+  ],
+  "controls": [],
+  "buttons": [
+   "Login here",
+   "Create an account",
+   "Continue without an account",
+   "Skip to content",
+   "jobs.ch Navigation logo",
+   "Find a job",
+   "Explore companies",
+   "Salary estimator",
+   "Recruiter Area",
+   "Deutsch",
+   "Français",
+   "English",
+   "Login",
+   "Sign up",
+   "Job search",
+   "Job recommendations",
+   "Job alerts",
+   "Saved jobs",
+   "Applications",
+   "Agence Immobilière Rodolphe Burger SA"
+  ],
+  "frames": [],
+  "mails": [],
+  "frameCandidates": [],
+  "noEffect": [
+   "Easy apply"
+  ],
+  "onTop": {
+   "buttons": [
+    "Login here",
+    "Create an account",
+    "Continue without an account"
+   ],
+   "covered": [],
+   "role": "div",
+   "shape": "overlay",
+   "text": "Create an account to apply faster Apply with your saved profile information Get personalised job recommendations Keep track of your applications Create powerful"
+  }
+ },
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.85,
+  "apply_button": "Continue without an account",
+  "apply_button_kind": "apply",
+  "apply_route": "manual",
+  "apply_by": "form",
+  "apply_email": "",
+  "form_frame": -1,
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "answer_path": "app"
+}

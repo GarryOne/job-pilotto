@@ -72,6 +72,14 @@
   {
    "date": "2026-10-11",
    "reason": "page-kind gains the ON TOP line and covered digest candidates (extension/on-top.js), said only when a layer exists: no prompt text changed for other pages; one new fixture modal-over-posting-cookie-wall asked 3 of 3 exact; stored answers of the other fixtures unchanged"
+  },
+  {
+   "date": "2026-10-11",
+   "reason": "jobs.ch account layer: manual route named; account-only layer holds (2 fixtures)"
+  },
+  {
+   "date": "2026-10-11",
+   "reason": "jobs.ch account layer: account-only fixture kept strict (accept posting only)"
   }
  ],
  "promptFingerprint": {
@@ -334,6 +342,16 @@
     ]
    },
    "outcome": "refused",
+   "status": "exact"
+  },
+  "account-layer-offers-only-account": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
    "status": "exact"
   },
   "aldi-suisse": {
@@ -729,6 +747,16 @@
    "status": "ok"
   },
   "jobs-ch-apply-not-found": {
+   "expect": {
+    "outcome": "posting",
+    "accept": [
+     "posting"
+    ]
+   },
+   "outcome": "posting",
+   "status": "exact"
+  },
+  "jobsch-account-layer-continue-without": {
    "expect": {
     "outcome": "posting",
     "accept": [

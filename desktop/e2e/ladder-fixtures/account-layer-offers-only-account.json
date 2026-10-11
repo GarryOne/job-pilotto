@@ -1,0 +1,68 @@
+{
+ "schemaVersion": 1,
+ "id": "account-layer-offers-only-account",
+ "source": "reconstructed",
+ "lang": "en",
+ "why": "a layer that offers ONLY to sign in or create an account has no manual route: nothing is named, the run holds (account first is the documented hold)",
+ "url": "https://jobs.example.com/en/vacancies/detail/4711/",
+ "expect": {
+  "outcome": "posting",
+  "accept": [
+   "posting"
+  ],
+  "digest": "asked"
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/en/vacancies/detail/4711/",
+  "title": "Real Estate Accountant - Job Offer - jobs.example.com",
+  "headings": [
+   "Sign in to apply",
+   "Real Estate Accountant",
+   "Categories:"
+  ],
+  "controls": [],
+  "buttons": [
+   "Login",
+   "Create an account",
+   "Skip to content",
+   "Find a job",
+   "Explore companies",
+   "Salary estimator",
+   "Login",
+   "Sign up",
+   "Job search",
+   "Saved jobs",
+   "Applications"
+  ],
+  "frames": [],
+  "mails": [],
+  "noEffect": [
+   "Easy apply"
+  ],
+  "onTop": {
+   "shape": "overlay",
+   "role": "div",
+   "text": "Sign in to apply Log in or create an account to send your application",
+   "buttons": [
+    "Login",
+    "Create an account"
+   ]
+  }
+ },
+ "answer": {
+  "kind": "posting",
+  "confidence": 0.7,
+  "apply_button": "",
+  "apply_button_kind": "",
+  "apply_route": "",
+  "apply_by": "form",
+  "apply_email": "",
+  "form_frame": -1,
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "answer_path": "app"
+}

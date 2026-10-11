@@ -388,3 +388,19 @@ test('a bad layer shape is dropped; the field is a known sketch field', async ()
   assert.equal(pageSketch({...layered, onTop: {shape: 'banner words', text: 'x'}}).onTop, null);
   assert.equal(pageSketch(layered).onTop.shape, 'dialog');
 });
+
+// 12 Oct 2026 (jobs.ch: "Create an account to apply faster" left open): a layer that offers to go on without an account carries the manual-route rule WITH its line; a page with no layer is asked as before.
+test('the layer line says a no-account way on is the manual route, and an account-only layer has none', async () => {
+  const calls = [];
+  const answer = {kind: 'posting', confidence: 0.9, apply_button: 'Continue without an account', apply_button_kind: 'apply', apply_route: 'manual', apply_by: 'form', apply_email: '', form_frame: -1, account_step: '', register_control: '', signin_control: '', account_button: '', bot_check: false};
+  const page = {...layered, buttons: ['Login here', 'Create an account', 'Continue without an account'], onTop: {shape: 'overlay', role: 'div', text: 'Create an account to apply faster', buttons: ['Login here', 'Create an account', 'Continue without an account']}};
+  const out = await pageKind(fake(answer, calls), page, cacheIn());
+  const sent = JSON.stringify(calls[0].messages);
+  assert.match(sent, /without signing in or creating an account/);
+  assert.match(sent, /that button is the manual route/);
+  assert.match(sent, /offers only to sign in or create an account has no manual route/);
+  assert.deepEqual([out.applyRoute, out.applyButton], ['manual', 'continue without an account']);
+  const plain = [];
+  await pageKind(fake({...answer, apply_button: '', apply_route: ''}, plain), {...page, onTop: null}, cacheIn());
+  assert.ok(!/manual route/.test(JSON.stringify(plain[0].messages)), 'no layer, no rule');
+});
