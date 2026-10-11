@@ -19,3 +19,26 @@ test('a case whose host is running waits; the next free one goes first', () => {
   assert.equal(nextRunnable(queue, new Set(['a.example'])), 2);
   assert.equal(nextRunnable(queue, new Set(['a.example', 'd.example'])), -1);
 });
+
+// appPort: the caller's own stand-in app answers (row replay): the helper starts no stub of its own and the extension talks to that port. Opens a browser: opt-in like the recorded pages.
+const optIn = process.env.JP_REPLAY ? false : 'opt-in: set JP_REPLAY=1 (it starts Chromium with the real extension)';
+test('an appPort app gets the extension\'s calls and no stub is started', {skip: optIn}, async () => {
+  const http = await import('node:http');
+  const {freePort} = await import('../lib/extension.mjs');
+  const {startReplayBrowser} = await import('../lib/replay-browser.mjs');
+  const port = await freePort(), seen = [];
+  const app = http.createServer((request, response) => {
+    seen.push(request.url.split('?')[0]);
+    response.writeHead(200, {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Content-Type': 'application/json'});
+    response.end('{}');
+  });
+  await new Promise(resolve => app.listen(port, '127.0.0.1', resolve));
+  const browser = await startReplayBrowser([], {appPort: port});
+  try {
+    assert.equal(browser.run.requests.length, 0, 'the helper\'s own stub recorded nothing');
+    await browser.run.page.goto('about:blank');
+    const deadline = Date.now() + 15000;
+    while (!seen.some(url => url.startsWith('/extension/')) && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 250));
+    assert.ok(seen.some(url => url.startsWith('/extension/')), `the extension never called the app on port ${port} (saw: ${seen.join(', ')})`);
+  } finally { await browser.close(); app.close(); }
+});

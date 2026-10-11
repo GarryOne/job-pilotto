@@ -2,8 +2,7 @@
 // Owns: the single catch-all route (registered before any tab navigates), the per-host AI answers, which requests and tabs belong to which case, and the scheduler.
 // Guards: e2e/test/replay-browser.test.mjs (attribution, host overlap), e2e/test/recorded-pages.test.mjs (every case).
 // A case's pages are served at their real addresses; every other address is a 404 and, besides that, resolves to nothing (real-extension.mjs offline: true).
-// Isolation between tabs: told/asked/judged count only requests whose body names the case's host, notTold counts every request (a parallel tab can only add a failure, never hide
-// one: a failure in parallel is run again alone by the caller), and two cases that share a host never run at the same time (their pages, and the extension's per-host state, would meet).
+// Isolation between tabs: told/asked/judged count only requests whose body names the case's host, notTold counts the case's own lines and the ones no case's host names (a line of another case's host is not its tab's; a failure in parallel is run again alone by the caller), and two cases that share a host never run at the same time (their pages, and the extension's per-host state, would meet).
 import {startRealExtension} from './real-extension.mjs';
 import {answerFor, caseFiles, caseHosts, isExtensionPage, judgeCase} from './page-replay.mjs';
 
@@ -23,11 +22,12 @@ export function nextRunnable(queue, runningHosts) {
 }
 
 // -> {run, live, serve, close}: one browser, the stand-in answering by case. items: every case that may run in it (their AI routes are known up front).
-export async function startReplayBrowser(items, {extensionDir} = {}) {
+export async function startReplayBrowser(items, {extensionDir, appPort = 0} = {}) {   // appPort: the caller's own stand-in app (row replay); then the AI answers and the request lists below are the caller's
   const live = [];   // states of the cases running now: {item, hosts, answer, from, tabs: Set, opened: [pages], shared}
+  const allHosts = [...new Set(items.flatMap(caseHosts))];   // a request that names none of them could belong to any tab
   const routes = [...new Set(items.flatMap(item => Object.keys(item.ai || {})))];
   const answer = Object.fromEntries(routes.map(route => [route, sent => { const state = caseForRequest(live, route, sent); return state?.answer[route] ? state.answer[route](sent) : {}; }]));
-  const run = await startRealExtension({extensionDir, cv: items.some(item => item.cv !== false), allowAllSites: true, answer, offline: true});
+  const run = await startRealExtension({extensionDir, cv: items.some(item => item.cv !== false), allowAllSites: true, answer, offline: true, appPort});
   const files = new Map();   // pathKey -> html of every live case
   await run.context.route('**/*', route => {   // ONE route for the browser, before any tab navigates: a route added while another tab loads let a request out (example.ch, 11 Oct 2026)
     const url = route.request().url(), host = new URL(url).hostname;
@@ -45,14 +45,15 @@ export async function startReplayBrowser(items, {extensionDir} = {}) {
     if (others) for (const one of live) one.shared = true;
     for (const [key, html] of caseFiles(item)) files.set(key, html);
     live.push(state);
-    const first = run.requests.length, tab = await run.context.newPage();
-    const mine = () => run.requests.slice(first).filter(request => hosts.some(host => request.body.includes(host)));
+    const first = run.requests.length, began = Date.now(), tab = await run.context.newPage();
+    const strict = () => run.requests.slice(first).filter(request => hosts.some(host => request.body.includes(host)));
+    const loose = () => run.requests.slice(first).filter(request => hosts.some(host => request.body.includes(host)) || !allHosts.some(host => request.body.includes(host)));   // the case's own, and lines no case's host names (the extension's log lines often carry no host)
     const ours = open => !isExtensionPage(open) && open !== run.page && (open === tab || state.shared === false || hosts.some(host => open.url().includes(host)) || !/^https?:/.test(open.url()));   // alone: every tab is the case's
     try {
       await tab.goto(`${item.pages[0].url}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'});
-      const result = await judgeCase(item, {run, page: tab, pages: () => run.context.pages().filter(ours), mine: () => (state.shared ? mine() : run.requests.slice(first)),
-        all: () => run.requests.slice(first), opened: () => everyOpened.filter(one => one.page !== tab && one.at >= state.from && ours(one.page)).length});   // the case's own tab is not one it opened (solo: the first tab, opened before the count starts)
-      return {name: item.name, ...result};
+      const result = await judgeCase(item, {run, page: tab, pages: () => run.context.pages().filter(ours), mine: () => (state.shared ? loose() : run.requests.slice(first)), strict: state.shared ? strict : null,
+        all: () => (state.shared ? loose() : run.requests.slice(first)), opened: () => everyOpened.filter(one => one.page !== tab && one.at >= state.from && ours(one.page)).length});   // the case's own tab is not one it opened (solo: the first tab, opened before the count starts)
+      return {name: item.name, ...result, seconds: (Date.now() - began) / 1000};
     } finally {
       live.splice(live.indexOf(state), 1);
       for (const key of caseFiles(item).keys()) files.delete(key);

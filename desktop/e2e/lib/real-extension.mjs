@@ -22,8 +22,8 @@ export const FAKE_CONTACT = {first_name: 'Test', last_name: 'Candidate', email: 
 
 // options: {extensionDir (default: this checkout's extension/), cv: true|false (the CV the app has), letter: true|false (an approved cover letter file),
 // contact (fake details)}. -> {context, page, port, requests, assertIsolated, panel, fillWithPanel, told, controlReports, close}
-export async function startRealExtension({extensionDir = EXTENSION_DIR, cv = true, letter = false, contact = FAKE_CONTACT, answer = {}, allowAllSites = false, offline = false} = {}) {   // answer: {route: () => body} the stub app gives instead of {} (e.g. the page-kind AI's word)
-  const port = await freePort();
+export async function startRealExtension({extensionDir = EXTENSION_DIR, cv = true, letter = false, contact = FAKE_CONTACT, answer = {}, allowAllSites = false, offline = false, appPort = 0} = {}) {   // answer: {route: () => body} the stub app gives instead of {} (e.g. the page-kind AI's word)
+  const port = appPort || await freePort();   // appPort: the caller's own stand-in app answers on it (row replay): this file starts no stub, and `answer`/`requests` stay unused
   const copy = copyExtension(port, extensionDir);
   // allowAllSites: a fresh test Chrome has not pressed the extension's Allow (the optional "any site" permission a person has granted once), so a site outside the
   // hiring systems in manifest.json (a local copy of Deloitte's page) would wait for Allow. The copy holds it, as if the person had pressed it; the default leaves it out.
@@ -35,7 +35,7 @@ export async function startRealExtension({extensionDir = EXTENSION_DIR, cv = tru
   const requests = [];
   const answers = {'/extension/pair': () => ({url: `http://127.0.0.1:${port}`, token: 'e2e'}),
     '/extension/me': () => ({contact, contactSource: 'e2e', ...(cv ? {resume: pdf('cv.pdf')} : {}), ...(letter ? {coverLetterFile: pdf('letter.pdf')} : {})})};
-  const stub = http.createServer((request, response) => {
+  const stub = appPort ? null : http.createServer((request, response) => {
     const headers = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Content-Type': 'application/json'};
     if (request.method === 'OPTIONS') { response.writeHead(204, headers); response.end(); return; }
     let body = '';
@@ -47,7 +47,7 @@ export async function startRealExtension({extensionDir = EXTENSION_DIR, cv = tru
       response.end(JSON.stringify(answers[route] ? answers[route]() : answer[route] ? answer[route](body) : {}));
     });
   });
-  await new Promise(resolve => stub.listen(port, '127.0.0.1', resolve));
+  if (stub) await new Promise(resolve => stub.listen(port, '127.0.0.1', resolve));
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-real-ext-'));
   const context = await chromium.launchPersistentContext(profile, {
     ...browserChannel(), headless: false, locale: 'en-US', ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'],
@@ -57,7 +57,7 @@ export async function startRealExtension({extensionDir = EXTENSION_DIR, cv = tru
   });
   const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker', {timeout: 30000});
   await worker.evaluate(async url => chrome.storage.local.set({workerUrl: url, token: 'e2e'}), `http://127.0.0.1:${port}`);
-  const close = async () => { await context.close().catch(() => {}); stub.close(); };
+  const close = async () => { await context.close().catch(() => {}); stub?.close(); };
 
   // Fails the run unless the extension talks to the stand-in only.
   const assertIsolated = async () => {

@@ -37,15 +37,18 @@ export async function judgeCase(item, scope) {
   if (item.start === 'panel') await run.fillWithPanel(scope.page);   // a form page's fill starts from the panel's Fill button (as the person, or the app's start signal, would)
   const expect = item.expect || {}, deadline = Date.now() + (expect.seconds || 40) * 1000;
   const page = () => scope.pages().at(-1) || scope.page;
-  const told = (word, list) => list().some(request => request.body.includes(word));
+  // The request-based checks over one list of requests (the strict list is only the case's own, the loose one adds lines no case's host names: see replay-browser.mjs).
+  const requestChecks = list => ({
+    told: word => list().some(request => request.body.includes(word)),
+    asked: label => list().some(request => request.route === '/extension/answer' && request.body.split('"page_text"')[0].includes(`"label":${JSON.stringify(label)}`)),
+    // What the extension showed the form judge (form-ready.js: /extension/account-judge, phase form): "<label>:<state>" of one control of the sketch it sent.
+    judged: spec => list().some(request => { try { const body = JSON.parse(request.body); return request.route === '/extension/account-judge' && body.phase === 'form' && body.sketch.controls.some(control => `${control.label}:${control.state}` === spec); } catch { return false; } }),
+  });
   const checks = {
-    told: word => told(word, mine),
+    ...requestChecks(mine),
     attached: selector => page().evaluate(css => (document.querySelector(css)?.files?.length || 0) > 0, selector).catch(() => false),
     filled: selector => page().evaluate(css => !!document.querySelector(css)?.value, selector).catch(() => false),
     pressed: selector => page().evaluate(css => document.querySelector(css)?.getAttribute('aria-pressed') === 'true', selector).catch(() => false),
-    asked: label => mine().some(request => request.route === '/extension/answer' && request.body.split('"page_text"')[0].includes(`"label":${JSON.stringify(label)}`)),
-    // What the extension showed the form judge (form-ready.js: /extension/account-judge, phase form): "<label>:<state>" of one control of the sketch it sent.
-    judged: spec => mine().some(request => { try { const body = JSON.parse(request.body); return request.route === '/extension/account-judge' && body.phase === 'form' && body.sketch.controls.some(control => `${control.label}:${control.state}` === spec); } catch { return false; } }),
     gone: selector => page().evaluate(css => !document.querySelector(css)?.getClientRects().length, selector).catch(() => false),
   };
   const pending = Object.entries(checks).flatMap(([kind, check]) => (expect[kind] || []).map(arg => ({kind, arg, check})));
@@ -55,7 +58,7 @@ export async function judgeCase(item, scope) {
   }
   if (!Object.keys(checks).some(kind => (expect[kind] || []).length)) await wait(Math.max(0, deadline - Date.now()));   // only "must not happen" checks: watch the whole window
   for (const left of pending) failures.push(`${left.kind}: ${left.arg}`);
-  for (const word of expect.notTold || []) if (told(word, all)) failures.push(`notTold: ${word}`);
+  for (const word of expect.notTold || []) if (requestChecks(all).told(word)) failures.push(`notTold: ${word}`);
   for (const selector of expect.empty || []) if (await checks.filled(selector)) failures.push(`empty: ${selector}`);
   const tabs = scope.pages().length, opened = scope.opened();
   if (expect.maxTabs != null && tabs > expect.maxTabs) failures.push(`maxTabs: ${tabs} > ${expect.maxTabs}`);
@@ -63,7 +66,13 @@ export async function judgeCase(item, scope) {
   if (process.env.REPLAY_LOG) for (const request of mine().filter(one => one.route === '/extension/log')) {   // REPLAY_LOG=1: the extension's own decision lines, to read why a case failed (what the failure list cannot tell)
     try { for (const entry of JSON.parse(request.body).entries) console.log(`  [extension] ${entry.text} ${JSON.stringify(entry.fields)}`); } catch { /* a body cut at the recording limit */ }
   }
-  return {ok: !failures.length, failures, seen: {tabs, opened}};
+  // A check that only a line no case's host names satisfied (it could be another tab's): the pass must be confirmed alone before it counts.
+  const confirm = [];
+  if (!failures.length && scope.strict) {
+    const strict = requestChecks(scope.strict);
+    for (const kind of ['told', 'asked', 'judged']) for (const arg of expect[kind] || []) if (!strict[kind](arg)) confirm.push(`${kind}: ${arg}`);
+  }
+  return {ok: !failures.length, failures, confirm, seen: {tabs, opened}};
 }
 
 // One case in its own browser (JP_REPLAY_TABS=1, and the run alone after a failure in parallel): the same checks over every request of that browser.
