@@ -93,8 +93,37 @@ class HeavyLockTest(unittest.TestCase):
         result = self.run_lock('browser suite', 'echo', 'ran', PATH=f'{bin_dir}{os.pathsep}{os.environ["PATH"]}',
                                JOB_PILOTTO_HEAVY_LOAD='8', JOB_PILOTTO_HEAVY_LOAD_WAIT='2')
         self.assertEqual(result.stdout.strip(), 'ran')
-        self.assertIn('waits for the machine: 1-minute load 99 is above 8', result.stderr)
+        self.assertIn('waits for the machine, holding no slot: the machine is busy: 1-minute load 99 is above 8', result.stderr)
         self.assertIn('running browser suite anyway', result.stderr)
+
+    def busy_machine(self, load=99):
+        bin_dir = self.tmp / f'busy-{load}'
+        bin_dir.mkdir(exist_ok=True)
+        (bin_dir / 'uptime').write_text(f'#!/bin/sh\necho "10:00  up 1 day,  3 users,  load averages: {load}.00 90.00 80.00"\n')
+        (bin_dir / 'uptime').chmod(0o755)
+        return {'PATH': f'{bin_dir}{os.pathsep}{os.environ["PATH"]}'}
+
+    def test_a_run_waiting_for_the_machine_holds_no_slot_and_never_blocks_a_later_run_that_fits(self):
+        # 11 Oct 2026: a replay took the slot, then sat 12 minutes in the load wait while two landings queued behind it
+        waiting = self.start('waits for load', 'echo', 'late', **self.busy_machine(), JOB_PILOTTO_HEAVY_LOAD='8', JOB_PILOTTO_HEAVY_LOAD_WAIT='30')
+        time.sleep(1.5)
+        self.assertFalse((self.tmp / 'heavy' / 'lock').exists(), 'while it waits for the machine it holds no slot')
+        began = time.time()
+        later = self.run_lock('fits now', 'echo', 'went')   # this run has no load limit: it is ready, and it is behind the waiter in line
+        self.assertEqual(later.stdout.strip(), 'went')
+        self.assertLess(time.time() - began, 5, 'it did not wait for the earlier run that waits for the machine')
+        self.assertIsNone(waiting.poll(), 'the machine is still busy: the waiting run is still waiting')
+        waiting.kill()
+        waiting.communicate()
+
+    def test_the_load_wait_still_ends_and_the_run_goes_anyway_in_its_turn(self):
+        first = self.start('first', 'bash', '-c', 'sleep 2; echo first')
+        time.sleep(0.5)
+        second = self.start('second', 'echo', 'second', **self.busy_machine(), JOB_PILOTTO_HEAVY_LOAD='8', JOB_PILOTTO_HEAVY_LOAD_WAIT='1')
+        out, err = second.communicate(timeout=30)
+        first.communicate(timeout=30)
+        self.assertEqual(out.strip(), 'second')
+        self.assertIn('running second anyway', err)
 
     def ticket(self, pid, what, age_ns=10**9):
         """A waiter's place in the queue, older than anything this test starts next."""

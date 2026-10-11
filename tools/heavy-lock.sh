@@ -61,30 +61,51 @@ memory_ok() {  # a 2nd heavy run fits: free+inactive memory over the floor and s
 take() { local dir; for dir in $SLOT_DIRS; do mkdir "$dir" 2>/dev/null && { lock="$dir"; return 0; }; done; return 1; }
 release() { [ -n "$lock" ] && [ "$(cat "$lock/pid" 2>/dev/null)" = "$$" ] && rm -rf "$lock"; return 0; }
 queue="$root/queue"; mkdir -p "$queue"
-ticket="$queue/$(python3 -c 'import time; print(time.time_ns())' 2>/dev/null || echo "$(date +%s)000000000")-$$"; echo "$$ $what" >"$ticket"
+ticket="$queue/$(python3 -c 'import time; print(time.time_ns())' 2>/dev/null || echo "$(date +%s)000000000")-$$"; printf '%s %s\n' "$$" "$what" >"$ticket"
 trap 'rm -f "$ticket"; release' EXIT
 trap 'exit 143' TERM; trap 'exit 130' INT; trap 'exit 129' HUP
 ahead() {  # the oldest live waiter before my ticket, as "<what> (pid N)"; dead waiters are dropped on the way
   local name pid
   for name in $(ls "$queue" 2>/dev/null | sort); do
     [ "$queue/$name" = "$ticket" ] && return 0
-    pid="$(cut -d' ' -f1 "$queue/$name" 2>/dev/null)"
-    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then echo "$(cut -d' ' -f2- "$queue/$name") (pid $pid)"; return 0; fi
+    pid="$(head -n 1 "$queue/$name" 2>/dev/null | cut -d' ' -f1)"
+    [ "$(sed -n 2p "$queue/$name" 2>/dev/null)" = loadwait ] && continue   # it waits for the machine, holding no slot: it does not hold anyone up
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then echo "$(head -n 1 "$queue/$name" | cut -d' ' -f2-) (pid $pid)"; return 0; fi
     rm -f "$queue/$name"
   done
 }
 
 wait_max="${JOB_PILOTTO_HEAVY_WAIT:-1800}"; began=$(date +%s); told=0
+# A busy machine (seven sessions' suites at once: load 40-147 on 11 Oct 2026) makes browser runs time out; wait for it to calm down. The wait is IN THE QUEUE, holding no slot
+# (11 Oct 2026: a run took the slot and then sat 12 min in the load wait while two landings queued behind it), and a waiter that waits only for the machine does not hold up
+# the ones behind it (its ticket says "loadwait"): whoever is ready first goes, the older first.
+cores="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 8)"
+limit="${JOB_PILOTTO_HEAVY_LOAD:-$(( cores * 3 / 2 ))}"; load_wait="${JOB_PILOTTO_HEAVY_LOAD_WAIT:-300}"; load_began=""; load_gave_up=0
+load1() { uptime | sed -E 's/.*load averages?: *//' | awk -F'[ ,]+' '{ printf "%d", $1 + 0.5 }'; }
+mark() { printf '%s %s\n%s\n' "$$" "$what" "$1" >"$ticket"; }   # the ticket keeps its name (its place in line); only its second line changes
+machine_ready() {  # sets $why when not
+  [ "$limit" -gt 0 ] 2>/dev/null || return 0
+  [ "$load_gave_up" = 1 ] && return 0
+  if [ "$(load1)" -le "$limit" ]; then load_began=""; return 0; fi
+  [ -n "$load_began" ] || load_began=$(date +%s)
+  if [ $(( $(date +%s) - load_began )) -ge "$load_wait" ]; then say "load is still $(load1) (limit $limit) after ${load_wait}s: running $what anyway"; load_gave_up=1; return 0; fi
+  why="the machine is busy: 1-minute load $(load1) is above $limit (up to ${load_wait}s)"; return 1
+}
 while :; do
-  first="$(ahead)"; why=""; busy="$(held)"
-  if [ -z "$first" ]; then
-    if [ "$busy" = 0 ]; then take && break
-    elif [ "$busy" -lt "$(echo $SLOT_DIRS | wc -w)" ] && memory_ok; then take && break; fi
-  fi
+  first=""; why=""; busy="$(held)"
+  if machine_ready; then
+    mark ""
+    first="$(ahead)"
+    if [ -z "$first" ]; then
+      if [ "$busy" = 0 ]; then take && break
+      elif [ "$busy" -lt "$(echo $SLOT_DIRS | wc -w)" ] && memory_ok; then take && break; fi
+    fi
+  else mark loadwait; fi
   waited=$(( $(date +%s) - began ))
   if [ "$waited" -ge "$wait_max" ]; then say "waited ${wait_max}s for the lock held by $(holders): running anyway"; break; fi
   if [ "$told" = 0 ] || [ $((waited % 30)) -lt 2 ]; then
-    if [ "$busy" != 0 ]; then say "$what waits: the lock is held by $(holders)${first:+, then $first is ahead}${why:+ ($why)}; waited ${waited}s (JOB_PILOTTO_HEAVY=0 skips this)"
+    if [ -n "$why" ]; then say "$what waits for the machine, holding no slot: $why"
+    elif [ "$busy" != 0 ]; then say "$what waits: the lock is held by $(holders)${first:+, then $first is ahead}; waited ${waited}s (JOB_PILOTTO_HEAVY=0 skips this)"
     else say "$what waits: $first asked first; waited ${waited}s (JOB_PILOTTO_HEAVY=0 skips this)"; fi
     told=1; sleep 1
   fi
@@ -100,17 +121,5 @@ if [ "$told" = 1 ]; then
   fi
 fi
 
-# A busy machine (seven sessions' suites at once: load 40-147 on 11 Oct 2026) makes browser runs time out; wait for it to calm down.
-cores="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 8)"
-limit="${JOB_PILOTTO_HEAVY_LOAD:-$(( cores * 3 / 2 ))}"; load_wait="${JOB_PILOTTO_HEAVY_LOAD_WAIT:-300}"; began=$(date +%s); told=0
-load1() { uptime | sed -E 's/.*load averages?: *//' | awk -F'[ ,]+' '{ printf "%d", $1 + 0.5 }'; }
-if [ "$limit" -gt 0 ] 2>/dev/null; then
-  while [ "$(load1)" -gt "$limit" ]; do
-    waited=$(( $(date +%s) - began ))
-    if [ "$waited" -ge "$load_wait" ]; then say "load is still $(load1) (limit $limit) after ${load_wait}s: running $what anyway"; break; fi
-    [ "$told" = 0 ] || [ $((waited % 30)) -lt 2 ] && say "$what waits for the machine: 1-minute load $(load1) is above $limit (up to ${load_wait}s)"
-    told=1; sleep 5
-  done
-fi
 say "$what runs (pid $$)"
 JP_HEAVY_HELD=$$ "$@"
