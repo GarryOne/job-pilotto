@@ -149,7 +149,7 @@ export function verdictOf(field, {aiOff = false} = {}) {
 // A shortfall: the form was reached and at least one asked field (a required one, not a file slot) is a miss or has no suggestion. With no field list (an old run) the counts decide:
 // under half filled. Returns {done, total, miss, noSuggestion} or null.
 export function shortfall(result, {aiOff = result?.aiOff} = {}) {
-  if (result?.reached !== 'form' || result.filled == null) return null;
+  if (result?.reached !== 'form' || result.filled == null || result.note) return null;   // a noted stop (eligibility) is deliberate: what it left waits for a person
   const list = (result.fieldList || []).filter(item => item.required !== false && item.type !== 'file');
   if (!list.length) {
     const total = result.filled + (result.left || 0);

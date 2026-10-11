@@ -196,6 +196,19 @@ test('a form is a shortfall when any asked field is unexplained, not when under 
   assert.equal(shortfall({reached: 'posting'}), null);
 });
 
+// An eligibility stop is deliberate (parseLive's note): the fields it left wait for a person, not a fill fix. Its first pass's fields are logged since 11 Oct 2026,
+// so a stopped form now has a field list and would otherwise read as a shortfall.
+test('a form stopped by the eligibility check is not a shortfall', () => {
+  const stop = ['      log 15:38:26.235Z [extension] fill: first fields filled {"fields":4}', '      log 15:38:32.019Z [extension] fill: did not fill: The role is in Sydney. {"url":"x"}',
+    '      log 15:38:32.020Z [extension] fill: fields: 4 filled, 2 left {"fields":[]}', '      field filled text "First name" required=true reason=',
+    `      field left text "Why us?" required=true reason=${NO_ANSWER}`].join('\n');
+  const result = parseLive(stop);
+  assert.equal(result.filled, 4);
+  assert.match(result.note, /^eligibility stop: /);
+  assert.equal(shortfall(result), null);
+  assert.ok(shortfall({...result, note: ''}), 'the same fields without the stop are a shortfall');
+});
+
 test('the upload carries the verdict only for a form reached with a field list: how many fields were asked and how many are unexplained', () => {
   const filled = {outcome: 'filled', type: 'text', label: 'Name', required: true, reason: 'your details'};
   assert.deepEqual(verdictFields({reached: 'form', filled: 1, left: 2, fieldList: [filled, left('proposed for you to confirm'), left(NO_ANSWER)]}), {asked: 3, unexplained: 1});

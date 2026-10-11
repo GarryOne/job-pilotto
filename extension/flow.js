@@ -343,8 +343,9 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       step('Claude answered (after the fill)');
       if (!withKit) {
         await chrome.storage.session.set({[cacheKey(tab)]: {url: tab.url.split('#')[0], ai, test: !!config.testMode}});
-        // Settings → "Check eligibility before filling" off (for testing): fill regardless. Not eligible: what is filled stays (owner, 11 Oct 2026), the rest waits.
-        if (!ai.eligible && !force && config.checkEligibility !== false) return {ineligible: true, partly: true, note: ai.eligibility_note || '', usd: ai.usd};
+        // Settings → "Check eligibility before filling" off (for testing): fill regardless. Not eligible: what is filled stays (owner, 11 Oct 2026), the rest waits;
+        // the first pass's rows go with the stop, so its fields are logged as on every other end (the smoke counted them as none, 11 Oct 2026).
+        if (!ai.eligible && !force && config.checkEligibility !== false) return {...summary, ineligible: true, partly: true, note: ai.eligibility_note || '', usd: ai.usd};
       }
       const extra = useRemembered(ai.answers.filter(a => later.some(f => f.field === a.field)).map(a => ({...a, source: 'Claude (on the page)'})));
       if (extra.length) {

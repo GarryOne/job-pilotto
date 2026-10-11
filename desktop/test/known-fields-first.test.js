@@ -17,8 +17,18 @@ test('without a kit, Claude is asked and the known fields are filled before its 
 });
 
 test('not eligible after the first pass: what is filled stays, and the note says only your details were filled', () => {
-  assert.match(flow, /return \{ineligible: true, partly: true, note: ai\.eligibility_note \|\| '', usd: ai\.usd\}/);
+  assert.match(flow, /return \{\.\.\.summary, ineligible: true, partly: true, note: ai\.eligibility_note \|\| '', usd: ai\.usd\}/);
   assert.match(background, /await ineligibleNote\(tab\.id, result\.note, result\.partly\)/);
+});
+
+// The stop after the first pass carries that pass's rows, so the fields it filled are logged ("fields: N filled, M left") as on every other end; before
+// (11 Oct 2026) a stop returned no trace and the smoke counted a form with 4 known fields filled as nothing filled.
+test('a stop after the first pass logs the fields that pass filled', () => {
+  const stops = [...flow.matchAll(/return \{([^}]*)ineligible: true([^}]*)\}/g)];
+  for (const [whole] of stops.filter(([whole]) => /partly: true/.test(whole))) assert.match(whole, /^return \{\.\.\.summary, /, `a partly stop without the first pass's rows: ${whole}`);
+  assert.ok(stops.some(([whole]) => /partly: true/.test(whole)), 'the partly stop is found');
+  const logged = background.indexOf('const fields = loggedFields(result.trace)'), told = background.indexOf("decide('fill', result.ineligible ?");
+  assert.ok(told > 0 && logged > told, 'background.js logs the fields after the stop too, from result.trace');
 });
 
 test('the second pass carries Claude\'s cover letter when there is no kit (the first pass had none yet)', () => {
