@@ -107,14 +107,8 @@ export function compare(previous = {}, current = {}) {
 // One of a shape's postings, rotating by day (the list is the owner's own jobs matching the shape's patterns).
 export const pickPosting = (postings, day = new Date()) => { const allowed = postings.filter(item => mayVisit(item?.url || item)); return allowed.length ? allowed[Math.floor(day.getTime() / 86400000) % allowed.length] : null; };
 
-// A run's share of a big pool (owner, 11 Oct 2026: "the pool is triggered only manually"; before, a window that moved by calendar day): the shapes least recently
-// run first (never run first, then the oldest last run), in the pool's own order on a tie, so no shape runs twice before every shape ran once.
-// seen: lastSeen(every report, today's included). -> the shapes of this run.
-export function runShare(shapes, size = 10, seen = {}) {
-  if (!shapes.length || size >= shapes.length) return shapes;
-  const last = item => String(seen[item?.shape ?? item]?.day || '');
-  return shapes.map((item, at) => ({item, at})).sort((x, y) => last(x.item).localeCompare(last(y.item)) || x.at - y.at).slice(0, size).map(entry => entry.item);
-}
+// A run's share of the ordered pool (lib/smoke-order.mjs orderPool: the least tested first): the first `size` rows; a share bigger than the pool is the pool.
+export const runShare = (ordered, size = 10) => ordered.slice(0, size);
 // How many shapes a run takes: SMOKE_SHARE (SMOKE_PER_NIGHT, its old name, still read), default 10.
 export const shareSize = (env = process.env) => Number(env.SMOKE_SHARE || env.SMOKE_PER_NIGHT || 10);
 

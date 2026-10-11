@@ -14,7 +14,7 @@ Spec: `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md` (four l
 Whoever owns the pool and its run queue writes its own session name into `~/Library/Application Support/Job Pilotto QA/coordinator.txt` (one line, then what it is), when it starts and whenever its name changes: every other skill reads that file to find who to report to. `ListAgents` shows your own name on its first line. Tell the peers once ("I am the pool coordinator now, report to <name>").
 
 ## What exists
-- **Runner** `desktop/e2e/smoke.mjs` (`cd desktop/e2e && npm run smoke`), logic in `lib/smoke.mjs` (a run's share `runShare`: the least recently run first, `parseLive`, `signature`, `compare`,
+- **Runner** `desktop/e2e/smoke.mjs` (`cd desktop/e2e && npm run smoke`), logic in `lib/smoke.mjs` (every mode orders through `lib/smoke-order.mjs` `orderPool`: never run first, then the fewest runs in 14 days, then the oldest last run, then the pool's order; rested rows are skipped and listed; only `--only` is the fixer's own choice; a share is the front `runShare`; `parseLive`, `signature`, `compare`,
   `NEVER_VISIT`), upload in `lib/applying-report.mjs`. It never schedules itself: there is no schedule: the owner decided (11 Oct 2026) that the pool runs BY HAND only, ask once.
 - **The pool, two lists, merged:** public `desktop/e2e/smoke-sites.json` (postings from PUBLIC job feeds only) and this Mac's
   `~/Library/Application Support/Job Pilotto QA/smoke-sites.json` (postings copied from the owner's profiles; outside the repo AND outside the app folder, because a
@@ -32,7 +32,7 @@ Whoever owns the pool and its run queue writes its own session name into `~/Libr
 |---|---|
 | A run's share (`SMOKE_SHARE`, default 10: the shapes least recently run first; `SMOKE_PER_NIGHT` is its old name) | `npm run smoke` |
 | Some shapes | `npm run smoke -- --only <words of the shape>` |
-| The whole pool (~55 x 2 min) | `npm run smoke -- --all` |
+| The whole pool (~55 x 2 min; least tested first, so a stopped pass is resumed by running it again) | `npm run smoke -- --all` |
 | Find new flow shapes from the loaded profile's jobs (a few per host, more from boards) | `npm run smoke -- --discover --limit 30` (~45 min) |
 
 `--discover` also asks /admin/applying for "Next sites to add" (hosts real users apply on that the pool lacks, each used by >= 3 installs; `lib/wanted-hosts.mjs`, owner key from the Keychain) and tries postings on those hosts first; a suggested host with no posting among the profile's jobs is printed and put in the discover report (`noPosting`), never skipped silently. Everything stays on this Mac: discovery writes only the Mac-only list, never the public `smoke-sites.json` (test guard). The site list is empty until 3 installs share a host.

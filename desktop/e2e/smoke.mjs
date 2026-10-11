@@ -5,13 +5,14 @@
 // fleet digest flags as dropped (layer 4). Report: <QA folder>/smoke-reports/<day>.json (outside the repo: it names real postings, and outlives worktrees). Exit 1 when a shape reached less than last time.
 // Usage: cd desktop/e2e && npm run smoke [-- --only <shape words> | --all] [SMOKE_SHARE=10] [SMOKE_SECONDS=90]: this run's share of the pool (the least recently run first), or
 // --all / --only. Each shape is compared with ITS last run, however long ago. It never schedules itself: the owner starts it by hand.
-import {blockSignal, guardLiveVisit, markBlocked} from './lib/site-ledger.mjs';
+import {SiteLimitError, blockSignal, guardLiveVisit, markBlocked} from './lib/site-ledger.mjs';
 import {ensureStagedWorker} from './lib/staged-worker.mjs';
 import {execFileSync, spawn} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {orderPool} from './lib/smoke-order.mjs';
 import {SITE_REFUSED, compare, engineLine, lastSeen, runShare, shareSize, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, signature, smokeEngine, verdictFields} from './lib/smoke.mjs';
 import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
 import {uploadLedger} from './lib/fix-ledger.mjs';
@@ -135,8 +136,14 @@ async function main() {
   };
   const pool = shapes.filter(item => !only || item.shape.includes(only));
   const today = (() => { try { return [JSON.parse(fs.readFileSync(path.join(REPORTS, `${day}.json`), 'utf8'))]; } catch { return []; } })();   // a run earlier today counts too
-  const chosen = only || process.argv.includes('--all') ? pool : runShare(pool, shareSize(), lastSeen([...earlierList, ...today]));
-  console.log(`smoke: ${chosen.length} of ${shapes.length} shapes in this run's share (the least recently run first)`);
+  // Every mode starts with the rows tested the least (lib/smoke-order.mjs); only --only is a fixer's own choice. A row resting today (site-ledger) is skipped and listed.
+  const postingOf = ({urls = [], like = []}) => pickPosting([...urls.map(url => ({url, title: '', company: ''})), ...(like.length ? postingsLike(like) : [])]);
+  const resting = item => { const posting = postingOf(item); if (!posting) return false; try { guardLiveVisit(posting.url, {record: false}); return false; } catch (error) { return error instanceof SiteLimitError; } };
+  const ranked = only ? {order: pool, rested: [], lines: []} : orderPool(pool, [...earlierList, ...today], day, {rested: resting});
+  const chosen = only || process.argv.includes('--all') ? ranked.order : runShare(ranked.order, shareSize());
+  console.log(`smoke: ${chosen.length} of ${shapes.length} shapes in this run (${only ? `--only ${only}` : 'the least tested first: never run, then the fewest runs in 14 days, then the oldest'})`);
+  for (const line of ranked.lines.slice(0, chosen.length)) console.log(line);
+  if (ranked.rested.length) console.log(`smoke: rested today (site limit or block page), not counted as tested: ${ranked.rested.map(item => item.shape).join(', ')}`);
   console.log(engineLine(smokeEngine()));
   console.log(`smoke: ${eligibilityOff(poolEnv()) ? POOL_LINE : 'eligibility check: ON in this run (SMOKE_ELIGIBILITY=on)'}`);
   // The pool runs on plain node; a few rows each pass run on Electron too, the least recently paired first (lib/smoke-paths.mjs; SMOKE_PAIRED=0 skips).

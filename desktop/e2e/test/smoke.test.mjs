@@ -246,16 +246,10 @@ test('a smoke row runs on the app\'s own path without Electron by default; SMOKE
   assert.match(engineLine('electron'), /Electron app/);
 });
 
-test('a run\'s share is the shapes least recently run (never run first), never one twice before every shape ran once; no calendar day', () => {
+test('a run\'s share is the first rows of the ordered pool; a share bigger than the pool is the pool', () => {
   const pool = ['a', 'b', 'c', 'd', 'e'];
-  assert.deepEqual(runShare(pool, 2, {}), ['a', 'b'], 'nothing run yet: the pool\'s own order');
-  const seen = {a: {day: '2026-10-11'}, b: {day: '2026-10-11'}, c: {day: '2026-10-09'}};
-  assert.deepEqual(runShare(pool, 3, seen), ['d', 'e', 'c'], 'never run first, then the oldest');
-  let ran = {};
-  const picked = [];
-  for (let run = 0; run < 3; run++) { const share = runShare(pool, 2, ran); picked.push(...share); for (const shape of share) ran = {...ran, [shape]: {day: `2026-10-11T0${run}`}}; }
-  assert.deepEqual(picked.slice(0, 5).sort(), pool, 'every shape once before any shape twice');
-  assert.deepEqual(runShare(pool, 10, {}), pool, 'a share bigger than the pool is the pool');
+  assert.deepEqual(runShare(pool, 2), ['a', 'b']);
+  assert.deepEqual(runShare(pool, 10), pool);
   assert.equal(shareSize({SMOKE_SHARE: '4'}), 4);
   assert.equal(shareSize({SMOKE_PER_NIGHT: '6'}), 6, 'the old name still works');
   assert.equal(shareSize({}), 10);
