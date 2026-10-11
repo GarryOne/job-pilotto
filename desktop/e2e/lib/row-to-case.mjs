@@ -3,6 +3,7 @@
 //   2. --ask-cold: the NEW build's model calls the case does not keep yet are asked ONCE on the plan path and kept in the case's memo (a prompt change makes new asks; CI has no claude -p);
 //   3. the NEW build replays it with no cold ask; its signature (page kinds, presses, per-field outcome and reason) against the LIVE run's gives `expect` (lib/row-signature.mjs): the tool's, never the fixer's;
 //   4. the OLD build (--old <extension folder>) must replay the live run's page kinds and presses (else the case is not the live run) and must FAIL the case (else exit 3, as recorded-both).
+// --fixed: the capture came from a build that already has the fix (a regression case, no failing live run): expect = the live run itself and the old build must fail it (exit 3 when it does not).
 // Exit codes: 0 written; 1 the new build fails its own case; 2 refused before replaying (gates, an existing case, no old build); 3 the old build passes (the control proves nothing); 4 not provable
 // (a cold ask is left, nothing improved, a regression, the old build does not replay the live run). -> {code, lines}; nothing reaches the cases folder unless code is 0. Guard: e2e/test/row-to-case.test.mjs.
 import fs from 'node:fs';
@@ -12,11 +13,11 @@ import {appProfileTexts, personalValues, scrub} from './capture-page.mjs';
 import {buildCase} from './row-case.mjs';
 import {runRowCase} from './row-case-run.mjs';
 import {replayRow} from './row-replay.mjs';
-import {baselineSignature, expectFrom, signatureOf} from './row-signature.mjs';
+import {baselineSignature, expectFrom, filledBoxes, signatureOf} from './row-signature.mjs';
 
 const readJson = file => JSON.parse(fs.readFileSync(file, 'utf8'));
 
-export async function rowToCase({rowDir, name, outDir, oldDir, askCold = false, build = buildCase, replay = replayRow, values = personalValues(appProfileTexts()), say = () => {}}) {
+export async function rowToCase({rowDir, name, outDir, oldDir, askCold = false, fixed = false, build = buildCase, replay = replayRow, values = personalValues(appProfileTexts()), say = () => {}}) {
   const step = text => say(`row-to-case: ${text}`);   // one line per stage as it starts (a replay takes up to 90 s and prints nothing else)
   const lines = [], end = (code, line) => { lines.push(line); return {code, lines}; };
   if (!oldDir) return end(2, 'row-to-case: name the OLD build (the fix\'s parent): --old <extension folder> (a case that cannot fail on the old build proves nothing)');
@@ -39,6 +40,15 @@ export async function rowToCase({rowDir, name, outDir, oldDir, askCold = false, 
     const fresh = await replay(built.dir, {});
     if (fresh.misses) return end(4, `row-to-case: ${fresh.misses} model ask(s) of the new build are not in the case's kept answers (CI has no claude -p): run again with --ask-cold${fresh.missParts?.length ? ` (the nearest kept ask differs in ${fresh.missParts.join(', ')})` : ''}`);
     const base = baselineSignature(item.baseline), derived = expectFrom(base, signatureOf(fresh));
+    // --fixed: the capture was taken on a build that already has the fix (a regression case): the live run IS the expected behavior (plus whatever else the new build shows beyond it), the boxes the new
+    // build ends with filled are expected too, and the old build must fail it. (An earlier version added the boxes only when the replay matched the live run exactly: with any difference the old build
+    // had nothing to fail and "passed", 12 Oct 2026.)
+    if (fixed && (!derived.refused || /^nothing improved/.test(derived.refused))) {
+      const more = derived.expect || {}, boxes = filledBoxes(fresh.boxes);
+      derived.refused = '';
+      derived.expect = {kinds: more.kinds || base.kinds, pressed: more.pressed || base.pressed, fields: {...base.fields, ...(more.fields || {})}, ...(Object.keys(boxes).length ? {boxes} : {})};
+      lines.push('row-to-case: --fixed: the live run was taken on the fixed build; its own behavior and the boxes it ends with are the expect');
+    }
     if (derived.refused) return end(4, `row-to-case: ${derived.refused}`);
     const withExpect = asCase(derived.expect);
     // The OLD build: it must fail the case (else the control proves nothing) and replay the live run (else this case is not that run).

@@ -43,6 +43,26 @@ test('a kept ask with a clock time or a date in its prompt is said as a warning:
   assert.match(done.lines.join('\n'), /WARNING: a kept ask carries a clock time or a date in user:contact_details/);
 });
 
+test('--fixed: the live capture was taken on a build that already has the fix: expect is the live run itself, the old build must fail it (and replay the live page kinds); without --fixed that is "nothing improved"', async () => {
+  assert.match((await go(replayBy(['posting'], ['posting']))).lines.join('\n'), /nothing improved/);
+  const fixed = await go((dir, options = {}) => Promise.resolve(options.extensionDir ? result(['posting'], {requests: []}) : result(['posting'])), {fixed: true});
+  assert.match(fixed.lines.join('\n'), /the old build fails it as it must/);
+  assert.equal(fixed.code, 0);
+  const item = JSON.parse(fs.readFileSync(path.join(fixed.outDir, 'start-dialog-1', 'case.json'), 'utf8'));
+  assert.deepEqual(item.expect, {kinds: ['posting'], pressed: [], fields: {Email: 'filled: your details'}});
+  const same = await go(replayBy(['posting'], ['posting']), {fixed: true});
+  assert.equal(same.code, 3, 'the old build behaves the same: the control proves nothing');
+});
+
+test('--fixed: the boxes are expected even when the replay differs from the live run in more than the fix (the old build then fails on the boxes)', async () => {
+  const replay = (dir, options = {}) => Promise.resolve(options.extensionDir ? result(['posting'], {boxes: {Prénom: 'empty'}}) : result(['posting'], {boxes: {Prénom: 'filled'}, requests: [{route: '/extension/run', body: JSON.stringify({trace: [{label: 'Email', outcome: 'filled', reason: 'your CV'}]})}]}));
+  const done = await go(replay, {fixed: true});
+  assert.equal(done.code, 0, done.lines.join(' | '));
+  const item = JSON.parse(fs.readFileSync(path.join(done.outDir, 'start-dialog-1', 'case.json'), 'utf8'));
+  assert.deepEqual(item.expect.boxes, {Prénom: 'filled'});
+  assert.equal(item.expect.fields.Email, 'filled: your CV', 'the improvement over the live run is kept too');
+});
+
 test('exit 2: a case that exists is not overwritten, the old build is required', async () => {
   const outDir = tmp(); fs.mkdirSync(path.join(outDir, 'start-dialog-1'));
   assert.equal((await rowToCase({rowDir: '/row', name: 'start-dialog-1', outDir, oldDir: '/old', build, replay: replayBy(['a'], ['b'])})).code, 2);
