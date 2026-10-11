@@ -79,3 +79,20 @@ test('the command prints rank, shape, platform, reached, filled/left and claimed
   assert.equal(lines.length, 6);
   assert.doesNotMatch(lines.join('\n'), /job-pilotto-\d|token|key/i);
 });
+
+// The deployed site is bundled, and the bundler (esbuild keepNames) wraps inner functions in a __name(...) helper: a function's pasted source then calls __name, which the page must define
+// (11 Oct 2026: the live page said "Could not load: __name is not defined" after the embedded sort shipped). Probe: put such a call inside the embedded source and run the page.
+test('the page still loads when the bundler wraps the embedded functions in __name(...)', async () => {
+  const json = await seeded();
+  const script = PAGE.split('<script>')[1].split('</script>')[0].replace('function needsFixOrder(pool, scorecard, steps) {', 'function needsFixOrder(pool, scorecard, steps) { __name(function () {}, "probe");');
+  assert.ok(script.includes('__name(function () {}, "probe")'), 'the probe is in the page script');
+  const make = tag => ({tag, children: [], hidden: false, style: {}, set textContent(value) { this.children = value === '' ? [] : [String(value)]; }, get textContent() { return this.children.map(String).join(''); },
+    append(...kids) { this.children.push(...kids.map(kid => (typeof kid === 'object' && kid !== null ? kid : String(kid)))); },
+    text() { return this.children.map(kid => (typeof kid === 'string' ? kid : kid.text())).join('|'); }});
+  const app = make('div');
+  const document = {createElement: make, getElementById: () => app, querySelector: () => null, hidden: true, body: make('body')};
+  new Function('document', 'fetch', 'getComputedStyle', 'CSS', 'setInterval', 'Object', script)(document, async () => ({json: async () => json}), () => ({}), {escape: x => x}, () => 0, Object);
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.doesNotMatch(app.text(), /Could not load/);
+  assert.match(app.text(), /Needs a fix · where applying stops/);
+});

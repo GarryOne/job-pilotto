@@ -179,6 +179,7 @@ tr.more td{padding:0 0 12px}.detail{display:grid;grid-template-columns:minmax(0,
 live, stopped before any account button or Submit, a rotating share each night. A site that reached less than its last run is a regression. Logs and screenshots stay on the Mac.</p>
 <div id="app"><p class="muted">Loading…</p></div>
 <script>
+const __name = target => target;   // the bundler wraps inner functions in __name(...) (esbuild keepNames); a pasted function source calls it, so the page defines it (test/needs-fix-order.test.js)
 const needsFixOrder = ${ORDER_SOURCE};
 const el = (tag, props = {}, ...kids) => { const node = Object.assign(document.createElement(tag), props); node.append(...kids.filter(kid => kid != null)); return node; };
 const pill = step => el('span', {className: 'pill s-' + step, textContent: step});
