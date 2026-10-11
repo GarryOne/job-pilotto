@@ -47,3 +47,10 @@ test('a press the live run did not make is the finding, with both labels', {skip
   if (result.evidence.pressed.some(line => /pressed the Apply button/.test(line))) assert.match(result.divergence, /pressed "Apply now".*live pressed "Apply with LinkedIn"/);
   else assert.equal(result.followed, 0, 'nothing pressed: nothing followed');
 });
+
+test('a row replay sets the applicant\'s contact as the live row did (saveContact(CONTACT)) before it replays: the profile in an answer ask is part of its memo key', () => {
+  const live = fs.readFileSync(new URL('../lib/live-row.mjs', import.meta.url), 'utf8'), replay = fs.readFileSync(new URL('../lib/row-replay.mjs', import.meta.url), 'utf8');
+  assert.match(live, /app\.call\('saveContact', CONTACT\)/);
+  assert.match(replay, /app\.call\('saveContact', CONTACT\)/);
+  assert.ok(replay.indexOf("app.call('saveContact', CONTACT)") < replay.indexOf('const front = await frontOf(app)'), 'before the front and the browser exist');
+});

@@ -12,6 +12,7 @@ import {nextRunnable} from './replay-browser.mjs';
 import {PAGE_LINE, stillClock} from './live-still.mjs';
 import {replayPresses, samePress, stateAfter, swapInPage} from './row-follow.mjs';
 import {frontOf} from './app-front.mjs';
+import {CONTACT} from './apply-fixtures.mjs';
 import {startOfflineApp} from './offline-app.mjs';
 import {startRealExtension} from './real-extension.mjs';
 
@@ -77,6 +78,9 @@ export async function openReplay(caseDirs, {extensionDir, ask = false} = {}) {  
   const merged = Object.assign({}, ...caseDirs.map(dir => readJson(path.join(dir, 'model-memo.json'), {})));
   fs.writeFileSync(memo, JSON.stringify(merged));
   const app = await startOfflineApp({memo, ask, dir: path.join(workDir, 'app')});
+  // The applicant's contact exactly as the live row set it (live-row.mjs: saveContact(CONTACT)): the profile in every form-answer ask carries it, and its lines (name, phone, e-mail, links) are part of
+  // the memo key; with the stand-in contact the whole ask missed its kept answer (12 Oct 2026, Ashby: profile lines 30-37 differed, found by the memo's line hashes).
+  await app.call('saveContact', CONTACT);
   const front = await frontOf(app);
   const run = await openBrowser({extensionDir, port: front.port});
   // Rows replay side by side, one tab each; rows that share a host never run together (replayRows), so an address, a request or a log line names its row by host.
