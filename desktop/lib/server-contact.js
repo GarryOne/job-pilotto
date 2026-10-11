@@ -43,7 +43,7 @@ export async function kept(storage, name, load, {now = Date.now()} = {}) {
   return {...saved.result, fromCache: saved.at};
 }
 // The label says where the copy came from, never when: it reaches the extension's debug details and from there a model ask (the filler review), where a clock time could never match a kept answer.
-export const keptSource = () => 'kept from Notion';
+export const keptSource = () => 'kept copy on this Mac';   // the copy came from the store's last good read (view-cache): its place is not a store's name here
 export const contactOf = storage => kept(storage, 'contact', () => readContact(storage)).then(result =>
   result.fromCache ? {contact: result.contact || {}, contactSource: keptSource(result.fromCache), contactError: null} : result);
 // After an edit in Settings → Your details: the kept copy is the new one at once.
