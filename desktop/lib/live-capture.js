@@ -47,12 +47,12 @@ export function captureCall({route, request, answer}, {env = process.env, now = 
   } catch { return false; }
 }
 
-// A page-kind ask, noted the moment it arrives, before the AI answers (speed-5x landing 2: the harness snapshots the asked page then, as the extension saw it; the full
-// call is written by captureCall once answered, by which time the extension may have pressed on). <LIVE_CAPTURE_DIR>/asks.jsonl, one {url, at} a line. -> true when written.
-export function noteAsk(url, {env = process.env, now = Date.now} = {}) {
+// A page-kind ask (and the form judge's: a later ask sees the page as the site's own script left it, e.g. the resume widget's "CV.PDF Success!"), noted the moment it arrives, before the AI answers (speed-5x landing 2: the harness snapshots the asked page then, as the extension saw it; the full
+// call is written by captureCall once answered, by which time the extension may have pressed on). <LIVE_CAPTURE_DIR>/asks.jsonl, one {url, at, route} a line. -> true when written.
+export function noteAsk(url, {env = process.env, now = Date.now, route = '/extension/page-kind'} = {}) {
   const dir = env.LIVE_CAPTURE_DIR;
   if (!dir || insideRealData(dir) || !url) return false;
-  try { fs.mkdirSync(dir, {recursive: true}); fs.appendFileSync(path.join(dir, 'asks.jsonl'), `${JSON.stringify({url: text(String(url)), at: now()})}\n`); return true; } catch { return false; }
+  try { fs.mkdirSync(dir, {recursive: true}); fs.appendFileSync(path.join(dir, 'asks.jsonl'), `${JSON.stringify({url: text(String(url)), at: now(), route})}\n`); return true; } catch { return false; }
 }
 
 // The form-answer call (worker answerForm's env.onAnswerCall, wired in server-env.js), kept the same way: which fields were asked and, per answer, its

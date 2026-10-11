@@ -31,7 +31,7 @@ export function journeyRecorder(context, {scrub = html => html} = {}) {
     // The window size (a frame's size is in the AI's sketch) and which document this is (its start time): a new state in the same document is a script's change
     // (a single-page app's route, a dialog), a new document a load; the replay plays each back the same way (lib/row-replay.mjs).
     const view = parent ? null : await frame.evaluate(() => ({width: window.innerWidth, height: window.innerHeight, doc: Math.round(performance.timeOrigin)})).catch(() => null);
-    list.push({url: address, html: scrub(html), at: Date.now(), state, ...(ask ? {ask: true} : {}), ...(view ? {view} : {}), ...(parent ? {frameOf: parent} : {})});
+    list.push({url: address, html: scrub(html), at: Date.now(), state, ...(ask ? {ask: true, ...(typeof ask === 'string' ? {askRoute: ask} : {})} : {}), ...(view ? {view} : {}), ...(parent ? {frameOf: parent} : {})});
     states.set(address, state + 1); keptShape.set(address, shape);
   };
   return {
@@ -48,7 +48,7 @@ export function journeyRecorder(context, {scrub = html => html} = {}) {
     },
     // The extension asks what a page is (its page-kind call, seen in the app's ai-calls.json as it is made): that page is kept at once, as the extension saw it,
     // before its fill changes it (11 Oct 2026: a form kept once settled already showed the CV the extension had attached). The replay serves this state first.
-    async atAsk(url) { for (const {frame, page} of frames()) if (frame === page.mainFrame() && addressOf(frame.url()) === addressOf(url)) await snap(frame, page, await frame.evaluate(shapeInPage).catch(() => ''), true); },
+    async atAsk(url, route = '/extension/page-kind') { for (const {frame, page} of frames()) if (frame === page.mainFrame() && addressOf(frame.url()) === addressOf(url)) await snap(frame, page, await frame.evaluate(shapeInPage).catch(() => ''), route); },
     // The run ends: a page still arriving at the end is kept as it is now.
     async finish() { for (const {frame, page} of frames()) if (!states.has(addressOf(frame.url()))) await snap(frame, page, await frame.evaluate(shapeInPage).catch(() => '')); },
     write(dir) {
@@ -56,7 +56,7 @@ export function journeyRecorder(context, {scrub = html => html} = {}) {
       const pages = list.map((item, at) => {
         const file = `pages/${at + 1}.html`;
         fs.writeFileSync(path.join(dir, file), item.html);
-        return {url: item.url, file, at: item.at, state: item.state, ...(item.ask ? {ask: true} : {}), ...(item.view ? {view: item.view} : {}), ...(item.frameOf ? {frameOf: item.frameOf} : {})};
+        return {url: item.url, file, at: item.at, state: item.state, ...(item.ask ? {ask: true, ...(item.askRoute ? {askRoute: item.askRoute} : {})} : {}), ...(item.view ? {view: item.view} : {}), ...(item.frameOf ? {frameOf: item.frameOf} : {})};
       });
       fs.writeFileSync(path.join(dir, 'journey.json'), `${JSON.stringify(pages, null, 1)}\n`);
       return pages;

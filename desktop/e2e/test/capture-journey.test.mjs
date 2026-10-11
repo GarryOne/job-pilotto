@@ -120,6 +120,8 @@ test('at the extension\'s ask the asked page is kept at once, marked as what the
     const pages = journey.write(out);
     assert.equal(pages[0].ask, true);
     assert.match(fs.readFileSync(path.join(out, pages[0].file), 'utf8'), /<input/, 'kept as the extension saw it, before the fill');
+    await journey.atAsk('https://jobs.example.test/o/role/apply', '/extension/account-judge');   // a later ask (the form judge's) keeps the page as it saw it, and says which ask
+    assert.deepEqual(journey.write(out).filter(item => item.ask).map(item => item.askRoute), ['/extension/page-kind', '/extension/account-judge']);
     await journey.atAsk('https://elsewhere.example/x');   // an address no tab shows: nothing kept, no error
   } finally { await browser.close(); }
 });

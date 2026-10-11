@@ -149,7 +149,8 @@ export async function pickPopup(storage, body, {client} = {}) {
 
 // The AI's judgment on a sign-up page, before the account button ('ready') or after it ('result'): fixed answers, never a value the person typed (lib/account-judge.js).
 export async function decideAccountJudge(storage, body, {judge = judgeAccount, client} = {}) {
-  const phase = body?.phase === 'result' ? 'result' : body?.phase === 'form' ? 'form' : 'ready';   // 'form': the application form's own readiness (lib/form-judge.js)
+  const phase = body?.phase === 'result' ? 'result' : body?.phase === 'form' ? 'form' : 'ready';
+  noteAsk(body?.sketch?.url, {route: '/extension/account-judge'});   // the page as this ask saw it, kept by the e2e capture (lib/live-capture.js)   // 'form': the application form's own readiness (lib/form-judge.js)
   const answer = phase === 'form' ? await judgeForm(client === undefined ? aiClient(storage, {lane: 'page'}) : client, body?.sketch || {}) : await judge(client === undefined ? aiClient(storage, {lane: 'page'}) : client, body?.sketch || {}, phase);
   captureCall({route: '/extension/account-judge', request: {phase, sketch: body?.sketch || {}}, answer: {answer: answer.answer || '', error: answer.error || '', needsKind: answer.needsKind || '', step: answer.step || ''}});   // the live ask a replay's miss is compared with (e2e only, scrubbed: lib/live-capture.js)
   appLog('extension', answer.error ? `account judgment ${phase}: none (${answer.error})` : `account judgment ${phase}: ${answer.answer}`, {botCheck: !!answer.botCheck, ...(answer.needs ? {needs: answer.needs.slice(0, 60)} : {}), ...(answer.needsKind ? {needsKind: answer.needsKind} : {}), ...(answer.unlisted ? {unlisted: answer.unlisted} : {})});   // the page's own labels (and a label the AI named that the page lacks), never a value

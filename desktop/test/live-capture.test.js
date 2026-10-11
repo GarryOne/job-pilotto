@@ -100,8 +100,11 @@ test('the app\'s own env writes the answer call into ai-calls.json under the har
 test('an ask is noted the moment it arrives, before the AI answers (asks.jsonl: the address and the time, scrubbed); outside the harness nothing', () => {
   const dir = tmp();
   assert.equal(noteAsk('https://jobs.example.ch/job/42?token=SECRET', {env: {LIVE_CAPTURE_DIR: dir}, now: () => 7}), true);
-  assert.deepEqual(fs.readFileSync(path.join(dir, 'asks.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line)), [{url: 'https://jobs.example.ch/job/42', at: 7}]);
+  assert.deepEqual(fs.readFileSync(path.join(dir, 'asks.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line)), [{url: 'https://jobs.example.ch/job/42', at: 7, route: '/extension/page-kind'}]);
+  assert.equal(noteAsk('https://jobs.example.ch/job/42', {env: {LIVE_CAPTURE_DIR: dir}, now: () => 9, route: '/extension/account-judge'}), true);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'asks.jsonl'), 'utf8').trim().split('\n')[1]).route, '/extension/account-judge', 'the form judge\'s ask is noted too (the page as it saw it)');
   assert.equal(noteAsk('https://x.example/', {env: {}}), false);
   const source = fs.readFileSync(new URL('../lib/server-pages.js', import.meta.url), 'utf8');
   assert.ok(source.indexOf('noteAsk(') > 0 && source.indexOf('noteAsk(') < source.indexOf('await decide('), 'the page-kind route notes the ask before it asks the AI');
+  assert.ok(source.indexOf("noteAsk(body?.sketch?.url, {route: '/extension/account-judge'})") > source.indexOf('export async function decideAccountJudge'), 'the form judge route notes its ask too');
 });

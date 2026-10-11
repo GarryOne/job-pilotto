@@ -109,7 +109,7 @@ export async function runLive(ctx, h) {
       const asks = journey && setInterval(() => {
         let lines = [];
         try { lines = fs.readFileSync(path.join(process.env.LIVE_CAPTURE_DIR, 'asks.jsonl'), 'utf8').split('\n').filter(Boolean); } catch { return; }
-        for (const line of lines.slice(asksSeen)) { try { journey.atAsk(JSON.parse(line).url).catch(() => {}); } catch { /* a line still being written */ } }
+        for (const line of lines.slice(asksSeen)) { try { { const ask = JSON.parse(line); journey.atAsk(ask.url, ask.route).catch(() => {}); } } catch { /* a line still being written */ } }
         asksSeen = lines.length;
       }, 200);
       const clock = stillClock({seconds: stillSeconds(), startedAt: Date.now()});   // lib/live-still.mjs: the watch ends early when nothing has changed for LIVE_STILL_SECONDS (20); `seconds` stays the limit
