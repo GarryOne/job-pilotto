@@ -39,7 +39,7 @@ class GateCacheTest(unittest.TestCase):
     def run_area(self, area='desktop', command='echo x >> "$RUNS"', extra='', **env):
         result = subprocess.run(['bash', '-c', f'source "{HELPER}"; gate_cache_run "{self.repo}" {area} "{extra}" bash -c \'{command}\''],
                                 capture_output=True, text=True,
-                                env={**os.environ, 'RUNS': str(self.runs), 'GATE_CACHE_NOTES': str(self.notes), **env})
+                                env={**{k: v for k, v in os.environ.items() if not k.startswith('GATE_CACHE')}, 'RUNS': str(self.runs), 'GATE_CACHE_NOTES': str(self.notes), **env})
         return result.returncode
 
     def count(self):
