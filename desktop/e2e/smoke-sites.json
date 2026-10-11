@@ -36,6 +36,27 @@
    "urls": [
     "https://jobs.channable.com/o/talent-acquisition-partner"
    ]
+  },
+  {
+   "shape": "Recruitee: one-page form on recruitee.com",
+   "urls": [
+    "https://ontarget.recruitee.com/o/senior-big-data-engineer-2",
+    "https://ontarget.recruitee.com/o/big-data-team-lead"
+   ]
+  },
+  {
+   "shape": "Teamtailor: form on teamtailor.com",
+   "urls": [
+    "https://career.teamtailor.com/jobs/8297677-regional-director-csm",
+    "https://career.teamtailor.com/jobs/8429402-customer-success-manager-sydney"
+   ]
+  },
+  {
+   "shape": "Join: form on join.com",
+   "urls": [
+    "https://join.com/companies/join/16780626-engineering-manager-m-f-d",
+    "https://join.com/companies/join/16778091-engineering-manager"
+   ]
   }
  ]
 }
