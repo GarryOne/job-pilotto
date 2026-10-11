@@ -100,5 +100,7 @@ async function refresh() {
     live.classList.add('on');
   } catch (error) { state.textContent = 'offline, retrying…'; live.classList.remove('on'); }
 }
-refresh(); setInterval(refresh, 10000);
+// Every 60 s while the tab is visible, and once when it becomes visible again (a timer that ignored a hidden tab kept reading D1 all night: 11 Oct 2026, test/poll-timers.test.js).
+refresh(); setInterval(() => { if (!document.hidden) refresh(); }, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 </script></main></body></html>`;

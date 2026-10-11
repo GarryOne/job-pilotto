@@ -179,10 +179,10 @@ export async function runReport(request, env, fetcher = fetch) {
   const suite = (url.searchParams.get('suite') || '').replace(/[^\w-]/g, '');
   if (report) return new Response(null, {status: 302, headers: {Location: `/admin/e2e/report/${report.id}/${await reportToken(env, report.id)}/index.html${suite ? `#?q=${encodeURIComponent(suite)}` : ''}`, 'Cache-Control': 'no-store'}});
   const going = info.status !== 'completed';
-  const text = going ? 'The HTML report is built when the run ends. This page checks again every 30 seconds.' : 'This run has no HTML report: it predates the report, the report job failed, or GitHub has deleted it.';
-  return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">${going ? '<meta http-equiv="refresh" content="30">' : ''}
+  const text = going ? 'The HTML report is built when the run ends. This page checks again every minute.' : 'This run has no HTML report: it predates the report, the report job failed, or GitHub has deleted it.';
+  return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
 <title>E2E report · Admin</title><style>body{margin:0;background:#0b0d10;color:#f4efe3;font:15px/1.5 system-ui,-apple-system,sans-serif}main{max-width:640px;margin:15vh auto;padding:0 16px}a{color:#f5b54a}</style></head>
-<body><main><h1>${going ? '⏳' : '📊'} ${going ? 'Not ready yet' : 'No report'}</h1><p>${text}</p><p><a href="${info.html_url}">The run on GitHub</a> · <a href="/admin/e2e">All runs</a></p></main></body></html>`,
+<body><main><h1>${going ? '⏳' : '📊'} ${going ? 'Not ready yet' : 'No report'}</h1><p>${text}</p><p><a href="${info.html_url}">The run on GitHub</a> · <a href="/admin/e2e">All runs</a></p></main>${going ? '<script>setInterval(function () { if (!document.hidden) location.reload(); }, 60000);</script>' : ''}</body></html>`,
   {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store'}});
 }
 
@@ -297,6 +297,7 @@ let timer;
 async function refresh() {
   clearTimeout(timer);
   let running = false;
+  if (document.hidden) { timer = setTimeout(refresh, 60000); return; }   // nothing is fetched while the tab is hidden (test/poll-timers.test.js)
   try {
     const response = await fetch('?json=1', {cache: 'no-store'});
     const data = await response.json();
@@ -306,7 +307,8 @@ async function refresh() {
     state.textContent = (running ? 'live · a run is in progress' : 'up to date') + ' · ' + new Date().toLocaleTimeString();
     live.classList.toggle('on', running);
   } catch (error) { state.textContent = 'GitHub did not answer (' + error.message + '), retrying…'; live.classList.remove('on'); }
-  timer = setTimeout(refresh, running ? 30000 : 120000);   // every 30 s while a run is going, else every 2 min
+  timer = setTimeout(refresh, running ? 60000 : 300000);   // every minute while a run is going, else every 5 min
 }
 refresh();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 </script></main></body></html>`;
