@@ -23,7 +23,8 @@ class HeavyLockTest(unittest.TestCase):
                     'JOB_PILOTTO_HEAVY_DIR': str(self.tmp / 'heavy'), 'JOB_PILOTTO_HEAVY_LOAD': '0', 'JOB_PILOTTO_HEAVY_POLL': '0.1',   # the script looks at the queue every 0.1 s here, not every second
                     'JOB_PILOTTO_HEAVY_TIMING_LOG': str(self.tmp / 'gate-timing.log'),
                     'JOB_PILOTTO_HEAVY_SHARED': str(LOCK),   # this file IS the copy under test: never hand off to the primary checkout's
-                    'JOB_PILOTTO_HEAVY_SLOTS': '1'}          # one at a time unless a test opens the memory-gated 2nd slot
+                    'JOB_PILOTTO_HEAVY_SLOTS': '1',         # one at a time unless a test opens the memory-gated 2nd slot
+                    'JOB_PILOTTO_HEAVY_RAMP': '0'}           # these tests check the floors only; tests/test_heavy_lock_budget.py checks the reservation of a run that just started
 
     def memory(self, free_gb, swap_used_pct):
         """Fake vm_stat and sysctl on PATH: free+inactive memory and swap use as given; returns the env for a 2-slot run."""

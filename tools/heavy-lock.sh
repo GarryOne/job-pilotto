@@ -37,7 +37,8 @@ if [ -n "$shared" ] && [ -f "$shared" ] && [ "$(real "$shared")" != "$(real "$0"
 root="${JOB_PILOTTO_HEAVY_DIR:-${TMPDIR:-/tmp}/job-pilotto-heavy}"; lock=""
 mkdir -p "$root"
 say() { echo "heavy-lock: $*" >&2; }
-SLOT_DIRS="$root/lock"; [ "${JOB_PILOTTO_HEAVY_SLOTS:-2}" -ge 2 ] 2>/dev/null && SLOT_DIRS="$SLOT_DIRS $root/lock.2"
+max_slots="${JOB_PILOTTO_HEAVY_SLOTS:-4}"; [ "$max_slots" -ge 1 ] 2>/dev/null || max_slots=1
+SLOT_DIRS="$root/lock"; for _i in $(seq 2 "$max_slots"); do SLOT_DIRS="$SLOT_DIRS $root/lock.$_i"; done
 holders() { local dir pid what since out=""
   for dir in $SLOT_DIRS; do [ -d "$dir" ] || continue; pid="$(cat "$dir/pid" 2>/dev/null)"; what="$(cat "$dir/what" 2>/dev/null)"; since="$(cat "$dir/since" 2>/dev/null)"
     out="${out:+$out and }pid ${pid:-?} (${what:-?}, session $(cat "$dir/session" 2>/dev/null || echo ?)) since $(date -r "${since:-0}" +%T 2>/dev/null || echo ?), $(( $(date +%s) - ${since:-$(date +%s)} ))s ago"; done
@@ -56,18 +57,30 @@ held() {  # live slots, after dropping stale ones
   done
   echo "$count"
 }
+# Admission by memory budget (owner, 11 Oct 2026; the old fixed 2 slots): up to JOB_PILOTTO_HEAVY_SLOTS (default 4) runs at once, each admitted only while free+inactive memory, less what the
+# runs started in the last JOB_PILOTTO_HEAVY_RAMP seconds (default 90) have declared and not yet used, is over the same floor as before (7 GB for a live run, 3 GB for a replay: never weaker).
+# Declared cost: a live run ~2.9 GB (whole-tree peak of `npm run live`, measured 11 Oct 2026: 2.59-2.84 GB), a replay ~1.2 GB (JOB_PILOTTO_HEAVY_COST_GB, JOB_PILOTTO_HEAVY_COST_REPLAY_GB).
+# A timing run (what has "latency" or "timing" in it, or JOB_PILOTTO_HEAVY_EXCLUSIVE=1) is exclusive: it starts only on an empty lock and nobody starts beside it.
+my_cost() { is_replay "$what" && echo "${JOB_PILOTTO_HEAVY_COST_REPLAY_GB:-1.2}" || echo "${JOB_PILOTTO_HEAVY_COST_GB:-2.9}"; }
+is_exclusive() { case "$what" in *latency*|*timing*) return 0 ;; esac; [ "${JOB_PILOTTO_HEAVY_EXCLUSIVE:-0}" = 1 ]; }
+reserved_gb() { local dir since total=0 ramp="${JOB_PILOTTO_HEAVY_RAMP:-90}"
+  for dir in $SLOT_DIRS; do [ -f "$dir/cost" ] || continue; since="$(cat "$dir/since" 2>/dev/null || echo 0)"
+    [ $(( $(date +%s) - since )) -lt "$ramp" ] && total="$(awk -v t="$total" -v c="$(cat "$dir/cost")" 'BEGIN {printf "%.1f", t + c}')"; done
+  echo "$total"; }
+exclusive_held() { local dir; for dir in $SLOT_DIRS; do [ -f "$dir/exclusive" ] && return 0; done; return 1; }
 memory_ok() {  # a 2nd heavy run fits: free+inactive memory over the floor and swap low; sets $why when not
   local free swap floor="${JOB_PILOTTO_HEAVY_MEM_GB:-7}" most="${JOB_PILOTTO_HEAVY_SWAP_PCT:-50}"
   # A recorded-page replay is counted by its real cost (owner's brief, 11 Oct 2026): ~1.5 GB of Chrome at 4 tabs (2.1 GB at 6), not a pool run's 3.3 GB; a row replay (npm run row: one offline browser, ~1 GB) the same.
   case "$what" in recorded-replay|row|row-*) floor="${JOB_PILOTTO_HEAVY_MEM_REPLAY_GB:-3}"; most="${JOB_PILOTTO_HEAVY_SWAP_REPLAY_PCT:-70}" ;; esac
   free="$(vm_stat 2>/dev/null | awk '/page size of/ {for (i = 1; i < NF; i++) if ($i == "of") size = $(i + 1)} /^Pages (free|inactive):/ {v = $NF; sub(/\./, "", v); pages += v} END {printf "%.1f", pages * size / 1073741824}')"
   swap="$(sysctl -n vm.swapusage 2>/dev/null | awk '{for (i = 1; i < NF; i++) {if ($i == "total") t = $(i + 2) + 0; if ($i == "used") u = $(i + 2) + 0}} END {printf "%d", (t > 0 ? u * 100 / t : 0)}')"
+  free="$(awk -v f="${free:-0}" -v r="$(reserved_gb)" 'BEGIN {printf "%.1f", f - r}')"   # what the runs that started in the last JOB_PILOTTO_HEAVY_RAMP seconds are still going to take
   why=""
   awk -v f="${free:-0}" -v m="$floor" 'BEGIN {exit !(f > m)}' || why="free+inactive memory ${free:-0} GB, a 2nd run needs over $floor"
   [ "${swap:-0}" -le "$most" ] || why="${why:+$why; }swap ${swap}% used, a 2nd run needs $most% or less"
   [ -z "$why" ]
 }
-take() { local dir; for dir in $SLOT_DIRS; do mkdir "$dir" 2>/dev/null && { lock="$dir"; return 0; }; done; return 1; }
+take() { local dir; for dir in $SLOT_DIRS; do mkdir "$dir" 2>/dev/null && { lock="$dir"; my_cost >"$dir/cost"; date +%s >"$dir/since"; is_exclusive && echo 1 >"$dir/exclusive"; return 0; }; done; return 1; }
 release() { [ -n "$lock" ] && [ "$(cat "$lock/pid" 2>/dev/null)" = "$$" ] && rm -rf "$lock"; return 0; }
 queue="$root/queue"; mkdir -p "$queue"
 branch_now="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo ?)"
@@ -79,7 +92,7 @@ ticket="$queue/$(python3 -c 'import time; print(time.time_ns())' 2>/dev/null || 
 trap 'rm -f "$ticket"; release' EXIT
 trap 'exit 143' TERM; trap 'exit 130' INT; trap 'exit 129' HUP
 age_of() { local ns="${1%%-*}"; echo $(( $(date +%s) - ns / 1000000000 )); }   # seconds a ticket has waited (its name starts with the nanosecond clock)
-ticket_label() { echo "$(head -n 1 "$queue/$1" | cut -d' ' -f2-) (pid $2, session $(sed -n 3p "$queue/$1" 2>/dev/null || echo ?))"; }
+ticket_label() { echo "$(head -n 1 "$queue/$1" | cut -d' ' -f2-) (pid $2, session $(sed -n 3p "$queue/$1" 2>/dev/null || echo ?))$([ "$(sed -n 5p "$queue/$1" 2>/dev/null)" = exclusive ] && echo ' [exclusive]')"; }
 ahead() {  # the waiter I must let go first, as "<what> (pid N, session S)"; dead waiters are dropped on the way
   local name pid mine=0 mname="${ticket##*/}" theirs
   for name in $(ls "$queue" 2>/dev/null | sort); do
@@ -89,11 +102,12 @@ ahead() {  # the waiter I must let go first, as "<what> (pid N, session S)"; dea
     if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then rm -f "$queue/$name"; continue; fi
     theirs="$(ticket_prio "$queue/$name")"
     if [ "$mine" = 0 ]; then   # older: it goes first, unless I outrank it and it has not waited past the cap
-      can_overtake "$my_prio" "$theirs" "$(age_of "$name")" && continue
+      [ "$(sed -n 5p "$queue/$name" 2>/dev/null)" = exclusive ] || { can_overtake "$my_prio" "$theirs" "$(age_of "$name")" && continue; }   # a waiting timing run is overtaken by nobody
     else                       # younger: I yield to it when it outranks me while I have not waited past the cap
+      is_exclusive && continue   # a timing run yields to no one: they would wait for it
       can_overtake "$theirs" "$my_prio" "$(age_of "$mname")" || continue
     fi
-    ticket_label "$name" "$pid"; return 0
+    echo "$(age_of "$name")|$(ticket_label "$name" "$pid")"; return 0
   done
 }
 
@@ -111,7 +125,7 @@ top_cpu() {  # $1 = separator between name and percent, $2 = separator between e
   ps -Ao pcpu=,comm= 2>/dev/null | awk '{c = $1; $1 = ""; sub(/^ +/, ""); n = split($0, p, "/"); cpu[p[n]] += c} END {for (k in cpu) printf "%d\t%s\n", cpu[k], k}' | sort -rn | head -3 \
     | awk -F'\t' -v a="$1" -v b="$2" '$1 > 0 {printf "%s%s%s%s%%", sep, $2, a, $1; sep = b}'
 }
-mark() { printf '%s %s\n%s\n%s\n%s\n' "$$" "$what" "$1" "$session" "$klass" >"$ticket"; }   # the ticket keeps its name (its place in line); only its second line changes
+mark() { printf '%s %s\n%s\n%s\n%s\n%s\n' "$$" "$what" "$1" "$session" "$klass" "$(is_exclusive && echo exclusive)" >"$ticket"; }   # the ticket keeps its name (its place in line); only its second line changes
 machine_ready() {  # sets $why when not
   [ "$limit" -gt 0 ] 2>/dev/null || return 0
   [ "$load_gave_up" = 1 ] && return 0
@@ -125,10 +139,12 @@ while :; do
   first=""; why=""; busy="$(held)"
   if machine_ready; then
     mark ""
-    first="$(ahead)"
-    if [ -z "$first" ]; then
+    first_raw="$(ahead)"; first="${first_raw#*|}"; skip=0
+    # A replay beside the runs that hold the lock, with room in the budget, does not queue behind a waiter that has waited under the cap (JOB_PILOTTO_HEAVY_REPLAY_SKIP=0 off).
+    case "$first" in *'[exclusive]') ;; *) [ -n "$first" ] && [ "$busy" != 0 ] && is_replay "$what" && [ "${JOB_PILOTTO_HEAVY_REPLAY_SKIP:-1}" != 0 ] && [ "${first_raw%%|*}" -lt "${JOB_PILOTTO_HEAVY_STARVE:-600}" ] && skip=1 ;; esac
+    if [ -z "$first" ] || [ "$skip" = 1 ]; then
       if [ "$busy" = 0 ]; then take && break
-      elif [ "$busy" -lt "$(echo $SLOT_DIRS | wc -w)" ] && memory_ok; then take && break; fi
+      elif ! is_exclusive && ! exclusive_held && [ "$busy" -lt "$max_slots" ] && memory_ok; then take && break; fi
     fi
   else mark loadwait; fi
   waited=$(( $(date +%s) - began ))
