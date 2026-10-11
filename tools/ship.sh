@@ -3,7 +3,7 @@
 # one thing that kept failing, a push rejected because another session pushed in between:
 #   1. fetch + rebase on origin/main (conflicts: it stops and says so; keep both sides' work)
 #   2. the push hook's checks, once: commit subjects, red main, and the suites of the areas this change touches
-#   3. push (fast-forward only, never forced); rejected -> fetch, rebase, push again, up to 5 times
+#   3. push (fast-forward only, never forced); rejected -> fetch, rebase, re-check only if what landed can clash (tools/recheck-needed.py), push again, up to 5 times
 #   4. bring the main checkout up to date (unless it holds uncommitted edits to the same files); the worktree is kept (tools/worktree.sh prune removes old landed ones)
 #   tools/ship.sh            Tier 0/1: only the touched areas' suites
 #   tools/ship.sh --full     Tier 2: every suite (PUSH_FULL=1)
@@ -143,9 +143,20 @@ for attempt in 1 2 3 4 5; do
   before="$(git rev-parse origin/main)"
   if out="$(git push origin HEAD:main 2>&1)"; then pushed=1; break; fi
   [ "$attempt" -lt 5 ] || break   # the last push was refused: no rebase and no checks for a push that will not come
-  echo "ship: push rejected, main moved ($attempt/5): fetching, rebasing and checking again" >&2
+  echo "ship: push rejected, main moved ($attempt/5): fetching and rebasing again" >&2
   rebase
-  run_checks "again, on the new main"   # the combination with what just landed is checked before it is pushed
+  # The checks run again only when what just landed can clash with this landing (tools/recheck-needed.py: a shared file, the checks' own files, a test both
+  # sides run, ...). Otherwise the push goes at once and CI is the net: a bad combination shows as a red main (11 Oct 2026: 18 refusals a day, median 78 s each).
+  # SHIP_RECHECK=1 re-runs the checks after every refusal, as before.
+  verdict="recheck: SHIP_RECHECK=1"
+  if [ -z "${SHIP_RECHECK:-}" ]; then
+    verdict="$(python3 -I "$here/tools/recheck-needed.py" --mine $(git diff --name-only origin/main HEAD) --incoming $(git diff --name-only "$before" origin/main) 2>&1)" || [ $? = 1 ] || verdict="recheck: the decision tool failed"
+  fi
+  case "$verdict" in
+    skip:*) step "not re-running the checks (SHIP_RECHECK=1 re-runs them): ${verdict#skip: }" ;;
+    *) run_checks "again, on the new main (${verdict#recheck: })" ;;   # the combination with what just landed is checked before it is pushed
+  esac
+  [ "${GATE_TIMING:-1}" = 0 ] || echo "# $(date -u +%Y-%m-%dT%H:%M:%SZ) refused push recheck=${verdict%%:*} why=${verdict#*: }" >>"$(git rev-parse --path-format=absolute --git-common-dir)/gate-timing.log"
 done
 [ -n "$pushed" ] || { echo "ship: still rejected after 5 tries:" >&2; echo "$out" | tail -3 >&2; exit 1; }
 sha="$(git rev-parse --short HEAD)"
