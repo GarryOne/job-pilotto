@@ -36,7 +36,7 @@ Owner decisions: landing 1 (11 Oct), step 0 then landing 2 (11 Oct), the privacy
 ### 5. Trust check
 - [x] Recruitee replays with the same evidence lines as live (page kind 2/2, pressed 2/2, went to 1/1)
 - [x] jobs.ch replays with the same evidence lines as live (page kind 3/3, both presses followed, went to 1/1; the one field off is the harness's tab count)
-- [ ] coreweave replays with the same evidence lines as live (all lines in round 4; round 5: the form page the extension opened in the tab missed its kept answer)
+- [x] coreweave replays with the same evidence lines as live (page kind 2/2, pressed 1/1, went to 1/1 once field ids were no longer scrubbed as phones: be7b60b)
 - [x] A build without a fix replays differently (step 0 undone: Recruitee's form page misses its kept answer, the fixed build's hits)
 
 ### 6. npm run rows
