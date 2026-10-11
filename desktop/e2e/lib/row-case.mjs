@@ -51,7 +51,10 @@ export async function buildCase({rowDir, name, outDir, shrink = shrinkPages, val
   const found = privacyFindings(Object.fromEntries(Object.entries(files).map(([file, text]) => [`${name}/${file}`, text])), values);
   if (found.length) throw new Error(`privacy gate: ${found.join('; ')}; nothing written`);
   const bytes = Object.values(files).reduce((sum, text) => sum + Buffer.byteLength(text), 0), verdict = sizeVerdict(bytes);
-  if (verdict === 'fail' && gate) throw new Error(`size gate: ${name} is ${Math.round(bytes / 1024)} KB, over ${CASE_FAIL / 1024} KB; nothing written`);
+  if (verdict === 'fail' && gate) {
+    const kb = text => Math.round(Buffer.byteLength(text) / 1024), pagesKb = shrunk.reduce((sum, page) => sum + kb(page.html), 0), biggest = shrunk.map((page, at) => [kb(page.html), meta[at].file]).sort((a, b) => b[0] - a[0])[0] || [0, ''];
+    throw new Error(`size gate: ${name} is ${Math.round(bytes / 1024)} KB, over ${CASE_FAIL / 1024} KB (pages ${pagesKb} KB, styles ${kb(files['styles.har.json'])} KB, the biggest page ${biggest[1]} ${biggest[0]} KB${budget ? `; ${budget}` : '; the page budget did not apply'}); a large real page is left out of the cases: keep what the replay reads with --stub-page <n> (1-based: pages/<n>.html; repeatable), or cut a recorded page by hand; nothing written`);
+  }
   const dir = path.join(outDir, name);
   if (folderVerdict(folderBytes(outDir) + bytes) === 'fail') throw new Error(`size gate: the cases folder would pass 8 MB; nothing written`);
   for (const [file, text] of Object.entries(files)) { fs.mkdirSync(path.dirname(path.join(dir, file)), {recursive: true}); fs.writeFileSync(path.join(dir, file), text); }

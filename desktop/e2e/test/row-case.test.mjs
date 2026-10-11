@@ -67,7 +67,7 @@ test('a case that fails a gate is refused and nothing is written: a typed value 
   fs.rmSync(phone.dir, {recursive: true});
   assert.deepEqual(fs.readdirSync(out), []);
   const big = async (chromium, pages) => ({pages: pages.map(page => ({...page, html: page.html + 'x'.repeat(310 * 1024)})), sheets: new Map()});
-  await assert.rejects(buildCase({rowDir: row(), name: 'x-2', outDir: out, shrink: big}), /size gate.*over 300 KB/);
+  await assert.rejects(buildCase({rowDir: row(), name: 'x-2', outDir: out, shrink: big}), /size gate.*over 300 KB \(pages \d+ KB, styles \d+ KB, the biggest page pages\/1\.html \d+ KB.*--stub-page <n>.*hand/);
   assert.deepEqual(fs.readdirSync(out), []);
   await assert.rejects(buildCase({rowDir: row(), name: 'x-3', outDir: null, shrink: noShrink}), /no cases folder/);
 });
