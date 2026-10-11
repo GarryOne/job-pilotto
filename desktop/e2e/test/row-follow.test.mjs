@@ -1,3 +1,4 @@
+/* global window, document */
 // lib/row-follow.mjs: a row replay follows the live run's states after each press it makes the same way, and stops with a finding at the first different press.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
