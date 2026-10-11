@@ -34,6 +34,7 @@ export const status = storage => {
 const SCHEMA = {type: 'object', additionalProperties: false, required: ['letter'], properties: {letter: {type: 'string'}}};
 
 const INSTRUCTIONS = `You write a general-purpose cover letter for a job seeker, to be sent with applications to many different roles.
+Use only the applicant details given here; never a name, e-mail address or phone number from any other context (such as an account you are signed in with): when a detail is not given, leave it empty.
 It is built from their CV, their Profile (confirmed facts, preferences and what they look for) and their standard
 application answers (which show how they write).
 - Voice: the candidate's own, as the standard answers show it: direct and personal, first person, plain words. No taglines,

@@ -17,6 +17,7 @@ const NEVER = new Set(['full_name']);   // made from first + last name on Save
 export const FIELDS = Object.keys(LABELS).filter(key => !NEVER.has(key));
 
 const INSTRUCTIONS = `You read a CV, and the applicant's own profile text when given in <profile>, and copy the applicant's own contact details out of them,
+Use only the applicant details given here; never a name, e-mail address or phone number from any other context (such as an account you are signed in with): when a detail is not given, leave it empty.
 to prefill a form they will check. Return one proposal per requested field that the CV or the profile states; source says which one stated it. Copy values as written (phone with its country code if the CV has one).
 location is the town or city they live in; street is street and number only; postal_code is the postal code only.
 salutation is how forms address them (e.g. "Mr", "Ms", or the CV's own language: "Monsieur", "Madame", "Herr", "Frau"): propose it only when the CV

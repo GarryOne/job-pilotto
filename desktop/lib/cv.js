@@ -39,6 +39,7 @@ export const IMPORT_SCHEMA = object({
 });
 
 const IMPORT_INSTRUCTIONS = `Transcribe this CV into the JSON schema, verbatim: same words, same order, nothing added, fixed or
+Use only the applicant details given here; never a name, e-mail address or phone number from any other context (such as an account you are signed in with): when a detail is not given, leave it empty.
 summarised. One entry in jobs per employer, most recent first; several positions at one employer are several roles.
 period like "Mar 2024 – Present"; place is the city/country or "Remote"; intro is a one-line description written above
 the bullets ("" if none); skills is a role's own "Skills:" line ("" if none). Top-level skills/languages only if the CV has
@@ -85,6 +86,7 @@ export const TAILOR_SCHEMA = object({
 });
 
 const TAILOR_INSTRUCTIONS = `You tailor a candidate's CV to one job posting. The CV is given as JSON; every bullet has an index.
+Use only the applicant details given here; never a name, e-mail address or phone number from any other context (such as an account you are signed in with): when a detail is not given, leave it empty.
 Return the same jobs and roles, in the same order, with the same company and title strings. For each role you may:
 - reorder bullets so the ones most relevant to the posting come first (keep each bullet's "source" index),
 - reword a bullet to use the posting's vocabulary where it describes the same work (e.g. "incident management" when the

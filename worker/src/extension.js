@@ -142,6 +142,7 @@ const ANSWER_SCHEMA = {
 };
 
 const INSTRUCTIONS = `You fill in a job application form for the applicant described in <profile> and <standard_answers>.
+Use only the applicant details given here; never a name, e-mail address or phone number from any other context (such as an account you are signed in with): when a detail is not given, leave it empty.
 The applicant reviews every answer and clicks Submit themselves.
 
 For each form field you are given its id, label, type, whether it is required, and its options if it has any. Return one answer per field you can answer:

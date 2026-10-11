@@ -56,6 +56,7 @@ export function prompt(url, {auditFile}) {
   // This session opens the one form tab itself, with the mark that arms the Job Pilotto extension on it (claude-in-chrome
   // only sees tabs in its own group, so a tab the app opened is invisible to it): the extension fills most fields in
   // seconds; this session does the rest.
+  const identity = 'Use only the applicant details given here; never a name, e-mail address or phone number from any other context (such as an account you are signed in with): when a detail is not given, leave it empty. ';   // every claude session carries its account e-mail (11 Oct 2026)
   const handoff = `Open the form tab yourself, once: tabs_context_mcp with createIfEmpty true, then navigate that tab to ${url}#jobpilotto-fill ` +
     '(keep the #jobpilotto-fill at the end, it arms the Job Pilotto extension on the tab, which then fills the form by itself; whenever you navigate that tab to another address yourself, put #jobpilotto-fill at the end of that address too, or the tab stops being part of this application). It is the ' +
     'only tab for this application: never open a second one. On each page, if <html> has data-jobpilotto-hook, read ' +
@@ -66,7 +67,7 @@ export function prompt(url, {auditFile}) {
     'this one is the same session: use it, the extension follows it. If there is no data-jobpilotto-hook after 10 s, carry on without the extension. ' +
     'Never trigger the extension\'s fill yourself. Work only from the form in Chrome and the --context output: don\'t read this repo\'s tests, config or README, ' +
     'and report as needing my attention only a control on the form. ';
-  return `Use the apply-to-job skill to apply to this job: ${url}. Don't ask me questions or discuss the skill file — just follow it: ` +
+  return `${identity}Use the apply-to-job skill to apply to this job: ${url}. Don't ask me questions or discuss the skill file — just follow it: ` +
     'pull the drafted kit from Notion Applications for this job URL, get to the actual form in the open tab (claude-in-chrome) ' +   // about Notion
     `as the skill's "Reaching the form" section says, in that same tab: when the page is a job board's or only links out, follow its Apply / Apply now buttons to ` +
     "the employer's site, and create an account or sign in there if it asks (password from python3 -m src.ai.passwords, pasted from the clipboard, " +
