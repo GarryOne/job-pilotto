@@ -19,11 +19,24 @@ export function replayPresses(requests, hosts = null) {   // hosts: only this ro
 }
 
 // The main page's state the live run reached after its press `k` (between that press and the next one: the one kept at the extension's ask, else the first), or null.
+// k = -1: before any press (the segment the page starts in; its state is the page as the extension saw it when it asked).
+const segment = (states, presses, k) => {
+  const after = k < 0 ? -Infinity : presses[k]?.at, before = presses[k + 1]?.at ?? Infinity;
+  return after == null ? [] : states.filter(state => state.at > after && state.at < before);
+};
 export function stateAfter(states, presses, k) {
-  const after = presses[k]?.at, before = presses[k + 1]?.at ?? Infinity;
-  if (after == null) return null;
-  const window = states.filter(state => state.at > after && state.at < before);
-  return window.find(state => state.ask) || window[0] || null;   // the page as the extension saw it when it asked, else the first state kept after the press
+  const window = segment(states, presses, k);
+  return window.find(state => state.ask) || (k < 0 ? null : window[0]) || null;   // the page as the extension saw it when it asked, else the first state kept after the press
+}
+
+// The states the page reached on its own in that segment after the one stateAfter serves (the site's script reacting to the extension: an attached CV autofilled the form and emptied the boxes the
+// extension had typed, Ashby, 12 Oct 2026). One follows per extension action (an attach, lib/row-replay.mjs), so a row with 0 presses reaches them too. A copy of the page just before it is not a new state.
+export function laterStates(states, presses, k) {
+  const window = segment(states, presses, k), first = stateAfter(states, presses, k) || window[0];
+  if (!first) return [];
+  const later = [];
+  for (const state of window.filter(one => one.at > first.at)) if (state.html !== (later.at(-1) || first).html) later.push(state);
+  return later;
 }
 
 // Press `k` of the replay against the live run's: -> {same: true} or {same: false, finding}.

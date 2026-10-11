@@ -54,3 +54,10 @@ test('a row replay sets the applicant\'s contact as the live row did (saveContac
   assert.match(replay, /app\.call\('saveContact', CONTACT\)/);
   assert.ok(replay.indexOf("app.call('saveContact', CONTACT)") < replay.indexOf('const front = await frontOf(app)'), 'before the front and the browser exist');
 });
+
+test('a row replay plays the live run\'s next state when the extension attaches a file (the page\'s own autofill), not only after a press', () => {
+  const replay = fs.readFileSync(new URL('../lib/row-replay.mjs', import.meta.url), 'utf8');
+  assert.match(replay, /exposeBinding\('__jpReplayAttached'/);
+  assert.match(replay, /event\.target\?\.type === 'file' && event\.target\.files\?\.length/);
+  assert.match(replay, /laterStates\(states, presses, -1\)/, 'a row with 0 presses starts with its later states');
+});

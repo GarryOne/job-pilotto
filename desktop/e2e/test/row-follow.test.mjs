@@ -1,7 +1,7 @@
 // lib/row-follow.mjs: a row replay follows the live run's states after each press it makes the same way, and stops with a finding at the first different press.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {replayPresses, samePress, stateAfter} from '../lib/row-follow.mjs';
+import {laterStates, replayPresses, samePress, stateAfter} from '../lib/row-follow.mjs';
 
 const log = entries => ({route: '/extension/log', body: JSON.stringify({entries})});
 
@@ -38,4 +38,16 @@ test('after a press, the state kept at the extension\'s ask wins over one kept e
   const states = [{at: 25, url: 'b', state: 0}, {at: 27, url: 'b', state: 1, ask: true}];
   assert.equal(stateAfter(states, [{at: 20}], 0).ask, true);
   assert.equal(stateAfter([{at: 25, url: 'b', state: 0}], [{at: 20}], 0).state, 0, 'no ask state: the first one after the press');
+});
+
+test('states the page reached on its own after the first one (the extension attached the CV, the site autofilled) follow, one per extension action, even with 0 presses', () => {
+  const states = [{at: 10, url: 'a', state: 0, ask: true, html: 'form'}, {at: 14, url: 'a', state: 1, html: 'filled'}, {at: 18, url: 'a', state: 2, html: 'filled'}];
+  assert.equal(stateAfter(states, [], -1).state, 0, 'before any press the page starts as the extension saw it');
+  assert.deepEqual(laterStates(states, [], -1).map(state => state.state), [1], 'a copy of the same page is not a new state');
+  const changed = [...states.slice(0, 2), {at: 18, url: 'a', state: 2, html: 'submitted look'}];
+  assert.deepEqual(laterStates(changed, [], -1).map(state => state.state), [1, 2]);
+  const pressed = [{at: 12, what: 'pressed the Apply button', label: 'Go'}];
+  assert.deepEqual(laterStates(changed, pressed, -1), [], 'before the first press, only the states that came before it');
+  assert.deepEqual(laterStates(changed, pressed, 0).map(state => state.state), [2], 'after press 0: stateAfter serves state 1, state 2 follows');
+  assert.deepEqual(laterStates(states, [{at: 50}], 0), [], 'a press with nothing after it: nothing follows');
 });

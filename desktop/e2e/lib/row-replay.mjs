@@ -10,7 +10,7 @@ import path from 'node:path';
 import {evidenceLines} from './evidence-bundle.mjs';
 import {nextRunnable} from './replay-browser.mjs';
 import {PAGE_LINE, stillClock} from './live-still.mjs';
-import {replayPresses, samePress, stateAfter, swapInPage} from './row-follow.mjs';
+import {laterStates, replayPresses, samePress, stateAfter, swapInPage} from './row-follow.mjs';
 import {frontOf} from './app-front.mjs';
 import {mayEnd} from './row-end.mjs';
 import {CONTACT} from './apply-fixtures.mjs';
@@ -80,15 +80,8 @@ export async function openReplay(caseDirs, {extensionDir, ask = false} = {}) {  
   const rows = new Map(), active = new Set();   // page -> its row; the rows running now
   const rowOf = page => rows.get(page) || [...active].find(row => row.hosts.has(new URL(page.url() || 'about:blank').host)) || null;
   run.context.on('page', page => { const opener = rows.get(page.opener?.() || null); if (opener) rows.set(page, opener); });   // a tab a row's page opened is that row's
-  // The site reacts at the click, not when the extension's log arrives (batched: 11 Oct 2026, the page moved after the extension's after-press watch had ended): a
-  // click on a control the live run pressed next moves the page to the live run's next state at once (lib/row-follow.mjs).
-  const norm = text => String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
-  await run.context.exposeBinding('__jpReplayPressed', async ({page}, label) => {
-    const row = rowOf(page), k = row?.applied, live = row?.presses[k];
-    if (!live || norm(label) !== norm(live.label)) return;
-    row.applied += 1;
-    const next = stateAfter(row.states, row.presses, k);
-    if (!next) return;
+  // The live run's next state, played into the tab: the page's own script, a route it changed, or a new document (after a press, or after the extension attached a file).
+  const advance = async (row, page, next, why) => {
     row.documents.set(next.url, next.html); row.pageStates.set(next.url, next.html);
     await new Promise(resolve => setTimeout(resolve, 150));   // the site's own reaction time
     const was = row.states[row.states.indexOf(next) - 1], sameDocument = next.view?.doc && was?.view?.doc ? next.view.doc === was.view.doc : new URL(next.url).host === new URL(page.url()).host;
@@ -98,8 +91,26 @@ export async function openReplay(caseDirs, {extensionDir, ask = false} = {}) {  
       await Promise.all([page.waitForNavigation({waitUntil: 'domcontentloaded', timeout: 15000}).catch(() => {}),
         page.evaluate(url => { const link = Object.assign(document.createElement('a'), {href: url}); document.body.append(link); link.click(); }, next.href || next.url).catch(() => {})]);
     }
-    row.say?.(`row: ${row.name}: press ${k + 1} "${label}" as live: the live run's next state (${next.url}, state ${next.state})`);
+    row.say?.(`row: ${row.name}: ${why}: the live run's next state (${next.url}, state ${next.state})`);
+  };
+  // The site reacts at the click, not when the extension's log arrives (batched: 11 Oct 2026, the page moved after the extension's after-press watch had ended): a
+  // click on a control the live run pressed next moves the page to the live run's next state at once (lib/row-follow.mjs).
+  const norm = text => String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  await run.context.exposeBinding('__jpReplayPressed', async ({page}, label) => {
+    const row = rowOf(page), k = row?.applied, live = row?.presses[k];
+    if (!live || norm(label) !== norm(live.label)) return;
+    row.applied += 1;
+    row.later = laterStates(row.states, row.presses, k);   // what the page does on its own after this press: one state per attach (below)
+    const next = stateAfter(row.states, row.presses, k);
+    if (next) await advance(row, page, next, `press ${k + 1} "${label}" as live`);
   });
+  // The extension attached a file (the CV): the site's own script reacts as it did live (an upload that autofills the form and empties the boxes the extension typed), so the page moves to the live
+  // run's next state of that segment. Not from a press, so a row with 0 presses follows too.
+  await run.context.exposeBinding('__jpReplayAttached', async ({page}) => {
+    const row = rowOf(page), next = row?.later?.shift();
+    if (next) await advance(row, page, next, 'the extension attached a file');
+  });
+  await run.context.addInitScript(() => document.addEventListener('change', event => { if (event.target?.type === 'file' && event.target.files?.length) window.__jpReplayAttached?.(); }, true));
   await run.context.addInitScript(() => document.addEventListener('click', event => {
     const control = event.target?.closest?.('button, a, [role=button], input[type=submit], input[type=button]');
     if (control) window.__jpReplayPressed?.((control.innerText || control.value || control.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().slice(0, 80));
@@ -124,7 +135,7 @@ export async function openReplay(caseDirs, {extensionDir, ask = false} = {}) {  
     const hosts = new Set([...files.documents.keys()].map(url => new URL(url).host)), name = path.basename(caseDir);
     const pageStates = new Map();   // address -> the first state the live run kept of it as the tab's own page
     for (const state of [...states.filter(one => one.ask), ...states]) if (!pageStates.has(state.url)) pageStates.set(state.url, state.html);
-    const row = {name, documents: files.documents, sheets: files.sheets, pageStates, unrecorded: new Set(), states, presses, applied: 0, say, hosts};
+    const row = {name, documents: files.documents, sheets: files.sheets, pageStates, unrecorded: new Set(), states, presses, applied: 0, later: laterStates(states, presses, -1), say, hosts};
     const mine = text => alone || [...hosts].some(host => String(text).includes(host));
     const fromRequest = front.requests.length, fromLog = app.logText().length;
     const requests = () => front.requests.slice(fromRequest).filter(request => mine(request.body));
