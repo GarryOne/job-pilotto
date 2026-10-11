@@ -1,0 +1,22 @@
+// The gates a row's case folder passes before npm run row-to-case writes it into the cases folder (public today, private from the eval-data move): privacy (the rules of the recorded-pages privacy test, one
+// function for both) and size (owner-approved limits, 11 Oct 2026, measured on three real captures: 84-168 KB after shrinking). Findings name the kind and the file, never the value.
+// Guard: e2e/test/row-case-gates.test.mjs; desktop/test/recorded-privacy.test.js calls privacyFindings.
+export const CASE_WARN = 200 * 1024, CASE_FAIL = 300 * 1024, FOLDER_FAIL = 8 * 1024 * 1024;
+export const sizeVerdict = bytes => (bytes > CASE_FAIL ? 'fail' : bytes > CASE_WARN ? 'warn' : 'ok');
+export const folderVerdict = bytes => (bytes > FOLDER_FAIL ? 'fail' : 'ok');
+
+const EMAIL = /[\w.+-]+@[\w-]+(\.[\w-]+)+/g, PHONE = /(\+\d[\d\s().-]{8,}\d)|(\b0\d{2}[\s.]\d{3}[\s.]\d{2}[\s.]\d{2}\b)/;
+
+// files: {<folder/name>: text}; own: the person's own values {value: kind} (capture-page.mjs personalValues). -> ["<file>: <kind>"]
+export function privacyFindings(files, own = new Map()) {
+  const found = [];
+  for (const [name, text] of Object.entries(files)) {
+    for (const email of text.match(EMAIL) || []) if (!/@example\.(com|org|net)$/i.test(email)) found.push(`${name}: an email`);
+    if (PHONE.test(text)) found.push(`${name}: a phone number`);
+    if (/<(input|option)\b[^>]*\bvalue="[^"]+"[^>]*>/i.test(text) && !/type="(submit|button|hidden)"/i.test(text.match(/<input\b[^>]*\bvalue="[^"]+"[^>]*>/i)?.[0] || 'type="button"')) found.push(`${name}: a typed value`);
+    if (/https?:\/\/[^"'\s]+\?[^"'\s]+/i.test(text)) found.push(`${name}: a URL query string`);
+    const lower = text.toLowerCase(), digits = text.replace(/\D/g, '');
+    for (const [value, kind] of own) if (/^\d+$/.test(value) ? value.length >= 9 && digits.includes(value) : new RegExp(`\\b${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(lower)) found.push(`${name}: ${kind}`);
+  }
+  return [...new Set(found)];
+}
