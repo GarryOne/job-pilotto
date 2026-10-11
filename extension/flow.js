@@ -8,6 +8,7 @@ import {settleTrace} from './trace-settle.js';
 import {expandSections} from './sections.js';
 import {PAGE_FILES} from './page-files.js';
 import {hasEarly, keepEarly, takeEarly} from './early-answers.js';
+import {decide} from './log.js';   // a cycle (log.js reads settings from here) that ES modules allow: both use the other only at run time
 export const JOB_SITES = [
   'https://*.greenhouse.io/*', 'https://jobs.lever.co/*', 'https://jobs.ashbyhq.com/*',
   'https://*.myworkdayjobs.com/*', 'https://*.smartrecruiters.com/*', 'https://apply.workable.com/*',
@@ -216,7 +217,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   } catch { /* aliases are a bonus */ }
   let answers = kitAnswers.map(a => ({field: a.field, value: a.answer, question: a.question, source: 'kit',
     confidence: a.needs_review ? 'low' : 'high', category: a.category || ''}));
-  let ai = null, aiError = null, later = [];
+  let ai = null, aiError = null, later = [], pendingAI = null;   // pendingAI: Claude's answers on their way while the known fields fill (below)
   // Contact details and CV come from the Job Pilotto app each time (it's the one place they live).
   const me = early || await api(config, `/extension/me?url=${encodeURIComponent(job)}`).catch(error => {
     // No app or no connection: stop, rather than fill a form without your name and CV.
@@ -245,23 +246,13 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       const byAI = new Set(ai.answers.map(a => a.field));
       answers = [...ai.answers.map(a => ({...a, source: 'Claude (on the page)'})), ...answers.filter(a => !byAI.has(a.field))];
     } else if (open.length) {
-      onStep(withKit ? `Claude is answering ${open.length} question${open.length === 1 ? '' : 's'} the kit doesn't cover (10–30 s)…`
-        : `Claude is answering ${open.length} question${open.length === 1 ? '' : 's'} and checking you're eligible (usually 10–30 s)…`);
-      try {
-        const askedEarly = takeEarly(tab.id, tab.url, open);   // asked beside the page-kind ask (askEarly), when it was for these same questions
-        debug.earlyAnswers = !!askedEarly;
-        ai = (askedEarly && await askedEarly) || await askAnswers(tab, config, open);
-        await chrome.storage.session.set({[cacheKey(tab)]: {url: tab.url.split('#')[0], ai, test: !!config.testMode}});
-        // Settings → "Check eligibility before filling" off (for testing): fill regardless.
-        if (!ai.eligible && !force && config.checkEligibility !== false) return {ineligible: true, note: ai.eligibility_note || '', usd: ai.usd};
-        // The AI saw the live form, so its answer wins; kit answers fill whatever it left out.
-        const byAI = new Set(ai.answers.map(a => a.field));
-        answers = [...ai.answers.map(a => ({...a, source: 'Claude (on the page)'})), ...answers.filter(a => !byAI.has(a.field))];
-      } catch (error) {
-        aiError = error.message;
-        debug.errors.push(`Claude: ${error.message}`);
-      }
-      step('Claude answered');
+      // The fields your details and CV answer are filled at once; Claude's answers fill a second pass when they come, as after a kit (owner, 11 Oct 2026:
+      // "fill them at once and let the AI fill the rest"; a "not eligible" answer then keeps what is filled and says so).
+      const askedEarly = takeEarly(tab.id, tab.url, open);   // asked beside the page-kind ask (askEarly), when it was for these same questions
+      debug.earlyAnswers = !!askedEarly;
+      pendingAI = askedEarly ? askedEarly.then(found => found || askAnswers(tab, config, open)) : askAnswers(tab, config, open);
+      pendingAI.catch(() => {});
+      later = open;
     }
   }
   onStep('Filling the form…');
@@ -299,6 +290,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     [answers, me?.contact || config.profile || {}, withLetterFile(me?.resume || config.resume || null, me?.coverLetterFile), letter, config.acceptConsents === true]);
   const armedLeft = () => inPage(tab.id, () => window.__jobPilottoArmedCount?.() || 0);
   step('filled the page');
+  if (pendingAI) decide('fill', 'first fields filled', {fields: summary?.filled || 0, waiting: later.length}).catch(() => {});   // before Claude's answers
   // Your details couldn't be read (Notion failed and there was no earlier copy): say so on the fields it left,
   // not "no answer", and in the panel, so Fill again is the obvious next step.
   if (me?.contactError && !Object.keys(me.contact || {}).length && summary) {
@@ -343,14 +335,21 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   }
   // With a kit: the questions it doesn't cover, answered by Claude now that the rest is already on the page.
   if (later.length && useAI) {
-    onStep(`Claude is answering ${later.length} more question${later.length === 1 ? '' : 's'}…`);
+    onStep(withKit ? `Claude is answering ${later.length} more question${later.length === 1 ? '' : 's'}…`
+      : `Claude is answering ${later.length} question${later.length === 1 ? '' : 's'} and checking you're eligible (usually 10–30 s)…`);
     try {
-      ai = await askAnswers(tab, config, later);
+      ai = pendingAI ? await pendingAI : await askAnswers(tab, config, later);
       step('Claude answered (after the fill)');
+      if (!withKit) {
+        await chrome.storage.session.set({[cacheKey(tab)]: {url: tab.url.split('#')[0], ai, test: !!config.testMode}});
+        // Settings → "Check eligibility before filling" off (for testing): fill regardless. Not eligible: what is filled stays (owner, 11 Oct 2026), the rest waits.
+        if (!ai.eligible && !force && config.checkEligibility !== false) return {ineligible: true, partly: true, note: ai.eligibility_note || '', usd: ai.usd};
+      }
       const extra = useRemembered(ai.answers.filter(a => later.some(f => f.field === a.field)).map(a => ({...a, source: 'Claude (on the page)'})));
       if (extra.length) {
         // Only Claude's answers this time: no contact details or CV again (they're in already).
-        const more = await inPage(tab.id, (list, consents) => window.__jobPilottoExtensionFill(list, {}, null, '', consents), [extra, config.acceptConsents === true]);
+        const more = await inPage(tab.id, (list, letter, consents) => window.__jobPilottoExtensionFill(list, {}, null, letter, consents),
+          [extra, withKit ? '' : coverLetter || ai?.cover_letter || '', config.acceptConsents === true]);
         const combos = config.clickDropdowns !== false ? await clickCombos(tab.id).catch(() => []) : [];
         debug.laterDropdowns = combos;
         summary.filled = (summary.filled || 0) + (more?.filled || 0) + combos.filter(c => c.picked).length;

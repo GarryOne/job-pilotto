@@ -222,13 +222,13 @@ function stepBox(tabId, message) {
 }
 
 // "Didn't fill: <reason>" with a Fill anyway button on the page itself.
-async function ineligibleNote(tabId, reason) {
-  await chrome.scripting.executeScript({target: {tabId}, args: [String(reason || 'not eligible')], func: text => {   // an app reply without a note must not crash the note (10 Oct 2026, the Aldi replay)
+async function ineligibleNote(tabId, reason, partly = false) {   // partly: your details were filled before the verdict came (flow.js, owner 11 Oct 2026)
+  await chrome.scripting.executeScript({target: {tabId}, args: [String(reason || 'not eligible'), !!partly], func: (text, partly) => {   // an app reply without a note must not crash the note (10 Oct 2026, the Aldi replay)
     document.getElementById('jobpilotto-note')?.remove();
     const box = Object.assign(document.createElement('div'), {id: 'jobpilotto-note'});
     box.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;max-width:340px;background:#132439;color:#fff;' +
       'border-radius:10px;padding:12px 14px;font:13px/1.45 system-ui,sans-serif;box-shadow:0 6px 24px #0008';
-    const message = Object.assign(document.createElement('div'), {textContent: `Job Pilotto didn't fill this form: ${text}`});
+    const message = Object.assign(document.createElement('div'), {textContent: partly ? `Job Pilotto filled only your details on this form: ${text}` : `Job Pilotto didn't fill this form: ${text}`});
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:8px;margin-top:10px';
     const button = (label, primary) => {
@@ -351,7 +351,7 @@ async function fillOpenedTabNow(tab, url, force = false, {fast = false, quiet = 
       api(config, '/extension/event', {method: 'POST', body: JSON.stringify({type: 'ai-failed', url, host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })(), why})}).catch(() => {});
     }
     await progress(tab.id, '', page);
-    if (result.ineligible && await onPage(tab.id, page)) await ineligibleNote(tab.id, result.note);
+    if (result.ineligible && await onPage(tab.id, page)) await ineligibleNote(tab.id, result.note, result.partly);
     decide('fill', result.ineligible ? `did not fill: ${result.note || 'ineligible'}` : 'filled the form',
       {url: page, ineligible: !!result.ineligible});
     // How each field was handled, so "what happened to <field>?" is answered from the log (8 Oct 2026: it took page probes). Labels and kinds, never a value.

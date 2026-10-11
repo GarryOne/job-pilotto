@@ -31,7 +31,7 @@ test('consider starts it only on a page showing a form; fillTab takes it before 
   const flow = fs.readFileSync(new URL('../../extension/flow.js', import.meta.url), 'utf8');
   const fill = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta.url), 'utf8');
   assert.match(fill, /if \(counts\.fields \+ counts\.textareas >= 2 && !counts\.passwords\) askEarly\(/);
-  assert.match(flow, /ai = \(askedEarly && await askedEarly\) \|\| await askAnswers\(tab, config, open\)/);
+  assert.match(flow, /pendingAI = askedEarly \? askedEarly\.then\(found => found \|\| askAnswers\(tab, config, open\)\) : askAnswers\(tab, config, open\)/);
   assert.equal((flow.match(/'\/extension\/answer'/g) || []).length, 1, 'the answers are asked in one place (askAnswers), for the fill and the early ask alike');
   assert.match(flow, /if \(kitStance\(\{kitAnswers: kit\?\.kit\?\.answers \|\| \[\], hasKit: !!kit\?\.kit\}\)\.withKit\) return false;/, 'never early with a kit');
 });

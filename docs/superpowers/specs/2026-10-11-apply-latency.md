@@ -32,8 +32,8 @@ Extended by the owner in this window (11 Oct 2026, ~06:35): A journey headline, 
 - [x] live journey on the same row (posting -> Apply -> form, side work on, real binary, 3 runs each): median 20.2 s -> 20.9 s, within noise; the ~20 s are 3 serial AI questions (~6.5 + ~5.5 + ~4.5 s) and the page load (this commit)
 
 ### 7. Known fields first (E)
-- [ ] the fields the profile knows (name, email, phone, address) are filled before any AI answer; "first field filled" reported beside "fill done"
-- [ ] measured before -> after (first field, fill done)
+- [x] the fields the profile knows (name, email, phone, address) are filled before any AI answer; "first field filled" reported beside "fill done" (this commit)
+- [x] measured before -> after (first field, fill done): offline, saved Recruitee form, 3 runs each: fill done median 5.6 s -> 5.6 s; first fields = fill done, because D already brings the answers (4.3 s) before page kind (6.8 s); E pays when the answers take longer than page kind (long forms) (this commit)
 
 ### 8. Independent questions in parallel (D)
 - [x] questions that do not need each other's answer are asked together (flow core claimed, invariants kept): the form's answers beside its page-kind ask (this commit)
