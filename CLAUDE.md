@@ -86,3 +86,6 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 - The Stop hook (`tools/stop-test-check.sh`) runs the suites your changes touch before you say done.
 - The gate reuses a suite pass on identical inputs (`tools/gate-cache.sh`; `GATE_CACHE=0` off, `PUSH_FULL=1` re-runs); a fail is never cached.
   Each step's time is logged (`<git common dir>/gate-timing.log`, `GATE_TIMING=0` off).
+- Areas with no affected test are not started (`JOB_PILOTTO_TIERS=0` starts all); browser suites and replays take one machine-wide lock
+  (`tools/heavy-lock.sh`, waits on a busy Mac, `JOB_PILOTTO_HEAVY=0` skips); `tools/ship.sh` queues landings one at a time and takes the extension
+  version + fingerprint after the rebase (never bump it by hand to land), and keeps the worktree.

@@ -95,8 +95,9 @@ them from colliding in one checkout:
   Another base: `tools/worktree.sh <topic> origin/<branch>` (a release lane), never a bare `git worktree add`, which links nothing.
 - Commit there, then land it with **`tools/ship.sh`** (since 6 Oct 2026): fetch + rebase, the push hook's checks once (the suites of the
   areas you touched), push with a retry when another session pushed in between, update the main checkout.
-  `--full` for Tier 2, `--fix` for the fix/revert of a red main. **The worktree is kept** (owner, 11 Oct 2026); until `ship.sh` keeps it by
-  default, pass `--keep`.
+  `--full` for Tier 2, `--fix` for the fix/revert of a red main. **The worktree is kept** (owner, 11 Oct 2026; `--remove` removes it).
+  Landings queue one at a time on this Mac in arrival order (`tools/landing-lock.sh`); after the rebase `ship.sh` takes the next free extension
+  version and writes `extension/fingerprint.json` once, amended into your last commit (never bump the version by hand to land).
   The checks take minutes: run **`tools/ship.sh --background`** (returns at once, names its log); the log's last line is `ship: DONE <sha>` or
   `ship: FAILED …` (8 Oct 2026: a run cut off by a timeout and piped through `tail` showed nothing). By hand it is still
   `git fetch && git rebase origin/main && git push origin <topic>:main` (fast-forward only; rejected: fetch, rebase, push again).
@@ -133,6 +134,11 @@ every 30 seconds. Keep the guardrails that catch real breakage; stop paying the 
 - **Land with `tools/ship.sh`**, not by hand. The pre-push hook runs only the suites of the areas the push touches (docs: none; engine: python +
   desktop; an unknown path: everything; `PUSH_FULL=1` forces all). Do not wait for CI of your own push before the next task: look at it later.
   A red main whose jobs were only cancelled or never started (busy runners) is infrastructure: the hook re-runs it and does not block.
+- **What the hook starts is decided by the affected-tests pick** (`tools/affected-tests.py`, 11 Oct 2026): an area with no affected test is not started
+  (a docs, skill or tools-only push: lint + the touched unit tests, under ~1 min; a changed JS file keeps desktop's lint). `extension/` and flow-core
+  pushes keep the journey, ladder and recorded gates, which run on their own file lists. `JOB_PILOTTO_TIERS=0` starts every area the paths want.
+- **One heavy run at a time per Mac** (`tools/heavy-lock.sh`): e2e suites, `run-all`, `smoke`, `npm run real-extension` and `recorded` take a lock, say who
+  holds it, and wait while the 1-minute load is above 1.5 x the cores. Unit tests never wait. `JOB_PILOTTO_HEAVY=0` skips it.
 - The e2e suites run nightly and on demand, not per change; the Finder files what they find. Do not run one to "be sure" at Tier 0/1.
 
 ### Which test for which question (owner, 8 Oct 2026: "the right test method for the right case")

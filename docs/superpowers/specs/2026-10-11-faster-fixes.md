@@ -26,12 +26,12 @@ repro tool not on the app's path, ~25% waiting (e2e page, file claims, version r
 - [x] A claim per pool row (job-pilotto-81, d901855)
 - [ ] The e2e page is a lock every run takes (job-pilotto-81 and -b8; owner's yes in 81's window)
 - [ ] Per-function claims on flow-core files (job-pilotto-81)
-- [ ] The extension version taken at ship time, after the rebase (job-pilotto-81 with job-pilotto-cc's ship.sh)
+- [x] The extension version taken at ship time, after the rebase (f99fb46)
 
 ### 4. Faster landing (~15%)
 - [x] A failed recorded case is retried alone and reported FLAKY with the load (job-pilotto-cc, c912b8b)
 - [x] Two sessions' baseline updates merge without a conflict (job-pilotto-cc, d5503ae)
-- [ ] Heavy runs wait when the machine's load is high
+- [x] Heavy runs wait when the machine's load is high (c93ed10)
 - [ ] A one-minute local check before the gate (the touched area's unit tests, e2e harness tests)
 
 ### 5. The skill (fix-failing-forms)
@@ -45,7 +45,7 @@ repro tool not on the app's path, ~25% waiting (e2e page, file claims, version r
 ### 6. Landing speed (landing-speed session)
 - [x] 1. Timing: every gate step timed, log in the git common dir, top steps printed (be0269c, afdd1f8)
 - [x] 2. Cache by content: a suite that passed on the same inputs is not run again (Stop hook reads it too) (856ecbb)
-- [ ] 3. One heavy run at a time per machine (lock) and heavy runs wait when the load is high
-- [ ] 4. Tiers: docs, skills, tools-only and tests-only pushes run lint + touched unit tests only
-- [ ] 5. Landing lock in ship.sh, and the extension version taken at ship time under it
+- [x] 3. One heavy run at a time per machine (lock) and heavy runs wait when the load is high (c93ed10)
+- [x] 4. Tiers: docs, skills, tools-only and tests-only pushes run lint + touched unit tests only (db0c63a)
+- [x] 5. Landing lock in ship.sh, and the extension version taken at ship time under it (f99fb46)
 - [ ] 6. A one-minute local check before the gate
