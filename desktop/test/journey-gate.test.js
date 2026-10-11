@@ -14,7 +14,9 @@ test('a push touching any flow file is checked, an extension-only one included; 
 
 test('every journey test file exists, and the gate is wired into the push hook', () => {
   for (const file of JOURNEY_TESTS) assert.ok(fs.existsSync(new URL(`../${file}`, import.meta.url)), file);
-  assert.match(fs.readFileSync(new URL('../../tools/pre-push-check.sh', import.meta.url), 'utf8'), /node tools\/journey-gate\.mjs --base origin\/main/);
+  const hook = fs.readFileSync(new URL('../../tools/pre-push-check.sh', import.meta.url), 'utf8');   // the gate runs beside the suites (gate_run), always against origin/main
+  assert.match(hook, /gate_run journey-gate "journey gate" tools\/journey-gate\.mjs/);
+  assert.match(hook, /node "\$3" --base origin\/main/);
 });
 
 test('a failed recorded case is named from the TAP line, so it can be retried alone and reported as flaky', () => {

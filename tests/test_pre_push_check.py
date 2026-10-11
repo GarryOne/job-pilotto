@@ -219,5 +219,41 @@ class PrePushCheckTest(unittest.TestCase):
         self.assertIn('--area desktop', self.log.read_text(), 'a changed JS file keeps desktop (its lint)')
 
 
+    def gate_stubs(self, journey_exit=0, seconds=1):
+        # a journey gate and a suite that each take `seconds` and log when they start and end; the ladder gate is absent (the hook skips a gate that is not there)
+        (self.repo / 'tools' / 'journey-gate.mjs').write_text(f"import fs from 'node:fs'; fs.appendFileSync(process.env.CHECK_LOG + '.order', 'gate-start\\n'); await new Promise(r => setTimeout(r, {seconds * 1000})); fs.appendFileSync(process.env.CHECK_LOG + '.order', 'gate-end\\n'); console.log('journey gate: stub says {'no' if journey_exit else 'yes'}'); process.exit({journey_exit});\n")
+        check = self.repo / 'tools' / 'check.sh'
+        check.write_text(f'#!/usr/bin/env bash\necho suite-start >> "$CHECK_LOG.order"; sleep {seconds}; echo suite-end >> "$CHECK_LOG.order"\n')
+        check.chmod(0o755)
+        self.commit('Gate stubs', {'desktop/shared/needed.js': 'export {};\n', 'worker/a.js': 'x'})
+        git(self.repo, 'push', '-q', 'origin', 'HEAD:main')
+        self.commit('Worker change', {'worker/b.js': str(journey_exit) + str(seconds)})
+        Path(str(self.log) + '.order').unlink(missing_ok=True)
+
+    @unittest.skipUnless(shutil.which('node'), 'needs node')
+    def test_the_journey_gate_runs_beside_the_suites_and_a_failing_gate_blocks_with_its_output(self):
+        # owner, 11 Oct 2026: lock wait + journey gate + slowest suite, one after another; the gate now starts with the suites
+        self.gate_stubs(seconds=1)
+        code, err = self.hook('git push origin HEAD:main')
+        order = Path(str(self.log) + '.order').read_text().split()
+        self.assertEqual(code, 0, err)
+        self.assertLess(order.index('suite-start'), order.index('gate-end'), 'the suite starts before the gate has finished')
+        self.assertLess(order.index('gate-start'), order.index('suite-end'))
+        self.assertIn('journey gate: stub says yes', err, err)
+        self.gate_stubs(journey_exit=1)
+        code, err = self.hook('git push origin HEAD:main')
+        self.assertEqual(code, 2)
+        self.assertIn('Push blocked: the journey gate failed', err)
+        self.assertIn('journey gate: stub says no', err)
+
+    @unittest.skipUnless(shutil.which('node'), 'needs node')
+    def test_jp_gate_serial_runs_the_gate_first_and_says_so(self):
+        self.gate_stubs(seconds=1)
+        code, err = self.hook('git push origin HEAD:main', JP_GATE_SERIAL='1')
+        order = Path(str(self.log) + '.order').read_text().split()
+        self.assertEqual(code, 0, err)
+        self.assertLess(order.index('gate-end'), order.index('suite-start'), 'serial: the gate is done before the suite starts')
+        self.assertIn('JP_GATE_SERIAL=1', err)
+
 if __name__ == '__main__':
     unittest.main()

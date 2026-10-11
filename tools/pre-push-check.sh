@@ -170,14 +170,24 @@ esac
 # The extra text is the changed files inside those paths (they decide which parts run). A new reader of a file outside this list: add it (tests/test_gate_order.py).
 gate_paths="extension desktop/lib desktop/test desktop/e2e desktop/scripts desktop/package.json desktop/package-lock.json worker/src docs/flows tools/journey-gate.mjs tools/ladder-gate.mjs tools/gate-cache.sh"
 gate_touched() { git -C "$repo" diff --name-only origin/main..HEAD -- $gate_paths 2>/dev/null | shasum -a 256 | cut -c1-16; }
-if command -v node >/dev/null && [ -f "$repo/tools/journey-gate.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
-  journeys="$(cd "$repo" && GATE_CACHE_PATHS="$gate_paths" timed "journey gate" gate_cache_run "$repo" journey-gate "touched=$(gate_touched)" node tools/journey-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $journeys" >&2; exit 2; }
-  [ -n "$journeys" ] && echo "$journeys" >&2
-fi
-# The ladder gate (docs/flows/ladder.md): a push touching a flow file, the page-kind decision or the ladder fixtures replays every fixture offline against the baseline: none may get worse (tools/ladder-gate.mjs, seconds, no model).
-if command -v node >/dev/null && [ -f "$repo/tools/ladder-gate.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
-  ladder="$(cd "$repo" && GATE_CACHE_PATHS="$gate_paths" timed "ladder gate" gate_cache_run "$repo" ladder-gate "touched=$(gate_touched)" node tools/ladder-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $ladder" >&2; exit 2; }
-  [ -n "$ladder" ] && echo "$ladder" >&2
+# The two gates run BESIDE the area suites (owner, 11 Oct 2026: a fresh flow-code push took the lock wait, then the journey gate, then the slowest suite, one after another):
+# started with the suites below, collected with them; their whole output is shown when one fails. JP_GATE_SERIAL=1 runs them first, one after the other, as before (said below).
+journey_gate() { gate_run journey-gate "journey gate" tools/journey-gate.mjs; }
+ladder_gate() { gate_run ladder-gate "ladder gate" tools/ladder-gate.mjs; }
+gate_run() {  # cache area, timing name, script: prints the gate's output on stdout, its verdict in the exit code
+  (cd "$repo" && GATE_CACHE_PATHS="$gate_paths" timed "$2" gate_cache_run "$repo" "$1" "touched=$(gate_touched)" node "$3" --base origin/main 2>&1)
+}
+gates_wanted=()
+for gate in journey ladder; do   # (the journey gate's tests: seconds, no browser, plus the recorded-page replay when the extension changed; the ladder gate: docs/flows/ladder.md)
+  if command -v node >/dev/null && [ -f "$repo/tools/$gate-gate.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then gates_wanted+=("$gate"); fi
+done
+if [ "${JP_GATE_SERIAL:-0}" = 1 ]; then
+  [ ${#gates_wanted[@]} -gt 0 ] && echo "pre-push: JP_GATE_SERIAL=1: the journey and ladder gates run before the suites, one after the other" >&2
+  for gate in ${gates_wanted[@]+"${gates_wanted[@]}"}; do
+    out="$("${gate}_gate")" || { echo "Push blocked: $out" >&2; exit 2; }
+    [ -n "$out" ] && echo "$out" >&2
+  done
+  gates_wanted=()
 fi
 # Which suites this push needs (AGENTS.md "Change tiers"). `PUSH_FULL=1 git push ...` runs everything (Tier 2). Docs alone run nothing; a path
 # this list does not know runs everything. The engine (src/, tests/) also runs desktop: its callers. A clean pip install only when dependencies changed.
@@ -284,6 +294,10 @@ fi
 for area in python worker site desktop; do
   want="want_$area"; [ "${!want}" = 1 ] && add_tree "$area"
 done
+gate_pids=()
+for gate in ${gates_wanted[@]+"${gates_wanted[@]}"}; do   # first: they are the longest, and wait for the heavy lock on their own
+  out="$(mktemp)"; "${gate}_gate" >"$out" 2>&1 & gate_pids+=($!); gate_outs+=("$out"); gate_names+=("$gate")
+done
 [ "$want_python" = 1 ] && run "python (clean checkout)" verify_area python $clean_install
 [ "$want_worker" = 1 ] && run "worker (clean checkout)" verify_area worker
 [ "$want_site" = 1 ] && run "site (clean checkout)" verify_area site
@@ -293,12 +307,18 @@ for i in "${!pids[@]}"; do
   wait "${pids[$i]}" || failed+=("${names[$i]}")
   cat "${outs[$i]}" >>"$log"; rm -f "${outs[$i]}"
 done
+for ((i = 0; i < ${#gate_pids[@]}; i++)); do
+  if wait "${gate_pids[$i]}"; then [ -s "${gate_outs[$i]}" ] && cat "${gate_outs[$i]}" >&2
+  else { echo "Push blocked: the ${gate_names[$i]} gate failed:"; cat "${gate_outs[$i]}"; } >&2; gate_failed=1; fi
+  rm -f "${gate_outs[$i]}"
+done
 slot_release
 for tree in ${trees[@]+"${trees[@]}"}; do
   git -C "$repo" worktree remove --force "$tree" >/dev/null 2>&1 || rm -rf "$tree"
 done
 git -C "$repo" worktree prune 2>/dev/null
 
+if [ -n "${gate_failed:-}" ] && [ ${#failed[@]} -eq 0 ]; then rm -f "$log"; exit 2; fi
 if [ ${#failed[@]} -gt 0 ]; then
   {
     echo "Push blocked: tests failed in ${failed[*]} ($repo)."

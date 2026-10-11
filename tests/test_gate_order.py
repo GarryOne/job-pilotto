@@ -12,18 +12,18 @@ GATE = (ROOT / 'tools' / 'pre-push-check.sh').read_text()
 
 class GateOrderTest(unittest.TestCase):
     def test_cheap_checks_run_before_the_slow_gates(self):
-        slow = min(GATE.index('timed "journey gate"'), GATE.index('timed "ladder gate"'))
+        slow = GATE.index('gate_run() {')
         for cheap in ('timed "file size"', 'timed "recorded cases"', 'timed "rung trailer"', 'timed "e2e issue links"'):
             self.assertLess(GATE.index(cheap), slow, f'{cheap} must run before the journey and ladder gates')
 
 
     def test_the_slow_gates_reuse_a_pass_on_the_same_tree(self):
-        for gate in ('"journey gate" gate_cache_run "$repo" journey-gate', '"ladder gate" gate_cache_run "$repo" ladder-gate'):
+        for gate in ('gate_run journey-gate "journey gate"', 'gate_run ladder-gate "ladder gate"'):
             self.assertIn(gate, GATE, 'a retry that only changed a commit message must not re-run a slow gate')
 
     def test_both_slow_gates_key_their_pass_on_the_files_they_read_and_those_cover_the_flow_files(self):
         # owner, 11 Oct 2026: a refused push (main moved) re-ran ~10 min of gates after a rebase over commits that touched none of their files
-        for gate in ('GATE_CACHE_PATHS="$gate_paths" timed "journey gate"', 'GATE_CACHE_PATHS="$gate_paths" timed "ladder gate"'):
+        for gate in ('GATE_CACHE_PATHS="$gate_paths" timed "$2" gate_cache_run "$repo" "$1" "touched=$(gate_touched)"',):
             self.assertIn(gate, GATE)
         paths = re.search(r'^gate_paths="([^"]+)"', GATE, re.M).group(1).split()
         self.assertTrue(paths)
@@ -34,6 +34,13 @@ class GateOrderTest(unittest.TestCase):
         import json
         for file in json.loads(flows):
             self.assertTrue(any(file == path or file.startswith(path.rstrip('/') + '/') for path in paths), f'{file} is read by the journey/ladder gate but is not in gate_paths')
+
+    def test_the_slow_gates_run_beside_the_area_suites_unless_serial_is_asked(self):
+        # owner, 11 Oct 2026: a fresh flow-code push took lock wait + journey gate + slowest suite, one after another; now the longest of them
+        self.assertLess(GATE.index('"${gate}_gate" >"$out" 2>&1 &'), GATE.index('for i in "${!pids[@]}"'), 'started before the suites are collected')
+        self.assertLess(GATE.index('wait "${gate_pids[$i]}"'), GATE.index('slot_release\nfor tree'), 'collected with them')
+        self.assertIn('JP_GATE_SERIAL', GATE)
+        self.assertIn('JP_GATE_SERIAL=1: the journey and ladder gates run before the suites', GATE)   # said in the log when the fallback is used
 
 
 if __name__ == '__main__':
