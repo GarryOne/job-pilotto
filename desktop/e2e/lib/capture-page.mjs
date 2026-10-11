@@ -24,14 +24,27 @@ export const appProfileTexts = (folders = [path.join(os.homedir(), 'Library/Appl
   folders.flatMap(folder => ['profile.md', 'answers.md'].map(name => { try { return fs.readFileSync(path.join(folder, name), 'utf8'); } catch { return ''; } }));
 
 const escape = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-export function scrub(html, values = new Map()) {
-  let out = fakeContacts(html);
+const valuesOut = (text, values) => {
+  let out = text;
   for (const [value, kind] of values) {
     // A name word in any case but all capitals: "ADA" is the Americans with Disabilities Act, not the fake applicant Ada (11 Oct 2026, coreweave's form).
     if (kind === 'name') out = out.replace(new RegExp(`\\b${escape(value)}\\b`, 'gi'), found => (found.length > 1 && found === found.toUpperCase() ? found : FAKE.name));
     if (kind === 'email') out = out.replace(new RegExp(escape(value), 'gi'), FAKE.email);
   }
   return out;
+};
+export const scrub = (html, values = new Map()) => valuesOut(fakeContacts(html), values);
+
+// The scrub for a captured PAGE (and its sheets): a web address in an attribute (href, src, action, srcset, poster) or a CSS url() is kept whole from the PHONE scrub: a long digit run in a file name
+// (main-12345678901.css) is not a phone number, and replacing it with "(phone)" left an address no replay could serve (HelloFresh, 12 Oct 2026). Everything else stays scrubbed: text, tel:/sms:/mailto:
+// links, any non-example email and the person's own values, which are cut from the addresses too. fakeContacts and the memo key's normalisation are unchanged (a key must not move).
+const ADDRESS_ATTR = /(\s(?:href|src|action|srcset|poster|data-src|data-href)=")([^"]*)(")/gi, CSS_URL = /url\((["']?)([^)"']*)\1\)/gi, PRIVATE_SCHEME = /^\s*(?:tel|sms|mailto):/i;
+export function scrubPage(html, values = new Map()) {
+  const held = [], hold = value => `\u0000A${held.push(value) - 1}\u0000`;
+  const guarded = String(html).replace(ADDRESS_ATTR, (all, open, value, close) => (PRIVATE_SCHEME.test(value) ? all : `${open}${hold(value)}${close}`))
+    .replace(CSS_URL, (all, quote, value) => (PRIVATE_SCHEME.test(value) ? all : `url(${quote}${hold(value)}${quote})`));
+  const clean = text => valuesOut(text.replace(EMAIL, email => (/@example\.(com|org|net)$/i.test(email) ? email : FAKE.email)), values);
+  return scrub(guarded, values).replace(/\u0000A(\d+)\u0000/g, (all, at) => clean(held[Number(at)]));
 }
 
 // Runs IN the page (passed to page.evaluate): the page's structure as one HTML string. The rules the page APPLIES are kept (speed-5x landing 1, 11 Oct 2026:

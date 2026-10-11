@@ -45,3 +45,23 @@ test('a long number that is part of an identifier (Greenhouse question_455382800
   assert.match(out, /id="question_4553828006"/);
   assert.doesNotMatch(out, /555 12 34|0795551234/);
 });
+
+test('a page capture keeps a web address whole: a long digit run in a stylesheet or image name is not a phone number; real phones, emails and the person\'s own values are still scrubbed', async () => {
+  const {scrubPage} = await import('../lib/capture-page.mjs');
+  const html = '<link rel="stylesheet" href="https://cdn.example.net/tenantcss/main-12345678901.css"><style>.a{background:url(https://cdn.example.net/img-98765432101.png)}</style>'
+    + '<p>Call +41 79 123 45 67 or mail anna@gmail.com</p><a href="tel:+41 79 123 45 67">call</a><a href="mailto:anna@gmail.com">mail</a><a href="https://www.linkedin.com/in/anna-muster">profile</a>';
+  const out = scrubPage(html, new Map([['muster', 'name']]));
+  assert.ok(out.includes('href="https://cdn.example.net/tenantcss/main-12345678901.css"'), 'the stylesheet address survives');
+  assert.ok(out.includes('url(https://cdn.example.net/img-98765432101.png)'), 'a url() in CSS survives');
+  assert.ok(!out.includes('+41') && !out.includes('123 45 67'), 'a phone in text or a tel: link is scrubbed');
+  assert.ok(!out.includes('gmail'), 'an email in text or a mailto: link is scrubbed');
+  assert.ok(!/muster/i.test(out), 'the person\'s own value is scrubbed inside an address too');
+  assert.ok(out.includes('href="https://www.linkedin.com/in/anna-'), 'the rest of that address stays');
+  assert.equal(scrub(html, new Map()).includes('main-(phone).css'), true, 'scrub (the old function, used for text and memos) still replaces it: only the page path changed');
+});
+
+test('the memo key of a known request is unchanged by the page-capture scrub (fakeContacts and the key normalisation stay as they were)', async () => {
+  const {memoKey} = await import('../../lib/ai/model-memo.js');
+  assert.equal(memoKey({model: 'claude-haiku-5-5', system: 'Say what kind of page this is.', messages: [{role: 'user', content: 'sheet https://cdn.example.net/main-12345678901.css call +41 79 123 45 67 mail anna@gmail.com'}]}),
+    '9508d32d7d284e2c08c3781065516e06b6ade603d711c712eaf8513ba509a5d6');
+});

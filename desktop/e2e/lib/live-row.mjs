@@ -11,7 +11,7 @@ import path from 'node:path';
 import {frontOf} from './app-front.mjs';
 import {seedVersion} from './applicant-seed.mjs';
 import {CONTACT} from './apply-fixtures.mjs';
-import {cssRecorder, personalValues, scrub} from './capture-page.mjs';
+import {cssRecorder, personalValues, scrubPage} from './capture-page.mjs';
 import {journeyRecorder} from './capture-journey.mjs';
 import {evidenceLines} from './evidence-bundle.mjs';
 import {PAGE_LINE, STILL_SECONDS, stillClock} from './live-still.mjs';
@@ -34,7 +34,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
   const front = await frontOf(app);
   const run = await browser({extensionDir, appPort: front.port, allowAllSites: true});
   const owner = ownerValues(), values = personalValues([`Name: ${CONTACT.full_name}\nEmail: ${CONTACT.email}\nPhone: ${CONTACT.phone}`]);
-  const journey = journeyRecorder(run.context, {scrub: html => scrub(html, values)}), styles = cssRecorder(run.context);
+  const journey = journeyRecorder(run.context, {scrub: html => scrubPage(html, values)}), styles = cssRecorder(run.context);
   let asksSeen = 0, tripped = '';
   const asks = setInterval(() => {   // each ask noted by the app as it arrives (asks.jsonl): that page kept at once, as the extension saw it
     let lines = [];

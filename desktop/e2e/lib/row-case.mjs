@@ -4,7 +4,7 @@
 // (lib/row-case-gates.mjs, the recorded-privacy test's own function) or the size gate fails. Guard: e2e/test/row-case.test.mjs.
 import fs from 'node:fs';
 import path from 'node:path';
-import {appProfileTexts, personalValues, scrub} from './capture-page.mjs';
+import {appProfileTexts, personalValues, scrub, scrubPage} from './capture-page.mjs';
 import {folderVerdict, privacyFindings, sizeVerdict, CASE_FAIL} from './row-case-gates.mjs';
 import {shrinkPages} from './row-case-shrink.mjs';
 import {keptPresses} from './row-follow.mjs';
@@ -28,8 +28,8 @@ export async function buildCase({rowDir, name, outDir, shrink = shrinkPages, val
   const item = readJson(path.join(rowDir, 'case.json'), null);
   if (!item?.pages?.length) throw new Error(`no recorded pages in ${rowDir}/case.json`);
   const har = readJson(path.join(rowDir, 'styles.har.json'), {log: {entries: []}}).log?.entries || [];
-  const harCss = har.filter(entry => /css/.test(entry.response?.content?.mimeType || '')).map(entry => scrub(entry.response.content.text || '', values));
-  const pages = item.pages.map(page => ({url: String(page.url).replace(/[?#].*$/, ''), file: page.file, html: stripQueries(scrub(fs.readFileSync(path.join(rowDir, page.file), 'utf8'), values)), meta: page}));
+  const harCss = har.filter(entry => /css/.test(entry.response?.content?.mimeType || '')).map(entry => scrubPage(entry.response.content.text || '', values));
+  const pages = item.pages.map(page => ({url: String(page.url).replace(/[?#].*$/, ''), file: page.file, html: stripQueries(scrubPage(fs.readFileSync(path.join(rowDir, page.file), 'utf8'), values)), meta: page}));
   const {pages: shrunk, sheets} = await shrink(chromium || (await import('playwright-core')).chromium, pages.map(({url, file, html}) => ({url, file, html})), harCss, {exe});
   const files = {};
   const meta = item.pages.map((page, at) => ({...Object.fromEntries(['at', 'state', 'ask', 'answerAsk', 'view', 'frameOf'].filter(key => page[key] !== undefined).map(key => [key, page[key]])), url: pages[at].url, file: `pages/${at + 1}.html`}));
