@@ -14,7 +14,7 @@ Spec: `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md` (four l
 Whoever owns the pool and its run queue writes its own session name into `~/Library/Application Support/Job Pilotto QA/coordinator.txt` (one line, then what it is), when it starts and whenever its name changes: every other skill reads that file to find who to report to. `ListAgents` shows your own name on its first line. Tell the peers once ("I am the pool coordinator now, report to <name>").
 
 ## What exists
-- **Runner** `desktop/e2e/smoke.mjs` (`cd desktop/e2e && npm run smoke`), logic in `lib/smoke.mjs` (rotation `tonight`, `parseLive`, `signature`, `compare`,
+- **Runner** `desktop/e2e/smoke.mjs` (`cd desktop/e2e && npm run smoke`), logic in `lib/smoke.mjs` (a run's share `runShare`: the least recently run first, `parseLive`, `signature`, `compare`,
   `NEVER_VISIT`), upload in `lib/applying-report.mjs`. It never schedules itself: there is no schedule: the owner decided (11 Oct 2026) that the pool runs BY HAND only, ask once.
 - **The pool, two lists, merged:** public `desktop/e2e/smoke-sites.json` (postings from PUBLIC job feeds only) and this Mac's
   `~/Library/Application Support/Job Pilotto QA/smoke-sites.json` (postings copied from the owner's profiles; outside the repo AND outside the app folder, because a
@@ -22,14 +22,14 @@ Whoever owns the pool and its run queue writes its own session name into `~/Libr
 - **Reports:** `~/Library/Application Support/Job Pilotto QA/smoke-reports/<day>.json` + one `.log` per run + `discover-<day>.json`. They name real postings: they stay on the Mac.
 - **Evidence bundle** (11 Oct 2026): every finished run keeps `smoke-reports/evidence/<day>/<shape>/` = `evidence.md` (the four lines that matter: page kind with frames and the digest flag, the digest's validated answer, what was pressed, where the page went), `run.log`, `app.log`, `ai-calls.json`; the day's report quotes the same lines under `results.<shape>.lines`. **A run that was killed or cut short (no end of the watch) records and uploads nothing.** Read the bundle first when you say which blocker a fix is for; `lib/evidence-bundle.mjs`, `test/evidence-bundle.test.mjs`.
 - **/admin/applying** (owner-only QA page, not `/admin/form-filling`, which is real users): tiles, fixed-site replays, "The pool" table (platform from the END host,
-  flow words), nights. Bearer = Keychain `job-pilotto.site.api_key` (memory `reference-owner-pages-access`). Uploads carry hosts, site names and signatures only,
+  flow words), the runs. Bearer = Keychain `job-pilotto.site.api_key` (memory `reference-owner-pages-access`). Uploads carry hosts, site names and signatures only,
   never a posting address (`applying-report.mjs`; a test fails on a path, query or token); never uploaded from CI or control runs (`REAL_EXTENSION_DIR`).
 - **Other layers** it sits beside: journey scenarios (`desktop/test/journeys.test.js`), recorded pages (`desktop/e2e/recorded/`, `npm run recorded`), the fleet digest (`boards[].dropped`).
 
 ## Commands (all from `desktop/e2e`, in your own worktree: `tools/worktree.sh smoke-<topic>`)
 | What | Command |
 |---|---|
-| Tonight's share (`SMOKE_PER_NIGHT`, default 10, window moving each day) | `npm run smoke` |
+| A run's share (`SMOKE_SHARE`, default 10: the shapes least recently run first; `SMOKE_PER_NIGHT` is its old name) | `npm run smoke` |
 | Some shapes | `npm run smoke -- --only <words of the shape>` |
 | The whole pool (~55 x 2 min) | `npm run smoke -- --all` |
 | Find new flow shapes from the loaded profile's jobs (a few per host, more from boards) | `npm run smoke -- --discover --limit 30` (~45 min) |
@@ -43,7 +43,7 @@ row instead of 69-97 s, no 27 s app start, the same reached/filled on 3 paired r
 Electron app for a row that needs the real app; the run's first lines say which path ran.
 **What a candidate holds** (`replay-candidates/<day>/<shape>/`): every page and frame at the extension's ask, its CSS, the live AI answers (`model-memo.json`), the live presses
 (`presses.json`); `SMOKE_KEEP_CANDIDATES=1` keeps passing rows too. **After a fix batch lands, `npm run rows` replays the day's rows offline** (4 tabs, minutes, no AI cost):
-a row that now stops earlier than its live run is a regression found before the next night.
+a row that now stops earlier than its live run is a regression found before the next pool run.
 
 ## The rules that bite
 - **The machine-wide heavy lock decides when a pool run starts** (`tools/heavy-lock.sh`, the primary checkout's copy for every session, first come first served): one run, and a 2nd beside it only while free+inactive memory is over 7 GB and swap is low (one pool run peaks at 3.3 GB); never a 3rd. It queues you and prints the holder. Pool and live runs are on SQLite in a throwaway profile: **no Notion page, no shared port** (11 Oct 2026: 59/59 logs "store under test: sqlite", `notion-requests.log` empty; each run has its own ports, profile and artifacts folder). Only `notion-real` takes a Notion page lock (`lib/notion-page-lock.mjs`). **No slot messaging** (owner, 11 Oct 2026): don't ask peers for the page or a slot, don't send "done"; just start, and the lock queues you fairly. Never bypass it (`JOB_PILOTTO_HEAVY=0`).
@@ -63,14 +63,14 @@ a row that now stops earlier than its live run is a regression found before the 
 
 ## A round
 1. **Start it:** the heavy lock queues you (first come first served, a 2nd run only with spare memory); no asking peers for a slot.
-2. **Run** (tonight's share, or `--only`/`--all`, or `--discover` when the owner loaded a new profile), held, with Monitor. Report per site as it lands.
+2. **Run** (a run's share, or `--only`/`--all`, or `--discover` when the owner loaded a new profile), held, with Monitor. Report per site as it lands.
 3. **Read the result:** regressions first (a shape that reached less than its last run), then the sites that reached the earliest step, then bot/code holds (documented, left alone).
    Compare with the last report; a site that failed once is run again before it counts.
 4. **Hand off** each failing shape, one line each, to `/fix-failing-forms` (the shape, the log path, the frame folder, what the log cannot tell). Several sessions may each take a different shape:
    give every one its own worktree and scratch folder (global rule "Several agents at once"), and the flow core goes to one session at a time (claim message).
    A shape that needs the owner's accounts or Gmail goes to `/fix-live-applying-in-twin`.
    **Landed fixes come back to you:** a fixer hands you "landed <hash>, extension <version>, run <shape>". Update the runner to that build, run just that shape (held, Monitor), upload it, and send the fixer the step
-   reached, the page-kind lines and the app.log path. A row clears on `/admin/applying` only through such an uploaded run (there is no nightly run: the owner runs it by hand only); a recorded page passing does not clear it.
+   reached, the page-kind lines and the app.log path. A row clears on `/admin/applying` only through such an uploaded run (the pool is only ever started by hand); a recorded page passing does not clear it.
 5. **Grow the pool** (when asked or after a profile change): `--discover`; read what it added to the Mac's list and why (the new signature). Never add a posting address to the public file unless it is from a public feed.
 6. **Report to the owner:** counts (run, reached form / posting / bot, regressions, new shapes), what moved since the last report, what was handed to whom. Say "done" to the peers.
 

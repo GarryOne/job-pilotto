@@ -1,16 +1,16 @@
 #!/usr/bin/env node
-// Layer 3, the nightly live smoke (spec: docs/superpowers/specs/2026-10-10-applying-reliability-layers.md). For each shape of smoke-sites.json: one of the owner's
+// Layer 3, the hand-started live smoke (spec: docs/superpowers/specs/2026-10-10-applying-reliability-layers.md). For each shape of smoke-sites.json: one of the owner's
 // postings (read-only from the app's jobs.sqlite, rotating by day), run live through the e2e app with the real extension (the `npm run live` machinery,
 // headless, HELD: no account button, never Submit), read where it got to (lib/smoke.mjs parseLive), compare with the last report, and list the boards the
 // fleet digest flags as dropped (layer 4). Report: <QA folder>/smoke-reports/<day>.json (outside the repo: it names real postings, and outlives worktrees). Exit 1 when a shape reached less than last time.
-// Usage: cd desktop/e2e && npm run smoke [-- --only <shape words> | --all] [SMOKE_PER_NIGHT=10] [SMOKE_SECONDS=90]: tonight's share of the pool (rotating), or
-// --all / --only. Each shape is compared with ITS last run, however many nights ago. It never schedules itself (the owner chooses).
+// Usage: cd desktop/e2e && npm run smoke [-- --only <shape words> | --all] [SMOKE_SHARE=10] [SMOKE_SECONDS=90]: this run's share of the pool (the least recently run first), or
+// --all / --only. Each shape is compared with ITS last run, however long ago. It never schedules itself: the owner starts it by hand.
 import {execFileSync, spawn} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {compare, engineLine, lastSeen, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, signature, smokeEngine, tonight, verdictFields} from './lib/smoke.mjs';
+import {compare, engineLine, lastSeen, runShare, shareSize, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, signature, smokeEngine, verdictFields} from './lib/smoke.mjs';
 import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
 import {uploadLedger} from './lib/fix-ledger.mjs';
 import {poolCard, sendPoolCard} from './lib/pool-card.mjs';
@@ -126,8 +126,9 @@ async function main() {
     console.log(`smoke: ${await upload('smoke', [{name: shape, host: hostOnly(item.url), reached: item.reached, filled: item.filled, left: item.left, note: item.note || '', regression: !!found, ...rungFields(item), ...verdictFields(item)}])}`);
   };
   const pool = shapes.filter(item => !only || item.shape.includes(only));
-  const chosen = only || process.argv.includes('--all') ? pool : tonight(pool, Number(process.env.SMOKE_PER_NIGHT || 10));
-  console.log(`smoke: ${chosen.length} of ${shapes.length} shapes tonight`);
+  const today = (() => { try { return [JSON.parse(fs.readFileSync(path.join(REPORTS, `${day}.json`), 'utf8'))]; } catch { return []; } })();   // a run earlier today counts too
+  const chosen = only || process.argv.includes('--all') ? pool : runShare(pool, shareSize(), lastSeen([...earlierList, ...today]));
+  console.log(`smoke: ${chosen.length} of ${shapes.length} shapes in this run's share (the least recently run first)`);
   console.log(engineLine(smokeEngine()));
   for (const {shape, like = [], urls = []} of chosen) {
     const posting = pickPosting([...urls.map(url => ({url, title: '', company: ''})), ...(like.length ? postingsLike(like) : [])]);

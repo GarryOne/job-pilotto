@@ -17,7 +17,7 @@ So the loop is judged on two things: forms closer to ready, and **the share of e
 
 ## How it is invoked
 - `/fix-live-applying-in-twin`: the **active Applying sessions** (status `input` or `done`, last 3 days) on the owner's twin.
-  The pool of real test sites (the nightly smoke, `/admin/applying`, the QA smoke-reports) is NOT worked here: that is the skill
+  The pool of real test sites (the smoke pool, `/admin/applying`, the QA smoke-reports) is NOT worked here: that is the skill
   **`fix-failing-forms`** (`/fix-failing-forms`), which reproduces each failing shape in the e2e harness with fake data. A pool shape that needs the
   owner's real state (their account, their Gmail) is handed to this skill by name, one at a time.
 - `/fix-live-applying-in-twin jobs <n>`: also **n new jobs** from the owner's list (top fit, not yet applied, different sites/ATS than the sessions).

@@ -1,7 +1,7 @@
-// The nightly smoke's logic (lib/smoke.mjs): how far a live run got, what counts as a regression, which posting is tried tonight.
+// The hand-started smoke's logic (lib/smoke.mjs): how far a live run got, what counts as a regression, which posting a run tries, which shapes it takes.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {compare, engineLine, fieldLines, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, smokeEngine, verdictFields, verdictOf} from '../lib/smoke.mjs';
+import {compare, engineLine, fieldLines, marksBlind, parseLive, pickPosting, placeFound, rungFields, runShare, shareSize, shortfall, smokeEngine, verdictFields, verdictOf} from '../lib/smoke.mjs';
 
 const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detail/x/
   2026-10-10T12:20:27Z [extension] page kind: account {"shape":"auth.jobs.ch/u/login/identifier|1-2","by":"ai"}
@@ -58,16 +58,7 @@ test('the public site list holds only fixed job-feed postings: a profile\'s own 
   assert.ok(!/Job Pilotto\/smoke-sites/.test(LOCAL_SITES), 'and outside the app\'s folder, which a profile reset wipes');
 });
 
-test('rotation: 10 of 25 a night, every shape within 3 nights; a small pool runs whole', async () => {
-  const {tonight} = await import('../lib/smoke.mjs');
-  const pool = Array.from({length: 25}, (_, i) => `s${i}`), day = n => new Date(n * 86400000);
-  const covered = new Set([0, 1, 2].flatMap(n => tonight(pool, 10, day(n))));
-  assert.equal(tonight(pool, 10, day(0)).length, 10);
-  assert.equal(covered.size, 25);
-  assert.deepEqual(tonight(['a', 'b'], 10), ['a', 'b']);
-});
-
-test('each shape is compared with its own last run, however many nights ago', async () => {
+test('each shape is compared with its own last run, however long ago', async () => {
   const {lastSeen} = await import('../lib/smoke.mjs');
   const seen = lastSeen([{day: '2026-10-01', results: {a: {reached: 'form'}, b: {reached: 'account'}}}, {day: '2026-10-05', results: {a: {reached: 'posting'}}}]);
   assert.deepEqual([seen.a.reached, seen.a.day, seen.b.reached, seen.b.day], ['posting', '2026-10-05', 'account', '2026-10-01']);
@@ -94,7 +85,7 @@ test('discovery candidates: a few per host, more from job boards, none already i
   assert.deepEqual(picked.filter(item => item.url.includes('hm.com')).map(item => item.url), ['https://career.hm.com/job/1', 'https://career.hm.com/job/2']);
 });
 
-test('never an automated visit to LinkedIn, Glassdoor, Indeed, levels.fyi or Reddit: not a discovery candidate, not a nightly pick', async () => {
+test('never an automated visit to LinkedIn, Glassdoor, Indeed, levels.fyi or Reddit: not a discovery candidate, not picked by a pool run', async () => {
   const {candidates, mayVisit} = await import('../lib/smoke.mjs');
   for (const url of ['https://ch.indeed.com/viewjob?jk=1', 'https://www.linkedin.com/jobs/view/1', 'https://www.glassdoor.ch/job/1', 'https://www.levels.fyi/jobs', 'https://www.reddit.com/r/jobs']) assert.equal(mayVisit(url), false, url);
   assert.equal(mayVisit('https://career.hm.com/job/1'), true);
@@ -232,4 +223,19 @@ test('a smoke row runs on the app\'s own path without Electron by default; SMOKE
   assert.equal(smokeEngine({SMOKE_NO_ELECTRON: '0'}), 'electron');
   assert.match(engineLine('node'), /without Electron.*SMOKE_ELECTRON=1/);
   assert.match(engineLine('electron'), /Electron app/);
+});
+
+test('a run\'s share is the shapes least recently run (never run first), never one twice before every shape ran once; no calendar day', () => {
+  const pool = ['a', 'b', 'c', 'd', 'e'];
+  assert.deepEqual(runShare(pool, 2, {}), ['a', 'b'], 'nothing run yet: the pool\'s own order');
+  const seen = {a: {day: '2026-10-11'}, b: {day: '2026-10-11'}, c: {day: '2026-10-09'}};
+  assert.deepEqual(runShare(pool, 3, seen), ['d', 'e', 'c'], 'never run first, then the oldest');
+  let ran = {};
+  const picked = [];
+  for (let run = 0; run < 3; run++) { const share = runShare(pool, 2, ran); picked.push(...share); for (const shape of share) ran = {...ran, [shape]: {day: `2026-10-11T0${run}`}}; }
+  assert.deepEqual(picked.slice(0, 5).sort(), pool, 'every shape once before any shape twice');
+  assert.deepEqual(runShare(pool, 10, {}), pool, 'a share bigger than the pool is the pool');
+  assert.equal(shareSize({SMOKE_SHARE: '4'}), 4);
+  assert.equal(shareSize({SMOKE_PER_NIGHT: '6'}), 6, 'the old name still works');
+  assert.equal(shareSize({}), 10);
 });

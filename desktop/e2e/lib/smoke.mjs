@@ -1,4 +1,4 @@
-// Layer 3 of applying reliability (spec: docs/superpowers/specs/2026-10-10-applying-reliability-layers.md): the nightly live smoke's logic, no browser here.
+// Layer 3 of applying reliability (spec: docs/superpowers/specs/2026-10-10-applying-reliability-layers.md): the hand-started live smoke's logic, no browser here.
 // parseLive reads where a live run got to from its own printed log lines (lib/apply-live.mjs), compare finds what reached less than last time, pickPosting
 // rotates through the owner's postings of each site shape. Runner: e2e/smoke.mjs. Guard: e2e/test/smoke.test.mjs.
 import {causeOf} from '../../../extension/fill-card.js';
@@ -53,7 +53,7 @@ export function parseLive(output) {
   return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, pageKindErrors, kinds: [...new Set(kinds)], path, errors};
 }
 
-// The same shape reaching an earlier step than last night, or filling fewer fields on the same posting, is a regression.
+// The same shape reaching an earlier step than its last run, or filling fewer fields on the same posting, is a regression.
 export function compare(previous = {}, current = {}) {
   const out = [];
   for (const [shape, now] of Object.entries(current)) {
@@ -68,14 +68,18 @@ export function compare(previous = {}, current = {}) {
 // One of a shape's postings, rotating by day (the list is the owner's own jobs matching the shape's patterns).
 export const pickPosting = (postings, day = new Date()) => { const allowed = postings.filter(item => mayVisit(item?.url || item)); return allowed.length ? allowed[Math.floor(day.getTime() / 86400000) % allowed.length] : null; };
 
-// Tonight's share of a big pool (owner, 10 Oct 2026: "100 sites, 10 a night, all of them in 10 days"): a window that moves by perNight each day, wrapping.
-export function tonight(shapes, perNight = 10, day = new Date()) {
-  if (!shapes.length || perNight >= shapes.length) return shapes;
-  const start = (Math.floor(day.getTime() / 86400000) * perNight) % shapes.length;
-  return Array.from({length: perNight}, (_, i) => shapes[(start + i) % shapes.length]);
+// A run's share of a big pool (owner, 11 Oct 2026: "the pool is triggered only manually"; before, a window that moved by calendar day): the shapes least recently
+// run first (never run first, then the oldest last run), in the pool's own order on a tie, so no shape runs twice before every shape ran once.
+// seen: lastSeen(every report, today's included). -> the shapes of this run.
+export function runShare(shapes, size = 10, seen = {}) {
+  if (!shapes.length || size >= shapes.length) return shapes;
+  const last = item => String(seen[item?.shape ?? item]?.day || '');
+  return shapes.map((item, at) => ({item, at})).sort((x, y) => last(x.item).localeCompare(last(y.item)) || x.at - y.at).slice(0, size).map(entry => entry.item);
 }
+// How many shapes a run takes: SMOKE_SHARE (SMOKE_PER_NIGHT, its old name, still read), default 10.
+export const shareSize = (env = process.env) => Number(env.SMOKE_SHARE || env.SMOKE_PER_NIGHT || 10);
 
-// Each shape's most recent result across all earlier reports (a shape runs every few nights, so its "last time" may be days ago).
+// Each shape's most recent result across all earlier reports (a shape runs every few pool runs, so its "last time" may be days ago).
 export function lastSeen(reports) {
   const seen = {};
   for (const report of [...reports].sort((a, b) => String(a.day).localeCompare(String(b.day)))) for (const [shape, result] of Object.entries(report.results || {})) seen[shape] = {...result, day: report.day};
