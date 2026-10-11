@@ -385,8 +385,8 @@
     window.__jobPilottoClaude?.render({on: !!connection?.connected && !!connection.app && !!claudeAsk.help, stuck: !!session?.stuck && !(session?.live && ['running', 'input'].includes(session.status)), always: !!claudeAsk.always, auto: !!claudeAsk.auto, consent: !!claudeAsk.consent, needs: () => shown[0] && flash(shown[0].el)});   // offered, never automatic unless "always" (panel-claude.js)
     const foot = $('.foot');
     foot.classList.toggle('on', !!connection?.connected);
-    foot.textContent = connection?.connected ? (connection.app ? (session ? 'In sync with Job Pilotto' : 'Connected to Job Pilotto') : 'Connected to your Worker')
-      : connection ? (connection.why || 'Not connected: the form still fills from your settings') : 'Checking the connection…';
+    const state = connection?.connected ? (connection.app ? (session ? 'In sync with Job Pilotto' : 'Connected to Job Pilotto') : 'Connected to your Worker')
+      : connection ? (connection.why || 'Not connected: the form still fills from your settings') : 'Checking the connection…'; const version = chrome.runtime.getManifest().version; foot.textContent = `${state} · v${version}`; foot.title = `Job Pilotto extension v${version}`;   // the build is in every screenshot (owner, 11 Oct 2026)
     return {list, left, total, busy, over, account};
   }
 
