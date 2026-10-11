@@ -11,7 +11,7 @@ import {appLogLines} from './app-log.mjs';
 import {fillState} from './extension.mjs';
 import {fieldLines} from './smoke.mjs';
 import {appProfileTexts, personalValues, scrub, snapshotInPage} from './capture-page.mjs';
-import {removeJobsByUrl} from './notion.mjs';
+import {removeJobsByUrl} from './seed-data.mjs';
 import {modelClient} from './model.mjs';
 import {pause} from './apply-fixtures.mjs';
 export {livePosting} from './live-posting.mjs';
@@ -78,7 +78,7 @@ export async function lookViaWorker(ctx, tab, say) {
 }
 
 export async function runLive(ctx, h) {
-  const {page, posting, NOTION} = h;
+  const {page, posting} = h;
   await ctx.run('a real posting, watched live: the page kinds, stages and fills as they happen (nothing is pressed on the page)', async () => {
     try {
       const frames = path.join(ctx.ARTIFACTS, 'live-frames');
@@ -125,8 +125,8 @@ export async function runLive(ctx, h) {
         if (html) { fs.mkdirSync(process.env.LIVE_CAPTURE_DIR, {recursive: true}); fs.writeFileSync(path.join(process.env.LIVE_CAPTURE_DIR, 'page.html'), scrub(html, personalValues(appProfileTexts([ctx.profile])))); console.log(`  live: the page is kept for a replay candidate (${html.length} characters, structure only)`); }
       }
       if (!ctx.browser.opened.length) throw new Error('Apply never opened the posting in the browser');
-    } finally {   // the shared Notion page of this suite must not keep the live job (a stray "Applying" row broke another run's step, 8 Oct 2026)
-      console.log(`  live: removed ${await removeJobsByUrl(NOTION, [posting.url]).catch(() => 0)} job row(s) of the live posting`);
+    } finally {   // the job store of this run must not keep the live job (a stray "Applying" row broke another run's step, 8 Oct 2026)
+      console.log(`  live: removed ${await removeJobsByUrl(ctx, [posting.url]).catch(() => 0)} job row(s) of the live posting`);
     }
   }, {needs: ctx.needs});
 }

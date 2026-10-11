@@ -43,7 +43,7 @@ export const partOf = name => (LIVE_STEPS.some(head => name.startsWith(head)) ? 
 
 export const run = ctx => runApply(ctx, ['forms', 'cv']);   // the CV steps use the form fixtures' jobs; with the journeys they put applycv over 7 minutes (beta 9 Oct 2026: 394 s of steps on Windows)
 export async function runApply(ctx, parts) {
-  const {page, token: NOTION, proxy, forms} = ctx;
+  const {page, proxy, forms} = ctx;
   ctx.findings = [];
   // A seeded run (E2E_SEED, lib/variation.mjs) fills forms with other data and other timing (lib/forms.mjs varyForms); the written seed replays it.
   fs.writeFileSync(path.join(ctx.ARTIFACTS, 'seed.json'), JSON.stringify({seed: ctx.vary.seed, fixed: ctx.vary.fixed, detail: forms.variation}));
@@ -292,7 +292,7 @@ export async function runApply(ctx, parts) {
     unknownTab = tab;
   }, {needs: ctx.needs});
 
-  await runLive(ctx, {page, posting: live, NOTION});   // lib/apply-live.mjs (only when parts has 'live')
+  await runLive(ctx, {page, posting: live});   // lib/apply-live.mjs (only when parts has 'live')
   await runJourneys(ctx, {cv, dumpExtension, fail, forms, page});   // lib/apply-journeys.mjs
 
   const sessionsOf = url => page.evaluate(target => window.pilot.sessions().then(list => list.filter(item => String(item.url || '').replace(/\/$/, '') === target.replace(/\/$/, '')).map(item => `${item.kind}:${item.id}`)), url);

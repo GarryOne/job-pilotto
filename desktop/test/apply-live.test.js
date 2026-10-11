@@ -19,3 +19,16 @@ test('without LIVE_URL the job list is read read-only, newest match first', () =
 test('no match is a clear error, not an empty run', () => {
   assert.throws(() => livePosting({LIVE_LIKE: '%none%'}, () => ''), /LIVE_URL/);
 });
+
+// The live run's cleanup goes through the store the app uses (lib/seed-data.mjs), never the Notion helper: on this Mac's store a Notion call has no token and
+// no page, it hit a dead port and removed nothing (11 Oct 2026). Same for every e2e library file a run on any store passes through.
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+test('the live run removes its job through the store-aware helper, not the Notion one', () => {
+  const lib = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'e2e', 'lib');
+  const source = fs.readFileSync(path.join(lib, 'apply-live.mjs'), 'utf8');
+  assert.doesNotMatch(source, /from '\.\/notion\.mjs'/);
+  assert.match(source, /removeJobsByUrl\} from '\.\/seed-data\.mjs'/);
+  assert.match(source, /removeJobsByUrl\(ctx, \[posting\.url\]\)/);
+});
