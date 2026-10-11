@@ -8,6 +8,7 @@
 //   --from-candidates [--day <YYYY-MM-DD>] [--candidates-dir <folder>] [--only <shape>]: the pool run's replay candidates (e2e/lib/ladder-candidates.mjs) that did NOT reach the form become fixtures with expect `pending` (the page.html
 //     of the candidate, loaded from disk with the network blocked; scrubbed); a fixture that exists is kept (--force replaces it); --only takes a candidate whatever it reached.
 //   node desktop/e2e/ladder-capture.mjs [--only <id>] [--force] [--candidates] [--dir <fixtures folder>]      Used when a fixture is added or a page changed; the committed sketch is what the tests use.
+import {guardLiveVisit} from './lib/site-ledger.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
@@ -113,6 +114,7 @@ async function main() {
           await page.route(url => !url.href.startsWith('file:'), route => route.abort());
           await page.goto(pathToFileURL(path.join(E2E, fixture.capture.page)).href, {waitUntil: 'load'});
         } else {
+          guardLiveVisit(fixture.capture.url, {who: process.env.JOB_PILOTTO_SESSION || 'ladder-capture'});   // the per-site daily limit (lib/site-ledger.mjs)
           await page.goto(fixture.capture.url, {waitUntil: 'domcontentloaded', timeout: 30000});
           await page.waitForTimeout(4000);
           url = (await page.evaluate(() => location.href)).split(/[?#]/)[0];

@@ -24,11 +24,13 @@ import {seedLivePosting} from './seed-data.mjs';
 import {storeCall} from './store-call.mjs';
 import {startRealExtension} from './real-extension.mjs';
 import {livePresses} from './replay-candidate.mjs';
+import {blockSignal, guardLiveVisit, markBlocked} from './site-ledger.mjs';
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // posting: {url, title, company}; captureDir: where the journey, the AI calls and the asks go; ask: false keeps the AI to kept answers (a test), true asks live.
 export async function runLiveRow({posting, captureDir, extensionDir, ask = true, seconds = 120, stillSeconds = STILL_SECONDS, browser = startRealExtension, say = () => {}} = {}) {
+  guardLiveVisit(posting.url, {who: process.env.JOB_PILOTTO_SESSION || 'live row'});   // the per-site daily limit (lib/site-ledger.mjs): refused before anything starts
   ensureStagedWorker({say});   // a worker edit since the last staging would run the old prompt
   const started = Date.now();
   let shotAsked = false;
@@ -94,6 +96,8 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     fs.writeFileSync(path.join(captureDir, 'presses.json'), `${JSON.stringify(livePresses(app.logText()), null, 1)}\n`);
     fs.writeFileSync(path.join(captureDir, 'styles.har.json'), JSON.stringify(await styles.har()));
     fs.writeFileSync(path.join(captureDir, 'app.log'), app.logText());
+    const blocked = blockSignal(app.logText());
+    if (blocked) { markBlocked(url, blocked); say(`live: the site blocked us (${blocked}): not visited again today (lib/site-ledger.mjs)`); }
     return {seconds: Math.round((Date.now() - started) / 100) / 10, opened: url, evidence: evidenceLines(app.logText()), tripped: '', requests: front.requests.length, appLog: app.logText()};
   } finally {
     if (!shotAsked) { const shot = await takeEndShot(run.context, captureDir).catch(error => ({file: '', why: String(error?.message || error).slice(0, 80)})); say(endShotLine(shot)); }   // the run stopped early (an error): the picture of where it stopped is still a must

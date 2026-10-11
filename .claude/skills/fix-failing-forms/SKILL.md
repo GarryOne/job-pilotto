@@ -38,6 +38,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
   form. Run live only from a worktree that has `e0fce93` (the privacy tripwire in `lib/apply-live.mjs` runLive) and `7d8b948` (the harness never runs a terminal's `claude` wrapper).
   A run that ends `privacy tripwire: <kind> typed into "<field>"` has had its capture and screenshots deleted: stop and tell the owner, never re-run it to "see". Scan a new capture for
   the owner's name before sharing it.
+- **Per-site daily limit (owner, 11 Oct 2026; `desktop/e2e/lib/site-ledger.mjs`):** at most 3 live visits per host per day across all sessions and live paths; a 4th is refused naming the site and the last run, and a host that showed a block page rests until tomorrow. Only the owner lifts it: `JOB_PILOTTO_SITE_LIMIT_OVERRIDE=<host>` (logged); never work around it.
 - **Worktree:** `tools/worktree.sh fix-<shape>`, own scratch folder `<scratchpad>/fix-failing-forms/`. No subagents. Say the change tier (usually Tier 2: apply flow). **One row per session:** side work asked mid-round (a tool, a skill rewrite, a peer's request) goes to a new session with a brief unless it takes under ~15 min (11 Oct: one row doubled a session).
 
 ## 0a. Decisions already made, and the fast path (owner, 11 Oct 2026: a fix took 24 min, 18 of them before the first test)

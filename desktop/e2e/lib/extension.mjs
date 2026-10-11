@@ -2,6 +2,7 @@
 // The real Chrome extension (a copy with the test port) in a real Chromium, for the apply suite. Chromium loads the extension folder as it is (extension/), the fixture forms answer to the
 // job-site host names the extension is allowed on (lib/forms.mjs), and the app's own "Apply" click reaches this browser through a stand-in `open` command
 // on the app's PATH (the app runs `open -a "Google Chrome" <url>`: here that URL is handed to this Chromium instead).
+import {guardLiveVisit} from './site-ledger.mjs';
 import {chromium} from 'playwright-core';
 import fs from 'node:fs';
 import {leanChrome} from './chrome-lean.mjs';
@@ -97,6 +98,7 @@ export async function launchBrowser({port, spool, extensionDir, real = false, pr
         const url = fs.readFileSync(path.join(spool, file), 'utf8').trim();
         fs.rmSync(path.join(spool, file));
         if (!/^https:\/\//.test(url)) continue;   // the app asked `open` for something else: nothing to do here
+        try { guardLiveVisit(url, {who: process.env.JOB_PILOTTO_SESSION || 'browser'}); } catch (error) { console.error(error.message); continue; }   // the per-site daily limit (lib/site-ledger.mjs): a refused address is not opened
         const tab = context.pages().find(page => blank(page) && !Object.values(pages).includes(page)) || await context.newPage();
         pages[url.split('#')[0]] = tab;
         opened.push(url);   // after the tab exists: a caller that sees the URL finds its tab

@@ -3,6 +3,7 @@
 // through the app's own Apply, watched for a while, and reported as a timeline. Nothing is pressed on the page: no account button, never Submit.
 // The app under test is the e2e one (its own profile and Notion test page, never the owner's data). Run: `npm run live` in desktop/ (LIVE_URL=<posting> to
 // pick one; LIVE_SECONDS=120 how long to watch). Not part of the matrix: it needs the real internet and the real site's mood. Guard: desktop/test/apply-live.test.js.
+import {guardLiveVisit} from './site-ledger.mjs';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import {endShotLine, takeEndShot} from './end-shot.mjs';
@@ -86,6 +87,7 @@ export async function lookViaWorker(ctx, tab, say) {
 
 export async function runLive(ctx, h) {
   const {page, posting} = h;
+  guardLiveVisit(posting.url, {who: process.env.JOB_PILOTTO_SESSION || 'live'});   // the per-site daily limit (lib/site-ledger.mjs)
   await ctx.run('a real posting, watched live: the page kinds, stages and fills as they happen (nothing is pressed on the page)', async () => {
     try {
       const frames = path.join(ctx.ARTIFACTS, 'live-frames');

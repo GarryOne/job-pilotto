@@ -5,6 +5,7 @@
 // fleet digest flags as dropped (layer 4). Report: <QA folder>/smoke-reports/<day>.json (outside the repo: it names real postings, and outlives worktrees). Exit 1 when a shape reached less than last time.
 // Usage: cd desktop/e2e && npm run smoke [-- --only <shape words> | --all] [SMOKE_SHARE=10] [SMOKE_SECONDS=90]: this run's share of the pool (the least recently run first), or
 // --all / --only. Each shape is compared with ITS last run, however long ago. It never schedules itself: the owner starts it by hand.
+import {blockSignal, guardLiveVisit, markBlocked} from './lib/site-ledger.mjs';
 import {ensureStagedWorker} from './lib/staged-worker.mjs';
 import {execFileSync, spawn} from 'node:child_process';
 import fs from 'node:fs';
@@ -147,6 +148,7 @@ async function main() {
     if (!posting) { results[shape] = {reached: 'none', note: 'no posting of this shape in the job list'}; console.log(`smoke: ${shape}: no posting`); await finish(shape); continue; }
     const status = await postingStatus(posting.url);
     if (status === 404 || status === 410) { results[shape] = {url: posting.url, reached: 'none', note: `posting gone (HTTP ${status})`}; console.log(`smoke: ${shape}: posting gone (HTTP ${status}): replace it in smoke-sites.json`); await finish(shape); continue; }
+    try { guardLiveVisit(posting.url, {record: false}); } catch (error) { console.log(`smoke: ${shape}: skipped, nothing recorded: ${error.message}`); continue; }   // the per-site daily limit (lib/site-ledger.mjs); the run itself records the visit
     console.log(`smoke: ${shape}: ${posting.url} (HELD: no account button, never Submit; ~${seconds}s)`);
     await ping(shape, 'start');
     const captureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-capture-'));
@@ -162,8 +164,10 @@ async function main() {
     results[shape].short = shortfall(results[shape]);   // reached the form but filled under half: a failure the step alone hides
     // Less than its last result on plain node: once more on Electron at once, the same posting; a regression only if Electron shows it too (lib/smoke-paths.mjs).
     const fell = smokeEngine() === 'node' ? lessThanLast(previous[shape], results[shape]) : '';
-    const refused = smokeEngine() === 'node' && results[shape].note === SITE_REFUSED;   // a block page on plain node: Electron decides whether the site refuses (lib/smoke-paths.mjs settleRefusal)
-    if (fell || refused || pairs.has(shape)) {
+    const blocked = blockSignal(run.output);
+    if (blocked) markBlocked(posting.url, blocked);   // a block page: this site rests until tomorrow, so no Electron leg either (lib/site-ledger.mjs)
+    const refused = !blocked && smokeEngine() === 'node' && results[shape].note === SITE_REFUSED;   // a block page on plain node: Electron decides whether the site refuses (lib/smoke-paths.mjs settleRefusal)
+    if (!blocked && (fell || refused || pairs.has(shape))) {
       console.log(`smoke: ${shape}: ${fell ? `less than its last result on plain node (${fell}): once more on Electron, the same posting` : refused ? 'refused on plain node: once more on Electron, the same posting' : 'paired sample: the same posting on Electron'}`);
       const electronCapture = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-capture-electron-'));
       const again = await liveRun(posting, seconds, electronCapture, 'electron'), electron = runFinished(again) ? parseLive(again.output) : null;

@@ -12,7 +12,9 @@ const args = process.argv.slice(2), flag = name => { const at = args.indexOf(`--
 const url = args.find(arg => /^https?:\/\//.test(arg));
 if (!url) { console.error('live: give a posting url'); process.exit(2); }
 const captureDir = flag('capture') || fs.mkdtempSync(path.join(os.tmpdir(), 'jp-live-'));
-const result = await runLiveRow({posting: {url, title: flag('title'), company: flag('company')}, captureDir, extensionDir: flag('old') || undefined, say: console.log});
+let result;
+try { result = await runLiveRow({posting: {url, title: flag('title'), company: flag('company')}, captureDir, extensionDir: flag('old') || undefined, say: console.log}); }
+catch (error) { if (error.name !== 'SiteLimitError') throw error; console.error(error.message); process.exit(3); }   // the per-site daily limit (lib/site-ledger.mjs)
 console.log(`live: ${result.seconds} s${result.tripped ? `; ${result.tripped}` : `; capture in ${captureDir}`}`);
 // The lines a smoke run reads (lib/smoke.mjs parseLive, evidence-bundle.mjs runFinished), as lib/apply-live.mjs prints them: the press, the app's own page lines, each field.
 if (result.opened) console.log(`  live +  0s: Apply pressed on ${url}`);
