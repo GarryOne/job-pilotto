@@ -17,7 +17,8 @@ export function missingCase(changed, messages, flowFiles) {
   const acting = changed.filter(file => file.startsWith('extension/') && (file.startsWith('extension/page/') || flows.has(file)));
   if (!acting.length || changed.some(file => PROOF.test(file)) || messages.some(message => TRAILER.test(message))) return '';
   return `this push changes how the extension acts on pages (${acting.slice(0, 4).join(', ')}${acting.length > 4 ? ', …' : ''}) without a recorded page or a journey scenario.
-Add the case that shows the fix (twin: npm run twin:drive -- capture <tab> <case> <page> <your worktree>/desktop/e2e/recorded; desktop/e2e/recorded/<case>/case.json, seen failing on the old build with REAL_EXTENSION_DIR),
+Add the case that shows the fix. From a pool row's capture: cd desktop/e2e && npm run row-to-case -- "<row>" <case> --old <old extension/> (it scrubs and shrinks the capture, takes expect from the replay, and refuses unless the new build passes and the old build fails; --ask-cold when your fix changes a prompt).
+No capture of the row: ask the capture session for one; a hand-built case (twin: npm run twin:drive -- capture <tab> <case> <page> <your worktree>/desktop/e2e/recorded; case.json seen failing on the old build with REAL_EXTENSION_DIR) is the last resort,
 or a scenario in desktop/test/journeys.test.js. A fill fixture (worker/test/fixtures/fill/) alone does not count: it is not in the Fixed-site replays list.
 The case must FAIL on the build before the fix (REAL_EXTENSION_DIR=<old extension/>) and its stubbed AI must answer only what the extension asked.
 Only a change that fixes no failure seen on a real site (a log line, a comment, a refactor the gates already cover) may say so: "Recorded-unneeded: <why>".`;

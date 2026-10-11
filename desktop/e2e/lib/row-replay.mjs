@@ -39,6 +39,14 @@ export function rowFiles(caseDir) {
 
 // A capture made before the replay format (11 Oct 2026: no page state carries its window size or the extension's ask) replays without the live run's states,
 // presses or matching AI answers, so it would mislead: it is named, with what to do, instead of replayed. -> the reason, or '' (current).
+// A capture taken before the plain-node app seeded the full e2e applicant (9f6ff67, 11 Oct 2026 17:07 +02:00: profile ~1.3k chars, it was ~250) kept its form-answer asks under the THIN profile: in a
+// replay those asks miss, so a case built from it would show the profile's difference, not the fix's. -> the reason, or '' (taken after the seeding fix, or no time on its pages).
+export const SEEDED_APPLICANT_AT = 1791731225000;
+export function thinProfileCapture(caseDir) {
+  const at = Math.max(0, ...(readJson(path.join(caseDir, 'case.json'), {}).pages || []).map(page => Number(page.at) || 0));
+  return at && at < SEEDED_APPLICANT_AT ? 'this capture was taken before the offline app seeded the full applicant (9f6ff67): its form-answer asks were made under a thin profile and miss in a replay; capture the row once more (npm run smoke -- --only "<row>", held), then row-to-case' : '';
+}
+
 export function staleCapture(caseDir) {
   const item = readJson(path.join(caseDir, 'case.json'), null);
   const current = (item?.pages || []).some(page => !page.frameOf && (page.view || page.ask));
