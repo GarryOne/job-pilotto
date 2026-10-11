@@ -1,4 +1,4 @@
-// Every flow-core file starts with its invariants, each naming the test that guards it (CLAUDE.md "The flow core: one session at a time, invariants
+// Every flow-core file starts with its invariants, each naming the test that guards it (docs/rules/applying.md "The flow core: one session at a time, invariants
 // first", owner 10 Oct 2026). Fails on a core file without the block, or a block naming a test file that does not exist.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

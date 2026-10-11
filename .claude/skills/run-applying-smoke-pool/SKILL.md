@@ -89,7 +89,7 @@ Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is not
 - Chanel's Workday dialog has a fourth option, "Autofill with Resume", with no route in the page-kind answers (`desktop/lib/page-kind.js` `ROUTES`); the run still reached the form. Decide with the owner whether it needs a route.
 
 ## Traps found while building the pool (each cost time)
-- `ship.sh` deletes the worktree it lands: never run the twin or a long run from a worktree you ship from.
+- Never run the twin or a long run from a worktree you ship from: shipping rebases it (and a `ship.sh` without keep-by-default removes it).
 - The guard hook misreads `>`, `=` and `$VAR` paths in commands run from the primary checkout: run from a worktree, with literal paths.
 - A negative-only recorded case must watch its whole window; count tabs OPENED, not left. A "gone: <selector>" check on an element that starts hidden is true before anything happens: assert an outcome (a field filled).
 - The live harness's stall dump is capped (12 buttons): a missing button in it is not evidence; look at the frames, and check the frames folder belongs to YOUR run (the next site overwrites it).

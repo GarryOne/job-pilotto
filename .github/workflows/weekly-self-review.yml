@@ -1,7 +1,7 @@
 name: Weekly self-review
 # Self-improving development: once a week, cheap shell steps gather the facts of the last 7 days (commits, reverts,
 # churn, fill-failure/telemetry issues, failed CI on main, auto-fixer PRs); Claude Code (Sonnet 5, 20 turns max,
-# ~$0.40 at most) reads them with CLAUDE.md, AGENTS.md and the skills, and proposes at most 3 small rule/skill edits.
+# ~$0.40 at most) reads them with CLAUDE.md, AGENTS.md, docs/rules and the skills, and proposes at most 3 small rule/skill edits.
 # Claude only edits files (no git, no gh); the last step checks the paths and opens ONE PR for the owner to merge.
 # Prompt: private (GarryOne/job-pilotto-internal/prompts/self-review.md, synced into the secret SELF_REVIEW_PROMPT).
 on:
@@ -105,9 +105,9 @@ jobs:
               || echo "Claude made no edits."; } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          bad=$(echo "$changed" | grep -v -E '^(CLAUDE\.md|AGENTS\.md|\.claude/skills/[^/]+/SKILL\.md)$' || true)
+          bad=$(echo "$changed" | grep -v -E '^(CLAUDE\.md|AGENTS\.md|docs/rules/[^/]+\.md|\.claude/skills/[^/]+/SKILL\.md)$' || true)
           if [ -n "$bad" ]; then
-            { echo "## Weekly self-review: refused"; echo "Edits outside CLAUDE.md, AGENTS.md and skills:"
+            { echo "## Weekly self-review: refused"; echo "Edits outside CLAUDE.md, AGENTS.md, docs/rules and skills:"
               echo '```'; echo "$bad"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi

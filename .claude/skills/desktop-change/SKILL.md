@@ -12,7 +12,7 @@ description: The fast, safe loop for any change to Job Pilotto's desktop app (de
 
 ## The loop (small change: 5–10 minutes)
 1. `tools/worktree.sh <topic>` (a worktree from origin/main with node_modules linked; never `npm install` in it);
-   `tools/worktree.sh --done <topic>` when landed.
+   keep it after landing (`tools/worktree.sh prune` tidies landed ones older than 7 days).
 2. Edit with anchored replacements: check the anchor exists (`assert old in s`). **Never cut code by index ranges**
    (`s[a:b]`) without printing the range first: it once deleted a whole render block.
 3. `tools/check.sh --fast` while editing; `tools/check.sh --area desktop` before landing (selects runtimes and stages `shared/`).

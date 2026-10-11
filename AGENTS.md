@@ -7,8 +7,8 @@ duplicate what's here — read these instead, and update them if something's mis
 - **`docs/ARCHITECTURE.md`** — the session-start map (engine, app, extension, website, bot, Notion).
   Read it once at the start of a session, then `node desktop/scripts/codemap.mjs <words>` for the file. Written for every agent:
   Grok, Claude Code, Codex, DeepSeek.
-- **`CLAUDE.md`** — project overview, working rules (never auto-apply, ask before AI spend,
-  secrets policy), code layout, how to run tests. Written for Claude Code but applies to any agent.
+- **`CLAUDE.md`** — the rules every session needs, one line each (safety, working rules, the change loop, tests), linking to
+  **`docs/rules/`** for detail and `docs/rules/why.md` for the incident behind each rule. Written for Claude Code but applies to any agent.
 - **notion-map** skill (private, `~/.claude/skills/notion-map` on the owner's Mac) — every Notion page/database ID this project uses, and
   which one answers which kind of question. Read this instead of searching Notion from scratch.
 - **`.claude/skills/apply-to-job/SKILL.md`** — how to fill a job application form from an
@@ -80,31 +80,9 @@ Find jobs using your browser, the extension (`extension/visit.js`) and the engin
   generically (from the page or address), never listed per employer.
 - **Test the class:** a fixture that stands for a kind of page (a list in a frame, a box that suggests, cards without links), not a copy of one site.
 
-## Data ownership: Notion is the source of truth (one copy of everything)
-Data is Notion-first. Before adding any stored field, file, setting or table, decide where it lives:
-- **Notion** — anything the user reads, edits, or would want on another device: statuses, run results,
-  profile/answers, open questions, contact details, learned form notes, search settings, transcripts.
-  The code reads it from Notion; it never keeps a second editable copy.
-- **The Mac / runner** — only keys (encrypted), large files (CVs, recordings) and caches that can be
-  deleted and rebuilt from Notion or a crawl (`jobs.sqlite`, `config/*.json` as the cache of ⚙️ Search
-  settings, `runs.json`). A cache is refreshed *from* Notion; writes go to Notion first, and if Notion
-  refuses, nothing changes locally and the user is told.
-- Notion is required to **track**, not at setup ("Notion later", decided 3 Oct 2026, replacing "required at setup" of
-  28 Sep): the setup finishes without it and the app is then only **trying**: search, fit scores, the Jobs list and
-  Strategy. Every tracking action (save, dismiss, kit, apply, applied elsewhere, add job, leads, interviews, Focus,
-  Gmail, Telegram, Always on) answers `notionGate.needs(reason)` (`desktop/lib/notion-gate.js`) and the window opens the
-  connect prompt (`renderer/pages/notion-connect.js`; `preload.cjs` turns any such answer into that prompt and retries the
-  action after a connect). The only user data on the Mac while trying is `profile.md`, `answers.md` and the search config
-  cache; `lib/migrate.js` 'strategy from this Mac' moves them into Notion at connect (a new workspace takes this Mac's;
-  an existing one wins) and deletes them. No other local copies: a feature that stores user data goes behind the gate.
-  Always on never moves data (it changes where runs happen, not where data lives). Spec: `docs/superpowers/specs/2026-10-03-notion-later.md`.
-- No new "local fallback" copies of user data. A feature that needs a new database, column or page adds it
-  to Notion *and* to `config/notion_schema.json` (`tools/notion_schema.py snapshot`), so every workspace can
-  be rebuilt and repaired (`desktop/lib/schema.js`).
-- Moving existing local data to Notion: add a step to `desktop/lib/migrate.js` (delete the local copy only
-  after Notion confirmed it has it) and a test.
-- Every run (search, Gmail check, kit, review) leaves a row in ⏱️ Search runs with its details, whatever
-  started it, so users see what happened in Notion without the app having to show it.
+## Data ownership: one copy, behind the store interface
+The user's data lives behind one store interface (`src/stores/`, SQLite by default, Notion when the user chooses), one copy, never a sync; new
+stored data goes through every adapter. The Mac keeps only keys, large files and rebuildable caches. Full rule: [docs/rules/data-ownership.md](docs/rules/data-ownership.md).
 
 ## Working with git: one worktree per task
 
@@ -116,12 +94,14 @@ them from colliding in one checkout:
   checkout's `node_modules` and Python `.venv` linked in, so the tests run at once; both are git-ignored: leave the links alone).
   Another base: `tools/worktree.sh <topic> origin/<branch>` (a release lane), never a bare `git worktree add`, which links nothing.
 - Commit there, then land it with **`tools/ship.sh`** (since 6 Oct 2026): fetch + rebase, the push hook's checks once (the suites of the
-  areas you touched), push with a retry when another session pushed in between, update the main checkout, remove the worktree.
-  `--full` for Tier 2, `--fix` for the fix/revert of a red main, `--keep` to keep the worktree.
+  areas you touched), push with a retry when another session pushed in between, update the main checkout.
+  `--full` for Tier 2, `--fix` for the fix/revert of a red main. **The worktree is kept** (owner, 11 Oct 2026); until `ship.sh` keeps it by
+  default, pass `--keep`.
   The checks take minutes: run **`tools/ship.sh --background`** (returns at once, names its log); the log's last line is `ship: DONE <sha>` or
   `ship: FAILED …` (8 Oct 2026: a run cut off by a timeout and piped through `tail` showed nothing). By hand it is still
   `git fetch && git rebase origin/main && git push origin <topic>:main` (fast-forward only; rejected: fetch, rebase, push again).
-- Remove the worktree afterwards: `tools/worktree.sh --done <topic>` (`ship.sh` does it).
+- **Keep worktrees after landing**; never remove another session's. `tools/worktree.sh prune` (by hand or monthly, once it lands) removes
+  folders whose branch is fully on main and untouched for 7 days, keeping the branch and anything uncommitted, never one a live session uses.
 - Never force-push `main` — not `--force`, not `--force-with-lease`. Several agents push here in
   parallel, and a force-push deletes every commit that landed since your last fetch, silently. This
   happened on 1 Oct 2026: a `--force-with-lease` during a rebase dropped `8dce9ba` ("Windows update:
@@ -190,7 +170,7 @@ is now stale and why. A new detector or plant needs its unit test page to carry 
 ### Re-checking a failing e2e step: the step, not the suite (6 Oct 2026)
 A full suite is 3-17 minutes; the step that failed is usually under one. Two sessions on 6 Oct 2026 re-ran whole suites to read a failure message that was already on disk.
 
-- **Read the failure first:** `desktop/e2e/artifacts/<suite>/suite-failures.json` (step + message) and `artifacts/<suite>.run.log`. A worktree's `artifacts/` goes with it: copy what you still need before `worktree.sh --done`.
+- **Read the failure first:** `desktop/e2e/artifacts/<suite>/suite-failures.json` (step + message) and `artifacts/<suite>.run.log`. A worktree's `artifacts/` goes with it when it is pruned.
 - **Re-run only the step:** `E2E_STEPS="<words from the step name>,<its prerequisite steps>" node run-all.mjs --only <suite>` (setup steps marked critical always run; `run-all` reads the Notion tokens, `suite.mjs` alone does not). A step often builds on the one before it, so name both.
 - **Full suite or full `run-all` only as the last check** before a push that touches that area, never to look at a failure.
 
@@ -244,8 +224,8 @@ cd desktop && npm test
 - **Adding a file?** Start it with a one-line comment saying what it does (the live code map reads it; `desktop/test/codemap.test.js` checks it says enough).
 - **The smoke hooks** (`desktop/main.js`): `JOB_PILOTTO_SMOKE_JS` must be an IIFE — top-level `await` hangs the window —
   `JOB_PILOTTO_SMOKE_EVAL`'s result is written to `<JOB_PILOTTO_SMOKE>.json`, and `..._SELECTOR` crops the picture.
-- **Notion, if your harness has no tool for it**: the change loop above expects the hub, Run Log, Technical Reference
-  and Handoff to be updated. Say plainly that it wasn't done rather than implying it was; the HTTP API is reachable with
+- **Notion, if your harness has no tool for it**: the change loop (CLAUDE.md, step 5 "After landing, only what applies")
+  expects the Run Log, and when they apply the Technical Reference, Decision Log and Handoff, to be updated. Say plainly that it wasn't done rather than implying it was; the HTTP API is reachable with
   the Keychain token (`job-pilotto.notion.token`) and `gh` is authenticated, so reads and repairs are possible when
   asked.
 
@@ -279,7 +259,7 @@ you launch Chrome yourself in a script, kill it on exit (`trap 'kill $!' EXIT`),
 ## Desktop UI
 Before building or changing a screen in `desktop/renderer`, read `.claude/skills/ui-look-and-feel/SKILL.md` (patterns, reference
 screenshots in `desktop/docs/ui/`, and how to render the change in demo mode to check it).
-A new task kind or result must reuse an existing card/component and be registered in `CARD_KINDS` (see CLAUDE.md "Desktop UI"); never show raw message text.
+A new task kind or result must reuse an existing card/component and be registered in `CARD_KINDS` (see `docs/rules/desktop-ui.md`); never show raw message text.
 
 ## Logging: when a debug session makes you wish for a line, add it then and there (1 Oct 2026)
 Debugging that had to lean on file mtimes, Notion timestamps and GitHub runs — because nothing was written

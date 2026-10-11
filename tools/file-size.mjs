@@ -38,7 +38,7 @@ export function sizeProblems(files, linesOf, allowed) {
 export function sizeWarnings(files, linesOf, allowed) {
   return files.filter(file => SOURCE.test(file) && !SKIP.test(file) && !allowed[file] && !EXCEPTIONS[file])
     .map(file => [file, linesOf(file)]).filter(([, lines]) => lines >= WARN && lines <= LIMIT)
-    .map(([file, lines]) => `WARNING (not a block): ${file} is ${lines} lines: split it into 2 to 4 files by concern before it reaches ${LIMIT}, as a pure move in its own commit (CLAUDE.md "Split before you reach it")`);
+    .map(([file, lines]) => `WARNING (not a block): ${file} is ${lines} lines: split it into 2 to 4 files by concern before it reaches ${LIMIT}, as a pure move in its own commit (docs/rules/files.md "Split before you reach it")`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

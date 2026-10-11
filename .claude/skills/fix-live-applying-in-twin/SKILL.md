@@ -29,8 +29,8 @@ So the loop is judged on two things: forms closer to ready, and **the share of e
 1. Read `docs/live-test.md` ("Working with the twin as an agent"), `docs/flows/applying.md` (the scenario map), and the Notion page
    "Self-improving form filling: design & plan". The repo rules in `CLAUDE.md` apply in full: worktrees, `tools/ship.sh`, universal fixes, 500 lines per file.
 2. **Twin up:** `pgrep -f e2e/twin.mjs`. If it is not running, start it (docs/live-test.md step 1) in the background, with a Monitor on `^twin: (running|refresh)`,
-   **from a worktree of its own that you never edit or ship from** (`tools/worktree.sh twin-host-<date>`): `tools/ship.sh` removes the worktree it lands,
-   and a twin whose folder is gone can no longer refresh (10 Oct 2026: a forced restart, the tabs lost). Fixes go in other worktrees.
+   **from a worktree of its own that you never edit or ship from** (`tools/worktree.sh twin-host-<date>`): shipping rebases the worktree it lands (a `ship.sh` without
+   keep-by-default also removes it), and a twin whose folder is gone can no longer refresh (10 Oct 2026: a forced restart, the tabs lost). Fixes go in other worktrees.
    **Account steps in full mode:** the twin's Settings → Profile → "Create and sign in to employer accounts for me" is on (owner, 10 Oct 2026), so it
    gets past account pages to the form; a profile reset turns it off again: check it (`accountAutomation` in the twin's `home/settings.json`), and
    switch it on through the screen (`twin:drive press`), never by editing the file.

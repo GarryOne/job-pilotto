@@ -1,6 +1,6 @@
 /* global document, location, chrome */
 // The REAL extension in a real (headless) Chromium on a REAL site, isolated from everything of the owner's: the way to validate a form fix before
-// saying it works (CLAUDE.md "Validate a form fix on the real extension"). What it cuts off, and proves it did:
+// saying it works (docs/rules/applying.md "Validate a form fix on the real extension"). What it cuts off, and proves it did:
 //  - the owner's live app: the extension is a copy whose built-in app address (127.0.0.1:47111) is a port nothing but a stand-in answers on
 //    (lib/extension.mjs copyExtension), and `assertIsolated()` fails the run if the extension's storage points anywhere else;
 //  - the owner's profile, CV, Keychain, Notion and AI: the stand-in app serves fake applicant details and the fixture CV, and answers every

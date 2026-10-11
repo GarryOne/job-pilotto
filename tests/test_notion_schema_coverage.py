@@ -1,5 +1,5 @@
 """Every Notion column the Python code reads or writes is in config/notion_schema.json, so every workspace can be
-built and repaired with it (CLAUDE.md, Data ownership). A new field = a Notion column + the schema, never a
+built and repaired with it (docs/rules/data-ownership.md). A new field = a Notion column + the schema, never a
 cache-only field: this test fails when code uses a column the schema doesn't have."""
 import json
 import re

@@ -144,7 +144,7 @@ class NotionCronRuns:
     def progress(self, run_id, line):
         record = self._record(self._page(run_id))
         props = self._properties({'progress': [*record['progress'], line]})
-        if record['status'] == 'Running':  # the app's ⏳ line while it runs (CLAUDE.md: Summary is the report's first line)
+        if record['status'] == 'Running':  # the app's ⏳ line while it runs (docs/rules/facts-and-layout.md: Summary is the report's first line)
             props['Summary'] = rows.write(f'⏳ {line}', 'rich_text')
         self.tracker.update_page(run_id, self._writable(props))
 

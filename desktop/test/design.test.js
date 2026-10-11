@@ -1,6 +1,6 @@
 // The design system's guard: colours, corner radii, font sizes and font families come from
 // renderer/tokens.css. Any other stylesheet using a raw one fails here, with its file and line, so the UI
-// can't drift back into one-off values (see CLAUDE.md → Desktop UI).
+// can't drift back into one-off values (see docs/rules/desktop-ui.md).
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';

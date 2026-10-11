@@ -54,7 +54,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
    `cd e2e && JP_REPLAY=1 REPLAY_ONLY=<case> node --test test/recorded-pages.test.mjs` (the real extension on a recorded page). The shared e2e page is a queue (the coordinator, `coordinator.txt`): read the offline result and the newest logs first.
 
 ## 2. Say what the fix is, before coding (one block)
-- **Which part of the mechanism it improves** (CLAUDE.md "A form bug is fixed in the self-improving mechanism"): an operator, the fingerprint, a meaning in the
+- **Which part of the mechanism it improves** (docs/rules/applying.md "A form bug is fixed in the self-improving mechanism"): an operator, the fingerprint, a meaning in the
   pack, a recipe (data), the page-kind AI's fixed answers, or noticing the miss. Prefer **data** over code; a code fix says why data could not do it.
 - **Which of its decisions are AI, structure, floors** (CLAUDE.md "Judgments about a page are the AI's"). A heuristic (word, vendor, regex, "the element vanished")
   becomes an AI field with a fixed answer the code validates.
@@ -116,7 +116,7 @@ Flow-core files (`page-kind.js`, `fill-flow.js`, `session-flow.js`, `escalate.js
 
 ## 4. Land and confirm
 - Put `Pool-row: <the row's name as /admin/applying shows it>` in the fix commit's message: it fills the Fixed tab (never an address or a query string; `tools/rung-trailer.mjs` checks it).
-- `tools/ship.sh` (never from the twin's worktree: it deletes the worktree it lands). A push changing how the extension acts on pages needs the recorded page,
+- `tools/ship.sh` (never from the twin's worktree: shipping rebases it, and a `ship.sh` without keep-by-default removes it). A push changing how the extension acts on pages needs the recorded page,
   or a scenario (a fill replay alone does not count), or `Recorded-unneeded: <why>` in the commit only when no real site's failure is fixed. Commit subject <= 72 characters.
 - **Re-run `npm run smoke -- --only <shape>` on the landed build** (a held run, said before it starts) and compare with the first run: **it must reach further**
   (a later page kind, a fill count > 0). Report: before -> after, counts, what still stops it. Not further = not done: back to step 1 with the new log.
