@@ -220,6 +220,13 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     const packs = await api(config, '/extension/aliases', {method: 'POST', body: '{}'});
     await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', args: [Array.isArray(packs?.aliases) ? packs.aliases.slice(0, 2000) : []], func: aliases => { window.__jobPilottoAliases = aliases; }});
   } catch { /* aliases are a bonus */ }
+  // Two or more upload slots that could take the CV (the page's own "import my details from my CV" feature has a file input of its own): the app's AI names the one that takes the
+  // CV as a document, from their titles, kept (upload-pick.js). No answer: the operator behaves as before. page/upload.js reads window.__jobPilottoUploadChoice.
+  try {
+    const titles = await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', func: () => window.__jobPilottoUpload?.cvCandidates?.() || []}).then(rows => rows?.[0]?.result || []);
+    const picked = titles.length > 1 ? (await api(config, '/extension/pick-upload', {method: 'POST', body: JSON.stringify({titles})}))?.title : '';
+    await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', args: [picked || ''], func: title => { window.__jobPilottoUploadChoice = title ? {resume: title} : null; }});
+  } catch { /* the choice is a bonus: the operator works without it */ }
   let answers = kitAnswers.map(a => ({field: a.field, value: a.answer, question: a.question, source: 'kit',
     confidence: a.needs_review ? 'low' : 'high', category: a.category || ''}));
   let ai = null, aiError = null, later = [], pendingAI = null;   // pendingAI: Claude's answers on their way while the known fields fill (below)

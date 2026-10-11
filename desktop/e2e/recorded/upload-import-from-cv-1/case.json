@@ -1,0 +1,76 @@
+{
+ "shape": "a form with its own CV slot (\"Currículo\", a word no floor knows) and the site's \"Import data from my CV\" feature, whose hidden file input is labelled by its button: the app's AI names the slot that takes the CV as a document, so the import input gets no file (and the site's \"your fields may be replaced\" dialog never opens)",
+ "why": "11 Oct 2026, Louis Vuitton jobs (live capture on ext 0.9.213): the CV went into the import input (data-job-pilotto-file=cv.pdf on #extract-data-from-cv-form's input), the site opened Importación de datos over the form. The own slot upload_attached_resume_11 stayed empty",
+ "sample": "invented posting; the form's markup for the import button and the Currículo slot is Louis Vuitton's, reduced; the site's import dialog script is not modelled",
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://jobs.beispiel.example/es/oferta/4711",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://jobs.beispiel.example/es/solicitud/4711",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://jobs.beispiel.example/es/solicitud/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.9,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "jetzt bewerben (ohne anmeldung)",
+     "applyRoute": "manual",
+     "applyBy": "form",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   }
+  ],
+  "/extension/pick-upload": {
+   "ok": true,
+   "title": "Currículo *"
+  }
+ },
+ "expect": {
+  "told": [
+   "Importar datos desde mi CV"
+  ],
+  "attached": [
+   "#own"
+  ],
+  "filled": [
+   "#first",
+   "#last",
+   "#mail"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 45
+ },
+ "control": {
+  "build": "0.9.213",
+  "failed": "attached: #own (the CV went into the import input)"
+ }
+}

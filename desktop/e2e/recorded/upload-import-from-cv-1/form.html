@@ -1,0 +1,12 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Solicitud</title></head>
+<body><h1>Su solicitud</h1>
+<div class="apply-fast-buttons-wrapper"><div class="apply-sna-button-container-cv apply-fast-button"><button aria-describedby="apply-sna-import-profile-description" class="btn btn-default apply-cv-button" type="button"><span class="material-icons" aria-hidden="true">upload_file</span> <span id="apply-cv-button-label" class="apply-sna-label">Importar datos desde mi CV</span></button>
+<form id="extract-data-from-cv-form" method="POST" enctype="multipart/form-data" aria-hidden="true"><input class="extract-data-from-cv hidden" type="file" id="importcv" aria-labelledby="apply-cv-button-label" autocomplete="off" onchange="document.title = 'import took ' + this.files[0].name"></form></div></div>
+<form class="apply-main-form row" id="lv_-_personal_information" action="/enviar" method="post">
+<div><label for="first">Vorname *</label><input id="first" name="first" type="text" required></div>
+<div><label for="last">Nachname *</label><input id="last" name="last" type="text" required></div>
+<div><label for="mail">E-Mail *</label><input id="mail" name="mail" type="email" required></div></form>
+<form class="apply-main-form row" id="attached_resume"><div class="group attached_resume_11 apply-attached-document-component"><div class="grid"><div class="row apply-answer-row"><div class="col-sm-12 apply-answer-row-label-block"><div id="label_attached_resume_11" class="apply-attached-document-label"><span id="apply-answer-row-label-attached_resume_11" class="apply-answer-row-label">Currículo</span> <em class="text-required apply-required">*</em></div></div>
+<div class="col-xs-12 form-control-container apply-file-upload-container"><div class="drop-message"><button type="button" class="btn-upload" id="upload_btn_attached_resume_11"><span class="uplBtnMessage">cargar archivo</span></button> <span>o coloque un archivo aquí</span></div>
+<input id="own" class="hidden upload_attached_resume_11 form-control" type="file" name="file" autocomplete="off" aria-invalid="false" onchange="document.body.dataset.own = this.files[0].name"></div></div></div></div></form>
+<style>.hidden{display:none}</style></body></html>

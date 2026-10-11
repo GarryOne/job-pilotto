@@ -51,12 +51,24 @@
   }
   // What a slot asks for, from its title (then the input's own aria-label/name): 'resume', 'cover_letter' or ''.
   const meaningOf = (slot, aliases) => fileKind(slot.title, aliases) || fileKind(slot.hints, aliases);
+  // The app's AI picked, from the titles of the slots that could take the CV, the one that takes it as a document (window.__jobPilottoUploadChoice = {resume: title}, set by flow.js):
+  // that slot is the CV slot, and another that only a word called a CV (an "Import data from my CV" feature that reads the file to fill the form) gets no file.
+  const choice = () => cleanLabel(window.__jobPilottoUploadChoice?.resume || '');
+  const named = (slot, aliases) => {
+    const meaning = meaningOf(slot, aliases), picked = choice();
+    return !picked ? meaning : cleanLabel(slot.title) === picked ? 'resume' : meaning === 'resume' ? '' : meaning;
+  };
+  // The titles of the slots that could take the CV (not a cover-letter slot), when two or more could: what the app is asked to choose among. Fewer: nothing to choose.
+  function cvCandidates(doc = document, aliases = window.__jobPilottoAliases || []) {
+    const titles = slots(doc).filter(slot => meaningOf(slot, aliases) !== 'cover_letter').map(slot => slot.title).filter(Boolean);
+    return titles.length >= 2 ? [...new Set(titles)] : [];
+  }
 
   // The rows the form audit lists for uploads: the CV slot keeps the field name "resume" (what the panel and the session page know).
   function rows(doc = document, aliases = window.__jobPilottoAliases || []) {
     const all = slots(doc);
     return all.map((slot, i) => {
-      const meaning = meaningOf(slot, aliases) || (all.length === 1 ? 'resume' : '');
+      const meaning = named(slot, aliases) || (all.length === 1 ? 'resume' : '');
       return {field: meaning || `upload_${i + 1}`, label: slot.title || 'Upload', type: 'file', required: slot.required, legal: false, filled: slot.filled};
     });
   }
@@ -109,7 +121,7 @@
     const given = new Set();   // a document given by one slot is not given again by another way of giving it (Upload CV, then Copy and paste CV: the second press hid the first's input)
     for (const slot of all) {
       // A lone slot with a wording nobody knows takes the CV, as a lone file input always did.
-      const meaning = meaningOf(slot, aliases) || (all.length === 1 ? 'resume' : '');
+      const meaning = named(slot, aliases) || (all.length === 1 ? 'resume' : '');
       const label = cleanLabel(slot.title).slice(0, 60);
       const recipe = recipes[slot.fp]?.operator === 'upload' ? recipes[slot.fp] : null;
       const base = {meaning, fp: slot.fp, recipe: recipe ? recipe.version : 0, label};
@@ -119,10 +131,10 @@
       if (given.has(meaning)) { results.push({...base, why: 'already given through another slot'}); continue; }
       // A file input on the page already holds a file (the person chose one, or an earlier pass attached it) and belongs to this meaning or to no known one: a trigger is NOT pressed again,
       // since pressing it opens the system's file dialog over the person's page (owner, 9 Oct 2026: "I uploaded the CV, but then it opened again").
-      if (!slot.input && all.some(item => item.input?.files?.length && (meaningOf(item, aliases) || meaning) === meaning)) { given.add(meaning); results.push({...base, ok: true, why: 'already holds a file'}); continue; }
+      if (!slot.input && all.some(item => item.input?.files?.length && (named(item, aliases) || meaning) === meaning)) { given.add(meaning); results.push({...base, ok: true, why: 'already holds a file'}); continue; }
       try {
         const revealed = !slot.input;
-        const input = slot.input || await reveal(slot, recipe?.params || {}, new Set(all.filter(item => item.input && (meaningOf(item, aliases) || meaning) !== meaning).map(item => item.input)));   // another slot's input only when its wording is known and differs: an unnamed one beside the triggers is the part the trigger reveals
+        const input = slot.input || await reveal(slot, recipe?.params || {}, new Set(all.filter(item => item.input && (named(item, aliases) || meaning) !== meaning).map(item => item.input)));   // another slot's input only when its wording is known and differs: an unnamed one beside the triggers is the part the trigger reveals
         if (!input) { results.push({...base, ok: false, why: 'no file input appeared'}); continue; }
         const done = await attach(slot, input, file, revealed);
         if (done.ok) given.add(meaning);
@@ -135,6 +147,6 @@
   // The fingerprints of the slots here: what the app is asked recipes for.
   const fingerprints = (doc = document) => [...new Set(slots(doc).map(slot => slot.fp).filter(Boolean))];
 
-  const api = {slots, rows, fill, fingerprints, fileKind, meaningOf};
+  const api = {slots, rows, fill, fingerprints, fileKind, meaningOf, cvCandidates};
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else window.__jobPilottoUpload = api;
 })();

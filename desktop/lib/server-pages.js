@@ -147,6 +147,14 @@ export async function pickPopup(storage, body, {client} = {}) {
   return {ok: true, button: found.button};
 }
 
+// Which upload slot of a form takes the CV as a document, not an "import my details from my CV" feature (lib/upload-pick.js): the slots' titles in, one of them or none out.
+export async function pickUploadSlot(storage, body, {client} = {}) {
+  const {pickUpload} = await import('./upload-pick.js');
+  const found = await pickUpload(storage, {titles: Array.isArray(body?.titles) ? body.titles.slice(0, 12) : []}, {client: client === undefined ? aiClient(storage, {lane: 'page'}) : client, log: appLog});
+  appLog('extension', `upload: ${found.title ? 'the CV slot is named' : 'no CV slot named'}`, {how: found.how});
+  return {ok: true, title: found.title};
+}
+
 // The AI's judgment on a sign-up page, before the account button ('ready') or after it ('result'): fixed answers, never a value the person typed (lib/account-judge.js).
 export async function decideAccountJudge(storage, body, {judge = judgeAccount, client} = {}) {
   const phase = body?.phase === 'result' ? 'result' : body?.phase === 'form' ? 'form' : 'ready';

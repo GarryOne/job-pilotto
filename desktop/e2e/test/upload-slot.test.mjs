@@ -60,13 +60,13 @@ const open = async (html, run) => {
   } finally { await browser.close(); }
 };
 // Runs the real fill; -> what the panel and the report would see.
-const fill = (page, resume, {aliases = [], recipes = {}} = {}) => page.evaluate(async ({resume, aliases, recipes}) => {
-  window.__jobPilottoAliases = aliases; window.__jobPilottoRecipes = recipes;
+const fill = (page, resume, {aliases = [], recipes = {}, choice = null} = {}) => page.evaluate(async ({resume, aliases, recipes, choice}) => {
+  window.__jobPilottoAliases = aliases; window.__jobPilottoRecipes = recipes; window.__jobPilottoUploadChoice = choice;
   const rowsBefore = window.__jobPilottoAuditVisibleFields().filter(row => row.type === 'file');
   const result = await window.__jobPilottoExtensionFill([], {}, resume);
   return {rowsBefore, rowsAfter: window.__jobPilottoAuditVisibleFields().filter(row => row.type === 'file'), got: window.got || {}, resumeAttached: result.resumeAttached,
     todo: result.todo, uploads: result.operated.filter(item => item.kind === 'upload'), unknown: result.unknownUploads};
-}, {resume, aliases, recipes});
+}, {resume, aliases, recipes, choice});
 
 for (const shape of ['native', 'hiddenInput', 'dropzone', 'chip']) {
   test(`${shape}: the CV goes into the one upload slot, which was a required unfilled row before and filled after`, async () => {
@@ -186,5 +186,35 @@ test('a file already in the input: no trigger is pressed again (it would open th
     assert.equal(await page.evaluate(() => window.pressed), 0, 'no trigger was pressed');
     assert.equal(await page.evaluate(() => document.getElementById('resumeFile').files[0].name), 'mine.pdf', 'their file stays');
     assert.equal(out.resumeAttached, true, JSON.stringify(out.uploads));
+  });
+});
+
+// 11 Oct 2026 (Louis Vuitton jobs, live capture): the page's own "Import data from my CV" feature has a hidden file input of its own, labelled by its button, and its
+// wording says "CV"; the form's real CV slot is titled "Currículo", a word no floor knows. The CV went into the import input and the site opened "your fields may be
+// replaced, continue?" over the form. The app's AI picks, from the slots' own titles, the one that takes the CV as a document (lib/option-pick.js, kept); the others
+// that only the floor called a CV are left alone.
+const IMPORT_SHAPE = `<body><div class="fast"><button type="button" id="importBtn"><span id="importLbl">Importar datos desde mi CV</span></button>
+  <form id="imp" aria-hidden="true"><input type="file" id="imp" class="hidden" aria-labelledby="importLbl" onchange="window.got = Object.assign(window.got || {}, {imp: this.files[0].name})"></form></div>
+  <form id="main"><div class="field"><label>Nombre * <input id="n"></label></div>
+  <div class="field"><div class="lab"><span>Currículo</span> <em>*</em></div><input type="file" id="own" class="hidden" onchange="window.got = Object.assign(window.got || {}, {own: this.files[0].name})"></div></form></body>`;
+test('an import-from-CV input beside the form\'s own CV slot: the AI\'s choice gets the CV, the import input gets nothing', async () => {
+  await open(IMPORT_SHAPE, async page => {
+    const result = await fill(page, CV_ONLY, {choice: {resume: 'Currículo *'}});
+    assert.deepEqual(result.got, {own: 'cv.pdf'});
+  });
+});
+test('no choice (no AI, or it said none): the operator behaves as before', async () => {
+  await open(IMPORT_SHAPE, async page => {
+    assert.deepEqual(Object.keys((await fill(page, CV_ONLY)).got), ['imp']);   // today's behaviour, the shape the choice exists for
+    assert.deepEqual(Object.keys((await fill(page, CV_ONLY, {choice: {resume: ''}})).got), ['imp']);
+  });
+});
+test('the slots\' titles are listed for the app to ask about, only when two or more slots could take the CV', async () => {
+  await open(IMPORT_SHAPE, async page => {
+    const titles = await page.evaluate(() => window.__jobPilottoUpload.cvCandidates());
+    assert.deepEqual(titles.sort(), ['Currículo *', 'Importar datos desde mi CV']);
+  });
+  await open('<body><label>Attachment <input type="file" id="x"></label></body>', async page => {
+    assert.deepEqual(await page.evaluate(() => window.__jobPilottoUpload.cvCandidates()), []);
   });
 });
