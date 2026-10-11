@@ -32,18 +32,30 @@ export function memoKey(params = {}) {
 const TAGGED = /<([a-z_]+)>([\s\S]*?)<\/\1>/g;
 const piece = text => crypto.createHash('sha256').update(normalise(String(text))).digest('hex').slice(0, 12);
 const textOf = content => (Array.isArray(content) ? content.map(block => block?.text ?? '').join('\n') : String(content ?? ''));
-export function memoParts(params = {}) {
-  const parts = {model: piece(params.model ?? '')}, add = (name, text) => { let at = name, n = 1; while (at in parts) at = `${name}#${++n}`; parts[at] = piece(text); };
+// The request cut into its named parts: add(name, text) for each (a part name repeated gets #2, #3). Shared by the hashes and the clock-time check.
+function walkParts(params, add) {
   const system = params.system ?? '';
   const blocks = Array.isArray(system) ? system.map(block => block?.text ?? '') : [system];
   blocks.forEach((text, i) => { const at = Array.isArray(system) ? `system:${i}` : 'system'; add(at, text); for (const [, tag, inner] of text.matchAll(TAGGED)) add(`${at}:${tag}`, inner); });   // a system block's own <tag> sections too: which one differs
   for (const message of params.messages ?? []) {
     const text = textOf(message.content), tagged = [...text.matchAll(/<([a-z_]+)>([\s\S]*?)<\/\1>/g)];
-    if (tagged.length) { for (const [, tag, inner] of tagged) add(`${message.role}:${tag}`, inner); add(`${message.role}:rest`, text.replace(/<([a-z_]+)>[\s\S]*?<\/\1>/g, '').trim()); if (parts[`${message.role}:rest`] === piece('')) delete parts[`${message.role}:rest`]; }
+    if (tagged.length) { for (const [, tag, inner] of tagged) add(`${message.role}:${tag}`, inner); const rest = text.replace(/<([a-z_]+)>[\s\S]*?<\/\1>/g, '').trim(); if (rest) add(`${message.role}:rest`, rest); }
     else for (const line of text.split('\n')) add(`${message.role}:${/^([A-Za-z][^:]{0,30}):/.exec(line)?.[1] || 'line'}`, line);
   }
   add('output', JSON.stringify([params.output_config ?? null, params.tools ?? null]));
+}
+export function memoParts(params = {}) {
+  const parts = {model: piece(params.model ?? '')};
+  walkParts(params, (name, text) => { let at = name, n = 1; while (at in parts) at = `${name}#${++n}`; parts[at] = piece(text); });
   return parts;
+}
+// The parts whose text carries a clock time or a date after the key's own normalisation (an ISO timestamp is already ignored): "kept from Notion (16:17)" in a prompt means no memo can ever match it
+// (12 Oct 2026: the review ask's contact details). A prompt should carry no clock time: fix it at the source, not in the key. -> [part name]
+const CLOCK = /\b\d{1,2}:\d\d\b|\b\d{4}-\d\d-\d\d\b/;
+export function volatileParts(params = {}) {
+  const names = [];
+  walkParts(params, (name, text) => { if (CLOCK.test(normalise(String(text))) && /^(system|user|assistant)/.test(name)) names.push(name.replace(/#\d+$/, '')); });
+  return [...new Set(names)];
 }
 // The hash of each line of every <tag> section of the system blocks and the user message: {"system:1:profile": [hash, ...]}, kept beside the answer (hashes only), so a miss can say WHICH LINE of a
 // section differs from the live ask (12 Oct 2026: a profile block differed and nothing said where).
@@ -72,7 +84,7 @@ export function nearestDiffers(parts, kept, lines = {}) {
     return changed.length ? `${part} (lines ${changed.length > 3 ? `${changed[0]}-${changed.at(-1)}, ${changed.length} in all` : changed.join(', ')} of ${mine.length})` : part;
   });
 }
-const PARTS = '#parts', LINES = '#lines';
+const PARTS = '#parts', LINES = '#lines', VOLATILE = '#volatile';
 
 const insideRealData = file => (path.resolve(file) + path.sep).startsWith(path.join(os.homedir(), 'Library', 'Application Support', 'Job Pilotto') + path.sep);
 
@@ -89,6 +101,8 @@ export const memoOnly = (env = process.env) => !!env.JOB_PILOTTO_E2E && env.JOB_
 // Loose lookup (owner, 12 Oct 2026): the CI replay of a row case (e2e/lib/row-case-run.mjs) and `npm run row --loose` serve a kept answer whose USER-message parts and output schema match although the system side
 // (instructions, profile, search, knowledge) or the model changed since the capture: a prompt or seed change would otherwise turn every row case's answer asks cold, and CI has no claude -p. Each such hit is
 // appended to the file named by JOB_PILOTTO_MODEL_MEMO_LOOSE (e2e only) with the parts that differ. A changed job / form_fields block is still a miss.
+// JOB_PILOTTO_MODEL_MEMO_MISSLOG=<file> (e2e only): each memo-only miss as a JSON line {differs, volatile}, whole (a log line is cut at its length: "differs in use) {"). Read by the row replay.
+export const missLogFile = (env = process.env) => (env.JOB_PILOTTO_E2E ? String(env.JOB_PILOTTO_MODEL_MEMO_MISSLOG || '') : '');
 export const looseFile = (env = process.env) => (env.JOB_PILOTTO_E2E ? String(env.JOB_PILOTTO_MODEL_MEMO_LOOSE || '') : '');
 const isPageSide = name => name === 'output' || /^(user|assistant):/.test(name);
 export function looseMatch(parts, kept) {
@@ -106,7 +120,7 @@ export function looseMatch(parts, kept) {
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return {}; } };
 
 // Wraps the client's messages.create in place (the adapter keeps its engine, billing, fallback). A failed ask is not kept. -> the same client.
-export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = looseFile()} = {}) {
+export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = looseFile(), missLog = missLogFile()} = {}) {
   if (!client || !file) return client;
   const ask = client.messages.create.bind(client.messages);
   client.messages = {...client.messages, create: async params => {
@@ -124,14 +138,15 @@ export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = 
     if (only) {
       // JOB_PILOTTO_MODEL_MEMO_MISSES=<file> (e2e only): the normalised request of each miss, to see what differs from the live run's ask.
       if (process.env.JOB_PILOTTO_E2E && process.env.JOB_PILOTTO_MODEL_MEMO_MISSES) try { fs.appendFileSync(process.env.JOB_PILOTTO_MODEL_MEMO_MISSES, `${normalise(JSON.stringify({model: params.model, system: params.system ?? '', messages: params.messages ?? [], output_config: params.output_config ?? null, tools: params.tools ?? null}))}\n`); } catch { /* a debug aid */ }
-      const differs = nearestDiffers(memoParts(params), kept, memoLines(params));
-      throw new Error(`model memo: not in the row's kept answers (an offline replay never asks the model)${differs ? `; the nearest kept ask differs in: ${differs.join(', ') || 'nothing I can see (the same parts)'}` : ''}`);
+      const differs = nearestDiffers(memoParts(params), kept, memoLines(params)), volatile = volatileParts(params);
+      if (missLog) try { fs.appendFileSync(missLog, `${JSON.stringify({differs: differs || [], volatile})}\n`); } catch { /* a report only */ }
+      throw new Error(`model memo: not in the row's kept answers (an offline replay never asks the model)${differs ? `; the nearest kept ask differs in: ${differs.join(', ') || 'nothing I can see (the same parts)'}` : ''}${volatile.length ? `; a clock time or date in ${volatile.join(', ')} can never match` : ''}`);
     }
     const answer = await ask(params);
     try {
       fs.mkdirSync(path.dirname(file), {recursive: true});
       const tmp = `${file}.${process.pid}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify({...read(file), [key]: answer, [key + PARTS]: memoParts(params), [key + LINES]: memoLines(params)}));
+      fs.writeFileSync(tmp, JSON.stringify({...read(file), [key]: answer, [key + PARTS]: memoParts(params), [key + LINES]: memoLines(params), ...(volatileParts(params).length ? {[key + VOLATILE]: volatileParts(params)} : {})}));
       fs.renameSync(tmp, file);
     } catch { /* the cache is only a speed-up */ }
     return answer;

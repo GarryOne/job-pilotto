@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {addressOf, findRow, missParts, rowFiles, staleCapture} from '../lib/row-replay.mjs';
+import {addressOf, findRow, missesOf, rowFiles, staleCapture} from '../lib/row-replay.mjs';
 
 const write = (file, text) => { fs.mkdirSync(path.dirname(file), {recursive: true}); fs.writeFileSync(file, text); };
 const caseIn = (dir, pages) => { write(path.join(dir, 'case.json'), JSON.stringify({pages})); for (const page of pages) write(path.join(dir, page.file), `<p>${page.url}</p>`); };
@@ -51,11 +51,11 @@ test('a capture from before the replay format (no window size or ask state on it
   assert.equal(staleCapture(current), '');
 });
 
-test('a miss names the parts that differ from the nearest kept ask, read from the app log, without repeats', () => {
-  const log = 'x model memo: not in the row\'s kept answers (an offline replay never asks the model); the nearest kept ask differs in: user:job, system:1\ny model memo: not in the row\'s kept answers; the nearest kept ask differs in: user:job\n';
-  assert.deepEqual(missParts(log), ['user:job', 'system:1']);
-  assert.deepEqual(missParts('the nearest kept ask differs in: system:1, system:1:profile (lines 33-34, 2 in all of 50), user:job'), ['system:1', 'system:1:profile (lines 33-34, 2 in all of 50)', 'user:job'], 'a line list inside parentheses is one part');
-  assert.deepEqual(missParts('model memo: not in the row\'s kept answers (an offline replay never asks the model)'), [], 'an old memo (no parts kept): nothing to name');
+test('a replay reads its misses from the memo\'s own miss log (whole lines, not the cut app log): the differing parts and the parts with a clock time, without repeats', () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-miss-log-')), 'miss-log.jsonl');
+  fs.writeFileSync(file, `${JSON.stringify({differs: ['system:1', 'system:1:profile (lines 33-34, 2 in all of 50)'], volatile: []})}\n${JSON.stringify({differs: ['system:1', 'user:job'], volatile: ['user:contact_details']})}\n`);
+  assert.deepEqual(missesOf(file), {parts: ['system:1', 'system:1:profile (lines 33-34, 2 in all of 50)', 'user:job'], volatile: ['user:contact_details']});
+  assert.deepEqual(missesOf(path.join(path.dirname(file), 'none.jsonl')), {parts: [], volatile: []}, 'no miss: no file');
 });
 
 test('the journey a replay follows leaves out a popup the live run closed before its first kept page (the cookie banner), not one closed later', () => {

@@ -30,6 +30,8 @@ export async function rowToCase({rowDir, name, outDir, oldDir, askCold = false, 
       fs.writeFileSync(memoFile, scrub(JSON.stringify({...readJson(memoFile), ...(cold.memoAfter || {})}), values));
       lines.push('row-to-case: the new build\'s model calls were asked once and kept in the case\'s memo');
     }
+    const volatileKept = Object.entries(readJson(memoFile)).filter(([name]) => name.endsWith('#volatile')).flatMap(([, parts]) => parts);
+    if (volatileKept.length) lines.push(`row-to-case: WARNING: a kept ask carries a clock time or a date in ${[...new Set(volatileKept)].join(', ')}: no memo can match it again; fix it at the source (a prompt carries no time)`);
     const fresh = await replay(built.dir, {});
     if (fresh.misses) return end(4, `row-to-case: ${fresh.misses} model ask(s) of the new build are not in the case's kept answers (CI has no claude -p): run again with --ask-cold${fresh.missParts?.length ? ` (the nearest kept ask differs in ${fresh.missParts.join(', ')})` : ''}`);
     const base = baselineSignature(item.baseline), derived = expectFrom(base, signatureOf(fresh));

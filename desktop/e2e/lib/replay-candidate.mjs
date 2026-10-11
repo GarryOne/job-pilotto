@@ -28,6 +28,7 @@ export function saveCandidate({dir, day, shape, result, html, output = '', aiCal
   const journey = (() => { try { return JSON.parse(fs.readFileSync(path.join(captureDir, 'journey.json'), 'utf8')); } catch { return null; } })();
   if ((!html && !journey?.length) || (!always && !worthSaving(result))) return null;
   const folder = path.join(dir, day, slug(shape)), address = String(result.url || '').replace(/[?#].*$/, '');
+  fs.rmSync(folder, {recursive: true, force: true});   // a capture again starts from an empty folder: a page, presses or answers of an older run (Lever pages/4.html from 16:25 beside a new 1-3) never mix in
   fs.mkdirSync(folder, {recursive: true});
   if (journey?.length) {
     fs.rmSync(path.join(folder, 'page.html'), {force: true});

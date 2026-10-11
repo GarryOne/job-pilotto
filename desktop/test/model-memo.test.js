@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {memoFile, memoKey, memoOnly, memoParts, withMemo} from '../lib/ai/model-memo.js';
+import {memoFile, memoKey, memoOnly, memoParts, volatileParts, withMemo} from '../lib/ai/model-memo.js';
 
 const ask = (text, extra = {}) => ({model: 'claude-haiku-5-5', max_tokens: 500, system: 'Say what kind of page this is.', messages: [{role: 'user', content: text}], ...extra});
 
@@ -174,4 +174,26 @@ test('loose lookup is read from the environment too (JOB_PILOTTO_MODEL_MEMO_LOOS
   assert.equal(looseFile({}), '');
   assert.equal(looseFile({JOB_PILOTTO_E2E: '1', JOB_PILOTTO_MODEL_MEMO_LOOSE: '/tmp/x'}), '/tmp/x');
   assert.equal(looseFile({JOB_PILOTTO_MODEL_MEMO_LOOSE: '/tmp/x'}), '', 'never outside the e2e env');
+});
+
+test('a kept ask whose prompt carries a clock time or a date keeps the names of those parts beside it (the class check at capture time); a clean one keeps none', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-memo-volatile-')), file = path.join(dir, 'model-memo.json');
+  const live = {engine: 'cli', messages: {create: async () => ({content: [{type: 'text', text: '{}'}], stop_reason: 'end_turn', usage: {}})}};
+  withMemo(live, file);
+  await live.messages.create(answerAsk('Seller, contact kept from Notion (16:17)'));
+  await live.messages.create(answerAsk('Seller in Zurich'));
+  const kept = Object.entries(JSON.parse(fs.readFileSync(file, 'utf8'))).filter(([name]) => name.endsWith('#volatile'));
+  assert.equal(kept.length, 1);
+  assert.deepEqual(kept[0][1], ['user:job']);
+});
+
+test('a miss is also written to the miss log with its differing parts and the parts that carry a clock time or a date (a prompt no memo can ever match), never cut by a log line\'s length', async () => {
+  const {file, replay} = await looseSetup(), log = path.join(path.dirname(file), 'miss-log.jsonl');
+  const client = replay({missLog: log});
+  const timed = answerAsk('Seller in Zurich, contact kept from Notion (16:17), review of 2026-10-11');
+  await assert.rejects(client.messages.create(timed), /differs in: user:job/);
+  const recorded = fs.readFileSync(log, 'utf8').trim().split('\n').map(line => JSON.parse(line));
+  assert.deepEqual(recorded.map(entry => entry.differs), [['user:job (lines 2 of 3)']]);
+  assert.deepEqual(recorded[0].volatile, ['user:job'], 'the part with a clock time and a date is named');
+  assert.deepEqual(volatileParts(answerAsk('Seller in Zurich')), []);
 });

@@ -20,10 +20,13 @@ import {startRealExtension} from './real-extension.mjs';
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 // The live harness's window (lib/extension.mjs: viewport null under --headless=new), measured on 11 Oct 2026: for a capture made before it recorded its own (journey view).
 const LIVE_WINDOW = {width: 1200, height: 818};
-// Which parts of the ask differ from the nearest kept one, read from the app's log (lib/ai/model-memo.js names them in its refusal). -> ["user:job", ...] without repeats
-export const missParts = text => [...new Set([...String(text).matchAll(/nearest kept ask differs in: ([^\n"\\]+)/g)].flatMap(found => found[1].split(/, (?=model|system|user|assistant|output)/).map(part => part.trim())).filter(Boolean))];
-// Each loose memo hit the app noted (lib/ai/model-memo.js): [{differs: [part, ...]}].
-const looseHitsOf = file => { try { return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line)); } catch { return []; } };
+// The memo's own miss log (lib/ai/model-memo.js missLogFile, one JSON line per miss, whole: the app's log line is cut at its length and a part list read from it came out as "use) {"):
+// -> {parts: [the parts that differ from the nearest kept ask, without repeats], volatile: [the parts carrying a clock time or a date]}
+export function missesOf(file) {
+  let lines = [];
+  try { lines = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line)); } catch { /* no miss, or no file */ }
+  return {parts: [...new Set(lines.flatMap(line => line.differs || []))], volatile: [...new Set(lines.flatMap(line => line.volatile || []))]};
+}
 export const addressOf = url => String(url).replace(/[?#].*$/, '').replace(/\/$/, '');
 const readJson = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
 
@@ -72,8 +75,8 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
   const memo = path.join(workDir, 'model-memo.json');   // a copy: each row's own answers stay as the live run kept them
   const merged = Object.assign({}, ...caseDirs.map(dir => readJson(path.join(dir, 'model-memo.json'), {})));
   fs.writeFileSync(memo, JSON.stringify(merged));
-  const looseHits = loose ? path.join(workDir, 'loose-hits.jsonl') : '';
-  const app = await startOfflineApp({memo, ask, loose: looseHits, dir: path.join(workDir, 'app')});
+  const looseHits = loose ? path.join(workDir, 'loose-hits.jsonl') : '', missLog = path.join(workDir, 'miss-log.jsonl');
+  const app = await startOfflineApp({memo, ask, loose: looseHits, missLog, dir: path.join(workDir, 'app')});
   // The applicant's contact exactly as the live row set it (live-row.mjs: saveContact(CONTACT)): the profile in every form-answer ask carries it, and its lines (name, phone, e-mail, links) are part of
   // the memo key; with the stand-in contact the whole ask missed its kept answer (12 Oct 2026, Ashby: profile lines 30-37 differed, found by the memo's line hashes).
   await app.call('saveContact', CONTACT);
@@ -169,13 +172,13 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
       }
       return {row: name, seconds: Math.round((Date.now() - started) / 100) / 10, evidence: evidenceLines(log()), unrecorded: [...row.unrecorded], followed: Math.min(followed, row.applied),
         divergence, endedBy, livePresses: presses.length, asks: requests().filter(request => request.route === '/extension/page-kind').length,
-        misses: (log().match(/not in the row's kept answers/g) || []).length, missParts: missParts(log()), requests: requests(), appLog: log()};
+        misses: (log().match(/not in the row's kept answers/g) || []).length, missParts: missesOf(missLog).parts, missVolatile: missesOf(missLog).volatile, requests: requests(), appLog: log()};
     } finally {
       active.delete(row);
       for (const [page, owner] of [...rows]) if (owner === row) { rows.delete(page); await page.close().catch(() => {}); }
     }
   };
-  return {replay, close, keptAnswers: Object.keys(merged).length, memoNow: () => readJson(memo, {}), looseNow: () => looseHitsOf(looseHits)};
+  return {replay, close, keptAnswers: Object.keys(merged).length, memoNow: () => readJson(memo, {}), looseNow: () => looseHitsOf(looseHits), missesNow: () => missesOf(missLog)};
 }
 
 export async function replayRow(caseDir, {extensionDir, ask = false, loose = false, ...options} = {}) {

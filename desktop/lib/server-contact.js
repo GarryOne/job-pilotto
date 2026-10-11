@@ -42,8 +42,10 @@ export async function kept(storage, name, load, {now = Date.now()} = {}) {
   if (now - Date.parse(saved.at) > FRESH_MS) refresh().catch(() => {});
   return {...saved.result, fromCache: saved.at};
 }
+// The label says where the copy came from, never when: it reaches the extension's debug details and from there a model ask (the filler review), where a clock time could never match a kept answer.
+export const keptSource = () => 'kept from Notion';
 export const contactOf = storage => kept(storage, 'contact', () => readContact(storage)).then(result =>
-  result.fromCache ? {contact: result.contact || {}, contactSource: `kept from Notion (${result.fromCache.slice(11, 16)})`, contactError: null} : result);
+  result.fromCache ? {contact: result.contact || {}, contactSource: keptSource(result.fromCache), contactError: null} : result);
 // After an edit in Settings → Your details: the kept copy is the new one at once.
 export function contactSaved(storage, contact) { lastContact = contact; viewCache.remember(storage, 'contact', {contact}); }
 

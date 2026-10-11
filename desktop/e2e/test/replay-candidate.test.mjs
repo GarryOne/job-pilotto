@@ -90,3 +90,18 @@ test('the live run\'s presses come with the row (presses.json): time, what and l
   const folder = saveCandidate({dir, day: '2026-10-11', shape: 'x', result: {reached: 'posting', url: 'https://a.example/x'}, html: '<p>x</p>', appLog: log});
   assert.equal(JSON.parse(fs.readFileSync(path.join(folder, 'presses.json'), 'utf8')).length, 3);
 });
+
+test('a capture again of a row starts from an empty folder: a page, presses and answers of an older run never stay beside the new ones', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-candidates-'));
+  const old = path.join(dir, '2026-10-11', 'lever-form');
+  fs.mkdirSync(path.join(old, 'pages'), {recursive: true});
+  for (const name of ['pages/4.html', 'presses.json', 'ai-calls.json', 'model-memo.json']) fs.writeFileSync(path.join(old, name), 'older run');
+  const capture = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-capture-'));
+  fs.mkdirSync(path.join(capture, 'pages'));
+  fs.writeFileSync(path.join(capture, 'pages/1.html'), '<p>new</p>');
+  fs.writeFileSync(path.join(capture, 'journey.json'), JSON.stringify([{url: 'https://jobs.example.com/o/role', file: 'pages/1.html', at: 1, state: 0}]));
+  const folder = saveCandidate({dir, day: '2026-10-11', shape: 'Lever form', result: {url: 'https://jobs.example.com/o/role', reached: 'form', filled: 1, left: 2, short: {done: 1, total: 3}}, captureDir: capture});
+  assert.equal(folder, old);
+  assert.deepEqual(fs.readdirSync(path.join(folder, 'pages')), ['1.html']);
+  for (const name of ['presses.json', 'ai-calls.json', 'model-memo.json']) assert.equal(fs.existsSync(path.join(folder, name)), false, `${name} of the older run is gone`);
+});

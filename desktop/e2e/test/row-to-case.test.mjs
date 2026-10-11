@@ -37,6 +37,12 @@ test('exit 4: nothing improved, the old build does not replay the live run\'s pa
   assert.equal(diverged.code, 4);
 });
 
+test('a kept ask with a clock time or a date in its prompt is said as a warning: no memo can match it again', async () => {
+  const build2 = async args => { const built = await build(args); fs.writeFileSync(path.join(built.dir, 'model-memo.json'), JSON.stringify({k1: {}, 'k1#volatile': ['user:contact_details']})); return built; };
+  const done = await go(replayBy(['posting', 'form'], ['posting']), {build: build2});
+  assert.match(done.lines.join('\n'), /WARNING: a kept ask carries a clock time or a date in user:contact_details/);
+});
+
 test('exit 2: a case that exists is not overwritten, the old build is required', async () => {
   const outDir = tmp(); fs.mkdirSync(path.join(outDir, 'start-dialog-1'));
   assert.equal((await rowToCase({rowDir: '/row', name: 'start-dialog-1', outDir, oldDir: '/old', build, replay: replayBy(['a'], ['b'])})).code, 2);

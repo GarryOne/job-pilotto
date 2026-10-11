@@ -17,13 +17,13 @@ const LIVE_PORT = 47111;   // the person's app
 // ask: false (the default) answers only from the row's kept answers and refuses a miss (lib/ai/model-memo.js memoOnly): the plan's claude -p carries the signed-in
 // account, so it is asked only when the caller says so. A memo file always exists (an empty one refuses every ask): without one the app would ask the model.
 // captureDir: a live run's capture folder (the app writes its page-kind calls and asks there: lib/live-capture.js), as the Electron app does under the harness.
-export async function startOfflineApp({memo = '', ask = false, loose = '', captureDir = '', dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-offline-app-')), timeoutMs = 20000} = {}) {
+export async function startOfflineApp({memo = '', ask = false, loose = '', missLog = '', captureDir = '', dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-offline-app-')), timeoutMs = 20000} = {}) {
   if (!memo) { memo = path.join(dir, 'model-memo.json'); fs.mkdirSync(dir, {recursive: true}); }
   // The app imports the worker from desktop/shared/ (scripts/stage.mjs, run by npm start and npm test): a fresh worktree has none yet.
   if (!fs.existsSync(path.join(DESKTOP, 'shared', 'worker', 'extension.js'))) execFileSync(process.execPath, [path.join(DESKTOP, 'scripts', 'stage.mjs'), '--files-only'], {cwd: DESKTOP, stdio: 'ignore'});
   const port = await freePort();
   if (port === LIVE_PORT) throw new Error('offline app: never the live app\'s port');
-  const env = {...offlineEnv(dir), JOB_PILOTTO_PORT: String(port), JOB_PILOTTO_MODEL_MEMO: memo, ...(ask ? {} : {JOB_PILOTTO_MODEL_MEMO_ONLY: '1'}), ...(loose && !ask ? {JOB_PILOTTO_MODEL_MEMO_LOOSE: loose} : {}),   // loose: the file a loose memo hit is noted in (lib/ai/model-memo.js looseFile)
+  const env = {...offlineEnv(dir), JOB_PILOTTO_PORT: String(port), JOB_PILOTTO_MODEL_MEMO: memo, ...(ask ? {} : {JOB_PILOTTO_MODEL_MEMO_ONLY: '1'}), ...(loose && !ask ? {JOB_PILOTTO_MODEL_MEMO_LOOSE: loose} : {}), ...(missLog && !ask ? {JOB_PILOTTO_MODEL_MEMO_MISSLOG: missLog} : {}),   // loose: the file a loose memo hit is noted in (lib/ai/model-memo.js looseFile)
    
     JOB_PILOTTO_E2E_OPENER: 'offline-app', ...(captureDir ? {LIVE_CAPTURE_DIR: captureDir} : {})};   // an Apply hands its address to the harness (lib/browser-launch.js), never a browser of this computer
   const child = spawn(process.execPath, [CHILD], {env, stdio: ['pipe', 'pipe', 'pipe']});
