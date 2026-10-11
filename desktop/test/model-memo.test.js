@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
+import {fileURLToPath} from 'node:url';
 import {memoFile, memoKey, withMemo} from '../lib/ai/model-memo.js';
 
 const ask = (text, extra = {}) => ({model: 'claude-haiku-5-5', max_tokens: 500, system: 'Say what kind of page this is.', messages: [{role: 'user', content: text}], ...extra});
@@ -61,7 +62,8 @@ test('the cache exists only under the e2e env, and never in the app\'s own folde
 test('the app\'s AI client is memoized through one place only', () => {
   const index = fs.readFileSync(new URL('../lib/ai/index.js', import.meta.url), 'utf8');
   assert.match(index, /withMemo\(/);
-  const users = fs.readdirSync(new URL('../lib', import.meta.url), {recursive: true}).filter(file => String(file).endsWith('.js'))
-    .filter(file => fs.readFileSync(new URL(`../lib/${file}`, import.meta.url), 'utf8').includes('withMemo('));
-  assert.deepEqual(users.map(String).sort(), ['ai/index.js', 'ai/model-memo.js']);
+  const lib = fileURLToPath(new URL('../lib', import.meta.url));
+  const users = fs.readdirSync(lib, {recursive: true}).map(file => String(file).split(path.sep).join('/')).filter(file => file.endsWith('.js'))
+    .filter(file => fs.readFileSync(path.join(lib, file), 'utf8').includes('withMemo('));
+  assert.deepEqual(users.sort(), ['ai/index.js', 'ai/model-memo.js']);
 });
