@@ -153,8 +153,8 @@ export const PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="robots" content="noindex"><title>Applying tests · Admin</title><link rel="icon" href="/favicon-32.png">
 <style>
 :root{--bg:#0b0d10;--card:#14181d;--line:#262c33;--text:#f4efe3;--muted:#8d949c;--amber:#f5b54a;--green:#5ec47a;--red:#e5484d;--blue:#6aa8ff;--violet:#b48cff}
-*{box-sizing:border-box}.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:14px 0}
-.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}.tile b{display:block;font-size:26px}.tile span{color:var(--muted);font-size:12px}
+*{box-sizing:border-box}.tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;margin:14px 0;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}@media (max-width:1000px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}@media (max-width:520px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{background:var(--card);padding:14px 16px}.tile b{display:block;font-size:26px;line-height:1.2}.tile .what{display:block;font-size:14px;margin-top:2px}.tile span.note{display:block;margin-top:4px;color:var(--muted);font-size:12px}
 .tile.bad b{color:var(--red)}.tile.good b{color:var(--green)}section{margin:36px 0 0;padding-top:24px;border-top:1px solid var(--line)}section>h2{margin:0 0 12px}table{width:100%;border-collapse:collapse}
 th{text-align:left;color:var(--muted);font-weight:500;font-size:12px;white-space:nowrap}td,th{padding:7px 8px 7px 0;border-bottom:1px solid var(--line);font-size:13px;vertical-align:top}
 .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;color:#0b0d10}
@@ -183,19 +183,19 @@ const pill = step => el('span', {className: 'pill s-' + step, textContent: step}
 const color = step => getComputedStyle(document.querySelector('.s-' + CSS.escape(step)) || document.body).backgroundColor;
 let serverNow = Date.now();
 const ago = at => { const minutes = Math.max(0, Math.round((serverNow - Date.parse(at)) / 60000)); return minutes < 1 ? 'just now' : minutes < 60 ? minutes + ' min ago' : minutes < 1440 ? Math.round(minutes / 60) + ' h ago' : Math.round(minutes / 1440) + ' d ago'; };
-const tile = (value, label, tone) => el('div', {className: 'tile ' + (tone || '')}, el('b', {textContent: value ?? '–'}), el('span', {textContent: label}));
+const tile = (value, label, tone, note, title) => el('div', {className: 'tile ' + (tone || ''), title: title || ''}, el('b', {textContent: value ?? '–'}), el('span', {className: 'what', textContent: label}), note ? el('span', {className: 'note', textContent: note}) : null);
 fetch('?json').then(r => r.json()).then(d => {
   serverNow = Date.parse(d.now);
   const app = document.getElementById('app'); app.textContent = '';
   const legend = el('div', {hidden: true}, ...d.steps.map(step => pill(step))); app.append(legend);
   const t = d.tiles;
   app.append(el('div', {className: 'tiles'},
-    tile(t.cases ? (t.cases - t.casesFailing) + ' / ' + t.cases : 0, 'fixed-site replays passing' + (t.casesLast ? ' · last ' + t.casesLast : ''), t.casesFailing ? 'bad' : t.cases ? 'good' : ''),
-    tile(t.sites ? t.sitesRecent + ' / ' + t.sites : 0, 'smoke sites run in the last 10 nights'),
-    tile(t.reachedForm == null ? '–' : t.reachedForm + '%', 'sites that reached the form', t.reachedForm >= 70 ? 'good' : ''),
-    tile(t.regressions, 'regressions open' + (t.gone ? ' · ' + t.gone + ' posting(s) gone' : ''), t.regressions ? 'bad' : 'good'),
-    tile(t.needFix, 'sites need a fix (stopped early, unexplained fields, or a regression)', t.needFix ? 'bad' : 'good'),
-    tile(t.dropped, 'boards dropped in the fleet (layer 4)', t.dropped ? 'bad' : 'good')));
+    tile(t.cases ? (t.cases - t.casesFailing) + ' / ' + t.cases : 0, 'Replay checks passing', t.casesFailing ? 'bad' : t.cases ? 'good' : '', t.casesLast ? 'Last replay · ' + t.casesLast : 'No replay yet', 'Fixed-site replays: the recorded pages of every fixed site, replayed offline'),
+    tile(t.sites ? t.sitesRecent + ' / ' + t.sites : 0, 'Smoke sites tested', '', 'Last 10 nights', 'Smoke sites run in the last 10 nights'),
+    tile(t.reachedForm == null ? '–' : t.reachedForm + '%', 'Reached the form', t.reachedForm >= 70 ? 'good' : '', 'Of live smoke sites', 'Sites that reached the application form'),
+    tile(t.regressions, 'Open regressions', t.regressions ? 'bad' : 'good', t.gone ? t.gone + ' posting(s) gone' : 'Reached less than before', 'A site that reached less than its last run' + (t.gone ? '; ' + t.gone + ' posting(s) are gone' : '')),
+    tile(t.needFix, 'Sites needing a fix', t.needFix ? 'bad' : 'good', 'Stopped early, unexplained fields, or a regression', 'Stopped early, unexplained fields, or a regression'),
+    tile(t.dropped, 'Boards dropped', t.dropped ? 'bad' : 'good', 'Fleet · layer 4', 'Boards dropped in the fleet (layer 4)')));
   const tabs = el('nav', {className: 'tabs', role: 'tablist', 'aria-label': 'Applying results'}), fixBox = el('section', {className: 'fix'}), fixedBox = el('section', {className: 'fixed'}); app.append(tabs, fixBox, fixedBox);   // Needs a fix: right under the tiles, drawn once block() exists (drawFix)
   // Nights · where each site got to (owner, 10 Oct 2026: more readable, at the top): one bar per night, newest first, every site of that night split by the step it reached
   // (the segment's width is its share, its number the count), then how many sites ran and the share that reached the form.
