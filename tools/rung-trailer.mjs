@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The rung trailer (docs/flows/ladder.md): a push that touches the ladder's flow code (desktop/e2e/flows.mjs FLOW_FILES, desktop/lib/ladder/, the page-kind facade, the account and form judges, extension/ladder/)
 // says in a commit message of the pushed range which rung it changes and which fixture shows it, like "Recorded-unneeded" (tools/recorded-cases.mjs):
-//   Rung: <0-6 | router | judges>          (a list "2, 3" is fine)
+//   Rung: <0-6 | router | judges>          (a list "2, 3" is fine; "none: <why>" for a flow edit no rung decides, e.g. a log line: then no Fixture)
 //   Fixture: <fixture id of desktop/e2e/ladder-fixtures/, or several, or "none: <why>" for a pure move or refactor>
 //   Pool-row: <the pool row this fixes, as /admin/applying shows its name>   (optional, any commit: it fills the Fixed tab, desktop/e2e/lib/fix-ledger.mjs; never an address or a query string)
 // Usage: node tools/rung-trailer.mjs [--base origin/main]   exit 1 with the reason when a flow push lacks them. Guard: desktop/test/rung-trailer.test.js.
@@ -15,7 +15,7 @@ export const isFlowPush = (changed, flowFiles) => { const flows = new Set(flowFi
 
 const RUNG = /^Rung:[ \t]*(.*)$/gm, FIXTURE = /^Fixture:[ \t]*(.*)$/gm;
 const RUNG_VALUE = /^(?:[0-6]|router|judges)(?:\s*,\s*(?:[0-6]|router|judges))*$/;
-const HOW = 'Add to a commit message of the push:\n  Rung: <0-6 | router | judges>\n  Fixture: <a fixture id of desktop/e2e/ladder-fixtures/ | none: <why> (a pure move or refactor)>\n(docs/flows/ladder.md, skill fix-site-at-its-rung)';
+const HOW = 'Add to a commit message of the push:\n  Rung: <0-6 | router | judges | none: <why> (no rung decides it, e.g. a log line; then no Fixture)>\n  Fixture: <a fixture id of desktop/e2e/ladder-fixtures/ | none: <why> (a pure move or refactor)>\n(docs/flows/ladder.md, skill fix-site-at-its-rung)';
 
 // "Pool-row:" is optional; when present it is a plain site name (it is published on the owner page). -> '' or the problem.
 export const poolRowProblem = messages => {
@@ -30,8 +30,12 @@ export function missingTrailer(changed, messages, flowFiles, fixtureIds) {
   const fixtures = messages.flatMap(message => [...String(message).matchAll(FIXTURE)].map(found => found[1].trim()));
   const problems = [];
   if (!rungs.length) problems.push('no "Rung:" line');
-  for (const value of rungs) if (!RUNG_VALUE.test(value)) problems.push(`"Rung: ${value}" is not 0-6, router or judges`);
-  if (!fixtures.length) problems.push('no "Fixture:" line');
+  const isNone = value => /^none\b/i.test(value);   // a flow edit no rung decides (a log line, a timing): "Rung: none: <why>", no fixture
+  for (const value of rungs) {
+    if (isNone(value)) { if (!/^none:\s*\S.{2,}/i.test(value)) problems.push('"Rung: none" needs a reason ("Rung: none: <why>")'); continue; }
+    if (!RUNG_VALUE.test(value)) problems.push(`"Rung: ${value}" is not 0-6, router, judges or none: <why>`);
+  }
+  if (!fixtures.length && rungs.some(value => !isNone(value))) problems.push('no "Fixture:" line');
   for (const value of fixtures) {
     if (/^none\b/i.test(value)) { if (!/^none:\s*\S.{2,}/i.test(value)) problems.push('"Fixture: none" needs a reason ("Fixture: none: <why>")'); continue; }
     for (const id of value.split(/\s*,\s*/).filter(Boolean)) if (!fixtureIds.includes(id)) problems.push(`no fixture "${id}" in desktop/e2e/ladder-fixtures/`);

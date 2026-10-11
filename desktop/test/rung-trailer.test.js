@@ -36,6 +36,13 @@ test('the right trailers let it through, from one commit or two, with a list of 
   assert.equal(ask(FLOW, ['Rung: 2, 3\nFixture: aldi-suisse']), '');
 });
 
+test('a flow edit no rung decides (a log line, a timing) says "Rung: none: <why>" and needs no fixture', () => {
+  assert.equal(ask(FLOW, ['Keep required in the logged fill line\n\nRung: none: only the fill log line changes']), '');
+  assert.match(ask(FLOW, ['Rung: none']), /needs a reason/);
+  assert.match(ask(FLOW, ['Rung: none: ']), /needs a reason/);
+  assert.match(ask(FLOW, ['Rung: none: log only', 'Rung: 2']), /Fixture:/);   // a real rung in the range still needs its fixture
+});
+
 test('a wrong value is named: an unknown rung, an unknown fixture, a "none" without a reason', () => {
   assert.match(ask(FLOW, ['Rung: 7\nFixture: aldi-suisse']), /Rung: 7/);
   assert.match(ask(FLOW, ['Rung: banana\nFixture: aldi-suisse']), /Rung: banana/);
