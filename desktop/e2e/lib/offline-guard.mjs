@@ -6,6 +6,7 @@ import http from 'node:http';
 import https from 'node:https';
 import os from 'node:os';
 import path from 'node:path';
+import {withoutWrappers} from './real-claude.mjs';   // never a terminal's claude wrapper (e2e/test/real-claude.test.mjs)
 
 const REAL = path.join(os.homedir(), 'Library', 'Application Support', 'Job Pilotto');
 const DROPPED = ['ANTHROPIC_API_KEY', 'ANTHROPIC_BASE_URL', 'OPENAI_API_KEY', 'JOB_PILOTTO_TWIN', 'JOB_PILOTTO_PORT'];
@@ -13,7 +14,7 @@ const DROPPED = ['ANTHROPIC_API_KEY', 'ANTHROPIC_BASE_URL', 'OPENAI_API_KEY', 'J
 export function offlineEnv(dir, parent = process.env) {
   if ((path.resolve(dir) + path.sep).startsWith(REAL + path.sep)) throw new Error(`refusing the app's real folder for a test app: ${dir}`);
   const env = Object.fromEntries(Object.entries(parent).filter(([name]) => !DROPPED.includes(name)));
-  return {...env, JOB_PILOTTO_E2E: '1', JOB_PILOTTO_USER_DATA: dir, JOB_PILOTTO_NO_DOTENV: '1'};
+  return withoutWrappers({...env, JOB_PILOTTO_E2E: '1', JOB_PILOTTO_USER_DATA: dir, JOB_PILOTTO_NO_DOTENV: '1'});
 }
 
 const LOOPBACK = /^(127\.\d+\.\d+\.\d+|localhost|::1|\[::1\])$/i;

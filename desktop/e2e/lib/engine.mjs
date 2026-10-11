@@ -1,11 +1,12 @@
 // Which AI engine the app under test uses (the app's own "AI engine" setting: its API key, or the user's Claude Code on this Mac).
 import {execFileSync} from 'node:child_process';
+import {withoutWrappers} from './real-claude.mjs';   // never a terminal's claude wrapper (e2e/test/real-claude.test.mjs)
 
 // A saved key that is never valid: with the CLI engine chosen the key is not used, and a step that needs the API engine (the AI proxy answering 429, 500, a delay)
 // switches to it without spending a real key's credit, because the proxy answers or delays before anything reaches Anthropic.
 export const DUMMY_KEY = 'sk-ant-api03-e2e-local-not-a-real-key-0000000000000000000000000000000000000000000000';
 
-const claudeInstalled = () => { try { execFileSync('claude', ['--version'], {stdio: 'ignore', timeout: 20000}); return true; } catch { return false; } };
+const claudeInstalled = () => { try { execFileSync('claude', ['--version'], {env: withoutWrappers(), stdio: 'ignore', timeout: 20000}); return true; } catch { return false; } };
 
 // THE RULE (owner, 5 Oct 2026): the e2e key is for CI only. On a Mac no suite loads, reads or spends an Anthropic key: the app under test and every judge use this Mac's
 // Claude Code (the plan, a fixed price). A step that needs the proxy in front of the app (a refusal, a delay) runs on the API engine with DUMMY_KEY, so it costs nothing.

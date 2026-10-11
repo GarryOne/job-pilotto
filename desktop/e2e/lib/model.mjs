@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {pickEngine} from './engine.mjs';
 import {count, usageOf} from './ai-meter.mjs';
+import {withoutWrappers} from './real-claude.mjs';   // never a terminal's claude wrapper (e2e/test/real-claude.test.mjs)
 
 // A bare `claude -p` loads the owner's MCP servers, skills and settings: 106k tokens for a one-word answer. These flags leave about 400.
 export const CLI_FLAGS = ['-p', '--output-format', 'json', '--tools', '', '--no-session-persistence', '--strict-mcp-config', '--disable-slash-commands', '--setting-sources', ''];
@@ -35,7 +36,7 @@ export function messagesAnswer(out, body) {
 }
 
 const run = ({args, prompt, cwd, timeoutMs}) => new Promise(resolve => {
-  const child = spawn('claude', args, {cwd, stdio: ['pipe', 'pipe', 'pipe']});
+  const child = spawn('claude', args, {cwd, env: withoutWrappers(), stdio: ['pipe', 'pipe', 'pipe']});
   let stdout = '', stderr = '';
   const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);
   child.stdout.on('data', chunk => { stdout += chunk; });

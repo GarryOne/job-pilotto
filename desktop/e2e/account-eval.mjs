@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import {modelClient} from './lib/model.mjs';
 import {testKey} from './lib/engine.mjs';
 import {fixtureProblems, loadCases, runAll, score} from './lib/account-eval.mjs';
+import {realClaude} from './lib/real-claude.mjs';   // never a terminal's claude wrapper (e2e/test/real-claude.test.mjs)
 
 const args = process.argv.slice(2), at = name => (args.includes(name) ? args[args.indexOf(name) + 1] : '');
 const cases = loadCases();
@@ -20,9 +21,7 @@ async function engineClient(name) {
   const {client, NAMES} = await import('../lib/ai/index.js');
   if (!NAMES.includes(name)) throw new Error(`--engine must be one of ${NAMES.join(', ')}`);
   const {codexBinary} = await import('../lib/ai/codex-cli.js');
-  const {execFileSync} = await import('node:child_process');
-  const which = bin => { try { return execFileSync('/usr/bin/which', [bin], {encoding: 'utf8'}).trim(); } catch { return ''; } };
-  const settings = {aiEngine: name, claudeCode: {path: which('claude')}, codex: {path: codexBinary()}};
+  const settings = {aiEngine: name, claudeCode: {path: realClaude()}, codex: {path: codexBinary()}};
   const made = client({settings: () => settings, secret: key => process.env[key] || ''});
   if (!made) throw new Error(`no ${name} client: its key is missing (OPENAI_API_KEY / ANTHROPIC_API_KEY)`);
   return made;

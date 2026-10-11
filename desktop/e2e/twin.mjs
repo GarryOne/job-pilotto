@@ -13,6 +13,7 @@ import path from 'node:path';
 import {copyExtension, freePort, launchBrowser, makeOpenShim} from './lib/extension.mjs';
 import {grantAllSites, killGroup, portsFree, refresh, reloadExtension} from './lib/twin-refresh.mjs';
 import {realFolder} from '../lib/twin.js';
+import {withoutWrappers} from './lib/real-claude.mjs';   // never a terminal's claude wrapper (e2e/test/real-claude.test.mjs)
 
 const DESKTOP = path.resolve(import.meta.dirname, '..'), REPO = path.resolve(DESKTOP, '..');
 const REAL = realFolder(), LIVE = path.join(path.dirname(REAL), 'Job Pilotto (live test)'), HOME = path.join(LIVE, 'home');
@@ -72,8 +73,8 @@ async function main() {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('JOB_PILOTTO_')));
   // The app is started by a function: a refresh that touches its main process restarts it alone (same ports, same folder, same environment), the browser stays.
   const startApp = () => spawn(path.join(DESKTOP, 'node_modules', '.bin', 'electron'), [DESKTOP, `--remote-debugging-port=${cdp}`], {cwd: DESKTOP, stdio: ['ignore', 'inherit', 'inherit'], detached: true,   // its own process group: lib/twin-refresh.mjs killGroup
-    env: {...env, JOB_PILOTTO_TWIN: '1', JOB_PILOTTO_USER_DATA: HOME, JOB_PILOTTO_TWIN_NOTION_TOKEN: token, JOB_PILOTTO_PORT: String(port), JOB_PILOTTO_TWIN_BROWSER_CDP: `http://127.0.0.1:${browserCdp}`,
-      PATH: `${shim.bin}${path.delimiter}${process.env.PATH}`, JOB_PILOTTO_E2E_OPEN_DIR: shim.spool}});
+    env: withoutWrappers({...env, JOB_PILOTTO_TWIN: '1', JOB_PILOTTO_USER_DATA: HOME, JOB_PILOTTO_TWIN_NOTION_TOKEN: token, JOB_PILOTTO_PORT: String(port), JOB_PILOTTO_TWIN_BROWSER_CDP: `http://127.0.0.1:${browserCdp}`,
+      PATH: `${shim.bin}${path.delimiter}${process.env.PATH}`, JOB_PILOTTO_E2E_OPEN_DIR: shim.spool})});
   let app = startApp(), restarting = false;
   // A fresh browser profile at each start, with only the site sign-ins carried over (cookies, local storage) and saved back at stop.
   // A whole kept profile also kept the extension's worker state: once it ran stale background code, once (after clearing that) no worker

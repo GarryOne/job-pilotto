@@ -14,6 +14,7 @@ export const DESKTOP = path.resolve(E2E, '..');
 import {createRequire} from 'node:module';
 import {appLogText} from './app-log.mjs';
 import {keepRunLogs} from './run-logs.mjs';
+import {refuseWrapper, withoutWrappers} from './real-claude.mjs';   // never a terminal's claude wrapper (e2e/test/real-claude.test.mjs)
 const electronPath = () => {
   if (process.platform !== 'win32') return path.join(DESKTOP, 'node_modules', '.bin', 'electron');
   return createRequire(path.join(DESKTOP, 'package.json'))('electron');
@@ -27,6 +28,7 @@ export const zoneOf = (env = {}) => env.TZ || 'Europe/Zurich';
 const hidden = (env = process.env) => (env.E2E_HIDDEN ? (env.E2E_HIDDEN === '1' ? '1' : '0') : (process.platform === 'darwin' && !env.CI ? '1' : '0'));
 
 export async function launch({env = {}, executablePath, args, profile: again, lang = '', settings = {}} = {}) {   // lang: the window's language (Chromium's --lang), for a seeded place; settings: a fresh profile's start (the store, lib/store.mjs)
+  refuseWrapper(settings.claudeCode?.path);
   const profile = again || fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-'));   // `again`: the same profile, a second start (a relaunch keeps the person's data)
   fs.mkdirSync(ARTIFACTS, {recursive: true});
   // The test app is a stranger to the product: no technical reports, no employer-pool sharing, nothing it learns leaves this computer.
@@ -38,7 +40,7 @@ export async function launch({env = {}, executablePath, args, profile: again, la
     // The app counts days in the computer's own zone; the suites check it against Europe/Zurich (lib/focus-data.mjs). On a CI runner in UTC the two disagreed
     // about "today" from 0:00 to 2:00 Zurich time, and Focus's 14-day count failed only then (4 Oct 2026). A suite that tests another zone sets TZ, and the engine follows it
     // (it reads JOB_PILOTTO_TZ first: the calendar suite's Tokyo and Honolulu must reach both the window and the engine).
-    env: {...process.env, TZ: zoneOf(env), JOB_PILOTTO_TZ: env.JOB_PILOTTO_TZ || zoneOf(env), JOB_PILOTTO_USER_DATA: profile, JOB_PILOTTO_NO_DOTENV: '1', JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_HIDDEN: hidden(), ...env},
+    env: withoutWrappers({...process.env, TZ: zoneOf(env), JOB_PILOTTO_TZ: env.JOB_PILOTTO_TZ || zoneOf(env), JOB_PILOTTO_USER_DATA: profile, JOB_PILOTTO_NO_DOTENV: '1', JOB_PILOTTO_E2E: '1', JOB_PILOTTO_E2E_HIDDEN: hidden(), ...env}),
     timeout: 90000,
   });
   const page = await app.firstWindow();
