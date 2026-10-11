@@ -93,14 +93,16 @@ class HeavyLockBudgetTest(unittest.TestCase):
         wait_trace(self.trace, 1)   # a holds before b queues (a proof would overtake a pool run still in the queue)
         self.launch('real-extension', 'b', **env)   # a live proof of the same class, waiting for memory
         self.launch('recorded-replay', 'c', **env)
-        return self.settle()
 
     def test_a_replay_with_room_does_not_queue_behind_a_waiting_live_run(self):
-        self.assertEqual(sorted(self.replay_behind_a_waiting_live_proof()), ['+a', '+c'])
+        self.replay_behind_a_waiting_live_proof()
+        wait_trace(self.trace, 2)   # the replay starts however slow the Mac is
+        self.assertEqual(sorted(self.settle()), ['+a', '+c'], 'and the live proof b does not')
         self.finish()
 
     def test_the_replay_switch_restores_arrival_order(self):
-        self.assertEqual(self.replay_behind_a_waiting_live_proof(JOB_PILOTTO_HEAVY_REPLAY_SKIP='0'), ['+a'])
+        self.replay_behind_a_waiting_live_proof(JOB_PILOTTO_HEAVY_REPLAY_SKIP='0')
+        self.assertEqual(self.settle(), ['+a'])
         self.finish()
 
     def test_a_timing_run_is_alone_and_nobody_starts_beside_it(self):
