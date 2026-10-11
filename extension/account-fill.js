@@ -87,12 +87,21 @@ export function pressAccountButton(named = '') {
 export function accountSketch() {
   const shown = el => el.getClientRects().length > 0;
   const clean = (value, max) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
+  // A picklist's choice, read as the panel reads it (review.js comboFilled, page/browser-form-fastpath.js __jobPilottoChosen): a menu on a real option, not its first-option
+  // placeholder ('', 0, -1); a combobox whose chip (react-select) or labelled hidden input holds the choice in the field's own area (up 4 boxes, never into another field's).
+  // Its own value is only typed search text. Guard: desktop/e2e/test/judge-sketch-picklist.test.mjs (11 Oct 2026: a chosen Country read "empty" to the form judge).
+  const given = el => el.tagName === 'SELECT' ? (o => !!o && !o.disabled && !o.hidden && !!o.text.trim() && !(o.index === 0 && /^(|0|-1)$/.test(o.value)))(el.options[el.selectedIndex])
+    : el.getAttribute('role') === 'combobox' ? (() => {
+      for (let box = el.parentElement, i = 0; box && i < 4 && box.querySelectorAll('input:not([type=hidden]), select, textarea').length <= 1; box = box.parentElement, i++)
+        if (box.querySelector('[class*=single-value], [class*=multi-value]') || [...box.querySelectorAll('input[type=hidden][id]')].some(h => h.value && document.querySelector(`label[for="${CSS.escape(h.id)}"]`))) return true;
+      return false;
+    })() : !!String(el.value || '').trim();
   const controls = [...document.querySelectorAll('input, select, textarea')].filter(el => shown(el) && !['hidden', 'submit', 'button', 'image', 'reset'].includes(el.type)).map(el => ({
     type: el.type, label: clean(el.labels?.[0]?.innerText || el.getAttribute('aria-label') || el.placeholder || el.name || '', 80),
     required: !!el.required || el.getAttribute('aria-required') === 'true',
     at: (box => `${Math.max(0, Math.min(100, Math.round(100 * (box.left + box.width / 2) / innerWidth)))},${Math.max(0, Math.min(100, Math.round(100 * (box.top + box.height / 2) / innerHeight)))}`)(el.getBoundingClientRect()),   // where it is on screen (% of the window): the closer look matches the picture to the control
     ...(el.tagName === 'SELECT' ? {options: [...el.options].map(item => clean(item.text, 40)).filter(Boolean).slice(0, 40)} : {}),
-    state: el.type === 'checkbox' || el.type === 'radio' ? (el.checked ? 'checked' : 'unchecked') : el.type === 'file' ? (el.files?.length || el.dataset.jobPilottoFile ? 'filled' : 'empty') : (String(el.value || '').trim() ? 'filled' : 'empty')}));   // a file input: holds a file, or this extension attached one (the page may have swapped the input for its own display)
+    state: el.type === 'checkbox' || el.type === 'radio' ? (el.checked ? 'checked' : 'unchecked') : el.type === 'file' ? (el.files?.length || el.dataset.jobPilottoFile ? 'filled' : 'empty') : (given(el) ? 'filled' : 'empty')}));   // a file input: holds a file, or this extension attached one (the page may have swapped the input for its own display)
   const buttons = [...new Set([...document.querySelectorAll('button, input[type=submit], input[type=button], [role=button], a')].filter(shown).map(el => clean(el.innerText || el.value || el.getAttribute('aria-label'), 60)).filter(Boolean))];
   const seen = new Set(), texts = [];
   for (const el of document.body ? document.body.querySelectorAll('*') : []) {

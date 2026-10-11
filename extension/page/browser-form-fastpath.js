@@ -22,8 +22,13 @@
   // react-select (every Greenhouse dropdown) renders a text input that is only its search box:
   // setting its value selects nothing, and the chosen option lives in the container instead.
   const isCombo = element => element.getAttribute('role') === 'combobox';
-  const comboFilled = element => !!(element.closest('[class*=select__container]') ||
-    element.closest('[class*=container]'))?.querySelector('[class*=single-value], [class*=multi-value]');
+  // Its choice is a chip in the field's own area, or (a type-to-search picklist) a hidden input a <label for> points to; up 4 boxes, never into another
+  // field's. One rule with the panel (extension/review.js comboFilled) and the judges' sketch (account-fill.js; desktop/e2e/test/judge-sketch-picklist.test.mjs).
+  const comboFilled = element => {
+    for (let box = element.parentElement, i = 0; box && i < 4 && box.querySelectorAll('input:not([type=hidden]), select, textarea').length <= 1; box = box.parentElement, i++)
+      if (box.querySelector('[class*=single-value], [class*=multi-value]') || [...box.querySelectorAll('input[type=hidden][id]')].some(h => h.value && document.querySelector(`label[for="${CSS.escape(h.id)}"]`))) return true;
+    return false;
+  };
   // Step timer for the Agent Runs record: helpers stamp themselves; agents add named steps
   // ("dropdowns", "resume") inside a JS call they already make. Times only, never values.
   window.__jobPilottoSteps = window.__jobPilottoSteps || [];

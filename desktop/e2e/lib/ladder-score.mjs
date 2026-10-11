@@ -38,7 +38,7 @@ async function scoreJudge(fixture, base, {clientFor, pending}) {
   let captured = null;
   const client = clientFor ? clientFor(fixture) : replayClient(fixture.answer);
   const tee = {messages: {create: async body => { const response = await client.messages.create(body); try { captured = JSON.parse(response.content?.find(block => block.type === 'text')?.text || ''); } catch { /* the judge says so */ } return response; }}};
-  const result = question === 'form_step' ? await judgeForm(tee, fixture.sketch) : await judgeAccount(tee, fixture.sketch, question === 'account_result' ? 'result' : 'ready');
+  const result = question.startsWith('form_') ? await judgeForm(tee, fixture.sketch) : await judgeAccount(tee, fixture.sketch, question === 'account_result' ? 'result' : 'ready');
   const outcome = result.error ? 'unsure' : question === 'form_step' ? result.step : result.answer;
   const confidence = Number(result.confidence ?? captured?.confidence) || 0;
   return {...base, outcome, confidence, rung: result.error ? 0 : 2, route: '', digestOk: null, status: pending ? 'pending' : statusOf(fixture.expect, outcome, confidence), note: fixture.note || '', answer: captured || fixture.answer || null};

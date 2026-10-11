@@ -52,6 +52,14 @@
   {
    "date": "2026-10-11",
    "reason": "re-captured live with their frame candidate (ladder-capture waits for a qualifying frame): auterion unsure->exact, formlabs unsure->exact, datadog-greenhouse-frame other->exact, coreweave/nebius/red-badger other(accepted)->exact, databricks posting(accepted)->exact; accept tightened to form_in_frame"
+  },
+  {
+   "date": "2026-10-11",
+   "reason": "ready-en-chosen-picklists: added, wrong-confident today (chosen react-select read empty)"
+  },
+  {
+   "date": "2026-10-11",
+   "reason": "ready-en-chosen-picklists: wrong-confident -> exact (accountSketch reads a chosen picklist as filled)"
   }
  ],
  "promptFingerprint": {
@@ -1097,6 +1105,17 @@
     ]
    },
    "outcome": "posting",
+   "status": "exact"
+  },
+  "ready-en-chosen-picklists": {
+   "question": "form_ready",
+   "expect": {
+    "outcome": "ready",
+    "accept": [
+     "ready"
+    ]
+   },
+   "outcome": "ready",
    "status": "exact"
   },
   "recorded-ashby-yes-no-buttons-1": {

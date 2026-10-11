@@ -1,0 +1,97 @@
+{
+ "schemaVersion": 1,
+ "id": "ready-en-chosen-picklists",
+ "question": "form_ready",
+ "source": "reconstructed",
+ "lang": "en",
+ "why": "pool 11 Oct 2026 (a hosted board behind an employer's site): every required field given, three of them react-select picklists whose choice is a chip beside an empty search input. The judges' sketch read them 'empty', so the form judge said needs_person Country* 4 s after the fill filled it",
+ "capture": {
+  "page": "ladder-fixtures/pages/ready-en-chosen-picklists.html"
+ },
+ "url": "https://boards.example.com/acme/jobs/1234",
+ "expect": {
+  "outcome": "ready"
+ },
+ "sketch": {
+  "url": "https://boards.example.com/acme/jobs/1234",
+  "title": "Job Application for Site Reliability Engineer",
+  "headings": [
+   "Site Reliability Engineer",
+   "Apply for this job"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "First Name*",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "text",
+    "label": "Last Name*",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "email",
+    "label": "Email*",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "text",
+    "label": "Country*",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "text",
+    "label": "Phone*",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "text",
+    "label": "Please select all the languages you speak fluently.*",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "text",
+    "label": "How did you hear about this opportunity?*",
+    "required": true,
+    "state": "filled"
+   },
+   {
+    "type": "text",
+    "label": "Gender",
+    "required": false,
+    "state": "empty"
+   }
+  ],
+  "buttons": [
+   "Submit application"
+  ],
+  "texts": [
+   "Site Reliability Engineer",
+   "Apply for this job",
+   "Phone",
+   "+41",
+   "English",
+   "German",
+   "Company website",
+   "Select...",
+   "Voluntary self-identification is optional."
+  ],
+  "frames": []
+ },
+ "answer": {
+  "answer": "ready",
+  "needs": "\"\"",
+  "needs_kind": "",
+  "step": "final",
+  "next_control": "",
+  "confidence": 0.9
+ },
+ "answer_path": "app"
+}

@@ -86,9 +86,10 @@ test('the judges are questions of rung 2: each fixture is scored through the REA
     judged('r3', 'form_step', 'middle', {answer: 'ready', needs: '', needs_kind: '', step: 'middle', next_control: 'Weiter', confidence: 0.85}),
     judged('r4', 'account_ready', 'ready', {answer: 'needs_person', needs: 'nothing the page lists', needs_kind: 'field', consent_required: false, bot_check: false, confidence: 0.9}),
     judged('r5', 'form_step', 'final', {answer: 'banana', step: 'final', confidence: 0.9}),
+    judged('r6', 'form_ready', 'needs_person', {answer: 'needs_person', needs: 'Country*', needs_kind: 'choice', step: 'final', next_control: '', confidence: 0.9}),   // the form judge's answer, not its step
   ]);
   assert.deepEqual(rows.map(row => [row.id, row.question, row.outcome, row.status, row.rung]), [['r1', 'account_ready', 'needs_person', 'exact', 2], ['r2', 'account_result', 'needs_code', 'exact', 2], ['r3', 'form_step', 'middle', 'exact', 2],
-    ['r4', 'account_ready', 'needs_person', 'wrong-confident', 2], ['r5', 'form_step', 'unsure', 'miss', 0]]);   // a judge answer outside its fixed list is an error: unsure, rung 0
+    ['r4', 'account_ready', 'needs_person', 'wrong-confident', 2], ['r5', 'form_step', 'unsure', 'miss', 0], ['r6', 'form_ready', 'needs_person', 'exact', 2]]);   // a judge answer outside its fixed list is an error: unsure, rung 0
 });
 
 test('rates are per question and then per source, never blended across questions', async () => {

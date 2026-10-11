@@ -8,10 +8,10 @@ export const DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..',
 export const OUTCOMES = ['form', 'account', 'posting', 'email', 'phone', 'link', 'login_wall', 'expired', 'in_person', 'form_in_frame', 'other'];
 export const SCHEMA_VERSION = 1;
 // The questions of rung 2 a fixture can ask (docs/flows/ladder.md): the page-kind sketch (the default, no `question` field), and the two judges' questions. Additive: a fixture without `question` is page_kind.
-export const QUESTIONS = ['page_kind', 'account_ready', 'account_result', 'form_step'];
+export const QUESTIONS = ['page_kind', 'account_ready', 'account_result', 'form_step', 'form_ready'];   // form_ready: the form judge's ready/needs_person (form_step: its step)
 export const questionOf = fixture => fixture.question || 'page_kind';
 // The fixed answers each question can give (an expectation is one of them; `pending` too, for a captured candidate nobody confirmed).
-export const OUTCOMES_BY_QUESTION = {page_kind: OUTCOMES, account_ready: ['ready', 'needs_person', 'unsure'], account_result: ['created', 'created_confirm', 'needs_code', 'already_exists', 'refused', 'unsure'], form_step: ['middle', 'final', 'unsure']};
+export const OUTCOMES_BY_QUESTION = {page_kind: OUTCOMES, account_ready: ['ready', 'needs_person', 'unsure'], account_result: ['created', 'created_confirm', 'needs_code', 'already_exists', 'refused', 'unsure'], form_step: ['middle', 'final', 'unsure'], form_ready: ['ready', 'needs_person', 'unsure']};
 // What the judges' sketch holds (the extension's accountSketch, extension/account-fill.js: never a typed value); fromPath and sameForm only after a press (account_result).
 export const JUDGE_SKETCH_FIELDS = ['title', 'headings', 'controls', 'buttons', 'texts', 'frames', 'fromPath', 'sameForm'];
 // The fields a fixture may carry (adding one is a one-line change here; the test fails on an undeclared one). `rung` (0-6) and `signal` (unsure|contradicted|stalled|failed) are for the
