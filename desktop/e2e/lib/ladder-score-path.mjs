@@ -5,7 +5,7 @@
 import {cliClient} from '../../lib/ai/claude-code-cli.js';
 import {realClaude} from './real-claude.mjs';   // never a terminal's claude wrapper (e2e/test/real-claude.test.mjs)
 
-export const scoringClient = ({binary = realClaude() || 'claude', ...options} = {}) => cliClient(binary, options);
+export const scoringClient = ({binary = realClaude() || 'claude', ...options} = {}) => cliClient(binary, {lane: 'page', ...options});   // the page lane: the extension's questions
 
 // A fixture's stored answer says which path recorded it (`answer_path`: written by --record). Older ones have none: the scorer's own call.
 export function answerPathNote(fixtures) {
