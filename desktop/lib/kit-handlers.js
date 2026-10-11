@@ -2,6 +2,7 @@
 // its Notion row, tailoring a CV for a job or for the top matches. It hands back prepareKitFor and tailorCv for the groups that use them
 // (apply, the CV handlers). main.js passes in the services they share. Guards: the kit, tailor and apply tests in desktop/test.
 import * as apply from './apply.js';
+import * as atUpload from './cv-import-at-upload.js';
 import * as claudeCode from './claude-code.js';
 import * as cvlib from './cv.js';
 import * as experience from './experience.js';
@@ -49,7 +50,7 @@ export function registerKitHandlers(ctx) {
       let cost = 0;
       if (!cvlib.baseCv(storage)) {
         if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF) in Settings first.'};
-        cost += (await cvlib.importPdf(storage, key, ai, {look: keepLook})).usd;
+        cost += (await atUpload.ensure(storage, {client: ai, key, look: keepLook})).usd || 0;
       }
       const job = await pipeline.posting(storage, code);
       if (!job.ok) return {ok: false, error: job.error};

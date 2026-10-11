@@ -9,7 +9,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
 endobj
 4 0 obj
-<< /Length 1088 >>
+<< /Length 1104 >>
 stream
 BT /F1 10 Tf 40 800 Td 14 TL
 (Alex Example) Tj T*
@@ -31,7 +31,7 @@ BT /F1 10 Tf 40 800 Td 14 TL
 (Kubernetes, Terraform, AWS, Python, Go, Datadog, Prometheus, Grafana, PostgreSQL) Tj T*
 () Tj T*
 (EDUCATION) Tj T*
-(BSc Computer Science, Example University) Tj T*
+(BSc Computer Science, Example University \(2014 - 2018\)) Tj T*
 () Tj T*
 (LANGUAGES) Tj T*
 (English \(fluent\), German \(B1\)) Tj T*
@@ -48,9 +48,9 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000241 00000 n 
-0000001381 00000 n 
+0000001397 00000 n 
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-1451
+1467
 %%EOF

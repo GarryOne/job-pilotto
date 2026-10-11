@@ -3,6 +3,7 @@
 // Guards: the notion-oauth, settings, claude-code and cv tests in desktop/test.
 import * as aiTrial from './ai-trial.js';
 import * as claudeCode from './claude-code.js';
+import * as atUpload from './cv-import-at-upload.js';
 import * as cvChange from './cv-change.js';
 import * as cvlib from './cv.js';
 import * as notionGate from './notion-gate.js';
@@ -17,7 +18,7 @@ import {checkOpenAiKey} from './ai/openai-api.js';
 import {log as appLog} from './log.js';
 
 export function registerSetupHandlers(ctx) {
-  const {DEMO, connectNotion, dialog, handleImportant, ipcMain, licenseState, needsNotion, shell, storage, syncCv, getTelemetry, track, trackSetup, getWindow, setNotionFrom} = ctx;
+  const {DEMO, connectNotion, dialog, handleImportant, ipcMain, licenseState, needsNotion, shell, storage, syncCv, getTelemetry, track, trackSetup, getWindow, setNotionFrom, keepLook, toWindow} = ctx;
   handleImportant('notionConnect', 'Connecting Notion', async (_, pasted) => {   // about Notion
     const {value: token, error} = cleanSecret(pasted);
     if (error) return {ok: false, error};
@@ -101,7 +102,9 @@ export function registerSetupHandlers(ctx) {
   ipcMain.handle('chooseCv', async () => {
     const picked = await dialog.showOpenDialog(getWindow(), {title: 'Choose your CV', filters: [{name: 'PDF', extensions: ['pdf']}], properties: ['openFile']});
     if (picked.canceled || !picked.filePaths[0]) return null;
-    const name = cvChange.replace(storage, picked.filePaths[0], path.basename(picked.filePaths[0])).name;
+    // The file is set at once; the CV is read into cv.json in the background (lib/cv-import-at-upload.js), once per file.
+    const {name} = atUpload.setCv(storage, picked.filePaths[0], path.basename(picked.filePaths[0]),
+      {client: claudeCode.client(storage), key: storage.secret('ANTHROPIC_API_KEY'), look: keepLook, toast: body => toWindow('toast', body)});
     syncCv();  // this version to the Profile in Notion too
     return name;
   });

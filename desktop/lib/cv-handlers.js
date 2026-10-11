@@ -1,6 +1,7 @@
 // The CV and cover-letter IPC (moved out of main.js, 8 Oct 2026): the CV match on a job, which CV a job uses, the base CV's status and
 // check, viewing it, the cover letter's draft, approval and PDF, and the CV folder. main.js passes in the services they share.
 // Guards: the cv, cv-check, cover-letter and match-check tests in desktop/test.
+import * as atUpload from './cv-import-at-upload.js';
 import * as claudeCode from './claude-code.js';
 import * as contactDetails from './contact.js';
 import * as cvCheck from './cv-check.js';
@@ -29,7 +30,7 @@ export function registerCvAndLettersHandlers(ctx) {
       let cost = 0;
       if (!cvlib.baseCv(storage)) {
         if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF) in Settings first.'};
-        cost += (await cvlib.importPdf(storage, key, ai, {look: keepLook})).usd;
+        cost += (await atUpload.ensure(storage, {client: ai, key, look: keepLook})).usd || 0;
       }
       const job = await pipeline.posting(storage, String(code));
       if (!job.ok) return {ok: false, error: job.error};
@@ -82,7 +83,7 @@ export function registerCvAndLettersHandlers(ctx) {
     const key = storage.secret('ANTHROPIC_API_KEY'), ai = claudeCode.client(storage);
     if (!key && !ai) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
     if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF) first.'};
-    try { return {ok: true, usd: (await cvlib.importPdf(storage, key, ai, {look: keepLook})).usd}; } catch (error) { return {ok: false, error: error.message}; }
+    try { return {ok: true, usd: (await atUpload.ensure(storage, {client: ai, key, look: keepLook, force: true})).usd || 0}; } catch (error) { return {ok: false, error: error.message}; }
   });
   ipcMain.handle('viewBaseCv', async () => {
     const base = cvlib.baseCv(storage);
@@ -102,7 +103,7 @@ export function registerCvAndLettersHandlers(ctx) {
     try {
       if (!cvlib.baseCv(storage)) {
         if (!fs.existsSync(storage.path('cv.pdf'))) return {ok: false, error: 'Add your CV (PDF) first.'};
-        await cvlib.importPdf(storage, key, ai, {look: keepLook});
+        await atUpload.ensure(storage, {client: ai, key, look: keepLook});
       }
       const {profile, answers} = await strategy.profileTexts(storage);
       const contact = await contactDetails.read(storage).catch(() => ({}));

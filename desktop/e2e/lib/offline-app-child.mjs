@@ -24,7 +24,7 @@ const STAND_IN = {first_name: 'Test', last_name: 'Candidate', email: 'test.candi
 fs.mkdirSync(dir, {recursive: true});
 fs.copyFileSync(path.join(E2E, 'fixtures', 'cv.pdf'), path.join(dir, 'cv.pdf'));
 // The CV as the app's import keeps it (cv/cv.json, hand-made from cv.pdf, years included): the fill's <cv_facts> read it; a fill never imports (lib/server-env.js).
-if (!process.env.E2E_NO_IMPORTED_CV) {   // the control: an app whose CV was never imported (npm run cv-facts-cases must then miss)
+if (!process.env.E2E_NO_IMPORTED_CV && !process.env.E2E_IMPORT_VIA_UPLOAD) {   // the control: an app whose CV was never imported (npm run cv-facts-cases must then miss)
   fs.mkdirSync(path.join(dir, 'cv'), {recursive: true});
   fs.copyFileSync(path.join(E2E, 'fixtures', 'cv.json'), path.join(dir, 'cv', 'cv.json'));
 }
@@ -38,6 +38,13 @@ const storage = createStorage(dir, {encrypt: value => value, decrypt: value => v
 const {draft} = JSON.parse(fs.readFileSync(path.join(E2E, '..', 'demo', 'draft.json'), 'utf8'));
 (await import('../../lib/strategy.js')).keepLocally(storage, {...draft, contact: STAND_IN});
 storage.saveSettings({aiEngine: 'cli', claudeCode: {path: realClaude()}, store: 'sqlite', setupDone: true, cvName: 'cv.pdf', telemetry: false, shareEmployers: false});
+if (process.env.E2E_IMPORT_VIA_UPLOAD) {   // the app's own upload path: setCv on the fake CV, cv.json made by the real import (plan path); npm run cv-facts-cases then reads it
+  const uploaded = path.join(dir, 'picked-cv.pdf');
+  fs.copyFileSync(path.join(E2E, 'fixtures', 'cv.pdf'), uploaded);
+  const claudeCode = await import('../../lib/claude-code.js');
+  await (await import('../../lib/cv-import-at-upload.js')).setCv(storage, uploaded, 'cv.pdf', {client: claudeCode.client(storage), key: ''}).done;
+  if (!fs.existsSync(path.join(dir, 'cv', 'cv.json'))) throw new Error('offline app: the upload did not leave cv/cv.json');
+}
 const {start, PORT, EXTENSION_ID} = await import('../../lib/server.js');
 const {extensionToken} = await import('../../lib/server-env.js');
 if (String(PORT) !== process.env.JOB_PILOTTO_PORT) throw new Error(`offline app: the server took port ${PORT}, not ${process.env.JOB_PILOTTO_PORT}`);

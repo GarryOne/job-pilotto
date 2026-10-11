@@ -12,7 +12,7 @@ LINES = [
     'Platform Engineer, Beta Systems, Berlin (2018 - 2022)',
     '- Migrated 60 services to Kubernetes; introduced SLOs and error budgets.',
     '', 'SKILLS', 'Kubernetes, Terraform, AWS, Python, Go, Datadog, Prometheus, Grafana, PostgreSQL',
-    '', 'EDUCATION', 'BSc Computer Science, Example University',
+    '', 'EDUCATION', 'BSc Computer Science, Example University (2014 - 2018)',
     '', 'LANGUAGES', 'English (fluent), German (B1)',
 ]
 
