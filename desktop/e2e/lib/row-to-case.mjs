@@ -15,6 +15,16 @@ import {runRowCase} from './row-case-run.mjs';
 import {replayRow} from './row-replay.mjs';
 import {baselineSignature, expectFrom, filledBoxes, signatureOf} from './row-signature.mjs';
 
+// A capture's field label -> the replay's label for the same field: equal once reduced to letters and digits (no ✱, spaces or punctuation), or one is the start of the other (at least 12 characters).
+const squash = label => String(label).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+export const labelMatcher = labels => {
+  const known = labels.map(label => [label, squash(label)]);
+  return wanted => {
+    const key = squash(wanted);
+    return (known.find(([, other]) => other === key) || known.find(([, other]) => key.length >= 12 && other.length >= 12 && (other.startsWith(key) || key.startsWith(other))) || [])[0];
+  };
+};
+
 const readJson = file => JSON.parse(fs.readFileSync(file, 'utf8'));
 
 export async function rowToCase({rowDir, name, outDir, oldDir, askCold = false, fixed = false, build = buildCase, replay = replayRow, values = personalValues(appProfileTexts()), say = () => {}}) {
@@ -43,10 +53,16 @@ export async function rowToCase({rowDir, name, outDir, oldDir, askCold = false, 
     // --fixed: the capture was taken on a build that already has the fix (a regression case): the live run IS the expected behavior (plus whatever else the new build shows beyond it), the boxes the new
     // build ends with filled are expected too, and the old build must fail it. (An earlier version added the boxes only when the replay matched the live run exactly: with any difference the old build
     // had nothing to fail and "passed", 12 Oct 2026.)
-    if (fixed && (!derived.refused || /^nothing improved/.test(derived.refused))) {
-      const more = derived.expect || {}, boxes = filledBoxes(fresh.boxes);
+    // ("regressed" is no refusal here: the live run was the fixed build, so there is no fix to regress; the new build's cold ask answered a question another way than the live AI did: that field is not asserted.)
+    if (fixed && (!derived.refused || /^(nothing improved|the new build regressed)/.test(derived.refused))) {
+      const more = derived.expect || {}, boxes = filledBoxes(fresh.boxes), seen = signatureOf(fresh).fields, byLabel = labelMatcher(Object.keys(seen));
+      // The capture's labels are not the replay's: "Email" for "Email✱", a label cut at 40 characters, a country scrubbed out of a sentence. A live field is asserted under the replay's own label when they
+      // match (the new build failed its own case on every unmatched one: "field X: absent", 61's Lever capture, 12 Oct 2026); one that matches nothing is named and left out.
+      const kept = {}, unmatched = [], outcomeOf = value => String(value).split(':')[0];   // the live run's reason text is not the replay's (the offline app words it its own way): the outcome is compared, the replay's own value is kept
+      for (const [label, value] of Object.entries(base.fields)) { const same = byLabel(label); if (same && outcomeOf(seen[same]) === outcomeOf(value)) kept[same] = seen[same]; else unmatched.push(label); }
       derived.refused = '';
-      derived.expect = {kinds: more.kinds || base.kinds, pressed: more.pressed || base.pressed, fields: {...base.fields, ...(more.fields || {})}, ...(Object.keys(boxes).length ? {boxes} : {})};
+      derived.expect = {kinds: more.kinds || base.kinds, pressed: more.pressed || base.pressed, fields: {...kept, ...(more.fields || {})}, ...(Object.keys(boxes).length ? {boxes} : {})};
+      if (unmatched.length) lines.push(`row-to-case: ${unmatched.length} live field(s) have no replay field of the same label and outcome (filled/left): not asserted: ${unmatched.map(label => label.slice(0, 40)).join('; ')}`);
       lines.push('row-to-case: --fixed: the live run was taken on the fixed build; its own behavior and the boxes it ends with are the expect');
     }
     if (derived.refused) return end(4, `row-to-case: ${derived.refused}`);

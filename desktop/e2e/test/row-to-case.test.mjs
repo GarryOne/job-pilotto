@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {rowToCase} from '../lib/row-to-case.mjs';
+import {labelMatcher, rowToCase} from '../lib/row-to-case.mjs';
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'jp-r2c-'));
 const base = {pageKinds: ['page kind: posting {}'], fields: [{label: 'Email', outcome: 'filled', reason: 'your details'}], pressed: []};
@@ -88,4 +88,41 @@ test('each stage says so as it starts, in order (a replay is silent for up to 90
   await go(replayBy(['posting', 'form'], ['posting']), {askCold: true, say: line => said.push(line)});
   const order = ['building the case', 'asking the new build', 'replaying on the NEW build (', 'replaying on the OLD build', 'against the written expect'];
   assert.deepEqual(order.map(part => said.findIndex(line => line.includes(part))), [0, 1, 2, 3, 4]);
+});
+
+test('--fixed: a live field whose label the replay cannot match (cut or scrubbed in the capture) is not asserted, and the tool says so (the new build failed its own case on it: "field X: absent")', async () => {
+  const withCut = async ({name, outDir}) => { const built = await build({name, outDir}); const file = path.join(built.dir, 'case.json'), item = JSON.parse(fs.readFileSync(file, 'utf8'));
+    item.baseline = {...base, fields: [...base.fields, {label: 'Current location No location found. Try entering ', outcome: 'left', reason: 'no answer'}]}; fs.writeFileSync(file, JSON.stringify(item)); return built; };
+  const done = await go((dir, options = {}) => Promise.resolve(options.extensionDir ? result(['posting'], {requests: []}) : result(['posting'])), {fixed: true, build: withCut});
+  assert.equal(done.code, 0, done.lines.join('\n'));
+  const item = JSON.parse(fs.readFileSync(path.join(done.outDir, 'start-dialog-1', 'case.json'), 'utf8'));
+  assert.deepEqual(Object.keys(item.expect.fields), ['Email'], 'only labels the replay has');
+  assert.match(done.lines.join('\n'), /1 live field\(s\) .* not asserted: Current location/);
+});
+
+test('a capture label is matched to the replay\'s: the same letters and digits, or a cut start of it; nothing else', () => {
+  const match = labelMatcher(['Email✱', 'Current location ✱No location found. Try entering a different locationLoading', 'Phone ✱', 'Full name✱']);
+  assert.equal(match('Email'), 'Email✱');
+  assert.equal(match('Phone'), 'Phone ✱');
+  assert.equal(match('Current location ✱No location found. Try'), 'Current location ✱No location found. Try entering a different locationLoading', 'a cut label');
+  assert.equal(match('Name'), undefined, 'a short start is not a match');
+  assert.equal(match('Cover letter'), undefined);
+});
+
+test('--fixed: a live field matched by label with the same outcome is asserted with the replay\'s own reason (the live reason text is not the replay\'s)', async () => {
+  const worded = async ({name, outDir}) => { const built = await build({name, outDir}); const file = path.join(built.dir, 'case.json'), item = JSON.parse(fs.readFileSync(file, 'utf8'));
+    item.baseline = {...base, fields: [{label: 'Email', outcome: 'filled', reason: 'kept in your details'}]}; fs.writeFileSync(file, JSON.stringify(item)); return built; };
+  const done = await go((dir, options = {}) => Promise.resolve(options.extensionDir ? result(['posting'], {requests: []}) : result(['posting'])), {fixed: true, build: worded});
+  assert.equal(done.code, 0, done.lines.join('\n'));
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(done.outDir, 'start-dialog-1', 'case.json'), 'utf8')).expect.fields, {Email: 'filled: your details'});
+});
+
+test('--fixed: a field filled live and not in the replay (the cold ask answered it another way) is no regression: it is left out, and the case is still written', async () => {
+  const filledLive = async ({name, outDir}) => { const built = await build({name, outDir}); const file = path.join(built.dir, 'case.json'), item = JSON.parse(fs.readFileSync(file, 'utf8'));
+    item.baseline = {...base, fields: [...base.fields, {label: 'Gender', outcome: 'filled', reason: 'Female'}]}; fs.writeFileSync(file, JSON.stringify(item)); return built; };
+  const replay = (dir, options = {}) => Promise.resolve(options.extensionDir ? result(['posting'], {requests: []}) : result(['posting'], {requests: [{route: '/extension/run', body: JSON.stringify({trace: [{label: 'Email', outcome: 'filled', reason: 'your details'}, {label: 'Gender', outcome: 'left', reason: 'no answer'}]})}]}));
+  assert.equal((await go(replay, {build: filledLive})).code, 4, 'without --fixed it is a regression and refused');
+  const done = await go(replay, {fixed: true, build: filledLive});
+  assert.equal(done.code, 0, done.lines.join('\n'));
+  assert.deepEqual(Object.keys(JSON.parse(fs.readFileSync(path.join(done.outDir, 'start-dialog-1', 'case.json'), 'utf8')).expect.fields), ['Email']);
 });
