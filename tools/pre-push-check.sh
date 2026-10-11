@@ -211,6 +211,20 @@ pids=(); names=(); outs=()
 # What the affected-tests pick says for every area: part of each cache key, so a rebase that changes which tests a push needs is a miss.
 picks=""; [ -n "$affected_flag" ] && picks="$(cd "$repo" && python3 tools/affected-tests.py --base origin/main 2>/dev/null | shasum | cut -c1-16)"
 case "$command" in *PUSH_FULL=1*) export GATE_CACHE_FRESH=1 ;; esac
+# Tiers by what the change can break (landing-speed, 11 Oct 2026; AGENTS.md "Change tiers"): an area whose affected-tests pick is EMPTY is not started at all
+# (a docs, skill or tools-only push no longer pays desktop's stage + lint and a fresh checkout per area). Desktop keeps its lint when a JS file changed.
+# `JOB_PILOTTO_TIERS=0` runs every area the path list wants, as before. The journey, ladder and recorded gates above run on their own file lists, not on this.
+if [ -n "$affected_flag" ] && [ "${JOB_PILOTTO_TIERS:-1}" != 0 ] && command -v jq >/dev/null; then
+  pick_json="$(cd "$repo" && python3 tools/affected-tests.py --base origin/main 2>/dev/null)"
+  skipped=""
+  for area in python worker site desktop; do
+    want="want_$area"; [ "${!want}" = 1 ] || continue
+    [ "$(jq -r --arg a "$area" '.[$a] | if type == "array" and length == 0 then "empty" else "run" end' <<<"$pick_json" 2>/dev/null)" = empty ] || continue
+    [ "$area" = desktop ] && grep -qE '\.(js|mjs|cjs)$' <<<"$changed" && continue
+    printf -v "$want" 0; skipped="$skipped $area"
+  done
+  [ -n "$skipped" ] && echo "pre-push: nothing in$skipped can break from this change (no affected tests): not run (JOB_PILOTTO_TIERS=0 runs them)" >&2
+fi
 run() {  # name, then the command: started in the background, collected below
   local name="$1" out; shift; out="$(mktemp)"
   ( cd "$repo" && timed "$name" "$@" ) >"$out" 2>&1 &

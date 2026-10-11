@@ -200,6 +200,24 @@ class PrePushCheckTest(unittest.TestCase):
         code, _ = self.hook('git push origin HEAD:main', **{**red, 'GH_LATEST': 'f' * 40})
         self.assertEqual(code, 2)
 
+    def test_an_area_with_no_affected_tests_is_not_started(self):
+        # Tiers (11 Oct 2026): a push nothing tests no longer starts every area just for stage + lint. The empty pick is the premise: no tests exist in this repo.
+        shutil.copy(ROOT / 'tools' / 'affected-tests.py', self.repo / 'tools' / 'affected-tests.py')
+        self.needed_committed()
+        git(self.repo, 'push', '-q', 'origin', 'main')
+        self.log.unlink(missing_ok=True)
+        self.commit('Change a helper', {'tools/helper.sh': 'echo hi\n'})
+        code, err = self.hook('git push origin HEAD:main')
+        self.assertEqual(code, 0)
+        self.assertIn('no affected tests', err)
+        self.assertFalse(self.log.exists(), 'no suite started')
+        self.assertEqual(self.hook('git push origin HEAD:main', JOB_PILOTTO_TIERS='0')[0], 0)
+        self.assertEqual(len(self.log.read_text().splitlines()), 4, 'the escape hatch runs every area the paths want')
+        self.log.unlink()
+        self.commit('Change a script', {'desktop/lib/x.js': 'export {};\n'})
+        self.hook('git push origin HEAD:main')
+        self.assertIn('--area desktop', self.log.read_text(), 'a changed JS file keeps desktop (its lint)')
+
 
 if __name__ == '__main__':
     unittest.main()
