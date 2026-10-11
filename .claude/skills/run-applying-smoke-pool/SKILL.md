@@ -1,6 +1,6 @@
 ---
 name: run-applying-smoke-pool
-description: Run, grow and coordinate the pool of real sites the applying flow is tested on (layer 3 of the applying reliability spec): the hand-started smoke, discovery of new flow shapes, the report on /admin/applying, the e2e page that sessions share, and the hand-off of failing shapes to fix-failing-forms. Use when the owner says "run the smoke pool", "/run-applying-smoke-pool", "grow the pool", "run discovery", or when taking over the applying test pool from another session.
+description: Run, grow and coordinate the pool of real sites the applying flow is tested on (layer 3 of the applying reliability spec): the hand-started smoke, discovery of new flow shapes, the report on /admin/applying, the heavy-lock slot that sessions queue for, and the hand-off of failing shapes to fix-failing-forms. Use when the owner says "run the smoke pool", "/run-applying-smoke-pool", "grow the pool", "run discovery", or when taking over the applying test pool from another session.
 ---
 
 # Run the applying smoke pool
@@ -11,7 +11,7 @@ not fix shapes: a failing one goes to `/fix-failing-forms`; one that needs the o
 Spec: `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md` (four layers); flows map: `docs/flows/applying.md`.
 
 ## Taking the role (do this first)
-Whoever owns the pool and the e2e page writes its own session name into `~/Library/Application Support/Job Pilotto QA/coordinator.txt` (one line, then what it is), when it starts and whenever its name changes: every other skill reads that file to find who to report to. `ListAgents` shows your own name on its first line. Tell the peers once ("I am the pool coordinator now, report to <name>").
+Whoever owns the pool and its run queue writes its own session name into `~/Library/Application Support/Job Pilotto QA/coordinator.txt` (one line, then what it is), when it starts and whenever its name changes: every other skill reads that file to find who to report to. `ListAgents` shows your own name on its first line. Tell the peers once ("I am the pool coordinator now, report to <name>").
 
 ## What exists
 - **Runner** `desktop/e2e/smoke.mjs` (`cd desktop/e2e && npm run smoke`), logic in `lib/smoke.mjs` (rotation `tonight`, `parseLive`, `signature`, `compare`,
@@ -40,8 +40,7 @@ Whoever owns the pool and the e2e page writes its own session name into `~/Libra
 Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is noted and replaced, never a regression. Exit 1 = a shape reached less than ITS last run.
 
 ## The rules that bite
-- **One run on the e2e page at a time** (the suites share one Notion test page and ports). Before any run: `ListAgents`, and ask the peers "is the e2e page free?"; say what you run and for
-  how long; send "done" when finished. A peer holding it: wait, or queue. Never start a second run on it.
+- **One pool run at a time on this Mac, by the machine-wide heavy lock** (`tools/heavy-lock.sh`: CPU and memory, the Mac swaps with two runs; the lock queues you and prints the holder). Pool and live runs are on SQLite in a throwaway profile: **no Notion page, no shared port** (11 Oct 2026: 59/59 logs "store under test: sqlite", `notion-requests.log` empty; each run has its own ports, profile and artifacts folder). Only `notion-real` takes a Notion page lock (`lib/notion-page-lock.mjs`). Before a run still `ListAgents` and say what you run and for how long; send "done" when finished; never start one beside a peer's run by bypassing the lock (`JOB_PILOTTO_HEAVY=0`).
 - **Say before a held run** what the window does and what is HELD (headless Chrome, fake applicant, no consent, no account button, never Submit), and how long.
 - **Background + Monitor, never sleep** (global rules). Start the run writing to a log, then arm a Monitor on its summary lines:
   `tail -n 0 -F <log> | grep --line-buffered -E "^smoke: |regression|rror:"` (one event per site: `reached <step>`, filled/left counts), and a second one for the end: save the run's PID at start (`echo $! > <scratch>/pid`) and watch `while kill -0 $PID 2>/dev/null; do sleep 3; done; echo ended`.
@@ -56,7 +55,7 @@ Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is not
 - **No local flows matrix as a gate** (owner, 9 Oct): the pool and the matrix never block a push; live sites are moody.
 
 ## A round
-1. **Free page?** Peers asked, page claimed. Tell them what and for how long.
+1. **Free slot?** Peers asked, the heavy lock free (or you queue behind it). Tell them what and for how long.
 2. **Run** (tonight's share, or `--only`/`--all`, or `--discover` when the owner loaded a new profile), held, with Monitor. Report per site as it lands.
 3. **Read the result:** regressions first (a shape that reached less than its last run), then the sites that reached the earliest step, then bot/code holds (documented, left alone).
    Compare with the last report; a site that failed once is run again before it counts.
@@ -84,7 +83,7 @@ Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is not
 - Say in the report which platform rows you acted on and which you left, with the verdict. The data is counts and platform names only: never quote a host as an install's.
 
 ## Open threads to carry (10 Oct 2026; drop each when closed)
-- Discovery is serial (~90 s a candidate, ~45 min per 30) because every run shares one e2e app and Notion test page. A `--workers` option (own port and profile per worker) is not built; the owner asked about it, the pool owner will brief it.
+- Discovery is serial (~90 s a candidate, ~45 min per 30) because the whole smoke holds the one heavy lock (not because of Notion or ports: each run already has its own). A `--workers` option is not built: it needs a second lock slot or workers inside one locked process, only when free memory covers two runs (measure first; two runs also double the `claude -p` page-kind calls on the owner's plan), and one shared results object so the report and the upload do not race.
 - Ask the owner: a `prestart` that prints npm's error on failure; renaming the Jobs "Closed" counter; multi-step AI answers for account recorded cases.
 - Chanel's Workday dialog has a fourth option, "Autofill with Resume", with no route in the page-kind answers (`desktop/lib/page-kind.js` `ROUTES`); the run still reached the form. Decide with the owner whether it needs a route.
 
@@ -99,7 +98,7 @@ Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is not
 - Never `git checkout` in the primary checkout: other sessions and uncommitted changes live there. Work in your own worktree.
 
 ## Stop conditions
-- The e2e page is held by a peer, or a peer asks for it back: stop your own run by PID and say so.
+- The heavy lock is held by a peer, or a peer asks for your slot back: stop your own run by PID and say so.
 - A run shows the isolation assertion failing, or lines in the live app's log: stop everything, say what was reached, fix the isolation first.
 - Two rounds in a row with the same shape failing for the same reason: stop re-running, write what is known and hand it to `/fix-failing-forms`; do not loop the pool to see it again.
 - The owner says stop.

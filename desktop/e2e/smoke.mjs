@@ -19,6 +19,7 @@ import {evidenceLines, runFinished, writeBundle} from './lib/evidence-bundle.mjs
 import {dropCandidate, saveCandidate} from './lib/replay-candidate.mjs';
 import {fetchWanted, wantedFirst} from './lib/wanted-hosts.mjs';
 import {heavy} from './lib/heavy.mjs';
+import {runArtifacts} from './lib/run-artifacts.mjs';
 heavy('e2e-smoke', import.meta.url);   // one heavy run at a time on this Mac (tools/heavy-lock.sh)
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -42,7 +43,7 @@ export async function postingStatus(url, fetcher = fetch) {
 function liveRun(posting, seconds, captureDir = '') {
   return new Promise(resolve => {
     const started = Date.now();
-    const child = spawn('node', ['run-all.mjs', '--only', 'applyflows'], {cwd: here, env: {...process.env, LIVE: '1', LIVE_URL: posting.url, LIVE_TITLE: posting.title || '', LIVE_COMPANY: posting.company || '', LIVE_SECONDS: String(seconds), LIVE_CAPTURE_DIR: captureDir, LIVE_ENGINE: process.env.LIVE_ENGINE || 'cli'}});
+    const child = spawn('node', ['run-all.mjs', '--only', 'applyflows'], {cwd: here, env: {...process.env, E2E_ARTIFACTS: runArtifacts(), LIVE: '1', LIVE_URL: posting.url, LIVE_TITLE: posting.title || '', LIVE_COMPANY: posting.company || '', LIVE_SECONDS: String(seconds), LIVE_CAPTURE_DIR: captureDir, LIVE_ENGINE: process.env.LIVE_ENGINE || 'cli'}});
     let output = '';
     child.stdout.on('data', chunk => { output += chunk; });
     child.stderr.on('data', chunk => { output += chunk; });

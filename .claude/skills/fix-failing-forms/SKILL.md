@@ -29,7 +29,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
   3. **Your target is rows confirmed by a pool run** (Fixed tab "Confirmed"), never "fix landed" or "recorded page passes". Ask the pool owner to run your shapes on your build and go idle;
      report confirmed rows of your cause, before -> after, when you stop.
 - **Peers (a courtesy, never a dependency; owner, 11 Oct 2026: "run on its own, without a coordinator"):** `ListAgents`; `coordinator.txt` in `~/Library/Application Support/Job Pilotto QA/` names the session
-  owning the e2e page, if one runs. Never two runs on the page: a peer's run holds it, wait or queue. **No coordinator in `ListAgents`, or the page free: you run everything yourself** (repro, re-run on the landed build, upload) and say so in one line; never stop to ask.
+  owning the pool's run queue, if one runs. Never two runs at once: the heavy lock queues them, a peer's run holds it, wait. **No coordinator in `ListAgents`, or the lock free: you run everything yourself** (repro, re-run on the landed build, upload) and say so in one line; never stop to ask.
 - **Claim the flow core** (`FLOW_CORE`/`FLOW_FILES`, `desktop/e2e/flows.mjs`) **only once the cause is proven (1.4), never on a hypothesis** (11 Oct: a claim on a guess queued 3 sessions), before editing any file in it: one message to every peer "I own the flow core
   until I say released", and "released" when done. Read each file's `Invariants:` block first; changing one is the owner's call, said in the commit.
 - **Worktree:** `tools/worktree.sh fix-<shape>`, own scratch folder `<scratchpad>/fix-failing-forms/`. No subagents. Say the change tier (usually Tier 2: apply flow). **One row per session:** side work asked mid-round (a tool, a skill rewrite, a peer's request) goes to a new session with a brief unless it takes under ~15 min (11 Oct: one row doubled a session).
@@ -47,7 +47,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
    (d) the report's reached step. **Pair each extension line with the app's line for the same request** (an extension answer with no app line: the request never arrived or the extension returned first).
    **`grep` the code for a log message before adding one** (a duplicate was written once).
 2. **Run it in the harness, never the twin, never the owner's data:** `cd desktop/e2e && npm run smoke -- --only <shape words>` (the e2e app, its own profile and
-   Notion test page, fake applicant, fixture CV, a headless Chrome with the real extension through `lib/extension.mjs`). It is a HELD run: the consent and the
+   SQLite store in a throwaway profile (no Notion), fake applicant, fixture CV, a headless Chrome with the real extension through `lib/extension.mjs`). It is a HELD run: the consent and the
    account button are NOT pressed, never Submit. **Say before it starts** what the window does and what is HELD, and how long (`SMOKE_SECONDS`, default 90).
 3. **Watch it with `Monitor`, not sleep** (global rules): background run to a log, then
    `tail -n 0 -F <log> | grep --line-buffered -E "^\s+live \+|STALL|\[extension\] (fill: (page kind|pressed)|can't reach)|^(✓|✗)"`. Test the pattern once with `grep -c`
@@ -57,7 +57,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
    digest flag, the named button's flags: `no Apply button to press {found, visible, pickable…}`), add that line, run once, then fix. Also: the stub was really called (count the asks), and the case FAILS on the build before the fix
    (`REAL_EXTENSION_DIR=<old extension/>`); one that passes there is only a guard. **Which layer proves what:** a hand-stubbed AI answer in a recorded page proves the extension handles a CORRECT answer, never that the model gives it
    (that is `ladder-score` and the live pool). A shape that fails once (a moody site) is run twice before it counts.
-5. **Offline, no e2e page, seconds:** `cd desktop && node scripts/stage.mjs` once per fresh worktree (builds `shared/`), then `npm run ladder-score -- --offline --only <fixture>` (what the stored AI answer says) and
+5. **Offline, no app run, seconds:** `cd desktop && node scripts/stage.mjs` once per fresh worktree (builds `shared/`), then `npm run ladder-score -- --offline --only <fixture>` (what the stored AI answer says) and
    `cd e2e && JP_REPLAY=1 REPLAY_ONLY=<case> node --test test/recorded-pages.test.mjs` (the real extension on a recorded page). The shared e2e page is a queue (the coordinator, `coordinator.txt`): read the offline result and the newest logs first.
 
 ## 2. Say what the fix is, before coding (one block)
@@ -140,7 +140,7 @@ Flow-core files (`page-kind.js`, `fill-flow.js`, `session-flow.js`, `escalate.js
 - **A red row is a stated rule, not a bug** (the code refuses it on purpose, e.g. "Easy Apply", a consent, a Submit): do not change the rule yourself. Say what the rule is, what the row would need, and ask the owner;
   a change is a Decision Log entry.
 - The shape needs the owner's real state (their account, their Gmail): hand it to the twin skill, never use it here.
-- A peer holds the e2e page or the flow core: wait or queue yours; never two runs on one page. No coordinator running is not a stop: you run it yourself.
+- A peer holds the heavy lock (a run) or the flow core: wait or queue yours; never two runs at once. No coordinator running is not a stop: you run it yourself.
 - The owner says stop.
 
 ## Never

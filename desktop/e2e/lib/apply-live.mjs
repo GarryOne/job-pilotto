@@ -14,6 +14,7 @@ import {appProfileTexts, personalValues, scrub, snapshotInPage} from './capture-
 import {removeJobsByUrl} from './seed-data.mjs';
 import {modelClient} from './model.mjs';
 import {pause} from './apply-fixtures.mjs';
+import {writeAtomic} from './run-artifacts.mjs';
 export {livePosting} from './live-posting.mjs';
 
 
@@ -27,7 +28,7 @@ export async function realKind(body, client = modelClient({engine: () => 'cli'})
   if (kept[key] && !process.env.LIVE_FRESH) return kept[key];
   const answer = await client.messages.create(body);
   const text = answer.content?.find(block => block.type === 'text')?.text ?? null;
-  if (text) { kept[key] = text; try { fs.writeFileSync(memo, JSON.stringify(kept)); } catch { /* the memo is only a speed-up */ } }
+  if (text) { kept[key] = text; try { writeAtomic(memo, JSON.stringify(kept)); } catch { /* the memo is only a speed-up */ } }
   return text;
 }
 

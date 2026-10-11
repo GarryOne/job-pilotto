@@ -99,7 +99,7 @@ Spec: `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md`.
 - A new shape from the pool or a live bug first becomes a fixture (`node desktop/e2e/ladder-capture.mjs`), seen wrong, then the fix.
 
 ## Test a flow live (owner, 8 Oct 2026)
-- **`cd desktop && npm run live`** (LIVE_URL=<posting>, LIVE_LIKE='%host%', LIVE_SECONDS=120): the e2e app (own profile and Notion test page) + a
+- **`cd desktop && npm run live`** (LIVE_URL=<posting>, LIVE_LIKE='%host%', LIVE_SECONDS=120): the e2e app (own profile, SQLite store, no Notion) + a
   visible Chrome with the real extension, on a real posting read read-only from the owner's job list (`e2e/lib/apply-live.mjs`). It presses nothing
   on the page. About 3 minutes.
 - **`npm run twin`** ([docs/live-test.md](../live-test.md)): the owner's real state mirrored, only when the owner's own data matters. A new outward
