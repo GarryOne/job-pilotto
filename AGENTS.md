@@ -99,7 +99,9 @@ them from colliding in one checkout:
   the next push, so what reaches main was checked as pushed (the gate cache keeps unchanged areas instant; `SHIP_LANDING_LOCK=1` queues instead).
   `--full` for Tier 2, `--fix` for the fix/revert of a red main. **The worktree is kept** (owner, 11 Oct 2026; `--remove` removes it).
   After every rebase `ship.sh` takes the next free extension version and writes `extension/fingerprint.json` once, amended into your last
-  commit (never bump the version by hand to land).
+  commit (never bump the version by hand to land). While an extension change is not landed yet, the fingerprint test (`desktop/test/extension-version.test.js`)
+  fails at the Stop hook: write both locally in their own local commit (`node desktop/scripts/extension-fingerprint.mjs --write` + the next version in
+  `extension/manifest.json`), say so in its message, and let `ship.sh` redo both at landing (it keeps your version only if still newer than main's).
   The checks take minutes: run **`tools/ship.sh --background`** (returns at once, names its log); the log's last line is `ship: DONE <sha>` or
   `ship: FAILED …` (8 Oct 2026: a run cut off by a timeout and piped through `tail` showed nothing). By hand it is still
   `git fetch && git rebase origin/main && git push origin <topic>:main` (fast-forward only; rejected: fetch, rebase, push again).
