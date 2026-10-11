@@ -7,6 +7,8 @@ import time
 import unittest
 from pathlib import Path
 
+from tests.heavy_wait import wait_registered
+
 LOCK = Path(__file__).resolve().parent.parent / 'tools' / 'heavy-lock.sh'
 
 
@@ -34,11 +36,15 @@ class HeavyLockStatusTest(unittest.TestCase):
 
     def test_holders_and_waiters_are_listed_with_session_class_and_an_expected_wait(self):
         self.log.write_text('# 2026-10-11T10:00:00Z heavy lock run=100s wait=0s exit=0 what=real-extension class=proof\n# 2026-10-11T10:05:00Z heavy lock run=300s wait=0s exit=0 what=real-extension class=proof\n')
-        holder = self.start('real-extension', 'sleep 3', JOB_PILOTTO_SESSION='session-a')
-        time.sleep(0.5)
+        go = (self.tmp / 'go').as_posix()
+        hold = f'while [ ! -f {go} ]; do sleep 0.1; done'
+        heavy = self.env['JOB_PILOTTO_HEAVY_DIR']
+        holder = self.start('real-extension', hold, JOB_PILOTTO_SESSION='session-a')
+        wait_registered(heavy, 1)
         waiter = self.start('e2e-smoke', 'true', JOB_PILOTTO_SESSION='session-b')
-        time.sleep(0.5)
+        wait_registered(heavy, 2)   # both are in the lock's books (a loaded Mac may take seconds to start them): not a guessed 0.5 s
         out = self.status()
+        Path(go).write_text('go')
         holder.communicate(timeout=30)
         waiter.communicate(timeout=30)
         self.assertRegex(out, r'holds  pid \d+  real-extension  class proof  session session-a  running \d+s  \(about \d+s left\)')

@@ -7,6 +7,8 @@ import time
 import unittest
 from pathlib import Path
 
+from tests.heavy_wait import wait_registered
+
 LOCK = Path(__file__).resolve().parent.parent / 'tools' / 'heavy-lock.sh'
 TABLE = ' 80.0 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome Helper\n 40.0 /usr/local/bin/node\n 60.0 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome Helper\n  3.0 claude\n 55.0 /usr/bin/python3\n  0.0 idle\n'
 
@@ -31,11 +33,16 @@ class HeavyLockReadoutTest(unittest.TestCase):
         return subprocess.Popen(['bash', str(LOCK), what, 'bash', '-c', body], env={**self.env, **env}, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
     def wait_for_lock(self, **env):
-        holder = self.start('e2e-smoke', 'sleep 1.5', **env)
-        time.sleep(0.4)
+        go = (self.tmp / 'go').as_posix()
+        heavy = self.env['JOB_PILOTTO_HEAVY_DIR']
+        holder = self.start('e2e-smoke', f'while [ ! -f {go} ]; do sleep 0.1; done', **env)
+        wait_registered(heavy, 1)
         waiter = self.start('e2e-smoke', 'true', **env)
-        _, err = waiter.communicate(timeout=30)
-        holder.communicate(timeout=30)
+        wait_registered(heavy, 2)
+        time.sleep(1.0)   # the waiter has looked at the lock and said it waits (its first look is its first line)
+        Path(go).write_text('go')
+        _, err = waiter.communicate(timeout=60)
+        holder.communicate(timeout=60)
         return err
 
     def test_the_wait_message_names_the_three_biggest_cpu_users_summed_by_program(self):
