@@ -1,0 +1,40 @@
+{
+ "shape": "a required question whose title sits in a sibling block: the form judge's sketch names the field by its question, as the panel does, never by its raw name",
+ "why": "11 Oct 2026, the real Lever end picture (owner): the floating toast said 'Needs you: cards[144cb968-...][field0]' while the panel list showed the question. The judge's sketch named the field by its name attribute, so the judge's `needs` (the toast text) was the raw name. The sketch is now read in the page's own world with the fill kit's reader (the panel's and the fill trace's). Same page as lever-sibling-title-1 (reused)",
+ "control": {
+  "build": "0.9.213",
+  "failed": "judged: the form judge was shown the textarea as cards[...][field0], not its question"
+ },
+ "sample": "jobs.lever.co application form (structure saved by the smoke run of 11 Oct 2026, scrubbed)",
+ "pages": [
+  {
+   "url": "https://jobs.lever.co/example/00000000-0000-0000-0000-000000000000/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.9,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": []
+  }
+ },
+ "expect": {
+  "judged": [
+   "What is your current notice period?:empty"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60
+ }
+}

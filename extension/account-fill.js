@@ -96,8 +96,10 @@ export function accountSketch() {
         if (box.querySelector('[class*=single-value], [class*=multi-value]') || [...box.querySelectorAll('input[type=hidden][id]')].some(h => h.value && document.querySelector(`label[for="${CSS.escape(h.id)}"]`))) return true;
       return false;
     })() : !!String(el.value || '').trim();
+  // A field is named as the panel and the fill trace name it (page/fill-labels.js labelOf, in the page's own world: form-ready.js runs this there) when the page has that reader; else by the old chain.
+  const nameOf = el => (window.__jobPilottoFillKit?.labelOf ? window.__jobPilottoFillKit.labelOf(el) : '') || el.labels?.[0]?.innerText || el.getAttribute('aria-label') || el.placeholder || el.name || '';
   const controls = [...document.querySelectorAll('input, select, textarea')].filter(el => shown(el) && !['hidden', 'submit', 'button', 'image', 'reset'].includes(el.type)).map(el => ({
-    type: el.type, label: clean(el.labels?.[0]?.innerText || el.getAttribute('aria-label') || el.placeholder || el.name || '', 80),
+    type: el.type, label: clean(nameOf(el), 80),
     required: !!el.required || el.getAttribute('aria-required') === 'true',
     at: (box => `${Math.max(0, Math.min(100, Math.round(100 * (box.left + box.width / 2) / innerWidth)))},${Math.max(0, Math.min(100, Math.round(100 * (box.top + box.height / 2) / innerHeight)))}`)(el.getBoundingClientRect()),   // where it is on screen (% of the window): the closer look matches the picture to the control
     ...(el.tagName === 'SELECT' ? {options: [...el.options].map(item => clean(item.text, 40)).filter(Boolean).slice(0, 40)} : {}),

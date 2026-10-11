@@ -12,6 +12,7 @@ export function onTop() {
     }
     return null;
   };
+  const nameOf = el => (window.__jobPilottoFillKit?.labelOf ? window.__jobPilottoFillKit.labelOf(el) : '') || el.labels?.[0]?.innerText || el.getAttribute('aria-label') || el.name;   // as the panel names a field (page/fill-labels.js), when the page has that reader
   const own = node => node.closest('[id^=jobpilotto], [id^=job-pilotto]');
   const points = [...document.querySelectorAll('input, select, textarea')].filter(el => el.getClientRects().length && !['hidden', 'submit', 'button', 'image', 'reset'].includes(el.type)).slice(0, 12)
     .map(el => ({el, box: el.getBoundingClientRect()})).filter(({box}) => box.width && box.height).map(({el, box}) => ({el, x: box.left + box.width / 2, y: box.top + box.height / 2}));
@@ -23,7 +24,7 @@ export function onTop() {
     const layer = layerOf(top);
     if (!layer || points.some(point => point.el && layer.node.contains(point.el))) continue;   // the form's own controls live in that layer: it is the form, nothing covers it
     const buttons = [...new Set([...layer.node.querySelectorAll('button, [role=button], input[type=submit], input[type=button], a')].filter(item => item.getClientRects().length).map(item => clean(item.innerText || item.value || item.getAttribute('aria-label'), 40)).filter(Boolean))].slice(0, 6);
-    const covered = points.filter(point => point.el && (hit => hit && layer.node.contains(hit))(document.elementFromPoint(point.x, point.y))).map(point => clean(point.el.labels?.[0]?.innerText || point.el.getAttribute('aria-label') || point.el.name, 60)).filter(Boolean);   // the form's own controls this layer is drawn over
+    const covered = points.filter(point => point.el && (hit => hit && layer.node.contains(hit))(document.elementFromPoint(point.x, point.y))).map(point => clean(nameOf(point.el), 60)).filter(Boolean);   // the form's own controls this layer is drawn over
     return {covered, shape: layer.shape, role: clean(layer.node.getAttribute('role') || layer.node.tagName.toLowerCase(), 20), text: clean(layer.node.innerText || layer.node.textContent, 160), buttons};
   }
   return null;

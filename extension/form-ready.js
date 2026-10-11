@@ -18,7 +18,8 @@ const looking = new Set(), judged = new Map();
 // The structure says the form is ready: every counted required field is filled, on an application page (not an account page).
 export const claimsReady = payload => !!payload && !payload.account && Number(payload.total) > 0 && Number(payload.left) === 0;
 
-const run = (tab, frameId, func, args = []) => chrome.scripting.executeScript({target: {tabId: tab.id, frameIds: [frameId ?? 0]}, func, args}).then(rows => rows?.[0]?.result).catch(() => undefined);
+// world 'MAIN': the page's own world, where the fill kit's field-name reader lives (the judge's sketch and its layer name fields as the panel does).
+const run = (tab, frameId, func, args = [], world) => chrome.scripting.executeScript({target: {tabId: tab.id, frameIds: [frameId ?? 0]}, func, args, ...(world ? {world} : {})}).then(rows => rows?.[0]?.result).catch(() => undefined);
 
 export async function formReady(tab, frameId, payload) {
   if (!claimsReady(payload)) return;
@@ -35,9 +36,9 @@ async function askForm(tab, frameId, again = false) {
   try {
     const config = await settings();
     if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;   // your own Worker: no app to ask
-    const sketch = await run(tab, frameId, accountSketch);
+    const sketch = await run(tab, frameId, accountSketch, [], 'MAIN');
     if (!sketch) return;
-    sketch.onTop = await run(tab, frameId, onTop) || null;   // what sits on top of the form, by structure (on-top.js)
+    sketch.onTop = await run(tab, frameId, onTop, [], 'MAIN') || null;   // what sits on top of the form, by structure (on-top.js)
     const sig = JSON.stringify([sketch.controls, sketch.buttons, sketch.texts, sketch.frames, sketch.onTop]);
     if (judged.get(tab.id) === sig) return;   // the page is as it was when it was judged: the flag stays as it is
     const answer = await api(config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase: 'form', sketch})}).catch(() => null);
