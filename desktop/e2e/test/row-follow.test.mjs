@@ -1,7 +1,7 @@
 // lib/row-follow.mjs: a row replay follows the live run's states after each press it makes the same way, and stops with a finding at the first different press.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {laterStates, replayPresses, samePress, stateAfter} from '../lib/row-follow.mjs';
+import {keptPresses, laterStates, replayPresses, samePress, stateAfter} from '../lib/row-follow.mjs';
 
 const log = entries => ({route: '/extension/log', body: JSON.stringify({entries})});
 
@@ -50,4 +50,12 @@ test('states the page reached on its own after the first one (the extension atta
   assert.deepEqual(laterStates(changed, pressed, -1), [], 'before the first press, only the states that came before it');
   assert.deepEqual(laterStates(changed, pressed, 0).map(state => state.state), [2], 'after press 0: stateAfter serves state 1, state 2 follows');
   assert.deepEqual(laterStates(states, [{at: 50}], 0), [], 'a press with nothing after it: nothing follows');
+});
+
+test('a popup the live run closed BEFORE its first kept page (the cookie banner: the capture\'s first page is the one after it) is not a press the replay can make: dropped; later presses and other kinds stay', () => {
+  const presses = [{at: 5, what: 'closed a popup', label: 'Decline all non-necessary cookies'}, {at: 6, what: 'pressed the Apply button', label: 'Apply'}, {at: 20, what: 'closed a popup', label: 'Ok'}];
+  assert.deepEqual(keptPresses(presses, 10).map(press => press.what), ['pressed the Apply button', 'closed a popup']);
+  assert.deepEqual(keptPresses(presses, 3).map(press => press.label), ['Decline all non-necessary cookies', 'Apply', 'Ok'], 'a popup after the first page is kept');
+  assert.deepEqual(keptPresses(presses, null), presses, 'no first page time: nothing dropped');
+  assert.deepEqual(keptPresses([{at: 5, what: 'closed a popup', label: 'A'}, {at: 6, what: 'closed a popup', label: 'B'}], 10), [], 'several leading popups all go');
 });

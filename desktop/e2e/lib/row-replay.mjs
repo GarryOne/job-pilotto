@@ -10,7 +10,7 @@ import path from 'node:path';
 import {evidenceLines} from './evidence-bundle.mjs';
 import {nextRunnable} from './replay-browser.mjs';
 import {PAGE_LINE, stillClock} from './live-still.mjs';
-import {laterStates, replayPresses, samePress, stateAfter, swapInPage} from './row-follow.mjs';
+import {keptPresses, laterStates, replayPresses, samePress, stateAfter, swapInPage} from './row-follow.mjs';
 import {frontOf} from './app-front.mjs';
 import {mayEnd} from './row-end.mjs';
 import {CONTACT} from './apply-fixtures.mjs';
@@ -38,7 +38,7 @@ export function rowFiles(caseDir) {
   const states = item.pages.filter(page => !page.frameOf && page.at != null).map(page => ({url: addressOf(page.url), href: String(page.url), at: page.at, state: page.state || 0, ask: !!page.ask, view: page.view || null, html: html(page)})).sort((a, b) => a.at - b.at);
   const entries = readJson(path.join(caseDir, 'styles.har.json'), {log: {entries: []}}).log?.entries || [];
   const sheets = new Map(entries.map(entry => [addressOf(entry.request.url), entry.response?.content?.text || '']));
-  return {start: item.pages.find(page => !page.frameOf) || item.pages[0], documents, sheets, states, presses: readJson(path.join(caseDir, 'presses.json'), [])};
+  return {start: item.pages.find(page => !page.frameOf) || item.pages[0], documents, sheets, states, presses: keptPresses(readJson(path.join(caseDir, 'presses.json'), []), states[0]?.at ?? null)};
 }
 
 // A capture made before the replay format (11 Oct 2026: no page state carries its window size or the extension's ask) replays without the live run's states,

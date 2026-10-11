@@ -7,6 +7,7 @@ import path from 'node:path';
 import {appProfileTexts, personalValues, scrub} from './capture-page.mjs';
 import {folderVerdict, privacyFindings, sizeVerdict, CASE_FAIL} from './row-case-gates.mjs';
 import {shrinkPages} from './row-case-shrink.mjs';
+import {keptPresses} from './row-follow.mjs';
 
 const readJson = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
 // A web address in the page's own TEXT (a job ad's links, with tracking queries) loses its query and fragment, as the memo key already ignores them (lib/ai/model-memo.js normalise: the same pattern),
@@ -38,7 +39,7 @@ export async function buildCase({rowDir, name, outDir, shrink = shrinkPages, val
   files['model-memo.json'] = stripQueries(scrub(optional('model-memo.json', '{}'), values));
   files['presses.json'] = scrub(optional('presses.json', '[]'), values);
   const keep = {shape: item.shape, why: item.why, sample: item.sample, ...(item.seed ? {seed: item.seed} : {}), ...(item.control ? {control: item.control} : {})};   // seed: the applicant the capture was made with (lib/applicant-seed.mjs): a case keeps it, the replay names a stale one
-  files['case.json'] = `${JSON.stringify({...keep, replay: 'row', pages: meta, baseline: baselineOf(item, readJson(path.join(rowDir, 'presses.json'), [])), expect: {}}, null, 1)}\n`;
+  files['case.json'] = `${JSON.stringify({...keep, replay: 'row', pages: meta, baseline: baselineOf(item, keptPresses(readJson(path.join(rowDir, 'presses.json'), []), Math.min(...item.pages.filter(page => !page.frameOf && page.at != null).map(page => page.at)) || null)), expect: {}}, null, 1)}\n`;
   const found = privacyFindings(Object.fromEntries(Object.entries(files).map(([file, text]) => [`${name}/${file}`, text])), values);
   if (found.length) throw new Error(`privacy gate: ${found.join('; ')}; nothing written`);
   const bytes = Object.values(files).reduce((sum, text) => sum + Buffer.byteLength(text), 0), verdict = sizeVerdict(bytes);

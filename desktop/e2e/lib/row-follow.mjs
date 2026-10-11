@@ -19,6 +19,10 @@ export function replayPresses(requests, hosts = null) {   // hosts: only this ro
 }
 
 // The main page's state the live run reached after its press `k` (between that press and the next one: the one kept at the extension's ask, else the first), or null.
+// A popup the live run closed BEFORE its first kept page (a cookie banner: the capture's first page is the one after it, without the banner) cannot be pressed by the replay, whose page never offers it:
+// it is not part of the journey the replay follows (12 Oct 2026, Teamtailor: the replay's first press was Apply, the live run's the banner, so it diverged at press 1). firstAt: the time of the first kept page.
+export const keptPresses = (presses, firstAt) => (firstAt == null ? presses : presses.filter(press => !(press.what === 'closed a popup' && press.at < firstAt)));
+
 // k = -1: before any press (the segment the page starts in; its state is the page as the extension saw it when it asked).
 const segment = (states, presses, k) => {
   const after = k < 0 ? -Infinity : presses[k]?.at, before = presses[k + 1]?.at ?? Infinity;

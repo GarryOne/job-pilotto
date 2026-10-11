@@ -57,3 +57,11 @@ test('a miss names the parts that differ from the nearest kept ask, read from th
   assert.deepEqual(missParts('the nearest kept ask differs in: system:1, system:1:profile (lines 33-34, 2 in all of 50), user:job'), ['system:1', 'system:1:profile (lines 33-34, 2 in all of 50)', 'user:job'], 'a line list inside parentheses is one part');
   assert.deepEqual(missParts('model memo: not in the row\'s kept answers (an offline replay never asks the model)'), [], 'an old memo (no parts kept): nothing to name');
 });
+
+test('the journey a replay follows leaves out a popup the live run closed before its first kept page (the cookie banner), not one closed later', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-row-popup-'));
+  write(path.join(dir, 'pages/1.html'), '<p>after the banner</p>');
+  write(path.join(dir, 'case.json'), JSON.stringify({pages: [{url: 'https://a.example/p', file: 'pages/1.html', at: 100, state: 0, ask: true, view: {width: 1200, height: 818, doc: 5}}]}));
+  write(path.join(dir, 'presses.json'), JSON.stringify([{at: 90, what: 'closed a popup', label: 'Decline all non-necessary cookies'}, {at: 150, what: 'pressed the Apply button', label: 'Apply'}, {at: 160, what: 'closed a popup', label: 'Ok'}]));
+  assert.deepEqual(rowFiles(dir).presses.map(press => press.label), ['Apply', 'Ok']);
+});

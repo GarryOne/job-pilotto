@@ -81,3 +81,9 @@ test('an address in the page\'s prose loses its tracking query and fragment (the
   const out = tmp('jp-cases-'), result = await buildCase({rowDir: row({page: '<p>Jobs https://www.google.com/search?q=x&amp;ei=1 here</p>'}), name: 'prose-1', outDir: out, shrink: noShrink});
   assert.ok(fs.readFileSync(path.join(result.dir, 'pages/1.html'), 'utf8').includes('<p>Jobs https://www.google.com/search here</p>'));
 });
+
+test('the baseline\'s presses leave out a popup the live run closed before its first kept page, as the replay does', async () => {
+  const dir = row(); fs.writeFileSync(path.join(dir, 'presses.json'), JSON.stringify([{at: 50, what: 'closed a popup', label: 'Decline all'}, {at: 150, what: 'pressed the Apply button', label: 'Apply'}]));
+  const result = await buildCase({rowDir: dir, name: 'popup-1', outDir: tmp('jp-cases-'), shrink: noShrink});
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(result.dir, 'case.json'), 'utf8')).baseline.pressed, ['pressed the Apply button']);
+});
