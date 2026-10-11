@@ -67,8 +67,9 @@ One choice (Settings → Profile → Application assistant, `renderer/assistant-
   application a tab is); never a new field or storage key for it elsewhere. Spec: `docs/superpowers/specs/2026-10-10-application-journey.md`.
 
 ## The flow core: one session at a time, invariants first (owner, 10 Oct 2026)
-- **Claim it before editing** `FLOW_CORE` / `FLOW_FILES`: one message to every peer ("I own the flow core until I say released"), and "released"
-  when done. A peer holding it: wait, or send your change to them. No new applying feature while a journey refactor is landing.
+- **The claim is automatic** (12 Oct 2026): your open PR (or pushed branch) holds `FLOW_CORE` / `FLOW_FILES`; no message to peers, no "released". `node tools/flow-fresh.mjs --others` lists the
+  other open PRs on the same files; the required check `flow-fresh` fails when main changed a flow file this PR also changes, and `tools/ship.sh` rebases and pushes again by itself.
+  Read each file's `Invariants:` block first. No new applying feature while a journey refactor is landing.
 - **Claim a function, not the file, when that is all you edit** (11 Oct 2026): `node tools/claim-shape.mjs claim-part <file> <function> --session <me>` (`release-part` when done).
   Different functions of one file can be held at once; a claim without a function holds the whole file, one without a file the whole core, and each blocks the narrower ones.
   The tool refuses a file or function name that is not there. Still one message to the peers saying what you took. Guard: `desktop/test/claim-shape.test.js`.

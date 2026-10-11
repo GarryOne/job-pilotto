@@ -1,0 +1,81 @@
+name: CI · Pull request
+# The pure checks a change must pass before it merges (owner, 12 Oct 2026: landing through pull requests with auto-merge, tools/ship.sh). The suites are CI · Tests (build.yml) and the
+# recorded-page replays (recorded-pages.yml), which also run on pull requests. Required on main: python, worker, site, desktop (both), the 4 replay shards, "pr gates", "flow-fresh", "hole 3".
+# Every job here always starts (a required workflow that never starts blocks the PR forever); hole 3 skips itself when no recorded case changed.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: pr gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      # The same script the local push runs (tools/pre-push-check.sh, its fast pure checks): commit subjects, a fix names its test, file size, recorded cases (holes 1+2),
+      # the rung trailer, e2e issue links, stale expectations. CI_GATES=1: no red-main look, no AI place check, no local-run proof of new e2e steps.
+      - name: The fast pure checks
+        run: |
+          git fetch -q origin main
+          jq -n --arg cwd "$PWD" '{tool_input: {command: "CI_GATES=1 git push origin pr"}, cwd: $cwd}' | bash tools/pre-push-check.sh
+
+  flow-fresh:
+    name: flow-fresh
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      # The open PR is the claim on the applying flow's files (tools/flow-fresh.mjs): red when main changed, since this PR's base, a flow file it also changes.
+      # tools/ship.sh rebases and pushes again by itself on this failure.
+      - name: Main has not changed a flow file this change also changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch -q origin main
+          node tools/flow-fresh.mjs --base origin/main --head "${{ github.event.pull_request.head.sha }}" --others
+
+  hole3:
+    name: hole 3
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}   # the PR head, not the merge commit
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      # Every recorded case this PR adds or changes must FAIL on the PR's base and pass on its head (tools/recorded-fails-on-old.mjs, landed by the recorded-cases gate work).
+      - name: A recorded case fails on the old build
+        env:
+          JOB_PILOTTO_HEAVY: '0'   # the Mac's one-at-a-time lock means nothing on a runner of its own
+        run: |
+          git fetch -q origin main
+          if [ ! -f tools/recorded-fails-on-old.mjs ]; then echo "hole 3: tools/recorded-fails-on-old.mjs is not on main yet: nothing to check"; exit 0; fi
+          if [ -z "$(git diff --name-only origin/main...HEAD -- desktop/e2e/recorded)" ]; then echo "hole 3: this PR adds or changes no recorded case"; exit 0; fi
+          (cd desktop/e2e && npm ci)
+          (cd desktop && npm ci --omit=dev --ignore-scripts)
+          (cd desktop/e2e && npx playwright install --with-deps chromium)
+          node tools/recorded-fails-on-old.mjs --base origin/main

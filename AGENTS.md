@@ -93,8 +93,10 @@ them from colliding in one checkout:
   checkout: `tools/worktree.sh <topic>` (a worktree in `.claude/worktrees/<topic>` from `origin/main`, with the main
   checkout's `node_modules` and Python `.venv` linked in, so the tests run at once; both are git-ignored: leave the links alone).
   Another base: `tools/worktree.sh <topic> origin/<branch>` (a release lane), never a bare `git worktree add`, which links nothing.
-- Commit there, then land it with **`tools/ship.sh`** (since 6 Oct 2026): fetch + rebase, the push hook's checks (the suites of the
-  areas you touched), push, update the main checkout. **A landing that runs the slow gates queues** (flow or extension files; owner, 11 Oct 2026: three long landings at once refused each other's pushes and re-ran 10-20 min of checks up to three times); others run side by side; when another
+- Commit there, then land it with **`tools/ship.sh`**. **Through a pull request since 12 Oct 2026** (while the repo allows auto-merge, `tools/pr-settings.sh`): fetch + rebase, the hook's fast checks only (seconds),
+  push the branch, open a PR, `gh pr merge --auto --rebase`, wait. CI runs the suites, all recorded pages, the pure gates and `flow-fresh` on the PR; the PR merges by itself when the required checks pass. `ship: DONE <sha>` = merged;
+  `ship: FAILED required check '<name>' failed: <log url>` leaves the PR open: fix, commit, run ship again (it reuses the PR). No direct pushes to main; any other origin keeps the old direct push below.
+  The old direct path: fetch + rebase, the push hook's checks (the suites of the areas you touched), push, update the main checkout. **A landing that runs the slow gates queues** (flow or extension files; owner, 11 Oct 2026: three long landings at once refused each other's pushes and re-ran 10-20 min of checks up to three times); others run side by side; when another
   session pushed in between, git refuses the push and `ship.sh` rebases, re-takes the extension version and **runs the checks again** before
   the next push, so what reaches main was checked as pushed (the gate cache keeps unchanged areas instant; `SHIP_LANDING_LOCK=1` queues instead).
   `--full` runs every suite locally (a rare choice, not the Tier 2 default), `--fix` for the fix/revert of a red main. **The worktree is kept** (owner, 11 Oct 2026; `--remove` removes it).
@@ -202,7 +204,7 @@ until the owner stepped in. So whoever meets it fixes it, in the same turn, befo
 1. `gh run view --log-failed <run>`: what broke.
 2. **Small and obvious** (a missing file, an import, a test expectation): fix it forward in its own commit,
    `CI_RED_OK=1 git push origin <topic>:main`.
-3. **Otherwise** `git revert --no-edit <bad sha>` (a new commit, never a force-push), push it with `CI_RED_OK=1`, and tell
+3. **Otherwise** `git revert --no-edit <bad sha>` (`tools/revert-red.sh <sha>` does it and lands it with `ship.sh --fix`, now through a PR too) (a new commit, never a force-push), push it with `CI_RED_OK=1`, and tell
    the user which commit was reverted; its author lands it again, fixed.
 4. Then push your own work normally. Never add your commits on top of a red build, and never push with `CI_RED_OK=1` for
    anything but the fix or the revert.
