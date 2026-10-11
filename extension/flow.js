@@ -1,7 +1,7 @@
 // One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
 // Shared by the popup (the tab you're on) and the background worker (tabs the app opens to fill).
 import {KEY} from './tab-identity.js';
-import {MENU_REASONS, OLD_MENU_REASON, menuReason} from './menu-reason.js';
+import {MENU_REASONS, OLD_MENU_REASON, applyCombos} from './menu-reason.js';
 import {kitStance} from './tab-pages.js';
 import {fillCard} from './fill-card.js';
 import {settleTrace} from './trace-settle.js';
@@ -63,6 +63,7 @@ export async function clickCombos(tabId) {
       const matched = !picked || !last ? null : String(last.asked).trim().toLowerCase() === String(last.got).trim().toLowerCase();
       // What was observed for this menu (fill card reasons: opened, found, selectedAfter, trusted), never assumed.
       results.push({label: spot.label, picked, matched, ms: Date.now() - started, opened: last?.opened ?? null, found: last?.found ?? null, selectedAfter: last?.selectedAfter ?? null, trusted: last?.trusted ?? null});
+      if (!picked && last?.choices?.length) decide('fill', 'a menu showed no choice that matched', {field: spot.label.slice(0, 60), choices: last.choices}).catch(() => {});   // the form's wording, not the answer
       if (!picked) skip += 1;
     }
     // A phone widget whose country was just picked: type the number for real, so the form registers it.
@@ -326,13 +327,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
       debug.dropdowns = combos;
       step('clicked dropdowns');
       const picked = combos.filter(c => c.picked).length;
-      for (const combo of combos) {
-        const row = (summary.trace || []).find(r => r.label === combo.label);
-        const wrong = combo.picked && combo.matched === false;   // the click selected another choice than the answer: not a fill
-        if (row) Object.assign(row, {outcome: combo.picked && !wrong ? 'filled' : 'left', source: row.source || 'kit',
-          reason: wrong ? `dropdown clicked, but it selected another choice (${(combo.ms / 1000).toFixed(1)} s)`
-            : combo.picked ? `dropdown clicked for you (${(combo.ms / 1000).toFixed(1)} s)` : `${menuReason(combo)} (${(combo.ms / 1000).toFixed(1)} s)`});   // what the pick observed (menu-reason.js)
-      }
+      applyCombos(summary.trace, combos);   // what the pick observed (menu-reason.js)
       notClicked('the pick never reached it');
       if (picked) {
         summary.filled = (summary.filled || 0) + picked;
@@ -364,13 +359,16 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
         // Only Claude's answers this time: no contact details or CV again (they're in already).
         const more = await inPage(tab.id, (list, letter, consents) => window.__jobPilottoExtensionFill(list, {}, null, letter, consents),
           [extra, withKit ? '' : coverLetter || ai?.cover_letter || '', config.acceptConsents === true]);
-        const combos = config.clickDropdowns !== false ? await clickCombos(tab.id).catch(() => []) : [];
+        let clickError = '';
+        const combos = config.clickDropdowns !== false ? await clickCombos(tab.id).catch(error => { clickError = error.message; return []; }) : [];
         debug.laterDropdowns = combos;
         summary.filled = (summary.filled || 0) + (more?.filled || 0) + combos.filter(c => c.picked).length;
         summary.unfilledRequired = more?.unfilledRequired ?? summary.unfilledRequired;
         // Claude's rows from this pass win: its answers, and the questions it proposed an answer for (no source: shown, never typed; Coop, 9 Oct 2026:
         // dropped here, the first pass's "no answer" stayed, and the site counted a proposal as declined).
         summary.trace = [...(summary.trace || []), ...(more?.trace || []).filter(row => row.source === 'Claude (on the page)' || row.reason === PROPOSED || String(row.reason || '').startsWith(WRITTEN) || KIND_REASON.test(String(row.reason || '')))];
+        applyCombos(summary.trace, combos);   // the later pass's menus too: the observed reason, not the page's old label
+        notClicked(config.clickDropdowns === false ? '"Fill drop-down menus too" is off' : clickError ? `the click failed (${clickError})` : 'the pick never reached it');
         step('filled Claude\'s answers');
       }
     } catch (error) {

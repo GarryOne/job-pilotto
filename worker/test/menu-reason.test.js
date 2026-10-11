@@ -28,3 +28,29 @@ test('every menu reason is counted by the fill card and kept by the site', () =>
   const card = fillCard({ id: 'fill-0002-abc', trace: MENU_REASONS.map(({ text }, i) => ({ label: `M${i}`, field: `m${i}`, type: 'combobox', required: true, outcome: 'left', reason: `${text} (1.0 s)` })) });
   assert.deepEqual(Object.keys(cleanCard(card).causes).sort(), MENU_REASONS.map(item => item.cause).sort());
 });
+
+// The class: every pass that clicks menus writes what the click observed onto its rows (Ocado, 11 Oct 2026: the later pass left the page's old label).
+test('applyCombos replaces the page label by what the click observed, for the latest row of each menu', async () => {
+  const { applyCombos } = await import('../../extension/menu-reason.js');
+  const trace = [
+    { label: 'Right to work', outcome: 'left', source: '', reason: 'proposed for you to confirm' },
+    { label: 'Right to work', outcome: 'left', source: 'Claude (on the page)', reason: OLD_MENU_REASON },
+    { label: 'Country', outcome: 'left', source: 'Claude (on the page)', reason: OLD_MENU_REASON },
+    { label: 'City', outcome: 'left', source: 'Claude (on the page)', reason: OLD_MENU_REASON },
+  ];
+  applyCombos(trace, [
+    { label: 'Right to work', picked: false, ms: 2100, opened: false },
+    { label: 'Country', picked: true, matched: true, ms: 900 },
+    { label: 'City', picked: true, matched: false, ms: 900 },
+  ]);
+  assert.equal(trace[0].reason, 'proposed for you to confirm');
+  assert.equal(menuCause(trace[1].reason), 'menu_not_opened');
+  assert.deepEqual([trace[2].outcome, trace[3].outcome], ['filled', 'left']);
+  for (const row of trace) assert.notEqual(row.reason, OLD_MENU_REASON);
+});
+
+test('both passes of the fill flow write the clicks\' observations onto the rows', async () => {
+  const { readFileSync } = await import('node:fs');
+  const source = readFileSync(new URL('../../extension/flow.js', import.meta.url), 'utf8');
+  assert.equal(source.split('applyCombos(summary.trace, combos)').length - 1, 2);
+});

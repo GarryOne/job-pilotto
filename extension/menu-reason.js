@@ -27,3 +27,18 @@ export function menuCause(reason) {
   if (text === OLD_MENU_REASON) return 'real_click';
   return MENU_REASONS.find(item => item.text === text)?.cause || '';
 }
+
+// What the trusted clicks (flow.js clickCombos) observed, written onto the fill rows of their menus: the first pass AND the pass for Claude's
+// answers (11 Oct 2026, Ocado: the later pass never wrote its result, so the page's old label stayed on a menu whatever the click did).
+// Returns the rows' outcomes it set; a menu no click reached keeps its reason for notClicked() to word.
+export function applyCombos(trace, combos) {
+  for (const combo of combos || []) {
+    const row = [...(trace || [])].reverse().find(r => r.label === combo.label);   // the latest row of that label: the later pass's
+    if (!row) continue;
+    const wrong = combo.picked && combo.matched === false;   // the click selected another choice than the answer: not a fill
+    const seconds = `${(combo.ms / 1000).toFixed(1)} s`;
+    Object.assign(row, {outcome: combo.picked && !wrong ? 'filled' : 'left', source: row.source || 'kit',
+      reason: wrong ? `dropdown clicked, but it selected another choice (${seconds})`
+        : combo.picked ? `dropdown clicked for you (${seconds})` : `${menuReason(combo)} (${seconds})`});
+  }
+}
