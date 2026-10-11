@@ -46,3 +46,12 @@ test('boxes: the text boxes that hold a value when the replay ends (labels only,
   assert.deepEqual(checkSignature(signatureOf(withBoxes({Prénom: 'filled'})), expect), ['box Linkedin: absent, expected filled']);
   assert.deepEqual(filledBoxes({Prénom: 'filled', Nom: 'empty', Mail: 'filled'}), {Prénom: 'filled', Mail: 'filled'});
 });
+
+test('an expectation with no colon is an outcome only: the reason text may differ; one with a colon is exact', () => {
+  const sig = {kinds: [], pressed: [], fields: {Name: 'left: no answer in the kit', Phone: 'filled: your details'}, boxes: {}};
+  assert.deepEqual(checkSignature(sig, {fields: {Name: 'left', Phone: 'filled'}}), []);
+  assert.deepEqual(checkSignature(sig, {fields: {Name: 'filled'}}), ['field Name: left: no answer in the kit, expected filled']);
+  assert.deepEqual(checkSignature(sig, {fields: {Name: 'left'}, boxes: {}}), []);
+  assert.equal(checkSignature(sig, {fields: {Name: 'left: another reason'}}).length, 1, 'with a colon: exact');
+  assert.deepEqual(checkSignature(sig, {fields: {Missing: 'left'}}), ['field Missing: absent, expected left']);
+});

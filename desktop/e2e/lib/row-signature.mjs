@@ -42,7 +42,8 @@ export function checkSignature(sig, expect = {}) {
   const failures = [];
   if (expect.kinds && sig.kinds.join() !== expect.kinds.join()) failures.push(`page kinds: ${sig.kinds.join(', ') || 'none'}, expected ${expect.kinds.join(', ')}`);
   if (expect.pressed && sig.pressed.join() !== expect.pressed.join()) failures.push(`presses: ${sig.pressed.join(', ') || 'none'}, expected ${expect.pressed.join(', ')}`);
-  for (const [label, value] of Object.entries(expect.fields || {})) if (sig.fields[label] !== value) failures.push(`field ${label}: ${sig.fields[label] ?? 'absent'}, expected ${value}`);
+  // A value with no colon is an OUTCOME only ("filled", "left"): the reason text depends on which kept answer a replay served and follows the interleaving of the extension's flows (--fixed cases); one with "outcome: reason" is exact.
+  for (const [label, value] of Object.entries(expect.fields || {})) if (!(value.includes(':') ? sig.fields[label] === value : sig.fields[label]?.split(':')[0] === value)) failures.push(`field ${label}: ${sig.fields[label] ?? 'absent'}, expected ${value}`);
   for (const [label, value] of Object.entries(expect.boxes || {})) if (sig.boxes?.[label] !== value) failures.push(`box ${label}: ${sig.boxes?.[label] ?? 'absent'}, expected ${value}`);
   if (sig.diverged) failures.push('diverged from the live run\'s presses');
   return failures;

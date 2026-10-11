@@ -38,16 +38,23 @@ export async function rowToCase({rowDir, name, outDir, oldDir, askCold = false, 
     step('building the case (scrub, shrink, privacy and size gates)');
     try { built = await build({rowDir, name, outDir: staging, values}); } catch (error) { return end(2, `row-to-case: ${error.message}`); }
     const caseFile = path.join(built.dir, 'case.json'), memoFile = path.join(built.dir, 'model-memo.json'), item = readJson(caseFile), asCase = expect => ({...item, name, dir: built.dir, expect});
-    if (askCold) {   // the new build's cold asks, once, on the plan path (the offline app is the fake applicant; no API key); kept scrubbed beside their part hashes
-      step('asking the new build\'s model calls once on the plan path (replay up to 90 s)');
+    // The new build's cold asks, on the plan path (the offline app is the fake applicant; no API key), kept scrubbed beside their part hashes. Round 1 asks what the capture lacks; if the strict replay then still misses an ask
+    // (the cold replay waits for the real model, so the extension's concurrent flows interleave differently from the strict replay's and make other asks), those are asked in the next round: up to 3, until a strict replay misses nothing.
+    const coldAsk = async round => {
+      step(`asking the new build's model calls on the plan path (round ${round}, replay up to 90 s)`);
       const cold = await replay(built.dir, {ask: true});
       fs.writeFileSync(memoFile, scrub(JSON.stringify({...readJson(memoFile), ...(cold.memoAfter || {})}), values));
-      lines.push('row-to-case: the new build\'s model calls were asked once and kept in the case\'s memo');
+    };
+    let fresh, rounds = 0;
+    for (;;) {
+      if (askCold && (rounds === 0 || fresh.misses)) await coldAsk(++rounds);
+      step('replaying on the NEW build (up to 90 s)');
+      fresh = await replay(built.dir, {});
+      if (!fresh.misses || !askCold || rounds >= 3) break;
     }
+    if (askCold) lines.push(`row-to-case: the new build's model calls were asked ${rounds === 1 ? 'once' : `in ${rounds} rounds`} and kept in the case's memo`);
     const volatileKept = Object.entries(readJson(memoFile)).filter(([name]) => name.endsWith('#volatile')).flatMap(([, parts]) => parts);
     if (volatileKept.length) lines.push(`row-to-case: WARNING: a kept ask carries a clock time or a date in ${[...new Set(volatileKept)].join(', ')}: no memo can match it again; fix it at the source (a prompt carries no time)`);
-    step('replaying on the NEW build (up to 90 s)');
-    const fresh = await replay(built.dir, {});
     if (fresh.misses) return end(4, `row-to-case: ${fresh.misses} model ask(s) of the new build are not in the case's kept answers (CI has no claude -p): run again with --ask-cold${fresh.missParts?.length ? ` (the nearest kept ask differs in ${fresh.missParts.join(', ')})` : ''}`);
     // The OLD build is replayed now, before the verdict on the new one: the regression check and the control both need it (one replay, reused below).
     step('replaying on the OLD build (up to 90 s)');
@@ -64,7 +71,8 @@ export async function rowToCase({rowDir, name, outDir, oldDir, askCold = false, 
       const kept = {}, unmatched = [], outcomeOf = value => String(value).split(':')[0];   // the live run's reason text is not the replay's (the offline app words it its own way): the outcome is compared, the replay's own value is kept
       for (const [label, value] of Object.entries(base.fields)) { const same = byLabel(label); if (same && outcomeOf(seen[same]) === outcomeOf(value)) kept[same] = seen[same]; else unmatched.push(label); }
       derived.refused = '';
-      derived.expect = {kinds: more.kinds || base.kinds, pressed: more.pressed || base.pressed, fields: {...kept, ...(more.fields || {})}, ...(Object.keys(boxes).length ? {boxes} : {})};
+      const outcomes = fields => Object.fromEntries(Object.entries(fields).map(([label, value]) => [label, outcomeOf(value)]));   // outcome only: the reason text is whichever kept answer the replay served
+      derived.expect = {kinds: more.kinds || base.kinds, pressed: more.pressed || base.pressed, fields: outcomes({...kept, ...(more.fields || {})}), ...(Object.keys(boxes).length ? {boxes} : {})};
       if (unmatched.length) lines.push(`row-to-case: ${unmatched.length} live field(s) have no replay field of the same label and outcome (filled/left): not asserted: ${unmatched.map(label => label.slice(0, 40)).join('; ')}`);
       lines.push('row-to-case: --fixed: the live run was taken on the fixed build; its own behavior and the boxes it ends with are the expect');
     }

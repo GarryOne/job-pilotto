@@ -49,7 +49,7 @@ test('--fixed: the live capture was taken on a build that already has the fix: e
   assert.match(fixed.lines.join('\n'), /the old build fails it as it must/);
   assert.equal(fixed.code, 0);
   const item = JSON.parse(fs.readFileSync(path.join(fixed.outDir, 'start-dialog-1', 'case.json'), 'utf8'));
-  assert.deepEqual(item.expect, {kinds: ['posting'], pressed: [], fields: {Email: 'filled: your details'}});
+  assert.deepEqual(item.expect, {kinds: ['posting'], pressed: [], fields: {Email: 'filled'}}, '--fixed: the outcome only, the reason text is whichever kept answer a replay served');
   const same = await go(replayBy(['posting'], ['posting']), {fixed: true});
   assert.equal(same.code, 3, 'the old build behaves the same: the control proves nothing');
 });
@@ -60,7 +60,7 @@ test('--fixed: the boxes are expected even when the replay differs from the live
   assert.equal(done.code, 0, done.lines.join(' | '));
   const item = JSON.parse(fs.readFileSync(path.join(done.outDir, 'start-dialog-1', 'case.json'), 'utf8'));
   assert.deepEqual(item.expect.boxes, {Prénom: 'filled'});
-  assert.equal(item.expect.fields.Email, 'filled: your CV', 'the improvement over the live run is kept too');
+  assert.equal(item.expect.fields.Email, 'filled', 'the improvement over the live run is kept too (its outcome)');
 });
 
 test('exit 2: a case that exists is not overwritten, the old build is required', async () => {
@@ -109,12 +109,12 @@ test('a capture label is matched to the replay\'s: the same letters and digits, 
   assert.equal(match('Cover letter'), undefined);
 });
 
-test('--fixed: a live field matched by label with the same outcome is asserted with the replay\'s own reason (the live reason text is not the replay\'s)', async () => {
+test('--fixed: a live field matched by label with the same outcome is asserted by its outcome (the reason text is whichever kept answer a replay served)', async () => {
   const worded = async ({name, outDir}) => { const built = await build({name, outDir}); const file = path.join(built.dir, 'case.json'), item = JSON.parse(fs.readFileSync(file, 'utf8'));
     item.baseline = {...base, fields: [{label: 'Email', outcome: 'filled', reason: 'kept in your details'}]}; fs.writeFileSync(file, JSON.stringify(item)); return built; };
   const done = await go((dir, options = {}) => Promise.resolve(options.extensionDir ? result(['posting'], {requests: []}) : result(['posting'])), {fixed: true, build: worded});
   assert.equal(done.code, 0, done.lines.join('\n'));
-  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(done.outDir, 'start-dialog-1', 'case.json'), 'utf8')).expect.fields, {Email: 'filled: your details'});
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(done.outDir, 'start-dialog-1', 'case.json'), 'utf8')).expect.fields, {Email: 'filled'});
 });
 
 test('a field filled live and not now is a regression only where the OLD build\'s replay fills it; --fixed has no regression to find and leaves the field out', async () => {
@@ -140,7 +140,7 @@ test('the rename a fix makes is asserted: the live (unfixed) label has no replay
   for (const fixed of [true, false]) {
     const done = await go(replay, {fixed, build: unfixed});
     assert.equal(done.code, 0, `fixed=${fixed}: ${done.lines.join('\n')}`);
-    assert.equal(JSON.parse(fs.readFileSync(path.join(done.outDir, 'start-dialog-1', 'case.json'), 'utf8')).expect.fields['What is your age range?'], 'left: no answer');
+    assert.equal(JSON.parse(fs.readFileSync(path.join(done.outDir, 'start-dialog-1', 'case.json'), 'utf8')).expect.fields['What is your age range?'], fixed ? 'left' : 'left: no answer');
     assert.match(done.lines.join('\n'), /field What is your age range\?: absent/);
   }
 });
@@ -152,4 +152,22 @@ test('a case that passes at normal speed and not slowed is refused as timing-dep
   assert.match(refused.lines.join('\n'), /timing-dependent: the new build passes its case at normal speed and not slowed: page kinds: posting, expected posting, form/);
   assert.equal(fs.existsSync(path.join(refused.outDir, 'start-dialog-1')), false, 'nothing written');
   assert.equal((await go(replayBy(['posting', 'form'], ['posting']))).code, 0, 'the same at both speeds: written');
+});
+
+test('--ask-cold repeats while the strict replay still misses: the cold replay interleaves differently, so its asks are not all the strict one\'s (up to 3 rounds); when it never settles the tool says so', async () => {
+  let colds = 0, strict = 0;
+  const settling = async (dir, options = {}) => {
+    if (options.ask) { colds += 1; return result(['posting', 'form'], {memoAfter: {['k' + colds]: {content: 'x'}}}); }
+    if (options.extensionDir) return result(['posting'], {requests: []});
+    strict += 1;
+    return result(['posting', 'form'], {misses: strict < 3 ? 1 : 0});
+  };
+  const done = await go(settling, {askCold: true});
+  assert.equal(done.code, 0, done.lines.join('\n'));
+  assert.equal(colds, 3, 'asked in 3 rounds');
+  assert.match(done.lines.join('\n'), /asked in 3 rounds/);
+  colds = 0; strict = 0;
+  const never = await go(async (dir, options = {}) => (options.ask ? (colds += 1, result(['posting'], {memoAfter: {}})) : result(['posting', 'form'], {misses: 1})), {askCold: true});
+  assert.equal(never.code, 4);
+  assert.equal(colds, 3, 'it stops after 3 rounds');
 });
