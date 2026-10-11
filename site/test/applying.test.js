@@ -87,12 +87,12 @@ test('an upload keeps a rung (integer 0 to 6) and a signal (a fixed word) and dr
   assert.deepEqual(d.cases.map(item => [item.name, item.rung]).sort(), [['case-1', 2], ['case-2', null], ['case-3', null]]);
 });
 
-test('the page shows the ladder as a legend collapsed by default, a Rung column in the pool and a Guard column in the Fixed tab', () => {
+test('the page shows the ladder as a legend collapsed by default, a Rung column in the pool and a Details expander in the Fixed tab', () => {
   const legend = PAGE.slice(PAGE.indexOf('The AI ladder'), PAGE.indexOf('What the colors mean'));
   assert.match(PAGE, /<details|'details'/); assert.doesNotMatch(legend, /open: true/);   // collapsed
   for (const where of ['extension/tab-pages.js', 'page-kinds.json', 'desktop/lib/page-kind.js', 'desktop/lib/ladder/rung3-digest.js', 'extension/ladder/rung3-candidates.js', 'desktop/lib/ladder/rung4-picture.js', 'desktop/lib/ladder/rung5-takeover.js', 'the session card']) assert.ok(legend.includes(where), where);
   assert.ok(legend.includes('A rung that is unsure or contradicted hands the page to the next; a rung never guesses.'));
-  assert.match(PAGE, /heads\('pool', \[[^\]]*'Rung'/); assert.match(PAGE, /block\('fixed'[\s\S]*?'Guard'/);   // the replays' guarded rung lives in the Fixed tab's Fix and Guard columns
+  assert.match(PAGE, /heads\('pool', \[[^\]]*'Rung'/); assert.match(PAGE, /heads\('fixed', \[[^\]]*'Details'/);   // the replays' guarded rung lives in the Fixed tab's Fix and Guard columns
   assert.match(PAGE, /blocked at /);
 });
 

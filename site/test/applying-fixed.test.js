@@ -87,12 +87,29 @@ test('each pool row carries its own runs (last 20: day, at, reached, filled, lef
   assert.deepEqual(Object.keys(item.runs[0]).sort(), ['at', 'day', 'filled', 'left', 'needsFix', 'reached', 'version']);
 });
 
-test('the page: two tabs by URL hash, the Fixed table from heads() through block(), the replays folded into it, the "unconfirmed" line', () => {
+test('each fixed row carries what the expander shows: its host, every commit, and its runs with the ones after the landing marked', async () => {
+  const db = d1();
+  await smoke(db, '2026-10-10T22:00:00Z', {reached: 'posting'});
+  await ingest(db, {kind: 'fixes', day: '2026-10-11', rows: [FIX, {...FIX, commit: 'f5975be', extensionVersion: '0.9.182', landedAt: '2026-10-11T00:52:34+02:00', rung: '3'}]}, at('2026-10-11T08:00:00Z'));
+  await smoke(db, '2026-10-11T10:00:00Z', {reached: 'form', filled: 8, left: 3});
+  const row = await fixedRow(db, '2026-10-11T11:00:00Z');
+  assert.equal(row.host, 'jobs.hornbach.com');
+  assert.deepEqual(row.fixes.map(item => [item.commit, item.extensionVersion, item.rung]), [['fdbdc23', '0.9.181', '2'], ['f5975be', '0.9.182', '3']]);
+  assert.deepEqual(row.runs.map(item => [item.reached, item.after, item.share]), [['posting', false, null], ['form', true, 73]]);
+  assert.equal(row.status, 'confirmed');   // the logic is the same as before: a run after the LATEST landing cleared it
+});
+
+test('the page: two tabs by URL hash, one charcoal panel (title, one sentence, "How verification works", toolbar, table, footer), five columns from heads(), a row expander', () => {
   assert.match(PAGE, /#needs-fix/); assert.match(PAGE, /#fixed/); assert.match(PAGE, /hashchange/);
-  assert.match(PAGE, /block\('fixed', /);
-  assert.doesNotMatch(PAGE, /Fixed-site replays · every fixed site, replayed/);   // one table, not two
-  assert.doesNotMatch(PAGE, /heads\('cases'/);
-  assert.match(PAGE, /every landed fix shows "Landed, unconfirmed" until an uploaded run clears it/);
-  for (const label of ['Landed, unconfirmed', 'Landed, not better yet', 'Confirmed', 'Back', 'In progress']) assert.ok(PAGE.includes(label), label);
-  for (const column of ['Site', 'Platform', 'Fix', 'Status', 'Filled before → after', 'Guard']) assert.ok(PAGE.includes(`'${column}'`), column);
+  assert.match(PAGE, /heads\('fixed', \['Site \/ platform', 'Verification', 'Filled before → after', 'Fix', 'Details'\]/);
+  assert.doesNotMatch(PAGE, /heads\('cases'/); assert.doesNotMatch(PAGE, /Fixed-site replays · every fixed site, replayed/);
+  assert.doesNotMatch(PAGE, /'Guard'/);   // the Guard column is the expander now
+  assert.match(PAGE, /Every landed fix is "Awaiting verification" until an uploaded run clears it\./);
+  assert.match(PAGE, /How verification works/);
+  for (const word of ['Awaiting verification', 'Still failing', 'Confirmed', 'Regressed', 'Replay only', 'No confirming run yet', 'Live result not verified']) assert.ok(PAGE.includes(word), word);
+  for (const old of ['Landed, unconfirmed', 'Landed, not better yet']) assert.ok(!PAGE.includes(old), old + ' is gone');
+  assert.match(PAGE, /does not say how much more was filled/);   // Confirmed never implies the fill went up
+  assert.match(PAGE, /record/);   // the footer counts records; the tab counts sites with a landed fix, and says so
+  assert.match(PAGE, /Sites with a landed fix/);
+  assert.match(PAGE, /padding:12px 16px/);
 });
