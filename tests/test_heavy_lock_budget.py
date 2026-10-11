@@ -119,6 +119,21 @@ class HeavyLockBudgetTest(unittest.TestCase):
         wait_trace(self.trace, 5)
         self.finish()
 
+    def test_a_timing_run_starts_where_stat_is_the_gnu_one(self):
+        # CI (Linux, 11 Oct 2026): `stat -f %m dir` succeeds there with lines of file-system text, so a slot without its pid file made the staleness check fail and a timing run never started.
+        self.memory(free_gb=20)
+        bin_dir = Path(self.env['PATH'].split(os.pathsep)[0])
+        real_stat = shutil.which('stat')
+        (bin_dir / 'stat').write_text('#!/bin/sh\nif [ "$1" = -f ]; then printf \'  File: "%s"\\n    ID: 0 Namelen: 255 Type: ext4\\n\' "$3"; exit 0; fi\n'
+                                      f'if [ "$1" = -c ]; then exec {real_stat} -f %m "$3"; fi\nexec {real_stat} "$@"\n')
+        (bin_dir / 'stat').chmod(0o755)
+        self.launch('recorded-replay', 'a')
+        self.launch('apply-latency-x', 'timing')
+        release(self.gates, 'a')
+        wait_trace(self.trace, 3)
+        self.assertEqual(self.words(), ['+a', '-a', '+timing'])
+        self.finish()
+
     def test_the_slot_cap_can_be_set_back_to_two(self):
         self.memory(free_gb=20)
         for n in 'abc':

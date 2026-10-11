@@ -55,7 +55,7 @@ holders() { local dir pid what since out=""
   echo "${out:-nobody}"; }
 stale() {  # a slot's owner is gone (or never wrote its pid within 10 s)
   local pid; pid="$(cat "$1/pid" 2>/dev/null)"
-  if [ -z "$pid" ]; then [ $(( $(date +%s) - $(stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || date +%s) )) -gt 10 ]; return; fi
+  if [ -z "$pid" ]; then [ $(( $(date +%s) - $(stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || date +%s) )) -gt 10 ]; return; fi
   ! kill -0 "$pid" 2>/dev/null
 }
 held() {  # live slots, after dropping stale ones
@@ -90,7 +90,7 @@ memory_ok() {  # a 2nd heavy run fits: free+inactive memory over the floor and s
   [ "${swap:-0}" -le "$most" ] || why="${why:+$why; }swap ${swap}% used, a 2nd run needs $most% or less"
   [ -z "$why" ]
 }
-take() { local dir; for dir in $SLOT_DIRS; do mkdir "$dir" 2>/dev/null && { lock="$dir"; my_cost >"$dir/cost"; date +%s >"$dir/since"; is_exclusive && echo 1 >"$dir/exclusive"; return 0; }; done; return 1; }
+take() { local dir; for dir in $SLOT_DIRS; do mkdir "$dir" 2>/dev/null && { lock="$dir"; echo $$ >"$dir/pid"; my_cost >"$dir/cost"; date +%s >"$dir/since"; is_exclusive && echo 1 >"$dir/exclusive"; return 0; }; done; return 1; }
 # After taking a slot: a timing run must be the only holder and nobody may have started beside it; if two took at the same moment, both give the slot back and try again in their turn.
 alone_ok() { if is_exclusive; then [ "$(held)" -le 1 ]; else ! exclusive_held; fi || { rm -rf "$lock"; lock=""; return 1; }; }
 release() { [ -n "$lock" ] && [ "$(cat "$lock/pid" 2>/dev/null)" = "$$" ] && rm -rf "$lock"; return 0; }
