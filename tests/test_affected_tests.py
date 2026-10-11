@@ -42,6 +42,12 @@ class AffectedTests(unittest.TestCase):
         for test in ('test_how_it_runs', 'test_workflow_runners', 'test_workflow_node24'):
             self.assertIn(test, picked, test)
 
+    def test_an_edit_to_a_python_test_file_picks_no_desktop_tests_but_engine_and_fixture_edits_still_do(self):
+        # 11 Oct 2026: a tests/test_*.py edit was counted as an engine change and started ~130 desktop tests (29 s) for a change the app cannot feel
+        self.assertEqual(affected.select(['tests/test_ship.py', 'tests/test_ship_background.py'])['desktop'], [])
+        self.assertTrue(affected.select(['src/ai/kit.py'])['desktop'], 'an engine edit still picks the desktop tests that call the engine')
+        self.assertTrue(affected.select(['tests/fixtures/x.json'])['desktop'], 'a fixture or helper under tests/ may be read by them: still picked')
+
     def test_a_tool_script_selects_the_test_that_names_it(self):
         self.assertIn('test_ship', affected.select(['tools/ship.sh'])['python'])
         self.assertIn('test_pre_push_check', affected.select(['tools/pre-push-check.sh'])['python'])

@@ -186,7 +186,8 @@ def select(changed, base_ref=None):
                 result['python'] = 'all'; why['python'] = f'no test reaches {orphans[0]}'
     # Node areas
     graph = None
-    engine_changed = any(f.startswith(('src/', 'tests/')) for f in relevant)
+    # An engine edit (src/) or a fixture/helper under tests/ (a desktop test may read it) counts; an edit to a Python test file itself (tests/test_*.py) cannot change what the app does (11 Oct 2026: it started ~130 desktop tests).
+    engine_changed = any(f.startswith('src/') or (f.startswith('tests/') and not re.fullmatch(r'tests/test_[^/]+\.py', f)) for f in relevant)
     for area, folder in NODE_AREAS.items():
         if not any(areas[area](f) for f in relevant) and not (area == 'desktop' and engine_changed):
             continue
