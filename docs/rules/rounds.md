@@ -17,6 +17,8 @@ the wrong cause for the waiting ([why.md](why.md)).
 ## During
 - **Before telling the owner why something is slow or broken, measure it** (swap, load, the lock's holder, one log). 11 Oct: "the shared Notion test page"
   was asserted without opening one run log; 59 of 59 logs said sqlite. A wrong cause cost a brief and an hour of belief.
+- **A worktree name is not an owner:** before telling a session to cancel, change or wait because of a run, a lock waiter or a claim, name the session that owns that pid
+  (parent pids -> `~/.claude/sessions/<pid>.json`; `node tools/round-status.mjs` prints it). 11 Oct: a run in worktree `fix-combobox-state` was blamed on the wrong session.
 - Report confirmed rows per hour, and what each waiting session waits for (one line each).
 - A finished session says "done" and the coordinator tells the owner it can be closed.
 
