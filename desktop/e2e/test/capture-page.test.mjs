@@ -37,3 +37,11 @@ test('a name word is scrubbed, an acronym that spells it is not (the fake applic
   assert.match(out, /\(ADA\)/);
   assert.doesNotMatch(out, /Hello Ada|ada tester/i);
 });
+
+test('a long number that is part of an identifier (Greenhouse question_4553828006) is no phone: ids and labels stay linked; a real phone is still scrubbed', () => {
+  const html = '<label for="question_4553828006">Legal Address</label><input id="question_4553828006"><p>Call +41 79 555 12 34 or 0795551234.</p>';
+  const out = scrub(html);
+  assert.match(out, /for="question_4553828006"/);
+  assert.match(out, /id="question_4553828006"/);
+  assert.doesNotMatch(out, /555 12 34|0795551234/);
+});
