@@ -73,6 +73,9 @@ const runNeedsFix = run => (run.note ? null : !run.reached ? null : !!run.regres
 // A documented hold (owner, 11 Oct 2026): a stop the runner made on purpose and noted (desktop/e2e/lib/smoke.mjs parseLive): an account-first site (the smoke never creates the account)
 // or an eligibility stop. A live site, never a fix and never a posting gone; any other note (a posting gone, no posting) is gone.
 export const isHold = note => /^(account-first: held|eligibility stop:)/.test(note || '');
+// The site's own lasting property (it asks for an account first), unlike an eligibility stop (the posting against the profile, says nothing about the site):
+// only this hold verifies a fix on the Fixed tab (applying-fixed.js statusOf).
+export const isAccountHold = note => /^account-first: held/.test(note || '');
 const needsFix = site => !site.note && !!site.reached && (site.regression || !!site.short || ['none', 'posting', 'account'].includes(site.reached));
 
 export async function data(db, now = new Date()) {
@@ -81,7 +84,7 @@ export async function data(db, now = new Date()) {
   const byName = kind => runs.filter(run => run.kind === kind).reduce((out, run) => ((out[run.name] ||= []).push(run), out), {});
   const sites = Object.entries(byName('smoke')).map(([name, list]) => {
     const last = list.at(-1);
-    return {name, at: last.at, host: last.host, runs: list.slice(-20).map(run => ({day: run.day, at: run.at, reached: run.reached, hold: isHold(run.note), filled: run.filled, left: run.left_n, version: run.version, needsFix: runNeedsFix(run)})), reached: last.reached, filled: last.filled, left: last.left_n, day: last.day, version: last.version, note: last.note, hold: isHold(last.note), rung: last.rung ?? null, signal: last.signal ?? null,
+    return {name, at: last.at, host: last.host, runs: list.slice(-20).map(run => ({day: run.day, at: run.at, reached: run.reached, hold: isHold(run.note), accountHold: isAccountHold(run.note), filled: run.filled, left: run.left_n, version: run.version, needsFix: runNeedsFix(run)})), reached: last.reached, filled: last.filled, left: last.left_n, day: last.day, version: last.version, note: last.note, hold: isHold(last.note), rung: last.rung ?? null, signal: last.signal ?? null,
       regression: !!last.regression, short: shortOf(last.reached, last.filled, last.left_n, last.asked, last.unexplained), shares: list.slice(-10).map(run => shareOf(run.filled, run.left_n)), history: list.slice(-10).map(run => run.reached || 'none'), days: list.slice(-10).map(run => run.day)};
   }).sort((a, b) => Number(b.regression) - Number(a.regression) || STEPS.indexOf(a.reached) - STEPS.indexOf(b.reached));
   const cases = Object.entries(byName('recorded')).map(([name, list]) => {

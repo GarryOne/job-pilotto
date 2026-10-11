@@ -88,7 +88,7 @@ test('each pool row carries its own runs (last 20: day, at, reached, filled, lef
   const [item] = (await data(db, at('2026-10-23T08:00:00Z'))).pool;
   assert.equal(item.shape, 'Hornbach SuccessFactors');
   assert.equal(item.runs.length, 20);
-  assert.deepEqual(Object.keys(item.runs[0]).sort(), ['at', 'day', 'filled', 'hold', 'left', 'needsFix', 'reached', 'version']);
+  assert.deepEqual(Object.keys(item.runs[0]).sort(), ['accountHold', 'at', 'day', 'filled', 'hold', 'left', 'needsFix', 'reached', 'version']);
 });
 
 test('each fixed row carries what the expander shows: its host, every commit, and its runs with the ones after the landing marked', async () => {
@@ -225,8 +225,9 @@ test('a fix whose Pool-row was the capture folder\'s slug joins its pool row: on
 
 // Hornbach's "33% -> 73%" was the sign-up page (owner, 11 Oct 2026: an account-first site is a documented hold): a held run is a stop on purpose, so its counts are not
 // the application's filled share. A documented hold is an accepted end (owner, 11 Oct 2026: "hold = clean"), so it counts as a clean run: two of them confirm the fix
-// (Hornbach could never confirm while holds counted as neither). Every hold kind (applying.js isHold: account-first, eligibility stop), and a posting gone still counts as neither.
-test('a held run shows no filled share and counts as a clean run; two confirm the fix as held', async () => {
+// (Hornbach could never confirm while holds counted as neither). Only the account-first hold: an eligibility stop is about the posting, not the site, and once read as
+// clean it made Ashby "Regressed" (a stop before any field, then a shortfall run). A posting gone also counts as neither.
+test('an account-first held run shows no filled share and counts as clean; two confirm the fix as held', async () => {
   const db = d1();
   await smoke(db, '2026-10-10T22:00:00Z', {reached: 'account', filled: 8, left: 3, note: 'account-first: held'});
   await ingest(db, {kind: 'fixes', day: '2026-10-11', rows: [FIX]}, at('2026-10-11T08:00:00Z'));
@@ -236,6 +237,9 @@ test('a held run shows no filled share and counts as a clean run; two confirm th
   assert.deepEqual(row.runs.map(run => run.share), [null, null]);
   await smoke(db, '2026-10-11T12:00:00Z', {reached: 'form', filled: 0, left: 0, note: 'eligibility stop: not eligible'});
   row = await fixedRow(db, '2026-10-11T13:00:00Z');
+  assert.deepEqual([row.status, row.cleanRuns, row.heldRuns], ['landed', 1, 1], 'an eligibility stop is neither clean nor failing');
+  await smoke(db, '2026-10-11T14:00:00Z', {reached: 'account', filled: 8, left: 3, note: 'account-first: held'});
+  row = await fixedRow(db, '2026-10-11T15:00:00Z');
   assert.deepEqual([row.status, row.cleanRuns, row.heldRuns], ['confirmed', 2, 2]);
 });
 

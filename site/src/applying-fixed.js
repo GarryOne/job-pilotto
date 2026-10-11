@@ -48,10 +48,11 @@ const shareOf = run => (!run.hold && Number.isInteger(run.filled) && Number.isIn
 // One fixed pool row's status from its runs ({at, needsFix: true | false | null for a gone posting}) and its latest landing.
 // Confirmed needs TWO clean runs after the landing (owner, 11 Oct 2026: Hornbach's one clean run was the AI naming the working link by luck, then it was back);
 // one clean run is "landed" with cleanRuns 1. Back = confirmed, then a later run lists the row again.
-// A documented hold (run.hold: account-first, eligibility stop) is an accepted end, so it is a clean run (owner, 11 Oct 2026: "hold = clean"); heldRuns counts them.
+// An account-first hold (run.accountHold) is the site's accepted end, so it is a clean run (owner, 11 Oct 2026: "hold = clean"); heldRuns counts them.
+// An eligibility stop is about the posting, not the site: it stays neither (it once made Ashby "Regressed": a stop before any field, read as a clean run).
 export function statusOf(runs, landedAt) {
-  const landed = Date.parse(landedAt), after = runs.map(run => (run.hold ? {...run, needsFix: false} : run)).filter(run => Date.parse(run.at) > landed && run.needsFix != null);
-  const clean = after.filter(run => run.needsFix === false), heldRuns = clean.filter(run => run.hold).length;
+  const landed = Date.parse(landedAt), after = runs.map(run => (run.accountHold ? {...run, needsFix: false} : run)).filter(run => Date.parse(run.at) > landed && run.needsFix != null);
+  const clean = after.filter(run => run.needsFix === false), heldRuns = clean.filter(run => run.accountHold).length;
   const filledBefore = runs.filter(run => Date.parse(run.at) <= landed).slice(-3).map(shareOf), filledAfter = after.slice(-3).map(shareOf);
   if (clean.length < 2) return {status: 'landed', failingRuns: after.length - clean.length, cleanRuns: after.at(-1)?.needsFix === false ? clean.length : 0, heldRuns, filledBefore, filledAfter};
   return {status: after.at(-1).needsFix ? 'back' : 'confirmed', confirmedAt: clean[1].at, failingRuns: 0, cleanRuns: clean.length, heldRuns, filledBefore, filledAfter};
@@ -135,7 +136,7 @@ export const FIXED_SCRIPT = `
   const FIX_GET = [r => r.site.toLowerCase(), r => FIX_ORDER.indexOf(fixKind(r)), r => (fixShares0(r) ?? null), r => r.landedAt, r => r.guard.length];
   const fixShares0 = r => ((r.filledAfter || []).filter(value => value != null).at(-1));
   const HOW = [['Awaiting verification', 'The fix landed and no uploaded run since then has cleared the site: none yet, or the runs say nothing.'], ['Still failing', 'Runs uploaded after the fix still list the site under Needs a fix; the count is those runs.'],
-    ['Confirmed', 'Two uploaded runs after the fix no longer list the site under Needs a fix (one clean run can be luck: the AI picks its route). It does not say how much more was filled: read the filled column for that. A run that ends in a documented hold (the site asks for an account first, or the posting is not one to apply to) counts as clean: the hold is the accepted end.'], ['Regressed', 'It was confirmed, then a later run lists the site again (it is on Needs a fix too).'],
+    ['Confirmed', 'Two uploaded runs after the fix no longer list the site under Needs a fix (one clean run can be luck: the AI picks its route). It does not say how much more was filled: read the filled column for that. A run that ends because the site asks for an account first counts as clean: that hold is the accepted end. An eligibility stop says nothing about the site and counts as neither.'], ['Regressed', 'It was confirmed, then a later run lists the site again (it is on Needs a fix too).'],
     ['Filled before → after', 'The share of fields filled in the last run before the fix and in the last run after it; the expander lists every run.'],
     ['Source', 'Git trailers (Pool-row, Rung, Fixture) and the uploaded smoke runs, as of ' + (d.fixed.fixesAt ? ago(d.fixed.fixesAt) : 'no upload yet') + '.']];
   const drawFixed = () => { fixedBox.textContent = '';
