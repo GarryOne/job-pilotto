@@ -17,6 +17,7 @@ import {closerLook, lastLook} from './ladder/rung4-picture.js';
 import {formNext} from './form-ready.js';
 import {accountOutcome, accountStep} from './account-step.js';
 import {applyPressed} from './tabs.js';
+import {pageStill} from './page-still.js';
 import {bindSession, identityOf, sessionOf} from './tab-identity.js';
 import {pageKey, pageRole} from './tab-pages.js';
 import {applyPhrases, pressApply} from './apply-press.js';
@@ -153,7 +154,7 @@ export const emptyShape = counts => !counts.fields && !counts.passwords && !coun
 async function formAfterPress(tabId, url, ms = 8000) {
   const end = Date.now() + ms;
   while (Date.now() < end) {
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await pageStill(tabId, {maxMs: 1000});   // the press's result as soon as the page stops changing (page-still.js), at most the old second
     const live = await chrome.tabs.get(tabId).catch(() => null);
     if (!live) return 'navigated';   // closed: Apply's new tab is the application now (same-tab.js), not a page with "no form"
     if (pageKey(live.url) !== pageKey(url)) return 'navigated';
@@ -218,24 +219,24 @@ export async function consider(tab, jobUrl) {
   const key = fillKey(tab.id, tab.url);
   if (started.has(key)) return;
   started.add(key);
-  await new Promise(resolve => setTimeout(resolve, 1500)); // the form renders after the load event
+  await pageStill(tab.id, {maxMs: 1500});   // the form renders after the load event: read once the page has been still 0.5 s, at most the old 1.5 s (page-still.js)
   const live = await chrome.tabs.get(tab.id).catch(() => null);
   if (!live || pageKey(live.url) !== pageKey(tab.url)) { started.delete(key); return; }
   // A popup over the page (a cookie banner: Deloitte, 9 Oct 2026; any other, in any flow) is closed the way a person would, before the page is read (consent.js).
   const banner = await closeConsentEverywhere(tab.id, {cookiesOnly: true}).catch(() => '');
-  if (banner) { decide('fill', 'closed a popup', {label: banner.slice(0, 40)}); sayStep(tab.id, `Closed a popup ("${banner.slice(0, 30)}")`); await new Promise(resolve => setTimeout(resolve, 800)); }
+  if (banner) { decide('fill', 'closed a popup', {label: banner.slice(0, 40)}); sayStep(tab.id, `Closed a popup ("${banner.slice(0, 30)}")`); await pageStill(tab.id, {maxMs: 800}); }
   await expandSections(live);   // a form drawn with collapsed sections (SuccessFactors) is read open, or it looks empty and is judged "no form" (sections.js)
   // The page can refuse a read right after its load (still swapping documents, the worker just woke): look again before giving up,
   // or the tab is left with no fill and no state at all, for Claude and the app to wait on.
   let counts = await pageShape(tab.id);
-  for (let again = 0; !counts && again < 4; again++) {
-    await new Promise(resolve => setTimeout(resolve, 1000));
+  for (let again = 0; !counts && again < 8; again++) {   // every 0.5 s, up to the same 4 s
+    await new Promise(resolve => setTimeout(resolve, 500));
     counts = await pageShape(tab.id);
   }
   // No control at all while the page is still growing (a form rendered by script after its load, "Chargement en cours…"): read it again
-  // before anyone judges it, or a loading form is called a posting and its Submit pressed as Apply (9 Oct 2026, SuccessFactors). A static page: one extra second.
+  // before anyone judges it, or a loading form is called a posting and its Submit pressed as Apply (9 Oct 2026, SuccessFactors). A static page: one still half second.
   for (let wait = 0; counts && emptyShape(counts) && wait < 4; wait++) {
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await pageStill(tab.id, {maxMs: 1000});
     const next = await pageShape(tab.id);
     if (!next) break;
     const growing = next.nodes !== counts.nodes;
@@ -396,7 +397,7 @@ export async function consider(tab, jobUrl) {
     if (moved) {   // the page moved on by that press: the fill looks at it once more (a new state, a new look, never more than once)
       started.delete(key);
       decide('fill', 'the closer look pressed a control: the page is filled again', {host});
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await pageStill(tab.id, {maxMs: 1500});
       await consider(tab, jobUrl).catch(() => {});
       return;
     }

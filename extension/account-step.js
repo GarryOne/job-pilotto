@@ -12,6 +12,7 @@ import {bindSession, identityOf} from './tab-identity.js';
 import {tabArmed} from './tab-pages.js';
 import {accountSketch, fillAccountBoxes, fillAccountEmail, fillCodeBox, flagAccount, markAccountStep, passwordWork, pressAccountButton, pressConsent, pressRegister} from './account-fill.js';
 import {closerLook, unsureTwice} from './ladder/rung4-picture.js';
+import {pageStill} from './page-still.js';
 
 // -> 'register' | 'switch' | 'fill-press' | 'fill' | 'leave'. step: the AI's account step ('' when it gave none); mode: the app's 'sign-in' | 'sign-up' | 'confirm'.
 export function accountMove({step, mode, hasEmail, registerControl, signinControl}) {
@@ -229,7 +230,7 @@ async function accountStepOnce(tab, frameId) {
       await flag(tab, frameId, null);   // nothing is owed any more: the panel stops saying so
       sayStep(tab.id, 'Creating your account…');
       const form = formOutline(await run(tab, frameId, accountSketch));   // the form as it is pressed
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await pageStill(tab.id, {maxMs: 800});   // the form settles after its fill (page-still.js), at most the old 0.8 s
       const result = await run(tab, frameId, pressAccountButton, [kind?.accountButton || '']);
       sayOnce(tab, 'button', `account button: ${result || 'not run'}`, {host});
       if (result === 'bot-check') { const need = botCheckNeed(kind?.accountButton); await flag(tab, frameId, need); await giveUp(tab, host, 'a bot check', need); }   // the floor's word: the person solves it and presses the button
@@ -238,7 +239,7 @@ async function accountStepOnce(tab, frameId) {
         await markTried(tab, submitKey);   // pressed once; what became of it is the account AI's word, a moment later (here, or on the next page)
         await chrome.storage.session.set({[memoKey(tab)]: {host, at: Date.now(), path: new URL(tab.url).pathname.slice(0, 120), pressed: true, form, signin: step === 'sign_in'}}).catch(() => {});
         sayStep(tab.id, 'Waiting for the site to accept it…');
-        await new Promise(resolve => setTimeout(resolve, 4000));
+        await pageStill(tab.id, {maxMs: 4000, afterChange: true});   // the site's answer: once the page changed and went still, at most the old 4 s
         await accountOutcome(await chrome.tabs.get(tab.id).catch(() => tab));
       }
       sayStep(tab.id, '');   // the step is over, pressed or not: no "Creating your account…" left spinning on a page where nothing happens (owner's screenshot, 9 Oct 2026)
