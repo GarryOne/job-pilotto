@@ -106,6 +106,15 @@ export function mailCounts(report) {
   return [{value: seen, label: plural(seen, 'email reviewed', 'emails reviewed')}, updates];
 }
 
+// The one line a check with no email cards shows under its strip. It uses the strip's own update count (mailCounts), so the card never says
+// "No application records changed" beside "3 updates recorded" (issue #343: a run kept on this Mac has a count but no rows).
+export function mailNoCards(report) {
+  const recorded = mailCounts(report).find(count => /^updates? recorded$/.test(count.label))?.value || 0;
+  return recorded
+    ? `${recorded} ${recorded === 1 ? 'update' : 'updates'} recorded, but this run kept no details of which.`
+    : 'No application records changed.';
+}
+
 // A next step with a clause in it reads as two paragraphs ("…salary expectations, with a further call planned to
 // discuss …"): the pipeline's own punctuation decides the breaks, no word is added or dropped.
 const paragraphs = text => String(text).split(/,\s+(?=with\b)/i)

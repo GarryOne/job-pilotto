@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
-const {mailChanges, mailResults, mailStatus, parseMailReport, settleQuestion} = await import('../renderer/mail-report.js');
+const {mailChanges, mailResults, mailStatus, mailNoCards, parseMailReport, settleQuestion} = await import('../renderer/mail-report.js');
 
 const PREP = [
   '🗓 Tomorrow 08:30 — Huxley — Principal SRE',
@@ -261,4 +261,16 @@ test('an email about the interview the band describes is covered: its row keeps 
   assert.deepEqual(covered, ['Huxley']);                          // only the interview the panel describes
   assert.equal(results.find(r => r.company === 'Huxley').update.changes, 'Stage Screening → Interview scheduled');
   assert.equal(results.filter(r => r.update?.question).length, 3);  // the three which-job questions, on their emails
+});
+
+test('the line under a check with no email cards agrees with the strip\'s own count (issue #343)', () => {
+  // A run kept on this Mac says "3 updates recorded" but kept no email rows: the card must not also say nothing changed.
+  for (const [message, expect] of [
+    ['Gmail check: 3 new email(s) read, 3 update(s) recorded', /3 updates recorded.*no details/i],
+    ['Gmail check: 2 new email(s) read, 1 update(s) recorded', /1 update recorded.*no details/i],
+    ['Gmail check: 2 new email(s) read, 0 update(s) recorded', /No application records changed/]]) {
+    const line = mailNoCards(parseMailReport('', message));
+    assert.match(line, expect, message);
+    if (/[1-9] update\(s\) recorded/.test(message)) assert.doesNotMatch(line, /No application records changed/, message);
+  }
 });

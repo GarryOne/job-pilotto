@@ -4,7 +4,7 @@ import {ai} from '../ai-name.js';
 import {emailNoun, questionWhy} from '../question-words.js';
 import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
-import {mailChanges, mailCounts, mailResults} from '../mail-report.js';
+import {mailChanges, mailCounts, mailNoCards, mailResults} from '../mail-report.js';
 import {shared} from './shared.js';
 import {$} from './core.js';
 import {prepAction} from './focus.js';
@@ -113,7 +113,7 @@ function mailSections(box, report, pending = [], answered = null) {
       noDetails: 'A reminder from your calendar: no new email. The interview was recorded by an earlier check.'}));
   }
   if (!cards.length && !(found > 0)) return 0;
-  if (!cards.length) { box.append(el('p', 'muted mail-nochange', 'No application records changed.')); return 0; }
+  if (!cards.length) { box.append(el('p', 'muted mail-nochange', mailNoCards(report))); return 0; }
   const list = el('ol', 'mail-emails');
   list.append(...cards);
   box.append(list);
