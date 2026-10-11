@@ -42,6 +42,8 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 - **Files: one concern each, ≤ 500 lines; split near 450** as a pure move. Detail: [docs/rules/files.md](docs/rules/files.md).
 - **Screens:** reuse cards, components and tokens; every new screen or action goes in the ⌘K palette. Detail: [docs/rules/desktop-ui.md](docs/rules/desktop-ui.md),
   skill **ui-look-and-feel**; `desktop/` changes: skill **desktop-change**.
+- **Every lesson lands in its strongest form** (a failing test, a gate, a skill step, memory, a spec checklist; a note is the weakest).
+  Before saying done: what did this teach, and where does it live? Detail: [docs/rules/knowledge.md](docs/rules/knowledge.md).
 - **No subagents** unless the owner asks: work inline. **One issue per session**; new splittable work goes to a hand-off.
 
 ## The change loop
@@ -74,6 +76,7 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 | File size, splitting safely | [docs/rules/files.md](docs/rules/files.md) |
 | Habits, big changes, e2e steps, debugging e2e | [docs/rules/change-loop.md](docs/rules/change-loop.md) |
 | Facts easy to get wrong, code layout | [docs/rules/facts-and-layout.md](docs/rules/facts-and-layout.md) |
+| How knowledge is kept between sessions | [docs/rules/knowledge.md](docs/rules/knowledge.md) |
 | Why each rule exists | [docs/rules/why.md](docs/rules/why.md) |
 
 ## Tests
