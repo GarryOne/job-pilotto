@@ -82,7 +82,7 @@ for repo in "${repos[@]}"; do
       codemap) cmd=(node --test test/codemap.test.js); dir="$repo/desktop" ;;
       *) cmd=(bash tools/check.sh --area "$s"); dir="$repo" ;;
     esac
-    if [ "$s" != python ] && [ ! -e "$dir/node_modules" ]; then
+    if [ "$s" != python ] && [ ! -e "$dir/node_modules" ] && [ ! -e "$repo/$s/node_modules" ]; then   # an area keeps its own node_modules (desktop/, worker/, site/): the repo root has none (11 Oct 2026: every worktree said "not tested")
       notes+="$s not tested in $repo: no node_modules (run npm ci there in the owner's terminal, or tools/worktree.sh links them)."$'\n'
       continue
     fi
