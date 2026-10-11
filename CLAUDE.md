@@ -88,5 +88,5 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 - The gate reuses a suite pass on identical inputs (`tools/gate-cache.sh`; `GATE_CACHE=0` off, `PUSH_FULL=1` re-runs); a fail is never cached.
   Each step's time is logged (`<git common dir>/gate-timing.log`, `GATE_TIMING=0` off).
 - Areas with no affected test are not started (`JOB_PILOTTO_TIERS=0` starts all); browser suites and replays take one machine-wide lock
-  (`tools/heavy-lock.sh`, first come first served, waits on a busy Mac, `JOB_PILOTTO_HEAVY=0` skips); `tools/ship.sh` lands without a queue (a refused push rebases and re-runs
+  (`tools/heavy-lock.sh`, the primary checkout's copy, first come first served, a 2nd run only with spare memory, waits on a busy Mac, `JOB_PILOTTO_HEAVY=0` skips); `tools/ship.sh` lands without a queue (a refused push rebases and re-runs
   the checks), takes the extension version + fingerprint after each rebase (never bump it by hand to land), and keeps the worktree.

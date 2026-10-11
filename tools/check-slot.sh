@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Machine-wide queue for the push checks: at most JOB_PILOTTO_CHECK_SLOTS (default 3; owner, 11 Oct 2026, was 2) run at once on this Mac (8 cores; browser suites still one at a time, tools/heavy-lock.sh), so a fourth session
+# Machine-wide queue for the push checks: at most JOB_PILOTTO_CHECK_SLOTS (default 3; owner, 11 Oct 2026, was 2) run at once on this Mac (8 cores; browser suites: at most two with spare memory, tools/heavy-lock.sh), so a fourth session
 # pushing at the same time waits its turn instead of running a fourth full set on one CPU. Guarded by tests/test_check_slot.py.
 #   tools/check-slot.sh <command...>           waits for a free slot (says so), runs the command, frees the slot, keeps its exit code
 #   source tools/check-slot.sh; slot_acquire   ...  slot_release     (used by tools/pre-push-check.sh around its suites)

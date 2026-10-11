@@ -40,7 +40,7 @@ Whoever owns the pool and its run queue writes its own session name into `~/Libr
 Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is noted and replaced, never a regression. Exit 1 = a shape reached less than ITS last run.
 
 ## The rules that bite
-- **One pool run at a time on this Mac, by the machine-wide heavy lock** (`tools/heavy-lock.sh`: CPU and memory, the Mac swaps with two runs; the lock queues you and prints the holder). Pool and live runs are on SQLite in a throwaway profile: **no Notion page, no shared port** (11 Oct 2026: 59/59 logs "store under test: sqlite", `notion-requests.log` empty; each run has its own ports, profile and artifacts folder). Only `notion-real` takes a Notion page lock (`lib/notion-page-lock.mjs`). Before a run still `ListAgents` and say what you run and for how long; send "done" when finished; never start one beside a peer's run by bypassing the lock (`JOB_PILOTTO_HEAVY=0`).
+- **The machine-wide heavy lock decides when a pool run starts** (`tools/heavy-lock.sh`, the primary checkout's copy for every session, first come first served): one run, and a 2nd beside it only while free+inactive memory is over 7 GB and swap is low (one pool run peaks at 3.3 GB); never a 3rd. It queues you and prints the holder. Pool and live runs are on SQLite in a throwaway profile: **no Notion page, no shared port** (11 Oct 2026: 59/59 logs "store under test: sqlite", `notion-requests.log` empty; each run has its own ports, profile and artifacts folder). Only `notion-real` takes a Notion page lock (`lib/notion-page-lock.mjs`). **No slot messaging** (owner, 11 Oct 2026): don't ask peers for the page or a slot, don't send "done"; just start, and the lock queues you fairly. Never bypass it (`JOB_PILOTTO_HEAVY=0`).
 - **Say before a held run** what the window does and what is HELD (headless Chrome, fake applicant, no consent, no account button, never Submit), and how long.
 - **Background + Monitor, never sleep** (global rules). Start the run writing to a log, then arm a Monitor on its summary lines:
   `tail -n 0 -F <log> | grep --line-buffered -E "^smoke: |regression|rror:"` (one event per site: `reached <step>`, filled/left counts), and a second one for the end: save the run's PID at start (`echo $! > <scratch>/pid`) and watch `while kill -0 $PID 2>/dev/null; do sleep 3; done; echo ended`.
@@ -55,7 +55,7 @@ Longer waits: `SMOKE_SECONDS` (default 90). A posting gone (HTTP 404/410) is not
 - **No local flows matrix as a gate** (owner, 9 Oct): the pool and the matrix never block a push; live sites are moody.
 
 ## A round
-1. **Free slot?** Peers asked, the heavy lock free (or you queue behind it). Tell them what and for how long.
+1. **Start it:** the heavy lock queues you (first come first served, a 2nd run only with spare memory); no asking peers for a slot.
 2. **Run** (tonight's share, or `--only`/`--all`, or `--discover` when the owner loaded a new profile), held, with Monitor. Report per site as it lands.
 3. **Read the result:** regressions first (a shape that reached less than its last run), then the sites that reached the earliest step, then bot/code holds (documented, left alone).
    Compare with the last report; a site that failed once is run again before it counts.
