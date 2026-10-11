@@ -25,7 +25,7 @@ if (thin) { console.error(`row-to-case: ${path.basename(dir)}: ${thin}`); proces
 let built = null;
 if (commitAt >= 0 && !oldDir) {
   try { built = oldExtension({sha: args[commitAt + 1]}); oldDir = built.extensionDir; } catch (error) { console.error(`row-to-case: ${error.message}`); process.exit(2); }
-  console.error(`row-to-case: old extension = this checkout minus ${args[commitAt + 1]}, in ${built.extensionDir}`);
+  console.error(built.note ? `row-to-case: ${built.note}` : `row-to-case: old extension = this checkout minus ${args[commitAt + 1]}, in ${built.extensionDir}`);
 }
 const {code, lines} = await rowToCase({rowDir: dir, name, outDir: REPLAY_DIR, oldDir, askCold, fixed, say: line => console.error(`${new Date().toTimeString().slice(0, 8)} ${line}`)});
 built?.remove();

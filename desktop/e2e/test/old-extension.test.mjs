@@ -33,11 +33,16 @@ test('the fix is taken out; everything else (the manifest, later changes) stays 
   assert.equal(fs.existsSync(old.dir), false);
 });
 
-test('a commit with no extension change, a short or unknown hash, and a change that no longer reverts say what is wrong', () => {
+test('a commit with no extension change, a short or unknown hash, and a change that no longer reverts says so and falls back to the tree before it', () => {
   assert.throws(() => oldExtension({repo, sha: noExtension}), /changes nothing under extension/);
   assert.throws(() => oldExtension({repo, sha: 'zz'}), /wants a commit hash/);
   assert.throws(() => oldExtension({repo, sha: 'deadbeef'}), /no such commit/);
   write('extension/fill.js', 'rewritten\n'); commit('rewrite');
-  assert.throws(() => oldExtension({repo, sha: fix}), /no longer revert cleanly/);
+  const fell = oldExtension({repo, sha: fix});
+  try {
+    assert.match(fell.note, /no longer revert cleanly.*the extension at .*\^ instead.*control is weaker/);
+    assert.equal(fs.readFileSync(path.join(fell.extensionDir, 'fill.js'), 'utf8'), 'line1\nfill-before\nline3\n', 'the tree just before the fix');
+    assert.equal(fs.existsSync(path.join(fell.extensionDir, 'other.js')), true);
+  } finally { fell.remove(); }
   assert.ok(later);
 });
