@@ -76,7 +76,7 @@ test('the siblings of a "written" left field agree: the pool verdict, the fill c
   const field = {outcome: 'left', required: true, type: 'text', label: 'Why us?', reason: 'written: your own words to write'};
   assert.equal(verdictOf(field), 'expected');
   assert.equal(fillCard({trace: [field]}).required, 0, 'not counted as a fill loss');
-  assert.match(fs.readFileSync(new URL('../../extension/background.js', import.meta.url), 'utf8'), /!\/\^\(legal\|written\)\/\.test\(String\(row\.reason/);
+  assert.match(fs.readFileSync(new URL('../../extension/background.js', import.meta.url), 'utf8'), /!\/\^\(legal\|written\|demographic\)\/\.test\(String\(row\.reason/);
 });
 
 test('only a left field the AI read as written is an expected hold: every other kind of left field still makes the row a shortfall', async () => {
@@ -84,6 +84,23 @@ test('only a left field the AI read as written is an expected hold: every other 
   const left = reason => ({outcome: 'left', required: true, type: 'text', label: 'Q', reason});
   const want = {'written: your own words to write': 'expected', 'legal/consent: always your choice': 'expected', 'proposed for you to confirm': 'expected',
     'no answer in the kit, Profile or your details': 'no_suggestion', 'answer given, but the field did not take it': 'miss', 'question on the page not read': 'miss',
-    'question text not found on the page': 'miss', 'dropdown that opens only on a real click': 'miss'};
+    'question text not found on the page': 'miss', 'dropdown that opens only on a real click': 'miss',
+    'demographic: your own choice': 'expected', 'the AI gave no answer': 'no_suggestion'};
   for (const [reason, verdict] of Object.entries(want)) assert.equal(verdictOf(left(reason)), verdict, reason);
+});
+
+test('a salutation the AI returned as a "demographic" kind (no profile value) is the person\'s own choice; one it never named is "the AI gave no answer"; neither is typed', async () => {
+  // 11 Oct 2026, 4 Umantis rows: the radio "Anrede" (Herr/Frau) was asked and missing from the AI's answer. Nothing is inferred from a first name.
+  const rows = [{field: 'radio:form_data6', label: 'Anrede', type: 'radio', required: true, filled: false, legal: false},
+    {field: 'radio:other', label: 'Titel', type: 'radio', required: true, filled: false, legal: false}];
+  const {armed, fill} = fakeFillPage(rows);
+  const summary = await fill([{field: 'radio:form_data6', value: '', category: 'demographic', use: 'kind'}, {field: 'radio:other', value: '', category: 'unanswered', use: 'kind'}]);
+  assert.deepEqual(armed, []);
+  const {verdictOf} = await import('../e2e/lib/smoke.mjs');
+  const {fillCard} = await import('../../extension/fill-card.js');
+  const by = Object.fromEntries(summary.trace.map(row => [row.label, row]));
+  assert.deepEqual([by.Anrede.outcome, by.Anrede.reason, by.Titel.reason], ['left', 'demographic: your own choice', 'the AI gave no answer']);
+  assert.equal(verdictOf({...by.Anrede, required: true}), 'expected');
+  assert.equal(fillCard({trace: [by.Anrede]}).required, 0, 'not counted as a fill loss');
+  assert.equal(fillCard({trace: [by.Titel]}).causes.ai_declined, 1);
 });

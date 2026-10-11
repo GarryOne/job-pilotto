@@ -7,9 +7,10 @@
   window.__jobPilottoMarkCategories = (answers, rowOf) => {
     for (const item of answers || []) {
       const row = rowOf[item.field];
-      if (!row || !['knockout', 'legal', 'demographic', 'written'].includes(item.category)) continue;
+      if (!row || !['knockout', 'legal', 'demographic', 'written', 'unanswered'].includes(item.category)) continue;
       if (item.category === 'legal') row.legal = true;
       if (item.category === 'written') row.written = true;   // an open question in the person's own words that nothing given answers: left to them, never "no answer"
+      if (item.category === 'unanswered') row.unanswered = true;   // asked twice, the AI named it in neither answer: said so, not left blank
       if (item.category === 'demographic') row.demographic = true;   // fill.js declines it, as for the English words of DEMOGRAPHIC
       const el = document.getElementById(item.field) || document.querySelector(`[name="${CSS.escape(String(item.field).replace(/^(radio|group):/, ''))}"]`);
       if (el) el.dataset.jobpilottoCategory = item.category;

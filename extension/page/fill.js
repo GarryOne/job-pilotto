@@ -156,7 +156,7 @@
     // Legal is decided once, by the form reader (and the AI's reading of it): the audit has its own word floor, and a row it missed must not fall to
     // "no answer" (11 Oct 2026, Datadog: an attestation the reader marked legal, so never asked, was traced as "no answer in the kit").
     for (const row of after) if (rowOf[row.field]?.legal) row.legal = true;
-    for (const row of after) if (rowOf[row.field]?.written) row.written = true;
+    for (const row of after) for (const kind of ['written', 'demographic', 'unanswered']) if (rowOf[row.field]?.[kind]) row[kind] = true;
     const unread = [];
     if (window.__jobPilottoCoverage) {
       // Read = asked about: the described fields and the widgets an operator answered. Not the audit's rows: a field can be on
@@ -220,6 +220,8 @@
       let reason = '';
       if (row.legal) { outcome = 'left'; reason = 'legal/consent: always your choice'; }
       else if (row.written && !row.filled && !answer && !proposedOf[row.field]) { outcome = 'left'; reason = 'written: your own words to write'; }   // the AI's reading (category written), any language
+      else if (row.demographic && !row.filled && !answer && !proposedOf[row.field]) { outcome = 'left'; reason = 'demographic: your own choice'; }   // a salutation or gender nothing given states: never guessed
+      else if (row.unanswered && !row.filled && !answer && !proposedOf[row.field]) { outcome = 'left'; reason = 'the AI gave no answer'; }
       // A menu left on the page's own preselected choice that nobody answered (easytemp: Nationalité "Suisse"): the page will send it, so it reads as
       // filled, but the person must check it (browser-form-fastpath.js __jobPilottoAtPageDefault).
       else if (row.filled && !source && (el => el?.tagName === 'SELECT' && window.__jobPilottoAtPageDefault?.(el))(document.getElementById(row.field) || document.querySelector(`select[name="${CSS.escape(row.field)}"]`))) reason = 'preselected by the page: check it';

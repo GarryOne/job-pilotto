@@ -162,7 +162,7 @@ test('AI answers: profile and answers from Notion, one Claude call, only known f
   // The log line: why answers were dropped, in counts and ids, never an answer or the profile's text (8 Oct 2026: Coop got 0 back, untraceable).
   const { ms, engine, provider, billing, model, ...trace } = traces[0];
   assert.deepEqual([engine, provider], ['api', 'anthropic']);   // a client with no .engine is the raw Anthropic SDK
-  assert.deepEqual(trace, { fields: 2, returned: 3, kept: 1, unknownIds: ['invented'], empty: 1, emptyKinds: ['q2:'], profileChars: 13, answersChars: trace.answersChars, kit: true, stop: 'end_turn', proposed: 0, floored: [], categories: {} });
+  assert.deepEqual(trace, { fields: 2, returned: 3, kept: 1, unknownIds: ['invented'], empty: 1, emptyKinds: ['q2:'], profileChars: 13, answersChars: trace.answersChars, kit: true, stop: 'end_turn', proposed: 0, floored: [], categories: {}, retried: 0, stillMissing: [] });
   assert.ok(trace.answersChars > 0 && Number.isInteger(ms));
   assert.ok(!JSON.stringify(traces).includes('1 month') && !JSON.stringify(traces).includes('B permit'));
   assert.equal(result.eligible, true);
@@ -220,7 +220,7 @@ test('test mode tells Claude to answer every field with dummy values where unsur
   await answerForm(env, { url: 'https://jobs.lever.co/acme/1', fields: [{ field: 'q', label: 'Q', type: 'text' }], page_text: '', test: true }, client).catch(() => {});
   await answerForm(env, { url: 'https://jobs.lever.co/acme/1', fields: [{ field: 'q', label: 'Q', type: 'text' }], page_text: '' }, client).catch(() => {});
   assert.ok(seen[0].system[0].text.includes(TEST_MODE));
-  assert.ok(!seen[1].system[0].text.includes(TEST_MODE));
+  assert.ok(!seen[2].system[0].text.includes(TEST_MODE));   // the 1st call's answer left the field out: asked again (seen[1])
 });
 
 test('an extension fill is logged as an Agent Runs row comparable with the agent runs', async () => {
@@ -347,7 +347,7 @@ test('a legal question comes back as a kind only (no value), so the extension ma
   // kind the attestation got could not be read back). Ids and category words only, never a value.
   assert.deepEqual(traces[0].emptyKinds, ['certify:legal', 'gender:demographic']);
   assert.deepEqual(result.answers.map((a) => [a.field, a.value, a.use, a.category]),
-    [['city', 'Zurich', 'fill', 'contact'], ['certify', '', 'kind', 'legal'], ['terms', '', 'kind', 'legal']]);
+    [['city', 'Zurich', 'fill', 'contact'], ['certify', '', 'kind', 'legal'], ['terms', '', 'kind', 'legal'], ['gender', '', 'kind', 'demographic']]);
   const source = fs.readFileSync(new URL('../src/extension.js', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /Leave out legal consents/);
   assert.match(source, /legal question[^.]*value ""[^.]*category "legal"/);
@@ -382,4 +382,31 @@ test('every env getter the answers prompt reads may be a promise (the desktop ap
   assert.ok(!prompt.includes('[object Promise]'), 'no promise printed into the prompt');
   const empty = await asked({ ...base, KNOWLEDGE_TEXT: Promise.resolve('') });
   assert.ok(!empty.includes('Learned from earlier forms'), 'an empty knowledge page adds no block');
+});
+
+test('a field the AI leaves out of its answer is asked once more, then marked "unanswered", never silent (Umantis "Anrede", 11 Oct 2026)', async () => {
+  const { answerForm } = await import('../src/extension.js');
+  const fields = [{ field: 'radio:form_data6', label: 'Anrede', type: 'radio', required: true, options: ['Herr', 'Frau'] }, { field: 'city', label: 'Ort', type: 'text' }];
+  const reply = (answers) => ({ stop_reason: 'end_turn', usage: { billing: 'subscription' }, content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers }) }] });
+  const city = { field: 'city', value: 'Zurich', confidence: 'high', note: '', category: 'contact', use: 'fill' };
+  const salutation = { field: 'radio:form_data6', value: 'Frau', confidence: 'high', note: 'stated in the profile', category: 'demographic', use: 'fill' };
+  // (a) the second ask returns it: it is answered, and the second ask names only the missing field
+  const asked = [];
+  let n = 0;
+  const second = { messages: { create: async (request) => { asked.push(request.messages[0].content); return reply(n++ === 0 ? [city] : [salutation]); } } };
+  const traces = [];
+  const ok = await answerForm({ PROFILE_TEXT: 'Salutation: Frau', ANSWERS_TEXT: '', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t) }, { url: 'https://forms.example.com/a', fields, page_text: '' }, second);
+  assert.equal(asked.length, 2);
+  assert.ok(asked[1].includes('radio:form_data6') && !asked[1].includes('"city"') && /left these fields out/.test(asked[1]));
+  assert.deepEqual(ok.answers.map((a) => [a.field, a.value, a.use]), [['city', 'Zurich', 'fill'], ['radio:form_data6', 'Frau', 'fill']]);   // a profile salutation is filled, not held
+  assert.deepEqual([traces[0].retried, traces[0].stillMissing], [1, []]);
+  // (b) still missing: marked with the explicit category, so the panel and the pool can see it
+  const never = { messages: { create: async () => reply([city]) } };
+  const bad = await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: '', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t) }, { url: 'https://forms.example.com/a', fields, page_text: '' }, never);
+  assert.deepEqual(bad.answers.map((a) => [a.field, a.value, a.use, a.category]), [['city', 'Zurich', 'fill', 'contact'], ['radio:form_data6', '', 'kind', 'unanswered']]);
+  assert.deepEqual(traces[1].stillMissing, ['radio:form_data6']);
+  // (c) a demographic field with no value comes back as the person's own choice (a kind), not as nothing
+  const held = { messages: { create: async () => reply([city, { ...salutation, value: '' }]) } };
+  const choice = await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: '', KNOWLEDGE_TEXT: '' }, { url: 'https://forms.example.com/a', fields, page_text: '' }, held);
+  assert.deepEqual(choice.answers.map((a) => [a.field, a.use, a.category]), [['city', 'fill', 'contact'], ['radio:form_data6', 'kind', 'demographic']]);
 });

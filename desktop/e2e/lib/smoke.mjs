@@ -163,7 +163,7 @@ export function marksBlind(result) {
 export function verdictOf(field, {aiOff = false} = {}) {
   if (field.outcome === 'filled') return 'filled';
   const reason = String(field.reason || '');
-  if (/^(legal|written)/.test(reason)) return 'expected';   // written: the AI read an open question of the person's own words (category written)
+  if (/^(legal|written|demographic)/.test(reason)) return 'expected';   // written: the AI read an open question of the person's own words (category written)
   const cause = causeOf({reason, field: field.label});
   if (cause === 'proposed') return 'expected';
   if (['no_data', 'ai_declined', 'ai_unsure', 'ai_off', 'ai_error'].includes(cause)) return aiOff ? 'unknown' : 'no_suggestion';

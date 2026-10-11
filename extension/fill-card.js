@@ -22,6 +22,7 @@ const NO_ANSWER = 'no answer in the kit, Profile or your details';
 
 export function causeOf(row, {sent = new Set(), ai = null, aiError = '', useAI = true} = {}) {
   const reason = String(row?.reason || '');
+  if (reason.startsWith('the AI gave no answer')) return 'ai_declined';   // extension/page/fill.js: asked twice, still not in the AI's answer
   if (reason.startsWith('proposed')) return 'proposed';   // extension/page/fill.js: "proposed for you to confirm"
   if (/^question (on the page not read|text not found)/.test(reason)) return 'unread';
   if (reason.startsWith('answer given')) return 'not_taken';
@@ -43,7 +44,7 @@ const count = (list, key) => list.reduce((out, item) => { const k = key(item); i
 // asked of Claude. -> the card.
 export function fillCard({id, trace = [], form = [], sent = [], ai = null, aiError = '', useAI = true, kit = false, version = '', startedAt, endedAt = new Date()}) {
   const fieldOf = new Map(form.map(row => [String(row.label || '').trim(), row.field]));
-  const rows = trace.filter(row => row && row.type !== 'file' && !/^(legal|written)/.test(String(row.reason || '')))
+  const rows = trace.filter(row => row && row.type !== 'file' && !/^(legal|written|demographic)/.test(String(row.reason || '')))   // words-ok: our own trace reasons (extension/page/fill.js), not page text
     .map(row => ({...row, field: row.field || fieldOf.get(String(row.label || '').trim())}));
   const required = rows.filter(row => row.required);
   const left = required.filter(row => row.outcome !== 'filled');

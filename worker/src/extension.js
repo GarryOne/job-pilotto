@@ -10,6 +10,7 @@
 // origin, so the extension needs no host permission for the Worker; the token is the access control.
 
 import { anthropicClient, priceOf } from './ai.js';
+import { askAgainForGaps, unanswered } from './answer-missing.js';
 
 const KIT_HEADING = '📝 Application kit';
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
@@ -150,7 +151,7 @@ For each form field you are given its id, label, type, whether it is required, a
 - select, radio: exactly one of the listed options, copied character for character.
 - combobox: its options are often not listed (the menu is closed); give the option wording the form most likely uses ("Yes", "No", a country or city name). When options are listed, copy one exactly.
 - checkbox: "checked" or "unchecked".
-use: "fill" when <profile>, <standard_answers> or the drafted kit state the answer: it is typed into the form. When they don't state it, still give your most plausible answer for this applicant and this job, with use: "propose": the applicant sees it as a suggestion and confirms it; it is never typed for them. Base it on what is stated (their country, their CV, that they chose to apply to this job) and on what the posting expects (its hours, place, duties). Leave a field out (no answer) when nothing given points to an answer: never invent employers, dates, numbers, links or personal details. A legal question (a consent, terms, a certification or attestation, an acknowledgement) is never answered: return it with value "" and category "legal", so the applicant sees it is theirs to decide; never propose an answer to a demographic question or to a fact only the applicant can know (a criminal record, a registration with an office, their health). Voluntary demographic questions (gender, ethnicity, veteran, disability) are answered only from <standard_answers>; otherwise choose the "decline to answer" option if there is one.
+use: "fill" when <profile>, <standard_answers> or the drafted kit state the answer: it is typed into the form. When they don't state it, still give your most plausible answer for this applicant and this job, with use: "propose": the applicant sees it as a suggestion and confirms it; it is never typed for them. Base it on what is stated (their country, their CV, that they chose to apply to this job) and on what the posting expects (its hours, place, duties). Leave a field out (no answer) when nothing given points to an answer: never invent employers, dates, numbers, links or personal details. A legal question (a consent, terms, a certification or attestation, an acknowledgement) is never answered: return it with value "" and category "legal", so the applicant sees it is theirs to decide; never propose an answer to a demographic question or to a fact only the applicant can know (a criminal record, a registration with an office, their health). Voluntary demographic questions (gender, ethnicity, veteran, disability) are answered only from <standard_answers>; otherwise choose the "decline to answer" option if there is one. A demographic question with no answer in <standard_answers> and no decline option (a salutation Mr/Ms, Herr/Frau, a gender) is returned with value "" and category "demographic": never guess it from the applicant's name.
 category, in whatever language the form is: knockout = a question the employer can reject on by itself (work authorisation, visa or sponsorship, location, relocation, on-site days, a required licence or language); legal = a consent, terms, privacy notice, certification or acknowledgement; demographic = gender, ethnicity, disability, veteran or similar voluntary questions; contact = name, email, phone, address; preference = whether and how the applicant is kept informed (notifications by SMS or email, job alerts, a newsletter, a talent pool): a choice, not a legal consent, so give it your most plausible answer with use: "propose"; written = an open question the applicant answers in their own words (why they want this job or company, a cover letter, "tell us about yourself") when nothing given answers it: return it with value "" and this category instead of leaving it out or drafting it; normal = anything else.
 confidence: high when the answer is stated in the profile or standard answers, medium when you inferred it, low when the applicant should check it. note: a few words on why, for medium and low.
 
@@ -177,7 +178,7 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   const search = String((await Promise.resolve(env.SEARCH_TEXT).catch(() => '')) || '').slice(0, 4000);
   const job = row ? summary(row) : { title: '', company: '', url };
   const anthropic = client || anthropicClient(anthropicKey(env));
-  const response = await anthropic.messages.create({
+  const ask = (list, note = '') => anthropic.messages.create({
     model: env.JOB_PILOTTO_KIT_MODEL || DEFAULT_MODEL,
     max_tokens: 16000,
     // The profile and standard answers are the same for every form: cached, so a multi-page form
@@ -192,14 +193,18 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
       content: [
         `<job>\n${job.title} at ${job.company}\n${url}\n${String(page_text || '').slice(0, 12000)}\n</job>`,
         kit ? `<drafted_kit>\n${JSON.stringify({ answers: kit.answers, cover_letter: kit.cover_letter })}\n</drafted_kit>` : '',
-        `<form_fields>\n${JSON.stringify(fields)}\n</form_fields>`,
+        `<form_fields>\n${JSON.stringify(list)}\n</form_fields>`,
+        note,
       ].filter(Boolean).join('\n\n'),
     }],
     output_config: { format: { type: 'json_schema', schema: ANSWER_SCHEMA } },
   });
+  const response = await ask(fields);
   if (response.stop_reason === 'refusal') throw new Error('Claude declined to answer this form');
   const text = response.content.find((block) => block.type === 'text')?.text;
   const result = JSON.parse(text);
+  // A field the AI left out of its answer is asked once more (11 Oct 2026: a required salutation radio came back unmentioned on 4 Umantis rows); still missing: marked, never silent.
+  const { retried, stillMissing } = await askAgainForGaps(fields, result, ask);
   const usage = response.usage || {};
   // Answered on the user's Claude plan (Claude Code): no per-token cost.
   const price = priceOf(usage, PRICE);   // an OpenAI call (the app's client) at its own model's price
@@ -230,6 +235,7 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
     model: String(response.model || '').slice(0, 40),
     // A proposal the floor took out, by category (9 Oct 2026: a Coop SMS opt-in got no proposal, and the log could not say whether the AI left it or the floor did).
     floored: all.filter(floored).map((a) => a.category),
+    retried, stillMissing: stillMissing.slice(0, 10).map((f) => String(f).slice(0, 60)),
     categories: Object.fromEntries(['knockout', 'legal', 'demographic', 'contact', 'preference', 'normal', 'written'].map((c) => [c, all.filter((a) => a.category === c).length]).filter(([, n]) => n)) });
   return {
     job: row ? summary(row) : null,
@@ -241,7 +247,11 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
         .map((field) => ({ field, value: '', category: 'legal', use: 'kind' })),
       // An open question in the applicant's own words that nothing given answers (12 Oct 2026, Ashby "why join us?"): the same, as "written".
       ...[...new Set(all.filter((a) => a.category === 'written' && known.has(a.field)).map((a) => a.field))]
-        .map((field) => ({ field, value: '', category: 'written', use: 'kind' }))],
+        .map((field) => ({ field, value: '', category: 'written', use: 'kind' })),
+      // A salutation, gender or other personal-choice question with nothing in the profile: the person's own choice, never guessed (owner, 11 Oct 2026): the same.
+      ...[...new Set(all.filter((a) => a.category === 'demographic' && a.value === '' && known.has(a.field)).map((a) => a.field))]
+        .map((field) => ({ field, value: '', category: 'demographic', use: 'kind' })),
+      ...stillMissing.map(unanswered)],
     cover_letter: kit?.cover_letter || '',
     usd: Math.round(usd * 10000) / 10000,
     billed_to: billedTo(usage),   // who paid for the answer: the fill row's "Billed to" (the extension passes it back with the run)

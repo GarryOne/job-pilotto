@@ -1,0 +1,64 @@
+{
+ "shape": "a salutation radio (Herr/Frau) the profile does not state, beside a text field the AI answers",
+ "why": "Umantis application form (Migros group, Valora), pool runs of 11 Oct 2026: the radio \"Anrede\" was sent to the AI and was missing from its answer, so it read \"no answer in the kit\" and counted as a shortfall on 4 rows. Now the answer call asks again for any asked field the AI left out, and a salutation, gender or similar question with no value in the profile comes back as a kind only (value \"\", category \"demographic\", use \"kind\"): the person's own choice, never guessed from a name. Hand-cut page (the Umantis captures are over the size gate). The stubbed answer is what the real model answered to the new prompt (11 Oct 2026, 3 of 3 asks, after one repeat for the field it left out).",
+ "control": {
+  "build": "0.9.209",
+  "failed": "told: the salutation traced as \"no answer in the kit, Profile or your details\" instead of demographic: your own choice"
+ },
+ "sample": "hand-cut from the Umantis application form of the Migros group row (structure only, no real data)",
+ "pages": [
+  {
+   "url": "https://recruitingapp-662.umantis.com/Vacancies/1/Application/New/1",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": [
+    {
+     "field": "input_ort",
+     "value": "Zurich",
+     "confidence": "high",
+     "note": "",
+     "category": "contact",
+     "use": "fill"
+    },
+    {
+     "field": "input_3634",
+     "value": "",
+     "category": "legal",
+     "use": "kind"
+    },
+    {
+     "field": "radio:form_data6",
+     "value": "",
+     "category": "demographic",
+     "use": "kind"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "told": [
+   "\"outcome\":\"left\",\"reason\":\"demographic: your own choice\",\"required\":true"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60,
+  "asked": [
+   "Anrede"
+  ]
+ }
+}
