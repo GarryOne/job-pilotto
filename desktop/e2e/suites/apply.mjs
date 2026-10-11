@@ -7,7 +7,7 @@ import path from 'node:path';
 import {cvProblems, fillProblems, highlightProblems, leftProblems, submitProblems} from '../lib/applycheck.mjs';
 import {CHAIN, FORMS, HOSTS, LATE, REAL_FORMS, SCRIPTED, SIGNIN, SIGNIN_REFUSED, SIGNUP, MENU_FIRST, MENU_AGAIN, PROPOSE, REVEAL, COLLAPSED, ONEPAGE, MISLABELLED, realFieldId} from '../lib/forms.mjs';
 import {launchBrowser, readForm, readPanel, fillState} from '../lib/extension.mjs';
-import {addKitJob, removeJobsByUrl, stageOf} from '../lib/seed-data.mjs';
+import {addKitJob, removeJobsByUrl, seedLivePosting, stageOf} from '../lib/seed-data.mjs';
 import {ensureSetUp} from '../lib/seed.mjs';
 import {appLogLines, appLogText} from '../lib/app-log.mjs';
 import {livePosting, realKind, runLive} from '../lib/apply-live.mjs';
@@ -60,7 +60,8 @@ export async function runApply(ctx, parts) {
   await ctx.run('the app has an applicant, jobs with drafted kits for every fixture form, and an AI that answers only what the kits do not', async () => {
     await page.evaluate(contact => window.pilot.saveContact(contact), live && process.env.LIVE_EMAIL ? {...CONTACT, email: process.env.LIVE_EMAIL} : CONTACT);   // LIVE_EMAIL: the live run signs up with the owner's own plus address
     console.log(`  removed ${await removeJobsByUrl(ctx, urls)} job row(s) left by an earlier run`);
-    for (const form of fixtures) await addKitJob(ctx, {title: form.title, company: form.company, url: form.url, kit: {answers: form.kit, cover_letter: '', check_before_sending: []}, description: POSTING});
+    for (const form of fixtures) await (form === live ? seedLivePosting(ctx, live)   // the live posting as a real user's fresh one: no kit (lib/seed-data.mjs)
+      : addKitJob(ctx, {title: form.title, company: form.company, url: form.url, kit: {answers: form.kit, cover_letter: '', check_before_sending: []}, description: POSTING}));
     // The app's own AI calls go to the test proxy: the one question no kit covers gets a fixed answer, everything else would pass through (and is counted).
     proxy.setCanned(body => {
       const content = body.messages?.[0]?.content;

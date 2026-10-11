@@ -18,6 +18,8 @@ import {PAGE_LINE, STILL_SECONDS, stillClock} from './live-still.mjs';
 import {startOfflineApp} from './offline-app.mjs';
 import {ownerValues, pageFields, tripwire} from './privacy-tripwire.mjs';
 import {applyPoolEligibility} from './pool-eligibility.mjs';
+import {seedLivePosting} from './seed-data.mjs';
+import {storeCall} from './store-call.mjs';
 import {startRealExtension} from './real-extension.mjs';
 import {livePresses} from './replay-candidate.mjs';
 
@@ -50,6 +52,9 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
   try {
     await applyPoolEligibility(run.context.serviceWorkers()[0] || await run.context.waitForEvent('serviceworker', {timeout: 30000}), {say});   // before Apply: a pool run measures filling
     await app.call('saveContact', CONTACT);
+    // The posting as the Electron path has it (suites/apply.mjs): tracked, Saved, no kit, in this app's own store (lib/seed-data.mjs seedLivePosting).
+    const store = {store: 'sqlite', profile: app.dir};
+    await seedLivePosting({...store, data: (entity, method, kwargs) => storeCall(store, entity, method, kwargs)}, posting);
     const opened = new Promise((resolve, reject) => { app.onOpen(resolve); setTimeout(() => reject(new Error('Apply never opened the posting')), 15000).unref(); });
     const applied = await app.call('applyOne', posting.url, {title: posting.title || '', company: posting.company || ''});
     if (!applied?.ok) throw new Error(`Apply failed: ${applied?.error || 'no answer'}`);

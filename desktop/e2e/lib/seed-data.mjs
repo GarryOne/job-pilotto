@@ -18,6 +18,11 @@ export async function addKitJob(ctx, {title, company, url, kit, fit = 80, descri
   return made;
 }
 
+// The posting of a live row, as a real user's job is when they press Apply on a fresh posting from their list: tracked (title, company), Saved, NO drafted kit,
+// nothing invented (no fixture description or location). Both live paths seed it (suites/apply.mjs for lib/apply-live.mjs; lib/live-row.mjs): a drafted kit makes
+// the extension skip its eligibility stop (extension/tab-pages.js kitStance), so a kit on the Electron path only split the paths (Teamtailor, 11 Oct 2026).
+export const seedLivePosting = (ctx, {url, title, company}) => addKitJob(ctx, {title: title || 'Live posting', company: company || '', url, kit: null, stage: 'Saved', nextStep: '', location: ''});
+
 // Every tracked job at one of `urls` removed with its sections and files (a suite resets only the jobs it wrote). -> how many.
 export async function removeJobsByUrl(ctx, urls) {
   let count = 0;
