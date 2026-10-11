@@ -12,7 +12,7 @@ import {nextRunnable} from './replay-browser.mjs';
 import {PAGE_LINE, stillClock} from './live-still.mjs';
 import {followDelayMs, keptPresses, laterStates, replayPresses, samePress, stateAfter, swapInPage} from './row-follow.mjs';
 import {frontOf} from './app-front.mjs';
-import {mayEnd} from './row-end.mjs';
+import {activityOf, mayEnd} from './row-end.mjs';
 import {applyPoolEligibility} from './pool-eligibility.mjs';
 import {CONTACT} from './apply-fixtures.mjs';
 import {startOfflineApp} from './offline-app.mjs';
@@ -182,7 +182,7 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
           const check = samePress(pressed[followed], presses[followed], followed);
           if (!check.same) divergence = check.finding;
         }
-        clock.see(JSON.stringify([requests().length, log().split('\n').filter(line => PAGE_LINE.test(line)).length, [...rows.values()].filter(one => one === row).length]), Date.now());
+        clock.see(JSON.stringify([activityOf(requests()), log().split('\n').filter(line => PAGE_LINE.test(line)).length, [...rows.values()].filter(one => one === row).length]), Date.now());
         if (firstMissMs == null && /not in the row's kept answers/.test(log())) firstMissMs = Date.now();
         const why = mayEnd({quietMs: clock.stillFor(Date.now()), stillMs: stillSeconds * 1000, followed, livePresses: presses.length, firstMissMs, nowMs: Date.now()});
         if (why) { endedBy = why; break; }
