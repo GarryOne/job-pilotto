@@ -6,10 +6,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {seedNote} from './lib/applicant-seed.mjs';
+import {looseSummary} from './lib/row-case-run.mjs';
 import {findRow, replayRow, replayRows, staleCapture} from './lib/row-replay.mjs';
 
-const args = process.argv.slice(2), at = args.indexOf('--old'), all = args.includes('--all');
-const extensionDir = at >= 0 ? path.resolve(args[at + 1]) : undefined, name = args.filter((arg, i) => !(at >= 0 && (i === at || i === at + 1)) && arg !== '--all').join(' ');
+const args = process.argv.slice(2), at = args.indexOf('--old'), all = args.includes('--all'), loose = args.includes('--loose');   // --loose: as CI replays a row case (a changed system prompt is a counted warning)
+const extensionDir = at >= 0 ? path.resolve(args[at + 1]) : undefined, name = args.filter((arg, i) => !(at >= 0 && (i === at || i === at + 1)) && arg !== '--all' && arg !== '--loose').join(' ');
 const root = process.env.SMOKE_CANDIDATES || path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA', 'replay-candidates');
 const line = r => (r.error ? `row: ${r.row}: ERROR ${r.error}` : `row: ${r.row}: ${r.seconds} s${r.endedBy ? ` (ended: ${r.endedBy})` : ''}, ${r.asks} asks (${r.misses} not in its kept answers${r.missParts?.length ? `; the nearest kept ask differs in ${r.missParts.join(', ')}` : ''}), followed ${r.followed}/${r.livePresses} live presses${r.divergence ? `, DIVERGED: ${r.divergence}` : ''}${r.unrecorded.length ? `, ${r.unrecorded.length} addresses not recorded` : ''}`);
 
@@ -29,9 +30,10 @@ if (all) {
   if (!dir) { console.error(`row: no candidate for "${name}" in ${root} (give a pool row's name or a case folder)`); process.exit(2); }
   const stale = staleCapture(dir);
   if (stale) { console.error(`row: ${path.basename(dir)}: ${stale}`); process.exit(3); }
-  if (seedNote(dir)) console.log(`row: ${path.basename(dir)}: ${seedNote(dir)}`);   // its fill asks miss the kept answers (lib/applicant-seed.mjs)
-  const result = await replayRow(dir, {extensionDir, say: console.log});
+  if (!loose && seedNote(dir)) console.log(`row: ${path.basename(dir)}: ${seedNote(dir)}`);   // its fill asks miss the kept answers (lib/applicant-seed.mjs)
+  const result = await replayRow(dir, {extensionDir, loose, say: console.log});
   console.log(line(result));
+  if (loose) console.log(`row: ${looseSummary(result.looseHits) || 'no loose memo hit: every ask matched its kept answer exactly'}`);
   for (const address of result.unrecorded) console.log(`row: route not recorded: ${address}`);
   for (const [part, lines] of Object.entries(result.evidence)) console.log(`${part}:\n${lines.length ? lines.map(text => `  ${text}`).join('\n') : '  (none in the app log)'}`);
 }

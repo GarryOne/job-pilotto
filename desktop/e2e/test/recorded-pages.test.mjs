@@ -51,6 +51,7 @@ if (!skip) console.log(tabs === 1 ? 'recorded pages: JP_REPLAY_TABS=1, one brows
 for (const item of cases) {
   test(`${item.name}: ${item.shape}`, {skip}, async () => {
     let result = isRowCase(item) ? await runRowCase(item, {extensionDir}) : (await batchResults())?.get(item.name) || await runCase(item, {extensionDir});   // JP_REPLAY_TABS=1: one browser per case, in turn
+    if (result.loose) console.log(`row case ${item.name}: ${result.loose}`);   // a prompt or seed change since the capture: a warning, never a failure
     results.push({name: item.name, control: item.control, ok: result.ok, ...(Number.isInteger(item.rung) ? {rung: item.rung} : {}), note: result.failures.join('; ').slice(0, 200)});
     assert.deepEqual(result.failures, [], `${item.name} (${item.why || ''})`);
   });

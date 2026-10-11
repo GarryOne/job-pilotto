@@ -86,10 +86,27 @@ export function memoFile(env = process.env) {
 // a form answer guessed the owner's name from it), so an offline replay answers only what the live run already asked.
 export const memoOnly = (env = process.env) => !!env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_MODEL_MEMO_ONLY === '1';
 
+// Loose lookup (owner, 12 Oct 2026): the CI replay of a row case (e2e/lib/row-case-run.mjs) and `npm run row --loose` serve a kept answer whose USER-message parts and output schema match although the system side
+// (instructions, profile, search, knowledge) or the model changed since the capture: a prompt or seed change would otherwise turn every row case's answer asks cold, and CI has no claude -p. Each such hit is
+// appended to the file named by JOB_PILOTTO_MODEL_MEMO_LOOSE (e2e only) with the parts that differ. A changed job / form_fields block is still a miss.
+export const looseFile = (env = process.env) => (env.JOB_PILOTTO_E2E ? String(env.JOB_PILOTTO_MODEL_MEMO_LOOSE || '') : '');
+const isPageSide = name => name === 'output' || /^(user|assistant):/.test(name);
+export function looseMatch(parts, kept) {
+  const mine = Object.entries(parts).filter(([name]) => isPageSide(name));
+  let found = null;
+  for (const [name, other] of Object.entries(kept)) {
+    if (!name.endsWith(PARTS)) continue;
+    const theirs = Object.entries(other).filter(([part]) => isPageSide(part));
+    if (mine.length !== theirs.length || !mine.every(([part, hash]) => other[part] === hash)) continue;
+    found = {key: name.slice(0, -PARTS.length), differs: [...new Set([...Object.keys(parts), ...Object.keys(other)])].filter(part => parts[part] !== other[part])};
+  }
+  return found;
+}
+
 const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return {}; } };
 
 // Wraps the client's messages.create in place (the adapter keeps its engine, billing, fallback). A failed ask is not kept. -> the same client.
-export function withMemo(client, file = memoFile(), {only = memoOnly()} = {}) {
+export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = looseFile()} = {}) {
   if (!client || !file) return client;
   const ask = client.messages.create.bind(client.messages);
   client.messages = {...client.messages, create: async params => {
@@ -97,6 +114,13 @@ export function withMemo(client, file = memoFile(), {only = memoOnly()} = {}) {
     // An offline replay serves the page scrubbed (lib/live-capture.js fakeContacts): the answer the AI gave to the live page is scrubbed the same way, so an address it
     // read off the page (apply_email) is still on the replayed page.
     if (kept[key]) return only ? JSON.parse(fakeContacts(JSON.stringify(kept[key]))) : kept[key];
+    if (only && loose) {
+      const hit = looseMatch(memoParts(params), kept);
+      if (hit) {
+        try { fs.appendFileSync(loose, `${JSON.stringify({differs: hit.differs})}\n`); } catch { /* the count is a report only */ }
+        return JSON.parse(fakeContacts(JSON.stringify(kept[hit.key])));
+      }
+    }
     if (only) {
       // JOB_PILOTTO_MODEL_MEMO_MISSES=<file> (e2e only): the normalised request of each miss, to see what differs from the live run's ask.
       if (process.env.JOB_PILOTTO_E2E && process.env.JOB_PILOTTO_MODEL_MEMO_MISSES) try { fs.appendFileSync(process.env.JOB_PILOTTO_MODEL_MEMO_MISSES, `${normalise(JSON.stringify({model: params.model, system: params.system ?? '', messages: params.messages ?? [], output_config: params.output_config ?? null, tools: params.tools ?? null}))}\n`); } catch { /* a debug aid */ }

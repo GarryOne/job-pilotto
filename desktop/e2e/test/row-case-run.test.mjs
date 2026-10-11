@@ -1,7 +1,7 @@
 // lib/row-case-run.mjs: a row case passes when its replay shows its expect, asks no model call the case did not keep, and reaches no unrecorded address. The replay itself is injected.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {isRowCase, runRowCase} from '../lib/row-case-run.mjs';
+import {isRowCase, looseSummary, runRowCase} from '../lib/row-case-run.mjs';
 
 const item = {name: 'x-1', dir: '/x', replay: 'row', expect: {kinds: ['posting', 'form']}};
 const result = (kinds, extra = {}) => ({appLog: kinds.map(kind => `12:00:00Z [extension] page kind: ${kind} {}`).join('\n'), requests: [], misses: 0, unrecorded: [], seconds: 4, ...extra});
@@ -16,4 +16,14 @@ test('it fails on the old shape, on a cold ask, on an unrecorded address, and on
   assert.match((await runRowCase(item, {replay: async () => result(['posting', 'form'], {misses: 2})})).failures[0], /2 model ask\(s\) not in the case's kept answers/);
   assert.match((await runRowCase(item, {replay: async () => result(['posting', 'form'], {unrecorded: ['https://a.example/x']})})).failures[0], /address not recorded/);
   assert.match((await runRowCase({...item, expect: {}}, {replay: async () => result(['posting'])})).failures[0], /no expect/);
+});
+
+test('CI replays a row case LOOSE: the replay is asked for it, a loose hit is a warning line and never a failure, and nothing here checks the capture\'s seed', async () => {
+  let asked = null;
+  const done = await runRowCase(item, {replay: async (dir, options) => { asked = options; return result(['posting', 'form'], {looseHits: [{differs: ['system:1', 'system:1:search_preferences']}, {differs: ['model', 'system:1']}]}); }});
+  assert.equal(asked.loose, true);
+  assert.equal(done.ok, true);
+  assert.equal(done.loose, '2 answer ask(s) served although the system side differs from the capture\'s: system:1, system:1:search_preferences, model');
+  assert.equal(looseSummary([]), '');
+  assert.equal((await runRowCase(item, {replay: async () => result(['posting', 'form'])})).loose, '');
 });

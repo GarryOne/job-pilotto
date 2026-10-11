@@ -137,3 +137,41 @@ test('a miss in a tagged section names the lines that differ ("system:1:profile 
   await assert.rejects(replay.messages.create(withProfile('First name: Test\nLast name: Tester\nCity: Zurich')), /differs in: system:1, system:1:profile \(lines 2 of 5\)/);
   assert.ok(!JSON.stringify(memoParts(withProfile('First name: Ada'))).includes('Ada'));
 });
+
+// Loose lookup (owner, 12 Oct 2026): a CI row-case replay serves a kept answer whose user-message parts and output schema match even when the SYSTEM side (instructions, profile, search, knowledge) or the model
+// changed since the capture, and counts each such hit; strict stays strict. A changed job or form_fields block is still a miss.
+const looseSetup = async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-memo-loose-')), file = path.join(dir, 'model-memo.json'), hits = path.join(dir, 'hits.jsonl');
+  const live = {engine: 'cli', messages: {create: async () => ({content: [{type: 'text', text: '{"answers":[]}'}], stop_reason: 'end_turn', usage: {}})}};
+  withMemo(live, file);
+  await live.messages.create(answerAsk('Seller in Zurich'));
+  const replay = (options = {}) => { const client = {messages: {create: async () => { throw new Error('must not ask'); }}}; withMemo(client, file, {only: true, ...options}); return client; };
+  return {file, hits, replay};
+};
+
+test('loose: a changed system block (or model) is a hit served from the kept answer, counted with the differing parts', async () => {
+  const run = await looseSetup(), loose = run.replay({loose: run.hits});
+  const answer = await loose.messages.create({...answerAsk('Seller in Zurich', 'You fill forms, NEW instruction line'), model: 'claude-sonnet-9-9'});
+  assert.deepEqual(JSON.parse(answer.content[0].text), {answers: []});
+  const recorded = fs.readFileSync(run.hits, 'utf8').trim().split('\n').map(line => JSON.parse(line));
+  assert.equal(recorded.length, 1);
+  assert.ok(recorded[0].differs.includes('system:0') && recorded[0].differs.includes('model'));
+  assert.ok(!recorded[0].differs.some(name => name.startsWith('user:') || name === 'output'), 'only the system side differs');
+});
+
+test('loose: a changed job block or form_fields block is still a miss; strict mode (no loose file) never serves a changed system block', async () => {
+  const run = await looseSetup(), loose = run.replay({loose: run.hits});
+  await assert.rejects(loose.messages.create(answerAsk('Seller in Zurich, the page text changed')), /not in the row's kept answers/);
+  const form = answerAsk('Seller in Zurich'); form.messages[0].content = form.messages[0].content.replace('"q1"', '"q2"');
+  await assert.rejects(loose.messages.create(form), /not in the row's kept answers/);
+  const strict = run.replay();
+  await assert.rejects(strict.messages.create(answerAsk('Seller in Zurich', 'You fill forms, NEW instruction line')), /differs in: system:0/);
+  assert.ok(!fs.existsSync(run.hits), 'strict mode records no loose hit');
+});
+
+test('loose lookup is read from the environment too (JOB_PILOTTO_MODEL_MEMO_LOOSE=<hits file>, e2e only) and is off without it', async () => {
+  const {looseFile} = await import('../lib/ai/model-memo.js');
+  assert.equal(looseFile({}), '');
+  assert.equal(looseFile({JOB_PILOTTO_E2E: '1', JOB_PILOTTO_MODEL_MEMO_LOOSE: '/tmp/x'}), '/tmp/x');
+  assert.equal(looseFile({JOB_PILOTTO_MODEL_MEMO_LOOSE: '/tmp/x'}), '', 'never outside the e2e env');
+});

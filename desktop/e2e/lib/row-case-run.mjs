@@ -4,14 +4,21 @@
 import {checkSignature, signatureOf} from './row-signature.mjs';
 import {replayRow} from './row-replay.mjs';
 
+// "N answer ask(s) served although the system prompt differs from the capture's: system:1:search_preferences" or ''.
+export function looseSummary(hits = []) {
+  if (!hits.length) return '';
+  const parts = [...new Set(hits.flatMap(hit => hit.differs || []))];
+  return `${hits.length} answer ask(s) served although the system side differs from the capture's: ${parts.join(', ') || 'unknown'}`;
+}
 export const isRowCase = item => item?.replay === 'row';
 
 export async function runRowCase(item, {extensionDir, replay = replayRow} = {}) {
   const failures = [];
   if (!item.expect || !Object.keys(item.expect).length) failures.push('no expect: a row case gets its expect from row-to-case (the new build\'s replay), never by hand');
-  const result = await replay(item.dir, {extensionDir});
+  const result = await replay(item.dir, {extensionDir, loose: true});   // loose: a prompt or seed change since the capture is a warning, not a cold ask (CI has no claude -p)
   failures.push(...checkSignature(signatureOf(result), item.expect));
   if (result.misses) failures.push(`${result.misses} model ask(s) not in the case's kept answers (CI has no claude -p; row-to-case --ask-cold keeps them)`);
   for (const address of result.unrecorded || []) failures.push(`address not recorded: ${address}`);
-  return {name: item.name, ok: !failures.length, failures, confirm: [], seconds: result.seconds, signature: signatureOf(result)};
+  const loose = looseSummary(result.looseHits);
+  return {name: item.name, ok: !failures.length, failures, confirm: [], seconds: result.seconds, signature: signatureOf(result), loose};
 }
