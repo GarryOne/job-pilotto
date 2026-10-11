@@ -17,9 +17,18 @@
   // cell or label beside it that holds no control and is not one option's own label. Structure only; the first such cell wins.
   const ROW = 'tr, li, dl, [class*=row], [class*=Row], [class*=field], [class*=Field], [class*=form-group], [class*=question]';
   const rowTitle = el => {
-    const row = el.closest?.(ROW);
-    if (!row || row.closest('fieldset')) return null;
-    const optionLabels = new Set(Array.from(row.querySelectorAll('input[type=radio], input[type=checkbox]')).flatMap(box => [box.closest('label'), ...(box.labels || [])]));
+    // The nearest row can be an option's own <li>; walk up to the outer row that holds the question. A row holding another group's controls is a whole form.
+    for (let row = el.closest?.(ROW); row; row = row.parentElement?.closest(ROW)) {
+      if (row.closest('fieldset')) return null;
+      const boxes = Array.from(row.querySelectorAll('input[type=radio], input[type=checkbox]'));
+      if (boxes.some(box => box.name !== el.name || !box.name)  && boxes.some(box => box !== el && !(el.name && box.name === el.name))) return null;
+      const title = titleIn(el, row, boxes);
+      if (title) return title;
+    }
+    return null;
+  };
+  const titleIn = (el, row, boxes) => {
+    const optionLabels = new Set(boxes.flatMap(box => [box.closest('label'), ...(box.labels || [])]));
     const cells = Array.from(row.querySelectorAll('th, td, dt, legend, label, [class*=label], [class*=Label], [class*=title]'));
     const free = cell => !optionLabels.has(cell) && !cell.querySelector('input, select, textarea, button') && !cell.contains(el) && LETTER.test(cell.textContent) &&
       !Array.from(cell.querySelectorAll('label')).some(label => optionLabels.has(label));

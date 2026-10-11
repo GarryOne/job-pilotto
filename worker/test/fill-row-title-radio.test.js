@@ -21,3 +21,24 @@ for (const [name, html] of Object.entries(LAYOUTS)) {
     assert.deepEqual([...row.options],['Frau', 'Herr']);
   });
 }
+
+// A row nested inside another row: the nearest row match is an option's own <li>, the question sits in the OUTER row (Lever's age range, pool row
+// "Lever: single page, no account", 11 Oct 2026). Walk up the rows; a row that holds another group's controls is a whole form, not this question.
+const NESTED = {
+  'options in a list inside the question item': `<ul><li class="application-question"><div class="application-label"><div class="text">What is your age range?</div></div><div class="application-field"><ul>
+    <li><label><input type="radio" name="age"><span>18-20</span></label></li><li><label><input type="radio" name="age"><span>21-29</span></label></li></ul></div></li></ul>`,
+};
+for (const [name, html] of Object.entries(NESTED)) {
+  test(`${name}: named by its question, not its first option`, { skip: !JSDOM }, async () => {
+    const window = openPage(JSDOM, `<form>${html}</form>`);
+    const row = (await window.__jobPilottoDescribeForm()).find(r => r.type === 'radio');
+    assert.equal(row.label, 'What is your age range?');
+    assert.deepEqual([...row.options], ['18-20', '21-29']);
+  });
+}
+test('a wrapper row around two questions names neither by the other', { skip: !JSDOM }, async () => {
+  const q = (n, t) => `<li class="question"><div>${t}</div><ul><li><label><input type="radio" name="${n}"><span>x${n}</span></label></li><li><label><input type="radio" name="${n}"><span>y${n}</span></label></li></ul></li>`;
+  const window = openPage(JSDOM, `<form><div class="field"><ul>${q('a', 'First question')}${q('b', 'Second question')}</ul></div></form>`);
+  const labels = (await window.__jobPilottoDescribeForm()).filter(r => r.type === 'radio').map(r => r.label);
+  assert.deepEqual(Array.from(labels), ['First question', 'Second question']);
+});
