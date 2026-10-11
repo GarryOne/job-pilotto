@@ -1,5 +1,5 @@
 // "Needs a fix" by cause (site/src/applying-groups.js): ONE function groups the Needs a fix rows by their top cause and puts the rows that need a pool run, not a fix, first
-// ("Run first": the last run is older than the latest landed build, or there is no run at all). The page embeds its source (the "By cause" tab) and tools/needs-fix-causes.mjs
+// ("Run first": never run, or the last run is older than a fix landed for that row). The page embeds its source (the "By cause" tab) and tools/needs-fix-causes.mjs
 // imports it, so they cannot disagree. Seeded data through the real ingest and data(); the page's own script runs on a tiny DOM; the command reads the same JSON.
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
