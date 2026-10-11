@@ -281,3 +281,38 @@ test('parseLive: a form that came after the press, or an eligibility stop on it,
   assert.equal(parseLive(`${pressed}\n${proofs['a form came']}\n      log x [extension] fill: fields: 6 filled, 3 left {}`).reached, 'form', 'a fill after it still counts as before');
   assert.equal(parseLive(`${pressed}\n      log x [extension] fill: after the press: no form came {}`).reached, 'posting', 'no form came is no form');
 });
+
+// Account-first sites (owner, 11 Oct 2026: a documented hold): a sign-up page before the application is filled like a form, but the test never presses its account
+// button, so the run ends there. The account step is the extension's own page-kind decision (the AI's), never a site name or the page's words. Hornbach's 8 filled
+// of 11 were the sign-up page (e-mail, password boxes), shown on the Fixed tab as the application's "73%".
+const SIGN_UP = ['  live +  0s: Apply pressed on https://jobs.example.com/job/1/',
+  '      log 22:06:36.550Z [extension] page kind: posting {"shape":"jobs.example.com/job/*|1-2","by":"ai","rung":2}',
+  '      log 22:06:47.090Z [extension] fill: account page: register {"host":"career.example.eu","mode":"sign-up","step":"sign_in"}',
+  '      log 22:06:50.334Z [extension] fill: page kind: account {"by":"ai","confidence":0.93,"host":"career.example.eu"}',
+  '      log 22:07:03.197Z [review] fill: marks: 9 starred, 8 required {"board":"x"}',
+  '      log 22:07:03.203Z [extension] fill: fields: 8 filled, 3 left {"fields":[]}',
+  '      field filled text "E-Mail-Adresse" required=true reason=your details', `      field left text "Passwort" required=true reason=${NO_ANSWER}`];
+
+test('a run that ends on the account page is "account-first: held": the sign-up page\'s fields are not the application\'s', () => {
+  const result = parseLive(SIGN_UP.join('\n'));
+  assert.equal(result.reached, 'account');
+  assert.equal(result.note, 'account-first: held');
+  assert.deepEqual([result.filled, result.left, result.marks, result.fieldList], [null, null, null, []]);
+  assert.equal(shortfall(result), null);
+  assert.deepEqual(verdictFields(result), {});
+  assert.deepEqual(compare({a: {reached: 'form', filled: 8, url: 'u'}}, {a: {...result, url: 'u'}}), [], 'the sign-up count it had last time is no regression to fall from');
+});
+
+test('past the account page the application form counts again, and no hold is noted', () => {
+  const result = parseLive([...SIGN_UP, '      log 22:08:00.000Z [extension] fill: page kind: form {"by":"ai","host":"career.example.eu"}',
+    '      log 22:08:05.000Z [extension] fill: fields: 5 filled, 1 left {"fields":[]}', '      field filled text "Vorname" required=true reason=your details'].join('\n'));
+  assert.deepEqual([result.reached, result.filled, result.left, result.fieldList.length, result.note], ['form', 5, 1, 1, undefined]);
+  // A page that is a sign-up and the form at once (the AI's "account-form") is the application: its fields count.
+  const both = parseLive(SIGN_UP.join('\n').replace('page kind: account', 'page kind: account-form'));
+  assert.deepEqual([both.reached, both.filled, both.note], ['form', 8, undefined]);
+  // The Apply press drew a form on the posting that only led to the sign-up page: still held at the account step.
+  const routed = parseLive([...SIGN_UP.slice(0, 2), '      log 16:35:44.777Z [extension] fill: after the press: a form came {"host":"jobs.example.com"}', ...SIGN_UP.slice(2, 4)].join('\n'));
+  assert.deepEqual([routed.reached, routed.note], ['account', 'account-first: held']);
+  // An eligibility stop keeps its own note.
+  assert.match(parseLive([...SIGN_UP.slice(0, 3), '      log 15:38:32.019Z [extension] fill: did not fill: The role is in Sydney. {"url":"x"}'].join('\n')).note, /^eligibility stop: /);
+});

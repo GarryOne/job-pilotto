@@ -42,7 +42,8 @@ export async function ingestFixes(db, body, now = new Date()) {
   return {ok: true, stored};
 }
 
-const shareOf = run => (Number.isInteger(run.filled) && Number.isInteger(run.left) && run.filled + run.left > 0 ? Math.round((100 * run.filled) / (run.filled + run.left)) : null);
+// A held run (an account-first stop, applying.js isHold) has no filled share: its counts are the sign-up page's, not the application's.
+const shareOf = run => (!run.hold && Number.isInteger(run.filled) && Number.isInteger(run.left) && run.filled + run.left > 0 ? Math.round((100 * run.filled) / (run.filled + run.left)) : null);
 
 // One fixed pool row's status from its runs ({at, needsFix: true | false | null for a gone posting}) and its latest landing.
 // Confirmed needs TWO clean runs after the landing (owner, 11 Oct 2026: Hornbach's one clean run was the AI naming the working link by luck, then it was back);
@@ -75,7 +76,7 @@ export async function fixedData(db, pool, cases, now = new Date()) {
     const last = list.at(-1), item = pool.find(row => row.name === site || row.shape === site);
     const guard = [...new Set(list.flatMap(fix => JSON.parse(fix.guard || '[]')))];
     const linked = guard.filter(id => id.startsWith('recorded:')).map(id => caseByName.get(id.slice(9))).filter(Boolean);
-    const landed = Date.parse(last.landed_at), runs = (item?.runs || []).slice(-10).map(run => ({day: run.day, at: run.at, reached: run.reached, share: shareOf(run), needsFix: run.needsFix, after: Date.parse(run.at) > landed}));
+    const landed = Date.parse(last.landed_at), runs = (item?.runs || []).slice(-10).map(run => ({day: run.day, at: run.at, reached: run.reached, share: shareOf(run), hold: !!run.hold, needsFix: run.needsFix, after: Date.parse(run.at) > landed}));
     return {site, platform: item?.platform ?? '—', host: item?.start || '', commit: last.commit_hash, commits: list.map(fix => fix.commit_hash), extensionVersion: last.version, rung: last.rung, landedAt: last.landed_at,
       fixes: list.map(fix => ({commit: fix.commit_hash, extensionVersion: fix.version, rung: fix.rung, landedAt: fix.landed_at})), runs,
       ...statusOf(item?.runs || [], last.landed_at), guard, cases: linked.map(found => ({name: found.name, ok: found.ok, history: found.history, day: found.day}))};

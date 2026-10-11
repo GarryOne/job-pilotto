@@ -70,6 +70,9 @@ export const shortOf = (reached, filled, left, asked = null, unexplained = null)
 const shareOf = (filled, left) => (Number.isInteger(filled) && Number.isInteger(left) && filled + left > 0 ? Math.round((100 * filled) / (filled + left)) : null);
 // Needs a fix: not a posting that is gone, and a regression, a shortfall, or a stop before the form (a code or bot check is a documented hold, not a fix).
 const runNeedsFix = run => (run.note ? null : !run.reached ? null : !!run.regression || !!shortOf(run.reached, run.filled, run.left_n, run.asked, run.unexplained) || ['none', 'posting', 'account'].includes(run.reached));
+// A documented hold (owner, 11 Oct 2026): a stop the runner made on purpose and noted (desktop/e2e/lib/smoke.mjs parseLive): an account-first site (the smoke never creates the account)
+// or an eligibility stop. A live site, never a fix and never a posting gone; any other note (a posting gone, no posting) is gone.
+export const isHold = note => /^(account-first: held|eligibility stop:)/.test(note || '');
 const needsFix = site => !site.note && !!site.reached && (site.regression || !!site.short || ['none', 'posting', 'account'].includes(site.reached));
 
 export async function data(db, now = new Date()) {
@@ -78,7 +81,7 @@ export async function data(db, now = new Date()) {
   const byName = kind => runs.filter(run => run.kind === kind).reduce((out, run) => ((out[run.name] ||= []).push(run), out), {});
   const sites = Object.entries(byName('smoke')).map(([name, list]) => {
     const last = list.at(-1);
-    return {name, at: last.at, host: last.host, runs: list.slice(-20).map(run => ({day: run.day, at: run.at, reached: run.reached, filled: run.filled, left: run.left_n, version: run.version, needsFix: runNeedsFix(run)})), reached: last.reached, filled: last.filled, left: last.left_n, day: last.day, version: last.version, note: last.note, rung: last.rung ?? null, signal: last.signal ?? null,
+    return {name, at: last.at, host: last.host, runs: list.slice(-20).map(run => ({day: run.day, at: run.at, reached: run.reached, hold: isHold(run.note), filled: run.filled, left: run.left_n, version: run.version, needsFix: runNeedsFix(run)})), reached: last.reached, filled: last.filled, left: last.left_n, day: last.day, version: last.version, note: last.note, hold: isHold(last.note), rung: last.rung ?? null, signal: last.signal ?? null,
       regression: !!last.regression, short: shortOf(last.reached, last.filled, last.left_n, last.asked, last.unexplained), shares: list.slice(-10).map(run => shareOf(run.filled, run.left_n)), history: list.slice(-10).map(run => run.reached || 'none'), days: list.slice(-10).map(run => run.day)};
   }).sort((a, b) => Number(b.regression) - Number(a.regression) || STEPS.indexOf(a.reached) - STEPS.indexOf(b.reached));
   const cases = Object.entries(byName('recorded')).map(([name, list]) => {
@@ -96,14 +99,14 @@ export async function data(db, now = new Date()) {
   const scorecard = await platformScorecard(db, pool, now).catch(() => []);   // real use against the pool's tests, per platform (src/scorecard.js)
   const next = await nextToAdd(db, pool, now).catch(() => ({sites: [], hidden: {hosts: 0}}));   // real users' end hosts the pool lacks (src/nextsites.js)
   const fixed = await fixedData(db, pool, cases, now).catch(() => ({day: dayOf(now), rows: [], inProgress: [], claimsAt: null, fixesAt: null, replays: []}));   // the Fixed tab, and the Back / In progress marks on the pool rows
-  const live = sites.filter(site => !site.note);
+  const live = sites.filter(site => !site.note || site.hold);
   const dropped = await digest(db, now).then(d => d.boards.filter(board => board.dropped).map(board => ({board: board.board, earlier: board.earlierFilledShare, recent: board.recentFilledShare}))).catch(() => []);
   return {
     tiles: {
       cases: cases.length, casesFailing: cases.filter(item => !item.ok).length, casesLast: cases.map(item => item.day).sort().at(-1) || null,
       sites: sites.length, sitesRecent: sites.filter(site => site.day >= tenDays).length,
       reachedForm: live.length ? Math.round((100 * live.filter(site => ['form', 'ready'].includes(site.reached)).length) / live.length) : null,
-      needFix: sites.filter(needsFix).length, regressions: sites.filter(site => site.regression).length, gone: sites.filter(site => site.note).length, dropped: dropped.length},
+      needFix: sites.filter(needsFix).length, regressions: sites.filter(site => site.regression).length, gone: sites.filter(site => site.note && !site.hold).length, held: sites.filter(site => site.hold).length, dropped: dropped.length},
     sites, pool, fixed, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, now: now.toISOString()};
 }
 
@@ -121,7 +124,7 @@ async function poolRows(db, sites, now) {
     const row = known.get(name) || {}, site = byName[name], start = row.start_host || site?.host || '', end = signatureHost(row.signature) || '';
     const {flow, raw} = flowOf(row.signature, start);
     const step = row.signature?.match(/#([^#]+)$/)?.[1] || null, reached = site?.reached ?? step;
-    return {name: displayName(name, start), shape: name, version: site?.version ?? null, runs: site?.runs ?? [], platform: platformLabel(end, start), flow, raw, start, end, reached, day: site?.day ?? null, at: site?.at ?? null, running: running.has(name), note: site?.note ?? null, rung: site?.rung ?? null, signal: site?.signal ?? null,
+    return {name: displayName(name, start), shape: name, version: site?.version ?? null, runs: site?.runs ?? [], platform: platformLabel(end, start), flow, raw, start, end, reached, day: site?.day ?? null, at: site?.at ?? null, running: running.has(name), note: site?.note ?? null, hold: !!site?.hold, rung: site?.rung ?? null, signal: site?.signal ?? null,
       regression: !!site?.regression, filled: site?.filled ?? null, left: site?.left ?? null, short: site?.short ?? null, shares: site?.shares ?? [], history: site?.history ?? (step ? [step] : []), days: site?.days ?? []};
   }).sort((a, b) => Number(b.running) - Number(a.running) || a.platform.localeCompare(b.platform) || a.name.localeCompare(b.name));
 }
@@ -166,7 +169,7 @@ th.sortable{cursor:pointer;user-select:none}th.sortable:hover,th.sortable.on{col
 table td:not(:first-child),table th:not(:first-child){white-space:nowrap}.legend td:last-child{white-space:normal}section{overflow-x:auto}.legend{margin:18px auto 0;max-width:760px}.legend h3,.legend>p{text-align:center;margin:0 0 6px}.legend table{margin:0 auto}.ladder{margin:10px 0 0;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}.ladder summary{cursor:pointer;font-weight:600}.ladder table{margin-top:8px}
 .flag{color:var(--red);font-weight:600}.inprogress{color:var(--amber);font-weight:600}section[hidden]{display:none}${FIXED_CSS}.muted{color:var(--muted)}
 .pooltable{table-layout:fixed}.pooltable td,.pooltable th{white-space:normal!important;overflow-wrap:anywhere}.pooltable tr.site{cursor:pointer}.pooltable tr.site:hover td,.pooltable tr.site.open td{background:var(--card)}.pooltable tr.site td{vertical-align:middle;padding:10px 10px 10px 0}
-.sitecell{display:flex;gap:4px;align-items:flex-start}.pooltable th.c-site{width:30%}.pooltable th.c-flow{width:21%}.pooltable th.c-result{width:25%}.pooltable th.c-rung{width:10%}.pooltable th.c-runs{width:14%}.chev{display:inline-block;width:24px;color:var(--muted);transition:transform .15s;flex:none;background:none;border:0;padding:0 0 0 8px;font:inherit;font-size:18px;line-height:1.2;cursor:pointer}.open .chev{transform:rotate(90deg);color:var(--text)}.sitename b{display:block;font-size:14px}.sitename span{display:block;margin-top:2px}.stack{display:block;margin-top:2px}.stack.bad{color:var(--red);font-weight:600}
+.sitecell{display:flex;gap:4px;align-items:flex-start}.pooltable th.c-site{width:30%}.pooltable th.c-flow{width:21%}.pooltable th.c-result{width:25%}.pooltable th.c-rung{width:10%}.pooltable th.c-runs{width:14%}.chev{display:inline-block;width:24px;color:var(--muted);transition:transform .15s;flex:none;background:none;border:0;padding:0 0 0 8px;font:inherit;font-size:18px;line-height:1.2;cursor:pointer}.open .chev{transform:rotate(90deg);color:var(--text)}.sitename b{display:block;font-size:14px}.sitename span{display:block;margin-top:2px}.stack{display:block;margin-top:2px}.stack.bad{color:var(--red);font-weight:600}.stack.hold{color:var(--violet)}
 .rungbox{display:inline-block;min-width:32px;text-align:center;padding:3px 8px;border-radius:7px;background:var(--card);border:1px solid var(--line);font-weight:600}.pooltable td.c-rung,.pooltable th.c-rung{text-align:center}
 tr.more td{padding:0 0 12px}.detail{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px 24px;align-items:start;margin:0;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:10px}.detail h4{margin:0 0 6px;font-size:12px;font-weight:500;color:var(--muted)}.detail dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;margin:0;font-size:13px}.detail dt{color:var(--muted)}.detail dd{margin:0;overflow-wrap:anywhere}.copy{margin-left:8px;background:none;border:0;color:var(--muted);cursor:pointer;font:inherit;padding:0 2px}.copy:hover{color:var(--text)}.detail .narrow{display:none}
 .dots i:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
@@ -224,7 +227,7 @@ fetch('?json').then(r => r.json()).then(d => {
     el('p', {className: 'muted', textContent: 'A rung that is unsure or contradicted hands the page to the next; a rung never guesses.'})));
   // What the colors mean (owner, 10 Oct 2026): the badge and the dots of the pool table are the step a run reached, not how well the form was filled.
   const COLORS = {none: 'grey', posting: 'red', account: 'amber', 'code/bot': 'violet', form: 'blue', ready: 'green'};   // the page's own --muted, --red, --amber, --violet, --blue, --green
-  const MEANS = {none: 'nothing reached, or never run (the dash)', posting: 'stopped at the job posting, never got past it', account: 'reached an account or sign-in page', 'code/bot': 'stopped at an email code or a bot check (a documented hold)', form: 'reached the application form', ready: 'the form is filled with nothing required left'};
+  const MEANS = {none: 'nothing reached, or never run (the dash)', posting: 'stopped at the job posting, never got past it', account: 'reached an account or sign-in page (an account-first site the test never signs up to is a "Documented hold", not a fix)', 'code/bot': 'stopped at an email code or a bot check (a documented hold)', form: 'reached the application form', ready: 'the form is filled with nothing required left'};
   const SHORT_ROW = el('tr', {}, el('td', {}, el('span', {className: 'pill s-posting', textContent: 'red · form'})), el('td', {textContent: 'form, unexplained fields'}), el('td', {className: 'muted', textContent: 'reached the form, but some fields were left without a good reason (the extension missed them, or no answer was suggested; a question only the person can answer, with a suggestion shown, is fine): it counts as a failure and goes on the "Needs a fix" list'}));
   const colorLegend = el('div', {className: 'legend'}, el('h3', {textContent: 'What the colors mean'}),   // the foot of the pool table (owner, 10 Oct 2026)
     el('p', {className: 'muted', textContent: 'On the pool table, the dots of "Recent runs" (hover one for its date) show the step a run reached; a red "3 unexplained of 12" under "Form reached" means the form was reached but fields were left that we should have known or suggested an answer for. In the Fixed tab, in the Guard column, a dot is green when the case passed and red when it failed.'}),
@@ -261,8 +264,8 @@ fetch('?json').then(r => r.json()).then(d => {
   const open = new Set(), STAGE = {none: 'Nothing reached', posting: 'Posting reached', account: 'Account reached', 'code/bot': 'Code or bot check', form: 'Form reached', ready: 'Ready for your check'};
   const split = s => { const host = (s.name.match(/\\(([^()\\s]+\\.[a-z]{2,})\\)/) || [])[1] || s.start; return {title: s.name.replace(/\\s*\\([^()\\s]+\\.[a-z]{2,}\\)/, ''), sub: s.platform + (host ? ' (' + host + ')' : '')}; };
   const flowText = s => (s.flow ? s.flow.replace(' and form on one page', ' + form').replace('no-form', 'no form').replace(/^./, c => c.toUpperCase()) : '—');
-  const resultOf = s => [el('span', {textContent: s.reached ? STAGE[s.reached] || s.reached : 'Not run yet'}), s.short ? el('span', {className: 'stack bad', title: 'reached the form, with fields left that we should have known or suggested', textContent: shortText(s)}) : null,
-    s.regression ? el('span', {className: 'stack bad', textContent: 'regression'}) : null, s.note ? el('span', {className: 'stack muted', textContent: s.note}) : null];
+  const resultOf = s => [el('span', {textContent: s.hold ? 'Documented hold' : s.reached ? STAGE[s.reached] || s.reached : 'Not run yet'}), s.short ? el('span', {className: 'stack bad', title: 'reached the form, with fields left that we should have known or suggested', textContent: shortText(s)}) : null,
+    s.regression ? el('span', {className: 'stack bad', textContent: 'regression'}) : null, s.note ? el('span', {className: s.hold ? 'stack hold' : 'stack muted', title: s.hold ? 'A documented hold: the run stopped here on purpose, not a fix' : '', textContent: s.note}) : null];
   const copy = text => el('button', {className: 'copy', type: 'button', title: 'Copy', 'aria-label': 'Copy ' + text, textContent: '⧉', onclick: event => { event.stopPropagation(); try { navigator.clipboard.writeText(text); } catch (error) { /* a copy is only a convenience */ } }});
   const route = s => el('div', {}, el('h4', {textContent: 'Route'}), el('dl', {}, el('dt', {textContent: 'Start'}), el('dd', {}, s.start || '…', s.start ? copy(s.start) : null), ...(s.end && s.end !== s.start ? [el('dt', {textContent: 'End'}), el('dd', {}, s.end, copy(s.end))] : [])));
   const lastRun = s => el('div', {}, el('h4', {textContent: s.at ? 'Last completed run · ' + new Date(s.at).toUTCString().slice(5, 22) + ' UTC' : 'Last completed run'}),

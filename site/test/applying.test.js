@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {existsSync, readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
+import {needsFixGroups} from '../src/applying-groups.js';
 import {PAGE, data, ingest, shortOf} from '../src/applying.js';
 
 function d1() {
@@ -228,4 +229,20 @@ test('the pool search is an input of the filter bar, resets the page, is combine
   assert.match(PAGE, /chosen\.query = ''; chosen\.page = 0;[\s\S]{0,160}search\.value = ''/);                    // Clear
   assert.match(PAGE, /clear\.hidden = !chosen\.platform && !chosen\.flow && !chosen\.query/);
   assert.match(PAGE, /\.pick input\[type=search\]/);
+});
+
+// A documented hold (owner, 11 Oct 2026): an account-first site (the smoke never creates the account) and an eligibility stop are deliberate stops, not a fix
+// and not a posting gone. The runner notes them (desktop/e2e/lib/smoke.mjs parseLive); only "posting gone" and "no posting" notes are gone.
+test('a hold is in no Needs-a-fix group, is not counted as a posting gone, and stays a live site', async () => {
+  const db = d1();
+  await ingest(db, {kind: 'smoke', day: '2026-10-12', rows: [{name: 'Hornbach', host: 'h.com', reached: 'account', note: 'account-first: held'},
+    {name: 'Eligible', host: 'e.com', reached: 'form', note: 'eligibility stop: the role is in Sydney'}, {name: 'Gone', host: 'g.com', reached: 'none', note: 'posting gone (HTTP 404)'},
+    {name: 'Stuck', host: 's.com', reached: 'account'}]}, now);
+  const d = await data(db, now), by = Object.fromEntries(d.pool.map(item => [item.shape, item]));
+  assert.deepEqual([by.Hornbach.hold, by.Eligible.hold, by.Gone.hold, by.Stuck.hold], [true, true, false, false]);
+  assert.deepEqual([d.tiles.gone, d.tiles.held, d.tiles.needFix], [1, 2, 1]);
+  assert.equal(d.tiles.reachedForm, 33, 'holds are live sites: 1 of 3 reached the form (the posting gone is not counted)');
+  assert.deepEqual(needsFixGroups(d.pool, d.scorecard, d.steps, d.fixed.rows).flatMap(group => group.rows.map(row => row.shape)), ['Stuck']);
+  assert.ok(PAGE.includes("s.hold ? 'Documented hold'") && PAGE.includes('"Documented hold", not a fix'), 'the pool row and the legend name a hold as its own status');
+  assert.ok(PAGE.includes("s.hold ? 'stack hold'"), 'the pool row draws a hold as a hold, not as a gone posting');
 });

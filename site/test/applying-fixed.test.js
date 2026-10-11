@@ -88,7 +88,7 @@ test('each pool row carries its own runs (last 20: day, at, reached, filled, lef
   const [item] = (await data(db, at('2026-10-23T08:00:00Z'))).pool;
   assert.equal(item.shape, 'Hornbach SuccessFactors');
   assert.equal(item.runs.length, 20);
-  assert.deepEqual(Object.keys(item.runs[0]).sort(), ['at', 'day', 'filled', 'left', 'needsFix', 'reached', 'version']);
+  assert.deepEqual(Object.keys(item.runs[0]).sort(), ['at', 'day', 'filled', 'hold', 'left', 'needsFix', 'reached', 'version']);
 });
 
 test('each fixed row carries what the expander shows: its host, every commit, and its runs with the ones after the landing marked', async () => {
@@ -221,4 +221,16 @@ test('a fix whose Pool-row was the capture folder\'s slug joins its pool row: on
   const {rowName} = await import('../src/applying-fixed.js');
   assert.equal(rowName('acme-jobs', [{shape: 'Acme jobs', name: 'Acme'}, {shape: 'ACME Jobs', name: 'ACME'}]), 'acme-jobs');
   assert.equal(rowName('acme-jobs', [{shape: 'Acme jobs', name: 'Acme'}]), 'Acme jobs');
+});
+
+// Hornbach's "33% -> 73%" was the sign-up page (owner, 11 Oct 2026: an account-first site is a documented hold): a held run is a stop on purpose, so its counts are not
+// the application's filled share, and it neither confirms nor fails the fix.
+test('a held run shows no filled share and counts as neither a clean nor a failing run', async () => {
+  const db = d1();
+  await smoke(db, '2026-10-10T22:00:00Z', {reached: 'account', filled: 8, left: 3, note: 'account-first: held'});
+  await ingest(db, {kind: 'fixes', day: '2026-10-11', rows: [FIX]}, at('2026-10-11T08:00:00Z'));
+  await smoke(db, '2026-10-11T10:00:00Z', {reached: 'account', filled: 8, left: 3, note: 'account-first: held'});
+  const row = await fixedRow(db, '2026-10-11T11:00:00Z');
+  assert.deepEqual([row.status, row.failingRuns, row.cleanRuns, row.filledBefore, row.filledAfter], ['landed', 0, 0, [null], []]);
+  assert.deepEqual(row.runs.map(run => run.share), [null, null]);
 });

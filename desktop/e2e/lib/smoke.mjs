@@ -16,13 +16,17 @@ const SIGNALS = ['unsure', 'contradicted', 'stalled', 'failed'];
 // The rung and signal a site's upload row carries (absent = unknown; the site drops anything else).
 export const rungFields = result => ({...(result?.rung != null ? {rung: result.rung} : {}), ...(result?.signal ? {signal: result.signal} : {})});
 
-// -> {reached, filled, left, rung (0-6 | null), signal (unsure|contradicted|stalled|failed | null), kinds: [page kinds seen], path: [{kind, host}] in order (consecutive repeats folded), errors: [lines], note? (an eligibility stop and its reason)}
+// -> {reached, filled, left, rung (0-6 | null), signal (unsure|contradicted|stalled|failed | null), kinds: [page kinds seen], path: [{kind, host}] in order (consecutive repeats folded), errors: [lines],
+//     note? (an eligibility stop and its reason, or ACCOUNT_HELD)}
+// Account-first (owner, 11 Oct 2026: a documented hold): a sign-up page is filled like a form, but the run never presses its account button. While the extension's
+// own last page kind is 'account' (the AI's decision), fields and marks are the account page's, never the application's; a run that ends there is ACCOUNT_HELD.
+export const ACCOUNT_HELD = 'account-first: held';
 export function parseLive(output) {
   const lines = String(output || '').split('\n');
   let reached = 'none', filled = null, left = null, marks = null, note = '', verdict;
   const kinds = [], errors = [], path = [];
   let fieldList = [];   // the form's fields, one 'field ...' line each (apply-live.mjs prints them whole: the app's own line is cut at 230 characters)
-  let derived = null, told = null;
+  let derived = null, told = null, onAccount = false;
   const pageKindErrors = [];   // the AI's own words when a page-kind answer had no kind (usage limit, CLI failure...): job-pilotto-54 found a fast null answer with nothing saying why
   const reach = step => { if (rank(step) > rank(reached)) reached = step; };
   for (const line of lines) {
@@ -32,6 +36,7 @@ export function parseLive(output) {
       if (!last || last.kind !== kind[1] || last.host !== host) path.push({kind: kind[1], host});
       const by = (line.match(/"by":"([^"]*)"/) || [])[1];
       derived = BY_RUNG[by] ?? (/page kind: none/.test(line) ? 0 : derived);
+      onAccount = kind[1] === 'account';
       kinds.push(kind[1]); if (kind[1] === 'account') reach('account'); if (/^(form|account-form)$/.test(kind[1])) reach('form'); }
     if (/account (judgment|result)[^:]*: needs_code|"botCheck":true|bot check/.test(line)) reach('code/bot');
     const noKind = line.match(/page kind: none \(([^)]*)\)/);
@@ -43,11 +48,11 @@ export function parseLive(output) {
     const ladder = line.match(/\bladder: rung (\d) signal (\w+)\s*$/);
     if (ladder && Number(ladder[1]) <= 6) told = {rung: Number(ladder[1]), signal: SIGNALS.includes(ladder[2]) ? ladder[2] : null};
     const markLine = line.match(/fill: marks: (\d+) starred, (\d+) required/);
-    if (markLine && !/account page/.test(line)) marks = {starred: Number(markLine[1]), required: Number(markLine[2])};
+    if (markLine && !onAccount && !/account page/.test(line)) marks = {starred: Number(markLine[1]), required: Number(markLine[2])};
     const fields = line.match(/fields: (\d+) filled, (\d+) left/);
     const field = line.match(/^\s+field (filled|left) (\S+) "(.*)" required=(true|false|\?) reason=(.*)$/);
-    if (field) fieldList.push({outcome: field[1], type: field[2], label: field[3], required: field[4] === 'true' ? true : field[4] === 'false' ? false : null, reason: field[5]});
-    if (fields && !/account page/.test(line)) { fieldList = []; filled = Number(fields[1]); left = Number(fields[2]); reach('form'); if (left === 0 && filled > 0) reach('ready'); }
+    if (field && !onAccount) fieldList.push({outcome: field[1], type: field[2], label: field[3], required: field[4] === 'true' ? true : field[4] === 'false' ? false : null, reason: field[5]});
+    if (fields && !onAccount && !/account page/.test(line)) { fieldList = []; filled = Number(fields[1]); left = Number(fields[2]); reach('form'); if (left === 0 && filled > 0) reach('ready'); }
     // The form came after the Apply press (the same page drew it): reached, whatever the fill did next (Teamtailor, 11 Oct 2026: scored "posting").
     if (/fill: after the press: a form came/.test(line)) reach('form');
     // The fill's AI judged the applicant ineligible (extension/background.js: the only "did not fill:" line): the form was reached and the run stopped there on
@@ -59,6 +64,8 @@ export function parseLive(output) {
     if (stop) { reach('form'); note = `eligibility stop: ${stop[1].trim().slice(0, 160)}`; }
     if (/(^|\s)(✗|not ok)\b|Error:|crash/.test(line)) errors.push(line.trim().slice(0, 200));
   }
+  // "a form came" after the Apply press can be the route to the sign-up page (adnovum, 11 Oct 2026): with no application field counted, the run still ended at the account step.
+  if (!note && ['account', 'form'].includes(reached) && filled == null && path.at(-1)?.kind === 'account') { reached = 'account'; note = ACCOUNT_HELD; }
   return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, pageKindErrors, kinds: [...new Set(kinds)], path, errors, ...(note ? {note} : {}), ...(verdict ? {verdict} : {})};
 }
 
