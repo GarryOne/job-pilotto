@@ -100,8 +100,8 @@ if [ "$yield_mode" = 1 ]; then
   timing_log "heavy lock yield what=$what class=$klass session=$session to=$(echo "$yield_to" | tr ' ' _)"
   rm -rf "$slot"
 fi
-ticket="$queue/$(python3 -c 'import time; print(time.time_ns())' 2>/dev/null || echo "$(date +%s)000000000")-$$"; printf '%s %s\n\n%s\n%s\n' "$$" "$what" "$session" "$klass" >"$ticket"
-trap 'rm -f "$ticket"; release' EXIT
+ticket="$queue/$(python3 -c 'import time; print(time.time_ns())' 2>/dev/null || echo "$(date +%s)000000000")-$$"; printf '%s %s\n\n%s\n%s\n' "$$" "$what" "$session" "$klass" >"$root/.ticket.$$" && mv -f "$root/.ticket.$$" "$ticket"
+trap 'rm -f "$ticket" "$root/.ticket.$$"; release' EXIT
 trap 'exit 143' TERM; trap 'exit 130' INT; trap 'exit 129' HUP
 ahead() {  # the waiter I must let go first, as "<what> (pid N, session S)"; dead waiters are dropped on the way
   local name pid mine=0 mname="${ticket##*/}" theirs
@@ -109,7 +109,8 @@ ahead() {  # the waiter I must let go first, as "<what> (pid N, session S)"; dea
     [ "$name" = "$mname" ] && { mine=1; continue; }
     pid="$(head -n 1 "$queue/$name" 2>/dev/null | cut -d' ' -f1)"
     [ "$(sed -n 2p "$queue/$name" 2>/dev/null)" = loadwait ] && continue   # it waits for the machine, holding no slot: it does not hold anyone up
-    if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then rm -f "$queue/$name"; continue; fi
+    if [ -z "$pid" ]; then [ -f "$queue/$name" ] && [ $(( $(date +%s) - $(stat -c %Y "$queue/$name" 2>/dev/null || stat -f %m "$queue/$name" 2>/dev/null || date +%s) )) -gt 10 ] && rm -f "$queue/$name"; continue; fi   # empty: being written, not dead
+    if ! kill -0 "$pid" 2>/dev/null; then rm -f "$queue/$name"; continue; fi
     theirs="$(ticket_prio "$queue/$name")"
     if [ "$mine" = 0 ]; then   # older: it goes first, unless I outrank it and it has not waited past the cap
       [ "$(sed -n 5p "$queue/$name" 2>/dev/null)" = exclusive ] || { can_overtake "$my_prio" "$theirs" "$(age_of "$name")" && continue; }   # a waiting timing run is overtaken by nobody
@@ -135,7 +136,7 @@ top_cpu() {  # $1 = separator between name and percent, $2 = separator between e
   ps -Ao pcpu=,comm= 2>/dev/null | awk '{c = $1; $1 = ""; sub(/^ +/, ""); n = split($0, p, "/"); cpu[p[n]] += c} END {for (k in cpu) printf "%d\t%s\n", cpu[k], k}' | sort -rn | head -3 \
     | awk -F'\t' -v a="$1" -v b="$2" '$1 > 0 {printf "%s%s%s%s%%", sep, $2, a, $1; sep = b}'
 }
-mark() { printf '%s %s\n%s\n%s\n%s\n%s\n' "$$" "$what" "$1" "$session" "$klass" "$(is_exclusive && echo exclusive)" >"$ticket"; }   # the ticket keeps its name (its place in line); only its second line changes
+mark() { printf '%s %s\n%s\n%s\n%s\n%s\n' "$$" "$what" "$1" "$session" "$klass" "$(is_exclusive && echo exclusive)" >"$root/.ticket.$$" && mv -f "$root/.ticket.$$" "$ticket"; }   # written aside and renamed: a reader never sees it half-written (11 Oct 2026, CI red 3x)   # the ticket keeps its name (its place in line); only its second line changes
 # What "the machine is busy" is read from (JOB_PILOTTO_HEAVY_SIGNAL, default auto since 11 Oct 2026: load 160-205 held three proofs for minutes at 36-51% CPU and 53% free memory, the
 # average counts the runnable threads of many short-lived test processes). auto = cpu and memory together (busy when either is); load = the 1-minute load average; or one of: the CPU in use (sum of the processes' CPU over the cores; busy above
 # JOB_PILOTTO_HEAVY_CPU_BUSY percent, default 90) or the free memory percentage of `memory_pressure` (busy below JOB_PILOTTO_HEAVY_MEM_FREE_PCT percent, default 15). All three are logged on every

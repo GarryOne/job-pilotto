@@ -81,6 +81,7 @@ class HeavyLockBudgetTest(unittest.TestCase):
         self.memory(free_gb=9)    # 9 - 2.9 reserved for the 1st = 6.1: under 7
         self.launch('e2e-smoke', 'a')
         self.launch('e2e-smoke', 'b')
+        wait_trace(self.trace, 1)   # a has started, however slow the Mac is; only then is a quiet 0.6 s meaningful
         self.assertEqual(self.settle(), ['+a'])
         release(self.gates, 'a')
         wait_trace(self.trace, 3)
@@ -110,6 +111,7 @@ class HeavyLockBudgetTest(unittest.TestCase):
         self.launch('recorded-replay', 'a')
         self.launch('apply-latency-x', 'timing')
         self.launch('recorded-replay', 'b')
+        wait_trace(self.trace, 1)
         self.assertEqual(self.settle(), ['+a'], 'the timing run waits for the empty lock and the replay behind it waits for the timing run')
         release(self.gates, 'a')
         wait_trace(self.trace, 3)

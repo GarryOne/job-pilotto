@@ -3,11 +3,21 @@ import time
 from pathlib import Path
 
 
+def _pid(path):
+    """The pid a slot or a ticket names (first word of its first line; a slot's pid file is just the pid), else the file's own name while it is still being written."""
+    try:
+        words = Path(path).read_text().split()
+    except OSError:
+        return None
+    return words[0] if words else Path(path).name
+
+
 def registered(heavy_dir):
+    """Runs in the lock's books: one per pid. A run that took its slot still has its ticket for a moment, so counting files counted it twice and a test went on before its next run had started."""
     root = Path(heavy_dir)
-    slots = [p for p in root.glob('lock*') if p.is_dir()]
-    queued = list((root / 'queue').glob('*')) if (root / 'queue').is_dir() else []
-    return len(slots) + len(queued)
+    runs = {_pid(p / 'pid') or p.name for p in root.glob('lock*') if p.is_dir()}
+    runs |= {_pid(p) for p in (root / 'queue').glob('*')} if (root / 'queue').is_dir() else set()
+    return len(runs - {None})
 
 
 def wait_registered(heavy_dir, n, timeout=90):

@@ -109,12 +109,12 @@ class HeavyLockTest(HeavyLockFixture):
         self.addCleanup(waiter.kill)
         self.ticket(waiter.pid, 'replay that waited')
         late = self.start('pool site', 'echo', 'ran')
-        time.sleep(1)
+        said = late.stderr.readline()   # its first word is "waits": read, not a guessed 1 s (a loaded runner starts it late and the waiter died first, CI red 11 Oct 2026)
         self.assertIsNone(late.poll(), 'the later run waits while the earlier waiter lives, though the lock is free')
         waiter.kill(); waiter.wait()   # reaped: a zombie still answers kill -0
         out, err = late.communicate(timeout=30)
         self.assertEqual(out.strip(), 'ran')
-        self.assertIn('pool site waits: replay that waited', err)
+        self.assertIn('pool site waits: replay that waited', said + err)
 
     def test_a_dead_waiter_is_dropped_from_the_queue(self):
         dead = self.ticket(999999, 'crashed waiter')
