@@ -215,6 +215,8 @@ on top of a fix attempt that ended red): main is green again when a later commit
 with nobody claiming the fix (`tools/red-main.sh claim <sha> --session <name>` extends it to 15, once) the next landing
 says loudly to run `tools/revert-red.sh <sha>`, which reverts the commit and ships it with `--fix`. Every red period is
 logged to `gate-timing.log` (`red-main ended ... minutes=N waited=K`). `SHIP_IGNORE_RED=1` only with the owner's OK.
+The fix goes first: `tools/ship.sh --fix` skips the landing queue, never waits for a check slot, and its heavy-lock runs are class `fix`
+(`JOB_PILOTTO_HEAVY_CLASS=fix` for a proof replay started by hand). A red run is re-run once; the 5 minutes count from its first completion.
 
 ### Commit messages
 - **Every fix leaves a permanent check** (3 Oct 2026). A commit that says `Fixes #N` also adds the test that would have caught the bug: a unit test, an e2e unit test,
