@@ -4,6 +4,7 @@
 // on the app's PATH (the app runs `open -a "Google Chrome" <url>`: here that URL is handed to this Chromium instead).
 import {chromium} from 'playwright-core';
 import fs from 'node:fs';
+import {leanChrome} from './chrome-lean.mjs';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -79,7 +80,7 @@ export async function launchBrowser({port, spool, extensionDir, real = false, pr
   const context = await chromium.launchPersistentContext(profile, {
     ...browserChannel(), headless: false, ignoreHTTPSErrors: !real, ...(real ? {viewport: null} : {}), ignoreDefaultArgs: ['--disable-extensions', '--disable-popup-blocking'],
     args: [...(process.env.E2E_HEADED || real ? [] : ['--headless=new']), `--disable-extensions-except=${extensionDir}`, `--load-extension=${extensionDir}`,
-      ...(real ? [] : [`--host-resolver-rules=${hostRules(port)}`, '--ignore-certificate-errors']), '--no-first-run', '--no-default-browser-check', ...(debugPort ? [`--remote-debugging-port=${debugPort}`] : [])],
+      ...(real ? [] : [`--host-resolver-rules=${hostRules(port)}`, '--ignore-certificate-errors']), '--no-first-run', '--no-default-browser-check', ...leanChrome(), ...(debugPort ? [`--remote-debugging-port=${debugPort}`] : [])],
   });
   const opened = [], pages = {}, requested = new Set();   // requested: every host name the browser asked for (a test proves no employer site was contacted)
   context.on('request', request => { try { const url = new URL(request.url()); if (/^https?:$/.test(url.protocol)) requested.add(url.hostname); } catch { /* not a URL */ } });
