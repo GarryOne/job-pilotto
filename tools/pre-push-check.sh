@@ -71,8 +71,11 @@ case "$command" in *CI_RED_OK=1*) ;; *)
       if [ -n "$building" ] && [ "${building:0:7}" != "$bad" ] && git -C "$repo" merge-base --is-ancestor "$building" HEAD 2>/dev/null; then
         echo "pre-push: main is red at $bad, but ${building:0:7} (on top of it, in this push) is building: checking this push on its own." >&2
       else
+        # One clear line first: which run, which commit, who wrote it (no gh api, no daemon: the commit is in this clone after the gate's fetch).
+        culprit="$(git -C "$repo" log -1 --format='"%s" by %an' "$bad" 2>/dev/null)"
         {
-          echo "Push blocked: CI 'build' on main is red ($last)."
+          echo "Push blocked: main is RED: run ${run_id:-?} failed at $bad, ${culprit:-commit not in this clone} ($url)."
+          echo "CI 'build' on main is red ($last)."
           echo "Unblock it now, you are not waiting for its author (AGENTS.md \"Red main\"):"
           echo "  1. See why: gh run view --log-failed $(sed 's|.*/runs/||' <<<"$last")"
           echo "  2. A small, obvious fix (missing file, import, test expectation): fix it forward, push it with CI_RED_OK=1 git push ..."

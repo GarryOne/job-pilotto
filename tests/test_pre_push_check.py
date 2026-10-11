@@ -80,6 +80,10 @@ class PrePushCheckTest(PrePushFixture):
         self.assertEqual(code, 2)
         self.assertIn(f'git revert --no-edit {bad}', err)
         self.assertIn('gh run view --log-failed 42', err)
+        subject, author = git(self.repo, 'log', '-1', '--format=%s'), git(self.repo, 'log', '-1', '--format=%an')
+        self.assertIn(f'main is RED: run 42 failed at {bad}, "{subject}" by {author} (https://x/runs/42)', err)   # one line: run, commit, author
+        code, err = self.hook('git push origin HEAD:main', GH_COMPLETED='failure deadbee https://x/runs/42')
+        self.assertIn('failed at deadbee, commit not in this clone', err)
         self.assertEqual(self.hook('CI_RED_OK=1 git push origin HEAD:main', GH_COMPLETED=f'failure {bad} https://x/runs/42')[0], 0)
 
     def test_a_fix_in_flight_on_top_of_red_lets_a_push_that_contains_it_through(self):
