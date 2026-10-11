@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {claim, release, list, slug, TTL_MS} from '../../tools/claim-shape.mjs';
+import {claim, claimPart, releasePart, partName, release, list, slug, TTL_MS} from '../../tools/claim-shape.mjs';
 
 const dir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'claims-'));   // never the real claims folder
 const NOW = Date.parse('2026-10-11T12:00:00Z');
@@ -49,4 +49,56 @@ test('a lock with its own short life (the e2e page, 30 min) expires before the 6
   assert.equal(claim('e2e-page', 'b', {dir: d, now: NOW + HALF_HOUR - 1000}).ok, false);
   assert.equal(claim('e2e-page', 'a', {dir: d, now: NOW + HALF_HOUR - 1000, ttl: HALF_HOUR}).ok, true, 'renewed');
   assert.equal(claim('e2e-page', 'b', {dir: d, now: NOW + 2 * HALF_HOUR}).ok, true, 'expired after the renewed 30 min');
+});
+
+// Per-function claims on flow-core files (owner, 11 Oct 2026): two sessions edit different functions of one file at once; a whole-file or whole-core claim blocks all of them.
+test('different functions of one file are claimed at once; the same function is not', () => {
+  const d = dir(), file = 'extension/ladder/core.js';
+  assert.equal(claimPart(file, 'decidePage', 'a', {dir: d, now: NOW}).ok, true);
+  assert.equal(claimPart(file, 'pickRoute', 'b', {dir: d, now: NOW}).ok, true, 'another function of the same file');
+  const again = claimPart(file, 'decidePage', 'b', {dir: d, now: NOW});
+  assert.equal(again.ok, false); assert.equal(again.holder, 'a');
+  assert.equal(claimPart(file, 'decidePage', 'a', {dir: d, now: NOW}).ok, true, 'the holder renews');
+  assert.equal(claimPart('extension/tabs.js', 'decidePage', 'b', {dir: d, now: NOW}).ok, true, 'the same name in another file is another function');
+});
+
+test('a whole-file claim blocks every function of the file, and a function claim blocks the whole file', () => {
+  const d = dir(), file = 'extension/ladder/core.js';
+  assert.equal(claimPart(file, '', 'a', {dir: d, now: NOW}).ok, true);
+  assert.equal(claimPart(file, 'pickRoute', 'b', {dir: d, now: NOW}).ok, false, 'a function of a file someone holds whole');
+  assert.equal(claimPart('extension/tabs.js', 'x', 'b', {dir: d, now: NOW}).ok, true, 'another file is free');
+  assert.equal(claimPart('extension/tabs.js', '', 'a', {dir: d, now: NOW}).ok, false, 'b holds a function of tabs.js');
+  assert.equal(list({dir: d, now: NOW}).filter(held => held.session === 'b').length, 1, 'a refused claim leaves nothing behind');
+});
+
+test('the whole flow core is a claim too: it blocks every part, and every part blocks it', () => {
+  const d = dir();
+  assert.equal(claimPart('', '', 'a', {dir: d, now: NOW}).ok, true);
+  assert.equal(claimPart('extension/tabs.js', 'x', 'b', {dir: d, now: NOW}).ok, false);
+  assert.equal(releasePart('', '', 'a', {dir: d}).ok, true);
+  assert.equal(claimPart('extension/tabs.js', 'x', 'b', {dir: d, now: NOW}).ok, true);
+  assert.equal(claimPart('', '', 'a', {dir: d, now: NOW}).ok, false);
+});
+
+test('a part claim of a dead or expired session is taken over, and only the holder releases it', () => {
+  const d = dir();
+  claimPart('extension/tabs.js', 'x', 'a', {dir: d, now: NOW});
+  assert.equal(claimPart('extension/tabs.js', 'x', 'b', {dir: d, now: NOW, alive: ['b']}).ok, true, 'a is gone');
+  assert.equal(releasePart('extension/tabs.js', 'x', 'a', {dir: d}).ok, false);
+  assert.equal(releasePart('extension/tabs.js', 'x', 'b', {dir: d}).ok, true);
+  assert.deepEqual(list({dir: d, now: NOW}), []);
+  assert.equal(partName('extension/tabs.js', 'x'), 'flow-core: extension/tabs.js#x');
+});
+
+test('many sessions claiming the same function at once: exactly one wins', async () => {
+  const d = dir();
+  const results = await Promise.all(['a', 'b', 'c', 'd'].map(async who => claimPart('extension/tabs.js', 'x', who, {dir: d, now: NOW})));
+  assert.equal(results.filter(result => result.ok).length, 1);
+});
+
+test('part claims are not pool rows (the Fixed tab lists only rows)', async () => {
+  const {claimRows} = await import('../e2e/lib/fix-ledger.mjs');
+  const d = dir();
+  claimPart('extension/tabs.js', 'x', 'a', {dir: d, now: NOW}); claimPart('', '', 'a', {dir: d, now: NOW}); claim('Some pool row', 'a', {dir: d, now: NOW});
+  assert.deepEqual(claimRows(list({dir: d, now: NOW})).map(row => row.name), ['Some pool row']);
 });

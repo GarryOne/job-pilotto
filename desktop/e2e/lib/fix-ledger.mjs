@@ -43,7 +43,7 @@ export function buildLedger({git = defaultGit, fixes = JSON.parse(fs.readFileSyn
 }
 
 // The claims held now: names and since only (the session that holds one stays on the Mac).
-export const claimRows = (held = listClaims()) => held.filter(item => !LOCKS.has(item.name) && cleanRow(item.name)).map(item => ({name: cleanRow(item.name), since: new Date(item.at).toISOString()}));
+export const claimRows = (held = listClaims()) => held.filter(item => !LOCKS.has(item.name) && !String(item.name).startsWith('flow-core') && cleanRow(item.name)).map(item => ({name: cleanRow(item.name), since: new Date(item.at).toISOString()}));
 
 // -> one outcome line per upload. Never throws, so a smoke run never fails on it.
 export async function uploadLedger(options = {}) {

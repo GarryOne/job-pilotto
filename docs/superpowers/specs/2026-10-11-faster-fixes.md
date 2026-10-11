@@ -24,7 +24,7 @@ repro tool not on the app's path, ~25% waiting (e2e page, file claims, version r
 
 ### 3. No waiting in line (~25%)
 - [x] A claim per pool row (job-pilotto-81, d901855)
-- [ ] The e2e page is a lock every run takes (job-pilotto-81 and -b8; owner's yes in 81's window)
+- [x] Pool and live runs have their own SQLite store and artifacts folder; the real Notion page has a lock for notion-real only (job-pilotto-90: d6f6e1e, ca656bb, 07c63a4). Workers: not built, memory first
 - [ ] Per-function claims on flow-core files (job-pilotto-81)
 - [x] The extension version taken at ship time, after the rebase (f99fb46)
 
