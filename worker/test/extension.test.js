@@ -339,8 +339,10 @@ test('a legal question comes back as a kind only (no value), so the extension ma
   const client = { messages: { create: async () => ({ stop_reason: 'end_turn', usage: { billing: 'subscription' },
     content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers }) }] }) } };
   const fields = answers.map((a) => ({ field: a.field, label: a.field, type: 'combobox' }));
-  const traces = [];
-  const result = await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t) }, { url: 'https://forms.example.com/apply', fields, page_text: '' }, client);
+  const traces = [], calls = [];
+  const result = await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t), onAnswerCall: (c) => calls.push(c) }, { url: 'https://forms.example.com/apply', fields, page_text: '' }, client);
+  // The app keeps which fields were asked and every answer the AI gave (desktop/lib/live-capture.js captureAnswer strips the values).
+  assert.deepEqual([calls.length, calls[0].fields.map((f) => f.field), calls[0].answers.length], [1, ['certify', 'terms', 'gender', 'city'], 4]);
   // Each empty answer's field id and category reach the log (round 2, 11 Oct 2026: the live run said only "empty 1" and categories in totals, so which
   // kind the attestation got could not be read back). Ids and category words only, never a value.
   assert.deepEqual(traces[0].emptyKinds, ['certify:legal', 'gender:demographic']);

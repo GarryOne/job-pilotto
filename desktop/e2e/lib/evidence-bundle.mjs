@@ -1,6 +1,6 @@
 // The evidence bundle of a smoke run: everything a fixer needs to name the blocker without a re-run (job-pilotto-cc's post-mortem, 11 Oct 2026: about 40% of every
 // fix was a wrong first guess because the first run did not show what the AI was asked, what it answered and what was pressed). One folder per day and shape:
-// evidence.md (the four lines that matter), run.log, app.log (the app's whole log) and ai-calls.json (the live page-kind calls, desktop/lib/live-capture.js).
+// evidence.md (the four lines that matter), run.log, app.log (the app's whole log) and ai-calls.json (the live page-kind calls and the form-answer calls: fields asked and answer kinds, desktop/lib/live-capture.js).
 // Also: a run that was killed or cut short did not finish, and records and uploads nothing (eb's killed Datadog run left a 23 s row). Guard: test/evidence-bundle.test.mjs.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -29,7 +29,7 @@ export function writeBundle({dir, day, shape, output = '', appLog = '', aiCalls 
   const folder = path.join(dir, day, slug(shape)), lines = evidenceLines(appLog);
   fs.mkdirSync(folder, {recursive: true});
   const step = `reached ${result.reached || 'none'}${result.filled != null ? `, ${result.filled} filled, ${result.left} left` : ''}`;
-  const text = [`# ${shape}: ${day}`, '', `${step}. Files here: run.log (the run's output), app.log (the app's whole log), ai-calls.json (the page-kind asks and answers).`, '',
+  const text = [`# ${shape}: ${day}`, '', `${step}. Files here: run.log (the run's output), app.log (the app's whole log), ai-calls.json (the page-kind asks and answers, and which fields the AI was asked to answer).`, '',
     section('Page kind (what was asked, with frames and the digest flag)', lines.pageKind), section('The digest\'s validated answer', lines.digest),
     section('What was pressed', lines.pressed), section('Where the page went', lines.wentTo)].join('\n');
   fs.writeFileSync(path.join(folder, 'evidence.md'), text);

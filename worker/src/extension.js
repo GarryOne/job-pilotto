@@ -207,6 +207,7 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   // A proposal is never for a legal or demographic question, whatever the AI said (a hard floor beside its own rule). A knockout question
   // (residence, hours, availability) gets its most plausible answer, shown as "check it" and never typed: the owner confirms each (9 Oct 2026). Proposals are shown in the app, never typed (extension/flow.js).
   const all = Array.isArray(result.answers) ? result.answers : [];
+  await env.onAnswerCall?.({ url, fields, answers: all });   // the desktop app keeps the asked fields and answer kinds for the e2e evidence (no values); a no-op elsewhere
   const floored = (a) => a.use === 'propose' && ['legal', 'demographic'].includes(a.category);
   const raw = all.filter((a) => !floored(a));
   // What this call did, in counts and field ids (never an answer or the profile's text): with 0 answers it tells "nothing to go on"

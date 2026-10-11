@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {captureCall, scrub} from '../lib/live-capture.js';
+import {captureAnswer, captureCall, scrub} from '../lib/live-capture.js';
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'jp-live-capture-'));
 const request = {url: 'https://jobs.example.ch/job/42?token=SECRET&utm=1', title: 'Seller (m/f) mail anna.muster@gmail.com', headings: ['Apply, call +41 79 123 45 67'],
@@ -59,4 +59,39 @@ test('the shipped app source calls it in one place and only through captureCall'
   const source = fs.readFileSync(new URL('../lib/server-pages.js', import.meta.url), 'utf8');
   assert.equal((source.match(/captureCall\(/g) || []).length, 1);
   assert.ok(!/LIVE_CAPTURE_DIR/.test(source), 'the env var is read only inside lib/live-capture.js');
+});
+
+// The form-answer call too (owner, 11 Oct 2026, Datadog round 2: the evidence held only page-kind calls, so it could not show that the attestation was
+// never asked). Which fields were asked (id, label, type, required) and, per answer, its category and use: never a value, never the page text.
+test('the answer call is kept as the fields asked and each answer\'s kind, never a value or the page text', () => {
+  const dir = tmp(), env = {LIVE_CAPTURE_DIR: dir};
+  const fields = [{field: 'question_1', label: 'Website', type: 'text', required: false, options: []},
+    {field: 'question_2', label: 'How did you hear about us? Mail anna.muster@gmail.com', type: 'combobox', required: true}];
+  const answers = [{field: 'question_2', value: 'A friend told me', confidence: 'low', note: 'guess', category: 'normal', use: 'propose'}];
+  assert.equal(captureAnswer({url: 'https://forms.example.com/apply?token=SECRET', fields, page_text: 'Anna Muster, Zurich', answers}, {env, now: () => 3}), true);
+  const [call] = JSON.parse(fs.readFileSync(path.join(dir, 'ai-calls.json'), 'utf8'));
+  assert.deepEqual(call, {route: '/extension/answer', at: 3, request: {url: 'https://forms.example.com/apply', fields: [
+    {field: 'question_1', label: 'Website', type: 'text', required: false}, {field: 'question_2', label: 'How did you hear about us? Mail person@example.com', type: 'combobox', required: true}]},
+    answer: {answers: [{field: 'question_2', category: 'normal', use: 'propose'}]}});
+  assert.ok(!/A friend|Anna Muster|SECRET|guess/.test(JSON.stringify(call)), 'no value, page text, note or query');
+  assert.equal(captureAnswer({url: 'x', fields, answers}, {env: {}}), false);   // outside the harness: nothing
+});
+
+test('the app hands each answer call to captureAnswer in one place, and never reads LIVE_CAPTURE_DIR itself', () => {
+  const source = fs.readFileSync(new URL('../lib/server-env.js', import.meta.url), 'utf8');
+  assert.equal((source.match(/captureAnswer\(/g) || []).length, 1);
+  assert.ok(!/LIVE_CAPTURE_DIR/.test(source));
+});
+
+test('the app\'s own env writes the answer call into ai-calls.json under the harness (the last layer the evidence reaches)', async () => {
+  const server = await import('../lib/server.js');
+  const dir = tmp(), data = tmp(), before = process.env.LIVE_CAPTURE_DIR;
+  process.env.LIVE_CAPTURE_DIR = dir;
+  try {
+    const storage = {settings: () => ({}), secret: () => 't', setSecret: () => {}, path: (...p) => path.join(data, ...p), readText: () => ''};
+    await server.localEnv(storage).onAnswerCall({url: 'https://forms.example.com/apply', fields: [{field: 'q1', label: 'Website', type: 'text', required: false}],
+      answers: [{field: 'q1', value: 'https://example.com', category: 'contact', use: 'fill'}]});
+    const calls = JSON.parse(fs.readFileSync(path.join(dir, 'ai-calls.json'), 'utf8'));
+    assert.deepEqual(calls.map(call => [call.route, call.request.fields.map(f => f.field), call.answer.answers]), [['/extension/answer', ['q1'], [{field: 'q1', category: 'contact', use: 'fill'}]]]);
+  } finally { if (before === undefined) delete process.env.LIVE_CAPTURE_DIR; else process.env.LIVE_CAPTURE_DIR = before; }
 });

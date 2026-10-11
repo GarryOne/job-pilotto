@@ -39,3 +39,11 @@ export function captureCall({route, request, answer}, {env = process.env, now = 
     return true;
   } catch { return false; }
 }
+
+// The form-answer call (worker answerForm's env.onAnswerCall, wired in server-env.js), kept the same way: which fields were asked and, per answer, its
+// category and use. Never a value, a note or the page text (11 Oct 2026, Datadog: the evidence could not show that a question was never asked).
+export function captureAnswer({url = '', fields = [], answers = []} = {}, options = {}) {
+  const asked = (Array.isArray(fields) ? fields : []).map(f => ({field: String(f?.field || ''), label: String(f?.label || ''), type: String(f?.type || ''), required: !!f?.required}));
+  const kinds = (Array.isArray(answers) ? answers : []).map(a => ({field: String(a?.field || ''), category: String(a?.category || ''), use: String(a?.use || '')}));
+  return captureCall({route: '/extension/answer', request: {url: String(url), fields: asked}, answer: {answers: kinds}}, options);
+}

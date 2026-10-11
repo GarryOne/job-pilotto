@@ -19,6 +19,7 @@ import {jobKey} from '../shared/worker/extension.js';
 import {log as appLog} from './log.js';
 import {contactOf} from './server-contact.js';
 import {pageKey} from './server-pages.js';
+import {captureAnswer} from './live-capture.js';
 import {answerReporter, appliedHook, formIssue, jobName, notify, proposalReporter, sharedLogger, tellWindow} from './server-hooks.js';
 import {NAMES} from './ai/names.js';
 
@@ -124,6 +125,7 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
       }
     },
     // Each AI answer for a form's questions (worker/src/extension.js answerForm): counts and field ids only, in the log; counts only to the site.
+    onAnswerCall: call => { captureAnswer(call); },   // written only under the e2e harness (lib/live-capture.js): the asked fields and answer kinds, no values
     onAnswer: trace => {
       appLog('fill', `${NAMES[trace.engine] || 'The AI'} answered ${trace.kept} of ${trace.fields} question(s)`, trace);
       answerReporter(trace);
