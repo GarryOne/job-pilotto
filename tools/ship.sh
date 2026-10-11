@@ -4,24 +4,26 @@
 #   1. fetch + rebase on origin/main (conflicts: it stops and says so; keep both sides' work)
 #   2. the push hook's checks, once: commit subjects, red main, and the suites of the areas this change touches
 #   3. push (fast-forward only, never forced); rejected -> fetch, rebase, push again, up to 5 times
-#   4. bring the main checkout up to date (unless it holds uncommitted edits to the same files), then remove this worktree
+#   4. bring the main checkout up to date (unless it holds uncommitted edits to the same files); the worktree is kept (tools/worktree.sh prune removes old landed ones)
 #   tools/ship.sh            Tier 0/1: only the touched areas' suites
 #   tools/ship.sh --full     Tier 2: every suite (PUSH_FULL=1)
 #   tools/ship.sh --fix      this commit is the fix or revert of a red main (CI_RED_OK=1)
-#   tools/ship.sh --keep     leave the worktree and branch in place
+#   tools/ship.sh --keep     accepted, does nothing (keeping is the default since 11 Oct 2026)
+#   tools/ship.sh --remove   remove the worktree and its branch after landing (the old default)
 #   tools/ship.sh --background   start detached and return at once (the checks can take minutes): follow the log it names
 # Every run writes its whole output to a log (the first line names it; SHIP_LOG=<file> chooses it), shows each step with the seconds since
 # the start, and ends with exactly one marker line: `ship: DONE <sha>` or `ship: FAILED (exit N) ...`. A caller that cut the run short
 # (a timeout, a piped `| tail`) reads that last line of the log to know how it ended; running it again is safe.
 set -euo pipefail
-flags=""; keep=0; background=0; args=()
+flags=""; keep=1; background=0; args=()
 for arg in "$@"; do
   case "$arg" in
     --full) flags="PUSH_FULL=1 $flags"; args+=("$arg") ;;
     --fix) flags="CI_RED_OK=1 $flags"; args+=("$arg") ;;
     --keep) keep=1; args+=("$arg") ;;
+    --remove) keep=0; args+=("$arg") ;;
     --background) background=1 ;;
-    *) echo "usage: tools/ship.sh [--full] [--fix] [--keep] [--background]" >&2; exit 2 ;;
+    *) echo "usage: tools/ship.sh [--full] [--fix] [--keep|--remove] [--background]" >&2; exit 2 ;;
   esac
 done
 
@@ -51,6 +53,7 @@ unset SHIP_LOG
 exec > >(tee -a "$log") 2> >(tee -a "$log" >&2)
 echo "ship: log: $log"
 started=$SECONDS
+if [ -f "$here/tools/landing-lock.sh" ]; then source "$here/tools/landing-lock.sh"; else landing_acquire() { :; }; landing_release() { :; }; fi   # one landing at a time, in arrival order
 step() { echo "ship: [$((SECONDS - started))s] $*"; }
 # DONE is printed only by a run that reached one of its two real ends (`finished=1`: pushed, or deliberately nothing to push). A signal exits non-zero
 # and stops the push checks it started; an exit 0 that never got to an end is reported as such, never as DONE (10 Oct 2026: a killed background run logged
@@ -61,18 +64,34 @@ on_signal() { echo "ship: stopped by signal $1" >&2; [ -n "$check_pid" ] && kill
 trap 'on_signal TERM 15' TERM
 trap 'on_signal INT 2' INT
 trap 'on_signal HUP 1' HUP
-trap 'code=$?; if [ "$code" -ne 0 ]; then echo "ship: FAILED (exit $code), log: $log"; elif [ -n "$finished" ]; then echo "ship: DONE ${sha:-nothing to push}"; else echo "ship: FAILED (ended early without pushing or finishing), log: $log"; fi' EXIT
+trap 'code=$?; landing_release; if [ "$code" -ne 0 ]; then echo "ship: FAILED (exit $code), log: $log"; elif [ -n "$finished" ]; then echo "ship: DONE ${sha:-nothing to push}"; else echo "ship: FAILED (ended early without pushing or finishing), log: $log"; fi' EXIT
 
 rebase() {
   git fetch -q origin
   git config merge.ladder-baseline.driver 'node tools/merge-baseline.mjs %O %A %B'   # two sessions' ladder-baseline updates merge (.gitattributes)
+  git config merge.ext-manifest.driver 'node tools/merge-extension-version.mjs %O %A %B'   # a moved extension version is no conflict: it is taken below
+  git config merge.ext-fingerprint.driver 'true'   # the upstream's fingerprint stays; it is written once below
   if ! git rebase origin/main >/dev/null 2>&1; then
     git rebase --abort >/dev/null 2>&1 || true
     echo "ship: the rebase onto origin/main has conflicts. Resolve them keeping both sides' work, then run this again." >&2
     exit 1
   fi
+  take_extension_version
+}
+# The extension version and its fingerprint are taken HERE, after the rebase and while this landing holds the lock (spec faster-fixes §6): the next free
+# version after main's, written once, amended into the last commit. SHIP_EXT_VERSION=0 leaves the branch's own version and fingerprint alone.
+take_extension_version() {
+  [ "${SHIP_EXT_VERSION:-1}" = 0 ] && return 0
+  [ -f tools/extension-version-bump.mjs ] && [ -f desktop/scripts/extension-fingerprint.mjs ] || return 0
+  local decided
+  decided="$(node tools/extension-version-bump.mjs --base origin/main)" || { echo "ship: could not take the extension version ($decided)" >&2; exit 1; }
+  case "$decided" in *'"action":"none"'*) return 0 ;; esac
+  git add extension/manifest.json extension/fingerprint.json
+  if git diff --cached --quiet; then step "extension version already right: $decided"; else git commit -q --amend --no-edit && step "extension version taken: $decided"; fi
 }
 
+step "queueing for the landing lock"
+landing_acquire "$branch"
 step "rebasing $branch onto origin/main"
 rebase
 [ "$(git rev-list --count origin/main..HEAD)" -gt 0 ] || { echo "ship: nothing to push, $branch has no commits beyond origin/main"; finished=1; exit 0; }

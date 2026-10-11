@@ -51,7 +51,7 @@ class ShipTest(unittest.TestCase):
     def ship(self, *flags):
         return subprocess.run(['bash', str(self.tree / 'tools' / 'ship.sh'), *flags], cwd=self.tree, capture_output=True, text=True, timeout=60)
 
-    def test_rebases_over_a_moved_main_pushes_updates_the_checkout_and_removes_the_worktree(self):
+    def test_rebases_over_a_moved_main_pushes_updates_the_checkout_and_keeps_the_worktree(self):
         self.change(self.other, 'theirs.txt', 'x\n', 'Another session pushed')
         git(self.other, 'push', '-q', 'origin', 'main')
         self.change(self.tree, 'mine.txt', 'y\n', 'My change')
@@ -59,7 +59,13 @@ class ShipTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(git(self.origin, 'log', '--format=%s', 'main').splitlines(), ['My change', 'Another session pushed', 'Start'])
         self.assertTrue((self.main / 'mine.txt').exists() and (self.main / 'theirs.txt').exists(), 'the main checkout is up to date')
-        self.assertFalse(self.tree.exists(), 'the worktree is removed')
+        self.assertTrue(self.tree.exists(), 'the worktree is kept (owner, 11 Oct 2026; tools/worktree.sh prune removes old landed ones)')
+        self.assertIn('topic', git(self.main, 'branch', '--list'))
+
+    def test_remove_gives_the_old_behaviour(self):
+        self.change(self.tree, 'mine.txt', 'y\n', 'My change')
+        self.assertEqual(self.ship('--remove').returncode, 0)
+        self.assertFalse(self.tree.exists(), '--remove removes the worktree')
         self.assertNotIn('topic', git(self.main, 'branch', '--list'))
 
     def test_the_hooks_refusal_stops_the_push(self):
@@ -186,6 +192,50 @@ class ShipTest(unittest.TestCase):
         text = self.wait_for_marker(log)
         self.assertTrue(text.splitlines()[-1].startswith('ship: DONE '), text)
         self.assertIn('Slow hook', git(self.origin, 'log', '--format=%s', 'main'))
+
+    def test_the_extension_version_is_taken_at_ship_time_after_the_rebase(self):
+        # Two sessions took the same version (0.9.182 and 0.9.185 twice, 11 Oct 2026): the branch's own bump is replaced by the next free one, and
+        # the rebase over a main that moved the version is no conflict.
+        if not shutil.which('node'):
+            self.skipTest('needs node')
+        for name in ('extension-version-bump.mjs', 'merge-extension-version.mjs', 'landing-lock.sh'):
+            shutil.copy(ROOT / 'tools' / name, self.main / 'tools' / name)
+        (self.main / 'desktop' / 'scripts').mkdir(parents=True)
+        shutil.copy(ROOT / 'desktop' / 'scripts' / 'extension-fingerprint.mjs', self.main / 'desktop' / 'scripts' / 'extension-fingerprint.mjs')
+        (self.main / 'desktop' / 'package.json').write_text('{"type": "module"}\n')
+        (self.main / 'extension').mkdir()
+        (self.main / 'extension' / 'manifest.json').write_text('{\n  "manifest_version": 3,\n  "version": "0.0.1",\n  "name": "x"\n}\n')
+        (self.main / 'extension' / 'a.js').write_text('one\n')
+        (self.main / '.gitattributes').write_text('extension/manifest.json merge=ext-manifest\nextension/fingerprint.json merge=ext-fingerprint\n')
+        node = lambda cwd: subprocess.run(['node', 'desktop/scripts/extension-fingerprint.mjs', '--write'], cwd=cwd, check=True, capture_output=True)
+        node(self.main)
+        git(self.main, 'add', '-A')
+        git(self.main, 'commit', '-qm', 'Extension 0.0.1')
+        git(self.main, 'push', '-q', 'origin', 'main')
+        git(self.other, 'pull', '-q', 'origin', 'main')
+        subprocess.run(['sh', str(self.main / 'tools' / 'worktree.sh'), 'ext'], cwd=self.main, check=True, capture_output=True)
+        tree = self.main / '.claude' / 'worktrees' / 'ext'
+        (tree / 'extension' / 'b.js').write_text('mine\n')
+        (tree / 'extension' / 'manifest.json').write_text((tree / 'extension' / 'manifest.json').read_text().replace('0.0.1', '0.0.2'))
+        node(tree)
+        git(tree, 'add', '-A')
+        git(tree, 'commit', '-qm', 'Mine, bumped to 0.0.2 by hand')
+        (self.other / 'extension' / 'a.js').write_text('theirs\n')
+        (self.other / 'extension' / 'manifest.json').write_text((self.other / 'extension' / 'manifest.json').read_text().replace('0.0.1', '0.0.2'))
+        node(self.other)
+        git(self.other, 'add', '-A')
+        git(self.other, 'commit', '-qm', 'Theirs, 0.0.2')
+        git(self.other, 'push', '-q', 'origin', 'main')
+        result = subprocess.run(['bash', str(tree / 'tools' / 'ship.sh')], cwd=tree, capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        landed = subprocess.run(['git', 'show', 'main:extension/manifest.json'], cwd=self.origin, capture_output=True, text=True).stdout
+        self.assertIn('"version": "0.0.3"', landed)
+        fingerprint = subprocess.run(['git', 'show', 'main:extension/fingerprint.json'], cwd=self.origin, capture_output=True, text=True).stdout
+        self.assertIn('"version": "0.0.3"', fingerprint)
+        self.assertIn('extension version taken', result.stdout + result.stderr)
+        git(self.main, 'pull', '-q', '--ff-only', 'origin', 'main')
+        check = subprocess.run(['node', 'desktop/scripts/extension-fingerprint.mjs'], cwd=self.main, capture_output=True, text=True)
+        self.assertEqual(check.returncode, 0, 'the fingerprint matches the landed extension')
 
 
 if __name__ == '__main__':
