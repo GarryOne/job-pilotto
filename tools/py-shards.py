@@ -3,7 +3,7 @@
 Same tests as `python -m unittest discover -s tests`, split by module so wall time drops from the sum to roughly the slowest shard.
   python3 tools/py-shards.py [--jobs N] [--app-only] [module ...]   (no module = every tests/test_*.py)
 Modules are balanced by measured seconds (tools/py-shard-weights.json, modules over 1.5 s; the rest count 0.5 s), slowest first; a stale weight only costs speed, never coverage.
-More shards than 4: the slow modules (test_ship, test_heavy_lock, test_pre_push_check) are sleep- and git-bound, so they overlap well (11 Oct 2026: 4 shards ~84 s, the longest module 50 s).
+Width: cores / push-check slots (4 here: two push checks at once, each with the journey gate and the other suites beside it; 8 wide drove the load to 124-152, 11 Oct 2026). The slow modules (test_ship, test_heavy_lock, test_pre_push_check) are sleep- and git-bound, so they overlap well (11 Oct 2026: 4 shards ~84 s, the longest module 50 s).
 Exit 0 when every shard passed; otherwise 1 with each failing shard's output on stderr.
 """
 import argparse
@@ -54,7 +54,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('modules', nargs='*', help='test modules to run (default: all)')
     parser.add_argument('--app-only', action='store_true', help='leave out the tests of this repo\'s own dev tooling (DEV_TOOLING)')
-    parser.add_argument('--jobs', type=int, default=int(os.environ.get('JOB_PILOTTO_PY_JOBS', 0)) or min(8, os.cpu_count() or 2))   # JOB_PILOTTO_PY_JOBS=4 (or --jobs 4) is the old width; JOB_PILOTTO_PY_SERIAL=1 (tools/check.py) one process
+    parser.add_argument('--jobs', type=int, default=int(os.environ.get('JOB_PILOTTO_PY_JOBS', 0)) or max(2, (os.cpu_count() or 4) // int(os.environ.get('JOB_PILOTTO_CHECK_SLOTS', 2) or 2)))   # JOB_PILOTTO_PY_JOBS=4 (or --jobs 4) is the old width; JOB_PILOTTO_PY_SERIAL=1 (tools/check.py) one process
     args = parser.parse_args(argv)
     modules = args.modules or all_modules()
     if args.app_only:
