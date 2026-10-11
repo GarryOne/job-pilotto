@@ -21,8 +21,17 @@
     if (!row || row.closest('fieldset')) return null;
     const optionLabels = new Set(Array.from(row.querySelectorAll('input[type=radio], input[type=checkbox]')).flatMap(box => [box.closest('label'), ...(box.labels || [])]));
     const cells = Array.from(row.querySelectorAll('th, td, dt, legend, label, [class*=label], [class*=Label], [class*=title]'));
-    return cells.find(cell => !optionLabels.has(cell) && !cell.querySelector('input, select, textarea, button') && !cell.contains(el) && text(cell.textContent) &&
-      !Array.from(cell.querySelectorAll('label')).some(label => optionLabels.has(label))) || null;
+    const free = cell => !optionLabels.has(cell) && !cell.querySelector('input, select, textarea, button') && !cell.contains(el) && LETTER.test(cell.textContent) &&
+      !Array.from(cell.querySelectorAll('label')).some(label => optionLabels.has(label));
+    // A sign on its own ("*" in a span) is no title; with no label-like cell, the block just before the control's own block in the row is.
+    return cells.find(free) || beforeBlock(el, row, free);
+  };
+  const LETTER = /\p{L}/u;
+  const beforeBlock = (el, row, free) => {
+    for (let up = el; up && up !== row; up = up.parentElement) {
+      for (let prev = up.previousElementSibling; prev; prev = prev.previousElementSibling) if (free(prev) && prev.textContent.length <= 200) return prev;
+    }
+    return null;
   };
   // An independent count for the learning loop (no personal data, a number only): how many short label-like texts on the page carry a "*"
   // anywhere, except a legend sentence ("Mit * markierte Felder…": the star between two words). It does not use `has`, so when the rule above
