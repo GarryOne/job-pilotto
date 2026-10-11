@@ -2,7 +2,7 @@
 # OPT-IN since 11 Oct 2026 (tools/ship.sh queues only with SHIP_LANDING_LOCK=1; by default a refused push rebases and re-runs the checks). One landing at a time, in arrival order: `landing_acquire <label>` waits until no older live landing is ahead
 # of it (and says who), `landing_release` leaves the queue (ship.sh's exit trap). Queue = tickets in <git common dir>/landing-queue/<nanoseconds>-<pid>,
 # each holding "<pid> <label>"; a ticket whose pid is gone is dropped. The next landing then rebases once, on a main that already has the one before it.
-#   SHIP_LANDING_LOCK=0   no queue          SHIP_LANDING_WAIT=<s>   longest wait before landing anyway (default 1800, said in the log)
+#   SHIP_LANDING_LOCK=1   turns it on (off by default)          SHIP_LANDING_WAIT=<s>   longest wait before landing anyway (default 1800, said in the log)
 # Owner: landing-speed (11 Oct 2026, spec faster-fixes §6). Guarded by tests/test_landing_lock.py.
 LANDING_TICKET=""
 
@@ -23,7 +23,7 @@ landing_acquire() {  # label
     done
     [ -z "$ahead" ] && break
     if [ $(( $(date +%s) - began )) -ge "$wait_max" ]; then echo "landing-lock: waited ${wait_max}s behind $ahead: landing anyway" >&2; return 0; fi
-    [ "$told" = 0 ] || [ $(( ($(date +%s) - began) % 30 )) -lt 3 ] && echo "landing-lock: waiting for the landing of $ahead (SHIP_LANDING_LOCK=0 skips this)" >&2
+    [ "$told" = 0 ] || [ $(( ($(date +%s) - began) % 30 )) -lt 3 ] && echo "landing-lock: waiting for the landing of $ahead (the queue is on only with SHIP_LANDING_LOCK=1)" >&2
     told=1; sleep 2
   done
   if [ "$told" = 1 ]; then

@@ -68,6 +68,7 @@ class LandingLockTest(unittest.TestCase):
         retry = ship[ship.index('for attempt in 1 2 3 4 5; do'):ship.index('done', ship.index('for attempt in 1 2 3 4 5; do'))]
         self.assertLess(retry.index('rebase'), retry.index('run_checks'), 'rebase, then the checks, then the next push')
         self.assertIn('take_extension_version', ship[ship.index('rebase() {'):ship.index('}', ship.index('rebase() {') + 400)], 'the retry re-takes the version')
+        self.assertIn('[ "$attempt" -lt 5 ] || break', retry, 'the last refused push does not rebase and re-check for nothing')
 
     def test_a_wait_is_logged_for_the_next_measurement(self):
         first = self.landing('first', 2)

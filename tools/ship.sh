@@ -53,7 +53,7 @@ unset SHIP_LOG
 exec > >(tee -a "$log") 2> >(tee -a "$log" >&2)
 echo "ship: log: $log"
 started=$SECONDS
-if [ -f "$here/tools/landing-lock.sh" ]; then source "$here/tools/landing-lock.sh"; else landing_acquire() { :; }; landing_release() { :; }; fi   # one extension landing at a time, in arrival order; other landings never queue
+if [ -f "$here/tools/landing-lock.sh" ]; then source "$here/tools/landing-lock.sh"; else landing_acquire() { :; }; landing_release() { :; }; fi   # a queue only with SHIP_LANDING_LOCK=1 (off by default: a refused push rebases and re-runs the checks)
 step() { echo "ship: [$((SECONDS - started))s] $*"; }
 # DONE is printed only by a run that reached one of its two real ends (`finished=1`: pushed, or deliberately nothing to push). A signal exits non-zero
 # and stops the push checks it started; an exit 0 that never got to an end is reported as such, never as DONE (10 Oct 2026: a killed background run logged
@@ -135,6 +135,7 @@ pushed=""
 for attempt in 1 2 3 4 5; do
   before="$(git rev-parse origin/main)"
   if out="$(git push origin HEAD:main 2>&1)"; then pushed=1; break; fi
+  [ "$attempt" -lt 5 ] || break   # the last push was refused: no rebase and no checks for a push that will not come
   echo "ship: push rejected, main moved ($attempt/5): fetching, rebasing and checking again" >&2
   rebase
   run_checks "again, on the new main"   # the combination with what just landed is checked before it is pushed
