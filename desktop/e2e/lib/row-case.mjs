@@ -9,6 +9,9 @@ import {folderVerdict, privacyFindings, sizeVerdict, CASE_FAIL} from './row-case
 import {shrinkPages} from './row-case-shrink.mjs';
 
 const readJson = (file, fallback) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
+// A web address in the page's own TEXT (a job ad's links, with tracking queries) loses its query and fragment, as the memo key already ignores them (lib/ai/model-memo.js normalise: the same pattern),
+// so the answers kept for the live ask still match. The attribute values were cut at the capture; this is the copy in prose.
+export const stripQueries = text => String(text).replace(/(https?:\/\/[^\s"'<>?#\\]+)[?#][^\s"'<>\\]*/g, '$1');
 const TIME = /^(?:log )?\d\d:\d\d:\d\d(?:\.\d+)?Z? /;   // the evidence lines' own clock
 const bare = line => String(line).replace(TIME, '').replace(/^\[extension\]/, '[extension]');
 
@@ -25,14 +28,15 @@ export async function buildCase({rowDir, name, outDir, shrink = shrinkPages, val
   if (!item?.pages?.length) throw new Error(`no recorded pages in ${rowDir}/case.json`);
   const har = readJson(path.join(rowDir, 'styles.har.json'), {log: {entries: []}}).log?.entries || [];
   const harCss = har.filter(entry => /css/.test(entry.response?.content?.mimeType || '')).map(entry => scrub(entry.response.content.text || '', values));
-  const pages = item.pages.map(page => ({url: String(page.url).replace(/[?#].*$/, ''), file: page.file, html: scrub(fs.readFileSync(path.join(rowDir, page.file), 'utf8'), values), meta: page}));
+  const pages = item.pages.map(page => ({url: String(page.url).replace(/[?#].*$/, ''), file: page.file, html: stripQueries(scrub(fs.readFileSync(path.join(rowDir, page.file), 'utf8'), values)), meta: page}));
   const {pages: shrunk, sheets} = await shrink(chromium || (await import('playwright-core')).chromium, pages.map(({url, file, html}) => ({url, file, html})), harCss, {exe});
   const files = {};
   const meta = item.pages.map((page, at) => ({...Object.fromEntries(['at', 'state', 'ask', 'answerAsk', 'view', 'frameOf'].filter(key => page[key] !== undefined).map(key => [key, page[key]])), url: pages[at].url, file: `pages/${at + 1}.html`}));
   shrunk.forEach((page, at) => { files[meta[at].file] = page.html; });
   files['styles.har.json'] = JSON.stringify({log: {entries: [...sheets].map(([url, text]) => ({request: {url}, response: {content: {mimeType: 'text/css', text}}}))}});
-  files['model-memo.json'] = scrub(fs.readFileSync(path.join(rowDir, 'model-memo.json'), 'utf8'), values);
-  files['presses.json'] = scrub(fs.readFileSync(path.join(rowDir, 'presses.json'), 'utf8'), values);
+  const optional = (file, fallback) => { try { return fs.readFileSync(path.join(rowDir, file), 'utf8'); } catch { return fallback; } };   // a run with no presses writes no presses.json (the Ashby capture: 0 presses)
+  files['model-memo.json'] = stripQueries(scrub(optional('model-memo.json', '{}'), values));
+  files['presses.json'] = scrub(optional('presses.json', '[]'), values);
   const keep = {shape: item.shape, why: item.why, sample: item.sample, ...(item.control ? {control: item.control} : {})};
   files['case.json'] = `${JSON.stringify({...keep, replay: 'row', pages: meta, baseline: baselineOf(item, readJson(path.join(rowDir, 'presses.json'), [])), expect: {}}, null, 1)}\n`;
   const found = privacyFindings(Object.fromEntries(Object.entries(files).map(([file, text]) => [`${name}/${file}`, text])), values);

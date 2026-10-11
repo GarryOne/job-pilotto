@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {buildCase} from '../lib/row-case.mjs';
+import {buildCase, stripQueries} from '../lib/row-case.mjs';
 import {FAKE} from '../lib/capture-page.mjs';
 
 const tmp = prefix => fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -48,10 +48,19 @@ test('a row becomes a case: pages scrubbed and shrunk, answers and presses scrub
   assert.deepEqual(har.map(entry => entry.request.url), ['https://jobs.example.test/__case/styles.css']);
 });
 
-test('a case that fails a gate is refused and nothing is written: a typed value or a URL query the scrub does not remove, or a size over the limit', async () => {
+test('a capture with no presses.json (a run that pressed nothing) and no model memo still builds: an empty presses list, an empty memo', async () => {
+  const dir = row(); fs.rmSync(path.join(dir, 'presses.json')); fs.rmSync(path.join(dir, 'model-memo.json'));
+  const out = tmp('jp-cases-'), result = await buildCase({rowDir: dir, name: 'no-presses-1', outDir: out, shrink: noShrink});
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(result.dir, 'presses.json'), 'utf8')), []);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(result.dir, 'case.json'), 'utf8')).baseline.pressed, []);
+});
+
+test('a case that fails a gate is refused and nothing is written: a typed value the scrub does not remove, or a size over the limit', async () => {
   const out = tmp('jp-cases-');
   await assert.rejects(buildCase({rowDir: row({page: '<input type="text" value="Anna">'}), name: 'x-1', outDir: out, shrink: noShrink}), /privacy gate.*a typed value/);
-  await assert.rejects(buildCase({rowDir: row({page: '<a href="https://x.example/p?token=1">x</a>'}), name: 'x-1', outDir: out, shrink: noShrink}), /privacy gate.*a URL query string/);
+  const query = await buildCase({rowDir: row({page: '<a href="https://x.example/p?token=1">x</a>'}), name: 'x-q', outDir: out, shrink: noShrink});   // a query is cut by the tool, so the gate passes
+  assert.ok(!fs.readFileSync(path.join(query.dir, 'pages/1.html'), 'utf8').includes('token'));
+  fs.rmSync(query.dir, {recursive: true});
   const phone = await buildCase({rowDir: row({page: '<p>Hotline 044 123 45 67</p>'}), name: 'x-p', outDir: out, shrink: noShrink});   // a phone number IS scrubbed by the tool, so the gate passes
   assert.ok(!fs.readFileSync(path.join(phone.dir, 'pages/1.html'), 'utf8').includes('044 123'));
   fs.rmSync(phone.dir, {recursive: true});
@@ -64,4 +73,10 @@ test('a case that fails a gate is refused and nothing is written: a typed value 
 
 test('a name that is not a plain case name is refused (no path out of the cases folder)', async () => {
   await assert.rejects(buildCase({rowDir: row(), name: '../escape', outDir: tmp('jp-cases-'), shrink: noShrink}), /case name/);
+});
+
+test('an address in the page\'s prose loses its tracking query and fragment (the memo key ignores them too); the address itself stays', async () => {
+  assert.equal(stripQueries('see https://www.busuu.com/fr/p/start?utm_medium=cpc&amp;utm_source=google#x and https://a.example/b.'), 'see https://www.busuu.com/fr/p/start and https://a.example/b.');
+  const out = tmp('jp-cases-'), result = await buildCase({rowDir: row({page: '<p>Jobs https://www.google.com/search?q=x&amp;ei=1 here</p>'}), name: 'prose-1', outDir: out, shrink: noShrink});
+  assert.ok(fs.readFileSync(path.join(result.dir, 'pages/1.html'), 'utf8').includes('<p>Jobs https://www.google.com/search here</p>'));
 });
