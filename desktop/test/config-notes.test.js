@@ -76,3 +76,12 @@ test('every prompt that reads a settings file reads it without notes', async () 
     }
   }
 });
+
+test('the fill prompt\'s <cv_facts> come from the imported CV; no cv.json: no text, no AI call, no error', async () => {
+  const storage = tempStorage();
+  assert.equal(await localEnv(storage).CV_FACTS_TEXT, '');
+  fs.mkdirSync(storage.path('cv'), {recursive: true});
+  fs.writeFileSync(storage.path('cv/cv.json'), JSON.stringify({jobs: [{company: 'Acme Cloud', roles: [{title: 'Senior SRE', period: '2022 – Present'}]}], education: [{school: 'Example University', degree: 'BSc', period: '2014 – 2018'}]}));
+  const text = await localEnv(storage).CV_FACTS_TEXT;
+  for (const word of ['Acme Cloud', 'Senior SRE', 'Example University', '2014 – 2018']) assert.match(text, new RegExp(word));
+});

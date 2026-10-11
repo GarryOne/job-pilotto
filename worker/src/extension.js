@@ -13,6 +13,7 @@ import { anthropicClient, priceOf } from './ai.js';
 import { askAgainForGaps, unanswered } from './answer-missing.js';
 import { BILLED, billedTo, learnings, runBlocks, runData, runRecord } from './extension-run-record.js';
 export { BILLED, billedTo, learnings, runData, runRecord };
+import { cvFactsBlock, CV_FACTS_RULE } from './cv-facts.js';
 
 const KIT_HEADING = '📝 Application kit';
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
@@ -178,6 +179,7 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   });
   // The strategy's search settings (roles, places, what the user aims for): a proposal should serve that, not just the CV.
   const search = String((await Promise.resolve(env.SEARCH_TEXT).catch(() => '')) || '').slice(0, 4000);
+  const cvFacts = cvFactsBlock(await Promise.resolve(env.CV_FACTS_TEXT).catch(() => ''));   // from the imported CV, never imported by a fill
   const job = row ? summary(row) : { title: '', company: '', url };
   const anthropic = client || anthropicClient(anthropicKey(env));
   const ask = (list, note = '') => anthropic.messages.create({
@@ -186,8 +188,8 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
     // The profile and standard answers are the same for every form: cached, so a multi-page form
     // or the next application within five minutes pays a tenth for them.
     system: [
-      { type: 'text', text: test ? `${INSTRUCTIONS}\n\n${TEST_MODE}` : INSTRUCTIONS },
-      { type: 'text', text: `<profile>\n${profile}\n</profile>\n<standard_answers>\n${standard}\n</standard_answers>${search ? `\n<search_preferences>\n${search}\n</search_preferences>` : ''}`,
+      { type: 'text', text: (test ? `${INSTRUCTIONS}\n\n${TEST_MODE}` : INSTRUCTIONS) + (cvFacts ? `\n${CV_FACTS_RULE}` : '') },
+      { type: 'text', text: `<profile>\n${profile}\n</profile>\n<standard_answers>\n${standard}\n</standard_answers>${search ? `\n<search_preferences>\n${search}\n</search_preferences>` : ''}${cvFacts}`,
         cache_control: { type: 'ephemeral' } },
     ],
     messages: [{

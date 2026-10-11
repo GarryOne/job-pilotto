@@ -410,3 +410,24 @@ test('a field the AI leaves out of its answer is asked once more, then marked "u
   const choice = await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: '', KNOWLEDGE_TEXT: '' }, { url: 'https://forms.example.com/a', fields, page_text: '' }, held);
   assert.deepEqual(choice.answers.map((a) => [a.field, a.use, a.category]), [['city', 'fill', 'contact'], ['radio:form_data6', 'kind', 'demographic']]);
 });
+
+test('the CV\'s employers and schools go to the AI as <cv_facts>, and a form that asks for them is told where to read them', async () => {
+  const { answerForm } = await import('../src/extension.js');
+  const { cvFactsText } = await import('../src/cv-facts.js');
+  const cv = { jobs: [{ company: 'Acme Cloud', roles: [{ title: 'Senior SRE', period: '2022 – Present' }, { title: 'SRE', period: '2020 – 2022' }] }, { company: 'Beta Systems', roles: [{ title: 'Platform Engineer', period: '2018 – 2020' }] }],
+    education: [{ school: 'Example University', degree: 'BSc Computer Science', period: '2014 – 2018' }] };
+  let system = '';
+  const client = { messages: { create: async (args) => { system = JSON.stringify(args.system); return { stop_reason: 'end_turn', usage: { billing: 'subscription' },
+    content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers: [] }) }] }; } } };
+  await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '', CV_FACTS_TEXT: Promise.resolve(cvFactsText(cv)) },
+    { url: 'https://forms.example.com/apply', fields: [{ field: 'x', label: 'x', type: 'text' }], page_text: '' }, client);
+  assert.match(system, /<cv_facts>/);
+  for (const word of ['Acme Cloud', 'Senior SRE', '2022 – Present', 'Example University', 'BSc Computer Science', '2014 – 2018']) assert.match(system, new RegExp(word));
+  assert.match(system, /current employer|current job|most recent/i, 'the instructions say how to use the block');
+  // no CV, no block
+  system = '';
+  await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '' }, { url: 'https://forms.example.com/apply', fields: [{ field: 'x', label: 'x', type: 'text' }], page_text: '' }, client);
+  assert.doesNotMatch(system, /<cv_facts>/);
+  assert.equal(cvFactsText(null), '');
+  assert.equal(cvFactsText({ jobs: [], education: [] }), '');
+});

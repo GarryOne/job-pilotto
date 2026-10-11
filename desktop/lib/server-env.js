@@ -4,6 +4,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import * as claudeCode from './claude-code.js';
+import * as cvlib from './cv.js';
 import * as pipeline from './pipeline.js';
 import * as learn from './learn.js';
 import * as notion from './notion.js';   // Notion-only: the extension's Notion calls only when Notion is the store (notionTexts); this Mac's go through env.store
@@ -22,6 +23,7 @@ import {pageKey} from './server-pages.js';
 import {captureAnswer} from './live-capture.js';
 import {answerReporter, appliedHook, formIssue, jobName, notify, proposalReporter, sharedLogger, tellWindow} from './server-hooks.js';
 import {NAMES} from './ai/names.js';
+import {cvFactsText} from '../shared/worker/cv-facts.js';
 import {configForPrompt} from './config-text.js';
 
 export function extensionToken(storage) {
@@ -64,6 +66,13 @@ export function reconcileAppliedSessions(jobs = []) {
   return ended;
 }
 
+// cv/cv.json → the <cv_facts> text; '' (logged once per fill) when the CV was not imported yet.
+export function cvFactsOf(storage) {
+  const text = cvFactsText(cvlib.baseCv(storage));
+  if (!text) appLog('extension', 'cv facts: none (CV not imported yet)');
+  return text;
+}
+
 export function localEnv(storage, submitted = sessionSubmitted, {find: injected} = {}) {
   const settings = storage.settings();
   const summary = job => ({title: job.title, company: job.company, stage: job.status, url: job.url, notion_url: ''});
@@ -86,6 +95,8 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
     notionCall: (route, method = 'GET', body) => notion.call(notionToken, method, route, body),
     get PROFILE_TEXT() { return kept('profile', ids.NOTION_PROFILE_PAGE_ID); },
     get ANSWERS_TEXT() { return kept('answers', ids.NOTION_ANSWERS_PAGE_ID); },
+    // The imported CV's jobs and schools (cv/cv.json) for the form AI. Never imported by a fill: no cv.json, no block, no AI call (cc, 11 Oct 2026).
+    get CV_FACTS_TEXT() { return Promise.resolve(cvFactsOf(storage)); },
     get SEARCH_TEXT() { return Promise.resolve(configForPrompt(storage, 'search.json')); },   // the strategy's search settings: what the user is aiming for (no note: lib/config-text.js)
     get KNOWLEDGE_TEXT() { return kept('knowledge', ids.NOTION_KNOWLEDGE_PAGE).catch(() => ''); },
     EXTENSION_TOKEN: extensionToken(storage),

@@ -23,6 +23,11 @@ const STAND_IN = {first_name: 'Test', last_name: 'Candidate', email: 'test.candi
 
 fs.mkdirSync(dir, {recursive: true});
 fs.copyFileSync(path.join(E2E, 'fixtures', 'cv.pdf'), path.join(dir, 'cv.pdf'));
+// The CV as the app's import keeps it (cv/cv.json, hand-made from cv.pdf, years included): the fill's <cv_facts> read it; a fill never imports (lib/server-env.js).
+if (!process.env.E2E_NO_IMPORTED_CV) {   // the control: an app whose CV was never imported (npm run cv-facts-cases must then miss)
+  fs.mkdirSync(path.join(dir, 'cv'), {recursive: true});
+  fs.copyFileSync(path.join(E2E, 'fixtures', 'cv.json'), path.join(dir, 'cv', 'cv.json'));
+}
 const {logTo} = await import('../../lib/log.js');
 logTo(path.join(dir, 'logs'));
 const {createStorage} = await import('../../lib/storage.js');

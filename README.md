@@ -141,6 +141,7 @@ The same list, with more detail, is on the website: [Intelligence](https://www.j
 **Apply: Fills the form, you press Submit**
 
 - **Form filling**: The extension fills every field from your kit. Claude answers only what the kit does not, and marks those answers for a read-through.
+- **Schools, years and your current job** *(new)*: Once your CV is imported, the form AI reads its employers and schools as written, so a School, Degree, year, Current company or Job title is answered in any language. It never imports the CV in the middle of a fill.
 - **A nudge at the form** *(new)*: On a form that has your general CV, the panel offers a tailored one. Fill again and it replaces the file.
 - **Knockout questions, first** *(new)*: Work permit, sponsorship, location and office-day questions are marked and moved to the top, because an employer can set them to reject (rules, no AI).
 - **A tip at every step** *(new)*: One slim line of advice on Jobs, Focus, Interviews, Application sessions and on the form itself. Each is labelled Fact, Recruiters say, Worth trying or Tip, so you see how strong it is. One click hides them all.
