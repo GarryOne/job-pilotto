@@ -6,7 +6,7 @@ import {anthropicApi} from './ai/anthropic-api.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import {wordsOf} from './strategy-rebuild.js';
-export {DEFAULT_TARGET, ROLE_TERM, SEARCH_SETTINGS_TITLE, addPlaces, addRoles, applyTune, chooseOffered, clampTarget, dailyTarget, dropLocalCopies, forgetPageCopy, loosen, profileTexts, publishSearchSettings, retune, save, saveLocal, setDailyTarget, tuned} from './strategy-settings.js';
+export {DEFAULT_TARGET, ROLE_TERM, SEARCH_SETTINGS_TITLE, addPlaces, addRoles, applyTune, chooseOffered, clampTarget, dailyTarget, dropLocalCopies, forgetPageCopy, keepLocally, loosen, profileTexts, publishSearchSettings, retune, save, saveLocal, setDailyTarget, tuned} from './strategy-settings.js';
 export {EDITABLE_LISTS, applyEdits, cleanEdits, editLists, edited} from './strategy-edit.js';
 export {SCORES_PER_SEARCH, SCORE_USD, rebuildGroups, wordsOf} from './strategy-rebuild.js';
 import {REPO} from './pipeline.js';

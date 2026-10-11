@@ -84,12 +84,8 @@ export function registerStrategyDraftHandlers(ctx) {
       // Trying (no Notion yet, lib/notion-gate.js): the strategy is kept on this Mac, and lib/migrate.js moves it into
       // Notion when it is connected. Contact details are a section of the Profile text, as in Notion.
       if (!notionGate.notionInUse(storage)) {
-        strategy.save(storage, accepted());
+        const backup = strategy.keepLocally(storage, draft, parts);   // the search settings, then the Profile with its contact section and the answers
         step('local', {finished: true});
-        const contact = Object.fromEntries(Object.entries(draft.contact || {}).filter(([, value]) => value));
-        const profile = draft.profile_markdown.trim() + (Object.keys(contact).length ? `\n\n${contactDetails.markdown(contact)}\n` : '\n');
-        const backup = strategy.saveLocal(storage, {profile: take('profile') ? profile : null, answers: take('answers') ? draft.answers_markdown : null},
-          {backup: !!storage.settings().setupDone});
         appLog('notion', 'strategy kept on this Mac', {parts: parts || 'all', backup: !!backup});
         for (const name of ['profile', 'answers', 'search']) step(name, {finished: true});
         { const before = storage.settings(); storage.saveSettings({setupDone: true}); trackSetup({setupDone: true}, before); }

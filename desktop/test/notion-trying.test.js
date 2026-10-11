@@ -48,3 +48,20 @@ test('the sync after connecting spends no AI: every cap is 0 and the run is logg
   assert.equal(args[args.indexOf('--mode') + 1], 'today');
   assert.ok(!args.includes('--send') && !args.includes('--insight'));
 });
+
+// The window's saveStrategy without Notion and the e2e harness's plain-node app keep a draft through one function (lib/strategy-settings.js keepLocally).
+test('keepLocally keeps a whole draft (search settings with the daily target, the Profile with its contact section, the answers), and only the accepted parts after', () => {
+  const storage = trying();
+  const draft = {search: {role_keywords: ['sre']}, preferences: {excluded_companies: ['Acme']}, profile_markdown: '# Me\nSRE', answers_markdown: 'Notice: 1 month',
+    contact: {first_name: 'Test', email: 'test@example.com', phone: ''}};
+  assert.equal(strategy.keepLocally(storage, draft), null);
+  assert.deepEqual(JSON.parse(storage.readText('config/search.json')).role_keywords, ['sre']);
+  assert.equal(JSON.parse(storage.readText('config/preferences.json')).daily_applications_target, strategy.DEFAULT_TARGET);
+  assert.match(storage.readText('profile.md'), /^# Me\nSRE\n\n[\s\S]*test@example\.com/);
+  assert.equal(storage.readText('answers.md'), 'Notice: 1 month');
+  storage.saveSettings({setupDone: true});
+  const folder = strategy.keepLocally(storage, {...draft, search: {role_keywords: ['dev']}, answers_markdown: 'Notice: 2 months'}, ['answers']);
+  assert.ok(folder, 'a set-up install keeps a backup of what it replaces');
+  assert.deepEqual(JSON.parse(storage.readText('config/search.json')).role_keywords, ['sre'], 'a part not accepted is not touched');
+  assert.equal(storage.readText('answers.md'), 'Notice: 2 months');
+});

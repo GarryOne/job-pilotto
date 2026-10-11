@@ -3,6 +3,7 @@
 // strategy-remote.test.js, notion-trying.test.js and tune.test.js.
 import fs from 'node:fs';
 import path from 'node:path';
+import * as contactDetails from './contact.js';
 import * as notion from './notion.js';   // Notion-only: the Profile/answers texts and ⚙️ Search settings page when Notion is the store
 import * as notionGate from './notion-gate.js';
 
@@ -32,6 +33,18 @@ export function saveLocal(storage, {profile = null, answers = null}, {backup = f
   }
   for (const [name, text] of files) storage.writeText(name, text);
   return folder;
+}
+// Trying: an accepted draft kept on this Mac (the window's saveStrategy without Notion, lib/strategy-draft-handlers.js; the plain-node app of the e2e harness seeds
+// its applicant through it: e2e/lib/offline-app-child.mjs). parts: the accepted groups (search, filters, profile, answers), null = everything (first setup).
+// The Profile carries the draft's contact as its contact section. -> the backup folder of the replaced files, or null.
+export function keepLocally(storage, draft, parts = null) {
+  const take = part => !parts || parts.includes(part);
+  const perDay = storage.settings().questionnaire?.applications_per_day;   // the daily target asked in the wizard goes with the search settings
+  save(storage, {search: take('search') ? draft.search : null,
+    preferences: !parts ? {...draft.preferences, daily_applications_target: clampTarget(perDay)} : take('filters') ? draft.preferences : null});
+  const contact = Object.fromEntries(Object.entries(draft.contact || {}).filter(([, value]) => value));
+  const profile = draft.profile_markdown.trim() + (Object.keys(contact).length ? `\n\n${contactDetails.markdown(contact)}\n` : '\n');
+  return saveLocal(storage, {profile: take('profile') ? profile : null, answers: take('answers') ? draft.answers_markdown : null}, {backup: !!storage.settings().setupDone});
 }
 // Copies an older version kept on the Mac go once Notion has them (lib/migrate.js).
 export function dropLocalCopies(storage) {

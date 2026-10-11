@@ -27,6 +27,20 @@ test('the offline app answers the extension with the fake applicant, on its own 
   await assert.rejects(fetch(`${app.url}/extension/me`), 'nothing is left listening');
 });
 
+// The Electron run's applicant (lib/seed.mjs fastSeed: saveStrategy with demo/draft.json), not a contact alone: with only a contact the fill's AI read a 250-character
+// profile and judged a Zurich applicant ineligible for a Sydney role, so the no-Electron run stopped where the Electron one filled (Teamtailor, 11 Oct 2026).
+test('the offline app holds the same applicant as the Electron run: the strategy\'s Profile, standard answers and search settings, with the stand-in contact', async () => {
+  const draft = JSON.parse(fs.readFileSync(new URL('../../demo/draft.json', import.meta.url), 'utf8')).draft;
+  const app = await startOfflineApp();
+  try {
+    const profile = fs.readFileSync(path.join(app.dir, 'profile.md'), 'utf8');
+    assert.ok(profile.includes(draft.profile_markdown.trim()), `the strategy's Profile is kept (${profile.length} characters)`);
+    assert.match(profile, /test\.candidate@example\.com/, 'the stand-in contact, never the draft\'s or a person\'s');
+    assert.equal(fs.readFileSync(path.join(app.dir, 'answers.md'), 'utf8').trim(), draft.answers_markdown.trim());
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(app.dir, 'config', 'search.json'), 'utf8')).role_keywords, draft.search.role_keywords);
+  } finally { await app.close(); }
+});
+
 test('inside the offline app, a call to any host but this computer is refused and named (checked before it serves)', async () => {
   const app = await startOfflineApp();
   try { assert.equal(app.guarded, true); } finally { await app.close(); }
