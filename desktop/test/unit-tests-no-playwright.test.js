@@ -1,6 +1,7 @@
 // A desktop unit test must not reach playwright-core through its imports: the desktop unit job on CI installs only desktop/, not desktop/e2e (11 Oct 2026: main went red when claim-shape.test.js imported a lib that imported app.mjs for a path).
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
@@ -26,7 +27,7 @@ test('no desktop unit test reaches playwright through its imports', () => {
 });
 
 test('the walker sees an import chain to playwright (positive control)', () => {
-  const dir = fs.mkdtempSync(path.join(fs.realpathSync(process.env.TMPDIR || '/tmp'), 'pw-walk-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-walk-'));
   fs.writeFileSync(path.join(dir, 'a.mjs'), "import {x} from './b.mjs';\n");
   fs.writeFileSync(path.join(dir, 'b.mjs'), `import {chromium} from '${'play' + 'wright-core'}';\nexport const x = 1;\n`);   // spelled in two pieces: this file must not name the module itself
   assert.equal(reaches(path.join(dir, 'a.mjs')).length, 1);
