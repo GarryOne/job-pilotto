@@ -56,11 +56,26 @@ class LandingLockTest(unittest.TestCase):
         holder.communicate(timeout=30)
         self.assertIn('off in', self.trace.read_text())
 
-    def test_ship_sh_queues_and_releases(self):
+    def test_ship_sh_queues_only_when_asked_and_releases(self):
         ship = (ROOT / 'tools' / 'ship.sh').read_text()
-        self.assertIn('landing_acquire "$branch"', ship)
-        self.assertLess(ship.index('landing_acquire "$branch"'), ship.index('rebase\n[ "$(git rev-list'), 'queued before the first rebase')
+        self.assertIn('if [ "${SHIP_LANDING_LOCK:-0}" = 1 ]; then', ship, 'no landing queue by default (owner, 11 Oct 2026)')
+        self.assertLess(ship.index('landing_acquire "$branch"'), ship.index('rebase\n[ "$(git rev-list'), 'when asked, queued before the first rebase')
         self.assertIn('landing_release;', ship)   # in the exit trap
+
+    def test_a_refused_push_is_checked_again_before_it_is_pushed(self):
+        # Without a queue two landings can cross: what reaches main must be checked on top of what just landed, never pushed untested.
+        ship = (ROOT / 'tools' / 'ship.sh').read_text()
+        retry = ship[ship.index('for attempt in 1 2 3 4 5; do'):ship.index('done', ship.index('for attempt in 1 2 3 4 5; do'))]
+        self.assertLess(retry.index('rebase'), retry.index('run_checks'), 'rebase, then the checks, then the next push')
+        self.assertIn('take_extension_version', ship[ship.index('rebase() {'):ship.index('}', ship.index('rebase() {') + 400)], 'the retry re-takes the version')
+
+    def test_a_wait_is_logged_for_the_next_measurement(self):
+        first = self.landing('first', 2)
+        time.sleep(0.5)
+        self.landing('second', 0).communicate(timeout=30)
+        first.communicate(timeout=30)
+        log = (self.tmp / '.git' / 'gate-timing.log').read_text()
+        self.assertRegex(log, r'landing queue wait=\d+s label=second')
 
 
 if __name__ == '__main__':

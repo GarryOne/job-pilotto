@@ -93,11 +93,13 @@ them from colliding in one checkout:
   checkout: `tools/worktree.sh <topic>` (a worktree in `.claude/worktrees/<topic>` from `origin/main`, with the main
   checkout's `node_modules` and Python `.venv` linked in, so the tests run at once; both are git-ignored: leave the links alone).
   Another base: `tools/worktree.sh <topic> origin/<branch>` (a release lane), never a bare `git worktree add`, which links nothing.
-- Commit there, then land it with **`tools/ship.sh`** (since 6 Oct 2026): fetch + rebase, the push hook's checks once (the suites of the
-  areas you touched), push with a retry when another session pushed in between, update the main checkout.
+- Commit there, then land it with **`tools/ship.sh`** (since 6 Oct 2026): fetch + rebase, the push hook's checks (the suites of the
+  areas you touched), push, update the main checkout. **No landing queue** (owner, 11 Oct 2026): landings run side by side; when another
+  session pushed in between, git refuses the push and `ship.sh` rebases, re-takes the extension version and **runs the checks again** before
+  the next push, so what reaches main was checked as pushed (the gate cache keeps unchanged areas instant; `SHIP_LANDING_LOCK=1` queues instead).
   `--full` for Tier 2, `--fix` for the fix/revert of a red main. **The worktree is kept** (owner, 11 Oct 2026; `--remove` removes it).
-  Landings queue one at a time on this Mac in arrival order (`tools/landing-lock.sh`); after the rebase `ship.sh` takes the next free extension
-  version and writes `extension/fingerprint.json` once, amended into your last commit (never bump the version by hand to land).
+  After every rebase `ship.sh` takes the next free extension version and writes `extension/fingerprint.json` once, amended into your last
+  commit (never bump the version by hand to land).
   The checks take minutes: run **`tools/ship.sh --background`** (returns at once, names its log); the log's last line is `ship: DONE <sha>` or
   `ship: FAILED …` (8 Oct 2026: a run cut off by a timeout and piped through `tail` showed nothing). By hand it is still
   `git fetch && git rebase origin/main && git push origin <topic>:main` (fast-forward only; rejected: fetch, rebase, push again).

@@ -53,7 +53,7 @@ unset SHIP_LOG
 exec > >(tee -a "$log") 2> >(tee -a "$log" >&2)
 echo "ship: log: $log"
 started=$SECONDS
-if [ -f "$here/tools/landing-lock.sh" ]; then source "$here/tools/landing-lock.sh"; else landing_acquire() { :; }; landing_release() { :; }; fi   # one landing at a time, in arrival order
+if [ -f "$here/tools/landing-lock.sh" ]; then source "$here/tools/landing-lock.sh"; else landing_acquire() { :; }; landing_release() { :; }; fi   # one extension landing at a time, in arrival order; other landings never queue
 step() { echo "ship: [$((SECONDS - started))s] $*"; }
 # DONE is printed only by a run that reached one of its two real ends (`finished=1`: pushed, or deliberately nothing to push). A signal exits non-zero
 # and stops the push checks it started; an exit 0 that never got to an end is reported as such, never as DONE (10 Oct 2026: a killed background run logged
@@ -78,7 +78,7 @@ rebase() {
   fi
   take_extension_version
 }
-# The extension version and its fingerprint are taken HERE, after the rebase and while this landing holds the lock (spec faster-fixes §6): the next free
+# The extension version and its fingerprint are taken HERE, after every rebase (spec faster-fixes §6; a refused push re-takes it on the new main): the next free
 # version after main's, written once, amended into the last commit. SHIP_EXT_VERSION=0 leaves the branch's own version and fingerprint alone.
 take_extension_version() {
   [ "${SHIP_EXT_VERSION:-1}" = 0 ] && return 0
@@ -90,27 +90,34 @@ take_extension_version() {
   if git diff --cached --quiet; then step "extension version already right: $decided"; else git commit -q --amend --no-edit && step "extension version taken: $decided"; fi
 }
 
-step "queueing for the landing lock"
-landing_acquire "$branch"
+# No landing queue by default (owner, 11 Oct 2026): a push to main is refused when main moved, and the retry below rebases, re-takes the extension
+# version and RE-RUNS the push checks, so what reaches main was checked as pushed (the gate cache keeps unchanged areas instant). SHIP_LANDING_LOCK=1 queues.
+if [ "${SHIP_LANDING_LOCK:-0}" = 1 ]; then
+  step "queueing for the landing lock (SHIP_LANDING_LOCK=1)"
+  landing_acquire "$branch"
+fi
 step "rebasing $branch onto origin/main"
 rebase
 [ "$(git rev-list --count origin/main..HEAD)" -gt 0 ] || { echo "ship: nothing to push, $branch has no commits beyond origin/main"; finished=1; exit 0; }
 
-# The hook is a Claude Code hook, so a script's own `git push` never meets it: run its checks here, once, as it would see the push.
+# The hook is a Claude Code hook, so a script's own `git push` never meets it: run its checks here as it would see the push (again after a refused push).
 payload="$(jq -n --arg command "${flags}git push origin $branch:main" --arg cwd "$here" '{tool_input: {command: $command}, cwd: $cwd}')"
 # It prints nothing while it passes and takes minutes: a heartbeat every 20 s says it is still working; its own words show only on failure.
-step "running the push checks (the suites of the touched areas; ${flags:+$flags}this can take a few minutes)"
-checks="$(mktemp)"
-bash "$here/tools/pre-push-check.sh" <<<"$payload" > "$checks" 2>&1 &
-check_pid=$!
-while kill -0 "$check_pid" 2>/dev/null; do
-  for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do kill -0 "$check_pid" 2>/dev/null || break; sleep 1; done
-  kill -0 "$check_pid" 2>/dev/null && step "the push checks are still running"
-done
-check_code=0; wait "$check_pid" || check_code=$?
-cat "$checks" >&2; rm -f "$checks"
-[ "$check_code" = 0 ] || exit "$check_code"
-step "the push checks passed"
+run_checks() {  # [why]
+  step "running the push checks${1:+ $1} (the suites of the touched areas; ${flags:+$flags}this can take a few minutes)"
+  checks="$(mktemp)"
+  bash "$here/tools/pre-push-check.sh" <<<"$payload" > "$checks" 2>&1 &
+  check_pid=$!
+  while kill -0 "$check_pid" 2>/dev/null; do
+    for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do kill -0 "$check_pid" 2>/dev/null || break; sleep 1; done
+    kill -0 "$check_pid" 2>/dev/null && step "the push checks are still running"
+  done
+  check_code=0; wait "$check_pid" || check_code=$?
+  cat "$checks" >&2; rm -f "$checks"
+  [ "$check_code" = 0 ] || exit "$check_code"
+  step "the push checks passed"
+}
+run_checks
 
 # A push that changes workflow files while a desktop build runs would make GitHub refuse that build's release, if the build could not tag at its
 # start (desktop.yml "Tag this build now"): wait for the build, up to 20 minutes (SHIP_NO_WAIT=1 skips the wait). Other pushes never wait.
@@ -128,8 +135,9 @@ pushed=""
 for attempt in 1 2 3 4 5; do
   before="$(git rev-parse origin/main)"
   if out="$(git push origin HEAD:main 2>&1)"; then pushed=1; break; fi
-  echo "ship: push rejected, main moved ($attempt/5): fetching and rebasing again" >&2
+  echo "ship: push rejected, main moved ($attempt/5): fetching, rebasing and checking again" >&2
   rebase
+  run_checks "again, on the new main"   # the combination with what just landed is checked before it is pushed
 done
 [ -n "$pushed" ] || { echo "ship: still rejected after 5 tries:" >&2; echo "$out" | tail -3 >&2; exit 1; }
 sha="$(git rev-parse --short HEAD)"

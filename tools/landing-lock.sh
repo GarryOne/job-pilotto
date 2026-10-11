@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One landing at a time on this Mac, in arrival order (tools/ship.sh sources this): `landing_acquire <label>` waits until no older live landing is ahead
+# OPT-IN since 11 Oct 2026 (tools/ship.sh queues only with SHIP_LANDING_LOCK=1; by default a refused push rebases and re-runs the checks). One landing at a time, in arrival order: `landing_acquire <label>` waits until no older live landing is ahead
 # of it (and says who), `landing_release` leaves the queue (ship.sh's exit trap). Queue = tickets in <git common dir>/landing-queue/<nanoseconds>-<pid>,
 # each holding "<pid> <label>"; a ticket whose pid is gone is dropped. The next landing then rebases once, on a main that already has the one before it.
 #   SHIP_LANDING_LOCK=0   no queue          SHIP_LANDING_WAIT=<s>   longest wait before landing anyway (default 1800, said in the log)
@@ -26,7 +26,11 @@ landing_acquire() {  # label
     [ "$told" = 0 ] || [ $(( ($(date +%s) - began) % 30 )) -lt 3 ] && echo "landing-lock: waiting for the landing of $ahead (SHIP_LANDING_LOCK=0 skips this)" >&2
     told=1; sleep 2
   done
-  [ "$told" = 1 ] && echo "landing-lock: my turn after $(( $(date +%s) - began ))s" >&2
+  if [ "$told" = 1 ]; then
+    echo "landing-lock: my turn after $(( $(date +%s) - began ))s" >&2
+    # Every wait, for the next measurement (tools/pre-push-check.sh's timing log; GATE_TIMING=0 off).
+    [ "${GATE_TIMING:-1}" = 0 ] || echo "# $(date -u +%Y-%m-%dT%H:%M:%SZ) landing queue wait=$(( $(date +%s) - began ))s label=$1" >>"$common/gate-timing.log"
+  fi
   return 0
 }
 

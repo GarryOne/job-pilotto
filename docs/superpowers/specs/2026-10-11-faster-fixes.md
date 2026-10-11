@@ -47,5 +47,5 @@ repro tool not on the app's path, ~25% waiting (e2e page, file claims, version r
 - [x] 2. Cache by content: a suite that passed on the same inputs is not run again (Stop hook reads it too) (856ecbb)
 - [x] 3. One heavy run at a time per machine (lock) and heavy runs wait when the load is high (c93ed10)
 - [x] 4. Tiers: docs, skills, tools-only and tests-only pushes run lint + touched unit tests only (db0c63a)
-- [x] 5. Landing lock in ship.sh, and the extension version taken at ship time under it (f99fb46)
+- [x] 5. Landing lock in ship.sh, and the extension version taken at ship time under it (f99fb46); the lock made opt-in, a refused push re-checked instead (owner, 11 Oct)
 - Dropped (11 Oct, job-pilotto-ac): 6. A one-minute local check before the gate — it repeats the gate's own tests, and sharing the gate cache from a working tree with git-ignored leftovers is unsound
