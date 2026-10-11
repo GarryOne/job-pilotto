@@ -22,6 +22,7 @@ import {pageKey} from './server-pages.js';
 import {captureAnswer} from './live-capture.js';
 import {answerReporter, appliedHook, formIssue, jobName, notify, proposalReporter, sharedLogger, tellWindow} from './server-hooks.js';
 import {NAMES} from './ai/names.js';
+import {configForPrompt} from './config-text.js';
 
 export function extensionToken(storage) {
   let token = storage.secret('EXTENSION_TOKEN');
@@ -85,7 +86,7 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
     notionCall: (route, method = 'GET', body) => notion.call(notionToken, method, route, body),
     get PROFILE_TEXT() { return kept('profile', ids.NOTION_PROFILE_PAGE_ID); },
     get ANSWERS_TEXT() { return kept('answers', ids.NOTION_ANSWERS_PAGE_ID); },
-    get SEARCH_TEXT() { return Promise.resolve(storage.readText('config/search.json') || ''); },   // the strategy's search settings: what the user is aiming for
+    get SEARCH_TEXT() { return Promise.resolve(configForPrompt(storage, 'search.json')); },   // the strategy's search settings: what the user is aiming for (no note: lib/config-text.js)
     get KNOWLEDGE_TEXT() { return kept('knowledge', ids.NOTION_KNOWLEDGE_PAGE).catch(() => ''); },
     EXTENSION_TOKEN: extensionToken(storage),
     ANTHROPIC_API_KEY: storage.secret('ANTHROPIC_API_KEY'),

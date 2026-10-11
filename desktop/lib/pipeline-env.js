@@ -16,13 +16,13 @@ const LOCAL_TEXTS = {JOB_PILOTTO_PROFILE_FILE: TEXT_FILES.profile, JOB_PILOTTO_A
 
 import {ROOT} from './root.js';
 import {isolatedFile} from './keychain.js';
+import {CONFIG_FILES, cleanConfigFiles, copyWithoutNotes} from './config-text.js';
 
 export const REPO = ROOT;
 const OVERRIDE = process.env.JOB_PILOTTO_MODEL_OVERRIDE;   // set only by the end-to-end journey (desktop/e2e): every step on one cheap model
 // small: the engine's small AI steps (src/ai/models.py), sent as data so a newer model needs no engine release.
 export const MODELS = OVERRIDE ? {enrich: OVERRIDE, score: OVERRIDE, kit: OVERRIDE, insight: OVERRIDE, small: OVERRIDE}
   : {enrich: 'claude-haiku-5-5', score: 'claude-sonnet-5-5', kit: 'claude-sonnet-5-5', insight: 'claude-sonnet-5-5', small: 'claude-haiku-5-5'};
-const DEFAULT_CONFIG = ['search.json', 'preferences.json', 'sources.json', 'scout_seeds.json'];
 
 // The packaged app's own Python (with the anthropic package), else the repo's virtualenv, else python3.
 // Windows keeps them elsewhere: python\python.exe (python-build-standalone) and .venv\Scripts\python.exe.
@@ -33,15 +33,18 @@ export function python(platform = process.platform, exists = fs.existsSync) {
   return candidates.find(candidate => exists(candidate)) || (platform === 'win32' ? 'python' : 'python3');
 }
 
-// First run: the user's config starts as the repo defaults (the wizard then rewrites search/preferences).
+// First run: the user's config starts as the repo defaults (the wizard then rewrites search/preferences), without the defaults' notes ("_comment":
+// "Example search settings ..."): a note is never a setting, and one reached the fill prompt (lib/config-text.js). Every start (main.js) also cleans a copy
+// made before, so an existing user's files are repaired by the app itself.
 export function ensureConfig(storage) {
-  for (const name of DEFAULT_CONFIG) {
+  for (const name of CONFIG_FILES) {
     const target = storage.path(path.join('config', name));
     if (!fs.existsSync(target)) {
       fs.mkdirSync(path.dirname(target), {recursive: true});
-      fs.copyFileSync(path.join(REPO, 'config', name), target);
+      copyWithoutNotes(path.join(REPO, 'config', name), target);
     }
   }
+  return cleanConfigFiles(storage);
 }
 
 // Only what a program needs to run, from the parent environment: never the developer's tokens or

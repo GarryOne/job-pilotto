@@ -431,7 +431,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
     setTelemetry: value => { telemetry = value; }, setTrail: value => { trail = value; }, setAnalytics: value => { analytics = value; }});
   applyTheme(process.env.JOB_PILOTTO_THEME || storage.settings().theme);
   reset.adoptKeys(storage);  // keys that came with an import: stored encrypted, plain file deleted
-  pipeline.ensureConfig(storage);
+  for (const file of pipeline.ensureConfig(storage)) appLog('config', 'removed the example notes from a settings file', {file});   // a copy made before 11 Oct 2026 kept them (lib/config-text.js)
   handlers();
   // Without Screen Recording permission there's no source (desktopCapturer rejects "Failed to get sources",
   // logged by Electron as an unhandled rejection), and Electron throws when a video request is answered

@@ -131,6 +131,15 @@ def _get(data, path):
     return data
 
 
+def _without_notes(value):
+    """The value without its notes ("_comment" in the repo's example files), at any depth: the same rule as desktop/lib/config-text.js."""
+    if isinstance(value, dict):
+        return {key: _without_notes(item) for key, item in value.items() if not str(key).startswith('_')}
+    if isinstance(value, list):
+        return [_without_notes(item) for item in value]
+    return value
+
+
 def _set(data, path, value):
     for key in path[:-1]:
         data = data.setdefault(key, {})
@@ -217,7 +226,7 @@ def _is_tracked_example_dir():
 
 def apply(values, files=None):
     """Merge parsed values into the cached settings and write them; returns the files."""
-    files = files or load_cached()
+    files = {name: _without_notes(data) for name, data in (files or load_cached()).items()}   # a "_" key is a note of the example files, never a setting
     for (name, path), value in values.items():
         _set(files[name], path, value)
     if _is_tracked_example_dir():

@@ -29,6 +29,7 @@ const {createStorage} = await import('../../lib/storage.js');
 const storage = createStorage(dir, {encrypt: value => value, decrypt: value => value});
 // The Electron run's applicant (lib/seed.mjs fastSeed: the window's saveStrategy with demo/draft.json), kept through the same function, with the stand-in contact:
 // a contact alone left the fill's AI a 250-character profile, and it judged the applicant ineligible where the Electron run filled (Teamtailor, 11 Oct 2026).
+(await import('../../lib/pipeline-env.js')).ensureConfig(storage);   // the settings files as the app makes them at every start (main.js), before the applicant is kept
 const {draft} = JSON.parse(fs.readFileSync(path.join(E2E, '..', 'demo', 'draft.json'), 'utf8'));
 (await import('../../lib/strategy.js')).keepLocally(storage, {...draft, contact: STAND_IN});
 storage.saveSettings({aiEngine: 'cli', claudeCode: {path: realClaude()}, store: 'sqlite', setupDone: true, cvName: 'cv.pdf', telemetry: false, shareEmployers: false});

@@ -6,6 +6,7 @@ import path from 'node:path';
 import * as contactDetails from './contact.js';
 import * as notion from './notion.js';   // Notion-only: the Profile/answers texts and ⚙️ Search settings page when Notion is the store
 import * as notionGate from './notion-gate.js';
+import {withoutNotes} from './config-text.js';
 
 // Accepting a draft writes the Profile, answers and the pipeline's settings into the user's folder.
 // The Profile and standard answers: the Notion pages once Notion is connected (the only copy). Before that (Trying, see
@@ -238,11 +239,11 @@ export function save(storage, accepted) {
     const current = JSON.parse(storage.readText('config/search.json') || '{}');
     const google = {...(current.google_jobs || {}), ...accepted.search.google_jobs,
       searches_per_run: current.google_jobs?.searches_per_run ?? 1, min_searches_left: current.google_jobs?.min_searches_left ?? 20};
-    storage.writeText('config/search.json', JSON.stringify({...current, ...accepted.search, google_jobs: google}, null, 2) + '\n');
+    storage.writeText('config/search.json', JSON.stringify(withoutNotes({...current, ...accepted.search, google_jobs: google}), null, 2) + '\n');   // a note is never a setting (lib/config-text.js)
   }
   if (accepted.preferences) {
     const preferences = JSON.parse(storage.readText('config/preferences.json') || '{}');
-    storage.writeText('config/preferences.json', JSON.stringify({...preferences, ...accepted.preferences}, null, 2) + '\n');
+    storage.writeText('config/preferences.json', JSON.stringify(withoutNotes({...preferences, ...accepted.preferences}), null, 2) + '\n');
   }
 }
 

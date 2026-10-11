@@ -16,6 +16,7 @@ import * as strategy from './strategy.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import {log as appLog} from './log.js';
+import {configForPrompt} from './config-text.js';
 
 export function registerCvAndLettersHandlers(ctx) {
   const {BrowserWindow, DEMO, cvOf, handleImportant, ipcMain, keepLook, openTailoredCv, printPdf, shell, storage, tailorCv, tailoring, toWindow} = ctx;
@@ -106,7 +107,7 @@ export function registerCvAndLettersHandlers(ctx) {
       const {profile, answers} = await strategy.profileTexts(storage);
       const contact = await contactDetails.read(storage).catch(() => ({}));
       const result = await letters.generate(storage, {apiKey: key, client: ai, profile, answers, feedback: String(feedback).slice(0, 1000),
-        preferences: storage.readText('config/search.json') || '', name: contact.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(' ')});
+        preferences: configForPrompt(storage, 'search.json'), name: contact.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(' ')});
       appLog('cover-letter', `drafted${feedback ? ' with feedback' : ''}`, {words: result.text.split(/\s+/).length, usd: result.usd});
       return {ok: true, ...letters.status(storage)};
     } catch (error) { return {ok: false, error: error.message}; }

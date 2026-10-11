@@ -45,6 +45,17 @@ class SearchSettingsTests(unittest.TestCase):
             files = s.apply(values)
         self.assertEqual(files, FILES)  # the page never changes what a search matches
 
+    def test_the_sync_writes_no_note_of_the_example_files(self):
+        # A "_" key is a note of the repo's example settings, never a setting (desktop/lib/config-text.js): a cache that kept one must not keep it (11 Oct 2026).
+        values = s.parse(s.render(json.loads(json.dumps(FILES))))
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(s, 'CONFIG', Path(tmp)):
+            for name in ('search', 'preferences'):
+                (Path(tmp) / f'{name}.json').write_text(json.dumps({'_comment': 'Example settings, not anyone\'s real search', **FILES[name]}))
+            files = s.apply(values)
+            written = {name: json.loads((Path(tmp) / f'{name}.json').read_text()) for name in ('search', 'preferences')}
+        self.assertEqual(files, FILES)
+        self.assertEqual(written, FILES)
+
     def test_a_first_format_page_is_upgraded_without_changing_meaning_or_losing_edits(self):
         class Page:
             def __init__(self, text):
