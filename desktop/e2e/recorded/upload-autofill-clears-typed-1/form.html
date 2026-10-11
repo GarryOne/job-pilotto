@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Application: Support Specialist</title></head><body>
+<h1>Your application</h1>
+<p>Autofill from resume: upload a file and we read it for you.</p>
+<form id="application" action="/apply/send" method="post">
+  <div><label for="first_name">First name *</label><input id="first_name" name="first_name" type="text" required></div>
+  <div><label for="last_name">Last name *</label><input id="last_name" name="last_name" type="text" required></div>
+  <div><label for="profile_link">Linkedin *</label><input id="profile_link" name="profile_link" type="url" required></div>
+  <div><label for="email">Email *</label><input id="email" name="email" type="email" required></div>
+  <div><label for="resume">Resume *</label><input id="resume" name="resume" type="file" required></div>
+  <button type="submit">Submit Application</button>
+</form>
+<script>
+// The page's own "autofill from resume": once a file is chosen it reads it and rewrites the name and link boxes from what it found (nothing, here), so what was typed before is gone.
+document.getElementById('resume').addEventListener('change', () => setTimeout(() => {
+  for (const id of ['first_name', 'last_name', 'profile_link']) document.getElementById(id).value = '';
+}, 2500));
+
+</script></body></html>

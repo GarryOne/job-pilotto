@@ -36,6 +36,16 @@
     window.__jobPilottoSteps.push({name: String(name).slice(0, 40), at: new Date().toISOString()});
     return window.__jobPilottoSteps.length;
   };
+  // What the fill typed, per box: the value, whether the person has touched the box since, whether it was typed again. A page can clear a box
+  // after the fill (an upload's own autofill reads the file a few seconds later and rewrites the boxes): retypeWiped puts back what WE typed, once.
+  const typedHere = new Map();
+  const noteTyped = (element, value) => {
+    const known = typedHere.get(element);
+    if (known) { Object.assign(known, {value, retyped: false}); return; }
+    const record = {value, edited: false, retyped: false};
+    typedHere.set(element, record);
+    element.addEventListener('input', event => { if (event.isTrusted) record.edited = true; }, true);
+  };
   window.__jobPilottoFillKnownFields = entries => {
     // The Chrome extension turns the guard off on purpose (it never clicks Submit itself).
     if (!window.__jobPilottoGuardActive && !window.__jobPilottoNoGuard) return {error: 'submit guard is inactive'};
@@ -62,6 +72,7 @@
       }
       element.dispatchEvent(new Event('input', {bubbles: true}));
       element.dispatchEvent(new Event('change', {bubbles: true}));
+      if (element.tagName !== 'SELECT') noteTyped(element, item.value);
       filled.push(key);
     }
     // Then leave each one the way a person does (focus, then blur). Sites hang their look on those events: a floating label that moves up
@@ -72,6 +83,32 @@
       try { element.focus({preventScroll: true}); element.blur(); } catch { /* not focusable */ }
     }
     return {filled, skipped};
+  };
+  // After the fill: a box we typed that is empty now, that the person never touched and the page did not fill itself, is typed again, once. A page's autofill
+  // can land seconds after the upload (11 Oct 2026: during the wait for Claude's answers), so the check runs now and then again every 700 ms for watchMs.
+  // -> how many boxes were typed again by this call (a count only, never a value).
+  let watching = 0;
+  const retypeNow = () => {
+    const back = [];
+    for (const [element, record] of typedHere) {
+      if (record.edited || record.retyped || !element.isConnected || String(element.value || '') !== '' || !writable(element)) continue;
+      record.retyped = true;
+      const prototype = element.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(prototype, 'value').set.call(element, record.value);
+      element.dispatchEvent(new Event('input', {bubbles: true}));
+      element.dispatchEvent(new Event('change', {bubbles: true}));
+      back.push(element);
+    }
+    for (const element of back) try { element.focus({preventScroll: true}); element.blur(); } catch { /* not focusable */ }
+    return back.length;
+  };
+  window.__jobPilottoRetypeWiped = (watchMs = 0) => {
+    const now = retypeNow();
+    if (watchMs > 0 && !watching) {
+      const until = Date.now() + watchMs;
+      watching = setInterval(() => { retypeNow(); if (Date.now() > until) { clearInterval(watching); watching = 0; } }, 700);
+    }
+    return now;
   };
   // Greenhouse removes the file input once a file is attached and shows its name instead, so the
   // resume counts as attached when its section shows a document filename.

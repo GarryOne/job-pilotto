@@ -1,0 +1,52 @@
+{
+ "shape": "a form whose file upload starts the page's own autofill-from-resume, which rewrites the name and link boxes a moment later (empty when it reads nothing): what the fill typed before the upload is gone",
+ "why": "Pool row 'Ashby form in an embedded app', 11 Oct 2026 (0.9.199): First name, Last name and LinkedIn were typed from the person's details, the CV was attached after them (page/fill.js), and the fill's own record then said 'left: empty again at the end of the fill'. Fields the page itself clears after an upload are typed again once, only those we had typed",
+ "control": {
+  "build": "0.9.199",
+  "failed": "kept: #first_name (and #last_name, #profile_link): empty after the upload settled"
+ },
+ "sample": "structure of a hosted job board's application form with an 'Autofill from resume' upload, rebuilt small (names and values removed)",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/acme/00000000-0000-0000-0000-000000000000/application",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "profile_link",
+     "question": "Linkedin",
+     "value": "https://www.linkedin.com/in/ada-tester"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "attached": [
+   "#resume"
+  ],
+  "kept": [
+   "#first_name",
+   "#last_name",
+   "#profile_link",
+   "#email"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 40,
+  "keptAfter": 6000
+ },
+ "start": "panel"
+}

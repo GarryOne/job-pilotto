@@ -14,6 +14,7 @@ test('fast path fills only safe known fields and reports gaps without values', (
     matches(selector) { return selector.includes(`input[type="${this.type}"]`) ||
       (this.type === 'text' && selector.includes('input[type="text"]')); }
     dispatchEvent() {}
+    addEventListener() {}
   }
   Object.defineProperty(HTMLInputElement.prototype, 'value', {
     get() { return this._value || ''; }, set(value) { this._value = value; },
@@ -70,6 +71,7 @@ test('fast path types fields for the Chrome extension, which switches the guard 
     getAttribute() { return null; }
     matches(selector) { return selector.includes('input[type="text"]'); }
     dispatchEvent() {}
+    addEventListener() {}
   }
   Object.defineProperty(HTMLInputElement.prototype, 'value', {
     get() { return this._value || ''; }, set(value) { this._value = value; },

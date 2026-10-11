@@ -370,6 +370,9 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     [(summary.trace || []).filter(row => MECHANICAL.some(reason => String(row.reason || '').startsWith(reason))).map(row =>
       ({label: row.label, field: (debug.form || []).find(f => f.label === row.label)?.field || ''})),
     Object.values(me?.contact || config.profile || {}).filter(value => typeof value === 'string')]).catch(() => ({}));
+  // A page's own autofill after an upload can empty boxes we typed: they are typed again, once (now, and while the page is watched for 15 s) (page/browser-form-fastpath.js).
+  const retyped = await inPage(tab.id, () => window.__jobPilottoRetypeWiped?.(15000) || 0).catch(() => 0);
+  if (retyped) step(`typed ${retyped} box${retyped === 1 ? '' : 'es'} again that the page emptied`);
   // Every field's outcome as the page holds it once all passes are done (extension/trace-settle.js).
   const finalForm = await inPage(tab.id, () => window.__jobPilottoDescribeForm?.(true)).catch(() => null);   // settled: a real first choice is an answer
   summary.trace = settleTrace(summary.trace || [], Array.isArray(finalForm) ? finalForm : []);
