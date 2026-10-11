@@ -66,3 +66,9 @@ test('every helper the replay session calls is defined in row-replay.mjs (a remo
   const source = fs.readFileSync(new URL('../lib/row-replay.mjs', import.meta.url), 'utf8');
   for (const name of ['looseHitsOf', 'missesOf']) assert.match(source, new RegExp(`(const|function) ${name}\\b`), `${name} is defined`);
 });
+
+test('a row replay turns the eligibility stop off before it replays, as the live pool row did: a stop on a French posting hid every field the fix acts on', () => {
+  const replay = fs.readFileSync(new URL('../lib/row-replay.mjs', import.meta.url), 'utf8');
+  assert.match(replay, /applyPoolEligibility\(.*\{env: \{LIVE_ELIGIBILITY: 'off'\}\}\)/);
+  assert.ok(replay.indexOf('applyPoolEligibility(run.context') < replay.indexOf('const replay = async'), 'before any row is replayed');
+});

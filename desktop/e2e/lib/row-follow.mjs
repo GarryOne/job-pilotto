@@ -23,6 +23,10 @@ export function replayPresses(requests, hosts = null) {   // hosts: only this ro
 // it is not part of the journey the replay follows (12 Oct 2026, Teamtailor: the replay's first press was Apply, the live run's the banner, so it diverged at press 1). firstAt: the time of the first kept page.
 export const keptPresses = (presses, firstAt) => (firstAt == null ? presses : presses.filter(press => !(press.what === 'closed a popup' && press.at < firstAt)));
 
+// How long after the extension's file attach the page moves to the live run's next state: the gap the live run had between that state and the one before it, within 150 ms and 8 s. The site's autofill
+// took seconds (Ashby: 2.6-4.6 s); a swap at 150 ms made the extension's first page-kind ask see the AUTOFILLED page the live ask never saw (12 Oct 2026: cold ask, "Autofill completed!" in its headings).
+export const followDelayMs = (was, next) => Math.min(8000, Math.max(150, Number.isFinite(next?.at - was?.at) ? next.at - was.at : 150));
+
 // k = -1: before any press (the segment the page starts in; its state is the page as the extension saw it when it asked).
 const segment = (states, presses, k) => {
   const after = k < 0 ? -Infinity : presses[k]?.at, before = presses[k + 1]?.at ?? Infinity;
@@ -50,11 +54,29 @@ export function samePress(mine, live, k) {
   return {same: false, finding: `press ${k + 1}: pressed "${mine.label}" (${mine.what}); live pressed "${live.label}" (${live.what})`};
 }
 
-// Runs in the page: the recorded next state of this same address replaces the page's own content, the extension's own UI (ids jobpilotto-*) kept.
+// Runs in the page: the recorded next state of this same address is played INTO the page (12 Oct 2026): an element that is still there stays the same element (the extension holds the boxes it typed
+// in; a page's own script empties their value, it does not replace them: fix 2f6a91e retypes exactly such a box, which a replaced one could never show), its attributes and text follow the new state,
+// a text box or area takes the capture's value (none: the capture strips typed values), nodes only one side has are added or removed. The extension's own UI (ids jobpilotto-*) is kept.
 export function swapInPage(html) {
   /* global document, DOMParser */
-  const next = new DOMParser().parseFromString(html, 'text/html'), ours = [...document.querySelectorAll('[id^=jobpilotto], [id^=job-pilotto]')];
+  const next = new DOMParser().parseFromString(html, 'text/html');
+  const ours = node => node.nodeType === 1 && /^(jobpilotto|job-pilotto)/.test(node.id || '');
+  const sameKind = (a, b) => a.nodeType === b.nodeType && a.nodeName === b.nodeName && (a.nodeType !== 1 || (a.id || '') === (b.id || ''));
+  const morph = (from, to) => {
+    if (from.nodeType === 3 || from.nodeType === 8) { if (from.nodeValue !== to.nodeValue) from.nodeValue = to.nodeValue; return; }
+    for (const attr of [...from.attributes]) if (!to.hasAttribute(attr.name) && !/^data-jobpilotto/.test(attr.name) && attr.name !== 'value') from.removeAttribute(attr.name);
+    for (const attr of [...to.attributes]) if (attr.name !== 'value' && from.getAttribute(attr.name) !== attr.value) from.setAttribute(attr.name, attr.value);
+    if (/^(INPUT|TEXTAREA)$/.test(from.tagName) && !/^(file|checkbox|radio|submit|button|image|reset|hidden)$/i.test(from.type || '')) from.value = to.getAttribute('value') ?? (to.tagName === 'TEXTAREA' ? to.textContent : '');
+    if (from.tagName === 'TEXTAREA') return;
+    const mine = [...from.childNodes].filter(node => !ours(node)), theirs = [...to.childNodes];
+    for (let at = 0; at < Math.max(mine.length, theirs.length); at++) {
+      if (!mine[at]) from.append(theirs[at]);
+      else if (!theirs[at]) mine[at].remove();
+      else if (sameKind(mine[at], theirs[at])) morph(mine[at], theirs[at]);
+      else mine[at].replaceWith(theirs[at]);
+    }
+  };
+  morph(document.body, next.body);
   document.head.innerHTML = next.head.innerHTML;
-  document.body.replaceChildren(...next.body.childNodes, ...ours);
   document.title = next.title;
 }

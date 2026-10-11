@@ -10,9 +10,10 @@ import path from 'node:path';
 import {evidenceLines} from './evidence-bundle.mjs';
 import {nextRunnable} from './replay-browser.mjs';
 import {PAGE_LINE, stillClock} from './live-still.mjs';
-import {keptPresses, laterStates, replayPresses, samePress, stateAfter, swapInPage} from './row-follow.mjs';
+import {followDelayMs, keptPresses, laterStates, replayPresses, samePress, stateAfter, swapInPage} from './row-follow.mjs';
 import {frontOf} from './app-front.mjs';
 import {mayEnd} from './row-end.mjs';
+import {applyPoolEligibility} from './pool-eligibility.mjs';
 import {CONTACT} from './apply-fixtures.mjs';
 import {startOfflineApp} from './offline-app.mjs';
 import {startRealExtension} from './real-extension.mjs';
@@ -84,14 +85,17 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
   await app.call('saveContact', CONTACT);
   const front = await frontOf(app);
   const run = await openBrowser({extensionDir, port: front.port});
+  // The eligibility stop is OFF, as in the live pool row that made the capture (lib/pool-eligibility.mjs, cbf5ccc): with it on, a French posting stopped the fill before any field (12 Oct 2026, Ashby), so a fix
+  // that acts on the fields could never show. Set through the extension's own switch before the tab opens, and read back.
+  await applyPoolEligibility(run.context.serviceWorkers()[0] || await run.context.waitForEvent('serviceworker', {timeout: 30000}), {env: {LIVE_ELIGIBILITY: 'off'}});
   // Rows replay side by side, one tab each; rows that share a host never run together (replayRows), so an address, a request or a log line names its row by host.
   const rows = new Map(), active = new Set();   // page -> its row; the rows running now
   const rowOf = page => rows.get(page) || [...active].find(row => row.hosts.has(new URL(page.url() || 'about:blank').host)) || null;
   run.context.on('page', page => { const opener = rows.get(page.opener?.() || null); if (opener) rows.set(page, opener); });   // a tab a row's page opened is that row's
   // The live run's next state, played into the tab: the page's own script, a route it changed, or a new document (after a press, or after the extension attached a file).
-  const advance = async (row, page, next, why) => {
+  const advance = async (row, page, next, why, delayMs = 150) => {   // delayMs: the site's own reaction time (a press: at once; an attach: the live gap, row-follow.mjs followDelayMs)
+    await new Promise(resolve => setTimeout(resolve, delayMs));
     row.documents.set(next.url, next.html); row.pageStates.set(next.url, next.html);
-    await new Promise(resolve => setTimeout(resolve, 150));   // the site's own reaction time
     const was = row.states[row.states.indexOf(next) - 1], sameDocument = next.view?.doc && was?.view?.doc ? next.view.doc === was.view.doc : new URL(next.url).host === new URL(page.url()).host;
     if (addressOf(page.url()) === next.url) await page.evaluate(swapInPage, next.html).catch(() => {});
     else if (sameDocument) await page.evaluate(url => { history.pushState({}, '', url); window.dispatchEvent(new PopStateEvent('popstate')); }, next.href || next.url).then(() => page.evaluate(swapInPage, next.html)).catch(() => {});   // a single-page app's route
@@ -116,7 +120,7 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
   // run's next state of that segment. Not from a press, so a row with 0 presses follows too.
   await run.context.exposeBinding('__jpReplayAttached', async ({page}) => {
     const row = rowOf(page), next = row?.later?.shift();
-    if (next) await advance(row, page, next, 'the extension attached a file');
+    if (next) await advance(row, page, next, 'the extension attached a file', followDelayMs(row.states[row.states.indexOf(next) - 1], next));
   });
   await run.context.addInitScript(() => document.addEventListener('change', event => { if (event.target?.type === 'file' && event.target.files?.length) window.__jpReplayAttached?.(); }, true));
   await run.context.addInitScript(() => document.addEventListener('click', event => {

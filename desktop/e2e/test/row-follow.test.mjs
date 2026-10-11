@@ -1,7 +1,7 @@
 // lib/row-follow.mjs: a row replay follows the live run's states after each press it makes the same way, and stops with a finding at the first different press.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {keptPresses, laterStates, replayPresses, samePress, stateAfter} from '../lib/row-follow.mjs';
+import {followDelayMs, keptPresses, laterStates, replayPresses, samePress, stateAfter} from '../lib/row-follow.mjs';
 
 const log = entries => ({route: '/extension/log', body: JSON.stringify({entries})});
 
@@ -58,4 +58,32 @@ test('a popup the live run closed BEFORE its first kept page (the cookie banner:
   assert.deepEqual(keptPresses(presses, 3).map(press => press.label), ['Decline all non-necessary cookies', 'Apply', 'Ok'], 'a popup after the first page is kept');
   assert.deepEqual(keptPresses(presses, null), presses, 'no first page time: nothing dropped');
   assert.deepEqual(keptPresses([{at: 5, what: 'closed a popup', label: 'A'}, {at: 6, what: 'closed a popup', label: 'B'}], 10), [], 'several leading popups all go');
+});
+
+test('the page follows an attach after the gap the live run had between its two states, within 150 ms and 8 s, so the extension\'s first ask sees the page the live ask saw', () => {
+  assert.equal(followDelayMs({at: 1000}, {at: 3600}), 2600);
+  assert.equal(followDelayMs({at: 1000}, {at: 1020}), 150, 'never faster than the site\'s own reaction');
+  assert.equal(followDelayMs({at: 1000}, {at: 91000}), 8000, 'a long gap (a slow page) is capped');
+  assert.equal(followDelayMs(undefined, {at: 5}), 150, 'no earlier state: the default');
+});
+
+// swapInPage runs in a page: the same element keeps its identity (the extension holds it) while a later live state is played into it.
+let chromium = null;
+try { ({chromium} = await import('playwright-core')); if (!(await import('node:fs')).existsSync(chromium.executablePath())) chromium = null; } catch { /* no playwright */ }
+test('a later live state is played INTO the page: the box the extension typed in is the same element, its value emptied as the page\'s own script did; new text and new nodes arrive; the extension\'s UI stays', {skip: !chromium && 'no Chromium installed'}, async () => {
+  const {swapInPage} = await import('../lib/row-follow.mjs');
+  const browser = await chromium.launch({headless: true});
+  try {
+    const page = await (await browser.newContext()).newPage();
+    await page.setContent('<html><head><title>a</title></head><body><form><label for="a">First</label><input id="a" name="first" type="text"><input id="b" type="text"><input type="file" id="f"></form><p>Upload</p><div id="jobpilotto-box">ui</div></body></html>');
+    await page.evaluate(() => { window.held = document.getElementById('a'); window.held.value = 'Ada'; document.getElementById('b').value = 'Tester'; });
+    await page.evaluate(swapInPage, '<html><head><title>b</title></head><body><form><label for="a">First</label><input id="a" name="first" type="text"><input id="b" type="text"><input type="file" id="f"></form><p>Autofill completed!</p><section id="more">review</section></body></html>');
+    const seen = await page.evaluate(() => ({same: window.held === document.getElementById('a') && window.held.isConnected, first: window.held.value, second: document.getElementById('b').value, text: document.body.innerText, ui: !!document.getElementById('jobpilotto-box'), more: !!document.getElementById('more'), title: document.title}));
+    assert.deepEqual(seen.same, true, 'the element the extension typed in is still the page\'s element');
+    assert.deepEqual([seen.first, seen.second], ['', ''], 'its value emptied: the capture holds none');
+    assert.match(seen.text, /Autofill completed!/);
+    assert.equal(seen.more, true);
+    assert.equal(seen.ui, true);
+    assert.equal(seen.title, 'b');
+  } finally { await browser.close(); }
 });
