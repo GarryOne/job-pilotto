@@ -45,12 +45,14 @@ export async function ingestFixes(db, body, now = new Date()) {
 const shareOf = run => (Number.isInteger(run.filled) && Number.isInteger(run.left) && run.filled + run.left > 0 ? Math.round((100 * run.filled) / (run.filled + run.left)) : null);
 
 // One fixed pool row's status from its runs ({at, needsFix: true | false | null for a gone posting}) and its latest landing.
+// Confirmed needs TWO clean runs after the landing (owner, 11 Oct 2026: Hornbach's one clean run was the AI naming the working link by luck, then it was back);
+// one clean run is "landed" with cleanRuns 1. Back = confirmed, then a later run lists the row again.
 export function statusOf(runs, landedAt) {
   const landed = Date.parse(landedAt), after = runs.filter(run => Date.parse(run.at) > landed && run.needsFix != null);
-  const cleared = after.findIndex(run => run.needsFix === false);
+  const clean = after.filter(run => run.needsFix === false);
   const filledBefore = runs.filter(run => Date.parse(run.at) <= landed).slice(-3).map(shareOf), filledAfter = after.slice(-3).map(shareOf);
-  if (cleared < 0) return {status: 'landed', failingRuns: after.length, filledBefore, filledAfter};
-  return {status: after.at(-1).needsFix ? 'back' : 'confirmed', confirmedAt: after[cleared].at, failingRuns: 0, filledBefore, filledAfter};
+  if (clean.length < 2) return {status: 'landed', failingRuns: after.length - clean.length, cleanRuns: after.at(-1)?.needsFix === false ? clean.length : 0, filledBefore, filledAfter};
+  return {status: after.at(-1).needsFix ? 'back' : 'confirmed', confirmedAt: clean[1].at, failingRuns: 0, cleanRuns: clean.length, filledBefore, filledAfter};
 }
 
 // -> {day, rows, inProgress, claimsAt, fixesAt}. pool: the page's pool rows (name as shown, shape, platform, runs); cases: the recorded cases.
@@ -95,7 +97,7 @@ export const FIXED_SCRIPT = `
   const FIX_WORD = {landed: 'Awaiting verification', failing: 'Still failing', confirmed: 'Confirmed', back: 'Regressed'};
   const FIX_TONE = {landed: 'account', failing: 'posting', confirmed: 'ready', back: 'posting'}, FIX_ORDER = ['back', 'failing', 'landed', 'confirmed'];
   const fixKind = r => (r.status === 'landed' && r.failingRuns ? 'failing' : r.status);
-  const fixReason = r => ({landed: 'No confirming run yet', failing: r.failingRuns + (r.failingRuns === 1 ? ' run' : ' runs') + ' since fix', confirmed: r.confirmedAt ? 'Cleared ' + ago(r.confirmedAt) : 'Cleared',
+  const fixReason = r => ({landed: r.cleanRuns ? 'One clean run: one more confirms' : 'No confirming run yet', failing: r.failingRuns + (r.failingRuns === 1 ? ' run' : ' runs') + ' since fix', confirmed: r.confirmedAt ? 'Cleared ' + ago(r.confirmedAt) : 'Cleared',
     back: 'Listed again after confirmation'})[fixKind(r)];
   const fixShort = name => { const cut = name.indexOf(' ('); let t = cut > 0 ? name.slice(0, cut) : name; if (t.length > 44) t = t.slice(0, Math.max(20, t.lastIndexOf(' ', 44))) + '…'; return t; };
   const fixDate = iso => new Date(iso).toUTCString().slice(5, 11);
@@ -122,14 +124,14 @@ export const FIXED_SCRIPT = `
   const FIX_GET = [r => r.site.toLowerCase(), r => FIX_ORDER.indexOf(fixKind(r)), r => (fixShares0(r) ?? null), r => r.landedAt, r => r.guard.length];
   const fixShares0 = r => ((r.filledAfter || []).filter(value => value != null).at(-1));
   const HOW = [['Awaiting verification', 'The fix landed and no uploaded run since then has cleared the site: none yet, or the runs say nothing.'], ['Still failing', 'Runs uploaded after the fix still list the site under Needs a fix; the count is those runs.'],
-    ['Confirmed', 'An uploaded run after the fix no longer lists the site under Needs a fix. It does not say how much more was filled: read the filled column for that.'], ['Regressed', 'It was confirmed, then a later run lists the site again (it is on Needs a fix too).'],
+    ['Confirmed', 'Two uploaded runs after the fix no longer list the site under Needs a fix (one clean run can be luck: the AI picks its route). It does not say how much more was filled: read the filled column for that.'], ['Regressed', 'It was confirmed, then a later run lists the site again (it is on Needs a fix too).'],
     ['Filled before → after', 'The share of fields filled in the last run before the fix and in the last run after it; the expander lists every run.'],
     ['Source', 'Git trailers (Pool-row, Rung, Fixture) and the uploaded smoke runs, as of ' + (d.fixed.fixesAt ? ago(d.fixed.fixesAt) : 'no upload yet') + '.']];
   const drawFixed = () => { fixedBox.textContent = '';
     const all = fixedList().sort((a, b) => FIX_ORDER.indexOf(fixKind(a)) - FIX_ORDER.indexOf(fixKind(b)) || String(b.landedAt || '').localeCompare(String(a.landedAt || ''))), rows = sortRows('fixed', all, FIX_GET);
     const pages = Math.max(1, Math.ceil(rows.length / FIX_PER)); fixPage.n = Math.min(fixPage.n, pages - 1); const from = fixPage.n * FIX_PER, shown = rows.slice(from, from + FIX_PER), go = step => () => { fixPage.n += step; drawFixed(); };
     fixedBox.append(el('div', {className: 'fixpanel'},
-      el('div', {className: 'fixhead'}, el('h2', {textContent: 'Fix verification'}), el('p', {className: 'muted', textContent: 'Every landed fix is "Awaiting verification" until an uploaded run clears it.'}),
+      el('div', {className: 'fixhead'}, el('h2', {textContent: 'Fix verification'}), el('p', {className: 'muted', textContent: 'Every landed fix is "Awaiting verification" until two uploaded runs clear it.'}),
         el('details', {className: 'how'}, el('summary', {textContent: 'How verification works'}), el('dl', {}, ...HOW.flatMap(([word, text]) => [el('dt', {textContent: word}), el('dd', {textContent: text})])))),
       el('div', {className: 'fixbar'}, el('span', {className: 'muted', textContent: 'Regressed first, then newest'}), el('span', {className: 'muted', textContent: all.length + (all.length === 1 ? ' site' : ' sites') + ' with a landed fix'})),
       rows.length ? el('table', {className: 'fixtable'}, el('tr', {}, ...heads('fixed', ['Site / platform', 'Verification', 'Filled before → after', 'Fix', 'Details'], () => { fixPage.n = 0; drawFixed(); }).map((th, at) => Object.assign(th, {className: th.className + (at === 2 ? ' c-fill' : at === 3 ? ' c-fix' : '')}))), ...shown.flatMap(fixRows)) : el('p', {className: 'muted', textContent: 'No fix landed yet'}),

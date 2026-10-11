@@ -45,9 +45,12 @@ test('landed -> not better yet -> confirmed -> back: computed from the runs uplo
   await smoke(db, '2026-10-11T10:00:00Z', {reached: 'posting'});   // a run after the landing that still fails
   row = await fixedRow(db, '2026-10-11T11:00:00Z');
   assert.deepEqual([row.status, row.failingRuns], ['landed', 1]);
-  await smoke(db, '2026-10-11T22:00:00Z', {reached: 'form', filled: 8, left: 3});   // the row clears
+  await smoke(db, '2026-10-11T22:00:00Z', {reached: 'form', filled: 8, left: 3});   // the row clears once: NOT confirmed (owner, 11 Oct 2026: one clean run can be luck)
   row = await fixedRow(db, '2026-10-12T08:00:00Z');
-  assert.deepEqual([row.status, row.confirmedAt, row.filledBefore, row.filledAfter], ['confirmed', '2026-10-11T22:00:00.000Z', [null], [null, 73]]);
+  assert.deepEqual([row.status, row.failingRuns, row.cleanRuns], ['landed', 1, 1]);
+  await smoke(db, '2026-10-12T09:00:00Z', {reached: 'form', filled: 8, left: 3});   // a second clean run confirms
+  row = await fixedRow(db, '2026-10-12T10:00:00Z');
+  assert.deepEqual([row.status, row.confirmedAt, row.filledBefore, row.filledAfter], ['confirmed', '2026-10-12T09:00:00.000Z', [null], [null, 73, 73]]);
   await smoke(db, '2026-10-12T22:00:00Z', {reached: 'account'});   // listed again
   const d = await data(db, at('2026-10-13T08:00:00Z'));
   row = d.fixed.rows.find(item => item.site === FIX.site);
@@ -97,7 +100,8 @@ test('each fixed row carries what the expander shows: its host, every commit, an
   assert.equal(row.host, 'jobs.hornbach.com');
   assert.deepEqual(row.fixes.map(item => [item.commit, item.extensionVersion, item.rung]), [['fdbdc23', '0.9.181', '2'], ['f5975be', '0.9.182', '3']]);
   assert.deepEqual(row.runs.map(item => [item.reached, item.after, item.share]), [['posting', false, null], ['form', true, 73]]);
-  assert.equal(row.status, 'confirmed');   // the logic is the same as before: a run after the LATEST landing cleared it
+  assert.equal(row.status, 'landed');   // one run after the LATEST landing cleared it: one clean run is not enough
+  assert.equal(row.cleanRuns, 1);
 });
 
 test('the page: two tabs by URL hash, one charcoal panel (title, one sentence, "How verification works", toolbar, table, footer), five columns from heads(), a row expander', () => {
@@ -106,7 +110,7 @@ test('the page: two tabs by URL hash, one charcoal panel (title, one sentence, "
   assert.match(PAGE, /heads\('cases', \['Case', 'Rung guarded', 'Result', 'Last 10 runs', 'Last run', 'Since'\]/);   // the Fixed-site replays table is back, as it was (owner, 11 Oct 2026)
   assert.match(PAGE, /Fixed-site replays · every fixed site, replayed/);
   assert.doesNotMatch(PAGE, /'Guard'/);   // the Guard column is the expander now
-  assert.match(PAGE, /Every landed fix is "Awaiting verification" until an uploaded run clears it\./);
+  assert.match(PAGE, /Every landed fix is "Awaiting verification" until two uploaded runs clear it\./);
   assert.match(PAGE, /How verification works/);
   for (const word of ['Awaiting verification', 'Still failing', 'Confirmed', 'Regressed', 'No confirming run yet']) assert.ok(PAGE.includes(word), word);
   for (const old of ['Landed, unconfirmed', 'Landed, not better yet']) assert.ok(!PAGE.includes(old), old + ' is gone');
