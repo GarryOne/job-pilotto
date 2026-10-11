@@ -128,6 +128,8 @@ test('the fixer brief holds every row of the cause, the newest capture folder an
     assert.ok(brief.text.includes(`"${row.name}"`), 'row ' + row.name);
     assert.ok(brief.text.includes(`npm run row -- "${row.name}"`), 'replay command for ' + row.name);
     assert.ok(brief.text.includes('npm run row-to-case -- '), 'case command');
+    assert.ok(brief.text.includes('--old-commit <your fix') && brief.text.includes('[--fixed]'), 'the case line names --old-commit and --fixed');
+    assert.match(brief.text, /--fixed. when the capture was taken on a build that already has the fix: expect = the live run and the old build must fail it/, 'step 3 says when to use --fixed');
   }
   assert.match(brief.text, /replay-candidates\/2026-10-11\/ccc-unread-v2/);          // the newest day wins over 2026-10-10
   assert.doesNotMatch(brief.text, /replay-candidates\/2026-10-10\/ccc-unread/);

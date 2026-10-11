@@ -29,7 +29,7 @@ export function buildBrief(groups, cause, listing, {oneLine = ''} = {}) {
   const rowBlocks = captures.map(({row, folder}) => [rowLine(row),
     '  capture: ' + (folder ? `${QA_ROOT}/${folder}` : 'none: ask the pool owner for a capture (one live run, ~1 min); do not hand-build a page instead'),
     `  replay: cd desktop/e2e && npm run row -- "${row.name}"`,
-    `  case:   cd desktop/e2e && npm run row-to-case -- ${folder ? `"${QA_ROOT}/${folder}"` : `"${row.name}"`} ${slugOf(row.shape || row.name)}-${slug} --old <extension folder of the build before the fix>`].join('\n'));
+    `  case:   cd desktop/e2e && npm run row-to-case -- ${folder ? `"${QA_ROOT}/${folder}"` : `"${row.name}"`} ${slugOf(row.shape || row.name)}-${slug} --old-commit <your fix's commit hash> [--fixed]`].join('\n'));
   const text = [
     `You are session ${session} (Job Pilotto), one fixer for ONE cause, started by the coordinator job-pilotto-cc on the owner's paste. Report to job-pilotto-cc when each step lands.`,
     ...(oneLine ? ['', 'Coordinator\'s judgment: ' + oneLine] : []),
@@ -40,7 +40,7 @@ export function buildBrief(groups, cause, listing, {oneLine = ''} = {}) {
     'ORDER OF PROOF, fastest first (10 minutes per step, then use the real capture or tell job-pilotto-cc):',
     '1. The failing unit test, then 3 of 3 real asks of the app\'s AI on the saved page (`ladder-score`, plan path).',
     '2. The row replayed offline with its command above (15-90 s): it must reach further, and `--old` must not.',
-    '3. A recorded case from the capture with the row-to-case command above (exit 3 = the old build passes, 4 = not provable; `--ask-cold` when the fix changes a prompt). Then ONE live run of the single row from your worktree, held, ~1 min (`npm run live -- <url>`), through the heavy lock.',
+    '3. A recorded case from the capture with the row-to-case command above (exit 3 = the old build passes, 4 = not provable; `--ask-cold` when the fix changes a prompt; `--old-commit <hash>` builds the old extension from your checkout with that commit taken out, or `--old <folder>` names one; `--fixed` when the capture was taken on a build that already has the fix: expect = the live run and the old build must fail it). Then ONE live run of the single row from your worktree, held, ~1 min (`npm run live -- <url>`), through the heavy lock.',
     '4. The pool owner\'s batch on main: not yours.', '',
     'RULES THAT BITE:',
     '- Never Submit; fake applicant data only; plan path (claude -p); the account-e-mail tripwire stays on; never the owner\'s live app, accounts or data.',
