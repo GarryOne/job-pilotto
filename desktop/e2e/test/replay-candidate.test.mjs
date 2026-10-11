@@ -105,3 +105,13 @@ test('a capture again of a row starts from an empty folder: a page, presses and 
   assert.deepEqual(fs.readdirSync(path.join(folder, 'pages')), ['1.html']);
   for (const name of ['presses.json', 'ai-calls.json', 'model-memo.json']) assert.equal(fs.existsSync(path.join(folder, name)), false, `${name} of the older run is gone`);
 });
+
+// Owner, 11 Oct 2026: a capture keeps the live run's end picture, so a replay's end-replay.png can be set beside it. Local QA folder only; a tripwire hit has already deleted the capture folder.
+test('a saved capture keeps the live end.png; a run with none keeps none', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-cand-')), capture = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-cap-')), result = {url: 'https://example.org/job/1', reached: 'posting'};
+  fs.writeFileSync(path.join(capture, 'end.png'), 'png');
+  const kept = saveCandidate({dir, day: '2026-10-11', shape: 'With picture', result, html: '<p>x</p>', captureDir: capture});
+  assert.ok(fs.existsSync(path.join(kept, 'end.png')));
+  const none = saveCandidate({dir, day: '2026-10-11', shape: 'No picture', result, html: '<p>x</p>', captureDir: fs.mkdtempSync(path.join(os.tmpdir(), 'jp-cap-'))});
+  assert.ok(!fs.existsSync(path.join(none, 'end.png')));
+});
