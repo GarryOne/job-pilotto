@@ -161,6 +161,49 @@ test('one row open at a time in every table with an expander (the pool, Fixed, N
   const set = new Set();
   toggle(set, 'a'); toggle(set, 'b'); assert.deepEqual([...set], ['b']);   // opening b closes a
   toggle(set, 'b'); assert.deepEqual([...set], []);   // pressing the open one closes it
-  for (const call of ['toggleOpen(open, s.name)', 'toggleOpen(fixOpen, r.site)', 'toggleOpen(needOpen, s.name)']) assert.ok(PAGE.includes(call), call);
+  for (const call of ['toggleOpen(open, s.shape)', 'toggleOpen(fixOpen, r.site)', 'toggleOpen(needOpen, s.shape)']) assert.ok(PAGE.includes(call), call);
   assert.doesNotMatch(PAGE, /\b\w*[oO]pen\.add\(/);   // nobody adds to an open set by hand
+  assert.doesNotMatch(PAGE, /\b\w*[oO]pen\.has\(s\.name\)/);   // a pool row's name is its display name, not unique
+});
+
+// Two pool sites whose display names collide ("Ashbyhq" from two discovered shapes): pressing one opened both (owner, 11 Oct 2026). Every pool-fed
+// table (the pool, Needs a fix) keys its open row by the unique shape. Runs the page script on a tiny fake DOM, presses each row, counts open rows.
+test('pressing a row opens that row only, even when two pool sites share a display name (owner, 11 Oct 2026)', async () => {
+  const script = PAGE.split('<script>')[1].split('</script>')[0], all = [];
+  const make = tag => { const node = {tag, children: [], hidden: false, style: {}, className: '', set textContent(value) { this.children = value === '' ? [] : [String(value)]; }, get textContent() { return this.children.map(String).join(''); },
+    append(...kids) { this.children.push(...kids.map(kid => (typeof kid === 'object' && kid !== null ? kid : String(kid)))); },
+    text() { return this.children.map(kid => (typeof kid === 'string' ? kid : kid.text())).join('|'); }}; all.push(node); return node; };
+  const row = shape => ({name: 'Twin', shape, platform: 'Custom', flow: '', start: 'x.com', end: '', reached: 'posting', history: ['posting'], at: '2026-10-10T10:00:00Z', day: '2026-10-10', raw: '', short: null, shares: [], regression: false, running: false, note: null, rung: null, signal: null, cause: null});
+  const body = {tiles: {}, cases: [], fixed: {rows: [], inProgress: []}, platforms: [], flows: [], nights: [], steps: ['none', 'posting', 'account', 'code/bot', 'form', 'ready'], sites: [], dropped: [], now: '2026-10-10T12:00:00Z', next: {sites: [], hidden: {hosts: 0}},
+    pool: [row('posting@x.com (found 2026-10-10)'), row('other@x.com (found 2026-10-10)')], scorecard: []};
+  const app = make('div'), document = {createElement: make, getElementById: () => app, querySelector: () => null, hidden: true, body: make('body')};
+  new Function('document', 'fetch', 'getComputedStyle', 'CSS', 'setInterval', 'Object', script)(document, async () => ({json: async () => body}), () => ({}), {escape: x => x}, () => 0, Object);
+  await new Promise(resolve => setTimeout(resolve, 20));
+  const live = node => node === app || app.children.some(function seen(kid) { return kid === node || (typeof kid === 'object' && kid.children.some(seen)); });
+  const rows = () => all.filter(node => node.tag === 'tr' && /\bsite\b/.test(node.className) && node.text().includes('Twin') && live(node));
+  const tables = () => all.filter(node => node.tag === 'table' && live(node) && rows().some(tr => node.children.includes(tr)));
+  assert.equal(tables().length, 2, 'the pool and Needs a fix both list the twins');
+  for (const at of [0, 1]) {
+    for (const table of tables()) {
+      const mine = table.children.filter(tr => rows().includes(tr));
+      assert.equal(mine.length, 2, 'both twins listed');
+      mine[at].onclick();
+      const after = tables().find(t => t.className === table.className), open = after.children.filter(tr => rows().includes(tr) && /\bopen\b/.test(tr.className));
+      assert.equal(open.length, 1, `${table.className || 'table'}: pressing twin ${at} opens exactly one row`);
+      open[0].onclick();   // close it again for the next round
+    }
+  }
+});
+
+// A discovered site shows a short display name ("Ashbyhq") while its smoke runs, fill cards and claims carry the full shape: the server joins them by the shape.
+test('a pool site with a display name finds its top cause, claim and "back" status by its full shape (owner, 11 Oct 2026)', async () => {
+  const {hashOf} = await import('../src/applying-cause.js');
+  const db = d1(), now = new Date('2026-10-11T12:00:00Z'), shape = 'Acme (found 2026-10-10)';
+  await ingest(db, {kind: 'pool', day: '2026-10-11', rows: [{name: shape, start_host: 'jobs.example.com', signature: 'posting>form@jobs.example.com#form'}]}, now);
+  await db.prepare(`INSERT INTO fill_cards (id, day, board, source, causes) VALUES (?, ?, 'ashby', 'pool', ?)`).bind(`pool-2026-10-11-${await hashOf(shape)}`, '2026-10-11', JSON.stringify({menu_not_opened: 3})).run();
+  await ingest(db, {kind: 'claims', rows: [{name: shape, since: '2026-10-11T10:00:00Z'}]}, now);
+  const site = (await data(db, now)).pool.find(item => item.shape === shape);
+  assert.notEqual(site.name, shape, 'the row shows a display name');
+  assert.equal(site.cause?.cause, 'menu_not_opened', 'its top cause is found by the shape');
+  assert.equal(site.claimed, '2026-10-11T10:00:00.000Z', 'its claim is found by the shape');
 });

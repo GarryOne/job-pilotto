@@ -70,7 +70,7 @@ export async function fixedData(db, pool, cases, now = new Date()) {
       ...statusOf(item?.runs || [], last.landed_at), guard, cases: linked.map(found => ({name: found.name, ok: found.ok, history: found.history, day: found.day}))};
   }).sort((a, b) => b.landedAt.localeCompare(a.landedAt));
   const claimed = new Map(claims.map(row => [row.site, row.since])), back = new Set(rows.filter(row => row.status === 'back').map(row => row.site));
-  for (const item of pool) { item.claimed = claimed.get(item.name) ?? claimed.get(item.shape) ?? null; item.back = back.has(item.name); }
+  for (const item of pool) { item.claimed = claimed.get(item.shape) ?? claimed.get(item.name) ?? null; item.back = back.has(item.shape) || back.has(item.name); }
   return {day: now.toISOString().slice(0, 10), rows, inProgress: claims.map(row => ({site: row.site, since: row.since})), claimsAt: snapshots.claims ?? null, fixesAt: snapshots.fixes ?? null};
 }
 

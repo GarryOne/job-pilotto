@@ -89,8 +89,8 @@ export async function data(db, now = new Date()) {
     return out;
   }, {})).map(([day, counts]) => ({day, counts}));
   const pool = await poolRows(db, sites, now);
-  const causes = await topCauses(db, pool.map(item => item.name), now).catch(() => ({}));   // the pool's own fill cards: why the form's fields stayed empty (src/applying-cause.js)
-  for (const item of pool) item.cause = causes[item.name] || null;
+  const causes = await topCauses(db, pool.map(item => item.shape), now).catch(() => ({}));   // the pool's own fill cards: why the form's fields stayed empty (src/applying-cause.js)
+  for (const item of pool) item.cause = causes[item.shape] || null;
   const scorecard = await platformScorecard(db, pool, now).catch(() => []);   // real use against the pool's tests, per platform (src/scorecard.js)
   const next = await nextToAdd(db, pool, now).catch(() => ({sites: [], hidden: {hosts: 0}}));   // real users' end hosts the pool lacks (src/nextsites.js)
   const fixed = await fixedData(db, pool, cases, now).catch(() => ({day: dayOf(now), rows: [], inProgress: [], claimsAt: null, fixesAt: null, replays: []}));   // the Fixed tab, and the Back / In progress marks on the pool rows
@@ -252,7 +252,7 @@ fetch('?json').then(r => r.json()).then(d => {
   const shortText = s => (s.short.unexplained != null ? s.short.unexplained + ' unexplained of ' + s.short.total : s.short.done + ' of ' + s.short.total + ' filled');   // the verdict, or the old count
   const POOL_GET = [s => s.name.toLowerCase(), s => s.flow, s => (s.reached ? rankOf(s.reached) - (s.short ? 0.5 : 0) : null), s => (s.rung == null ? null : s.rung + (blocked(s) ? 10 : 0)), s => (s.history.length ? rankOf(s.history.at(-1)) : null)];
   // The pool table (owner mockup, 10 Oct 2026: five columns that fit the page, the route and the exact time in an expandable row). The site name carries its host in brackets: it moves under the name, next to the platform.
-  const toggleOpen = (set, key) => { const was = set.has(key); set.clear(); if (!was) set.add(key); };   // one row open at a time in every expandable table
+  const toggleOpen = (set, key) => { const was = set.has(key); set.clear(); if (!was) set.add(key); };   // one row open at a time in every expandable table; the key is unique (a pool row's shape, never its display name)
   const open = new Set(), STAGE = {none: 'Nothing reached', posting: 'Posting reached', account: 'Account reached', 'code/bot': 'Code or bot check', form: 'Form reached', ready: 'Ready for your check'};
   const split = s => { const host = (s.name.match(/\\(([^()\\s]+\\.[a-z]{2,})\\)/) || [])[1] || s.start; return {title: s.name.replace(/\\s*\\([^()\\s]+\\.[a-z]{2,}\\)/, ''), sub: s.platform + (host ? ' (' + host + ')' : '')}; };
   const flowText = s => (s.flow ? s.flow.replace(' and form on one page', ' + form').replace('no-form', 'no form').replace(/^./, c => c.toUpperCase()) : '—');
@@ -263,7 +263,7 @@ fetch('?json').then(r => r.json()).then(d => {
   const lastRun = s => el('div', {}, el('h4', {textContent: s.at ? 'Last completed run · ' + new Date(s.at).toUTCString().slice(5, 22) + ' UTC' : 'Last completed run'}),
     el('div', {}, ...resultOf(s)), s.signal ? el('div', {className: 'muted', textContent: 'rung ' + s.rung + ' handed on: ' + s.signal}) : null,
     s.cause ? el('div', {className: 'muted', textContent: 'Top cause: ' + s.cause.cause + ' · ' + s.cause.lost + ' on ' + s.cause.nights + ' night' + (s.cause.nights === 1 ? '' : 's')}) : null);
-  const siteRows = s => { const on = open.has(s.name), flip = () => { toggleOpen(open, s.name); draw(); }, parts = split(s), runs = () => (s.history.length ? dots(s.history, s.days) : el('span', {className: 'muted', textContent: '—'}));
+  const siteRows = s => { const on = open.has(s.shape), flip = () => { toggleOpen(open, s.shape); draw(); }, parts = split(s), runs = () => (s.history.length ? dots(s.history, s.days) : el('span', {className: 'muted', textContent: '—'}));
     const main = el('tr', {className: 'site' + (on ? ' open' : ''), onclick: flip},
       el('td', {className: 'c-site'}, el('div', {className: 'sitecell'}, el('button', {className: 'chev', type: 'button', 'aria-expanded': String(on), 'aria-label': (on ? 'Collapse ' : 'Expand ') + parts.title, textContent: '›', onclick: event => { event.stopPropagation(); flip(); }}), el('div', {className: 'sitename'}, el('b', {textContent: parts.title}), el('span', {className: 'muted', textContent: parts.sub})))),
       el('td', {className: 'c-flow', title: s.raw || '', textContent: flowText(s)}),
@@ -322,7 +322,7 @@ fetch('?json').then(r => r.json()).then(d => {
       el('h4', {textContent: 'Top cause'}), el('div', {textContent: s.cause ? s.cause.cause + ' · ' + s.cause.lost + ' on ' + s.cause.nights + ' night' + (s.cause.nights === 1 ? '' : 's') : '—'})),
     el('div', {}, el('h4', {textContent: 'Filled, last runs'}), el('div', {textContent: filledRuns(s).length ? filledRuns(s).join(' → ') + '%' : '—'}),
       el('h4', {textContent: s.at ? 'Last run · ' + new Date(s.at).toUTCString().slice(5, 22) + ' UTC' : 'Last run'}), el('div', {textContent: s.at ? ago(s.at) : '—'})));
-  const needRow = s => { const on = needOpen.has(s.name), flip = () => { toggleOpen(needOpen, s.name); drawFix(); };
+  const needRow = s => { const on = needOpen.has(s.shape), flip = () => { toggleOpen(needOpen, s.shape); drawFix(); };
     const main = el('tr', {className: 'site' + (on ? ' open' : ''), onclick: flip},
       el('td', {}, el('div', {className: 'sitename'}, el('b', {textContent: fixShort(s.name)}), el('span', {className: 'muted', textContent: s.platform + (s.start ? ' (' + s.start + ')' : '')}))),
       el('td', {}, el('span', {className: 'flag', textContent: s.regression ? 'regression' : s.short ? 'form · ' + shortText(s) : 'stopped at the ' + s.reached}),
@@ -330,11 +330,11 @@ fetch('?json').then(r => r.json()).then(d => {
       el('td', {className: 'muted', textContent: s.at ? ago(s.at) : '—'}),
       el('td', {}, el('button', {className: 'chev', type: 'button', 'aria-expanded': String(on), 'aria-label': (on ? 'Collapse ' : 'Expand ') + s.name, textContent: '›', onclick: event => { event.stopPropagation(); flip(); }})));
     return on ? [main, el('tr', {className: 'more'}, el('td', {colSpan: 4}, needDetail(s)))] : [main]; };
-  const drawFix = () => { fixBox.textContent = ''; fixOrder = new Map(d.pool.filter(needs).sort(byWorst).map((s, i) => [s.name, i]));
+  const drawFix = () => { fixBox.textContent = ''; fixOrder = new Map(d.pool.filter(needs).sort(byWorst).map((s, i) => [s.shape, i]));
     fixBox.append(el('div', {className: 'fixpanel'}, el('div', {className: 'fixhead'}, el('h2', {textContent: 'Needs a fix · where applying stops'}),
       el('p', {className: 'muted', textContent: 'A regression, a stop before the form, or a form reached with fields left that we should have known or suggested an answer for. Open a row for the platform use, the top cause and the share of fields filled in each of the last runs: a fix shows there the next night.'})),
       ...block('fix', 'Sites', 'Worst first: regressions, then the platform most used', d.pool.filter(needs).sort(byWorst), ['Site / platform', 'Why', 'Last run', 'Details'], needRow,
-        'Nothing needs a fix', () => drawFix(), [s => s.name.toLowerCase(), s => fixOrder.get(s.name), s => (s.at ? Date.parse(s.at) : null)]).filter(Boolean))); };
+        'Nothing needs a fix', () => drawFix(), [s => s.name.toLowerCase(), s => fixOrder.get(s.shape), s => (s.at ? Date.parse(s.at) : null)]).filter(Boolean))); };
   const drawScore = () => { scoreBox.textContent = '';
     scoreBox.append(...block('score', 'Platforms', 'Real use against the tests', d.scorecard || [], ['Platform', 'Verdict', 'Of matched jobs', 'Real forms', 'Required filled', 'Pool sites', 'Reached the form'],
       s => el('tr', {}, el('td', {textContent: s.platform}), el('td', {}, el('span', {className: 'pill s-' + TONE[s.verdict], textContent: s.verdict})), el('td', {textContent: pct(s.matchShare)}),
