@@ -14,6 +14,7 @@ import {appProfileTexts, personalValues, scrub, snapshotInPage} from './capture-
 import {removeJobsByUrl} from './seed-data.mjs';
 import {modelClient} from './model.mjs';
 import {pause} from './apply-fixtures.mjs';
+import {signature, stillClock, stillSeconds} from './live-still.mjs';
 import {writeAtomic} from './run-artifacts.mjs';
 export {livePosting} from './live-posting.mjs';
 
@@ -95,6 +96,7 @@ export async function runLive(ctx, h) {
       await page.evaluate(job => window.pilot.applyOne(job.url, {title: job.title, company: job.company, location: '', workMode: ''}), posting);
       console.log(`  live ${at()}: Apply pressed on ${posting.url}`);
       const sessionStage = async () => (await page.evaluate(() => window.pilot.sessions()).catch(() => [])).find(item => String(item.url || '').replace(/\/$/, '') === posting.url.replace(/\/$/, ''));
+      const clock = stillClock({seconds: stillSeconds(), startedAt: Date.now()});   // lib/live-still.mjs: the watch ends early when nothing has changed for LIVE_STILL_SECONDS (20); `seconds` stays the limit
       let last = '', changedAt = Date.now(), stalled = false, frame = 0, acts = 0, looked = false, lastLine = '';
       while (Date.now() - started < seconds * 1000) {
         const tabs = ctx.browser.context.pages().filter(tab => /^https?:/.test(tab.url()));
@@ -108,6 +110,10 @@ export async function runLive(ctx, h) {
         // The fill's field list, whole, one line a field (lib/smoke.mjs fieldLines); parseLive reads them.
         for (const line of all.slice(seen.lines)) for (const text of fieldLines(line)) console.log(text);
         seen.lines = all.length;
+        // The page's shape (address, title, how many controls and buttons it shows) and the app's log feed the still-clock: a slow page changes one of them (lib/live-still.mjs).
+        const shape = await tabs.at(-1)?.evaluate(() => `${location.href.split('#')[0].slice(0, 90)}|${document.title.slice(0, 40)}|${[...document.querySelectorAll('input, select, textarea, button, a')].filter(el => el.getClientRects().length).length}`).catch(() => '') || '';
+        clock.see(signature({states, stage: session?.stage, status: session?.status, shape, logLines: all.length}), Date.now());
+        if (clock.over(Date.now(), {opened: ctx.browser.opened.length > 0})) { console.log(`  live ${at()}: nothing changed for ${stillSeconds()} s: the watch ends here (limit ${seconds} s; LIVE_STILL_SECONDS=0 watches to the limit)`); break; }
         // A picture of every tab every 3 s (the newest is what a person sees now), named so they sort in time.
         if (frame++ % 2 === 0) for (const [index, tab] of tabs.entries()) await tab.screenshot({path: path.join(frames, `${String(frame).padStart(3, '0')}-tab${index}.png`)}).catch(() => {});
         if (!stalled && Date.now() - changedAt > 12000) {
@@ -117,7 +123,7 @@ export async function runLive(ctx, h) {
         }
         await pause(1500);
       }
-      console.log(`  live ${at()}: watched ${seconds}s; frames in ${frames}`);
+      console.log(`  live ${at()}: watched ${Math.round((Date.now() - started) / 1000)}s; frames in ${frames}`);
       // The app's whole log of this run, kept with the report (job-pilotto-54: the smoke report did not copy app.log, so an error nothing printed was lost): identity and counts only, per the app's logging rule.
       if (process.env.LIVE_CAPTURE_DIR) { fs.mkdirSync(process.env.LIVE_CAPTURE_DIR, {recursive: true}); fs.writeFileSync(path.join(process.env.LIVE_CAPTURE_DIR, 'app.log'), appLogLines(ctx.profile).join('\n') + '\n'); }
       // LIVE_CAPTURE_DIR: the last page of the run, structure only and scrubbed (lib/capture-page.mjs), for a replay candidate (lib/replay-candidate.mjs): the nightly smoke keeps it only when the run failed.
