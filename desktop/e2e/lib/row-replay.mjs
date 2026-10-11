@@ -159,7 +159,9 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
     const hosts = new Set([...files.documents.keys()].map(url => new URL(url).host)), name = path.basename(caseDir);
     const pageStates = new Map();   // address -> the first state the live run kept of it as the tab's own page
     for (const state of [...states.filter(one => one.ask), ...states]) if (!pageStates.has(state.url)) pageStates.set(state.url, state.html);
-    const row = {name, documents: files.documents, sheets: files.sheets, pageStates, unrecorded: new Set(), states, presses, applied: 0, later: laterStates(states, presses, -1), say, hosts};
+    const timeline = [];   // what happened when, from this replay's start: the page's swaps (here) and the extension's own log lines (below): all CI keeps of a failed replay (12 Oct 2026: a case flaked and nothing said why)
+    const row = {name, documents: files.documents, sheets: files.sheets, pageStates, unrecorded: new Set(), states, presses, applied: 0, later: laterStates(states, presses, -1), hosts,
+      say: line => { say(line); timeline.push({ms: Date.now() - started, text: String(line).replace(/^row: [^:]+: /, '')}); }};
     const mine = text => alone || [...hosts].some(host => String(text).includes(host));
     const fromRequest = front.requests.length, fromLog = app.logText().length;
     const requests = () => front.requests.slice(fromRequest).filter(request => mine(request.body));
@@ -189,7 +191,8 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
         await wait(500);
       }
       const boxes = await boxesOf(tab);
-      return {row: name, boxes, seconds: Math.round((Date.now() - started) / 100) / 10, evidence: evidenceLines(log()), unrecorded: [...row.unrecorded], followed: Math.min(followed, row.applied),
+      for (const request of requests().filter(one => one.route === '/extension/log')) { try { for (const entry of JSON.parse(request.body).entries || []) if (/typed|again|attach|upload|empt|retype|fill|page kind|pressed|closed/i.test(String(entry.text))) timeline.push({ms: Date.parse(entry.at) - started, text: `ext: ${String(entry.text).slice(0, 90)}`}); } catch { /* a body cut at the limit */ } }
+      return {row: name, boxes, timeline: timeline.filter(item => Number.isFinite(item.ms)).sort((a, b) => a.ms - b.ms).slice(0, 40).map(item => `+${(item.ms / 1000).toFixed(1)}s ${item.text}`), seconds: Math.round((Date.now() - started) / 100) / 10, evidence: evidenceLines(log()), unrecorded: [...row.unrecorded], followed: Math.min(followed, row.applied),
         divergence, endedBy, livePresses: presses.length, asks: requests().filter(request => request.route === '/extension/page-kind').length,
         misses: (log().match(/not in the row's kept answers/g) || []).length, missParts: missesOf(missLog).parts, missVolatile: missesOf(missLog).volatile, requests: requests(), appLog: log()};
     } finally {

@@ -32,3 +32,10 @@ test('a miss in CI names the parts of the nearest kept ask that differ (the fail
   const done = await runRowCase(item, {replay: async () => result(['posting', 'form'], {misses: 1, missParts: ['user:Buttons', 'user:line#41'], missVolatile: []})});
   assert.match(done.failures.join('\n'), /the nearest kept ask differs in user:Buttons, user:line#41/);
 });
+
+test('a failed replay carries its timeline (swaps and extension lines with times): CI keeps nothing else of it', async () => {
+  const done = await runRowCase(item, {replay: async () => result(['posting'], {timeline: ['+0.4s ext: typed 3 boxes', '+3.1s the extension attached a file: the live run\'s next state', '+4.0s ext: typed 3 boxes again']})});
+  assert.equal(done.ok, false);
+  assert.match(done.failures.at(-1), /replay timeline: \+0\.4s ext: typed 3 boxes \| \+3\.1s the extension attached a file.* \| \+4\.0s ext: typed 3 boxes again/);
+  assert.equal((await runRowCase(item, {replay: async () => result(['posting', 'form'], {timeline: ['+1s x']})})).failures.length, 0, 'a green replay says nothing');
+});

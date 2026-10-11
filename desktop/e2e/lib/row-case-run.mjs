@@ -19,6 +19,7 @@ export async function runRowCase(item, {extensionDir, replay = replayRow} = {}) 
   failures.push(...checkSignature(signatureOf(result), item.expect));
   if (result.misses) failures.push(`${result.misses} model ask(s) not in the case's kept answers (CI has no claude -p; row-to-case --ask-cold keeps them)${result.missParts?.length ? `; the nearest kept ask differs in ${result.missParts.join(', ')}` : ''}${result.missVolatile?.length ? `; a clock time or date in ${result.missVolatile.join(', ')}` : ''}`);   // CI shows only this line: say WHICH parts moved (a Linux runner's timing or layout)
   for (const address of result.unrecorded || []) failures.push(`address not recorded: ${address}`);
+  if (failures.length && result.timeline?.length) failures.push(`replay timeline: ${result.timeline.join(' | ').slice(0, 1800)}`);   // CI keeps no artifact of a failed replay: its own output is the evidence
   const loose = looseSummary(result.looseHits);
   return {name: item.name, ok: !failures.length, failures, confirm: [], seconds: result.seconds, signature: signatureOf(result), loose};
 }
