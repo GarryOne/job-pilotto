@@ -54,7 +54,8 @@ test('a page ask goes through a pre-started process with its prompt as one strea
   const make = () => new Page({binary: '/fake/claude', spawnFn, run: help(ALL), lane: 'page', log: () => {}});
   const first = await make().messages.create(ask);
   assert.equal(JSON.parse(first.content[0].text).kind, 'form');
-  assert.equal(spawned.length, 2, 'the first ask starts cold and starts the spare for the next one');
+  assert.equal(spawned.length, 2, 'the first ask starts cold and, once answered, starts the spare for the next one');
+  assert.ok(spawned[0].asked === 1 && spawned[1].asked === 0);
   assert.ok(spawned[0].args.includes('--input-format'));
   assert.deepEqual(JSON.parse(spawned[0].input), {type: 'user', message: {role: 'user', content: 'sketch'}});
   assert.equal(spawned[1].input, null, 'the spare waits for its question');
