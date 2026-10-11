@@ -5,8 +5,6 @@
 // data: images go from the markup. Text and structure are untouched. Guard: e2e/test/row-case-shrink.test.mjs.
 // pages: [{url, file, html}] (every state and frame), harCss: [css text of the run's cross-origin sheets]. -> {pages: [{url, file, html}], sheets: Map(<stylesheet address> -> css)}.
 
-const DROPPED = /^@(font-face|keyframes|-webkit-keyframes|import|charset)\b/i;
-
 // Runs IN the page: the rules of every sheet (the page's own, plus `extra` texts) kept when their selector matches something here. -> [cssText]
 function usedRules(extra) {
   for (const text of extra) { const style = document.createElement('style'); style.textContent = text; document.head.append(style); }
