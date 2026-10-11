@@ -3,8 +3,7 @@
 #   bash tools/heavy-lock.sh <what> <command...>      waits for a slot (says who holds them), waits while the load is high, runs, frees it, keeps the exit code
 # ONE copy for every session (owner, 11 Oct 2026): a worktree's copy hands off to the primary checkout's (<git common dir>/..), so all queue in one order.
 # Slots = directories <TMPDIR>/job-pilotto-heavy/lock and lock.2 holding pid, what, since, cwd; stale when the pid is gone (taken over by an atomic rename).
-# The first heavy run always starts; a 2nd starts beside it only when free+inactive memory is over 7 GB and swap is low (owner, 11 Oct 2026: one pool run
-# peaks at 3.3 GB, two need ~6.6 GB); never a 3rd. Ports are free per run and the real Notion page has its own lock (desktop/e2e/lib/notion-page-lock.mjs).
+# The first heavy run always starts; more start beside it only while the memory gate has room (tools/heavy-lock-memory.sh: macOS pressure, available memory, swap-outs). Ports are free per run and the real Notion page has its own lock (desktop/e2e/lib/notion-page-lock.mjs).
 # First come, first served (11 Oct 2026: the pool's per-site runs re-took a just-freed lock while a replay starved 6+ min): each waiter holds a ticket
 # <root>/queue/<nanoseconds>-<pid> ("<pid> <what>") and takes a slot only when no live older ticket is ahead; a dead waiter's ticket is dropped.
 # Shortest first (owner, 11 Oct 2026: a ~15 s row replay waited 1-3 min behind ~70 s live runs): a waiter whose `what` is `row` or `row-*` goes ahead of older
@@ -16,9 +15,8 @@
 # A nested call (a suite started by `npm run all`) sees JP_HEAVY_HELD and runs at once. Escape hatches, all said in the log when used:
 #   JOB_PILOTTO_HEAVY=0                 no lock, no load wait
 #   JOB_PILOTTO_HEAVY_WAIT=<s>          longest wait for a slot before running anyway (default 1800)
-#   JOB_PILOTTO_HEAVY_SLOTS=<n>         1 = one heavy run at a time; default 2 (the 2nd behind the memory check)
-#   JOB_PILOTTO_HEAVY_MEM_GB=<n>        free+inactive memory a 2nd run needs, in GB (default 7); a `recorded-replay` or `row-replay` needs JOB_PILOTTO_HEAVY_MEM_REPLAY_GB (3) and swap up to JOB_PILOTTO_HEAVY_SWAP_REPLAY_PCT (70)
-#   JOB_PILOTTO_HEAVY_SWAP_PCT=<n>      most swap used, in percent, for a 2nd run (default 50)
+#   JOB_PILOTTO_HEAVY_SLOTS=<n>         1 = one heavy run at a time; default 4 (each beyond the 1st behind the memory gate)
+#   JOB_PILOTTO_HEAVY_MEM_RULE=floor    the old memory gate (free+inactive over 7 GB live / 3 GB replay, swap used under 50% / 70%); the other knobs are in tools/heavy-lock-memory.sh
 #   JOB_PILOTTO_HEAVY_SHARED=<path>     the shared copy to run (default the primary checkout's); this script never hands off to itself
 #   JOB_PILOTTO_HEAVY_LOAD=<n>          1-minute load average above which a run waits (default 1.5 x cores); 0 = never wait for load
 #   JOB_PILOTTO_HEAVY_POLL=<s>          seconds between looks at the queue and the load (default 1; the tests use 0.1)
@@ -67,29 +65,13 @@ held() {  # live slots, after dropping stale ones
   done
   echo "$count"
 }
-# Admission by memory budget (owner, 11 Oct 2026; the old fixed 2 slots): up to JOB_PILOTTO_HEAVY_SLOTS (default 4) runs at once, each admitted only while free+inactive memory, less what the
-# runs started in the last JOB_PILOTTO_HEAVY_RAMP seconds (default 90) have declared and not yet used, is over the same floor as before (7 GB for a live run, 3 GB for a replay: never weaker).
-# Declared cost: a live run ~2.9 GB (whole-tree peak of `npm run live`, measured 11 Oct 2026: 2.59-2.84 GB), a replay ~1.2 GB (JOB_PILOTTO_HEAVY_COST_GB, JOB_PILOTTO_HEAVY_COST_REPLAY_GB).
+# Admission by memory budget (owner, 11 Oct 2026; the old fixed 2 slots): up to JOB_PILOTTO_HEAVY_SLOTS (default 4) runs at once, each admitted only while the memory gate says one more fits:
+# macOS's pressure normal, its available memory less what runs just started declared over this run's cost plus a margin, and no swapping out (tools/heavy-lock-memory.sh;
+# JOB_PILOTTO_HEAVY_MEM_RULE=floor = the free+inactive 7 GB / 3 GB floors of before).
+[ -f "$(dirname "$0")/heavy-lock-memory.sh" ] && source "$(dirname "$0")/heavy-lock-memory.sh" || { my_cost() { echo 2.9; }; memory_ok() { why="no memory gate (tools/heavy-lock-memory.sh missing)"; return 1; }; }
 # A timing run (what has "latency" or "timing" in it, or JOB_PILOTTO_HEAVY_EXCLUSIVE=1) is exclusive: it starts only on an empty lock and nobody starts beside it.
-my_cost() { is_replay "$what" && echo "${JOB_PILOTTO_HEAVY_COST_REPLAY_GB:-1.2}" || echo "${JOB_PILOTTO_HEAVY_COST_GB:-2.9}"; }
 is_exclusive() { case "$what" in *latency*|*timing*) return 0 ;; esac; [ "${JOB_PILOTTO_HEAVY_EXCLUSIVE:-0}" = 1 ]; }
-reserved_gb() { local dir since total=0 ramp="${JOB_PILOTTO_HEAVY_RAMP:-90}"
-  for dir in $SLOT_DIRS; do [ -f "$dir/cost" ] || continue; since="$(cat "$dir/since" 2>/dev/null || echo 0)"
-    [ $(( $(date +%s) - since )) -lt "$ramp" ] && total="$(awk -v t="$total" -v c="$(cat "$dir/cost")" 'BEGIN {printf "%.1f", t + c}')"; done
-  echo "$total"; }
 exclusive_held() { local dir; for dir in $SLOT_DIRS; do [ -f "$dir/exclusive" ] && return 0; done; return 1; }
-memory_ok() {  # a 2nd heavy run fits: free+inactive memory over the floor and swap low; sets $why when not
-  local free swap floor="${JOB_PILOTTO_HEAVY_MEM_GB:-7}" most="${JOB_PILOTTO_HEAVY_SWAP_PCT:-50}"
-  # A recorded-page replay is counted by its real cost (owner's brief, 11 Oct 2026): ~1.5 GB of Chrome at 4 tabs (2.1 GB at 6), not a pool run's 3.3 GB; a row replay (npm run row: one offline browser, ~1 GB) the same.
-  case "$what" in recorded-replay|row|row-*) floor="${JOB_PILOTTO_HEAVY_MEM_REPLAY_GB:-3}"; most="${JOB_PILOTTO_HEAVY_SWAP_REPLAY_PCT:-70}" ;; esac
-  free="$(vm_stat 2>/dev/null | awk '/page size of/ {for (i = 1; i < NF; i++) if ($i == "of") size = $(i + 1)} /^Pages (free|inactive):/ {v = $NF; sub(/\./, "", v); pages += v} END {printf "%.1f", pages * size / 1073741824}')"
-  swap="$(sysctl -n vm.swapusage 2>/dev/null | awk '{for (i = 1; i < NF; i++) {if ($i == "total") t = $(i + 2) + 0; if ($i == "used") u = $(i + 2) + 0}} END {printf "%d", (t > 0 ? u * 100 / t : 0)}')"
-  free="$(awk -v f="${free:-0}" -v r="$(reserved_gb)" 'BEGIN {printf "%.1f", f - r}')"   # what the runs that started in the last JOB_PILOTTO_HEAVY_RAMP seconds are still going to take
-  why=""
-  awk -v f="${free:-0}" -v m="$floor" 'BEGIN {exit !(f > m)}' || why="free+inactive memory ${free:-0} GB, a 2nd run needs over $floor"
-  [ "${swap:-0}" -le "$most" ] || why="${why:+$why; }swap ${swap}% used, a 2nd run needs $most% or less"
-  [ -z "$why" ]
-}
 take() { local dir; for dir in $SLOT_DIRS; do mkdir "$dir" 2>/dev/null && { lock="$dir"; echo $$ >"$dir/pid"; my_cost >"$dir/cost"; date +%s >"$dir/since"; is_exclusive && echo 1 >"$dir/exclusive"; return 0; }; done; return 1; }
 # After taking a slot: a timing run must be the only holder and nobody may have started beside it; if two took at the same moment, both give the slot back and try again in their turn.
 alone_ok() { if is_exclusive; then [ "$(held)" -le 1 ]; else ! exclusive_held; fi || { rm -rf "$lock"; lock=""; return 1; }; }
@@ -205,7 +187,7 @@ done
 rm -f "$ticket"
 if [ -n "$lock" ]; then echo "$([ "$yield_mode" = 1 ] && echo "$JP_HEAVY_HELD" || echo $$)" >"$lock/pid"; echo "$what" >"$lock/what"; echo "$session" >"$lock/session"; echo "$klass" >"$lock/class"; date +%s >"$lock/since"; pwd >"$lock/cwd"; fi
 waited_s=$(( $(date +%s) - began )); load_start="$(load1)"
-ident="what=$what class=$klass branch=$branch_now session=$session load_q=$load_queue load_start=$load_start cpu_busy=$(cpu_busy) mem_free=$(mem_free_pct) top=$(top_cpu : , | tr ' ' _)"
+ident="what=$what class=$klass branch=$branch_now session=$session load_q=$load_queue load_start=$load_start cpu_busy=$(cpu_busy) mem_free=$(mem_free_pct) mac_mem=$(mac_memory | tr " " /)${mem_said:+ $mem_said} top=$(top_cpu : , | tr ' ' _)"
 if [ "$told" = 1 ]; then
   say "got the lock after ${waited_s}s"
   timing_log "heavy lock wait=${waited_s}s $ident"   # every wait, for the next measurement

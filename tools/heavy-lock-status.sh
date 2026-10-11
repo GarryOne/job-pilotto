@@ -30,7 +30,9 @@ done
 [ "$n" = 0 ] && echo "  nobody waits"
 load="$(uptime | sed -E 's/.*load averages?: *//' | awk -F'[ ,]+' '{printf "%.1f", $1}')"
 free="$(vm_stat 2>/dev/null | awk '/page size of/ {for (i = 1; i < NF; i++) if ($i == "of") size = $(i + 1)} /^Pages (free|inactive):/ {v = $NF; sub(/\./, "", v); pages += v} END {if (size) printf "%.1f", pages * size / 1073741824}')"
-echo "machine: 1-minute load $load, free+inactive memory ${free:-?} GB"
+mac="$(source "$(dirname "$0")/heavy-lock-memory.sh" 2>/dev/null && mac_memory)"   # macOS's own pressure level and available memory: what the memory gate admits on
+[ -n "$mac" ] && mac=", macOS memory pressure $(echo "${mac%% *}" | awk '{print ($1 == 1 ? "normal" : $1 == 2 ? "warn" : "critical")}'), available ${mac#* } GB"
+echo "machine: 1-minute load $load, free+inactive memory ${free:-?} GB$mac"
 if [ "$holders" -gt 0 ]; then
   for class in proof pool explore; do
     new="$(prio_of x "$class")"; ahead="$(printf '%s' "$waiters" | awk -v p="$new" '$1 <= p {s += $2} END {print s + 0}')"

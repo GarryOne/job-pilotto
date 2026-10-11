@@ -12,6 +12,7 @@
 "test_heavy_lock_budget": 11.0,
 "test_heavy_lock_classes": 8.5,
 "test_heavy_lock_memory": 7.6,
+"test_heavy_lock_pressure": 20.0,
 "test_heavy_lock_readout": 4.5,
 "test_heavy_lock_short_first": 11.5,
 "test_heavy_lock_signals": 10.0,
