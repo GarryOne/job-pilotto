@@ -20,6 +20,7 @@ import {clearRoot, testRoot, workspaceReady} from './notion.mjs';
 import {createRunner} from './runner.mjs';
 import {notionFarSide, pickStore, runToken, storeSettings} from './store.mjs';
 import {storeCall} from './store-call.mjs';
+import {lockNeeded, takeNotionPage} from './notion-page-lock.mjs';
 import {tally} from './faults.mjs';
 
 // A suite is a file in suites/ (adding one needs no other list). It may export `minutes` (its time limit in CI, default 15).
@@ -67,6 +68,8 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
       ...(onNotion ? [{name: `a Notion token for the ${suite} suite (E2E_NOTION_TOKEN${suite === 'wizard' ? '' : `_${(notionTokenOf || suite).toUpperCase()}`})`, value: token}] : [])]};
   if (ctx.needs.some(item => !item.value)) { ctx.skipAll = true; return ctx; }
   if (engine === 'cli') console.log('  AI engine: the Claude Code on this Mac (your plan): no Anthropic key is read or used on a Mac.');
+  // The real test page is one page for the whole Mac: a run on it waits for the run that holds it (lib/notion-page-lock.mjs). SQLite and stand-in runs never take it.
+  if (lockNeeded({store})) ctx.pageLock = await takeNotionPage({what: suite}); else if (store === 'notion' && process.env.JOB_PILOTTO_NOTION_LOCK === '0') console.log('  Notion page lock: off (JOB_PILOTTO_NOTION_LOCK=0)');
   if (onNotion) ctx.root = await testRoot(token);   // refuses any workspace but the test one, and any token that sees more than one page
   // The real workspace names the page it may empty (`notionPage`): a token that sees another page fails here, before `fresh` trashes anything.
   if (store === 'notion' && (!notionPage || ctx.root.title !== notionPage)) throw new Error(`refusing the Notion page "${ctx.root.title}": the ${suite} suite may only use "${notionPage || '(its notionPage export is missing)'}"`);
@@ -123,7 +126,7 @@ export async function openContext(suite, {fresh = false, env: suiteEnv = {}, bro
   adopt(await launch({env, lang: ctx.place?.locale || '', settings: newInstall ? {} : storeSettings(store)}));
   // The app's trace is kept when the suite failed so far: a failed step, or an error outside the steps (lib/suite-main.mjs sets ctx.stopped first).
   const failed = () => !!ctx.stopped || runner.results.some(result => result.status === 'failed');
-  ctx.close = async () => { await session?.shot('last'); await ctx.browser?.close(); await session?.close({keepTrace: failed()}); await ctx.proxy?.close(); await ctx.openaiProxy?.close(); await ctx.notion?.close(); await ctx.telegram?.close(); await ctx.google?.close(); await ctx.releases?.close(); if (ctx.standIn) { try { fs.writeFileSync(path.join(ARTIFACTS, 'notion-standin.json'), JSON.stringify(ctx.standIn.dump(), null, 1)); } catch {} await ctx.standIn.close(); } await ctx.forms?.close(); };
+  ctx.close = async () => { try { await session?.shot('last'); await ctx.browser?.close(); await session?.close({keepTrace: failed()}); await ctx.proxy?.close(); await ctx.openaiProxy?.close(); await ctx.notion?.close(); await ctx.telegram?.close(); await ctx.google?.close(); await ctx.releases?.close(); if (ctx.standIn) { try { fs.writeFileSync(path.join(ARTIFACTS, 'notion-standin.json'), JSON.stringify(ctx.standIn.dump(), null, 1)); } catch {} await ctx.standIn.close(); } await ctx.forms?.close(); } finally { ctx.pageLock?.release(); } };
   // Quit the app the hard way (as a crash or a power cut would: nothing gets to tidy up) and start it again on the same profile. `extra` adds to the environment; `between(profile)` runs while the app is down.
   ctx.relaunch = async (extra = {}, between) => { const profile = session.profile; await session.close({keepTrace: failed()}); await between?.(profile); adopt(await launch({env: {...env, ...extra}, profile, lang: ctx.place?.locale || ''})); };
   // Some actions end with the app's OWN exit (a reset, an import): it finishes its work first (a reset disconnects the Gmail sign-in through a Python call since 645cef9), so a
