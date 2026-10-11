@@ -190,6 +190,8 @@ class HeavyLockTest(unittest.TestCase):
         for free_gb, swap, beside_expected in ((5, 60, True), (2, 10, False), (5, 85, False)):
             beside, err = self.overlap('recorded-replay', **self.memory(free_gb=free_gb, swap_used_pct=swap))
             self.assertEqual(beside, beside_expected, f'{free_gb} GB free, swap {swap}%: {err}')
+        beside, err = self.overlap('row-replay', **self.memory(free_gb=5, swap_used_pct=60))
+        self.assertTrue(beside, f'a row replay (one offline browser, ~1 GB) is counted like a recorded replay: {err}')
         beside, _ = self.overlap('some pool run', **self.memory(free_gb=5, swap_used_pct=60))
         self.assertFalse(beside, 'any other heavy run keeps the 7 GB / 50% rule')
 
