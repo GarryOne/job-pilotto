@@ -1,0 +1,80 @@
+{
+ "shape": "a form whose required picklists are custom comboboxes (react-select): the choice is a chip beside an empty search input, so the input's own value says nothing",
+ "why": "Datadog careers on Greenhouse, 11 Oct 2026 (0.9.189): Country (+41) was chosen, yet the sketch the form judge got read it \"empty\" and the judge said \"needs Country*\" 4 s after the fill logged it filled. The judges' sketch now reads a picklist as the panel does: a chip or a labelled hidden input in the field's own area. Same page as legal-picklist-any-wording-1 (reused), checked on what the extension showed the form judge",
+ "control": {
+  "build": "0.9.191",
+  "failed": "judged: the form judge was shown Country*:empty and the chosen gender as empty"
+ },
+ "sample": "job-boards.greenhouse.io embedded application form (structure saved by the smoke run of 11 Oct 2026, scrubbed; scripts and the extension's marks removed)",
+ "pages": [
+  {
+   "url": "https://job-boards.greenhouse.io/embed/job_app",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.9,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": [
+    {
+     "field": "question_62972261",
+     "value": "Yes",
+     "confidence": "high",
+     "note": "",
+     "category": "knockout",
+     "use": "fill"
+    },
+    {
+     "field": "question_62972262[]",
+     "value": "Zurich, Switzerland",
+     "confidence": "medium",
+     "note": "",
+     "category": "knockout",
+     "use": "propose"
+    },
+    {
+     "field": "question_62972263[]",
+     "value": "English, German",
+     "confidence": "high",
+     "note": "",
+     "category": "knockout",
+     "use": "fill"
+    },
+    {
+     "field": "question_62972264",
+     "value": "Datadog careers website",
+     "confidence": "low",
+     "note": "",
+     "category": "normal",
+     "use": "propose"
+    },
+    {
+     "field": "question_62972259",
+     "value": "",
+     "category": "legal",
+     "use": "kind"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "judged": [
+   "Country*:filled",
+   "Voluntary Self-Identification of Gender: *:filled"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60
+ }
+}
