@@ -14,6 +14,7 @@ TESTS, PAGES = 'CI · Tests', 'CI · Recorded pages (all cases, real extension, 
 # Every workflow of .github/workflows, counted for red main or ignored with the reason (a new workflow fails the last test until it is put here: a conscious choice).
 CLASSIFIED = {
     'CI · Tests': 'counted', 'CI · Recorded pages (all cases, real extension, Linux)': 'counted',
+    'CI · Pull request': 'ignored: runs on pull requests only, never on main; its checks gate the merge',
     'CI · End-to-end on Mac + Linux': 'ignored: the e2e suites run on schedule and by hand with live-site and AI flakiness; a red one is an issue, not a block on every landing',
     'CI · End-to-end on Windows': 'ignored: same, slower and by schedule', 'CI · Python tests on Windows (by hand)': 'ignored: started by hand',
     'CI · Mac smoke (by hand)': 'ignored: by hand', 'CI · Edge check (Windows, by hand)': 'ignored: by hand', 'CI · Windows smoke (weekly)': 'ignored: weekly',
