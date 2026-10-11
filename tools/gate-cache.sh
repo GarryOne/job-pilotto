@@ -4,7 +4,9 @@
 # Key = sha256 of: every tracked file's path+blob at HEAD (tests read across areas, so the whole tree counts, minus the paths listed in
 # tools/gate-cache-ignore.txt, which no test reads), node and python versions, the area, and the caller's extra text (which tests were picked,
 # clean install or not). GATE_CACHE_DIRTY=1 (the Stop hook) adds uncommitted changes and untracked files. A pass is stored under
-# <git common dir>/gate-cache/<area>-<key> (shared by every worktree, never committed); a failure is never stored.
+# GATE_CACHE_PATHS="<pathspecs>" (the journey and ladder gates, owner 11 Oct 2026: a rebase over unrelated commits re-ran them for ~10 min) keys on those paths only,
+# and so does the uncommitted part; the caller puts what decides which parts run (the touched files inside those paths) in the extra text.
+# A pass is stored under <git common dir>/gate-cache/<area>-<key> (shared by every worktree, never committed); a failure is never stored.
 # GATE_CACHE=0 turns it off; GATE_CACHE_FRESH=1 (PUSH_FULL=1) ignores a stored pass but still stores the new one. A hit says so on the
 # file named by GATE_CACHE_NOTES. Owner: landing-speed (11 Oct 2026). Guarded by tests/test_gate_cache.py.
 
@@ -15,12 +17,17 @@ gate_cache_key() {  # repo area extra
   ignore="$repo/tools/gate-cache-ignore.txt"
   {
     echo "area=$area extra=$extra node=$(node -v 2>/dev/null) python=$(python3 -V 2>&1)"
-    if [ -f "$ignore" ]; then
+    if [ -n "${GATE_CACHE_PATHS:-}" ]; then   # a gate that reads only some paths: those files' content, not the whole tree
+      # shellcheck disable=SC2086
+      git -C "$repo" ls-tree -r HEAD -- $GATE_CACHE_PATHS
+    elif [ -f "$ignore" ]; then
       git -C "$repo" ls-tree -r HEAD | grep -vF -f <(grep -vE '^(#|$)' "$ignore" | awk '{ printf "\t%s\n", $0 }')
     else git -C "$repo" ls-tree -r HEAD; fi
     if [ "${GATE_CACHE_DIRTY:-0}" = 1 ]; then
-      git -C "$repo" diff HEAD
-      git -C "$repo" ls-files --others --exclude-standard -z | (cd "$repo" && xargs -0 shasum 2>/dev/null)
+      # shellcheck disable=SC2086
+      git -C "$repo" diff HEAD ${GATE_CACHE_PATHS:+-- $GATE_CACHE_PATHS}
+      # shellcheck disable=SC2086
+      git -C "$repo" ls-files --others --exclude-standard -z ${GATE_CACHE_PATHS:+-- $GATE_CACHE_PATHS} | (cd "$repo" && xargs -0 shasum 2>/dev/null)
     fi
   } | shasum -a 256 | cut -c1-32
 }

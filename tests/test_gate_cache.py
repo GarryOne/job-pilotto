@@ -65,6 +65,45 @@ class GateCacheTest(unittest.TestCase):
         self.run_area('desktop', extra='pick=2')
         self.assertEqual(self.count(), 3)
 
+    def test_a_gate_keyed_on_its_paths_ignores_unrelated_commits_but_not_its_own_files(self):
+        # The journey and ladder gates (GATE_CACHE_PATHS): a rebase over commits that touch nothing they read reuses the pass (owner, 11 Oct 2026).
+        (self.repo / 'ext').mkdir()
+        (self.repo / 'ext' / 'flow.js').write_text('1')
+        self.commit('flow')
+        paths = {'GATE_CACHE_PATHS': 'ext tools/gate.mjs'}
+        self.run_area(**paths)
+        (self.repo / 'src.py').write_text('unrelated')
+        (self.repo / 'docs.md').write_text('docs')
+        self.commit('unrelated')
+        self.run_area(**paths)
+        self.assertEqual(self.count(), 1)
+        self.assertIn('cached pass', self.notes.read_text())
+        (self.repo / 'ext' / 'flow.js').write_text('2')
+        self.commit('own file')
+        self.run_area(**paths)
+        self.assertEqual(self.count(), 2)
+        (self.repo / 'tools' / 'gate.mjs').write_text('gate')
+        self.commit('the gate itself')
+        self.run_area(**paths)
+        self.assertEqual(self.count(), 3)
+        self.run_area()   # the same area without paths keeps keying on the whole tree
+        self.assertEqual(self.count(), 4)
+
+    def test_a_path_gate_still_takes_the_extra_text_and_dirty_changes_in_its_paths_only(self):
+        (self.repo / 'ext').mkdir()
+        (self.repo / 'ext' / 'flow.js').write_text('1')
+        self.commit('flow')
+        paths = {'GATE_CACHE_PATHS': 'ext', 'GATE_CACHE_DIRTY': '1'}
+        self.run_area(**paths)
+        (self.repo / 'src.py').write_text('uncommitted elsewhere')
+        self.run_area(**paths)
+        self.assertEqual(self.count(), 1)
+        (self.repo / 'ext' / 'flow.js').write_text('edited')
+        self.run_area(**paths)
+        self.assertEqual(self.count(), 2)
+        self.run_area(extra='touched=a', **paths)
+        self.assertEqual(self.count(), 3)
+
     def test_a_failure_is_never_cached(self):
         self.assertNotEqual(self.run_area(command='echo x >> "$RUNS"; exit 3'), 0)
         self.run_area(command='echo x >> "$RUNS"; exit 3')

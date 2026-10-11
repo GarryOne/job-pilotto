@@ -165,13 +165,18 @@ esac
 # message re-ran the 255 s journey gate); a failure is never cached; GATE_CACHE=0 or PUSH_FULL=1 runs them anyway.
 # The journey gate (owner, 10 Oct 2026): a push touching a flow file runs the applying scenarios as event sequences (tools/journey-gate.mjs, seconds,
 # no browser). Unlike the matrix below it needs no browser, and it runs even when the change is in extension/ only, which the affected-tests pick missed.
+# Both gates key their pass on the files they read, not the whole tree (owner, 11 Oct 2026: a push refused because main moved re-ran ~10 min of replay after a rebase
+# over commits that touched neither): the extension, the app's lib/tests/e2e/scripts, the worker, the flow docs, the gate tools. Unsure = add the path.
+# The extra text is the changed files inside those paths (they decide which parts run). A new reader of a file outside this list: add it (tests/test_gate_order.py).
+gate_paths="extension desktop/lib desktop/test desktop/e2e desktop/scripts desktop/package.json desktop/package-lock.json worker/src docs/flows tools/journey-gate.mjs tools/ladder-gate.mjs tools/gate-cache.sh"
+gate_touched() { git -C "$repo" diff --name-only origin/main..HEAD -- $gate_paths 2>/dev/null | shasum -a 256 | cut -c1-16; }
 if command -v node >/dev/null && [ -f "$repo/tools/journey-gate.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
-  journeys="$(cd "$repo" && timed "journey gate" gate_cache_run "$repo" journey-gate "" node tools/journey-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $journeys" >&2; exit 2; }
+  journeys="$(cd "$repo" && GATE_CACHE_PATHS="$gate_paths" timed "journey gate" gate_cache_run "$repo" journey-gate "touched=$(gate_touched)" node tools/journey-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $journeys" >&2; exit 2; }
   [ -n "$journeys" ] && echo "$journeys" >&2
 fi
 # The ladder gate (docs/flows/ladder.md): a push touching a flow file, the page-kind decision or the ladder fixtures replays every fixture offline against the baseline: none may get worse (tools/ladder-gate.mjs, seconds, no model).
 if command -v node >/dev/null && [ -f "$repo/tools/ladder-gate.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
-  ladder="$(cd "$repo" && timed "ladder gate" gate_cache_run "$repo" ladder-gate "" node tools/ladder-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $ladder" >&2; exit 2; }
+  ladder="$(cd "$repo" && GATE_CACHE_PATHS="$gate_paths" timed "ladder gate" gate_cache_run "$repo" ladder-gate "touched=$(gate_touched)" node tools/ladder-gate.mjs --base origin/main 2>&1)" || { echo "Push blocked: $ladder" >&2; exit 2; }
   [ -n "$ladder" ] && echo "$ladder" >&2
 fi
 # Which suites this push needs (AGENTS.md "Change tiers"). `PUSH_FULL=1 git push ...` runs everything (Tier 2). Docs alone run nothing; a path
