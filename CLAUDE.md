@@ -22,8 +22,8 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
   profile/CV, paid APIs), cut it off and assert it; always through the harness (`desktop/e2e/lib/extension.mjs`, `real-extension.mjs`); real sites
   only with fake applicant data. The one exception is the twin ([docs/live-test.md](docs/live-test.md)): never the owner's window, never Submit, never a password field.
 - **Secrets only in the macOS Keychain** (`job-pilotto.*`), GitHub secrets and Cloudflare Worker secrets; never in code, docs or Notion.
-- **Claim the flow core before editing** `FLOW_CORE` / `FLOW_FILES` (`desktop/e2e/flows.mjs`): message every peer, read the file's "Invariants:"
-  block, say "released" when done ([docs/rules/applying.md](docs/rules/applying.md)).
+- **The flow core claims itself** (`FLOW_CORE` / `FLOW_FILES`, `desktop/e2e/flows.mjs`): your open PR is the claim, no message to peers; the required check `flow-fresh`
+  fails when main changed a flow file your PR also changes, and `tools/ship.sh` rebases and pushes again. Read the file's "Invariants:" block first ([docs/rules/applying.md](docs/rules/applying.md)).
 - **Meaning comes from AI, never from keyword lists:** emails, pages, buttons and questions come in any language. Fetch by structure, let AI decide with a fixed
   answer the code validates (`src/ai/decide.py`, `meanings.py`); a word list is at most a free shortcut in front of the AI or a safety floor.
   **Judgments about a page are the AI's** (ready? did it work? bot check? which step?); structure only finds controls, floors only AND with the AI.
@@ -57,7 +57,7 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
    - Tier 1 (feature, screen): + one targeted `npm run shot`.
    - Tier 2 (money, store writes, apply flow, installer, engine, migrations): the fast loop too, no local e2e suite: CI runs the e2e suites and all recorded pages; `--full` only by choice.
 3. **Tests first** for new behaviour and for any bug the owner saw (watch it fail). A behaviour change updates the e2e step it breaks in the same commit.
-4. **Land:** `tools/ship.sh` (rebase, the touched suites, push with retry). Commit subject ≤ 72 characters, imperative, no reasons in it.
+4. **Land:** `tools/ship.sh` (rebase, the fast checks, push the branch, open a PR with auto-merge, wait for the merge: `ship: DONE <sha>` means merged; CI runs the suites and replays on the PR). Commit subject ≤ 72 characters, imperative, no reasons in it.
    Never a CI e2e run by hand ([docs/rules/change-loop.md](docs/rules/change-loop.md)).
 5. **After landing, only what applies:**
    - The history is the commit messages (the Notion Run Log and Session Handoff were retired on 11 Oct 2026).
@@ -85,7 +85,8 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 
 ## Tests
 `python3 -m unittest discover -s tests`, `cd worker && npm test`, `cd desktop && npm test` (`tools/check.sh` runs them as CI does).
-- The pre-push hook (`.claude/settings.json` → `tools/pre-push-check.sh`) runs the suites of the areas the push touches on a clean checkout
+- **On a PR push (`SHIP_PR=1`, what ship.sh does) the hook runs only the fast pure checks** (subjects, trailers, file size, recorded cases, rung trailer; seconds); the suites, journey/ladder gates and replays run in CI on the PR (`pr-gate.yml`, `build.yml`, `recorded-pages.yml`), where the same script runs with `CI_GATES=1`.
+  Otherwise (the direct push) the pre-push hook (`.claude/settings.json` → `tools/pre-push-check.sh`) runs the suites of the areas the push touches on a clean checkout
   (`PUSH_FULL=1`: all), lints workflows, proves `npm ci` when a lock file changed, and blocks a push on a red main (AGENTS.md "Red main").
   The e2e harness's own unit tests (`desktop/e2e` npm test) run on CI only (owner, 11 Oct 2026); `JP_E2E_UNIT=1` runs them before a push.
 - The Stop hook (`tools/stop-test-check.sh`) runs the suites your changes touch before you say done.

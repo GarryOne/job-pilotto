@@ -58,18 +58,19 @@ echo "ship: log: $log"
 started=$SECONDS
 if [ -f "$here/tools/landing-lock.sh" ]; then source "$here/tools/landing-lock.sh"; else landing_acquire() { :; }; landing_release() { :; }; fi   # a queue only with SHIP_LANDING_LOCK=1 (off by default: a refused push rebases and re-runs the checks)
 if [ -f "$here/tools/ship-timeline.sh" ]; then source "$here/tools/ship-timeline.sh"; timeline_begin "$log"; else timeline_mark() { :; }; timeline_write() { :; }; fi   # one line per landing in ship-timeline.log
+if [ -f "$here/tools/ship-pr.sh" ]; then source "$here/tools/ship-pr.sh"; else ship_mode() { echo direct; }; fi   # landing through a pull request with auto-merge (12 Oct 2026); any other origin pushes to main as before
 if [ -f "$here/tools/ship-red.sh" ]; then source "$here/tools/ship-red.sh"; else ship_red_gate() { :; }; fi   # while main is red every landing but the fix waits (tools/red-main.sh)
 step() { timeline_mark "$*"; echo "ship: [$((SECONDS - started))s] $*"; }
 # DONE is printed only by a run that reached one of its two real ends (`finished=1`: pushed, or deliberately nothing to push). A signal exits non-zero
 # and stops the push checks it started; an exit 0 that never got to an end is reported as such, never as DONE (10 Oct 2026: a killed background run logged
 # "DONE nothing to push" with its commit unpushed).
-finished=""; check_pid=""
+finished=""; check_pid=""; fail_reason=""
 killtree() { local child; for child in $(pgrep -P "$1" 2>/dev/null); do killtree "$child"; done; kill "$1" 2>/dev/null; return 0; }   # the checks start suites of their own
 on_signal() { echo "ship: stopped by signal $1" >&2; [ -n "$check_pid" ] && killtree "$check_pid"; exit $((128 + $2)); }
 trap 'on_signal TERM 15' TERM
 trap 'on_signal INT 2' INT
 trap 'on_signal HUP 1' HUP
-trap 'code=$?; landing_release; timeline_write "$code"; if [ "$code" -ne 0 ]; then echo "ship: FAILED (exit $code), log: $log"; elif [ -n "$finished" ]; then echo "ship: DONE ${sha:-nothing to push}"; else echo "ship: FAILED (ended early without pushing or finishing), log: $log"; fi' EXIT
+trap 'code=$?; landing_release; timeline_write "$code"; if [ "$code" -ne 0 ]; then echo "ship: FAILED ${fail_reason:-(exit $code)}, log: $log"; elif [ -n "$finished" ]; then echo "ship: DONE ${sha:-nothing to push}"; else echo "ship: FAILED (ended early without pushing or finishing), log: $log"; fi' EXIT
 
 rebase() {
   git fetch -q origin
@@ -114,10 +115,12 @@ rebase
 
 ship_red_gate "before the checks"
 # The hook is a Claude Code hook, so a script's own `git push` never meets it: run its checks here as it would see the push (again after a refused push).
-payload="$(jq -n --arg command "${flags}git push origin $branch:main" --arg cwd "$here" '{tool_input: {command: $command}, cwd: $cwd}')"
+mode="$(ship_mode)"
+if [ "$mode" = pr ]; then push_command="${flags}SHIP_PR=1 git push origin $branch"; else push_command="${flags}git push origin $branch:main"; fi   # SHIP_PR=1: the hook runs only its fast pure checks, CI runs the rest on the PR
+payload="$(jq -n --arg command "$push_command" --arg cwd "$here" '{tool_input: {command: $command}, cwd: $cwd}')"
 # It prints nothing while it passes and takes minutes: a heartbeat every 20 s says it is still working; its own words show only on failure.
 run_checks() {  # [why]
-  step "running the push checks${1:+ $1} (the suites of the touched areas; ${flags:+$flags}this can take a few minutes)"
+  step "running the push checks${1:+ $1} ($([ "$mode" = pr ] && echo 'the fast pure checks; CI runs the suites on the PR' || echo 'the suites of the touched areas'); ${flags:+$flags}this can take a few minutes)"
   checks="$(mktemp)"
   bash "$here/tools/pre-push-check.sh" <<<"$payload" > "$checks" 2>&1 &
   check_pid=$!
@@ -141,31 +144,35 @@ if [ -z "${SHIP_NO_WAIT:-}" ] && ! git diff --quiet origin/main HEAD -- .github/
 fi
 
 ship_red_gate "before the push"
-step "pushing to main"
-pushed=""
-for attempt in 1 2 3 4 5; do
-  before="$(git rev-parse origin/main)"
-  if out="$(git push origin HEAD:main 2>&1)"; then pushed=1; break; fi
-  [ "$attempt" -lt 5 ] || break   # the last push was refused: no rebase and no checks for a push that will not come
-  echo "ship: push rejected, main moved ($attempt/5): fetching and rebasing again" >&2
-  rebase
-  # The checks run again only when what just landed can clash with this landing (tools/recheck-needed.py: a shared file, the checks' own files, a test both
-  # sides run, ...). Otherwise the push goes at once and CI is the net: a bad combination shows as a red main (11 Oct 2026: 18 refusals a day, median 78 s each).
-  # SHIP_RECHECK=1 re-runs the checks after every refusal, as before.
-  verdict="recheck: SHIP_RECHECK=1"
-  if [ -z "${SHIP_RECHECK:-}" ]; then
-    verdict="$(python3 -I "$here/tools/recheck-needed.py" --mine $(git diff --name-only origin/main HEAD) --incoming $(git diff --name-only "$checked_base" origin/main) 2>&1)" || [ $? = 1 ] || verdict="recheck: the decision tool failed"
-  fi
-  case "$verdict" in
-    skip:*) step "not re-running the checks (SHIP_RECHECK=1 re-runs them): ${verdict#skip: }" ;;
-    *) checked_base="$(git merge-base HEAD origin/main)"; run_checks "again, on the new main (${verdict#recheck: })" ;;   # the combination with what just landed is checked before it is pushed
-  esac
-  [ "${GATE_TIMING:-1}" = 0 ] || echo "# $(date -u +%Y-%m-%dT%H:%M:%SZ) refused push recheck=${verdict%%:*} why=${verdict#*: }" >>"$(git rev-parse --path-format=absolute --git-common-dir)/gate-timing.log"
-done
-[ -n "$pushed" ] || { echo "ship: still rejected after 5 tries:" >&2; echo "$out" | tail -3 >&2; exit 1; }
-sha="$(git rev-parse --short HEAD)"
-files="$(git diff --name-only "$before" HEAD)"
-echo "ship: pushed $sha to main: $(git log -1 --format=%s)"
+if [ "$mode" = pr ]; then
+  ship_pr_land
+else
+  step "pushing to main"
+  pushed=""
+  for attempt in 1 2 3 4 5; do
+    before="$(git rev-parse origin/main)"
+    if out="$(git push origin HEAD:main 2>&1)"; then pushed=1; break; fi
+    [ "$attempt" -lt 5 ] || break   # the last push was refused: no rebase and no checks for a push that will not come
+    echo "ship: push rejected, main moved ($attempt/5): fetching and rebasing again" >&2
+    rebase
+    # The checks run again only when what just landed can clash with this landing (tools/recheck-needed.py: a shared file, the checks' own files, a test both
+    # sides run, ...). Otherwise the push goes at once and CI is the net: a bad combination shows as a red main (11 Oct 2026: 18 refusals a day, median 78 s each).
+    # SHIP_RECHECK=1 re-runs the checks after every refusal, as before.
+    verdict="recheck: SHIP_RECHECK=1"
+    if [ -z "${SHIP_RECHECK:-}" ]; then
+      verdict="$(python3 -I "$here/tools/recheck-needed.py" --mine $(git diff --name-only origin/main HEAD) --incoming $(git diff --name-only "$checked_base" origin/main) 2>&1)" || [ $? = 1 ] || verdict="recheck: the decision tool failed"
+    fi
+    case "$verdict" in
+      skip:*) step "not re-running the checks (SHIP_RECHECK=1 re-runs them): ${verdict#skip: }" ;;
+      *) checked_base="$(git merge-base HEAD origin/main)"; run_checks "again, on the new main (${verdict#recheck: })" ;;   # the combination with what just landed is checked before it is pushed
+    esac
+    [ "${GATE_TIMING:-1}" = 0 ] || echo "# $(date -u +%Y-%m-%dT%H:%M:%SZ) refused push recheck=${verdict%%:*} why=${verdict#*: }" >>"$(git rev-parse --path-format=absolute --git-common-dir)/gate-timing.log"
+  done
+  [ -n "$pushed" ] || { echo "ship: still rejected after 5 tries:" >&2; echo "$out" | tail -3 >&2; exit 1; }
+  sha="$(git rev-parse --short HEAD)"
+  files="$(git diff --name-only "$before" HEAD)"
+  echo "ship: pushed $sha to main: $(git log -1 --format=%s)"
+fi
 
 # Bring the main checkout up to date, unless a session left uncommitted edits to a file this push changed.
 if [ "$(git -C "$main" rev-parse --abbrev-ref HEAD)" = main ]; then

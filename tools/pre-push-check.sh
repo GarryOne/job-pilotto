@@ -9,6 +9,7 @@
 set -uo pipefail
 source "$(dirname "$0")/gate-timing.sh" 2>/dev/null || { gate_timing_start() { :; }; timed() { shift; "$@"; }; gate_summary() { :; }; }
 gate_timing_start
+workflows_lint() { SHELLCHECK_OPTS='--severity=warning' actionlint .github/workflows/*.yml; }
 GATE_DEFERRABLE=""; GATE_DEFERRED=""
 source "$(dirname "$0")/gate-watchdog.sh" 2>/dev/null || { gate_budget() { echo 0; }; gate_wait_budget() { wait; }; gate_was_deferred() { return 1; }; }
 source "$(dirname "$0")/gate-cache.sh" 2>/dev/null || gate_cache_run() { shift 3; "$@"; }   # a checkout without it (the hook's own test repo) runs everything
@@ -45,7 +46,7 @@ repo="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || exit 0
 # Don't stack commits on a red main: when main's state (tools/red-main.sh: the newest commit with a finished verdict, a failed job in a running build counts) is red, block the push unless the
 # command says it is the fix or a revert: `CI_RED_OK=1 git push ...`. A fix still building does NOT let others through (11 Oct 2026: four landings went in on top of a fix attempt that ended red):
 # main is green again only when a later commit's run has completed green. No gh or no network: skip. The first session to meet a red main unblocks everyone (AGENTS.md "Red main").
-case "$command" in *CI_RED_OK=1*) ;; *)
+case "$command" in *CI_RED_OK=1*|*CI_GATES=1*) ;; *)
   if [ "${SHIP_IGNORE_RED:-}" != 1 ] && [ -f "$repo/tools/red-main.sh" ]; then
     state="$(bash "$repo/tools/red-main.sh" 2>/dev/null)" || true
     case "$state" in red*)
@@ -107,7 +108,7 @@ esac
 
 # The place sorter, checked with real AI answers when its code changes (7 Oct 2026: two of the day's place bugs were the real model's answers, which
 # unit tests fake): tools/places_check.py, ~5 Haiku calls. `PLACES_CHECK_OK=1 git push ...` skips it (say why in the commit). No AI here: skipped, said.
-case "$command" in *PLACES_CHECK_OK=1*) ;; *)
+case "$command" in *PLACES_CHECK_OK=1*|*CI_GATES=1*) ;; *)
   if git -C "$repo" rev-parse --verify -q origin/main >/dev/null && git -C "$repo" diff --name-only origin/main...HEAD | grep -qE '^src/(ai/place_triage|sources/feeds)\.py$'; then
     if command -v claude >/dev/null || [ -n "${ANTHROPIC_API_KEY:-}" ]; then
       engine="$([ -n "${ANTHROPIC_API_KEY:-}" ] && echo api || echo cli)"
@@ -121,7 +122,7 @@ esac
 
 # A new e2e step must have been seen passing (6 Oct 2026: one that never had failed the 0.5.8 beta gate on its own premise): a local run of it, or an
 # "E2E-passed: <run url>" / "E2E-unverified: <why>" line in a commit message (tools/new-e2e-steps.mjs). No node, or no origin/main: skipped.
-if command -v node >/dev/null && [ -f "$repo/tools/new-e2e-steps.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
+if ! [[ "$command" == *CI_GATES=1* ]] && command -v node >/dev/null && [ -f "$repo/tools/new-e2e-steps.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then   # CI has no local run to find: the commit message's E2E-passed line is read by the CI-less gate only
   unseen="$(cd "$repo" && timed "new e2e steps" node tools/new-e2e-steps.mjs --base origin/main 2>&1)" || { echo "Push blocked: $unseen" >&2; exit 2; }
 fi
 
@@ -149,6 +150,15 @@ case "$command" in *E2E_ISSUE_OK=1*) ;; *)
   if command -v node >/dev/null && [ -f "$repo/tools/e2e-issue-links.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
     links="$(cd "$repo" && timed "e2e issue links" node tools/e2e-issue-links.mjs --base origin/main 2>&1)" || { echo "Push blocked: $links" >&2; exit 2; }
   fi ;;
+esac
+# A push to a pull request branch (tools/ship.sh, 12 Oct 2026: `SHIP_PR=1 git push`) stops here: everything above is seconds. The suites, the journey and ladder gates and the
+# recorded-page replays run in CI on the PR (.github/workflows/pr-gate.yml, build.yml, recorded-pages.yml), in parallel, not on this Mac behind the heavy lock.
+# CI runs this same script for the pure checks above: CI_GATES=1 (no red-main look, no AI place check, no local-run proof of new e2e steps). Only the workflow lint stays local.
+case "$command" in *SHIP_PR=1*|*CI_GATES=1*)
+  if git -C "$repo" diff --name-only origin/main..HEAD 2>/dev/null | grep -q '^\.github/workflows/' && command -v actionlint >/dev/null; then
+    lint="$(cd "$repo" && timed "workflow files (actionlint)" workflows_lint 2>&1)" || { echo "Push blocked: $lint" >&2; exit 2; }
+  fi
+  exit 0 ;;
 esac
 # The journey and ladder gates reuse a pass on exactly the same tree (tools/gate-cache.sh; owner, 11 Oct 2026: a retry that only changed a commit
 # message re-ran the 255 s journey gate); a failure is never cached; GATE_CACHE=0 or PUSH_FULL=1 runs them anyway.

@@ -29,7 +29,7 @@ Why each rule exists: [why.md](why.md#change-loop).
    `git checkout origin/main -- extension/fingerprint.json`, then write).
 4. **Commits:** small local commits are free; what lands is 1-3 squashed commits by concern.
 5. **Parallel sessions by file ownership, not by task:** one session owns the flow core; others get new files, tests, the site, measurement
-   (brief + own worktree + commit only + report; the coordinator lands). Fix the landing order and any freeze window up front; message every peer.
+   (brief + own worktree + commit only + report; the coordinator lands). Fix the landing order and any freeze window up front; message every peer (the flow core needs no claim message: an open PR is the claim).
 6. **A migration or move is its own pure commit** ([files.md](files.md#splitting-a-file-safely)).
 7. **Measure per source** (real / reconstructed / invented), never blended, never tune on invented data.
 
