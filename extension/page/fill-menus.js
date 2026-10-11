@@ -70,7 +70,7 @@
         const opened = el.getAttribute('aria-expanded') === 'true' || optionNodes().length > 0;   // before the pick closes it
         const took = option ? await (window.__jobPilottoMenuPick?.({el, option, control, readValue: comboValue}) ?? (option.click(), {selectedAfter: true, trusted: false})) : {selectedAfter: false, trusted: false};
         window.__jobPilottoLastPick = {asked: String(answer).split(' || ')[0], got: option ? clean(option.textContent) : '', opened, found: !!option, choices: option ? [] : (shown || []).slice(0, 8).map(text => text.slice(0, 60)),
-          peek: option ? '' : clean(Array.from(document.querySelectorAll('[class*="menu"], [role="listbox"]')).map(m => m.textContent).join(' | ')).slice(0, 160), ...took};   // choices: the form's own wording of a menu nothing matched, for the log (never the answer)
+          peek: option ? '' : Array.from(document.querySelectorAll('[class*="menu-notice"], [class*="menu-list"], [role="listbox"]')).filter(n => !/iti__|country/.test(String(n.className))).map(n => clean(n.textContent).slice(0, 30)).slice(0, 3).join(' | '), ...took};   // choices, peek: the form's own wording of a menu nothing matched (its choices, or its "No options" notice), for the log; never the answer
         if (took.selectedAfter) { done(); return; }
         badge.textContent = `✈️ Suggested: ${answer} (pick it yourself)`; if (!option) window.__jobPilottoMenuMissed?.(el, shown);   // page/propose.js: no text left in the box; its choices go to the app
       } finally { window.__jobPilottoPicking = false; } }, 120);
