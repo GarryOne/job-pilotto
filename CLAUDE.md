@@ -41,6 +41,8 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
   per application. Detail: [docs/rules/applying.md](docs/rules/applying.md).
 - **Files: one concern each, ≤ 500 lines; split near 450** as a pure move. Detail: [docs/rules/files.md](docs/rules/files.md).
 - **Tests also run on Windows CI** (main went red twice on 11 Oct 2026): temp folders via `os.tmpdir()`, never `/tmp`; compare paths after turning `\` into `/`.
+  **Linux CI too** (main red again on 11 Oct 2026: `stat -f %m` succeeds on Linux with file-system text): shell uses the GNU form first (`stat -c`, `date -d`), the macOS form as fallback;
+  `tests/test_shell_portability.py` fails with file:line on a bare macOS form.
 - **Screens:** reuse cards, components and tokens; every new screen or action goes in the ⌘K palette. Detail: [docs/rules/desktop-ui.md](docs/rules/desktop-ui.md),
   skill **ui-look-and-feel**; `desktop/` changes: skill **desktop-change**.
 - **Every lesson lands in its strongest form** (a failing test, a gate, a skill step, memory, a spec checklist; a note is the weakest).
