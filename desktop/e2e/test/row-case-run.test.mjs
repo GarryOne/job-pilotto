@@ -27,3 +27,8 @@ test('CI replays a row case LOOSE: the replay is asked for it, a loose hit is a 
   assert.equal(looseSummary([]), '');
   assert.equal((await runRowCase(item, {replay: async () => result(['posting', 'form'])})).loose, '');
 });
+
+test('a miss in CI names the parts of the nearest kept ask that differ (the failure line is all CI shows)', async () => {
+  const done = await runRowCase(item, {replay: async () => result(['posting', 'form'], {misses: 1, missParts: ['user:Buttons', 'user:line#41'], missVolatile: []})});
+  assert.match(done.failures.join('\n'), /the nearest kept ask differs in user:Buttons, user:line#41/);
+});
