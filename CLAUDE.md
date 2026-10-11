@@ -45,8 +45,8 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 - **No subagents** unless the owner asks: work inline. **One issue per session**; new splittable work goes to a hand-off.
 
 ## The change loop
-1. **Worktree:** `tools/worktree.sh <topic>`. Worktrees are **kept** after landing (owner, 11 Oct 2026); `tools/worktree.sh prune` (once it lands)
-   removes ones fully on main and untouched for 7 days. Never remove another session's worktree.
+1. **Worktree:** `tools/worktree.sh <topic>`. Worktrees are **kept** after landing (owner, 11 Oct 2026); `tools/worktree.sh prune` (dry run;
+   `--yes` acts) removes ones fully on main and untouched for 7 days. Never remove another session's worktree.
 2. **Say the tier** (AGENTS.md "Change tiers") and **the test method** (AGENTS.md "Which test for which question"); stop when the tier is met.
    - Tier 0 (copy, CSS, small fix): the touched tests, no screenshot.
    - Tier 1 (feature, screen): + one targeted `npm run shot`.

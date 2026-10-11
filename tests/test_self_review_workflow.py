@@ -22,7 +22,7 @@ class SelfReviewWorkflowTests(unittest.TestCase):
         self.assertEqual([t for t in tools if t.startswith('Bash(')], ['Bash(git show:*)', 'Bash(git log:*)'])
 
     def test_only_rule_and_skill_files_reach_the_pr(self):
-        self.assertIn(r"^(CLAUDE\.md|AGENTS\.md|\.claude/skills/[^/]+/SKILL\.md)$", self.text)
+        self.assertIn(r"^(CLAUDE\.md|AGENTS\.md|docs/rules/[^/]+\.md|\.claude/skills/[^/]+/SKILL\.md)$", self.text)
         self.assertIn('branch="self-review/', self.text)
         self.assertIn('DATA', self.text)
         self.assertNotIn('workflows: write', self.text)

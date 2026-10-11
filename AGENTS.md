@@ -100,8 +100,9 @@ them from colliding in one checkout:
   The checks take minutes: run **`tools/ship.sh --background`** (returns at once, names its log); the log's last line is `ship: DONE <sha>` or
   `ship: FAILED …` (8 Oct 2026: a run cut off by a timeout and piped through `tail` showed nothing). By hand it is still
   `git fetch && git rebase origin/main && git push origin <topic>:main` (fast-forward only; rejected: fetch, rebase, push again).
-- **Keep worktrees after landing**; never remove another session's. `tools/worktree.sh prune` (by hand or monthly, once it lands) removes
-  folders whose branch is fully on main and untouched for 7 days, keeping the branch and anything uncommitted, never one a live session uses.
+- **Keep worktrees after landing**; never remove another session's. `tools/worktree.sh prune` (dry run; `--yes` acts; by hand or monthly) removes
+  folders whose branch is fully on origin/main and untouched for 7 days (`JP_PRUNE_DAYS`), keeping the branch, uncommitted/untracked work, and
+  any worktree a running process sits in.
 - Never force-push `main` — not `--force`, not `--force-with-lease`. Several agents push here in
   parallel, and a force-push deletes every commit that landed since your last fetch, silently. This
   happened on 1 Oct 2026: a `--force-with-lease` during a rebase dropped `8dce9ba` ("Windows update:
