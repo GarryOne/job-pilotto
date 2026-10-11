@@ -203,7 +203,7 @@ async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => s
     if (!shape || (shape.fields + shape.textareas + shape.files < 2 && !framed)) continue;
     lookedAgain.add(key);
     started.delete(key);
-    if (framed && !newHost) await forgetKind(tab, null, 'a frame became a form-frame candidate');   // a kept answer for this page shape never saw the candidate
+    if (framed) await forgetKind(tab, null, newHost ? 'a frame appeared' : 'a frame became a form-frame candidate');   // a kept answer for this page shape never saw the frame (Datadog: it grew; Ocado: the Apply press opened it)
     let host = ''; try { host = new URL(live.url).hostname; } catch { /* no address */ }
     decide('fill', framed ? 'a frame appeared on a page judged without a form: looking again' : 'fields appeared on a page judged without a form: looking again', {host, fields: shape.fields + shape.textareas + shape.files, frames: shape.frames || 0, after: (i + 1) * 2});
     await arm(tab.id, 'fields appeared');

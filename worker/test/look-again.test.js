@@ -12,7 +12,9 @@ test('the page shape counts visible frames, and a frame that appears later makes
   assert.match(flow, /watchForFields\(tab, jobUrl, undefined, botCheck \? 60 : 10, counts\?\.frameHosts \|\| \[\]\)/, 'the baseline is what the judgment saw');
   assert.match(flow, /const newHost = \(shape\?\.frameHosts \|\| \[\]\)\.some\(host => !hadHosts\.includes\(host\)\);/, 'a frame whose host shows up later is new');
   assert.match(flow, /const framed = newHost \|\| \(!!shape && await frameBecameCandidate\(tab\.id\)\);/, 'a frame that became a form-frame candidate later is new too');
-  assert.match(flow, /if \(framed && !newHost\) await forgetKind\(/, 'a kept answer for the shape never saw that candidate');
+  // Whichever way the frame came (a new host, or one that grew into a candidate), a kept answer for the page shape never saw it (Ocado, 11 Oct 2026: the Apply press opened a form frame, the kept "posting" was served again).
+  assert.match(flow, /if \(framed\) await forgetKind\(/, 'a kept answer for the shape never saw that frame');
+  assert.doesNotMatch(flow, /framed && !newHost/, 'a new frame host is no exception');
   assert.match(flow, /if \(!shape \|\| \(shape\.fields \+ shape\.textareas \+ shape\.files < 2 && !framed\)\) continue;/);
   const watch = flow.slice(flow.indexOf('async function watchForFields'), flow.indexOf('export async function consider'));
   assert.ok(watch.indexOf('const framed') < watch.indexOf('await consider(live, jobUrl)'), 'judged again after the frame');
