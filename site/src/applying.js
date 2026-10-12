@@ -10,6 +10,7 @@ import {digest} from './digest.js';
 import {cachedJson, dropSnapshot, latestRuns, refreshLatest, slowCache} from './applying-store.js';
 import {topCauses} from './applying-cause.js';
 import {readReplays, replayCases} from './applying-replays.js';
+import {CASES_SCRIPT} from './applying-cases.js';
 import {nextToAdd} from './nextsites.js';
 import {platformScorecard} from './scorecard.js';
 import {displayName, flowOf, platformLabel, SIGNATURE, signatureHost} from './platform.js';
@@ -389,35 +390,7 @@ fetch('?json', {headers: {'X-Caller': 'page-tab'}}).then(r => r.json()).then(d =
     el('p', {className: 'muted', textContent: 'Per platform: its share of the matched jobs and how well real forms are filled (the form-filling page), against the pool sites on it and how many reached the form. Verdicts, in the order to act: not in the pool; weak in both; blind spot (tests reach the form, real users do not fill it); test failing (real use is fine). Under 5 real forms is no evidence.'}), scoreBox)); drawScore();
 ${FIXED_SCRIPT}
   drawFix(); drawFixed(); drawCauses(); showTab();
-  // The replays of CI on main after each merge (src/applying-replays.js): every row says the build's sha and when it ran; a local run is never shown.
-  const caseBox = el('div'), CASE_GET = [c => c.name.toLowerCase(), c => c.rung, c => (c.ok ? 1 : 0), c => runsScore(c.history, run => run === 1), c => c.at, c => c.since.at];
-  const CASE_COLS = ['c-case', 'c-rung', 'c-result', 'c-runs', 'c-last', 'c-since'];   // widths: .fit th.c-* (the note keeps to 2 lines, the rest on hover: never a sideways scroll)
-  const COMMIT = 'https://github.com/GarryOne/job-pilotto/commit/', shaLink = (sha, at) => el('span', {}, el('a', {className: 'hash', href: COMMIT + sha, textContent: sha.slice(0, 7)}), el('span', {className: 'stack', textContent: ago(at)}));
-  // Search, Result and Rung filters, sorting and 15 rows a page: the pool table's parts (owner, 12 Oct 2026: "just like other tables on the page").
-  const CASE_PER = 15, caseChosen = {result: null, rung: null, query: '', page: 0}, caseTable = el('div'), caseCount = el('span', {className: 'muted count'}), casePager = el('div', {className: 'pager'});
-  const caseGroups = (get, label) => Object.entries(d.cases.reduce((out, c) => ((out[get(c)] = (out[get(c)] || 0) + 1), out), {})).sort(([a], [b]) => a.localeCompare(b)).map(([name, sites]) => ({name, sites, label: label(name)}));
-  const caseRung = c => (c.rung == null ? 'none' : String(c.rung)), caseResult = c => (c.ok ? 'passed' : 'failed');
-  const caseSearch = el('input', {type: 'search', placeholder: 'Case, result, note or rung', 'aria-label': 'Search the replays', autocomplete: 'off', oninput: event => { caseChosen.query = event.target.value; caseChosen.page = 0; drawCases(); }});
-  const caseClear = el('button', {className: 'chip', type: 'button', textContent: 'Clear', hidden: true, onclick: () => { caseChosen.result = caseChosen.rung = null; caseChosen.query = ''; caseChosen.page = 0; caseFilters.querySelectorAll('select').forEach(node => { node.value = ''; }); caseSearch.value = ''; drawCases(); }});
-  const caseHead = el('p', {className: 'muted'}), caseOptions = {state: caseChosen, redraw: () => drawCases(), unit: 'case'};
-  const caseFilters = el('div', {className: 'filters'}, el('label', {className: 'pick search'}, el('span', {className: 'muted', textContent: 'Search'}), caseSearch),
-    pick('result', caseGroups(caseResult, name => name[0].toUpperCase() + name.slice(1)), 'Result', 'All results · ' + d.cases.length + ' cases', caseOptions),
-    pick('rung', caseGroups(caseRung, name => (name === 'none' ? 'No rung' : 'Rung ' + name)), 'Rung guarded', 'All rungs', caseOptions), caseCount, caseClear, casePager);
-  caseBox.append(caseHead, caseFilters, caseTable);
-  const drawCases = () => { const last = d.cases[0]; caseHead.textContent = last ? 'CI on main, after the merge of ' + last.sha.slice(0, 7) + ' (' + ago(last.at) + (last.version ? ', extension ' + last.version : '') + '): every recorded case replayed on that build. Local runs are not shown.' : '';
-    const rows = sortRows('cases', d.cases.filter(c => (!caseChosen.result || caseResult(c) === caseChosen.result) && (!caseChosen.rung || caseRung(c) === caseChosen.rung) && caseMatches(c, caseChosen.query)), CASE_GET), pages = Math.max(1, Math.ceil(rows.length / CASE_PER));
-    caseChosen.page = Math.min(caseChosen.page, pages - 1); const from = caseChosen.page * CASE_PER, shown = rows.slice(from, from + CASE_PER);
-    caseCount.textContent = 'Showing ' + (rows.length ? from + 1 : 0) + '–' + (from + shown.length) + ' of ' + rows.length + (rows.length < d.cases.length ? ' (' + d.cases.length + ' cases)' : ''); caseClear.hidden = !caseChosen.result && !caseChosen.rung && !caseChosen.query;
-    casePager.textContent = ''; if (pages > 1) { const go = step => () => { caseChosen.page += step; drawCases(); };
-      casePager.append(el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: caseChosen.page === 0, onclick: go(-1)}), el('button', {className: 'chip', type: 'button', textContent: 'Next →', disabled: caseChosen.page >= pages - 1, onclick: go(1)})); }
-    caseTable.textContent = ''; caseTable.append(rows.length ? el('table', {className: 'fit'},
-    el('tr', {}, ...heads('cases', ['Case', 'Rung guarded', 'Result', 'Last 10 runs', 'Last run', 'Since'], () => { caseChosen.page = 0; drawCases(); }).map((th, at) => Object.assign(th, {className: th.className + ' ' + CASE_COLS[at]}))),
-    ...shown.map(c => el('tr', {}, el('td', {className: 'c-case', textContent: c.name}), el('td', {className: 'muted c-rung', textContent: c.rung ?? '—'}), el('td', {className: 'c-result'}, c.ok ? el('span', {className: 'pill s-ready', textContent: 'passed'}) : el('span', {className: 'pill s-posting', textContent: 'failed'}),
-      c.note ? el('div', {className: 'muted clamp', title: c.note, textContent: c.note}) : null), el('td', {className: 'c-runs'}, dots(c.history)), el('td', {className: 'muted c-last'}, shaLink(c.sha, c.at)),
-      el('td', {className: 'muted c-since'}, shaLink(c.since.sha, c.since.at))))) : el('p', {className: 'muted', textContent: 'No case matches.'})); };
-  app.append(el('section', {}, el('h2', {textContent: 'Fixed-site replays · every fixed site, replayed'}), d.cases.length ? caseBox
-    : el('p', {className: 'muted', textContent: 'No replay from CI on main yet: the next merge to main uploads one (.github/workflows/recorded-pages.yml).'}))); if (d.cases.length) drawCases();
-  app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table, colorLegend)
+${CASES_SCRIPT}  app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table, colorLegend)
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
   // Fetch again every 5 minutes while the tab is visible (and once when it becomes visible after longer), so the spinner and the times follow a run without a reload.
   // The server keeps the data for up to 10 minutes (src/applying-store.js), so a faster refresh would only repeat the same answer.
