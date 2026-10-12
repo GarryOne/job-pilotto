@@ -75,10 +75,14 @@
   // is its "field": the widest ancestor that holds this one slot and no other form control, so the title above the widget is part of it.
   // -> [{el: the field, input: a native file input or null, trigger: the pressable that opens one or null}]. Structure only: no wording.
   const REVEAL = /attach|upload|dropzone|dropbox/i;
-  const POPUP = '[role=dialog], [class*=popup], [class*=callout], [id^=jobpilotto], #jobpilotto-review-host';
+  const OWN = '[id^=jobpilotto], #jobpilotto-review-host';
+  const POPUP = '[role=dialog], [class*=popup], [class*=callout]';
+  const FIELDS = 'input:not([type=file]):not([type=hidden]):not([type=submit]):not([type=button]), select, textarea';
+  // A popup beside the form (a source picker the + opens) holds no other form control; a dialog that holds the form's own fields IS the form (an application drawn as a sheet).
+  const apart = el => !!el.closest(OWN) || (popup => !!popup && !popup.querySelector(FIELDS))(el.closest(POPUP));
   function uploadSlots(root, shown = () => true) {
     const starts = [];
-    for (const input of root.querySelectorAll('input[type=file]')) if (!input.closest(POPUP)) starts.push({input, trigger: null, start: input});
+    for (const input of root.querySelectorAll('input[type=file]')) if (!apart(input)) starts.push({input, trigger: null, start: input});
     // Pressables are grouped by the part of the page that names uploading (their parent if its class or id does, else themselves, else the nearest ancestor within three levels that does), so a widget with
     // several pressables (an info icon beside the +) is one slot, not several.
     const named = new Map();
@@ -93,7 +97,7 @@
       return null;
     };
     for (const el of root.querySelectorAll('[role=button], button')) {
-      if (el.type === 'submit' || el.closest(POPUP) || !shown(el)) continue;
+      if (el.type === 'submit' || apart(el) || !shown(el)) continue;
       const group = namedPart(el);
       if (group && !named.has(group)) named.set(group, el);
     }
