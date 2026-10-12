@@ -259,6 +259,21 @@ test('technical text inside an on-purpose log is not shown to the person; the sa
   assert.ok((await kinds(page, `<div id="activity-panel"><h2>Jobs check</h2><p>${trace}</p></div>`)).includes('error-shown'), 'the same words in a plain paragraph');
 }));
 
+// #404-#409 (12 Oct 2026): one raw API error was filed six times, as div.view, div.settings-layout and div.settings-pages (each container's whole text was read,
+// hidden parts included), and the element that held it was never named. The finding names the element that holds the words, once, and only what a person can see.
+test('technical text is one finding naming the element that holds it, never its containers; hidden text is not shown to anyone', () => withChrome(async page => {
+  const raw = 'Couldn\'t read your CV: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low."},"request_id":"req_1"}.';
+  const nested = level => `<div class="settings-layout">\n  <nav>Overview Profile</nav>\n  <div class="settings-pages">\n    <div class="panel"><h3>Your details</h3>\n      ${level}\n    </div>\n  </div>\n</div>`;
+  const shown = await findings(page, `<section class="view" data-view="jobs">${nested(`<p id="contact-panel-message" class="message">${raw}</p>`)}</section>`);
+  const hits = shown.filter(item => item.kind === 'error-shown');
+  assert.equal(hits.length, 1, JSON.stringify(hits));
+  assert.match(hits[0].detail, /^p#contact-panel-message\.message shows technical text/);
+  const hidden = await findings(page, `<section class="view" data-view="jobs">${nested(`<div class="save-bar" hidden><span id="contact-message" class="message">${raw}</span></div>`)}</section>`);
+  assert.deepEqual(hidden.filter(item => item.kind === 'error-shown'), [], 'text in a hidden bar is shown to no one (a press that answers there is the probe\'s silent-control)');
+  const split = await findings(page, `<section class="view" data-view="jobs">${nested('<p id="split" class="message">Not saved: Error code: <b>429</b></p>')}</section>`);
+  assert.deepEqual(split.filter(item => item.kind === 'error-shown').map(item => item.detail.split(' ')[0]), ['p#split.message'], 'words split over two elements are still one finding, on the element that holds them all');
+}));
+
 test('a result card and the run\'s own open log say the same words on purpose and are not a duplicate (#282, #283); two plain boxes still are', () => withChrome(async page => {
   const card = `<div class="run-card">${ITEMS}</div>`;
   assert.ok(!(await kinds(page, `${card}<pre id="log" class="log">${ITEMS}</pre>`)).includes('duplicate-content'), 'the log');

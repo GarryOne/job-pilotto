@@ -1,4 +1,4 @@
-/* global CSS, document, getComputedStyle, NodeFilter */
+/* global CSS, document, getComputedStyle */
 // Deterministic UI checks, run on every page the journey visits: the layout bugs a person sees at a glance and a unit test never does
 // (2 Oct 2026: one job row was twenty lines tall). Cheap and exact, no AI. Each finding: {view, severity, kind, detail}.
 //   severe  -> fails the journey (the page is visibly broken)
@@ -86,21 +86,30 @@ export function inspect({view, limits}) {
     /Traceback \(most recent call last\)/, /\bat [\w$.<>]+ \([^)]*:\d+:\d+\)/, /\[object Object\]/, /\bError code: \d{3}\b/,
     /\b(?:BadRequestError|APIConnectionError|RateLimitError|AuthenticationError|InternalServerError|TypeError|ReferenceError|SyntaxError|KeyError|AttributeError): /];
   const ON_PURPOSE = 'pre, code, textarea, input, .xterm, .terminal, [data-technical], .tech-log, details';
+  // Which element shows it: the deepest one whose visible words match, never the containers around it (#404-#409, 12 Oct 2026: one raw error was filed six
+  // times as div.view, div.settings-layout and div.settings-pages, each container's whole text read with its hidden parts, and the element was never named).
+  // Hidden text is shown to no one: a press that answers into a hidden part is the interaction probe's silent-control. Words split over child elements
+  // ("Error code: <b>429</b>") still match, on the element that holds them all. One pass, bottom up: each element's visible words, on-purpose blocks left out.
   const scopes = [root, ...document.querySelectorAll('dialog[open], #toasts, #activity')];
-  const seen = new Set();
+  const shownWords = new Map();
+  const wordsOf = el => {
+    if (shownWords.has(el)) return shownWords.get(el);
+    let text = '';
+    if (!el.closest(ON_PURPOSE) && visible(el)) {
+      for (const child of el.childNodes) text += child.nodeType === 3 ? child.nodeValue : child.nodeType === 1 ? ` ${wordsOf(child)} ` : '';
+    }
+    text = text.replace(/\s+/g, ' ').trim();
+    shownWords.set(el, text);
+    return text;
+  };
+  const technical = el => TECH.some(pattern => pattern.test(wordsOf(el)));
+  const named = new Set();
   for (const scope of scopes) {
-    const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
-    for (let node = walker.nextNode(); node && seen.size < 3; node = walker.nextNode()) {
-      const host = node.parentElement;
-      if (!host || seen.has(host) || host.closest(ON_PURPOSE) || !visible(host)) continue;
-      // The host's own words without the on-purpose blocks inside it: a panel whose full log is open (a failed run opens it by itself) holds the log's Traceback, and so did every
-      // ancestor of it (#298: three severe findings on a page whose reason was in plain words).
-      const copy = host.cloneNode(true);
-      for (const block of copy.querySelectorAll(ON_PURPOSE)) block.remove();
-      const text = (copy.textContent || '').replace(/\s+/g, ' ').trim();
-      if (!TECH.some(pattern => pattern.test(text))) continue;
-      seen.add(host);
-      found.push({view, severity: 'severe', kind: 'error-shown', detail: `${label(host)} shows technical text to the person: "${text.slice(0, 160)}"`});
+    for (const el of [scope, ...scope.querySelectorAll('*')]) {
+      if (named.size >= 3) break;
+      if (named.has(el) || !technical(el) || [...el.children].some(technical)) continue;   // a child holds it: that child is the one to name
+      named.add(el);
+      found.push({view, severity: 'severe', kind: 'error-shown', detail: `${label(el)} shows technical text to the person: "${wordsOf(el).slice(0, 160)}"`});
     }
   }
   // CONTENT SHOWN IN THE WRONG FORM. The type of bug behind 5 Oct 2026: a Jobs check's digest showed as raw Telegram text in the run's
