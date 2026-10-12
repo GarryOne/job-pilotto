@@ -79,5 +79,5 @@ test('the window locks a page only while trying, never because Notion is absent 
   const dir = path.join(import.meta.dirname, '..', 'renderer', 'pages');
   const gate = fs.readFileSync(path.join(dir, 'notion-connect.js'), 'utf8');
   assert.match(gate, /const locked = !tracking\(\);/);
-  assert.match(gate, /shared\.state\?\.store\?\.trying === false/);
+  assert.match(gate, /shared\.state\?\.store\?\.tracking === true/);   // the gate's own answer (#410)
 });

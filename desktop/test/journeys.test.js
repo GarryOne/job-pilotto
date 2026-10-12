@@ -178,3 +178,11 @@ test('scenario: a digest request on the Anthropic API engine is answered, not re
   assert.equal(answer.by, 'digest', JSON.stringify(answer).slice(0, 300));
   assert.equal(answer.digest?.outcome, 'phone');
 });
+
+test('scenario: Notion chosen but not connected, a search starts: the engine runs as while trying, never on a Notion store with no token (#410)', async () => {
+  const {pipelineEnv} = await import('../lib/pipeline.js');
+  const storage = settings => ({settings: () => settings, secret: () => '', path: name => `/folder/${name}`, secretsPresent: () => ({}), saveSettings: () => {}});
+  const env = pipelineEnv(storage({store: 'notion'}), {PATH: '/usr/bin'});
+  assert.equal(env.JOB_PILOTTO_STORE, undefined);   // was 'notion': src/stores/notion.py raised "needs NOTION_TOKEN", shown as "Unexpected error"
+  assert.equal(env.NOTION_TOKEN, undefined);
+});

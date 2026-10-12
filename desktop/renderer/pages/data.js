@@ -19,17 +19,19 @@ const say = (text, tone) => { message('store-message', text, tone); show($('stor
 async function showStore() {
   const store = await window.pilot.storeState();
   const cloud = store.caps.includes('cloud'), links = store.caps.includes('links');
+  const unconnected = !store.trying && store.tracking === false;   // Notion chosen, not connected (#410): it asks to connect, as while trying
   const pill = $('store-pill');
-  pill.textContent = store.trying ? 'Not chosen' : store.label;
-  pill.className = `ui-pill ${store.trying ? 'tone-warn' : 'tone-good'}`;
+  pill.textContent = store.trying ? 'Not chosen' : unconnected ? 'Not connected' : store.label;
+  pill.className = `ui-pill ${store.trying || unconnected ? 'tone-warn' : 'tone-good'}`;
   $('store-lead').textContent = store.trying
     ? `Job Pilotto is only trying until your jobs and applications have a home: ${store.choice ? 'this Mac, or your Notion' : 'your Notion'}.`   // about Notion
+    : unconnected ? 'Your jobs and applications are to be kept in your Notion, which is not connected yet: connect it to keep track of them.'   // about Notion
     : cloud ? 'Your jobs, applications and answers are in your Notion workspace: open and edit them there too.'
       : 'Your jobs, applications and answers are kept on this Mac, in one place, and in its backups. Move them to Notion to use Always on.';   // about Notion
   $('store-where').textContent = store.trying ? 'Not chosen yet' : store.label;
-  $('store-cloud').textContent = cloud && !store.trying ? 'Available' : 'Needs Notion';
+  $('store-cloud').textContent = cloud && !store.trying && !unconnected ? 'Available' : 'Needs Notion';
   show($('store-keep'), store.trying && store.choice);
-  show($('store-connect'), store.trying);
+  show($('store-connect'), store.trying || unconnected);
   show($('store-move'), !store.trying && !cloud);
   show($('store-open'), links && !!shared.state?.notion?.NOTION_PROFILE_PAGE_ID);
   // The other cards mention Notion only when it holds the data.

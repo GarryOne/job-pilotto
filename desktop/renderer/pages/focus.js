@@ -18,6 +18,7 @@ import {openPrep} from './prep.js';
 import {prepCard} from '../prep-card.js';
 import {renderOnboarding} from './focus-onboarding.js';
 import {byStore, storeName} from '../store-words.js';
+import {gatedOut} from './notion-connect.js';
 
 // Focus page state, declared before the start-up code opens Focus (a later `let` isn't usable yet then).
 let focusLoading = null, focusShown = false;
@@ -109,6 +110,7 @@ async function finishItem(item, save) {
 // The Focus items as last read (the job drawer's Messages tab asks which emails wait on a job): [] before Focus has loaded.
 export const focusItems = () => lastFocus?.items || [];
 export function loadFocus() {
+  if (gatedOut('focus')) return Promise.resolve();   // behind the Notion gate: nothing reads it (#410)
   focusLoading ||= loadFocusOnce().catch(error => {
     // Never a blank page: say what went wrong where the list goes.
     focusStatus('Could not load');

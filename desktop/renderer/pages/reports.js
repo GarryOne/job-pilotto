@@ -8,6 +8,7 @@ import {el, pill} from '../components.js';
 import {dayLabel, funnelRows, improveLines, insightItems, weeklyCardOf, weeklyReports} from '../reports-view.js';
 import {weeklyCard} from './activity-cards.js';
 import {$} from './core.js';
+import {gatedOut} from './notion-connect.js';
 
 export const REPORT_TABS = [['weekly', 'Weekly report', 'weekly report search analysis priorities numbers week'],
   ['insights', 'Insights', 'insights history daily feedback useful'], ['funnel', 'Funnel', 'funnel pipeline conversion from previous where to improve'],
@@ -133,6 +134,7 @@ async function draw() {
 
 // Opens a tab (or the last one) and reads the insights again.
 export async function loadReports(tab = state.tab) {
+  if (gatedOut('reports')) return;   // behind the Notion gate: nothing reads it (#410)
   state.tab = tab;
   state.error = '';
   $('reports-state').textContent = 'Refreshing…';

@@ -25,3 +25,8 @@ test('Notion chosen: the store is named, the texts stay in Notion', () => {
   assert.equal(env.JOB_PILOTTO_PROFILE_FILE, undefined);
   assert.equal(env.JOB_PILOTTO_KNOWLEDGE_FILE, undefined);
 });
+
+test('Notion chosen but not connected (#410): the engine runs as while trying, never on a Notion store with no token', () => {
+  const env = pipeline.pipelineEnv(storage({store: 'notion'}), {PATH: '/usr/bin'});
+  assert.equal(env.JOB_PILOTTO_STORE, undefined);
+});

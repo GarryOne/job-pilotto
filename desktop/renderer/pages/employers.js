@@ -8,6 +8,7 @@ import {byStore, storeName} from '../store-words.js';
 import {day, detailLines, feedName, feedStatuses, feedTone, filterEmployers, metaLine, researchLinks, statsLine} from '../employers-view.js';
 import {$, message as say, show} from './core.js';
 import {skeletonRows} from './interview-practice.js';
+import {gatedOut} from './notion-connect.js';
 
 // A line above the table only while there is something to say (an empty .message keeps its height).
 const message = (id, text, tone) => { say(id, text, tone); show($(id), !!text); };
@@ -103,6 +104,7 @@ export function render() {
 }
 
 export async function loadEmployers() {
+  if (gatedOut('employers')) return;   // behind the Notion gate: nothing reads it (#410)
   if (!rows) $('emp-rows').replaceChildren(...skeletonRows(4));
   $('emp-stats').textContent = rows ? 'Refreshing…' : `Loading from ${storeName()}…`;
   const answer = await window.pilot.employers();

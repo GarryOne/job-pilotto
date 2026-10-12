@@ -17,6 +17,7 @@ import {$, aiReady, message, osText, show} from './core.js';
 import {showPermission, startRecording, isRecording, stopRecording, onLevel, openPrivacySettings} from './interview-recorder.js';
 import {agoText, endPractice, showMoments, skeletonRows, startPractice} from './interview-practice.js';
 import {PASTE, jobForPage, jobList, jobOptions, jobUrlOf, renderDrafts as renderDraftList, renderSpeakers as renderSpeakerFields} from './interview-lists.js';
+import {gatedOut} from './notion-connect.js';
 
 // ---------- interviews: drafts on this Mac, saved ones in Notion 🎤 Interviews ----------
 const iv = window.pilot.interviews;
@@ -31,6 +32,7 @@ try { insightCollapsed = localStorage.getItem('ivInsightOpen') !== '1'; } catch 
 // 10–60 s at start-up, before drawing anything, so the page showed only its table header).
 let prefetched = false;
 export function loadInterviews() {
+  if (gatedOut('interviews')) return;   // behind the Notion gate: nothing reads it (#410)
   // Once per app session: installs what transcribing needs now, so the first Transcribe does not wait for it.
   if (!prefetched) { prefetched = true; iv.prefetch().catch(() => {}).finally(() => show($('iv-setup'), false)); }
   showPermission().catch(error => failed('permission', error));

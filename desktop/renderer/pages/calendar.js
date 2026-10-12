@@ -9,6 +9,7 @@ import {dismissInterview} from './happened.js';
 import {openView} from './nav.js';
 import {openJobPanel} from './job-panel.js';
 import {byStore, storeName} from '../store-words.js';
+import {gatedOut} from './notion-connect.js';
 
 const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const KINDS = {screening: ['Screening', 'teal'], interview: ['Interview', 'info']};
@@ -143,6 +144,7 @@ function openOnNext() {
 // Two small reads, each painting as it arrives: the Applications rows (the only jobs with a Next interview; the full Jobs
 // list took ~10 s because it also reads every job a search found) and the saved recordings (~4 s).
 export async function loadCalendar() {
+  if (gatedOut('calendar')) return;   // behind the Notion gate: nothing reads it (#410)
   if (!month) { const now = new Date(); month = {year: now.getFullYear(), month: now.getMonth()}; }
   const mine = ++visit;
   const [cachedJobs, cachedRecordings] = await Promise.all([
