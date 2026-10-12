@@ -19,6 +19,10 @@ export function usageEvent(payload) {
   if (kind === 'ui_click' && typeof control === 'string' && /^[a-z][a-z0-9_-]{0,29}$/.test(control) && whole(x, 100) && whole(y, 100)) return {name: 'ui_click', props: {page, control, x, y}};
   return null;
 }
+// The start after an update: the version this copy ran last time and the one it runs now (a fixed-shape version, nothing else). The first start ever, the same
+// version and a version that is not plain digits give nothing. update_installed was on the list from the start but nothing sent it (13 Oct 2026).
+const VERSION = /^\d+\.\d+\.\d+(?:[-.][\w.]{1,20})?$/;
+export const updateStep = (last, now) => VERSION.test(String(last)) && VERSION.test(String(now)) && last !== now ? {from: String(last), to: String(now)} : null;
 const FLUSH_AT = 20, FLUSH_MS = 30_000, QUEUE_MAX = 100;
 
 // Properties: lower-case names, and values that are a flag, a number, or a short word (a mode, a page, a step), scrubbed.

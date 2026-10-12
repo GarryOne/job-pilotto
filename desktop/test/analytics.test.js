@@ -62,3 +62,10 @@ test('the keys come from config/analytics.json, env wins, and a missing file mea
   assert.deepEqual(load(repo, {}), {sentryDsn: 'https://a@b.ingest.sentry.io/1', posthogKey: 'phc_file', posthogHost: 'https://eu.i.posthog.com'});
   assert.equal(load(repo, {JOB_PILOTTO_POSTHOG_KEY: 'phc_env'}).posthogKey, 'phc_env');
 });
+
+test('the first start after an update says from which version to which, once; a first start, the same version and odd text say nothing', () => {
+  assert.deepEqual(analytics.updateStep('0.6.11', '0.7.2'), {from: '0.6.11', to: '0.7.2'});
+  assert.deepEqual(analytics.updateStep('0.4.0-alpha.166', '0.6.4'), {from: '0.4.0-alpha.166', to: '0.6.4'});
+  for (const [last, now] of [[undefined, '0.7.2'], ['0.7.2', '0.7.2'], ['my cv.pdf', '0.7.2'], ['0.6.11', 'Ada']]) assert.equal(analytics.updateStep(last, now), null, `${last} -> ${now}`);
+  assert.ok(analytics.EVENTS.includes('update_installed'));
+});
