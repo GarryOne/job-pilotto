@@ -122,6 +122,7 @@ test('a by-hand run refused because the last visit is kept for a PR proof says s
 test('the summary names the Anthropic key the run used (its name, never its value): the live key when set, else the Tests key', () => {
   const report = {day: '2026-10-12', thisRun: {ran: ['A'], usd: 0.05, maxUsd: 0.5}, results: {A: {reached: 'form', filled: 3, left: 1, usd: 0.05}}};
   assert.match(summary(report).markdown, /AI spend: \$0\.0500 of the \$0\.50 cap \(key: E2E_ANTHROPIC_KEY\)\./);
-  assert.match(summary(report, {keyName: 'LIVE_ANTHROPIC_KEY'}).markdown, /\(key: LIVE_ANTHROPIC_KEY\)\./);
+  assert.match(summary(report, {keyName: 'LIVE_POOL_ANTHROPIC_KEY'}).markdown, /\(key: LIVE_POOL_ANTHROPIC_KEY\)\./);
+  assert.match(summary(report, {keyName: 'PR_PROOF_ANTHROPIC_KEY'}).markdown, /\(key: PR_PROOF_ANTHROPIC_KEY\)\./);
   assert.match(summary(report, {keyName: 'sk-ant-api03-secret'}).markdown, /\(key: E2E_ANTHROPIC_KEY\)\./, 'anything but a known key name is never printed');
 });

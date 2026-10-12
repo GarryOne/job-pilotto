@@ -11,7 +11,7 @@ const claudeInstalled = () => { try { execFileSync('claude', ['--version'], {env
 // THE RULE (owner, 5 Oct 2026): the e2e key is for CI only. On a Mac no suite loads, reads or spends an Anthropic key: the app under test and every judge use this Mac's
 // Claude Code (the plan, a fixed price). A step that needs the proxy in front of the app (a refusal, a delay) runs on the API engine with DUMMY_KEY, so it costs nothing.
 export const isCi = (env = process.env) => !!env.CI;
-export const testKey = (env = process.env, engine = 'api') => isCi(env) ? env[keySecret(engine)] || '' : '';
+export const testKey = (env = process.env, engine = 'api') => isCi(env) ? env[liveKeyName(env, engine)] || '' : '';   // a live run's own key when it has one (liveKeyName)
 export const appKey = (key, env = process.env) => isCi(env) ? key : DUMMY_KEY;
 
 // The app's models under test. CI forces every step onto one cheap model (Haiku) to save credit; a Mac has no per-token cost, so the app uses its own production models
@@ -50,6 +50,11 @@ export function pickEngine({env = process.env, suiteEngine = '', installed = cla
 // The family of an engine, and the CI secret its API key comes from.
 export const familyOf = engine => (engine === 'openai' || engine === 'codex' ? 'openai' : 'claude');
 export const keySecret = engine => (familyOf(engine) === 'openai' ? 'E2E_OPENAI_KEY' : 'E2E_ANTHROPIC_KEY');
+// Live runs on real sites ask on their own Anthropic keys, so each one's cost shows apart in the Console and on /admin/ai-cost (owner, 12 Oct 2026): a PR's live proof
+// (JOB_PILOTTO_VISIT_KIND=proof) on PR_PROOF_ANTHROPIC_KEY, a CI pool run by hand (hand) on LIVE_POOL_ANTHROPIC_KEY; until the owner has set one, the Tests key. -> the NAME
+// the key comes from (for the job summary), never its value. The one place that picks it (e2e/test/no-local-key.test.mjs).
+export const LIVE_KEYS = {proof: 'PR_PROOF_ANTHROPIC_KEY', hand: 'LIVE_POOL_ANTHROPIC_KEY'};
+export const liveKeyName = (env = process.env, engine = 'api') => { const own = familyOf(engine) === 'claude' ? LIVE_KEYS[env.JOB_PILOTTO_VISIT_KIND] : ''; return own && env[own] ? own : keySecret(engine); };
 export const appSecretName = engine => (familyOf(engine) === 'openai' ? 'OPENAI_API_KEY' : 'ANTHROPIC_API_KEY');
 
 // The applyflows suite's engine (npm run live / flows / the pool's smoke). A live run on a real site asks the AI things no proxy answer covers (which popup button, which

@@ -101,10 +101,10 @@ test('the PR proof checks the site before it starts: today\'s CI ledger only whe
 });
 
 // Owner, 12 Oct 2026 (cost safety): live CI has its own Anthropic key with its own limit; the Tests key until it exists. Every run reports its spend to /admin/ai-cost.
-test('the pool run asks the AI on the live key when it exists (else the Tests key), says which by name, and reports its spend to /admin/ai-cost without ever failing', () => {
+test('the pool run passes its live keys to the engine rule (which picks one, else the Tests key, and names it), and reports its spend to /admin/ai-cost without ever failing', () => {
   const smoke = workflows['pool-smoke.yml'];
-  assert.match(smoke, /E2E_ANTHROPIC_KEY: \$\{\{ secrets\.LIVE_ANTHROPIC_KEY \|\| secrets\.E2E_ANTHROPIC_KEY \}\}/);
-  assert.match(smoke, /AI_KEY_NAME: \$\{\{ secrets\.LIVE_ANTHROPIC_KEY != '' && 'LIVE_ANTHROPIC_KEY' \|\| 'E2E_ANTHROPIC_KEY' \}\}/, 'the name, never the value');
+  for (const name of ['E2E_ANTHROPIC_KEY', 'LIVE_POOL_ANTHROPIC_KEY', 'PR_PROOF_ANTHROPIC_KEY']) assert.match(smoke, new RegExp(`\\b${name}: \\$\\{\\{ secrets\\.${name} \\}\\}`), `${name} reaches the run; lib/engine.mjs picks one`);
+  assert.doesNotMatch(smoke, /AI_KEY_NAME|secrets\.LIVE_ANTHROPIC_KEY/, 'the choice is the engine rule\'s alone (lib/engine.mjs liveKeyName)');
   const step = smoke.match(/- name: Report the run's AI spend[^\n]*\n(?: {8}.*\n)+/)?.[0] || '';
   assert.match(step, /if: always\(\)/);
   assert.match(step, /AI_COST_PUBLISH_KEY: \$\{\{ secrets\.AI_COST_PUBLISH_KEY \}\}/);
