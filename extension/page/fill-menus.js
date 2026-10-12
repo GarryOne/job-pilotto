@@ -97,6 +97,8 @@
         if (!option) {
           // The menu as it opened (before typing filters it): for the fill-failure report's snapshot (snapshot.js).
           try { (window.__jobPilottoMenuSnapshots ||= {})[control.dataset.jobpilottoArmed] = window.__jobPilottoSnapshot?.({field: el.id || el.name}); } catch {} var shown = []; for (let w = 0; w < 1500 && !shown.length; w += 150) { await sleep(150); shown = optionNodes().map(o => clean(o.textContent)).filter(Boolean).slice(0, 60); } option = matchOption(answer);   // the menu's own choices once drawn (a slow menu: Coop, 8 Oct 2026)
+          // A short menu that shows every choice and none says the answer in its words ("Yes" asked, "I have the right to work here" offered): the AI picks the one that means the same, before anything is typed over it.
+          if (!option && shown.length && shown.length <= 15) { const choice = await need({kind: 'choose', label: labelOf(el) || '', asked: String(answer).split(' || ')[0], choices: shown}); option = (choice && optionNodes().find(o => clean(o.textContent) === choice)) || null; }
           // Long menus (countries, cities) show only their first entries: type the answer to filter, which the menu accepts once your click has opened it; search-as-you-type fields (Location) load suggestions from the server: type the first part, wait for them.
           if (!option) Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, String(answer).split(' || ')[0].split(',')[0].trim());
           if (!option) el.dispatchEvent(new Event('input', {bubbles: true}));

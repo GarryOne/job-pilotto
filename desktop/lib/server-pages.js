@@ -121,12 +121,12 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
 // Which of a page's own buttons means what the extension needs (a cookie banner's "reject non-essential", the extension/visit.js fallback
 // when its words know none of them), in any language: lib/option-pick.js, kept per meaning and set of buttons. Labels only, never a value.
 export async function pickChoice(storage, body, {client} = {}) {
-  const options = (Array.isArray(body?.options) ? body.options : []).map(text => String(text).replace(/\s+/g, ' ').trim().slice(0, 60)).filter(Boolean).slice(0, 20);
+  const options = (Array.isArray(body?.options) ? body.options : []).map(text => String(text).replace(/\s+/g, ' ').trim().slice(0, 120)).filter(Boolean).slice(0, 20);
   const value = String(body?.value || '').slice(0, 80), label = String(body?.label || '').slice(0, 80);
   if (!options.length || !value) return {ok: true, choice: ''};
   const {pickOption, forgetOption} = await import('./option-pick.js');
   if (body?.forget) {   // the button was pressed and the banner is still there: the kept answer was wrong (lib/kept-decisions.js)
-    const dropped = forgetOption(storage, {value, options});
+    const dropped = forgetOption(storage, {label, value, options});
     appLog('extension', `button by meaning: kept answer ${dropped ? 'forgotten' : 'not kept'}: the page still shows it`, {meaning: value.slice(0, 40), buttons: options.length});
     return {ok: true, forgotten: dropped};
   }

@@ -126,3 +126,59 @@ test('type-to-search box: the answer already among the options needs no AI', asy
   assert.equal(out.value, 'Geneva, Switzerland');
   assert.equal(out.asked.length, 0);
 });
+
+// A menu whose choices state the answer in their own words ("Yes" asked, "I have the right to work here" offered): nothing matches the text, so the
+// app picks the choice that means the same (extension/flow.js pickByMeaning → /extension/pick-choice) and the menu is clicked once more with it.
+// Two pages of one shape: option sentences differ from the answer; everything incidental differs (tags, classes, language, wrapper, no search box).
+const SENTENCES = {
+  plain: {html: `<body><form><label for="rtw">Do you have the right to work in the location where the role is based?</label><input id="rtw" role="combobox" aria-expanded="false" style="width:240px"><div id="menu" hidden></div>`,
+    options: ['I have the Right to Work in the location where the position is based', 'I require a Visa'], want: 'I have the Right to Work in the location where the position is based'},
+  variant: {html: `<body><section><div class="wrap"><div><input id="rtw" role="combobox" aria-expanded="false" style="width:240px"></div><ul id="menu" hidden></ul></div><label for="rtw">Besitzen Sie eine Arbeitserlaubnis für den Standort?</label></section>`,
+    options: ['Nein, ich benötige ein Visum', 'Ja, ich darf am Standort arbeiten'], want: 'Ja, ich darf am Standort arbeiten', tag: 'li'},
+};
+const sentencePage = ({html, options, tag = 'div'}) => `${html}<script>
+  const input = document.getElementById('rtw'), menu = document.getElementById('menu');
+  input.addEventListener('mousedown', () => {
+    if (!menu.hidden) { menu.hidden = true; menu.innerHTML = ''; input.setAttribute('aria-expanded', 'false'); return; }
+    menu.hidden = false; input.setAttribute('aria-expanded', 'true');
+    menu.innerHTML = ${JSON.stringify(options)}.map(o => '<${tag} role="option" class="x-option">' + o + '</${tag}>').join('');
+    for (const o of menu.children) o.addEventListener('click', () => { input.value = o.textContent; menu.hidden = true; input.setAttribute('aria-expanded', 'false'); });
+  });
+</script></form></body>`;
+
+for (const [name, shape] of Object.entries(SENTENCES)) {
+  test(`a menu whose choices say the answer in their own words is picked by meaning (${name})`, async () => {
+    const browser = await chromium.launch();
+    try {
+      const p = await browser.newPage();
+      await p.setContent(sentencePage(shape));
+      for (const file of PAGE_FILES) await p.addScriptTag({content: fs.readFileSync(new URL(`../../../extension/${file}`, import.meta.url), 'utf8')});
+      await p.evaluate(() => window.__jobPilottoExtensionFill([{field: 'rtw', value: 'Yes'}], {}, null, '', false));
+      const page = (func, args = []) => p.evaluate(({f, a}) => new Function(`return (${f})`)()(...a), {f: func.toString(), a: args});
+      const spot = await page(n => window.__jobPilottoNextCombo(n), [0]);
+      const asked = [];
+      const choose = async seen => { asked.push(seen); return seen.choices.includes(shape.want) ? shape.want : ''; };   // the app's answer, a fixed choice from the list
+      const {picked, last} = await clickCombo({page, click: (x, y) => p.mouse.click(x, y), spot, skip: 0, choose});
+      assert.equal(picked, true);
+      assert.equal(await p.evaluate(() => document.getElementById('rtw').value), shape.want);
+      assert.equal(asked.length, 1, 'asked once, with the menu\'s own choices and the answer');
+      assert.deepEqual({asked: asked[0].asked, choices: asked[0].choices, label: !!asked[0].label}, {asked: 'Yes', choices: shape.options, label: true});
+      assert.equal(last?.found, true);
+    } finally { await browser.close(); }
+  });
+}
+
+test('a menu with no choice that means the answer is left (the app names none), not clicked again and again', async () => {
+  const browser = await chromium.launch();
+  try {
+    const p = await browser.newPage();
+    await p.setContent(sentencePage(SENTENCES.plain));
+    for (const file of PAGE_FILES) await p.addScriptTag({content: fs.readFileSync(new URL(`../../../extension/${file}`, import.meta.url), 'utf8')});
+    await p.evaluate(() => window.__jobPilottoExtensionFill([{field: 'rtw', value: 'Yes'}], {}, null, '', false));
+    const page = (func, args = []) => p.evaluate(({f, a}) => new Function(`return (${f})`)()(...a), {f: func.toString(), a: args});
+    const spot = await page(n => window.__jobPilottoNextCombo(n), [0]);
+    let calls = 0;
+    const {picked, last} = await clickCombo({page, click: (x, y) => p.mouse.click(x, y), spot, skip: 0, choose: async () => { calls++; return ''; }});
+    assert.deepEqual({picked, calls, found: last?.found, opened: last?.opened}, {picked: false, calls: 1, found: false, opened: true});
+  } finally { await browser.close(); }
+});
