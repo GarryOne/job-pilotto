@@ -182,3 +182,21 @@ test('a menu with no choice that means the answer is left (the app names none), 
     assert.deepEqual({picked, calls, found: last?.found, opened: last?.opened}, {picked: false, calls: 1, found: false, opened: true});
   } finally { await browser.close(); }
 });
+
+// A menu that showed its choices when it opened is asked about by meaning at once; the extension never types at it (each real typing try plus an AI pick
+// was seconds per menu: the Ocado form's five yes/no menus held the fill for minutes, 12 Oct 2026).
+test('a menu that showed its choices is never typed at: one pick by meaning, no real typing', async () => {
+  const browser = await chromium.launch();
+  try {
+    const p = await browser.newPage();
+    await p.setContent(sentencePage(SENTENCES.plain));
+    for (const file of PAGE_FILES) await p.addScriptTag({content: fs.readFileSync(new URL(`../../../extension/${file}`, import.meta.url), 'utf8')});
+    await p.evaluate(() => window.__jobPilottoExtensionFill([{field: 'rtw', value: 'Yes'}], {}, null, '', false));
+    const page = (func, args = []) => p.evaluate(({f, a}) => new Function(`return (${f})`)()(...a), {f: func.toString(), a: args});
+    const spot = await page(n => window.__jobPilottoNextCombo(n), [0]);
+    let typed = 0, asked = 0;
+    const {picked} = await clickCombo({page, click: (x, y) => p.mouse.click(x, y), spot, skip: 0,
+      type: async () => { typed++; }, choose: async seen => { asked++; return seen.choices[0]; }});
+    assert.deepEqual({picked, typed, asked}, {picked: true, typed: 0, asked: 1});
+  } finally { await browser.close(); }
+});
