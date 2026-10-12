@@ -7,7 +7,7 @@ import {aiLimitHead, failedOutcome, stoppedHead, deliveryHead, notConnectedHead,
 import {el} from '../components.js';
 import {parseRunMessage} from '../run-cards.js';
 import {parseVisits} from '../visits-card.js';
-import {parseMailReport} from '../mail-report.js';
+import {mailCardShown, parseMailReport} from '../mail-report.js';
 import {parseInsight} from '../insight-card.js';
 import {parseWeekly} from '../weekly-card.js';
 import {parseInterviewReview} from '../interview-review.js';
@@ -247,7 +247,7 @@ export const TASK_BUTTONS = [['search', '#refresh'], ['mail', '#check-mail'], ['
 // (its `updates` from the log and a "Mail: …" summary). Always on and on-the-Mac runs read the same card (6 Oct 2026: a
 // Mac run's "💬 Reply received · …" was a bare bullet, and "1 new email read, 0 updates" had no card at all).
 export function mailReportOf(run, message = run?.message) {
-  if (!run || kindOf(run) !== 'mail' || run.off) return null;
+  if (!run || kindOf(run) !== 'mail' || !mailCardShown(run)) return null;
   const rows = run.report?.length ? run.report : run.updates?.length ? ['', ...run.updates] : [];
   return parseMailReport(message || '', run.result || run.summary || '', rows);
 }
