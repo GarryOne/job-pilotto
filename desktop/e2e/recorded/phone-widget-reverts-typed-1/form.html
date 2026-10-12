@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Application: Team Lead</title></head><body>
+<h1>Your application</h1>
+<form id="application" action="/apply/send" method="post">
+  <div><label for="name">Full name *</label><input id="name" name="name" type="text" required></div>
+  <div><label for="email">Email address *</label><input id="email" name="email" type="email" required></div>
+  <div><label for="contact_no">Number to reach you *</label>
+    <span class="PhoneInput"><button type="button" id="country" aria-haspopup="listbox" aria-label="Select country calling code: Israel">Israel</button>
+    <input id="contact_no" name="contact_no" type="tel" required></span></div>
+  <div><label for="resume">CV *</label><input id="resume" name="resume" type="file" required></div>
+  <button type="submit">Send</button>
+</form>
+<script>
+// An international phone widget (country picker + number box) that draws itself again a moment after the fill and puts the box back on its own country's code (a controlled
+// input whose state never took the typed number): what was typed is gone and the country button still says Israel. It does so once.
+const box = document.getElementById('contact_no'), set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+let reset = false;
+set.call(box, '+972');   // the widget starts on its own country's code
+box.addEventListener('input', () => { if (reset || box.value === '+972') return; reset = true; setTimeout(() => set.call(box, '+972'), 2500); });
+</script></body></html>
