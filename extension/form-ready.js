@@ -7,6 +7,7 @@ import {decide} from './log.js';
 import {accountSketch, flagAccount} from './account-fill.js';
 import {pressNext} from './next-step.js';
 import {onTop} from './on-top.js';
+import {retryRefusedFormats} from './format-retry.js';
 
 // What the panel says for each kind of block the AI named (fixed words of the product, not a reading of the page).
 const BLOCKED_WORDS = {dialog: 'a dialog is open over the form', error: 'the site shows an error about what was entered', overlay: 'something is covering the form', gone: 'the application is no longer on the page'};
@@ -48,6 +49,8 @@ async function askForm(tab, frameId, again = false) {
     decide('panel', `application form ready?: ${answer.answer}`, {host, step: answer.step || '', ...(answer.answer === 'blocked' ? {blocked: answer.blockedKind || 'overlay'} : {}), ...(answer.needs ? {needs: answer.needs.slice(0, 60), seen: sketch.controls.filter(item => item.required).map(item => `${item.type}:${item.state}`).join(',').slice(0, 120)} : {})});   // seen: what the AI was shown of the required controls (types and states, never labels or values)
     await run(tab, frameId, flagAccount, [answer.answer === 'blocked' ? blockedWords(answer.blockedKind) : answer.answer === 'needs_person' ? answer.needs || '' : null]);
     if (answer.answer === 'blocked') decide('fill', `the page is blocked after the fill: ${answer.blockedKind || 'overlay'}`, {host});   // the fill log and the smoke verdict read this line
+    // The site's own error about what was entered, on a phone number: it is typed again in another writing the AI names from the error text (format-retry.js, at most twice), then the page is judged anew.
+    if (answer.answer === 'blocked' && answer.blockedKind === 'error' && await retryRefusedFormats(tab, frameId, config)) { setTimeout(() => { judged.delete(tab.id); askForm(tab, frameId, again).catch(() => {}); }, 2500); return; }
     if (answer.answer === 'blocked' && !again) setTimeout(() => { judged.delete(tab.id); askForm(tab, frameId, true).catch(() => {}); }, timing.recheckMs);
     await pressNext(tab, frameId, answer, sig);   // a multi-step form's next step, when the person turned it on (next-step.js)
   } finally { looking.delete(tab.id); }

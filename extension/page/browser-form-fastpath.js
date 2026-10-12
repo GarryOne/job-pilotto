@@ -143,6 +143,50 @@
   };
   // The panel (extension/review.js, another script world) asks for a look when a box no longer holds what we typed: typed again now, within the same limit per box.
   document.addEventListener?.('jobpilotto-retype', () => { retypeNow(); });
+  // A phone number the site refused: the boxes we typed that look like a phone number and show an error message of the site's own beside them, found by structure
+  // (aria-errormessage / aria-describedby, a role=alert/status or aria-live element in the field's own area, or red text there; no words). -> [{field, label, message}], never a value.
+  const looksPhone = value => /^\+?[\d\s().-]+$/.test(String(value).trim()) && String(value).replace(/\D/g, '').length >= 7;
+  const redText = el => { const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle?.(el).color); return !!m && +m[1] >= 150 && +m[2] <= 100 && +m[3] <= 100; };
+  const errorText = element => {
+    const ids = `${element.getAttribute('aria-errormessage') || ''} ${element.getAttribute('aria-describedby') || ''}`.split(/\s+/).filter(Boolean);
+    for (const id of ids) { const text = (document.getElementById(id)?.textContent || '').trim(); if (text && text.length <= 200) return text; }
+    for (let box = element.parentElement, i = 0; box && i < 3 && box.querySelectorAll('input:not([type=hidden]), select, textarea').length <= 1; box = box.parentElement, i++) {
+      for (const el of box.querySelectorAll('*')) {
+        if (el.children.length || el.closest('label, legend, button, input, select, textarea, [id^=jobpilotto]') || !visible(el)) continue;
+        const text = (el.textContent || '').trim();
+        if (text && text.length <= 200 && (['alert', 'status'].includes(el.getAttribute('role')) || el.getAttribute('aria-live') === 'assertive' || redText(el))) return text;
+      }
+    }
+    return '';
+  };
+  window.__jobPilottoRefusedPhones = () => [...typedHere].filter(([element, record]) => !record.edited && element.isConnected && looksPhone(record.value))
+    .map(([element, record]) => ({field: record.field, label: label(element).slice(0, 80), message: errorText(element).slice(0, 200), tried: record.writings || []})).filter(item => item.message);
+  // The writings of one phone number the extension builds itself (the AI only names one: lib/format-judge.js FORMATS). The country code is read from the number's own
+  // prefix (page/dial-codes.js, via the fill kit's DIAL), never guessed. -> the text, or '' when the number has no known code.
+  const writeAs = (value, format) => {
+    const digits = String(value).replace(/\D/g, '').replace(/^00/, ''), codes = Object.keys(window.__jobPilottoFillKit?.DIAL || {}).map(code => code.slice(1)).sort((a, b) => b.length - a.length);
+    const code = codes.find(known => digits.startsWith(known));
+    if (!code) return '';
+    const national = digits.slice(code.length), groups = String(value).replace(/^\s*\+?\s*/, '').split(/[^\d]+/).filter(Boolean);
+    const spaced = groups[0] === code ? groups.slice(1).join(' ') : national;
+    return {e164: `+${code}${national}`, e164_digits: `${code}${national}`, international_00: `00${code}${national}`, national: `0${spaced}`, national_plain: `0${national}`}[format] || '';
+  };
+  window.__jobPilottoWriteAs = writeAs;   // for desktop/test/typed-match.test.js
+  window.__jobPilottoRetypeAs = (field, format) => {
+    const entry = [...typedHere].find(([element, record]) => !record.edited && element.isConnected && record.field === field);
+    if (!entry) return false;
+    const [element, record] = entry, text = writeAs(record.original || record.value, format);
+    if (!text || !writable(element)) return false;
+    const prototype = element.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(prototype, 'value').set.call(element, text);
+    element.dispatchEvent(new Event('input', {bubbles: true}));
+    element.dispatchEvent(new Event('change', {bubbles: true}));
+    const original = record.original || record.value, writings = [...(record.writings || []), format];
+    noteTyped(element, text);
+    Object.assign(typedHere.get(element), {original, writings});
+    try { element.focus({preventScroll: true}); element.blur(); } catch { /* not focusable */ }
+    return true;
+  };
   // The boxes the page emptied after the last typing-again, with the limit spent: [{field, times}], so the fill's reason can say the page kept clearing it.
   window.__jobPilottoRetypeGaveUp = () => [...typedHere].filter(([element, record]) => !record.edited && record.retypes >= RETYPE_LIMIT && element.isConnected && String(element.value || '') === '')
     .map(([, record]) => ({field: record.field, times: record.retypes}));

@@ -1,0 +1,75 @@
+{
+ "shape": "a form whose phone box shows the site's own error ('This Phone Number Format is not Allowed') for the international writing we typed",
+ "why": "Pool row 'HelloFresh careers (Greenhouse behind its own site)', 11 Oct 2026 (0.9.224): the fake applicant's number in international writing was refused with the site's message and the form judge said blocked: error, but nothing typed the number again. The extension now asks the AI which fixed writing the message wants (E.164, digits, 00, national) and types it again, at most twice",
+ "control": {
+  "guard": "new case 12 Oct 2026; it fails on 0.9.224, which never typed a refused number again"
+ },
+ "sample": "structure of a Greenhouse-behind-its-own-site phone box with an error line, rebuilt small, values removed",
+ "pages": [
+  {
+   "url": "https://careers.example.com/apply/6190849",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "contact_no",
+     "question": "Number to reach you",
+     "value": "0041795550123",
+     "confidence": "high",
+     "note": "",
+     "category": "contact",
+     "use": "fill"
+    }
+   ]
+  },
+  "/extension/account-judge": [
+   {
+    "when": {
+     "phase": "format"
+    },
+    "answer": {
+     "ok": true,
+     "answer": "national_plain",
+     "format": "national_plain"
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "answer": "blocked",
+     "blockedKind": "error",
+     "needs": "",
+     "needsKind": "",
+     "step": "unsure",
+     "nextControl": "",
+     "rung": 2
+    }
+   }
+  ]
+ },
+ "expect": {
+  "attached": [
+   "#resume"
+  ],
+  "valueHas": [
+   "#contact_no|795550123"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 45
+ },
+ "start": "panel"
+}
