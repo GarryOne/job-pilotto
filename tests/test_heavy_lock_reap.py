@@ -47,16 +47,16 @@ class HeavyLockReapTest(unittest.TestCase):
         self.addCleanup(self.cleanup)
 
     def cleanup(self):
-        for p in self.procs:
-            if p.poll() is None:
-                p.kill()
-            p.communicate()
-        if self.pids.exists():
+        if self.pids.exists():   # the run's children first: they hold the holder's pipes open, and communicate() would wait for them (300 s)
             for pid in self.pids.read_text().split():
                 try:
                     os.kill(int(pid), signal.SIGKILL)
                 except (OSError, ValueError):
                     pass
+        for p in self.procs:
+            if p.poll() is None:
+                p.kill()
+            p.communicate()
 
     def start(self, what, *command, **env):
         p = subprocess.Popen(['bash', str(LOCK), what, *command], env={**self.env, **env}, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -121,12 +121,19 @@ class HeavyLockReapTest(unittest.TestCase):
         self.assertRegex(self.log.read_text(), r'forced-free reason=idle_\d+s')
 
     def test_a_busy_holder_is_never_freed(self):
-        busy = 'import time\nend = time.time() + 14\nwhile time.time() < end:\n    sum(range(20000))\n'
-        holder = self.start('replay-busy', 'python3', '-c', busy, JOB_PILOTTO_HEAVY_IDLE='6')
+        stop = (self.tmp / 'stop').as_posix()
+        busy = f'import os, time\nwhile not os.path.exists({stop!r}):\n    sum(range(20000))\n'
+        holder = self.start('replay-busy', 'python3', '-c', busy, JOB_PILOTTO_HEAVY_IDLE='4')
         self.assertTrue(wait_for(lambda: (self.heavy / 'lock' / 'pgid').exists()))
-        result = subprocess.run(['bash', str(LOCK), 'next', 'echo', 'ran'], env={**self.env, 'JOB_PILOTTO_HEAVY_IDLE': '6', 'JOB_PILOTTO_HEAVY_WAIT': '60'}, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60)
-        self.assertEqual(result.stdout.strip(), 'ran')
-        self.assertNotIn('freed:', result.stderr)
+        waiter = subprocess.Popen(['bash', str(LOCK), 'next', 'echo', 'ran'], env={**self.env, 'JOB_PILOTTO_HEAVY_IDLE': '4', 'JOB_PILOTTO_HEAVY_WAIT': '60'}, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        self.procs.append(waiter)
+        time.sleep(7)   # well past the 4 s idle limit: a working holder is still held, the waiter still waits
+        self.assertIsNone(waiter.poll(), 'the waiter is still waiting behind a busy holder')
+        self.assertIsNone(holder.poll(), 'the busy holder was not killed')
+        Path(stop).write_text('stop')
+        out, err = waiter.communicate(timeout=60)
+        self.assertEqual(out.strip(), 'ran')
+        self.assertNotIn('freed:', err)
         self.assertEqual(holder.wait(timeout=30), 0, 'the busy run finished on its own')
 
     def test_a_killed_wrapper_leaves_no_children_behind_when_the_next_run_takes_over(self):

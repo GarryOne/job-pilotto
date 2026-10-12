@@ -20,11 +20,31 @@ def registered(heavy_dir):
     return len(runs - {None})
 
 
+def books(heavy_dir):
+    """What the lock's folder holds, for a failure message: each slot and ticket with its first line and whether its pid still lives (the 'only 1 of 2' flake had no evidence)."""
+    import os
+    out = []
+    for p in sorted(Path(heavy_dir).rglob('*')):
+        if p.is_file() and p.parent.name in ('queue',) or p.name == 'pid':
+            try:
+                first = p.read_text().split('\n')[0]
+                pid = first.split()[0] if first.split() else ''
+                try:
+                    os.kill(int(pid), 0)
+                    live = 'alive'
+                except (OSError, ValueError):
+                    live = 'gone'
+                out.append(f'{p.relative_to(heavy_dir)}={first!r} ({live})')
+            except OSError as e:
+                out.append(f'{p.name}: {e}')
+    return '; '.join(out) or 'empty'
+
+
 def wait_registered(heavy_dir, n, timeout=90):
     deadline = time.monotonic() + timeout
     while registered(heavy_dir) < n and time.monotonic() < deadline:
         time.sleep(0.1)
-    assert registered(heavy_dir) >= n, f'only {registered(heavy_dir)} of {n} runs are in the lock\'s books after {timeout}s'
+    assert registered(heavy_dir) >= n, f'only {registered(heavy_dir)} of {n} runs are in the lock\'s books after {timeout}s: {books(heavy_dir)}'
 
 
 def gated(trace, name, gate_dir):
