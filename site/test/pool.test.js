@@ -249,3 +249,26 @@ test('a share is kept with the AI family of the install that sent it, and the sc
   const all = await gather(env.STATS, now);
   assert.deepEqual([all.families.claude.shared, all.families.openai.shared, all.families.unknown.shared], [1, 1, 1]);
 });
+
+test('a share that changes nothing since the same install\'s earlier one today writes no row, in every pool table (D1 bills rows written)', async () => {
+  mock.timers.enable({apis: ['Date'], now: Date.UTC(2026, 9, 12, 12, 0, 30)});
+  try {
+    const env = setup();
+    const tables = ['contributions', 'nofeed', 'sitefacts', 'board_reads'];
+    env.STATS.db.exec('CREATE TABLE written (t TEXT)');
+    for (const t of tables) env.STATS.db.exec(`CREATE TRIGGER w_${t} AFTER UPDATE ON ${t} BEGIN INSERT INTO written VALUES ('${t}'); END`);
+    const share = (extra = {}) => post(env, {...body('install-aaaa1111', [feed('a', {jobs: 5, hits: 1})]), v: 2, nofeed: [{company: 'Fnac Suisse SA', host: 'fnac.ch'}],
+      sites: [{host: 'acme.example.com', kind: 'jobpage', url: 'https://acme.example.com/jobs/1'}], boards: [{board: 'jobsch', jobs: 50, hits: 2}], ...extra});
+    const updates = () => env.STATS.db.prepare('SELECT t FROM written ORDER BY t').all().map(row => row.t);
+    assert.equal((await share()).status, 200);
+    assert.deepEqual(updates(), []);   // the first share inserts
+    assert.equal((await share()).status, 200);
+    assert.deepEqual(updates(), [], 'the same share again writes nothing');
+    await share({feeds: [feed('a', {jobs: 9, hits: 1})], boards: [{board: 'jobsch', jobs: 60, hits: 2}]});
+    assert.deepEqual(updates(), ['board_reads', 'contributions'], 'a changed number is written');
+    mock.timers.setTime(Date.UTC(2026, 9, 13, 12, 0, 30));
+    env.STATS.db.exec('DELETE FROM written');
+    await share({feeds: [feed('a', {jobs: 9, hits: 1})], boards: [{board: 'jobsch', jobs: 60, hits: 2}]});
+    assert.deepEqual(updates(), ['board_reads', 'contributions', 'nofeed', 'sitefacts'], 'the next day refreshes `day` once (the daily rollup counts who was active)');
+  } finally { mock.timers.reset(); }
+});
