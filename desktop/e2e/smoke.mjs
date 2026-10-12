@@ -143,24 +143,25 @@ async function main() {
   const ranked = only ? {order: pool, rested: [], lines: []} : orderPool(pool, [...earlierList, ...today], day, {rested: resting});
   const limits = ciLimits();   // the CI workflow's hard caps (rows, AI dollars); a Mac run has none unless it sets them (lib/pool-ci.mjs)
   const chosen = only || process.argv.includes('--all') ? ranked.order : runShare(ranked.order, shareSize());
-  const capped = capRows(chosen, limits.maxRows), rows = capped.run;
+  const capped = capRows(chosen, limits.maxRows);
+  chosen.splice(capped.run.length);   // the row cap: the rows past it are named below, not run
   const thisRun = {unfinished: [], skipped: [], cut: capped.cut.map(item => item.shape), stopped: '', usd: 0, maxUsd: limits.maxUsd, maxRows: limits.maxRows};   // the day report's record of this run (lib/pool-ci.mjs summary)
   if (thisRun.cut.length) console.log(`smoke: row cap ${limits.maxRows}: not run this time: ${thisRun.cut.join(', ')}`);
   if (limits.maxUsd) console.log(`smoke: AI dollar cap $${limits.maxUsd.toFixed(2)}: the run stops between rows once its spend reaches it`);
-  console.log(`smoke: ${rows.length} of ${shapes.length} shapes in this run (${only ? `--only ${only}` : 'the least tested first: never run, then the fewest runs in 14 days, then the oldest'})`);
-  for (const line of ranked.lines.slice(0, rows.length)) console.log(line);
+  console.log(`smoke: ${chosen.length} of ${shapes.length} shapes in this run (${only ? `--only ${only}` : 'the least tested first: never run, then the fewest runs in 14 days, then the oldest'})`);
+  for (const line of ranked.lines.slice(0, chosen.length)) console.log(line);
   if (ranked.rested.length) console.log(`smoke: rested today (site limit or block page), not counted as tested: ${ranked.rested.map(item => item.shape).join(', ')}`);
   console.log(engineLine(smokeEngine()));
   console.log(`smoke: ${eligibilityOff(poolEnv()) ? POOL_LINE : 'eligibility check: ON in this run (SMOKE_ELIGIBILITY=on)'}`);
   // The pool runs on plain node; a few rows each pass run on Electron too, the least recently paired first (lib/smoke-paths.mjs; SMOKE_PAIRED=0 skips).
-  const pairs = new Set(smokeEngine() === 'node' ? pairedSample(rows, lastPaired([...earlierList, ...today]), Number(process.env.SMOKE_PAIRED ?? 2)) : []);
+  const pairs = new Set(smokeEngine() === 'node' ? pairedSample(chosen, lastPaired([...earlierList, ...today]), Number(process.env.SMOKE_PAIRED ?? 2)) : []);
   console.log(`smoke: paired sample this pass (plain node and Electron): ${[...pairs].join(', ') || 'none'}`);
   const legs = electronLegs();   // CI: no second visit after a block page, and the runner has no Electron (lib/pool-ci.mjs)
   if (!legs) console.log('smoke: no Electron leg on CI: a refused or fallen row is not visited again from the runner');
-  for (const {shape, like = [], urls = []} of rows) {
-    const aiDown = Object.entries(results).find(([, item]) => item.aiRefused);   // a refused AI: every later row would run without AI too
-    if ((thisRun.stopped = stopReason({spent: thisRun.usd, maxUsd: limits.maxUsd, refused: aiDown && {shape: aiDown[0], why: aiDown[1].aiRefused.why}}))) { console.log(`smoke: stopped: ${thisRun.stopped}; not run: ${rows.slice(rows.findIndex(item => item.shape === shape)).map(item => item.shape).join(', ')}`); break; }
+  for (const {shape, like = [], urls = []} of chosen) {
     yieldHeavy();   // between two sites a waiting proof (or shorter run) goes first; this run waits for its place back (tools/heavy-lock.sh yield)
+    const aiDown = Object.entries(results).find(([, item]) => item.aiRefused);   // a refused AI: every later row would run without AI too
+    if ((thisRun.stopped = stopReason({spent: thisRun.usd, maxUsd: limits.maxUsd, refused: aiDown && {shape: aiDown[0], why: aiDown[1].aiRefused.why}}))) { console.log(`smoke: stopped: ${thisRun.stopped}; not run: ${chosen.slice(chosen.findIndex(item => item.shape === shape)).map(item => item.shape).join(', ')}`); break; }
     const posting = pickPosting([...urls.map(url => ({url, title: '', company: ''})), ...(like.length ? postingsLike(like) : [])]);
     if (!posting) { results[shape] = {reached: 'none', note: 'no posting of this shape in the job list'}; console.log(`smoke: ${shape}: no posting`); await finish(shape); continue; }
     const status = await postingStatus(posting.url);

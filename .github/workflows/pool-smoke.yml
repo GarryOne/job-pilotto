@@ -10,11 +10,9 @@
 # - Data-center IPs meet more bot walls: such a row is "blocked (CI IP)" in the summary, never a failure, never retried (no Electron leg on CI).
 #   Red only for a row that did not finish (a harness error) or the tripwire (lib/pool-ci.mjs).
 # Result: the job summary table and the artifact (the day report, smoke.log, evidence/<day>/<row>/: end.png, step-*.png, app.log, run.log, evidence.md).
-name: Pool smoke
+name: CI · Pool smoke (by hand)
 
 on:
-  pull_request:   # TEMPORARY: the proof run on the draft PR (GitHub dispatches only workflows on main); removed before landing
-    paths: ['.github/workflows/pool-smoke.yml']
   workflow_dispatch:
     inputs:
       only:
@@ -35,7 +33,7 @@ concurrency:
 
 jobs:
   smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       MAX_ROWS: 3          # the hard row cap (owner, 12 Oct 2026: start with 1-3 rows)

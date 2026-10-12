@@ -28,7 +28,7 @@ import {livePresses} from './replay-candidate.mjs';
 import {blockSignal, guardLiveVisit, markBlocked} from './site-ledger.mjs';
 import {startAiProxy} from './ai-proxy.mjs';
 import {apiErrors, usage} from './ai-meter.mjs';
-import {appKey, isCi, testKey} from './engine.mjs';
+import {appKey, isCi, keySecret, testKey} from './engine.mjs';
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -36,7 +36,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 // aiProxy: a started lib/ai-proxy.mjs (a test's canned one). On CI one is started here: the runner has no Claude Code, so the app's API engine asks through it on the
 // test key (.github/workflows/pool-smoke.yml) and the row's spend is metered (-> ai). A Mac without aiProxy: the plan's claude -p, no spend line.
 export async function runLiveRow({posting, captureDir, extensionDir, ask = true, seconds = 120, stillSeconds = stillSecondsFor(process.env, 'cli'), browser = startRealExtension, say = () => {}, aiProxy = null} = {}) {
-  if (isCi() && !aiProxy && !testKey()) throw new Error('live row on CI: no E2E_ANTHROPIC_KEY (the Tests key); the app has no other way to ask the AI on a runner');
+  if (isCi() && !aiProxy && !testKey()) throw new Error(`live row on CI: no ${keySecret('api')} (the Tests key); the app has no other way to ask the AI on a runner`);
   guardLiveVisit(posting.url, {who: process.env.JOB_PILOTTO_SESSION || 'live row'});   // the per-site daily limit (lib/site-ledger.mjs): refused before anything starts
   ensureStagedWorker({say});   // a worker edit since the last staging would run the old prompt
   const started = Date.now();
