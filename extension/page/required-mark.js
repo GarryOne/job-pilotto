@@ -1,5 +1,5 @@
 // The required mark, one rule for every reader: a "*" (also ∗ ＊ ✱ ✳) leading a label, or trailing it with an optional ":" or "." after it
-// ("Name *", "Anrede*:", "Nom* :"). Structure only: no word, no language, no site. The panel (review.js), the fill (page/fill-labels.js),
+// ("Name *", "Anrede*:", "Nom* :"), or glued to the last word before a short tail ("Gehalt* (erforderlich)"). Structure only: no word, no language, no site. The panel (review.js), the fill (page/fill-labels.js),
 // the coverage (page/coverage.js), the radio groups (page/radios.js) and the proposer (page/propose.js) all ask it, so they cannot disagree.
 // Injected in both worlds (page-files.js, and the panel's list in background.js). Guarded by worker/test/required-mark.test.js.
 (() => {
@@ -7,9 +7,13 @@
   const STAR = '[*\\u2217\\uFF0A\\u2731\\u2733]';   // * ∗ ＊ ✱ ✳
   const TRAILING = new RegExp(`\\s*${STAR}+\\s*[:\\uFF1A.]?\\s*$`);
   const LEADING = new RegExp(`^\\s*${STAR}+\\s*`);
+  // A star glued to the label's last word, then a short tail of the page's own words in any language ("Gehaltsvorstellung* (erforderlich)", "First name*Required"):
+  // a letter right before the star, a tail of at most 3 words (30 characters) with no star of its own. The tail's meaning is not read; a legend has a space before its star.
+  const GLUED = new RegExp(`\\p{L}${STAR}+\\s*\\(?\\s*[^\\s*()]+(?:\\s+[^\\s*()]+){0,2}\\s*\\)?\\s*[:\\uFF1A.]?\\s*$`, 'u');
+  const glued = t => GLUED.test(t) && t.slice(t.search(new RegExp(`\\p{L}${STAR}`, 'u'))).length <= 32;
   const text = value => String(value || '').replace(/\s+/g, ' ').trim();
   // Does this label text carry the mark?
-  const textHas = value => { const t = text(value); return TRAILING.test(t) || LEADING.test(t); };
+  const textHas = value => { const t = text(value); return TRAILING.test(t) || LEADING.test(t) || glued(t); };
   // A label or title ELEMENT can draw the mark as an element of its own: a leaf that holds only the star, and (when the star is aria-hidden) a visually hidden element right after
   // it that says the same to a screen reader, in the page's language ("Name<sup aria-hidden>*</sup><span>Required</span>"). Its text then ends in no star.
   const STAR_ONLY = new RegExp(`^\\s*${STAR}+\\s*$`);
@@ -28,7 +32,7 @@
   const has = value => value?.querySelectorAll ? starLeaves(value).length > 0 || textHas(read(value)) : textHas(value);
   // The label's words without the mark and the colon after it.
   // `leading: false` keeps a leading mark (the fill reads a group's name with it, then asks `has`).
-  const clean = (value, {leading = true} = {}) => text(read(value).replace(leading ? LEADING : /^$/, '').replace(TRAILING, '').replace(/\s*[:\uFF1A]$/, ''));
+  const clean = (value, {leading = true} = {}) => { const t = read(value); return text((glued(text(t)) ? t.replace(new RegExp(`(\\p{L})${STAR}+`, 'u'), '$1 ') : t).replace(leading ? LEADING : /^$/, '').replace(TRAILING, '').replace(/\s*[:\uFF1A]$/, '')); };
   // The title of a radio/checkbox group that has no fieldset: the row it sits in (table row, form row, definition list) names it in a
   // cell or label beside it that holds no control and is not one option's own label. Structure only; the first such cell wins.
   const ROW = 'tr, li, dl, [class*=row], [class*=Row], [class*=field], [class*=Field], [class*=form-group], [class*=question]';

@@ -35,6 +35,19 @@ test('a "Label*:" form lists its required question that cannot be read, and coun
   assert.ok(summary.unfilledRequired >= 1);
 });
 
+// The star glued to the label's last word, then a short tail of the page's own words (12 Oct 2026, a German one-page form: "Gehaltsvorstellung* (erforderlich)",
+// and a hosted careers form: "First name*Required"). The tail's meaning is not needed: a star glued to a word, then a tail with no star of its own, is the mark;
+// a legend sentence has a space before its star and stays unmarked. Any language, any tail wording.
+test('a star glued to the label word then a short tail of words is the mark, in any language; a legend is not', { skip: !JSDOM }, () => {
+  const mark = openPage(JSDOM, TABLE).__jobPilottoRequired;
+  for (const text of ['Gehaltsvorstellung* (erforderlich)', 'First name*Required', 'Prétentions salariales* (obligatoire)', 'Telefono*obbligatorio', 'Nombre* (campo obligatorio)', 'E-Mail* (erforderlich):'])
+    assert.equal(mark.has(text), true, text);
+  for (const text of ['Mit * markierte Felder sind Pflichtfelder.', 'Fields marked with * are required', 'Notes (optional)', 'Rating 5* hotels or better, any city in the region you prefer to work in'])
+    assert.equal(mark.has(text), false, text);
+  assert.equal(mark.clean('Gehaltsvorstellung* (erforderlich)'), 'Gehaltsvorstellung (erforderlich)');
+  assert.equal(mark.clean('Prétentions salariales*Obligatoire'), 'Prétentions salariales Obligatoire', 'no glued words once the star is gone');
+});
+
 test('the independent star count sees the starred labels, not the legend, and no other text', { skip: !JSDOM }, () => {
   const window = openPage(JSDOM, `<p>Mit * markierte Felder sind Pflichtfelder.</p>${TABLE}`);
   assert.equal(window.__jobPilottoRequired.starred(window.document), 3);   // Anrede, Vorname, E-Mail: the legend and "Telefon:" are not
