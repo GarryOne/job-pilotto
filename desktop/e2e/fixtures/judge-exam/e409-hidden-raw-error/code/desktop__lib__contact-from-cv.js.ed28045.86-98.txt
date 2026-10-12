@@ -1,0 +1,13 @@
+  let saved = null;
+  try { saved = JSON.parse(storage.readText(FILE) || 'null'); } catch {}
+  if (!cvHash) return {proposals: [], cv: ''};
+  if (saved?.cv === cvHash && !again) return {proposals: pending(saved, cvHash, contact), cv: cvHash, fresh: false, error: saved.error || ''};
+  if (!client) return {proposals: [], cv: cvHash, fresh: false, error: 'no AI'};
+  const wanted = emptyFields(contact), started = Date.now();
+  let proposals = [], error = '';
+  try { ({proposals} = await propose(client, read(storage.path('cv.pdf')), wanted, profile)); } catch (failure) { error = String(failure?.message || failure).slice(0, 200); }
+  storage.writeText(FILE, JSON.stringify({cv: cvHash, at: new Date().toISOString(), proposals, ...(error ? {error} : {})}));
+  // Which fields, never their values (lib/log.js): enough to tell "nothing in the CV" from "Claude failed".
+  log('profile', error ? `details from the CV: failed: ${error}` : `details from the CV: ${proposals.length} of ${wanted.length} proposed`,
+    {cv: cvHash, asked: wanted, proposed: proposals.map(item => item.field), fromProfile: proposals.filter(item => item.source === 'profile').map(item => item.field), ms: Date.now() - started});
+  return {proposals: pending({cv: cvHash, proposals}, cvHash, contact), cv: cvHash, fresh: true, error};

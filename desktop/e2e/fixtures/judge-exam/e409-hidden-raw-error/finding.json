@@ -1,0 +1,12 @@
+{
+ "id": "e409-hidden-raw-error",
+ "expect": "real",
+ "note": "#409 (and #404-#408): judged false from the screenshot, fixed by c0bff8c",
+ "view": "settings",
+ "kind": "error-shown",
+ "severity": "medium",
+ "source": "layout-check",
+ "title": "error shown on settings: div.settings-pages",
+ "detail": "div.settings-pages shows technical text to the person: \"Finish connecting Gmail & CalendarReplies, interviews and recruiter emails are tracked from Gmail. Connect Gmail & Calendar Your setupConnected services and ext\" [seen at 1024x640, light theme]\nThe run's app.log: [profile] details from the CV: failed: 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API.\"},\"reque\u2026",
+ "impact": ""
+}
