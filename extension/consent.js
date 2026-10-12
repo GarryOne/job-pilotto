@@ -30,13 +30,13 @@ export const closePopup = async tabId => {
 };
 // The layer the gate sees (on-top.js: drawn over a control or the page centre, in a dialog or a big fixed layer) is closed through ITS OWN buttons when popup-page.js did not list it
 // (a notice with no dialog role and no z-index, a close control the list skipped): the same app pick (popup-pick.js), pressed only if it is a button of that layer. -> the label pressed, or ''.
-export const closeLayer = async tabId => {
+export const closeLayer = async (tabId, {want = ''} = {}) => {   // want: the fill ladder's repair named this button; pressed only when the app's own pick is the same one
   const run = args => chrome.scripting.executeScript({target: {tabId, frameIds: [0]}, func: onTop, args}).then(rows => rows?.[0]?.result).catch(() => null);
   const layer = await run([]);
   if (!layer?.buttons?.length) return '';
   const config = await settings().catch(() => null);
   const choice = config && (await api(config, '/extension/dismiss-popup', {method: 'POST', body: JSON.stringify({text: layer.text, buttons: layer.buttons})}).catch(() => null))?.button;
-  return choice ? (await run([{press: choice}]))?.pressed || '' : '';
+  return choice && (!want || choice === want) ? (await run([{press: choice}]))?.pressed || '' : '';
 };
 export const closePopupOrLayer = async tabId => (await closePopup(tabId)) || closeLayer(tabId);
 export const closeConsentEverywhere = async (tabId, {cookiesOnly = false} = {}) => {

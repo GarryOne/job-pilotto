@@ -55,7 +55,7 @@ export async function startRealExtension({extensionDir = EXTENSION_DIR, cv = tru
       ...(offline ? ['--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 127.0.0.1 , EXCLUDE localhost'] : [])],
   });
   const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker', {timeout: 30000});
-  await worker.evaluate(async url => chrome.storage.local.set({workerUrl: url, token: 'e2e'}), `http://127.0.0.1:${port}`);
+  await worker.evaluate(async url => chrome.storage.local.set({workerUrl: url, token: 'e2e', ladderAct: true}), `http://127.0.0.1:${port}`);   // ladderAct: the fill ladder's repair acts in test runs only (fake applicant; extension/ladder/fill-climb.js)
   const close = async () => { await context.close().catch(() => {}); stub?.close(); };
 
   // Fails the run unless the extension talks to the stand-in only.

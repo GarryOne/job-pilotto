@@ -35,6 +35,9 @@ export function settleTrace(trace = [], finalFields = [], gaveUp = [], readBack 
   return [...rows.values()].map(row => {
     if (row.type === 'file' && row.source === 'your CV' && file) return file === 'committed' ? (row.outcome === 'filled' ? row : {...row, outcome: 'filled', reason: 'the slot shows the file by the end of the fill'}) : {...row, outcome: 'left', reason: FILE_WHY[file]};
     const end = filledAtEnd.get(row.label), state = stateOf.get(fieldOf.get(row.label));
+    // Rung 0's LAST read (flow.js: after the fill ladder's repair or a late retype, ladder/fill-climb.js) outranks the earlier end read for a field the fill gave an answer: it holds it now.
+    if (state === 'committed' && row.source && row.outcome !== 'filled') return {...row, outcome: 'filled', reason: 'filled by the end of the fill'};
+    if (state === 'committed' && row.source) return row;
     if (end === true && row.outcome !== 'filled') return {...row, outcome: 'filled', reason: 'filled by the end of the fill'};
     if (end === false && row.outcome === 'filled' && row.type !== 'file' && row.type !== 'password') return {...row, outcome: 'left', reason: gaveUpTimes.has(fieldOf.get(row.label)) ? `empty again at the end of the fill: the page emptied it after we typed it ${gaveUpTimes.get(fieldOf.get(row.label))} times, so we stopped` : spent.has(fieldOf.get(row.label)) ? GAVE_UP : LEFT_WHY[state] || 'empty again at the end of the fill'};
     if (row.outcome !== 'filled' && spent.has(fieldOf.get(row.label)) && end !== true) return {...row, outcome: 'left', reason: GAVE_UP};

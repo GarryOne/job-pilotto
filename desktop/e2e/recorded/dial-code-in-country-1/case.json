@@ -1,0 +1,70 @@
+{
+ "shape": "a required native Country menu that lists country names only; the fill's answer for it is a calling code (\"+41\"), so no option matches and the menu stays on its placeholder",
+ "origin": "hand-cut",
+ "why": "The owner's case c (12 Oct 2026): \"+41\" pushed into a Country dropdown, tried again and again. The fill ladder's repair (PR C2): the fill check says wrong (wrong_class), the repair question names choose_option, and the page picks the one option that shows the answer in another writing (the dial-code table: +41 is Switzerland), checked in the page against the fill's own answer; the model never sees the value",
+ "control": {
+  "build": "0.9.257",
+  "failed": "present: #country option[value=CH]:checked (the menu stays on \"Please select\": \"+41\" is no option)"
+ },
+ "sample": "an application form whose Country menu lists countries by name",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/dial-code-country/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": false,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "country",
+     "question": "Country",
+     "value": "+41",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  },
+  "/extension/account-judge": [
+   {
+    "when": {"phase": "fill"},
+    "answer": {"ok": true, "answer": "shadow", "verdicts": [{"n": 3, "label": "Country", "verdict": "wrong", "reason": "wrong_class"}], "counts": {"ok": 2, "empty": 0, "wrong": 1, "unreachable": 0, "unsure": 0}}
+   },
+   {
+    "when": {"phase": "repair"},
+    "answer": {"ok": true, "answer": "repair", "repairs": [{"n": 3, "label": "Country", "widget": "native_select", "verb": "choose_option", "option": 0, "refused": ""}], "counts": {"choose_option": 1}}
+   },
+   {
+    "answer": {"ok": true, "answer": ""}
+   }
+  ]
+ },
+ "expect": {
+  "present": [
+   "#country option[value=CH]:checked"
+  ],
+  "traced": [
+   "Country:filled"
+  ],
+  "told": [
+   "fill: choose_option on control 3"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 40
+ },
+ "start": "panel"
+}

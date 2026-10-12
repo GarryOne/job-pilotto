@@ -4,6 +4,7 @@ import {KEY} from './tab-identity.js';
 import {MENU_REASONS, OLD_MENU_REASON, applyCombos} from './menu-reason.js';
 import {clickCombo} from './combo-click.js';
 import {typeNotTakenOnTab} from './fill-verify.js';
+import {climbFill} from './ladder/fill-climb.js';
 import {kitStance} from './tab-pages.js';
 import {fillCard} from './fill-card.js';
 import {readBackCounts, settleTrace} from './trace-settle.js';
@@ -32,8 +33,8 @@ let comboQueue = Promise.resolve();
 export function clickCombos(tabId) {
   return debuggerTurn(() => clickCombosNow(tabId));
 }
-// One debugger user at a time on this worker (the menus' clicks, the real typing of fill-verify.js).
-function debuggerTurn(work) {
+// One debugger user at a time on this worker (the menus' clicks, the real typing of fill-verify.js, the fill ladder's repair clicks: ladder/fill-climb.js).
+export function debuggerTurn(work) {
   const turn = comboQueue.then(work);
   comboQueue = turn.catch(() => {});
   return turn;
@@ -92,7 +93,7 @@ async function clickCombosNow(tabId) {
 const withLetterFile = (resume, file) => (file ? {...(resume || {}), coverLetterFile: file} : resume);
 
 export async function settings() {
-  return chrome.storage.local.get(['workerUrl', 'token', 'profile', 'resume', 'checkEligibility', 'testMode', 'clickDropdowns', 'acceptConsents']);
+  return chrome.storage.local.get(['workerUrl', 'token', 'profile', 'resume', 'checkEligibility', 'testMode', 'clickDropdowns', 'acceptConsents', 'ladderAct']);   // ladderAct: the e2e harness's switch only (ladder/fill-climb.js)
 }
 
 // The Job Pilotto Mac app gives its connection to this extension only (it checks the extension's ID).
@@ -410,7 +411,8 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   for (const spent of await inPage(tab.id, () => window.__jobPilottoAttempts?.drain() || []).catch(() => []) || []) decide('fill', 'a control used its tries: left for the person', {kind: spent.kind, tries: spent.tries}).catch(() => {});   // once per control (page/attempts.js)
   const tries = await inPage(tab.id, () => window.__jobPilottoAttempts?.summary() || null).catch(() => null);
   if (tries && Object.keys(tries.byTries).length) decide('fill', 'tries per control', tries).catch(() => {});   // measures the attempt log's cap (spec amendment 1): counts only
-  summary.trace = settleTrace(summary.trace || [], Array.isArray(finalForm) ? finalForm : [], gaveUp, Array.isArray(readBack) ? readBack : [], (me?.resume || config.resume)?.name || '');
+  const lastRead = (await climbFill(tab, config, {turn: debuggerTurn}).catch(() => null))?.readBack || readBack;   // the fill ladder's repair (test switch only) and the read after a late retype (ladder/fill-climb.js)
+  summary.trace = settleTrace(summary.trace || [], Array.isArray(finalForm) ? finalForm : [], gaveUp, Array.isArray(lastRead) ? lastRead : [], (me?.resume || config.resume)?.name || '');
   // One anonymous record of this fill for the learning digest (fill-card.js: counts and fixed words), and its id on the page so
   // the panel can add, at Submit, what you answered yourself.
   summary.card = fillCard({id: crypto.randomUUID(), trace: summary.trace || [], form: debug.form || [],

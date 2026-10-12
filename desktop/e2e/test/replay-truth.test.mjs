@@ -19,6 +19,8 @@ test('the same answer: equal, a longer option that holds it, a phone by its digi
   assert.ok(sameAnswer('Switzerland', ['Switzerland (CH)', 'CH']));
   assert.ok(sameAnswer('Zürich', ['zurich']));
   assert.ok(sameAnswer('+41 79 123 45 67', ['0791234567', '+41791234567']));
+  assert.ok(sameAnswer('+41', ['Switzerland', 'CH']), 'a calling code shown as its country (the fill ladder\'s repair, dial-code-in-country-1)');
+  assert.ok(!sameAnswer('+41', ['Israel', 'IL']), 'never another country for a calling code');
   assert.ok(sameAnswer('Yes', ['yes']));
   assert.ok(sameAnswer('Geneva, Switzerland', ['Geneva']));   // a type-to-search option in its own, shorter wording (typeahead-answer-text-differs-1)
   assert.ok(sameAnswer('Are you fluent in English? YES', ['YES']));

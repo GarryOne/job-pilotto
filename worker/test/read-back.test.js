@@ -108,3 +108,17 @@ test('a CV slot whose input the page hides is found by its visible zone; a zone 
   assert.equal(window.__jobPilottoReadBack.shownSlot(window.document.getElementById('other')), null, 'its box holds another field: not this slot\'s zone');
   window.close();
 });
+
+test('the record takes rung 0\'s last read: a field the fill answered that holds its answer after a repair or a late retype is filled, whatever the earlier end read said', () => {
+  // cc, 13 Oct 2026: the pool's endings (desktop/e2e/lib/ending.mjs) read the record; a box the page emptied after the end read and the retype filled again stayed "left".
+  const trace = [{label: 'First name', type: 'text', source: 'your details', outcome: 'filled', reason: ''}, {label: 'Country', type: 'select-one', source: 'kit', outcome: 'left', reason: 'answer given, but the field did not take it'},
+    {label: 'I agree', type: 'checkbox', source: '', outcome: 'left', reason: 'legal/consent: always your choice'}];
+  const final = [{label: 'First name', field: 'first', filled: false}, {label: 'Country', field: 'country', filled: false}, {label: 'I agree', field: 'agree', filled: true}];
+  const last = [{field: 'first', type: 'text', state: 'committed'}, {field: 'country', type: 'select', state: 'committed'}, {field: 'agree', type: 'checkbox', state: 'committed'}];
+  const rows = settleTrace(trace, final, [], last, '');
+  assert.deepEqual(rows.map(row => [row.label, row.outcome]), [['First name', 'filled'], ['Country', 'filled'], ['I agree', 'filled']]);
+  const legal = settleTrace([trace[2]], [{...final[2], filled: false}], [], last, '');
+  assert.equal(legal[0].outcome, 'left', 'a box the fill gave no answer (a consent) is never counted as the fill\'s by the read alone');
+  const stale = settleTrace(trace.slice(0, 1), final.slice(0, 1), [], [{field: 'first', type: 'text', state: 'empty'}], '');
+  assert.equal(stale[0].outcome, 'left', 'empty at the last read: left, as before');
+});

@@ -7,6 +7,7 @@ import {log as appLog} from './log.js';
 import {aiClient, judgePage, reportedConfirmations} from './confirmation.js';
 import {judgeAccount} from './account-judge.js';
 import {judgeFill} from './ladder/fill-verify.js';
+import {askRepair} from './ladder/fill-repair.js';
 import {judgeForm} from './form-judge.js';
 import {judgeFormat} from './format-judge.js';
 import {escalate} from './ladder/rung4-picture.js';
@@ -177,6 +178,11 @@ export async function decideAccountJudge(storage, body, {judge = judgeAccount, c
     const found = await judgeFill(client === undefined ? aiClient(storage, {lane: 'page'}) : client, body?.sketch || {});
     appLog('extension', found.error ? `fill verify (shadow): none (${found.error})` : 'fill verify (shadow)', found.error ? {} : {...found.counts, misses: found.verdicts.filter(row => row.verdict !== 'ok').map(row => `${row.n}:${row.verdict}${row.reason ? `/${row.reason}` : ''}`).slice(0, 12)});
     return found.error ? {ok: true, answer: '', error: found.error} : {ok: true, answer: 'shadow', verdicts: found.verdicts, counts: found.counts};
+  }
+  if (body?.phase === 'repair') {   // the fill ladder's fill_repair (lib/ladder/fill-repair.js): closed verbs on numbered controls; the extension acts on them only behind its pool switch (extension/ladder/fill-climb.js)
+    const found = await askRepair(client === undefined ? aiClient(storage, {lane: 'page'}) : client, body?.sketch || {}, Array.isArray(body?.verdicts) ? body.verdicts : []);
+    appLog('extension', found.error ? `fill repair: none (${found.error})` : 'fill repair', found.error ? {} : {...found.counts, repairs: found.repairs.map(row => `${row.n}:${row.verb}${row.option ? `#${row.option}` : ''}${row.refused ? ' refused' : ''}`).join(' ')});   // numbers and verbs, never a label
+    return found.error ? {ok: true, answer: '', error: found.error} : {ok: true, answer: 'repair', repairs: found.repairs, counts: found.counts};
   }
   const phase = body?.phase === 'result' ? 'result' : body?.phase === 'form' ? 'form' : 'ready';
   noteAsk(body?.sketch?.url, {route: '/extension/account-judge'});   // the page as this ask saw it, kept by the e2e capture (lib/live-capture.js)   // 'form': the application form's own readiness (lib/form-judge.js)

@@ -250,10 +250,12 @@ Shadow (owner): one zoo pass + one pool pass with `fill_verify` logging, then re
 ### 4. Repair (PR C)
 - [x] Control digest (rung 3) + `fill_repair` schema (WIDGETS, VERBS incl. `dismiss_layer`, n, option): `desktop/lib/ladder/fill-repair.js`; 8 `fr-*` fixtures (2 reconstructed from the owner's cases a and c, 3 floor traps) 8/8 hit on the plan path, the traps answered `ask_person` by the model itself; `choose_option` option 0 = found on the computer from the answer (the model never sees it) (PR C1)
 - [x] Value class (`page/value-class.js`, fixed list, both ends) in the fill_verify sketch; reason `wrong_class` (PR C1)
-- [ ] `choose_option(i)` validated locally (the option holds the answer's key parts or the dial code's country), in the executor (PR C2)
-- [ ] Executor over existing primitives; caps; floor refusals tested (consent, declaration, terms, submit-like, password); the desktop side already turns a legal or password control into `ask_person` (PR C1), the page side is C2
-- [ ] intl-tel-input and flatpickr real-library pages (amendment 6); repair ACTS in the CI pool, unblock rate measured end to end (amendment 7)
-- [ ] Wiring in `extension/ladder/fill-climb.js` (the door record; joins `deadEnd()` when it lands); journey scenario; zoo cases fail on old
+- [x] `choose_option(i)` validated locally (the option holds the answer's words, a calling code's digits, or the dial code's country; none or two fitting: nothing; option 0 = found on the page) (PR C2) (proof: worker/test/repair-act.test.js)
+- [x] Executor over existing primitives (page verbs choose_option / retype / commit in `page/repair-act.js`, a trusted click, the layer closer only when its own pick is the named button, wait; open_section and upload logged as not done yet); cap 3 per page; floors on both ends (legal, password, button) (PR C2) (proof: desktop/e2e/recorded/dial-code-in-country-1/case.json)
+- [x] Repair ACTS in test runs only (the e2e harness's storage switch `ladderAct`: CI pool, replays, zoo; no model call added for a person) (PR C2) (proof: worker/test/fill-climb.test.js)
+- [ ] intl-tel-input and flatpickr real-library pages (amendment 6), popup-over-form page; the unblock rate measured end to end in the CI pool (amendment 7) (C3)
+- [x] Wiring in `extension/ladder/fill-climb.js`, one call in flow.js; the record takes rung 0's last read after a repair or a late retype, so the pool's endings read what the page holds (cc) (PR C2) (proof: worker/test/read-back.test.js)
+- [ ] The door record `{level: 'control', ...}` joining next-move's `deadEnd()`; a journey scenario
 ### 5. Remember (PR D)
 - [ ] Local kept repair per fingerprint, one miss drops
 - [ ] Evidence (fingerprint, verb, worked) in next-move's feed: `repairs` array to `/api/controls` (real use + CI pool + replays), site stores it
