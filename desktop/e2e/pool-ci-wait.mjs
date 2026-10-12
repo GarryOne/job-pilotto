@@ -9,7 +9,7 @@ const me = process.env.GITHUB_RUN_ID, poll = Number(process.env.POOL_WAIT_POLL |
 const sleep = seconds => new Promise(resolve => setTimeout(resolve, seconds * 1000));
 const list = () => WORKFLOWS.flatMap(workflow => {
   try { return JSON.parse(execFileSync('gh', ['run', 'list', '--workflow', workflow, '--limit', '60', '--json', 'databaseId,status'], {encoding: 'utf8'})); }
-  catch (error) { console.log(`pool-ci-wait: could not list ${workflow} (${String(error?.message || error).slice(0, 120)}): looking again`); return null; }
+  catch (error) { console.log(`pool-ci-wait: could not list ${workflow} (${String(error?.stderr || error?.message || error).trim().split('\n').at(-1).slice(0, 240)}): looking again`); return null; }   // gh's own last line says why
 });
 
 if (!me) { console.error('pool-ci-wait: no GITHUB_RUN_ID'); process.exit(2); }
