@@ -61,3 +61,8 @@ test('a PR whose row did not run gets the NOT RUN line as a comment, with how to
   assert.match(smoke, /NOT_RUN_FILE: \$\{\{ runner\.temp \}\}\/not-run\.txt/);
   assert.match(smoke, /^ {2}pull-requests: write\b/m);
 });
+
+test('the PR proof hands its applicant to the pool run, which sets JP_APPLICANT (thin when started by hand)', () => {
+  assert.match(workflows['pool-proof.yml'], /applicant: \$\{\{ needs\.pick\.outputs\.applicant \}\}/);
+  assert.match(workflows['pool-smoke.yml'], /JP_APPLICANT: \$\{\{ inputs\.applicant \|\| 'thin' \}\}/);
+});

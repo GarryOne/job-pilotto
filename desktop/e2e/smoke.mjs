@@ -179,6 +179,7 @@ async function main() {
     }
     results[shape] = {url: posting.url, ...parseLive(run.output), exit: run.code, seconds: run.seconds};
     thisRun.ran.push(shape);
+    results[shape].applicant = process.env.JP_APPLICANT || 'thin';   // which test applicant ran it (lib/applicant-seed.mjs): runs compare only with the same one
     thisRun.usd += results[shape].usd || 0;   // the row's AI on the CI key (live.mjs prints it; a Mac's plan has none)
     results[shape].signature = signature(results[shape]);
     results[shape].marksBlind = marksBlind(results[shape]);

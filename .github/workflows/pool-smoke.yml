@@ -35,6 +35,9 @@ on:
       share:
         type: number
         default: 1
+      applicant:   # the test applicant (e2e/lib/applicant-seed.mjs): a PR proof runs the grown one; by hand: thin
+        type: string
+        default: 'thin'
 
 permissions:
   contents: read
@@ -56,6 +59,7 @@ jobs:
       SHARE: ${{ inputs.share }}
       E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
       JP_NO_REPORT: '1'                # nothing uploaded from CI (the code refuses it anyway)
+      JP_APPLICANT: ${{ inputs.applicant || 'thin' }}   # thin by hand, grown on a PR proof unless its body says "live-applicant: thin"
       JOB_PILOTTO_HEAVY: '0'           # the heavy lock is a Mac's machine-wide queue; this runner is its own machine
       JOB_PILOTTO_SESSION: pool-smoke CI run ${{ github.run_id }}
       JOB_PILOTTO_SITE_LIMIT: '2'

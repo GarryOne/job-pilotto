@@ -1,5 +1,6 @@
 # The live proof on a PR (owner, 12 Oct 2026, v2 of the CI pool): ONE public pool row runs on the PR's own build, through pool-smoke.yml (the same floors, caps,
 # CI-wide site ledger and summary). NOT a required check: live sites move, CI IPs meet bot walls, postings vanish.
+# - As the GROWN test applicant (owner, 12 Oct 2026), unless the PR body says "live-applicant: thin"; its last CI run is compared only with the same applicant.
 # - Which row (desktop/e2e/lib/pool-proof.mjs): a "live-row: <row words>" line in the PR body, else the first "Pool-row: <row>" line in the PR's commits.
 #   On open and each push it runs only when a commit names a Pool-row; the "live-proof" label runs it for any PR (a prompt fix too) and then needs a row named.
 # - Every PR it runs for gets the "live-proof" label (added by the pick job), so label:live-proof lists every PR with a CI live run.
@@ -24,6 +25,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       row: ${{ steps.pick.outputs.row }}
+      applicant: ${{ steps.pick.outputs.applicant }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -65,4 +67,5 @@ jobs:
     with:
       only: ${{ needs.pick.outputs.row }}
       share: 1
+      applicant: ${{ needs.pick.outputs.applicant }}
     secrets: inherit

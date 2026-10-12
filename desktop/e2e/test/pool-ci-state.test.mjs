@@ -49,3 +49,15 @@ test('a run\'s state holds its ledger and only the rows it ran, trimmed to what 
   assert.deepEqual(stateOf({run: '7', branch: 'main', sha: 'abc', at: '2026-10-12T12:00:00Z', ledger: {x: 1}, report}),
     {run: '7', branch: 'main', sha: 'abc', at: '2026-10-12T12:00:00Z', ledger: {x: 1}, results: {Lever: {reached: 'form', filled: 11, left: 7, url: 'u'}}});
 });
+
+test('a baseline is a run of the same applicant: the grown one is compared with grown runs, the thin one with thin runs (a result without one was thin)', () => {
+  const states = [
+    state('1', 'main', '2026-10-12T09:00:00Z', {}, {Lever: {reached: 'form', filled: 11, left: 7, url: 'u'}}),
+    state('2', 'main', '2026-10-12T10:00:00Z', {}, {Lever: {reached: 'ready', filled: 18, left: 0, url: 'u', applicant: 'grown'}}),
+  ];
+  assert.equal(baselines(states, {branch: 'my-pr', run: '9', applicant: 'grown'}).Lever.run, '2');
+  assert.equal(baselines(states, {branch: 'my-pr', run: '9', applicant: 'thin'}).Lever.run, '1');
+  assert.equal(baselines(states, {branch: 'my-pr', run: '9'}).Lever.run, '1', 'no applicant named: the thin one');
+  const report = {results: {Lever: {reached: 'form', filled: 11, left: 7, url: 'u', applicant: 'grown'}}, thisRun: {ran: ['Lever']}};
+  assert.equal(stateOf({run: '7', branch: 'main', sha: 'a', at: 'x', ledger: {}, report}).results.Lever.applicant, 'grown');
+});

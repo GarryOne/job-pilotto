@@ -13,7 +13,7 @@ const ledgerFile = path.join(ledgerDir(), 'ledger.json');
 
 if (mode === 'prepare') {
   const states = (fs.existsSync(from) ? fs.readdirSync(from, {recursive: true}) : []).filter(name => path.basename(String(name)) === 'state.json').map(name => read(path.join(from, String(name)))).filter(Boolean);
-  const day = dayOf(), ledger = mergeLedgers(states, day), base = baselines(states, {branch, run});
+  const day = dayOf(), ledger = mergeLedgers(states, day), base = baselines(states, {branch, run, applicant: process.env.JP_APPLICANT || 'thin'});
   fs.mkdirSync(path.dirname(ledgerFile), {recursive: true});
   fs.writeFileSync(ledgerFile, JSON.stringify(ledger, null, 1));
   fs.mkdirSync(path.dirname(to), {recursive: true});
