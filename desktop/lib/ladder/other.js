@@ -3,7 +3,7 @@
 // The file (ladder-other.json) is a cache: deleting it only loses the counts. Guard: desktop/test/ladder-other.test.js.
 import fs from 'node:fs';
 
-const SHAPE = /^[a-z0-9._-]{1,80}(\/[a-z0-9._*-]{0,60}){0,8}\|[a-z0-9-]{1,12}$/;   // as ladder-learning.js (not exported there): no query, no space, no @, no sentence
+const SHAPE = /^[a-z0-9._-]{1,80}(\/[a-z0-9._*-]{0,60}){0,8}\|[a-z0-9+-]{1,12}$/;   // as learning.js SHAPE (the build may end in '8+'): no query, no space, no @, no sentence
 const MAX_SHAPES = 500;
 
 export function otherStore(file) {

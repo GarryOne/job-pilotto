@@ -27,7 +27,7 @@ import {clickTrace, modalTrace} from './ladder/press-why.js';
 import {forgetRouteTries, startRoute} from './start-route.js';
 import {emailReport, mailsOf} from './ladder/outcomes.js';
 import {onTop} from './on-top.js';
-import {candidatesOf, claimFrame, climbOnStall, frameBecameCandidate, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, noteSignal, otherReport, toldReport, verifiedBody} from './ladder/climb.js';
+import {candidatesOf, claimFrame, climbOnStall, confirmedBody, frameBecameCandidate, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, notePressed, noteSignal, otherReport, takePressed, toldReport, verifiedBody} from './ladder/climb.js';
 
 let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true, fillsNow = new Set(), arm = async () => {}, progress = async () => {};
 export function initFillFlow(shared) {
@@ -295,6 +295,7 @@ export async function consider(tab, jobUrl) {
   }
   decide('fill', `page kind: ${kind?.kind || ruled}`, {by: kind ? kind.by : 'structure rule', confidence: kind?.confidence ?? null, ms: Date.now() - lookedAt, outcomeMs,
     ...(kind && kind.role !== ruled ? {rule: ruled} : {}), host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
+  const carried = takePressed(tab.id);   // the Apply press that brought the tab here: confirmed below only if this page takes the fill (ladder/climb.js)
   await noteRole(tab.id, tab.url, noted || role);   // a sign-up page filled like a form is still an account page: no application learning, no "application form" stage (Migros, 8 Oct 2026)
   // Event-driven: an account page is looked at the moment its kind is known, not at the panel's next tick. One filled with your details is looked at AFTER
   // that fill: its "ready?" judgment must see the email in (jobs.ch, 9 Oct 2026: judged 0.3 s before the fill typed it, "Email address" missing, nothing pressed).
@@ -309,8 +310,9 @@ export async function consider(tab, jobUrl) {
     // The shared phrases, and the button the page-kind AI named on this page (any language; already checked against the page and the schema).
     const phrases = [...await applyPhrases(), ...(kind?.applyButton ? [{key: 'apply_button', phrase: kind.applyButton}] : [])];
     applyPressed.set(tab.id, {at: Date.now(), url: tab.url});   // before the click: the site opens its new tab during it (same-tab.js)
+    notePressed(tab.id, confirmedBody(kind, tab.url, controlsOf(tab.id), 'pressed'));   // before the click too: the page it opens can be judged before this press's own wait ends (ladder/climb.js)
     const attempt = await pressApply(tab.id, phrases, '', kind?.applyButton || '', noEffectOf(key));
-    if (!attempt.pressed) applyPressed.delete(tab.id);
+    if (!attempt.pressed) { applyPressed.delete(tab.id); notePressed(tab.id, null); }
     const label = attempt.pressed;
     buttonsSeen = attempt.buttons;
     if (!label) decide('fill', 'no Apply button to press', {host, listed: attempt.buttons?.length ?? 0, named: !!kind?.applyButton, ...(attempt.why || {})});   // why nothing was pressed (Hornbach, 10 Oct 2026: no line said); the named control's flags: found, visible, enabled, submits, href kinds, pickable
@@ -320,8 +322,9 @@ export async function consider(tab, jobUrl) {
       const after = await formAfterPress(tab.id, tab.url);
       decide('fill', `after the press: ${after === 'navigated' ? 'the page moved' : after ? 'a form came' : 'no form came'}`, {host, label, ...(after ? {} : await clickTrace(tab.id))});   // what the press did (Aldi, 10 Oct 2026: no line said)
       if (attempt.via) reportFlow(tab, null, {aliasUse: [{phrase: attempt.via, ok: after !== null}]});   // did a phrase from the service open the form?
-      if (after === 'navigated') { started.delete(key); return; }   // the next page decides for itself (onUpdated)
-      if (after) { role = 'form'; await noteRole(tab.id, tab.url, role); const proof = verifiedBody(kind, tab.url, controlsOf(tab.id)); if (proof) api(await settings(), '/extension/page-kind', {method: 'POST', body: JSON.stringify(proof)}).catch(() => {}); }   // a digest-named press led to a form: the app may keep it (ladder-learning.js)
+      if (after === 'navigated') { started.delete(key); return; }   // the next page decides for itself (onUpdated); if it takes the fill, this press is confirmed (notePressed above)
+      notePressed(tab.id, null);   // no other page: a form here is confirmed just below, no form is nothing
+      if (after) { role = 'form'; await noteRole(tab.id, tab.url, role); const proof = verifiedBody(kind, tab.url, controlsOf(tab.id)) || confirmedBody(kind, tab.url, controlsOf(tab.id), 'pressed'); if (proof) api(await settings(), '/extension/page-kind', {method: 'POST', body: JSON.stringify(proof)}).catch(() => {}); }   // the press led to a form: a digest's answer may be kept, the fast tier's is counted (ladder/learning.js)
       else {
         noteNoEffect(key, label);   // pressed, nothing came: never pressed again on this page, and the AI's next look is told so (no-effect.js)
         // No form and the page did not move: it may be a step that offers several ways to start (Workday's dialog). The AI names the route of its button; only the manual one is pressed (start-route.js).
@@ -395,6 +398,8 @@ export async function consider(tab, jobUrl) {
   await writeState(tab.id, result?.error ? {state: 'error', error: String(result.error).slice(0, 160)}
     : {state: 'done', filled: result?.filled || 0, left: (result?.todo || []).length, todo: (result?.todo || []).slice(0, 20)});
   reportFlow(tab, {role: 'form', ok: !result?.error});
+  const filledProof = !result?.error && result?.filled > 0 && !pressed && !noted ? confirmedBody(kind?.role === 'form' ? kind : null, tab.url, controlsOf(tab.id), 'filled') : null;   // the page took the fill: the decision that called it a form is counted (a kind the structure overrode is the rule's, rung 0)
+  for (const proof of filledProof ? [filledProof, carried].filter(Boolean) : []) api(await settings(), '/extension/page-kind', {method: 'POST', body: JSON.stringify(proof)}).catch(() => {});
   // A fill that put nothing in and left required fields open has no next move of its own (Deloitte's "how will you give your CV" step, 9 Oct 2026: "Form open",
   // 0 filled, 2 left, nobody told): the session says what is left and offers Claude. Counted from the fill's own rows, no word of any page.
   const open = (result?.trace || []).filter(row => row.required && row.outcome === 'left').map(row => String(row.label || '').replace(/\s+/g, ' ').trim()).filter(Boolean);

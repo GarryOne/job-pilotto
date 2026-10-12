@@ -4,10 +4,11 @@
 // the operators fared (counts), the structure of controls it could not read (no text), the wording of form questions no answer matched
 // (the form's own words, never what the user typed) and what happened on each page of an application (counts per board). All of it follows the Technical
 // reports switch: off means no fingerprint ever leaves this Mac.
-// The ladder's learned counts (lib/ladder/learning.js) go with the same batch as `ladder`: what changed since the last successful send, per page shape, fixed values and integers only:
-//   "ladder": [{"shape": "jobs.example.ch/careers/*|3-7", "rung": 3, "outcome": "form", "hits": 2, "misses": 1}, ...]   // at most 40; shape = host + path template + build, no query
+// The ladder's learned counts (lib/ladder/learning.js) go with the same batch as `ladder`: what changed since the last successful send, per page shape, fixed values and integers only
+// (rung 0-2: the fast tier's decisions the page confirmed, counted; rung 3+: the kept answers):
+//   "ladder": [{"shape": "jobs.example.ch/careers/*|3-7", "rung": 3, "kind": "posting", "outcome": "form", "hits": 2, "misses": 1}, ...]   // at most 40; shape = host + path template + build, no query
 //   "ladderOther": [{"shape": "jobs.example.ch/careers/*|3-7", "n": 2}, ...]   // pages the ladder ended on with no usable answer (lib/ladder/other.js), the same delta rule, at most 40
-// The site (k>=3 installs per shape, fixed lists) aggregates them; that side is not built.
+// The site stores them per source (site/src/ladder-moves.js: 'user' here; the CI pool and the replays send theirs marked 'ci' / 'replay'); serving them (k>=3 installs) is not built.
 import {validateAlias} from '../shared/alias-schema.js';
 import {validateRecipe} from '../shared/recipe-schema.js';
 import {installId} from './app-feedback.js';
@@ -319,10 +320,10 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
     let sentBefore = {}; try { sentBefore = JSON.parse(storage.readText(LADDER_SENT) || '{}') || {}; } catch { /* none yet */ }
     const totals = {}, rows = [];
     for (const row of ladderCounts(ladderStore(storage.path('ladder-learning.json')))) {
-      totals[row.shape] = {rung: row.rung, outcome: row.outcome, hits: row.hits, misses: row.misses};
-      const was = sentBefore[row.shape]?.rung === row.rung && sentBefore[row.shape]?.outcome === row.outcome ? sentBefore[row.shape] : null;
+      totals[row.shape] = {rung: row.rung, kind: row.kind, outcome: row.outcome, hits: row.hits, misses: row.misses};
+      const before = sentBefore[row.shape], was = before?.rung === row.rung && before?.outcome === row.outcome && (before?.kind ?? row.kind) === row.kind ? before : null;   // a baseline from before `kind` was sent: the same decision
       const hits = row.hits - (was?.hits || 0), misses = row.misses - (was?.misses || 0);
-      if (!was || hits > 0 || misses > 0) rows.push({shape: row.shape, rung: row.rung, outcome: row.outcome, hits: Math.max(0, hits), misses: Math.max(0, misses)});
+      if (!was || hits > 0 || misses > 0) rows.push({shape: row.shape, rung: row.rung, kind: row.kind, outcome: row.outcome, hits: Math.max(0, hits), misses: Math.max(0, misses)});
     }
     return {rows: rows.slice(0, 40), totals};
   }

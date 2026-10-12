@@ -12,7 +12,7 @@ import {judgeFormat} from './format-judge.js';
 import {escalate} from './ladder/rung4-picture.js';
 import {captureCall, noteAsk} from './live-capture.js';
 import {forgetPageKind, kindKey, pageKind, pageKindCache, sketchBody} from './page-kind.js';
-import {hit as ladderHit, ladderStore, lookup as ladderLookup, miss as ladderMiss, record as ladderRecord} from './ladder/learning.js';
+import {confirm as ladderConfirm, hit as ladderHit, ladderStore, lookup as ladderLookup, miss as ladderMiss, record as ladderRecord} from './ladder/learning.js';
 import {otherStore, record as otherRecord} from './ladder/other.js';
 import {digestLine} from './ladder/rung3-digest.js';
 import {ladderLine, signalOf} from '../shared/ladder-core.js';
@@ -94,12 +94,21 @@ export async function decidePageKind(storage, body, {decide = pageKind, client} 
     if (reported) appLog('extension', `ladder: other shape=${shapeOf}`);
     return {ok: true, reported};
   }
+  if (body?.verified !== undefined && Number(body?.rung) < 3) {   // the page confirmed a decision of the fast tier (0 structure, 1 kept, 2 sketch): counted, never kept (lib/ladder/learning.js confirm)
+    const confirmed = ladderConfirm(learnt, shapeOf, {rung: body.rung, outcome: body.outcome, kind: body.kind, verified: body.verified});
+    if (confirmed) appLog('extension', `ladder: confirmed by rung ${body.rung}`, {shape: shapeOf, kind: body.kind, outcome: body.outcome});   // fixed values: the CI pool and the replays read it (e2e/lib/ladder-moves.mjs)
+    return {ok: true, confirmed};
+  }
   if (body?.verified !== undefined) {   // the extension saw the page move on after a rung 3 or 4 answer (or the person did not override it): kept for the shape, fixed values only
     const kept = ladderRecord(learnt, shapeOf, {rung: body.rung, outcome: body.outcome, kind: body.kind, signal: body.signal, verified: body.verified});
-    if (kept) appLog('extension', `ladder: learned by rung ${body.rung}`, {shape: shapeOf, outcome: body.outcome});
+    if (kept) appLog('extension', `ladder: learned by rung ${body.rung}`, {shape: shapeOf, kind: body.kind, outcome: body.outcome});
     return {ok: true, learned: kept};
   }
-  if (body?.confirmed === true) return {ok: true, hit: !!(shapeOf && ladderHit(learnt, shapeOf))};   // the page confirmed the learned answer
+  if (body?.confirmed === true) {   // the page confirmed the learned answer
+    const hit = !!(shapeOf && ladderHit(learnt, shapeOf));
+    if (hit) appLog('extension', 'ladder: learned answer confirmed', {shape: shapeOf});
+    return {ok: true, hit};
+  }
   if (!body?.forget) noteAsk(body?.url);   // the moment of the ask, for the e2e capture only (lib/live-capture.js)
   const answer = await decide(client === undefined ? aiClient(storage, {lane: 'page'}) : client, sketchBody(body), kindCache, {fresh: body?.fresh === true, digest: body?.digest === true, learned: shape => ladderLookup(learnt, shape)});   // frames: the hosts of visible frames (a bot check), lib/page-kind.js
   if (kindWorthSaying(answer)) appLog('extension', answer.kind && !answer.error ? `page kind: ${answer.kind}` : `page kind: none (${answer.error || 'no answer'}), the structure rule decides`,

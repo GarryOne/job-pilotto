@@ -15,11 +15,12 @@ const looked = new Set();    // `${tab id} ${page}`: pages whose stall already a
 const OFF = [4];
 const opened = new Set();    // `${tab id} ${page}`: pages whose form frame was already opened (once per tab and page)
 const frames = new Map();    // tab id -> the page's form-frame candidates WITH their addresses (the addresses never leave the extension)
+const pressedProofs = new Map();   // tab id -> the confirmation of an Apply press that moved the tab, for its next page (notePressed)
 
 const sketched = new Map();  // tab id -> the controls the page-kind question carried (the page shape key needs them)
 export const noteSignal = (tabId, answer, controls = []) => { sketched.set(tabId, controls); if (answer?.signal) signals.set(tabId, {rung: answer.rung, signal: answer.signal}); else signals.delete(tabId); };
 export const controlsOf = tabId => sketched.get(tabId) || [];
-export const forgetClimb = tabId => { signals.delete(tabId); sketched.delete(tabId); ended.delete(tabId); frames.delete(tabId); for (const key of [...opened]) if (key.startsWith(`${tabId} `)) opened.delete(key); for (const key of [...looked]) if (key.startsWith(`${tabId} `)) looked.delete(key); };
+export const forgetClimb = tabId => { pressedProofs.delete(tabId); signals.delete(tabId); sketched.delete(tabId); ended.delete(tabId); frames.delete(tabId); for (const key of [...opened]) if (key.startsWith(`${tabId} `)) opened.delete(key); for (const key of [...looked]) if (key.startsWith(`${tabId} `)) looked.delete(key); };
 
 // The numbered candidates of the page (extension/ladder/rung3-candidates.js). The page files live in the page's own (MAIN) world; the finder is injected when this page has not loaded it yet.
 const look = tabId => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: () => window.__jobPilottoCandidates?.candidatesOf?.()}).then(rows => rows?.[0]?.result).catch(() => undefined);
@@ -59,6 +60,23 @@ export function verifiedBody(kind, url, controls = []) {
   const digest = kind?.digest;
   if (kind?.by !== 'digest' || kind.rung !== 3 || digest?.verb !== 'press' || !digest.outcome) return null;
   return {verified: true, url: String(url || '').split('#')[0].split('?')[0], controls, rung: 3, outcome: digest.outcome, kind: 'posting', signal: 'confident'};
+}
+
+// What the app is told when the page confirmed a decision of the fast tier (spec docs/superpowers/specs/2026-10-12-one-next-move.md, phase 1): `pressed`, the Apply press led to a form on
+// this page; `filled`, a page judged a form took values from the fill. The app only COUNTS it (desktop/lib/ladder/learning.js confirm): nothing it answers changes. A learned answer confirmed
+// is a hit; the structure rule's decision is rung 0. Fixed values and the address without its query only. null for a digest answer (verifiedBody's) or a kind the step did not confirm.
+// An Apply press that moved the tab to another page (the form opens on its own page: the common case) is confirmed by THAT page taking the fill: kept per tab until the tab's next page
+// is judged, which takes it once (fill-flow.js consider). null clears it.
+export const notePressed = (tabId, body) => (body ? pressedProofs.set(tabId, body) : pressedProofs.delete(tabId));
+export const takePressed = tabId => { const body = pressedProofs.get(tabId) || null; pressedProofs.delete(tabId); return body; };
+const CONFIRMS = {pressed: ['posting'], filled: ['form', 'account-form']}, RUNG_OF = {remembered: 1, ai: 2};   // an answer that came without its rung: the rung of who answered
+export function confirmedBody(kind, url, controls = [], step = '') {
+  const address = String(url || '').split('#')[0].split('?')[0], kinds = CONFIRMS[step];
+  if (!kinds) return null;
+  if (kind?.by === 'learned') return kinds.includes(kind.kind) ? {confirmed: true, url: address, controls} : null;
+  const rung = kind ? (Number.isInteger(kind.rung) ? kind.rung : RUNG_OF[kind.by]) : 0, name = kind ? kind.kind : kinds[0];
+  if (!Number.isInteger(rung) || rung < 0 || rung > 2 || kind?.by === 'digest' || !kinds.includes(name)) return null;
+  return {verified: true, url: address, controls, rung, outcome: 'form', kind: name, signal: 'confident'};
 }
 
 // -> {why: 'other', needs: ''} when the ladder ended at the person with nothing to say: the digest was asked and gave no usable answer, or said `other` with no sentence and no button. The app shows
