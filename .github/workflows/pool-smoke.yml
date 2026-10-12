@@ -11,6 +11,7 @@
 #   Each run uploads a small state artifact (its ledger and rows); the next run reads them all (GitHub's cache is per branch: a PR's visits would be unseen).
 #   CI visits are NOT in the Mac's ledger: a host can get 3 (Mac) + 2 (CI) visits on a day both run.
 # - Data-center IPs meet more bot walls: such a row is "blocked (CI IP)" in the summary, never a failure, never retried (no Electron leg on CI).
+# - Each row that REALLY ran sends one "proven live" record (lib/pool-proven.mjs, REPLAYS_PUBLISH_KEY) that /admin/applying's Fixed tab joins to the fix.
 #   Red when NO row ran ("NOT RUN: <why>, next visit possible <when>" leads the summary and a PR gets it as a comment: 12 Oct 2026, a 1-minute green ran nothing),
 #   for a row that did not finish (a harness error), the tripwire, a refused AI, or a row reaching less than its last CI run on main or on this
 #   PR (lib/pool-ci-state.mjs); never for a bot wall, a refusal or a gone posting.
@@ -138,6 +139,18 @@ jobs:
         run: |
           set -o pipefail
           node pool-ci-summary.mjs "$SMOKE_REPORTS" "$GITHUB_WORKSPACE/pool-smoke-out/baseline.json" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Send a "proven live" record for each row that really ran (the Fixed tab)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}   # the narrow key: it writes only the replays and these records
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ -n "$PR_NUMBER" ]; then
+            gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/commits" --jq '.[].commit.message | split("\n")[0] | @json' > "$RUNNER_TEMP/subjects" || true
+          fi
+          node desktop/e2e/pool-proven.mjs "$SMOKE_REPORTS" "$RUNNER_TEMP/subjects"
       - name: Tell the PR when its row did not run (when to run it again)
         if: always() && github.event_name == 'pull_request'
         env:

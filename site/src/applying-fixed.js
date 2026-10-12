@@ -4,6 +4,8 @@
 // Fixed values only: a site name without an address or query, a short hash, a version, a rung, guard ids. Owns FIXED_SCRIPT, the tab's client code, which
 // src/applying.js puts inside its page (it uses that page's el, heads/block, dots, ago). Guard: test/applying-fixed.test.js.
 
+import {provenFor, readProven} from './applying-proven.js';
+
 export const FIX_KINDS = ['fixes', 'claims'];
 const text = (value, max) => String(value ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
 const siteOf = value => { const name = text(value, 120); return name && !/[?=@]|:\/\/|https?:/i.test(name) ? name : null; };
@@ -27,16 +29,17 @@ export async function ingestFixes(db, body, now = new Date()) {
       stored += 1;
     }
   } else {   // the whole ledger, written as a diff: only rows that are new or changed, and only rows no longer listed are deleted (the D1 write budget)
-    const old = new Map((await all(db, 'SELECT site, commit_hash, version, rung, landed_at, guard FROM applying_fixes')).map(row => [row.site + '\n' + row.commit_hash, row])), keep = new Set();
+    const old = new Map((await all(db, 'SELECT site, commit_hash, version, rung, landed_at, guard, subject FROM applying_fixes')).map(row => [row.site + '\n' + row.commit_hash, row])), keep = new Set();
     for (const row of rows) {
       const site = siteOf(row?.site), hash = text(row?.commit, 40).toLowerCase(), landed = isoOf(row?.landedAt);
       if (!site || !HASH.test(hash) || !landed) continue;
       const version = VERSION.test(text(row.extensionVersion, 20)) ? text(row.extensionVersion, 20) : null, rung = RUNG.test(text(row.rung, 40)) ? text(row.rung, 40) : null;
+      const subject = (() => { const line = text(row.subject, 120); return line && !/[?=@]|:\/\/|https?:/i.test(line) ? line : null; })();
       const guard = JSON.stringify((Array.isArray(row.guard) ? row.guard : []).map(item => text(item, 90)).filter(item => GUARD.test(item)).slice(0, 10));
       keep.add(site + '\n' + hash); stored += 1;
       const was = old.get(site + '\n' + hash);
-      if (was && was.version === version && was.rung === rung && was.landed_at === landed && was.guard === guard) continue;
-      await db.prepare('INSERT OR REPLACE INTO applying_fixes (site, commit_hash, version, rung, landed_at, guard, at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(site, hash, version, rung, landed, guard, at).run();
+      if (was && was.version === version && was.rung === rung && was.landed_at === landed && was.guard === guard && was.subject === subject) continue;
+      await db.prepare('INSERT OR REPLACE INTO applying_fixes (site, commit_hash, version, rung, landed_at, guard, subject, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(site, hash, version, rung, landed, guard, subject, at).run();
     }
     for (const [key, row] of old) if (!keep.has(key)) await db.prepare('DELETE FROM applying_fixes WHERE site = ? AND commit_hash = ?').bind(row.site, row.commit_hash).run();
   }
@@ -75,6 +78,7 @@ export async function fixedData(db, pool, cases, now = new Date()) {
   const fixes = await all(db, 'SELECT * FROM applying_fixes ORDER BY landed_at');
   const snapshots = Object.fromEntries((await all(db, 'SELECT kind, at FROM applying_snapshots')).map(row => [row.kind, row.at]));
   const claims = await all(db, 'SELECT site, since FROM applying_claims ORDER BY since');
+  const proven = await readProven(db);   // CI runs that really ran a row (src/applying-proven.js)
   const bySite = fixes.reduce((out, fix) => ((out[rowName(fix.site, pool)] ||= []).push(fix), out), {}), caseByName = new Map(cases.map(item => [item.name, item]));
   const rows = Object.entries(bySite).map(([site, list]) => {
     const last = list.at(-1), item = pool.find(row => row.name === site || row.shape === site);
@@ -83,7 +87,7 @@ export async function fixedData(db, pool, cases, now = new Date()) {
     const landed = Date.parse(last.landed_at), runs = (item?.runs || []).slice(-10).map(run => ({day: run.day, at: run.at, reached: run.reached, share: shareOf(run), hold: !!run.hold, needsFix: run.needsFix, after: Date.parse(run.at) > landed}));
     return {site, platform: item?.platform ?? '—', host: item?.start || '', commit: last.commit_hash, commits: list.map(fix => fix.commit_hash), extensionVersion: last.version, rung: last.rung, landedAt: last.landed_at,
       fixes: list.map(fix => ({commit: fix.commit_hash, extensionVersion: fix.version, rung: fix.rung, landedAt: fix.landed_at})), runs,
-      ...statusOf(item?.runs || [], last.landed_at), guard, cases: linked.map(found => ({name: found.name, ok: found.ok, history: found.history, day: found.day}))};
+      proven: provenFor({site, landedAt: last.landed_at, subject: last.subject}, proven), ...statusOf(item?.runs || [], last.landed_at), guard, cases: linked.map(found => ({name: found.name, ok: found.ok, history: found.history, day: found.day}))};
   }).sort((a, b) => b.landedAt.localeCompare(a.landedAt));
   const claimed = new Map(claims.map(row => [rowName(row.site, pool), row.since])), back = new Set(rows.filter(row => row.status === 'back').map(row => row.site));
   for (const item of pool) { item.claimed = claimed.get(item.shape) ?? claimed.get(item.name) ?? null; item.back = back.has(item.shape) || back.has(item.name); }
@@ -111,6 +115,8 @@ export const FIXED_SCRIPT = `
   const FIX_WORD = {landed: 'Awaiting verification', failing: 'Still failing', confirmed: 'Confirmed', back: 'Regressed'};
   const FIX_TONE = {landed: 'account', failing: 'posting', confirmed: 'ready', back: 'posting'}, FIX_ORDER = ['back', 'failing', 'landed', 'confirmed'];
   const fixKind = r => (r.status === 'landed' && r.failingRuns ? 'failing' : r.status);
+  // CI really ran this fix's row (src/applying-proven.js): on main after the landing, or on the PR's own build. Plain quotes only.
+  const provenLine = r => (r.proven ? 'Proven live ' + ago(r.proven.at) + ' - run ' + r.proven.run + (r.proven.by === 'pr' ? ' (PR #' + r.proven.pr + ')' : ' (main)') : 'Not proven live');
   const fixReason = r => ({landed: r.cleanRuns ? 'One clean run: one more confirms' : 'No confirming run yet', failing: r.failingRuns + (r.failingRuns === 1 ? ' run' : ' runs') + ' since fix', confirmed: (r.confirmedAt ? 'Cleared ' + ago(r.confirmedAt) : 'Cleared') + (r.heldRuns ? ' · documented hold' : ''),
     back: 'Listed again after confirmation'})[fixKind(r)];
   const fixShort = name => { const cut = name.indexOf(' ('); let t = cut > 0 ? name.slice(0, cut) : name; if (t.length > 44) t = t.slice(0, Math.max(20, t.lastIndexOf(' ', 44))) + '…'; return t; };
@@ -130,7 +136,7 @@ export const FIXED_SCRIPT = `
   const fixRows = r => { const on = fixOpen.has(r.site), kind = fixKind(r), flip = () => { toggleOpen(fixOpen, r.site); drawFixed(); };
     const main = el('tr', {className: 'site' + (on ? ' open' : ''), onclick: flip},
       el('td', {}, el('div', {className: 'sitename'}, el('b', {textContent: fixShort(r.site)}), el('span', {className: 'muted', textContent: r.platform + (r.host ? ' (' + r.host + ')' : '')}))),
-      el('td', {}, el('span', {className: 'pill s-' + FIX_TONE[kind], textContent: FIX_WORD[kind]}), el('span', {className: 'stack muted', textContent: fixReason(r)})),
+      el('td', {}, el('span', {className: 'pill s-' + FIX_TONE[kind], textContent: FIX_WORD[kind]}), el('span', {className: 'stack muted', textContent: fixReason(r)}), el('span', {className: 'stack ' + (r.proven ? 'muted' : 'warn'), textContent: provenLine(r)})),
       el('td', {className: 'c-fill', textContent: fixFilled(r)}),
       el('td', {className: 'c-fix'}, r.commit ? el('code', {className: 'hash', title: r.fixes.map(f => f.commit + ' ' + (f.extensionVersion || '')).join(', '), textContent: r.commit + (r.commits.length > 1 ? ' +' + (r.commits.length - 1) : '')}) : '—', r.commit ? el('span', {className: 'stack muted', textContent: fixDate(r.landedAt) + ' · rung ' + (r.rung ?? '?')}) : null),
       el('td', {}, el('button', {className: 'chev', type: 'button', 'aria-expanded': String(on), 'aria-label': (on ? 'Collapse ' : 'Expand ') + r.site, textContent: '›', onclick: event => { event.stopPropagation(); flip(); }})));

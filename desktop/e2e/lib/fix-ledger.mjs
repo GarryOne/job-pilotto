@@ -39,7 +39,8 @@ export function buildLedger({git = defaultGit, fixes = JSON.parse(fs.readFileSyn
     let version = ''; try { version = JSON.parse(git('show', `${hash}:extension/manifest.json`)).version || ''; } catch { /* a commit before the manifest */ }
     const cases = git('show', '--name-only', '--diff-filter=A', '--format=', hash).split('\n').map(file => file.match(/^desktop\/e2e\/recorded\/([^/]+)\//)?.[1]).filter(Boolean);
     const guard = [...new Set([...cases.map(name => `recorded:${name}`), ...line(message, 'Fixture').flatMap(value => (/^none\b/i.test(value) ? [] : value.split(/\s*,\s*/).filter(id => /^[a-z0-9][a-z0-9-]{0,79}$/i.test(id)).map(id => `fixture:${id}`)))])];
-    for (const site of sites) ledger.push({site, commit: hash.slice(0, 7), extensionVersion: version, rung: line(message, 'Rung')[0] || '', landedAt: when, guard});
+    const subject = cleanRow(message.split('\n')[0]) ? message.split('\n')[0].trim().slice(0, 120) : '';   // the PR's own build is matched to this fix by subject and row (site/src/applying-proven.js)
+    for (const site of sites) ledger.push({site, commit: hash.slice(0, 7), subject, extensionVersion: version, rung: line(message, 'Rung')[0] || '', landedAt: when, guard});
   }
   return ledger.sort((a, b) => Date.parse(a.landedAt) - Date.parse(b.landedAt));
 }

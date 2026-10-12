@@ -67,3 +67,10 @@ test('a Pool-row trailer is optional, and refused when it holds an address or a 
   assert.match(poolRowProblem(['Fix\n\nPool-row: https://x.com/a?b=1']), /no address/);
   assert.match(poolRowProblem(['Fix\n\nPool-row: ']), /Pool-row/);
 });
+
+// The Fixed tab matches a PR's own build to a merged fix by commit subject and row (site/src/applying-proven.js); only a plain subject leaves the Mac.
+test('each fix carries its commit subject (the first line), blank when it holds an address or a query', () => {
+  assert.deepEqual(buildLedger({git: fakeGit, fixes: [{commit: 'fdbdc23', site: 'Hornbach SuccessFactors'}]}).map(item => item.subject), ['Fix', 'Fix']);
+  const leaky = (...args) => (args[0] === 'log' && args.includes('-1') && args.includes('--format=%B') ? 'See https://x.test/a?b=1\n\nRung: 2\n' : fakeGit(...args));
+  assert.deepEqual(buildLedger({git: leaky, fixes: [{commit: 'fdbdc23', site: 'Hornbach SuccessFactors'}]}).map(item => item.subject), ['', '']);
+});
