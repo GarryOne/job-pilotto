@@ -87,8 +87,8 @@ export async function lookViaWorker(ctx, tab, say) {
 
 export async function runLive(ctx, h) {
   const {page, posting} = h;
-  guardLiveVisit(posting.url, {who: process.env.JOB_PILOTTO_SESSION || 'live'});   // the per-site daily limit (lib/site-ledger.mjs)
   await ctx.run('a real posting, watched live: the page kinds, stages and fills as they happen (nothing is pressed on the page)', async () => {
+    guardLiveVisit(posting.url, {who: process.env.JOB_PILOTTO_SESSION || 'live'});   // the per-site daily limit (lib/site-ledger.mjs); inside the step: a run with no live part has no posting
     try {
       const frames = path.join(ctx.ARTIFACTS, 'live-frames');
       fs.rmSync(frames, {recursive: true, force: true}); fs.mkdirSync(frames, {recursive: true});
