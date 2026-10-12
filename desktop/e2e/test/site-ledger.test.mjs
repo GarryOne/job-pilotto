@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {SiteLimitError, blockSignal, guardLiveVisit, markBlocked, siteOf} from '../lib/site-ledger.mjs';
+import {BOT_CHECK_SURE, SiteLimitError, blockSignal, blockVerdict, guardLiveVisit, markBlocked, siteOf} from '../lib/site-ledger.mjs';
 
 const E2E = fileURLToPath(new URL('..', import.meta.url));
 const fresh = () => ({JOB_PILOTTO_SITE_LEDGER_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'jp-ledger-'))});
@@ -58,6 +58,24 @@ test('block signals come from the digest outcome and bot checks only', () => {
   assert.equal(blockSignal('x digest: outcome=refused (block)'), 'digest refused');
   assert.equal(blockSignal('account judgment: needs_code'), 'bot check');
   assert.equal(blockSignal('digest: outcome=login_wall'), '');
+});
+
+// Owner, 12 Oct 2026: the CI run of Lever (run 38242323673) flagged a bot check at confidence 0.6 on a normal apply page, then filled 11 fields; the old rule rested the host.
+const FLAG = confidence => `2026-10-12T11:26:30.350Z [extension] page kind: other {"shape":"jobs.lever.co/sonarsource/*/apply|ft8+","by":"ai","rung":null,"confidence":${confidence},"usd":0,"botCheck":true,"frames":2}`;
+const FILLED = '2026-10-12T11:26:54.000Z [extension] fill: fields: 11 filled, 7 left {"fields":[]}';
+test('a bot-check flag rests the host only when the AI is sure (>= 0.8) or the form did not fill; a contradicted flag is said and the host stays open', () => {
+  assert.equal(BOT_CHECK_SURE, 0.8);
+  assert.equal(blockSignal(`${FLAG(0.6)}\n${FILLED}`), '', 'flag 0.6, then 11 fields filled: not rested');
+  assert.match(blockVerdict(`${FLAG(0.6)}\n${FILLED}`).contradicted, /^possible bot check \(contradicted\): flagged at confidence 0\.6, then the form filled 11 field\(s\)$/);
+  assert.equal(blockSignal(`${FLAG(0.9)}\n${FILLED}`), 'bot check', 'a sure flag rests it even after a fill');
+  assert.equal(blockSignal(FLAG(0.6)), 'bot check', 'flag 0.6 and nothing filled: rested');
+  assert.equal(blockSignal(`${FLAG(0.6)}\n[extension] fill: fields: 0 filled, 5 left`), 'bot check', 'a form with nothing filled is no contradiction');
+  assert.equal(blockSignal(`${FLAG(0.6)}\n[extension] fill: fields: 2 filled, 1 left on the account page`), 'bot check', 'an account page\'s fields are not the form');
+  assert.equal(blockSignal(`${FILLED}\n[extension] account judgment form: needs_code {"botCheck":true}`), 'bot check', 'a code wall rests it: unchanged');
+  assert.equal(blockSignal('[extension] account judgment form: needs_person {"botCheck":true}'), 'bot check', 'a flag with no confidence counts as sure');
+  assert.equal(blockSignal(`live: ${blockVerdict(`${FLAG(0.6)}\n${FILLED}`).contradicted}`), '', 'the contradicted line itself never rests a host');
+  assert.equal(blockSignal('live: the site blocked us (bot check): not visited again today'), 'bot check');
+  assert.deepEqual(blockVerdict('Apply pressed on u'), {signal: '', contradicted: ''});
 });
 
 test('two writers at once lose no visit', async () => {

@@ -25,7 +25,7 @@ import {seedLivePosting} from './seed-data.mjs';
 import {storeCall} from './store-call.mjs';
 import {startRealExtension} from './real-extension.mjs';
 import {livePresses} from './replay-candidate.mjs';
-import {blockSignal, guardLiveVisit, markBlocked} from './site-ledger.mjs';
+import {blockVerdict, guardLiveVisit, markBlocked} from './site-ledger.mjs';
 import {startAiProxy} from './ai-proxy.mjs';
 import {apiErrors, usage} from './ai-meter.mjs';
 import {appKey, isCi, keySecret, testKey} from './engine.mjs';
@@ -115,8 +115,9 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     fs.writeFileSync(path.join(captureDir, 'presses.json'), `${JSON.stringify(livePresses(app.logText()), null, 1)}\n`);
     fs.writeFileSync(path.join(captureDir, 'styles.har.json'), JSON.stringify(await styles.har()));
     fs.writeFileSync(path.join(captureDir, 'app.log'), app.logText());
-    const blocked = blockSignal(app.logText());
+    const {signal: blocked, contradicted} = blockVerdict(app.logText());
     if (blocked) { markBlocked(url, blocked); say(`live: the site blocked us (${blocked}): not visited again today (lib/site-ledger.mjs)`); }
+    else if (contradicted) say(`live: ${contradicted}: the site stays open (lib/site-ledger.mjs)`);
     return {seconds: Math.round((Date.now() - started) / 100) / 10, opened: url, evidence: evidenceLines(app.logText()), tripped: '', endedWhileDeciding, requests: front.requests.length, appLog: app.logText(), ...(proxy ? {ai: spend()} : {})};
   } finally {
     if (!shotAsked) { const shot = await takeEndShot(run.context, captureDir).catch(error => ({file: '', why: String(error?.message || error).slice(0, 80)})); say(endShotLine(shot)); }   // the run stopped early (an error): the picture of where it stopped is still a must

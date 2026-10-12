@@ -2,6 +2,7 @@
 # CI-wide site ledger and summary). NOT a required check: live sites move, CI IPs meet bot walls, postings vanish.
 # - Which row (desktop/e2e/lib/pool-proof.mjs): a "live-row: <row words>" line in the PR body, else the first "Pool-row: <row>" line in the PR's commits.
 #   On open and each push it runs only when a commit names a Pool-row; the "live-proof" label runs it for any PR (a prompt fix too) and then needs a row named.
+# - Every PR it runs for gets the "live-proof" label (added by the pick job), so label:live-proof lists every PR with a CI live run.
 # - A private row (from the owner's profiles), a fork's PR (no secrets) or no row named: one neutral line in the "pick" job's summary, nothing runs.
 # - Red only for a harness error, the tripwire, a refused AI, or the row reaching less than its last CI run on main or on this PR. A bot wall on the CI IP,
 #   a refusal, a gone posting or a host out of CI visits today is never red.
@@ -13,7 +14,7 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write   # the pick job labels its PR "live-proof" when it names a row
   actions: read
 
 jobs:
@@ -48,6 +49,15 @@ jobs:
         run: |
           gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/commits" --jq '.[].commit.message | @json' > "$RUNNER_TEMP/messages" || true
           node desktop/e2e/pool-proof-pick.mjs "$RUNNER_TEMP/messages"
+      # Owner, 12 Oct 2026: every PR with a CI live run carries the label, whatever started it ("label:live-proof" lists them). A label the run's own token adds
+      # starts no new run (GitHub's rule), so the row is never run twice.
+      - name: Label the PR live-proof (it gets a live run)
+        if: steps.pick.outputs.row != '' && !contains(github.event.pull_request.labels.*.name, 'live-proof')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels" -f 'labels[]=live-proof' --silent || echo "pool-proof: could not add the live-proof label (the run goes on)"
   proof:
     needs: pick
     if: needs.pick.outputs.row != ''

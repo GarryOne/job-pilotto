@@ -99,5 +99,20 @@ export function markBlocked(url, why = 'block page', {env = process.env, now = n
   });
 }
 
-// What a run's printed lines or the app's log say when the site blocked us: the ladder's digest outcome "refused" (a block page) or a bot check / code wall (as lib/smoke.mjs parseLive reads them).
-export const blockSignal = text => /\bdigest: outcome=refused\b/.test(text) ? 'digest refused' : /account (judgment|result)[^:]*: needs_code|"botCheck":true|bot check/.test(text) ? 'bot check' : '';
+// What a run's printed lines or the app's log say when the site blocked us: the ladder's digest outcome "refused" (a block page), a code wall, or a bot check.
+// The AI's bot-check flag rests the host only when the AI is sure (BOT_CHECK_SURE) or the form did not fill (owner, 12 Oct 2026: on CI the AI flagged Lever's normal
+// apply page at 0.6, the form then filled 11 fields, and the host was rested for the day). A flag a filled form contradicts is said, and the host stays open.
+// A real bot wall is unchanged: the run stops there, the host rests, nothing is ever solved. -> {signal: 'digest refused' | 'bot check' | '', contradicted: '' | why}
+export const BOT_CHECK_SURE = 0.8;
+export function blockVerdict(text) {
+  const all = String(text || '');
+  if (/\bdigest: outcome=refused\b/.test(all)) return {signal: 'digest refused', contradicted: ''};
+  if (/account (judgment|result)[^:]*: needs_code|the site blocked us \(bot check\)/.test(all)) return {signal: 'bot check', contradicted: ''};
+  const flags = [...all.matchAll(/^.*"botCheck":true.*$/gm)].map(([line]) => Number((line.match(/"confidence":([\d.]+)/) || [])[1] ?? 1));   // no confidence: counted as sure
+  if (!flags.length) return {signal: '', contradicted: ''};
+  const filled = Math.max(0, ...[...all.matchAll(/^.*fill: fields: (\d+) filled.*$/gm)].filter(([line]) => !/account page/.test(line)).map(found => Number(found[1])));
+  const sure = Math.max(...flags);
+  if (sure >= BOT_CHECK_SURE || !filled) return {signal: 'bot check', contradicted: ''};
+  return {signal: '', contradicted: `possible bot check (contradicted): flagged at confidence ${sure}, then the form filled ${filled} field(s)`};
+}
+export const blockSignal = text => blockVerdict(text).signal;

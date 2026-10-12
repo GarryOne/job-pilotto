@@ -30,3 +30,14 @@ test('the trigger reader sees a trigger added to either file (positive control)'
   assert.deepEqual(triggersOf(smoke.replace('on:\n', 'on:\n  schedule:\n    - cron: "0 3 * * *"\n')), ['schedule', 'workflow_dispatch', 'workflow_call']);
   assert.deepEqual(triggersOf(workflows['pool-proof.yml'].replace('on:\n', 'on:\n  push:\n    branches: [main]\n')), ['push', 'pull_request']);
 });
+
+// Owner, 12 Oct 2026: every PR that gets a CI live run carries the "live-proof" label ("label:live-proof" lists them all), whether a Pool-row line or the label
+// started it. The pick job adds it when it names a row; GitHub starts no new run for a label its own token adds, so this never runs the row twice.
+test('the PR proof labels its PR "live-proof" whenever it names a row, with the right to write it', () => {
+  const proof = workflows['pool-proof.yml'];
+  const step = proof.match(/- name: [^\n]*live-proof[^\n]*\n(?: {8}.*\n)+/)?.[0] || '';
+  assert.match(step, /if: steps\.pick\.outputs\.row != ''/, 'only when a row runs');
+  assert.match(step, /labels\[\]=live-proof|--add-label live-proof/, 'adds the live-proof label');
+  assert.match(step, /GH_TOKEN: \$\{\{ github\.token \}\}/, 'with the run\'s own token (no new run from the label)');
+  assert.match(proof, /^ {2}pull-requests: write\b/m);
+});
