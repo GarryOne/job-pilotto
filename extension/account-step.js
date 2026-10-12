@@ -6,7 +6,8 @@
 // Scenarios owned: "Sign-up page before the form", "Sign-in page where we have no account". Guards: worker/test/account-step.test.js, account-fill.test.js, npm run live.
 import {api, settings} from './flow.js';
 import {decide} from './log.js';
-import {askKind, sayStep, stuck} from './fill-flow.js';
+import {askKind, sayStep} from './fill-flow.js';
+import {deadEnd} from './ladder/dead-end.js';
 import {sessionGet} from './tab-memory.js';
 import {bindSession, identityOf} from './tab-identity.js';
 import {tabArmed} from './tab-pages.js';
@@ -103,7 +104,7 @@ async function giveUp(tab, host, reason, needs = '') {
   if (await alreadyTried(tab, key)) return;
   await markTried(tab, key);
   decide('fill', `account step: could not finish (${reason}): handed to the app`, {host});   // the app decides what it offers (Claude only for a Claude engine)
-  await stuck(tab.url.split('#')[0], host, 'account', tab.id, tab.url, needs, stepOf.get(tab.id) || '');
+  await deadEnd({job: tab.url.split('#')[0], host, why: 'account', tabId: tab.id, page: tab.url, needs, accountStep: stepOf.get(tab.id) || ''}, {reason, step: stepOf.get(tab.id) || ''}, decide);
 }
 const markTried = (tab, action) => chrome.storage.session.set({[triedKey(tab, action)]: Date.now()}).catch(() => {});
 

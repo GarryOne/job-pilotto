@@ -27,6 +27,7 @@ import {clickTrace, modalTrace} from './ladder/press-why.js';
 import {forgetRouteTries, startRoute} from './start-route.js';
 import {emailReport, mailsOf} from './ladder/outcomes.js';
 import {brokenOf, onBrokenPage} from './ladder/site-broken.js';
+import {deadEnd, useReporter} from './ladder/dead-end.js';
 import {onTop} from './on-top.js';
 import {candidatesOf, claimFrame, climbOnStall, confirmedBody, frameBecameCandidate, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, notePressed, noteSignal, otherReport, takePressed, toldReport, verifiedBody} from './ladder/climb.js';
 
@@ -181,6 +182,9 @@ export async function stuck(job, host, why, tabId = null, page = '', needs = '',
   const session = await sessionOf(tabId);
   try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why, needs: String(needs || '').slice(0, 80), accountStep: String(accountStep || '').slice(0, 16), tab: tabId, session, page: String(page || '').split('#')[0]})}); } catch { /* the app is closed */ }
 }
+useReporter(stuck);   // the only way to it: every give-up goes through ladder/dead-end.js deadEnd (worker/test/dead-end.test.js)
+// A give-up on this page: the one door (ladder/dead-end.js), with what led here as fixed values.
+const deadEndHere = (tab, jobUrl, host, why, needs, evidence) => deadEnd({job: String(jobUrl || tab.url).split('#')[0], host, why, tabId: tab.id, page: tab.url, needs}, evidence, decide);
 const triedApply = new Set();
 // A refresh the person pressed is a new document: its Apply may be pressed again (Deloitte, 10 Oct 2026: after ⌘R nothing happened). Not after every press: a posting whose Apply opened the form in another tab must not press it a second time (beta e2e applycv, Windows).
 export const forgetApplyTries = tabId => { forgetNoEffect(tabId); forgetRouteTries(tabId); forgetClimb(tabId); for (const key of [...triedApply]) if (key.startsWith(`${tabId} `)) triedApply.delete(key); };
@@ -225,11 +229,11 @@ async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => s
   await sweepConsent(tab.id, 'the watch ended');   // the run ends here: no cookie layer is left open
   return false;
 }
-// A broken page (ladder/site-broken.js), with the flow's own parts: a load again forgets this page's start first (its load considers it anew), the report is stuck('site_broken').
+// A broken page (ladder/site-broken.js), with the flow's own parts: a load again forgets this page's start first (its load considers it anew), the report is the 'site_broken' dead end.
 function brokenPage(tab, jobUrl, key, counts) {
   let host = ''; try { host = new URL(tab.url).hostname; } catch { /* no address */ }
   return onBrokenPage(brokenOf(counts), {key, tabId: tab.id, status: counts?.status, host, decide, wait: ms => new Promise(resolve => setTimeout(resolve, ms)), say: text => sayStep(tab.id, text),
-    reload: async () => { started.delete(key); await chrome.tabs.reload(tab.id).catch(() => {}); }, report: need => stuck(String(jobUrl || tab.url).split('#')[0], host, 'site_broken', tab.id, tab.url, need)});
+    reload: async () => { started.delete(key); await chrome.tabs.reload(tab.id).catch(() => {}); }, report: need => deadEndHere(tab, jobUrl, host, 'site_broken', need, {kind: brokenOf(counts) || '', status: counts?.status || 0})});
 }
 // One page of an armed tab. A form is filled. A password page and a page with no form are left for Claude,
 // and the page says which, so Claude does not wait for a fill that will not come.
@@ -398,8 +402,8 @@ export async function consider(tab, jobUrl) {
     const email = role === 'no-form' ? emailReport(said) : null, told = role === 'no-form' && !email ? toldReport(said) : null, other = role === 'no-form' && !email && !told ? otherReport(said, tab.id) : null;   // the page asks for email (ladder/outcomes.js) or tells what to do (ladder/climb.js)
     decide('fill', role === 'account' ? 'account page left for Claude' : botCheck ? 'a bot check in front of the page: handed to the person' : email ? 'the posting asks for the application by email: reported to the app' : told ? 'the page tells what to do: reported to the app' : other ? 'the ladder ended at the person: reported as other' : 'no form on this page', {host, role, ...(kind?.applyBy ? {applyBy: kind.applyBy} : {})});
     if (other) api(await settings(), '/extension/page-kind', {method: 'POST', body: JSON.stringify({why: 'other', url: tab.url.split('#')[0], controls: controlsOf(tab.id)})}).catch(() => {});   // the shape is counted by the app (no text): the ladder ended at the person
-    if (email || told || other) stuck(String(jobUrl || tab.url).split('#')[0], host, (email || told || other).why, tab.id, tab.url, (email || told || other).needs);   // the address is the need: the card says where to send it
-    else if (!(role === 'account' && kind?.accountStep)) stuck(String(jobUrl || tab.url).split('#')[0], host, role === 'account' ? 'account' : 'no-form', tab.id, tab.url, botCheck ? BOT_CHECK_NEED : '');   // tier 3: the app offers Apply with Claude; an account page the AI has a step for is the account step's (it reports when it cannot finish)
+    if (email || told || other) deadEndHere(tab, jobUrl, host, (email || told || other).why, (email || told || other).needs, {role, rung: said?.rung, signal: said?.signal});   // the address is the need: the card says where to send it
+    else if (!(role === 'account' && kind?.accountStep)) deadEndHere(tab, jobUrl, host, role === 'account' ? 'account' : 'no-form', botCheck ? BOT_CHECK_NEED : '', {role, botCheck, pressed: !!pressed, rung: kind?.rung, signal: kind?.signal});   // tier 3: the app offers Apply with Claude; an account page the AI has a step for is the account step's (it reports when it cannot finish)
     reportFlow(tab, {role, pressed}, {buttons: pressed ? [] : buttonsSeen});
     return;
   }
@@ -432,7 +436,7 @@ export async function consider(tab, jobUrl) {
       return;
     }
     decide('fill', 'nothing filled, required fields left: the person is told, Claude is offered', {host, left: open.length, aiNamed: !!named});
-    stuck(String(jobUrl || tab.url).split('#')[0], host, 'incomplete', tab.id, tab.url, [...new Set(open)].slice(0, 3).join(', ') + (named ? ` · try "${named}"` : ''));
+    deadEndHere(tab, jobUrl, host, 'incomplete', [...new Set(open)].slice(0, 3).join(', ') + (named ? ` · try "${named}"` : ''), {left: open.length, aiNamed: !!named});
   }
   if (!result?.error && !accountPage) formNext(live, 0).catch(() => {});   // the AI says what this page needs next, and a middle step's Continue is pressed (next-step.js)
   if (accountAfterFill) accountStep(tab, 0).catch(() => {});   // the account page, now with your details in (above)
