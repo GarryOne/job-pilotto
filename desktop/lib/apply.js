@@ -15,6 +15,7 @@ import * as terminals from './terminals.js';
 import {sessionTabUrl} from './session-tab.js';
 import {browserCommand, browserOf} from './browser-launch.js';
 import * as extensionInstall from './extension-install.js';
+import {log as appLog} from './log.js';
 
 export const FILL_MARK = 'jobpilotto-fill'; // must match extension/background.js
 
@@ -76,12 +77,16 @@ export function formTabsAtHandOver(sessions, url, filled = () => 0) {
 }
 
 // One job, from its row: open it in Chrome with the fill marker, so the extension fills the form by itself.
-export function openOne(url, {session = '', open = spawn} = {}) {
+export function openOne(url, {session = '', open = spawn, log = appLog} = {}) {
   if (!/^https?:\/\//.test(url || '')) return {ok: false, error: 'This job has no link to open.'};
   if (!session) return {ok: false, error: 'A form tab is opened for a session; none was given.'};   // every tab the app opens is owned from its first page (spec 2026-10-12-tab-owned.md)
   const chrome = chromeCommand([sessionTabUrl(formUrl(url), session)], process.platform, process.env, fs.existsSync, extensionBrowser());
-  if (!chrome) return {ok: false, error: NO_CHROME};
-  open(...chrome, {detached: true, stdio: 'ignore'}).unref();
+  if (!chrome) { log('apply', 'no browser found to open the form tab', {platform: process.platform}); return {ok: false, error: NO_CHROME}; }
+  const child = open(...chrome, {detached: true, stdio: 'ignore'});
+  let host = ''; try { host = new URL(url).hostname; } catch { /* no host */ }
+  log('apply', 'opened the form tab', {session, host, mark: true, browser: browserOf(chrome) || String(chrome[0]).split(/[\\/]/).pop()});
+  child?.on?.('error', error => log('apply', 'opening the form tab failed', {session, error: String(error?.message || error).slice(0, 200)}));   // a bad browser path would otherwise crash or vanish
+  child?.unref?.();
   return {ok: true};
 }
 

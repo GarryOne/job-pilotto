@@ -394,7 +394,7 @@ startWhenReady({app, firstCopy, getWindows: () => BrowserWindow.getAllWindows(),
   app.setAboutPanelOptions({applicationName: 'Job Pilotto', applicationVersion: app.getVersion(),
     version: buildInfo ? `build ${buildInfo.build} · ${buildInfo.commit}` : 'development', copyright: '© 2026 Job Pilotto'});
   if (!app.isPackaged) { app.dock?.setIcon(path.join(here, 'assets', 'icon.png')); app.dock?.setBadge(devMarker.mark()); }  // from source: never mistaken for the installed app
-  logTo(path.join(app.getPath('userData'), 'logs'), electronLog);
+  logTo(path.join(app.getPath('userData'), 'logs'), electronLog); appLog('app', 'start', {version: app.getVersion(), os: `${process.platform} ${process.arch} ${os.release()}`, packaged: app.isPackaged});
   if (resetDone) appLog('data', resetDone.failed ? `reset or import not applied: ${resetDone.failed}` : `applied at start: ${resetDone.imported ? 'import' : resetDone.deleted ? 'reset (deleted)' : 'reset'}`, {backup: resetDone.backup || '', waitedMs: resetDone.waited || 0});   // waitedMs: Windows still held the folder after the old app quit
   requestLog.setFile(path.join(app.getPath('userData'), 'logs', 'notion-requests.log'));  // every Notion request, one line
   engineLog.setFile(path.join(app.getPath('userData'), 'logs', 'engine.log'));  // everything a run printed, in full

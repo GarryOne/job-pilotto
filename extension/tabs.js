@@ -29,7 +29,10 @@ export const APP_TAB_MARK = 'jobpilotto-fill';
 // 9 Oct 2026 (e2e rerun-apply, found by mac-bc) the opener's session, job and from were then written over it, and the Lever form
 // for one job was filled with another job's kit. Checked again right before the write, with no await in between.
 const appTabs = new Set();
-export function claimAppTab(tabId) { appTabs.add(tabId); setTimeout(() => appTabs.delete(tabId), 60000).unref?.(); }
+export function claimAppTab(tabId, url = '') {
+  let host = ''; try { host = new URL(url).hostname; } catch { /* no address: the permission is missing or the page is not http */ }
+  decide('tab', 'tab with the fill mark seen', {host, tab: tabId, session: /#jobpilotto-fill=/.test(url)});   // the app's "opened the form tab" without this line: the extension never saw it
+  appTabs.add(tabId); setTimeout(() => appTabs.delete(tabId), 60000).unref?.(); }
 export async function followOpener(tab) {
   // A tab the app opened for a job carries its mark from the start (url or pendingUrl): it is that job's, never the tab that happened to be in front.
   // The from: key below is set a moment later, too late: on 9 Oct 2026 Nahrin's jobs.ch tab, opened while Coop's tab was in front, inherited Coop's
