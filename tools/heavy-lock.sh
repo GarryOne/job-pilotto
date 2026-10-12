@@ -45,7 +45,7 @@ timing_log() {  # <text after the time stamp>
   local timing="${JOB_PILOTTO_HEAVY_TIMING_LOG:-$(git -C "$(dirname "$0")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)/gate-timing.log}"
   [ "$timing" = /gate-timing.log ] || echo "# $(date -u +%Y-%m-%dT%H:%M:%SZ) $1" >>"$timing" 2>/dev/null || true
 }
-[ -f "$(dirname "$0")/heavy-lock-reap.sh" ] && source "$(dirname "$0")/heavy-lock-reap.sh" || { forced_reason() { return 1; }; reap_slot() { return 0; }; kill_group() { return 0; }; find_session_pid() { :; }; }
+[ -f "$(dirname "$0")/heavy-lock-reap.sh" ] && source "$(dirname "$0")/heavy-lock-reap.sh" || { forced_reason() { return 1; }; reap_dead() { return 0; }; reap_slot() { return 0; }; kill_group() { return 0; }; find_session_pid() { :; }; }
 max_slots="${JOB_PILOTTO_HEAVY_SLOTS:-4}"; [ "$max_slots" -ge 1 ] 2>/dev/null || max_slots=1
 SLOT_DIRS="$root/lock"; for _i in $(seq 2 "$max_slots"); do SLOT_DIRS="$SLOT_DIRS $root/lock.$_i"; done
 holders() { local dir pid what since out=""
@@ -61,7 +61,7 @@ held() {  # live slots, after dropping stale ones
   local dir count=0 gone forced
   for dir in $SLOT_DIRS; do
     [ -d "$dir" ] || continue
-    if stale "$dir"; then gone="$root/stale.$$"; mv "$dir" "$gone" 2>/dev/null && { say "taking over a stale lock: $(cat "$gone/what" 2>/dev/null) (pid $(cat "$gone/pid" 2>/dev/null) is gone)"; rm -rf "$gone"; }; continue; fi
+    if stale "$dir"; then gone="$root/stale.$$"; mv "$dir" "$gone" 2>/dev/null && { say "taking over a stale lock: $(cat "$gone/what" 2>/dev/null) (pid $(cat "$gone/pid" 2>/dev/null) is gone)"; reap_dead "$gone"; rm -rf "$gone"; }; continue; fi
     if forced="$(forced_reason "$dir")"; then gone="$root/stale.$$"; mv "$dir" "$gone" 2>/dev/null && { reap_slot "$gone" "$forced"; rm -rf "$gone"; }; continue; fi   # a live wrapper whose session is gone or whose tree sits idle
     count=$((count + 1))
   done
