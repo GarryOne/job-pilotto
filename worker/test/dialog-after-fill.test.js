@@ -48,7 +48,7 @@ test('no dialog: nothing closed, nothing left; a failing look is not a dialog', 
 test('the background asks after every fill', async () => {
   const fs = await import('node:fs');
   const text = fs.readFileSync(new URL('../../extension/background.js', import.meta.url), 'utf8');
-  assert.match(text, /closeFillDialogs\(tab, \{close: closePopup, look: layerOnTop, decide\}\)/);
+  assert.match(text, /closeFillDialogs\(tab, \{close: closePopupOrLayer, look: layerOnTop, decide\}\)/);
 });
 
 test('the fill\'s end logs what it closed and what is left', async () => {
@@ -107,7 +107,7 @@ test('the after-fill look is the occlusion finder: a layer that covers nothing i
   const keep = globalThis.chrome;
   try {
     globalThis.chrome = run({ shape: 'dialog', text: 'Importación de datos', buttons: ['Cerrar la ventana'], covered: ['Apellidos'] });
-    assert.deepEqual(await layerOnTop(7), { text: 'Importación de datos', buttons: ['Cerrar la ventana'] });
+    assert.deepEqual(await layerOnTop(7), { text: 'Importación de datos', buttons: ['Cerrar la ventana'], covered: ['Apellidos'] });
     globalThis.chrome = run(null);
     assert.equal(await layerOnTop(7), null);
     globalThis.chrome = { scripting: { executeScript: async () => { throw new Error('no tab'); } } };
@@ -118,7 +118,7 @@ test('the after-fill look is the occlusion finder: a layer that covers nothing i
 test('the background hands that look to the after-fill check', async () => {
   const fs = await import('node:fs');
   const bg = fs.readFileSync(new URL('../../extension/background.js', import.meta.url), 'utf8');
-  assert.match(bg, /closeFillDialogs\(tab, \{close: closePopup, look: layerOnTop, decide\}\)/);
+  assert.match(bg, /closeFillDialogs\(tab, \{close: closePopupOrLayer, look: layerOnTop, decide\}\)/);
 });
 
 // The worker's answer to the page's gate (extension/popup-guard.js answerGate): the same rule as the gate before the fill, asked mid-fill.
@@ -140,4 +140,34 @@ test('the fill\'s stages ask the gate, and the bridge is injected with the page 
   assert.match(fill, /summary\.held = held/);
   assert.match(read('extension/flow.js'), /files: \['guard-bridge\.js'\]/);
   assert.match(read('extension/flow.js'), /summary\?\.held\) return \{held: true/);
+});
+
+// Recruitee, 11 Oct 2026: a closable notice drawn over the page centre, no control covered, nothing the list found to press: it held the whole fill (1 of 13 filled).
+test('a layer that covers no control never holds the fill; one over a control still does; a layer gone after a failed close is no hold', async () => {
+  const { clearBeforeFill } = await import('../../extension/dialog-after-fill.js');
+  const opts = look => ({ close: async () => '', look, settleMs: 0 });
+  assert.equal((await clearBeforeFill(1, opts(async () => ({ text: 'notice', buttons: ['×'], covered: [] })))).held, false);
+  assert.equal((await clearBeforeFill(1, opts(async () => ({ text: 'notice', buttons: ['×'], covered: ['Email'] })))).held, true);
+  assert.equal((await clearBeforeFill(1, opts(async () => ({ text: 'notice', buttons: ['×'] })))).held, true, 'a look that does not say what it covers is taken as covering');
+  const gone = [{ text: 'modal', buttons: ['No'], covered: ['Email'] }, null]; // listed once, gone by the second look
+  assert.equal((await clearBeforeFill(1, opts(async () => gone.shift() ?? null))).held, false);
+});
+
+test('onTop presses only a button of the layer it found', { skip: !JSDOM }, async () => {
+  const dom = new JSDOM('<!doctype html><body><input id="a"><div id="n" style="position:fixed"><span>Create an account</span><button id="no">Continue without an account</button><button id="yes">Create</button></div><button id="out">Out</button></body>', { url: 'https://x.example/', pretendToBeVisual: true });
+  const w = dom.window, n = w.document.getElementById('n'), hits = [];
+  w.document.querySelectorAll('button').forEach(b => b.addEventListener('click', () => hits.push(b.id)));
+  w.HTMLElement.prototype.getClientRects = () => [1]; Object.defineProperty(w.HTMLElement.prototype, 'innerText', { get() { return this.textContent; } });
+  w.HTMLElement.prototype.getBoundingClientRect = function () { return this === n ? { width: 900, height: 700, left: 0, top: 0 } : { width: 100, height: 30, left: 10, top: 10 }; };
+  Object.defineProperty(w, 'innerWidth', { value: 1000 }); Object.defineProperty(w, 'innerHeight', { value: 800 });
+  w.document.elementFromPoint = () => n.querySelector('span');
+  const keep = { window: globalThis.window, document: globalThis.document, getComputedStyle: globalThis.getComputedStyle, innerWidth: globalThis.innerWidth, innerHeight: globalThis.innerHeight };
+  Object.assign(globalThis, { window: w, document: w.document, getComputedStyle: w.getComputedStyle.bind(w), innerWidth: 1000, innerHeight: 800 });
+  try {
+    const { onTop } = await import('../../extension/on-top.js');
+    assert.deepEqual(onTop().buttons, ['Continue without an account', 'Create']);
+    assert.deepEqual(onTop({ press: 'Out' }), { pressed: '' });
+    assert.deepEqual(onTop({ press: 'Continue without an account' }), { pressed: 'Continue without an account' });
+    assert.deepEqual(hits, ['no']);
+  } finally { Object.assign(globalThis, keep); }
 });

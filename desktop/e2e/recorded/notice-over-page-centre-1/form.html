@@ -1,0 +1,13 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Bewerbung</title></head><body style="margin:0;min-height:1400px"><h1>Ihre Bewerbung</h1>
+<form action="/senden" method="post">
+<div><label for="first">Vorname *</label><input id="first" name="first" type="text" required></div>
+<div><label for="last">Nachname *</label><input id="last" name="last" type="text" required></div>
+<div><label for="mail">E-Mail *</label><input id="mail" name="mail" type="email" required></div>
+<div><label for="cv">Lebenslauf *</label><input id="cv" name="cv" type="file"></div>
+<button type="submit">Bewerbung absenden</button></form>
+<!-- A notice, not a modal: a full-viewport fixed wrapper (it lets clicks through) holds a small box over the middle of the page; no role, no z-index, a close "x"; the inputs sit at the top, clear of the box. -->
+<div id="wrap" style="position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none">
+<div id="scam" style="pointer-events:auto;position:absolute;top:40%;left:35%;width:30%;height:20%;background:#fff;border:1px solid #888;padding:12px">
+<button type="button" id="x" onclick="document.getElementById('wrap').remove()" style="float:right">×</button>
+<p>Achtung vor Betrug bei Bewerbungen! Wir verlangen nie Geld. Fragen an <a href="mailto:datenschutz@example.com">datenschutz@example.com</a></p></div></div>
+</body></html>
