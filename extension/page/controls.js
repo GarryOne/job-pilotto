@@ -158,7 +158,12 @@
       used.add(answer);
       const fp = fingerprintOf(el, kit);
       const recipe = recipes[fp] && recipes[fp].operator === OPERATOR_OF[kind] ? recipes[fp] : null;
+      // An operator's try counts in the control's one attempt log (page/attempts.js): refused once it used its tries or this try failed on this state.
+      const log = window.__jobPilottoAttempts, verb = `operate:${kind}`;
+      if (log && !log.mayTry(el, verb)) { results.push({question, kind, fp, recipe: recipe ? recipe.version : 0, value: answer.value, ok: false, why: 'its tries are used'}); return; }
+      const before = log?.stateOf(el);
       const result = await run(answer.value, recipe?.params || {}).catch(error => ({ok: false, why: error.message}));
+      log?.note(el, verb, before, !!result?.ok);
       results.push({question, kind, fp, recipe: recipe ? recipe.version : 0, value: answer.value, ...result});
     };
     for (const {el, kind} of kit ? kit.widgets(doc, visible) : []) {

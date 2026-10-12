@@ -32,9 +32,10 @@ test('a format problem is named', () => {
 
 test('a replay result becomes read, committed and safe', () => {
   const item = {name: 'a', widget: 'typeahead'};
-  assert.deepEqual(verdictOf(item, {failures: []}), {name: 'a', widget: 'typeahead', read: true, committed: true, truthful: true, safe: true, failures: []});
+  assert.deepEqual(verdictOf(item, {failures: []}), {name: 'a', widget: 'typeahead', read: true, committed: true, truthful: true, bounded: true, safe: true, failures: []});
   assert.equal(verdictOf(item, {failures: ["traced: CV:filled (the fill's record says left)"]}).truthful, false, 'the fill record and the page disagree');
   assert.equal(verdictOf(item, {failures: ['notPending: Resume is left in the panel\'s report']}).committed, true, 'a claim check is not a commit check');
+  assert.equal(verdictOf(item, {failures: ['atMost: #box data-opens is 6, more than 3']}).bounded, false, 'a menu opened past the attempt log\'s bound');
   assert.equal(verdictOf(item, {failures: ['filled: #x']}).committed, false);
   assert.equal(verdictOf(item, {failures: ['filled: #x']}).read, true);
   assert.equal(verdictOf(item, {failures: ['asked: Q', 'filled: #x']}).read, false);

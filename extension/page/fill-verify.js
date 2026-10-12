@@ -6,6 +6,7 @@
   if (window.__jobPilottoFillVerifyLoaded) return;
   window.__jobPilottoFillVerifyLoaded = true;
   const notTaken = new Map();   // field (id or name) -> the answer the fill gave it
+  const before = new Map();     // field -> its state before the real typing (the attempt log's key)
   const TEXT = 'input:not([type]), input[type=text], input[type=email], input[type=tel], input[type=url], input[type=number], input[type=search], textarea';
   const alnum = text => String(text ?? '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
   const holds = (el, value) => { const want = alnum(value), now = alnum(el?.value); return !!want && (now === want || now.includes(want)); };
@@ -24,7 +25,9 @@
     const spots = [];
     for (const [field, text] of notTaken) {
       const el = byField(field);
-      if (!typable(el) || holds(el, text) || spots.length >= 8) continue;
+      const log = window.__jobPilottoAttempts;
+      if (!typable(el) || holds(el, text) || spots.length >= 8 || (log && !log.mayTry(el, 'type_real'))) continue;   // within the box's one attempt log (page/attempts.js)
+      if (log) before.set(field, log.stateOf(el));
       el.scrollIntoView({block: 'center', inline: 'nearest'});
       const box = el.getBoundingClientRect();
       spots.push({field, x: Math.round(box.left + Math.min(box.width / 2, 40)), y: Math.round(box.top + box.height / 2), text: text.slice(0, 200)});
@@ -37,6 +40,7 @@
     if (!el) return false;
     el.blur();
     const taken = holds(el, text);
+    window.__jobPilottoAttempts?.note(el, 'type_real', before.get(field), taken);
     if (taken) { el.removeAttribute('data-jobpilotto-nottaken'); el.setAttribute('data-jobpilotto-filled', ''); el.setAttribute('data-jobpilotto-typed', alnum(text).slice(0, 160)); notTaken.delete(field); }
     return taken;
   };

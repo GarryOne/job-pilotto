@@ -21,4 +21,7 @@
     document.documentElement.dataset.jobpilottoFill = JSON.stringify({state: 'received'});
     chrome.runtime.sendMessage({type: 'claudeFill', job: request.job, ticket: request.ticket});
   });
+  // The fill ladder's attempt log (page/attempts.js, the page's own world, where chrome.runtime is not) says a try worked: relayed as the run's progress (ladder/progress.js).
+  // Only that one fixed kind; a page that fires it itself only adds a shadow log line, it never makes the extension act.
+  document.addEventListener('jobpilotto:progress', event => { if (event.detail === 'value_stayed') chrome.runtime.sendMessage({type: 'progress', kind: 'value_stayed'}).catch?.(() => {}); });
 })();

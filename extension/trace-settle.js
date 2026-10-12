@@ -6,6 +6,7 @@
 // readBack: rung 0's read of every control once the page settled (page/read-back.js pass: [{field, type, state, file?}]), the one truth the panel reads too
 // (spec docs/superpowers/specs/2026-10-12-fill-ladder.md, amendment 4): it names why a box is left, and the CV row is what its slot shows (cvName: the CV's file name), not what the operator hoped.
 const LEFT_WHY = {mismatch: 'the page changed what was typed, by the end of the fill', unreachable: 'something lies over it at the end of the fill'};
+const GAVE_UP = 'the site did not keep it after its tries: left for you';   // its one attempt log is spent (page/attempts.js), told once
 const FILE_WHY = {unknown: 'the file was attached, but the slot shows no file: check it', empty: 'the page did not keep the file'};
 
 // Counts per state, for the log line (no label, no value).
@@ -23,6 +24,7 @@ export function settleTrace(trace = [], finalFields = [], gaveUp = [], readBack 
   const fieldOf = new Map((finalFields || []).filter(field => field && field.label).map(field => [field.label, field.field]));
   const filledAtEnd = new Map((finalFields || []).filter(field => field && field.label).map(field => [field.label, !!field.filled]));
   const stateOf = new Map((readBack || []).filter(row => row && row.field).map(row => [row.field, row.state]));
+  const spent = new Set((readBack || []).filter(row => row && row.field && row.gaveUp).map(row => row.field));
   const file = fileEnd(readBack, cvName);
   const rows = new Map();
   for (const row of trace || []) {
@@ -34,7 +36,8 @@ export function settleTrace(trace = [], finalFields = [], gaveUp = [], readBack 
     if (row.type === 'file' && row.source === 'your CV' && file) return file === 'committed' ? (row.outcome === 'filled' ? row : {...row, outcome: 'filled', reason: 'the slot shows the file by the end of the fill'}) : {...row, outcome: 'left', reason: FILE_WHY[file]};
     const end = filledAtEnd.get(row.label), state = stateOf.get(fieldOf.get(row.label));
     if (end === true && row.outcome !== 'filled') return {...row, outcome: 'filled', reason: 'filled by the end of the fill'};
-    if (end === false && row.outcome === 'filled' && row.type !== 'file' && row.type !== 'password') return {...row, outcome: 'left', reason: gaveUpTimes.has(fieldOf.get(row.label)) ? `empty again at the end of the fill: the page emptied it after we typed it ${gaveUpTimes.get(fieldOf.get(row.label))} times, so we stopped` : LEFT_WHY[state] || 'empty again at the end of the fill'};
+    if (end === false && row.outcome === 'filled' && row.type !== 'file' && row.type !== 'password') return {...row, outcome: 'left', reason: gaveUpTimes.has(fieldOf.get(row.label)) ? `empty again at the end of the fill: the page emptied it after we typed it ${gaveUpTimes.get(fieldOf.get(row.label))} times, so we stopped` : spent.has(fieldOf.get(row.label)) ? GAVE_UP : LEFT_WHY[state] || 'empty again at the end of the fill'};
+    if (row.outcome !== 'filled' && spent.has(fieldOf.get(row.label)) && end !== true) return {...row, outcome: 'left', reason: GAVE_UP};
     return row;
   });
 }

@@ -74,12 +74,16 @@
     const typed = el.getAttribute('data-jobpilotto-typed');
     return typed && window.__jobPilottoTypedSame && !window.__jobPilottoTypedSame(typed, el.value) ? 'mismatch' : 'committed';
   };
+  // The fill picked one option (data-jobpilotto-picked: its letters and digits, page/browser-form-fastpath.js, page/fill-menus.js) and the menu shows another: the page set it
+  // back to its own (cc's review of #507: a country menu on the page's default read as answered).
+  const alnum = text => String(text ?? '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+  const pickedOther = (el, shown) => { const picked = el.getAttribute('data-jobpilotto-picked'); return !!picked && alnum(shown) !== picked; };
   const stateOf = el => {
     if (!el) return 'empty';
     if (el.type === 'file') return fileState(el);
     if (el.type === 'checkbox' || el.type === 'radio') return el.checked ? 'committed' : 'empty';
-    if (el.tagName === 'SELECT') return chosen(el) ? 'committed' : 'empty';
-    if (el.getAttribute('role') === 'combobox') return comboValue(el) ? 'committed' : 'empty';
+    if (el.tagName === 'SELECT') return !chosen(el) ? 'empty' : pickedOther(el, el.options[el.selectedIndex]?.text) ? 'mismatch' : 'committed';
+    if (el.getAttribute('role') === 'combobox') { const value = comboValue(el); return !value ? 'empty' : pickedOther(el, value.textContent || value.value) ? 'mismatch' : 'committed'; }
     return boxState(el);
   };
 
@@ -115,7 +119,7 @@
       if (state !== 'committed' && el.type !== 'file' && covered(el)) state = 'unreachable';
       el.setAttribute('data-jobpilotto-r0', state);
       rows.push({field: el.id || el.name || '', type: el.type === 'file' ? 'file' : el.getAttribute('role') === 'combobox' ? 'combobox' : el.tagName === 'SELECT' ? 'select' : el.type || 'text', state,
-        ...(el.type === 'file' && ours(el) ? {file: ours(el)} : {})});
+        ...(el.type === 'file' && ours(el) ? {file: ours(el)} : {}), ...(el.hasAttribute('data-jobpilotto-gaveup') ? {gaveUp: true} : {})});   // gaveUp: its attempt log is spent (page/attempts.js)
     }
     return rows;
   };

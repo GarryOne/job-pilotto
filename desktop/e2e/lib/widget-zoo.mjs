@@ -35,7 +35,7 @@ export function verdictOf(item, result = {}) {
   const failures = result.failures || [], kinds = failures.map(line => line.split(':')[0]);
   const broken = kinds.some(kind => kind === 'error' || kind === 'isolation');
   return {name: item.name, widget: item.widget, read: !broken && !kinds.includes('asked'), committed: !broken && !kinds.some(kind => COMMIT_CHECKS.includes(kind)),
-    truthful: !broken && !kinds.some(kind => TRUTH_CHECKS.includes(kind)), safe: !kinds.includes('notTold'), failures};
+    truthful: !broken && !kinds.some(kind => TRUTH_CHECKS.includes(kind)), bounded: !broken && !kinds.includes('atMost'), safe: !kinds.includes('notTold'), failures};
 }
 
 // The NOT RUN rule for the zoo (12 Oct 2026: the CI job died on a missing staged file and printed nothing a reader could tell from a finding): a run that replayed no page says so

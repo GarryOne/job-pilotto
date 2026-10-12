@@ -52,7 +52,13 @@
       const group = groupOf(key);
       const match = group && optionFor(radiosOf(group), answer, nameOf);
       if (!match || LEGAL.test(`${groupName(group, radiosOf(group))} ${nameOf(match)}`)) return false;
-      return isOn(match) || press(match);
+      if (isOn(match)) return true;
+      // A press is a try in the group's one attempt log (page/attempts.js); the press says whether it worked (the one reader cannot read a group).
+      const log = window.__jobPilottoAttempts;
+      if (log && !log.mayTry(group, 'press')) return false;
+      const before = log?.stateOf(group), ok = press(match);
+      log?.note(group, 'press', before, ok);
+      return ok;
     };
     // A pressable-button group's title: its own accessible name, else the nearest title BEFORE it that no other control owns (page/label-before.js, one rule for every group;
     // 12 Oct 2026: the first label of the form named a toggle, "First name"). -> the element where its required mark would sit, or null.
