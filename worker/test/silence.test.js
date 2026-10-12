@@ -72,7 +72,7 @@ test('wired where the spec says: every progress note restarts it, a new page nam
   assert.match(progress, /silenceTab\(tabId, where\.job\)/);
   assert.match(progress, /useSilence\(\{notice: \(host, evidence\) => seenDeadEnd\('silent', host, evidence, log\)\}\)/);
   assert.match(progress, /forgetSilence\(tabId\)/);
-  assert.match(read('ladder/dead-end.js'), /export function deadEnd\([\s\S]*?endSilence\(stop\.tabId\);[\s\S]*?return report\(/, 'the door ends it, for every stop');
+  assert.match(read('ladder/dead-end.js'), /export function deadEnd\([\s\S]*?endSilence\(stop\.tabId\);[\s\S]*?const sent = report\(/, 'the door ends it, for every stop');
   assert.match(read('form-ready.js'), /if \(handedToPerson\(answer\)\) endSilence\(tab\.id\);/);
   assert.match(read('fill-flow.js'), /notePage\(tab\.id, key, \{job: jobUrl \|\| tab\.url, page: tab\.url\}\)/);
   assert.doesNotMatch(read('fill-flow.js'), /restartSilence|endSilence/, 'the flow never touches the clock but through a note or the door');

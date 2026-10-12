@@ -39,7 +39,9 @@ test('the door sends today\'s report unchanged, names the ending in the log, and
     ['https://jobs.example/3', 'jobs.example', 'other', 3, 'https://jobs.example/3', '', '']]);
   assert.deepEqual(logged.map(line => line.what), ['dead end: site_broken', 'dead end: account', 'dead end: other']);
   assert.deepEqual(logged.map(line => line.data.ending), ['site_broken', 'unresolved', 'unresolved']);
-  assert.deepEqual(logged[0].data, {host: 'jobs.example', ending: 'site_broken', named: true, kind: 'gone', status: 404});
+  const {door, ...data} = logged[0].data;
+  assert.deepEqual(data, {host: 'jobs.example', ending: 'site_broken', named: true, kind: 'gone', status: 404});
+  assert.deepEqual(logged.map(line => line.data.door), [door, door + 1, door + 2], 'each stop has its own id: the shadow question joins it (ladder/fallback.js)');
   assert.equal(logged[1].data.named, false);
 });
 
