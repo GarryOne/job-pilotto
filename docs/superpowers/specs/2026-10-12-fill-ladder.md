@@ -155,7 +155,7 @@
 ### 3. Verify rung 2 (shadow)
 - [x] `fill_verify` question, sketch without values, local `match` (`desktop/lib/ladder/fill-verify.js`, phase `fill` of /extension/account-judge)
 - [x] Contradiction trigger (form_ready needs X, the fill's match says X kept) and the miss trigger (match no), logged only (`extension/form-ready.js`)
-- [ ] Measure run: hit rate and tokens per application, shown to the owner (the ceiling run is job-pilotto-fill-quality's, started 12 Oct 2026; the shadow pass after this lands)
+- [ ] Measure run: hit rate and tokens per application, shown to the owner (the ceiling run is job-pilotto-fill-quality's; shadow pass: zoo on the Mac done 12 Oct 2026 (`npm run widget-zoo -- --model`), pool in CI by cc's batch after 00:00 UTC 13 Oct on main >= 0.9.242)
 ### 4. Repair
 - [ ] Control digest (rung 3) + `fill_repair` schema (WIDGETS, VERBS, n, option)
 - [ ] Executor over existing primitives; caps; floor refusals tested

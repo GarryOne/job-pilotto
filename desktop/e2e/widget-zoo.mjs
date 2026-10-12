@@ -1,13 +1,17 @@
 #!/usr/bin/env node
 // `npm run widget-zoo`: replays every widget-zoo page (e2e/widget-zoo/) with the real extension, offline, and prints per page whether the fill READ the question and whether the value
 // stayed COMMITTED, then the totals per widget. A measure: a miss never fails the run (exit 1 only when the replay itself broke, or a page pressed a submit). --json <file> writes the
-// verdicts; REPLAY_ONLY=<part of a name> runs those pages. Lib: lib/widget-zoo.mjs. CI: .github/workflows/widget-zoo.yml (not a required check).
+// verdicts; REPLAY_ONLY=<part of a name> runs those pages. --model (a Mac, plan path, $0, never an API key): the fill check (spec 2026-10-12-fill-ladder, PR 3's shadow) is answered by the real model and its
+// verdicts are printed per page: the zoo pass of the short shadow mode. Lib: lib/widget-zoo.mjs. CI: .github/workflows/widget-zoo.yml (not a required check).
 import fs from 'node:fs';
 import {replayInTabs} from './lib/replay-browser.mjs';
 import {loadZoo, summarizeZoo, verdictOf} from './lib/widget-zoo.mjs';
+import {modelRoute} from './lib/widget-zoo-model.mjs';
 
 const args = process.argv.slice(2), jsonOut = args.includes('--json') ? args[args.indexOf('--json') + 1] : '';
 const cases = loadZoo().filter(one => one.name.includes(process.env.REPLAY_ONLY || ''));
+const shadow = new Map();   // page host -> the model's verdicts on the fill check (--model)
+if (args.includes('--model')) for (const item of cases) item.ai['/extension/account-judge'] = await modelRoute(shadow);
 const results = await replayInTabs(cases, {tabs: Math.max(1, Number(process.env.JP_REPLAY_TABS || 3)), extensionDir: process.env.REAL_EXTENSION_DIR || undefined});
 const verdicts = cases.map((item, index) => verdictOf(item, results[index]));
 const summary = summarizeZoo(verdicts);
@@ -19,6 +23,10 @@ say(`widget zoo: ${summary.total} pages, read ${summary.read}, committed ${summa
 for (const one of verdicts) say(`  ${pad(one.name, 26)} ${pad(one.widget, 19)} read ${one.read ? 'yes' : 'NO '}  committed ${one.committed ? 'yes' : 'NO '}${one.failures.length ? `  (${one.failures.join('; ').slice(0, 160)})` : ''}`);
 say('Per widget (committed / pages):');
 for (const [widget, entry] of Object.entries(summary.byWidget)) say(`  ${pad(widget, 19)} ${entry.committed}/${entry.total}`);
+if (args.includes('--model')) {
+  say('Fill check in shadow (the real model; per page, the controls it named):');
+  for (const item of cases) { const host = new URL(item.pages[0].url).hostname, found = shadow.get(host); say(`  ${pad(item.name, 26)} ${found ? found.map(row => `${row.label.slice(0, 22)}=${row.verdict}${row.reason ? `/${row.reason}` : ''}`).join(', ') || '(no miss named)' : '(not asked)'}`); }
+}
 if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\`\`\`\n${lines.join('\n')}\n\`\`\`\n`);
 if (jsonOut) fs.writeFileSync(jsonOut, `${JSON.stringify({summary, verdicts}, null, 1)}\n`);
 const broken = verdicts.filter(one => one.failures.some(line => /^(error|isolation)\b/.test(line)));

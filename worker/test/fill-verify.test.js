@@ -16,7 +16,7 @@ function box(id, {type = 'text', readOnly = false, disabled = false, role = null
   const attrs = {};
   return {id, name: id, type, readOnly, disabled, value, scrolled: false, blurred: 0,
     matches: selector => selector.split(',').some(part => part.trim() === `input[type=${type}]` || (type === 'textarea' && part.trim() === 'textarea')),
-    getAttribute: name => (name === 'role' ? role : attrs[name] ?? null), setAttribute: (name, v) => { attrs[name] = v; }, attrs,
+    getAttribute: name => (name === 'role' ? role : attrs[name] ?? null), setAttribute: (name, v) => { attrs[name] = v; }, removeAttribute: name => { delete attrs[name]; }, hasAttribute: name => name in attrs, attrs,
     getClientRects: () => [1], getBoundingClientRect: () => ({left: 10, top: 20, width: 200, height: 30}), scrollIntoView() { this.scrolled = true; }, blur() { this.blurred += 1; }};
 }
 
@@ -71,4 +71,17 @@ test('no box listed: nothing is sent', async () => {
   const sent = [];
   assert.deepEqual(await typeNotTakenForReal({page: async () => [], send: async (...call) => sent.push(call)}), {tried: 0, taken: 0});
   assert.equal(sent.length, 0);
+});
+
+test('a box the fill answered and the page did not take is marked, with no value, so the judges\' match says no; a box read back with its answer loses the mark', () => {
+  const city = box('city'), date = box('start');
+  const window = page([city, date]);
+  window.__jobPilottoNoteNotTaken('city', 'Zürich');
+  window.__jobPilottoNoteNotTaken('start', '2026-11-02');
+  assert.equal(city.attrs['data-jobpilotto-nottaken'], '');
+  assert.equal(date.attrs['data-jobpilotto-nottaken'], '');
+  assert.ok(!JSON.stringify(city.attrs).includes('Zürich'));
+  city.value = 'Zürich';
+  assert.equal(window.__jobPilottoTakenNow('city'), true);
+  assert.ok(!('data-jobpilotto-nottaken' in city.attrs));
 });

@@ -12,7 +12,13 @@
   const byField = field => Array.from(document.querySelectorAll('input, textarea')).find(el => el.id === field || el.name === field);
   const typable = el => !!el && el.matches(TEXT) && !el.disabled && !el.readOnly && el.getAttribute('role') !== 'combobox'
     && !!el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden';
-  window.__jobPilottoNoteNotTaken = (field, value) => { if (field && typeof value === 'string' && value.trim()) notTaken.set(String(field), value); };
+  // The fill gave this box an answer and the page did not take it: a bare mark (no value) so the judges' sketch says match "no" (extension/account-fill.js matchOf), a box the fill's own
+  // marks would otherwise call untouched. Any answered box, whatever its kind; only the plain text ones are typed again below.
+  window.__jobPilottoNoteNotTaken = (field, value) => {
+    const el = byField(String(field));
+    if (el && !el.hasAttribute('data-jobpilotto-typed')) el.setAttribute('data-jobpilotto-nottaken', '');
+    if (field && typeof value === 'string' && value.trim()) notTaken.set(String(field), value);
+  };
   // -> [{field, x, y, text}] for each noted box that is typable and still does not hold its answer (at most 8), scrolled into view first.
   window.__jobPilottoNotTakenSpots = () => {
     const spots = [];
@@ -31,7 +37,7 @@
     if (!el) return false;
     el.blur();
     const taken = holds(el, text);
-    if (taken) { el.setAttribute('data-jobpilotto-filled', ''); el.setAttribute('data-jobpilotto-typed', alnum(text).slice(0, 160)); notTaken.delete(field); }
+    if (taken) { el.removeAttribute('data-jobpilotto-nottaken'); el.setAttribute('data-jobpilotto-filled', ''); el.setAttribute('data-jobpilotto-typed', alnum(text).slice(0, 160)); notTaken.delete(field); }
     return taken;
   };
 })();

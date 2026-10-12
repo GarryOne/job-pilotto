@@ -24,8 +24,9 @@ export function answerFor(item) {
   // ...or {"byHost": {<host>: answer}} when a journey crosses pages that the AI answers differently (the request's `url` says which).
   const hostOf = text => { try { return new URL(JSON.parse(text).url).hostname; } catch { return ''; } };
   // An answer with "_delayMs" comes that much later (a slow AI on a real run: the fill waits for its answers while the page is half filled); the field itself is never sent.
+  // A route's answer may also be a function of the request body (sync or async): widget-zoo.mjs --model answers the fill check with the real model.
   const late = fn => sent => { const found = fn(sent); const ms = Number(found?._delayMs) || 0; if (!ms) return found; const {_delayMs, ...rest} = found; return new Promise(resolve => setTimeout(() => resolve(rest), ms)); };
-  return Object.fromEntries(Object.entries(item.ai || {}).map(([route, body]) => [route, late(Array.isArray(body) ? sent => pick(body, sent) : body.byHost ? text => { const entry = body.byHost[hostOf(text)]; return Array.isArray(entry) ? pick(entry, text) : entry || {}; } : () => body)]));
+  return Object.fromEntries(Object.entries(item.ai || {}).map(([route, body]) => [route, late(typeof body === 'function' ? body : Array.isArray(body) ? sent => pick(body, sent) : body.byHost ? text => { const entry = body.byHost[hostOf(text)]; return Array.isArray(entry) ? pick(entry, text) : entry || {}; } : () => body)]));
 }
 export const caseHosts = item => [...new Set(item.pages.map(page => new URL(page.url).host))];
 export const caseFiles = item => new Map(item.pages.map(page => [pathKey(page.url), fs.readFileSync(path.join(item.dir, page.file), 'utf8')]));
