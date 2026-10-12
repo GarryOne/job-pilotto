@@ -87,17 +87,23 @@ export function poolMoves(report = {}, readLog = () => '') {
 // The distinct moves of several lists (a replayed move counts once, as the site keeps it: one hit, the misses of none): the recorded cases of one build, several cases on one host.
 export const distinctMoves = lists => mergeMoves([...new Map((Array.isArray(lists) ? lists : []).flat().map(row => [[row.shape, row.rung, row.kind, row.outcome].join('\n'), {...row, hits: 1, misses: 0}])).values()].map(row => [row]));
 
+// The control level's kept repairs travel in the same batch (job-pilotto-fill-ladder, 12 Oct 2026: one delivery path): {fp (page/skeleton.js control fingerprint), verb (a fill_repair
+// verb), ok, failed}, fixed words and integers only; the site's handling of `repairs` is the fill ladder's.
+export const cleanRepair = raw => (/^[a-z0-9]{6,16}$/.test(String(raw?.fp ?? '')) && /^[a-z_]{2,24}$/.test(String(raw?.verb ?? '')) && [raw?.ok, raw?.failed].every(n => Number.isInteger(n) && n >= 0 && n <= 1e6) && raw.ok + raw.failed > 0
+  ? {fp: raw.fp, verb: raw.verb, ok: raw.ok, failed: raw.failed} : null);
+
 // -> one line for the run's output; never throws.
-export async function sendMoves(rows, {source, env = process.env, fetcher = fetch} = {}) {
+export async function sendMoves(rows, {source, repairs = [], env = process.env, fetcher = fetch} = {}) {
   if (!SOURCES.includes(source)) return `ladder moves: not sent (source "${source}" is not a test source)`;
   const why = env.REAL_EXTENSION_DIR ? 'a control run on another build' : !env.CI ? 'a local run: only CI sends test moves' : !env.REPLAYS_PUBLISH_KEY ? 'REPLAYS_PUBLISH_KEY not set up' : '';
   if (why) return `ladder moves: not sent (${why})`;
-  if (!rows.length) return 'ladder moves: nothing to send (no move was confirmed)';
-  if (['1', 'true'].includes(String(env.JP_MOVES_DRY || '').toLowerCase())) return `ladder moves: dry run: would send ${rows.length} move(s) (${source})`;
+  const fixes = (Array.isArray(repairs) ? repairs : []).map(cleanRepair).filter(Boolean).slice(0, 200);
+  if (!rows.length && !fixes.length) return 'ladder moves: nothing to send (no move was confirmed)';
+  if (['1', 'true'].includes(String(env.JP_MOVES_DRY || '').toLowerCase())) return `ladder moves: dry run: would send ${rows.length} move(s)${fixes.length ? ` and ${fixes.length} repair(s)` : ''} (${source})`;
   try {
     const answer = await fetcher(MOVES_SITE, {method: 'POST', headers: {Authorization: `Bearer ${env.REPLAYS_PUBLISH_KEY}`, 'Content-Type': 'application/json', 'X-Caller': 'ladder-moves'},
-      body: JSON.stringify({install: `${source}-test-moves`, source, run: String(env.GITHUB_RUN_ID || ''), ladder: rows.slice(0, 200)}), signal: AbortSignal.timeout(20000)});
+      body: JSON.stringify({install: `${source}-test-moves`, source, run: String(env.GITHUB_RUN_ID || ''), ladder: rows.slice(0, 200), ...(fixes.length ? {repairs: fixes} : {})}), signal: AbortSignal.timeout(20000)});
     const body = await answer.json().catch(() => ({}));
-    return answer.ok ? `ladder moves: ${rows.length} move(s) sent (${source}), ${body.ladder ?? 0} stored` : `ladder moves: refused (${answer.status} ${body.error || ''})`;
+    return answer.ok ? `ladder moves: ${rows.length} move(s)${fixes.length ? ` and ${fixes.length} repair(s)` : ''} sent (${source}), ${body.ladder ?? 0} stored` : `ladder moves: refused (${answer.status} ${body.error || ''})`;
   } catch (error) { return `ladder moves: not sent (${String(error?.message || error).slice(0, 80)})`; }
 }
