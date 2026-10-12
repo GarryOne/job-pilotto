@@ -8,6 +8,7 @@
 //  2. The last form states come back after a restart only for sessions that still exist (desktop/test/review.test.js).
 import fs from 'node:fs';
 import {markedSession} from './session-tab.js';
+import {isFormOf} from './form-address.js';
 import {LABELS} from './contact.js';
 const CONTACT_KEYS = Object.keys(LABELS);
 
@@ -46,12 +47,11 @@ export const onState = fn => { stateListeners.push(fn); };
 // stored on it by the extension), else 'job' (the page says which posting its tab was opened for: an exact match of that address). Nothing else: no score,
 // no company or title, no "the one free session" (owner, 12 Oct 2026; spec 2026-10-12-tab-owned.md). A page that carries a session that is gone
 // (cancelled, started again under a new id) is 'gone': its job may find the new one, never a guess.
-const jobKey = url => String(url || '').split('#')[0].replace(/\/+$/, '');
 export function sessionFor(sessions, page, tab) { return pick(sessions, page, tab).session; }
 function pick(sessions, page) {
   const named = [page.session, markedSession(page.url)].filter(Boolean);
   for (const id of named) { const own = sessions.find(session => session.id === id); if (own) return {session: own, by: 'session'}; }
-  const byJob = page.job ? sessions.filter(session => jobKey(page.job) === jobKey(session.url)) : [];
+  const byJob = page.job ? sessions.filter(session => isFormOf(page.job, session.url)) : [];   // the posting, its form address (Ashby /application, Lever /apply) or a page below it
   if (byJob.length) return {session: byJob.reduce((a, b) => (b.startedAt > a.startedAt ? b : a)), by: 'job'};
   return {session: null, by: named.length ? 'gone' : 'none'};
 }
