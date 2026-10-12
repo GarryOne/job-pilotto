@@ -2,6 +2,7 @@
 a cancelled wrapper kills its whole process group; a slot whose session is gone (or whose wrapper is orphaned) is freed by the next run, which kills the old tree by its recorded pgid;
 a holder whose tree used no CPU for the idle limit is freed the same way; a busy holder never is. Own temp lock root, never the real one."""
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -112,11 +113,12 @@ class HeavyLockReapTest(unittest.TestCase):
 
     def test_an_idle_holder_is_freed_after_the_idle_limit(self):
         p, children = self.hung_holder(JOB_PILOTTO_HEAVY_IDLE='2')
-        began = time.monotonic()
         result = subprocess.run(['bash', str(LOCK), 'next', 'echo', 'ran'], env={**self.env, 'JOB_PILOTTO_HEAVY_IDLE': '2', 'JOB_PILOTTO_HEAVY_WAIT': '60'}, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60)
         self.assertEqual(result.stdout.strip(), 'ran')
-        self.assertRegex(result.stderr, r'freed: idle \d+s')
-        self.assertGreaterEqual(time.monotonic() - began, 1.5, 'not freed before the idle limit')
+        freed = re.search(r'freed: idle (\d+)s', result.stderr)
+        self.assertTrue(freed, result.stderr)
+        # The lock's own idle measure, not seconds since this test's start: the holder went quiet before the waiter began (CI saw 1.375 s here, 12 Oct 2026).
+        self.assertGreaterEqual(int(freed.group(1)), 2, 'not freed before the idle limit')
         self.assertTrue(wait_for(lambda: not any(alive(c) for c in children)))
         self.assertRegex(self.log.read_text(), r'forced-free reason=idle_\d+s')
 
