@@ -137,7 +137,10 @@ const readRequiredInPage = cvName => {
     if (['hidden', 'submit', 'button', 'reset', 'image'].includes(type) || el.getAttribute('role') === 'combobox' || el.hasAttribute('aria-autocomplete')) continue;
     const role = el.getAttribute('role') || '';
     if (['radio', 'checkbox', 'option', 'switch'].includes(role)) { const group = el.closest('[role=radiogroup], [role=group], [role=listbox]') || el.parentElement; const key = group?.id || name; if (groups.has(key)) continue; groups.add(key); out.push({name, empty: !(el.matches(on) || group?.querySelector(on))}); continue; }
-    if (type === 'file' || el.querySelector('input[type=file]')) { out.push({name, empty: slotEmpty(el)}); continue; }
+    // An upload slot: a file box, a group holding one, or a required group with no control of its own (Greenhouse's resume group: a chip with the file's name, no file input in the
+    // captured page): read by the file it holds or the name it shows (chosen-picklist-judged-1, found by fill-ladder 13 Oct 2026).
+    const noControl = !('value' in el) && !el.querySelector('input, select, textarea, [role=radio], [role=checkbox], [role=option], [role=switch]');
+    if (type === 'file' || el.querySelector('input[type=file]') || noControl) { out.push({name, empty: slotEmpty(el)}); continue; }
     if (type === 'radio') { if (groups.has(`radio:${el.name}`)) continue; groups.add(`radio:${el.name}`); out.push({name, empty: ![...document.querySelectorAll(`input[type=radio][name="${CSS.escape(el.name)}"]`)].some(one => one.checked)}); continue; }
     const empty = type === 'checkbox' ? !el.checked : 'value' in el ? !String(el.value || '').trim() : !(el.matches(on) || el.querySelector(on));
     out.push({name, empty});
