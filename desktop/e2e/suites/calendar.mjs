@@ -125,7 +125,9 @@ export async function run(ctx) {
     if (chips.length !== 1 || !/E2E Epsilon/.test(chips[0]) || !showsClock(chips[0], {h: 12, m: 0})) throw new Error(`the 15th of next month shows ${JSON.stringify(chips)}, expected "E2E Epsilon" at 12:00`);
     if (await page.locator('#cal-grid .cal-cell.today').count()) throw new Error('"today" is highlighted in another month');
     await page.click('#cal-prev'); await page.click('#cal-prev');
-    if (await page.locator('#cal-grid .cal-cell:not(.out) .cal-chip').count()) throw new Error('last month shows a meeting of this month');
+    // The old call is seeded 40 days back: from the 10th of a month on, that is last month. Only it may be there.
+    const lastMonth = await page.locator('#cal-grid .cal-cell:not(.out) .cal-chip').allInnerTexts();
+    if (lastMonth.some(chip => !/E2E Old call/.test(chip))) throw new Error(`last month shows a meeting of this month: ${JSON.stringify(lastMonth)}`);
     await page.click('#cal-today');
     await page.waitForFunction(title => document.getElementById('cal-title').textContent === title, here, {timeout: 30000});
     if (await page.locator('#cal-today').isEnabled()) throw new Error('Today is still enabled while this month is shown');
