@@ -5,6 +5,7 @@
 import {api, settings} from './flow.js';
 import {closeConsent} from './visit-page.js';
 import {findPopup} from './popup-page.js';
+import {onTop} from './on-top.js';
 
 // cookiesOnly (the application flow): the free word rule only a box that speaks of cookies or tracking, never a privacy or terms box of the form itself.
 const STILL_THERE_MS = 1500;   // a closed banner is gone by then; one still listed after it contradicts the answer that was pressed
@@ -27,6 +28,17 @@ export const closePopup = async tabId => {
   }, STILL_THERE_MS);
   return pressed;
 };
+// The layer the gate sees (on-top.js: drawn over a control or the page centre, in a dialog or a big fixed layer) is closed through ITS OWN buttons when popup-page.js did not list it
+// (a notice with no dialog role and no z-index, a close control the list skipped): the same app pick (popup-pick.js), pressed only if it is a button of that layer. -> the label pressed, or ''.
+export const closeLayer = async tabId => {
+  const run = args => chrome.scripting.executeScript({target: {tabId, frameIds: [0]}, func: onTop, args}).then(rows => rows?.[0]?.result).catch(() => null);
+  const layer = await run([]);
+  if (!layer?.buttons?.length) return '';
+  const config = await settings().catch(() => null);
+  const choice = config && (await api(config, '/extension/dismiss-popup', {method: 'POST', body: JSON.stringify({text: layer.text, buttons: layer.buttons})}).catch(() => null))?.button;
+  return choice ? (await run([{press: choice}]))?.pressed || '' : '';
+};
+export const closePopupOrLayer = async tabId => (await closePopup(tabId)) || closeLayer(tabId);
 export const closeConsentEverywhere = async (tabId, {cookiesOnly = false} = {}) => {
   const cookie = await closeCookies(tabId, {cookiesOnly});
   return cookie || closePopup(tabId);

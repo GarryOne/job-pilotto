@@ -22,20 +22,25 @@ export async function closeFillDialogs(tab, {close, look, decide}) {
 
 // The gate before the fill (owner, 11 Oct 2026: "we should not start filling any form before we close all the popups/overlays"). look(tabId) -> what covers the form's controls
 // (on-top.js: {text, buttons, ...}) or null; close(tabId) -> the label of the AI's non-agreeing button pressed, or ''. A layer is closed and looked at again, at most 3 times;
-// one nothing closes (the AI says none: a sign-in, a robot check, a consent the person must give) holds the fill, and nothing is typed. -> {held, closed: [labels], layer}
+// one nothing closes (the AI says none: a sign-in, a robot check, a consent the person must give) holds the fill only when it is drawn over a control of the form, and nothing is typed. -> {held, closed: [labels], layer}
+// A layer whose covered list is empty leaves every control usable; one whose list is unknown (a look that does not say) is taken as covering.
+const coversForm = layer => !Array.isArray(layer.covered) || layer.covered.length > 0;
 export const HELD = 'a dialog covers the form';
 export async function clearBeforeFill(tabId, {close, look, tries = 3, settleMs = 600}) {
   const closed = [];
   for (let attempt = 0; attempt < tries; attempt++) {
-    const layer = await look(tabId).catch(() => null);
+    let layer = await look(tabId).catch(() => null);
     if (!layer) return {held: false, closed, layer: null};
-    const pressed = await close(tabId).catch(() => '');
-    if (!pressed) return {held: true, closed, layer};
+    let pressed = await close(tabId).catch(() => '');
+    // Nothing pressed: the layer may have gone on its own, or been closed by another asker, between the list and the press (fix-import-dialog's false hold): look once more.
+    if (!pressed) { await sleep(settleMs); const again = await look(tabId).catch(() => null); if (!again) return {held: false, closed, layer: null}; layer = again; }
+    // A layer that leaves the form's controls usable never holds the fill (Recruitee, 11 Oct 2026: a closable notice drawn over the page centre stopped 6 of 6 at 1 of 13): only one drawn over a control does.
+    if (!pressed) return {held: coversForm(layer), closed, layer};
     closed.push(pressed);
     await sleep(settleMs);
   }
   const layer = await look(tabId).catch(() => null);
-  return {held: !!layer, closed, layer: layer || null};
+  return {held: !!layer && coversForm(layer), closed, layer: layer || null};
 }
 
 // A held fill, said everywhere: the log line the pool reads (smoke.mjs parseLive), and the person told on the page.
@@ -49,4 +54,4 @@ export async function holdFill(tab, page, result, {decide, progress, note}) {
 
 // What covers the form's controls, found by occlusion (on-top.js), as {text, buttons} for settleDialogs / clearBeforeFill; null when nothing does (a layer that covers no control is none).
 export const layerOnTop = tabId => chrome.scripting.executeScript({target: {tabId, frameIds: [0]}, func: onTop})
-  .then(rows => { const layer = rows?.[0]?.result; return layer ? {text: layer.text, buttons: layer.buttons} : null; }).catch(() => null);
+  .then(rows => { const layer = rows?.[0]?.result; return layer && !layer.pressed ? {text: layer.text, buttons: layer.buttons, covered: layer.covered || []} : null; }).catch(() => null);
