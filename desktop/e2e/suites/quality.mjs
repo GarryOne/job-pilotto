@@ -223,8 +223,10 @@ export async function run(ctx) {
 
     await soft(() => ctx.run('the score reasons say nothing invented or untrue (Sonnet judge)', async () => {
       const {byId} = matchRows(truth, rows);
-      // The candidate as the app knows them: the CV text plus the Profile page the scoring read (figures such as a salary minimum may come from there).
-      const profile = `${candidate}\n\nTHE PROFILE\n${persona ? fs.readFileSync(path.join(GOLDEN, 'profile.md'), 'utf8') : await plainTextOf(ctx, 'profile').catch(() => '')}`.slice(0, 30000);
+      // The candidate as the scoring knows them: only the Profile page it read (src/ai/score.py scores "using only the profile and the posting").
+      // The CV text is left out: with it, a gap such as "Datadog is not named in your profile" was judged invented whenever the CV had the skill and
+      // the seeded Profile did not (#350: jobs 3001, 3002, 3010 on 11 and 12 Oct 2026).
+      const profile = `THE PROFILE\n${persona ? fs.readFileSync(path.join(GOLDEN, 'profile.md'), 'utf8') : await plainTextOf(ctx, 'profile').catch(() => '')}`.slice(0, 30000);
       const verdicts = [], problems = [];
       const todo = postings.filter(item => byId[item.id]);
       for (let i = 0; i < todo.length; i += 4) {
