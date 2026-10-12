@@ -37,6 +37,10 @@ export async function run(ctx) {
   ];
   const seed = {};
   const num = day => String(Number(day.slice(8)));
+  const closeDrawer = async () => {
+    await page.keyboard.press('Escape');
+    await page.locator('#job-drawer-layer').waitFor({state: 'hidden', timeout: 10000}).catch(() => { throw new Error('the job drawer did not close on Escape'); });
+  };
   const openCalendar = async () => {
     await page.click('.nav[data-view="focus"]');
     await page.click('.nav[data-view="calendar"]');
@@ -166,9 +170,11 @@ export async function run(ctx) {
     await external.clear();
     await cell(page, l1).locator('.cal-chip').first().click();
     await panelShows('Acme', seed.acme.title);
+    await closeDrawer();   // the person closes the job's drawer (Escape) before the next click: it covers the page while it is open
     await openCalendar();
     await page.locator('#cal-upcoming .cal-row, #cal-past .cal-row').filter({hasText: 'E2E Beta'}).first().click();
     await panelShows('Beta', seed.beta.title);
+    await closeDrawer();
     if ((await external.urls()).length) throw new Error(`a meeting on this Mac's store opened ${JSON.stringify(await external.urls())} outside the app`);
   }, {needs: [{name: 'this Mac\'s store (on Notion a meeting opens its Notion page: the step above)', value: ctx.store === 'sqlite'}]});
 
