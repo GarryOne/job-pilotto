@@ -14,6 +14,7 @@ import { askAgainForGaps, unanswered } from './answer-missing.js';
 import { BILLED, billedTo, learnings, runBlocks, runData, runRecord } from './extension-run-record.js';
 export { BILLED, billedTo, learnings, runData, runRecord };
 import { cvFactsBlock, CV_FACTS_RULE } from './cv-facts.js';
+import { FACT_KEYS, FACT_RULE, floorUnfounded } from './answer-facts.js';
 
 const KIT_HEADING = '📝 Application kit';
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
@@ -131,7 +132,7 @@ const ANSWER_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['field', 'value', 'confidence', 'note', 'category', 'use'],
+        required: ['field', 'value', 'confidence', 'note', 'category', 'use', 'fact'],
         properties: {
           field: { type: 'string' },
           value: { type: 'string' },
@@ -139,11 +140,14 @@ const ANSWER_SCHEMA = {
           note: { type: 'string' },
           category: { type: 'string', enum: ['knockout', 'legal', 'demographic', 'contact', 'preference', 'normal', 'written'] },
           use: { type: 'string', enum: ['fill', 'propose'] },
+          fact: { type: 'string', enum: FACT_KEYS },
         },
       },
     },
   },
 };
+
+export const ANSWER_SCHEMA_FOR_TESTS = ANSWER_SCHEMA;   // worker/test/answer-facts.test.js
 
 const INSTRUCTIONS = `You fill in a job application form for the applicant described in <profile> and <standard_answers>.
 Use only the applicant details given here; never a name, e-mail address or phone number from any other context (such as an account you are signed in with): when a detail is not given, leave it empty.
@@ -154,7 +158,8 @@ For each form field you are given its id, label, type, whether it is required, a
 - select, radio: exactly one of the listed options, copied character for character.
 - combobox: its options are often not listed (the menu is closed); give the option wording the form most likely uses ("Yes", "No", a country or city name). When options are listed, copy one exactly.
 - checkbox: "checked" or "unchecked".
-use: "fill" when <profile>, <standard_answers> or the drafted kit state the answer: it is typed into the form. When they don't state it, still give your most plausible answer for this applicant and this job, with use: "propose": the applicant sees it as a suggestion and confirms it; it is never typed for them. Base it on what is stated (their country, their CV, that they chose to apply to this job) and on what the posting expects (its hours, place, duties). Leave a field out (no answer) when nothing given points to an answer: never invent employers, dates, numbers, links or personal details. A legal question (a consent, terms, a certification or attestation, an acknowledgement) is never answered: return it with value "" and category "legal", so the applicant sees it is theirs to decide; never propose an answer to a demographic question or to a fact only the applicant can know (a criminal record, a registration with an office, their health). Voluntary demographic questions (gender, ethnicity, veteran, disability) are answered only from <standard_answers>; otherwise choose the "decline to answer" option if there is one. A demographic question with no answer in <standard_answers> and no decline option (a salutation Mr/Ms, Herr/Frau, a gender) is returned with value "" and category "demographic": never guess it from the applicant's name.
+${FACT_RULE}
+Base a proposal on what is stated (their country, their CV, that they chose to apply to this job) and on what the posting expects (its hours, place, duties). Leave a field out (no answer) when nothing given points to an answer: never invent employers, dates, numbers, links or personal details. A legal question (a consent, terms, a certification or attestation, an acknowledgement) is never answered: return it with value "" and category "legal", so the applicant sees it is theirs to decide; never propose an answer to a demographic question or to a fact only the applicant can know (a criminal record, a registration with an office, their health). Voluntary demographic questions (gender, ethnicity, veteran, disability) are answered only from <standard_answers>; otherwise choose the "decline to answer" option if there is one. A demographic question with no answer in <standard_answers> and no decline option (a salutation Mr/Ms, Herr/Frau, a gender) is returned with value "" and category "demographic": never guess it from the applicant's name.
 category, in whatever language the form is: knockout = a question the employer can reject on by itself (work authorisation, visa or sponsorship, location, relocation, on-site days, a required licence or language); legal = a consent, terms, privacy notice, certification or acknowledgement; demographic = gender, ethnicity, disability, veteran or similar voluntary questions; contact = name, email, phone, address; preference = whether and how the applicant is kept informed (notifications by SMS or email, job alerts, a newsletter, a talent pool): a choice, not a legal consent, so give it your most plausible answer with use: "propose"; written = an open question the applicant answers in their own words (why they want this job or company, a cover letter, "tell us about yourself") when nothing given answers it: return it with value "" and this category instead of leaving it out or drafting it; normal = anything else.
 confidence: high when the answer is stated in the profile or standard answers, medium when you inferred it, low when the applicant should check it. note: a few words on why, for medium and low.
 
@@ -166,7 +171,10 @@ export const TEST_MODE = 'TEST MODE: this is a test of the form filling, not a r
 export async function answerForm(env, { url, fields, page_text, test = false }, client = null) {
   const startedAt = Date.now();
   const row = await findRow(env, url).catch(() => null);
-  const kit = row ? await readKit(env, row.id).catch(() => null) : null;
+  // With the data on this Mac (env.store, the default) the job and its drafted kit come from the store: before 12 Oct 2026 the ask got neither.
+  const stored = !row && env.store ? await env.store.findJob(url).catch(() => null) : null;
+  const kit = row ? await readKit(env, row.id).catch(() => null) : stored ? await env.store.kit(stored.id).catch(() => null) : null;
+  const found = row ? summary(row) : stored ? (({ id, ...rest }) => rest)(stored) : null;
   // The desktop app passes the local Profile and standard answers; the Worker reads them from Notion.
   const [profile, standard] = await Promise.all([
     env.PROFILE_TEXT ?? pageText(env, env.NOTION_PROFILE_PAGE_ID),
@@ -180,7 +188,7 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   // The strategy's search settings (roles, places, what the user aims for): a proposal should serve that, not just the CV.
   const search = String((await Promise.resolve(env.SEARCH_TEXT).catch(() => '')) || '').slice(0, 4000);
   const cvFacts = cvFactsBlock(await Promise.resolve(env.CV_FACTS_TEXT).catch(() => ''));   // from the imported CV, never imported by a fill
-  const job = row ? summary(row) : { title: '', company: '', url };
+  const job = found || { title: '', company: '', url };
   const anthropic = client || anthropicClient(anthropicKey(env));
   const ask = (list, note = '') => anthropic.messages.create({
     model: env.JOB_PILOTTO_KIT_MODEL || DEFAULT_MODEL,
@@ -217,7 +225,8 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   const known = new Set(fields.map((f) => f.field));
   // A proposal is never for a legal or demographic question, whatever the AI said (a hard floor beside its own rule). A knockout question
   // (residence, hours, availability) gets its most plausible answer, shown as "check it" and never typed: the owner confirms each (9 Oct 2026). Proposals are shown in the app, never typed (extension/flow.js).
-  const all = Array.isArray(result.answers) ? result.answers : [];
+  // A typed answer that names no saved fact is a guess: proposed, never typed (worker/src/answer-facts.js).
+  const all = (Array.isArray(result.answers) ? result.answers : []).map((a) => floorUnfounded(a, { test }));
   await env.onAnswerCall?.({ url, fields, answers: all });   // the desktop app keeps the asked fields and answer kinds for the e2e evidence (no values); a no-op elsewhere
   const floored = (a) => a.use === 'propose' && ['legal', 'demographic'].includes(a.category);
   // A written question (the person's own words) is never answered or proposed here, whatever value the AI gave: it comes back as an empty kind (owner, 11 Oct 2026).
@@ -242,7 +251,7 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
     retried, stillMissing: stillMissing.slice(0, 10).map((f) => String(f).slice(0, 60)),
     categories: Object.fromEntries(['knockout', 'legal', 'demographic', 'contact', 'preference', 'normal', 'written'].map((c) => [c, all.filter((a) => a.category === c).length]).filter(([, n]) => n)) });
   return {
-    job: row ? summary(row) : null,
+    job: found,
     eligible: result.eligible, eligibility_note: result.eligibility_note,
     // A legal question comes back as a kind only (use "kind", no value): the extension marks it the person's choice in any wording, never "no answer"
     // (11 Oct 2026, Datadog: "I certify ..." was left out by the AI and missed by the English floor). A floored legal proposal says the same.

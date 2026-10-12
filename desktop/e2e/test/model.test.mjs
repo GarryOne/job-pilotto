@@ -15,6 +15,13 @@ test('a Mac call strips the owner\'s MCP servers, skills, settings and tools, so
   assert.match(prompt, /Judge this\./);
 });
 
+test('a system prompt sent as blocks (the form-answer ask, cached profile) reaches claude -p as its text, never "[object Object]"', () => {
+  const {args} = cliCall({...body, system: [{type: 'text', text: 'Fill the form.'}, {type: 'text', text: '<profile>Zurich</profile>', cache_control: {type: 'ephemeral'}}]});
+  const system = args[args.indexOf('--system-prompt') + 1];
+  assert.ok(system.includes('Fill the form.\n<profile>Zurich</profile>'), system);
+  assert.doesNotMatch(system, /object Object/);
+});
+
 test('through Claude Code the answer has the Messages shape the judges read', async () => {
   let seen;
   const response = await modelFetch('https://api.anthropic.com/v1/messages', {method: 'POST', body: JSON.stringify(body)}, {engine: cli, exec: async call => { seen = call; return exec('{"items":[]}')(call); }});
