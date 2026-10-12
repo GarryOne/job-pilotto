@@ -59,11 +59,11 @@
   function fields() {
     const groups = new Map();
     for (const el of document.querySelectorAll('input, textarea, select')) {
-      if (SKIP.includes(el.type) || el.disabled || el.getAttribute('aria-hidden') === 'true' || !visible(el)) continue;
+      const slot = el.type === 'file' && !visible(el) ? window.__jobPilottoReadBack.shownSlot(el) : null; if (SKIP.includes(el.type) || el.disabled || el.getAttribute('aria-hidden') === 'true' || !(visible(el) || slot)) continue;   // a CV slot whose input the page hides counts by its visible zone (page/read-back.js)
       const grouped = ['checkbox', 'radio'].includes(el.type) && el.closest('fieldset');
       const key = grouped ? `group:${question(el)}` : el.type === 'radio' ? `radio:${el.name}` : el;
       const filled = window.__jobPilottoReadBack.holds(el);   // the one reading (page/read-back.js): a box holding only a country code is empty, an upload slot by the file it shows
-      const entry = groups.get(key) || {el, label: question(el), required: false, filled: false, ai: false, byUs: false};
+      const entry = groups.get(key) || {el: slot || el, label: question(el), required: false, filled: false, ai: false, byUs: false};   // the zone is what a person sees and is shown
       entry.required ||= required(el);
       entry.ai ||= el.hasAttribute('data-jobpilotto-ai'); entry.suggested ||= el.dataset.jobpilottoSuggested || ''; entry.guess ||= !!el.dataset.jobpilottoGuess; entry.wants ||= el.dataset.jobpilottoWants || ''; entry.options ||= el.dataset.jobpilottoOptions || '';   // page/propose.js: proposals, reported with what is left (the app's rows)
       entry.byUs ||= el.hasAttribute('data-jobpilotto-filled') || el.hasAttribute('data-jobpilotto-ai'); entry.category ||= el.dataset.jobpilottoCategory || '';   // the AI's reading, any language (page/categories.js)

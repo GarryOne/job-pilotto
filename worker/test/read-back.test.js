@@ -99,3 +99,12 @@ test('the fill\'s record says what the slot shows, and why a box is left', () =>
   assert.equal(letterOnly[0].outcome, 'left', 'a cover letter that shows is not the CV');
   assert.deepEqual(settleTrace(trace, final, [], []).map(row => row.outcome), ['left', 'left'], 'with no read-back, the rows decide as before');
 });
+
+test('a CV slot whose input the page hides is found by its visible zone; a zone that holds another field is not a slot', {skip: !JSDOM}, () => {
+  const window = openPage(JSDOM, `<form><div class="field"><label for="cv">Resume</label><div class="zone" id="zone"><input id="cv" type="file" style="display:none"><span>Drop your CV here</span></div></div>
+    <div class="row" id="row"><input id="other" type="file" style="display:none"><input id="note" placeholder="Note"></div></form>`);
+  const slot = window.__jobPilottoReadBack.shownSlot(window.document.getElementById('cv'));
+  assert.equal(slot?.id, 'zone', 'the nearest shown box around the hidden input');
+  assert.equal(window.__jobPilottoReadBack.shownSlot(window.document.getElementById('other')), null, 'its box holds another field: not this slot\'s zone');
+  window.close();
+});
