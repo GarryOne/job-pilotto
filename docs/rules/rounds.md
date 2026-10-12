@@ -31,6 +31,9 @@ the wrong cause for the waiting ([why.md](why.md)).
   the fix order (the real capture, fix-failing-forms 0a). 11 Oct: proving `row-to-case` on the hardest capture first (taken after the fix, a French
   posting, autofill after upload) took ~2 h of "no difference" from three replay flaws before one yes. **No yes or no after 30 minutes: stop**, land what
   is tested, report to the coordinator.
+- **One session owns a row's live visits for the day** (owner, 12 Oct 2026): the per-site limit is 3 live visits a day, and on 12 Oct HelloFresh's were spent by
+  the pool pass and two other sessions before its fixer's proof. The coordinator names which session owns each row's visits; the others use `npm run row` / the
+  replays, or ask the owner before spending a visit on a row another session works. `npm run live` checks the ledger before it queues for the heavy lock.
 - **A new CI check is proven green on a draft PR before it goes on main** (owner, 12 Oct 2026). Run it from a branch, fix what it finds, add it only when it
   passes; a check that fails on every PR is ten red marks in the PR list for what is not a problem of those PRs. 12 Oct: the "harness tests" job was added to
   every PR first; it failed on #391-#394 (2 old failures on main, a staging step only a shard exposes) and on #396-#398 (cut before the fix).
