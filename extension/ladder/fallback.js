@@ -6,13 +6,15 @@
 // ladder/next-move.js (box 5): a sure press past the floors is asked a second time, and acts only when both name the same control. Guard: worker/test/fallback.test.js.
 import {mayAct, needsSecondAsk} from './next-move.js';
 
-let ask = async () => null, floor = async () => ({press: false, why: null}), log = () => {};
-// parts: {ask(tab, {digest, shadow}) (fill-flow.js askKind), floor(tabId, named) (apply-press.js wouldPress), log (the decide log)}; tests also pass {tab(tabId)}.
+let ask = async () => null, floor = async () => ({press: false, why: null}), log = () => {}, digestAsked = () => false;
+// parts: {ask(tab, {digest, shadow}) (fill-flow.js askKind), floor(tabId, named) (apply-press.js wouldPress), asked(tabId, page) (climb.js digestAsked: a climb asked the digest
+// on that page already), log (the decide log)}; tests also pass {tab(tabId)}.
 let tabOf = tabId => globalThis.chrome?.tabs?.get(tabId).catch(() => null) ?? Promise.resolve(null);
 export function useFallback(parts = {}) {
   if (parts.ask) ask = parts.ask;
   if (parts.floor) floor = parts.floor;
   if (parts.log) log = parts.log;
+  if (parts.asked) digestAsked = parts.asked;
   if (parts.tab) tabOf = parts.tab;
 }
 
@@ -32,7 +34,7 @@ export async function askAtDeadEnd({door, tabId, page, why, rung} = {}) {
   if (tabId == null || asked.has(key)) return null;
   asked.add(key);
   const base = {shadow: true, door, why: word(why)};
-  if (rung === 3) { log('fill', 'dead end fallback (shadow): asked already', {...base, climb: 'picture_off'}); return null; }   // the digest decided this stop; rung 4 is off
+  if (rung === 3 || digestAsked(tabId, page)) { log('fill', 'dead end fallback (shadow): asked already', {...base, climb: 'picture_off'}); return null; }   // the digest answered on this page already; rung 4 is off
   const tab = await tabOf(tabId);
   if (!tab || pageOf(tab.url) !== pageOf(page)) { log('fill', 'dead end fallback (shadow): the page moved on', base); return null; }
   const first = await moveOf(tab), second = needsSecondAsk(first) ? await moveOf(tab) : null;

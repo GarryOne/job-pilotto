@@ -73,9 +73,22 @@ test('wired: the door asks after today\'s report with its id and the stop\'s run
   const read = file => fs.readFileSync(new URL(`../../extension/${file}`, import.meta.url), 'utf8');
   assert.match(read('ladder/dead-end.js'), /const sent = report\([^;]*;\n\s*Promise\.resolve\(sent\)\.catch\(\(\) => \{\}\)\.then\(\(\) => askAtDeadEnd\(\{door, tabId: stop\.tabId, page: stop\.page, why, rung: evidence\?\.rung\}\)\);[^\n]*\n\s*return sent;/);
   const flow = read('fill-flow.js');
-  assert.match(flow, /useFallback\(\{ask: askKind, floor: wouldPress, log: decide\}\)/);
+  assert.match(flow, /useFallback\(\{ask: askKind, floor: wouldPress, asked: digestAsked, log: decide\}\)/);
+  const climb = read('ladder/climb.js');
+  assert.equal((climb.match(/await askDigest\(tab, ask\)/g) || []).length, 2, 'both climbs record the page they asked the digest on');
+  assert.doesNotMatch(climb, /await ask\(tab, \{digest: true\}\)/, 'no climb asks the digest unrecorded');
   assert.match(flow, /if \(shadow\) return answer;[^\n]*\n\s*noteSignal\(tab\.id, answer, sketch\.controls\);/, 'shadow returns before the climb signal');
   const press = read('apply-press.js');
   assert.match(press, /export async function wouldPress\(tabId, named, noEffect = \[\]\) \{\n\s*const candidates = \(await applyCandidates\(tabId, NAMED_BUTTONS\)\)[^\n]*\n\s*return pickNamedButton\(candidates, named\) \? \{press: true, why: null\} : \{press: false, why: whyNotPressed\(candidates, named\)\};/);
   assert.match(press, /pick = target \? pickNamedButton\(candidates, target\)/, 'the live path picks a named control with the same finder');
+});
+
+test('a page where a climb already asked the digest gets no second question (no spend), whatever rung the stop names', async () => {
+  const before = asks.length;
+  tabs[5] = {id: 5, url: 'https://jobs.example/5'};
+  useFallback({asked: (tabId, page) => tabId === 5 && page === 'https://jobs.example/5'});
+  assert.equal(await askAtDeadEnd({door: 20, tabId: 5, page: 'https://jobs.example/5', why: 'other', rung: 2}), null);
+  assert.deepEqual(logged.at(-1), {what: 'dead end fallback (shadow): asked already', data: {shadow: true, door: 20, why: 'other', climb: 'picture_off'}});
+  assert.equal(asks.length, before);
+  useFallback({asked: () => false});
 });
