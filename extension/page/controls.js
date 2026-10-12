@@ -45,12 +45,9 @@
   }
 
   // ---- finding the question a control answers ----
+  // Its own accessible name, else the nearest title before it that no other control owns (page/label-before.js: one rule for every group and unlabelled control).
   function titleOf(el) {
-    for (let up = el.parentElement, i = 0; up && i < 5; up = up.parentElement, i++) {
-      const found = up.querySelector('label, legend, [class*=title], [class*=heading]');
-      if (found && clean(found.textContent)) return clean(found.textContent);
-    }
-    return '';
+    return clean((window.__jobPilottoGroupTitle ? window.__jobPilottoGroupTitle(el)?.text : '') || '');
   }
   // The ids a page may give the control: its own and its hidden input's, and the field entry's path (Ashby).
   function idsOf(el) {

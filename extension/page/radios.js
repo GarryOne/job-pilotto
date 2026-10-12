@@ -54,16 +54,11 @@
       if (!match || LEGAL.test(`${groupName(group, radiosOf(group))} ${nameOf(match)}`)) return false;
       return isOn(match) || press(match);
     };
-    // A pressable-button group's title: the nearest label/legend/title/heading above it (not inside it), a few levels up.
-    const titleAbove = group => {
-      for (let up = group.parentElement, i = 0; up && i < 5; up = up.parentElement, i++) {
-        const found = Array.from(up.querySelectorAll('label, legend, [class*=title], [class*=heading]')).find(el => !group.contains(el) && clean(el.textContent));
-        if (found) return found;
-      }
-      return null;
-    };
+    // A pressable-button group's title: its own accessible name, else the nearest title BEFORE it that no other control owns (page/label-before.js, one rule for every group;
+    // 12 Oct 2026: the first label of the form named a toggle, "First name"). -> the element where its required mark would sit, or null.
+    const titleAbove = group => window.__jobPilottoGroupTitle(group)?.el || null;
     const groupName = (group, radios) => String(nameOf(group) || '') && group.getAttribute('role') === 'radiogroup' ? nameOf(group)
-      : String(titleAbove(group)?.textContent || nameOf(group) || questionOf(radios[0]) || '');
+      : String(window.__jobPilottoGroupTitle(group)?.text || nameOf(group) || questionOf(radios[0]) || '');
     // Parents of two or more pressable buttons that are a question: not a toolbar, a few named options.
     const pressableGroups = () => {
       const parents = new Map();

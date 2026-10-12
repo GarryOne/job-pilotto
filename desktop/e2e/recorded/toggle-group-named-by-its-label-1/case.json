@@ -1,0 +1,53 @@
+{
+ "shape": "a Yes/No question drawn as two aria-pressed buttons in a role=group named by aria-labelledby, after boxes that carry their own <label for>",
+ "origin": "hand-cut",
+ "why": "Widget zoo segmented-toggle-1, 12 Oct 2026: the group was named by the FIRST label of its form ('First name', walking up its ancestors), so its question was never asked and two fields shared one label ('First name: empty again at the end of the fill'). The same walk named groups in the panel, the operators and the fill reader; one naming rule now (page/label-before.js). Hand-made page",
+ "control": {
+  "build": "0.9.246",
+  "failed": "asked: Are you open to occasional business travel? (the group was named 'First name'); pressed: [data-v=yes]"
+ },
+ "sample": "a hand-made Yes/No toggle question (the zoo's segmented_toggle shape)",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/toggle-named-by-label/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "aria:g1",
+     "question": "Are you open to occasional business travel?",
+     "value": "Yes",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "asked": [
+   "Are you open to occasional business travel?"
+  ],
+  "pressed": [
+   "[data-v=yes]"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 30
+ },
+ "start": "panel"
+}

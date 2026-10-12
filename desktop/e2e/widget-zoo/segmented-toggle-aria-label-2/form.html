@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Apply: Example role</title></head>
+<body>
+<!-- Widget zoo (desktop/e2e/widget-zoo): two aria-pressed buttons in a group named only by its aria-label (no visible title of its own); the labels before it are other boxes'. Hand-made, no real site, no personal data. -->
+<h1>Apply for Example role</h1>
+<form id="apply" onsubmit="return false">
+<label for="first">First name</label> <input id="first" name="first_name" type="text" required>
+<label for="last">Last name</label> <input id="last" name="last_name" type="text" required>
+<label for="mail">Email</label> <input id="mail" name="email" type="email" required>
+
+<div class="toggle" role="group" aria-label="Are you open to occasional business travel?"><button type="button" aria-pressed="false" data-v="yes">Yes</button><button type="button" aria-pressed="false" data-v="no">No</button></div>
+</form>
+<script>
+for (const b of document.querySelectorAll('[aria-pressed]')) b.addEventListener('click', () => { for (const o of b.parentElement.children) o.setAttribute('aria-pressed', 'false'); b.setAttribute('aria-pressed', 'true'); });
+</script>
+</body></html>

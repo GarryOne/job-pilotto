@@ -72,3 +72,30 @@ test('the Playwright audit reads the same required mark as the panel and the fil
   assert.equal(required(WRAPPED, 'a2'), true, 'aria-required');
   assert.equal(required(WRAPPED, 'a4'), false, 'a box with no mark stays optional');
 });
+
+// A group's title (12 Oct 2026, widget zoo segmented-toggle-1): its own accessible name wins, else the NEAREST title before it that no other control owns; never the first
+// label of its form, never a title after it. Two fields never share one label (the toggle named "First name" left the real First name box "empty again at the end").
+const TOGGLE = (groupAttrs, between = '') => `<form>
+  <label for="first">First name</label> <input id="first" name="first_name" required>
+  <label for="mail">Email</label> <input id="mail" name="email" type="email" required>
+  ${between}
+  <div class="toggle" role="group" ${groupAttrs}><button type="button" aria-pressed="false">Yes</button><button type="button" aria-pressed="false">No</button></div>
+  <label>A title after the group</label>
+</form>`;
+
+test('a group is named by its own accessible name, else the nearest title before it that is no other box\'s label', {skip}, () => {
+  const name = (html) => { const window = openPage(JSDOM, html); const group = window.document.querySelector('[role=group]'); const found = window.__jobPilottoGroupTitle(group); window.close(); return found?.text || ''; };
+  assert.equal(name(TOGGLE('aria-labelledby="q"', '<label id="q">Are you open to occasional business travel?</label>')), 'Are you open to occasional business travel?', 'aria-labelledby');
+  assert.equal(name(TOGGLE('aria-label="Do you need a visa?"')), 'Do you need a visa?', 'aria-label alone');
+  assert.equal(name(TOGGLE('', '<label>Willing to relocate?</label>')), 'Willing to relocate?', 'no aria: the nearest free title before it');
+  assert.equal(name(TOGGLE('')), '', 'only other boxes\' labels before it, a title after it: no name, never "First name"');
+});
+
+test('on the toggle page every field has its own label: the group its question, First name its box', {skip}, async () => {
+  const window = openPage(JSDOM, TOGGLE('aria-labelledby="q"', '<label id="q">Are you open to occasional business travel?</label>'));
+  const labels = (await window.__jobPilottoDescribeForm()).map(row => row.label);
+  assert.equal(new Set(labels).size, labels.length, `two fields share one label: ${labels.join(' | ')}`);
+  assert.ok(labels.includes('Are you open to occasional business travel?'), labels.join(' | '));
+  assert.ok(labels.includes('First name'));
+  window.close();
+});
