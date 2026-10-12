@@ -11,6 +11,7 @@ import {kindFromLog, stepLines, stepShooter} from './step-shots.mjs';
 import {ensureStagedWorker} from './staged-worker.mjs';
 import path from 'node:path';
 import {frontOf} from './app-front.mjs';
+import {keepWorkerConsole} from './worker-console.mjs';
 import {seedVersion} from './applicant-seed.mjs';
 import {CONTACT} from './apply-fixtures.mjs';
 import {cssRecorder, personalValues, scrubPage} from './capture-page.mjs';
@@ -56,6 +57,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
   say(`live: ${coverageLine(owner)}`);   // kinds only, never a value; a kind it could not find is said, never a silent "clean"
   const values = personalValues([`Name: ${CONTACT.full_name}\nEmail: ${CONTACT.email}\nPhone: ${CONTACT.phone}`]);
   const journey = journeyRecorder(run.context, {scrub: html => scrubPage(html, values)}), styles = cssRecorder(run.context);
+  const workerConsole = keepWorkerConsole(run.context);   // the extension's own console, beside app.log (lib/worker-console.mjs)
   const steps = stepShooter({tabOf: () => run.context.pages().filter(page => /^https?:/.test(page.url())).at(-1), kindOf: () => kindFromLog(app.logText()), dir: captureDir});   // one full-page picture per page or step reached (lib/step-shots.mjs)
   let asksSeen = 0, tripped = '';
   const asks = setInterval(() => {   // each ask noted by the app as it arrives (asks.jsonl): that page kept at once, as the extension saw it
@@ -107,6 +109,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     const shot = await takeEndShot(run.context, captureDir);   // before the final privacy check: a hit deletes it with the capture (lib/end-shot.mjs); said out loud either way
     say(endShotLine(shot));
     for (const line of stepLines(steps, captureDir)) say(line);
+    workerConsole.write(captureDir);   // before the final privacy check: a hit deletes it with the capture
     if (tripped || (tripped = await trip())) { say(`live: ${tripped}`); return {seconds: (Date.now() - started) / 1000, opened: url, evidence: evidenceLines(''), tripped, ...(proxy ? {ai: spend()} : {})}; }
     await journey.finish();
     const pages = journey.write(captureDir);

@@ -5,7 +5,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {evidenceLines, runFinished, saveElectronLeg, writeBundle} from '../lib/evidence-bundle.mjs';
+import {CAPTURE_FILES, evidenceLines, runFinished, saveElectronLeg, writeBundle} from '../lib/evidence-bundle.mjs';
+import {EventEmitter} from 'node:events';
+import {WORKER_CONSOLE, keepWorkerConsole} from '../lib/worker-console.mjs';
 
 const LOG = `2026-10-10T23:22:02.048Z [extension] page kind: posting {"shape":"jobs.hornbach.com/austria/job/*/*|1-2","by":"ai","rung":2,"confidence":0.85,"usd":0,"applyBy":"form","frames":0}
 2026-10-10T23:22:02.212Z [extension] fill: page kind: posting {"by":"ai","confidence":0.85,"host":"jobs.hornbach.com","ms":4461,"version":"0.9.184"}
@@ -131,4 +133,40 @@ test('row-replay takes its end picture of the row\'s tab (the replay twin of the
   assert.match(replay, /shotTab\(tab, path\.join\(shotDir \|\| caseDir, shotName\)/);
   assert.match(row, /end screenshot/);
   assert.match(row, /no end screenshot: \$\{/);
+});
+
+// 12 Oct 2026 (HelloFresh pair): the Electron leg's fill hung and its bundle had no ai-calls.json and neither leg kept the extension's own console, so where it hung
+// could not be read. The class: every capture file a fixer reads is kept by BOTH bundle writers (the plain run's and the Electron leg's).
+test('both bundle writers keep every capture file: the app log, the AI calls and the extension\'s console', () => {
+  assert.deepEqual([...CAPTURE_FILES].sort(), ['ai-calls.json', 'app.log', WORKER_CONSOLE].sort());
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-capture-files-')), capture = path.join(tmp, 'capture');
+  fs.mkdirSync(capture);
+  for (const name of CAPTURE_FILES) fs.writeFileSync(path.join(capture, name), name === 'ai-calls.json' ? '[]' : name);
+  const plain = writeBundle({dir: path.join(tmp, 'evidence'), day: '2026-10-12', shape: 'row', output: 'OUT', appLog: 'app.log', aiCalls: '[]', captureDir: capture});
+  const electron = saveElectronLeg({dir: path.join(tmp, 'evidence'), day: '2026-10-12', shape: 'row', output: 'OUT', captureDir: capture});
+  for (const [writer, folder] of [['plain', plain], ['electron', electron]]) {
+    for (const name of CAPTURE_FILES) assert.ok(fs.existsSync(path.join(folder, name)), `${writer} keeps ${name}`);
+  }
+  fs.rmSync(tmp, {recursive: true, force: true});
+});
+
+test('the extension\'s service-worker console is kept from the worker already running and from a restarted one; nothing heard writes no file', () => {
+  const message = (type, text) => ({type: () => type, text: () => text});
+  const first = new EventEmitter(), second = new EventEmitter(), context = new EventEmitter();
+  context.serviceWorkers = () => [first];
+  const kept = keepWorkerConsole(context, {now: () => Date.UTC(2026, 9, 12, 9, 41, 50)});
+  first.emit('console', message('log', 'fill: waiting on the menu'));
+  context.emit('serviceworker', second);   // the worker restarted ("worker started in a new browser run")
+  second.emit('console', message('error', 'Uncaught (in promise) x'));
+  assert.deepEqual(kept.lines(), ['2026-10-12T09:41:50.000Z log fill: waiting on the menu', '2026-10-12T09:41:50.000Z error Uncaught (in promise) x']);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-worker-console-'));
+  assert.equal(kept.write(dir), path.join(dir, WORKER_CONSOLE));
+  assert.match(fs.readFileSync(path.join(dir, WORKER_CONSOLE), 'utf8'), /error Uncaught/);
+  const quiet = keepWorkerConsole(Object.assign(new EventEmitter(), {serviceWorkers: () => []})), empty = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-worker-console-'));
+  assert.equal(quiet.write(empty), '');
+  assert.deepEqual(fs.readdirSync(empty), []);
+});
+
+test('both live legs keep the extension\'s console in their capture folder', () => {
+  for (const file of ['../lib/apply-live.mjs', '../lib/live-row.mjs']) assert.match(fs.readFileSync(new URL(file, import.meta.url), 'utf8'), /keepWorkerConsole\(/, file);
 });
