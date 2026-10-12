@@ -255,3 +255,17 @@ test('scenario: the sessions page opens after a restart: a session with no evide
   const forms = {known: true, ids: open, unsure};
   assert.deepEqual(items.map(item => checkingTabs(item, forms, 1e9)), [false, true, false]);
 });
+
+test('scenario: Apply on an Ashby job opens the form address; its first report with no session id still lands on the session (12 Oct 2026, the owner\'s stale "Form open")', async () => {
+  const review = await import('../lib/review.js');
+  review._reset();
+  const posting = 'https://jobs.ashbyhq.com/acme/621bb104-9daa-4c9e-949a-03d5730334e8';
+  const sessions = [{id: 'k1', url: posting, company: 'Acme', kind: 'form', status: 'done', startedAt: '2026-10-12T10:00:00Z'}];
+  const formAddress = `${posting}/application`;
+  const reply = review.report(sessions, {url: `${formAddress}#jobpilotto-fill`, job: formAddress, tab: 7, left: 2, total: 5, watch: []});
+  assert.equal(reply.matched, 'k1');
+  review.noteTabs({ids: [7], boot: 'run1', sessions: {7: 'k1'}}, new Set(['k1']));
+  assert.equal(review.tabOpen('k1'), true);
+  review.noteTabs({ids: [], boot: 'run1'}, new Set(['k1']));
+  assert.equal(review.tabOpen('k1'), false);
+});
