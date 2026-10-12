@@ -45,8 +45,8 @@ const weighted = (() => {
   return weight ? {value: sum / weight, covered: weight, samples} : null;
 })();
 const unresolved = [...latest.values()].filter(one => one.ending === 'unresolved');
-console.log(`UNRESOLVED (the work list, newest run per row): ${unresolved.length}`);
-for (const one of unresolved) console.log(`- ${one.row} [${one.platform}, ${one.source} ${one.day}]: ${one.why}`);
+console.log(`UNRESOLVED (the work list, newest run per row): ${unresolved.length}${last.aiMiss ? ` (the AI declined or was unsure: ${last.aiMiss})` : ''}`);
+for (const one of unresolved) console.log(`- ${one.row} [${one.platform}, ${one.source} ${one.day}]: ${one.aiMiss ? 'the AI declined: ' : ''}${one.why}`);
 const held = [...latest.values()].filter(one => one.held);
 console.log(`HELD BY THE TEST, not measured: ${held.length} (${[...new Set(held.map(one => one.held))].map(kind => `${held.filter(one => one.held === kind).length} ${kind}`).join(', ')})`);
 console.log(`\n| Ending | Row runs | Newest per row |\n|---|---|---|\n${['unresolved', ...ENDINGS.filter(one => one !== 'unresolved')].map(one => `| ${one} | ${runs.endings[one]} | ${last.endings[one]} |`).join('\n')}`);
