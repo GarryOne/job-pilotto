@@ -30,7 +30,9 @@ const among = stages => job => stages.includes(columnOf(job));
 export const VIEWS = [
   {id: 'all-applications', label: 'All applications', title: 'Every job you applied to or are applying to, whatever became of it', test: among(['Applying', ...SENT, ...CLOSED_OUT])},
   {id: 'active', label: 'Active', title: 'Sent and still open: waiting for a reply, screening, interviews, an offer', test: among(SENT)},
-  {id: 'in-progress', label: 'In progress', title: 'An application under way (Applying)', test: among(['Applying'])},
+  // Named by its stage, as every row's pill and the stuck banner say it (Notion's view is "In progress"; owner, 12 Oct 2026: "I don't have a way to
+  // filter for Applying" beside a chip that did it under another word). A chip of one stage carries that stage's name (test/jobs-board-rules.test.js).
+  {id: 'applying', label: 'Applying', title: 'A form under way, its session open or not', test: among(['Applying'])},
   {id: 'kit-ready', label: 'Kit ready', title: 'A kit is drafted: ready to apply', test: among(['Kit ready'])},
   {id: 'saved', label: 'Saved', title: 'Jobs you saved for later', test: among(['Saved'])},
   {id: 'closed', label: 'Closed', title: 'Postings that closed before you applied', test: among(['Closed'])},

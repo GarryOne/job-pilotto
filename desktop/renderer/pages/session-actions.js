@@ -2,7 +2,7 @@
 // Moved out of sessions.js (which re-exports them). Guarded by test/terminals.test.js and test/form-tab-closed.test.js.
 import {isLive} from '../session-state.js';
 import {shared} from './shared.js';
-import {renderJobs} from './jobs.js';
+import {jobsChanged, renderJobs} from './jobs.js';
 import {openSession} from './session-log.js';
 import {toastMessage} from './startup.js';
 import {logChoice, refreshSessions, sessionJob} from './sessions.js';  // cycle by design: used inside functions only
@@ -10,14 +10,13 @@ import {storeName} from '../store-words.js';
 
 // Removing a session whose job is still Applying asks whether it was submitted (Applied, or back to Kit ready), so
 // a job never stays stuck as Applying; any other job's session just goes.
+// After each ending (Close, Cancel, Skip) the job list is read again (jobsChanged): its row is patched only when the session's address found it.
 export async function removeSession(item) {
   if (sessionJob(item).stage === 'Applying') {
     const result = await window.pilot.sessionFinish(item.id);
     if (result?.cancelled) return;
     if (!result?.ok) { toastMessage('Not removed', result?.error || `${storeName()} could not be updated. Try again.`); return; }
-    const job = sessionJob(item);
-    job.stage = result.submitted ? 'Applied' : 'Kit ready';
-    if (result.submitted) job.status = 'applied';
+    jobsChanged(sessionJob(item), result.submitted ? {stage: 'Applied', status: 'applied'} : {stage: 'Kit ready'});
   } else await window.pilot.sessionRemove(item.id);
   if (shared.openSessionId === item.id) shared.openSessionId = null;
   await refreshSessions();
@@ -34,7 +33,7 @@ export async function cancelSession(item) {
   if (result?.cancelled) return;
   if (!result?.ok) { toastMessage('Not cancelled', result?.error || 'Try again.'); await refreshSessions(); return; }
   const job = sessionJob(item);
-  if (job.stage === 'Applying') job.stage = 'Kit ready';
+  jobsChanged(job, job.stage === 'Applying' ? {stage: 'Kit ready'} : {});
   if (!result.closed) toastMessage('Application cancelled', 'The job is back to Kit ready. Its form tab wasn\'t found: close it in Chrome yourself.');
   if (shared.openSessionId === item.id) shared.openSessionId = null;
   await refreshSessions();
@@ -44,9 +43,7 @@ export async function cancelSession(item) {
 export async function skipSession(item) {
   const result = await window.pilot.sessionSkip(item.id);
   if (!result?.ok) { toastMessage('Not skipped', result?.error || 'Try again.'); await refreshSessions(); return; }
-  const job = sessionJob(item);
-  job.stage = 'Dismissed';
-  job.status = 'dismissed';
+  jobsChanged(sessionJob(item), {stage: 'Dismissed', status: 'dismissed'});
   if (!result.closed) toastMessage('Role skipped', 'The job is dismissed. Its form tab wasn\'t found: close it in Chrome yourself.');
   if (shared.openSessionId === item.id) shared.openSessionId = null;
   await refreshSessions();

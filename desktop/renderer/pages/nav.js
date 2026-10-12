@@ -110,7 +110,7 @@ function paletteCommands() {
   document.querySelectorAll('[data-mode]').forEach(node => add('Jobs', `Show jobs as a ${labelOf(node).toLowerCase()}`, node.dataset.mode === 'board'
     ? 'Your applications in columns by stage; drag a card to change its stage' : 'One row per job', 'pipeline kanban board columns stages list', () => { openView('jobs'); node.click(); }));
   document.querySelectorAll('#jobs-views [data-view]').forEach(node => add('Jobs', `Jobs view: ${labelOf(node.firstChild)}`, node.title,
-    'saved view filter applications active rejected this week', () => { openView('jobs'); if (node.getAttribute('aria-pressed') !== 'true') node.click(); }));
+    'saved view filter applications active applying in progress kit ready rejected this week', () => { openView('jobs'); if (node.getAttribute('aria-pressed') !== 'true') node.click(); }));
   // Each Reports tab (pages/reports.js), by what it holds.
   for (const [tab, label, words] of REPORT_TABS) add('Reports', `Open Reports: ${label}`, '', words, () => { openView('reports'); loadReports(tab); });
   button('jobs', 'refresh', 'find jobs scan');

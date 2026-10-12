@@ -23,7 +23,7 @@ import {jobsState, MORE, pageKey, fullKey} from './jobs-state.js';
 import {byStore, storeName} from '../store-words.js';
 import {fitDetail} from './jobs-fit.js';
 import {openJobPanel, panelUrl} from './job-panel.js';
-import {loadJobs, showJobsData} from './jobs.js';
+import {jobsChanged, loadJobs, showJobsData} from './jobs.js';
 import {inView} from '../jobs-board-rules.js';
 import {paintViews} from './jobs-views.js';
 
@@ -197,10 +197,9 @@ export function renderJobs() {
     const setStatus = next => async () => {
       const result = await window.pilot.setStatus(job.url, next).catch(error => ({ok: false, error: error.message}));
       if (!result.ok) { toastMessage('Status not changed', result.error || 'Something went wrong.'); return; }
-      job.status = next;
-      if (result.stage) job.stage = result.stage;   // what Notion now holds (a dismissed job in process becomes Closed)
+      const stage = result.stage || job.stage;   // what Notion now holds (a dismissed job in process becomes Closed)
+      jobsChanged(job, {status: next, stage: next === 'applied' && stage === 'Applying' ? 'Applied' : stage});
       if (next === 'dismissed' && jobsState.statFilter?.urls) jobsState.statFilter.urls.delete(fullKey(job.url));   // a counter's list is a fixed set of jobs: it must let the dismissed one go
-      if (next === 'applied' && job.stage === 'Applying') job.stage = 'Applied';
       renderJobs();
       if (next === 'dismissed') askWhy(job);   // one optional tap: why (counted with the score band only)
     };
@@ -341,10 +340,9 @@ export function renderJobs() {
         menu.push({icon: choice.icon, label: choice.label, title: choice.title, run: async () => {
           const result = await window.pilot.markOutcome({url: job.url, outcome: choice.outcome, appliedOn: job.applied_on, bucket: scoreBucket(job.fit)}).catch(error => ({ok: false, error: error.message}));
           if (!result.ok) { toastMessage('Not saved', result.error || 'Try again.'); return; }
-          if (choice.outcome !== 'reply') job.stage = result.stage;   // a reply is an event only: the stage stays where it is
+          jobsChanged(job, choice.outcome !== 'reply' ? {stage: result.stage} : {});   // a reply is an event only: the stage stays where it is
           toastMessage('Saved', `${choice.label.replace(/^(Heard back|No answer): /, '')} — recorded in ${storeName()}.`);
           renderJobs();
-          loadJobs();
         }});
       }
     }
@@ -356,7 +354,7 @@ export function renderJobs() {
       menu.push({icon: 'undo', label: 'Not submitted', title: 'Back to Kit ready', run: async () => {
         const result = await window.pilot.unapplyJob(job.url).catch(error => ({ok: false, error: error.message}));
         if (!result.ok) { toastMessage('Status not changed', result.error || 'Something went wrong.'); return; }
-        job.stage = 'Kit ready';
+        jobsChanged(job, {stage: 'Kit ready'});
         renderJobs();
       }});
     } else if (job.status !== 'applied') menu.push({icon: 'tick', label: 'Mark applied', run: setStatus('applied'), title: 'You applied to this job: track it in Applications'});
@@ -367,8 +365,7 @@ export function renderJobs() {
           + 'Use this when Job Pilotto marked it Applied by itself and no application was sent.')) return;
         const result = await window.pilot.notSubmitted(job.url).catch(error => ({ok: false, error: error.message}));
         if (!result.ok) { toastMessage('Not changed', result.error || 'Something went wrong.'); return; }
-        job.stage = 'Applying';
-        job.status = 'applied';
+        jobsChanged(job, {stage: 'Applying', status: 'applied'});
         toastMessage('Back to Applying', `The Applied record was removed${result.events ? ` (${result.events} ${byStore('Notion ', '')}event${result.events === 1 ? '' : 's'})` : ''}.`);
         renderJobs();
       }});
