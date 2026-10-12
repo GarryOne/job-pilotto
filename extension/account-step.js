@@ -94,6 +94,8 @@ const alreadyTried = async (tab, action) => !!(await sessionGet(triedKey(tab, ac
 // The extension could not finish this account page: said ONCE per tab and reason to the app, which shows what the person must do and OFFERS Claude (never starts it).
 // What the person must do at a bot check: it is theirs to solve, and then the account button is theirs to press (a frame in the form stays after the check is solved, so the floor never learns it).
 export const botCheckNeed = named => (String(named || '').trim() ? `Solve the check, then press "${String(named).trim().slice(0, 40)}"` : 'Solve the check, then press the account button');
+// What the person is told when no password is saved for the site (account step without one: accountStepOnce). Fixed sentences of ours, never the page's.
+export const NO_PASSWORD_NEED = {sign_in: 'Sign in with your password for this site', sign_up: 'Choose a password and create the account'};
 const stepOf = new Map();   // tab id → the AI's step for the page being worked on (sign_in, sign_up, ...): said to the app so its card can word it
 async function giveUp(tab, host, reason, needs = '') {
   const key = `stuck-${reason}-${needs}`.slice(0, 120);
@@ -188,7 +190,13 @@ async function accountStepOnce(tab, frameId) {
   const id = await identityOf(tab);
   const answer = await api(config, '/extension/site-password', {method: 'POST', body: JSON.stringify({host, session: id.session, job: id.job, url: id.url})});
   await bindSession(tab.id, answer?.session, id.session);   // the app resolved which application this tab is (by its job): kept for the next report
-  if (!answer?.ok || !answer.password) return {filled: 0};
+  if (!answer?.ok || !answer.password) {
+    // No password saved for this site: the person signs in, or chooses one to create the account. The run names that need once, never a silent stop (the outcome contract's
+    // 'handed', spec docs/superpowers/specs/2026-10-12-one-next-move.md phase 1a; recorded case sign-in-then-form-1). Only the need, never a password value; an account just made
+    // waits for its mail ('confirm'): nothing to name. Once the person has signed in, the next page is judged and filled as any other.
+    if (answer?.ok && answer.mode !== 'confirm' && NO_PASSWORD_NEED[step] && work?.empty > 0) await giveUp(tab, host, 'no saved password', NO_PASSWORD_NEED[step]);
+    return {filled: 0};
+  }
   const move = accountMove({step, mode: answer.mode, hasEmail: !!answer.email, registerControl: kind?.registerControl, signinControl: kind?.signinControl});
   const said = `${move} ${step} ${answer.mode}`;
   if (lastSaid.get(tab.id) !== said) { lastSaid.set(tab.id, said); decide('fill', `account page: ${move}`, {host, step, mode: answer.mode || ''}); }   // said when it changes, not at every look
