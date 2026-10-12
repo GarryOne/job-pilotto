@@ -194,15 +194,30 @@ A test source claimed without the key is dropped and flagged (`ladder-source`), 
 4. From now on: decision fixes are data; the ratchet on decision branches. **Recommended: yes.**
 
 ## Progress
-- [x] Owner's decision on 1-4 (12 Oct 2026: yes to all)
-- [x] Phase 0: account pages with no step get the normal fill (#486)
-- [x] Phase 1: CI pool + replays feed verified moves into the ladder learning and the pack; rung 1 keeps only sure answers
-  - [x] built (12 Oct 2026): counted moves at every rung, CI pool + replays send them marked `ci` / `replay`, site `ladder_moves`; rung 1 keeps only sure answers (cc's b97a9c9)
-  - [x] proof (12 Oct 2026, CI pool run 38271835969, $0.04): 1 of 1 rows that reached a form confirmed its moves (TechTree: posting→form, form→form on an `8+` shape), stored as `ci`; the replays on main sent 39 (`replay`)
-- [ ] Phase 1a: the outcome contract and the resolution score
-  - [x] the endings list, the classifier, the baseline with no new run, the hand-check (18/19)
-  - [ ] each CI pool row's ending; the Resolution tile (raw, weighted, weekly); the replays section reworked
-  - [ ] page-level ending tests (bot check clears, sign-in then form, apply by email, site_broken); site_broken retry, handed resume
-- [ ] Phase 2: the fallback at each dead end, in shadow; fixtures and CI pool both ways; cost numbers
-- [ ] Phase 3: switch on; the decision-branch ratchet; the fix rule in docs/flows/ladder.md and CLAUDE.md
-- [ ] Phase 4: fast-tier branches retired only when proven redundant, one at a time
+### 1. Owner's decision on the design
+- [x] decisions 1-4: yes to all (12 Oct 2026)
+### 2. Phase 0: an account page with no step gets the normal fill
+- [x] every account page gets the normal fill (#486, 8691f97)
+### 3. Phase 1: the CI pool and the replays feed the learning; keep only sure answers
+- [x] moves the page confirmed are counted at every rung; CI pool + replays send them marked `ci` / `replay`; site `ladder_moves`; rung 1 keeps only sure answers (#495)
+- [x] proof (CI pool run 38271835969, $0.04): 1 of 1 rows that reached a form confirmed its moves, stored as `ci`; the replays on main sent 39 (`replay`)
+### 4. Phase 1a: the outcome contract and the resolution score
+- [x] the endings list, the classifier, the baseline with no new run, the hand-check 18/19 (#497)
+- [x] each pool row's ending (CI summary, Mac upload, `PUT /applying/endings`); the Resolution tile heads /admin/applying; the replays are "Shape regression tests" with each case's origin (#501)
+- [ ] page-level ending tests (a bot check that clears, a sign-in then the form, apply by email, site_broken); site_broken retried, handed resumes
+### 5. Phase 2: the fallback at each dead end, in shadow
+- [ ] one dead-end door: every give-up in `consider()` goes through `deadEnd(reason, evidence)`; a guard test
+- [ ] silent dead ends: the one progress rule, its T measured on the CI pool
+- [ ] the dead-end detector measured: recall and false fires on the pool's ground truth
+- [ ] the one question at each dead end, in shadow, logged beside what happened
+- [ ] the next move checked: numbered answers, two agreeing asks for a press, an expected effect per verb
+- [ ] not_listed / blind and the picture cross-check (a new signal: the owner's OK)
+- [ ] fixtures with an expected move; `npm run ladder-score` both ways
+- [ ] the CI pool acting: unblock rate per dead-end row; time and $ per page and per application
+### 6. Phase 3: switch on, the ratchet, the fix rule
+- [ ] the switch-on criteria hold and the owner OKs the cost per application
+- [ ] the decision-branch ratchet test
+- [x] the fix rule in CLAUDE.md ("Where a fix lives", c64d4ee)
+- [ ] the fix rule in docs/flows/ladder.md
+### 7. Phase 4: retire fast-tier branches only by data
+- [ ] a branch the fallback + learning always match is retired, one at a time, its recorded cases green
