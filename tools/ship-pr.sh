@@ -1,16 +1,23 @@
 # Source it from tools/ship.sh: land the branch through a pull request with auto-merge instead of pushing to main (owner, 12 Oct 2026).
 # Guarded by tests/test_ship_pr.py (a fake gh: tests/fake_gh.py). The checks that must pass run in CI on the PR (.github/workflows/pr-gate.yml, build.yml, recorded-pages.yml);
 # the local push hook runs only its fast pure checks (SHIP_PR=1 in tools/pre-push-check.sh).
-#   ship_mode                 prints pr (origin is on GitHub, gh answers and the repository allows auto-merge) or direct (any other origin: the old push to main); SHIP_MODE=pr|direct forces one
-#   ship_pr_land              push the branch, open (or reuse) the PR, turn on auto-merge, wait until it is merged; sets `sha` and `files`
+#   ship_mode                 prints pr (origin is on GitHub and gh answers: main takes pull requests only) or direct (any other origin: the old push to main); SHIP_MODE=pr|direct forces one
+#   ship_review               true while the owner reviews every PR by hand (owner, 12 Oct 2026): the repository does not allow auto-merge (tools/pr-settings.sh), or SHIP_REVIEW=1; SHIP_REVIEW=0 = auto-merge
+#   ship_pr_land              push the branch, open (or reuse) the PR; with auto-merge: turn it on and wait until merged (sets `sha`, `files`); in review: wait until the required
+#                             checks are green, then stop with the PR open for the owner (sets `review_n`, `review_url`: ship.sh prints `ship: REVIEW #n <url>`)
 # A required check that failed: `fail_reason` names it with its log link and the run exits 1, the PR stays open (fix, commit, run ship again: it finds the PR).
 # The check "flow-fresh" failing, or a conflict with main, is no failure: the branch is rebased on the new main (extension version taken again) and pushed again, up to 5 times.
 #   SHIP_PR_POLL=<s> seconds between looks (default 15)      SHIP_PR_TIMEOUT=<s> give up waiting after (default 2700; the PR stays open with auto-merge on)
 ship_mode() {
   case "${SHIP_MODE:-auto}" in pr|direct) echo "$SHIP_MODE"; return ;; esac
-  # The switch-over IS the repository setting: while auto-merge is off (tools/pr-settings.sh --apply turns it on) every landing still pushes to main. No answer from gh = direct.
-  case "$(git remote get-url origin 2>/dev/null)" in *github.com*) command -v gh >/dev/null && [ "$(gh api "repos/$(git remote get-url origin | sed -E 's#^.*github.com[:/]##; s#\.git$##')" --jq .allow_auto_merge 2>/dev/null)" = true ] && { echo pr; return; } ;; esac
+  # main takes pull requests only (ruleset): a GitHub origin gh can read lands through a PR, with or without auto-merge (review mode, ship_review). No answer from gh = direct.
+  case "$(git remote get-url origin 2>/dev/null)" in *github.com*) command -v gh >/dev/null && [ -n "$(gh api "repos/$(ship_repo)" --jq .full_name 2>/dev/null)" ] && { echo pr; return; } ;; esac
   echo direct
+}
+ship_repo() { git remote get-url origin | sed -E 's#^.*github.com[:/]##; s#\.git$##'; }
+ship_review() {
+  case "${SHIP_REVIEW:-auto}" in 1) return 0 ;; 0) return 1 ;; esac
+  [ "$(gh api "repos/$(ship_repo)" --jq .allow_auto_merge 2>/dev/null)" != true ]   # the repository setting is the switch: auto-merge not allowed = the owner merges by hand
 }
 ship_pr_fail() { fail_reason="$1"; echo "ship: FAILED $1" >&2; exit 1; }
 # The lease names what origin has NOW (empty: nothing): the branch is deleted on merge, so the local tracking ref of an earlier landing is stale and a bare --force-with-lease refuses (12 Oct 2026). Only this session writes the branch.
@@ -32,13 +39,14 @@ ship_pr_land() {
   else
     step "the branch already has pull request #$n: reusing it"
   fi
-  if ! out="$(gh pr merge "$n" --auto --rebase 2>&1)"; then
+  local review=""; if ship_review; then review=1; step "review mode: the owner reviews and merges #$n by hand; waiting for its required checks only"
+  elif ! out="$(gh pr merge "$n" --auto --rebase 2>&1)"; then
     case "$out" in
       *"clean status"*) out="$(gh pr merge "$n" --rebase 2>&1)" || ship_pr_fail "could not merge pull request #$n: $(echo "$out" | tail -n 1)" ;;   # no check to wait for: merge now
       *) ship_pr_fail "could not turn on auto-merge for pull request #$n: $(echo "$out" | tail -n 1) (a repository setting? tools/pr-settings.sh)" ;;
     esac
   fi
-  step "auto-merge is on for #$n: waiting for the required checks and the merge"
+  [ -n "$review" ] || step "auto-merge is on for #$n: waiting for the required checks and the merge"
   while :; do
     view="$(gh pr view "$n" --json state,mergeable,mergeCommit,url 2>/dev/null)" || view=""
     state="$(jq -r '.state // empty' <<<"$view" 2>/dev/null)"; mergeable="$(jq -r '.mergeable // empty' <<<"$view" 2>/dev/null)"
@@ -58,6 +66,10 @@ ship_pr_land() {
       else
         ship_pr_fail "required check '$name' failed: $link . Pull request #$n stays open: fix it, commit, run tools/ship.sh again"
       fi
+    fi
+    # Review mode ends when every required check passed (none pending, none failing): the PR waits for the owner, nothing has landed on main.
+    if [ -n "$review" ] && [ -z "$failing" ] && jq -e 'length > 0 and all(.[]; .bucket == "pass" or .bucket == "skipping")' <<<"${checks:-[]}" >/dev/null 2>&1; then
+      review_n="$n"; review_url="$(jq -r '.url // empty' <<<"$view")"; step "#$n: every required check is green: open for the owner's review"; return 0
     fi
     if [ "$waited" -ge "$limit" ]; then ship_pr_fail "pull request #$n is not merged after ${limit}s (it merges by itself when the checks pass): $(jq -r '.url' <<<"$view")"; fi
     [ $((waited - last_say)) -lt 60 ] || { step "still waiting for #$n (${waited}s)"; last_say=$waited; }

@@ -13,7 +13,7 @@
 #   tools/ship.sh --body=<file>  the PR's 5-second summary (a verdict line, short bullets, a before/after table): tools/pr-body.sh puts it on top
 #   tools/ship.sh --background   start detached and return at once (the checks can take minutes): follow the log it names
 # Every run writes its whole output to a log (the first line names it; SHIP_LOG=<file> chooses it), shows each step with the seconds since
-# the start, and ends with exactly one marker line: `ship: DONE <sha>` or `ship: FAILED (exit N) ...`. A caller that cut the run short
+# the start, and ends with exactly one marker line: `ship: DONE <sha>` (merged), `ship: REVIEW #n <url>` (owner reviews by hand: open, checks green) or `ship: FAILED (exit N) ...`. A caller that cut the run short
 # (a timeout, a piped `| tail`) reads that last line of the log to know how it ended; running it again is safe.
 set -euo pipefail
 flags=""; keep=1; background=0; args=()
@@ -73,7 +73,7 @@ on_signal() { echo "ship: stopped by signal $1" >&2; [ -n "$check_pid" ] && kill
 trap 'on_signal TERM 15' TERM
 trap 'on_signal INT 2' INT
 trap 'on_signal HUP 1' HUP
-trap 'code=$?; landing_release; timeline_write "$code"; if [ "$code" -ne 0 ]; then echo "ship: FAILED ${fail_reason:-(exit $code)}, log: $log"; elif [ -n "$finished" ]; then echo "ship: DONE ${sha:-nothing to push}"; else echo "ship: FAILED (ended early without pushing or finishing), log: $log"; fi' EXIT
+trap 'code=$?; landing_release; timeline_write "$code"; if [ "$code" -ne 0 ]; then echo "ship: FAILED ${fail_reason:-(exit $code)}, log: $log"; elif [ -n "${review_n:-}" ]; then echo "ship: REVIEW #$review_n ${review_url:-} (required checks green; the owner reviews and merges)"; elif [ -n "$finished" ]; then echo "ship: DONE ${sha:-nothing to push}"; else echo "ship: FAILED (ended early without pushing or finishing), log: $log"; fi' EXIT
 
 # Several sessions fetch into one shared repo: a fetch can lose the race for a ref lock ("cannot lock ref 'refs/remotes/origin/main'", 12 Oct 2026, a merged PR reported FAILED). Try again.
 ship_fetch() { local try; for try in 1 2 3 4 5; do git fetch -q origin 2>/dev/null && return 0; sleep 1; done; git fetch -q origin; }
@@ -153,6 +153,7 @@ fi
 ship_red_gate "before the push"
 if [ "$mode" = pr ]; then
   ship_pr_land
+  if [ -n "${review_n:-}" ]; then finished=1; exit 0; fi   # review mode (owner, 12 Oct 2026): the PR is open with green checks; nothing landed on main, so no checkout to update
 else
   step "pushing to main"
   pushed=""
