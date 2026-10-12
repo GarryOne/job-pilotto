@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {NAMES_A_FAILURE, casesOf} from './recorded-cases.mjs';
+import {NAMES_A_FAILURE, casesOf, commitFiles} from './recorded-cases.mjs';
 
 export const PINS = /^Recorded-pins:\s*\S/m;
 // A follow-up to a fix already on main (12 Oct 2026: PRs #374, #386 tightened the case of a merged fix; on the PR's base, which has the fix, it passed):
@@ -53,7 +53,7 @@ function main() {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const git = (...rest) => execFileSync('git', ['-C', root, ...rest], {encoding: 'utf8', maxBuffer: 64 << 20});
   let commits;
-  try { commits = git('rev-list', '--reverse', `${base}..HEAD`).split('\n').filter(Boolean).map(sha => ({message: git('log', '-1', '--format=%B', sha), files: git('diff-tree', '--no-commit-id', '--name-only', '-r', '--root', sha).split('\n').filter(Boolean)})); } catch { return 0; }
+  try { commits = git('rev-list', '--reverse', `${base}..HEAD`).split('\n').filter(Boolean).map(sha => ({message: git('log', '-1', '--format=%B', sha), files: commitFiles(git, sha)})); } catch { return 0; }   // commitFiles: a label-only case.json edit is no case (recorded-cases.mjs LABEL_KEYS)
   const {pinned, check, refused, fixOf} = splitPinned(commits);
   if (refused.length) { console.error(`"Recorded-pins:" is refused for ${refused.join(', ')}: that commit names a Pool-row or an issue it fixes, and a fix must show its failure on the old code (a follow-up to a fix on main: "Fix-commit: <sha>").`); return 1; }
   if (pinned.length) console.error(`recorded cases on the old code: ${pinned.join(', ')} said "Recorded-pins" (they pin behaviour, no fix): not replayed on the old code`);

@@ -1,9 +1,12 @@
 // "Never fix the same website twice" (tools/recorded-cases.mjs): a push changing how the app acts on pages brings its recorded page or scenario, or says why not (never with a seen failure behind it).
 import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
-import {casesOf, coveredFiles, missingCase, untaggedActing, untaggedNewCases} from '../../tools/recorded-cases.mjs';
+import {LABEL_KEYS, casesOf, commitFiles, coveredFiles, labelOnly, missingCase, untaggedActing, untaggedNewCases} from '../../tools/recorded-cases.mjs';
 import {replayFiles} from '../../tools/replay-files.mjs';
 import {FLOW_FILES} from '../e2e/flows.mjs';
 
@@ -82,4 +85,42 @@ test('any push that changes how the app acts on pages names its pool row, or say
   assert.equal(untaggedActing([commit([acting], 'Refactor\n\nPool-row: none a pure move')], covered), '');
   assert.match(untaggedActing([commit([acting], 'x\n\nPool-row: none')], covered), /Pool-row/, 'none needs its reason');
   assert.equal(untaggedActing([commit(['docs/rules/rounds.md'], 'Docs')], covered), '', 'nothing the app acts with: nothing asked');
+});
+
+test('a case.json edit that changes only label keys brings no case: neither proof for a page fix nor a case hole 3 replays', () => {
+  // 12 Oct 2026, PR #501: adding `origin` to all 74 cases read as 74 new cases that had to fail on main's code (hole 3 red).
+  const json = value => JSON.stringify(value, null, 2);
+  const before = json({shape: 'A menu', why: 'x', expect: {filled: ['#a']}});
+  assert.equal(labelOnly(before, json({shape: 'A menu', why: 'x', expect: {filled: ['#a']}, origin: 'captured'})), true);
+  for (const key of LABEL_KEYS) assert.equal(labelOnly(before, json({...JSON.parse(before), [key]: 'reworded'})), true, key);
+  assert.equal(labelOnly(before, json({shape: 'A menu', why: 'x', expect: {filled: ['#b']}, origin: 'captured'})), false, 'what it replays changed too');
+  assert.equal(labelOnly('', before), false, 'a new case is a case');
+  assert.equal(labelOnly(before, '{'), false, 'unreadable: counted');
+  // On a real repository, through both gates' one source of files.
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-label-keys-')), git = (...args) => execFileSync('git', ['-C', repo, ...args], {encoding: 'utf8'});
+  const write = (file, text) => { fs.mkdirSync(path.dirname(path.join(repo, file)), {recursive: true}); fs.writeFileSync(path.join(repo, file), text); };
+  try {
+    git('init', '-q'); git('config', 'user.email', 't@example.com'); git('config', 'user.name', 'T');
+    write('desktop/e2e/recorded/a-1/case.json', before); write('desktop/e2e/recorded/b-1/case.json', before); write('extension/page/radios.js', '1');
+    git('add', '-A'); git('commit', '-qm', 'base');
+    write('desktop/e2e/recorded/a-1/case.json', json({...JSON.parse(before), origin: 'captured'}));
+    write('extension/page/radios.js', '2');
+    git('commit', '-qam', 'Fix a group, label a case\n\nPool-row: X');
+    const files = commitFiles(git, git('rev-parse', 'HEAD').trim());
+    assert.deepEqual(files, ['extension/page/radios.js'], 'the label-only case.json is left out');
+    assert.deepEqual(casesOf(files), [], 'hole 3 replays nothing for a label');
+    assert.match(missingCase([commit(files, 'Fix a group\n\nPool-row: X')], ['extension/page/radios.js']), /recorded page/, 'a label is no proof for a page fix');
+    write('desktop/e2e/recorded/b-1/case.json', json({...JSON.parse(before), expect: {filled: ['#b']}, origin: 'captured'}));
+    git('commit', '-qam', 'Tighten a case');
+    assert.deepEqual(casesOf(commitFiles(git, git('rev-parse', 'HEAD').trim())), ['b-1'], 'a real change beside a label still counts');
+  } finally { fs.rmSync(repo, {recursive: true, force: true}); }
+});
+
+test('the replay reads a label key only for its test\'s title and failure message, so a label edit cannot change a verdict', () => {
+  const replayPath = ['e2e/test/recorded-pages.test.mjs', 'e2e/lib/page-replay.mjs', 'e2e/lib/row-case-run.mjs', 'e2e/lib/row-replay.mjs', 'e2e/lib/replay-browser.mjs'];
+  const reads = new RegExp(`\\bitem\\.(${LABEL_KEYS.join('|')})\\b`);
+  const found = replayPath.flatMap(file => fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8').split('\n').filter(line => reads.test(line)).map(line => `${file}: ${line.trim()}`));
+  const allowed = /^e2e\/test\/recorded-pages\.test\.mjs: (test\(`\$\{item\.name\}: \$\{item\.shape\}`|assert\.deepEqual\(result\.failures, \[\], `\$\{item\.name\} \(\$\{item\.why \|\| ''\}\)`\))/;
+  assert.deepEqual(found.filter(line => !allowed.test(line)), [], 'a label key now decides a replay: take it out of LABEL_KEYS (tools/recorded-cases.mjs)');
+  assert.equal(found.length, 2, 'the title and the failure message');
 });

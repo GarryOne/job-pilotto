@@ -23,6 +23,24 @@ export const coveredFiles = (root, flowFiles) => new Set([...replayFiles(root), 
 
 export const casesOf = changed => [...new Set(changed.map(file => RECORDED_CASE.exec(file)?.[1]).filter(Boolean))];
 
+// Words that describe a case, never what it replays (12 Oct 2026, PR #501: adding `origin` to all 74 cases read as 74 new cases that had to fail on main's code). A case.json edit
+// that changes only these brings no case: no proof for a page fix (missingCase), nothing for hole 3 (tools/recorded-fails-on-old.mjs) to replay. The replay reads `shape` and `why`
+// only for its test's title and failure message (guard: desktop/test/recorded-cases.test.js).
+export const LABEL_KEYS = ['origin', 'shape', 'why'];
+
+// before, after: a case.json's text before and after a commit -> true when only LABEL_KEYS changed (a new, deleted or unreadable case counts).
+export function labelOnly(before, after) {
+  const strip = text => { const value = JSON.parse(text); for (const key of LABEL_KEYS) delete value[key]; return JSON.stringify(value); };
+  try { return Boolean(before && after) && strip(before) === strip(after); } catch { return false; }
+}
+
+// The files a commit changed, as both gates read them: a case.json whose edit is labelOnly is left out. git: (...args) -> its output.
+export function commitFiles(git, sha) {
+  const files = git('diff-tree', '--no-commit-id', '--name-only', '-r', '--root', sha).split('\n').filter(Boolean);
+  const edited = new Set(git('diff-tree', '--no-commit-id', '--name-only', '-r', '--root', '--diff-filter=M', sha).split('\n').filter(file => file.endsWith('/case.json')));
+  return files.filter(file => !(edited.has(file) && labelOnly(git('show', `${sha}^:${file}`), git('show', `${sha}:${file}`))));
+}
+
 // A push that ADDS a recorded case names the pool row it fixes ("Pool-row: <row>"), or "Pool-row: none <why>" (a hand-made shape, no row):
 // /admin/applying's Fixed tab lists fixes by that line (12 Oct 2026: 6 of 8 round-1 fixes had none, the tab showed 2 of 8). -> '' or the message.
 export function untaggedNewCases(added, messages) {
@@ -71,7 +89,7 @@ async function main() {
   const git = (...rest) => execFileSync('git', ['-C', root, ...rest], {encoding: 'utf8', maxBuffer: 64 << 20});
   let commits;
   try {
-    commits = git('rev-list', '--reverse', `${base}..HEAD`).split('\n').filter(Boolean).map(sha => ({sha, message: git('log', '-1', '--format=%B', sha), files: git('diff-tree', '--no-commit-id', '--name-only', '-r', '--root', sha).split('\n').filter(Boolean)}));
+    commits = git('rev-list', '--reverse', `${base}..HEAD`).split('\n').filter(Boolean).map(sha => ({sha, message: git('log', '-1', '--format=%B', sha), files: commitFiles(git, sha)}));
   } catch { return 0; }
   const {FLOW_FILES} = await import(path.join(root, 'desktop/e2e/flows.mjs'));
   const covered = coveredFiles(root, FLOW_FILES);
