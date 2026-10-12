@@ -1,7 +1,7 @@
 // The applying report upload (lib/applying-report.mjs): only hosts and fixed words leave the Mac, never from CI or a control run, the key never in the output.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {hostOnly, skipReason, upload} from '../lib/applying-report.mjs';
+import {buildOnMain, hostOnly, skipReason, upload} from '../lib/applying-report.mjs';
 
 test('never from CI or a control run on an old build; a posting address becomes its host', () => {
   assert.equal(skipReason({CI: '1'}), 'CI');
@@ -19,6 +19,26 @@ test('the upload sends the rows with the key as a Bearer, and the outcome line n
   assert.match(line, /1 smoke row\(s\) sent/);
   assert.ok(!line.includes('SECRET'));
   assert.match(await upload('smoke', [], {env: {CI: 'true'}}), /not sent \(CI\)/);
+});
+
+test('the upload says whether main\'s extension ran: its fingerprint equals the one main records; a branch, an unknown main or a git error is not main', async () => {
+  const main = JSON.stringify({version: '0.9.250', hash: 'abc123'});
+  const git = ({ahead = false, dirty = false} = {}) => args => {
+    if (args[0] === 'show') return main;
+    if (args[0] === 'merge-base' && ahead) throw new Error('not an ancestor');
+    if (args[0] === 'diff' && dirty) throw new Error('changed');
+    return '';
+  };
+  assert.equal(buildOnMain({git: git(), local: () => 'abc123'}), true);
+  assert.equal(buildOnMain({git: git(), local: () => 'fff000'}), false, 'a fixer\'s branch: same version, other extension files');
+  assert.equal(buildOnMain({git: git({ahead: true}), local: () => 'abc123'}), false, 'a branch that changes the app only: the extension matches, the commit is not on main');
+  assert.equal(buildOnMain({git: git({dirty: true}), local: () => 'abc123'}), false, 'an uncommitted change to the app or the extension');
+  assert.equal(buildOnMain({git: () => { throw new Error('no origin/main'); }, local: () => 'abc123'}), false);
+  assert.equal(buildOnMain({git: () => 'not json', local: () => 'abc123'}), false);
+  for (const onMain of [true, false]) {
+    let sent; await upload('smoke', [{name: 'Lever form', reached: 'ready'}], {env: {}, key: 'K', onMain: () => onMain, fetcher: async (url, init) => { sent = JSON.parse(init.body); return {ok: true, json: async () => ({stored: 1})}; }});
+    assert.equal(sent.onMain, onMain);
+  }
 });
 
 test('the pool upload: every site with its start host and signature, never a posting address (a path or query fails this)', async () => {
