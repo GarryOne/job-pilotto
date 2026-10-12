@@ -99,3 +99,23 @@ test('on the toggle page every field has its own label: the group its question, 
   assert.ok(labels.includes('First name'));
   window.close();
 });
+
+// cc's review of #515 (12 Oct 2026): a title owns a group only if no other control lies between them: "Do you need a visa?" took "Are you fluent in English?" (the
+// previous question's title) and a toggle took "Notice period" (a text box's). With no title of its own kind, the text right before the group in its row names it.
+const ROWS = `<form>
+  <div class="field-title">Are you fluent in English?</div><div role="group" id="g1"><button type="button" aria-pressed="false">Yes</button><button type="button" aria-pressed="false">No</button></div>
+  <p>Do you need a visa to work here?</p><div role="group" id="g2"><button type="button" aria-pressed="false">Yes</button><button type="button" aria-pressed="false">No</button></div>
+  <div class="field-title">Notice period</div><input id="notice">
+  <p>Willing to relocate?</p><div role="group" id="g3"><button type="button" aria-pressed="false">Yes</button><button type="button" aria-pressed="false">No</button></div>
+</form>`;
+
+test('a group never takes a title that another control sits between: the previous question\'s, a text box\'s; its own row\'s text names it', {skip}, async () => {
+  const window = openPage(JSDOM, ROWS);
+  const name = id => window.__jobPilottoGroupTitle(window.document.getElementById(id))?.text || '';
+  assert.equal(name('g1'), 'Are you fluent in English?');
+  assert.equal(name('g2'), 'Do you need a visa to work here?', 'not the fluency question before the first group');
+  assert.equal(name('g3'), 'Willing to relocate?', 'not the notice period box\'s title');
+  const labels = (await window.__jobPilottoDescribeForm()).map(row => row.label).filter(Boolean);
+  assert.equal(new Set(labels).size, labels.length, `two fields share one label: ${labels.join(' | ')}`);
+  window.close();
+});

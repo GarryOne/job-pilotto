@@ -26,14 +26,33 @@
   const TITLE = 'label, legend, [class*=title], [class*=heading]';
   // A title element tied to another control: a <label> whose control (for, or a box inside it) is not this element and not inside it.
   const othersLabel = (label, el) => label.tagName === 'LABEL' && !!label.control && label.control !== el && !el.contains(label.control);
-  // The nearest title before el, a few boxes up: never inside el, never after it, never another control's label. -> the element, or null. selector: what counts as a title.
-  window.__jobPilottoTitleAbove = (el, selector = TITLE, levels = 5) => {
-    for (let up = el.parentElement, i = 0; up && i < levels; up = up.parentElement, i++) {
-      const before = [...up.querySelectorAll(selector)].filter(found => !el.contains(found) && !found.contains(el) && text(found) && !othersLabel(found, el)
-        && (el.compareDocumentPosition(found) & Node.DOCUMENT_POSITION_PRECEDING));
-      if (before.length) return before[before.length - 1];
+  // Another control a title could belong to instead: a box, a menu, a group of choices or of pressable buttons (not hidden, not part of el).
+  const OTHER = 'input:not([type=hidden]), select, textarea, [role=group], [role=radiogroup], button[aria-pressed]';
+  const before = (a, b) => !!(b.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_PRECEDING);   // a comes before b in the page
+  // Some other control sits between the title and el (cc's review of #515, 12 Oct 2026: "Do you need a visa?" took "Are you fluent in English?", the previous question's title,
+  // and a toggle took "Notice period", a text box's): that control owns the title.
+  const ownedBetween = (found, el, scope) => [...scope.querySelectorAll(OTHER)].some(other => other !== el && !el.contains(other) && !other.contains(el) && !found.contains(other)
+    && before(found, other) && before(other, el));
+  // The text right before el in its own row: the nearest earlier sibling (up through up to three wrappers) with words and no control in it.
+  const textBefore = el => {
+    for (let node = el, hops = 0; node && hops < 4; node = node.parentElement, hops++) {
+      for (let prev = node.previousElementSibling; prev; prev = prev.previousElementSibling) {
+        if (prev.querySelector(OTHER) || prev.matches(OTHER)) break;   // another control's part of the row: not el's
+        if (text(prev)) return prev;
+      }
+      if (node.parentElement && [...node.parentElement.querySelectorAll(OTHER)].some(other => other !== el && !el.contains(other) && !other.contains(el))) return null;
     }
     return null;
+  };
+  // The nearest title before el, a few boxes up: never inside el, never after it, never another control's label, never one with another control between it and el; when none
+  // qualifies, the text right before el in its own row. -> the element, or null. selector: what counts as a title.
+  window.__jobPilottoTitleAbove = (el, selector = TITLE, levels = 5) => {
+    for (let up = el.parentElement, i = 0; up && i < levels; up = up.parentElement, i++) {
+      const found = [...up.querySelectorAll(selector)].filter(item => !el.contains(item) && !item.contains(el) && text(item) && !othersLabel(item, el) && before(item, el));
+      const nearest = found[found.length - 1];
+      if (nearest) return ownedBetween(nearest, el, up) ? textBefore(el) : nearest;
+    }
+    return textBefore(el);
   };
   // A group's own accessible name: the words of the elements its aria-labelledby names, else its aria-label. -> {text, el} or null.
   // Its words read as the panel reads a label: a required star and its spoken twin ("Required", "Pflichtfeld") left out (page/required-mark.js clean); the element keeps the mark.
