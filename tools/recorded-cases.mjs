@@ -24,7 +24,7 @@ export const coveredFiles = (root, flowFiles) => new Set([...replayFiles(root), 
 export const casesOf = changed => [...new Set(changed.map(file => RECORDED_CASE.exec(file)?.[1]).filter(Boolean))];
 
 // Words that describe a case, never what it replays (12 Oct 2026, PR #501: adding `origin` to all 74 cases read as 74 new cases that had to fail on main's code). A case.json edit
-// that changes only these brings no case: no proof for a page fix (missingCase), nothing for hole 3 (tools/recorded-fails-on-old.mjs) to replay. The replay reads `shape` and `why`
+// that changes only these brings no case: no proof for a page fix (missingCase), nothing for "cases fail before the fix" (tools/recorded-fails-on-old.mjs, once "hole 3") to replay. The replay reads `shape` and `why`
 // only for its test's title and failure message (guard: desktop/test/recorded-cases.test.js).
 export const LABEL_KEYS = ['origin', 'shape', 'why'];
 

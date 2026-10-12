@@ -1,7 +1,7 @@
 name: CI · Pull request
 # The pure checks a change must pass before it merges (owner, 12 Oct 2026: landing through pull requests with auto-merge, tools/ship.sh). The suites are CI · Tests (build.yml) and the
-# recorded-page replays (recorded-pages.yml), which also run on pull requests. Required on main: python, worker, site, desktop (both), the 4 replay shards, "pr gates", "flow-fresh", "harness tests 1", "harness tests 2" ("hole 3" once proven, 13 Oct 2026).
-# Every job here always starts (a required workflow that never starts blocks the PR forever); hole 3 skips itself when no recorded case changed.
+# recorded-page replays (recorded-pages.yml), which also run on pull requests. Required on main: python, worker, site, desktop (both), the 4 replay shards, "pr gates", "flow-fresh", "harness tests 1", "harness tests 2", "cases fail before the fix" (tools/pr-settings.sh has the list).
+# Every job here always starts (a required workflow that never starts blocks the PR forever); "cases fail before the fix" ends in seconds when the PR brings no recorded case.
 on:
   pull_request:
     branches: [main]
@@ -87,8 +87,9 @@ jobs:
           git fetch -q origin main
           node tools/flow-fresh.mjs --base origin/main --head "${{ github.event.pull_request.head.sha }}" --others
 
-  hole3:
-    name: hole 3
+  cases-fail-before-fix:
+    # Was "hole 3" (renamed 12 Oct 2026, owner: "a better name"): every recorded case this PR adds or changes must FAIL on the PR's base (and pass on its head: the replay shards).
+    name: cases fail before the fix
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -99,15 +100,23 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      # Every recorded case this PR adds or changes must FAIL on the PR's base and pass on its head (tools/recorded-fails-on-old.mjs, landed by the recorded-cases gate work).
-      - name: A recorded case fails on the old build
-        env:
-          JOB_PILOTTO_HEAVY: '0'   # the Mac's one-at-a-time lock means nothing on a runner of its own
+      # Decide first, from git alone (seconds): a PR that brings no case installs and replays nothing (12 Oct 2026: #501's label-only edit to 74 cases took 503 s here).
+      # A case.json edit to label keys only is no case (tools/recorded-cases.mjs LABEL_KEYS); a "Recorded-pins" case is not replayed; a refused pin fails here at once.
+      - name: Which recorded cases this PR brings
+        id: which
         run: |
           git fetch -q origin main
-          if [ ! -f tools/recorded-fails-on-old.mjs ]; then echo "hole 3: tools/recorded-fails-on-old.mjs is not on main yet: nothing to check"; exit 0; fi
-          if [ -z "$(git diff --name-only origin/main...HEAD -- desktop/e2e/recorded)" ]; then echo "hole 3: this PR adds or changes no recorded case"; exit 0; fi
+          cases="$(node tools/recorded-fails-on-old.mjs --base origin/main --list)"
+          echo "cases=$cases" >> "$GITHUB_OUTPUT"
+          if [ -z "$cases" ]; then echo "cases fail before the fix: this PR brings no recorded case: nothing to replay"; else echo "to replay on the old code: $cases"; fi
+      - name: A browser for the replay
+        if: steps.which.outputs.cases != ''
+        run: |
           (cd desktop/e2e && npm ci)
           (cd desktop && npm ci --omit=dev --ignore-scripts)
-          (cd desktop/e2e && npx playwright install --with-deps chromium)
-          node tools/recorded-fails-on-old.mjs --base origin/main
+          (cd desktop/e2e && npx playwright install --with-deps chromium)   # full Chromium: the replay loads the real extension
+      - name: Each fails on the code before the fix
+        if: steps.which.outputs.cases != ''
+        env:
+          JOB_PILOTTO_HEAVY: '0'   # the Mac's one-at-a-time lock means nothing on a runner of its own
+        run: node tools/recorded-fails-on-old.mjs --base origin/main

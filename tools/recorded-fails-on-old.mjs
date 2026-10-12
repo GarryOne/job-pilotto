@@ -3,7 +3,8 @@
 // Only the push's own cases (tools/recorded-cases.mjs casesOf) are replayed, on a detached worktree of the merge-base (origin/main: the app's desktop/lib and the extension as they were), through the one replay path
 // there is (desktop/e2e/test/recorded-pages.test.mjs under tools/heavy-lock.sh): page cases and row cases alike. That the case PASSES on the push is the journey gate's and CI's replay.
 // A case that only pins current behaviour (no fix) says so in a commit message: "Recorded-pins: <why>" (refused with a Pool-row or an issue the commit fixes: a fix is not a pin).
-//   node tools/recorded-fails-on-old.mjs [--base origin/main] [--log <file>]   exit 1 with the reason. On CI there is no lock to wait for (heavy-lock.sh is then a no-op: check). Guard: desktop/test/recorded-fails-on-old.test.js.
+//   node tools/recorded-fails-on-old.mjs [--base origin/main] [--log <file>]   exit 1 with the reason. --list: print the cases it would replay (git only, seconds; the CI job's
+//   first step, so a PR that brings none installs nothing). On CI there is no lock to wait for (heavy-lock.sh is then a no-op: check). Guard: desktop/test/recorded-fails-on-old.test.js.
 import {execFileSync, spawnSync} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -57,6 +58,7 @@ function main() {
   const {pinned, check, refused, fixOf} = splitPinned(commits);
   if (refused.length) { console.error(`"Recorded-pins:" is refused for ${refused.join(', ')}: that commit names a Pool-row or an issue it fixes, and a fix must show its failure on the old code (a follow-up to a fix on main: "Fix-commit: <sha>").`); return 1; }
   if (pinned.length) console.error(`recorded cases on the old code: ${pinned.join(', ')} said "Recorded-pins" (they pin behaviour, no fix): not replayed on the old code`);
+  if (args.includes('--list')) { console.log(check.join(' ')); return 0; }
   if (!check.length) return 0;
   if (process.env.RECORDED_OLD_OK === '1') { console.error(`recorded cases on the old code: RECORDED_OLD_OK=1: ${check.join(', ')} NOT replayed on origin/main's code`); return 0; }
   const mergeBase = git('merge-base', base, 'HEAD').trim(), groups = new Map();
