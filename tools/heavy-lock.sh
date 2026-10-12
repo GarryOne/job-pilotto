@@ -45,6 +45,7 @@ timing_log() {  # <text after the time stamp>
   local timing="${JOB_PILOTTO_HEAVY_TIMING_LOG:-$(git -C "$(dirname "$0")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)/gate-timing.log}"
   [ "$timing" = /gate-timing.log ] || echo "# $(date -u +%Y-%m-%dT%H:%M:%SZ) $1" >>"$timing" 2>/dev/null || true
 }
+[ -f "$(dirname "$0")/heavy-lock-reap.sh" ] && source "$(dirname "$0")/heavy-lock-reap.sh" || { forced_reason() { return 1; }; reap_slot() { return 0; }; kill_group() { return 0; }; find_session_pid() { :; }; }
 max_slots="${JOB_PILOTTO_HEAVY_SLOTS:-4}"; [ "$max_slots" -ge 1 ] 2>/dev/null || max_slots=1
 SLOT_DIRS="$root/lock"; for _i in $(seq 2 "$max_slots"); do SLOT_DIRS="$SLOT_DIRS $root/lock.$_i"; done
 holders() { local dir pid what since out=""
@@ -57,10 +58,11 @@ stale() {  # a slot's owner is gone (or never wrote its pid within 10 s)
   ! kill -0 "$pid" 2>/dev/null
 }
 held() {  # live slots, after dropping stale ones
-  local dir count=0 gone
+  local dir count=0 gone forced
   for dir in $SLOT_DIRS; do
     [ -d "$dir" ] || continue
     if stale "$dir"; then gone="$root/stale.$$"; mv "$dir" "$gone" 2>/dev/null && { say "taking over a stale lock: $(cat "$gone/what" 2>/dev/null) (pid $(cat "$gone/pid" 2>/dev/null) is gone)"; rm -rf "$gone"; }; continue; fi
+    if forced="$(forced_reason "$dir")"; then gone="$root/stale.$$"; mv "$dir" "$gone" 2>/dev/null && { reap_slot "$gone" "$forced"; rm -rf "$gone"; }; continue; fi   # a live wrapper whose session is gone or whose tree sits idle
     count=$((count + 1))
   done
   echo "$count"
@@ -101,7 +103,8 @@ if [ "$yield_mode" = 1 ]; then
   rm -rf "$slot"
 fi
 ticket="$queue/$(python3 -c 'import time; print(time.time_ns())' 2>/dev/null || echo "$(date +%s)000000000")-$$"; printf '%s %s\n\n%s\n%s\n' "$$" "$what" "$session" "$klass" >"$root/.ticket.$$" && mv -f "$root/.ticket.$$" "$ticket"
-trap 'rm -f "$ticket" "$root/.ticket.$$"; release' EXIT
+child=""; run_group=""
+trap 'rm -f "$ticket" "$root/.ticket.$$"; [ -n "$child" ] && kill_group "$run_group" "$child"; release' EXIT
 trap 'exit 143' TERM; trap 'exit 130' INT; trap 'exit 129' HUP
 ahead() {  # the waiter I must let go first, as "<what> (pid N, session S)"; dead waiters are dropped on the way
   local name pid mine=0 mname="${ticket##*/}" theirs
@@ -197,6 +200,21 @@ fi
 if [ "$yield_mode" = 1 ]; then say "$what has its place back after ${waited_s}s"; timing_log "heavy lock yield-back wait=${waited_s}s what=$what class=$klass session=$session"; exit 0; fi   # the caller goes on holding it
 say "$what runs (pid $$)"
 run_began=$(date +%s); code=0
-JP_HEAVY_HELD=$$ "$@" || code=$?
+# The command runs in its own process group (not when a terminal is attached: Ctrl-C and reads need the shared group), recorded in the slot; a cancel (EXIT/TERM/INT/HUP) kills the whole group.
+if [ ! -t 0 ] && command -v python3 >/dev/null; then
+  JP_HEAVY_HELD=$$ python3 -c 'import os, sys
+if hasattr(os, "setpgid"): os.setpgid(0, 0)
+try: os.execvp(sys.argv[1], sys.argv[1:])
+except FileNotFoundError: sys.exit(127)
+except OSError: sys.exit(126)' "$@" 0<&0 & child=$!
+  for _i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do [ "$(ps -o pgid= -p "$child" 2>/dev/null | tr -d ' ')" = "$child" ] && { run_group="$child"; break; }; sleep 0.05; done
+else JP_HEAVY_HELD=$$ "$@" 0<&0 & child=$!; fi
+if [ -n "$lock" ]; then
+  [ -n "$run_group" ] && echo "$run_group" >"$lock/pgid"
+  # the session lookup walks the parent processes (slow on a loaded Mac): off the run's critical path
+  { s="$(find_session_pid)"; [ -n "$s" ] && echo "$s" >"$lock/session_pid"; [ -n "$run_group" ] && idle_secs "$lock" 1; } >/dev/null 2>&1 &
+fi
+wait "$child" || code=$?
+child=""   # it ended by itself: only a cancel (the traps) has a group left to kill
 timing_log "heavy lock run=$(( $(date +%s) - run_began ))s wait=${waited_s}s exit=$code $ident"
 exit "$code"
