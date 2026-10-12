@@ -21,6 +21,22 @@ test('closed by a commit or a merged pull request, with no resolution yet: confi
   for (const [what, issue, expected] of cases) assert.deepEqual(labelsForClose(issue)?.add ?? null, expected, what);
 });
 
+// A fix that changed only tests or docs proves neither way: #350 was a test mistake, but #400's test commit closed a real bug whose product fix (e61e334)
+// had landed earlier without naming it. Such a closure is left for a verdict (needs-human), never counted as real or false by the rule.
+test('a fix that changed only tests or docs is left for a verdict, never counted as fixed (#350 was labelled fixed by mistake, 12 Oct 2026)', () => {
+  const issue = files => ({labels: ['auto-ui'], stateReason: 'COMPLETED', closer: merged, files});
+  const cases = [
+    ['#350: the quality judge step and its test', ['desktop/e2e/suites/quality.mjs', 'desktop/e2e/test/quality-judge-input.test.mjs'], ['needs-human']],
+    ['#400: the calendar step only (the product fix was another commit)', ['desktop/e2e/suites/calendar.mjs'], ['needs-human']],
+    ['a test plus a doc', ['tests/test_x.py', 'docs/HOW-IT-RUNS.md', 'desktop/test/a.test.js'], ['needs-human']],
+    ['#409: product code and its test', ['desktop/renderer/pages/core.js', 'desktop/test/message-plain-error.test.js'], ['confirmed', 'resolution:fixed']],
+    ['the engine', ['src/stores/notion.py', 'tests/test_y.py'], ['confirmed', 'resolution:fixed']],
+    ['files unknown: the old answer', undefined, ['confirmed', 'resolution:fixed']],
+  ];
+  for (const [what, files, expected] of cases) assert.deepEqual(labelsForClose(issue(files))?.add ?? null, expected, what);
+  assert.match(labelsForClose(issue(['desktop/e2e/suites/quality.mjs'])).comment, /only tests or docs/);
+});
+
 test('the comment names the fix', () => {
   assert.match(labelsForClose({labels: ['auto-ui'], stateReason: 'COMPLETED', closer: commit}).comment, /534cf0e/);
   assert.match(labelsForClose({labels: ['auto-ui'], stateReason: 'COMPLETED', closer: merged}).comment, /#465/);
