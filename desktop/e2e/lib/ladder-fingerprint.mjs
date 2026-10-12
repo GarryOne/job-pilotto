@@ -13,6 +13,7 @@ export const PROMPT_FILES = [
   {key: 'account-judge', label: 'the account judge', file: 'desktop/lib/account-judge.js', parts: ['INSTRUCTIONS', 'schema']},
   {key: 'form-judge', label: 'the form judge', file: 'desktop/lib/form-judge.js', parts: ['INSTRUCTIONS', 'STEP_RULE', 'BLOCKED_RULE', 'schema']},
   {key: 'fill-verify', label: 'the fill check (fill_verify)', file: 'desktop/lib/ladder/fill-verify.js', parts: ['INSTRUCTIONS', 'schema']},
+  {key: 'fill-repair', label: 'the fill repair (fill_repair)', file: 'desktop/lib/ladder/fill-repair.js', parts: ['INSTRUCTIONS', 'schema']},
   {key: 'rung4', label: 'rung 4', file: 'desktop/lib/ladder/rung4-picture.js', parts: ['INSTRUCTIONS', 'PAGE_INSTRUCTIONS', 'FORM_INSTRUCTIONS', 'SCHEMA']},
 ];
 

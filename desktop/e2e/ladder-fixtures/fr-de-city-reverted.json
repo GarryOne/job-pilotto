@@ -1,0 +1,77 @@
+{
+ "schemaVersion": 1,
+ "id": "fr-de-city-reverted",
+ "question": "fill_repair",
+ "source": "invented",
+ "lang": "de",
+ "why": "a city box the page emptied again after the fill typed it (the widget zoo's reverting box): type the fill's own answer again",
+ "url": "https://jobs.example.com/apply/fr-de-city-reverted",
+ "expect": {
+  "outcome": "retype",
+  "control": 3,
+  "accept": [
+   "retype",
+   "commit"
+  ],
+  "accept_reasons": {
+   "commit": "the box may hold the text already and lose it only on blur; leaving it the way a person does is the other repair that puts the fill's own answer back"
+  }
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/apply/fr-de-city-reverted",
+  "title": "Bewerbung",
+  "headings": [
+   "Bewerbung"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Vorname",
+    "required": true,
+    "state": "filled",
+    "match": "yes",
+    "answer": "free_text"
+   },
+   {
+    "type": "text",
+    "label": "Nachname",
+    "required": true,
+    "state": "filled",
+    "match": "yes",
+    "answer": "free_text"
+   },
+   {
+    "type": "text",
+    "label": "Wohnort",
+    "required": true,
+    "state": "empty",
+    "match": "no",
+    "answer": "free_text",
+    "tried": 1
+   }
+  ],
+  "buttons": [
+   "Submit application"
+  ],
+  "texts": [],
+  "frames": []
+ },
+ "misses": [
+  {
+   "n": 3,
+   "verdict": "empty",
+   "reason": "not_kept"
+  }
+ ],
+ "answer": {
+  "repairs": [
+   {
+    "n": 3,
+    "widget": "text",
+    "verb": "retype",
+    "option": 0
+   }
+  ]
+ },
+ "answer_path": "app"
+}

@@ -1,0 +1,77 @@
+{
+ "schemaVersion": 1,
+ "id": "fr-fr-toggle-ignored",
+ "question": "fill_repair",
+ "source": "invented",
+ "lang": "fr",
+ "why": "a yes/no toggle drawn over hidden radio inputs that ignored the fill's scripted click: a real click or a toggle, never a value",
+ "url": "https://jobs.example.com/apply/fr-fr-toggle-ignored",
+ "expect": {
+  "outcome": "trusted_click",
+  "control": 2,
+  "accept": [
+   "trusted_click",
+   "toggle"
+  ],
+  "accept_reasons": {
+   "toggle": "a toggle switched to the fill's answer is the same unblocking as a real click on that choice: both change HOW, never WHAT"
+  }
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/apply/fr-fr-toggle-ignored",
+  "title": "Candidature",
+  "headings": [
+   "Candidature"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Prénom",
+    "required": true,
+    "state": "filled",
+    "match": "yes",
+    "answer": "free_text"
+   },
+   {
+    "type": "radio",
+    "label": "Oui",
+    "required": true,
+    "state": "unchecked",
+    "match": "no",
+    "answer": "free_text"
+   },
+   {
+    "type": "radio",
+    "label": "Non",
+    "required": true,
+    "state": "unchecked",
+    "match": ""
+   }
+  ],
+  "buttons": [
+   "Submit application"
+  ],
+  "texts": [
+   "Avez-vous le permis de conduire ?"
+  ],
+  "frames": []
+ },
+ "misses": [
+  {
+   "n": 2,
+   "verdict": "empty",
+   "reason": "not_selected"
+  }
+ ],
+ "answer": {
+  "repairs": [
+   {
+    "n": 2,
+    "widget": "radio_group",
+    "verb": "toggle",
+    "option": 0
+   }
+  ]
+ },
+ "answer_path": "app"
+}
