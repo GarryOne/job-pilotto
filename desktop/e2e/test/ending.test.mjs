@@ -8,6 +8,7 @@ import {ENDINGS} from '../../../extension/ladder/endings.js';
 import {ACCOUNT_HELD, APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED} from '../lib/smoke.mjs';
 import {HELD_BY_TEST, REASONS, RUN_ERRORS, STOP_LINES, STOP_STUCK, endingOf, fieldEnding, tally} from '../lib/ending.mjs';
 import {STUCK_REASONS, endingOfStuck} from '../../../extension/ladder/endings.js';
+import {seenDeadEnd} from '../../../extension/ladder/dead-end.js';
 
 const field = (reason, extra = {}) => ({outcome: 'left', type: 'text', label: 'Q', required: true, reason, ...extra});
 const form = (fieldList, extra = {}) => ({reached: 'form', filled: 3, left: fieldList.length, fieldList, errors: [], exit: 0, ...extra});
@@ -142,4 +143,14 @@ test('the same stop gives the same ending to the replays and to the pool classif
   assert.deepEqual(Object.keys(STOP_STUCK).sort(), Object.keys(STOP_LINES).sort(), 'every stop line is read as a stop');
   const both = `10:00:00 [extension] fill: ${STOP_LINES.noForm} {}\n${line('account', true)}\n10:00:02 [extension] fill: ${STOP_LINES.other} {}`;
   assert.equal(endingOf(posting, both).ending, 'handed', 'the door\'s line wins over an older stop line, whatever their order');
+});
+
+test('a dead end seen in shadow (the silent rule) never moves an ending: the door\'s line is skipped by its shadow field', () => {
+  const posting = {reached: 'posting', fieldList: [], errors: [], exit: 0};
+  const lines = [];
+  assert.equal(seenDeadEnd('silent', 'x.example', {kind: 'navigated', silentMs: 31000}, (area, what, data) => lines.push(`10:00:05 [extension] ${area}: ${what} ${JSON.stringify(data)}`)), true);
+  const stop = `10:00:00 [extension] fill: dead end: account ${JSON.stringify({host: 'x.example', ending: 'handed', named: true})}`;
+  assert.equal(endingOf(posting, `${stop}\n${lines[0]}`).ending, 'handed', 'a shadow line after the stop leaves the stop');
+  assert.deepEqual(endingOf(posting, lines[0]), endingOf(posting, ''), 'a shadow line alone is as no line');
+  assert.equal(endingOf(form([field(REASONS.legal)]), lines[0]).ending, 'ready');
 });

@@ -7,6 +7,7 @@ import test from 'node:test';
 const listeners = {message: [], removed: []};
 globalThis.chrome = {runtime: {onMessage: {addListener: fn => listeners.message.push(fn)}}, tabs: {onRemoved: {addListener: fn => listeners.removed.push(fn)}}};
 const {PAGE_KINDS, PROGRESS_KINDS, forgetProgress, lastProgress, notePage, noteProgress, useProgressLog} = await import('../../extension/ladder/progress.js');
+const {silenceOf} = await import('../../extension/ladder/silence.js');
 delete globalThis.chrome;
 
 test('fixed kinds; each is one "progress: <kind>" line with fixed values and the time since the last; anything else is refused', () => {
@@ -28,12 +29,13 @@ test('fixed kinds; each is one "progress: <kind>" line with fixed values and the
 test('a page counts as navigated once per new page key; looking at the same page again is not progress', () => {
   const logged = [];
   useProgressLog((area, what) => logged.push(what));
-  assert.equal(notePage(2, '2 jobs.example/a', {}, 0), true);
-  assert.equal(notePage(2, '2 jobs.example/a', {}, 10), false);
-  assert.equal(notePage(2, '2 jobs.example/b', {}, 20), true);
+  assert.equal(notePage(2, '2 jobs.example/a', {job: 'https://jobs.example/a', page: 'https://jobs.example/a'}, 0), true);
+  assert.equal(notePage(2, '2 jobs.example/a', {job: 'https://jobs.example/a', page: 'https://jobs.example/a'}, 10), false);
+  assert.equal(notePage(2, '2 jobs.example/b', {job: 'https://jobs.example/a', page: 'https://jobs.example/b'}, 20), true);
   assert.deepEqual(logged, ['progress: navigated', 'progress: navigated']);
   listeners.removed.forEach(fn => fn(2));
   assert.equal(notePage(2, '2 jobs.example/b', {}, 30), true, 'a closed tab is forgotten');
+  assert.equal(silenceOf(2)?.host, '', 'its application clock too: the page known again starts a clock of its own');
 });
 
 test('a page script may send only value_stayed; any other kind, or a message from no tab, is ignored and never answered', () => {
@@ -51,7 +53,7 @@ test('a page script may send only value_stayed; any other kind, or a message fro
 test('the fill flow notes each kind of its own where it happens (a new page, fields that appeared, a required field filled); value_stayed only from a page script', () => {
   const flow = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta.url), 'utf8');
   assert.match(flow, /useProgressLog\(decide\)/);
-  assert.match(flow, /started\.add\(key\);\n\s*notePage\(tab\.id, key\)/);
+  assert.match(flow, /started\.add\(key\);\n\s*notePage\(tab\.id, key, \{job: jobUrl \|\| tab\.url, page: tab\.url\}\)/);
   assert.match(flow, /noteProgress\(tab\.id, 'new_controls'/);
   assert.match(flow, /noteProgress\(tab\.id, 'required_down'/);
   assert.doesNotMatch(flow, /'value_stayed'/);
