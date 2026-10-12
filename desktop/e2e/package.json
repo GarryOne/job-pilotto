@@ -25,7 +25,7 @@
     "row": "bash ../../tools/heavy-lock.sh row-replay node row.mjs",
     "rows": "bash ../../tools/heavy-lock.sh row-replay node row.mjs --all",
     "row-to-case": "bash ../../tools/heavy-lock.sh row-replay node row-to-case.mjs",
-    "live": "JOB_PILOTTO_HEAVY_CLASS=proof bash ../../tools/heavy-lock.sh e2e-smoke node live.mjs",
+    "live": "bash live.sh",
     "widget-zoo": "JP_REPLAY=1 bash ../../tools/heavy-lock.sh widget-zoo node widget-zoo.mjs"
   },
   "devDependencies": {
