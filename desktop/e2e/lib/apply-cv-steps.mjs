@@ -100,18 +100,25 @@ export async function runCvSteps(ctx, h) {
     await page.click('.nav[data-view="actions"]');
     if (await page.locator('[data-command="kits"]').count()) throw new Error('Prepare top matches is still on the Actions page');
     await page.fill('#tailor-top-n', '2');
-    await page.click('#tailor-top');
-    // A tracked task: the banner follows it and Recent activity holds its row, with the result line as its summary.
-    await page.waitForFunction(() => /Tailor CVs/.test(document.getElementById('run-banner-title')?.textContent || '') && !document.getElementById('run-banner')?.hidden, null, {timeout: 60000, polling: 500})
-      .catch(() => { throw new Error('the Actions banner never showed Tailor CVs running'); });
-    // "View activity" on the banner opens the RUNNING task, even when a finished row was open before.
-    await page.click('#run-banner-view');
-    const finished = page.locator('#activity-recent .recent-row').filter({hasNotText: 'Running'}).first();
-    if (await finished.count()) { await finished.click(); await page.click('#activity-toggle').catch(() => {}); }
-    await page.click('#run-banner-view');
-    await page.waitForFunction(() => /Running/.test(document.querySelector('#activity-recent .recent-row.current')?.textContent || ''), null, {timeout: 10000})
-      .catch(() => { throw new Error('"View activity" did not open the running Tailor CVs task'); });
-    if (!(await page.locator('#tailor-top').isDisabled())) throw new Error('Run is still pressable while Tailor CVs is running');
+    // HELD by the test: the stand-in's tailoring answers only once the running task was looked at (Run off, View activity), else the task can be over first
+    // (12 Oct 2026, seed 3891685770: two CVs in 6.1 s, the clicks below took 6.6 s, and Run was rightly on again when it was checked).
+    let release;
+    ctx.tailorHold = new Promise(resolve => { release = resolve; });
+    console.log('  HELD by the test: the tailoring answers once Run is checked off');
+    try {
+      await page.click('#tailor-top');
+      // A tracked task: the banner follows it and Recent activity holds its row, with the result line as its summary.
+      await page.waitForFunction(() => /Tailor CVs/.test(document.getElementById('run-banner-title')?.textContent || '') && !document.getElementById('run-banner')?.hidden, null, {timeout: 60000, polling: 500})
+        .catch(() => { throw new Error('the Actions banner never showed Tailor CVs running'); });
+      // "View activity" on the banner opens the RUNNING task, even when a finished row was open before.
+      await page.click('#run-banner-view');
+      const finished = page.locator('#activity-recent .recent-row').filter({hasNotText: 'Running'}).first();
+      if (await finished.count()) { await finished.click(); await page.click('#activity-toggle').catch(() => {}); }
+      await page.click('#run-banner-view');
+      await page.waitForFunction(() => /Running/.test(document.querySelector('#activity-recent .recent-row.current')?.textContent || ''), null, {timeout: 10000})
+        .catch(() => { throw new Error('"View activity" did not open the running Tailor CVs task'); });
+      if (!(await page.locator('#tailor-top').isDisabled())) throw new Error('Run is still pressable while Tailor CVs is running');
+    } finally { ctx.tailorHold = null; release(); }
     let said = '';
     for (let waited = 0; !/Tailored \d+ of \d+ CV/.test(said) && waited < 420000; waited += 3000) {
       await pause(3000);

@@ -36,3 +36,30 @@ test('a button that starts a task an Actions card offers is not listed twice in 
   assert.match(nav, /!node\.disabled && shown\(node\) && !twins\.has\(node\)/);   // the Settings sweep
   assert.match(nav, /if \(danger && buttons\.length === 1\) return;/);   // a section's sole danger button is its own entry ("Reset Job Pilotto" was listed twice)
 });
+
+// The class (owner, 6 Oct 2026: Run was turned off for Tailor CVs only, then for the other cards when asked again): every Run on an Actions card that starts a
+// tracked task is turned off while that task runs or waits, through the one switch (runs-page.js syncRunButtons: data-command via COMMAND_KIND, the rest via
+// TASK_BUTTONS). A new card that starts a task without being reachable there fails here. Tune only opens a dialog (no task), so it is the one left out.
+const NOT_A_TASK = new Set(['tune-open']);
+test('every Actions Run that starts a task is turned off while it runs, through syncRunButtons', () => {
+  const activity = activitySource();
+  const commandKind = Object.fromEntries([...activity.match(/export const COMMAND_KIND = \{([^}]*)\}/)[1].matchAll(/(\w+): '(\w+)'/g)].map(match => [match[1], match[2]]));
+  const taskIds = new Set(JSON.parse(activity.match(/export const TASK_BUTTONS = (\[.*\]);/)[1].replace(/'/g, '"')).flatMap(([, ...selectors]) => selectors.map(s => s.slice(1))));
+  const runs = [...html.matchAll(/<button [^>]*\baction\b[^>]*>(?:(?!<\/button>)[\s\S])*Run<\/button>/g)].map(match => match[0]);
+  assert.ok(runs.length >= 7, `the Actions Run buttons were not found (${runs.length})`);
+  const unreached = runs.map(button => ({id: /id="([\w-]+)"/.exec(button)?.[1], command: /data-command="(\w+)"/.exec(button)?.[1]}))
+    .filter(({id, command}) => !NOT_A_TASK.has(id) && !(command && commandKind[command]) && !taskIds.has(id)).map(({id, command}) => id || command);
+  assert.deepEqual(unreached, [], 'these Run buttons stay pressable while their task runs: add them to TASK_BUTTONS or COMMAND_KIND');
+  const runsPage = fs.readFileSync(new URL('../renderer/pages/runs-page.js', import.meta.url), 'utf8');
+  assert.match(runsPage, /for \(const node of document\.querySelectorAll\('\.action\[data-command\]'\)\) if \(COMMAND_KIND\[node\.dataset\.command\]\) set\(node, COMMAND_KIND\[node\.dataset\.command\]\);/);
+  assert.match(runsPage, /for \(const \[kind, \.\.\.selectors\] of TASK_BUTTONS\) for \(const selector of selectors\) set\(document\.querySelector\(selector\), kind\);/);
+});
+
+// ⌘K offers what can be pressed now (nav.js: "a disabled button ... isn't offered"): a task card whose Run is off because its task runs is not listed, in both card loops.
+test('the palette does not offer an Actions card whose Run is off', () => {
+  const nav = fs.readFileSync(new URL('../renderer/pages/nav.js', import.meta.url), 'utf8');
+  for (const attr of ['data-command', 'data-palette']) {
+    const loop = nav.match(new RegExp(`document\\.querySelectorAll\\('\\.action\\[${attr}\\]'\\)\\.forEach\\(node => ([^\\n]*)`))?.[1] || '';
+    assert.match(loop, /^!node\.disabled && add\(/, `the .action[${attr}] loop lists a card whose Run is off`);
+  }
+});
