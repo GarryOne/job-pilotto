@@ -3,12 +3,12 @@ name: CI · Widget zoo (measure, not required)
 # extension, offline. It MEASURES how many pages the fill reads and keeps committed; a miss never fails it (pages that fail today are the fill ladder's found bugs). It fails only when the
 # replay broke or a page pressed a submit. NOT a required check: a page moves to desktop/e2e/recorded/ (the required replay shards) only once it passes.
 on:
+  # A REQUIRED check (owner, 12 Oct 2026): it reports on every PR. A required check whose workflow an `on: paths:` filter skips never reports, and the PR waits for ever; so
+  # there is no paths filter here: the `changes` job looks at the PR's files and the zoo job is SKIPPED (counted as passed) when none of them is the zoo's.
   pull_request:
     branches: [main]
-    paths: ['extension/**', 'desktop/lib/**', 'desktop/e2e/widget-zoo/**', 'desktop/e2e/lib/widget-zoo.mjs', 'desktop/e2e/widget-zoo.mjs', 'desktop/e2e/lib/page-replay.mjs', 'desktop/e2e/lib/replay-browser.mjs', '.github/workflows/widget-zoo.yml']
   push:
     branches: [main]
-    paths: ['extension/**', 'desktop/e2e/widget-zoo/**']
   workflow_dispatch:
 
 concurrency:
@@ -16,8 +16,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: zoo files changed?
+    runs-on: ubuntu-24.04
+    outputs:
+      relevant: ${{ steps.diff.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      # The zoo's paths: the extension, the app code the replay loads, the zoo pages and its runner/replay libraries, this workflow. A push to main and a manual run always replay.
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$EVENT" != "pull_request" ]; then echo "relevant=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          files=$(git diff --name-only "$BASE...$HEAD")
+          if printf '%s\n' "$files" | grep -qE '^(extension/|desktop/lib/|desktop/e2e/widget-zoo/|desktop/e2e/lib/(widget-zoo|page-replay|replay-browser|real-extension)\.mjs$|desktop/e2e/widget-zoo\.mjs$|\.github/workflows/widget-zoo\.yml$)'; then
+            echo "relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "relevant=false" >> "$GITHUB_OUTPUT"; echo "no zoo file changed: the zoo job is skipped"
+          fi
   zoo:
     name: widget zoo
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
