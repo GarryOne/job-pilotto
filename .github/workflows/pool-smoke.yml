@@ -6,7 +6,8 @@
 #   (lib/applying-report.mjs refuses CI).
 # - AI: the app's own API engine on the Tests key (E2E_ANTHROPIC_KEY, the Tests workspace's $20 limit), through the harness's metering proxy (lib/live-row.mjs).
 #   Hard caps per run, here: MAX_ROWS rows and MAX_USD dollars (the run stops between rows once its spend reaches it).
-# - Site limit: CI's own ledger per UTC day, at most 2 visits per host across ALL CI runs (main and every PR), a host that showed a block page rests the day.
+# - Site limit: CI's own ledger per UTC day, at most 2 visits per host across ALL CI runs (main and every PR), a host that showed a block page rests the day;
+#   a by-hand run may use only 1 of the 2: the last is kept for a PR's live proof (owner, 12 Oct 2026).
 #   Each run uploads a small state artifact (its ledger and rows); the next run reads them all (GitHub's cache is per branch: a PR's visits would be unseen).
 #   CI visits are NOT in the Mac's ledger: a host can get 3 (Mac) + 2 (CI) visits on a day both run.
 # - Data-center IPs meet more bot walls: such a row is "blocked (CI IP)" in the summary, never a failure, never retried (no Electron leg on CI).
@@ -63,6 +64,8 @@ jobs:
       JOB_PILOTTO_HEAVY: '0'           # the heavy lock is a Mac's machine-wide queue; this runner is its own machine
       JOB_PILOTTO_SESSION: pool-smoke CI run ${{ github.run_id }}
       JOB_PILOTTO_SITE_LIMIT: '2'
+      JOB_PILOTTO_VISIT_KIND: ${{ github.event_name == 'pull_request' && 'proof' || 'hand' }}   # each visit says its kind (lib/site-ledger.mjs)
+      JOB_PILOTTO_SITE_RESERVE: '1'   # a by-hand run leaves a host's last visit of the day to a PR proof (owner, 12 Oct 2026)
       JOB_PILOTTO_SITE_LEDGER_DIR: ${{ github.workspace }}/pool-smoke-out/site-ledger
       SMOKE_PAIRED: '0'
       SMOKE_REPORTS: ${{ github.workspace }}/pool-smoke-out/smoke-reports

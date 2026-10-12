@@ -66,3 +66,11 @@ test('the PR proof hands its applicant to the pool run, which sets JP_APPLICANT 
   assert.match(workflows['pool-proof.yml'], /applicant: \$\{\{ needs\.pick\.outputs\.applicant \}\}/);
   assert.match(workflows['pool-smoke.yml'], /JP_APPLICANT: \$\{\{ inputs\.applicant \|\| 'thin' \}\}/);
 });
+
+// Owner, 12 Oct 2026: a by-hand run keeps a host's last CI visit of the day for a PR proof (lib/site-ledger.mjs JOB_PILOTTO_SITE_RESERVE).
+test('the pool run names its visit kind (a PR proof or by hand) and keeps one visit a day for PR proofs', () => {
+  const smoke = workflows['pool-smoke.yml'];
+  assert.match(smoke, /JOB_PILOTTO_VISIT_KIND: \$\{\{ github\.event_name == 'pull_request' && 'proof' \|\| 'hand' \}\}/);
+  assert.match(smoke, /JOB_PILOTTO_SITE_RESERVE: '1'/);
+  assert.match(smoke, /JOB_PILOTTO_SITE_LIMIT: '2'/);
+});
