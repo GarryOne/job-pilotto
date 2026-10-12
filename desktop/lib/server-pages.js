@@ -7,6 +7,7 @@ import {log as appLog} from './log.js';
 import {aiClient, judgePage, reportedConfirmations} from './confirmation.js';
 import {judgeAccount} from './account-judge.js';
 import {judgeForm} from './form-judge.js';
+import {judgeFormat} from './format-judge.js';
 import {escalate} from './ladder/rung4-picture.js';
 import {captureCall, noteAsk} from './live-capture.js';
 import {forgetPageKind, kindKey, pageKind, pageKindCache, sketchBody} from './page-kind.js';
@@ -157,6 +158,11 @@ export async function pickUploadSlot(storage, body, {client} = {}) {
 
 // The AI's judgment on a sign-up page, before the account button ('ready') or after it ('result'): fixed answers, never a value the person typed (lib/account-judge.js).
 export async function decideAccountJudge(storage, body, {judge = judgeAccount, client} = {}) {
+  if (body?.phase === 'format') {   // another way to write a value the site refused (lib/format-judge.js): the site's error text in, one fixed writing out
+    const found = await judgeFormat(client === undefined ? aiClient(storage, {lane: 'page'}) : client, body);
+    appLog('extension', found.error ? `format judgment: none (${found.error})` : `format judgment: ${found.format}`);
+    return found.error ? {ok: true, answer: '', error: found.error} : {ok: true, answer: found.format, format: found.format};
+  }
   const phase = body?.phase === 'result' ? 'result' : body?.phase === 'form' ? 'form' : 'ready';
   noteAsk(body?.sketch?.url, {route: '/extension/account-judge'});   // the page as this ask saw it, kept by the e2e capture (lib/live-capture.js)   // 'form': the application form's own readiness (lib/form-judge.js)
   const answer = phase === 'form' ? await judgeForm(client === undefined ? aiClient(storage, {lane: 'page'}) : client, body?.sketch || {}) : await judge(client === undefined ? aiClient(storage, {lane: 'page'}) : client, body?.sketch || {}, phase);

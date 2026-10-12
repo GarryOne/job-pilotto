@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Application: Quality Control Auditor</title></head><body>
+<h1>Your application</h1>
+<form id="application" action="/apply/send" method="post">
+  <div><label for="first_name">First name *</label><input id="first_name" name="first_name" type="text" required></div>
+  <div><label for="email">Email *</label><input id="email" name="email" type="email" required></div>
+  <div><label for="contact_no">Number to reach you *</label><input id="contact_no" name="contact_no" type="tel" required aria-describedby="phone_error">
+    <div id="phone_error" style="color:#c00"></div></div>
+  <div><label for="resume">Resume *</label><input id="resume" name="resume" type="file" required></div>
+  <button type="submit">Submit Application</button>
+</form>
+<script>
+// A site with its own idea of a phone number: only the national writing (one leading 0 then the number, not 00 or +) is allowed; anything with a country code gets the site's own message.
+const box = document.getElementById("contact_no"), message = document.getElementById('phone_error');
+const check = () => { message.textContent = box.value && !/^0[1-9][\d ]{6,}$/.test(box.value.trim()) ? 'This Phone Number Format is not Allowed.' : ''; };
+box.addEventListener('input', check); box.addEventListener('change', check); box.addEventListener('blur', check);
+</script></body></html>
