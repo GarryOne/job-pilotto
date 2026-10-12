@@ -102,6 +102,37 @@ A test source claimed without the key is dropped and flagged (`ladder-source`), 
 
 **Found on the way:** the learning store refused every shape with 8 or more fields (`|f8+`: the shape pattern had no `+`), so no real form could ever be counted. Fixed in both stores, with a test over every build bucket.
 
+## Phase 1a: the outcome contract and the resolution score (owner, 12 Oct 2026)
+> Every application ends in exactly ONE fixed ending; the score is the share that ends resolved. Every `deadEnd()` and every "the person is needed" answer names one.
+
+| Ending | Means | Counted |
+|---|---|---|
+| `ready` | the form is reached; everything left is the person's choice or a proposal | resolved |
+| `told` | the page says how to apply another way (email, phone, in person) or that the job is closed, quoting the page | resolved |
+| `handed` | a real wall the run names: a bot check on a person's address, an SMS or emailed code, a sign-in to an existing account; resumes by itself after | resolved |
+| `blind` | a control or page the AI could not see (recorded: the perception queue) | resolved |
+| `data_missing` | an answer only the person has (asked once, can be remembered) | resolved |
+| `site_broken` | the page could not be read, errors, a posting gone: retried N times, then told plainly (new class) | resolved |
+| `unresolved` | anything else: a stop with no reason, a field we missed, a loop | **a counted bug** |
+| *held by the test* | the pool's own holds: never an account button with fake data (account-first, the account step), a bot wall on a CI runner's address | **not measured**: out of the denominator, shown apart |
+
+- **The list:** `extension/ladder/endings.js` (`ENDINGS`; imported, never copied: extension, app, harness, site).
+- **The classifier:** `desktop/e2e/lib/ending.mjs` `endingOf(result, appLog)`, pure, over a pool row's existing report (reached, the run parser's notes, each required field's reason via the fill card's `causeOf`, the extension's own stop line). The worst required field decides a form: we missed it > not seen > the person's data > the person's choice.
+- **The baseline, no new run** (`node desktop/e2e/endings-baseline.mjs <reports>... --platforms <admin json>`; Mac pool 10-12 Oct + 18 CI artifacts, newest run per row):
+
+| Measured 52 rows | |
+|---|---|
+| **unresolved** | **6**: 4 options not matched or not committed (Datadog, HelloFresh, nebius, Hadrian), 2 ladder ends with nothing to say (Bulgari, H&M) |
+| ready | 29 |
+| data_missing · handed · site_broken · blind · told | 7 · 4 · 3 · 2 · 1 |
+| held by the test (not measured) | 12 (9 account-first, 1 account step, 2 CI bot walls) |
+| **Resolution** | **raw 88% · weighted by real demand 74%** (scorecard match share; platforms covering 85% of matches). Rows behind it: Greenhouse 45% → 2, Ashby 28% → 1, SmartRecruiters 13% → 0, Lever 3% → 1, Workday · SuccessFactors · Personio · Recruitee 2% each → 2 · 1 · 1 · 1, Teamtailor 1% → 1: **one Greenhouse row moves it by 26 points** (45 × ½ ÷ 85) |
+
+- **The classifier checked by hand:** 19 rows against their end screenshots, every ending: 16 agreed; two classifier rules fixed (a cookie bar under a reached form is not the ending; a sign-up page with only contact details and passwords is the account step), now 18/19. The last miss is the report's own: TechTree's required radio, robot checkbox and terms are recorded as optional (required marks unread): a perception finding (passed to job-pilotto-fill-ladder; a "not a robot" checkbox is a bot check: always the person's, never ticked).
+- **Every run from now on:** the ending goes into each CI pool row and onto `/admin/applying` as the headline **Resolution** tile (raw, weighted by real demand, weekly trend; one batched D1 write of changed rows). The replays section becomes "Shape regression tests" below it (origin per case, "proven" only by the live layer).
+- **Page-level ending tests** (fixture pages, each proving the ending AND the resume): a bot check that clears and the form fills after; a sign-in followed by the form; an apply-by-email posting; a page that returns errors (`site_broken`). The field level (`blind`, `data_missing`) is job-pilotto-fill-ladder's.
+- **Switch criteria (both ladders) gain:** resolution does not drop; unresolved shrinks.
+
 ## Detecting a dead end (owner's question, 12 Oct 2026; built in phase 2)
 > A dead-end detector must not become a new chain of conditions.
 
@@ -138,6 +169,7 @@ A test source claimed without the key is dropped and flagged (`ladder-source`), 
 | The dead-end detector's recall and false fires | the CI pool's ground truth |
 | The fallback's unblock rate per dead-end row | the CI pool, acting |
 | The AI cost per application | shown to the owner and OK'd |
+| Resolution does not drop; unresolved shrinks (both ladders) | the classifier over the CI pool (phase 1a) |
 
 ## Open items
 - **The success measure:** site-named commits per week, and a new site working with no code; weekly, from git `Pool-row` lines and the pool.
@@ -163,9 +195,13 @@ A test source claimed without the key is dropped and flagged (`ladder-source`), 
 ## Progress
 - [x] Owner's decision on 1-4 (12 Oct 2026: yes to all)
 - [x] Phase 0: account pages with no step get the normal fill (#486)
-- [ ] Phase 1: CI pool + replays feed verified moves into the ladder learning and the pack; rung 1 keeps only sure answers
+- [x] Phase 1: CI pool + replays feed verified moves into the ladder learning and the pack; rung 1 keeps only sure answers
   - [x] built (12 Oct 2026): counted moves at every rung, CI pool + replays send them marked `ci` / `replay`, site `ladder_moves`; rung 1 keeps only sure answers (cc's b97a9c9)
-  - [ ] proof: one CI pool pass with a confirmed move for every row that reached a form (numbers in the PR)
+  - [x] proof (12 Oct 2026, CI pool run 38271835969, $0.04): 1 of 1 rows that reached a form confirmed its moves (TechTree: posting→form, form→form on an `8+` shape), stored as `ci`; the replays on main sent 39 (`replay`)
+- [ ] Phase 1a: the outcome contract and the resolution score
+  - [x] the endings list, the classifier, the baseline with no new run, the hand-check (18/19)
+  - [ ] each CI pool row's ending; the Resolution tile (raw, weighted, weekly); the replays section reworked
+  - [ ] page-level ending tests (bot check clears, sign-in then form, apply by email, site_broken); site_broken retry, handed resume
 - [ ] Phase 2: the fallback at each dead end, in shadow; fixtures and CI pool both ways; cost numbers
 - [ ] Phase 3: switch on; the decision-branch ratchet; the fix rule in docs/flows/ladder.md and CLAUDE.md
 - [ ] Phase 4: fast-tier branches retired only when proven redundant, one at a time
