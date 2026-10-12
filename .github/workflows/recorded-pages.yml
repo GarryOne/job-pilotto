@@ -50,7 +50,7 @@ jobs:
         run: node --test --test-concurrency=1 test/recorded-pages.test.mjs
       - name: Keep this shard's results for the report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: replay-results-${{ matrix.shard }}
           path: desktop/e2e/replay-results-${{ matrix.shard }}.json
@@ -70,7 +70,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: replay-results-*
           path: desktop/e2e/results
