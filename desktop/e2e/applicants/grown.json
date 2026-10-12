@@ -1,0 +1,11 @@
+{
+  "about": "The grown test applicant (owner's idea, 12 Oct 2026): the thin fake applicant of desktop/demo/draft.json after answering, once, the questions forms keep asking, as a real user does over their first applications. FAKE values only (example.test links, no real person). Picked by JP_APPLICANT=grown (lib/applicant-seed.mjs applicantDraft); the thin one stays the default so the pool stays comparable and recorded cases stable. Each batch is one changelog line naming what asked for it. Guard: e2e/test/applicant-grown.test.mjs.",
+  "replace": [
+    ["| Start date / notice period | ❓ |", "| Start date / notice period | 3 months' notice; can start 3 months after an offer |"],
+    ["- Notice period: ❓", "- Notice period: 3 months"]
+  ],
+  "answers_append": "# Questions forms keep asking\n\n- How I heard of this job: the company's own careers website\n- Current or former employee of the company I apply to: no, never (unless my CV lists it)\n- Relatives, partner or close friends working at the company: none\n- Salary expectation: CHF 150,000 a year, gross; when asked in euros: EUR 140,000 a year, gross\n- Years of professional experience: 8\n- Language levels: English C2 (fluent), Spanish native, German B1, French A1 (basic)\n- Work authorisation outside Switzerland and the EU (e.g. the United States, the United Kingdom, Canada): not authorised, sponsorship needed\n- Relocation: willing to relocate within Europe; not outside Europe\n- Occasional business travel: yes\n- Security clearance: none held; willing to apply where my citizenship allows\n- Preferred language for the process: English\n- LinkedIn: https://linkedin.example.test/in/alex-example\n- GitHub: https://github.example.test/alex-example\n- Personal website: https://alex.example.test\n",
+  "changelog": [
+    "2026-10-12 batch 1: notice/start (10 fields, 8 rows of the 11 Oct pool), how you heard (13/10), past employee or relatives (13/10), salary (10/9), links (7), years of experience (6), work authorisation/sponsorship outside CH/EU (5), relocation (5), languages and levels (breitling, nebius, bulgari), travel (breitling), security clearance (nice)"
+  ]
+}

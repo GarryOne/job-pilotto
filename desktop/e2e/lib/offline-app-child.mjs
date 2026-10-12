@@ -35,7 +35,7 @@ const storage = createStorage(dir, {encrypt: value => value, decrypt: value => v
 // The Electron run's applicant (lib/seed.mjs fastSeed: the window's saveStrategy with demo/draft.json), kept through the same function, with the stand-in contact:
 // a contact alone left the fill's AI a 250-character profile, and it judged the applicant ineligible where the Electron run filled (Teamtailor, 11 Oct 2026).
 (await import('../../lib/pipeline-env.js')).ensureConfig(storage);   // the settings files as the app makes them at every start (main.js), before the applicant is kept
-const {draft} = JSON.parse(fs.readFileSync(path.join(E2E, '..', 'demo', 'draft.json'), 'utf8'));
+const draft = (await import('./applicant-seed.mjs')).applicantDraft();   // JP_APPLICANT=grown: the grown applicant
 (await import('../../lib/strategy.js')).keepLocally(storage, {...draft, contact: STAND_IN});
 // A CI runner (lib/offline-app.mjs api): the app's API engine on the key it was handed, through the harness's proxy on this computer (ANTHROPIC_BASE_URL); else the plan.
 const apiKey = process.env.JOB_PILOTTO_E2E_API_KEY || '';
