@@ -6,6 +6,10 @@ import {rowFor} from '../../../tools/pool-rows.mjs';
 
 export const LABEL = 'live-proof';
 
+// Which test applicant the proof runs (owner, 12 Oct 2026: the grown one by default, so answers the grown applicant holds are asked live; #452's salary and
+// referral never were): "live-applicant: thin" in the PR body runs the thin one (e2e/lib/applicant-seed.mjs). An unknown name keeps the default.
+export const proofApplicant = body => ((String(body || '').match(/^live-applicant:[ \t]*(thin|grown)[ \t]*$/im) || [])[1] || 'grown').toLowerCase();
+
 const poolRowOf = messages => messages.flatMap(message => [...String(message).matchAll(/^Pool-row:[ \t]*(.*)$/gm)].map(found => found[1].trim()))
   .find(value => value && !/^none(\s|$)/i.test(value)) || '';   // "Pool-row: none <why>" names no row (tools/rung-trailer.mjs)
 const liveRowOf = body => (String(body || '').match(/^live-row:[ \t]*(.+)$/im) || [])[1]?.trim() || '';

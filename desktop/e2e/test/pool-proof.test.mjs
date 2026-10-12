@@ -2,7 +2,7 @@
 // "live-proof" label and a "live-row:" line in the PR body; a private row, a fork or no row named is a neutral line, never a silent skip and never a guess.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {LABEL, pickProofRow} from '../lib/pool-proof.mjs';
+import {LABEL, pickProofRow, proofApplicant} from '../lib/pool-proof.mjs';
 
 const publicNames = ['Lever: single page, no account', 'Personio form in German', 'Recruitee form', 'Recruitee: one-page form on recruitee.com'];
 const fix = row => `Fix the Lever upload slot\n\nBody.\n\nPool-row: ${row}\nCo-Authored-By: x`;
@@ -42,4 +42,12 @@ test('a row not in the repo\'s pool list runs on the Mac where it lives; words m
   assert.match(pickProofRow({action: 'labeled', label: 'live-proof', labels: ['live-proof'], body: 'live-row: Recruitee', messages: [], publicNames}).note,
     /^live-row "Recruitee" matches 2 pool rows: name one exactly \(Recruitee form; Recruitee: one-page form on recruitee\.com\)$/);
   assert.deepEqual(pickProofRow({action: 'opened', messages: [fix('Lever: single page, no account')], publicNames, fork: true}), {row: '', note: 'a fork\'s PR has no secrets: no live proof'});
+});
+
+// Owner, 12 Oct 2026: #452 changed the grown applicant's answers (salary, referral) and its proof ran the thin one, so those fields were never asked live.
+test('a PR proof runs as the grown applicant; "live-applicant: thin" in the PR body runs the thin one', () => {
+  assert.equal(proofApplicant(''), 'grown');
+  assert.equal(proofApplicant('A fix.\n\nlive-applicant: thin\n'), 'thin');
+  assert.equal(proofApplicant('live-applicant: grown'), 'grown');
+  assert.equal(proofApplicant('live-applicant: someone else'), 'grown', 'an unknown name keeps the default');
 });
