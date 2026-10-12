@@ -26,6 +26,18 @@ class MainRunsFinishTest(unittest.TestCase):
                 if value == 'false' or PR_ONLY.match(value): continue
                 offenders.append(f'{path.name}: cancel-in-progress: {value}')
         self.assertGreater(seen, 3, 'positive control: the push workflows are read')
+
+    def test_a_queued_main_run_is_never_replaced(self):
+        # 13 Oct 2026: with cancel-in-progress off, a run of main still showed "cancelled": it was QUEUED behind the previous main run and the next merge replaced it
+        # (GitHub keeps one pending run per concurrency group). On a push, every commit needs its own group. Deploys keep one group on purpose: two deploys at once
+        # could finish in the wrong order and leave older code live; they run only when their files change.
+        deploys, offenders = {'site.yml', 'site-next.yml', 'worker.yml', 'desktop.yml'}, []
+        for path in sorted((ROOT / '.github' / 'workflows').glob('*.yml')):
+            text = path.read_text(encoding='utf-8')
+            if not runs_on_push(text) or path.name in deploys: continue
+            group = re.search(r'^concurrency:\s*\n\s+group:\s*([^\n#]+)', text, re.M)
+            if group and 'github.sha' not in group.group(1) and 'github.run_id' not in group.group(1): offenders.append(f'{path.name}: group {group.group(1).strip()}')
+        self.assertEqual(offenders, [], "on a push, give each commit its own group: ${{ github.event_name == 'pull_request' && github.ref || github.sha }}")
         self.assertEqual(offenders, [], "a cancelled run of main shows as a red cross on main: use false, or ${{ github.event_name == 'pull_request' }}")
 
 

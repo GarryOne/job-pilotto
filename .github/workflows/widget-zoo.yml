@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: widget-zoo-${{ github.ref }}
+  group: widget-zoo-${{ github.event_name == 'pull_request' && github.ref || github.sha }}   # a PR's runs share one group (its newer push replaces the older); on main each commit is its own group, so a queued run is never replaced (cancelled = a red cross on main: tests/test_main_runs_finish.py)
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}   # a PR's newer push replaces its older run; every run of main finishes (a cancelled run is a red cross on main: tests/test_main_runs_finish.py)
 
 jobs:

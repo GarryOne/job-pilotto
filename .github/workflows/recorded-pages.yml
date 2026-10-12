@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: recorded-pages-${{ github.ref }}
+  group: recorded-pages-${{ github.event_name == 'pull_request' && github.ref || github.sha }}   # a PR's runs share one group (its newer push replaces the older); on main each commit is its own group, so a queued run is never replaced (cancelled = a red cross on main: tests/test_main_runs_finish.py)
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}   # a PR's newer push replaces its older run; every push to main is checked: this run is the net under the local gate, so a newer push queues behind it instead of cancelling it
 
 env:
