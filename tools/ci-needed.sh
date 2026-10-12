@@ -22,3 +22,8 @@ fi
 case "$verdict" in skip:*) run=false ;; *) run=true ;; esac
 echo "$job: $verdict"
 echo "run=$run" >>"$out"
+# Which of the job's tests to run (harness only, owner 13 Oct 2026 on #553: one guard test reached, all 190 ran): tests=<files> when the pick names them; empty = all.
+if [ "$run" = true ] && [ "$job" = harness ] && [ -n "${py:-}" ] && [[ "$verdict" != *"runs every job"* ]] && [[ "$verdict" != *"is its own"* ]]; then
+  picked="$("$py" tools/affected-jobs.py --job "$job" --tests --base 'HEAD^1' 2>/dev/null | tail -n 1)"
+  case "$picked" in ''|all) ;; *) echo "tests=$picked" >>"$out"; echo "$job: runs only $(wc -w <<<"$picked" | tr -d ' ') of its tests: $picked" | cut -c1-400 ;; esac
+fi
