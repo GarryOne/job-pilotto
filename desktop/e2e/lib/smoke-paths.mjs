@@ -14,6 +14,12 @@ export function electronLegRefused(url, guard) {
   try { guard(url, {record: false}); return ''; } catch (error) { if (error?.name === 'SiteLimitError') return error.message; throw error; }
 }
 
+// The live visits a site has left today (guard: site-ledger.mjs guardLiveVisit, asked without recording): 0 when refused; Infinity for no address or no real site.
+export function visitsLeft(url, guard) {
+  if (!url) return Infinity;
+  try { const seen = guard(url, {record: false}); return seen ? Math.max(0, seen.limit - seen.count) : Infinity; } catch (error) { if (error?.name === 'SiteLimitError') return 0; throw error; }
+}
+
 // The row reached less than its last result (compare()'s regression, for this one row). -> the reason ('' when not).
 export const lessThanLast = (previous, now) => (previous ? compare({row: previous}, {row: now})[0]?.why || '' : '');
 
@@ -37,8 +43,9 @@ export function lastPaired(reports = []) {
 }
 
 // This pass's paired sample: `size` of the chosen shapes, never paired first, then the oldest pairing; the pool's order on a tie.
-export function pairedSample(chosen, paired = {}, size = 2) {
-  return chosen.map((item, index) => ({item, index, day: paired[item.shape] || ''}))
+// roomy(item): its site has the two visits a pair needs today (visitsLeft below); a row without them would only be skipped at its Electron leg.
+export function pairedSample(chosen, paired = {}, size = 2, roomy = () => true) {
+  return chosen.filter(item => roomy(item)).map((item, index) => ({item, index, day: paired[item.shape] || ''}))
     .sort((a, b) => (a.day === b.day ? a.index - b.index : a.day < b.day ? -1 : 1)).slice(0, Math.max(0, size)).map(entry => entry.item.shape);
 }
 

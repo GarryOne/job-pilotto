@@ -8,7 +8,7 @@ import {fileURLToPath} from 'node:url';
 import os from 'node:os';
 import {guardLiveVisit} from '../lib/site-ledger.mjs';
 import {SITE_REFUSED, compare} from '../lib/smoke.mjs';
-import {agree, electronLegRefused, lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pathDifferenceLine, settleRefusal} from '../lib/smoke-paths.mjs';
+import {agree, electronLegRefused, visitsLeft, lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pathDifferenceLine, settleRefusal} from '../lib/smoke-paths.mjs';
 
 const E2E = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const URL = 'https://jobs.example.org/1';
@@ -121,4 +121,22 @@ test('smoke.mjs asks the ledger before every Electron leg it starts', () => {
   const legs = [...source.matchAll(/liveRun\([^)]*'electron'\)/g)];
   assert.ok(legs.length >= 1, 'smoke.mjs starts an Electron leg');
   for (const leg of legs) assert.match(source.slice(Math.max(0, leg.index - 1500), leg.index), /electronLegRefused\(/, 'the ledger is asked within the branch that starts the leg');
+});
+
+// The paired sample needs two visits of a site (plain node, then Electron): a row with one left would only be skipped at its Electron leg, so it is not picked.
+test('the paired sample picks only rows whose site has two visits left today; a row with no known address is picked as before', () => {
+  const env = {JOB_PILOTTO_SITE_LEDGER_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'jp-ledger-')), JOB_PILOTTO_SITE_LIMIT: '3'};
+  const real = process.pid;
+  const visitAs = (url, pid) => { Object.defineProperty(process, 'pid', {value: pid, configurable: true}); try { guardLiveVisit(url, {env, log: () => {}}); } finally { Object.defineProperty(process, 'pid', {value: real, configurable: true}); } };
+  const guard = (url, options) => guardLiveVisit(url, {...options, env, log: () => {}});
+  const full = 'https://full.example.org/1', tight = 'https://tight.example.org/1', open = 'https://open.example.org/1';
+  for (const pid of [92001, 92002, 92003]) visitAs(full, pid);
+  for (const pid of [92004, 92005]) visitAs(tight, pid);
+  assert.deepEqual([full, tight, open].map(url => visitsLeft(url, guard)), [0, 1, 3]);
+  assert.equal(visitsLeft('', guard), Infinity, 'no address yet (a row found by its look-alikes): not refused here');
+  const chosen = [{shape: 'full', urls: [full]}, {shape: 'tight', urls: [tight]}, {shape: 'like', like: ['x']}, {shape: 'open', urls: [open]}];
+  assert.deepEqual(pairedSample(chosen, {}, 2, item => visitsLeft(item.urls?.[0] || '', guard) >= 2), ['like', 'open']);
+});
+test('smoke.mjs picks its paired sample by the visits left', () => {
+  assert.match(fs.readFileSync(path.join(E2E, 'smoke.mjs'), 'utf8'), /pairedSample\([^\n]*visitsLeft\(/);
 });
