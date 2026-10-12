@@ -226,3 +226,16 @@ test('scenario: Claude opens the form tab with the session in the mark, the sign
   const resolved = resolveSession(identity, {get: terminals.get, list: terminals.list, isFormOf: () => false});
   assert.equal(resolved, 'f1');
 });
+
+test('scenario: Reopen opens the form again for the SAME session: its new tab\'s first report resolves to that session, whatever page it lands on (12 Oct 2026)', async () => {
+  const store = {};
+  globalThis.chrome = {runtime: {getManifest: () => ({version: 'test'}), sendMessage: async () => {}}, storage: {local: {get: async () => ({}), set: async () => {}}, session: {
+    async get(keys) { return Object.fromEntries([].concat(keys).filter(key => key in store).map(key => [key, store[key]])); }, async set(items) { Object.assign(store, items); }, async remove() {}}}};
+  const {identityOf} = await import('../../extension/tab-identity.js');
+  const {id} = journeyOf('f1');
+  const spawned = [];
+  assert.equal(apply.openOne(POSTING, {session: id, open: (...args) => { spawned.push(args); return {unref() {}}; }}).ok, true);
+  const address = spawned[0].flat(3).find(item => String(item).startsWith('http'));
+  const landed = await identityOf({id: 9, url: address.replace(/^https:\/\/[^/]+\/.*#/, `${SIGNIN}#`)});   // redirected to another host: the mark stays
+  assert.equal(resolveSession(landed, {get: terminals.get, list: terminals.list, isFormOf: () => false}), 'f1');
+});
