@@ -31,14 +31,28 @@
       const radios = Array.from(group?.querySelectorAll('[role=radio]') || []).filter(radio => radio.tagName !== 'INPUT');
       return radios.length ? radios : pressables(group);
     };
-    const isOn = option => option.getAttribute('aria-checked') === 'true' || option.getAttribute('aria-pressed') === 'true';
+    // An option reads as on by its own aria state, or by the native radio drawn inside it (a segment's aria-checked can lag behind or never be written).
+    const isOn = option => option.getAttribute('aria-checked') === 'true' || option.getAttribute('aria-pressed') === 'true' || !!option.querySelector?.('input[type=radio]:checked, input[type=checkbox]:checked');
+    // Press an option the way a person does and re-read it after each step: what sits at its centre (the label or text the page listens on), then the
+    // native input inside it, then the option itself. A segmented control's own element often has no handler: the state is set by what is inside it.
+    const press = option => {
+      const box = option.getBoundingClientRect?.();
+      if (box && box.width && box.height && (box.bottom < 0 || box.top > innerHeight)) option.scrollIntoView?.({block: 'center'});
+      const centre = box && box.width && box.height ? (point => point && option.contains(point) ? point : null)(document.elementFromPoint?.(box.left + box.width / 2, box.top + box.height / 2)) : null;
+      const steps = [centre && centre !== option ? centre : null, option.querySelector?.('input[type=radio], input[type=checkbox]'), option];
+      for (const target of steps) {
+        if (!target) continue;
+        target.click();
+        if (isOn(option)) return true;
+      }
+      return isOn(option);
+    };
     const checked = radios => radios.some(isOn);
     const pickAriaRadio = (key, answer) => {
       const group = groupOf(key);
       const match = group && optionFor(radiosOf(group), answer, nameOf);
       if (!match || LEGAL.test(`${groupName(group, radiosOf(group))} ${nameOf(match)}`)) return false;
-      if (!isOn(match)) match.click();
-      return isOn(match);
+      return isOn(match) || press(match);
     };
     // A pressable-button group's title: the nearest label/legend/title/heading above it (not inside it), a few levels up.
     const titleAbove = group => {

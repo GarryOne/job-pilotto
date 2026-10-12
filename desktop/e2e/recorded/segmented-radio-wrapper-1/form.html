@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Accounts Payable Accountant - Application</title>
+<style>.seg{display:flex;border:1px solid #bbb;border-radius:6px;width:max-content;padding:0;margin:4px 0} .opt{padding:10px 18px} .opt label{cursor:pointer} .hid{position:absolute;opacity:0;width:0;height:0} .opt[aria-checked=true]{background:#cde} .row{margin:18px 0}</style></head>
+<body>
+<!-- Hand-cut from the structure of a recorded application page (12 Oct 2026), values removed. A segmented two-option control: each segment is a div role=radio (aria-checked,
+     named by the question + its own word) around a label that holds a visually hidden native radio. The page's framework listens to the change of the input only: a click
+     that lands on the segment's own div does nothing; a click on its label (what a person hits) or on the input sets the state. The script does the same. -->
+<form id="f">
+ <div class="row"><label for="fn">First name</label> <input id="fn" name="first_name" type="text" required></div>
+ <div class="row"><label for="ln">Last name</label> <input id="ln" name="last_name" type="text" required></div>
+ <div class="row"><label for="em">Email</label> <input id="em" name="email" type="email" required></div>
+  <div class="row"><div class="q"><span class="mark"><strong>*</strong></span><span id="q1"><strong>Are you fluent in English?</strong></span></div>
+   <fieldset role="radiogroup" data-ui="G1" aria-labelledby="q1" class="seg">
+    <div data-ui="option" class="opt" role="radio" aria-checked="false" aria-required="true" tabindex="0" id="w_g1o0" aria-labelledby="q1 l_g1o0"><label><input aria-required="true" required type="radio" id="g1o0" name="G1" tabindex="-1" aria-hidden="true" class="hid"><div><span id="l_g1o0">YES</span></div></label></div>
+    <div data-ui="option" class="opt" role="radio" aria-checked="false" aria-required="true" tabindex="-1" id="w_g1o1" aria-labelledby="q1 l_g1o1"><label><input aria-required="true" required type="radio" id="g1o1" name="G1" tabindex="-1" aria-hidden="true" class="hid"><div><span id="l_g1o1">NO</span></div></label></div>
+   </fieldset></div>
+  <div class="row"><div class="q"><span class="mark"><strong>*</strong></span><span id="q2"><strong>Do you currently have the legal right to work in the EU without the need for visa sponsorship?</strong></span></div>
+   <fieldset role="radiogroup" data-ui="G2" aria-labelledby="q2" class="seg">
+    <div data-ui="option" class="opt" role="radio" aria-checked="false" aria-required="true" tabindex="0" id="w_g2o0" aria-labelledby="q2 l_g2o0"><label><input aria-required="true" required type="radio" id="g2o0" name="G2" tabindex="-1" aria-hidden="true" class="hid"><div><span id="l_g2o0">YES</span></div></label></div>
+    <div data-ui="option" class="opt" role="radio" aria-checked="false" aria-required="true" tabindex="-1" id="w_g2o1" aria-labelledby="q2 l_g2o1"><label><input aria-required="true" required type="radio" id="g2o1" name="G2" tabindex="-1" aria-hidden="true" class="hid"><div><span id="l_g2o1">NO</span></div></label></div>
+   </fieldset></div>
+</form>
+<script>
+  for (const input of document.querySelectorAll('input[type=radio]')) {
+    input.addEventListener('change', () => {
+      for (const other of document.querySelectorAll(`input[name="${input.name}"]`)) other.closest('[role=radio]').setAttribute('aria-checked', String(other.checked));
+    });
+  }
+</script>
+</body></html>

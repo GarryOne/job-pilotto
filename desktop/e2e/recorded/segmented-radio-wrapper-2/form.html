@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><title>Bewerbung: Buchhalter</title>
+<style>ul.s{display:inline-flex;list-style:none;margin:0;padding:0;gap:0} li.k{border:1px solid #999;padding:6px 14px;cursor:pointer} li.k.on{background:#dde} .zeile{margin:16px 0}</style></head>
+<body>
+<!-- Hand-cut variant of segmented-radio-wrapper-1, everything incidental changed: German labels, list items instead of divs/fieldset, the question in a heading AFTER the
+     control in the DOM order of its block, no label around the segment (the click handler sits on an inner span; the native radio is display:none and only mirrors the
+     state), an extra wrapper. A click on the li itself does nothing; one on the span inside it (what a person hits) sets the state. -->
+<main><section>
+ <div class="zeile"><label for="vn">Vorname</label> <input id="vn" name="vorname" type="text" required></div>
+ <div class="zeile"><label for="nn">Nachname</label> <input id="nn" name="nachname" type="text" required></div>
+ <div class="zeile"><label for="mail">E-Mail</label> <input id="mail" name="mail" type="email" required></div>
+ <div class="zeile"><div class="wrap1"><div class="wrap2">
+  <ul class="s" role="radiogroup" aria-labelledby="frage-a">
+   <li class="k" role="radio" aria-checked="false" tabindex="0"><span class="t">Ja</span><input type="radio" name="a" style="display:none"></li>
+   <li class="k" role="radio" aria-checked="false" tabindex="-1"><span class="t">Nein</span><input type="radio" name="a" style="display:none"></li>
+  </ul></div></div>
+  <h4 id="frage-a">Sprechen Sie fliessend Englisch? *</h4></div>
+ <div class="zeile"><div class="wrap1">
+  <ul class="s" role="radiogroup" aria-labelledby="frage-b">
+   <li class="k" role="radio" aria-checked="false" tabindex="0"><span class="t">Ja</span><input type="radio" name="b" style="display:none"></li>
+   <li class="k" role="radio" aria-checked="false" tabindex="-1"><span class="t">Nein</span><input type="radio" name="b" style="display:none"></li>
+  </ul></div>
+  <h4 id="frage-b">Besitzen Sie eine gueltige Arbeitsbewilligung fuer die Schweiz? *</h4></div>
+</section></main>
+<script>
+  for (const span of document.querySelectorAll('li.k .t')) {
+    span.addEventListener('click', () => {
+      const item = span.parentElement, group = item.parentElement;
+      for (const other of group.children) { other.setAttribute('aria-checked', String(other === item)); other.classList.toggle('on', other === item); other.querySelector('input').checked = other === item; }
+    });
+  }
+</script>
+</body></html>
