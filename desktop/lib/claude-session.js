@@ -52,13 +52,14 @@ export function sessionEnv(storage, parent = process.env, platform = process.pla
 }
 
 // The session's instructions: the skill does the work; this names the job, the files and the hand-off.
-export function prompt(url, {auditFile}) {
+export function prompt(url, {auditFile, session = ''}) {
   // This session opens the one form tab itself, with the mark that arms the Job Pilotto extension on it (claude-in-chrome
   // only sees tabs in its own group, so a tab the app opened is invisible to it): the extension fills most fields in
   // seconds; this session does the rest.
   const identity = 'Use only the applicant details given here; never a name, e-mail address, phone number, country, city, street address or other location from any other context (such as an account you are signed in with): when a detail is not given, leave it empty. ';   // every claude session carries its account e-mail (11 Oct 2026)
-  const handoff = `Open the form tab yourself, once: tabs_context_mcp with createIfEmpty true, then navigate that tab to ${url}#jobpilotto-fill ` +
-    '(keep the #jobpilotto-fill at the end, it arms the Job Pilotto extension on the tab, which then fills the form by itself; whenever you navigate that tab to another address yourself, put #jobpilotto-fill at the end of that address too, or the tab stops being part of this application). It is the ' +
+  const mark = session ? `#jobpilotto-fill=${session}` : '#jobpilotto-fill';   // the id makes the tab this session's from its first page
+  const handoff = `Open the form tab yourself, once: tabs_context_mcp with createIfEmpty true, then navigate that tab to ${url}${mark} ` +
+    `(keep the ${mark} at the end, it arms the Job Pilotto extension on the tab, which then fills the form by itself; whenever you navigate that tab to another address yourself, put ${mark} at the end of that address too, or the tab stops being part of this application). It is the ` +
     'only tab for this application: never open a second one. On each page, if <html> has data-jobpilotto-hook, read ' +
     'document.documentElement.dataset.jobpilottoFill every 3 s (in one JS call that waits, up to 90 s). state running: keep waiting. ' +
     'done: fill ONLY its todo (dropdowns that ignore scripted clicks, per the skill), then press Next when the form has another page. ' +
@@ -180,7 +181,7 @@ export async function launchInApp(storage, urls, {claude, platform = process.pla
     const auditFile = path.join(dir, `audit_${id}.json`).replaceAll('\\', '/');
     const promptFile = path.join(dir, `prompt_${id}.txt`);
     const settingsFile = path.join(dir, `settings_${id}.json`);
-    fs.writeFileSync(promptFile, twinNote() + prompt(url, {auditFile}), {mode: 0o600});
+    fs.writeFileSync(promptFile, twinNote() + prompt(url, {auditFile, session: id}), {mode: 0o600});
     fs.writeFileSync(settingsFile, term.hookSettings(id, port), {mode: 0o600});  // the hooks that report to the app
     const claudeId = crypto.randomUUID();  // the conversation: resume() can reopen it after the app was closed
     const flags = [...browserFlags(dir), '--permission-mode', 'bypassPermissions', '--settings', settingsFile, '--session-id', claudeId];

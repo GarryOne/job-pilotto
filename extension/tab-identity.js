@@ -4,7 +4,7 @@
 // uses KEY or the helpers below. Guard: desktop/test/extension-tab-identity.test.js (it fails when another file builds one of these names).
 // Invariant: the job of a tab is its posting, never the page it is on now (a sign-in page carries the posting that led to it).
 import {sessionGet} from './tab-memory.js';
-import {pageKey} from './tab-pages.js';
+import {pageKey, parseMark} from './tab-pages.js';
 
 export const KEY = {session: tabId => `session:${tabId}`, job: tabId => `job:${tabId}`, from: tabId => `from:${tabId}`};
 export const IDENTITY_KEYS = tabId => [KEY.from(tabId), KEY.job(tabId), KEY.session(tabId)];
@@ -29,7 +29,7 @@ export function inheritedEntries(stored, opener, tabId) {
 
 // -> {session, job, url}: what the app needs to know which application a report is about.
 export async function identityOf(tab) {
-  const session = await sessionOf(tab.id);
+  const session = (await sessionOf(tab.id)) || parseMark(tab.url);   // the id in the address: owned at first sight, and again after Chrome restores the tab
   return {session, job: String(await jobOf(tab)).split('#')[0], url: String(tab.url || '').split('#')[0]};
 }
 
