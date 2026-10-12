@@ -101,13 +101,13 @@
           if (!option) Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, String(answer).split(' || ')[0].split(',')[0].trim());
           if (!option) el.dispatchEvent(new Event('input', {bubbles: true}));
           for (let waited = 0; waited < 4000 && !option; waited += 250) { loadMoreOptions(); await sleep(250); option = matchOption(answer); }
-          // A type-to-search box ignores that scripted typing (its options come from a server after real keystrokes): the extension types for real.
-          if (!option && el.tagName === 'INPUT') { const found = await typeToSearch(el, answer); option = found.option; if (found.shown.length) shown = found.shown; }
-          // Nothing matched the answer's text, typed or scrolled to ("Yes" asked, "I have the right to work here" offered): the AI picks the choice that means the same from the menu as it opened; the filter text goes first so they are all shown again.
+          // Nothing matched the answer's text, scrolled to ("Yes" asked, "I have the right to work here" offered): the AI picks the choice that means the same from the menu as it opened; the filter text goes first so they are all shown again.
           if (!option && menuAsOpened.length) {
             const choice = await need({kind: 'choose', label: labelOf(el) || '', asked: String(answer).split(' || ')[0], choices: menuAsOpened});
             if (choice) { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ''); el.dispatchEvent(new Event('input', {bubbles: true})); for (let waited = 0; waited < 2000 && !option; waited += 250) { await sleep(250); option = optionNodes().find(o => clean(o.textContent) === choice) || null; } }
           }
+          // A type-to-search box ignores that scripted typing (its options come from a server after real keystrokes, so it showed none when it opened): the extension types for real. A menu that did show its choices is asked about by meaning above, not typed at again and again.
+          if (!option && !menuAsOpened.length && el.tagName === 'INPUT') { const found = await typeToSearch(el, answer); option = found.option; if (found.shown.length) shown = found.shown; }
         }
         // Picked only when the page shows it (page/menu-pick.js); what was seen goes to flow.js clickCombos and the fill card's reason (observed, not assumed: 9 Oct 2026).
         const opened = el.getAttribute('aria-expanded') === 'true' || optionNodes().length > 0;   // before the pick closes it
