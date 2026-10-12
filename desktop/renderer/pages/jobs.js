@@ -20,6 +20,12 @@ import {wireLead} from './jobs-lead.js';
 import {loadQuestions} from './jobs-questions.js';
 import {wireViews} from './jobs-views.js';
 import {storeName} from '../store-words.js';
+import {jobWrites} from '../job-writes.js';
+
+// Every write that changes a job's stage or status ends in jobsChanged(row, patch): that row at once, then the list read again from the store
+// (renderer/job-writes.js: a read older than the write is never painted). The other reads of the list go through writes.read for the same reason.
+const writes = jobWrites({read: options => window.pilot.jobs(options), paint: fresh => { showJobsData(fresh); renderJobs(); }});
+export const jobsChanged = (job = null, patch = {}) => writes.changed(job, patch);
 
 // Sites that often show a sign-in page instead of the posting (src/notion/ledger.py WALLED): read like any page, with fields for the text in case.
 const WALLED = /(^|\.)(linkedin\.com|glassdoor\.[a-z.]+|indeed\.[a-z.]+|levels\.fyi|reddit\.com)$/i;
@@ -47,9 +53,8 @@ export async function loadJobs() {
       const saved = await window.pilot.cached('jobs');
       if (saved?.result?.jobs) { showJobsData(saved.result); jobsState.jobsLoading = false; renderJobs(); $('jobs-stats').textContent += ` · saved ${savedAgo(saved.at)}, updating…`; jobsState.jobsLoading = true; }
     }
-    const fresh = await window.pilot.jobs();
-    showJobsData(fresh);
-    freshJobs = !fresh.stale;  // from Notion now, not the cache: safe to ask about what's still Applying
+    const fresh = await writes.read();
+    if (fresh) { showJobsData(fresh); freshJobs = !fresh.stale; }  // from Notion now, not the cache: safe to ask about what's still Applying. null: a job was written meanwhile, its own read paints
   } catch (error) {
     $('jobs-stats').textContent = `Couldn't read your jobs: ${error.message}`;
   }
@@ -82,7 +87,8 @@ async function showMore() {
   button.textContent = 'Loading…';
   try {
     jobsLimit = shared.allJobs.length + MORE;
-    showJobsData(await window.pilot.jobs({limit: jobsLimit}));
+    const fresh = await writes.read({limit: jobsLimit});
+    if (fresh) showJobsData(fresh);
   } catch (error) {
     toastMessage('Could not load more jobs', error.message);
   }
@@ -102,7 +108,7 @@ function reloadQuietly() {
   reloadLater = setTimeout(() => {
     reloadLater = null;
     lastReload = Date.now();
-    quietReload = window.pilot.jobs().then(fresh => { if (fresh?.jobs) { showJobsData(fresh); renderJobs(); } })
+    quietReload = writes.read().then(fresh => { if (fresh?.jobs) { showJobsData(fresh); renderJobs(); } })
       .catch(() => {}).finally(() => { quietReload = null; });
   }, wait);
 }

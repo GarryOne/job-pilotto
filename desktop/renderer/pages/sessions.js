@@ -10,7 +10,7 @@ import {offerParts} from '../claude-offer.js';
 import {hasSessionCache, rememberSessions, rememberedSessions} from '../sessions-cache.js';
 import {$, osText, show} from './core.js';
 import {initOptional, showOptional} from './session-optional.js';
-import {pageKey} from './jobs.js';
+import {jobsChanged, pageKey} from './jobs.js';
 import {richText} from './rich-text.js';
 import {attachTerminal, fitTerminal, openSession, renderSessionPage, say} from './session-log.js';
 import {applyFormStates, askRow, reviewStates, opening, openForm, reopenClosedTab, checkingTab, silentChrome, formGone, formReady, emptyFields, emptyRow, explainExtension, needRow, showFormState, showSendBar, updateNeedsCount, watchAgreements} from './session-needs.js';
@@ -187,6 +187,7 @@ const submittedButton = item => sessionButton('I submitted it', 'secondary', asy
   button.disabled = true;
   const result = await window.pilot.setStatus(item.url, 'applied').catch(error => ({ok: false, error: error.message}));
   if (!result.ok) { button.disabled = false; toastMessage('Not marked Applied', result.error || 'Try again.'); return; }
+  jobsChanged(sessionJob(item), {stage: 'Applied', status: 'applied'});   // its Jobs row too, not only this button
   button.textContent = '✓ Marked Applied';
 }, 'check');
 // Where to answer: the button opens the reply box in the log below (a quick reply there sends one tap of text).

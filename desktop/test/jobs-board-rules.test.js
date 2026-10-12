@@ -18,14 +18,26 @@ test('the board has a column for every Applications stage in the schema, and not
 });
 
 test('the 10 saved views of the Applications database, each a Stage set as in Notion', () => {
-  assert.deepEqual(VIEWS.map(view => view.label), ['All applications', 'Active', 'In progress', 'Kit ready', 'Saved', 'Closed', 'Dismissed', 'All', 'Rejected', 'This week']);
+  assert.deepEqual(VIEWS.map(view => view.label), ['All applications', 'Active', 'Applying', 'Kit ready', 'Saved', 'Closed', 'Dismissed', 'All', 'Rejected', 'This week']);
   const of = id => STAGES.filter(stage => inView(job(stage), id, NOW));
   assert.deepEqual(of('active'), ['Applied', 'Confirmation received', 'Screening', 'Interview scheduled', 'Interviewing', 'Offer']);
   assert.deepEqual(of('all-applications'), ['Applying', 'Applied', 'Confirmation received', 'Screening', 'Interview scheduled', 'Interviewing', 'Offer', 'Rejected', 'No response', 'Withdrawn']);
   assert.deepEqual(of('rejected'), ['Rejected', 'No response', 'Withdrawn']);
-  for (const [id, stage] of [['in-progress', 'Applying'], ['kit-ready', 'Kit ready'], ['saved', 'Saved'], ['closed', 'Closed'], ['dismissed', 'Dismissed']]) assert.deepEqual(of(id), [stage], id);
+  for (const [id, stage] of [['applying', 'Applying'], ['kit-ready', 'Kit ready'], ['saved', 'Saved'], ['closed', 'Closed'], ['dismissed', 'Dismissed']]) assert.deepEqual(of(id), [stage], id);
   assert.deepEqual(of('all'), STAGES, 'All = every Applications row');
   assert.equal(inView({url: 'u', stage: ''}, 'all', NOW), false, 'a job match without a row is in no view');
+});
+
+// 12 Oct 2026, the owner: "I don't have a way to filter for Applying". The chip was there, named "In progress", while every row's pill and the
+// stuck banner said Applying. The class: a chip that narrows to one stage carries that stage's name, and every stage a row can show has a chip.
+const ELSEWHERE = {'Recruiter lead': 'the Inbound menu choice and In conversation list them'};
+test('every stage has a chip that narrows to it, and a chip of one stage is named by that stage', () => {
+  const stagesOf = view => STAGES.filter(stage => view.test(job(stage), NOW));
+  const narrowing = VIEWS.filter(view => stagesOf(view).length < STAGES.length);   // "All" narrows nothing
+  for (const stage of STAGES) assert.ok(narrowing.some(view => stagesOf(view).includes(stage)) || ELSEWHERE[stage], `${stage}: no chip lists it`);
+  const single = VIEWS.filter(view => stagesOf(view).length === 1);
+  assert.ok(single.length >= 5, 'positive control: the one-stage chips were found');
+  for (const view of single) assert.equal(view.label, stagesOf(view)[0], view.id);
 });
 
 test('This week is the Fresh formula: applied at most 7 days ago, whatever the stage', () => {

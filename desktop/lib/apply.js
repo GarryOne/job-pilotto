@@ -62,6 +62,7 @@ const NO_KITS = 'No job has an application kit yet, and none could be drafted. P
 const ON_GITHUB = 'Kits are being drafted on GitHub (Always on). Press Apply again in a few minutes, when the jobs show 📝 Kit.';
 
 import {formUrl, isFormOf} from './form-address.js';
+import {readsChanged} from './shared-read.js';
 export {formUrl, isFormOf};
 
 // Claude takes a job over in its own tab (claude-in-chrome acts only in its own tab group, so it can't use the extension's tab):
@@ -95,7 +96,7 @@ export async function applyOne(storage, url, details = {}, {open = spawn, term =
     location: details?.location || '', workMode: details?.workMode || ''});
   const opened = openOne(url, {session: session.id, open});
   if (!opened.ok) { if (fresh) term.remove(session.id); return opened; }
-  if (fresh) run(storage, ['src.ai.apply_batch', '--mark-applying', url.split('#')[0]]).catch(() => {});
+  if (fresh) run(storage, ['src.ai.apply_batch', '--mark-applying', url.split('#')[0]]).then(readsChanged).catch(() => {});   // a stage write: reads after it start their own
   return {ok: true, session};
 }
 

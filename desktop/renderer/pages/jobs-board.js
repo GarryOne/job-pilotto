@@ -7,7 +7,7 @@ import {matchLabel} from '../jobs-view.js';
 import {$} from './core.js';
 import {openJobPanel} from './job-panel.js';
 import {toastMessage} from './startup.js';
-import {loadJobs} from './jobs.js';
+import {jobsChanged} from './jobs.js';
 import {openFromBoard} from './jobs-views.js';
 
 let dragged = null;   // the job being dragged (dataTransfer is unreadable during dragover)
@@ -22,9 +22,9 @@ export async function moveJob(job, stage) {
   // The store's answer is the truth: Saved or Dismissed never replace a real stage (rules.mark), so the card may stay.
   const landed = result.stage || (move.call === 'setStage' ? stage : before);
   if (landed === before) toastMessage('Kept', `${job.title || 'This job'} stays at ${before}: ${stage} never replaces an application stage.`);
-  else { job.stage = landed; toastMessage('Moved', `${job.title || 'This job'}: ${landed}.`); }
+  else toastMessage('Moved', `${job.title || 'This job'}: ${landed}.`);
+  jobsChanged(job, {stage: landed});
   document.dispatchEvent(new CustomEvent('jobs-rerender'));
-  loadJobs();
 }
 
 function card(job) {
