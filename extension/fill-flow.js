@@ -88,8 +88,8 @@ function pageShape(tabId) {
 }
 // A sketch of the page for the AI that decides its kind (desktop/lib/page-kind.js): headings, every visible control's type and label
 // (never its value), and the buttons and short links a person could press. In the page's own language: nothing here matches words.
-// The label right before a box that its <label for> names no box of (page/label-before.js) must be there when the sketch's labelOf asks for it.
-const labelReaderIn = tabId => chrome.scripting.executeScript({target: {tabId}, files: ['page/label-before.js']}).catch(() => {});
+// The label right before a box (page/label-before.js) and the required mark (page/required-mark.js) must be in this world when the sketch asks for them.
+const labelReaderIn = tabId => chrome.scripting.executeScript({target: {tabId}, files: ['page/required-mark.js', 'page/label-before.js']}).catch(() => {});
 function pageSketchOf(tabId) {
   return chrome.scripting.executeScript({target: {tabId}, func: () => {   // a closed script: desktop/e2e/ladder-capture.mjs runs its body on its own (no arguments)
     // Never the extension's own UI (the panel's shadow root, the step box, the note, the Submit guard: ids jobpilotto-*, job-pilotto-*): what the AI is shown is the page,
@@ -102,7 +102,7 @@ function pageSketchOf(tabId) {
     const controls = all('input, select, textarea')
       .filter(el => el.type === 'file' || (el.type !== 'hidden' && shown(el)))   // an upload behind a button keeps its input hidden
       .filter(el => !['submit', 'button', 'reset', 'image'].includes(el.type))
-      .map(el => ({type: el.tagName === 'INPUT' ? el.type : el.tagName.toLowerCase(), label: labelOf(el).slice(0, 80), required: !!el.required || el.getAttribute('aria-required') === 'true'}));
+      .map(el => ({type: el.tagName === 'INPUT' ? el.type : el.tagName.toLowerCase(), label: labelOf(el).slice(0, 80), required: window.__jobPilottoRequired?.marked ? window.__jobPilottoRequired.marked(el) : (!!el.required || el.getAttribute('aria-required') === 'true')}));
     // An open modal dialog (a start step over the posting: jobs.ch "Create an account to apply faster", 11 Oct 2026) sits last in the DOM, behind the page's own navigation, so the 20-button cap cut it off and
     // the AI never saw its routes. What a person can act on is the dialog: its buttons and headings come first (found by structure only: a dialog the page shows, with or without the `open` attribute (jobs.ch shows its <dialog> by CSS, no `open`; its buttons are only listed when shown, so a closed one adds nothing); the AI still decides what they mean). Order only: the list is the same.
     const modalFirst = els => { const inModal = el => !!el.closest?.('dialog, [role=dialog], [role=alertdialog], [aria-modal=true]'); return [...els.filter(inModal), ...els.filter(el => !inModal(el))]; };
