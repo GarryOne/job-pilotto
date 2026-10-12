@@ -308,3 +308,18 @@ test('a field the extension filled itself after the fill was over (the account s
   review.report(sessions, form({left: 0, filled: ['E-mail', 'Mot de passe', 'Phone'], ours: ['Mot de passe'], over: true}), 5000);
   assert.deepEqual(heard.at(-1).filled.map(field => [field.label, field.by]), [['E-mail', 'fill'], ['Mot de passe', 'fill'], ['Phone', 'you']]);
 });
+
+// 12 Oct 2026 (owner: "the state is not reflecting the reality"): Apply opens Ashby, Lever and Workable at the form address (apply.js formUrl), so the tab's job
+// is not the session's posting address. The page-to-session match must know that, or those tabs are nobody's and their cards cannot say open or closed.
+test('a tab opened at a form address that differs from the posting still belongs to its session, for every site formUrl rewrites', async () => {
+  const {formUrl} = await import('../lib/apply.js');
+  const postings = ['https://jobs.ashbyhq.com/acme/621bb104-9daa-4c9e-949a-03d5730334e8', 'https://jobs.lever.co/acme/621bb104-9daa-4c9e-949a-03d5730334e8', 'https://apply.workable.com/acme/j/ABC123DEF4'];
+  for (const posting of postings) {
+    assert.notEqual(formUrl(posting), posting, `${posting} is a site whose form lives at another address`);
+    review._reset();
+    const sessions = [{id: 'k1', url: posting, company: 'Acme', kind: 'form', status: 'done', startedAt: '2026-10-12T10:00:00Z'}];
+    const reply = review.report(sessions, {url: `${formUrl(posting)}#jobpilotto-fill`, job: formUrl(posting), tab: 7, left: 2, total: 5, watch: []});
+    assert.equal(reply.matched, 'k1', posting);
+    assert.equal(review.tabOf('k1'), 7, `${posting}: the session is bound to its tab`);
+  }
+});

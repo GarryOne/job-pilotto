@@ -61,27 +61,8 @@ export async function draftMissing(jobs, shortfall, prepare, report = () => {}) 
 const NO_KITS = 'No job has an application kit yet, and none could be drafted. Press Apply on one job to see why.';
 const ON_GITHUB = 'Kits are being drafted on GitHub (Always on). Press Apply again in a few minutes, when the jobs show 📝 Kit.';
 
-// Tier 1: where the application form lives for a known site, when the posting page only has an "Apply" button in front of it.
-// Ashby: <posting>/application, Lever: <posting>/apply, Workable: <posting>/apply. Anything else (or a URL already there) opens as it is.
-export function formUrl(url) {
-  let parsed;
-  try { parsed = new URL(String(url).split('#')[0]); } catch { return String(url || ''); }
-  const path = parsed.pathname.replace(/\/+$/, '');
-  const host = parsed.hostname.toLowerCase();
-  const to = suffix => `${parsed.origin}${path}${suffix}${parsed.search}`;
-  if (host === 'jobs.ashbyhq.com' && /^\/[^/]+\/[0-9a-f-]{36}$/i.test(path)) return to('/application');
-  if (host === 'jobs.lever.co' && /^\/[^/]+\/[0-9a-f-]{36}$/i.test(path)) return to('/apply');
-  if (host === 'apply.workable.com' && /^\/[^/]+\/j\/[0-9A-Za-z]+$/.test(path)) return to('/apply');
-  return String(url).split('#')[0];
-}
-
-// Is this URL (a page the extension reported) the form of that job's posting: the posting itself, its direct form link, or a
-// page below it. Exact on the job, unlike the page-to-session match, so a stuck report never lands on another job at the same company.
-export function isFormOf(reported, posting) {
-  const key = url => String(url || '').split('#')[0].replace(/\/+$/, '');
-  const [page, job] = [key(reported), key(posting)];
-  return !!page && !!job && (page === job || page === key(formUrl(posting)) || page.startsWith(`${job}/`));
-}
+import {formUrl, isFormOf} from './form-address.js';
+export {formUrl, isFormOf};
 
 // Claude takes a job over in its own tab (claude-in-chrome acts only in its own tab group, so it can't use the extension's tab):
 // the job's form session tab closes when nothing was filled in it (a sign-in page, a posting the extension couldn't get past),
