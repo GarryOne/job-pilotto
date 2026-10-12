@@ -350,3 +350,25 @@ test('OpenAI API streams like the Anthropic SDK (the strategy draft\'s progress 
   await assert.rejects(cut.messages.stream({model: 'claude-haiku-5-5', messages: [{role: 'user', content: 'x'}]}).finalMessage(), AiUnavailable);
   assert.throws(() => client.messages.stream({model: 'm', temperature: 1, messages: []}), /not part of the AI contract/);
 });
+
+// The Anthropic API refuses maxItems/minItems in a structured-output schema (400 invalid_request_error, 3 Oct 2026; again 12 Oct 2026 for the
+// page-kind digest on the Ocado row in CI). Callers write them to cap their own lists; the one place every API ask passes through takes them out.
+test('the Anthropic API engine never sends maxItems or minItems: create and stream, nested, for every schema the app builds', async () => {
+  const {DIGEST_SCHEMA} = await import('../lib/ladder/rung3-digest.js');
+  const nested = {type: 'object', properties: {list: {type: 'array', minItems: 1, maxItems: 3, items: {type: 'object', properties: {inner: {type: 'array', maxItems: 2, items: {type: 'string'}}}}}}};
+  for (const schema of [DIGEST_SCHEMA, nested, SCHEMA]) {
+    const sent = [];
+    const sdk = {messages: {create: async body => { sent.push(body); return {content: [], usage: {}}; }, stream: body => { sent.push(body); return {}; }}};
+    const api = new AnthropicApi({sdk});
+    const ask = {...params(), output_config: {format: {type: 'json_schema', schema}, effort: 'low'}};
+    await api.messages.create(ask);
+    api.messages.stream(ask);
+    assert.equal(sent.length, 2);
+    for (const body of sent) {
+      assert.doesNotMatch(JSON.stringify(body.output_config), /maxItems|minItems/, 'a limit reached the API');
+      assert.equal(body.output_config.effort, 'low', 'the rest of output_config is kept');
+      assert.deepEqual(body.system, ask.system, 'cache_control and the rest are as the caller wrote them');
+    }
+    assert.match(JSON.stringify(ask.output_config), schema === SCHEMA ? /^(?!.*maxItems)/ : /maxItems/, 'the caller\'s own schema is not changed');
+  }
+});
