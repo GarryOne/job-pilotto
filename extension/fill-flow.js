@@ -153,10 +153,10 @@ export async function askKind(tab, {fresh = false, digest = false, shadow = fals
     return answer?.role ? answer : null;
   } catch (error) { decide('fill', 'page kind: the app could not be asked', {class: String(error?.name || 'Error').slice(0, 40), ms: Date.now() - askedAt, digest}); return null; }   // the class only: a message can carry page text
 }
-// Claude reads this on <html data-jobpilotto-fill>. States: running, done, error, no-form, account.
-function writeState(tabId, value) {
-  return chrome.scripting.executeScript({target: {tabId}, args: [JSON.stringify(value)],
-    func: text => { if (document.documentElement) document.documentElement.dataset.jobpilottoFill = text; }}).catch(() => {});
+// Claude reads this on <html data-jobpilotto-fill>. States: running, done, error, no-form, account. A fill's end goes only into the page it started on (its token, kept in this script world; 13 Oct 2026: a sign-up page's "done" landed on the form after it). Guard: worker/test/fill-mark-own-page.test.js.
+export function writeState(tabId, value, token = '') {
+  return chrome.scripting.executeScript({target: {tabId}, args: [JSON.stringify(value), token, value.state],
+    func: (text, token, now) => { if (now === 'running') window.__jobPilottoFillToken = token; else if (token && window.__jobPilottoFillToken !== token) return; if (document.documentElement) document.documentElement.dataset.jobpilottoFill = text; }}).catch(() => {});
 }
 // A page with no form control of any kind (fill-flow consider waits for it to stop growing before its kind is asked).
 export const BOT_CHECK_NEED = 'Solve the robot check in this tab; the form fills after it';   // said in the session (desktop/lib/terminals.js noteStuck)
@@ -414,13 +414,13 @@ export async function consider(tab, jobUrl) {
     return;
   }
   decide('fill', 'filling', {host, job: new URL(String(jobUrl || tab.url)).pathname, page: new URL(tab.url).pathname});   // which posting's kit this page uses
-  await writeState(tab.id, {state: 'running'});
+  const fillToken = crypto.randomUUID(); await writeState(tab.id, {state: 'running'}, fillToken);
   const result = await fillOpenedTab(live, String(jobUrl || tab.url).split('#')[0], false, {fast: true, quiet: true});
   // The end state is this page's: a tab that moved on during the fill (the person pressed the page's own "Create account") shows another page, which writes its own
   // (13 Oct 2026: a sign-up's fill error was read on the application form after it, as if the form had failed).
   const still = await chrome.tabs.get(tab.id).catch(() => null);
   if (!still || String(still.url || '').split('#')[0] === String(live.url || tab.url).split('#')[0]) await writeState(tab.id, result?.error ? {state: 'error', error: String(result.error).slice(0, 160)}
-    : {state: 'done', filled: result?.filled || 0, left: (result?.todo || []).length, todo: (result?.todo || []).slice(0, 20)});
+    : {state: 'done', filled: result?.filled || 0, left: (result?.todo || []).length, todo: (result?.todo || []).slice(0, 20)}, fillToken);
   else decide('fill', 'the tab moved on during the fill: its end state is left to the next page', {page: new URL(String(live.url || tab.url)).pathname}).catch(() => {});
   reportFlow(tab, {role: 'form', ok: !result?.error});
   const requiredIn = (result?.trace || []).filter(row => row.required && row.outcome === 'filled').length; if (!result?.error && requiredIn) noteProgress(tab.id, 'required_down', {filled: requiredIn});
