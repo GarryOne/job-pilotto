@@ -1,0 +1,67 @@
+{
+ "shape": "a form whose attachment zone is a pressable three levels under the container that names uploading, its real file input made by script and hidden as a first child of <body>, beside a lone consent box in a row of captioned fields: the CV goes into that input with no press, and the box is read by its own caption, never the first field's",
+ "why": "12 Oct 2026, a Swiss job board's application form (variant of dropzone-input-in-body-and-grid-consent-1): another language, spans for captions, other nesting; the old build found no slot ('no place to attach it') and titled the consent box with the first field's caption",
+ "sample": "invented posting and form (a hand-cut variant of the real capture's shape)",
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://jobs.beispiel.example/fr/offre/88",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://jobs.beispiel.example/fr/candidature/88",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://jobs.beispiel.example/fr/candidature/88"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.9,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "postuler maintenant (sans compte)",
+     "applyRoute": "manual",
+     "applyBy": "form",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   }
+  ]
+ },
+ "expect": {
+  "attached": [
+   "#own"
+  ],
+  "notTold": [
+   "Prénom: J"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 45
+ },
+ "control": {
+  "build": "0.9.229",
+  "failed": "attached: #own (no upload slot was found)"
+ }
+}
