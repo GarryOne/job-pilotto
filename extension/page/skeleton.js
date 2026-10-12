@@ -79,13 +79,22 @@
   function uploadSlots(root, shown = () => true) {
     const starts = [];
     for (const input of root.querySelectorAll('input[type=file]')) if (!input.closest(POPUP)) starts.push({input, trigger: null, start: input});
-    // Pressables are grouped by the part of the page that names uploading (their parent if its class or id does, else themselves), so a widget with
+    // Pressables are grouped by the part of the page that names uploading (their parent if its class or id does, else themselves, else the nearest ancestor within three levels that does), so a widget with
     // several pressables (an info icon beside the +) is one slot, not several.
     const named = new Map();
     const names = el => REVEAL.test(`${String(el.className?.baseVal ?? el.className ?? '')} ${el.id || ''}`);
+    // The part of the page that names uploading around a pressable: the pressable itself, or the nearest ancestor within three levels that does (a drop zone's
+    // button sits two levels under the container that says so), never one that also holds another form control (that is the whole form, not this widget).
+    const OTHER = 'input:not([type=file]):not([type=hidden]):not([type=submit]):not([type=button]), select, textarea';
+    const namedPart = el => {
+      if (el.parentElement && names(el.parentElement)) return el.parentElement;
+      if (names(el)) return el;
+      for (let up = el.parentElement?.parentElement, i = 0; up && i < 3 && up !== root && up.tagName !== 'BODY' && !up.querySelector(OTHER); up = up.parentElement, i++) if (names(up)) return up;
+      return null;
+    };
     for (const el of root.querySelectorAll('[role=button], button')) {
       if (el.type === 'submit' || el.closest(POPUP) || !shown(el)) continue;
-      const group = el.parentElement && names(el.parentElement) ? el.parentElement : names(el) ? el : null;
+      const group = namedPart(el);
       if (group && !named.has(group)) named.set(group, el);
     }
     for (const [group, trigger] of named) starts.push({input: null, trigger, start: group});

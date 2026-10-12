@@ -41,3 +41,31 @@ test('the independent star count sees the starred labels, not the legend, and no
   const plain = openPage(JSDOM, '<form><label for="a">Name</label><input id="a"></form>');
   assert.equal(plain.__jobPilottoRequired.starred(plain.document), 0);
 });
+
+// A lone consent checkbox with its own label sits in a grid ("row") that also holds other fields: its question is its own label, never the first
+// label of the field before it (12 Oct 2026, a Swiss job board's form: "Vorname: Ich habe die Datenschutzerklärung gelesen"). Two shapes, same class:
+// a Bootstrap-like grid of <label for> fields; a div/span grid whose captions are no <label> at all, the box before its label, another language.
+const GRID = `<form><div class="row">
+  <div class="col"><label for="fn">Vorname</label><input id="fn" type="text" required></div>
+  <div class="col"><label for="em">E-Mail</label><input id="em" type="email" required></div>
+  <div class="col"><input type="checkbox" id="ok" name="ok" required><label for="ok">Ich habe die Datenschutzerklärung gelesen</label></div>
+</div></form>`;
+const SPANS = `<section class="form-row"><div class="fld"><span class="field-title">Prénom</span><input id="p" name="p" type="text"></div>
+  <div class="fld"><span class="field-title">Courriel</span><input id="c" name="c" type="email"></div>
+  <p class="agree"><label><span class="cap">J'accepte les conditions</span><input type="checkbox" name="agree"></label></p></section>`;
+
+for (const [name, html, pick, wanted] of [['a grid of labelled fields', GRID, '#ok', /Datenschutz/], ['a row of captioned fields (no <label>)', SPANS, '[name=agree]', /accepte/]]) {
+  test(`a lone checkbox with its own label is not titled by another field's caption: ${name}`, { skip: !JSDOM }, () => {
+    const window = openPage(JSDOM, html);
+    const box = window.document.querySelector(pick);
+    const title = window.__jobPilottoRequired.rowTitle(box);
+    assert.ok(!title || wanted.test(title.textContent), `title taken from another field: ${title?.textContent}`);
+    const asked = window.__jobPilottoFillKit.questionOf(box);
+    assert.ok(!asked || wanted.test(asked), `question read as "${asked}"`);
+  });
+}
+
+test('a radio group in a table row keeps its row title even when the row holds a text field', { skip: !JSDOM }, () => {
+  const window = openPage(JSDOM, `<table><tr><td>Anrede</td><td><input type="radio" name="s" id="a"><label for="a">Frau</label><input type="radio" name="s" id="b"><label for="b">Herr</label> <input type="text" name="other" aria-label="other"></td></tr></table>`);
+  assert.equal(window.__jobPilottoFillKit.questionOf(window.document.getElementById('a')), 'Anrede');
+});

@@ -50,6 +50,20 @@ const SHAPES = {
   helpFirst: `<body>${REVEAL_SLOT('cvPlus', '* CV', '<span role="button" class="info" onclick="">i</span>')}<input id="e" required>${REVEAL_JS}</body>`,
 };
 
+// A drop-zone library's shape (12 Oct 2026, a Swiss board's application form): the page shows a pressable inside a container that names uploading TWO OR MORE levels above it
+// (the pressable and its parent say nothing), and the real file input is made by script, hidden, as a direct child of <body> far from the field. Pressing the pressable would
+// open the system's file dialog over the person's page, so the operator must use the input that is already there. Two pages, same shape, nothing else alike.
+const DETACHED_JS = (where, hide) => `<script>(() => { const input = document.createElement('input'); input.type = 'file'; input.multiple = true; input.style.cssText = '${hide}';
+  input.addEventListener('change', () => { window.got = {drop: input.files[0].name}; document.querySelector('.zone-note').textContent = input.files[0].name; });
+  window.pressed = 0; document.querySelector('[data-press]').addEventListener('click', () => { window.pressed++; input.click(); });
+  document.body.${where}(input); })();</script>`;
+SHAPES.detachedDrop = `<body><form><label>Vorname *<input id="e" required></label><div class="col"><label class="form-label">Dokumente *</label>
+  <div id="DocumentDropzoneId" class="dropzone dz-clickable"><div class="dz-default dz-message"><button class="dz-button" type="button" data-press>Datei(en) hier ablegen</button></div></div>
+  <div class="small-info">Erlaubte Dateitypen: pdf, jpg</div><span class="zone-note"></span></div><label><input type="checkbox" required> Ich habe die Datenschutzerklärung gelesen</label></form>${DETACHED_JS('append', 'visibility:hidden;position:absolute;top:0;left:0;height:0;width:0')}</body>`;
+SHAPES.detachedDropVariant = `<body>${'<p>Candidature</p>'}<div><input id="e" aria-label="Courriel" required></div><div class="block"><div class="ttl">Pièces jointes *</div>
+  <section id="attachment-area"><div class="inner"><div class="hint"><div role="button" tabindex="0" class="pick" data-press>Déposer un fichier</div></div></div></section><i class="zone-note"></i></div>
+  ${DETACHED_JS('prepend', 'display:none')}</body>`;
+
 const open = async (html, run) => {
   const browser = await chromium.launch();
   try {
@@ -231,3 +245,16 @@ test('a slot\'s label reached only through aria-describedby/labelledby is part o
     assert.ok(titles.some(title => /Currículo/.test(title)), titles.join(' | '));
   });
 });
+
+for (const shape of ['detachedDrop', 'detachedDropVariant']) {
+  test(`${shape}: a pressable two levels under the container that names uploading takes the CV through the input the page already made, with no press`, async () => {
+    await open(SHAPES[shape], async page => {
+      const out = await fill(page, CV_ONLY);
+      assert.equal(out.resumeAttached, true);
+      assert.deepEqual(out.got, {drop: 'cv.pdf'});
+      assert.equal(await page.evaluate(() => window.pressed), 0, 'the zone was never pressed (that opens the file dialog over the person)');
+      assert.equal(out.rowsBefore.length, 1, 'one slot is listed');
+      assert.equal(out.rowsBefore[0].required, true);
+    });
+  });
+}

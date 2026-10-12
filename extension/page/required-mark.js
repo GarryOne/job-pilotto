@@ -22,11 +22,17 @@
       if (row.closest('fieldset')) return null;
       const boxes = Array.from(row.querySelectorAll('input[type=radio], input[type=checkbox]'));
       if (boxes.some(box => box.name !== el.name || !box.name)  && boxes.some(box => box !== el && !(el.name && box.name === el.name))) return null;
+      if (isGrid(el, row, boxes)) return null;
       const title = titleIn(el, row, boxes);
       if (title) return title;
     }
     return null;
   };
+  // A lone box with its own label (a consent tick) whose row also holds other fields is a grid cell, not a titled row: the captions in that row belong to
+  // the other fields, so the box is named by its own label (12 Oct 2026: "Vorname: Ich habe die Datenschutzerklärung gelesen"). A group of options keeps its title.
+  const FIELD = 'input:not([type=hidden]):not([type=submit]):not([type=button]):not([type=reset]):not([type=image]):not([type=radio]):not([type=checkbox]), select, textarea';
+  const isGrid = (el, row, boxes) => !!(el.labels?.length || el.closest('label')) && boxes.every(box => box === el || !el.name || box.name !== el.name) &&
+    Array.from(row.querySelectorAll(FIELD)).some(field => !field.closest('label') || !field.closest('label').contains(el));
   const titleIn = (el, row, boxes) => {
     const optionLabels = new Set(boxes.flatMap(box => [box.closest('label'), ...(box.labels || [])]));
     const cells = Array.from(row.querySelectorAll('th, td, dt, legend, label, [class*=label], [class*=Label], [class*=title]'));
