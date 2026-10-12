@@ -14,6 +14,8 @@ function emailsIn(text) {
   }
   return found;
 }
+// An input or option that carries a value="…" of its own (not a data-…-value attribute of a script, not a button's label, not a radio or checkbox's option name).
+const typedValues = text => Array.from(text.matchAll(/<(input|option)\b[^>]*>/gi)).some(([tag]) => /(?<![\w:-])value="[^"]+"/i.test(tag) && !/\btype="(submit|button|hidden|radio|checkbox)"/i.test(tag));
 const PHONE = /(\+\d[\d\s().-]{8,}\d)|(\b0\d{2}[\s.]\d{3}[\s.]\d{2}[\s.]\d{2}\b)/;
 
 // files: {<folder/name>: text}; own: the person's own values {value: kind} (capture-page.mjs personalValues). -> ["<file>: <kind>"]
@@ -22,7 +24,7 @@ export function privacyFindings(files, own = new Map()) {
   for (const [name, text] of Object.entries(files)) {
     for (const email of emailsIn(text)) if (!/@example\.(com|org|net)$/i.test(email)) found.push(`${name}: an email`);
     if (PHONE.test(text)) found.push(`${name}: a phone number`);
-    if (/<(input|option)\b[^>]*\bvalue="[^"]+"[^>]*>/i.test(text) && !/type="(submit|button|hidden)"/i.test(text.match(/<input\b[^>]*\bvalue="[^"]+"[^>]*>/i)?.[0] || 'type="button"')) found.push(`${name}: a typed value`);
+    if (typedValues(text)) found.push(`${name}: a typed value`);
     if (/https?:\/\/[^"'\s]+\?[^"'\s]+/i.test(text)) found.push(`${name}: a URL query string`);
     const lower = text.toLowerCase(), digits = text.replace(/\D/g, '');
     for (const [value, kind] of own) if (/^\d+$/.test(value) ? value.length >= 9 && digits.includes(value) : new RegExp(`\\b${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(lower)) found.push(`${name}: ${kind}`);

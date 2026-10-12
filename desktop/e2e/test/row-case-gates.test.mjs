@@ -28,3 +28,9 @@ test('privacy: a long unbroken run (a base64 blob) is scanned at once, not quadr
   assert.deepEqual(privacyFindings({'a/q.html': `${text} b@gmail.com`}), ['a/q.html: an email']);
   assert.ok(Date.now() - started < 2000);
 });
+
+test('privacy: a script\'s data-…-value attribute and a radio\'s option name are no typed value; a later input\'s value still is', () => {
+  const clean = '<input type="radio" data-q-question-value="2805226" value="yes" name="q"><input type="tel" data-country-value="AU"><input type="submit" value="Send">';
+  assert.deepEqual(privacyFindings({'a/clean.html': clean}), []);
+  assert.deepEqual(privacyFindings({'a/typed.html': `${clean}<input type="text" value="Anna">`}), ['a/typed.html: a typed value']);
+});
