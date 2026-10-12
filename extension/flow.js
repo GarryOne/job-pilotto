@@ -3,6 +3,7 @@
 import {KEY} from './tab-identity.js';
 import {MENU_REASONS, OLD_MENU_REASON, applyCombos} from './menu-reason.js';
 import {clickCombo} from './combo-click.js';
+import {typeNotTakenOnTab} from './fill-verify.js';
 import {kitStance} from './tab-pages.js';
 import {fillCard} from './fill-card.js';
 import {settleTrace} from './trace-settle.js';
@@ -29,7 +30,11 @@ export const JOB_SITES = [
 // instead of failing on "Another debugger is already attached" and leaving the menu empty.
 let comboQueue = Promise.resolve();
 export function clickCombos(tabId) {
-  const turn = comboQueue.then(() => clickCombosNow(tabId));
+  return debuggerTurn(() => clickCombosNow(tabId));
+}
+// One debugger user at a time on this worker (the menus' clicks, the real typing of fill-verify.js).
+function debuggerTurn(work) {
+  const turn = comboQueue.then(work);
   comboQueue = turn.catch(() => {});
   return turn;
 }
@@ -393,6 +398,9 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   // A page's own autofill after an upload can empty boxes we typed: they are typed again, once (now, and while the page is watched for 15 s) (page/browser-form-fastpath.js).
   const retyped = await inPage(tab.id, () => window.__jobPilottoRetypeWiped?.(15000) || 0).catch(() => 0);
   if (retyped) step(`typed ${retyped} box${retyped === 1 ? '' : 'es'} again that the page emptied`);
+  // Rung 0 of the fill ladder: a text box that did not take its answer is typed again for real, one key at a time, and read back (extension/fill-verify.js); same debugger turn as the menus.
+  const real = await debuggerTurn(() => typeNotTakenOnTab(tab.id)).catch(() => ({tried: 0, taken: 0}));
+  if (real.tried) { step(`typed ${real.taken} of ${real.tried} box${real.tried === 1 ? '' : 'es'} again for real`); decide('fill', 'typed for real a box that did not take its answer', {tried: real.tried, taken: real.taken}).catch(() => {}); }
   // Every field's outcome as the page holds it once all passes are done (extension/trace-settle.js).
   const finalForm = await inPage(tab.id, () => window.__jobPilottoDescribeForm?.(true)).catch(() => null);   // settled: a real first choice is an answer
   const gaveUp = await inPage(tab.id, () => window.__jobPilottoRetypeGaveUp?.() || []).catch(() => []);

@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Postuler</title></head>
+<body>
+<!-- Hand-made variant of a text box that keeps its own state from real key presses (here keypress) and writes that state back when the value changes: a value set by a script goes away. -->
+<main class="cand"><h2>Votre candidature</h2>
+<section class="cand-bloc"><div class="cand-ligne"><label class="cand-lbl">Prénom <input id="p1" name="prenom" type="text" required></label></div>
+<div class="cand-ligne"><label class="cand-lbl">Nom <input id="p2" name="nom" type="text" required></label></div>
+<div class="cand-ligne"><label class="cand-lbl">E-mail <input id="p3" name="courriel" type="email" required></label></div>
+<div class="cand-ligne"><span class="cand-wrap"><label class="cand-lbl">Ville actuelle <input id="ville" name="ville" type="text" required></label></span></div></section>
+</main>
+<script>
+const box = document.getElementById('ville'); let kept = '';
+box.addEventListener('keypress', () => { setTimeout(() => { kept = box.value; }, 0); });
+box.addEventListener('change', () => { box.value = kept; });
+box.addEventListener('blur', () => { box.value = kept; });
+</script>
+</body></html>
