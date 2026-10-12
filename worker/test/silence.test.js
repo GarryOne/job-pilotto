@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import {SILENT_AFTER_MS, checkSilence, endSilence, forgetSilence, isSilent, restartSilence, silenceOf, silenceTab, useSilence} from '../../extension/ladder/silence.js';
+import {SILENT_AFTER_MS, checkSilence, endSilence, forgetSilence, handedToPerson, isSilent, restartSilence, silenceOf, silenceTab, useSilence} from '../../extension/ladder/silence.js';
 
 const T = SILENT_AFTER_MS, fired = [], timers = [];
 useSilence({notice: (host, evidence) => fired.push({host, evidence}), timer: (fn, ms) => timers.push({fn, ms, cancelled: false}), cancel: id => { timers[id - 1].cancelled = true; }});
@@ -16,6 +16,12 @@ test('the rule: silent when nothing ended the clock, it was not noted yet, and i
   assert.equal(isSilent({...clock, noticed: true}, 1000 + 10 * T), false, 'noted once per silence');
   assert.equal(isSilent(null, T), false);
   assert.ok(T >= 20000, 'T sits above the normal waits measured on the CI pool');
+});
+
+test('a page is handed to the person when the form judge says their choice is needed, or the form is ready on its final step; never on a middle step, a block or unsure', () => {
+  assert.equal(handedToPerson({answer: 'needs_person', step: 'final'}), true);
+  assert.equal(handedToPerson({answer: 'ready', step: 'final'}), true);
+  for (const answer of [{answer: 'ready', step: 'middle'}, {answer: 'blocked', step: 'final'}, {answer: 'unsure', step: 'final'}, {answer: 'ready', step: 'unsure'}, null]) assert.equal(handedToPerson(answer), false, JSON.stringify(answer));
 });
 
 test('no progress for T: noted once, with the last kind, how long, and the page\'s host; a new note starts the clock again and cancels the old check', () => {
@@ -67,7 +73,7 @@ test('wired where the spec says: every progress note restarts it, a new page nam
   assert.match(progress, /useSilence\(\{notice: \(host, evidence\) => seenDeadEnd\('silent', host, evidence, log\)\}\)/);
   assert.match(progress, /forgetSilence\(tabId\)/);
   assert.match(read('ladder/dead-end.js'), /export function deadEnd\([\s\S]*?endSilence\(stop\.tabId\);[\s\S]*?return report\(/, 'the door ends it, for every stop');
-  assert.match(read('form-ready.js'), /if \(answer\.answer === 'needs_person' \|\| \(answer\.answer === 'ready' && answer\.step === 'final'\)\) endSilence\(tab\.id\);/);
+  assert.match(read('form-ready.js'), /if \(handedToPerson\(answer\)\) endSilence\(tab\.id\);/);
   assert.match(read('fill-flow.js'), /notePage\(tab\.id, key, \{job: jobUrl \|\| tab\.url, page: tab\.url\}\)/);
   assert.doesNotMatch(read('fill-flow.js'), /restartSilence|endSilence/, 'the flow never touches the clock but through a note or the door');
 });
