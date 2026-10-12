@@ -1,0 +1,52 @@
+{
+ "shape": "a required mark drawn as a star glued to the label's last word, followed by a short tail of the page's own words; the input has no required attribute",
+ "why": "12 Oct 2026, the grown applicant's live run of a public German one-page form (Pool-row: Personio form in German): \"Gehaltsvorstellung* (erforderlich)\" was read required=false, so a required question left empty was not counted or listed; page/required-mark.js now reads a glued star before a short tail",
+ "pages": [
+  {
+   "url": "https://required-in-label-words-1.example.com/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": false,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "start",
+     "question": "Verfügbar ab",
+     "value": "in 3 Monaten",
+     "confidence": "high",
+     "note": "",
+     "category": "normal",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "asked": [
+   "Verfügbar ab (erforderlich)",
+   "Gehaltsvorstellung (erforderlich)"
+  ],
+  "kept": [
+   "#start"
+  ],
+  "told": [
+   "\"unfilled\":1"
+  ],
+  "notTold": [
+   "\"unfilled\":0",
+   "pressed the submit"
+  ],
+  "seconds": 40
+ }
+}
