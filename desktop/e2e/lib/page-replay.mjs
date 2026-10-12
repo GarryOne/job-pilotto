@@ -10,6 +10,7 @@ import {startRealExtension} from './real-extension.mjs';
 import {fillState} from './extension.mjs';
 import {endingOfStuck} from '../../../extension/ladder/endings.js';
 import {movesFromRequests} from './ladder-moves.mjs';
+import {falseReadings} from './replay-truth.mjs';
 
 export const REPLAY_DIR = path.join(E2E, 'recorded');
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -93,6 +94,8 @@ export async function judgeCase(item, scope) {
   }
   if (!Object.keys(checks).some(kind => (expect[kind] || []).length)) await wait(Math.max(0, deadline - Date.now()));   // only "must not happen" checks: watch the whole window
   for (const left of pending) failures.push(`${left.kind}: ${left.arg}`);
+  const readings = await falseReadings(item, {page, mine}, {deadline});   // truth and agreement at the case's end (lib/replay-truth.mjs): a false reading fails every case
+  failures.push(...readings.failures);
   for (const word of expect.notTold || []) if (requestChecks(all).told(word)) failures.push(`notTold: ${word}`);
   for (const spec of expect.notJudged || []) if (requestChecks(all).judged(spec)) failures.push(`notJudged: ${spec}`);   // the form judge was never shown that control in that state
   for (const selector of expect.empty || []) if (await checks.filled(selector)) failures.push(`empty: ${selector}`);
@@ -122,7 +125,7 @@ export async function judgeCase(item, scope) {
     const strict = requestChecks(scope.strict);
     for (const kind of ['told', 'asked', 'judged', 'onTop', 'stuck', 'ending']) for (const arg of expect[kind] || []) if (!strict[kind](arg)) confirm.push(`${kind}: ${arg}`);
   }
-  return {ok: !failures.length, failures, confirm, seen: {tabs, opened}, moves: () => movesFromRequests(mine())};   // the ladder moves the case's pages confirmed (lib/ladder-moves.mjs), read once the run is over: a report can land after the judgment
+  return {ok: !failures.length, failures, confirm, seen: {tabs, opened}, truth: readings.counts, moves: () => movesFromRequests(mine())};   // the ladder moves the case's pages confirmed (lib/ladder-moves.mjs), read once the run is over: a report can land after the judgment
 }
 
 // A case's checks can pass while its fill still runs; the fill's last reports (the moves it confirmed: lib/ladder-moves.mjs) land after it. Before a case's tab is closed it waits for the
