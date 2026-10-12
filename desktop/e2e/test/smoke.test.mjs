@@ -381,6 +381,15 @@ test('a row on the CI key reports its AI spend, and a privacy tripwire hit is ke
   assert.equal(run.tripped, undefined);
   assert.equal(parseLive('Apply pressed on u').usd, undefined, 'a Mac run (the plan) has no spend line and no usd');
   assert.equal(parseLive('live: privacy tripwire: email typed into "Email"; the run\'s saved files (screenshots included) were deleted and those fields cleared').tripped, true);
+  // The proof run of 12 Oct 2026 went red on this: a line ABOUT the tripwire is not a hit.
+  assert.equal(parseLive('live: privacy tripwire: no owner values on this machine (nothing of the owner\'s here), so it has nothing to compare').tripped, undefined);
+  assert.equal(parseLive('live: no owner values on this machine for the privacy tripwire (nothing of the owner\'s here): it has nothing to compare').tripped, undefined);
+});
+
+test('a row whose AI calls were refused says so (the proof run of 12 Oct 2026: the Tests key had no credit, the row ran without AI and looked like a result)', () => {
+  const run = parseLive('live: AI spend $0.0000 on the CI key (0 calls, 0 in / 0 out tokens)\nlive: AI refused 3 call(s): 400 invalid_request_error: Your credit balance is too low to access the Anthropic API.');
+  assert.deepEqual(run.aiRefused, {calls: 3, why: '400 invalid_request_error: Your credit balance is too low to access the Anthropic API.'});
+  assert.equal(parseLive('Apply pressed on u').aiRefused, undefined);
 });
 
 test('--only takes the words of one row, or several rows joined by |', () => {

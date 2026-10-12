@@ -35,7 +35,7 @@ export function parseLive(output) {
   let blocked = '', reached = 'none', filled = null, left = null, marks = null, note = '', verdict;
   const kinds = [], errors = [], path = [];
   let fieldList = [];   // the form's fields, one 'field ...' line each (apply-live.mjs prints them whole: the app's own line is cut at 230 characters)
-  let derived = null, told = null, onAccount = false, digestHold = '', dialogLeft = false, usd = null, tripped = false;
+  let derived = null, told = null, onAccount = false, digestHold = '', dialogLeft = false, usd = null, tripped = false, aiRefused = null;
   const pageKindErrors = [];   // the AI's own words when a page-kind answer had no kind (usage limit, CLI failure...): job-pilotto-54 found a fast null answer with nothing saying why
   const reach = step => { if (rank(step) > rank(reached)) reached = step; };
   for (const line of lines) {
@@ -85,7 +85,9 @@ export function parseLive(output) {
     if (layerLeft) errors.push(`cookie layer still open at the end: ${layerLeft[1].trim().slice(0, 100)}`);
     const spend = line.match(/^live: AI spend \$([\d.]+)/);   // a row on the CI key (lib/live-row.mjs): what its asks cost; the pool's dollar cap sums it (lib/pool-ci.mjs)
     if (spend) usd = Number(spend[1]);
-    if (/^live: privacy tripwire: /.test(line)) tripped = true;
+    if (/^live: privacy tripwire: .* typed into "/.test(line)) tripped = true;   // a hit names the field (lib/privacy-tripwire.mjs); a line about the tripwire is not one
+    const refused = line.match(/^live: AI refused (\d+) call\(s\): (.*)$/);   // the key was refused (no credit, a limit, a bad key): the row ran without AI
+    if (refused) aiRefused = {calls: Number(refused[1]), why: refused[2].trim().slice(0, 200)};
     const judgedForm = line.match(/panel: application form ready\?: (\w+)/);   // the form judge's last word on the page (extension/form-ready.js)
     if (judgedForm) blocked = judgedForm[1] === 'blocked' ? (line.match(/"blocked":"(\w+)"/) || [])[1] || 'overlay' : '';
   }
@@ -94,7 +96,7 @@ export function parseLive(output) {
   // "a form came" after the Apply press can be the route to the sign-up page (adnovum, 11 Oct 2026): with no application field counted, the run still ended at the account step.
   if (!note && ['account', 'form'].includes(reached) && filled == null && path.at(-1)?.kind === 'account') { reached = 'account'; note = ACCOUNT_HELD; }
   if (!note && digestHold && rank(reached) < rank('form')) note = digestHold;
-  return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, pageKindErrors, kinds: [...new Set(kinds)], path, errors, ...(blocked ? {blocked} : {}), ...(note ? {note} : {}), ...(verdict ? {verdict} : {}), ...(usd != null ? {usd} : {}), ...(tripped ? {tripped} : {})};
+  return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, pageKindErrors, kinds: [...new Set(kinds)], path, errors, ...(blocked ? {blocked} : {}), ...(note ? {note} : {}), ...(verdict ? {verdict} : {}), ...(usd != null ? {usd} : {}), ...(tripped ? {tripped} : {}), ...(aiRefused ? {aiRefused} : {})};
 }
 
 // The same shape reaching an earlier step than its last run, or filling fewer fields on the same posting, is a regression.

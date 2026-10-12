@@ -17,6 +17,7 @@ try { result = await runLiveRow({posting: {url, title: flag('title'), company: f
 catch (error) { if (error.name !== 'SiteLimitError') throw error; console.error(error.message); process.exit(3); }   // the per-site daily limit (lib/site-ledger.mjs)
 console.log(`live: ${result.seconds} s${result.tripped ? `; ${result.tripped}` : `; capture in ${captureDir}`}`);
 if (result.ai) console.log(`live: AI spend $${result.ai.usd.toFixed(4)} on the CI key (${result.ai.calls} calls, ${result.ai.input} in / ${result.ai.output} out tokens)`);   // lib/smoke.mjs parseLive -> the pool's dollar cap
+if (result.ai?.refused) console.log(`live: AI refused ${result.ai.refused} call(s): ${result.ai.why}`);   // the row ran without AI: the pool stops and goes red (lib/pool-ci.mjs)
 // The lines a smoke run reads (lib/smoke.mjs parseLive, evidence-bundle.mjs runFinished), as lib/apply-live.mjs prints them: the press, the app's own page lines, each field.
 if (result.opened) console.log(`  live +  0s: Apply pressed on ${url}`);
 for (const line of (result.appLog || '').split('\n').filter(one => PAGE_LINE.test(one))) { console.log(`      log ${line.slice(11, 230)}`); for (const text of fieldLines(line)) console.log(text); }

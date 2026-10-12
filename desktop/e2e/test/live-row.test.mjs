@@ -51,6 +51,6 @@ test('a live row with an AI proxy asks through it from the real extension and re
     const result = await runLiveRow({posting: {url: 'https://jobs.example.org/job/42', title: 'Engineer', company: 'Example'}, captureDir, ask: true, seconds: 50, stillSeconds: 8, browser: fakeSite, aiProxy: proxy});
     assert.equal(result.tripped, '');
     assert.ok(proxy.stats.canned >= 1, `the extension's page-kind ask went through the proxy: ${JSON.stringify(proxy.stats)}`);
-    assert.deepEqual(result.ai, {calls: 0, usd: 0, input: 0, output: 0}, 'the spend is reported (canned answers cost nothing)');
+    assert.deepEqual(result.ai, {calls: 0, usd: 0, input: 0, output: 0, refused: 0, why: ''}, 'the spend is reported (canned answers cost nothing, none refused)');
   } finally { await proxy.close(); }
 });
