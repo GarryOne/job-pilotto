@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {LATENCY_CAP_MS, latencyOn, memoFile, memoKey, memoOnly, memoParts, volatileParts, withMemo} from '../lib/ai/model-memo.js';
+import {ADDED_SCHEMA_KEYS, LATENCY_CAP_MS, latencyOn, memoFile, memoKey, memoOnly, memoParts, volatileParts, withMemo} from '../lib/ai/model-memo.js';
 
 const ask = (text, extra = {}) => ({model: 'claude-haiku-5-5', max_tokens: 500, system: 'Say what kind of page this is.', messages: [{role: 'user', content: text}], ...extra});
 
@@ -167,6 +167,25 @@ test('loose: a changed job block or form_fields block is still a miss; strict mo
   const strict = run.replay();
   await assert.rejects(strict.messages.create(answerAsk('Seller in Zurich', 'You fill forms, NEW instruction line')), /differs in: system:0/);
   assert.ok(!fs.existsSync(run.hits), 'strict mode records no loose hit');
+});
+
+// A schema property added after the captures (ADDED_SCHEMA_KEYS, dated), whose absence the code handles, does not turn every row case cold in CI (12 Oct 2026: the
+// form answers' `fact`, worker/src/answer-facts.js); any other schema change is still a miss.
+const withSchema = (ask, extra = {}) => {
+  const item = {type: 'object', required: ['field', 'value', ...Object.keys(extra)], properties: {field: {type: 'string'}, value: {type: 'string'}, ...extra}};
+  return {...ask, output_config: {format: {type: 'json_schema', schema: {type: 'object', required: ['answers'], properties: {answers: {type: 'array', items: item}}}}}};
+};
+test('loose: a schema that only gained a listed added property still matches the kept answer; an unlisted new property is a miss', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-memo-added-')), file = path.join(dir, 'model-memo.json'), hits = path.join(dir, 'hits.jsonl');
+  const live = {engine: 'cli', messages: {create: async () => ({content: [{type: 'text', text: '{"answers":[]}'}], stop_reason: 'end_turn', usage: {}})}};
+  withMemo(live, file);
+  await live.messages.create(withSchema(answerAsk('Seller in Zurich')));
+  const loose = {messages: {create: async () => { throw new Error('must not ask'); }}};
+  withMemo(loose, file, {only: true, loose: hits});
+  assert.ok(ADDED_SCHEMA_KEYS.fact);
+  const answer = await loose.messages.create(withSchema(answerAsk('Seller in Zurich', 'You fill forms, NEW rule'), {fact: {type: 'string', enum: ['work_permit', 'none']}}));
+  assert.deepEqual(JSON.parse(answer.content[0].text), {answers: []});
+  await assert.rejects(loose.messages.create(withSchema(answerAsk('Seller in Zurich'), {mood: {type: 'string'}})), /not in the row's kept answers/);
 });
 
 test('loose lookup is read from the environment too (JOB_PILOTTO_MODEL_MEMO_LOOSE=<hits file>, e2e only) and is off without it', async () => {

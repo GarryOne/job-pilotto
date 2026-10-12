@@ -16,7 +16,7 @@ const text = content => typeof content === 'string' ? content : (content || []).
 // A Messages request -> the arguments and the prompt for `claude -p`.
 export function cliCall(body) {
   const schema = body.output_config?.format?.schema;
-  const system = [body.system, ...(schema ? [`Reply with ONE JSON object that matches this JSON schema, and nothing else:\n${JSON.stringify(schema)}`] : []), ...(body.tools?.length ? [`You act by replying with ONE JSON object and nothing else: {"tool": "<name>", "input": {...}}, using exactly one of these tools:\n${JSON.stringify(body.tools.map(({name, description, input_schema}) => ({name, description, input_schema})))}`] : [])].filter(Boolean).join('\n\n');
+  const system = [text(body.system), ...(schema ? [`Reply with ONE JSON object that matches this JSON schema, and nothing else:\n${JSON.stringify(schema)}`] : []), ...(body.tools?.length ? [`You act by replying with ONE JSON object and nothing else: {"tool": "<name>", "input": {...}}, using exactly one of these tools:\n${JSON.stringify(body.tools.map(({name, description, input_schema}) => ({name, description, input_schema})))}`] : [])].filter(Boolean).join('\n\n');
   const prompt = body.messages.map(message => `${message.role === 'assistant' ? 'You' : 'User'}:\n${text(message.content)}`).join('\n\n');
   return {args: [...CLI_FLAGS, '--model', body.model, ...(system ? ['--system-prompt', system] : [])], prompt};
 }

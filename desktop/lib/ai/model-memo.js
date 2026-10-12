@@ -42,7 +42,15 @@ function walkParts(params, add) {
     if (tagged.length) { for (const [, tag, inner] of tagged) add(`${message.role}:${tag}`, inner); const rest = text.replace(/<([a-z_]+)>[\s\S]*?<\/\1>/g, '').trim(); if (rest) add(`${message.role}:rest`, rest); }
     else for (const line of text.split('\n')) add(`${message.role}:${/^([A-Za-z][^:]{0,30}):/.exec(line)?.[1] || 'line'}`, line);
   }
-  add('output', JSON.stringify([params.output_config ?? null, params.tools ?? null]));
+  add('output', JSON.stringify([withoutAdded(params.output_config ?? null), params.tools ?? null]));
+}
+// Schema properties added after captures were made, whose absence the code handles (an older answer without it keeps its old meaning): left out of the
+// parts' output hash only (the exact key keeps them), so a row case's kept answer still matches loosely. Dated; add one only with that handling in place.
+export const ADDED_SCHEMA_KEYS = {fact: '2026-10-12: the saved fact a form answer rests on (worker/src/answer-facts.js; no fact = as before)'};
+function withoutAdded(value) {
+  if (Array.isArray(value)) return value.map(withoutAdded).filter(item => !(typeof item === 'string' && item in ADDED_SCHEMA_KEYS));
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).filter(([key]) => !(key in ADDED_SCHEMA_KEYS)).map(([key, item]) => [key, withoutAdded(item)]));
 }
 export function memoParts(params = {}) {
   const parts = {model: piece(params.model ?? '')};
