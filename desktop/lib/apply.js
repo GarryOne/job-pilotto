@@ -16,6 +16,7 @@ import {sessionTabUrl} from './session-tab.js';
 import {browserCommand, browserOf} from './browser-launch.js';
 import * as extensionInstall from './extension-install.js';
 import {log as appLog} from './log.js';
+import {expectTab} from './tab-expect.js';
 
 export const FILL_MARK = 'jobpilotto-fill'; // must match extension/background.js
 
@@ -87,6 +88,7 @@ export function openOne(url, {session = '', open = spawn, log = appLog} = {}) {
   log('apply', 'opened the form tab', {session, host, mark: true, browser: browserOf(chrome) || String(chrome[0]).split(/[\\/]/).pop()});
   child?.on?.('error', error => log('apply', 'opening the form tab failed', {session, error: String(error?.message || error).slice(0, 200)}));   // a bad browser path would otherwise crash or vanish
   child?.unref?.();
+  expectTab(session);   // the extension must bind this tab to the session soon (lib/tab-expect.js)
   return {ok: true};
 }
 

@@ -13,6 +13,9 @@ import * as telemetryLib from './telemetry.js';
 import os from 'node:os';
 import {installId as telemetryInstallId} from './app-feedback.js';
 import {log as appLog} from './log.js';
+import * as review from './review.js';
+import * as terminals from './terminals.js';
+import {startTracking} from './tab-expect.js';
 
 export function registerTelemetryHandlers(ctx) {
   const {DEMO, app, crashReporter, healthOnce, storage, testerLogsOn, testerOn, track, trackSetup, setTelemetry, setTrail, setAnalytics} = ctx;
@@ -88,6 +91,10 @@ export function registerTelemetryHandlers(ctx) {
         appLog('extension', fields.reason, {reportedBy: fields.site});
       }
     });
+    // A form tab the app opened must be taken by the extension: one "tab" event per tab, taken or the step that failed (lib/tab-expect.js).
+    startTracking({record: fields => { telemetry.record('tab', fields); appLog('apply', `form tab: ${fields.outcome}`, {ms: fields.ms}); },
+      isBound: id => review.tabOf(id) !== '', extensionSeen: server.extensionSeen,
+      isLive: id => { const session = terminals.get(id); return !!session && !session.outcome && !session.endedAt; }});
     setTimeout(() => { healthOnce(); telemetry.flush(); }, 60 * 1000);
     setInterval(() => { healthOnce(); telemetry.flush(); }, 10 * 60 * 1000);
   }
