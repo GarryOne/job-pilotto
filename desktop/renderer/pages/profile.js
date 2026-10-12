@@ -265,7 +265,7 @@ export function showContact() {
     fitDetailsToCandidate(contact);
     showLinks();
     loadProposals();   // the empty boxes, filled in from the CV for you to check (contact-proposals.js)
-  }).catch(error => message('contact-message', `Couldn't read them from Notion: ${error.message}`, 'error'));
+  }).catch(error => message('contact-panel-message', `${byStore('Couldn\'t read them from Notion', 'Couldn\'t read them from your Profile')}: ${error.message}`, 'error'));   // the panel's line: the save bar's is hidden until you change something (#409)
   $('contact-cv').textContent = shared.state.settings.cvName || 'None yet';
 }
 

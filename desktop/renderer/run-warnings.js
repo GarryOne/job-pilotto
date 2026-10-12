@@ -62,6 +62,20 @@ export function humanError(text, limit = false) {
   return message || 'the AI service refused the call';
 }
 
+// A whole message with a raw error somewhere in it: the app's own words before it are kept, the dump becomes humanError's sentence
+// ("Couldn't read your CV: 400 {"type":"error",…}." -> "Couldn't read your CV: the Anthropic API spending limit was reached.").
+// core.js message() runs every message slot through it, so a handler that passes an exception's text on is never shown raw (#409).
+const DUMP_AT = /\b(?:BadRequestError|APIError|RateLimitError|AuthenticationError|PermissionDeniedError|InternalServerError|APIConnectionError|OverloadedError)\b|\bError code: \d{3}\b|\b\d{3}\s*\{|\{\s*["']type["']\s*:\s*["']error["']|(?:\b\w*Error:\s*)?HTTP Error \d{3}\b|<!DOCTYPE|<html/i;
+export function plainError(text) {
+  const raw = String(text ?? '');
+  const at = raw.search(DUMP_AT);
+  if (at < 0) return raw;
+  const lead = raw.slice(0, at).replace(/[\s:–-]+$/, '');
+  const said = humanError(raw.slice(at));
+  const end = /[.!?]$/.test(raw.trim()) && !/[.!?]$/.test(said) ? raw.trim().slice(-1) : '';
+  return `${lead ? `${lead}: ` : ''}${said}${end}`;
+}
+
 // Warnings as you read them: the same error on many jobs is one line ("Skipped 23 jobs (6, 7, 8, …): the Anthropic API
 // spending limit was reached"), the API's raw dumping is a sentence, and the three wordings of "jobs the limit left"
 // count once each and add up to one line — not six that say the same thing.
