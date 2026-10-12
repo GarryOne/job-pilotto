@@ -139,11 +139,14 @@ export async function runFocus(ctx, parts) {
     const opened = (await urlsOpened()).length;
     await page.click('#focus-insight button');
     if (ctx.store === 'sqlite') {
-      await page.waitForSelector('#job-panel:not([hidden]) .tabs [data-job-tab="review"].is-active', {timeout: 15000}).catch(async () => {
-        throw new Error(`"Review rejection" did not open the job's Review tab: ${JSON.stringify(await page.evaluate(() => ({hidden: document.querySelector('#job-panel')?.hidden, tabs: [...document.querySelectorAll('#job-panel .tabs button')].map(b => `${b.dataset.jobTab}${b.classList.contains('is-active') ? '*' : ''}`), text: document.querySelector('#job-panel')?.innerText.slice(0, 160)})))}`);
-      });
-      const panel = await page.textContent('#job-panel');
-      if (!/Gale Robotics/.test(panel) || !/Seniority mismatch/.test(panel)) throw new Error(`the Review tab is not Gale Robotics' rejection: "${panel.replace(/\s+/g, ' ').slice(0, 200)}"`);
+      try {
+        await page.waitForSelector('#job-panel:not([hidden]) .tabs [data-job-tab="review"].is-active', {timeout: 15000}).catch(async () => {
+          throw new Error(`"Review rejection" did not open the job's Review tab: ${JSON.stringify(await page.evaluate(() => ({hidden: document.querySelector('#job-panel')?.hidden, tabs: [...document.querySelectorAll('#job-panel .tabs button')].map(b => `${b.dataset.jobTab}${b.classList.contains('is-active') ? '*' : ''}`), text: document.querySelector('#job-panel')?.innerText.slice(0, 160)})))}`);
+        });
+        await page.waitForFunction(() => /Seniority mismatch/.test(document.getElementById('job-panel')?.textContent || ''), null, {timeout: 20000}).catch(() => {});   // the drawer draws its header first, the tab's body once its data is read
+        const panel = await page.textContent('#job-panel');
+        if (!/Gale Robotics/.test(panel) || !/Seniority mismatch/.test(panel)) throw new Error(`the Review tab is not Gale Robotics' rejection: "${panel.replace(/\s+/g, ' ').slice(0, 200)}"`);
+      } catch (error) { await page.keyboard.press('Escape'); throw error; }   // a failed step must not leave the drawer over the steps after it
       await goFocus();
       if (await page.locator('#job-drawer-layer').isVisible()) throw new Error("the job's drawer stayed open after going to another page");   // it covers the page it was opened from (pages/nav.js openView)
     } else {
