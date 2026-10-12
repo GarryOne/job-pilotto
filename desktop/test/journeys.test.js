@@ -14,6 +14,8 @@ import os from 'node:os';
 import path from 'node:path';
 import {decidePageKind} from '../lib/server-pages.js';
 import {resolveSession} from '../lib/journey-identity.js';
+import * as pipeline from '../lib/pipeline.js';
+import {sharedRead} from '../lib/shared-read.js';
 
 const POSTING = 'https://www.jobs.ch/en/vacancies/detail/12181ac1/', SIGNIN = 'https://auth.jobs.ch/u/login/identifier', FORM = 'https://apply.example/form';
 function journeyOf(id = 'f1') {
@@ -280,4 +282,24 @@ test('scenario: a weak page-kind answer on an account page is asked again on the
   await pageKind(ai({kind: 'account', confidence: 0.6, account_step: ''}), page, cache);
   const next = await pageKind(ai({kind: 'account', confidence: 0.95, account_step: 'sign_in'}), page, cache);
   assert.deepEqual([said.length, next.by, next.accountStep, cache.get(kindKey(page))?.accountStep], [2, 'ai', 'sign_in', 'sign_in']);
+});
+
+// 12 Oct 2026, the owner's app.log: a job-list read started 14:56:15, the session's Cancel wrote Kit ready at 14:56:37, the read ended 14:56:45 with
+// the old stage, and the cancelled job showed "still marked Applying but has no open session". A read asked after any engine stage write starts
+// its own (lib/pipeline-commands.js afterWrite); the window never paints the older one (renderer/job-writes.js, test/job-writes.test.js).
+test('scenario: a session is cancelled while the job list is being read: a read asked after it starts its own, for every engine stage write', async () => {
+  const jobs = sharedRead('jobs', () => new Promise(() => {}));   // a read that is still running
+  const url = 'https://jobs.example.test/sre';
+  pipeline.setDemo(true);   // the engine command ends at once: nothing runs
+  try {
+    let running = jobs();
+    for (const [write, ...args] of [['unapply', url], ['setStatus', url, 'dismissed'], ['setStatus', url, 'applied'], ['notSubmitted', url],
+      ['markOutcome', url, 'Rejected'], ['deleteJob', url]]) {
+      assert.equal(jobs(), running, `${write}: positive control, before the write an ask joins the running read`);
+      await pipeline[write]({}, ...args);
+      const next = jobs();
+      assert.notEqual(next, running, `${write}: a read asked after the write must not join the one begun before it`);
+      running = next;
+    }
+  } finally { pipeline.setDemo(false); }
 });
