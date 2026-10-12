@@ -2,6 +2,7 @@
 // POST /api/waitlist which keeps Pro early-access
 // sign-ups in Cloudflare KV (binding WAITLIST). List them: npx wrangler@4 kv key list --binding WAITLIST --remote
 // Optional: with TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID set as secrets, each new sign-up is also sent to Telegram.
+import {replaysIngest} from './applying-replays.js';
 import {meter, newTally, requestLine} from './d1-meter.js';
 import {apexRedirect} from './hosts.js';
 import * as linkedin from './linkedin.js';
@@ -135,6 +136,7 @@ async function route(request, env, ctx) {
   if (moved) return moved;
   if (pathname === '/report/fill-failure') return handleReport(request, env, dispatch);
   if (pathname === '/report/telemetry') return telemetry.collect(request, env);
+  if (pathname === '/applying/replays' && request.method === 'PUT') return replaysIngest(request, env);   // CI on main's recorded replays (Bearer REPLAYS_PUBLISH_KEY, src/applying-replays.js)
   if (pathname === '/self-heal/data' && request.method === 'PUT') return selfHealIngest(request, env);   // CI publishes the loop's numbers (Bearer SELFHEAL_PUBLISH_KEY)
   if (pathname === '/ai-cost/data' && request.method === 'GET') return jobCostSpent(request, env);   // a day's reported spend for CI's budget guard (same key)
   if (pathname === '/ai-cost/data' && request.method === 'PUT') return jobCostIngest(request, env);   // each scheduled job reports its AI cost (Bearer AI_COST_PUBLISH_KEY)

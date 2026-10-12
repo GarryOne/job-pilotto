@@ -5,6 +5,7 @@ import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {PAGE, data, ingest} from '../src/applying.js';
+import {storeReplays} from '../src/applying-replays.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -60,7 +61,7 @@ test('landed -> not better yet -> confirmed -> back: computed from the runs uplo
 
 test('a fix for a site the pool does not list still shows, as landed; the guard keeps its recorded case\'s dots; a replay no fix names is not listed', async () => {
   const db = d1();
-  await ingest(db, {kind: 'recorded', day: '2026-10-11', version: '0.9.181', rows: [{name: 'named-control-absent-1', ok: true}, {name: 'cookie-banner-links-1', ok: false}]}, at('2026-10-11T09:00:00Z'));
+  await storeReplays(db, {sha: 'abc1234', version: '0.9.181', rows: [{name: 'named-control-absent-1', ok: true}, {name: 'cookie-banner-links-1', ok: false}]}, at('2026-10-11T09:00:00Z'));
   await ingest(db, {kind: 'fixes', day: '2026-10-11', rows: [FIX]}, at('2026-10-11T08:00:00Z'));
   const d = await data(db, at('2026-10-11T10:00:00Z'));
   const [row] = d.fixed.rows;

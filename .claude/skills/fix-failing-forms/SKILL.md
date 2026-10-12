@@ -179,7 +179,7 @@ Flow-core files (`page-kind.js`, `fill-flow.js`, `session-flow.js`, `escalate.js
 - Submit, a consent, an account button, a captcha or SMS code; the owner's live app, profile, CV, Keychain or paid AI; a fix named after one website.
 - A recorded case whose expected result or AI answer was written to fit the fix rather than taken from the live run.
 - A long foreground wait: background plus `Monitor`.
-- A first run of a new recorded case on the build you are fixing (it uploads a row nobody can delete), a fix built on a guess, or a failure believed on a loaded machine: see lessons.md.
+- A fix built on a guess, or a failure believed on a loaded machine: see lessons.md.
 - Fixing a gap in the debugging process (a missing log, a report that hides evidence, a harness that cannot fail) silently: list it and send it to the pool coordinator (`coordinator.txt`) and the flow-core coordinator; the report side (`desktop/e2e/lib/smoke.mjs`) is the pool coordinator's.
 
 ## Lessons and self-improve (owner, 11 Oct 2026)
