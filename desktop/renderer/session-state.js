@@ -114,8 +114,10 @@ export function tabClosed(item, formsOpen, seen = false, now = Date.now()) {
 // reporting" for up to 15 s after each app start while Chrome was fine (twin, 9 Oct 2026). Guard: test/session-state.test.js.
 export const CHECK_MS = 45 * 1000;
 export function checkingTabs(item, formsOpen, sinceStart) {
-  if (!item || formsOpen?.known || sinceStart > CHECK_MS || isSubmitted(item) || item.outcome) return false;
-  return item.kind === 'form' || ((item.kind || 'claude') === 'claude' && !isLive(item));
+  if (!item || isSubmitted(item) || item.outcome || !(item.kind === 'form' || ((item.kind || 'claude') === 'claude' && !isLive(item)))) return false;
+  // Heard from Chrome, yet nothing says this tab is open or closed: never "Form open" (owner, 12 Oct 2026), it keeps checking until something does.
+  if (formsOpen?.known) return !!formsOpen.unsure?.includes(item.id) && !formsOpen.ids.includes(item.id);
+  return sinceStart <= CHECK_MS;
 }
 
 // The session's Chrome tab as the card shows it: host and path (no query, no www), cut in the middle of the path when long;

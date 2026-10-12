@@ -239,3 +239,19 @@ test('scenario: Reopen opens the form again for the SAME session: its new tab\'s
   const landed = await identityOf({id: 9, url: address.replace(/^https:\/\/[^/]+\/.*#/, `${SIGNIN}#`)});   // redirected to another host: the mark stays
   assert.equal(resolveSession(landed, {get: terminals.get, list: terminals.list, isFormOf: () => false}), 'f1');
 });
+
+test('scenario: the sessions page opens after a restart: a session with no evidence of its tab says "checking", one Chrome shows is open, one the extension saw leave is closed (12 Oct 2026)', async () => {
+  const review = await import('../lib/review.js');
+  const {sessionsWithTab} = await import('../lib/session-tab.js');
+  const {checkingTabs} = await import('../renderer/session-state.js');
+  review._reset();
+  const ids = ['a1', 'b2', 'c3'];
+  const items = ids.map(id => ({id, kind: 'form', status: 'done', url: `https://forms.example/${id}`}));
+  review.noteTabs({ids: [11], boot: 'run1', sessions: {11: 'c3'}}, new Set(ids));   // the extension's report: c3's tab is bound
+  review.noteTabs({ids: [], boot: 'run1'}, new Set(ids));                          // and then it leaves
+  const live = sessionsWithTab(items, [{id: 21, url: 'https://forms.example/a1/application#jobpilotto-fill=a1'}], () => '');   // Chrome's list right now
+  const {ids: open, unsure} = review.formStates(ids, live);
+  assert.deepEqual([open, unsure], [['a1'], ['b2']]);                                // c3: closed (known gone); b2: nothing says either
+  const forms = {known: true, ids: open, unsure};
+  assert.deepEqual(items.map(item => checkingTabs(item, forms, 1e9)), [false, true, false]);
+});

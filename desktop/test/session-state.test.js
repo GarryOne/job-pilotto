@@ -132,6 +132,9 @@ test('just after the app starts, a session waiting on its Chrome tab is "checkin
   assert.equal(checkingTabs(form, {known: false, ids: []}, 500), true);       // the extension has not reported in
   assert.equal(checkingTabs(form, {known: true, ids: []}, 500), false);       // known: closed or open, the card says which
   assert.equal(checkingTabs(form, null, CHECK_MS + 1), false);                // no answer in time: the last state again
+  // 12 Oct 2026 (owner: "the state is not reflecting the reality"): a tab nothing confirms is never "Form open", however long ago the app started.
+  assert.equal(checkingTabs(form, {known: true, ids: [], unsure: [form.id]}, CHECK_MS + 1), true);
+  assert.equal(checkingTabs(form, {known: true, ids: [form.id], unsure: []}, 500), false);
   assert.equal(checkingTabs({...claude, live: true, status: 'running'}, null, 500), false);
   assert.equal(checkingTabs({...form, outcome: 'submitted', live: false}, null, 500), false);
 });

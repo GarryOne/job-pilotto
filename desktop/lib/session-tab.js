@@ -19,6 +19,12 @@ export function tabOfSession(id, tabs, boundTab = '') {
 // The address a session's tab is opened with: its own id in the fill mark, so it is owned from its first page (the ONE place that builds it).
 export const sessionTabUrl = (url, id) => `${String(url || '').split('#')[0]}#jobpilotto-fill=${id}`;
 
+// Which sessions have a tab in Chrome's own list right now (the Mac's scripting): by the tab id bound to them in this run, or the id in the address.
+// Chrome's list can only ADD evidence that a tab is open: an empty or missing list says nothing (a stray background Chrome hides the person's tabs).
+export function sessionsWithTab(sessions, tabs, boundOf = () => '') {
+  return new Set((sessions || []).filter(session => tabOfSession(session.id, tabs || [], boundOf(session.id))).map(session => session.id));
+}
+
 // Which of these sessions have a tab named in the extension's reported addresses (a restored tab not yet re-bound): a set of session ids.
 export function sessionsNamedIn(sessions, urls) {
   const named = new Set((urls || []).map(markedSession).filter(Boolean));

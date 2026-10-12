@@ -69,3 +69,11 @@ test('row 9, nothing outside the picker scores, matches or "finds the only" tab'
     assert.equal(hit, -1, `${path.basename(file)}:${hit + 1} picks a tab by guessing; use lib/session-tab.js`);
   }
 });
+
+test('a session with a tab Chrome shows right now is open, by its bound id or the id in its address; nothing else counts', async () => {
+  const {sessionsWithTab} = await import('../lib/session-tab.js');
+  const tabs = [{id: 5, url: 'https://x.test/a'}, {id: 6, url: 'https://x.test/b#jobpilotto-fill=s2'}, {id: 7, url: `${posting(3)}`}];
+  const bound = {s1: 5, s2: '', s3: '', s4: 99};
+  assert.deepEqual([...sessionsWithTab(sessions, tabs, id => bound[id] ?? '')].sort(), ['s1', 's2']);   // s3's posting tab has no id or mark: the person's own tab; s4's tab is gone
+  assert.deepEqual([...sessionsWithTab(sessions, null, () => '')], []);
+});
