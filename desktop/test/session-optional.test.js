@@ -32,7 +32,7 @@ test('the app keeps the optional list from the report, apart from what is left',
 });
 
 test('the session page shows the card after the needs card, and the count never includes it', () => {
-  const page = read('desktop/renderer/pages/sessions.js'), needs = read('desktop/renderer/pages/session-needs.js'), html = read('desktop/renderer/index.html');
+  const page = read('desktop/renderer/pages/session-next-step.js'), needs = read('desktop/renderer/pages/session-needs.js'), html = read('desktop/renderer/index.html');
   assert.match(page, /updateNeedsCount\(\);\n  showOptional\(item, \{gone, listed: empty\}\);/);
   assert.match(needs, /querySelectorAll\('#ss-needs \.ss-need:not\(\.is-done\)'\)/, 'actions remaining counts only #ss-needs');
   assert.ok(html.indexOf('id="ss-optional-card"') > html.indexOf('id="ss-needs-card"'));

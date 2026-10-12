@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import {test} from 'node:test';
 
 test('no card offers Apply with Claude as its primary action; a stuck card leads with Open in Chrome', () => {
-  const source = fs.readFileSync(new URL('../renderer/pages/sessions.js', import.meta.url), 'utf8');
+  const source = fs.readFileSync(new URL('../renderer/pages/session-next-step.js', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /sessionButton\('Apply with Claude', 'primary'/);
   const stuck = source.slice(source.indexOf('if (stuck) {'), source.indexOf('const resume = kind =>'));
   assert.ok(stuck.indexOf("'Open in Chrome', 'primary'") >= 0 && stuck.indexOf("'Open in Chrome', 'primary'") < stuck.indexOf('offerParts(item'));

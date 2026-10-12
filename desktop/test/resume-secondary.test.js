@@ -7,7 +7,7 @@ import {test} from 'node:test';
 const read = file => fs.readFileSync(new URL(file, import.meta.url), 'utf8');
 
 test('Resume Claude is secondary everywhere it is built, and the way to the form becomes the main action when nothing else is', () => {
-  const sessions = read('../renderer/pages/sessions.js');
+  const sessions = read('../renderer/pages/session-next-step.js');
   const builders = sessions.match(/sessionButton\('Resume Claude', ('[a-z]+'|kind)/g) || [];
   assert.deepEqual(builders, ["sessionButton('Resume Claude', 'secondary'"]);   // one builder, one kind
   assert.doesNotMatch(sessions, /resume\((?!\))/);                               // no call site passes a kind any more
@@ -15,6 +15,6 @@ test('Resume Claude is secondary everywhere it is built, and the way to the form
   assert.match(sessions, /toIt\.classList\.replace\('secondary', 'primary'\)/);
   // The banner shown when Claude is not running (session log): its Resume button is secondary too.
   assert.match(read('../renderer/index.html'), /<button class="secondary with-icon" id="ss-offline-resume">/);
-  for (const file of ['../renderer/pages/sessions.js', '../renderer/pages/session-log.js', '../renderer/pages/session-actions.js'])
+  for (const file of ['../renderer/pages/sessions.js', '../renderer/pages/session-next-step.js', '../renderer/pages/session-log.js', '../renderer/pages/session-actions.js'])
     assert.doesNotMatch(read(file), /Resume Claude['"`][^\n]*['"`]primary['"`]/, `${file}: a primary Resume Claude`);
 });
