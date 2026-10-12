@@ -36,6 +36,9 @@ export function expectedAnswers(item) {
   return new Map([...seen].filter(([, value]) => value != null));
 }
 
+// The choices the case's picker gives (/extension/pick-choice: the AI matched the answer to an option in the page's own words): an answered field may hold one of them.
+export const pickedChoices = item => answerBodies(item?.ai?.['/extension/pick-choice']).map(body => String(body?.choice || '').trim()).filter(Boolean);
+
 const words = text => String(text || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
 const holdsRun = (outer, inner) => inner.length > 0 && outer.some((_, at) => inner.every((word, k) => outer[at + k] === word));
 const digits = text => String(text || '').replace(/\D/g, '');
@@ -52,18 +55,18 @@ export function sameAnswer(expected, shown = []) {
 }
 
 // read: field -> {state: 'value'|'empty'|'unreadable'|'missing', shown: [text]} (readFields). An empty answered field is the agreement check's (it must be counted left).
-export function truthFailures(expected, read) {
+export function truthFailures(expected, read, picked = []) {
   const failures = [], counts = {compared: 0, empty: 0, unreadable: 0, missing: 0};
   for (const [field, value] of expected) {
     const got = read.get(field) || {state: 'missing', shown: []};
     if (got.state !== 'value') { counts[got.state] = (counts[got.state] || 0) + 1; continue; }
     counts.compared += 1;
-    if (!sameAnswer(value, got.shown)) failures.push(`truth: ${field} holds "${String(got.shown[0] || '').slice(0, 60)}", its answer is "${value.slice(0, 60)}"`);
+    if (!sameAnswer(value, got.shown) && !picked.some(choice => sameAnswer(choice, got.shown))) failures.push(`truth: ${field} holds "${String(got.shown[0] || '').slice(0, 60)}", its answer is "${value.slice(0, 60)}"`);
   }
   return {failures, counts};
 }
 
-const named = list => (list.length ? list.slice(0, 6).join(', ') : 'none');
+const named = list => (list.length ? list.map(text => text.slice(0, 60)).join(', ') : 'none');   // every name: which one the other reading misses is the bug
 // trace: the fill record's rows ([{label, required, outcome, source}]) or null (no fill); review: the panel's last report ({missing}) or null; panel: {present, ready};
 // required: the page's own visible required controls [{name, empty}]; files: how many file boxes hold a file.
 export function agreementFailures({trace, review, panel, required = [], files = 0}) {
@@ -75,7 +78,7 @@ export function agreementFailures({trace, review, panel, required = [], files = 
   // The record is written once, at the fill's end; the panel reads the page later. Fewer left in the record than on the panel makes the row look better: that fails.
   // More left is a record older than the page (a box the page emptied and we typed again after it was written): a timing, not a better-looking row.
   if (trace && panelLeft && traceLeft.length < panelLeft.length) failures.push(`agreement: the fill record leaves ${traceLeft.length} required (${named(traceLeft)}), the panel ${panelLeft.length} (${named(panelLeft)})`);
-  if (panelLeft && pageLeft.length > panelLeft.length) failures.push(`agreement: the page has ${pageLeft.length} required control${pageLeft.length === 1 ? '' : 's'} empty (${named(pageLeft)}), the panel counts ${panelLeft.length}`);
+  if (panelLeft && pageLeft.length > panelLeft.length) failures.push(`agreement: the page has ${pageLeft.length} required control${pageLeft.length === 1 ? '' : 's'} empty (${named(pageLeft)}), the panel counts ${panelLeft.length} (${named(panelLeft)})`);
   if (panel?.present && panel.ready) {
     const left = [panelLeft || [], pageLeft].find(list => list.length) || [];   // the live readings: a fill record older than the page is the agreement line's
     if (left.length) failures.push(`ready: the panel says ready with ${left.length} required left (${named(left)})`);
@@ -135,7 +138,7 @@ const readRequiredInPage = cvName => {
     const role = el.getAttribute('role') || '';
     if (['radio', 'checkbox', 'option', 'switch'].includes(role)) { const group = el.closest('[role=radiogroup], [role=group], [role=listbox]') || el.parentElement; const key = group?.id || name; if (groups.has(key)) continue; groups.add(key); out.push({name, empty: !(el.matches(on) || group?.querySelector(on))}); continue; }
     if (type === 'file' || el.querySelector('input[type=file]')) { out.push({name, empty: slotEmpty(el)}); continue; }
-    if (type === 'radio') { if (groups.has(name)) continue; groups.add(name); out.push({name, empty: ![...document.querySelectorAll(`input[type=radio][name="${CSS.escape(el.name)}"]`)].some(one => one.checked)}); continue; }
+    if (type === 'radio') { if (groups.has(`radio:${el.name}`)) continue; groups.add(`radio:${el.name}`); out.push({name, empty: ![...document.querySelectorAll(`input[type=radio][name="${CSS.escape(el.name)}"]`)].some(one => one.checked)}); continue; }
     const empty = type === 'checkbox' ? !el.checked : 'value' in el ? !String(el.value || '').trim() : !(el.matches(on) || el.querySelector(on));
     out.push({name, empty});
   }
@@ -176,7 +179,7 @@ export async function falseReadings(item, {page, mine}, {deadline = Date.now() +
   while (Date.now() < deadline && await filling()) await wait(300);
   await wait(settleMs);   // the panel reports on its own beat (review.js sync): its report after the fill's end
   const expected = expectedAnswers(item), tab = await readTab(page(), [...expected.keys()]), records = recordsOf(mine());
-  const truth = truthFailures(expected, tab.read);
+  const truth = truthFailures(expected, tab.read, pickedChoices(item));
   const failures = [...truth.failures];
   if (records.cut) failures.push('agreement: the fill record reached the stand-in cut short (real-extension.mjs keeps too little of /extension/run)');
   failures.push(...agreementFailures({trace: records.run?.trace || null, review: records.review, panel: tab.panel, required: tab.required, files: tab.files}));
