@@ -269,3 +269,15 @@ test('scenario: Apply on an Ashby job opens the form address; its first report w
   review.noteTabs({ids: [], boot: 'run1'}, new Set(['k1']));
   assert.equal(review.tabOpen('k1'), false);
 });
+
+test('scenario: a weak page-kind answer on an account page is asked again on the next visit, a sure one is kept (12 Oct 2026)', async () => {
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const {kindKey, pageKind, pageKindCache} = await import('../lib/page-kind.js');
+  const cache = pageKindCache(path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-kind-')), 'page-kinds.json'));
+  const page = {url: 'https://accounts.example-careers.test/login', title: 'Log in or create account', headings: ['Log in or create account'], buttons: ['Continue'], fields: [{label: 'Email', type: 'text'}]};
+  const said = [];
+  const ai = answer => ({messages: {create: async () => { said.push(answer); return {stop_reason: 'end_turn', usage: {input_tokens: 600, output_tokens: 20}, content: [{type: 'text', text: JSON.stringify(answer)}]}; }}});
+  await pageKind(ai({kind: 'account', confidence: 0.6, account_step: ''}), page, cache);
+  const next = await pageKind(ai({kind: 'account', confidence: 0.95, account_step: 'sign_in'}), page, cache);
+  assert.deepEqual([said.length, next.by, next.accountStep, cache.get(kindKey(page))?.accountStep], [2, 'ai', 'sign_in', 'sign_in']);
+});
