@@ -1,7 +1,7 @@
 {
  "origin": "hand-cut",
  "shape": "an application form whose site answers the first load with a server error (503) and the next load with the form: the run loads it again by itself and fills it",
- "why": "12 Oct 2026, the outcome contract (spec docs/superpowers/specs/2026-10-12-one-next-move.md, phase 1a): site_broken is retried before it is told. Before this, a server error page was judged like any page (the page-kind AI was asked about an error page), nothing loaded it again, and the form that came on the next load was never filled.",
+ "why": "12 Oct 2026, the outcome contract (spec docs/superpowers/specs/2026-10-12-one-next-move.md, phase 1a): site_broken is retried before it is told. Before this, a server error page was judged like any page (the page-kind AI was asked about an error page), nothing loaded it again, and the form that came on the next load was never filled. Also checks that the run notes its progress (phase 2 box 2: 'progress: navigated' for the page, 'progress: required_down' for the form's required fields filled).",
  "control": {
   "build": "0.9.249",
   "failed": "filled: #first_name (the 503 page was judged as a page and never loaded again)"
@@ -44,7 +44,9 @@
  },
  "expect": {
   "told": [
-   "a broken page: loading it again"
+   "a broken page: loading it again",
+   "progress: navigated",
+   "progress: required_down"
   ],
   "notTold": [
    "a broken page: reported as site_broken"
