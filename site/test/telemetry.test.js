@@ -275,3 +275,19 @@ test('advice events are accepted and grouped by kind, place and act (7 Oct 2026)
   assert.deepEqual(describe({kind: 'advice', advice: 'role', where: 'strategy', act: 'taken'}),
     {key: 'advice|strategy|role|taken', summary: 'Advice role on strategy: taken'});
 });
+
+// The app opened a form tab and the extension had to take it (desktop/lib/tab-expect.js): taken or the step that failed.
+const tab = (install, outcome, platform = 'win32', version = '0.7.2') => ({kind: 'tab', install, version, platform, at: '2026-10-12T20:00:00Z', outcome, ms: 21000});
+
+test('form-tab reports: taken ones count in the rate, misses are problems, /admin/app shows rate by OS and version', async () => {
+  const e = env();
+  const events = [tab('install-aaaa', 'taken'), tab('install-aaaa', 'taken'), tab('install-bbbb', 'extension_silent'), tab('install-cccc', 'tab_not_taken'), tab('install-dddd', 'taken', 'darwin', '0.7.4')];
+  assert.equal((await send(e, events)).status, 200);
+  assert.match(describe(tab('x', 'tab_not_taken')).summary, /tab_not_taken/);
+  assert.notEqual(describe(tab('x', 'extension_silent')).key, describe(tab('x', 'tab_not_taken')).key);   // two different problems
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/app?days=7', {headers: {Cookie: 'jp_stats=k3y'}}), e, {})).text();
+  assert.match(html, /Form tabs/);
+  assert.match(html, /Windows[^]*?0\.7\.2[^]*?<td>4<\/td><td>2<\/td>\s*<td>50%<\/td>/);   // 4 opened on Windows 0.7.2, 2 taken
+  assert.match(html, /extension_silent/);
+  assert.ok(!/form tab: taken/.test(html) && !/Form tab: taken/.test(html), 'a taken tab is not a problem row');
+});

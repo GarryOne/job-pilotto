@@ -10,6 +10,7 @@ import * as github from './github.js';
 import * as pipeline from './pipeline.js';
 import * as questions from './questions.js';
 import * as review from './review.js';
+import {noteTabMiss} from './tab-expect.js';
 import * as server from './server.js';
 import {extensionReady} from './extension-ready.js';
 import * as sitePassword from './site-password.js';
@@ -84,16 +85,17 @@ export function registerApplyHandlers(ctx) {
     const ready = await extensionReady(server.extensionSeen);   // just started: pages are known only after the extension's first tab report
     if (ready.waited) appLog('review', `show ${key}: waited for the extension's first check-in`, {ms: ready.waited, seen: ready.seen});
     review.queueFocus(key, name);
-    let taken = await review.delivered(key, 4000);  // the page checks in every 2 s
+    let taken = await review.delivered(key, 4000), woke = false;  // the page checks in every 2 s
     if (!taken) {
       // The tab Claude opened has no panel. Wake the extension and inject into that tab; do not reload it.
       let host = '';
       try { host = new URL(String(url || '')).hostname; } catch { /* no url */ }
       appLog('review', 'extension not on the form tab: joining it', {host});
-      const woke = await extensionInstall.openInChrome(`chrome-extension://${server.EXTENSION_ID}/wake.html`, {browser: apply.extensionBrowser()}).catch(() => false);
+      woke = await extensionInstall.openInChrome(`chrome-extension://${server.EXTENSION_ID}/wake.html`, {browser: apply.extensionBrowser()}).catch(() => false);
       appLog('review', `wake page ${woke ? 'opened' : 'did not open'}`, {browser: apply.extensionBrowser() || 'default'});
       taken = await review.delivered(key, 6000);
     }
+    if (!taken) noteTabMiss(woke ? 'join_empty' : 'wake_failed');   // the step that failed, for the Technical reports (lib/tab-expect.js)
     if (!taken) review.cancelFocus(key);  // nobody took it: it must not fire later and pull Chrome forward
     const went = taken ? 'tab' : 'none';   // no page answered: the card offers to reopen the form, nothing is opened here
     appLog('review', `show ${key}: ${taken ? 'form page answered' : `no page answered, app went to: ${went}`}`, {label: name.slice(0, 60), taken: !!taken, went});

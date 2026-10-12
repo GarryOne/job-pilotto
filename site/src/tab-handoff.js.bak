@@ -1,0 +1,34 @@
+// The form tab the app opens and the extension must take (desktop/lib/tab-expect.js): the "tab" reports of installs, as a rate by OS and app version and the step each miss failed at.
+// Shown on /admin/app next to the problems; a miss is also a problem row there, a taken tab is not. Guard: test/telemetry.test.js.
+import {esc} from './stats.js';
+
+export const TAB_OUTCOMES = ['taken', 'extension_silent', 'tab_not_taken', 'join_empty', 'wake_failed'];   // = desktop/lib/tab-expect.js
+export const TAB_MISSES = TAB_OUTCOMES.filter(name => name !== 'taken');
+const MISS_SQL = TAB_MISSES.map(name => `'${name}'`).join(', ');
+const OS_NAMES = {darwin: 'macOS', win32: 'Windows', linux: 'Linux'};
+
+// Per OS and version since `from`: tabs opened, taken, and each miss step. Only a report the app sent for a tab it opened counts: "Review in form"
+// misses (join_empty, wake_failed) are steps, not a second open.
+export async function tabHandoff(db, from) {
+  const rows = (await db.prepare(`SELECT platform, version, json_extract(data, '$.outcome') AS outcome, COUNT(*) AS n, COUNT(DISTINCT install) AS users
+    FROM telemetry WHERE kind = 'tab' AND day >= ? GROUP BY platform, version, outcome`).bind(from).all()).results || [];
+  const byKey = new Map();
+  for (const row of rows) {
+    const key = `${row.platform}|${row.version}`;
+    const entry = byKey.get(key) || {platform: row.platform, version: row.version, taken: 0, opened: 0, steps: {}};
+    if (row.outcome === 'taken') { entry.taken += row.n; entry.opened += row.n; }
+    else if (['extension_silent', 'tab_not_taken'].includes(row.outcome)) { entry.opened += row.n; entry.steps[row.outcome] = row.n; }
+    else if (TAB_MISSES.includes(row.outcome)) entry.steps[row.outcome] = row.n;
+    byKey.set(key, entry);
+  }
+  return [...byKey.values()].sort((a, b) => b.opened - a.opened);
+}
+
+export function tabCard(rows) {
+  if (!rows?.length) return '';
+  const body = rows.map(row => `<tr><td>${esc(OS_NAMES[row.platform] || row.platform)}</td><td class="muted">${esc(row.version)}</td><td>${row.opened}</td><td>${row.taken}</td>
+    <td>${row.opened ? Math.round(100 * row.taken / row.opened) + '%' : '–'}</td><td class="muted">${TAB_MISSES.filter(name => row.steps[name]).map(name => `${esc(name)} ${row.steps[name]}`).join(' · ') || '–'}</td></tr>`).join('');
+  return `<section class="card" style="margin-bottom:12px"><h2>🪟 Form tabs the extension took</h2><small class="muted">tabs the app opened to apply: how many the extension took within 20 s, and where the others failed</small>
+<table><tr><th>OS</th><th>App</th><th>Opened</th><th>Taken</th><th>Rate</th><th>Missed at</th></tr>${body}</table></section>`;
+}
+export {MISS_SQL};

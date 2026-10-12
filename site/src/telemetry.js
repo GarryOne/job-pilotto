@@ -10,17 +10,18 @@ import {appTrends} from './trends.js';
 const chip = (data, key) => (data.trends?.[key] ? trendChip(data.trends[key].label, data.trends[key].values, data.trends[key]) : '');   // its weeks (src/trends.js)
 
 import {feedbackList} from './feedback.js';
+import {tabHandoff, tabCard} from './tab-handoff.js';
 import {flags} from './guard.js';
 import {report as knowledgeReport} from './knowledge.js';
 import {isOwner, esc, remember} from './stats.js';
 
-export const KINDS = ['crash', 'run_failed', 'run_warning', 'form_issue', 'stuck', 'health', 'setup', 'control', 'advice'];
+export const KINDS = ['crash', 'run_failed', 'run_warning', 'form_issue', 'stuck', 'health', 'setup', 'control', 'advice', 'tab'];
 export const TRIAGE_MIN_USERS = 3, TRIAGE_MIN_TIMES = 20;
 // What becomes a GitHub issue: [installs, times] by kind (either is enough). Crashes, stuck runs and failed runs are rare and always
 // worth reading, from the first install; a run that ended with warnings (AI not answering, Notion refusing) must repeat (3 times) or come from 3 installs;
 // form and control reports are many, so they wait for several installs (2 Oct 2026: a friend's search hung for 40 minutes and, with
 // the old 3-installs-or-20-times rule, would never have reached an issue).
-export const TRIAGE_AT = {crash: [1, 1], stuck: [1, 1], run_failed: [1, 1], run_warning: [3, 3]};
+export const TRIAGE_AT = {crash: [1, 1], stuck: [1, 1], run_failed: [1, 1], run_warning: [3, 3], tab: [2, 3]};   // tab: a form tab the extension did not take, from 2 installs or 3 times
 export const triageWorthy = row => { const [users, times] = TRIAGE_AT[row.kind] || [TRIAGE_MIN_USERS, TRIAGE_MIN_TIMES]; return row.users >= users || row.n >= times; };
 const MAX_EVENTS = 50, MAX_BYTES = 8000, PER_INSTALL_PER_DAY = 1000, KEEP_DAYS = 90;
 const day = date => date.toISOString().slice(0, 10);
@@ -47,6 +48,7 @@ export function describe(item) {
     case 'control': return {key: `control|${item.fp}|${item.outcome}|${normal(item.why)}`,
       summary: `Control ${text(item.control, 24)} ${text(item.fp, 16)}: ${item.outcome}${item.why ? ` (${text(item.why, 80)})` : ''}`};
     case 'advice': return {key: `advice|${item.where}|${item.advice}|${item.act}`, summary: `Advice ${text(item.advice, 20)} on ${text(item.where, 20)}: ${text(item.act, 10)}${item.source ? ` (${text(item.source, 30)})` : ''}`};
+    case 'tab': return {key: `tab|${item.outcome}`, summary: `Form tab: ${text(item.outcome, 30)}${item.outcome === 'taken' ? '' : ' (the extension did not take the tab the app opened)'}`};
     case 'stuck': return {key: `stuck|${item.action}|${item.page}`, summary: `Stuck: ${item.action} (${item.page || 'app'})`};
     default: return {key: 'health', summary: 'health'};
   }
@@ -84,7 +86,7 @@ export async function problems(db, days, now = new Date(), limit = 50) {
   const from = day(new Date(now.getTime() - (days - 1) * 86400000));
   const rows = (await db.prepare(`SELECT fingerprint, kind, MAX(summary) AS summary, COUNT(*) AS n, COUNT(DISTINCT install) AS users,
       GROUP_CONCAT(DISTINCT version) AS versions, MIN(day) AS first, MAX(at) AS last, MAX(data) AS sample
-    FROM telemetry WHERE day >= ? AND kind NOT IN ('health', 'setup') GROUP BY fingerprint ORDER BY users DESC, n DESC LIMIT ?`).bind(from, limit).all()).results || [];
+    FROM telemetry WHERE day >= ? AND kind NOT IN ('health', 'setup') AND NOT (kind = 'tab' AND json_extract(data, '$.outcome') = 'taken') GROUP BY fingerprint ORDER BY users DESC, n DESC LIMIT ?`).bind(from, limit).all()).results || [];
   const installs = (await db.prepare(`SELECT version, platform, COUNT(DISTINCT install) AS n FROM telemetry WHERE day >= ?
     GROUP BY version, platform ORDER BY n DESC`).bind(from).all()).results || [];
   // Machines, not (version, platform) rows: one install that updated twice reports under three versions but is one machine.
@@ -113,7 +115,8 @@ export async function problems(db, days, now = new Date(), limit = 50) {
   outcomes.counted = counted;
   // Which AI each install runs (its latest health report): the four engines, to see plan vs API (owner, 9 Oct 2026; src/engines.js).
   const engines = await installsByEngine(db, from).catch(() => []);
-  return {from, days, rows, installs, unique, everSeen, platforms, machines, outcomes, reporting: health.length, engines};
+  const tabs = await tabHandoff(db, from).catch(() => []);
+  return {from, days, rows, installs, unique, everSeen, platforms, machines, outcomes, reporting: health.length, engines, tabs};
 }
 // Machines by the channel they came from (the install link's ?src=, reported once by the app with its anonymous id):
 // how many installed, how many finished setup, how many are active (reported on 2+ days). "unknown" = installed from a
@@ -225,6 +228,7 @@ pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:8px 0 0}.kind{
 <div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${value}</b>${note ? `<small class="muted">${note}</small>` : ''}</div>`).join('')}</div>
 <section class="card" style="margin-bottom:12px"><h2>Problems, most users first${chip(data, 'problems')}</h2><table><tr><th>Kind</th><th>Problem (click for a sample)</th><th>Users</th><th>Times</th><th>Versions</th><th>Last</th></tr>
 ${table || '<tr><td colspan="6" class="muted">No problems reported. 🎉</td></tr>'}</table></section>
+${tabCard(data.tabs)}
 <section class="card" style="margin-bottom:12px"><h2>🖥️ Machines${chip(data, 'machines')}</h2><small class="muted">one row per install: the version it runs now, and every version it has run (id shown as a short prefix)</small>
 <div style="overflow-x:auto"><table class="machines"><tr><th>Install</th><th>OS</th><th>Version</th><th>First seen</th><th>Last seen</th><th>Earlier versions</th></tr>${data.machines.map(m => `<tr><td><code>${esc(String(m.install).slice(0, 6))}</code></td><td>${esc(OS_NAMES[m.platform] || m.platform)}</td><td><span class="v now">${esc(m.current)}</span></td><td class="muted num">${esc(String(m.first || '').slice(0, 10))}</td><td class="muted num">${esc(String(m.last || '').slice(0, 16).replace('T', ' '))}</td><td class="vs">${m.versions.filter(v => v !== m.current).map(v => `<span class="v">${esc(v)}</span>`).join('') || '<span class="muted">–</span>'}</td></tr>`).join('')
   || '<tr><td colspan="6" class="muted">No machine has reported yet.</td></tr>'}</table></div></section>
