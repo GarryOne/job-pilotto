@@ -30,7 +30,7 @@ export function accountSketch(raw = {}) {
   const list = (value, max, cap) => (Array.isArray(value) ? value : []).map(item => clean(item, max)).filter(Boolean).slice(0, cap);
   return {path, title: clean(raw.title, 160), headings: list(raw.headings, 100, 8),
     controls: (Array.isArray(raw.controls) ? raw.controls : []).slice(0, 50).map(item => ({type: clean(item?.type, 20), label: clean(item?.label, 80), required: !!item?.required, state: ['filled', 'empty', 'checked', 'unchecked'].includes(item?.state) ? item.state : '', match: ['yes', 'no'].includes(item?.match) ? item.match : '', options: String(item?.type || '').startsWith('select') ? list(item?.options, 40, 40) : [], at: /^\d{1,3},\d{1,3}$/.test(String(item?.at || '')) ? String(item.at) : '',
-      answer: VALUE_CLASSES.includes(item?.answer) ? item.answer : '', legal: item?.legal === true, tried: Math.max(0, Math.min(20, Math.trunc(Number(item?.tried)) || 0))})).filter(item => item.type),
+      answer: VALUE_CLASSES.includes(item?.answer) ? item.answer : '', fp: /^[a-z0-9]{6,16}$/.test(String(item?.fp || '')) ? item.fp : '', legal: item?.legal === true, tried: Math.max(0, Math.min(20, Math.trunc(Number(item?.tried)) || 0))})).filter(item => item.type),
     fromPath: clean(raw.fromPath, 120), sameForm: ['yes', 'no'].includes(raw.sameForm) ? raw.sameForm : '', buttons: list(raw.buttons, 60, 25), texts: list(raw.texts, 160, 30), frames: list(raw.frames, 60, 8),
     onTop: ['dialog', 'overlay'].includes(raw.onTop?.shape) ? {shape: raw.onTop.shape, role: clean(raw.onTop.role, 20), text: clean(raw.onTop.text, 160), buttons: list(raw.onTop.buttons, 40, 6)} : null};   // extension/on-top.js
 }

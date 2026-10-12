@@ -85,7 +85,7 @@ test('askRepair asks once with the digest and keeps the valid repairs; no AI or 
   const fake = client({repairs: [{n: 2, widget: 'native_select', verb: 'choose_option', option: 3}]});
   const found = await askRepair(fake, raw, [{n: 2, verdict: 'wrong', reason: 'wrong_class'}]);
   assert.equal(fake.sent.length, 1);
-  assert.deepEqual(found, {repairs: [{n: 2, label: 'Country', widget: 'native_select', verb: 'choose_option', option: 3, refused: ''}], counts: {choose_option: 1}});
+  assert.deepEqual(found, {repairs: [{n: 2, label: 'Country', widget: 'native_select', verb: 'choose_option', option: 3, refused: ''}], counts: {choose_option: 1}, asked: true});
   assert.deepEqual(await askRepair(null, raw), {error: 'no AI'});
   const none = client({repairs: []});
   assert.deepEqual(await askRepair(none, {...raw, controls: raw.controls.slice(0, 1)}), {error: 'nothing to repair'});

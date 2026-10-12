@@ -76,16 +76,22 @@ export function validRepairs(found, sketch, misses) {
 // Counts per verb, for the log line (no label, no text).
 export const countsOf = rows => Object.fromEntries(VERBS.map(verb => [verb, rows.filter(row => row.verb === verb).length]).filter(([, count]) => count));
 
-// raw: the judges' sketch (extension/account-fill.js accountSketch); verdicts: the fill check's (fill-verify.js), or none. -> {repairs, counts} or {error}
-export async function askRepair(client, raw, verdicts) {
-  if (!client) return {error: 'no AI'};
+// raw: the judges' sketch (extension/account-fill.js accountSketch); verdicts: the fill check's (fill-verify.js), or none; keptFor(fp): a repair kept for a control's fingerprint
+// (repair-kept.js, PR D): a missed control with one is repaired from it, through the same floors, and the model is asked only about the rest (none left: no call at all).
+// -> {repairs, counts, asked} (asked: whether the model was called) or {error}
+export async function askRepair(client, raw, verdicts, {keptFor = () => null} = {}) {
   const sketch = accountSketch(raw), misses = missesOf(sketch, verdicts).slice(0, 12);
   if (!misses.length) return {error: 'nothing to repair'};
+  const fromKept = misses.map(miss => ({miss, kept: keptFor(sketch.controls[miss.n - 1]?.fp)})).filter(row => row.kept);
+  const kept = validRepairs({repairs: fromKept.map(({miss, kept}) => ({n: miss.n, widget: kept.widget, verb: kept.verb, option: 0}))}, sketch, misses).map(row => ({...row, kept: true}));
+  const rest = misses.filter(miss => !kept.some(row => row.n === miss.n)).slice(0, Math.max(0, CAP - kept.length));
+  if (!rest.length) return {repairs: kept, counts: countsOf(kept), asked: false};
+  if (!client) return kept.length ? {repairs: kept, counts: countsOf(kept), asked: false} : {error: 'no AI'};
   try {
     const response = await client.messages.create({model: MODEL, max_tokens: 1500, system: INSTRUCTIONS, output_config: {format: {type: 'json_schema', schema}, effort: 'low'},
-      messages: [{role: 'user', content: digestText(sketch, misses)}]});
+      messages: [{role: 'user', content: digestText(sketch, rest)}]});
     if (response.stop_reason === 'max_tokens') return {error: 'cut off'};
-    const repairs = validRepairs(JSON.parse(response.content?.find(block => block.type === 'text')?.text || ''), sketch, misses);
-    return {repairs, counts: countsOf(repairs)};
+    const repairs = [...kept, ...validRepairs(JSON.parse(response.content?.find(block => block.type === 'text')?.text || ''), sketch, rest)].sort((a, b) => a.n - b.n);
+    return {repairs, counts: countsOf(repairs), asked: true};
   } catch (error) { return {error: String(error?.message || 'AI failed').replace(/\s+/g, ' ').slice(0, 120)}; }
 }
