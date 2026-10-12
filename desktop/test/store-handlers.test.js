@@ -22,7 +22,7 @@ const handlers = (storage, choice = true, extra = {}) => {
 };
 
 test('the card\'s state: a label and capabilities, never an adapter name', () => {
-  assert.deepEqual(storeState(make({store: 'sqlite'})), {label: 'This Mac', caps: [], trying: false, notionConnected: false, choice: true});
+  assert.deepEqual(storeState(make({store: 'sqlite'})), {label: 'This Mac', caps: [], trying: false, tracking: true, notionConnected: false, choice: true});
   const notion = storeState(make({notionIds: {NOTION_PROFILE_PAGE_ID: 'p'}}, 't'));
   assert.equal(notion.label, 'Notion');
   assert.deepEqual(notion.caps.sort(), ['cloud', 'files', 'links']);

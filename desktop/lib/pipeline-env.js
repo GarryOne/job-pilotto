@@ -92,7 +92,8 @@ export function pipelineEnv(storage, parent = process.env) {
   }
   // The store the person chose (lib/store/index.js): the engine opens the same one (src/stores chosen()); unset, it decides as before.
   // On this Mac the texts are the app's own files, read and written by the app and the engine alike (one copy).
-  if (settings.store) env.JOB_PILOTTO_STORE = settings.store;
+  // Notion chosen but not connected: the engine runs as while trying (#410: else the search crashed on "needs NOTION_TOKEN").
+  if (settings.store && notionGate.tracking(storage)) env.JOB_PILOTTO_STORE = settings.store;
   if (settings.store === 'sqlite') {
     for (const [variable, name] of Object.entries(LOCAL_TEXTS)) env[variable] = storage.path(name);
   }

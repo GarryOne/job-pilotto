@@ -21,10 +21,11 @@ export function settleStore(storage, {choice = STORE_CHOICE, log = () => {}} = {
   return home;
 }
 
-// {label, caps, trying, choice}: what the card shows.
+// {label, caps, trying, tracking, choice}: what the card shows. tracking is the gate's own answer (lib/notion-gate.js): the window locks pages
+// and keeps them from reading by it, so Notion chosen but not connected is gated there too (#410).
 export function storeState(storage, {choice = STORE_CHOICE} = {}) {
   const opened = store.openStore(storage);
-  return {label: opened.label, caps: [...opened.caps], trying: store.trying(storage), notionConnected: notionGate.connected(storage), choice};
+  return {label: opened.label, caps: [...opened.caps], trying: store.trying(storage), tracking: notionGate.tracking(storage), notionConnected: notionGate.connected(storage), choice};
 }
 
 // "Start using Notion" (spec D3, owner 9 Oct 2026): Notion connected while this Mac's store is still empty switches the store to Notion at once,
