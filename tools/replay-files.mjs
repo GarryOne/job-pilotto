@@ -38,3 +38,20 @@ export function replayFiles(root = ROOT) {
   app.delete('desktop/e2e/lib/offline-app-child.mjs');
   return new Set([...extension, ...app]);
 }
+
+// The harness files a runner reaches from `entry` (desktop/e2e/...): what it imports and the scripts it starts by path, found the same way.
+export function harnessFiles(entry, root = ROOT) {
+  // A bare name is tried beside the file too (offline-app.mjs starts path.join(here, 'offline-app-child.mjs')), and as a repo path.
+  return closure(root, [entry], (spec, from) => [path.posix.join(path.posix.dirname(from), spec), ...(spec.startsWith('.') ? [] : [spec])], file => file.startsWith('desktop/'));
+}
+
+// What each replay job of a pull request loads (tools/affected-jobs.py asks, a folder ends with /): the whole extension (its manifest and data files load too),
+// the app modules above, the job's pages and its runner's files. A change to none of them cannot change what the job replays.
+export function jobFiles(job, root = ROOT) {
+  const loaded = ['extension/', ...replayFiles(root)];
+  if (job === 'replays') return new Set([...loaded, 'desktop/e2e/recorded/', ...harnessFiles('desktop/e2e/test/recorded-pages.test.mjs', root)]);
+  if (job === 'zoo') return new Set([...loaded, 'desktop/e2e/widget-zoo/', ...harnessFiles('desktop/e2e/widget-zoo.mjs', root)]);
+  throw new Error(`no replay job ${job}: replays or zoo`);
+}
+
+if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--job') console.log([...jobFiles(process.argv[3])].sort().join('\n'));

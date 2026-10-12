@@ -1,4 +1,4 @@
-"""Which tests a change can break: the local push check runs only these; CI always runs everything. Guarded by tests/test_affected_tests.py.
+"""Which tests a change can break: the local push check runs only these. Guarded by tests/test_affected_tests.py. CI asks it per job through tools/affected-jobs.py.
 
   python3 tools/affected-tests.py --base origin/main            (JSON on stdout: per area a list of test files, or "all")
   python3 tools/affected-tests.py --files src/store.py desktop/lib/x.js
@@ -28,6 +28,7 @@ ALL_TRIGGERS = re.compile(r'(^|/)(package(-lock)?\.json|requirements[^/]*\.txt|p
 # harness's package.json, ran Python, worker and site whole for nothing). A root-level file (package.json, requirements, pyproject) still runs everything.
 SCOPED_DEPS = re.compile(r'^(desktop|worker|site)/(.+/)?package(-lock)?\.json$')
 NO_TEST_EFFECT = re.compile(r'\.md$|^docs/|^LICENSE|\.gitignore$')
+KNOWN = ('src/', 'tests/', 'tools/', 'config/', 'templates/', 'desktop/', 'extension/', 'worker/', 'site/', '.github/', 'docs/', '.gitattributes')   # .gitattributes: the tests that name it (test_ship, merge-baseline) are picked by mention
 
 
 def walk(suffixes):
@@ -162,8 +163,7 @@ def select(changed, base_ref=None):
              'desktop': (lambda f: f.startswith(('desktop/', 'extension/')) or f == '.gitattributes'),
              'worker': (lambda f: f.startswith(('worker/', 'extension/'))),
              'site': (lambda f: f.startswith('site/'))}
-    known = tuple(['src/', 'tests/', 'tools/', 'config/', 'templates/', 'desktop/', 'extension/', 'worker/', 'site/', '.github/', 'docs/', '.gitattributes'])   # .gitattributes: the tests that name it (test_ship, merge-baseline) are picked by mention
-    unknown = [f for f in relevant if not f.startswith(known)]
+    unknown = [f for f in relevant if not f.startswith(KNOWN)]
     if everything or unknown:
         why['all'] = everything + unknown
         return {**{k: 'all' for k in ('python', 'desktop', 'worker', 'site')}, 'reasons': why}

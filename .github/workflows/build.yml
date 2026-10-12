@@ -20,13 +20,19 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0   # the PR's changed files: the lock tests run only when one is a lock path (tools/py-shards.py LOCK_PATHS)
+      # A pull request runs this job's steps only when it can break them (tools/ci-needed.sh: the push hook's pick, per job); the job always reports. A push to main runs everything.
+      - id: needed
+        name: Can this change break python?
+        run: bash tools/ci-needed.sh python
       - uses: actions/setup-python@v6
+        if: steps.needed.outputs.run == 'true'
         with:
           python-version: '3.12'
       - name: Changed files (pull requests only; a push to main runs every test)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && steps.needed.outputs.run == 'true'
         run: git diff --name-only "${{ github.event.pull_request.base.sha }}...HEAD" > "$RUNNER_TEMP/changed.txt" || rm -f "$RUNNER_TEMP/changed.txt"
-      - run: |
+      - if: steps.needed.outputs.run == 'true'
+        run: |
           [ -s "$RUNNER_TEMP/changed.txt" ] && export JOB_PILOTTO_PY_CHANGED_FILE="$RUNNER_TEMP/changed.txt"
           bash tools/check.sh --area python
 
@@ -35,30 +41,50 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2   # the merge commit and the main it merges into: what this pull request changes
+      # A pull request runs this job's steps only when it can break them (tools/ci-needed.sh: the push hook's pick, per job); the job always reports. A push to main runs everything.
+      - id: needed
+        name: Can this change break worker?
+        run: bash tools/ci-needed.sh worker
       - uses: actions/setup-python@v6
+        if: steps.needed.outputs.run == 'true'
         with:
           python-version: '3.12'
       - uses: actions/setup-node@v5
+        if: steps.needed.outputs.run == 'true'
         with:
           node-version: '22'
-      - run: npm ci
+      - if: steps.needed.outputs.run == 'true'
+        run: npm ci
         working-directory: worker
-      - run: bash tools/check.sh --area worker
+      - if: steps.needed.outputs.run == 'true'
+        run: bash tools/check.sh --area worker
 
   site:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2   # the merge commit and the main it merges into: what this pull request changes
+      # A pull request runs this job's steps only when it can break them (tools/ci-needed.sh: the push hook's pick, per job); the job always reports. A push to main runs everything.
+      - id: needed
+        name: Can this change break site?
+        run: bash tools/ci-needed.sh site
       - uses: actions/setup-python@v6
+        if: steps.needed.outputs.run == 'true'
         with:
           python-version: '3.12'
       - uses: actions/setup-node@v5
+        if: steps.needed.outputs.run == 'true'
         with:
           node-version: '22'
-      - run: npm ci
+      - if: steps.needed.outputs.run == 'true'
+        run: npm ci
         working-directory: site
-      - run: bash tools/check.sh --area site
+      - if: steps.needed.outputs.run == 'true'
+        run: bash tools/check.sh --area site
 
   desktop:
     # Both platforms, on every push: Windows is where the app's platform branches really run (Credential
@@ -76,17 +102,27 @@ jobs:
         shell: bash   # `npm test` globs test/*.test.js, which pwsh would hand to node unexpanded
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2   # the merge commit and the main it merges into: what this pull request changes
+      # A pull request runs this job's steps only when it can break them (tools/ci-needed.sh: the push hook's pick, per job); the job always reports. A push to main runs everything.
+      - id: needed
+        name: Can this change break desktop?
+        run: bash tools/ci-needed.sh desktop
       - uses: actions/setup-python@v6
+        if: steps.needed.outputs.run == 'true'
         with:
           python-version: '3.12'
       - uses: actions/setup-node@v5
+        if: steps.needed.outputs.run == 'true'
         with:
           node-version: '22'
       # Install exactly what a developer (and the release workflow) has, dev dependencies included:
       # `npm test` runs scripts/stage.mjs, which needs esbuild. Only Electron's large binary is skipped,
       # as the tests don't start it. tools/pre-push-check.sh blocks `--omit` here.
-      - run: npm ci
+      - if: steps.needed.outputs.run == 'true'
+        run: npm ci
         working-directory: desktop
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-      - run: bash tools/check.sh --area desktop
+      - if: steps.needed.outputs.run == 'true'
+        run: bash tools/check.sh --area desktop
