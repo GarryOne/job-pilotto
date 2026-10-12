@@ -405,7 +405,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   const finalForm = await inPage(tab.id, () => window.__jobPilottoDescribeForm?.(true)).catch(() => null);   // settled: a real first choice is an answer
   const gaveUp = await inPage(tab.id, () => window.__jobPilottoRetypeGaveUp?.() || []).catch(() => []);
   // Rung 0 of the fill ladder: the one read of every control once the page settled (page/read-back.js), written on each control; the trace takes it, so it says what the panel says.
-  const settleStart = Date.now(), readBack = await inPage(tab.id, () => window.__jobPilottoReadBack?.pass() || []).catch(() => []);
+  const settleStart = Date.now(), readBack = (await inPage(tab.id, () => window.__jobPilottoReadBack?.pass() || []).catch(() => [])) || [];   // null: the page went away (a press during the fill)
   if (readBack.length) decide('fill', 'read back after the page settled', {...readBackCounts(readBack), ms: Date.now() - settleStart}).catch(() => {});   // ms: what the settle wait costs (spec budget: <= +1 s on a clean page)
   for (const spent of await inPage(tab.id, () => window.__jobPilottoAttempts?.drain() || []).catch(() => []) || []) decide('fill', 'a control used its tries: left for the person', {kind: spent.kind, tries: spent.tries}).catch(() => {});   // once per control (page/attempts.js)
   const tries = await inPage(tab.id, () => window.__jobPilottoAttempts?.summary() || null).catch(() => null);

@@ -416,8 +416,12 @@ export async function consider(tab, jobUrl) {
   decide('fill', 'filling', {host, job: new URL(String(jobUrl || tab.url)).pathname, page: new URL(tab.url).pathname});   // which posting's kit this page uses
   await writeState(tab.id, {state: 'running'});
   const result = await fillOpenedTab(live, String(jobUrl || tab.url).split('#')[0], false, {fast: true, quiet: true});
-  await writeState(tab.id, result?.error ? {state: 'error', error: String(result.error).slice(0, 160)}
+  // The end state is this page's: a tab that moved on during the fill (the person pressed the page's own "Create account") shows another page, which writes its own
+  // (13 Oct 2026: a sign-up's fill error was read on the application form after it, as if the form had failed).
+  const still = await chrome.tabs.get(tab.id).catch(() => null);
+  if (!still || String(still.url || '').split('#')[0] === String(live.url || tab.url).split('#')[0]) await writeState(tab.id, result?.error ? {state: 'error', error: String(result.error).slice(0, 160)}
     : {state: 'done', filled: result?.filled || 0, left: (result?.todo || []).length, todo: (result?.todo || []).slice(0, 20)});
+  else decide('fill', 'the tab moved on during the fill: its end state is left to the next page', {page: new URL(String(live.url || tab.url)).pathname}).catch(() => {});
   reportFlow(tab, {role: 'form', ok: !result?.error});
   const requiredIn = (result?.trace || []).filter(row => row.required && row.outcome === 'filled').length; if (!result?.error && requiredIn) noteProgress(tab.id, 'required_down', {filled: requiredIn});
   const filledProof = !result?.error && result?.filled > 0 && !pressed && !noted ? confirmedBody(kind?.role === 'form' ? kind : null, tab.url, controlsOf(tab.id), 'filled') : null;   // the page took the fill: the decision that called it a form is counted (a kind the structure overrode is the rule's, rung 0)
