@@ -222,7 +222,7 @@ PR by PR. Order: the account page with no step (10 of 75 pool rows), the posting
 - [ ] silent dead ends: the one progress rule, its T measured on the CI pool
 - [ ] the dead-end detector measured: recall and false fires on the pool's ground truth
 - [ ] the one question at each dead end, in shadow, logged beside what happened
-- [ ] the next move checked: numbered answers, two agreeing asks for a press, an expected effect per verb
+- [x] the next move checked: numbered answers, two agreeing asks for a press, an expected effect per verb (ladder/next-move.js: logged in shadow; the effect is checked when the CI pool acts, box 8) (proof: worker/test/next-move.test.js)
 - [ ] not_listed / blind and the picture cross-check (a new signal: the owner's OK)
 - [ ] fixtures with an expected move; `npm run ladder-score` both ways
 - [ ] the CI pool acting: unblock rate per dead-end row; time and $ per page and per application
