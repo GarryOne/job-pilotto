@@ -25,7 +25,15 @@ export const JOB_SITES = [
 // "Fill drop-down menus too": searchable dropdowns (Greenhouse react-select) open only for real input, so
 // the extension clicks each armed one through Chrome's debugger (trusted input; Chrome shows a debugging
 // bar meanwhile); the page script then picks the kit's answer in the opened menu. Returns how many got picked.
-export async function clickCombos(tabId) {
+// One at a time: a second call (the app's own ask for one field, the later pass) while a slow type-to-search menu is still being typed waits its turn,
+// instead of failing on "Another debugger is already attached" and leaving the menu empty.
+let comboQueue = Promise.resolve();
+export function clickCombos(tabId) {
+  const turn = comboQueue.then(() => clickCombosNow(tabId));
+  comboQueue = turn.catch(() => {});
+  return turn;
+}
+async function clickCombosNow(tabId) {
   const page = (func, args = []) => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func, args})
     .then(([r]) => r?.result);
   const results = [];
@@ -35,13 +43,23 @@ export async function clickCombos(tabId) {
   const mouse = (type, x, y) => chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent',
     {type, x, y, button: 'left', clickCount: 1});
   const click = async (x, y) => { await mouse('mouseMoved', x, y); await mouse('mousePressed', x, y); await mouse('mouseReleased', x, y); };
+  // A type-to-search box (page/fill-menus.js typeToSearch): the text typed over the box's content for real, and the AI's pick by meaning among the options it showed.
+  const type = async text => {
+    await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'rawKeyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 4, commands: ['selectAll']});
+    await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'keyUp', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 4});
+    await chrome.debugger.sendCommand(target, 'Input.insertText', {text});
+  };
+  const choose = async ({label, asked, choices}) => {
+    const config = await settings().catch(() => null);
+    return config ? (await api(config, '/extension/pick-choice', {method: 'POST', body: JSON.stringify({label, value: asked, options: choices})}).catch(() => null))?.choice || '' : '';
+  };
   let skip = 0;
   try {
     for (let i = 0; i < 40; i++) {
       const spot = await page(n => window.__jobPilottoNextCombo(n), [skip]);
       if (!spot) break;
       const started = Date.now();
-      const {picked, last} = await clickCombo({page, click, spot, skip});
+      const {picked, last} = await clickCombo({page, click, spot, skip, type, choose});
       // Did the page pick what it was asked for? (8 Oct 2026: an automatic click selected the item after "Suisse".) A yes/no, never the value.
       const matched = !picked || !last ? null : String(last.asked).trim().toLowerCase() === String(last.got).trim().toLowerCase();
       // What was observed for this menu (fill card reasons: opened, found, selectedAfter, trusted), never assumed.

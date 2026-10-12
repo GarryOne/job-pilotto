@@ -1,0 +1,25 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Bewerbung</title></head><body>
+<form onsubmit="return false" style="font:14px system-ui;padding:20px">
+<h1>Bewerbung</h1>
+<div class="row"><label for="vn">Vorname *</label> <input id="vn" name="vorname" type="text" required aria-required="true"></div>
+<div class="row"><label for="nn">Nachname *</label> <input id="nn" name="nachname" type="text" required aria-required="true"></div>
+<div class="row"><label for="mail">E-Mail *</label> <input id="mail" name="mail" type="email" required aria-required="true"></div>
+<div class="row"><div class="wrap"><div class="inner"><input id="wohnort-7" name="wohnort" type="text" role="combobox" aria-required="true" aria-expanded="false" autocomplete="off" style="width:240px"></div></div><label for="wohnort-7">Wohnort *</label>
+<input id="wohnort_wert" name="wohnort_wert" type="hidden"></div>
+<div class="row"><button type="button">Bewerben</button></div>
+</form>
+<div id="ls-host"><ul id="layer" role="listbox" hidden style="position:absolute;top:230px;left:20px;width:260px;background:#fff;border:1px solid #888;list-style:none;margin:0;padding:0"></ul></div>
+<script>
+var cities = ["Genf, Schweiz","Genua, Italien","Genk, Belgien"], box = document.getElementById('wohnort-7'), layer = document.getElementById('layer'), hidden = document.getElementById('wohnort_wert');
+// Options come from a "server" after REAL keystrokes only (a scripted input event is ignored), start of the name as spelt, no accent folding.
+box.addEventListener('input', function (event) {
+  if (!event.isTrusted) return;
+  var query = box.value.toLowerCase(); hidden.value = ''; layer.hidden = false; layer.innerHTML = '';
+  setTimeout(function () { if (box.value.toLowerCase() !== query) return;
+    var hits = cities.filter(function (city) { return city.toLowerCase().indexOf(query) === 0; });
+    layer.innerHTML = '<li class="sg-row" style="padding:4px 8px">' + hits.join('</li><li class="sg-row" style="padding:4px 8px">') + '</li>';
+    Array.prototype.forEach.call(layer.querySelectorAll('li'), function (li) { li.addEventListener('click', function () { box.value = li.textContent; hidden.value = li.textContent.slice(0, 3).toUpperCase(); layer.hidden = true; box.setAttribute('aria-expanded', 'false'); }); });
+  }, 600);
+});
+box.addEventListener('mousedown', function () { layer.hidden = false; box.setAttribute('aria-expanded', 'true'); });
+</script></body></html>

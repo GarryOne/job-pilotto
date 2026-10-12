@@ -1,0 +1,56 @@
+{
+ "shape": "the same type-to-search box in another markup and language: wrapped input before its label, a list of rows in a listbox that names no option, German wording",
+ "why": "variant of typeahead-answer-text-differs-1: every incidental changed (ids, nesting, label order, tag types, language)",
+ "control": {
+  "guard": "new case; fails on the build before this change (the answer is only proposed: scripted typing finds no option)"
+ },
+ "sample": "hand-cut page (a search-as-you-type box whose options come after real keystrokes, 12 Oct 2026; no real site text)",
+ "pages": [
+  {
+   "url": "https://careers.example.test/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": [
+    {
+     "field": "wohnort-7",
+     "value": "Geneva, Switzerland",
+     "confidence": "high",
+     "note": "",
+     "category": "normal",
+     "use": "fill"
+    }
+   ]
+  },
+  "/extension/pick-choice": {
+   "ok": true,
+   "choice": "Genf, Schweiz"
+  }
+ },
+ "expect": {
+  "filled": [
+   "#wohnort_wert"
+  ],
+  "asked": [
+   "Wohnort"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 150
+ },
+ "start": "panel"
+}

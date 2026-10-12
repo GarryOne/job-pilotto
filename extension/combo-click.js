@@ -4,9 +4,10 @@
 // "no option matched" on one run, "menu did not open" on the next). Guarded by desktop/e2e/test/combo-click.test.mjs.
 const PATIENCE = {first: 1500, loading: 5000, option: 4500, deciding: 9000};
 
+// type(text): real typing over the box's content. choose({asked, choices, label}): the AI's pick of one choice by meaning, or ''.
 // page(func, args): runs func in the page (MAIN world). click(x, y): a trusted click. spot: the armed menu's spot from __jobPilottoNextCombo.
 // Returns {picked, last}: whether the armed count dropped, and what the page observed (__jobPilottoLastPick, read once the page is done).
-export async function clickCombo({page, click, spot, skip = 0, sleep = ms => new Promise(r => setTimeout(r, ms))}) {
+export async function clickCombo({page, click, spot, skip = 0, type = null, choose = null, sleep = ms => new Promise(r => setTimeout(r, ms))}) {
   let picked = false, last = null;
   for (let attempt = 1; attempt <= 2 && !picked; attempt++) {
     const before = await page(() => window.__jobPilottoArmedCount());
@@ -21,6 +22,13 @@ export async function clickCombo({page, click, spot, skip = 0, sleep = ms => new
       // The menu ignored a scripted click on its option: the page left the option's spot, clicked here for real once (page/fill-menus.js armCombo).
       const spotAt = spotClicked ? null : await page(() => window.__jobPilottoPickSpot || null);
       if (spotAt) { spotClicked = true; await click(spotAt.x, spotAt.y); limit = Math.max(limit, waited + PATIENCE.option); }
+      // The page needs what only the extension can do (page/fill-menus.js typeToSearch): type for real, or have the AI pick from the options shown.
+      const needed = await page(() => { const need = window.__jobPilottoNeed; window.__jobPilottoNeed = null; return need || null; });
+      if (needed) {
+        const value = needed.kind === 'type' ? await type?.(needed.text).then(() => true, () => false) : await choose?.(needed).catch(() => '');
+        await page(done => { window.__jobPilottoNeedDone = done; }, [value ?? false]);
+        limit = Math.max(limit, waited + PATIENCE.deciding);
+      }
       if (limit < PATIENCE.loading && await loading()) limit = PATIENCE.loading;
       // The page is still deciding (page/fill-menus.js __jobPilottoPicking): its answer comes before any second click.
       if (limit < PATIENCE.deciding && await page(() => !!window.__jobPilottoPicking)) limit = PATIENCE.deciding;

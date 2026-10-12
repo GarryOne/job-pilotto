@@ -15,7 +15,7 @@
   const dialOf = phone => Object.keys(DIAL).sort((a, b) => b.length - a.length).find(code => String(phone || '').replace(/\s/g, '').startsWith(code));
 
   // Searchable dropdowns (react-select on Greenhouse) only open for real user input: scripted clicks and keys are ignored (checked on a live form, 27 Sep 2026). So the extension never opens them; it marks each one, and when you click it, picks the answer in the menu your click opened.
-  const OPTION = '[class*="option"], [role="option"]';
+  const OPTION = '[class*="option"], [role="option"], [role="listbox"] > *, [class*="dropdown-item"]';   // the choices of a list that names no option (a listbox's own children)
   // The innermost option elements of an open menu (not the phone field's hidden country list).
   const optionNodes = () => Array.from(document.querySelectorAll(OPTION))
     .filter(o => o.offsetParent !== null && !o.querySelector(OPTION) && !/iti__/.test(o.className));
@@ -47,6 +47,35 @@
     return contains.length === 1 ? contains[0] : null;
   };
 
+  // The page asks the extension for what only it can do (real typing, the AI's pick): combo-click.js answers through __jobPilottoNeedDone.
+  const need = async request => {
+    window.__jobPilottoNeedDone = undefined; window.__jobPilottoNeed = request;
+    for (let waited = 0; waited < 12000 && window.__jobPilottoNeedDone === undefined; waited += 100) await sleep(100);
+    window.__jobPilottoNeed = null;
+    return window.__jobPilottoNeedDone ?? null;
+  };
+  // A box that searches as you type: the answer typed for real (its first part, then all of it, then a short start when those find nothing), the options awaited,
+  // the one that means the answer chosen: the same text, else the AI's pick from the options' own list (a fixed answer: one of them or none).
+  const typeToSearch = async (el, answer) => {
+    const full = String(answer).split(' || ')[0].trim(), first = full.split(',')[0].trim();
+    const tries = [...new Set([first, full, first.length > 4 ? first.slice(0, 3) : ''].filter(Boolean))];
+    let shown = [];
+    for (const text of tries) {
+      if (!(await need({kind: 'type', text}))) return {option: null, shown};
+      for (let waited = 0; waited < 3000; waited += 250) {
+        await sleep(250); loadMoreOptions();
+        if (matchOption(answer)) return {option: matchOption(answer), shown};
+        if (waited >= 1500 && optionNodes().length) break;
+      }
+      shown = optionNodes().map(o => clean(o.textContent)).filter(Boolean).slice(0, 60);
+      if (!shown.length) continue;
+      const choice = await need({kind: 'choose', label: labelOf(el) || '', asked: full, choices: shown});
+      const hit = choice && optionNodes().find(o => clean(o.textContent) === choice);
+      if (hit) return {option: hit, shown};
+    }
+    return {option: null, shown};
+  };
+
   // Mark a dropdown with its answer; your click opens the menu, and the answer is picked in it.
   const armCombo = (field, answer) => {
     const el = document.getElementById(field) || document.querySelector(`[name="${CSS.escape(field)}"]`);
@@ -72,6 +101,8 @@
           if (!option) Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, String(answer).split(' || ')[0].split(',')[0].trim());
           if (!option) el.dispatchEvent(new Event('input', {bubbles: true}));
           for (let waited = 0; waited < 4000 && !option; waited += 250) { loadMoreOptions(); await sleep(250); option = matchOption(answer); }
+          // A type-to-search box ignores that scripted typing (its options come from a server after real keystrokes): the extension types for real.
+          if (!option && el.tagName === 'INPUT') { const found = await typeToSearch(el, answer); option = found.option; if (found.shown.length) shown = found.shown; }
         }
         // Picked only when the page shows it (page/menu-pick.js); what was seen goes to flow.js clickCombos and the fill card's reason (observed, not assumed: 9 Oct 2026).
         const opened = el.getAttribute('aria-expanded') === 'true' || optionNodes().length > 0;   // before the pick closes it
