@@ -21,6 +21,7 @@ import * as terminals from './terminals.js';
 import * as visits from './visits.js';
 import {flowState, leftCounts, missedQuestions, submitCounts, unplaced} from './question-labels.js';
 import {log as appLog} from './log.js';
+import {markedSession} from './session-tab.js';
 import {accountCodeAnswer, codeFromMail, confirmAccount} from './account-confirm.js';
 import {createAccountCheck} from './account-check.js';
 import {resolveSession} from './journey-identity.js';
@@ -202,7 +203,12 @@ export function registerExtServerHandlers(ctx) {
     for (const session of sessions) if (review.tabOpen(session.id) === true) formSeen(session.id);   // a restarted app: its form is still open
     return visits.noteTabs(report);
   });   // one tab report: form tabs (Applying) and read tabs (Find jobs using your browser)
-  server.setJoinHandler(tabs => review.tabsToArm(terminals.list(), tabs));
+  server.setJoinHandler(tabs => {   // the wake page's list of open tabs: hosts and whether each carries a session mark, never titles or paths
+    const arm = review.tabsToArm(terminals.list(), tabs);
+    appLog('review', `join: ${tabs.length} tab(s) reported, ${arm.length} to take`, {sessions: terminals.list().length, marked: tabs.filter(tab => markedSession(tab?.url)).length,
+      hosts: [...new Set(tabs.map(tab => { try { return new URL(tab.url).hostname; } catch { return ''; } }).filter(Boolean))].slice(0, 12), arm: arm.map(url => { try { return new URL(url).hostname; } catch { return ''; } })});
+    return arm;
+  });
   server.setFocusHandler(payload => review.noteFocus(terminals.list(), payload));
   server.setOpenHandler(id => {
     if (!terminals.get(id)) return false;

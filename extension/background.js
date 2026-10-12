@@ -53,7 +53,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
   if (!tab.url?.includes(`#${FILL_MARK}`)) return;
   // A mark added to a tab already open changes only its address (a hash change: no loading status).
   if (info.status !== 'loading' && info.status !== 'complete' && !info.url?.includes(`#${FILL_MARK}`)) return;
-  claimAppTab(tabId);   // before any await: a followOpener still reading its opener's keys must not write over this job (tabs.js)
+  claimAppTab(tabId, tab.url);   // before any await: a followOpener still reading its opener's keys must not write over this job (tabs.js)
   let origin = '';
   try { origin = new URL(tab.url).origin + '/*'; } catch { return; }
   if (!(await chrome.permissions.contains({origins: [origin]}))) {
