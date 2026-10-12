@@ -6,8 +6,8 @@
 #   (lib/applying-report.mjs refuses CI) but the two CI records below, with the narrow REPLAYS_PUBLISH_KEY: "proven live", and the ladder moves the rows' pages
 #   confirmed (desktop/e2e/pool-moves.mjs: fixed values per page shape, marked source 'ci' so they never pose as a user's; spec 2026-10-12-one-next-move.md).
 # - AI: the app's own API engine on the Tests key (E2E_ANTHROPIC_KEY, the Tests workspace's $20 limit), through the harness's metering proxy (lib/live-row.mjs).
-#   Hard caps per run, here: MAX_ROWS rows and MAX_USD dollars (the run stops between rows once its spend reaches it). Its own key LIVE_ANTHROPIC_KEY (its own limit)
-#   when the owner has set it, else the Tests key; the summary names the one used. Every run reports its spend to /admin/ai-cost (pool-live, or pr-live-proof on a PR).
+#   Hard caps per run, here: MAX_ROWS rows and MAX_USD dollars (the run stops between rows once its spend reaches it). Its own key, so its cost shows apart:
+#   LIVE_POOL_ANTHROPIC_KEY by hand, PR_PROOF_ANTHROPIC_KEY on a PR (lib/engine.mjs liveKeyName), else the Tests key; the summary names the one used. Every run reports its spend to /admin/ai-cost (pool-live, or pr-live-proof on a PR).
 # - Site limit: CI's own ledger per UTC day, at most 2 visits per host across ALL CI runs (main and every PR), a host that showed a block page rests the day;
 #   a by-hand run may use only 1 of the 2: the last is kept for a PR's live proof (owner, 12 Oct 2026).
 #   Each run uploads a small state artifact (its ledger and rows); the next run reads them all (GitHub's cache is per branch: a PR's visits would be unseen).
@@ -61,8 +61,9 @@ jobs:
       DEFAULT_ROWS: 'Lever: single page|Personio form in German|Recruitee: one-page form'
       ONLY: ${{ inputs.only }}
       SHARE: ${{ inputs.share }}
-      E2E_ANTHROPIC_KEY: ${{ secrets.LIVE_ANTHROPIC_KEY || secrets.E2E_ANTHROPIC_KEY }}   # the live key (its own limit, owner 12 Oct 2026) when it exists, else the Tests key
-      AI_KEY_NAME: ${{ secrets.LIVE_ANTHROPIC_KEY != '' && 'LIVE_ANTHROPIC_KEY' || 'E2E_ANTHROPIC_KEY' }}   # which one, by name only: the job summary says it
+      E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}               # the Tests key: the fallback while a live run's own key is not set
+      LIVE_POOL_ANTHROPIC_KEY: ${{ secrets.LIVE_POOL_ANTHROPIC_KEY }}   # a pool run by hand (owner, 12 Oct 2026: each live run's cost apart)
+      PR_PROOF_ANTHROPIC_KEY: ${{ secrets.PR_PROOF_ANTHROPIC_KEY }}     # a PR's live proof; lib/engine.mjs liveKeyName picks by JOB_PILOTTO_VISIT_KIND
       JP_NO_REPORT: '1'                # no applying report from CI (the code refuses it anyway); the proven records and ladder moves go with their own narrow key
       JP_APPLICANT: ${{ inputs.applicant || 'thin' }}   # thin by hand, grown on a PR proof unless its body says "live-applicant: thin"
       JOB_PILOTTO_HEAVY: '0'           # the heavy lock is a Mac's machine-wide queue; this runner is its own machine
