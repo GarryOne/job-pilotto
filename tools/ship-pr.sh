@@ -24,7 +24,10 @@ ship_pr_land() {
   if [ -z "$n" ]; then
     title="$(git log --reverse --format=%s origin/main..HEAD | head -n 1)"
     body="$(git log --reverse --format='### %s%n%n%b' origin/main..HEAD; printf '\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n')"
+    rows="$(git log --format='%(trailers:key=Pool-row,valueonly)' origin/main..HEAD | grep -v '^$' | grep -iv '^none' | sort -u || true)"   # the pool rows this PR fixes (the Pool-row lines)
+    if [ -n "$rows" ]; then body="$(printf '**Pool rows fixed:**\n%s\n\n%s' "$(echo "$rows" | sed 's/^/- /')" "$body")"; fi   # an if, never a bare &&: under set -e an empty list would end the landing
     out="$(gh pr create --base main --head "$branch" --title "$title" --body "$body" 2>&1)" || ship_pr_fail "could not open the pull request: $(echo "$out" | tail -n 1)"
+    if [ -n "$rows" ]; then gh label create pool-fix --color 1D76DB --description "fixes a row of the applying pool (from its Pool-row lines)" >/dev/null 2>&1 || true; gh pr edit "$(echo "$out" | tail -n 1)" --add-label pool-fix >/dev/null 2>&1 || true; fi   # a missing label never fails a landing
     n="${out##*/}"; step "opened the pull request: $(echo "$out" | tail -n 1)"
   else
     step "the branch already has pull request #$n: reusing it"

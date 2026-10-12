@@ -33,6 +33,16 @@ export function untaggedNewCases(added, messages) {
 Add to the fix's commit message: "Pool-row: <the row's name as /admin/applying shows it>" (the Fixed tab lists fixes by it), or "Pool-row: none <why>" for a hand-made shape no row showed.`;
 }
 
+// Any push that changes a file the app acts on pages with names its row too, not only one that adds a case (12 Oct 2026: the prompt fix #424 and a
+// harness fix landed with none, so the Fixed tab and the PR's live proof never saw them). "Pool-row: none <why>" for a refactor, a log line, a pure move.
+export function untaggedActing(commits, covered) {
+  const cover = new Set(covered);
+  const acting = [...new Set(commits.flatMap(commit => commit.files.filter(file => cover.has(file))))];
+  if (!acting.length) return '';
+  return untaggedNewCases(['__acting__'], commits.map(commit => commit.message)) ? `this push changes how the app acts on pages (${acting.slice(0, 3).join(', ')}${acting.length > 3 ? ', …' : ''}) but no commit names the pool row it fixes.
+Add to a commit message: "Pool-row: <the row's name as /admin/applying shows it>" (the Fixed tab and the PR's live proof read it), or "Pool-row: none <why>" (a refactor, a log line, no row behind it).` : '';
+}
+
 // -> '' when fine, else the message. commits: [{files, message}] of the push; covered: the files a replay loads.
 export function missingCase(commits, covered) {
   const cover = new Set(covered), acting = commit => commit.files.filter(file => cover.has(file));
@@ -66,7 +76,7 @@ async function main() {
   const {FLOW_FILES} = await import(path.join(root, 'desktop/e2e/flows.mjs'));
   const covered = coveredFiles(root, FLOW_FILES);
   const added = casesOf(git('diff', '--name-only', '--diff-filter=A', `${base}...HEAD`, '--', 'desktop/e2e/recorded').split('\n').filter(file => file.endsWith('/case.json')));
-  const why = missingCase(commits, covered) || untaggedNewCases(added, commits.map(commit => commit.message));
+  const why = missingCase(commits, covered) || untaggedNewCases(added, commits.map(commit => commit.message)) || untaggedActing(commits, covered);
   if (why) { console.error(why); return 1; }
   return 0;
 }
