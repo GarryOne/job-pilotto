@@ -116,6 +116,11 @@ export const pickPosting = (postings, day = new Date()) => { const allowed = pos
 
 // --only: the words of one row, or several rows' words joined by | (the CI workflow's list of rows; a fixer's single row as before).
 export const matchesOnly = (shape, only = '') => !only || String(only).split('|').map(words => words.trim()).filter(Boolean).some(words => shape.includes(words));
+// The rows --only selects: a row's exact name selects that row alone (the PR live proof names one: lib/pool-proof.mjs), else every row matchesOnly holds.
+export function selectRows(shapes, only = '') {
+  const exact = only ? shapes.filter(item => item.shape === String(only).trim()) : [];
+  return exact.length ? exact : shapes.filter(item => matchesOnly(item.shape, only));
+}
 
 // A run's share of the ordered pool (lib/smoke-order.mjs orderPool: the least tested first): the first `size` rows; a share bigger than the pool is the pool.
 export const runShare = (ordered, size = 10) => ordered.slice(0, size);

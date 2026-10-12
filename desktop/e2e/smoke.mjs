@@ -13,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {orderPool} from './lib/smoke-order.mjs';
-import {SITE_REFUSED, compare, engineLine, lastSeen, matchesOnly, runShare, shareSize, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, signature, smokeEngine, verdictFields} from './lib/smoke.mjs';
+import {SITE_REFUSED, compare, engineLine, lastSeen, runShare, selectRows, shareSize, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, signature, smokeEngine, verdictFields} from './lib/smoke.mjs';
 import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
 import {uploadLedger} from './lib/fix-ledger.mjs';
 import {poolCard, sendPoolCard} from './lib/pool-card.mjs';
@@ -135,7 +135,7 @@ async function main() {
     console.log(`smoke: ${shape}: ${await sendPoolCard(poolCard(shape, item, {day}))}`);   // the same loop users' fills feed (lib/pool-card.mjs)
     console.log(`smoke: ${await upload('smoke', [{name: shape, host: hostOnly(item.url), reached: item.reached, filled: item.filled, left: item.left, note: item.note || '', regression: !!found, ...rungFields(item), ...verdictFields(item)}])}`);
   };
-  const pool = shapes.filter(item => matchesOnly(item.shape, only));   // one row's words, or several rows' joined by |
+  const pool = selectRows(shapes, only);   // a row's exact name, one row's words, or several rows' joined by |
   const today = (() => { try { return [JSON.parse(fs.readFileSync(path.join(REPORTS, `${day}.json`), 'utf8'))]; } catch { return []; } })();   // a run earlier today counts too
   // Every mode starts with the rows tested the least (lib/smoke-order.mjs); only --only is a fixer's own choice. A row resting today (site-ledger) is skipped and listed.
   const postingOf = ({urls = [], like = []}) => pickPosting([...urls.map(url => ({url, title: '', company: ''})), ...(like.length ? postingsLike(like) : [])]);
@@ -145,7 +145,7 @@ async function main() {
   const chosen = only || process.argv.includes('--all') ? ranked.order : runShare(ranked.order, shareSize());
   const capped = capRows(chosen, limits.maxRows);
   chosen.splice(capped.run.length);   // the row cap: the rows past it are named below, not run
-  const thisRun = {unfinished: [], skipped: [], cut: capped.cut.map(item => item.shape), stopped: '', usd: 0, maxUsd: limits.maxUsd, maxRows: limits.maxRows};   // the day report's record of this run (lib/pool-ci.mjs summary)
+  const thisRun = {ran: [], unfinished: [], skipped: [], cut: capped.cut.map(item => item.shape), stopped: '', usd: 0, maxUsd: limits.maxUsd, maxRows: limits.maxRows};   // the day report's record of this run (lib/pool-ci.mjs summary)
   if (thisRun.cut.length) console.log(`smoke: row cap ${limits.maxRows}: not run this time: ${thisRun.cut.join(', ')}`);
   if (limits.maxUsd) console.log(`smoke: AI dollar cap $${limits.maxUsd.toFixed(2)}: the run stops between rows once its spend reaches it`);
   console.log(`smoke: ${chosen.length} of ${shapes.length} shapes in this run (${only ? `--only ${only}` : 'the least tested first: never run, then the fewest runs in 14 days, then the oldest'})`);
@@ -178,6 +178,7 @@ async function main() {
       continue;
     }
     results[shape] = {url: posting.url, ...parseLive(run.output), exit: run.code, seconds: run.seconds};
+    thisRun.ran.push(shape);
     thisRun.usd += results[shape].usd || 0;   // the row's AI on the CI key (live.mjs prints it; a Mac's plan has none)
     results[shape].signature = signature(results[shape]);
     results[shape].marksBlind = marksBlind(results[shape]);
