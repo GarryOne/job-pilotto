@@ -27,7 +27,7 @@ def git(*args, cwd=None):
 
 def merge():
     work = tempfile.mkdtemp()
-    git('clone', '-q', state['origin'], work)
+    git('clone', '-q', '--no-hardlinks', state['origin'], work)   # a hardlinked clone races a pack being written (CI, 12 Oct 2026: "hardlink different from source")
     git('config', 'user.email', 't@example.com', cwd=work); git('config', 'user.name', 'Test', cwd=work)
     git('checkout', '-q', state['head'], cwd=work)
     git('rebase', '-q', 'origin/main', cwd=work)

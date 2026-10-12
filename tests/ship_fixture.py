@@ -37,7 +37,7 @@ class ShipFixture(unittest.TestCase):
         git(self.main, 'commit', '-qm', 'Start')
         git(self.main, 'remote', 'add', 'origin', str(self.origin))
         git(self.main, 'push', '-q', 'origin', 'main')
-        subprocess.run(['git', 'clone', '-q', str(self.origin), str(self.other)], check=True)
+        subprocess.run(['git', 'clone', '-q', '--no-hardlinks', str(self.origin), str(self.other)], check=True)
         for key, value in (('user.email', 't@example.com'), ('user.name', 'Test')):
             git(self.other, 'config', key, value)
         self.tree = Path(git(self.main, 'rev-parse', '--show-toplevel')) / '.claude' / 'worktrees' / 'topic'
