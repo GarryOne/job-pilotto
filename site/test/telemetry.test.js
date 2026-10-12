@@ -9,7 +9,7 @@ import {daily, describe} from '../src/telemetry.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
-  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_feedback.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  for (const file of ['0001_stats.sql', '0002_telemetry.sql', '0003_feedback.sql', '0062_telemetry_country.sql']) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
   const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values), run: async () => db.prepare(sql).run(...args),
     all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
   return {db, prepare: sql => statement(sql)};
@@ -290,4 +290,16 @@ test('form-tab reports: taken ones count in the rate, misses are problems, /admi
   assert.match(html, /Windows[^]*?0\.7\.2[^]*?<td>4<\/td><td>2<\/td>\s*<td>50%<\/td>/);   // 4 opened on Windows 0.7.2, 2 taken
   assert.match(html, /extension_silent/);
   assert.ok(!/form tab: taken/.test(html) && !/Form tab: taken/.test(html), 'a taken tab is not a problem row');
+});
+
+test('a report stores the country Cloudflare saw (two letters only) and the machines table shows it', async () => {
+  const e = env();
+  const post = (cf, events) => worker.fetch(Object.assign(new Request('https://www.jobpilotto.top/report/telemetry', {method: 'POST', body: JSON.stringify({events})}), {cf}), e, {});
+  await post({country: 'CH'}, [crash('install-aaaa1111')]);
+  await post({country: 'not a code'}, [crash('install-bbbb2222')]);
+  await post(undefined, [crash('install-cccc3333')]);
+  const rows = Object.fromEntries(e.STATS.db.prepare('SELECT install, country FROM telemetry').all().map(r => [r.install, r.country]));
+  assert.deepEqual(rows, {'install-aaaa1111': 'CH', 'install-bbbb2222': null, 'install-cccc3333': null});
+  const page = await worker.fetch(new Request('https://www.jobpilotto.top/admin/app', {headers: {Authorization: 'Bearer k3y'}}), e, {});
+  assert.match(await page.text(), /<th>Country<\/th>[^]*<td>CH<\/td>/);
 });

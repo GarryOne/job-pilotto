@@ -66,7 +66,7 @@ export async function collect(request, env, now = new Date()) {
   const events = (Array.isArray(body.events) ? body.events : []).slice(0, MAX_EVENTS)
     .filter(item => item && KINDS.includes(item.kind) && /^[\w-]{8,64}$/.test(String(item.install || '')));
   if (!events.length) return Response.json({ok: false, error: 'no events'}, {status: 400});
-  const today = day(now);
+  const today = day(now), country = /^[A-Z]{2}$/.test(request.cf?.country || '') ? request.cf.country : null;   // Cloudflare's country code for the request, never an address
   const kv = env.WAITLIST, countKey = `telemetry:${events[0].install}:${today}`;
   const count = kv ? Number(await kv.get(countKey)) || 0 : 0;
   if (count >= PER_INSTALL_PER_DAY) return Response.json({ok: false, error: 'limit reached for today'}, {status: 429});
@@ -74,9 +74,9 @@ export async function collect(request, env, now = new Date()) {
   for (const item of events) {
     const data = scrub(JSON.stringify(item)).slice(0, MAX_BYTES);
     const {key, summary} = describe(item);
-    await env.STATS.prepare('INSERT INTO telemetry (day, at, kind, install, version, platform, fingerprint, summary, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .bind(today, text(item.at, 30), item.kind, text(item.install, 64), text(item.version, 30), text(item.platform, 20),
-        await hash(key), scrub(summary).slice(0, 300), data).run();
+    const row = [today, text(item.at, 30), item.kind, text(item.install, 64), text(item.version, 30), text(item.platform, 20), await hash(key), scrub(summary).slice(0, 300), data];
+    await env.STATS.prepare('INSERT INTO telemetry (day, at, kind, install, version, platform, fingerprint, summary, data, country) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(...row, country).run()
+      .catch(() => env.STATS.prepare('INSERT INTO telemetry (day, at, kind, install, version, platform, fingerprint, summary, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(...row).run());   // before migration 0062: no country
   }
   return Response.json({ok: true, stored: events.length});
 }
@@ -93,8 +93,9 @@ export async function problems(db, days, now = new Date(), limit = 50) {
   const unique = (await db.prepare('SELECT COUNT(DISTINCT install) AS n FROM telemetry WHERE day >= ?').bind(from).first())?.n || 0;
   const everSeen = (await db.prepare('SELECT COUNT(DISTINCT install) AS n FROM telemetry').first())?.n || 0;
   // Each machine once: the version it last reported (what is installed now), when it first and last reported, and every version it has run.
-  const machines = (await db.prepare(`SELECT install, platform, version AS current, MAX(at) AS last FROM telemetry
-    GROUP BY install ORDER BY last DESC LIMIT 50`).all()).results || [];
+  const machineSql = columns => `SELECT install, platform, version AS current, MAX(at) AS last${columns} FROM telemetry GROUP BY install ORDER BY last DESC LIMIT 50`;
+  const machines = (await db.prepare(machineSql(', (SELECT t.country FROM telemetry t WHERE t.install = telemetry.install AND t.country IS NOT NULL ORDER BY t.at DESC LIMIT 1) AS country')).all()
+    .catch(() => db.prepare(machineSql('')).all())).results || [];   // before migration 0062: no country
   const history = (await db.prepare('SELECT install, version, MIN(at) AS at FROM telemetry GROUP BY install, version ORDER BY at').all()).results || [];
   for (const m of machines) {
     const own = history.filter(h => h.install === m.install);
@@ -230,8 +231,8 @@ pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:8px 0 0}.kind{
 ${table || '<tr><td colspan="6" class="muted">No problems reported. 🎉</td></tr>'}</table></section>
 ${tabCard(data.tabs)}
 <section class="card" style="margin-bottom:12px"><h2>🖥️ Machines${chip(data, 'machines')}</h2><small class="muted">one row per install: the version it runs now, and every version it has run (id shown as a short prefix)</small>
-<div style="overflow-x:auto"><table class="machines"><tr><th>Install</th><th>OS</th><th>Version</th><th>First seen</th><th>Last seen</th><th>Earlier versions</th></tr>${data.machines.map(m => `<tr><td><code>${esc(String(m.install).slice(0, 6))}</code></td><td>${esc(OS_NAMES[m.platform] || m.platform)}</td><td><span class="v now">${esc(m.current)}</span></td><td class="muted num">${esc(String(m.first || '').slice(0, 10))}</td><td class="muted num">${esc(String(m.last || '').slice(0, 16).replace('T', ' '))}</td><td class="vs">${m.versions.filter(v => v !== m.current).map(v => `<span class="v">${esc(v)}</span>`).join('') || '<span class="muted">–</span>'}</td></tr>`).join('')
-  || '<tr><td colspan="6" class="muted">No machine has reported yet.</td></tr>'}</table></div></section>
+<div style="overflow-x:auto"><table class="machines"><tr><th>Install</th><th>OS</th><th>Country</th><th>Version</th><th>First seen</th><th>Last seen</th><th>Earlier versions</th></tr>${data.machines.map(m => `<tr><td><code>${esc(String(m.install).slice(0, 6))}</code></td><td>${esc(OS_NAMES[m.platform] || m.platform)}</td><td>${esc(m.country || '–')}</td><td><span class="v now">${esc(m.current)}</span></td><td class="muted num">${esc(String(m.first || '').slice(0, 10))}</td><td class="muted num">${esc(String(m.last || '').slice(0, 16).replace('T', ' '))}</td><td class="vs">${m.versions.filter(v => v !== m.current).map(v => `<span class="v">${esc(v)}</span>`).join('') || '<span class="muted">–</span>'}</td></tr>`).join('')
+  || '<tr><td colspan="7" class="muted">No machine has reported yet.</td></tr>'}</table></div></section>
 <section class="card" style="margin-bottom:12px"><h2>How it helped${chip(data, 'helped')}</h2><small class="muted">all ${data.reporting} installs reporting, their latest totals</small>
 <div class="tiles" style="margin:10px 0 0">${[['🎯 Jobs matched', 'matches'], ['⭐ Good fits (70+)', 'goodFits'], ['🧩 Forms filled', 'formsFilled'],
   ['📨 Applications', 'applied'], ['💬 Human replies', 'replies'], ['📞 Screenings', 'screenings'], ['🧑‍💻 Interviews', 'interviews'], ['🏆 Offers', 'offers']]
