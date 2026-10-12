@@ -31,8 +31,9 @@
   };
   // What the fill typed, per box: the value, whether the person has touched the box since, how many times it was typed again. A page can clear a box
   // after the fill, more than once (an upload's own autofill reads the file seconds later and rewrites the boxes; a re-render empties it again):
-  // retypeWiped puts back what WE typed, up to RETYPE_LIMIT times per box, so a page that keeps clearing it is not typed into forever.
-  const RETYPE_LIMIT = 5;
+  // retypeWiped puts back what WE typed, as long as the box's one attempt log allows (page/attempts.js: every retry of every operator counts there, a few in all), so a
+  // page that keeps clearing it is not typed into forever.
+  const attempts = () => window.__jobPilottoAttempts;
   const WATCH_CAP_MS = 60000;
   const typedHere = new Map();
   // Does the box still hold what we typed? Only letters and digits count, so a mask or a reformat (spaces, dashes, a date's separators, a national form of a
@@ -52,6 +53,14 @@
     const known = typedHere.get(element);
     if (known) { Object.assign(known, {value, retypes: 0}); return; }
     follow(element, {value, edited: false, retypes: 0, field: element.id || element.name || ''});
+  };
+  // What the fill picked in a menu, per menu: the option's letters and digits on the menu (data-jobpilotto-picked, read by page/read-back.js: another option shown = mismatch)
+  // and its value, so a menu the page set back is picked again within its attempt log (retypeNow); a person's own change stops that.
+  const pickedHere = new Map();
+  const notePicked = (element, option) => {
+    element.setAttribute?.('data-jobpilotto-picked', alnum(option.text).slice(0, 160));
+    if (!pickedHere.has(element)) element.addEventListener?.('change', event => { if (event.isTrusted) { pickedHere.get(element).edited = true; element.removeAttribute?.('data-jobpilotto-picked'); } }, true);
+    pickedHere.set(element, {value: option.value, text: option.text, edited: false});
   };
   // A page that draws its form again after an upload (a re-render) replaces the box with a new element of the same id or name: the record moves to it,
   // so what we typed is put back there; the person's edits to the old element still count (the record says so).
@@ -83,6 +92,7 @@
         const option = Array.from(element.options).find(o => o.value === item.value || o.text.trim() === item.value);
         if (!option) { skipped.push(key); continue; }
         element.value = option.value;
+        notePicked(element, option);
       } else {
         const prototype = element.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
         Object.getOwnPropertyDescriptor(prototype, 'value').set.call(element, item.value);
@@ -101,25 +111,39 @@
     }
     return {filled, skipped};
   };
-  // After the fill: a box we typed that is empty now, that the person never touched and the page did not fill itself, is typed again (up to RETYPE_LIMIT
+  // After the fill: a box we typed that is empty now, that the person never touched and the page did not fill itself, is typed again (within its attempt log
   // times). A page's autofill can land seconds after the upload, so the check runs now and then every 700 ms for watchMs; each box typed again extends
   // the watch by watchMs (a page that empties again is still watched), never past WATCH_CAP_MS in all.
   // -> how many boxes were typed again by this call (a count only, never a value).
   let watching = 0, watchUntil = 0, watchEnd = 0;
   const retypeNow = () => {
     const back = [];
+    let repicked = 0;
     for (const [was, record] of [...typedHere]) {
       const element = record.edited ? was : stillThere(was, record);
-      if (!element || record.edited || record.retypes >= RETYPE_LIMIT || !/^(\+\d{1,4})?$/.test(String(element.value || '').trim()) || !writable(element)) continue;   // emptied, or back on a bare country code (a phone widget's own "+972"); a value the page wrote itself is never typed over (the panel still reports it: review.js)
+      if (!element || record.edited || !/^(\+\d{1,4})?$/.test(String(element.value || '').trim()) || !writable(element) || !attempts().mayTry(element, 'retype')) continue;   // emptied, or back on a bare country code (a phone widget's own "+972"); a value the page wrote itself is never typed over (the panel still reports it: review.js)
       record.retypes++;
+      const before = attempts().stateOf(element);
       const prototype = element.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
       Object.getOwnPropertyDescriptor(prototype, 'value').set.call(element, record.value);
       element.dispatchEvent(new Event('input', {bubbles: true}));
       element.dispatchEvent(new Event('change', {bubbles: true}));
-      back.push(element);
+      back.push([element, before, record]);
     }
-    for (const element of back) try { element.focus({preventScroll: true}); element.blur(); } catch { /* not focusable */ }
-    return back.length;
+    // A menu the page set back to another option (or its placeholder) after the fill picked: picked again, within its attempt log.
+    for (const [element, record] of pickedHere) {
+      const shown = element.options?.[element.selectedIndex];
+      if (record.edited || !element.isConnected || (shown && alnum(shown.text) === alnum(record.text)) || !attempts().mayTry(element, 'repick')) continue;
+      const before = attempts().stateOf(element);
+      element.value = record.value;
+      element.dispatchEvent(new Event('input', {bubbles: true}));
+      element.dispatchEvent(new Event('change', {bubbles: true}));
+      attempts().note(element, 'repick', before, alnum(element.options?.[element.selectedIndex]?.text) === alnum(record.text));
+      repicked += 1;
+    }
+    for (const [element] of back) try { element.focus({preventScroll: true}); element.blur(); } catch { /* not focusable */ }
+    for (const [element, before, record] of back) attempts().note(element, 'retype', before, typedSame(record.value, element.value));   // written once the page had its say on blur: it holds what we typed, or not
+    return back.length + repicked;
   };
   window.__jobPilottoRetypeWiped = (watchMs = 0) => {
     const now = retypeNow();
@@ -169,7 +193,8 @@
     const entry = [...typedHere].find(([element, record]) => !record.edited && element.isConnected && record.field === field);
     if (!entry) return false;
     const [element, record] = entry, text = writeAs(record.original || record.value, format);
-    if (!text || !writable(element)) return false;
+    if (!text || !writable(element) || !attempts().mayTry(element, `writing:${format}`)) return false;   // a writing counts in the box's one attempt log (page/attempts.js)
+    const before = attempts().stateOf(element);
     const prototype = element.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
     Object.getOwnPropertyDescriptor(prototype, 'value').set.call(element, text);
     element.dispatchEvent(new Event('input', {bubbles: true}));
@@ -178,10 +203,11 @@
     noteTyped(element, text);
     Object.assign(typedHere.get(element), {original, writings});
     try { element.focus({preventScroll: true}); element.blur(); } catch { /* not focusable */ }
+    attempts().note(element, `writing:${format}`, before);
     return true;
   };
   // The boxes the page emptied after the last typing-again, with the limit spent: [{field, times}], so the fill's reason can say the page kept clearing it.
-  window.__jobPilottoRetypeGaveUp = () => [...typedHere].filter(([element, record]) => !record.edited && record.retypes >= RETYPE_LIMIT && element.isConnected && String(element.value || '') === '')
+  window.__jobPilottoRetypeGaveUp = () => [...typedHere].filter(([element, record]) => !record.edited && !!attempts().gaveUp(element) && element.isConnected && String(element.value || '') === '')
     .map(([, record]) => ({field: record.field, times: record.retypes}));
   // Greenhouse removes the file input once a file is attached and shows its name instead, so the
   // resume counts as attached when its section shows a document filename.

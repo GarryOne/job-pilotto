@@ -11,7 +11,10 @@ function page(clock = {now: 0}) {
       this.isConnected = true; this.listeners = [];
     }
     getClientRects() { return [1]; }
-    getAttribute() { return null; }
+    getAttribute(name) { return this.attrs?.[name] ?? null; }
+    setAttribute(name, value) { (this.attrs ||= {})[name] = String(value); }
+    hasAttribute(name) { return !!this.attrs && name in this.attrs; }
+    removeAttribute(name) { if (this.attrs) delete this.attrs[name]; }
     matches(selector) { return selector.includes(`input[type="${this.type}"]`); }
     addEventListener(type, fn) { if (type === 'input') this.listeners.push(fn); }
     dispatchEvent() {}
@@ -23,9 +26,12 @@ function page(clock = {now: 0}) {
   const boxes = ['first', 'last', 'link', 'mail'].map(id => new HTMLInputElement(id));
   const window = {__jobPilottoGuardActive: true};
   const code = fs.readFileSync(new URL('../../tools/browser-form-fastpath.js', import.meta.url), 'utf8');
-  vm.runInNewContext(code, {window, document: {querySelectorAll: () => boxes}, HTMLInputElement, HTMLTextAreaElement,
+  const context = vm.createContext({window, document: {querySelectorAll: () => boxes}, HTMLInputElement, HTMLTextAreaElement,
     getComputedStyle: () => ({visibility: 'visible'}), Event: class {}, Date: Object.assign(function () { return new globalThis.Date(clock.now); }, {now: () => clock.now}),
     setInterval: fn => { clock.tick = fn; return 1; }, clearInterval: () => { clock.tick = null; }});
+  // The one attempt log the retypes ask (extension/page/attempts.js), loaded first as everywhere the fastpath runs.
+  vm.runInContext(fs.readFileSync(new URL('../../extension/page/attempts.js', import.meta.url), 'utf8'), context);
+  vm.runInContext(code, context);
   window.__jobPilottoFillKnownFields(boxes.map(box => ({field: box.id, value: `typed-${box.id}`})));
   // A re-render: the element leaves the page, a new empty one with the same id takes its place.
   const replace = index => { const old = boxes[index], fresh = new HTMLInputElement(old.id); old.isConnected = false; old._value = ''; boxes[index] = fresh; return fresh; };
@@ -46,9 +52,9 @@ test('a page that keeps clearing a box is typed into a few times, then left, and
   const {window, boxes} = page();
   let typed = 0;
   for (let round = 0; round < 12; round++) { boxes[0]._value = ''; typed += window.__jobPilottoRetypeWiped(); }
-  assert.equal(typed, 5, 'a hard limit');
+  assert.equal(typed, window.__jobPilottoAttempts.CAP, 'the box\'s one attempt log: a few tries in all (page/attempts.js)');
   assert.equal(boxes[0].value, '');
-  assert.equal(JSON.stringify(window.__jobPilottoRetypeGaveUp()), JSON.stringify([{field: 'first', times: 5}]));
+  assert.equal(JSON.stringify(window.__jobPilottoRetypeGaveUp()), JSON.stringify([{field: 'first', times: window.__jobPilottoAttempts.CAP}]));
   assert.deepEqual(boxes.slice(1).map(box => box.value), ['typed-last', 'typed-link', 'typed-mail']);
 });
 

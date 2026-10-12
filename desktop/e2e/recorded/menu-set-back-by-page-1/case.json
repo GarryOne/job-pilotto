@@ -1,0 +1,51 @@
+{
+ "shape": "a native country menu the page sets back to its placeholder a moment after each of its first two changes (a late initialisation)",
+ "origin": "hand-cut",
+ "why": "cc's review of #507 (12 Oct 2026): a menu the page set back read as answered, and nothing picked it again. The fill now marks its own pick, reads another option as a mismatch, and picks a native menu again within its one attempt log (page/attempts.js). Hand-made page",
+ "control": {
+  "build": "0.9.249",
+  "failed": "kept: #country is empty after the page settled (the page set the menu back to its placeholder twice; nothing picked it again)"
+ },
+ "sample": "a hand-made form with a country menu",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/menu-set-back/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "country",
+     "question": "Country of residence",
+     "value": "Switzerland",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "kept": [
+   "#country"
+  ],
+  "keptAfter": 8000,
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 40
+ },
+ "start": "panel"
+}

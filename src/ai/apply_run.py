@@ -22,8 +22,8 @@ ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / 'tools' / 'apply-run-result.schema.json'
 GUARD = ROOT / 'tools' / 'browser-submit-guard.js'
 FASTPATH = ROOT / 'tools' / 'browser-form-fastpath.js'
-# The one control reader the fastpath's audit asks (extension/page/read-back.js and the typed-box rule it uses): loaded first, as the extension loads them.
-READER = [ROOT / 'extension' / 'page' / 'typed-check.js', ROOT / 'extension' / 'page' / 'read-back.js']
+# The one control reader the fastpath's audit asks (extension/page/read-back.js and the typed-box rule it uses) and the attempt log its retypes ask: loaded first, as the extension loads them.
+READER = [ROOT / 'extension' / 'page' / 'typed-check.js', ROOT / 'extension' / 'page' / 'read-back.js', ROOT / 'extension' / 'page' / 'attempts.js']
 STATE_DIR = Path(os.getenv('JOB_PILOTTO_APPLY_RUN_DIR',
                            str(Path.home() / 'Library' / 'Application Support' / 'JobPilotto' / 'apply-runs')))
 TIMEOUT = 45 * 60

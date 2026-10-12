@@ -407,6 +407,9 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   // Rung 0 of the fill ladder: the one read of every control once the page settled (page/read-back.js), written on each control; the trace takes it, so it says what the panel says.
   const settleStart = Date.now(), readBack = await inPage(tab.id, () => window.__jobPilottoReadBack?.pass() || []).catch(() => []);
   if (readBack.length) decide('fill', 'read back after the page settled', {...readBackCounts(readBack), ms: Date.now() - settleStart}).catch(() => {});   // ms: what the settle wait costs (spec budget: <= +1 s on a clean page)
+  for (const spent of await inPage(tab.id, () => window.__jobPilottoAttempts?.drain() || []).catch(() => []) || []) decide('fill', 'a control used its tries: left for the person', {kind: spent.kind, tries: spent.tries}).catch(() => {});   // once per control (page/attempts.js)
+  const tries = await inPage(tab.id, () => window.__jobPilottoAttempts?.summary() || null).catch(() => null);
+  if (tries && Object.keys(tries.byTries).length) decide('fill', 'tries per control', tries).catch(() => {});   // measures the attempt log's cap (spec amendment 1): counts only
   summary.trace = settleTrace(summary.trace || [], Array.isArray(finalForm) ? finalForm : [], gaveUp, Array.isArray(readBack) ? readBack : [], (me?.resume || config.resume)?.name || '');
   // One anonymous record of this fill for the learning digest (fill-card.js: counts and fixed words), and its id on the page so
   // the panel can add, at Submit, what you answered yourself.

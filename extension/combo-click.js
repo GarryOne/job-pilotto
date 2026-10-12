@@ -33,7 +33,7 @@ export async function clickCombo({page, click, spot, skip = 0, type = null, choo
       // The page is still deciding (page/fill-menus.js __jobPilottoPicking): its answer comes before any second click.
       if (limit < PATIENCE.deciding && await page(() => !!window.__jobPilottoPicking)) limit = PATIENCE.deciding;
     }
-    picked = (await page(() => window.__jobPilottoArmedCount())) < before;
+    picked = (await page(() => window.__jobPilottoArmedCount())) < before && !(await page(() => !!window.__jobPilottoLastPick?.refused));   // a menu its attempt log refused was disarmed, not picked
     if (picked) break;
     // What the page saw this time. A menu that opened and showed no choice for the answer is not helped by a second click: it shuts the open menu and
     // the second pick overwrites the true observation with "did not open" (the Ocado runs). Retry only when the page never opened it.

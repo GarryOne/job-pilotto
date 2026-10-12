@@ -1,0 +1,52 @@
+{
+ "widget": "custom_select",
+ "shape": "a react-select-shaped picklist whose options close the menu and take nothing: it never takes a value (the menu a fill could open again and again)",
+ "why": "widget zoo, attempt log (spec docs/superpowers/specs/2026-10-12-fill-ladder.md, amendment 1; the owner's case b, 12 Oct 2026: the 6th try in a row on one dropdown): a menu that never takes is opened at most a few times in all, then left to the person once",
+ "pages": [
+  {
+   "url": "https://menu-never-takes-1.zoo.example.com/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": false,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "lang",
+     "question": "Preferred language",
+     "value": "German",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "asked": [
+   "Preferred language"
+  ],
+  "present": [
+   "#lang-box .select__single-value"
+  ],
+  "atMost": [
+   "#lang-box|data-opens|3"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 40
+ },
+ "start": "panel"
+}

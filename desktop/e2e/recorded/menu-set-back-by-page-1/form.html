@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Apply: Example role</title></head>
+<body>
+<!-- Recorded case menu-set-back-by-page-1: a country menu the page sets back to its placeholder a moment after each of its first two changes (its own late initialisation). Hand-made, no real site, no personal data. -->
+<h1>Apply for Example role</h1>
+<form id="apply" onsubmit="return false">
+<label for="first">First name</label> <input id="first" name="first_name" type="text" required>
+<label for="last">Last name</label> <input id="last" name="last_name" type="text" required>
+<label for="mail">Email</label> <input id="mail" name="email" type="email" required>
+<label for="country">Country of residence</label>
+<select id="country" name="country" required data-changes="0"><option value="">Please choose</option><option>Israel</option><option>Switzerland</option><option>Germany</option></select>
+</form>
+<script>
+const menu = document.getElementById('country');
+let dropped = 0;
+menu.addEventListener('change', () => { menu.dataset.changes = String(Number(menu.dataset.changes) + 1); if (dropped >= 2 || !menu.value) return; dropped += 1; setTimeout(() => { menu.value = ''; }, 300); });   // late init: the first two choices are dropped
+</script>
+</body></html>

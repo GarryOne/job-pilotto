@@ -234,7 +234,7 @@ Shadow (owner): one zoo pass + one pool pass with `fill_verify` logging, then re
 - [x] Library counts in the pool's saved pages (53 hosts: react-select 4, intl-tel-input 4, react-datepicker 3, react-dropzone 3 (Ashby's input carries its exact hidden style), Select2 2; MUI, Chosen, flatpickr, FilePond 0; recount from the CI artifacts with PR B); vendored real react-dropzone 14.2.3 page `drop-zone-react-dropzone-1` (amendment 6, PR A)
 - [x] Final read-back after settle for every control kind (`extension/page/read-back.js` pass: ≥ 700 ms still, ≤ 2 s); the R0 mark `data-jobpilotto-r0` on each control; the fill's record takes it (PR A)
 - [ ] Retype / re-pick for every kind that reverts (within the attempt log): text boxes done (#438, typed again key by key); choices, dates and the phone country part: PR B
-- [ ] Choices read `mismatch` (cc's review of #507): today any real choice is `committed`, so a menu the page set to its own default (Recruitee: the country picker on +972) reads filled; the fill marks its own pick (like `data-jobpilotto-typed`) and R0 compares: PR B, with the re-pick
+- [x] Choices read `mismatch` (cc's review of #507): the fill marks its own pick (`data-jobpilotto-picked`, native and custom menus); another option shown = mismatch; a native menu the page set back is picked again within its attempt log (PR B). Custom menus (combobox) are re-armed only by a later pass today: their re-pick inside the log is next
 - Known after PR A (cc's review, 12 Oct 2026): the record keys radios by group name (the last radio sets the reason text only); a judge "ready" over R0 `empty` (FNAC) is still logged only (PR 3's switch); the panel does not count a CV input hidden by `display:none` (real react-dropzone): the stacked PR
 - [x] One truth: one reader for the panel, the judges' sketch (judge-sketch.js loads it), the fill's end read, the audit, coverage and upload; the session card is fed by the panel's report; upload slots read by the file they show; equivalence test vs the old copies: 5 named changes, 0 unnamed (PR A). With one reader the sources cannot disagree; R2's contradiction trigger (PR 3) stays. Found gap: a CV input hidden by `display:none` (real react-dropzone) is not counted by the panel at all: follow-up
 ### 3. Verify rung 2 (shadow)
@@ -243,9 +243,9 @@ Shadow (owner): one zoo pass + one pool pass with `fill_verify` logging, then re
 - [ ] Measure run: hit rate and tokens per application, shown to the owner (the ceiling run is job-pilotto-fill-quality's; shadow pass: zoo on the Mac done 12 Oct 2026 (`npm run widget-zoo -- --model`), pool in CI by cc's batch after 00:00 UTC 13 Oct on main >= 0.9.242)
 - [ ] Score: every fill_verify verdict vs R0 (and a hand-checked end.png sample); precision of empty/wrong per source; wrong-and-confident list (amendment 7)
 ### 3b. The attempt log (PR B)
-- [ ] Measure tries per control today (zoo + CI pool fill logs), fix the cap in code with the number
+- [ ] Measure tries per control (the fill-end log line `tries per control`, counts only, PR B): zoo 14 pages: every control 1-2 tries, none needed 3; CAP = 3 stays until the CI pool's numbers (after-run) say otherwise
 - [ ] Real-library menu pages (react-select, Select2, Chosen, MUI Autocomplete, by the counts) (amendment 6)
-- [ ] `page/attempts.js`: every operator's retry + repair counts; same (verb, state) refused; cap → climb → the person once
+- [x] `page/attempts.js`: one log per control on the control itself; the fastpath's retype (was its own limit 5) and writings, real typing, menu openings, toggle presses and the generic operators all ask it; a try that failed on a state is not made again; CAP 3 in all; given up once (logged once, the record says why) (PR B)
 ### 4. Repair (PR C)
 - [ ] Control digest (rung 3) + `fill_repair` schema (WIDGETS, VERBS incl. `dismiss_layer`, n, option)
 - [ ] Value class (`page/value-class.js`, fixed list, both ends) in the fill_verify sketch; reason `wrong_class`; `choose_option(i)` validated locally
