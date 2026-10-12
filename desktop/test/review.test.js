@@ -8,12 +8,14 @@ const sessions = [
   {id: 's2', url: 'https://n26.com/en/careers/positions/7012345', company: 'N26', startedAt: '2026-09-29T00:10:00Z'},
 ];
 const form = (extra = {}) => ({url: 'https://job-boards.greenhouse.io/anthropic/jobs/4567890', title: 'Job Application for Staff+ Engineer at Anthropic',
-  left: 3, total: 20, watch: [], ...extra});
+  session: 's1', left: 3, total: 20, watch: [], ...extra});   // the tab carries its session (the id in its address, bound by the extension)
 
-test('a form page is matched to its session by the job ID, the company, or neither', () => {
-  assert.equal(review.matchSession(sessions, form()).id, 's1');
-  assert.equal(review.matchSession(sessions, {url: 'https://job-boards.greenhouse.io/n26/jobs/999', title: 'Job Application for SRE at N26'}).id, 's2');
-  assert.equal(review.matchSession(sessions, {url: 'https://news.ycombinator.com/', title: 'Hacker News'}), null);
+test('a form page belongs to its session by the id it carries, the id in its address, or the job its tab was opened for: nothing else', () => {
+  assert.equal(review.sessionFor(sessions, {url: 'https://x.test/a', session: 's2'}).id, 's2');
+  assert.equal(review.sessionFor(sessions, {url: 'https://x.test/a#jobpilotto-fill=s1'}).id, 's1');
+  assert.equal(review.sessionFor(sessions, {url: 'https://x.test/a', job: 'https://www.anthropic.com/jobs/4567890/'}).id, 's1');
+  assert.equal(review.sessionFor(sessions, form({session: ''})), null, 'the company in the title and the job ID in the address no longer pick a session');
+  assert.equal(review.sessionFor(sessions, {url: 'https://news.ycombinator.com/', title: 'Hacker News'}), null);
 });
 
 test('the page learns what to watch, reports it back, and the session page hears about changes only', () => {
@@ -119,11 +121,12 @@ test('each filled field is ticked off with the time it was first seen, and keeps
 
 test('a waiting "show me this field" names the open tab to join, and no other tab', () => {
   review._reset();
-  assert.deepEqual(review.tabsToArm(sessions, [{url: 'https://job-boards.greenhouse.io/anthropic/jobs/4567890', title: 'Anthropic'}]), []);
+  assert.deepEqual(review.tabsToArm(sessions, [{url: 'https://job-boards.greenhouse.io/anthropic/jobs/4567890#jobpilotto-fill=s1', title: 'Anthropic'}]), []);
   review.queueFocus('s1', 'Agreement to Arbitrate', 1000);
   assert.deepEqual(review.tabsToArm(sessions, [
     {url: 'https://news.ycombinator.com/', title: 'Hacker News'},
     {url: 'https://job-boards.greenhouse.io/anthropic/jobs/4567890#jobpilotto-fill', title: 'Job Application for Staff+ Engineer at Anthropic'},
+    {url: 'https://job-boards.greenhouse.io/anthropic/jobs/4567890#jobpilotto-fill=s1', title: 'Job Application for Staff+ Engineer at Anthropic'},
   ], 2000), ['https://job-boards.greenhouse.io/anthropic/jobs/4567890']);
   review.report(sessions, form(), 2000);  // the page took the command: nothing left to join
   assert.deepEqual(review.tabsToArm(sessions, [{url: 'https://job-boards.greenhouse.io/anthropic/jobs/4567890', title: 'Anthropic'}], 2000), []);
@@ -134,10 +137,10 @@ test('the page says whether it found the field, including when it looked before 
   review.queueFocus('s1', 'Agreement to Arbitrate');
   assert.equal(review.noteFocus(sessions, {url: 'https://news.ycombinator.com/', title: 'Hacker News', found: true}).ok, false);
   const waiting = review.focusFound('s1', 2000);
-  assert.equal(review.noteFocus(sessions, {url: form().url, title: form().title, found: false}).ok, true);
+  assert.equal(review.noteFocus(sessions, {url: form().url, session: 's1', title: form().title, found: false}).ok, true);
   assert.equal(await waiting, false);
   review.queueFocus('s1', 'Again');  // a new ask forgets the previous answer
-  assert.equal(review.noteFocus(sessions, {url: form().url, title: form().title, found: true}).id, 's1');
+  assert.equal(review.noteFocus(sessions, {url: form().url, session: 's1', title: form().title, found: true}).id, 's1');
   assert.equal(await review.focusFound('s1', 50), true);
 });
 
@@ -173,40 +176,37 @@ test('a session\'s form is its newest tab: an older tab for the same job answers
   assert.equal(review.tabOpen('s1'), true);
 });
 
-test('a form on another host than the posting still matches its session by the job the tab was opened for', () => {
+test('a form on another host than the posting belongs to the session by the job its tab was opened for, an exact address, or by its own id', () => {
   const sessions = [{id: 's1', url: 'https://www.jobs.ch/en/vacancies/detail/abc-def/', company: 'Undisclosed employer', startedAt: 1}];
-  const form = {url: 'https://api.easytemp.ch/live/bew/15777849101268111120-FR.php#jobpilotto-fill', title: 'Software Developer (M/F)'};
-  assert.equal(review.matchSession(sessions, form), null);                                             // by itself: nothing links them
-  assert.equal(review.matchSession(sessions, {...form, job: 'https://www.jobs.ch/en/vacancies/detail/abc-def'})?.id, 's1');
-  assert.equal(review.matchSession(sessions, {...form, job: 'https://www.jobs.ch/en/vacancies/detail/other'}), null);  // another job's tab
+  const form = {url: 'https://api.easytemp.ch/live/bew/15777849101268111120-FR.php#jobpilotto-fill', title: 'Software Developer (M/F)', left: 2, total: 5, watch: []};
   review._reset();
-  assert.notEqual(review.report(sessions, {...form, job: 'https://www.jobs.ch/en/vacancies/detail/abc-def/', left: 2, total: 5, watch: []}).matched, null);
+  assert.equal(review.report(sessions, form).matched, null);                                                   // by itself: nothing links them
+  assert.equal(review.report(sessions, {...form, job: 'https://www.jobs.ch/en/vacancies/detail/other'}).matched, null);   // another job's tab
+  assert.equal(review.report(sessions, {...form, job: 'https://www.jobs.ch/en/vacancies/detail/abc-def/'}).matched, 's1');
+  review._reset();
+  assert.equal(review.report(sessions, {...form, url: `${form.url}=s1`}).matched, 's1');                       // the id in its own address
+  review._reset();
 });
 
-test('an armed form on another site that names no company belongs to the one open session without a tab', () => {
+test('an armed form that names nobody is never given to the one session without a tab (no guess, one or two sessions)', () => {
   review._reset();
   const open = [{id: 'u1', url: 'https://www.jobs.ch/en/vacancies/detail/abc/', company: 'Undisclosed employer', status: 'input', live: true, startedAt: '2026-10-01T17:33:00Z'}];
   const agency = (extra = {}) => ({url: 'https://api.easytemp.ch/live/bew/1577784910-FR.php#jobpilotto-fill', title: 'Software Developer (M/F)', left: 3, total: 15, tab: 7, watch: [], ...extra});
-  assert.equal(review.report(open, agency()).matched, 'u1');
-  assert.equal(review.report(open, agency({url: 'https://api.easytemp.ch/other.php'})).matched, null);  // no fill mark: some stranger's tab
-  review._reset();
-  assert.equal(review.report(open, agency({url: 'https://job-boards.greenhouse.io/scaleai/jobs/4719479005#jobpilotto-fill', tab: 9})).matched, null);  // another job's form on a job board
-  // Two sessions without a tab: ambiguous, no guess. One already on its own tab: the other is the one.
+  assert.equal(review.report(open, agency()).matched, null);
+  assert.equal(review.report(open, agency({url: 'https://api.easytemp.ch/other.php'})).matched, null);
+  assert.equal(review.report(open, agency({session: 'u1'})).matched, 'u1');
   review._reset();
   const two = [...open, {id: 'u2', url: 'https://boards.example/jobs/1', company: 'Example', status: 'running', live: true, startedAt: '2026-10-01T17:34:00Z'}];
   assert.equal(review.report(two, agency()).matched, null);
-  review.report(two, {url: 'https://boards.example/jobs/1', title: 'Example', left: 1, total: 4, tab: 5, watch: []});
-  assert.equal(review.report(two, agency({tab: 7})).matched, 'u1');
+  assert.equal(review.report(two, agency({tab: 8, session: 'u2'})).matched, 'u2');
   review._reset();
 });
 
 test('a session closed with the app (restored, waiting, not live) still owns its open form', () => {
   review._reset();
   const restored = [{id: 'r1', url: 'https://www.jobs.ch/en/vacancies/detail/abc/', company: 'Undisclosed employer', status: 'input', live: false, startedAt: '2026-10-01T17:33:00Z'}];
-  const page = {url: 'https://api.easytemp.ch/live/bew/1577784910-FR.php#jobpilotto-fill', title: 'Software Developer (M/F)', left: 3, total: 15, tab: 7, watch: []};
+  const page = {url: 'https://api.easytemp.ch/live/bew/1577784910-FR.php#jobpilotto-fill=r1', title: 'Software Developer (M/F)', left: 3, total: 15, tab: 7, watch: []};
   assert.equal(review.report(restored, page).matched, 'r1');
-  review._reset();
-  assert.equal(review.report([{...restored[0], status: 'ended'}], page).matched, null);  // a finished session owns nothing
   review._reset();
 });
 
@@ -254,9 +254,8 @@ test('a tab carrying its session is that session\'s; one carrying a session that
   const signIn = {url: 'https://career2.successfactors.eu/career?login#jobpilotto-fill', title: 'Career Opportunities: Sign In', total: 3, left: 3};
   // Migros's old tab still carries its session from before "Start again" (g1, gone) and its job was never stored: no guess, not Manor's.
   assert.equal(review.report([manor, migros], {...signIn, tab: 40, session: 'g1'}).matched, null);
-  // The same page carrying nothing would have been guessed onto the one session no tab is bound to: that guess still exists only for
-  // a tab that never belonged to a session.
-  assert.equal(review.report([manor], {...signIn, tab: 41}).matched, 'm2');
+  // The same page carrying nothing is nobody's: it was once guessed onto the one session no tab is bound to (owner, 12 Oct 2026: no guessing).
+  assert.equal(review.report([manor], {...signIn, tab: 41}).matched, null);
   review._reset();
   // Carried: it is that session's, whatever the page looks like.
   assert.equal(review.report([manor, migros], {...signIn, tab: 40, session: 'g2'}).matched, 'g2');

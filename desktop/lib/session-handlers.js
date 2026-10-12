@@ -6,20 +6,21 @@ import * as sessionRuns from './session-runs.js';
 import * as transcript from './transcript.js';
 import * as quitDialog from './quit-dialog.js';
 import {sessionIpc} from './session-contracts.js';
-import {closeFormTab, listTabs, mergeTabs, withOpenForm} from './form-tab.js';
+import {closeFormTab} from './form-tab.js';
+import {sessionsNamedIn} from './session-tab.js';
 
 // Close a session's form tab and say whether it is closed. A tab the app already knows is gone needs no wait: asking its page
 // to close costs the whole 6 s timeout when nobody answers (a cancel took 5-10 s with no sign of life, 3 Oct 2026).
 export async function closeSessionTab({review, closeTab}, old) {
   if (review.tabOpen?.(old.id) === false) return true;
-  return (await review.delivered(old.id, 6000)) || await closeTab({url: old.url, company: old.company});
+  return (await review.delivered(old.id, 6000)) || await closeTab({id: old.id, boundTab: review.tabOf(old.id)});
 }
 
 import {cleanUse} from './proposal-use.js';
 import {boardName} from './control-events.js';
 export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, dialog, nativeImage, here,
   DEMO, apply, pipeline, review, server, claudeConsent, getRecipeReporter = () => null, version = '',
-  closeTab = closeFormTab, tabs = listTabs}) {
+  closeTab = closeFormTab}) {
   const checkedSessions = sessionIpc(ipcMain, appLog);
   checkedSessions.handle('sessionCancel', async (_, id) => {
     const old = terminals.get(String(id));
@@ -168,7 +169,7 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
     // What is open comes from the extension's report first (every browser it runs in), with Chrome's own scripting
     // added when it can see anything: a stray background Chrome made that scripting list empty, and sessions whose
     // forms were open looked closed (1 Oct 2026).
-    const open = DEMO ? new Set() : withOpenForm(all, mergeTabs(server.openTabs(), await tabs()));
+    const open = DEMO ? new Set() : sessionsNamedIn(all, server.openTabs());
     terminals.markAsked(all.map(session => session.id));
     return {choice: 'keep', kept: open.size};
   });

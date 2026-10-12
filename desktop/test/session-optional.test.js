@@ -25,7 +25,7 @@ test('the panel reports optional empty fields apart from the required ones, neve
 
 test('the app keeps the optional list from the report, apart from what is left', () => {
   const sessions = [{id: 's1', url: 'https://jobs.example.test/apply/1', kind: 'form', company: 'Example'}];
-  review.report(sessions, {url: 'https://jobs.example.test/apply/1', left: 1, total: 3, pending: ['Email'], optional: ['LinkedIn profile', 7]});
+  review.report(sessions, {url: 'https://jobs.example.test/apply/1', session: 's1', left: 1, total: 3, pending: ['Email'], optional: ['LinkedIn profile', 7]});
   const state = review.allStates().find(item => item.id === 's1');
   assert.deepEqual(state?.optional, ['LinkedIn profile', '7']);
   assert.deepEqual(state?.pending, ['Email']);

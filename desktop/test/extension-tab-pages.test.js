@@ -119,20 +119,13 @@ test('a confirmation page with no stored job is logged, and only that page', () 
     'confirmation page is not the job stored on this tab: not marked');
 });
 
-test('the fill mark goes on the tab\'s own address, once', async () => {
-  const {markedUrl} = await import('../lib/form-tab.js');
-  assert.equal(markedUrl('https://job-boards.greenhouse.io/embed/job_app?for=n26&token=1'), 'https://job-boards.greenhouse.io/embed/job_app?for=n26&token=1#jobpilotto-fill');
-  assert.equal(markedUrl('https://x.io/a#jobpilotto-fill'), '');
-  assert.equal(markedUrl('chrome://extensions'), '');
-});
-
-test('a session\'s form counts as open only while a tab for it is reported (an embedded form included)', async () => {
-  const {mergeTabs, withOpenForm} = await import('../lib/form-tab.js');
+test('a session\'s form counts as open by the id in a reported tab address, and by nothing that merely looks like it', async () => {
+  const {sessionsNamedIn} = await import('../lib/session-tab.js');
   const session = {id: 'a1', url: 'https://job-boards.greenhouse.io/n26/jobs/7768035', company: 'N26'};
   const embed = 'https://job-boards.greenhouse.io/embed/job_app?for=n26&token=7768035';
-  assert.deepEqual([...withOpenForm([session], mergeTabs([embed], []))], ['a1']);
-  assert.deepEqual([...withOpenForm([session], mergeTabs([], []))], []);
-  assert.deepEqual([...withOpenForm([session], mergeTabs(['https://jobs.lever.co/other/1'], []))], []);
+  assert.deepEqual([...sessionsNamedIn([session], [`${embed}#jobpilotto-fill=a1`])], ['a1']);
+  assert.deepEqual([...sessionsNamedIn([session], [embed, session.url])], []);
+  assert.deepEqual([...sessionsNamedIn([session], [])], []);
 });
 
 test('an embedded Greenhouse confirmation carries the job id in ?token=, and counts for that job', async () => {

@@ -8,7 +8,7 @@ import * as pipeline from './pipeline.js';
 import * as review from './review.js';
 import * as server from './server.js';
 import path from 'node:path';
-import {openFormTab, reloadFormTab} from './form-tab.js';
+import {reloadFormTab} from './form-tab.js';
 
 export function registerBrowserHandlers(ctx) {
   const {app, clipboard, ipcMain, openNotion, shell, showForm, storage} = ctx;
@@ -18,7 +18,7 @@ export function registerBrowserHandlers(ctx) {
   // tab" repair applies (1 Oct 2026: it was offered always, next to Open filled form, though it reloads a form page).
   ipcMain.handle('showBrowser', async (_, url, company, id) => (id
     ? (await showForm(id, '', url, company))
-    : {went: await openFormTab({url, company}, shell.openExternal), taken: true}));
+    : {went: 'none', taken: true}));
   // "Reload the tab": the repair for a form page whose panel died with an older extension. Chrome reloads that tab,
   // then the page's fresh panel answers the focus handshake, so one press both heals and brings Chrome to the field.
   ipcMain.handle('reviewReload', async (_, id, url, company) => {
@@ -31,7 +31,7 @@ export function registerBrowserHandlers(ctx) {
     }
     // 2. No page answered (a panel from an older extension instance can't): Chrome's own scripting can reload the
     //    tab without the extension. It needs the user's Automation permission, and it reaches one instance only.
-    const result = await reloadFormTab({url: String(url), company: String(company || '')});
+    const result = await reloadFormTab({id: String(id), boundTab: review.tabOf(String(id))});
     if (result !== 'reloaded') {
       return {result, extension: seen?.version || '', latest, outdated: !current,
         stray: result === 'no-window' ? (await backgroundChrome.stray())[0] || null : null};

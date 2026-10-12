@@ -20,14 +20,15 @@ import {GOOGLE_KEYCHAIN} from './google-keys.js';
 import {log as appLog} from './log.js';
 import {createTakeOver} from './ladder/rung5-takeover.js';
 import {pageKeyOf, startRun} from './ladder/rung5-takeover-teach.js';
-import {mergeTabs, openFormTab, withOpenForm} from './form-tab.js';
+import {openFormTab} from './form-tab.js';
+import {sessionsNamedIn} from './session-tab.js';
 import {sharedCheck} from './shared-check.js';
 import {withAccounts, withCompanies, withoutHost} from './site-accounts.js';
 import {isTwin} from './twin.js';
 import {OUTCOME_STAGES as BOARD_STAGES} from '../renderer/jobs-board-rules.js';
 
 export function registerApplyHandlers(ctx) {
-  const {DEMO, allowanceBlock, claudeConsent, cloud, here, ipcMain, log, needsNotion, prepareKitFor, getRecipeReporter, shell, startClaude, storage, toWindow, track} = ctx;
+  const {DEMO, allowanceBlock, claudeConsent, cloud, here, ipcMain, log, needsNotion, prepareKitFor, getRecipeReporter, startClaude, storage, toWindow, track} = ctx;
   ipcMain.handle('apply', async (_, options) => needsNotion('apply') || allowanceBlock() || (options?.mode === 'agents' && !(await claudeConsent())
     ? {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'} : apply.start(storage, options, undefined, undefined, undefined, undefined, (code, name) => prepareKitFor(code, name, {quiet: true}), text => toWindow('applyProgress', text))));
   ipcMain.handle('applyOne', async (_, url, details) => {
@@ -64,18 +65,14 @@ export function registerApplyHandlers(ctx) {
     // On a Mac the form tab is found and brought forward first, through Chrome's own tab list: at once, whatever the page is
     // doing (a background tab's timers are slow). One attempt: it worked, or it says no tab is this job's form.
     if (process.platform === 'darwin' && !isTwin()) {   // a twin finds its tab through its own extension (lib/twin.js)
-      // The page this session's own reports came from, and the pages other sessions' came from (never taken for this one).
-      const states = review.allStates();
-      // By tab id first: two sessions on one form site (SuccessFactors' /careers) report the same address.
-      const mine = states.find(state => state.id === key), others = states.filter(state => state.id !== key);
-      const hints = {own: mine?.url || '', ownTab: mine?.tab ?? '', claimed: others.map(state => state.url).filter(Boolean), claimedTabs: others.map(state => state.tab).filter(tab => tab != null)};
-      const direct = await openFormTab({url, company}, shell.openExternal, {confident: true, ...hints}).catch(() => 'none');
+      // The session's own tab, by its bound id or the id in its address (lib/session-tab.js): nothing else is ever taken.
+      const direct = await openFormTab({id: key, boundTab: review.tabOf(key)}).catch(() => 'none');
       if (direct !== 'tab') {
-        appLog('review', `show ${key}: no tab is this job's form; nothing queued`, {went: direct, ownTab: hints.ownTab, others: hints.claimedTabs.length});
+        appLog('review', `show ${key}: this session owns no open tab; nothing queued`, {went: direct, boundTab: review.tabOf(key)});
         review.forget(key);
         return {taken: false, went: 'none', found: null};
       }
-      if (!name) { appLog('review', `show ${key}: went straight to the form tab`, {went: direct, ownTab: hints.ownTab, others: hints.claimedTabs.length}); return {taken: true, went: direct, found: null}; }
+      if (!name) { appLog('review', `show ${key}: went straight to the form tab`, {went: direct, boundTab: review.tabOf(key)}); return {taken: true, went: direct, found: null}; }
       // A field: the tab is in front now, so its page checks in quickly and scrolls to it.
       review.queueFocus(key, name);
       const answered = await review.delivered(key, 6000);
@@ -97,7 +94,7 @@ export function registerApplyHandlers(ctx) {
       taken = await review.delivered(key, 6000);
     }
     if (!taken) review.cancelFocus(key);  // nobody took it: it must not fire later and pull Chrome forward
-    const went = taken ? 'tab' : await openFormTab({url, company}, shell.openExternal);
+    const went = taken ? 'tab' : 'none';   // no page answered: the card offers to reopen the form, nothing is opened here
     appLog('review', `show ${key}: ${taken ? 'form page answered' : `no page answered, app went to: ${went}`}`, {label: name.slice(0, 60), taken: !!taken, went});
     const found = taken && name ? await review.focusFound(key, 3000) : null;
     return {taken, went, found};
@@ -211,7 +208,7 @@ export function registerApplyHandlers(ctx) {
     const seen = server.extensionSeen(), known = !!seen && Date.now() - seen.at < 90 * 1000;
     if (!known) return {known, ids: []};
     // A session whose own tab we know is open while that tab exists; for the others, a tab that looks like its form says open, nothing says closed.
-    const sessions = terminals.list(), byLook = withOpenForm(sessions, mergeTabs(server.openTabs(), []));
+    const sessions = terminals.list(), byLook = sessionsNamedIn(sessions, server.openTabs());   // a restored tab not yet re-bound is open by the id in its address
     const {ids, unsure} = review.formStates(sessions.map(session => session.id), byLook);
     const line = `${ids.join(',') || 'none'}${unsure.length ? ` (not known: ${unsure.join(',')})` : ''}`;
     if (line !== lastFormsOpen) { lastFormsOpen = line; appLog('review', `forms open in Chrome: ${line}`, {sessions: sessions.length}); }   // who is open, when it changed

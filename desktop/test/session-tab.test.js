@@ -1,0 +1,70 @@
+// Which tab is a session's: one function, no guessing (spec docs/superpowers/specs/2026-10-12-tab-owned.md, matrix rows 4, 5, 6, 8, 9).
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {test} from 'node:test';
+import {markedSession, tabOfSession, sessionsNamedIn} from '../lib/session-tab.js';
+import {parseMark} from '../../extension/tab-pages.js';
+import * as review from '../lib/review.js';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const posting = n => `https://forms.example/employer-${n}/job`;
+const sessions = [1, 2, 3, 4].map(n => ({id: `s${n}`, company: `Employer ${n}`, url: posting(n), status: 'running'}));
+
+test('the app and the extension read the same mark', () => {
+  for (const url of ['https://a.test/x#jobpilotto-fill=ab12', 'https://a.test/x#jobpilotto-fill', 'https://a.test/x', 'https://a.test/x#jobpilotto-fill=a b']) {
+    assert.equal(markedSession(url), parseMark(url), url);
+  }
+});
+
+test('row 4, the person\'s own tab of the same job: never a session\'s tab', () => {
+  const tabs = [{id: 9, url: posting(1)}, {id: 10, url: `${posting(1)}/application`, title: 'Employer 1'}];
+  assert.equal(tabOfSession('s1', tabs), null);
+  assert.equal(tabOfSession('s1', tabs, ''), null);
+});
+
+test('row 6, four open forms and an unowned sign-in tab: each session gets its own tab, the sign-in one goes to nobody', () => {
+  const signin = {id: 101, url: 'https://accounts.example/#jobpilotto-fill', title: 'Sign in'};   // armed, no session in it: nobody\'s
+  const forms = sessions.map((session, n) => ({id: 102 + n, url: `${session.url}/application#jobpilotto-fill=${session.id}`, title: session.company}));
+  for (const [n, session] of sessions.entries()) assert.equal(tabOfSession(session.id, [signin, ...forms]), forms[n]);
+  assert.equal(tabOfSession('s5', [signin, ...forms]), null);
+  assert.equal(tabOfSession('s3', [signin, forms[0]], 999), null, 'a closed tab: none, never the sign-in tab');
+});
+
+test('the bound tab id wins over an address, and an id from another run or browser is not passed at all', () => {
+  const tabs = [{id: 5, url: 'https://x.test/a'}, {id: 6, url: 'https://x.test/b#jobpilotto-fill=s1'}];
+  assert.equal(tabOfSession('s1', tabs, 5).id, 5);
+  assert.equal(tabOfSession('s1', tabs, '').id, 6);
+});
+
+test('row 5, a second browser: its tab ids only bind in its own run, so another run\'s id reaches the picker as none', () => {
+  review._reset();
+  review.report([sessions[0]], {session: 's1', tab: 7, boot: 'run-a', url: `${posting(1)}#jobpilotto-fill=s1`, total: 1, left: 0});
+  assert.equal(review.tabOf('s1', 'run-a'), 7);
+  assert.equal(review.tabOf('s1', 'run-b'), '', 'another browser run: tab 7 there is some other page');
+});
+
+test('row 8, the app restarts: the bound tab id is read back from the saved state', () => {
+  review._reset();
+  const file = path.join(fs.mkdtempSync(path.join(fs.realpathSync(process.env.TMPDIR || '/tmp'), 'jp-st-')), 'states.json');
+  review.persist(file, ['s1']);
+  review.report([sessions[0]], {session: 's1', tab: 7, boot: 'run-a', url: `${posting(1)}#jobpilotto-fill=s1`, total: 1, left: 0});
+  review._reset(); review.persist(file, ['s1']);
+  assert.equal(review.tabOf('s1', 'run-a'), 7);
+});
+
+test('a restored tab not yet re-bound is open by its mark alone', () => {
+  assert.deepEqual([...sessionsNamedIn(sessions, [`${posting(2)}#jobpilotto-fill=s2`, posting(3)])], ['s2']);
+});
+
+// The class: no file picks a tab by guessing.
+test('row 9, nothing outside the picker scores, matches or "finds the only" tab', () => {
+  const banned = /\b(scoreTab|chooseTab|pickTab|markedTab|ownTabOf|withOpenForm|reloadTarget|mergeTabs|matchSession|freeSession)\b/;
+  const files = fs.readdirSync(path.join(here, '..', 'lib')).filter(name => name.endsWith('.js')).map(name => path.join(here, '..', 'lib', name));
+  files.push(path.join(here, '..', 'main.js'));
+  for (const file of files) {
+    const hit = fs.readFileSync(file, 'utf8').split('\n').findIndex(line => banned.test(line.replace(/\/\/.*$/, '')));
+    assert.equal(hit, -1, `${path.basename(file)}:${hit + 1} picks a tab by guessing; use lib/session-tab.js`);
+  }
+});

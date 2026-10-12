@@ -201,20 +201,17 @@ test('scenario: account permission handoff and partial application never claim r
   assert.deepEqual(sessionState(partial, true), ['Ready to submit', 'good']);
 });
 
-test('scenario: four open applications focus only the requested job, despite an unbound marked sign-in tab', async () => {
+test('scenario: four open applications focus only the requested job, despite an unbound marked sign-in tab (#479, now by owner not by guess)', async () => {
   const review = await import('../lib/review.js');
-  const {chooseTab} = await import('../lib/form-tab.js');
+  const {tabOfSession} = await import('../lib/session-tab.js');
   review._reset();
   const sessions = [1, 2, 3, 4].map(n => ({id: 'focus-' + n, company: 'Employer ' + n, url: 'https://forms.example/employer-' + n + '/job', status: 'done'}));
   const account = {id: 101, url: 'https://accounts.example/#jobpilotto-fill', title: 'Sign in'};
-  const forms = sessions.slice(1).map((s, n) => ({id: 102 + n, url: s.url + '/application', title: s.company}));
-  review.report(sessions, {session: sessions[1].id, tab: forms[0].id, url: forms[0].url, total: 3, left: 0});
-  for (const session of sessions.slice(2)) {
-    const states = review.allStates();
-    const hints = {confident: true, claimed: states.map(s => s.url), claimedTabs: states.map(s => s.tab)};
-    const target = forms.find(tab => tab.title === session.company);
-    assert.equal(chooseTab([account, ...forms], session, hints), target);
-    assert.equal(chooseTab([account, forms[0]], session, hints), null);
+  const forms = sessions.map((s, n) => ({id: 102 + n, url: s.url + '/application#jobpilotto-fill=' + s.id, title: s.company}));
+  sessions.forEach((s, n) => review.report(sessions, {session: s.id, tab: forms[n].id, url: forms[n].url, total: 3, left: 0}));
+  for (const [n, session] of sessions.entries()) {
+    assert.equal(tabOfSession(session.id, [account, ...forms], review.tabOf(session.id)), forms[n]);
+    assert.equal(tabOfSession(session.id, [account], review.tabOf(session.id)), null, 'its tab closed: the sign-in tab is nobody\'s');
   }
   review._reset();
 });
