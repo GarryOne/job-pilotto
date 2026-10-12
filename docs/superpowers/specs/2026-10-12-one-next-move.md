@@ -82,6 +82,68 @@ A commit adding one fails with "a decision is data: add a fixture or a learned m
 4. Later and only by data: a fast-tier branch whose job the fallback plus learning always does as well may be deleted, one at a time, with its
    recorded cases green. Nothing is deleted for its own sake.
 
+## Phase 1 as built (12 Oct 2026, session job-pilotto-next-move)
+**What counts as a confirmed move** (the page said so; fixed values only: shape, rung, kind, outcome, hits, misses):
+| The page did | Counted as | Where |
+|---|---|---|
+| Apply pressed (by the AI's button, the shared phrases or the structure rule) → a form came on the page | `posting → form`, the rung that decided (0-2) | `extension/ladder/climb.js` `confirmedBody`, `fill-flow.js` |
+| A page judged a form took values from the fill | `form → form` (or `account-form`) | same |
+| A learned answer was right again | a hit | same (`confirmed: true`) |
+| The digest's press led to a form | kept, as before (rung 3) | `verifiedBody` |
+The fast tier's moves (rungs 0-2) are **counted, never kept** (`learning.js` `confirm`): rung 1's own store stays the decision, so nothing a page gets changes.
+
+**Where the counts go** (one table, `ladder_moves`, each row marked with its source; served to nobody yet, phase 3 adds the pack's k ≥ 3):
+| Source | Sent by | Marked | Key |
+|---|---|---|---|
+| Real use | the app's learning batch (`ladder`, `lib/recipes.js`) | `user` (hashed install) | the install |
+| CI pool | `desktop/e2e/pool-moves.mjs` after each run (each row's app log) | `ci` (`ci:<run>`) | CI's narrow `REPLAYS_PUBLISH_KEY` |
+| Recorded replays | `desktop/e2e/replays-report.mjs` on a push to main | `replay` (once per move) | same |
+A test source claimed without the key is dropped and flagged (`ladder-source`), never stored as a user's. The owner reads every move per source: `GET /api/ladder-moves`.
+
+**Found on the way:** the learning store refused every shape with 8 or more fields (`|f8+`: the shape pattern had no `+`), so no real form could ever be counted. Fixed in both stores, with a test over every build bucket.
+
+## Detecting a dead end (owner's question, 12 Oct 2026; built in phase 2)
+> A dead-end detector must not become a new chain of conditions.
+
+| Kind | Rule | Why it is reliable |
+|---|---|---|
+| **Explicit** | every give-up in `consider()` (stuck account / no-form / incomplete / other / told / email, any return with no fill and no move) goes through ONE `deadEnd(reason, evidence)`; a guard test fails on a direct `stuck()` outside it | by construction: the code admits it |
+| **Silent** | ONE rule, no list: no **progress** within T s after the page settled, unless the page is a declared person-stop (bot check, password, consent, SMS code, Submit) or done (required left 0). Progress = observable events only: the tab navigated; the control set changed (new fields); a field got a value that stayed; the panel's required-left count went down | T is **measured** in shadow: the gaps between progress events on every CI pool row; T sits above the slowest normal gap (start ~20 s; a normal fill takes 10-30 s; Ocado's stall was 150 s) |
+
+- **Measured apart, before the fallback:** on the pool's ground truth (rows that ended before a form vs rows that reached it): **recall** (fires on the stopped rows) and **false fires** (on the reached ones). Both are switch-on criteria.
+- **Degrades to today:** a miss = today's behaviour; a false fire = one extra ask, and the floors block harm.
+
+## Making the next move right (owner's question, 12 Oct 2026; built in phase 2)
+1. Answers only **by number** from the page's own fields and controls, plus fixed verbs (fill / press / person); the code validates (as the digest does).
+2. **Floors before acting** (unchanged).
+3. Confidence < 0.8 = climb, never act. A **press** is asked twice at rung 2 and acted on only if both agree (the `worthRetry` pattern).
+4. **Expected effect per verb**, checked right after acting: fill = the value stayed; an apply-type press = a form, or a new page WITH FIELDS for this job; a continue-type press = the page changed and no required value was lost. No effect = failed: never repeated, and the next rung is asked with "tried X, observed Y".
+5. Worst case = today: the person, told.
+6. Learn only confirmed moves; drop one on its first miss.
+
+**Measured before users:** offline, `npm run ladder-score` on fixtures that carry an expected MOVE (right / wrong / wrong-and-confident); live in CI, the CI pool (fake applicant, held, never Submit) runs the fallback **acting**, not in shadow, so each dead-end row gets a measured **unblock rate** (did the expected effect happen). Users stay in shadow until the switch criteria hold.
+**Residual risk:** a wrong move that still produces the expected effect (the account route also leads to a form). The effects are made specific; the form judge and the fill check catch the rest.
+
+## When the AI misses data, context, DOM or screenshot (owner's question, 12 Oct 2026; built in phase 2)
+1. The answer gets one more option: `not_listed` + a short description ("the control I need is not in the list"). It becomes a fixed signal (e.g. `blind`) that climbs straight to the picture rung. **A new signal changes `extension/ladder/core.js` invariant 1 (the fixed lists): the owner's call, said in that commit.**
+2. A picture-vs-sketch cross-check: when the screenshot shows clearly more controls than the sketch listed, the page is flagged as a partial view before anyone acts on it.
+3. A blind spot the picture confirms is **recorded as data** (page shape + what was missing, fixed values only): the queue for universal perception fixes (code with a zoo or recorded page, the one place code is the right home). This time the page climbs to Claude or the person; never a guess.
+4. The blind-spot rate per rung, from the CI pool, daily; the widget zoo's coverage of control shapes stays the reader's scoreboard.
+
+## Switch-on criteria (phase 3, all must hold)
+| Criterion | Measured by |
+|---|---|
+| No fixture source worse; the wrong-and-confident list not longer | `npm run ladder-score` (plan path, $0) |
+| Median time per page within +1 s | the CI pool and the recorded pages, both ways |
+| The dead-end detector's recall and false fires | the CI pool's ground truth |
+| The fallback's unblock rate per dead-end row | the CI pool, acting |
+| The AI cost per application | shown to the owner and OK'd |
+
+## Open items
+- **The success measure:** site-named commits per week, and a new site working with no code; weekly, from git `Pool-row` lines and the pool.
+- **"Wrong but progressing" fast-tier moves** are not caught by dead-end detection: the expected-effect check and `fill_verify` cover them (follow-up).
+- **Serving the moves** (phase 3): the pack's k ≥ 3 installs for `user`; whether a `ci`-confirmed move may be served alone is the owner's call.
+
 ## Trade-offs
 | | Today | This design |
 |---|---|---|
@@ -102,6 +164,8 @@ A commit adding one fails with "a decision is data: add a fixture or a learned m
 - [x] Owner's decision on 1-4 (12 Oct 2026: yes to all)
 - [x] Phase 0: account pages with no step get the normal fill (#486)
 - [ ] Phase 1: CI pool + replays feed verified moves into the ladder learning and the pack; rung 1 keeps only sure answers
+  - [x] built (12 Oct 2026): counted moves at every rung, CI pool + replays send them marked `ci` / `replay`, site `ladder_moves`; rung 1 keeps only sure answers (cc's b97a9c9)
+  - [ ] proof: one CI pool pass with a confirmed move for every row that reached a form (numbers in the PR)
 - [ ] Phase 2: the fallback at each dead end, in shadow; fixtures and CI pool both ways; cost numbers
 - [ ] Phase 3: switch on; the decision-branch ratchet; the fix rule in docs/flows/ladder.md and CLAUDE.md
 - [ ] Phase 4: fast-tier branches retired only when proven redundant, one at a time
