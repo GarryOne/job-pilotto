@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
-import {casesOf, coveredFiles, missingCase, untaggedNewCases} from '../../tools/recorded-cases.mjs';
+import {casesOf, coveredFiles, missingCase, untaggedActing, untaggedNewCases} from '../../tools/recorded-cases.mjs';
 import {replayFiles} from '../../tools/replay-files.mjs';
 import {FLOW_FILES} from '../e2e/flows.mjs';
 
@@ -71,4 +71,13 @@ test('a push that adds a recorded case names the pool row it fixes, or says none
   assert.equal(untaggedNewCases(['zoo-toggle-1'], ['A zoo page\n\nPool-row: none a hand-made shape, no pool row']), '');
   assert.match(untaggedNewCases(['x-1'], ['Fix\n\nPool-row: none']), /x-1/, 'none needs its reason');
   assert.equal(untaggedNewCases([], ['anything']), '', 'no new case: nothing asked');
+});
+
+test('any push that changes how the app acts on pages names its pool row, or says none and why (a prompt fix like #424 skipped the Fixed tab)', () => {
+  const acting = [...covered][0];
+  assert.match(untaggedActing([commit([acting], 'Answers from saved facts')], covered), /Pool-row/);
+  assert.equal(untaggedActing([commit([acting], 'Fix\n\nPool-row: FNAC Suisse jobs, French')], covered), '');
+  assert.equal(untaggedActing([commit([acting], 'Refactor\n\nPool-row: none a pure move')], covered), '');
+  assert.match(untaggedActing([commit([acting], 'x\n\nPool-row: none')], covered), /Pool-row/, 'none needs its reason');
+  assert.equal(untaggedActing([commit(['docs/rules/rounds.md'], 'Docs')], covered), '', 'nothing the app acts with: nothing asked');
 });
