@@ -132,10 +132,10 @@ export async function ingest(request, env) {
   if (!runs.length && !billed.length && !keys.length) return new Response('Nothing to record', {status: 400});
   if (!runs.every(goodRun) || !billed.every(goodDay) || !keys.every(goodKey) || runs.length > 200 || billed.length > 100 || keys.length > 400) return new Response('Unexpected shape', {status: 400});
   const statements = [
-    ...runs.map(run => env.STATS.prepare('INSERT OR REPLACE INTO ai_cost_runs (job, run_id, day, at, usd, calls, repo, provider) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    ...runs.map(run => env.STATS.prepare('INSERT INTO ai_cost_runs (job, run_id, day, at, usd, calls, repo, provider) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (job, run_id) DO UPDATE SET day = excluded.day, at = excluded.at, usd = excluded.usd, calls = excluded.calls, repo = excluded.repo, provider = excluded.provider WHERE usd IS NOT excluded.usd OR calls IS NOT excluded.calls OR day IS NOT excluded.day OR repo IS NOT excluded.repo OR provider IS NOT excluded.provider')   // a resent run writes nothing (D1 bills rows written)
       .bind(run.job, String(run.run_id), day(run.at), run.at, run.usd, Math.max(0, Math.round(Number(run.calls) || 0)), String(run.repo || '').slice(0, 80), run.provider || 'anthropic')),
-    ...billed.map(item => env.STATS.prepare('INSERT OR REPLACE INTO ai_cost_billed (day, usd, at) VALUES (?, ?, ?)').bind(item.day, item.usd, new Date().toISOString())),
-    ...keys.map(item => env.STATS.prepare('INSERT OR REPLACE INTO ai_cost_keys (day, key, usd, at) VALUES (?, ?, ?, ?)').bind(item.day, String(item.key), item.usd, new Date().toISOString())),
+    ...billed.map(item => env.STATS.prepare('INSERT INTO ai_cost_billed (day, usd, at) VALUES (?, ?, ?) ON CONFLICT (day) DO UPDATE SET usd = excluded.usd, at = excluded.at WHERE usd IS NOT excluded.usd').bind(item.day, item.usd, new Date().toISOString())),
+    ...keys.map(item => env.STATS.prepare('INSERT INTO ai_cost_keys (day, key, usd, at) VALUES (?, ?, ?, ?) ON CONFLICT (day, key) DO UPDATE SET usd = excluded.usd, at = excluded.at WHERE usd IS NOT excluded.usd').bind(item.day, String(item.key), item.usd, new Date().toISOString())),
   ];
   await env.STATS.batch(statements);
   return new Response(JSON.stringify({ok: true, runs: runs.length, billed: billed.length, keys: keys.length}), {headers: {'Content-Type': 'application/json'}});

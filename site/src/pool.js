@@ -62,6 +62,12 @@ export const HOW = ['ai_idea', 'ai_list', 'jobs_ch', 'wikidata', 'seed', 'hn', '
 const siteOf = value => { try { const url = new URL(String(value || '')); return url.protocol === 'https:' && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(url.hostname) ? url.href.slice(0, 200) : null; } catch { return null; } };
 const count = value => (Number.isFinite(value) ? Math.max(0, Math.min(100000, Math.round(value))) : null);
 const day = date => date.toISOString().slice(0, 10);
+// D1 bills rows written (2,447 shares a day wrote 6k rows, 12 Oct 2026): a share that changes nothing since the same install's earlier one TODAY writes nothing. `day` still moves
+// once a day: the daily rollup counts "touched in the last day" as who was active (src/contribute.py REFRESH).
+const CHANGED_CONTRIBUTION = `day IS NOT excluded.day OR company IS NOT excluded.company OR matched IS NOT MAX(matched, excluded.matched) OR own IS NOT MAX(own, excluded.own)
+  OR roles IS NOT excluded.roles OR regions IS NOT excluded.regions OR countries IS NOT excluded.countries OR metros IS NOT excluded.metros OR families IS NOT excluded.families
+  OR (how IS NULL AND excluded.how IS NOT NULL) OR (excluded.jobs IS NOT NULL AND jobs IS NOT excluded.jobs) OR (excluded.hits IS NOT NULL AND hits IS NOT excluded.hits)
+  OR (excluded.site IS NOT NULL AND site IS NOT excluded.site) OR failed IS NOT excluded.failed OR (excluded.out_json IS NOT NULL AND out_json IS NOT excluded.out_json) OR ai_family IS NOT excluded.ai_family`;
 
 export async function hashed(env, install) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${env.STATS_SALT || ''}|pool|${install}`));
@@ -136,22 +142,25 @@ export async function contribute(request, env, now = new Date()) {
       matched = CASE WHEN day = excluded.day THEN MAX(matched, excluded.matched) ELSE excluded.matched END,
       own = CASE WHEN day = excluded.day THEN MAX(own, excluded.own) ELSE excluded.own END, day = excluded.day,
       roles = excluded.roles, regions = excluded.regions, countries = excluded.countries, metros = excluded.metros, families = excluded.families, how = COALESCE(how, excluded.how), jobs = COALESCE(excluded.jobs, jobs),
-      hits = COALESCE(excluded.hits, hits), site = COALESCE(excluded.site, site), failed = excluded.failed, out_json = COALESCE(excluded.out_json, out_json), ai_family = excluded.ai_family`)
+      hits = COALESCE(excluded.hits, hits), site = COALESCE(excluded.site, site), failed = excluded.failed, out_json = COALESCE(excluded.out_json, out_json), ai_family = excluded.ai_family
+      WHERE ${CHANGED_CONTRIBUTION}`)
     .bind(install, today, feed.ats, feed.slug, feed.company, feed.matched, feed.own, roles.join(','), regions.join(','), feed.how, feed.jobs, feed.hits,
       feed.site, feed.failed, feed.out, ...fine, aiFamily));
   for (const item of nofeed) {
-    statements.push(env.STATS.prepare('INSERT INTO nofeed (install, day, key, company, host, ai_family) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(install, key) DO UPDATE SET day = excluded.day, host = COALESCE(excluded.host, host), ai_family = excluded.ai_family')
+    statements.push(env.STATS.prepare('INSERT INTO nofeed (install, day, key, company, host, ai_family) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(install, key) DO UPDATE SET day = excluded.day, host = COALESCE(excluded.host, host), ai_family = excluded.ai_family WHERE day IS NOT excluded.day OR (excluded.host IS NOT NULL AND host IS NOT excluded.host) OR ai_family IS NOT excluded.ai_family')
       .bind(install, today, item.key, item.company, item.host, aiFamily));
   }
   for (const item of sites) {
-    statements.push(env.STATS.prepare('INSERT INTO sitefacts (install, day, host, kind, url, body) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(install, host, kind) DO UPDATE SET day = excluded.day, url = excluded.url, body = excluded.body')
+    statements.push(env.STATS.prepare('INSERT INTO sitefacts (install, day, host, kind, url, body) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(install, host, kind) DO UPDATE SET day = excluded.day, url = excluded.url, body = excluded.body WHERE day IS NOT excluded.day OR url IS NOT excluded.url OR body IS NOT excluded.body')
       .bind(install, today, item.host, item.kind, item.url, item.body));
   }
   for (const item of boards) {
     statements.push(env.STATS.prepare(`INSERT INTO board_reads (install, day, board, roles, regions, jobs, hits, failed, dup, out_json, countries, metros, families, ai_family) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(install, board) DO UPDATE SET day = excluded.day, roles = excluded.roles, regions = excluded.regions, countries = excluded.countries,
       metros = excluded.metros, families = excluded.families, jobs = excluded.jobs,
-      hits = excluded.hits, failed = excluded.failed, dup = excluded.dup, out_json = COALESCE(excluded.out_json, out_json), ai_family = excluded.ai_family`)
+      hits = excluded.hits, failed = excluded.failed, dup = excluded.dup, out_json = COALESCE(excluded.out_json, out_json), ai_family = excluded.ai_family
+      WHERE day IS NOT excluded.day OR roles IS NOT excluded.roles OR regions IS NOT excluded.regions OR countries IS NOT excluded.countries OR metros IS NOT excluded.metros OR families IS NOT excluded.families
+        OR jobs IS NOT excluded.jobs OR hits IS NOT excluded.hits OR failed IS NOT excluded.failed OR dup IS NOT excluded.dup OR (excluded.out_json IS NOT NULL AND out_json IS NOT excluded.out_json) OR ai_family IS NOT excluded.ai_family`)
       .bind(install, today, item.board, roles.join(','), regions.join(','), item.jobs, item.hits, item.failed, item.dup, item.out, ...fine, aiFamily));
   }
   // D1 runs a batch as one call: 2,000 feeds stay one request's worth of queries.

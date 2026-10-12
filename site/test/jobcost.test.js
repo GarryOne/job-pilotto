@@ -47,7 +47,7 @@ test('ingest needs the key and a valid shape, and a retried report replaces itse
   assert.equal((await put({runs: [{job: 'central-scout', run_id: '1', at: '2026-10-04T01:00:00Z', usd: -1}]})).status, 400);
   const ok = await put({runs: [{job: 'central-scout', run_id: '1', at: '2026-10-04T01:00:00Z', usd: 0.25, calls: 3}], billed: [{day: '2026-10-03', usd: 1.5}]});
   assert.equal(ok.status, 200);
-  assert.match(stored[0].sql, /INSERT OR REPLACE INTO ai_cost_runs/);
+  assert.match(stored[0].sql, /INSERT INTO ai_cost_runs[^]*ON CONFLICT[^]*WHERE usd IS NOT excluded\.usd/);   // a resent run writes nothing
   assert.equal(stored.length, 2);
 });
 
@@ -57,7 +57,7 @@ test('per-key rows: stored by name, a real key is refused, and the card shows to
   const put = body => ingest(new Request('https://x.dev/ai-cost/data', {method: 'PUT', headers: {Authorization: 'Bearer k'}, body: JSON.stringify(body)}), env);
   assert.equal((await put({keys: [{day: '2026-10-05', key: 'sk-ant-api03-secret', usd: 1}]})).status, 400);
   assert.equal((await put({keys: [{day: '2026-10-05', key: 'job-pilotto-e2e-testing', usd: 2.5}]})).status, 200);
-  assert.match(stored[0].sql, /INSERT OR REPLACE INTO ai_cost_keys/);
+  assert.match(stored[0].sql, /INSERT INTO ai_cost_keys[^]*WHERE usd IS NOT excluded\.usd/);
   const now = new Date('2026-10-07T12:00:00Z');
   const keys = byKey([{day: '2026-10-07', key: 'e2e', usd: 1}, {day: '2026-10-02', key: 'e2e', usd: 2}, {day: '2026-09-20', key: 'e2e', usd: 4}, {day: '2026-08-01', key: 'e2e', usd: 100}], now);
   assert.deepEqual(keys, [{key: 'e2e', today: 1, week: 3, month: 7, last: '2026-10-07'}]);
