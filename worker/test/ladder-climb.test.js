@@ -42,6 +42,36 @@ test('what the app is told when a digest-named press led to a form: fixed values
   assert.equal(JSON.stringify(verifiedBody(kind, 'https://jobs.example/x', [])).includes('Postuler'), false);
 });
 
+// The fast tier's decisions the page confirmed (spec docs/superpowers/specs/2026-10-12-one-next-move.md, phase 1): the app COUNTS them (desktop/lib/ladder/learning.js confirm), so real use,
+// the CI pool and the replays feed the learning. Fixed values only; a learned answer is a hit; a digest answer stays verifiedBody's; a kind the step did not confirm is never sent.
+test('a confirmed fast-tier move is told to the app with fixed values only: the press led to a form, the fill put values in', async () => {
+  const {confirmedBody} = await import('../../extension/ladder/climb.js');
+  const url = 'https://jobs.example/careers/123?token=secret#jobpilotto-fill=s1', controls = [{type: 'text', label: 'Postuler maintenant'}];
+  const sent = (kind, step) => confirmedBody(kind, url, controls, step);
+  assert.deepEqual(sent({by: 'ai', rung: 2, kind: 'posting', applyButton: 'Postuler'}, 'pressed'), {verified: true, url: 'https://jobs.example/careers/123', controls, rung: 2, outcome: 'form', kind: 'posting', signal: 'confident'});
+  assert.deepEqual(sent({by: 'remembered', rung: 1, kind: 'form'}, 'filled'), {verified: true, url: 'https://jobs.example/careers/123', controls, rung: 1, outcome: 'form', kind: 'form', signal: 'confident'});
+  assert.equal(sent({by: 'ai', rung: 2, kind: 'account-form'}, 'filled').kind, 'account-form');
+  assert.deepEqual([sent(null, 'pressed').rung, sent(null, 'pressed').kind, sent(null, 'filled').kind], [0, 'posting', 'form'], 'the structure rule decided: rung 0');
+  assert.deepEqual(sent({by: 'learned', rung: 1, kind: 'posting', learnedBy: 3}, 'pressed'), {confirmed: true, url: 'https://jobs.example/careers/123', controls}, 'a learned answer is a hit');
+  for (const [kind, step] of [[{by: 'digest', rung: 3, kind: 'posting'}, 'pressed'], [{by: 'ai', rung: 2, kind: 'posting'}, 'filled'], [{by: 'ai', rung: 2, kind: 'form'}, 'pressed'],
+    [{by: 'ai', rung: 2, kind: 'other'}, 'pressed'], [{by: 'ai', rung: 2, kind: 'account'}, 'filled'], [{by: 'someone', kind: 'posting'}, 'pressed'], [{by: 'ai', rung: 2, kind: 'posting'}, 'clicked'], [{by: 'ai', rung: 2, kind: 'form'}, undefined]]) {
+    assert.equal(sent(kind, step), null, `${JSON.stringify(kind)} ${step}`);
+  }
+  assert.deepEqual([sent({by: 'ai', kind: 'posting'}, 'pressed').rung, sent({by: 'remembered', kind: 'form'}, 'filled').rung], [2, 1], 'an answer without its rung: the rung of who answered');
+  assert.ok(!JSON.stringify(sent({by: 'ai', rung: 2, kind: 'posting', applyButton: 'Postuler'}, 'pressed')).match(/token|secret|jobpilotto-fill|Postuler\b(?! maintenant)/));
+});
+
+test('an Apply press that moved the tab to another page is confirmed by that page taking the fill: kept per tab until the next page takes it, once', async () => {
+  const {forgetClimb, notePressed, takePressed} = await import('../../extension/ladder/climb.js');
+  const body = {verified: true, url: 'https://jobs.example/careers/1', controls: [], rung: 2, outcome: 'form', kind: 'posting', signal: 'confident'};
+  notePressed(31, body);
+  assert.deepEqual([takePressed(31), takePressed(31)], [body, null], 'the next page takes it once');
+  notePressed(32, body); notePressed(32, null);
+  assert.equal(takePressed(32), null, 'a press with nothing to confirm clears an older one');
+  notePressed(33, body); forgetClimb(33);
+  assert.equal(takePressed(33), null, 'a reload forgets it');
+});
+
 test('when the ladder ends with no usable answer (the digest answered nothing, or said other with nothing to tell), the page is reported as other, never silently', async () => {
   const {climbOnStall, climbOnUnsure, forgetClimb, noteSignal, otherReport} = await import('../../extension/ladder/climb.js');
   forgetClimb(11);

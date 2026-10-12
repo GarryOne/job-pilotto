@@ -1,5 +1,6 @@
 // The ladder's write-back through the real endpoint (lib/server-pages.js decidePageKind -> page-kind.js pageKind): a verified rung 3/4 answer becomes the kept answer, one contradiction drops it,
-// an email outcome is never reused, and the learned counts go out as deltas with the shared counts (lib/recipes.js). Guard for lib/ladder/learning.js's wiring.
+// an email outcome is never reused, and the learned counts go out as deltas with the shared counts (lib/recipes.js). A verified decision of the fast tier (rung 0-2) is counted, never
+// an answer, and said in the log with fixed values (the CI pool and the replays read that line: desktop/e2e/lib/ladder-moves.mjs). Guard for lib/ladder/learning.js's wiring.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -7,6 +8,7 @@ import path from 'node:path';
 import {test} from 'node:test';
 import {decidePageKind} from '../lib/server-pages.js';
 import {createReporter} from '../lib/recipes.js';
+import {logTo} from '../lib/log.js';
 
 const newStorage = () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-ladder-wire-'));
@@ -69,7 +71,7 @@ test('a confirmed learned answer counts a hit; counts leave as deltas with the s
   reporter.flow('jobs.wire.test', 'filled');   // something to send
   await reporter.flush?.();
   const body = sent[0];
-  assert.deepEqual(body.ladder, [{shape: 'jobs.wire.test/careers/*|1-2', rung: 3, outcome: 'form', hits: 1, misses: 0}]);
+  assert.deepEqual(body.ladder, [{shape: 'jobs.wire.test/careers/*|1-2', rung: 3, kind: 'posting', outcome: 'form', hits: 1, misses: 0}]);
 });
 
 test('only what changed since the last successful send is sent again; a failed send is sent again', async () => {
@@ -110,4 +112,33 @@ test('the "other" shape counts leave as deltas too (ladderOther: [{shape, n}]), 
   await reporter.flush();
   assert.deepEqual(sent.at(-1).ladderOther, [{shape, n: 1}]);
   assert.ok(!JSON.stringify(sent).includes('@'), 'fixed values only');
+});
+
+test('a verified decision of the fast tier is counted and said in the log, never an answer; its counts leave with the others', async () => {
+  const storage = newStorage(), logs = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-ladder-wire-log-'));
+  logTo(logs);
+  const form = {...page(1), verified: true, rung: 2, kind: 'form', outcome: 'form', signal: 'confident'};
+  const reply = await decidePageKind(storage, form, noAi);
+  assert.deepEqual([reply.ok, reply.confirmed], [true, true]);
+  await decidePageKind(storage, {...form, url: 'https://jobs.wire.test/careers/2000'}, noAi);   // another posting of the shape: a second hit
+  assert.equal((await decidePageKind(storage, page(3), noAi)).kind, '', 'a count never answers a page');
+  const line = fs.readFileSync(path.join(logs, 'app.log'), 'utf8').split('\n').filter(text => text.includes('ladder: confirmed by rung 2'));
+  assert.equal(line.length, 2);
+  assert.deepEqual(JSON.parse(line[0].slice(line[0].indexOf('{'))), {shape: 'jobs.wire.test/careers/*|1-2', kind: 'form', outcome: 'form'});
+  const sent = [];
+  const reporter = createReporter(storage, {fetcher: async (url, init) => { sent.push(JSON.parse(init.body)); return {ok: true}; }, base: 'https://site.test', setTimer: () => ({unref() {}})});
+  await reporter.flush();
+  assert.deepEqual(sent[0].ladder, [{shape: 'jobs.wire.test/careers/*|1-2', rung: 2, kind: 'form', outcome: 'form', hits: 2, misses: 0}]);
+  logTo(path.join(logs, 'off'));
+});
+
+test('a confirmed learned answer is said in the log (a hit), with its shape only', async () => {
+  const storage = newStorage(), logs = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-ladder-wire-log-'));
+  logTo(logs);
+  await decidePageKind(storage, verified(1), noAi);
+  await decidePageKind(storage, {...page(2), confirmed: true}, noAi);
+  const text = fs.readFileSync(path.join(logs, 'app.log'), 'utf8');
+  assert.match(text, /ladder: learned by rung 3 \{"shape":"jobs\.wire\.test\/careers\/\*\|1-2","kind":"posting","outcome":"form"\}/);
+  assert.match(text, /ladder: learned answer confirmed \{"shape":"jobs\.wire\.test\/careers\/\*\|1-2"\}/);
+  logTo(path.join(logs, 'off'));
 });
