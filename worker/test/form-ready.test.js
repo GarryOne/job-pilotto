@@ -63,3 +63,23 @@ test('a blocked answer is judged again once; the page recovered: the flag is cle
   try { await mod.formNext({id: 73, url: 'https://apply.example/m'}, 0); await new Promise(resolve => setTimeout(resolve, 250)); } finally { Object.assign(globalThis, keep); mod.timing.recheckMs = 8000; }
   assert.deepEqual(flagged, [mod.blockedWords('dialog'), null]);
 });
+
+// 12 Oct 2026, HelloFresh in the app: the panel's count looked ready 0.6 s after the first fields while the AI's answers were still on their way; the judge sketched a half-filled page and
+// said "needs First Name*", a stale flag the end of the fill never cleared. While the tab's fill runs, the panel's claim is not judged; once it is done, it is.
+test('the panel\'s ready claim is judged only when the tab\'s fill is not running', async () => {
+  const {formReady} = await import('../../extension/form-ready.js');
+  const keep = {chrome: globalThis.chrome, fetch: globalThis.fetch};
+  const asks = async state => {
+    const asked = [];
+    globalThis.chrome = {
+      storage: {local: {get: async () => ({workerUrl: 'http://127.0.0.1:47111', token: 't'}), set: async () => {}}, session: {get: async () => ({}), set: async () => {}}},
+      scripting: {executeScript: async ({func}) => [{result: String(func).includes('jobpilottoFill') ? state === 'running'
+        : {url: 'https://apply.example/f', title: 'Apply', headings: [], controls: [{type: 'text', label: `City ${state}`, required: true, state: 'filled'}], buttons: [], texts: [], frames: []}}]},
+      runtime: {getManifest: () => ({version: '0'})}};
+    globalThis.fetch = async (url, init) => { asked.push(String(url)); return {ok: true, status: 200, json: async () => ({answer: 'ready', step: 'final'})}; };
+    try { await formReady({id: state === 'running' ? 81 : 82, url: 'https://apply.example/f'}, 0, {total: 3, left: 0}); await new Promise(resolve => setTimeout(resolve, 50)); } finally { Object.assign(globalThis, keep); }   // the log line after the judgment runs a moment later
+    return asked.filter(url => /account-judge/.test(url)).length;
+  };
+  assert.equal(await asks('running'), 0, 'not judged while the fill runs');
+  assert.equal(await asks('done'), 1, 'judged once the fill is done');
+});

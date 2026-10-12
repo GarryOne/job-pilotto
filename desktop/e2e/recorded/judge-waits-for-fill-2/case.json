@@ -1,0 +1,66 @@
+{
+ "shape": "a form whose required boxes are filled at once while one more answer is still on its way from the AI: the panel's count looks ready over a half-filled page",
+ "why": "HelloFresh careers in the app (12 Oct 2026, Electron leg of the pool): the form judge ran 0.6 s after the first fields, on a sketch with every box empty, said \"needs First Name*\", and the stale flag kept the phone retry from running. The panel's ready claim is no longer judged while the tab's fill runs; the fill's own end judges the settled page (variant: other markup, aria-required, French, another order)",
+ "control": {
+  "guard": "new case 12 Oct 2026: on origin/main the form judge is sent the late question as empty (notJudged fails); the late answer waits 12-14 s so the panel (it re-counts every 2 s) claims ready on any machine (a 4 s wait passed on CI's runner)"
+ },
+ "sample": "hand-made (the shape of the HelloFresh run), no real site",
+ "pages": [
+  {
+   "url": "https://candidature.example.fr/postuler",
+   "file": "form.html"
+  }
+ ],
+ "cv": false,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "_delayMs": 14000,
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "lieu",
+     "question": "Lieu de domicile actuel",
+     "value": "Lausanne",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  },
+  "/extension/account-judge": {
+   "ok": true,
+   "answer": "ready",
+   "step": "final",
+   "rung": 2,
+   "signal": "confident"
+  }
+ },
+ "expect": {
+  "asked": [
+   "Lieu de domicile actuel"
+  ],
+  "filled": [
+   "#lieu"
+  ],
+  "judged": [
+   "Lieu de domicile actuel:filled"
+  ],
+  "notJudged": [
+   "Lieu de domicile actuel:empty"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60
+ },
+ "start": "panel"
+}
