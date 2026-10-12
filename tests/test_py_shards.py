@@ -59,5 +59,22 @@ class ShardTests(unittest.TestCase):
         self.assertGreater(len(app), 150, 'the Build box still runs the product\'s Python tests')
 
 
+class SlowestTests(unittest.TestCase):
+    """CI names its slow tests (12 Oct 2026: one test waited 300 s and nobody could see which)."""
+    def test_unittest_durations_are_summed_per_module_and_ranked(self):
+        shard_a = ('Slowest test durations\n' + '-' * 70 + '\n'
+                   '300.100s   test_status (test_heavy_lock_reap.ReapTest.test_status)\n'
+                   '2.000s     test_one (test_ship.ShipTest.test_one)\n')
+        shard_b = '5.500s     test_two (tests.test_ship.ShipTest.test_two)\n\nRan 3 tests in 307.6s\n'
+        modules, tests = shards.slowest([shard_a, shard_b])
+        self.assertEqual([m for m, _ in modules], ['test_heavy_lock_reap', 'test_ship'])
+        self.assertAlmostEqual(dict(modules)['test_ship'], 7.5)
+        self.assertEqual(tests[0], ('ReapTest.test_status', 300.1))
+
+    def test_the_shards_ask_unittest_for_every_duration_on_3_12(self):
+        import sys
+        self.assertEqual(shards.DURATIONS, ['--durations', '0'] if sys.version_info >= (3, 12) else [])
+
+
 if __name__ == '__main__':
     unittest.main()
