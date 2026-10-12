@@ -5,15 +5,16 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {CONTACT} from './apply-fixtures.mjs';
 
 export const SEED_FILE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'demo', 'draft.json');
 export const OLD_SEED = 'captured with an older applicant seed: fill asks will miss; re-capture the row live (npm run smoke -- --only "<row>") before trusting its fill';
 
-// The parts of the applicant an AI ask carries (the Profile, the standard answers, the search and its preferences, the imported CV). -> 12 hex characters
+// The parts of the applicant an AI ask carries (the contact details the live row saves, apply-fixtures.mjs CONTACT; the Profile, the standard answers, the search and its preferences, the imported CV). -> 12 hex characters
 export function seedVersion(file = SEED_FILE) {
   const {draft} = JSON.parse(fs.readFileSync(file, 'utf8'));
   const cvJson = fs.readFileSync(new URL('../fixtures/cv.json', import.meta.url), 'utf8');   // the CV's jobs and schools ride in every fill ask (<cv_facts>)
-  return crypto.createHash('sha256').update(JSON.stringify([draft.profile_markdown, draft.answers_markdown, draft.search, draft.preferences, cvJson])).digest('hex').slice(0, 12);
+  return crypto.createHash('sha256').update(JSON.stringify([draft.profile_markdown, draft.answers_markdown, draft.search, draft.preferences, cvJson, CONTACT])).digest('hex').slice(0, 12);
 }
 
 // -> '' when the capture in caseDir was made with this seed, else OLD_SEED (a capture from before the seed was recorded has none).

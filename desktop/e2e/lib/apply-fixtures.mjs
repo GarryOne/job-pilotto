@@ -1,6 +1,6 @@
 // What the apply suites share (moved out of suites/apply.mjs, 8 Oct 2026): the applicant, the stand-in AI's canned CV and tailoring, a job posting's text, and small helpers.
 // The applicant whose details the app hands the extension (written to this suite's own Notion Profile, never a real person).
-export const CONTACT = {first_name: 'Ada', last_name: 'Tester', full_name: 'Ada Tester', email: 'ada.tester@example.test', phone: '+41 79 555 01 23', location: 'Zurich, Switzerland', linkedin: 'https://www.linkedin.com/in/ada-tester'};
+export const CONTACT = {first_name: 'Ada', last_name: 'Tester', full_name: 'Ada Tester', email: 'ada.tester@example.test', phone: '+41 79 555 01 23', location: 'Zurich, Switzerland', street: 'Musterstrasse 12', postal_code: '8001', linkedin: 'https://www.linkedin.com/in/ada-tester'};
 export const OPEN_ANSWER = 'Because the platform work here is about reliability at scale, which is what I have done for eight years.';
 
 export const expectedOf = form => Object.fromEntries(form.kit.filter(item => !form.legal.includes(item.field)).map(item => [item.field, item.answer]));

@@ -31,3 +31,11 @@ test('a capture records the seed it ran with; a replay names one recorded with a
   }
   assert.match(OLD_SEED, /older applicant seed: fill asks will miss; re-capture/);
 });
+
+// 12 Oct 2026 (Valora: the postal-code box stayed empty): the fake applicant has a street with its number and a postal code, and the seed version moves with them.
+test('the fake applicant has a street with its number and a postal code, and the seed version covers its contact', async () => {
+  const {CONTACT} = await import('../lib/apply-fixtures.mjs');
+  assert.match(CONTACT.street, /\S+\s+\d+/, 'street and house number');
+  assert.match(CONTACT.postal_code, /^\d{4}$/, 'a Swiss postal code');
+  assert.match(fs.readFileSync(new URL('../lib/applicant-seed.mjs', import.meta.url), 'utf8'), /cvJson, CONTACT\]/, 'a contact change must change the seed version');
+});
