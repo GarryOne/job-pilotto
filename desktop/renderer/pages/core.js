@@ -2,6 +2,7 @@
 import {fillIcons} from '../icons.js';
 import {ago} from '../jobs-view.js';
 import {localize, osText as swap, pick} from '../os.js';
+import {plainError} from '../run-warnings.js';
 import {shared} from './shared.js';
 
 export const $ = id => document.getElementById(id);
@@ -31,7 +32,7 @@ export const aiReady = () => {
   if (engine === 'cli' || engine === 'codex') return true;
   return engine === 'openai' ? !!secrets.OPENAI_API_KEY : !!secrets.ANTHROPIC_API_KEY;
 };
-export function message(id, text, tone = '') { const el = $(id); el.textContent = text || ''; el.className = `message ${tone}`; }
+export function message(id, text, tone = '') { const el = $(id); el.textContent = plainError(text); el.className = `message ${tone}`; }
 // Regex fragments from the draft ("z[uü]rich", "\\bsre\\b") shown as plain words.
 export const readable = fragment => fragment.replace(/\\b/g, '').replace(/\[([^\]])[^\]]*\]/g, '$1').replace(/[.?*+()]/g, '').trim();
 

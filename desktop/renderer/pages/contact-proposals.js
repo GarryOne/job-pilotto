@@ -41,16 +41,17 @@ export function showProposals(proposals = []) {
 }
 
 // On opening the panel: what was proposed for this CV (Claude reads a CV once, so this is free after the first time).
-// again: the "Fill from my CV" button, which reads the CV anew and says what it found.
+// again: the "Fill from my CV" button, which reads the CV anew and says what it found. It answers in the panel's own line: the save
+// bar's line is shown only with unsaved changes, so a press that found nothing (or failed) said nothing at all (#409).
 export async function loadProposals({again = false} = {}) {
   const button = $('contact-from-cv');
-  if (again) { button.disabled = true; message('contact-message', 'Reading your CV for missing details… (about 15 s)'); }
+  if (again) { button.disabled = true; message('contact-panel-message', 'Reading your CV for missing details… (about 15 s)'); }
   const result = await window.pilot.contactProposals({again}).catch(error => ({proposals: [], error: error.message}));
   if (again) button.disabled = false;
   const shown = showProposals(result?.proposals || []);
-  if (again && !shown) {
-    message('contact-message', result?.error && result.error !== 'notion' ? `Couldn't read your CV: ${result.error === 'no AI' ? 'choose your AI in Settings → Connections first' : result.error}.`
-      : 'Your CV has nothing for the empty boxes: type them once here.', result?.error ? 'error' : '');
+  if (again) {
+    message('contact-panel-message', shown ? '' : result?.error && result.error !== 'notion' ? `Couldn't read your CV: ${result.error === 'no AI' ? 'choose your AI in Settings → Connections first' : result.error}.`
+      : 'Your CV has nothing for the empty boxes: type them once here.', !shown && result?.error ? 'error' : '');
   }
   return shown;
 }
