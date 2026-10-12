@@ -34,11 +34,11 @@ class PrBodyTest(unittest.TestCase):
 
     def test_the_summary_comes_first_and_the_commit_message_is_folded(self):
         summary = self.tmp / 'summary.md'
-        summary.write_text('### ✅ Ocado: menus picked by meaning\n\n- 8 → 11 filled\n')
+        summary.write_text('### ✅ Ocado: menus picked by meaning\n\n- **Why:** the 11 Oct pool run left 3 menus empty\n\n| | Before | After |\n|---|---|---|\n| filled | 8 | 11 |\n')
         text = self.body(f'--body={summary}')
         self.assertTrue(text.startswith('### ✅ Ocado: menus picked by meaning'), text[:200])
         details = text.index('<details>')
-        self.assertLess(text.index('8 → 11 filled'), details)
+        self.assertLess(text.index('**Why:** the 11 Oct pool run left 3 menus empty'), details)
         self.assertGreater(text.index('A long paragraph'), details, 'the essay is folded, never above the fold')
         self.assertIn('</details>', text)
         self.assertTrue(text.rstrip().endswith('🤖 Generated with [Claude Code](https://claude.com/claude-code)'))
@@ -59,10 +59,21 @@ class PrBodyTest(unittest.TestCase):
 
     def test_a_pr_body_line_the_ci_reads_stays_in_the_body(self):
         summary = self.tmp / 'summary.md'
-        summary.write_text('### Fix\n\nlive-row: Personio form in German\nlive-applicant: thin\n')
+        summary.write_text('### Fix\n\n- **Why:** the owner saw it\n\n| | Before | After |\n|---|---|---|\n| a | 1 | 2 |\n\nlive-row: Personio form in German\nlive-applicant: thin\n')
         text = self.body(f'--body={summary}')
         self.assertIn('\nlive-row: Personio form in German\n', text)
         self.assertIn('\nlive-applicant: thin\n', text)
+
+
+    def test_a_summary_without_a_why_or_a_before_after_is_refused(self):
+        # Owner, 13 Oct 2026: "Explaining why a change is needed: how we decided that we need this. And a before/after."
+        for text, missing in [('### ✅ X\n\n| | Before | After |\n|---|---|---|\n| a | 1 | 2 |\n', 'Why'),
+                              ('### ✅ X\n\n- **Why:** the owner saw it\n', 'Before'),
+                              ('### ✅ X\n- did a thing\n', 'Why')]:
+            summary = self.tmp / 'bad.md'; summary.write_text(text)
+            result = subprocess.run(['bash', str(ROOT / 'tools' / 'pr-body.sh'), self.base, f'--body={summary}'], cwd=self.repo, capture_output=True, text=True, timeout=30)
+            self.assertNotEqual(result.returncode, 0, text)
+            self.assertIn(missing, result.stderr)
 
 
 if __name__ == '__main__':
