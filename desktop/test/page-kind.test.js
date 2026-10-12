@@ -404,3 +404,30 @@ test('the layer line says a no-account way on is the manual route, and an accoun
   await pageKind(fake({...answer, apply_button: '', apply_route: ''}, plain), {...page, onTop: null}, cacheIn());
   assert.ok(!/manual route/.test(JSON.stringify(plain[0].messages)), 'no layer, no rule');
 });
+
+// 12 Oct 2026 (jobs.ch: the live answer was "0.6, no route" over a layer that offered "continue without an account"): one more ask, only on a page with a layer that has buttons and an answer that named no way on.
+const noWay = {kind: 'posting', confidence: 0.6, apply_button: '', apply_button_kind: '', apply_route: '', apply_by: 'other', apply_email: '', form_frame: -1, account_step: '', register_control: '', signin_control: '', account_button: '', bot_check: false};
+const manual = {...noWay, confidence: 0.85, apply_button: 'Continue without an account', apply_button_kind: 'apply', apply_route: 'manual', apply_by: 'form'};
+const accountLayer = {...layered, buttons: ['Login here', 'Create an account', 'Continue without an account'], onTop: {shape: 'overlay', role: 'div', text: 'Create an account to apply faster', buttons: ['Login here', 'Create an account', 'Continue without an account']}};
+test('a low-confidence answer with no way on, over a layer with buttons, is asked once more; the route wins', async () => {
+  const calls = [];
+  const out = await pageKind(seq([noWay, manual], calls), accountLayer, cacheIn());
+  assert.equal(calls.length, 2);
+  assert.deepEqual([out.applyRoute, out.applyButton, out.retried], ['manual', 'continue without an account', true]);
+});
+test('both asks unsure or with no route: today\'s answer stands, and there is no third ask', async () => {
+  const calls = [];
+  const out = await pageKind(seq([noWay, {...noWay, confidence: 0.3}], calls), accountLayer, cacheIn());
+  assert.equal(calls.length, 2);
+  assert.deepEqual([out.applyRoute, out.applyButton, out.confidence], ['', '', 0.6]);
+  const unsure = await pageKind(seq([{...noWay, confidence: 0.3}], []), accountLayer, cacheIn());
+  assert.match(unsure.error, /unsure/);   // the hold, as before
+});
+test('no retry: no layer, a confident answer, a named route or button, an email, a digest', async () => {
+  const count = async (answer, page, opts = {}) => { const calls = []; await pageKind(seq([answer], calls), page, cacheIn(), opts); return calls.length; };
+  assert.equal(await count(noWay, {...accountLayer, onTop: null}), 1, 'no layer');
+  assert.equal(await count({...noWay, confidence: 0.9}, accountLayer), 1, 'confident');
+  assert.equal(await count(manual, accountLayer), 1, 'a route named');
+  assert.equal(await count({...noWay, apply_button: 'Easy apply', apply_button_kind: 'apply'}, {...accountLayer, buttons: [...accountLayer.buttons, 'Easy apply']}), 1, 'a button named');
+  assert.equal(await count(noWay, {...accountLayer, onTop: {...accountLayer.onTop, buttons: []}}), 1, 'a layer with no buttons');
+});
