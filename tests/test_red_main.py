@@ -22,7 +22,7 @@ CLASSIFIED = {
     'CI · Release to beta': 'ignored: release', 'CI · Stable canary': 'ignored: release', 'Release · Website': 'ignored: site deploy', 'Release · Website preview (next)': 'ignored: site deploy',
     'Release · Worker': 'ignored: worker deploy', 'CI · Account-page eval': 'ignored: AI eval', 'CI · Judge exam': 'ignored: AI eval', 'CI · Widget zoo (measure, not required)': 'ignored: a measure of the fill ladder; a miss never fails it', 'CI · Mutation test': 'ignored: nightly measurement',
     'CI · AI code review': 'ignored: advice on a PR', 'CI · AI cost billed': 'ignored: report', 'CI · Schedule watchdog': 'ignored: report', 'CI · Self-heal stats': 'ignored: report',
-    'CI · UI findings': 'ignored: UI loop', 'CI · UI fixer': 'ignored: UI loop', 'CI · UI verdicts': 'ignored: UI loop', 'CI · Top issues list': 'ignored: UI loop', 'CI · Bug Tracker rows': 'ignored: UI loop',
+    'CI · UI findings': 'ignored: UI loop', 'CI · UI fixer': 'ignored: UI loop', 'CI · UI verdicts': 'ignored: UI loop', 'CI · Top issues list': 'ignored: UI loop', 'CI · Bug Tracker rows': 'ignored: UI loop', 'CI · Fixed-issue labels': 'ignored: UI loop',
     'CI · Sentry fixer': 'ignored: fixer loop', 'UI loop · Finder self-review': 'ignored: UI loop',
     'Pipeline · Find new jobs': 'ignored: product pipeline', 'Pipeline · Gmail and Calendar': 'ignored: product pipeline', 'Pipeline · Find new employers': 'ignored: product pipeline',
     'Product brain · Daily brief': 'ignored: report',
