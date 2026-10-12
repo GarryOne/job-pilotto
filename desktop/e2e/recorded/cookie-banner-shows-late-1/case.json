@@ -1,0 +1,45 @@
+{
+ "shape": "a posting that asks for the application by email, with a cookie banner that shows itself seconds after the load (it ships hidden): the closer looks again while the run watches, and its Ok is pressed (the page marks #closed)",
+ "why": "a small employer's own site, in French (Fidag, 11 Oct 2026): the consent look ran once, before the Cookie Notice banner drew itself, and the run ended on 'watch ended: no form' with the banner open in end.png",
+ "sample": "hand-cut page of the shape (invented firm); the banner appears 5 s after the load, its Ok removes it",
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://www.beispiel-treuhand.example/offres/comptable",
+   "file": "page.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "posting",
+   "role": "no-form",
+   "by": "ai",
+   "confidence": 0.9,
+   "rung": 2,
+   "signal": "confident",
+   "applyButton": "",
+   "applyRoute": "",
+   "applyBy": "email",
+   "applyEmail": "rh@example.com",
+   "accountStep": "",
+   "registerControl": "",
+   "signinControl": "",
+   "accountButton": ""
+  }
+ },
+ "expect": {
+  "told": [
+   "the posting asks for the application by email"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 60,
+  "pressed": [
+   "#closed"
+  ]
+ },
+ "control": {
+  "build": "0.9.224",
+  "failed": "the cookie banner drew itself after the one consent look and stayed open when the run ended"
+ }
+}
