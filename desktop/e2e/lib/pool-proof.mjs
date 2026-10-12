@@ -1,6 +1,6 @@
-// The live proof on a PR (owner, 12 Oct 2026; .github/workflows/pool-proof.yml): which PUBLIC pool row a PR's own build runs once on a GitHub runner. A commit's
+// The live proof on a PR (owner, 12 Oct 2026; .github/workflows/pool-proof.yml): which pool row (desktop/e2e/smoke-sites.json) a PR's own build runs once on a GitHub runner. A commit's
 // "Pool-row: <row>" line starts it on open and on each push (the first named row); the "live-proof" label starts it for any PR; a "live-row: <row words>" line in
-// the PR body names the row and wins. A private row (from the owner's profiles), a fork (no secrets) or no row named is one neutral line, never a guess.
+// the PR body names the row and wins. A row not in the repo's pool list, a fork (no secrets) or no row named is one neutral line, never a guess.
 // Guard: e2e/test/pool-proof.test.mjs.
 import {rowFor} from '../../../tools/pool-rows.mjs';
 
@@ -9,7 +9,7 @@ export const LABEL = 'live-proof';
 const poolRowOf = messages => messages.flatMap(message => [...String(message).matchAll(/^Pool-row:[ \t]*(.*)$/gm)].map(found => found[1].trim()))
   .find(value => value && !/^none(\s|$)/i.test(value)) || '';   // "Pool-row: none <why>" names no row (tools/rung-trailer.mjs)
 const liveRowOf = body => (String(body || '').match(/^live-row:[ \t]*(.+)$/im) || [])[1]?.trim() || '';
-const privateRow = value => ({row: '', note: `private row: "${value}" is not in the public pool; run it on the Mac: cd desktop/e2e && npm run live -- <its posting>`});
+const privateRow = value => ({row: '', note: `not in the repo's pool: "${value}" is not in desktop/e2e/smoke-sites.json; add it there, or run it on the Mac: cd desktop/e2e && npm run live -- <its posting>`});
 
 // A Pool-row line is a row's exact name or its slug (the commit hook checks it against the Mac's whole pool).
 function fromPoolRow(value, names) {
@@ -21,7 +21,7 @@ function fromPoolRow(value, names) {
 function fromLiveRow(value, names) {
   const exact = rowFor(value, names), hits = exact ? [exact] : names.filter(name => name.includes(value));
   if (hits.length === 1) return {row: hits[0], note: `live-row in the PR body: ${hits[0]}`};
-  if (hits.length > 1) return {row: '', note: `live-row "${value}" matches ${hits.length} public rows: name one exactly (${hits.join('; ')})`};
+  if (hits.length > 1) return {row: '', note: `live-row "${value}" matches ${hits.length} pool rows: name one exactly (${hits.join('; ')})`};
   return privateRow(value);
 }
 

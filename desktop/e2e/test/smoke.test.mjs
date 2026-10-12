@@ -1,7 +1,7 @@
 // The hand-started smoke's logic (lib/smoke.mjs): how far a live run got, what counts as a regression, which posting a run tries, which shapes it takes.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED, compare, engineLine, fieldLines, marksBlind, matchesOnly, parseLive, selectRows, pickPosting, placeFound, rungFields, runShare, shareSize, shortfall, smokeEngine, verdictFields, verdictOf} from '../lib/smoke.mjs';
+import {APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED, compare, engineLine, fieldLines, marksBlind, matchesOnly, parseLive, personalQueryKeys, poolShapes, selectRows, pickPosting, placeFound, rungFields, runShare, shareSize, shortfall, smokeEngine, verdictFields, verdictOf} from '../lib/smoke.mjs';
 
 const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detail/x/
   2026-10-10T12:20:27Z [extension] page kind: account {"shape":"auth.jobs.ch/u/login/identifier|1-2","by":"ai"}
@@ -48,14 +48,37 @@ test('a gone posting (404/410) is noted, and a note is never a regression', asyn
   assert.deepEqual(compare({a: {reached: 'form', url: 'u'}}, {a: {reached: 'none', url: 'u', note: 'posting gone (HTTP 404)'}}), []);
 });
 
-test('the public site list holds only fixed job-feed postings: a profile\'s own jobs live in the app\'s folder, never in this repo', async () => {
+test('the repo\'s pool list holds every row as a posting CI can run, with no address part that could carry a person (owner, 12 Oct 2026: postings are public pages, the owner\'s details never are)', async () => {
   const fs = await import('node:fs');
   const {shapes} = JSON.parse(fs.readFileSync(new URL('../smoke-sites.json', import.meta.url), 'utf8'));
-  assert.ok(shapes.length >= 5);
-  for (const shape of shapes) { assert.equal(shape.like, undefined, `${shape.shape}: a job-list query belongs in the local list`); assert.ok(shape.urls?.length, shape.shape); }
+  assert.ok(shapes.length >= 70, `the rows from the Mac moved in: ${shapes.length}`);
+  assert.equal(new Set(shapes.map(item => item.shape)).size, shapes.length, 'one row per name');
+  for (const shape of shapes) {
+    assert.equal(shape.like, undefined, `${shape.shape}: a job-list query runs only on one Mac; CI needs a posting`);
+    assert.ok(shape.urls?.length, shape.shape);
+    for (const url of shape.urls) {
+      const address = new URL(url);
+      assert.equal(address.protocol, 'https:', url);
+      assert.equal(address.hash, '', `${url}: no fragment`);
+      assert.deepEqual(personalQueryKeys(url), [], `${url}: a query part that could carry a person or a tracking id`);
+    }
+  }
   const {LOCAL_SITES} = await import('../smoke.mjs');
-  assert.ok(!LOCAL_SITES.includes('/desktop/e2e/'), 'the local list is outside the repo');
-  assert.ok(!/Job Pilotto\/smoke-sites/.test(LOCAL_SITES), 'and outside the app\'s folder, which a profile reset wipes');
+  assert.ok(!LOCAL_SITES.includes('/desktop/e2e/'), 'a Mac\'s optional extra list is outside the repo');
+});
+
+test('the privacy floor on a posting address: a key that could carry a person or a tracking id is refused, a job id is not', () => {
+  assert.deepEqual(personalQueryKeys('https://boards.greenhouse.io/x/jobs/1?gh_jid=4553828006&board=x'), []);
+  assert.deepEqual(personalQueryKeys('https://careers.x.com/job?jobId=7&id=3&jobTitle=SRE'), []);
+  assert.deepEqual(personalQueryKeys('https://x.com/job/1?utm_source=mail&ref=alert&token=ab&email=a%40b.c&applicantId=9&sid=1'), ['utm_source', 'ref', 'token', 'email', 'applicantId', 'sid']);
+});
+
+test('the pool is one list: a Mac\'s optional extra rows join the repo\'s, and a name already in the repo keeps the repo\'s row', () => {
+  const repo = [{shape: 'Lever: single page', urls: ['https://jobs.lever.co/a/1']}], extra = [{shape: 'Lever: single page', urls: ['https://jobs.lever.co/old/2']}, {shape: 'Umantis form', urls: ['https://u.example/1']}];
+  assert.deepEqual(poolShapes(repo, extra), [repo[0], extra[1]]);
+  assert.deepEqual(poolShapes(repo, []), repo);
+  // 12 Oct 2026: 17 rows were renamed on the way into the repo ("@" -> " on "); a Mac's extra list still holding the old name of the same posting adds no row
+  assert.deepEqual(poolShapes(repo, [{shape: 'Lever@jobs.lever.co (found 2026-10-10)', urls: ['https://jobs.lever.co/a/1']}]), repo, 'the same posting under an old name');
 });
 
 test('each shape is compared with its own last run, however long ago', async () => {
