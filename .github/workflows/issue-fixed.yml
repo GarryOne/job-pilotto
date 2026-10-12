@@ -1,0 +1,28 @@
+name: CI · Fixed-issue labels
+
+# A Finder issue that "Fixes #N" closed (a commit or a merged pull request) gets the labels a verdict would have set (confirmed, resolution:fixed),
+# so /self-heal and the scorecard count it as a real bug, fixed (12 Oct 2026: #360 and #400 were closed by their fixes and counted nowhere).
+# A closure that already has a resolution label (apply-verdict.sh labels before it closes) is left as it is. desktop/e2e/lib/fixed-close.mjs decides.
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  label:
+    if: ${{ contains(join(github.event.issue.labels.*.name, ','), 'auto-ui') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Label a fix's closure
+        run: node desktop/e2e/fixed-close.mjs --issue "${{ github.event.issue.number }}"
