@@ -32,6 +32,13 @@ def _kit(stage, step):
     return stage == 'Kit ready' or step.startswith(('📝 Kit ready', NOT_ELIGIBLE))
 
 
+def _place_unclear(job):
+    """True when no refresh can place or score this job: its location is only a country and its posting has no text to read for the place
+    (#323: such a job stayed hidden as "waiting" forever). The list shows it, unscored, its place unclear (owner, 12 Oct 2026)."""
+    from .sources import feeds
+    return feeds.place_of(job) == 'vague' and not (job.get('description') or '').strip()
+
+
 def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=None, hide_unscored=False):
     """The Jobs list, best fit first (unscored after scored, then the rule-based rank).
 
@@ -100,11 +107,13 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
                 fit = fits.get(job['id'])
                 # Found, not read and scored yet: a refresh takes them a batch at a time (src/daily.py), so they wait, counted, not listed as
                 # matches (owner, 7 Oct 2026: half the list showed "–"). Without an AI nothing would ever score them: then they are listed.
-                if hide_unscored and not fit and (job.get('application_status') or 'unreviewed') == 'unreviewed' and (job.get('notes') or '') != 'imported':
+                unclear = not fit and _place_unclear(job)
+                if hide_unscored and not fit and not unclear and (job.get('application_status') or 'unreviewed') == 'unreviewed' and (job.get('notes') or '') != 'imported':
                     waiting += 1
                     continue
                 rows.append(row(job, fit.get('score') if fit else None, (fit.get('summary') or fit.get('reason')) if fit else '',
-                                job.get('application_status') or 'unreviewed', None, '', '', unsynced=True, fit_detail=_fit_detail(fit)))
+                                job.get('application_status') or 'unreviewed', None, '', '', unsynced=True, fit_detail=_fit_detail(fit),
+                                place_unclear=unclear))
     else:
         def notion_row(job):  # (Stage, Next step, Notion page URL); tests may pass plain stages
             value = stages.get((job.get('url') or '').strip(), (None, '', ''))
@@ -118,7 +127,8 @@ def jobs(db, limit=200, stages=None, notion=False, notion_jobs=None, kit_inputs=
                     store.set_application_status(db, job['id'], truth)
                     job = {**job, 'application_status': truth}
             rows.append(row(job, fit.get('score') if fit else None, (fit.get('summary') or fit.get('reason')) if fit else '',
-                            job.get('application_status') or 'unreviewed', stage, step, page, fit_detail=_fit_detail(fit)))
+                            job.get('application_status') or 'unreviewed', stage, step, page, fit_detail=_fit_detail(fit),
+                            place_unclear=not fit and _place_unclear(job)))
     rows.sort(key=lambda r: (r['fit'] is not None, r['fit'] or 0, r['rank']), reverse=True)
     # Every application stays in the list, however low its fit, so the app's application counters are complete.
     kept = rows[:limit] + [r for r in rows[limit:] if r['status'] == 'applied']

@@ -7,7 +7,7 @@ import {isInbound} from '../origin.js';
 import {looksLikeLink, matches} from '../filter.js';
 import {fitRing} from '../fit-ring.js';
 import {icon} from '../icons.js';
-import {ago, avatar, band, byFilter, byStat, inConversation, inStatus, isStuck, fitTooltip, matchesOnly, matchLabel, placeAndMode, prepareState, preparing, shortPlace, sorted, statPressed, statusPill, tags, workMode} from '../jobs-view.js';
+import {ago, avatar, band, byFilter, byStat, inConversation, inStatus, isStuck, fitTooltip, matchesOnly, matchLabel, PLACE_UNCLEAR, placeAndMode, prepareState, preparing, shortPlace, sorted, statPressed, statusPill, tags, unscoredWhy, workMode} from '../jobs-view.js';
 import {shared} from './shared.js';
 import {openActivity} from './activity.js';
 import {$, show} from './core.js';
@@ -100,7 +100,8 @@ export function renderJobs() {
   renderTalking(!!counted || filter === 'inbound' || filter === 'everything' || !!text);
   // Jobs found but never scored: the AI step did not run (it is not answering, a limit, no engine). Say so, once, above the list: the
   // rows show "Not scored" and a friend took that for a bug (2 Oct 2026, a search whose AI calls had stalled).
-  const unscored = shared.allJobs.filter(job => job.fit == null && job.status === 'unreviewed').length;
+  // A job whose place is unclear is not the AI failing: its row says why (unscoredWhy).
+  const unscored = shared.allJobs.filter(job => job.fit == null && job.status === 'unreviewed' && !job.place_unclear).length;
   show($('jobs-unscored'), unscored >= 5);
   $('jobs-unscored-text').textContent = `${unscored} jobs are not scored yet. The AI scores new jobs during each check; if this stays, open Recent activity to see why (Claude Code not answering, a usage limit), or Settings → Connections → AI.`;
   const body = $('jobs-body');
@@ -117,8 +118,7 @@ export function renderJobs() {
     const ringRow = el('div', 'fit-ring-row');
     ringRow.append(ring, caret);
     fit.append(ringRow, el('span', 'fit-label', matchLabel(job.fit)));
-    fit.title = job.fit == null ? 'Not scored yet: no description to read, or excluded by your filters'
-      : fitTooltip(job.fit, canOpen ? 'Click to see why' : '');
+    fit.title = job.fit == null ? unscoredWhy(job) : fitTooltip(job.fit, canOpen ? 'Click to see why' : '');
     const live = sessionFor(job.url);
     const {label: statusLabel, tone: statusTone} = live && !live.endedAt ? SESSION_PILL[live.status] || statusPill(job) : statusPill(job);
 
@@ -183,6 +183,12 @@ export function renderJobs() {
       verdict.classList.add('tip');
       verdict.dataset.tip = job.ineligible;
       status.append(verdict);
+    }
+    if (job.place_unclear && job.fit == null) {
+      const unclear = Object.assign(pill(PLACE_UNCLEAR, 'warn'), {tabIndex: 0});
+      unclear.classList.add('tip');
+      unclear.dataset.tip = unscoredWhy(job);
+      status.append(unclear);
     }
 
     const box = el('div', 'row-actions');

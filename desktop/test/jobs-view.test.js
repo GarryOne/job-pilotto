@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {interviewJob, notionPageUrl, ago, applicationStats, avatar, inProcess, band, byStat, isStuck, matchLabel, placeAndMode, sorted, stats, statusPill, tags, workMode} from '../renderer/jobs-view.js';
+import {interviewJob, notionPageUrl, ago, applicationStats, avatar, inProcess, band, byStat, isStuck, matchLabel, placeAndMode, sorted, stats, statusPill, tags, unscoredWhy, workMode} from '../renderer/jobs-view.js';
+import fs from 'node:fs';
 
 test('place and mode on one line say the mode once', () => {
   assert.equal(placeAndMode('Remote (Europe)', 'Remote'), 'Remote (Europe)');
@@ -228,4 +229,15 @@ test('a saved or kit-ready job found Closed on refresh is named; other changes a
   const after = [{url: 'a', stage: 'Closed'}, {url: 'b', stage: 'Dismissed'}, {url: 'c', stage: 'Closed'}, {url: 'd', stage: 'Kit ready'}];
   assert.deepEqual(takenDown(before, after).map(job => job.url), ['a']);
   assert.deepEqual(takenDown([], after), []);   // the first load is not news
+});
+
+// #323: a job whose place cannot be told (only a country, posting unreadable) is listed, unscored, and the row says why; the "not scored yet"
+// banner (the AI failing) does not count it.
+test('a job whose place is unclear says so instead of "not scored yet"', () => {
+  assert.match(unscoredWhy({fit: null, place_unclear: true}), /place is unclear.*could not be read/);
+  assert.match(unscoredWhy({fit: null}), /^Not scored yet/);
+  assert.equal(unscoredWhy({fit: 80, place_unclear: true}), '', 'a scored job needs no reason');
+  const render = fs.readFileSync(new URL('../renderer/pages/jobs-render.js', import.meta.url), 'utf8');
+  assert.match(render, /pill\(PLACE_UNCLEAR, 'warn'\)/, 'the row shows the badge');
+  assert.match(render, /job\.status === 'unreviewed' && !job\.place_unclear\)\.length/, 'the AI banner leaves these out');
 });
