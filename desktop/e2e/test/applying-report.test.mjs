@@ -105,3 +105,16 @@ test('the recorded replay never uploads from its own run: it writes its results 
   assert.doesNotMatch(source, /upload\(\s*'recorded'/);
   assert.match(source, /JP_REPLAY_RESULTS/);
 });
+
+// 12 Oct 2026: `cond && '' || '1'` in the workflow always gave '1' (an empty string is falsy in GitHub expressions), so main's first run was a dry run too.
+test('the workflow\'s dry-run switch is a plain true/false that is false on a push to main, and "false" sends', async () => {
+  const {readFileSync} = await import('node:fs');
+  const {uploadReplays} = await import('../lib/applying-report.mjs');
+  const line = readFileSync(new URL('../../../.github/workflows/recorded-pages.yml', import.meta.url), 'utf8').split('\n').find(text => text.includes('JP_REPLAYS_DRY:'));
+  assert.equal(line.trim(), "JP_REPLAYS_DRY: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}");
+  const main = {CI: 'true', GITHUB_EVENT_NAME: 'push', GITHUB_REF: 'refs/heads/main', GITHUB_SHA: 'abc1234', REPLAYS_PUBLISH_KEY: 'K'};
+  let sent = 0; const fetcher = async () => { sent += 1; return {ok: true, json: async () => ({stored: 1})}; };
+  assert.match(await uploadReplays([{name: 'a', ok: true}], {env: {...main, JP_REPLAYS_DRY: 'false'}, fetcher}), /1 replay row\(s\) sent/);
+  assert.match(await uploadReplays([{name: 'a', ok: true}], {env: {...main, JP_REPLAYS_DRY: 'true'}, fetcher}), /dry run/);
+  assert.equal(sent, 1);
+});

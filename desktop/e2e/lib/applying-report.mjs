@@ -73,10 +73,10 @@ export const poolRows = (shapes, signatures = {}) => shapes.map(({shape, urls = 
 export const replayReason = (env = process.env) => (env.REAL_EXTENSION_DIR ? 'a control run on another build' : env.JP_NO_REPORT ? 'JP_NO_REPORT'
   : !env.CI ? 'a local run: the replay table shows CI on main only' : env.GITHUB_EVENT_NAME === 'push' && env.GITHUB_REF === 'refs/heads/main' ? '' : 'CI, not a push to main');
 
-// One PUT for the whole run (every shard), with the build's sha, Bearer REPLAYS_PUBLISH_KEY (a key that can only write this table). JP_REPLAYS_DRY=1: say it, send nothing. -> one line.
+// One PUT for the whole run (every shard), with the build's sha, Bearer REPLAYS_PUBLISH_KEY (a key that can only write this table). JP_REPLAYS_DRY=1|true: say it, send nothing. -> one line.
 export async function uploadReplays(rows, {env = process.env, fetcher = fetch} = {}) {
   const sha = String(env.GITHUB_SHA || ''), short = sha.slice(0, 7);
-  if (env.JP_REPLAYS_DRY) return `replays report: dry run: would send ${rows.length} replay row(s) for ${short}`;
+  if (['1', 'true'].includes(String(env.JP_REPLAYS_DRY || '').toLowerCase())) return `replays report: dry run: would send ${rows.length} replay row(s) for ${short}`;
   const why = replayReason(env);
   if (why) return `replays report: not sent (${why})`;
   if (!env.REPLAYS_PUBLISH_KEY) return 'replays report: not sent (REPLAYS_PUBLISH_KEY not set up: the owner adds the GitHub secret)';

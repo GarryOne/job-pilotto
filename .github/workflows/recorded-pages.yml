@@ -79,5 +79,5 @@ jobs:
         working-directory: desktop/e2e
         env:
           REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}
-          JP_REPLAYS_DRY: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && '' || '1' }}
+          JP_REPLAYS_DRY: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
         run: node replays-report.mjs "$JP_REPLAY_SHARD_COUNT" $(seq -f 'results/replay-results-%g.json' 1 "$JP_REPLAY_SHARD_COUNT")
