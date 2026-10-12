@@ -41,6 +41,15 @@ function assessment(line) {
           focus: gap ? sentence(gap[1]) : '', background: gap ? sentence(gap[2]) : ''};
 }
 
+// Whether a Gmail check gets its result card at all. A check that never read the inbox (Gmail off, the run failed or was stopped)
+// makes no claim about it: its status box says why, and a green "No new job emails" beside it was a false all-clear (issue #359).
+// What a failed run did record before it stopped (report rows, updates) is still shown.
+export function mailCardShown(run) {
+  if (!run || run.off) return false;
+  if (run.ok !== false && !run.interrupted) return true;
+  return [...(run.report || []), ...(run.updates || [])].some(line => String(line || '').trim());
+}
+
 // The row's own result line as one sentence: "Gmail check: 1 new email(s) read, 0 update(s) recorded".
 export function mailStatus(result) {
   // "Gmail check: 1 new email(s) read, 0 update(s) recorded" (a Notion row), or "Mail: 6 new email(s) classified, 1 update(s)"

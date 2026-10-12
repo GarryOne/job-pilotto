@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 
-const {mailChanges, mailResults, mailStatus, mailNoCards, parseMailReport, settleQuestion} = await import('../renderer/mail-report.js');
+const {mailChanges, mailResults, mailStatus, mailNoCards, mailCardShown, parseMailReport, settleQuestion} = await import('../renderer/mail-report.js');
 
 const PREP = [
   '🗓 Tomorrow 08:30 — Huxley — Principal SRE',
@@ -273,4 +273,14 @@ test('the line under a check with no email cards agrees with the strip\'s own co
     assert.match(line, expect, message);
     if (/[1-9] update\(s\) recorded/.test(message)) assert.doesNotMatch(line, /No application records changed/, message);
   }
+});
+
+test('a Gmail check that did not finish draws no result card: never "No new job emails" under "Not checked" (issue #359)', () => {
+  const zero = 'Gmail check: 0 new email(s) read, 0 update(s) recorded';
+  assert.equal(mailCardShown({ok: true, result: zero}), true);                         // a finished check with nothing new: the green strip says so
+  assert.equal(mailCardShown({ok: false, result: zero}), false);                       // the sign-in expired: the inbox was never read
+  assert.equal(mailCardShown({ok: true, interrupted: true, result: zero}), false);     // stopped part way: no claim about the inbox
+  assert.equal(mailCardShown({ok: true, off: true}), false);                           // Gmail not connected: nothing was checked
+  assert.equal(mailCardShown({ok: false, updates: ['💬 Reply received · Acme — SRE']}), true);   // what it did record before failing is still shown
+  assert.equal(mailCardShown({ok: false, report: ['', '✅ Applied · Acme — SRE']}), true);
 });
