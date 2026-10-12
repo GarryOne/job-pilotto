@@ -1,6 +1,6 @@
 name: CI · Pull request
 # The pure checks a change must pass before it merges (owner, 12 Oct 2026: landing through pull requests with auto-merge, tools/ship.sh). The suites are CI · Tests (build.yml) and the
-# recorded-page replays (recorded-pages.yml), which also run on pull requests. Required on main: python, worker, site, desktop (both), the 4 replay shards, "pr gates", "flow-fresh", "hole 3".
+# recorded-page replays (recorded-pages.yml), which also run on pull requests. Required on main: python, worker, site, desktop (both), the 4 replay shards, "pr gates", "flow-fresh", "harness tests" ("hole 3" once proven, 13 Oct 2026).
 # Every job here always starts (a required workflow that never starts blocks the PR forever); hole 3 skips itself when no recorded case changed.
 on:
   pull_request:
@@ -31,6 +31,31 @@ jobs:
         run: |
           git fetch -q origin main
           jq -n --arg cwd "$PWD" '{tool_input: {command: "CI_GATES=1 git push origin pr"}, cwd: $cwd}' | bash tools/pre-push-check.sh
+
+  # The e2e harness's own unit tests (owner, 12 Oct 2026): they ran only in the scheduled e2e plan job, which broke silently for ~11 h (ERR_MODULE_NOT_FOUND
+  # after 3394c2e) while every suite was skipped. Here they gate the change that would break them. The same steps as e2e.yml's plan job
+  # (test/recorded-ci-deps.test.mjs checks every job that runs them installs the app's own packages).
+  harness:
+    name: harness tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Install the tests
+        working-directory: desktop/e2e
+        run: npm ci || npm install
+      - name: Install the app's own packages
+        working-directory: desktop
+        run: npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts
+      - name: A headless browser for the tests' own tests
+        working-directory: desktop/e2e
+        run: npx playwright install --with-deps chromium --only-shell
+      - name: The tests' own tests (layout check, review parser, triage rules, which suites run)
+        working-directory: desktop/e2e
+        run: npm test
 
   flow-fresh:
     name: flow-fresh
