@@ -29,9 +29,19 @@ export async function run(ctx) {
       if (problems.length) throw new Error(problems.join('; '));
     });
 
-    // Read with Claude follows the one Claude switch (renderer/claude-help.js, off on a new install): off, a stopped site offers Open it myself only; on, Read with Claude too.
+    // Read with Claude follows Claude being ready (renderer/claude-help.js: Claude Code installed and signed in): off, a stopped site offers Open it myself only; on, Read with Claude too.
     await ctx.run('Find jobs using your browser: its card counts the sites and jobs; a stopped site offers Open it myself, and Read with Claude only with Claude help on', async () => {
       const {page, select} = states;
+      // Claude help is "Claude Code installed and signed in" (renderer/claude-help.js, spec 2026-10-10 part 4): the step decides it, so the result does not depend on this machine.
+      const claudeReady = async ready => {
+        // The window asks the main process (the 'claudePrereqs' answer); this step is the one that says whether Claude Code is installed, so the result is the same on every machine.
+        await states.session.app.evaluate(({ipcMain}, ready) => {
+          ipcMain.removeHandler('claudePrereqs');
+          ipcMain.handle('claudePrereqs', async () => ({claude: ready, signedIn: ready, windows: false, inApp: false}));
+        }, ready);
+        await page.evaluate(async () => { await (await import(new URL('claude-help.js', location.href).href)).refreshClaudeHelp(); });
+      };
+      await claudeReady(false);
       await select('visits--2-of-3-sites-read-1-stopped');
       const card = await text(page, '#activity-card');
       const problems = [];
@@ -42,12 +52,12 @@ export async function run(ctx) {
       if (!await stopped.getByRole('button', {name: 'Open it myself'}).count()) problems.push('no "Open it myself" on the stopped site');
       if (await stopped.getByRole('button', {name: 'Read with Claude'}).count()) problems.push('"Read with Claude" shows with Claude help off');
       // Claude help on (this demo window only): the card drawn again offers Read with Claude beside Open it myself.
-      await page.evaluate(() => { window.__jp.shared.state.settings = {...window.__jp.shared.state.settings, claudeConsent: '2026-10-09T00:00:00Z'}; });
+      await claudeReady(true);
       await select('tailor--3-of-5-partial');
       await select('visits--2-of-3-sites-read-1-stopped');
       const again = page.locator('#activity-card .item-rows > li.is-failed');
       for (const label of ['Read with Claude', 'Open it myself']) if (!await again.getByRole('button', {name: label}).count()) problems.push(`Claude help on: no "${label}" on the stopped site`);
-      await page.evaluate(() => { window.__jp.shared.state.settings = {...window.__jp.shared.state.settings, claudeConsent: null}; });   // back to the default for the steps after
+      await claudeReady(false);   // back to the default for the steps after
       if (problems.length) throw new Error(problems.join('; '));
     });
 
