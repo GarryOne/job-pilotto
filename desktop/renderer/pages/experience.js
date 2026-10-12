@@ -53,26 +53,71 @@ export function onlyHereBlock(sources) {
   return box;
 }
 
+// The other versions (CV files, LinkedIn) as one box that opens and closes: its rows keep Match again and Remove. It stays open unless the person closes it.
+let versionsOpen = true;
+export function versionsBlock(rows, count) {
+  const box = el('details', 'exp-role');
+  box.open = versionsOpen;
+  box.addEventListener('toggle', () => { versionsOpen = box.open; });
+  const head = el('summary');
+  head.append(el('b', '', 'Other versions'), ' ', pill(String(count), 'neutral'));
+  const list = el('ul', 'item-rows');
+  list.append(...rows);
+  box.append(head, list);
+  return box;
+}
+
+// What an add, a removal or a match again did to the profile, in plain words. A removal only stops offering what came from that version:
+// tailoring reads the other versions at use time (withExtras), so nothing was copied into the main CV and nothing is left behind.
+export function changeLines(answer) {
+  const c = answer.changes || {}, lines = [], list = items => items.slice(0, 8).join(', ') + (items.length > 8 ? `, +${items.length - 8} more` : '');
+  const done = (answer.results || []).filter(r => r.ok).map(r => r.name), failed = (answer.results || []).filter(r => !r.ok);
+  if (done.length) lines.push([`Added ${done.length === 1 ? `“${done[0]}”` : plural(done.length, 'version')}`, 'good']);
+  for (const r of failed) lines.push([`Could not add “${r.name}”: ${r.error}`, 'bad']);
+  if (answer.removed) lines.push([`Removed “${answer.removed}”`, 'neutral']);
+  if (c.details > 0) lines.push([`Tailoring has ${plural(c.details, 'more detail')} to choose from`, 'good']);
+  if (c.details < 0) lines.push([`Tailoring has ${plural(-c.details, 'detail')} fewer to choose from`, 'neutral']);
+  if (c.skillsAdded?.length) lines.push([`New technologies and skills: ${list(c.skillsAdded)}`, 'good']);
+  if (c.skillsRemoved?.length) lines.push([`No longer offered: ${list(c.skillsRemoved)}`, 'neutral']);
+  if (c.newRoles?.length) lines.push([`Jobs not in your main CV (listed, not used): ${list(c.newRoles)}`, 'warn']);
+  if (c.goneRoles?.length) lines.push([`No longer listed as missing from your main CV: ${list(c.goneRoles)}`, 'neutral']);
+  const changed = c.details || c.skillsAdded?.length || c.skillsRemoved?.length || c.newRoles?.length || c.goneRoles?.length;
+  if (!changed && (done.length || answer.removed)) lines.push([done.length ? 'Nothing new: this says what your main CV already says' : 'Nothing was offered from it that other versions do not also say', 'neutral']);
+  if (answer.removed) lines.push(['Your main CV and your profile are not changed: other versions are only read when a CV is tailored', 'neutral']);
+  return lines;
+}
+export function showChanges(answer) {
+  const lines = answer.ok === false && !answer.results ? [] : changeLines(answer);
+  if (!lines.length) { $('exp-changes').replaceChildren(); return; }
+  const box = el('details', 'exp-role');
+  box.open = true;
+  const head = el('summary');
+  head.append(el('b', '', 'What changed in your profile'));
+  const list = el('ul');
+  for (const [text, tone] of lines) { const item = el('li', '', text); if (tone === 'bad') item.append(' ', pill('Not added', 'bad')); list.append(item); }
+  box.append(head, list);
+  $('exp-changes').replaceChildren(box);
+}
+
 export function showExperience(view) {
-  const rows = [];
-  if (view.main) rows.push(sourceRow({reference: true, name: 'Main CV', roles: view.main.roles}));
-  rows.push(...view.sources.map(sourceRow));
-  const remove = view.sources.map((source, i) => ({source, row: rows[view.main ? i + 1 : i]}));
-  for (const {source, row} of remove) {
+  const rows = view.sources.map(sourceRow);
+  for (const [i, source] of view.sources.entries()) {
+    const row = rows[i];
     if (source.stale) {
       const again = Object.assign(el('button', 'secondary item-action', 'Match again'), {type: 'button'});
-      again.addEventListener('click', () => run(again, 'Comparing with your main CV…', () => window.pilot.experienceRematch()));
+      again.addEventListener('click', () => run(again, () => window.pilot.experienceRematch()));
       row.append(again);
     }
-    const button = Object.assign(el('button', 'link item-action', 'Remove'), {type: 'button'});
+    const button = Object.assign(el('button', 'link item-action', 'Remove'), {type: 'button', title: 'Tailored CVs stop drawing on this version. Your main CV is not changed.'});
     button.addEventListener('click', async () => {
       button.disabled = true;
       const answer = await window.pilot.experienceRemove(source.id).catch(error => ({ok: false, error: error.message}));
-      if (answer.ok) showExperience(answer); else message('exp-message', answer.error || 'Could not remove it.', 'error');
+      if (answer.ok) { showExperience(answer); showChanges(answer); } else message('exp-message', answer.error || 'Could not remove it.', 'error');
     });
     row.append(button);
   }
-  $('exp-sources').replaceChildren(...(rows.length ? rows : [el('li', 'muted', 'Read your main CV first (CV & details → Read my CV PDF).')]));
+  $('exp-sources').replaceChildren(...(view.main ? [sourceRow({reference: true, name: 'Main CV', roles: view.main.roles})] : [el('li', 'muted', 'Read your main CV first (CV & details → Read my CV PDF).')]));
+  $('exp-versions').replaceChildren(...(view.sources.length ? [versionsBlock(rows, view.sources.length)] : []));
   const extras = view.roles.reduce((n, r) => n + r.bullets.filter(b => b.from !== 'Main CV').length, 0);
   $('exp-count').textContent = view.roles.length ? `${plural(view.roles.length, 'job role')} · ${extras} from other versions` : '';
   const notInMain = onlyHereBlock(view.sources);
@@ -80,13 +125,23 @@ export function showExperience(view) {
   $('exp-add').disabled = $('exp-add-linkedin').disabled = !view.main;
 }
 
-async function run(button, working, action) {
-  button.classList.add('busy'); button.disabled = true;
-  message('exp-message', working);
+// The words for one live step from the app (experienceStep): which file of how many, and what it is doing now.
+export function stepText({what, name, index, total}) {
+  const of = total > 1 ? ` (${index} of ${total})` : '';
+  if (what === 'reading') return `Reading “${name}”${of}…`;
+  if (what === 'comparing') return `Comparing “${name}” with your main CV${of}…`;
+  if (what === 'done') return `Finished “${name}”${of}`;
+  return `Could not use “${name}”${of}`;
+}
+
+async function run(button, action) {
+  button.classList.add('busy'); document.querySelectorAll('#setting-experience-sources button').forEach(b => { b.disabled = true; });
+  $('exp-changes').replaceChildren();
+  message('exp-message', 'Waiting for your file…', 'waiting');
   const answer = await action().catch(error => ({ok: false, error: error.message}));
-  button.classList.remove('busy'); button.disabled = false;
-  if (answer.ok) { message('exp-message', answer.sources ? 'Done ✓ Tailored CVs can use it from now on.' : '', 'ok'); showExperience(answer); }
-  else message('exp-message', answer.cancelled ? '' : answer.error || 'That did not work.', answer.cancelled ? '' : 'error');
+  button.classList.remove('busy'); document.querySelectorAll('#setting-experience-sources button').forEach(b => { b.disabled = false; });
+  if (answer.ok) { message('exp-message', 'Done ✓ Tailored CVs can use it from now on.', 'ok'); showExperience(answer); showChanges(answer); }
+  else { message('exp-message', answer.cancelled ? '' : answer.error || 'That did not work.', answer.cancelled ? '' : 'error'); if (answer.results) showChanges(answer); }
 }
 
 // "Connect with LinkedIn": who you are on LinkedIn (name, email), not your experience (that comes from the export above). Never a token kept.
@@ -133,6 +188,7 @@ export async function loadExperience() {
 }
 
 export function initExperience() {
-  $('exp-add-linkedin').addEventListener('click', () => run($('exp-add-linkedin'), 'Reading your LinkedIn data and comparing it with your main CV… (about a minute)', () => window.pilot.experienceAddLinkedin()));
-  $('exp-add').addEventListener('click', () => run($('exp-add'), 'Reading the CV and comparing it with your main one… (about a minute)', () => window.pilot.experienceAddCv()));
+  window.pilot.onExperienceStep?.(step => message('exp-message', stepText(step), step.what === 'reading' || step.what === 'comparing' ? 'waiting' : step.what === 'failed' ? 'error' : 'ok'));
+  $('exp-add-linkedin').addEventListener('click', () => run($('exp-add-linkedin'), () => window.pilot.experienceAddLinkedin()));
+  $('exp-add').addEventListener('click', () => run($('exp-add'), () => window.pilot.experienceAddCv()));
 }

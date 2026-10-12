@@ -85,3 +85,18 @@ test('tailoring with extras: an unused extra is no drop, a used one is marked ad
   assert.deepEqual(used.review.jobs[0].roles[0].dropped, ['Ran incidents.']);
   for (const out of [used.cv, used.review]) { assert.equal(out.jobs[0].roles[0].extra, undefined); assert.equal(out.extraSkills, undefined); }
 });
+
+test('a step is reported while a version is read, and the change summary names what was added and what a removal stops offering', async () => {
+  const s = withMain(), steps = [];
+  const before = experience.view(s);
+  const source = await experience.addCv(s, pdf(), 'Data CV', {client: fakeClient(), onStep: what => steps.push(what)});
+  assert.deepEqual(steps, ['reading', 'comparing']);
+  const added = experience.viewChanges(before, experience.view(s));
+  assert.equal(added.details, 1);
+  assert.deepEqual(added.newRoles.map(r => r.includes('Gamma')), [true]);
+  const middle = experience.view(s);
+  experience.remove(s, source.id);
+  const gone = experience.viewChanges(middle, experience.view(s));
+  assert.equal(gone.details, -1, 'a removal stops offering its details');
+  assert.equal(gone.goneRoles.length, 1);
+});
