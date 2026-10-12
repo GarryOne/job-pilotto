@@ -39,6 +39,8 @@ async function repairPage(tab, config, turn) {
   const run = click => runRepairs(found.repairs, {page: (func, args) => inPage(tab.id, func, args), click, closeLayer: ({want}) => closeLayer(tab.id, {want})}, sketch.onTop);
   const results = await turn(() => (clicks ? withClicks(tab.id, run) : run(async () => {}))).catch(() => []);
   for (const row of results) if (row.ok !== undefined) decide('fill', `fill: ${row.verb} on control ${row.n}`, {worked: row.ok}).catch(() => {});   // spec "Caps and floors": the verb, never a label
+  const done = results.filter(row => row.ok !== undefined).map(row => { const asked = found.repairs.find(one => one.n === row.n) || {}; return {fp: sketch.controls[row.n - 1]?.fp || '', verb: row.verb, widget: asked.widget || 'other', option: asked.option || 0, ok: !!row.ok}; }).filter(row => row.fp);
+  if (done.length) api(config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase: 'repair-result', results: done})}).catch(() => {});   // kept per fingerprint, or dropped (desktop/lib/ladder/repair-kept.js): fixed values only
   decide('fill', 'fill repair', {asked: found.repairs.length, tried: results.filter(row => row.ok !== undefined).length, worked: results.filter(row => row.ok).length}).catch(() => {});
   return {repairs: found.repairs, results};
 }

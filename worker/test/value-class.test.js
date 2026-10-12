@@ -39,3 +39,13 @@ test('the judges\' sketch carries the kind and the legal mark, never the value',
   assert.ok(!/"\+41"/.test(JSON.stringify(sketch)) && sketch.controls.every(item => !('value' in item)), 'the answer itself never leaves the page (an option\'s text may: the page\'s own wording)');
   window.close();
 });
+
+test('the sketch names each control\'s field box by its fingerprint: the same widget on two sites is the same, never its text or id', {skip: !JSDOM}, async () => {
+  const {accountSketch} = await import('../../extension/account-fill.js');
+  const fpOf = html => { const window = openPage(JSDOM, html); const sketch = JSON.parse(JSON.stringify(window.eval(`(${accountSketch})()`))); window.close(); return sketch.controls.map(item => item.fp || ''); };
+  const one = fpOf('<form><div class="field"><label for="a">Country</label><select id="a"><option>Pick</option><option>Switzerland</option></select></div><div class="field"><label for="b">City</label><input id="b"></div></form>');
+  const two = fpOf('<form><div class="field"><label for="x">Land</label><select id="x"><option>Wählen</option><option>Schweiz</option></select></div><div class="field"><label for="y">Ort</label><input id="y"></div></form>');
+  assert.ok(one.every(fp => /^[a-z0-9]{6,16}$/.test(fp)), JSON.stringify(one));
+  assert.deepEqual(two, one, 'other words and ids, the same widgets: the same fingerprints');
+  assert.notEqual(one[0], one[1], 'a menu and a box are different widgets');
+});

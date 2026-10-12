@@ -8,6 +8,7 @@ import {aiClient, judgePage, reportedConfirmations} from './confirmation.js';
 import {judgeAccount} from './account-judge.js';
 import {judgeFill} from './ladder/fill-verify.js';
 import {askRepair} from './ladder/fill-repair.js';
+import {keptFor, noteRepair, repairStore} from './ladder/repair-kept.js';
 import {judgeForm} from './form-judge.js';
 import {judgeFormat} from './format-judge.js';
 import {escalate} from './ladder/rung4-picture.js';
@@ -79,6 +80,8 @@ export function kindWorthSaying(answer, said = kindSaid, now = Date.now()) {
 let others = null;   // the shapes the ladder could not read (lib/ladder/other.js)
 const othersOf = storage => { const file = storage.path('ladder-other.json'); if (others?.file !== file) others = {file, store: otherStore(file)}; return others.store; };
 let ladder = null;   // the ladder's learned answers (lib/ladder/learning.js), one store per file
+let repairs = null;   // the fill ladder's kept repairs per control fingerprint (lib/ladder/repair-kept.js), one file per data folder
+const repairsOf = storage => { if (typeof storage?.path !== 'function') return {data: {kept: {}, tally: {}}, save() {}}; const file = storage.path('fill-repairs.json'); if (repairs?.file !== file) repairs = {file, store: repairStore(file)}; return repairs.store; };
 const ladderOf = storage => { const file = storage.path('ladder-learning.json'); if (ladder?.file !== file) ladder = {file, store: ladderStore(file)}; return ladder.store; };
 export async function decidePageKind(storage, body, {decide = pageKind, client} = {}) {
   kindCache ||= pageKindCache(storage.path('page-kinds.json'));
@@ -179,8 +182,13 @@ export async function decideAccountJudge(storage, body, {judge = judgeAccount, c
     appLog('extension', found.error ? `fill verify (shadow): none (${found.error})` : 'fill verify (shadow)', found.error ? {} : {...found.counts, misses: found.verdicts.filter(row => row.verdict !== 'ok').map(row => `${row.n}:${row.verdict}${row.reason ? `/${row.reason}` : ''}`).slice(0, 12)});
     return found.error ? {ok: true, answer: '', error: found.error} : {ok: true, answer: 'shadow', verdicts: found.verdicts, counts: found.counts};
   }
+  if (body?.phase === 'repair-result') {   // what each repair did (extension/ladder/fill-climb.js): a page-independent one that worked is kept for its control's fingerprint, a kept one that failed is dropped
+    const noted = (Array.isArray(body?.results) ? body.results : []).slice(0, 3).map(row => noteRepair(repairsOf(storage), row)).filter(Boolean);
+    appLog('extension', 'fill repair results', {kept: noted.filter(said => said === 'kept').length, dropped: noted.filter(said => said === 'dropped').length, rows: noted.length});
+    return {ok: true, noted};
+  }
   if (body?.phase === 'repair') {   // the fill ladder's fill_repair (lib/ladder/fill-repair.js): closed verbs on numbered controls; the extension acts on them only behind its pool switch (extension/ladder/fill-climb.js)
-    const found = await askRepair(client === undefined ? aiClient(storage, {lane: 'page'}) : client, body?.sketch || {}, Array.isArray(body?.verdicts) ? body.verdicts : []);
+    const found = await askRepair(client === undefined ? aiClient(storage, {lane: 'page'}) : client, body?.sketch || {}, Array.isArray(body?.verdicts) ? body.verdicts : [], {keptFor: fp => keptFor(repairsOf(storage), fp)});
     appLog('extension', found.error ? `fill repair: none (${found.error})` : 'fill repair', found.error ? {} : {...found.counts, repairs: found.repairs.map(row => `${row.n}:${row.verb}${row.option ? `#${row.option}` : ''}${row.refused ? ' refused' : ''}`).join(' ')});   // numbers and verbs, never a label
     return found.error ? {ok: true, answer: '', error: found.error} : {ok: true, answer: 'repair', repairs: found.repairs, counts: found.counts};
   }

@@ -110,7 +110,12 @@ export function accountSketch() {
   const ladderOf = el => {
     const answer = el.getAttribute('data-jobpilotto-class') || '', tried = (() => { try { return JSON.parse(el.getAttribute('data-jobpilotto-tried') || '[]').length; } catch { return 0; } })();
     const legal = el.dataset?.jobpilottoCategory === 'legal' || !!window.__jobPilottoFillKit?.LEGAL?.test(nameOf(el));
-    return {...(answer ? {answer} : {}), ...(legal ? {legal} : {}), ...(tried ? {tried} : {})};
+    // Its field box's fingerprint (page/skeleton.js: tags, roles and class words, never text, ids or values; the box: up from the control while no other control lives there, at
+    // most 3 boxes): the key a repair that worked is kept by (desktop/lib/ladder/repair-kept.js), the same on every site that draws the same widget.
+    let box = el;
+    for (let i = 0; i < 3 && box.parentElement && box.parentElement.querySelectorAll('input:not([type=hidden]), select, textarea').length <= 1; i++) box = box.parentElement;
+    let fp = ''; try { fp = window.__jobPilottoSkeleton ? window.__jobPilottoSkeleton.fingerprint(window.__jobPilottoSkeleton.skeleton(box)) : ''; } catch { fp = ''; }
+    return {...(answer ? {answer} : {}), ...(legal ? {legal} : {}), ...(tried ? {tried} : {}), ...(fp ? {fp} : {})};
   };
   const hiddenSlot = el => el.type === 'file' && !!window.__jobPilottoReadBack?.shownSlot(el) && !el.closest('[id^=jobpilotto], [id^=job-pilotto]');   // a CV slot whose input the page hides, by its visible zone (read-back.js), as the panel counts it
   const listed = [...document.querySelectorAll('input, select, textarea')].filter(el => (shown(el) || hiddenSlot(el)) && !['hidden', 'submit', 'button', 'image', 'reset'].includes(el.type));
