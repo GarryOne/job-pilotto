@@ -1,0 +1,55 @@
+{
+ "shape": "a text box that keeps its own state from keypress events and writes it back when the value changes or the box is left (French labels wrapping the box)",
+ "why": "fill ladder rung 0 (spec docs/superpowers/specs/2026-10-12-fill-ladder.md, PR 2): the variant of text-state-from-keys-1 (other markup, language, events) fails on main c7528b6 (\"answer given, but the field did not take it\"); the box is now typed again for real, key by key, and read back",
+ "pages": [
+  {
+   "url": "https://variant.zoo.example.com/postuler",
+   "file": "form.html"
+  }
+ ],
+ "cv": false,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "ville",
+     "question": "Ville actuelle",
+     "value": "Lausanne",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "asked": [
+   "Ville actuelle"
+  ],
+  "kept": [
+   "#ville"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 40,
+  "told": [
+   "typed for real a box that did not take its answer"
+  ]
+ },
+ "start": "panel",
+ "control": {
+  "guard": "new case 12 Oct 2026: on main c7528b6 the box is empty after the page settled (kept fails); hand-made widget shape, no pool row"
+ },
+ "sample": "hand-made (the widget zoo), no real site"
+}

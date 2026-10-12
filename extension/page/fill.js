@@ -238,7 +238,7 @@
       // wording to learn (only NO_ANSWER rows are reported as such). 9 Oct 2026: "Lieu d'origine" went to the learner although its meaning was known.
       else if (!row.filled && !answer && !contactFields.has(row.field) && knownKey(row)) reason = `a detail of yours not saved yet (${knownKey(row)})`;
       else if (!row.filled && !answer && !contactFields.has(row.field)) reason = 'no answer in the kit, Profile or your details';
-      else if (!row.filled) reason = 'answer given, but the field did not take it';
+      else if (!row.filled) { reason = 'answer given, but the field did not take it'; window.__jobPilottoNoteNotTaken?.(row.field, answer?.value); }   // typed again for real after the fill (page/fill-verify.js)
       if (outcome === 'filled' && source && row.type !== 'file') watchCorrection(row.field, label);
       if (outcome === 'filled' && source) markFilled(row.field); else window.__jobPilottoMarkProposal?.({...row, options: rowOf[row.field]?.options || row.options}, answer || proposedOf[row.field], (PROFILE_LABELS.find(([, pattern]) => pattern.test(label)) || [])[0] || aliasFor(label)?.key || '');   // page/propose.js: what the app's row proposes
       return {label: label.slice(0, 120), required: !!row.required, type: rowOf[row.field]?.type || '', source, outcome, reason,

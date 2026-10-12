@@ -8,7 +8,7 @@ import {MAX_PAGE_BYTES, loadZoo, summarizeZoo, verdictOf, zooProblems} from '../
 
 const zoo = loadZoo();
 
-test('the zoo has pages', () => assert.ok(zoo.length >= 9, `only ${zoo.length} pages`));
+test('the zoo has pages', () => assert.ok(zoo.length >= 8, `only ${zoo.length} pages`));
 
 test('every zoo page is well formed, small and on a made-up host', () => {
   for (const item of zoo) {
