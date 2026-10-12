@@ -77,8 +77,8 @@
       if (!frame || !visible(frame)) continue;
       groups.set(box, {el: frame, label: 'Confirm you are not a robot', required: true, filled: !!String(box.value || '').trim(), ai: false, byUs: false});
     }
-    // Yes/No questions drawn as two toggle buttons (Ashby: aria-pressed, with a visually hidden checkbox no one sees): one field,
-    // filled when one of the two is pressed, required as its title says.
+    // Yes/No questions drawn as two toggle buttons (Ashby: aria-pressed, with a visually hidden checkbox no one sees): one field, filled when one of the two is pressed, required
+    // as its title says; the checkbox inside the pair is that same question, never a second row (13 Oct 2026: each was listed twice; recorded yes-no-pair-counted-once-1).
     const pairs = new Map();
     for (const button of document.querySelectorAll('button[aria-pressed]')) {
       if (!/^(yes|no)$/i.test((button.textContent || '').trim()) || !visible(button)) continue;
@@ -86,11 +86,11 @@
       pairs.get(button.parentElement).push(button);
     }
     for (const [box, buttons] of pairs) {
-      if (buttons.length < 2) continue;
-      const named = window.__jobPilottoGroupTitle(box);   // its own accessible name, else the nearest title before it no other control owns (page/label-before.js)
+      const named = buttons.length > 1 && window.__jobPilottoGroupTitle(box);   // two buttons; its own accessible name, else the nearest title before it no other control owns (page/label-before.js)
       if (!named) continue;
-      const title = named.el;
-      groups.set(box, {el: box, label: clean(named.text), ai: false,
+      const inner = [...groups].filter(([, entry]) => entry.el !== box && box.contains(entry.el)), title = named.el;
+      inner.forEach(([key]) => groups.delete(key));   // what the fill marked on the checkbox (by us, suggested) stays with the question
+      groups.set(box, {...inner[0]?.[1], el: box, label: clean(named.text), ai: false,
         required: /required/i.test(title.className) || window.__jobPilottoRequired.has(title),
         filled: buttons.some(button => button.getAttribute('aria-pressed') === 'true')});
     }

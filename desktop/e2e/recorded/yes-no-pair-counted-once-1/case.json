@@ -1,0 +1,44 @@
+{
+ "shape": "a required yes/no question drawn as two toggle buttons (aria-pressed) with a checkbox inside the same box, its title a label whose for names no box and whose class marks it required, as the captured Ashby page draws it; nothing answers it",
+ "origin": "hand-cut",
+ "why": "flow-checks' replay checks (#531, 13 Oct 2026), recorded case ashby-open-question-written-1: the panel listed each yes/no question twice (the button pair and the hidden checkbox inside it), the fill's record once, so the panel's left count disagreed with the record's (one truth per control, amendment 4). The pair is one control: the hidden checkbox inside it is not counted again. The CV slot takes the CV, so the record's CV row cannot balance the panel's extra row (without it the counts were 2 and 2 on main and the case passed by accident)",
+ "control": {
+  "build": "0.9.257",
+  "failed": "agreement: the fill record leaves 1 required (Are you allowed to work in Switzerland without a visa?), the panel 2 (the same question twice)"
+ },
+ "sample": "an application form with a required Yes/No question drawn as two buttons",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/yes-no-pair/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": true,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  }
+ },
+ "expect": {
+  "pending": [
+   "Are you allowed to work in Switzerland without a visa?"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 30,
+  "attached": [
+   "#resume"
+  ]
+ },
+ "start": "panel"
+}

@@ -1,0 +1,47 @@
+{
+ "shape": "two file slots that both read as the CV: an optional 'Autofill from resume' import box first, then the form's required CV slot (both inputs visually hidden, as Ashby draws them)",
+ "origin": "hand-cut",
+ "why": "flow-checks' replay checks (#531, 13 Oct 2026), recorded case ashby-open-question-written-1: with no AI pick among the slots, the CV went to the first one, the optional autofill import; the required CV slot stayed empty, the fill's record said the CV was in and the panel said it was left. Without the AI's pick, the slot the page marks required takes the CV",
+ "control": {
+  "build": "0.9.257",
+  "failed": "attached: #resume holds no file (the CV went to the autofill import box)"
+ },
+ "sample": "an application form with an 'autofill from resume' box above the fields and a required CV upload among them",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/autofill-and-cv/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": true,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  }
+ },
+ "expect": {
+  "attached": [
+   "#resume"
+  ],
+  "traced": [
+   "CV:filled"
+  ],
+  "notPending": [
+   "CV"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 30
+ },
+ "start": "panel"
+}

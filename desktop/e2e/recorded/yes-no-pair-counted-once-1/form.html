@@ -1,0 +1,18 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Apply</title>
+<style>body{font:15px system-ui;margin:24px;max-width:640px} ._fieldEntry_a{margin:14px 0} label{display:block;font-weight:600;margin-bottom:4px}
+._required_b::after{content:" *";color:#c00} ._yesno_c{display:flex;gap:8px} ._yesno_c button{padding:6px 18px;border:1px solid #888;border-radius:4px;background:#fff}
+._yesno_c button[aria-pressed=true]{background:#246;color:#fff}</style></head><body>
+<form id="application">
+<div class="_fieldEntry_a"><label class="_heading_d _required_b" for="first">First name</label><input id="first" name="first" required></div>
+<div class="_fieldEntry_a"><label class="_heading_d _required_b" for="email">Email</label><input id="email" name="email" type="email" required></div>
+<div class="_fieldEntry_a" data-field-path="5f546d28"><label class="_heading_d _required_b application-form-question-title" for="5f546d28">Are you allowed to work in Switzerland without a visa?</label>
+<div class="_container_e _yesno_c application-form-input-yesno"><button class="_option_f" aria-pressed="false" data-option="yes">Yes</button><button class="_option_f" aria-pressed="false" data-option="no">No</button><input type="checkbox" class="_input_g" tabindex="-1" name="5f546d28"></div></div>
+<div class="_fieldEntry_a"><label class="_heading_d _required_b" for="resume">CV</label><input type="file" id="resume" name="resume" required></div>
+<button type="submit">Submit application</button>
+</form>
+<script>for (const box of document.querySelectorAll('._yesno_c')) for (const button of box.querySelectorAll('button')) button.addEventListener('click', event => {
+  event.preventDefault();
+  for (const other of box.querySelectorAll('button')) other.setAttribute('aria-pressed', String(other === button));
+  box.querySelector('input').checked = button.dataset.option === 'yes';
+});</script>
+</body></html>
