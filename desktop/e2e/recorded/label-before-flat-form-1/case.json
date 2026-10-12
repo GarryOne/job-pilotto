@@ -1,6 +1,6 @@
 {
  "shape": "a flat form whose labels are tied to no box (their `for` names no id), boxes named by the page with field names that point the other way (the first-name box named surname): the label right before the box names it",
- "why": "12 Oct 2026, a French jobs form: \"Nom\" stayed empty, \"Prénom\" got the family name, the panel said \"No required fields\" (the boxes are required by a validate[required] class, not the attribute). Cut by hand from the capture's form structure (its own capture predates the applicant seed). Variant: label-before-wrapped-form-1",
+ "why": "12 Oct 2026, a French jobs form: \"Nom\" stayed empty, \"Prénom\" got the family name, the panel said \"No required fields\" (the boxes are required by a validate[required] class, not the attribute). Cut by hand from the capture's form structure (its own capture predates the applicant seed). Variant: label-before-wrapped-form-1. The page sketch the AI reads must also carry the class-marked boxes as required (told: the sketch's own control row, label then required)",
  "control": {
   "guard": "fails on origin/main at 534cf0e (first-name box gets the family name); passes with page/label-before.js"
  },
@@ -47,7 +47,10 @@
   "notTold": [
    "pressed the submit"
   ],
-  "seconds": 60
+  "seconds": 60,
+  "told": [
+   "\"label\":\"Prénom\",\"required\":true"
+  ]
  },
  "start": "panel"
 }

@@ -231,7 +231,7 @@
         && !['hidden', 'submit', 'button', 'reset', 'search'].includes(el.type))
       .map(el => ({field: el.id || el.name || label(el), label: label(el),
         type: isCombo(el) ? 'combobox' : el.type || el.tagName.toLowerCase(),
-        required: !!(el.required || el.getAttribute('aria-required') === 'true'),
+        required: window.__jobPilottoRequired?.marked ? window.__jobPilottoRequired.marked(el) : !!(el.required || el.getAttribute('aria-required') === 'true'),   // page/required-mark.js: the attribute, aria-required or a class that says required
         legal: forbidden.test(label(el)) || el.dataset?.jobpilottoCategory === 'legal',   // the AI's reading too, any language (page/categories.js)
         filled: el.type === 'file' ? !!el.files?.length :
           isCombo(el) ? comboFilled(el) :
