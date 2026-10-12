@@ -121,3 +121,27 @@ test('two sessions on one form address: each finds only its own tab, a closed on
   // The 1 Oct rule is unchanged: one session alone, found by its address.
   assert.equal(chooseTab([other, coopTab], coop.target, {own: address}), coopTab);
 });
+
+
+test('a session focus never takes the lone armed account tab from another application', () => {
+  const account = {id: 101, win: 1, index: 1, url: 'https://accounts.example/#jobpilotto-fill', title: 'Sign in'};
+  const third = {id: 103, win: 1, index: 3, url: 'https://forms.example/third/job/application', title: 'Third Company'};
+  const fourth = {id: 104, win: 1, index: 4, url: 'https://forms.example/fourth/job/application', title: 'Fourth Company'};
+  const tabs = [account, third, fourth];
+  for (const tab of [third, fourth]) {
+    const target = {url: tab.url.replace('/application', ''), company: tab.title};
+    assert.equal(chooseTab(tabs, target, {confident: true}), tab);
+    assert.equal(chooseTab([account], target, {confident: true}), null, 'missing form never falls back to the other account');
+    assert.equal(chooseTab(tabs, target, {confident: true, own: account.url, claimedTabs: [101]}), tab, 'another owner always vetoes it');
+  }
+  assert.equal(chooseTab(tabs, {url: 'https://unknown.example/job', company: 'Unknown'}, {confident: true}), null);
+});
+
+
+test('strict session focus refuses ambiguous matches and company-only evidence', () => {
+  const target = {url: 'https://forms.example/employer/job', company: 'Example Employer'};
+  const tab = {id: 201, url: target.url + '/application', title: target.company};
+  assert.equal(chooseTab([tab, {...tab, id: 202}], target, {confident: true}), null);
+  assert.equal(chooseTab([{id: 203, url: 'https://elsewhere.example/form', title: target.company}], target, {confident: true}), null);
+  assert.equal(chooseTab([tab, {...tab, id: 202}], target, {confident: true, ownTab: 201}), tab);
+});

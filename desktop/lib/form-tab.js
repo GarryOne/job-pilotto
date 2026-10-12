@@ -3,6 +3,7 @@
 // Chrome). Without Chrome, the permission, or a matching tab, the posting opens instead.
 import {execFile} from 'node:child_process';
 import {isTwin} from './twin.js';
+import {log} from './log.js';
 
 // Hosts of application forms (applicant tracking systems): a tab there naming the company is the form.
 export const ATS = /greenhouse\.io|lever\.co|ashbyhq\.com|myworkdayjobs\.com|workday\.com|smartrecruiters\.com|workable\.com|recruitee\.com|personio\.|teamtailor\.com|bamboohr\.com|jobvite\.com|icims\.com|join\.com|rippling\.com/i;
@@ -57,7 +58,7 @@ export function ownTabOf(tabs, {own = '', claimed = [], ownTab = ''} = {}) {
   const shared = claimed.some(url => bare(url) === bare(own));   // another session reported the same address: it says nothing
   return (own && !shared && tabs.find(tab => bare(tab.url) === bare(own))) || null;
 }
-export function chooseTab(tabs, target, {own = '', claimed = [], ownTab = '', claimedTabs = []} = {}) {
+export function chooseTab(tabs, target, {own = '', claimed = [], ownTab = '', claimedTabs = [], confident = false} = {}) {
   const others = new Set(claimedTabs.map(idOf).filter(Boolean));
   const open = tabs.filter(tab => !others.has(idOf(tab.id)));
   const mine = ownTabOf(open, {own, claimed, ownTab});
@@ -65,6 +66,12 @@ export function chooseTab(tabs, target, {own = '', claimed = [], ownTab = '', cl
   const taken = new Set(claimed.map(bare).filter(Boolean));
   const free = open.filter(tab => !taken.has(bare(tab.url)));
   const best = pickTab(free, target);
+  // A fill marker says the app armed a tab, never which application owns it. Session
+  // focus needs an owned tab or one unique job match; a company/host alone is not enough.
+  if (confident) {
+    const score = best ? scoreTab(best, target) : 0;
+    return score >= 80 && free.filter(tab => scoreTab(tab, target) === score).length === 1 ? best : null;
+  }
   if (best && String(best.url || '').includes('jobpilotto-fill')) return best;
   return markedTab(free) || best;
 }
@@ -164,7 +171,8 @@ export async function openFormTab({url, company}, openExternal, {confident = fal
   try {
     const tabs = JSON.parse(await jxa(LIST));
     if (!tabs) { await openExternal(url); return 'posting'; }
-    const tab = chooseTab(tabs, {url, company}, {own, claimed, ownTab, claimedTabs});
+    const tab = chooseTab(tabs, {url, company}, {own, claimed, ownTab, claimedTabs, confident});
+    log('review', 'form tab selection', {confident, selectedTab: tab?.id ?? null, ownTab, candidates: tabs.length, claimed: claimedTabs.length});
     const isOwn = !!tab && tab === ownTabOf(tabs, {own, claimed, ownTab});
     if (confident && !(tab && (isOwn || String(tab.url || '').includes('jobpilotto-fill') || scoreTab(tab, {url, company}) >= 70))) return 'none';
     if (tab) {
