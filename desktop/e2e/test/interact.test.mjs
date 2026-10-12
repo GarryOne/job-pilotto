@@ -21,6 +21,8 @@ const PAGE = `<body><section class="view" data-view="fixture"><h1>Fixture</h1><d
 <button id="opener" onclick="window.fake(900, 'openExternal')">Open guide</button>
 <button id="stale" onclick="if (window.staleSeen) document.getElementById('out').textContent='stale ok'; window.staleSeen = true">Stale once</button>
 <button id="leaves" onclick="window.fake(900, 'openPrivacy')">Open Settings</button>
+<div id="bar" hidden><span id="barMsg" class="message"></span></div>
+<button id="silent" onclick="const m = document.getElementById('barMsg'); m.className = 'message error'; m.textContent = 'Could not read it'; window.fake(200)">Answers out of sight</button>
 
 </section><script>
 window.fakeIpc = []; window.clicked = false;
@@ -48,6 +50,8 @@ test('classify names each kind of bug and says nothing for a working control', (
   assert.deepEqual(classify({view: 'v', control, effects: ['text changed'], calls: [{channel: 'x', ms: 900}], loading: true, errors: []}), []);
   assert.deepEqual(classify({view: 'v', control: {...control, expandable: true}, effects: ['control removed'], calls: [], errors: []}), [], 'the page drew itself again');
   assert.equal(classify({view: 'v', control, effects: ['x'], calls: [], errors: ['TypeError: nope']})[0].kind, 'console-error');
+  assert.equal(classify({view: 'v', control, effects: ['structure changed'], calls: [{channel: 'contactProposals', ms: 168}], errors: []})[0].kind, 'silent-control', 'only hidden parts changed (#409)');
+  assert.deepEqual(classify({view: 'v', control, effects: ['structure changed', 'visible structure changed'], calls: [{channel: 'x', ms: 20}], errors: []}), [], 'a visible change is an answer');
 });
 
 test('on a page with one of each, the probe flags exactly the broken controls and clicks nothing destructive', async () => {
@@ -58,6 +62,7 @@ test('on a page with one of each, the probe flags exactly the broken controls an
     const {results, findings, skipped} = await probePage({page, view: 'fixture', ipc: ipcOf(page), settleMs: 1200, idleMs: 1500, reset: () => page.keyboard.press('Escape')});
     const by = kind => findings.filter(item => item.kind === kind).map(item => item.control);
     assert.deepEqual(by('dead-control'), ['Does nothing'], JSON.stringify(findings));
+    assert.deepEqual(by('silent-control'), ['Answers out of sight'], 'a press whose only change is hidden (#409)');
     assert.deepEqual(by('expand-broken'), ['Expand (broken)']);
     assert.deepEqual(by('no-loading-state'), ['Slow without loading']);
     assert.deepEqual(by('console-error'), ['Throws']);

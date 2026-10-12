@@ -10,7 +10,7 @@ const IDLE_MS = 3000;      // how long a page is watched untouched, to learn the
 // long the other program takes is not the app's to show (#90 "Open Settings" on Windows).
 export const EXTERNAL_CHANNELS = new Set(['openExternal', 'openPrivacy', 'showFolder', 'showCvFolder', 'showBackups', 'ivRecordings', 'coverLetterOpen']);
 // Kinds that are pressed a second time, from a reset page, before they are filed: a state left by an earlier press (a row already open) or a timing fluke does not repeat.
-const RECHECK = new Set(['dead-control', 'expand-broken', 'no-loading-state']);
+const RECHECK = new Set(['dead-control', 'silent-control', 'expand-broken', 'no-loading-state']);
 
 // What a probe must never press: it deletes, sends, signs in, leaves the app, or spends AI credit.
 // restart/relaunch: `\bstart` does not match inside "Restart", and Interviews' "Restart" (microphone denied on a Windows runner) relaunched the app mid-probe.
@@ -32,6 +32,11 @@ export function classify({view, control, effects, calls, loading = false, errors
   if (errors.length) found.push(make('console-error', `Clicking "${name}" threw: ${errors[0].slice(0, 200)}`));
   else if (control.expandable && !effects.includes('expanded toggled') && !effects.includes('control removed')) found.push(make('expand-broken', `"${name}" is an expandable control but clicking it did not expand or collapse anything`));
   else if (!effects.length && !calls.length) found.push(make('dead-control', `Clicking "${name}" did nothing: the page did not change and no call reached the app`));
+  // Something changed, but only where nobody can see it: the press wrote its answer (or its failure) into a hidden part of the page (#409, 12 Oct 2026: "Fill from my
+  // CV" put "Couldn't read your CV" in a save bar that stays hidden, and the probe counted "structure changed" as working).
+  else if (effects.length && effects.every(effect => effect === 'structure changed')) {
+    found.push(make('silent-control', `Clicking "${name}" changed nothing the person can see${calls.length ? `: it reached the app (${calls[0].channel}) and` : ':'} its only change is in a hidden part of the page, so the person gets no answer`));
+  }
   const slow = calls.filter(call => (call.ms === null || call.ms >= SLOW_MS) && !EXTERNAL_CHANNELS.has(call.channel));
   if (slow.length && !loading && !errors.length) found.push(make('no-loading-state', `"${name}" ran for ${slow[0].ms === null ? 'more than the wait' : `${slow[0].ms} ms`} (${slow[0].channel}) and showed no sign of work: no disabled state, spinner or changed label`));
   return found;
@@ -63,18 +68,20 @@ function snapshot({id, scope}) {
   const root = document.querySelector(scope) || document.body;
   const el = document.querySelector(`[data-probe="${id}"]`);
   if (!el) return null;
-  const structure = [];
+  const structure = [], seen = [];   // seen: the same, for the nodes the person can see
   for (const node of document.body.querySelectorAll('*')) {
     if (node === el) continue;
     const bits = [node.tagName, node.hidden ? 'h' : '', node.getAttribute('aria-expanded') || '', node.getAttribute('aria-hidden') || '', node.open ? 'o' : '', node.disabled ? 'd' : '', node.getAttribute('data-state') || '', typeof node.className === 'string' ? node.className : '',
       node.getAttribute('aria-pressed') || '', node.getAttribute('aria-selected') || '', node.getAttribute('aria-checked') || '', node.getAttribute('aria-current') || ''];
     structure.push(bits.join('|'));
+    if (node.checkVisibility ? node.checkVisibility() : node.offsetParent !== null) seen.push(bits.join('|'));
   }
   const target = el.getAttribute('aria-controls') ? document.getElementById(el.getAttribute('aria-controls')) : null;
   const details = el.closest('details');
   return {
     text: (document.body.innerText || '').length + ':' + (document.body.innerText || '').slice(0, 4000),
     structure: structure.join('\n'),
+    seen: seen.join('\n'),
     hash: location.hash,
     expanded: [el.getAttribute('aria-expanded'), details ? details.open : null, target ? `${target.hidden}:${Math.round(target.getBoundingClientRect().height)}` : null].join('/'),
     busy: root.querySelectorAll('[aria-busy="true"], .spinner, .skeleton, [data-state="busy"], progress, [disabled]').length,
@@ -91,6 +98,7 @@ function effectsOf(before, after) {
   const effects = [];
   if (before.text !== after.text) effects.push('text changed');
   if (before.structure !== after.structure) effects.push('structure changed');
+  if (before.seen !== after.seen) effects.push('visible structure changed');   // what the person can see changed, not only hidden parts
   if (before.hash !== after.hash) effects.push('location changed');
   if (before.expanded !== after.expanded) effects.push('expanded toggled');
   if (before.own !== after.own) effects.push('control changed');
@@ -184,6 +192,8 @@ export async function probePage({page, view, ipc, scope = 'body', settleMs = 150
         const again = tagged ? control : (await page.evaluate(discover, {scope, max: look})).find(item => item.text === control.text && item.label === control.label);
         const second = again ? await press({...control, id: again.id}) : {skip: 'gone'};
         const kept = second.skip ? [] : new Set(second.flagged.map(item => item.kind));
+        // A silent press fails again when it does something (a call, a hidden change) and the person still sees nothing: its hidden answer is often already there.
+        if (!second.skip && (second.result.calls.length || second.result.effects.length) && second.result.effects.every(effect => effect === 'structure changed')) kept.add('silent-control');
         flagged = flagged.filter(item => !RECHECK.has(item.kind) || (kept instanceof Set && kept.has(item.kind)));
         result = {...result, rechecked: second.skip ? `not pressed again (${second.skip})` : second.result};
       }

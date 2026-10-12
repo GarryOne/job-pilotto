@@ -11,8 +11,8 @@ bug is in how a page wires things, with a source-level check that reads the page
 
 WRITE .heal/pr-body.md AS SOON AS YOU KNOW THE ROOT CAUSE (first line the title, then root cause with file:line) and refine it at the end. If you run out of turns, the pull request still needs it.
 
-Findings of the interaction probe (kinds `dead-control`, `no-loading-state`, `expand-broken`, found by pressing the control, not from a picture): the control is named in the finding.
-`dead-control`: its click handler is missing, throws early or is never attached (look for the id/class in desktop/renderer/pages/*.js and index.html). `no-loading-state`: the page waits for an
+Findings of the interaction probe (kinds `dead-control`, `silent-control`, `no-loading-state`, `expand-broken`, found by pressing the control, not from a picture): the control is named in the finding.
+`dead-control`: its click handler is missing, throws early or is never attached (look for the id/class in desktop/renderer/pages/*.js and index.html). `no-loading-state`: the page waits for an `silent-control`: the press works but writes its answer into a part of the page that is hidden (a bar, a section): put the message where the person is looking (the panel of the button), never in a hidden container.
 app call (`window.pilot.*`) for 0.5 s or more and shows nothing meanwhile: set a loading line or the spinner/`aria-busy` state before the call, as the neighbouring pages do ("Loading from Notion…").
 `expand-broken`: `aria-expanded`/`<details>` is not toggled by the click. Test the wiring with a source-level check of the page file.
 
