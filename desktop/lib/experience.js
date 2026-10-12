@@ -83,7 +83,7 @@ const write = (storage, source) => {
 };
 
 // Add another CV version: kept as a file, read, compared with the main CV. Needs the main CV (cv/cv.json) to compare with.
-export async function addCv(storage, file, name, {apiKey = '', client = null, now = new Date()} = {}) {
+export async function addCv(storage, file, name, {apiKey = '', client = null, now = new Date(), onStep = () => {}} = {}) {
   const main = baseCv(storage);
   if (!main) throw new Error('Read your main CV first: the other versions are compared with it.');
   if (list(storage).length >= MAX_SOURCES) throw new Error(`Up to ${MAX_SOURCES} extra CV versions: remove one first.`);
@@ -91,8 +91,10 @@ export async function addCv(storage, file, name, {apiKey = '', client = null, no
   const digest = crypto.createHash('sha256').update(pdf).digest('hex');
   const same = list(storage).find(s => s.digest === digest);
   if (same) throw new Error(`This file is already there as "${same.name}".`);
+  onStep('reading');
   const read = await transcribePdf(pdf, apiKey, client);
   if (!read.cv.jobs.length) throw new Error('No work experience found in this CV.');
+  onStep('comparing');
   const compared = await matchAgainst(main, read.cv, apiKey, client);
   const id = crypto.randomBytes(5).toString('hex');
   fs.mkdirSync(sourcesDir(storage), {recursive: true});
@@ -105,11 +107,13 @@ export async function addCv(storage, file, name, {apiKey = '', client = null, no
 
 // LinkedIn's data export (a .zip): its positions, skills and education as one more source, compared with the main CV like a CV version.
 // One LinkedIn source at a time: a new export replaces the old one (after the new one was read and matched). The ZIP itself is not kept.
-export async function addLinkedin(storage, file, {apiKey = '', client = null, now = new Date()} = {}) {
+export async function addLinkedin(storage, file, {apiKey = '', client = null, now = new Date(), onStep = () => {}} = {}) {
   const main = baseCv(storage);
   if (!main) throw new Error('Read your main CV first: LinkedIn is compared with it.');
+  onStep('reading');
   const cv = readExport(file);
   if (!cv.jobs.length) throw new Error('No positions found in this LinkedIn export.');
+  onStep('comparing');
   const compared = await matchAgainst(main, cv, apiKey, client);
   const old = list(storage).filter(s => s.kind === 'linkedin');
   const source = {id: crypto.randomBytes(5).toString('hex'), kind: 'linkedin', name: 'LinkedIn', addedAt: now.toISOString(),
@@ -127,12 +131,13 @@ export function remove(storage, id) {
 }
 
 // The main CV changed (replaced, re-read): the matches were made against another one. Match again, from the kept transcriptions.
-export async function rematchStale(storage, {apiKey = '', client = null} = {}) {
+export async function rematchStale(storage, {apiKey = '', client = null, onStep = () => {}} = {}) {
   const main = baseCv(storage);
   if (!main) return 0;
   let done = 0;
   for (const source of list(storage)) {
     if (source.mainKey === mainKey(main)) continue;
+    onStep('comparing');
     source.match = (await matchAgainst(main, source.cv, apiKey, client)).match;
     source.mainKey = mainKey(main);
     write(storage, source);
@@ -194,4 +199,18 @@ export function view(storage) {
     }),
     roles, extraSkills: merged?.extraSkills || '',
   };
+}
+
+// What a change did to the profile, from the view before and after it (an add, a removal, a match again): the details and technologies tailoring
+// can draw on, and the roles found only in other versions. Nothing is stored: removing a source only stops offering what came from it, the main CV is never edited.
+const words = text => String(text || '').split(',').map(w => w.trim()).filter(Boolean);
+const gap = (from, to) => from.filter(w => !to.some(x => x.toLowerCase() === w.toLowerCase()));
+const roleKey = r => [r.title, r.company, r.period].filter(Boolean).join(' · ');
+const onlyHere = v => v.sources.filter(s => !s.stale).flatMap(s => s.onlyHere.map(roleKey));
+const extras = v => v.roles.reduce((n, r) => n + r.bullets.filter(b => b.from !== 'Main CV').length, 0);
+export function viewChanges(before, after) {
+  const [skillsBefore, skillsAfter] = [words(before.extraSkills), words(after.extraSkills)];
+  const [rolesBefore, rolesAfter] = [onlyHere(before), onlyHere(after)];
+  return {details: extras(after) - extras(before), skillsAdded: gap(skillsAfter, skillsBefore), skillsRemoved: gap(skillsBefore, skillsAfter),
+    newRoles: gap(rolesAfter, rolesBefore), goneRoles: gap(rolesBefore, rolesAfter)};
 }

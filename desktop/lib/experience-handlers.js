@@ -20,19 +20,28 @@ export function registerExperienceHandlers({DEMO, dialog, getWindow, ipcMain, sh
   const ai = () => ({apiKey: storage.secret('ANTHROPIC_API_KEY'), client: claudeCode.client(storage)});
   const noAi = () => { const {apiKey, client} = ai(); return !apiKey && !client; };
   ipcMain.handle('experienceGet', () => (DEMO ? DEMO_VIEW : experience.view(storage)));
+  // The window is told each step as it happens ('experienceStep'), so a minute of reading is never a silent wait.
+  const step = (what, extra = {}) => { const win = getWindow(); if (win && !win.isDestroyed()) win.webContents.send('experienceStep', {what, ...extra}); };
+  const withChanges = (before, ok = true, extra = {}) => { const view = experience.view(storage); return {ok, ...view, changes: experience.viewChanges(before, view), ...extra}; };
   ipcMain.handle('experienceAddCv', async () => {
     if (noAi()) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
     if (!experience.view(storage).main) return {ok: false, error: 'Read your main CV first (CV & details → Read my CV PDF): other versions are compared with it.'};
-    const picked = await dialog.showOpenDialog(getWindow(), {title: 'Choose another version of your CV', filters: [{name: 'PDF', extensions: ['pdf']}], properties: ['openFile']});
-    if (picked.canceled || !picked.filePaths[0]) return {ok: false, cancelled: true};
-    try {
-      const file = picked.filePaths[0];
-      if (!fs.statSync(file).isFile()) return {ok: false, error: 'That is not a file.'};
-      const source = await experience.addCv(storage, file, path.basename(file).replace(/\.pdf$/i, ''), ai());
-      appLog('experience', 'CV version added', {id: source.id, roles: source.cv.jobs.length, matched: source.match.filter(m => m.mainJob >= 0).length,
-        extraBullets: source.match.reduce((n, m) => n + m.newBullets.length, 0), usd: source.usd});
-      return {ok: true, ...experience.view(storage)};
-    } catch (error) { return {ok: false, error: error.message}; }
+    const picked = await dialog.showOpenDialog(getWindow(), {title: 'Choose other versions of your CV', filters: [{name: 'PDF', extensions: ['pdf']}], properties: ['openFile', 'multiSelections']});
+    if (picked.canceled || !picked.filePaths.length) return {ok: false, cancelled: true};
+    const before = experience.view(storage), results = [];
+    for (const [index, file] of picked.filePaths.entries()) {
+      const name = path.basename(file).replace(/\.pdf$/i, ''), where = {name, index: index + 1, total: picked.filePaths.length};
+      try {
+        if (!fs.statSync(file).isFile()) throw new Error('That is not a file.');
+        const source = await experience.addCv(storage, file, name, {...ai(), onStep: what => step(what, where)});
+        appLog('experience', 'CV version added', {id: source.id, roles: source.cv.jobs.length, matched: source.match.filter(m => m.mainJob >= 0).length,
+          extraBullets: source.match.reduce((n, m) => n + m.newBullets.length, 0), usd: source.usd});
+        results.push({name, ok: true});
+        step('done', where);
+      } catch (error) { results.push({name, ok: false, error: error.message}); step('failed', {...where, error: error.message}); }
+    }
+    const ok = results.some(r => r.ok);
+    return withChanges(before, ok, {results, ...(ok ? {} : {error: results.map(r => `${r.name}: ${r.error}`).join(' ')})});
   });
   ipcMain.handle('experienceAddLinkedin', async () => {
     if (noAi()) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
@@ -40,21 +49,27 @@ export function registerExperienceHandlers({DEMO, dialog, getWindow, ipcMain, sh
     const picked = await dialog.showOpenDialog(getWindow(), {title: 'Choose the .zip LinkedIn sent you', filters: [{name: 'ZIP', extensions: ['zip']}], properties: ['openFile']});
     if (picked.canceled || !picked.filePaths[0]) return {ok: false, cancelled: true};
     try {
-      const source = await experience.addLinkedin(storage, picked.filePaths[0], ai());
+      const before = experience.view(storage);
+      const source = await experience.addLinkedin(storage, picked.filePaths[0], {...ai(), onStep: what => step(what, {name: 'LinkedIn', index: 1, total: 1})});
       appLog('experience', 'LinkedIn export added', {id: source.id, roles: source.cv.jobs.reduce((n, j) => n + j.roles.length, 0), matched: source.match.filter(m => m.mainJob >= 0).length,
         extraBullets: source.match.reduce((n, m) => n + m.newBullets.length, 0), skills: source.cv.skills ? source.cv.skills.split(',').length : 0, usd: source.usd});
-      return {ok: true, ...experience.view(storage)};
+      return withChanges(before);
     } catch (error) { return {ok: false, error: error.message}; }
   });
   ipcMain.handle('experienceRemove', (_, id) => {
+    const before = experience.view(storage);
     const ok = experience.remove(storage, id);
     if (ok) appLog('experience', 'source removed', {id: String(id)});
-    return {ok, ...experience.view(storage)};
+    return withChanges(before, ok, {removed: before.sources.find(s => s.id === String(id))?.name || ''});
   });
   ipcMain.handle('experienceRematch', async () => {
     if (noAi()) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
-    try { const done = await experience.rematchStale(storage, ai()); appLog('experience', 'matched again', {sources: done}); return {ok: true, ...experience.view(storage)}; }
-    catch (error) { return {ok: false, error: error.message}; }
+    try {
+      const before = experience.view(storage);
+      const done = await experience.rematchStale(storage, {...ai(), onStep: what => step(what, {name: 'your other versions', index: 1, total: 1})});
+      appLog('experience', 'matched again', {sources: done});
+      return withChanges(before);
+    } catch (error) { return {ok: false, error: error.message}; }
   });
   // Connect with LinkedIn (identity only: name, email, LinkedIn id). The app keeps who it is, never a token (lib/linkedin-oauth.js).
   ipcMain.handle('linkedinStatus', () => (DEMO ? null : storage.settings().linkedin || null));
