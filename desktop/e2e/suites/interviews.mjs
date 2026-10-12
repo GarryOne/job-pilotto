@@ -327,7 +327,12 @@ export async function run(ctx) {
     await page.waitForFunction(() => !document.querySelector('.iv-insight-refresh')?.disabled, null, {timeout: REVIEW_MS, polling: 2000});
     const calls = proxy.stats.calls;
     await refresh.click();
-    await page.waitForFunction(() => /up to date/i.test(document.getElementById('iv-message').textContent), null, {timeout: 120000});
+    await page.waitForFunction(() => /up to date/i.test(document.getElementById('iv-message').textContent), null, {timeout: 120000}).catch(async () => {
+      // On the stand-in store with the API engine (CI) this step never saw "up to date" (12 Oct 2026); on Claude Code it does. Say what the page and the proxy saw.
+      const said = ((await page.locator('#iv-message').textContent().catch(() => '')) || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+      const busy = await refresh.isDisabled().catch(() => null);
+      throw new Error(`the second refresh never said "up to date" in 2 minutes; the page says "${said}"; the button is ${busy ? 'still busy' : 'free'}; AI calls since the first refresh ended: ${proxy.stats.calls - calls}`);
+    });
     if (proxy.stats.calls !== calls) throw new Error('a refresh with nothing changed still called the AI');
   });
 
