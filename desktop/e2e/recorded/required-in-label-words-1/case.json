@@ -48,5 +48,11 @@
    "pressed the submit"
   ],
   "seconds": 40
- }
+ },
+ "control": {
+  "build": "0.9.239",
+  "failed": "told: \"unfilled\":1 (the run record said \"unfilled\":0: the required question left empty was not counted)"
+ },
+ "start": "panel",
+ "sample": "hand-made from a public form shape, no real site"
 }
