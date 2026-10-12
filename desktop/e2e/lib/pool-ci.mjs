@@ -71,6 +71,7 @@ export function summary(report = {}, {baseline = {}, now = new Date(), proof = f
   const notRun = notRunLine(report, now);
   const red = [...(notRun && !proof ? [notRun] : []), ...(run.unfinished || []).map(item => `did not finish: ${item.shape} (${item.why})`),
     ...results.filter(([, item]) => item.tripped).map(([shape]) => `privacy tripwire: ${shape}`),
+    ...results.flatMap(([shape, item]) => (item.readings?.failures || []).map(line => `false reading: ${shape}: ${line}`)),   // lib/live-readings.mjs
     ...results.filter(([, item]) => item.aiRefused).map(([shape, item]) => `AI refused: ${shape} (${item.aiRefused.calls} calls: ${item.aiRefused.why})`),
     ...results.map(([shape, item]) => [shape, fallsBelow(baseline[shape], item)]).filter(([, why]) => why).map(([shape, why]) => `less than its last CI run: ${shape} (${why})`)];
   const lines = [...(notRun ? [notRun, ''] : []), `## Pool smoke ${report.day || ''} ${red.length ? '❌' : '✅'}`, '',

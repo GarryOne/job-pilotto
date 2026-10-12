@@ -36,7 +36,7 @@ JOBS = {
     'harness': (('desktop/e2e/test', '*.test.mjs'), ('desktop/e2e/', 'desktop/scripts/stage.mjs') + APP_INSTALL),
     'replays': (None, APP_INSTALL + E2E_INSTALL),
     'zoo': (None, ('desktop/scripts/stage.mjs',) + APP_INSTALL + E2E_INSTALL),
-    'e2e-flow': (None, APP_INSTALL + E2E_INSTALL + ('.github/workflows/e2e.yml', '.github/workflows/e2e-flow.yml')),   # optional (tests OPTIONAL): apply + applycv on flow PRs
+    'e2e-flow': (None, APP_INSTALL + E2E_INSTALL + ('.github/workflows/e2e.yml', '.github/workflows/e2e-flow.yml', '.github/workflows/flow-canary.yml', '.github/workflows/pool-smoke.yml')),   # optional (tests OPTIONAL): apply + applycv and the live canary on flow PRs
 }
 STAGES = ('harness', 'zoo')   # the jobs that run desktop/scripts/stage.mjs --files-only: what it copies into desktop/shared counts as theirs
 # What runs the jobs themselves: a change to one runs every job whole.

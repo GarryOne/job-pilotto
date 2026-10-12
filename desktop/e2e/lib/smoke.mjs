@@ -2,6 +2,7 @@
 // parseLive reads where a live run got to from its own printed log lines (lib/apply-live.mjs), compare finds what reached less than last time, pickPosting
 // rotates through the owner's postings of each site shape. Runner: e2e/smoke.mjs. Guard: e2e/test/smoke.test.mjs.
 import {causeOf} from '../../../extension/fill-card.js';
+import {parseReadings} from './live-readings.mjs';
 export const STEPS = ['none', 'posting', 'account', 'code/bot', 'form', 'ready'];
 // Sites read only through the person's own visit, never by an automated run (CLAUDE.md: LinkedIn, Glassdoor, Indeed, levels.fyi and Reddit; 10 Oct 2026: discovery
 // opened an Indeed posting). Never a smoke or discovery candidate, whatever list it comes from.
@@ -34,6 +35,7 @@ const DIGEST_HOLD = {refused: SITE_REFUSED, login_wall: LOGIN_WALL};
 const reportPage = line => { const url = (line.match(/"url":"([^"]*)"/) || [])[1] || ''; return url.replace(/^https?:\/\/[^/]*/, '').split(/[?#]/)[0]; };
 const samePage = (open, page) => !!page && (open === page || (page.length > 1 && open.startsWith(page)));
 export function parseLive(output) {
+  const readings = parseReadings(output);   // the false readings at the row's end (lib/live-readings.mjs)
   const lines = String(output || '').split('\n');
   let blocked = '', reached = 'none', filled = null, left = null, marks = null, note = '', verdict;
   const kinds = [], errors = [], path = [];
@@ -111,7 +113,7 @@ export function parseLive(output) {
   // "a form came" after the Apply press can be the route to the sign-up page (adnovum, 11 Oct 2026): with no application field counted, the run still ended at the account step.
   if (!note && ['account', 'form'].includes(reached) && filled == null && path.at(-1)?.kind === 'account') { reached = 'account'; note = ACCOUNT_HELD; }
   if (!note && digestHold && rank(reached) < rank('form')) note = digestHold;
-  return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, pageKindErrors, kinds: [...new Set(kinds)], path, errors, ...(blocked ? {blocked} : {}), ...(note ? {note} : {}), ...(verdict ? {verdict} : {}), ...(usd != null ? {usd} : {}), ...(aiCalls != null ? {aiCalls} : {}), ...(tripped ? {tripped} : {}), ...(fillUnreported ? {fillUnreported} : {}), ...(aiRefused ? {aiRefused} : {})};
+  return {...(readings ? {readings} : {}), reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, pageKindErrors, kinds: [...new Set(kinds)], path, errors, ...(blocked ? {blocked} : {}), ...(note ? {note} : {}), ...(verdict ? {verdict} : {}), ...(usd != null ? {usd} : {}), ...(aiCalls != null ? {aiCalls} : {}), ...(tripped ? {tripped} : {}), ...(fillUnreported ? {fillUnreported} : {}), ...(aiRefused ? {aiRefused} : {})};
 }
 
 // The same shape reaching an earlier step than its last run, or filling fewer fields on the same posting, is a regression.
