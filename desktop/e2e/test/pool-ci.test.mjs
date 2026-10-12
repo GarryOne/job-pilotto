@@ -112,3 +112,9 @@ test('the summary names each row\'s applicant (grown on a PR proof, thin by hand
     thisRun: {ran: ['Lever: single page, no account'], unfinished: [], skipped: [], cut: [], stopped: '', usd: 0.06, maxUsd: 0.5, maxRows: 1}};
   assert.match(summary(day).markdown, /\| Lever: single page, no account \| grown \| ready \| 18 \/ 0 \|/);
 });
+
+test('a by-hand run refused because the last visit is kept for a PR proof says so in its NOT RUN line', () => {
+  const kept = 'site-ledger: jobs.personio.example is not visited: 1 live visit today; the other 1 is kept for a PR proof (limit 2), the last at 11:20 by pool-smoke CI run 9. Counted from x';
+  assert.match(summary(nothingRan({skipped: [{shape: 'Personio form in German', why: kept}]}), {now: new Date('2026-10-12T12:30:00Z')}).notRun,
+    /^NOT RUN: Personio form in German: the site limit \(jobs\.personio\.example: 1 live visit today; the other 1 is kept for a PR proof \(limit 2\)/);
+});
