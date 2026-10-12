@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import {test} from 'node:test';
 import {ENDINGS} from '../../../extension/ladder/endings.js';
 import {ACCOUNT_HELD, APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED} from '../lib/smoke.mjs';
-import {HELD_BY_TEST, STOP_LINES, endingOf, fieldEnding, tally} from '../lib/ending.mjs';
+import {HELD_BY_TEST, REASONS, RUN_ERRORS, STOP_LINES, endingOf, fieldEnding, tally} from '../lib/ending.mjs';
 
 const field = (reason, extra = {}) => ({outcome: 'left', type: 'text', label: 'Q', required: true, reason, ...extra});
 const form = (fieldList, extra = {}) => ({reached: 'form', filled: 3, left: fieldList.length, fieldList, errors: [], exit: 0, ...extra});
@@ -28,6 +28,15 @@ test('the worst required field decides: a field we missed (unresolved) > a contr
   assert.equal(endingOf(form([unread])).ending, 'blind');
   for (const one of missed) assert.equal(endingOf(form([missing, blind, one])).ending, 'unresolved', one.reason);
   assert.deepEqual(['proposed for you to confirm', 'no answer in the kit, Profile or your details', 'question text not found', 'something new'].map(reason => fieldEnding(field(reason))), ['ready', 'data_missing', 'blind', 'unresolved']);
+});
+
+test('data_missing is only a fact we truly lack; the AI declining is our miss: unresolved, counted apart (cc review, 12 Oct 2026)', () => {
+  const declined = field('the AI gave no answer (asked twice)');
+  assert.equal(fieldEnding(declined), 'unresolved');
+  assert.deepEqual(endingOf(form([declined, field('no answer in the kit, Profile or your details')])), {ending: 'unresolved', why: '2 required left; the first unresolved: text, the AI gave no answer (asked twice)', aiMiss: true});
+  assert.equal(endingOf(form([declined, field('answer given, but the field did not take it')])).aiMiss, undefined, 'a mechanism miss beside it: not only the AI');
+  assert.equal(endingOf(form([field('a detail of yours not saved yet (postal_code)')])).ending, 'data_missing');
+  assert.equal(tally([endingOf(form([declined]))]).aiMiss, 1);
 });
 
 test('a form the run could not count, or left covered, is unresolved', () => {
@@ -84,8 +93,14 @@ test('a row that is not an application outcome is not counted, and says why', ()
 test('every ending is one of the fixed list; the tally counts each and the resolution share leaves the uncounted out', () => {
   const rows = [form([field('proposed for you to confirm')]), {reached: 'posting', fieldList: [], errors: [], exit: 0}, {reached: 'code/bot', fieldList: [], errors: [], exit: 0}, {reached: 'form', tripped: true, fieldList: [], errors: []}];
   const sum = tally(rows.map(row => endingOf(row)));
-  assert.deepEqual(sum, {counted: 3, held: 0, uncounted: 1, endings: {ready: 1, told: 0, handed: 1, blind: 0, data_missing: 0, site_broken: 0, unresolved: 1}, resolution: 2 / 3});
+  assert.deepEqual(sum, {counted: 3, held: 0, uncounted: 1, aiMiss: 0, endings: {ready: 1, told: 0, handed: 1, blind: 0, data_missing: 0, site_broken: 0, unresolved: 1}, resolution: 2 / 3});
   assert.deepEqual(Object.keys(sum.endings), ENDINGS);
+});
+
+test('every trace word the classifier reads is still written by the code that writes it: a reworded reason fails here, never silently moving rows', () => {
+  const fill = fs.readFileSync(new URL('../../../extension/page/fill.js', import.meta.url), 'utf8'), smoke = fs.readFileSync(new URL('../lib/smoke.mjs', import.meta.url), 'utf8');
+  for (const [name, words] of Object.entries(REASONS)) assert.ok(fill.includes(`'${words}'`), `${name}: "${words}" is no longer written by extension/page/fill.js`);
+  for (const [name, words] of Object.entries(RUN_ERRORS)) assert.ok(smoke.includes(words), `${name}: "${words}" is no longer written by desktop/e2e/lib/smoke.mjs`);
 });
 
 test('the stop lines the classifier reads are the extension\'s own words: a rename in fill-flow.js fails here, never silently', () => {

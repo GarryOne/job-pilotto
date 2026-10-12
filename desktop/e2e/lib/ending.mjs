@@ -8,27 +8,40 @@ import {causeOf} from '../../../extension/fill-card.js';
 import {ENDINGS, resolved} from '../../../extension/ladder/endings.js';
 import {ACCOUNT_HELD, APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED} from './smoke.mjs';
 
-// The worst required field decides a form: a field we missed > a control we did not see > an answer only the person has > the person's own choice.
+// The trace words the classifier reads, as the code named writes them (no structured code travels in the report; a guard test checks each is still written there, so a reworded
+// reason fails a test instead of silently moving rows: e2e/test/ending.test.mjs). The rest goes through the fill card's causeOf (extension/fill-card.js).
+export const REASONS = {legal: 'legal/consent: always your choice', written: 'written: your own words to write', demographic: 'demographic: your own choice',   // extension/page/fill.js
+  noSlot: 'no place to attach it was found on this page', details: 'your details'};   // extension/page/fill.js
+export const RUN_ERRORS = {dialogLeft: 'a dialog was left open over the form', dialogCovers: 'held: a dialog covers the form', blocked: 'form judge: the page is blocked',
+  unreported: 'form fill did not report'};   // desktop/e2e/lib/smoke.mjs parseLive
+const PERSONS = [REASONS.legal, REASONS.written, REASONS.demographic];
+// The worst required field decides a form: a field we missed > a control we did not see > a fact only the person has > the person's own choice.
 const WORST = ['unresolved', 'blind', 'data_missing', 'ready'];
-const PERSONS = /^(legal|written|demographic)/;   // our own trace reasons for the person's own choice (extension/page/fill.js)
-const BY_CAUSE = {proposed: 'ready', no_data: 'data_missing', ai_declined: 'data_missing', ai_unsure: 'data_missing', ai_off: 'data_missing', unread: 'blind'};   // any other cause: we missed it
-export function fieldEnding(row) {
+// data_missing only for a fact we truly lack (no_data). The AI declining or unsure is OUR miss (it could have proposed: cc, 12 Oct 2026): unresolved, counted apart (aiMiss).
+const BY_CAUSE = {proposed: 'ready', no_data: 'data_missing', unread: 'blind'};   // any other cause: we missed it
+const AI_MISS = new Set(['ai_declined', 'ai_unsure']);
+export const fieldCause = row => {
   const reason = String(row?.reason || '');
-  if (row?.type === 'password' || PERSONS.test(reason)) return 'ready';   // a password is the person's to type (never read by us)
-  if (row?.type === 'file' && /^no place to attach/.test(reason)) return 'blind';   // the upload slot was not seen
-  return BY_CAUSE[causeOf(row)] || 'unresolved';
+  if (row?.type === 'password' || PERSONS.some(words => reason.startsWith(words))) return 'persons';   // a password is the person's to type (never read by us)
+  if (row?.type === 'file' && reason.startsWith(REASONS.noSlot)) return 'no_slot';   // the upload slot was not seen
+  return causeOf(row);
+};
+export function fieldEnding(row) {
+  const cause = fieldCause(row);
+  return cause === 'persons' ? 'ready' : cause === 'no_slot' ? 'blind' : cause === 'ai_off' ? null : BY_CAUSE[cause] || 'unresolved';   // ai_off: a setting, not an outcome
 }
 // A form left covered or not counted by the run (the parser's own error lines) is a miss, whatever its fields say. A cookie bar left open at the end is a miss of its own, not
 // the application's ending (hand-check 12 Oct 2026: jobs.ch's form was reached and filled under it).
-const COVERED = /^(a dialog was left open over the form|held: a dialog covers the form|form judge: the page is blocked|form fill did not report)/;
+const covers = error => Object.values(RUN_ERRORS).some(words => String(error).startsWith(words));
 // The account step the pool never passes (it never creates an account with fake data): the last page is an account page (or account + form) and every required field on it is the
 // person's contact details we filled, a password, a consent, or the kit's CV that has no slot there (hand-check 12 Oct 2026: a Workday "Create Account" page the AI called account-form).
 const ACCOUNT_KINDS = new Set(['account', 'account-form']);
 const accountStep = result => {
   if (!ACCOUNT_KINDS.has((result.path || []).at(-1)?.kind)) return false;
   const required = (result.fieldList || []).filter(row => row?.required);
-  return required.some(row => row.type === 'password') && required.every(row => row.type === 'password' || /^legal/.test(String(row.reason || ''))
-    || (row.outcome === 'filled' && /^your details/.test(String(row.reason || ''))) || (row.type === 'file' && /^no place to attach/.test(String(row.reason || ''))));
+  const reason = row => String(row.reason || '');
+  return required.some(row => row.type === 'password') && required.every(row => row.type === 'password' || reason(row).startsWith(REASONS.legal)
+    || (row.outcome === 'filled' && reason(row).startsWith(REASONS.details)) || (row.type === 'file' && reason(row).startsWith(REASONS.noSlot)));
 };
 
 // The extension's own stop lines (extension/fill-flow.js `decide('fill', ...)`): the last one in the row's app log refines a stop the parser left without a note. Guarded: a rename fails the test.
@@ -61,11 +74,13 @@ export function endingOf(result, appLog = '', {ci = false} = {}) {
   if (reached === 'ready') return {ending: 'ready', why: 'the form is ready'};
   if (reached === 'form' && accountStep(result)) return {ending: null, why: HELD_BY_TEST, held: 'account step'};
   if (reached === 'form') {
-    const covered = (result.errors || []).find(error => COVERED.test(String(error)));
+    const covered = (result.errors || []).find(covers);
     if (covered) return {ending: 'unresolved', why: String(covered).slice(0, 80)};
     const left = (result.fieldList || []).filter(row => row?.required && row.outcome !== 'filled'), endings = left.map(fieldEnding);
+    if (endings.includes(null)) return {ending: null, why: 'the AI was off'};
     const ending = WORST.find(one => endings.includes(one)) || 'ready', worst = left[endings.indexOf(ending)];
-    return {ending, why: `${left.length} required left${worst ? `; the first ${ending}: ${String(worst.type || 'field').slice(0, 20)}, ${String(worst.reason || 'no reason').slice(0, 80)}` : ''}`};   // our own trace words, never the page's
+    const aiMiss = ending === 'unresolved' && left.some((row, at) => endings[at] === 'unresolved' && AI_MISS.has(fieldCause(row))) && left.every((row, at) => endings[at] !== 'unresolved' || AI_MISS.has(fieldCause(row)));
+    return {ending, why: `${left.length} required left${worst ? `; the first ${ending}: ${String(worst.type || 'field').slice(0, 20)}, ${String(worst.reason || 'no reason').slice(0, 80)}` : ''}`, ...(aiMiss ? {aiMiss: true} : {})};   // our own trace words, never the page's
   }
   if (Number(result.exit) !== 0 && reached === 'none' && (result.errors || []).length) return {ending: null, why: 'the run did not finish'};
   const stop = lastStop(appLog);
@@ -77,8 +92,8 @@ export function endingOf(result, appLog = '', {ci = false} = {}) {
 // and the resolution share (resolved / counted).
 export function tally(found) {
   const endings = Object.fromEntries(ENDINGS.map(one => [one, 0]));
-  let uncounted = 0, held = 0;
-  for (const one of found) { if (ENDINGS.includes(one?.ending)) endings[one.ending] += 1; else if (one?.why === HELD_BY_TEST) held += 1; else uncounted += 1; }
+  let uncounted = 0, held = 0, aiMiss = 0;
+  for (const one of found) { if (ENDINGS.includes(one?.ending)) endings[one.ending] += 1; else if (one?.why === HELD_BY_TEST) held += 1; else uncounted += 1; if (one?.aiMiss) aiMiss += 1; }
   const counted = Object.values(endings).reduce((sum, n) => sum + n, 0);
-  return {counted, held, uncounted, endings, resolution: counted ? ENDINGS.filter(resolved).reduce((sum, one) => sum + endings[one], 0) / counted : 0};
+  return {counted, held, uncounted, aiMiss, endings, resolution: counted ? ENDINGS.filter(resolved).reduce((sum, one) => sum + endings[one], 0) / counted : 0};
 }
