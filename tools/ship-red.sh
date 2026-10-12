@@ -5,6 +5,11 @@
 ship_red_gate() {  # phase: said in the line ("before the checks", "before the push")
   [ -n "${SHIP_IGNORE_RED:-}" ] && return 0
   case "$flags" in *CI_RED_OK=1*) return 0 ;; esac   # the fix itself never waits
+  if [ "${mode:-}" = pr ]; then   # a landing through a pull request never waits (12 Oct 2026): the PR's required checks guard main, a flake there is re-run by CI
+    local now; now="$(bash "$here/tools/red-main.sh" 2>/dev/null)" || true
+    case "$now" in red*) IFS="|" read -r _ now _ <<<"$now"; step "main is red at $now: not waiting, the pull request's own checks decide, $1" ;; esac
+    return 0
+  fi
   [ -f "$here/tools/red-main.sh" ] || return 0
   local state bad workflow url finished run_id finished_at age claim limit counted="" said=0
   while :; do
