@@ -6,7 +6,8 @@
 #   (lib/applying-report.mjs refuses CI) but the two CI records below, with the narrow REPLAYS_PUBLISH_KEY: "proven live", and the ladder moves the rows' pages
 #   confirmed (desktop/e2e/pool-moves.mjs: fixed values per page shape, marked source 'ci' so they never pose as a user's; spec 2026-10-12-one-next-move.md).
 # - AI: the app's own API engine on the Tests key (E2E_ANTHROPIC_KEY, the Tests workspace's $20 limit), through the harness's metering proxy (lib/live-row.mjs).
-#   Hard caps per run, here: MAX_ROWS rows and MAX_USD dollars (the run stops between rows once its spend reaches it).
+#   Hard caps per run, here: MAX_ROWS rows and MAX_USD dollars (the run stops between rows once its spend reaches it). Its own key LIVE_ANTHROPIC_KEY (its own limit)
+#   when the owner has set it, else the Tests key; the summary names the one used. Every run reports its spend to /admin/ai-cost (pool-live, or pr-live-proof on a PR).
 # - Site limit: CI's own ledger per UTC day, at most 2 visits per host across ALL CI runs (main and every PR), a host that showed a block page rests the day;
 #   a by-hand run may use only 1 of the 2: the last is kept for a PR's live proof (owner, 12 Oct 2026).
 #   Each run uploads a small state artifact (its ledger and rows); the next run reads them all (GitHub's cache is per branch: a PR's visits would be unseen).
@@ -60,7 +61,8 @@ jobs:
       DEFAULT_ROWS: 'Lever: single page|Personio form in German|Recruitee: one-page form'
       ONLY: ${{ inputs.only }}
       SHARE: ${{ inputs.share }}
-      E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
+      E2E_ANTHROPIC_KEY: ${{ secrets.LIVE_ANTHROPIC_KEY || secrets.E2E_ANTHROPIC_KEY }}   # the live key (its own limit, owner 12 Oct 2026) when it exists, else the Tests key
+      AI_KEY_NAME: ${{ secrets.LIVE_ANTHROPIC_KEY != '' && 'LIVE_ANTHROPIC_KEY' || 'E2E_ANTHROPIC_KEY' }}   # which one, by name only: the job summary says it
       JP_NO_REPORT: '1'                # no applying report from CI (the code refuses it anyway); the proven records and ladder moves go with their own narrow key
       JP_APPLICANT: ${{ inputs.applicant || 'thin' }}   # thin by hand, grown on a PR proof unless its body says "live-applicant: thin"
       JOB_PILOTTO_HEAVY: '0'           # the heavy lock is a Mac's machine-wide queue; this runner is its own machine
@@ -153,6 +155,12 @@ jobs:
           fi
           node desktop/e2e/pool-proven.mjs "$SMOKE_REPORTS" "$RUNNER_TEMP/subjects"
           node desktop/e2e/pool-moves.mjs "$SMOKE_REPORTS" | tee -a "$GITHUB_STEP_SUMMARY"   # the moves per row: the one-next-move spec's phase-1 proof
+      - name: Report the run's AI spend to /admin/ai-cost (never fails the job)
+        if: always()
+        env:
+          AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+          AI_COST_JOB: ${{ github.event_name == 'pull_request' && 'pr-live-proof' || 'pool-live' }}
+        run: node desktop/e2e/pool-ai-cost.mjs "$SMOKE_REPORTS" "$RUNNER_TEMP/pool-ai-cost.json" && node desktop/e2e/ai-cost-report.mjs --job "$AI_COST_JOB" --file "$RUNNER_TEMP/pool-ai-cost.json" || true
       - name: Tell the PR when its row did not run (when to run it again)
         if: always() && github.event_name == 'pull_request'
         env:

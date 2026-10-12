@@ -99,3 +99,15 @@ test('the PR proof checks the site before it starts: today\'s CI ledger only whe
   assert.match(proof, /^ {2}proof:\n {4}needs: pick\n {4}if: needs\.pick\.outputs\.row != ''/m, 'no row: the proof job is skipped (a skipped required check never blocks a merge)');
   assert.match(workflows['pool-smoke.yml'], /pool-ci-summary\.mjs/);   // a NOT RUN at run time on a proof is not red: lib/pool-ci.mjs summary({proof}), from JOB_PILOTTO_VISIT_KIND
 });
+
+// Owner, 12 Oct 2026 (cost safety): live CI has its own Anthropic key with its own limit; the Tests key until it exists. Every run reports its spend to /admin/ai-cost.
+test('the pool run asks the AI on the live key when it exists (else the Tests key), says which by name, and reports its spend to /admin/ai-cost without ever failing', () => {
+  const smoke = workflows['pool-smoke.yml'];
+  assert.match(smoke, /E2E_ANTHROPIC_KEY: \$\{\{ secrets\.LIVE_ANTHROPIC_KEY \|\| secrets\.E2E_ANTHROPIC_KEY \}\}/);
+  assert.match(smoke, /AI_KEY_NAME: \$\{\{ secrets\.LIVE_ANTHROPIC_KEY != '' && 'LIVE_ANTHROPIC_KEY' \|\| 'E2E_ANTHROPIC_KEY' \}\}/, 'the name, never the value');
+  const step = smoke.match(/- name: Report the run's AI spend[^\n]*\n(?: {8}.*\n)+/)?.[0] || '';
+  assert.match(step, /if: always\(\)/);
+  assert.match(step, /AI_COST_PUBLISH_KEY: \$\{\{ secrets\.AI_COST_PUBLISH_KEY \}\}/);
+  assert.match(step, /github\.event_name == 'pull_request' && 'pr-live-proof' \|\| 'pool-live'/);
+  assert.match(step, /node desktop\/e2e\/pool-ai-cost\.mjs[^\n]*&& node desktop\/e2e\/ai-cost-report\.mjs --job "\$AI_COST_JOB" --file[^\n]*\|\| true/);
+});
