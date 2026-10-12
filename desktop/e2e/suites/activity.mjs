@@ -34,7 +34,9 @@ export async function run(ctx) {
   // ---------- (1) every task card ----------
   const TASKS = [
     {command: 'run', kind: 'search', what: 'Refresh jobs (an empty feed: nothing new)', maxMs: 240000},
-    {command: 'scout', kind: 'scout', what: 'Find new employers', maxMs: 240000},
+    // announces: the line the task says as it starts its work (src/scout.py run()): on the fixtures it ends in seconds, too fast for the live-log timer, so a scout that
+    // printed none of its steps passed (#352, the scout-silent mutant). Its own sentence, checked in its finished log.
+    {command: 'scout', kind: 'scout', what: 'Find new employers', maxMs: 240000, announces: /Scout: checking \d+ employer/},
     {command: 'mail', kind: 'mail', what: 'Check Gmail & Calendar with no Google connection', maxMs: 120000},
     {command: 'weekly', kind: 'weekly', what: 'Analyze my job search', maxMs: 240000},
   ];
@@ -57,6 +59,7 @@ export async function run(ctx) {
       if (own.length !== 1 || fresh.length !== 1) throw new Error(`expected exactly one new Recent runs row of kind ${task.kind}, got ${fresh.length} (${fresh.map(run => `${run.kind} by ${run.trigger} at ${run.startedAt}`).join(', ') || 'none'})`);
       if (process.env.E2E_DEBUG) console.log(JSON.stringify({shown: mine, log: own[0].log.slice(0, 40), ok: own[0].ok, result: own[0].result, summary: own[0].summary}, null, 1));
       const problems = [...problemsWith(ctx, own[0], {label: task.command, shown: mine}), ...liveLogProblems(samples, {label: task.what})];
+      if (task.announces && !task.announces.test([].concat(own[0].log || []).join('\n'))) problems.push(`${task.what} never said what it was doing: its log has no "${task.announces.source}" line`);
       if (problems.length) throw new Error(problems.join('; '));
       ctx.taskRuns[task.command] = own[0];
       await noRowStaysRunning(ctx);
@@ -131,7 +134,9 @@ export async function run(ctx) {
     await appReady(ctx);
     // untilResult: after a relaunch the page read waits behind the start-up reads (CI 6 Oct 2026: answered with the result, after the step had looked at 1.5 s).
     const opened = await openRun(ctx, LABEL.weekly, {inPanel: true, untilResult: true});
-    const words = `${opened.message} ${opened.card} ${opened.result}`.trim();
+    // The report drawn from the page (its card or message), not the list's one-line result: that line is there without the page, so a run that never read its
+    // page passed (#353, the local-run-skips-notion-page mutant).
+    const words = `${opened.message} ${opened.card}`.trim();
     if (words.length < 20) throw new Error(`a local run without its message opens to no result ("${words}"): its Notion page is not read. State: ${JSON.stringify(opened.state)}; page errors: ${[...journey.pageErrors, ...journey.consoleErrors].slice(-3).join(' | ') || 'none'}`);
     if (!opened.log.trim()) throw new Error('reading the Notion page replaced the run\'s own log with nothing');
   }, {needs: ctx.needs});
