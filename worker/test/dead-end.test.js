@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {deadEnd, evidenceOf, useReporter} from '../../extension/ladder/dead-end.js';
+import {EVIDENCE_KEYS, deadEnd, evidenceOf, useReporter} from '../../extension/ladder/dead-end.js';
 
 const EXTENSION = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../extension');
 const jsFiles = dir => fs.readdirSync(dir, {withFileTypes: true}).flatMap(entry => (entry.isDirectory() ? jsFiles(path.join(dir, entry.name)) : entry.name.endsWith('.js') ? [path.join(dir, entry.name)] : []));
@@ -25,7 +25,7 @@ test('no file reports a give-up but through the door: stuck() is called nowhere,
   assert.equal((flow.match(/useReporter\(stuck\)/g) || []).length, 1, 'fill-flow.js hands stuck to the door once');
 });
 
-test('the door sends today\'s report unchanged, names the ending in the log, and keeps an unknown reason as no-form', async () => {
+test('the door sends today\'s report unchanged, names the ending in the log, and an unknown reason claims nothing (other, never no-form)', async () => {
   const sent = [], logged = [];
   useReporter(async (...args) => { sent.push(args); });
   const decide = (area, what, data) => logged.push({area, what, data});
@@ -35,8 +35,8 @@ test('the door sends today\'s report unchanged, names the ending in the log, and
   assert.deepEqual(sent, [
     ['https://jobs.example/1', 'jobs.example', 'site_broken', 3, 'https://jobs.example/1#m', 'This posting is gone: the site answered 404', ''],
     ['https://jobs.example/2', 'jobs.example', 'account', 3, 'https://jobs.example/2', '', 'sign_in'],
-    ['https://jobs.example/3', 'jobs.example', 'no-form', 3, 'https://jobs.example/3', '', '']]);
-  assert.deepEqual(logged.map(line => line.what), ['dead end: site_broken', 'dead end: account', 'dead end: no-form']);
+    ['https://jobs.example/3', 'jobs.example', 'other', 3, 'https://jobs.example/3', '', '']]);
+  assert.deepEqual(logged.map(line => line.what), ['dead end: site_broken', 'dead end: account', 'dead end: other']);
   assert.deepEqual(logged.map(line => line.data.ending), ['site_broken', 'unresolved', 'unresolved']);
   assert.deepEqual(logged[0].data, {host: 'jobs.example', ending: 'site_broken', named: true, kind: 'gone', status: 404});
   assert.equal(logged[1].data.named, false);
@@ -46,4 +46,20 @@ test('evidence keeps numbers, booleans and short words of ours; page text, addre
   assert.deepEqual(evidenceOf({role: 'no-form', rung: 2, signal: 'confident', botCheck: true, left: 3, missing: undefined, nope: null}), {role: 'no-form', rung: 2, signal: 'confident', botCheck: true, left: 3});
   const dropped = evidenceOf({need: 'Send your CV to jane@company.example', url: 'https://jobs.example/1?x=1', long: 'x'.repeat(41), list: ['a'], 'bad-key': 1, nan: Number.NaN, quote: 'Bitte "bewerben" Sie sich'});
   assert.deepEqual(dropped, {});
+});
+
+test('evidence keys are a fixed list: a key outside it never reaches the log, and text only under the keys that hold our own words', () => {
+  assert.deepEqual(evidenceOf({label: 'First name', field: 'Email', host: 'jobs.example', rung: 2}), {rung: 2}, 'a page word under a new key is dropped');
+  assert.deepEqual(evidenceOf({left: 'three', status: 'gone', filled: 2, reason: 'no saved password'}), {filled: 2, reason: 'no saved password'}, 'text under a number key is dropped');
+});
+
+// The class (owner rule: a fix covers every sibling): every caller's evidence keys are on the list, so a dropped key is never a silent loss.
+test('every evidence key a caller passes is listed', () => {
+  const read = file => fs.readFileSync(path.join(EXTENSION, file), 'utf8');
+  const keysOf = object => [...object.matchAll(/(?:^|[{,])\s*([A-Za-z]+)\s*(?=[:,}])/g)].map(found => found[1]);
+  const passed = new Set();
+  for (const [, object] of read('fill-flow.js').matchAll(/\b(?:deadEndHere|noteProgress)\([^;]*?(\{[^{}]*\})\)/g)) keysOf(object).forEach(key => passed.add(key));
+  for (const [, object] of read('account-step.js').matchAll(/\bdeadEnd\(\{[^{}]*\}, (\{[^{}]*\})/g)) keysOf(object).forEach(key => passed.add(key));
+  assert.ok(passed.has('role') && passed.has('status') && passed.has('reason') && passed.has('fields'), [...passed].join(', '));
+  assert.deepEqual([...passed].filter(key => !EVIDENCE_KEYS.includes(key)), [], 'add the key to EVIDENCE_KEYS (extension/ladder/dead-end.js), numbers or our own words only');
 });

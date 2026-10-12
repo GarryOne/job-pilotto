@@ -207,7 +207,7 @@ A test source claimed without the key is dropped and flagged (`ladder-source`), 
 - [x] page-level ending tests: a bot check that clears, a sign-in then the form, apply by email; every stuck reason maps to an ending; handed resumes (#516)
 - [x] site_broken: an error page is retried, then reported as site_broken; its page-level ending test (#524)
 ### 5. Phase 2: the fallback at each dead end, in shadow
-- [ ] one dead-end door: every give-up in `consider()` goes through `deadEnd(reason, evidence)`; a guard test
+- [x] one dead-end door: every give-up in `consider()` goes through `deadEnd(reason, evidence)`; a guard test (#525)
 - [ ] silent dead ends: the one progress rule, its T measured on the CI pool
 - [ ] the dead-end detector measured: recall and false fires on the pool's ground truth
 - [ ] the one question at each dead end, in shadow, logged beside what happened

@@ -7,15 +7,19 @@ import {STUCK_REASONS, endingOfStuck} from './endings.js';
 let report = async () => {};
 export const useReporter = fn => { report = fn; };
 
-// Evidence: our own facts about the stop, never the page's words: numbers, booleans and short words of ours (a role, a kind, a signal, a reason of the code).
+// Evidence: our own facts about the stop, never the page's words. The keys a caller may log are a fixed list (cc's review, 12 Oct 2026: so a page word can never reach the log
+// through a new caller): text only under the keys that hold our own fixed words (a role, a kind, a signal, a step, a reason of the code), numbers and booleans under the rest.
+// Any other key is dropped. A new kind of evidence is a new key here, with its test (worker/test/dead-end.test.js checks every caller's keys are listed).
+export const EVIDENCE_KEYS = ['role', 'kind', 'signal', 'step', 'reason', 'rung', 'status', 'left', 'fields', 'frames', 'filled', 'botCheck', 'pressed', 'aiNamed'];
+const WORD_KEYS = new Set(['role', 'kind', 'signal', 'step', 'reason']);
 const WORD = /^[a-z0-9][a-z0-9 _.-]{0,39}$/i;
 export function evidenceOf(raw = {}) {
   const kept = {};
   for (const [key, value] of Object.entries(raw || {})) {
-    if (!/^[a-zA-Z]{1,24}$/.test(key)) continue;
+    if (!EVIDENCE_KEYS.includes(key)) continue;
     if (typeof value === 'number' && Number.isFinite(value)) kept[key] = value;
     else if (typeof value === 'boolean') kept[key] = value;
-    else if (typeof value === 'string' && WORD.test(value)) kept[key] = value;
+    else if (typeof value === 'string' && WORD_KEYS.has(key) && WORD.test(value)) kept[key] = value;
   }
   return kept;
 }
@@ -23,7 +27,7 @@ export function evidenceOf(raw = {}) {
 // stop: {job, host, why, tabId, page, needs, accountStep}: what stuck() is sent, as today. evidence: what led here (fixed values). decide: the log.
 // -> the report's promise (a caller that did not wait for the report before does not wait now).
 export function deadEnd(stop, evidence = {}, decide = () => {}) {
-  const why = STUCK_REASONS.includes(stop.why) ? stop.why : 'no-form';
+  const why = STUCK_REASONS.includes(stop.why) ? stop.why : 'other';   // an unknown stop claims nothing: not 'no form' (cc's review), the ladder's 'nothing usable to say'
   const named = !!String(stop.needs || '').trim();   // whether the person is told exactly what to do (never the words: desktop/e2e/lib/ending.mjs reads this line)
   decide('fill', `dead end: ${why}`, {host: stop.host || '', ending: endingOfStuck(why, stop.needs), named, ...evidenceOf(evidence)});
   return report(stop.job, stop.host, why, stop.tabId, stop.page, stop.needs || '', stop.accountStep || '');
