@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
-import {functionSource} from '../ladder-capture.mjs';
+import {functionSource, loadReader} from '../ladder-capture.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 let chromium = null;
@@ -38,6 +38,7 @@ test('every picklist shape reads chosen or not in the judges\' sketch, and the f
   try {
     const page = await browser.newPage();
     await page.setContent(`<!doctype html><html><body><form>${SHAPES.map(([, html]) => html).join('\n')}</form></body></html>`);
+    await loadReader(page);   // the one control reader, as the extension loads it before the sketch (judge-sketch.js)
     const sketch = await page.evaluate(functionSource('account-fill.js', 'export function accountSketch'));
     assert.equal(sketch.controls.length, SHAPES.length, 'one control per shape');
     await page.addScriptTag({content: fs.readFileSync(path.join(root, 'extension/page/browser-form-fastpath.js'), 'utf8')});

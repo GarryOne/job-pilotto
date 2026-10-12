@@ -18,6 +18,7 @@ import {candidatesFromRequest, readAiCalls, requestOf, sketchFromRequest} from '
 import {DIR, loadFixtures} from './lib/ladder-fixtures.mjs';
 import {noEmail, noPhone} from './lib/ladder-scrub.mjs';
 import {frameSketch} from '../../extension/ladder/climb.js';
+import {READER_FILES} from '../../extension/judge-sketch.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const E2E = path.dirname(fileURLToPath(import.meta.url));
@@ -41,8 +42,13 @@ export function functionSource(file, header) {
   for (let at = text.indexOf('{', start); at < text.length; at++) { if (text[at] === '{') depth++; else if (text[at] === '}' && --depth === 0) { end = at + 1; break; } }
   return `(${text.slice(start, end).replace(/^export\s+/, '')})()`;
 }
+// The one control reader (extension/page/read-back.js and the typed-box rule it uses), loaded into the page before the judges' sketch, as the extension does (judge-sketch.js).
+export async function loadReader(page) {
+  for (const file of READER_FILES) await page.addScriptTag({content: fs.readFileSync(path.join(ROOT, 'extension', file), 'utf8')});
+}
 // What the judges are shown (extension/account-fill.js accountSketch: controls with their state, never their values), the page's own `at` positions dropped; fromPath/sameForm from the fixture (a result question).
 export async function judgeSketchOf(page, capture = {}) {
+  await loadReader(page);
   const found = await page.evaluate(functionSource('account-fill.js', 'export function accountSketch'));
   const {url: _url, ...rest} = found;   // the fixture's own url (query-free) is written by the caller
   return {...rest, controls: found.controls.map(({at: _at, ...control}) => control), ...(capture.fromPath ? {fromPath: capture.fromPath} : {}), ...(capture.sameForm ? {sameForm: capture.sameForm} : {})};

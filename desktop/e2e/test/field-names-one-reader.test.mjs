@@ -39,6 +39,6 @@ test('every place that names a field uses the fill kit\'s reader when the page h
 
 test('the form judge asks for its sketch and its layer in the page\'s own world, where the kit lives', () => {
   const source = read('form-ready.js');
-  assert.match(source, /accountSketch, \[\], 'MAIN'/);
+  assert.match(source, /sketchOf\(tab\.id, frameId, 'MAIN'\)/);   // the sketch through judge-sketch.js, which loads the one control reader into that world first
   assert.match(source, /onTop, \[\], 'MAIN'/);
 });
