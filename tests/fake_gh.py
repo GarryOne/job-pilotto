@@ -2,6 +2,7 @@
 With auto-merge on and no failing check pending, `gh pr view` merges the PR's branch into origin's main (rebased, like GitHub's rebase merge). Not a test module."""
 import json
 import os
+import pathlib
 import subprocess
 import sys
 import tempfile
@@ -27,7 +28,7 @@ def git(*args, cwd=None):
 
 def merge():
     work = tempfile.mkdtemp()
-    git('clone', '-q', '--no-hardlinks', state['origin'], work)   # a hardlinked clone races a pack being written (CI, 12 Oct 2026: "hardlink different from source")
+    git('clone', '-q', pathlib.Path(state['origin']).as_uri(), work)   # file:// (the pack protocol): a plain-path clone copies origin's pack folder while a push's background gc writes in it (CI, 12 Oct 2026)
     git('config', 'user.email', 't@example.com', cwd=work); git('config', 'user.name', 'Test', cwd=work)
     git('checkout', '-q', state['head'], cwd=work)
     git('rebase', '-q', 'origin/main', cwd=work)
