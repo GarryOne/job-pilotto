@@ -16,7 +16,7 @@ import {CAPS} from './rung4-picture.js';
 import {OUTCOMES} from './rung3-digest.js';
 import {KINDS} from './rung2-sketch.js';
 
-const SIGNALS = ['confident', 'unsure', 'contradicted', 'stalled', 'failed'];   // as extension/ladder/core.js SIGNALS (a classic script, not importable here)
+const SIGNALS = ['confident', 'unsure', 'contradicted', 'stalled', 'failed', 'blind'];   // as extension/ladder/core.js SIGNALS (a classic script, not importable here)
 const MIN_RUNG = 3, MAX_RUNG = 6, MAX_SHAPES = 500;   // kept: rungs 3-6; counted: 0-6
 export const SHAPE = /^[a-z0-9._-]{1,80}(\/[a-z0-9._*-]{0,60}){0,8}\|[a-z0-9+-]{1,12}$/;   // host / path template | build (rung1-kept.js pageBuild: 'pft8+'): no query, no space, no @, no sentence
 const count = value => (Number.isInteger(value) && value >= 0 ? Math.min(value, 1e6) : 0);

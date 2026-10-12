@@ -12,7 +12,7 @@ export const rank = step => STEPS.indexOf(step);
 
 // The AI ladder's rung (0 to 6) of a decision, read from the app's own log lines (docs/flows/ladder.md); the app's exact line `ladder: rung N signal S` overrides what is derived.
 const BY_RUNG = {ai: 2, remembered: 1, 'structure rule': 0};
-const SIGNALS = ['unsure', 'contradicted', 'stalled', 'failed'];
+const SIGNALS = ['unsure', 'contradicted', 'stalled', 'failed', 'blind'];
 
 // The rung and signal a site's upload row carries (absent = unknown; the site drops anything else).
 export const rungFields = result => ({...(result?.rung != null ? {rung: result.rung} : {}), ...(result?.signal ? {signal: result.signal} : {})});

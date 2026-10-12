@@ -3,11 +3,13 @@
 // not confident hands the page to the next rung that is on and not capped, and the top is the person. The caps and the switches are the caller's (desktop/lib/ladder.js).
 // Invariants (flow core: read before editing; changing one is the owner's call, said in the commit; each names the test that guards it):
 //  1. Rungs and signals are fixed lists; the log line is exactly `ladder: rung N signal S` (job-pilotto-b8's admin parser reads it) and is empty for a confident rung (desktop/test/ladder-core.test.js).
+//     Every copy of the signal list equals this one (desktop/test/ladder-signal-copies.test.js). 'blind' added with the owner's OK (13 Oct 2026, spec 2026-10-12-one-next-move.md box 6):
+//     the answer said the control it needs is not in the list it was given, so no text rung can see it: it goes straight to the picture.
 //  2. Only a signal that is not confident climbs; a rung that is off or capped is skipped, never asked (desktop/test/ladder-core.test.js).
 //  3. The router never starts Claude's takeover (rung 5): after the picture comes the person, who is offered it (desktop/test/ladder-core.test.js).
 //  4. An unknown rung or signal is never guessed: it goes to the person (desktop/test/ladder-core.test.js).
 export const RUNGS = {structure: 0, kept: 1, sketch: 2, digest: 3, picture: 4, takeover: 5, person: 6};
-export const SIGNALS = ['confident', 'unsure', 'contradicted', 'stalled', 'failed'];
+export const SIGNALS = ['confident', 'unsure', 'contradicted', 'stalled', 'failed', 'blind'];
 const PERSON = RUNGS.person;
 // The rungs the router may ask, in order. 0 (structure) is the floor, not a step up; 5 is offered to the person, never started here.
 const CLIMB = [RUNGS.kept, RUNGS.sketch, RUNGS.digest, RUNGS.picture];
@@ -18,7 +20,7 @@ export function nextRung(args) {
   const known = Object.values(RUNGS).includes(rung) && SIGNALS.includes(signal);
   if (!known) return {rung: PERSON, climbed: true, from: rung, signal};   // invariant 4
   if (signal === 'confident' || rung === PERSON) return {rung, climbed: false};
-  const next = CLIMB.find(one => one > rung && !off.includes(one) && !capped.includes(one));
+  const next = CLIMB.find(one => one > rung && (signal !== 'blind' || one === RUNGS.picture) && !off.includes(one) && !capped.includes(one));   // blind: no text rung can see it
   return {rung: next ?? PERSON, climbed: true, from: rung, signal};
 }
 

@@ -6,7 +6,7 @@ import {RUNGS, SIGNALS, ladderLine, nextRung} from '../../extension/ladder/core.
 
 test('the rungs and signals are fixed lists (the admin page and the log parser read these exact values)', () => {
   assert.deepEqual(Object.values(RUNGS), [0, 1, 2, 3, 4, 5, 6]);
-  assert.deepEqual(SIGNALS, ['confident', 'unsure', 'contradicted', 'stalled', 'failed']);
+  assert.deepEqual(SIGNALS, ['confident', 'unsure', 'contradicted', 'stalled', 'failed', 'blind']);
 });
 
 test('a confident rung stays: nothing climbs', () => {
@@ -54,7 +54,7 @@ test('the log line has the one shape the admin page parses, and says nothing for
   assert.equal(ladderLine({rung: 4, signal: 'stalled'}), 'ladder: rung 4 signal stalled');
   assert.equal(ladderLine({rung: 2, signal: 'confident'}), '');
   assert.equal(ladderLine({rung: 2, signal: 'bogus'}), '');
-  for (const rung of [0, 1, 2, 3, 4, 5, 6]) for (const signal of SIGNALS.filter(one => one !== 'confident')) assert.match(ladderLine({rung, signal}), /^ladder: rung [0-6] signal (unsure|contradicted|stalled|failed)$/);
+  for (const rung of [0, 1, 2, 3, 4, 5, 6]) for (const signal of SIGNALS.filter(one => one !== 'confident')) assert.match(ladderLine({rung, signal}), /^ladder: rung [0-6] signal (unsure|contradicted|stalled|failed|blind)$/);
 });
 
 test('every judge answers with the same fixed signals: an account judgment, the closer look, anything unknown', async () => {
@@ -67,4 +67,13 @@ test('every judge answers with the same fixed signals: an account judgment, the 
   for (const action of ['none', 'ask_person']) assert.equal(signalOf({action}), 'unsure', `${action} hands the page up`);
   for (const nothing of [null, undefined, {}, 'x', 3]) assert.ok(SIGNALS.includes(signalOf(nothing)), 'never a value outside the fixed list');
   assert.equal(signalOf(null), 'failed');
+});
+
+test('blind (the control is not in the list the rung was given) skips the text rungs: the picture when it is on, else the person', () => {
+  assert.deepEqual(nextRung({rung: 2, signal: 'blind'}), {rung: 4, climbed: true, from: 2, signal: 'blind'}, 'not the digest: its list is text too');
+  assert.deepEqual(nextRung({rung: 3, signal: 'blind'}), {rung: 4, climbed: true, from: 3, signal: 'blind'});
+  assert.equal(nextRung({rung: 2, signal: 'blind', off: [4]}).rung, 6, 'the picture off: the person, never a guess');
+  assert.equal(nextRung({rung: 2, signal: 'blind', capped: [4]}).rung, 6);
+  assert.equal(nextRung({rung: 4, signal: 'blind'}).rung, 6);
+  assert.equal(nextRung({rung: 2, signal: 'unsure'}).rung, 3, 'other signals climb as before');
 });
