@@ -137,11 +137,11 @@ class TheShapesItWasMeasuredOn(unittest.TestCase):
 
 
 class WhenInDoubtItRuns(unittest.TestCase):
-    def test_the_jobs_plumbing_and_root_dependencies_run_every_job(self):
+    def test_the_jobs_plumbing_and_root_dependencies_run_every_job_but_the_own_only_ones(self):
         for f in ('tools/affected-jobs.py', 'tools/affected-tests.py', 'tools/replay-files.mjs', 'tools/ci-needed.sh', 'tools/check.py', '.github/workflows/build.yml',
                   '.github/workflows/pr-gate.yml', '.github/workflows/recorded-pages.yml', '.github/workflows/widget-zoo.yml', 'package.json', 'requirements.txt',
                   'eslint.config.mjs', 'something/new.bin', '.claude/settings.json'):
-            self.assertTrue(all(jobs.reasons([f]).values()), f)
+            self.assertTrue(all(why for job, why in jobs.reasons([f]).items() if job not in jobs.OWN_ONLY), f)   # OWN_ONLY: only what they load (the flow e2e)
 
     def test_a_test_that_lists_the_whole_repo_runs_its_job_for_any_file(self):
         self.assertIn('lists the whole repo', jobs.reasons(['site/public/robots.txt'])['desktop'])   # file-size.test.js: git ls-files, no folder
@@ -181,12 +181,23 @@ class WhenInDoubtItRuns(unittest.TestCase):
     def test_the_flow_e2e_runs_for_the_extension_the_flow_files_and_its_suites_only(self):
         flow = jobs.loads('e2e-flow')
         self.assertTrue(flow, 'node lists what the flow suites load')
-        for path in ('extension/', 'desktop/lib/apply.js', 'desktop/lib/session-flow.js', 'desktop/e2e/suites/apply.mjs', 'desktop/e2e/suites/applycv.mjs', 'desktop/e2e/lib/apply-cv-steps.mjs', 'desktop/e2e/fixtures/'):
+        for path in ('extension/', 'desktop/lib/apply.js', 'desktop/lib/session-flow.js', 'desktop/e2e/suites/apply.mjs', 'desktop/e2e/suites/applycv.mjs', 'desktop/e2e/lib/apply-cv-steps.mjs', 'desktop/e2e/fixtures/real-forms/'):
             self.assertIn(path, flow, path)
         self.assertTrue(jobs.reasons(['extension/fill-flow.js'])['e2e-flow'])
         self.assertTrue(jobs.reasons(['.github/workflows/e2e.yml'])['e2e-flow'], 'the workflow it calls')
         for f in ('docs/rules/applying.md', 'desktop/renderer/pages/activity.js', 'worker/src/index.js', 'desktop/e2e/suites/jobs.mjs'):
             self.assertIsNone(jobs.reasons([f])['e2e-flow'], f)
+
+    def test_the_flow_e2e_runs_only_where_it_is_really_relevant(self):
+        # Owner, 13 Oct 2026 (#558, a pick-only PR, ran both suites: "NOT ACCEPTABLE"): the plumbing, root dependencies, lock files, unknown files and the app's
+        # other modules run the required jobs, never the flow e2e and its live canary; main's schedule is their backstop.
+        for f in ('tools/affected-jobs.py', 'tools/ci-needed.sh', '.github/workflows/pr-gate.yml', 'tests/test_affected_jobs.py', 'package.json', 'requirements.txt',
+                  'desktop/package-lock.json', 'desktop/e2e/package-lock.json', 'some-new-folder/x.txt', 'desktop/lib/server.js', 'desktop/lib/notion.js'):
+            self.assertIsNone(jobs.reasons([f])['e2e-flow'], f)
+        self.assertEqual(jobs.reasons(['tools/affected-jobs.py'])['desktop'], 'tools/affected-jobs.py runs every job', 'the required jobs still run whole on a plumbing change')
+        for f in ('extension/fill-flow.js', 'desktop/lib/apply.js', 'desktop/e2e/suites/applycv.mjs', 'desktop/e2e/lib/apply-journeys.mjs', 'desktop/e2e/fixtures/real-forms/x.html',
+                  '.github/workflows/e2e.yml', '.github/workflows/flow-canary.yml'):
+            self.assertTrue(jobs.reasons([f])['e2e-flow'], f)
 
     def test_every_file_a_harness_test_reads_runs_the_harness(self):
         # The brief's guard: a harness test that reads a product file the pick does not map to it would let a PR skip the harness and break main.

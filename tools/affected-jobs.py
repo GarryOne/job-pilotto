@@ -36,8 +36,11 @@ JOBS = {
     'harness': (('desktop/e2e/test', '*.test.mjs'), ('desktop/e2e/', 'desktop/scripts/stage.mjs') + APP_INSTALL),
     'replays': (None, APP_INSTALL + E2E_INSTALL),
     'zoo': (None, ('desktop/scripts/stage.mjs',) + APP_INSTALL + E2E_INSTALL),
-    'e2e-flow': (None, APP_INSTALL + E2E_INSTALL + ('.github/workflows/e2e.yml', '.github/workflows/e2e-flow.yml', '.github/workflows/flow-canary.yml', '.github/workflows/pool-smoke.yml')),   # optional (tests OPTIONAL): apply + applycv and the live canary on flow PRs
+    'e2e-flow': (None, ('.github/workflows/e2e.yml', '.github/workflows/e2e-flow.yml', '.github/workflows/flow-canary.yml', '.github/workflows/pool-smoke.yml')),   # optional (tests OPTIONAL): apply + applycv and the live canary on flow PRs
 }
+# Jobs that run ONLY for what they load and their own files (owner, 13 Oct 2026: "only the specific cases, when it's really relevant"): never for the plumbing,
+# root dependencies, lock files or an unknown file that run every other job whole. Main's schedule is their backstop for those.
+OWN_ONLY = ('e2e-flow',)
 STAGES = ('harness', 'zoo')   # the jobs that run desktop/scripts/stage.mjs --files-only: what it copies into desktop/shared counts as theirs
 # What runs the jobs themselves: a change to one runs every job whole.
 PLUMBING = re.compile(r'^(tools/(affected-(tests|jobs)\.py|replay-files\.mjs|ci-needed\.sh|check\.(sh|py)|py-shards\.py)|\.github/workflows/(build|pr-gate|recorded-pages|widget-zoo)\.yml)$')
@@ -218,7 +221,7 @@ def reason(job, changed):
         return 'no changed file listed: run'
     every = next((f for f in changed if PLUMBING.match(f) or f == 'tests/test_0_notion_ids.py' or (pick.ALL_TRIGGERS.search(f) and not pick.SCOPED_DEPS.match(f))
                   or not (f.startswith(pick.KNOWN) or pick.NO_TEST_EFFECT.search(f))), None)
-    if every:
+    if every and job not in OWN_ONLY:
         return f'{every} runs every job'
     tests, own = JOBS[job]
     hit = next((f for f in changed if under(f, own) or f.startswith(own)), None)
