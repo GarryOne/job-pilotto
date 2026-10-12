@@ -29,7 +29,7 @@ class StopHookChangedOnlyTest(unittest.TestCase):
         (self.repo / 'desktop' / 'node_modules').mkdir(parents=True)
         (self.repo / 'desktop' / 'lib.js').write_text('1\n')
         (self.repo / 'src' / 'daily.py').write_text('x = 2\n')   # an uncommitted change: the hook would test it if the session had made it
-        self.env = {**os.environ, 'TMPDIR': str(self.tmp), 'JOB_PILOTTO_CHECK_SLOTS': '0'}
+        self.env = {**os.environ, 'TMPDIR': str(self.tmp), 'JOB_PILOTTO_CHECK_SLOTS': '0', 'STOP_CHECK_SUITES': '1'}   # the suites (off by default since 13 Oct 2026)
         self.env.pop('JOB_PILOTTO_SESSION', None)
 
     def stop(self, transcript_lines, **env):
@@ -86,6 +86,16 @@ class StopHookChangedOnlyTest(unittest.TestCase):
         result = self.stop([self.edit(self.repo / 'README.md'), self.edit(self.repo / '.claude' / 'skills' / 'x' / 'SKILL.md')])
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(self.marker.exists(), 'text only: no test run')
+
+
+    def test_by_default_a_stop_runs_no_suite(self):
+        # Owner, 13 Oct 2026: CI runs every suite on the PR; the hook re-ran them at each stop on a loaded Mac. Default: no suite; STOP_CHECK_SUITES=1 brings them back.
+        hook = (Path(__file__).resolve().parent.parent / 'tools' / 'stop-test-check.sh').read_text()
+        self.assertIn('[ "${STOP_CHECK_SUITES:-0}" = 1 ] || exit 0', hook)
+        payload = json.dumps({'cwd': str(self.repo), 'transcript_path': ''})
+        env = {k: v for k, v in self.env.items() if k != 'STOP_CHECK_SUITES'}
+        result = subprocess.run(['bash', str(self.repo / 'tools' / 'stop-test-check.sh')], input=payload, capture_output=True, text=True, timeout=30, env=env)
+        self.assertEqual((result.returncode, result.stderr.strip()), (0, ''))
 
 
 if __name__ == '__main__':
