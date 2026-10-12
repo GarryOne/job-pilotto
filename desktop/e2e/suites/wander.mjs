@@ -41,7 +41,17 @@ export async function run(ctx) {
     });
   };
   const hasNav = () => ctx.page.locator('.nav[data-view]').first().isVisible().catch(() => false);   // setup left half-way hides the menu: only the setup steps can be pressed
-  const goto = async view => { if (await hasNav()) await ctx.page.click(`.nav[data-view="${view}"]`, {timeout: 5000}); };
+  // A modal dialog left open by an earlier step covers the menu, as it should: a person closes it (Escape) and goes on. A dialog that does not close that way is the finding.
+  const goto = async view => {
+    if (!await hasNav()) return;
+    const click = () => ctx.page.click(`.nav[data-view="${view}"]`, {timeout: 5000});
+    try { await click(); } catch (error) {
+      if (!await ctx.page.locator('dialog[open]').count()) throw error;
+      await ctx.page.keyboard.press('Escape');
+      await ctx.page.locator('dialog[open]').first().waitFor({state: 'hidden', timeout: 5000}).catch(() => { throw new Error(`a modal dialog left open does not close on Escape, so the menu stays covered (${error.message.split('\n')[0]})`); });
+      await click();
+    }
+  };
   // The page still answers, and what it shows is not technical text or a broken layout. `where` names the step in a finding.
   const check = async where => {
     const alive = await Promise.race([ctx.page.evaluate(() => 1 + 1), new Promise(resolve => setTimeout(() => resolve(null), 8000))]);
