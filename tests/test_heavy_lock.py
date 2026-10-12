@@ -16,6 +16,15 @@ class HeavyLockTest(HeavyLockFixture):
         self.assertRegex(result.stdout, r'held=\d+')
         self.assertFalse((self.tmp / 'heavy' / 'lock').exists(), 'freed afterwards')
 
+    def test_a_python_that_cannot_make_a_group_never_hides_the_exit_code(self):
+        # Windows: os.setpgid is missing and os.execvp starts the command and ends at once with 0. Stand-in python3: no setpgid, and a "run" that ends 0 without running anything.
+        fake = self.tmp / 'fakebin'
+        fake.mkdir()
+        (fake / 'python3').write_text('#!/bin/bash\ncase "$*" in *setpgid*) exit 1;; esac\nexit 0\n')
+        (fake / 'python3').chmod(0o755)
+        result = self.run_lock('suite', 'bash', '-c', 'exit 7', PATH=f"{fake}{os.pathsep}{self.env['PATH']}")
+        self.assertEqual(result.returncode, 7, result.stdout + result.stderr)
+
     def test_two_runs_never_overlap_and_the_second_says_who_holds_it(self):
         trace, go = self.tmp / 'trace', self.tmp / 'go'
         body = f'echo start >> {trace}; while [ ! -f {go.as_posix()} ]; do sleep 0.05; done; echo end >> {trace}'

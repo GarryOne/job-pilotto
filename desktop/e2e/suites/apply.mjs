@@ -134,7 +134,7 @@ export async function runApply(ctx, parts) {
     while (ctx.browser.opened.length === opened && Date.now() < deadline) await pause(250);
     if (ctx.browser.opened.length === opened) throw new Error(`Apply did not open ${form.title} in the browser (the app's open command was never called)`);
     const url = ctx.browser.opened.at(-1);
-    if (!url.endsWith('#jobpilotto-fill')) throw new Error(`Apply opened ${url} without the fill marker the extension looks for`);
+    if (!/#jobpilotto-fill=[A-Za-z0-9_-]+$/.test(url)) throw new Error(`Apply opened ${url} without the fill marker that names its session (every tab the app opens carries one: lib/session-tab.js)`);
     const tab = ctx.browser.pages[url.split('#')[0]];
     for (let waited = 0; waited < 90000; waited += 500) {
       const state = await fillState(tab).catch(() => null);

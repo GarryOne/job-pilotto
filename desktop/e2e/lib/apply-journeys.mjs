@@ -108,7 +108,7 @@ export async function runJourneys(ctx, h) {
   }, {needs: ctx.needs});
 
   // Account creation and the application form kept apart (owner, 8 Oct 2026). The posting's Apply leads to a sign-up page: the extension leaves it alone and
-  // the session shows the account step, no form progress. The test, as the person, creates the account; the form behind it is filled from the kit and the
+  // the session shows the account step, no form progress (since 12 Oct 2026 the extension fills the page's detail fields by meaning, and presses neither the box nor the button). The test, as the person, creates the account; the form behind it is filled from the kit and the
   // session moves on to the form. Nothing typed on the sign-up page is learned as an answer or a fill miss, and "Create account" is not the application sent.
   await ctx.run('a sign-up page before the form: the account step is kept apart from the application form', async () => {
     const appLog = () => appLogText(ctx.profile);
@@ -122,7 +122,8 @@ export async function runJourneys(ctx, h) {
     for (let waited = 0; waited < 30000 && at?.stage !== 'account'; waited += 1000) { at = await session(); await pause(1000); }
     const problems = [];
     if (at?.stage !== 'account') problems.push(`on the sign-up page the session is not at the account step (stage: ${at?.stage}, stuck: ${at?.stuck})`);
-    if (await tab.locator('#signup_email').inputValue() !== '') problems.push('the extension filled the sign-up page (it must leave account pages to the person or Claude)');
+    // Every account page gets the normal fill (owner, 12 Oct 2026, 8691f97): the person's details by meaning may be in; what stays the person's or Claude's is the box and the button (the password is account-step.js's, as a password manager's).
+    if (await tab.locator('#robot').isChecked()) problems.push('the extension ticked the sign-up page\'s box (it must leave that to the person)');
     // The person creates the account: typed fields (trusted input), the box ticked, Create account pressed.
     await tab.fill('#signup_email', 'e2e.person@example.com');
     await tab.fill('#signup_username', 'e2e-person');

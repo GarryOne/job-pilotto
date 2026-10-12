@@ -201,7 +201,8 @@ if [ "$yield_mode" = 1 ]; then say "$what has its place back after ${waited_s}s"
 say "$what runs (pid $$)"
 run_began=$(date +%s); code=0
 # The command runs in its own process group (not when a terminal is attached: Ctrl-C and reads need the shared group), recorded in the slot; a cancel (EXIT/TERM/INT/HUP) kills the whole group.
-if [ ! -t 0 ] && command -v python3 >/dev/null; then
+# Only where Python can make a group (os.setpgid): on Windows its os.execvp starts the command and ENDS, so `wait` returned 0 at once and a green job hid a suite still running (12 Oct 2026, Windows apply + applycv).
+if [ ! -t 0 ] && command -v python3 >/dev/null && python3 -c 'import os, sys; sys.exit(0 if hasattr(os, "setpgid") else 1)' 2>/dev/null; then
   JP_HEAVY_HELD=$$ python3 -c 'import os, sys
 if hasattr(os, "setpgid"): os.setpgid(0, 0)
 try: os.execvp(sys.argv[1], sys.argv[1:])
