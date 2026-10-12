@@ -30,7 +30,10 @@ test('every "can\'t reach" reason names its ending: told for the page\'s own way
 test('every reason the extension sends with a "can\'t reach" report is a listed reason', () => {
   const read = file => fs.readFileSync(new URL(`../../extension/${file}`, import.meta.url), 'utf8');
   const sent = new Set();
-  for (const file of ['fill-flow.js', 'account-step.js']) for (const call of read(file).match(/(?<!function )\bstuck\([^;]*\)/g) || []) for (const [, word] of call.matchAll(/'([a-z][a-z_-]*)'/g)) sent.add(word);
+  for (const file of ['fill-flow.js', 'account-step.js']) {   // every give-up goes through ladder/dead-end.js: deadEndHere(tab, jobUrl, host, '<why>', ...) or deadEnd({why: '<why>', ...})
+    for (const call of read(file).match(/\bdeadEndHere\([^;]*\)/g) || []) for (const [, word] of call.matchAll(/'([a-z][a-z_-]*)'/g)) sent.add(word);
+    for (const [, word] of read(file).matchAll(/\bwhy: '([a-z][a-z_-]*)'/g)) sent.add(word);
+  }
   for (const file of ['ladder/outcomes.js', 'ladder/climb.js']) for (const [, word] of read(file).matchAll(/\bwhy: '([a-z][a-z-]*)'/g)) sent.add(word);
   assert.ok(sent.has('no-form') && sent.has('email') && sent.has('other') && sent.has('site_broken'), [...sent].join(', '));
   assert.deepEqual([...sent].filter(word => !STUCK_REASONS.includes(word)), [], 'add the new reason to STUCK_REASONS (extension/ladder/endings.js) with its ending, and to the app (desktop/lib/session-flow.js)');

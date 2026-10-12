@@ -14,7 +14,7 @@ export const isEnding = value => ENDINGS.includes(value);
 // The resolution score's numerator: every ending but 'unresolved' (the person knows exactly what is left, or the site is out of our hands).
 export const resolved = value => isEnding(value) && value !== UNRESOLVED;
 
-// The ending each "can't reach" reason names (extension/fill-flow.js and account-step.js stuck(); the app reads the same reasons: desktop/lib/session-flow.js). A wall is 'handed'
+// The ending each "can't reach" reason names (every give-up's report, through ladder/dead-end.js deadEnd; the app reads the same reasons: desktop/lib/session-flow.js). A wall is 'handed'
 // only when the run names exactly what the person must do (needs: a bot check, the account step's need); with no named need it is a stop with no reason. Guard: worker/test/endings.test.js
 // fails when the extension sends a reason that is not here.
 export const STUCK_REASONS = ['email', 'told', 'other', 'account', 'no-form', 'incomplete', 'site_broken'];

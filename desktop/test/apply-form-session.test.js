@@ -156,6 +156,6 @@ test('a page with a bot check in front says what the person must do, on the card
   const flow = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta.url), 'utf8');
   assert.match(flow, /const botCheck = role === 'no-form' && kind\?\.botCheck === true;/);
   assert.match(flow, /watchForFields\(tab, jobUrl, undefined, botCheck \? 60 : 10, counts\?\.frameHosts \|\| \[\]\)/);
-  assert.match(flow, /tab\.url, botCheck \? BOT_CHECK_NEED : ''\);/);
+  assert.match(flow, /deadEndHere\(tab, jobUrl, host, role === 'account' \? 'account' : 'no-form', botCheck \? BOT_CHECK_NEED : '',/, 'the no-form dead end carries the bot check\'s need');
   assert.match(flow, /frames: \[\.\.\.new Set\(frames\)\]\.slice\(0, 5\)/, 'the sketch carries the visible frames\' hosts');
 });

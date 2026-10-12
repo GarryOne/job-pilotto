@@ -72,7 +72,7 @@ test('the application flow closes a cookie banner before it reads the page, only
 test('the fill ends in a stuck report when nothing was filled and required fields are left; the CV reason says what happened', () => {
   const flow = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta.url), 'utf8');
   assert.match(flow, /!\(result\?\.filled > 0\) && result\?\.unfilledRequired > 0 && open\.length/);
-  assert.match(flow, /host, 'incomplete', tab\.id/);
+  assert.match(flow, /deadEndHere\(tab, jobUrl, host, 'incomplete',/, 'the incomplete dead end (ladder/dead-end.js)');
   const fill = fs.readFileSync(new URL('../../extension/page/fill.js', import.meta.url), 'utf8');
   assert.match(fill, /resume\?\.data \? 'no place to attach it was found on this page' : 'no CV in the app'/);
 });

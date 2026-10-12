@@ -32,7 +32,7 @@ globalThis.chrome?.webNavigation?.onCommitted?.addListener(noteCommitted);
 globalThis.chrome?.tabs?.onRemoved?.addListener(forgetBroken);
 
 // One broken page: -> 'retry' (the tab is loaded again: the next load is judged by itself), 'reported' or null (not broken).
-// The fill flow's own parts are passed in (the page key, stuck() as report, the panel's step as say, the log as decide).
+// The fill flow's own parts are passed in (the page key, the 'site_broken' dead end as report, the panel's step as say, the log as decide).
 export async function onBrokenPage(kind, {key, tabId, status = 0, host = '', wait, reload, report, say = () => {}, decide = () => {}}) {
   if (!kind) return null;
   const done = tried.get(key) || 0, waits = TRIES[kind] || [];
