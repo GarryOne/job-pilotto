@@ -72,7 +72,9 @@ export async function run(ctx) {
       const read = title => String(title || '').toLowerCase().replace(/\((?:m\/w\/d|m\/f\/d|f\/m\/d|w\/m\/d|all genders|a)\)/g, '').replace(/\s+/g, ' ').trim();
       const has = async () => (await scored()).some(job => read(job.title) === read(varied.match));
       for (let waited = 0; !(await has()) && waited < 120000; waited += 5000) await page.waitForTimeout(5000);
-      if (!(await has())) throw new Error(`the added match "${varied.match}" (in "${varied.place}") was not kept and scored; scored: ${(await scored()).map(job => job.title).join('; ')}`);
+      // Say what the window holds for every fixture job, scored or not: present without a score (scoring slow) is not the same as missing from the list (never kept or never refreshed).
+      const held = () => page.evaluate(() => (window.__jp.shared.allJobs || []).filter(job => /^E2E /.test(job.company || '')).map(job => `${job.title} [${job.fit == null || job.fit === '' ? 'no score' : job.fit}]`));
+      if (!(await has())) throw new Error(`the added match "${varied.match}" (in "${varied.place}") was not kept and scored; scored: ${(await scored()).map(job => job.title).join('; ')}; the window holds ${(await held()).length} fixture job(s): ${(await held()).join('; ')}`);
     }
   }, {needs: ctx.needs});
   await ctx.run('every scored job in the Jobs list is its Job Matches record, with the same score, and none is missing', async () => {
