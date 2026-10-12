@@ -15,3 +15,11 @@ test('every recorded case says its origin: captured from a real page or hand-cut
   const without = cases.filter(name => !ORIGINS.includes(JSON.parse(fs.readFileSync(path.join(RECORDED, name, 'case.json'), 'utf8')).origin));
   assert.deepEqual(without, [], 'add "origin": "captured" (the page came from a real page) or "hand-cut" (written by hand) to these case.json files');
 });
+
+test('the replays report reads each case\'s origin from its case.json (the replay itself never reads it)', async () => {
+  const {originOfCase} = await import('../e2e/lib/recorded-origin.mjs');
+  assert.equal(originOfCase(RECORDED, 'lever-sibling-title-1'), 'captured');
+  assert.equal(originOfCase(RECORDED, 'two-apply-routes-1'), 'hand-cut');
+  assert.equal(originOfCase(RECORDED, 'no-such-case'), '');
+  assert.equal(originOfCase(RECORDED, '../../package'), '', 'a name never leaves the folder');
+});
