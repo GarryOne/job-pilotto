@@ -21,7 +21,7 @@ const KINDS = ['smoke', 'pool', 'running'];   // 'recorded' comes from CI on mai
 const RUNNING_MINUTES = 5;   // a start ping older than this is a run that died
 const DAY = /^\d{4}-\d\d-\d\d$/;
 const text = (value, max) => String(value ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
-const SIGNALS = ['unsure', 'contradicted', 'stalled', 'failed'];   // why a rung handed the page on (the AI ladder spec): fixed words only
+const SIGNALS = ['unsure', 'contradicted', 'stalled', 'failed', 'blind'];   // why a rung handed the page on (the AI ladder spec): fixed words only
 const rungOf = value => (Number.isInteger(value) && value >= 0 && value <= 6 ? value : null);
 const int = value => (Number.isInteger(value) && value >= 0 && value < 10000 ? value : null);
 const hostOf = value => { const host = text(value, 120).toLowerCase(); return /^[a-z0-9.-]+\.[a-z]{2,}$/.test(host) ? host : null; };
