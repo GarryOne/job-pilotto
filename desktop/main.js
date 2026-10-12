@@ -226,10 +226,10 @@ function handlers() {
         // app just built (or Notion just copied the template into) is empty, so this Mac's strategy wins; any other workspace
         // already had data, and Notion wins. Saved first, so a step that fails retries next start with the same answer.
         const hadLocal = !!(storage.readText('profile.md').trim() || storage.readText('answers.md').trim());
+        // This Mac's store with nothing in it yet: the data lives in Notion from now on. First, so the answer below reads the store as it is now (a Notion store takes this Mac's strategy in).
+        if (!DEMO) startedOnNotion = await startOnNotionIfEmpty(storage, {log: appLog}).catch(error => { log(`Store not switched to Notion: ${error.message}`); return false; });
         storage.saveSettings(migrate.connectSettings(storage.settings(), {hadLocal, fresh: !!(result.built?.length || templateRoot)}));
         if (!DEMO) {
-          // This Mac's store with nothing in it yet: the data lives in Notion from now on (before the move below, so the texts go there).
-          startedOnNotion = await startOnNotionIfEmpty(storage, {log: appLog}).catch(error => { log(`Store not switched to Notion: ${error.message}`); return false; });
           if (hadLocal) send({moving: true});
           const moved = await migrate.run(storage, log);  // anything kept on this Mac moves in now
           kept = storage.settings().notionKeptFolder || null;
