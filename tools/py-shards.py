@@ -25,6 +25,33 @@ DEV_TOOLING = ('test_affected_tests', 'test_check', 'test_check_slot', 'test_com
                'test_release_stable_guard', 'test_ship', 'test_ship_background', 'test_stop_means_stop', 'test_worktree')
 
 
+# The lock family (owner, 12 Oct 2026): the heavy lock's, landing queue's and check slot's own tests (~150 s of shard time and the day's top flake) run on a PR only when it touches
+# a lock path; CI · Tests passes the PR's changed files in JOB_PILOTTO_PY_CHANGED_FILE. A push to main, a local run or an unreadable list runs everything. Guarded by tests/test_lock_test_scope.py,
+# which also fails when a lock test starts using a tools/ file that is not a lock path here.
+LOCK_MODULES = ('test_red_fix_first', 'test_landing_lock', 'test_check_slot')
+LOCK_PATHS = ('tools/heavy-lock', 'tools/check-slot.sh', 'tools/landing-lock.sh', 'tools/ship', 'tools/red-main.sh', 'tools/revert-red.sh', 'tools/worktree.sh', 'tools/session-name.sh',
+              'tools/recheck-needed.py', 'tools/pre-push-check.sh', 'tools/affected-tests.py', 'tools/wait-build-tag.sh', 'tools/py-shards.py', 'desktop/e2e/lib/heavy.mjs',
+              'tests/test_heavy_lock', 'tests/heavy_wait.py', 'tests/heavy_lock_fixture.py', 'tests/ship_fixture.py', 'tests/test_lock_test_scope.py',
+              *(f'tests/{m}.py' for m in LOCK_MODULES))
+
+
+def is_lock_module(name):
+    return name.startswith('test_heavy_lock') or name in LOCK_MODULES
+
+
+def lock_tests_needed(changed):
+    """changed: the PR's changed paths, or None when unknown. Only a known, non-empty list without a lock path leaves the lock tests out."""
+    return not changed or any(path.replace('\\', '/').startswith(LOCK_PATHS) for path in changed)
+
+
+def changed_files():
+    listing = os.environ.get('JOB_PILOTTO_PY_CHANGED_FILE')
+    try:
+        return [line.strip() for line in Path(listing).read_text().splitlines() if line.strip()] if listing else None
+    except OSError:
+        return None
+
+
 def all_modules():
     return sorted(p.stem for p in TESTS.glob('test_*.py'))
 
@@ -94,6 +121,13 @@ def main(argv=None):
     modules = args.modules or all_modules()
     if args.app_only:
         modules = [m for m in modules if m not in DEV_TOOLING]
+    if not args.modules and not lock_tests_needed(changed_files()):
+        left = [m for m in modules if is_lock_module(m)]
+        modules = [m for m in modules if not is_lock_module(m)]
+        print(f'py-shards: lock tests left out: this change touches no lock path ({len(left)} modules; tools/py-shards.py LOCK_PATHS)', flush=True)
+    if os.environ.get('JOB_PILOTTO_PY_DRY_RUN'):
+        print('py-shards: dry run, modules: ' + ', '.join(modules))
+        return 0
     if not modules:
         print('py-shards: no test modules found', file=sys.stderr)
         return 2
