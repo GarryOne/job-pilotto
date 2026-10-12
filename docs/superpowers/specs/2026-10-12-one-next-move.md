@@ -162,7 +162,7 @@ A test source claimed without the key is dropped and flagged (`ladder-source`), 
 3. A blind spot the picture confirms is **recorded as data** (page shape + what was missing, fixed values only): the queue for universal perception fixes (code with a zoo or recorded page, the one place code is the right home). This time the page climbs to Claude or the person; never a guess.
 4. The blind-spot rate per rung, from the CI pool, daily; the widget zoo's coverage of control shapes stays the reader's scoreboard.
 
-## Switch-on criteria (phase 3, all must hold)
+## Switch-on criteria (phase 3, all must hold, per dead end)
 | Criterion | Measured by |
 |---|---|
 | No fixture source worse; the wrong-and-confident list not longer | `npm run ladder-score` (plan path, $0) |
@@ -171,6 +171,17 @@ A test source claimed without the key is dropped and flagged (`ladder-source`), 
 | The fallback's unblock rate per dead-end row | the CI pool, acting |
 | The AI cost per application | shown to the owner and OK'd |
 | Resolution does not drop; unresolved shrinks (both ladders) | the classifier over the CI pool (phase 1a) |
+
+**Switched on per dead end, not all at once** (owner, 13 Oct 2026: "yes to both"): each dead end gets the fallback for users as soon as ITS numbers hold, so the flow gets better
+PR by PR. Order: the account page with no step (10 of 75 pool rows), the posting with no Apply found (6), nothing found (2), then the silent dead ends. Per dead end, all must hold:
+- **N real occurrences in shadow:** at least 5 on the CI pool, each with the question's move logged beside the stop.
+- **An agree / better / worse table** computed from the row's real ending, joined to the move by the door's id (never judged by hand).
+- **Zero wrong-and-confident** moves; a move a floor refuses in shadow counts as "would not act", never as "better".
+- **Its climb** (sketch -> digest -> picture), or a measured reason the digest alone suffices at that dead end.
+- **Acting in the CI pool first:** its unblock rate on the pool before any user sees it.
+- **The AI cost per application** shown, and **the owner's OK for that dead end**.
+
+**Spend** (owner, 13 Oct 2026): the shadow question (the digest, small model) may run on CI pool runs: about $0.0004 an ask, about $0.01 per 75-row pass, measured on the first run.
 
 ## Open items
 - **The success measure:** site-named commits per week, and a new site working with no code; weekly, from git `Pool-row` lines and the pool.
@@ -215,8 +226,11 @@ A test source claimed without the key is dropped and flagged (`ladder-source`), 
 - [ ] not_listed / blind and the picture cross-check (a new signal: the owner's OK)
 - [ ] fixtures with an expected move; `npm run ladder-score` both ways
 - [ ] the CI pool acting: unblock rate per dead-end row; time and $ per page and per application
-### 6. Phase 3: switch on, the ratchet, the fix rule
-- [ ] the switch-on criteria hold and the owner OKs the cost per application
+### 6. Phase 3: switch on per dead end, the ratchet, the fix rule
+- [ ] switched on at the account page with no step: its criteria hold, the owner OKs it
+- [ ] switched on at the posting with no Apply found: its criteria hold, the owner OKs it
+- [ ] switched on at nothing found: its criteria hold, the owner OKs it
+- [ ] switched on at the silent dead ends: its criteria hold, the owner OKs it
 - [ ] the decision-branch ratchet test
 - [x] the fix rule in CLAUDE.md ("Where a fix lives", c64d4ee)
 - [ ] the fix rule in docs/flows/ladder.md
