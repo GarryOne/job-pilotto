@@ -146,6 +146,12 @@ class WhenInDoubtItRuns(unittest.TestCase):
         self.assertIn('tests/fixtures/audience_cases.json', paths)
         self.assertNotIn('tests/', paths, 'the joined path wins over its pieces')
 
+    def test_a_computed_path_names_the_folder_before_its_computed_part(self):
+        with tempfile.TemporaryDirectory(dir=ROOT / 'desktop/test') as tmp:
+            probe = Path(tmp) / 'probe.test.js'
+            probe.write_text("for (const name of names) await import(`../../lib/${name}.js`);\nconst f = ROOT / f'src/ai/{name}.py'\n")
+            self.assertEqual(jobs.named(probe.resolve())[0], frozenset({'desktop/lib/', 'src/ai/'}))
+
     def test_words_that_are_not_paths_name_nothing(self):
         with tempfile.TemporaryDirectory(dir=ROOT / 'desktop/e2e/test') as tmp:
             probe = Path(tmp) / 'probe.test.mjs'
