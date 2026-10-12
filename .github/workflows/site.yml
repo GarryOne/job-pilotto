@@ -50,19 +50,19 @@ jobs:
       - name: Deploy to Cloudflare
         if: env.CLOUDFLARE_API_TOKEN != ''
         working-directory: site
-        run: npx --yes wrangler@4 deploy --config wrangler.toml
+        run: ../tools/cf-retry.sh npx --yes wrangler@4 deploy --config wrangler.toml
       # The key CI uses to publish the self-healing loop's numbers to /self-heal (self-heal-stats.yml); the Worker gets it from the GitHub secret.
       - name: The publish key of /self-heal
         if: env.CLOUDFLARE_API_TOKEN != '' && env.SELFHEAL_PUBLISH_KEY != ''
         working-directory: site
-        run: printf '%s' "$SELFHEAL_PUBLISH_KEY" | npx --yes wrangler@4 secret put SELFHEAL_PUBLISH_KEY --config wrangler.toml
+        run: ../tools/cf-retry.sh bash -c 'printf "%s" "$SELFHEAL_PUBLISH_KEY" | npx --yes wrangler@4 secret put SELFHEAL_PUBLISH_KEY --config wrangler.toml'
       # The key the scheduled jobs use to report their AI cost to /ai-cost (desktop/e2e/ai-cost-report.mjs).
       - name: The publish key of /ai-cost
         if: env.CLOUDFLARE_API_TOKEN != '' && env.AI_COST_PUBLISH_KEY != ''
         working-directory: site
-        run: printf '%s' "$AI_COST_PUBLISH_KEY" | npx --yes wrangler@4 secret put AI_COST_PUBLISH_KEY --config wrangler.toml
+        run: ../tools/cf-retry.sh bash -c 'printf "%s" "$AI_COST_PUBLISH_KEY" | npx --yes wrangler@4 secret put AI_COST_PUBLISH_KEY --config wrangler.toml'
       # The key CI uses to send the recorded replays of main to /admin/applying (recorded-pages.yml, desktop/e2e/replays-report.mjs): it can write that table only.
       - name: The publish key of the Fixed-site replays
         if: env.CLOUDFLARE_API_TOKEN != '' && env.REPLAYS_PUBLISH_KEY != ''
         working-directory: site
-        run: printf '%s' "$REPLAYS_PUBLISH_KEY" | npx --yes wrangler@4 secret put REPLAYS_PUBLISH_KEY --config wrangler.toml
+        run: ../tools/cf-retry.sh bash -c 'printf "%s" "$REPLAYS_PUBLISH_KEY" | npx --yes wrangler@4 secret put REPLAYS_PUBLISH_KEY --config wrangler.toml'
