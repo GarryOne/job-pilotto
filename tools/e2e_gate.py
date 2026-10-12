@@ -29,6 +29,16 @@ def verdict(runs, sha, mode, now=None):
     return 'green'
 
 
+def beta_verdict(notes, sha):
+    """The release notes of a beta that BOTH platforms approved, each line naming this build's commit: the proof a manual promotion accepts (owner, 12 Oct 2026: the beta-approved
+    artifact goes to stable as it is, same tag, same version, same build; no fresh run). One platform alone, or an approval of another commit, is none."""
+    short = (sha or '')[:7]
+    lines = [line.strip() for line in (notes or '').splitlines()]
+    mac = any(line.startswith('Beta-approved:') and f'commit {short}' in line for line in lines)
+    windows = any(line.startswith('Beta-approved (Windows):') and f'commit {short}' in line for line in lines)
+    return 'green' if short and mac and windows else 'none'
+
+
 def ci_verdict(runs):
     """build.yml (the unit suites) on the build's commit: green when every run of it succeeded and there is one."""
     if not runs:
@@ -37,7 +47,9 @@ def ci_verdict(runs):
 
 
 if __name__ == '__main__':
-    if sys.argv[1] == 'ci':   # gh run list --workflow build.yml --commit <sha> --status completed --json conclusion | python3 tools/e2e_gate.py ci
+    if sys.argv[1] == 'beta':   # gh release view <tag> --json body -q .body | python3 tools/e2e_gate.py beta <commit-sha>
+        print(beta_verdict(sys.stdin.read(), sys.argv[2] if len(sys.argv) > 2 else ''))
+    elif sys.argv[1] == 'ci':   # gh run list --workflow build.yml --commit <sha> --status completed --json conclusion | python3 tools/e2e_gate.py ci
         print(ci_verdict(json.load(sys.stdin)))
     else:
         print(verdict(json.load(sys.stdin), sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else 'commit'))

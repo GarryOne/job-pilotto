@@ -62,3 +62,27 @@ class CiVerdictTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class BetaApprovalTests(unittest.TestCase):
+    """A beta that both platforms approved is the proof for the same build (owner, 12 Oct 2026: promote the beta-approved artifact, no fresh run)."""
+    SHA = '7e07642a1b2c3d4e5f60718293a4b5c6d7e8f901'
+    MAC = 'Beta-approved: unit suites and every end-to-end suite passed on commit 7e07642 (2026-10-12)'
+    WIN = 'Beta-approved (Windows): unit suites and every Windows end-to-end suite passed on commit 7e07642 (2026-10-12)'
+
+    def test_both_platforms_approving_this_commit_is_green(self):
+        self.assertEqual(e2e_gate.beta_verdict(f'notes\n{self.MAC}\n{self.WIN}\n', self.SHA), 'green')
+
+    def test_one_platform_alone_is_not_enough(self):
+        self.assertEqual(e2e_gate.beta_verdict(self.MAC, self.SHA), 'none')
+        self.assertEqual(e2e_gate.beta_verdict(self.WIN, self.SHA), 'none')
+
+    def test_an_approval_of_another_commit_proves_nothing(self):
+        other = self.MAC.replace('7e07642', '1111111') + '\n' + self.WIN
+        self.assertEqual(e2e_gate.beta_verdict(other, self.SHA), 'none')
+
+    def test_a_line_that_only_mentions_the_words_is_not_an_approval(self):
+        self.assertEqual(e2e_gate.beta_verdict(f'Not yet: Beta-approved: soon (commit 7e07642)\n{self.WIN}', self.SHA), 'none')
+
+    def test_no_notes_is_none(self):
+        self.assertEqual(e2e_gate.beta_verdict('', self.SHA), 'none')
