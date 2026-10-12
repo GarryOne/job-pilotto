@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.ai import engine, providers  # noqa: E402
 from src.ai.providers import contract, schema  # noqa: E402
 from src.ai.providers.anthropic_api import AnthropicApi  # noqa: E402
+from src.ai.providers.schema import without_limits  # noqa: E402
 
 SCHEMA = {'type': 'object', 'additionalProperties': False, 'required': ['answer'],
           'properties': {'answer': {'type': 'string', 'enum': ['yes', 'no']}, 'why': {'type': 'string'},
@@ -55,7 +56,23 @@ class AdapterTests(unittest.TestCase):
         sent = []
         sdk = SimpleNamespace(messages=SimpleNamespace(create=lambda **p: sent.append(p) or 'the sdk response'))
         self.assertEqual(AnthropicApi(client=sdk).messages.create(**PARAMS), 'the sdk response')
-        self.assertEqual(sent, [PARAMS])   # cache_control, effort, the image: as the caller wrote them
+        # cache_control, effort, the image: as the caller wrote them; only the schema's maxItems/minItems are gone (the API refuses them)
+        expected = dict(PARAMS, output_config=dict(PARAMS['output_config'], format={'type': 'json_schema', 'schema': without_limits(SCHEMA)}))
+        self.assertEqual(sent, [expected])
+
+    def test_the_anthropic_api_never_gets_maxitems_or_minitems(self):
+        # The API refuses them in structured output (400, 3 Oct 2026): callers write them to cap their own lists, and the one place every
+        # API ask passes through takes them out, nested too (rejection.py and inbox_reading.py build output_config by hand).
+        schema = {'type': 'object', 'properties': {'list': {'type': 'array', 'minItems': 1, 'maxItems': 3, 'items': {
+            'type': 'object', 'properties': {'inner': {'type': 'array', 'maxItems': 2, 'items': {'type': 'string'}}}}}}}
+        sent = []
+        sdk = SimpleNamespace(messages=SimpleNamespace(create=lambda **p: sent.append(p) or 'ok'))
+        ask = dict(PARAMS, output_config={'format': {'type': 'json_schema', 'schema': schema}, 'effort': 'low'})
+        AnthropicApi(client=sdk).messages.create(**ask)
+        self.assertNotRegex(repr(sent[0]['output_config']), 'maxItems|minItems')
+        self.assertEqual(sent[0]['output_config']['effort'], 'low')
+        self.assertEqual(sent[0]['system'], PARAMS['system'])
+        self.assertIn('maxItems', repr(ask['output_config']), "the caller's own schema is not changed")
 
     def test_a_plan_limit_goes_to_the_users_fallback_once_and_stays_there(self):
         calls, logged = [], []

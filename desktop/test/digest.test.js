@@ -83,3 +83,10 @@ test('the digest list marks a covered candidate and names the layer on top; with
   assert.ok(!/covered/.test(RULES), 'the system prompt is unchanged');
   assert.ok(!/covered|ON TOP/.test(messageOf({path: '/job/1', title: 'T', headings: []}, [{n: 1, kind: 'button', position: 'main', text: 'Apply'}])));
 });
+
+test('the digest caps its own list: a model that names more candidates than allowed is not believed (the API cannot be told maxItems)', () => {
+  const many = [1, 2, 3, 4, 5].map(n => ({n, text: `Candidate ${n}`, kind: 'email'}));
+  const answer = validateDigest({outcome: 'email', verb: 'tell_person', numbers: [1, 2, 3, 4, 5], confidence: 0.9}, many);
+  assert.equal(answer.verb, 'none');
+  assert.equal(answer.dropped, 'unknown candidate number');
+});

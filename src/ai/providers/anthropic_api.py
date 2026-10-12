@@ -1,9 +1,10 @@
 """The `api` engine: the Anthropic SDK with the user's ANTHROPIC_API_KEY (or the free-credit relay's address). Billed per token.
 
-The caller's params go to the SDK untouched (prompt caching's cache_control, effort, the web search tool) and its response comes back as
+The caller's params go to the SDK as written (only a schema's maxItems/minItems come out, for_api; prompt caching's cache_control, effort, the web search tool) and its response comes back as
 it is: the Anthropic path is the contract's reference shape, so nothing is translated. Guarded by tests/test_ai_providers.py.
 """
 from .contract import Adapter
+from .schema import without_limits
 
 ACTIONS = ('enrich', 'score', 'kit', 'prep', 'insight', 'mail', 'inbox', 'review', 'interview', 'opportunity', 'added', 'import', 'scout', 'decide')
 
@@ -32,6 +33,15 @@ def permanent_errors():
     return (anthropic.APIStatusError,)
 
 
+def for_api(params):
+    """The one place every ask to the API passes through: the schema without maxItems/minItems, which the API refuses in structured output (400).
+    Callers write them to cap their own lists and check the answer themselves; everything else in the params stays as written."""
+    shape = (params.get('output_config') or {}).get('format')
+    if not shape or not shape.get('schema'):
+        return params
+    return dict(params, output_config=dict(params['output_config'], format=dict(shape, schema=without_limits(shape['schema']))))
+
+
 class AnthropicApi(Adapter):
     name, family = 'api', 'claude'
     label = 'Anthropic API'
@@ -41,4 +51,4 @@ class AnthropicApi(Adapter):
         self.client = client if client is not None else sdk(action)   # made now, as before: a missing SDK says so at once
 
     def complete(self, request):
-        return self.client.messages.create(**request.params)
+        return self.client.messages.create(**for_api(request.params))
