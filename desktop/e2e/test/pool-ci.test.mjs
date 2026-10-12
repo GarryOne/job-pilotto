@@ -82,3 +82,27 @@ test('the summary shows only the rows this run ran (the day report may hold othe
   assert.deepEqual(summary(day).red, [], 'no earlier CI run: nothing to fall below');
   assert.match(summary(day).markdown, /\| – \| \$0\.0300/);
 });
+
+// 12 Oct 2026: #455's live proof was green in 1 minute and ran nothing (the site limit had refused its row); the owner rightly asked whether it works at all.
+const LIMIT = 'site-ledger: seitenbau-gmbh.jobs.personio.de is not visited: 2 live visits today (limit 2), the last at 11:20 by pool-smoke CI run 38242323673. Counted from the machine-wide ledger (/x); the owner can allow it with JOB_PILOTTO_SITE_LIMIT_OVERRIDE=seitenbau-gmbh.jobs.personio.de.';
+const nothingRan = extra => ({day: '2026-10-12', results: {}, thisRun: {ran: [], unfinished: [], skipped: [], cut: [], stopped: '', usd: 0, maxUsd: 0.5, maxRows: 1, ...extra}});
+test('a run where no row ran is never a pass: red, and its FIRST line says NOT RUN, why, and when the next visit is possible', () => {
+  const now = new Date('2026-10-12T12:30:00Z');
+  const {markdown, red, notRun} = summary(nothingRan({skipped: [{shape: 'Personio form in German', why: LIMIT}]}), {now});
+  assert.equal(notRun, 'NOT RUN: Personio form in German: the site limit (seitenbau-gmbh.jobs.personio.de: 2 live visits today (limit 2), the last at 11:20 by pool-smoke CI run 38242323673), next visit possible after 2026-10-13 00:00 UTC');
+  assert.equal(markdown.split('\n')[0], notRun);
+  assert.deepEqual(red, [notRun]);
+  const gone = {...nothingRan(), results: {'Join: form on join.com': {reached: 'none', url: 'u', note: 'posting gone (HTTP 404)'}}};
+  assert.equal(summary(gone, {now}).notRun, 'NOT RUN: Join: form on join.com: posting gone (HTTP 404), replace its posting in desktop/e2e/smoke-sites.json');
+  assert.equal(summary(nothingRan({skipped: [{shape: 'A', why: 'site-ledger: a.com is not visited: it showed a block page at 09:00 today (bot check), so it rests until tomorrow. Counted from x'}]}), {now}).notRun,
+    'NOT RUN: A: the site limit (a.com: it showed a block page at 09:00 today (bot check), so it rests until tomorrow), next visit possible after 2026-10-13 00:00 UTC');
+});
+
+test('a run where a row did run is judged by its rows: a skipped neighbour is listed, never NOT RUN', () => {
+  const some = {day: '2026-10-12', results: {Lever: {reached: 'form', filled: 11, left: 7, url: 'u', usd: 0.05, seconds: 80}},
+    thisRun: {ran: ['Lever'], unfinished: [], skipped: [{shape: 'Personio form in German', why: LIMIT}], cut: [], stopped: '', usd: 0.05, maxUsd: 0.5, maxRows: 2}};
+  const {red, notRun, markdown} = summary(some, {now: new Date('2026-10-12T12:30:00Z')});
+  assert.equal(notRun, '');
+  assert.deepEqual(red, []);
+  assert.match(markdown, /Skipped by CI's site limit: Personio form in German/);
+});

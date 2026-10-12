@@ -50,3 +50,14 @@ test('no pool run is dropped: no concurrency group (GitHub cancels a pending run
   assert.ok(wait > 0 && wait < states, 'the queue step runs before the earlier runs\' states are read');
   assert.ok(Number(smoke.match(/timeout-minutes: (\d+)/)?.[1]) >= 75, 'the job has time to wait its turn');
 });
+
+// The NOT RUN line also reaches the PR as a comment, so its author knows to run it again when the visit is possible.
+test('a PR whose row did not run gets the NOT RUN line as a comment, with how to run it again', () => {
+  const smoke = workflows['pool-smoke.yml'];
+  const step = smoke.match(/- name: [^\n]*did not run[^\n]*\n(?: {8}.*\n)+/)?.[0] || '';
+  assert.match(step, /if: always\(\) && github\.event_name == 'pull_request'/);
+  assert.match(step, /gh pr comment "\$PR_NUMBER"/);
+  assert.match(step, /NOT_RUN_FILE/);
+  assert.match(smoke, /NOT_RUN_FILE: \$\{\{ runner\.temp \}\}\/not-run\.txt/);
+  assert.match(smoke, /^ {2}pull-requests: write\b/m);
+});

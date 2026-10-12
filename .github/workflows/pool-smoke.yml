@@ -10,7 +10,8 @@
 #   Each run uploads a small state artifact (its ledger and rows); the next run reads them all (GitHub's cache is per branch: a PR's visits would be unseen).
 #   CI visits are NOT in the Mac's ledger: a host can get 3 (Mac) + 2 (CI) visits on a day both run.
 # - Data-center IPs meet more bot walls: such a row is "blocked (CI IP)" in the summary, never a failure, never retried (no Electron leg on CI).
-#   Red only for a row that did not finish (a harness error), the tripwire, a refused AI, or a row reaching less than its last CI run on main or on this
+#   Red when NO row ran ("NOT RUN: <why>, next visit possible <when>" leads the summary and a PR gets it as a comment: 12 Oct 2026, a 1-minute green ran nothing),
+#   for a row that did not finish (a harness error), the tripwire, a refused AI, or a row reaching less than its last CI run on main or on this
 #   PR (lib/pool-ci-state.mjs); never for a bot wall, a refusal or a gone posting.
 # Result: the job summary table and the artifact (the day report, smoke.log, evidence/<day>/<row>/: end.png, step-*.png, app.log, run.log, evidence.md).
 name: CI · Pool smoke (by hand)
@@ -38,6 +39,7 @@ on:
 permissions:
   contents: read
   actions: read   # the earlier CI runs' state artifacts (site ledger, last results)
+  pull-requests: write   # a PR proof whose row did not run says so on the PR
 
 jobs:
   smoke:
@@ -121,12 +123,25 @@ jobs:
           path: pool-smoke-out/state/state.json
           retention-days: 14
           if-no-files-found: warn
-      - name: Job summary (red for an unfinished row, the tripwire, a refused AI or a fall below its last CI run)
+      - name: Job summary (red when no row ran, a row did not finish, the tripwire, a refused AI, a fall below its last CI run)
         if: always()
         working-directory: desktop/e2e
+        env:
+          NOT_RUN_FILE: ${{ runner.temp }}/not-run.txt   # a run where no row ran: its NOT RUN line (lib/pool-ci.mjs), never a green pass
         run: |
           set -o pipefail
           node pool-ci-summary.mjs "$SMOKE_REPORTS" "$GITHUB_WORKSPACE/pool-smoke-out/baseline.json" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Tell the PR when its row did not run (when to run it again)
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          NOT_RUN_FILE: ${{ runner.temp }}/not-run.txt
+        run: |
+          [ -s "$NOT_RUN_FILE" ] || exit 0
+          # shellcheck disable=SC2016  # the backticks are Markdown code in the comment, not a shell expansion
+          printf '%s\n\nRun it again when the visit is possible: `gh run rerun %s`, or remove and add the `live-proof` label. Run: %s\n' "$(cat "$NOT_RUN_FILE")" "$GITHUB_RUN_ID" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > "$RUNNER_TEMP/not-run-comment.md"
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/not-run-comment.md" || echo "pool-smoke: could not comment on the PR"
       - name: The day report, the log and each row's evidence
         if: always()
         uses: actions/upload-artifact@v6

@@ -9,6 +9,7 @@ const dir = process.argv[2] || '';
 const days = (() => { try { return fs.readdirSync(dir).filter(name => /^\d{4}-\d\d-\d\d\.json$/.test(name)).sort(); } catch { return []; } })();
 if (!days.length) { console.log(`## Pool smoke ❌\n\nNo day report in ${dir || '(no folder given)'}: the run ended before its first row (read smoke.log in the artifact).`); process.exit(1); }
 const baseline = (() => { try { return JSON.parse(fs.readFileSync(process.argv[3], 'utf8')); } catch { return {}; } })();
-const {markdown, red} = summary(JSON.parse(fs.readFileSync(path.join(dir, days.at(-1)), 'utf8')), {baseline});
+const {markdown, red, notRun} = summary(JSON.parse(fs.readFileSync(path.join(dir, days.at(-1)), 'utf8')), {baseline});
 process.stdout.write(markdown);
+if (notRun && process.env.NOT_RUN_FILE) fs.writeFileSync(process.env.NOT_RUN_FILE, `${notRun}\n`);   // the workflow comments it on the PR
 process.exit(red.length ? 1 : 0);
