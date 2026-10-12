@@ -4,6 +4,8 @@
 // (useReporter) so no file calls it directly. Guard: worker/test/dead-end.test.js (a stuck() call anywhere else in the extension fails; the evidence keeps no page text).
 import {STUCK_REASONS, UNRESOLVED, endingOfStuck} from './endings.js';
 import {endSilence} from './silence.js';
+import {askAtDeadEnd} from './fallback.js';
+export {useFallback} from './fallback.js';
 
 let report = async () => {};
 export const useReporter = fn => { report = fn; };
@@ -27,12 +29,17 @@ export function evidenceOf(raw = {}) {
 
 // stop: {job, host, why, tabId, page, needs, accountStep}: what stuck() is sent, as today. evidence: what led here (fixed values). decide: the log.
 // -> the report's promise (a caller that did not wait for the report before does not wait now).
+// Each stop gets an id (door), logged on its line and on the shadow question's, so the question's move joins the row's real ending (ladder/fallback.js).
+let doors = 0;
 export function deadEnd(stop, evidence = {}, decide = () => {}) {
   const why = STUCK_REASONS.includes(stop.why) ? stop.why : 'other';   // an unknown stop claims nothing: not 'no form' (cc's review), the ladder's 'nothing usable to say'
   const named = !!String(stop.needs || '').trim();   // whether the person is told exactly what to do (never the words: desktop/e2e/lib/ending.mjs reads this line)
-  decide('fill', `dead end: ${why}`, {host: stop.host || '', ending: endingOfStuck(why, stop.needs), named, ...evidenceOf(evidence)});
+  const door = ++doors;
+  decide('fill', `dead end: ${why}`, {host: stop.host || '', ending: endingOfStuck(why, stop.needs), named, door, ...evidenceOf(evidence)});
   endSilence(stop.tabId);   // the run said its last word for this application: no silence after it is a dead end (ladder/silence.js)
-  return report(stop.job, stop.host, why, stop.tabId, stop.page, stop.needs || '', stop.accountStep || '');
+  const sent = report(stop.job, stop.host, why, stop.tabId, stop.page, stop.needs || '', stop.accountStep || '');
+  Promise.resolve(sent).catch(() => {}).then(() => askAtDeadEnd({door, tabId: stop.tabId, page: stop.page, why, rung: evidence?.rung}));   // in shadow, after today's report: never delays it
+  return sent;
 }
 
 // A dead end the run did not admit, SEEN in shadow (ladder/silence.js: no progress for T): logged at this door with {shadow: true} and never reported, so nothing changes for the

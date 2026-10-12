@@ -48,6 +48,11 @@ export async function applyPhrases() {
 }
 // -> {pressed: the button's text or null, via: the service phrase that found it ('' for a built-in word), buttons: the visible button texts
 // when none was found (the app counts them, to learn new words; texts only, from a page with no form)}.
+// The choice pressApply makes for a control the AI named, WITHOUT pressing (the dead-end question in shadow, ladder/fallback.js): the same list, finder and floors. -> {press, why}.
+export async function wouldPress(tabId, named, noEffect = []) {
+  const candidates = (await applyCandidates(tabId, NAMED_BUTTONS)).filter(item => !noEffect.some(label => sameControl(label, item.text)));
+  return pickNamedButton(candidates, named) ? {press: true, why: null} : {press: false, why: whyNotPressed(candidates, named)};
+}
 export async function pressApply(tabId, phrases = [], named = '', want = '', noEffect = []) {   // named: a button the page-kind AI chose (the start route): pressed by its own text, not ranked (tab-pages.js pickNamedButton); want: the name the AI gave, only for the log
   // The AI named a control (the start route's, or the posting's Apply): the finder searches the list the AI's sketch came from and presses that control only. Never another route found by a phrase
   // in its place when the named one is on the page and visible but a floor refuses it (Hornbach: the digest pressed "(mit Anmeldung)" when "(ohne Anmeldung)" was named). A posting's named control that is

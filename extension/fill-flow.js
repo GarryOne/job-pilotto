@@ -21,13 +21,13 @@ import {applyPressed} from './tabs.js';
 import {pageStill} from './page-still.js';
 import {bindSession, identityOf, sessionOf} from './tab-identity.js';
 import {pageKey, pageRole} from './tab-pages.js';
-import {applyPhrases, pressApply} from './apply-press.js';
+import {applyPhrases, pressApply, wouldPress} from './apply-press.js';
 import {forgetNoEffect, noEffectOf, noteNoEffect} from './no-effect.js';
 import {clickTrace, modalTrace} from './ladder/press-why.js';
 import {forgetRouteTries, startRoute} from './start-route.js';
 import {emailReport, mailsOf} from './ladder/outcomes.js';
 import {brokenOf, onBrokenPage} from './ladder/site-broken.js';
-import {deadEnd, useReporter} from './ladder/dead-end.js';
+import {deadEnd, useFallback, useReporter} from './ladder/dead-end.js';
 import {notePage, noteProgress, useProgressLog} from './ladder/progress.js';
 import {onTop} from './on-top.js';
 import {candidatesOf, claimFrame, climbOnStall, confirmedBody, frameBecameCandidate, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, notePressed, noteSignal, otherReport, takePressed, toldReport, verifiedBody} from './ladder/climb.js';
@@ -133,7 +133,7 @@ async function forgetKind(tab, kind, reason) {
 }
 // What the person sees while the app waits for the AI (the panel's step line; nothing is drawn when the tab has no panel yet). Never throws.
 export const sayStep = (tabId, text) => progress(tabId, text).catch(() => {});
-export async function askKind(tab, {fresh = false, digest = false} = {}) {   // fresh: the page changed after a press, a kept answer for its shape does not apply (start-route.js)
+export async function askKind(tab, {fresh = false, digest = false, shadow = false} = {}) {   // fresh: the page changed after a press, a kept answer for its shape does not apply (start-route.js); shadow: the dead-end question (ladder/fallback.js)
   const askedAt = Date.now();   // the three ways this returns null with no word from the app are logged below (Hornbach 0.9.176: null after 2.1 s, nothing said which)
   await labelReaderIn(tab.id);
   const sketch = await pageSketchOf(tab.id);
@@ -148,6 +148,7 @@ export async function askKind(tab, {fresh = false, digest = false} = {}) {   // 
     const answer = await Promise.race([api(config, '/extension/page-kind', {method: 'POST', body: JSON.stringify({url: tab.url.split('#')[0], ...(fresh ? {fresh: true} : {}), ...(noEffectOf(fillKey(tab.id, tab.url)).length ? {noEffect: noEffectOf(fillKey(tab.id, tab.url))} : {}), ...(digest ? {digest: true, candidates: await candidatesOf(tab.id)} : {}), ...sketch})}),
       new Promise(resolve => setTimeout(() => resolve(null), 40000))]);   // a first visit asks the AI cold (the app's AI is the `claude` command: 5-25 s); the structure rule decides only after this, and a wrong rule costs more than the wait
     if (answer == null) decide('fill', 'page kind: the app gave no answer in time', {ms: Date.now() - askedAt, digest});   // an answer WITH an error is the app's own line (server-pages.js)
+    if (shadow) return answer;   // the dead-end question in shadow: no climb signal, any answer (an unsure or failed one too) goes to its log
     noteSignal(tab.id, answer, sketch.controls);   // which rung answered and with what signal: an unsure one climbs (ladder/climb.js)
     return answer?.role ? answer : null;
   } catch (error) { decide('fill', 'page kind: the app could not be asked', {class: String(error?.name || 'Error').slice(0, 40), ms: Date.now() - askedAt, digest}); return null; }   // the class only: a message can carry page text
@@ -184,6 +185,7 @@ export async function stuck(job, host, why, tabId = null, page = '', needs = '',
   try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why, needs: String(needs || '').slice(0, 80), accountStep: String(accountStep || '').slice(0, 16), tab: tabId, session, page: String(page || '').split('#')[0]})}); } catch { /* the app is closed */ }
 }
 useReporter(stuck);   // the only way to it: every give-up goes through ladder/dead-end.js deadEnd (worker/test/dead-end.test.js)
+useFallback({ask: askKind, floor: wouldPress, log: decide});   // the one question at each dead end, in shadow (ladder/fallback.js)
 useProgressLog(decide);   // the run's progress, in shadow (ladder/progress.js): the silent dead-end rule's T is measured from these lines
 // A give-up on this page: the one door (ladder/dead-end.js), with what led here as fixed values.
 const deadEndHere = (tab, jobUrl, host, why, needs, evidence) => deadEnd({job: String(jobUrl || tab.url).split('#')[0], host, why, tabId: tab.id, page: tab.url, needs}, evidence, decide);
