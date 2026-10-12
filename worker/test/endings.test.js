@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import {ENDINGS, UNRESOLVED, isEnding, resolved} from '../../extension/ladder/endings.js';
+import {ENDINGS, STUCK_REASONS, UNRESOLVED, endingOfStuck, isEnding, resolved} from '../../extension/ladder/endings.js';
 
 test('the endings are a fixed list of seven, unresolved last; resolved is every ending but unresolved', () => {
   assert.deepEqual(ENDINGS, ['ready', 'told', 'handed', 'blind', 'data_missing', 'site_broken', 'unresolved']);
@@ -15,4 +15,23 @@ test('the endings are a fixed list of seven, unresolved last; resolved is every 
 test('the list is pure: no chrome API, no storage, no import', () => {
   const source = fs.readFileSync(new URL('../../extension/ladder/endings.js', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /\bchrome\.|localStorage|^import /m);
+});
+
+test('every "can\'t reach" reason names its ending: told for the page\'s own way, handed only for a named wall, else unresolved', () => {
+  assert.deepEqual(STUCK_REASONS.map(why => endingOfStuck(why)), ['told', 'told', 'unresolved', 'unresolved', 'unresolved', 'unresolved']);
+  assert.equal(endingOfStuck('no-form', 'Solve the robot check in this tab; the form fills after it'), 'handed');
+  assert.equal(endingOfStuck('account', 'Create the account: choose a password'), 'handed');
+  assert.equal(endingOfStuck('account', '  '), 'unresolved', 'no named need: a stop with no reason');
+  assert.equal(endingOfStuck('something new'), 'unresolved');
+  for (const why of STUCK_REASONS) assert.ok(isEnding(endingOfStuck(why, 'x')), why);
+});
+
+// The class (owner rule: a fix covers every sibling): every reason the extension can send to the app is mapped. Read from the code that sends them, so a new reason fails here.
+test('every reason the extension sends with a "can\'t reach" report is a listed reason', () => {
+  const read = file => fs.readFileSync(new URL(`../../extension/${file}`, import.meta.url), 'utf8');
+  const sent = new Set();
+  for (const file of ['fill-flow.js', 'account-step.js']) for (const call of read(file).match(/(?<!function )\bstuck\([^;]*\)/g) || []) for (const [, word] of call.matchAll(/'([a-z][a-z-]*)'/g)) sent.add(word);
+  for (const file of ['ladder/outcomes.js', 'ladder/climb.js']) for (const [, word] of read(file).matchAll(/\bwhy: '([a-z][a-z-]*)'/g)) sent.add(word);
+  assert.ok(sent.has('no-form') && sent.has('email') && sent.has('other'), [...sent].join(', '));
+  assert.deepEqual([...sent].filter(word => !STUCK_REASONS.includes(word)), [], 'add the new reason to STUCK_REASONS (extension/ladder/endings.js) with its ending, and to the app (desktop/lib/session-flow.js)');
 });
