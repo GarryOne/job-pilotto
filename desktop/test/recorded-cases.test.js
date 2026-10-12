@@ -87,7 +87,7 @@ test('any push that changes how the app acts on pages names its pool row, or say
   assert.equal(untaggedActing([commit(['docs/rules/rounds.md'], 'Docs')], covered), '', 'nothing the app acts with: nothing asked');
 });
 
-test('a case.json edit that changes only label keys brings no case: neither proof for a page fix nor a case hole 3 replays', () => {
+test('a case.json edit that changes only label keys brings no case: neither proof for a page fix nor a case "cases fail before the fix" replays', () => {
   // 12 Oct 2026, PR #501: adding `origin` to all 74 cases read as 74 new cases that had to fail on main's code (hole 3 red).
   const json = value => JSON.stringify(value, null, 2);
   const before = json({shape: 'A menu', why: 'x', expect: {filled: ['#a']}});
@@ -108,7 +108,7 @@ test('a case.json edit that changes only label keys brings no case: neither proo
     git('commit', '-qam', 'Fix a group, label a case\n\nPool-row: X');
     const files = commitFiles(git, git('rev-parse', 'HEAD').trim());
     assert.deepEqual(files, ['extension/page/radios.js'], 'the label-only case.json is left out');
-    assert.deepEqual(casesOf(files), [], 'hole 3 replays nothing for a label');
+    assert.deepEqual(casesOf(files), [], 'nothing to replay for a label');
     assert.match(missingCase([commit(files, 'Fix a group\n\nPool-row: X')], ['extension/page/radios.js']), /recorded page/, 'a label is no proof for a page fix');
     write('desktop/e2e/recorded/b-1/case.json', json({...JSON.parse(before), expect: {filled: ['#b']}, origin: 'captured'}));
     git('commit', '-qam', 'Tighten a case');

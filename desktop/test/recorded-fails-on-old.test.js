@@ -1,4 +1,4 @@
-// Hole 3 of the recorded-case gate (tools/recorded-fails-on-old.mjs): a case the push brings must FAIL on the code before it; a pin says so, a fix cannot.
+// "cases fail before the fix" (once "hole 3") of the recorded-case gate (tools/recorded-fails-on-old.mjs): a case the push brings must FAIL on the code before it; a pin says so, a fix cannot.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
