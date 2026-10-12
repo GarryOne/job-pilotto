@@ -3,19 +3,19 @@
 # forbids direct pushes. It prints the gh api calls and changes nothing unless run with --apply (outward-facing: the owner says yes first).
 #   tools/pr-settings.sh            show the calls         tools/pr-settings.sh --apply   make them
 # No "require up to date": parallel PRs merge at once; CI on main (build.yml, recorded-pages.yml) still catches a rare clash and the red-main rule applies as before.
-# The repository admin role may bypass the ruleset (so a session still running the old direct push is not locked out during the switch-over, and the owner can force a fix through);
-# "hole 3" is NOT required yet (tools/recorded-fails-on-old.mjs has not run end to end): add it to `checks` once it has.
-# tighten it to bypass_mode "pull_request" once nobody pushes to main. The required checks are the job names of pr-gate.yml, build.yml and recorded-pages.yml.
+# The repository admin role bypasses the ruleset only through a pull request (bypass_mode "pull_request", 12 Oct 2026, once every worktree had the PR ship): nobody pushes to main.
+# "hole 3" is NOT required yet (it got a "Fix-commit:" route for follow-ups on 12 Oct 2026): add it to `checks` once a day of PRs shows no false red.
+# The required checks are the job names of pr-gate.yml, build.yml and recorded-pages.yml.
 set -euo pipefail
 repo="${PR_REPO:-GarryOne/job-pilotto}"
-checks='python worker site desktop\ (ubuntu-24.04) desktop\ (windows-latest) replay\ shard\ 1 replay\ shard\ 2 replay\ shard\ 3 replay\ shard\ 4 pr\ gates flow-fresh'
+checks='python worker site desktop\ (ubuntu-24.04) desktop\ (windows-latest) replay\ shard\ 1 replay\ shard\ 2 replay\ shard\ 3 replay\ shard\ 4 pr\ gates flow-fresh harness\ tests'
 ruleset="$(python3 - "$checks" <<'PY'
 import json, shlex, sys
 names = shlex.split(sys.argv[1])
 print(json.dumps({
   "name": "main: pull requests with required checks", "target": "branch", "enforcement": "active",
   "conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}},
-  "bypass_actors": [{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always"}],
+  "bypass_actors": [{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "pull_request"}],
   "rules": [
     {"type": "pull_request", "parameters": {"required_approving_review_count": 0, "dismiss_stale_reviews_on_push": False, "require_code_owner_review": False,
                                               "require_last_push_approval": False, "required_review_thread_resolution": False, "allowed_merge_methods": ["rebase"]}},
