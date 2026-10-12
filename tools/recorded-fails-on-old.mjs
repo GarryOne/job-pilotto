@@ -40,8 +40,17 @@ export function outcomes(cases, text) {
   return {failed, passed, missing};
 }
 
-export function verdict({passed, missing}) {
+// The keys of a case's `expect` the old tree's replay never reads (12 Oct 2026, #516: a case checking only `stuck` and `ending`, new in that PR, "passed" on main's
+// replay, which skipped both). sources: the old replay files' text; a key counts as read when its name appears outside a // comment. -> sorted keys.
+export function unreadKeys(expect = {}, sources = []) {
+  const code = sources.map(text => String(text).split('\n').map(line => line.replace(/\/\/.*$/, '')).join('\n')).join('\n');
+  return Object.keys(expect || {}).filter(key => !new RegExp(`\\b${key.replace(/[^\w]/g, '')}\\b`).test(code)).sort();
+}
+
+// unread: {case: [keys main's replay cannot check]} (unreadKeys), named under a case that passed on the old code.
+export function verdict({passed, missing}, unread = {}) {
   const lines = [];
+  for (const name of passed) if ((unread[name] || []).length) lines.push(`${name}: main's replay cannot check: ${unread[name].join(', ')} (new in this push): add a check it knows (e.g. told, filled, empty) that fails on the old code.`);
   if (passed.length) lines.push(`the recorded case${passed.length > 1 ? 's' : ''} ${passed.join(', ')} PASS${passed.length > 1 ? '' : 'ES'} on the code before this push: ${passed.length > 1 ? 'they' : 'it'} prove${passed.length > 1 ? '' : 's'} nothing.
 A case must show the failure: make it fail on origin/main's code (npm run row-to-case -- "<row>" <case> --old-commit <the fix's sha> refuses unless it does), or, for a case that only pins behaviour that already works, say so in the commit message: "Recorded-pins: <why>" (not with a Pool-row or an issue it fixes).
 A follow-up to a fix already on main (it only corrects that fix's case): name the fix in the commit message, "Fix-commit: <sha>", and the case is replayed on the code before it.`);
@@ -86,7 +95,9 @@ function replayOn(git, root, mergeBase, check, logFile) {
       env: {...process.env, JP_REPLAY: '1', JP_REPLAY_CASES: check.join(','), JP_REPLAY_TABS: '1'}});
     const text = `${run.stdout || ''}\n${run.stderr || ''}`;
     if (logFile) fs.writeFileSync(logFile, text);
-    const found = outcomes(check, text), why = verdict(found);
+    const replayCode = ['page-replay.mjs', 'row-case-run.mjs', 'row-replay.mjs'].map(file => { try { return fs.readFileSync(path.join(tree, 'desktop/e2e/lib', file), 'utf8'); } catch { return ''; } });
+    const unread = Object.fromEntries(check.map(name => { try { return [name, unreadKeys(JSON.parse(fs.readFileSync(path.join(root, 'desktop/e2e/recorded', name, 'case.json'), 'utf8')).expect, replayCode)]; } catch { return [name, []]; } }));
+    const found = outcomes(check, text), why = verdict(found, unread);
     if (why) { console.error(`${text.split('\n').filter(line => /heavy-lock|^(not )?ok|rror/.test(line)).slice(-12).join('\n')}\n${why}`); return 1; }
     console.error(`recorded cases on the old code: ${found.failed.join(', ')} fail${found.failed.length > 1 ? '' : 's'} there, as they must`);
     return 0;
