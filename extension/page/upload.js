@@ -102,6 +102,14 @@
     return null;
   }
 
+  // A pressable slot whose file input the page made by script, hidden and detached (a drop-zone library appends it to <body>): the one empty file input outside every field of
+  // the page's slots and every form, used with no press. Exactly one: with two, nothing says which is this slot's. Else null.
+  function detachedInput(slot, all) {
+    if (!slot.trigger || all.filter(item => item.trigger && !item.input).length !== 1) return null;
+    const free = [...document.querySelectorAll('input[type=file]')].filter(input => !input.files?.length && !input.closest('form, fieldset') && !all.some(item => item.el.contains(input)));
+    return free.length === 1 && free[0].parentElement === document.body ? free[0] : null;
+  }
+
   // Press the slot's trigger (or the one a recipe names) and wait for the file input the page creates.
   async function reveal(slot, params = {}, owned = new Set()) {
     let trigger = slot.trigger;
@@ -162,7 +170,7 @@
       // since pressing it opens the system's file dialog over the person's page (owner, 9 Oct 2026: "I uploaded the CV, but then it opened again").
       if (!slot.input && all.some(item => item.input?.files?.length && (named(item, aliases, all) || meaning) === meaning)) { given.add(meaning); results.push({...base, ok: true, why: 'already holds a file'}); continue; }
       try {
-        const near = slot.input ? null : nearbyInput(slot, new Set(all.filter(item => item.input && (named(item, aliases, all) || meaning) !== meaning).map(item => item.input)));
+        const near = slot.input ? null : nearbyInput(slot, new Set(all.filter(item => item.input && (named(item, aliases, all) || meaning) !== meaning).map(item => item.input))) || detachedInput(slot, all);
         const revealed = !slot.input && !near;
         const input = slot.input || near || await reveal(slot, recipe?.params || {}, new Set(all.filter(item => item.input && (named(item, aliases, all) || meaning) !== meaning).map(item => item.input)));   // another slot's input only when its wording is known and differs: an unnamed one beside the triggers is the part the trigger reveals
         if (!input) { results.push({...base, ok: false, why: 'no file input appeared'}); continue; }
