@@ -38,4 +38,4 @@ jobs:
       - name: Deploy to Cloudflare
         if: env.CLOUDFLARE_API_TOKEN != ''
         working-directory: site-next
-        run: npx --yes wrangler@4 deploy --config wrangler.toml
+        run: ../tools/cf-retry.sh npx --yes wrangler@4 deploy --config wrangler.toml
