@@ -8,6 +8,8 @@ import time
 import unittest
 from pathlib import Path
 
+from tests.heavy_wait import evidence, wait_in_books, wait_said
+
 ROOT = Path(__file__).resolve().parent.parent
 LOCK = ROOT / 'tools' / 'heavy-lock.sh'
 
@@ -38,6 +40,30 @@ class HeavyLockFixture(unittest.TestCase):
 
     def start(self, what, *command, **env):
         return subprocess.Popen(['bash', str(LOCK), what, *command], env={**self.env, **env}, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+    def hold(self, what='holder', **env):
+        """A run that holds the lock until the returned function is called; returns once THIS run holds a slot (the lock's own state, not a guessed nap)."""
+        go = self.tmp / f'go-{what.replace(" ", "-")}'
+        proc = self.start(what, 'bash', '-c', f'while [ ! -f {go.as_posix()} ]; do sleep 0.05; done', **env)
+        self.addCleanup(lambda: (go.write_text('go'), proc.poll() is None and proc.communicate(timeout=30)))
+        wait_in_books(env.get('JOB_PILOTTO_HEAVY_DIR', self.env['JOB_PILOTTO_HEAVY_DIR']), proc, ('holds',), env={**self.env, **env})
+        def let_go():
+            go.write_text('go')
+            return proc.communicate(timeout=30)
+        return proc, let_go
+
+    def start_logged(self, what, *command, **env):
+        """start() with stderr in a file, so a test can wait for what the run says while it still runs (proc.err_path)."""
+        err_path = self.tmp / f'err-{what.replace(" ", "-")}'
+        with open(err_path, 'w') as err:
+            proc = subprocess.Popen(['bash', str(LOCK), what, *command], env={**self.env, **env}, stdout=subprocess.PIPE, stderr=err, text=True)
+        proc.err_path = err_path
+        self.addCleanup(lambda: proc.poll() is None and (proc.kill(), proc.communicate()))
+        return proc
+
+    def said(self, proc, text, *others):
+        """Wait until the run has said `text` (it looked at the lock and decided); fails at once if it ended without saying it, with the lock's evidence."""
+        return wait_said(proc.err_path, text, proc, why=lambda: evidence(self.env['JOB_PILOTTO_HEAVY_DIR'], [proc, *others], self.env))
 
     def run_lock(self, what, *command, **env):
         return subprocess.run(['bash', str(LOCK), what, *command], env={**self.env, **env}, capture_output=True, text=True)

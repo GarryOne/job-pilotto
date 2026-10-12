@@ -6,6 +6,7 @@ import time
 import unittest
 
 from tests.heavy_lock_fixture import HeavyLockFixture, LOCK, ROOT
+from tests.heavy_wait import wait_in_books
 
 
 class HeavyLockTest(HeavyLockFixture):
@@ -16,13 +17,16 @@ class HeavyLockTest(HeavyLockFixture):
         self.assertFalse((self.tmp / 'heavy' / 'lock').exists(), 'freed afterwards')
 
     def test_two_runs_never_overlap_and_the_second_says_who_holds_it(self):
-        trace = self.tmp / 'trace'
-        body = f'echo start >> {trace}; sleep 1.2; echo end >> {trace}'
+        trace, go = self.tmp / 'trace', self.tmp / 'go'
+        body = f'echo start >> {trace}; while [ ! -f {go.as_posix()} ]; do sleep 0.05; done; echo end >> {trace}'
         first = self.start('first suite', 'bash', '-c', body)
-        time.sleep(0.4)
-        second = self.start('second suite', 'bash', '-c', body)
-        _, err = second.communicate(timeout=30)
+        wait_in_books(self.env['JOB_PILOTTO_HEAVY_DIR'], first, ('holds',), env=self.env)   # first holds: not a guessed 0.4 s
+        second = self.start_logged('second suite', 'bash', '-c', body)
+        self.said(second, 'second suite waits', first)   # it looked and waits: a queued ticket alone has not looked yet
+        go.write_text('go')
+        second.communicate(timeout=30)
         first.communicate(timeout=30)
+        err = second.err_path.read_text()
         self.assertEqual(trace.read_text().split(), ['start', 'end', 'start', 'end'])
         self.assertIn('second suite waits: the lock is held by', err)
         self.assertIn('first suite', err)
@@ -37,23 +41,19 @@ class HeavyLockTest(HeavyLockFixture):
         self.assertIn('taking over a stale lock: crashed run', result.stderr)
 
     def test_waiting_has_a_limit_and_runs_anyway_saying_so(self):
-        holder = self.start('holder', 'sleep', '2')   # killed below, but its `sleep` child keeps the pipe: not longer than needed
-        time.sleep(0.4)
+        _, let_go = self.hold()   # held until the impatient run has given up waiting
         result = self.run_lock('impatient', 'echo', 'ran', JOB_PILOTTO_HEAVY_WAIT='1')
-        holder.kill()
-        holder.communicate()
+        let_go()
         self.assertEqual(result.stdout.strip(), 'ran')
         self.assertIn('running anyway', result.stderr)
 
     def test_a_nested_call_and_the_off_switch_run_at_once(self):
-        holder = self.start('holder', 'sleep', '2')
-        time.sleep(0.4)
+        _, let_go = self.hold()
         for env in ({'JP_HEAVY_HELD': '1'}, {'JOB_PILOTTO_HEAVY': '0'}):
             result = self.run_lock('inner', 'echo', 'ran', **env)
             self.assertEqual(result.stdout.strip(), 'ran')
             self.assertNotRegex(result.stderr, r'waits|waited|got the lock after', f'{env}: it ran at once, it did not wait for the holder')   # the lock says when it waits; no stopwatch (a loaded runner is slow, not waiting)
-        holder.kill()
-        holder.communicate()
+        let_go()
 
     def test_a_busy_machine_is_waited_for_then_run_anyway(self):
         bin_dir = self.tmp / 'bin'
@@ -75,8 +75,9 @@ class HeavyLockTest(HeavyLockFixture):
 
     def test_a_run_waiting_for_the_machine_holds_no_slot_and_never_blocks_a_later_run_that_fits(self):
         # 11 Oct 2026: a replay took the slot, then sat 12 minutes in the load wait while two landings queued behind it
-        waiting = self.start('waits for load', 'echo', 'late', **self.busy_machine(), JOB_PILOTTO_HEAVY_LOAD='8', JOB_PILOTTO_HEAVY_SIGNAL='load', JOB_PILOTTO_HEAVY_LOAD_WAIT='30')
-        time.sleep(0.8)
+        waiting = self.start('waits for load', 'echo', 'late', **self.busy_machine(), JOB_PILOTTO_HEAVY_LOAD='8', JOB_PILOTTO_HEAVY_SIGNAL='load', JOB_PILOTTO_HEAVY_LOAD_WAIT='600')
+        self.addCleanup(lambda: waiting.poll() is None and (waiting.kill(), waiting.communicate()))
+        wait_in_books(self.env['JOB_PILOTTO_HEAVY_DIR'], waiting, ('loadwait',), env=self.env)   # its ticket says it waits for the machine: not a guessed 0.8 s
         self.assertFalse((self.tmp / 'heavy' / 'lock').exists(), 'while it waits for the machine it holds no slot')
         later = self.run_lock('fits now', 'echo', 'went')   # this run has no load limit: it is ready, and it is behind the waiter in line
         self.assertEqual(later.stdout.strip(), 'went')
@@ -87,7 +88,7 @@ class HeavyLockTest(HeavyLockFixture):
 
     def test_the_load_wait_still_ends_and_the_run_goes_anyway_in_its_turn(self):
         first = self.start('first', 'bash', '-c', 'sleep 1.2; echo first')
-        time.sleep(0.3)
+        time.sleep(0.3)   # clock: no order is asserted here, only that the load wait ends and says so
         second = self.start('second', 'echo', 'second', **self.busy_machine(), JOB_PILOTTO_HEAVY_LOAD='8', JOB_PILOTTO_HEAVY_SIGNAL='load', JOB_PILOTTO_HEAVY_LOAD_WAIT='1')
         out, err = second.communicate(timeout=30)
         first.communicate(timeout=30)
@@ -124,10 +125,12 @@ class HeavyLockTest(HeavyLockFixture):
         self.assertEqual(list((self.tmp / 'heavy' / 'queue').iterdir()), [], 'no ticket is left behind, mine included')
 
     def test_a_wait_is_logged_for_the_next_measurement(self):
-        holder = self.start('holder', 'sleep', '1.2')
-        time.sleep(0.4)
-        result = self.run_lock('second', 'echo', 'ran')
-        holder.communicate(timeout=30)
+        _, let_go = self.hold()
+        second = self.start_logged('second', 'echo', 'ran')
+        self.said(second, 'second waits')
+        let_go()
+        out, _ = second.communicate(timeout=30)
+        result = subprocess.CompletedProcess(second.args, second.returncode, out, second.err_path.read_text())
         self.assertIn('got the lock after', result.stderr)
         self.assertRegex((self.tmp / 'gate-timing.log').read_text(), r'heavy lock wait=\d+s what=second')
 

@@ -3,11 +3,10 @@ import os
 import shutil
 import subprocess
 import tempfile
-import time
 import unittest
 from pathlib import Path
 
-from tests.heavy_wait import wait_registered
+from tests.heavy_wait import evidence, wait_in_books, wait_said
 
 LOCK = Path(__file__).resolve().parent.parent / 'tools' / 'heavy-lock.sh'
 TABLE = ' 80.0 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome Helper\n 40.0 /usr/local/bin/node\n 60.0 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome Helper\n  3.0 claude\n 55.0 /usr/bin/python3\n  0.0 idle\n'
@@ -36,14 +35,15 @@ class HeavyLockReadoutTest(unittest.TestCase):
         go = (self.tmp / 'go').as_posix()
         heavy = self.env['JOB_PILOTTO_HEAVY_DIR']
         holder = self.start('e2e-smoke', f'while [ ! -f {go} ]; do sleep 0.1; done', **env)
-        wait_registered(heavy, 1)
-        waiter = self.start('e2e-smoke', 'true', **env)
-        wait_registered(heavy, 2)
-        time.sleep(1.0)   # the waiter has looked at the lock and said it waits (its first look is its first line)
+        wait_in_books(heavy, holder, ('holds',), env=self.env)
+        err_path = self.tmp / 'err-waiter'
+        with open(err_path, 'w') as err_out:
+            waiter = subprocess.Popen(['bash', str(LOCK), 'e2e-smoke', 'true'], env={**self.env, **env}, stdout=subprocess.PIPE, stderr=err_out, text=True)
+        wait_said(err_path, 'e2e-smoke waits', waiter, why=lambda: evidence(heavy, [holder], self.env))   # the waiter said it waits: not a guessed 1 s
         Path(go).write_text('go')
-        _, err = waiter.communicate(timeout=60)
+        waiter.communicate(timeout=60)
         holder.communicate(timeout=60)
-        return err
+        return err_path.read_text()
 
     def test_the_wait_message_names_the_three_biggest_cpu_users_summed_by_program(self):
         err = self.wait_for_lock()

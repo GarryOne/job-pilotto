@@ -3,11 +3,10 @@ import os
 import shutil
 import subprocess
 import tempfile
-import time
 import unittest
 from pathlib import Path
 
-from tests.heavy_wait import wait_registered
+from tests.heavy_wait import wait_in_books
 
 LOCK = Path(__file__).resolve().parent.parent / 'tools' / 'heavy-lock.sh'
 
@@ -31,11 +30,10 @@ class HeavyLockClassesTest(unittest.TestCase):
         """A gated holder runs until every waiter is queued; the waiters (what, name, extra env) then run in the order the lock picks; returns the run order."""
         heavy, go = self.env['JOB_PILOTTO_HEAVY_DIR'], (self.tmp / 'go').as_posix()
         procs = [self.start('real-extension', 'holder', f'echo holder >> {self.trace}; while [ ! -f {go} ]; do sleep 0.05; done', **env)]
-        wait_registered(heavy, 1)
+        wait_in_books(heavy, procs[0], ('holds',), env=self.env)
         for what, name, extra in waiters:
             procs.append(self.start(what, name, **{**env, **extra}))
-            wait_registered(heavy, len(procs))
-            time.sleep(0.2)   # the next ticket gets a later clock reading
+            wait_in_books(heavy, procs[-1], ('waits',), procs=procs, env=self.env)   # its ticket is queued: the next one reads a later clock
         Path(go).write_text('go')
         for p in procs:
             p.communicate(timeout=60)

@@ -3,11 +3,10 @@ import os
 import shutil
 import subprocess
 import tempfile
-import time
 import unittest
 from pathlib import Path
 
-from tests.heavy_wait import wait_registered
+from tests.heavy_wait import wait_in_books
 
 LOCK = Path(__file__).resolve().parent.parent / 'tools' / 'heavy-lock.sh'
 
@@ -38,10 +37,11 @@ class HeavyLockYieldTest(unittest.TestCase):
         return Path(self.trace).read_text().split(), errs
 
     def test_a_pool_run_gives_its_place_to_a_waiting_proof_at_the_yield_point_and_gets_it_back(self):
+        heavy = self.env['JOB_PILOTTO_HEAVY_DIR']
         pool = self.pool()
-        wait_registered(self.env['JOB_PILOTTO_HEAVY_DIR'], 1)
+        wait_in_books(heavy, pool, ('holds',), env=self.env)
         proof = self.waiter('real-extension', 'proof')
-        wait_registered(self.env['JOB_PILOTTO_HEAVY_DIR'], 2)
+        wait_in_books(heavy, proof, ('waits',), procs=[pool], env=self.env)   # its ticket is in the queue before the pool reaches its yield point
         self.go.write_text('go')
         trace, errs = self.finish(pool, proof)
         self.assertEqual(trace, ['+pool1', '+proof', '-proof', '+pool2', '-pool'])
@@ -52,10 +52,11 @@ class HeavyLockYieldTest(unittest.TestCase):
         self.assertIn('yield-back', text)
 
     def test_with_nobody_of_a_higher_class_waiting_it_returns_at_once_and_keeps_the_lock(self):
+        heavy = self.env['JOB_PILOTTO_HEAVY_DIR']
         pool = self.pool()
-        wait_registered(self.env['JOB_PILOTTO_HEAVY_DIR'], 1)
+        wait_in_books(heavy, pool, ('holds',), env=self.env)
         other = self.waiter('e2e-smoke', 'pool-b')     # the same class: no reason to yield
-        wait_registered(self.env['JOB_PILOTTO_HEAVY_DIR'], 2)
+        wait_in_books(heavy, other, ('waits',), procs=[pool], env=self.env)
         self.go.write_text('go')
         trace, errs = self.finish(pool, other)
         self.assertEqual(trace, ['+pool1', '+pool2', '-pool', '+pool-b', '-pool-b'])

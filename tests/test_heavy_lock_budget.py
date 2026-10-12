@@ -7,7 +7,7 @@ import time
 import unittest
 from pathlib import Path
 
-from tests.heavy_wait import gated, release, wait_registered, wait_trace
+from tests.heavy_wait import evidence, gated, release, wait_in_books, wait_trace
 
 LOCK = Path(__file__).resolve().parent.parent / 'tools' / 'heavy-lock.sh'
 
@@ -22,7 +22,8 @@ class HeavyLockBudgetTest(unittest.TestCase):
         self.procs = []
         self.addCleanup(lambda: [p.kill() for p in self.procs])
         self.env = {**{k: v for k, v in os.environ.items() if not k.startswith(('JOB_PILOTTO_HEAVY', 'JP_HEAVY'))}, 'JOB_PILOTTO_HEAVY_DIR': (self.tmp / 'heavy').as_posix(),
-                    'JOB_PILOTTO_HEAVY_LOAD': '0', 'JOB_PILOTTO_HEAVY_POLL': '0.1', 'JOB_PILOTTO_HEAVY_TIMING_LOG': (self.tmp / 'gate-timing.log').as_posix(), 'JOB_PILOTTO_HEAVY_SHARED': str(LOCK)}
+                    'JOB_PILOTTO_HEAVY_LOAD': '0', 'JOB_PILOTTO_HEAVY_POLL': '0.1', 'JOB_PILOTTO_HEAVY_TIMING_LOG': (self.tmp / 'gate-timing.log').as_posix(), 'JOB_PILOTTO_HEAVY_SHARED': str(LOCK),
+                    'JOB_PILOTTO_HEAVY_RAMP': '3600'}   # a just-started run's reservation lasts the whole test, however slow the runner (the default 90 s could lapse mid-test)
 
     def memory(self, free_gb, swap_used_pct=10):
         bin_dir = self.tmp / 'bin'
@@ -35,11 +36,14 @@ class HeavyLockBudgetTest(unittest.TestCase):
         self.env['PATH'] = f'{bin_dir.as_posix()}{os.pathsep}{os.environ["PATH"]}'
 
     def launch(self, what, name, **env):
-        """Start a gated run and wait until it is in the lock's books (holding or queued)."""
+        """Start a gated run and wait until THIS run (its pid) holds a slot or has its ticket in the queue: the next run is then younger in line."""
         proc = subprocess.Popen(['bash', str(LOCK), what, 'bash', '-c', gated(self.trace, name, self.gates)], env={**self.env, **env}, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         self.procs.append(proc)
-        wait_registered(self.env['JOB_PILOTTO_HEAVY_DIR'], len(self.procs))
+        wait_in_books(self.env['JOB_PILOTTO_HEAVY_DIR'], proc, procs=self.procs, env=self.env)
         return proc
+
+    def why(self):
+        return evidence(self.env['JOB_PILOTTO_HEAVY_DIR'], env=self.env)
 
     def words(self):
         try:
@@ -48,7 +52,7 @@ class HeavyLockBudgetTest(unittest.TestCase):
             return []
 
     def settle(self, seconds=0.6):
-        time.sleep(seconds)   # nothing more is going to start: the only wait of these tests that has to be a clock
+        time.sleep(seconds)   # clock: nothing more may start; the state is fixed while the gates hold, so a wrong start only gets time to show
         return self.words()
 
     def finish(self):
@@ -61,7 +65,7 @@ class HeavyLockBudgetTest(unittest.TestCase):
         self.memory(free_gb=20)
         for n in 'abcd':
             self.launch('recorded-replay', n)
-        wait_trace(self.trace, 4)
+        wait_trace(self.trace, 4, why=self.why)
         self.assertEqual(sorted(self.words()), ['+a', '+b', '+c', '+d'])
         self.finish()
 
@@ -70,10 +74,10 @@ class HeavyLockBudgetTest(unittest.TestCase):
         self.memory(free_gb=12)
         for what, name in (('e2e-smoke', 'a'), ('e2e-smoke', 'b'), ('e2e-smoke', 'c'), ('recorded-replay', 'd')):
             self.launch(what, name)
-        wait_trace(self.trace, 3)
+        wait_trace(self.trace, 3, why=self.why)
         self.assertEqual(sorted(self.settle()), ['+a', '+b', '+d'], 'the 3rd live run does not start beside two others')
         release(self.gates, 'a')
-        wait_trace(self.trace, 5)
+        wait_trace(self.trace, 5, why=self.why)
         self.assertEqual(self.words()[3:], ['-a', '+c'])
         self.finish()
 
@@ -81,23 +85,23 @@ class HeavyLockBudgetTest(unittest.TestCase):
         self.memory(free_gb=9)    # 9 - 2.9 reserved for the 1st = 6.1: under 7
         self.launch('e2e-smoke', 'a')
         self.launch('e2e-smoke', 'b')
-        wait_trace(self.trace, 1)   # a has started, however slow the Mac is; only then is a quiet 0.6 s meaningful
+        wait_trace(self.trace, 1, why=self.why)   # a has started, however slow the Mac is; only then is a quiet 0.6 s meaningful
         self.assertEqual(self.settle(), ['+a'])
         release(self.gates, 'a')
-        wait_trace(self.trace, 3)
+        wait_trace(self.trace, 3, why=self.why)
         self.assertEqual(self.words(), ['+a', '-a', '+b'])
         self.finish()
 
     def replay_behind_a_waiting_live_proof(self, **env):
         self.memory(free_gb=6)     # a live run cannot start beside the 1st (needs 7); a replay can (6 - 2.9 = 3.1 over 3)
         self.launch('e2e-smoke', 'a', **env)
-        wait_trace(self.trace, 1)   # a holds before b queues (a proof would overtake a pool run still in the queue)
+        wait_trace(self.trace, 1, why=self.why)   # a holds before b queues (a proof would overtake a pool run still in the queue)
         self.launch('real-extension', 'b', **env)   # a live proof of the same class, waiting for memory
         self.launch('recorded-replay', 'c', **env)
 
     def test_a_replay_with_room_does_not_queue_behind_a_waiting_live_run(self):
         self.replay_behind_a_waiting_live_proof()
-        wait_trace(self.trace, 2)   # the replay starts however slow the Mac is
+        wait_trace(self.trace, 2, why=self.why)   # the replay starts however slow the Mac is
         self.assertEqual(sorted(self.settle()), ['+a', '+c'], 'and the live proof b does not')
         self.finish()
 
@@ -111,14 +115,14 @@ class HeavyLockBudgetTest(unittest.TestCase):
         self.launch('recorded-replay', 'a')
         self.launch('apply-latency-x', 'timing')
         self.launch('recorded-replay', 'b')
-        wait_trace(self.trace, 1)
+        wait_trace(self.trace, 1, why=self.why)
         self.assertEqual(self.settle(), ['+a'], 'the timing run waits for the empty lock and the replay behind it waits for the timing run')
         release(self.gates, 'a')
-        wait_trace(self.trace, 3)
+        wait_trace(self.trace, 3, why=self.why)
         self.assertEqual(self.words(), ['+a', '-a', '+timing'])
         self.assertEqual(self.settle(), ['+a', '-a', '+timing'], 'nothing starts beside it')
         release(self.gates, 'timing')
-        wait_trace(self.trace, 5)
+        wait_trace(self.trace, 5, why=self.why)
         self.finish()
 
     def test_a_timing_run_starts_where_stat_is_the_gnu_one(self):
@@ -132,7 +136,7 @@ class HeavyLockBudgetTest(unittest.TestCase):
         self.launch('recorded-replay', 'a')
         self.launch('apply-latency-x', 'timing')
         release(self.gates, 'a')
-        wait_trace(self.trace, 3)
+        wait_trace(self.trace, 3, why=self.why)
         self.assertEqual(self.words(), ['+a', '-a', '+timing'])
         self.finish()
 
@@ -140,10 +144,10 @@ class HeavyLockBudgetTest(unittest.TestCase):
         self.memory(free_gb=20)
         for n in 'abc':
             self.launch('recorded-replay', n, JOB_PILOTTO_HEAVY_SLOTS='2', JOB_PILOTTO_HEAVY_REPLAY_SKIP='0')   # (replays may skip the queue: here only the cap is looked at, in arrival order)
-        wait_trace(self.trace, 2)
+        wait_trace(self.trace, 2, why=self.why)
         self.assertEqual(sorted(self.settle()), ['+a', '+b'])
         release(self.gates, 'a')
-        wait_trace(self.trace, 4)
+        wait_trace(self.trace, 4, why=self.why)
         self.assertEqual(self.words()[2:], ['-a', '+c'])
         self.finish()
 

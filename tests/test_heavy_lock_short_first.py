@@ -4,11 +4,10 @@ import os
 import shutil
 import subprocess
 import tempfile
-import time
 import unittest
 from pathlib import Path
 
-from tests.heavy_wait import wait_registered
+from tests.heavy_wait import evidence, wait_in_books, wait_said
 
 ROOT = Path(__file__).resolve().parent.parent
 LOCK = ROOT / 'tools' / 'heavy-lock.sh'
@@ -31,12 +30,11 @@ class HeavyLockShortFirstTest(unittest.TestCase):
         """A gated holder runs until a longer run (real-extension) and a row replay are queued; returns the order they ran in."""
         heavy, go = self.env['JOB_PILOTTO_HEAVY_DIR'], (self.tmp / 'go').as_posix()
         holder = self.start('recorded-replay-holder', f'echo holder >> {self.trace}; while [ ! -f {go} ]; do sleep 0.05; done', **env)
-        wait_registered(heavy, 1)
+        wait_in_books(heavy, holder, ('holds',), env=self.env)
         longer = self.start('real-extension', f'echo long >> {self.trace}', **env)
-        wait_registered(heavy, 2)
-        time.sleep(0.2)
+        wait_in_books(heavy, longer, ('waits',), procs=[holder], env=self.env)
         row = self.start('row-replay', f'echo row >> {self.trace}', **env)
-        wait_registered(heavy, 3)
+        wait_in_books(heavy, row, ('waits',), procs=[holder, longer], env=self.env)
         Path(go).write_text('go')
         for p in (holder, longer, row):
             p.communicate(timeout=30)
@@ -66,11 +64,17 @@ class HeavyLockShortFirstTest(unittest.TestCase):
         self.assertIn('waits for the machine', err, 'JOB_PILOTTO_HEAVY_REPLAY_LOAD=1 puts replays back behind the load wait')
 
     def test_the_wait_message_names_the_session_that_holds_the_lock_and_the_one_ahead(self):
-        holder = self.start('e2e-smoke', 'sleep 1.5', JOB_PILOTTO_SESSION='session-a')
-        time.sleep(0.4)
-        waiter = self.start('e2e-smoke', 'true', JOB_PILOTTO_SESSION='session-b')
-        _, err = waiter.communicate(timeout=30)
+        go = (self.tmp / 'go').as_posix()
+        holder = self.start('e2e-smoke', f'while [ ! -f {go} ]; do sleep 0.05; done', JOB_PILOTTO_SESSION='session-a')
+        wait_in_books(self.env['JOB_PILOTTO_HEAVY_DIR'], holder, ('holds',), env=self.env)   # it holds: not a guessed 0.4 s
+        err_path = self.tmp / 'err-waiter'
+        with open(err_path, 'w') as err_out:
+            waiter = subprocess.Popen(['bash', str(LOCK), 'e2e-smoke', 'true'], env={**self.env, 'JOB_PILOTTO_SESSION': 'session-b'}, stdout=subprocess.PIPE, stderr=err_out, text=True)
+        wait_said(err_path, 'e2e-smoke waits', waiter, why=lambda: evidence(self.env['JOB_PILOTTO_HEAVY_DIR'], [holder], self.env))   # it looked and said who holds the lock
+        Path(go).write_text('go')
+        waiter.communicate(timeout=30)
         holder.communicate(timeout=30)
+        err = err_path.read_text()
         self.assertIn('session session-a', err)
 
 
