@@ -7,6 +7,7 @@
 /* global document, location */
 import fs from 'node:fs';
 import {endShotLine, takeEndShot} from './end-shot.mjs';
+import {readLive, readingsLine} from './live-readings.mjs';
 import {kindFromLog, stepLines, stepShooter} from './step-shots.mjs';
 import {ensureStagedWorker} from './staged-worker.mjs';
 import path from 'node:path';
@@ -106,6 +107,9 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     clearInterval(asks);
     const endedWhileDeciding = deciding;   // the limit came while the extension was still on a step: an error, not a finished run
     shotAsked = true;
+    // The false readings at the end (lib/live-readings.mjs: contact boxes hold the applicant's values, the panel's count agrees with the page): pool-ci.mjs makes them red.
+    const lastTab = run.context.pages().filter(page => /^https?:/.test(page.url())).at(-1);
+    if (lastTab) say(readingsLine(await readLive(lastTab, CONTACT).catch(error => ({failures: [], boxes: 0, error: String(error?.message || error).slice(0, 80)}))));
     const shot = await takeEndShot(run.context, captureDir);   // before the final privacy check: a hit deletes it with the capture (lib/end-shot.mjs); said out loud either way
     say(endShotLine(shot));
     for (const line of stepLines(steps, captureDir)) say(line);

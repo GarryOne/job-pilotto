@@ -134,3 +134,10 @@ test('the summary shows each row\'s ending: unresolved stands out, the test\'s o
   assert.match(markdown, /\| B \| thin \| account \| held by the test \|/);
   assert.match(markdown, /\| C \| thin \| ready \| ready \|/);
 });
+
+test('a false reading at a row\'s end (lib/live-readings.mjs) turns the run red, one line each; a row with none stays green', () => {
+  const read = {...report, results: {'Lever: single page, no account': {reached: 'form', filled: 5, left: 1, usd: 0.05, seconds: 60, readings: {failures: ['ready: the panel says ready with 1 required left (Phone)'], boxes: 3}}}};
+  assert.deepEqual(summary(read).red, ['false reading: Lever: single page, no account: ready: the panel says ready with 1 required left (Phone)']);
+  const clean = {...report, results: {'Lever: single page, no account': {reached: 'form', filled: 5, left: 1, usd: 0.05, seconds: 60, readings: {failures: [], boxes: 3}}}};
+  assert.deepEqual(summary(clean).red, []);
+});

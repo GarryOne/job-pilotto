@@ -1,0 +1,42 @@
+name: CI · Flow canary (3 live rows, optional)
+# The live canary on a pull request that can break the applying flow (owner, 13 Oct 2026: ~$0.15 a flow PR approved): the pool's three public default rows (Lever, Personio,
+# Recruitee: no bot wall in the runs of 10-12 Oct 2026) run on the PR's own build through pool-smoke.yml (its 3-row and $0.50 caps, CI's site ledger shared with
+# pool-proof.yml, never Submit, the fake applicant). Red for a fall below a row's last CI run, the tripwire, a refused AI, or a false reading at a row's end
+# (desktop/e2e/lib/live-readings.mjs). A site out of visits today is skipped, never red. The pick is the flow e2e's (tools/affected-jobs.py e2e-flow).
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: flow-canary-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write   # pool-smoke.yml says on the PR when a row did not run (when to run it again)
+
+jobs:
+  pick:
+    name: flow canary needed?
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.needed.outputs.run }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2   # the merge commit and the main it merges into: what this pull request changes
+      - id: needed
+        name: Can this change break the applying flow?
+        run: bash tools/ci-needed.sh e2e-flow
+
+  canary:
+    needs: pick
+    if: needs.pick.outputs.run == 'true' && github.event.pull_request.head.repo.full_name == github.repository   # a fork has no secrets: nothing to run
+    uses: ./.github/workflows/pool-smoke.yml
+    with:
+      only: 'Lever: single page|Personio form in German|Recruitee: one-page form'
+      share: 3
+      applicant: grown
+    secrets: inherit
