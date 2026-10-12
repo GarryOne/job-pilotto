@@ -114,6 +114,10 @@ jobs:
       - name: Install the app's own packages
         working-directory: desktop
         run: npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts
+      # desktop/shared is generated (gitignored): test/judge-sketch-picklist.test.mjs imports it, and passed only when another test happened to stage it first (12 Oct 2026).
+      - name: Stage the app's shared files
+        working-directory: desktop
+        run: node scripts/stage.mjs --files-only
       # A few of them open a headless Chromium (test/upload-slot.test.mjs: each upload-slot shape on a fixture page, 8 Oct 2026).
       - name: A headless browser for the tests' own tests
         working-directory: desktop/e2e

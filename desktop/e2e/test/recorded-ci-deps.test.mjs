@@ -29,7 +29,7 @@ test('the recorded-pages workflow installs desktop/ packages, and the offline ap
 // The class (12 Oct 2026: the e2e plan job ran `npm test` without them and no scheduled suite ran for 11 hours): any job that runs the harness tests, whatever the workflow.
 test('every workflow job that runs the harness tests or the recorded cases installs desktop/ packages first', () => {
   const dir = path.join(root, '.github/workflows');
-  const lacking = [];
+  const lacking = [], unstaged = [];
   let seen = 0;
   for (const file of fs.readdirSync(dir).filter(name => /\.ya?ml$/.test(name))) {
     const text = fs.readFileSync(path.join(dir, file), 'utf8');
@@ -40,8 +40,11 @@ test('every workflow job that runs the harness tests or the recorded cases insta
       if (!steps.some(step => /working-directory: desktop\/e2e\b/.test(step) && /^\s+run: (npm test|npm run recorded\b|node --test)/m.test(step))) continue;
       seen += 1;
       if (!/working-directory: desktop\n\s+run: npm (ci|install)\b/.test(block)) lacking.push(`${file} :: ${jobs[i]}`);
+      // The harness's unit tests (not the recorded replay) also import desktop/shared, which is generated: a job that runs them stages it first.
+      if (steps.some(step => /^\s+run: (npm test\b|node --test\b(?![^\n]*recorded-pages))/m.test(step)) && !/working-directory: desktop\n\s+run: node scripts\/stage\.mjs/.test(block)) unstaged.push(`${file} :: ${jobs[i]}`);
     }
   }
   assert.ok(seen >= 2, 'the check found the plan job and the recorded-pages job (the pattern still matches the workflows)');
   assert.deepEqual(lacking, [], 'a job runs the harness tests without installing desktop/ packages (ERR_MODULE_NOT_FOUND for @anthropic-ai/sdk)');
+  assert.deepEqual(unstaged, [], 'a job runs the harness tests without staging desktop/shared (node scripts/stage.mjs --files-only: ERR_MODULE_NOT_FOUND for shared/alias-schema.js)');
 });
