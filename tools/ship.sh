@@ -72,8 +72,10 @@ trap 'on_signal INT 2' INT
 trap 'on_signal HUP 1' HUP
 trap 'code=$?; landing_release; timeline_write "$code"; if [ "$code" -ne 0 ]; then echo "ship: FAILED ${fail_reason:-(exit $code)}, log: $log"; elif [ -n "$finished" ]; then echo "ship: DONE ${sha:-nothing to push}"; else echo "ship: FAILED (ended early without pushing or finishing), log: $log"; fi' EXIT
 
+# Several sessions fetch into one shared repo: a fetch can lose the race for a ref lock ("cannot lock ref 'refs/remotes/origin/main'", 12 Oct 2026, a merged PR reported FAILED). Try again.
+ship_fetch() { local try; for try in 1 2 3 4 5; do git fetch -q origin 2>/dev/null && return 0; sleep 1; done; git fetch -q origin; }
 rebase() {
-  git fetch -q origin
+  ship_fetch
   git config merge.ladder-baseline.driver 'node tools/merge-baseline.mjs %O %A %B'   # two sessions' ladder-baseline updates merge (.gitattributes)
   git config merge.ext-manifest.driver 'node tools/merge-extension-version.mjs %O %A %B'   # a moved extension version is no conflict: it is taken below
   git config merge.ext-fingerprint.driver 'true'   # the upstream's fingerprint stays; it is written once below
