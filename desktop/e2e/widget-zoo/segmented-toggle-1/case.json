@@ -1,6 +1,6 @@
 {
  "widget": "segmented_toggle",
- "shape": "none: two aria-pressed buttons (the control case, handled since 67c6e9e)",
+ "shape": "two aria-pressed buttons in a group named by aria-labelledby; the first label of the form is another box's (it must not name the group)",
  "why": "widget zoo (spec docs/superpowers/specs/2026-10-12-fill-ladder.md): a measure, not a gate: what the fill reads (asked) and what stays committed",
  "pages": [
   {
@@ -22,7 +22,7 @@
    "eligible": true,
    "answers": [
     {
-     "field": "travel",
+     "field": "aria:g1",
      "question": "Are you open to occasional business travel?",
      "value": "Yes",
      "confidence": "high",

@@ -56,8 +56,7 @@
     String(getComputedStyle(title, '::after').content || '').includes('*'));
   const questionOf = el => clean(R.read(fieldsetTitle(el.closest('fieldset'))) ||
     (['radio', 'checkbox'].includes(el.type) ? R.read(window.__jobPilottoRequired.rowTitle(el)) : '') ||
-    el.closest('[role=radiogroup], [role=group]')?.getAttribute('aria-label') ||
-    el.closest('[role=radiogroup], [role=group]')?.querySelector('label, legend, span')?.textContent || '');
+    (group => group && (window.__jobPilottoOwnName(group)?.text || group.querySelector('label, legend, span')?.textContent))(el.closest('[role=radiogroup], [role=group]')) || '');   // the group's own accessible name (aria-labelledby, aria-label: page/label-before.js), else its first title inside
   const isCombo = el => el.getAttribute('role') === 'combobox';
   const comboControl = el => el.closest('[class*=control]') || el;
   const comboValue = el => (el.closest('[class*=select__container]') || el.closest('[class*=container]'))?.querySelector('[class*=single-value], [class*=multi-value]') ||   // react-select's chip,

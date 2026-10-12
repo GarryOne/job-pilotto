@@ -72,7 +72,8 @@
         const radios = controls.filter(r => r.type === 'radio' && r.name === el.name);
         const question = questionOf(el) || labelOf(el);
         fields.push({field: `radio:${el.name}`, label: question, type: 'radio',
-          required: radios.some(r => r.required || r.getAttribute('aria-required') === 'true') || titleRequired(fieldsetTitle(el.closest('fieldset')) || window.__jobPilottoRequired.rowTitle(el)),
+          required: radios.some(r => r.required || r.getAttribute('aria-required') === 'true') || titleRequired(fieldsetTitle(el.closest('fieldset')) || window.__jobPilottoRequired.rowTitle(el))
+            || (group => !!group && (group.getAttribute('aria-required') === 'true' || window.__jobPilottoRequired.has(window.__jobPilottoOwnName(group)?.el)))(el.closest('[role=radiogroup], [role=group]')),   // the group's own title carries the star (page/label-before.js)
           options: radios.map(labelOf), filled: radios.some(r => r.checked), legal: LEGAL.test(question)});
       } else if (el.type === 'checkbox') {
         const label = labelOf(el);

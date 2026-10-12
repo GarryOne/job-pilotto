@@ -36,11 +36,8 @@
     if (['checkbox', 'radio'].includes(el.type) && legend) return clean(legend);
     if (clean(own)) return clean(own);
     if (legend) return clean(legend);
-    let box = el.parentElement;
-    for (let i = 0; i < 4 && box; i++, box = box.parentElement) {
-      const text = clean(box.querySelector('label, legend, [class*=label], [class*=question]')?.textContent);
-      if (text) return text;
-    }
+    const above = window.__jobPilottoTitleAbove(el, 'label, legend, [class*=label], [class*=question]', 4);   // the nearest title before it that no other control owns (page/label-before.js)
+    if (above) return clean(above.textContent);
     return clean(el.name || el.id);
   }
   // A fieldset's title: its <legend>, or (Ashby) a <label> whose `for` points at no control. Ashby marks a required radio group only
@@ -113,13 +110,10 @@
     }
     for (const [box, buttons] of pairs) {
       if (buttons.length < 2) continue;
-      let title = null;
-      for (let up = box.parentElement, i = 0; up && i < 5 && !title; up = up.parentElement, i++) {
-        const found = up.querySelector('label, legend, [class*=title], [class*=heading]');
-        if (found && clean(found.textContent)) title = found;
-      }
-      if (!title) continue;
-      groups.set(box, {el: box, label: clean(title.textContent), ai: false,
+      const named = window.__jobPilottoGroupTitle(box);   // its own accessible name, else the nearest title before it no other control owns (page/label-before.js)
+      if (!named) continue;
+      const title = named.el;
+      groups.set(box, {el: box, label: clean(named.text), ai: false,
         required: /required/i.test(title.className) || window.__jobPilottoRequired.has(title),
         filled: buttons.some(button => button.getAttribute('aria-pressed') === 'true')});
     }
