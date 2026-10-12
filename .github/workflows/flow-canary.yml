@@ -30,6 +30,14 @@ jobs:
       - id: needed
         name: Can this change break the applying flow?
         run: bash tools/ci-needed.sh e2e-flow
+      # Owner, 12 Oct 2026: every PR with a CI live run carries the label ("label:live-proof" lists them). A label this run's token adds starts no new run.
+      - name: Label the PR live-proof (its rows run live)
+        if: steps.needed.outputs.run == 'true' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels" -f 'labels[]=live-proof' --silent || echo "flow-canary: could not add the live-proof label (the run goes on)"
 
   canary:
     needs: pick
