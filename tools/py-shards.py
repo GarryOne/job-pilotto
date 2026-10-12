@@ -105,18 +105,20 @@ def main(argv=None):
                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True))
              for shard in split(modules, args.jobs)]
     results = [None] * len(procs)
-    def collect(i, proc):   # each shard's own end time, not the order they are read in
+    def collect(i, proc):   # each shard's own end time, said the moment it ends (a live CI log is not blank until the last shard)
         out, _ = proc.communicate()
         results[i] = (out, time.monotonic() - started)
+        shard = procs[i][0]
+        print(f'py-shards: shard {"FAILED" if proc.returncode else "done"} {results[i][1]:.1f}s, {len(shard)} modules ({", ".join(shard[:3])}{", ..." if len(shard) > 3 else ""})', flush=True)
+    print(f'py-shards: {len(procs)} shards started ({len(modules)} modules)', flush=True)
     threads = [threading.Thread(target=collect, args=(i, proc)) for i, (_, proc) in enumerate(procs)]
     for t in threads:
         t.start()
     for t in threads:
         t.join()
     failed = ran = 0
-    for (shard, proc), (out, took) in zip(procs, results):
+    for (shard, proc), (out, _) in zip(procs, results):
         ran += sum(int(n) for n in re.findall(r'^Ran (\d+) tests?', out, re.M))
-        print(f'py-shards: shard {took:.1f}s, {len(shard)} modules ({", ".join(shard[:3])}{", ..." if len(shard) > 3 else ""})')
         if proc.returncode:
             failed += 1
             print(f'py-shards: shard FAILED ({len(shard)} modules: {", ".join(shard[:4])}...)\n{out}', file=sys.stderr)
