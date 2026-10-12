@@ -102,7 +102,7 @@ const cloud = () => !!storage?.settings().cloud?.repo;
 let telemetry = null;  // technical reports (lib/telemetry.js), made once storage exists
 let analytics = null;  // usage events (lib/analytics.js, PostHog); crash reports (lib/sentry.js) have the same gate and switch as telemetry
 let trail = null;  // lib/sentry.js note(): the last steps, attached to the next crash report
-const track = (event, props) => { analytics?.track(event, props); trail?.(event, props); };
+const track = (event, props) => { analytics?.track(event, props); if (event !== 'screen_time' && event !== 'ui_click') trail?.(event, props); };   // usage signals stay out of the crash trail
 let recipeReporterRef = null;  // the batched, anonymous product counts (lib/recipes.js), made when the app is ready
 let license = null;  // the free allowance and license keys (lib/license.js), made once storage exists
 const {getUpdateOffer, setUpdateOffer, getUpdateCheckedAt, FROM_SOURCE, betaOn, testerOn, testerLogsOn, checkForUpdate, buildMenu, trackSetup, installUpdate, channels} =

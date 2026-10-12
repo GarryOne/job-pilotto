@@ -10,6 +10,7 @@ import {loadCalendar} from './calendar.js';
 import {loadInterviews} from './interviews.js';
 import {loadEmployers} from './employers.js';
 import {closeJobPanel, openJobPanel} from './job-panel.js';
+import {usage} from '../usage-signals.js';
 import {REPORT_TABS, loadReports} from './reports.js';
 import {applyViewGate} from './notion-connect.js';
 import {loadSettings} from './profile.js';
@@ -42,6 +43,7 @@ export function openView(name, {fromHistory = false} = {}) {
   currentView = name;
   if (!fromHistory) history = viewHistory.visit(history, name);
   remembered('view', name);
+  usage.viewChanged(name);   // seconds on the screen just left (active vs idle) go out; renderer/usage-signals.js
   window.pilot.pageView?.(name).catch?.(() => {});   // the page's name only (a fixed list on the other side), for the usage funnel
   setTimeout(() => { if (typeof renderDock === 'function' && sessionList) renderDock(); }, 0);  // the tray hides on the sessions page
   if (name === 'actions') prepareActions();   // its banner and result card are in the first frame, not a moment later above the tasks (#286)
