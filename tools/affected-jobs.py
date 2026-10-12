@@ -36,7 +36,7 @@ JOBS = {
     'harness': (('desktop/e2e/test', '*.test.mjs'), ('desktop/e2e/', 'desktop/scripts/stage.mjs') + APP_INSTALL),
     'replays': (None, APP_INSTALL + E2E_INSTALL),
     'zoo': (None, ('desktop/scripts/stage.mjs',) + APP_INSTALL + E2E_INSTALL),
-    'e2e-flow': (None, ('.github/workflows/e2e.yml', '.github/workflows/e2e-flow.yml', '.github/workflows/flow-canary.yml', '.github/workflows/pool-smoke.yml')),   # optional (tests OPTIONAL): apply + applycv and the live canary on flow PRs
+    'e2e-flow': (None, ('.github/workflows/e2e.yml', '.github/workflows/e2e-flow.yml', '.github/workflows/flow-canary.yml', '.github/workflows/pool-smoke.yml')),   # optional (tests OPTIONAL): apply + applyflows and the live canary on flow PRs
 }
 # Jobs that run ONLY for what they load and their own files (owner, 13 Oct 2026: "only the specific cases, when it's really relevant"): never for the plumbing,
 # root dependencies, lock files or an unknown file that run every other job whole. Main's schedule is their backstop for those.

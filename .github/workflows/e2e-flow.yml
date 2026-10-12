@@ -1,4 +1,4 @@
-name: CI · Flow e2e (apply + applycv, optional)
+name: CI · Flow e2e (apply + applyflows, optional)
 # A pull request that can break the applying flow runs the two suites that apply on fixture forms with the real extension (owner, 13 Oct 2026: optional now; required once it
 # has proven itself on the SQLite store). The pick decides (tools/affected-jobs.py e2e-flow: the extension, the flow files, the suites' own files), then e2e.yml runs the suites
 # in this PR's own group: a newer push cancels only this PR's older run, never the release gate's or the schedule's (their groups are e2e-<suite>). Fake applicant data only.
@@ -40,5 +40,5 @@ jobs:
     with:
       gate_tag: ''
       release_run: true   # no "Windows follows" dispatch and no promotion from a pull request
-      pr_suites: apply,applycv
+      pr_suites: apply,applyflows
     secrets: inherit

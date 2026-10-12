@@ -6,7 +6,7 @@ import {test} from 'node:test';
 import * as forms from '../lib/forms.mjs';
 import {partOf} from '../suites/apply.mjs';
 import * as applySuite from '../suites/apply.mjs';
-import * as applycvSuite from '../suites/applycv.mjs';
+import * as applyflowsSuite from '../suites/applyflows.mjs';
 import {appCode} from '../lib/account-eval.mjs';
 
 const journeySteps = () => [...fs.readFileSync(new URL('../lib/apply-journeys.mjs', import.meta.url), 'utf8').matchAll(/ctx\.run\('((?:[^'\\]|\\.)*)'/g)]
@@ -31,10 +31,10 @@ test('the wrong-kind page has its own page shape: no other fixture page shares i
 });
 
 test('CI runs every part of the apply steps in exactly one suite, and the CV steps beside the forms', async () => {
-  // Each suite's run(ctx) calls runApply(ctx, parts): read the parts from the source, the one line that says them.
-  const partsOf = name => JSON.parse(fs.readFileSync(new URL(`../suites/${name}.mjs`, import.meta.url), 'utf8').match(/export const run = ctx => runApply\(ctx, (\[[^\]]*\])\)/)[1].replace(/'/g, '"'));
-  const apply = partsOf('apply'), applycv = partsOf('applycv');
-  assert.deepEqual([...apply, ...applycv].sort(), ['cv', 'flows', 'forms']);   // each once: a part in both doubles its time, a part in neither never runs on CI
+  // Each suite's run(ctx) calls runApply(ctx, parts): read the parts from the source, the one line that says them (applyflows: the parts CI runs, not LIVE=1's).
+  const partsOf = name => JSON.parse(fs.readFileSync(new URL(`../suites/${name}.mjs`, import.meta.url), 'utf8').match(/export const run = ctx => runApply\(ctx, (?:process\.env\.LIVE \? \[[^\]]*\] : )?(\[[^\]]*\])\)/)[1].replace(/'/g, '"'));
+  const apply = partsOf('apply'), applyflows = partsOf('applyflows');
+  assert.deepEqual([...apply, ...applyflows].sort(), ['cv', 'flows', 'forms']);   // each once: a part in both doubles its time, a part in neither never runs on CI
   assert.ok(apply.includes('cv') && apply.includes('forms'), 'the CV steps use the form fixtures, seeded where the forms run');
-  assert.equal(applySuite.macos && applycvSuite.macos, true, 'both need the macOS runner (the extension through `open`, the CV attached)');
+  assert.equal(applySuite.macos && applyflowsSuite.macos, true, 'both need the macOS runner (the extension through `open`, the CV attached)');
 });

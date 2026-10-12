@@ -147,7 +147,7 @@ fi
 if command -v node >/dev/null && [ -f "$repo/tools/spec-proof.mjs" ] && git -C "$repo" rev-parse --verify -q origin/main >/dev/null; then
   proof="$(cd "$repo" && timed "spec proof" node tools/spec-proof.mjs --base origin/main 2>&1)" || { echo "Push blocked: $proof" >&2; exit 2; }
 fi
-# The Applying scenario matrix is not a push gate any more (owner, 9 Oct 2026): its steps run with every other e2e on CI (apply, applycv: schedule and beta gate);
+# The Applying scenario matrix is not a push gate any more (owner, 9 Oct 2026): its steps run with every other e2e on CI (apply, applyflows: schedule and beta gate);
 # `cd desktop && npm run flows` stays an on-demand check. (8 Oct-9 Oct it blocked pushes that touched FLOW_CORE: one recorded catch in 186 commits, 28 skips.)
 # A push that changes an e2e suite names the open failed-step issues of that suite (6 Oct 2026: #310 and #315 were fixed in the test by commits that never named them,
 # and were diagnosed again from scratch): "Fixes #N", "Refs #N" or "E2E-issue: none <why>" (tools/e2e-issue-links.mjs). `E2E_ISSUE_OK=1` on the push skips it.

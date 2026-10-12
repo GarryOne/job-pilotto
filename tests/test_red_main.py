@@ -15,7 +15,7 @@ TESTS, PAGES = 'CI · Tests', 'CI · Recorded pages (all cases, real extension, 
 CLASSIFIED = {
     'CI · Tests': 'counted', 'CI · Recorded pages (all cases, real extension, Linux)': 'counted',
     'CI · Pull request': 'ignored: runs on pull requests only, never on main; its checks gate the merge',
-    'CI · Flow e2e (apply + applycv, optional)': 'ignored: runs on pull requests only (an optional check), never on main',
+    'CI · Flow e2e (apply + applyflows, optional)': 'ignored: runs on pull requests only (an optional check), never on main',
     'CI · Flow canary (3 live rows, optional)': 'ignored: live sites on pull requests only (an optional check), never on main',
     'CI · End-to-end on Mac + Linux': 'ignored: the e2e suites run on schedule and by hand with live-site and AI flakiness; a red one is an issue, not a block on every landing',
     'CI · End-to-end on Windows': 'ignored: same, slower and by schedule', 'CI · Python tests on Windows (by hand)': 'ignored: started by hand',

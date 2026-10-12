@@ -57,7 +57,7 @@ export function jobFiles(job, root = ROOT) {
   // The flow e2e and the live canary on a pull request (.github/workflows/e2e-flow.yml, flow-canary.yml), only where it is really relevant (owner, 13 Oct 2026): the
   // extension, the flow files the app runs for an application (desktop/e2e/flows.mjs FLOW_FILES), the two suites' own files and the fixtures they read. Not the app's
   // other modules: main's scheduled e2e is the backstop for them.
-  if (job === 'e2e-flow') return new Set(['extension/', ...flowFiles(root), 'desktop/e2e/fixtures/real-forms/', 'desktop/e2e/fixtures/cv.pdf', ...['apply', 'applycv'].flatMap(suite => [...harnessFiles(`desktop/e2e/suites/${suite}.mjs`, root)])]);
+  if (job === 'e2e-flow') return new Set(['extension/', ...flowFiles(root), 'desktop/e2e/fixtures/real-forms/', 'desktop/e2e/fixtures/cv.pdf', ...['apply', 'applyflows'].flatMap(suite => [...harnessFiles(`desktop/e2e/suites/${suite}.mjs`, root)])]);
   throw new Error(`no replay job ${job}: replays, zoo or e2e-flow`);
 }
 

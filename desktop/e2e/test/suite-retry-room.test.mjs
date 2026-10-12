@@ -6,9 +6,10 @@ import {test} from 'node:test';
 
 const BUDGET = 7, SETUP = 3;
 
-test('apply and applycv have a job limit that holds a full first attempt and a full retry', async () => {
-  for (const suite of ['apply', 'applycv']) {
-    const {minutes} = await import(`../suites/${suite}.mjs`);
-    assert.ok(minutes >= 2 * BUDGET + SETUP, `${suite}: job limit ${minutes} min is under ${2 * BUDGET + SETUP} (two attempts of ${BUDGET} min and the setup)`);
+test('apply and applyflows have a job limit that holds a full first attempt and a full retry', async () => {
+  for (const suite of ['apply', 'applyflows']) {
+    const {minutes, budgetMinutes} = await import(`../suites/${suite}.mjs`);
+    const budget = process.env.CI ? (budgetMinutes || BUDGET) : BUDGET;   // CI's budget is what its job limit must hold (applyflows: 10 only on a Mac)
+    assert.ok(minutes >= 2 * budget + SETUP, `${suite}: job limit ${minutes} min is under ${2 * budget + SETUP} (two attempts of ${budget} min and the setup)`);
   }
 });
