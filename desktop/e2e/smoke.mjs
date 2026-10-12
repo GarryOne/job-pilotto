@@ -13,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {orderPool} from './lib/smoke-order.mjs';
-import {SITE_REFUSED, compare, engineLine, lastSeen, runShare, selectRows, shareSize, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, signature, smokeEngine, verdictFields} from './lib/smoke.mjs';
+import {SITE_REFUSED, compare, engineLine, lastSeen, poolShapes, runShare, selectRows, shareSize, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, signature, smokeEngine, verdictFields} from './lib/smoke.mjs';
 import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
 import {uploadLedger} from './lib/fix-ledger.mjs';
 import {poolCard, sendPoolCard} from './lib/pool-card.mjs';
@@ -32,7 +32,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 export const QA_DIR = path.join(os.homedir(), 'Library/Application Support/Job Pilotto QA');   // survives profile resets and removed worktrees
 const REPORTS = process.env.SMOKE_REPORTS || path.join(QA_DIR, 'smoke-reports');
 const CANDIDATES = process.env.SMOKE_CANDIDATES || path.join(QA_DIR, 'replay-candidates');   // failing shapes' pages, scrubbed: on this Mac, never in the repo (lib/replay-candidate.mjs)
-export const LOCAL_SITES = process.env.SMOKE_SITES || path.join(QA_DIR, 'smoke-sites.json');   // never in the repo, nor in the app's folder (a profile reset wipes that: 10 Oct 2026)
+export const POOL_SITES = path.join(here, 'smoke-sites.json');   // THE pool (owner, 12 Oct 2026: every row in the repo, so CI runs them all); discovery writes it
+export const LOCAL_SITES = process.env.SMOKE_SITES || path.join(QA_DIR, 'smoke-sites.json');   // a Mac's optional extra rows not yet moved into the repo: read, never written
 const JOBS_DB = path.join(os.homedir(), 'Library/Application Support/Job Pilotto/data/jobs.sqlite');
 
 export function postingsLike(likes, run = execFileSync, limit = 40) {
@@ -82,10 +83,10 @@ function droppedBoards() {
 }
 
 // --discover [--limit N]: candidates from the loaded profile's jobs (a few per host, more from job boards; none already in the pool), each run once live
-// (held); one that shows a flow signature the pool does not have joins this Mac's list as a new shape. Its report: <QA folder>/smoke-reports/discover-<day>.json.
+// (held); one that shows a flow signature the pool does not have joins the repo's pool list (POOL_SITES: commit it, then CI runs it). Report: <QA folder>/smoke-reports/discover-<day>.json.
 async function discover(limit) {
   const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return {shapes: []}; } };
-  const local = read(LOCAL_SITES), pool = [...read(path.join(here, 'smoke-sites.json')).shapes, ...local.shapes];
+  const repo = read(POOL_SITES), pool = poolShapes(repo.shapes, read(LOCAL_SITES).shapes);
   const knownUrls = new Set(pool.flatMap(item => item.urls || []));
   const reports = fs.existsSync(REPORTS) ? fs.readdirSync(REPORTS).filter(name => /^\d{4}-\d\d-\d\d\.json$/.test(name)).map(name => read(path.join(REPORTS, name))) : [];
   const knownSignatures = new Set([...pool.map(item => item.signature), ...Object.values(lastSeen(reports)).map(item => item.signature)].filter(Boolean));
@@ -107,16 +108,15 @@ async function discover(limit) {
     console.log(`smoke discover: ${flow} ${fresh ? 'NEW: added to the pool' : 'known'} (${hostOnly(posting.url)})`);
     if (fresh) {
       knownSignatures.add(flow);
-      placeFound(local.shapes, posting, flow, day);
-      fs.mkdirSync(path.dirname(LOCAL_SITES), {recursive: true});
-      fs.writeFileSync(LOCAL_SITES, `${JSON.stringify(local, null, 1)}\n`);
+      placeFound(repo.shapes, posting, flow, day);
+      fs.writeFileSync(POOL_SITES, `${JSON.stringify(repo, null, 1)}\n`);
       // the page follows each find, not only the end of the run: a run that stops early (session closed, 10 Oct 2026) used to leave the page behind
-      try { console.log(`smoke discover: ${await sendPool([...read(path.join(here, 'smoke-sites.json')).shapes, ...local.shapes], reports)}`); } catch (error) { console.log(`smoke discover: upload failed, the run goes on (${String(error?.message || error).slice(0, 120)})`); }
+      try { console.log(`smoke discover: ${await sendPool(poolShapes(repo.shapes, read(LOCAL_SITES).shapes), reports)}`); } catch (error) { console.log(`smoke discover: upload failed, the run goes on (${String(error?.message || error).slice(0, 120)})`); }
     }
   }
   save();
-  console.log(`smoke discover: ${seen.filter(item => item.added).length} new shape(s) added to ${LOCAL_SITES}`);
-  console.log(`smoke discover: ${await sendPool([...read(path.join(here, 'smoke-sites.json')).shapes, ...local.shapes], reports)}`);
+  console.log(`smoke discover: ${seen.filter(item => item.added).length} new shape(s) added to ${POOL_SITES}: commit them, and CI runs them too`);
+  console.log(`smoke discover: ${await sendPool(poolShapes(repo.shapes, read(LOCAL_SITES).shapes), reports)}`);
   return 0;
 }
 
@@ -125,9 +125,9 @@ async function main() {
   if (process.argv.includes('--discover')) return discover(Number(process.argv[process.argv.indexOf('--limit') + 1]) || 30);
   const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : '';
   const seconds = Number(process.env.SMOKE_SECONDS || 90);
-  // smoke-sites.json is public (job-feed postings only); this Mac's postings copied from the owner's profiles live outside the repo, in a QA folder the app never resets.
+  // The pool is one list in the repo (owner, 12 Oct 2026: postings are public pages; the owner's details never enter a run), plus a Mac's optional extra rows.
   const read = file => { try { return JSON.parse(fs.readFileSync(file, 'utf8')).shapes || []; } catch { return []; } };
-  const shapes = [...read(path.join(here, 'smoke-sites.json')), ...read(LOCAL_SITES)];
+  const shapes = poolShapes(read(POOL_SITES), read(LOCAL_SITES));
   const day = new Date().toISOString().slice(0, 10), results = {}, earlierList = earlierReports(REPORTS, day), previous = lastSeen(earlierList);
   // Each site is saved to the day's report and sent to /admin/applying the moment it ends, so stopping a run loses only the site in progress (lib/smoke-record.mjs).
   const finish = async shape => {

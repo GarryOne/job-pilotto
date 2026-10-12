@@ -36,10 +36,10 @@ test('another label is not ours: nothing runs and nothing is said', () => {
   assert.deepEqual(pickProofRow({action: 'labeled', label: 'pool-fix', labels: ['pool-fix'], messages: [fix('Lever: single page, no account')], publicNames}), {row: '', note: ''});
 });
 
-test('a row that is not public (from the owner\'s profiles) runs on the Mac; words matching several rows ask for one; a fork has no secrets', () => {
+test('a row not in the repo\'s pool list runs on the Mac where it lives; words matching several rows ask for one; a fork has no secrets', () => {
   assert.deepEqual(pickProofRow({action: 'opened', messages: [fix('Datadog careers (Greenhouse behind its own site)')], publicNames}),
-    {row: '', note: 'private row: "Datadog careers (Greenhouse behind its own site)" is not in the public pool; run it on the Mac: cd desktop/e2e && npm run live -- <its posting>'});
+    {row: '', note: 'not in the repo\'s pool: "Datadog careers (Greenhouse behind its own site)" is not in desktop/e2e/smoke-sites.json; add it there, or run it on the Mac: cd desktop/e2e && npm run live -- <its posting>'});
   assert.match(pickProofRow({action: 'labeled', label: 'live-proof', labels: ['live-proof'], body: 'live-row: Recruitee', messages: [], publicNames}).note,
-    /^live-row "Recruitee" matches 2 public rows: name one exactly \(Recruitee form; Recruitee: one-page form on recruitee\.com\)$/);
+    /^live-row "Recruitee" matches 2 pool rows: name one exactly \(Recruitee form; Recruitee: one-page form on recruitee\.com\)$/);
   assert.deepEqual(pickProofRow({action: 'opened', messages: [fix('Lever: single page, no account')], publicNames, fork: true}), {row: '', note: 'a fork\'s PR has no secrets: no live proof'});
 });

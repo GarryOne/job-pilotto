@@ -3,7 +3,7 @@
 # - Which row (desktop/e2e/lib/pool-proof.mjs): a "live-row: <row words>" line in the PR body, else the first "Pool-row: <row>" line in the PR's commits.
 #   On open and each push it runs only when a commit names a Pool-row; the "live-proof" label runs it for any PR (a prompt fix too) and then needs a row named.
 # - Every PR it runs for gets the "live-proof" label (added by the pick job), so label:live-proof lists every PR with a CI live run.
-# - A private row (from the owner's profiles), a fork's PR (no secrets) or no row named: one neutral line in the "pick" job's summary, nothing runs.
+# - A row not in the repo's pool list, a fork's PR (no secrets) or no row named: one neutral line in the "pick" job's summary, nothing runs.
 # - Red only for a harness error, the tripwire, a refused AI, or the row reaching less than its last CI run on main or on this PR. A bot wall on the CI IP,
 #   a refusal, a gone posting or a host out of CI visits today is never red.
 name: CI · Pool row live proof (PR)

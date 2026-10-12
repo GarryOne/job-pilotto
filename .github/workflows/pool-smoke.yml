@@ -1,7 +1,7 @@
 # The applying pool's smoke on a GitHub runner, started BY HAND (owner, 12 Oct 2026: this changes the 11 Oct rule "the pool runs locally only, never in CI";
 # start simple, grow it over time, report to the coordinator before growing it), or called by pool-proof.yml for ONE row a PR names (its live proof, v2).
 # Never a schedule or push trigger (e2e/test/pool-ci-triggers.test.mjs).
-# - Rows: the PUBLIC pool only (desktop/e2e/smoke-sites.json); the Mac's own list (postings from the owner's profiles) never leaves the Mac.
+# - Rows: the pool list in the repo (desktop/e2e/smoke-sites.json: every row since 12 Oct 2026; postings are public pages, the owner's details never enter a run).
 # - Floors unchanged: the fake applicant, HELD (never Submit, no account or consent button, no password, no captcha), the privacy tripwire on, nothing uploaded
 #   (lib/applying-report.mjs refuses CI).
 # - AI: the app's own API engine on the Tests key (E2E_ANTHROPIC_KEY, the Tests workspace's $20 limit), through the harness's metering proxy (lib/live-row.mjs).

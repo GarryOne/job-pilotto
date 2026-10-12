@@ -131,6 +131,16 @@ export const pickPosting = (postings, day = new Date()) => { const allowed = pos
 
 // --only: the words of one row, or several rows' words joined by | (the CI workflow's list of rows; a fixer's single row as before).
 export const matchesOnly = (shape, only = '') => !only || String(only).split('|').map(words => words.trim()).filter(Boolean).some(words => shape.includes(words));
+// The pool is one list (owner, 12 Oct 2026: postings are public pages; only the owner's details, CV and answers are private, and no run ever holds them): the repo's
+// desktop/e2e/smoke-sites.json, plus a Mac's optional extra rows not yet moved in (a name or a posting already in the repo keeps the repo's row).
+export const poolShapes = (repo = [], extra = []) => {
+  const names = new Set(repo.map(item => item.shape)), urls = new Set(repo.flatMap(item => item.urls || []));
+  return [...repo, ...extra.filter(item => !names.has(item.shape) && !(item.urls || []).some(url => urls.has(url)))];   // a name or a posting already in the repo: the repo's row
+};
+// The privacy floor on a posting address in the repo: query keys that could carry a person or a tracking id (a job id is fine). -> the offending keys.
+const PERSONAL_KEY = /^(utm_.*|ref|referrer|source|src|token|.*email.*|.*mail|session|sid|.*user.*|uid|.*applicant.*|.*candidate.*|trk|.*track.*|campaign|gclid|fbclid)$/i;
+export const personalQueryKeys = url => [...new URL(url).searchParams.keys()].filter(key => PERSONAL_KEY.test(key));
+
 // The rows --only selects: a row's exact name selects that row alone (the PR live proof names one: lib/pool-proof.mjs), else every row matchesOnly holds.
 export function selectRows(shapes, only = '') {
   const exact = only ? shapes.filter(item => item.shape === String(only).trim()) : [];
@@ -167,7 +177,7 @@ export function candidates(postings, known = new Set(), {perHost = 2, perBoard =
   return Object.entries(byHost).flatMap(([host, list]) => list.slice(0, boards.test(host) ? perBoard : perHost));
 }
 
-// Where a discovered flow goes in this Mac's list: a never-run shape on the posting's own host gets the signature (no duplicate row), else a new shape named
+// Where a discovered flow goes in the pool list (desktop/e2e/smoke-sites.json): a never-run shape on the posting's own host gets the signature (no duplicate row), else a new shape named
 // by the employer ("Breitling (found 2026-10-10)"; the host's name when the list has no company). Returns the shape touched.
 export function placeFound(shapes, posting, flow, day) {
   const host = url => { try { return new URL(url).hostname; } catch { return ''; } };
