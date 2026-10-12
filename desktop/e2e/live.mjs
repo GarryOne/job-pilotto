@@ -1,4 +1,4 @@
-// npm run live -- <posting url> [--title <t>] [--company <c>] [--capture <dir>] [--old <extension dir>]: one HELD live row on the app's own path without Electron
+// npm run live -- <posting url> [--title <t>] [--company <c>] [--capture <dir>] [--old <extension dir>] [--seconds <watch, default 120>]: one HELD live row on the app's own path without Electron
 // (lib/live-row.mjs): the fake applicant, the app's own Apply, the real extension on the real site, nothing pressed by the harness, never Submit; the privacy
 // tripwire on. Prints the evidence lines a live run prints and where its capture is (a row replay can start from it: npm run row -- <capture folder>).
 import os from 'node:os';
@@ -13,7 +13,7 @@ const url = args.find(arg => /^https?:\/\//.test(arg));
 if (!url) { console.error('live: give a posting url'); process.exit(2); }
 const captureDir = flag('capture') || fs.mkdtempSync(path.join(os.tmpdir(), 'jp-live-'));
 let result;
-try { result = await runLiveRow({posting: {url, title: flag('title'), company: flag('company')}, captureDir, extensionDir: flag('old') || undefined, say: console.log}); }
+try { result = await runLiveRow({posting: {url, title: flag('title'), company: flag('company')}, captureDir, extensionDir: flag('old') || undefined, ...(Number(flag('seconds')) > 0 ? {seconds: Number(flag('seconds'))} : {}), say: console.log}); }
 catch (error) { if (error.name !== 'SiteLimitError') throw error; console.error(error.message); process.exit(3); }   // the per-site daily limit (lib/site-ledger.mjs)
 console.log(`live: ${result.seconds} s${result.tripped ? `; ${result.tripped}` : `; capture in ${captureDir}`}`);
 if (result.ai) console.log(`live: AI spend $${result.ai.usd.toFixed(4)} on the CI key (${result.ai.calls} calls, ${result.ai.input} in / ${result.ai.output} out tokens)`);   // lib/smoke.mjs parseLive -> the pool's dollar cap

@@ -9,14 +9,14 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {cvFactsText} from '../../worker/src/cv-facts.js';
 import {scoringClient} from './lib/ladder-score-path.mjs';   // the product's own Claude Code client (native --json-schema), as the ladder score uses
-import {SEED_FILE} from './lib/applicant-seed.mjs';
+import {applicantDraft} from './lib/applicant-seed.mjs';
 import {matchesOwner, ownerValues} from './lib/privacy-tripwire.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
-// The applicant an ask carries, from the seed file (desktop/demo/draft.json) and the CV fixture: what a live pool row's app holds.
-export function applicantEnv(seedFile = SEED_FILE, cvFile = path.join(here, 'fixtures', 'cv.json')) {
-  const {draft} = JSON.parse(fs.readFileSync(seedFile, 'utf8'));
+// The applicant an ask carries (lib/applicant-seed.mjs applicantDraft: thin, or grown) and the CV fixture: what a live pool row's app holds.
+export function applicantEnv(which = undefined, cvFile = path.join(here, 'fixtures', 'cv.json')) {   // JP_APPLICANT=grown, or which: the grown applicant
+  const draft = applicantDraft({which});
   return {PROFILE_TEXT: draft.profile_markdown || '', ANSWERS_TEXT: draft.answers_markdown || '', KNOWLEDGE_TEXT: '',
     SEARCH_TEXT: draft.search ? `${JSON.stringify(draft.search, null, 2)}\n` : '', CV_FACTS_TEXT: cvFactsText(JSON.parse(fs.readFileSync(cvFile, 'utf8')))};
 }

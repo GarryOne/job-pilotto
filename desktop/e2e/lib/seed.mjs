@@ -3,9 +3,9 @@
 // (which finds the workspace already built in this suite's page) and "setup done". About ten seconds. A suite whose page is empty bootstraps with the real wizard path instead.
 import fs from 'node:fs';
 import path from 'node:path';
+import {applicantDraft} from './applicant-seed.mjs';
 import {appKey, DUMMY_KEY} from './engine.mjs';
 import {runWizard} from './wizard.mjs';
-import {E2E} from './app.mjs';
 
 export async function fastSeed(ctx) {
   const {page} = ctx;
@@ -14,7 +14,7 @@ export async function fastSeed(ctx) {
   // The stand-in is built empty of a strategy (lib/notion-fake.mjs buildStandIn): the first app of the run saves the e2e applicant's (an SRE in Zurich, the fixture
   // CV and feeds), from desktop/demo/draft.json, kept in the draft's current shape by the demo. 9 Oct 2026: without it searches ran on the app's default roles.
   // On this Mac's store (sqlite) each app keeps its own data, so every app seeded gets it, kept on this Mac by the same saveStrategy (no Notion).
-  const applicant = () => JSON.parse(fs.readFileSync(path.join(E2E, '..', 'demo', 'draft.json'), 'utf8')).draft;
+  const applicant = () => applicantDraft();   // demo/draft.json, or the grown applicant with JP_APPLICANT=grown (lib/applicant-seed.mjs)
   const strategy = ctx.store === 'sqlite' ? applicant() : ctx.standIn && ctx.store === 'standin' && !ctx.standIn.strategySaved ? applicant() : null;
   if (strategy && ctx.standIn) ctx.standIn.strategySaved = true;
   await page.evaluate(async ({anthropic, openai, token, engine, strategy}) => {
