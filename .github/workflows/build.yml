@@ -14,6 +14,8 @@ jobs:
   python:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    env:
+      JOB_PILOTTO_PY_JOBS: 6   # the runner's 4 cores / 2 check slots gave 2 shards (157 s, the slowest required PR check); the slow modules wait on git and sleep, so 6 overlap well (12 Oct 2026)
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
