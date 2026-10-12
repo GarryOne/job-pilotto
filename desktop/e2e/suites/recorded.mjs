@@ -1,11 +1,11 @@
 // Layer 2 of the applying tests (owner, 10 Oct 2026): every recorded page case (e2e/recorded/*) replayed in headless Chromium with the real extension and the
-// recorded AI answers, offline (lib/page-replay.mjs). One step per case, so a failure names the case. No app window, no Notion, no AI, no network: about a minute.
+// recorded AI answers, offline (lib/page-replay.mjs). One step per case, so a failure names the case. No app window, no Notion, no AI, no network: a few minutes in CI.
 // Runs with every e2e suite (the release and beta gates, schedules, a gate by hand) and on a push that touches extension/ or e2e/recorded/ (lib/plan.mjs).
 // Guarded by test/recorded-pages.test.mjs (the same replay locally: npm run recorded).
 import {loadCases, runCase} from '../lib/page-replay.mjs';
 
 export const name = 'recorded';
-export const minutes = 6;
+export const minutes = 12;   // 63 cases took 5-6 min in CI (12 Oct 2026: the job hit its 6 min limit and cancelled the whole run); the cases keep coming
 export const light = true;
 export const needsChromium = true;   // CI installs Chromium for it (.github/workflows/e2e.yml)
 export const keepGoing = true;
