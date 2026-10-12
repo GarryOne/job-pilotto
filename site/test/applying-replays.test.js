@@ -95,3 +95,30 @@ test('layout: the replays table has fixed columns that add up to the page, a not
   assert.match(cases, /className: 'muted clamp', title: c\.note/);
   for (const name of ['c-case', 'c-rung', 'c-result', 'c-runs', 'c-last', 'c-since']) assert.ok(cases.includes(name), name);
 });
+
+// The replays table works like the pool table (owner, 12 Oct 2026): search, filters, sorting and pages, from the same parts (the pool's word search, pick, pager, Clear).
+test('the replays search matches words in any order over the case name, its result, its note and its rung', () => {
+  const snippet = PAGE.slice(PAGE.indexOf('/*search*/'), PAGE.indexOf('/*end search*/'));
+  const matches = new Function('flowText', 'STAGE', 'shortText', 'blocked', `${snippet}; return caseMatches;`)(() => '', {}, () => '', () => false);
+  const failing = {name: 'cookie-banner-links-1', ok: false, note: 'asked: #resumeFile', rung: 3}, passing = {name: 'ashby-yes-no-buttons-1', ok: true, note: null, rung: null};
+  assert.equal(matches(failing, ''), true);
+  assert.equal(matches(failing, 'BANNER failed'), true);
+  assert.equal(matches(failing, 'resumefile'), true);
+  assert.equal(matches(failing, 'rung 3'), true);
+  assert.equal(matches(failing, 'passed'), false);
+  assert.equal(matches(passing, 'ashby passed'), true);
+  assert.equal(matches(passing, 'ashby banner'), false);
+});
+
+test('the replays table has the pool\'s filter bar: search, Result and Rung filters, a count, Clear and 15 rows a page', () => {
+  const cases = PAGE.slice(PAGE.indexOf('const caseBox'), PAGE.indexOf("app.append(el('section', {}, el('h2', {textContent: 'Fixed-site replays"));
+  assert.match(cases, /className: 'filters'/);
+  assert.match(cases, /type: 'search'[^}]*'aria-label': 'Search the replays'/);
+  assert.match(cases, /pick\('result', [^;]*'Result'/);
+  assert.match(cases, /pick\('rung', [^;]*'Rung guarded'/);
+  assert.match(cases, /CASE_PER = 15/);
+  assert.match(cases, /caseMatches\(c, caseChosen\.query\)/);
+  assert.match(cases, /← Previous[\s\S]*Next →/);
+  assert.match(cases, /caseChosen\.result = caseChosen\.rung = null; caseChosen\.query = ''; caseChosen\.page = 0;/);   // Clear
+  assert.match(cases, /heads\('cases', \[[^\]]*\], \(\) => \{ caseChosen\.page = 0; drawCases\(\); \}/);              // sorting starts again at page 1
+});
