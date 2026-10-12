@@ -283,14 +283,15 @@ export async function consider(tab, jobUrl) {
     await forgetKind(tab, kind, 'a form with no fields'); role = ruled;
     if (role === 'no-form') { noteSignal(tab.id, {rung: kind.rung ?? 2, signal: 'contradicted'}, controlsOf(tab.id)); kind = (await climbOnUnsure(tab, askKind)) || kind; role = kind?.role === 'no-form' ? 'no-form' : role; }   // the page contradicts the kept answer: a signal, so the ladder climbs (ladder/climb.js)
   }
-  // A sign-in or sign-up page whose step matches what the app says about this email on this site (sign_up while we have no account here, sign_in once we do):
-  // the person's details go in by the normal fill (the label meanings, any language); the passwords and the account button are account-step.js.
-  if (role === 'account' && kind?.accountStep) {
+  // Every account page gets the normal fill: its fields are judged by meaning (any language) and your details go in, whatever step the AI named or did not
+  // (owner, 12 Oct 2026: "we see an email, the AI judges, we fill"; a remembered answer with no step left the page to Claude and the email box empty).
+  // Filling presses nothing: which way to go (register, sign in, leave), the passwords and the account button stay account-step.js's (accountMove, dffa024).
+  if (role === 'account') {
     const host0 = (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })();
     const id = await identityOf(tab);
     const peek = await api(await settings(), '/extension/site-password', {method: 'POST', body: JSON.stringify({host: host0, peek: true, session: id.session, job: id.job, url: id.url})}).catch(() => null);
     await bindSession(tab.id, peek?.session, id.session);
-    if (peek?.ok && peek.email && ((kind.accountStep === 'sign_up' && peek.mode === 'sign-up') || (kind.accountStep === 'sign_in' && peek.mode === 'sign-in'))) { role = 'form'; noted = 'account'; decide('fill', `${kind.accountStep} page: filled with your details`, {host: host0}); }
+    if (peek?.mode !== 'confirm') { role = 'form'; noted = 'account'; decide('fill', `account page${kind?.accountStep ? ` (${kind.accountStep})` : ''}: filled with your details`, {host: host0}); }   // 'confirm': waiting for its mail, nothing typed again
   }
   decide('fill', `page kind: ${kind?.kind || ruled}`, {by: kind ? kind.by : 'structure rule', confidence: kind?.confidence ?? null, ms: Date.now() - lookedAt, outcomeMs,
     ...(kind && kind.role !== ruled ? {rule: ruled} : {}), host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
