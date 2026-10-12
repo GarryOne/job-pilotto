@@ -1,6 +1,7 @@
 // Which tab is a session's: one function, no guessing (spec docs/superpowers/specs/2026-10-12-tab-owned.md, matrix rows 4, 5, 6, 8, 9).
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
@@ -47,7 +48,7 @@ test('row 5, a second browser: its tab ids only bind in its own run, so another 
 
 test('row 8, the app restarts: the bound tab id is read back from the saved state', () => {
   review._reset();
-  const file = path.join(fs.mkdtempSync(path.join(fs.realpathSync(process.env.TMPDIR || '/tmp'), 'jp-st-')), 'states.json');
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-st-')), 'states.json');
   review.persist(file, ['s1']);
   review.report([sessions[0]], {session: 's1', tab: 7, boot: 'run-a', url: `${posting(1)}#jobpilotto-fill=s1`, total: 1, left: 0});
   review._reset(); review.persist(file, ['s1']);
