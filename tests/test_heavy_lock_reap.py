@@ -129,6 +129,17 @@ class HeavyLockReapTest(unittest.TestCase):
         self.assertNotIn('freed:', result.stderr)
         self.assertEqual(holder.wait(timeout=30), 0, 'the busy run finished on its own')
 
+    def test_a_killed_wrapper_leaves_no_children_behind_when_the_next_run_takes_over(self):
+        p, children = self.hung_holder()
+        p.kill()   # SIGKILL: no trap runs, the children live on in their group (they hold the pipes: wait, not communicate)
+        p.wait()
+        self.assertTrue(any(alive(c) for c in children), 'setup: the children outlived the wrapper')
+        result = subprocess.run(['bash', str(LOCK), 'next', 'echo', 'ran'], env={**self.env, 'JOB_PILOTTO_HEAVY_WAIT': '60'}, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.stdout.strip(), 'ran')
+        self.assertIn('taking over a stale lock', result.stderr)
+        self.assertTrue(wait_for(lambda: not any(alive(c) for c in children)), 'the leftover group was killed')
+        self.assertIn('forced-free reason=wrapper_gone', self.log.read_text())
+
     def test_status_says_why_a_holder_is_about_to_be_freed(self):
         session = subprocess.Popen(['sleep', '300'])
         self.addCleanup(session.kill)

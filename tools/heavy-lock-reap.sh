@@ -70,3 +70,11 @@ reap_slot() {  # a slot dir already moved aside, why: say it, log it, and kill t
   [ -n "$pid" ] && kill -KILL "$pid" 2>/dev/null
   return 0
 }
+reap_dead() {  # a slot dir moved aside whose wrapper pid is gone (SIGKILL): children it started may still live in the recorded group; kill them by that group
+  local pg; pg="$(cat "$1/pgid" 2>/dev/null)"
+  case "$pg" in ''|*[!0-9]*|0|1) return 0 ;; esac
+  group_alive "$pg" || return 0
+  say "freed: wrapper gone: its process group $pg still had live processes, killed"
+  timing_log "heavy lock forced-free reason=wrapper_gone what=$(cat "$1/what" 2>/dev/null) session=$(cat "$1/session" 2>/dev/null || echo ?) pgid=$pg"
+  kill_group "$pg"
+}
