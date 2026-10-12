@@ -41,17 +41,33 @@ function blockedWord(item) {
   return '';
 }
 
+// A run where no row ran is never a pass (12 Oct 2026: #455's proof was green in a minute and ran nothing, refused by the site limit). -> '' or the line that leads
+// the summary: "NOT RUN: <row>: <why>, <when the next visit is possible>". now: the clock (the site limit counts per UTC day on a runner).
+const nextDay = now => { const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)); return `${next.toISOString().slice(0, 10)} 00:00 UTC`; };
+function notRunLine(report, now) {
+  const run = report.thisRun || {};
+  if (!Array.isArray(run.ran) || run.ran.length) return '';
+  const limited = (run.skipped || []).map(({shape, why}) => {
+    const found = String(why).match(/site-ledger: (\S+) is not visited: (.*?)\. Counted/);
+    return `${shape}: the site limit (${found ? `${found[1]}: ${found[2]}` : String(why).slice(0, 140)}), next visit possible after ${nextDay(now)}`;
+  });
+  const gone = Object.entries(report.results || {}).filter(([, item]) => item.note).map(([shape, item]) => `${shape}: ${item.note}, replace its posting in desktop/e2e/smoke-sites.json`);
+  const why = [...limited, ...gone, ...(run.stopped ? [run.stopped] : [])];
+  return `NOT RUN: ${why.join('; ') || 'no row ran'}`;
+}
+
 // The day's report (smoke.mjs: results + thisRun) and each row's last CI run (baseline: lib/pool-ci-state.mjs baselines) -> {markdown, red: [reasons]} for
 // $GITHUB_STEP_SUMMARY; red is empty when the run is green. Only the rows this run ran (the day's report also keeps other runs' rows).
-export function summary(report = {}, {baseline = {}} = {}) {
+export function summary(report = {}, {baseline = {}, now = new Date()} = {}) {
   const run = report.thisRun || {}, ran = run.ran ? new Set(run.ran) : null;
   const results = Object.entries(report.results || {}).filter(([shape]) => !ran || ran.has(shape));
   const last = shape => { const base = baseline[shape]; return base ? `${base.reached}${base.filled != null ? ` ${base.filled} / ${base.left}` : ''} (run ${base.run}, ${base.branch})` : '–'; };
-  const red = [...(run.unfinished || []).map(item => `did not finish: ${item.shape} (${item.why})`),
+  const notRun = notRunLine(report, now);
+  const red = [...(notRun ? [notRun] : []), ...(run.unfinished || []).map(item => `did not finish: ${item.shape} (${item.why})`),
     ...results.filter(([, item]) => item.tripped).map(([shape]) => `privacy tripwire: ${shape}`),
     ...results.filter(([, item]) => item.aiRefused).map(([shape, item]) => `AI refused: ${shape} (${item.aiRefused.calls} calls: ${item.aiRefused.why})`),
     ...results.map(([shape, item]) => [shape, fallsBelow(baseline[shape], item)]).filter(([, why]) => why).map(([shape, why]) => `less than its last CI run: ${shape} (${why})`)];
-  const lines = [`## Pool smoke ${report.day || ''} ${red.length ? '❌' : '✅'}`, '',
+  const lines = [...(notRun ? [notRun, ''] : []), `## Pool smoke ${report.day || ''} ${red.length ? '❌' : '✅'}`, '',
     'Held: the fake applicant, never Submit, no account or consent button, no password, no captcha. Nothing uploaded from CI.', '',
     '| Row | Reached | Filled / left | Blocked | Last CI run | AI | Time |', '|---|---|---|---|---|---|---|',
     ...results.map(([shape, item]) => `| ${cell(shape)} | ${cell(item.reached)} | ${item.filled != null ? `${item.filled} / ${item.left}` : '–'} | ${cell(blockedWord(item))} | ${cell(last(shape))} | ${money(item.usd)} | ${item.seconds ?? '?'} s |`),
@@ -62,5 +78,5 @@ export function summary(report = {}, {baseline = {}} = {}) {
   lines.push('', 'Site limit: CI keeps its own ledger per UTC day (2 visits per host, a host that showed a block page rests the day); CI visits are not in the Mac\'s ledger.',
     '"blocked (CI IP)" is the runner\'s data-center address meeting a bot wall or a refusal: never a failure, never retried.');
   if (red.length) lines.push('', ...red.map(reason => `- ❌ ${reason}`));
-  return {markdown: `${lines.join('\n')}\n`, red};
+  return {markdown: `${lines.join('\n')}\n`, red, notRun};
 }
