@@ -5,7 +5,7 @@ name: CI · Widget zoo (measure, not required)
 on:
   pull_request:
     branches: [main]
-    paths: ['extension/**', 'desktop/e2e/widget-zoo/**', 'desktop/e2e/lib/widget-zoo.mjs', 'desktop/e2e/widget-zoo.mjs', 'desktop/e2e/lib/page-replay.mjs', 'desktop/e2e/lib/replay-browser.mjs', '.github/workflows/widget-zoo.yml']
+    paths: ['extension/**', 'desktop/lib/**', 'desktop/e2e/widget-zoo/**', 'desktop/e2e/lib/widget-zoo.mjs', 'desktop/e2e/widget-zoo.mjs', 'desktop/e2e/lib/page-replay.mjs', 'desktop/e2e/lib/replay-browser.mjs', '.github/workflows/widget-zoo.yml']
   push:
     branches: [main]
     paths: ['extension/**', 'desktop/e2e/widget-zoo/**']
@@ -31,6 +31,10 @@ jobs:
       - name: Install the app's own packages
         working-directory: desktop
         run: npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts
+      # desktop/shared is generated (gitignored): the replay's app imports it (lib/ladder/rung2-sketch.js -> shared/alias-schema.js); without it the job died before any page (12 Oct 2026).
+      - name: Stage the app's shared files
+        working-directory: desktop
+        run: node scripts/stage.mjs --files-only
       - name: Chromium (the real extension needs the full browser, not the headless shell)
         working-directory: desktop/e2e
         run: npx playwright install --with-deps chromium
