@@ -5,7 +5,7 @@
 // 12 Oct 2026): the pool never presses an account button with fake data (ACCOUNT_HELD), and a CI runner's data-center address meets bot walls a person's would not. Those are shown apart
 // ("held by the test, not measured"), never counted resolved. 'handed' is only a real wall the run names: a bot check on a person's address, a sign-in to an existing account (LOGIN_WALL).
 import {causeOf} from '../../../extension/fill-card.js';
-import {ENDINGS, resolved} from '../../../extension/ladder/endings.js';
+import {ENDINGS, endingOfStuck, resolved} from '../../../extension/ladder/endings.js';
 import {ACCOUNT_HELD, APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED} from './smoke.mjs';
 
 // The trace words the classifier reads, as the code named writes them (no structured code travels in the report; a guard test checks each is still written there, so a reworded
@@ -44,16 +44,23 @@ const accountStep = result => {
     || (row.outcome === 'filled' && reason(row).startsWith(REASONS.details)) || (row.type === 'file' && reason(row).startsWith(REASONS.noSlot)));
 };
 
-// The extension's own stop lines (extension/fill-flow.js and ladder/site-broken.js `decide('fill', ...)`): the last one in the row's app log refines a stop the parser left without a note. Guarded: a rename fails the test.
+// ONE ending rule for a stop (cc's review, 12 Oct 2026): the replays and this classifier both take it from endingOfStuck (extension/ladder/endings.js), so the score and the replays
+// cannot drift. A stop is (the reason, whether a need is named). Its source, newest first: the dead-end door's line in the row's app log ("dead end: <why>" with {named}:
+// extension/ladder/dead-end.js), then, for a build before the door, the extension's own stop lines (extension/fill-flow.js and ladder/site-broken.js `decide('fill', ...)`), each
+// read as the stop it reports (STOP_STUCK). Guarded: a rename fails the test, and e2e/test/ending.test.mjs feeds both views the same stops.
 export const STOP_LINES = {email: 'the posting asks for the application by email', told: 'the page tells what to do', botCheck: 'a bot check in front of the page', unreadable: 'the page could not be read', broken: 'a broken page: reported as site_broken',
   other: 'the ladder ended at the person: reported as other', noForm: 'no form on this page', account: 'account page left for Claude'};
-const STOP_ENDING = {email: 'told', told: 'told', botCheck: 'handed', unreadable: 'site_broken', broken: 'site_broken', other: 'unresolved', noForm: 'unresolved', account: 'unresolved'};
+export const STOP_STUCK = {email: ['email', true], told: ['told', true], botCheck: ['no-form', true], unreadable: ['site_broken', false], broken: ['site_broken', false], other: ['other', false],
+  noForm: ['no-form', false], account: ['account', false]};
+const DOOR = /^dead end: ([a-z_-]+) (\{.*\})\s*$/;
+export const stopEnding = (why, named) => endingOfStuck(why, named ? 'a named need' : '');
 const lastStop = appLog => {
   let found = '';
   for (const line of String(appLog || '').split('\n')) {
     if (!/^\S+ \[extension\] fill: /.test(line)) continue;
-    const text = line.replace(/^\S+ \[extension\] fill: /, '');
-    for (const [name, words] of Object.entries(STOP_LINES)) if (text.startsWith(words)) found = name;
+    const text = line.replace(/^\S+ \[extension\] fill: /, ''), door = DOOR.exec(text);
+    if (door) { let data = {}; try { data = JSON.parse(door[2]); } catch { /* a cut line: no need named */ } found = {why: door[1], named: data.named === true, door: true}; continue; }
+    for (const [name, words] of Object.entries(STOP_LINES)) if (text.startsWith(words) && !found?.door) found = {why: STOP_STUCK[name][0], named: STOP_STUCK[name][1], line: words};
   }
   return found;
 };
@@ -65,12 +72,13 @@ export function endingOf(result, appLog = '', {ci = false} = {}) {
   if (result.tripped) return {ending: null, why: 'the privacy tripwire'};
   if (result.aiRefused) return {ending: null, why: 'the AI was refused'};
   const note = String(result.note || ''), reached = String(result.reached || 'none');
-  if (note === APPLY_BY_EMAIL || note === PAGE_TELLS) return {ending: 'told', why: note};
-  if (/^eligibility stop/.test(note)) return {ending: 'told', why: 'eligibility stop'};
+  // The harness's notes are stops too: the page's own way (told), a sign-in the run names (handed), a site gone or refusing (site_broken), a bot check on a person's address (handed).
+  if (note === APPLY_BY_EMAIL || note === PAGE_TELLS) return {ending: stopEnding(note === APPLY_BY_EMAIL ? 'email' : 'told', true), why: note};
+  if (/^eligibility stop/.test(note)) return {ending: stopEnding('told', true), why: 'eligibility stop'};
   if (note === ACCOUNT_HELD) return {ending: null, why: HELD_BY_TEST, held: 'account-first'};
-  if (note === LOGIN_WALL) return {ending: 'handed', why: note};
-  if (/gone \(HTTP \d+\)/.test(note) || note === SITE_REFUSED) return {ending: 'site_broken', why: note};
-  if (reached === 'code/bot') return ci ? {ending: null, why: HELD_BY_TEST, held: 'bot wall on the CI address'} : {ending: 'handed', why: 'a bot check'};
+  if (note === LOGIN_WALL) return {ending: stopEnding('account', true), why: note};
+  if (/gone \(HTTP \d+\)/.test(note) || note === SITE_REFUSED) return {ending: stopEnding('site_broken', false), why: note};
+  if (reached === 'code/bot') return ci ? {ending: null, why: HELD_BY_TEST, held: 'bot wall on the CI address'} : {ending: stopEnding('no-form', true), why: 'a bot check'};
   if (reached === 'ready') return {ending: 'ready', why: 'the form is ready'};
   if (reached === 'form' && accountStep(result)) return {ending: null, why: HELD_BY_TEST, held: 'account step'};
   if (reached === 'form') {
@@ -84,7 +92,7 @@ export function endingOf(result, appLog = '', {ci = false} = {}) {
   }
   if (Number(result.exit) !== 0 && reached === 'none' && (result.errors || []).length) return {ending: null, why: 'the run did not finish'};
   const stop = lastStop(appLog);
-  if (stop) return {ending: STOP_ENDING[stop], why: STOP_LINES[stop]};
+  if (stop) return {ending: stopEnding(stop.why, stop.named), why: stop.door ? `dead end: ${stop.why}` : stop.line};
   return {ending: 'unresolved', why: `stopped at ${reached} with no reason`};
 }
 
