@@ -82,3 +82,18 @@ test('every file that sends a browser to a real site calls guardLiveVisit', () =
     assert.ok(!/\.goto\(/.test(source) || /guardLiveVisit\(/.test(source), `${rel} navigates a browser: call guardLiveVisit(url) before it, or list it as offline in test/site-ledger.test.mjs`);
   }
 });
+
+// npm run live asks the ledger before it waits for the heavy lock: a host at its limit is refused at once (exit 3), nothing is counted, a fresh host passes.
+test('live-check refuses a host at its limit before any lock, and counts nothing', async () => {
+  const {spawnSync} = await import('node:child_process');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'site-ledger-check-'));
+  const env = {...process.env, JOB_PILOTTO_SITE_LEDGER_DIR: dir, JOB_PILOTTO_SITE_LIMIT: '1', JOB_PILOTTO_SITE_LIMIT_OVERRIDE: ''};
+  const run = url => spawnSync('node', [path.join(E2E, 'live-check.mjs'), url], {env, encoding: 'utf8'});
+  assert.equal(run('https://full.example.com/job').status, 0, 'nothing counted yet');
+  assert.equal(run('https://full.example.com/job').status, 0, 'the check itself counts nothing');
+  guardLiveVisit('https://full.example.com/job', {env, who: 'test', log: () => {}});
+  const refused = run('https://full.example.com/job');
+  assert.equal(refused.status, 3);
+  assert.match(refused.stderr, /1 live visits today \(limit 1\)/);
+  assert.equal(run('https://other.example.com/job').status, 0);
+});
