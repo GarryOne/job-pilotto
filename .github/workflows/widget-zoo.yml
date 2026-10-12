@@ -13,7 +13,7 @@ on:
 
 concurrency:
   group: widget-zoo-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}   # a PR's newer push replaces its older run; every run of main finishes (a cancelled run is a red cross on main: tests/test_main_runs_finish.py)
 
 jobs:
   zoo:

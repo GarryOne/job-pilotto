@@ -16,7 +16,7 @@ permissions:
 
 concurrency:
   group: site-next-deploy
-  cancel-in-progress: true
+  cancel-in-progress: false   # a started run finishes and the next waits: a cancelled run is a red cross on main (tests/test_main_runs_finish.py)
 
 jobs:
   deploy:
