@@ -78,7 +78,7 @@
         const label = labelOf(el);
         const question = questionOf(el);
         fields.push({field: el.id || el.name, label: question && question !== label ? `${question}: ${label}` : label,
-          type: 'checkbox', required: el.required, filled: el.checked, legal: LEGAL.test(`${question} ${label}`)});
+          type: 'checkbox', required: el.required || window.__jobPilottoRequired.marked(el), filled: el.checked, legal: LEGAL.test(`${question} ${label}`)});
       } else if (isCombo(el)) {
         fields.push({field: el.id || el.name, label: labelOf(el), type: 'combobox',
           required: window.__jobPilottoRequired.marked(el), filled: !!comboValue(el),

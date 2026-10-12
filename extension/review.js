@@ -31,8 +31,8 @@
   // ---- reading the form (read only) ----
   function question(el) {
     const byIds = (el.getAttribute('aria-labelledby') || '').split(/\s+/).map(id => document.getElementById(id)?.textContent).filter(Boolean).join(' ');
-    const own = byIds || el.getAttribute('aria-label') || Array.from(el.labels || [], label => label.textContent).join(' ') || (el.type !== 'hidden' && window.__jobPilottoLabelBefore?.(el)) || '';
-    const legend = (fieldsetTitle(el.closest('fieldset')) || (['radio', 'checkbox'].includes(el.type) ? window.__jobPilottoRequired.rowTitle(el) : null))?.textContent;
+    const own = byIds || el.getAttribute('aria-label') || Array.from(el.labels || [], label => window.__jobPilottoRequired.read(label)).join(' ') || (el.type !== 'hidden' && window.__jobPilottoLabelBefore?.(el)) || '';
+    const legend = window.__jobPilottoRequired.read(fieldsetTitle(el.closest('fieldset')) || (['radio', 'checkbox'].includes(el.type) ? window.__jobPilottoRequired.rowTitle(el) : null));
     if (['checkbox', 'radio'].includes(el.type) && legend) return clean(legend);
     if (clean(own)) return clean(own);
     if (legend) return clean(legend);
@@ -47,10 +47,10 @@
   // by a "*" its CSS draws after that title (no attribute), so the class and the drawn "*" count too.
   const fieldsetTitle = set => set && (set.querySelector('legend') ||
     Array.from(set.querySelectorAll('label')).find(l => !l.control && !l.querySelector('input, select, textarea')));
-  const titleRequired = title => !!title && (window.__jobPilottoRequired.has(title.textContent) || /required/i.test(String(title.className || '')) ||
+  const titleRequired = title => !!title && (window.__jobPilottoRequired.has(title) || /required/i.test(String(title.className || '')) ||
     String(getComputedStyle(title, '::after').content || '').includes('*'));
   const required = el => window.__jobPilottoRequired.marked(el) ||
-    window.__jobPilottoRequired.has(el.labels?.[0]?.textContent) ||
+    [...(el.labels || [])].some(label => window.__jobPilottoRequired.has(label)) ||
     (['checkbox', 'radio'].includes(el.type) && titleRequired(fieldsetTitle(el.closest('fieldset')) || window.__jobPilottoRequired.rowTitle(el)));
   // A custom dropdown keeps its answer beside the input (react-select: a value chip in the control around it) or in a hidden input a <label for> points
   // to, in the same field's area (SuccessFactors' picklist; 8 Oct 2026: a chosen "Monsieur" stayed "left for you"). Up 4 boxes, never into another field's.
@@ -120,7 +120,7 @@
       }
       if (!title) continue;
       groups.set(box, {el: box, label: clean(title.textContent), ai: false,
-        required: /required/i.test(title.className) || window.__jobPilottoRequired.has(title.textContent),
+        required: /required/i.test(title.className) || window.__jobPilottoRequired.has(title),
         filled: buttons.some(button => button.getAttribute('aria-pressed') === 'true')});
     }
     const known = [...groups.values()];

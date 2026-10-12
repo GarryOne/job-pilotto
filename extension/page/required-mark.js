@@ -9,10 +9,26 @@
   const LEADING = new RegExp(`^\\s*${STAR}+\\s*`);
   const text = value => String(value || '').replace(/\s+/g, ' ').trim();
   // Does this label text carry the mark?
-  const has = value => { const t = text(value); return TRAILING.test(t) || LEADING.test(t); };
+  const textHas = value => { const t = text(value); return TRAILING.test(t) || LEADING.test(t); };
+  // A label or title ELEMENT can draw the mark as an element of its own: a leaf that holds only the star, and (when the star is aria-hidden) a visually hidden element right after
+  // it that says the same to a screen reader, in the page's language ("Name<sup aria-hidden>*</sup><span>Required</span>"). Its text then ends in no star.
+  const STAR_ONLY = new RegExp(`^\\s*${STAR}+\\s*$`);
+  const starLeaves = el => Array.from(el.querySelectorAll?.('*') || []).filter(node => !node.firstElementChild && STAR_ONLY.test(node.textContent));
+  // The words of a label element without its star element and that spoken twin; a string is returned as it is.
+  const read = value => {
+    if (!value?.cloneNode) return text(value);
+    const copy = value.cloneNode(true);
+    for (const leaf of starLeaves(copy)) {
+      if (leaf.getAttribute('aria-hidden') === 'true') leaf.nextElementSibling?.remove();
+      leaf.remove();
+    }
+    return text(copy.textContent);
+  };
+  // Does this label text (or label element) carry the mark?
+  const has = value => value?.querySelectorAll ? starLeaves(value).length > 0 || textHas(read(value)) : textHas(value);
   // The label's words without the mark and the colon after it.
   // `leading: false` keeps a leading mark (the fill reads a group's name with it, then asks `has`).
-  const clean = (value, {leading = true} = {}) => text(text(value).replace(leading ? LEADING : /^$/, '').replace(TRAILING, '').replace(/\s*[:\uFF1A]$/, ''));
+  const clean = (value, {leading = true} = {}) => text(read(value).replace(leading ? LEADING : /^$/, '').replace(TRAILING, '').replace(/\s*[:\uFF1A]$/, ''));
   // The title of a radio/checkbox group that has no fieldset: the row it sits in (table row, form row, definition list) names it in a
   // cell or label beside it that holds no control and is not one option's own label. Structure only; the first such cell wins.
   const ROW = 'tr, li, dl, [class*=row], [class*=Row], [class*=field], [class*=Field], [class*=form-group], [class*=question]';
@@ -65,6 +81,8 @@
     return n;
   };
   // The page marks the box itself: the `required` attribute, aria-required, or a class that names it (a validator's "validate[required,custom[email]]", "is-required").
-  const marked = el => !!el && (el.required || el.getAttribute('aria-required') === 'true' || /(^|[\s_\[,-])required([\s_\],-]|$)/i.test(String(el.className?.baseVal ?? el.className ?? '')));
-  window.__jobPilottoRequired = {has, clean, rowTitle, starred, marked};
+  // A control whose label (or aria-labelledby element) carries the mark, with no required attribute on the control itself (a page that checks in its script).
+  const labelMarked = el => [...(el.labels || []), ...String(el.getAttribute?.('aria-labelledby') || '').split(/\s+/).map(id => el.ownerDocument.getElementById(id))].some(label => !!label && has(label));
+  const marked = el => !!el && (labelMarked(el) || el.required || el.getAttribute('aria-required') === 'true' || /(^|[\s_\[,-])required([\s_\],-]|$)/i.test(String(el.className?.baseVal ?? el.className ?? '')));
+  window.__jobPilottoRequired = {has, clean, read, rowTitle, starred, marked};
 })();
