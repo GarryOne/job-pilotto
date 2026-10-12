@@ -120,6 +120,7 @@ export const readForm = page => page.evaluate(() => Object.fromEntries([...docum
     files: [...(el.files || [])].map(file => ({name: file.name, size: file.size})), ai: el.hasAttribute('data-jobpilotto-ai')}])));
 
 // What the page says the extension is doing: the state the extension writes for Claude on <html data-jobpilotto-fill> ({state: running|done|error|no-form|account, ...}).
+// Written by the app's hand-off fill only (background.js handOff): a fill pressed on the panel leaves the last hand-off's state, so wait on readPanel's `filling` for that one.
 export const fillState = page => page.evaluate(() => { try { return JSON.parse(document.documentElement.dataset.jobpilottoFill || 'null'); } catch { return null; } });
 
 // The panel the extension draws on the page (bottom right, an open shadow root).
@@ -128,5 +129,5 @@ export const readPanel = page => page.evaluate(() => {
   if (!root) return null;
   const text = selector => (root.querySelector(selector)?.textContent || '').replace(/\s+/g, ' ').trim();
   return {pill: text('.pill'), progress: text('.progress-line'), note: root.querySelector('.note')?.hidden ? '' : text('.note'),
-    tailor: root.querySelector('.tailor')?.hidden ? '' : text('.tailor'), knock: root.querySelector('.knock')?.hidden ? '' : text('.knock'), tip: root.querySelector('.tip')?.hidden ? null : {chip: text('.tip-chip'), text: text('.tip-text')}, left: [...root.querySelectorAll('.left .item')].map(item => item.textContent.replace(/\s+/g, ' ').trim()), foot: text('.foot'), fillLabel: text('.fill .label')};
+    tailor: root.querySelector('.tailor')?.hidden ? '' : text('.tailor'), knock: root.querySelector('.knock')?.hidden ? '' : text('.knock'), tip: root.querySelector('.tip')?.hidden ? null : {chip: text('.tip-chip'), text: text('.tip-text')}, left: [...root.querySelectorAll('.left .item')].map(item => item.textContent.replace(/\s+/g, ' ').trim()), foot: text('.foot'), fillLabel: text('.fill .label'), filling: !!root.querySelector('.fill')?.disabled};   // filling: the panel's own Fill is running (review.js)
 });

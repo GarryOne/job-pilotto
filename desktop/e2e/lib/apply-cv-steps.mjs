@@ -7,7 +7,7 @@ import {FORMS} from './forms.mjs';
 import {POSTING, pause} from './apply-fixtures.mjs';
 import {addKitJob, removeJobsByUrl, tailoredFiles} from './seed-data.mjs';
 import {cvProblems} from './applycheck.mjs';
-import {fillState, readForm, readPanel} from './extension.mjs';
+import {readForm, readPanel} from './extension.mjs';
 
 export async function runCvSteps(ctx, h) {
   const {apply, cv, fail, page, panelOf, proxy} = h;
@@ -60,16 +60,16 @@ export async function runCvSteps(ctx, h) {
     for (let i = 0; i < 20 && !/ready/.test(panel?.tailor || ''); i++) { await pause(1500); panel = await readPanel(tab); }
     if (!/ready/.test(panel?.tailor || '')) throw new Error(`the panel never said the tailored CV is ready (its tailor line: "${panel?.tailor}")`);
     await tab.locator('#jobpilotto-review-host .fill').click();
-    await pause(2500);
-    // Done when the form holds the tailored CV: the app re-fills by itself once the CV is ready, and that fill leaves no state on the page, so waiting for
-    // "done" alone always ran the full 90 s (beta 9 Oct 2026: 107 s of this step's 113, the apply suite at 91% of its budget).
+    // Done when the form holds the tailored CV, or when the fill pressed here is over (the panel's Fill is disabled while it runs). Never the page's
+    // fill state: only the hand-off writes it, so it still said "done" from the first fill and ended the wait 2.5 s after the press, before a slower
+    // fill reached the upload (gate run 38251424138, seed 3891685770: a late field, the SQLite store; cv.pdf read while the second fill ran).
     const expected = {name: 'CV_Ada_Tester_E2E_Lever_Systems.pdf', size: fs.statSync(tailoredPdf).size};
     for (let waited = 0; waited < 90000; waited += 500) {
-      const now = await fillState(tab).catch(() => null);
-      if (now?.state === 'done' || now?.state === 'error' || !cvProblems(await readForm(tab).catch(() => ({})), expected).length) break;
       await pause(500);
+      if (!cvProblems(await readForm(tab).catch(() => ({})), expected).length || (waited >= 1000 && !(await readPanel(tab).catch(() => null))?.filling)) break;
     }
-    fail(cvProblems(await readForm(tab), expected));
+    const after = await readPanel(tab).catch(() => null);
+    fail(cvProblems(await readForm(tab), expected).map(problem => (after?.note ? `${problem} (the panel says: "${after.note}")` : problem)));
   }, {needs: ctx.needs});
 
   // Tailor CVs for top matches (Actions): the best open jobs without a tailored CV, in fit order, only as many as asked. The stand-in AI answers the tailoring.
