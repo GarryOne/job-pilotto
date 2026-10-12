@@ -23,6 +23,16 @@ export const coveredFiles = (root, flowFiles) => new Set([...replayFiles(root), 
 
 export const casesOf = changed => [...new Set(changed.map(file => RECORDED_CASE.exec(file)?.[1]).filter(Boolean))];
 
+// A push that ADDS a recorded case names the pool row it fixes ("Pool-row: <row>"), or "Pool-row: none <why>" (a hand-made shape, no row):
+// /admin/applying's Fixed tab lists fixes by that line (12 Oct 2026: 6 of 8 round-1 fixes had none, the tab showed 2 of 8). -> '' or the message.
+export function untaggedNewCases(added, messages) {
+  if (!added.length) return '';
+  const values = messages.flatMap(message => [...String(message).matchAll(/^Pool-row:[ \t]*(.*)$/gm)].map(found => found[1].trim()));
+  if (values.some(value => value && !/^none\b/i.test(value)) || values.some(value => /^none\s+\S/i.test(value))) return '';
+  return `this push adds the recorded case${added.length > 1 ? 's' : ''} ${added.join(', ')} but no commit says which pool row ${added.length > 1 ? 'they fix' : 'it fixes'}.
+Add to the fix's commit message: "Pool-row: <the row's name as /admin/applying shows it>" (the Fixed tab lists fixes by it), or "Pool-row: none <why>" for a hand-made shape no row showed.`;
+}
+
 // -> '' when fine, else the message. commits: [{files, message}] of the push; covered: the files a replay loads.
 export function missingCase(commits, covered) {
   const cover = new Set(covered), acting = commit => commit.files.filter(file => cover.has(file));
@@ -55,7 +65,8 @@ async function main() {
   } catch { return 0; }
   const {FLOW_FILES} = await import(path.join(root, 'desktop/e2e/flows.mjs'));
   const covered = coveredFiles(root, FLOW_FILES);
-  const why = missingCase(commits, covered);
+  const added = casesOf(git('diff', '--name-only', '--diff-filter=A', `${base}...HEAD`, '--', 'desktop/e2e/recorded').split('\n').filter(file => file.endsWith('/case.json')));
+  const why = missingCase(commits, covered) || untaggedNewCases(added, commits.map(commit => commit.message));
   if (why) { console.error(why); return 1; }
   return 0;
 }

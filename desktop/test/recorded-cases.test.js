@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
-import {casesOf, coveredFiles, missingCase} from '../../tools/recorded-cases.mjs';
+import {casesOf, coveredFiles, missingCase, untaggedNewCases} from '../../tools/recorded-cases.mjs';
 import {replayFiles} from '../../tools/replay-files.mjs';
 import {FLOW_FILES} from '../e2e/flows.mjs';
 
@@ -62,4 +62,13 @@ test('the push\'s own recorded cases are named, for the fails-on-old replay', ()
 
 test('the check is wired into the push hook', () => {
   assert.match(fs.readFileSync(new URL('../../tools/pre-push-check.sh', import.meta.url), 'utf8'), /node tools\/recorded-cases\.mjs --base origin\/main/);
+});
+
+test('a push that adds a recorded case names the pool row it fixes, or says none and why (the Fixed tab lists fixes by row)', () => {
+  // 12 Oct 2026: 6 of 8 round-1 fixes had no Pool-row line, so /admin/applying's Fixed tab showed 2 of 8.
+  assert.match(untaggedNewCases(['phone-widget-reverts-typed-1'], ['A box holding only a country code is empty']), /phone-widget-reverts-typed-1/);
+  assert.equal(untaggedNewCases(['paged-menu-1'], ['Menus page by page\n\nPool-row: Breitling SuccessFactors']), '');
+  assert.equal(untaggedNewCases(['zoo-toggle-1'], ['A zoo page\n\nPool-row: none a hand-made shape, no pool row']), '');
+  assert.match(untaggedNewCases(['x-1'], ['Fix\n\nPool-row: none']), /x-1/, 'none needs its reason');
+  assert.equal(untaggedNewCases([], ['anything']), '', 'no new case: nothing asked');
 });

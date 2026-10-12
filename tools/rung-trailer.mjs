@@ -25,7 +25,7 @@ export const poolRowProblem = (messages, pool = {names: [], complete: false}) =>
   const values = messages.flatMap(message => [...String(message).matchAll(/^Pool-row:[ \t]*(.*)$/gm)].map(found => found[1].trim()));
   const bad = values.filter(name => !name || name.length > 120 || /[?=@]|:\/\/|https?:/i.test(name));
   if (bad.length) return `"Pool-row: ${bad[0]}" must be a pool row's name as /admin/applying shows it: no address, no query string, at most 120 characters`;
-  return values.map(name => rowNameProblem(name, pool, 'Pool-row: ')).find(Boolean) || '';
+  return values.filter(name => !/^none\s+\S/i.test(name)).map(name => rowNameProblem(name, pool, 'Pool-row: ')).find(Boolean) || '';   // "none <why>": a hand-made case no row showed
 };
 
 const isNone = value => /^none\b/i.test(value);   // a flow edit no rung decides (a log line, a timing): "Rung: none: <why>", no fixture
