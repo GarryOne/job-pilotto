@@ -74,7 +74,7 @@ jobs:
       - if: steps.needed.outputs.run == 'true'
         name: The tests' own tests (layout check, review parser, triage rules, which suites run)
         working-directory: desktop/e2e
-        run: node --test --test-reporter=spec --test-shard=${{ matrix.shard }}/2 test/*.test.mjs   # the flags go before the files (npm test -- <flags> puts them after, where node ignores them)
+        run: node --test --test-reporter=spec --test-shard=${{ matrix.shard }}/2 ${{ steps.needed.outputs.tests || 'test/*.test.mjs' }}   # only the tests this PR can break, when the pick names them (tools/ci-needed.sh)   # the flags go before the files (npm test -- <flags> puts them after, where node ignores them)
 
   flow-fresh:
     name: flow-fresh

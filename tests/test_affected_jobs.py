@@ -128,6 +128,19 @@ class TheShapesItWasMeasuredOn(unittest.TestCase):
                         'desktop/e2e/pool-ci-summary.mjs', 'desktop/e2e/test/pool-ai-cost.test.mjs', 'site/src/jobcost.js'])
         self.assertIn('harness', ran)
 
+    def test_a_desktop_lib_change_runs_only_the_harness_tests_it_reaches(self):
+        # Owner, 13 Oct 2026, on #553 (desktop/lib/analytics.js): "why we run on such changes, harness tests?" One guard test scans desktop/lib; the job ran all of them.
+        picked = jobs.tests_reached('harness', ['desktop/lib/analytics.js', 'desktop/lib/telemetry-handlers.js', 'desktop/test/analytics.test.js'])
+        self.assertIsNotNone(picked, 'a list, not "all"')
+        self.assertIn('test/app-log.test.mjs', picked, 'the guard that scans desktop/lib')
+        self.assertLess(len(picked), len(list((ROOT / 'desktop/e2e/test').glob('*.test.mjs'))) // 2, picked)   # 50 of 190 on 13 Oct 2026: the offline app loads desktop/lib by path, so its tests count the folder
+        self.assertTrue(all(name.startswith('test/') and name.endswith('.test.mjs') for name in picked), 'paths as the job runs them, from desktop/e2e')
+
+    def test_a_harness_lib_change_or_plumbing_runs_every_harness_test(self):
+        self.assertIsNone(jobs.tests_reached('harness', ['desktop/e2e/lib/smoke.mjs']), 'its own folder: all of them')
+        self.assertIsNone(jobs.tests_reached('harness', ['tools/affected-jobs.py']), 'the pick itself: all of them')
+        self.assertEqual(jobs.tests_reached('harness', ['docs/rules/files.md']), [], 'nothing reached: none')
+
     def test_docs_alone_run_no_replay_and_no_harness_lib(self):
         self.assertFalse(self.ran(['docs/rules/files.md']) & {'replays', 'zoo', 'worker', 'site'})
 
@@ -236,12 +249,12 @@ class TheStepInTheJob(unittest.TestCase):
         self.git('checkout', '-q', 'main')
         self.git('merge', '-q', '--no-ff', 'pr', '-m', 'merge')
 
-    def verdict(self, event, pick='print("skip: nothing")'):
+    def verdict(self, event, pick='print("skip: nothing")', job='desktop'):
         self.pick.write_text(pick + '\n')
         out = self.repo / 'out.txt'
         out.unlink(missing_ok=True)
         env = {**os.environ, 'GITHUB_EVENT_NAME': event, 'GITHUB_OUTPUT': str(out)}
-        shown = subprocess.run(['bash', 'tools/ci-needed.sh', 'desktop'], cwd=self.repo, env=env, capture_output=True, text=True).stdout
+        shown = subprocess.run(['bash', 'tools/ci-needed.sh', job], cwd=self.repo, env=env, capture_output=True, text=True).stdout
         return out.read_text().strip(), shown
 
     def test_a_pull_request_the_pick_clears_skips(self):
@@ -251,6 +264,15 @@ class TheStepInTheJob(unittest.TestCase):
     def test_a_pull_request_the_pick_reaches_runs(self):
         self.merge_commit()
         self.assertEqual(self.verdict('pull_request', 'print("run: x reads y")')[0], 'run=true')
+
+    def test_the_harness_gets_only_the_tests_the_pick_names(self):
+        # Owner, 13 Oct 2026, on #553: one harness guard test was reached and all 190 ran.
+        self.merge_commit()
+        stand_in = 'import sys\nprint("test/a.test.mjs test/b.test.mjs" if "--tests" in sys.argv else "run: test/a.test.mjs reads desktop/lib/")'
+        self.assertEqual(self.verdict('pull_request', stand_in, 'harness')[0], 'run=true\ntests=test/a.test.mjs test/b.test.mjs')
+        all_tests = 'import sys\nprint("all" if "--tests" in sys.argv else "run: x reads y")'
+        self.assertEqual(self.verdict('pull_request', all_tests, 'harness')[0], 'run=true', '"all": no list, the job runs every test')
+        self.assertEqual(self.verdict('push', stand_in, 'harness')[0], 'run=true', 'main runs everything')
 
     def test_a_push_to_main_always_runs(self):
         self.merge_commit()

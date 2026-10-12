@@ -189,29 +189,56 @@ def tree_reader(file):
     return bool({'scripts', 'tools', 'test', 'e2e'} & set(file.split('/')))
 
 
-def first_test(job, changed):
-    """-> why the first of the job's tests that a change reaches is reached, or None."""
+ALL = object()   # a test this pick cannot read, or one that lists the whole repo: every test of the job runs
+
+
+def _reached(job, changed):
+    """-> (test name, why) for each of the job's tests a change reaches, in order; (ALL, why) first when the pick cannot tell which."""
     changed_paths = {posixpath.normpath(f): f for f in changed}
     py_names = {f: pick.py_module_name(ROOT / f) for f in changed if f.endswith('.py') and f.startswith(('src/', 'tests/', 'tools/'))}
     engine = any(f.startswith('src/') or (f.startswith('tests/') and not re.fullmatch(r'tests/test_[^/]+\.py', f)) for f in changed)
     for name, reach, text, sources in profile(job):
         if reach is None:
-            return f'{name} imports a file this pick cannot read'
+            yield ALL, f'{name} imports a file this pick cannot read'; continue
         hit = next((changed_paths[p] for p in changed_paths if p in reach), None)
         if hit:
-            return f'{name} imports {hit}'
+            yield name, f'{name} imports {hit}'; continue
         hit = next((f for f in changed if names(text, f, py_names)), None)
         if hit:
-            return f'{name} names {hit}'
+            yield name, f'{name} names {hit}'; continue
         if job == 'desktop' and engine and pick.ENGINE_RE.search(text):
-            return f'{name} runs the engine (src/ changed)'
+            yield name, f'{name} runs the engine (src/ changed)'; continue
         for via, paths, whole in sources:
             if whole:
-                return f'{name} lists the whole repo{via}'
+                yield ALL, f'{name} lists the whole repo{via}'; break
             hit = next((f for f in changed if under(f, paths)), None)
             if hit:
-                return f'{name} reads {under(hit, paths)}{via}: {hit}'
-    return None
+                yield name, f'{name} reads {under(hit, paths)}{via}: {hit}'; break
+
+
+def first_test(job, changed):
+    """-> why the first of the job's tests that a change reaches is reached, or None."""
+    return next((why for _, why in _reached(job, changed)), None)
+
+
+def tests_reached(job, changed):
+    """-> the job's tests a change reaches, as the job runs them (relative to its test folder's parent: test/x.test.mjs), or None: run them all (its own folder,
+    plumbing, a test this pick cannot read). [] when none (the job skips). Owner, 13 Oct 2026, on #553: one guard test reached, the whole harness ran."""
+    changed = sorted(set(changed))
+    why = reason(job, changed)
+    if why is None:
+        return []
+    folder = JOBS[job][0]
+    if folder is None or why != first_test(job, changed):
+        return None
+    base = posixpath.dirname(folder[0]) + '/'
+    out = []
+    for name, _ in _reached(job, changed):
+        if name is ALL:
+            return None
+        if name.startswith(base) and name[len(base):] not in out:
+            out.append(name[len(base):])
+    return out
 
 
 def reason(job, changed):
@@ -248,8 +275,13 @@ def main(argv=None):
     ap.add_argument('--job', choices=sorted(JOBS), help='one job: prints "run: <why>" or "skip: <why>"')
     ap.add_argument('--base', help='compare HEAD with this ref (merge base)')
     ap.add_argument('--files', nargs='*', help='changed files, instead of git')
+    ap.add_argument('--tests', action='store_true', help='with --job: print the tests it should run, space-separated, or "all"')
     args = ap.parse_args(argv)
     changed = args.files if args.files is not None else pick.git_changed(args.base or 'origin/main')
+    if args.job and args.tests:
+        picked = None if changed is None else tests_reached(args.job, changed)
+        print('all' if picked is None else ' '.join(picked))
+        return 0
     if not args.job:
         print(json.dumps({job: 'git diff failed: run' for job in JOBS} if changed is None else reasons(changed), indent=1))
         return 0
