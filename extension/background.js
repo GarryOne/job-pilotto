@@ -497,6 +497,6 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => { if (info.status === 'c
 initFillFlow({started, fillOpenedTab, reportFlow, onPage, fillsNow, arm, progress});
 
 // Message groups: registered here, after everything they use exists, in the order the messages were answered before.
-messageHandlers.push(createLearningMessages({FILL_MARK, arm, fillOpenedTab, handOff, jobOf, panelRefused, reportFlow, stepBox, stepNow, watchSubmission}));   // messages-learning.js
+messageHandlers.push(createLearningMessages({arm, fillOpenedTab, handOff, jobOf, panelRefused, reportFlow, stepBox, stepNow, watchSubmission}));   // messages-learning.js
 messageHandlers.push(createPanelMessages({fillOpenedTab, jobOf, prefetch, started}));   // messages-panel.js
 messageHandlers.push(createAppMessages({bootId, jobOf}));   // messages-app.js
