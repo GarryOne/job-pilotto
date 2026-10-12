@@ -1,0 +1,49 @@
+{
+ "widget": "collapsed_section",
+ "shape": "the question sits in a closed accordion section; its box exists only once the section is opened",
+ "why": "widget zoo (spec docs/superpowers/specs/2026-10-12-fill-ladder.md): a measure, not a gate: what the fill reads (asked) and what stays committed",
+ "pages": [
+  {
+   "url": "https://collapsed-section-1.zoo.example.com/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": false,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "skill",
+     "question": "Main programming language",
+     "value": "Python",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "asked": [
+   "Main programming language"
+  ],
+  "filled": [
+   "#skill"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 30
+ },
+ "start": "panel"
+}

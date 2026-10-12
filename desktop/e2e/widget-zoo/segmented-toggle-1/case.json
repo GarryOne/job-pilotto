@@ -1,0 +1,49 @@
+{
+ "widget": "segmented_toggle",
+ "shape": "none: two aria-pressed buttons (the control case, handled since 67c6e9e)",
+ "why": "widget zoo (spec docs/superpowers/specs/2026-10-12-fill-ladder.md): a measure, not a gate: what the fill reads (asked) and what stays committed",
+ "pages": [
+  {
+   "url": "https://segmented-toggle-1.zoo.example.com/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": false,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "permit",
+     "question": "Do you have a valid work permit?",
+     "value": "Yes",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "asked": [
+   "Do you have a valid work permit?"
+  ],
+  "pressed": [
+   "[data-v=yes]"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 30
+ },
+ "start": "panel"
+}

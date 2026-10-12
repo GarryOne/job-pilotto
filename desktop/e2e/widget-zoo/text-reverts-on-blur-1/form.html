@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Apply: Example role</title></head>
+<body>
+<!-- Widget zoo (desktop/e2e/widget-zoo): A controlled box that keeps its own state from key events and writes it back on blur, so a value set without typing goes away. Hand-made, no real site, no personal data. -->
+<h1>Apply for Example role</h1>
+<form id="apply" onsubmit="return false">
+<label for="first">First name</label> <input id="first" name="first_name" type="text" required>
+<label for="last">Last name</label> <input id="last" name="last_name" type="text" required>
+<label for="mail">Email</label> <input id="mail" name="email" type="email" required>
+<label for="city">Current city</label>
+<input id="city" name="city" type="text" required>
+</form>
+<script>
+const box = document.getElementById('city'); let state = '';
+box.addEventListener('keydown', e => { setTimeout(() => { state = box.value; }, 0); });
+box.addEventListener('blur', () => { box.value = state; });
+</script>
+</body></html>

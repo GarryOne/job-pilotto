@@ -1,0 +1,52 @@
+name: CI · Widget zoo (measure, not required)
+# The fill ladder's widget zoo (spec docs/superpowers/specs/2026-10-12-fill-ladder.md, PR 1): one hand-made page per control shape (desktop/e2e/widget-zoo), replayed with the real
+# extension, offline. It MEASURES how many pages the fill reads and keeps committed; a miss never fails it (pages that fail today are the fill ladder's found bugs). It fails only when the
+# replay broke or a page pressed a submit. NOT a required check: a page moves to desktop/e2e/recorded/ (the required replay shards) only once it passes.
+on:
+  pull_request:
+    branches: [main]
+    paths: ['extension/**', 'desktop/e2e/widget-zoo/**', 'desktop/e2e/lib/widget-zoo.mjs', 'desktop/e2e/widget-zoo.mjs', 'desktop/e2e/lib/page-replay.mjs', 'desktop/e2e/lib/replay-browser.mjs', '.github/workflows/widget-zoo.yml']
+  push:
+    branches: [main]
+    paths: ['extension/**', 'desktop/e2e/widget-zoo/**']
+  workflow_dispatch:
+
+concurrency:
+  group: widget-zoo-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zoo:
+    name: widget zoo
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Install the tests
+        working-directory: desktop/e2e
+        run: npm ci || npm install
+      - name: Install the app's own packages
+        working-directory: desktop
+        run: npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts
+      - name: Chromium (the real extension needs the full browser, not the headless shell)
+        working-directory: desktop/e2e
+        run: npx playwright install --with-deps chromium
+      - name: Replay the zoo
+        working-directory: desktop/e2e
+        env:
+          JP_REPLAY: 1
+          JOB_PILOTTO_HEAVY: 0
+        shell: bash   # -o pipefail: the runner's exit code survives the tee
+        run: |
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          node widget-zoo.mjs --json widget-zoo.json 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: widget-zoo
+          path: desktop/e2e/widget-zoo.json
+          if-no-files-found: ignore
