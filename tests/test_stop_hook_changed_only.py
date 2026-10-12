@@ -20,7 +20,7 @@ class StopHookChangedOnlyTest(unittest.TestCase):
         for d in ('src', 'worker', 'tools', 'tests', 'desktop'):
             (self.repo / d).mkdir(parents=True)
         (self.repo / 'src' / 'daily.py').write_text('x = 1\n')
-        for name in ('stop-test-check.sh', 'gate-cache.sh', 'check-slot.sh'):
+        for name in ('stop-test-check.sh', 'gate-cache.sh', 'check-slot.sh', 'test-log-failures.sh'):
             shutil.copy(ROOT / 'tools' / name, self.repo / 'tools' / name)
         self.marker = self.tmp / 'ran'
         (self.repo / 'tools' / 'check.sh').write_text(f'#!/bin/bash\necho "$@" >> {self.marker.as_posix()}\nif [ -n "$STOP_FAIL" ]; then echo "# fail 1"; echo "  ✖ the broken test (4.2ms)"; exit 1; fi\n')

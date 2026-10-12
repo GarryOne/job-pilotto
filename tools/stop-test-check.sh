@@ -53,6 +53,7 @@ node22="$(ls -d "$HOME"/.nvm/versions/node/v22.* 2>/dev/null | sort -V | tail -1
 [ -n "$node22" ] && export PATH="$node22/bin:$PATH"
 tbin="$(command -v gtimeout || command -v timeout || true)"
 source "$(dirname "$0")/gate-cache.sh" 2>/dev/null || gate_cache_run() { shift 3; "$@"; }
+source "$(dirname "$0")/test-log-failures.sh"   # failing_files / failing_names: either reporter's shape
 export GATE_CACHE_DIRTY=1 GATE_CACHE_NOTES; GATE_CACHE_NOTES="$(mktemp)"   # the working tree counts, uncommitted files too; the same pass store as the push gate
 boxed() { if [ -n "$tbin" ]; then "$tbin" -k 10 "$limit" "$@"; else "$@"; fi; }
 # The suites wait for a check slot like a push gate does (tools/check-slot.sh, JOB_PILOTTO_CHECK_SLOTS at a time on this Mac): several sessions' Stop hooks plus pushes plus a hand-run `npm test` ran
@@ -138,7 +139,7 @@ for repo in "${repos[@]}"; do
     if [ "$code" = 124 ] || [ "$code" = 137 ]; then timeouts+="$s in $repo took over ${limit}s (not counted as a failure). "; continue; fi
     [ "$code" = 0 ] && continue
     # The extension fingerprint test fails by design until tools/ship.sh takes the new version after its rebase (a hand-made bump collides with other sessions): expected, not a failure to fix.
-    if [ "$s" = desktop ] && [ "$(grep -E '^ *✖ ' "$logs/$s.log" | sed -E 's/.*\(([^)]*)\)$/\1/' | sort -u)" = "test/extension-version.test.js" ]; then
+    if [ "$s" = desktop ] && [ "$(failing_files "$logs/$s.log")" = "test/extension-version.test.js" ]; then   # either reporter's shape (tools/test-log-failures.sh)
       notes+="desktop: only test/extension-version.test.js fails in $repo (the extension fingerprint): expected before landing, tools/ship.sh takes the version and fingerprint after its rebase. Do not bump it by hand."$'\n'; continue
     fi
     case "$s" in
@@ -147,7 +148,7 @@ for repo in "${repos[@]}"; do
       *) how="cd $s && npm test" ;;
     esac
     failed+="--- $s failed (exit $code). Reproduce in $repo: $how"$'\n'
-    names="$(grep -E '^ *✖ ' "$logs/$s.log" 2>/dev/null | sed -E 's/ \([0-9.]+ms\)$//' | sort -u | head -15)"   # the failing test files and tests, named (not only counted)
+    names="$(failing_names "$logs/$s.log")"   # the failing test files and tests, named (not only counted)
     [ -n "$names" ] && failed+="Failing tests:"$'\n'"$names"$'\n'
     keep="$cache/fail-logs/$key-$s"; mkdir -p "$keep" && cp -R "$logs"/. "$keep"/ 2>/dev/null && failed+="Full logs kept in $keep"$'\n'   # deleted after 2 days with the rest of the cache
     failed+="$(grep -E '^(FAIL|ERROR):|^# fail|npm (ERR|error)' "$logs/$s.log" | sort -u | head -20)"$'\n'
