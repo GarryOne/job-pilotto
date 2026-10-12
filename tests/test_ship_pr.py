@@ -22,9 +22,9 @@ class ShipPrTest(ShipFixture):
         shim.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{ROOT / "tests" / "fake_gh.py"}" "$@"\n')
         shim.chmod(shim.stat().st_mode | stat.S_IEXEC)
 
-    def pr_ship(self, state=None, *flags, timeout=90):
+    def pr_ship(self, state=None, *flags, timeout=90, **extra):
         self.state.write_text(json.dumps({'origin': str(self.origin), **(state or {})}))
-        env = {**os.environ, 'PATH': f'{self.bin}{os.pathsep}{os.environ["PATH"]}', 'FAKE_GH_STATE': str(self.state), 'SHIP_MODE': 'pr', 'SHIP_PR_POLL': '0', 'SHIP_RED_POLL': '0'}
+        env = {**os.environ, 'PATH': f'{self.bin}{os.pathsep}{os.environ["PATH"]}', 'FAKE_GH_STATE': str(self.state), 'SHIP_MODE': 'pr', 'SHIP_REVIEW': '0', 'SHIP_PR_POLL': '0', 'SHIP_RED_POLL': '0', **extra}   # SHIP_REVIEW=0 by default: the auto-merge path
         return subprocess.run(['bash', str(self.tree / 'tools' / 'ship.sh'), *flags], cwd=self.tree, capture_output=True, text=True, timeout=timeout, env=env)
 
     def calls(self):
@@ -102,11 +102,30 @@ class ShipPrTest(ShipFixture):
         self.state.write_text(json.dumps({'origin': str(self.origin), 'auto_merge_allowed': allowed}))
         git(self.tree, 'remote', 'set-url', 'origin', 'https://github.com/example/repo.git')
         env = {**os.environ, 'PATH': f'{self.bin}{os.pathsep}{os.environ["PATH"]}', 'FAKE_GH_STATE': str(self.state)}
-        return subprocess.run(['bash', '-c', f'source "{self.tree}/tools/ship-pr.sh"; ship_mode'], cwd=self.tree, capture_output=True, text=True, env=env).stdout.strip()
+        run = lambda code: subprocess.run(['bash', '-c', f'source "{self.tree}/tools/ship-pr.sh"; {code}'], cwd=self.tree, capture_output=True, text=True, env=env).stdout.strip()
+        return run('ship_mode'), run('ship_review && echo review || echo auto')
 
-    def test_the_repository_setting_is_the_switch_over(self):
-        self.assertEqual(self.mode(False), 'direct', 'auto-merge off: landings still push to main')
-        self.assertEqual(self.mode(True), 'pr')
+    def test_a_github_origin_always_lands_through_a_pr_and_the_repository_setting_says_who_merges(self):
+        # Owner, 12 Oct 2026: "I'd like to review them all, by hand". main takes PRs only, so auto-merge off no longer means a push to main.
+        self.assertEqual(self.mode(False), ('pr', 'review'), 'auto-merge not allowed: the owner merges by hand')
+        self.assertEqual(self.mode(True), ('pr', 'auto'))
+
+    def test_review_mode_stops_with_the_pr_open_once_its_required_checks_are_green(self):
+        self.change(self.tree, 'mine.txt', 'x\n', 'My change')
+        result = self.pr_ship({}, SHIP_REVIEW='1')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('ship: REVIEW #1 https://example.test/pull/1', result.stdout)
+        self.assertNotIn('ship: DONE', result.stdout)
+        state = json.loads(self.state.read_text())
+        self.assertEqual(state.get('state'), 'OPEN', 'never merged by ship: the owner merges')
+        self.assertFalse(state.get('auto'), 'auto-merge never turned on')
+        self.assertNotIn('My change', git(self.origin, 'log', '--format=%s', 'main'))
+
+    def test_review_mode_still_reports_a_failed_required_check(self):
+        self.change(self.tree, 'mine.txt', 'x\n', 'My change')
+        result = self.pr_ship({'fail_check': {'name': 'python', 'link': 'https://example.test/run/9'}}, SHIP_REVIEW='1')
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("required check 'python' failed", result.stdout + result.stderr)
 
 
 if __name__ == '__main__':

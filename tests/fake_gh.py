@@ -40,7 +40,8 @@ def merge():
 
 pending = state.get('fail_check') or state.get('fail_check_once')
 if argv[:1] == ['api']:
-    print('true' if state.get('auto_merge_allowed') else 'false')
+    # --jq .full_name: the repository answers (ship_mode); --jq .allow_auto_merge: the switch for review by hand (ship_review)
+    print('example/repo' if '.full_name' in argv else ('true' if state.get('auto_merge_allowed') else 'false'))
 elif argv[:2] == ['pr', 'list']:
     print(json.dumps([{'number': 1}] if state.get('state') == 'OPEN' else []))
 elif argv[:2] == ['pr', 'create']:
