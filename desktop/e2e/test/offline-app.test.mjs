@@ -5,6 +5,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
+import {startAiProxy} from '../lib/ai-proxy.mjs';
+import {DUMMY_KEY} from '../lib/engine.mjs';
 import {startOfflineApp} from '../lib/offline-app.mjs';
 
 const REAL = path.join(os.homedir(), 'Library', 'Application Support', 'Job Pilotto');
@@ -72,4 +74,26 @@ test('the harness drives the app as its window would: settings, the contact, App
     assert.ok((await app.call('sessions')).some(session => session.url === 'https://jobs.example.org/job/42'));
     await assert.rejects(app.call('noSuchCommand'), /unknown command/);
   } finally { await app.close(); }
+});
+
+// The pool on a CI runner (.github/workflows/pool-smoke.yml): no Claude Code there, so the app asks through its own API engine, to the harness's metering proxy on
+// this computer (lib/live-row.mjs), never straight to the internet. Here the proxy answers itself (canned) and the key is the placeholder: nothing is paid.
+test('with an AI proxy the offline app asks through its API engine and the proxy on this computer, never claude -p', async () => {
+  const proxy = await startAiProxy();
+  proxy.setCanned(() => JSON.stringify({kind: 'posting', confidence: 0.9, apply_button: 'Apply', apply_button_kind: 'apply', apply_route: '', apply_by: 'form', apply_email: '',
+    form_frame: -1, account_step: '', register_control: '', signin_control: '', account_button: '', bot_check: false}));
+  const app = await startOfflineApp({ask: true, api: {url: proxy.url, key: DUMMY_KEY}});
+  try {
+    assert.equal(JSON.parse(fs.readFileSync(path.join(app.dir, 'settings.json'), 'utf8')).aiEngine, 'api');
+    const body = {url: 'https://jobs.example.org/x', title: 'x', headings: ['x'], controls: [], buttons: ['Apply'], frames: []};
+    const answer = await (await fetch(`${app.url}/extension/page-kind`, {method: 'POST', headers: {'content-type': 'application/json', authorization: `Bearer ${app.token}`,
+      origin: `chrome-extension://${app.extensionId}`}, body: JSON.stringify(body)})).json();
+    assert.ok(proxy.stats.canned >= 1, `the page-kind ask reached the proxy: ${JSON.stringify(proxy.stats)}`);
+    assert.equal(answer.kind, 'posting', JSON.stringify(answer).slice(0, 200));
+  } finally { await app.close(); await proxy.close(); }
+});
+
+test('the API path takes a proxy on this computer only, and a real key only on CI', async () => {
+  await assert.rejects(startOfflineApp({ask: true, api: {url: 'https://api.anthropic.com', key: DUMMY_KEY}}), /127\.0\.0\.1/);
+  await assert.rejects(startOfflineApp({ask: true, api: {url: 'http://127.0.0.1:9', key: 'sk-ant-api03-real-looking'}, env: {}}), /CI only/);
 });

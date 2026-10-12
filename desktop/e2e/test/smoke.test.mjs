@@ -1,7 +1,7 @@
 // The hand-started smoke's logic (lib/smoke.mjs): how far a live run got, what counts as a regression, which posting a run tries, which shapes it takes.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED, compare, engineLine, fieldLines, marksBlind, parseLive, pickPosting, placeFound, rungFields, runShare, shareSize, shortfall, smokeEngine, verdictFields, verdictOf} from '../lib/smoke.mjs';
+import {APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED, compare, engineLine, fieldLines, marksBlind, matchesOnly, parseLive, pickPosting, placeFound, rungFields, runShare, shareSize, shortfall, smokeEngine, verdictFields, verdictOf} from '../lib/smoke.mjs';
 
 const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detail/x/
   2026-10-10T12:20:27Z [extension] page kind: account {"shape":"auth.jobs.ch/u/login/identifier|1-2","by":"ai"}
@@ -373,4 +373,20 @@ test('a fill held by a dialog nothing closes: a needs-fix reason, never ready', 
   const out = parseLive('Apply pressed on u\n[extension] page kind: form {}\n[extension] fill: held: a dialog covers the form {"host":"h","text":"robot check","buttons":1}');
   assert.ok(out.errors.some(line => /held: a dialog covers the form/.test(line)));
   assert.notEqual(out.reached, 'ready');
+});
+
+test('a row on the CI key reports its AI spend, and a privacy tripwire hit is kept on the row (lib/pool-ci.mjs sums the one, turns the job red on the other)', () => {
+  const run = parseLive('Apply pressed on u\n[extension] page kind: form {}\nlive: AI spend $0.0312 on the CI key (7 calls, 21000 in / 3900 out tokens)\n[extension] fill: fields: 4 filled, 2 left');
+  assert.equal(run.usd, 0.0312);
+  assert.equal(run.tripped, undefined);
+  assert.equal(parseLive('Apply pressed on u').usd, undefined, 'a Mac run (the plan) has no spend line and no usd');
+  assert.equal(parseLive('live: privacy tripwire: email typed into "Email"; the run\'s saved files (screenshots included) were deleted and those fields cleared').tripped, true);
+});
+
+test('--only takes the words of one row, or several rows joined by |', () => {
+  assert.equal(matchesOnly('Lever: single page, no account', ''), true);
+  assert.equal(matchesOnly('Lever: single page, no account', 'Lever'), true);
+  assert.equal(matchesOnly('Lever: single page, no account', 'Personio form|Lever: single'), true);
+  assert.equal(matchesOnly('Recruitee form', 'Personio form|Lever: single'), false);
+  assert.equal(matchesOnly('Recruitee form', ' Recruitee form | Lever '), true, 'spaces around | are not part of the words');
 });

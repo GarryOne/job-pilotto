@@ -1,0 +1,119 @@
+# The applying pool's smoke on a GitHub runner, started BY HAND only (owner, 12 Oct 2026: this changes the 11 Oct rule "the pool runs locally only, never in CI";
+# start simple, grow it over time, report to the coordinator before growing it). Never a schedule, push or PR trigger (e2e/test/pool-ci-dispatch-only.test.mjs).
+# - Rows: the PUBLIC pool only (desktop/e2e/smoke-sites.json); the Mac's own list (postings from the owner's profiles) never leaves the Mac.
+# - Floors unchanged: the fake applicant, HELD (never Submit, no account or consent button, no password, no captcha), the privacy tripwire on, nothing uploaded
+#   (lib/applying-report.mjs refuses CI).
+# - AI: the app's own API engine on the Tests key (E2E_ANTHROPIC_KEY, the Tests workspace's $20 limit), through the harness's metering proxy (lib/live-row.mjs).
+#   Hard caps per run, here: MAX_ROWS rows and MAX_USD dollars (the run stops between rows once its spend reaches it).
+# - Site limit: CI's own ledger per UTC day (actions/cache), at most 2 visits per host, a host that showed a block page rests the day. CI visits are NOT in
+#   the Mac's ledger: a host can get 3 (Mac) + 2 (CI) visits on a day both run.
+# - Data-center IPs meet more bot walls: such a row is "blocked (CI IP)" in the summary, never a failure, never retried (no Electron leg on CI).
+#   Red only for a row that did not finish (a harness error) or the tripwire (lib/pool-ci.mjs).
+# Result: the job summary table and the artifact (the day report, smoke.log, evidence/<day>/<row>/: end.png, step-*.png, app.log, run.log, evidence.md).
+name: Pool smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Rows: words of a row name, several rows joined by | (empty: the bot-tolerant default list)'
+        type: string
+        default: ''
+      share:
+        description: 'How many of those rows this run (at most MAX_ROWS)'
+        type: number
+        default: 1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pool-smoke   # one pool run at a time; a second dispatch waits, never cancels the running one
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MAX_ROWS: 3          # the hard row cap (owner, 12 Oct 2026: start with 1-3 rows)
+      MAX_USD: '0.50'      # the hard AI dollar cap per run
+      # Public rows with no bot wall in the Mac's runs of 10-12 Oct 2026 (SmartRecruiters showed one every time: not in the default).
+      DEFAULT_ROWS: 'Lever: single page|Personio form in German|Recruitee: one-page form'
+      ONLY: ${{ inputs.only }}
+      SHARE: ${{ inputs.share }}
+      E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
+      JP_NO_REPORT: '1'                # nothing uploaded from CI (the code refuses it anyway)
+      JOB_PILOTTO_HEAVY: '0'           # the heavy lock is a Mac's machine-wide queue; this runner is its own machine
+      JOB_PILOTTO_SESSION: pool-smoke CI run ${{ github.run_id }}
+      JOB_PILOTTO_SITE_LIMIT: '2'
+      JOB_PILOTTO_SITE_LEDGER_DIR: ${{ github.workspace }}/pool-smoke-out/site-ledger
+      SMOKE_PAIRED: '0'
+      SMOKE_REPORTS: ${{ github.workspace }}/pool-smoke-out/smoke-reports
+      SMOKE_CANDIDATES: ${{ github.workspace }}/pool-smoke-out/replay-candidates
+      SMOKE_SITES: ${{ github.workspace }}/pool-smoke-out/no-mac-list.json   # never present: the Mac's own rows stay on the Mac
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install the app
+        working-directory: desktop
+        run: npm ci
+      - name: Install the tests
+        working-directory: desktop/e2e
+        run: npm ci || npm install
+      - name: Python packages the engine needs (the app's store)
+        run: pip install --quiet -r requirements.txt
+      - name: Chromium for the real extension, and a virtual display
+        working-directory: desktop/e2e
+        run: |
+          npx playwright-core install --with-deps chromium
+          sudo apt-get install -y -qq xvfb >/dev/null
+      - name: Today (UTC)
+        id: day
+        run: |
+          echo "day=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+          mkdir -p pool-smoke-out/site-ledger
+      - name: CI's site ledger of today (earlier CI runs' visits)
+        uses: actions/cache/restore@v5
+        with:
+          path: pool-smoke-out/site-ledger
+          key: pool-smoke-ledger-${{ steps.day.outputs.day }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: pool-smoke-ledger-${{ steps.day.outputs.day }}-
+      - name: Run the pool rows (held, fake applicant, never Submit)
+        working-directory: desktop/e2e
+        run: |
+          set -o pipefail
+          mkdir -p "$SMOKE_REPORTS"
+          rows=${SHARE:-1}
+          if ! [ "$rows" -ge 1 ] 2>/dev/null; then rows=1; fi
+          if [ "$rows" -gt "$MAX_ROWS" ]; then rows=$MAX_ROWS; fi
+          only=${ONLY:-$DEFAULT_ROWS}
+          echo "pool-smoke: rows matching \"$only\", at most $rows, AI cap \$$MAX_USD; CI's site limit $JOB_PILOTTO_SITE_LIMIT a host a day"
+          SMOKE_MAX_ROWS=$rows SMOKE_MAX_USD=$MAX_USD xvfb-run -a --server-args='-screen 0 1440x900x24' node smoke.mjs --only "$only" 2>&1 | tee "$GITHUB_WORKSPACE/pool-smoke-out/smoke.log"
+      - name: Keep CI's site ledger for today's later runs
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          path: pool-smoke-out/site-ledger
+          key: pool-smoke-ledger-${{ steps.day.outputs.day }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Job summary (red only for a row that did not finish or the tripwire)
+        if: always()
+        working-directory: desktop/e2e
+        run: |
+          set -o pipefail
+          node pool-ci-summary.mjs "$SMOKE_REPORTS" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: The day report, the log and each row's evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: pool-smoke-${{ github.run_id }}
+          path: |
+            pool-smoke-out/smoke.log
+            pool-smoke-out/smoke-reports/
+          retention-days: 14
+          if-no-files-found: warn

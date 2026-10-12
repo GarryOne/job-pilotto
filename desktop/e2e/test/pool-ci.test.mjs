@@ -1,0 +1,61 @@
+// The pool on a CI runner (.github/workflows/pool-smoke.yml, lib/pool-ci.mjs): hard caps on rows and AI dollars, no Electron leg (never a second visit after a
+// block page), a bot wall on the runner's data-center IP shown as "blocked (CI IP)" and never a failure, and a red job only for a harness error or the tripwire.
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {SITE_REFUSED} from '../lib/smoke.mjs';
+import {capRows, ciLimits, electronLegs, overBudget, summary} from '../lib/pool-ci.mjs';
+
+test('the row cap runs the first rows and names the rest; no cap (a Mac run) leaves the list as it is', () => {
+  const rows = ['a', 'b', 'c', 'd'].map(shape => ({shape}));
+  assert.deepEqual(capRows(rows, 3), {run: rows.slice(0, 3), cut: rows.slice(3)});
+  assert.deepEqual(capRows(rows, 0), {run: rows, cut: []});
+});
+
+test('the dollar cap stops the run between rows once the spend reaches it; no cap never stops it', () => {
+  assert.equal(overBudget(0.49, 0.5), false);
+  assert.equal(overBudget(0.5, 0.5), true);
+  assert.equal(overBudget(12, 0), false);
+});
+
+test('on CI both caps must come from the workflow: a run without them is refused before any site is visited', () => {
+  assert.deepEqual(ciLimits({CI: 'true', SMOKE_MAX_ROWS: '3', SMOKE_MAX_USD: '0.50'}), {maxRows: 3, maxUsd: 0.5});
+  assert.throws(() => ciLimits({CI: 'true', SMOKE_MAX_USD: '0.50'}), /SMOKE_MAX_ROWS/);
+  assert.throws(() => ciLimits({CI: 'true', SMOKE_MAX_ROWS: '3'}), /SMOKE_MAX_USD/);
+  assert.throws(() => ciLimits({CI: 'true', SMOKE_MAX_ROWS: '0', SMOKE_MAX_USD: '0.50'}), /SMOKE_MAX_ROWS/);
+  assert.deepEqual(ciLimits({}), {maxRows: 0, maxUsd: 0}, 'a Mac run has no caps unless it sets them');
+  assert.deepEqual(ciLimits({SMOKE_MAX_ROWS: '2'}), {maxRows: 2, maxUsd: 0});
+});
+
+test('no Electron leg on CI: a refused or fallen row is never visited a second time from the runner', () => {
+  assert.equal(electronLegs({CI: 'true'}), false);
+  assert.equal(electronLegs({}), true);
+});
+
+const report = {day: '2026-10-12', results: {
+  'Lever: single page, no account': {reached: 'form', filled: 11, left: 7, usd: 0.0312, seconds: 61},
+  'SmartRecruiters: one page, no account': {reached: 'code/bot', filled: null, left: null, usd: 0.004, seconds: 30},
+  'Recruitee form': {reached: 'posting', note: SITE_REFUSED, usd: 0.002, seconds: 40},
+  'Personio form in German': {reached: 'form', filled: 5, left: 4, blocked: 'overlay', usd: 0.02, seconds: 55},
+}, thisRun: {unfinished: [], skipped: [{shape: 'Join: form on join.com', why: 'site-ledger: join.com is not visited: 2 live visits today'}], cut: ['Teamtailor: form on teamtailor.com'], stopped: '', usd: 0.0572, maxUsd: 0.5, maxRows: 3}};
+
+test('the summary: one table row per run row, a bot wall or a refusal is "blocked (CI IP)" and green, a form covered after the fill is its own word', () => {
+  const {markdown, red} = summary(report);
+  assert.deepEqual(red, []);
+  assert.match(markdown, /\| Lever: single page, no account \| form \| 11 \/ 7 \|  \| \$0\.0312 \| 61 s \|/);
+  assert.match(markdown, /\| SmartRecruiters: one page, no account \| code\/bot \| – \| blocked \(CI IP\): bot check \|/);
+  assert.match(markdown, /\| Recruitee form \| posting \| – \| blocked \(CI IP\): site refused \|/);
+  assert.match(markdown, /\| Personio form in German \| form \| 5 \/ 4 \| covered after the fill \(overlay\) \|/);
+  assert.match(markdown, /AI spend: \$0\.0572 of the \$0\.50 cap/);
+  assert.match(markdown, /Not run: Teamtailor: form on teamtailor\.com \(row cap 3\)/);
+  assert.match(markdown, /Skipped by CI's site limit: Join: form on join\.com/);
+  assert.match(markdown, /not in the Mac's ledger/);
+});
+
+test('the summary is red for a row that did not finish (a harness error) and for a privacy tripwire hit, and says which', () => {
+  const broken = {...report, results: {...report.results, 'Teamtailor: form on teamtailor.com': {reached: 'form', filled: 3, left: 2, tripped: true, usd: 0.01, seconds: 50}},
+    thisRun: {...report.thisRun, unfinished: [{shape: 'Join: form on join.com', why: 'no end of the watch, exit 1'}], stopped: 'AI spend $0.5100 reached the cap $0.50'}};
+  const {markdown, red} = summary(broken);
+  assert.deepEqual(red, ['did not finish: Join: form on join.com (no end of the watch, exit 1)', 'privacy tripwire: Teamtailor: form on teamtailor.com']);
+  assert.match(markdown, /Stopped early: AI spend \$0\.5100 reached the cap \$0\.50/);
+  assert.match(markdown, /❌/);
+});

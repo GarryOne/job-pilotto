@@ -13,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {orderPool} from './lib/smoke-order.mjs';
-import {SITE_REFUSED, compare, engineLine, lastSeen, runShare, shareSize, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, signature, smokeEngine, verdictFields} from './lib/smoke.mjs';
+import {SITE_REFUSED, compare, engineLine, lastSeen, matchesOnly, runShare, shareSize, marksBlind, parseLive, pickPosting, placeFound, rungFields, shortfall, signature, smokeEngine, verdictFields} from './lib/smoke.mjs';
 import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
 import {uploadLedger} from './lib/fix-ledger.mjs';
 import {poolCard, sendPoolCard} from './lib/pool-card.mjs';
@@ -24,6 +24,7 @@ import {fetchWanted, wantedFirst} from './lib/wanted-hosts.mjs';
 import {heavy, yieldHeavy} from './lib/heavy.mjs';
 import {runArtifacts} from './lib/run-artifacts.mjs';
 import {POOL_LINE, eligibilityOff, poolEnv} from './lib/pool-eligibility.mjs';
+import {capRows, ciLimits, electronLegs, overBudget} from './lib/pool-ci.mjs';
 import {settleRefusal, lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pathDifferenceLine} from './lib/smoke-paths.mjs';
 heavy('e2e-smoke', import.meta.url, {klass: process.argv.includes('--only') ? 'proof' : process.argv.includes('--discover') ? 'explore' : 'pool'});   // one heavy run at a time on this Mac (tools/heavy-lock.sh); a held row proof goes before the pool's whole list
 
@@ -134,38 +135,48 @@ async function main() {
     console.log(`smoke: ${shape}: ${await sendPoolCard(poolCard(shape, item, {day}))}`);   // the same loop users' fills feed (lib/pool-card.mjs)
     console.log(`smoke: ${await upload('smoke', [{name: shape, host: hostOnly(item.url), reached: item.reached, filled: item.filled, left: item.left, note: item.note || '', regression: !!found, ...rungFields(item), ...verdictFields(item)}])}`);
   };
-  const pool = shapes.filter(item => !only || item.shape.includes(only));
+  const pool = shapes.filter(item => matchesOnly(item.shape, only));   // one row's words, or several rows' joined by |
   const today = (() => { try { return [JSON.parse(fs.readFileSync(path.join(REPORTS, `${day}.json`), 'utf8'))]; } catch { return []; } })();   // a run earlier today counts too
   // Every mode starts with the rows tested the least (lib/smoke-order.mjs); only --only is a fixer's own choice. A row resting today (site-ledger) is skipped and listed.
   const postingOf = ({urls = [], like = []}) => pickPosting([...urls.map(url => ({url, title: '', company: ''})), ...(like.length ? postingsLike(like) : [])]);
   const resting = item => { const posting = postingOf(item); if (!posting) return false; try { guardLiveVisit(posting.url, {record: false}); return false; } catch (error) { return error instanceof SiteLimitError; } };
   const ranked = only ? {order: pool, rested: [], lines: []} : orderPool(pool, [...earlierList, ...today], day, {rested: resting});
+  const limits = ciLimits();   // the CI workflow's hard caps (rows, AI dollars); a Mac run has none unless it sets them (lib/pool-ci.mjs)
   const chosen = only || process.argv.includes('--all') ? ranked.order : runShare(ranked.order, shareSize());
-  console.log(`smoke: ${chosen.length} of ${shapes.length} shapes in this run (${only ? `--only ${only}` : 'the least tested first: never run, then the fewest runs in 14 days, then the oldest'})`);
-  for (const line of ranked.lines.slice(0, chosen.length)) console.log(line);
+  const capped = capRows(chosen, limits.maxRows), rows = capped.run;
+  const thisRun = {unfinished: [], skipped: [], cut: capped.cut.map(item => item.shape), stopped: '', usd: 0, maxUsd: limits.maxUsd, maxRows: limits.maxRows};   // the day report's record of this run (lib/pool-ci.mjs summary)
+  if (thisRun.cut.length) console.log(`smoke: row cap ${limits.maxRows}: not run this time: ${thisRun.cut.join(', ')}`);
+  if (limits.maxUsd) console.log(`smoke: AI dollar cap $${limits.maxUsd.toFixed(2)}: the run stops between rows once its spend reaches it`);
+  console.log(`smoke: ${rows.length} of ${shapes.length} shapes in this run (${only ? `--only ${only}` : 'the least tested first: never run, then the fewest runs in 14 days, then the oldest'})`);
+  for (const line of ranked.lines.slice(0, rows.length)) console.log(line);
   if (ranked.rested.length) console.log(`smoke: rested today (site limit or block page), not counted as tested: ${ranked.rested.map(item => item.shape).join(', ')}`);
   console.log(engineLine(smokeEngine()));
   console.log(`smoke: ${eligibilityOff(poolEnv()) ? POOL_LINE : 'eligibility check: ON in this run (SMOKE_ELIGIBILITY=on)'}`);
   // The pool runs on plain node; a few rows each pass run on Electron too, the least recently paired first (lib/smoke-paths.mjs; SMOKE_PAIRED=0 skips).
-  const pairs = new Set(smokeEngine() === 'node' ? pairedSample(chosen, lastPaired([...earlierList, ...today]), Number(process.env.SMOKE_PAIRED ?? 2)) : []);
+  const pairs = new Set(smokeEngine() === 'node' ? pairedSample(rows, lastPaired([...earlierList, ...today]), Number(process.env.SMOKE_PAIRED ?? 2)) : []);
   console.log(`smoke: paired sample this pass (plain node and Electron): ${[...pairs].join(', ') || 'none'}`);
-  for (const {shape, like = [], urls = []} of chosen) {
+  const legs = electronLegs();   // CI: no second visit after a block page, and the runner has no Electron (lib/pool-ci.mjs)
+  if (!legs) console.log('smoke: no Electron leg on CI: a refused or fallen row is not visited again from the runner');
+  for (const {shape, like = [], urls = []} of rows) {
+    if (overBudget(thisRun.usd, limits.maxUsd)) { thisRun.stopped = `AI spend $${thisRun.usd.toFixed(4)} reached the cap $${limits.maxUsd.toFixed(2)}`; console.log(`smoke: stopped: ${thisRun.stopped}; not run: ${rows.slice(rows.findIndex(item => item.shape === shape)).map(item => item.shape).join(', ')}`); break; }
     yieldHeavy();   // between two sites a waiting proof (or shorter run) goes first; this run waits for its place back (tools/heavy-lock.sh yield)
     const posting = pickPosting([...urls.map(url => ({url, title: '', company: ''})), ...(like.length ? postingsLike(like) : [])]);
     if (!posting) { results[shape] = {reached: 'none', note: 'no posting of this shape in the job list'}; console.log(`smoke: ${shape}: no posting`); await finish(shape); continue; }
     const status = await postingStatus(posting.url);
     if (status === 404 || status === 410) { results[shape] = {url: posting.url, reached: 'none', note: `posting gone (HTTP ${status})`}; console.log(`smoke: ${shape}: posting gone (HTTP ${status}): replace it in smoke-sites.json`); await finish(shape); continue; }
-    try { guardLiveVisit(posting.url, {record: false}); } catch (error) { console.log(`smoke: ${shape}: skipped, nothing recorded: ${error.message}`); continue; }   // the per-site daily limit (lib/site-ledger.mjs); the run itself records the visit
+    try { guardLiveVisit(posting.url, {record: false}); } catch (error) { thisRun.skipped.push({shape, why: error.message.slice(0, 200)}); console.log(`smoke: ${shape}: skipped, nothing recorded: ${error.message}`); continue; }   // the per-site daily limit (lib/site-ledger.mjs); the run itself records the visit
     console.log(`smoke: ${shape}: ${posting.url} (HELD: no account button, never Submit; ~${seconds}s)`);
     await ping(shape, 'start');
     const captureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-capture-'));
     const run = await liveRun(posting, seconds, captureDir).finally(() => ping(shape, 'end'));
     if (!runFinished(run)) {   // killed or cut short (eb's 23 s Datadog row, 11 Oct 2026): nothing is recorded, uploaded or saved as a candidate
       fs.rmSync(captureDir, {recursive: true, force: true});
+      thisRun.unfinished.push({shape, why: run.signal ? `killed by ${run.signal}` : `no end of the watch, exit ${run.code}`});
       console.log(`smoke: ${shape}: the run did not finish (${run.signal ? `killed by ${run.signal}` : `no end of the watch, exit ${run.code}`}, ${run.seconds}s): nothing recorded, nothing uploaded`);
       continue;
     }
     results[shape] = {url: posting.url, ...parseLive(run.output), exit: run.code, seconds: run.seconds};
+    thisRun.usd += results[shape].usd || 0;   // the row's AI on the CI key (live.mjs prints it; a Mac's plan has none)
     results[shape].signature = signature(results[shape]);
     results[shape].marksBlind = marksBlind(results[shape]);
     results[shape].short = shortfall(results[shape]);   // reached the form but filled under half: a failure the step alone hides
@@ -174,7 +185,7 @@ async function main() {
     const blocked = blockSignal(run.output);
     if (blocked) markBlocked(posting.url, blocked);   // a block page: this site rests until tomorrow, so no Electron leg either (lib/site-ledger.mjs)
     const refused = !blocked && smokeEngine() === 'node' && results[shape].note === SITE_REFUSED;   // a block page on plain node: Electron decides whether the site refuses (lib/smoke-paths.mjs settleRefusal)
-    if (!blocked && (fell || refused || pairs.has(shape))) {
+    if (legs && !blocked && (fell || refused || pairs.has(shape))) {
       console.log(`smoke: ${shape}: ${fell ? `less than its last result on plain node (${fell}): once more on Electron, the same posting` : refused ? 'refused on plain node: once more on Electron, the same posting' : 'paired sample: the same posting on Electron'}`);
       const electronCapture = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-capture-electron-'));
       const again = await liveRun(posting, seconds, electronCapture, 'electron'), electron = runFinished(again) ? parseLive(again.output) : null;
@@ -214,7 +225,7 @@ async function main() {
   const differs = pathDifferenceLine(results);   // a fall on plain node that Electron did not show (lib/smoke-paths.mjs)
   fs.mkdirSync(REPORTS, {recursive: true});
   const saved = (() => { try { return JSON.parse(fs.readFileSync(path.join(REPORTS, `${day}.json`), 'utf8')); } catch { return {}; } })();   // what this run and the day's other runs saved site by site
-  fs.writeFileSync(path.join(REPORTS, `${day}.json`), `${JSON.stringify({paired: pairedLine({...saved.results, ...results}), ...(differs ? {pathDifference: differs} : {}), ...saved, day, results: {...saved.results, ...results}, regressions, dropped, comparedWith: previousFile}, null, 1)}\n`);
+  fs.writeFileSync(path.join(REPORTS, `${day}.json`), `${JSON.stringify({paired: pairedLine({...saved.results, ...results}), ...(differs ? {pathDifference: differs} : {}), ...saved, day, results: {...saved.results, ...results}, regressions, dropped, comparedWith: previousFile, thisRun}, null, 1)}\n`);
   console.log(`smoke: ${pairedLine(results)}`);   // the report's first lines: do the paths agree, and what fell on plain node only
   if (differs) console.log(`smoke: ${differs}`);
   console.log(`smoke: ${regressions.length ? `REGRESSIONS: ${regressions.map(item => `${item.shape} (${item.why})`).join('; ')}` : 'no regression'}${previousFile ? ` vs ${previousFile}` : ' (first report)'}`);

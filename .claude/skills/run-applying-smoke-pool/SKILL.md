@@ -16,6 +16,11 @@ Whoever owns the pool and its run queue writes its own session name into `~/Libr
 ## What exists
 - **Runner** `desktop/e2e/smoke.mjs` (`cd desktop/e2e && npm run smoke`), logic in `lib/smoke.mjs` (every mode orders through `lib/smoke-order.mjs` `orderPool`: never run first, then the fewest runs in 14 days, then the oldest last run, then the pool's order; rested rows are skipped and listed; only `--only` is the fixer's own choice; a share is the front `runShare`; `parseLive`, `signature`, `compare`,
   `NEVER_VISIT`), upload in `lib/applying-report.mjs`. It never schedules itself: there is no schedule: the owner decided (11 Oct 2026) that the pool runs BY HAND only, ask once.
+- **On a GitHub runner, still by hand** (owner, 12 Oct 2026: start simple, grow it, report to the coordinator before growing): `.github/workflows/pool-smoke.yml`,
+  workflow_dispatch only (a test fails on any other trigger). PUBLIC rows only (the Mac's list never leaves the Mac); default = bot-tolerant rows; `gh workflow run pool-smoke.yml -f only='<row words>|<more>' -f share=<n>`.
+  The app asks through its API engine on the Tests key via the metering proxy (each row prints `live: AI spend $x`); hard caps in the workflow: 3 rows, $0.50 a run.
+  CI's own site ledger (actions/cache, 2 visits a host per UTC day; NOT the Mac's, so a host can get 3 + 2). A bot wall on the runner's IP = "blocked (CI IP)", never a failure; no Electron leg on CI.
+  Nothing uploaded; the result is the job summary table and the artifact (day report, `smoke.log`, `evidence/<day>/<row>/`). Red only for a row that did not finish or the tripwire. Each dispatch spends money: on the owner's or coordinator's ask.
 - **The pool, two lists, merged:** public `desktop/e2e/smoke-sites.json` (postings from PUBLIC job feeds only) and this Mac's
   `~/Library/Application Support/Job Pilotto QA/smoke-sites.json` (postings copied from the owner's profiles; outside the repo AND outside the app folder, because a
   profile reset wiped the app folder once). **Never commit a posting taken from a profile to the public repo** (stopped once before a push).

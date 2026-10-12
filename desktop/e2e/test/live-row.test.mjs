@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
+import {startAiProxy} from '../lib/ai-proxy.mjs';
 import {seedVersion} from '../lib/applicant-seed.mjs';
 import {runLiveRow} from '../lib/live-row.mjs';
 import {startRealExtension} from '../lib/real-extension.mjs';
@@ -37,4 +38,19 @@ test('a live row runs on the app\'s own path without Electron: Apply opens the p
   assert.ok(fs.existsSync(path.join(captureDir, 'case.json')) && fs.existsSync(path.join(captureDir, 'presses.json')), 'a row a replay can start from');
   assert.equal(JSON.parse(fs.readFileSync(path.join(captureDir, 'case.json'), 'utf8')).seed, seedVersion(), 'the capture records the applicant seed it ran with (lib/applicant-seed.mjs)');
   assert.ok(journey.some(page => page.url.startsWith('https://jobs.example.org/job/42') && page.ask), JSON.stringify(journey.map(page => [page.url, page.ask])));
+});
+
+// The pool on a CI runner (.github/workflows/pool-smoke.yml): the app asks through its API engine and the harness's metering proxy, and the row reports its spend
+// (lib/smoke.mjs parseLive reads it for the dollar cap). Here the proxy answers itself (canned, the placeholder key): nothing is paid, so the spend is 0.
+test('a live row with an AI proxy asks through it from the real extension and reports its spend', {skip}, async () => {
+  const proxy = await startAiProxy();
+  proxy.setCanned(() => JSON.stringify({kind: 'posting', confidence: 0.9, apply_button: 'Apply now', apply_button_kind: 'apply', apply_route: '', apply_by: 'form', apply_email: '',
+    form_frame: -1, account_step: '', register_control: '', signin_control: '', account_button: '', bot_check: false}));
+  const captureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-live-row-proxy-'));
+  try {
+    const result = await runLiveRow({posting: {url: 'https://jobs.example.org/job/42', title: 'Engineer', company: 'Example'}, captureDir, ask: true, seconds: 50, stillSeconds: 8, browser: fakeSite, aiProxy: proxy});
+    assert.equal(result.tripped, '');
+    assert.ok(proxy.stats.canned >= 1, `the extension's page-kind ask went through the proxy: ${JSON.stringify(proxy.stats)}`);
+    assert.deepEqual(result.ai, {calls: 0, usd: 0, input: 0, output: 0}, 'the spend is reported (canned answers cost nothing)');
+  } finally { await proxy.close(); }
 });
