@@ -19,7 +19,10 @@ if (name === '--list') {
   console.log(JSON.stringify({include}));
   process.exit(0);
 }
-(await import('./lib/heavy.mjs')).heavy(`e2e-${name}`, import.meta.url);   // one heavy run at a time on this Mac (tools/heavy-lock.sh)
+// One heavy run at a time on this Mac (tools/heavy-lock.sh). This outer process takes the lock's status only when the run behind it left its done marker (lib/suite-done.mjs).
+const done = await import('./lib/suite-done.mjs');
+if (!process.env.JP_HEAVY_HELD) done.clearDone();
+(await import('./lib/heavy.mjs')).heavy(`e2e-${name}`, import.meta.url, {exit: status => process.exit(done.verdict(status))});
 process.env.JOB_PILOTTO_E2E_SUITE = name;   // the app tags its Sentry reports with it (lib/sentry.js e2eTags)
 process.env.E2E_SUITE = name;   // read when lib/app.mjs loads: each suite writes its own artifacts folder
 // A hard stop for the whole process (6 Oct 2026: a Windows jobs suite ran 14+ min after its last step failed: something outside the steps hung, closing the app
@@ -37,9 +40,12 @@ process.env.E2E_SUITE = name;   // read when lib/app.mjs loads: each suite write
 // so run-all.mjs and the workflows are unchanged. E2E_REPORT=0 runs it directly, as before.
 if (process.env.E2E_REPORT !== '0' && !process.env.E2E_IN_REPORT) {
   const {runInReport} = await import('./lib/report.mjs');
-  process.exit(await runInReport(name));
+  const reported = await runInReport(name);
+  done.markDone(reported);
+  process.exit(reported);
 }
 const {runSuite} = await import('./lib/suite-main.mjs');
 const {code} = await runSuite(name);
+done.markDone(code);
 // The app and Playwright can leave handles open: exit explicitly, never hang a CI job.
 process.exit(code);
