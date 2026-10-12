@@ -286,7 +286,7 @@ test('a likely answer the profile does not state comes back as a proposal (a kno
     content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers }) }] }) } };
   const traces = [];
   const fields = answers.map((a) => ({ field: a.field, label: a.field, type: 'text' }));
-  const result = await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t) },
+  const result = await answerForm({ PROFILE_TEXT: 'Email: ada@example.com', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t) },
     { url: 'https://forms.example.com/apply', fields, page_text: '50% contract' }, client);
   assert.deepEqual(result.answers.map((a) => [a.field, a.use]), [['hours', 'propose'], ['visa', 'propose'], ['sms', 'propose'], ['email', 'fill'], ['terms', 'kind']]);   // the floored legal one still says it is legal (a kind, no value)
   assert.equal(traces[0].proposed, 3);
@@ -340,7 +340,7 @@ test('a legal question comes back as a kind only (no value), so the extension ma
     content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers }) }] }) } };
   const fields = answers.map((a) => ({ field: a.field, label: a.field, type: 'combobox' }));
   const traces = [], calls = [];
-  const result = await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t), onAnswerCall: (c) => calls.push(c) }, { url: 'https://forms.example.com/apply', fields, page_text: '' }, client);
+  const result = await answerForm({ PROFILE_TEXT: 'Location: Zurich', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t), onAnswerCall: (c) => calls.push(c) }, { url: 'https://forms.example.com/apply', fields, page_text: '' }, client);
   // The app keeps which fields were asked and every answer the AI gave (desktop/lib/live-capture.js captureAnswer strips the values).
   assert.deepEqual([calls.length, calls[0].fields.map((f) => f.field), calls[0].answers.length], [1, ['certify', 'terms', 'gender', 'city'], 4]);
   // Each empty answer's field id and category reach the log (round 2, 11 Oct 2026: the live run said only "empty 1" and categories in totals, so which
@@ -360,7 +360,7 @@ test('an open question nothing answers comes back as a "written" kind (no value)
   const client = { messages: { create: async (args) => { prompt = JSON.stringify(args); return { stop_reason: 'end_turn', usage: { billing: 'subscription' },
     content: [{ type: 'text', text: JSON.stringify({ eligible: true, eligibility_note: '', answers }) }] }; } } };
   const fields = answers.map((a) => ({ field: a.field, label: a.field, type: 'text' }));
-  const result = await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '' }, { url: 'https://forms.example.com/apply', fields, page_text: '' }, client).catch((e) => ({ error: String(e) }));
+  const result = await answerForm({ PROFILE_TEXT: 'Location: Zurich', ANSWERS_TEXT: 'a', KNOWLEDGE_TEXT: '' }, { url: 'https://forms.example.com/apply', fields, page_text: '' }, client).catch((e) => ({ error: String(e) }));
   assert.deepEqual((result.answers || []).map((a) => [a.field, a.value, a.use, a.category]), [['city', 'Zurich', 'fill', 'contact'], ['why', '', 'kind', 'written']], JSON.stringify(result).slice(0, 300));
   assert.ok(prompt.includes('written = an open question'), 'the prompt asks for the written row');
 });
@@ -395,19 +395,19 @@ test('a field the AI leaves out of its answer is asked once more, then marked "u
   let n = 0;
   const second = { messages: { create: async (request) => { asked.push(request.messages[0].content); return reply(n++ === 0 ? [city] : [salutation]); } } };
   const traces = [];
-  const ok = await answerForm({ PROFILE_TEXT: 'Salutation: Frau', ANSWERS_TEXT: '', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t) }, { url: 'https://forms.example.com/a', fields, page_text: '' }, second);
+  const ok = await answerForm({ PROFILE_TEXT: 'Salutation: Frau\nLocation: Zurich', ANSWERS_TEXT: '', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t) }, { url: 'https://forms.example.com/a', fields, page_text: '' }, second);
   assert.equal(asked.length, 2);
   assert.ok(asked[1].includes('radio:form_data6') && !asked[1].includes('"city"') && /left these fields out/.test(asked[1]));
   assert.deepEqual(ok.answers.map((a) => [a.field, a.value, a.use]), [['city', 'Zurich', 'fill'], ['radio:form_data6', 'Frau', 'fill']]);   // a profile salutation is filled, not held
   assert.deepEqual([traces[0].retried, traces[0].stillMissing], [1, []]);
   // (b) still missing: marked with the explicit category, so the panel and the pool can see it
   const never = { messages: { create: async () => reply([city]) } };
-  const bad = await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: '', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t) }, { url: 'https://forms.example.com/a', fields, page_text: '' }, never);
+  const bad = await answerForm({ PROFILE_TEXT: 'Location: Zurich', ANSWERS_TEXT: '', KNOWLEDGE_TEXT: '', onAnswer: (t) => traces.push(t) }, { url: 'https://forms.example.com/a', fields, page_text: '' }, never);
   assert.deepEqual(bad.answers.map((a) => [a.field, a.value, a.use, a.category]), [['city', 'Zurich', 'fill', 'contact'], ['radio:form_data6', '', 'kind', 'unanswered']]);
   assert.deepEqual(traces[1].stillMissing, ['radio:form_data6']);
   // (c) a demographic field with no value comes back as the person's own choice (a kind), not as nothing
   const held = { messages: { create: async () => reply([city, { ...salutation, value: '' }]) } };
-  const choice = await answerForm({ PROFILE_TEXT: 'p', ANSWERS_TEXT: '', KNOWLEDGE_TEXT: '' }, { url: 'https://forms.example.com/a', fields, page_text: '' }, held);
+  const choice = await answerForm({ PROFILE_TEXT: 'Location: Zurich', ANSWERS_TEXT: '', KNOWLEDGE_TEXT: '' }, { url: 'https://forms.example.com/a', fields, page_text: '' }, held);
   assert.deepEqual(choice.answers.map((a) => [a.field, a.use, a.category]), [['city', 'fill', 'contact'], ['radio:form_data6', 'kind', 'demographic']]);
 });
 

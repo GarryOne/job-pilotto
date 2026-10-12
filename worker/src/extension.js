@@ -14,7 +14,7 @@ import { askAgainForGaps, unanswered } from './answer-missing.js';
 import { BILLED, billedTo, learnings, runBlocks, runData, runRecord } from './extension-run-record.js';
 export { BILLED, billedTo, learnings, runData, runRecord };
 import { cvFactsBlock, CV_FACTS_RULE } from './cv-facts.js';
-import { FACT_KEYS, FACT_RULE, floorUnfounded } from './answer-facts.js';
+import { FACT_KEYS, FACT_RULE, floorUngrounded, floorUnfounded } from './answer-facts.js';
 
 const KIT_HEADING = '📝 Application kit';
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
@@ -150,7 +150,7 @@ const ANSWER_SCHEMA = {
 export const ANSWER_SCHEMA_FOR_TESTS = ANSWER_SCHEMA;   // worker/test/answer-facts.test.js
 
 const INSTRUCTIONS = `You fill in a job application form for the applicant described in <profile> and <standard_answers>.
-Use only the applicant details given here; never a name, e-mail address or phone number from any other context (such as an account you are signed in with): when a detail is not given, leave it empty.
+Use only the applicant details given here; never a name, e-mail address, phone number, country, city, street address or other location from any other context (such as an account you are signed in with): when a detail is not given, leave it empty.
 The applicant reviews every answer and clicks Submit themselves.
 
 For each form field you are given its id, label, type, whether it is required, and its options if it has any. Return one answer per field you can answer:
@@ -226,7 +226,9 @@ export async function answerForm(env, { url, fields, page_text, test = false }, 
   // A proposal is never for a legal or demographic question, whatever the AI said (a hard floor beside its own rule). A knockout question
   // (residence, hours, availability) gets its most plausible answer, shown as "check it" and never typed: the owner confirms each (9 Oct 2026). Proposals are shown in the app, never typed (extension/flow.js).
   // A typed answer that names no saved fact is a guess: proposed, never typed (worker/src/answer-facts.js).
-  const all = (Array.isArray(result.answers) ? result.answers : []).map((a) => floorUnfounded(a, { test }));
+  // A typed name, e-mail, phone, address or home place must be in what this ask was given, never the signed-in account's (answer-facts.js floorUngrounded).
+  const given = [profile, standard, search, cvFacts, kit ? JSON.stringify(kit) : ''].join('\n');
+  const all = (Array.isArray(result.answers) ? result.answers : []).map((a) => floorUngrounded(floorUnfounded(a, { test }), given, { test }));
   await env.onAnswerCall?.({ url, fields, answers: all });   // the desktop app keeps the asked fields and answer kinds for the e2e evidence (no values); a no-op elsewhere
   const floored = (a) => a.use === 'propose' && ['legal', 'demographic'].includes(a.category);
   // A written question (the person's own words) is never answered or proposed here, whatever value the AI gave: it comes back as an empty kind (owner, 11 Oct 2026).

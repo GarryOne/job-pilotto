@@ -32,7 +32,8 @@ knockouts: at most 8 requirements in the posting that an application form could 
 language, security clearance, a licence or certification, years of experience, notice or start date. status: ok = the CV or the Profile supports it, check = neither says,
 so the person must confirm it, conflict = the CV or the Profile contradicts it. note: one short sentence. Never claim an employer will reject: say "can" or "may".
 advice: at most 4 short, concrete points. Hard rules: use only what the CV, the Profile and the posting say. Never suggest adding a tool, number or experience the CV does
-not state; for a missing term say "add it only if it is true". Keep every sentence short and plain.`;
+not state; for a missing term say "add it only if it is true". Keep every sentence short and plain.
+Use only the applicant details given here; never a name, e-mail address, phone number, country, city, street address or other location from any other context (such as an account you are signed in with): when a detail is not given, leave it empty.`;
 
 // The CV as text for the model: what a recruiter's search would run over.
 export function cvText(cv) {

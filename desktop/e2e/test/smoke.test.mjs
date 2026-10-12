@@ -384,6 +384,7 @@ test('a row on the CI key reports its AI spend, and a privacy tripwire hit is ke
   // The proof run of 12 Oct 2026 went red on this: a line ABOUT the tripwire is not a hit.
   assert.equal(parseLive('live: privacy tripwire: no owner values on this machine (nothing of the owner\'s here), so it has nothing to compare').tripped, undefined);
   assert.equal(parseLive('live: no owner values on this machine for the privacy tripwire (nothing of the owner\'s here): it has nothing to compare').tripped, undefined);
+  assert.equal(parseLive('live: privacy tripwire: checks name, phone, location, account; NOT FOUND on this computer: email').tripped, undefined, 'the coverage line (lib/privacy-tripwire.mjs coverageLine)');
 });
 
 test('a row whose AI calls were refused says so (the proof run of 12 Oct 2026: the Tests key had no credit, the row ran without AI and looked like a result)', () => {
