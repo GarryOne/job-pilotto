@@ -20,6 +20,7 @@ import {authorize, digestOf, equal, flag, honeypotAmong, revoke, tokenFor} from 
 import {storeProposals as storeAliasProposals, storeUse as storeAliasUse} from './aliases.js';
 import {store as storeIntelligence} from './intelligence.js';
 import {store as storeKnowledge} from './knowledge.js';
+import {storeMoves} from './ladder-moves.js';
 
 const STATUSES = ['candidate', 'canary', 'verified', 'disabled'];
 const STEPS = [5, 25, 100];                  // a canary's rollout, in order
@@ -144,9 +145,17 @@ export async function controls(request, env, now = new Date()) {
   const body = await request.json().catch(() => ({}));
   const install = String(body.install || '');
   if (!/^[\w-]{8,64}$/.test(install)) return Response.json({ok: false, error: 'bad install'}, {status: 400});
+  // Test moves (the CI pool, the recorded replays: src/ladder-moves.js, one-next-move spec phase 1): only the ladder rows of such a batch are read, and only with CI's narrow key or the
+  // owner's; claimed by anyone else they are dropped and flagged, never stored as a user's. No daily counter: the key is the limit.
+  if (['ci', 'replay'].includes(body.source)) {
+    const given = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+    if (!((env.REPLAYS_PUBLISH_KEY && equal(given, env.REPLAYS_PUBLISH_KEY)) || await isOwner(request, env))) { await flag(env, 'ladder-source', await digestOf(install), 'test moves without the key', now); return Response.json({ok: true, ladder: 0}); }
+    const who = body.source === 'ci' ? `ci:${/^\d{1,20}$/.test(String(body.run || '')) ? body.run : 'none'}` : 'replay';
+    return Response.json({ok: true, ladder: await storeMoves(env.STATS, body.ladder, {source: body.source, who, now})});
+  }
   const samples = (Array.isArray(body.samples) ? body.samples : []).slice(0, 10);
   const outcomes = (Array.isArray(body.outcomes) ? body.outcomes : []).slice(0, 40);
-  const extra = (Array.isArray(body.cards) ? Math.min(20, body.cards.length) : 0) + (Array.isArray(body.submits) ? Math.min(20, body.submits.length) : 0) + (Array.isArray(body.questions) ? Math.min(40, body.questions.length) : 0) + (Array.isArray(body.flows) ? Math.min(20, body.flows.length) : 0) + (Array.isArray(body.aliasUse) ? Math.min(20, body.aliasUse.length) : 0) + (Array.isArray(body.applications) ? Math.min(20, body.applications.length) : 0) + (Array.isArray(body.proposals) ? Math.min(10, body.proposals.length) : 0) + (Array.isArray(body.unfilled) ? Math.min(20, body.unfilled.length) : 0)
+  const extra = (Array.isArray(body.cards) ? Math.min(20, body.cards.length) : 0) + (Array.isArray(body.submits) ? Math.min(20, body.submits.length) : 0) + (Array.isArray(body.questions) ? Math.min(40, body.questions.length) : 0) + (Array.isArray(body.flows) ? Math.min(20, body.flows.length) : 0) + (Array.isArray(body.aliasUse) ? Math.min(20, body.aliasUse.length) : 0) + (Array.isArray(body.applications) ? Math.min(20, body.applications.length) : 0) + (Array.isArray(body.proposals) ? Math.min(10, body.proposals.length) : 0) + (Array.isArray(body.unfilled) ? Math.min(20, body.unfilled.length) : 0) + (Array.isArray(body.ladder) ? Math.min(40, body.ladder.length) : 0)
     + (body.intel && typeof body.intel === 'object' ? 1 + Math.min(5, (body.intel.terms || []).length) + Math.min(20, (body.intel.dismissals || []).length) + Math.min(60, (body.intel.snapshot || []).length) : 0);
   const kv = env.WAITLIST, countKey = `controls:${install}:${day(now)}`;
   const count = kv ? Number(await kv.get(countKey)) || 0 : 0;
@@ -210,7 +219,8 @@ export async function controls(request, env, now = new Date()) {
   await storeAliasUse(env, body.aliasUse, now).catch(() => 0);
   await storeAliasProposals(env, body.proposals, install, now).catch(() => ({}));   // what learned notes say a wording means (src/aliases.js)   // how the service's label meanings fared (src/aliases.js)
   const learned = await storeKnowledge(env, body, install, now).catch(() => ({questions: 0, flows: 0, applications: 0}));   // question wording, flow counts and application outcomes (src/knowledge.js)
-  return Response.json({ok: true, samples: storedSamples, outcomes: storedOutcomes, ...learned});
+  const ladder = Array.isArray(body.ladder) && body.ladder.length ? await storeMoves(env.STATS, body.ladder.slice(0, 40), {source: 'user', who: await hashed(env, install), now}) : 0;   // the moves its pages confirmed (src/ladder-moves.js)
+  return Response.json({ok: true, samples: storedSamples, outcomes: storedOutcomes, ...learned, ladder});
 }
 
 // ---- GET /api/recipes/targets (owner): what the private recipe proposer should work on ----

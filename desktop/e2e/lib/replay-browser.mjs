@@ -4,7 +4,7 @@
 // A case's pages are served at their real addresses; every other address is a 404 and, besides that, resolves to nothing (real-extension.mjs offline: true).
 // Isolation between tabs: told/asked/judged count only requests whose body names the case's host, notTold counts the case's own lines and the ones no case's host names (a line of another case's host is not its tab's; a failure in parallel is run again alone by the caller), and two cases that share a host never run at the same time (their pages, and the extension's per-host state, would meet).
 import {startRealExtension} from './real-extension.mjs';
-import {answerFor, caseFiles, caseHosts, isExtensionPage, judgeCase} from './page-replay.mjs';
+import {answerFor, caseFiles, caseHosts, fillSettled, isExtensionPage, judgeCase} from './page-replay.mjs';
 
 const pathKey = url => { const parsed = new URL(url); return `${parsed.host}${parsed.pathname}`.replace(/\/$/, ''); };
 const hostOf = text => { try { return new URL(JSON.parse(text).url).host; } catch { return ''; } };
@@ -55,6 +55,7 @@ export async function startReplayBrowser(items, {extensionDir, appPort = 0, cdp 
         all: () => (state.shared ? loose() : run.requests.slice(first)), opened: () => everyOpened.filter(one => one.page !== tab && one.at >= state.from && ours(one.page)).length});   // the case's own tab is not one it opened (solo: the first tab, opened before the count starts)
       return {name: item.name, ...result, seconds: (Date.now() - began) / 1000};
     } finally {
+      await fillSettled(tab);   // a fill still running reports its moves before the tab goes (page-replay.mjs)
       live.splice(live.indexOf(state), 1);
       for (const key of caseFiles(item).keys()) files.delete(key);
       await Promise.all(run.context.pages().filter(open => open !== run.page && !isExtensionPage(open) && (open === tab || hosts.some(host => open.url().includes(host)))).map(open => open.close().catch(() => {})));

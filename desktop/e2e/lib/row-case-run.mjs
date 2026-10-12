@@ -3,6 +3,7 @@
 // -> {name, ok, failures, seconds}. replay: injectable for tests. Used by e2e/test/recorded-pages.test.mjs and row-to-case.mjs. Guard: e2e/test/row-case-run.test.mjs.
 import {checkSignature, signatureOf} from './row-signature.mjs';
 import {replayRow} from './row-replay.mjs';
+import {movesFromLog} from './ladder-moves.mjs';
 
 // "N answer ask(s) served although the system prompt differs from the capture's: system:1:search_preferences" or ''.
 export function looseSummary(hits = []) {
@@ -22,5 +23,5 @@ export async function runRowCase(item, {extensionDir, replay = replayRow, slow =
   if (failures.length && result.timeline?.length) failures.push(`replay timeline: ${result.timeline.join(' | ').slice(0, 1800)}`);   // CI keeps no artifact of a failed replay: its own output is the evidence
   const byOrder = (result.ordinalHits || []).length ? `${result.ordinalHits.length} ask(s) served by ORDER (the n-th kept answer of their kind: no kept answer matched): the case holds only as far as the order does; row-to-case --ask-cold keeps them${[...new Set(result.ordinalHits.flatMap(hit => hit.differs || []))].length ? `; they differ from the closest kept ask in ${[...new Set(result.ordinalHits.flatMap(hit => hit.differs || []))].slice(0, 12).join(', ')}` : ''}` : '';
   const loose = looseSummary(result.looseHits);
-  return {name: item.name, ok: !failures.length, failures, confirm: [], seconds: result.seconds, signature: signatureOf(result), loose, ordinal: byOrder};
+  return {name: item.name, ok: !failures.length, failures, confirm: [], seconds: result.seconds, signature: signatureOf(result), loose, ordinal: byOrder, moves: () => movesFromLog(result.appLog)};   // the ladder moves its pages confirmed (lib/ladder-moves.mjs)
 }

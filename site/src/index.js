@@ -41,6 +41,7 @@ import {log as brainLog, view as brainView} from './brainlog.js';
 import {index as employerIndex} from './employers.js';
 import * as pool from './pool.js';
 import {handleReport} from '../../worker/src/report.js';
+import {movesView} from './ladder-moves.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PER_HOUR = 10;  // sign-ups accepted from one address per hour
@@ -152,6 +153,7 @@ async function route(request, env, ctx) {
   if (pathname === '/api/aliases') return aliases(request, env);
   if (pathname === '/api/playbook') return playbook(request, env);
   if (pathname === '/api/install-token') return recipeLibrary.installToken(request, env);
+  if (pathname === '/api/ladder-moves') return movesView(request, env);   // the owner: the ladder's learned moves per source (src/ladder-moves.js)
   if (pathname === '/api/controls') { judgeSoon(env, ctx); return recipeLibrary.controls(request, env); }   // fill data in: the judges may act on it
   if (pathname === '/api/triage') return triageQueue.triage(request, env);
   if (pathname === '/api/contribute') return pool.contribute(request, env);
