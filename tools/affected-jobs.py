@@ -90,11 +90,13 @@ def named(path):
         hits = list(LITERAL.finditer(line))
         runs = []
         for i, hit in enumerate(hits):
-            text = next(group for group in hit.groups() if group is not None)
+            word = next(group for group in hit.groups() if group is not None)
+            if re.search(r'\$?\{', word):   # `../lib/${name}.js`, f'src/{name}.py': the folder before the computed part is what is read
+                word = word[:re.search(r'\$?\{', word).start()].rpartition('/')[0]
             if runs and JOINED.match(line[hits[i - 1].end():hit.start()]):
-                runs[-1].append(text)
+                runs[-1].append(word)
             else:
-                runs.append([text])
+                runs.append([word])
         on_line, pathish, scans = set(), PATHISH.search(line), SCANS.search(line)
         for run in runs:
             joined = '/'.join(piece.strip('/') for piece in run)
