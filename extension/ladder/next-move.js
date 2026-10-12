@@ -7,8 +7,9 @@ export const ACT_FROM = 0.8;
 const PRESSES = ['press', 'open'];
 const sure = move => move?.signal === 'confident' && Number(move.confidence) >= ACT_FROM;
 
-// move, second: the fallback's logged fields of the first and the second ask. -> {act, why}: why is one of person, unsure, floor, one_ask, disagree, agreed.
+// move, second: the fallback's logged fields of the first and the second ask. -> {act, why}: why is one of blind, person, unsure, floor, one_ask, disagree, agreed.
 export function mayAct(move, second = null) {
+  if (move?.verb === 'not_listed' || move?.signal === 'blind') return {act: false, why: 'blind'};   // the way on is not in the list: the picture, never a guess (core.js)
   if (!move || !PRESSES.includes(move.verb)) return {act: false, why: 'person'};   // nothing to press: the person is told (today's worst case)
   if (!sure(move)) return {act: false, why: 'unsure'};
   if (move.floor !== 'ok') return {act: false, why: 'floor'};
