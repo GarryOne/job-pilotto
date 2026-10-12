@@ -94,7 +94,8 @@ them from colliding in one checkout:
   checkout's `node_modules` and Python `.venv` linked in, so the tests run at once; both are git-ignored: leave the links alone).
   Another base: `tools/worktree.sh <topic> origin/<branch>` (a release lane), never a bare `git worktree add`, which links nothing.
 - Commit there, then land it with **`tools/ship.sh`**. **Through a pull request since 12 Oct 2026** (while the repo allows auto-merge, `tools/pr-settings.sh`): fetch + rebase, the hook's fast checks only (seconds),
-  push the branch, open a PR, `gh pr merge --auto --rebase`, wait. CI runs the suites, all recorded pages, the pure gates and `flow-fresh` on the PR; the PR merges by itself when the required checks pass. `ship: DONE <sha>` = merged;
+  push the branch, open a PR, wait for its required checks. CI runs the suites, all recorded pages, the pure gates and `flow-fresh` on the PR. **The owner reviews and merges every PR by hand** (12 Oct 2026, auto-merge off):
+  `ship: REVIEW #n <url>` = green and open for the owner (your turn ends there); with auto-merge allowed again, `ship: DONE <sha>` = merged;
   `ship: FAILED required check '<name>' failed: <log url>` leaves the PR open: fix, commit, run ship again (it reuses the PR). No direct pushes to main; any other origin keeps the old direct push below.
   The old direct path: fetch + rebase, the push hook's checks (the suites of the areas you touched), push, update the main checkout. **A landing that runs the slow gates queues** (flow or extension files; owner, 11 Oct 2026: three long landings at once refused each other's pushes and re-ran 10-20 min of checks up to three times); others run side by side; when another
   session pushed in between, git refuses the push and `ship.sh` rebases, re-takes the extension version and **runs the checks again** before
@@ -104,8 +105,8 @@ them from colliding in one checkout:
   commit (never bump the version by hand to land). While an extension change is not landed yet, the fingerprint test (`desktop/test/extension-version.test.js`)
   fails at the Stop hook: write both locally in their own local commit (`node desktop/scripts/extension-fingerprint.mjs --write` + the next version in
   `extension/manifest.json`), say so in its message, and let `ship.sh` redo both at landing (it keeps your version only if still newer than main's).
-  The checks take minutes: run **`tools/ship.sh --background`** (returns at once, names its log); the log's last line is `ship: DONE <sha>` or
-  `ship: FAILED …` (8 Oct 2026: a run cut off by a timeout and piped through `tail` showed nothing). By hand it is still
+  The checks take minutes: run **`tools/ship.sh --background`** (returns at once, names its log); the log's last line is `ship: DONE <sha>`, `ship: REVIEW #n <url>` or
+  `ship: FAILED …`: Monitor `^ship: (DONE|FAILED|REVIEW)` in the background, never a foreground wait (8 Oct 2026: a run cut off by a timeout and piped through `tail` showed nothing). By hand it is still
   `git fetch && git rebase origin/main && git push origin <topic>:main` (fast-forward only; rejected: fetch, rebase, push again).
 - **Keep worktrees after landing**; never remove another session's. `tools/worktree.sh prune` (dry run; `--yes` acts; by hand or monthly) removes
   folders whose branch is fully on origin/main and untouched for 7 days (`JP_PRUNE_DAYS`), keeping the branch, uncommitted/untracked work, and
