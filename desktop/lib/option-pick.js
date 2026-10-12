@@ -9,17 +9,18 @@ const norm = text => String(text || '').replace(/\s+/g, ' ').trim().toLowerCase(
 
 const INSTRUCTIONS = `A job application form asks a question with fixed choices. Given the applicant's answer, return the choice that means the same
 (the same answer in another language or wording, e.g. "Monsieur" means "Sir" or "Mr"), copied exactly, or "" when no choice means the same.
+An answer to a yes/no question means the choice that states it ("Yes" to "do you have the right to work here?" means the choice saying you have it).
 Never pick a choice that changes the meaning.`;
 
-const keyOf = (value, choices) => `${norm(value)}|${choices.map(norm).sort().join('|')}`;
+const keyOf = (value, choices, label = '') => `${norm(label)}|${norm(value)}|${choices.map(norm).sort().join('|')}`;
 // The page contradicted the kept answer (the banner is still there after its button was pressed): dropped, asked again next time.
-export const forgetOption = (storage, {value = '', options = []}) => forget(storage, FILE, keyOf(value, (options || []).map(String).filter(option => option.trim())));
+export const forgetOption = (storage, {label = '', value = '', options = []}) => forget(storage, FILE, keyOf(value, (options || []).map(String).filter(option => option.trim()), label));
 // → {choice, how: 'same' | 'ai' | 'kept' | 'none'}; choice '' when none fits (or no AI to ask).
 export async function pickOption(storage, {label = '', value, options}, {client, log = () => {}} = {}) {
   const choices = (options || []).map(String).filter(option => option.trim());
   const same = choices.find(option => norm(option) === norm(value));
   if (same || !choices.length || !String(value || '').trim()) return {choice: same || '', how: same ? 'same' : 'none'};
-  const kept = readKept(storage, FILE), key = keyOf(value, choices);
+  const kept = readKept(storage, FILE), key = keyOf(value, choices, label);
   const known = keptValue(kept, key);   // young answers only; a contradicted one was forgotten (lib/kept-decisions.js)
   if (known.found) return {choice: choices.includes(known.value) ? known.value : '', how: 'kept'};
   if (!client) return {choice: '', how: 'none'};

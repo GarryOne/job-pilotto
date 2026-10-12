@@ -1,0 +1,23 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Apply</title></head><body>
+<form onsubmit="return false" style="font:14px system-ui;padding:20px">
+<p><label for="first_name">First Name *</label> <input id="first_name" name="first_name" type="text" required aria-required="true"></p>
+<p><label for="email">Email *</label> <input id="email" name="email" type="email" required aria-required="true"></p>
+<section><div class="wrap"><label id="rtw-label" for="rtw">Besitzen Sie eine Arbeitserlaubnis für den Standort der Stelle? *</label>
+<span style="display:inline-block;position:relative"><input id="rtw" type="text" role="combobox" aria-labelledby="rtw-label" aria-required="true" aria-expanded="false" autocomplete="off" placeholder="Select..." style="width:260px">
+<ul id="rtw_menu" role="listbox" hidden style="position:absolute;top:28px;left:0;width:420px;background:#fff;border:1px solid #888;z-index:5;list-style:none;margin:0;padding:0"></ul></span>
+<input id="rtw_code" name="rtw_code" type="hidden"></div></section>
+<p><button type="button">Apply</button></p>
+</form>
+<script>
+// A menu that opens only on a real mousedown and offers choices that say the answer in their own words (no "Yes"/"No" among them); picking one stores it.
+var input = document.getElementById('rtw'), menu = document.getElementById('rtw_menu'), code = document.getElementById('rtw_code');
+var choices = ["Nein, ich benötige ein Visum", "Ja, ich darf am Standort der Stelle arbeiten"];
+function shut() { menu.hidden = true; menu.innerHTML = ''; input.setAttribute('aria-expanded', 'false'); }
+input.addEventListener('mousedown', function (event) {
+  if (!event.isTrusted) return;
+  if (!menu.hidden) { shut(); return; }
+  menu.hidden = false; input.setAttribute('aria-expanded', 'true');
+  menu.innerHTML = choices.map(function (text) { return '<li role="option" class="x-option" style="padding:4px 8px">' + text + '</li>'; }).join('');
+  Array.prototype.forEach.call(menu.children, function (item) { item.addEventListener('click', function () { input.value = item.textContent; code.value = item.textContent; shut(); }); });
+});
+</script></body></html>

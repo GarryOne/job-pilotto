@@ -116,6 +116,18 @@ test('a button by meaning: the app picks among the page\'s own buttons only, kep
   assert.equal((await pickChoice(storage, {value: 'x', options: []}, {client: said('x')})).choice, '');
 });
 
+test('a menu\'s choices that state the answer in their own words: "Yes" picks the full sentence, kept per question', async () => {
+  const {pickChoice} = await import('../lib/server-pages.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-pick-'));
+  const storage = {readText: name => { try { return fs.readFileSync(path.join(dir, name), 'utf8'); } catch { return null; } }, writeText: (name, text) => fs.writeFileSync(path.join(dir, name), text)};
+  const options = ['I have the Right to Work in the location where the position is based', 'I require a Visa'];
+  let asked = 0;
+  const said = choice => ({messages: {create: async () => { asked++; return {stop_reason: 'end_turn', usage: {}, content: [{type: 'text', text: JSON.stringify({choice})}]}; }}});
+  assert.equal((await pickChoice(storage, {label: 'Do you have the right to work here?', value: 'Yes', options}, {client: said(options[0])})).choice, options[0], 'the whole sentence, not cut at 60 characters');
+  assert.equal((await pickChoice(storage, {label: 'Do you require a visa?', value: 'Yes', options}, {client: said(options[1])})).choice, options[1], 'the same answer and choices under another question is asked again');
+  assert.equal(asked, 2);
+});
+
 test('an account page in any language: the AI names the step, the register control and the submit button among the page\'s own controls, kept with the kind', async () => {
   const signIn = {url: 'https://karriere.example/career', title: 'Anmelden', headings: ['Mit bestehendem Profil anmelden'], controls: [{type: 'text', label: 'E-Mail-Adresse', required: true}, {type: 'password', label: 'Kennwort', required: true}],
     buttons: ['Anmelden', 'Kennwort vergessen?', 'Noch kein Profil? Hier registrieren', 'FR']};
