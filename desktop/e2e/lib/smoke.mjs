@@ -30,15 +30,20 @@ export const LOGIN_WALL = 'login wall: held';
 export const APPLY_BY_EMAIL = 'applies by email: told';
 export const PAGE_TELLS = 'page tells how to apply: told';
 const DIGEST_HOLD = {refused: SITE_REFUSED, login_wall: LOGIN_WALL};
+// The page a fill's report line belongs to (its "url", cut by the app's log): the path, or '' when the line has none.
+const reportPage = line => { const url = (line.match(/"url":"([^"]*)"/) || [])[1] || ''; return url.replace(/^https?:\/\/[^/]*/, '').split(/[?#]/)[0]; };
+const samePage = (open, page) => !!page && (open === page || (page.length > 1 && open.startsWith(page)));
 export function parseLive(output) {
   const lines = String(output || '').split('\n');
   let blocked = '', reached = 'none', filled = null, left = null, marks = null, note = '', verdict;
   const kinds = [], errors = [], path = [];
   let fieldList = [];   // the form's fields, one 'field ...' line each (apply-live.mjs prints them whole: the app's own line is cut at 230 characters)
   let derived = null, told = null, onAccount = false, digestHold = '', dialogLeft = false, usd = null, tripped = false, aiRefused = null;
+  const openFills = new Map();   // page -> the line its fill started on, while it has not reported (fill: filling {page})
+  let countPage = '', lastReport = '', countAt = -1;   // the page the counted "fields:" line belongs to
   const pageKindErrors = [];   // the AI's own words when a page-kind answer had no kind (usage limit, CLI failure...): job-pilotto-54 found a fast null answer with nothing saying why
   const reach = step => { if (rank(step) > rank(reached)) reached = step; };
-  for (const line of lines) {
+  for (const [index, line] of lines.entries()) {
     if (/Apply pressed on /.test(line)) reach('posting');
     const kind = line.match(/page kind: ([\w-]+)/);
     if (kind) { const host = (line.match(/"host":"([^"]+)"/) || line.match(/"shape":"([^\/"|]+)/) || [])[1] || ''; const last = path.at(-1);
@@ -66,7 +71,13 @@ export function parseLive(output) {
     const fields = line.match(/fields: (\d+) filled, (\d+) left/);
     const field = line.match(/^\s+field (filled|left) (\S+) "(.*)" required=(true|false|\?) reason=(.*)$/);
     if (field && !onAccount) fieldList.push({outcome: field[1], type: field[2], label: field[3], required: field[4] === 'true' ? true : field[4] === 'false' ? false : null, reason: field[5]});
-    if (fields && !onAccount && !/account page/.test(line)) { fieldList = []; filled = Number(fields[1]); left = Number(fields[2]); reach('form'); digestHold = ''; if (left === 0 && filled > 0) reach('ready'); }
+    if (fields && !onAccount && !/account page/.test(line)) { fieldList = []; filled = Number(fields[1]); left = Number(fields[2]); countPage = reportPage(line) || lastReport; countAt = index; reach('form'); digestHold = ''; if (left === 0 && filled > 0) reach('ready'); }
+    // Each fill opens on its page ("fill: filling {page}") and closes with its own report (filled the form / did not fill / fields: the line's url) or a hold.
+    const opened = !onAccount && line.match(/fill: filling \{.*?"page":"([^"]*)"/);
+    if (opened) openFills.set(opened[1], index);
+    if (/fill: (filled the form|did not fill|fields: \d+ filled)/.test(line)) { const page = reportPage(line); if (page) lastReport = page;   // the fields line is cut before its url: it follows its page's "filled the form"
+      for (const open of [...openFills.keys()]) if (samePage(open, page)) openFills.delete(open); }
+    if (/fill: held: a dialog covers the form/.test(line)) openFills.clear();
     // The form came after the Apply press (the same page drew it): reached, whatever the fill did next (Teamtailor, 11 Oct 2026: scored "posting").
     if (/fill: after the press: a form came/.test(line)) { reach('form'); digestHold = ''; }
     // The fill's AI judged the applicant ineligible (extension/background.js: the only "did not fill:" line): the form was reached and the run stopped there on
@@ -91,12 +102,16 @@ export function parseLive(output) {
     const judgedForm = line.match(/panel: application form ready\?: (\w+)/);   // the form judge's last word on the page (extension/form-ready.js)
     if (judgedForm) blocked = judgedForm[1] === 'blocked' ? (line.match(/"blocked":"(\w+)"/) || [])[1] || 'overlay' : '';
   }
+  // A fill opened after the counted report and still open when the watch ended, on another page than the one counted (HelloFresh's Electron leg, 12 Oct 2026: the posting page's "1 filled" was scored
+  // for a form showing 4 of 5): no count is the form's; the run says so.
+  const fillUnreported = rank(reached) >= rank('form') ? [...openFills].filter(([open, at]) => at > countAt && (!countPage || !samePage(open, countPage))).map(([open]) => open).at(-1) : undefined;
+  if (fillUnreported) { filled = null; left = null; fieldList = []; errors.push(`form fill did not report: ${fillUnreported}`); if (reached === 'ready') reached = 'form'; }
   if (blocked) errors.push(`form judge: the page is blocked after the fill (${blocked})`);
   if ((dialogLeft || blocked) && reached === 'ready') reached = 'form';
   // "a form came" after the Apply press can be the route to the sign-up page (adnovum, 11 Oct 2026): with no application field counted, the run still ended at the account step.
   if (!note && ['account', 'form'].includes(reached) && filled == null && path.at(-1)?.kind === 'account') { reached = 'account'; note = ACCOUNT_HELD; }
   if (!note && digestHold && rank(reached) < rank('form')) note = digestHold;
-  return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, pageKindErrors, kinds: [...new Set(kinds)], path, errors, ...(blocked ? {blocked} : {}), ...(note ? {note} : {}), ...(verdict ? {verdict} : {}), ...(usd != null ? {usd} : {}), ...(tripped ? {tripped} : {}), ...(aiRefused ? {aiRefused} : {})};
+  return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, pageKindErrors, kinds: [...new Set(kinds)], path, errors, ...(blocked ? {blocked} : {}), ...(note ? {note} : {}), ...(verdict ? {verdict} : {}), ...(usd != null ? {usd} : {}), ...(tripped ? {tripped} : {}), ...(fillUnreported ? {fillUnreported} : {}), ...(aiRefused ? {aiRefused} : {})};
 }
 
 // The same shape reaching an earlier step than its last run, or filling fewer fields on the same posting, is a regression.
