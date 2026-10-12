@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
-import {builderSource, candidatesOfPage, functionSource} from '../ladder-capture.mjs';
+import {builderSource, candidatesOfPage, functionSource, loadReader} from '../ladder-capture.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 let chromium = null;
@@ -42,7 +42,7 @@ const withArgs = (source, args) => `${source.replace(/\(\)$/, '')}(...${JSON.str
 
 const READERS = [
   ['page-kind sketch (fill-flow.js pageSketchOf)', page => page.evaluate(builderSource('fill-flow.js', 'function pageSketchOf'))],
-  ['judges\' sketch (account-fill.js accountSketch)', page => page.evaluate(functionSource('account-fill.js', 'export function accountSketch'))],
+  ['judges\' sketch (account-fill.js accountSketch)', async page => { await loadReader(page); return page.evaluate(functionSource('account-fill.js', 'export function accountSketch')); }],   // with the one control reader, as judge-sketch.js loads it
   ['Apply candidates (apply-press.js applyCandidates)', page => page.evaluate(argsBuilder('apply-press.js', 'function applyCandidates', 'func: selector =>', ['a[href], button, [role="button"], input[type="button"]']))],
   ['named controls (apply-press.js with tab-pages.js NAMED_BUTTONS)', page => page.evaluate(argsBuilder('apply-press.js', 'function applyCandidates', 'func: selector =>', ['button, input[type=submit], [role=button], a']))],
   ['rung 3 candidates (ladder/rung3-candidates.js)', page => candidatesOfPage(page)],
