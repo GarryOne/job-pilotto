@@ -1,6 +1,6 @@
 name: CI · Pull request
 # The pure checks a change must pass before it merges (owner, 12 Oct 2026: landing through pull requests with auto-merge, tools/ship.sh). The suites are CI · Tests (build.yml) and the
-# recorded-page replays (recorded-pages.yml), which also run on pull requests. Required on main: python, worker, site, desktop (both), the 4 replay shards, "pr gates", "flow-fresh", "harness tests" ("hole 3" once proven, 13 Oct 2026).
+# recorded-page replays (recorded-pages.yml), which also run on pull requests. Required on main: python, worker, site, desktop (both), the 4 replay shards, "pr gates", "flow-fresh", "harness tests 1", "harness tests 2" ("hole 3" once proven, 13 Oct 2026).
 # Every job here always starts (a required workflow that never starts blocks the PR forever); hole 3 skips itself when no recorded case changed.
 on:
   pull_request:
@@ -36,9 +36,13 @@ jobs:
   # after 3394c2e) while every suite was skipped. Here they gate the change that would break them. The same steps as e2e.yml's plan job
   # (test/recorded-ci-deps.test.mjs checks every job that runs them installs the app's own packages).
   harness:
-    name: harness tests
+    name: harness tests ${{ matrix.shard }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]   # the tests take ~105 s on one runner (one test alone is 48 s): two shards, each ~55 s; required as "harness tests 1" and "harness tests 2"
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -55,7 +59,7 @@ jobs:
         run: npx playwright install --with-deps chromium --only-shell
       - name: The tests' own tests (layout check, review parser, triage rules, which suites run)
         working-directory: desktop/e2e
-        run: npm test
+        run: node --test --test-reporter=spec --test-shard=${{ matrix.shard }}/2 test/*.test.mjs   # the flags go before the files (npm test -- <flags> puts them after, where node ignores them)
 
   flow-fresh:
     name: flow-fresh

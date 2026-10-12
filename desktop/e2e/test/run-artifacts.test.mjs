@@ -22,6 +22,6 @@ test('writeAtomic replaces the file whole and leaves no temp file', () => {
 
 test('the smoke run gives each live run its own artifacts folder, and the live memo is written atomically', () => {
   const smoke = fs.readFileSync(new URL('../smoke.mjs', import.meta.url), 'utf8'), live = fs.readFileSync(new URL('../lib/apply-live.mjs', import.meta.url), 'utf8');
-  assert.match(smoke, /env: \{\.\.\.process\.env, E2E_ARTIFACTS: runArtifacts\(\)/);
+  assert.match(smoke, /env: \{\.\.\.(?:process\.env|poolEnv\(\)), E2E_ARTIFACTS: runArtifacts\(\)/);   // poolEnv(): the pool's own environment, since 155a462
   assert.match(live, /writeAtomic\(memo, JSON\.stringify\(kept\)\)/);
 });
