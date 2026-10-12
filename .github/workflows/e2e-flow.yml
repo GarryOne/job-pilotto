@@ -10,10 +10,12 @@ concurrency:
   group: e2e-flow-${{ github.ref }}
   cancel-in-progress: true
 
+# The ceiling e2e.yml's jobs may ask for: GitHub checks every called job's own permissions at start, run or not. promote (contents, issues: write) and
+# "Windows follows" (actions: write) never run here (release_run, no gate_tag); the jobs that do run declare read only (plan) or take e2e.yml's top-level contents: read.
 permissions:
-  contents: read
-  issues: read
-  actions: read
+  contents: write
+  issues: write
+  actions: write
 
 jobs:
   pick:
