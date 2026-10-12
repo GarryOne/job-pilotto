@@ -44,3 +44,17 @@ class PlaybookTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class SiteOffTest(unittest.TestCase):
+    def test_every_test_smoke_or_ci_flag_keeps_the_live_site_untouched(self):
+        for flag in service.OFF_FLAGS:
+            calls = []
+            result = service.playbook('lever', install='install-12345', env={flag: '1'},
+                                      post=lambda u, b: calls.append(u) or {'token': 't'}, get=lambda u, h: calls.append(u) or {'text': 'x'})
+            self.assertEqual((result, calls), ('', []), flag)
+
+    def test_a_normal_run_and_an_explicit_test_site_still_ask(self):
+        post, get = (lambda u, b: {'token': 't'}), (lambda u, h: {'text': 'notes'})
+        self.assertEqual(service.playbook('lever', install='install-12345', env={}, post=post, get=get), 'notes')
+        self.assertEqual(service.playbook('lever', base='https://x.test', install='install-12345', env={'CI': '1'}, post=post, get=get), 'notes')

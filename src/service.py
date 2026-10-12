@@ -53,9 +53,23 @@ def _get(url, headers):
         return json.load(response)
 
 
-def playbook(board, base=None, install=None, post=_post, get=_get):
+# Runs that must never ask the LIVE site (mirrors desktop/lib/telemetry.js reportingOff): each such run has a fresh random install id, and each id costs the
+# site a few Workers KV writes (a mint counter, a quota counter); 12 Oct 2026: ~450 throwaway ids a day used the whole free 1,000-puts-a-day limit.
+OFF_FLAGS = ('JOB_PILOTTO_NO_SERVICE', 'JOB_PILOTTO_E2E', 'JOB_PILOTTO_SMOKE', 'JOB_PILOTTO_PTY_SMOKE', 'CI', 'GITHUB_ACTIONS')
+
+
+def site_off(env=None):
+    """Why this run must not ask the live site (a test, smoke or CI run), or '' when it may."""
+    env = os.environ if env is None else env
+    return next((flag for flag in OFF_FLAGS if env.get(flag)), '')
+
+
+def playbook(board, base=None, install=None, post=_post, get=_get, env=None):
     """The private notes for one board ('greenhouse', 'ashby', 'lever', 'other'), or '' when unavailable."""
-    base = (base or os.getenv('JOB_PILOTTO_SITE') or SITE).rstrip('/')
+    explicit = base or (os.environ if env is None else env).get('JOB_PILOTTO_SITE')   # a test site is fine; only the live one is off limits
+    if not explicit and site_off(env):
+        return ''
+    base = (explicit or SITE).rstrip('/')
     try:
         install = install or install_id()
         token = str(post(f'{base}/api/install-token', {'install': install}).get('token') or '')
