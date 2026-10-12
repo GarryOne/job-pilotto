@@ -41,8 +41,10 @@ test('Chrome mode marks each job link so the extension fills every tab by itself
     {url: 'https://jobs.lever.co/b/2', status: 'saved', fit: 60, title: 'DevOps', company: 'B', kit: true}]});
   const result = await apply.start(storage, {n: 2, mode: 'chrome'}, fakeSpawn, fakeList);
   assert.equal(result.ok, true);
-  assert.deepEqual(spawned[0], ['open', '-a', 'Google Chrome', 'https://jobs.lever.co/b/2#jobpilotto-fill',
-    'https://job-boards.greenhouse.io/a/jobs/1#jobpilotto-fill']);
+  const ids = spawned[0].slice(3).map(address => address.split('#jobpilotto-fill=')[1]);   // each tab carries the form session made for its job
+  assert.deepEqual(spawned[0].slice(0, 3), ['open', '-a', 'Google Chrome']);
+  assert.deepEqual(spawned[0].slice(3).map(address => address.split('#')[0]), ['https://jobs.lever.co/b/2', 'https://job-boards.greenhouse.io/a/jobs/1']);
+  assert.ok(ids.every(Boolean) && new Set(ids).size === 2, ids.join());
 });
 
 test('an Apply batch drafts the missing kits for the best jobs first, quietly, and says so', {skip: process.platform === 'win32' && 'Mac launcher'}, async () => {
@@ -93,9 +95,9 @@ test('Tailor CVs for top matches: with nothing to tailor it says why, and never 
 test('Apply on one job opens it in Chrome with the fill marker; no link, no Chrome', {skip: process.platform === 'win32' && 'Mac launcher (open -a, Terminal); Windows is covered below'}, () => {
   const calls = [];
   const open = (...args) => { calls.push(args); return {unref() {}}; };
-  assert.deepEqual(apply.openOne('https://jobs.lever.co/acme/1#top', open), {ok: true});
-  assert.deepEqual(calls[0].slice(0, 2), ['open', ['-a', 'Google Chrome', 'https://jobs.lever.co/acme/1#jobpilotto-fill']]);
-  assert.equal(apply.openOne('', open).ok, false);
+  assert.deepEqual(apply.openOne('https://jobs.lever.co/acme/1#top', {session: 's1', open}), {ok: true});
+  assert.deepEqual(calls[0].slice(0, 2), ['open', ['-a', 'Google Chrome', 'https://jobs.lever.co/acme/1#jobpilotto-fill=s1']]);
+  assert.equal(apply.openOne('', {session: 's1', open}).ok, false);
   assert.equal(calls.length, 1);
 });
 

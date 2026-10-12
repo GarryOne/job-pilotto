@@ -19,7 +19,7 @@ test('Apply opens the form tab and makes one form session for the job, marked Ap
   const result = await apply.applyOne({}, URL1, {title: 'Software Engineer', company: 'OpenAI', location: 'London'}, options);
   assert.equal(result.ok, true);
   assert.equal(opened.length, 1);
-  assert.ok(opened[0].flat(2).some(part => String(part).endsWith('#jobpilotto-fill')));
+  assert.ok(opened[0].flat(2).some(part => String(part).endsWith('#jobpilotto-fill=f1')));
   const [session] = terminals.list();
   assert.deepEqual([session.kind, session.id, session.company, session.status, session.live, session.url], ['form', 'f1', 'OpenAI', 'done', false, URL1]);
   assert.deepEqual(ran, [['src.ai.apply_batch', '--mark-applying', URL1]]);
@@ -80,7 +80,7 @@ test('Apply opens the form url with the fill mark, and the session keeps the pos
   const {opened, options} = harness();
   const id = '621bb104-9daa-4c9e-949a-03d5730334e8';
   await apply.applyOne({}, `https://jobs.ashbyhq.com/openai/${id}`, {company: 'OpenAI'}, options);
-  assert.ok(opened[0].flat(2).includes(`https://jobs.ashbyhq.com/openai/${id}/application#jobpilotto-fill`));
+  assert.ok(opened[0].flat(2).includes(`https://jobs.ashbyhq.com/openai/${id}/application#jobpilotto-fill=f1`));
   assert.equal(terminals.list()[0].url, `https://jobs.ashbyhq.com/openai/${id}`);
 });
 

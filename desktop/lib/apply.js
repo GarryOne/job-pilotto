@@ -12,6 +12,7 @@ import * as pipeline from './pipeline.js';
 import {registryPathDirs} from './win-path.js';
 import * as session from './claude-session.js';
 import * as terminals from './terminals.js';
+import {sessionTabUrl} from './session-tab.js';
 import {browserCommand, browserOf} from './browser-launch.js';
 import * as extensionInstall from './extension-install.js';
 
@@ -93,9 +94,10 @@ export function formTabsAtHandOver(sessions, url, filled = () => 0) {
 }
 
 // One job, from its row: open it in Chrome with the fill marker, so the extension fills the form by itself.
-export function openOne(url, open = spawn) {
+export function openOne(url, {session = '', open = spawn} = {}) {
   if (!/^https?:\/\//.test(url || '')) return {ok: false, error: 'This job has no link to open.'};
-  const chrome = chromeCommand([`${formUrl(url)}#${FILL_MARK}`], process.platform, process.env, fs.existsSync, extensionBrowser());
+  if (!session) return {ok: false, error: 'A form tab is opened for a session; none was given.'};   // every tab the app opens is owned from its first page (spec 2026-10-12-tab-owned.md)
+  const chrome = chromeCommand([sessionTabUrl(formUrl(url), session)], process.platform, process.env, fs.existsSync, extensionBrowser());
   if (!chrome) return {ok: false, error: NO_CHROME};
   open(...chrome, {detached: true, stdio: 'ignore'}).unref();
   return {ok: true};
@@ -105,11 +107,13 @@ export function openOne(url, open = spawn) {
 // Apply with Claude session). The session shows what is left in the form from the extension's reports and moves to Applied
 // when the extension sees the submit. Pressing Apply on a job that already has an open form session reopens only the tab.
 export async function applyOne(storage, url, details = {}, {open = spawn, term = terminals, run = pipeline.run, id = () => crypto.randomUUID().slice(0, 8)} = {}) {
-  const opened = openOne(url, open);
-  if (!opened.ok) return opened;
+  if (!/^https?:\/\//.test(url || '')) return {ok: false, error: 'This job has no link to open.'};
   const fresh = !term.list().some(s => s.url === url.split('#')[0] && s.kind === 'form' && !s.outcome);
+  // The session first (an open one on this job is reused), then its tab, which carries the session's id.
   const session = term.startForm({id: id(), url: url.split('#')[0], title: details?.title || '', company: details?.company || '',
     location: details?.location || '', workMode: details?.workMode || ''});
+  const opened = openOne(url, {session: session.id, open});
+  if (!opened.ok) { if (fresh) term.remove(session.id); return opened; }
   if (fresh) run(storage, ['src.ai.apply_batch', '--mark-applying', url.split('#')[0]]).catch(() => {});
   return {ok: true, session};
 }
@@ -275,8 +279,10 @@ export async function start(storage, {n, mode}, open = spawn, list = pipeline.jo
     if (drafted) { ({jobs} = await list(storage)); chosen = pick(jobs, n); }
   }
   if (!chosen.length) return {ok: false, error: NO_KITS};
-  // The marker tells the extension to fill each tab by itself as it loads, all tabs in parallel.
-  const chrome = chromeCommand(chosen.map(job => `${job.url.split('#')[0]}#${FILL_MARK}`), process.platform, process.env, fs.existsSync, extensionBrowser());
+  // The marker tells the extension to fill each tab by itself as it loads, all tabs in parallel. Each job gets its own form session first, so each tab carries its id.
+  const owners = chosen.map(job => terminals.startForm({id: crypto.randomUUID().slice(0, 8), url: job.url.split('#')[0], title: job.title || '', company: job.company || '',
+    location: job.location || '', workMode: job.workMode || ''}));
+  const chrome = chromeCommand(chosen.map((job, index) => sessionTabUrl(job.url, owners[index].id)), process.platform, process.env, fs.existsSync, extensionBrowser());
   if (!chrome) return {ok: false, error: NO_CHROME};
   open(...chrome, {detached: true, stdio: 'ignore'}).unref();
   return {ok: true, jobs: chosen.map(job => `${job.title} · ${job.company}`),

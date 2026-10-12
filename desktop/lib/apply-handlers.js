@@ -36,7 +36,7 @@ export function registerApplyHandlers(ctx) {
     if (gate) return gate;
     const blocked = allowanceBlock();
     if (blocked) return blocked;
-    const result = await (DEMO ? apply.openOne(url) : apply.applyOne(storage, url, details || {}));
+    const result = await (DEMO ? apply.openOne(url, {session: 'demo'}) : apply.applyOne(storage, url, details || {}));
     if (result?.ok) track('apply_started', {how: 'extension'});
     return result;
   });

@@ -35,7 +35,7 @@ export function registerExtServerHandlers(ctx) {
   // sat untouched in 'confirm' mode with no check and no word to the person). A link in the mail is opened; a code, or no mail, is told to the session.
   const ids = {get: id => terminals.get(id), list: () => terminals.list(), isFormOf: (address, posting) => applyLib.isFormOf(address, posting)};
   const accountCheck = createAccountCheck({confirm: confirmAccount, noteStuck: (...args) => terminals.noteStuck(...args)});
-  const checkAccount = ({host, email, session, ...rest}) => accountCheck({host, email, session, run: args => pipeline.run(storage, args), open: link => applyLib.openOne(link),
+  const checkAccount = ({host, email, session, ...rest}) => accountCheck({host, email, session, run: args => pipeline.run(storage, args), open: link => applyLib.openOne(link, {session: String(session || '')}),
     mark: () => { storage.saveSettings({siteAccounts: record(storage.settings().siteAccounts, host, email, 'confirmed', Date.now(), terminals.record(String(session || ''))?.company || '')}); if (session) terminals.setAccount(session, 'created'); }, ...rest});
   // A site with no account item yet gets its OWN generated password (owner, 10 Oct 2026: a different one per site; it replaced the 8 Oct one-password-everywhere), kept under the
   // site's name so Settings → Credentials lists it with the profile's email. An account with an item keeps the one it has.
