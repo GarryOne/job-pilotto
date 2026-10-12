@@ -1,5 +1,6 @@
 // /admin/applying's Resolution tile, the page's headline (the outcome contract, owner 12 Oct 2026; spec docs/superpowers/specs/2026-10-12-one-next-move.md, phase 1a): every application
-// ends in one fixed ending (extension/ladder/endings.js); this is each pool row's NEWEST ending, from the owner's Mac uploads (applying_runs.ending) and CI's pool runs on main
+// ends in one fixed ending (extension/ladder/endings.js); this is each pool row's NEWEST ending, from the owner's Mac uploads of main's build (applying_runs.ending, on_main = 1: a
+// branch's run never counts, migration 0061) and CI's pool runs on main
 // (PUT /applying/endings, the narrow REPLAYS_PUBLISH_KEY, one row of the last 600 records), the share resolved raw and weighted by real demand (the scorecard's match share, with the
 // rows each platform rests on), the rows held by the test apart (never measured), the unresolved rows first (the work list) and a weekly trend. A PR's run never counts here.
 // Owns RESOLUTION_SCRIPT and RESOLUTION_CSS, the client code src/applying.js puts inside its page (it uses that page's el, tile and ago). Guard: test/applying-resolution.test.js.
@@ -54,7 +55,7 @@ const pct = (part, whole) => (whole ? Math.round((100 * part) / whole) : null);
 // -> {measured, held, resolved, raw, weighted, covered, samples, endings, unresolved, weeks}
 export function resolution({runs = [], endings = [], pool = [], scorecard = [], now = new Date()} = {}) {
   const inPool = new Map(pool.map(item => [item.shape, item.platform || 'Custom']));
-  const all = [...runs.filter(run => run.kind === 'smoke' && endingWord(run.ending)).map(run => ({row: run.name, ending: run.ending, at: run.at, source: 'mac'})),
+  const all = [...runs.filter(run => run.kind === 'smoke' && run.on_main === 1 && endingWord(run.ending)).map(run => ({row: run.name, ending: run.ending, at: run.at, source: 'mac'})),
     ...endings.filter(item => item.branch === 'main' && endingWord(item.ending)).map(item => ({row: item.row, ending: item.ending, at: item.at, source: 'ci'}))]
     .filter(item => inPool.has(item.row) && isoOf(item.at) && Date.parse(item.at) <= now.getTime()).sort((a, b) => a.at.localeCompare(b.at));
   const newest = list => [...list.reduce((out, item) => out.set(item.row, item), new Map()).values()];
@@ -83,7 +84,7 @@ export const RESOLUTION_SCRIPT = `
   // A snapshot computed before this tile existed (the page's data is kept 10 minutes) has no resolution: an empty tile, an empty box.
   const resolutionTile = r => tile(!r || r.raw == null ? '–' : r.raw + '%', 'Resolved', !r || r.raw == null ? '' : r.unresolved.length ? 'bad' : 'good',
     !r ? 'No ending yet' : (r.weighted == null ? 'No demand weight yet' : r.weighted + '% weighted by demand') + ' · ' + r.unresolved.length + ' unresolved',
-    'The newest run of each pool row ends in one fixed ending; resolved = every ending but unresolved.' + (r ? ' ' + r.held + ' row(s) held by the test are not measured.' : ''));
+    'The newest run of each pool row ends in one fixed ending; resolved = every ending but unresolved. Only runs of main count: CI on main, and Mac runs whose extension is the one on main.' + (r ? ' ' + r.held + ' row(s) held by the test are not measured.' : ''));
   function drawResolution(box, r) {
     box.textContent = '';
     if (!r) return;

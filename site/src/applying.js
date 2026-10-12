@@ -38,7 +38,7 @@ async function ingestRows(db, body, now) {
   const kind = KINDS.includes(body?.kind) ? body.kind : null, day = DAY.test(body?.day || '') ? body.day : null;
   const rows = Array.isArray(body?.rows) ? body.rows.slice(0, 200) : [];
   if (!kind || !day || !rows.length) return {ok: false, error: 'kind, day and rows are required'};
-  const version = text(body.version, 20) || null, at = now.toISOString();
+  const version = text(body.version, 20) || null, at = now.toISOString(), onMain = body.onMain === true ? 1 : 0;   // the Mac's build is main's (migration 0061)
   let stored = 0;
   const touched = [];
   let known = null;   // the pool's rows as stored, read once per upload
@@ -59,11 +59,11 @@ async function ingestRows(db, body, now) {
         .bind(name, start, signature, at, version).run();
       stored += 1; continue;
     }
-    await db.prepare(`INSERT INTO applying_runs (kind, day, at, name, host, reached, filled, left_n, ok, note, regression, version, rung, signal, asked, unexplained, ending) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    await db.prepare(`INSERT INTO applying_runs (kind, day, at, name, host, reached, filled, left_n, ok, note, regression, version, rung, signal, asked, unexplained, ending, on_main) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(kind, day, at, name, kind === 'smoke' ? hostOf(row.host) : null, kind === 'smoke' && STEPS.includes(row.reached) ? row.reached : null,
         int(row.filled), int(row.left), null, text(row.note, 200) || null, row.regression ? 1 : 0, version,
         rungOf(row.rung), kind === 'smoke' && SIGNALS.includes(row.signal) ? row.signal : null,
-        kind === 'smoke' ? int(row.asked) : null, kind === 'smoke' ? int(row.unexplained) : null, kind === 'smoke' ? endingWord(row.ending) : null).run();   // the run's ending (src/applying-resolution.js)
+        kind === 'smoke' ? int(row.asked) : null, kind === 'smoke' ? int(row.unexplained) : null, kind === 'smoke' ? endingWord(row.ending) : null, kind === 'smoke' ? onMain : null).run();   // the run's ending, and whether main's build ran it (src/applying-resolution.js)
     touched.push({kind, name});
     stored += 1;
   }

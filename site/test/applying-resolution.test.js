@@ -30,6 +30,19 @@ test('CI\'s endings are stored in one row with the narrow key; fixed words only;
   assert.deepEqual(await storeEndings(STATS, {records: []}, now), {ok: false, error: 'records are required'});
 });
 
+test('a Mac run counts only when the extension it ran is main\'s: a branch\'s run, or an older upload that does not say, stays out of the tile', async () => {
+  const STATS = d1();
+  await ingest(STATS, {kind: 'smoke', day: '2026-10-12', onMain: true, rows: [{name: 'Main row', reached: 'ready', ending: 'ready'}]}, now);
+  await ingest(STATS, {kind: 'smoke', day: '2026-10-12', onMain: false, rows: [{name: 'Branch row', reached: 'form', ending: 'unresolved'}]}, now);
+  await ingest(STATS, {kind: 'smoke', day: '2026-10-12', rows: [{name: 'Old row', reached: 'form', ending: 'unresolved'}]}, now);
+  const runs = await latestRuns(STATS);
+  assert.deepEqual(runs.map(run => [run.name, run.on_main]).sort(), [['Branch row', 0], ['Main row', 1], ['Old row', 0]]);
+  const pool = ['Main row', 'Branch row', 'Old row'].map(shape => ({shape, platform: 'Custom'}));
+  const r = resolution({runs, pool, now});
+  assert.deepEqual([r.measured, r.resolved, r.unresolved.length], [1, 1, 0], 'only the main build\'s run is measured');
+  assert.equal(resolution({runs: [{kind: 'smoke', name: 'Old row', at: '2026-10-11T10:00:00Z', ending: 'ready'}], pool, now}).measured, 0, 'a run with no on_main (before migration 0061) is not main\'s');
+});
+
 test('the Mac\'s upload carries each row\'s ending into its run; a word outside the list is dropped', async () => {
   const STATS = d1();
   await ingest(STATS, {kind: 'smoke', day: '2026-10-12', rows: [{name: 'A', reached: 'form', ending: 'data_missing'}, {name: 'B', reached: 'form', ending: 'Send your CV'}]}, now);
@@ -39,8 +52,8 @@ test('the Mac\'s upload carries each row\'s ending into its run; a word outside 
 
 test('each pool row\'s newest ending, Mac or CI on main; resolution raw and weighted by real demand with its rows per platform; held apart; unresolved first', () => {
   const pool = [{shape: 'Lever row', platform: 'Lever'}, {shape: 'Greenhouse row', platform: 'Greenhouse'}, {shape: 'Greenhouse two', platform: 'Greenhouse'}, {shape: 'Account row', platform: 'Workday'}, {shape: 'Custom row', platform: 'Custom'}];
-  const runs = [{kind: 'smoke', name: 'Lever row', day: '2026-10-10', at: '2026-10-10T10:00:00Z', ending: 'unresolved'}, {kind: 'smoke', name: 'Account row', day: '2026-10-11', at: '2026-10-11T10:00:00Z', ending: 'held'},
-    {kind: 'smoke', name: 'Custom row', day: '2026-10-11', at: '2026-10-11T10:00:00Z', ending: 'ready'}, {kind: 'smoke', name: 'Greenhouse two', day: '2026-10-11', at: '2026-10-11T10:00:00Z', ending: 'ready'}];
+  const runs = [{kind: 'smoke', name: 'Lever row', day: '2026-10-10', at: '2026-10-10T10:00:00Z', ending: 'unresolved', on_main: 1}, {kind: 'smoke', name: 'Account row', day: '2026-10-11', at: '2026-10-11T10:00:00Z', ending: 'held', on_main: 1},
+    {kind: 'smoke', name: 'Custom row', day: '2026-10-11', at: '2026-10-11T10:00:00Z', ending: 'ready', on_main: 1}, {kind: 'smoke', name: 'Greenhouse two', day: '2026-10-11', at: '2026-10-11T10:00:00Z', ending: 'ready', on_main: 1}];
   const endings = [record('Lever row', 'ready', {at: '2026-10-12T18:00:00.000Z'}), record('Greenhouse row', 'unresolved'), record('Custom row', 'told', {branch: 'fix-x'})];   // a PR's run never counts
   const scorecard = [{platform: 'Greenhouse', matchShare: 45}, {platform: 'Lever', matchShare: 3}, {platform: 'Workday', matchShare: 2}, {platform: 'Ashby', matchShare: 28}];
   const r = resolution({runs, endings, pool, scorecard, now});
@@ -54,8 +67,8 @@ test('each pool row\'s newest ending, Mac or CI on main; resolution raw and weig
 
 test('the weekly trend: per ISO week, each row\'s newest ending that week; the last six weeks, oldest first', () => {
   const pool = [{shape: 'A', platform: 'Custom'}, {shape: 'B', platform: 'Custom'}];
-  const runs = [{kind: 'smoke', name: 'A', day: '2026-10-01', at: '2026-10-01T10:00:00Z', ending: 'unresolved'}, {kind: 'smoke', name: 'A', day: '2026-10-02', at: '2026-10-02T10:00:00Z', ending: 'ready'},
-    {kind: 'smoke', name: 'B', day: '2026-10-01', at: '2026-10-01T10:00:00Z', ending: 'unresolved'}, {kind: 'smoke', name: 'A', day: '2026-10-12', at: '2026-10-12T10:00:00Z', ending: 'ready'}];
+  const runs = [{kind: 'smoke', name: 'A', day: '2026-10-01', at: '2026-10-01T10:00:00Z', ending: 'unresolved', on_main: 1}, {kind: 'smoke', name: 'A', day: '2026-10-02', at: '2026-10-02T10:00:00Z', ending: 'ready', on_main: 1},
+    {kind: 'smoke', name: 'B', day: '2026-10-01', at: '2026-10-01T10:00:00Z', ending: 'unresolved', on_main: 1}, {kind: 'smoke', name: 'A', day: '2026-10-12', at: '2026-10-12T10:00:00Z', ending: 'ready', on_main: 1}];
   const r = resolution({runs, endings: [], pool, scorecard: [], now});
   assert.deepEqual(r.weeks.slice(-2), [{week: '2026-09-28', measured: 2, raw: 50}, {week: '2026-10-12', measured: 1, raw: 100}]);
   assert.ok(r.weeks.length <= 6);
