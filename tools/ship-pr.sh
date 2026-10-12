@@ -13,7 +13,8 @@ ship_mode() {
   echo direct
 }
 ship_pr_fail() { fail_reason="$1"; echo "ship: FAILED $1" >&2; exit 1; }
-ship_pr_push() { git push -q --force-with-lease origin "HEAD:refs/heads/$branch" 2>&1 || ship_pr_fail "could not push the branch $branch to origin"; }
+# The lease names what origin has NOW (empty: nothing): the branch is deleted on merge, so the local tracking ref of an earlier landing is stale and a bare --force-with-lease refuses (12 Oct 2026). Only this session writes the branch.
+ship_pr_push() { local now; now="$(git ls-remote origin "refs/heads/$branch" 2>/dev/null | cut -f1)"; git push -q "--force-with-lease=refs/heads/$branch:$now" origin "HEAD:refs/heads/$branch" 2>&1 || ship_pr_fail "could not push the branch $branch to origin"; }
 ship_pr_land() {
   local n="" out view state mergeable checks failing name link tries=0 waited=0 last_say=0 body title poll="${SHIP_PR_POLL:-15}" limit="${SHIP_PR_TIMEOUT:-2700}"
   files="$(git diff --name-only origin/main HEAD)"

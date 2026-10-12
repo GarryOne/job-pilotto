@@ -36,7 +36,7 @@ class ShipPrTest(ShipFixture):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('ship: DONE ', result.stdout)
         self.assertIn('My change', git(self.origin, 'log', '--format=%s', 'main'))
-        self.assertIn('topic', git(self.origin, 'branch', '--list'), 'the branch is pushed, not main directly')
+        self.assertIn('--head topic', ' '.join(self.calls()), 'the PR is from the pushed branch, not main directly')
         calls = ' | '.join(self.calls())
         self.assertIn('pr create', calls)
         self.assertIn('--title My change', calls)
@@ -44,6 +44,15 @@ class ShipPrTest(ShipFixture):
         self.assertIn('pr merge', calls)
         self.assertIn('--auto --rebase', calls)
         self.assertTrue((self.main / 'mine.txt').exists(), 'the main checkout is brought up to date after the merge')
+
+    def test_a_second_landing_after_the_branch_was_deleted_on_merge_goes_through(self):
+        self.change(self.tree, 'one.txt', '1\n', 'First change')
+        self.assertEqual(self.pr_ship().returncode, 0)
+        self.assertNotIn('topic', git(self.origin, 'branch', '--list'), 'merged: the branch is deleted on origin')
+        self.change(self.tree, 'two.txt', '2\n', 'Second change')
+        result = self.pr_ship()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('Second change', git(self.origin, 'log', '--format=%s', 'main'))
 
     def test_a_failed_required_check_says_which_and_leaves_the_pr_open(self):
         self.change(self.tree, 'mine.txt', 'y\n', 'My change')
