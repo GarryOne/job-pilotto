@@ -7,9 +7,9 @@ name: Release · Build, test, beta
 # Three distinct steps per lane (owner, 7 Oct 2026): Build publishes the files to the one pre-release (offered to nobody), E2E runs the gate suites on it, Release
 # offers it to that platform's beta testers ("Beta-approved:" / "Beta-approved (Windows):", desktop/lib/updater.js). A lane never waits for the other. The same suite on both platforms takes turns (it owns one Notion test page: concurrency group e2e-<suite>).
 # The run is red when a lane is red; that platform's testers are then not offered it.
-# Names: the Worker's cron (worker/src/scheduler.js) and GitHub's schedule start the "Nightly beta"; tools/beta-release.sh (-f beta=true) a "Beta by hand"; a plain
+# Names: the Worker's cron (worker/src/scheduler.js) starts the one "Nightly beta" a day; GitHub's schedule is only the backup start, an "E2E check · nightly backup" (owner, 12 Oct 2026); tools/beta-release.sh (-f beta=true) a "Beta by hand"; a plain
 # gh workflow run desktop.yml is a "Build only": built and published as a pre-release for trying, never tested here, offered to nobody.
-run-name: ${{ (inputs.nightly || github.event_name == 'schedule') && 'Nightly beta' || inputs.beta && 'Beta by hand' || 'Build only (by hand, not tested)' }}
+run-name: ${{ inputs.nightly && 'Nightly beta' || github.event_name == 'schedule' && 'E2E check · nightly backup' || inputs.beta && 'Beta by hand' || 'Build only (by hand, not tested)' }}
 
 # Builds the Mac app (Apple Silicon .dmg + .zip, bundled Python and pipeline) and publishes it as a
 # GitHub Release: nightly at 04:00 Zurich (only when something that goes into the app changed on main since the last release) or on

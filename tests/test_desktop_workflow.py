@@ -31,7 +31,9 @@ class DesktopWorkflowTest(unittest.TestCase):
         self.assertIn('[ $((10#$hour)) -lt 4 ] || [ $((10#$hour)) -gt 15 ]', WORKFLOW)
         self.assertIn('workflow_dispatch:', triggers)
         # The Worker's cron starts the nightly on time (worker/src/scheduler.js): named, diffed like the schedule, and with no 04:00-15:59 window of its own.
-        self.assertIn("run-name: ${{ (inputs.nightly || github.event_name == 'schedule') && 'Nightly beta'", WORKFLOW)
+        # ONE "Nightly beta" a day, the Worker's 04:00 start (owner, 12 Oct 2026): GitHub's backup schedule run is an "E2E check", never a second "Nightly beta".
+        self.assertIn("run-name: ${{ inputs.nightly && 'Nightly beta' || github.event_name == 'schedule' && 'E2E check · nightly backup'", WORKFLOW)
+        self.assertEqual(WORKFLOW.split('run-name:', 1)[1].split('\n', 1)[0].count("'Nightly beta'"), 1, "only the Worker's nightly is named Nightly beta")
         self.assertIn("inputs.beta && 'Beta by hand'", WORKFLOW)
         self.assertIn('select(.displayTitle == "Beta by hand")', (pathlib.Path(__file__).resolve().parent.parent / 'tools/beta-release.sh').read_text())
         self.assertIn('[ "$GITHUB_EVENT_NAME" != schedule ] && [ "$NIGHTLY" != true ]', WORKFLOW)
