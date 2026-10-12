@@ -142,6 +142,7 @@
 1. The model sees states + a local match, never values: **yes**.
 2. `trusted_click` / `open_section` in "Let me check each step": **off** ("Do it for me" only).
 3. Shadow mode first (PR 3 logs only) before any repair acts: **yes**.
+4. Relayed by job-pilotto-cc from the owner (12 Oct 2026, goal "as automatic, adaptable, dynamic and reliable as possible"): decision 2 **kept as landed**; shadow mode is **short**: one zoo pass + one pool pass with `fill_verify` logging, then repair goes live (PR 4); a repair verb that scores perfectly on the zoo may go live directly.
 
 ## Progress
 ### 1. Safety net

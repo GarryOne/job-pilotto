@@ -7,8 +7,8 @@
 <label for="first">First name</label> <input id="first" name="first_name" type="text" required>
 <label for="last">Last name</label> <input id="last" name="last_name" type="text" required>
 <label for="mail">Email</label> <input id="mail" name="email" type="email" required>
-<label id="permit-label">Do you have a valid work permit?</label>
-<div class="toggle" role="group" aria-labelledby="permit-label"><button type="button" aria-pressed="false" data-v="yes">Yes</button><button type="button" aria-pressed="false" data-v="no">No</button></div>
+<label id="travel-label">Are you open to occasional business travel?</label>
+<div class="toggle" role="group" aria-labelledby="travel-label"><button type="button" aria-pressed="false" data-v="yes">Yes</button><button type="button" aria-pressed="false" data-v="no">No</button></div>
 </form>
 <script>
 for (const b of document.querySelectorAll('[aria-pressed]')) b.addEventListener('click', () => { for (const o of b.parentElement.children) o.setAttribute('aria-pressed', 'false'); b.setAttribute('aria-pressed', 'true'); });

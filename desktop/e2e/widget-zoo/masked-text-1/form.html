@@ -1,17 +1,17 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Apply: Example role</title></head>
 <body>
-<!-- Widget zoo (desktop/e2e/widget-zoo): A phone box with an input mask that rewrites every value into its own groups. Hand-made, no real site, no personal data. -->
+<!-- Widget zoo (desktop/e2e/widget-zoo): A number box with an input mask that rewrites every value into its own groups. Hand-made, no real site, no personal data. -->
 <h1>Apply for Example role</h1>
 <form id="apply" onsubmit="return false">
 <label for="first">First name</label> <input id="first" name="first_name" type="text" required>
 <label for="last">Last name</label> <input id="last" name="last_name" type="text" required>
 <label for="mail">Email</label> <input id="mail" name="email" type="email" required>
-<label for="phone">Mobile phone number</label>
-<input id="phone" name="phone" type="tel" required placeholder="+__ __ ___ __ __">
+<label for="salary">Expected yearly salary (CHF)</label>
+<input id="salary" name="salary" type="text" inputmode="numeric" required placeholder="___'___">
 </form>
 <script>
-const box = document.getElementById('phone');
-box.addEventListener('input', () => { const d = box.value.replace(/\D/g, '').slice(0, 13); box.value = d.replace(/(\d{4})(\d{2})(\d{3})(\d{2})(\d{0,2})/, '+$1 $2 $3 $4 $5').trim(); });
+const box = document.getElementById('salary');
+box.addEventListener('input', () => { const d = box.value.replace(/\D/g, '').slice(0, 7); box.value = d.replace(/\B(?=(\d{3})+(?!\d))/g, "'"); });
 </script>
 </body></html>
