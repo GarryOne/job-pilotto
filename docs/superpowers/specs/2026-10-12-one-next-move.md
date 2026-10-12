@@ -204,7 +204,8 @@ A test source claimed without the key is dropped and flagged (`ladder-source`), 
 ### 4. Phase 1a: the outcome contract and the resolution score
 - [x] the endings list, the classifier, the baseline with no new run, the hand-check 18/19 (#497)
 - [x] each pool row's ending (CI summary, Mac upload, `PUT /applying/endings`); the Resolution tile heads /admin/applying; the replays are "Shape regression tests" with each case's origin (#501)
-- [ ] page-level ending tests (a bot check that clears, a sign-in then the form, apply by email, site_broken); site_broken retried, handed resumes
+- [ ] page-level ending tests: a bot check that clears, a sign-in then the form, apply by email; every stuck reason maps to an ending; handed resumes
+- [ ] site_broken: an error page is retried, then reported as site_broken; its page-level ending test
 ### 5. Phase 2: the fallback at each dead end, in shadow
 - [ ] one dead-end door: every give-up in `consider()` goes through `deadEnd(reason, evidence)`; a guard test
 - [ ] silent dead ends: the one progress rule, its T measured on the CI pool
