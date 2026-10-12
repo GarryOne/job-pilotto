@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "a form whose required boxes are filled at once while one more answer is still on its way from the AI: the panel's count looks ready over a half-filled page",
  "why": "HelloFresh careers in the app (12 Oct 2026, Electron leg of the pool): the form judge ran 0.6 s after the first fields, on a sketch with every box empty, said \"needs First Name*\", and the stale flag kept the phone retry from running. The panel's ready claim is no longer judged while the tab's fill runs; the fill's own end judges the settled page (variant: other markup, aria-required, French, another order)",
  "control": {

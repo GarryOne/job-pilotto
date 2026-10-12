@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "the same type-to-search box in another markup and language: wrapped input before its label, a list of rows in a listbox that names no option, German wording",
  "why": "variant of typeahead-answer-text-differs-1: every incidental changed (ids, nesting, label order, tag types, language)",
  "control": {

@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "an application form embedded in an iframe, with a newsletter layer in the TOP page drawn over it (the frame cannot see it): the layer is closed with its non-agreeing button and the frame's fields are filled",
  "why": "11 Oct 2026, owner rule on popups at any point; cc: a layer in the top page can cover a form that lives in an iframe (an employer page with an embedded board)",
  "control": {

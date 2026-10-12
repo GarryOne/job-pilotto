@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "a non-modal notice with an x close button is drawn over the page centre and covers none of the form's controls, and the app names no button to close it: the notice never holds the fill (the real onTop said covered: [])",
  "why": "Recruitee form (jobs.channable.com), 11 Oct 2026: 'Please watch out for recruitment scams!' covered the page centre, the gate held 'a dialog covers the form' and 1 of 13 fields was filled (6 of 6 before the popup guard)",
  "sample": "hand-cut page of the shape (invented company); no real page",

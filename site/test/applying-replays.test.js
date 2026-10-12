@@ -86,14 +86,15 @@ test('layout: the replays table has fixed columns that add up to the page, a not
   const css = PAGE.slice(PAGE.indexOf('<style>'), PAGE.indexOf('</style>'));
   assert.match(css, /\.pooltable,\.fit\{table-layout:fixed\}/, 'one shared fixed-layout rule');
   const widths = [...css.slice(0, css.indexOf('@media (max-width:640px){table')).matchAll(/\.fit th\.c-(\w+)\{width:(\d+)%\}/g)].map(match => [match[1], Number(match[2])]);
-  assert.deepEqual(widths.map(([name]) => name), ['case', 'rung', 'result', 'runs', 'last', 'since']);
+  assert.deepEqual(widths.map(([name]) => name), ['case', 'rung', 'origin', 'result', 'runs', 'last', 'since']);
   assert.ok(widths.reduce((sum, [, width]) => sum + width, 0) <= 100);
   assert.match(css, /\.clamp\{[^}]*-webkit-line-clamp:2/);
   assert.match(css, /@media \(max-width:640px\)\{table td,table th\{white-space:normal!important;overflow-wrap:anywhere\}/, 'at phone width no table keeps cells on one line');
-  const cases = PAGE.slice(PAGE.indexOf('const drawCases'), PAGE.indexOf("app.append(el('section', {}, el('h2', {textContent: 'Fixed-site replays"));
+  const cases = PAGE.slice(PAGE.indexOf('const drawCases'), PAGE.indexOf("app.append(el('section', {}, el('h2', {textContent: 'Shape regression tests'"));
   assert.match(cases, /className: 'fit'/);
   assert.match(cases, /className: 'muted clamp', title: c\.note/);
-  for (const name of ['c-case', 'c-rung', 'c-result', 'c-runs', 'c-last', 'c-since']) assert.ok(cases.includes(name), name);
+  for (const name of ['c-case', 'c-rung', 'c-origin', 'c-result', 'c-runs', 'c-last', 'c-since']) assert.ok(cases.includes(name), name);
+  assert.match(css, /@media \(max-width:640px\)\{[^@]*\.fit \.c-rung,\.fit \.c-origin\{display:none\}/, 'at phone width the rung and origin columns step aside');
 });
 
 // The replays table works like the pool table (owner, 12 Oct 2026): search, filters, sorting and pages, from the same parts (the pool's word search, pick, pager, Clear).
@@ -110,16 +111,17 @@ test('the replays search matches words in any order over the case name, its resu
   assert.equal(matches(passing, 'ashby banner'), false);
 });
 
-test('the replays table has the pool\'s filter bar: search, Result and Rung filters, a count, Clear and 15 rows a page', () => {
-  const cases = PAGE.slice(PAGE.indexOf('const caseBox'), PAGE.indexOf("app.append(el('section', {}, el('h2', {textContent: 'Fixed-site replays"));
+test('the replays table has the pool\'s filter bar: search, Result, Rung and Origin filters, a count, Clear and 15 rows a page', () => {
+  const cases = PAGE.slice(PAGE.indexOf('const caseBox'), PAGE.indexOf("app.append(el('section', {}, el('h2', {textContent: 'Shape regression tests'"));
   assert.match(cases, /className: 'filters'/);
   assert.match(cases, /type: 'search'[^}]*'aria-label': 'Search the replays'/);
   assert.match(cases, /pick\('result', [^;]*'Result'/);
   assert.match(cases, /pick\('rung', [^;]*'Rung guarded'/);
+  assert.match(cases, /pick\('origin', [^;]*'Origin', originCount\('captured'\) \+ ' captured · ' \+ originCount\('hand-cut'\) \+ ' hand-cut'/);   // the counts on the filter (owner, 12 Oct 2026)
   assert.match(cases, /CASE_PER = 15/);
   assert.match(cases, /caseMatches\(c, caseChosen\.query\)/);
   assert.match(cases, /← Previous[\s\S]*Next →/);
-  assert.match(cases, /caseChosen\.result = caseChosen\.rung = null; caseChosen\.query = ''; caseChosen\.page = 0;/);   // Clear
+  assert.match(cases, /caseChosen\.result = caseChosen\.rung = caseChosen\.origin = null; caseChosen\.query = ''; caseChosen\.page = 0;/);   // Clear
   assert.match(cases, /heads\('cases', \[[^\]]*\], \(\) => \{ caseChosen\.page = 0; drawCases\(\); \}/);              // sorting starts again at page 1
 });
 
@@ -139,4 +141,19 @@ test('the run-dots sort: more recent failures first on the first click, more suc
   assert.deepEqual(asc(cases, row => runsScore(row.history, run => run === 1)), ['all red', 'one red', 'all green']);
   assert.match(PAGE, /s => runsScore\(s\.history, poolRunGood\)\]/, 'the pool\'s Recent runs column sorts by it');
   assert.match(PAGE, /c => runsScore\(c\.history, run => run === 1\)/, 'the replays\' Last 10 runs column sorts by it');
+});
+
+test('each case\'s origin (captured from a real page or hand-cut) is kept from CI\'s upload and shown; any other word is no origin (owner, 12 Oct 2026)', async () => {
+  const {replayCases, storeReplays, readReplays} = await import('../src/applying-replays.js');
+  const statements = new Map(), db = {prepare: sql => ({bind: (...args) => ({first: async () => statements.get('row') || null, run: async () => { statements.set('row', {body: args[2]}); return {}; }})})};
+  await storeReplays(db, {sha: 'abc1234', rows: [{name: 'lever-sibling-title-1', ok: true, origin: 'captured'}, {name: 'two-apply-routes-1', ok: true, origin: 'hand-cut'}, {name: 'x-1', ok: false, origin: 'from https://x.example'}]}, new Date('2026-10-12T12:00:00Z'));
+  const cases = replayCases(await readReplays(db));
+  assert.deepEqual(Object.fromEntries(cases.map(c => [c.name, c.origin])), {'x-1': null, 'lever-sibling-title-1': 'captured', 'two-apply-routes-1': 'hand-cut'});
+});
+
+test('the Fixed tab: a shape test guards the mechanism, only the live layer proves a fix (owner, 12 Oct 2026)', () => {
+  assert.match(PAGE, /'Mechanism guarded · shape tests'/);
+  assert.match(PAGE, /found\.ok \? 'mechanism guarded' : 'mechanism broken'/);
+  assert.match(PAGE, /\['Proven live', 'Only the live layer: a CI pool run that really ran the row/);
+  assert.doesNotMatch(PAGE, /Guard · replay results/);
 });

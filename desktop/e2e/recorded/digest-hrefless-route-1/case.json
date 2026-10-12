@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "a posting whose Apply route without an account is an <a> with no href (a script handles the click), and rung 2 names no button: only the numbered digest can choose, and it can only choose what the candidate list shows",
  "why": "11 Oct 2026, Hornbach SuccessFactors (pool): the digest's candidate finder listed only a[href], so the href-less route was never a candidate and the digest pressed the other route (with an account). The stub answers like the real AI: it names the route without an account only when the extension listed it (whenCandidate), else the account route. Old build: the login page, no form. Fixed: the form is reached and filled.",
  "control": {

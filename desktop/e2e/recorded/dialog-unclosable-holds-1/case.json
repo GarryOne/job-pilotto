@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "a robot check over the form that no non-agreeing button closes (the AI answers none): the fill is HELD, the person is told, and nothing is typed under the dialog",
  "why": "11 Oct 2026, owner rule: 'we should not start filling any form before we close all the popups/overlays'. A layer the AI cannot close without agreeing (a sign-in, a robot check, a consent the person must give) holds the fill instead of typing under it",
  "sample": "invented posting and form; the layer's words are generic; nothing models a real site's script",

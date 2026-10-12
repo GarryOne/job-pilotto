@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "a form whose file upload starts the page's own autofill-from-resume, which rewrites the name and link boxes a moment later (empty when it reads nothing): what the fill typed before the upload is gone",
  "why": "Pool row 'Ashby form in an embedded app', 11 Oct 2026 (0.9.199): First name, Last name and LinkedIn were typed from the person's details, the CV was attached after them (page/fill.js), and the fill's own record then said 'left: empty again at the end of the fill'. Fields the page itself clears after an upload are typed again once, only those we had typed",
  "control": {

@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "a two-segment choice control whose segments are role=radio elements (aria-checked) around a label holding a visually hidden native radio: a click on the segment's own element does nothing, the state is set by the click on what is inside it",
  "why": "12 Oct 2026, pool row: two required Yes/No questions stayed unselected, 'answer given, but the field did not take it'. The option was found and named by the answer, but the fill clicked the segment's own element (a div role=radio), which the page's framework ignores; the click that sets the state is the one a person makes on what is drawn inside the segment. The press now goes to what sits at the option's centre, then its inner input, then the option itself, and re-reads the state after each.",
  "control": {

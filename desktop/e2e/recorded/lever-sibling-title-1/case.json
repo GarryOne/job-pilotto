@@ -1,4 +1,5 @@
 {
+ "origin": "captured",
  "shape": "required text questions whose title sits in a sibling block (div.application-label), not a <label for>, marked with a heavy star",
  "why": "Lever application form, pool run of 11 Oct 2026 (0.9.203): two required textareas were read by their name (cards[...][field0]) and listed 'question on the page not read'. Markup cut from the real capture (structure only, scrubbed). The stubbed answers return no value for the two questions (the fake applicant has nothing for them); the check is that the fill names each field by its question.",
  "control": {

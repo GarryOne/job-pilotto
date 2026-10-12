@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "a site's own confirm modal (\"your fields may be replaced, continue?\") opens after the first value is typed and covers the form: it is closed with the non-agreeing button, which keeps the fill",
  "why": "11 Oct 2026, Louis Vuitton jobs (owner watched, ext 0.9.209): CONTINUAR/CANCELAR/X sat over the form after the fill; no press, no popup line, the run ended '5 of 8 filled' with no warning. The popup check ran only before filling",
  "sample": "invented posting and form (hosts, text); the modal's words and buttons are Louis Vuitton's; the wake-on-typing handler is a model, not the site's code",

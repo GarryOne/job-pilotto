@@ -3,6 +3,7 @@
 // ONE row with the last 10 runs (the D1 free plan: 11 Oct 2026); the page reads that one row. Names, a short note and the build's sha only. Guard: test/applying-replays.test.js.
 import {dropSnapshot} from './applying-store.js';
 import {equal} from './guard.js';
+import {ORIGINS} from '../../desktop/e2e/lib/recorded-origin.mjs';
 
 const KEEP = 10;
 const HASH = /^[0-9a-f]{7,40}$/;
@@ -16,12 +17,12 @@ export async function readReplays(db) {
   try { return row ? JSON.parse(row.body) : []; } catch { return []; }
 }
 
-// One CI run in: {sha, version?, rows: [{name, ok, rung?, note?}]}. A re-run of the same sha replaces its run; identical results write nothing. -> {ok, stored} | {ok: false, error}
+// One CI run in: {sha, version?, rows: [{name, ok, rung?, note?, origin?}]} (origin: 'captured' from a real page or 'hand-cut', desktop/e2e/lib/recorded-origin.mjs). A re-run of the same sha replaces its run; identical results write nothing. -> {ok, stored} | {ok: false, error}
 export async function storeReplays(db, body, now = new Date()) {
   const sha = text(body?.sha, 40).toLowerCase(), rows = Array.isArray(body?.rows) ? body.rows.slice(0, 500) : [];
   if (!HASH.test(sha) || !rows.length) return {ok: false, error: 'sha and rows are required'};
   const cases = {};
-  for (const row of rows) { const name = nameOf(row?.name); if (name) cases[name] = [row.ok ? 1 : 0, rungOf(row.rung), row.ok ? '' : text(row.note, 200)]; }
+  for (const row of rows) { const name = nameOf(row?.name); if (name) cases[name] = [row.ok ? 1 : 0, rungOf(row.rung), row.ok ? '' : text(row.note, 200), ORIGINS.includes(row.origin) ? row.origin : null]; }
   if (!Object.keys(cases).length) return {ok: false, error: 'no valid rows'};
   const runs = await readReplays(db), last = runs.at(-1);
   if (last?.sha === sha && JSON.stringify(last.cases) === JSON.stringify(cases)) return {ok: true, stored: Object.keys(cases).length};
@@ -35,11 +36,11 @@ export async function storeReplays(db, body, now = new Date()) {
 export function replayCases(runs) {
   const last = runs.at(-1);
   if (!last) return [];
-  return Object.entries(last.cases).map(([name, [ok, rung, note]]) => {
+  return Object.entries(last.cases).map(([name, [ok, rung, note, origin]]) => {
     const seen = runs.filter(run => run.cases[name]);
     let from = seen.length - 1;
     while (from > 0 && seen[from - 1].cases[name][0] === ok) from -= 1;
-    return {name, ok: !!ok, rung, note: note || null, sha: last.sha, at: last.at, day: last.at.slice(0, 10), version: last.version,
+    return {name, ok: !!ok, rung, note: note || null, origin: ORIGINS.includes(origin) ? origin : null, sha: last.sha, at: last.at, day: last.at.slice(0, 10), version: last.version,
       history: seen.map(run => run.cases[name][0]), since: {sha: seen[from].sha, at: seen[from].at}};
   }).sort((a, b) => Number(a.ok) - Number(b.ok) || a.name.localeCompare(b.name));
 }

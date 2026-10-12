@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "an account page the AI names with no account step (one email box as a plain text input, Continue, no password box): its fields still get the normal fill",
  "why": "12 Oct 2026, the owner's session: the page kind was remembered as account with no step (confidence 0.6); the fill ran only on a named, matching step, so the page was left to Claude, who typed the email in its own new tab while the owner's tab stayed empty. Hand-cut variant of email-first-signin-1 (which has the step). Old build: nothing filled. Fixed: every account page gets the normal fill (fields judged by meaning); nothing is pressed by this change.",
  "control": {

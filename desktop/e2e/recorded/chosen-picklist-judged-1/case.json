@@ -1,4 +1,5 @@
 {
+ "origin": "captured",
  "shape": "a form whose required picklists are custom comboboxes (react-select): the choice is a chip beside an empty search input, so the input's own value says nothing",
  "why": "Datadog careers on Greenhouse, 11 Oct 2026 (0.9.189): Country (+41) was chosen, yet the sketch the form judge got read it \"empty\" and the judge said \"needs Country*\" 4 s after the fill logged it filled. The judges' sketch now reads a picklist as the panel does: a chip or a labelled hidden input in the field's own area. Same page as legal-picklist-any-wording-1 (reused), checked on what the extension showed the form judge",
  "control": {

@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "a radio group laid out as a div row whose required \"*\" is in its own span (class *label*): the \"*\" was taken as the row title, the group was named by its first option (\"Frau\") and its question was never read (Umantis div layout)",
  "why": "11 Oct 2026, pool cause \"unread\": four Umantis rows left \"Anrede\" unread (question text not found, the field named \"Frau\"). rowTitle() (page/required-mark.js) took the lone \"*\" span as the title; now a title needs a letter and the block before the control's own block is the fallback. Structure hand-made from the capture (the row-to-case size gate refuses the real one), no values.",
  "control": {

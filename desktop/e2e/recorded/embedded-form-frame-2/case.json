@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "a posting whose embedded application frame is born small (the browser's default 150 px) and grows after the page was judged: the judgment saw no form-frame candidate, the frame became one later",
  "why": "Datadog careers (Greenhouse behind its own site), 11 Oct 2026, pool: 'page kind: form/posting', 'closer look: wait (an embedded Greenhouse application frame is present and may still be loading)', 'watch ended: no form and no new frame'. In a bare browser the hosted board's iframe is created 650x150 and is 650x2432 about 0.6 s later; the frame finder's floor is 300x200, so the judgment listed no candidate, and the watch only looked for NEW frame hosts (this host was already counted), so nothing looked again. The page-kind AI names the frame only when the request lists it (the stub answers form_frame: 0 only then, as a real answer to an unasked question would hide the bug)",
  "control": {

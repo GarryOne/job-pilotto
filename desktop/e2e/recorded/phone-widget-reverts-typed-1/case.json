@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "an international phone widget (a country picker beside a number box) whose box starts on its own country code ('+972'): the readers called it filled, so our number was never typed, and the panel said ready",
  "why": "Pool row 'Recruitee: one-page form on recruitee.com', 11 Oct 2026 (0.9.224): the picker said Israel, the box only '+972', our number was never in it and the panel said 'Ready to submit, every required field is filled'. A box holding only a calling code is empty for every reader (fill, audit, coverage, panel, judge sketch); and a typed box the page changes afterwards (this page draws itself again 2.5 s after the first input) is typed again and is not 'filled' for the panel until it holds what we typed",
  "control": {

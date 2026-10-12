@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "variant of menu-choices-worded-differently-1: the menu filters its choices by whatever is typed, so typing the answer (\"Yes\") empties it (\"No options\") while the choices as it opened can still be asked about",
  "why": "Ocado Technology (found 2026-10-10), 11 Oct 2026 (0.9.209): the required right-to-work menu opened on the click and showed \"No options\": the answer \"Yes\" matched none of its sentence choices, so the text typed to filter it emptied the list and the row was left. The app now picks the choice that means the same from the menu's own choices (extension/combo-click.js choose, /extension/pick-choice).",
  "control": {

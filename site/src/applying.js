@@ -11,6 +11,7 @@ import {cachedJson, dropSnapshot, latestRuns, refreshLatest, slowCache} from './
 import {topCauses} from './applying-cause.js';
 import {readReplays, replayCases} from './applying-replays.js';
 import {CASES_SCRIPT} from './applying-cases.js';
+import {RESOLUTION_CSS, RESOLUTION_SCRIPT, endingWord, readEndings, resolution as resolutionOf} from './applying-resolution.js';
 import {nextToAdd} from './nextsites.js';
 import {platformScorecard} from './scorecard.js';
 import {displayName, flowOf, platformLabel, SIGNATURE, signatureHost} from './platform.js';
@@ -58,11 +59,11 @@ async function ingestRows(db, body, now) {
         .bind(name, start, signature, at, version).run();
       stored += 1; continue;
     }
-    await db.prepare(`INSERT INTO applying_runs (kind, day, at, name, host, reached, filled, left_n, ok, note, regression, version, rung, signal, asked, unexplained) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    await db.prepare(`INSERT INTO applying_runs (kind, day, at, name, host, reached, filled, left_n, ok, note, regression, version, rung, signal, asked, unexplained, ending) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(kind, day, at, name, kind === 'smoke' ? hostOf(row.host) : null, kind === 'smoke' && STEPS.includes(row.reached) ? row.reached : null,
         int(row.filled), int(row.left), null, text(row.note, 200) || null, row.regression ? 1 : 0, version,
         rungOf(row.rung), kind === 'smoke' && SIGNALS.includes(row.signal) ? row.signal : null,
-        kind === 'smoke' ? int(row.asked) : null, kind === 'smoke' ? int(row.unexplained) : null).run();
+        kind === 'smoke' ? int(row.asked) : null, kind === 'smoke' ? int(row.unexplained) : null, kind === 'smoke' ? endingWord(row.ending) : null).run();   // the run's ending (src/applying-resolution.js)
     touched.push({kind, name});
     stored += 1;
   }
@@ -113,6 +114,7 @@ export async function data(db, now = new Date(), slow = (key, fn) => fn()) {
   const causes = await slow('causes', () => topCauses(db, pool.map(item => item.shape), now)).catch(() => ({}));   // the pool's own fill cards: why the form's fields stayed empty (src/applying-cause.js)
   for (const item of pool) item.cause = causes[item.shape] || null;
   const scorecard = await platformScorecard(db, pool, now, slow).catch(() => []);   // real use against the pool's tests, per platform (src/scorecard.js)
+  const resolution = resolutionOf({runs, endings: await readEndings(db), pool, scorecard, now});   // the headline: how each application ends (src/applying-resolution.js)
   const next = await nextToAdd(db, pool, now, slow).catch(() => ({sites: [], hidden: {hosts: 0}}));   // real users' end hosts the pool lacks (src/nextsites.js)
   const fixed = await fixedData(db, pool, cases, now).catch(() => ({day: dayOf(now), rows: [], inProgress: [], claimsAt: null, fixesAt: null, replays: []}));   // the Fixed tab, and the Back / In progress marks on the pool rows
   const live = sites.filter(site => !site.note || site.hold);
@@ -123,7 +125,7 @@ export async function data(db, now = new Date(), slow = (key, fn) => fn()) {
       sites: sites.length, sitesRecent: sites.filter(site => site.day >= tenDays).length,
       reachedForm: live.length ? Math.round((100 * live.filter(site => ['form', 'ready'].includes(site.reached)).length) / live.length) : null,
       needFix: sites.filter(needsFix).length, regressions: sites.filter(site => site.regression).length, gone: sites.filter(site => site.note && !site.hold).length, held: sites.filter(site => site.hold).length, dropped: dropped.length},
-    sites, pool, fixed, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, now: now.toISOString()};
+    resolution, sites, pool, fixed, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, now: now.toISOString()};
 }
 
 // "Greenhouse: 4 sites, 3 flows": each group's size and how many different flows (or platforms) it holds.
@@ -184,14 +186,14 @@ th{text-align:left;color:var(--muted);font-weight:500;font-size:12px;white-space
 th.sortable{cursor:pointer;user-select:none}th.sortable:hover,th.sortable.on{color:var(--text)}.dots{white-space:nowrap}.dots i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px}
 .filters{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;margin:10px 0 12px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;font-size:13px}.pick{display:flex;flex-direction:column;gap:4px;min-width:200px}.pick b{line-height:34px;font-weight:600}.pick>span{font-size:11px;text-transform:uppercase;letter-spacing:.04em}.pick.search{min-width:240px}.pick input[type=search],.pick select{background:var(--bg,var(--card));color:var(--text);border:1px solid var(--line);border-radius:8px;padding:0 10px;height:34px;box-sizing:border-box;font:inherit;font-size:13px;max-width:100%}.filters .count,.filters .pager{align-self:flex-end;box-sizing:border-box;height:34px;display:flex;align-items:center}.filters .count{padding-left:4px}.filters .pager{margin:0 0 0 auto;justify-content:flex-end}.chip{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:3px 11px;font:inherit;font-size:12px;cursor:pointer}.pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;font-size:13px}.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes spin{to{transform:rotate(360deg)}}.chip:disabled{opacity:.4;cursor:default}.chip.on{border-color:var(--amber);color:var(--amber)}
 table td:not(:first-child),table th:not(:first-child){white-space:nowrap}.legend td:last-child{white-space:normal}section{overflow-x:auto}.legend{margin:18px auto 0;max-width:760px}.legend h3,.legend>p{text-align:center;margin:0 0 6px}.legend table{margin:0 auto}.ladder{margin:10px 0 0;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}.ladder summary{cursor:pointer;font-weight:600}.ladder table{margin-top:8px}
-.flag{color:var(--red);font-weight:600}.inprogress{color:var(--amber);font-weight:600}section[hidden]{display:none}${FIXED_CSS}.muted{color:var(--muted)}
+.flag{color:var(--red);font-weight:600}.inprogress{color:var(--amber);font-weight:600}section[hidden]{display:none}${FIXED_CSS}${RESOLUTION_CSS}.muted{color:var(--muted)}
 .pooltable,.fit{table-layout:fixed}.pooltable td,.pooltable th,.fit td,.fit th{white-space:normal!important;overflow-wrap:anywhere}.pooltable tr.site{cursor:pointer}.pooltable tr.site:hover td,.pooltable tr.site.open td{background:var(--card)}.pooltable tr.site td{vertical-align:middle;padding:10px 10px 10px 0}
 .sitecell{display:flex;gap:4px;align-items:flex-start}.pooltable th.c-site{width:30%}.pooltable th.c-flow{width:21%}.pooltable th.c-result{width:25%}.pooltable th.c-rung{width:10%}.pooltable th.c-runs{width:14%}.chev{display:inline-block;width:24px;color:var(--muted);transition:transform .15s;flex:none;background:none;border:0;padding:0 0 0 8px;font:inherit;font-size:18px;line-height:1.2;cursor:pointer}.open .chev{transform:rotate(90deg);color:var(--text)}.sitename b{display:block;font-size:14px}.sitename span{display:block;margin-top:2px}.stack{display:block;margin-top:2px}.stack.bad{color:var(--red);font-weight:600}.stack.hold{color:var(--violet)}
 .rungbox{display:inline-block;min-width:32px;text-align:center;padding:3px 8px;border-radius:7px;background:var(--card);border:1px solid var(--line);font-weight:600}.pooltable td.c-rung,.pooltable th.c-rung{text-align:center}
 tr.more td{padding:0 0 12px}.detail{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px 24px;align-items:start;margin:0;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:10px}.detail h4{margin:0 0 6px;font-size:12px;font-weight:500;color:var(--muted)}.detail dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;margin:0;font-size:13px}.detail dt{color:var(--muted)}.detail dd{margin:0;overflow-wrap:anywhere}.copy{margin-left:8px;background:none;border:0;color:var(--muted);cursor:pointer;font:inherit;padding:0 2px}.copy:hover{color:var(--text)}.detail .narrow{display:none}
 .dots i:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
-.fit th.c-case{width:30%}.fit th.c-rung{width:8%}.fit th.c-result{width:28%}.fit th.c-runs{width:14%}.fit th.c-last{width:10%}.fit th.c-since{width:10%}.clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-@media (max-width:640px){table td,table th{white-space:normal!important;overflow-wrap:anywhere}.fit .c-rung{display:none}.fit th.c-case{width:24%}.fit th.c-result{width:22%}.fit th.c-runs{width:18%}.fit th.c-last,.fit th.c-since{width:18%}.fit .dots{white-space:normal}.fit .hash{font-size:11px;padding:1px 4px}}
+.fit th.c-case{width:26%}.fit th.c-rung{width:7%}.fit th.c-origin{width:9%}.fit th.c-result{width:26%}.fit th.c-runs{width:12%}.fit th.c-last{width:10%}.fit th.c-since{width:10%}.clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+@media (max-width:640px){table td,table th{white-space:normal!important;overflow-wrap:anywhere}.fit .c-rung,.fit .c-origin{display:none}.fit th.c-case{width:24%}.fit th.c-result{width:22%}.fit th.c-runs{width:18%}.fit th.c-last,.fit th.c-since{width:18%}.fit .dots{white-space:normal}.fit .hash{font-size:11px;padding:1px 4px}}
 @media (max-width:900px){.pooltable .c-flow,.pooltable .c-runs{display:none}.pooltable th.c-site{width:50%}.pooltable th.c-result{width:36%}.pooltable th.c-rung{width:14%}.detail .narrow{display:block}.detail{grid-template-columns:minmax(0,1fr)}}
 .nights{margin-top:24px;padding-top:18px}.nights .key{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}.night{display:grid;grid-template-columns:48px minmax(0,1fr) 240px;gap:12px;align-items:center;margin:6px 0}
 .nightbar{display:flex;gap:2px;height:28px;border-radius:7px;overflow:hidden}.nightbar i{display:flex;align-items:center;justify-content:center;min-width:0;font-style:normal;font-size:12px;font-weight:600;color:#0b0d10;overflow:hidden}
@@ -216,13 +218,14 @@ fetch('?json', {headers: {'X-Caller': 'page-tab'}}).then(r => r.json()).then(d =
   const app = document.getElementById('app'); app.textContent = '';
   const legend = el('div', {hidden: true}, ...d.steps.map(step => pill(step))); app.append(legend);
   const t = d.tiles;
-  app.append(el('div', {className: 'tiles'},
-    tile(t.cases ? (t.cases - t.casesFailing) + ' / ' + t.cases : 0, 'Replay checks passing', t.casesFailing ? 'bad' : t.cases ? 'good' : '', t.casesLast ? 'Last replay · ' + t.casesLast : 'No replay yet', 'Fixed-site replays: the recorded pages of every fixed site, replayed offline'),
+${RESOLUTION_SCRIPT}
+  app.append(el('div', {className: 'tiles'}, resolutionTile(d.resolution),
     tile(t.sites ? t.sitesRecent + ' / ' + t.sites : 0, 'Smoke sites tested', '', 'Last 10 nights', 'Smoke sites run in the last 10 nights'),
     tile(t.reachedForm == null ? '–' : t.reachedForm + '%', 'Reached the form', t.reachedForm >= 70 ? 'good' : '', 'Of live smoke sites', 'Sites that reached the application form'),
     tile(t.regressions, 'Open regressions', t.regressions ? 'bad' : 'good', t.gone ? t.gone + ' posting(s) gone' : 'Reached less than before', 'A site that reached less than its last run' + (t.gone ? '; ' + t.gone + ' posting(s) are gone' : '')),
     tile(t.needFix, 'Sites needing a fix', t.needFix ? 'bad' : 'good', 'Stopped early, unexplained fields, or a regression', 'Stopped early, unexplained fields, or a regression'),
     tile(t.dropped, 'Boards dropped', t.dropped ? 'bad' : 'good', 'Fleet · layer 4', 'Boards dropped in the fleet (layer 4)')));
+  const resolutionBox = el('section', {className: 'resolution'}); app.append(resolutionBox);   // the headline under the tiles, filled below once the table helpers exist (src/applying-resolution.js)
   const tabs = el('nav', {className: 'tabs', role: 'tablist', 'aria-label': 'Applying results'}), fixBox = el('section', {className: 'fix'}), fixedBox = el('section', {className: 'fixed'}), causeBox = el('section', {className: 'bycause'}); app.append(tabs, fixBox, fixedBox, causeBox);   // Needs a fix: right under the tiles, drawn once block() exists (drawFix)
   // Nights · where each site got to (owner, 10 Oct 2026: more readable, at the top): one bar per night, newest first, every site of that night split by the step it reached
   // (the segment's width is its share, its number the count), then how many sites ran and the share that reached the form.
@@ -389,7 +392,7 @@ fetch('?json', {headers: {'X-Caller': 'page-tab'}}).then(r => r.json()).then(d =
   app.append(el('section', {}, el('h2', {textContent: 'Platform scorecard · real use against the tests'}),
     el('p', {className: 'muted', textContent: 'Per platform: its share of the matched jobs and how well real forms are filled (the form-filling page), against the pool sites on it and how many reached the form. Verdicts, in the order to act: not in the pool; weak in both; blind spot (tests reach the form, real users do not fill it); test failing (real use is fine). Under 5 real forms is no evidence.'}), scoreBox)); drawScore();
 ${FIXED_SCRIPT}
-  drawFix(); drawFixed(); drawCauses(); showTab();
+  drawFix(); drawFixed(); drawCauses(); showTab(); drawResolution(resolutionBox, d.resolution);
 ${CASES_SCRIPT}  app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table, colorLegend)
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
   // Fetch again every 5 minutes while the tab is visible (and once when it becomes visible after longer), so the spinner and the times follow a run without a reload.

@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "a required mark drawn as a star glued to the label's last word, followed by a short tail of the page's own words; the input has no required attribute",
  "why": "variant of required-in-label-words-1 (universality contract): another language, the control before its label, list items and spans instead of divs, a glued tail without parentheses",
  "pages": [
