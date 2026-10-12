@@ -5,6 +5,7 @@
 // pick one; LIVE_SECONDS=120 how long to watch). Not part of the matrix: it needs the real internet and the real site's mood. Guard: desktop/test/apply-live.test.js.
 import {guardLiveVisit} from './site-ledger.mjs';
 import {seedImportedCv} from './applicant-seed.mjs';
+import {keepWorkerConsole} from './worker-console.mjs';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import {endShotLine, takeEndShot} from './end-shot.mjs';
@@ -102,6 +103,7 @@ export async function runLive(ctx, h) {
       if (process.env.LIVE_ESCALATION) await page.evaluate(() => window.pilot.saveSettings({escalation: 'on'}));   // the closer look is opt-in: this run turns it on
       console.log(`  live: this run ${process.env.LIVE_SUBMIT ? 'WILL press the consent and the account button on the real site' : 'is HELD: the extension will NOT accept the consent or press the account button (LIVE_SUBMIT=1 lets it)'}; watching ${seconds}s`);
       await applyPoolEligibility(await ctx.browser.serviceWorker(), {say: line => console.log(`  live: ${line}`)});   // before Apply: a pool run measures filling (lib/pool-eligibility.mjs)
+      const workerConsole = keepWorkerConsole(ctx.browser.context);   // the extension's own console, beside app.log (lib/worker-console.mjs)
       await page.click('.nav[data-view="jobs"]');
       await page.evaluate(job => window.pilot.applyOne(job.url, {title: job.title, company: job.company, location: '', workMode: ''}), posting);
       console.log(`  live ${at()}: Apply pressed on ${posting.url}`);
@@ -156,6 +158,7 @@ export async function runLive(ctx, h) {
         await pause(1500);
       }
       { const shot = await takeEndShot(ctx.browser.context, process.env.LIVE_CAPTURE_DIR || ''); console.log(`  ${endShotLine(shot)}`); for (const line of stepLines(steps, process.env.LIVE_CAPTURE_DIR || '')) console.log(`  ${line}`); }   // the last picture of the application tab, BEFORE the final privacy check (lib/end-shot.mjs)
+      workerConsole.write(process.env.LIVE_CAPTURE_DIR || '');   // before the final privacy check: a hit deletes it with the capture
       if (trip || (trip = await tripped())) { console.log(`  live: ${trip}`); throw new Error(trip); }
       if (asks) clearInterval(asks);
       console.log(`  live ${at()}: watched ${Math.round((Date.now() - started) / 1000)}s; frames in ${frames}`);

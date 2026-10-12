@@ -6,6 +6,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {stepFilesIn} from './step-shots.mjs';
 import {slug} from './replay-candidate.mjs';
+import {WORKER_CONSOLE} from './worker-console.mjs';
+
+// The capture files a fixer reads, kept by both bundle writers (the plain run's and the Electron leg's): the app's log, its AI calls, the extension's console.
+export const CAPTURE_FILES = ['app.log', 'ai-calls.json', WORKER_CONSOLE];
 
 // The run's watch ended by itself (apply-live.mjs prints this line at the end of the watch): a killed or cut-short run never prints it.
 export const runFinished = ({output = '', signal = null} = {}) => !signal && /live .{0,14}: watched \d+s; frames in/.test(output);
@@ -44,6 +48,7 @@ export function writeBundle({dir, day, shape, output = '', appLog = '', aiCalls 
   fs.writeFileSync(path.join(folder, 'run.log'), output);
   if (appLog) fs.writeFileSync(path.join(folder, 'app.log'), appLog);
   if (aiCalls) fs.writeFileSync(path.join(folder, 'ai-calls.json'), aiCalls);
+  if (captureDir) for (const name of CAPTURE_FILES.filter(name => !fs.existsSync(path.join(folder, name)))) { try { fs.copyFileSync(path.join(captureDir, name), path.join(folder, name)); } catch { /* the run did not leave it */ } }
   if (shot) fs.copyFileSync(shot, path.join(folder, 'end.png'));
   for (const name of stepShots) fs.copyFileSync(path.join(captureDir, name), path.join(folder, name));
   return folder;
@@ -55,7 +60,7 @@ export function saveElectronLeg({dir, day, shape, output = '', captureDir = ''})
   const folder = path.join(dir, day, slug(shape), 'electron');
   fs.mkdirSync(folder, {recursive: true});
   fs.writeFileSync(path.join(folder, 'run.log'), output);
-  for (const name of ['app.log', 'end.png', ...stepFilesIn(captureDir)]) {
+  for (const name of [...CAPTURE_FILES, 'end.png', ...stepFilesIn(captureDir)]) {
     try { fs.copyFileSync(path.join(captureDir, name), path.join(folder, name)); } catch { /* the leg did not get that far */ }
   }
   return folder;
