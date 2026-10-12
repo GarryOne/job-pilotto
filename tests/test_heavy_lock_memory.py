@@ -5,6 +5,7 @@ import time
 import unittest
 
 from tests.heavy_lock_fixture import HeavyLockFixture, LOCK
+from tests.heavy_wait import wait_in_books
 
 
 class HeavyLockMemoryTest(HeavyLockFixture):
@@ -16,14 +17,14 @@ class HeavyLockMemoryTest(HeavyLockFixture):
         self.addCleanup(holder.kill)
         deadline = time.monotonic() + 30
         while not (self.tmp / heavy_dir / 'lock' / 'what').exists() and time.monotonic() < deadline:   # the holder holds: not a guess of how long a loaded Mac takes to start it
-            time.sleep(0.05)
+            time.sleep(0.05)   # clock: a poll of the lock's state
         err_file = self.tmp / f'err-{heavy_dir}'
         with open(err_file, 'w') as err_out:
             second_run = subprocess.Popen(['bash', str(LOCK), second, 'echo', 'ran'], env={**self.env, **env}, stdout=subprocess.PIPE, stderr=err_out, text=True)
             # Beside the holder = it ran while the holder was still held; not beside = it says it waits. Whichever comes first, however slow the Mac: no clock decides.
             deadline = time.monotonic() + 60
             while second_run.poll() is None and 'waits' not in err_file.read_text() and time.monotonic() < deadline:
-                time.sleep(0.05)
+                time.sleep(0.05)   # clock: a poll of what the second run said or did
             beside = second_run.poll() is not None
             go.write_text('go')   # let the holder end; a waiting second run then goes
             out, _ = second_run.communicate(timeout=60)
@@ -61,16 +62,16 @@ class HeavyLockMemoryTest(HeavyLockFixture):
         first, second = self.start('first', 'bash', '-c', hold, **env), self.start('second', 'bash', '-c', hold, **env)
         for run in (first, second):
             self.addCleanup(run.kill)
-        deadline = time.monotonic() + 30
-        while len(list((self.tmp / 'heavy').glob('lock*'))) < 2 and time.monotonic() < deadline:   # both hold
-            time.sleep(0.05)
-        third = self.start('third', 'echo', 'ran', **env)
-        time.sleep(1.2)
+        for run in (first, second):   # both hold (each by its own pid in a slot)
+            wait_in_books(self.env['JOB_PILOTTO_HEAVY_DIR'], run, ('holds',), procs=[first, second], env={**self.env, **env})
+        third = self.start_logged('third', 'echo', 'ran', **env)
+        self.said(third, 'third waits', first, second)   # it looked at the two holders and waits
+        time.sleep(1.2)   # clock: a third run must NOT start; nothing changes while both hold, so this only gives a wrong admission time to show
         self.assertIsNone(third.poll(), 'the third waited for a slot')
         open(go, 'w').write('go')
-        _, err = third.communicate(timeout=30)
+        third.communicate(timeout=30)
         first.communicate(timeout=30); second.communicate(timeout=30)
-        self.assertIn('third waits', err)
+        self.assertIn('third waits', third.err_path.read_text())
 
 
 if __name__ == '__main__':

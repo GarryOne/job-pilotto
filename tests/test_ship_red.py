@@ -30,7 +30,12 @@ class ShipRedTest(ShipFixture):
     def runs(self, minutes_ago=1, red=True):
         rows = [{'workflowName': name, 'headSha': self.tip, 'status': 'completed', 'conclusion': 'failure' if (red and n == 0) else 'success', 'databaseId': 40 + n, 'updatedAt': iso(minutes_ago), 'url': f'https://x/runs/{40 + n}'}
                 for n, name in enumerate(('CI · Tests', 'CI · Recorded pages (all cases, real extension, Linux)'))]
-        (self.gh / 'runs.json').write_text(json.dumps(rows))
+        self.write_runs(rows)
+
+    def write_runs(self, rows):
+        """Written aside and renamed: the fake gh, read every 0.2 s by a waiting ship.sh, never serves a half-written file."""
+        (self.gh / 'runs.json.new').write_text(json.dumps(rows))
+        os.replace(self.gh / 'runs.json.new', self.gh / 'runs.json')
 
     def ship_red(self, *flags, **env):
         return subprocess.run(['bash', str(self.tree / 'tools' / 'ship.sh'), *flags], cwd=self.tree, capture_output=True, text=True, timeout=90, env={**self.env, 'SHIP_LOG': str(self.tmp / 'ship.log'), **env})
@@ -42,9 +47,9 @@ class ShipRedTest(ShipFixture):
             log = self.tmp / 'ship.log'
             while time.monotonic() < deadline:
                 if log.exists() and 'main is red at' in log.read_text():
-                    time.sleep(0.5)
+                    time.sleep(0.5)   # clock: no assertion depends on it; the landing has already said it waits
                     return self.runs(red=False)
-                time.sleep(0.1)
+                time.sleep(0.1)   # clock: a poll of the landing's log
         thread = threading.Thread(target=watch, daemon=True)
         thread.start()
         return thread
@@ -94,7 +99,7 @@ class ShipRedTest(ShipFixture):
         self.runs(minutes_ago=6)
         rows = json.loads((self.gh / 'runs.json').read_text())
         building = [{**r, 'headSha': 'f' * 40, 'status': 'in_progress', 'conclusion': ''} for r in rows]
-        (self.gh / 'runs.json').write_text(json.dumps(building + rows))
+        self.write_runs(building + rows)
         self.assertEqual(self.ship_red().returncode, 3, 'the in-flight fix on top of the red commit proves nothing')
 
 

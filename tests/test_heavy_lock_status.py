@@ -3,11 +3,10 @@ import os
 import shutil
 import subprocess
 import tempfile
-import time
 import unittest
 from pathlib import Path
 
-from tests.heavy_wait import wait_registered
+from tests.heavy_wait import status, wait_in_books
 
 LOCK = Path(__file__).resolve().parent.parent / 'tools' / 'heavy-lock.sh'
 
@@ -40,15 +39,10 @@ class HeavyLockStatusTest(unittest.TestCase):
         hold = f'while [ ! -f {go} ]; do sleep 0.1; done'
         heavy = self.env['JOB_PILOTTO_HEAVY_DIR']
         holder = self.start('real-extension', hold, JOB_PILOTTO_SESSION='session-a')
-        wait_registered(heavy, 1)
+        wait_in_books(heavy, holder, ('holds',), env=self.env)
         waiter = self.start('e2e-smoke', 'true', JOB_PILOTTO_SESSION='session-b')
-        wait_registered(heavy, 2)   # both are in the lock's books (a loaded Mac may take seconds to start them): not a guessed 0.5 s
-        # The books count a slot or ticket whose pid is still being written by its file name, so "2" can be one run's slot and ticket: ask status itself until it lists the waiter (CI, 12 Oct 2026: "nobody waits").
-        deadline = time.monotonic() + 60
+        wait_in_books(heavy, waiter, ('waits',), procs=[holder], env=self.env)   # THIS run's ticket is queued (CI, 12 Oct 2026: counting files said "two" for one run's slot and ticket: "nobody waits")
         out = self.status()
-        while 'waits  #1' not in out and time.monotonic() < deadline:
-            time.sleep(0.2)
-            out = self.status()
         Path(go).write_text('go')
         holder.communicate(timeout=30)
         waiter.communicate(timeout=30)

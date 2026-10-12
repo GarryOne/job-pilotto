@@ -7,7 +7,7 @@ import time
 import unittest
 from pathlib import Path
 
-from tests.heavy_wait import wait_registered
+from tests.heavy_wait import wait_in_books
 from tests.ship_fixture import ShipFixture
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -37,7 +37,7 @@ class CheckSlotFixTest(unittest.TestCase):
         self.addCleanup(holder.kill)
         deadline = time.monotonic() + 30
         while not list((tmp / 'slots').glob('slot*')) and time.monotonic() < deadline:
-            time.sleep(0.05)
+            time.sleep(0.05)   # clock: a poll of the slot's state
         fix = subprocess.run(['bash', str(SLOT), 'true'], env={**env, 'JOB_PILOTTO_RED_FIX': '1'}, capture_output=True, text=True, timeout=30)
         self.assertEqual(fix.returncode, 0)
         self.assertIsNone(holder.poll(), 'the slot holder still holds: the fix ran beside it, it did not wait')   # no stopwatch: a loaded runner is slow, not waiting
@@ -62,13 +62,12 @@ class HeavyLockFixClassTest(unittest.TestCase):
     def order(self, fix_env, **env):
         heavy, go = self.env['JOB_PILOTTO_HEAVY_DIR'], (self.tmp / 'go').as_posix()
         procs = [self.start('real-extension', 'holder', f'echo holder >> {self.trace}; while [ ! -f {go} ]; do sleep 0.1; done', **env)]
-        wait_registered(heavy, 1)
+        wait_in_books(heavy, procs[0], ('holds',), env=self.env)
         for what, name, extra in (('real-extension', 'proof', {}), ('e2e-smoke', 'pool', {})):
             procs.append(self.start(what, name, **{**env, **extra}))
-            wait_registered(heavy, len(procs))
-            time.sleep(0.2)
+            wait_in_books(heavy, procs[-1], ('waits',), procs=procs, env=self.env)
         procs.append(self.start('recorded-replay', 'fix', **{**env, **fix_env}))
-        wait_registered(heavy, len(procs))
+        wait_in_books(heavy, procs[-1], ('waits',), procs=procs, env=self.env)
         Path(go).write_text('go')
         for p in procs:
             p.communicate(timeout=90)

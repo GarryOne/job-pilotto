@@ -7,7 +7,7 @@ import time
 import unittest
 from pathlib import Path
 
-from tests.heavy_wait import gated, release, wait_registered, wait_trace
+from tests.heavy_wait import gated, release, wait_in_books, wait_trace
 
 LOCK = Path(__file__).resolve().parent.parent / 'tools' / 'heavy-lock.sh'
 
@@ -20,7 +20,7 @@ class HeavyLockPressureTest(unittest.TestCase):
         self.trace, self.gates, self.procs = self.tmp / 'trace', self.tmp / 'gates', []
         self.addCleanup(lambda: [p.kill() for p in self.procs])
         self.env = {**{k: v for k, v in os.environ.items() if not k.startswith(('JOB_PILOTTO_HEAVY', 'JP_HEAVY'))}, 'JOB_PILOTTO_HEAVY_DIR': (self.tmp / 'heavy').as_posix(),
-                    'JOB_PILOTTO_HEAVY_LOAD': '0', 'JOB_PILOTTO_HEAVY_POLL': '0.1', 'JOB_PILOTTO_HEAVY_SWAP_SAMPLE': '1',
+                    'JOB_PILOTTO_HEAVY_LOAD': '0', 'JOB_PILOTTO_HEAVY_POLL': '0.1', 'JOB_PILOTTO_HEAVY_SWAP_SAMPLE': '1', 'JOB_PILOTTO_HEAVY_RAMP': '3600',   # a just-started run's reservation lasts the whole test
                     'JOB_PILOTTO_HEAVY_TIMING_LOG': (self.tmp / 'gate-timing.log').as_posix(), 'JOB_PILOTTO_HEAVY_SHARED': str(LOCK)}
 
     def mac(self, level=1, avail_pct=60, swapping=False, free_inactive_gb=4, swap_used_pct=82):
@@ -42,8 +42,9 @@ class HeavyLockPressureTest(unittest.TestCase):
         err = open(self.tmp / f'err-{name}', 'w')
         self.addCleanup(err.close)
         proc = subprocess.Popen(['bash', str(LOCK), what, 'bash', '-c', gated(self.trace, name, self.gates)], env={**self.env, **env}, stdout=subprocess.DEVNULL, stderr=err, text=True)
+        proc.err_path = self.tmp / f'err-{name}'
         self.procs.append(proc)
-        wait_registered(self.env['JOB_PILOTTO_HEAVY_DIR'], len(self.procs))
+        wait_in_books(self.env['JOB_PILOTTO_HEAVY_DIR'], proc, procs=self.procs, env=self.env)
         return proc
 
     def words(self):
@@ -60,7 +61,7 @@ class HeavyLockPressureTest(unittest.TestCase):
         err_b = self.tmp / 'err-b'
         deadline = time.monotonic() + 60
         while '+b' not in self.words() and 'waits' not in err_b.read_text() and time.monotonic() < deadline:
-            time.sleep(0.05)
+            time.sleep(0.05)   # clock: a poll of what b said or did
         beside = '+b' in self.words()
         release(self.gates)
         for p in self.procs:
@@ -77,7 +78,7 @@ class HeavyLockPressureTest(unittest.TestCase):
         for name in 'abc':
             self.launch('e2e-smoke', name)
         wait_trace(self.trace, 2)
-        time.sleep(0.8)   # nothing more is going to start: the only clock of these tests
+        time.sleep(0.8)   # clock: nothing more may start; the state is fixed while the gates hold, so a wrong start only gets time to show
         self.assertEqual(sorted(self.words()), ['+a', '+b'])
         release(self.gates, 'a')
         wait_trace(self.trace, 4)

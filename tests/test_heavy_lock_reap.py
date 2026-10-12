@@ -11,6 +11,8 @@ import time
 import unittest
 from pathlib import Path
 
+from tests.heavy_wait import evidence
+
 LOCK = Path(__file__).resolve().parent.parent / 'tools' / 'heavy-lock.sh'
 
 
@@ -23,12 +25,12 @@ def alive(pid):
     return bool(state) and not state.startswith('Z')
 
 
-def wait_for(condition, timeout=20):
+def wait_for(condition, timeout=90):   # a ceiling for a hang, not a guess of speed: a loaded Mac (load 270, 12 Oct 2026) took over 20 s to start a holder's children
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if condition():
             return True
-        time.sleep(0.1)
+        time.sleep(0.1)   # clock: a poll of the condition
     return condition()
 
 
@@ -64,12 +66,23 @@ class HeavyLockReapTest(unittest.TestCase):
         self.procs.append(p)
         return p
 
+    def evidence(self, *procs):
+        return evidence(self.heavy, [p for p in procs if p], self.env)
+
+    def next_run(self):
+        """The next run, which must free the dead or idle holder; its own wait limit is long so only the freeing ends it (load 270 outlasted 60 s, 12 Oct 2026)."""
+        try:
+            return subprocess.run(['bash', str(LOCK), 'next', 'echo', 'ran'], env={**self.env, 'JOB_PILOTTO_HEAVY_WAIT': '900'}, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=600)
+        except subprocess.TimeoutExpired as e:
+            raise AssertionError(f'the next run did not free the holder in 600 s: {e.stderr!r}; {self.evidence()}')
+
     def hung_holder(self, **env):
         """A holder whose command starts two background sleeps (their pids written to a file) and waits on them: a run with children."""
         body = f'sleep 300 & echo $! >> {self.pids.as_posix()}; sleep 300 & echo $! >> {self.pids.as_posix()}; wait'
         p = self.start('replay-hung', 'bash', '-c', body, **env)
-        self.assertTrue(wait_for(lambda: self.pids.exists() and len(self.pids.read_text().split()) == 2), 'the holder started its children')
-        self.assertTrue(wait_for(lambda: (self.heavy / 'lock' / 'pgid').exists()), 'the slot records the run\'s process group')
+        started = lambda: self.pids.exists() and len(self.pids.read_text().split()) == 2
+        self.assertTrue(wait_for(lambda: started() or p.poll() is not None) and started(), f'the holder started its children; {self.evidence(p)}')
+        self.assertTrue(wait_for(lambda: (self.heavy / 'lock' / 'pgid').exists() or p.poll() is not None) and (self.heavy / 'lock' / 'pgid').exists(), f'the slot records the run\'s process group; {self.evidence(p)}')
         return p, self.pids.read_text().split()
 
     def test_cancelling_the_wrapper_kills_every_child_and_frees_the_slot(self):
@@ -87,7 +100,7 @@ class HeavyLockReapTest(unittest.TestCase):
         self.assertEqual((self.heavy / 'lock' / 'session_pid').read_text().strip(), str(session.pid))
         session.kill()
         session.wait()
-        result = subprocess.run(['bash', str(LOCK), 'next', 'echo', 'ran'], env={**self.env, 'JOB_PILOTTO_HEAVY_WAIT': '60'}, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60)
+        result = self.next_run()
         self.assertEqual(result.stdout.strip(), 'ran')
         self.assertIn('freed: session gone', result.stderr)
         self.assertIn('replay-hung', result.stderr)
@@ -106,14 +119,14 @@ class HeavyLockReapTest(unittest.TestCase):
             os.kill(int(wrapper), signal.SIGKILL)
             self.skipTest(f'the wrapper was adopted by pid {ppid}, not 1')
         children = self.pids.read_text().split()
-        result = subprocess.run(['bash', str(LOCK), 'next', 'echo', 'ran'], env={**self.env, 'JOB_PILOTTO_HEAVY_WAIT': '60'}, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60)
+        result = self.next_run()
         self.assertEqual(result.stdout.strip(), 'ran')
         self.assertIn('freed: session gone', result.stderr)
         self.assertTrue(wait_for(lambda: not any(alive(c) for c in children)))
 
     def test_an_idle_holder_is_freed_after_the_idle_limit(self):
         p, children = self.hung_holder(JOB_PILOTTO_HEAVY_IDLE='2')
-        result = subprocess.run(['bash', str(LOCK), 'next', 'echo', 'ran'], env={**self.env, 'JOB_PILOTTO_HEAVY_IDLE': '2', 'JOB_PILOTTO_HEAVY_WAIT': '60'}, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60)
+        result = subprocess.run(['bash', str(LOCK), 'next', 'echo', 'ran'], env={**self.env, 'JOB_PILOTTO_HEAVY_IDLE': '2', 'JOB_PILOTTO_HEAVY_WAIT': '900'}, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=600)
         self.assertEqual(result.stdout.strip(), 'ran')
         freed = re.search(r'freed: idle (\d+)s', result.stderr)
         self.assertTrue(freed, result.stderr)
@@ -127,13 +140,13 @@ class HeavyLockReapTest(unittest.TestCase):
         busy = f'import os, time\nwhile not os.path.exists({stop!r}):\n    sum(range(20000))\n'
         holder = self.start('replay-busy', 'python3', '-c', busy, JOB_PILOTTO_HEAVY_IDLE='4')
         self.assertTrue(wait_for(lambda: (self.heavy / 'lock' / 'pgid').exists()))
-        waiter = subprocess.Popen(['bash', str(LOCK), 'next', 'echo', 'ran'], env={**self.env, 'JOB_PILOTTO_HEAVY_IDLE': '4', 'JOB_PILOTTO_HEAVY_WAIT': '60'}, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        waiter = subprocess.Popen(['bash', str(LOCK), 'next', 'echo', 'ran'], env={**self.env, 'JOB_PILOTTO_HEAVY_IDLE': '4', 'JOB_PILOTTO_HEAVY_WAIT': '900'}, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         self.procs.append(waiter)
-        time.sleep(7)   # well past the 4 s idle limit: a working holder is still held, the waiter still waits
+        time.sleep(7)   # clock: past the 4 s idle limit a working holder must NOT be freed; the lock measures its own CPU clock, the test only gives a wrong free time to show
         self.assertIsNone(waiter.poll(), 'the waiter is still waiting behind a busy holder')
         self.assertIsNone(holder.poll(), 'the busy holder was not killed')
         Path(stop).write_text('stop')
-        out, err = waiter.communicate(timeout=60)
+        out, err = waiter.communicate(timeout=600)
         self.assertEqual(out.strip(), 'ran')
         self.assertNotIn('freed:', err)
         self.assertEqual(holder.wait(timeout=30), 0, 'the busy run finished on its own')
@@ -143,7 +156,7 @@ class HeavyLockReapTest(unittest.TestCase):
         p.kill()   # SIGKILL: no trap runs, the children live on in their group (they hold the pipes: wait, not communicate)
         p.wait()
         self.assertTrue(any(alive(c) for c in children), 'setup: the children outlived the wrapper')
-        result = subprocess.run(['bash', str(LOCK), 'next', 'echo', 'ran'], env={**self.env, 'JOB_PILOTTO_HEAVY_WAIT': '60'}, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60)
+        result = self.next_run()
         self.assertEqual(result.stdout.strip(), 'ran')
         self.assertIn('taking over a stale lock', result.stderr)
         self.assertTrue(wait_for(lambda: not any(alive(c) for c in children)), 'the leftover group was killed')

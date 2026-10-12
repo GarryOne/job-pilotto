@@ -19,19 +19,54 @@ class LandingLockTest(unittest.TestCase):
         subprocess.run(['git', 'init', '-q', str(self.tmp)], check=True)
         self.trace = self.tmp / 'trace'
 
-    def landing(self, label, hold, **env):
-        body = f'source "{LOCK}"; landing_acquire {label}; echo "{label} in" >> "{self.trace}"; sleep {hold}; echo "{label} out" >> "{self.trace}"; landing_release'
-        return subprocess.Popen(['bash', '-c', body], cwd=self.tmp, env={**os.environ, **env}, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    def landing(self, label, **env):
+        """A landing that holds its turn until the test lets it go (a file), not for a guessed time."""
+        gate = (self.tmp / f'go-{label}').as_posix()
+        body = f'source "{LOCK}"; landing_acquire {label}; echo "{label} in" >> "{self.trace}"; while [ ! -f {gate} ]; do sleep 0.05; done; echo "{label} out" >> "{self.trace}"; landing_release'
+        err_path = self.tmp / f'err-{label}'
+        with open(err_path, 'w') as err:
+            proc = subprocess.Popen(['bash', '-c', body], cwd=self.tmp, env={**os.environ, **env}, stdout=subprocess.PIPE, stderr=err, text=True)
+        proc.err_path = err_path
+        self.addCleanup(lambda: proc.poll() is None and (proc.kill(), proc.communicate()))
+        return proc
+
+    def said(self, proc, text):
+        """Wait until the landing has said `text`: it looked at the queue (a queued ticket alone has not looked yet)."""
+        self.wait_for(f'pid {proc.pid} never said {text!r} (it said {proc.err_path.read_text()!r})', lambda: text in proc.err_path.read_text() or proc.poll() is not None)
+        self.assertIn(text, proc.err_path.read_text())
+
+    def let_go(self, *labels):
+        for label in labels:
+            (self.tmp / f'go-{label}').write_text('go')
+
+    def wait_for(self, what, condition, timeout=60):
+        deadline = time.monotonic() + timeout
+        while not condition():
+            queue = self.tmp / '.git' / 'landing-queue'
+            if time.monotonic() > deadline:
+                raise AssertionError(f'{what} after {timeout}s; queue: {[(p.name, p.read_text().strip()) for p in queue.glob("*")] if queue.is_dir() else None}; trace: {self.trace.read_text() if self.trace.exists() else None!r}')
+            time.sleep(0.05)   # clock: a poll of the queue's state
+
+    def entered(self, label):
+        self.wait_for(f'{label} never had its turn', lambda: self.trace.exists() and f'{label} in' in self.trace.read_text())
+
+    def queued(self, proc):
+        """Wait until THIS landing's ticket (its pid) is in the queue: the next one is younger."""
+        queue = self.tmp / '.git' / 'landing-queue'
+        self.wait_for(f'pid {proc.pid} never queued', lambda: queue.is_dir() and any(p.read_text().split()[:1] == [str(proc.pid)] for p in queue.glob('*') if p.is_file()))
 
     def test_landings_run_one_at_a_time_in_arrival_order(self):
-        first = self.landing('first', 2)
-        time.sleep(0.5)
-        second = self.landing('second', 0)
-        time.sleep(0.5)
-        third = self.landing('third', 0)
-        _, err = third.communicate(timeout=30)
+        first = self.landing('first')
+        self.entered('first')
+        second = self.landing('second')
+        self.queued(second)
+        third = self.landing('third')
+        self.said(third, 'waiting for the landing of first')
+        self.let_go('first', 'second', 'third')
+        third.communicate(timeout=30)
         second.communicate(timeout=30)
         first.communicate(timeout=30)
+        err = third.err_path.read_text()
         self.assertEqual(self.trace.read_text().split('\n')[:-1], ['first in', 'first out', 'second in', 'second out', 'third in', 'third out'])
         self.assertIn('waiting for the landing of', err)
         self.assertIn('first', err)
@@ -40,19 +75,22 @@ class LandingLockTest(unittest.TestCase):
         queue = self.tmp / '.git' / 'landing-queue'
         queue.mkdir()
         (queue / '1-999999').write_text('999999 crashed\n')
-        done = self.landing('next', 0)
+        self.let_go('next')
+        done = self.landing('next')
         done.communicate(timeout=30)
         self.assertEqual(self.trace.read_text().split('\n')[:-1], ['next in', 'next out'])
         self.assertEqual(list(queue.iterdir()), [], 'the dead ticket and the finished one are gone')
 
     def test_the_wait_has_a_limit_and_an_off_switch(self):
-        holder = self.landing('holder', 6)
-        time.sleep(0.5)
-        impatient = self.landing('impatient', 0, SHIP_LANDING_WAIT='2')
-        _, err = impatient.communicate(timeout=30)
-        self.assertIn('landing anyway', err)
-        off = self.landing('off', 0, SHIP_LANDING_LOCK='0')
-        off.communicate(timeout=10)
+        holder = self.landing('holder')
+        self.entered('holder')
+        self.let_go('impatient', 'off')
+        impatient = self.landing('impatient', SHIP_LANDING_WAIT='2')
+        impatient.communicate(timeout=60)
+        self.assertIn('landing anyway', impatient.err_path.read_text())
+        off = self.landing('off', SHIP_LANDING_LOCK='0')
+        off.communicate(timeout=30)
+        self.let_go('holder')
         holder.communicate(timeout=30)
         self.assertIn('off in', self.trace.read_text())
 
@@ -72,9 +110,12 @@ class LandingLockTest(unittest.TestCase):
         self.assertIn('[ "$attempt" -lt 5 ] || break', retry, 'the last refused push does not rebase and re-check for nothing')
 
     def test_a_wait_is_logged_for_the_next_measurement(self):
-        first = self.landing('first', 2)
-        time.sleep(0.5)
-        self.landing('second', 0).communicate(timeout=30)
+        first = self.landing('first')
+        self.entered('first')
+        second = self.landing('second')
+        self.said(second, 'waiting for the landing of first')   # it waited: only a wait is logged
+        self.let_go('first', 'second')
+        second.communicate(timeout=30)
         first.communicate(timeout=30)
         log = (self.tmp / '.git' / 'gate-timing.log').read_text()
         self.assertRegex(log, r'landing queue wait=\d+s label=second')
