@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {decidePageKind} from '../lib/server-pages.js';
+import {resolveSession} from '../lib/journey-identity.js';
 
 const POSTING = 'https://www.jobs.ch/en/vacancies/detail/12181ac1/', SIGNIN = 'https://auth.jobs.ch/u/login/identifier', FORM = 'https://apply.example/form';
 function journeyOf(id = 'f1') {
@@ -216,4 +217,15 @@ test('scenario: four open applications focus only the requested job, despite an 
     assert.equal(chooseTab([account, forms[0]], session, hints), null);
   }
   review._reset();
+});
+
+test('scenario: Claude opens the form tab with the session in the mark, the sign-in is on another host: the first report already belongs to that session (12 Oct 2026)', async () => {
+  const store = {};
+  globalThis.chrome = {runtime: {getManifest: () => ({version: 'test'}), sendMessage: async () => {}}, storage: {local: {get: async () => ({}), set: async () => {}}, session: {
+    async get(keys) { return Object.fromEntries([].concat(keys).filter(key => key in store).map(key => [key, store[key]])); }, async set(items) { Object.assign(store, items); }, async remove() {}}}};
+  const {identityOf} = await import('../../extension/tab-identity.js');
+  const {id} = journeyOf('f1');
+  const identity = await identityOf({id: 4, url: `${SIGNIN}#jobpilotto-fill=${id}`});   // no stored session, no job: the address alone says whose tab it is
+  const resolved = resolveSession(identity, {get: terminals.get, list: terminals.list, isFormOf: () => false});
+  assert.equal(resolved, 'f1');
 });
