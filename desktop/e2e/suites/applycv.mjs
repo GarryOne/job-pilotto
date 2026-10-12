@@ -5,7 +5,7 @@ import {runApply, stepNeeds as applyNeeds} from './apply.mjs';
 export const stepNeeds = applyNeeds;   // what a step needs when E2E_STEPS picks it (lib/runner.mjs wantedWords)
 
 export const varies = true;
-export const minutes = 12;
+export const minutes = 20;   // the job's limit: a first attempt may use the suite's 7-minute budget and the retry ('once more, to tell flaky from real') another 7, plus setup (12 Oct 2026: 12 cancelled the retry)
 export const browser = true;
 export const engine = 'api';   // the proxy answers the app's AI calls (the CV, the tailoring)
 export const macos = true;   // runs on a macOS runner: the real Chrome extension attaches the tailored CV (lib/plan.mjs runnerOf)

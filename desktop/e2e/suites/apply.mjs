@@ -17,7 +17,7 @@ import {BASE_CV, CONTACT, OPEN_ANSWER, POSTING, expectedOf, pause, tailoredFrom}
 
 // Walks other data and timing on each seeded run (lib/forms.mjs varyForms): an exploring run on an unchanged commit includes it.
 export const varies = true;
-export const minutes = 12;
+export const minutes = 20;   // the job's limit: a first attempt may use the suite's 7-minute budget and the retry ('once more, to tell flaky from real') another 7, plus setup (12 Oct 2026: 12 cancelled the retry)
 export const browser = true;
 export const engine = 'api';   // the form's open question is answered by the AI proxy, which needs the API engine
 export const macos = true;   // runs on a macOS runner: the real Chrome extension, opened through `open` as on a Mac (lib/plan.mjs runnerOf)
