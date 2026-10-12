@@ -1,5 +1,6 @@
 """tools/gate-timing.sh: the push gate times each step, keeps the command's exit code and output, and appends the run to the shared log."""
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -29,7 +30,8 @@ class GateTimingTest(unittest.TestCase):
         lines = (self.tmp / '.git' / 'gate-timing.log').read_text().splitlines()
         self.assertTrue(lines[0].startswith('# '))
         self.assertIn('test gate', lines[0])
-        self.assertTrue(any(line.endswith('slow step') and line.startswith('1 3 ') for line in lines))
+        # whole seconds from bash's $SECONDS: a `sleep 1` on a slow runner logs 1 or 2 (beta 12 Oct 2026, Build · Mac)
+        self.assertTrue(any(line.endswith('slow step') and re.match(r'[1-9]\d* 3 ', line) for line in lines))
 
     def test_off_switch_still_runs_the_command(self):
         result = self.run_script('timed x echo ran; gate_summary', GATE_TIMING='0')
