@@ -1,5 +1,6 @@
 // Guards the ladder fixture set (desktop/e2e/ladder-fixtures): its shape, its coverage of the pool's shapes, languages and traps, and that it holds no personal data.
 import {REASONS as FILL_REASONS, VERDICTS as FILL_VERDICTS, schema as fillSchema} from '../lib/ladder/fill-verify.js';
+import {VERBS as REPAIR_VERBS, WIDGETS as REPAIR_WIDGETS, schema as repairSchema} from '../lib/ladder/fill-repair.js';
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {EXPECT_FIELDS, FIELDS, JUDGE_SKETCH_FIELDS, LANGS, OUTCOMES_BY_QUESTION, QUESTIONS, SCHEMA_VERSION, SOURCES, loadFixtures, questionOf} from '../e2e/lib/ladder-fixtures.mjs';
@@ -50,6 +51,12 @@ test('the pool\'s shapes are all in the set, and the four languages, with traps'
 test('a stored answer is a fixed-values object the page-kind schema knows, and nothing but the sketch is page text', () => {
   for (const f of fixtures) {
     if (!f.answer) continue;
+    if (questionOf(f) === 'fill_repair') {   // per-control repairs (lib/ladder/fill-repair.js): only the schema's fields, closed widgets and verbs, an option number; its input is the fill check's misses
+      assert.ok(Array.isArray(f.misses) && f.misses.length && f.misses.every(miss => Number.isInteger(miss.n) && ['empty', 'wrong', 'unreachable'].includes(miss.verdict) && FILL_REASONS.includes(miss.reason)), `${f.id}: misses`);
+      assert.ok(Array.isArray(f.answer.repairs) && Object.keys(f.answer).every(key => Object.keys(repairSchema.properties).includes(key)), `${f.id}: a repair answer is its repairs`);
+      for (const row of f.answer.repairs) assert.ok(Number.isInteger(row.n) && REPAIR_VERBS.includes(row.verb) && REPAIR_WIDGETS.includes(row.widget) && Number.isInteger(row.option), `${f.id}: repair ${row.n}`);
+      continue;
+    }
     if (questionOf(f) === 'fill_verify') {   // per-control verdicts (lib/ladder/fill-verify.js): only the schema's fields, fixed verdicts and reasons
       assert.ok(Array.isArray(f.answer.controls) && Object.keys(f.answer).every(key => Object.keys(fillSchema.properties).includes(key)), `${f.id}: a fill check answer is its controls`);
       for (const row of f.answer.controls) assert.ok(Number.isInteger(row.n) && FILL_VERDICTS.includes(row.verdict) && FILL_REASONS.includes(row.reason), `${f.id}: control ${row.n}`);

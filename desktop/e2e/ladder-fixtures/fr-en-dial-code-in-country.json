@@ -1,0 +1,88 @@
+{
+ "schemaVersion": 1,
+ "id": "fr-en-dial-code-in-country",
+ "question": "fill_repair",
+ "source": "reconstructed",
+ "lang": "en",
+ "why": "the owner's case c (12 Oct 2026): a calling code went into a Country menu that lists countries with their codes: choose the option that shows the answer in another writing, never type it again",
+ "url": "https://jobs.example.com/apply/fr-en-dial-code-in-country",
+ "expect": {
+  "outcome": "choose_option",
+  "control": 4,
+  "option": [
+   0,
+   4
+  ]
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/apply/fr-en-dial-code-in-country",
+  "title": "Apply",
+  "headings": [
+   "Apply"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "First name",
+    "required": true,
+    "state": "filled",
+    "match": "yes",
+    "answer": "free_text"
+   },
+   {
+    "type": "text",
+    "label": "Last name",
+    "required": true,
+    "state": "filled",
+    "match": "yes",
+    "answer": "free_text"
+   },
+   {
+    "type": "tel",
+    "label": "Phone",
+    "required": true,
+    "state": "filled",
+    "match": "yes",
+    "answer": "phone"
+   },
+   {
+    "type": "select-one",
+    "label": "Country",
+    "required": true,
+    "state": "empty",
+    "match": "no",
+    "answer": "dial_code",
+    "options": [
+     "Select…",
+     "Germany (+49)",
+     "Israel (+972)",
+     "Switzerland (+41)"
+    ],
+    "tried": 2
+   }
+  ],
+  "buttons": [
+   "Submit application"
+  ],
+  "texts": [],
+  "frames": []
+ },
+ "misses": [
+  {
+   "n": 4,
+   "verdict": "wrong",
+   "reason": "wrong_class"
+  }
+ ],
+ "answer": {
+  "repairs": [
+   {
+    "n": 4,
+    "widget": "native_select",
+    "verb": "choose_option",
+    "option": 0
+   }
+  ]
+ },
+ "answer_path": "app"
+}

@@ -84,6 +84,10 @@
   {
    "date": "2026-10-12",
    "reason": "fill ladder PR 3: the fill_verify question (7 fv-* fixtures, all exact on the plan path) and its prompt fingerprint"
+  },
+  {
+   "date": "2026-10-12",
+   "reason": "fill ladder PR C1: fill_repair added (8 fr-* fixtures, 8/8 hit on the plan path); fill_verify sees the value class and may say wrong_class (7 fv-* re-recorded, 7/7 exact)"
   }
  ],
  "promptFingerprint": {
@@ -92,7 +96,8 @@
   "rung3": "e80807ed89849855",
   "account-judge": "82bb54b889d5f14d",
   "form-judge": "09fcc69c9a99924a",
-  "fill-verify": "785b5f2795c363c8",
+  "fill-verify": "fe0e393f3680f14e",
+  "fill-repair": "b9110b61a1151dbe",
   "rung4": "b69068d6b5b1a559"
  },
  "fixtures": {
@@ -600,6 +605,96 @@
     ]
    },
    "outcome": "form_in_frame",
+   "status": "exact"
+  },
+  "fr-de-city-reverted": {
+   "question": "fill_repair",
+   "expect": {
+    "outcome": "retype",
+    "accept": [
+     "retype",
+     "commit"
+    ]
+   },
+   "outcome": "retype",
+   "status": "exact"
+  },
+  "fr-en-consent-layer-trap": {
+   "question": "fill_repair",
+   "expect": {
+    "outcome": "ask_person",
+    "accept": [
+     "ask_person"
+    ]
+   },
+   "outcome": "ask_person",
+   "status": "exact"
+  },
+  "fr-en-country-on-placeholder": {
+   "question": "fill_repair",
+   "expect": {
+    "outcome": "choose_option",
+    "accept": [
+     "choose_option"
+    ]
+   },
+   "outcome": "choose_option",
+   "status": "exact"
+  },
+  "fr-en-dial-code-in-country": {
+   "question": "fill_repair",
+   "expect": {
+    "outcome": "choose_option",
+    "accept": [
+     "choose_option"
+    ]
+   },
+   "outcome": "choose_option",
+   "status": "exact"
+  },
+  "fr-en-newsletter-over-form": {
+   "question": "fill_repair",
+   "expect": {
+    "outcome": "dismiss_layer",
+    "accept": [
+     "dismiss_layer"
+    ]
+   },
+   "outcome": "dismiss_layer",
+   "status": "exact"
+  },
+  "fr-en-password-trap": {
+   "question": "fill_repair",
+   "expect": {
+    "outcome": "ask_person",
+    "accept": [
+     "ask_person"
+    ]
+   },
+   "outcome": "ask_person",
+   "status": "exact"
+  },
+  "fr-fr-toggle-ignored": {
+   "question": "fill_repair",
+   "expect": {
+    "outcome": "trusted_click",
+    "accept": [
+     "trusted_click",
+     "toggle"
+    ]
+   },
+   "outcome": "toggle",
+   "status": "ok"
+  },
+  "fr-it-terms-trap": {
+   "question": "fill_repair",
+   "expect": {
+    "outcome": "ask_person",
+    "accept": [
+     "ask_person"
+    ]
+   },
+   "outcome": "ask_person",
    "status": "exact"
   },
   "fv-de-select-placeholder": {

@@ -6,7 +6,7 @@
 //   --missing   (with --record) only the fixtures that have no stored answer yet, so a new fixture does not re-record the others
 //   --offline   replay the stored answers through the real pageKind, no model: deterministic, seconds (the gate: test/ladder-ratchet.test.js)
 //   --update-baseline "<why>"   (with --offline) rewrite e2e/ladder-baseline.json from this score and add the dated reason: the ratchet's only way to accept a change
-//   --only <id> | --source <recorded|captured|reconstructed|invented> | --json
+//   --only <id> | --source <recorded|captured|reconstructed|invented> | --question <page_kind|fill_verify|fill_repair|…> | --json
 import fs from 'node:fs';
 import path from 'node:path';
 import {pickEngine} from './lib/engine.mjs';
@@ -21,6 +21,7 @@ const offline = args.includes('--offline'), record = args.includes('--record');
 let fixtures = loadFixtures();
 if (arg('--only')) fixtures = fixtures.filter(f => f.id === arg('--only'));
 if (arg('--source')) fixtures = fixtures.filter(f => f.source === arg('--source'));
+if (arg('--question')) fixtures = fixtures.filter(f => (f.question || 'page_kind') === arg('--question'));   // one question's fixtures (a changed prompt re-records only its own)
 if (args.includes('--missing')) fixtures = fixtures.filter(f => !f.answer);   // with --record: only the fixtures with no stored answer yet
 
 let clientFor;
@@ -35,13 +36,13 @@ const lanes = Array.from({length: offline ? 1 : 4}, (_, lane) => fixtures.filter
 const rows = (await Promise.all(lanes.map(lane => scoreFixtures(lane, {clientFor})))).flat().sort((a, b) => a.id.localeCompare(b.id));
 
 if (record) {
-  for (const row of rows) if (row.answer?.kind || row.answer?.answer !== undefined || Array.isArray(row.answer?.controls)) {   // fill_verify: per-control verdicts   // a page-kind answer has a kind, a judge's an answer
+  for (const row of rows) if (row.answer?.kind || row.answer?.answer !== undefined || Array.isArray(row.answer?.controls) || Array.isArray(row.answer?.repairs)) {   // fill_verify: per-control verdicts; fill_repair: per-control repairs   // a page-kind answer has a kind, a judge's an answer
     const fixture = fixtures.find(f => f.id === row.id), {file, ...kept} = fixture;
     fs.writeFileSync(path.join(DIR, file), `${JSON.stringify({...kept, answer: row.answer, answer_path: 'app'}, null, 1)}\n`);   // which path recorded this answer
   }
 }
 if (arg('--update-baseline')) {
-  if (!offline || arg('--only') || arg('--source')) { console.error('--update-baseline needs --offline and the whole set (no --only/--source)'); process.exit(1); }
+  if (!offline || arg('--only') || arg('--source') || arg('--question')) { console.error('--update-baseline needs --offline and the whole set (no --only/--source/--question)'); process.exit(1); }
   fs.writeFileSync(BASELINE_FILE, `${JSON.stringify(nextBaseline(rows, readBaseline(), arg('--update-baseline'), undefined, await fingerprints()), null, 1)}\n`);
   console.log(`baseline written: ${rows.length} fixtures, reason "${arg('--update-baseline')}"`);
 }

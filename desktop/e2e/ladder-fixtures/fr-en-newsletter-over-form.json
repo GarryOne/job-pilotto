@@ -1,0 +1,105 @@
+{
+ "schemaVersion": 1,
+ "id": "fr-en-newsletter-over-form",
+ "question": "fill_repair",
+ "source": "reconstructed",
+ "lang": "en",
+ "why": "the owner's case a (12 Oct 2026): a newsletter popup covers the fields, nothing fills: close it with its own decline button, never Subscribe",
+ "url": "https://jobs.example.com/apply/fr-en-newsletter-over-form",
+ "expect": {
+  "outcome": "dismiss_layer",
+  "control": 1,
+  "option": [
+   2,
+   3
+  ]
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/apply/fr-en-newsletter-over-form",
+  "title": "Apply",
+  "headings": [
+   "Apply"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "First name",
+    "required": true,
+    "state": "empty",
+    "match": "no",
+    "answer": "free_text"
+   },
+   {
+    "type": "text",
+    "label": "Last name",
+    "required": true,
+    "state": "empty",
+    "match": "no",
+    "answer": "free_text"
+   },
+   {
+    "type": "email",
+    "label": "Email",
+    "required": true,
+    "state": "empty",
+    "match": "no",
+    "answer": "email_shaped"
+   }
+  ],
+  "buttons": [
+   "Submit application"
+  ],
+  "texts": [],
+  "frames": [],
+  "onTop": {
+   "shape": "dialog",
+   "role": "dialog",
+   "text": "Stay in the loop! Get our latest jobs by email every week.",
+   "buttons": [
+    "Subscribe",
+    "No thanks",
+    "×"
+   ]
+  }
+ },
+ "misses": [
+  {
+   "n": 1,
+   "verdict": "unreachable",
+   "reason": "covered"
+  },
+  {
+   "n": 2,
+   "verdict": "unreachable",
+   "reason": "covered"
+  },
+  {
+   "n": 3,
+   "verdict": "unreachable",
+   "reason": "covered"
+  }
+ ],
+ "answer": {
+  "repairs": [
+   {
+    "n": 1,
+    "widget": "other",
+    "verb": "dismiss_layer",
+    "option": 2
+   },
+   {
+    "n": 2,
+    "widget": "other",
+    "verb": "dismiss_layer",
+    "option": 2
+   },
+   {
+    "n": 3,
+    "widget": "other",
+    "verb": "dismiss_layer",
+    "option": 2
+   }
+  ]
+ },
+ "answer_path": "app"
+}

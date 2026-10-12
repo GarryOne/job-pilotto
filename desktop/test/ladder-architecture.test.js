@@ -6,7 +6,7 @@
 //   1     desktop/lib/ladder/rung1-kept.js      node:fs                 (no AI, no page text)
 //   2     desktop/lib/ladder/rung2-sketch.js    ../ai/models.js, ../../shared/alias-schema.js, ./rung1-kept.js (kindKey only), ./rung3-digest.js (askDigest only)
 //   1-2   desktop/lib/page-kind.js              the facade: re-exports rung1 and rung2, nothing else
-//   2     desktop/lib/account-judge.js          ./ladder/rung2-sketch.js (MODEL only)
+//   2     desktop/lib/account-judge.js          ./ladder/rung2-sketch.js (MODEL only), ./ladder/value-class.js (VALUE_CLASSES: the fill ladder's fixed list of value kinds, a shared format, not a rung)
 //   3     desktop/lib/ladder/rung3-digest.js          ./ai/models.js          (neither page-kind nor escalate)
 //   3     extension/ladder/rung3-candidates.js   nothing                 (a classic page script)
 //   4     desktop/lib/ladder/rung4-picture.js        node:fs, ./account-judge.js (accountSketch, listed), ./site-accounts.js, ./rung1-kept.js (pageShape only), ../../shared/alias-schema.js (the Apply floor of the posting scope: a shared format, not a rung)
@@ -49,7 +49,7 @@ export const EDGES = {
   'desktop/lib/ladder/rung1-kept.js': {allow: ['node:fs']},
   'desktop/lib/ladder/rung2-sketch.js': {allow: ['desktop/lib/ai/models.js', 'desktop/shared/alias-schema.js', 'desktop/lib/ladder/rung1-kept.js', 'desktop/lib/ladder/rung3-digest.js'], only: {'desktop/lib/ladder/rung3-digest.js': ['askDigest'], 'desktop/lib/ladder/rung1-kept.js': ['kindKey']}},
   'desktop/lib/page-kind.js': {allow: ['desktop/lib/ladder/rung1-kept.js', 'desktop/lib/ladder/rung2-sketch.js']},
-  'desktop/lib/account-judge.js': {allow: ['desktop/lib/ladder/rung2-sketch.js'], only: {'desktop/lib/ladder/rung2-sketch.js': ['MODEL']}},
+  'desktop/lib/account-judge.js': {allow: ['desktop/lib/ladder/rung2-sketch.js', 'desktop/lib/ladder/value-class.js'], only: {'desktop/lib/ladder/rung2-sketch.js': ['MODEL']}},
   'desktop/lib/ladder/rung3-digest.js': {allow: ['desktop/lib/ai/models.js']},
   'extension/ladder/rung3-candidates.js': {allow: []},
   'desktop/lib/ladder/rung4-picture.js': {allow: ['node:fs', 'desktop/lib/account-judge.js', 'desktop/lib/ladder/rung1-kept.js', 'desktop/lib/site-accounts.js', 'desktop/shared/alias-schema.js'], only: {'desktop/lib/ladder/rung1-kept.js': ['pageShape'], 'desktop/lib/account-judge.js': ['accountSketch', 'listed']}},

@@ -3,6 +3,7 @@
 import {judgeAccount} from '../../lib/account-judge.js';
 import {judgeForm} from '../../lib/form-judge.js';
 import {judgeFill} from '../../lib/ladder/fill-verify.js';
+import {askRepair} from '../../lib/ladder/fill-repair.js';
 import {pageKind, sketchBody} from '../../lib/page-kind.js';
 import {questionOf} from './ladder-fixtures.mjs';
 
@@ -33,17 +34,24 @@ const replayClient = answer => ({messages: {create: async () => ({stop_reason: '
 
 // -> rows [{id, source, lang, trap, expected, outcome, confidence, rung, status, answer}]. `clientFor(fixture)` gives a live client; without it the stored answers are replayed.
 // One of the judges' questions (account ready / account result / form step), through the real judge with the stored answer or the live client.
+// fill_repair answers per control: the fixture scores the verb of the one it names (expect.control); an option or layer button other than the expected one(s) is "wrong_option".
+const repairOutcome = (repairs, expect) => {
+  const row = repairs.find(one => one.n === expect.control);
+  if (!row) return 'unsure';
+  const options = [expect.option ?? []].flat();
+  return ['choose_option', 'dismiss_layer'].includes(row.verb) && options.length && !options.includes(row.option) ? 'wrong_option' : row.verb;
+};
 async function scoreJudge(fixture, base, {clientFor, pending}) {
   const question = questionOf(fixture);
   if (!clientFor && !fixture.answer) return {...base, outcome: '', confidence: 0, rung: -1, route: '', digestOk: null, status: pending ? 'pending' : 'no-answer'};
   let captured = null;
   const client = clientFor ? clientFor(fixture) : replayClient(fixture.answer);
   const tee = {messages: {create: async body => { const response = await client.messages.create(body); try { captured = JSON.parse(response.content?.find(block => block.type === 'text')?.text || ''); } catch { /* the judge says so */ } return response; }}};
-  const result = question === 'fill_verify' ? await judgeFill(tee, fixture.sketch) : question.startsWith('form_') ? await judgeForm(tee, fixture.sketch) : await judgeAccount(tee, fixture.sketch, question === 'account_result' ? 'result' : 'ready');
+  const result = question === 'fill_repair' ? await askRepair(tee, fixture.sketch, fixture.misses) : question === 'fill_verify' ? await judgeFill(tee, fixture.sketch) : question.startsWith('form_') ? await judgeForm(tee, fixture.sketch) : await judgeAccount(tee, fixture.sketch, question === 'account_result' ? 'result' : 'ready');
   // fill_verify answers per control: the fixture scores the one it names (expect.control); a control the answer skipped is "unsure".
-  const outcome = result.error ? 'unsure' : question === 'fill_verify' ? (result.verdicts.find(row => row.n === fixture.expect.control)?.verdict || 'unsure') : question === 'form_step' ? result.step : result.answer;
+  const outcome = result.error ? 'unsure' : question === 'fill_repair' ? repairOutcome(result.repairs, fixture.expect) : question === 'fill_verify' ? (result.verdicts.find(row => row.n === fixture.expect.control)?.verdict || 'unsure') : question === 'form_step' ? result.step : result.answer;
   const confidence = Number(result.confidence ?? captured?.confidence) || 0;
-  return {...base, outcome, confidence, rung: result.error ? 0 : 2, route: '', digestOk: null, status: pending ? 'pending' : statusOf(fixture.expect, outcome, confidence), note: fixture.note || '', answer: captured || fixture.answer || null};
+  return {...base, outcome, confidence, rung: result.error ? 0 : question === 'fill_repair' ? 3 : 2, route: '', digestOk: null, status: pending ? 'pending' : statusOf(fixture.expect, outcome, confidence), note: fixture.note || '', answer: captured || fixture.answer || null};
 }
 
 export async function scoreFixtures(fixtures, {clientFor} = {}) {

@@ -2,23 +2,24 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {VERBS as REPAIR_VERBS} from '../../lib/ladder/fill-repair.js';
 
 export const DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'ladder-fixtures');
 // What a page can turn out to be (docs/superpowers/specs/2026-10-10-ai-ladder.md): the outcomes pageKind can name today plus the ones the ladder adds.
 export const OUTCOMES = ['form', 'account', 'posting', 'email', 'phone', 'link', 'login_wall', 'refused', 'expired', 'in_person', 'form_in_frame', 'other'];
 export const SCHEMA_VERSION = 1;
 // The questions of rung 2 a fixture can ask (docs/flows/ladder.md): the page-kind sketch (the default, no `question` field), and the two judges' questions. Additive: a fixture without `question` is page_kind.
-export const QUESTIONS = ['page_kind', 'account_ready', 'account_result', 'form_step', 'form_ready', 'fill_verify'];   // fill_verify: the fill ladder's per-control check (expect.control names the control scored)   // form_ready: the form judge's ready/needs_person (form_step: its step)
+export const QUESTIONS = ['page_kind', 'account_ready', 'account_result', 'form_step', 'form_ready', 'fill_verify', 'fill_repair'];   // fill_repair: the fill ladder's rung 3 per control (expect.control names the control, expect.option its option or layer button)   // fill_verify: the fill ladder's per-control check (expect.control names the control scored)   // form_ready: the form judge's ready/needs_person (form_step: its step)
 export const questionOf = fixture => fixture.question || 'page_kind';
 // The fixed answers each question can give (an expectation is one of them; `pending` too, for a captured candidate nobody confirmed).
-export const OUTCOMES_BY_QUESTION = {page_kind: OUTCOMES, account_ready: ['ready', 'needs_person', 'unsure'], account_result: ['created', 'created_confirm', 'needs_code', 'already_exists', 'refused', 'unsure'], form_step: ['middle', 'final', 'unsure'], form_ready: ['ready', 'needs_person', 'blocked', 'unsure'], fill_verify: ['ok', 'empty', 'wrong', 'unreachable', 'unsure']};
+export const OUTCOMES_BY_QUESTION = {page_kind: OUTCOMES, account_ready: ['ready', 'needs_person', 'unsure'], account_result: ['created', 'created_confirm', 'needs_code', 'already_exists', 'refused', 'unsure'], form_step: ['middle', 'final', 'unsure'], form_ready: ['ready', 'needs_person', 'blocked', 'unsure'], fill_verify: ['ok', 'empty', 'wrong', 'unreachable', 'unsure'], fill_repair: [...REPAIR_VERBS, 'unsure', 'wrong_option']};
 // What the judges' sketch holds (the extension's accountSketch, extension/account-fill.js: never a typed value); fromPath and sameForm only after a press (account_result).
 export const JUDGE_SKETCH_FIELDS = ['title', 'headings', 'controls', 'buttons', 'texts', 'frames', 'onTop', 'fromPath', 'sameForm'];
 // The fields a fixture may carry (adding one is a one-line change here; the test fails on an undeclared one). `rung` (0-6) and `signal` (unsure|contradicted|stalled|failed) are for the
 // admin page; `expect` may later carry form_frame (an index into frameCandidates) and a closed verb with candidate numbers (slice B).
-export const FIELDS = ['schemaVersion', 'id', 'question', 'source', 'lang', 'why', 'note', 'trap', 'url', 'capture', 'sketch', 'candidates', 'expect', 'answer', 'answer_path', 'rung', 'signal', 'file'];
+export const FIELDS = ['schemaVersion', 'id', 'question', 'source', 'lang', 'why', 'note', 'trap', 'url', 'capture', 'sketch', 'candidates', 'expect', 'answer', 'answer_path', 'rung', 'signal', 'file', 'misses'];   // misses: fill_repair's input, the fill check's verdicts [{n, verdict, reason}]
 // `apply_route` (manual | reuse_previous | third_party_account) and `digest` (not_asked: rung 2 names the manual route and its button, so the numbered digest is not needed; asked: it is) are for start dialogs.
-export const EXPECT_FIELDS = ['outcome', 'accept', 'accept_reasons', 'apply_route', 'digest', 'form_frame', 'verb', 'candidates', 'control'];   // control: fill_verify's scored control number (1-based)
+export const EXPECT_FIELDS = ['outcome', 'accept', 'accept_reasons', 'apply_route', 'digest', 'form_frame', 'verb', 'candidates', 'control', 'option'];   // control: fill_verify's scored control number (1-based)
 export const LANGS = ['de', 'fr', 'en', 'it'];
 export const SOURCES = ['recorded', 'captured', 'reconstructed', 'invented'];
 

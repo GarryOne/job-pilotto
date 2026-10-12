@@ -246,10 +246,12 @@ Shadow (owner): one zoo pass + one pool pass with `fill_verify` logging, then re
 - [ ] Measure tries per control (the fill-end log line `tries per control`, counts only, PR B): zoo 14 pages: every control 1-2 tries, none needed 3; CAP = 3 stays until the CI pool's numbers (after-run) say otherwise
 - [ ] Real-library menu pages (react-select, Select2, Chosen, MUI Autocomplete, by the counts) (amendment 6)
 - [x] `page/attempts.js`: one log per control on the control itself; the fastpath's retype (was its own limit 5) and writings, real typing, menu openings, toggle presses and the generic operators all ask it; a try that failed on a state is not made again; CAP 3 in all; given up once (logged once, the record says why) (PR B)
+- [ ] Custom (react-select style) menu re-picked inside the attempt log, with a zoo page where such a menu never takes: at most 3 tries in all, then one person row, failing on main (cc's review of #537; main opens `menu-never-takes-1` once in the harness, so the looping shape comes from the CI pool's "tries per control") (PR C3). Already wired in #537: the custom menu's openings (`fill-menus.js` onOpen) and the phone writings (`format-retry.js` → `__jobPilottoRetypeAs`)
 ### 4. Repair (PR C)
-- [ ] Control digest (rung 3) + `fill_repair` schema (WIDGETS, VERBS incl. `dismiss_layer`, n, option)
-- [ ] Value class (`page/value-class.js`, fixed list, both ends) in the fill_verify sketch; reason `wrong_class`; `choose_option(i)` validated locally
-- [ ] Executor over existing primitives; caps; floor refusals tested (consent, declaration, terms, submit-like, password)
+- [x] Control digest (rung 3) + `fill_repair` schema (WIDGETS, VERBS incl. `dismiss_layer`, n, option): `desktop/lib/ladder/fill-repair.js`; 8 `fr-*` fixtures (2 reconstructed from the owner's cases a and c, 3 floor traps) 8/8 hit on the plan path, the traps answered `ask_person` by the model itself; `choose_option` option 0 = found on the computer from the answer (the model never sees it) (PR C1)
+- [x] Value class (`page/value-class.js`, fixed list, both ends) in the fill_verify sketch; reason `wrong_class` (PR C1)
+- [ ] `choose_option(i)` validated locally (the option holds the answer's key parts or the dial code's country), in the executor (PR C2)
+- [ ] Executor over existing primitives; caps; floor refusals tested (consent, declaration, terms, submit-like, password); the desktop side already turns a legal or password control into `ask_person` (PR C1), the page side is C2
 - [ ] intl-tel-input and flatpickr real-library pages (amendment 6); repair ACTS in the CI pool, unblock rate measured end to end (amendment 7)
 - [ ] Wiring in `extension/ladder/fill-climb.js` (the door record; joins `deadEnd()` when it lands); journey scenario; zoo cases fail on old
 ### 5. Remember (PR D)

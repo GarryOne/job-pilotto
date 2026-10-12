@@ -104,9 +104,16 @@ export function accountSketch() {
     if (!el.hasAttribute('data-jobpilotto-filled')) return '';
     return state === 'committed' ? 'yes' : 'no';
   };
+  // For the fill ladder's check and repair (desktop/lib/ladder/fill-verify.js, fill-repair.js), never a value: the kind of value the fill gave it (page/value-class.js), whether it is a
+  // legal question (the AI's reading, page/categories.js, or the fill kit's floor: never repaired, always the person's), how many tries it had (page/attempts.js).
+  const ladderOf = el => {
+    const answer = el.getAttribute('data-jobpilotto-class') || '', tried = (() => { try { return JSON.parse(el.getAttribute('data-jobpilotto-tried') || '[]').length; } catch { return 0; } })();
+    const legal = el.dataset?.jobpilottoCategory === 'legal' || !!window.__jobPilottoFillKit?.LEGAL?.test(nameOf(el));
+    return {...(answer ? {answer} : {}), ...(legal ? {legal} : {}), ...(tried ? {tried} : {})};
+  };
   const hiddenSlot = el => el.type === 'file' && !!window.__jobPilottoReadBack?.shownSlot(el) && !el.closest('[id^=jobpilotto], [id^=job-pilotto]');   // a CV slot whose input the page hides, by its visible zone (read-back.js), as the panel counts it
   const controls = [...document.querySelectorAll('input, select, textarea')].filter(el => (shown(el) || hiddenSlot(el)) && !['hidden', 'submit', 'button', 'image', 'reset'].includes(el.type)).map(el => ({
-    type: el.type, label: clean(nameOf(el), 80), match: matchOf(el),
+    type: el.type, label: clean(nameOf(el), 80), match: matchOf(el), ...ladderOf(el),
     required: !!el.required || el.getAttribute('aria-required') === 'true',
     at: (box => `${Math.max(0, Math.min(100, Math.round(100 * (box.left + box.width / 2) / innerWidth)))},${Math.max(0, Math.min(100, Math.round(100 * (box.top + box.height / 2) / innerHeight)))}`)((shown(el) ? el : window.__jobPilottoReadBack.shownSlot(el)).getBoundingClientRect()),   // where it is on screen (% of the window): the closer look matches the picture to the control
     ...(el.tagName === 'SELECT' ? {options: [...el.options].map(item => clean(item.text, 40)).filter(Boolean).slice(0, 40)} : {}),
