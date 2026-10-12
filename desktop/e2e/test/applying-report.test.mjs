@@ -68,3 +68,40 @@ test('every recorded case in the repo already carries a control (the rule is not
   const bad = loadCases().map(item => [item.name, controlProblem(item, extensionVersion())]).filter(([, why]) => why);
   assert.deepEqual(bad, []);
 });
+
+// The Fixed-site replays table shows CI on main only (12 Oct 2026: local runs of work-in-progress branches on a loaded Mac showed main as broken).
+test('the replays go up only from CI on a push to main, with the build\'s sha; a local run, a PR or a control run never sends', async () => {
+  const {replayReason, uploadReplays} = await import('../lib/applying-report.mjs');
+  const main = {CI: 'true', GITHUB_EVENT_NAME: 'push', GITHUB_REF: 'refs/heads/main', GITHUB_SHA: 'abc1234def', REPLAYS_PUBLISH_KEY: 'SECRET-KEY'};
+  assert.equal(replayReason(main), '');
+  assert.match(replayReason({}), /local run/);
+  assert.match(replayReason({...main, GITHUB_EVENT_NAME: 'pull_request'}), /not a push to main/);
+  assert.match(replayReason({...main, GITHUB_REF: 'refs/heads/fix-x'}), /not a push to main/);
+  assert.match(replayReason({...main, REAL_EXTENSION_DIR: '/tmp/old'}), /control run/);
+  let sent; const fetcher = async (url, init) => { sent = {url, init}; return {ok: true, json: async () => ({ok: true, stored: 2})}; };
+  assert.match(await uploadReplays([{name: 'a', ok: true}], {env: {}, fetcher}), /not sent \(a local run/);
+  assert.equal(sent, undefined);
+  const line = await uploadReplays([{name: 'a', ok: true}, {name: 'b', ok: false, note: 'x'}], {env: main, fetcher});
+  assert.equal(sent.init.method, 'PUT');
+  assert.match(sent.url, /\/applying\/replays$/);
+  assert.equal(sent.init.headers.Authorization, 'Bearer SECRET-KEY');
+  assert.deepEqual(JSON.parse(sent.init.body).sha, 'abc1234def');
+  assert.match(line, /2 replay row\(s\) sent for abc1234/);
+  assert.ok(!line.includes('SECRET'));
+  assert.match(await uploadReplays([{name: 'a', ok: true}], {env: {...main, REPLAYS_PUBLISH_KEY: ''}, fetcher}), /not set up/);
+});
+
+test('a dry run (a PR proving the step) says what it would send and sends nothing', async () => {
+  const {uploadReplays} = await import('../lib/applying-report.mjs');
+  let called = false;
+  const line = await uploadReplays([{name: 'a', ok: true}], {env: {CI: 'true', GITHUB_EVENT_NAME: 'pull_request', GITHUB_SHA: 'abc1234', JP_REPLAYS_DRY: '1'}, fetcher: async () => { called = true; }});
+  assert.equal(called, false);
+  assert.match(line, /dry run: would send 1 replay row\(s\) for abc1234/);
+});
+
+test('the recorded replay never uploads from its own run: it writes its results for CI\'s report job', async () => {
+  const {readFileSync} = await import('node:fs');
+  const source = readFileSync(new URL('./recorded-pages.test.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /upload\(\s*'recorded'/);
+  assert.match(source, /JP_REPLAY_RESULTS/);
+});

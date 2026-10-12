@@ -29,6 +29,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       SELFHEAL_PUBLISH_KEY: ${{ secrets.SELFHEAL_PUBLISH_KEY }}   # job-wide: a step's own env is not visible to its `if`
       AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
+      REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}
     steps:
       - name: Not set up yet
         if: env.CLOUDFLARE_API_TOKEN == ''
@@ -60,3 +61,8 @@ jobs:
         if: env.CLOUDFLARE_API_TOKEN != '' && env.AI_COST_PUBLISH_KEY != ''
         working-directory: site
         run: printf '%s' "$AI_COST_PUBLISH_KEY" | npx --yes wrangler@4 secret put AI_COST_PUBLISH_KEY --config wrangler.toml
+      # The key CI uses to send the recorded replays of main to /admin/applying (recorded-pages.yml, desktop/e2e/replays-report.mjs): it can write that table only.
+      - name: The publish key of the Fixed-site replays
+        if: env.CLOUDFLARE_API_TOKEN != '' && env.REPLAYS_PUBLISH_KEY != ''
+        working-directory: site
+        run: printf '%s' "$REPLAYS_PUBLISH_KEY" | npx --yes wrangler@4 secret put REPLAYS_PUBLISH_KEY --config wrangler.toml

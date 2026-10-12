@@ -1,12 +1,14 @@
 // Uploads a run of the recorded pages (layer 2) or of the nightly smoke (layer 3) to the site's /admin/applying (site/src/applying.js), with the owner key from
 // the Keychain (never printed). Fixed words and hosts only: never a posting's address, never applicant data. Never from CI, nor from a control run against an
-// old build (REAL_EXTENSION_DIR: its failures are on purpose). Guard: e2e/test/applying-report.test.mjs.
+// old build (REAL_EXTENSION_DIR: its failures are on purpose). The recorded replays are the other way round: only CI on a push to main sends them (uploadReplays,
+// replays-report.mjs), never a local run. Guard: e2e/test/applying-report.test.mjs.
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 export const SITE = 'https://www.jobpilotto.top/admin/applying';
+export const REPLAYS = 'https://www.jobpilotto.top/applying/replays';
 // desktop/e2e (not imported from app.mjs: that pulls playwright-core into the desktop unit job, which does not install it; main was red 11 Oct 2026).
 const E2E = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const extensionVersion = () => { try { return JSON.parse(fs.readFileSync(path.join(E2E, '..', '..', 'extension', 'manifest.json'), 'utf8')).version; } catch { return ''; } };
@@ -65,3 +67,23 @@ export const poolRows = (shapes, signatures = {}) => shapes.map(({shape, urls = 
   if (SIGNATURE.test(signature || '')) row.signature = signature;
   return row;
 });
+
+// The Fixed-site replays (site/src/applying-replays.js) show CI on main only (12 Oct 2026: fixers' work-in-progress branches and a loaded Mac showed main as broken).
+// -> '' when this run may send them, else why not.
+export const replayReason = (env = process.env) => (env.REAL_EXTENSION_DIR ? 'a control run on another build' : env.JP_NO_REPORT ? 'JP_NO_REPORT'
+  : !env.CI ? 'a local run: the replay table shows CI on main only' : env.GITHUB_EVENT_NAME === 'push' && env.GITHUB_REF === 'refs/heads/main' ? '' : 'CI, not a push to main');
+
+// One PUT for the whole run (every shard), with the build's sha, Bearer REPLAYS_PUBLISH_KEY (a key that can only write this table). JP_REPLAYS_DRY=1: say it, send nothing. -> one line.
+export async function uploadReplays(rows, {env = process.env, fetcher = fetch} = {}) {
+  const sha = String(env.GITHUB_SHA || ''), short = sha.slice(0, 7);
+  if (env.JP_REPLAYS_DRY) return `replays report: dry run: would send ${rows.length} replay row(s) for ${short}`;
+  const why = replayReason(env);
+  if (why) return `replays report: not sent (${why})`;
+  if (!env.REPLAYS_PUBLISH_KEY) return 'replays report: not sent (REPLAYS_PUBLISH_KEY not set up: the owner adds the GitHub secret)';
+  try {
+    const answer = await fetcher(REPLAYS, {method: 'PUT', headers: {Authorization: `Bearer ${env.REPLAYS_PUBLISH_KEY}`, 'Content-Type': 'application/json', 'X-Caller': 'replays-upload'},
+      body: JSON.stringify({sha, version: extensionVersion(), rows}), signal: AbortSignal.timeout(20000)});
+    const body = await answer.json().catch(() => ({}));
+    return answer.ok ? `replays report: ${body.stored ?? 0} replay row(s) sent for ${short}` : `replays report: refused (${answer.status} ${body.error || ''})`;
+  } catch (error) { return `replays report: not sent (${String(error?.message || error).slice(0, 80)})`; }
+}

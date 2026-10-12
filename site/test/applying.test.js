@@ -5,6 +5,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {needsFixGroups} from '../src/applying-groups.js';
 import {PAGE, data, ingest, shortOf} from '../src/applying.js';
+import {storeReplays} from '../src/applying-replays.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -28,7 +29,7 @@ test('the page data: each site\'s last step and last runs, regressions first; ca
   const db = d1();
   await ingest(db, {kind: 'smoke', day: '2026-10-10', rows: [{name: 'jobs.ch account', host: 'www.jobs.ch', reached: 'code/bot'}, {name: 'Lever form', host: 'jobs.lever.co', reached: 'ready', filled: 9, left: 0}]}, now);
   await ingest(db, {kind: 'smoke', day: '2026-10-11', rows: [{name: 'jobs.ch account', host: 'www.jobs.ch', reached: 'posting', regression: true}]}, now);
-  await ingest(db, {kind: 'recorded', day: '2026-10-11', version: '0.9.165', rows: [{name: 'cookie-banner-links-1', ok: true}, {name: 'cv-choice-step-1', ok: false, note: 'attached: #resumeFile'}]}, now);
+  await storeReplays(db, {sha: 'abc1234', version: '0.9.165', rows: [{name: 'cookie-banner-links-1', ok: true}, {name: 'cv-choice-step-1', ok: false, note: 'attached: #resumeFile'}]}, now);
   const d = await data(db, now);
   assert.deepEqual(d.sites.map(site => [site.name, site.reached, site.regression, site.history]), [['jobs.ch account', 'posting', true, ['code/bot', 'posting']], ['Lever form', 'ready', false, ['ready']]]);
   assert.deepEqual(d.cases.map(item => [item.name, item.ok, item.note]), [['cv-choice-step-1', false, 'attached: #resumeFile'], ['cookie-banner-links-1', true, null]]);
@@ -78,10 +79,9 @@ test('an upload keeps a rung (integer 0 to 6) and a signal (a fixed word) and dr
   const db = d1();
   await ingest(db, {kind: 'smoke', day: '2026-10-12', rows: [{name: 'A', host: 'a.com', reached: 'posting', rung: 3, signal: 'unsure'}, {name: 'B', host: 'b.com', reached: 'form', rung: 9, signal: 'because I said so'},
     {name: 'C', host: 'c.com', reached: 'form', rung: '2', signal: 'stalled'}, {name: 'D', host: 'd.com', reached: 'form', rung: 0}]}, now);
-  await ingest(db, {kind: 'recorded', day: '2026-10-12', rows: [{name: 'case-1', ok: true, rung: 2}, {name: 'case-2', ok: true, rung: 7}, {name: 'case-3', ok: true}]}, now);
+  await storeReplays(db, {sha: 'abc1234', rows: [{name: 'case-1', ok: true, rung: 2}, {name: 'case-2', ok: true, rung: 7}, {name: 'case-3', ok: true}]}, now);
   const rows = Object.fromEntries(db.db.prepare('SELECT name, rung, signal FROM applying_runs').all().map(row => [row.name, {...row}]));
   assert.deepEqual([rows.A.rung, rows.A.signal, rows.B.rung, rows.B.signal, rows.C.rung, rows.C.signal, rows.D.rung, rows.D.signal], [3, 'unsure', null, null, null, 'stalled', 0, null]);
-  assert.deepEqual([rows['case-1'].rung, rows['case-2'].rung, rows['case-3'].rung], [2, null, null]);
   await ingest(db, {kind: 'pool', day: '2026-10-12', rows: [{name: 'A', start_host: 'a.com'}, {name: 'Z', start_host: 'z.com'}]}, now);
   const d = await data(db, now), by = Object.fromEntries(d.pool.map(item => [item.name, item]));
   assert.deepEqual([by.A.rung, by.A.signal, by.Z.rung, by.Z.signal], [3, 'unsure', null, null]);   // never run: unknown
@@ -194,14 +194,15 @@ test('Needs a fix is ordered worst first: a regression, then the most used platf
   assert.ok(section.includes('54%'), 'the platform use is shown');
 });
 
-test('the owner can delete one run row (a case that should never have been sent): by kind, name and day; a missing name or an unknown kind removes nothing', async () => {
+test('the owner can delete one smoke run row (a run that should never have been sent): by kind, name and day; a missing name or an unknown kind removes nothing', async () => {
   const {forget} = await import('../src/applying.js');
   const db = d1();
-  await ingest(db, {kind: 'recorded', day: '2026-10-12', rows: [{name: 'bad-case-1', ok: true}, {name: 'good-case-1', ok: true}]}, now);
-  assert.deepEqual(await forget(db, {kind: 'recorded', day: '2026-10-12'}), {ok: false, error: 'kind, day and name are needed'});
+  await ingest(db, {kind: 'smoke', day: '2026-10-12', rows: [{name: 'bad-case-1', host: 'a.com', reached: 'form'}, {name: 'good-case-1', host: 'a.com', reached: 'form'}]}, now);
+  assert.deepEqual(await forget(db, {kind: 'smoke', day: '2026-10-12'}), {ok: false, error: 'kind, day and name are needed'});
+  assert.equal((await forget(db, {kind: 'recorded', day: '2026-10-12', name: 'bad-case-1'})).ok, false);   // the replays are CI's, never a run row
   assert.equal((await forget(db, {kind: 'running', day: '2026-10-12', name: 'bad-case-1'})).ok, false);
   assert.equal(db.db.prepare('SELECT count(*) AS n FROM applying_runs').get().n, 2);
-  assert.deepEqual(await forget(db, {kind: 'recorded', day: '2026-10-12', name: 'bad-case-1'}), {ok: true, removed: 1});
+  assert.deepEqual(await forget(db, {kind: 'smoke', day: '2026-10-12', name: 'bad-case-1'}), {ok: true, removed: 1});
   assert.deepEqual(db.db.prepare('SELECT name FROM applying_runs').all().map(row => row.name), ['good-case-1']);
 });
 

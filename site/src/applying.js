@@ -9,12 +9,13 @@ import {GROUPS_SOURCE} from './applying-groups.js';
 import {digest} from './digest.js';
 import {cachedJson, dropSnapshot, latestRuns, refreshLatest, slowCache} from './applying-store.js';
 import {topCauses} from './applying-cause.js';
+import {readReplays, replayCases} from './applying-replays.js';
 import {nextToAdd} from './nextsites.js';
 import {platformScorecard} from './scorecard.js';
 import {displayName, flowOf, platformLabel, SIGNATURE, signatureHost} from './platform.js';
 
 export const STEPS = ['none', 'posting', 'account', 'code/bot', 'form', 'ready'];
-const KINDS = ['smoke', 'recorded', 'pool', 'running'];
+const KINDS = ['smoke', 'pool', 'running'];   // 'recorded' comes from CI on main only (PUT /applying/replays, src/applying-replays.js)
 const RUNNING_MINUTES = 5;   // a start ping older than this is a run that died
 const DAY = /^\d{4}-\d\d-\d\d$/;
 const text = (value, max) => String(value ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
@@ -31,6 +32,7 @@ export async function ingest(db, body, now = new Date()) {
 }
 async function ingestRows(db, body, now) {
   if (FIX_KINDS.includes(body?.kind)) return ingestFixes(db, body, now);   // the fix ledger and the claims: snapshots (src/applying-fixed.js)
+  if (body?.kind === 'recorded') return {ok: false, error: 'the recorded replays come from CI on main only (PUT /applying/replays): a local run is not uploaded'};
   const kind = KINDS.includes(body?.kind) ? body.kind : null, day = DAY.test(body?.day || '') ? body.day : null;
   const rows = Array.isArray(body?.rows) ? body.rows.slice(0, 200) : [];
   if (!kind || !day || !rows.length) return {ok: false, error: 'kind, day and rows are required'};
@@ -57,7 +59,7 @@ async function ingestRows(db, body, now) {
     }
     await db.prepare(`INSERT INTO applying_runs (kind, day, at, name, host, reached, filled, left_n, ok, note, regression, version, rung, signal, asked, unexplained) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .bind(kind, day, at, name, kind === 'smoke' ? hostOf(row.host) : null, kind === 'smoke' && STEPS.includes(row.reached) ? row.reached : null,
-        int(row.filled), int(row.left), kind === 'recorded' ? (row.ok ? 1 : 0) : null, text(row.note, 200) || null, row.regression ? 1 : 0, version,
+        int(row.filled), int(row.left), null, text(row.note, 200) || null, row.regression ? 1 : 0, version,
         rungOf(row.rung), kind === 'smoke' && SIGNALS.includes(row.signal) ? row.signal : null,
         kind === 'smoke' ? int(row.asked) : null, kind === 'smoke' ? int(row.unexplained) : null).run();
     touched.push({kind, name});
@@ -100,10 +102,7 @@ export async function data(db, now = new Date(), slow = (key, fn) => fn()) {
     return {name, at: last.at, host: last.host, runs: list.slice(-20).map(run => ({day: run.day, at: run.at, reached: run.reached, hold: isHold(run.note), accountHold: isAccountHold(run.note), filled: run.filled, left: run.left_n, version: run.version, needsFix: runNeedsFix(run)})), reached: last.reached, filled: last.filled, left: last.left_n, day: last.day, version: last.version, note: last.note, hold: isHold(last.note), rung: last.rung ?? null, signal: last.signal ?? null,
       regression: !!last.regression, short: shortOf(last.reached, last.filled, last.left_n, last.asked, last.unexplained), shares: list.slice(-10).map(run => shareOf(run.filled, run.left_n)), history: list.slice(-10).map(run => run.reached || 'none'), days: list.slice(-10).map(run => run.day)};
   }).sort((a, b) => Number(b.regression) - Number(a.regression) || STEPS.indexOf(a.reached) - STEPS.indexOf(b.reached));
-  const cases = Object.entries(byName('recorded')).map(([name, list]) => {
-    const last = list.at(-1);
-    return {name, ok: !!last.ok, note: last.note, day: last.day, version: last.version, rung: last.rung ?? null, since: list[0].day, history: list.slice(-10).map(run => (run.ok ? 1 : 0))};
-  }).sort((a, b) => Number(a.ok) - Number(b.ok) || a.name.localeCompare(b.name));
+  const cases = replayCases(await readReplays(db));   // CI on main's last runs, one row (src/applying-replays.js)
   const nights = Object.entries(runs.filter(run => run.kind === 'smoke').reduce((out, run) => {
     const counts = (out[run.day] ||= Object.fromEntries(STEPS.map(step => [step, 0])));
     counts[run.reached || 'none'] += 1;
@@ -145,11 +144,11 @@ async function poolRows(db, sites, now) {
   }).sort((a, b) => Number(b.running) - Number(a.running) || a.platform.localeCompare(b.platform) || a.name.localeCompare(b.name));
 }
 
-// The owner removes one uploaded run (a case that should never have been sent): DELETE with {kind: 'recorded'|'smoke', day, name}. Nothing else is deleted.
+// The owner removes one uploaded smoke run (a run that should never have been sent): DELETE with {kind: 'smoke', day, name}. Nothing else is deleted (the replays are CI's).
 export async function forget(db, body) {
   const kind = body?.kind, day = text(body?.day, 10), name = text(body?.name, 200);
   if (!kind || !day || !name) return {ok: false, error: 'kind, day and name are needed'};
-  if (!['recorded', 'smoke'].includes(kind)) return {ok: false, error: 'kind must be recorded or smoke'};
+  if (kind !== 'smoke') return {ok: false, error: 'kind must be smoke'};
   const done = await db.prepare('DELETE FROM applying_runs WHERE kind = ? AND day = ? AND name = ?').bind(kind, day, name).run();
   await refreshLatest(db, [{kind, name}]); await dropSnapshot(db);
   return {ok: true, removed: done?.meta?.changes ?? done?.changes ?? 0};
@@ -381,14 +380,16 @@ fetch('?json', {headers: {'X-Caller': 'page-tab'}}).then(r => r.json()).then(d =
     el('p', {className: 'muted', textContent: 'Per platform: its share of the matched jobs and how well real forms are filled (the form-filling page), against the pool sites on it and how many reached the form. Verdicts, in the order to act: not in the pool; weak in both; blind spot (tests reach the form, real users do not fill it); test failing (real use is fine). Under 5 real forms is no evidence.'}), scoreBox)); drawScore();
 ${FIXED_SCRIPT}
   drawFix(); drawFixed(); drawCauses(); showTab();
-  const caseBox = el('div'), CASE_GET = [c => c.name.toLowerCase(), c => c.rung, c => (c.ok ? 1 : 0), c => c.history.at(-1), c => c.day, c => c.since];
-  const drawCases = () => { caseBox.textContent = ''; caseBox.append(el('table', {},
+  // The replays of CI on main after each merge (src/applying-replays.js): every row says the build's sha and when it ran; a local run is never shown.
+  const caseBox = el('div'), CASE_GET = [c => c.name.toLowerCase(), c => c.rung, c => (c.ok ? 1 : 0), c => c.history.at(-1), c => c.at, c => c.since.at];
+  const COMMIT = 'https://github.com/GarryOne/job-pilotto/commit/', shaLink = (sha, at) => el('span', {}, el('a', {className: 'hash', href: COMMIT + sha, textContent: sha.slice(0, 7)}), ' ' + ago(at));
+  const drawCases = () => { caseBox.textContent = ''; caseBox.append(el('p', {className: 'muted', textContent: 'CI on main, after the merge of ' + d.cases[0].sha.slice(0, 7) + ' (' + ago(d.cases[0].at) + (d.cases[0].version ? ', extension ' + d.cases[0].version : '') + '): every recorded case replayed on that build. Local runs are not shown.'}), el('table', {},
     el('tr', {}, ...heads('cases', ['Case', 'Rung guarded', 'Result', 'Last 10 runs', 'Last run', 'Since'], drawCases)),
     ...sortRows('cases', d.cases, CASE_GET).map(c => el('tr', {}, el('td', {textContent: c.name}), el('td', {className: 'muted', textContent: c.rung ?? '—'}), el('td', {}, c.ok ? el('span', {className: 'pill s-ready', textContent: 'passed'}) : el('span', {className: 'pill s-posting', textContent: 'failed'}),
-      c.note ? el('div', {className: 'muted', textContent: c.note}) : null), el('td', {}, dots(c.history)), el('td', {className: 'muted', textContent: c.day + (c.version ? ' · ' + c.version : '')}),
-      el('td', {className: 'muted', textContent: c.since}))))); };
+      c.note ? el('div', {className: 'muted', textContent: c.note}) : null), el('td', {}, dots(c.history)), el('td', {className: 'muted'}, shaLink(c.sha, c.at)),
+      el('td', {className: 'muted'}, shaLink(c.since.sha, c.since.at)))))); };
   app.append(el('section', {}, el('h2', {textContent: 'Fixed-site replays · every fixed site, replayed'}), d.cases.length ? caseBox
-    : el('p', {className: 'muted', textContent: 'No recorded-page run uploaded yet: cd desktop/e2e && npm run recorded'}))); if (d.cases.length) drawCases();
+    : el('p', {className: 'muted', textContent: 'No replay from CI on main yet: the next merge to main uploads one (.github/workflows/recorded-pages.yml).'}))); if (d.cases.length) drawCases();
   app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table, colorLegend)
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
   // Fetch again every 5 minutes while the tab is visible (and once when it becomes visible after longer), so the spinner and the times follow a run without a reload.

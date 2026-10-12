@@ -2,7 +2,8 @@
 // failing on the build before the fix (REAL_EXTENSION_DIR=<old build>). Run: cd desktop/e2e && npm run recorded.
 import assert from 'node:assert/strict';
 import {after, test} from 'node:test';
-import {extensionVersion, upload, uploadable} from '../lib/applying-report.mjs';
+import fs from 'node:fs';
+import {replayReason} from '../lib/applying-report.mjs';
 import {loadCases, runCase} from '../lib/page-replay.mjs';
 import {replayInTabs} from '../lib/replay-browser.mjs';
 import {isRowCase, runRowCase} from '../lib/row-case-run.mjs';
@@ -10,11 +11,10 @@ import {parseShard, shardOf} from '../lib/replay-shard.mjs';
 
 const extensionDir = process.env.REAL_EXTENSION_DIR || undefined;
 const skip = process.env.JP_REPLAY ? false : 'opt-in: set JP_REPLAY=1 (npm run recorded); it starts Chromium with the real extension';
-const results = [];   // sent to /admin/applying once every case ran (not from CI, nor from a control run on an old build)
-after(async () => {   // a case without its control (case.json: seen failing on an older build, or a stated guard) is never sent: it could be a pass that proves nothing
-  const {rows, held} = uploadable(results, extensionVersion());
-  for (const one of held) console.log(`applying report: ${one.name} held back, ${one.why}`);
-  if (rows.length) console.log(await upload('recorded', rows.map(({control, ...row}) => row)));
+const results = [];   // CI writes them to JP_REPLAY_RESULTS; its report job sends every shard's in one PUT on a push to main (replays-report.mjs). A local run sends nothing.
+after(() => {
+  if (process.env.JP_REPLAY_RESULTS) fs.writeFileSync(process.env.JP_REPLAY_RESULTS, JSON.stringify(results));
+  else if (results.length) console.log(`replays report: not sent (${replayReason() || 'no JP_REPLAY_RESULTS'})`);
 });
 const only = process.env.REPLAY_ONLY || '';   // a part of a case name: replay just those
 // The cases run N tabs at a time in ONE browser (lib/replay-browser.mjs; JP_REPLAY_TABS, default 4; 1 = one browser per case, in turn, as before: said in the log). A case that fails in
