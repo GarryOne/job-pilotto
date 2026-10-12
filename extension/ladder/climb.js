@@ -20,7 +20,7 @@ const pressedProofs = new Map();   // tab id -> the confirmation of an Apply pre
 const sketched = new Map();  // tab id -> the controls the page-kind question carried (the page shape key needs them)
 export const noteSignal = (tabId, answer, controls = []) => { sketched.set(tabId, controls); if (answer?.signal) signals.set(tabId, {rung: answer.rung, signal: answer.signal}); else signals.delete(tabId); };
 export const controlsOf = tabId => sketched.get(tabId) || [];
-export const forgetClimb = tabId => { pressedProofs.delete(tabId); signals.delete(tabId); sketched.delete(tabId); ended.delete(tabId); frames.delete(tabId); for (const key of [...opened]) if (key.startsWith(`${tabId} `)) opened.delete(key); for (const key of [...looked]) if (key.startsWith(`${tabId} `)) looked.delete(key); };
+export const forgetClimb = tabId => { for (const key of [...digested]) if (key.startsWith(`${tabId} `)) digested.delete(key); pressedProofs.delete(tabId); signals.delete(tabId); sketched.delete(tabId); ended.delete(tabId); frames.delete(tabId); for (const key of [...opened]) if (key.startsWith(`${tabId} `)) opened.delete(key); for (const key of [...looked]) if (key.startsWith(`${tabId} `)) looked.delete(key); };
 
 // The numbered candidates of the page (extension/ladder/rung3-candidates.js). The page files live in the page's own (MAIN) world; the finder is injected when this page has not loaded it yet.
 const look = tabId => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: () => window.__jobPilottoCandidates?.candidatesOf?.()}).then(rows => rows?.[0]?.result).catch(() => undefined);
@@ -30,20 +30,26 @@ export async function candidatesOf(tabId) {
   return Array.isArray(found) ? found : [];
 }
 
+// The pages where a climb asked the digest (`${tab id} ${page}`): the dead-end question in shadow (ladder/fallback.js) never asks it again there.
+const digested = new Set();
+const digestKey = (tabId, url) => `${tabId} ${String(url || '').split('#')[0]}`;
+export const digestAsked = (tabId, page) => digested.has(digestKey(tabId, page));
+const askDigest = (tab, ask) => { digested.add(digestKey(tab.id, tab.url)); return ask(tab, {digest: true}); };
+
 // `ask(tab, {digest: true})` is fill-flow's askKind. -> the digest's answer, shaped like a page kind, or null.
 export async function climbOnUnsure(tab, ask) {
   const seen = signals.get(tab.id);
   if (!seen) return null;
   const up = nextRung({...seen, off: OFF});
   if (!(up.climbed && up.rung === 3)) return null;
-  const answer = await ask(tab, {digest: true});
+  const answer = await askDigest(tab, ask);
   if (!answer) ended.add(tab.id);
   return answer;
 }
 export async function climbOnStall(tab, ask, key, kind) {
   if (kind?.by === 'digest' || looked.has(key)) return null;
   looked.add(key);
-  const answer = await ask(tab, {digest: true});
+  const answer = await askDigest(tab, ask);
   if (!answer) ended.add(tab.id);
   return answer;
 }

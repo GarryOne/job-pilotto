@@ -30,7 +30,7 @@ import {brokenOf, onBrokenPage} from './ladder/site-broken.js';
 import {deadEnd, useFallback, useReporter} from './ladder/dead-end.js';
 import {notePage, noteProgress, useProgressLog} from './ladder/progress.js';
 import {onTop} from './on-top.js';
-import {candidatesOf, claimFrame, climbOnStall, confirmedBody, frameBecameCandidate, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, notePressed, noteSignal, otherReport, takePressed, toldReport, verifiedBody} from './ladder/climb.js';
+import {candidatesOf, claimFrame, climbOnStall, confirmedBody, digestAsked, frameBecameCandidate, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, notePressed, noteSignal, otherReport, takePressed, toldReport, verifiedBody} from './ladder/climb.js';
 
 let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true, fillsNow = new Set(), arm = async () => {}, progress = async () => {};
 export function initFillFlow(shared) {
@@ -185,7 +185,7 @@ export async function stuck(job, host, why, tabId = null, page = '', needs = '',
   try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why, needs: String(needs || '').slice(0, 80), accountStep: String(accountStep || '').slice(0, 16), tab: tabId, session, page: String(page || '').split('#')[0]})}); } catch { /* the app is closed */ }
 }
 useReporter(stuck);   // the only way to it: every give-up goes through ladder/dead-end.js deadEnd (worker/test/dead-end.test.js)
-useFallback({ask: askKind, floor: wouldPress, log: decide});   // the one question at each dead end, in shadow (ladder/fallback.js)
+useFallback({ask: askKind, floor: wouldPress, asked: digestAsked, log: decide});   // the one question at each dead end, in shadow (ladder/fallback.js)
 useProgressLog(decide);   // the run's progress, in shadow (ladder/progress.js): the silent dead-end rule's T is measured from these lines
 // A give-up on this page: the one door (ladder/dead-end.js), with what led here as fixed values.
 const deadEndHere = (tab, jobUrl, host, why, needs, evidence) => deadEnd({job: String(jobUrl || tab.url).split('#')[0], host, why, tabId: tab.id, page: tab.url, needs}, evidence, decide);
