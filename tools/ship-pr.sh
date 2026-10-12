@@ -23,9 +23,9 @@ ship_pr_land() {
   n="$(gh pr list --head "$branch" --state open --json number 2>/dev/null | jq -r '.[0].number // empty')" || n=""
   if [ -z "$n" ]; then
     title="$(git log --reverse --format=%s origin/main..HEAD | head -n 1)"
-    body="$(git log --reverse --format='### %s%n%n%b' origin/main..HEAD; printf '\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n')"
+    [ -n "${SHIP_PR_BODY:-}" ] || step "no --body=<file>: the PR shows the subject, the facts and the commit folded; a 5-second summary goes in a file (CLAUDE.md \"PR descriptions\")"
+    body="$(bash "$here/tools/pr-body.sh" origin/main ${SHIP_PR_BODY:+"--body=$SHIP_PR_BODY"})"   # the summary first, the facts, the commit folded (tools/pr-body.sh)
     rows="$(git log --format='%(trailers:key=Pool-row,valueonly)' origin/main..HEAD | grep -v '^$' | grep -iv '^none' | sort -u || true)"   # the pool rows this PR fixes (the Pool-row lines)
-    if [ -n "$rows" ]; then body="$(printf '**Pool rows fixed:**\n%s\n\n%s' "$(echo "$rows" | sed 's/^/- /')" "$body")"; fi   # an if, never a bare &&: under set -e an empty list would end the landing
     out="$(gh pr create --base main --head "$branch" --title "$title" --body "$body" 2>&1)" || ship_pr_fail "could not open the pull request: $(echo "$out" | tail -n 1)"
     if [ -n "$rows" ]; then gh label create pool-fix --color 1D76DB --description "fixes a row of the applying pool (from its Pool-row lines)" >/dev/null 2>&1 || true; gh pr edit "$(echo "$out" | tail -n 1)" --add-label pool-fix >/dev/null 2>&1 || true; fi   # a missing label never fails a landing
     n="${out##*/}"; step "opened the pull request: $(echo "$out" | tail -n 1)"

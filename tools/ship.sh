@@ -10,6 +10,7 @@
 #   tools/ship.sh --fix      this commit is the fix or revert of a red main (CI_RED_OK=1)
 #   tools/ship.sh --keep     accepted, does nothing (keeping is the default since 11 Oct 2026)
 #   tools/ship.sh --remove   remove the worktree and its branch after landing (the old default)
+#   tools/ship.sh --body=<file>  the PR's 5-second summary (a verdict line, short bullets, a before/after table): tools/pr-body.sh puts it on top
 #   tools/ship.sh --background   start detached and return at once (the checks can take minutes): follow the log it names
 # Every run writes its whole output to a log (the first line names it; SHIP_LOG=<file> chooses it), shows each step with the seconds since
 # the start, and ends with exactly one marker line: `ship: DONE <sha>` or `ship: FAILED (exit N) ...`. A caller that cut the run short
@@ -23,7 +24,8 @@ for arg in "$@"; do
     --keep) keep=1; args+=("$arg") ;;
     --remove) keep=0; args+=("$arg") ;;
     --background) background=1 ;;
-    *) echo "usage: tools/ship.sh [--full] [--fix] [--keep|--remove] [--background]" >&2; exit 2 ;;
+    --body=*) SHIP_PR_BODY="$(cd "$(dirname "${arg#--body=}")" && pwd)/$(basename "${arg#--body=}")"; export SHIP_PR_BODY; [ -s "$SHIP_PR_BODY" ] || { echo "ship: --body file is empty or missing: ${arg#--body=}" >&2; exit 2; }; args+=("$arg") ;;   # the PR's 5-second summary (tools/pr-body.sh)
+    *) echo "usage: tools/ship.sh [--full] [--fix] [--keep|--remove] [--background] [--body=<file>]" >&2; exit 2 ;;
   esac
 done
 

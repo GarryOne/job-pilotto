@@ -41,6 +41,7 @@ class ShipPrTest(ShipFixture):
         self.assertIn('pr create', calls)
         self.assertIn('--title My change', calls)
         self.assertIn('Generated with [Claude Code]', calls, 'the PR body carries the attribution line')
+        self.assertIn('<details>', calls, 'the commit message is folded (tools/pr-body.sh)')
         self.assertIn('pr merge', calls)
         self.assertIn('--auto --rebase', calls)
         self.assertTrue((self.main / 'mine.txt').exists(), 'the main checkout is brought up to date after the merge')

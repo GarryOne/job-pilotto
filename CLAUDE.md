@@ -58,6 +58,8 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
    - Tier 2 (money, store writes, apply flow, installer, engine, migrations): the fast loop too, no local e2e suite: CI runs the e2e suites and all recorded pages; `--full` only by choice.
 3. **Tests first** for new behaviour and for any bug the owner saw (watch it fail). A behaviour change updates the e2e step it breaks in the same commit.
 4. **Land:** `tools/ship.sh` (rebase, the fast checks, push the branch, open a PR with auto-merge, wait for the merge: `ship: DONE <sha>` means merged; CI runs the suites and replays on the PR). Commit subject ≤ 72 characters, imperative, no reasons in it.
+   **PR descriptions are read in 2-5 seconds, never an essay** (owner, 12 Oct 2026): `tools/ship.sh --body=<file>` with a verdict line (emoji + what changed for the user),
+   2-4 bullets of a few words, a before/after table when there are numbers; `tools/pr-body.sh` adds the facts table and folds the commit message in a `<details>`.
    Never a CI e2e run by hand ([docs/rules/change-loop.md](docs/rules/change-loop.md)).
 5. **After landing, only what applies:**
    - The history is the commit messages (the Notion Run Log and Session Handoff were retired on 11 Oct 2026).
