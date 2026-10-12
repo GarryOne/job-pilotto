@@ -42,7 +42,7 @@ export async function startRealExtension({extensionDir = EXTENSION_DIR, cv = tru
     request.on('data', chunk => { body += chunk; });
     request.on('end', () => {
       const route = request.url.split('?')[0];
-      requests.push({route, body: body.slice(0, 20000)});
+      requests.push({route, body: body.slice(0, route === '/extension/run' ? 2000000 : 20000)});   // the fill record whole: lib/replay-truth.mjs reads its trace
       Promise.resolve(answers[route] ? answers[route]() : answer[route] ? answer[route](body) : {}).then(found => { response.writeHead(200, headers); response.end(JSON.stringify(found)); });   // a case's answer may come late (page-replay.mjs answerFor _delayMs)
     });
   });
