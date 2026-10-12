@@ -43,7 +43,7 @@ function blockedWord(item) {
 
 // A run where no row ran is never a pass (12 Oct 2026: #455's proof was green in a minute and ran nothing, refused by the site limit). -> '' or the line that leads
 // the summary: "NOT RUN: <row>: <why>, <when the next visit is possible>". now: the clock (the site limit counts per UTC day on a runner).
-const nextDay = now => { const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)); return `${next.toISOString().slice(0, 10)} 00:00 UTC`; };
+export const nextDay = now => { const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)); return `${next.toISOString().slice(0, 10)} 00:00 UTC`; };
 function notRunLine(report, now) {
   const run = report.thisRun || {};
   if (!Array.isArray(run.ran) || run.ran.length) return '';
@@ -58,12 +58,12 @@ function notRunLine(report, now) {
 
 // The day's report (smoke.mjs: results + thisRun) and each row's last CI run (baseline: lib/pool-ci-state.mjs baselines) -> {markdown, red: [reasons]} for
 // $GITHUB_STEP_SUMMARY; red is empty when the run is green. Only the rows this run ran (the day's report also keeps other runs' rows).
-export function summary(report = {}, {baseline = {}, now = new Date()} = {}) {
+export function summary(report = {}, {baseline = {}, now = new Date(), proof = false} = {}) {
   const run = report.thisRun || {}, ran = run.ran ? new Set(run.ran) : null;
   const results = Object.entries(report.results || {}).filter(([shape]) => !ran || ran.has(shape));
   const last = shape => { const base = baseline[shape]; return base ? `${base.reached}${base.filled != null ? ` ${base.filled} / ${base.left}` : ''} (run ${base.run}, ${base.branch})` : '–'; };
   const notRun = notRunLine(report, now);
-  const red = [...(notRun ? [notRun] : []), ...(run.unfinished || []).map(item => `did not finish: ${item.shape} (${item.why})`),
+  const red = [...(notRun && !proof ? [notRun] : []), ...(run.unfinished || []).map(item => `did not finish: ${item.shape} (${item.why})`),
     ...results.filter(([, item]) => item.tripped).map(([shape]) => `privacy tripwire: ${shape}`),
     ...results.filter(([, item]) => item.aiRefused).map(([shape, item]) => `AI refused: ${shape} (${item.aiRefused.calls} calls: ${item.aiRefused.why})`),
     ...results.map(([shape, item]) => [shape, fallsBelow(baseline[shape], item)]).filter(([, why]) => why).map(([shape, why]) => `less than its last CI run: ${shape} (${why})`)];

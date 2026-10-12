@@ -85,3 +85,17 @@ test('the pool run sends its proven-live records and its ladder moves with the n
   assert.equal((smoke.match(/REPLAYS_PUBLISH_KEY: \$\{\{/g) || []).length, 1, 'the key sits on that one step');
   assert.doesNotMatch(smoke, /STATS_API_KEY|STATS_KEY|site\.api_key/);
 });
+
+// Owner, 12 Oct 2026 (via job-pilotto-cc): every PR check required, so the proof is SKIPPED, never red, when its row's site cannot be visited today.
+test('the PR proof checks the site before it starts: today\'s CI ledger only when a row is named, the run\'s own rule, a skip with a PR comment', () => {
+  const proof = workflows['pool-proof.yml'];
+  const at = name => proof.indexOf(`- name: ${name}`);
+  assert.ok(at('Which pool row this PR names') > 0 && at('Which pool row this PR names') < at('Earlier CI runs -> today\'s site ledger') && at('Earlier CI runs -> today\'s site ledger') < at('Which pool row this PR proves live'), 'name the row, prepare the ledger, then pick');
+  assert.match(proof, /- name: Earlier CI runs -> today's site ledger[^\n]*\n {8}if: steps\.named\.outputs\.row != ''/, 'the ledger only when a row is named');
+  assert.match(proof, /pool-ci-state\.mjs prepare/, 'prepared as the run prepares it');
+  assert.match(proof, /JOB_PILOTTO_SITE_LEDGER_DIR: \$\{\{ steps\.named\.outputs\.row != '' && format\('\{0\}\/site-ledger', runner\.temp\) \|\| '' \}\}/, 'the pick asks the site rule only with a ledger');
+  assert.match(proof, /JOB_PILOTTO_SITE_LIMIT: '2'/); assert.match(proof, /JOB_PILOTTO_VISIT_KIND: proof/);
+  assert.match(proof, /if: steps\.pick\.outputs\.skipped != ''[\s\S]*?gh pr comment "\$PR_NUMBER"/, 'a skipped proof says so on the PR, with when to retry');
+  assert.match(proof, /^ {2}proof:\n {4}needs: pick\n {4}if: needs\.pick\.outputs\.row != ''/m, 'no row: the proof job is skipped (a skipped required check never blocks a merge)');
+  assert.match(workflows['pool-smoke.yml'], /pool-ci-summary\.mjs/);   // a NOT RUN at run time on a proof is not red: lib/pool-ci.mjs summary({proof}), from JOB_PILOTTO_VISIT_KIND
+});
