@@ -8,6 +8,7 @@ import path from 'node:path';
 import {E2E} from './app.mjs';
 import {startRealExtension} from './real-extension.mjs';
 import {fillState} from './extension.mjs';
+import {endingOfStuck} from '../../../extension/ladder/endings.js';
 import {movesFromRequests} from './ladder-moves.mjs';
 
 export const REPLAY_DIR = path.join(E2E, 'recorded');
@@ -36,15 +37,21 @@ export const isExtensionPage = open => open.url().startsWith('chrome-extension:/
 
 // The case's checks on ITS tab. scope: {run, page (the tab), pages() (the case's non-extension tabs), mine() (requests that are the case's: told/asked/judged count only these, so a
 // parallel tab's request never satisfies a check), all() (every request: notTold counts all, so a parallel tab can only add a failure, never hide one), opened() (tabs opened during the run)}.
-// -> {ok, failures: [why], seen: {tabs, opened}, moves()}. expect: {told: [log words], notTold: [..], maxTabs, maxNewTabs (tabs opened during the run), attached: [selector], filled: [selector], kept: [selector] (still holds a value after the page settled), valueHas: ["selector|digits"] (the box holds those digits), pressed: [selector] (a pressable button, aria-pressed=true), chosen: [selector] (a choice option that reads as on: aria-checked/aria-pressed true, or a checked native radio/checkbox), asked: [question] (listed in the fields of an /extension/answer request: the reader saw it), empty: [selector], gone: [selector], notJudged: ["<label>:<state>"] (the form judge was never sent that), present: [selector] (an element matches: a state a widget shows only by a class or attribute), seconds}
+// -> {ok, failures: [why], seen: {tabs, opened}, moves()}. expect: {told: [log words], stuck: ['<why>' | '<why>|<need start>'] (a "can't reach" report), ending: [ending] (what the report names: extension/ladder/endings.js), notTold: [..], maxTabs, maxNewTabs (tabs opened during the run), attached: [selector], filled: [selector], kept: [selector] (still holds a value after the page settled), valueHas: ["selector|digits"] (the box holds those digits), pressed: [selector] (a pressable button, aria-pressed=true), chosen: [selector] (a choice option that reads as on: aria-checked/aria-pressed true, or a checked native radio/checkbox), asked: [question] (listed in the fields of an /extension/answer request: the reader saw it), empty: [selector], gone: [selector], notJudged: ["<label>:<state>"] (the form judge was never sent that), present: [selector] (an element matches: a state a widget shows only by a class or attribute), seconds}
 export async function judgeCase(item, scope) {
   const {run, mine, all} = scope, failures = [];
   if (item.start === 'panel') await run.fillWithPanel(scope.page);   // a form page's fill starts from the panel's Fill button (as the person, or the app's start signal, would)
   const expect = item.expect || {}, deadline = Date.now() + (expect.seconds || 40) * 1000;
   const page = () => scope.pages().at(-1) || scope.page;
   // The request-based checks over one list of requests (the strict list is only the case's own, the loose one adds lines no case's host names: see replay-browser.mjs).
+  // The "can't reach" reports the extension sent the app (/extension/event, type stuck): {why, needs}.
+  const stuckReports = list => list().filter(request => request.route === '/extension/event').map(request => { try { return JSON.parse(request.body); } catch { return null; } }).filter(body => body?.type === 'stuck');
   const requestChecks = list => ({
     told: word => list().some(request => request.body.includes(word)),
+    // stuck: ["<why>"] or ["<why>|<the start of what the person is told>"]: a "can't reach" report with that reason (and need).
+    stuck: spec => { const [why, needs = ''] = spec.split('|'); return stuckReports(list).some(body => body.why === why && String(body.needs || '').startsWith(needs)); },
+    // ending: ["<ending>"]: a "can't reach" report names that ending of the outcome contract (extension/ladder/endings.js endingOfStuck).
+    ending: name => stuckReports(list).some(body => endingOfStuck(body.why, body.needs) === name),
     asked: label => list().some(request => request.route === '/extension/answer' && request.body.split('"page_text"')[0].includes(`"label":${JSON.stringify(label)}`)),
     // What the extension showed the form judge (form-ready.js: /extension/account-judge, phase form): "<label>:<state>" of one control of the sketch it sent.
     judged: spec => list().some(request => { try { const body = JSON.parse(request.body); return request.route === '/extension/account-judge' && body.phase === 'form' && body.sketch.controls.some(control => `${control.label}:${control.state}` === spec); } catch { return false; } }),
@@ -86,7 +93,7 @@ export async function judgeCase(item, scope) {
   const confirm = [];
   if (!failures.length && scope.strict) {
     const strict = requestChecks(scope.strict);
-    for (const kind of ['told', 'asked', 'judged', 'onTop']) for (const arg of expect[kind] || []) if (!strict[kind](arg)) confirm.push(`${kind}: ${arg}`);
+    for (const kind of ['told', 'asked', 'judged', 'onTop', 'stuck', 'ending']) for (const arg of expect[kind] || []) if (!strict[kind](arg)) confirm.push(`${kind}: ${arg}`);
   }
   return {ok: !failures.length, failures, confirm, seen: {tabs, opened}, moves: () => movesFromRequests(mine())};   // the ladder moves the case's pages confirmed (lib/ladder-moves.mjs), read once the run is over: a report can land after the judgment
 }

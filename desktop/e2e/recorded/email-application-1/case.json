@@ -32,6 +32,12 @@
    "bitte per E-Mail an jobs@example.com"
   ],
   "maxNewTabs": 0,
-  "seconds": 30
+  "seconds": 30,
+  "stuck": [
+   "email"
+  ],
+  "ending": [
+   "told"
+  ]
  }
 }

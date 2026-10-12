@@ -1,0 +1,20 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Sales Associate | Example Careers</title>
+<style>body{font-family:sans-serif;margin:0}#check{padding:40px}#check iframe{width:320px;height:90px;border:1px solid #ccc}form{padding:24px;max-width:520px}label{display:block;margin-top:12px}input,textarea{width:100%;padding:6px}</style></head>
+<body>
+<!-- Hand-cut (12 Oct 2026): a check that the visitor is human sits in front of the application; the person solves it, then the page draws its form. Here the page's own script
+     stands in for the person: 8 s after the load the check goes and the form comes, at the same address. -->
+<div id="check"><h1>Checking that you are human</h1><p>This takes a few seconds.</p><iframe title="Human check" src="https://challenge.wall.example/check"></iframe></div>
+<script>
+setTimeout(function () {
+  document.getElementById('check').remove();
+  var form = document.createElement('form');
+  form.innerHTML = '<h1>Apply: Sales Associate</h1>'
+    + '<label for="first_name">First name *</label><input id="first_name" name="first_name" required>'
+    + '<label for="last_name">Last name *</label><input id="last_name" name="last_name" required>'
+    + '<label for="email">Email *</label><input id="email" name="email" type="email" required>'
+    + '<label for="motivation">Anything else?</label><textarea id="motivation" name="motivation"></textarea>'
+    + '<button type="submit">Submit application</button>';
+  document.body.appendChild(form);
+}, 8000);
+</script>
+</body></html>
