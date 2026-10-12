@@ -186,3 +186,16 @@ test('scenario: Notion chosen but not connected, a search starts: the engine run
   assert.equal(env.JOB_PILOTTO_STORE, undefined);   // was 'notion': src/stores/notion.py raised "needs NOTION_TOKEN", shown as "Unexpected error"
   assert.equal(env.NOTION_TOKEN, undefined);
 });
+
+test('scenario: account permission handoff and partial application never claim review completion', async () => {
+  const {sessionReview, sessionState} = await import('../renderer/session-state.js');
+  const {flow} = journeyOf();
+  flow.stuck({url: POSTING, host: 'accounts.example', why: 'account', session: 'f1', needs: 'Continue needs permission'});
+  terminals.report('f1', {event: 'input', message: 'Continue was blocked by a permission check. Nothing was submitted.'});
+  assert.equal(sessionReview(terminals.get('f1'), true), false);
+  assert.notEqual(sessionState(terminals.get('f1'), true)[0], 'Ready to submit');
+  const partial = {kind: 'form', status: 'done'};
+  assert.equal(sessionReview(partial, false), false);
+  assert.deepEqual(sessionState(partial, false), ['Form open', 'info']);
+  assert.deepEqual(sessionState(partial, true), ['Ready to submit', 'good']);
+});

@@ -113,9 +113,9 @@ function scenario(t) {
         pipelineRun: async (_storage, args) => { assert.deepEqual(args, ['src.ai.apply_batch', '--mark-applying', URL]); status = 'applying'; return {code: 0}; }});
       return item.id;
     },
-    question: id => {
+    question: (id, text = 'This fictional role is on-site. Continue?') => {
       const transcript = path.join(dir, 'transcript.jsonl');
-      fs.writeFileSync(transcript, JSON.stringify({type: 'assistant', message: {content: [{type: 'text', text: 'This fictional role is on-site. Continue?'}]}}));
+      fs.writeFileSync(transcript, JSON.stringify({type: 'assistant', message: {content: [{type: 'text', text}]}}));
       return terminals.report(id, {event: 'stop', transcript});
     },
     restart: () => {
@@ -260,4 +260,23 @@ test('journey: Start again asks nothing, restarts in Chrome, shows the new sessi
   const order = s.events.map(([event, payload]) => event === 'open' ? `open ${payload.id}` : payload?.removed ? `removed ${payload.id}` : '').filter(Boolean);
   assert.deepEqual(order, ['open new1', `removed ${id}`]);
   assert.equal(await s.view(id), undefined, 'the old session is closed');
+});
+
+
+test('journey: a permission blocker survives restart without a false review handoff', async t => {
+  const s = scenario(t), id = await s.start();
+  terminals.setStage(id, 'account', 'accounts.example');
+  const report = "Continue was blocked by a permission check, so the form is not filled and nothing was submitted.\n\n**Needs you:**\n- Press Continue yourself.\n- Or allow the browser action.";
+  s.question(id, report);
+  for (const item of [await s.view(id), s.cached(id)]) {
+    assert.notEqual(sessionState(item)[0], 'Ready for review');
+    assert.equal(item.question, report);
+  }
+  s.restart();
+  const restored = await s.view(id);
+  assert.notEqual(sessionState(restored)[0], 'Ready for review');
+  assert.equal(restored.stage, 'account');
+  assert.equal(restored.question, report);
+  assert.equal(s.status(), 'applying');
+  assert.ok(!s.commands.includes('Notion applied'));
 });
