@@ -6,11 +6,11 @@
 // The applicant and the answers are the case's fake data; nothing here is sent anywhere. Used by lib/page-replay.mjs judgeCase.
 // Guards: e2e/test/replay-truth.test.mjs (pure parts), e2e/test/recorded-pages.test.mjs (every case).
 
-import path from 'node:path';
 import {FALSE_READINGS} from './recorded-false-readings.mjs';
-import {FIXTURE_CV} from './real-extension.mjs';
 
-const CV_NAME = path.basename(FIXTURE_CV);   // the file the stand-in app gives as the CV (real-extension.mjs pdf('cv.pdf'))
+// The file the stand-in app gives as the CV (real-extension.mjs pdf('cv.pdf')), named here, not imported: that file loads playwright, and lib/smoke.mjs (desktop's unit
+// tests import it) reaches this file through lib/live-readings.mjs (test/unit-tests-no-playwright.test.js).
+const CV_NAME = 'cv.pdf';
 
 // The false readings already found, per case (lib/recorded-false-readings.mjs): each is a bug to fix, never a loosened assert. A listed one is said as KNOWN BUG and does not fail;
 // a new one fails; a listed one that does not show is said (GONE?: remove its line once the fix landed), never a failure: some depend on timing, and a flaky required check blocks every PR.
