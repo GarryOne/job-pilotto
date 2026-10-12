@@ -49,18 +49,23 @@ test('a page that reformats what was typed stays committed; one that put somethi
 const SLOT = (extra = '') => `<form><div class="field"><label for="first">First</label><input id="first" value="Ada"></div>
   <div class="field" id="slot"><label for="cv">Resume</label><div class="zone" id="zone"><input id="cv" type="file"><span>Upload file</span>${extra}</div></div></form>`;
 
-test('an upload slot is read by the file it shows: a name in its area is in, the extension\'s own mark alone is unknown, nothing is empty', {skip: !JSDOM}, () => {
-  const read = (html, mark) => {
-    const window = openPage(JSDOM, html), input = window.document.getElementById('cv');
+test('an upload slot is read by the file it shows: ours or a name that came after first sight is in; a hint or a name there from the start is never in', {skip: !JSDOM}, () => {
+  const read = (html, {mark = false, later = ''} = {}) => {
+    const window = openPage(JSDOM, html), input = window.document.getElementById('cv'), RB = window.__jobPilottoReadBack;
+    const first = RB.fileState(input);   // the first sight: its baseline
+    if (later) window.document.getElementById('zone').insertAdjacentHTML('beforeend', later);
     if (mark) { input.dataset.jobPilottoFile = 'cv.pdf'; window.document.getElementById('slot').dataset.jobpilottoFile = 'cv.pdf'; }
-    const state = window.__jobPilottoReadBack.fileState(input);
+    const now = RB.fileState(input);
     window.close();
-    return state;
+    return [first, now];
   };
-  assert.equal(read(SLOT(), false), 'empty');
-  assert.equal(read(SLOT(), true), 'unknown', 'attached by us, the input emptied, nothing shown: never counted as filled (the refused upload)');
-  assert.equal(read(SLOT('<div class="file-chip"><span>cv.pdf</span><button type="button">Remove</button></div>'), true), 'committed', 'a custom uploader that empties its input and shows a chip (case d)');
-  assert.equal(read(SLOT('<div class="file-chip">resume_final.docx</div>'), false), 'committed', 'any file name the slot shows');
+  assert.deepEqual(read(SLOT()), ['empty', 'empty']);
+  assert.deepEqual(read(SLOT(), {mark: true}), ['empty', 'unknown'], 'attached by us, the input emptied, nothing shown: never counted as filled (the refused upload)');
+  assert.deepEqual(read(SLOT(), {mark: true, later: '<div class="file-chip"><span>cv.pdf</span><button type="button">Remove</button></div>'}), ['empty', 'committed'], 'an uploader that empties its input and shows our file as a chip (case d)');
+  assert.deepEqual(read(SLOT(), {later: '<div class="file-chip">resume_final.docx</div>'}), ['empty', 'committed'], 'a file name that appeared after first sight');
+  assert.deepEqual(read(SLOT('<small>Drop your CV here or browse (.pdf, .docx, max 5 MB)</small>')), ['empty', 'empty'], 'a format hint holds no file name');
+  assert.deepEqual(read(SLOT('<small>Accepted: resume.pdf</small>')), ['unknown', 'unknown'], 'an example name in a hint: never a CV');
+  assert.deepEqual(read(SLOT('<div class="file-chip">my_cv.pdf</div>')), ['unknown', 'unknown'], 'a file shown before anyone looked (a resumed session): unknown, for the closer look');
   window_files: {
     const window = openPage(JSDOM, SLOT()), input = window.document.getElementById('cv');
     Object.defineProperty(input, 'files', {value: [{name: 'cv.pdf'}]});

@@ -67,7 +67,8 @@ const committed = state => state === 'committed', held = state => state === 'com
 export const CHANGES = {
   'a: the extension\'s own mark alone is not a file': d => d.kind === 'file' && d.reader === 'sketch' && d.old === true && d.state === 'unknown',
   'b: a box the page changed after it was typed is not filled': d => d.state === 'mismatch' && d.old === true && ['fill', 'audit'].includes(d.reader),
-  'c: a file name the slot shows is the file for every reader (the panel\'s chip rule, now read as a person sees the words: "cv.pdf" + a "Replace" button ran together as "cv.pdfReplace")': d => d.kind === 'file' && committed(d.state) && d.old === false && !d.files,
+  'c: the file the extension attached, or a name that appeared after first sight, is the file for every reader (the panel\'s chip rule, read as a person sees the words)': d => d.kind === 'file' && committed(d.state) && d.old === false && !d.files,
+  'f: a format hint, an example name or a file shown before anyone looked is never a CV (the old panel read "(.pdf" and "resume.pdf" in a hint as one; cc\'s review of #507)': d => d.kind === 'file' && d.reader === 'panel' && d.old === true && ['empty', 'unknown'].includes(d.state) && !d.files,
   'd: a picklist chip counts only from the field\'s own area: the fill\'s end read took one from any "container", even one holding another field': d => d.kind === 'combobox' && d.reader === 'fill' && d.old === true && d.state === 'empty',
   'e: a picklist chip in a container that holds only this field counts for the panel, the judges and the audit too (the fill\'s end read already took it)': d => d.kind === 'combobox' && committed(d.state) && d.old === false && d.reader !== 'fill',
 };
@@ -91,6 +92,9 @@ const INCIDENTS = {
   'menu-first-option-real': '<label for="a">Titre*</label><select id="a"><option value="1">Monsieur</option><option value="2">Madame</option></select>',
   'blank-region-zero': '<label for="r">Région</label><select id="r"><option value="0"></option><option value="5">Genève</option></select>',
   'ashby-file-chip': '<div class="_fieldEntry"><label for="cv">CV*</label><div role="presentation" class="_container"><input id="cv" type="file" required tabindex="-1" style="position:absolute;width:1px;height:1px;clip:rect(0,0,0,0)"><div class="_name">cv.pdf</div><button type="button">Replace</button></div></div>',
+  'format-hint-empty-slot': '<div class="field"><label for="cv">Resume*</label><div class="zone"><input id="cv" type="file" required><small>Drop your CV here or browse (.pdf, .docx, max 5 MB)</small></div></div>',
+  'example-name-hint-empty-slot': '<div class="field"><label for="cv">CV*</label><div class="zone"><input id="cv" type="file" required><small>Accepted: resume.pdf</small></div></div>',
+  'file-shown-before-first-read': '<div class="field"><label for="cv">CV*</label><div class="zone"><input id="cv" type="file" required><div class="file-chip">my_cv.pdf</div></div></div>',
   'phone-mask-reformats': '<label for="m">Phone</label><input id="m" type="tel"><script>document.getElementById("m").addEventListener("input", e => { const d = e.target.value.replace(/\\D/g, ""); if (d.startsWith("41")) e.target.value = "0" + d.slice(2).replace(/(\\d{2})(\\d{3})(\\d{2})(\\d{2})/, "$1 $2 $3 $4"); });</script>',
   'date-re-rendered': '<label for="d">Start date</label><input id="d" type="text"><script>document.getElementById("d").addEventListener("change", e => { const [y, m, d] = e.target.value.split("-"); if (d) e.target.value = d + "." + m + "." + y; });</script>',
   'box-replaced-by-page': '<label for="x">Notice period</label><input id="x"><script>document.getElementById("x").addEventListener("change", e => { e.target.value = "Please choose"; });</script>',
@@ -120,7 +124,7 @@ test('the one reader says what the old readers said, on every page, except the n
     for (const item of corpus()) {
       const page = await context.newPage();   // one window per page: a page's own top-level declarations must not meet the next page's (a reused window broke their scripts)
       await page.setContent(item.html, {waitUntil: 'domcontentloaded'}).catch(() => {});
-      for (const content of scripts) await page.addScriptTag({content}).catch(() => {});
+      for (const content of scripts) await page.evaluate(content).catch(() => {});   // run, never added to the page as a tag: a reader that climbs to <html> must not read our own scripts' words
       all.push(...disagreements(item.name, 'as loaded', await page.evaluate(READ).catch(() => [])));
       await page.evaluate(FILL).catch(error => { if (process.env.EQUIV_DEBUG && item.name.includes(process.env.EQUIV_DEBUG)) console.log('FILL failed', error.message); });
       const filled = await page.evaluate(READ).catch(error => { if (process.env.EQUIV_DEBUG && item.name.includes(process.env.EQUIV_DEBUG)) console.log('READ failed', error.message); return []; });

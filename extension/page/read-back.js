@@ -11,7 +11,9 @@
   const visible = el => !!(el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
   const textOf = el => el?.innerText ?? el?.textContent ?? '';
   const own = el => !!el.closest?.('[id^=jobpilotto], [id^=job-pilotto]');   // the extension's own panel
-  const FILE_NAME = /\S+\.(pdf|docx?|rtf|txt|odt)\b/i;
+  // A file name: a stem that starts with a letter or digit, then its extension ("cv.pdf"); a format hint ("(.pdf, .docx, max 5 MB)") holds no name.
+  const FILE_NAMES = /[\p{L}\p{N}][^\s\\/]*\.(?:pdf|docx?|rtf|txt|odt)\b/giu;
+  const namesIn = text => [...new Set(String(text || '').match(FILE_NAMES) || [])];
 
   // A menu holds an answer when its selected option is a real choice: text, not disabled or hidden, a value that is not, on the first option, empty or a placeholder sentinel
   // (0, -1); further down 0 is an answer ("Number of children" 0; #331). Not "any index but the first": a menu with no blank first option starts on a real choice (easytemp, 9 Oct 2026).
@@ -43,11 +45,19 @@
     const marked = input.closest?.('[data-jobpilotto-file]');
     return `${textOf(box)} ${marked && !box.contains(marked) ? textOf(marked) : ''}`;
   };
+  // The file names the slot showed at first sight, kept on its input: written by the first reader in either world, and by page/upload.js before it attaches anything.
+  const baseline = input => {
+    if (!input.hasAttribute('data-jobpilotto-names-first')) input.setAttribute('data-jobpilotto-names-first', JSON.stringify(namesIn(slotText(input)).slice(0, 8)));
+    try { return JSON.parse(input.getAttribute('data-jobpilotto-names-first')) || []; } catch { return []; }
+  };
+  // committed: the input holds a file, or the slot shows the file this extension attached, or a file name that was not there at first sight (a chip the uploader drew).
+  // unknown: only the extension's own mark says a file went in, or the slot showed a name from the start (an example in a hint, a file attached before anyone looked):
+  // never counted as filled (cc's review of #507, 12 Oct 2026: "Accepted: resume.pdf" in an empty slot read as a CV). empty: nothing at all (a format hint alone).
   const fileState = input => {
     if (input.files?.length) return 'committed';
-    const name = ours(input), shown = slotText(input);
-    if (FILE_NAME.test(shown) || (name && shown.includes(name))) return 'committed';
-    return name ? 'unknown' : 'empty';
+    const first = baseline(input), name = ours(input), text = slotText(input), shown = namesIn(text);
+    if ((name && text.includes(name)) || shown.some(found => !first.includes(found))) return 'committed';
+    return name || shown.length ? 'unknown' : 'empty';
   };
   // A box: empty when it holds nothing or only a calling code (page/typed-check.js); mismatch when the fill typed it and it holds something else now.
   const boxState = el => {
@@ -101,5 +111,5 @@
     return rows;
   };
   window.__jobPilottoChosen = chosen;   // the name the audit and coverage.js call it by
-  window.__jobPilottoReadBack = {stateOf, holds: el => stateOf(el) === 'committed', chosen, comboValue, fileState, pass, FILE_NAME};
+  window.__jobPilottoReadBack = {stateOf, holds: el => stateOf(el) === 'committed', chosen, comboValue, fileState, baseline, namesIn, pass};
 })();

@@ -54,7 +54,7 @@
 - **Repair:** `choose_option(i)` by **number** from the control's own option list; validated locally: the option holds the answer's key parts (the digits of a dial code, the words of a name) or is the dial code's country by the local table ("+41" → CH → "Switzerland (+41)"). Anything else is refused.
 
 ### 4 · One truth per control (case d; also FNAC 12 Oct: judge "ready" with 2 required left)
-- **R0's final read-back after settle writes each control's state once**, on the control: `data-jobpilotto-r0 = committed | empty | mismatch | unknown | unreachable`. It lasts until the control changes (the person's edit, a later pass), then the next read writes it again.
+- **One function gives each control's state, read live by every reader at its own moment** (`extension/page/read-back.js` stateOf): `committed | empty | mismatch | unknown`; the fill-end pass after settle also writes it on the control (`data-jobpilotto-r0`, plus `unreachable`) for the record and for debugging; no reader trusts a stale mark.
 - **Every reader uses it:** the panel's left count (`review.js` `fields()`), the judges' sketch state + match (`account-fill.js` `accountSketch`), the fill trace (`trace-settle.js`) → the session's left/todo → the app's session card. No separate counts.
 - **Upload slots by their own visible state:** `input.files`, **or** the file name the slot shows, the slot's chip or "uploaded" mark (by structure, near the slot; the extension knows the file it attached). Custom uploaders that clear `input.files` are read by what they show.
 - **A slot R0 cannot read = `unknown`** → R4 scope `verify` (capped), never guessed.
@@ -233,7 +233,9 @@ Shadow (owner): one zoo pass + one pool pass with `fill_verify` logging, then re
 ### 2. Verify rung 0 + one truth (PR A)
 - [x] Library counts in the pool's saved pages (53 hosts: react-select 4, intl-tel-input 4, react-datepicker 3, react-dropzone 3 (Ashby's input carries its exact hidden style), Select2 2; MUI, Chosen, flatpickr, FilePond 0; recount from the CI artifacts with PR B); vendored real react-dropzone 14.2.3 page `drop-zone-react-dropzone-1` (amendment 6, PR A)
 - [x] Final read-back after settle for every control kind (`extension/page/read-back.js` pass: ≥ 700 ms still, ≤ 2 s); the R0 mark `data-jobpilotto-r0` on each control; the fill's record takes it (PR A)
-- [ ] Retype / re-pick for every kind that reverts (within the attempt log): text boxes done (#438, typed again key by key); choices, dates and the phone country part still open
+- [ ] Retype / re-pick for every kind that reverts (within the attempt log): text boxes done (#438, typed again key by key); choices, dates and the phone country part: PR B
+- [ ] Choices read `mismatch` (cc's review of #507): today any real choice is `committed`, so a menu the page set to its own default (Recruitee: the country picker on +972) reads filled; the fill marks its own pick (like `data-jobpilotto-typed`) and R0 compares: PR B, with the re-pick
+- Known after PR A (cc's review, 12 Oct 2026): the record keys radios by group name (the last radio sets the reason text only); a judge "ready" over R0 `empty` (FNAC) is still logged only (PR 3's switch); the panel does not count a CV input hidden by `display:none` (real react-dropzone): the stacked PR
 - [x] One truth: one reader for the panel, the judges' sketch (judge-sketch.js loads it), the fill's end read, the audit, coverage and upload; the session card is fed by the panel's report; upload slots read by the file they show; equivalence test vs the old copies: 5 named changes, 0 unnamed (PR A). With one reader the sources cannot disagree; R2's contradiction trigger (PR 3) stays. Found gap: a CV input hidden by `display:none` (real react-dropzone) is not counted by the panel at all: follow-up
 ### 3. Verify rung 2 (shadow)
 - [x] `fill_verify` question, sketch without values, local `match` (`desktop/lib/ladder/fill-verify.js`, phase `fill` of /extension/account-judge)

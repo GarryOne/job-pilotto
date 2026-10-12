@@ -405,8 +405,8 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   const finalForm = await inPage(tab.id, () => window.__jobPilottoDescribeForm?.(true)).catch(() => null);   // settled: a real first choice is an answer
   const gaveUp = await inPage(tab.id, () => window.__jobPilottoRetypeGaveUp?.() || []).catch(() => []);
   // Rung 0 of the fill ladder: the one read of every control once the page settled (page/read-back.js), written on each control; the trace takes it, so it says what the panel says.
-  const readBack = await inPage(tab.id, () => window.__jobPilottoReadBack?.pass() || []).catch(() => []);
-  if (readBack.length) decide('fill', 'read back after the page settled', readBackCounts(readBack)).catch(() => {});
+  const settleStart = Date.now(), readBack = await inPage(tab.id, () => window.__jobPilottoReadBack?.pass() || []).catch(() => []);
+  if (readBack.length) decide('fill', 'read back after the page settled', {...readBackCounts(readBack), ms: Date.now() - settleStart}).catch(() => {});   // ms: what the settle wait costs (spec budget: <= +1 s on a clean page)
   summary.trace = settleTrace(summary.trace || [], Array.isArray(finalForm) ? finalForm : [], gaveUp, Array.isArray(readBack) ? readBack : [], (me?.resume || config.resume)?.name || '');
   // One anonymous record of this fill for the learning digest (fill-card.js: counts and fixed words), and its id on the page so
   // the panel can add, at Submit, what you answered yourself.
