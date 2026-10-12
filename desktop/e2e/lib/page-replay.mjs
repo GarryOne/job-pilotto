@@ -7,6 +7,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {E2E} from './app.mjs';
 import {startRealExtension} from './real-extension.mjs';
+import {fillState} from './extension.mjs';
+import {movesFromRequests} from './ladder-moves.mjs';
 
 export const REPLAY_DIR = path.join(E2E, 'recorded');
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -34,7 +36,7 @@ export const isExtensionPage = open => open.url().startsWith('chrome-extension:/
 
 // The case's checks on ITS tab. scope: {run, page (the tab), pages() (the case's non-extension tabs), mine() (requests that are the case's: told/asked/judged count only these, so a
 // parallel tab's request never satisfies a check), all() (every request: notTold counts all, so a parallel tab can only add a failure, never hide one), opened() (tabs opened during the run)}.
-// -> {ok, failures: [why], seen: {tabs, opened}}. expect: {told: [log words], notTold: [..], maxTabs, maxNewTabs (tabs opened during the run), attached: [selector], filled: [selector], kept: [selector] (still holds a value after the page settled), valueHas: ["selector|digits"] (the box holds those digits), pressed: [selector] (a pressable button, aria-pressed=true), chosen: [selector] (a choice option that reads as on: aria-checked/aria-pressed true, or a checked native radio/checkbox), asked: [question] (listed in the fields of an /extension/answer request: the reader saw it), empty: [selector], gone: [selector], notJudged: ["<label>:<state>"] (the form judge was never sent that), present: [selector] (an element matches: a state a widget shows only by a class or attribute), seconds}
+// -> {ok, failures: [why], seen: {tabs, opened}, moves()}. expect: {told: [log words], notTold: [..], maxTabs, maxNewTabs (tabs opened during the run), attached: [selector], filled: [selector], kept: [selector] (still holds a value after the page settled), valueHas: ["selector|digits"] (the box holds those digits), pressed: [selector] (a pressable button, aria-pressed=true), chosen: [selector] (a choice option that reads as on: aria-checked/aria-pressed true, or a checked native radio/checkbox), asked: [question] (listed in the fields of an /extension/answer request: the reader saw it), empty: [selector], gone: [selector], notJudged: ["<label>:<state>"] (the form judge was never sent that), present: [selector] (an element matches: a state a widget shows only by a class or attribute), seconds}
 export async function judgeCase(item, scope) {
   const {run, mine, all} = scope, failures = [];
   if (item.start === 'panel') await run.fillWithPanel(scope.page);   // a form page's fill starts from the panel's Fill button (as the person, or the app's start signal, would)
@@ -86,7 +88,15 @@ export async function judgeCase(item, scope) {
     const strict = requestChecks(scope.strict);
     for (const kind of ['told', 'asked', 'judged', 'onTop']) for (const arg of expect[kind] || []) if (!strict[kind](arg)) confirm.push(`${kind}: ${arg}`);
   }
-  return {ok: !failures.length, failures, confirm, seen: {tabs, opened}};
+  return {ok: !failures.length, failures, confirm, seen: {tabs, opened}, moves: () => movesFromRequests(mine())};   // the ladder moves the case's pages confirmed (lib/ladder-moves.mjs), read once the run is over: a report can land after the judgment
+}
+
+// A case's checks can pass while its fill still runs; the fill's last reports (the moves it confirmed: lib/ladder-moves.mjs) land after it. Before a case's tab is closed it waits for the
+// page's own fill state to leave "running", at most `ms`, then the reports' flight time. A page with no fill state is not waited for. The checks are not changed.
+export async function fillSettled(page, ms = 4000) {
+  let state = await fillState(page).catch(() => null);
+  for (const end = Date.now() + ms; state?.state === 'running' && Date.now() < end; state = await fillState(page).catch(() => null)) await wait(200);
+  if (state) await wait(300);
 }
 
 // One case in its own browser (JP_REPLAY_TABS=1, and the run alone after a failure in parallel): the same checks over every request of that browser.
@@ -105,6 +115,7 @@ export async function runCase(item, {extensionDir} = {}) {
     await run.page.goto(`${item.pages[0].url}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'});
     const result = await judgeCase(item, {run, page: run.page, pages: () => run.context.pages().filter(open => !isExtensionPage(open)), mine: () => run.requests, all: () => run.requests, opened: () => opened});
     if (!(await run.assertIsolated())) result.failures.push('isolation');
+    await fillSettled(run.page);
     return {...result, ok: !result.failures.length};
   } finally { await run.close(); }
 }

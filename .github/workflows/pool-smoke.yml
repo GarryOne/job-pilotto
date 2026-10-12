@@ -3,7 +3,8 @@
 # Never a schedule or push trigger (e2e/test/pool-ci-triggers.test.mjs).
 # - Rows: the pool list in the repo (desktop/e2e/smoke-sites.json: every row since 12 Oct 2026; postings are public pages, the owner's details never enter a run).
 # - Floors unchanged: the fake applicant, HELD (never Submit, no account or consent button, no password, no captcha), the privacy tripwire on, nothing uploaded
-#   (lib/applying-report.mjs refuses CI).
+#   (lib/applying-report.mjs refuses CI) but the two CI records below, with the narrow REPLAYS_PUBLISH_KEY: "proven live", and the ladder moves the rows' pages
+#   confirmed (desktop/e2e/pool-moves.mjs: fixed values per page shape, marked source 'ci' so they never pose as a user's; spec 2026-10-12-one-next-move.md).
 # - AI: the app's own API engine on the Tests key (E2E_ANTHROPIC_KEY, the Tests workspace's $20 limit), through the harness's metering proxy (lib/live-row.mjs).
 #   Hard caps per run, here: MAX_ROWS rows and MAX_USD dollars (the run stops between rows once its spend reaches it).
 # - Site limit: CI's own ledger per UTC day, at most 2 visits per host across ALL CI runs (main and every PR), a host that showed a block page rests the day;
@@ -60,7 +61,7 @@ jobs:
       ONLY: ${{ inputs.only }}
       SHARE: ${{ inputs.share }}
       E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
-      JP_NO_REPORT: '1'                # nothing uploaded from CI (the code refuses it anyway)
+      JP_NO_REPORT: '1'                # no applying report from CI (the code refuses it anyway); the proven records and ladder moves go with their own narrow key
       JP_APPLICANT: ${{ inputs.applicant || 'thin' }}   # thin by hand, grown on a PR proof unless its body says "live-applicant: thin"
       JOB_PILOTTO_HEAVY: '0'           # the heavy lock is a Mac's machine-wide queue; this runner is its own machine
       JOB_PILOTTO_SESSION: pool-smoke CI run ${{ github.run_id }}
@@ -139,11 +140,11 @@ jobs:
         run: |
           set -o pipefail
           node pool-ci-summary.mjs "$SMOKE_REPORTS" "$GITHUB_WORKSPACE/pool-smoke-out/baseline.json" | tee -a "$GITHUB_STEP_SUMMARY"
-      - name: Send a "proven live" record for each row that really ran (the Fixed tab)
+      - name: Send a "proven live" record for each row that really ran (the Fixed tab), and the ladder moves the rows' pages confirmed (source ci)
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-          REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}   # the narrow key: it writes only the replays and these records
+          REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}   # the narrow key: it writes only the replays, these records and test-source ladder moves
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
@@ -151,6 +152,7 @@ jobs:
             gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/commits" --jq '.[].commit.message | split("\n")[0] | @json' > "$RUNNER_TEMP/subjects" || true
           fi
           node desktop/e2e/pool-proven.mjs "$SMOKE_REPORTS" "$RUNNER_TEMP/subjects"
+          node desktop/e2e/pool-moves.mjs "$SMOKE_REPORTS" | tee -a "$GITHUB_STEP_SUMMARY"   # the moves per row: the one-next-move spec's phase-1 proof
       - name: Tell the PR when its row did not run (when to run it again)
         if: always() && github.event_name == 'pull_request'
         env:
