@@ -82,6 +82,7 @@ test('the pool run sends its proven-live records and its ladder moves with the n
   assert.match(step, /REPLAYS_PUBLISH_KEY: \$\{\{ secrets\.REPLAYS_PUBLISH_KEY \}\}/);
   assert.match(step, /node desktop\/e2e\/pool-proven\.mjs/);
   assert.match(step, /node desktop\/e2e\/pool-moves\.mjs/);   // the ladder moves, marked source ci (lib/ladder-moves.mjs)
+  assert.match(step, /node desktop\/e2e\/pool-endings\.mjs/);   // each row's ending (lib/pool-endings.mjs)
   assert.equal((smoke.match(/REPLAYS_PUBLISH_KEY: \$\{\{/g) || []).length, 1, 'the key sits on that one step');
   assert.doesNotMatch(smoke, /STATS_API_KEY|STATS_KEY|site\.api_key/);
 });
