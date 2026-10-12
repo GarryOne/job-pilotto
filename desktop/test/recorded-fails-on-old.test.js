@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
-import {outcomes, splitPinned, verdict} from '../../tools/recorded-fails-on-old.mjs';
+import {outcomes, splitPinned, unreadKeys, verdict} from '../../tools/recorded-fails-on-old.mjs';
 
 const commit = (files, message = '') => ({files, message});
 
@@ -41,4 +41,15 @@ test('a case that passes on the old code, or gives no result, is refused; one th
 
 test('the check runs as a script (a CI job on a branch/PR, or by hand), not from the push hook', () => {
   assert.ok(fs.existsSync(new URL('../../tools/recorded-fails-on-old.mjs', import.meta.url)));
+});
+
+test('a check the PR adds to the replay is named when main\'s replay cannot read it, not a silent "proves nothing"', () => {
+  // 12 Oct 2026, #516: sign-in-then-form-1 checked only `stuck` and `ending`, new in that PR's page-replay.mjs; main's replay skipped both and the case "passed on the old code".
+  const oldReplay = "const expect = item.expect || {}, deadline = expect.seconds || 40;\nfor (const word of expect.notTold || []) x();\n// a comment naming ending and stuck does not count\nconst checks = {told: 1, filled: 2};";
+  assert.deepEqual(unreadKeys({told: ['a'], stuck: 'x', ending: 'handed', seconds: 9}, [oldReplay]), ['ending', 'stuck'], 'only the keys main never reads; a word in a comment does not count');
+  assert.deepEqual(unreadKeys({told: ['a'], notTold: ['b']}, [oldReplay]), []);
+  const why = verdict({passed: ['sign-in-then-form-1'], missing: []}, {'sign-in-then-form-1': ['ending', 'stuck']});
+  assert.match(why, /main's replay cannot check: ending, stuck/);
+  assert.match(why, /add a check it knows/);
+  assert.doesNotMatch(verdict({passed: ['a-1'], missing: []}, {}), /cannot check/, 'no note when every key is read');
 });
