@@ -72,6 +72,9 @@ export function makeOpenShim() {
 export const browserChannel = (env = process.env) => (env.E2E_BROWSER === 'msedge' ? {channel: 'msedge'} : {});
 
 // -> {context, opened: [url], serviceWorker(), page(url), close()}. Every URL the app opens is opened here, in a new tab.
+// The per-site daily limit (lib/site-ledger.mjs) is for live visits: a fixture browser's addresses resolve to the fixture server and are never counted
+// (12 Oct 2026: local apply runs used up jobs.lever.co's 3 a day and the next run's Lever step was refused). Guard: test/extension-browser.test.mjs.
+export const visitGuard = real => (real ? (url, options) => guardLiveVisit(url, options) : () => null);
 // `real`: a live-test twin's window (e2e/twin.mjs): real sites (no fixture host mapping), always visible.
 // `profile`: a browser profile kept between runs (the twin's: site sign-ins and cookies survive); else a fresh temp one.
 // `debugPort`: the browser's own debugging port (the twin's: its tabs can be seen and driven from outside, like its app window).
@@ -98,7 +101,7 @@ export async function launchBrowser({port, spool, extensionDir, real = false, pr
         const url = fs.readFileSync(path.join(spool, file), 'utf8').trim();
         fs.rmSync(path.join(spool, file));
         if (!/^https:\/\//.test(url)) continue;   // the app asked `open` for something else: nothing to do here
-        try { guardLiveVisit(url, {who: process.env.JOB_PILOTTO_SESSION || 'browser'}); } catch (error) { console.error(error.message); continue; }   // the per-site daily limit (lib/site-ledger.mjs): a refused address is not opened
+        try { visitGuard(real)(url, {who: process.env.JOB_PILOTTO_SESSION || 'browser'}); } catch (error) { console.error(error.message); continue; }   // the per-site daily limit (lib/site-ledger.mjs): a refused address is not opened
         const tab = context.pages().find(page => blank(page) && !Object.values(pages).includes(page)) || await context.newPage();
         pages[url.split('#')[0]] = tab;
         opened.push(url);   // after the tab exists: a caller that sees the URL finds its tab
