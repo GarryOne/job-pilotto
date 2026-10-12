@@ -1,6 +1,7 @@
 // A session's state on the session page: ready for review, asking you, working, and how long it took.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
+import fs from 'node:fs';
 import {SESSION_STATE, dockCounts, dockOrder, firstLine, isLive, isSubmitted, panelAnswered, sessionDuration, sessionReview, sessionState} from '../renderer/session-state.js';
 
 test('a filled form waiting for you is "ready for review"; a message ending on your question is not', () => {
@@ -37,7 +38,7 @@ test('a row shows whole sentences up to the limit, at least one', () => {
 
 test('ready for review becomes "Ready to submit" (green) once the form page says every required field is filled', () => {
   assert.deepEqual(sessionState({status: 'done'}, true), ['Ready to submit', 'good']);
-  assert.deepEqual(sessionState({status: 'done'}, false), ['Completion unverified', 'warn']);
+  assert.deepEqual(sessionState({status: 'done'}, false), ['Ended', 'neutral'], 'a finished process with no word from Claude is not "ready"');
   assert.deepEqual(sessionState({status: 'running'}, true), ['Applying', 'info']);  // still working: not yet
 });
 
@@ -73,7 +74,7 @@ test('a form session (the Apply button) says the form is open until the extensio
   assert.deepEqual(sessionState(form), ['Form open', 'info']);
   assert.deepEqual(sessionState(form, true), SESSION_STATE.submit);
   assert.deepEqual(sessionState({...form, outcome: 'submitted'}), SESSION_STATE.submitted);
-  assert.deepEqual(sessionState({status: 'done', outcome: '', endedAt: null}), ['Completion unverified', 'warn']);   // a Claude session is unchanged
+  assert.deepEqual(sessionState({status: 'done', outcome: '', endedAt: null}), ['Ended', 'neutral']);   // a Claude session that said nothing: ended, never ready
 });
 
 test('a form session the extension cannot reach says so (no form, or an account is needed)', () => {
@@ -257,4 +258,21 @@ test('an open extension form is not ready for review until its fields are comple
   assert.deepEqual(sessionState(item, false), ['Form open', 'info']);
   assert.equal(sessionReview(item, true), true);
   assert.deepEqual(sessionState(item, true), ['Ready to submit', 'good']);
+});
+
+
+test('Claude stopped on an account page with things for you: "Needs you", never ready, and the needs card keeps its rows', async () => {
+  const {leftForYou} = await import('../renderer/session-state.js');
+  // The owner's 12 Oct 2026 case, fictional words: a finished session, stage account, a report with a "Needs you" list.
+  const question = 'I stopped on the sign-in page: my click on Continue was blocked by a permission check, so the form is not filled.\n\n**Needs you:**\n- Press Continue in Chrome, then reply continue.\n- Or say allow it.';
+  const item = {kind: 'claude', status: 'done', stage: 'account', question, live: false, endedAt: '2026-10-12T04:05:00Z'};
+  assert.equal(sessionReview(item), false);
+  assert.equal(leftForYou(item), true);
+  assert.deepEqual(sessionState(item), ['Needs you', 'warn']);
+  // The card of what Claude needs is shown whenever it has rows, also while Claude asks: its answer boxes and "Remember" live there (owner, 8 Oct 2026).
+  const page = fs.readFileSync(new URL('../renderer/pages/sessions.js', import.meta.url), 'utf8');
+  assert.match(page, /show\(\$\('ss-needs-card'\), needs\.length \+ empty\.length > 0 && !gone\)/);
+  assert.doesNotMatch(page, /What Claude needs from you:'/, 'the list is the card below, not a second copy in the top card');
+  const needs = fs.readFileSync(new URL('../renderer/pages/session-needs.js', import.meta.url), 'utf8');
+  assert.match(needs, /if \(item\.stage !== 'account'\) actions\.append\(smallButton\('Review in form'/, 'no form to review on the account step');
 });

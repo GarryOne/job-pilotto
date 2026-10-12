@@ -15,6 +15,8 @@ const ENGLISH_REVIEW_WORDS = /form (?:is )?(?:now )?(?:filled|ready|complete)|re
 export const REVIEW_WORDS = {test: text => String(text || '').split(/\n/).some(line => READY_LINE.test(line.trim())) || ENGLISH_REVIEW_WORDS.test(text || '')};
 // Claude asks you something when one of its own sentences (outside its report's lists) ends with "?"; a listed form
 // question ("Any relatives working at Acme?") is not Claude asking.
+// Claude's report lists what it needs from you (its "Needs you" part, read by structure in session-message.js), or asks a question.
+export const leftForYou = item => !!item.question && (readSessionMessage(item.question).needs.length > 0 || asksYou(item));
 export const asksYou = item => (item.question ? readSessionMessage(item.question).intro.some(line => /\?\**\s*$/.test(line)) : /\?\s*$/.test(item.brief || ''));
 // A message that ends on a question still waits for your answer first.
 // `formReady`: the form page says every required field is filled. Then what Claude asked earlier is moot: the form is
@@ -38,7 +40,8 @@ export const sessionState = (item, formReady = false) => (item?.outcome === 'sub
   : item.kind !== 'form' && item.status === 'running' && item.stage === 'account' ? ['Creating account', 'info']
   : (item.kind === 'form' || item.inChrome) && !formReady && item.status === 'done' ? ['Form open', 'info']   // the Apply button's session: no Claude, the form is open in Chrome
   : sessionReview(item, formReady) ? (formReady ? SESSION_STATE.submit : SESSION_STATE.done)
-    : item.status === 'done' ? ['Completion unverified', 'warn'] : SESSION_STATE[item.status] || SESSION_STATE.ended);
+    // Claude ended without saying the form is ready: what it left for you if it listed something, else just ended (never "ready").
+    : item.status === 'done' ? (leftForYou(item) ? ['Needs you', 'warn'] : SESSION_STATE.ended) : SESSION_STATE[item.status] || SESSION_STATE.ended);
 // The dock's two pills and its card order, from the same state the sessions list shows: a form whose Chrome tab was closed
 // (`gone`) is neither active nor waiting, and sorts last, so an open form is never hidden behind closed ones (2 Oct 2026:
 // the dock said "Form open" for two closed forms and left out the one that was open).
