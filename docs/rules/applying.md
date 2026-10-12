@@ -85,7 +85,7 @@ Spec: `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md`.
    the failing check in the commit); its stubbed AI answers only what the extension asked.
 3. The live smoke pool (run by hand only, owner 11 Oct 2026).
 4. Per-board drops in the digest (`/admin/form-filling/digest.json`, `boards[].dropped`).
-- **A push changing a file a recorded replay loads (the extension's files, the app's `desktop/lib` modules the offline app runs; found by structure, `tools/replay-files.mjs`) must add a recorded page or a scenario**, and each page it adds or changes
+- **A push changing a file a recorded replay loads (the extension's files, the app's `desktop/lib` modules the offline app runs; found by structure, `tools/replay-files.mjs`, plus every `FLOW_FILES` file: a journey scenario proves the ones no replay loads) must add a recorded page or a scenario**, and each page it adds or changes
   must FAIL on origin/main's code (`tools/recorded-cases.mjs`, `tools/recorded-fails-on-old.mjs`, push hook). `Recorded-unneeded: <why>` only for a change with no failure seen: never with a `Pool-row:` or `Fixes/Refs #N`.
   `Recorded-pins: <why>` for a case that only pins behaviour that already works (same refusal). A field replay (`worker/test/fixtures/fill/`) is a second layer, never the proof.
 - **The Fixed tab** on `/admin/applying` (`#fixed`) holds each fix's status and guard. Optional commit trailer `Pool-row: <the pool row's exact name

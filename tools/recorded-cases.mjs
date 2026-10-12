@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Pre-push check (tools/pre-push-check.sh), owner 10 Oct 2026: "never fix the same website twice"; tightened 12 Oct 2026 ("every fix to how the app acts on a page lands with a case that FAILS on the old code").
-// A COVERED file is one a recorded replay loads (tools/replay-files.mjs: the extension's files and the app's desktop/lib modules, found by structure) or an extension file of the flow (desktop/e2e/flows.mjs FLOW_FILES).
+// A COVERED file is one a recorded replay loads (tools/replay-files.mjs: the extension's files and the app's desktop/lib modules, found by structure) or any file of the flow (desktop/e2e/flows.mjs FLOW_FILES;
+// the ones the replay's app does not load, e.g. desktop/lib/session-flow.js, are proven by a journey scenario, desktop/test/journeys.test.js).
 // A push that changes one adds or changes a recorded page (desktop/e2e/recorded/, layer 2) or a journey scenario (desktop/test/journeys.test.js, layer 1), or each such commit says "Recorded-unneeded: <why>".
 // "Recorded-unneeded:" is only for a change that fixes no failure seen: a commit that touches a covered file AND names a pool row ("Pool-row:") or an issue ("Fixes/Closes/Resolves/Refs #N") cannot use it.
 // A recorded page the push adds or changes must FAIL on the code before the push (tools/recorded-fails-on-old.mjs, a replay on origin/main's code): a case that passes on the old code proves nothing.
@@ -17,6 +18,9 @@ export const NAMES_A_FAILURE = /^Pool-row:[ \t]*\S|^(?:fix(?:e[sd])?|close[sd]?|
 export const RECORDED_CASE = /^desktop\/e2e\/recorded\/([^/]+)\//;
 
 // The recorded cases (folder names) a push adds or changes.
+// The covered set: what a replay loads, plus every file of the flow.
+export const coveredFiles = (root, flowFiles) => new Set([...replayFiles(root), ...flowFiles]);
+
 export const casesOf = changed => [...new Set(changed.map(file => RECORDED_CASE.exec(file)?.[1]).filter(Boolean))];
 
 // -> '' when fine, else the message. commits: [{files, message}] of the push; covered: the files a replay loads.
@@ -50,7 +54,7 @@ async function main() {
     commits = git('rev-list', '--reverse', `${base}..HEAD`).split('\n').filter(Boolean).map(sha => ({sha, message: git('log', '-1', '--format=%B', sha), files: git('diff-tree', '--no-commit-id', '--name-only', '-r', '--root', sha).split('\n').filter(Boolean)}));
   } catch { return 0; }
   const {FLOW_FILES} = await import(path.join(root, 'desktop/e2e/flows.mjs'));
-  const covered = new Set([...replayFiles(root), ...FLOW_FILES.filter(file => file.startsWith('extension/'))]);
+  const covered = coveredFiles(root, FLOW_FILES);
   const why = missingCase(commits, covered);
   if (why) { console.error(why); return 1; }
   return 0;

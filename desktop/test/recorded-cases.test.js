@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
-import {casesOf, missingCase} from '../../tools/recorded-cases.mjs';
+import {casesOf, coveredFiles, missingCase} from '../../tools/recorded-cases.mjs';
 import {replayFiles} from '../../tools/replay-files.mjs';
 import {FLOW_FILES} from '../e2e/flows.mjs';
 
-const covered = replayFiles(fileURLToPath(new URL('../..', import.meta.url)));
+const root = fileURLToPath(new URL('../..', import.meta.url)), loaded = replayFiles(root), covered = coveredFiles(root, FLOW_FILES);
 const commit = (files, message = '') => ({files, message});
 
 test('a fill or flow change without a case is stopped; a case, a scenario or a stated reason lets it through', () => {
@@ -31,9 +31,12 @@ test('hole 1: every file a replay loads is covered, found by structure (the clas
   for (const file of FLOW_FILES.filter(one => one.startsWith('extension/'))) assert.ok(covered.has(file), `${file} (FLOW_FILES) is not found by the structure walk`);
   const pageFiles = fs.readdirSync(new URL('../../extension/page/', import.meta.url)).filter(name => name.endsWith('.js'));
   for (const name of pageFiles) assert.ok(covered.has(`extension/page/${name}`), `extension/page/${name} is not reached from the manifest: the replay would never load it, or the walk misses a file list`);
-  // Flow files the replay's app does not load (the Electron main process registers them) cannot be proven by a replay: named here so a change shows up.
-  const unloaded = FLOW_FILES.filter(file => !covered.has(file)).sort();
-  assert.deepEqual(unloaded, ['desktop/lib/apply-handlers.js', 'desktop/lib/browser-handlers.js', 'desktop/lib/ext-server-handlers.js', 'desktop/lib/form-tab.js', 'desktop/lib/journey-identity.js', 'desktop/lib/kit-handlers.js', 'desktop/lib/review.js', 'desktop/lib/session-flow.js', 'desktop/lib/session-handlers.js']);
+  // Every file of the flow is covered; the ones the replay's app does not load (the Electron main process registers them) cannot be proven by a replay, so a journey scenario is their proof.
+  for (const file of FLOW_FILES) assert.ok(covered.has(file), file);
+  const unloaded = FLOW_FILES.filter(file => !loaded.has(file)).sort();
+  assert.ok(unloaded.includes('desktop/lib/session-flow.js') && unloaded.length < 15, `flow files outside the replay: ${unloaded.join(', ')}`);
+  assert.match(missingCase([commit(['desktop/lib/session-flow.js'], 'Fix a tab')], covered), /recorded page/);
+  assert.equal(missingCase([commit(['desktop/lib/session-flow.js', 'desktop/test/journeys.test.js'], 'Fix a tab')], covered), '');
   // The harness, tools and tests are not covered: they may say Recorded-unneeded (or nothing).
   for (const file of ['desktop/e2e/lib/live-row.mjs', 'tools/ship.sh', 'desktop/test/x.test.js', 'docs/x.md', 'extension/manifest.json']) assert.ok(!covered.has(file), file);
 });
