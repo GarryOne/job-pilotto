@@ -146,16 +146,16 @@
 
 ## Progress
 ### 1. Safety net
-- [ ] Widget zoo pages (one per WIDGET, a misbehaving variant each)
-- [ ] `fv-*` / `fr-*` fixture format scored per question by `ladder-score`, ratchet + fingerprint
-- [ ] `docs/flows/ladder.md` row 3 corrected; fill questions added to the rung map
+- [x] Widget zoo pages (one per WIDGET, a misbehaving variant each): `desktop/e2e/widget-zoo/`, `npm run widget-zoo`, CI job widget-zoo (not required); baseline on main c7528b6: read 5/9, committed 2/9 (#423, #427)
+- [ ] `fv-*` / `fr-*` fixture format scored per question by `ladder-score`, ratchet + fingerprint (fv-*: done in PR 3, 7 fixtures all exact on the plan path; fr-*: PR 4)
+- [x] `docs/flows/ladder.md` row 3 corrected; fill questions added to the rung map (#423)
 ### 2. Verify rung 0
 - [ ] Final read-back after settle for every control kind; trace row `committed`
-- [ ] Retype / re-pick for every kind that reverts (within the existing limit)
+- [ ] Retype / re-pick for every kind that reverts (within the existing limit): text boxes done (#438, typed again key by key); choices, dates and the phone country part still open
 ### 3. Verify rung 2 (shadow)
-- [ ] `fill_verify` question, sketch without values, local `match`
-- [ ] Contradiction trigger (form_ready needs X, trace says X filled)
-- [ ] Measure run: hit rate and tokens per application, shown to the owner
+- [x] `fill_verify` question, sketch without values, local `match` (`desktop/lib/ladder/fill-verify.js`, phase `fill` of /extension/account-judge)
+- [x] Contradiction trigger (form_ready needs X, the fill's match says X kept) and the miss trigger (match no), logged only (`extension/form-ready.js`)
+- [ ] Measure run: hit rate and tokens per application, shown to the owner (the ceiling run is job-pilotto-fill-quality's, started 12 Oct 2026; the shadow pass after this lands)
 ### 4. Repair
 - [ ] Control digest (rung 3) + `fill_repair` schema (WIDGETS, VERBS, n, option)
 - [ ] Executor over existing primitives; caps; floor refusals tested

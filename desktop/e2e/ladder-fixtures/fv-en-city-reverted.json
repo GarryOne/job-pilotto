@@ -1,0 +1,80 @@
+{
+ "schemaVersion": 1,
+ "id": "fv-en-city-reverted",
+ "question": "fill_verify",
+ "source": "reconstructed",
+ "lang": "en",
+ "why": "the widget zoo's reverting box (12 Oct 2026): the fill typed it, the page put it back empty on blur: empty (not kept)",
+ "url": "https://jobs.example.com/apply/1",
+ "expect": {
+  "outcome": "empty",
+  "control": 4
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/apply/1",
+  "title": "Apply",
+  "headings": [
+   "Apply"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "First Name*",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   },
+   {
+    "type": "text",
+    "label": "Last Name*",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   },
+   {
+    "type": "email",
+    "label": "Email*",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   },
+   {
+    "type": "text",
+    "label": "Current city",
+    "required": true,
+    "state": "empty",
+    "match": "no"
+   }
+  ],
+  "buttons": [
+   "Submit application"
+  ],
+  "texts": [],
+  "frames": []
+ },
+ "answer": {
+  "controls": [
+   {
+    "n": 1,
+    "verdict": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "verdict": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "verdict": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "verdict": "empty",
+    "reason": "other"
+   }
+  ]
+ },
+ "answer_path": "app"
+}

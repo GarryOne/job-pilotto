@@ -1,0 +1,90 @@
+{
+ "schemaVersion": 1,
+ "id": "fv-en-covered-by-dialog",
+ "question": "fill_verify",
+ "source": "invented",
+ "lang": "en",
+ "why": "a dialog opened over the form after the fill; the box kept its value but cannot be used now: unreachable or ok, never empty",
+ "url": "https://jobs.example.com/apply/2",
+ "expect": {
+  "outcome": "unreachable",
+  "control": 4
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/apply/2",
+  "title": "Apply",
+  "headings": [
+   "Apply"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "First Name*",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   },
+   {
+    "type": "text",
+    "label": "Last Name*",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   },
+   {
+    "type": "email",
+    "label": "Email*",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   },
+   {
+    "type": "text",
+    "label": "Current city",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   }
+  ],
+  "buttons": [
+   "Submit application"
+  ],
+  "texts": [],
+  "frames": [],
+  "onTop": {
+   "shape": "dialog",
+   "role": "dialog",
+   "text": "Your filled fields may be replaced. Continue?",
+   "buttons": [
+    "Continue",
+    "Cancel"
+   ]
+  }
+ },
+ "trap": true,
+ "answer": {
+  "controls": [
+   {
+    "n": 1,
+    "verdict": "unreachable",
+    "reason": "covered"
+   },
+   {
+    "n": 2,
+    "verdict": "unreachable",
+    "reason": "covered"
+   },
+   {
+    "n": 3,
+    "verdict": "unreachable",
+    "reason": "covered"
+   },
+   {
+    "n": 4,
+    "verdict": "unreachable",
+    "reason": "covered"
+   }
+  ]
+ },
+ "answer_path": "app"
+}

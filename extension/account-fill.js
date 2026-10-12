@@ -99,8 +99,16 @@ export function accountSketch() {
   // A field the page gives no label is named as the panel and the fill trace name it (page/fill-labels.js labelOf, in the page's own world: form-ready.js runs this there), else by its raw name.
   // The label the page gives the field keeps its required mark ("Country*": the judge reads the mark); only a field the old chain would call by its raw name asks the kit's reader for the question first.
   const nameOf = el => el.labels?.[0]?.innerText || el.getAttribute('aria-label') || el.placeholder || (window.__jobPilottoFillKit?.labelOf ? window.__jobPilottoFillKit.labelOf(el) : '') || el.name || '';
+  // Did the control keep what the fill gave it? Measured here, from the fill's own marks (what it typed, as letters and digits: page/browser-form-fastpath.js; that it set it: page/fill.js);
+  // the value never leaves the page. yes | no | '' (the fill did not touch it). Read by the fill ladder's fill_verify (desktop/lib/ladder/fill-verify.js); the other judges ignore it.
+  const matchOf = el => {
+    const typed = el.getAttribute('data-jobpilotto-typed');
+    if (typed && window.__jobPilottoTypedSame) return window.__jobPilottoTypedSame(typed, el.value) ? 'yes' : 'no';
+    if (!el.hasAttribute('data-jobpilotto-filled')) return '';
+    return (el.type === 'checkbox' || el.type === 'radio' ? el.checked : given(el)) ? 'yes' : 'no';
+  };
   const controls = [...document.querySelectorAll('input, select, textarea')].filter(el => shown(el) && !['hidden', 'submit', 'button', 'image', 'reset'].includes(el.type)).map(el => ({
-    type: el.type, label: clean(nameOf(el), 80),
+    type: el.type, label: clean(nameOf(el), 80), match: matchOf(el),
     required: !!el.required || el.getAttribute('aria-required') === 'true',
     at: (box => `${Math.max(0, Math.min(100, Math.round(100 * (box.left + box.width / 2) / innerWidth)))},${Math.max(0, Math.min(100, Math.round(100 * (box.top + box.height / 2) / innerHeight)))}`)(el.getBoundingClientRect()),   // where it is on screen (% of the window): the closer look matches the picture to the control
     ...(el.tagName === 'SELECT' ? {options: [...el.options].map(item => clean(item.text, 40)).filter(Boolean).slice(0, 40)} : {}),

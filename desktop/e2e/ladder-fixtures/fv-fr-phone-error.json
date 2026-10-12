@@ -1,0 +1,71 @@
+{
+ "schemaVersion": 1,
+ "id": "fv-fr-phone-error",
+ "question": "fill_verify",
+ "source": "reconstructed",
+ "lang": "fr",
+ "why": "the site shows its own error about the phone after the fill (HelloFresh's phone format, 11 Oct 2026, here in French): wrong, error shown",
+ "url": "https://emplois.example.fr/postuler",
+ "expect": {
+  "outcome": "wrong",
+  "control": 3
+ },
+ "sketch": {
+  "url": "https://emplois.example.fr/postuler",
+  "title": "Apply",
+  "headings": [
+   "Apply"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Prénom",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   },
+   {
+    "type": "text",
+    "label": "Nom",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   },
+   {
+    "type": "tel",
+    "label": "Téléphone",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   }
+  ],
+  "buttons": [
+   "Submit application"
+  ],
+  "texts": [
+   "Votre candidature",
+   "Le numéro de téléphone n'est pas valide."
+  ],
+  "frames": []
+ },
+ "answer": {
+  "controls": [
+   {
+    "n": 1,
+    "verdict": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "verdict": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "verdict": "wrong",
+    "reason": "error_shown"
+   }
+  ]
+ },
+ "answer_path": "app"
+}

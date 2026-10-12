@@ -1,0 +1,68 @@
+{
+ "schemaVersion": 1,
+ "id": "fv-it-radio-kept",
+ "question": "fill_verify",
+ "source": "invented",
+ "lang": "it",
+ "why": "a Yes/No choice the fill set and the page shows chosen: ok",
+ "url": "https://lavora.example.it/candidatura",
+ "expect": {
+  "outcome": "ok",
+  "control": 2
+ },
+ "sketch": {
+  "url": "https://lavora.example.it/candidatura",
+  "title": "Apply",
+  "headings": [
+   "Apply"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Nome",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   },
+   {
+    "type": "radio",
+    "label": "Sì",
+    "required": true,
+    "state": "checked",
+    "match": "yes"
+   },
+   {
+    "type": "radio",
+    "label": "No",
+    "required": true,
+    "state": "unchecked",
+    "match": ""
+   }
+  ],
+  "buttons": [
+   "Invia candidatura"
+  ],
+  "texts": [],
+  "frames": []
+ },
+ "answer": {
+  "controls": [
+   {
+    "n": 1,
+    "verdict": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "verdict": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "verdict": "ok",
+    "reason": ""
+   }
+  ]
+ },
+ "answer_path": "app"
+}

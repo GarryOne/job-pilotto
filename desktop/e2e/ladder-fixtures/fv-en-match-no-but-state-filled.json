@@ -1,0 +1,81 @@
+{
+ "schemaVersion": 1,
+ "id": "fv-en-match-no-but-state-filled",
+ "question": "fill_verify",
+ "source": "invented",
+ "lang": "en",
+ "why": "trap: the box shows something, but not what the fill typed (the page wrote its own default): match no wins over state filled: wrong",
+ "url": "https://jobs.example.com/apply/3",
+ "expect": {
+  "outcome": "wrong",
+  "control": 4
+ },
+ "sketch": {
+  "url": "https://jobs.example.com/apply/3",
+  "title": "Apply",
+  "headings": [
+   "Apply"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "First Name*",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   },
+   {
+    "type": "text",
+    "label": "Last Name*",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   },
+   {
+    "type": "email",
+    "label": "Email*",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   },
+   {
+    "type": "tel",
+    "label": "Mobile number*",
+    "required": true,
+    "state": "filled",
+    "match": "no"
+   }
+  ],
+  "buttons": [
+   "Submit application"
+  ],
+  "texts": [],
+  "frames": []
+ },
+ "trap": true,
+ "answer": {
+  "controls": [
+   {
+    "n": 1,
+    "verdict": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "verdict": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "verdict": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "verdict": "wrong",
+    "reason": "not_kept"
+   }
+  ]
+ },
+ "answer_path": "app"
+}

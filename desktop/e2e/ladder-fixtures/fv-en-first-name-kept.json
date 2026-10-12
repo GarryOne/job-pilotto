@@ -1,0 +1,80 @@
+{
+ "schemaVersion": 1,
+ "id": "fv-en-first-name-kept",
+ "question": "fill_verify",
+ "source": "reconstructed",
+ "lang": "en",
+ "why": "HelloFresh careers in the app (12 Oct 2026): the form judge said 'needs First Name*' while the box held the fill's value; the fill check trusts the local match: ok",
+ "url": "https://careers.example.com/global/en/apply",
+ "expect": {
+  "outcome": "ok",
+  "control": 1
+ },
+ "sketch": {
+  "url": "https://careers.example.com/global/en/apply",
+  "title": "Apply",
+  "headings": [
+   "Apply"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "First Name*",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   },
+   {
+    "type": "text",
+    "label": "Last Name*",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   },
+   {
+    "type": "email",
+    "label": "Email*",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   },
+   {
+    "type": "tel",
+    "label": "Phone*",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   }
+  ],
+  "buttons": [
+   "Submit application"
+  ],
+  "texts": [],
+  "frames": []
+ },
+ "answer": {
+  "controls": [
+   {
+    "n": 1,
+    "verdict": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "verdict": "ok",
+    "reason": ""
+   },
+   {
+    "n": 3,
+    "verdict": "ok",
+    "reason": ""
+   },
+   {
+    "n": 4,
+    "verdict": "ok",
+    "reason": ""
+   }
+  ]
+ },
+ "answer_path": "app"
+}

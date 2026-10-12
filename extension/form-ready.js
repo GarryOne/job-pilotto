@@ -37,6 +37,18 @@ export async function formReady(tab, frameId, payload) {
 // the AI looks at the page's real state once per page state, and a middle step's own next button is pressed (next-step.js).
 export const formNext = (tab, frameId = 0) => askForm(tab, frameId);
 
+// The fill ladder's fill_verify in SHADOW (spec docs/superpowers/specs/2026-10-12-fill-ladder.md, PR 3; owner, 12 Oct 2026: one zoo pass + one pool pass, then repair goes live): asked
+// on the same settled sketch when a control did not keep what the fill gave it (match "no"), or the judge names as missing a control the fill's match says it kept. Its verdicts are only
+// logged; nothing acts on them. Not awaited: the panel never waits for it. Guard: worker/test/form-ready.test.js.
+export const wantsFillCheck = (sketch, answer) => (sketch?.controls || []).some(item => item.match === 'no')
+  || (!!answer?.needs && (sketch?.controls || []).some(item => item.match === 'yes' && item.label === answer.needs));
+function shadowCheck(config, sketch, answer, host) {
+  if (!wantsFillCheck(sketch, answer)) return;
+  api(config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase: 'fill', sketch})}).then(found => {
+    if (found?.counts) decide('fill', 'fill check (shadow)', {host, ...found.counts, contradiction: !!answer?.needs});
+  }).catch(() => {});
+}
+
 async function askForm(tab, frameId, again = false) {
   if (looking.has(tab.id)) return;
   looking.add(tab.id);
@@ -53,6 +65,7 @@ async function askForm(tab, frameId, again = false) {
     judged.set(tab.id, sig);
     let host = ''; try { host = new URL(tab.url).hostname; } catch { /* no address */ }
     decide('panel', `application form ready?: ${answer.answer}`, {host, step: answer.step || '', ...(answer.answer === 'blocked' ? {blocked: answer.blockedKind || 'overlay'} : {}), ...(answer.needs ? {needs: answer.needs.slice(0, 60), seen: sketch.controls.filter(item => item.required).map(item => `${item.type}:${item.state}`).join(',').slice(0, 120)} : {})});   // seen: what the AI was shown of the required controls (types and states, never labels or values)
+    shadowCheck(config, sketch, answer, host);   // the fill ladder's fill_verify, logged only (below)
     await run(tab, frameId, flagAccount, [answer.answer === 'blocked' ? blockedWords(answer.blockedKind) : answer.answer === 'needs_person' ? answer.needs || '' : null]);
     if (answer.answer === 'blocked') decide('fill', `the page is blocked after the fill: ${answer.blockedKind || 'overlay'}`, {host});   // the fill log and the smoke verdict read this line
     // The site's own error about what was entered, on a phone number: it is typed again in another writing the AI names from the error text (format-retry.js, at most twice), then the page is judged anew.

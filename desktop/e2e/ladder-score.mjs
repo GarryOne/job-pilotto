@@ -35,7 +35,7 @@ const lanes = Array.from({length: offline ? 1 : 4}, (_, lane) => fixtures.filter
 const rows = (await Promise.all(lanes.map(lane => scoreFixtures(lane, {clientFor})))).flat().sort((a, b) => a.id.localeCompare(b.id));
 
 if (record) {
-  for (const row of rows) if (row.answer?.kind || row.answer?.answer !== undefined) {   // a page-kind answer has a kind, a judge's an answer
+  for (const row of rows) if (row.answer?.kind || row.answer?.answer !== undefined || Array.isArray(row.answer?.controls)) {   // fill_verify: per-control verdicts   // a page-kind answer has a kind, a judge's an answer
     const fixture = fixtures.find(f => f.id === row.id), {file, ...kept} = fixture;
     fs.writeFileSync(path.join(DIR, file), `${JSON.stringify({...kept, answer: row.answer, answer_path: 'app'}, null, 1)}\n`);   // which path recorded this answer
   }
