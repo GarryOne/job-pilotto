@@ -1,4 +1,5 @@
 // Guards the ladder fixture set (desktop/e2e/ladder-fixtures): its shape, its coverage of the pool's shapes, languages and traps, and that it holds no personal data.
+import {REASONS as FILL_REASONS, VERDICTS as FILL_VERDICTS, schema as fillSchema} from '../lib/ladder/fill-verify.js';
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {EXPECT_FIELDS, FIELDS, JUDGE_SKETCH_FIELDS, LANGS, OUTCOMES_BY_QUESTION, QUESTIONS, SCHEMA_VERSION, SOURCES, loadFixtures, questionOf} from '../e2e/lib/ladder-fixtures.mjs';
@@ -49,6 +50,11 @@ test('the pool\'s shapes are all in the set, and the four languages, with traps'
 test('a stored answer is a fixed-values object the page-kind schema knows, and nothing but the sketch is page text', () => {
   for (const f of fixtures) {
     if (!f.answer) continue;
+    if (questionOf(f) === 'fill_verify') {   // per-control verdicts (lib/ladder/fill-verify.js): only the schema's fields, fixed verdicts and reasons
+      assert.ok(Array.isArray(f.answer.controls) && Object.keys(f.answer).every(key => Object.keys(fillSchema.properties).includes(key)), `${f.id}: a fill check answer is its controls`);
+      for (const row of f.answer.controls) assert.ok(Number.isInteger(row.n) && FILL_VERDICTS.includes(row.verdict) && FILL_REASONS.includes(row.reason), `${f.id}: control ${row.n}`);
+      continue;
+    }
     if (questionOf(f) === 'page_kind') assert.ok(['form', 'account-form', 'account', 'posting', 'other'].includes(f.answer.kind), `${f.id}: answer kind`);
     else assert.ok(f.answer.answer !== undefined, `${f.id}: a judge answer has an answer`);
     assert.equal(typeof f.answer.confidence, 'number', `${f.id}: answer confidence`);

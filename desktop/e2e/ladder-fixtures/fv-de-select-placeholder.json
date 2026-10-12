@@ -1,0 +1,61 @@
+{
+ "schemaVersion": 1,
+ "id": "fv-de-select-placeholder",
+ "question": "fill_verify",
+ "source": "invented",
+ "lang": "de",
+ "why": "a menu the fill set that is back on its placeholder: empty (not selected)",
+ "url": "https://karriere.example.de/bewerben",
+ "expect": {
+  "outcome": "empty",
+  "control": 2
+ },
+ "sketch": {
+  "url": "https://karriere.example.de/bewerben",
+  "title": "Apply",
+  "headings": [
+   "Apply"
+  ],
+  "controls": [
+   {
+    "type": "text",
+    "label": "Vorname",
+    "required": true,
+    "state": "filled",
+    "match": "yes"
+   },
+   {
+    "type": "select-one",
+    "label": "Anrede",
+    "required": true,
+    "state": "empty",
+    "match": "no",
+    "options": [
+     "Bitte wählen",
+     "Frau",
+     "Herr"
+    ]
+   }
+  ],
+  "buttons": [
+   "Bewerbung absenden"
+  ],
+  "texts": [],
+  "frames": []
+ },
+ "answer": {
+  "controls": [
+   {
+    "n": 1,
+    "verdict": "ok",
+    "reason": ""
+   },
+   {
+    "n": 2,
+    "verdict": "empty",
+    "reason": "not_selected"
+   }
+  ]
+ },
+ "answer_path": "app"
+}

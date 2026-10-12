@@ -83,3 +83,22 @@ test('the panel\'s ready claim is judged only when the tab\'s fill is not runnin
   assert.equal(await asks('running'), 0, 'not judged while the fill runs');
   assert.equal(await asks('done'), 1, 'judged once the fill is done');
 });
+
+// The fill ladder's fill_verify in shadow (PR 3): asked only when a control did not keep what the fill gave it, or the judge names as missing a control the fill kept; logged only.
+test('the fill check is asked on a miss or a contradiction, never otherwise, and only logs', async () => {
+  const {wantsFillCheck, formNext} = await import('../../extension/form-ready.js');
+  const kept = {label: 'First name', match: 'yes'}, lost = {label: 'City', match: 'no'}, untouched = {label: 'Notes', match: ''};
+  assert.equal(wantsFillCheck({controls: [kept, untouched]}, {answer: 'ready'}), false);
+  assert.equal(wantsFillCheck({controls: [kept, lost]}, {answer: 'ready'}), true);
+  assert.equal(wantsFillCheck({controls: [kept]}, {answer: 'needs_person', needs: 'First name'}), true);   // the judge names a control the fill kept
+  assert.equal(wantsFillCheck({controls: [kept, untouched]}, {answer: 'needs_person', needs: 'Notes'}), false);
+  const keep = {chrome: globalThis.chrome, fetch: globalThis.fetch};
+  const asked = [];
+  globalThis.chrome = {
+    storage: {local: {get: async () => ({workerUrl: 'http://127.0.0.1:47111', token: 't'}), set: async () => {}}, session: {get: async () => ({}), set: async () => {}}},
+    scripting: {executeScript: async ({func}) => [{result: String(func).includes('jobpilottoFill') ? false : {url: 'https://apply.example/v', title: 'Apply', headings: [], controls: [{type: 'text', ...kept, required: true, state: 'filled'}, {type: 'text', ...lost, required: true, state: 'empty'}], buttons: [], texts: [], frames: []}}]},
+    runtime: {getManifest: () => ({version: '0'})}};
+  globalThis.fetch = async (url, init) => { const body = JSON.parse(init?.body || '{}'); asked.push(body.phase); return {ok: true, status: 200, json: async () => (body.phase === 'fill' ? {ok: true, answer: 'shadow', counts: {ok: 1, empty: 1, wrong: 0, unreachable: 0, unsure: 0}} : {answer: 'needs_person', needs: 'City', step: 'final'})}; };
+  try { await formNext({id: 91, url: 'https://apply.example/v'}, 0); await new Promise(resolve => setTimeout(resolve, 50)); } finally { Object.assign(globalThis, keep); }
+  assert.deepEqual(asked.filter(phase => phase === 'form' || phase === 'fill'), ['form', 'fill']);
+});

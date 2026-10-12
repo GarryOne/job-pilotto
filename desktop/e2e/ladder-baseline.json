@@ -80,6 +80,10 @@
   {
    "date": "2026-10-11",
    "reason": "jobs.ch account layer: account-only fixture kept strict (accept posting only)"
+  },
+  {
+   "date": "2026-10-12",
+   "reason": "fill ladder PR 3: the fill_verify question (7 fv-* fixtures, all exact on the plan path) and its prompt fingerprint"
   }
  ],
  "promptFingerprint": {
@@ -88,6 +92,7 @@
   "rung3": "e80807ed89849855",
   "account-judge": "82bb54b889d5f14d",
   "form-judge": "09fcc69c9a99924a",
+  "fill-verify": "785b5f2795c363c8",
   "rung4": "b69068d6b5b1a559"
  },
  "fixtures": {
@@ -595,6 +600,83 @@
     ]
    },
    "outcome": "form_in_frame",
+   "status": "exact"
+  },
+  "fv-de-select-placeholder": {
+   "question": "fill_verify",
+   "expect": {
+    "outcome": "empty",
+    "accept": [
+     "empty"
+    ]
+   },
+   "outcome": "empty",
+   "status": "exact"
+  },
+  "fv-en-city-reverted": {
+   "question": "fill_verify",
+   "expect": {
+    "outcome": "empty",
+    "accept": [
+     "empty"
+    ]
+   },
+   "outcome": "empty",
+   "status": "exact"
+  },
+  "fv-en-covered-by-dialog": {
+   "question": "fill_verify",
+   "expect": {
+    "outcome": "unreachable",
+    "accept": [
+     "unreachable"
+    ]
+   },
+   "outcome": "unreachable",
+   "status": "exact"
+  },
+  "fv-en-first-name-kept": {
+   "question": "fill_verify",
+   "expect": {
+    "outcome": "ok",
+    "accept": [
+     "ok"
+    ]
+   },
+   "outcome": "ok",
+   "status": "exact"
+  },
+  "fv-en-match-no-but-state-filled": {
+   "question": "fill_verify",
+   "expect": {
+    "outcome": "wrong",
+    "accept": [
+     "wrong"
+    ]
+   },
+   "outcome": "wrong",
+   "status": "exact"
+  },
+  "fv-fr-phone-error": {
+   "question": "fill_verify",
+   "expect": {
+    "outcome": "wrong",
+    "accept": [
+     "wrong"
+    ]
+   },
+   "outcome": "wrong",
+   "status": "exact"
+  },
+  "fv-it-radio-kept": {
+   "question": "fill_verify",
+   "expect": {
+    "outcome": "ok",
+    "accept": [
+     "ok"
+    ]
+   },
+   "outcome": "ok",
    "status": "exact"
   },
   "greenhouse-form": {

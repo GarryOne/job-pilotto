@@ -2,6 +2,7 @@
 // (offline: no model, what the push gate runs) or the real model on the plan path (live). Rates are per source, never one blended number. Used by: ladder-score.mjs, test/ladder-ratchet.test.js. Guard: test/ladder-score.test.js.
 import {judgeAccount} from '../../lib/account-judge.js';
 import {judgeForm} from '../../lib/form-judge.js';
+import {judgeFill} from '../../lib/ladder/fill-verify.js';
 import {pageKind, sketchBody} from '../../lib/page-kind.js';
 import {questionOf} from './ladder-fixtures.mjs';
 
@@ -38,8 +39,9 @@ async function scoreJudge(fixture, base, {clientFor, pending}) {
   let captured = null;
   const client = clientFor ? clientFor(fixture) : replayClient(fixture.answer);
   const tee = {messages: {create: async body => { const response = await client.messages.create(body); try { captured = JSON.parse(response.content?.find(block => block.type === 'text')?.text || ''); } catch { /* the judge says so */ } return response; }}};
-  const result = question.startsWith('form_') ? await judgeForm(tee, fixture.sketch) : await judgeAccount(tee, fixture.sketch, question === 'account_result' ? 'result' : 'ready');
-  const outcome = result.error ? 'unsure' : question === 'form_step' ? result.step : result.answer;
+  const result = question === 'fill_verify' ? await judgeFill(tee, fixture.sketch) : question.startsWith('form_') ? await judgeForm(tee, fixture.sketch) : await judgeAccount(tee, fixture.sketch, question === 'account_result' ? 'result' : 'ready');
+  // fill_verify answers per control: the fixture scores the one it names (expect.control); a control the answer skipped is "unsure".
+  const outcome = result.error ? 'unsure' : question === 'fill_verify' ? (result.verdicts.find(row => row.n === fixture.expect.control)?.verdict || 'unsure') : question === 'form_step' ? result.step : result.answer;
   const confidence = Number(result.confidence ?? captured?.confidence) || 0;
   return {...base, outcome, confidence, rung: result.error ? 0 : 2, route: '', digestOk: null, status: pending ? 'pending' : statusOf(fixture.expect, outcome, confidence), note: fixture.note || '', answer: captured || fixture.answer || null};
 }

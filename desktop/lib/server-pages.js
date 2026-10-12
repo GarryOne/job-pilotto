@@ -6,6 +6,7 @@ import * as notionGate from './notion-gate.js';
 import {log as appLog} from './log.js';
 import {aiClient, judgePage, reportedConfirmations} from './confirmation.js';
 import {judgeAccount} from './account-judge.js';
+import {judgeFill} from './ladder/fill-verify.js';
 import {judgeForm} from './form-judge.js';
 import {judgeFormat} from './format-judge.js';
 import {escalate} from './ladder/rung4-picture.js';
@@ -162,6 +163,11 @@ export async function decideAccountJudge(storage, body, {judge = judgeAccount, c
     const found = await judgeFormat(client === undefined ? aiClient(storage, {lane: 'page'}) : client, body);
     appLog('extension', found.error ? `format judgment: none (${found.error})` : `format judgment: ${found.format}`);
     return found.error ? {ok: true, answer: '', error: found.error} : {ok: true, answer: found.format, format: found.format};
+  }
+  if (body?.phase === 'fill') {   // the fill ladder's fill_verify, SHADOW: the verdicts are logged, nothing acts on them (lib/ladder/fill-verify.js)
+    const found = await judgeFill(client === undefined ? aiClient(storage, {lane: 'page'}) : client, body?.sketch || {});
+    appLog('extension', found.error ? `fill verify (shadow): none (${found.error})` : 'fill verify (shadow)', found.error ? {} : {...found.counts, misses: found.verdicts.filter(row => row.verdict !== 'ok').map(row => `${row.n}:${row.verdict}${row.reason ? `/${row.reason}` : ''}`).slice(0, 12)});
+    return found.error ? {ok: true, answer: '', error: found.error} : {ok: true, answer: 'shadow', verdicts: found.verdicts, counts: found.counts};
   }
   const phase = body?.phase === 'result' ? 'result' : body?.phase === 'form' ? 'form' : 'ready';
   noteAsk(body?.sketch?.url, {route: '/extension/account-judge'});   // the page as this ask saw it, kept by the e2e capture (lib/live-capture.js)   // 'form': the application form's own readiness (lib/form-judge.js)
