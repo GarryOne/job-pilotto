@@ -26,20 +26,29 @@ import {storeCall} from './store-call.mjs';
 import {startRealExtension} from './real-extension.mjs';
 import {livePresses} from './replay-candidate.mjs';
 import {blockSignal, guardLiveVisit, markBlocked} from './site-ledger.mjs';
+import {startAiProxy} from './ai-proxy.mjs';
+import {usage} from './ai-meter.mjs';
+import {appKey, isCi, testKey} from './engine.mjs';
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // posting: {url, title, company}; captureDir: where the journey, the AI calls and the asks go; ask: false keeps the AI to kept answers (a test), true asks live.
-export async function runLiveRow({posting, captureDir, extensionDir, ask = true, seconds = 120, stillSeconds = stillSecondsFor(process.env, 'cli'), browser = startRealExtension, say = () => {}} = {}) {
+// aiProxy: a started lib/ai-proxy.mjs (a test's canned one). On CI one is started here: the runner has no Claude Code, so the app's API engine asks through it on the
+// test key (.github/workflows/pool-smoke.yml) and the row's spend is metered (-> ai). A Mac without aiProxy: the plan's claude -p, no spend line.
+export async function runLiveRow({posting, captureDir, extensionDir, ask = true, seconds = 120, stillSeconds = stillSecondsFor(process.env, 'cli'), browser = startRealExtension, say = () => {}, aiProxy = null} = {}) {
+  if (isCi() && !aiProxy && !testKey()) throw new Error('live row on CI: no E2E_ANTHROPIC_KEY (the Tests key); the app has no other way to ask the AI on a runner');
   guardLiveVisit(posting.url, {who: process.env.JOB_PILOTTO_SESSION || 'live row'});   // the per-site daily limit (lib/site-ledger.mjs): refused before anything starts
   ensureStagedWorker({say});   // a worker edit since the last staging would run the old prompt
   const started = Date.now();
   let shotAsked = false;
   fs.mkdirSync(captureDir, {recursive: true});
-  const app = await startOfflineApp({ask, captureDir, memo: path.join(captureDir, 'model-memo.json')});
+  const proxy = aiProxy || (isCi() ? await startAiProxy() : null), before = {...usage().app};
+  const spend = () => { const now = usage().app; return {calls: now.calls - before.calls, usd: now.usd - before.usd, input: now.input - before.input, output: now.output - before.output}; };
+  const app = await startOfflineApp({ask, captureDir, memo: path.join(captureDir, 'model-memo.json'), ...(proxy ? {api: {url: proxy.url, key: appKey(testKey())}} : {})}).catch(async error => { if (proxy && !aiProxy) await proxy.close(); throw error; });
   const front = await frontOf(app);
   const run = await browser({extensionDir, appPort: front.port, allowAllSites: true});
   const owner = ownerValues(), values = personalValues([`Name: ${CONTACT.full_name}\nEmail: ${CONTACT.email}\nPhone: ${CONTACT.phone}`]);
+  if (!owner.size) say('live: privacy tripwire: no owner values on this machine (nothing of the owner\'s here), so it has nothing to compare');
   const journey = journeyRecorder(run.context, {scrub: html => scrubPage(html, values)}), styles = cssRecorder(run.context);
   const steps = stepShooter({tabOf: () => run.context.pages().filter(page => /^https?:/.test(page.url())).at(-1), kindOf: () => kindFromLog(app.logText()), dir: captureDir});   // one full-page picture per page or step reached (lib/step-shots.mjs)
   let asksSeen = 0, tripped = '';
@@ -92,7 +101,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     const shot = await takeEndShot(run.context, captureDir);   // before the final privacy check: a hit deletes it with the capture (lib/end-shot.mjs); said out loud either way
     say(endShotLine(shot));
     for (const line of stepLines(steps, captureDir)) say(line);
-    if (tripped || (tripped = await trip())) { say(`live: ${tripped}`); return {seconds: (Date.now() - started) / 1000, opened: url, evidence: evidenceLines(''), tripped}; }
+    if (tripped || (tripped = await trip())) { say(`live: ${tripped}`); return {seconds: (Date.now() - started) / 1000, opened: url, evidence: evidenceLines(''), tripped, ...(proxy ? {ai: spend()} : {})}; }
     await journey.finish();
     const pages = journey.write(captureDir);
     // The capture is a row a replay can start from (npm run row -- <captureDir>): its pages and the live presses, as the pool keeps them (lib/replay-candidate.mjs).
@@ -102,12 +111,13 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     fs.writeFileSync(path.join(captureDir, 'app.log'), app.logText());
     const blocked = blockSignal(app.logText());
     if (blocked) { markBlocked(url, blocked); say(`live: the site blocked us (${blocked}): not visited again today (lib/site-ledger.mjs)`); }
-    return {seconds: Math.round((Date.now() - started) / 100) / 10, opened: url, evidence: evidenceLines(app.logText()), tripped: '', endedWhileDeciding, requests: front.requests.length, appLog: app.logText()};
+    return {seconds: Math.round((Date.now() - started) / 100) / 10, opened: url, evidence: evidenceLines(app.logText()), tripped: '', endedWhileDeciding, requests: front.requests.length, appLog: app.logText(), ...(proxy ? {ai: spend()} : {})};
   } finally {
     if (!shotAsked) { const shot = await takeEndShot(run.context, captureDir).catch(error => ({file: '', why: String(error?.message || error).slice(0, 80)})); say(endShotLine(shot)); }   // the run stopped early (an error): the picture of where it stopped is still a must
     clearInterval(asks);
     await run.close().catch(() => {});
     await front.close().catch(() => {});
     await app.close().catch(() => {});
+    if (proxy && !aiProxy) await proxy.close().catch(() => {});
   }
 }

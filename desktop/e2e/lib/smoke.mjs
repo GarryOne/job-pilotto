@@ -35,7 +35,7 @@ export function parseLive(output) {
   let blocked = '', reached = 'none', filled = null, left = null, marks = null, note = '', verdict;
   const kinds = [], errors = [], path = [];
   let fieldList = [];   // the form's fields, one 'field ...' line each (apply-live.mjs prints them whole: the app's own line is cut at 230 characters)
-  let derived = null, told = null, onAccount = false, digestHold = '', dialogLeft = false;
+  let derived = null, told = null, onAccount = false, digestHold = '', dialogLeft = false, usd = null, tripped = false;
   const pageKindErrors = [];   // the AI's own words when a page-kind answer had no kind (usage limit, CLI failure...): job-pilotto-54 found a fast null answer with nothing saying why
   const reach = step => { if (rank(step) > rank(reached)) reached = step; };
   for (const line of lines) {
@@ -83,6 +83,9 @@ export function parseLive(output) {
     if (noShot) errors.push(`no end screenshot: ${noShot[1].trim().slice(0, 100)}`);
     const layerLeft = line.match(/live: cookie layer still open at the end: (.*)$/);   // lib/end-shot.mjs: a miss, never a clean end
     if (layerLeft) errors.push(`cookie layer still open at the end: ${layerLeft[1].trim().slice(0, 100)}`);
+    const spend = line.match(/^live: AI spend \$([\d.]+)/);   // a row on the CI key (lib/live-row.mjs): what its asks cost; the pool's dollar cap sums it (lib/pool-ci.mjs)
+    if (spend) usd = Number(spend[1]);
+    if (/^live: privacy tripwire: /.test(line)) tripped = true;
     const judgedForm = line.match(/panel: application form ready\?: (\w+)/);   // the form judge's last word on the page (extension/form-ready.js)
     if (judgedForm) blocked = judgedForm[1] === 'blocked' ? (line.match(/"blocked":"(\w+)"/) || [])[1] || 'overlay' : '';
   }
@@ -91,7 +94,7 @@ export function parseLive(output) {
   // "a form came" after the Apply press can be the route to the sign-up page (adnovum, 11 Oct 2026): with no application field counted, the run still ended at the account step.
   if (!note && ['account', 'form'].includes(reached) && filled == null && path.at(-1)?.kind === 'account') { reached = 'account'; note = ACCOUNT_HELD; }
   if (!note && digestHold && rank(reached) < rank('form')) note = digestHold;
-  return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, pageKindErrors, kinds: [...new Set(kinds)], path, errors, ...(blocked ? {blocked} : {}), ...(note ? {note} : {}), ...(verdict ? {verdict} : {})};
+  return {reached, filled, left, rung: told ? told.rung : derived, signal: told ? told.signal : null, fieldList, marks, pageKindErrors, kinds: [...new Set(kinds)], path, errors, ...(blocked ? {blocked} : {}), ...(note ? {note} : {}), ...(verdict ? {verdict} : {}), ...(usd != null ? {usd} : {}), ...(tripped ? {tripped} : {})};
 }
 
 // The same shape reaching an earlier step than its last run, or filling fewer fields on the same posting, is a regression.
@@ -108,6 +111,9 @@ export function compare(previous = {}, current = {}) {
 
 // One of a shape's postings, rotating by day (the list is the owner's own jobs matching the shape's patterns).
 export const pickPosting = (postings, day = new Date()) => { const allowed = postings.filter(item => mayVisit(item?.url || item)); return allowed.length ? allowed[Math.floor(day.getTime() / 86400000) % allowed.length] : null; };
+
+// --only: the words of one row, or several rows' words joined by | (the CI workflow's list of rows; a fixer's single row as before).
+export const matchesOnly = (shape, only = '') => !only || String(only).split('|').map(words => words.trim()).filter(Boolean).some(words => shape.includes(words));
 
 // A run's share of the ordered pool (lib/smoke-order.mjs orderPool: the least tested first): the first `size` rows; a share bigger than the pool is the pool.
 export const runShare = (ordered, size = 10) => ordered.slice(0, size);

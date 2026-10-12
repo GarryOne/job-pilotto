@@ -37,7 +37,11 @@ const storage = createStorage(dir, {encrypt: value => value, decrypt: value => v
 (await import('../../lib/pipeline-env.js')).ensureConfig(storage);   // the settings files as the app makes them at every start (main.js), before the applicant is kept
 const {draft} = JSON.parse(fs.readFileSync(path.join(E2E, '..', 'demo', 'draft.json'), 'utf8'));
 (await import('../../lib/strategy.js')).keepLocally(storage, {...draft, contact: STAND_IN});
-storage.saveSettings({aiEngine: 'cli', claudeCode: {path: realClaude()}, store: 'sqlite', setupDone: true, cvName: 'cv.pdf', telemetry: false, shareEmployers: false});
+// A CI runner (lib/offline-app.mjs api): the app's API engine on the key it was handed, through the harness's proxy on this computer (ANTHROPIC_BASE_URL); else the plan.
+const apiKey = process.env.JOB_PILOTTO_E2E_API_KEY || '';
+delete process.env.JOB_PILOTTO_E2E_API_KEY;
+if (apiKey) storage.setSecret('ANTHROPIC_API_KEY', apiKey);
+storage.saveSettings({aiEngine: apiKey ? 'api' : 'cli', ...(apiKey ? {} : {claudeCode: {path: realClaude()}}), store: 'sqlite', setupDone: true, cvName: 'cv.pdf', telemetry: false, shareEmployers: false});
 if (process.env.E2E_IMPORT_VIA_UPLOAD) {   // the app's own upload path: setCv on the fake CV, cv.json made by the real import (plan path); npm run cv-facts-cases then reads it
   const uploaded = path.join(dir, 'picked-cv.pdf');
   fs.copyFileSync(path.join(E2E, 'fixtures', 'cv.pdf'), uploaded);
