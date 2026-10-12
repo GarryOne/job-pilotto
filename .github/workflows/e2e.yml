@@ -249,7 +249,7 @@ jobs:
         # passes the job and is filed and labelled `flaky`; red twice fails it. A mutation test has no second try: its red means the bug was caught.
         continue-on-error: ${{ !inputs.mutant }}
         working-directory: desktop/e2e
-        timeout-minutes: 10   # the suite stops itself at its 7-minute budget (lib/runner.mjs) with its evidence; this catches only a suite that cannot
+        timeout-minutes: 15   # the suite stops itself at its budget (7 min, recorded 11: lib/runner.mjs) with its evidence, by force 3 min later (suite.mjs); this catches only a suite that cannot
         run: |
           # A run on an older commit (target_ref: the stable canary, a release candidate) plans with main's suite list; a suite added since does not exist in that build.
           if [ ! -f "suites/${{ matrix.suite }}.mjs" ]; then echo "The ${{ matrix.suite }} suite does not exist in this build: skipped." | tee -a "$GITHUB_STEP_SUMMARY"; exit 0; fi
@@ -259,7 +259,7 @@ jobs:
       - name: The ${{ matrix.key }} suite once more, to tell flaky from real
         if: steps.suite_run.outcome == 'failure' && !inputs.mutant
         working-directory: desktop/e2e
-        timeout-minutes: 10
+        timeout-minutes: 15
         run: |
           first="$E2E_ARTIFACTS"
           export E2E_ARTIFACTS="${{ github.workspace }}/e2e-rerun/${{ matrix.key }}" E2E_RERUN=1   # its step table says "second try" (lib/step-summary.mjs)

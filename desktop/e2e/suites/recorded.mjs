@@ -5,7 +5,8 @@
 import {loadCases, runCase} from '../lib/page-replay.mjs';
 
 export const name = 'recorded';
-export const minutes = 12;   // 63 cases took 5-6 min in CI (12 Oct 2026: the job hit its 6 min limit and cancelled the whole run); the cases keep coming
+export const minutes = 28;   // the CI job's limit: setup + the 11-minute budget, and the same again for the "once more" run after a red one. 63 cases took 5-6 min in CI, 75 over 8 on Windows (12 Oct 2026); the cases keep coming, so the day it nears 11 min, shard it in the gate like recorded-pages.yml
+export const budgetMinutes = 11;   // the suite's own step budget (lib/runner.mjs budgetMsOf); the default 7 min cut 24 of 75 cases on Windows
 export const light = true;
 export const needsChromium = true;   // CI installs Chromium for it (.github/workflows/e2e.yml)
 export const keepGoing = true;
