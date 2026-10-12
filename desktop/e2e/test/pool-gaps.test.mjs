@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
-import {appLogName, doorLines, gapRows, gapSummary, progressOf, quantile, rowGaps} from '../lib/pool-gaps.mjs';
+import {appLogName, detectorAt, doorLines, gapRows, gapSummary, progressOf, quantile, rowGaps, runEvents, silentFires} from '../lib/pool-gaps.mjs';
 import {PROGRESS_KINDS} from '../../../extension/ladder/progress.js';
 
 const line = (at, text) => `2026-10-13T00:00:${String(at).padStart(2, '0')}.000Z ${text}`;
@@ -48,4 +48,37 @@ test('a row\'s app log is found by the name smoke.mjs writes it under', () => {
   assert.equal(appLogName('2026-10-13', 'arbeitnow.ch board -> employer'), '2026-10-13-arbeitnow-ch-board-employer.app.log');
   const smoke = fs.readFileSync(new URL('../smoke.mjs', import.meta.url), 'utf8');
   assert.match(smoke, /`\$\{day\}-\$\{shape\.replace\(\/\\W\+\/g, '-'\)\}\.app\.log`/, 'smoke.mjs renamed its app log: change appLogName with it');
+});
+
+// The silent rule offline (phase 2 box 3): the extension's own rule over the same lines, so recall and false fires are measured on any CI pool run.
+const T = 30000, at = s => `2026-10-13T00:${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}.000Z`;
+const note = (s, kind = 'navigated') => `${at(s)} [extension] fill: progress: ${kind} {}`;
+const judge = (s, answer, step) => `${at(s)} [extension] panel: application form ready?: ${answer} {"host":"x.example","step":"${step}"}`;
+const door = s => `${at(s)} [extension] fill: dead end: no-form {"ending":"handed","named":true}`;
+const other = s => `${at(s)} [extension] fill: pressed the Apply button {}`;
+
+test('the run\'s events: notes restart, the door\'s stop and a page handed to the person end; a shadow notice, a middle step or a block end nothing', () => {
+  const log = [note(0), judge(5, 'ready', 'middle'), judge(6, 'blocked', 'final'), `${at(7)} [extension] fill: dead end: silent {"shadow":true}`, judge(8, 'needs_person', 'final'), door(9), judge(10, 'ready', 'final')].join('\n');
+  assert.deepEqual(runEvents(log).map(event => event.type === 'end' ? event.why : event.kind), ['navigated', 'handed', 'door', 'handed']);
+});
+
+test('fires once per silence of T after the last note while the run has not ended; activity without progress is silence; an ended run never fires', () => {
+  assert.deepEqual(silentFires([note(0), other(10), other(40), note(50, 'required_down'), other(85)].join('\n'), T), {fires: [{afterMs: 30000, kind: 'navigated'}, {afterMs: 80000, kind: 'required_down'}], openTailMs: null});
+  assert.deepEqual(silentFires([note(0), door(5), other(90)].join('\n'), T), {fires: [], openTailMs: null}, 'the door spoke: silence is expected');
+  assert.deepEqual(silentFires([note(0), judge(5, 'ready', 'final'), other(90)].join('\n'), T), {fires: [], openTailMs: null}, 'handed to the person');
+  assert.deepEqual(silentFires([note(0), other(22)].join('\n'), T), {fires: [], openTailMs: 22000}, 'cut before T: the open silence is kept (censored)');
+});
+
+test('the detector on the pool\'s ground truth: recall on rows stopped before the form (the door or the silent rule), false fires on rows that reached it; holds are not outcomes', () => {
+  const report = {thisRun: {ran: ['door', 'silent', 'quiet', 'missed', 'form ok', 'form stall', 'held', 'old']}, results: {
+    door: {reached: 'posting', ending: 'handed'}, silent: {reached: 'posting', ending: 'unresolved'}, quiet: {reached: 'account', ending: 'unresolved'}, missed: {reached: 'posting', ending: 'unresolved'},
+    'form ok': {reached: 'form', ending: 'ready'}, 'form stall': {reached: 'ready', ending: 'ready'}, held: {reached: 'account', ending: 'held'}, old: {reached: 'posting', ending: 'unresolved'}}};
+  const logs = {door: [note(0), door(3), other(60)].join('\n'), silent: [note(0), other(20), other(45)].join('\n'), quiet: [note(0), other(25)].join('\n'), missed: [note(0), other(5)].join('\n'),
+    'form ok': [note(0), note(20, 'required_down'), judge(25, 'ready', 'final'), other(70)].join('\n'), 'form stall': [note(0), other(40)].join('\n'), held: [note(0), other(90)].join('\n'), old: 'no notes'};
+  assert.deepEqual(detectorAt(report, logs, T, 20000), {T, stopped: 4, detected: 2, silentOnly: 1, missed: ['quiet', 'missed'], censored: 1, reached: 2, falseFires: ['form stall']});
+});
+
+test('the form judge still writes the line the offline rule reads (a rename fails here, never silently)', () => {
+  const ready = fs.readFileSync(new URL('../../../extension/form-ready.js', import.meta.url), 'utf8');
+  assert.match(ready, /decide\('panel', `application form ready\?: \$\{answer\.answer\}`, \{host, step: answer\.step \|\| ''/);
 });

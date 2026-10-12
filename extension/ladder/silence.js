@@ -11,6 +11,8 @@ export const SILENT_AFTER_MS = 30000;
 
 // The rule: a clock {at, ended, noticed} is silent at `now` when nothing ended it, it was not noted yet, and its last progress is T old.
 export const isSilent = (clock, now, T = SILENT_AFTER_MS) => !!clock && !clock.ended && !clock.noticed && now - clock.at >= T;
+// The form judge's answer that hands the page to the person (desktop/lib/form-judge.js): their choice is needed, or the form is ready on its final step (Submit is theirs).
+export const handedToPerson = answer => answer?.answer === 'needs_person' || (answer?.answer === 'ready' && answer?.step === 'final');
 
 const jobs = new Map();   // tabId -> the application (its job, without the #part) the tab works on
 const clocks = new Map();   // application -> {at, kind, host, ended, noticed, timer}
