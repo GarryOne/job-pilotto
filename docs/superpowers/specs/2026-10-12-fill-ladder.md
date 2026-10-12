@@ -5,7 +5,7 @@
 > Diagnose is not a third call: the repair answer names the widget kind and the verb together. **Repair changes HOW a value goes in, never WHAT:**
 > the value is always the fill's own answer for that control; the model never writes a value. A repair that worked is kept per **structural
 > fingerprint** (the recipe library that already exists), never per site.
-> Status: **approved by the owner, 12 Oct 2026**; built in the order below.
+> Status: **approved by the owner, 12 Oct 2026**; **amended 12 Oct 2026 (five owner changes, below): OK'd by the owner the same day**; built in the order A-E (Migration order).
 
 | Key numbers | |
 |---|---|
@@ -13,7 +13,68 @@
 | Cost on a page with no miss | **0 calls** (rung 0 read-back only) |
 | Cost on a page with misses | ≤ 1 small-model call (verify) + ≤ 1 per stuck control (repair, cap 3 per page); picture only when DOM can't tell |
 | New stores | **none**: kept repairs go into the existing recipe path (`extension/recipe-schema.js`, `desktop/lib/recipes.js`) |
-| PRs | 6, each with its proof |
+| PRs | 6, each with its proof (re-cut into A-E by the amendments below) |
+
+## Amendments (12 Oct 2026, owner)
+> **Verdict:** a stuck **control** enters the same ladder as a stuck **page**. Every try on a control (an operator's own retry or a repair) counts in
+> **one log**, about 3 in all, never the same try twice; then the ladder climbs, then the person is told **once**. R0's read-back is **the one truth**
+> the panel, the form judge and the app's card all read. Owner's words: "100 fixes in 48 hours and we still fail basic cases; I don't want 1000 websites in 1000 fixes."
+
+| # | Change | Owner's live case | Lives in |
+|---|---|---|---|
+| 1 | **One attempt log per control** | (b) the 6th try in a row on one dropdown | `extension/page/attempts.js` (new) |
+| 2 | **Verb `dismiss_layer`** | (a) a popup covers the fields, nothing fills | repair executor → `consent.js` `closeLayer` |
+| 3 | **Value class** in `fill_verify` + `choose_option(i)` | (c) "+41" pushed into a Country dropdown | `extension/page/value-class.js` (new) |
+| 4 | **One truth per control** | (d) CV uploaded, panel says "CV pending" | `page/fill-verify.js` R0 mark, read by panel, judge, card |
+| 5 | **Same door, same learning, same switch** | all four | `extension/ladder/fill-climb.js` |
+| 6 | **Zoo from real widget libraries** (owner via cc) | imitations pass, real widgets fail | `desktop/e2e/widget-zoo/` + vendored libraries |
+| 7 | **Shadow with a score, acting in CI** (owner via cc) | "the passes ran" is not proof | `ladder-score` + the CI pool |
+
+### 1 · One attempt log per control (case b)
+| | Today | Amended |
+|---|---|---|
+| Who counts | each operator alone: retype `RETYPE_LIMIT` 5 (`browser-form-fastpath.js`), menu 2 attempts × 3 texts (`combo-click.js`, `fill-menus.js`), phone writings 2 (`format-retry.js`), real typing (`fill-verify.js`), the later pass clicks menus again; only repair was capped | **one log** per control, written by every operator's retry **and** by repair |
+| A try | free to repeat | entry = (verb, control, **control state**: its value class, option count, shown/covered, error near it; never a value); the **same entry twice is refused** |
+| Cap | sums to 6+ on one menu | **about 3 tries per control in all**; first measured (zoo + the CI pool's fill logs: tries per control today), then the number is fixed in code with the measurement in the commit |
+| After the cap | the loop goes on | climb (R1 kept repair → R3 → R4) → the person, told **once**: the control's label + the reason class ("the site did not keep it after 3 tries") |
+- `mayTry(control, verb)` before every retry, `tried(control, verb, worked)` after; a DOM mark `data-jobpilotto-tries` so every world (page kit, worker, panel) reads the same count.
+- Log line: `fill: try <n>/<cap> <verb> on <widget>` (no label, no value).
+
+### 2 · Verb `dismiss_layer` (case a)
+- **What:** close button N of the layer **on top** (the sketch's ON TOP line: `on-top.js` `buttons`), through the existing path: `consent.js` `closeLayer` → `/extension/dismiss-popup` (`popup-pick.js`). The repair's button and popup-pick's pick must be **the same button**, else nothing is pressed.
+- **Floors (AND):** a cookie, newsletter, promo or notice layer may be closed; a consent, declaration, terms, sign-in or bot check **never**; a layer that holds the form's own controls is the form (`on-top.js` already says so); never a button that agrees, subscribes, submits or sends (popup-pick's rule).
+- **Trigger:** R0 reads a control as `unreachable` because the element drawn at its centre is another layer (hit-test), **or** the form judge says `blocked` (dialog / overlay).
+- **Then:** the controls it covered get the fill's own answers again (each a try in the log). One dismiss per layer per page; a layer still there after its button = `contradicted` → climb, kept pick forgotten (`forgetDismiss`, exists).
+- **Modes:** both, like today's popup gate before the fill (`popup-guard.js`).
+
+### 3 · Value class (case c)
+- **Fixed list in code**, validated at both ends: `dial_code` · `country_name` · `email_shaped` · `phone` · `date` · `number` · `url` · `free_text` · `none`.
+- **Computed in the browser on the Mac** from the fill's answer for that control (dial codes: `page/dial-codes.js`; country names: `Intl.DisplayNames` over the same region table, no hand list; shapes for the rest). The model sees `answer: dial_code` per control, **never the value**.
+- `fill_verify` may answer `wrong` + reason **`wrong_class`** (new, additive) when the class does not fit the label or the options (a dial code in Country).
+- **Repair:** `choose_option(i)` by **number** from the control's own option list; validated locally: the option holds the answer's key parts (the digits of a dial code, the words of a name) or is the dial code's country by the local table ("+41" → CH → "Switzerland (+41)"). Anything else is refused.
+
+### 4 · One truth per control (case d; also FNAC 12 Oct: judge "ready" with 2 required left)
+- **R0's final read-back after settle writes each control's state once**, on the control: `data-jobpilotto-r0 = committed | empty | mismatch | unknown | unreachable`. It lasts until the control changes (the person's edit, a later pass), then the next read writes it again.
+- **Every reader uses it:** the panel's left count (`review.js` `fields()`), the judges' sketch state + match (`account-fill.js` `accountSketch`), the fill trace (`trace-settle.js`) → the session's left/todo → the app's session card. No separate counts.
+- **Upload slots by their own visible state:** `input.files`, **or** the file name the slot shows, the slot's chip or "uploaded" mark (by structure, near the slot; the extension knows the file it attached). Custom uploaders that clear `input.files` are read by what they show.
+- **A slot R0 cannot read = `unknown`** → R4 scope `verify` (capped), never guessed.
+- **Sources disagree** (panel vs trace vs judge) = the `contradicted` signal → climb; the screen shows one answer, never two.
+
+### 5 · Same door, same learning, same switch criteria
+- **Door:** a control that did not take (R0 after its tries) or that verify calls `wrong` / `unreachable` enters the ladder like a page dead end: a record `{level: 'control', rung, signal, reason, tried}` mirroring `core.js` (signals `stalled`, `contradicted`, `refused`, `unsure`, `failed`), climbed in `extension/ladder/fill-climb.js`. The page level's `deadEnd()` (`extension/ladder/dead-end.js`, job-pilotto-next-move, phase 2) is joined when it lands; never wiring in `fill-flow.js`.
+- **Learning:** a kept repair per fingerprint (fingerprint → verb, option rule) travels in **next-move's feed**: the same batch to `/api/controls` (real use: source `user`; CI pool and replays: source `ci` / `replay` with `REPLAYS_PUBLISH_KEY`, one sender `ladder-moves.mjs`), as its own fixed-value array `repairs: [{fp, verb, ok, failed}]`; k ≥ 3, one miss drops. Repairs confirmed in the CI pool count. No second delivery path.
+- **Switch-on criteria (as the page level):** no fixture source worse (`fv-*` / `fr-*` in `ladder-score`) · the wrong-and-confident list not longer · time per application within budget (clean page: R0 only, ≤ +1 s, measured) · cost per application shown to the owner and OK'd.
+- **Endings (outcome contract, owner via cc, 12 Oct 2026; the list is next-move's, imported, never copied):** every left control names one fixed ending. Mine: **`blind`** (R0 cannot read it and R4 cannot settle it: recorded as fingerprint + what was missing, fixed values, never guessed); **`data_missing`** (a required control the fill had no answer for: a proposal row, asked once, rememberable; today a bare "no answer in the kit", 7 on the 20-row CI test); the control that used its tries names its ending too. Each with a zoo page that proves the ending.
+
+### 6 · Zoo from real widget libraries (owner, 12 Oct 2026, relayed by cc)
+- The 8 imitation pages stay. Beside them, zoo pages built from the **real open-source libraries** job forms use, **pinned versions vendored** into the repo (no network in CI): react-select, MUI Autocomplete, Select2, Chosen, flatpickr, intl-tel-input (the "+41" phone-country menu), a real drag-and-drop uploader (Dropzone or FilePond: the CV-pending case).
+- **Which first: from data**, the count of each library's class names and data attributes in the pool's captures and evidence DOMs (counts said in the PR).
+- Universal (libraries, never sites), deterministic, fast. Built inside PRs A-C: the uploader with A, the menus with B, intl-tel-input and flatpickr with C.
+
+### 7 · Shadow with a score, acting in CI (owner, 12 Oct 2026, relayed by cc)
+- **Score every `fill_verify` verdict:** against R0's read-back where R0 can read the control; for the rest, a hand-checked sample against the end screenshots (`end.png`). Report the precision of `empty` and `wrong` per source, plus the wrong-and-confident list.
+- **In the CI pool** (fake applicant, held, never Submit) **repair acts**, so the unblock rate is measured end to end; shadow stays for users only.
+- The short shadow stands (one zoo pass + one pool pass), but **switching on for users needs these scores against the switch criteria**, not only the passes having run.
 
 ## What I kept, changed and dropped from cc's proposal
 | cc proposed | Verdict | Why |
@@ -30,38 +91,43 @@
 | Trailer values `fill-verify` / `fill-repair` | 🔁 changed | `Rung:` stays a number (`tools/rung-trailer.mjs` unchanged); the question is named by the fixture id prefix `fv-*` / `fr-*` |
 | Rung 5 + 6 after a failed repair | ✅ kept | unchanged: once per application, on the person's press; the person card quotes the control's label and the reason class |
 
-## The target graph (one page)
+## The target graph (one page; amended 12 Oct 2026)
 ```
- extension fills the page (fill.js + operators)            ── unchanged ──
+ extension fills the page (fill.js + operators)  ── unchanged: the fast tier ──
+   every operator retry ──► ATTEMPT LOG per control (#1): same (verb, state) twice = refused,
+                            ~3 tries per control in all, then climb
             │
             ▼
  ┌─ VERIFY ──────────────────────────────────────────────────────────────────┐
- │ R0 read-back after settle (every control, free)                          │
- │    per control: committed | empty | mismatch | unknown  (+ page error?)  │
+ │ R0 read-back after settle (every control, free) = THE ONE TRUTH (#4)     │
+ │    per control: committed | empty | mismatch | unknown | unreachable     │
+ │    written on the control; panel, judges, trace, app card read it        │
  │      all committed, no error text ───────────────────────────► done ──┐  │
  │      unknown (reader blind) ─► R1 recipe onAttr for fingerprint?      │  │
  │                                  yes ► re-read ► committed/empty      │  │
- │      still unknown, or form_ready says "needs X" while trace says     │  │
- │      X filled (contradiction) ─► R2 fill_verify (sketch, no values)   │  │
- │                                  unsure on a choice widget ─► R4      │  │
- │                                  picture (scope verify, capped)       │  │
- └────────────────────────── misses: empty / mismatch / unreachable ─────┼──┘
-            │                                                            │
+ │      still unknown, or sources disagree (contradicted) ─►             │  │
+ │        R2 fill_verify (states, local match, VALUE CLASS #3; no values)│  │
+ │          wrong (wrong_class) / empty / unreachable (covered)          │  │
+ │          unsure on a choice or an upload slot ─► R4 scope verify      │  │
+ └────── misses: empty / mismatch / wrong / unreachable ─► THE DOOR (#5) ┼──┘
+            │      {level: control, rung, signal, reason, tried}          │
             ▼                                                            │
- ┌─ REPAIR (per missed control, ≤3 per page, ≤2 tries each) ────────────┼──┐
+ ┌─ REPAIR (≤3 controls per page; tries count in the SAME attempt log) ─┼──┐
  │ R1 kept repair for this fingerprint? ─ yes ► execute ► R0 re-verify   │  │
- │ R3 fill_repair: numbered control digest ► {widget, verb, n}           │  │
+ │ R3 fill_repair: numbered control digest ► {widget, verb, n, option}   │  │
  │    verb ∈ retype · trusted_click · choose_option(i) · toggle ·        │  │
- │           open_section · upload · commit(blur) · wait · ask_person    │  │
+ │           open_section · upload · commit(blur) · dismiss_layer(N) ·   │  │
+ │           wait · ask_person                                           │  │
  │    floors AND ► execute with the extension's own primitive            │  │
  │    ► R0 re-verify ► committed? keep it (fingerprint → verb) ──────────┤  │
+ │      kept repairs ► next-move's feed (/api/controls `repairs`)        │  │
  │ R4 closer look scope form (exists: click only, "put nothing in")      │  │
  └────────────── still missed ───────────────────────────────────────────┼──┘
             ▼                                                            │
  R5 Claude takeover (person's press / 5 s countdown, once per application)│
- R6 the person: card "Phone: the site did not keep it (reverted)"        │
+ R6 the person, told ONCE: "Phone: the site did not keep it after 3 tries"│
             ▼                                                            ▼
- form_ready judge (exists) ──► "Ready for your check" — Submit is ALWAYS the person's
+ form_ready judge (reads R0) ──► "Ready for your check" — Submit is ALWAYS the person's
 ```
 
 ## Per rung
@@ -76,7 +142,7 @@
 | 6 | the person | card | the control label + reason class | — | `renderer/` need-proposal, `application-journey.js` | generic "left" rows | the reason class on the row ("the site did not keep it") |
 
 **WIDGETS** (closed; each maps to a primitive that exists): `text`, `masked_text` (phone/date mask), `native_select`, `custom_select` (react-select style), `typeahead` (async list), `segmented_toggle`, `checkbox_group`, `radio_group`, `date_picker`, `drop_zone`, `collapsed_section`, `trusted_click_only`, `other`.
-**VERBS → primitive:** `retype` → fastpath retype (`browser-form-fastpath.js`) · `trusted_click` → debugger click (`combo-click.js`) · `choose_option` → `menu-pick.js` · `toggle` → `controls.js` toggle · `open_section` → `sections.js` · `upload` → `page/upload.js` · `commit` → focus-out on the same control · `wait` · `ask_person`. No verb types model text, presses a key, or touches a control outside the digest.
+**VERBS → primitive:** `retype` → fastpath retype (`browser-form-fastpath.js`) · `trusted_click` → debugger click (`combo-click.js`) · `choose_option` → `menu-pick.js` · `toggle` → `controls.js` toggle · `open_section` → `sections.js` · `upload` → `page/upload.js` · `commit` → focus-out on the same control · `dismiss_layer` → `consent.js` `closeLayer` (amendment 2) · `wait` · `ask_person`. No verb types model text, presses a key, or touches a control outside the digest.
 
 ## Triggers
 | When | Rungs asked | Today |
@@ -86,10 +152,14 @@
 | `form_ready` says `needs_person` on a control the trace says filled (contradiction) | R2 | none (the panel trusts one or the other) |
 | R0/R2 miss (`empty` / `mismatch` / `wrong` / `unreachable`) on a control we had an answer for | R1 → R3 → R4 | none |
 | Fill put nothing in + required left (stuck) | R1 → R3 → R4 (exists from R4) | R4 click only (`fill-flow.js` ~401) |
+| A control R0 reads as `unreachable` (hit-test: another layer at its centre), or the judge says `blocked` (dialog / overlay) | R3 `dismiss_layer` → refill the covered controls → R0 | popup gate before the fill only (`popup-guard.js`); after: logged |
+| The answer's value class does not fit the control (a dial code in Country) | R2 `wrong_class` → R3 `choose_option(i)` | none: "+41" stays in Country |
+| The panel, the trace or the judge disagree on a control (incl. an upload slot) | `contradicted` → R2 → R4 scope `verify` | each shows its own count ("CV pending" beside "uploaded") |
+| A control used its tries (the attempt log's cap) | climb R1 → R3 → R4 → R6, the person told once | the operator's own limit, then silence or a loop |
 | A control we had NO answer for | **not a trigger**: that is the answer pipeline's (`no_data`, `proposed`), never repair's | — |
 
 ## Caps and floors
-- **Caps:** verify R2 once per page state; repair ≤ 3 controls per page, ≤ 2 tries per control, 1 repair loop per page state; R4 shares the existing caps (2 per shape, 10 a day). Every climb logs `ladder: rung N signal S` + `fill: <verb> on <widget>` (no text).
+- **Caps:** verify R2 once per page state; repair ≤ 3 controls per page; **every try on a control, an operator's or a repair's, counts in one attempt log: about 3 per control in all (measured, then fixed), never the same (verb, state) twice** (amendment 1); 1 repair loop per page state; R4 shares the existing caps (2 per shape, 10 a day). Every climb logs `ladder: rung N signal S` + `fill: <verb> on <widget>` (no text).
 - **Floors (never move):** never Submit; never a consent, declaration or terms box (LEGAL); never a password field, never read one; never a bot check or SMS code; nothing outside the digest; one trusted click per control per page; no AI = nothing pressed beyond what the fill already does; a value is only ever the fill's own answer (or an option index the fill's option-pick chose).
 - **Assistant mode:** `retype`, `commit`, `choose_option`, `toggle`, `upload` re-do the fill's own work → both modes. `trusted_click` on a non-field control, `open_section` → **"Do it for me" only** (owner, 12 Oct 2026).
 - **Contradiction rule:** a kept repair that fails once is dropped (as `learning.js`).
@@ -119,6 +189,16 @@
 
 `extension/fill-flow.js` is 418 lines: the wiring goes into a new `extension/ladder/fill-climb.js` from PR 2, never into fill-flow.js.
 
+**Amended order (12 Oct 2026): PRs 2, 4, 5, 6 re-cut as A-E** (1 and 3 landed). One PR each, a proof in each, a recorded or zoo case that fails on main:
+| PR | What | Proof (fails on main, passes after) |
+|---|---|---|
+| **A** | R0 final read-back after settle for **every** control kind (old PR 2) + **one truth** (#4): panel, form_ready, trace and the session card read the R0 mark; upload slots by their visible state | zoo `reverts-on-blur`, `chip-toggle`, `custom-uploader-clears-files`; a journey scenario where panel and card agree |
+| **B** | The attempt log (#1): every operator retry + repair, ~3 per control, then the person once | zoo `menu-never-takes`: at most N tries, then one person row (main loops) |
+| **C** | Repair (old PR 4) with `dismiss_layer` (#2) and value classes + `choose_option(i)` (#3); short shadow, then live | `fr-*` fixtures under the ratchet; zoo `popup-over-form`, `dial-code-in-country`; floor refusals (consent, submit-like, password) |
+| **D** | Remember (old PR 5): kept repair per fingerprint, one miss drops, through next-move's feed (`repairs` array) | second visit to a zoo page: 0 model calls |
+| **E** | R4 scope `verify` + the person card's reason class (old PR 6) | trap "checked in DOM, off on screen"; card render test |
+Shadow (owner): one zoo pass + one pool pass with `fill_verify` logging, then repair goes live; a verb perfect on the zoo may go live directly. Every switch-on is reported to job-pilotto-cc first.
+
 ## Risks
 | Risk | Guard |
 |---|---|
@@ -145,24 +225,35 @@
 4. Relayed by job-pilotto-cc from the owner (12 Oct 2026, goal "as automatic, adaptable, dynamic and reliable as possible"): decision 2 **kept as landed**; shadow mode is **short**: one zoo pass + one pool pass with `fill_verify` logging, then repair goes live (PR 4); a repair verb that scores perfectly on the zoo may go live directly.
 
 ## Progress
+- [x] Amendments 1-5 (12 Oct 2026): owner's OK (12 Oct 2026, in the fill-ladder window)
 ### 1. Safety net
 - [x] Widget zoo pages (one per WIDGET, a misbehaving variant each): `desktop/e2e/widget-zoo/`, `npm run widget-zoo`, CI job widget-zoo (not required); baseline on main c7528b6: read 5/9, committed 2/9 (#423, #427)
 - [ ] `fv-*` / `fr-*` fixture format scored per question by `ladder-score`, ratchet + fingerprint (fv-*: done in PR 3, 7 fixtures all exact on the plan path; fr-*: PR 4)
 - [x] `docs/flows/ladder.md` row 3 corrected; fill questions added to the rung map (#423)
-### 2. Verify rung 0
-- [ ] Final read-back after settle for every control kind; trace row `committed`
-- [ ] Retype / re-pick for every kind that reverts (within the existing limit): text boxes done (#438, typed again key by key); choices, dates and the phone country part still open
+### 2. Verify rung 0 + one truth (PR A)
+- [ ] Library counts in the pool's captures (which real widget libraries first); vendored uploader page (Dropzone or FilePond) (amendment 6)
+- [ ] Final read-back after settle for every control kind; the R0 mark on each control; trace row `committed`
+- [ ] Retype / re-pick for every kind that reverts (within the attempt log): text boxes done (#438, typed again key by key); choices, dates and the phone country part still open
+- [ ] One truth: the panel's left count, the judges' sketch, the trace and the session card read the R0 mark; upload slots read by their visible state; `contradicted` when sources disagree
 ### 3. Verify rung 2 (shadow)
 - [x] `fill_verify` question, sketch without values, local `match` (`desktop/lib/ladder/fill-verify.js`, phase `fill` of /extension/account-judge)
 - [x] Contradiction trigger (form_ready needs X, the fill's match says X kept) and the miss trigger (match no), logged only (`extension/form-ready.js`)
 - [ ] Measure run: hit rate and tokens per application, shown to the owner (the ceiling run is job-pilotto-fill-quality's; shadow pass: zoo on the Mac done 12 Oct 2026 (`npm run widget-zoo -- --model`), pool in CI by cc's batch after 00:00 UTC 13 Oct on main >= 0.9.242)
-### 4. Repair
-- [ ] Control digest (rung 3) + `fill_repair` schema (WIDGETS, VERBS, n, option)
-- [ ] Executor over existing primitives; caps; floor refusals tested
-- [ ] Wiring in `extension/ladder/fill-climb.js`; journey scenario; zoo cases fail on old
-### 5. Remember
+- [ ] Score: every fill_verify verdict vs R0 (and a hand-checked end.png sample); precision of empty/wrong per source; wrong-and-confident list (amendment 7)
+### 3b. The attempt log (PR B)
+- [ ] Measure tries per control today (zoo + CI pool fill logs), fix the cap in code with the number
+- [ ] Real-library menu pages (react-select, Select2, Chosen, MUI Autocomplete, by the counts) (amendment 6)
+- [ ] `page/attempts.js`: every operator's retry + repair counts; same (verb, state) refused; cap → climb → the person once
+### 4. Repair (PR C)
+- [ ] Control digest (rung 3) + `fill_repair` schema (WIDGETS, VERBS incl. `dismiss_layer`, n, option)
+- [ ] Value class (`page/value-class.js`, fixed list, both ends) in the fill_verify sketch; reason `wrong_class`; `choose_option(i)` validated locally
+- [ ] Executor over existing primitives; caps; floor refusals tested (consent, declaration, terms, submit-like, password)
+- [ ] intl-tel-input and flatpickr real-library pages (amendment 6); repair ACTS in the CI pool, unblock rate measured end to end (amendment 7)
+- [ ] Wiring in `extension/ladder/fill-climb.js` (the door record; joins `deadEnd()` when it lands); journey scenario; zoo cases fail on old
+### 5. Remember (PR D)
 - [ ] Local kept repair per fingerprint, one miss drops
-- [ ] Evidence (fingerprint, verb, worked) to the proposer via `/api/controls`
-### 6. Picture and the person
+- [ ] Evidence (fingerprint, verb, worked) in next-move's feed: `repairs` array to `/api/controls` (real use + CI pool + replays), site stores it
+### 6. Picture and the person (PR E)
 - [ ] Rung 4 scope `verify` for unreadable widgets, capped
 - [ ] Person card shows the reason class per left control
+- [ ] Field-level endings (`blind`, `data_missing`, the try cap's), next-move's list, each proven by a zoo page
