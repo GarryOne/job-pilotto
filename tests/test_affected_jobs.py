@@ -22,6 +22,8 @@ OWN_DECIDE = {'hole3': 'tools/recorded-fails-on-old.mjs lists the cases a PR bri
               'cases-fail-before-fix': 'the same job after its rename'}
 FOLLOWS = {'report': "needs.replay.outputs.ran != 'false'"}   # replays to /admin/applying: runs when the replay shards ran, skipped (= passed) otherwise
 NEEDED = "steps.needed.outputs.run == 'true'"
+# Jobs of the pick no required check asks yet: each says why, and a pull request workflow still asks it first (test_an_optional_job_is_asked_by_a_pull_request_workflow).
+OPTIONAL = {'e2e-flow': 'apply + applycv on flow PRs (.github/workflows/e2e-flow.yml): optional until it proves itself on the SQLite store (owner, 13 Oct 2026)'}
 
 
 def required():
@@ -86,7 +88,13 @@ class EveryRequiredJobDecidesFirst(unittest.TestCase):
             self.assertRegex(''.join(listed[:first]), r'fetch-depth: [02]\b', f'{where}: the checkout needs the merge commit and its parent (fetch-depth 2)')
             later = [step.splitlines()[0] + ' ...' for step in listed[first + 1:] if NEEDED not in step]
             self.assertEqual(later, [], f'{where}: a step after the decision runs whatever it says')
-        self.assertEqual(asked, set(jobs.JOBS), 'every job of the pick is asked by some required check, and no job asks one the pick does not have')
+        self.assertEqual(asked, set(jobs.JOBS) - set(OPTIONAL), 'every job of the pick is asked by some required check (or is OPTIONAL, with why), and no job asks one the pick does not have')
+
+    def test_an_optional_job_is_asked_by_a_pull_request_workflow(self):
+        for name, why in OPTIONAL.items():
+            self.assertIn(name, jobs.JOBS, why)
+            asking = [(wf, job) for wf, job, _, block in workflow_jobs() if re.search(rf'run: bash tools/ci-needed\.sh {re.escape(name)}\b', block)]
+            self.assertTrue(asking, f'{name}: no pull request workflow job asks `bash tools/ci-needed.sh {name}` ({why})')
 
     def test_no_pull_request_workflow_lists_paths_of_its_own(self):
         # One source of "what can this change break" (tools/affected-jobs.py): no `on: paths:` (a required check that never reports blocks the PR) and no grep of the diff.
@@ -169,6 +177,16 @@ class WhenInDoubtItRuns(unittest.TestCase):
             self.assertIn(path, replays, path)
         self.assertIn('desktop/e2e/widget-zoo/', jobs.loads('zoo'))
         self.assertIsNone(jobs.reasons(['desktop/renderer/pages/activity.js'])['replays'], 'the window\'s pages are no part of a replay')
+
+    def test_the_flow_e2e_runs_for_the_extension_the_flow_files_and_its_suites_only(self):
+        flow = jobs.loads('e2e-flow')
+        self.assertTrue(flow, 'node lists what the flow suites load')
+        for path in ('extension/', 'desktop/lib/apply.js', 'desktop/lib/session-flow.js', 'desktop/e2e/suites/apply.mjs', 'desktop/e2e/suites/applycv.mjs', 'desktop/e2e/lib/apply-cv-steps.mjs', 'desktop/e2e/fixtures/'):
+            self.assertIn(path, flow, path)
+        self.assertTrue(jobs.reasons(['extension/fill-flow.js'])['e2e-flow'])
+        self.assertTrue(jobs.reasons(['.github/workflows/e2e.yml'])['e2e-flow'], 'the workflow it calls')
+        for f in ('docs/rules/applying.md', 'desktop/renderer/pages/activity.js', 'worker/src/index.js', 'desktop/e2e/suites/jobs.mjs'):
+            self.assertIsNone(jobs.reasons([f])['e2e-flow'], f)
 
     def test_every_file_a_harness_test_reads_runs_the_harness(self):
         # The brief's guard: a harness test that reads a product file the pick does not map to it would let a PR skip the harness and break main.

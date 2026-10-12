@@ -68,7 +68,12 @@ on:
       gate_tag:
         description: 'The release just built: every gate suite on its commit, then the promote job approves it for Mac beta testers'
         type: string
-        required: true
+        required: false
+        default: ''
+      pr_suites:
+        description: 'A pull request''s flow e2e (e2e-flow.yml): exactly these suites, on the SQLite store, no AI screenshot review, in the PR''s own concurrency group'
+        type: string
+        default: ''
       release_run:
         description: 'Called by the release run, which starts the Windows gate itself: no "Windows follows" dispatch from here'
         type: boolean
@@ -112,17 +117,21 @@ jobs:
         run: npm ci || npm install
       # The offline app (test/offline-app.test.mjs) imports desktop/lib/server.js and its packages (@anthropic-ai/sdk): without them the plan job died with ERR_MODULE_NOT_FOUND (11 Oct 2026).
       - name: Install the app's own packages
+        if: inputs.pr_suites == ''   # a pull request runs the harness tests in its own required job
         working-directory: desktop
         run: npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts
       # desktop/shared is generated (gitignored): test/judge-sketch-picklist.test.mjs imports it, and passed only when another test happened to stage it first (12 Oct 2026).
       - name: Stage the app's shared files
+        if: inputs.pr_suites == ''   # a pull request runs the harness tests in its own required job
         working-directory: desktop
         run: node scripts/stage.mjs --files-only
       # A few of them open a headless Chromium (test/upload-slot.test.mjs: each upload-slot shape on a fixture page, 8 Oct 2026).
       - name: A headless browser for the tests' own tests
+        if: inputs.pr_suites == ''   # a pull request runs the harness tests in its own required job
         working-directory: desktop/e2e
         run: npx playwright install --with-deps chromium --only-shell
       - name: The tests' own tests (layout check, review parser, triage rules, which suites run)
+        if: inputs.pr_suites == ''   # a pull request runs the harness tests in its own required job
         working-directory: desktop/e2e
         run: npm test
       # Today's e2e AI budget (ai-spend.mjs; owner, 7 Oct 2026: "$30 a week"): spent, this run skips the paid judge and the screenshot review.
@@ -142,11 +151,12 @@ jobs:
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
           BEFORE: ${{ github.event.before }}
-          ONLY: ${{ inputs.suite }}
+          ONLY: ${{ inputs.suite || inputs.pr_suites }}
+          PR_SUITES: ${{ inputs.pr_suites }}
           TARGET_REF: ${{ inputs.target_ref || inputs.gate_tag }}
           GATE_TAG: ${{ inputs.gate_tag }}
           OVER: ${{ steps.spend.outputs.over }}
-        run: node plan-run.mjs 2>> "$GITHUB_STEP_SUMMARY" | { if [ "$OVER" = true ]; then sed 's/^review=.*/review=0/'; else cat; fi; } >> "$GITHUB_OUTPUT"
+        run: node plan-run.mjs 2>> "$GITHUB_STEP_SUMMARY" | { if [ "$OVER" = true ] || [ -n "$PR_SUITES" ]; then sed 's/^review=.*/review=0/'; else cat; fi; } >> "$GITHUB_OUTPUT"   # a pull request: no AI screenshot review
   suite:
     name: ${{ matrix.key }}
     needs: plan
@@ -157,8 +167,8 @@ jobs:
       fail-fast: false      # one suite failing must not hide what the others found
       matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
     concurrency:
-      group: e2e-${{ matrix.key }}   # a suite never overlaps itself (it owns one Notion page); different suites run together
-      cancel-in-progress: false
+      group: ${{ inputs.pr_suites != '' && format('e2e-pr-{0}-{1}', github.ref, matrix.key) || format('e2e-{0}', matrix.key) }}   # a suite never overlaps itself; a pull request's run has its own group, so it never cancels a gate job waiting in e2e-<suite>
+      cancel-in-progress: ${{ inputs.pr_suites != '' }}
     env:
       # A suite whose secrets are missing FAILS here instead of a green "skipped" (lib/skip.mjs). 6 Oct 2026: failuresnotion and failureschannels
       # had never run (no token) and showed ✓. Forks have no secrets: they still skip with a warning.
@@ -168,7 +178,7 @@ jobs:
       E2E_AI_FAMILY: ${{ (inputs.family == 'claude' || inputs.family == 'openai') && inputs.family || '' }}   # a manual run pinned to one family; else alternate
       # The store under test (lib/store.mjs pickStore): the gate's two jobs per suite pin one store each (plan-run.mjs legs); any other run alternates on bit 1 of the
       # run number (beside the AI family's bit 0), unless a run by hand pins one.
-      E2E_STORE: ${{ matrix.store || (inputs.store != 'alternate' && inputs.store) || 'alternate' }}
+      E2E_STORE: ${{ (inputs.pr_suites != '' && 'sqlite') || matrix.store || (inputs.store != 'alternate' && inputs.store) || 'alternate' }}   # a pull request: SQLite, a fresh database per run
       E2E_NOTION_TOKEN: ${{ secrets.E2E_NOTION_TOKEN }}
       E2E_NOTION_TOKEN_FAILURESNOTION: ${{ secrets.E2E_NOTION_TOKEN_FAILURESNOTION }}
       E2E_NOTION_TOKEN_FAILURESCHANNELS: ${{ secrets.E2E_NOTION_TOKEN_FAILURESCHANNELS }}
