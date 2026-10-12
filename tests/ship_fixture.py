@@ -37,7 +37,7 @@ class ShipFixture(unittest.TestCase):
         git(self.main, 'commit', '-qm', 'Start')
         git(self.main, 'remote', 'add', 'origin', str(self.origin))
         git(self.main, 'push', '-q', 'origin', 'main')
-        subprocess.run(['git', 'clone', '-q', '--no-hardlinks', str(self.origin), str(self.other)], check=True)
+        subprocess.run(['git', 'clone', '-q', self.origin.as_uri(), str(self.other)], check=True)   # file:// (the pack protocol): a plain-path clone copies origin's pack folder while the push's background gc writes in it (CI, 12 Oct 2026)
         for key, value in (('user.email', 't@example.com'), ('user.name', 'Test')):
             git(self.other, 'config', key, value)
         self.tree = Path(git(self.main, 'rev-parse', '--show-toplevel')) / '.claude' / 'worktrees' / 'topic'
