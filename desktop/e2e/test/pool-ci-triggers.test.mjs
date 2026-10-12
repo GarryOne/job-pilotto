@@ -74,3 +74,13 @@ test('the pool run names its visit kind (a PR proof or by hand) and keeps one vi
   assert.match(smoke, /JOB_PILOTTO_SITE_RESERVE: '1'/);
   assert.match(smoke, /JOB_PILOTTO_SITE_LIMIT: '2'/);
 });
+
+// Owner, 12 Oct 2026: a merged fix is "proven live" on /admin/applying only when CI REALLY ran its row; each such run sends one record with the narrow key.
+test('the pool run sends its proven-live records with the narrow key, on that step only, never the site key', () => {
+  const smoke = workflows['pool-smoke.yml'];
+  const step = smoke.match(/- name: Send a "proven live" record[^\n]*\n(?: {8}.*\n)+/)?.[0] || '';
+  assert.match(step, /REPLAYS_PUBLISH_KEY: \$\{\{ secrets\.REPLAYS_PUBLISH_KEY \}\}/);
+  assert.match(step, /node desktop\/e2e\/pool-proven\.mjs/);
+  assert.equal((smoke.match(/REPLAYS_PUBLISH_KEY: \$\{\{/g) || []).length, 1, 'the key sits on that one step');
+  assert.doesNotMatch(smoke, /STATS_API_KEY|STATS_KEY|site\.api_key/);
+});
