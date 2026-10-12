@@ -19,7 +19,7 @@ import {evidenceLines} from './evidence-bundle.mjs';
 import {isDeciding} from './deciding.mjs';
 import {PAGE_LINE, stillClock, stillSeconds as stillSecondsFor} from './live-still.mjs';
 import {startOfflineApp} from './offline-app.mjs';
-import {ownerValues, pageFields, tripwire} from './privacy-tripwire.mjs';
+import {coverageLine, ownerValues, pageFields, tripwire} from './privacy-tripwire.mjs';
 import {applyPoolEligibility} from './pool-eligibility.mjs';
 import {seedLivePosting} from './seed-data.mjs';
 import {storeCall} from './store-call.mjs';
@@ -52,8 +52,9 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
   const app = await startOfflineApp({ask, captureDir, memo: path.join(captureDir, 'model-memo.json'), ...(proxy ? {api: {url: proxy.url, key: appKey(testKey())}} : {})}).catch(async error => { if (proxy && !aiProxy) await proxy.close(); throw error; });
   const front = await frontOf(app);
   const run = await browser({extensionDir, appPort: front.port, allowAllSites: true});
-  const owner = ownerValues(), values = personalValues([`Name: ${CONTACT.full_name}\nEmail: ${CONTACT.email}\nPhone: ${CONTACT.phone}`]);
-  if (!owner.size) say('live: no owner values on this machine for the privacy tripwire (nothing of the owner\'s here): it has nothing to compare');
+  const owner = ownerValues();
+  say(`live: ${coverageLine(owner)}`);   // kinds only, never a value; a kind it could not find is said, never a silent "clean"
+  const values = personalValues([`Name: ${CONTACT.full_name}\nEmail: ${CONTACT.email}\nPhone: ${CONTACT.phone}`]);
   const journey = journeyRecorder(run.context, {scrub: html => scrubPage(html, values)}), styles = cssRecorder(run.context);
   const steps = stepShooter({tabOf: () => run.context.pages().filter(page => /^https?:/.test(page.url())).at(-1), kindOf: () => kindFromLog(app.logText()), dir: captureDir});   // one full-page picture per page or step reached (lib/step-shots.mjs)
   let asksSeen = 0, tripped = '';

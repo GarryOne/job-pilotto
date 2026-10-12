@@ -26,7 +26,7 @@ export const SCHEMA = object({
 });
 
 const INSTRUCTIONS = `You improve a job-application form filler. You get one fill's record: the fields it left unfilled (with the
-Use only the applicant details given here; never a name, e-mail address or phone number from any other context (such as an account you are signed in with): when a detail is not given, leave it empty.
+Use only the applicant details given here; never a name, e-mail address, phone number, country, city, street address or other location from any other context (such as an account you are signed in with): when a detail is not given, leave it empty.
 form's label, type and options), the answers it had, and the candidate's profile, standard answers and contact details.
 Write short reusable notes that let the next fill complete these fields, ONLY from facts already given:
 - answer: a field that maps to a known fact (e.g. "Preferred First Name" = the first name). value = the exact text.

@@ -8,7 +8,8 @@ import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
-import {matchesOwner, ownerValues, pageFields, tripwire} from '../lib/privacy-tripwire.mjs';
+import {appProfileTexts} from '../lib/capture-page.mjs';
+import {coverageLine, matchesOwner, ownerValues, pageFields, tripwire} from '../lib/privacy-tripwire.mjs';
 
 const E2E = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // An invented owner (never the real one): what his app's files and his Claude account would give.
@@ -51,6 +52,41 @@ test('without the owner\'s values (a CI runner, a fresh Mac) the tripwire still 
   const none = ownerValues({texts: [], accountEmail: ''});
   assert.equal(none.size, 0);
   assert.ok(ownerValues({texts: [], accountEmail: 'x.y@example.org'}).size >= 1);
+});
+
+// 12 Oct 2026: with no profile sent, a plan-path model typed the account holder's country and city (from the signed-in account) into a test form; the tripwire
+// knew only names, e-mails and phones. Its location comes from the same files (a "Location:", "City:", "Country:", "Street:" line), all invented here.
+const PLACED = ownerValues({texts: ['## Contact details\n- Full name: Zorana Vrabcova\n- Location: Port Vale, Atlantis\n- Street: 12 Harbour Lane'], accountEmail: ''});
+
+test('the owner\'s location is caught in any field, accents and case aside, as a whole word; the fake applicant\'s place is not', () => {
+  assert.ok([...PLACED.values()].includes('location'));
+  const typed = [{label: 'Country', value: 'ATLÁNTIS'}, {label: 'City', value: 'Port Vale'}, {label: 'Address', value: '12 Harbour Lane, flat 3'},
+    {label: 'Where are you based?', value: 'Zurich, Switzerland'}, {label: 'Ocean', value: 'Atlantic'}, {label: 'Note', value: 'Portvalet'}];
+  assert.deepEqual(matchesOwner(typed, PLACED).map(hit => `${hit.kind}:${hit.label}`), ['location:Country', 'location:City', 'location:Address']);
+  const sameAsFake = ownerValues({texts: ['- Location: Zurich, Switzerland'], accountEmail: ''});
+  assert.deepEqual(matchesOwner([{label: 'City', value: 'Zurich'}], sameAsFake), [], 'a place the fake applicant shares is the fake\'s, not a leak');
+});
+
+test('the app\'s own contact details (draft.json) count as the owner\'s, for a person whose Profile lives in Notion', () => {
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-tripwire-app-'));
+  fs.writeFileSync(path.join(folder, 'draft.json'), JSON.stringify({draft: {contact: {full_name: 'Zorana Vrabcova', email: 'zv@stand-in.test', phone: '+99 555 010 2030', location: 'Port Vale, Atlantis'}}}));
+  const values = ownerValues({texts: appProfileTexts([folder]), accountEmail: ''});
+  assert.deepEqual([...new Set(values.values())].sort(), ['email', 'location', 'name', 'phone']);
+  assert.equal(matchesOwner([{label: 'Country', value: 'Atlantis'}], values).length, 1);
+  // The imported CV: its location and each job's "city, country" place; a one-part place (a work mode) is not read. The Profile's "Home base" row is.
+  fs.mkdirSync(path.join(folder, 'cv'));
+  fs.writeFileSync(path.join(folder, 'cv', 'cv.json'), JSON.stringify({name: 'Zorana Vrabcova', location: 'Lumen', jobs: [{company: 'X', roles: [{place: 'Old Harbour, Borduria'}, {place: 'Remote'}]}]}));
+  const withCv = ownerValues({texts: [...appProfileTexts([folder]), '| Home base | Glimmer; open to relocating |\n| Countries | Syldavia (anywhere) |'], accountEmail: ''});
+  for (const place of ['Old Harbour', 'Borduria', 'Glimmer']) assert.equal(matchesOwner([{label: 'Where', value: place}], withCv).length, 1, `${place}: a place of the person's`);
+  for (const value of ['Remote', 'Syldavia', 'Lumen']) assert.equal(matchesOwner([{label: 'Where', value}], withCv).length, value === 'Lumen' ? 1 : 0, `${value}`);
+});
+
+test('the tripwire says what it checks and what it could not find: a missing location is said, never a silent "clean"', async () => {
+  assert.match(coverageLine(PLACED), /^privacy tripwire: checks name, location; NOT FOUND on this computer: email, phone$/);
+  assert.match(coverageLine(OWNER), /checks .*name.*; NOT FOUND on this computer: location/);
+  const result = await tripwire({typed: async () => [{label: 'First name', value: 'Test'}]}, {values: OWNER});
+  assert.deepEqual([result.ok, result.missing], [true, ['location']]);
+  for (const file of ['lib/apply-live.mjs', 'lib/live-row.mjs']) assert.match(fs.readFileSync(path.join(E2E, file), 'utf8'), /coverageLine\(owner\)/, `${file} says what its tripwire checks`);
 });
 
 // Every live run goes through runLive (lib/apply-live.mjs), which calls the tripwire after its held fill; anything else that opens a live posting must go through it.

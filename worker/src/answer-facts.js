@@ -20,3 +20,19 @@ export function floorUnfounded(answer, {test = false} = {}) {
   if (test || answer.use === 'propose' || answer.fact !== 'none' || answer.value === '' || ['legal', 'demographic'].includes(answer.category)) return answer;
   return {...answer, use: 'propose'};
 }
+// The identity floor (12 Oct 2026: with no profile sent, a plan-path model typed the signed-in account holder's country, city and surname into a test form).
+// A contact answer (name, e-mail, phone, address) or one resting on the home location is typed only when its value is in what the ask was given (the
+// profile, standard answers, CV facts, search settings, drafted kit): accents and case aside, every word of it, or the phone's last nine digits. Otherwise it
+// came from somewhere else (an account, a guess): proposed, never typed. A value that follows from a given one in other words (a country for a given city)
+// is proposed too: the applicant confirms it once. Guarded by worker/test/identity-floor.test.js.
+const plain = (text) => String(text || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+const wordsOf = (text) => plain(text).split(/[^\p{L}\p{N}@.+_-]+/u).map((word) => word.replace(/^[.+_-]+|[.+_-]+$/g, '')).filter(Boolean);
+export function floorUngrounded(answer, given, { test = false } = {}) {
+  if (test || answer.use !== 'fill' || answer.value === '' || !(answer.category === 'contact' || ['contact', 'home_location'].includes(answer.fact))) return answer;
+  const value = plain(answer.value), digits = value.replace(/\D/g, '');
+  const phones = (plain(given).match(/\+?\d[\d\s()./-]{6,}\d/g) || []).map((phone) => phone.replace(/\D/g, '').slice(-9));
+  const asPhone = digits.length >= 9 && digits.length >= value.replace(/[\s()+./-]/g, '').length;
+  const words = new Set(wordsOf(given));
+  const grounded = asPhone ? phones.includes(digits.slice(-9)) : wordsOf(value).every((word) => words.has(word));
+  return grounded ? answer : { ...answer, use: 'propose' };
+}

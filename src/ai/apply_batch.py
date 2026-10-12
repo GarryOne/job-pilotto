@@ -41,7 +41,7 @@ DEFAULT_CV = os.getenv('JOB_PILOTTO_CV_PATH', str(Path.home() / 'Documents' / 'C
 
 PROMPT = """Open a browser, navigate to {url}, and fill out the job application form. Do not \
 click Submit — stop once every field is filled and show me a summary.
-Use only the applicant details given here; never a name, e-mail address or phone number from any other context (such as an account you are signed in with): when a detail is not given, leave it empty.
+Use only the applicant details given here; never a name, e-mail address, phone number, country, city, street address or other location from any other context (such as an account you are signed in with): when a detail is not given, leave it empty.
 
 {fields}
 

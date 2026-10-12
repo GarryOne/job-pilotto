@@ -15,7 +15,7 @@ import {fillState} from './extension.mjs';
 import {fieldLines} from './smoke.mjs';
 import {appProfileTexts, cssRecorder, personalValues, scrubPage, snapshotInPage} from './capture-page.mjs';
 import {journeyRecorder} from './capture-journey.mjs';
-import {ownerValues, pageFields, tripwire} from './privacy-tripwire.mjs';
+import {coverageLine, ownerValues, pageFields, tripwire} from './privacy-tripwire.mjs';
 import {removeJobsByUrl} from './seed-data.mjs';
 import {modelClient} from './model.mjs';
 import {pause} from './apply-fixtures.mjs';
@@ -121,6 +121,7 @@ export async function runLive(ctx, h) {
       // The privacy tripwire (lib/privacy-tripwire.mjs): the owner's own values are never typed into a real page. Checked every few seconds and once at the end, before
       // anything is written; a hit clears those fields, deletes the run's saved files (capture, screenshots) and fails the run.
       const owner = ownerValues(), saved = [process.env.LIVE_CAPTURE_DIR, frames];
+      console.log(`  live: ${coverageLine(owner)}`);   // kinds only, never a value; a kind it could not find is said, never a silent "clean"
       const tripped = async () => { for (const tab of ctx.browser.context.pages().filter(item => /^https?:/.test(item.url()))) { const check = await tripwire(pageFields(tab), {values: owner, saved}); if (!check.ok) return check.reason; } return ''; };
       let trip = '';
       const steps = stepShooter({tabOf: () => ctx.browser.context.pages().filter(tab => /^https?:/.test(tab.url())).at(-1), kindOf: () => kindFromLog(appLogLines(ctx.profile).join('\n')), dir: process.env.LIVE_CAPTURE_DIR || ''});   // one full-page picture per page or step reached (lib/step-shots.mjs)

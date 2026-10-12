@@ -20,8 +20,26 @@ export function personalValues(texts) {
   for (const [, value] of own.matchAll(/^\W*(?:full\s*)?(?:first\s*|last\s*|family\s*)?name\W*:\s*(.+)$/gim)) for (const word of value.split(/\s+/)) if (word.replace(/\W/g, '').length >= 3) values.set(word.replace(/[^\p{L}\p{N}'-]/gu, '').toLowerCase(), 'name');
   return values;
 }
+// The app's files that hold the person's own details: profile.md / answers.md (the store on this Mac) and draft.json (the contact details and draft Profile
+// the setup read from the CV, kept also when the Profile lives in Notion: 12 Oct 2026, a Notion user's Mac had no profile.md, so nothing of theirs was known).
+// The contact comes back as "label: value" lines ("full name: …", "location: …"), the shape personalValues and the tripwire read. The imported CV (cv/cv.json)
+// adds its name, its location and each job's place written as "city, country" (a one-part place such as a work mode is not a place of the person's).
 export const appProfileTexts = (folders = [path.join(os.homedir(), 'Library/Application Support/Job Pilotto')]) =>
-  folders.flatMap(folder => ['profile.md', 'answers.md'].map(name => { try { return fs.readFileSync(path.join(folder, name), 'utf8'); } catch { return ''; } }));
+  folders.flatMap(folder => [...['profile.md', 'answers.md'].map(name => { try { return fs.readFileSync(path.join(folder, name), 'utf8'); } catch { return ''; } }), draftTexts(folder), cvTexts(folder)]);
+function cvTexts(folder) {
+  try {
+    const cv = JSON.parse(fs.readFileSync(path.join(folder, 'cv', 'cv.json'), 'utf8'));
+    const places = (cv.jobs || []).flatMap(job => (job.roles || []).map(role => String(role.place || ''))).filter(place => place.includes(','));
+    return [cv.name && `full name: ${cv.name}`, cv.location && `location: ${cv.location}`, ...places.map(place => `location: ${place}`)].filter(Boolean).join('\n');
+  } catch { return ''; }
+}
+function draftTexts(folder) {
+  try {
+    const draft = JSON.parse(fs.readFileSync(path.join(folder, 'draft.json'), 'utf8')).draft || {};
+    const contact = Object.entries(draft.contact || {}).filter(([, value]) => typeof value === 'string' && value.trim()).map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`);
+    return [...contact, String(draft.profile_markdown || '')].join('\n');
+  } catch { return ''; }
+}
 
 const escape = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const valuesOut = (text, values) => {
