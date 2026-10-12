@@ -23,20 +23,20 @@ test('a quiet page goes on after the quiet time, not the fixed wait', async () =
   assert.ok(result.ms >= 55, `took ${result.ms} ms`);   // still: true = the quiet timer ended it, not the 1000 ms cap (no wall-clock ceiling: a loaded Mac took 507 ms, 12 Oct 2026)
 });
 
-test('a page that keeps changing is waited for, up to the old fixed wait and never longer', async () => {
+test('a page that keeps changing is waited for, up to the old fixed wait and never longer', async t => {
+  // On a fake clock (13 Oct 2026: on a loaded Mac the real 30 ms gaps between changes grew past the 60 ms quiet time and the page "settled" early).
+  t.mock.timers.enable({apis: ['setTimeout', 'Date']});
   const page = fakePage();
   const pending = stillInPage(60, 400);
-  for (let i = 0; i < 4; i++) { await wait(30); page.change(); }   // changes for ~120 ms, then quiet
+  for (let i = 0; i < 4; i++) { t.mock.timers.tick(30); page.change(); }   // changes for 120 ms, then quiet
+  t.mock.timers.tick(60);
   const settled = await pending;
-  assert.equal(settled.still, true);
-  assert.ok(settled.ms >= 170, `went on while the page was still changing (${settled.ms} ms)`);
+  assert.deepEqual(settled, {still: true, ms: 180}, 'went on 60 ms after the last change, not while the page was still changing');
   const busy = fakePage();
   const capped = stillInPage(60, 200);
-  const ticker = setInterval(busy.change, 20);
+  for (let i = 0; i < 10; i++) { t.mock.timers.tick(20); busy.change(); }   // a change every 20 ms: never quiet
   const result = await capped;
-  clearInterval(ticker);
-  assert.equal(result.still, false);
-  assert.ok(result.ms >= 195, `capped at ${result.ms} ms`);   // still: false = the cap ended it; a timer is never early, only late under load
+  assert.deepEqual(result, {still: false, ms: 200}, 'the cap ended it at the old fixed wait');
 });
 
 test('a page that cannot be watched waits the full old time', async () => {
