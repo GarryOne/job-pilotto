@@ -8,7 +8,7 @@
 # The required checks are the job names of pr-gate.yml, build.yml and recorded-pages.yml.
 set -euo pipefail
 repo="${PR_REPO:-GarryOne/job-pilotto}"
-checks='python worker site desktop\ (ubuntu-24.04) desktop\ (windows-latest) replay\ shard\ 1 replay\ shard\ 2 replay\ shard\ 3 replay\ shard\ 4 pr\ gates flow-fresh harness\ tests'
+checks='python worker site desktop\ (ubuntu-24.04) desktop\ (windows-latest) replay\ shard\ 1 replay\ shard\ 2 replay\ shard\ 3 replay\ shard\ 4 pr\ gates flow-fresh harness\ tests\ 1 harness\ tests\ 2'
 ruleset="$(python3 - "$checks" <<'PY'
 import json, shlex, sys
 names = shlex.split(sys.argv[1])
