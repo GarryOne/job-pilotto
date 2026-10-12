@@ -1,5 +1,6 @@
 {
  "shape": "an upload slot (a drop zone with a visually hidden file input) whose page refuses the attached file: it empties the input and shows nothing of the file",
+ "origin": "hand-cut",
  "why": "One truth per control (spec docs/superpowers/specs/2026-10-12-fill-ladder.md, amendment 4; FNAC, 12 Oct 2026: the form judge said ready while required fields were left). The judges' sketch called the slot 'filled' because the extension had marked it, while the panel and the fill's record called it left: the judge was told something the page does not show. Hand-made page: no capture holds the uploader's behaviour",
  "control": {
   "build": "0.9.246",
@@ -13,15 +14,35 @@
   }
  ],
  "ai": {
-  "/extension/page-kind": {"ok": true, "kind": "form", "role": "form", "by": "ai", "confidence": 0.99},
-  "/extension/answer": {"ok": true, "eligible": true, "answers": []}
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  }
  },
  "expect": {
-  "judged": ["Resume:empty"],
-  "notJudged": ["Resume:filled"],
-  "traced": ["CV:left"],
-  "pending": ["Resume"],
-  "notTold": ["pressed the submit"],
+  "judged": [
+   "Resume:empty"
+  ],
+  "notJudged": [
+   "Resume:filled"
+  ],
+  "traced": [
+   "CV:left"
+  ],
+  "pending": [
+   "Resume"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
   "seconds": 30
  },
  "start": "panel"
