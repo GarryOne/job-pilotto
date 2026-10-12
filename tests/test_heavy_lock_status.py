@@ -43,7 +43,12 @@ class HeavyLockStatusTest(unittest.TestCase):
         wait_registered(heavy, 1)
         waiter = self.start('e2e-smoke', 'true', JOB_PILOTTO_SESSION='session-b')
         wait_registered(heavy, 2)   # both are in the lock's books (a loaded Mac may take seconds to start them): not a guessed 0.5 s
+        # The books count a slot or ticket whose pid is still being written by its file name, so "2" can be one run's slot and ticket: ask status itself until it lists the waiter (CI, 12 Oct 2026: "nobody waits").
+        deadline = time.monotonic() + 60
         out = self.status()
+        while 'waits  #1' not in out and time.monotonic() < deadline:
+            time.sleep(0.2)
+            out = self.status()
         Path(go).write_text('go')
         holder.communicate(timeout=30)
         waiter.communicate(timeout=30)
