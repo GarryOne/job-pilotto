@@ -38,7 +38,8 @@ test('the door sends today\'s report unchanged, names the ending in the log, and
     ['https://jobs.example/3', 'jobs.example', 'no-form', 3, 'https://jobs.example/3', '', '']]);
   assert.deepEqual(logged.map(line => line.what), ['dead end: site_broken', 'dead end: account', 'dead end: no-form']);
   assert.deepEqual(logged.map(line => line.data.ending), ['site_broken', 'unresolved', 'unresolved']);
-  assert.deepEqual(logged[0].data, {host: 'jobs.example', ending: 'site_broken', kind: 'gone', status: 404});
+  assert.deepEqual(logged[0].data, {host: 'jobs.example', ending: 'site_broken', named: true, kind: 'gone', status: 404});
+  assert.equal(logged[1].data.named, false);
 });
 
 test('evidence keeps numbers, booleans and short words of ours; page text, addresses and long strings never', () => {

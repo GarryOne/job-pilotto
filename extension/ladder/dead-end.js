@@ -24,6 +24,7 @@ export function evidenceOf(raw = {}) {
 // -> the report's promise (a caller that did not wait for the report before does not wait now).
 export function deadEnd(stop, evidence = {}, decide = () => {}) {
   const why = STUCK_REASONS.includes(stop.why) ? stop.why : 'no-form';
-  decide('fill', `dead end: ${why}`, {host: stop.host || '', ending: endingOfStuck(why, stop.needs), ...evidenceOf(evidence)});
+  const named = !!String(stop.needs || '').trim();   // whether the person is told exactly what to do (never the words: desktop/e2e/lib/ending.mjs reads this line)
+  decide('fill', `dead end: ${why}`, {host: stop.host || '', ending: endingOfStuck(why, stop.needs), named, ...evidenceOf(evidence)});
   return report(stop.job, stop.host, why, stop.tabId, stop.page, stop.needs || '', stop.accountStep || '');
 }

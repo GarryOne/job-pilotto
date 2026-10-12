@@ -6,7 +6,8 @@ import fs from 'node:fs';
 import {test} from 'node:test';
 import {ENDINGS} from '../../../extension/ladder/endings.js';
 import {ACCOUNT_HELD, APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED} from '../lib/smoke.mjs';
-import {HELD_BY_TEST, REASONS, RUN_ERRORS, STOP_LINES, endingOf, fieldEnding, tally} from '../lib/ending.mjs';
+import {HELD_BY_TEST, REASONS, RUN_ERRORS, STOP_LINES, STOP_STUCK, endingOf, fieldEnding, tally} from '../lib/ending.mjs';
+import {STUCK_REASONS, endingOfStuck} from '../../../extension/ladder/endings.js';
 
 const field = (reason, extra = {}) => ({outcome: 'left', type: 'text', label: 'Q', required: true, reason, ...extra});
 const form = (fieldList, extra = {}) => ({reached: 'form', filled: 3, left: fieldList.length, fieldList, errors: [], exit: 0, ...extra});
@@ -124,4 +125,21 @@ test('the baseline CLI: unresolved first with its cause, the test\'s holds apart
   assert.match(out, /HELD BY THE TEST, not measured: 2 \(1 account-first, 1 bot wall on the CI address\)/);
   assert.match(out, /resolution, raw: 0% of 1 rows/);
   assert.doesNotMatch(out, /Not this run/);
+});
+
+// ONE ending rule (cc's review, 12 Oct 2026): the replays (lib/page-replay.mjs: endingOfStuck on the report) and the pool's classifier (this file: the row's app log) get the same
+// stops and must give the same ending, so the Resolution score and the replays cannot drift.
+test('the same stop gives the same ending to the replays and to the pool classifier: the door\'s line, and every older stop line', () => {
+  const posting = {reached: 'posting', fieldList: [], errors: [], exit: 0};
+  const line = (why, named) => `10:00:00 [extension] fill: dead end: ${why} ${JSON.stringify({host: 'x.example', ending: endingOfStuck(why, named ? 'a need' : ''), named, rung: 2})}`;
+  for (const why of STUCK_REASONS) for (const named of [true, false]) {
+    assert.equal(endingOf(posting, line(why, named)).ending, endingOfStuck(why, named ? 'Sign in with your password for this site' : ''), `${why}, need named: ${named}`);
+  }
+  for (const [name, [why, named]] of Object.entries(STOP_STUCK)) {
+    assert.ok(STUCK_REASONS.includes(why), `${name}: a reason the extension sends`);
+    assert.equal(endingOf(posting, `10:00:00 [extension] fill: ${STOP_LINES[name]} {}`).ending, endingOfStuck(why, named ? 'a need' : ''), name);
+  }
+  assert.deepEqual(Object.keys(STOP_STUCK).sort(), Object.keys(STOP_LINES).sort(), 'every stop line is read as a stop');
+  const both = `10:00:00 [extension] fill: ${STOP_LINES.noForm} {}\n${line('account', true)}\n10:00:02 [extension] fill: ${STOP_LINES.other} {}`;
+  assert.equal(endingOf(posting, both).ending, 'handed', 'the door\'s line wins over an older stop line, whatever their order');
 });
