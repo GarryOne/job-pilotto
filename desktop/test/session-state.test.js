@@ -273,7 +273,7 @@ test('Claude stopped on an account page with things for you: "Needs you", never 
   assert.equal(leftForYou(item), true);
   assert.deepEqual(sessionState(item), ['Needs you', 'warn']);
   // The card of what Claude needs is shown whenever it has rows, also while Claude asks: its answer boxes and "Remember" live there (owner, 8 Oct 2026).
-  const page = fs.readFileSync(new URL('../renderer/pages/sessions.js', import.meta.url), 'utf8');
+  const page = fs.readFileSync(new URL('../renderer/pages/session-next-step.js', import.meta.url), 'utf8');
   assert.match(page, /show\(\$\('ss-needs-card'\), needs\.length \+ empty\.length > 0 && !gone\)/);
   assert.doesNotMatch(page, /What Claude needs from you:'/, 'the list is the card below, not a second copy in the top card');
   const needs = fs.readFileSync(new URL('../renderer/pages/session-needs.js', import.meta.url), 'utf8');

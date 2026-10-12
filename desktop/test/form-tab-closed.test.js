@@ -51,7 +51,7 @@ for (const kind of ['form', 'claude']) {
 // The class: every place in the session pages that looks for the form's tab hands a closed one to reopenClosedTab, and no
 // button opens a fresh tab or tells you to open it yourself.
 test('every caller of the form-tab lookup reopens a closed tab through reopenClosedTab', () => {
-  const pages = ['session-needs.js', 'sessions.js', 'session-log.js'].map(name => [name, fs.readFileSync(path.join(here, 'renderer', 'pages', name), 'utf8')]);
+  const pages = ['session-needs.js', 'sessions.js', 'session-next-step.js', 'session-log.js'].map(name => [name, fs.readFileSync(path.join(here, 'renderer', 'pages', name), 'utf8')]);
   let callers = 0;
   for (const [name, source] of pages) {
     const lines = source.split('\n');

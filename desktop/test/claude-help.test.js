@@ -17,7 +17,7 @@ test('every renderer file that draws a Claude entry point asks the one switch', 
   // Asks the switch itself, or is told by its caller through an explicit `claude` flag (answer-options.js: session-needs.js passes claudeHelp()).
   for (const file of drawing) assert.match(fs.readFileSync(file, 'utf8'), /claudeHelp\(\)|if \(claude\) /, `${path.basename(file)} draws a Claude button without claudeHelp()`);
   assert.match(fs.readFileSync(new URL('pages/session-needs.js', RENDERER), 'utf8'), /answerOptions\(need, knownAnswers, \{claude: claudeHelp\(\)\}\)/);
-  const sessions = fs.readFileSync(new URL('pages/sessions.js', RENDERER), 'utf8');
+  const sessions = fs.readFileSync(new URL('pages/session-next-step.js', RENDERER), 'utf8');
   assert.equal((sessions.match(/actions\.push\(resume\(\)\)/g) || []).length, 1);   // only inside pushResume, which asks the switch
   assert.match(sessions, /const pushResume = \(\) => \{ if \(claudeHelp\(\)\) actions\.push\(resume\(\)\); \};/);
 });

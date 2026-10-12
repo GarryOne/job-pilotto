@@ -15,7 +15,7 @@ test('the card offer: hidden without Claude ready or once dismissed; the consent
 });
 
 test('the stuck card draws the offer (not a lone "Apply with Claude") and the press goes through the guarded take-over', () => {
-  const card = read('renderer/pages/sessions.js'), offer = read('renderer/claude-offer.js');
+  const card = read('renderer/pages/session-next-step.js'), offer = read('renderer/claude-offer.js');
   assert.match(card, /offerParts\(item, \{rerender: \(\) => renderNextStep\(item\), after:/);
   assert.doesNotMatch(card.slice(card.indexOf('if (stuck) {'), card.indexOf('// Claude is the safety net')), /sessionButton\('Apply with Claude'/);
   assert.match(offer, /window\.pilot\.takeOverClaude\(/);

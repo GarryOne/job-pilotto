@@ -33,7 +33,7 @@ test('one name and one model per engine, in the window and the main process, mat
 
 // Files allowed to say "Claude" in a string, and how many times: Claude-only features. May only shrink; a new file or a higher count fails.
 const ALLOWED = {
-  'renderer/pages/sessions.js': 12, 'renderer/pages/activity-visits.js': 9, 'lib/ai/names.js': 8, 'renderer/ai-name.js': 7,
+  'renderer/pages/sessions.js': 3, 'renderer/pages/session-next-step.js': 9, 'renderer/pages/activity-visits.js': 9, 'lib/ai/names.js': 8, 'renderer/ai-name.js': 7,
   'renderer/index.html': 3, 'lib/quit-dialog.js': 4, 'renderer/pages/session-log.js': 3, 'renderer/pages/jobs-render.js': 3, 'lib/session-runs.js': 3,
   'renderer/pages/session-needs.js': 2, 'renderer/ai-engine-view.js': 2, 'lib/terminals.js': 2, 'lib/session-flow.js': 2,
   'renderer/pages/session-actions.js': 1, 'renderer/pages/claude-prereqs.js': 1, 'lib/transcript.js': 1, 'lib/session-stats.js': 1, 'lib/run-result.js': 1,
