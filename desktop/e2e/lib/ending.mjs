@@ -44,10 +44,10 @@ const accountStep = result => {
     || (row.outcome === 'filled' && reason(row).startsWith(REASONS.details)) || (row.type === 'file' && reason(row).startsWith(REASONS.noSlot)));
 };
 
-// The extension's own stop lines (extension/fill-flow.js `decide('fill', ...)`): the last one in the row's app log refines a stop the parser left without a note. Guarded: a rename fails the test.
-export const STOP_LINES = {email: 'the posting asks for the application by email', told: 'the page tells what to do', botCheck: 'a bot check in front of the page', unreadable: 'the page could not be read',
+// The extension's own stop lines (extension/fill-flow.js and ladder/site-broken.js `decide('fill', ...)`): the last one in the row's app log refines a stop the parser left without a note. Guarded: a rename fails the test.
+export const STOP_LINES = {email: 'the posting asks for the application by email', told: 'the page tells what to do', botCheck: 'a bot check in front of the page', unreadable: 'the page could not be read', broken: 'a broken page: reported as site_broken',
   other: 'the ladder ended at the person: reported as other', noForm: 'no form on this page', account: 'account page left for Claude'};
-const STOP_ENDING = {email: 'told', told: 'told', botCheck: 'handed', unreadable: 'site_broken', other: 'unresolved', noForm: 'unresolved', account: 'unresolved'};
+const STOP_ENDING = {email: 'told', told: 'told', botCheck: 'handed', unreadable: 'site_broken', broken: 'site_broken', other: 'unresolved', noForm: 'unresolved', account: 'unresolved'};
 const lastStop = appLog => {
   let found = '';
   for (const line of String(appLog || '').split('\n')) {

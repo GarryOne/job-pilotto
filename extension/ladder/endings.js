@@ -17,9 +17,10 @@ export const resolved = value => isEnding(value) && value !== UNRESOLVED;
 // The ending each "can't reach" reason names (extension/fill-flow.js and account-step.js stuck(); the app reads the same reasons: desktop/lib/session-flow.js). A wall is 'handed'
 // only when the run names exactly what the person must do (needs: a bot check, the account step's need); with no named need it is a stop with no reason. Guard: worker/test/endings.test.js
 // fails when the extension sends a reason that is not here.
-export const STUCK_REASONS = ['email', 'told', 'other', 'account', 'no-form', 'incomplete'];
+export const STUCK_REASONS = ['email', 'told', 'other', 'account', 'no-form', 'incomplete', 'site_broken'];
 export function endingOfStuck(why, needs = '') {
   if (why === 'email' || why === 'told') return 'told';
+  if (why === 'site_broken') return 'site_broken';   // an error page or one that could not be read, loaded again first (ladder/site-broken.js)
   if (why === 'account' || why === 'no-form') return String(needs || '').trim() ? 'handed' : UNRESOLVED;
   return UNRESOLVED;   // other (the ladder ended with nothing to say), incomplete (nothing filled, required fields left), anything not listed
 }

@@ -1,0 +1,59 @@
+{
+ "origin": "hand-cut",
+ "shape": "an application form whose site answers the first load with a server error (503) and the next load with the form: the run loads it again by itself and fills it",
+ "why": "12 Oct 2026, the outcome contract (spec docs/superpowers/specs/2026-10-12-one-next-move.md, phase 1a): site_broken is retried before it is told. Before this, a server error page was judged like any page (the page-kind AI was asked about an error page), nothing loaded it again, and the form that came on the next load was never filled.",
+ "control": {
+  "build": "0.9.249",
+  "failed": "filled: #first_name (the 503 page was judged as a page and never loaded again)"
+ },
+ "rung": 2,
+ "sample": "hand-cut page of the shape (invented host and text); the replay serves the first load as 503 (pages[].status)",
+ "pages": [
+  {
+   "url": "https://careers.flaky.example/apply/sales-associate-4711",
+   "file": "page.html",
+   "status": [
+    503,
+    200
+   ]
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "answer": {
+     "ok": true,
+     "by": "ai",
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "",
+     "applyRoute": "",
+     "applyBy": "",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": "",
+     "form_frame": -1,
+     "kind": "form",
+     "role": "form",
+     "confidence": 0.95
+    }
+   }
+  ]
+ },
+ "expect": {
+  "told": [
+   "a broken page: loading it again"
+  ],
+  "notTold": [
+   "a broken page: reported as site_broken"
+  ],
+  "filled": [
+   "#first_name",
+   "#email"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 60
+ }
+}

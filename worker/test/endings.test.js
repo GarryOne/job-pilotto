@@ -18,7 +18,7 @@ test('the list is pure: no chrome API, no storage, no import', () => {
 });
 
 test('every "can\'t reach" reason names its ending: told for the page\'s own way, handed only for a named wall, else unresolved', () => {
-  assert.deepEqual(STUCK_REASONS.map(why => endingOfStuck(why)), ['told', 'told', 'unresolved', 'unresolved', 'unresolved', 'unresolved']);
+  assert.deepEqual(STUCK_REASONS.map(why => endingOfStuck(why)), ['told', 'told', 'unresolved', 'unresolved', 'unresolved', 'unresolved', 'site_broken']);
   assert.equal(endingOfStuck('no-form', 'Solve the robot check in this tab; the form fills after it'), 'handed');
   assert.equal(endingOfStuck('account', 'Create the account: choose a password'), 'handed');
   assert.equal(endingOfStuck('account', '  '), 'unresolved', 'no named need: a stop with no reason');
@@ -30,8 +30,8 @@ test('every "can\'t reach" reason names its ending: told for the page\'s own way
 test('every reason the extension sends with a "can\'t reach" report is a listed reason', () => {
   const read = file => fs.readFileSync(new URL(`../../extension/${file}`, import.meta.url), 'utf8');
   const sent = new Set();
-  for (const file of ['fill-flow.js', 'account-step.js']) for (const call of read(file).match(/(?<!function )\bstuck\([^;]*\)/g) || []) for (const [, word] of call.matchAll(/'([a-z][a-z-]*)'/g)) sent.add(word);
+  for (const file of ['fill-flow.js', 'account-step.js']) for (const call of read(file).match(/(?<!function )\bstuck\([^;]*\)/g) || []) for (const [, word] of call.matchAll(/'([a-z][a-z_-]*)'/g)) sent.add(word);
   for (const file of ['ladder/outcomes.js', 'ladder/climb.js']) for (const [, word] of read(file).matchAll(/\bwhy: '([a-z][a-z-]*)'/g)) sent.add(word);
-  assert.ok(sent.has('no-form') && sent.has('email') && sent.has('other'), [...sent].join(', '));
+  assert.ok(sent.has('no-form') && sent.has('email') && sent.has('other') && sent.has('site_broken'), [...sent].join(', '));
   assert.deepEqual([...sent].filter(word => !STUCK_REASONS.includes(word)), [], 'add the new reason to STUCK_REASONS (extension/ladder/endings.js) with its ending, and to the app (desktop/lib/session-flow.js)');
 });

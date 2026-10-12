@@ -1,0 +1,59 @@
+{
+ "origin": "hand-cut",
+ "shape": "a posting the site took down: its address answers 404 with no form; the run says plainly that the posting is gone, at once (a 404 is never loaded again)",
+ "why": "12 Oct 2026, the outcome contract (spec docs/superpowers/specs/2026-10-12-one-next-move.md, phase 1a): a posting gone is the site_broken ending, told plainly with the site's own status. Before this, the 404 page was judged like any page and reported as 'no-form' (the extension can't reach the form): an unresolved ending.",
+ "control": {
+  "build": "0.9.249",
+  "failed": "told: This posting is gone: the site answered 404 (the 404 page was reported as no-form)"
+ },
+ "rung": 2,
+ "sample": "hand-cut page of the shape (invented host and text); the replay serves it as 404 every time (pages[].status)",
+ "pages": [
+  {
+   "url": "https://careers.closed.example/jobs/sales-associate-4711",
+   "file": "page.html",
+   "status": 404
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "answer": {
+     "ok": true,
+     "by": "ai",
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "",
+     "applyRoute": "",
+     "applyBy": "",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": "",
+     "form_frame": -1,
+     "kind": "posting",
+     "role": "no-form",
+     "confidence": 0.9
+    }
+   }
+  ]
+ },
+ "expect": {
+  "told": [
+   "This posting is gone: the site answered 404",
+   "a broken page: reported as site_broken"
+  ],
+  "notTold": [
+   "a broken page: loading it again"
+  ],
+  "stuck": [
+   "site_broken|This posting is gone"
+  ],
+  "ending": [
+   "site_broken"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 40
+ }
+}

@@ -17,6 +17,7 @@ import {applyFormStates, askRow, reviewStates, opening, openForm, reopenClosedTa
 import {toastMessage} from './startup.js';
 import {cancelSession, closeSession, pauseSession, removeSession, restartSession, resumeSession, skipSession} from './session-actions.js';
 import {storeName} from '../store-words.js';
+import {INFORM_STUCK} from '../session-steps-list.js';
 export {cancelSession, removeSession, restartSession, resumeSession, skipSession};
 
 // Other pages import these from here.
@@ -231,7 +232,7 @@ export function renderNextStep(item) {
   const brief = item.brief || '';
   const ask = asksYou(item) && /\?$/.test(brief) ? brief : '';
   $('ss-next-title').textContent = submitted ? 'Submitted'
-    : stuck ? (item.stuck === 'account' ? (item.accountStep === 'sign_in' ? `Sign in${item.accountHost ? ` to ${item.accountHost.replace(/^www\./, '')}` : ''}` : 'This site needs an account') : item.stuck === 'incomplete' ? 'The extension filled nothing here' : item.stuck === 'email' ? 'Send your application by email' : item.stuck === 'told' ? 'The page tells you what to do' : item.stuck === 'other' ? 'Job Pilotto could not tell how to apply' : 'The extension can\'t reach this form')
+    : stuck ? (item.stuck === 'account' ? (item.accountStep === 'sign_in' ? `Sign in${item.accountHost ? ` to ${item.accountHost.replace(/^www\./, '')}` : ''}` : 'This site needs an account') : item.stuck === 'incomplete' ? 'The extension filled nothing here' : item.stuck === 'email' ? 'Send your application by email' : item.stuck === 'told' ? 'The page tells you what to do' : item.stuck === 'other' ? 'Job Pilotto could not tell how to apply' : item.stuck === 'site_broken' ? 'The site is not answering' : 'The extension can\'t reach this form')
     : gone ? 'The form tab was closed'
     : review ? 'Review the filled application'
     : asking ? ask || (item.stage === 'account' ? 'Account step needs your input' : 'Application needs your input')
@@ -241,7 +242,7 @@ export function renderNextStep(item) {
   const since = item.needsYouSince || item.endedAt || item.startedAt;
   const state = $('ss-next-state');
   state.textContent = submitted ? `· ended at ${hhmmOf(since)}`
-    : stuck ? (item.stuck === 'account' ? accountProgress(reviewStates.get(item.id)) : ['email', 'told', 'other'].includes(item.stuck) ? '' : '· nothing filled yet')
+    : stuck ? (item.stuck === 'account' ? accountProgress(reviewStates.get(item.id)) : INFORM_STUCK.includes(item.stuck) ? '' : '· nothing filled yet')
     : review ? (item.kind === 'form' || item.inChrome ? `· form opened at ${hhmmOf(since)}` : `· Claude finished at ${hhmmOf(since)}`) : asking ? (isLive(item) ? `· waiting since ${hhmmOf(since)}` : '· Claude closed with the app')
     : running ? '· working' : `· ended at ${hhmmOf(since)}`;
   const stage = sessionStage(item);
@@ -253,6 +254,7 @@ export function renderNextStep(item) {
     : stuck ? [el('p', 'rich-p', item.stuck === 'account'
       ? 'The form is behind a sign-in or sign-up. The extension fills it in Chrome; a robot check or a choice there is yours. If it stays stuck, Claude can take over; you still submit the application.'
       : item.stuck === 'other' ? 'Job Pilotto read the page and could not tell how to apply: there may be no form, or the way is not written on it. Open it in Chrome and look. Job Pilotto never acts on it for you.'
+      : item.stuck === 'site_broken' ? `${item.accountNeeds || 'The site did not answer'}. Open it in Chrome to check, or try again later. Job Pilotto never acts on it for you.`
       : item.stuck === 'told' ? `The page says: "${item.accountNeeds || ''}". Open it in Chrome to read it. Job Pilotto never acts on it for you.`
       : item.stuck === 'email' ? `This job is applied to by email, not through a form. Send your CV and cover letter to ${item.accountNeeds || 'the address on the page'}. Job Pilotto never sends it for you.`
       : item.stuck === 'incomplete' ? 'The form is open in Chrome, but the extension could not fill any of it and required fields are still empty. Fill them there, or let Claude take over; you still submit the application.'
@@ -286,7 +288,7 @@ export function renderNextStep(item) {
     // Tier 3: the cheap ways ran out. Chrome first, Claude the safety net (owner, 9 Oct 2026: "remove the 'Apply with Claude' from being orange";
     // the panel's "Take over with Claude" is there while the form tab is open, this one when it isn't).
     if (item.url) actions.push(sessionButton('Open in Chrome', 'primary', async event => { await openForm(item, event.currentTarget); }, 'link'));
-    const offer = ['email', 'told', 'other'].includes(item.stuck) ? {buttons: [], notes: []} : offerParts(item, {rerender: () => renderNextStep(item), after: async result => { await refreshSessions(); if (result?.session?.id) openSession(result.session.id); }});   // claude-offer.js
+    const offer = INFORM_STUCK.includes(item.stuck) ? {buttons: [], notes: []} : offerParts(item, {rerender: () => renderNextStep(item), after: async result => { await refreshSessions(); if (result?.session?.id) openSession(result.session.id); }});   // claude-offer.js
     actions.push(...offer.buttons);
     if (offer.notes.length) $('ss-question').append(...offer.notes);
   }

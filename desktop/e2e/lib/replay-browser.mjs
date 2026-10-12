@@ -4,9 +4,8 @@
 // A case's pages are served at their real addresses; every other address is a 404 and, besides that, resolves to nothing (real-extension.mjs offline: true).
 // Isolation between tabs: told/asked/judged count only requests whose body names the case's host, notTold counts the case's own lines and the ones no case's host names (a line of another case's host is not its tab's; a failure in parallel is run again alone by the caller), and two cases that share a host never run at the same time (their pages, and the extension's per-host state, would meet).
 import {startRealExtension} from './real-extension.mjs';
-import {answerFor, caseFiles, caseHosts, fillSettled, isExtensionPage, judgeCase} from './page-replay.mjs';
+import {answerFor, answerPage, caseFiles, caseHosts, caseStatuses, fillSettled, isExtensionPage, judgeCase} from './page-replay.mjs';
 
-const pathKey = url => { const parsed = new URL(url); return `${parsed.host}${parsed.pathname}`.replace(/\/$/, ''); };
 const hostOf = text => { try { return new URL(JSON.parse(text).url).host; } catch { return ''; } };
 
 // Which of the live cases a request is for: the host of the url it names, else the first live case that answers that route (a request with no url: the case is unknown).
@@ -28,12 +27,11 @@ export async function startReplayBrowser(items, {extensionDir, appPort = 0, cdp 
   const routes = [...new Set(items.flatMap(item => Object.keys(item.ai || {})))];
   const answer = Object.fromEntries(routes.map(route => [route, sent => { const state = caseForRequest(live, route, sent); return state?.answer[route] ? state.answer[route](sent) : {}; }]));
   const run = await startRealExtension({extensionDir, cv: items.some(item => item.cv !== false), allowAllSites: true, answer, offline: true, appPort, cdp});
-  const files = new Map();   // pathKey -> html of every live case
+  const files = new Map(), statuses = new Map();   // pathKey -> html of every live case, and its status per load (page-replay.mjs answerPage)
   await run.context.route('**/*', route => {   // ONE route for the browser, before any tab navigates: a route added while another tab loads let a request out (example.ch, 11 Oct 2026)
     const url = route.request().url(), host = new URL(url).hostname;
     if (host === '127.0.0.1' || host === 'localhost') return route.continue();
-    const body = files.get(pathKey(url));
-    return body ? route.fulfill({status: 200, contentType: 'text/html; charset=utf-8', body}) : route.fulfill({status: 404, body: ''});
+    return answerPage(route, files, statuses);
   });
   const everyOpened = [];   // [{page, at}] every non-extension tab opened since the browser started
   run.context.on('page', open => { if (!isExtensionPage(open)) everyOpened.push({page: open, at: Date.now()}); });
@@ -44,6 +42,7 @@ export async function startReplayBrowser(items, {extensionDir, appPort = 0, cdp 
     const state = {item, hosts, answer: answerFor(item), from: Date.now(), tabs: new Set(), shared: others > 0};
     if (others) for (const one of live) one.shared = true;
     for (const [key, html] of caseFiles(item)) files.set(key, html);
+    for (const [key, list] of caseStatuses(item)) statuses.set(key, list);
     live.push(state);
     const first = run.requests.length, began = Date.now(), tab = await run.context.newPage();
     const strict = () => run.requests.slice(first).filter(request => hosts.some(host => request.body.includes(host)));
@@ -57,7 +56,7 @@ export async function startReplayBrowser(items, {extensionDir, appPort = 0, cdp 
     } finally {
       await fillSettled(tab);   // a fill still running reports its moves before the tab goes (page-replay.mjs)
       live.splice(live.indexOf(state), 1);
-      for (const key of caseFiles(item).keys()) files.delete(key);
+      for (const key of caseFiles(item).keys()) { files.delete(key); statuses.delete(key); }
       await Promise.all(run.context.pages().filter(open => open !== run.page && !isExtensionPage(open) && (open === tab || hosts.some(host => open.url().includes(host)))).map(open => open.close().catch(() => {})));
     }
   }
