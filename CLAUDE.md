@@ -30,6 +30,9 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 - **The direction of every page fix: see fields → the AI judges each one's meaning → fill** (owner, 12 Oct 2026). A page's kind (account, form, posting) never
   decides WHETHER its fields are filled, only what is pressed; never add a code path for a page type or shape. A weak or missing AI answer is never kept as sure:
   it is asked again or climbs the ladder (digest, picture). If a fix needs "when the page looks like X, do Y", the AI's fixed answer is missing a value: add it there.
+  **Where a fix lives** (owner, 12 Oct 2026, spec `docs/superpowers/specs/2026-10-12-one-next-move.md`): a wrong decision (button, route, kind, when to stop) is
+  **data** (a ladder fixture + prompt example, or a learned move), never a new branch; an unread field or an unworkable control is universal code with a
+  zoo/recorded page; wording is pack data; safety is code. Today's working code stays as the fast tier; a dead end gets the one escalating fallback.
 - **Universal first: fix a shape, not a site.** No site names, hosts, vendor lists or growing regex; a form bug improves the self-improving mechanism (operator,
   fingerprint, alias meaning, recipe, noticing the miss) and is tested on a fixture shape. Guard: `tools/hardcoded-page-words.mjs`.
 - **Ask before spending money on AI** (a new model or large re-runs); show the measured cost.
