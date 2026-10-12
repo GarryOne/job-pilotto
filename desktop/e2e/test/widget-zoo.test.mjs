@@ -46,3 +46,21 @@ test('the summary counts per widget', () => {
   const summary = summarizeZoo([{name: 'a', widget: 'text', read: true, committed: true, safe: true}, {name: 'b', widget: 'text', read: true, committed: false, safe: false}]);
   assert.deepEqual(summary, {total: 2, read: 2, committed: 1, unsafe: ['b'], byWidget: {text: {total: 2, committed: 1}}});
 });
+
+test('the --model route answers the fill check with the model and every other phase with a canned ready', async () => {
+  const {modelRoute} = await import('../lib/widget-zoo-model.mjs');
+  const shadow = new Map();
+  const client = {messages: {create: async () => ({stop_reason: 'end_turn', content: [{type: 'text', text: JSON.stringify({controls: [{n: 1, verdict: 'ok', reason: ''}, {n: 2, verdict: 'empty', reason: 'not_kept'}]})}]})}};
+  const route = await modelRoute(shadow, {client});
+  assert.deepEqual(await route(JSON.stringify({phase: 'form', sketch: {}})), {ok: true, answer: 'ready', step: 'final'});
+  const sketch = {url: 'https://text.zoo.example.com/apply', title: 'Apply', controls: [{type: 'text', label: 'First name', state: 'filled', match: 'yes'}, {type: 'text', label: 'City', state: 'empty', match: 'no'}], buttons: [], texts: [], frames: []};
+  const found = await route(JSON.stringify({phase: 'fill', sketch}));
+  assert.equal(found.answer, 'shadow');
+  assert.deepEqual(shadow.get('text.zoo.example.com'), [{n: 2, label: 'City', verdict: 'empty', reason: 'not_kept'}]);
+});
+
+test('--model never runs with an API key or in CI', async () => {
+  const {modelRoute} = await import('../lib/widget-zoo-model.mjs');
+  await assert.rejects(() => modelRoute(new Map(), {env: {ANTHROPIC_API_KEY: 'x'}}), /ANTHROPIC_API_KEY/);
+  await assert.rejects(() => modelRoute(new Map(), {env: {CI: 'true'}}), /not in CI/);
+});

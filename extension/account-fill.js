@@ -104,6 +104,7 @@ export function accountSketch() {
   const matchOf = el => {
     const typed = el.getAttribute('data-jobpilotto-typed');
     if (typed && window.__jobPilottoTypedSame) return window.__jobPilottoTypedSame(typed, el.value) ? 'yes' : 'no';
+    if (el.hasAttribute('data-jobpilotto-nottaken')) return 'no';   // the fill gave it an answer and the page did not take it (page/fill-verify.js)
     if (!el.hasAttribute('data-jobpilotto-filled')) return '';
     return (el.type === 'checkbox' || el.type === 'radio' ? el.checked : given(el)) ? 'yes' : 'no';
   };
