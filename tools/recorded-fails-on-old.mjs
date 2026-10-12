@@ -12,16 +12,22 @@ import {fileURLToPath} from 'node:url';
 import {NAMES_A_FAILURE, casesOf} from './recorded-cases.mjs';
 
 export const PINS = /^Recorded-pins:\s*\S/m;
+// A follow-up to a fix already on main (12 Oct 2026: PRs #374, #386 tightened the case of a merged fix; on the PR's base, which has the fix, it passed):
+// "Fix-commit: <sha>" names that fix, and the commit's cases are replayed on the code before it (<sha>^) instead of the PR's base. A proof, so allowed with a Pool-row.
+export const FIX_COMMIT = /^Fix-commit:\s*([0-9a-f]{7,40})\s*$/m;
 
-// -> {pinned: [case], check: [case]}: the cases a "Recorded-pins:" commit of the push covers (never one that names a failure it fixes) and the rest, which must fail on the old code.
+// -> {pinned, check, refused, fixOf}: the cases a "Recorded-pins:" commit of the push covers (never one that names a failure it fixes), the rest, which must fail on the old code,
+// and for a follow-up's cases the fix whose parent is their old code ({case: sha}).
 export function splitPinned(commits) {
-  const pinned = new Set(), check = new Set(), refused = new Set();
+  const pinned = new Set(), check = new Set(), refused = new Set(), fixOf = {};
   for (const commit of commits) for (const name of casesOf(commit.files)) {
-    if (PINS.test(commit.message) && !NAMES_A_FAILURE.test(commit.message)) pinned.add(name);
+    const fix = commit.message.match(FIX_COMMIT)?.[1];
+    if (fix) { check.add(name); fixOf[name] = fix; }
+    else if (PINS.test(commit.message) && !NAMES_A_FAILURE.test(commit.message)) pinned.add(name);
     else { check.add(name); if (PINS.test(commit.message)) refused.add(name); }
   }
-  for (const name of check) pinned.delete(name);
-  return {pinned: [...pinned], check: [...check], refused: [...refused]};
+  for (const name of check) { pinned.delete(name); if (fixOf[name]) refused.delete(name); }
+  return {pinned: [...pinned], check: [...check], refused: [...refused], fixOf};
 }
 
 // The node test runner's output for recorded-pages.test.mjs ("ok 3 - <case>: <shape>" / "not ok 3 - ..."): -> {failed, passed, missing} case names.
@@ -36,7 +42,8 @@ export function outcomes(cases, text) {
 export function verdict({passed, missing}) {
   const lines = [];
   if (passed.length) lines.push(`the recorded case${passed.length > 1 ? 's' : ''} ${passed.join(', ')} PASS${passed.length > 1 ? '' : 'ES'} on the code before this push: ${passed.length > 1 ? 'they' : 'it'} prove${passed.length > 1 ? '' : 's'} nothing.
-A case must show the failure: make it fail on origin/main's code (npm run row-to-case -- "<row>" <case> --old-commit <the fix's sha> refuses unless it does), or, for a case that only pins behaviour that already works, say so in the commit message: "Recorded-pins: <why>" (not with a Pool-row or an issue it fixes).`);
+A case must show the failure: make it fail on origin/main's code (npm run row-to-case -- "<row>" <case> --old-commit <the fix's sha> refuses unless it does), or, for a case that only pins behaviour that already works, say so in the commit message: "Recorded-pins: <why>" (not with a Pool-row or an issue it fixes).
+A follow-up to a fix already on main (it only corrects that fix's case): name the fix in the commit message, "Fix-commit: <sha>", and the case is replayed on the code before it.`);
   if (missing.length) lines.push(`the replay on the old code gave no result for ${missing.join(', ')} (it did not run: see the log above). A case with no verdict is not accepted.`);
   return lines.join('\n');
 }
@@ -47,12 +54,27 @@ function main() {
   const git = (...rest) => execFileSync('git', ['-C', root, ...rest], {encoding: 'utf8', maxBuffer: 64 << 20});
   let commits;
   try { commits = git('rev-list', '--reverse', `${base}..HEAD`).split('\n').filter(Boolean).map(sha => ({message: git('log', '-1', '--format=%B', sha), files: git('diff-tree', '--no-commit-id', '--name-only', '-r', '--root', sha).split('\n').filter(Boolean)})); } catch { return 0; }
-  const {pinned, check, refused} = splitPinned(commits);
-  if (refused.length) { console.error(`"Recorded-pins:" is refused for ${refused.join(', ')}: that commit names a Pool-row or an issue it fixes, and a fix must show its failure on the old code.`); return 1; }
+  const {pinned, check, refused, fixOf} = splitPinned(commits);
+  if (refused.length) { console.error(`"Recorded-pins:" is refused for ${refused.join(', ')}: that commit names a Pool-row or an issue it fixes, and a fix must show its failure on the old code (a follow-up to a fix on main: "Fix-commit: <sha>").`); return 1; }
   if (pinned.length) console.error(`recorded cases on the old code: ${pinned.join(', ')} said "Recorded-pins" (they pin behaviour, no fix): not replayed on the old code`);
   if (!check.length) return 0;
   if (process.env.RECORDED_OLD_OK === '1') { console.error(`recorded cases on the old code: RECORDED_OLD_OK=1: ${check.join(', ')} NOT replayed on origin/main's code`); return 0; }
-  const mergeBase = git('merge-base', base, 'HEAD').trim(), old = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-old-code-')), tree = path.join(old, 'tree');
+  const mergeBase = git('merge-base', base, 'HEAD').trim(), groups = new Map();
+  for (const name of check) {
+    let old = mergeBase;
+    if (fixOf[name]) {
+      try { git('merge-base', '--is-ancestor', fixOf[name], mergeBase); old = git('rev-parse', `${fixOf[name]}^`).trim(); }
+      catch { console.error(`"Fix-commit: ${fixOf[name]}" (case ${name}) is not a commit on ${base}: name the fix that is already there.`); return 1; }
+    }
+    groups.set(old, [...(groups.get(old) || []), name]);
+  }
+  for (const [old, cases] of groups) { const code = replayOn(git, root, old, cases, logFile); if (code) return code; }
+  return 0;
+}
+
+// Replays `check` on a detached worktree of `mergeBase` (the code before the push, or before the fix a follow-up names): -> 0 when each fails there, 1 with the reason.
+function replayOn(git, root, mergeBase, check, logFile) {
+  const old = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-old-code-')), tree = path.join(old, 'tree');
   try {
     git('worktree', 'add', '--detach', tree, mergeBase);
     for (const dir of ['desktop', 'desktop/e2e']) if (fs.existsSync(path.join(root, dir, 'node_modules'))) fs.symlinkSync(path.join(root, dir, 'node_modules'), path.join(tree, dir, 'node_modules'));
