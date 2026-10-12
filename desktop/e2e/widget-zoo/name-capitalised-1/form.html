@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Apply: Example role</title></head>
+<body>
+<!-- Widget zoo (desktop/e2e/widget-zoo): a text box that writes what was typed in capitals as it is typed (Zurich shown as ZURICH). Hand-made, no real site, no personal data. -->
+<h1>Apply for Example role</h1>
+<form id="apply" onsubmit="return false">
+<label for="first">First name</label> <input id="first" name="first_name" type="text" required>
+<label for="last">Last name</label> <input id="last" name="last_name" type="text" required>
+<label for="mail">Email</label> <input id="mail" name="email" type="email" required>
+<label for="city">City of residence</label> <input id="city" name="city" type="text" required>
+</form>
+<script>
+const box = document.getElementById("city"); box.addEventListener("input", () => { box.value = box.value.toUpperCase(); });
+</script>
+</body></html>

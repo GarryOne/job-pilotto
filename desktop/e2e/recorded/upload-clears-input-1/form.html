@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Apply: Example role</title></head>
+<body>
+<!-- Recorded case upload-clears-input-1: an uploader that empties its file input in its own change handler (so the same file can be chosen again) and shows the file as a chip. Hand-made, no real site, no personal data. -->
+<h1>Apply for Example role</h1>
+<form id="apply" onsubmit="return false">
+<div class="field"><label for="first_name">First name *</label><input id="first_name" name="first_name" type="text" required></div>
+<div class="field"><label for="last_name">Last name *</label><input id="last_name" name="last_name" type="text" required></div>
+<div class="field"><label for="email">Email *</label><input id="email" name="email" type="email" required></div>
+<div class="field"><label for="resume">Resume</label>
+<div class="dropzone" role="presentation" tabindex="0"><input id="resume" type="file" required tabindex="-1" accept=".pdf,.doc,.docx" style="border:0;clip:rect(0,0,0,0);height:1px;width:1px;overflow:hidden;position:absolute;margin:0 -1px -1px 0;padding:0;white-space:nowrap">
+<span class="dz-text">Upload file or drag and drop here</span><div class="files"></div></div></div>
+</form>
+<script>
+const input = document.getElementById('resume'), files = document.querySelector('.files');
+input.addEventListener('change', () => {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';   // the uploader keeps the file itself and clears the input, as many do
+  files.innerHTML = '';
+  const chip = document.createElement('div'); chip.className = 'file-chip';
+  chip.innerHTML = `<span class="name"></span> <button type="button" class="remove">Remove</button>`;
+  chip.querySelector('.name').textContent = file.name;
+  files.append(chip);
+});
+</script>
+</body></html>

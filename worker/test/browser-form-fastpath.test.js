@@ -28,8 +28,10 @@ test('fast path fills only safe known fields and reports gaps without values', (
   const document = {querySelectorAll() { return elements; }};
   const window = {__jobPilottoGuardActive: true};
   const code = fs.readFileSync(new URL('../../tools/browser-form-fastpath.js', import.meta.url), 'utf8');
-  vm.runInNewContext(code, {window, document, HTMLInputElement, HTMLTextAreaElement,
-    getComputedStyle: () => ({visibility: 'visible'}), Event: class {}});
+  // The one control reader loads first, as everywhere the fastpath runs (the extension's PAGE_FILES, the apply run's init scripts): its audit asks it.
+  const context = vm.createContext({window, document, HTMLInputElement, HTMLTextAreaElement, getComputedStyle: () => ({visibility: 'visible'}), Event: class {}});
+  for (const file of ['../../extension/page/typed-check.js', '../../extension/page/read-back.js']) vm.runInContext(fs.readFileSync(new URL(file, import.meta.url), 'utf8'), context);
+  vm.runInContext(code, context);
   const outcome = window.__jobPilottoFillKnownFields([
     {field: 'email', value: 'sample@example.test'},
     {field: 'privacy_consent', value: 'yes'},

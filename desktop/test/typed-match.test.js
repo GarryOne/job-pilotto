@@ -31,7 +31,9 @@ test('a box holding only a calling code is empty for the panel and the readers; 
   const given = panel.__jobPilottoBoxGiven;
   assert.deepEqual(['', ' ', '+972', '+1', '+41 '].map(given), [false, false, false, false, false]);
   assert.deepEqual(['+41 79 555 01 23', '+41795550123', 'Ada', '0795550123', '+49123456'].map(given), [true, true, true, true, true]);
-  for (const file of ['extension/review.js', 'extension/page/fill-read.js', 'extension/page/coverage.js', 'extension/account-fill.js', 'tools/browser-form-fastpath.js']) {
-    assert.match(fs.readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8'), /__jobPilottoBoxGiven|\\\+\\d\{1,4\}/, `${file} treats a calling code alone as empty`);
-  }
+  // The one control reader holds the rule (page/read-back.js, amendment 4 of the fill ladder); every reader of a box's state asks it, or the rule itself (coverage.js).
+  const source = file => fs.readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
+  assert.match(source('extension/page/read-back.js'), /__jobPilottoBoxGiven/, 'the one reader treats a calling code alone as empty');
+  for (const file of ['extension/review.js', 'extension/page/fill-read.js', 'extension/account-fill.js', 'tools/browser-form-fastpath.js']) assert.match(source(file), /__jobPilottoReadBack/, `${file} reads a box through the one reader`);
+  assert.match(source('extension/page/coverage.js'), /__jobPilottoBoxGiven/, 'coverage.js treats a calling code alone as empty');
 });

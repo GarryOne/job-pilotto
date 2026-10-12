@@ -90,6 +90,9 @@ class RunnerTests(unittest.TestCase):
             def fake_codex(command, **kwargs):
                 self.assertIn('browser-submit-guard.js', ' '.join(command))
                 self.assertIn('browser-form-fastpath.js', ' '.join(command))
+                joined = ' '.join(command)   # the one control reader (extension/page/read-back.js) loads before the fastpath, whose audit asks it
+                self.assertLess(joined.index('read-back.js'), joined.index('browser-form-fastpath.js'))
+                self.assertLess(joined.index('typed-check.js'), joined.index('read-back.js'))
                 output = Path(command[command.index('--output-last-message') + 1])
                 now = datetime.now(timezone.utc)
                 output.write_text(json.dumps(result(now, now)))

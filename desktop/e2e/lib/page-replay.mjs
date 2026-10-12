@@ -32,7 +32,10 @@ export function answerFor(item) {
   return Object.fromEntries(Object.entries(item.ai || {}).map(([route, body]) => [route, late(typeof body === 'function' ? body : Array.isArray(body) ? sent => pick(body, sent) : body.byHost ? text => { const entry = body.byHost[hostOf(text)]; return Array.isArray(entry) ? pick(entry, text) : entry || {}; } : () => body)]));
 }
 export const caseHosts = item => [...new Set(item.pages.map(page => new URL(page.url).host))];
-export const caseFiles = item => new Map(item.pages.map(page => [pathKey(page.url), fs.readFileSync(path.join(item.dir, page.file), 'utf8')]));
+// A page may load a REAL widget library, pinned in desktop/e2e/vendor/ (VERSIONS.md), as <script src="vendor:<file>"></script>: it is served inline, so a replay needs no network.
+export const VENDOR_DIR = path.join(E2E, 'vendor');
+export const inlineVendor = html => html.replace(/<script src="vendor:([\w.-]+\.js)"><\/script>/g, (tag, name) => `<script>${fs.readFileSync(path.join(VENDOR_DIR, name), 'utf8')}</script>`);
+export const caseFiles = item => new Map(item.pages.map(page => [pathKey(page.url), inlineVendor(fs.readFileSync(path.join(item.dir, page.file), 'utf8'))]));
 // A page's HTTP status per load, in turn (case.json pages[].status: 503 or [503, 200]; the last repeats; 200 when absent): a site that errors, then answers (the site_broken
 // ending, extension/ladder/site-broken.js). answerPage serves a case page with it: a status that is not 2xx gets a bare error page, as a site's server sends.
 export const caseStatuses = item => new Map(item.pages.filter(page => page.status != null).map(page => [pathKey(page.url), [].concat(page.status)]));
@@ -43,6 +46,9 @@ export function answerPage(route, files, statuses = new Map()) {
   return route.fulfill({status, contentType: 'text/html; charset=utf-8', body: status >= 200 && status < 300 ? body : `<!doctype html><title>${status}</title><h1>${status}</h1>`});
 }
 export const isExtensionPage = open => open.url().startsWith('chrome-extension://');
+
+// The body of the last request on that route (parsed), or null.
+const lastBody = (list, route) => { for (const request of [...list()].reverse()) { if (request.route !== route) continue; try { return JSON.parse(request.body); } catch { return null; } } return null; };
 
 // The case's checks on ITS tab. scope: {run, page (the tab), pages() (the case's non-extension tabs), mine() (requests that are the case's: told/asked/judged count only these, so a
 // parallel tab's request never satisfies a check), all() (every request: notTold counts all, so a parallel tab can only add a failure, never hide one), opened() (tabs opened during the run)}.
@@ -92,6 +98,16 @@ export async function judgeCase(item, scope) {
   for (const selector of expect.empty || []) if (await checks.filled(selector)) failures.push(`empty: ${selector}`);
   // kept: a box the fill typed must still hold its value once the page has had its say (an upload's own autofill rewrites boxes a moment later): read after the page settled.
   if ((expect.kept || []).length) { await wait(expect.keptAfter || 2500); for (const selector of expect.kept) if (!(await checks.filled(selector))) failures.push(`kept: ${selector} is empty after the page settled`); }
+  // The end state, once (the panel reports before the fill too): after the page settled, the fill's settled record and the panel's last report must say the same as the case
+  // (spec 2026-10-12-fill-ladder, amendment 4: one truth per control). traced: "<label>:<outcome>" in /extension/run's trace; pending: in /extension/review's pending;
+  // notPending: not in it AND in its filled list (a required field the panel reports filled).
+  if (['traced', 'pending', 'notPending'].some(kind => (expect[kind] || []).length)) {
+    await wait(expect.endAfter || 3000);
+    const run = lastBody(mine, '/extension/run'), review = lastBody(mine, '/extension/review');
+    for (const spec of expect.traced || []) if (!(run?.trace || []).some(row => `${row.label}:${row.outcome}` === spec)) failures.push(`traced: ${spec} (the fill's record says ${(run?.trace || []).filter(row => spec.startsWith(`${row.label}:`)).map(row => row.outcome).join('/') || 'nothing'})`);
+    for (const label of expect.pending || []) if (!(review?.pending || []).includes(label)) failures.push(`pending: ${label} is not left in the panel's report`);
+    for (const label of expect.notPending || []) if (!review || (review.pending || []).includes(label) || !(review.filled || []).includes(label)) failures.push(`notPending: ${label} is ${(review?.pending || []).includes(label) ? 'left in' : 'not listed as filled by'} the panel's report`);   // listed as filled: a label the panel names otherwise is no pass
+  }
   const tabs = scope.pages().length, opened = scope.opened();
   if (expect.maxTabs != null && tabs > expect.maxTabs) failures.push(`maxTabs: ${tabs} > ${expect.maxTabs}`);
   if (expect.maxNewTabs != null && opened > expect.maxNewTabs) failures.push(`maxNewTabs: ${opened} > ${expect.maxNewTabs}`);

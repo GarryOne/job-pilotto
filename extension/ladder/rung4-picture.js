@@ -3,7 +3,7 @@
 // ONE action: click a control the page lists, wait, or ask the person. A click that moved the page on is reported back so the app remembers it. Only a tab in front can be photographed. Guard: worker/test/escalate.test.js.
 import {api, settings} from '../flow.js';
 import {decide} from '../log.js';
-import {accountSketch} from '../account-fill.js';
+import {sketchOf} from '../judge-sketch.js';
 import {hideValues, showValues} from './rung4-page-picture.js';
 import {pressRegister} from '../account-fill.js';
 import {chooseOption, fillControl} from '../account-act.js';
@@ -54,7 +54,7 @@ async function picture(tab, frameId) {
 export async function closerLook(tab, frameId, reason, {kind = 'account', picture: withPicture = true} = {}) {
   const config = await settings();
   if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return 'none';
-  const sketch = await run(tab, frameId, accountSketch);
+  const sketch = await sketchOf(tab.id, frameId);
   const image = sketch && withPicture ? await picture(tab, frameId) : null;
   if (!sketch || (withPicture && !image)) { decide('fill', 'closer look: no picture (not in front, or no sketch)', {}); return 'none'; }
   const url = tab.url.split('#')[0];
@@ -70,7 +70,7 @@ export async function closerLook(tab, frameId, reason, {kind = 'account', pictur
     decide('fill', `closer look: pressed (${result})`, {});
     if (result === 'pressed') {   // did the page move on? then the app remembers this click for the page shape
       await new Promise(resolve => setTimeout(resolve, 3000));
-      const after = await run(tab, frameId, accountSketch);
+      const after = await sketchOf(tab.id, frameId);
       const worked = !!after && JSON.stringify([after.controls.map(item => item.label), after.buttons]) !== JSON.stringify([sketch.controls.map(item => item.label), sketch.buttons]);
       api(config, '/extension/escalate', {method: 'POST', body: JSON.stringify({url, feedback: {kind, action: 'click', control: answer.control, worked}})}).catch(() => {});
     }

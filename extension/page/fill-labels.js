@@ -59,8 +59,7 @@
     (group => group && (window.__jobPilottoOwnName(group)?.text || group.querySelector('label, legend, span')?.textContent))(el.closest('[role=radiogroup], [role=group]')) || '');   // the group's own accessible name (aria-labelledby, aria-label: page/label-before.js), else its first title inside
   const isCombo = el => el.getAttribute('role') === 'combobox';
   const comboControl = el => el.closest('[class*=control]') || el;
-  const comboValue = el => (el.closest('[class*=select__container]') || el.closest('[class*=container]'))?.querySelector('[class*=single-value], [class*=multi-value]') ||   // react-select's chip,
-    (() => { for (let b = el.parentElement, i = 0; b && i < 4 && b.querySelectorAll('input:not([type=hidden]), select, textarea').length <= 1; b = b.parentElement, i++) { const h = [...b.querySelectorAll('input[type=hidden][id]')].find(x => x.value && document.querySelector(`label[for="${CSS.escape(x.id)}"]`)); if (h) return h; } return null; })();   // else a labelled hidden input holding it (review.js comboFilled)
+  const comboValue = el => window.__jobPilottoReadBack.comboValue(el);   // react-select's chip or a labelled hidden input: the one reading of a control (page/read-back.js, injected first)
   const radioOps = window.__jobPilottoRadios({clean, norm, labelOf, questionOf, LEGAL, visible});   // page/radios.js, injected first
   window.__jobPilottoFillKit = {LEGAL, clean, norm, once, sleep, visible, looseLabel, labelOf, fieldsetTitle, titleRequired, questionOf,
     isCombo, comboControl, comboValue, radioOps};

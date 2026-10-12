@@ -1,0 +1,55 @@
+{
+ "widget": "date_picker",
+ "shape": "a date box that re-renders the typed ISO date in the local writing on change (2026-11-02 shown as 02.11.2026)",
+ "why": "widget zoo (spec docs/superpowers/specs/2026-10-12-fill-ladder.md, amendment 4): a page that reformats what was typed must stay committed in the fill's record and the panel (one truth), never a mismatch, a retype or a 'left' row",
+ "pages": [
+  {
+   "url": "https://date-re-rendered-1.zoo.example.com/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": false,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "start",
+     "question": "Earliest start date",
+     "value": "2026-11-02",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "asked": [
+   "Earliest start date"
+  ],
+  "valueHas": [
+   "#start|02112026"
+  ],
+  "traced": [
+   "Earliest start date:filled"
+  ],
+  "notPending": [
+   "Earliest start date"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 30
+ },
+ "start": "panel"
+}

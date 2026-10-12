@@ -32,7 +32,9 @@ test('a format problem is named', () => {
 
 test('a replay result becomes read, committed and safe', () => {
   const item = {name: 'a', widget: 'typeahead'};
-  assert.deepEqual(verdictOf(item, {failures: []}), {name: 'a', widget: 'typeahead', read: true, committed: true, safe: true, failures: []});
+  assert.deepEqual(verdictOf(item, {failures: []}), {name: 'a', widget: 'typeahead', read: true, committed: true, truthful: true, safe: true, failures: []});
+  assert.equal(verdictOf(item, {failures: ["traced: CV:filled (the fill's record says left)"]}).truthful, false, 'the fill record and the page disagree');
+  assert.equal(verdictOf(item, {failures: ['notPending: Resume is left in the panel\'s report']}).committed, true, 'a claim check is not a commit check');
   assert.equal(verdictOf(item, {failures: ['filled: #x']}).committed, false);
   assert.equal(verdictOf(item, {failures: ['filled: #x']}).read, true);
   assert.equal(verdictOf(item, {failures: ['asked: Q', 'filled: #x']}).read, false);
@@ -43,8 +45,8 @@ test('a replay result becomes read, committed and safe', () => {
 });
 
 test('the summary counts per widget', () => {
-  const summary = summarizeZoo([{name: 'a', widget: 'text', read: true, committed: true, safe: true}, {name: 'b', widget: 'text', read: true, committed: false, safe: false}]);
-  assert.deepEqual(summary, {total: 2, read: 2, committed: 1, unsafe: ['b'], byWidget: {text: {total: 2, committed: 1}}});
+  const summary = summarizeZoo([{name: 'a', widget: 'text', read: true, committed: true, truthful: true, safe: true}, {name: 'b', widget: 'text', read: true, committed: false, truthful: false, safe: false}]);
+  assert.deepEqual(summary, {total: 2, read: 2, committed: 1, truthful: 1, unsafe: ['b'], byWidget: {text: {total: 2, committed: 1}}});
 });
 
 test('the --model route answers the fill check with the model and every other phase with a canned ready', async () => {
@@ -69,4 +71,19 @@ test('a zoo run that replayed no page says "harness error" first, never a findin
   assert.equal(harnessLine([], 8, 'Cannot find module desktop/shared/alias-schema.js'), 'harness error: replayed 0 of 8 pages (Cannot find module desktop/shared/alias-schema.js)');
   assert.equal(harnessLine([{failures: ['error: browser closed']}, {failures: ['isolation: another tab']}], 2), 'harness error: replayed 0 of 2 pages');
   assert.equal(harnessLine([{failures: ['error: x']}, {failures: ['filled: #a']}], 2), '');   // one page replayed (and missed): a finding, not a dead harness
+});
+
+test('the vendored widget libraries are the pinned files VERSIONS.md names, and a zoo page that loads one gets it inline', async () => {
+  const crypto = await import('node:crypto');
+  const {VENDOR_DIR, inlineVendor} = await import('../lib/page-replay.mjs');
+  const table = fs.readFileSync(path.join(VENDOR_DIR, 'VERSIONS.md'), 'utf8');
+  const files = fs.readdirSync(VENDOR_DIR).filter(name => name.endsWith('.js'));
+  assert.ok(files.length >= 4, 'react, react-dom, prop-types, react-dropzone');
+  for (const name of files) {
+    const sha = crypto.createHash('sha256').update(fs.readFileSync(path.join(VENDOR_DIR, name))).digest('hex');
+    assert.match(table, new RegExp(`\\| \`${name.replace(/\./g, '\\.')}\` \\|[^\\n]*\\| \`${sha}\` \\|`), `${name}: pinned in VERSIONS.md with its sha256`);
+  }
+  const page = inlineVendor('<script src="vendor:prop-types.min.js"></script><p>x</p>');
+  assert.ok(!page.includes('vendor:') && page.length > 1000 && page.endsWith('</script><p>x</p>'), 'served inline');
+  for (const item of zoo) for (const name of (fs.readFileSync(path.join(item.dir, item.pages[0].file), 'utf8').match(/vendor:([\w.-]+\.js)/g) || [])) assert.ok(files.includes(name.slice(7)), `${item.name}: ${name} is vendored`);
 });

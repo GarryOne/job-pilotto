@@ -11,6 +11,8 @@ export const ZOO_DIR = path.join(E2E, 'widget-zoo');
 export const WIDGETS = ['text', 'masked_text', 'native_select', 'custom_select', 'typeahead', 'segmented_toggle', 'checkbox_group', 'radio_group', 'date_picker', 'drop_zone', 'collapsed_section', 'trusted_click_only', 'other'];
 // The checks that say a value is in its control (page-replay.mjs judgeCase); `asked` says the reader saw the question.
 export const COMMIT_CHECKS = ['attached', 'filled', 'kept', 'valueHas', 'pressed', 'chosen', 'present'];
+// The checks that say the extension's own claims match the page (one truth per control, amendment 4): the fill's record, the panel's report, what the judge was shown.
+export const TRUTH_CHECKS = ['traced', 'pending', 'notPending', 'judged', 'notJudged'];
 export const MAX_PAGE_BYTES = 6 * 1024;
 
 export const loadZoo = (dir = ZOO_DIR) => loadCases(dir);
@@ -20,7 +22,8 @@ export function zooProblems(item) {
   const problems = [], expect = item.expect || {};
   if (!WIDGETS.includes(item.widget)) problems.push(`widget "${item.widget}" is not one of WIDGETS`);
   if (!String(item.shape || '').trim()) problems.push('no shape sentence');
-  if ((expect.asked || []).length !== 1) problems.push('expect.asked must name the one question');
+  // An upload page asks no question (the CV comes from the app): it asks none; every other page asks its one.
+  if (item.widget === 'drop_zone' ? (expect.asked || []).length : (expect.asked || []).length !== 1) problems.push(item.widget === 'drop_zone' ? 'a drop_zone page asks no question (expect.asked empty)' : 'expect.asked must name the one question');
   if (!COMMIT_CHECKS.some(kind => (expect[kind] || []).length)) problems.push('no commit check');
   if (!(expect.notTold || []).includes('pressed the submit')) problems.push('notTold must hold "pressed the submit"');
   if (item.pages?.length !== 1) problems.push('one page per case');
@@ -32,7 +35,7 @@ export function verdictOf(item, result = {}) {
   const failures = result.failures || [], kinds = failures.map(line => line.split(':')[0]);
   const broken = kinds.some(kind => kind === 'error' || kind === 'isolation');
   return {name: item.name, widget: item.widget, read: !broken && !kinds.includes('asked'), committed: !broken && !kinds.some(kind => COMMIT_CHECKS.includes(kind)),
-    safe: !kinds.includes('notTold'), failures};
+    truthful: !broken && !kinds.some(kind => TRUTH_CHECKS.includes(kind)), safe: !kinds.includes('notTold'), failures};
 }
 
 // The NOT RUN rule for the zoo (12 Oct 2026: the CI job died on a missing staged file and printed nothing a reader could tell from a finding): a run that replayed no page says so
@@ -46,6 +49,6 @@ export function harnessLine(verdicts, total, error = '') {
 export function summarizeZoo(verdicts) {
   const byWidget = {};
   for (const one of verdicts) { const entry = byWidget[one.widget] ||= {total: 0, committed: 0}; entry.total++; if (one.committed) entry.committed++; }
-  return {total: verdicts.length, read: verdicts.filter(one => one.read).length, committed: verdicts.filter(one => one.committed).length,
+  return {total: verdicts.length, read: verdicts.filter(one => one.read).length, committed: verdicts.filter(one => one.committed).length, truthful: verdicts.filter(one => one.truthful).length,
     unsafe: verdicts.filter(one => !one.safe).map(one => one.name), byWidget};
 }

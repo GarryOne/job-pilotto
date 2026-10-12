@@ -22,6 +22,8 @@ ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = ROOT / 'tools' / 'apply-run-result.schema.json'
 GUARD = ROOT / 'tools' / 'browser-submit-guard.js'
 FASTPATH = ROOT / 'tools' / 'browser-form-fastpath.js'
+# The one control reader the fastpath's audit asks (extension/page/read-back.js and the typed-box rule it uses): loaded first, as the extension loads them.
+READER = [ROOT / 'extension' / 'page' / 'typed-check.js', ROOT / 'extension' / 'page' / 'read-back.js']
 STATE_DIR = Path(os.getenv('JOB_PILOTTO_APPLY_RUN_DIR',
                            str(Path.home() / 'Library' / 'Application Support' / 'JobPilotto' / 'apply-runs')))
 TIMEOUT = 45 * 60
@@ -307,7 +309,7 @@ def run(url, stores, *, codex=None, timeout=TIMEOUT):
     command = [codex, 'exec', '--json', '--output-schema', str(SCHEMA),
                '--output-last-message', str(result_path), '-C', str(ROOT),
                '-c', f'mcp_servers.playwright.command={json.dumps(npx)}',
-               '-c', f'mcp_servers.playwright.args={json.dumps(["-y", "@playwright/mcp@0.0.82", "--extension", "--init-script", str(GUARD), "--init-script", str(FASTPATH)])}',
+               '-c', f'mcp_servers.playwright.args={json.dumps(["-y", "@playwright/mcp@0.0.82", "--extension", "--init-script", str(GUARD), *[part for script in READER for part in ("--init-script", str(script))], "--init-script", str(FASTPATH)])}',
                _prompt(url, _learnings_text(stores, url))]
     try:
         agent_env = os.environ.copy()

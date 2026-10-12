@@ -22,13 +22,6 @@
   // react-select (every Greenhouse dropdown) renders a text input that is only its search box:
   // setting its value selects nothing, and the chosen option lives in the container instead.
   const isCombo = element => element.getAttribute('role') === 'combobox';
-  // Its choice is a chip in the field's own area, or (a type-to-search picklist) a hidden input a <label for> points to; up 4 boxes, never into another
-  // field's. One rule with the panel (extension/review.js comboFilled) and the judges' sketch (account-fill.js; desktop/e2e/test/judge-sketch-picklist.test.mjs).
-  const comboFilled = element => {
-    for (let box = element.parentElement, i = 0; box && i < 4 && box.querySelectorAll('input:not([type=hidden]), select, textarea').length <= 1; box = box.parentElement, i++)
-      if (box.querySelector('[class*=single-value], [class*=multi-value]') || [...box.querySelectorAll('input[type=hidden][id]')].some(h => h.value && document.querySelector(`label[for="${CSS.escape(h.id)}"]`))) return true;
-    return false;
-  };
   // Step timer for the Agent Runs record: helpers stamp themselves; agents add named steps
   // ("dropdowns", "resume") inside a JS call they already make. Times only, never values.
   window.__jobPilottoSteps = window.__jobPilottoSteps || [];
@@ -215,11 +208,7 @@
     return {field: 'resume', label: 'Resume/CV', type: 'file', required: /\*/.test(heading.textContent || '') || starred(box),
       legal: false, filled: named || !!fileInput?.files?.length};
   };
-  // A menu holds an answer when its selected option is a real choice: text, not disabled or hidden, a value that is not, on the first option, empty or a
-  // placeholder sentinel (0, -1): further down 0 is an answer ("Number of children" 0, a Yes/No menu where No=0; #331). By structure only. Not "any index but the first": a menu with no blank first option (easytemp, 9 Oct 2026) starts on a real
-  // choice, and "Monsieur" set there read as empty ("empty again at the end of the fill"). One rule for the audit, coverage.js, fill-read.js
-  // (the end of a fill) and the panel (extension/review.js, its own copy; test worker/test/select-chosen.test.js keeps them equal).
-  window.__jobPilottoChosen = el => (o => !!o && !o.disabled && !o.hidden && !!o.text.trim() && !(o.index === 0 && /^(|0|-1)$/.test(o.value)))(el.options[el.selectedIndex]);
+  // A menu's real choice: window.__jobPilottoChosen, defined with every other control reading in page/read-back.js (one truth per control).
   // A menu still on the page's own initial choice (the option its HTML marks selected, else the first): a page default nobody answered.
   // easytemp (9 Oct 2026) preselects Nationalité "Suisse" and Langue maternelle "Suisse-allemand": read as answered, never asked, wrong for the person.
   window.__jobPilottoAtPageDefault = el => { const first = [...el.options].findIndex(option => option.defaultSelected); return el.selectedIndex === (first >= 0 ? first : 0); };
@@ -233,9 +222,7 @@
         type: isCombo(el) ? 'combobox' : el.type || el.tagName.toLowerCase(),
         required: window.__jobPilottoRequired?.marked ? window.__jobPilottoRequired.marked(el) : !!(el.required || el.getAttribute('aria-required') === 'true'),   // page/required-mark.js: the attribute, aria-required or a class that says required
         legal: forbidden.test(label(el)) || el.dataset?.jobpilottoCategory === 'legal',   // the AI's reading too, any language (page/categories.js)
-        filled: el.type === 'file' ? !!el.files?.length :
-          isCombo(el) ? comboFilled(el) :
-          ['checkbox', 'radio'].includes(el.type) ? !!el.checked : el.tagName === 'SELECT' ? window.__jobPilottoChosen(el) : !!String(el.value || '').trim() && !/^\+\d{1,4}$/.test(String(el.value).trim())}));   // a box holding only a country code (a phone widget's own "+972") is empty
+        filled: window.__jobPilottoReadBack.holds(el)}));   // the one reading of a control's state (page/read-back.js): a box holding only a country code is empty, a picklist by its chip
     // The upload slots (page/upload.js, found by structure) are the file rows; where that script is not loaded (the Playwright launchers), the CV heading is guessed.
     const slots = window.__jobPilottoUpload?.rows ? window.__jobPilottoUpload.rows() : [];
     if (slots.length) return [...rows.filter(r => r.type !== 'file'), ...slots];

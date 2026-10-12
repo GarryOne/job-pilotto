@@ -10,7 +10,8 @@ import {askKind, sayStep, stuck} from './fill-flow.js';
 import {sessionGet} from './tab-memory.js';
 import {bindSession, identityOf} from './tab-identity.js';
 import {tabArmed} from './tab-pages.js';
-import {accountSketch, fillAccountBoxes, fillAccountEmail, fillCodeBox, flagAccount, markAccountStep, passwordWork, pressAccountButton, pressConsent, pressRegister} from './account-fill.js';
+import {fillAccountBoxes, fillAccountEmail, fillCodeBox, flagAccount, markAccountStep, passwordWork, pressAccountButton, pressConsent, pressRegister} from './account-fill.js';
+import {sketchOf} from './judge-sketch.js';
 import {closerLook, unsureTwice} from './ladder/rung4-picture.js';
 import {pageStill} from './page-still.js';
 
@@ -108,7 +109,7 @@ const markTried = (tab, action) => chrome.storage.session.set({[triedKey(tab, ac
 
 // The account AI on what the page shows now. null when there is no AI, no answer, or the page cannot be read: then nothing is pressed or claimed.
 async function judge(tab, frameId, phase, config, fromPath = '', formBefore = '') {
-  const sketch = await run(tab, frameId, accountSketch);
+  const sketch = await sketchOf(tab.id, frameId);
   if (!sketch) return null;
   const outline = formOutline(sketch);
   lastOutline.set(tab.id, outline);
@@ -237,7 +238,7 @@ async function accountStepOnce(tab, frameId) {
     } else {
       await flag(tab, frameId, null);   // nothing is owed any more: the panel stops saying so
       sayStep(tab.id, 'Creating your account…');
-      const form = formOutline(await run(tab, frameId, accountSketch));   // the form as it is pressed
+      const form = formOutline(await sketchOf(tab.id, frameId));   // the form as it is pressed
       await pageStill(tab.id, {maxMs: 800});   // the form settles after its fill (page-still.js), at most the old 0.8 s
       const result = await run(tab, frameId, pressAccountButton, [kind?.accountButton || '']);
       sayOnce(tab, 'button', `account button: ${result || 'not run'}`, {host});
