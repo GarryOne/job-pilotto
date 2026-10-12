@@ -66,6 +66,7 @@ test('with the row\'s app log, a stop line the extension wrote refines a stop th
   assert.equal(endingOf(posting, log([STOP_LINES.told])).ending, 'told');
   assert.equal(endingOf(posting, log([STOP_LINES.botCheck])).ending, 'handed');
   assert.equal(endingOf(posting, log([STOP_LINES.unreadable])).ending, 'site_broken');
+  assert.equal(endingOf(posting, log([STOP_LINES.broken])).ending, 'site_broken');
   assert.equal(endingOf(posting, log([STOP_LINES.email, STOP_LINES.other])).ending, 'unresolved', 'the last stop counts');
   assert.equal(endingOf(posting, '10:00:00 [review] fill: a bot check in front of the page {}').ending, 'unresolved', 'only the extension\'s own lines');
 });
@@ -104,8 +105,8 @@ test('every trace word the classifier reads is still written by the code that wr
 });
 
 test('the stop lines the classifier reads are the extension\'s own words: a rename in fill-flow.js fails here, never silently', () => {
-  const flow = fs.readFileSync(new URL('../../../extension/fill-flow.js', import.meta.url), 'utf8');
-  for (const [name, words] of Object.entries(STOP_LINES)) assert.ok(flow.includes(words), `${name}: "${words}" is no longer a line of extension/fill-flow.js`);
+  const flow = ['fill-flow.js', 'ladder/site-broken.js'].map(file => fs.readFileSync(new URL(`../../../extension/${file}`, import.meta.url), 'utf8')).join('\n');
+  for (const [name, words] of Object.entries(STOP_LINES)) assert.ok(flow.includes(words), `${name}: "${words}" is no longer a line of extension/fill-flow.js or ladder/site-broken.js`);
 });
 
 test('the baseline CLI: unresolved first with its cause, the test\'s holds apart, a CI artifact counts only its own run\'s rows', async () => {

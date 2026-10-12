@@ -33,6 +33,15 @@ export function answerFor(item) {
 }
 export const caseHosts = item => [...new Set(item.pages.map(page => new URL(page.url).host))];
 export const caseFiles = item => new Map(item.pages.map(page => [pathKey(page.url), fs.readFileSync(path.join(item.dir, page.file), 'utf8')]));
+// A page's HTTP status per load, in turn (case.json pages[].status: 503 or [503, 200]; the last repeats; 200 when absent): a site that errors, then answers (the site_broken
+// ending, extension/ladder/site-broken.js). answerPage serves a case page with it: a status that is not 2xx gets a bare error page, as a site's server sends.
+export const caseStatuses = item => new Map(item.pages.filter(page => page.status != null).map(page => [pathKey(page.url), [].concat(page.status)]));
+export function answerPage(route, files, statuses = new Map()) {
+  const key = pathKey(route.request().url()), body = files.get(key);
+  if (!body) return route.fulfill({status: 404, body: ''});
+  const list = statuses.get(key), status = !list ? 200 : list.length > 1 ? list.shift() : list[0];
+  return route.fulfill({status, contentType: 'text/html; charset=utf-8', body: status >= 200 && status < 300 ? body : `<!doctype html><title>${status}</title><h1>${status}</h1>`});
+}
 export const isExtensionPage = open => open.url().startsWith('chrome-extension://');
 
 // The case's checks on ITS tab. scope: {run, page (the tab), pages() (the case's non-extension tabs), mine() (requests that are the case's: told/asked/judged count only these, so a
@@ -109,14 +118,9 @@ export async function fillSettled(page, ms = 4000) {
 // One case in its own browser (JP_REPLAY_TABS=1, and the run alone after a failure in parallel): the same checks over every request of that browser.
 export async function runCase(item, {extensionDir} = {}) {
   const run = await startRealExtension({extensionDir, cv: item.cv !== false, allowAllSites: true, answer: answerFor(item), offline: true});   // offline: nothing but the case's pages
-  const pages = caseFiles(item);
+  const pages = caseFiles(item), statuses = caseStatuses(item);
   try {
-    for (const host of caseHosts(item)) {
-      await run.context.route(`https://${host}/**`, route => {
-        const body = pages.get(pathKey(route.request().url()));
-        return body ? route.fulfill({status: 200, contentType: 'text/html; charset=utf-8', body}) : route.fulfill({status: 404, body: ''});
-      });
-    }
+    for (const host of caseHosts(item)) await run.context.route(`https://${host}/**`, route => answerPage(route, pages, statuses));
     let opened = 0;   // every tab a page or the extension opened during the run (a tab loop closes the tab behind it: the count at the end stays 1)
     run.context.on('page', open => { if (!open.url().startsWith('chrome-extension://')) opened += 1; });
     await run.page.goto(`${item.pages[0].url}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'});

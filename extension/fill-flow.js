@@ -26,6 +26,7 @@ import {forgetNoEffect, noEffectOf, noteNoEffect} from './no-effect.js';
 import {clickTrace, modalTrace} from './ladder/press-why.js';
 import {forgetRouteTries, startRoute} from './start-route.js';
 import {emailReport, mailsOf} from './ladder/outcomes.js';
+import {brokenOf, onBrokenPage} from './ladder/site-broken.js';
 import {onTop} from './on-top.js';
 import {candidatesOf, claimFrame, climbOnStall, confirmedBody, frameBecameCandidate, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, notePressed, noteSignal, otherReport, takePressed, toldReport, verifiedBody} from './ladder/climb.js';
 
@@ -83,6 +84,7 @@ function pageShape(tabId) {
       // Their hosts, as the page-kind sketch gives them: a frame is often there before its address (about:blank first), so a host that shows up later counts as new.
       frameHosts: [...new Set([...document.querySelectorAll('iframe')].filter(el => { const box = el.getBoundingClientRect(); return box.width > 40 && box.height > 40; })
         .map(el => { try { return new URL(el.src, location.href).hostname; } catch { return ''; } }).filter(Boolean))],
+      status: performance.getEntriesByType('navigation')[0]?.responseStatus || 0,   // the server's answer for this document (ladder/site-broken.js); 0 when unknown
     };
   }}).then(rows => rows?.[0]?.result || null).catch(() => null);
 }
@@ -223,6 +225,12 @@ async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => s
   await sweepConsent(tab.id, 'the watch ended');   // the run ends here: no cookie layer is left open
   return false;
 }
+// A broken page (ladder/site-broken.js), with the flow's own parts: a load again forgets this page's start first (its load considers it anew), the report is stuck('site_broken').
+function brokenPage(tab, jobUrl, key, counts) {
+  let host = ''; try { host = new URL(tab.url).hostname; } catch { /* no address */ }
+  return onBrokenPage(brokenOf(counts), {key, tabId: tab.id, status: counts?.status, host, decide, wait: ms => new Promise(resolve => setTimeout(resolve, ms)), say: text => sayStep(tab.id, text),
+    reload: async () => { started.delete(key); await chrome.tabs.reload(tab.id).catch(() => {}); }, report: need => stuck(String(jobUrl || tab.url).split('#')[0], host, 'site_broken', tab.id, tab.url, need)});
+}
 // One page of an armed tab. A form is filled. A password page and a page with no form are left for Claude,
 // and the page says which, so Claude does not wait for a fill that will not come.
 export async function consider(tab, jobUrl) {
@@ -256,8 +264,11 @@ export async function consider(tab, jobUrl) {
   if (!counts) {
     started.delete(key);
     decide('fill', 'the page could not be read', {host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
+    await brokenPage(tab, jobUrl, key, null);   // loaded again, then reported plainly: never a silent stop (ladder/site-broken.js)
     return;
   }
+  // The server answered with an error (a posting gone, the site down) and the page shows no form: loaded again, then reported plainly; never judged as a page.
+  if (brokenOf(counts)) { await brokenPage(tab, jobUrl, key, counts); return; }
   // A sign-up form was open in this tab (we filled it) and the page changed: what became of it is the account AI's word (account-step.js accountOutcome).
   // The two AI looks do not depend on each other (the outcome of a sign-up, the kind of this page): asked together, the wait is the longer one, not the sum (9 Oct 2026, Migros: 13 s then 9 s, one after the other).
   // A page that already shows a form (2+ fields, no password): its questions go to the AI now, beside the page-kind ask; the fill takes the answer only if
