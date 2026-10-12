@@ -53,6 +53,7 @@ fi
 # From here every line also goes to the log; the exit trap writes the closing marker once. SHIP_LOG is not passed on to the commands below
 # (the suites run a nested ship.sh of their own).
 unset SHIP_LOG
+: >>"$log"   # the log exists before tee starts: the timeline reads it at once (12 Oct 2026, CI: a new log not yet made by tee ended the landing under set -e)
 exec > >(tee -a "$log") 2> >(tee -a "$log" >&2)
 echo "ship: log: $log"
 started=$SECONDS

@@ -39,6 +39,20 @@ class ShipTimelineTest(ShipFixture):
         self.assertEqual(first['gate_steps'], 'python:7,worker:2')
         self.assertTrue(fields(lines[1])['result'].startswith('DONE:'))
 
+    def test_a_new_log_file_is_there_before_the_timeline_reads_it(self):
+        # CI, 12 Oct 2026 (run 38242778084): ship.sh sends its output through `tee` and the timeline counted the log's lines at once; when tee had not yet
+        # created a new log, the read failed and set -e ended the landing with exit 1. A slow tee makes that moment certain.
+        bin_dir = self.tmp / 'slow-tee'
+        bin_dir.mkdir()
+        (bin_dir / 'tee').write_text(f'#!/bin/sh\nsleep 0.5\nexec {shutil.which("tee")} "$@"\n')
+        (bin_dir / 'tee').chmod(0o755)
+        self.change(self.tree, 'f.txt', 'x\n', 'Change')
+        log = self.tmp / 'new-ship.log'
+        result = subprocess.run(['bash', str(self.tree / 'tools' / 'ship.sh')], cwd=self.tree, capture_output=True, text=True, timeout=60,
+                                env=self.ship_env(PATH=f'{bin_dir}{os.pathsep}{os.environ["PATH"]}', SHIP_LOG=str(log)))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn('No such file', result.stdout + result.stderr)
+
     def test_a_failed_landing_is_recorded_with_its_exit_code(self):
         self.change(self.tree, 'tools/pre-push-check.sh', '#!/bin/sh\necho "Push blocked: x" >&2\nexit 2\n', 'Hook that refuses')
         subprocess.run(['bash', str(self.tree / 'tools' / 'ship.sh')], cwd=self.tree, capture_output=True, text=True, timeout=60, env=self.ship_env())
