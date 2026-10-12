@@ -161,3 +161,20 @@ test('scenario: a layer offers "continue without an account", the first answer i
   assert.deepEqual([answer.applyRoute, answer.applyButton], ['manual', 'continue without an account']);
   assert.equal(asked, 2, 'one retry, no more');
 });
+
+// 12 Oct 2026 (Ocado, CI): a user on the Anthropic API engine asks the digest (rung 3, an unsure posting); the API refuses a schema that carries maxItems (400), so the digest
+// fell to "page kind: none (400 ...)" and the ladder ended at the person. Through the app's own page-kind route and the real API adapter over an SDK that refuses limits like the API.
+test('scenario: a digest request on the Anthropic API engine is answered, not refused for the list limit in its schema (Ocado, 12 Oct 2026)', async () => {
+  const {AnthropicApi} = await import('../lib/ai/anthropic-api.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-journey-digest-'));
+  const storage = {path: name => path.join(dir, name), settings: () => ({})};
+  const refusing = {messages: {create: async body => {
+    if (/maxItems|minItems/.test(JSON.stringify(body.output_config))) throw Object.assign(new Error('400 {"type":"error","error":{"type":"invalid_request_error","message":"output_config.format.schema: For \'array\' type, property \'maxItems\' is not supported"}}'), {status: 400});
+    return {stop_reason: 'end_turn', usage: {input_tokens: 700, output_tokens: 30}, content: [{type: 'text', text: JSON.stringify({outcome: 'phone', verb: 'tell_person', numbers: [1], press_kind: '', confidence: 0.9})}]};
+  }}};
+  const candidates = [{n: 1, kind: 'phone', position: 'main', text: '044 555 01 00'}, {n: 2, kind: 'sentence', position: 'main', text: 'Fragen? Rufen Sie uns an'}];
+  const body = {url: POSTING, title: 'Real Estate Accountant', headings: ['Real Estate Accountant'], controls: [], buttons: ['Login'], candidates, digest: true, fresh: true};
+  const answer = await decidePageKind(storage, body, {client: new AnthropicApi({sdk: refusing})});
+  assert.equal(answer.by, 'digest', JSON.stringify(answer).slice(0, 300));
+  assert.equal(answer.digest?.outcome, 'phone');
+});
