@@ -9,7 +9,7 @@ import {showFocusStarted} from './focus-onboarding.js';
 import {loadCalendar} from './calendar.js';
 import {loadInterviews} from './interviews.js';
 import {loadEmployers} from './employers.js';
-import {openJobPanel} from './job-panel.js';
+import {closeJobPanel, openJobPanel} from './job-panel.js';
 import {REPORT_TABS, loadReports} from './reports.js';
 import {applyViewGate} from './notion-connect.js';
 import {loadSettings} from './profile.js';
@@ -38,6 +38,7 @@ export const guardLeave = (view, guard) => { leaveGuards[view] = guard; };
 export function openView(name, {fromHistory = false} = {}) {
   const leaving = currentView;
   if (leaving && leaving !== name && leaveGuards[leaving] && !leaveGuards[leaving](() => { currentView = ''; openView(name, {fromHistory}); })) return;
+  if (leaving !== name) closeJobPanel();   // the job's drawer covers the page it was opened from: going to another page closes it (a callback that opens a job does openView first)
   currentView = name;
   if (!fromHistory) history = viewHistory.visit(history, name);
   remembered('view', name);

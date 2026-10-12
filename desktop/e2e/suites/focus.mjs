@@ -145,6 +145,7 @@ export async function runFocus(ctx, parts) {
       const panel = await page.textContent('#job-panel');
       if (!/Gale Robotics/.test(panel) || !/Seniority mismatch/.test(panel)) throw new Error(`the Review tab is not Gale Robotics' rejection: "${panel.replace(/\s+/g, ' ').slice(0, 200)}"`);
       await goFocus();
+      if (await page.locator('#job-drawer-layer').isVisible()) throw new Error("the job's drawer stayed open after going to another page");   // it covers the page it was opened from (pages/nav.js openView)
     } else {
       await page.waitForTimeout(500);
       if ((await urlsOpened()).length !== opened + 1) throw new Error(`"Review rejection" opened nothing (opened: ${(await urlsOpened()).join(', ') || 'none'})`);
