@@ -303,3 +303,18 @@ test('scenario: a session is cancelled while the job list is being read: a read 
     }
   } finally { pipeline.setDemo(false); }
 });
+
+test('scenario: the uploader emptied its input and shows the CV as a chip: the panel reports it filled and the card lists nothing left, the same truth as the fill record (one reader, 12 Oct 2026)', async () => {
+  const review = await import('../lib/review.js');
+  review._reset();
+  const FORM_URL = 'https://jobs.example.com/upload/apply', sessions = [{id: 'c1', url: FORM_URL, startedAt: 1}];
+  // What the panel sends when the one reader (extension/page/read-back.js) reads the chip as the CV: nothing pending, the CV among the filled.
+  review.report(sessions, {session: 'c1', tab: 3, url: FORM_URL, total: 4, left: 0, pending: [], missing: [], filled: ['First name', 'Last name', 'Email', 'Resume'], watch: []});
+  const state = review.allStates().find(item => item.id === 'c1');
+  assert.deepEqual(state.pending, [], 'the card\'s left rows are the panel\'s pending list (renderer/pages/session-needs.js emptyFields reads state.pending)');
+  assert.equal(state.left, 0);
+  assert.ok((state.filled || []).some(item => item.label === 'Resume'), 'the CV is ticked off on the card');
+  // The same page read as before the one reader (the panel saw no file in the input): the card follows the panel, word for word.
+  review.report(sessions, {session: 'c1', tab: 3, url: FORM_URL, total: 4, left: 1, pending: ['Resume'], missing: ['Resume'], filled: ['First name', 'Last name', 'Email'], watch: []});
+  assert.deepEqual(review.allStates().find(item => item.id === 'c1').pending, ['Resume']);
+});

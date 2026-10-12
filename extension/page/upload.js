@@ -32,7 +32,6 @@
   const kit = () => window.__jobPilottoSkeleton;
   const fingerprintOf = el => { try { return kit() ? kit().fingerprint(kit().skeleton(el)) : ''; } catch { return ''; } };
   const textOf = el => el.innerText ?? el.textContent ?? '';   // innerText is the words a person sees; a DOM without layout has only textContent
-  const NAMED = /\S+\.(pdf|docx?|rtf|txt|odt)\b/i;
 
   // The slots on the page, each with what it asks for (title), whether the page marks it required, whether it holds a file now.
   function slots(doc = document) {
@@ -45,7 +44,8 @@
       const title = clean(Array.from(slot.el.children).filter(el => el !== child).map(textOf).join(' ')) || clean(textOf(slot.el));
       const hints = slot.input ? `${slot.input.getAttribute('aria-label') || ''} ${slot.input.name || ''} ${slot.input.id || ''}` : '';
       // Holds a file: the one reading (page/read-back.js): the input's file, or a file name the slot shows; this extension's own mark alone is not a file (one truth with the panel).
-      const holds = (slot.input && window.__jobPilottoReadBack ? window.__jobPilottoReadBack.fileState(slot.input) : NAMED.test(textOf(slot.el)) ? 'committed' : 'empty') === 'committed';
+      const holds = slot.input ? window.__jobPilottoReadBack?.fileState(slot.input) === 'committed'
+        : !!slot.el.dataset.jobpilottoFile && textOf(slot.el).includes(slot.el.dataset.jobpilottoFile);   // a slot that is only a button: it shows the file we attached
       return {...slot, title: title.slice(0, 160), hints, fp: fingerprintOf(slot.el), filled: holds,
         required: /\*/.test(title) || !!slot.input?.required || slot.input?.getAttribute('aria-required') === 'true' || slot.trigger?.getAttribute('aria-required') === 'true'};
     });
@@ -131,6 +131,7 @@
   // Put the file into the input, tell the page, and check the page took it: the input still holds it, or the page consumed the input, or the
   // slot visibly changed. A file the person chose stays; one this extension attached earlier is replaced by a different file (a CV tailored later).
   async function attach(slot, input, file, revealed) {
+    window.__jobPilottoReadBack?.baseline(input);   // what the slot showed before our file (page/read-back.js): a name there now is not ours
     const ours = input.dataset.jobPilottoFile;
     if (input.files?.length && !(ours && input.files[0].name === ours && ours !== file.name)) return {ok: true, why: 'already holds a file'};
     const holder = revealed ? input.closest('fieldset, form') || input.parentElement || slot.el : slot.el;   // a revealed input's own area, not the trigger's
