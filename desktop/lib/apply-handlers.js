@@ -20,8 +20,8 @@ import {GOOGLE_KEYCHAIN} from './google-keys.js';
 import {log as appLog} from './log.js';
 import {createTakeOver} from './ladder/rung5-takeover.js';
 import {pageKeyOf, startRun} from './ladder/rung5-takeover-teach.js';
-import {openFormTab} from './form-tab.js';
-import {sessionsNamedIn} from './session-tab.js';
+import {listTabs, openFormTab} from './form-tab.js';
+import {sessionsNamedIn, sessionsWithTab} from './session-tab.js';
 import {sharedCheck} from './shared-check.js';
 import {withAccounts, withCompanies, withoutHost} from './site-accounts.js';
 import {isTwin} from './twin.js';
@@ -201,14 +201,19 @@ export function registerApplyHandlers(ctx) {
     return code === 0 && result.ok ? {ok: true, revoked: !!result.revoked, github: inRepo} : {ok: false, error: 'Gmail could not be disconnected: try again'};
   });
   ipcMain.handle('openTabs', () => server.openTabs());
+  let liveAt = 0, liveList = [];
+  const liveTabs = async () => { if (Date.now() - liveAt > 1500) { liveList = await listTabs(); liveAt = Date.now(); } return liveList; };   // the poll runs every 2 s: one scripting call each
   // Which sessions' forms are still open in Chrome, by the extension's own tab report. `known` is false while the
   // extension has not checked in lately: then nothing can be said about a closed tab, so the page says nothing.
   let lastFormsOpen = '';
-  ipcMain.handle('formsOpen', () => {
+  ipcMain.handle('formsOpen', async () => {
     const seen = server.extensionSeen(), known = !!seen && Date.now() - seen.at < 90 * 1000;
     if (!known) return {known, ids: []};
     // A session whose own tab we know is open while that tab exists; for the others, a tab that looks like its form says open, nothing says closed.
-    const sessions = terminals.list(), byLook = sessionsNamedIn(sessions, server.openTabs());   // a restored tab not yet re-bound is open by the id in its address
+    // Open is proved two ways, each exact: a tab in the extension's report naming the session in its address, or in Chrome's own list right now
+    // (Mac scripting, read at each check, so a screen opened after a restart never waits for the extension's next 30 s report).
+    const sessions = terminals.list(), byLook = sessionsNamedIn(sessions, server.openTabs());
+    for (const id of sessionsWithTab(sessions, DEMO ? [] : await liveTabs(), sessionId => review.tabOf(sessionId))) byLook.add(id);
     const {ids, unsure} = review.formStates(sessions.map(session => session.id), byLook);
     const line = `${ids.join(',') || 'none'}${unsure.length ? ` (not known: ${unsure.join(',')})` : ''}`;
     if (line !== lastFormsOpen) { lastFormsOpen = line; appLog('review', `forms open in Chrome: ${line}`, {sessions: sessions.length}); }   // who is open, when it changed
