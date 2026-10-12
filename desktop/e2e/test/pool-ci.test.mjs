@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {SITE_REFUSED} from '../lib/smoke.mjs';
-import {capRows, ciLimits, electronLegs, overBudget, summary} from '../lib/pool-ci.mjs';
+import {capRows, ciLimits, electronLegs, overBudget, stopReason, summary} from '../lib/pool-ci.mjs';
 
 test('the row cap runs the first rows and names the rest; no cap (a Mac run) leaves the list as it is', () => {
   const rows = ['a', 'b', 'c', 'd'].map(shape => ({shape}));
@@ -58,4 +58,14 @@ test('the summary is red for a row that did not finish (a harness error) and for
   assert.deepEqual(red, ['did not finish: Join: form on join.com (no end of the watch, exit 1)', 'privacy tripwire: Teamtailor: form on teamtailor.com']);
   assert.match(markdown, /Stopped early: AI spend \$0\.5100 reached the cap \$0\.50/);
   assert.match(markdown, /❌/);
+});
+
+test('a refused AI stops the run before the next row and turns the job red: a row without AI is not a result', () => {
+  assert.equal(stopReason({spent: 0.1, maxUsd: 0.5, refused: null}), '');
+  assert.match(stopReason({spent: 0.5, maxUsd: 0.5, refused: null}), /AI spend \$0\.5000 reached the cap \$0\.50/);
+  assert.match(stopReason({spent: 0, maxUsd: 0.5, refused: {shape: 'Lever', why: '400 invalid_request_error: Your credit balance is too low'}}), /the AI was refused on Lever \(400 invalid_request_error: Your credit balance is too low\)/);
+  const refused = {...report, results: {'Lever: single page, no account': {reached: 'form', filled: 5, left: 13, usd: 0, seconds: 51, aiRefused: {calls: 3, why: '400 invalid_request_error: Your credit balance is too low'}}}};
+  const {markdown, red} = summary(refused);
+  assert.deepEqual(red, ['AI refused: Lever: single page, no account (3 calls: 400 invalid_request_error: Your credit balance is too low)']);
+  assert.match(markdown, /\| Lever: single page, no account \| form \| 5 \/ 13 \| AI refused \|/);
 });

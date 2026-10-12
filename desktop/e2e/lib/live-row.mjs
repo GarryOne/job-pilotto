@@ -27,7 +27,7 @@ import {startRealExtension} from './real-extension.mjs';
 import {livePresses} from './replay-candidate.mjs';
 import {blockSignal, guardLiveVisit, markBlocked} from './site-ledger.mjs';
 import {startAiProxy} from './ai-proxy.mjs';
-import {usage} from './ai-meter.mjs';
+import {apiErrors, usage} from './ai-meter.mjs';
 import {appKey, isCi, testKey} from './engine.mjs';
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -43,12 +43,17 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
   let shotAsked = false;
   fs.mkdirSync(captureDir, {recursive: true});
   const proxy = aiProxy || (isCi() ? await startAiProxy() : null), before = {...usage().app};
-  const spend = () => { const now = usage().app; return {calls: now.calls - before.calls, usd: now.usd - before.usd, input: now.input - before.input, output: now.output - before.output}; };
+  const errorsBefore = {...apiErrors()};   // calls Anthropic refused (no credit, a limit, a bad key): the row then ran without AI, which the run must say
+  const spend = () => {
+    const now = usage().app, refused = Object.entries(apiErrors()).map(([why, count]) => [why, count - (errorsBefore[why] || 0)]).filter(([, count]) => count > 0);
+    return {calls: now.calls - before.calls, usd: now.usd - before.usd, input: now.input - before.input, output: now.output - before.output,
+      refused: refused.reduce((sum, [, count]) => sum + count, 0), why: refused[0]?.[0] || ''};
+  };
   const app = await startOfflineApp({ask, captureDir, memo: path.join(captureDir, 'model-memo.json'), ...(proxy ? {api: {url: proxy.url, key: appKey(testKey())}} : {})}).catch(async error => { if (proxy && !aiProxy) await proxy.close(); throw error; });
   const front = await frontOf(app);
   const run = await browser({extensionDir, appPort: front.port, allowAllSites: true});
   const owner = ownerValues(), values = personalValues([`Name: ${CONTACT.full_name}\nEmail: ${CONTACT.email}\nPhone: ${CONTACT.phone}`]);
-  if (!owner.size) say('live: privacy tripwire: no owner values on this machine (nothing of the owner\'s here), so it has nothing to compare');
+  if (!owner.size) say('live: no owner values on this machine for the privacy tripwire (nothing of the owner\'s here): it has nothing to compare');
   const journey = journeyRecorder(run.context, {scrub: html => scrubPage(html, values)}), styles = cssRecorder(run.context);
   const steps = stepShooter({tabOf: () => run.context.pages().filter(page => /^https?:/.test(page.url())).at(-1), kindOf: () => kindFromLog(app.logText()), dir: captureDir});   // one full-page picture per page or step reached (lib/step-shots.mjs)
   let asksSeen = 0, tripped = '';

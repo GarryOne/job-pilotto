@@ -24,7 +24,7 @@ import {fetchWanted, wantedFirst} from './lib/wanted-hosts.mjs';
 import {heavy, yieldHeavy} from './lib/heavy.mjs';
 import {runArtifacts} from './lib/run-artifacts.mjs';
 import {POOL_LINE, eligibilityOff, poolEnv} from './lib/pool-eligibility.mjs';
-import {capRows, ciLimits, electronLegs, overBudget} from './lib/pool-ci.mjs';
+import {capRows, ciLimits, electronLegs, stopReason} from './lib/pool-ci.mjs';
 import {settleRefusal, lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pathDifferenceLine} from './lib/smoke-paths.mjs';
 heavy('e2e-smoke', import.meta.url, {klass: process.argv.includes('--only') ? 'proof' : process.argv.includes('--discover') ? 'explore' : 'pool'});   // one heavy run at a time on this Mac (tools/heavy-lock.sh); a held row proof goes before the pool's whole list
 
@@ -158,7 +158,8 @@ async function main() {
   const legs = electronLegs();   // CI: no second visit after a block page, and the runner has no Electron (lib/pool-ci.mjs)
   if (!legs) console.log('smoke: no Electron leg on CI: a refused or fallen row is not visited again from the runner');
   for (const {shape, like = [], urls = []} of rows) {
-    if (overBudget(thisRun.usd, limits.maxUsd)) { thisRun.stopped = `AI spend $${thisRun.usd.toFixed(4)} reached the cap $${limits.maxUsd.toFixed(2)}`; console.log(`smoke: stopped: ${thisRun.stopped}; not run: ${rows.slice(rows.findIndex(item => item.shape === shape)).map(item => item.shape).join(', ')}`); break; }
+    const aiDown = Object.entries(results).find(([, item]) => item.aiRefused);   // a refused AI: every later row would run without AI too
+    if ((thisRun.stopped = stopReason({spent: thisRun.usd, maxUsd: limits.maxUsd, refused: aiDown && {shape: aiDown[0], why: aiDown[1].aiRefused.why}}))) { console.log(`smoke: stopped: ${thisRun.stopped}; not run: ${rows.slice(rows.findIndex(item => item.shape === shape)).map(item => item.shape).join(', ')}`); break; }
     yieldHeavy();   // between two sites a waiting proof (or shorter run) goes first; this run waits for its place back (tools/heavy-lock.sh yield)
     const posting = pickPosting([...urls.map(url => ({url, title: '', company: ''})), ...(like.length ? postingsLike(like) : [])]);
     if (!posting) { results[shape] = {reached: 'none', note: 'no posting of this shape in the job list'}; console.log(`smoke: ${shape}: no posting`); await finish(shape); continue; }

@@ -1,6 +1,7 @@
 // The pool's smoke on a GitHub runner (owner, 12 Oct 2026: by hand only, start simple; .github/workflows/pool-smoke.yml): the hard caps the workflow sets (rows,
 // AI dollars), no Electron leg there (never a second visit after a block page; the runner has no Electron), and the job summary: one table row per run row, a bot
-// wall on the runner's data-center IP shown as "blocked (CI IP)" and never a failure, red only for a row that did not finish (a harness error) or the tripwire.
+// wall on the runner's data-center IP shown as "blocked (CI IP)" and never a failure, red only for a row that did not finish (a harness error), the tripwire, or a
+// refused AI (12 Oct 2026: the Tests key had no credit and the row ran without AI, which is no result).
 // Used by smoke.mjs and pool-ci-summary.mjs. Guard: e2e/test/pool-ci.test.mjs.
 import {SITE_REFUSED} from './smoke.mjs';
 
@@ -18,6 +19,12 @@ export const capRows = (rows, maxRows = 0) => (maxRows >= 1 ? {run: rows.slice(0
 // Checked before each row: the spend so far reached the cap.
 export const overBudget = (spent, maxUsd = 0) => maxUsd > 0 && spent >= maxUsd;
 
+// Why the run stops before its next row, or '': the dollar cap, or a refused AI (refused: {shape, why}: every later row would run without AI too, and spend a visit).
+export function stopReason({spent = 0, maxUsd = 0, refused = null} = {}) {
+  if (refused) return `the AI was refused on ${refused.shape} (${refused.why})`;
+  return overBudget(spent, maxUsd) ? `AI spend $${spent.toFixed(4)} reached the cap $${maxUsd.toFixed(2)}` : '';
+}
+
 // The Electron leg (a fall or a refusal on plain node run again on Electron at once) is a Mac's: on CI it would be a second visit after a block page.
 export const electronLegs = (env = process.env) => !env.CI;
 
@@ -29,6 +36,7 @@ function blockedWord(item) {
   if (item.reached === 'code/bot') return 'blocked (CI IP): bot check';
   if (item.note === SITE_REFUSED) return 'blocked (CI IP): site refused';
   if (item.blocked) return `covered after the fill (${item.blocked})`;
+  if (item.aiRefused) return 'AI refused';
   return '';
 }
 
@@ -36,7 +44,8 @@ function blockedWord(item) {
 export function summary(report = {}) {
   const results = Object.entries(report.results || {}), run = report.thisRun || {};
   const red = [...(run.unfinished || []).map(item => `did not finish: ${item.shape} (${item.why})`),
-    ...results.filter(([, item]) => item.tripped).map(([shape]) => `privacy tripwire: ${shape}`)];
+    ...results.filter(([, item]) => item.tripped).map(([shape]) => `privacy tripwire: ${shape}`),
+    ...results.filter(([, item]) => item.aiRefused).map(([shape, item]) => `AI refused: ${shape} (${item.aiRefused.calls} calls: ${item.aiRefused.why})`)];
   const lines = [`## Pool smoke ${report.day || ''} ${red.length ? '❌' : '✅'}`, '',
     'Held: the fake applicant, never Submit, no account or consent button, no password, no captcha. Nothing uploaded from CI.', '',
     '| Row | Reached | Filled / left | Blocked | AI | Time |', '|---|---|---|---|---|---|',
