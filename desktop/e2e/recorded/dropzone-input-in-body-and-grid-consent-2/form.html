@@ -1,0 +1,16 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Candidature</title>
+<style>.cell{display:inline-block;width:45%;vertical-align:top}.zone{border:1px dashed #888;padding:12px}.note{display:block}</style></head>
+<body><h1>Votre candidature</h1>
+<form class="form-row" action="/envoyer" method="post">
+<div class="cell"><span class="caption">Prénom *</span><input id="first" name="first" type="text" required></div>
+<div class="cell"><span class="caption">Nom *</span><input id="last" name="last" type="text" required></div>
+<div class="cell"><span class="caption">Courriel *</span><input id="mail" name="mail" type="email" required></div>
+<div class="block"><div class="ttl">Pièces jointes *</div>
+<section id="attachment-area"><div class="inner"><div class="hint"><div role="button" tabindex="0" class="pick" id="pick">Déposer un fichier ici</div></div></div></section><i class="note" id="note"></i></div>
+<p class="agree"><label><span class="cap">J'accepte la politique de confidentialité</span> <input type="checkbox" name="agree" id="agree" required></label></p>
+</form>
+<script>(() => { const input = document.createElement('input'); input.type = 'file'; input.id = 'own'; input.multiple = true; input.style.cssText = 'display:none';
+  input.addEventListener('change', () => { document.getElementById('note').textContent = input.files[0].name; });
+  document.getElementById('pick').addEventListener('click', () => input.click());
+  document.body.prepend(input); })();</script>
+</body></html>
