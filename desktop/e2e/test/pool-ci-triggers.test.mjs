@@ -41,3 +41,12 @@ test('the PR proof labels its PR "live-proof" whenever it names a row, with the 
   assert.match(step, /GH_TOKEN: \$\{\{ github\.token \}\}/, 'with the run\'s own token (no new run from the label)');
   assert.match(proof, /^ {2}pull-requests: write\b/m);
 });
+
+// 12 Oct 2026: two dispatches in the same second, and GitHub's shared concurrency group cancelled the older pending one (Ocado). The queue never drops a run.
+test('no pool run is dropped: no concurrency group (GitHub cancels a pending run in it); a queue step waits for earlier runs before anything else is read', () => {
+  const smoke = workflows['pool-smoke.yml'], proof = workflows['pool-proof.yml'];
+  for (const [name, text] of [['pool-smoke.yml', smoke], ['pool-proof.yml', proof]]) assert.doesNotMatch(text, /^\s*concurrency:/m, `${name}: a concurrency group cancels a waiting run`);
+  const wait = smoke.indexOf('pool-ci-wait.mjs'), states = smoke.indexOf('pool-ci-state.mjs prepare');
+  assert.ok(wait > 0 && wait < states, 'the queue step runs before the earlier runs\' states are read');
+  assert.ok(Number(smoke.match(/timeout-minutes: (\d+)/)?.[1]) >= 75, 'the job has time to wait its turn');
+});
