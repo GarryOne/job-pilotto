@@ -4,10 +4,11 @@
 #   tools/pr-settings.sh            show the calls         tools/pr-settings.sh --apply   make them
 # No "require up to date": parallel PRs merge at once; CI on main (build.yml, recorded-pages.yml) still catches a rare clash and the red-main rule applies as before.
 # The repository admin role may bypass the ruleset (so a session still running the old direct push is not locked out during the switch-over, and the owner can force a fix through);
+# "hole 3" is NOT required yet (tools/recorded-fails-on-old.mjs has not run end to end): add it to `checks` once it has.
 # tighten it to bypass_mode "pull_request" once nobody pushes to main. The required checks are the job names of pr-gate.yml, build.yml and recorded-pages.yml.
 set -euo pipefail
 repo="${PR_REPO:-GarryOne/job-pilotto}"
-checks='python worker site desktop\ (ubuntu-24.04) desktop\ (windows-latest) replay\ shard\ 1 replay\ shard\ 2 replay\ shard\ 3 replay\ shard\ 4 pr\ gates flow-fresh hole\ 3'
+checks='python worker site desktop\ (ubuntu-24.04) desktop\ (windows-latest) replay\ shard\ 1 replay\ shard\ 2 replay\ shard\ 3 replay\ shard\ 4 pr\ gates flow-fresh'
 ruleset="$(python3 - "$checks" <<'PY'
 import json, shlex, sys
 names = shlex.split(sys.argv[1])
