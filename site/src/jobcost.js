@@ -19,6 +19,8 @@ export const JOBS = {   // job id -> [label, group]; an unknown id still shows, 
   'sentry-fix': ['Sentry fixer', 'Self-heal'],
   'weekly-self-review': ['Weekly self-review', 'Self-heal'],
   'product-brain': ['Product brain', 'Product brain'],
+  'pool-live': ['Pool live runs', 'Live tests'],   // the CI pool on real sites (.github/workflows/pool-smoke.yml)
+  'pr-live-proof': ['PR live proof', 'Live tests'],   // one pool row on a PR's own build (.github/workflows/pool-proof.yml)
 };
 const day = at => String(at).slice(0, 10);
 const money = n => `$${(Number(n) || 0).toFixed(2)}`;

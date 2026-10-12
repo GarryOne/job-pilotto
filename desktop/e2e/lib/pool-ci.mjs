@@ -58,7 +58,9 @@ function notRunLine(report, now) {
 
 // The day's report (smoke.mjs: results + thisRun) and each row's last CI run (baseline: lib/pool-ci-state.mjs baselines) -> {markdown, red: [reasons]} for
 // $GITHUB_STEP_SUMMARY; red is empty when the run is green. Only the rows this run ran (the day's report also keeps other runs' rows).
-export function summary(report = {}, {baseline = {}, now = new Date(), proof = false} = {}) {
+// keyName: which Anthropic key the run used, by NAME (pool-smoke.yml AI_KEY_NAME); anything but a known name is never printed.
+const KEY_NAMES = ['LIVE_ANTHROPIC_KEY', 'E2E_ANTHROPIC_KEY'];
+export function summary(report = {}, {baseline = {}, now = new Date(), proof = false, keyName = ''} = {}) {
   const run = report.thisRun || {}, ran = run.ran ? new Set(run.ran) : null;
   const results = Object.entries(report.results || {}).filter(([shape]) => !ran || ran.has(shape));
   const last = shape => { const base = baseline[shape]; return base ? `${base.reached}${base.filled != null ? ` ${base.filled} / ${base.left}` : ''} (run ${base.run}, ${base.branch})` : '–'; };
@@ -71,7 +73,7 @@ export function summary(report = {}, {baseline = {}, now = new Date(), proof = f
     'Held: the fake applicant, never Submit, no account or consent button, no password, no captcha. Nothing uploaded from CI.', '',
     '| Row | Applicant | Reached | Filled / left | Blocked | Last CI run | AI | Time |', '|---|---|---|---|---|---|---|---|',
     ...results.map(([shape, item]) => `| ${cell(shape)} | ${cell(item.applicant || 'thin')} | ${cell(item.reached)} | ${item.filled != null ? `${item.filled} / ${item.left}` : '–'} | ${cell(blockedWord(item))} | ${cell(last(shape))} | ${money(item.usd)} | ${item.seconds ?? '?'} s |`),
-    '', `AI spend: ${money(run.usd)} of the $${Number(run.maxUsd || 0).toFixed(2)} cap (the Tests key).`];
+    '', `AI spend: ${money(run.usd)} of the $${Number(run.maxUsd || 0).toFixed(2)} cap (key: ${KEY_NAMES.includes(keyName) ? keyName : 'E2E_ANTHROPIC_KEY'}).`];
   if (run.stopped) lines.push(`Stopped early: ${run.stopped}.`);
   if ((run.cut || []).length) lines.push(`Not run: ${run.cut.join(', ')} (row cap ${run.maxRows}).`);
   if ((run.skipped || []).length) lines.push(`Skipped by CI's site limit: ${run.skipped.map(item => item.shape).join(', ')}.`);
