@@ -23,6 +23,10 @@ cache="${TMPDIR:-/tmp}/job-pilotto-stop-hook"; mkdir -p "$cache"
 # writes (git commit/add/apply/checkout/restore, sed -i, tools/ship.sh). One it only read or ran tests in is another session's work, not tested here (11 Oct 2026).
 # Only a worktree this session CHANGED is tested; the folder it runs in counts only if the transcript shows a change there (owner, 11 Oct 2026: "this shouldn't happen by default, on local":
 # sessions started in the primary checkout ran its whole desktop suite at every stop though they changed nothing there). STOP_CHECK_CWD=1 brings the old "cwd always" back.
+# Fast by default (owner, 13 Oct 2026, agreed): every PR runs these suites in CI as required checks before the owner merges, so re-running them at each
+# stop only loaded the Mac (load ~200 with five sessions) and failed sessions on flakes that only load causes. The pure checks (subject, trailers, file size,
+# recorded cases) still run at every commit and push (tools/pre-push-check.sh). STOP_CHECK_SUITES=1: run the matching suites as before (this hook's tests set it).
+[ "${STOP_CHECK_SUITES:-0}" = 1 ] || exit 0
 dirs=(); [ "${STOP_CHECK_CWD:-0}" = 1 ] && dirs=("$cwd")
 if [ -f "$transcript" ]; then
   while IFS= read -r p; do dirs+=("$p"); done < <(
