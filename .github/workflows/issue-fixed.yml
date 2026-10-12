@@ -2,6 +2,7 @@ name: CI · Fixed-issue labels
 
 # A Finder issue that "Fixes #N" closed (a commit or a merged pull request) gets the labels a verdict would have set (confirmed, resolution:fixed),
 # so /self-heal and the scorecard count it as a real bug, fixed (12 Oct 2026: #360 and #400 were closed by their fixes and counted nowhere).
+# A fix that changed only tests or docs gets needs-human instead: it proves neither way (#350 test mistake, #400 product fixed elsewhere).
 # A closure that already has a resolution label (apply-verdict.sh labels before it closes) is left as it is. desktop/e2e/lib/fixed-close.mjs decides.
 on:
   issues:
