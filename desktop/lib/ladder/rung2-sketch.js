@@ -132,7 +132,22 @@ export function addressOf(text, mails = []) {
 }
 
 // fresh: the page changed after a press (a dialog opened over the posting), so a kept answer for its shape is not used.
-export async function pageKind(client, raw, cache, {now = Date.now(), fresh = false, digest = false, learned = null} = {}) {
+// A layer with buttons sits on the page and the ask named no way on (a posting, no route, no button), unsure or not clearly sure: ask ONCE more (jobs.ch, 11 Oct 2026: the live answer was 0.6 with no
+// route over a layer that offered "continue without an account"; the same sketch answered the route 6 of 6 times offline, so the miss was variance). The answer that names a route wins; if the second is
+// no better, today's answer stands (the hold). One extra plan-path call, only on such pages; never on a digest, never when an email or a route or a button was named.
+export const RETRY_BELOW = 0.8;
+const worthRetry = (first, raw) => !first.botCheck && (first.error?.startsWith('unsure') || (first.by === 'ai' && first.confidence < RETRY_BELOW))
+  && (first.error ? first.kind === 'posting' : first.kind === 'posting' && !first.applyRoute && !first.applyButton && first.applyBy !== 'email')
+  && !!pageSketch(raw).onTop?.buttons.length;
+export async function pageKind(client, raw, cache, opts = {}) {
+  const first = await pageKindOnce(client, raw, cache, opts);
+  if (opts.digest || !client || !worthRetry(first, raw)) return first;
+  const second = await pageKindOnce(client, raw, cache, {...opts, fresh: true});
+  const better = !second.error && (second.applyRoute || (first.error && second.kind === 'posting'));
+  return better ? {...second, retried: true} : {...first, retried: true};
+}
+
+async function pageKindOnce(client, raw, cache, {now = Date.now(), fresh = false, digest = false, learned = null} = {}) {
   const shape = kindKey(raw);
   if (!shape) return {error: 'no address'};
   if (digest) return digestKind(client, raw, shape);   // rung 3: the extension climbed because rung 2 was unsure or a flow stalled

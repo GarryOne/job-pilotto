@@ -9,6 +9,10 @@ import {createSessionFlow} from '../lib/session-flow.js';
 import {createAccountCheck} from '../lib/account-check.js';
 import {journeyStep} from '../lib/application-journey.js';
 import {accountRecordLine} from '../renderer/session-state.js';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {decidePageKind} from '../lib/server-pages.js';
 
 const POSTING = 'https://www.jobs.ch/en/vacancies/detail/12181ac1/', SIGNIN = 'https://auth.jobs.ch/u/login/identifier', FORM = 'https://apply.example/form';
 function journeyOf(id = 'f1') {
@@ -139,4 +143,21 @@ test('scenario: the ladder ends with no usable answer (other): the card says Job
   flow.stuck({url: POSTING, host: 'www.jobs.ch', why: 'other', session: 'f1'});
   assert.deepEqual(card(), {step: 'posting', needs: 'Job Pilotto could not tell how to apply: open the page'});
   assert.equal(terminals.get('f1').stuck, 'other');
+});
+
+// 12 Oct 2026 (jobs.ch "Create an account to apply faster" left open): through the app's own page-kind route, the first answer over the layer is "0.6, no route" (what the live run got) and
+// the second names the manual route: the extension must be told the route (it presses "Continue without an account", start-route.js). Today's hold: no route.
+test('scenario: a layer offers "continue without an account", the first answer is unsure with no route: the route still reaches the extension (jobs.ch, 12 Oct 2026)', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-journey-kind-'));
+  const storage = {path: name => path.join(dir, name), settings: () => ({})};
+  const noWay = {kind: 'posting', confidence: 0.6, apply_button: '', apply_button_kind: '', apply_route: '', apply_by: 'other', apply_email: '', form_frame: -1, account_step: '', register_control: '', signin_control: '', account_button: '', bot_check: false};
+  const manual = {...noWay, confidence: 0.85, apply_button: 'Continue without an account', apply_button_kind: 'apply', apply_route: 'manual', apply_by: 'form'};
+  let asked = 0;
+  const client = {messages: {create: async () => ({stop_reason: 'end_turn', usage: {input_tokens: 10, output_tokens: 5}, content: [{type: 'text', text: JSON.stringify(asked++ ? manual : noWay)}]})}};
+  const layer = ['Login here', 'Create an account', 'Continue without an account'];
+  const body = {url: POSTING, title: 'Real Estate Accountant', headings: ['Create an account to apply faster', 'Real Estate Accountant'], controls: [], buttons: [...layer, 'Login', 'Saved jobs'],
+    noEffect: ['Easy apply'], fresh: true, onTop: {shape: 'overlay', role: 'div', text: 'Create an account to apply faster', buttons: layer}};
+  const answer = await decidePageKind(storage, body, {client});
+  assert.deepEqual([answer.applyRoute, answer.applyButton], ['manual', 'continue without an account']);
+  assert.equal(asked, 2, 'one retry, no more');
 });
