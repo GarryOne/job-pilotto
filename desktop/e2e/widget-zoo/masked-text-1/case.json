@@ -1,6 +1,6 @@
 {
  "widget": "masked_text",
- "shape": "a phone box with an input mask that rewrites every value into its own groups",
+ "shape": "a number box with an input mask that rewrites every value into its own groups",
  "why": "widget zoo (spec docs/superpowers/specs/2026-10-12-fill-ladder.md): a measure, not a gate: what the fill reads (asked) and what stays committed",
  "pages": [
   {
@@ -22,9 +22,9 @@
    "eligible": true,
    "answers": [
     {
-     "field": "phone",
-     "question": "Mobile phone number",
-     "value": "0041795550123",
+     "field": "salary",
+     "question": "Expected yearly salary (CHF)",
+     "value": "120000",
      "confidence": "high",
      "note": "",
      "category": "other",
@@ -35,10 +35,10 @@
  },
  "expect": {
   "asked": [
-   "Mobile phone number"
+   "Expected yearly salary (CHF)"
   ],
   "valueHas": [
-   "#phone|795550123"
+   "#salary|120000"
   ],
   "notTold": [
    "pressed the submit"

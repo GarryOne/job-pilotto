@@ -13,10 +13,13 @@ const verdicts = cases.map((item, index) => verdictOf(item, results[index]));
 const summary = summarizeZoo(verdicts);
 
 const pad = (text, width) => String(text).padEnd(width).slice(0, width);
-console.log(`widget zoo: ${summary.total} pages, read ${summary.read}, committed ${summary.committed}`);
-for (const one of verdicts) console.log(`  ${pad(one.name, 26)} ${pad(one.widget, 19)} read ${one.read ? 'yes' : 'NO '}  committed ${one.committed ? 'yes' : 'NO '}${one.failures.length ? `  (${one.failures.join('; ').slice(0, 160)})` : ''}`);
-console.log('Per widget (committed / pages):');
-for (const [widget, entry] of Object.entries(summary.byWidget)) console.log(`  ${pad(widget, 19)} ${entry.committed}/${entry.total}`);
+const lines = [];
+const say = line => { lines.push(line); console.log(line); };   // the table also goes to CI's step summary (GITHUB_STEP_SUMMARY), without the decision lines REPLAY_LOG=1 prints
+say(`widget zoo: ${summary.total} pages, read ${summary.read}, committed ${summary.committed}`);
+for (const one of verdicts) say(`  ${pad(one.name, 26)} ${pad(one.widget, 19)} read ${one.read ? 'yes' : 'NO '}  committed ${one.committed ? 'yes' : 'NO '}${one.failures.length ? `  (${one.failures.join('; ').slice(0, 160)})` : ''}`);
+say('Per widget (committed / pages):');
+for (const [widget, entry] of Object.entries(summary.byWidget)) say(`  ${pad(widget, 19)} ${entry.committed}/${entry.total}`);
+if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\`\`\`\n${lines.join('\n')}\n\`\`\`\n`);
 if (jsonOut) fs.writeFileSync(jsonOut, `${JSON.stringify({summary, verdicts}, null, 1)}\n`);
 const broken = verdicts.filter(one => one.failures.some(line => /^(error|isolation)\b/.test(line)));
 if (summary.unsafe.length) console.error(`UNSAFE: a submit was pressed on ${summary.unsafe.join(', ')}`);

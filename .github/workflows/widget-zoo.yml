@@ -39,11 +39,8 @@ jobs:
         env:
           JP_REPLAY: 1
           JOB_PILOTTO_HEAVY: 0
-        shell: bash   # -o pipefail: the runner's exit code survives the tee
-        run: |
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          node widget-zoo.mjs --json widget-zoo.json 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          REPLAY_LOG: 1   # the extension's decision lines per page: why a miss happened
+        run: node widget-zoo.mjs --json widget-zoo.json
       - uses: actions/upload-artifact@v6
         if: always()
         with:

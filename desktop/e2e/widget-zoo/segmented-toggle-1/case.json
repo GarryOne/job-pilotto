@@ -22,8 +22,8 @@
    "eligible": true,
    "answers": [
     {
-     "field": "permit",
-     "question": "Do you have a valid work permit?",
+     "field": "travel",
+     "question": "Are you open to occasional business travel?",
      "value": "Yes",
      "confidence": "high",
      "note": "",
@@ -35,7 +35,7 @@
  },
  "expect": {
   "asked": [
-   "Do you have a valid work permit?"
+   "Are you open to occasional business travel?"
   ],
   "pressed": [
    "[data-v=yes]"
