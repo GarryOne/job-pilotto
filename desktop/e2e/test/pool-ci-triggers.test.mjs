@@ -18,9 +18,11 @@ test('a workflow that runs the pool smoke starts by hand or is called: never a s
   for (const name of runners) assert.deepEqual(triggersOf(workflows[name]), ['workflow_dispatch', 'workflow_call'], `${name}: ${triggersOf(workflows[name]).join(', ')}`);
 });
 
-test('the only caller is the PR live proof, on open, push, reopen and a label: never a schedule or a push to a branch', () => {
+test('the only callers are the PR live proof and the flow canary (owner, 13 Oct 2026), on a pull request only: never a schedule or a push to a branch', () => {
   const callers = Object.keys(workflows).filter(name => /uses: \.\/\.github\/workflows\/pool-smoke\.yml/.test(workflows[name]));
-  assert.deepEqual(callers, ['pool-proof.yml']);
+  assert.deepEqual(callers, ['flow-canary.yml', 'pool-proof.yml']);
+  assert.deepEqual(triggersOf(workflows['flow-canary.yml']), ['pull_request']);
+  assert.deepEqual(typesOf(workflows['flow-canary.yml']), [], 'the default types: opened, synchronize, reopened');
   assert.deepEqual(triggersOf(workflows['pool-proof.yml']), ['pull_request']);
   assert.deepEqual(typesOf(workflows['pool-proof.yml']), ['opened', 'synchronize', 'reopened', 'labeled']);
 });
@@ -33,6 +35,14 @@ test('the trigger reader sees a trigger added to either file (positive control)'
 
 // Owner, 12 Oct 2026: every PR that gets a CI live run carries the "live-proof" label ("label:live-proof" lists them all), whether a Pool-row line or the label
 // started it. The pick job adds it when it names a row; GitHub starts no new run for a label its own token adds, so this never runs the row twice.
+test('the flow canary labels its PR "live-proof" whenever its rows run, with the right to write it', () => {
+  const canary = workflows['flow-canary.yml'];
+  const step = canary.match(/- name: [^\n]*live-proof[^\n]*\n(?: {8}.*\n)+/)?.[0] || '';
+  assert.match(step, /if: steps\.needed\.outputs\.run == 'true'/, 'only when the canary runs');
+  assert.match(step, /labels\[\]=live-proof/, 'adds the live-proof label');
+  assert.match(canary, /pull-requests: write/);
+});
+
 test('the PR proof labels its PR "live-proof" whenever it names a row, with the right to write it', () => {
   const proof = workflows['pool-proof.yml'];
   const step = proof.match(/- name: [^\n]*live-proof[^\n]*\n(?: {8}.*\n)+/)?.[0] || '';
