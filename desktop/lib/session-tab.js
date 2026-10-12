@@ -16,6 +16,9 @@ export function tabOfSession(id, tabs, boundTab = '') {
   return byId || (tabs || []).find(tab => markedSession(tab.url) === String(id)) || null;
 }
 
+// The address a session's tab is opened with: its own id in the fill mark, so it is owned from its first page (the ONE place that builds it).
+export const sessionTabUrl = (url, id) => `${String(url || '').split('#')[0]}#jobpilotto-fill=${id}`;
+
 // Which of these sessions have a tab named in the extension's reported addresses (a restored tab not yet re-bound): a set of session ids.
 export function sessionsNamedIn(sessions, urls) {
   const named = new Set((urls || []).map(markedSession).filter(Boolean));

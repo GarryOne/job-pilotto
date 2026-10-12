@@ -67,7 +67,7 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
     terminals.setOutcome(old.id, 'restarted');
     // The new session first, then the old one goes: removed first, the page fell to another session for a moment (owner, 8 Oct 2026).
     const started = how === 'claude' ? await apply.claudeOne(storage, old.url, undefined, undefined, undefined, details(old))
-      : DEMO ? apply.openOne(old.url) : await apply.applyOne(storage, old.url, details(old));
+      : DEMO ? apply.openOne(old.url, {session: old.id}) : await apply.applyOne(storage, old.url, details(old));
     appLog('sessions', `started again by the user: ${how}`, {id: old.id, kind: old.kind, ok: !!started?.ok, next: started?.session?.id || ''});
     if (started?.session?.id) terminals.show(started.session.id);
     if (started?.ok) terminals.remove(old.id); else terminals.setOutcome(old.id, '');
@@ -111,7 +111,7 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
     const reset = !!stale;
     if (reset) { review.forget(old.id); terminals.clearStuck(old.id); }
     appLog('review', `tab gone ${old.id}: ${reset ? 'cleared the closed tab\'s state, reopening' : 'nothing to clear, reopening'}`, {kind: old.kind});
-    const opened = apply.openOne(old.url);
+    const opened = apply.openOne(old.url, {session: old.id});   // the same session: its new tab carries its id
     appLog('review', `tab gone ${old.id}: ${opened.ok ? 'reopened the form with the fill mark' : 'could not reopen'}`, {reset, error: opened.error || ''});
     return opened.ok ? {ok: true, reset} : {ok: false, error: opened.error};
   });
