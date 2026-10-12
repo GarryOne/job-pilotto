@@ -59,7 +59,13 @@ const lastStop = appLog => {
   for (const line of String(appLog || '').split('\n')) {
     if (!/^\S+ \[extension\] fill: /.test(line)) continue;
     const text = line.replace(/^\S+ \[extension\] fill: /, ''), door = DOOR.exec(text);
-    if (door) { let data = {}; try { data = JSON.parse(door[2]); } catch { /* a cut line: no need named */ } found = {why: door[1], named: data.named === true, door: true}; continue; }
+    if (door) {
+      let data = {};
+      try { data = JSON.parse(door[2]); } catch { /* a cut line: no need named */ }
+      if (data.shadow === true) continue;   // a dead end SEEN in shadow (extension/ladder/dead-end.js seenDeadEnd): never a stop, skipped by its field, never by its words (cc, 13 Oct 2026)
+      found = {why: door[1], named: data.named === true, door: true};
+      continue;
+    }
     for (const [name, words] of Object.entries(STOP_LINES)) if (text.startsWith(words) && !found?.door) found = {why: STOP_STUCK[name][0], named: STOP_STUCK[name][1], line: words};
   }
   return found;

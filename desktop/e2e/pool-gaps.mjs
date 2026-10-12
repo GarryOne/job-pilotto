@@ -22,5 +22,5 @@ console.log(`rows ${sum.measured} measured (${sum.notMeasured} without progress 
 console.log(`censored: a fully quiet stall is cut by the pool at ${STILL_SECONDS} s (lib/live-still.mjs); above ${STILL_SECONDS} s the pool measures activity without progress only`);
 for (const row of rows.filter(row => row.measured).sort((a, b) => b.maxGapMs - a.maxGapMs)) {
   const slowest = row.gaps.reduce((top, gap) => (gap.ms > (top?.ms ?? -1) ? gap : top), null);
-  console.log(`${s(row.maxGapMs).padStart(6)} s slowest (then ${slowest?.kind || '-'}) · ${String(row.events).padStart(3)} notes · tail ${s(row.tailMs).padStart(6)} s · ${(row.ending || '-').padEnd(12)} ${row.deadEnd ? 'door' : '    '} · ${row.run} · ${row.row}`);
+  console.log(`${s(row.maxGapMs).padStart(6)} s slowest (then ${slowest?.kind || '-'}) · ${String(row.events).padStart(3)} notes · tail ${s(row.tailMs).padStart(6)} s · ${(row.ending || '-').padEnd(12)} ${row.deadEnd ? 'door' : '    '} ${row.silent ? `silent x${row.silent}` : '         '} · ${row.run} · ${row.row}`);
 }

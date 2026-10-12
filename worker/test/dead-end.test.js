@@ -5,7 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import {fileURLToPath} from 'node:url';
-import {EVIDENCE_KEYS, deadEnd, evidenceOf, useReporter} from '../../extension/ladder/dead-end.js';
+import {EVIDENCE_KEYS, SEEN_REASONS, deadEnd, evidenceOf, seenDeadEnd, useReporter} from '../../extension/ladder/dead-end.js';
+import {restartSilence, silenceOf, silenceTab} from '../../extension/ladder/silence.js';
 
 const EXTENSION = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../extension');
 const jsFiles = dir => fs.readdirSync(dir, {withFileTypes: true}).flatMap(entry => (entry.isDirectory() ? jsFiles(path.join(dir, entry.name)) : entry.name.endsWith('.js') ? [path.join(dir, entry.name)] : []));
@@ -60,6 +61,22 @@ test('every evidence key a caller passes is listed', () => {
   const passed = new Set();
   for (const [, object] of read('fill-flow.js').matchAll(/\b(?:deadEndHere|noteProgress)\([^;]*?(\{[^{}]*\})\)/g)) keysOf(object).forEach(key => passed.add(key));
   for (const [, object] of read('account-step.js').matchAll(/\bdeadEnd\(\{[^{}]*\}, (\{[^{}]*\})/g)) keysOf(object).forEach(key => passed.add(key));
-  assert.ok(passed.has('role') && passed.has('status') && passed.has('reason') && passed.has('fields'), [...passed].join(', '));
+  for (const [, object] of read('ladder/silence.js').matchAll(/\bnotice\(clock\.host, (\{[^{}]*\})\)/g)) keysOf(object).forEach(key => passed.add(key));   // the silent rule's notice
+  assert.ok(passed.has('role') && passed.has('status') && passed.has('reason') && passed.has('fields') && passed.has('silentMs'), [...passed].join(', '));
   assert.deepEqual([...passed].filter(key => !EVIDENCE_KEYS.includes(key)), [], 'add the key to EVIDENCE_KEYS (extension/ladder/dead-end.js), numbers or our own words only');
+});
+
+test('a dead end seen in shadow (the silent rule) is logged at the door with its shadow field and never reported; the door ends the application\'s silence clock', async () => {
+  const sent = [], logged = [];
+  useReporter(async (...args) => { sent.push(args); });
+  const decide = (area, what, data) => logged.push({area, what, data});
+  assert.deepEqual(SEEN_REASONS, ['silent']);
+  assert.equal(seenDeadEnd('silent', 'jobs.example', {kind: 'navigated', silentMs: 31000, label: 'First name'}, decide), true);
+  assert.equal(seenDeadEnd('no-form', 'jobs.example', {}, decide), false, 'only a seen reason: a stop goes through deadEnd');
+  assert.deepEqual(logged, [{area: 'fill', what: 'dead end: silent', data: {host: 'jobs.example', shadow: true, ending: 'unresolved', kind: 'navigated', silentMs: 31000}}]);
+  assert.deepEqual(sent, [], 'nothing is reported: nothing changes for the person');
+  silenceTab(7, 'https://jobs.example/7');
+  restartSilence(7, 'navigated', {now: 0});
+  await deadEnd({job: 'https://jobs.example/7', host: 'jobs.example', why: 'no-form', tabId: 7, page: 'https://jobs.example/7'}, {}, decide);
+  assert.equal(silenceOf(7).ended, true);
 });

@@ -244,7 +244,7 @@ export async function consider(tab, jobUrl) {
   const key = fillKey(tab.id, tab.url);
   if (started.has(key)) return;
   started.add(key);
-  notePage(tab.id, key);   // a new page in the tab is progress (ladder/progress.js)
+  notePage(tab.id, key, {job: jobUrl || tab.url, page: tab.url});   // a new page in the tab is progress, for this application (ladder/progress.js)
   await pageStill(tab.id, {maxMs: 1500});   // the form renders after the load event: read once the page has been still 0.5 s, at most the old 1.5 s (page-still.js)
   const live = await chrome.tabs.get(tab.id).catch(() => null);
   if (!live || pageKey(live.url) !== pageKey(tab.url)) { started.delete(key); return; }

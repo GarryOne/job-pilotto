@@ -6,19 +6,32 @@ import {PROGRESS_KINDS} from '../../../extension/ladder/progress.js';
 
 const PROGRESS_LINE = /^(\S+Z) \[extension\] fill: progress: (\w+)(?: \{.*\})?$/;
 const ANY_LINE = /^(\S+Z) \[/;
-const DEAD_END = /^\S+Z \[extension\] fill: dead end: /m;
+const DOOR = /^\S+Z \[extension\] fill: dead end: [a-z_-]+ (\{.*\})\s*$/;
 
 // appLog -> [{at, kind}], in the log's order
 export const progressOf = (appLog = '') => String(appLog).split('\n').map(text => PROGRESS_LINE.exec(text)).filter(found => found && PROGRESS_KINDS.includes(found[2]))
   .map(([, at, kind]) => ({at: Date.parse(at), kind}));
 
-// appLog -> {events, gaps: [{ms, kind: the note that ended the wait}], maxGapMs, tailMs, deadEnd}. tailMs null when the row has no note (a build before the notes, or no page considered).
+// The door's lines (extension/ladder/dead-end.js), told apart by their shadow field (never their words): -> {stops, seen} (seen: the silent rule's shadow notices).
+export function doorLines(appLog = '') {
+  let stops = 0, seen = 0;
+  for (const found of String(appLog).split('\n').map(text => DOOR.exec(text)).filter(Boolean)) {
+    let data = {};
+    try { data = JSON.parse(found[1]); } catch { /* a cut line: a stop */ }
+    if (data.shadow === true) seen++; else stops++;
+  }
+  return {stops, seen};
+}
+
+// appLog -> {events, gaps: [{ms, kind: the note that ended the wait}], maxGapMs, tailMs, deadEnd, silent}. tailMs null when the row has no note (a build before the notes, or no page
+// considered); deadEnd: the door reported a stop; silent: how many times the silent rule noted the application in shadow.
 export function rowGaps(appLog = '') {
   const notes = progressOf(appLog);
   const gaps = notes.slice(1).map((note, i) => ({ms: note.at - notes[i].at, kind: note.kind}));
   const times = String(appLog).split('\n').map(text => ANY_LINE.exec(text)).filter(Boolean).map(found => Date.parse(found[1])).filter(Number.isFinite);
   const end = times.length ? Math.max(...times) : null;
-  return {events: notes.length, gaps, maxGapMs: Math.max(0, ...gaps.map(gap => gap.ms)), tailMs: notes.length && end != null ? end - notes.at(-1).at : null, deadEnd: DEAD_END.test(appLog)};
+  const door = doorLines(appLog);
+  return {events: notes.length, gaps, maxGapMs: Math.max(0, ...gaps.map(gap => gap.ms)), tailMs: notes.length && end != null ? end - notes.at(-1).at : null, deadEnd: door.stops > 0, silent: door.seen};
 }
 
 // A row's app log file in a smoke reports folder: the name smoke.mjs writes (the test reads smoke.mjs for the same expression).
