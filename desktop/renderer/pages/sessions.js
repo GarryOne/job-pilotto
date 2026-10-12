@@ -3,7 +3,7 @@ import {el, pill} from '../components.js';
 import {icon} from '../icons.js';
 import {avatar} from '../jobs-view.js';
 import {PROBLEM, isDevTalk, latestStep, readSessionMessage, sortChecks, splitLabel} from '../session-message.js';
-import {accountProgress, applyingBadge, asksYou, dockCounts, dockOrder, firstLine, isLive, isSubmitted, panelAnswered, sessionDuration, sessionReview, sessionStage, sessionState, accountRecordLine} from '../session-state.js';
+import {accountProgress, applyingBadge, asksYou, leftForYou, dockCounts, dockOrder, firstLine, isLive, isSubmitted, panelAnswered, sessionDuration, sessionReview, sessionStage, sessionState, accountRecordLine} from '../session-state.js';
 import {shared} from './shared.js';
 import {claudeHelp} from '../claude-help.js';
 import {offerParts} from '../claude-offer.js';
@@ -222,7 +222,7 @@ export function renderNextStep(item) {
   // Its Chrome tab was closed: that wins over "can't reach this form" (nothing to reach) and over what Claude last asked (about that tab).
   const gone = !submitted && formGone(item);
   const stuck = !submitted && item.kind === 'form' && !!item.stuck && !gone;   // the extension can't reach this form
-  const review = !submitted && !stuck && sessionReview(item, formReady(item)), asking = !submitted && !stuck && !review && (item.status === 'input' || (item.status === 'done' && item.kind !== 'form' && !item.inChrome)), running = !submitted && item.status === 'running';
+  const review = !submitted && !stuck && sessionReview(item, formReady(item)), asking = !submitted && !stuck && !review && (item.status === 'input' || (item.status === 'done' && item.kind !== 'form' && !item.inChrome && leftForYou(item))), running = !submitted && item.status === 'running';
   const open = !submitted && !stuck && !review && !asking && (item.kind === 'form' || item.inChrome) && item.status === 'done';
   const {checks, needs: forYou, audit, done, intro} = readSessionMessage(submitted ? '' : item.question);
   const tone = submitted ? 'good' : review || asking || stuck ? 'warn' : running ? 'info' : item.status === 'failed' ? 'bad' : 'neutral';
@@ -264,8 +264,8 @@ export function renderNextStep(item) {
     : review ? [el('p', 'rich-p', item.kind === 'form' || item.inChrome ? 'The extension fills the form in Chrome. Check the answers and legal boxes there, then submit it yourself.' : 'Check the answers and legal boxes in Chrome, then submit it yourself.')]
     : asking ? (forYou.length
       // Claude listed what it needs: its first sentence for context, then each thing as a line, then where to answer.
-      ? [...(said.length ? richText(said.join('\n')) : []), el('p', 'rich-p', el('b', '', 'What Claude needs from you:')),
-        ...forYou.map(line => el('p', 'rich-p', `→ ${line.replace(/\*\*/g, '')}`)), ...(isLive(item) ? [answerHint()] : [])]
+      // Why Claude stopped stays in sight here (owner, 12 Oct 2026: it was folded away); each thing it needs is a row of the card below, with its answer box.
+      ? [...(said.length ? richText(said.join('\n')) : []), ...(isLive(item) ? [answerHint()] : [])]
       : [...(said.length ? richText(said.join('\n')) : [el('p', 'rich-p', 'Claude is waiting for you.')]), ...(isLive(item) ? [answerHint()] : [])])
     : [Object.assign(el('p', 'rich-p muted', (running && latestStep(sessionTail[item.id] || '')) || item.note || ''), {id: running ? 'ss-step' : ''})]));
   const full = $('ss-full');
@@ -397,9 +397,9 @@ export function renderNextStep(item) {
   const sorted = sortChecks(checks), mine = sortChecks(forYou, {forYou: true});
   const needs = [...mine.needs, ...sorted.needs], filled = sorted.filled;
   const empty = gone ? [] : emptyFields(item, needs);   // a closed tab has no empty fields to open
-  show($('ss-needs-card'), (empty.length > 0 || (!asking && needs.length > 0)) && !gone);   // a closed tab's rows are stale: Reopen form asks what to keep
+  show($('ss-needs-card'), needs.length + empty.length > 0 && !gone);   // a closed tab's rows are stale: Reopen form asks what to keep
   $('ss-needs-title').textContent = 'Needs your attention';
-  $('ss-needs-sub').textContent = review ? 'Check these items before submitting.' : 'Complete these items in Chrome.';
+  $('ss-needs-sub').textContent = review ? 'Check these items before submitting.' : asking ? 'What Claude needs from you to carry on.' : 'Complete these items in Chrome.';
   $('ss-needs').replaceChildren(...needs.map(need => (need.kind === 'ask' ? askRow(need, item) : needRow(need, item))), ...empty.map(label => emptyRow(label, item)));
   watchAgreements(item, needs.filter(need => need.kind === 'agree' || need.kind === 'ask'));
   applyFormStates(item);

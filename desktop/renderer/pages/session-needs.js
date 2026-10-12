@@ -338,7 +338,8 @@ export function needRow(need, item) {
     if (offline(item)) { select.disabled = true; select.title = offline(item); }
     chip.append(select);
     if (choices.length) actions.append(onlyChange ? smallButton('Tell Claude…', 'secondary', ask, offline(item)) : chip);   // nothing to pick (Claude help off, nothing saved): Review in form alone
-    actions.append(smallButton('Review in form', 'primary', event => showInForm(item, agreeLabel(need), event.currentTarget)));
+    // On the account step there is no application form yet: Review in form would open the page again in a new tab, without what Claude typed (12 Oct 2026).
+    if (item.stage !== 'account') actions.append(smallButton('Review in form', 'primary', event => showInForm(item, agreeLabel(need), event.currentTarget)));
   }
   li.append(badge(), body, actions);
   if (handled.has(key)) doneRow(li, key, handled.get(key));
