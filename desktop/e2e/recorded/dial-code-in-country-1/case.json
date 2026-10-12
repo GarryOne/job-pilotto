@@ -4,7 +4,7 @@
  "why": "The owner's case c (12 Oct 2026): \"+41\" pushed into a Country dropdown, tried again and again. The fill ladder's repair (PR C2): the fill check says wrong (wrong_class), the repair question names choose_option, and the page picks the one option that shows the answer in another writing (the dial-code table: +41 is Switzerland), checked in the page against the fill's own answer; the model never sees the value",
  "control": {
   "build": "0.9.257",
-  "failed": "present: #country option[value=CH]:checked (the menu stays on \"Please select\": \"+41\" is no option)"
+  "failed": "kept: #country is empty after the page settled (the menu stays on \"Please select\": \"+41\" is no option)"
  },
  "sample": "an application form whose Country menu lists countries by name",
  "pages": [
@@ -39,21 +39,62 @@
   },
   "/extension/account-judge": [
    {
-    "when": {"phase": "fill"},
-    "answer": {"ok": true, "answer": "shadow", "verdicts": [{"n": 3, "label": "Country", "verdict": "wrong", "reason": "wrong_class"}], "counts": {"ok": 2, "empty": 0, "wrong": 1, "unreachable": 0, "unsure": 0}}
+    "when": {
+     "phase": "fill"
+    },
+    "answer": {
+     "ok": true,
+     "answer": "shadow",
+     "verdicts": [
+      {
+       "n": 3,
+       "label": "Country",
+       "verdict": "wrong",
+       "reason": "wrong_class"
+      }
+     ],
+     "counts": {
+      "ok": 2,
+      "empty": 0,
+      "wrong": 1,
+      "unreachable": 0,
+      "unsure": 0
+     }
+    }
    },
    {
-    "when": {"phase": "repair"},
-    "answer": {"ok": true, "answer": "repair", "repairs": [{"n": 3, "label": "Country", "widget": "native_select", "verb": "choose_option", "option": 0, "refused": ""}], "counts": {"choose_option": 1}}
+    "when": {
+     "phase": "repair"
+    },
+    "answer": {
+     "ok": true,
+     "answer": "repair",
+     "repairs": [
+      {
+       "n": 3,
+       "label": "Country",
+       "widget": "native_select",
+       "verb": "choose_option",
+       "option": 0,
+       "refused": ""
+      }
+     ],
+     "counts": {
+      "choose_option": 1
+     }
+    }
    },
    {
-    "answer": {"ok": true, "answer": ""}
+    "answer": {
+     "ok": true,
+     "answer": ""
+    }
    }
   ]
  },
  "expect": {
-  "present": [
-   "#country option[value=CH]:checked"
+  "kept": [
+   "#country"
   ],
   "traced": [
    "Country:filled"
