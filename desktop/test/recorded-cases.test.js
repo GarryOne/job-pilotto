@@ -51,6 +51,8 @@ test('hole 2: "Recorded-unneeded" cannot excuse a fix to a seen failure', () => 
   // 5b9a14c's shape: harness only, a pool row, the excuse: allowed. A covered refactor with the excuse and no failure: allowed.
   assert.equal(missingCase([commit(['desktop/e2e/lib/live-row.mjs', 'desktop/e2e/live.mjs'], `A live row\n\n${unneeded}\nPool-row: FNAC Suisse jobs, French`)], covered), '');
   assert.equal(missingCase([commit(['extension/page/fill-menus.js'], `Rename a helper\n\n${unneeded}`)], covered), '');
+  // "Pool-row: none <why>" (5ca78f7: every acting push names a row or none) names no failure: with the excuse it is allowed (12 Oct 2026, a prompt rule refused).
+  assert.equal(missingCase([commit(['extension/page/fill-menus.js'], `Rename a helper\n\n${unneeded}\nPool-row: none a refactor, no row`)], covered), '');
   // The excuse is per commit: a harmless commit's excuse does not cover another commit's fix in the same push; a case in the push does.
   assert.match(missingCase([commit(['extension/log.js'], `Log\n\n${unneeded}`), commit(['extension/page/radios.js'], 'Fix a group\n\nPool-row: X')], covered), /recorded page/);
   assert.equal(missingCase([commit(['extension/page/fill-menus.js', 'desktop/e2e/recorded/menus-1/case.json'], `Fix\n\n${unneeded}\nPool-row: Breitling SuccessFactors`)], covered), '');
