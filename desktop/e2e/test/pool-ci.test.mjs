@@ -41,7 +41,7 @@ const report = {day: '2026-10-12', results: {
 test('the summary: one table row per run row, a bot wall or a refusal is "blocked (CI IP)" and green, a form covered after the fill is its own word', () => {
   const {markdown, red} = summary(report);
   assert.deepEqual(red, []);
-  assert.match(markdown, /\| Lever: single page, no account \| form \| 11 \/ 7 \|  \| \$0\.0312 \| 61 s \|/);
+  assert.match(markdown, /\| Lever: single page, no account \| form \| 11 \/ 7 \|  \| – \| \$0\.0312 \| 61 s \|/);
   assert.match(markdown, /\| SmartRecruiters: one page, no account \| code\/bot \| – \| blocked \(CI IP\): bot check \|/);
   assert.match(markdown, /\| Recruitee form \| posting \| – \| blocked \(CI IP\): site refused \|/);
   assert.match(markdown, /\| Personio form in German \| form \| 5 \/ 4 \| covered after the fill \(overlay\) \|/);
@@ -68,4 +68,17 @@ test('a refused AI stops the run before the next row and turns the job red: a ro
   const {markdown, red} = summary(refused);
   assert.deepEqual(red, ['AI refused: Lever: single page, no account (3 calls: 400 invalid_request_error: Your credit balance is too low)']);
   assert.match(markdown, /\| Lever: single page, no account \| form \| 5 \/ 13 \| AI refused \|/);
+});
+
+test('the summary shows only the rows this run ran (the day report may hold other runs\' rows) and each row\'s last CI run; falling below it is red', () => {
+  const day = {day: '2026-10-12', results: {'Lever: single page, no account': {reached: 'posting', url: 'u', usd: 0.03, seconds: 40}, 'Recruitee form': {reached: 'form', filled: 6, left: 6, url: 'r'}},
+    thisRun: {ran: ['Lever: single page, no account'], unfinished: [], skipped: [], cut: [], stopped: '', usd: 0.03, maxUsd: 0.5, maxRows: 1}};
+  const baseline = {'Lever: single page, no account': {reached: 'form', filled: 11, left: 7, url: 'u', run: '38237961375', branch: 'main'}};
+  const {markdown, red} = summary(day, {baseline});
+  assert.doesNotMatch(markdown, /Recruitee form/);
+  assert.match(markdown, /\| Row \| Reached \| Filled \/ left \| Blocked \| Last CI run \| AI \| Time \|/);
+  assert.match(markdown, /\| Lever: single page, no account \| posting \| – \|  \| form 11 \/ 7 \(run 38237961375, main\) \| \$0\.0300 \| 40 s \|/);
+  assert.deepEqual(red, ['less than its last CI run: Lever: single page, no account (reached posting, form in run 38237961375 (main))']);
+  assert.deepEqual(summary(day).red, [], 'no earlier CI run: nothing to fall below');
+  assert.match(summary(day).markdown, /\| – \| \$0\.0300/);
 });

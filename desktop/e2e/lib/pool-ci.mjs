@@ -4,6 +4,7 @@
 // refused AI (12 Oct 2026: the Tests key had no credit and the row ran without AI, which is no result).
 // Used by smoke.mjs and pool-ci-summary.mjs. Guard: e2e/test/pool-ci.test.mjs.
 import {SITE_REFUSED} from './smoke.mjs';
+import {fallsBelow} from './pool-ci-state.mjs';
 
 // -> {maxRows, maxUsd}; 0 = no cap. On CI both come from the workflow, or the run is refused before any site is visited.
 export function ciLimits(env = process.env) {
@@ -40,16 +41,20 @@ function blockedWord(item) {
   return '';
 }
 
-// The day's report (smoke.mjs: results + thisRun) -> {markdown, red: [reasons]} for $GITHUB_STEP_SUMMARY; red is empty when the run is green.
-export function summary(report = {}) {
-  const results = Object.entries(report.results || {}), run = report.thisRun || {};
+// The day's report (smoke.mjs: results + thisRun) and each row's last CI run (baseline: lib/pool-ci-state.mjs baselines) -> {markdown, red: [reasons]} for
+// $GITHUB_STEP_SUMMARY; red is empty when the run is green. Only the rows this run ran (the day's report also keeps other runs' rows).
+export function summary(report = {}, {baseline = {}} = {}) {
+  const run = report.thisRun || {}, ran = run.ran ? new Set(run.ran) : null;
+  const results = Object.entries(report.results || {}).filter(([shape]) => !ran || ran.has(shape));
+  const last = shape => { const base = baseline[shape]; return base ? `${base.reached}${base.filled != null ? ` ${base.filled} / ${base.left}` : ''} (run ${base.run}, ${base.branch})` : '–'; };
   const red = [...(run.unfinished || []).map(item => `did not finish: ${item.shape} (${item.why})`),
     ...results.filter(([, item]) => item.tripped).map(([shape]) => `privacy tripwire: ${shape}`),
-    ...results.filter(([, item]) => item.aiRefused).map(([shape, item]) => `AI refused: ${shape} (${item.aiRefused.calls} calls: ${item.aiRefused.why})`)];
+    ...results.filter(([, item]) => item.aiRefused).map(([shape, item]) => `AI refused: ${shape} (${item.aiRefused.calls} calls: ${item.aiRefused.why})`),
+    ...results.map(([shape, item]) => [shape, fallsBelow(baseline[shape], item)]).filter(([, why]) => why).map(([shape, why]) => `less than its last CI run: ${shape} (${why})`)];
   const lines = [`## Pool smoke ${report.day || ''} ${red.length ? '❌' : '✅'}`, '',
     'Held: the fake applicant, never Submit, no account or consent button, no password, no captcha. Nothing uploaded from CI.', '',
-    '| Row | Reached | Filled / left | Blocked | AI | Time |', '|---|---|---|---|---|---|',
-    ...results.map(([shape, item]) => `| ${cell(shape)} | ${cell(item.reached)} | ${item.filled != null ? `${item.filled} / ${item.left}` : '–'} | ${cell(blockedWord(item))} | ${money(item.usd)} | ${item.seconds ?? '?'} s |`),
+    '| Row | Reached | Filled / left | Blocked | Last CI run | AI | Time |', '|---|---|---|---|---|---|---|',
+    ...results.map(([shape, item]) => `| ${cell(shape)} | ${cell(item.reached)} | ${item.filled != null ? `${item.filled} / ${item.left}` : '–'} | ${cell(blockedWord(item))} | ${cell(last(shape))} | ${money(item.usd)} | ${item.seconds ?? '?'} s |`),
     '', `AI spend: ${money(run.usd)} of the $${Number(run.maxUsd || 0).toFixed(2)} cap (the Tests key).`];
   if (run.stopped) lines.push(`Stopped early: ${run.stopped}.`);
   if ((run.cut || []).length) lines.push(`Not run: ${run.cut.join(', ')} (row cap ${run.maxRows}).`);

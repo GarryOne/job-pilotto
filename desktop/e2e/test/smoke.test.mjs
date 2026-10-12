@@ -1,7 +1,7 @@
 // The hand-started smoke's logic (lib/smoke.mjs): how far a live run got, what counts as a regression, which posting a run tries, which shapes it takes.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED, compare, engineLine, fieldLines, marksBlind, matchesOnly, parseLive, pickPosting, placeFound, rungFields, runShare, shareSize, shortfall, smokeEngine, verdictFields, verdictOf} from '../lib/smoke.mjs';
+import {APPLY_BY_EMAIL, LOGIN_WALL, PAGE_TELLS, SITE_REFUSED, compare, engineLine, fieldLines, marksBlind, matchesOnly, parseLive, selectRows, pickPosting, placeFound, rungFields, runShare, shareSize, shortfall, smokeEngine, verdictFields, verdictOf} from '../lib/smoke.mjs';
 
 const LIVE = `  live 0s: Apply pressed on https://www.jobs.ch/en/vacancies/detail/x/
   2026-10-10T12:20:27Z [extension] page kind: account {"shape":"auth.jobs.ch/u/login/identifier|1-2","by":"ai"}
@@ -399,4 +399,12 @@ test('--only takes the words of one row, or several rows joined by |', () => {
   assert.equal(matchesOnly('Lever: single page, no account', 'Personio form|Lever: single'), true);
   assert.equal(matchesOnly('Recruitee form', 'Personio form|Lever: single'), false);
   assert.equal(matchesOnly('Recruitee form', ' Recruitee form | Lever '), true, 'spaces around | are not part of the words');
+});
+
+test('a row\'s exact name selects that row alone, even when it is part of a longer row\'s name; words select every row holding them', () => {
+  const shapes = [{shape: 'Recruitee form on its own site'}, {shape: 'Recruitee form'}, {shape: 'Lever: single page'}];
+  assert.deepEqual(selectRows(shapes, 'Recruitee form').map(item => item.shape), ['Recruitee form']);
+  assert.deepEqual(selectRows(shapes, 'Recruitee').map(item => item.shape), ['Recruitee form on its own site', 'Recruitee form']);
+  assert.deepEqual(selectRows(shapes, 'Lever|Recruitee form').map(item => item.shape), ['Recruitee form on its own site', 'Recruitee form', 'Lever: single page']);
+  assert.equal(selectRows(shapes, '').length, 3);
 });

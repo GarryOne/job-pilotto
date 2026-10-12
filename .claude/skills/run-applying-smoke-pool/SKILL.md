@@ -17,10 +17,14 @@ Whoever owns the pool and its run queue writes its own session name into `~/Libr
 - **Runner** `desktop/e2e/smoke.mjs` (`cd desktop/e2e && npm run smoke`), logic in `lib/smoke.mjs` (every mode orders through `lib/smoke-order.mjs` `orderPool`: never run first, then the fewest runs in 14 days, then the oldest last run, then the pool's order; rested rows are skipped and listed; only `--only` is the fixer's own choice; a share is the front `runShare`; `parseLive`, `signature`, `compare`,
   `NEVER_VISIT`), upload in `lib/applying-report.mjs`. It never schedules itself: there is no schedule: the owner decided (11 Oct 2026) that the pool runs BY HAND only, ask once.
 - **On a GitHub runner, still by hand** (owner, 12 Oct 2026: start simple, grow it, report to the coordinator before growing): `.github/workflows/pool-smoke.yml`,
-  workflow_dispatch only (a test fails on any other trigger). PUBLIC rows only (the Mac's list never leaves the Mac); default = bot-tolerant rows; `gh workflow run pool-smoke.yml -f only='<row words>|<more>' -f share=<n>`.
+  workflow_dispatch, or called by the PR live proof below (`e2e/test/pool-ci-triggers.test.mjs` fails on a schedule, a push or a new caller). PUBLIC rows only (the Mac's list never leaves the Mac); default = bot-tolerant rows; `gh workflow run pool-smoke.yml -f only='<row words>|<more>' -f share=<n>`.
   The app asks through its API engine on the Tests key via the metering proxy (each row prints `live: AI spend $x`); hard caps in the workflow: 3 rows, $0.50 a run.
-  CI's own site ledger (actions/cache, 2 visits a host per UTC day; NOT the Mac's, so a host can get 3 + 2). A bot wall on the runner's IP = "blocked (CI IP)", never a failure; no Electron leg on CI.
-  Nothing uploaded; the result is the job summary table and the artifact (day report, `smoke.log`, `evidence/<day>/<row>/`). Red only for a row that did not finish or the tripwire. Each dispatch spends money: on the owner's or coordinator's ask.
+  CI's own site ledger (2 visits a host per UTC day across main and every PR: each run uploads a `pool-smoke-state-<run>` artifact, the next reads them all, `lib/pool-ci-state.mjs`; NOT the Mac's, so a host can get 3 + 2). A bot wall on the runner's IP = "blocked (CI IP)", never a failure; no Electron leg on CI.
+  Nothing uploaded; the result is the job summary table and the artifact (day report, `smoke.log`, `evidence/<day>/<row>/`). Red for a row that did not finish, the tripwire,
+  a refused AI (`live: AI refused`), or a row below its last CI run on main or on this PR. Each dispatch spends money: on the owner's or coordinator's ask.
+- **The live proof on a PR** (v2, owner 12 Oct 2026; `.github/workflows/pool-proof.yml`, NOT required): ONE public row on the PR's own build. It runs on open/push when a
+  commit says `Pool-row: <row>` (the first named), or on the `live-proof` label for any PR; a `live-row: <row words>` line in the PR body names the row and wins
+  (`lib/pool-proof.mjs`). A private row, a fork or no row named: a neutral line in the "pick" job, nothing runs. ~$0.06 a run on the Tests key.
 - **The pool, two lists, merged:** public `desktop/e2e/smoke-sites.json` (postings from PUBLIC job feeds only) and this Mac's
   `~/Library/Application Support/Job Pilotto QA/smoke-sites.json` (postings copied from the owner's profiles; outside the repo AND outside the app folder, because a
   profile reset wiped the app folder once). **Never commit a posting taken from a profile to the public repo** (stopped once before a push).

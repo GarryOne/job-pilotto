@@ -1,0 +1,58 @@
+# The live proof on a PR (owner, 12 Oct 2026, v2 of the CI pool): ONE public pool row runs on the PR's own build, through pool-smoke.yml (the same floors, caps,
+# CI-wide site ledger and summary). NOT a required check: live sites move, CI IPs meet bot walls, postings vanish.
+# - Which row (desktop/e2e/lib/pool-proof.mjs): a "live-row: <row words>" line in the PR body, else the first "Pool-row: <row>" line in the PR's commits.
+#   On open and each push it runs only when a commit names a Pool-row; the "live-proof" label runs it for any PR (a prompt fix too) and then needs a row named.
+# - A private row (from the owner's profiles), a fork's PR (no secrets) or no row named: one neutral line in the "pick" job's summary, nothing runs.
+# - Red only for a harness error, the tripwire, a refused AI, or the row reaching less than its last CI run on main or on this PR. A bot wall on the CI IP,
+#   a refusal, a gone posting or a host out of CI visits today is never red.
+name: CI · Pool row live proof (PR)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  pick:
+    if: github.event.action != 'labeled' || github.event.label.name == 'live-proof'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      row: ${{ steps.pick.outputs.row }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            desktop/e2e/lib/pool-proof.mjs
+            desktop/e2e/pool-proof-pick.mjs
+            desktop/e2e/smoke-sites.json
+            tools/pool-rows.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Which pool row this PR proves live
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_ACTION: ${{ github.event.action }}
+          PR_LABEL: ${{ github.event.label.name }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_FORK: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/commits" --jq '.[].commit.message | @json' > "$RUNNER_TEMP/messages" || true
+          node desktop/e2e/pool-proof-pick.mjs "$RUNNER_TEMP/messages"
+  proof:
+    needs: pick
+    if: needs.pick.outputs.row != ''
+    uses: ./.github/workflows/pool-smoke.yml
+    with:
+      only: ${{ needs.pick.outputs.row }}
+      share: 1
+    secrets: inherit

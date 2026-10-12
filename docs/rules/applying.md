@@ -83,7 +83,7 @@ Spec: `docs/superpowers/specs/2026-10-10-applying-reliability-layers.md`.
    changes), captured from the twin with `npm run twin:drive -- capture <tab> <case> <page> <your worktree>/desktop/e2e/recorded` (scrubbed;
    `desktop/test/recorded-privacy.test.js`). Named by shape; must **fail on the build before the fix** (`REAL_EXTENSION_DIR=<old extension/>`, name
    the failing check in the commit); its stubbed AI answers only what the extension asked.
-3. The live smoke pool (run by hand only, owner 11 Oct 2026; also on a GitHub runner since 12 Oct 2026, still by hand: `pool-smoke.yml`, public rows, capped).
+3. The live smoke pool (run by hand only, owner 11 Oct 2026; also on a GitHub runner since 12 Oct 2026, still by hand: `pool-smoke.yml`, public rows, capped; and ONE row a PR names, live on its build: `pool-proof.yml`, `Pool-row:` or the `live-proof` label).
 4. Per-board drops in the digest (`/admin/form-filling/digest.json`, `boards[].dropped`).
 - **A push changing a file a recorded replay loads (the extension's files, the app's `desktop/lib` modules the offline app runs; found by structure, `tools/replay-files.mjs`, plus every `FLOW_FILES` file: a journey scenario proves the ones no replay loads) must add a recorded page or a scenario**, and each page it adds or changes
   must FAIL on origin/main's code (`tools/recorded-cases.mjs`, `tools/recorded-fails-on-old.mjs`, push hook). `Recorded-unneeded: <why>` only for a change with no failure seen: never with a `Pool-row:` or `Fixes/Refs #N`.

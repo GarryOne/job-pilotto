@@ -1,14 +1,17 @@
-# The applying pool's smoke on a GitHub runner, started BY HAND only (owner, 12 Oct 2026: this changes the 11 Oct rule "the pool runs locally only, never in CI";
-# start simple, grow it over time, report to the coordinator before growing it). Never a schedule, push or PR trigger (e2e/test/pool-ci-dispatch-only.test.mjs).
+# The applying pool's smoke on a GitHub runner, started BY HAND (owner, 12 Oct 2026: this changes the 11 Oct rule "the pool runs locally only, never in CI";
+# start simple, grow it over time, report to the coordinator before growing it), or called by pool-proof.yml for ONE row a PR names (its live proof, v2).
+# Never a schedule or push trigger (e2e/test/pool-ci-triggers.test.mjs).
 # - Rows: the PUBLIC pool only (desktop/e2e/smoke-sites.json); the Mac's own list (postings from the owner's profiles) never leaves the Mac.
 # - Floors unchanged: the fake applicant, HELD (never Submit, no account or consent button, no password, no captcha), the privacy tripwire on, nothing uploaded
 #   (lib/applying-report.mjs refuses CI).
 # - AI: the app's own API engine on the Tests key (E2E_ANTHROPIC_KEY, the Tests workspace's $20 limit), through the harness's metering proxy (lib/live-row.mjs).
 #   Hard caps per run, here: MAX_ROWS rows and MAX_USD dollars (the run stops between rows once its spend reaches it).
-# - Site limit: CI's own ledger per UTC day (actions/cache), at most 2 visits per host, a host that showed a block page rests the day. CI visits are NOT in
-#   the Mac's ledger: a host can get 3 (Mac) + 2 (CI) visits on a day both run.
+# - Site limit: CI's own ledger per UTC day, at most 2 visits per host across ALL CI runs (main and every PR), a host that showed a block page rests the day.
+#   Each run uploads a small state artifact (its ledger and rows); the next run reads them all (GitHub's cache is per branch: a PR's visits would be unseen).
+#   CI visits are NOT in the Mac's ledger: a host can get 3 (Mac) + 2 (CI) visits on a day both run.
 # - Data-center IPs meet more bot walls: such a row is "blocked (CI IP)" in the summary, never a failure, never retried (no Electron leg on CI).
-#   Red only for a row that did not finish (a harness error) or the tripwire (lib/pool-ci.mjs).
+#   Red only for a row that did not finish (a harness error), the tripwire, a refused AI, or a row reaching less than its last CI run on main or on this
+#   PR (lib/pool-ci-state.mjs); never for a bot wall, a refusal or a gone posting.
 # Result: the job summary table and the artifact (the day report, smoke.log, evidence/<day>/<row>/: end.png, step-*.png, app.log, run.log, evidence.md).
 name: CI · Pool smoke (by hand)
 
@@ -23,18 +26,26 @@ on:
         description: 'How many of those rows this run (at most MAX_ROWS)'
         type: number
         default: 1
+  workflow_call:   # pool-proof.yml: one row a PR names, on the PR's own build
+    inputs:
+      only:
+        type: string
+        default: ''
+      share:
+        type: number
+        default: 1
 
 permissions:
   contents: read
-
-concurrency:
-  group: pool-smoke   # one pool run at a time; a second dispatch waits, never cancels the running one
-  cancel-in-progress: false
+  actions: read   # the earlier CI runs' state artifacts (site ledger, last results)
 
 jobs:
   smoke:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    concurrency:
+      group: pool-smoke   # one CI pool run at a time, by hand or a PR's proof; a waiting one is never cancelled by the running one
+      cancel-in-progress: false
     env:
       MAX_ROWS: 3          # the hard row cap (owner, 12 Oct 2026: start with 1-3 rows)
       MAX_USD: '0.50'      # the hard AI dollar cap per run
@@ -73,17 +84,18 @@ jobs:
         run: |
           npx playwright-core install --with-deps chromium
           sudo apt-get install -y -qq xvfb >/dev/null
-      - name: Today (UTC)
-        id: day
+      - name: Earlier CI runs (main and every PR) -> today's site ledger, each row's last CI run
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          echo "day=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
-          mkdir -p pool-smoke-out/site-ledger
-      - name: CI's site ledger of today (earlier CI runs' visits)
-        uses: actions/cache/restore@v5
-        with:
-          path: pool-smoke-out/site-ledger
-          key: pool-smoke-ledger-${{ steps.day.outputs.day }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: pool-smoke-ledger-${{ steps.day.outputs.day }}-
+          mkdir -p pool-smoke-out/states pool-smoke-out/site-ledger
+          since=$(date -u -d '14 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          for workflow in pool-smoke.yml pool-proof.yml; do
+            gh run list --workflow "$workflow" --limit 40 --json databaseId,createdAt --jq ".[] | select(.createdAt >= \"$since\") | .databaseId" || true
+          done | sort -rn | uniq | grep -vx "$GITHUB_RUN_ID" | head -40 | while read -r id; do
+            gh run download "$id" --name "pool-smoke-state-$id" --dir "pool-smoke-out/states/$id" >/dev/null 2>&1 || true
+          done
+          node desktop/e2e/pool-ci-state.mjs prepare pool-smoke-out/states pool-smoke-out/baseline.json
       - name: Run the pool rows (held, fake applicant, never Submit)
         working-directory: desktop/e2e
         run: |
@@ -95,18 +107,23 @@ jobs:
           only=${ONLY:-$DEFAULT_ROWS}
           echo "pool-smoke: rows matching \"$only\", at most $rows, AI cap \$$MAX_USD; CI's site limit $JOB_PILOTTO_SITE_LIMIT a host a day"
           SMOKE_MAX_ROWS=$rows SMOKE_MAX_USD=$MAX_USD xvfb-run -a --server-args='-screen 0 1440x900x24' node smoke.mjs --only "$only" 2>&1 | tee "$GITHUB_WORKSPACE/pool-smoke-out/smoke.log"
-      - name: Keep CI's site ledger for today's later runs
+      - name: Hand this run's state to the next runs (its ledger and rows)
         if: always()
-        uses: actions/cache/save@v5
+        run: node desktop/e2e/pool-ci-state.mjs save "$SMOKE_REPORTS" pool-smoke-out/state/state.json
+      - name: This run's state
+        if: always()
+        uses: actions/upload-artifact@v6
         with:
-          path: pool-smoke-out/site-ledger
-          key: pool-smoke-ledger-${{ steps.day.outputs.day }}-${{ github.run_id }}-${{ github.run_attempt }}
-      - name: Job summary (red only for a row that did not finish or the tripwire)
+          name: pool-smoke-state-${{ github.run_id }}
+          path: pool-smoke-out/state/state.json
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Job summary (red for an unfinished row, the tripwire, a refused AI or a fall below its last CI run)
         if: always()
         working-directory: desktop/e2e
         run: |
           set -o pipefail
-          node pool-ci-summary.mjs "$SMOKE_REPORTS" | tee -a "$GITHUB_STEP_SUMMARY"
+          node pool-ci-summary.mjs "$SMOKE_REPORTS" "$GITHUB_WORKSPACE/pool-smoke-out/baseline.json" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: The day report, the log and each row's evidence
         if: always()
         uses: actions/upload-artifact@v6
