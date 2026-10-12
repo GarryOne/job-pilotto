@@ -61,7 +61,7 @@ test('weeks: today is week 0, oldest first in a series, and the chart marks this
 
 test('each section of /admin/app and /admin/insights has its weeks, from the tables already kept', async () => {
   const e = env(), db = e.STATS.db;
-  db.prepare("INSERT INTO telemetry VALUES ('2026-10-11', 'x', 'health', 'i1', '0.8', 'mac', 'f', '', '{\"runsOk\":3}'), ('2026-10-04', 'x', 'health', 'i2', '0.8', 'mac', 'f', '', '{}'), ('2026-10-11', 'x', 'crash', 'i1', '0.8', 'mac', 'boom', 'Boom', '{}')").run();
+  db.prepare("INSERT INTO telemetry (day, at, kind, install, version, platform, fingerprint, summary, data) VALUES ('2026-10-11', 'x', 'health', 'i1', '0.8', 'mac', 'f', '', '{\"runsOk\":3}'), ('2026-10-04', 'x', 'health', 'i2', '0.8', 'mac', 'f', '', '{}'), ('2026-10-11', 'x', 'crash', 'i1', '0.8', 'mac', 'boom', 'Boom', '{}')").run();
   db.prepare("INSERT INTO intel_fix_days VALUES ('2026-10-10', 10, 2), ('2026-10-03', 10, 5)").run();
   const app = await appTrends(e.STATS, now), insights = await insightTrends(e.STATS, now);
   assert.deepEqual([app.machines.values.at(-1), app.machines.values.at(-2), app.helped.values.at(-1), app.problems.values.at(-1)], [1, 1, 3, 1]);
@@ -75,7 +75,7 @@ test('each section of /admin/app and /admin/insights has its weeks, from the tab
 
 test('the overview: a card per page and what needs attention, pulled from their numbers', async () => {
   const e = env(), db = e.STATS.db;
-  db.prepare("INSERT INTO telemetry VALUES ('2026-10-11', 'x', 'crash', 'i1', '0.8', 'mac', 'newbug', 'Boom', '{}')").run();
+  db.prepare("INSERT INTO telemetry (day, at, kind, install, version, platform, fingerprint, summary, data) VALUES ('2026-10-11', 'x', 'crash', 'i1', '0.8', 'mac', 'newbug', 'Boom', '{}')").run();
   // Real fills (the form lab was retired 9 Oct 2026): last week 9 of 10 required questions filled, this week 5 of 10.
   db.prepare(`INSERT INTO fill_cards (id, day, board, version, required, filled, left_n, unread, causes, kinds, submitted, by_you, seconds) VALUES
     ('card-before-1', '2026-10-04', 'ashby', '0.9.1', 10, 9, 1, 0, '{}', '{}', 0, 0, 20), ('card-now-0001', '2026-10-11', 'ashby', '0.9.1', 10, 5, 5, 0, '{}', '{}', 0, 0, 20)`).run();
