@@ -96,15 +96,18 @@
         let option = matchOption(answer);
         if (!option) {
           // The menu as it opened (before typing filters it): for the fill-failure report's snapshot (snapshot.js).
-          try { (window.__jobPilottoMenuSnapshots ||= {})[control.dataset.jobpilottoArmed] = window.__jobPilottoSnapshot?.({field: el.id || el.name}); } catch {} var shown = []; for (let w = 0; w < 1500 && !shown.length; w += 150) { await sleep(150); shown = optionNodes().map(o => clean(o.textContent)).filter(Boolean).slice(0, 60); } option = matchOption(answer);   // the menu's own choices once drawn (a slow menu: Coop, 8 Oct 2026)
-          // A short menu that shows every choice and none says the answer in its words ("Yes" asked, "I have the right to work here" offered): the AI picks the one that means the same, before anything is typed over it.
-          if (!option && shown.length && shown.length <= 15) { const choice = await need({kind: 'choose', label: labelOf(el) || '', asked: String(answer).split(' || ')[0], choices: shown}); option = (choice && optionNodes().find(o => clean(o.textContent) === choice)) || null; }
+          try { (window.__jobPilottoMenuSnapshots ||= {})[control.dataset.jobpilottoArmed] = window.__jobPilottoSnapshot?.({field: el.id || el.name}); } catch {} var shown = []; for (let w = 0; w < 1500 && !shown.length; w += 150) { await sleep(150); shown = optionNodes().map(o => clean(o.textContent)).filter(Boolean).slice(0, 60); } option = matchOption(answer); var menuAsOpened = shown.slice();   // the menu's own choices once drawn (a slow menu: Coop, 8 Oct 2026)
           // Long menus (countries, cities) show only their first entries: type the answer to filter, which the menu accepts once your click has opened it; search-as-you-type fields (Location) load suggestions from the server: type the first part, wait for them.
           if (!option) Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, String(answer).split(' || ')[0].split(',')[0].trim());
           if (!option) el.dispatchEvent(new Event('input', {bubbles: true}));
           for (let waited = 0; waited < 4000 && !option; waited += 250) { loadMoreOptions(); await sleep(250); option = matchOption(answer); }
           // A type-to-search box ignores that scripted typing (its options come from a server after real keystrokes): the extension types for real.
           if (!option && el.tagName === 'INPUT') { const found = await typeToSearch(el, answer); option = found.option; if (found.shown.length) shown = found.shown; }
+          // Nothing matched the answer's text, typed or scrolled to ("Yes" asked, "I have the right to work here" offered): the AI picks the choice that means the same from the menu as it opened; the filter text goes first so they are all shown again.
+          if (!option && menuAsOpened.length) {
+            const choice = await need({kind: 'choose', label: labelOf(el) || '', asked: String(answer).split(' || ')[0], choices: menuAsOpened});
+            if (choice) { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ''); el.dispatchEvent(new Event('input', {bubbles: true})); for (let waited = 0; waited < 2000 && !option; waited += 250) { await sleep(250); option = optionNodes().find(o => clean(o.textContent) === choice) || null; } }
+          }
         }
         // Picked only when the page shows it (page/menu-pick.js); what was seen goes to flow.js clickCombos and the fill card's reason (observed, not assumed: 9 Oct 2026).
         const opened = el.getAttribute('aria-expanded') === 'true' || optionNodes().length > 0;   // before the pick closes it
