@@ -25,7 +25,7 @@ import {heavy, yieldHeavy} from './lib/heavy.mjs';
 import {runArtifacts} from './lib/run-artifacts.mjs';
 import {POOL_LINE, eligibilityOff, poolEnv} from './lib/pool-eligibility.mjs';
 import {capRows, ciLimits, electronLegs, stopReason} from './lib/pool-ci.mjs';
-import {settleRefusal, lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pathDifferenceLine} from './lib/smoke-paths.mjs';
+import {electronLegRefused, settleRefusal, lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pathDifferenceLine} from './lib/smoke-paths.mjs';
 heavy('e2e-smoke', import.meta.url, {klass: process.argv.includes('--only') ? 'proof' : process.argv.includes('--discover') ? 'explore' : 'pool'});   // one heavy run at a time on this Mac (tools/heavy-lock.sh); a held row proof goes before the pool's whole list
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -187,7 +187,9 @@ async function main() {
     const blocked = blockSignal(run.output);
     if (blocked) markBlocked(posting.url, blocked);   // a block page: this site rests until tomorrow, so no Electron leg either (lib/site-ledger.mjs)
     const refused = !blocked && smokeEngine() === 'node' && results[shape].note === SITE_REFUSED;   // a block page on plain node: Electron decides whether the site refuses (lib/smoke-paths.mjs settleRefusal)
-    if (legs && !blocked && (fell || refused || pairs.has(shape))) {
+    const legRefused = legs && !blocked && (fell || refused || pairs.has(shape)) ? electronLegRefused(posting.url, guardLiveVisit) : '';
+    if (legRefused) { results[shape].electronSkipped = legRefused.slice(0, 200); console.log(`smoke: ${shape}: no Electron leg (the site limit, not the product): ${legRefused}`); }
+    if (legs && !blocked && !legRefused && (fell || refused || pairs.has(shape))) {
       console.log(`smoke: ${shape}: ${fell ? `less than its last result on plain node (${fell}): once more on Electron, the same posting` : refused ? 'refused on plain node: once more on Electron, the same posting' : 'paired sample: the same posting on Electron'}`);
       const electronCapture = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-capture-electron-'));
       const again = await liveRun(posting, seconds, electronCapture, 'electron'), electron = runFinished(again) ? parseLive(again.output) : null;

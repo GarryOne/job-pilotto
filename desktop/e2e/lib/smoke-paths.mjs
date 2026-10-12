@@ -7,6 +7,13 @@
 // Guard: e2e/test/smoke-paths.test.mjs.
 import {SITE_REFUSED, compare, rank} from './smoke.mjs';
 
+// An Electron leg is a second live visit of the same site: asked of the site ledger before it starts (jobs.ch, 12 Oct 2026: the plain leg took the day's last
+// visit, the Electron leg ran ~190 s of app start, was refused inside the suite and read as "Electron reached nothing", a false path difference).
+// guard: lib/site-ledger.mjs guardLiveVisit. -> '' (the leg goes) or the refusal (the leg is skipped and no pair is recorded); any other error stands.
+export function electronLegRefused(url, guard) {
+  try { guard(url, {record: false}); return ''; } catch (error) { if (error?.name === 'SiteLimitError') return error.message; throw error; }
+}
+
 // The row reached less than its last result (compare()'s regression, for this one row). -> the reason ('' when not).
 export const lessThanLast = (previous, now) => (previous ? compare({row: previous}, {row: now})[0]?.why || '' : '');
 

@@ -5,8 +5,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
+import os from 'node:os';
+import {guardLiveVisit} from '../lib/site-ledger.mjs';
 import {SITE_REFUSED, compare} from '../lib/smoke.mjs';
-import {agree, lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pathDifferenceLine, settleRefusal} from '../lib/smoke-paths.mjs';
+import {agree, electronLegRefused, lastPaired, lessThanLast, pairResult, pairedLine, pairedSample, pathDifferenceLine, settleRefusal} from '../lib/smoke-paths.mjs';
 
 const E2E = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const URL = 'https://jobs.example.org/1';
@@ -98,4 +100,25 @@ test('smoke.mjs re-runs a refused row on Electron and applies the settled result
   const source = fs.readFileSync(path.join(E2E, 'smoke.mjs'), 'utf8');
   assert.match(source, /SITE_REFUSED/, 'a refused plain run is re-run on Electron');
   assert.match(source, /settleRefusal\(/, 'and its result is settled by the Electron run');
+});
+
+// jobs.ch, 12 Oct 2026: the plain leg took the site's last visit of the day; the Electron leg then ran ~190 s of app start, was refused inside the suite,
+// and the pass read "Electron reached nothing" as a path difference. Every Electron leg (fell, refused, paired) asks the ledger first and is skipped, not paired.
+test('an Electron leg is asked of the site ledger first: refused when the plain leg took the last visit, never a pair', () => {
+  const env = {JOB_PILOTTO_SITE_LEDGER_DIR: fs.mkdtempSync(path.join(os.tmpdir(), 'jp-ledger-')), JOB_PILOTTO_SITE_LIMIT: '2'};
+  const real = process.pid;
+  const visitAs = pid => { Object.defineProperty(process, 'pid', {value: pid, configurable: true}); try { guardLiveVisit(URL, {env, log: () => {}}); } finally { Object.defineProperty(process, 'pid', {value: real, configurable: true}); } };
+  const guard = (url, options) => guardLiveVisit(url, {...options, env, log: () => {}});
+  visitAs(91001);
+  assert.equal(electronLegRefused(URL, guard), '', 'one visit left: the Electron leg goes');
+  visitAs(91002);   // the plain leg took the last one
+  assert.match(electronLegRefused(URL, guard), /2 live visits today \(limit 2\)/);
+  assert.equal(electronLegRefused('http://127.0.0.1:5000/form', guard), '', 'a local page is no site');
+  assert.throws(() => electronLegRefused(URL, () => { throw new Error('ledger unreadable'); }), /ledger unreadable/, 'only the limit skips; any other error stands');
+});
+test('smoke.mjs asks the ledger before every Electron leg it starts', () => {
+  const source = fs.readFileSync(path.join(E2E, 'smoke.mjs'), 'utf8');
+  const legs = [...source.matchAll(/liveRun\([^)]*'electron'\)/g)];
+  assert.ok(legs.length >= 1, 'smoke.mjs starts an Electron leg');
+  for (const leg of legs) assert.match(source.slice(Math.max(0, leg.index - 1500), leg.index), /electronLegRefused\(/, 'the ledger is asked within the branch that starts the leg');
 });
