@@ -45,13 +45,19 @@ export function harnessFiles(entry, root = ROOT) {
   return closure(root, [entry], (spec, from) => [path.posix.join(path.posix.dirname(from), spec), ...(spec.startsWith('.') ? [] : [spec])], file => file.startsWith('desktop/'));
 }
 
+// FLOW_FILES as written in desktop/e2e/flows.mjs (read, not imported: this file stays synchronous): every quoted repo path of the list.
+const flowFiles = root => { const text = fs.readFileSync(path.join(root, 'desktop/e2e/flows.mjs'), 'utf8'); const list = /export const FLOW_FILES\s*=\s*\[([\s\S]*?)\]/.exec(text)?.[1] || ''; return [...list.matchAll(/'((?:extension|desktop)\/[^']+)'/g)].map(found => found[1]); };
+
 // What each replay job of a pull request loads (tools/affected-jobs.py asks, a folder ends with /): the whole extension (its manifest and data files load too),
 // the app modules above, the job's pages and its runner's files. A change to none of them cannot change what the job replays.
 export function jobFiles(job, root = ROOT) {
   const loaded = ['extension/', ...replayFiles(root)];
   if (job === 'replays') return new Set([...loaded, 'desktop/e2e/recorded/', ...harnessFiles('desktop/e2e/test/recorded-pages.test.mjs', root)]);
   if (job === 'zoo') return new Set([...loaded, 'desktop/e2e/widget-zoo/', ...harnessFiles('desktop/e2e/widget-zoo.mjs', root)]);
-  throw new Error(`no replay job ${job}: replays or zoo`);
+  // The flow e2e on a pull request (.github/workflows/e2e-flow.yml: the apply and applycv suites): the extension, the app modules above, the flow files the app
+  // runs for an application (desktop/e2e/flows.mjs FLOW_FILES: its desktop/lib part), the two suites' own files and their fixture forms. Main's scheduled e2e is the backstop.
+  if (job === 'e2e-flow') return new Set([...loaded, ...flowFiles(root), 'desktop/e2e/fixtures/', ...['apply', 'applycv'].flatMap(suite => [...harnessFiles(`desktop/e2e/suites/${suite}.mjs`, root)])]);
+  throw new Error(`no replay job ${job}: replays, zoo or e2e-flow`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === '--job') console.log([...jobFiles(process.argv[3])].sort().join('\n'));
