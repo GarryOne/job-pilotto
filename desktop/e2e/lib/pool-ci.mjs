@@ -5,6 +5,7 @@
 // Used by smoke.mjs and pool-ci-summary.mjs. Guard: e2e/test/pool-ci.test.mjs.
 import {SITE_REFUSED} from './smoke.mjs';
 import {fallsBelow} from './pool-ci-state.mjs';
+import {keySecret} from './engine.mjs';
 
 // -> {maxRows, maxUsd}; 0 = no cap. On CI both come from the workflow, or the run is refused before any site is visited.
 export function ciLimits(env = process.env) {
@@ -59,7 +60,7 @@ function notRunLine(report, now) {
 // The day's report (smoke.mjs: results + thisRun) and each row's last CI run (baseline: lib/pool-ci-state.mjs baselines) -> {markdown, red: [reasons]} for
 // $GITHUB_STEP_SUMMARY; red is empty when the run is green. Only the rows this run ran (the day's report also keeps other runs' rows).
 // keyName: which Anthropic key the run used, by NAME (pool-smoke.yml AI_KEY_NAME); anything but a known name is never printed.
-const KEY_NAMES = ['LIVE_ANTHROPIC_KEY', 'E2E_ANTHROPIC_KEY'];
+const KEY_NAMES = ['LIVE_ANTHROPIC_KEY', keySecret('api')];   // the Tests key's name comes from the engine rule, the only file that names it (e2e/test/engine guard)
 export function summary(report = {}, {baseline = {}, now = new Date(), proof = false, keyName = ''} = {}) {
   const run = report.thisRun || {}, ran = run.ran ? new Set(run.ran) : null;
   const results = Object.entries(report.results || {}).filter(([shape]) => !ran || ran.has(shape));
@@ -73,7 +74,7 @@ export function summary(report = {}, {baseline = {}, now = new Date(), proof = f
     'Held: the fake applicant, never Submit, no account or consent button, no password, no captcha. Nothing uploaded from CI.', '',
     '| Row | Applicant | Reached | Filled / left | Blocked | Last CI run | AI | Time |', '|---|---|---|---|---|---|---|---|',
     ...results.map(([shape, item]) => `| ${cell(shape)} | ${cell(item.applicant || 'thin')} | ${cell(item.reached)} | ${item.filled != null ? `${item.filled} / ${item.left}` : '–'} | ${cell(blockedWord(item))} | ${cell(last(shape))} | ${money(item.usd)} | ${item.seconds ?? '?'} s |`),
-    '', `AI spend: ${money(run.usd)} of the $${Number(run.maxUsd || 0).toFixed(2)} cap (key: ${KEY_NAMES.includes(keyName) ? keyName : 'E2E_ANTHROPIC_KEY'}).`];
+    '', `AI spend: ${money(run.usd)} of the $${Number(run.maxUsd || 0).toFixed(2)} cap (key: ${KEY_NAMES.includes(keyName) ? keyName : keySecret('api')}).`];
   if (run.stopped) lines.push(`Stopped early: ${run.stopped}.`);
   if ((run.cut || []).length) lines.push(`Not run: ${run.cut.join(', ')} (row cap ${run.maxRows}).`);
   if ((run.skipped || []).length) lines.push(`Skipped by CI's site limit: ${run.skipped.map(item => item.shape).join(', ')}.`);
