@@ -8,10 +8,24 @@ const commit = (files, message = '') => ({files, message});
 
 test('the push\'s cases are split into the ones that must fail on the old code and the ones a commit says only pin behaviour', () => {
   const split = splitPinned([commit(['desktop/e2e/recorded/a-1/case.json', 'extension/page/radios.js'], 'Fix\n\nPool-row: X'), commit(['desktop/e2e/recorded/b-1/case.json'], 'Pin it\n\nRecorded-pins: the menu already worked')]);
-  assert.deepEqual(split, {pinned: ['b-1'], check: ['a-1'], refused: []});
+  assert.deepEqual(split, {pinned: ['b-1'], check: ['a-1'], refused: [], fixOf: {}});
   // A pin that names a failure it fixes is no pin: the case is checked and the pin is refused.
-  assert.deepEqual(splitPinned([commit(['desktop/e2e/recorded/c-1/case.json'], 'Fix\n\nRecorded-pins: x\nFixes #5')]), {pinned: [], check: ['c-1'], refused: ['c-1']});
-  assert.deepEqual(splitPinned([commit(['extension/log.js'])]), {pinned: [], check: [], refused: []});
+  assert.deepEqual(splitPinned([commit(['desktop/e2e/recorded/c-1/case.json'], 'Fix\n\nRecorded-pins: x\nFixes #5')]), {pinned: [], check: ['c-1'], refused: ['c-1'], fixOf: {}});
+  assert.deepEqual(splitPinned([commit(['extension/log.js'])]), {pinned: [], check: [], refused: [], fixOf: {}});
+});
+
+test('a follow-up to a fix already on main names it, and its cases are replayed on the code before that fix', () => {
+  // 12 Oct 2026, PRs #374 and #386: the case of a merged fix was tightened later; on the PR's base (which has the fix) it passed, and hole 3 said "proves nothing".
+  const fix = 'c66b42a1f00d';
+  const split = splitPinned([commit(['desktop/e2e/recorded/phone-1/case.json'], `Tighten the case\n\nPool-row: Recruitee\nFix-commit: ${fix}`)]);
+  assert.deepEqual(split.check, ['phone-1']);
+  assert.deepEqual(split.refused, []);
+  assert.deepEqual(split.fixOf, {'phone-1': fix});
+  // With Fix-commit the case is proven, so a Recorded-pins beside it is not a refused escape.
+  assert.deepEqual(splitPinned([commit(['desktop/e2e/recorded/p-1/case.json'], `x\n\nRecorded-pins: tightened\nPool-row: X\nFix-commit: ${fix}`)]).refused, []);
+  // Without it, the case is checked on the PR's base, as before.
+  assert.deepEqual(splitPinned([commit(['desktop/e2e/recorded/a-1/case.json'], 'Fix\n\nPool-row: X')]).fixOf, {});
+  assert.match(verdict({passed: ['phone-1'], missing: []}), /Fix-commit: <sha>/, 'the refusal names the way out for a follow-up');
 });
 
 test('a case that passes on the old code, or gives no result, is refused; one that fails there is accepted', () => {
