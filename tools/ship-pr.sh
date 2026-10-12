@@ -40,7 +40,7 @@ ship_pr_land() {
     view="$(gh pr view "$n" --json state,mergeable,mergeCommit,url 2>/dev/null)" || view=""
     state="$(jq -r '.state // empty' <<<"$view" 2>/dev/null)"; mergeable="$(jq -r '.mergeable // empty' <<<"$view" 2>/dev/null)"
     case "$state" in
-      MERGED) sha="$(jq -r '.mergeCommit.oid // empty' <<<"$view" | cut -c1-7)"; git fetch -q origin; [ -n "$sha" ] || sha="$(git rev-parse --short origin/main)"
+      MERGED) sha="$(jq -r '.mergeCommit.oid // empty' <<<"$view" | cut -c1-7)"; ship_fetch || true; [ -n "$sha" ] || sha="$(git rev-parse --short origin/main)"   # the PR is merged: a fetch that still fails must not turn it into FAILED
               step "pull request #$n is merged: $sha"; return 0 ;;
       CLOSED) ship_pr_fail "pull request #$n was closed without merging: $(jq -r '.url' <<<"$view")" ;;
     esac
