@@ -20,3 +20,4 @@ test('a consent box still listed at the end is said out loud and becomes an erro
   assert.equal(endShotLine(clean), 'live: end screenshot kept');
   assert.equal(parseLive(`live: 59.2 s\n  ${endShotLine(clean)}\n`).errors.some(error => /cookie layer/.test(error)), false);
 });
+
