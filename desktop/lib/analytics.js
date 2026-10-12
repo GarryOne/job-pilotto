@@ -1,13 +1,24 @@
 // Product analytics (PostHog, EU cloud) without PostHog's SDK: which steps people take and where they stop (setup, first search, kit,
 // apply, applied), so the funnel and the paths can be read in PostHog. Only events from the list below, only short flags, numbers and
-// scrubbed words as properties, never anything a person wrote or read in the app (no CV, jobs, companies, answers, mail). The id is the
+// scrubbed words as properties, never anything a person wrote or read in the app (no CV, jobs, companies, answers, mail). Since 13 Oct 2026 also time on a
+// screen (active/idle seconds) and clicks as a named control + percent position (owner: "enable the heatmaps"), still no text. The id is the
 // random install id; no person profile, no IP-based location, no screen recording, no autocapture. Follows the same
 // "Technical reports" switch as everything else that leaves this computer.
 import {scrub} from './telemetry.js';
 
 export const EVENTS = ['app_start', 'page_view', 'setup_step', 'search_done', 'first_search_done', 'kit_prepared', 'apply_started', 'applied',
-  'feedback_sent', 'update_installed'];
+  'feedback_sent', 'update_installed', 'screen_time', 'ui_click'];
 export const PAGES = ['focus', 'jobs', 'sessions', 'actions', 'calendar', 'interviews', 'strategy', 'settings', 'reports'];
+// What the window may report about use (renderer/usage-signals.js): seconds on a screen, split active/idle, and a click as a control's own name plus its place in the window
+// (whole percents). Anything else is dropped; no label, text or content ever travels.
+const whole = (value, max) => Number.isInteger(value) && value >= 0 && value <= max;
+export function usageEvent(payload) {
+  const {kind, page, active, idle, control, x, y} = payload || {};
+  if (!PAGES.includes(page)) return null;
+  if (kind === 'screen_time' && whole(active, 3600) && whole(idle, 3600)) return {name: 'screen_time', props: {page, active, idle}};
+  if (kind === 'ui_click' && typeof control === 'string' && /^[a-z][a-z0-9_-]{0,29}$/.test(control) && whole(x, 100) && whole(y, 100)) return {name: 'ui_click', props: {page, control, x, y}};
+  return null;
+}
 const FLUSH_AT = 20, FLUSH_MS = 30_000, QUEUE_MAX = 100;
 
 // Properties: lower-case names, and values that are a flag, a number, or a short word (a mode, a page, a step), scrubbed.

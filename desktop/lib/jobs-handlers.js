@@ -19,6 +19,8 @@ export function registerJobsHandlers(ctx) {
   let jobsLimit = JOBS_PAGE;   // how many rows the list sends; \"Show more\" raises it for the rest of this launch
   // The page the person opened (a name from a fixed list, nothing else): where people go, in order.
   ipcMain.handle('pageView', (_, name) => { if (analyticsLib.PAGES.includes(String(name))) track('page_view', {page: String(name)}); return true; });
+  // Seconds on a screen (active vs idle) and clicks on named controls with their place in the window: fixed shapes, validated in lib/analytics.js usageEvent.
+  ipcMain.handle('usage', (_, payload) => { const event = analyticsLib.usageEvent(payload); if (event) track(event.name, event.props); return true; });
   ipcMain.handle('runs', () => activity());
   // Pages are logged by their LAST 8 characters: the first 8 are the workspace's, the same on every page (6 Oct 2026: a log of reads could not tell them apart).
   ipcMain.handle('runDetail', async (_, pageId) => {
