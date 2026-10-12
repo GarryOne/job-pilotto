@@ -1,0 +1,11 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Sign in | Example Careers</title>
+<style>body{font-family:sans-serif;margin:0}main{padding:24px;max-width:420px}label{display:block;margin-top:12px}input{width:100%;padding:6px}</style></head>
+<body>
+<!-- Hand-cut (12 Oct 2026): a sign-in step before the application form. The person signs in, then the site opens its form. Here the page's own script stands in for
+     the person: 12 s after the load it goes to the form's address. -->
+<main><h1>Sign in to apply</h1><p>Sign in with your candidate account to continue your application.</p>
+<form id="signin" onsubmit="return false"><label for="email">Email</label><input id="email" name="email" type="email" required>
+<label for="password">Password</label><input id="password" name="password" type="password" required>
+<button type="submit" id="signin-button">Sign in</button></form><p><a href="#" id="create">Create an account</a></p></main>
+<script>setTimeout(function () { location.href = '/apply'; }, 12000);</script>
+</body></html>
