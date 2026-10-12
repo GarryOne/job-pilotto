@@ -6,6 +6,8 @@
 // The applicant and the answers are the case's fake data; nothing here is sent anywhere. Used by lib/page-replay.mjs judgeCase.
 // Guards: e2e/test/replay-truth.test.mjs (pure parts), e2e/test/recorded-pages.test.mjs (every case).
 
+import fs from 'node:fs';
+import vm from 'node:vm';
 import {FALSE_READINGS} from './recorded-false-readings.mjs';
 
 // The file the stand-in app gives as the CV (real-extension.mjs pdf('cv.pdf')), named here, not imported: that file loads playwright, and lib/smoke.mjs (desktop's unit
@@ -45,9 +47,15 @@ const digits = text => String(text || '').replace(/\D/g, '');
 
 // Does what the page shows (a box's value, a choice's text and value) hold the answer? By words in a row either way (a longer option holding the answer; a type-to-search option in its own
 // shorter wording, "Geneva" for "Geneva, Switzerland"), or a phone by its digits. Never a different word: Israel is not Switzerland, "Not sure" is not "No".
+// A calling code's country, by the extension's own dial-code table (extension/page/dial-codes.js, named by the browser): the fill ladder's repair picks "Switzerland" for the answer "+41"
+// (choose_option: the same answer in another writing, checked in the page; recorded dial-code-in-country-1), so the truth reads it as that answer.
+const DIAL = (() => { const window = {}; try { vm.runInNewContext(fs.readFileSync(new URL('../../../extension/page/dial-codes.js', import.meta.url), 'utf8'), {window, Intl}); } catch { /* no table: no country */ } return window.__jobPilottoDial || {}; })();
+const countryOfCode = text => { const code = String(text || '').trim().replace(/^00(?=\d)/, '+').replace(/\s/g, ''); return /^\+\d{1,4}$/.test(code) ? DIAL[code] || '' : ''; };
+
 export function sameAnswer(expected, shown = []) {
-  const want = words(expected), wantDigits = digits(expected);
+  const want = words(expected), wantDigits = digits(expected), country = words(countryOfCode(expected));
   return shown.some(text => {
+    if (country.length && holdsRun(words(text), country)) return true;   // "+41" shown as its country, Switzerland
     const have = words(text);
     if (holdsRun(have, want) || holdsRun(want, have)) return true;
     return wantDigits.length >= 6 && want.every(word => /^\d+$/.test(word)) && digits(text).length >= 6 && (digits(text).endsWith(wantDigits.slice(-9)) || wantDigits.endsWith(digits(text).slice(-9)));

@@ -101,6 +101,7 @@ export function accountSketch() {
     const state = read(el);
     if (el.hasAttribute('data-jobpilotto-typed') && state !== 'unknown') return state === 'committed' ? 'yes' : 'no';
     if (el.hasAttribute('data-jobpilotto-nottaken')) return 'no';   // the fill gave it an answer and the page did not take it (page/fill-verify.js)
+    if (el.hasAttribute('data-jobpilotto-class')) return state === 'committed' ? 'yes' : 'no';   // the fill had an answer for it (page/value-class.js marks every answered control): a menu with no option for it is a miss, not untouched
     if (!el.hasAttribute('data-jobpilotto-filled')) return '';
     return state === 'committed' ? 'yes' : 'no';
   };
@@ -112,7 +113,9 @@ export function accountSketch() {
     return {...(answer ? {answer} : {}), ...(legal ? {legal} : {}), ...(tried ? {tried} : {})};
   };
   const hiddenSlot = el => el.type === 'file' && !!window.__jobPilottoReadBack?.shownSlot(el) && !el.closest('[id^=jobpilotto], [id^=job-pilotto]');   // a CV slot whose input the page hides, by its visible zone (read-back.js), as the panel counts it
-  const controls = [...document.querySelectorAll('input, select, textarea')].filter(el => (shown(el) || hiddenSlot(el)) && !['hidden', 'submit', 'button', 'image', 'reset'].includes(el.type)).map(el => ({
+  const listed = [...document.querySelectorAll('input, select, textarea')].filter(el => (shown(el) || hiddenSlot(el)) && !['hidden', 'submit', 'button', 'image', 'reset'].includes(el.type));
+  listed.forEach((el, index) => el.setAttribute('data-jobpilotto-n', String(index + 1)));   // the number the fill ladder's repair names a control by (page/repair-act.js); the judges number them the same way
+  const controls = listed.map(el => ({
     type: el.type, label: clean(nameOf(el), 80), match: matchOf(el), ...ladderOf(el),
     required: !!el.required || el.getAttribute('aria-required') === 'true',
     at: (box => `${Math.max(0, Math.min(100, Math.round(100 * (box.left + box.width / 2) / innerWidth)))},${Math.max(0, Math.min(100, Math.round(100 * (box.top + box.height / 2) / innerHeight)))}`)((shown(el) ? el : window.__jobPilottoReadBack.shownSlot(el)).getBoundingClientRect()),   // where it is on screen (% of the window): the closer look matches the picture to the control

@@ -44,14 +44,38 @@
     if (countryNames().has(fold(text))) return 'country_name';
     return 'free_text';
   };
+  const answerOf = new WeakMap();   // control -> the fill's own answer, kept in the page only: the repair asks for the option that fits it, never for the value
   // The fill's answers ([{field, value}]) -> each answered control marked with its class (a radio or checkbox group is a choice, not a typed value: not marked).
   const mark = answers => {
     for (const item of answers || []) {
       const field = String(item?.field || '');
       if (!field || /^(radio|group):/.test(field)) continue;
       const el = document.getElementById(field) || document.querySelector(`[name="${CSS.escape(field)}"]`);
-      if (el && el.matches('input, select, textarea') && !['checkbox', 'radio', 'file', 'password'].includes(el.type)) el.setAttribute('data-jobpilotto-class', of(item.value));
+      if (!el || !el.matches('input, select, textarea') || ['checkbox', 'radio', 'file', 'password'].includes(el.type)) continue;
+      el.setAttribute('data-jobpilotto-class', of(item.value));
+      answerOf.set(el, String(item.value ?? ''));
     }
   };
-  window.__jobPilottoValueClass = {CLASSES, of, mark};
+  const words = text => fold(text).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  // Does an option's text show the answer in another writing? A calling code: its own digits after a plus ("Switzerland (+41)"), or its country by the dial-code table
+  // ("Switzerland"); anything else: all the answer's words are the option's words ("Switzerland" in "Switzerland (CH)"). Never a different answer.
+  const fits = (answer, text) => {
+    if (!words(answer).length || !words(text).length) return false;
+    const has = (want, got) => want.length > 0 && want.every(word => got.includes(word));
+    if (of(answer) === 'dial_code') {
+      const code = String(answer).trim().replace(/^00(?=\d)/, '+').replace(/\s/g, '');
+      return new RegExp(`\\+${code.slice(1)}(?!\\d)`).test(String(text)) || has(words(window.__jobPilottoDial?.[code] || ''), words(text));
+    }
+    return has(words(answer), words(text));
+  };
+  // The option of this menu (a native select) that shows the fill's own answer: number (1-based among its listed options, as the judges' sketch numbers them) names one to check, 0 asks
+  // for the one that fits. -> the option, or null when none fits or more than one does (never guessed).
+  const optionFor = (el, number = 0) => {
+    const answer = answerOf.get(el);
+    if (!answer || el?.tagName !== 'SELECT') return null;
+    const listed = [...el.options].filter(option => option.text.trim()), pool = number ? [listed[number - 1]].filter(Boolean) : listed;   // numbered as the sketch lists them (extension/account-fill.js)
+    const found = pool.filter(option => !option.disabled && fits(answer, option.text));
+    return found.length === 1 ? found[0] : null;
+  };
+  window.__jobPilottoValueClass = {CLASSES, of, mark, fits, optionFor, answer: el => answerOf.get(el) ?? null};   // answer: for the page's own repair (page/repair-act.js), never sent anywhere
 })();

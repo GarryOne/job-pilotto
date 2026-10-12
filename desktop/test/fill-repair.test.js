@@ -91,3 +91,12 @@ test('askRepair asks once with the digest and keeps the valid repairs; no AI or 
   assert.deepEqual(await askRepair(none, {...raw, controls: raw.controls.slice(0, 1)}), {error: 'nothing to repair'});
   assert.equal(none.sent.length, 0);
 });
+
+test('the app\'s route asks the repair question with the fill check\'s verdicts and logs numbers and verbs only', async () => {
+  const {decideAccountJudge} = await import('../lib/server-pages.js');
+  const fake = client({repairs: [{n: 2, widget: 'native_select', verb: 'choose_option', option: 0}, {n: 3, widget: 'checkbox_group', verb: 'toggle', option: 0}]});
+  const found = await decideAccountJudge({}, {phase: 'repair', sketch: raw, verdicts: [{n: 2, verdict: 'wrong', reason: 'wrong_class'}, {n: 3, verdict: 'empty', reason: 'not_selected'}]}, {client: fake});
+  assert.equal(found.answer, 'repair');
+  assert.deepEqual(found.repairs.map(row => [row.n, row.verb, row.refused]), [[2, 'choose_option', ''], [3, 'ask_person', 'floor: legal or password']]);
+  assert.deepEqual(await decideAccountJudge({}, {phase: 'repair', sketch: raw}, {client: null}), {ok: true, answer: '', error: 'no AI'});
+});
