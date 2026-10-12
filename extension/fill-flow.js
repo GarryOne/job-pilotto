@@ -89,12 +89,13 @@ function pageShape(tabId) {
 // A sketch of the page for the AI that decides its kind (desktop/lib/page-kind.js): headings, every visible control's type and label
 // (never its value), and the buttons and short links a person could press. In the page's own language: nothing here matches words.
 function pageSketchOf(tabId) {
-  return chrome.scripting.executeScript({target: {tabId}, func: () => {   // a closed script: desktop/e2e/ladder-capture.mjs runs its body on its own (no arguments)
+  // The label right before a box that its <label for> names no box of (page/label-before.js) is read in this world too.
+  return chrome.scripting.executeScript({target: {tabId}, files: ['page/label-before.js']}).catch(() => {}).then(() => chrome.scripting.executeScript({target: {tabId}, func: () => {   // a closed script: desktop/e2e/ladder-capture.mjs runs its body on its own (no arguments)
     // Never the extension's own UI (the panel's shadow root, the step box, the note, the Submit guard: ids jobpilotto-*, job-pilotto-*): what the AI is shown is the page,
     // not our panel's state at that moment (speed-5x, 11 Oct 2026: "Tailor my CV", "77 left required fields" in the sketch). Guard: desktop/e2e/test/own-ui-not-read.test.mjs.
     const shown = el => el.getClientRects().length > 0 && !el.closest('[id^=jobpilotto], [id^=job-pilotto]');
     const text = el => String(el?.textContent || '').replace(/\s+/g, ' ').trim();
-    const labelOf = el => text(el.labels?.[0]) || el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.name || '';
+    const labelOf = el => text(el.labels?.[0]) || el.getAttribute('aria-label') || el.getAttribute('placeholder') || (el.type !== 'hidden' && window.__jobPilottoLabelBefore?.(el)) || el.name || '';
     // Also inside open shadow roots: a page built of web components (SmartRecruiters, 9 Oct 2026) otherwise reads as empty.
     const all = selector => { const found = []; const walk = root => { found.push(...root.querySelectorAll(selector)); for (const el of root.querySelectorAll('*')) if (el.shadowRoot && !/^job-?pilotto/.test(el.id)) walk(el.shadowRoot); }; walk(document); return found; };
     const controls = all('input, select, textarea')
@@ -111,7 +112,7 @@ function pageSketchOf(tabId) {
       .map(el => { try { return new URL(el.src, location.href).hostname; } catch { return ''; } }).filter(Boolean);
     return {title: document.title, headings: modalFirst(all('h1, h2, h3').filter(shown)).map(text).filter(Boolean).slice(0, 8),
       controls: controls.slice(0, 50), buttons: [...new Set(buttons)].slice(0, 20), frames: [...new Set(frames)].slice(0, 5)};
-  }}).then(rows => rows?.[0]?.result || null).catch(() => null);
+  }})).then(rows => rows?.[0]?.result || null).catch(() => null);
 }
 // The page's kind from the app (the AI's answer, kept per site and page shape), or null: then the structure rule decides alone.
 // The kept kind was wrong for this page: the app drops it (desktop/lib/page-kind.js forgetPageKind) and the next visit asks again.

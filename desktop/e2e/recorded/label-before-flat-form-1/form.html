@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Postuler: Vendeur (H/F)</title></head><body>
+<div id="jobcontent"><div class="titre_black">Vendeur (H/F)</div>
+<form id="postuler" action="/jobs/postulation/envoyer" method="post">
+  <input type="hidden" name="job_id">
+  <label for="civility">Civilité : Mlle / Mme / M</label>
+  <input class="validate[required]" type="text" name="JOBAPPLICATION[civility]">
+  <div></div>
+  <label style="clear:both" for="prenom">Prénom</label>
+  <input class="validate[required]" type="text" name="JOBAPPLICATION[surname]" id="form-validation-field-0">
+  <div></div>
+  <label for="nom">Nom</label>
+  <input class="validate[required]" type="text" name="JOBAPPLICATION[name]">
+  <div></div>
+  <label for="mail">E-mail</label>
+  <input class="validate[required,custom[email]]" type="text" name="JOBAPPLICATION[email]" id="form-validation-field-1">
+  <div></div>
+  <label for="cv">CV</label>
+  <input type="file" class="validate[required]" name="JOBAPPLICATION[cv]">
+  <input type="submit" value="Envoyer">
+</form></div></body></html>

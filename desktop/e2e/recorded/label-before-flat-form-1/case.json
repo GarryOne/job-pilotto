@@ -1,0 +1,53 @@
+{
+ "shape": "a flat form whose labels are tied to no box (their `for` names no id), boxes named by the page with field names that point the other way (the first-name box named surname): the label right before the box names it",
+ "why": "12 Oct 2026, a French jobs form: \"Nom\" stayed empty, \"Prénom\" got the family name, the panel said \"No required fields\" (the boxes are required by a validate[required] class, not the attribute). Cut by hand from the capture's form structure (its own capture predates the applicant seed). Variant: label-before-wrapped-form-1",
+ "control": {
+  "guard": "fails on origin/main at 534cf0e (first-name box gets the family name); passes with page/label-before.js"
+ },
+ "sample": "a French retailer's application page (structure only, values removed)",
+ "pages": [
+  {
+   "url": "https://jobs.example.ch/jobs/postulation/vendeur/",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "JOBAPPLICATION[name]",
+     "question": "Nom",
+     "value": "Candidate"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "filled": [
+   "input[name=\"JOBAPPLICATION[surname]\"]",
+   "input[name=\"JOBAPPLICATION[name]\"]",
+   "input[name=\"JOBAPPLICATION[email]\"]"
+  ],
+  "valueIs": [
+   "input[name=\"JOBAPPLICATION[surname]\"]|Test",
+   "input[name=\"JOBAPPLICATION[name]\"]|Candidate"
+  ],
+  "attached": [
+   "input[name=\"JOBAPPLICATION[cv]\"]"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60
+ },
+ "start": "panel"
+}

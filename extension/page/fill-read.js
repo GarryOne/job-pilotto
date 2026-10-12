@@ -81,11 +81,11 @@
           type: 'checkbox', required: el.required, filled: el.checked, legal: LEGAL.test(`${question} ${label}`)});
       } else if (isCombo(el)) {
         fields.push({field: el.id || el.name, label: labelOf(el), type: 'combobox',
-          required: el.getAttribute('aria-required') === 'true' || el.required, filled: !!comboValue(el),
+          required: window.__jobPilottoRequired.marked(el), filled: !!comboValue(el),
           legal: LEGAL.test(labelOf(el))});
       } else {
         const type = el.tagName === 'SELECT' ? 'select' : el.tagName === 'TEXTAREA' ? 'textarea' : el.type || 'text';
-        fields.push({field: el.id || el.name, label: labelOf(el), type, required: el.required || el.getAttribute('aria-required') === 'true',
+        fields.push({field: el.id || el.name, label: labelOf(el), type, required: window.__jobPilottoRequired.marked(el),
           ...(type === 'select' ? {options: Array.from(el.options).map(o => clean(o.text)).filter(Boolean)} : {}),
           filled: type === 'select' ? (window.__jobPilottoChosen ? window.__jobPilottoChosen(el) : el.selectedIndex > 0) && (settled || !window.__jobPilottoAtPageDefault?.(el)) : (window.__jobPilottoBoxGiven ? window.__jobPilottoBoxGiven(el.value) : !!String(el.value || '').trim()), legal: LEGAL.test(labelOf(el))});
       }
