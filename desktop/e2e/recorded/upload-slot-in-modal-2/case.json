@@ -1,0 +1,39 @@
+{
+ "shape": "an application drawn as a modal dialog: the whole form, its CV slot included, sits inside a role=dialog layer; the CV slot (a styled drop area over a hidden file input) takes the file",
+ "why": "12 Oct 2026, the Teamtailor row (upload-slot-in-modal-1): the upload slots left out every file input inside a dialog, so a form inside one had no slot ('no place to attach it was found'). Hand-cut variant that keeps the shape and changes everything else: another language, other tags and wrappers, the label beside the control, a different star element and spoken twin. Hand-built page (hosts and text invented)",
+ "control": {
+  "build": "0.9.229",
+  "failed": "attached: #cvfile (the dialog hid the CV slot from the upload operator)"
+ },
+ "sample": "hand-built variant of a modal application form (hosts and text invented)",
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://karriere.exemple.example.de/stelle/4711",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2,
+   "signal": "confident"
+  }
+ },
+ "expect": {
+  "attached": [
+   "#cvfile"
+  ],
+  "filled": [
+   "#vn",
+   "#nn",
+   "#em"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 45
+ }
+}

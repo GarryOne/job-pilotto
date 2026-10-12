@@ -1,0 +1,10 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Stelle</title>
+<style>.modal{position:fixed;inset:0;background:#fff;overflow:auto}.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}.pick{position:relative;display:block;border:2px dashed #888;padding:24px}.pick input{position:absolute;inset:0;opacity:0;width:100%;height:100%}</style></head>
+<body><main><h1>Projektleiter</h1><p>Zur Stelle</p></main>
+<aside class="modal" role="dialog" aria-modal="true"><section><h2>Bewerbung</h2>
+<div><input id="vn" name="vn" type="text" aria-labelledby="vn-l"><span id="vn-l">Vorname <abbr aria-hidden="true">*</abbr><s class="vh">Pflichtfeld</s></span></div>
+<div><input id="nn" name="nn" type="text" aria-labelledby="nn-l"><span id="nn-l">Nachname <abbr aria-hidden="true">*</abbr><s class="vh">Pflichtfeld</s></span></div>
+<div><input id="em" name="em" type="email" aria-labelledby="em-l"><span id="em-l">E-Mail <abbr aria-hidden="true">*</abbr><s class="vh">Pflichtfeld</s></span></div>
+<div><b>Lebenslauf</b> <abbr aria-hidden="true">*</abbr><s class="vh">Pflichtfeld</s>
+<i class="pick">Datei hierher ziehen oder auswählen<input id="cvfile" type="file" accept=".pdf" aria-label="Lebenslauf" onchange="document.body.dataset.cv = this.files[0].name"></i></div>
+</section></aside></body></html>
