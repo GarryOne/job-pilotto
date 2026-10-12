@@ -279,7 +279,11 @@ fetch('?json', {headers: {'X-Caller': 'page-tab'}}).then(r => r.json()).then(d =
   const rungCell = s => (s.rung == null ? el('span', {className: 'muted', title: 'not reported', textContent: s.reached ? '?' : '—'}) : blocked(s)
     ? el('span', {}, el('span', {className: 'flag', textContent: 'blocked at ' + s.rung}), s.signal ? el('div', {className: 'muted', textContent: s.signal}) : null) : el('span', {textContent: s.rung}));
   const shortText = s => (s.short.unexplained != null ? s.short.unexplained + ' unexplained of ' + s.short.total : s.short.done + ' of ' + s.short.total + ' filled');   // the verdict, or the old count
-  const POOL_GET = [s => s.name.toLowerCase(), s => s.flow, s => (s.reached ? rankOf(s.reached) - (s.short ? 0.5 : 0) : null), s => (s.rung == null ? null : s.rung + (blocked(s) ? 10 : 0)), s => (s.history.length ? rankOf(s.history.at(-1)) : null)];
+  // Sorting by a row's run dots (owner, 12 Oct 2026): each failed run -1, each good run +1, a newer run weighs a hair more (a tie breaker only); the first click puts the most failures first.
+  // One score for every dots column (the pool's Recent runs, the replays' Last 10 runs). A pool run is good from the form on, failed before it; a code or bot check is a documented hold: neither.
+  /*runs score*/ const runsScore = (list, good) => (list.length ? list.reduce((sum, run, at) => sum + (good(run) === true ? 1 : good(run) === false ? -1 : 0) * (1 + (at + 1) / 1000), 0) : null);
+  const poolRunGood = step => (['form', 'ready'].includes(step) ? true : ['none', 'posting', 'account'].includes(step) ? false : null); /*end runs score*/
+  const POOL_GET = [s => s.name.toLowerCase(), s => s.flow, s => (s.reached ? rankOf(s.reached) - (s.short ? 0.5 : 0) : null), s => (s.rung == null ? null : s.rung + (blocked(s) ? 10 : 0)), s => runsScore(s.history, poolRunGood)];
   // The pool table (owner mockup, 10 Oct 2026: five columns that fit the page, the route and the exact time in an expandable row). The site name carries its host in brackets: it moves under the name, next to the platform.
   const toggleOpen = (set, key) => { const was = set.has(key); set.clear(); if (!was) set.add(key); };   // one row open at a time in every expandable table; the key is unique (a pool row's shape, never its display name)
   const open = new Set(), STAGE = {none: 'Nothing reached', posting: 'Posting reached', account: 'Account reached', 'code/bot': 'Code or bot check', form: 'Form reached', ready: 'Ready for your check'};
@@ -386,7 +390,7 @@ fetch('?json', {headers: {'X-Caller': 'page-tab'}}).then(r => r.json()).then(d =
 ${FIXED_SCRIPT}
   drawFix(); drawFixed(); drawCauses(); showTab();
   // The replays of CI on main after each merge (src/applying-replays.js): every row says the build's sha and when it ran; a local run is never shown.
-  const caseBox = el('div'), CASE_GET = [c => c.name.toLowerCase(), c => c.rung, c => (c.ok ? 1 : 0), c => c.history.at(-1), c => c.at, c => c.since.at];
+  const caseBox = el('div'), CASE_GET = [c => c.name.toLowerCase(), c => c.rung, c => (c.ok ? 1 : 0), c => runsScore(c.history, run => run === 1), c => c.at, c => c.since.at];
   const CASE_COLS = ['c-case', 'c-rung', 'c-result', 'c-runs', 'c-last', 'c-since'];   // widths: .fit th.c-* (the note keeps to 2 lines, the rest on hover: never a sideways scroll)
   const COMMIT = 'https://github.com/GarryOne/job-pilotto/commit/', shaLink = (sha, at) => el('span', {}, el('a', {className: 'hash', href: COMMIT + sha, textContent: sha.slice(0, 7)}), el('span', {className: 'stack', textContent: ago(at)}));
   // Search, Result and Rung filters, sorting and 15 rows a page: the pool table's parts (owner, 12 Oct 2026: "just like other tables on the page").
