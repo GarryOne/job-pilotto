@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from src import daily, desktop, desktop_jobs, store as job_store
-from src.ai import kit, provenance
+from src.ai import kit, provenance, score
 from src.notion import client as notion
 from src.notion.client import Tracker
 from src.stores import notion as notion_store
@@ -81,9 +81,12 @@ class KitOnNotionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, job_store.connect(Path(tmp) / 'jobs.sqlite') as db:
             job_store.import_watch_report(db, {'jobs': [{'company': 'Acme', 'id': '1', 'title': 'SRE', 'location': 'Zurich',
                                                          'url': URL, 'description': 'Kubernetes.'}]})
+            job = dict(db.execute('SELECT * FROM jobs WHERE url = ?', (URL,)).fetchone())
+            score.save(db, job, 'test-model', {'score': 74, 'tier': 'B', 'components': {'role_fit': 80}}, 'Test profile')
             daily.prepare_kit(db, notion.job_code(URL), stores, FakeClient(), 'claude-sonnet-5-5', opener)
         record = stores.applications.get(URL)
         self.assertEqual(record['stage'], 'Kit ready')
+        self.assertEqual(record['fit'], 74)
         headings = [b for b in tracker._children(record['id']) if b['type'] == 'heading_2' and not b.get('archived')]
         self.assertEqual([plain(b) for b in headings], [kit.KIT_HEADING])
         self.assertTrue(headings[0]['heading_2'].get('is_toggleable'))

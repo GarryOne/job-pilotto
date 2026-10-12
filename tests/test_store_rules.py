@@ -62,6 +62,16 @@ class RulesCase:
         greenhouse, _ = rules.mark(self.s, {'url': 'https://boards.greenhouse.io/acme/jobs/1', 'title': 'SRE', 'posted': '2026-10-01'}, 'Saved')
         self.assertEqual((greenhouse['ats'], greenhouse['posted']), ('Greenhouse', '2026-10-01'))
 
+    def test_a_scored_job_keeps_only_the_numeric_fit_on_an_application(self):
+        cases = (({'score': 74, 'tier': 'B', 'components': {'role_fit': 80}}, 74),
+                 ({'score': 0}, 0), (77, 77), ({}, None), (None, None))
+        for index, (fit, expected) in enumerate(cases):
+            with self.subTest(fit=fit):
+                job = {**JOB, 'url': JOB['url'] + str(index), 'fit': fit}
+                row, _ = rules.mark(self.s, job, 'Kit ready')
+                self.assertEqual(None if row.get('fit') == '' else row.get('fit'), expected)
+                self.assertEqual(job['fit'], fit, 'the kit still reads the full score report')
+
     def test_applying_goes_back_to_kit_ready_only_from_applying(self):
         self.assertEqual(rules.revert_applying(self.s, JOB['url']), base.UNCHANGED)
         rules.mark(self.s, JOB, 'Applying')
