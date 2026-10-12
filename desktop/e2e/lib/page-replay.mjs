@@ -54,6 +54,8 @@ export async function judgeCase(item, scope) {
     chosen: selector => page().evaluate(css => { const el = document.querySelector(css); return !!el && (['aria-checked', 'aria-pressed'].some(name => el.getAttribute(name) === 'true') || el.checked === true || !!el.querySelector('input:checked')); }, selector).catch(() => false),
     // valueHas: ["<selector>|<digits>"]: the box's value still holds those digits (a phone widget that went back to its own country code does not).
     valueHas: spec => page().evaluate(([css, digits]) => (document.querySelector(css)?.value || '').replace(/\D/g, '').includes(digits), spec.split('|')).catch(() => false),
+    // valueIs: ["<selector>|<text>"]: the box holds exactly that (a first-name box that got the family name fails: 12 Oct 2026, labels the page tied to no box).
+    valueIs: spec => page().evaluate(([css, text]) => (document.querySelector(css)?.value || '').trim() === text, spec.split('|')).catch(() => false),
     gone: selector => page().evaluate(css => !document.querySelector(css)?.getClientRects().length, selector).catch(() => false),
   };
   const pending = Object.entries(checks).flatMap(([kind, check]) => (expect[kind] || []).map(arg => ({kind, arg, check})));

@@ -58,5 +58,7 @@
     }
     return n;
   };
-  window.__jobPilottoRequired = {has, clean, rowTitle, starred};
+  // The page marks the box itself: the `required` attribute, aria-required, or a class that names it (a validator's "validate[required,custom[email]]", "is-required").
+  const marked = el => !!el && (el.required || el.getAttribute('aria-required') === 'true' || /(^|[\s_\[,-])required([\s_\],-]|$)/i.test(String(el.className?.baseVal ?? el.className ?? '')));
+  window.__jobPilottoRequired = {has, clean, rowTitle, starred, marked};
 })();

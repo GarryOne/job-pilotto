@@ -44,7 +44,7 @@
     const own = Array.from(el.labels || [], l => l.textContent).join(' ') || el.getAttribute('aria-label');
     const byId = el.getAttribute('aria-labelledby');
     const labelled = byId && byId.split(/\s+/).map(id => document.getElementById(id)?.textContent || '').join(' ');
-    return clean(own || labelled || looseLabel(el) || el.getAttribute('placeholder') || (el.type !== 'hidden' && blockTitle(el)) || el.name || el.id);
+    return clean(own || labelled || looseLabel(el) || el.getAttribute('placeholder') || (el.type !== 'hidden' && blockTitle(el)) || (el.type !== 'hidden' && window.__jobPilottoLabelBefore?.(el)) || el.name || el.id);
   };
   // The question a radio group or checkbox belongs to: its fieldset legend or group label.
   // A fieldset's title: its <legend>, or (Ashby) a <label> whose `for` points at no control. Required when the title says so:

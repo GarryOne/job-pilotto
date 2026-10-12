@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><title>Bewerbung: Buchhalter (m/w/d)</title></head><body>
+<h1>Ihre Bewerbung</h1>
+<form id="application" action="/bewerbung/senden" method="post">
+  <section class="grid">
+    <label for="x-family">Nachname</label><br>
+    <input name="vorname_feld" id="a1" class="is-required" type="text"><br>
+    <label for="x-given">Vorname</label><span class="hint"></span>
+    <input name="familyName" id="a2" aria-required="true" type="text"><br>
+    <label for="x-mail">E-Mail-Adresse</label>
+    <span class="wrap"><input name="surname" type="text" id="a3" class="validate[required,custom[email]]"></span><br>
+    <label for="a4">Lebenslauf</label>
+    <input name="doc" type="file" id="a4">
+  </section>
+  <button type="submit">Bewerbung senden</button>
+</form></body></html>

@@ -31,7 +31,7 @@
   // ---- reading the form (read only) ----
   function question(el) {
     const byIds = (el.getAttribute('aria-labelledby') || '').split(/\s+/).map(id => document.getElementById(id)?.textContent).filter(Boolean).join(' ');
-    const own = byIds || el.getAttribute('aria-label') || Array.from(el.labels || [], label => label.textContent).join(' ');
+    const own = byIds || el.getAttribute('aria-label') || Array.from(el.labels || [], label => label.textContent).join(' ') || (el.type !== 'hidden' && window.__jobPilottoLabelBefore?.(el)) || '';
     const legend = (fieldsetTitle(el.closest('fieldset')) || (['radio', 'checkbox'].includes(el.type) ? window.__jobPilottoRequired.rowTitle(el) : null))?.textContent;
     if (['checkbox', 'radio'].includes(el.type) && legend) return clean(legend);
     if (clean(own)) return clean(own);
@@ -49,7 +49,7 @@
     Array.from(set.querySelectorAll('label')).find(l => !l.control && !l.querySelector('input, select, textarea')));
   const titleRequired = title => !!title && (window.__jobPilottoRequired.has(title.textContent) || /required/i.test(String(title.className || '')) ||
     String(getComputedStyle(title, '::after').content || '').includes('*'));
-  const required = el => el.required || el.getAttribute('aria-required') === 'true' ||
+  const required = el => window.__jobPilottoRequired.marked(el) ||
     window.__jobPilottoRequired.has(el.labels?.[0]?.textContent) ||
     (['checkbox', 'radio'].includes(el.type) && titleRequired(fieldsetTitle(el.closest('fieldset')) || window.__jobPilottoRequired.rowTitle(el)));
   // A custom dropdown keeps its answer beside the input (react-select: a value chip in the control around it) or in a hidden input a <label for> points

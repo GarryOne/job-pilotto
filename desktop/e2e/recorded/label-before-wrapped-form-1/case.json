@@ -1,0 +1,42 @@
+{
+ "shape": "a flat or wrapped form whose labels are tied to no box (their `for` names no id) and whose boxes carry field names that point the other way: the label right before the box names it",
+ "why": "12 Oct 2026, a French form: \"Nom\" stayed empty and \"Prénom\" got the family name, the panel said \"No required fields\". The label before a box now names it (page/label-before.js) and a class that says required counts (required-mark.js). Variant of label-before-flat-form-1: German, other ids, names and wrappers",
+ "control": {
+  "guard": "fails on origin/main at 534cf0e (first-name box gets the family name); passes with page/label-before.js"
+ },
+ "sample": "hand-cut variant (German labels, wrapped boxes, names pointing the wrong way)",
+ "pages": [
+  {
+   "url": "https://karriere.example.ch/bewerbung/buchhalter",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  }
+ },
+ "expect": {
+  "filled": [
+   "#a1",
+   "#a2",
+   "#a3"
+  ],
+  "valueIs": [
+   "#a1|Candidate",
+   "#a2|Test"
+  ],
+  "attached": [
+   "#a4"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60
+ },
+ "start": "panel"
+}
