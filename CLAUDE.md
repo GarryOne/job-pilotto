@@ -27,6 +27,9 @@ rule is in [docs/rules/why.md](docs/rules/why.md): read it before relaxing a rul
 - **Meaning comes from AI, never from keyword lists:** emails, pages, buttons and questions come in any language. Fetch by structure, let AI decide with a fixed
   answer the code validates (`src/ai/decide.py`, `meanings.py`); a word list is at most a free shortcut in front of the AI or a safety floor.
   **Judgments about a page are the AI's** (ready? did it work? bot check? which step?); structure only finds controls, floors only AND with the AI.
+- **The direction of every page fix: see fields → the AI judges each one's meaning → fill** (owner, 12 Oct 2026). A page's kind (account, form, posting) never
+  decides WHETHER its fields are filled, only what is pressed; never add a code path for a page type or shape. A weak or missing AI answer is never kept as sure:
+  it is asked again or climbs the ladder (digest, picture). If a fix needs "when the page looks like X, do Y", the AI's fixed answer is missing a value: add it there.
 - **Universal first: fix a shape, not a site.** No site names, hosts, vendor lists or growing regex; a form bug improves the self-improving mechanism (operator,
   fingerprint, alias meaning, recipe, noticing the miss) and is tested on a fixture shape. Guard: `tools/hardcoded-page-words.mjs`.
 - **Ask before spending money on AI** (a new model or large re-runs); show the measured cost.
