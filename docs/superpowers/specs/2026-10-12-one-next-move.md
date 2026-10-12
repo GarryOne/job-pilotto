@@ -233,6 +233,6 @@ PR by PR. Order: the account page with no step (10 of 75 pool rows), the posting
 - [ ] switched on at the silent dead ends: its criteria hold, the owner OKs it
 - [ ] the decision-branch ratchet test
 - [x] the fix rule in CLAUDE.md ("Where a fix lives", c64d4ee)
-- [ ] the fix rule in docs/flows/ladder.md
+- [x] the fix rule in docs/flows/ladder.md ("Where a fix lives") (proof: docs/flows/ladder.md)
 ### 7. Phase 4: retire fast-tier branches only by data
 - [ ] a branch the fallback + learning always match is retired, one at a time, its recorded cases green
