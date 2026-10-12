@@ -32,6 +32,15 @@
     const container = el.closest('[class*=container]');
     return container && container.querySelectorAll(FIELDS).length <= 1 ? container.querySelector(CHIP) : null;
   };
+  // An upload slot whose input the page hides (display:none: react-dropzone draws its own zone, 12 Oct 2026 widget zoo): its visible area, the nearest shown box around the
+  // input that holds no other field (at most 4 up), or null. The panel and the judges count such a slot by it, so the CV the fill attached there is never invisible to them.
+  const shownSlot = input => {
+    for (let box = input.parentElement, i = 0; box && i < 4; box = box.parentElement, i++) {
+      if ([...box.querySelectorAll(FIELDS)].some(other => other !== input && other.type !== 'file')) return null;
+      if (visible(box)) return box;
+    }
+    return null;
+  };
   // The file this extension attached to a slot (page/upload.js marks the input and the slot with its name), if any.
   const ours = input => input.dataset?.jobPilottoFile || input.closest?.('[data-jobpilotto-file]')?.dataset.jobpilottoFile || '';
   // What an upload slot shows: its area up from the input while no other visible control lives there (at most 10 boxes), and the slot this extension marked when it attached.
@@ -111,5 +120,5 @@
     return rows;
   };
   window.__jobPilottoChosen = chosen;   // the name the audit and coverage.js call it by
-  window.__jobPilottoReadBack = {stateOf, holds: el => stateOf(el) === 'committed', chosen, comboValue, fileState, baseline, namesIn, pass};
+  window.__jobPilottoReadBack = {stateOf, holds: el => stateOf(el) === 'committed', chosen, comboValue, fileState, baseline, namesIn, shownSlot, pass};
 })();

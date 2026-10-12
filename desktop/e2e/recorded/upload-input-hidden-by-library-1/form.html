@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Apply: Example role</title></head>
+<body>
+<!-- Recorded case upload-input-hidden-by-library-1: the REAL react-dropzone 14.2.3 (vendored, desktop/e2e/vendor/), the uploader Ashby-style forms use: a visually hidden file input in a drop zone; after a file is taken the zone shows it as a chip. Hand-made page, no real site, no personal data. -->
+<h1>Apply for Example role</h1>
+<form id="apply" onsubmit="return false">
+<label for="first">First name</label> <input id="first" name="first_name" type="text" required>
+<label for="last">Last name</label> <input id="last" name="last_name" type="text" required>
+<label for="mail">Email</label> <input id="mail" name="email" type="email" required>
+<div id="resume-field"></div>
+</form>
+<script src="vendor:react.production.min.js"></script>
+<script src="vendor:react-dom.production.min.js"></script>
+<script src="vendor:prop-types.min.js"></script>
+<script src="vendor:react-dropzone.min.js"></script>
+<script>
+const h = React.createElement;
+function Resume() {
+  const [file, setFile] = React.useState(null);
+  const {getRootProps, getInputProps} = reactDropzone.useDropzone({multiple: false, accept: {'application/pdf': ['.pdf'], 'application/msword': ['.doc']}, onDrop: accepted => setFile(accepted[0] || null)});
+  return h('div', {className: 'field'}, h('label', {htmlFor: 'resume'}, 'Resume'),
+    h('div', getRootProps({className: 'dropzone'}), h('input', getInputProps({id: 'resume', required: true})),
+      file ? h('div', {className: 'file-chip'}, h('span', null, file.name), ' ', h('button', {type: 'button', onClick: event => { event.stopPropagation(); setFile(null); }}, 'Replace')) : h('span', null, 'Upload file or drag and drop here')));
+}
+ReactDOM.createRoot(document.getElementById('resume-field')).render(h(Resume));
+</script>
+</body></html>

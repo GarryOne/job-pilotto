@@ -1,0 +1,50 @@
+{
+ "shape": "an upload slot drawn by the real react-dropzone 14.2.3 (vendored): its file input is display:none inside the library's drop zone; a taken file is shown as a chip",
+ "origin": "hand-cut",
+ "why": "Widget zoo drop-zone-react-dropzone-1, 12 Oct 2026: the CV was attached and the fill's record said so, but the panel (and the judges' sketch) skipped the hidden input, so the CV slot was counted nowhere: not left, not filled (one truth per control, amendment 4). The slot is now counted by its visible zone. Hand-made page around the real library",
+ "control": {
+  "build": "0.9.250",
+  "failed": "notPending: Resume is not listed as filled by the panel's report (the panel never counted the slot)"
+ },
+ "sample": "a drag-and-drop CV field built with the real react-dropzone (the uploader Ashby-style forms use)",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/react-dropzone/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": true,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  }
+ },
+ "expect": {
+  "present": [
+   ".file-chip"
+  ],
+  "traced": [
+   "CV:filled"
+  ],
+  "notPending": [
+   "Resume"
+  ],
+  "judged": [
+   "Resume:filled"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 30
+ },
+ "start": "panel"
+}
