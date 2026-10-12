@@ -75,7 +75,13 @@ test('a CV counted in with no file attached on the page fails; a CV left is not 
 });
 
 test('the fill\'s own CV row counts when it is left: the panel lists the slot', () => {
-  assert.deepEqual(agreementFailures({trace: trace(['CV', 'left', true, 'file']), review: {missing: ['Resume']}, panel: {present: true, ready: false}, required: [], files: 0}), []);
+  assert.deepEqual(agreementFailures({trace: trace(['CV', 'left', true, 'file']), review: {missing: ['Resume']}, panel: {present: true, ready: false}, required: [], files: 0, slots: 1}), []);
+});
+
+test('the record\'s CV row counts only where the page has an upload slot: on a page without one it could balance a duplicate on the panel (Ashby, found by fill-ladder)', () => {
+  const twice = {trace: trace(['Work in English?', 'left'], ['CV', 'left', true, 'file']), review: {missing: ['Work in English?', 'Work in English?']}, panel: {present: true, ready: false}, required: [], files: 0};
+  assert.deepEqual(agreementFailures({...twice, slots: 0}), ['agreement: the fill record leaves 1 required (Work in English?), the panel 2 (Work in English?, Work in English?)']);
+  assert.deepEqual(agreementFailures({...twice, review: {missing: ['Work in English?', 'Resume']}, slots: 1}), []);
 });
 
 test('no fill record and no panel: nothing to agree on', () => {

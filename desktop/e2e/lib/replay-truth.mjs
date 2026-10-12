@@ -69,10 +69,11 @@ export function truthFailures(expected, read, picked = []) {
 const named = list => (list.length ? list.map(text => text.slice(0, 60)).join(', ') : 'none');   // every name: which one the other reading misses is the bug
 // trace: the fill record's rows ([{label, required, outcome, source}]) or null (no fill); review: the panel's last report ({missing}) or null; panel: {present, ready};
 // required: the page's own visible required controls [{name, empty}]; files: how many file boxes hold a file.
-export function agreementFailures({trace, review, panel, required = [], files = 0}) {
+export function agreementFailures({trace, review, panel, required = [], files = 0, slots = 0}) {   // slots: the page's upload slots (file boxes, control-less required groups)
   const failures = [];
   const cvRow = (trace || []).find(row => row.source === 'your CV');   // the fill's own CV row (page/fill.js): counted when left (the panel lists the slot); its "in" is checked below
-  const traceLeft = (trace || []).filter(row => row.required && row.outcome === 'left').map(row => String(row.label));
+  // The CV row is always in the record ("no place to attach it"): counted only where the page has an upload slot, or it balances a duplicate on the panel (fill-ladder, 13 Oct 2026).
+  const traceLeft = (trace || []).filter(row => row.required && row.outcome === 'left' && (row !== cvRow || slots > 0)).map(row => String(row.label));
   const panelLeft = review ? (review.missing || []).map(String) : null;
   const pageLeft = required.filter(one => one.empty).map(one => String(one.name));
   // The record is written once, at the fill's end; the panel reads the page later. Fewer left in the record than on the panel makes the row look better: that fails.
@@ -129,6 +130,7 @@ const readRequiredInPage = cvName => {
   const shows = el => !!cvName && (el.textContent || '').includes(cvName);
   const slotEmpty = el => { const box = el.matches('input[type=file]') ? el : el.querySelector('input[type=file]'); return !(box?.files?.length) && !shows(el.closest('[aria-required="true"], .file-upload, label, div') || el); };
   const groups = new Set(), out = [];
+  const slots = document.querySelectorAll('input[type=file]').length;   // plus the control-less required groups counted below
   for (const el of document.querySelectorAll('input[required], select[required], textarea[required], [aria-required="true"]')) {
     if (!visible(el) || el.disabled || el.closest('#jobpilotto-review-host')) continue;
     const labelled = (el.getAttribute('aria-labelledby') || '').split(/\s+/).map(id => id && document.getElementById(id)?.textContent).filter(Boolean).join(' ');
@@ -140,12 +142,12 @@ const readRequiredInPage = cvName => {
     // An upload slot: a file box, a group holding one, or a required group with no control of its own (Greenhouse's resume group: a chip with the file's name, no file input in the
     // captured page): read by the file it holds or the name it shows (chosen-picklist-judged-1, found by fill-ladder 13 Oct 2026).
     const noControl = !('value' in el) && !el.querySelector('input, select, textarea, [role=radio], [role=checkbox], [role=option], [role=switch]');
-    if (type === 'file' || el.querySelector('input[type=file]') || noControl) { out.push({name, empty: slotEmpty(el)}); continue; }
+    if (type === 'file' || el.querySelector('input[type=file]') || noControl) { out.push({name, empty: slotEmpty(el), ...(noControl ? {slot: true} : {})}); continue; }
     if (type === 'radio') { if (groups.has(`radio:${el.name}`)) continue; groups.add(`radio:${el.name}`); out.push({name, empty: ![...document.querySelectorAll(`input[type=radio][name="${CSS.escape(el.name)}"]`)].some(one => one.checked)}); continue; }
     const empty = type === 'checkbox' ? !el.checked : 'value' in el ? !String(el.value || '').trim() : !(el.matches(on) || el.querySelector(on));
     out.push({name, empty});
   }
-  return {required: out, files: [...document.querySelectorAll('input[type=file]')].filter(el => el.files?.length).length + (cvName && (document.body?.innerText || '').includes(cvName) ? 1 : 0)};   // a page that took the file and emptied its box shows the file's name
+  return {required: out, slots: slots + out.filter(one => one.slot).length, files: [...document.querySelectorAll('input[type=file]')].filter(el => el.files?.length).length + (cvName && (document.body?.innerText || '').includes(cvName) ? 1 : 0)};   // a page that took the file and emptied its box shows the file's name
 };
 const readPanelInPage = () => {
   const root = document.getElementById('jobpilotto-review-host')?.shadowRoot;
@@ -155,16 +157,17 @@ const readPanelInPage = () => {
 // Everything the checks read from a tab, over all its frames: the answered fields (first frame that has the key), the required controls and attached files (summed), the panel (top frame).
 export async function readTab(page, keys, cvName = CV_NAME) {
   const read = new Map(), required = [];
-  let files = 0;
+  let files = 0, slots = 0;
   for (const frame of page.frames()) {
     const fields = await frame.evaluate(readFieldsInPage, keys).catch(() => ({}));
     for (const [key, value] of Object.entries(fields)) if (!read.has(key)) read.set(key, value);
     const found = await frame.evaluate(readRequiredInPage, cvName).catch(() => ({required: [], files: 0}));
     required.push(...found.required);
     files += found.files;
+    slots += found.slots || 0;
   }
   const panel = await page.evaluate(readPanelInPage).catch(() => ({present: false, ready: false}));
-  return {read, required, files, panel};
+  return {read, required, files, slots, panel};
 }
 
 const parsed = request => { try { return JSON.parse(request.body); } catch { return null; } };
@@ -185,7 +188,7 @@ export async function falseReadings(item, {page, mine}, {deadline = Date.now() +
   const truth = truthFailures(expected, tab.read, pickedChoices(item));
   const failures = [...truth.failures];
   if (records.cut) failures.push('agreement: the fill record reached the stand-in cut short (real-extension.mjs keeps too little of /extension/run)');
-  failures.push(...agreementFailures({trace: records.run?.trace || null, review: records.review, panel: tab.panel, required: tab.required, files: tab.files}));
+  failures.push(...agreementFailures({trace: records.run?.trace || null, review: records.review, panel: tab.panel, required: tab.required, files: tab.files, slots: tab.slots}));
   const judged = againstLedger(item.name, failures);
   for (const line of judged.known) console.log(`KNOWN BUG ${item.name}: ${line}`);
   for (const line of judged.gone) console.log(`GONE? ${item.name}: not seen this run (remove it from lib/recorded-false-readings.mjs once its fix landed): ${line}`);
