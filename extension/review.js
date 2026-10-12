@@ -85,12 +85,12 @@
       const grouped = ['checkbox', 'radio'].includes(el.type) && el.closest('fieldset');
       const key = grouped ? `group:${question(el)}` : el.type === 'radio' ? `radio:${el.name}` : el;
       const filled = el.type === 'file' ? !!el.files?.length : el.getAttribute('role') === 'combobox' ? comboFilled(el)
-        : ['checkbox', 'radio'].includes(el.type) ? el.checked : el.tagName === 'SELECT' ? (o => !!o && !o.disabled && !o.hidden && !!o.text.trim() && !(o.index === 0 && /^(|0|-1)$/.test(o.value)))(el.options[el.selectedIndex]) : !!String(el.value || '').trim();
+        : ['checkbox', 'radio'].includes(el.type) ? el.checked : el.tagName === 'SELECT' ? (o => !!o && !o.disabled && !o.hidden && !!o.text.trim() && !(o.index === 0 && /^(|0|-1)$/.test(o.value)))(el.options[el.selectedIndex]) : window.__jobPilottoBoxGiven(el.value);   // a box holding only a country code is empty (page/typed-check.js)
       const entry = groups.get(key) || {el, label: question(el), required: false, filled: false, ai: false, byUs: false};
       entry.required ||= required(el);
       entry.ai ||= el.hasAttribute('data-jobpilotto-ai'); entry.suggested ||= el.dataset.jobpilottoSuggested || ''; entry.guess ||= !!el.dataset.jobpilottoGuess; entry.wants ||= el.dataset.jobpilottoWants || ''; entry.options ||= el.dataset.jobpilottoOptions || '';   // page/propose.js: proposals, reported with what is left (the app's rows)
       entry.byUs ||= el.hasAttribute('data-jobpilotto-filled') || el.hasAttribute('data-jobpilotto-ai'); entry.category ||= el.dataset.jobpilottoCategory || '';   // the AI's reading, any language (page/categories.js)
-      entry.filled ||= filled;
+      entry.changed ||= !!window.__jobPilottoTypedChanged?.(el); entry.filled ||= filled && !entry.changed;   // a box the page changed after we typed it is not filled (page/typed-check.js)
       groups.set(key, entry);
     }
     // A robot check (reCAPTCHA, hCaptcha, Turnstile) lives in a frame the form's inputs don't include: its answer is the hidden
@@ -314,7 +314,7 @@
     if (list.length < MIN_FIELDS && !document.documentElement.hasAttribute('data-jobpilotto-needs')) { host.remove(); return null; }   // a sign-in page is too small for a panel, unless the AI says it needs the person
     if (!host.isConnected) document.documentElement.append(host);
     // An answer Claude wrote that is now empty (marked amber) still needs you, required or not.
-    const needed = list.filter(f => f.required || f.ai);
+    const needed = list.filter(f => f.required || f.ai || f.changed);
     shown = needed.filter(f => !f.filled);
     const total = needed.length, left = shown.length, ready = total > 0 && left === 0, needsYou = document.documentElement.getAttribute('data-jobpilotto-needs');
     const done = total ? Math.round(100 * (total - left) / total) : 0;

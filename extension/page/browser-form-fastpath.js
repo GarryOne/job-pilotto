@@ -42,8 +42,20 @@
   const RETYPE_LIMIT = 5;
   const WATCH_CAP_MS = 60000;
   const typedHere = new Map();
-  const follow = (element, record) => { typedHere.set(element, record); element.addEventListener('input', event => { if (event.isTrusted) record.edited = true; }, true); };
+  // Does the box still hold what we typed? Only letters and digits count, so a mask or a reformat (spaces, dashes, a date's separators, a national form of a
+  // phone number) is the same value; a box the page reset to something else ("+972" for "+41 79 555 01 23") is not. One rule with the panel (extension/review.js,
+  // its own copy; desktop/test/typed-match.test.js keeps them equal).
+  const alnum = text => String(text ?? '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+  const typedSame = (typed, now) => {
+    const a = alnum(typed), b = alnum(now);
+    if (!a || a === b || b.includes(a) || (b.length >= 6 && a.includes(b))) return true;
+    if (a.length >= 8 && b.length >= 8 && /^\d+$/.test(a) && /^\d+$/.test(b) && a.slice(-8) === b.slice(-8)) return true;   // the same number with or without its country code or trunk 0
+    return [...a].sort().join('') === [...b].sort().join('');
+  };
+  window.__jobPilottoTypedSame = typedSame;   // for desktop/test/typed-match.test.js
+  const follow = (element, record) => { typedHere.set(element, record); element.addEventListener('input', event => { if (event.isTrusted) { record.edited = true; element.removeAttribute?.('data-jobpilotto-typed'); } }, true); };
   const noteTyped = (element, value) => {
+    element.setAttribute?.('data-jobpilotto-typed', alnum(value).slice(0, 160));   // what the panel checks at the end (review.js): the letters and digits we typed
     const known = typedHere.get(element);
     if (known) { Object.assign(known, {value, retypes: 0}); return; }
     follow(element, {value, edited: false, retypes: 0, field: element.id || element.name || ''});
@@ -105,7 +117,7 @@
     const back = [];
     for (const [was, record] of [...typedHere]) {
       const element = record.edited ? was : stillThere(was, record);
-      if (!element || record.edited || record.retypes >= RETYPE_LIMIT || String(element.value || '') !== '' || !writable(element)) continue;
+      if (!element || record.edited || record.retypes >= RETYPE_LIMIT || !/^(\+\d{1,4})?$/.test(String(element.value || '').trim()) || !writable(element)) continue;   // emptied, or back on a bare country code (a phone widget's own "+972"); a value the page wrote itself is never typed over (the panel still reports it: review.js)
       record.retypes++;
       const prototype = element.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
       Object.getOwnPropertyDescriptor(prototype, 'value').set.call(element, record.value);
@@ -129,6 +141,8 @@
     }
     return now;
   };
+  // The panel (extension/review.js, another script world) asks for a look when a box no longer holds what we typed: typed again now, within the same limit per box.
+  document.addEventListener?.('jobpilotto-retype', () => { retypeNow(); });
   // The boxes the page emptied after the last typing-again, with the limit spent: [{field, times}], so the fill's reason can say the page kept clearing it.
   window.__jobPilottoRetypeGaveUp = () => [...typedHere].filter(([element, record]) => !record.edited && record.retypes >= RETYPE_LIMIT && element.isConnected && String(element.value || '') === '')
     .map(([, record]) => ({field: record.field, times: record.retypes}));
@@ -177,7 +191,7 @@
         legal: forbidden.test(label(el)) || el.dataset?.jobpilottoCategory === 'legal',   // the AI's reading too, any language (page/categories.js)
         filled: el.type === 'file' ? !!el.files?.length :
           isCombo(el) ? comboFilled(el) :
-          ['checkbox', 'radio'].includes(el.type) ? !!el.checked : el.tagName === 'SELECT' ? window.__jobPilottoChosen(el) : !!String(el.value || '').trim()}));
+          ['checkbox', 'radio'].includes(el.type) ? !!el.checked : el.tagName === 'SELECT' ? window.__jobPilottoChosen(el) : !!String(el.value || '').trim() && !/^\+\d{1,4}$/.test(String(el.value).trim())}));   // a box holding only a country code (a phone widget's own "+972") is empty
     // The upload slots (page/upload.js, found by structure) are the file rows; where that script is not loaded (the Playwright launchers), the CV heading is guessed.
     const slots = window.__jobPilottoUpload?.rows ? window.__jobPilottoUpload.rows() : [];
     if (slots.length) return [...rows.filter(r => r.type !== 'file'), ...slots];

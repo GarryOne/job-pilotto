@@ -1,0 +1,51 @@
+{
+ "shape": "an international phone widget (a country picker beside a number box) whose box starts on its own country code ('+972'): the readers called it filled, so our number was never typed, and the panel said ready",
+ "why": "Pool row 'Recruitee: one-page form on recruitee.com', 11 Oct 2026 (0.9.224): the picker said Israel, the box only '+972', our number was never in it and the panel said 'Ready to submit, every required field is filled'. A box holding only a calling code is empty for every reader (fill, audit, coverage, panel, judge sketch); and a typed box the page changes afterwards (this page draws itself again 2.5 s after the first input) is typed again and is not 'filled' for the panel until it holds what we typed",
+ "control": {
+  "guard": "new case 12 Oct 2026; fails on 0.9.224, where a box holding '+972' counted as filled and nothing typed the number"
+ },
+ "sample": "structure of a react-phone-number-input form (PhoneInput: a listbox button and a tel input), rebuilt small, values removed",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/o/team-lead/c/new",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "contact_no",
+     "question": "Number to reach you",
+     "value": "0041795550123",
+     "confidence": "high",
+     "note": "",
+     "category": "contact",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "attached": [
+   "#resume"
+  ],
+  "valueHas": [
+   "#contact_no|795550123"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 40
+ },
+ "start": "panel"
+}

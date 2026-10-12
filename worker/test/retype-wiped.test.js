@@ -92,3 +92,10 @@ test('a replaced box the person touched is left alone', () => {
   assert.equal(window.__jobPilottoRetypeWiped(), 0);
   assert.equal(fresh.value, '');
 });
+
+test('a box the page put back on a bare country code (a phone widget\'s own "+972") is typed again; any other value the page wrote stays', () => {
+  const {window, boxes} = page();
+  boxes[0]._value = '+972'; boxes[1]._value = '+41'; boxes[2]._value = '+41 79 5'; boxes[3]._value = 'the page wrote this';
+  assert.equal(window.__jobPilottoRetypeWiped(), 2);
+  assert.deepEqual(boxes.map(box => box.value), ['typed-first', 'typed-last', '+41 79 5', 'the page wrote this']);
+});
