@@ -1,0 +1,56 @@
+{
+ "shape": "variant of menu-choices-worded-differently-1: the menu filters its choices by whatever is typed, so typing the answer (\"Yes\") empties it (\"No options\") while the choices as it opened can still be asked about",
+ "why": "Ocado Technology (found 2026-10-10), 11 Oct 2026 (0.9.209): the required right-to-work menu opened on the click and showed \"No options\": the answer \"Yes\" matched none of its sentence choices, so the text typed to filter it emptied the list and the row was left. The app now picks the choice that means the same from the menu's own choices (extension/combo-click.js choose, /extension/pick-choice).",
+ "control": {
+  "guard": "new case; fails on the build before this change (typed at first, the list is empty and no pick is asked)"
+ },
+ "sample": "hand-cut page (a click-only select whose choices are sentences, 12 Oct 2026; no real site text)",
+ "pages": [
+  {
+   "url": "https://careers.example.test/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": [
+    {
+     "field": "rtw",
+     "value": "Yes",
+     "confidence": "high",
+     "note": "",
+     "category": "knockout",
+     "use": "fill"
+    }
+   ]
+  },
+  "/extension/pick-choice": {
+   "ok": true,
+   "choice": "I have the Right to Work in the location where the position is based"
+  }
+ },
+ "expect": {
+  "filled": [
+   "#rtw_code"
+  ],
+  "asked": [
+   "Do you have the right to work in the location where the position is based or do you require a Visa?"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 60
+ },
+ "start": "panel"
+}
