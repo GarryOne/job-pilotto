@@ -231,7 +231,7 @@ PR by PR. Order: the account page with no step (10 of 75 pool rows), the posting
 - [ ] switched on at the posting with no Apply found: its criteria hold, the owner OKs it
 - [ ] switched on at nothing found: its criteria hold, the owner OKs it
 - [ ] switched on at the silent dead ends: its criteria hold, the owner OKs it
-- [ ] the decision-branch ratchet test
+- [x] the decision-branch ratchet test (tools/decision-branches.mjs: consider() 21, the account step 15, may only go down) (proof: desktop/test/decision-branches.test.js)
 - [x] the fix rule in CLAUDE.md ("Where a fix lives", c64d4ee)
 - [x] the fix rule in docs/flows/ladder.md ("Where a fix lives") (proof: docs/flows/ladder.md)
 ### 7. Phase 4: retire fast-tier branches only by data
