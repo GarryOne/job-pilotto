@@ -177,3 +177,14 @@ test('a fill report carries the star count into the board\'s exposure row, clamp
   assert.deepEqual(rows['recruitingapp-662.umantis.com'], [3, 212]);   // 12, then clamped to 200 per form (n = 1)
   assert.deepEqual(rows.ashby, [1, 0]);
 });
+
+test('judging many aliases reads the correction counts once, not once per alias (D1 bills rows read)', async () => {
+  const e = env();
+  await owner(e, 'PUT', {status: 'verified', items: ['a', 'b', 'c', 'd', 'e'].map(x => ({key: 'email', phrase: `phrase ${x}`}))});
+  e.STATS.db.prepare("INSERT INTO intel_fixes (label, filled, corrected, installs, last_day) VALUES ('votre phrase c', 10, 6, '[]', '2026-10-01')").run();
+  const reads = [], prepare = e.STATS.prepare;
+  const spy = {...e.STATS, prepare: sql => { if (/intel_fixes/.test(sql)) reads.push(sql); return prepare(sql); }};
+  const actions = await evaluateVerifiedAliases(spy, now);
+  assert.equal(reads.length, 1);
+  assert.deepEqual(actions.map(a => a.alias), ['phrase c']);   // matched as a whole word, case-insensitive
+});

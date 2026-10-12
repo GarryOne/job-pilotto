@@ -22,10 +22,14 @@ const PER_INSTALL_PER_DAY = 24, MIN_FAIL_CHECK = 20, HALT_ABOVE = 0.25, MIN_PROM
 // A meaning people keep correcting by hand is wrong, even when every field took its value (the fill outcome can't tell): halted at
 // CORRECTED_MIN corrections making up CORRECTED_ABOVE of the fills of the wordings it covers (intel_fixes: labels and counts only).
 const CORRECTED_MIN = 3, CORRECTED_ABOVE = 0.3;
-async function correctedTooOften(db, phrase) {
-  const sums = await db.prepare("SELECT SUM(filled) AS filled, SUM(corrected) AS corrected FROM intel_fixes WHERE label = ? OR (' ' || label || ' ') LIKE ?")
-    .bind(phrase, `% ${phrase} %`).first().catch(() => null);
-  const filled = sums?.filled || 0, corrected = sums?.corrected || 0;
+// The correction counts are read ONCE per daily loop and matched in JS: one query per alias scanned the whole table each time (the leading-% LIKE has no index; 1,233
+// reads a day, 100k rows, 12 Oct 2026).
+const fixesOf = async db => ((await db.prepare('SELECT label, filled, corrected FROM intel_fixes').all().catch(() => ({results: []}))).results || [])
+  .map(row => ({...row, padded: ` ${row.label} `.toLowerCase()}));
+export function correctedTooOften(fixes, phrase) {
+  const needle = ` ${phrase} `.toLowerCase();
+  let filled = 0, corrected = 0;
+  for (const row of fixes) if (row.padded.includes(needle)) { filled += row.filled || 0; corrected += row.corrected || 0; }
   return corrected >= CORRECTED_MIN && corrected / Math.max(filled, 1) >= CORRECTED_ABOVE ? {filled, corrected} : null;
 }
 // Daily: the learning tables keep what is still deciding something, not every day forever (owner, 8 Oct 2026: "avoid growing the
@@ -88,9 +92,9 @@ export async function pack(request, env, now = new Date()) {
 // Daily: a verified alias keeps being judged over the last week; if it starts failing it is switched off like a canary would be.
 export async function evaluateVerifiedAliases(db, now = new Date()) {
   const from = day(new Date(now.getTime() - 6 * 86400000));
-  const actions = [];
+  const actions = [], fixes = await fixesOf(db);
   for (const item of (await db.prepare("SELECT phrase FROM aliases WHERE status = 'verified'").all()).results || []) {
-    const wrong = await correctedTooOften(db, item.phrase);
+    const wrong = correctedTooOften(fixes, item.phrase);
     if (wrong) {
       await db.prepare("UPDATE aliases SET status = 'disabled', rollout = 0, note = ?, updated_at = ? WHERE phrase = ?").bind(`auto-rolled back: corrected by hand ${wrong.corrected} of ${wrong.filled} times`, now.toISOString(), item.phrase).run();
       actions.push({alias: item.phrase, action: 'rolled back: corrected by hand', ...wrong});
@@ -211,9 +215,9 @@ export async function storeProposals(env, items, install, now = new Date()) {
 // Daily: a canary alias that works is given more installs (verified at the end), one that fails is stopped. Sensitive ones are only stopped.
 export async function evaluateAliases(db, now = new Date()) {
   const running = (await db.prepare("SELECT phrase, key, rollout, updated_at FROM aliases WHERE status = 'canary'").all()).results || [];
-  const actions = [];
+  const actions = [], fixes = await fixesOf(db);
   for (const item of running) {
-    const wrong = await correctedTooOften(db, item.phrase);
+    const wrong = correctedTooOften(fixes, item.phrase);
     if (wrong) {
       await db.prepare("UPDATE aliases SET status = 'disabled', rollout = 0, note = ?, updated_at = ? WHERE phrase = ?").bind(`auto-halted: corrected by hand ${wrong.corrected} of ${wrong.filled} times`, now.toISOString(), item.phrase).run();
       actions.push({alias: item.phrase, action: 'halted: corrected by hand', ...wrong});
