@@ -10,10 +10,12 @@ Spec: `docs/superpowers/specs/2026-10-10-ai-ladder.md` (checklist = what is buil
 | 0 | structure rule | `extension/tab-pages.js` `pageRole` | `form` · `account` · `no-form` | yes: answers only without AI |
 | 1 | kept answer per page shape | `desktop/lib/ladder/rung1-kept.js` `pageKindCache`, `kindKey` | the kept `kind` (+ buttons) | yes |
 | 2 | text sketch to a small model (three questions: the page kind, the account judge, the form judge) | `desktop/lib/ladder/rung2-sketch.js` `pageKind`; `account-judge.js`; `form-judge.js` | `KINDS`, `APPLY_BY`, `ROUTES`, `account_step`, `bot_check` | yes |
-| 3 | numbered digest | none yet | outcome + closed verb + candidate numbers | **not built** |
+| 3 | numbered digest | `desktop/lib/ladder/rung3-digest.js`, `extension/ladder/rung3-candidates.js`, `extension/ladder/rung3-frames.js` | outcome + closed verb + candidate numbers | yes: page outcomes; the fill's control digest: not yet (fill ladder) |
 | 4 | screenshot + sketch, strongest model, one action | `desktop/lib/ladder/rung4-picture.js`, `extension/ladder/rung4-picture.js` | one action from the page's own controls | yes: accounts; forms when a fill put nothing in |
 | 5 | Claude takes over | `desktop/lib/ladder/rung5-takeover.js`, `extension/panel-claude.js` | none (a session) | yes: once per application |
 | 6 | the person | cards (`renderer/`), `application-journey.js` `stuck` | the sentence quoted from the page | yes: generic text; quoted for email only |
+
+**The fill stage climbs the same rungs** (spec `docs/superpowers/specs/2026-10-12-fill-ladder.md`): `fill_verify` (did each control take its value?) and `fill_repair` (a closed verb on a numbered control); measured by the widget zoo (`desktop/e2e/widget-zoo/`, `npm run widget-zoo` in `desktop/e2e`, CI job `widget-zoo`, not required).
 
 The router (which rung to ask next, from a rung's signal): `extension/ladder/core.js` (`RUNGS`, `SIGNALS`, `nextRung`, `ladderLine`); the climb that uses it is extension/ladder/climb.js (landing on branch ai-ladder).
 

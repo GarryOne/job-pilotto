@@ -1,0 +1,49 @@
+{
+ "widget": "custom_select",
+ "shape": "a div combobox whose options appear on mousedown and commit on an option mousedown into a hidden input",
+ "why": "widget zoo (spec docs/superpowers/specs/2026-10-12-fill-ladder.md): a measure, not a gate: what the fill reads (asked) and what stays committed",
+ "pages": [
+  {
+   "url": "https://custom-select-1.zoo.example.com/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": false,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "lang",
+     "question": "Preferred language",
+     "value": "German",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "asked": [
+   "Preferred language"
+  ],
+  "filled": [
+   "#lang"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 30
+ },
+ "start": "panel"
+}

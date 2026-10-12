@@ -1,0 +1,49 @@
+{
+ "widget": "checkbox_group",
+ "shape": "choice chips whose only state is a class: no aria-checked, no input, so a reader sees nothing change",
+ "why": "widget zoo (spec docs/superpowers/specs/2026-10-12-fill-ladder.md): a measure, not a gate: what the fill reads (asked) and what stays committed",
+ "pages": [
+  {
+   "url": "https://chips-no-aria-1.zoo.example.com/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": false,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "model",
+     "question": "Work model",
+     "value": "Remote",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "asked": [
+   "Work model"
+  ],
+  "present": [
+   ".chip.is-on[data-v=remote]"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 30
+ },
+ "start": "panel"
+}
