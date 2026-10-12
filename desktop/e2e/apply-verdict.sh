@@ -15,8 +15,8 @@ OUT="$(mktemp)"
 # The comment. After the evidence check, a `real` that cites code which does not exist has become `needs-human` in the file.
 node "$HERE/verdict-comment.mjs" --file "$FILE" --number "$NUMBER" --out "$OUT" ${JUDGE:+--by "$JUDGE"}
 verdict=$(head -1 "$FILE" 2>/dev/null | tr -d '[:space:]' || true)
-# The judge's level replaces the detector's: a real or parked finding keeps the level a person would meet.
-case "$verdict" in real|needs-human) node "$HERE/severity.mjs" --file "$FILE" --number "$NUMBER" --repo "$REPO" || true ;; esac
+# The judge's level replaces the detector's: a real, fixed or parked finding keeps the level a person would meet.
+case "$verdict" in real|fixed|needs-human) node "$HERE/severity.mjs" --file "$FILE" --number "$NUMBER" --repo "$REPO" || true ;; esac
 label() { gh label create "$1" --repo "$REPO" --force --color "$2" --description "$3" >/dev/null; gh issue edit "$NUMBER" --repo "$REPO" --add-label "$1" >/dev/null; }
 resolution() {
   local name; name=$(node "$HERE/resolution.mjs" --file "$FILE" || true)
