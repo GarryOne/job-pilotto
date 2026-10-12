@@ -17,7 +17,7 @@ import {submissionOutcome} from './tab-pages.js';
 import {tabArmed} from './tab-pages.js';
 
 export function createLearningMessages(ctx) {
-  const {FILL_MARK, arm, fillOpenedTab, handOff, jobOf, panelRefused, reportFlow, stepBox, stepNow, watchSubmission} = ctx;
+  const {arm, fillOpenedTab, handOff, jobOf, panelRefused, reportFlow, stepBox, stepNow, watchSubmission} = ctx;
   return function messages_learning(message, sender, reply) {
     // "Read the jobs on this page", from the popup after the person's click (visit.js): runs here so it goes on when the popup closes.
     if (message?.type === 'visitRead') {
