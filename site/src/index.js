@@ -4,6 +4,7 @@
 // Optional: with TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID set as secrets, each new sign-up is also sent to Telegram.
 import {replaysIngest} from './applying-replays.js';
 import {provenIngest} from './applying-proven.js';
+import {endingsIngest} from './applying-resolution.js';
 import {meter, newTally, requestLine} from './d1-meter.js';
 import {apexRedirect} from './hosts.js';
 import * as linkedin from './linkedin.js';
@@ -138,7 +139,8 @@ async function route(request, env, ctx) {
   if (moved) return moved;
   if (pathname === '/report/fill-failure') return handleReport(request, env, dispatch);
   if (pathname === '/report/telemetry') return telemetry.collect(request, env);
-  if (pathname === '/applying/proven' && request.method === 'PUT') return provenIngest(request, env);   // CI's proof records (Bearer REPLAYS_PUBLISH_KEY, src/applying-proven.js)
+  if (pathname === '/applying/proven' && request.method === 'PUT') return provenIngest(request, env);
+  if (pathname === '/applying/endings' && request.method === 'PUT') return endingsIngest(request, env);   // CI's pool rows' endings (Bearer REPLAYS_PUBLISH_KEY, src/applying-resolution.js)   // CI's proof records (Bearer REPLAYS_PUBLISH_KEY, src/applying-proven.js)
   if (pathname === '/applying/replays' && request.method === 'PUT') return replaysIngest(request, env);   // CI on main's recorded replays (Bearer REPLAYS_PUBLISH_KEY, src/applying-replays.js)
   if (pathname === '/self-heal/data' && request.method === 'PUT') return selfHealIngest(request, env);   // CI publishes the loop's numbers (Bearer SELFHEAL_PUBLISH_KEY)
   if (pathname === '/ai-cost/data' && request.method === 'GET') return jobCostSpent(request, env);   // a day's reported spend for CI's budget guard (same key)

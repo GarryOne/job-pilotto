@@ -108,8 +108,9 @@ test('each fixed row carries what the expander shows: its host, every commit, an
 test('the page: two tabs by URL hash, one charcoal panel (title, one sentence, "How verification works", toolbar, table, footer), five columns from heads(), a row expander', () => {
   assert.match(PAGE, /tab\('needs-fix'/); assert.match(PAGE, /tab\('fixed'/); assert.match(PAGE, /hash === '#fixed'/); assert.match(PAGE, /hashchange/);   // tabs by URL hash
   assert.match(PAGE, /heads\('fixed', \['Site \/ platform', 'Verification', 'Filled before → after', 'Fix', 'Details'\]/);
-  assert.match(PAGE, /heads\('cases', \['Case', 'Rung guarded', 'Result', 'Last 10 runs', 'Last run', 'Since'\]/);   // the Fixed-site replays table is back, as it was (owner, 11 Oct 2026)
-  assert.match(PAGE, /Fixed-site replays · every fixed site, replayed/);
+  assert.match(PAGE, /heads\('cases', \['Case', 'Rung guarded', 'Origin', 'Result', 'Last 10 runs', 'Last run', 'Since'\]/);   // the replays table, with each case's origin (owner, 12 Oct 2026)
+  assert.match(PAGE, /'Shape regression tests'/);   // renamed from "Fixed-site replays · every fixed site, replayed", which overclaimed (owner, 12 Oct 2026)
+  assert.doesNotMatch(PAGE, /every fixed site, replayed/);
   assert.doesNotMatch(PAGE, /'Guard'/);   // the Guard column is the expander now
   assert.match(PAGE, /Every landed fix is "Awaiting verification" until two uploaded runs clear it\./);
   assert.match(PAGE, /How verification works/);
@@ -143,10 +144,10 @@ test('every paged table of the tabs and sections that share the block() helper s
   assert.doesNotMatch(PAGE, /NEXT_PER = 5\b|FIX_PER = 5\b/);
 });
 
-test('the six metrics sit in one row: one strip, a big number, a short label and a small note each; 3 columns on a tablet, 2 on a phone; the long wording moved into a tooltip (owner, 11 Oct 2026)', () => {
+test('the six metrics sit in one row (the first is Resolved since 12 Oct 2026: the outcome contract\'s headline replaced the replay count, which moved to the shape tests): one strip, a big number, a short label and a small note each; 3 columns on a tablet, 2 on a phone; the long wording moved into a tooltip (owner, 11 Oct 2026)', () => {
   assert.match(PAGE, /\.tiles\{[^}]*grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
   assert.match(PAGE, /@media \(max-width:1000px\)\{\.tiles\{grid-template-columns:repeat\(3,/); assert.match(PAGE, /@media \(max-width:520px\)\{\.tiles\{grid-template-columns:repeat\(2,/);
-  for (const label of ['Replay checks passing', 'Smoke sites tested', 'Reached the form', 'Open regressions', 'Sites needing a fix', 'Boards dropped']) assert.ok(PAGE.includes(label), label);
+  for (const label of ['Resolved', 'Smoke sites tested', 'Reached the form', 'Open regressions', 'Sites needing a fix', 'Boards dropped']) assert.ok(PAGE.includes(label), label);
   for (const old of ['fixed-site replays passing', 'smoke sites run in the last 10 nights', 'sites need a fix (stopped early', 'boards dropped in the fleet (layer 4)']) assert.ok(!PAGE.includes(old), old + ' is gone');
   assert.match(PAGE, /Stopped early, unexplained fields, or a regression/);   // the explanation is kept, as the tile's note and tooltip
   assert.equal((PAGE.match(/ tile\(/g) || []).length, 6, 'still six metrics, none dropped');

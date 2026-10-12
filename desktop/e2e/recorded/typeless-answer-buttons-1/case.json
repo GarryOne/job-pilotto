@@ -1,4 +1,5 @@
 {
+ "origin": "captured",
  "shape": "a form whose answer choices are typeless buttons (no type attribute, so the browser reports type=submit) that the page handles itself; answering them must never read as the form's Submit",
  "why": "11 Oct 2026, live (0.9.199): pressing an answer button logged 'submitted: submit pressed' and started the submission watch though the form was never submitted: a false 'applied' risk. The panel now counts a click only when the control says type=submit, the form fires its own submit event, or the Submit floor's words name it (page/submit-press.js)",
  "control": {

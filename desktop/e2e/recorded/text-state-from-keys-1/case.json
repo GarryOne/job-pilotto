@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "a text box that keeps its own state from real key presses and writes it back on blur: a value set by a script goes away",
  "why": "fill ladder rung 0 (spec docs/superpowers/specs/2026-10-12-fill-ladder.md, PR 2): the widget zoo page text-reverts-on-blur-1 failed on main c7528b6 (\"answer given, but the field did not take it\"); the box is now typed again for real, key by key, and read back",
  "pages": [

@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "a two-segment choice control whose segments are role=radio list items (aria-checked) with their label text in an inner span that carries the page's click handler and a display:none native radio beside it, the question in a heading after the control",
  "why": "Variant of segmented-radio-wrapper-1 (12 Oct 2026) with everything incidental changed: German labels, list items, no label element, the handler on an inner span, the question after the control, extra wrappers. The option was found and named by the answer, but the fill clicked the segment's own element (a div role=radio), which the page's framework ignores; the click that sets the state is the one a person makes on what is drawn inside the segment. The press now goes to what sits at the option's centre, then its inner input, then the option itself, and re-reads the state after each.",
  "control": {

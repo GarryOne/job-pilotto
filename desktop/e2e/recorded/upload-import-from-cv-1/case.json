@@ -1,4 +1,5 @@
 {
+ "origin": "captured",
  "shape": "a form with its own CV slot (\"Currículo\", a word no floor knows) and the site's \"Import data from my CV\" feature, whose hidden file input is labelled by its button: the app's AI names the slot that takes the CV as a document, so the import input gets no file (and the site's \"your fields may be replaced\" dialog never opens)",
  "why": "11 Oct 2026, Louis Vuitton jobs (live capture on ext 0.9.213): the CV went into the import input (data-job-pilotto-file=cv.pdf on #extract-data-from-cv-form's input), the site opened Importación de datos over the form. The own slot upload_attached_resume_11 stayed empty",
  "sample": "invented posting; the form's markup for the import button and the Currículo slot is Louis Vuitton's, reduced; the site's import dialog script is not modelled",

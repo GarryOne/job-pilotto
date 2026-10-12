@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "a posting whose only Apply route is the board's own \"Easy apply\" (no plain Apply): the AI names it as the Apply button and the extension presses it",
  "why": "11 Oct 2026, the pool: the jobs.ch posting (4 nights stuck at the posting). Rung 2 answered no button and apply_by other because both the prompt and the floors refused \"Easy Apply\"; the owner allowed a board's own quick apply. The stubbed answer is the real one the AI gave for ladder-fixtures/jobs-ch-apply-not-found.json after the change (kind posting, 0.9, apply_button \"Easy apply\", apply_button_kind apply, apply_by form), as the app returns it (button lower-cased). It asks only /extension/page-kind.",
  "control": {

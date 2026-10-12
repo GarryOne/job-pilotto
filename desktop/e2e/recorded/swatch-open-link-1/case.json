@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "a posting whose menu fills the first 20 sketch buttons and whose Apply link goes to another site and opens in a new tab: rung 2 names no button, the digest opens the link (verb open, press_kind apply)",
  "why": "11 Oct 2026, the pool: Swatch Group careers. The real digest answered outcome form, verb open, number 1 (the link), press_kind apply (asked twice); the app dropped `open`, so the run ended \"no form on this page\". Fixed in digestKind (open of a link = the Apply button). The AI answers here are what the app now gives for that digest answer.",
  "control": {

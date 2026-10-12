@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "an application form whose fill starts from the extension's panel: the panel (its open shadow root) is on the page before the extension asks what kind of page this is",
  "why": "11 Oct 2026, speed-5x fidelity test: live page-kind sketches of form pages (arbeitnow's workable /apply, Bulgari's APPLY form, HelloFresh /apply) listed the panel's own controls ('Tailor my CV for this job', 'Open in Job Pilotto', 'left required fields'), so what the AI was shown changed with the panel's timing and a replay of the same page sent another sketch. Every page reader now leaves out the extension's own UI (e2e/test/own-ui-not-read.test.mjs)",
  "sample": "invented form (host and text); the panel is the extension's own",

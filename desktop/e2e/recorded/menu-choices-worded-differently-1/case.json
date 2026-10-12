@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "a required dropdown that opens only on a real mousedown and whose choices state the answer in their own words (a yes/no question; neither choice is \"Yes\" or \"No\")",
  "why": "Ocado Technology (found 2026-10-10), 11 Oct 2026 (0.9.209): the required right-to-work menu opened on the click and showed \"No options\": the answer \"Yes\" matched none of its sentence choices, so the text typed to filter it emptied the list and the row was left. The app now picks the choice that means the same from the menu's own choices (extension/combo-click.js choose, /extension/pick-choice).",
  "control": {

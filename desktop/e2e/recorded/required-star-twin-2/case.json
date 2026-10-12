@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "a form whose required mark is an aria-hidden star element followed by a visually hidden word that says 'required' in the page's language: the field's name reads without the star and that word, and the field counts as required",
  "why": "12 Oct 2026, the Teamtailor row: labels ended '*Required' (an aria-hidden star, then a hidden word), so the required rule found no mark: 9 starred labels, 0 counted required, the panel's count wrong and the AI asked about 'Last name*Required'. Hand-built page keeping the shape. Variant: another language, other tags (i, em, abbr, s), labels by aria-labelledby, a radiogroup titled by a bold element.",
  "control": {

@@ -1,4 +1,5 @@
 {
+ "origin": "hand-cut",
  "shape": "a form whose attachment zone is a pressable three levels under the container that names uploading, its real file input made by script and hidden as a first child of <body>, beside a lone consent box in a row of captioned fields: the CV goes into that input with no press, and the box is read by its own caption, never the first field's",
  "why": "12 Oct 2026, a Swiss job board's application form (variant of dropzone-input-in-body-and-grid-consent-1): another language, spans for captions, other nesting; the old build found no slot ('no place to attach it') and titled the consent box with the first field's caption",
  "sample": "invented posting and form (a hand-cut variant of the real capture's shape)",
