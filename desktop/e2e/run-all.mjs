@@ -12,6 +12,12 @@ import {fileURLToPath, pathToFileURL} from 'node:url';
 import {autoSuites, suitesNamed} from './lib/plan.mjs';
 import {SKIPPED, summarize} from './lib/skip.mjs';
 import {heavy} from './lib/heavy.mjs';
+import {localRunRefused} from './lib/local-run.mjs';
+// No whole suite on the Mac: CI runs them on every PR (lib/local-run.mjs); asked before the lock, so nobody queues behind a refused run. Only when run as a script (tests import this file).
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url) && !process.argv.some(arg => arg === '--list' || arg === '--help')) {
+  const why = localRunRefused();
+  if (why) { console.error(why); process.exit(2); }
+}
 heavy('e2e-all', import.meta.url);   // one heavy run at a time on this Mac (tools/heavy-lock.sh)
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
