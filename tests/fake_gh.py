@@ -32,6 +32,7 @@ def merge():
     git('checkout', '-q', state['head'], cwd=work)
     git('rebase', '-q', 'origin/main', cwd=work)
     git('push', '-q', 'origin', 'HEAD:main', cwd=work)
+    git('push', '-q', 'origin', ':' + state['head'], cwd=work)   # delete branch on merge
     state['state'] = 'MERGED'
     state['merge_sha'] = git('rev-parse', 'HEAD', cwd=work)
 
