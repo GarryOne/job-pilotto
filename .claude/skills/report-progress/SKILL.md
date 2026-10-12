@@ -14,6 +14,7 @@ The owner (10 Oct 2026): "report me back where we stand with the ladder and its 
 
 ## Keeping the bars true
 - **Tick a box in the same commit that finishes it** (edit the spec's checklist). A box is ticked only when its test passes, never for code that is written but not run.
+  The ticked line names its proof: `(proof: <the test or file this PR changes>)`, `(proof: <path> @<sha on main>)` or `(proof: none: <why>)`; `tools/spec-proof.mjs` blocks the push otherwise.
 - **A bar carries the owner's own name for the gap** ("Numbered digest", "Escalation router", "Learning"...), never a letter or an internal code. A new gap or a split step is a new box, written before the work starts, so a bar can go down: that is honest.
 - Never round a bar up. A half-finished step stays unticked.
 
