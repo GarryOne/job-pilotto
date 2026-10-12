@@ -26,4 +26,6 @@ jobs:
       - name: Install · time-zone data (Windows has none; requirements.txt lists tzdata for it)
         run: python -m pip install tzdata
       - name: Python unit tests (the desktop app's)
+        env:
+          JOB_PILOTTO_PY_JOBS: '6'   # as build.yml: the runner's cores / check slots give 2 shards, the slow modules only wait
         run: bash tools/check.sh --area python --app-only
