@@ -14,7 +14,7 @@
   // The page says this title's question is required: a trailing "*", a "required" class, a "*" drawn before/after it, or a
   // marker element inside it.
   function marked(title, view) {
-    if (window.__jobPilottoRequired.has(title.textContent)) return true;
+    if (window.__jobPilottoRequired.has(title)) return true;
     if (/(^|[\s_-])required([\s_-]|$)/i.test(String(title.className?.baseVal ?? title.className ?? ''))) return true;
     if (title.querySelector('[class*=required], [aria-label*=required i], abbr[title*=required i]')) return true;
     try {
