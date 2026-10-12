@@ -56,6 +56,9 @@ export function registerTelemetryHandlers(ctx) {
     analytics = sentryOnly ? null : analyticsLib.create({key: keys.posthogKey, host: keys.posthogHost, installId: identity.installId, version: identity.version, os: identity.os, enabled: telemetry.enabled});
     setAnalytics(analytics);
     track('app_start', {});
+    const updated = analyticsLib.updateStep(storage.settings().lastRunVersion, identity.version);   // the first start after an update says so, once
+    if (updated) track('update_installed', updated);
+    if (storage.settings().lastRunVersion !== identity.version) storage.saveSettings({lastRunVersion: identity.version});
     server.setAppliedHook(info => track('applied', info));
     app.on('before-quit', () => { void analytics?.flush(); });
     pipeline.onRunEnd(({args, code, seconds, tail, timedOut, result}) => {
