@@ -95,3 +95,15 @@ test('a CI pool run\'s report: the moves per row that ran, and how many rows tha
   assert.match(out.lines.join('\n'), /Lever: single page \| form \| 1 \| rung 2 form→form ×1/);
   assert.match(out.lines.at(-1), /rows that reached a form: 2, with a confirmed move: 1/);
 });
+
+test('the control level\'s repairs ride the same batch, fixed words and integers only', async () => {
+  const {cleanRepair} = await import('../lib/ladder-moves.mjs');
+  const calls = [], fetcher = async (url, init) => { calls.push(JSON.parse(init.body)); return {ok: true, json: async () => ({ok: true})}; };
+  const env = {CI: 'true', REPLAYS_PUBLISH_KEY: 'k', GITHUB_RUN_ID: '9'};
+  const good = {fp: '1d2pcapx18', verb: 'click_option', ok: 2, failed: 1};
+  assert.match(await sendMoves([], {source: 'ci', repairs: [good, {fp: 'NOT VALID', verb: 'x', ok: 1, failed: 0}, {...good, verb: 'Type jane@x.example'}, {...good, ok: 0, failed: 0}], env, fetcher}), /0 move\(s\) and 1 repair\(s\) sent \(ci\)/);
+  assert.deepEqual(calls[0].repairs, [good]);
+  assert.equal(cleanRepair({...good, extra: 'text'}).extra, undefined);
+  await sendMoves([{shape: SHAPE, rung: 2, kind: 'form', outcome: 'form', hits: 1, misses: 0}], {source: 'ci', env, fetcher});
+  assert.equal('repairs' in calls[1], false, 'no repairs: no field');
+});
