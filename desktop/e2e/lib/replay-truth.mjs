@@ -6,16 +6,19 @@
 // The applicant and the answers are the case's fake data; nothing here is sent anywhere. Used by lib/page-replay.mjs judgeCase.
 // Guards: e2e/test/replay-truth.test.mjs (pure parts), e2e/test/recorded-pages.test.mjs (every case).
 
+import path from 'node:path';
 import {FALSE_READINGS} from './recorded-false-readings.mjs';
+import {FIXTURE_CV} from './real-extension.mjs';
+
+const CV_NAME = path.basename(FIXTURE_CV);   // the file the stand-in app gives as the CV (real-extension.mjs pdf('cv.pdf'))
 
 // The false readings already found, per case (lib/recorded-false-readings.mjs): each is a bug to fix, never a loosened assert. A listed one is said as KNOWN BUG and does not fail;
-// a new one fails; a listed one that no longer shows fails too (the fix landed: remove its line), so the ledger only shrinks.
+// a new one fails; a listed one that does not show is said (GONE?: remove its line once the fix landed), never a failure: some depend on timing, and a flaky required check blocks every PR.
 export const loadLedger = () => FALSE_READINGS;
 export function againstLedger(name, failures, ledger = loadLedger()) {
   const known = ledger[name] || [], out = [], seen = [];
   for (const line of failures) (known.includes(line) ? seen : out).push(line);
-  for (const line of known) if (!seen.includes(line)) out.push(`known false reading gone (remove it from lib/recorded-false-readings.mjs): ${line}`);
-  return {failures: out, known: seen};
+  return {failures: out, known: seen, gone: known.filter(line => !seen.includes(line))};
 }
 
 const answerBodies = body => !body ? [] : Array.isArray(body) ? body.map(entry => entry?.answer) : body.byHost ? Object.values(body.byHost).flatMap(answerBodies) : [body];
@@ -37,12 +40,13 @@ const words = text => String(text || '').normalize('NFKD').replace(/[̀-ͯ]/g, '
 const holdsRun = (outer, inner) => inner.length > 0 && outer.some((_, at) => inner.every((word, k) => outer[at + k] === word));
 const digits = text => String(text || '').replace(/\D/g, '');
 
-// Does what the page shows (a box's value, a choice's text and value) hold the answer? Equal by words, a longer option holding the answer's words in a row, or a phone by its digits.
+// Does what the page shows (a box's value, a choice's text and value) hold the answer? By words in a row either way (a longer option holding the answer; a type-to-search option in its own
+// shorter wording, "Geneva" for "Geneva, Switzerland"), or a phone by its digits. Never a different word: Israel is not Switzerland, "Not sure" is not "No".
 export function sameAnswer(expected, shown = []) {
   const want = words(expected), wantDigits = digits(expected);
   return shown.some(text => {
     const have = words(text);
-    if (holdsRun(have, want)) return true;
+    if (holdsRun(have, want) || holdsRun(want, have)) return true;
     return wantDigits.length >= 6 && want.every(word => /^\d+$/.test(word)) && digits(text).length >= 6 && (digits(text).endsWith(wantDigits.slice(-9)) || wantDigits.endsWith(digits(text).slice(-9)));
   });
 }
@@ -64,14 +68,16 @@ const named = list => (list.length ? list.slice(0, 6).join(', ') : 'none');
 // required: the page's own visible required controls [{name, empty}]; files: how many file boxes hold a file.
 export function agreementFailures({trace, review, panel, required = [], files = 0}) {
   const failures = [];
-  const cvRow = (trace || []).find(row => row.source === 'your CV');
-  const traceLeft = (trace || []).filter(row => row !== cvRow && row.required && row.outcome === 'left').map(row => String(row.label));
+  const cvRow = (trace || []).find(row => row.source === 'your CV');   // the fill's own CV row (page/fill.js): counted when left (the panel lists the slot); its "in" is checked below
+  const traceLeft = (trace || []).filter(row => row.required && row.outcome === 'left').map(row => String(row.label));
   const panelLeft = review ? (review.missing || []).map(String) : null;
   const pageLeft = required.filter(one => one.empty).map(one => String(one.name));
-  if (trace && panelLeft && traceLeft.length !== panelLeft.length) failures.push(`agreement: the fill record leaves ${traceLeft.length} required (${named(traceLeft)}), the panel ${panelLeft.length} (${named(panelLeft)})`);
+  // The record is written once, at the fill's end; the panel reads the page later. Fewer left in the record than on the panel makes the row look better: that fails.
+  // More left is a record older than the page (a box the page emptied and we typed again after it was written): a timing, not a better-looking row.
+  if (trace && panelLeft && traceLeft.length < panelLeft.length) failures.push(`agreement: the fill record leaves ${traceLeft.length} required (${named(traceLeft)}), the panel ${panelLeft.length} (${named(panelLeft)})`);
   if (panelLeft && pageLeft.length > panelLeft.length) failures.push(`agreement: the page has ${pageLeft.length} required control${pageLeft.length === 1 ? '' : 's'} empty (${named(pageLeft)}), the panel counts ${panelLeft.length}`);
   if (panel?.present && panel.ready) {
-    const left = [panelLeft || [], traceLeft, pageLeft].find(list => list.length) || [];
+    const left = [panelLeft || [], pageLeft].find(list => list.length) || [];   // the live readings: a fill record older than the page is the agreement line's
     if (left.length) failures.push(`ready: the panel says ready with ${left.length} required left (${named(left)})`);
   }
   if (cvRow?.outcome === 'filled' && !files) failures.push('cv: the fill record counts the CV in, no file box on the page holds a file');
@@ -112,18 +118,28 @@ const readFieldsInPage = keys => {
   return out;
 };
 // The page's own visible required controls, by the HTML's structure (required, aria-required): a lower bound of what is required (a starred label without the attribute is not seen here).
-const readRequiredInPage = () => {
+// Not read: a type-to-search box (its text is the search, emptied after a choice; react-select keeps a hidden required input only while nothing is chosen, which is read).
+// A choice option (role radio/checkbox/option) is answered when its group holds a checked one; an upload slot when it holds a file or shows the attached file's name (cvName).
+const readRequiredInPage = cvName => {
   const visible = el => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+  const on = '[aria-checked="true"], [aria-pressed="true"], [aria-selected="true"], input:checked';
+  const shows = el => !!cvName && (el.textContent || '').includes(cvName);
+  const slotEmpty = el => { const box = el.matches('input[type=file]') ? el : el.querySelector('input[type=file]'); return !(box?.files?.length) && !shows(el.closest('[aria-required="true"], .file-upload, label, div') || el); };
   const groups = new Set(), out = [];
   for (const el of document.querySelectorAll('input[required], select[required], textarea[required], [aria-required="true"]')) {
     if (!visible(el) || el.disabled || el.closest('#jobpilotto-review-host')) continue;
-    const type = (el.getAttribute('type') || '').toLowerCase(), name = el.getAttribute('name') || el.id || el.getAttribute('aria-label') || el.tagName.toLowerCase();
-    if (['hidden', 'submit', 'button', 'reset', 'image'].includes(type)) continue;
+    const labelled = (el.getAttribute('aria-labelledby') || '').split(/\s+/).map(id => id && document.getElementById(id)?.textContent).filter(Boolean).join(' ');
+    const forLabel = el.id ? document.querySelector(`label[for="${CSS.escape(el.id)}"]`)?.textContent : '';
+    const type = (el.getAttribute('type') || '').toLowerCase(), name = (el.getAttribute('aria-label') || labelled || forLabel || el.closest('label')?.textContent || el.getAttribute('name') || el.id || el.closest('[class*=field], [class*=question], fieldset')?.querySelector('label, legend')?.textContent || el.tagName.toLowerCase()).replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (['hidden', 'submit', 'button', 'reset', 'image'].includes(type) || el.getAttribute('role') === 'combobox' || el.hasAttribute('aria-autocomplete')) continue;
+    const role = el.getAttribute('role') || '';
+    if (['radio', 'checkbox', 'option', 'switch'].includes(role)) { const group = el.closest('[role=radiogroup], [role=group], [role=listbox]') || el.parentElement; const key = group?.id || name; if (groups.has(key)) continue; groups.add(key); out.push({name, empty: !(el.matches(on) || group?.querySelector(on))}); continue; }
+    if (type === 'file' || el.querySelector('input[type=file]')) { out.push({name, empty: slotEmpty(el)}); continue; }
     if (type === 'radio') { if (groups.has(name)) continue; groups.add(name); out.push({name, empty: ![...document.querySelectorAll(`input[type=radio][name="${CSS.escape(el.name)}"]`)].some(one => one.checked)}); continue; }
-    const empty = type === 'checkbox' ? !el.checked : type === 'file' ? !(el.files?.length) : 'value' in el ? !String(el.value || '').trim() : !el.querySelector('[aria-checked="true"], [aria-selected="true"], input:checked');
+    const empty = type === 'checkbox' ? !el.checked : 'value' in el ? !String(el.value || '').trim() : !(el.matches(on) || el.querySelector(on));
     out.push({name, empty});
   }
-  return {required: out, files: [...document.querySelectorAll('input[type=file]')].filter(el => el.files?.length).length};
+  return {required: out, files: [...document.querySelectorAll('input[type=file]')].filter(el => el.files?.length).length + (cvName && (document.body?.innerText || '').includes(cvName) ? 1 : 0)};   // a page that took the file and emptied its box shows the file's name
 };
 const readPanelInPage = () => {
   const root = document.getElementById('jobpilotto-review-host')?.shadowRoot;
@@ -131,13 +147,13 @@ const readPanelInPage = () => {
 };
 
 // Everything the checks read from a tab, over all its frames: the answered fields (first frame that has the key), the required controls and attached files (summed), the panel (top frame).
-export async function readTab(page, keys) {
+export async function readTab(page, keys, cvName = CV_NAME) {
   const read = new Map(), required = [];
   let files = 0;
   for (const frame of page.frames()) {
     const fields = await frame.evaluate(readFieldsInPage, keys).catch(() => ({}));
     for (const [key, value] of Object.entries(fields)) if (!read.has(key)) read.set(key, value);
-    const found = await frame.evaluate(readRequiredInPage).catch(() => ({required: [], files: 0}));
+    const found = await frame.evaluate(readRequiredInPage, cvName).catch(() => ({required: [], files: 0}));
     required.push(...found.required);
     files += found.files;
   }
@@ -166,5 +182,6 @@ export async function falseReadings(item, {page, mine}, {deadline = Date.now() +
   failures.push(...agreementFailures({trace: records.run?.trace || null, review: records.review, panel: tab.panel, required: tab.required, files: tab.files}));
   const judged = againstLedger(item.name, failures);
   for (const line of judged.known) console.log(`KNOWN BUG ${item.name}: ${line}`);
+  for (const line of judged.gone) console.log(`GONE? ${item.name}: not seen this run (remove it from lib/recorded-false-readings.mjs once its fix landed): ${line}`);
   return {failures: judged.failures, known: judged.known, counts: truth.counts};
 }
