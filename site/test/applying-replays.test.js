@@ -79,3 +79,19 @@ test('a page load reads one replays row', async () => {
   await readReplays(db);
   assert.equal(db.log.read, 1);
 });
+
+// The page never scrolls sideways (owner, 12 Oct 2026: a long Result note pushed Last 10 runs / Last run / Since off-screen). Measured in Chromium at 1280 and 390 px
+// when built; these lock the CSS that does it, for every table of the page.
+test('layout: the replays table has fixed columns that add up to the page, a note keeps to 2 lines with the rest on hover, and at phone width every table wraps', () => {
+  const css = PAGE.slice(PAGE.indexOf('<style>'), PAGE.indexOf('</style>'));
+  assert.match(css, /\.pooltable,\.fit\{table-layout:fixed\}/, 'one shared fixed-layout rule');
+  const widths = [...css.slice(0, css.indexOf('@media (max-width:640px){table')).matchAll(/\.fit th\.c-(\w+)\{width:(\d+)%\}/g)].map(match => [match[1], Number(match[2])]);
+  assert.deepEqual(widths.map(([name]) => name), ['case', 'rung', 'result', 'runs', 'last', 'since']);
+  assert.ok(widths.reduce((sum, [, width]) => sum + width, 0) <= 100);
+  assert.match(css, /\.clamp\{[^}]*-webkit-line-clamp:2/);
+  assert.match(css, /@media \(max-width:640px\)\{table td,table th\{white-space:normal!important;overflow-wrap:anywhere\}/, 'at phone width no table keeps cells on one line');
+  const cases = PAGE.slice(PAGE.indexOf('const drawCases'), PAGE.indexOf("app.append(el('section', {}, el('h2', {textContent: 'Fixed-site replays"));
+  assert.match(cases, /className: 'fit'/);
+  assert.match(cases, /className: 'muted clamp', title: c\.note/);
+  for (const name of ['c-case', 'c-rung', 'c-result', 'c-runs', 'c-last', 'c-since']) assert.ok(cases.includes(name), name);
+});
