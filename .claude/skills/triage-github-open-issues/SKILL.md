@@ -25,8 +25,12 @@ breaker had paused the AI screenshot review, the detector that found 21 of 29 re
   be undone by a person is a bug.
 - **Caught noise is the safety net working**, not the detector failing the owner: it counts in precision and lessons, never as a reason to
   stop looking.
-- **Each session moves the numbers:** the report compares this week's real and false counts with the week before (the scorecard's first
-  line). Real bugs down = the first thing to explain and fix, before any other proposal.
+- **Conclusions come from the last 2-3 days, always** (owner, 12 Oct 2026). The weekly totals (the scorecard's first line) are context, never
+  the verdict: a week mixes old builds, bursts of runs and findings the noise register caught before filing (12 Oct: "24 real vs 59 false,
+  last week 28 vs 14" looked like a collapse; per day it was ~2-3 false and 2-5 real filed, the rest register entries). Before you call a
+  detector noisy, quiet or the yield down, build the **per-day, per-detector table for the last 3 days** (real / false / not judged, filed
+  issues and noise-register entries apart) and base the conclusion on it. Say the weekly figure only beside it. Real bugs falling over those
+  3 days is still the first thing to explain and fix, before any other proposal.
 - Daily view: per day and per detector, real / false / judged-before-filing (group `classify()` of `lib/selfheal-stats.mjs` by `createdAt`
   day, the noise register included). A detector that went silent is as suspicious as one that got noisy.
 
@@ -100,7 +104,7 @@ For each issue, oldest high-severity first:
    - A figure that is missing and would change a decision (severity accuracy, escapes per detector, time to verdict): propose adding it.
 
 What to look for:
-- **Precision by detector** below ~70%, and its main cause (e.g. failed test steps closing as `fp:harness` → the tests, not the product).
+- **Precision by detector** below ~70% **over the last 2-3 days**, and its main cause (e.g. failed test steps closing as `fp:harness` → the tests, not the product).
 - **Escapes:** bugs a person found that the Finder did not (closed issues without `auto-ui`, Bug Tracker rows marked detector-miss).
 - **Severity drift:** many ↓ (the detector over-rates) or ↑ (it under-rates) for one detector.
 - **Recall:** planted bugs missed (`desktop/e2e/lib/recall.mjs`).
@@ -121,7 +125,8 @@ session's verdict files, commits and the scorecard, never from memory.
 2. **Valid issues:** | # | What was wrong | Severity (filed → judged) | Fixed in |  (a commit sha, or "open: <why>").
 3. **False positives:** | # | Detector | Why false (cause) |  plus one line on the pattern if a detector made the same mistake more than once.
 4. **Gaps found in the UI Finder:**
-   - detectors whose precision is low, and their main false-positive cause;
+   - a per-day table for the last 3 days first (detector × day: real / false / not judged, filed and register apart); the weekly figure only beside it;
+   - detectors whose precision is low over those days, and their main false-positive cause;
    - severity it got wrong (over/under-rated, by detector);
    - bugs it missed (escapes: found by a person, not the Finder; planted bugs not caught);
    - data on /self-heal that was wrong or missing.
