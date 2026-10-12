@@ -15,7 +15,7 @@ if (found.length !== Number(expected)) {
   const results = found.flatMap(file => JSON.parse(fs.readFileSync(file, 'utf8')));
   const {rows, held} = uploadable(results, extensionVersion());
   for (const one of held) console.log(`replays report: ${one.name} held back, ${one.why}`);
-  console.log(await uploadReplays(rows.map(({control, moves, ...row}) => ({...row, origin: originOfCase('recorded', row.name)}))));   // each case's origin, from its case.json
+  console.log(await uploadReplays(rows.map(({control, moves, fill, ...row}) => ({...row, origin: originOfCase('recorded', row.name)}))));   // each case's origin, from its case.json
   // The ladder moves the passing cases confirmed go to the site's learning marked source 'replay' (lib/ladder-moves.mjs), on the same rule as the table: a push to main, not a dry run.
   const moves = distinctMoves(results.filter(item => item.ok).map(item => item.moves || []));   // a replayed move is one move (the site keeps it once), whichever cases saw it
   const notNow = replayReason() || (['1', 'true'].includes(String(process.env.JP_REPLAYS_DRY || '').toLowerCase()) ? 'a dry run' : '');

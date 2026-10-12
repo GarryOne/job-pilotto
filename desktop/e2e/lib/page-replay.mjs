@@ -11,6 +11,7 @@ import {fillState} from './extension.mjs';
 import {endingOfStuck} from '../../../extension/ladder/endings.js';
 import {movesFromRequests} from './ladder-moves.mjs';
 import {falseReadings} from './replay-truth.mjs';
+import {fillSeconds} from './replay-time.mjs';
 
 export const REPLAY_DIR = path.join(E2E, 'recorded');
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -148,6 +149,6 @@ export async function runCase(item, {extensionDir} = {}) {
     const result = await judgeCase(item, {run, page: run.page, pages: () => run.context.pages().filter(open => !isExtensionPage(open)), mine: () => run.requests, all: () => run.requests, opened: () => opened});
     if (!(await run.assertIsolated())) result.failures.push('isolation');
     await fillSettled(run.page);
-    return {...result, ok: !result.failures.length};
+    return {...result, ok: !result.failures.length, fillTime: () => fillSeconds(run.requests, caseHosts(item))};   // the fill's own clock (lib/replay-time.mjs)
   } finally { await run.close(); }
 }

@@ -78,6 +78,9 @@ jobs:
     if: always() && needs.replay.result != 'cancelled' && needs.replay.outputs.ran != 'false'   # no shard replayed (this PR cannot change a replay): nothing to send, skipped = passed
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read   # main's last replay results, for the fill time below
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -94,3 +97,14 @@ jobs:
           REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}
           JP_REPLAYS_DRY: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
         run: node replays-report.mjs "$JP_REPLAY_SHARD_COUNT" $(seq -f 'results/replay-results-%g.json' 1 "$JP_REPLAY_SHARD_COUNT")
+      # A PR's fill time per case against main's last replays (desktop/e2e/replay-time.mjs, owner 12 Oct 2026): a median +1 s fails. Main's results are the last successful
+      # push run's artifacts (kept 3 days); none, or too few cases in both: it says so and passes.
+      - name: Fill time vs main
+        if: github.event_name == 'pull_request'
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          id=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow recorded-pages.yml --branch main --event push --status success --limit 1 --json databaseId -q '.[0].databaseId' || true)
+          if [ -n "$id" ]; then gh run download "$id" --repo "$GITHUB_REPOSITORY" --pattern 'replay-results-*' --dir main-results || echo "fill time: main's results of run $id could not be read"; fi
+          node replay-time.mjs --pr results/replay-results-*.json --main main-results/*/*.json   # one folder per artifact; an unmatched pattern is a missing file, skipped
