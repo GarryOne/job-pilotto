@@ -379,8 +379,8 @@ async function fillOpenedTabNow(tab, url, force = false, {fast = false, quiet = 
 // result on the page for the session to read. It then fills what's left, checks, and stops before Submit.
 async function handOff(tab, job, ticket) {
   await arm(tab.id);
-  const state = value => chrome.scripting.executeScript({target: {tabId: tab.id}, args: [JSON.stringify(value)],
-    func: text => { document.documentElement.dataset.jobpilottoFill = text; }}).catch(() => {});
+  const token = crypto.randomUUID(), state = value => chrome.scripting.executeScript({target: {tabId: tab.id}, args: [JSON.stringify(value), token, value.state],
+    func: (text, token, now) => { if (now === 'running') window.__jobPilottoFillToken = token; else if (now !== 'error' && window.__jobPilottoFillToken !== token) return; document.documentElement.dataset.jobpilottoFill = text; }}).catch(() => {});   // done only into the page this fill started on (fill-flow.js writeState); an error may come before it started
   try {
     const config = await settings();
     const checked = await api(config, '/extension/ticket', {method: 'POST', body: JSON.stringify({ticket, job})});
