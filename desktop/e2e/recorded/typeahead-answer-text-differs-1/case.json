@@ -1,0 +1,56 @@
+{
+ "shape": "a required Location search box (type to search): its options load from a server only after real keystrokes, the typed answer finds nothing, a short start finds options in another wording that the AI matches by meaning",
+ "why": "12 Oct 2026, hand-cut after a pool row: a required Location combobox left empty with 'dropdown clicked, but no option matched'; scripted typing is ignored by such a box",
+ "control": {
+  "guard": "new case; fails on the build before this change (the answer is only proposed: scripted typing finds no option)"
+ },
+ "sample": "hand-cut page (a search-as-you-type box whose options come after real keystrokes, 12 Oct 2026; no real site text)",
+ "pages": [
+  {
+   "url": "https://careers.example.test/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.95,
+   "rung": 2
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "eligibility_note": "",
+   "answers": [
+    {
+     "field": "location",
+     "value": "Geneva, Switzerland",
+     "confidence": "high",
+     "note": "",
+     "category": "normal",
+     "use": "fill"
+    }
+   ]
+  },
+  "/extension/pick-choice": {
+   "ok": true,
+   "choice": "Genève, Suisse"
+  }
+ },
+ "expect": {
+  "filled": [
+   "#location_code"
+  ],
+  "asked": [
+   "Location"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 150
+ },
+ "start": "panel"
+}
