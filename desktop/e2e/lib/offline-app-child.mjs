@@ -8,6 +8,7 @@ import {fileURLToPath} from 'node:url';
 import {guardNetwork} from './offline-guard.mjs';
 import {realClaude} from './real-claude.mjs';
 import {serveCommands} from './offline-app-commands.mjs';
+import {seedImportedCv} from './applicant-seed.mjs';
 
 const E2E = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dir = process.env.JOB_PILOTTO_USER_DATA;
@@ -24,10 +25,7 @@ const STAND_IN = {first_name: 'Test', last_name: 'Candidate', email: 'test.candi
 fs.mkdirSync(dir, {recursive: true});
 fs.copyFileSync(path.join(E2E, 'fixtures', 'cv.pdf'), path.join(dir, 'cv.pdf'));
 // The CV as the app's import keeps it (cv/cv.json, hand-made from cv.pdf, years included): the fill's <cv_facts> read it; a fill never imports (lib/server-env.js).
-if (!process.env.E2E_NO_IMPORTED_CV && !process.env.E2E_IMPORT_VIA_UPLOAD) {   // the control: an app whose CV was never imported (npm run cv-facts-cases must then miss)
-  fs.mkdirSync(path.join(dir, 'cv'), {recursive: true});
-  fs.copyFileSync(path.join(E2E, 'fixtures', 'cv.json'), path.join(dir, 'cv', 'cv.json'));
-}
+seedImportedCv(dir);   // E2E_NO_IMPORTED_CV: the control, an app whose CV was never imported (npm run cv-facts-cases must then miss)
 const {logTo} = await import('../../lib/log.js');
 logTo(path.join(dir, 'logs'));
 const {createStorage} = await import('../../lib/storage.js');

@@ -23,3 +23,13 @@ export function seedNote(caseDir, current = seedVersion()) {
   try { item = JSON.parse(fs.readFileSync(path.join(caseDir, 'case.json'), 'utf8')); } catch { /* no case: the replay says so itself */ }
   return item && item.seed !== current ? OLD_SEED : '';
 }
+
+// The imported CV (cv/cv.json, hand-made from fixtures/cv.pdf), as the app's import keeps it: the fill's <cv_facts> read it. Both apps that fill a live row seed it here
+// (the plain-node app, lib/offline-app-child.mjs; the Electron live leg, lib/apply-live.mjs): 12 Oct 2026, HelloFresh's Electron leg filled without it.
+// E2E_NO_IMPORTED_CV (the control: an app whose CV was never imported) and E2E_IMPORT_VIA_UPLOAD (the app's own import makes it) seed nothing. -> seeded?
+export function seedImportedCv(dir, env = process.env) {
+  if (env.E2E_NO_IMPORTED_CV || env.E2E_IMPORT_VIA_UPLOAD) return false;
+  fs.mkdirSync(path.join(dir, 'cv'), {recursive: true});
+  fs.copyFileSync(new URL('../fixtures/cv.json', import.meta.url), path.join(dir, 'cv', 'cv.json'));
+  return true;
+}
