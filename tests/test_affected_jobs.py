@@ -23,7 +23,7 @@ OWN_DECIDE = {'hole3': 'tools/recorded-fails-on-old.mjs lists the cases a PR bri
 FOLLOWS = {'report': "needs.replay.outputs.ran != 'false'"}   # replays to /admin/applying: runs when the replay shards ran, skipped (= passed) otherwise
 NEEDED = "steps.needed.outputs.run == 'true'"
 # Jobs of the pick no required check asks yet: each says why, and a pull request workflow still asks it first (test_an_optional_job_is_asked_by_a_pull_request_workflow).
-OPTIONAL = {'e2e-flow': 'apply + applycv on flow PRs (.github/workflows/e2e-flow.yml): optional until it proves itself on the SQLite store (owner, 13 Oct 2026)'}
+OPTIONAL = {'e2e-flow': 'apply + applyflows on flow PRs (.github/workflows/e2e-flow.yml): optional until it proves itself on the SQLite store (owner, 13 Oct 2026)'}
 
 
 def required():
@@ -181,7 +181,7 @@ class WhenInDoubtItRuns(unittest.TestCase):
     def test_the_flow_e2e_runs_for_the_extension_the_flow_files_and_its_suites_only(self):
         flow = jobs.loads('e2e-flow')
         self.assertTrue(flow, 'node lists what the flow suites load')
-        for path in ('extension/', 'desktop/lib/apply.js', 'desktop/lib/session-flow.js', 'desktop/e2e/suites/apply.mjs', 'desktop/e2e/suites/applycv.mjs', 'desktop/e2e/lib/apply-cv-steps.mjs', 'desktop/e2e/fixtures/real-forms/'):
+        for path in ('extension/', 'desktop/lib/apply.js', 'desktop/lib/session-flow.js', 'desktop/e2e/suites/apply.mjs', 'desktop/e2e/suites/applyflows.mjs', 'desktop/e2e/lib/apply-cv-steps.mjs', 'desktop/e2e/fixtures/real-forms/'):
             self.assertIn(path, flow, path)
         self.assertTrue(jobs.reasons(['extension/fill-flow.js'])['e2e-flow'])
         self.assertTrue(jobs.reasons(['.github/workflows/e2e.yml'])['e2e-flow'], 'the workflow it calls')
@@ -195,7 +195,7 @@ class WhenInDoubtItRuns(unittest.TestCase):
                   'desktop/package-lock.json', 'desktop/e2e/package-lock.json', 'some-new-folder/x.txt', 'desktop/lib/server.js', 'desktop/lib/notion.js'):
             self.assertIsNone(jobs.reasons([f])['e2e-flow'], f)
         self.assertEqual(jobs.reasons(['tools/affected-jobs.py'])['desktop'], 'tools/affected-jobs.py runs every job', 'the required jobs still run whole on a plumbing change')
-        for f in ('extension/fill-flow.js', 'desktop/lib/apply.js', 'desktop/e2e/suites/applycv.mjs', 'desktop/e2e/lib/apply-journeys.mjs', 'desktop/e2e/fixtures/real-forms/x.html',
+        for f in ('extension/fill-flow.js', 'desktop/lib/apply.js', 'desktop/e2e/suites/applyflows.mjs', 'desktop/e2e/lib/apply-journeys.mjs', 'desktop/e2e/fixtures/real-forms/x.html',
                   '.github/workflows/e2e.yml', '.github/workflows/flow-canary.yml'):
             self.assertTrue(jobs.reasons([f])['e2e-flow'], f)
 

@@ -59,7 +59,7 @@ One choice (Settings → Profile → Application assistant, `renderer/assistant-
 ## Applying flows: change one, run them all (owner, 8 + 10 Oct 2026)
 - **The journey gate**: a push touching any flow file runs the applying scenarios as event sequences (`tools/journey-gate.mjs`, `JOURNEY_TESTS` in
   `desktop/e2e/flows.mjs`, seconds, no browser). A live bug becomes a scenario in `desktop/test/journeys.test.js`, failing first.
-- Touching the decision core (`FLOW_CORE`): its steps run with every other e2e on CI (`apply`, `applycv`); the browser matrix is no push gate.
+- Touching the decision core (`FLOW_CORE`): its steps run with every other e2e on CI (`apply`, `applyflows`); the browser matrix is no push gate.
   `cd desktop && npm run flows` (~5 min) is an on-demand check for a big flow change.
 - One step locally: `E2E_STEPS='the app has an applicant,<journey>,<step>' node suite.mjs applyflows`.
 - A new scenario gets a row in `docs/flows/applying.md` and in `MATRIX`, with a step or test that fails first.

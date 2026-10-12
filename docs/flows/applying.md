@@ -1,7 +1,7 @@
 # Applying flows: the scenario matrix
 
-> **Rule (owner, 9 Oct 2026):** every row's e2e step runs with all the other e2e on CI (`apply`, `applycv`: the schedule and the beta gate). There is no push gate any more
-> (8–9 Oct it blocked pushes touching `FLOW_CORE`: one recorded catch in 186 commits, which CI's `applycv` also runs). `cd desktop && npm run flows` (~5 min) runs the whole
+> **Rule (owner, 9 Oct 2026):** every row's e2e step runs with all the other e2e on CI (`apply`, `applyflows`: the schedule, the beta gate and flow PRs). There is no push gate any more
+> (8–9 Oct it blocked pushes touching `FLOW_CORE`: one recorded catch in 186 commits, which CI's `applyflows` also runs). `cd desktop && npm run flows` (~5 min) runs the whole
 > matrix on demand, e.g. after a big change to the decision core. Any other flow file: its area's suites plus the best-fit method (AGENTS.md "Which test for which question").
 > Why: a fix for one flow (account creation) must never quietly break another (the application form). Owner, 8 Oct 2026.
 

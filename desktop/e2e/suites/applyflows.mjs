@@ -1,17 +1,22 @@
-// The journeys half of the apply suite, for the LOCAL scenario matrix (npm run flows; 8 Oct 2026): a posting whose Apply opens a new tab, two applications side by
-// side, a sign-up before the form, the account and the application on one page, a closed form tab, a wrong page kind, "I submitted it". The same steps as suites/apply.mjs
-// (runApply), on its own Notion page and token (E2E_NOTION_TOKEN_APPLYFLOWS, Keychain job-pilotto.e2e.notion_token_applyflows), so it runs in parallel with `apply`.
-// CI does not schedule it: GitHub's Free plan allows 5 macOS jobs and this needs the Mac (`open` to Chrome, the Keychain), so CI runs these steps inside applycv.
+// The journeys half of the apply suite (docs/flows/applying.md): a posting whose Apply opens a new tab, then a "To apply" step; two applications side by side; a sign-up
+// and a sign-in before the form; menus worded differently; an upload slot behind +; collapsed sections; the account and the application on one page; a closed form tab;
+// a second browser; a wrong page kind; "I submitted it". `apply` runs the single forms and the tailored CV. One suite everywhere (13 Oct 2026: it was two copies, applycv
+// on CI and applyflows on the Mac, with the same steps):
+//   - CI (flow PRs via e2e-flow.yml, the schedule, the release and Windows gates): the API proxy's replayed answers, the default 7-minute budget, a macOS runner.
+//   - A Mac (`npm run flows`, the scenario matrix): this Mac's Claude Code (lib/engine.mjs flowsEngine; LIVE_ENGINE=api|cli overrides), a 10-minute budget (a first run
+//     builds the workspace with the wizard's path). `npm run live` (LIVE=1): the live run on a real posting instead of the journeys.
+// Its own Notion token either way (E2E_NOTION_TOKEN_APPLYFLOWS: a CI secret; Keychain job-pilotto.e2e.notion_token_applyflows on a Mac).
 import {runApply, stepNeeds as applyNeeds} from './apply.mjs';
 import {flowsEngine} from '../lib/engine.mjs';
 
+const ci = !!process.env.CI;
 export const stepNeeds = applyNeeds;   // what a step needs when E2E_STEPS picks it (lib/runner.mjs wantedWords)
 
 export const varies = true;
-export const minutes = 12;
-export const budgetMinutes = 10;   // a manual suite may ask for more than 7: its first run builds the workspace once with the wizard's path
-export const cadence = 'manual';   // never chosen by a push or a schedule (lib/plan.mjs); the scenario matrix names it
+export const minutes = 20;   // CI's job limit: a first attempt may use the 7-minute budget and the retry ('once more, to tell flaky from real') another 7, plus setup
+export const budgetMinutes = ci ? undefined : 10;   // a Mac's first run builds the workspace once with the wizard's path; CI keeps the default 7
 export const browser = true;
-export const engine = flowsEngine();   // a live run: this Mac's Claude Code (its own flags and image support), never the proxy's placeholder key; LIVE_ENGINE=api|cli overrides (lib/engine.mjs)
+export const engine = ci ? 'api' : flowsEngine();   // CI: the proxy answers the app's AI calls; a Mac: its own Claude Code, never the proxy's placeholder key
+export const macos = true;   // runs on a macOS runner: the real Chrome extension, opened through `open` as on a Mac (lib/plan.mjs runnerOf)
 export const name = 'applyflows';
-export const run = ctx => runApply(ctx, process.env.LIVE ? ['live'] : ['flows']);   // LIVE=1: the live run on a real posting (npm run live), not the matrix
+export const run = ctx => runApply(ctx, process.env.LIVE ? ['live'] : ['flows']);   // LIVE=1: the live run on a real posting (npm run live), not the journeys

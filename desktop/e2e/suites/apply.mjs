@@ -29,7 +29,7 @@ export const name = 'apply';
 
 
 // Parts of this file (6 Oct 2026, the 7-minute budget; the journeys split off on 8 Oct 2026): `apply` fills the forms and runs the tailored-CV and kitless-Apply
-// steps (moved here 9 Oct 2026: with them applycv ran over 7 minutes); `applycv` (suites/applycv.mjs) runs the journeys across pages and tabs (docs/flows/applying.md:
+// steps (moved here 9 Oct 2026: with them applycv ran over 7 minutes); `applyflows` (suites/applyflows.mjs) runs the journeys across pages and tabs (docs/flows/applying.md:
 // a posting that opens a new tab, two applications side by side, a sign-up before the form, account + form on one page, a closed tab, a wrong kind), which is how
 // CI runs them within its 5 macOS jobs (test/apply-parts.test.mjs: each part in exactly one of them); `applyflows`
 // (suites/applyflows.mjs, manual) runs only the journeys, so the local scenario matrix runs forms and journeys in parallel. Each has its own Notion page and token.

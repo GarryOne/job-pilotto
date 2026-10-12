@@ -134,8 +134,13 @@ export async function runJourneys(ctx, h) {
     for (let waited = 0; waited < 60000; waited += 500) { if (tab.url().startsWith(SIGNUP.formUrl)) { state = await fillState(tab).catch(() => null); if (state?.state === 'done' || state?.state === 'error') break; } await pause(500); }
     if (state?.state !== 'done') problems.push(`the application form after the sign-up was not filled (at ${tab.url()}, state ${JSON.stringify(state)})`);
     else {
-      const read = (await readForm(tab)).question_3001, value = String(read?.value ?? read ?? '');
-      if (value !== '5') problems.push(`the form after the sign-up has Kubernetes years "${value}", its kit says 5`);
+      // The fill's last pass (the read-back after the page settled, ~0.8 s) can commit the box just after "done" is written (13 Oct 2026, flow e2e on #558: read 50 ms
+      // before it): the value has 5 s to land, and a wait is said, so a slower fill stays visible.
+      let value = '';
+      const since = Date.now();
+      for (let waited = 0; waited <= 5000 && value !== '5'; waited += 250) { const read = (await readForm(tab)).question_3001; value = String(read?.value ?? read ?? ''); if (value !== '5') await pause(250); }
+      if (value === '5' && Date.now() - since > 300) console.log(`  the Kubernetes years box held its answer ${Date.now() - since} ms after the fill said done`);
+      if (value !== '5') problems.push(`the form after the sign-up has Kubernetes years "${value}" 5 s after the fill said done, its kit says 5`);
     }
     for (let waited = 0; waited < 20000 && at?.stage !== 'form'; waited += 1000) { at = await session(); await pause(1000); }
     if (at?.stage !== 'form') problems.push(`on the application form the session did not move to the form step (stage: ${at?.stage})`);
@@ -444,11 +449,13 @@ export async function runJourneys(ctx, h) {
     const problems = [];
     try {
       await second.serviceWorker();
-      // Proof the second browser reached the app (its own report), then a minute of its empty reports: one every 30 s.
+      // Proof the second browser reached the app (its own report), then one full report cycle after it (its reports come every 30 s, extension/tab-report.js):
+      // its second empty report lands inside the window. 35 s, not the minute it was (13 Oct 2026: 79 s, a third of applycv's steps); the two-browser logic
+      // itself is desktop/test/tab-identity.test.js's matrix.
       let reached = false;
       for (let waited = 0; waited < 60000 && !reached; waited += 1000) { reached = /another browser run reports its tabs/.test(appLogText(ctx.profile).slice(before)); await pause(1000); }
       if (!reached) problems.push('the second browser never reported its tabs to the app ("another browser run reports its tabs" missing): the row proves nothing');
-      for (let waited = 0; reached && waited < 65000; waited += 2000) {
+      for (let waited = 0; reached && waited < 35000; waited += 2000) {
         if (!(await openNow())) { problems.push(`the form was shown closed after the second browser reported (${Math.round(waited / 1000)} s in)`); break; }
         await pause(2000);
       }
