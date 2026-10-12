@@ -37,6 +37,11 @@ Older builds are `0.4.0-alpha.N`; the updater and the release tools still order 
    tools/release-stable.sh                              # the newest build
    tools/release-stable.sh desktop-v0.5.3      # a specific one
    ```
+   **A beta that both platforms approved is promoted as it is** (owner, 12 Oct 2026, the manual hot path): the same tag, the same version, the same build. The script reads the
+   release notes, and when `Beta-approved:` (Mac) and `Beta-approved (Windows):` both name this build's commit it asks for no fresh run. `FRESH_E2E=1 tools/release-stable.sh <tag>`
+   asks for one as before. The canary and a staged rollout come with more installs (about 5 now); the daily auto-promote and the e2e promote job keep the rules below.
+   Without both approval lines (a build the beta gate never approved), the rule below applies.
+
    The **end-to-end journey** is the gate, and it runs here rather than on every push: the script needs a green run of *that build's commit*, no older than two
    days. With none, it **starts one on the tag and waits for it** (about 15 minutes), then decides by its result; a red one stops the promotion. (A schedule
    runs it twice a day; a push runs only the suites whose files changed; see `desktop/e2e/README.md`.) `E2E_NO_START=1` (the daily canary auto-promote, which

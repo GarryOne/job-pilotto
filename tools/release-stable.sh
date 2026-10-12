@@ -29,10 +29,19 @@ is ${own} bytes, Job-Pilotto-windows-x64.exe is ${generic}. Promote a build whos
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # E2E_ALREADY_GREEN=1: the promote job of e2e.yml, which runs after every suite of the nightly run passed on this build's commit (that run is still in progress, so it
 # cannot be looked up; it is its own proof). DRY_RUN=1 prints what would happen and changes nothing.
+sha=$(gh api "repos/$repo/commits/$tag" -q .sha)
+# A manual promotion (the hot path) takes the beta's approval as the proof, for the SAME tag, version and build (owner, 12 Oct 2026: a beta approved on both platforms goes to stable as
+# it is, with no fresh run; the canary and a staged rollout come with more installs). Both Beta-approved lines in the release notes must name this commit. FRESH_E2E=1 asks for a
+# fresh end-to-end run as before; the daily auto-promote and the e2e promote job keep their own rules.
+beta=none
+if [ "${E2E_ALREADY_GREEN:-0}" != 1 ] && [ "${E2E_NO_START:-0}" != 1 ] && [ "${FRESH_E2E:-0}" != 1 ] && [ "${SKIP_E2E:-0}" != 1 ]; then
+  beta=$(gh release view "$tag" -R "$repo" --json body -q .body | python3 "$here/e2e_gate.py" beta "$sha" || echo none)
+fi
 if [ "${E2E_ALREADY_GREEN:-0}" = 1 ]; then
   echo "End-to-end (Mac + Linux): green (the run that is promoting it)."
+elif [ "$beta" = green ]; then
+  echo "End-to-end: green, by the beta's approval of this exact build ($tag, commit ${sha:0:7}: Mac and Windows both approved it; no fresh run). FRESH_E2E=1 asks for one."
 elif [ "${SKIP_E2E:-0}" != 1 ]; then
-  sha=$(gh api "repos/$repo/commits/$tag" -q .sha)
   mode=commit; branch=(); [ "${E2E_NO_START:-0}" = 1 ] && { mode=latest; branch=(--branch main); }
   gate() { gh run list -R "$repo" --workflow=e2e.yml ${branch[@]+"${branch[@]}"} --status completed -L 30 --json conclusion,headSha,createdAt | python3 "$here/e2e_gate.py" "$sha" "$mode"; }
   verdict=$(gate)
