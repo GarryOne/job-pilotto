@@ -443,3 +443,18 @@ test('no retry: no layer, a confident answer, a named route or button, an email,
   assert.equal(await count({...noWay, apply_button: 'Easy apply', apply_button_kind: 'apply'}, {...accountLayer, buttons: [...accountLayer.buttons, 'Easy apply']}), 1, 'a button named');
   assert.equal(await count(noWay, {...accountLayer, onTop: {...accountLayer.onTop, buttons: []}}), 1, 'a layer with no buttons');
 });
+
+test('a weak answer is used for this visit but never remembered as sure; one already remembered is asked again (owner, 12 Oct 2026)', async () => {
+  // The owner's email-only sign-in page: "account", confidence 0.6, no step. Kept, it was replayed as confident forever and nothing climbed.
+  const calls = [], cache = cacheIn();
+  const weak = await pageKind(fake({kind: 'account', confidence: 0.6, account_step: ''}, calls), coop, cache);
+  assert.equal(weak.kind, 'account', 'still this visit\'s answer');
+  assert.equal(cache.get(kindKey(coop)), null, 'not kept: the next visit asks again');
+  cache.set(kindKey(coop), {kind: 'account', confidence: 0.6, at: '2026-10-11T02:02:47Z', accountButton: 'Continue'});   // kept by an older build
+  const again = await pageKind(fake({kind: 'account', confidence: 0.95, account_step: 'sign_in'}, calls), coop, cache);
+  assert.deepEqual([again.by, again.accountStep], ['ai', 'sign_in'], 'a weak kept answer is asked again, not replayed');
+  assert.equal(cache.get(kindKey(coop))?.accountStep, 'sign_in', 'the sure answer is kept');
+  const stepless = cacheIn();
+  await pageKind(fake({kind: 'account', confidence: 0.95, account_step: ''}), coop, stepless);
+  assert.equal(stepless.get(kindKey(coop)), null, 'an account page with no step is not sure what to do: not kept');
+});

@@ -36,6 +36,10 @@ const norm = text => clean(text, 40).toLowerCase();
 export const pressedBefore = (list, text) => !!norm(text) && (list || []).some(item => norm(item) === norm(text));
 export const noEffectLine = list => (list?.length ? `Pressed already and nothing happened (never name these again; name another way to start the application): ${list.join(' | ')}` : '');
 export const MIN_CONFIDENCE = 0.6;   // below it the structure rule decides, and the page is asked again next time
+// Kept for the shape only when sure (owner, 12 Oct 2026: a weak answer is never kept as sure: "account", 0.6, no step was replayed as confident
+// forever, so nothing climbed). Weak: under 0.8, or an account page with no step (it is not sure what to do there). Used this visit, asked again the next.
+export const KEEP_FROM = 0.8;
+export const sureToKeep = entry => Number(entry?.confidence) >= KEEP_FROM && !(entry?.kind === 'account' && !entry?.accountStep);
 
 export const SCHEMA = {type: 'object', additionalProperties: false, required: ['kind', 'confidence', 'apply_button', 'apply_button_kind', 'apply_route', 'apply_by', 'apply_email', 'form_frame', 'account_step', 'register_control', 'signin_control', 'account_button', 'bot_check'], properties: {
   kind: {type: 'string', enum: KINDS},
@@ -156,7 +160,7 @@ async function pageKindOnce(client, raw, cache, {now = Date.now(), fresh = false
   if (taught && !taught.askAgain && KINDS.includes(taught.kind)) return {kind: taught.kind, role: ROLE[taught.kind], confidence: 1, by: 'learned', rung: 1, signal: 'confident', shape, learnedBy: taught.by, outcome: taught.outcome, applyButton: '', accountStep: '', registerControl: '', signinControl: '', accountButton: ''};
   const stored = fresh ? null : cache?.get(shape);
   // A kept posting (or other page) is asked again when this page carries an address: a later posting of the shape may apply by email (one AI call, only on pages with an address). A kept form is final.
-  const kept = stored && pageSketch(raw).mails.length && !['form', 'account-form', 'account'].includes(stored.kind) ? null : stored;
+  const kept = !sureToKeep(stored) || (pageSketch(raw).mails.length && !['form', 'account-form', 'account'].includes(stored.kind)) ? null : stored;   // a weak kept answer (older build) is asked again
   if (kept && KINDS.includes(kept.kind)) return {kind: kept.kind, role: ROLE[kept.kind], confidence: kept.confidence, by: 'remembered', rung: 1, signal: 'confident', shape, applyButton: kept.applyButton || '', accountStep: kept.accountStep || '', registerControl: kept.registerControl || '', accountButton: kept.accountButton || '', signinControl: kept.signinControl || ''};
   if (!client) return {error: 'no AI', shape};
   const page = pageSketch(raw);
@@ -210,7 +214,7 @@ async function pageKindOnce(client, raw, cache, {now = Date.now(), fresh = false
     if (answer.bot_check === true) return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', shape, usd, botCheck: true, applyButton: '', accountStep: '', registerControl: '', signinControl: '', accountButton: '', applyRoute: ''};
     // An email outcome is about this posting (its address), a start step a passing state: neither is kept for the shape.
     // A start step is a passing state of the posting, never kept for its shape (the next visit starts from the plain Apply, as a bot check does).
-    if (!applyRoute && applyBy !== 'email') cache?.set(shape, {kind: answer.kind, confidence, at: new Date(now).toISOString(), ...(applyButton ? {applyButton} : {}),
+    if (!applyRoute && applyBy !== 'email' && sureToKeep({kind: answer.kind, confidence, accountStep})) cache?.set(shape, {kind: answer.kind, confidence, at: new Date(now).toISOString(), ...(applyButton ? {applyButton} : {}),
       ...(accountStep ? {accountStep} : {}), ...(registerControl ? {registerControl} : {}), ...(signinControl ? {signinControl} : {}), ...(accountButton ? {accountButton} : {})});
     return {kind: answer.kind, role: ROLE[answer.kind], confidence, by: 'ai', rung: 2, signal: 'confident', shape, usd, applyButton, applyRoute, applyBy, applyEmail, formFrame, ...(dropped ? {dropped} : {}), accountStep, registerControl, signinControl, accountButton};
   } catch (error) {
