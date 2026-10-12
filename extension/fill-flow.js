@@ -28,6 +28,7 @@ import {forgetRouteTries, startRoute} from './start-route.js';
 import {emailReport, mailsOf} from './ladder/outcomes.js';
 import {brokenOf, onBrokenPage} from './ladder/site-broken.js';
 import {deadEnd, useReporter} from './ladder/dead-end.js';
+import {notePage, noteProgress, useProgressLog} from './ladder/progress.js';
 import {onTop} from './on-top.js';
 import {candidatesOf, claimFrame, climbOnStall, confirmedBody, frameBecameCandidate, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, notePressed, noteSignal, otherReport, takePressed, toldReport, verifiedBody} from './ladder/climb.js';
 
@@ -183,6 +184,7 @@ export async function stuck(job, host, why, tabId = null, page = '', needs = '',
   try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why, needs: String(needs || '').slice(0, 80), accountStep: String(accountStep || '').slice(0, 16), tab: tabId, session, page: String(page || '').split('#')[0]})}); } catch { /* the app is closed */ }
 }
 useReporter(stuck);   // the only way to it: every give-up goes through ladder/dead-end.js deadEnd (worker/test/dead-end.test.js)
+useProgressLog(decide);   // the run's progress, in shadow (ladder/progress.js): the silent dead-end rule's T is measured from these lines
 // A give-up on this page: the one door (ladder/dead-end.js), with what led here as fixed values.
 const deadEndHere = (tab, jobUrl, host, why, needs, evidence) => deadEnd({job: String(jobUrl || tab.url).split('#')[0], host, why, tabId: tab.id, page: tab.url, needs}, evidence, decide);
 const triedApply = new Set();
@@ -221,6 +223,7 @@ async function watchForFields(tab, jobUrl, wait = ms => new Promise(resolve => s
     if (framed) await forgetKind(tab, null, newHost ? 'a frame appeared' : 'a frame became a form-frame candidate');   // a kept answer for this page shape never saw the frame (Datadog: it grew; Ocado: the Apply press opened it)
     let host = ''; try { host = new URL(live.url).hostname; } catch { /* no address */ }
     decide('fill', framed ? 'a frame appeared on a page judged without a form: looking again' : 'fields appeared on a page judged without a form: looking again', {host, fields: shape.fields + shape.textareas + shape.files, frames: shape.frames || 0, after: (i + 1) * 2});
+    noteProgress(tab.id, 'new_controls', {fields: shape.fields + shape.textareas + shape.files, frames: shape.frames || 0});
     await arm(tab.id, 'fields appeared');
     await consider(live, jobUrl);
     return true;
@@ -241,6 +244,7 @@ export async function consider(tab, jobUrl) {
   const key = fillKey(tab.id, tab.url);
   if (started.has(key)) return;
   started.add(key);
+  notePage(tab.id, key);   // a new page in the tab is progress (ladder/progress.js)
   await pageStill(tab.id, {maxMs: 1500});   // the form renders after the load event: read once the page has been still 0.5 s, at most the old 1.5 s (page-still.js)
   const live = await chrome.tabs.get(tab.id).catch(() => null);
   if (!live || pageKey(live.url) !== pageKey(tab.url)) { started.delete(key); return; }
@@ -413,6 +417,7 @@ export async function consider(tab, jobUrl) {
   await writeState(tab.id, result?.error ? {state: 'error', error: String(result.error).slice(0, 160)}
     : {state: 'done', filled: result?.filled || 0, left: (result?.todo || []).length, todo: (result?.todo || []).slice(0, 20)});
   reportFlow(tab, {role: 'form', ok: !result?.error});
+  const requiredIn = (result?.trace || []).filter(row => row.required && row.outcome === 'filled').length; if (!result?.error && requiredIn) noteProgress(tab.id, 'required_down', {filled: requiredIn});
   const filledProof = !result?.error && result?.filled > 0 && !pressed && !noted ? confirmedBody(kind?.role === 'form' ? kind : null, tab.url, controlsOf(tab.id), 'filled') : null;   // the page took the fill: the decision that called it a form is counted (a kind the structure overrode is the rule's, rung 0)
   for (const proof of filledProof ? [filledProof, carried].filter(Boolean) : []) api(await settings(), '/extension/page-kind', {method: 'POST', body: JSON.stringify(proof)}).catch(() => {});
   // A fill that put nothing in and left required fields open has no next move of its own (Deloitte's "how will you give your CV" step, 9 Oct 2026: "Form open",
