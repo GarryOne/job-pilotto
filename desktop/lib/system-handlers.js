@@ -13,11 +13,11 @@ import {SECRET_NAMES} from './storage.js';
 import {log as appLog} from './log.js';
 
 export function registerSystemHandlers(ctx) {
-  const {DEMO, about, app, backupNow, dialog, handleImportant, ipcMain, mediaAccess, getResetDone, restartApp, shell, storage, systemPreferences, getWindow} = ctx;
+  const {DEMO, about, app, backupNow, dialog, handleImportant, ipcMain, mediaAccess, getResetDone, restartApp, shell, storage, getWindow} = ctx;
   let resetTold = false;   // the window is told once about a reset or import that was applied at start
   // macOS privacy: the recorder needs the microphone, and Screen & System Audio Recording for the call's audio.
   // In development (npm start) macOS may list the terminal that started the app instead of Electron.
-  ipcMain.handle('mediaAccess', () => (DEMO ? {microphone: 'granted', screen: 'granted', dev: false} : {microphone: systemPreferences.getMediaAccessStatus('microphone'),
+  ipcMain.handle('mediaAccess', () => (DEMO ? {microphone: 'granted', screen: 'granted', dev: false} : {microphone: mediaAccess('microphone'),
     screen: mediaAccess('screen'), dev: !app.isPackaged}));
   ipcMain.handle('openPrivacy', (_, kind) => shell.openExternal(process.platform === 'win32' ? 'ms-settings:privacy-microphone'
     : `x-apple.systempreferences:com.apple.preference.security?Privacy_${kind === 'screen' ? 'ScreenCapture' : 'Microphone'}`));

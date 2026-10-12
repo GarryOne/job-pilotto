@@ -271,7 +271,7 @@ function handlers() {
   registerInterviewHandlers({appLog, calltap, cloud, DEMO, dialog, dispatchCloud, handleImportant, here, interviews, ipcMain, needsNotion, notify, reminders,
     sharedRead, shell, storage, toWindow, viewCache, getWindow: () => window});   // the Interviews page (lib/interview-handlers.js)
   registerLeadsHandlers({DEMO, aiReady, app, clipboard, ipcMain, log, nativeImage, needsNotion, storage, toWindow});   // lib/leads-handlers.js
-  registerSystemHandlers({DEMO, about, app, backupNow, dialog, handleImportant, ipcMain, mediaAccess, getResetDone: () => resetDone, restartApp, shell, storage, systemPreferences, getWindow: () => window});   // lib/system-handlers.js
+  registerSystemHandlers({DEMO, about, app, backupNow, dialog, handleImportant, ipcMain, mediaAccess, getResetDone: () => resetDone, restartApp, shell, storage, getWindow: () => window});   // lib/system-handlers.js
   registerFocusHandlers({DEMO, aiReady, app, applyTheme, clearlyTechnical, here, ipcMain, log, needsNotion, settingsDeps, storage, toWindow, track});   // lib/focus-handlers.js
   const {prepareKitFor, tailorCv} = registerKitHandlers({allowanceBlock, cloud, dispatchCloud, ipcMain, keepLook, log, needsNotion, notify, openTailoredCv, printPdf, storage, track});   // lib/kit-handlers.js
   registerSessionHandlers({ipcMain, appLog, storage, getWindow: () => window, dialog, nativeImage, here,
@@ -366,9 +366,9 @@ async function claudeConsent() {
   return true;
 }
 
-// Screen capture needs a permission only on the Mac; Windows lets any app capture the screen and its audio.
+// Screen capture needs a permission only on the Mac; Windows lets any app capture the screen and its audio; Linux has no getMediaAccessStatus: nothing is denied.
 function mediaAccess(type) {
-  return process.platform === 'darwin' || type !== 'screen' ? systemPreferences.getMediaAccessStatus(type) : 'granted';
+  return typeof systemPreferences.getMediaAccessStatus !== 'function' || (process.platform !== 'darwin' && type === 'screen') ? 'granted' : systemPreferences.getMediaAccessStatus(type);
 }
 
 // The interview recorder asks for the screen's audio (the call). Chromium captures system audio on macOS 13+

@@ -130,9 +130,9 @@ export async function run(ctx) {
     await page.waitForSelector('#job-panel:not([hidden]) [data-job-tab]', {timeout: 30000})
       .catch(async () => { throw new Error(`the job page has no tabs: ${await page.evaluate(() => document.getElementById('job-panel')?.textContent.slice(0, 200))}`); });
     const tabs = await page.evaluate(() => [...document.querySelectorAll('#job-panel [data-job-tab]')].map(tab => tab.dataset.jobTab));
-    if (tabs.join() !== 'kit,prep,history') throw new Error(`tabs: ${tabs.join()}`);
+    if (tabs.join() !== 'overview,match,description,application,interviews,review,messages,timeline') throw new Error(`tabs: ${tabs.join()}`);
     const shown = async tab => { await page.click(`#job-panel [data-job-tab="${tab}"]`); return page.evaluate(() => document.getElementById('job-panel').textContent); };
-    for (const [tab, words] of [['kit', 'E2E three months'], ['prep', 'E2E who is on call?'], ['history', 'E2E applied with the extension']]) {
+    for (const [tab, words] of [['application', 'E2E three months'], ['application', 'E2E who is on call?'], ['timeline', 'E2E applied with the extension']]) {   // Kit and Prep live in Application, History is the Timeline (job drawer, 10 Oct 2026)
       if (!(await shown(tab)).includes(words)) throw new Error(`${tab} does not show "${words}"`);
     }
     if (await page.evaluate(() => !!document.querySelector('#job-panel button.link')?.textContent.includes('Notion'))) throw new Error('"Open in Notion" on the SQLite store');
