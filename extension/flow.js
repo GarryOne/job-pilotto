@@ -6,7 +6,7 @@ import {clickCombo} from './combo-click.js';
 import {typeNotTakenOnTab} from './fill-verify.js';
 import {kitStance} from './tab-pages.js';
 import {fillCard} from './fill-card.js';
-import {settleTrace} from './trace-settle.js';
+import {readBackCounts, settleTrace} from './trace-settle.js';
 import {expandSections} from './sections.js';
 import {PAGE_FILES} from './page-files.js';
 import {hasEarly, keepEarly, takeEarly} from './early-answers.js';
@@ -404,7 +404,10 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   // Every field's outcome as the page holds it once all passes are done (extension/trace-settle.js).
   const finalForm = await inPage(tab.id, () => window.__jobPilottoDescribeForm?.(true)).catch(() => null);   // settled: a real first choice is an answer
   const gaveUp = await inPage(tab.id, () => window.__jobPilottoRetypeGaveUp?.() || []).catch(() => []);
-  summary.trace = settleTrace(summary.trace || [], Array.isArray(finalForm) ? finalForm : [], gaveUp);
+  // Rung 0 of the fill ladder: the one read of every control once the page settled (page/read-back.js), written on each control; the trace takes it, so it says what the panel says.
+  const readBack = await inPage(tab.id, () => window.__jobPilottoReadBack?.pass() || []).catch(() => []);
+  if (readBack.length) decide('fill', 'read back after the page settled', readBackCounts(readBack)).catch(() => {});
+  summary.trace = settleTrace(summary.trace || [], Array.isArray(finalForm) ? finalForm : [], gaveUp, Array.isArray(readBack) ? readBack : [], (me?.resume || config.resume)?.name || '');
   // One anonymous record of this fill for the learning digest (fill-card.js: counts and fixed words), and its id on the page so
   // the panel can add, at Submit, what you answered yourself.
   summary.card = fillCard({id: crypto.randomUUID(), trace: summary.trace || [], form: debug.form || [],

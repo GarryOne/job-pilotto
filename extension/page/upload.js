@@ -44,7 +44,8 @@
       // The title is the field's text outside the widget itself; a widget alone in its field has only its own words.
       const title = clean(Array.from(slot.el.children).filter(el => el !== child).map(textOf).join(' ')) || clean(textOf(slot.el));
       const hints = slot.input ? `${slot.input.getAttribute('aria-label') || ''} ${slot.input.name || ''} ${slot.input.id || ''}` : '';
-      const holds = !!(slot.input?.files?.length) || !!slot.el.dataset.jobpilottoFile || NAMED.test(textOf(slot.el));
+      // Holds a file: the one reading (page/read-back.js): the input's file, or a file name the slot shows; this extension's own mark alone is not a file (one truth with the panel).
+      const holds = (slot.input && window.__jobPilottoReadBack ? window.__jobPilottoReadBack.fileState(slot.input) : NAMED.test(textOf(slot.el)) ? 'committed' : 'empty') === 'committed';
       return {...slot, title: title.slice(0, 160), hints, fp: fingerprintOf(slot.el), filled: holds,
         required: /\*/.test(title) || !!slot.input?.required || slot.input?.getAttribute('aria-required') === 'true' || slot.trigger?.getAttribute('aria-required') === 'true'};
     });

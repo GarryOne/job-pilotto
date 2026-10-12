@@ -26,10 +26,14 @@ test('a real choice is an answer, a blank one is not, in every reader; before a 
   window.close();
 });
 
-test('the panel and flow.js read menus by the same rule', () => {
+test('every reader reads menus by the one rule (page/read-back.js), and no copy of it is left', () => {
   const read = path => fs.readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
-  const rule = read('extension/page/browser-form-fastpath.js').match(/window\.__jobPilottoChosen = el => (.+);\n/)[1];
-  assert.ok(read('extension/review.js').includes(`el.tagName === 'SELECT' ? ${rule} :`), 'review.js carries the same expression');
+  assert.match(read('extension/page/read-back.js'), /const chosen = el => \(o => !!o && !o\.disabled/, 'the one reader holds the rule');
+  assert.match(read('extension/page/read-back.js'), /window\.__jobPilottoChosen = chosen/, 'under the name the audit and coverage.js call');
+  for (const path of ['extension/review.js', 'extension/account-fill.js', 'extension/page/browser-form-fastpath.js', 'tools/browser-form-fastpath.js']) {
+    assert.doesNotMatch(read(path), /o\.index === 0 && \/\^\(\|0\|-1\)\$\//, `${path} keeps no copy of the menu rule`);
+    assert.match(read(path), /__jobPilottoReadBack/, `${path} asks the one reader`);
+  }
   assert.match(read('extension/flow.js'), /window\.__jobPilottoDescribeForm\?\.\(true\)/, 'the end of a fill reads settled');
   assert.match(read('extension/page/coverage.js'), /window\.__jobPilottoChosen\(el\)/);
 });

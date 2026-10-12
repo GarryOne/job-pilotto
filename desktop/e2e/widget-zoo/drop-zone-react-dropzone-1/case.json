@@ -1,0 +1,42 @@
+{
+ "widget": "drop_zone",
+ "shape": "the real react-dropzone 14.2.3 (vendored): a visually hidden file input in a presentation drop zone; a taken file is shown as a chip with its name",
+ "why": "widget zoo, real libraries (spec docs/superpowers/specs/2026-10-12-fill-ladder.md, amendments 4 and 6): the uploader Ashby-style forms use (Ashby is 28% of matched jobs); the CV must be attached AND the fill's record and the panel must both say so",
+ "pages": [
+  {
+   "url": "https://drop-zone-react-dropzone-1.zoo.example.com/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": true,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  }
+ },
+ "expect": {
+  "present": [
+   ".file-chip"
+  ],
+  "traced": [
+   "CV:filled"
+  ],
+  "notPending": [
+   "Resume"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 30
+ },
+ "start": "panel"
+}

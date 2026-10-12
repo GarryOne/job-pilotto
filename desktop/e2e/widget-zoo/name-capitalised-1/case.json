@@ -1,0 +1,55 @@
+{
+ "widget": "text",
+ "shape": "a text box that writes what was typed in capitals as it is typed (Zurich shown as ZURICH)",
+ "why": "widget zoo (spec docs/superpowers/specs/2026-10-12-fill-ladder.md, amendment 4): a page that reformats what was typed must stay committed in the fill's record and the panel (one truth), never a mismatch, a retype or a 'left' row",
+ "pages": [
+  {
+   "url": "https://name-capitalised-1.zoo.example.com/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": false,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "city",
+     "question": "City of residence",
+     "value": "Zurich",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "asked": [
+   "City of residence"
+  ],
+  "filled": [
+   "#city"
+  ],
+  "traced": [
+   "City of residence:filled"
+  ],
+  "notPending": [
+   "City of residence"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 30
+ },
+ "start": "panel"
+}

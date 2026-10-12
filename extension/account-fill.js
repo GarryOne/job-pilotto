@@ -87,33 +87,29 @@ export function pressAccountButton(named = '') {
 export function accountSketch() {
   const shown = el => el.getClientRects().length > 0 && !el.closest('[id^=jobpilotto], [id^=job-pilotto]');   // never the extension's own UI (desktop/e2e/test/own-ui-not-read.test.mjs)
   const clean = (value, max) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
-  // A picklist's choice, read as the panel reads it (review.js comboFilled, page/browser-form-fastpath.js __jobPilottoChosen): a menu on a real option, not its first-option
-  // placeholder ('', 0, -1); a combobox whose chip (react-select) or labelled hidden input holds the choice in the field's own area (up 4 boxes, never into another field's).
-  // Its own value is only typed search text. Guard: desktop/e2e/test/judge-sketch-picklist.test.mjs (11 Oct 2026: a chosen Country read "empty" to the form judge).
-  const given = el => el.tagName === 'SELECT' ? (o => !!o && !o.disabled && !o.hidden && !!o.text.trim() && !(o.index === 0 && /^(|0|-1)$/.test(o.value)))(el.options[el.selectedIndex])
-    : el.getAttribute('role') === 'combobox' ? (() => {
-      for (let box = el.parentElement, i = 0; box && i < 4 && box.querySelectorAll('input:not([type=hidden]), select, textarea').length <= 1; box = box.parentElement, i++)
-        if (box.querySelector('[class*=single-value], [class*=multi-value]') || [...box.querySelectorAll('input[type=hidden][id]')].some(h => h.value && document.querySelector(`label[for="${CSS.escape(h.id)}"]`))) return true;
-      return false;
-    })() : !!String(el.value || '').trim() && !/^\+\d{1,4}$/.test(String(el.value).trim());   // only a country code (a phone widget's own "+972") is empty
+  // A control's state is the one reading the panel and the fill use (page/read-back.js; judge-sketch.js loads it first): a menu on a real option, a picklist by its chip or labelled
+  // hidden input (its own value is only typed search text), a box holding more than a calling code, an upload slot by the file it shows (the extension's own mark alone is no file).
+  // Guards: desktop/e2e/test/judge-sketch-picklist.test.mjs (11 Oct 2026: a chosen Country read "empty"), worker/test/read-back.test.js.
+  const read = el => window.__jobPilottoReadBack ? window.__jobPilottoReadBack.stateOf(el) : 'unknown';
+  const given = el => ['committed', 'mismatch'].includes(read(el));   // it holds something; whether it is what the fill gave it is the match below
   // A field the page gives no label is named as the panel and the fill trace name it (page/fill-labels.js labelOf, in the page's own world: form-ready.js runs this there), else by its raw name.
   // The label the page gives the field keeps its required mark ("Country*": the judge reads the mark); only a field the old chain would call by its raw name asks the kit's reader for the question first.
   const nameOf = el => el.labels?.[0]?.innerText || el.getAttribute('aria-label') || el.placeholder || (window.__jobPilottoFillKit?.labelOf ? window.__jobPilottoFillKit.labelOf(el) : '') || el.name || '';
   // Did the control keep what the fill gave it? Measured here, from the fill's own marks (what it typed, as letters and digits: page/browser-form-fastpath.js; that it set it: page/fill.js);
   // the value never leaves the page. yes | no | '' (the fill did not touch it). Read by the fill ladder's fill_verify (desktop/lib/ladder/fill-verify.js); the other judges ignore it.
   const matchOf = el => {
-    const typed = el.getAttribute('data-jobpilotto-typed');
-    if (typed && window.__jobPilottoTypedSame) return window.__jobPilottoTypedSame(typed, el.value) ? 'yes' : 'no';
+    const state = read(el);
+    if (el.hasAttribute('data-jobpilotto-typed') && state !== 'unknown') return state === 'committed' ? 'yes' : 'no';
     if (el.hasAttribute('data-jobpilotto-nottaken')) return 'no';   // the fill gave it an answer and the page did not take it (page/fill-verify.js)
     if (!el.hasAttribute('data-jobpilotto-filled')) return '';
-    return (el.type === 'checkbox' || el.type === 'radio' ? el.checked : given(el)) ? 'yes' : 'no';
+    return state === 'committed' ? 'yes' : 'no';
   };
   const controls = [...document.querySelectorAll('input, select, textarea')].filter(el => shown(el) && !['hidden', 'submit', 'button', 'image', 'reset'].includes(el.type)).map(el => ({
     type: el.type, label: clean(nameOf(el), 80), match: matchOf(el),
     required: !!el.required || el.getAttribute('aria-required') === 'true',
     at: (box => `${Math.max(0, Math.min(100, Math.round(100 * (box.left + box.width / 2) / innerWidth)))},${Math.max(0, Math.min(100, Math.round(100 * (box.top + box.height / 2) / innerHeight)))}`)(el.getBoundingClientRect()),   // where it is on screen (% of the window): the closer look matches the picture to the control
     ...(el.tagName === 'SELECT' ? {options: [...el.options].map(item => clean(item.text, 40)).filter(Boolean).slice(0, 40)} : {}),
-    state: el.type === 'checkbox' || el.type === 'radio' ? (el.checked ? 'checked' : 'unchecked') : el.type === 'file' ? (el.files?.length || el.dataset.jobPilottoFile ? 'filled' : 'empty') : (given(el) ? 'filled' : 'empty')}));   // a file input: holds a file, or this extension attached one (the page may have swapped the input for its own display)
+    state: el.type === 'checkbox' || el.type === 'radio' ? (el.checked ? 'checked' : 'unchecked') : (given(el) ? 'filled' : 'empty')}));   // an upload slot: the file it shows (read-back.js), not only the input's own list
   const buttons = [...new Set([...document.querySelectorAll('button, input[type=submit], input[type=button], [role=button], a')].filter(shown).map(el => clean(el.innerText || el.value || el.getAttribute('aria-label'), 60)).filter(Boolean))];
   const seen = new Set(), texts = [];
   for (const el of document.body ? document.body.querySelectorAll('*') : []) {

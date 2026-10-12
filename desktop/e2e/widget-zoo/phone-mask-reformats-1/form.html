@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Apply: Example role</title></head>
+<body>
+<!-- Widget zoo (desktop/e2e/widget-zoo): a phone box whose mask rewrites what was typed into the local writing (+41 79 123 45 67 shown as 079 123 45 67). Hand-made, no real site, no personal data. -->
+<h1>Apply for Example role</h1>
+<form id="apply" onsubmit="return false">
+<label for="first">First name</label> <input id="first" name="first_name" type="text" required>
+<label for="last">Last name</label> <input id="last" name="last_name" type="text" required>
+<label for="mail">Email</label> <input id="mail" name="email" type="email" required>
+<label for="emergency">Emergency contact phone</label> <input id="emergency" name="emergency" type="tel" required>
+</form>
+<script>
+const box = document.getElementById("emergency"); box.addEventListener("input", () => { const d = box.value.replace(/\D/g, ""); box.value = d.startsWith("41") ? "0" + d.slice(2).replace(/(\d{2})(\d{3})(\d{2})(\d{2})/, "\$1 \$2 \$3 \$4") : d; });
+</script>
+</body></html>

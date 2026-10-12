@@ -231,10 +231,10 @@ Shadow (owner): one zoo pass + one pool pass with `fill_verify` logging, then re
 - [ ] `fv-*` / `fr-*` fixture format scored per question by `ladder-score`, ratchet + fingerprint (fv-*: done in PR 3, 7 fixtures all exact on the plan path; fr-*: PR 4)
 - [x] `docs/flows/ladder.md` row 3 corrected; fill questions added to the rung map (#423)
 ### 2. Verify rung 0 + one truth (PR A)
-- [ ] Library counts in the pool's captures (which real widget libraries first); vendored uploader page (Dropzone or FilePond) (amendment 6)
-- [ ] Final read-back after settle for every control kind; the R0 mark on each control; trace row `committed`
+- [x] Library counts in the pool's saved pages (53 hosts: react-select 4, intl-tel-input 4, react-datepicker 3, react-dropzone 3 (Ashby's input carries its exact hidden style), Select2 2; MUI, Chosen, flatpickr, FilePond 0; recount from the CI artifacts with PR B); vendored real react-dropzone 14.2.3 page `drop-zone-react-dropzone-1` (amendment 6, PR A)
+- [x] Final read-back after settle for every control kind (`extension/page/read-back.js` pass: ≥ 700 ms still, ≤ 2 s); the R0 mark `data-jobpilotto-r0` on each control; the fill's record takes it (PR A)
 - [ ] Retype / re-pick for every kind that reverts (within the attempt log): text boxes done (#438, typed again key by key); choices, dates and the phone country part still open
-- [ ] One truth: the panel's left count, the judges' sketch, the trace and the session card read the R0 mark; upload slots read by their visible state; `contradicted` when sources disagree
+- [x] One truth: one reader for the panel, the judges' sketch (judge-sketch.js loads it), the fill's end read, the audit, coverage and upload; the session card is fed by the panel's report; upload slots read by the file they show; equivalence test vs the old copies: 5 named changes, 0 unnamed (PR A). With one reader the sources cannot disagree; R2's contradiction trigger (PR 3) stays. Found gap: a CV input hidden by `display:none` (real react-dropzone) is not counted by the panel at all: follow-up
 ### 3. Verify rung 2 (shadow)
 - [x] `fill_verify` question, sketch without values, local `match` (`desktop/lib/ladder/fill-verify.js`, phase `fill` of /extension/account-judge)
 - [x] Contradiction trigger (form_ready needs X, the fill's match says X kept) and the miss trigger (match no), logged only (`extension/form-ready.js`)

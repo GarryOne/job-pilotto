@@ -4,7 +4,7 @@
 (() => {
   if (window.__jobPilottoFillReadLoaded) return;
   window.__jobPilottoFillReadLoaded = true;
-  const {LEGAL, clean, labelOf, questionOf, fieldsetTitle, titleRequired, visible, isCombo, comboValue, radioOps} = window.__jobPilottoFillKit;
+  const {LEGAL, clean, labelOf, questionOf, fieldsetTitle, titleRequired, visible, isCombo, radioOps} = window.__jobPilottoFillKit;
 
   const PROFILE_LABELS = [
     ['first_name', /first\s*name|given\s*name|vorname|prénom/i],
@@ -79,16 +79,16 @@
         const label = labelOf(el);
         const question = questionOf(el);
         fields.push({field: el.id || el.name, label: question && question !== label ? `${question}: ${label}` : label,
-          type: 'checkbox', required: el.required || window.__jobPilottoRequired.marked(el), filled: el.checked, legal: LEGAL.test(`${question} ${label}`)});
+          type: 'checkbox', required: el.required || window.__jobPilottoRequired.marked(el), filled: window.__jobPilottoReadBack.holds(el), legal: LEGAL.test(`${question} ${label}`)});
       } else if (isCombo(el)) {
         fields.push({field: el.id || el.name, label: labelOf(el), type: 'combobox',
-          required: window.__jobPilottoRequired.marked(el), filled: !!comboValue(el),
+          required: window.__jobPilottoRequired.marked(el), filled: window.__jobPilottoReadBack.holds(el),
           legal: LEGAL.test(labelOf(el))});
       } else {
         const type = el.tagName === 'SELECT' ? 'select' : el.tagName === 'TEXTAREA' ? 'textarea' : el.type || 'text';
         fields.push({field: el.id || el.name, label: labelOf(el), type, required: window.__jobPilottoRequired.marked(el),
           ...(type === 'select' ? {options: Array.from(el.options).map(o => clean(o.text)).filter(Boolean)} : {}),
-          filled: type === 'select' ? (window.__jobPilottoChosen ? window.__jobPilottoChosen(el) : el.selectedIndex > 0) && (settled || !window.__jobPilottoAtPageDefault?.(el)) : (window.__jobPilottoBoxGiven ? window.__jobPilottoBoxGiven(el.value) : !!String(el.value || '').trim()), legal: LEGAL.test(labelOf(el))});
+          filled: window.__jobPilottoReadBack.holds(el) && (type !== 'select' || settled || !window.__jobPilottoAtPageDefault?.(el)), legal: LEGAL.test(labelOf(el))});   // the one reading (page/read-back.js): a box the page changed after we typed it is not filled
       }
     }
     fields.push(...radioOps.ariaFields());   // ARIA radio groups (page/radios.js)

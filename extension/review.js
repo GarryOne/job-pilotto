@@ -49,27 +49,8 @@
   const required = el => window.__jobPilottoRequired.marked(el) ||
     [...(el.labels || [])].some(label => window.__jobPilottoRequired.has(label)) ||
     (['checkbox', 'radio'].includes(el.type) && titleRequired(fieldsetTitle(el.closest('fieldset')) || window.__jobPilottoRequired.rowTitle(el)));
-  // A custom dropdown keeps its answer beside the input (react-select: a value chip in the control around it) or in a hidden input a <label for> points
-  // to, in the same field's area (SuccessFactors' picklist; 8 Oct 2026: a chosen "Monsieur" stayed "left for you"). Up 4 boxes, never into another field's.
-  const comboFilled = el => {
-    for (let box = el.parentElement, i = 0; box && i < 4 && box.querySelectorAll('input:not([type=hidden]), select, textarea').length <= 1; box = box.parentElement, i++)
-      if (box.querySelector('[class*=single-value], [class*=multi-value]') || [...box.querySelectorAll('input[type=hidden][id]')].some(h => h.value && document.querySelector(`label[for="${CSS.escape(h.id)}"]`))) return true;
-    return false;
-  };
-  // Some sites empty the file input once a file is attached and show its name instead, in a chip next to or around the input.
-  // Looked for in the field's own area: up through its containers, stopping before one that also holds another field.
-  const FILE_NAME = /\S+\.(pdf|docx?|rtf|txt|odt)\b/i;
-  function showsFileName(input) {
-    let box = input;
-    for (let i = 0; i < 10 && box.parentElement; i++) {
-      const up = box.parentElement;
-      const another = [...up.querySelectorAll('input, textarea, select')].some(other => other !== input && other.type !== 'file' && other.type !== 'hidden' && visible(other));
-      if (another) break;
-      box = up;
-      if (FILE_NAME.test(box.textContent || '')) return true;
-    }
-    return false;
-  }
+  // A control's state (a box, a menu, a picklist's chip, a choice, an upload slot that shows its file as a chip) is read by the one reader the fill and the judges use too
+  // (page/read-back.js, injected before this file): one truth per control, never a copy that drifts (12 Oct 2026, Ashby: the fill said 8 filled, the panel 5/10 left).
   // A required custom control the readers in fields() do not know (a slider, a switch, a rich-text box): nothing says what it should hold, so it is
   // left for the person until its own state differs from the one first seen. Without it the panel said "Ready to submit" over an unanswered question.
   const firstState = new WeakMap();
@@ -81,8 +62,7 @@
       if (SKIP.includes(el.type) || el.disabled || el.getAttribute('aria-hidden') === 'true' || !visible(el)) continue;
       const grouped = ['checkbox', 'radio'].includes(el.type) && el.closest('fieldset');
       const key = grouped ? `group:${question(el)}` : el.type === 'radio' ? `radio:${el.name}` : el;
-      const filled = el.type === 'file' ? !!el.files?.length : el.getAttribute('role') === 'combobox' ? comboFilled(el)
-        : ['checkbox', 'radio'].includes(el.type) ? el.checked : el.tagName === 'SELECT' ? (o => !!o && !o.disabled && !o.hidden && !!o.text.trim() && !(o.index === 0 && /^(|0|-1)$/.test(o.value)))(el.options[el.selectedIndex]) : window.__jobPilottoBoxGiven(el.value);   // a box holding only a country code is empty (page/typed-check.js)
+      const filled = window.__jobPilottoReadBack.holds(el);   // the one reading (page/read-back.js): a box holding only a country code is empty, an upload slot by the file it shows
       const entry = groups.get(key) || {el, label: question(el), required: false, filled: false, ai: false, byUs: false};
       entry.required ||= required(el);
       entry.ai ||= el.hasAttribute('data-jobpilotto-ai'); entry.suggested ||= el.dataset.jobpilottoSuggested || ''; entry.guess ||= !!el.dataset.jobpilottoGuess; entry.wants ||= el.dataset.jobpilottoWants || ''; entry.options ||= el.dataset.jobpilottoOptions || '';   // page/propose.js: proposals, reported with what is left (the app's rows)
@@ -96,9 +76,6 @@
       const frame = box.parentElement?.querySelector('iframe') || box.closest('div')?.querySelector('iframe');
       if (!frame || !visible(frame)) continue;
       groups.set(box, {el: frame, label: 'Confirm you are not a robot', required: true, filled: !!String(box.value || '').trim(), ai: false, byUs: false});
-    }
-    for (const entry of groups.values()) {  // a CV some sites show only as a file name once attached
-      if (!entry.filled && entry.el.type === 'file') entry.filled = showsFileName(entry.el);
     }
     // Yes/No questions drawn as two toggle buttons (Ashby: aria-pressed, with a visually hidden checkbox no one sees): one field,
     // filled when one of the two is pressed, required as its title says.

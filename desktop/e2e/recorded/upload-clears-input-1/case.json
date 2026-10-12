@@ -1,0 +1,48 @@
+{
+ "shape": "an upload slot (a drop zone with a visually hidden file input) whose page empties the input in its own change handler and shows the attached file as a chip with its name",
+ "why": "One truth per control (spec docs/superpowers/specs/2026-10-12-fill-ladder.md, amendment 4; owner's case d, 12 Oct 2026: the CV was uploaded but a screen still showed it pending; the same day on an Ashby form the fill said '8 filled, 1 left' while the panel said '5/10 left'). The fill's record judged the CV by the input's file list (empty: 'left') while the panel judged it by the chip (filled): two truths. Hand-made page: no capture holds the uploader's behaviour",
+ "control": {
+  "build": "0.9.246",
+  "failed": "traced: CV:filled (the fill's record says left: the page cleared the input; the panel says the CV is in)"
+ },
+ "sample": "the shape of a drag-and-drop upload field (visually hidden input in a presentation drop zone, a file chip after upload), rebuilt small",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/upload-clears-input/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  }
+ },
+ "expect": {
+  "present": [
+   ".file-chip"
+  ],
+  "traced": [
+   "CV:filled"
+  ],
+  "told": [
+   "the slot shows the file by the end of the fill"
+  ],
+  "notPending": [
+   "Resume"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 30
+ },
+ "start": "panel"
+}

@@ -4,7 +4,8 @@
 // The answer is kept per tab for the sketch it was given (asked again only when the page changed), one look at a time. Guards: worker/test/form-ready.test.js, desktop/test/form-judge.test.js.
 import {api, settings} from './flow.js';
 import {decide} from './log.js';
-import {accountSketch, flagAccount} from './account-fill.js';
+import {flagAccount} from './account-fill.js';
+import {sketchOf} from './judge-sketch.js';
 import {pressNext} from './next-step.js';
 import {onTop} from './on-top.js';
 import {retryRefusedFormats} from './format-retry.js';
@@ -55,7 +56,7 @@ async function askForm(tab, frameId, again = false) {
   try {
     const config = await settings();
     if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;   // your own Worker: no app to ask
-    const sketch = await run(tab, frameId, accountSketch, [], 'MAIN');
+    const sketch = await sketchOf(tab.id, frameId, 'MAIN');   // with the one control reader loaded first (judge-sketch.js)
     if (!sketch) return;
     sketch.onTop = await run(tab, frameId, onTop, [], 'MAIN') || null;   // what sits on top of the form, by structure (on-top.js)
     const sig = JSON.stringify([sketch.controls, sketch.buttons, sketch.texts, sketch.frames, sketch.onTop]);
