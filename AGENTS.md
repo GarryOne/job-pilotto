@@ -209,6 +209,10 @@ until the owner stepped in. So whoever meets it fixes it, in the same turn, befo
 4. Then push your own work normally. Never add your commits on top of a red build, and never push with `CI_RED_OK=1` for
    anything but the fix or the revert.
 
+A landing through a pull request (`tools/ship.sh` in PR mode, `SHIP_PR=1`) does not wait on a red main (12 Oct 2026): the PR's own required checks
+guard main, and a flake already re-run green stopped three landings that day. ship.sh says "main is red at X: not waiting" and goes on; fixing a
+real red main is still the first session's job.
+
 The hook runs the suites on a **clean checkout of what is pushed**, one area at a time, as CI does, so leftovers in your
 folder can't hide a break: `fa1f838` passed locally on a `desktop/shared/` left by a desktop run, and the worker's CI job,
 which never stages it, went red. A fix still building does **not** let anyone through (11 Oct 2026: four landings went in

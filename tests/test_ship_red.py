@@ -95,6 +95,16 @@ class ShipRedTest(ShipFixture):
         self.change(self.tree, 'other.txt', 'z\n', 'Third change')
         self.assertEqual(self.ship_red(SHIP_IGNORE_RED='1').returncode, 0)
 
+    def test_a_landing_through_a_pull_request_never_waits_on_a_red_main(self):
+        # 12 Oct 2026: the PR's required checks guard main; three PR landings gave up on a red main that was a flake already re-run green
+        self.runs(minutes_ago=30)
+        script = f'here={self.tree.as_posix()}; flags=""; mode=pr; step() {{ echo "ship: $*"; }}; source tools/ship-red.sh; ship_red_gate "before the checks"; echo "went on"'
+        result = subprocess.run(['bash', '-c', script], cwd=self.tree, capture_output=True, text=True, timeout=30, env=self.env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('went on', result.stdout)
+        self.assertRegex(result.stdout, rf'main is red at {self.tip[:7]}: not waiting, the pull request.s own checks decide')
+        self.assertNotIn('waiting for the fix', result.stdout)
+
     def test_a_red_fix_still_building_does_not_unblock_the_wait(self):
         self.runs(minutes_ago=6)
         rows = json.loads((self.gh / 'runs.json').read_text())

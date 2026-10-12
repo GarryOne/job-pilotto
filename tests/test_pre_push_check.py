@@ -86,6 +86,10 @@ class PrePushCheckTest(PrePushFixture):
         self.assertIn(f'main is RED: run 42 failed at {bad}, "{subject}" by {author} (https://x/runs/42)', err)   # one line: run, commit, author
         self.assertEqual(self.hook('CI_RED_OK=1 git push origin HEAD:main', **red)[0], 0, 'the fix itself goes through')
         self.assertEqual(self.hook('git push origin HEAD:main', SHIP_IGNORE_RED='1', **red)[0], 0, 'the explicit off switch')
+        # 12 Oct 2026: a PR's own required checks guard main, so a push to a PR branch never waits on a red main (flakes stopped 3 landings that day)
+        code, err = self.hook('SHIP_PR=1 git push origin my-branch', **red)
+        self.assertNotIn('main is RED', err)
+        self.assertEqual(code, 0, err)
 
     def test_a_fix_in_flight_on_top_of_red_does_not_let_anyone_through(self):
         # 11 Oct 2026: four landings went in on top of b6dd70e, a fix attempt that was still building and ended red

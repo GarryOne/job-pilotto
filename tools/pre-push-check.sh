@@ -46,7 +46,8 @@ repo="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || exit 0
 # Don't stack commits on a red main: when main's state (tools/red-main.sh: the newest commit with a finished verdict, a failed job in a running build counts) is red, block the push unless the
 # command says it is the fix or a revert: `CI_RED_OK=1 git push ...`. A fix still building does NOT let others through (11 Oct 2026: four landings went in on top of a fix attempt that ended red):
 # main is green again only when a later commit's run has completed green. No gh or no network: skip. The first session to meet a red main unblocks everyone (AGENTS.md "Red main").
-case "$command" in *CI_RED_OK=1*|*CI_GATES=1*) ;; *)
+# A push to a pull request branch (SHIP_PR=1) never waits: the PR's own required checks guard main (12 Oct 2026: red-main flakes stopped three PR landings).
+case "$command" in *CI_RED_OK=1*|*CI_GATES=1*|*SHIP_PR=1*) ;; *)
   if [ "${SHIP_IGNORE_RED:-}" != 1 ] && [ -f "$repo/tools/red-main.sh" ]; then
     state="$(bash "$repo/tools/red-main.sh" 2>/dev/null)" || true
     case "$state" in red*)
