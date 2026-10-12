@@ -2,7 +2,7 @@
 // the fill record and the page's own read-back (no "ready" with a required field left, no CV counted in with no file).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {againstLedger, agreementFailures, expectedAnswers, sameAnswer, truthFailures} from '../lib/replay-truth.mjs';
+import {againstLedger, agreementFailures, expectedAnswers, pickedChoices, sameAnswer, truthFailures} from '../lib/replay-truth.mjs';
 
 test('a case\'s answers: one body, a list of variants, per host; a field given two values is not judged', () => {
   const one = {ai: {'/extension/answer': {answers: [{field: 'country', value: 'Switzerland'}, {field: 'why', value: ''}]}}};
@@ -36,6 +36,14 @@ test('truth: a field that holds a value must hold its answer; an empty one is th
   assert.deepEqual(out.counts, {compared: 2, empty: 1, unreadable: 1, missing: 0});
 });
 
+test('a choice the case\'s picker names is that field\'s answer too: "Yes" reached as an option in its own words (menu-choices-worded-differently-3)', () => {
+  const item = {ai: {'/extension/pick-choice': [{answer: {choice: 'I have the Right to Work in the location'}}, {answer: {ok: true}}]}};
+  assert.deepEqual(pickedChoices(item), ['I have the Right to Work in the location']);
+  const read = new Map([['rtw', {state: 'value', shown: ['I have the Right to Work in the location']}]]);
+  assert.deepEqual(truthFailures(new Map([['rtw', 'Yes']]), read, pickedChoices(item)).failures, []);
+  assert.equal(truthFailures(new Map([['rtw', 'Yes']]), new Map([['rtw', {state: 'value', shown: ['I need a visa']}]]), pickedChoices(item)).failures.length, 1);
+});
+
 const trace = (...rows) => rows.map(([label, outcome, required = true, type = 'text']) => ({label, outcome, required, type, ...(label === 'CV' ? {source: 'your CV'} : {})}));   // the fill's own CV row (page/fill.js)
 
 test('agreement: the panel\'s missing, the fill record\'s left and the page\'s own empty required agree', () => {
@@ -47,13 +55,13 @@ test('agreement: the panel\'s missing, the fill record\'s left and the page\'s o
   // A record that says MORE left than the panel is older than the page (a box typed again after it was written: upload-autofill-clears-typed-1 on CI): a timing, never a better-looking row.
   assert.deepEqual(agreementFailures({trace: trace(['First name', 'left']), review: {missing: []}, panel: {present: true, ready: false}, required: [], files: 0}), []);
   const page = agreementFailures({trace: trace(['Email', 'filled']), review: {missing: []}, panel: {present: true, ready: false}, required: [{name: 'city', empty: true}], files: 0});
-  assert.deepEqual(page, ['agreement: the page has 1 required control empty (city), the panel counts 0']);
+  assert.deepEqual(page, ['agreement: the page has 1 required control empty (city), the panel counts 0 (none)']);
 });
 
 test('a "ready" panel with a required field left fails, by the live readings (the panel\'s, the page\'s)', () => {
   const base = {trace: [], review: {missing: []}, panel: {present: true, ready: true}, required: [], files: 0};
   assert.deepEqual(agreementFailures(base), []);
-  assert.deepEqual(agreementFailures({...base, required: [{name: 'phone', empty: true}]}), ['agreement: the page has 1 required control empty (phone), the panel counts 0', 'ready: the panel says ready with 1 required left (phone)']);
+  assert.deepEqual(agreementFailures({...base, required: [{name: 'phone', empty: true}]}), ['agreement: the page has 1 required control empty (phone), the panel counts 0 (none)', 'ready: the panel says ready with 1 required left (phone)']);
   assert.deepEqual(agreementFailures({...base, review: {missing: ['Phone']}, trace: trace(['Phone', 'left'])}), ['ready: the panel says ready with 1 required left (Phone)']);
   // A fill record older than the page (a box typed again after it was written): "ready" is judged on the live readings only.
   assert.deepEqual(agreementFailures({...base, trace: trace(['First name', 'left'])}), []);
