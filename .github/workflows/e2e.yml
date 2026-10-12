@@ -110,6 +110,10 @@ jobs:
       - name: Install the tests
         working-directory: desktop/e2e
         run: npm ci || npm install
+      # The offline app (test/offline-app.test.mjs) imports desktop/lib/server.js and its packages (@anthropic-ai/sdk): without them the plan job died with ERR_MODULE_NOT_FOUND (11 Oct 2026).
+      - name: Install the app's own packages
+        working-directory: desktop
+        run: npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts
       # A few of them open a headless Chromium (test/upload-slot.test.mjs: each upload-slot shape on a fixture page, 8 Oct 2026).
       - name: A headless browser for the tests' own tests
         working-directory: desktop/e2e
