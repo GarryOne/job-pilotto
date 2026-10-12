@@ -151,6 +151,10 @@
     return kept && (changed || !revealed) ? {ok: true} : {ok: false, why: kept ? 'the page did not show the file' : 'the page cleared the file'};
   }
 
+  // The order the slots are given their files: a slot the page marks required before an optional one, else the page's order. Two slots that both read as the CV and no AI pick
+  // between them (an optional "Autofill from resume" import box above the form's required CV slot): the required one takes the file, the other is then "already given"
+  // (flow-checks' replay checks, 13 Oct 2026: the import box took it and the CV slot stayed empty; recorded cv-to-required-slot-1).
+  const fillOrder = all => [...all].sort((a, b) => Number(!!b.required) - Number(!!a.required));
   // files: {resume, coverLetter} (each {data: base64, name, type} or absent). -> one result per slot:
   // {meaning, fp, recipe, ok, why, label} where ok is true/false only when the slot was operated (a failure is a miss to report);
   // a slot with no file for it, or with a wording nobody knows, is {ok: undefined, why} and is never touched.
@@ -158,7 +162,7 @@
     const all = slots(doc);
     const results = [];
     const given = new Set();   // a document given by one slot is not given again by another way of giving it (Upload CV, then Copy and paste CV: the second press hid the first's input)
-    for (const slot of all) {
+    for (const slot of fillOrder(all)) {
       // A lone slot with a wording nobody knows takes the CV, as a lone file input always did.
       const meaning = named(slot, aliases, all) || (all.length === 1 ? 'resume' : '');
       const label = cleanLabel(slot.title).slice(0, 60);
@@ -187,6 +191,6 @@
   // The fingerprints of the slots here: what the app is asked recipes for.
   const fingerprints = (doc = document) => [...new Set(slots(doc).map(slot => slot.fp).filter(Boolean))];
 
-  const api = {slots, rows, fill, fingerprints, fileKind, meaningOf, cvCandidates};
+  const api = {slots, rows, fill, fillOrder, fingerprints, fileKind, meaningOf, cvCandidates};
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else window.__jobPilottoUpload = api;
 })();

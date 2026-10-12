@@ -65,6 +65,16 @@ test('a required Ashby radio group (titled by a label, "*" drawn by CSS) is one 
   assert.equal(after.pill, 'Ready to submit');
 });
 
+// Ashby's yes/no: two toggle buttons (aria-pressed) with a visually hidden checkbox inside the same box (flow-checks' replay checks, #531, 13 Oct 2026: the panel listed each such
+// question twice, the fill's record once). One question, one row: the checkbox inside the pair is the same control.
+const YES_NO = `<div class="field"><label class="_required_x" for="q-work">Are you allowed to work in Switzerland without a visa?</label>
+  <div class="yesno"><button type="button" aria-pressed="false">Yes</button><button type="button" aria-pressed="false">No</button><input type="checkbox" tabindex="-1" name="q-work"></div></div>`;
+test('a required yes/no pair with its hidden checkbox is ONE left, then answered by pressing Yes', { skip: !JSDOM }, async () => {
+  const { before, after } = await panel(FORM(YES_NO), (document) => { const yes = document.querySelector('.yesno button'); yes.setAttribute('aria-pressed', 'true'); document.querySelector('.yesno input').checked = true; });
+  assert.equal(before.pill, '1 left');
+  assert.equal(after.pill, 'Ready to submit');
+});
+
 // Signal 3, at Submit: the panel tells the app which questions you answered yourself that the fill left or never read (labels
 // and kinds only), so the product counts what each board's fill misses. A required question nothing read is listed meanwhile.
 const UNREAD = `<div class="entry"><div class="question-title is-required">How many players at most?</div>

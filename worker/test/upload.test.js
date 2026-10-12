@@ -26,3 +26,10 @@ test('an upload slot is a file row named by its meaning, required by the page\'s
   const rows = window.__jobPilottoUpload.rows();
   assert.deepEqual(JSON.parse(JSON.stringify(rows.map(row => [row.field, row.type, row.required, row.filled]))), [['resume', 'file', true, false], ['upload_2', 'file', false, false]]);
 });
+
+test('with no AI pick among the slots, a slot the page marks required takes the file before an optional one; otherwise page order', () => {
+  // flow-checks' replay checks (#531, 13 Oct 2026; recorded cv-to-required-slot-1): an optional "Autofill from resume" box came first and took the CV; the required CV slot stayed empty.
+  const slots = [{id: 'autofill', required: false}, {id: 'cv', required: true}, {id: 'letter', required: false}, {id: 'other', required: true}];
+  assert.deepEqual(copy.fillOrder(slots).map(slot => slot.id), ['cv', 'other', 'autofill', 'letter']);
+  assert.deepEqual(slots.map(slot => slot.id), ['autofill', 'cv', 'letter', 'other'], 'the page\'s own list is not reordered');
+});
