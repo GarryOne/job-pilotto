@@ -13,6 +13,8 @@
 name: Pool smoke
 
 on:
+  pull_request:   # TEMPORARY: the proof run on the draft PR (GitHub dispatches only workflows on main); removed before landing
+    paths: ['.github/workflows/pool-smoke.yml']
   workflow_dispatch:
     inputs:
       only:
