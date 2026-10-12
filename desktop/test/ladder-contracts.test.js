@@ -171,6 +171,7 @@ const DIGEST_REPLIES = {
   'JSON null': 'null',
   'an empty object': {},
   'a good press': dig('form', 'press', [4]),
+  'a good not listed': dig('form', 'not_listed', []),
   'a good open': dig('link', 'open', [5]),
   'a good email': dig('email', 'tell_person', [1, 2]),
   'a good expired': dig('expired', 'tell_person', [6]),
@@ -347,4 +348,11 @@ test('the router: the log line is exactly "ladder: rung N signal S" for a known,
 test('the router: a null argument goes to the person instead of throwing', () => {
   assert.equal(nextRung(null).rung, RUNGS.person);
   assert.equal(ladderLine(null), '');
+});
+
+test('rung 3: "the way on is not in the list" is the blind signal: no move, never kept, straight to the picture', async () => {
+  const got = await pageKind(reply(DIGEST_REPLIES['a good not listed']), {...page, candidates}, cache(), {digest: true});
+  assert.deepEqual([got.error, got.rung, got.signal, got.digestSaid?.verb], ['not listed', 3, 'blind', 'not_listed']);
+  assert.ok(!got.applyButton && !got.kind, 'nothing to press, no kind kept');
+  assert.equal(nextRung({rung: got.rung, signal: got.signal}).rung, RUNGS.picture);
 });

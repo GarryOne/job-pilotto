@@ -5,7 +5,7 @@
 import {model, priceOf} from '../ai/models.js';
 
 export const OUTCOMES = ['form', 'email', 'phone', 'link', 'login_wall', 'refused', 'expired', 'in_person', 'other'];
-export const VERBS = ['tell_person', 'press', 'open', 'none'];
+export const VERBS = ['tell_person', 'press', 'open', 'not_listed', 'none'];
 export const BUTTON_KINDS = ['apply', 'sign_in', 'sign_up', 'third_party', 'other', ''];   // what a pressed button does, judged by the AI in any language
 export const MODEL = model('small');
 const PRICE = {input: 0.1, output: 0.5};   // USD per million tokens, as page-kind.js
@@ -13,7 +13,7 @@ const MAX_NUMBERS = 4;
 
 export const DIGEST_SCHEMA = {type: 'object', additionalProperties: false, required: ['outcome', 'verb', 'numbers', 'press_kind', 'confidence'], properties: {
   outcome: {type: 'string', enum: OUTCOMES, description: 'How the candidate applies to this job, from the page\'s own text'},
-  verb: {type: 'string', enum: VERBS, description: 'tell_person: the person must act, quote the numbered candidates; press: press the one numbered button or link; open: open the one numbered link; none'},
+  verb: {type: 'string', enum: VERBS, description: 'tell_person: the person must act, quote the numbered candidates; press: press the one numbered button or link; open: open the one numbered link; not_listed: the page clearly offers a way to apply that is NOT in the numbered list; none'},
   numbers: {type: 'array', items: {type: 'integer'}, maxItems: MAX_NUMBERS, description: 'The numbers of the candidates the verb is about (tell_person: the ones that say how to apply; press/open: exactly one), else []'},
   press_kind: {type: 'string', enum: BUTTON_KINDS, description: 'For verb press or open: what the numbered button or link does: apply = starts or continues THIS job application; sign_in; sign_up; third_party = signs in or applies through another site\'s account; other. "" for any other verb'},
   confidence: {type: 'number', description: 'From 0 to 1: how sure, from this page alone.'},
@@ -34,6 +34,7 @@ Answer how the candidate applies for THIS job, deciding from what the page asks 
 - other: none of these, or you cannot tell (verb none).
 Beware: a closed notice above a working Apply button or form is not "expired"; a press, contact or question address is not how to apply.
 press_kind: for verb press or open, judge what the button or link does, in any language, not by its words: apply only when it starts or continues this application; never apply for a sign-in, a sign-up/account creation, or a sign-in through another site (Google, LinkedIn, Apple...).
+not_listed: when the page clearly offers a way to apply (an Apply button or link, a form) that is NOT among the numbered candidates, answer verb not_listed with numbers [] and outcome form; never name another candidate in its place.
 Use verb none with numbers [] when nothing is clear. Name only numbers from the list. Give your confidence from 0 to 1.`;
 
 // The layer drawn over the page (extension/on-top.js: structure only): kept as {shape, role, text, buttons} or null, and told to the AI in one line. Shared with rung 2 (which imports this file).
@@ -75,7 +76,7 @@ export function validateDigest(raw, candidates = []) {
   if ((verb === 'press' || verb === 'open') && numbers.length !== 1) return none(answer, outcome, `${verb} needs one number`);
   if (verb === 'press' && !['button', 'link'].includes(chosen[0].kind)) return none(answer, outcome, 'press needs a button or link');
   if (verb === 'open' && !(chosen[0].kind === 'link' && chosen[0].host)) return none(answer, outcome, 'open needs a link');
-  if (verb === 'none' && numbers.length) return none(answer, outcome, 'none takes no number');
+  if ((verb === 'none' || verb === 'not_listed') && numbers.length) return none(answer, outcome, `${verb} takes no number`);
   // An address or a call outcome stands only on a candidate of that kind (the address is on the page by construction).
   if ((outcome === 'email' || outcome === 'phone') && !chosen.some(item => item.kind === outcome)) return none(answer, 'other', 'outcome without its candidate');
   return {outcome, verb, numbers, confidence: answer.confidence, chosen};

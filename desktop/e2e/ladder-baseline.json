@@ -88,12 +88,16 @@
   {
    "date": "2026-10-12",
    "reason": "fill ladder PR C1: fill_repair added (8 fr-* fixtures, 8/8 hit on the plan path); fill_verify sees the value class and may say wrong_class (7 fv-* re-recorded, 7/7 exact)"
+  },
+  {
+   "date": "2026-10-12",
+   "reason": "rung 3 prompt: the not_listed answer (spec one-next-move box 6, owner OK 13 Oct); no stored answer is a digest answer (page_kind answers are rung 2), so none re-recorded"
   }
  ],
  "promptFingerprint": {
   "rung2": "f195b59f9e204185",
   "rung2-frames": "062eb0c3862f408e",
-  "rung3": "e80807ed89849855",
+  "rung3": "8cfa43b88247741a",
   "account-judge": "82bb54b889d5f14d",
   "form-judge": "09fcc69c9a99924a",
   "fill-verify": "fe0e393f3680f14e",

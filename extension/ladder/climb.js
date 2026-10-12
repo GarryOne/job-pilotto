@@ -20,6 +20,8 @@ const pressedProofs = new Map();   // tab id -> the confirmation of an Apply pre
 const sketched = new Map();  // tab id -> the controls the page-kind question carried (the page shape key needs them)
 export const noteSignal = (tabId, answer, controls = []) => { sketched.set(tabId, controls); if (answer?.signal) signals.set(tabId, {rung: answer.rung, signal: answer.signal}); else signals.delete(tabId); };
 export const controlsOf = tabId => sketched.get(tabId) || [];
+export const blindOn = tabId => signals.get(tabId)?.signal === 'blind';   // the digest said the way on is not in its list (core.js 'blind')
+export const blindOr = (tabId, signal) => (blindOn(tabId) ? 'blind' : signal);   // the stop's evidence signal: blind when the digest said so
 export const forgetClimb = tabId => { for (const key of [...digested]) if (key.startsWith(`${tabId} `)) digested.delete(key); pressedProofs.delete(tabId); signals.delete(tabId); sketched.delete(tabId); ended.delete(tabId); frames.delete(tabId); for (const key of [...opened]) if (key.startsWith(`${tabId} `)) opened.delete(key); for (const key of [...looked]) if (key.startsWith(`${tabId} `)) looked.delete(key); };
 
 // The numbered candidates of the page (extension/ladder/rung3-candidates.js). The page files live in the page's own (MAIN) world; the finder is injected when this page has not loaded it yet.

@@ -1,7 +1,8 @@
 // The extension's climb (extension/ladder/climb.js): what it does with a rung's signal, using the router (extension/ladder/core.js). Fake `ask`, no browser.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {climbOnStall, climbOnUnsure, forgetClimb, noteSignal, toldReport} from '../../extension/ladder/climb.js';
+import fs from 'node:fs';
+import {blindOn, blindOr, climbOnStall, climbOnUnsure, forgetClimb, noteSignal, toldReport} from '../../extension/ladder/climb.js';
 
 const digestAnswer = {role: 'no-form', kind: 'posting', by: 'digest', rung: 3, signal: 'confident', digest: {outcome: 'phone', verb: 'tell_person', numbers: [2], chosen: [{n: 2, kind: 'sentence', text: 'Call us: 044 555 01 00'}]}};
 
@@ -112,4 +113,15 @@ test('a frame that BECOMES a form-frame candidate after the judgment is new; one
   assert.equal(frameGrew(31, [grown]), false, 'a candidate the judgment already carried is not new');
   assert.equal(frameGrew(31, [{...grown, height: 3000}]), false, 'a bigger box of the same address is not new');
   assert.equal(frameGrew(99, [grown]), true, 'a tab with no judgment noted: every candidate is new');
+});
+
+test('a digest that said the way on is not in its list marks the tab blind; the "other" stop carries it as its evidence signal (unresolved: cc, 13 Oct 2026)', () => {
+  noteSignal(41, {rung: 3, signal: 'blind'});
+  assert.equal(blindOn(41), true);
+  assert.equal(blindOr(41, 'confident'), 'blind');
+  noteSignal(41, {rung: 2, signal: 'confident'});
+  assert.equal(blindOn(41), false);
+  assert.equal(blindOr(41, 'confident'), 'confident');
+  const flow = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta.url), 'utf8');
+  assert.match(flow, /deadEndHere\(tab, jobUrl, host, \(email \|\| told \|\| other\)\.why, [^\n]*signal: blindOr\(tab\.id, said\?\.signal\)\}\)/);
 });

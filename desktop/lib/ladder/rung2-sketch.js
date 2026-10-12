@@ -233,6 +233,7 @@ async function digestKind(client, raw, shape) {
   const digestSaid = {outcome: got.outcome || '', verb: got.verb || '', numbers: got.numbers || [], pressKind: got.raw?.press_kind || '', dropped: got.dropped || ''};   // what the app log says of this answer (digestLine)
   if (got.dropped) return failed(`digest dropped: ${got.dropped}`, {dropped: got.dropped, usd: got.usd, digestSaid});
   if (got.confidence < MIN_CONFIDENCE) return {error: `unsure (${got.confidence})`, shape, rung: 3, signal: 'unsure', usd: got.usd, digestSaid};
+  if (got.verb === 'not_listed') return {error: 'not listed', shape, rung: 3, signal: 'blind', usd: got.usd, digestSaid};   // the way on is not in the list it was given: the picture, never a guess (core.js)
   const email = got.outcome === 'email' ? got.chosen.find(item => item.kind === 'email') : null;
   const pressed = got.verb === 'press' || got.verb === 'open' ? got.chosen[0] : null;   // the one button or link the digest named (an `open` of a link is the same press on that link: Swatch, 11 Oct 2026): it goes through the same floors as any Apply button (never a sign-in, submit, third-party control)
   if (pressed && pressedBefore(page.noEffect, pressed.text)) return failed('digest named a control already pressed', {usd: got.usd, digestSaid});   // pressed with no effect: never again, the ladder ends at the person

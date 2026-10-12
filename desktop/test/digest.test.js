@@ -15,7 +15,7 @@ const ok = (answer) => validateDigest({confidence: 0.9, numbers: [], ...answer},
 
 test('the fixed answers: outcomes from the apply_by values extended, and four closed verbs', () => {
   assert.deepEqual(OUTCOMES, ['form', 'email', 'phone', 'link', 'login_wall', 'refused', 'expired', 'in_person', 'other']);
-  assert.deepEqual(VERBS, ['tell_person', 'press', 'open', 'none']);
+  assert.deepEqual(VERBS, ['tell_person', 'press', 'open', 'not_listed', 'none']);
   assert.deepEqual(DIGEST_SCHEMA.properties.outcome.enum, OUTCOMES);
   assert.deepEqual(DIGEST_SCHEMA.properties.verb.enum, VERBS);
   assert.equal(DIGEST_SCHEMA.additionalProperties, false);
@@ -89,4 +89,10 @@ test('the digest caps its own list: a model that names more candidates than allo
   const answer = validateDigest({outcome: 'email', verb: 'tell_person', numbers: [1, 2, 3, 4, 5], confidence: 0.9}, many);
   assert.equal(answer.verb, 'none');
   assert.equal(answer.dropped, 'unknown candidate number');
+});
+
+test('not_listed: the way to apply is not in the numbered list: no number, never another candidate in its place', () => {
+  const candidates = [{n: 1, kind: 'button', text: 'Share'}, {n: 2, kind: 'sentence', text: 'We are hiring.'}];
+  assert.deepEqual(validateDigest({outcome: 'form', verb: 'not_listed', numbers: [], press_kind: '', confidence: 0.9}, candidates), {outcome: 'form', verb: 'not_listed', numbers: [], confidence: 0.9, chosen: []});
+  assert.equal(validateDigest({outcome: 'form', verb: 'not_listed', numbers: [1], press_kind: '', confidence: 0.9}, candidates).dropped, 'not_listed takes no number');
 });

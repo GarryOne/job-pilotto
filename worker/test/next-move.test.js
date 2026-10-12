@@ -19,6 +19,8 @@ test('a move acts only when sure, past the floors, and a press only when a secon
   assert.deepEqual(mayAct(press({verb: 'tell_person', floor: 'none'})), {act: false, why: 'person'}, 'the person is told: today\'s worst case');
   assert.deepEqual(mayAct(press({verb: 'none', floor: 'none'})), {act: false, why: 'person'});
   assert.deepEqual(mayAct(null), {act: false, why: 'person'});
+  assert.deepEqual(mayAct(press({verb: 'not_listed', floor: 'none'})), {act: false, why: 'blind'}, 'the way on is not in the list: never a guess');
+  assert.deepEqual(mayAct(press({signal: 'blind'})), {act: false, why: 'blind'});
 });
 
 test('the second ask is spent only where it can change the answer: a sure press the floors let through', () => {
