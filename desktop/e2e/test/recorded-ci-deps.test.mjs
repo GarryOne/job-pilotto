@@ -1,4 +1,4 @@
-// The recorded-pages CI job must install the app's own packages: a row case starts the offline app (desktop/lib/server.js), which imports them.
+// Every CI job that runs the harness's own tests or the recorded cases must install the app's own packages: they start the offline app (desktop/lib/server.js), which imports them.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {builtinModules} from 'node:module';
@@ -24,4 +24,24 @@ test('the recorded-pages workflow installs desktop/ packages, and the offline ap
   const builtin = new Set(['electron', ...builtinModules]);
   const missing = [...bare].filter(name => !builtin.has(name) && !name.startsWith('node:') && !deps.includes(name));
   assert.deepEqual(missing, [], 'a package desktop/lib imports that is not in desktop/package.json dependencies (the CI job installs only those)');
+});
+
+// The class (12 Oct 2026: the e2e plan job ran `npm test` without them and no scheduled suite ran for 11 hours): any job that runs the harness tests, whatever the workflow.
+test('every workflow job that runs the harness tests or the recorded cases installs desktop/ packages first', () => {
+  const dir = path.join(root, '.github/workflows');
+  const lacking = [];
+  let seen = 0;
+  for (const file of fs.readdirSync(dir).filter(name => /\.ya?ml$/.test(name))) {
+    const text = fs.readFileSync(path.join(dir, file), 'utf8');
+    const jobs = text.split(/^jobs:\n/m)[1]?.split(/^  ([\w-]+):\n/m) || [];
+    for (let i = 1; i < jobs.length; i += 2) {
+      const block = jobs[i + 1];
+      const steps = block.split(/\n      - /);   // a step may carry an env: block between its working directory and its run
+      if (!steps.some(step => /working-directory: desktop\/e2e\b/.test(step) && /^\s+run: (npm test|npm run recorded\b|node --test)/m.test(step))) continue;
+      seen += 1;
+      if (!/working-directory: desktop\n\s+run: npm (ci|install)\b/.test(block)) lacking.push(`${file} :: ${jobs[i]}`);
+    }
+  }
+  assert.ok(seen >= 2, 'the check found the plan job and the recorded-pages job (the pattern still matches the workflows)');
+  assert.deepEqual(lacking, [], 'a job runs the harness tests without installing desktop/ packages (ERR_MODULE_NOT_FOUND for @anthropic-ai/sdk)');
 });
