@@ -41,10 +41,10 @@ const report = {day: '2026-10-12', results: {
 test('the summary: one table row per run row, a bot wall or a refusal is "blocked (CI IP)" and green, a form covered after the fill is its own word', () => {
   const {markdown, red} = summary(report);
   assert.deepEqual(red, []);
-  assert.match(markdown, /\| Lever: single page, no account \| thin \| form \| 11 \/ 7 \|  \| – \| \$0\.0312 \| 61 s \|/);
-  assert.match(markdown, /\| SmartRecruiters: one page, no account \| thin \| code\/bot \| – \| blocked \(CI IP\): bot check \|/);
-  assert.match(markdown, /\| Recruitee form \| thin \| posting \| – \| blocked \(CI IP\): site refused \|/);
-  assert.match(markdown, /\| Personio form in German \| thin \| form \| 5 \/ 4 \| covered after the fill \(overlay\) \|/);
+  assert.match(markdown, /\| Lever: single page, no account \| thin \| form \| – \| 11 \/ 7 \|  \| – \| \$0\.0312 \| 61 s \|/);
+  assert.match(markdown, /\| SmartRecruiters: one page, no account \| thin \| code\/bot \| – \| – \| blocked \(CI IP\): bot check \|/);
+  assert.match(markdown, /\| Recruitee form \| thin \| posting \| – \| – \| blocked \(CI IP\): site refused \|/);
+  assert.match(markdown, /\| Personio form in German \| thin \| form \| – \| 5 \/ 4 \| covered after the fill \(overlay\) \|/);
   assert.match(markdown, /AI spend: \$0\.0572 of the \$0\.50 cap/);
   assert.match(markdown, /Not run: Teamtailor: form on teamtailor\.com \(row cap 3\)/);
   assert.match(markdown, /Skipped by CI's site limit: Join: form on join\.com/);
@@ -67,7 +67,7 @@ test('a refused AI stops the run before the next row and turns the job red: a ro
   const refused = {...report, results: {'Lever: single page, no account': {reached: 'form', filled: 5, left: 13, usd: 0, seconds: 51, aiRefused: {calls: 3, why: '400 invalid_request_error: Your credit balance is too low'}}}};
   const {markdown, red} = summary(refused);
   assert.deepEqual(red, ['AI refused: Lever: single page, no account (3 calls: 400 invalid_request_error: Your credit balance is too low)']);
-  assert.match(markdown, /\| Lever: single page, no account \| thin \| form \| 5 \/ 13 \| AI refused \|/);
+  assert.match(markdown, /\| Lever: single page, no account \| thin \| form \| – \| 5 \/ 13 \| AI refused \|/);
 });
 
 test('the summary shows only the rows this run ran (the day report may hold other runs\' rows) and each row\'s last CI run; falling below it is red', () => {
@@ -76,8 +76,8 @@ test('the summary shows only the rows this run ran (the day report may hold othe
   const baseline = {'Lever: single page, no account': {reached: 'form', filled: 11, left: 7, url: 'u', run: '38237961375', branch: 'main'}};
   const {markdown, red} = summary(day, {baseline});
   assert.doesNotMatch(markdown, /Recruitee form/);
-  assert.match(markdown, /\| Row \| Applicant \| Reached \| Filled \/ left \| Blocked \| Last CI run \| AI \| Time \|/);
-  assert.match(markdown, /\| Lever: single page, no account \| thin \| posting \| – \|  \| form 11 \/ 7 \(run 38237961375, main\) \| \$0\.0300 \| 40 s \|/);
+  assert.match(markdown, /\| Row \| Applicant \| Reached \| Ending \| Filled \/ left \| Blocked \| Last CI run \| AI \| Time \|/);
+  assert.match(markdown, /\| Lever: single page, no account \| thin \| posting \| – \| – \|  \| form 11 \/ 7 \(run 38237961375, main\) \| \$0\.0300 \| 40 s \|/);
   assert.deepEqual(red, ['less than its last CI run: Lever: single page, no account (reached posting, form in run 38237961375 (main))']);
   assert.deepEqual(summary(day).red, [], 'no earlier CI run: nothing to fall below');
   assert.match(summary(day).markdown, /\| – \| \$0\.0300/);
@@ -110,7 +110,7 @@ test('a run where a row did run is judged by its rows: a skipped neighbour is li
 test('the summary names each row\'s applicant (grown on a PR proof, thin by hand)', () => {
   const day = {day: '2026-10-12', results: {'Lever: single page, no account': {reached: 'ready', filled: 18, left: 0, url: 'u', usd: 0.06, seconds: 70, applicant: 'grown'}},
     thisRun: {ran: ['Lever: single page, no account'], unfinished: [], skipped: [], cut: [], stopped: '', usd: 0.06, maxUsd: 0.5, maxRows: 1}};
-  assert.match(summary(day).markdown, /\| Lever: single page, no account \| grown \| ready \| 18 \/ 0 \|/);
+  assert.match(summary(day).markdown, /\| Lever: single page, no account \| grown \| ready \| – \| 18 \/ 0 \|/);
 });
 
 test('a by-hand run refused because the last visit is kept for a PR proof says so in its NOT RUN line', () => {
@@ -125,4 +125,12 @@ test('the summary names the Anthropic key the run used (its name, never its valu
   assert.match(summary(report, {keyName: 'LIVE_POOL_ANTHROPIC_KEY'}).markdown, /\(key: LIVE_POOL_ANTHROPIC_KEY\)\./);
   assert.match(summary(report, {keyName: 'PR_PROOF_ANTHROPIC_KEY'}).markdown, /\(key: PR_PROOF_ANTHROPIC_KEY\)\./);
   assert.match(summary(report, {keyName: 'sk-ant-api03-secret'}).markdown, /\(key: E2E_ANTHROPIC_KEY\)\./, 'anything but a known key name is never printed');
+});
+
+test('the summary shows each row\'s ending: unresolved stands out, the test\'s own hold says so', () => {
+  const report = {day: '2026-10-12', thisRun: {ran: ['A', 'B', 'C']}, results: {A: {reached: 'form', filled: 3, left: 2, ending: 'unresolved'}, B: {reached: 'account', ending: 'held'}, C: {reached: 'ready', ending: 'ready'}}};
+  const {markdown} = summary(report);
+  assert.match(markdown, /\| A \| thin \| form \| ❌ unresolved \| 3 \/ 2 \|/);
+  assert.match(markdown, /\| B \| thin \| account \| held by the test \|/);
+  assert.match(markdown, /\| C \| thin \| ready \| ready \|/);
 });

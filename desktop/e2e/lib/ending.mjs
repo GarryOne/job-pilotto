@@ -88,6 +88,9 @@ export function endingOf(result, appLog = '', {ci = false} = {}) {
   return {ending: 'unresolved', why: `stopped at ${reached} with no reason`};
 }
 
+// The word a row's report and its upload carry (fixed words only): an ending, 'held' (held by the test) or '' (not counted).
+export const endingWord = found => (found?.ending ? found.ending : found?.why === HELD_BY_TEST ? 'held' : '');
+
 // The endings of many rows: counts per ending (every ending listed, in the fixed order), the rows held by the test and the other rows not counted (both out of the denominator),
 // and the resolution share (resolved / counted).
 export function tally(found) {

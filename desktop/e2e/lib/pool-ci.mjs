@@ -57,6 +57,9 @@ function notRunLine(report, now) {
   return `NOT RUN: ${why.join('; ') || 'no row ran'}`;
 }
 
+// The row's ending (the outcome contract, lib/ending.mjs, set by smoke.mjs): unresolved stands out; 'held' is the test's own hold, not measured.
+const endingCell = item => (item.ending === 'unresolved' ? '❌ unresolved' : item.ending === 'held' ? 'held by the test' : item.ending || '–');
+
 // The day's report (smoke.mjs: results + thisRun) and each row's last CI run (baseline: lib/pool-ci-state.mjs baselines) -> {markdown, red: [reasons]} for
 // $GITHUB_STEP_SUMMARY; red is empty when the run is green. Only the rows this run ran (the day's report also keeps other runs' rows).
 // keyName: which Anthropic key the run used, by NAME (lib/engine.mjs liveKeyName); anything but a known name is never printed.
@@ -72,8 +75,8 @@ export function summary(report = {}, {baseline = {}, now = new Date(), proof = f
     ...results.map(([shape, item]) => [shape, fallsBelow(baseline[shape], item)]).filter(([, why]) => why).map(([shape, why]) => `less than its last CI run: ${shape} (${why})`)];
   const lines = [...(notRun ? [notRun, ''] : []), `## Pool smoke ${report.day || ''} ${red.length ? '❌' : '✅'}`, '',
     'Held: the fake applicant, never Submit, no account or consent button, no password, no captcha. Nothing uploaded from CI.', '',
-    '| Row | Applicant | Reached | Filled / left | Blocked | Last CI run | AI | Time |', '|---|---|---|---|---|---|---|---|',
-    ...results.map(([shape, item]) => `| ${cell(shape)} | ${cell(item.applicant || 'thin')} | ${cell(item.reached)} | ${item.filled != null ? `${item.filled} / ${item.left}` : '–'} | ${cell(blockedWord(item))} | ${cell(last(shape))} | ${money(item.usd)} | ${item.seconds ?? '?'} s |`),
+    '| Row | Applicant | Reached | Ending | Filled / left | Blocked | Last CI run | AI | Time |', '|---|---|---|---|---|---|---|---|---|',
+    ...results.map(([shape, item]) => `| ${cell(shape)} | ${cell(item.applicant || 'thin')} | ${cell(item.reached)} | ${cell(endingCell(item))} | ${item.filled != null ? `${item.filled} / ${item.left}` : '–'} | ${cell(blockedWord(item))} | ${cell(last(shape))} | ${money(item.usd)} | ${item.seconds ?? '?'} s |`),
     '', `AI spend: ${money(run.usd)} of the $${Number(run.maxUsd || 0).toFixed(2)} cap (key: ${KEY_NAMES.includes(keyName) ? keyName : keySecret('api')}).`];
   if (run.stopped) lines.push(`Stopped early: ${run.stopped}.`);
   if ((run.cut || []).length) lines.push(`Not run: ${run.cut.join(', ')} (row cap ${run.maxRows}).`);
