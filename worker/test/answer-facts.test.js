@@ -28,6 +28,9 @@ test('the prompt sets an answer that follows from a saved fact and proposes only
   assert.ok(system.includes(FACT_RULE));
   assert.match(FACT_RULE, /follows from what they state/);
   assert.match(FACT_RULE, /use: "propose" and fact "none"/);
+  assert.match(FACT_RULE, /a form that names no currency asks in the currency of the job's country/);
+  assert.match(FACT_RULE, /settled only when the job's text or the form names that place; when neither does, it is a proposal/);
+  assert.match(FACT_RULE, /referred or recommended them[^.]*when the saved facts state how they heard of the job/);
 });
 
 test('floor: a typed answer that names no saved fact is proposed, never typed; one that names a fact is typed', () => {
