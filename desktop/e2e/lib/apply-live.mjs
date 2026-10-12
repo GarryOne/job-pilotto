@@ -4,6 +4,7 @@
 // The app under test is the e2e one (its own profile and Notion test page, never the owner's data). Run: `npm run live` in desktop/ (LIVE_URL=<posting> to
 // pick one; LIVE_SECONDS=120 how long to watch). Not part of the matrix: it needs the real internet and the real site's mood. Guard: desktop/test/apply-live.test.js.
 import {guardLiveVisit} from './site-ledger.mjs';
+import {seedImportedCv} from './applicant-seed.mjs';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import {endShotLine, takeEndShot} from './end-shot.mjs';
@@ -97,6 +98,7 @@ export async function runLive(ctx, h) {
         // LIVE_HAVE_ACCOUNT=1: the app already has an account for LIVE_EMAIL on the account host (as a confirmed sign-up would have left it): the flow must go to sign-in, never sign-up.
       if (process.env.LIVE_HAVE_ACCOUNT) await page.evaluate(([host, email]) => window.pilot.saveSettings({siteAccounts: {[host]: {email: email.toLowerCase(), state: 'confirmed', at: new Date().toISOString()}}}),
         [process.env.LIVE_ACCOUNT_HOST || 'career2.successfactors.eu', process.env.LIVE_EMAIL || 'live@example.com']);
+      seedImportedCv(ctx.profile);   // the imported CV the plain-node app holds too, so both legs of a pool row fill one applicant (lib/applicant-seed.mjs)
       if (process.env.LIVE_ESCALATION) await page.evaluate(() => window.pilot.saveSettings({escalation: 'on'}));   // the closer look is opt-in: this run turns it on
       console.log(`  live: this run ${process.env.LIVE_SUBMIT ? 'WILL press the consent and the account button on the real site' : 'is HELD: the extension will NOT accept the consent or press the account button (LIVE_SUBMIT=1 lets it)'}; watching ${seconds}s`);
       await applyPoolEligibility(await ctx.browser.serviceWorker(), {say: line => console.log(`  live: ${line}`)});   // before Apply: a pool run measures filling (lib/pool-eligibility.mjs)

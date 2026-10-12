@@ -39,3 +39,20 @@ test('the fake applicant has a street with its number and a postal code, and the
   assert.match(CONTACT.postal_code, /^\d{4}$/, 'a Swiss postal code');
   assert.match(fs.readFileSync(new URL('../lib/applicant-seed.mjs', import.meta.url), 'utf8'), /cvJson, CONTACT\]/, 'a contact change must change the seed version');
 });
+
+// 12 Oct 2026 (HelloFresh pair): the plain-node app held the imported CV (cv/cv.json) and the Electron live leg did not ("cv facts: none (CV not imported yet)"),
+// so the two legs of one pool row filled different applicants. Both apps seed it through one helper; the never-imported control still works.
+test('both e2e apps that fill a live row seed the imported CV through one helper, with the never-imported control', async () => {
+  const {seedImportedCv} = await import('../lib/applicant-seed.mjs');
+  const dir = temp();
+  assert.equal(seedImportedCv(dir, {}), true);
+  assert.equal(fs.readFileSync(path.join(dir, 'cv', 'cv.json'), 'utf8'), fs.readFileSync(new URL('../fixtures/cv.json', import.meta.url), 'utf8'), 'the CV the seed version hashes');
+  for (const control of ['E2E_NO_IMPORTED_CV', 'E2E_IMPORT_VIA_UPLOAD']) {
+    const none = temp();
+    assert.equal(seedImportedCv(none, {[control]: '1'}), false, control);
+    assert.equal(fs.existsSync(path.join(none, 'cv', 'cv.json')), false, control);
+  }
+  for (const file of ['offline-app-child.mjs', 'apply-live.mjs']) {
+    assert.match(fs.readFileSync(new URL(`../lib/${file}`, import.meta.url), 'utf8'), /seedImportedCv\(/, `${file} seeds the imported CV`);
+  }
+});
