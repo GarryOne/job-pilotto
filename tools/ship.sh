@@ -102,10 +102,13 @@ take_extension_version() {
 # for the landings ahead of it, so it checks once on the main it will push to; three such landings at once refused each other's pushes and re-ran
 # 10-20 min of checks up to three times for one commit. Other landings (docs, site, tools) go straight through. A refused push still rebases and
 # re-checks. SHIP_LANDING_LOCK=1 always queues, =0 never.
+# A landing through a pull request never queues (owner, 12 Oct 2026: "Everybody can open PR at any time"): the PR's required checks guard main,
+# and the queue was held until the PR merged (~4 min), so PRs waited for each other again. Guard: tests/test_ship_pr.py.
+mode="$(ship_mode)"
 slow_gate_paths="extension desktop/lib desktop/test desktop/e2e desktop/scripts desktop/package.json desktop/package-lock.json worker/src docs/flows"
 case "${SHIP_LANDING_LOCK:-auto}" in
   1) queue=1 ;; 0) queue=0 ;;
-  *) if [ "${JOB_PILOTTO_RED_FIX:-}" = 1 ]; then queue=0; else git fetch -q origin; if [ -n "$(git diff --name-only origin/main...HEAD -- $slow_gate_paths 2>/dev/null)" ]; then queue=1; else queue=0; fi; fi ;;
+  *) if [ "${JOB_PILOTTO_RED_FIX:-}" = 1 ] || [ "$mode" = pr ]; then queue=0; else git fetch -q origin; if [ -n "$(git diff --name-only origin/main...HEAD -- $slow_gate_paths 2>/dev/null)" ]; then queue=1; else queue=0; fi; fi ;;
 esac
 if [ "$queue" = 1 ]; then
   step "queueing for the landing lock (this landing runs the slow gates; SHIP_LANDING_LOCK=0 skips the queue)"
@@ -117,7 +120,6 @@ rebase
 
 ship_red_gate "before the checks"
 # The hook is a Claude Code hook, so a script's own `git push` never meets it: run its checks here as it would see the push (again after a refused push).
-mode="$(ship_mode)"
 if [ "$mode" = pr ]; then push_command="${flags}SHIP_PR=1 git push origin $branch"; else push_command="${flags}git push origin $branch:main"; fi   # SHIP_PR=1: the hook runs only its fast pure checks, CI runs the rest on the PR
 payload="$(jq -n --arg command "$push_command" --arg cwd "$here" '{tool_input: {command: $command}, cwd: $cwd}')"
 # It prints nothing while it passes and takes minutes: a heartbeat every 20 s says it is still working; its own words show only on failure.

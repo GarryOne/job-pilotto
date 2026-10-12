@@ -45,6 +45,14 @@ class ShipPrTest(ShipFixture):
         self.assertIn('--auto --rebase', calls)
         self.assertTrue((self.main / 'mine.txt').exists(), 'the main checkout is brought up to date after the merge')
 
+    def test_a_pr_landing_of_slow_gate_files_takes_no_landing_queue(self):
+        # Owner, 12 Oct 2026: "Everybody can open PR at any time". The PR's required checks guard main, so a local queue only made PRs wait for each other.
+        (self.tree / 'desktop' / 'lib').mkdir(parents=True)
+        self.change(self.tree, 'desktop/lib/x.js', '1\n', 'Touch a slow-gate path')
+        result = self.pr_ship()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn('queueing for the landing lock', result.stdout + result.stderr)
+
     def test_a_second_landing_after_the_branch_was_deleted_on_merge_goes_through(self):
         self.change(self.tree, 'one.txt', '1\n', 'First change')
         self.assertEqual(self.pr_ship().returncode, 0)
