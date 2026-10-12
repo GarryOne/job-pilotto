@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Software Engineer @ Example</title></head>
+<body>
+<!-- Recorded from the structure of a public Ashby application page (10 Oct 2026), scrubbed: no values, no links. Ashby draws a Yes/No question as
+     two aria-pressed buttons plus a display:none checkbox under one parent, the title in a label above. React presses one and releases the other: the script does the same. -->
+<div id="app"><form class="_section_5yu8i_86 ashby-application-form-section-container">
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry">
+   <label class="_heading_f7cvd_52 _required_f7cvd_91 _label_1e3gg_42 ashby-application-form-question-title" for="_systemfield_name">Legal Name</label>
+   <div><input placeholder="Type here..." name="_systemfield_name" required id="_systemfield_name" type="text" class="_input_80epu_28 _input_1e3gg_32 ashby-application-form-input-text"></div>
+  </div>
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry">
+   <label class="_heading_f7cvd_52 _required_f7cvd_91 _label_1e3gg_42 ashby-application-form-question-title" for="_systemfield_email">Email</label>
+   <div><input placeholder="Type here..." name="_systemfield_email" required id="_systemfield_email" type="email" class="_input_80epu_28 _input_1e3gg_32 ashby-application-form-input-text"></div>
+  </div>
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry">
+   <label class="_heading_f7cvd_52 _required_f7cvd_91 _label_1e3gg_42 ashby-application-form-question-title" for="20f8883c">Phone Number</label>
+   <div><input placeholder="Type here..." name="20f8883c" required id="20f8883c" type="tel" class="_input_80epu_28 _input_1e3gg_32 ashby-application-form-input-text"></div>
+  </div>
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry">
+   <label class="_heading_f7cvd_52 _required_f7cvd_91 _label_1e3gg_42 ashby-application-form-question-title" for="bed95633">Are you authorized to work in the country where the job is located?</label>
+   <div class="_container_1svni_28 _yesno_1e3gg_148  ashby-application-form-input-yesno">
+    <button class="_container_pjyt6_1 _option_1svni_32  ashby-application-form-input-yesno-option" aria-pressed="false" data-option="yes">Yes</button>
+    <button class="_container_pjyt6_1 _option_1svni_32  ashby-application-form-input-yesno-option" aria-pressed="false" data-option="no">No</button>
+    <input type="checkbox" class="_input_1svni_78" tabindex="-1" name="bed95633" style="display: none">
+   </div>
+  </div>
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry">
+   <label class="_heading_f7cvd_52 _required_f7cvd_91 _label_1e3gg_42 ashby-application-form-question-title" for="bda78810">Will you now or in the future require sponsorship for employment visa status in this country?</label><div class="_description_1e3gg_48 ashby-application-form-question-description"><p>We may provide immigration and sponsorship support to new employees based on their unique circumstances.</p></div>
+   <div class="_container_1svni_28 _yesno_1e3gg_148  ashby-application-form-input-yesno">
+    <button class="_container_pjyt6_1 _option_1svni_32  ashby-application-form-input-yesno-option" aria-pressed="false" data-option="yes">Yes</button>
+    <button class="_container_pjyt6_1 _option_1svni_32  ashby-application-form-input-yesno-option" aria-pressed="false" data-option="no">No</button>
+    <input type="checkbox" class="_input_1svni_78" tabindex="-1" name="bda78810" style="display: none">
+   </div>
+  </div>
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry">
+   <label class="_heading_f7cvd_52 _required_f7cvd_91 _label_1e3gg_42 ashby-application-form-question-title" for="d33e2a8f">Are you able to work from our US office three days per week?</label>
+   <div class="_container_1svni_28 _yesno_1e3gg_148  ashby-application-form-input-yesno">
+    <button class="_container_pjyt6_1 _option_1svni_32  ashby-application-form-input-yesno-option" aria-pressed="false" data-option="yes">Yes</button>
+    <button class="_container_pjyt6_1 _option_1svni_32  ashby-application-form-input-yesno-option" aria-pressed="false" data-option="no">No</button>
+    <input type="checkbox" class="_input_1svni_78" tabindex="-1" name="d33e2a8f" style="display: none">
+   </div>
+  </div>
+
+</form></div>
+<script>
+  for (const button of document.querySelectorAll('button[aria-pressed]')) {
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      for (const other of button.parentElement.querySelectorAll('button[aria-pressed]')) other.setAttribute('aria-pressed', 'false');
+      button.setAttribute('aria-pressed', 'true');
+    });
+  }
+</script>
+</body></html>
