@@ -38,9 +38,9 @@ class CheckSlotFixTest(unittest.TestCase):
         deadline = time.monotonic() + 30
         while not list((tmp / 'slots').glob('slot*')) and time.monotonic() < deadline:
             time.sleep(0.05)
-        began = time.monotonic()
         fix = subprocess.run(['bash', str(SLOT), 'true'], env={**env, 'JOB_PILOTTO_RED_FIX': '1'}, capture_output=True, text=True, timeout=30)
-        self.assertLess(time.monotonic() - began, 5)
+        self.assertEqual(fix.returncode, 0)
+        self.assertIsNone(holder.poll(), 'the slot holder still holds: the fix ran beside it, it did not wait')   # no stopwatch: a loaded runner is slow, not waiting
         self.assertIn('the fix of a red main: it does not wait for a slot', fix.stderr)
         ordinary = subprocess.Popen(['bash', str(SLOT), 'true'], env={**env, 'JOB_PILOTTO_CHECK_WAIT': '2'}, stderr=subprocess.PIPE, text=True)
         _, err = ordinary.communicate(timeout=30)

@@ -49,9 +49,9 @@ class HeavyLockTest(HeavyLockFixture):
         holder = self.start('holder', 'sleep', '2')
         time.sleep(0.4)
         for env in ({'JP_HEAVY_HELD': '1'}, {'JOB_PILOTTO_HEAVY': '0'}):
-            began = time.monotonic()
-            self.assertEqual(self.run_lock('inner', 'echo', 'ran', **env).stdout.strip(), 'ran')
-            self.assertLess(time.monotonic() - began, 1.2, f'{env}: it ran at once, not after the 2 s holder')
+            result = self.run_lock('inner', 'echo', 'ran', **env)
+            self.assertEqual(result.stdout.strip(), 'ran')
+            self.assertNotRegex(result.stderr, r'waits|waited|got the lock after', f'{env}: it ran at once, it did not wait for the holder')   # the lock says when it waits; no stopwatch (a loaded runner is slow, not waiting)
         holder.kill()
         holder.communicate()
 
@@ -78,10 +78,9 @@ class HeavyLockTest(HeavyLockFixture):
         waiting = self.start('waits for load', 'echo', 'late', **self.busy_machine(), JOB_PILOTTO_HEAVY_LOAD='8', JOB_PILOTTO_HEAVY_SIGNAL='load', JOB_PILOTTO_HEAVY_LOAD_WAIT='30')
         time.sleep(0.8)
         self.assertFalse((self.tmp / 'heavy' / 'lock').exists(), 'while it waits for the machine it holds no slot')
-        began = time.time()
         later = self.run_lock('fits now', 'echo', 'went')   # this run has no load limit: it is ready, and it is behind the waiter in line
         self.assertEqual(later.stdout.strip(), 'went')
-        self.assertLess(time.time() - began, 5, 'it did not wait for the earlier run that waits for the machine')
+        self.assertNotRegex(later.stderr, r'waits|waited|got the lock after', 'it did not wait for the earlier run that waits for the machine')
         self.assertIsNone(waiting.poll(), 'the machine is still busy: the waiting run is still waiting')
         waiting.kill()
         waiting.communicate()
@@ -118,10 +117,9 @@ class HeavyLockTest(HeavyLockFixture):
 
     def test_a_dead_waiter_is_dropped_from_the_queue(self):
         dead = self.ticket(999999, 'crashed waiter')
-        began = time.monotonic()
         result = self.run_lock('next', 'echo', 'ran')
         self.assertEqual(result.stdout.strip(), 'ran')
-        self.assertLess(time.monotonic() - began, 2, 'a dead waiter holds nobody up')
+        self.assertNotRegex(result.stderr, r'waits|waited|got the lock after', 'a dead waiter holds nobody up')   # not "under 2 s": a loaded runner took 2.4 s here (beta run 38190180434)
         self.assertFalse(dead.exists(), 'its ticket is removed')
         self.assertEqual(list((self.tmp / 'heavy' / 'queue').iterdir()), [], 'no ticket is left behind, mine included')
 
