@@ -7,11 +7,10 @@
 //  1. A form page is matched to its session by the job, the company, or neither (never a guess) (desktop/test/review.test.js).
 //  2. The last form states come back after a restart only for sessions that still exist (desktop/test/review.test.js).
 import fs from 'node:fs';
-import {ATS, scoreTab} from './form-tab.js';
+import {markedSession} from './session-tab.js';
 import {LABELS} from './contact.js';
 const CONTACT_KEYS = Object.keys(LABELS);
 
-const MIN_SCORE = 50;          // the company in the title or an application-form host naming it, at least
 const COMMAND_SECONDS = 120;   // a "show me this field" waits this long for the page to pick it up
 const watches = new Map();     // session id -> [{id, label}] the app wants tracked in the form
 const commands = new Map();    // session id -> [{focus, at}]
@@ -43,49 +42,18 @@ export const setReporter = fn => { reporter = fn; };
 const stateListeners = [];   // more readers of each new form state (lib/menu-rearm.js), beside the window's reporter
 export const onState = fn => { stateListeners.push(fn); };
 
-// The session a form page belongs to: the best match by the job's URL, ID, company and site; the later start wins a tie.
-// A page that says which job its tab was opened for (the extension remembers it, even when the form sits on another site
-// than the posting: an agency's own form behind "Apply", a company that isn't named) belongs to that job's session, first.
+// The session a form page belongs to, and how that was decided: 'session' (the tab carries its session id: in its own address, #jobpilotto-fill=<id>, or
+// stored on it by the extension), else 'job' (the page says which posting its tab was opened for: an exact match of that address). Nothing else: no score,
+// no company or title, no "the one free session" (owner, 12 Oct 2026; spec 2026-10-12-tab-owned.md). A page that carries a session that is gone
+// (cancelled, started again under a new id) is 'gone': its job may find the new one, never a guess.
 const jobKey = url => String(url || '').split('#')[0].replace(/\/+$/, '');
-export function matchSession(sessions, page) {
-  let best = null, bestScore = 0;
-  for (const session of sessions) {
-    const score = page.job && jobKey(page.job) === jobKey(session.url) ? 100 : scoreTab(page, {url: session.url, company: session.company});
-    if (score >= MIN_SCORE && (score > bestScore || (score === bestScore && best && session.startedAt > best.startedAt))) { best = session; bestScore = score; }
-  }
-  return best;
-}
-
-// A form the fill mark names but nothing else does (an agency's own form behind the posting, the company not named, the
-// extension unsure which job opened the tab): it belongs to the one open session no other tab is bound to. Two such
-// sessions, or none, and it stays unmatched: a guess would put one job's form on another's card.
 export function sessionFor(sessions, page, tab) { return pick(sessions, page, tab).session; }
-// The session a page belongs to, and how that was decided: 'session' (the tab carries its session id: the extension stores the
-// app's answer on the tab and passes it to the next pages and the tabs it opens), 'job' / 'score' (matchSession), 'guess'.
-// A tab carrying its session is never matched to another (8 Oct 2026: Migros's sign-in tab, carrying nothing, was guessed to
-// be Manor's, the one session no tab was bound to, and Manor's card showed Migros's form).
-function pick(sessions, page, tab) {
-  const carried = page.session ? sessions.find(session => session.id === page.session) : null;
-  if (carried) return {session: carried, by: 'session'};
-  const found = guess(sessions, page, tab);
-  // It carries a session that is gone (cancelled, started again under a new id): its job may find the new one, a guess never.
-  if (page.session && found.by === 'guess') return {session: null, by: 'gone'};
-  return found;
-}
-function guess(sessions, page, tab) {
-  const scored = matchSession(sessions, page);
-  if (scored) return {session: scored, by: page.job && jobKey(page.job) === jobKey(scored.url) ? 'job' : 'score'};
-  return {session: freeSession(sessions, page, tab), by: 'guess'};
-}
-function freeSession(sessions, page, tab) {
-  if (!String(page.url || '').includes('jobpilotto-fill')) return null;
-  // A form on a known job board is some other job's (it would have matched by its job ID or company): left alone, or a stray
-  // tab of a finished application (1 Oct 2026: a Scale AI form) lands on this card.
-  const host = hostOf(page.url);
-  if (!host || ATS.test(host)) return null;
-  const free = sessions.filter(session => ['running', 'input'].includes(session.status)
-    && (!bound.has(session.id) || !sameRun(session.id) || (Number.isInteger(tab) && bound.get(session.id) === tab)));
-  return free.length === 1 ? free[0] : null;
+function pick(sessions, page) {
+  const named = [page.session, markedSession(page.url)].filter(Boolean);
+  for (const id of named) { const own = sessions.find(session => session.id === id); if (own) return {session: own, by: 'session'}; }
+  const byJob = page.job ? sessions.filter(session => jobKey(page.job) === jobKey(session.url)) : [];
+  if (byJob.length) return {session: byJob.reduce((a, b) => (b.startedAt > a.startedAt ? b : a)), by: 'job'};
+  return {session: null, by: named.length ? 'gone' : 'none'};
 }
 
 export function setWatch(id, items) {
@@ -126,7 +94,7 @@ export function tabsToArm(sessions, tabs, now = Date.now()) {
 }
 // The page scrolled, or looked and found no such field. Resolves whoever is waiting; kept if they ask just after.
 export function noteFocus(sessions, payload) {
-  const session = sessionFor(sessions, {url: String(payload?.url || ''), title: String(payload?.title || ''), job: String(payload?.job || '')}, Number(payload?.tab));
+  const session = sessionFor(sessions, {url: String(payload?.url || ''), title: String(payload?.title || ''), job: String(payload?.job || ''), session: String(payload?.session || '')}, Number(payload?.tab));
   if (!session) return {ok: false};
   const found = !!payload?.found;
   focusAnswers.set(session.id, found);
@@ -225,6 +193,8 @@ export function formStates(ids, byLook = new Set()) {
 }
 // The page's report. Returns what the page needs back: the session it matched, what to track, what to show.
 // Is `tab` older than the tab the session follows now? Its reports (progress, "no form") describe a page the session left.
+// The tab a session is bound to in this browser run, '' when none or bound in another run (the picker, lib/session-tab.js, takes it).
+export const tabOf = (id, boot = bootId) => (bound.has(id) && sameRun(id, boot) ? bound.get(id) : '');
 export const olderTab = (id, tab, boot = bootId) => Number.isInteger(Number(tab)) && bound.has(id) && (!boot || !runOf.get(id) || runOf.get(id) === String(boot)) && Number(tab) < bound.get(id);
 let bindLog = () => {};
 // Told each time a session takes a tab as its own: which, the one before, and how it was decided (see pick).

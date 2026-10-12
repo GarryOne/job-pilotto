@@ -7,6 +7,7 @@ import {STARTING} from './panel-start.js';
 import {api} from './flow.js';
 import {decide} from './log.js';
 import {stripMark} from './tab-pages.js';
+import {identityOf} from './tab-identity.js';
 import {onAccountPage} from './account.js';
 import {pageFingerprint} from './tab-pages.js';
 import {pageKey} from './tab-pages.js';
@@ -63,7 +64,7 @@ export function createLearningMessages(ctx) {
         const config = await settings();
         if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {ok: false};
         return api(config, '/extension/focus', {method: 'POST', body: JSON.stringify({
-          url: sender.tab.url, title: sender.tab.title || '', found: !!message.found, job: await jobOf(sender.tab)})});
+          url: sender.tab.url, title: sender.tab.title || '', found: !!message.found, job: await jobOf(sender.tab), session: (await identityOf(sender.tab)).session})});
       })().then(reply, () => reply({ok: false}));
       return true;
     }
