@@ -145,3 +145,13 @@ test('strict session focus refuses ambiguous matches and company-only evidence',
   assert.equal(chooseTab([{id: 203, url: 'https://elsewhere.example/form', title: target.company}], target, {confident: true}), null);
   assert.equal(chooseTab([tab, {...tab, id: 202}], target, {confident: true, ownTab: 201}), tab);
 });
+
+
+test('strict session focus still finds a lone form on an applicant tracking host by its company (the posting was on the company site)', () => {
+  // The common case: the posting is on the employer's site, the form on an ATS host with no job id in its address (score 70-75).
+  const target = {url: 'https://careers.example-employer.test/jobs/senior-engineer', company: 'Example Employer'};
+  const form = {id: 301, url: 'https://boards.greenhouse.io/exampleemployer/jobs/application', title: 'Example Employer · Job Application'};
+  const otherForm = {id: 302, url: 'https://jobs.lever.co/another-co/apply', title: 'Another Co'};
+  assert.equal(chooseTab([form, otherForm], target, {confident: true}), form, 'found: an empty new tab would lose what was filled');
+  assert.equal(chooseTab([form, {...form, id: 303}], target, {confident: true}), null, 'two equal matches: still none');
+});

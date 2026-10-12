@@ -58,6 +58,9 @@ export function ownTabOf(tabs, {own = '', claimed = [], ownTab = ''} = {}) {
   const shared = claimed.some(url => bare(url) === bare(own));   // another session reported the same address: it says nothing
   return (own && !shared && tabs.find(tab => bare(tab.url) === bare(own))) || null;
 }
+// A sure match for a session's own action: the job's address or id in the tab (80+), or its company on an applicant tracking host (70+),
+// the posting on the employer's site and the form elsewhere (12 Oct 2026: 80 lost those, and the button opened an empty new tab).
+export const SURE_MATCH = 70;
 export function chooseTab(tabs, target, {own = '', claimed = [], ownTab = '', claimedTabs = [], confident = false} = {}) {
   const others = new Set(claimedTabs.map(idOf).filter(Boolean));
   const open = tabs.filter(tab => !others.has(idOf(tab.id)));
@@ -70,7 +73,7 @@ export function chooseTab(tabs, target, {own = '', claimed = [], ownTab = '', cl
   // focus needs an owned tab or one unique job match; a company/host alone is not enough.
   if (confident) {
     const score = best ? scoreTab(best, target) : 0;
-    return score >= 80 && free.filter(tab => scoreTab(tab, target) === score).length === 1 ? best : null;
+    return score >= SURE_MATCH && free.filter(tab => scoreTab(tab, target) === score).length === 1 ? best : null;
   }
   if (best && String(best.url || '').includes('jobpilotto-fill')) return best;
   return markedTab(free) || best;
@@ -174,7 +177,7 @@ export async function openFormTab({url, company}, openExternal, {confident = fal
     const tab = chooseTab(tabs, {url, company}, {own, claimed, ownTab, claimedTabs, confident});
     log('review', 'form tab selection', {confident, selectedTab: tab?.id ?? null, ownTab, candidates: tabs.length, claimed: claimedTabs.length});
     const isOwn = !!tab && tab === ownTabOf(tabs, {own, claimed, ownTab});
-    if (confident && !(tab && (isOwn || String(tab.url || '').includes('jobpilotto-fill') || scoreTab(tab, {url, company}) >= 70))) return 'none';
+    if (confident && !(tab && (isOwn || String(tab.url || '').includes('jobpilotto-fill') || scoreTab(tab, {url, company}) >= SURE_MATCH))) return 'none';
     if (tab) {
       // A tab without the fill mark is one the extension never joined (Claude opened it): add the mark so it does.
       const marked = markedUrl(tab.url);
