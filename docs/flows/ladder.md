@@ -23,6 +23,18 @@ The router (which rung to ask next, from a rung's signal): `extension/ladder/cor
 
 The sketch every rung reads is one list: `SKETCH_FIELDS` in `desktop/lib/ladder/rung2-sketch.js` (extension builds it in `fill-flow.js` `pageSketchOf` + `extension/ladder/outcomes.js` `mailsOf`).
 
+## Where a fix lives (owner, 12 Oct 2026)
+| What went wrong | Its home | Never |
+|---|---|---|
+| A wrong decision: which button, which route, what kind, when to stop | **data**: a ladder fixture + prompt example, or a learned move | a new branch in the flow |
+| A field not read, a control that cannot be worked | universal **code**, with a zoo or recorded page | a site name or a word list |
+| Wording | **pack data** (aliases, meanings) | a regex in a rung |
+| Safety | **code** (the floors) | data that can switch it off |
+
+Today's working code stays as the **fast tier**. A dead end gets the **one escalating fallback** (sketch → digest → picture → Claude → the person), asked at the one
+dead-end door (`extension/ladder/dead-end.js`), in shadow first, then **switched on per dead end** once its own numbers hold (owner, 13 Oct 2026).
+Spec: `docs/superpowers/specs/2026-10-12-one-next-move.md`.
+
 ## What may change when you fix one site
 | You may | You may not |
 |---|---|
