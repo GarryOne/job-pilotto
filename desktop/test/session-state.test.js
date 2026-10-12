@@ -11,7 +11,7 @@ test('a filled form waiting for you is "ready for review"; a message ending on y
   assert.equal(sessionReview({status: 'input', question: 'The form is filled. Shall I change the visa answer?'}), false);
   // "ready for you to review … Nothing was submitted" counts (the demo's wording).
   assert.equal(sessionReview({status: 'input', question: 'The application is ready for you to review. Nothing was submitted.'}), true);
-  assert.equal(sessionReview({status: 'done'}), true);
+  assert.equal(sessionReview({status: 'done', note: 'Form filled — review before Submit'}), true);
   assert.deepEqual(sessionState({status: 'input', question: 'Race is set. Checking the resume.'}), ['Question for you', 'warn']);
   assert.deepEqual(sessionState({status: 'mystery'}), ['Ended', 'neutral']);
 });
@@ -37,7 +37,7 @@ test('a row shows whole sentences up to the limit, at least one', () => {
 
 test('ready for review becomes "Ready to submit" (green) once the form page says every required field is filled', () => {
   assert.deepEqual(sessionState({status: 'done'}, true), ['Ready to submit', 'good']);
-  assert.deepEqual(sessionState({status: 'done'}, false), ['Ready for review', 'warn']);
+  assert.deepEqual(sessionState({status: 'done'}, false), ['Completion unverified', 'warn']);
   assert.deepEqual(sessionState({status: 'running'}, true), ['Applying', 'info']);  // still working: not yet
 });
 
@@ -73,7 +73,7 @@ test('a form session (the Apply button) says the form is open until the extensio
   assert.deepEqual(sessionState(form), ['Form open', 'info']);
   assert.deepEqual(sessionState(form, true), SESSION_STATE.submit);
   assert.deepEqual(sessionState({...form, outcome: 'submitted'}), SESSION_STATE.submitted);
-  assert.deepEqual(sessionState({status: 'done', outcome: '', endedAt: null}), SESSION_STATE.done);   // a Claude session is unchanged
+  assert.deepEqual(sessionState({status: 'done', outcome: '', endedAt: null}), ['Completion unverified', 'warn']);   // a Claude session is unchanged
 });
 
 test('a form session the extension cannot reach says so (no form, or an account is needed)', () => {
@@ -232,4 +232,29 @@ test('the first look at Chrome waits longer than one report of the extension, so
   const alarm = fs.readFileSync(new URL('../../extension/report-alarm.js', import.meta.url), 'utf8');
   const period = Number(alarm.match(/periodInMinutes = ([\d.]+)/)[1]) * 60 * 1000;
   assert.ok(CHECK_MS >= period + 10 * 1000, `CHECK_MS ${CHECK_MS} ms vs the extension's report every ${period} ms (9 Oct 2026: 15 s vs 30 s)`);
+});
+
+
+test('a permission-blocked account report is never a filled application', () => {
+  const question = "I'm stopped on the sign-in page. My click on Continue was blocked by a permission check, so the form is not filled and nothing was submitted. I've typed your email into the box.\n\n**Needs you:**\n- Press Continue in Chrome, then reply continue.\n- Or say allow it if you want me to press Continue myself.";
+  for (const status of ['input', 'done']) {
+    const item = {kind: 'claude', status, question, stage: 'account', live: false};
+    assert.equal(sessionReview(item), false);
+    assert.equal(sessionReview(item, true), false, 'account fields are not the application');
+    assert.notEqual(sessionState(item)[0], 'Ready for review');
+  }
+  assert.equal(sessionReview({status: 'input', question}), false, 'older records without a stage are safe too');
+  assert.equal(sessionReview({status: 'input', question: 'Nothing was submitted.'}), false);
+  assert.equal(sessionReview({status: 'input', question: 'Filled 1 of 12 fields. Review before you submit.'}), false);
+  assert.equal(sessionReview({kind: 'claude', status: 'done'}), false, 'a finished process proves no completion');
+  assert.equal(sessionReview({status: 'input', stage: 'account', question: 'Status: ready-for-review'}), false);
+});
+
+
+test('an open extension form is not ready for review until its fields are complete', () => {
+  const item = {kind: 'form', status: 'done', live: false};
+  assert.equal(sessionReview(item, false), false);
+  assert.deepEqual(sessionState(item, false), ['Form open', 'info']);
+  assert.equal(sessionReview(item, true), true);
+  assert.deepEqual(sessionState(item, true), ['Ready to submit', 'good']);
 });

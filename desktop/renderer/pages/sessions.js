@@ -222,7 +222,8 @@ export function renderNextStep(item) {
   // Its Chrome tab was closed: that wins over "can't reach this form" (nothing to reach) and over what Claude last asked (about that tab).
   const gone = !submitted && formGone(item);
   const stuck = !submitted && item.kind === 'form' && !!item.stuck && !gone;   // the extension can't reach this form
-  const review = !submitted && !stuck && sessionReview(item, formReady(item)), asking = !submitted && item.status === 'input' && !review, running = !submitted && item.status === 'running';
+  const review = !submitted && !stuck && sessionReview(item, formReady(item)), asking = !submitted && !stuck && !review && (item.status === 'input' || (item.status === 'done' && item.kind !== 'form' && !item.inChrome)), running = !submitted && item.status === 'running';
+  const open = !submitted && !stuck && !review && !asking && (item.kind === 'form' || item.inChrome) && item.status === 'done';
   const {checks, needs: forYou, audit, done, intro} = readSessionMessage(submitted ? '' : item.question);
   const tone = submitted ? 'good' : review || asking || stuck ? 'warn' : running ? 'info' : item.status === 'failed' ? 'bad' : 'neutral';
   $('ss-decision').className = `ss-next tone-${tone}`;
@@ -232,7 +233,8 @@ export function renderNextStep(item) {
     : stuck ? (item.stuck === 'account' ? (item.accountStep === 'sign_in' ? `Sign in${item.accountHost ? ` to ${item.accountHost.replace(/^www\./, '')}` : ''}` : 'This site needs an account') : item.stuck === 'incomplete' ? 'The extension filled nothing here' : item.stuck === 'email' ? 'Send your application by email' : item.stuck === 'told' ? 'The page tells you what to do' : item.stuck === 'other' ? 'Job Pilotto could not tell how to apply' : 'The extension can\'t reach this form')
     : gone ? 'The form tab was closed'
     : review ? 'Review the filled application'
-    : asking ? ask || 'Claude needs your answer'
+    : asking ? ask || (item.stage === 'account' ? 'Account step needs your input' : 'Application needs your input')
+    : open ? 'Complete the application in Chrome'
     : running ? 'Claude is filling the application' : item.status === 'failed' ? 'The session stopped' : 'The session ended';
   // Its state, after the title: finished (when), waiting (since when) or working (for how long).
   const since = item.needsYouSince || item.endedAt || item.startedAt;
@@ -258,10 +260,11 @@ export function renderNextStep(item) {
       ...(['account', 'incomplete'].includes(item.stuck) && item.accountNeeds ? [el('p', 'rich-p', el('b', '', 'Left for you: '), item.accountNeeds)] : [])]
     : gone && asking ? [el('p', 'rich-p', 'Claude was working in the Chrome tab you closed, so its last question was about that tab. Reopen form opens it again (you choose whether to start over); then Resume Claude carries on there.')]
     : gone ? [el('p', 'rich-p', item.kind === 'form' ? 'You closed the form\'s Chrome tab. Reopen it and the extension fills it again from your kit. If you submitted it, the extension has already marked it Applied.' : 'The filled form was in the Chrome tab you closed. Reopen it to fill it again from your kit, or mark it submitted if you already sent it.')]
+    : open ? [el('p', 'rich-p', 'The form is open in Chrome. Complete the remaining fields shown below, then review the answers before submitting.') ]
     : review ? [el('p', 'rich-p', item.kind === 'form' || item.inChrome ? 'The extension fills the form in Chrome. Check the answers and legal boxes there, then submit it yourself.' : 'Check the answers and legal boxes in Chrome, then submit it yourself.')]
     : asking ? (forYou.length
       // Claude listed what it needs: its first sentence for context, then each thing as a line, then where to answer.
-      ? [...(said.length ? [el('p', 'rich-p', said[0].replace(/\*\*/g, ''))] : []), el('p', 'rich-p', el('b', '', 'What Claude needs from you:')),
+      ? [...(said.length ? richText(said.join('\n')) : []), el('p', 'rich-p', el('b', '', 'What Claude needs from you:')),
         ...forYou.map(line => el('p', 'rich-p', `→ ${line.replace(/\*\*/g, '')}`)), ...(isLive(item) ? [answerHint()] : [])]
       : [...(said.length ? richText(said.join('\n')) : [el('p', 'rich-p', 'Claude is waiting for you.')]), ...(isLive(item) ? [answerHint()] : [])])
     : [Object.assign(el('p', 'rich-p muted', (running && latestStep(sessionTail[item.id] || '')) || item.note || ''), {id: running ? 'ss-step' : ''})]));
@@ -394,9 +397,9 @@ export function renderNextStep(item) {
   const sorted = sortChecks(checks), mine = sortChecks(forYou, {forYou: true});
   const needs = [...mine.needs, ...sorted.needs], filled = sorted.filled;
   const empty = gone ? [] : emptyFields(item, needs);   // a closed tab has no empty fields to open
-  show($('ss-needs-card'), needs.length + empty.length > 0 && !gone);   // a closed tab's rows are stale: Reopen form asks what to keep
+  show($('ss-needs-card'), (empty.length > 0 || (!asking && needs.length > 0)) && !gone);   // a closed tab's rows are stale: Reopen form asks what to keep
   $('ss-needs-title').textContent = 'Needs your attention';
-  $('ss-needs-sub').textContent = review ? 'Most of the form is filled; a few items need your review.' : 'Left for you after the fill.';
+  $('ss-needs-sub').textContent = review ? 'Check these items before submitting.' : 'Complete these items in Chrome.';
   $('ss-needs').replaceChildren(...needs.map(need => (need.kind === 'ask' ? askRow(need, item) : needRow(need, item))), ...empty.map(label => emptyRow(label, item)));
   watchAgreements(item, needs.filter(need => need.kind === 'agree' || need.kind === 'ask'));
   applyFormStates(item);

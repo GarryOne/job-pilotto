@@ -9,7 +9,7 @@ export const isLive = item => item.live ?? !item.endedAt;
 // The application was submitted and Claude is no longer in it. The badge, the step and the log all read this.
 export const isSubmitted = item => item?.outcome === 'submitted' && !isLive(item);
 // Waiting for you after filling the form (its message says so) counts as "ready for review", like a finished one.
-const ENGLISH_REVIEW_WORDS = /form (?:is )?(?:now )?(?:filled|ready|complete)|filled (?:the|every|all|\d+)|ready for (?:your )?review|before you submit|submit it yourself|ready for you to review|nothing was submitted/i;
+const ENGLISH_REVIEW_WORDS = /form (?:is )?(?:now )?(?:filled|ready|complete)|ready for (?:your )?review|ready for you to review/i;
 // The skill's fixed last line says it in any language (8 Oct 2026: a session answering in French never turned "Ready for review");
 // the English words stay for older sessions and a Claude that left the line out.
 export const REVIEW_WORDS = {test: text => String(text || '').split(/\n/).some(line => READY_LINE.test(line.trim())) || ENGLISH_REVIEW_WORDS.test(text || '')};
@@ -19,8 +19,15 @@ export const asksYou = item => (item.question ? readSessionMessage(item.question
 // A message that ends on a question still waits for your answer first.
 // `formReady`: the form page says every required field is filled. Then what Claude asked earlier is moot: the form is
 // ready for review and submit, whatever its last message says (1 Oct 2026: a card still asked for a street already typed).
-export const sessionReview = (item, formReady = false) => item.status === 'done'
-  || (item.status === 'input' && (formReady || (REVIEW_WORDS.test(item.question || '') && !asksYou(item))));
+export const sessionReview = (item, formReady = false) => {
+  // Account fields being filled never prove that the application is ready. Process exit and
+  // non-submission are also not completion evidence. Keep positive legacy handoffs only.
+  if (item.stage === 'account' || item.stuck || item.accountState === 'confirm') return false;
+  if (!['done', 'input'].includes(item.status)) return false;
+  if (formReady) return true;
+  if (item.kind === 'form' || item.inChrome) return false;
+  return REVIEW_WORDS.test(item.question || item.note || '') && !asksYou(item);
+};
 // formReady: the form page says every required field is filled (the extension's ring is green): ready to submit.
 // A session whose application was submitted is finished, whatever its process did: "Submitted", never "Applying".
 export const sessionState = (item, formReady = false) => (item?.outcome === 'submitted' && !isLive(item) ? SESSION_STATE.submitted
@@ -29,9 +36,9 @@ export const sessionState = (item, formReady = false) => (item?.outcome === 'sub
   : item.kind === 'form' && item.stuck ? [item.stuck === 'account' ? (item.accountNeeds ? 'Needs you' : item.accountStep === 'sign_in' ? 'Needs sign-in' : 'Needs an account') : item.stuck === 'incomplete' ? 'Needs you' : item.stuck === 'email' ? 'Needs your email' : item.stuck === 'told' ? 'The page says what to do' : item.stuck === 'other' ? 'Open the page' : 'Can\'t reach form', 'warn']
   // Claude at work on a sign-in or sign-up page: it is creating the account, not filling the application (owner, 8 Oct 2026: "Applying").
   : item.kind !== 'form' && item.status === 'running' && item.stage === 'account' ? ['Creating account', 'info']
-  : (item.kind === 'form' || item.inChrome) && !formReady && sessionReview(item, formReady) ? ['Form open', 'info']   // the Apply button's session: no Claude, the form is open in Chrome
+  : (item.kind === 'form' || item.inChrome) && !formReady && item.status === 'done' ? ['Form open', 'info']   // the Apply button's session: no Claude, the form is open in Chrome
   : sessionReview(item, formReady) ? (formReady ? SESSION_STATE.submit : SESSION_STATE.done)
-    : SESSION_STATE[item.status] || SESSION_STATE.ended);
+    : item.status === 'done' ? ['Completion unverified', 'warn'] : SESSION_STATE[item.status] || SESSION_STATE.ended);
 // The dock's two pills and its card order, from the same state the sessions list shows: a form whose Chrome tab was closed
 // (`gone`) is neither active nor waiting, and sorts last, so an open form is never hidden behind closed ones (2 Oct 2026:
 // the dock said "Form open" for two closed forms and left out the one that was open).

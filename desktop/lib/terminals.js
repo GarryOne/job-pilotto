@@ -260,6 +260,8 @@ export async function resume(id, launch) {
 // anything the user owns: the run's result is in Notion and the filled form is in Chrome) ----
 export function persist(file) { saveFile = file; }
 const saved = s => ({id: s.id, kind: s.kind || 'claude', stuck: s.stuck || '', inChrome: !!s.inChrome, url: s.url, title: s.title, company: s.company, location: s.location, workMode: s.workMode,
+  stage: s.stage || '', accountHost: s.accountHost || '', accountState: s.accountState || '', accountStep: s.accountStep || '',
+  accountNeeds: s.accountNeeds || '', accountTerms: s.accountTerms || [], accountCode: !!s.accountCode,
   claudeId: s.claudeId || '', asked: !!s.asked, transcript: s.transcript || '', events: s.events || [], outcome: s.outcome || '',
   decidedAt: s.decidedAt || null, runPage: s.runPage || '', conversationSaved: s.conversationSaved || 0, status: s.status, note: s.note, question: s.question || '', answered: !!s.answered,
   startedAt: s.startedAt || '', endedAt: s.endedAt || null, exitCode: s.exitCode ?? null, needsYouSince: s.needsYouSince || null,
