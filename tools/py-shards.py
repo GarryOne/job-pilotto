@@ -12,6 +12,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -36,6 +37,20 @@ def weights():
         return json.loads(WEIGHTS.read_text())
     except (OSError, ValueError):
         return {}
+
+
+DURATIONS = ['--durations', '0'] if sys.version_info >= (3, 12) else []   # unittest prints every test's time (3.12+): the shards name their slow tests
+
+
+def slowest(outputs):
+    """From unittest --durations output: ([(module, seconds)], [(test, seconds)]), slowest first; a module is the test id's first test_* part."""
+    modules, tests = {}, []
+    for out in outputs:
+        for secs, test_id in re.findall(r'^\s*([\d.]+)s\s+\S+ \(([\w.]+)\)\s*$', out, re.M):
+            module = next((p for p in test_id.split('.') if p.startswith('test_')), test_id)
+            modules[module] = modules.get(module, 0) + float(secs)
+            tests.append((test_id.split('.', 1)[-1] if test_id.startswith(module) else test_id, float(secs)))
+    return sorted(modules.items(), key=lambda kv: -kv[1]), sorted(tests, key=lambda kv: -kv[1])
 
 
 def split(modules, jobs):
@@ -86,16 +101,29 @@ def main(argv=None):
     env['PYTHONPATH'] = os.pathsep.join([str(TESTS), env.get('PYTHONPATH', '')]).rstrip(os.pathsep)
     started = time.monotonic()
     # test_0_notion_ids sets the fake IDs the whole suite imports against; discovery loads it first, so every shard does too.
-    procs = [(shard, subprocess.Popen([sys.executable, '-m', 'unittest', '-q', '-b', BOOTSTRAP, *[m for m in shard if m != BOOTSTRAP]], cwd=ROOT, env=env,
+    procs = [(shard, subprocess.Popen([sys.executable, '-m', 'unittest', '-q', '-b', *DURATIONS, BOOTSTRAP, *[m for m in shard if m != BOOTSTRAP]], cwd=ROOT, env=env,
                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True))
              for shard in split(modules, args.jobs)]
-    failed = ran = 0
-    for shard, proc in procs:
+    results = [None] * len(procs)
+    def collect(i, proc):   # each shard's own end time, not the order they are read in
         out, _ = proc.communicate()
+        results[i] = (out, time.monotonic() - started)
+    threads = [threading.Thread(target=collect, args=(i, proc)) for i, (_, proc) in enumerate(procs)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    failed = ran = 0
+    for (shard, proc), (out, took) in zip(procs, results):
         ran += sum(int(n) for n in re.findall(r'^Ran (\d+) tests?', out, re.M))
+        print(f'py-shards: shard {took:.1f}s, {len(shard)} modules ({", ".join(shard[:3])}{", ..." if len(shard) > 3 else ""})')
         if proc.returncode:
             failed += 1
             print(f'py-shards: shard FAILED ({len(shard)} modules: {", ".join(shard[:4])}...)\n{out}', file=sys.stderr)
+    by_module, by_test = slowest([out for out, _ in results])
+    if by_module:
+        print('py-shards: slowest modules: ' + ', '.join(f'{m} {s:.0f}s' for m, s in by_module[:8]))
+        print('py-shards: slowest tests: ' + ', '.join(f'{t} {s:.0f}s' for t, s in by_test[:5]))
     ran -= len(procs) - 1   # the bootstrap module's one test runs in every shard
     print(f'py-shards: {len(modules)} modules, {ran} tests, {len(procs)} shards, {"FAILED" if failed else "passed"} ({time.monotonic() - started:.1f}s)')
     return 1 if failed else 0
