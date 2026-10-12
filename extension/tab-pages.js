@@ -11,6 +11,10 @@
 
 import {buttonPhrase} from './alias-schema.js';
 
+// The fill mark, which may carry the session the app opened the tab for: #jobpilotto-fill=<id> (spec 2026-10-12-tab-owned.md). Always the last part of the address.
+const MARK_RE = /#jobpilotto-fill(?:=([A-Za-z0-9_-]{1,64}))?$/;
+export const parseMark = url => (MARK_RE.exec(String(url || '')) || [])[1] || '';
+export const stripMark = url => String(url || '').replace(MARK_RE, '');
 export const pageKey = url => String(url || '').split('#')[0].replace(/\/+$/, '');
 
 // The panel and the fill run only on a tab the desktop app opened (#jobpilotto-fill) or has already armed.

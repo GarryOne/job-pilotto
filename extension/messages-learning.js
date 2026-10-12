@@ -6,6 +6,7 @@ import {accountSkip} from './account.js';
 import {STARTING} from './panel-start.js';
 import {api} from './flow.js';
 import {decide} from './log.js';
+import {stripMark} from './tab-pages.js';
 import {onAccountPage} from './account.js';
 import {pageFingerprint} from './tab-pages.js';
 import {pageKey} from './tab-pages.js';
@@ -118,7 +119,7 @@ export function createLearningMessages(ctx) {
       return false;
     }
     if (message?.type === 'fillAnyway' && sender.tab) {
-      fillOpenedTab(sender.tab, sender.tab.url.replace(`#${FILL_MARK}`, ''), true);
+      fillOpenedTab(sender.tab, stripMark(sender.tab.url), true);
       reply({ok: true});
       return false;
     }
