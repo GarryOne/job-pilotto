@@ -1,0 +1,58 @@
+{
+ "widget": "segmented_toggle",
+ "shape": "two Yes/No groups; the second's question is a plain <p> right before it, after the first group and its styled title",
+ "why": "widget zoo: cc's review of #515 (12 Oct 2026): a Yes/No group took the title of the question before it (another control between them) or a text box's title; a title owns a group only when no other control lies between them, else the text right before it in its row names it",
+ "pages": [
+  {
+   "url": "https://group-title-previous-question-1.zoo.example.com/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": false,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "aria:g1",
+     "question": "Are you fluent in English?",
+     "value": "Yes",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    },
+    {
+     "field": "aria:g2",
+     "question": "Do you need a visa to work here?",
+     "value": "No",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "asked": [
+   "Do you need a visa to work here?"
+  ],
+  "pressed": [
+   "#g2 [data-v=no]"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 30
+ },
+ "start": "panel"
+}

@@ -1,0 +1,58 @@
+{
+ "widget": "segmented_toggle",
+ "shape": "a Yes/No group whose question is a plain <p> right before it, after a text box with a styled title",
+ "why": "widget zoo: cc's review of #515 (12 Oct 2026): a Yes/No group took the title of the question before it (another control between them) or a text box's title; a title owns a group only when no other control lies between them, else the text right before it in its row names it",
+ "pages": [
+  {
+   "url": "https://group-title-after-textbox-1.zoo.example.com/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": false,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "notice",
+     "question": "Notice period",
+     "value": "1 month",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    },
+    {
+     "field": "aria:g3",
+     "question": "Willing to relocate?",
+     "value": "Yes",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "asked": [
+   "Willing to relocate?"
+  ],
+  "pressed": [
+   "#g3 [data-v=yes]"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 30
+ },
+ "start": "panel"
+}

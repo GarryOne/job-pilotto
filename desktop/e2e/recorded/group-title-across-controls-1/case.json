@@ -1,0 +1,82 @@
+{
+ "shape": "two Yes/No groups and a text box: the second and third questions are plain <p> rows right before their groups, after another control with a styled title",
+ "origin": "hand-cut",
+ "why": "cc's review of #515 (12 Oct 2026): a Yes/No group took the title of the question before it (another control between them) or a text box's title; a title owns a group only when no other control lies between them, else the text right before it in its row names it. Hand-made page",
+ "control": {
+  "build": "0.9.249",
+  "failed": "asked: Do you need a visa to work here? (named 'Are you fluent in English?'); asked: Willing to relocate? (named 'Notice period')"
+ },
+ "sample": "a hand-made form with Yes/No toggle rows",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/group-titles/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "aria:g1",
+     "question": "Are you fluent in English?",
+     "value": "Yes",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    },
+    {
+     "field": "aria:g2",
+     "question": "Do you need a visa to work here?",
+     "value": "No",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    },
+    {
+     "field": "notice",
+     "question": "Notice period",
+     "value": "1 month",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    },
+    {
+     "field": "aria:g3",
+     "question": "Willing to relocate?",
+     "value": "Yes",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "asked": [
+   "Do you need a visa to work here?",
+   "Willing to relocate?"
+  ],
+  "pressed": [
+   "#g2 [data-v=no]",
+   "#g3 [data-v=yes]"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 30
+ },
+ "start": "panel"
+}
