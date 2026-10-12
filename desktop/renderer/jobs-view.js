@@ -195,6 +195,15 @@ export function fitTooltip(fit, extra = '') {
   return [head, ...bands, ...(extra ? ['', extra] : [])].join('\n');
 }
 
+// Why a job has no score, for the ring's tooltip and the row's badge. place_unclear (src/desktop_jobs.py): its location is only a country and its
+// posting could not be read, so no refresh can place or score it; it is listed for you to check, never hidden or closed (#323, 12 Oct 2026).
+export const PLACE_UNCLEAR = 'Place unclear';
+export function unscoredWhy(job) {
+  if (job.fit != null) return '';
+  return job.place_unclear ? 'Not scored: its place is unclear (the location names only a country) and the posting could not be read. Open it to check where the job is.'
+    : 'Not scored yet: no description to read, or excluded by your filters';
+}
+
 // When a job was first seen: "just now", "5h ago", "3d ago", "2w ago".
 export function ago(iso, now = Date.now()) {
   const ms = now - Date.parse(iso);
