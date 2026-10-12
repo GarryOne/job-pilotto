@@ -1,4 +1,4 @@
-// The verdict pass's exam (lib/judge-exam.mjs): ten findings with known answers, the code of each as it was at its build, a score; no one ticks anything.
+// The verdict pass's exam (lib/judge-exam.mjs): eleven findings with known answers, the code of each as it was at its build, a score; no one ticks anything.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
@@ -6,10 +6,10 @@ import {EXPECTED, examPending, loadExam, scoreExam} from '../lib/judge-exam.mjs'
 import {loopQuality} from '../lib/loop-quality.mjs';
 import {prejudgePrompt} from '../lib/prejudge.mjs';
 
-test('the exam has ten findings, four real and the rest false, each with its code and a known answer', () => {
+test('the exam has eleven findings, five real and the rest false, each with its code and a known answer', () => {
   const items = loadExam();
-  assert.equal(items.length, 10);
-  assert.deepEqual([items.filter(item => item.expect === 'real').length, items.filter(item => item.expect !== 'real').length], [4, 6]);
+  assert.equal(items.length, 11);
+  assert.deepEqual([items.filter(item => item.expect === 'real').length, items.filter(item => item.expect !== 'real').length], [5, 6]);
   for (const item of items) {
     assert.ok(EXPECTED.includes(item.expect), `${item.id}: ${item.expect}`);
     assert.ok(item.finding.title && item.finding.detail && item.finding.source, item.id);
@@ -21,10 +21,10 @@ test('the exam has ten findings, four real and the rest false, each with its cod
 
 test('the findings reach the verdict pass like real ones, with a pointer to their code and no screenshot', () => {
   const pending = examPending(loadExam());
-  assert.equal(pending.length, 10);
+  assert.equal(pending.length, 11);
   assert.ok(pending.every(item => item.screenshot === '' && /\.heal\/exam\/e\d+-[a-z0-9-]+\/code\//.test(item.detail)));
   const prompt = prejudgePrompt(pending, 'BASE');
-  assert.match(prompt, /you judge 10 NEW finding\(s\)/);
+  assert.match(prompt, /you judge 11 NEW finding\(s\)/);
   assert.match(prompt, /## e290-failed-gmail-box/);
   assert.ok(!/real|false-positive|expect/.test(pending.map(item => item.id + item.detail).join('').replace(/real bug|real\b/g, '')) || true);
   assert.ok(!JSON.stringify(pending).includes('"expect"'), 'the answer is never shown to the judge');
@@ -39,7 +39,7 @@ test('the score counts right answers, real bugs dismissed, false alarms believed
   answers['e284-overlay-duplicate'] = 'real\nWhy: duplicated.';                           // a false alarm believed
   delete answers['e287-more-actions'];                                                    // unanswered
   const result = scoreExam(items, answers);
-  assert.deepEqual([result.right, result.wrong, result.missing, result.dismissed, result.believed, result.rate], [7, 2, 1, 1, 1, 70]);
+  assert.deepEqual([result.right, result.wrong, result.missing, result.dismissed, result.believed, result.rate], [8, 2, 1, 1, 1, 73]);
   assert.deepEqual(result.rows.find(row => row.id === 'e287-more-actions').got, 'none');
   assert.equal(result.rows.find(row => row.id === 'e290-failed-gmail-box').cause, 'detector');
   assert.equal(scoreExam([], {}).rate, null);
@@ -49,7 +49,7 @@ test('the exam is a number on /self-heal: the rate and what went wrong; no exam 
   const items = loadExam(), answers = Object.fromEntries(items.map(item => [item.id, `${item.expect}\nWhy: x.`]));
   answers['e278-swiss-pattern'] = 'false-positive\nWhy: x.';
   const quality = loopQuality({judgeExam: scoreExam(items, answers)});
-  assert.deepEqual(quality.judge, {rate: 90, note: '9 of 10 planted findings judged right (1 real bug(s) dismissed, 0 false alarm(s) believed, 0 unanswered)'});
+  assert.deepEqual(quality.judge, {rate: 91, note: '10 of 11 planted findings judged right (1 real bug(s) dismissed, 0 false alarm(s) believed, 0 unanswered)'});
   assert.match(loopQuality({}).judge.note, /no exam yet/);
   assert.equal(loopQuality({}).judge.rate, null);
 });

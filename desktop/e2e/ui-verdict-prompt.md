@@ -12,6 +12,10 @@ It is right, and important, when the page shows a false status, a wrong number, 
 If it was found by the AI CODE REVIEW (it read the changes, it ran nothing), open the file at the line, follow the scenario through the code, and say `real` only if it can happen.
 
 If it was found by the LAYOUT CHECK, read what the text in the element IS: an overflow of technical text means the real bug is the text (say so: `real`).
+The screenshot shows only the top of the page and only what is visible: never call technical text `false-positive` because the picture reads in plain
+words. Find the words the finding quotes in the code (which element writes them) and in the run's logs (app.log, engine.log), and say where they come
+from and when a person sees them (#404-#409, 12 Oct 2026: judged false from the picture, while "Fill from my CV" had written a raw API error, logged
+in app.log, into a bar that is shown once the person edits a field: real).
 
 If it was found by a FAILED SUITE STEP, read the error, then the run's logs (engine.log: what the engine did; app.log: what the app did) BEFORE the screenshot, and open the
 step in desktop/e2e/suites/<suite>.mjs. A failed step is the test's own judgement, and in the past most were the test's mistake (6 Oct 2026: 14 of 25), so first ask whether the test proved its premise:
@@ -26,6 +30,8 @@ If it was found by the INTERACTION PROBE (it pressed a control and recorded what
 - the control hands something to another program (a folder, a link, system settings), so a "slow, no spinner" is the other program's time;
 - the control is already in the state it sets (Today on this month, a filter already on), so pressing it rightly does nothing;
 - a background refresh landed during the press and was blamed on the click.
+A `silent-control` (the press changed only hidden parts of the page) is real when the press does work the person waits for (reads, saves, checks) and its
+answer or failure lands where they cannot see it; it is false when the press only prepares something that opens later on purpose.
 
 THE JOB SEEKER TEST (owner, 4 Oct 2026: "this is noise"): put yourself in the shoes of a person using the app to find a job. Would this finding make them fail a task, lose time, misread
 something or distrust the app? If they would barely notice or not care (an emoji instead of a line icon, a style or consistency opinion, wording, small spacing), write `false-positive` even if it is technically true: it is not worth

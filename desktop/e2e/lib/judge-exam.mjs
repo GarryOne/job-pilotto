@@ -1,5 +1,5 @@
 // An exam for the verdict pass (5 Oct 2026). The weekly audit measures the judge by asking the owner to tick five verdicts; that is the one place a person is still needed to say whether the
-// judge was right. The exam asks the same question with answers already known: ten findings from this loop's own history (four real, six false) each with the code as it was at the build
+// judge was right. The exam asks the same question with answers already known: eleven findings from this loop's own history (five real, six false; 12 Oct 2026: #409, a raw error a screenshot cannot show, judged false twice) each with the code as it was at the build
 // that was tested, run through the verdict pass exactly as a real finding is, and scored against what was later proven. A judge that dismisses a real bug or believes a false alarm
 // shows it in a number every week, with no one ticking anything. The same idea as the recall plants (a known bug, did the detector see it), pointed at the judge. Pure but for reading the fixtures.
 import fs from 'node:fs';
