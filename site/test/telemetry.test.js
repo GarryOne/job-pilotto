@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import worker from '../src/index.js';
-import {daily, describe} from '../src/telemetry.js';
+import {daily, describe, useOf} from '../src/telemetry.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
@@ -302,4 +302,16 @@ test('a report stores the country Cloudflare saw (two letters only) and the mach
   assert.deepEqual(rows, {'install-aaaa1111': 'CH', 'install-bbbb2222': null, 'install-cccc3333': null});
   const page = await worker.fetch(new Request('https://www.jobpilotto.top/admin/app', {headers: {Authorization: 'Bearer k3y'}}), e, {});
   assert.match(await page.text(), /<th>Country<\/th>[^]*<td>CH<\/td>/);
+});
+
+test('a machine is "in use" after 2+ days or anything past setup/health; one setup report is "tried once"; the table says so', async () => {
+  assert.equal(useOf({days: 1, beyond: 0}), 'tried once');
+  assert.equal(useOf({days: 2, beyond: 0}), 'in use');
+  assert.equal(useOf({days: 1, beyond: 1}), 'in use');
+  const e = env();
+  await send(e, [{kind: 'setup', install: 'install-once1111', version: '0.7.0', platform: 'win32', at: '2026-10-12T10:00:00Z', step: 'start'},
+    {kind: 'setup', install: 'install-used2222', version: '0.7.0', platform: 'win32', at: '2026-10-12T10:00:00Z', step: 'start'}, crash('install-used2222')]);
+  const html = await (await worker.fetch(new Request('https://www.jobpilotto.top/admin/app', {headers: {Authorization: 'Bearer k3y'}}), e, {})).text();
+  assert.match(html, /tried once/);
+  assert.match(html, /in use/);
 });

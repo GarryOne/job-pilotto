@@ -53,6 +53,9 @@ export function describe(item) {
     default: return {key: 'health', summary: 'health'};
   }
 }
+// Whether a machine looks used: it reported on 2+ days, or sent anything past the first setup steps and the health line. One setup report on one day is "tried once"
+// (a person who stopped at setup, or a test run: the table can't say which, so it doesn't claim to).
+export const useOf = ({days = 0, beyond = 0} = {}) => days >= 2 || beyond > 0 ? 'in use' : 'tried once';
 async function hash(text) {
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)));
   return [...digest.slice(0, 8)].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -97,7 +100,9 @@ export async function problems(db, days, now = new Date(), limit = 50) {
   const machines = (await db.prepare(machineSql(', (SELECT t.country FROM telemetry t WHERE t.install = telemetry.install AND t.country IS NOT NULL ORDER BY t.at DESC LIMIT 1) AS country')).all()
     .catch(() => db.prepare(machineSql('')).all())).results || [];   // before migration 0062: no country
   const history = (await db.prepare('SELECT install, version, MIN(at) AS at FROM telemetry GROUP BY install, version ORDER BY at').all()).results || [];
+  const usage = new Map((((await db.prepare("SELECT install, COUNT(DISTINCT day) AS days, SUM(kind NOT IN ('setup', 'health')) AS beyond FROM telemetry GROUP BY install").all()).results) || []).map(row => [row.install, row]));
   for (const m of machines) {
+    m.use = useOf(usage.get(m.install)); m.days = usage.get(m.install)?.days || 0;
     const own = history.filter(h => h.install === m.install);
     m.versions = own.map(h => h.version);
     m.first = own[0]?.at;
@@ -231,8 +236,8 @@ pre{white-space:pre-wrap;font-size:12px;color:var(--muted);margin:8px 0 0}.kind{
 ${table || '<tr><td colspan="6" class="muted">No problems reported. 🎉</td></tr>'}</table></section>
 ${tabCard(data.tabs)}
 <section class="card" style="margin-bottom:12px"><h2>🖥️ Machines${chip(data, 'machines')}</h2><small class="muted">one row per install: the version it runs now, and every version it has run (id shown as a short prefix)</small>
-<div style="overflow-x:auto"><table class="machines"><tr><th>Install</th><th>OS</th><th>Country</th><th>Version</th><th>First seen</th><th>Last seen</th><th>Earlier versions</th></tr>${data.machines.map(m => `<tr><td><code>${esc(String(m.install).slice(0, 6))}</code></td><td>${esc(OS_NAMES[m.platform] || m.platform)}</td><td>${esc(m.country || '–')}</td><td><span class="v now">${esc(m.current)}</span></td><td class="muted num">${esc(String(m.first || '').slice(0, 10))}</td><td class="muted num">${esc(String(m.last || '').slice(0, 16).replace('T', ' '))}</td><td class="vs">${m.versions.filter(v => v !== m.current).map(v => `<span class="v">${esc(v)}</span>`).join('') || '<span class="muted">–</span>'}</td></tr>`).join('')
-  || '<tr><td colspan="7" class="muted">No machine has reported yet.</td></tr>'}</table></div></section>
+<div style="overflow-x:auto"><table class="machines"><tr><th>Install</th><th>OS</th><th>Country</th><th>Use</th><th>Version</th><th>First seen</th><th>Last seen</th><th>Earlier versions</th></tr>${data.machines.map(m => `<tr><td><code>${esc(String(m.install).slice(0, 6))}</code></td><td>${esc(OS_NAMES[m.platform] || m.platform)}</td><td>${esc(m.country || '–')}</td><td class="muted">${esc(m.use)}${m.days > 1 ? ` · ${m.days} days` : ''}</td><td><span class="v now">${esc(m.current)}</span></td><td class="muted num">${esc(String(m.first || '').slice(0, 10))}</td><td class="muted num">${esc(String(m.last || '').slice(0, 16).replace('T', ' '))}</td><td class="vs">${m.versions.filter(v => v !== m.current).map(v => `<span class="v">${esc(v)}</span>`).join('') || '<span class="muted">–</span>'}</td></tr>`).join('')
+  || '<tr><td colspan="8" class="muted">No machine has reported yet.</td></tr>'}</table></div></section>
 <section class="card" style="margin-bottom:12px"><h2>How it helped${chip(data, 'helped')}</h2><small class="muted">all ${data.reporting} installs reporting, their latest totals</small>
 <div class="tiles" style="margin:10px 0 0">${[['🎯 Jobs matched', 'matches'], ['⭐ Good fits (70+)', 'goodFits'], ['🧩 Forms filled', 'formsFilled'],
   ['📨 Applications', 'applied'], ['💬 Human replies', 'replies'], ['📞 Screenings', 'screenings'], ['🧑‍💻 Interviews', 'interviews'], ['🏆 Offers', 'offers']]
