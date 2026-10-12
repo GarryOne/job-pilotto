@@ -5,15 +5,24 @@
 // verdicts are printed per page: the zoo pass of the short shadow mode. Lib: lib/widget-zoo.mjs. CI: .github/workflows/widget-zoo.yml (not a required check).
 import fs from 'node:fs';
 import {replayInTabs} from './lib/replay-browser.mjs';
-import {loadZoo, summarizeZoo, verdictOf} from './lib/widget-zoo.mjs';
-import {modelRoute} from './lib/widget-zoo-model.mjs';
+import {harnessLine, loadZoo, summarizeZoo, verdictOf} from './lib/widget-zoo.mjs';
 
 const args = process.argv.slice(2), jsonOut = args.includes('--json') ? args[args.indexOf('--json') + 1] : '';
 const cases = loadZoo().filter(one => one.name.includes(process.env.REPLAY_ONLY || ''));
 const shadow = new Map();   // page host -> the model's verdicts on the fill check (--model)
-if (args.includes('--model')) for (const item of cases) item.ai['/extension/account-judge'] = await modelRoute(shadow);
-const results = await replayInTabs(cases, {tabs: Math.max(1, Number(process.env.JP_REPLAY_TABS || 3)), extensionDir: process.env.REAL_EXTENSION_DIR || undefined});
-const verdicts = cases.map((item, index) => verdictOf(item, results[index]));
+// A harness that cannot start (a module the app needs is missing: desktop/shared not staged) or replays nothing is said first and fails the run, never shown as zoo findings.
+let results = [], startError = '';
+try {
+  if (args.includes('--model')) { const {modelRoute} = await import('./lib/widget-zoo-model.mjs'); for (const item of cases) item.ai['/extension/account-judge'] = await modelRoute(shadow); }
+  results = await replayInTabs(cases, {tabs: Math.max(1, Number(process.env.JP_REPLAY_TABS || 3)), extensionDir: process.env.REAL_EXTENSION_DIR || undefined});
+} catch (error) { startError = error?.message || String(error); }
+const verdicts = results.length ? cases.map((item, index) => verdictOf(item, results[index])) : [];
+const notRun = harnessLine(verdicts, cases.length, startError);
+if (notRun) {
+  console.log(notRun);
+  if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `**${notRun}**\n`);
+  process.exit(1);
+}
 const summary = summarizeZoo(verdicts);
 
 const pad = (text, width) => String(text).padEnd(width).slice(0, width);

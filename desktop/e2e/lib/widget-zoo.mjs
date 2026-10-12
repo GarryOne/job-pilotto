@@ -35,6 +35,13 @@ export function verdictOf(item, result = {}) {
     safe: !kinds.includes('notTold'), failures};
 }
 
+// The NOT RUN rule for the zoo (12 Oct 2026: the CI job died on a missing staged file and printed nothing a reader could tell from a finding): a run that replayed no page says so
+// first, and fails. verdicts: what came back; total: the pages asked for. -> the line, or '' when at least one page replayed.
+export function harnessLine(verdicts, total, error = '') {
+  const replayed = (verdicts || []).filter(one => !one.failures.some(line => /^(error|isolation)\b/.test(line))).length;
+  return replayed ? '' : `harness error: replayed 0 of ${total} pages${error ? ` (${String(error).replace(/\s+/g, ' ').slice(0, 200)})` : ''}`;
+}
+
 // -> {total, read, committed, unsafe: [names], byWidget: {widget: {total, committed}}}
 export function summarizeZoo(verdicts) {
   const byWidget = {};

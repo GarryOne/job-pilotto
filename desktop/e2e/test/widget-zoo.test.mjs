@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {test} from 'node:test';
-import {MAX_PAGE_BYTES, loadZoo, summarizeZoo, verdictOf, zooProblems} from '../lib/widget-zoo.mjs';
+import {MAX_PAGE_BYTES, harnessLine, loadZoo, summarizeZoo, verdictOf, zooProblems} from '../lib/widget-zoo.mjs';
 
 const zoo = loadZoo();
 
@@ -63,4 +63,10 @@ test('--model never runs with an API key or in CI', async () => {
   const {modelRoute} = await import('../lib/widget-zoo-model.mjs');
   await assert.rejects(() => modelRoute(new Map(), {env: {ANTHROPIC_API_KEY: 'x'}}), /ANTHROPIC_API_KEY/);
   await assert.rejects(() => modelRoute(new Map(), {env: {CI: 'true'}}), /not in CI/);
+});
+
+test('a zoo run that replayed no page says "harness error" first, never a finding', () => {
+  assert.equal(harnessLine([], 8, 'Cannot find module desktop/shared/alias-schema.js'), 'harness error: replayed 0 of 8 pages (Cannot find module desktop/shared/alias-schema.js)');
+  assert.equal(harnessLine([{failures: ['error: browser closed']}, {failures: ['isolation: another tab']}], 2), 'harness error: replayed 0 of 2 pages');
+  assert.equal(harnessLine([{failures: ['error: x']}, {failures: ['filled: #a']}], 2), '');   // one page replayed (and missed): a finding, not a dead harness
 });
