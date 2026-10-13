@@ -53,7 +53,7 @@ for (const item of cases) {
     let result = isRowCase(item) ? await runRowCase(item, {extensionDir, ordinal: true}) : (await batchResults())?.get(item.name) || await runCase(item, {extensionDir});   // JP_REPLAY_TABS=1: one browser per case, in turn
     if (result.ordinal) console.log(`row case ${item.name}: WARNING: ${result.ordinal}`);
     if (result.loose) console.log(`row case ${item.name}: ${result.loose}`);   // a prompt or seed change since the capture: a warning, never a failure
-    results.push({name: item.name, control: item.control, ok: result.ok, ...(Number.isInteger(item.rung) ? {rung: item.rung} : {}), note: result.failures.join('; ').slice(0, 200), fill: typeof result.fillTime === 'function' ? result.fillTime() : null, moves: result.ok && typeof result.moves === 'function' ? result.moves() : []});   // a failed case confirms nothing; read after its run (lib/ladder-moves.mjs)
+    results.push({name: item.name, control: item.control, ok: result.ok, ...(Number.isInteger(item.rung) ? {rung: item.rung} : {}), note: result.failures.join('; ').slice(0, 200), fill: typeof result.fillTime === 'function' ? result.fillTime() : null, moves: result.ok && typeof result.moves === 'function' ? result.moves() : [], repairs: result.ok && typeof result.repairs === 'function' ? result.repairs() : []});   // a failed case confirms nothing; read after its run (lib/ladder-moves.mjs)
     assert.deepEqual(result.failures, [], `${item.name} (${item.why || ''})`);
   });
 }

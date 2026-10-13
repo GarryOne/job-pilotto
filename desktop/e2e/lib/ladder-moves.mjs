@@ -60,6 +60,43 @@ export function movesFromRequests(requests) {
   return rowsOf(events);
 }
 
+// The kept-repair evidence of a run, {fp, verb, ok, failed} per control fingerprint and verb (the site's `repairs`, site/src/repair-evidence.js): from the app's own lines
+// `[extension] fill: <verb> on control <n> {"worked":true,"fp":"..."}` (a run with the real app: the pool), or from the extension's bodies to a stand-in app
+// (`/extension/account-judge` phase `repair-result`, the replays). Fixed values only: a fingerprint, a verb of the fill_repair list, two counts.
+const REPAIR_LINE = /^\S+ \[extension\] fill: ([a-z_]{2,24}) on control \d+ (\{.*\})$/;
+const tally = events => {
+  const sum = new Map();
+  for (const {fp, verb, ok} of events) {
+    const row = cleanRepair({fp, verb, ok: 1, failed: 0}) && (sum.get(`${fp}\n${verb}`) || {fp, verb, ok: 0, failed: 0});
+    if (!row) continue;
+    row[ok ? 'ok' : 'failed'] += 1;
+    sum.set(`${fp}\n${verb}`, row);
+  }
+  return [...sum.values()].sort((a, b) => (a.fp + a.verb < b.fp + b.verb ? -1 : 1));
+};
+export function repairsFromLog(text) {
+  const events = [];
+  for (const raw of String(text || '').split('\n')) {
+    const found = raw.match(REPAIR_LINE);
+    if (!found) continue;
+    let data = null;
+    try { data = JSON.parse(found[2]); } catch { continue; }
+    if (typeof data?.worked === 'boolean') events.push({fp: String(data.fp || ''), verb: found[1], ok: data.worked});
+  }
+  return tally(events);
+}
+export function repairsFromRequests(requests) {
+  const events = [];
+  for (const request of Array.isArray(requests) ? requests : []) {
+    if (request?.route !== '/extension/account-judge') continue;
+    let body = null;
+    try { body = JSON.parse(request.body); } catch { continue; }
+    if (body?.phase !== 'repair-result') continue;
+    for (const row of Array.isArray(body.results) ? body.results : []) events.push({fp: String(row?.fp || ''), verb: String(row?.verb || ''), ok: row?.ok === true});
+  }
+  return tally(events);
+}
+
 // The rows of several runs, added per shape and decision; sorted by shape, then rung.
 export function mergeMoves(lists) {
   const sum = new Map();
@@ -76,16 +113,26 @@ const FORM = new Set(['form', 'ready']);
 const said = moves => moves.map(move => `rung ${move.rung} ${move.kind}→${move.outcome} ×${move.hits}${move.misses ? ` (${move.misses} missed)` : ''}`).join(', ') || '-';
 export function poolMoves(report = {}, readLog = () => '') {
   const ran = Array.isArray(report.thisRun?.ran) ? report.thisRun.ran : Object.keys(report.results || {});
-  const rows = ran.filter(row => report.results?.[row]).map(row => ({row, reached: String(report.results[row].reached || 'none'),
-    moves: movesFromLog(readLog(`${report.day}-${row.replace(/\W+/g, '-')}.app.log`))}));
+  const logs = new Map(ran.filter(row => report.results?.[row]).map(row => [row, String(readLog(`${report.day}-${row.replace(/\W+/g, '-')}.app.log`) || '')]));
+  const rows = [...logs].map(([row, log]) => ({row, reached: String(report.results[row].reached || 'none'), moves: movesFromLog(log)}));
   const formRows = {reached: rows.filter(item => FORM.has(item.reached)).length, withMove: rows.filter(item => FORM.has(item.reached) && item.moves.length).length};
   const lines = ['| Row | Reached | Moves | Confirmed |', '|---|---|---|---|', ...rows.map(item => `| ${item.row} | ${item.reached} | ${item.moves.length} | ${said(item.moves)} |`),
     `ladder moves: rows that reached a form: ${formRows.reached}, with a confirmed move: ${formRows.withMove}`];
-  return {rows, formRows, moves: mergeMoves(rows.map(item => item.moves)), lines};
+  return {rows, formRows, moves: mergeMoves(rows.map(item => item.moves)), repairs: repairsFromLog([...logs.values()].join('\n')), lines};
 }
 
 // The distinct moves of several lists (a replayed move counts once, as the site keeps it: one hit, the misses of none): the recorded cases of one build, several cases on one host.
 export const distinctMoves = lists => mergeMoves([...new Map((Array.isArray(lists) ? lists : []).flat().map(row => [[row.shape, row.rung, row.kind, row.outcome].join('\n'), {...row, hits: 1, misses: 0}])).values()].map(row => [row]));
+
+// The repairs of several cases, one per control fingerprint and verb (a replayed repair is one repair, as a replayed move is one move): worked in some case, failed in some case.
+export const distinctRepairs = lists => {
+  const sum = new Map();
+  for (const row of (Array.isArray(lists) ? lists : []).flat()) {
+    const key = `${row.fp}\n${row.verb}`, was = sum.get(key) || {fp: row.fp, verb: row.verb, ok: 0, failed: 0};
+    sum.set(key, {...was, ok: was.ok || (row.ok > 0 ? 1 : 0), failed: was.failed || (row.failed > 0 ? 1 : 0)});
+  }
+  return [...sum.values()];
+};
 
 // The control level's kept repairs travel in the same batch (job-pilotto-fill-ladder, 12 Oct 2026: one delivery path): {fp (page/skeleton.js control fingerprint), verb (a fill_repair
 // verb), ok, failed}, fixed words and integers only; the site's handling of `repairs` is the fill ladder's.

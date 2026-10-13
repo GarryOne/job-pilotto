@@ -21,6 +21,7 @@ import {storeProposals as storeAliasProposals, storeUse as storeAliasUse} from '
 import {store as storeIntelligence} from './intelligence.js';
 import {store as storeKnowledge} from './knowledge.js';
 import {storeMoves} from './ladder-moves.js';
+import {storeRepairs} from './repair-evidence.js';
 
 const STATUSES = ['candidate', 'canary', 'verified', 'disabled'];
 const STEPS = [5, 25, 100];                  // a canary's rollout, in order
@@ -151,7 +152,7 @@ export async function controls(request, env, now = new Date()) {
     const given = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
     if (!((env.REPLAYS_PUBLISH_KEY && equal(given, env.REPLAYS_PUBLISH_KEY)) || await isOwner(request, env))) { await flag(env, 'ladder-source', await digestOf(install), 'test moves without the key', now); return Response.json({ok: true, ladder: 0}); }
     const who = body.source === 'ci' ? `ci:${/^\d{1,20}$/.test(String(body.run || '')) ? body.run : 'none'}` : 'replay';
-    return Response.json({ok: true, ladder: await storeMoves(env.STATS, body.ladder, {source: body.source, who, now})});
+    return Response.json({ok: true, ladder: await storeMoves(env.STATS, body.ladder, {source: body.source, who, now}), repairs: await storeRepairs(env.STATS, body.repairs, {source: body.source, who, now})});
   }
   const samples = (Array.isArray(body.samples) ? body.samples : []).slice(0, 10);
   const outcomes = (Array.isArray(body.outcomes) ? body.outcomes : []).slice(0, 40);
@@ -220,7 +221,8 @@ export async function controls(request, env, now = new Date()) {
   await storeAliasProposals(env, body.proposals, install, now).catch(() => ({}));   // what learned notes say a wording means (src/aliases.js)   // how the service's label meanings fared (src/aliases.js)
   const learned = await storeKnowledge(env, body, install, now).catch(() => ({questions: 0, flows: 0, applications: 0}));   // question wording, flow counts and application outcomes (src/knowledge.js)
   const ladder = Array.isArray(body.ladder) && body.ladder.length ? await storeMoves(env.STATS, body.ladder.slice(0, 40), {source: 'user', who: await hashed(env, install), now}) : 0;   // the moves its pages confirmed (src/ladder-moves.js)
-  return Response.json({ok: true, samples: storedSamples, outcomes: storedOutcomes, ...learned, ladder});
+  const repairs = Array.isArray(body.repairs) && body.repairs.length ? await storeRepairs(env.STATS, body.repairs.slice(0, 40), {source: 'user', who: await hashed(env, install), now}) : 0;   // what its control repairs did (src/repair-evidence.js)
+  return Response.json({ok: true, samples: storedSamples, outcomes: storedOutcomes, ...learned, ladder, repairs});
 }
 
 // ---- GET /api/recipes/targets (owner): what the private recipe proposer should work on ----

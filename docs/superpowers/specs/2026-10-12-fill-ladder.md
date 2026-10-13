@@ -259,7 +259,7 @@ Shadow (owner): one zoo pass + one pool pass with `fill_verify` logging, then re
 - [ ] The door record `{level: 'control', ...}` joining next-move's `deadEnd()`; a journey scenario
 ### 5. Remember (PR D)
 - [x] Local kept repair per fingerprint, one miss drops (D1, #579) (proof: desktop/lib/ladder/repair-kept.js @0dec01f)
-- [ ] Evidence (fingerprint, verb, worked) in next-move's feed: `repairs` array to `/api/controls` (real use + CI pool + replays), site stores it
+- [x] Evidence (fingerprint, verb, worked) in next-move's feed: `repairs` array to `/api/controls` (real use + CI pool + replays), site stores it (PR D2) (proof: site/test/repair-evidence.test.js)
 ### 6. Picture and the person (PR E)
 - [ ] Rung 4 scope `verify` for unreadable widgets, capped
 - [ ] Person card shows the reason class per left control

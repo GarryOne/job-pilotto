@@ -4,6 +4,7 @@
 // data never poses as a user's. Fixed values and integers only, as desktop/lib/ladder/learning.js counts() (its lists are checked equal to these by desktop/test/ladder-moves-site.test.js).
 // Not served to installs yet: the pack's k>=3 rule comes with phase 3. GET /api/ladder-moves (owner): every move, each source apart. Guard: test/ladder-moves.test.js.
 import {isOwner} from './stats.js';
+import {readRepairs} from './repair-evidence.js';
 
 export const SOURCES = ['user', 'ci', 'replay'];
 export const KINDS = ['form', 'account-form', 'account', 'posting', 'other'];
@@ -54,5 +55,6 @@ export async function movesView(request, env) {
   if (!env.STATS || !(await isOwner(request, env))) return new Response('Not found', {status: 404});
   const moves = await readMoves(env.STATS);
   const totals = {shapes: new Set(moves.map(move => move.shape)).size, ...Object.fromEntries(SOURCES.map(source => [source, new Set(moves.filter(move => move[source].n).map(move => move.shape)).size]))};
-  return Response.json({ok: true, totals, moves}, {headers: {'Cache-Control': 'private, no-store'}});
+  const repairs = await readRepairs(env.STATS);   // what the control repairs did per fingerprint and verb (src/repair-evidence.js)
+  return Response.json({ok: true, totals, moves, repairs}, {headers: {'Cache-Control': 'private, no-store'}});
 }
