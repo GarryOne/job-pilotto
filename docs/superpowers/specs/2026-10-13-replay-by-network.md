@@ -223,7 +223,7 @@ Fixture: React 18 + react-dropzone 14 (vendored); a CV upload → the site's par
 ## Progress
 - [x] History read; options A, B, C compared; B chosen (proof: none: this spec)
 - [ ] cc's review
-- [x] The owner's yes ("let's prove it", 13 Oct 2026) and decision 1: encrypted CI artifact (proof: .github/workflows/pool-smoke.yml on draft #652)
+- [x] The owner's yes ("let's prove it", 13 Oct 2026) and decision 1: encrypted CI artifact (proof: none: the encrypted artifact runs on draft #652, not on main)
 - [x] P0 + P0b: fixture site recorded and replayed; page side passes, pace open (proof: docs/superpowers/specs/2026-10-13-replay-by-network.md)
 - [x] P0c folded into the proof: the memo replays each ask at its live latency (cap raised); the clock, slower replies and CPU were measured not to matter (proof: none: draft #652 replay-net.mjs)
 - [x] P1 widened: 6 real rows, 30 of 32 live asks matched (proof: none: draft #652, Proof result above)
