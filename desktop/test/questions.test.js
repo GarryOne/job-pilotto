@@ -126,3 +126,16 @@ test('the CV is uploaded, never answered: no "CV file" or "Resume/CV" question, 
   assert.match(JSON.stringify(added), /Visa sponsorship/);
   assert.doesNotMatch(JSON.stringify(added), /Resume/);
 });
+
+test('a password, captcha or code is never a question: not listed from the page, not added from a fill', async () => {
+  const secrets = ['Captcha', 'Your password', 'Repeat Password', 'Confirm password *', 'Passwort', 'Mot de passe', 'Contraseña', 'reCAPTCHA', "I'm not a robot", 'Verification code', 'One-time code', 'SMS code'];
+  for (const yes of secrets) assert.ok(questions.isSecretQuestion(yes), yes);
+  for (const no of ['Notice period', 'Visa sponsorship?', 'Passport number', 'Salary expectation']) assert.ok(!questions.isSecretQuestion(no), no);
+  const added = [];
+  const run = {trace: [...secrets.map(label => ({required: true, reason: questions.NO_ANSWER, label})), {required: true, reason: questions.NO_ANSWER, label: 'Visa sponsorship?'}]};
+  const fetchAdd = async (url, init = {}) => { if (init.method === 'PATCH') added.push(JSON.parse(init.body)); return {ok: true, json: async () => ({results: [], has_more: false})}; };
+  assert.equal(await questions.collect(storage(), run, 'Acme', fetchAdd), 1, 'only the visa question is added');
+  assert.doesNotMatch(JSON.stringify(added), /captcha|password|robot|code/i);
+  const {fetcher} = page();
+  assert.ok(!(await questions.list(storage(), fetcher)).some(q => questions.isSecretQuestion(q.question)));
+});
