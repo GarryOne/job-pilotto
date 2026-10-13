@@ -49,6 +49,8 @@ CREATE TABLE IF NOT EXISTS scores (
 """
 
 _component = {'type': 'integer', 'description': '0-100'}
+# Pay fit is null when the posting states no salary: an unknown is shown as N/A and counts for nothing in the overall score.
+_pay_component = {'type': ['integer', 'null'], 'description': '0-100, or null when the posting states no salary'}
 SCHEMA = {
     'type': 'object',
     'additionalProperties': False,
@@ -61,7 +63,7 @@ SCHEMA = {
             'type': 'object', 'additionalProperties': False,
             'required': ['role_fit', 'location', 'compensation', 'growth', 'risk'],
             'properties': {
-                'role_fit': _component, 'location': _component, 'compensation': _component,
+                'role_fit': _component, 'location': _component, 'compensation': _pay_component,
                 'growth': _component,
                 'risk': {'type': 'integer', 'description': '0-100, higher = more risk or uncertainty'},
             },
@@ -87,8 +89,8 @@ gap, never "close" or "no relocation".
 - Every figure, place and requirement you write must appear in the posting, the extracted facts or the profile. \
 Credit the candidate only with skills, tools and experience the profile names: a related tool is not the same tool, \
 and never say a posting's level matches a level the profile does not state.
-- Compensation: compare only an advertised salary with the target. If no salary is stated, give 50 \
-and list it as a gap. Never invent a figure or a net amount. The profile's minimum and the target are different \
+- Compensation: compare only an advertised salary with the target. If no salary is stated, give null (shown as N/A) \
+and list it as a gap; the overall score then ignores pay entirely, as if it were not a factor. Never invent a figure or a net amount. The profile's minimum and the target are different \
 figures: say which one you compare with. Do not compute percentages or convert currencies; say "below your \
 minimum" or "above your target" and quote the posting's own numbers. Call a salary "in the target range" only \
 when it lies between the profile's own figures.
@@ -247,7 +249,7 @@ def score_one(client, model, job, profile, effort=None):
     data = json.loads(next(block.text for block in response.content if block.type == 'text'))
     clamp = lambda n: max(0, min(100, int(n)))
     data['score'] = clamp(data['score'])
-    data['components'] = {k: clamp(v) for k, v in data['components'].items()}
+    data['components'] = {k: None if v is None else clamp(v) for k, v in data['components'].items()}
     data['strengths'], data['gaps'] = data['strengths'][:3], data['gaps'][:3]
     return data, response.usage
 

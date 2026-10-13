@@ -463,6 +463,7 @@ button.with-icon .icon { width: 15px; height: 15px; }
 .fit-metric.high { --bar: var(--good-bright); } .fit-metric.high .fit-metric-value b { color: var(--good); }
 .fit-metric.mid { --bar: var(--warn-bright); } .fit-metric.mid .fit-metric-value b { color: var(--warn); }
 .fit-metric.low { --bar: var(--bad-bright); } .fit-metric.low .fit-metric-value b { color: var(--bad); }
+.fit-metric.unknown .fit-metric-value b { color: var(--muted); }
 .fit-bar { display: block; height: 6px; margin-top: var(--sp-1); border-radius: var(--r-pill); background: var(--line); overflow: hidden; }
 .fit-bar-fill { display: block; height: 100%; width: calc(var(--p, 0) * 1%); background: var(--bar); border-radius: inherit; }
 /* Risk, the one part where lower is better: its own line under the bars. */

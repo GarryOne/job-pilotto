@@ -161,7 +161,9 @@ def market_stats(db, profile, now):
 
     def components(group):
         keys = ('role_fit', 'location', 'compensation', 'growth', 'risk')
-        return {k: round(mean(j['fit']['components'][k] for j in group)) for k in keys} if group else {}
+        # A part the AI left out (pay with no salary stated) is not averaged in.
+        known = lambda k: [v for j in group if (v := j['fit']['components'][k]) is not None]
+        return {k: round(mean(known(k))) if known(k) else None for k in keys} if group else {}
 
     salaried = [j for j in eligible if j['ai']['salary']['stated']]
     return {
