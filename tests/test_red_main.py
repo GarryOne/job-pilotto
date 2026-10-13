@@ -22,7 +22,7 @@ CLASSIFIED = {
     'CI · Mac smoke (by hand)': 'ignored: by hand', 'CI · Pool smoke (by hand)': 'ignored: by hand, live sites', 'CI · Edge check (Windows, by hand)': 'ignored: by hand', 'CI · Windows smoke (weekly)': 'ignored: weekly',
     'Release · Build, test, beta': 'ignored: the release run, its own gates and rollback (pipeline gates)', 'Release · Promote to stable': 'ignored: release', 'CI · Promotion dry run': 'ignored: release rehearsal',
     'CI · Release to beta': 'ignored: release', 'CI · Stable canary': 'ignored: release', 'Release · Website': 'ignored: site deploy', 'Release · Website preview (next)': 'ignored: site deploy',
-    'Release · Worker': 'ignored: worker deploy', 'CI · Account-page eval': 'ignored: AI eval', 'CI · Judge exam': 'ignored: AI eval', 'CI · Widget zoo (measure, not required)': 'ignored: a measure of the fill ladder; a miss never fails it', 'CI · Mutation test': 'ignored: nightly measurement',
+    'Release · Worker': 'ignored: worker deploy', 'CI · Judge exam': 'ignored: AI eval', 'CI · Widget zoo (measure, not required)': 'ignored: a measure of the fill ladder; a miss never fails it', 'CI · Mutation test': 'ignored: nightly measurement',
     'CI · AI code review': 'ignored: advice on a PR', 'CI · AI cost billed': 'ignored: report', 'CI · Schedule watchdog': 'ignored: report', 'CI · Self-heal stats': 'ignored: report',
     'CI · UI findings': 'ignored: UI loop', 'CI · UI fixer': 'ignored: UI loop', 'CI · UI verdicts': 'ignored: UI loop', 'CI · Top issues list': 'ignored: UI loop', 'CI · Bug Tracker rows': 'ignored: UI loop', 'CI · Fixed-issue labels': 'ignored: UI loop',
     'CI · Sentry fixer': 'ignored: fixer loop', 'UI loop · Finder self-review': 'ignored: UI loop',

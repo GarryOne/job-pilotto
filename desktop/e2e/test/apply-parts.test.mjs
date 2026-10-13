@@ -7,7 +7,8 @@ import * as forms from '../lib/forms.mjs';
 import {partOf} from '../suites/apply.mjs';
 import * as applySuite from '../suites/apply.mjs';
 import * as applyflowsSuite from '../suites/applyflows.mjs';
-import {appCode} from '../lib/account-eval.mjs';
+import {execFileSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 
 const journeySteps = () => [...fs.readFileSync(new URL('../lib/apply-journeys.mjs', import.meta.url), 'utf8').matchAll(/ctx\.run\('((?:[^'\\]|\\.)*)'/g)]
   .map(match => match[1].replace(/\\'/g, "'"));
@@ -19,7 +20,8 @@ test('every journey step is a flows step, where its fixture jobs and kits are se
 });
 
 test('the wrong-kind page has its own page shape: no other fixture page shares its kind cache', async () => {
-  await appCode();
+  // page-kind.js imports desktop/shared/ (made by desktop/scripts/stage.mjs): staged here when missing, files only (CI's plan job has no desktop dependencies).
+  if (!fs.existsSync(new URL('../../shared/alias-schema.js', import.meta.url))) execFileSync(process.execPath, [fileURLToPath(new URL('../../scripts/stage.mjs', import.meta.url)), '--files-only'], {stdio: 'ignore'});
   const {pageShape} = await import('../../lib/page-kind.js');
   const {MISLABELLED} = forms;
   assert.equal(pageShape(MISLABELLED.url), MISLABELLED.shape);
