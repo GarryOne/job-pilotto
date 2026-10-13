@@ -1,7 +1,7 @@
 // Jobs: loading and reloading the list, adding jobs, init(); the pieces are jobs-state/-render/-fit/-lead/-questions.js. Guarded by: search-changed, live-status-line, live-count, activity-selection-kept tests.
 import {setCount} from '../components.js';
 import {claudeHelp} from '../claude-help.js';
-import {applicationStats, inboundCount, inProcess, matchesOnly, statClick, stats, takenDown, toReview} from '../jobs-view.js';
+import {applicationStats, inboundCount, inProcess, openMatches, statClick, stats, takenDown, toReview} from '../jobs-view.js';
 import {shared} from './shared.js';
 import {refreshBusy, showSearchChanged, wireSearchChanged} from '../search-changed.js';
 import {openActivity, refreshActivity, showSearchStatus} from './activity.js';
@@ -124,7 +124,7 @@ export function showJobsData(data) {
     shared.allJobs = data.jobs;
     const scored = shared.allJobs.filter(job => job.fit != null).length;
     // Total / high fit / new / companies count job matches; opportunities that found you are "In conversation".
-    const matched = matchesOnly(shared.allJobs);
+    const matched = openMatches(shared.allJobs);
     const count = stats(matched, data.total == null ? undefined : data.total - (shared.allJobs.length - matched.length));
     count.week += data.week_beyond || 0;   // new jobs among the rows not loaded (a cut list)
     $('jobs-stats').textContent = `${count.total} matches` +
