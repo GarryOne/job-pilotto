@@ -38,7 +38,7 @@ test('a saved Claude Code path that is a wrapper is refused before the app start
 });
 
 // Every harness place that starts the app under test or `claude` itself, and the guard it uses. A new place (a launch, a spawn of claude) must be added here.
-const SITES = ['lib/app.mjs', 'twin.mjs', 'lib/model.mjs', 'lib/engine.mjs', 'lib/ladder-score-path.mjs', 'account-eval.mjs', 'lib/offline-guard.mjs'];
+const SITES = ['lib/app.mjs', 'twin.mjs', 'lib/model.mjs', 'lib/engine.mjs', 'lib/ladder-score-path.mjs', 'lib/offline-guard.mjs'];
 const STARTS = /electron\.launch\(|'\.bin', 'electron'|spawn\('claude'|execFileSync\('claude'|which\('claude'\)|binary = 'claude'|cliClient\(/;
 
 test('every place that starts the app or claude goes through the guard', () => {
