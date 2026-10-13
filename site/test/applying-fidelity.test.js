@@ -1,0 +1,71 @@
+// /admin/applying's "Replay vs live (prototype)" (src/applying-fidelity.js): the verdict rule, the one-row store, the 404 without the key, and a page that carries the section.
+import assert from 'node:assert/strict';
+import {readFileSync, readdirSync} from 'node:fs';
+import {DatabaseSync} from 'node:sqlite';
+import {test} from 'node:test';
+import {PAGE, data} from '../src/applying.js';
+import {fidelity, fidelityIngest, readFidelity, verdictOf} from '../src/applying-fidelity.js';
+
+function d1() {
+  const db = new DatabaseSync(':memory:'), log = {written: 0};
+  for (const file of readdirSync(new URL('../migrations/', import.meta.url)).filter(name => name.endsWith('.sql')).sort()) db.exec(readFileSync(new URL(`../migrations/${file}`, import.meta.url), 'utf8'));
+  const statement = (sql, args = []) => ({bind: (...values) => statement(sql, values),
+    run: async () => { const done = db.prepare(sql).run(...args); log.written += Number(done.changes); return done; },
+    all: async () => ({results: db.prepare(sql).all(...args)}), first: async () => db.prepare(sql).get(...args)});
+  return {db, log, prepare: sql => statement(sql)};
+}
+const KEY = 'k'.repeat(64);
+const put = (db, body, key = KEY) => fidelityIngest(new Request('https://x.test/applying/fidelity', {method: 'PUT', headers: {Authorization: `Bearer ${key}`}, body: JSON.stringify(body)}), {STATS: db, REPLAYS_PUBLISH_KEY: KEY}, new Date('2026-10-13T10:00:00Z'));
+const row = (name, network, extra = {}) => ({name, sha: 'abc1234', branch: 'replay-proof', at: '2026-10-13T09:00:00Z', live: {filled: 5, left: 1, ending: 'ready', asks: 4}, live2: {asks: 4, extraVsLive1: 1},
+  snapshot: {hit: 3, extra: 2}, network, ...extra});
+const good = {hit: 4, extra: 0, filled: 5, left: 1, notRecorded: 2, orderMatched: 3, orderWrong: 0, echoed: 1, afterUpload: 'seen'};
+
+test('verdict: same, close (extras within the live spread) and off; absent replay is null; the snapshot has no filled/left and is judged on asks', () => {
+  const live = {filled: 5, left: 1, asks: 4};
+  assert.equal(verdictOf(live, good), 'same');
+  assert.equal(verdictOf(live, {...good, extra: 1}, {extraVsLive1: 1}), 'close');
+  assert.equal(verdictOf(live, {...good, extra: 2}, {extraVsLive1: 1}), 'off');
+  assert.equal(verdictOf(live, {...good, hit: 3}, {extraVsLive1: 1}), 'off', 'a live ask not answered is never within the spread');
+  assert.equal(verdictOf(live, {...good, extra: 1}), 'close', 'no 2nd live run: one miss at most');
+  assert.equal(verdictOf(live, {...good, filled: 4}), 'off', 'filled differs');
+  assert.equal(verdictOf(live, {hit: 4, extra: 0}), 'same');
+  assert.equal(verdictOf(live, null), null);
+});
+
+test('only the publish key writes; a row is stored once, newest per name; identical writes nothing', async () => {
+  const db = d1();
+  assert.equal((await put(db, {rows: [row('a', good)]}, 'wrong')).status, 404);
+  assert.deepEqual(await (await put(db, {rows: [row('a', good), row('b', null)]})).json(), {ok: true, stored: 2});
+  assert.equal(db.db.prepare('SELECT COUNT(*) AS n FROM applying_fidelity').get().n, 1);
+  db.log.written = 0;
+  assert.deepEqual(await (await put(db, {rows: [row('a', good)]})).json(), {ok: true, stored: 0});
+  assert.equal(db.log.written, 0);
+  await put(db, {rows: [row('a', {...good, extra: 3})]});
+  const kept = await readFidelity(db);
+  assert.equal(kept.length, 2);
+  assert.equal(kept.find(item => item.name === 'a').network.extra, 3);
+});
+
+test('a record with a URL in its name, no sha or no live run is dropped; free text never lands', async () => {
+  const db = d1();
+  const bad = [row('https://x.test/job?a=1', good), {...row('c', good), sha: 'zz'}, {...row('d', good), live: {filled: 1}}, row('e', {...good, afterUpload: '<script>'}, {})];
+  assert.equal((await (await put(db, {rows: bad})).json()).stored, 1);
+  const [kept] = await readFidelity(db);
+  assert.equal(kept.name, 'e');
+  assert.equal(kept.network.afterUpload, null);
+});
+
+test('the summary counts "same as live" for the network replay and the snapshot, and a row with no network says not recorded', () => {
+  const f = fidelity([row('a', good, {snapshot: {hit: 4, extra: 0}}), row('b', null), row('c', {...good, extra: 3})]);
+  assert.deepEqual(f.summary, {total: 3, network: 1, snapshot: 1});
+  assert.equal(f.rows.find(item => item.name === 'b').networkVerdict, null);
+});
+
+test('the page carries the section and its data', async () => {
+  const db = d1();
+  await put(db, {rows: [row('a', good)]});
+  const d = await data(db);
+  assert.equal(d.fidelity.rows.length, 1);
+  assert.match(PAGE, /Replay vs live \(prototype\)/);
+  assert.match(PAGE, /drawFidelity\(fidelityBox, d\.fidelity\)/);
+});
