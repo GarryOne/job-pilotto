@@ -19,6 +19,7 @@ import {formNext} from './form-ready.js';
 import {accountOutcome, accountStep} from './account-step.js';
 import {applyPressed} from './tabs.js';
 import {noJobPage} from './page-kind-final.js';
+import {isStopped} from './stop-state.js';
 import {pageStill} from './page-still.js';
 import {bindSession, identityOf, sessionOf} from './tab-identity.js';
 import {pageKey, pageRole} from './tab-pages.js';
@@ -212,6 +213,7 @@ const late = (tab, gen, what) => { if (isCurrent(tab.id, gen)) return false; dec
 // e2e/lib/picture-asks.mjs). Kept out of consider(): a verdict is a log line, not a decision (tools/decision-branches.mjs).
 const blindVerdict = (blindLook, look, led) => { if (blindLook) decide('fill', led ? "blind spot confirmed: the picture's control led to a form" : 'blind spot not confirmed: the picture found no way on', {look}); };
 export async function consider(tab, jobUrl) {
+  if (isStopped()) return;   // stopped by the person: nothing is read, pressed or filled until they press Apply again (stop.js)
   const key = fillKey(tab.id, tab.url);
   if (started.has(key)) return;
   started.add(key);

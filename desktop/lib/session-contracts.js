@@ -53,6 +53,7 @@ export const sessionContracts = Object.freeze({
   sessionSkip: {args: [id], response: result},
   sessionRestart: {args: [id], response: result},
   sessionReopen: {args: [id, boolean], response: result},
+  sessionsStopExtension: {args: [], response: result},   // the Stop button (sessions page, ⌘K): the extension is asked to stop everything; live forms say Stopped (lib/stop-all.js)
   sessionFillField: {args: [id, string, string], response: result},
   sessionProposalUse: {args: [id, string, string], response: result},   // lib/proposal-use.js: what was done with a proposed answer (fixed words)
   sessionFinish: {args: [id], response: result},

@@ -90,17 +90,19 @@ export function renderNextStep(item) {
   if (silentChrome(item)) { renderSilent(); return; }
   const submitted = isSubmitted(item);
   // Its Chrome tab was closed: that wins over "can't reach this form" (nothing to reach) and over what Claude last asked (about that tab).
+  const stopped = !submitted && item.kind === 'form' && item.stuck === 'stopped';   // the person pressed Stop: Reopen form starts it again
   const gone = !submitted && formGone(item);
-  const stuck = !submitted && item.kind === 'form' && !!item.stuck && !gone;   // the extension can't reach this form
-  const review = !submitted && !stuck && sessionReview(item, formReady(item)), asking = !submitted && !stuck && !review && (item.status === 'input' || (item.status === 'done' && item.kind !== 'form' && !item.inChrome && leftForYou(item))), running = !submitted && item.status === 'running';
-  const open = !submitted && !stuck && !review && !asking && (item.kind === 'form' || item.inChrome) && item.status === 'done';
+  const stuck = !submitted && item.kind === 'form' && !!item.stuck && !gone && !stopped;   // the extension can't reach this form
+  const review = !submitted && !stuck && !stopped && sessionReview(item, formReady(item)), asking = !submitted && !stuck && !stopped && !review && (item.status === 'input' || (item.status === 'done' && item.kind !== 'form' && !item.inChrome && leftForYou(item))), running = !submitted && item.status === 'running';
+  const open = !submitted && !stuck && !stopped && !review && !asking && (item.kind === 'form' || item.inChrome) && item.status === 'done';
   const {checks, needs: forYou, audit, done, intro} = readSessionMessage(submitted ? '' : item.question);
-  const tone = submitted ? 'good' : review || asking || stuck ? 'warn' : running ? 'info' : item.status === 'failed' ? 'bad' : 'neutral';
+  const tone = submitted ? 'good' : review || asking || stuck || stopped ? 'warn' : running ? 'info' : item.status === 'failed' ? 'bad' : 'neutral';
   $('ss-decision').className = `ss-next tone-${tone}`;
   const brief = item.brief || '';
   const ask = asksYou(item) && /\?$/.test(brief) ? brief : '';
   $('ss-next-title').textContent = submitted ? 'Submitted'
     : stuck ? (item.stuck === 'account' ? (item.accountStep === 'sign_in' ? `Sign in${item.accountHost ? ` to ${item.accountHost.replace(/^www\./, '')}` : ''}` : 'This site needs an account') : item.stuck === 'incomplete' ? 'The extension filled nothing here' : item.stuck === 'email' ? 'Send your application by email' : item.stuck === 'told' ? 'The page tells you what to do' : item.stuck === 'other' ? 'Job Pilotto could not tell how to apply' : item.stuck === 'site_broken' ? 'The site is not answering' : 'The extension can\'t reach this form')
+    : stopped ? 'You stopped the extension'
     : gone ? 'The form tab was closed'
     : review ? 'Review the filled application'
     : asking ? ask || (item.stage === 'account' ? 'Account step needs your input' : 'Application needs your input')
@@ -129,6 +131,7 @@ export function renderNextStep(item) {
       : 'This page has no form the extension can open by itself (no Apply button it may press, or it leads to another site). Open it in Chrome to go on; if it stays stuck, Claude can find the form and fill it; you still submit it.'),
       // The next press, in the AI's own words (e.g. 'Solve the check, then press "Créer un compte"'): what is left for you on this page.
       ...(['account', 'incomplete'].includes(item.stuck) && item.accountNeeds ? [el('p', 'rich-p', el('b', '', 'Left for you: '), item.accountNeeds)] : [])]
+    : stopped ? [el('p', 'rich-p', 'Nothing runs on this application until you start it again. Reopen form opens it in a new Chrome tab and the extension fills it from your kit; the form already open in Chrome is left as it is.')]
     : gone && asking ? [el('p', 'rich-p', 'Claude was working in the Chrome tab you closed, so its last question was about that tab. Reopen form opens it again (you choose whether to start over); then Resume Claude carries on there.')]
     : gone ? [el('p', 'rich-p', item.kind === 'form' ? 'You closed the form\'s Chrome tab. Reopen it and the extension fills it again from your kit. If you submitted it, the extension has already marked it Applied.' : 'The filled form was in the Chrome tab you closed. Reopen it to fill it again from your kit, or mark it submitted if you already sent it.')]
     : open ? [el('p', 'rich-p', 'The form is open in Chrome. Complete the remaining fields shown below, then review the answers before submitting.') ]
@@ -163,7 +166,7 @@ export function renderNextStep(item) {
   // Claude is the safety net, never the main action (owner, 9 Oct 2026: "remove Resume Claude from being orange"): always secondary; the way to the form is promoted below.
   const resume = () => sessionButton('Resume Claude', 'secondary', () => resumeSession(item), 'refresh');
   const pushResume = () => { if (claudeHelp()) actions.push(resume()); };   // only with Claude help on (claude-help.js)
-  if (gone) {
+  if (gone || stopped) {
     // Nothing to bring forward: the tab is gone. The app opens the job with the fill mark, the way "Fill in Chrome" does.
     actions.push(sessionButton('Reopen form', 'primary', event => reopenClosedTab(item, event.currentTarget), 'link'));
   }

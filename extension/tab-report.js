@@ -17,6 +17,7 @@ import {readingNow} from './visit.js';
 import {reportedIds} from './tab-pages.js';
 import {sessionGet} from './tab-memory.js';
 import {settings} from './flow.js';
+import {stopFromApp} from './stop.js';
 
 // This browser (one Chrome profile), the same across its restarts, unlike `boot`: the app keeps each browser's tabs apart, so a second
 // profile or a test Chrome with this extension never makes this one's forms look closed (8 Oct 2026). A random id, nothing about you.
@@ -56,6 +57,7 @@ export function createTabReport(ctx) {
         .map(([key, id]) => [key.slice(8), String(id)]));
       const answer = await api(config, '/extension/tabs', {method: 'POST', body: JSON.stringify({urls, ids, boot, browser, worker: WORKER, reading, sessions, version: chrome.runtime.getManifest().version})});
       connected(true);
+      await stopFromApp(answer);   // the app's Stop button reaches a tab with no panel too (stop.js)
       // Sites this extension was reading before it started again (a reload, an update, Chrome stopping its worker): read again from where each
       // tab is, under the mark it was opened with (desktop/lib/visits.js noteTabs; 7 Oct 2026: a reload left 3 of 5 sites "stopped answering").
       for (const {tab, ticket, mark} of Array.isArray(answer?.reread) ? answer.reread : []) {

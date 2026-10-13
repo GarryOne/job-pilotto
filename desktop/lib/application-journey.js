@@ -11,9 +11,11 @@
 //  4. 'incomplete' (a fill that put nothing in) is cleared only by clearStuck, which session-flow.js calls when something is filled (c1a2fcc).
 //  6. The account record (accountTerms: at most 3 terms the extension accepted, once each; accountCode: a code from the mail was typed) only grows, from fixed facts, on a running application (10 Oct 2026).
 //  5. Fields come from fixed values: stuck in STUCK, stage in STAGES, accountState in ACCOUNT_STATES, accountStep in ACCOUNT_STEPS; a need is a label of at most 80 characters.
+//  8. 'stopped' (the person pressed Stop: event 'stop') is not a reason a page reports: no stuck report changes it, only clear-stuck (the next fill's report, a reopen) does.
 //  7. 'email' (the posting asks for the application by email, the need is its address) 'told' (the page tells the person what to do: a call, a visit, a closed notice; the need is the page's own sentence) and 'other' (the ladder ended with no usable answer: the need is the fixed label "how to apply is unclear", never page text) and 'site_broken' (an error page or one that could not be read, loaded again first; the need is the extension's fixed sentence with the status) are reported like 'no-form': never over the account step (invariants 2 and 3 hold for them too), a later 'no-form' does not replace them, a later 'incomplete' does (10 Oct 2026).
 
 export const STUCK = ['account', 'incomplete', 'no-form', 'email', 'told', 'other', 'site_broken'];
+export const STOPPED = 'Stopped by you. Press Reopen form to fill it again.';   // invariant 8: the person's Stop (lib/stop-all.js) sets stuck to 'stopped': not a reason a page can report (STUCK), so no report changes it; only clear-stuck does (a fill's report, a reopen)
 export const INFORM = ['email', 'told', 'other', 'site_broken'];   // the page itself says what to do, or the site is broken: nothing for Claude to finish
 export const STAGES = ['account', 'form'];
 export const ACCOUNT_STATES = ['created', 'confirm', 'exists', 'refused'];
@@ -47,8 +49,9 @@ export function journey(session, event) {
     const have = Array.isArray(session.accountTerms) ? session.accountTerms : [];
     return !text || have.includes(text) || have.length >= 3 ? none : {set: {accountTerms: [...have, text]}, result: true};
   }
+  if (event.type === 'stop') return session.kind !== 'form' || session.stuck === 'stopped' ? none : {set: {stuck: 'stopped', note: STOPPED, accountNeeds: ''}, result: true};   // whatever step it was at: the person's word
   if (event.type === 'stuck') {
-    if (session.kind !== 'form' || !STUCK.includes(event.why)) return none;
+    if (session.kind !== 'form' || !STUCK.includes(event.why) || session.stuck === 'stopped') return none;   // invariant 8
     const why = event.why, need = why === 'other' ? 'how to apply is unclear' : label(event.needs), note = noteFor(why, need), set = {};
     const step = ACCOUNT_STEPS.includes(event.accountStep) ? event.accountStep : '';   // the AI's page type: only these two change the wording
     if (why === 'account' && step && session.accountStep !== step) set.accountStep = step;
@@ -72,6 +75,7 @@ export function journeyStep(session) {
   if (!session) return {step: 'posting', needs: ''};
   if (session.outcome) return {step: 'ended', needs: ''};
   const needs = session.accountNeeds || '';
+  if (session.stuck === 'stopped') return {step: session.stage === 'form' ? 'form' : session.stage === 'account' ? 'account' : 'posting', needs: STOPPED};
   if (session.stage === 'form' && session.stuck !== 'account') return {step: 'form', needs: session.stuck === 'incomplete' ? needs : ''};
   if (session.accountState === 'confirm') return {step: 'confirm', needs};
   if (session.stage === 'account' || session.stuck === 'account' || session.accountState) return {step: 'account', needs};

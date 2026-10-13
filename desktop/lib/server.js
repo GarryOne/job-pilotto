@@ -16,7 +16,7 @@ import {me} from './server-contact.js';
 import {pageKey, sessionOfJob, markReportedConfirmations, judgeConfirmation, decidePageKind, decideAccountJudge, decideEscalation, pickUploadSlot, pickChoice, pickPopup} from './server-pages.js';
 import {formIssue, jobName, notify, renderer, sessionReporter, tabsHandler, openHandler, joinHandler, focusHandler, learnedHandler, recipesHandler,
   aliasesHandler, controlsHandler, missesHandler, visitMore, visitFilters, visitHosts, visitHandler, sitePasswordHandler, reviewHandler,
-  accountPressedHandler, stuckHandler, takeOverHandler, claudeAutoHandler, accountFactHandler, tailorHandler, accountCodeHandler} from './server-hooks.js';
+  accountPressedHandler, stuckHandler, takeOverHandler, claudeAutoHandler, accountFactHandler, tailorHandler, accountCodeHandler, stopAsked, stopHeard, stoppedHandler} from './server-hooks.js';
 
 export {extensionToken, sessionSubmitted, APPLIED, appliedSessions, reconcileAppliedSessions, localEnv, latestExtension, staleExtension, issueTicket, checkTicket} from './server-env.js';
 export {kept, contactSaved, me} from './server-contact.js';
@@ -24,7 +24,7 @@ export {sessionOfJob, pageKey, markReportedConfirmations, judgeConfirmation, dec
 export {setNotifier, setWindowSignal, setAppliedHook, setRenderer, setTabsHandler, setSharedLogger, setProposalReporter, setAnswerReporter, setSessionReporter,
   setSitePasswordHandler, setReviewHandler, setLearnedHandler, setVisitHandler, setVisitRoute, setVisitFilters, setVisitHosts, setMissesHandler,
   setControlsHandler, setAliasesHandler, setRecipesHandler, setJoinHandler, setFocusHandler, setStuckHandler, setClaudeAutoHandler, setAccountFactHandler, setAccountPressedHandler, setTakeOverHandler,
-  setTailorHandler, setFormIssueHandler, setOpenHandler, setAccountCodeHandler} from './server-hooks.js';
+  setTailorHandler, setFormIssueHandler, setOpenHandler, setAccountCodeHandler, setStoppedHandler, requestStop} from './server-hooks.js';
 
 export const DEFAULT_PORT = 47111;
 // The port is fixed because the extension has it built in (extension/flow.js). JOB_PILOTTO_PORT moves it for a test app that runs next to the user's
@@ -139,7 +139,7 @@ export function start(storage, onError = () => {}) {
           } catch {}
         }
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
-        res.end(JSON.stringify(ok ? {ok, latest: latestExtension(), ...(reread.length ? {reread} : {})} : {ok}));
+        res.end(JSON.stringify(ok ? {ok, latest: latestExtension(), ...(reread.length ? {reread} : {}), ...(stopAsked() ? {stop: stopAsked()} : {})} : {ok}));
         return;
       }
       if (req.url === '/extension/open') {
@@ -246,7 +246,7 @@ export function start(storage, onError = () => {}) {
         const ok = req.headers.authorization === `Bearer ${extensionToken(storage)}`;
         const payload = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
         res.writeHead(ok ? 200 : 401, {'Content-Type': 'application/json', ...cors});
-        res.end(JSON.stringify(ok ? reviewHandler(payload) : {error: 'Wrong token'}));
+        res.end(JSON.stringify(ok ? {...reviewHandler(payload), ...(stopAsked() ? {stop: stopAsked()} : {})} : {error: 'Wrong token'}));
         return;
       }
       if (req.url === '/extension/event') {
@@ -258,6 +258,7 @@ export function start(storage, onError = () => {}) {
         res.end(JSON.stringify({ok}));
         if (ok) {
           const event = (() => { try { return JSON.parse(body?.toString() || '{}'); } catch { return {}; } })();
+          if (event.type === 'stopped') { stopHeard(); stoppedHandler(event); return; }   // the extension stopped: no job lookup, nothing else to do (the person's Stop)
           // The page the panel reports may be the posting's form (Ashby /application, Lever /apply), not the posting itself.
           const find = jobs => jobs.find(j => pageKey(j.url) === pageKey(event.url)) || jobs.find(j => j.url && isFormOf(event.url, j.url));
           // The Jobs screen's last list first: a fresh read takes 10-15 s, and Take over waited on it (9 Oct 2026). A job not in it: the fresh read.

@@ -11,6 +11,7 @@ import {FOLD_MS, postingToClose, pressedLately, realOpener} from './same-tab.js'
 import {pageKey} from './tab-pages.js';
 import {decide} from './log.js';
 import {sessionGet} from './tab-memory.js';
+import {isStopped, restart} from './stop-state.js';
 
 export const navSources = new Map();   // new tab id → the tab whose page created it (webNavigation.onCreatedNavigationTarget)
 export const noteSource = details => { navSources.set(details.tabId, details.sourceTabId); setTimeout(() => navSources.delete(details.tabId), 60000); };
@@ -37,6 +38,7 @@ const appTabs = new Set();
 export function claimAppTab(tabId, url = '') {
   let host = ''; try { host = new URL(url).hostname; } catch { /* no address: the permission is missing or the page is not http */ }
   decide('tab', 'tab with the fill mark seen', {host, tab: tabId, session: /#jobpilotto-fill=/.test(url)});   // the app's "opened the form tab" without this line: the extension never saw it
+  if (restart()) decide('stop', 'started again: the app opened a tab for a job', {host});   // Apply in the app is the person's word to start again (stop.js)
   appTabs.add(tabId); setTimeout(() => appTabs.delete(tabId), 60000).unref?.(); }
 const hostOf = tab => { try { return new URL(tab.pendingUrl || tab.url || '').hostname; } catch { return ''; } };
 export async function followOpener(tab) {
@@ -44,6 +46,7 @@ export async function followOpener(tab) {
   // The from: key below is set a moment later, too late: on 9 Oct 2026 Nahrin's jobs.ch tab, opened while Coop's tab was in front, inherited Coop's
   // session and its first tab report bound it to Coop (found by mac-1a).
   if ([tab.url, tab.pendingUrl].some(address => String(address || '').includes(`#${APP_TAB_MARK}`))) return false;
+  if (isStopped()) return false;
   const opener = await openerOf(tab);
   if (opener == null) return false;
   if (await fromOf(tab.id)) return false;   // a tab the app opened for a job already has its own: the tab that was in front is not its parent (8 Oct 2026, side by side)

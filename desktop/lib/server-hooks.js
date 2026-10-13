@@ -61,6 +61,14 @@ export let accountPressedHandler = () => {};  // the extension pressed an accoun
 export function setAccountPressedHandler(fn) { accountPressedHandler = fn; }
 export let stuckHandler = () => {};  // the extension can't get to a form (no form / needs an account): the app's session offers Apply with Claude
 export function setStuckHandler(fn) { stuckHandler = fn; }
+// The person's Stop in the app: the request's id rides on every answer to the extension's reports (review, tabs) until the extension says it stopped; the app then marks the sessions (lib/stop-all.js).
+let stopId = '', stopAt = 0;
+export const STOP_ASK_MS = 2 * 60 * 1000;   // asked for two minutes: an extension that was not running then must not stop a fill the person starts later
+export function requestStop() { stopId = `stop-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`; stopAt = Date.now(); return stopId; }
+export const stopAsked = () => (stopId && Date.now() - stopAt < STOP_ASK_MS ? stopId : '');
+export function stopHeard() { stopId = ''; }
+export let stoppedHandler = () => {};   // the extension stopped (its Stop, the app's, Chrome's Cancel on the debugging bar): set by ext-server-handlers.js
+export function setStoppedHandler(fn) { stoppedHandler = fn; }
 export let takeOverHandler = () => {};  // the panel's "Take over with Claude": the person asks for Claude on this application (set by main.js)
 export function setTakeOverHandler(fn) { takeOverHandler = fn; }
 export let claudeAutoHandler = () => {};  // the panel's "Always let Claude finish when I'm stuck" box (set by apply-handlers.js)

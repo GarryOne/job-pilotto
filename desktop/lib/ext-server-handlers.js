@@ -27,6 +27,7 @@ import {createAccountCheck} from './account-check.js';
 import {resolveSession} from './journey-identity.js';
 import {automationOf, modeOf, record} from './site-accounts.js';
 import {resultOf} from './application-result.js';
+import {stopLiveForms} from './stop-all.js';
 // A test run never counts; a live-test twin does: its fills are real use (owner, 9 Oct 2026; lib/telemetry.js learningOff).
 const testRun = () => !!process.env.JOB_PILOTTO_E2E;
 
@@ -219,6 +220,7 @@ export function registerExtServerHandlers(ctx) {
     toWindow('session', 'open', {id});
     return true;
   });
+  server.setStoppedHandler(event => appLog('extension', 'the extension stopped', {reason: String(event?.reason || '').slice(0, 80), marked: stopLiveForms(terminals)}));   // its Stop, the app's, or Chrome's Cancel: every live form says Stopped (lib/stop-all.js)
   server.setStuckHandler(event => { flow().stuck(event); });   // tier 3: the extension can't reach a form (lib/session-flow.js)
   review.onBind(({id, tab, before, by, host}) => appLog('review', `tab ${tab} is session ${id}'s now`, {before, by, host}));   // which tab a session follows, and why
   review.setReporter(state => flow().reported(state));   // the step each form report puts its session at (lib/session-flow.js)

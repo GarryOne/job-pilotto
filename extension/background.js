@@ -10,12 +10,14 @@ import {createTabReport} from './tab-report.js';
 import {createPanelMessages} from './messages-panel.js';
 import {createAppMessages} from './messages-app.js';
 import {claimAppTab, closePosting, followOpener, noteSource} from './tabs.js';
+import {createSettleOpenTabs} from './settle-tabs.js';
+import {createStopMessages} from './stop-messages.js';
 import {consider, initFillFlow} from './fill-flow.js';
 import {closePopupOrLayer} from './consent.js';
 import {closeFillDialogs, holdFill, layerOnTop} from './dialog-after-fill.js';
 import {autoRead, markListed, siteUnreachable, startWaiting} from './visit.js';
 import {MEMORY_KEY, memoryReadyIs, sessionGet, snapshot, startRun} from './tab-memory.js';
-import {startsOwnJob, sameSite, navigationKind, neverForm, sharedFixes, tabArmed, withMark, stripMark} from './tab-pages.js';
+import {startsOwnJob, sameSite, navigationKind, neverForm, sharedFixes, withMark, stripMark} from './tab-pages.js';
 import {noteStart} from './panel-start.js';
 import {KEY, fromOf, jobOf, bindMark, markFor, startJob} from './tab-identity.js';
 import {fillWaitsForAllow, resumeFillWaiting, watchUnallowedFillTabs} from './site-allow.js';
@@ -93,7 +95,7 @@ async function arm(tabId, why = 'app tab') {
     armedLogged.add(mark);
     decide('panel', 'panel on a tab the app opened', {host, why});
   }
-  await chrome.scripting.executeScript({target: {tabId, allFrames: true}, files: ['page/skeleton.js', 'page/required-mark.js', 'page/typed-check.js', 'page/read-back.js', 'page/label-before.js', 'page/coverage.js', 'page/option-groups.js', 'page/review-payload.js', 'hook.js', 'panel-claude.js', 'page/submit-press.js', 'review.js'], injectImmediately: true}).catch(() => {});
+  await chrome.scripting.executeScript({target: {tabId, allFrames: true}, files: ['page/skeleton.js', 'page/required-mark.js', 'page/typed-check.js', 'page/read-back.js', 'page/label-before.js', 'page/coverage.js', 'page/option-groups.js', 'page/review-payload.js', 'hook.js', 'panel-claude.js', 'page/submit-press.js', 'review.js', 'panel-stop.js'], injectImmediately: true}).catch(() => {});
 }
 // The mark in the address is what makes a page ours. A server redirect keeps it (a browser carries the #fragment through a
 // redirect). When an application tab moves on by itself (a link, a form, a script) and the new address has none, the mark is
@@ -415,31 +417,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
 // Just loaded: open the settings page, which connects to the Job Pilotto Mac app by itself.
 chrome.runtime.onInstalled.addListener(({reason}) => { if (reason === 'install') chrome.runtime.openOptionsPage(); });
 
-// After a reload: put the panel back on tabs the app opened, and take it off every other page (Calendly, a job
-// site you were reading). The old script's listeners die with the reload; the pill they drew does not.
-async function settleOpenTabs() {
-  await memoryReady;   // the armed: marks of the worker before a reload
-  const tabs = await chrome.tabs.query({}).catch(() => []);
-  for (const tab of tabs) {
-    if (tab.id == null || !/^https:/.test(tab.url || '')) continue;
-    const key = `armed:${tab.id}`;
-    const armed = tabArmed({url: tab.url, armed: (await sessionGet(key).catch(() => ({})))[key]});
-    if (armed) { await arm(tab.id, 'still open'); continue; }
-    const frames = await chrome.scripting.executeScript({target: {tabId: tab.id, allFrames: true}, func: () => {
-      let removed = 0;
-      for (const id of ['jobpilotto-review-host', 'jobpilotto-progress', 'jobpilotto-note']) {
-        const node = document.getElementById(id);
-        if (node) { node.remove(); removed++; }
-      }
-      return removed;
-    }}).catch(() => []);
-    const removed = frames.reduce((n, frame) => n + (frame.result || 0), 0);
-    if (!removed) continue;
-    let host = '';
-    try { host = new URL(tab.url).hostname; } catch { /* not a url */ }
-    decide('panel', 'removed a panel from a page the app did not open', {host, removed});
-  }
-}
+const settleOpenTabs = createSettleOpenTabs({arm, memoryReady: () => memoryReady});   // settle-tabs.js: after a reload the panel is put back on the app's tabs and taken off every other page
 chrome.runtime.onInstalled.addListener(settleOpenTabs);
 chrome.runtime.onStartup.addListener(settleOpenTabs);
 
@@ -494,6 +472,7 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => { if (info.status === 'c
 initFillFlow({started, fillOpenedTab, reportFlow, onPage, fillsNow, arm, progress});
 
 // Message groups: registered here, after everything they use exists, in the order the messages were answered before.
+messageHandlers.push(createStopMessages());   // stop-messages.js: first, so a stopped worker refuses before any other group acts
 messageHandlers.push(createLearningMessages({arm, fillOpenedTab, handOff, jobOf, panelRefused, reportFlow, stepBox, stepNow, watchSubmission}));   // messages-learning.js
 messageHandlers.push(createPanelMessages({fillOpenedTab, jobOf, prefetch, started}));   // messages-panel.js
 messageHandlers.push(createAppMessages({bootId, jobOf}));   // messages-app.js

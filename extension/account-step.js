@@ -16,6 +16,7 @@ import {sketchOf} from './judge-sketch.js';
 import {closerLook, unsureTwice} from './ladder/rung4-picture.js';
 import {pageStill} from './page-still.js';
 import {notePress} from './tabs.js';
+import {mayAct} from './stop-state.js';
 
 // -> 'register' | 'switch' | 'fill-press' | 'fill' | 'leave'. step: the AI's account step ('' when it gave none); mode: the app's 'sign-in' | 'sign-up' | 'confirm'.
 export function accountMove({step, mode, hasEmail, registerControl, signinControl}) {
@@ -85,7 +86,7 @@ const signature = sketch => JSON.stringify([sketch.controls, sketch.buttons, ske
 // The form's outline (its controls' types and labels, never their values or states): kept at the press, so the result look can say whether the SAME form is back.
 // Many sites keep one address for every step (SuccessFactors: /career?career_ns=…), so the address alone told the AI a successful sign-in was the form again (9 Oct 2026, account eval).
 export const formOutline = sketch => (sketch?.controls || []).map(item => `${item.type}:${item.label}`).join('|').slice(0, 1500);
-const press = (tab, frameId, func, args = []) => { notePress(tab.id, tab.url); return run(tab, frameId, func, args); };   // a click of ours: a tab it opens joins the application (tabs.js followOpener)
+const press = (tab, frameId, func, args = []) => { if (!mayAct()) return 'stopped'; notePress(tab.id, tab.url); return run(tab, frameId, func, args); };   // a click of ours: a tab it opens joins the application (tabs.js followOpener)
 const run = (tab, frameId, func, args = []) => chrome.scripting.executeScript({target: {tabId: tab.id, frameIds: [frameId ?? 0]}, func, args}).then(rows => rows?.[0]?.result).catch(() => undefined);
 const memoKey = tab => `accountForm:${tab.id}`;
 // A sign-up or sign-in this extension filled (or the person pressed) whose outcome the account AI has not yet given: for two minutes the page after it is the account's, so the submit watch
@@ -180,6 +181,7 @@ export async function accountStep(tab, frameId) {
 
 async function accountStepOnce(tab, frameId) {
   const armedKey = `armed:${tab.id}`;
+  if (!mayAct()) return {filled: 0};   // stopped by the person (stop.js)
   if (!tabArmed({url: tab.url, armed: (await sessionGet(armedKey))[armedKey]})) return {filled: 0};
   const host = new URL(tab.url).hostname, config = await settings();
   if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return {filled: 0};   // your own Worker: no Keychain

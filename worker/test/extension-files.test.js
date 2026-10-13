@@ -6,8 +6,8 @@ import { FILL_FILES } from '../../extension/page-files.js';
 
 const read = path => fs.readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
 
-// background.js and the files split out of it (messages-*.js, submit-watch.js, tab-report.js) are one background for these checks.
-const readBackground = () => ['background', 'messages-app', 'messages-learning', 'messages-panel', 'submit-watch', 'tab-report'].map(name => read(`extension/${name}.js`)).join('\n');
+// background.js and the files split out of it (messages-*.js, submit-watch.js, tab-report.js, settle-tabs.js, stop-messages.js) are one background for these checks.
+const readBackground = () => ['background', 'messages-app', 'messages-learning', 'messages-panel', 'submit-watch', 'tab-report', 'settle-tabs', 'stop-messages'].map(name => read(`extension/${name}.js`)).join('\n');
 
 test('extension page helpers are the same as the tools/ originals (run extension/sync.sh)', () => {
   for (const name of ['browser-submit-guard.js', 'browser-form-fastpath.js']) {
@@ -113,7 +113,7 @@ test('an out-of-date extension in Chrome loads the new copy by itself, and only 
   assert.equal(newer('0.7.1', '0.7.1'), false);
   assert.equal(newer('0.10.0', '0.9.9'), true);
   assert.match(background, /reloadedFor !== answer\.latest/);  // once per version: no reload loop
-  assert.match(background, /executeScript\(\{target: \{tabId, allFrames: true\}, files: \['page\/skeleton\.js', 'page\/required-mark\.js', 'page\/typed-check\.js', 'page\/read-back\.js', 'page\/label-before\.js', 'page\/coverage\.js', 'page\/option-groups\.js', 'page\/review-payload\.js', 'hook\.js', 'panel-claude\.js', 'page\/submit-press\.js', 'review\.js'\], injectImmediately: true\}\)/);
+  assert.match(background, /executeScript\(\{target: \{tabId, allFrames: true\}, files: \['page\/skeleton\.js', 'page\/required-mark\.js', 'page\/typed-check\.js', 'page\/read-back\.js', 'page\/label-before\.js', 'page\/coverage\.js', 'page\/option-groups\.js', 'page\/review-payload\.js', 'hook\.js', 'panel-claude\.js', 'page\/submit-press\.js', 'review\.js', 'panel-stop\.js'\], injectImmediately: true\}\)/);
   assert.match(background, /jobpilotto-review-host/);
   assert.match(read('extension/review.js'), /send\(\{type: 'panelAllowed'\}\)/);
   // A copy left behind by a reload gives way to the fresh one instead of blocking it.

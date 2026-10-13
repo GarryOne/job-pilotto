@@ -1,6 +1,7 @@
 // One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
 // Shared by the popup (the tab you're on) and the background worker (tabs the app opens to fill).
 import {KEY} from './tab-identity.js';
+import {attachDebugger} from './stop-state.js';
 import {askEnded, askStarted} from './ladder/silence.js';
 import {MENU_REASONS, OLD_MENU_REASON, applyCombos} from './menu-reason.js';
 import {clickCombo} from './combo-click.js';
@@ -50,7 +51,7 @@ async function clickCombosNow(tabId) {
   const results = [];
   if (!(await page(() => window.__jobPilottoArmedCount?.() || 0))) return results;
   const target = {tabId};
-  await chrome.debugger.attach(target, '1.3');
+  await attachDebugger(tabId);
   const mouse = (type, x, y) => chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent',
     {type, x, y, button: 'left', clickCount: 1});
   const click = async (x, y) => { await mouse('mouseMoved', x, y); await mouse('mousePressed', x, y); await mouse('mouseReleased', x, y); };
