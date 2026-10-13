@@ -1,4 +1,4 @@
-// The control the page-kind AI names is found with the list its sketch came from (extension/tab-pages.js NAMED_BUTTONS, used by fill-flow.js pageSketchOf and the named-button
+// The control the page-kind AI names is found with the list its sketch came from (extension/tab-pages.js NAMED_BUTTONS, used by page-reads.js pageSketchOf and the named-button
 // finder in apply-press.js), and the floors still refuse a Submit by another name. Hornbach, 10 Oct 2026: the AI named a link with no href that the finder never listed.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -6,7 +6,7 @@ import {test} from 'node:test';
 import {NAMED_BUTTONS, pickApplyButton, pickNamedButton} from '../../extension/tab-pages.js';
 import {behindAStep, whyNotPressed} from '../../extension/ladder/press-why.js';
 
-const flow = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta.url), 'utf8');
+const flow = fs.readFileSync(new URL('../../extension/page-reads.js', import.meta.url), 'utf8');
 const press = fs.readFileSync(new URL('../../extension/apply-press.js', import.meta.url), 'utf8');   // the Apply press (moved out of fill-flow.js)
 const row = (text, extra = {}) => ({index: 0, tag: 'a', text, area: 4000, visible: true, disabled: false, href: '', submits: false, ...extra});
 

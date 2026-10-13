@@ -74,7 +74,7 @@ export function pickApplyButton(candidates = [], phrases = []) {
   return best;
 }
 
-// What may be named: every control the page sketch lists (fill-flow.js pageSketchOf reads the page with this same selector) and the named-button finder searches with it, so the AI is never
+// What may be named: every control the page sketch lists (page-reads.js pageSketchOf reads the page with this same selector) and the named-button finder searches with it, so the AI is never
 // told about a control the finder cannot find (10 Oct 2026, Hornbach: "Jetzt bewerben (ohne Anmeldung)" is an <a> with no href and a script click handler; the finder listed only a[href]).
 // One string for both: desktop/test/named-controls.test.js. The phrase path (pickApplyButton, no AI answer) keeps its own narrower list (fill-flow.js PAGE_BUTTONS).
 export const NAMED_BUTTONS = 'button, input[type=submit], [role=button], a';

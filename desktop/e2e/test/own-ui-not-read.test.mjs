@@ -41,7 +41,7 @@ const argsBuilder = (file, marker, head, args) => {
 const withArgs = (source, args) => `${source.replace(/\(\)$/, '')}(...${JSON.stringify(args)})`;
 
 const READERS = [
-  ['page-kind sketch (fill-flow.js pageSketchOf)', page => page.evaluate(builderSource('fill-flow.js', 'function pageSketchOf'))],
+  ['page-kind sketch (page-reads.js pageSketchOf)', page => page.evaluate(builderSource('page-reads.js', 'function pageSketchOf'))],
   ['judges\' sketch (account-fill.js accountSketch)', async page => { await loadReader(page); return page.evaluate(functionSource('account-fill.js', 'export function accountSketch')); }],   // with the one control reader, as judge-sketch.js loads it
   ['Apply candidates (apply-press.js applyCandidates)', page => page.evaluate(argsBuilder('apply-press.js', 'function applyCandidates', 'func: selector =>', ['a[href], button, [role="button"], input[type="button"]']))],
   ['named controls (apply-press.js with tab-pages.js NAMED_BUTTONS)', page => page.evaluate(argsBuilder('apply-press.js', 'function applyCandidates', 'func: selector =>', ['button, input[type=submit], [role=button], a']))],

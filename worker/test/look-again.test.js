@@ -5,9 +5,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const flow = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta.url), 'utf8');
+const reads = fs.readFileSync(new URL('../../extension/page-reads.js', import.meta.url), 'utf8');   // pageShape (moved out of fill-flow.js)
 
 test('the page shape counts visible frames, and a frame that appears later makes the page be judged again', () => {
-  assert.match(flow, /frames: \[\.\.\.document\.querySelectorAll\('iframe'\)\]\.filter\(el => \{ const box = el\.getBoundingClientRect\(\); return box\.width > 40 && box\.height > 40; \}\)\.length/);
+  assert.match(reads, /frames: \[\.\.\.document\.querySelectorAll\('iframe'\)\]\.filter\(el => \{ const box = el\.getBoundingClientRect\(\); return box\.width > 40 && box\.height > 40; \}\)\.length/);
   assert.match(flow, /const hadHosts = seenHosts === null \? \(await pageShape\(tab\.id\)\)\?\.frameHosts \|\| \[\] : seenHosts/);
   assert.match(flow, /watchForFields\(tab, jobUrl, undefined, botCheck \? 60 : 10, counts\?\.frameHosts \|\| \[\]\)/, 'the baseline is what the judgment saw');
   assert.match(flow, /const newHost = \(shape\?\.frameHosts \|\| \[\]\)\.some\(host => !hadHosts\.includes\(host\)\);/, 'a frame whose host shows up later is new');
