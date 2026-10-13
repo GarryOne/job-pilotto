@@ -1717,6 +1717,22 @@
   <div class="dialog-foot"><button class="secondary" id="save-close" hidden>Close</button><button class="primary" id="save-retry" hidden>Try again</button></div>
 </dialog>
 
+<dialog id="extension-needed-dialog" class="save-dialog panel-dialog">
+  <form method="dialog">
+    <h2 id="extension-needed-title">Install the Chrome extension first</h2>
+    <p>Applying runs in your own Chrome, where you are already signed in. The Job Pilotto extension is what fills each form from your CV and answers; without it the page would open and stay empty.</p>
+    <ul>
+      <li><b>Why an extension:</b> only an extension can read and fill a form inside your browser.</li>
+      <li><b>What it sees:</b> only the application pages Job Pilotto opens for you. It never presses Submit: you do.</li>
+      <li><b>What it takes:</b> about a minute, three steps, once: turn on Developer mode, load the extension folder, connect it to this app.</li>
+    </ul>
+    <p class="muted small">After installing, press Apply again.</p>
+    <div class="actions">
+      <button class="secondary" id="extension-needed-later" type="button">Not now</button>
+      <button class="primary" id="extension-needed-go" type="button">Install the extension</button>
+    </div>
+  </form>
+</dialog>
 <dialog id="notion-connect-dialog" class="save-dialog panel-dialog">
   <form method="dialog">
     <h2 id="notion-connect-title"></h2>

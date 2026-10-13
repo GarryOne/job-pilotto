@@ -52,7 +52,7 @@ export async function skipSession(item) {
 // Start again: this session closes and a new one starts on the same job (asked once, in a dialog).
 export async function restartSession(item) {
   const result = await window.pilot.sessionRestart(item.id);
-  if (result?.cancelled) return;
+  if (result?.cancelled || result?.needsExtension) return;   // needsExtension: the install dialog is open (extension-needed.js)
   if (!result?.ok) { toastMessage('Not started again', result?.error || 'Try again.'); await refreshSessions(); return; }
   await refreshSessions();
   if (result.session?.id) openSession(result.session.id);

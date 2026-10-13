@@ -75,7 +75,7 @@ import * as intelLib from './renderer/intel.js';
 import {registerBrowserHandlers} from './lib/browser-handlers.js';
 import {registerVisitsHandlers} from './lib/visits-handlers.js';
 import {registerKitHandlers} from './lib/kit-handlers.js';
-import {registerApplyHandlers} from './lib/apply-handlers.js';
+import {extensionGate, registerApplyHandlers} from './lib/apply-handlers.js';
 import {registerFocusHandlers} from './lib/focus-handlers.js';
 import {registerSystemHandlers} from './lib/system-handlers.js';
 import {registerLeadsHandlers} from './lib/leads-handlers.js';
@@ -275,11 +275,11 @@ function handlers() {
   registerFocusHandlers({DEMO, aiReady, app, applyTheme, clearlyTechnical, here, ipcMain, log, needsNotion, settingsDeps, storage, toWindow, track});   // lib/focus-handlers.js
   const {prepareKitFor, tailorCv} = registerKitHandlers({allowanceBlock, cloud, dispatchCloud, ipcMain, keepLook, log, needsNotion, notify, openTailoredCv, printPdf, storage, track});   // lib/kit-handlers.js
   registerSessionHandlers({ipcMain, appLog, storage, getWindow: () => window, dialog, nativeImage, here,
-    DEMO, apply, pipeline, review, server, notion, claudeConsent, getRecipeReporter: () => recipeReporterRef, version: app.getVersion()});
+    DEMO, extensionGate, apply, pipeline, review, server, notion, claudeConsent, getRecipeReporter: () => recipeReporterRef, version: app.getVersion()});
   registerAppMetaHandlers({DEMO, FROM_SOURCE, app, betaOn, checkForUpdate, cloud, dialog, installUpdate, ipcMain, licenseState, log, storage, testerLogsOn, testerOn, track,
     getLicense: () => license, getTelemetry: () => telemetry, getUpdateOffer, setUpdateOffer,
     getUpdateCheckedAt, getWindow: () => window, channels});   // lib/app-meta-handlers.js
-  const {showForm} = registerApplyHandlers({DEMO, allowanceBlock, claudeConsent, cloud, here, ipcMain, log, needsNotion, prepareKitFor, getRecipeReporter: () => recipeReporterRef, shell, startClaude, storage, toWindow, track});   // lib/apply-handlers.js
+  const {showForm} = registerApplyHandlers({DEMO, extensionGate, allowanceBlock, claudeConsent, cloud, here, ipcMain, log, needsNotion, prepareKitFor, getRecipeReporter: () => recipeReporterRef, shell, startClaude, storage, toWindow, track});   // lib/apply-handlers.js
   registerCvAndLettersHandlers({BrowserWindow, DEMO, cvOf, handleImportant, ipcMain, keepLook, openTailoredCv, printPdf, shell, storage, tailorCv, tailoring, toWindow});   // lib/cv-handlers.js
   registerExperienceHandlers({DEMO, dialog, getWindow: () => window, ipcMain, shell, storage});   // lib/experience-handlers.js
   registerVisitsHandlers({DEMO, allowanceBlock, here, ipcMain, log, readSites, shell, storage});   // lib/visits-handlers.js

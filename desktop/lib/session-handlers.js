@@ -19,7 +19,7 @@ export async function closeSessionTab({review, closeTab}, old) {
 import {cleanUse} from './proposal-use.js';
 import {boardName} from './control-events.js';
 export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, dialog, nativeImage, here,
-  DEMO, apply, pipeline, review, server, claudeConsent, getRecipeReporter = () => null, version = '',
+  DEMO, extensionGate = () => null, apply, pipeline, review, server, claudeConsent, getRecipeReporter = () => null, version = '',
   closeTab = closeFormTab}) {
   const checkedSessions = sessionIpc(ipcMain, appLog);
   checkedSessions.handle('sessionCancel', async (_, id) => {
@@ -64,6 +64,8 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
   const details = old => ({title: old.title, company: old.company, location: old.location, workMode: old.workMode});
   const restartAs = async (old, how) => {
     if (how === 'claude' && !(await claudeConsent())) return {ok: false, error: 'Apply with Claude is off. Allow it in Settings.'};
+    const missing = how === 'claude' || DEMO ? null : extensionGate();   // a Chrome form with no extension to fill it: install it first
+    if (missing) return missing;
     terminals.setOutcome(old.id, 'restarted');
     // The new session first, then the old one goes: removed first, the page fell to another session for a moment (owner, 8 Oct 2026).
     const started = how === 'claude' ? await apply.claudeOne(storage, old.url, undefined, undefined, undefined, details(old))
