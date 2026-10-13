@@ -55,3 +55,15 @@ test('every live runner sets the switch before it presses Apply', () => {
     assert.ok(set > 0 && set < press, `${name} presses Apply without setting the pool's eligibility switch first`);
   }
 });
+
+test('a replay runs with the eligibility stop as its live run had it: the record says so, else the live log does', async () => {
+  const {POOL_LINE, recordedEligibility} = await import('../lib/pool-eligibility.mjs');
+  assert.equal(recordedEligibility({eligibility: 'on'}, POOL_LINE), 'on', 'the record\'s own word wins');
+  assert.equal(recordedEligibility({eligibility: 'off'}, ''), 'off');
+  assert.equal(recordedEligibility({}, `live: ${POOL_LINE}`), 'off');
+  assert.equal(recordedEligibility({}, '[extension] fill: filled the form {"aiEligible":false,"forced":"check off"}'), 'off', 'a record made before the field: Teamtailor, 14 Oct 2026');
+  assert.equal(recordedEligibility({}, '[extension] fill: filled the form {"forced":""}'), 'on');
+  const replay = fs.readFileSync(new URL('../replay-net.mjs', import.meta.url), 'utf8'), row = fs.readFileSync(new URL('../lib/live-row.mjs', import.meta.url), 'utf8');
+  assert.ok(replay.indexOf('recordedEligibility(record, liveLog)') < replay.indexOf('await runLiveRow('), 'the replay sets the stop before the row runs');
+  assert.match(row, /eligibility: eligibilityOff\(process\.env\) \? 'off' : 'on'/, 'each new record keeps it');
+});
