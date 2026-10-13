@@ -59,3 +59,14 @@ test('every live runner keeps its capture in the library', () => {
   for (const file of ['smoke.mjs', 'live.mjs']) assert.match(fs.readFileSync(path.join(here, '..', file), 'utf8'), /keepCapture\(/, `${file} keeps no capture`);
   assert.match(fs.readFileSync(path.join(here, '../../../.github/workflows/pool-smoke.yml'), 'utf8'), /SMOKE_CAPTURES[\s\S]*name: pool-captures-\$\{\{ github\.run_id \}\}[\s\S]*retention-days: 30/, 'CI uploads the captures for 30 days');
 });
+
+test('a pulled CI artifact merges into the library once; a capture already there stays as it is', async () => {
+  const {mergePulled} = await import('../lib/capture-library.mjs');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-captures-')), from = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-pulled-'));
+  for (const name of ['lever-060000', 'no-meta']) fs.mkdirSync(path.join(from, '2026-10-13', name), {recursive: true});
+  fs.writeFileSync(path.join(from, '2026-10-13', 'lever-060000', 'capture.json'), '{"row":"Lever"}');
+  assert.deepEqual(mergePulled(from, root), ['2026-10-13/lever-060000']);
+  fs.writeFileSync(path.join(root, '2026-10-13', 'lever-060000', 'capture.json'), '{"row":"mine"}');
+  assert.deepEqual(mergePulled(from, root), []);
+  assert.equal(fs.readFileSync(path.join(root, '2026-10-13', 'lever-060000', 'capture.json'), 'utf8'), '{"row":"mine"}');
+});

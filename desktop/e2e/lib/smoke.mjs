@@ -2,6 +2,7 @@
 // parseLive reads where a live run got to from its own printed log lines (lib/apply-live.mjs), compare finds what reached less than last time, pickPosting
 // rotates through the owner's postings of each site shape. Runner: e2e/smoke.mjs. Guard: e2e/test/smoke.test.mjs.
 import {causeOf} from '../../../extension/fill-card.js';
+import {PAGE_LINE} from './live-still.mjs';
 import {parseReadings} from './live-readings.mjs';
 export const STEPS = ['none', 'posting', 'account', 'code/bot', 'form', 'ready'];
 // Sites read only through the person's own visit, never by an automated run (CLAUDE.md: LinkedIn, Glassdoor, Indeed, levels.fyi and Reddit; 10 Oct 2026: discovery
@@ -233,6 +234,12 @@ export function shortfall(result, {aiOff = result?.aiOff} = {}) {
 
 // The one-per-field lines for the app's "fill: fields: N filled, M left {...}" log line (the app's line is cut at 230 characters in the run's timeline, so a run lost which fields were left and why);
 // parseLive reads them back. An account page's fields are not the form's, and a line that is not whole JSON gives none.
+// An app log as a live run prints it (live.mjs): the Apply press, the app's own page lines, each field. What parseLive reads, for a live row and for a replayed one (lib/measure.mjs).
+export function outputOfLog(appLog = '', url = '') {
+  const lines = String(appLog).split('\n').filter(one => PAGE_LINE.test(one)).flatMap(line => [`      log ${line.slice(11, 230)}`, ...fieldLines(line)]);
+  return [...(url ? [`  live +  0s: Apply pressed on ${url}`] : []), ...lines].join('\n');
+}
+
 export function fieldLines(line) {
   const at = String(line).indexOf('{"fields":');
   if (at < 0 || !new RegExp(`fill: ${FIELDS_LINE}`).test(line) || /account page/.test(line)) return [];
