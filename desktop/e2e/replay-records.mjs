@@ -42,6 +42,12 @@ export function fidelityRecord({name, dir = '', record}, replay, {sha = '', bran
     network: replay ? {hit: replay.liveHit, extra: replay.misses, notRecorded: own, orderMatched: replay.counts?.order || 0, echoed: replay.counts?.echoed || 0} : null};
 }
 
+// JP_REPLAY_SHARD "k/n" (the scheduled replay's matrix, replay-offline.yml: owner, 14 Oct 2026, one runner took 25+ min): every n-th row from the k-th, by name order.
+export function shardOf(rows, spec = '') {
+  const [k, n] = String(spec).split('/').map(Number);
+  return Number.isInteger(k) && Number.isInteger(n) && n > 0 && k >= 0 && k < n ? rows.filter((_, index) => index % n === k) : rows;
+}
+
 // One row 100% the same as live: every live ask answered, no extra ask, no site request missing. The summary line: "N of M rows same as live".
 export const isSame = row => !!(row.network && row.network.hit === row.live.asks && row.network.extra === 0 && row.network.notRecorded === 0);
 export const sameAsLive = rows => rows.filter(isSame).length;
@@ -51,7 +57,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
   if (!root || !out) { console.error('usage: node replay-records.mjs <records dir> <out dir>'); process.exit(2); }
   // JP_REPLAY_ONLY: row names, one a line (the gate's retry of the rows that came out worse).
   const only = new Set(String(process.env.JP_REPLAY_ONLY || '').split('\n').map(line => line.trim()).filter(Boolean));
-  const here = path.dirname(new URL(import.meta.url).pathname), rows = newestPerRow(root).filter(row => !only.size || only.has(row.name)), records = [], deferred = deferredRows();
+  const here = path.dirname(new URL(import.meta.url).pathname), rows = shardOf(newestPerRow(root).filter(row => !only.size || only.has(row.name)), process.env.JP_REPLAY_SHARD), records = [], deferred = deferredRows();
   fs.mkdirSync(path.join(out, 'step4'), {recursive: true});
   for (const row of rows) {
     const work = path.join(out, 'replays', slug(row.name));
