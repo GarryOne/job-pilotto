@@ -35,3 +35,15 @@ test('the app on this computer is never recorded; per-run values in an address a
   assert.equal(recordable('https://jobs.example.test/'), true);
   assert.equal(normUrl('https://a.test/x?session=ab12cd34ef&lang=en'), normUrl('https://a.test/x?lang=en&session=zz99yy88xx'));
 });
+
+test('an image of a format whose size is unknown is kept whole; a WebP is blanked at its own size', () => {
+  const webp = Buffer.alloc(40); webp.write('RIFF', 0, 'latin1'); webp.write('WEBP', 8, 'latin1'); webp.write('VP8X', 12, 'latin1'); webp.writeUIntLE(319, 24, 3); webp.writeUIntLE(39, 27, 3);
+  const avif = Buffer.from('\0\0\0 ftypavif-made-up-bytes');
+  const {entries, bodies} = keepRecord({bodies: new Map([['w', webp], ['a', avif]]), entries: [
+    entry({url: 'https://cdn.example.test/flags.webp', type: 'image', hash: 'w', size: 40}),
+    entry({url: 'https://cdn.example.test/logo.png', type: 'image', hash: 'a', size: avif.length, headers: {'content-type': 'image/avif'}}),
+  ]});
+  assert.match(bodies.get(entries[0].hash).toString(), /width="320" height="40"/);
+  assert.deepEqual(bodies.get(entries[1].hash), avif, 'an unmeasured image keeps its own bytes (a 1 px stand-in shrank a form by 40 px)');
+  assert.equal(entries[1].headers['content-type'], 'image/avif');
+});
