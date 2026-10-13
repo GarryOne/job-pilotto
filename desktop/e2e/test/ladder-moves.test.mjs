@@ -2,7 +2,7 @@
 // counted exactly as the app's learning counts them, and sent from CI only, marked with their source so test data never poses as a user's (spec 2026-10-12-one-next-move.md, phase 1).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {MOVES_SITE, distinctMoves, mergeMoves, movesFromLog, movesFromRequests, sendMoves} from '../lib/ladder-moves.mjs';
+import {MOVES_SITE, distinctMoves, distinctRepairs, mergeMoves, movesFromLog, movesFromRequests, poolMoves, repairsFromLog, repairsFromRequests, sendMoves} from '../lib/ladder-moves.mjs';
 
 const at = '2026-10-12T10:00:00.000Z';
 const line = (message, data) => `${at} [extension] ${message}${data ? ` ${JSON.stringify(data)}` : ''}`;
@@ -106,4 +106,24 @@ test('the control level\'s repairs ride the same batch, fixed words and integers
   assert.equal(cleanRepair({...good, extra: 'text'}).extra, undefined);
   await sendMoves([{shape: SHAPE, rung: 2, kind: 'form', outcome: 'form', hits: 1, misses: 0}], {source: 'ci', env, fetcher});
   assert.equal('repairs' in calls[1], false, 'no repairs: no field');
+});
+
+test('the control repairs a run did are counted per fingerprint and verb, from the app log (the pool) and from the extension\'s requests (the replays)', () => {
+  const log = [
+    line('fill: retype on control 3', {worked: true, fp: 'abc123'}), line('fill: retype on control 3', {worked: false, fp: 'abc123'}), line('fill: retype on control 4', {worked: true, fp: 'abc123'}),
+    line('fill: choose_option on control 1', {worked: true, fp: 'menu42x'}),
+    line('fill: retype on control 2', {worked: true, fp: 'Not A Fingerprint'}), line('fill: retype on control 2', {worked: true}),   // no usable fingerprint: dropped
+    line('fill repair', {asked: 2, tried: 2, worked: 1}), line('fill: filled the form', {})].join('\n');
+  assert.deepEqual(repairsFromLog(log), [{fp: 'abc123', verb: 'retype', ok: 2, failed: 1}, {fp: 'menu42x', verb: 'choose_option', ok: 1, failed: 0}]);
+  const request = results => ({route: '/extension/account-judge', body: JSON.stringify({phase: 'repair-result', results})});
+  assert.deepEqual(repairsFromRequests([request([{fp: 'abc123', verb: 'retype', ok: true}, {fp: 'abc123', verb: 'retype', ok: false}]), {route: '/extension/answer', body: '{}'}, request([{fp: 'Bad Fp', verb: 'retype', ok: true}])]),
+    [{fp: 'abc123', verb: 'retype', ok: 1, failed: 1}]);
+  assert.deepEqual(distinctRepairs([[{fp: 'abc123', verb: 'retype', ok: 3, failed: 0}], [{fp: 'abc123', verb: 'retype', ok: 0, failed: 2}], [{fp: 'menu42x', verb: 'commit', ok: 1, failed: 0}]]),
+    [{fp: 'abc123', verb: 'retype', ok: 1, failed: 1}, {fp: 'menu42x', verb: 'commit', ok: 1, failed: 0}], 'a replayed repair is one repair, as a replayed move is one move');
+});
+
+test('a pool run\'s repairs come from all its rows\' logs and travel in the pool\'s batch', () => {
+  const report = {day: '2026-10-12', thisRun: {ran: ['A', 'B']}, results: {A: {reached: 'form'}, B: {reached: 'form'}}};
+  const logs = {'2026-10-12-A.app.log': line('fill: retype on control 1', {worked: true, fp: 'abc123'}), '2026-10-12-B.app.log': line('fill: retype on control 5', {worked: false, fp: 'abc123'})};
+  assert.deepEqual(poolMoves(report, name => logs[name] || '').repairs, [{fp: 'abc123', verb: 'retype', ok: 1, failed: 1}]);
 });

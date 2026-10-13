@@ -4,7 +4,7 @@
 // (lib/ladder-moves.mjs). Run: node replays-report.mjs <expected shard count> <results file>...
 import fs from 'node:fs';
 import {extensionVersion, replayReason, uploadable, uploadReplays} from './lib/applying-report.mjs';
-import {distinctMoves, sendMoves} from './lib/ladder-moves.mjs';
+import {distinctMoves, distinctRepairs, sendMoves} from './lib/ladder-moves.mjs';
 import {originOfCase} from './lib/recorded-origin.mjs';
 
 const [expected, ...files] = process.argv.slice(2);
@@ -19,5 +19,5 @@ if (found.length !== Number(expected)) {
   // The ladder moves the passing cases confirmed go to the site's learning marked source 'replay' (lib/ladder-moves.mjs), on the same rule as the table: a push to main, not a dry run.
   const moves = distinctMoves(results.filter(item => item.ok).map(item => item.moves || []));   // a replayed move is one move (the site keeps it once), whichever cases saw it
   const notNow = replayReason() || (['1', 'true'].includes(String(process.env.JP_REPLAYS_DRY || '').toLowerCase()) ? 'a dry run' : '');
-  console.log(notNow ? `ladder moves: not sent (${notNow}): ${moves.length} move(s) from ${results.filter(item => item.ok && item.moves?.length).length} case(s)` : await sendMoves(moves, {source: 'replay'}));
+  console.log(notNow ? `ladder moves: not sent (${notNow}): ${moves.length} move(s) from ${results.filter(item => item.ok && item.moves?.length).length} case(s)` : await sendMoves(moves, {source: 'replay', repairs: distinctRepairs(results.filter(item => item.ok).map(item => item.repairs || []))}));
 }

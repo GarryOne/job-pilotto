@@ -8,6 +8,7 @@
 // (rung 0-2: the fast tier's decisions the page confirmed, counted; rung 3+: the kept answers):
 //   "ladder": [{"shape": "jobs.example.ch/careers/*|3-7", "rung": 3, "kind": "posting", "outcome": "form", "hits": 2, "misses": 1}, ...]   // at most 40; shape = host + path template + build, no query
 //   "ladderOther": [{"shape": "jobs.example.ch/careers/*|3-7", "n": 2}, ...]   // pages the ladder ended on with no usable answer (lib/ladder/other.js), the same delta rule, at most 40
+//   "repairs": [{"fp": "k3x9a1", "verb": "retype", "ok": 2, "failed": 0}, ...]   // what the fill ladder's control repairs did per control fingerprint (lib/ladder/repair-feed.js), the same delta rule, at most 40
 // The site stores them per source (site/src/ladder-moves.js: 'user' here; the CI pool and the replays send theirs marked 'ci' / 'replay'); serving them (k>=3 installs) is not built.
 import {validateAlias} from '../shared/alias-schema.js';
 import {validateRecipe} from '../shared/recipe-schema.js';
@@ -20,6 +21,7 @@ import {LEFT_REASONS, cleanLabel} from './question-labels.js';
 import {cleanUse} from './proposal-use.js';
 import {counts as ladderCounts, ladderStore} from './ladder/learning.js';
 import {counts as otherCounts, otherStore} from './ladder/other.js';
+import {REPAIRS_SENT, repairDelta} from './ladder/repair-feed.js';
 
 export const SITE = 'https://www.jobpilotto.top';
 const CACHE = 'recipes-cache.json';
@@ -341,10 +343,11 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
   async function flush() {
     const ladder = enabled(storage) ? ladderDelta() : {rows: [], totals: {}};
     const other = enabled(storage) ? otherDelta() : {rows: [], totals: {}};
-    if (!enabled(storage) || (!ladder.rows.length && !other.rows.length && !outcomes.size && !samples.length && !fills.size && !questions.size && !flows.size && !aliasUse.size && !applications.size && !proposals.size && !proposalUses.size && !unfilled.size && !answers.size && !cards.length && !submits.size && !hasIntel())) return {sent: 0};
+    const fixes = enabled(storage) ? repairDelta(storage) : {rows: [], totals: {}};   // what the control repairs did since the last send (ladder/repair-feed.js)
+    if (!enabled(storage) || (!ladder.rows.length && !other.rows.length && !fixes.rows.length && !outcomes.size && !samples.length && !fills.size && !questions.size && !flows.size && !aliasUse.size && !applications.size && !proposals.size && !proposalUses.size && !unfilled.size && !answers.size && !cards.length && !submits.size && !hasIntel())) return {sent: 0};
     const body = {install: installId(storage), samples: samples.slice(0, 10), outcomes: [...outcomes.values()].slice(0, 40), exposure: [...fills].slice(0, 20).map(([board, n]) => ({board, n, ...(requiredBy.get(board) ? {required: requiredBy.get(board)} : {}), ...(starredBy.get(board) ? {starred: starredBy.get(board)} : {})})),
       questions: [...questions.values()].slice(0, 40), flows: [...flows.values()].slice(0, 20), aliasUse: [...aliasUse.values()].slice(0, 20),
-      applications: [...applications.values()].slice(0, 20), proposals: [...proposals.values()].slice(0, 10), proposalUses: [...proposalUses.values()].slice(0, 40), unfilled: [...unfilled.values()].slice(0, 20), answers: [...answers.values()], cards: cards.slice(0, 20), submits: [...submits.values()].slice(0, 20), ...(ladder.rows.length ? {ladder: ladder.rows} : {}), ...(other.rows.length ? {ladderOther: other.rows} : {}), ...(hasIntel() ? {intel: takeIntel()} : {})};
+      applications: [...applications.values()].slice(0, 20), proposals: [...proposals.values()].slice(0, 10), proposalUses: [...proposalUses.values()].slice(0, 40), unfilled: [...unfilled.values()].slice(0, 20), answers: [...answers.values()], cards: cards.slice(0, 20), submits: [...submits.values()].slice(0, 20), ...(ladder.rows.length ? {ladder: ladder.rows} : {}), ...(other.rows.length ? {ladderOther: other.rows} : {}), ...(fixes.rows.length ? {repairs: fixes.rows} : {}), ...(hasIntel() ? {intel: takeIntel()} : {})};
     const taken = {cards: cards.slice(0, 20), submits, samples: samples.slice(0, 10), outcomes, fills, requiredBy, starredBy, questions, flows, aliasUse, applications, proposals, proposalUses, unfilled, answers, intel: body.intel};
     samples = samples.slice(10);
     outcomes = new Map();
@@ -367,6 +370,7 @@ export function createReporter(storage, {fetcher = globalThis.fetch, base = SITE
       save();   // what is left (anything added during the send)
       if (ladder.rows.length) { try { storage.writeText(LADDER_SENT, JSON.stringify(ladder.totals)); } catch { /* sent again next time */ } }
       if (other.rows.length) { try { storage.writeText(LADDER_OTHER_SENT, JSON.stringify(other.totals)); } catch { /* sent again next time */ } }
+      if (fixes.rows.length) { try { storage.writeText(REPAIRS_SENT, JSON.stringify(fixes.totals)); } catch { /* sent again next time */ } }
       onSent?.('shared counts → /api/controls', body);
       return {sent: body.samples.length + body.outcomes.length + body.exposure.length + body.questions.length + body.flows.length + body.aliasUse.length + body.applications.length + body.proposals.length + body.proposalUses.length + body.unfilled.length + body.answers.length + body.cards.length + body.submits.length + (body.ladder?.length || 0) + (body.ladderOther?.length || 0) + (body.intel ? 1 : 0)};
     } catch (error) {

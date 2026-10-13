@@ -10,4 +10,4 @@ const days = (() => { try { return fs.readdirSync(dir).filter(name => /^\d{4}-\d
 const report = days.length ? JSON.parse(fs.readFileSync(path.join(dir, days.at(-1)), 'utf8')) : {};
 const found = poolMoves(report, name => { try { return fs.readFileSync(path.join(dir, name), 'utf8'); } catch { return ''; } });
 for (const line of found.lines) console.log(line);
-console.log(await sendMoves(found.moves, {source: 'ci'}));
+console.log(await sendMoves(found.moves, {source: 'ci', repairs: found.repairs}));
