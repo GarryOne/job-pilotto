@@ -31,6 +31,8 @@ export const AREA = {
   menu_not_opened: 'operator: the menu did not open on the click (extension/page/fill-menus.js, recipes for the widget)',
   menu_not_selected: 'operator: the option was clicked but the field stayed empty (extension/page/menu-pick.js, recipes)',
   menu_not_read: 'reader: the widget holds the choice but the reader cannot see it (extension/page/fill-labels.js comboValue)',
+  menu_other_choice: 'operator: the menu took another choice than the answer (option matching, the shown value of the widget: extension/page/value-class.js fits)',
+  not_kept_after_tries: 'operator: the control did not keep the value after its attempt log was spent (extension/page/attempts.js)',
   real_click: 'unknown: a menu left empty by a version that did not observe why (older than 0.9.131)',
   no_option: 'operator: the dropdown has no matching option (option matching, aliases)',
   by_you: 'gap: people answered questions the fill left (any of the above)',

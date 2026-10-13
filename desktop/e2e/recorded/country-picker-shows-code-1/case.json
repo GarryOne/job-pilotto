@@ -1,0 +1,58 @@
+{
+ "shape": "a phone country picker labelled Country: its options name the country and its calling code (\"Switzerland +41\"); once picked it shows a flag and the code only (\"+41\"); the fill's answer is the country",
+ "origin": "hand-cut",
+ "why": "13 Oct 2026, cc/unresolved: the pool's \"Country given up after retype\" on 5 Greenhouse rows was this picker: it WAS set (+41 shown), the fill compared \"+41\" with \"Switzerland\", called it not kept, retyped it (worked 0) and recorded a false left",
+ "control": {
+  "build": "0.9.456",
+  "failed": "to be measured on main"
+ },
+ "sample": "a phone country picker of a hosted application form (names and values removed)",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/acme/country-picker/application",
+   "file": "form.html"
+  }
+ ],
+ "cv": false,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "cc",
+     "question": "Country",
+     "value": "Switzerland",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "present": [
+   "#cc-box .select__single-value"
+  ],
+  "traced": [
+   "Country:filled"
+  ],
+  "atMost": [
+   "#cc-box|data-opens|3"
+  ],
+  "notTold": [
+   "pressed the submit",
+   "selected another choice"
+  ],
+  "seconds": 40
+ },
+ "start": "panel"
+}

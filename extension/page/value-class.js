@@ -66,6 +66,9 @@
       const code = String(answer).trim().replace(/^00(?=\d)/, '+').replace(/\s/g, '');
       return new RegExp(`\\+${code.slice(1)}(?!\\d)`).test(String(text)) || has(words(window.__jobPilottoDial?.[code] || ''), words(text));
     }
+    // A bare calling code the option shows (a phone country picker's chip: a flag and "+41") is the country the dial-code table names for it.
+    const shown = String(text).trim().replace(/\s/g, '');
+    if (/^\+\d{1,4}$/.test(shown)) return has(words(answer), words(window.__jobPilottoDial?.[shown] || ''));
     return has(words(answer), words(text));
   };
   // The option of this menu (a native select) that shows the fill's own answer: number (1-based among its listed options, as the judges' sketch numbers them) names one to check, 0 asks

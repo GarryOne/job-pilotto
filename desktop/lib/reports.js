@@ -17,7 +17,7 @@ export function reportToken(storage) {
 export const ENDPOINT = process.env.JOB_PILOTTO_REPORT_URL || 'https://www.jobpilotto.top/report/fill-failure';
 // The menu reasons are extension/menu-reason.js MENU_REASONS (what the pick observed) and the older fixed one; test/menu-reason-copies.test.js keeps them equal.
 export const MECHANICAL = ['dropdown not clicked', 'dropdown clicked, but its menu did not open', 'dropdown clicked, but no option matched',
-  'dropdown option clicked, but not selected', 'dropdown selected, but the reader cannot see it', 'dropdown that opens only on a real click',
+  'dropdown option clicked, but not selected', 'dropdown selected, but the reader cannot see it', 'dropdown clicked, but it selected another choice', 'dropdown that opens only on a real click',
   'answer given, but the field did not take it', 'question text not found on the page',
   'question on the page not read'];
 const SNAPPED = '#snapshot';  // reportedFailures entry "<label key> #snapshot": reported with its snapshot
