@@ -105,16 +105,19 @@ export async function addCv(storage, file, name, {apiKey = '', client = null, no
   return source;
 }
 
-// LinkedIn's data export (a .zip): its positions, skills and education as one more source, compared with the main CV like a CV version.
+// LinkedIn's data export (a .zip) or the profile's "Save to PDF": its positions, skills and education as one more source, compared with the main CV like a CV version.
 // One LinkedIn source at a time: a new export replaces the old one (after the new one was read and matched). The ZIP itself is not kept.
 export async function addLinkedin(storage, file, {apiKey = '', client = null, now = new Date(), onStep = () => {}} = {}) {
   const main = baseCv(storage);
   if (!main) throw new Error('Read your main CV first: LinkedIn is compared with it.');
   onStep('reading');
-  const cv = readExport(file);
+  // The profile's own "Save to PDF" is read like a CV (the AI); the data export (.zip) is read by structure.
+  const fromPdf = /\.pdf$/i.test(file) ? await transcribePdf(fs.readFileSync(file), apiKey, client) : null;
+  const cv = fromPdf ? fromPdf.cv : readExport(file);
   if (!cv.jobs.length) throw new Error('No positions found in this LinkedIn export.');
   onStep('comparing');
   const compared = await matchAgainst(main, cv, apiKey, client);
+  compared.usd += fromPdf ? fromPdf.usd : 0;
   const old = list(storage).filter(s => s.kind === 'linkedin');
   const source = {id: crypto.randomBytes(5).toString('hex'), kind: 'linkedin', name: 'LinkedIn', addedAt: now.toISOString(),
     digest: crypto.createHash('sha256').update(JSON.stringify(cv)).digest('hex'), cv, match: compared.match, mainKey: mainKey(main), usd: Math.round(compared.usd * 100) / 100};

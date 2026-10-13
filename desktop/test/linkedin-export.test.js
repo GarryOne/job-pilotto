@@ -52,14 +52,16 @@ test('the export becomes a CV: roles of one employer together, periods, skills, 
   assert.equal(cvOf.skills, 'AWS, Python, Spark');
   assert.equal(cvOf.name, 'Ada Example');
   assert.equal(cvOf.location, 'Zurich, Switzerland');
-  assert.throws(() => toCv({'Profile.csv': PROFILE}), /No Positions\.csv/);
+  assert.throws(() => toCv({'Profile.csv': PROFILE}), /No work positions/);
 });
 
 test('a ZIP is read by its central directory: stored and deflated entries, folders ignored', () => {
   const file = writeZip(FILES);
   assert.deepEqual(listZip(file).map(e => e.name), FILES.map(f => f[0]));
   assert.equal(readExport(file).jobs.length, 2);
-  assert.throws(() => readExport(writeZip([['Profile.csv', PROFILE]])), /No Positions\.csv/);
+  assert.throws(() => readExport(writeZip([['Profile.csv', PROFILE]])), /No work positions.*holds: Profile\.csv/);
+  assert.throws(() => readExport(writeZip([['Connections.csv', 'First Name,Last Name\nA,B\n']])), /holds: Connections\.csv.*not only Connections/);
+  assert.equal(readExport(writeZip([['Export/Jobs-translated.csv', POSITIONS]])).jobs.length, 2, 'a renamed positions file reads by its headers');
   const notZip = path.join(tempDir(), 'x.zip'); fs.writeFileSync(notZip, 'nope');
   assert.throws(() => readExport(notZip), /not a ZIP/);
   assert.throws(() => readExport('cv.pdf'), /\.zip/);
@@ -83,4 +85,19 @@ test('LinkedIn is one more source: matched with the main CV, replaced by a newer
   assert.equal(merged.extraSkills, 'Python, Spark');
   assert.equal(experience.view(s).sources[0].kind, 'linkedin');
   assert.deepEqual(experience.view(s).sources[0].onlyHere.map(r => r.title), ['Platform Engineer', 'Data Engineer'], 'roles the main CV has no match for are listed, not added');
+});
+
+test('the profile saved as PDF is also a LinkedIn source (read like a CV, not by structure)', async () => {
+  const s = createStorage(tempDir(), {encrypt: v => v, decrypt: v => v});
+  fs.mkdirSync(cv.dir(s), {recursive: true}); fs.writeFileSync(path.join(cv.dir(s), 'cv.json'), JSON.stringify(MAIN));
+  const pdf = path.join(tempDir(), 'Profile.pdf'); fs.writeFileSync(pdf, '%PDF-1.4 fake');
+  const client = {messages: {create: async req => {
+    const text = JSON.stringify(req).includes('"document"')
+      ? JSON.stringify({jobs: [{company: 'Acme', roles: [{title: 'SRE', period: '2024 – Present', place: 'Zurich', bullets: ['Cut costs.']}]}]})
+      : JSON.stringify({roles: [{source_role: 0, main_job: 0, main_role: 0, new_bullets: []}]});
+    return {stop_reason: 'end_turn', usage: {input_tokens: 1, output_tokens: 1}, content: [{type: 'text', text}]};
+  }}};
+  const source = await experience.addLinkedin(s, pdf, {client});
+  assert.equal(source.kind, 'linkedin');
+  assert.equal(source.cv.jobs[0].company, 'Acme');
 });
