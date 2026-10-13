@@ -114,8 +114,10 @@ export const memoOnly = (env = process.env) => !!env.JOB_PILOTTO_E2E && env.JOB_
 // while the page-kind ask is out, a widget reacting to the upload) then interleave as they did live, not by how fast this machine answers (12 Oct 2026: a row case green on a Mac, red on the Linux runner).
 export const latencyOn = (env = process.env) => !!env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_MODEL_MEMO_LATENCY === '1';
 export const LATENCY_CAP_MS = 3000;
+// JOB_PILOTTO_MODEL_MEMO_LATENCY_CAP_MS (e2e only): a network replay serves each kept answer at its live time, uncapped (lib/net-record.mjs: the extension's pace as live).
+const latencyCap = env => Number(env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_MODEL_MEMO_LATENCY_CAP_MS) || LATENCY_CAP_MS;
 // JOB_PILOTTO_MODEL_MEMO_LATENCY_SCALE / _PAD_MS (e2e only): a slowed replay (row-to-case's second speed): every kept answer takes SCALE times as long and PAD ms more, also one with no recorded time.
-const later = (ms, env) => { const wait = Math.min(LATENCY_CAP_MS, Math.max(0, ms || 0) * (Number(env.JOB_PILOTTO_MODEL_MEMO_LATENCY_SCALE) || 1)) + (Number(env.JOB_PILOTTO_MODEL_MEMO_LATENCY_PAD_MS) || 0); return wait > 0 ? new Promise(resolve => setTimeout(resolve, wait)) : null; };
+const later = (ms, env) => { const wait = Math.min(latencyCap(env), Math.max(0, ms || 0) * (Number(env.JOB_PILOTTO_MODEL_MEMO_LATENCY_SCALE) || 1)) + (Number(env.JOB_PILOTTO_MODEL_MEMO_LATENCY_PAD_MS) || 0); return wait > 0 ? new Promise(resolve => setTimeout(resolve, wait)) : null; };
 // JOB_PILOTTO_MODEL_MEMO_ORDINAL=<file> (e2e only; CI's row cases, never the row-to-case proof): an ask with no kept answer, exact or loose, gets the n-th kept answer of its kind (same model and system prompt), n = how many
 // asks of that kind this replay has made; each is noted in the file. A row case then holds in CI whatever the order the extension's concurrent flows ask in (12 Oct 2026), and the run prints it as a warning.
 export const ordinalFile = (env = process.env) => (env.JOB_PILOTTO_E2E ? String(env.JOB_PILOTTO_MODEL_MEMO_ORDINAL || '') : '');
@@ -147,6 +149,8 @@ export function withMemo(client, file = memoFile(), {only = memoOnly(), loose = 
     if (ordinal) served[kind] = (served[kind] || 0) + 1;
     // An offline replay serves the page scrubbed (lib/live-capture.js fakeContacts): the answer the AI gave to the live page is scrubbed the same way, so an address it
     // read off the page (apply_email) is still on the replayed page.
+    // JOB_PILOTTO_MODEL_MEMO_HITS=<file> (e2e only): each kept answer served, by key: a replay counts which of the live run's asks it made.
+    if (kept[key] && only && env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_MODEL_MEMO_HITS) try { fs.appendFileSync(env.JOB_PILOTTO_MODEL_MEMO_HITS, `${key}\n`); } catch { /* a report only */ }
     if (kept[key]) { if (only && latency) await later(Number(kept[key + MS]), env); return only ? JSON.parse(fakeContacts(JSON.stringify(kept[key]))) : kept[key]; }
     if (only && loose) {
       const hit = looseMatch(memoParts(params), kept);

@@ -2,7 +2,7 @@
 // images blanked to their size, request bodies kept only as a key. Pure: no browser.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {bodyKey, keepRecord, normUrl, recordable} from '../lib/net-record.mjs';
+import {bodyKey, echo, keepRecord, normUrl, recordable} from '../lib/net-record.mjs';
 
 const png = (width, height) => { const buf = Buffer.alloc(33); buf.writeUInt32BE(0x89504e47, 0); buf.writeUInt32BE(width, 16); buf.writeUInt32BE(height, 20); return buf; };
 const entry = (over = {}) => ({method: 'GET', url: 'https://jobs.example.test/apply', type: 'document', mode: 'navigate', startMs: 0, waitMs: 10, bodyKey: '', status: 200, failed: false, headers: {'content-type': 'text/html'}, hadCookie: false, hash: 'h1', size: 3, ...over});
@@ -46,4 +46,12 @@ test('an image of a format whose size is unknown is kept whole; a WebP is blanke
   assert.match(bodies.get(entries[0].hash).toString(), /width="320" height="40"/);
   assert.deepEqual(bodies.get(entries[1].hash), avif, 'an unmeasured image keeps its own bytes (a 1 px stand-in shrank a form by 40 px)');
   assert.equal(entries[1].headers['content-type'], 'image/avif');
+});
+
+test('a recorded reply that echoes the page\'s time+random upload key gets the key this replay sent, plain and URL-encoded', () => {
+  const reply = Buffer.from('<Location>https://store.test/stash%2Fr%2F1791920360939-cnuf6fdhlre-07ea</Location><Key>stash/r/1791920360939-cnuf6fdhlre-07ea</Key>');
+  const out = echo(reply, ['stash/r/1791920362778-zzp4hhc0ymk-07ea', 'UTF8']).toString();
+  assert.match(out, /<Key>stash\/r\/1791920362778-zzp4hhc0ymk-07ea<\/Key>/);
+  assert.match(out, /stash%2Fr%2F1791920362778-zzp4hhc0ymk-07ea/);
+  assert.equal(echo(reply, ['short-1']), reply, 'a short or plain value is never swapped');
 });
