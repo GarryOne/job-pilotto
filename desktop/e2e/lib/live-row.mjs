@@ -31,6 +31,7 @@ import {blockVerdict, guardLiveVisit, markBlocked} from './site-ledger.mjs';
 import {startAiProxy} from './ai-proxy.mjs';
 import {apiErrors, usage} from './ai-meter.mjs';
 import {appKey, isCi, keySecret, testKey} from './engine.mjs';
+import {keepRecord, netRecorder} from './net-record.mjs';
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -58,6 +59,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
   say(`live: ${coverageLine(owner)}`);   // kinds only, never a value; a kind it could not find is said, never a silent "clean"
   const values = personalValues([`Name: ${CONTACT.full_name}\nEmail: ${CONTACT.email}\nPhone: ${CONTACT.phone}`]);
   const journey = journeyRecorder(run.context, {scrub: html => scrubPage(html, values)}), styles = cssRecorder(run.context);
+  const net = process.env.JP_NET_RECORD_DIR ? netRecorder(run.context, {startedAt: Date.now()}) : null, netStart = Date.now();   // the network record (CI: encrypted, .github/workflows/pool-smoke.yml)
   const workerConsole = keepWorkerConsole(run.context);   // the extension's own console, beside app.log (lib/worker-console.mjs)
   const steps = stepShooter({tabOf: () => run.context.pages().filter(page => /^https?:/.test(page.url())).at(-1), kindOf: () => kindFromLog(app.logText()), dir: captureDir});   // one full-page picture per page or step reached (lib/step-shots.mjs)
   let asksSeen = 0, tripped = '';
@@ -125,6 +127,15 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     const {signal: blocked, contradicted} = blockVerdict(app.logText());
     if (blocked) { markBlocked(url, blocked); say(`live: the site blocked us (${blocked}): not visited again today (lib/site-ledger.mjs)`); }
     else if (contradicted) say(`live: ${contradicted}: the site stays open (lib/site-ledger.mjs)`);
+    if (net && !blocked) {   // a bot-check row keeps no record (spec); the record never goes into the plain captures
+      await net.flush();
+      const kept = keepRecord(net.result()), dir = path.join(process.env.JP_NET_RECORD_DIR, `${(posting.title || new URL(url).host).replace(/\W+/g, '-')}-${Date.now()}`);
+      fs.mkdirSync(path.join(dir, 'bodies'), {recursive: true});
+      for (const [hash, body] of kept.bodies) fs.writeFileSync(path.join(dir, 'bodies', hash), body);
+      fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({startMs: netStart, url, entries: kept.entries, stats: kept.stats}));
+      for (const name of ['model-memo.json', 'app.log', 'asks.jsonl']) { try { fs.copyFileSync(path.join(captureDir, name), path.join(dir, name)); } catch { /* not written */ } }
+      say(`live: network record kept: ${kept.stats.requests} requests, ${(kept.stats.keptBytes / 1e6).toFixed(2)} MB`);
+    }
     return {seconds: Math.round((Date.now() - started) / 100) / 10, opened: url, evidence: evidenceLines(app.logText()), tripped: '', endedWhileDeciding, requests: front.requests.length, appLog: app.logText(), ...(proxy ? {ai: spend()} : {})};
   } finally {
     if (!shotAsked) { const shot = await takeEndShot(run.context, captureDir).catch(error => ({file: '', why: String(error?.message || error).slice(0, 80)})); say(endShotLine(shot)); }   // the run stopped early (an error): the picture of where it stopped is still a must
