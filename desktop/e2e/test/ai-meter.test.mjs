@@ -111,8 +111,8 @@ test('per-key cost: each key\'s tokens at the day\'s billed price per token; onl
 // gets one row (`ws.<slug>`) that is the sum of its tracked keys.
 test('keys are tracked by family, and each workspace is the sum of its tracked keys', async () => {
   const {isTracked, keyDays, slug} = await import('../ai-cost-report.mjs');
-  const tracked = ['job-pilotto-*', '!job-pilotto-private'];
-  for (const [name, yes] of [['job-pilotto-ui-fix', true], ['job-pilotto-pool-new', true], ['job-pilotto-private', false], ['personal-finance-monitor', false], [undefined, false]]) assert.equal(isTracked(name, tracked), yes, String(name));
+  const tracked = ['job-pilotto-*', '!job-pilotto-private*', '!job-pilotto-desktop-app-*'];
+  for (const [name, yes] of [['job-pilotto-ui-fix', true], ['job-pilotto-pool-new', true], ['job-pilotto-private', false], ['job-pilotto-private-desktop-app-1', false], ['job-pilotto-desktop-app-real-Igor', false], ['personal-finance-monitor', false], [undefined, false]]) assert.equal(isTracked(name, tracked), yes, String(name));
   assert.equal(slug('Job Pilotto Self-heal'), 'job-pilotto-self-heal');
   const row = (key, tokens) => ({day: '2026-10-05', api_key_id: key, model: 'claude-haiku-4-5-20251001', service_tier: 'standard', uncached_input_tokens: tokens});
   const lines = [{day: '2026-10-05', model: 'claude-haiku-4-5-20251001', service_tier: 'standard', token_type: 'uncached_input_tokens', amount: '1000'}];   // $10 for 5M tokens
