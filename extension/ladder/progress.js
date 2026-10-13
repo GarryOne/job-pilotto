@@ -12,7 +12,10 @@ export const PROGRESS_KINDS = ['navigated', 'new_controls', 'required_down', 'va
 export const PAGE_KINDS = ['value_stayed'];   // the only kinds a page script may send
 let log = () => {};
 export const useProgressLog = fn => { log = fn; };
-useSilence({notice: (host, evidence) => seenDeadEnd('silent', host, evidence, log)});
+useSilence({notice: (host, evidence, tabId) => {   // the stop is logged once the tab's address is known (the shadow question joins by door id; the tab may be gone: then it is logged without the question)
+  const open = page => seenDeadEnd('silent', host, evidence, log, {tabId, page});
+  Promise.resolve(globalThis.chrome?.tabs?.get(tabId)).then(tab => open(tab?.url || ''), () => open('')).catch(() => {});
+}});
 const last = new Map();   // tabId -> {at, kind}
 const pages = new Map();   // tabId -> the page key last considered
 

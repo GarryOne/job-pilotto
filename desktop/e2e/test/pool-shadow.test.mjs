@@ -36,3 +36,15 @@ test('the table: silent shadow notices are not stops; a stop with no question li
   assert.deepEqual(table.better, [{row: 'r2', door: 1, why: 'account'}]);
   assert.equal(table.usd, 0.0014);
 });
+
+test('a silent stop is a stop of its own kind: asked like any other; on an account page a would-act move is worse, a hand-to-the-person is agree', () => {
+  const kind = name => `${at} [extension] fill: page kind: ${name} ${JSON.stringify({by: 'ai'})}`;
+  const silent = door => `${at} [extension] fill: dead end: silent ${JSON.stringify({shadow: true, door, ending: 'unresolved', host: 'a.example', kind: 'required_down', silentMs: 30500})}`;
+  const rows = [{row: 'r', log: [kind('account'), silent(1), asked({door: 1, wouldAct: true, actWhy: 'acts'}),
+    kind('account-form'), silent(2), asked({door: 2, wouldAct: false, actWhy: 'unsure'}),
+    kind('posting'), silent(3), asked({door: 3, wouldAct: true, actWhy: 'acts'})].join('\n')}];
+  const table = shadowTable(rows);
+  assert.deepEqual(table.byWhy.silent, {agree: 1, better: 1, worse: 1, not_asked: 0});
+  assert.deepEqual(table.worse.map(item => item.door), [1], 'a press at an account page can get past a login wall or into a password step: worse even if a form follows');
+  assert.equal(stopsOf(rows[0].log)[0].page, 'account');
+});

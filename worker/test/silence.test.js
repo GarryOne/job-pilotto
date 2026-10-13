@@ -70,7 +70,7 @@ test('wired where the spec says: every progress note restarts it, a new page nam
   const progress = read('ladder/progress.js');
   assert.match(progress, /log\('fill', `progress: \$\{kind\}`[^\n]*\n\s*restartSilence\(tabId, kind, \{now, host\}\);/, 'every note, right where it is logged');
   assert.match(progress, /silenceTab\(tabId, where\.job\)/);
-  assert.match(progress, /useSilence\(\{notice: \(host, evidence\) => seenDeadEnd\('silent', host, evidence, log\)\}\)/);
+  assert.match(progress, /useSilence\(\{notice: \(host, evidence, tabId\) =>[\s\S]*?seenDeadEnd\('silent', host, evidence, log, \{tabId, page\}\)/);
   assert.match(progress, /forgetSilence\(tabId\)/);
   assert.match(read('ladder/dead-end.js'), /export function deadEnd\([\s\S]*?endSilence\(stop\.tabId\);[\s\S]*?const sent = report\(/, 'the door ends it, for every stop');
   assert.match(read('form-ready.js'), /if \(handedToPerson\(answer\)\) endSilence\(tab\.id\);/);
@@ -129,4 +129,13 @@ test('class: every call to the app is bracketed as an ask of its tab (flow.js ap
     const plain = read(file).split('\n').filter(line => /(?<![\w.])api\(/.test(line) && !/^export (async function api\(|const apiFor = )/.test(line));
     assert.deepEqual(plain, [], `${file}: use apiFor(tabId, ...)`);
   }
+});
+
+test('the silence notice names the tab of the application, so the shadow question can be asked at a silent stop', () => {
+  const notes = [];
+  useSilence({notice: (host, evidence, tabId) => notes.push({host, tabId}), timer: () => 1, cancel: () => {}});
+  silenceTab(9, 'https://jobs.example/9');
+  restartSilence(9, 'navigated', {now: 0, host: 'jobs.example'});
+  assert.equal(checkSilence(9, 31000), true);
+  assert.deepEqual(notes, [{host: 'jobs.example', tabId: 9}]);
 });
