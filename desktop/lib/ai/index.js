@@ -7,7 +7,8 @@ import {AnthropicApi} from './anthropic-api.js';
 import {ClaudeCode} from './claude-code-cli.js';
 import {Codex} from './codex-cli.js';
 import {OpenAiApi} from './openai-api.js';
-import {withMemo} from './model-memo.js';
+import {memoFile, withMemo} from './model-memo.js';
+import {anthropicClient} from '../../shared/worker/ai.js';
 
 // localOnly: runs the user's own CLI, so this computer only, never GitHub (Always on). key: the secret an API engine needs.
 export const ENGINES = {
@@ -57,4 +58,12 @@ function engineClient(storage, {only = null, ...options} = {}) {
       fallback: settings.aiFallback && keys.OPENAI_API_KEY ? api('openai') : null});
     default: return null;
   }
+}
+
+// The form answers on the API key (lib/server-env.js aiClient): the worker asks with its own client, outside client() above. Under the e2e harness's model memo only (memoFile()
+// is '' anywhere else) that same client is wrapped by the memo, so a live capture keeps the form answers too (13 Oct 2026: CI captures, on the API key, kept every ask but the
+// form answers, and no replay could reproduce a fill: 5/8 offline vs 7/7 live). A person's app: null, the worker asks with its key as before.
+export function keptAnswerClient(storage, env = process.env) {
+  const file = memoFile(env), key = file ? storage.secret('ANTHROPIC_API_KEY') : '';
+  return key ? withMemo(anthropicClient(key), file, {env}) : null;
 }
