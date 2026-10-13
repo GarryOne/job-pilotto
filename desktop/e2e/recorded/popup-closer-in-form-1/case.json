@@ -1,0 +1,58 @@
+{
+ "origin": "hand-cut",
+ "shape": "a cookie banner inside the application's <form>: the fill closes it (the least consent) with a script's click, and that press is never the person's submit",
+ "why": "13 Oct 2026, discussion 613: QA evidence (H&M, Databricks) logged 'submit pressed' in the same ms as 'closed a popup': the closer sat in a <form>, its click fired the form's submit event, and the submission watch started on a page nobody submitted.",
+ "sample": "invented page (host and text); the banner-in-form shape from the QA evidence of 11 Oct 2026",
+ "control": {
+  "build": "0.9.456",
+  "failed": "notTold: submit pressed (the extension's own popup press counted as the person's submit)"
+ },
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://careers.banner.example/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   }
+  ],
+  "/extension/pick-choice": {
+   "ok": true,
+   "choice": "Reject all"
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  }
+ },
+ "expect": {
+  "told": [
+   "closed a popup",
+   "\"label\":\"Reject all\""
+  ],
+  "notTold": [
+   "submit pressed",
+   "\"label\":\"Accept all\""
+  ],
+  "filled": [
+   "#first",
+   "#last",
+   "#mail"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 45
+ }
+}

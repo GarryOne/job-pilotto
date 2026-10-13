@@ -1,0 +1,13 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Apply | Example Careers</title></head>
+<!-- Hand-cut (13 Oct 2026): a cookie banner that sits INSIDE the application's <form> (the wrapper of a consent tool, as at H&M and Databricks in the QA evidence). Its closer is a typeless
+     button, so pressing it also fires the form's submit event; the page's own script keeps the form on the page and removes the banner a tick later. -->
+<body><h1>Your application</h1>
+<form id="app" action="/send" method="post" novalidate onsubmit="return false">
+<div role="dialog" aria-label="Cookies" style="position:fixed;left:0;right:0;bottom:0;height:160px;z-index:100;background:#eee;padding:16px">
+<p>We use cookies to improve your visit.</p>
+<button id="reject" onclick="setTimeout(function () { document.querySelector('[role=dialog]').remove(); }, 0)">Reject all</button>
+<button id="accept" onclick="setTimeout(function () { document.querySelector('[role=dialog]').remove(); }, 0)">Accept all</button></div>
+<div><label for="first">First name *</label><input id="first" name="first" type="text" required></div>
+<div><label for="last">Last name *</label><input id="last" name="last" type="text" required></div>
+<div><label for="mail">Email *</label><input id="mail" name="mail" type="email" required></div>
+<button type="submit">Send application</button></form></body></html>

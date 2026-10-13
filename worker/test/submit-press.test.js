@@ -89,3 +89,44 @@ test('a typeless button whose click handler calls form.requestSubmit() is notice
   window.close();
   assert.equal(sent.filter((message) => message.type === 'submitted').length, 1);
 });
+
+// A press the extension itself makes (a cookie banner's closer, a route press, a menu open) is a script's click: never the person's submit (13 Oct 2026, QA evidence H&M and
+// Databricks: the fill's popup press sat in a <form> and logged "submit pressed" in the same ms as "closed a popup"). One loop over every kind of control a script presses.
+async function sentAfterOwnPress(markup) {
+  const { window } = openPage(JSDOM, `<form><label for="n">Name *</label><input id="n" required value="Ada">${markup}</form>`);
+  const sent = [];
+  window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
+  window.eval(read('extension/page/skeleton.js'));
+  window.eval(read('extension/page/submit-press.js'));
+  window.eval(read('extension/review.js'));
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  window.document.addEventListener('submit', (event) => event.preventDefault());
+  window.document.getElementById('x').click();   // the extension's own press: a script's click, never trusted
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  window.close();
+  return sent.filter((message) => message.type === 'submitted').length;
+}
+
+test('a press the extension makes never counts as "submit pressed", whatever control it presses', { skip: !JSDOM }, async () => {
+  for (const [name, markup] of CONTROLS) assert.equal(await sentAfterOwnPress(markup), 0, `${name}: the extension's own press sent "submitted"`);
+});
+
+test('the person pressing right after the extension still counts (the own press does not mute the next one)', { skip: !JSDOM }, async () => {
+  const { window } = openPage(JSDOM, '<form><input id="n" value="Ada"><button id="closer" type="submit">Reject all</button><button id="x" type="submit">Go</button></form>');
+  const sent = [];
+  window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
+  window.eval(read('extension/page/skeleton.js'));
+  window.eval(read('extension/page/submit-press.js'));
+  window.eval(read('extension/review.js'));
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  window.document.addEventListener('submit', (event) => event.preventDefault());
+  window.document.getElementById('closer').click();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(sent.filter((message) => message.type === 'submitted').length, 0);
+  const click = new window.MouseEvent('click', { bubbles: true, cancelable: true });
+  click.__jpTrusted = true;
+  window.document.getElementById('x').dispatchEvent(click);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  window.close();
+  assert.ok(sent.filter((message) => message.type === 'submitted').length >= 1);
+});
