@@ -14,6 +14,7 @@ import path from 'node:path';
 import {cleanSecret} from './secrets.js';
 import {checkAnthropicKey} from './ai/anthropic-api.js';
 import {codexBinary, verifyCodex} from './ai/codex-cli.js';
+import {refreshPath} from './fresh-path.js';
 import {checkOpenAiKey} from './ai/openai-api.js';
 import {log as appLog} from './log.js';
 
@@ -60,8 +61,12 @@ export function registerSetupHandlers(ctx) {
   });
   // The AI engine (Settings → Connections → AI, the wizard's AI step; lib/claude-code.js): the user's own choice.
   const DEMO_CLAUDE = {installed: true, version: '2.1.0', path: '/usr/local/bin/claude', authenticated: true, error: '', checkedAt: '2026-09-30T09:00:00Z'};
-  ipcMain.handle('claudeCodeStatus', async () => (DEMO ? DEMO_CLAUDE : {...(storage.settings().claudeCode || {}), ...await claudeCode.detect(),
-    checkedAt: storage.settings().claudeCode?.checkedAt || null}));
+  ipcMain.handle('claudeCodeStatus', async () => {
+    if (DEMO) return DEMO_CLAUDE;
+    let found = await claudeCode.detect();
+    if (!found.installed && await refreshPath()) found = await claudeCode.detect();   // installed since the app started (Windows PATH)
+    return {...(storage.settings().claudeCode || {}), ...found, checkedAt: storage.settings().claudeCode?.checkedAt || null};
+  });
   ipcMain.handle('verifyClaudeCode', () => (DEMO ? DEMO_CLAUDE : claudeCode.verify(storage)));
   ipcMain.handle('setAiEngine', (_, choice, options = {}) => {
     if (!claudeCode.ENGINES.includes(choice)) throw new Error(`Unknown AI engine: ${choice}`);
@@ -71,8 +76,11 @@ export function registerSetupHandlers(ctx) {
   });
   // Codex (the OpenAI family's own CLI): found where its installers put it; Verify is one tiny locked-down call on the user's plan (lib/ai/codex-cli.js).
   const DEMO_CODEX = {installed: true, path: '/usr/local/bin/codex', authenticated: true, error: '', checkedAt: '2026-09-30T09:00:00Z'};
-  ipcMain.handle('codexStatus', () => (DEMO ? DEMO_CODEX : {...(storage.settings().codex || {}), installed: !!codexBinary(), path: codexBinary(),
-    checkedAt: storage.settings().codex?.checkedAt || null}));
+  ipcMain.handle('codexStatus', async () => {
+    if (DEMO) return DEMO_CODEX;
+    if (!codexBinary()) await refreshPath();   // installed since the app started (Windows PATH)
+    return {...(storage.settings().codex || {}), installed: !!codexBinary(), path: codexBinary(), checkedAt: storage.settings().codex?.checkedAt || null};
+  });
   ipcMain.handle('verifyCodex', () => (DEMO ? DEMO_CODEX : verifyCodex(storage)));
   ipcMain.handle('checkOpenAI', async (_, pasted) => {
     const {value: key, error} = cleanSecret(pasted);
