@@ -12,6 +12,7 @@ import {shared} from './shared.js';
 const hasKey = () => !!shared.state?.secrets?.ANTHROPIC_API_KEY;
 const hasOpenAiKey = () => !!shared.state?.secrets?.OPENAI_API_KEY;
 const ICONS = {api: 'key', cli: 'terminal', openai: 'key', codex: 'terminal'};
+export const RECHECK_MS = 3000;   // how often a missing CLI is looked for again while its chooser is on screen
 // The family's own CLI, in words and through its IPC (Claude Code / Codex).
 const CLI = {claude: {name: 'Claude Code CLI', status: () => window.pilot.claudeCodeStatus(), verify: () => window.pilot.verifyClaudeCode()},
   openai: {name: 'Codex CLI', status: () => window.pilot.codexStatus(), verify: () => window.pilot.verifyCodex()}};
@@ -135,9 +136,23 @@ export function mountEngine(box, {context = 'settings', onChange = () => {}} = {
     onChange(picked);
   }
   render();
-  for (const which of Object.keys(CLI)) {
-    CLI[which].status().then(found => { statuses[which] = found; render(); onChange(picked); }, () => { statuses[which] = {installed: false}; render(); });
-  }
+  // Each CLI's status is read now and again whenever it could have changed: the window regains focus (the user came back from installing it),
+  // and every few seconds while one is still missing. Installing Codex or Claude Code never needs an app restart.
+  const recheck = () => {
+    if (busy) return;   // a Verify in progress owns the status
+    for (const which of Object.keys(CLI)) {
+      CLI[which].status().then(found => {
+        if (busy || JSON.stringify(found) === JSON.stringify(statuses[which])) return;
+        statuses[which] = found; render(); onChange(picked);
+      }, () => { if (!statuses[which]) { statuses[which] = {installed: false}; render(); } });
+    }
+  };
+  recheck();
+  const watch = () => { if (!box.isConnected) { clearInterval(timer); removeEventListener('focus', recheck); document.removeEventListener('visibilitychange', onVisible); } };
+  const onVisible = () => { if (!document.hidden) recheck(); };
+  const timer = setInterval(() => { watch(); if (box.isConnected && Object.values(statuses).some(found => !found?.installed)) recheck(); }, RECHECK_MS);
+  addEventListener('focus', recheck);
+  document.addEventListener('visibilitychange', onVisible);
   return {picked: () => picked, family: () => family, status: () => statuses[familyOf(picked || CLI_OF[family])],
     refresh: () => { picked = chosen(shared.state?.settings, hasKey(), context) || picked; if (picked && picked !== 'trial') family = familyOf(picked); render(); }};
 }
