@@ -58,13 +58,21 @@ A follow-up to a fix already on main (it only corrects that fix's case): name th
   return lines.join('\n');
 }
 
+// A case the push REMOVED or moved (parked in recorded-pending/) has nothing left to replay (13 Oct 2026, #604: the replay copied its vanished folder, ENOENT).
+// -> {kept, removed}: `exists(name)` tells whether desktop/e2e/recorded/<name> is still there at HEAD.
+export function withoutRemoved(names, exists) {
+  return {kept: names.filter(exists), removed: names.filter(name => !exists(name))};
+}
+
 function main() {
   const args = process.argv.slice(2), base = args.includes('--base') ? args[args.indexOf('--base') + 1] : 'origin/main', logFile = args.includes('--log') ? args[args.indexOf('--log') + 1] : '';
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const git = (...rest) => execFileSync('git', ['-C', root, ...rest], {encoding: 'utf8', maxBuffer: 64 << 20});
   let commits;
   try { commits = git('rev-list', '--reverse', `${base}..HEAD`).split('\n').filter(Boolean).map(sha => ({message: git('log', '-1', '--format=%B', sha), files: commitFiles(git, sha)})); } catch { return 0; }   // commitFiles: a label-only case.json edit is no case (recorded-cases.mjs LABEL_KEYS)
-  const {pinned, check, refused, fixOf} = splitPinned(commits);
+  const {pinned, check: named, refused, fixOf} = splitPinned(commits);
+  const {kept: check, removed} = withoutRemoved(named, name => fs.existsSync(path.join(root, 'desktop/e2e/recorded', name)));
+  if (removed.length) console.error(`recorded cases on the old code: removed, not replayed: ${removed.join(', ')}`);
   if (refused.length) { console.error(`"Recorded-pins:" is refused for ${refused.join(', ')}: that commit names a Pool-row or an issue it fixes, and a fix must show its failure on the old code (a follow-up to a fix on main: "Fix-commit: <sha>").`); return 1; }
   if (pinned.length) console.error(`recorded cases on the old code: ${pinned.join(', ')} said "Recorded-pins" (they pin behaviour, no fix): not replayed on the old code`);
   if (args.includes('--list')) { console.log(check.join(' ')); return 0; }
