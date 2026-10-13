@@ -1,0 +1,41 @@
+// The replay/live checks' page reader (lib/replay-truth.mjs readTab) on real DOM shapes: one question is one required control, however its options are named (cc, 13 Oct 2026:
+// pool run 38325149096 on NICE's Greenhouse form counted 16 empty against the panel's 8: a required fieldset of required checkboxes with per-option ids and a []-name was read
+// as the fieldset plus every option). Headless Chromium; skipped where playwright has no browser.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {test} from 'node:test';
+import {readTab} from '../lib/replay-truth.mjs';
+
+let chromium = null;
+try { ({chromium} = await import('playwright-core')); if (!fs.existsSync(chromium.executablePath())) chromium = null; } catch { /* no playwright */ }
+
+const PAGE = `<!doctype html><html><body><form>
+  <div class="field"><label for="first">First name*</label><input id="first" required value="Ada"></div>
+  <div class="field"><label id="q1-label" for="q1">Do you require visa sponsorship?*</label>
+    <div><input id="q1" role="combobox" aria-autocomplete="list" aria-required="true" aria-labelledby="q1-label" value=""></div>
+    <input required tabindex="-1" aria-hidden="true" value="" style="opacity:0;height:1px"></div>
+  <fieldset id="q2[]" aria-required="true"><legend>Pick the three factors that matter most *</legend>
+    <div><input type="checkbox" required id="q2[]_1" name="q2[]" value="1"><label for="q2[]_1">Hybrid work model</label></div>
+    <div><input type="checkbox" required id="q2[]_2" name="q2[]" value="2"><label for="q2[]_2">Meaningful challenges</label></div>
+    <div><input type="checkbox" required id="q2[]_3" name="q2[]" value="3"><label for="q2[]_3">Salary</label></div></fieldset>
+  <fieldset><legend>Your pronouns *</legend>
+    <label><input type="checkbox" required name="q3[]" value="a"> she/her</label><label><input type="checkbox" required name="q3[]" value="b" checked> they/them</label></fieldset>
+  <div class="question"><span>Languages you speak *</span>
+    <label><input type="checkbox" required name="q4[]" value="en"> English</label><label><input type="checkbox" required name="q4[]" value="de"> German</label></div>
+  <fieldset><legend>Worked here before? *</legend>
+    <label><input type="radio" required name="q5-yes" value="yes"> Yes</label><label><input type="radio" required name="q5-no" value="no"> No</label></fieldset>
+  <label><input type="checkbox" required name="privacy"> I accept the privacy notice</label>
+</form></body></html>`;
+
+test('one question is one required control: a required fieldset with required options, a shared []-name, options with their own names', {skip: !chromium && 'no playwright browser'}, async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.setContent(PAGE);
+    const {required} = await readTab(page, []);
+    const empty = required.filter(one => one.empty).map(one => one.name);
+    assert.equal(required.length, 7, JSON.stringify(required));   // first name, visa, factors, pronouns, languages, worked here, privacy
+    assert.equal(empty.length, 5, JSON.stringify(empty));   // all but the first name and the pronouns (one ticked)
+    assert.ok(empty.some(name => /three factors/.test(name)) && empty.some(name => /Worked here/.test(name)), JSON.stringify(empty));   // a group is named by its question
+  } finally { await browser.close(); }
+});
