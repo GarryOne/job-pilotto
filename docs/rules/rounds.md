@@ -17,7 +17,7 @@ the wrong cause for the waiting ([why.md](why.md)).
    owner pastes it into a NEW session (the paste is the owner's approval; a message to a running session waits for the owner in that window).
 4. **Prove a fix in four steps, fastest first** (owner, 11 Oct 2026: proof used to take hours): (1) 3 of 3 real asks of the app's AI on the saved page
    (`ladder-score`, plan path); (2) the row replayed offline (`npm run row -- "<pool row>"`, 15-90 s: its pages, the live run's AI answers, the app's own server, the real
-   extension; it must reach further, and `--old` must not); (3) ONE live run of the single row from the fixer's own worktree before landing, held, ~1 min
+   extension; it must reach further, and `--old` must not: a differential only, offline replay is unverified (spec `docs/superpowers/specs/2026-10-13-capture-once-measure-many.md`: 0 rows matched live; a row with a CV upload, 17 of 39, misses the account judgment after it; compare like with like: a CI capture replayed on a Mac misses page-kind asks from the page width alone, whatever the build), so step 3 proves it); (3) ONE live run of the single row from the fixer's own worktree before landing, held, ~1 min
    (`npm run live -- <url>`, no Electron, or `npm run smoke -- --only`), through the fair heavy lock (never uploaded); (4) the scoreboard: the pool owner runs all fixed rows in one
    batch on main, and "Confirmed" needs two clean runs. A fixer lands after step 3 and then goes idle; it never queues for the batch.
 5. **No new tooling during the round.** A gap goes on a list for after, unless it blocks the fix itself (then say so to the owner).
@@ -33,7 +33,7 @@ the wrong cause for the waiting ([why.md](why.md)).
   is tested, report to the coordinator.
 - **One session owns a row's live visits for the day** (owner, 12 Oct 2026): the per-site limit is 3 live visits a day, and on 12 Oct HelloFresh's were spent by
   the pool pass and two other sessions before its fixer's proof. The coordinator names which session owns each row's visits; the others use `npm run row` / the
-  replays, or ask the owner before spending a visit on a row another session works. `npm run live` checks the ledger before it queues for the heavy lock.
+  replays to work on it (their verdict is no proof: offline replay is unverified), or ask the owner before spending a visit on a row another session works. `npm run live` checks the ledger before it queues for the heavy lock.
 - **A new CI check is proven green on a draft PR before it goes on main** (owner, 12 Oct 2026). Run it from a branch, fix what it finds, add it only when it
   passes; a check that fails on every PR is ten red marks in the PR list for what is not a problem of those PRs. 12 Oct: the "harness tests" job was added to
   every PR first; it failed on #391-#394 (2 old failures on main, a staging step only a shard exposes) and on #396-#398 (cut before the fix).
