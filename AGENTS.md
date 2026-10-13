@@ -98,13 +98,11 @@ them from colliding in one checkout:
   `ship: REVIEW #n <url>` = green and open for the owner (your turn ends there); with auto-merge allowed again, `ship: DONE <sha>` = merged;
   `ship: FAILED required check '<name>' failed: <log url>` leaves the PR open: fix, commit, run ship again (it reuses the PR). No direct pushes to main; any other origin keeps the old direct push below.
   The old direct path: fetch + rebase, the push hook's checks (the suites of the areas you touched), push, update the main checkout. **A landing that runs the slow gates queues** (flow or extension files; owner, 11 Oct 2026: three long landings at once refused each other's pushes and re-ran 10-20 min of checks up to three times); others run side by side; when another
-  session pushed in between, git refuses the push and `ship.sh` rebases, re-takes the extension version and **runs the checks again** before
+  session pushed in between, git refuses the push and `ship.sh` rebases and **runs the checks again** before
   the next push, so what reaches main was checked as pushed (the gate cache keeps unchanged areas instant; `SHIP_LANDING_LOCK=1` queues instead).
   `--full` runs every suite locally (a rare choice, not the Tier 2 default), `--fix` for the fix/revert of a red main. **The worktree is kept** (owner, 11 Oct 2026; `--remove` removes it).
-  After every rebase `ship.sh` takes the next free extension version and writes `extension/fingerprint.json` once, amended into your last
-  commit (never bump the version by hand to land). While an extension change is not landed yet, the fingerprint test (`desktop/test/extension-version.test.js`)
-  fails in a local `npm test` (the Stop hook runs no suite by default): write both locally in their own local commit (`node desktop/scripts/extension-fingerprint.mjs --write` + the next version in
-  `extension/manifest.json`), say so in its message, and let `ship.sh` redo both at landing (it keeps your version only if still newer than main's).
+  **Never write the extension's version:** `extension/manifest.json` holds the base (`"0.9"`); the build stamps the rest (`desktop/scripts/extension-stamp.mjs`:
+  the count of commits that changed `extension/`), so extension PRs no longer conflict with each other (13 Oct 2026).
   The checks take minutes: run **`tools/ship.sh --background`** (returns at once, names its log); the log's last line is `ship: DONE <sha>`, `ship: REVIEW #n <url>` or
   `ship: FAILED …`: Monitor `^ship: (DONE|FAILED|REVIEW)` in the background, never a foreground wait (8 Oct 2026: a run cut off by a timeout and piped through `tail` showed nothing). By hand it is still
   `git fetch && git rebase origin/main && git push origin <topic>:main` (fast-forward only; rejected: fetch, rebase, push again).

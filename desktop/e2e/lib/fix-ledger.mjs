@@ -37,6 +37,8 @@ export function buildLedger({git = defaultGit, fixes = JSON.parse(fs.readFileSyn
   for (const [hash, sites] of found) {
     const message = git('log', '-1', '--format=%B', hash), when = git('log', '-1', '--format=%cI', hash).trim();
     let version = ''; try { version = JSON.parse(git('show', `${hash}:extension/manifest.json`)).version || ''; } catch { /* a commit before the manifest */ }
+    // Since 13 Oct 2026 the manifest holds the base ("0.9") and the build stamps the rest (desktop/scripts/extension-stamp.mjs): the same stamp here.
+    if (/^\d+\.\d+$/.test(version)) { try { version = `${version}.${Number(git('rev-list', '--count', hash, '--', 'extension'))}`; } catch { /* the base alone */ } }
     const cases = git('show', '--name-only', '--diff-filter=A', '--format=', hash).split('\n').map(file => file.match(/^desktop\/e2e\/recorded\/([^/]+)\//)?.[1]).filter(Boolean);
     const guard = [...new Set([...cases.map(name => `recorded:${name}`), ...line(message, 'Fixture').flatMap(value => (/^none\b/i.test(value) ? [] : value.split(/\s*,\s*/).filter(id => /^[a-z0-9][a-z0-9-]{0,79}$/i.test(id)).map(id => `fixture:${id}`)))])];
     const subject = cleanRow(message.split('\n')[0]) ? message.split('\n')[0].trim().slice(0, 120) : '';   // the PR's own build is matched to this fix by subject and row (site/src/applying-proven.js)

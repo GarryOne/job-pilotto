@@ -153,7 +153,7 @@ Twin fills count as real use since d8cbe63, so they feed it both ways.
     (`npm run twin:drive -- capture <tab> <case> <page> <your worktree>/desktop/e2e/recorded`), write `case.json` (shape, the AI answers the twin logged, `expect`),
     and see it fail with `REAL_EXTENSION_DIR=<old build> npm run recorded`, then pass. The push hook asks for it (`tools/recorded-cases.mjs`).
     CI replays every recorded case after each push to main (`recorded-pages.yml`); the local push gate opens no browser, `JP_GATE_REPLAY=1` replays the affected cases on request, and `npm run row -- "<pool row>"` replays a pool row offline.
-- **Extension version:** main + 1 (`git show origin/main:extension/manifest.json`), then `node desktop/scripts/extension-fingerprint.mjs --write` (written once, at landing).
+- **Extension version:** never written by hand: the build stamps it (`node desktop/scripts/extension-stamp.mjs --at origin/main` shows main's).
 - **Land:** `tools/ship.sh` (one change, one push), then `npm run twin:drive -- refresh` and check the new version is printed. Then run **the same target again** and compare its scorecard row.
   Run every other target once more too, before calling the round done: a fix for one must not break another.
 - A change to a flow file (`FLOW_FILES` in `desktop/e2e/flows.mjs`) is covered by the flows matrix on CI. Don't run it locally per push.

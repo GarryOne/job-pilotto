@@ -3,6 +3,7 @@
 // reloads itself on a higher one (extension/tab-report.js; 29 Sep 2026: a changed extension with the same version never reached the browser).
 // Before 13 Oct 2026 each PR bumped the version itself, and every merge made the other open extension PRs conflict.
 //   node desktop/scripts/extension-stamp.mjs      prints the version this checkout's HEAD stamps (CI passes it to the build jobs, which are shallow)
+//   node desktop/scripts/extension-stamp.mjs --at <commit>   the version a build of that commit carried (a recorded case's control.build)
 // Guarded by desktop/test/extension-stamp.test.js.
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
@@ -11,7 +12,7 @@ import {fileURLToPath} from 'node:url';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 // The last version a PR committed by hand: every stamp must be above it, or installed copies would stop updating.
-export const LAST_COMMITTED = '0.9.265';
+export const LAST_COMMITTED = '0.9.268';
 
 export function newer(a, b) {   // the extension's own comparison (extension/background.js)
   const [x, y] = [a, b].map(v => String(v || '0').split('.').map(Number));
@@ -50,6 +51,16 @@ export function forBuild({repo = REPO, env = process.env, floor = LAST_COMMITTED
   return version({manifestVersion, commits: count(repo), floor});
 }
 
+// What a copy made from this checkout reports (the e2e harness's and the twin's copies, the pool's reports, the fix ledger): the stamp at `ref`. On CI a
+// shallow clone first fetches the commit history without file contents (~3 s; the replay and harness jobs check out 1-2 commits); elsewhere, or when
+// that fails, the manifest's own version. Never throws.
+export function stampedAt(repo = REPO, ref = 'HEAD', env = process.env) {
+  if (env.CI) { try { if (git(repo, 'rev-parse', '--is-shallow-repository') === 'true') git(repo, 'fetch', '-q', '--unshallow', '--filter=blob:none', 'origin'); } catch { /* counted below, or the fallback */ } }
+  let manifestVersion = '';
+  try { manifestVersion = JSON.parse(ref === 'HEAD' ? fs.readFileSync(path.join(repo, 'extension', 'manifest.json'), 'utf8') : git(repo, 'show', `${ref}:extension/manifest.json`)).version || ''; } catch { return ''; }
+  try { return version({manifestVersion, commits: count(repo, ref), floor: '0'}); } catch { return manifestVersion; }
+}
+
 // Writes the version into a copy of the extension (never the repo's own folder).
 export function stamp(dir, stamped) {
   const file = path.join(dir, 'manifest.json');
@@ -58,4 +69,7 @@ export function stamp(dir, stamped) {
   fs.writeFileSync(file, JSON.stringify({...manifest, version: stamped}, null, 2) + '\n');
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) console.log(forBuild());
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const at = process.argv.indexOf('--at');
+  console.log(at > 0 ? stampedAt(REPO, process.argv[at + 1]) : forBuild());
+}

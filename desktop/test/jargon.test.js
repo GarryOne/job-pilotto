@@ -22,8 +22,7 @@ const ALLOWED = {
 // phrases that stay: an IT example shown next to a non-IT one, or one tip not yet reworded
 const ALLOWED_PHRASES = [
   /"Nurse, UK" or "SRE \/ DevOps, Europe"/g,
-  // TODO with the next extension version bump: reword this tip. The pool is mirrored into extension/tips-pool.js (extension/sync.sh), and a
-  // changed extension file needs a new extension version (desktop/test/extension-version.test.js): not worth a release for one tip.
+  // TODO: reword this tip with the next extension change. The pool is mirrored into extension/tips-pool.js (extension/sync.sh).
   /"Kubernetes", not "k8s"/g,
 ];
 

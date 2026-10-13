@@ -100,17 +100,6 @@ class StopCheckAffected(unittest.TestCase):
         self.assertEqual(len(self.calls()), 1)
         self.assertIn(str(other.resolve()) if str(other.resolve()) in self.calls()[0] else str(other), self.calls()[0])
 
-    def test_only_the_extension_fingerprint_failing_is_expected_before_landing_not_a_failure(self):
-        self.change(self.repo, 'desktop/lib/x.js')
-        out_only = '1 failing test:\n\n  ✖ the extension files match the fingerprint recorded with its version   (test/extension-version.test.js)\n'
-        code, out = self.stop(self.repo, CHECK_EXIT='1', CHECK_OUT=out_only)
-        self.assertEqual(code, 0, out)
-        self.assertIn('expected before landing', out)
-        # Any other failing file still fails the stop (a different tree state: the first pass is cached).
-        self.change(self.repo, 'desktop/lib/y.js')
-        code, out = self.stop(self.repo, CHECK_EXIT='1', CHECK_OUT=out_only + '  ✖ other   (test/other.test.js)\n')
-        self.assertEqual(code, 2, out)
-
 
 if __name__ == '__main__':
     unittest.main()

@@ -38,10 +38,11 @@ class RecheckNeededTest(unittest.TestCase):
         self.assertTrue(rn.decide(['src/a.py'], ['src/c.py'], picks(**{'src/a.py': {'python': ['test_a']}, 'src/c.py': {'python': 'all'}}))[0])
         self.assertFalse(rn.decide(['src/a.py'], ['src/b.py'], select)[0], 'different areas: nothing in common')
 
-    def test_a_file_both_sides_changed_rechecks_but_the_extension_version_alone_does_not(self):
+    def test_a_file_both_sides_changed_rechecks_even_the_extension_manifest(self):
+        # The version is stamped at build since 13 Oct 2026: a manifest both sides change is a real change (permissions, scripts).
         select = picks()
         self.assertTrue(rn.decide(['docs/x.md'], ['docs/x.md'], select)[0])
-        self.assertFalse(rn.decide(['extension/manifest.json', 'docs/a.md'], ['extension/manifest.json', 'docs/b.md'], select)[0])
+        self.assertTrue(rn.decide(['extension/manifest.json', 'docs/a.md'], ['extension/manifest.json', 'docs/b.md'], select)[0])
 
     def test_changes_to_the_checks_themselves_and_dependency_files_recheck(self):
         for f in ('tools/pre-push-check.sh', 'tools/affected-tests.py', 'tools/gate-cache.sh', '.github/workflows/build.yml', 'desktop/package-lock.json', 'requirements.txt'):

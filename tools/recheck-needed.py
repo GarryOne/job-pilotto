@@ -19,8 +19,6 @@ HERE = Path(__file__).resolve().parent
 # What the checks are made of: their own scripts, the picker, the gate cache, the hook config.
 CHECKS_OWN = re.compile(r'^(tools/(pre-push-check|affected-tests|gate-cache|check-slot|heavy-lock|gate-cache-ignore|file-size|journey-gate)[^/]*|\.claude/settings\.json|\.github/workflows/.*)$')
 DEPENDENCY = re.compile(r'(^|/)(package(-lock)?\.json|requirements[^/]*\.txt|pyproject\.toml)$')
-# ship.sh takes the extension version after every rebase: both sides "touch" these without a clash.
-VERSION_FILES = {'extension/manifest.json', 'extension/fingerprint.json'}
 # The paths the journey and ladder gates read (ship.sh slow_gate_paths).
 SLOW_GATE = ('extension', 'desktop/lib', 'desktop/test', 'desktop/e2e', 'desktop/scripts', 'worker/src', 'docs/flows')
 
@@ -40,14 +38,14 @@ def decide(mine, incoming, select=None):
     """(recheck?, why). `select` maps a file list to the picker's {area: [tests] | 'all'} answer (injected by the tests)."""
     if not incoming:
         return False, 'nothing came in'
-    both = sorted((set(mine) & set(incoming)) - VERSION_FILES)
+    both = sorted(set(mine) & set(incoming))
     if both:
         return True, f'both sides touched {both[0]}'
     own = [f for f in incoming if CHECKS_OWN.match(f) or DEPENDENCY.search(f)]
     if own:
         return True, f'the incoming commits change the checks or a dependency file: {own[0]}'
-    gate = [f for f in incoming if under(f, SLOW_GATE) and f not in VERSION_FILES]
-    if gate and any(under(f, SLOW_GATE) and f not in VERSION_FILES for f in mine):
+    gate = [f for f in incoming if under(f, SLOW_GATE)]
+    if gate and any(under(f, SLOW_GATE) for f in mine):
         return True, f'both sides touch paths the slow gates read ({gate[0]})'
     try:
         select = select or picker()

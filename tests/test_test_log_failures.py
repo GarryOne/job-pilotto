@@ -41,10 +41,10 @@ class TestLogFailures(unittest.TestCase):
     def test_a_passing_log_names_nothing(self):
         self.assertEqual(run('failing_files', 'ok 1 - fine\nok 2 - fine\n'), [])
 
-    def test_the_stop_hook_uses_it_for_the_exemption_and_the_names(self):
+    def test_the_stop_hook_uses_it_for_the_names(self):
+        # (Its extension-fingerprint exemption, the other user, went with the fingerprint on 13 Oct 2026: the build stamps the version.)
         hook = (ROOT / 'tools' / 'stop-test-check.sh').read_text(encoding='utf-8')
         self.assertIn('test-log-failures.sh', hook)
-        self.assertIn('failing_files "$logs/$s.log"', hook)
         self.assertIn('failing_names "$logs/$s.log"', hook)
         self.assertNotIn("grep -E '^ *✖ '", hook, 'one reader of failure lines: tools/test-log-failures.sh')
 

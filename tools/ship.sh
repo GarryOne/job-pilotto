@@ -80,26 +80,13 @@ ship_fetch() { local try; for try in 1 2 3 4 5; do git fetch -q origin 2>/dev/nu
 rebase() {
   ship_fetch
   git config merge.ladder-baseline.driver 'node tools/merge-baseline.mjs %O %A %B'   # two sessions' ladder-baseline updates merge (.gitattributes)
-  git config merge.ext-manifest.driver 'node tools/merge-extension-version.mjs %O %A %B'   # a moved extension version is no conflict: it is taken below
-  git config merge.ext-fingerprint.driver 'true'   # the upstream's fingerprint stays; it is written once below
   if ! git rebase origin/main >/dev/null 2>&1; then
     git rebase --abort >/dev/null 2>&1 || true
     echo "ship: the rebase onto origin/main has conflicts. Resolve them keeping both sides' work, then run this again." >&2
     exit 1
   fi
-  take_extension_version
 }
-# The extension version and its fingerprint are taken HERE, after every rebase (spec faster-fixes §6; a refused push re-takes it on the new main): the next free
-# version after main's, written once, amended into the last commit. SHIP_EXT_VERSION=0 leaves the branch's own version and fingerprint alone.
-take_extension_version() {
-  [ "${SHIP_EXT_VERSION:-1}" = 0 ] && return 0
-  [ -f tools/extension-version-bump.mjs ] && [ -f desktop/scripts/extension-fingerprint.mjs ] || return 0
-  local decided
-  decided="$(node tools/extension-version-bump.mjs --base origin/main)" || { echo "ship: could not take the extension version ($decided)" >&2; exit 1; }
-  case "$decided" in *'"action":"none"'*) return 0 ;; esac
-  git add extension/manifest.json extension/fingerprint.json
-  if git diff --cached --quiet; then step "extension version already right: $decided"; else git commit -q --amend --no-edit && step "extension version taken: $decided"; fi
-}
+# The extension's version is no longer taken here: the build stamps it (desktop/scripts/extension-stamp.mjs, 13 Oct 2026).
 
 # The landing queue (owner, 11 Oct 2026): a landing that runs the slow gates (it changes a file they read: the gate paths of pre-push-check.sh) waits
 # for the landings ahead of it, so it checks once on the main it will push to; three such landings at once refused each other's pushes and re-ran

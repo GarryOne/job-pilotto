@@ -11,7 +11,7 @@ import {handleExtension} from '../shared/worker/extension.js';
 import {log as appLog} from './log.js';
 import * as pipeline from './pipeline.js';
 import * as viewCache from './view-cache.js';
-import {extensionToken, issueTicket, checkTicket, localEnv, latestExtension} from './server-env.js';
+import {extensionToken, issueTicket, checkTicket, localEnv, latestExtension, developmentCopy, extensionChangedNote, newestExtensionFile} from './server-env.js';
 import {me} from './server-contact.js';
 import {pageKey, sessionOfJob, markReportedConfirmations, judgeConfirmation, decidePageKind, decideAccountJudge, decideEscalation, pickUploadSlot, pickChoice, pickPopup} from './server-pages.js';
 import {formIssue, jobName, notify, renderer, sessionReporter, tabsHandler, openHandler, joinHandler, focusHandler, learnedHandler, recipesHandler,
@@ -41,6 +41,7 @@ export const EXTENSION_ID = 'gpffoneapcfceflfmfgedkcfbommgcfk';
 const tabRuns = new Map();   // browser (else boot) → {urls: Set, at}
 // When the extension last checked in (its tab reports come every 30 s), and its version.
 let seen = null;
+let devCopy = null;   // a development copy: when the extension started, and whether "reload it" was said (server-env.js extensionChangedNote)
 export const extensionSeen = () => seen;
 export const openTabs = (now = Date.now()) => {
   for (const [boot, run] of tabRuns) if (now - run.at > 90 * 1000) tabRuns.delete(boot);
@@ -128,6 +129,11 @@ export function start(storage, onError = () => {}) {
               : at - seen.at > 90 * 1000 ? `after ${Math.round((at - seen.at) / 1000)} s of silence` : '';
             if (why) appLog('extension', `checked in: ${why}`, {version, tabs: (report.urls || []).length});
             seen = {at, version};
+            if (developmentCopy()) {
+              const changed = extensionChangedNote({boot: String(report.boot || report.worker || ''), version, at}, devCopy, {latest: latestExtension(), newest: newestExtensionFile});
+              devCopy = changed.state;
+              if (changed.note) appLog('extension', changed.note, {version});
+            }
             reread = tabsHandler({ids: report.ids, boot: report.boot, browser: report.browser, worker: report.worker, reading: report.reading, sessions: report.sessions}) || [];   // reading: Find jobs using your browser' tabs by ticket (lib/visits.js noteTabs)
             void markReportedConfirmations(storage, report.urls || []).catch(error => appLog('extension', `confirmation check failed: ${error.message}`));
           } catch {}

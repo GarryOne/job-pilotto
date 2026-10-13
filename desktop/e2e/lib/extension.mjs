@@ -11,6 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {E2E} from './app.mjs';
 import {hostRules} from './forms.mjs';
+import {stamp, stampedAt} from '../../scripts/extension-stamp.mjs';
 
 export const EXTENSION_DIR = path.resolve(E2E, '..', '..', 'extension');
 export const DEFAULT_APP_PORT = 47111;   // the extension's built-in address for the app (extension/flow.js APP)
@@ -34,6 +35,10 @@ export async function freePort() {
 export function copyExtension(port, from = EXTENSION_DIR, into = '') {
   const dir = into || path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-e2e-ext-')), 'extension');
   fs.cpSync(from, dir, {recursive: true});
+  // A copy of a checkout's extension/ carries the version its build would stamp (scripts/extension-stamp.mjs): the twin's refresh prints it, the pool reports it.
+  // An old build's folder (REAL_EXTENSION_DIR, not a checkout) keeps its own.
+  const repo = path.dirname(path.resolve(from));
+  if (fs.existsSync(path.join(repo, '.git'))) { const version = stampedAt(repo); if (version) stamp(dir, version); }
   const flow = path.join(dir, 'flow.js');
   const source = fs.readFileSync(flow, 'utf8');
   const address = `http://127.0.0.1:${DEFAULT_APP_PORT}`;

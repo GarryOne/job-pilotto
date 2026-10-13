@@ -21,20 +21,18 @@ test('the upload sends the rows with the key as a Bearer, and the outcome line n
   assert.match(await upload('smoke', [], {env: {CI: 'true'}}), /not sent \(CI\)/);
 });
 
-test('the upload says whether main\'s extension ran: its fingerprint equals the one main records; a branch, an unknown main or a git error is not main', async () => {
-  const main = JSON.stringify({version: '0.9.250', hash: 'abc123'});
-  const git = ({ahead = false, dirty = false} = {}) => args => {
-    if (args[0] === 'show') return main;
+test('the upload says whether main\'s extension ran: its extension equals main\'s and its commit is on main; a branch, an unknown main or a git error is not main', async () => {
+  const git = ({other = false, ahead = false, dirty = false} = {}) => args => {
+    if (args[0] === 'diff' && args.includes('origin/main') && other) throw new Error('extension differs from main');
     if (args[0] === 'merge-base' && ahead) throw new Error('not an ancestor');
-    if (args[0] === 'diff' && dirty) throw new Error('changed');
+    if (args[0] === 'diff' && !args.includes('origin/main') && dirty) throw new Error('changed');
     return '';
   };
-  assert.equal(buildOnMain({git: git(), local: () => 'abc123'}), true);
-  assert.equal(buildOnMain({git: git(), local: () => 'fff000'}), false, 'a fixer\'s branch: same version, other extension files');
-  assert.equal(buildOnMain({git: git({ahead: true}), local: () => 'abc123'}), false, 'a branch that changes the app only: the extension matches, the commit is not on main');
-  assert.equal(buildOnMain({git: git({dirty: true}), local: () => 'abc123'}), false, 'an uncommitted change to the app or the extension');
-  assert.equal(buildOnMain({git: () => { throw new Error('no origin/main'); }, local: () => 'abc123'}), false);
-  assert.equal(buildOnMain({git: () => 'not json', local: () => 'abc123'}), false);
+  assert.equal(buildOnMain({git: git()}), true);
+  assert.equal(buildOnMain({git: git({other: true})}), false, 'a fixer\'s branch: other extension files');
+  assert.equal(buildOnMain({git: git({ahead: true})}), false, 'a branch that changes the app only: the extension matches, the commit is not on main');
+  assert.equal(buildOnMain({git: git({dirty: true})}), false, 'an uncommitted change to the app or the extension');
+  assert.equal(buildOnMain({git: () => { throw new Error('no origin/main'); }}), false);
   for (const onMain of [true, false]) {
     let sent; await upload('smoke', [{name: 'Lever form', reached: 'ready'}], {env: {}, key: 'K', onMain: () => onMain, fetcher: async (url, init) => { sent = JSON.parse(init.body); return {ok: true, json: async () => ({stored: 1})}; }});
     assert.equal(sent.onMain, onMain);

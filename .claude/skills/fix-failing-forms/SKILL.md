@@ -56,7 +56,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
 - **A rung problem**: the page was judged or climbed wrong. The row says "stopped at the posting" or "no-form", the log's `page kind:` line is wrong for what the page really is, or there was no apply route. Method: **3b**.
 - **A field problem**: the page was read right (the form was reached) and fields stayed unexplained ("form · N unexplained of M"): a field not filled, a control not operated, a question text not read. Method: **3a**.
 - **A lost answer** (a `page kind:` line `by structure rule`, no confidence, in under ~3 s): the extension got no answer from the app. Not a rung problem yet: compare the extension line with the app's line for the same request (step 1.1) before touching any rung.
-- **Stale row**: the row's `version` is older than main's `extension/manifest.json`, or a later run of the shape reached further: check `smoke-reports/` for a newer run before building anything (10 Oct 2026: Hornbach reached the form on 0.9.178 and 0.9.179).
+- **Stale row**: the row's `version` is older than main's (`node desktop/scripts/extension-stamp.mjs --at origin/main`), or a later run of the shape reached further: check `smoke-reports/` for a newer run before building anything (10 Oct 2026: Hornbach reached the form on 0.9.178 and 0.9.179).
 - Both on one site: fix the rung first (the form is never reached otherwise), re-run, then the fields. Say which kind it is in one line before you start.
 
 ## 1. Reproduce (small, isolated, with a positive control)
@@ -104,7 +104,7 @@ Where the next shape comes from: the platform scorecard on `/admin/applying` nam
    written by hand to make the case pass (10 Oct 2026: `workday-start-dialog-1` was given `applyButton: "Apply Manually"` by hand, the live AI answered "Apply").
 2. Run `cd desktop/e2e && npm run recorded` against the build from before the fix (`REAL_EXTENSION_DIR=<that build's extension/>`; one case: `REPLAY_ONLY=<case>`): it **must fail**; then on the fix: pass.
    It replays 4 cases at a time in one browser (`JP_REPLAY_TABS=1`: one at a time); a case judged on `told`/`notTold` that passes among others is re-run alone before it counts.
-   An extension change fails `desktop/test/extension-version.test.js` until it lands: write the next version and `node desktop/scripts/extension-fingerprint.mjs --write` as a local commit; `tools/ship.sh` redoes both. Write what you saw into the case: `"control": {"build": "<the older extension version it failed on>", "failed": "<the failing check>"}` in its case.json; without it (or `{"guard": "<why it cannot fail on an old build>"}`) the run uploads no row to /admin/applying.
+   Never write the extension's version (the build stamps it). Write what you saw into the case: `"control": {"build": "<the older extension version it failed on: node desktop/scripts/extension-stamp.mjs --at <that commit>>", "failed": "<the failing check>"}` in its case.json; without it (or `{"guard": "<why it cannot fail on an old build>"}`) the run uploads no row to /admin/applying.
    **An app-side fix (extension unchanged) cannot fail a recorded page on the old build:** its control is a unit test failing first plus the REAL AI answer (`ladder-score` live or `ladder-digest-score`); its recorded page is a `guard`.
    Also a journey scenario in `desktop/test/journeys.test.js` when the logic of the flow changes (failing first).
 3. Fix the root cause through the shared mechanism for the whole class; every sibling in the class in the same change. File size <= 500 lines.
