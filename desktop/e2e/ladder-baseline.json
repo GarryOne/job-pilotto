@@ -96,6 +96,14 @@
   {
    "date": "2026-10-13",
    "reason": "rung 4 schema gained shown (the picture counts the buttons and links it shows, box 6 cross-check); no fixture answers depend on rung 4 (the picture rung is not scored here); no fixture changed"
+  },
+  {
+   "date": "2026-10-13",
+   "reason": "two fixtures from the 13 Oct pool's Richemont Create Account page (pool-richemont-create-account: rung 2's account-form read; pool-richemont-create-account-digest: the digest's page, rung 2 unsure before it was drawn); the stale-judgment guard (read-gen.js) keeps the digest's late answer from replacing the read"
+  },
+  {
+   "date": "2026-10-13",
+   "reason": "two fixtures from the 13 Oct pool's Richemont Create Account page (pool-richemont-create-account: rung 2's account-form read, exact; pool-richemont-create-account-digest: the digest's page, a miss offline by design: rung 2 was unsure before the page drew); the stale-judgment guard (read-gen.js) keeps the digest's late answer from replacing the read"
   }
  ],
  "promptFingerprint": {
@@ -1333,6 +1341,28 @@
    },
    "outcome": "posting",
    "status": "exact"
+  },
+  "pool-richemont-create-account": {
+   "expect": {
+    "outcome": "form",
+    "accept": [
+     "form"
+    ]
+   },
+   "outcome": "form",
+   "status": "exact"
+  },
+  "pool-richemont-create-account-digest": {
+   "expect": {
+    "outcome": "login_wall",
+    "accept": [
+     "login_wall",
+     "account",
+     "other"
+    ]
+   },
+   "outcome": "unsure",
+   "status": "miss"
   },
   "pool-richemont-wd3-myworkdayjobs-com": {
    "expect": {

@@ -121,7 +121,7 @@ test('two tabs of one application share its pause: the time with any ask out cou
 test('class: every call to the app is bracketed as an ask of its tab (flow.js apiFor) or is explicitly tab-less (api); the fill path never uses the tab-less one', () => {
   const read = file => fs.readFileSync(new URL(`../../extension/${file}`, import.meta.url), 'utf8');
   const flow = read('flow.js');
-  assert.match(flow, /export async function api\(config, path, init = \{\}, retry = true, tabId = null\) \{\s*const ask = askStarted\(tabId\);[^\n]*\n\s*try \{ return await apiCall\(config, path, init, retry\); \} finally \{ askEnded\(ask\); \}/);
+  assert.match(flow, /export async function api\(config, path, init = \{\}, retry = true, tabId = null\) \{\s*const ask = askStarted\(tabId\);[^\n]*\n\s*try \{ return await guarded\(tabId, path, init, \(\) => apiCall\(config, path, init, retry\)[^\n]*\} finally \{ askEnded\(ask\); \}/);
   assert.match(flow, /export const apiFor = \(tabId, config, path, init = \{\}\) => api\(config, path, init, true, tabId\);/);
   assert.match(flow, /return apiCall\(Object\.assign\(config, fresh\), path, init, false\)/, 'the retry after a 401 is inside the same bracket');
   // The fill path: files that work on a tab. A plain api( in them is a new ask that would not pause its own tab's clock.
