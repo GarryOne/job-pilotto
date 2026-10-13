@@ -44,7 +44,7 @@ test('propose.js is loaded with the page scripts, before fill.js, as the extensi
   }
   assert.deepEqual(PAGE_SCRIPTS, PAGE_FILES.map(file => `extension/${file}`), 'the tests load the page scripts the extension injects');
   const panel = fs.readFileSync(new URL('../../extension/review.js', import.meta.url), 'utf8');
-  assert.match(panel, /proposals: state\.list\.filter/);
+  assert.match(fs.readFileSync(new URL('../../extension/page/review-payload.js', import.meta.url), 'utf8'), /proposals: state\.list\.filter/);   // the report moved out of review.js
   assert.match(panel, /if \(command\.fill\) \{ send\(\{type: 'panelFillOne', \.\.\.command\.fill\}\)/);
   const worker = fs.readFileSync(new URL('../../extension/fill-flow.js', import.meta.url), 'utf8');
   assert.match(worker, /message\?\.type !== 'panelFillOne'/);

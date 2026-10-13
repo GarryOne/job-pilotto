@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import {markedSession} from './session-tab.js';
 import {isFormOf} from './form-address.js';
 import {LABELS} from './contact.js';
+import {controlReason} from '../shared/ladder/control-ending.js';
 const CONTACT_KEYS = Object.keys(LABELS);
 
 const COMMAND_SECONDS = 120;   // a "show me this field" waits this long for the page to pick it up
@@ -221,6 +222,8 @@ export function report(sessions, payload, now = Date.now()) {
     missing: (Array.isArray(payload.missing) ? payload.missing : []).slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean)};
   // What's left as the ring counts it (an older extension sends only the required ones, as missing).
   if (Array.isArray(payload.pending)) state.pending = payload.pending.slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean);
+  // Why each left control is left, as a reason class and an ending (shared/ladder/control-ending.js): fixed words only, whatever the panel sent.
+  if (Array.isArray(payload.why)) state.reasons = payload.why.slice(0, 30).map(item => ({label: String(item?.label || '').slice(0, 120), ...controlReason({cause: String(item?.cause || '').slice(0, 30), gaveUp: item?.tries ? 'tries' : '', unread: item?.unread === true})})).filter(item => item.label);
   // The questions the AI read as knockouts, in any language (extension/page/categories.js): the session card lists them before you submit.
   // Optional questions the form still has empty (never a consent): the session page's "Optional questions" card; never counted as left (owner, 9 Oct 2026).
   if (Array.isArray(payload.optional)) state.optional = payload.optional.slice(0, 30).map(label => String(label).slice(0, 120)).filter(Boolean);

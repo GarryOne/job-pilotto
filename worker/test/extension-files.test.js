@@ -113,7 +113,7 @@ test('an out-of-date extension in Chrome loads the new copy by itself, and only 
   assert.equal(newer('0.7.1', '0.7.1'), false);
   assert.equal(newer('0.10.0', '0.9.9'), true);
   assert.match(background, /reloadedFor !== answer\.latest/);  // once per version: no reload loop
-  assert.match(background, /executeScript\(\{target: \{tabId, allFrames: true\}, files: \['page\/skeleton\.js', 'page\/required-mark\.js', 'page\/typed-check\.js', 'page\/read-back\.js', 'page\/label-before\.js', 'page\/coverage\.js', 'page\/option-groups\.js', 'hook\.js', 'panel-claude\.js', 'page\/submit-press\.js', 'review\.js'\], injectImmediately: true\}\)/);
+  assert.match(background, /executeScript\(\{target: \{tabId, allFrames: true\}, files: \['page\/skeleton\.js', 'page\/required-mark\.js', 'page\/typed-check\.js', 'page\/read-back\.js', 'page\/label-before\.js', 'page\/coverage\.js', 'page\/option-groups\.js', 'page\/review-payload\.js', 'hook\.js', 'panel-claude\.js', 'page\/submit-press\.js', 'review\.js'\], injectImmediately: true\}\)/);
   assert.match(background, /jobpilotto-review-host/);
   assert.match(read('extension/review.js'), /send\(\{type: 'panelAllowed'\}\)/);
   // A copy left behind by a reload gives way to the fresh one instead of blocking it.
@@ -166,7 +166,7 @@ test('the form panel\'s tip line draws from the same pool as the app (run extens
 });
 
 test('the form report sends the AI-read knockouts: its key is code, not the tail of a // comment', () => {
-  const line = read('extension/review.js').split('\n').find(text => text.includes('knockouts: state.list'));
+  const line = read('extension/page/review-payload.js').split('\n').find(text => text.includes('knockouts: state.list'));
   assert.ok(line, 'the report has a knockouts key');
   assert.doesNotMatch(line.slice(0, line.indexOf('knockouts: state.list')), /\/\//);   // 9 Oct 2026: a comment on the same line swallowed it, the app never got the list
   assert.match(line, /f\.category === 'knockout'/);

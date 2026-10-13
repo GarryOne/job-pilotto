@@ -15,6 +15,7 @@ import {firstLine, refreshSessions, renderDock, sessionCompany, sessionList} fro
 import {toastMessage} from './startup.js';
 import {showFormCard} from './session-form-card.js';
 import {storeName} from '../store-words.js';
+import {reasonFor} from '../reason-words.js';
 
 // Something only you can do, with its most likely action one click away: a judgement call (Claude's proposed
 // answer, or another you saved for the same question) or an agreement (open the form to tick it).
@@ -178,7 +179,7 @@ export function emptyRow(label, item) {
   const more = /^\d+ more fields?$/.test(label), name = label.replace(/^\s*\*\s*|\s*\*\s*$/g, '');
   body.append(titleLine(name), el('span', 'ss-need-desc small', more
     ? `Still empty in the form (the ring on the form lists ${label.startsWith('1 ') ? 'it' : 'them'}).`
-    : 'This section is still empty in the form.'));
+    : reasonFor(reviewStates.get(item.id), label, sameQuestion) || 'This section is still empty in the form.'));   // why the fill left it (reason-words.js)
   actions.append(more ? smallButton('Open the form', 'primary', event => openForm(item, event.currentTarget))
     : smallButton('Open in form', 'secondary is-signal', event => showInForm(item, label, event.currentTarget)));
   li.append(badge(), body, actions);

@@ -17,6 +17,7 @@ import {decide} from './log.js';
 import {guarded} from './read-gen.js';   // the one guard for every AI answer applied to a page (a newer judgment of the same page, a page left)
 import {closePopupOrLayer} from './consent.js';   // a cycle again (consent.js uses api and settings from here at run time)
 import {HELD, clearBeforeFill, layerOnTop} from './dialog-after-fill.js';
+import {markCauses} from './ladder/control-marks.js';
 import './popup-guard.js';   // the worker's answer to the page's gate (page/guard-gate.js)
 import {verdictFields} from './eligibility-verdict.js';   // a cycle (log.js reads settings from here) that ES modules allow: both use the other only at run time
 export const JOB_SITES = [
@@ -426,6 +427,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   // the panel can add, at Submit, what you answered yourself.
   summary.card = fillCard({id: crypto.randomUUID(), trace: summary.trace || [], form: debug.form || [],
     sent: [...(debug.sentToClaude || []), ...later.map(f => f.field)], ai, aiError, useAI, kit: withKit, version: debug.version, startedAt});
+  await markCauses(inPage, tab.id, summary.card);   // each left control carries its cause for the panel (ladder/control-marks.js)
   await inPage(tab.id, id => { document.documentElement.dataset.jobpilottoFill = id; }, [summary.card.id]).catch(() => {});
   event('fill-done', {filled: summary.filled || 0, left: (summary.todo || []).length});
   // One row in 🎏 Job Apply — Agent Runs (Agent = Extension), comparable with the agent runs there.

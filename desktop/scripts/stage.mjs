@@ -29,6 +29,9 @@ fs.copyFileSync(path.join(repo, 'extension', 'recipe-schema.js'), path.join(out,
 fs.copyFileSync(path.join(repo, 'extension', 'alias-schema.js'), path.join(out, 'alias-schema.js'));
 // The ladder's signals and router (extension/ladder/core.js): the app decides the next rung the same way the extension does.
 fs.copyFileSync(path.join(repo, 'extension', 'ladder', 'core.js'), path.join(out, 'ladder-core.js'));
+// The fixed endings and the reason class of a control the fill left (extension/ladder/endings.js, control-ending.js): the app turns the panel's cause words into the person card's reason line.
+fs.mkdirSync(path.join(out, 'ladder'), {recursive: true});
+for (const file of ['endings.js', 'control-ending.js']) fs.copyFileSync(path.join(repo, 'extension', 'ladder', file), path.join(out, 'ladder', file));
 if (filesOnly) { console.log('Staged shared/ (files only, no bot bundle)'); process.exit(0); }
 // The Telegram bot as ONE file (its Anthropic dependency inside), which the app uploads to the user's own
 // Cloudflare account for "Telegram buttons, always on" (lib/telegram-cloud.js).
