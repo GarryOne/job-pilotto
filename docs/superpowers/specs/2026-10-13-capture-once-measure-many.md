@@ -106,5 +106,19 @@ The acting batch's **effect** column therefore still needs live visits, but only
 - [x] Owner decisions 1 (artifact, 30 days) and 2 (30 days on the Mac) (proof: none: the owner's answers in session job-pilotto-capture, 13 Oct 2026)
 - [x] Spec approved by cc (13 Oct 2026, + notes: new asks are misses, --ask capped; live visits refresh) (proof: none: cc's message to job-pilotto-capture, 13 Oct 2026)
 - [x] PR 1: every live row keeps its capture (Mac + CI artifact), build stamp, result row, #601 (proof: desktop/e2e/test/capture-library.test.mjs)
-- [ ] PR 2: `npm run measure` + `captures pull/list`, the tables on a replay folder, safeguards 1-3 + 5 with a test each
+- [x] PR 2: `npm run measure` + `captures pull/list`, the tables on a replay folder, safeguards 1-3 + 5 with a test each, #603 (proof: desktop/e2e/test/measure.test.mjs)
 - [ ] PR 3: positive control on one CI batch (numbers here) lifts "unverified"; skills: measure first, live proves (safeguard 4)
+  - [x] Control run 1, 13 Oct 2026, CI run 38382905555 (artifact `pool-captures-38382905555`, build 97d37ab, ext 0.9.457), replayed on 97d37ab: FAILED. Lever not measured (a page-kind ask missed); Personio offline data_missing 5/8 vs live ready 7/7 (proof: none: numbers above, logs in session job-pilotto-capture)
+  - [x] Causes found (proof: desktop/test/kept-answer-client.test.js)
+  - [ ] Control run 2 on a capture made with the fixes (the PR's live proof of the Personio row), then lift "unverified" only if every measured row matches
+
+### Control run 1: causes (13 Oct 2026)
+
+| # | Cause | Fix |
+|---|---|---|
+| 1 | Side by side, a row's log keeps only lines naming its host; the app's miss lines name none, so misses went uncounted (Personio: 2 alone, 0 side by side) | PR 3: `measure` replays one row at a time |
+| 2 | **CI captures never kept the form answers**: on the API key the worker asks with its own client, outside the memo (desktop/lib/server-env.js `aiClient` is set only for Claude Code / OpenAI / Codex) | PR 3: under the e2e memo only, the API key's client is wrapped by it (`keptAnswerClient`) |
+| 3 | Platform layout: CI live is Linux Chrome (15 px scrollbar), the replay a Mac (overlay scrollbar): Lever's page-kind sketch frame width 1185 vs 1200, so the ask misses | Gaps file: record the scrollbar width, force it in the replay |
+| 4 | The page's own state after an upload ("×" remove button) is not replayed: the account-judge sketch differs | Gaps file |
+
+So, until 3-4 are fixed: **a CI capture measured on a Mac is trusted only on rows where every ask hit**; a Linux-only layout difference shows as "not measured", never as a wrong number.

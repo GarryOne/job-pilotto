@@ -78,3 +78,8 @@ test('the library gives each row\'s newest capture of the days asked (a live vis
   assert.equal(capturesOf(root, {days: 2, today: '2026-10-13', every: true}).length, 3);
   assert.deepEqual(capturesOf(root, {days: 1, today: '2026-10-14'}), []);
 });
+
+test('measure replays one row at a time: side by side, the app\'s miss lines (no host) left a row\'s log and its misses went uncounted', () => {
+  const source = fs.readFileSync(new URL('../measure.mjs', import.meta.url), 'utf8');
+  assert.match(source, /replayRows\(todo, \{[^\n]*tabs: 1\}\)/);
+});

@@ -22,7 +22,9 @@ if (!todo.length) { console.error(`measure: no capture to measure in ${root} (np
 const label = offlineLabel();
 console.log(`measure: ${todo.length} captures, ${label}; nothing reaches a site`);
 const started = Date.now();
-const results = await replayRows(todo, {extensionDir: flag('old') ? path.resolve(flag('old')) : undefined});
+// One row at a time: side by side, a row's log keeps only the lines naming its host (lib/row-replay.mjs `mine`), and the app's own miss lines name none: a missed answer ask went
+// uncounted and the row passed as measured (13 Oct 2026 positive control: Personio 2 misses alone, 0 side by side).
+const results = await replayRows(todo, {extensionDir: flag('old') ? path.resolve(flag('old')) : undefined, tabs: 1});
 const rows = todo.map((dir, at) => measuredRow(dir, results[at]));
 for (const row of rows) if (row.offline) console.log(`[${label}] ${row.row}: ${row.offline.misses ? `${row.offline.misses} asks with no kept answer` : 'every ask had its kept answer'}${row.offline.divergence ? `, diverged: ${row.offline.divergence}` : ''}${row.offline.unrecorded.length ? `, ${row.offline.unrecorded.length} addresses not recorded` : ''}`);
 for (const line of tableLines(tablesOf(rows, 'offline'), label)) console.log(line);

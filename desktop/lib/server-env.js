@@ -22,6 +22,7 @@ import {log as appLog} from './log.js';
 import {contactOf} from './server-contact.js';
 import {pageKey} from './server-pages.js';
 import {captureAnswer} from './live-capture.js';
+import {keptAnswerClient} from './ai/index.js';
 import {answerReporter, appliedHook, formIssue, jobName, notify, proposalReporter, sharedLogger, tellWindow} from './server-hooks.js';
 import {NAMES} from './ai/names.js';
 import {cvFactsText} from '../shared/worker/cv-facts.js';
@@ -103,7 +104,7 @@ export function localEnv(storage, submitted = sessionSubmitted, {find: injected}
     EXTENSION_TOKEN: extensionToken(storage),
     ANTHROPIC_API_KEY: storage.secret('ANTHROPIC_API_KEY'),
     // The user's own Claude Code answers the form when they chose it (Settings → AI); the API key otherwise.
-    get aiClient() { return claudeCode.client(storage, {lane: 'page'}); },   // the page lane: ahead of side work
+    get aiClient() { return claudeCode.client(storage, {lane: 'page'}) || keptAnswerClient(storage); },   // the page lane: ahead of side work
     NOTION_TOKEN: notionToken,
     NOTION_APPLICATIONS_DB: ids.NOTION_APPLICATIONS_DB || '',
     NOTION_AGENT_RUNS_DB: ids.NOTION_AGENT_RUNS_DB || '',
