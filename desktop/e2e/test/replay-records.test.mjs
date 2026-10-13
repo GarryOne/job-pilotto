@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {fidelityRecord, newestPerRow, sameAsLive} from '../replay-records.mjs';
+import {deferredRows, fidelityRecord, newestPerRow, sameAsLive, whereOf} from '../replay-records.mjs';
 
 test('each pool row replays its newest record; a record without a name goes by its posting host', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-records-'));
@@ -24,4 +24,22 @@ test('a row is the same as live only with every live ask answered, no extra ask 
   assert.equal(off.network.notRecorded, 1);
   assert.equal(fidelityRecord(row, null).network, null, 'a replay with no result is reported, never counted as a pass');
   assert.equal(sameAsLive([same, off, fidelityRecord(row, null)]), 1);
+});
+
+test('a record says where it was made (its own word, else the Mac release folder) and when; an unnamed record finds its pool row by address; a deferred row carries its reason', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-records-'));
+  fs.mkdirSync(path.join(root, 'mac', 'x'), {recursive: true});
+  fs.writeFileSync(path.join(root, 'mac', 'x', 'record.json'), JSON.stringify({url: 'https://jobs.a.test/job?id=1#jobpilotto-fill=ab', startMs: Date.parse('2026-10-13T22:00:00Z')}));
+  const [row] = newestPerRow(root, new Map([['https://jobs.a.test/job?id=1', 'Row A (found 2026-10-10)']]));
+  assert.equal(row.name, 'Row A (found 2026-10-10)');
+  const record = fidelityRecord(row, {liveAsks: 2, liveHit: 2, misses: 0, counts: {}}, {deferred: {'Row A (found 2026-10-10)': 'replay lags'}});
+  assert.deepEqual(record.recording, {where: 'mac', at: '2026-10-13T22:00:00.000Z'});
+  assert.equal(record.deferred, 'replay lags');
+  assert.equal(whereOf({where: 'ci'}, '/x/mac/y'), 'ci', 'the record\'s own word wins');
+  assert.equal(whereOf({}, '/records/38473536545/a'), 'ci');
+});
+
+test('every deferred row names a real pool row', () => {
+  const shapes = new Set(JSON.parse(fs.readFileSync(new URL('../smoke-sites.json', import.meta.url), 'utf8')).shapes.map(site => site.shape));
+  for (const name of Object.keys(deferredRows())) assert.ok(shapes.has(name), `replay-deferred.json: "${name}" is not a pool row`);
 });

@@ -126,7 +126,7 @@ export async function data(db, now = new Date(), slow = (key, fn) => fn()) {
       sites: sites.length, sitesRecent: sites.filter(site => site.day >= tenDays).length,
       reachedForm: live.length ? Math.round((100 * live.filter(site => ['form', 'ready'].includes(site.reached)).length) / live.length) : null,
       needFix: sites.filter(needsFix).length, regressions: sites.filter(site => site.regression).length, gone: sites.filter(site => site.note && !site.hold).length, held: sites.filter(site => site.hold).length, dropped: dropped.length},
-    resolution, fidelity: fidelityOf(await readFidelity(db).catch(() => [])), sites, pool, fixed, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, now: now.toISOString()};
+    resolution, fidelity: fidelityOf(await readFidelity(db).catch(() => []), pool), sites, pool, fixed, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, now: now.toISOString()};
 }
 
 // "Greenhouse: 4 sites, 3 flows": each group's size and how many different flows (or platforms) it holds.

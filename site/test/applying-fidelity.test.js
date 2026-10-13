@@ -57,7 +57,7 @@ test('a record with a URL in its name, no sha or no live run is dropped; free te
 
 test('the summary counts "same as live" for the network replay and the snapshot, and a row with no network says not recorded', () => {
   const f = fidelity([row('a', good, {snapshot: {hit: 4, extra: 0}}), row('b', null), row('c', {...good, extra: 3})]);
-  assert.deepEqual(f.summary, {total: 3, network: 1, snapshot: 1});
+  assert.deepEqual(f.summary, {total: 3, recorded: 3, network: 1, snapshot: 1});
   assert.equal(f.rows.find(item => item.name === 'b').networkVerdict, null);
 });
 
@@ -79,4 +79,21 @@ test('the details row spans every column, and a long name is split into a title 
   assert.deepEqual(fidParts('Databricks (found 2026-10-10)'), {title: 'Databricks', sub: 'Found 10 Oct 2026'});
   assert.deepEqual(fidParts('jobs.ch -> Deloitte: email-first account, email code'), {title: 'jobs.ch → Deloitte', sub: 'email-first account, email code'});
   assert.deepEqual(fidParts('Greenhouse board form'), {title: 'Greenhouse board form', sub: ''});
+});
+
+test('every pool row is listed: a row with no record says "Record", an off replay "Re-record", a deferred row its reason; recording and reason are kept clean', async () => {
+  const pool = [{shape: 'a'}, {shape: 'b'}, {shape: 'never recorded'}];
+  const f = fidelity([row('a', good), row('b', {...good, hit: 1}, {deferred: 'replay lags'})], pool);
+  const by = Object.fromEntries(f.rows.map(item => [item.name, item]));
+  assert.deepEqual(f.summary, {total: 3, recorded: 2, network: 1, snapshot: 0});
+  assert.equal(by.a.next, null);
+  assert.deepEqual(by.b.next, {word: 'deferred', why: 'replay lags'});
+  assert.equal(by['never recorded'].next.word, 'record');
+  assert.equal(fidelity([row('c', {...good, hit: 1})]).rows[0].next.word, 're-record');
+  const db = d1();
+  await put(db, {rows: [row('m', good, {recording: {where: 'mac', at: '2026-10-13T22:00:00Z'}, deferred: 'see https://x.test/a?b=1'}), row('n', good, {recording: {where: 'cloud'}})]});
+  const kept = Object.fromEntries((await readFidelity(db)).map(item => [item.name, item]));
+  assert.deepEqual(kept.m.recording, {where: 'mac', at: '2026-10-13T22:00:00.000Z'});
+  assert.equal(kept.m.deferred, null, 'a reason with an address never lands');
+  assert.equal(kept.n.recording, null, 'only mac or ci');
 });
