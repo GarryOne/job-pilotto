@@ -74,34 +74,68 @@ export function fidelity(records) {
   return {rows, summary: {total: rows.length, network: rows.filter(item => item.networkVerdict === 'same').length, snapshot: rows.filter(item => item.snapshotVerdict === 'same').length}};
 }
 
+// The section's look (owner mockup, 13 Oct 2026): 64px summary rows with fixed column widths, the details in a full-width row under the open one (the Fixed tab's panel, chevron and "How" parts).
+export const FIDELITY_CSS = `
+.fidpanel{margin-top:22px}.fidhead{display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-between;align-items:flex-start}.fidhead h2{display:flex;align-items:center;gap:10px}.fidhead .proto{font-size:12px;font-weight:500;padding:2px 8px;border:1px solid var(--line);border-radius:6px;color:var(--muted)}.fidhead .score{margin:0 0 2px}.fidhead .how{max-width:520px}.fidhead .how summary{text-align:right}
+.fidtable{table-layout:fixed;min-width:720px}.fidtable td,.fidtable th{padding:0 16px;white-space:normal!important;overflow-wrap:anywhere}.fidtable th{height:44px;vertical-align:middle}.fidtable th.c-chev{width:44px;padding:0}.fidtable th.c-asks{width:10%}.fidtable th.c-snap,.fidtable th.c-net{width:20%}.fidtable th.c-verdict{width:16%}
+.fidtable tr.site td{height:64px;vertical-align:middle;box-sizing:border-box;line-height:20px}.fidtable tr.site td.c-chev{padding:0 0 0 12px}.fidtable .chev{padding:0;width:20px;text-align:center}.fidtable .one{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fidtable .sitename b{font-size:14px}
+.fidtable tr.more td{padding:0}.fiddetail{padding:16px;background:rgba(255,255,255,.035);border-left:3px solid var(--amber);font-size:13px;line-height:20px}.fiddetail h3{margin:0 0 10px;font-size:14px}.fidgroups{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.fidgroups>div{padding:0 20px;border-left:1px solid var(--line);min-width:0}.fidgroups>div:first-child{padding-left:0;border-left:0}.fidgroups h4{margin:0 0 4px;font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}.fidgroups div div{overflow-wrap:anywhere}
+@media (max-width:900px){.fidgroups{grid-template-columns:minmax(0,1fr);gap:14px}.fidgroups>div{padding:0;border-left:0}.fidtable td,.fidtable th{padding:0 10px}}
+`;
+
 export const FIDELITY_SCRIPT = `
   // Replay vs live (prototype): one row per pool row with a live run and an offline replay of it; the network replay (new design) beside the snapshot replay (today's).
-  const VERDICT_TONE = {same: 's-ready', close: 's-form', off: 's-posting'};
-  const outcome = side => (side ? (side.filled ?? '–') + ' filled / ' + (side.left ?? '–') + ' left' + (side.ending ? ', ' + side.ending : '') : '—');
-  const hits = (live, side) => (side && side.hit != null ? side.hit + ' of ' + live.asks + ' hit, ' + (side.extra || 0) + ' extra' : '—');
-  const verdictPill = word => (word ? el('span', {className: 'pill ' + VERDICT_TONE[word], textContent: word}) : el('span', {className: 'muted', textContent: 'not recorded yet'}));
+  // Owner mockup, 13 Oct 2026: a 64px summary row (scenario, live asks, both replays, the network verdict; two lines at most), everything else in the open row's details.
+  const VERDICT_TONE = {same: 's-ready', close: 's-form', off: 's-posting'}, VERDICT_WORD = {same: 'Same', close: 'Close', off: 'Off'};
+  const outcome = side => (side && (side.filled != null || side.left != null) ? (side.filled ?? '–') + ' filled · ' + (side.left ?? '–') + ' left' : 'not available');
+  const hits = (live, side) => (side && side.hit != null ? side.hit + ' / ' + live.asks + ' hit · ' + (side.extra || 0) + ' extra' : '—');
+  const verdictPill = word => (word ? el('span', {className: 'pill ' + VERDICT_TONE[word], textContent: VERDICT_WORD[word]}) : el('span', {className: 'muted', textContent: 'Not recorded yet'}));
+  // A pool row's name -> {title, sub}: "x (found 2026-10-10)" -> x, "Found 10 Oct 2026"; "a -> b: steps" -> "a → b", steps. The full name is in the details.
+  const fidParts = name => { const found = name.match(/^(.*?)\\s*\\(found (\\d{4}-\\d{2}-\\d{2})\\)\\s*$/), cut = name.indexOf(': ');
+    const [title, sub] = found ? [found[1], 'Found ' + new Date(found[2] + 'T00:00:00Z').toUTCString().slice(5, 16)] : cut > 0 ? [name.slice(0, cut), name.slice(cut + 2)] : [name, ''];
+    return {title: title.replace(/ -> /g, ' → '), sub}; };
+  const fidOpen = new Set();
+  const fidDetail = r => { const n = r.network, line = text => el('div', {textContent: text});
+    return el('div', {className: 'fiddetail'}, el('h3', {textContent: r.name.replace(/ -> /g, ' → ') + ' · comparison details'}), el('div', {className: 'fidgroups'},
+      el('div', {}, el('h4', {textContent: 'Live baseline'}), line(outcome(r.live)), line('Stage: ' + (r.live.ending || '—')), line(r.live2 ? 'Second live: ' + r.live2.asks + ' asks · ' + (r.live2.extraVsLive1 ?? '–') + ' extra' : 'Second live: none')),
+      el('div', {}, el('h4', {textContent: 'Replay diagnostics'}), n ? line('By order: ' + (n.orderMatched ?? '–') + ' OK · ' + (n.orderWrong || 0) + ' wrong · ' + (n.echoed || 0) + ' echoed') : line('Network replay: not recorded yet'),
+        n ? line('Network filled / left: ' + outcome(n)) : null, line('Snapshot filled / left: ' + outcome(r.snapshot)), n ? line('Not recorded: ' + (n.notRecorded ?? '—')) : null),
+      el('div', {}, el('h4', {textContent: 'Upload & build'}), line('After upload: ' + (n?.afterUpload || '—')),
+        el('div', {}, el('a', {className: 'hash', href: 'https://github.com/GarryOne/job-pilotto/commit/' + r.sha, textContent: r.sha.slice(0, 7)}), r.branch ? ' ' + r.branch : ''), line('Built ' + (r.at ? ago(r.at) : '—'))))); };
+  const fidRows = (r, redraw) => { const on = fidOpen.has(r.name), flip = () => { toggleOpen(fidOpen, r.name); redraw(); }, parts = fidParts(r.name);
+    const main = el('tr', {className: 'site' + (on ? ' open' : ''), onclick: flip},
+      el('td', {className: 'c-chev'}, el('button', {className: 'chev', type: 'button', 'aria-expanded': String(on), 'aria-label': (on ? 'Collapse ' : 'Expand ') + r.name, textContent: '›', onclick: event => { event.stopPropagation(); flip(); }})),
+      el('td', {title: r.name}, el('div', {className: 'sitename'}, el('b', {className: 'one', textContent: parts.title}), parts.sub ? el('span', {className: 'muted one', textContent: parts.sub}) : null)),
+      el('td', {textContent: r.live.asks}),
+      el('td', {}, el('span', {className: 'one', textContent: hits(r.live, r.snapshot)}), r.snapshotVerdict ? verdictPill(r.snapshotVerdict) : el('span', {className: 'muted one', textContent: r.snapshot ? 'Not judged' : 'Not available'})),
+      el('td', {}, el('span', {className: 'one', textContent: hits(r.live, r.network)})),
+      el('td', {}, verdictPill(r.networkVerdict)));
+    return on ? [main, el('tr', {className: 'more'}, el('td', {colSpan: 6}, fidDetail(r)))] : [main]; };
+  const FID_HOW = [['Same', 'Every live ask answered from the memo, 0 extra, the same filled and left (compared only when both sides say them: the snapshot replay does not).'],
+    ['Close', 'Every live ask answered and the extras within the live-vs-live spread (a second live run on the same build); with no second live run, one miss at most.'], ['Off', 'Otherwise.'],
+    ['Snapshot replay', 'Today\\'s replay, judged on its asks only.'], ['Network replay', 'The new design; its verdict is the row\\'s verdict.'], ['Source', 'A prototype\\'s numbers from a branch: every row names its branch and sha in its details.']];
   function drawFidelity(box, f) {
     box.textContent = '';
     if (!f || !f.rows.length) return;
-    const FID_GET = [r => r.name.toLowerCase(), r => r.live.asks, r => (r.snapshot ? r.snapshot.hit : null), r => (r.network ? r.network.hit : null), r => (r.network ? r.network.notRecorded : null), r => r.network?.afterUpload || '', r => ['same', 'close', 'off'].indexOf(r.networkVerdict), r => r.at];
+    const FID_GET = [null, r => r.name.toLowerCase(), r => r.live.asks, r => (r.snapshot ? r.snapshot.hit : null), r => (r.network ? r.network.hit : null), r => ['same', 'close', 'off'].indexOf(r.networkVerdict)];
     const redraw = () => { state.page = 0; drawFidelity(box, f); }, state = (drawFidelity.state ||= {query: '', page: 0, verdict: ''});
     const matches = r => wordsIn([r.name, r.networkVerdict || 'not recorded yet', r.branch || ''].join(' ').toLowerCase(), state.query) && (!state.verdict || (r.networkVerdict || 'none') === state.verdict);
     const rows = sortRows('fidelity', f.rows.filter(matches), FID_GET), pages = Math.max(1, Math.ceil(rows.length / 15));
     state.page = Math.min(state.page, pages - 1);
-    const shown = rows.slice(state.page * 15, state.page * 15 + 15), s = f.summary;
-    const search = el('input', {type: 'search', value: state.query, placeholder: 'Row, verdict or branch', 'aria-label': 'Search replay vs live', autocomplete: 'off', oninput: event => { state.query = event.target.value; state.page = 0; drawFidelity(box, f); event.target.focus(); }});
-    const verdict = Object.assign(el('select', {onchange: event => { state.verdict = event.target.value; redraw(); }}, ...[['', 'All verdicts'], ['same', 'Same as live'], ['close', 'Close'], ['off', 'Off'], ['none', 'Not recorded yet']].map(([value, label]) => el('option', {value, textContent: label}))), {value: state.verdict});
-    box.append(el('h2', {textContent: 'Replay vs live (prototype)'}),
-      el('p', {className: 'muted', textContent: 'Network replay: ' + s.network + ' of ' + s.total + ' rows same as live (snapshot: ' + s.snapshot + ' of ' + s.total + '). A prototype\\'s numbers from a branch: they never feed Resolution, the scorecard or the Fixed tab. same = every live ask answered from the memo, 0 extra, same filled and left; close = extras within the live-vs-live spread; off = otherwise.'}),
+    const from = state.page * 15, shown = rows.slice(from, from + 15), s = f.summary, go = step => () => { state.page += step; drawFidelity(box, f); };
+    const search = el('input', {type: 'search', value: state.query, placeholder: 'Search rows or branches…', 'aria-label': 'Search replay vs live', autocomplete: 'off', oninput: event => { state.query = event.target.value; state.page = 0; drawFidelity(box, f); event.target.focus(); }});
+    const verdict = Object.assign(el('select', {'aria-label': 'Network verdict', onchange: event => { state.verdict = event.target.value; redraw(); }}, ...[['', 'All verdicts'], ['same', 'Same as live'], ['close', 'Close'], ['off', 'Off'], ['none', 'Not recorded yet']].map(([value, label]) => el('option', {value, textContent: label}))), {value: state.verdict});
+    box.append(el('div', {className: 'fixpanel fidpanel'},
+      el('div', {className: 'fixhead fidhead'}, el('div', {}, el('h2', {}, 'Replay vs live', el('span', {className: 'proto', textContent: 'Prototype'})),
+          el('p', {className: 'score', textContent: 'Network replay: ' + s.network + ' of ' + s.total + ' same as live · Snapshot: ' + s.snapshot + ' of ' + s.total}),
+          el('p', {className: 'muted', textContent: 'Experimental results: excluded from Resolution, the scorecard and the Fixed tab.'})),
+        el('details', {className: 'how'}, el('summary', {textContent: 'How verdicts work'}), el('dl', {}, ...FID_HOW.flatMap(([word, text]) => [el('dt', {textContent: word}), el('dd', {textContent: text})])))),
       el('div', {className: 'filters'}, el('label', {className: 'pick search'}, el('span', {className: 'muted', textContent: 'Search'}), search), el('label', {className: 'pick'}, el('span', {className: 'muted', textContent: 'Verdict'}), verdict),
-        el('span', {className: 'muted count', textContent: 'Showing ' + (rows.length ? state.page * 15 + 1 : 0) + '–' + (state.page * 15 + shown.length) + ' of ' + rows.length}),
-        el('div', {className: 'pager'}, ...(pages > 1 ? [el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: state.page === 0, onclick: () => { state.page -= 1; drawFidelity(box, f); }}),
-          el('button', {className: 'chip', type: 'button', textContent: 'Next →', disabled: state.page >= pages - 1, onclick: () => { state.page += 1; drawFidelity(box, f); }})] : []))),
-      rows.length ? el('table', {className: 'fit'}, el('tr', {}, ...heads('fidelity', ['Row', 'Live asks', 'Snapshot replay', 'Network replay', 'Not recorded', 'After upload', 'Verdict', 'Built'], redraw)),
-        ...shown.map(r => el('tr', {}, el('td', {}, r.name, el('div', {className: 'stack muted', textContent: 'live: ' + outcome(r.live) + (r.live2 ? ' · 2nd live: ' + r.live2.asks + ' asks, ' + r.live2.extraVsLive1 + ' extra' : '')})), el('td', {className: 'muted', textContent: r.live.asks}),
-          el('td', {className: 'muted'}, hits(r.live, r.snapshot), el('div', {className: 'stack', textContent: outcome(r.snapshot)}), r.snapshotVerdict ? verdictPill(r.snapshotVerdict) : null),
-          el('td', {className: 'muted'}, hits(r.live, r.network), el('div', {className: 'stack', textContent: outcome(r.network)}), r.network && r.network.orderMatched != null ? el('div', {className: 'stack', textContent: 'by order ' + r.network.orderMatched + ' ok, ' + (r.network.orderWrong || 0) + ' wrong, ' + (r.network.echoed || 0) + ' echoed'}) : null),
-          el('td', {className: 'muted', textContent: r.network && r.network.notRecorded != null ? r.network.notRecorded : '—'}), el('td', {className: 'muted', textContent: r.network?.afterUpload || '—'}),
-          el('td', {}, verdictPill(r.networkVerdict)), el('td', {className: 'muted'}, el('a', {className: 'hash', href: 'https://github.com/GarryOne/job-pilotto/commit/' + r.sha, textContent: r.sha.slice(0, 7)}), el('div', {className: 'stack', textContent: (r.branch || '') + ' · ' + (r.at ? ago(r.at) : '')}))))) : el('p', {className: 'muted', textContent: 'No row matches.'}));
+        el('span', {className: 'muted count', textContent: f.rows.length + (f.rows.length === 1 ? ' comparison' : ' comparisons')})),
+      rows.length ? el('table', {className: 'fidtable'}, el('tr', {}, ...heads('fidelity', ['', 'Scenario', 'Live asks', 'Snapshot replay', 'Network replay', 'Network verdict'], redraw).map((th, at) => Object.assign(th, at ? {className: th.className + ' ' + ['', 'c-name', 'c-asks', 'c-snap', 'c-net', 'c-verdict'][at]} : {className: 'c-chev', title: '', tabIndex: -1, onclick: null, onkeydown: null, 'aria-label': 'Details'}))),
+        ...shown.flatMap(r => fidRows(r, () => drawFidelity(box, f)))) : el('p', {className: 'muted', style: 'padding:0 16px', textContent: 'No row matches.'}),
+      el('div', {className: 'fixfoot'}, el('span', {className: 'muted', textContent: 'Showing ' + (rows.length ? from + 1 : 0) + '–' + (from + shown.length) + ' of ' + rows.length}),
+        pages > 1 ? el('div', {className: 'pager'}, el('button', {className: 'chip', type: 'button', textContent: '← Previous', disabled: state.page === 0, onclick: go(-1)}), el('button', {className: 'chip', type: 'button', textContent: 'Next →', disabled: state.page >= pages - 1, onclick: go(1)})) : null)));
   }
 `;

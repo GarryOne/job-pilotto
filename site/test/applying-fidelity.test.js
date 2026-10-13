@@ -4,7 +4,7 @@ import {readFileSync, readdirSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {PAGE, data} from '../src/applying.js';
-import {fidelity, fidelityIngest, readFidelity, verdictOf} from '../src/applying-fidelity.js';
+import {FIDELITY_SCRIPT, fidelity, fidelityIngest, readFidelity, verdictOf} from '../src/applying-fidelity.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:'), log = {written: 0};
@@ -68,4 +68,15 @@ test('the page carries the section and its data', async () => {
   assert.equal(d.fidelity.rows.length, 1);
   assert.match(PAGE, /Replay vs live \(prototype\)/);
   assert.match(PAGE, /drawFidelity\(fidelityBox, d\.fidelity\)/);
+});
+
+test('the details row spans every column, and a long name is split into a title and a sub line for the 64px summary row', () => {
+  const script = FIDELITY_SCRIPT.replace(/\\\\/g, '\\');
+  const labels = script.match(/heads\('fidelity', \[([^\]]+)\]/)[1].split(',').length, cells = (script.match(/const main = el\('tr'[\s\S]*?\n    return on/)[0].match(/\n      el\('td'/g) || []).length;
+  assert.equal(cells, labels, 'one cell per header (the first is the chevron)');
+  assert.match(script, new RegExp(`colSpan: ${cells}\\b`));
+  const fidParts = new Function(`return ${script.match(/const fidParts = (name => \{[\s\S]*?\};)\n/)[1].slice(0, -1)}`)();
+  assert.deepEqual(fidParts('Databricks (found 2026-10-10)'), {title: 'Databricks', sub: 'Found 10 Oct 2026'});
+  assert.deepEqual(fidParts('jobs.ch -> Deloitte: email-first account, email code'), {title: 'jobs.ch → Deloitte', sub: 'email-first account, email code'});
+  assert.deepEqual(fidParts('Greenhouse board form'), {title: 'Greenhouse board form', sub: ''});
 });
