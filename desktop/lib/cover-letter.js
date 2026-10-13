@@ -10,6 +10,7 @@ import {anthropicApi} from './ai/anthropic-api.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import {baseCv, MODEL} from './cv.js';
+import {writePrivate} from './private-file.js';
 
 const PRICE = {input: 2, output: 10};  // USD per million tokens
 const usd = usage => (usage?.billing === 'subscription' ? 0 : Math.round(((usage?.input_tokens || 0) * priceOf(usage, PRICE).input + (usage?.output_tokens || 0) * priceOf(usage, PRICE).output) / 1e4) / 100);
@@ -21,7 +22,7 @@ export const pdfPath = storage => path.join(dir(storage), 'letter.pdf');
 export const load = storage => { try { return JSON.parse(fs.readFileSync(jsonPath(storage), 'utf8')); } catch { return null; } };
 function write(storage, record) {
   fs.mkdirSync(dir(storage), {recursive: true});
-  fs.writeFileSync(jsonPath(storage), JSON.stringify(record, null, 2) + '\n', {mode: 0o600});
+  writePrivate(jsonPath(storage), JSON.stringify(record, null, 2) + '\n');
   return record;
 }
 
@@ -87,7 +88,7 @@ export function approve(storage, pdf) {
   const record = load(storage);
   if (!record?.text) throw new Error('No letter to approve yet.');
   fs.mkdirSync(dir(storage), {recursive: true});
-  fs.writeFileSync(pdfPath(storage), pdf, {mode: 0o600});
+  writePrivate(pdfPath(storage), pdf);
   return write(storage, {...record, status: 'approved', approvedAt: new Date().toISOString()});
 }
 

@@ -19,6 +19,7 @@ import * as terminals from './terminals.js';
 import {browserFlags as flagsFor, isTwin, twinBrowser, twinNote} from './twin.js';
 import * as credentials from './credentials.js';
 import * as sitePassword from './site-password.js';
+import {writePrivate} from './private-file.js';
 // A twin's session masks the job-site passwords (lib/twin.js): the shared one and each site's own.
 const browserFlags = dir => flagsFor(dir, process.env, {secrets: twinBrowser() ? [sitePassword.read(), ...(credentials.list().rows || []).map(row => credentials.reveal(row.host))] : []});
 
@@ -106,7 +107,7 @@ function openMac({claude, repo, env, shim, promptFile, dir, index}, run) {
   const envFile = path.join(dir, `session_${index}.env`);
   const lines = Object.entries(env).filter(([key]) => KEEP.test(key)).map(([key, value]) => `export ${key}=${shellQuote(value)}`);
   if (shim) lines.push(`export PATH=${shellQuote(shim)}:"$PATH"`);  // Terminal's own PATH, the app's python3 first
-  fs.writeFileSync(envFile, lines.join('\n') + '\n', {mode: 0o600});
+  writePrivate(envFile, lines.join('\n') + '\n');
   const command = `cd ${shellQuote(repo)} && . ${shellQuote(envFile)} && rm -f ${shellQuote(envFile)} && ` +
     `${shellQuote(claude)} --chrome --permission-mode bypassPermissions "$(cat ${shellQuote(promptFile)})"`;
   const script = [
@@ -154,7 +155,7 @@ export async function launch(storage, urls, {claude, platform = process.platform
     open(url);  // the form tab, armed for the extension, before Claude starts
     const auditFile = path.join(dir, `audit_${index}.json`).replaceAll('\\', '/');
     const promptFile = path.join(dir, `prompt_${index}.txt`);
-    fs.writeFileSync(promptFile, prompt(url, {auditFile}), {mode: 0o600});
+    writePrivate(promptFile, prompt(url, {auditFile}));
     const options = {claude, repo, env, shim, promptFile, dir, index};
     if (platform === 'win32') openWindows(options, run);
     else openMac(options, run);
@@ -181,8 +182,8 @@ export async function launchInApp(storage, urls, {claude, platform = process.pla
     const auditFile = path.join(dir, `audit_${id}.json`).replaceAll('\\', '/');
     const promptFile = path.join(dir, `prompt_${id}.txt`);
     const settingsFile = path.join(dir, `settings_${id}.json`);
-    fs.writeFileSync(promptFile, twinNote() + prompt(url, {auditFile, session: id}), {mode: 0o600});
-    fs.writeFileSync(settingsFile, term.hookSettings(id, port), {mode: 0o600});  // the hooks that report to the app
+    writePrivate(promptFile, twinNote() + prompt(url, {auditFile, session: id}));
+    writePrivate(settingsFile, term.hookSettings(id, port));  // the hooks that report to the app
     const claudeId = crypto.randomUUID();  // the conversation: resume() can reopen it after the app was closed
     const flags = [...browserFlags(dir), '--permission-mode', 'bypassPermissions', '--settings', settingsFile, '--session-id', claudeId];
     // A one-line instruction naming the file: the terminal starts clean (not a screen of instructions, nor the
@@ -237,11 +238,11 @@ export async function launchRead(storage, url, name, {claude, platform = process
   setTimeout(() => fs.rmSync(dir, {recursive: true, force: true}), 3 * 3600 * 1000).unref();
   const id = crypto.randomUUID().slice(0, 8);
   const contextFile = path.join(dir, `read_${id}.json`).replaceAll('\\', '/');
-  fs.writeFileSync(contextFile, JSON.stringify({url, name}), {mode: 0o600});
+  writePrivate(contextFile, JSON.stringify({url, name}));
   const promptFile = path.join(dir, `prompt_${id}.txt`);
-  fs.writeFileSync(promptFile, twinNote() + (sites?.length > 1 ? readManyPrompt(sites, contextFile) : readPrompt(url, name, contextFile)), {mode: 0o600});
+  writePrivate(promptFile, twinNote() + (sites?.length > 1 ? readManyPrompt(sites, contextFile) : readPrompt(url, name, contextFile)));
   const settingsFile = path.join(dir, `settings_${id}.json`);
-  fs.writeFileSync(settingsFile, term.hookSettings(id, port), {mode: 0o600});
+  writePrivate(settingsFile, term.hookSettings(id, port));
   const flags = [...browserFlags(dir), '--permission-mode', 'bypassPermissions', '--settings', settingsFile, '--session-id', crypto.randomUUID()];
   const ask = `Read the file ${promptFile.replaceAll('\\', '/')} and do exactly what it says.`;
   const {file, args} = platform === 'win32' ? {file: process.env.ComSpec || 'cmd.exe', args: ['/d', '/s', '/c', claude, ...flags, ask]} : {file: claude, args: [...flags, ask]};
@@ -259,7 +260,7 @@ export async function resumeInApp(storage, id, {claude, platform = process.platf
   const env = sessionEnv(storage, process.env, platform, pythonShim(storage, pipeline.python(), platform));
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jobpilotto-'));
   const settingsFile = path.join(dir, `settings_${id}.json`);
-  fs.writeFileSync(settingsFile, term.hookSettings(id, port), {mode: 0o600});
+  writePrivate(settingsFile, term.hookSettings(id, port));
   setTimeout(() => fs.rmSync(dir, {recursive: true, force: true}), 3 * 3600 * 1000).unref();
   const stopped = old.status === 'ended' || old.status === 'failed';
   const flags = [...browserFlags(path.dirname(settingsFile)), '--permission-mode', 'bypassPermissions', '--settings', settingsFile, '--resume', term.claudeIdOf(id)];

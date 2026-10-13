@@ -10,6 +10,7 @@
 import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import {writePrivate} from './private-file.js';
 
 export const isolated = (env = process.env) => !!(env.JOB_PILOTTO_E2E || env.JOB_PILOTTO_TWIN);
 // The run's own secrets file, or null (a user's app; or an isolated run without its own folder, which then reads and keeps nothing).
@@ -75,7 +76,7 @@ export function remove(service, {account, env = process.env, exec = execFileSync
     const items = isolatedItems(env), file = isolatedFile(env);
     if (!file || !(service in items)) return false;
     delete items[service];
-    fs.writeFileSync(file, JSON.stringify(items, null, 2), {mode: 0o600});
+    writePrivate(file, JSON.stringify(items, null, 2));
     return true;
   }
   if (platform !== 'darwin') return false;

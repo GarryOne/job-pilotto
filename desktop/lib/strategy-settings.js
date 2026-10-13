@@ -7,6 +7,7 @@ import * as contactDetails from './contact.js';
 import * as notion from './notion.js';   // Notion-only: the Profile/answers texts and ⚙️ Search settings page when Notion is the store
 import * as notionGate from './notion-gate.js';
 import {withoutNotes} from './config-text.js';
+import {writePrivate} from './private-file.js';
 
 // Accepting a draft writes the Profile, answers and the pipeline's settings into the user's folder.
 // The Profile and standard answers: the Notion pages once Notion is connected (the only copy). Before that (Trying, see
@@ -29,7 +30,7 @@ export function saveLocal(storage, {profile = null, answers = null}, {backup = f
       const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 13);
       folder = storage.path(`backup/strategy-${stamp}`);
       fs.mkdirSync(folder, {recursive: true});
-      for (const [name] of there) fs.writeFileSync(path.join(folder, name), storage.readText(name), {mode: 0o600});
+      for (const [name] of there) writePrivate(path.join(folder, name), storage.readText(name));
     }
   }
   for (const [name, text] of files) storage.writeText(name, text);

@@ -24,6 +24,7 @@ import {pause} from './apply-fixtures.mjs';
 import {applyPoolEligibility} from './pool-eligibility.mjs';
 import {pageLines, signature, stillClock, stillSeconds} from './live-still.mjs';
 import {writeAtomic} from './run-artifacts.mjs';
+import {allowedValues, seedTestAccounts, testAccounts} from './test-accounts.mjs';
 export {livePosting} from './live-posting.mjs';
 
 
@@ -125,8 +126,10 @@ export async function runLive(ctx, h) {
       // The privacy tripwire (lib/privacy-tripwire.mjs): the owner's own values are never typed into a real page. Checked every few seconds and once at the end, before
       // anything is written; a hit clears those fields, deletes the run's saved files (capture, screenshots) and fails the run.
       const owner = ownerValues(), saved = [process.env.LIVE_CAPTURE_DIR, frames];
+      const accounts = testAccounts(), seeded = seedTestAccounts(ctx.profile, accounts);   // a listed test account's saved password (docs/rules/applying.md "Signing in"), as lib/live-row.mjs
+      if (seeded.length) console.log(`  live: test account for ${seeded.join(', ')} (the product's saved-password sign-in; never Submit)`);
       console.log(`  live: ${coverageLine(owner)}`);   // kinds only, never a value; a kind it could not find is said, never a silent "clean"
-      const tripped = async () => { for (const tab of ctx.browser.context.pages().filter(item => /^https?:/.test(item.url()))) { const check = await tripwire(pageFields(tab), {values: owner, saved}); if (!check.ok) return check.reason; } return ''; };
+      const tripped = async () => { for (const tab of ctx.browser.context.pages().filter(item => /^https?:/.test(item.url()))) { const check = await tripwire(pageFields(tab), {values: owner, saved, allow: allowedValues(accounts)}); if (!check.ok) return check.reason; } return ''; };
       let trip = '';
       const steps = stepShooter({tabOf: () => ctx.browser.context.pages().filter(tab => /^https?:/.test(tab.url())).at(-1), kindOf: () => kindFromLog(appLogLines(ctx.profile).join('\n')), dir: process.env.LIVE_CAPTURE_DIR || ''});   // one full-page picture per page or step reached (lib/step-shots.mjs)
       while (Date.now() - started < seconds * 1000) {

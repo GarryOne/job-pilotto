@@ -12,6 +12,7 @@ import {anthropicApi} from './ai/anthropic-api.js';
 import {nameOfClient} from './ai/names.js';
 import {baseCv, dir, MODEL, transcribePdf, usd} from './cv.js';
 import {readExport} from './linkedin-export.js';
+import {writePrivate} from './private-file.js';
 
 export const MAX_SOURCES = 8;       // a person has a handful of CV versions; more is a mistake, not a bank
 export const MAX_EXTRA_PER_ROLE = 6;   // extra bullets offered to the tailor per role: the CV must stay as long as before
@@ -79,7 +80,7 @@ export function list(storage) {
 
 const write = (storage, source) => {
   fs.mkdirSync(sourcesDir(storage), {recursive: true});
-  fs.writeFileSync(jsonOf(storage, source.id), JSON.stringify(source, null, 2) + '\n', {mode: 0o600});
+  writePrivate(jsonOf(storage, source.id), JSON.stringify(source, null, 2) + '\n');
 };
 
 // Add another CV version: kept as a file, read, compared with the main CV. Needs the main CV (cv/cv.json) to compare with.

@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fillState, launchBrowser, readForm} from './extension.mjs';
+import {writePrivate} from '../../lib/private-file.js';
 
 export async function runJourneys(ctx, h) {
   const {cv, dumpExtension, fail, forms, page} = h;
@@ -159,7 +160,7 @@ export async function runJourneys(ctx, h) {
     const file = path.join(ctx.profile, 'isolated-secrets.json');
     let items = {}; try { items = JSON.parse(fs.readFileSync(file, 'utf8')) || {}; } catch { /* the first item */ }
     items[`job-pilotto.${host}.password`] = {value: SIGNIN_PASSWORD, account: 'job-pilotto', comment: `email=${CONTACT.email}`, created: new Date().toISOString()};
-    fs.writeFileSync(file, JSON.stringify(items, null, 2), {mode: 0o600});
+    writePrivate(file, JSON.stringify(items, null, 2));
   };
   const openAccount = async fixture => {
     seedSitePassword(fixture.accountHost);

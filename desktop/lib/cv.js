@@ -15,6 +15,7 @@ import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {isFormOf} from './apply.js';
 import {render} from '../cv/template.js';
+import {writePrivate} from './private-file.js';
 
 export const MODEL = process.env.JOB_PILOTTO_MODEL_OVERRIDE || 'claude-sonnet-5-5';   // the override: the end-to-end journey (desktop/e2e)
 const PRICE = {input: 2, output: 10};  // USD per million tokens
@@ -76,8 +77,8 @@ export async function importPdf(storage, apiKey, client = null, {look = null} = 
   let kept = clean;
   if (look) { try { kept = await look(clean); } catch (error) { console.error(`CV look not kept: ${error.message}`); } }
   fs.mkdirSync(dir(storage), {recursive: true});
-  fs.writeFileSync(path.join(dir(storage), 'cv.json'), JSON.stringify(kept, null, 2) + '\n', {mode: 0o600});
-  fs.writeFileSync(path.join(dir(storage), 'import.json'), JSON.stringify({pdf: hashOf(bytes)}) + '\n', {mode: 0o600});   // which PDF cv.json was read from (lib/cv-import-at-upload.js)
+  writePrivate(path.join(dir(storage), 'cv.json'), JSON.stringify(kept, null, 2) + '\n');
+  writePrivate(path.join(dir(storage), 'import.json'), JSON.stringify({pdf: hashOf(bytes)}) + '\n');   // which PDF cv.json was read from (lib/cv-import-at-upload.js)
   return {cv: kept, usd: cost};
 }
 
@@ -268,14 +269,14 @@ export const pdfPath = (storage, code) => file(storage, code, 'pdf');
 export function writeHtml(storage, cv, name, {review = false} = {}) {
   fs.mkdirSync(tailoredDir(storage), {recursive: true});
   const target = path.join(tailoredDir(storage), name);
-  fs.writeFileSync(target, render(cv, {style: style(storage), review, base: pathToFileURL(dir(storage) + path.sep).href}), {mode: 0o600});
+  writePrivate(target, render(cv, {style: style(storage), review, base: pathToFileURL(dir(storage) + path.sep).href}));
   return target;
 }
 
 export function save(storage, code, record, pdf) {
   fs.mkdirSync(tailoredDir(storage), {recursive: true});
-  fs.writeFileSync(file(storage, code, 'json'), JSON.stringify(record, null, 2) + '\n', {mode: 0o600});
-  fs.writeFileSync(file(storage, code, 'pdf'), pdf, {mode: 0o600});
+  writePrivate(file(storage, code, 'json'), JSON.stringify(record, null, 2) + '\n');
+  writePrivate(file(storage, code, 'pdf'), pdf);
 }
 
 // The tailored CV for a job page, if there is one (the extension uploads it instead of the base CV).
@@ -361,6 +362,6 @@ export function reviewPage(storage, record) {
   const html = cvHtml.replace('</head>', `${css}</head>`).replace(/(<body[^>]*>)/, `$1${panel}`);
   fs.mkdirSync(tailoredDir(storage), {recursive: true});
   const target = file(storage, record.job.code, 'review.html');
-  fs.writeFileSync(target, html, {mode: 0o600});
+  writePrivate(target, html);
   return target;
 }

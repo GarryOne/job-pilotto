@@ -11,6 +11,7 @@ import {markedSession} from './session-tab.js';
 import {isFormOf} from './form-address.js';
 import {LABELS} from './contact.js';
 import {controlReason} from '../shared/ladder/control-ending.js';
+import {writePrivate} from './private-file.js';
 const CONTACT_KEYS = Object.keys(LABELS);
 
 const COMMAND_SECONDS = 120;   // a "show me this field" waits this long for the page to pick it up
@@ -38,7 +39,7 @@ export function persist(file, sessionIds = null) {
 }
 function save() {
   if (!keptFile) return;
-  try { fs.writeFileSync(keptFile, JSON.stringify([...last.values()]), {mode: 0o600}); } catch {}
+  try { writePrivate(keptFile, JSON.stringify([...last.values()])); } catch {}
 }
 export const setReporter = fn => { reporter = fn; };
 const stateListeners = [];   // more readers of each new form state (lib/menu-rearm.js), beside the window's reporter

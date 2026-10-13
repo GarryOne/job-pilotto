@@ -7,10 +7,10 @@
 //   exchange with the site it keeps (lib/telemetry.js learningOff): its fills are real use, and it fills with the shared recipes and meanings;
 // - the engine sees no Keychain (src/secret_store.py isolated(): no Telegram bot); it may READ the owner's Google sign-in, never write it (TWIN_MAY_READ, 10 Oct 2026).
 // Guarded by desktop/test/twin.test.js.
-import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {writePrivate} from './private-file.js';
 
 export const isTwin = (env = process.env) => !!env.JOB_PILOTTO_TWIN;
 
@@ -54,10 +54,10 @@ export function browserFlags(dir, env = process.env, {secrets = []} = {}) {
   const values = [...new Set(secrets.filter(Boolean).map(String))];
   if (values.length) {
     const secretsFile = path.join(dir, 'twin-secrets.env');
-    fs.writeFileSync(secretsFile, values.map((value, i) => `SITE_PASSWORD_${i + 1}=${JSON.stringify(value)}`).join('\n') + '\n', {mode: 0o600});
+    writePrivate(secretsFile, values.map((value, i) => `SITE_PASSWORD_${i + 1}=${JSON.stringify(value)}`).join('\n') + '\n');
     args.push('--secrets', secretsFile);
   }
-  fs.writeFileSync(file, JSON.stringify({mcpServers: {playwright: {command: 'npx', args}}}), {mode: 0o600});
+  writePrivate(file, JSON.stringify({mcpServers: {playwright: {command: 'npx', args}}}));
   // --no-chrome: the person's own "Claude in Chrome by default" setting would otherwise hand this session their real Chrome too.
   return ['--no-chrome', '--mcp-config', file, '--strict-mcp-config'];
 }

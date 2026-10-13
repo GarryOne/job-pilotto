@@ -9,6 +9,7 @@ import path from 'node:path';
 import {log as appLog} from './log.js';
 import * as pipeline from './pipeline.js';
 import {byStore} from './store/words.js';
+import {writePrivate} from './private-file.js';
 
 export const AUDIO = ['webm', 'm4a', 'mp3', 'wav', 'ogg', 'oga', 'opus', 'mp4', 'mov', 'aac', 'flac', 'aiff', 'mkv'];
 export const TEXT = ['txt', 'md', 'srt', 'vtt', 'text'];
@@ -24,7 +25,7 @@ export function get(storage, id) {
 
 function put(storage, meta) {
   fs.mkdirSync(folder(storage, meta.id), {recursive: true});
-  fs.writeFileSync(metaFile(storage, meta.id), JSON.stringify(meta, null, 2) + '\n', {mode: 0o600});
+  writePrivate(metaFile(storage, meta.id), JSON.stringify(meta, null, 2) + '\n');
   return meta;
 }
 
@@ -49,7 +50,7 @@ export function transcript(storage, id) {
 }
 
 export function saveDraft(storage, id, {title, text, jobUrl} = {}) {
-  if (typeof text === 'string') fs.writeFileSync(path.join(folder(storage, id), 'transcript.txt'), text, {mode: 0o600});
+  if (typeof text === 'string') writePrivate(path.join(folder(storage, id), 'transcript.txt'), text);
   const patch = {};
   if (typeof title === 'string') patch.title = title.trim();
   if (jobUrl !== undefined) patch.jobUrl = jobUrl || null;
@@ -78,7 +79,7 @@ export function startRecording(storage, {stereo = false} = {}, now = new Date())
   const id = newId(now);
   const title = `Interview ${now.toLocaleDateString('en-GB', {day: 'numeric', month: 'short'})} ${now.toTimeString().slice(0, 5)}`;
   put(storage, {id, title, createdAt: now.toISOString(), kind: 'audio', file: 'recording.webm', status: 'recording', stereo});
-  fs.writeFileSync(path.join(folder(storage, id), 'recording.webm'), Buffer.alloc(0), {mode: 0o600});
+  writePrivate(path.join(folder(storage, id), 'recording.webm'), Buffer.alloc(0));
   recording.add(id);
   return id;
 }
