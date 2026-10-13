@@ -3,9 +3,12 @@
 // as the fieldset plus every option). Headless Chromium; skipped where playwright has no browser.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath, pathToFileURL} from 'node:url';
 import {test} from 'node:test';
 import {readTab} from '../lib/replay-truth.mjs';
 
+const here = path.dirname(fileURLToPath(import.meta.url));
 let chromium = null;
 try { ({chromium} = await import('playwright-core')); if (!fs.existsSync(chromium.executablePath())) chromium = null; } catch { /* no playwright */ }
 
@@ -37,5 +40,17 @@ test('one question is one required control: a required fieldset with required op
     assert.equal(required.length, 7, JSON.stringify(required));   // first name, visa, factors, pronouns, languages, worked here, privacy
     assert.equal(empty.length, 5, JSON.stringify(empty));   // all but the first name and the pronouns (one ticked)
     assert.ok(empty.some(name => /three factors/.test(name)) && empty.some(name => /Worked here/.test(name)), JSON.stringify(empty));   // a group is named by its question
+  } finally { await browser.close(); }
+});
+
+test('a segmented Yes/No (option roles around hidden native radios) is one control per question, answered by the one picked (recorded segmented-radio-wrapper-1)', {skip: !chromium && 'no playwright browser'}, async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.goto(pathToFileURL(path.join(here, '..', 'recorded', 'segmented-radio-wrapper-1', 'form.html')).href);
+    for (const one of await page.locator('[role=radiogroup]').all()) await one.locator('[role=radio] label').first().click();   // what a person clicks: the segment's label
+    const questions = (await readTab(page, [])).required.filter(one => !['First name', 'Last name', 'Email'].includes(one.name));
+    assert.equal(questions.length, 2, JSON.stringify(questions));
+    assert.deepEqual(questions.filter(one => one.empty), [], JSON.stringify(questions));
   } finally { await browser.close(); }
 });
