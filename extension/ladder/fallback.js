@@ -6,7 +6,7 @@
 // ladder/next-move.js (box 5): a sure press past the floors is asked a second time, and acts only when both name the same control. Guard: worker/test/fallback.test.js.
 import {effectOf, mayAct, needsSecondAsk} from './next-move.js';
 
-let ask = async () => null, floor = async () => ({press: false, why: null}), log = () => {}, digestAsked = () => false, acts = async () => false, act = async () => null;
+let ask = async () => null, floor = async () => ({press: false, why: null}), log = () => {}, digestAsked = () => false, acts = async () => false, act = async () => null, look = async () => 'none';
 // parts: {ask(tab, {digest, shadow}) (fill-flow.js askKind), floor(tabId, named) (apply-press.js wouldPress), asked(tabId, page) (climb.js digestAsked: a climb asked the digest
 // on that page already), log (the decide log)}; tests also pass {tab(tabId)}.
 let tabOf = tabId => globalThis.chrome?.tabs?.get(tabId).catch(() => null) ?? Promise.resolve(null);
@@ -18,6 +18,7 @@ export function useFallback(parts = {}) {
   if (parts.tab) tabOf = parts.tab;
   if (parts.acts) acts = parts.acts;   // acts(): the harness's test switch (the CI pool); act(tab, move): press the move through the live press path, -> what the page showed after (next-move.js effectOf's facts)
   if (parts.act) act = parts.act;
+  if (parts.look) look = parts.look;   // look(tab, why): the closer look WITH the picture, told what was tried (fill-flow.js); only where the test switch is on
 }
 
 const WORD = /^[a-z_-]{1,24}$/;   // our own fixed words (a stop reason, an outcome, a verb): never page text
@@ -36,7 +37,12 @@ export async function askAtDeadEnd({door, tabId, page, why, rung} = {}) {
   if (tabId == null || asked.has(key)) return null;
   asked.add(key);
   const base = {shadow: true, door, why: word(why)};
-  if (rung === 3 || digestAsked(tabId, page)) { log('fill', 'dead end fallback (shadow): asked already', {...base, climb: 'picture_off'}); return null; }   // the digest answered on this page already; rung 4 is off
+  if (rung === 3 || digestAsked(tabId, page)) {   // the digest answered on this page already: the next rung is the picture, on in the CI pool only (owner, 14 Oct 2026: the question was asked at 2 of 20 stops)
+    const picture = await acts().catch(() => false);
+    log('fill', 'dead end fallback (shadow): asked already', {...base, climb: picture ? 'picture' : 'picture_off'});
+    if (picture) await lookWithPicture({door, tabId, page, why: base.why});
+    return null;
+  }
   const tab = await tabOf(tabId);
   if (!tab || pageOf(tab.url) !== pageOf(page)) { log('fill', 'dead end fallback (shadow): the page moved on', base); return null; }
   const first = await moveOf(tab), second = needsSecondAsk(first) ? await moveOf(tab) : null;
@@ -64,4 +70,13 @@ async function moveOf(tab) {
     : await floor(tab.id, answer.applyButton).then(found => (found?.press ? {floor: 'ok'} : {floor: 'refused', floorWhy: floorWord(found?.why)})).catch(() => ({floor: 'refused', floorWhy: 'unreadable'}));
   return {named: answer?.applyButton || '', signal: word(answer?.signal) || 'none', outcome: word(said.outcome), verb: word(said.verb), number: Number.isInteger(said.numbers?.[0]) ? said.numbers[0] : -1,
     pressKind: word(said.pressKind), confidence: Number.isFinite(answer?.confidence) ? answer.confidence : -1, usd: Number.isFinite(answer?.usd) ? answer.usd : 0, ...check};
+}
+
+// The look with the picture, once per page (the `asked` set above): told in fixed words that the digest was asked and found no way on. Its own line (closer look) carries the cost; this one the door and
+// what the look said. Never when the tab left the stop's page.
+async function lookWithPicture({door, tabId, page, why}) {
+  const tab = await tabOf(tabId);
+  if (!tab || pageOf(tab.url) !== pageOf(page)) return;
+  const from = Date.now(), said = await look(tab, why).catch(() => 'none');
+  log('fill', 'dead end fallback (picture)', {shadow: false, door, why, look: word(said) || 'none', ms: Date.now() - from});
 }
