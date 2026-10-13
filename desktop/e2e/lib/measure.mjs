@@ -1,7 +1,7 @@
 // The measure step of capture once, measure many (spec docs/superpowers/specs/2026-10-13-capture-once-measure-many.md): a row replayed offline by lib/row-replay.mjs
 // (unchanged) is read as a live row is: its app log turned into the live run's output (lib/smoke.mjs outputOfLog) and parsed by parseLive, its ending by lib/ending.mjs,
 // the dead-end tables by lib/pool-shadow.mjs and lib/pool-acted.mjs. It owns only the safeguards that keep an offline number from passing for a live one (owner via cc,
-// 13 Oct 2026): every table labelled offline (memo|plan), never beside a live number; a row whose capture missed more than MISS_LIMIT of its asks is "not measured";
+// 13 Oct 2026): every table labelled offline (memo|plan), never beside a live number; a row with ANY ask its capture has no kept answer for is "not measured", by route and differing part (13 Oct 2026: one missed page-kind ask of 16 took a fill from 5 to 1);
 // a press the capture never saw is "unseen", never worked or failed; "unverified" until the positive control passed. Pure but for the captures' files.
 // CLI: measure.mjs (npm run measure). Guard: e2e/test/measure.test.mjs.
 import fs from 'node:fs';
@@ -11,7 +11,6 @@ import {actedOf} from './pool-acted.mjs';
 import {personPrecision, shadowTable} from './pool-shadow.mjs';
 import {outputOfLog, parseLive} from './smoke.mjs';
 
-export const MISS_LIMIT = 0.1;   // above 10 % of a row's asks with no kept answer, the row is not measured (cc, 13 Oct 2026)
 // The positive control (spec PR 3): until it passed, every output says "unverified". Flipped by the PR that records its numbers in the spec.
 export const VERIFIED = false;
 
@@ -46,17 +45,24 @@ export function pressesOf(replayLog, liveLog) {
 }
 
 // captureDir + its replay result (lib/row-replay.mjs replay) -> one measured row
-// The share of asks the capture did not cover: misses against the live run's own asks (its kept answers, model-memo.json), capped at 1: stricter than misses / all asks.
-// ask (--ask): misses were answered by the plan, so the cut-off does not apply; the share is still printed.
-export function measuredRow(captureDir, replay, {ask = false} = {}) {
+// The asks a replay made that its capture has no kept answer for, from the app's own line (lib/ai/model-memo.js: "...: <step> (model memo: not in the row's kept answers ...;
+// the nearest kept ask differs in: <parts>)"): -> [{what: the step that asked, e.g. 'page kind', parts: 'use'}]. A prompt or schema change shows here at once.
+const MISS = /\] ([^:(]+?): .*?model memo: not in the row's kept answers[^;]*(?:; the nearest kept ask differs in: ([^;)]*))?/;
+export const missesIn = appLog => String(appLog).split('\n').map(line => MISS.exec(line)).filter(Boolean).map(([, what, parts]) => ({what: what.trim(), parts: (parts || '?').trim()}));
+export const missReason = miss => `${miss.what}: ${miss.parts} differs`;
+
+// captureDir + its replay result (lib/row-replay.mjs replay) -> one measured row. Any miss: not measured (cc, 13 Oct 2026); the positive control (spec PR 3) may later show a miss kind harmless.
+export function measuredRow(captureDir, replay) {
   const meta = readJson(path.join(captureDir, 'capture.json'), {}), item = readJson(path.join(captureDir, 'case.json'), {});
   const url = (item.pages || []).find(page => !page.frameOf)?.url || '', liveLog = read(path.join(captureDir, 'app.log'));
   const row = {row: meta.row || path.basename(captureDir), capture: captureDir, build: meta.build || {}, live: readingOf(liveLog, url)};
-  if (!replay || replay.error) return {...row, measured: false, why: `the replay failed: ${replay?.error || 'no result'}`};
-  const asks = Object.keys(readJson(path.join(captureDir, 'model-memo.json'), {})).filter(key => !key.includes('#')).length, misses = replay.misses || 0;
-  const missShare = misses ? Math.min(1, misses / Math.max(asks, 1)) : 0;
-  const offline = {...readingOf(replay.appLog || '', url), presses: pressesOf(replay.appLog || '', liveLog), asks, misses, missShare, missParts: replay.missParts || [], unrecorded: replay.unrecorded || [], divergence: replay.divergence || ''};
-  if (!ask && missShare > MISS_LIMIT) return {...row, offline, measured: false, why: `${misses} of ${asks} kept asks (${Math.round(100 * missShare)} %) missed: not measured`};
+  if (!replay || replay.error) return {...row, measured: false, reasons: ['the replay failed'], why: `the replay failed: ${replay?.error || 'no result'}`};
+  const misses = missesIn(replay.appLog || ''), count = Math.max(replay.misses || 0, misses.length);
+  const offline = {...readingOf(replay.appLog || '', url), presses: pressesOf(replay.appLog || '', liveLog), misses: count, missed: misses, unrecorded: replay.unrecorded || [], divergence: replay.divergence || ''};
+  if (count) {
+    const reasons = misses.length ? misses.map(missReason) : Array.from({length: count}, () => 'an ask: ? differs');
+    return {...row, offline, measured: false, reasons, why: `${count} ask${count > 1 ? 's' : ''} with no kept answer (${reasons.join(', ')}): not measured`};
+  }
   return {...row, offline, measured: true};
 }
 
@@ -69,7 +75,9 @@ export function tablesOf(rows, side) {
   const endings = {};
   for (const row of used) { const word = row[side].ending || 'none'; endings[word] = (endings[word] || 0) + 1; }
   const fill = used.reduce((sum, row) => ({filled: sum.filled + (row[side].result.filled || 0), left: sum.left + (row[side].result.left || 0)}), {filled: 0, left: 0});
-  return {rows: used.length, notMeasured: rows.filter(row => !row.measured).map(row => ({row: row.row, why: row.why})), shadow: shadowTable(logs), person: personPrecision(logs),
+  const reasons = {};
+  for (const row of rows.filter(one => !one.measured)) for (const reason of row.reasons || [row.why]) reasons[reason] = (reasons[reason] || 0) + 1;
+  return {rows: used.length, reasons, notMeasured: rows.filter(row => !row.measured).map(row => ({row: row.row, why: row.why})), shadow: shadowTable(logs), person: personPrecision(logs),
     acted: {acted: presses.length, worked: count('worked'), failed: presses.length - count('worked') - count('unseen'), unseen: count('unseen')}, endings, fill,
     perRow: used.map(row => ({row: row.row, reached: row[side].result.reached, ending: row[side].ending, filled: row[side].result.filled ?? null, left: row[side].result.left ?? null}))};
 }
@@ -79,7 +87,8 @@ export const offlineLabel = ({ask = false, verified = VERIFIED} = {}) => `offlin
 
 // -> the lines to print for one side's tables, each led by its label
 export function tableLines(tables, label) {
-  const lines = [`[${label}] ${tables.rows} rows measured${tables.notMeasured.length ? `, ${tables.notMeasured.length} NOT MEASURED` : ''}`];
+  const why = Object.entries(tables.reasons).sort((a, b) => b[1] - a[1]).map(([reason, n]) => `${reason} x${n}`).join(', ');
+  const lines = [`[${label}] ${tables.rows} rows measured, ${tables.notMeasured.length} NOT MEASURED${why ? ` (${why})` : ''}`];
   for (const item of tables.notMeasured) lines.push(`[${label}]   not measured: ${item.row}: ${item.why}`);
   for (const row of tables.perRow) lines.push(`[${label}]   ${row.row}: reached ${row.reached}, ending ${row.ending || '-'}${row.filled != null ? `, ${row.filled} filled, ${row.left} left` : ''}`);
   lines.push(`[${label}] endings: ${Object.entries(tables.endings).map(([word, n]) => `${word} ${n}`).join(', ') || 'none'}; fill: ${tables.fill.filled} filled, ${tables.fill.left} left`);

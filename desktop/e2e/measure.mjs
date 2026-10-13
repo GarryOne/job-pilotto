@@ -1,7 +1,7 @@
 // npm run measure -- [--days N] [--every] [--root <captures>] [--old <extension dir>] [--compare] [--out <dir>]: the pool's numbers for THIS build, offline, on the
 // captures library (lib/capture-library.mjs): each row's newest capture of the last N days (default 1) replayed by lib/row-replay.mjs (unchanged), read as a live row is
 // (lib/measure.mjs: parseLive, the ending, the shadow / acted / person tables). Nothing reaches a site, no site limit is used, $0: the kept answers only (memo); an ask the capture
-// never made is a miss, and a row with more than 10 % misses is NOT MEASURED (an --ask through the plan's claude -p, capped, is a later step of the spec).
+// never made is a miss, and a row with any miss is NOT MEASURED, the step and the differing part named (a prompt change shows at once) (an --ask through the plan's claude -p, capped, is a later step of the spec).
 // --compare: the captures' own live numbers, in their own table. Every line is labelled offline (memo|plan) and "unverified" until the positive control passed (spec PR 3).
 // A fix is proven only by a live run (Pool-row / live-proof): these numbers decide what to try. Spec docs/superpowers/specs/2026-10-13-capture-once-measure-many.md.
 import fs from 'node:fs';
@@ -24,7 +24,7 @@ console.log(`measure: ${todo.length} captures, ${label}; nothing reaches a site`
 const started = Date.now();
 const results = await replayRows(todo, {extensionDir: flag('old') ? path.resolve(flag('old')) : undefined});
 const rows = todo.map((dir, at) => measuredRow(dir, results[at]));
-for (const row of rows) if (row.offline) console.log(`[${label}] ${row.row}: ${row.offline.misses} of ${row.offline.asks} kept asks missed (${Math.round(100 * row.offline.missShare)} %)${row.offline.missParts.length ? `; the nearest kept ask differs in ${row.offline.missParts.join(', ')}` : ''}${row.offline.divergence ? `, diverged: ${row.offline.divergence}` : ''}${row.offline.unrecorded.length ? `, ${row.offline.unrecorded.length} addresses not recorded` : ''}`);
+for (const row of rows) if (row.offline) console.log(`[${label}] ${row.row}: ${row.offline.misses ? `${row.offline.misses} asks with no kept answer` : 'every ask had its kept answer'}${row.offline.divergence ? `, diverged: ${row.offline.divergence}` : ''}${row.offline.unrecorded.length ? `, ${row.offline.unrecorded.length} addresses not recorded` : ''}`);
 for (const line of tableLines(tablesOf(rows, 'offline'), label)) console.log(line);
 if (has('compare')) {   // the positive control's other side: the captures' own app logs, read the same way, in their own table
   const builds = [...new Set(rows.map(row => `${String(row.build.commit || '?').slice(0, 9)} (ext ${row.build.extension || '?'})`))];

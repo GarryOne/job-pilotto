@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {MISS_LIMIT, VERIFIED, capturesOf, measuredRow, offlineLabel, pressesOf, readingOf, tableLines, tablesOf} from '../lib/measure.mjs';
+import {VERIFIED, capturesOf, measuredRow, missesIn, offlineLabel, pressesOf, readingOf, tableLines, tablesOf} from '../lib/measure.mjs';
 
 const acted = (at, why, effect) => `2026-10-13T06:00:${at}.000Z [extension] fill: dead end fallback (acted) {"door":${Number(at)},"why":"${why}","effect":"${effect}"}`;
 const kind = (at, what) => `2026-10-13T06:00:${at}.000Z [extension] fill: page kind: ${what} {"by":"ai"}`;
@@ -31,16 +31,24 @@ test('1: every line is labelled offline (memo), "unverified" until the positive 
   assert.ok(tableLines(tablesOf([row], 'live'), 'live').every(line => line.startsWith('[live] ')));
 });
 
-test('2: a row whose capture missed more than 10 % of its asks is NOT MEASURED, never "no change"', () => {
-  assert.equal(MISS_LIMIT, 0.1);
-  const dir = capture(tmp(), {kept: 10});
-  assert.equal(measuredRow(dir, {appLog: '', misses: 1}).measured, true);   // 10 %: at the limit
-  const over = measuredRow(dir, {appLog: '', misses: 2});
-  assert.equal(over.measured, false);
-  assert.match(over.why, /2 of 10 kept asks \(20 %\) missed: not measured/);
-  const tables = tablesOf([over], 'offline');
+// The app's own line of a miss (13 Oct 2026, HelloFresh: this one miss of 16 took the fill from 5 to 1).
+const MISS_LINE = '2026-10-13T09:50:24.869Z [extension] page kind: none (model memo: not in the row\'s kept answers (an offline replay never asks the model); the nearest kept ask differs in: use), the structure rule decides {"shape":"x"}';
+
+test('2: ANY ask the capture has no kept answer for makes the row NOT MEASURED, the step and the differing part named; the top line counts the reasons', () => {
+  assert.deepEqual(missesIn(MISS_LINE), [{what: 'page kind', parts: 'use'}]);
+  const dir = capture(tmp(), {kept: 16});
+  assert.equal(measuredRow(dir, {appLog: kind('01', 'form'), misses: 0}).measured, true);
+  const one = measuredRow(dir, {appLog: MISS_LINE, misses: 1});
+  assert.equal(one.measured, false, 'one miss of 16 is enough: it decided the page kind');
+  assert.match(one.why, /1 ask with no kept answer \(page kind: use differs\): not measured/);
+  const other = measuredRow(capture(tmp(), {row: 'Recruitee'}), {appLog: MISS_LINE, misses: 1});
+  const tables = tablesOf([one, other], 'offline');
   assert.equal(tables.rows, 0);
-  assert.match(tableLines(tables, 'x').join('\n'), /1 NOT MEASURED[\s\S]*not measured: Lever: single page/);
+  const lines = tableLines(tables, 'x');
+  assert.equal(lines[0], '[x] 0 rows measured, 2 NOT MEASURED (page kind: use differs x2)');
+  assert.match(lines.join('\n'), /not measured: Lever: single page/);
+  const counted = measuredRow(dir, {appLog: '', misses: 1});   // a miss counted by the replay whose line was cut: still not measured
+  assert.equal(counted.measured, false);
   assert.equal(measuredRow(dir, {error: 'the browser closed'}).measured, false);   // a failed replay is not measured either
 });
 
