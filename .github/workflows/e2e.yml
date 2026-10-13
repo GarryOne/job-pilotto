@@ -71,7 +71,7 @@ on:
         required: false
         default: ''
       pr_suites:
-        description: 'A pull request''s flow e2e (e2e-flow.yml): exactly these suites, on the SQLite store, no AI screenshot review, in the PR''s own concurrency group'
+        description: 'Exactly these suites as a pull request would run them (no caller since the flow e2e left PRs, owner 13 Oct 2026; kept to turn it back on), on the SQLite store, no AI screenshot review, in the PR''s own concurrency group'
         type: string
         default: ''
       release_run:
