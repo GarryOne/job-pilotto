@@ -1,10 +1,10 @@
-// node pool-ci-wait.mjs: the CI pool run waits its turn (lib/pool-ci-queue.mjs): until every earlier run of pool-smoke.yml and pool-proof.yml has finished, looking
+// node pool-ci-wait.mjs: the CI pool run waits its turn (lib/pool-ci-queue.mjs): until every earlier run of pool-smoke.yml has finished, looking
 // every POOL_WAIT_POLL seconds (default 20), at most POOL_WAIT_MAX seconds (default 3600; then exit 1, a harness error, never a run beside another).
 // Needs gh with GH_TOKEN and GITHUB_RUN_ID (the workflow gives both).
 import {execFileSync} from 'node:child_process';
 import {runsAhead} from './lib/pool-ci-queue.mjs';
 
-const WORKFLOWS = ['pool-smoke.yml', 'pool-proof.yml'];
+const WORKFLOWS = ['pool-smoke.yml'];   // the PR proof (pool-proof.yml) was removed on 13 Oct 2026
 const me = process.env.GITHUB_RUN_ID, poll = Number(process.env.POOL_WAIT_POLL || 20), max = Number(process.env.POOL_WAIT_MAX || 3600);
 const sleep = seconds => new Promise(resolve => setTimeout(resolve, seconds * 1000));
 const list = () => WORKFLOWS.flatMap(workflow => {

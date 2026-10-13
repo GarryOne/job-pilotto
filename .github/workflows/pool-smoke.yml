@@ -1,6 +1,6 @@
 # The applying pool's smoke on a GitHub runner, started BY HAND (owner, 12 Oct 2026: this changes the 11 Oct rule "the pool runs locally only, never in CI";
-# start simple, grow it over time, report to the coordinator before growing it), or called by pool-proof.yml for ONE row a PR names (its live proof, v2).
-# Never a schedule or push trigger (e2e/test/pool-ci-triggers.test.mjs).
+# start simple, grow it over time, report to the coordinator before growing it). By hand ONLY: never a schedule, a push or a pull request (owner, 13 Oct 2026:
+# "I don't want PR to generate an AI cost": the PR live proof and the flow canary that called this were removed). Guard: e2e/test/pool-ci-triggers.test.mjs.
 # - Rows: the pool list in the repo (desktop/e2e/smoke-sites.json: every row since 12 Oct 2026; postings are public pages, the owner's details never enter a run).
 # - Floors unchanged: the fake applicant, HELD (never Submit, no account or consent button, no password, no captcha), the privacy tripwire on, nothing uploaded
 #   (lib/applying-report.mjs refuses CI) but the two CI records below, with the narrow REPLAYS_PUBLISH_KEY: "proven live", and the ladder moves the rows' pages
@@ -33,17 +33,6 @@ on:
         description: 'How many of those rows this run (at most MAX_ROWS)'
         type: number
         default: 1
-  workflow_call:   # pool-proof.yml: one row a PR names, on the PR's own build
-    inputs:
-      only:
-        type: string
-        default: ''
-      share:
-        type: number
-        default: 1
-      applicant:   # the test applicant (e2e/lib/applicant-seed.mjs): a PR proof runs the grown one; by hand: thin
-        type: string
-        default: 'thin'
 
 permissions:
   contents: read
@@ -67,7 +56,7 @@ jobs:
       LIVE_POOL_ANTHROPIC_KEY: ${{ secrets.LIVE_POOL_ANTHROPIC_KEY }}   # a pool run by hand (owner, 12 Oct 2026: each live run's cost apart)
       PR_PROOF_ANTHROPIC_KEY: ${{ secrets.PR_PROOF_ANTHROPIC_KEY }}     # a PR's live proof; lib/engine.mjs liveKeyName picks by JOB_PILOTTO_VISIT_KIND
       JP_NO_REPORT: '1'                # no applying report from CI (the code refuses it anyway); the proven records and ladder moves go with their own narrow key
-      JP_APPLICANT: ${{ inputs.applicant || 'thin' }}   # thin by hand, grown on a PR proof unless its body says "live-applicant: thin"
+      JP_APPLICANT: thin   # the thin test applicant: runs are by hand only (the PR proof that ran the grown one was removed on 13 Oct 2026)
       JOB_PILOTTO_HEAVY: '0'           # the heavy lock is a Mac's machine-wide queue; this runner is its own machine
       JOB_PILOTTO_SESSION: pool-smoke CI run ${{ github.run_id }}
       JOB_PILOTTO_SITE_LIMIT: '2'
@@ -111,7 +100,7 @@ jobs:
         run: |
           mkdir -p pool-smoke-out/states pool-smoke-out/site-ledger
           since=$(date -u -d '14 days ago' +%Y-%m-%dT%H:%M:%SZ)
-          for workflow in pool-smoke.yml pool-proof.yml; do
+          for workflow in pool-smoke.yml; do
             gh run list --workflow "$workflow" --limit 40 --json databaseId,createdAt --jq ".[] | select(.createdAt >= \"$since\") | .databaseId" || true
           done | sort -rn | uniq | grep -vx "$GITHUB_RUN_ID" | head -40 | while read -r id; do
             gh run download "$id" --name "pool-smoke-state-$id" --dir "pool-smoke-out/states/$id" >/dev/null 2>&1 || true
