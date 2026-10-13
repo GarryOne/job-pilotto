@@ -1,0 +1,50 @@
+{
+ "origin": "hand-cut",
+ "shape": "a job page with a layer whose only button leaves the page by script (no link, no form)",
+ "why": "13 Oct 2026, the pool (Duolingo (found 2026-10-10)): the popup judge picked a layer's \"BACK TO HOME\", the fill pressed it and the tab went to the careers home; the run judged the home page and stopped unresolved. The judge had left the same popup alone in the run before. Fixed by consent.js pressStays: the press is undone (back) and the pick forgotten.",
+ "control": {
+  "guard": "landed with the fix (the floor); seen failing on the build before it"
+ },
+ "sample": "a careers posting with a closed-job layer (shape hand-cut from the pool run; hosts and text invented)",
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://careers.exemple.example/jobs/4711",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://careers.exemple.example/home.html",
+   "file": "home.html"
+  }
+ ],
+ "ai": {
+  "/extension/dismiss-popup": {
+   "ok": true,
+   "button": "BACK TO HOME"
+  },
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "posting",
+   "role": "no-form",
+   "by": "ai",
+   "confidence": 0.9,
+   "rung": 2,
+   "signal": "confident",
+   "applyButton": "",
+   "applyRoute": "",
+   "applyBy": "other",
+   "applyEmail": ""
+  }
+ },
+ "expect": {
+  "maxNewTabs": 0,
+  "seconds": 25,
+  "notTold": [],
+  "present": [
+   "#job-body"
+  ],
+  "told": [
+   "the press left the page, went back"
+  ]
+ }
+}
