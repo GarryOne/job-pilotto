@@ -59,7 +59,7 @@
   window.__jobPilottoDescribeForm = async (settled = false) => {
     const fields = [];
     const controls = Array.from(document.querySelectorAll('input, textarea, select')).filter(el => visible(el) &&
-      !el.disabled && el.getAttribute('aria-hidden') !== 'true' &&
+      !el.disabled && !window.__jobPilottoReadBack.hiddenAway(el) &&
       !['hidden', 'submit', 'button', 'reset', 'search', 'file', 'image'].includes(el.type));
     const groups = new Set();
     let unnamed = 0;

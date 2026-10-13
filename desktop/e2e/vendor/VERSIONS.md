@@ -15,5 +15,11 @@ Which library first comes from data: the count of each library's signatures per 
 | `react-dom.production.min.js` | react-dom (umd/react-dom.production.min.js) | 18.3.1 | MIT | `35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d` |
 | `react-dropzone.min.js` | react-dropzone (dist/index.js, UMD with attr-accept and file-selector inside) | 14.2.3 | MIT | `a93687ee8a9b7b9a682c99d3974346936f8334aac3a6bfa4e5d2929a5b767591` |
 | `react.production.min.js` | react (umd/react.production.min.js) | 18.3.1 | MIT | `d949f1c3687aedadcedac85261865f29b17cd273997e7f6b2bfc53b2f9d4c4dd` |
+| `jquery.min.js` | jquery (dist/jquery.min.js) | 3.7.1 | MIT | `fc9a93dd241f6b045cbff0481cf4e1901becd0e12fb45166a8f17f95823f0b1a` |
+| `select2.min.js` | select2 (dist/js/select2.min.js) | 4.0.13 | MIT | `00501810e93307a8882a74d864e7547fd1458deea539361dc1124ac133799a4b` |
+| `select2.min.css` | select2 (dist/css/select2.min.css) | 4.0.13 | MIT | `15d6ad4dfdb43d0affad683e70029f97a8f8fc8637a28845009ee0542dccdf81` |
+| `react-select.min.js` | react-select 5.8.0 with its emotion dependencies, bundled by esbuild (IIFE `window.ReactSelect`; react and react-dom are the vendored globals) | 5.8.0 | MIT | `4c3cd94d4e80d035d3ea6f78409f4b78049cc9b2695043fa45a43458fc563829` |
 
 Update: `npm pack <package>@<version>`, copy the file, update its row (a test checks every file's sha256 against this table).
+
+The two bundled files are built from the npm packages with esbuild (`--bundle --minify --format=iife`, `react`, `react-dom` and `react/jsx-runtime` aliased to the vendored `window.React` / `window.ReactDOM`, `process.env.NODE_ENV` = production); to rebuild, install the package version in a scratch folder and run the same bundle, then update the row.

@@ -1,0 +1,56 @@
+{
+ "origin": "hand-cut",
+ "shape": "the REAL Select2 (4.0.13 on jQuery 3.7.1, vendored): a required Country select drawn as its own box over the hidden native select; the answer is one of its options",
+ "why": "13 Oct 2026, 21+23 (spec amendment 6): the zoo's menus were imitations, this is the real library",
+ "control": {
+  "build": "0.9.268",
+  "failed": "to be measured on main"
+ },
+ "sample": "Select2 4.0.13 as a hosted application form initialises it (names and values removed)",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/acme/date-library/application",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "country",
+     "question": "Country",
+     "value": "Switzerland",
+     "confidence": "high",
+     "note": "",
+     "category": "other",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "attached": [
+   "#resume"
+  ],
+  "filled": [
+   "#country"
+  ],
+  "present": [
+   ".select2-selection__rendered[title='Switzerland']"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 40
+ },
+ "start": "panel"
+}
