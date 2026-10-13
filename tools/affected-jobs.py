@@ -40,6 +40,10 @@ JOBS = {
 # Jobs that run ONLY for what they load and their own files (owner, 13 Oct 2026: "only the specific cases, when it's really relevant"): never for the plumbing,
 # root dependencies, lock files or an unknown file that run every other job whole. Main's schedule is their backstop for those.
 OWN_ONLY = ()   # empty since 13 Oct 2026: the flow e2e's pick served only the PR live canary, removed (owner: no AI cost from a PR)
+# Jobs that run on a pull request ONLY for their own paths (folders, installs, staged copies) and the pick's plumbing (owner, 14 Oct 2026: harness ran on ~91% of PRs,
+# mostly because a test names or reads a changed file elsewhere: "can't we just use 'paths' on the GH workflows?"). A required job can't use `paths:` (it would never
+# report and block the PR), so the same rule lives here. Main's push runs them whole: the backstop for a break from outside their paths.
+PATHS_ONLY = ('harness',)
 STAGES = ('harness', 'zoo')   # the jobs that run desktop/scripts/stage.mjs --files-only: what it copies into desktop/shared counts as theirs
 # What runs the jobs themselves: a change to one runs every job whole.
 PLUMBING = re.compile(r'^(tools/(affected-(tests|jobs)\.py|replay-files\.mjs|ci-needed\.sh|check\.(sh|py)|py-shards\.py)|\.github/workflows/(build|pr-gate|recorded-pages|widget-zoo)\.yml)$')
@@ -247,6 +251,8 @@ def reason(job, changed):
         return 'no changed file listed: run'
     every = next((f for f in changed if PLUMBING.match(f) or f == 'tests/test_0_notion_ids.py' or (pick.ALL_TRIGGERS.search(f) and not pick.SCOPED_DEPS.match(f))
                   or not (f.startswith(pick.KNOWN) or pick.NO_TEST_EFFECT.search(f))), None)
+    if job in PATHS_ONLY:   # the plumbing and root dependencies still run them; an unknown file does not
+        every = next((f for f in changed if PLUMBING.match(f) or (pick.ALL_TRIGGERS.search(f) and not pick.SCOPED_DEPS.match(f))), None)
     if every and job not in OWN_ONLY:
         return f'{every} runs every job'
     tests, own = JOBS[job]
@@ -255,6 +261,8 @@ def reason(job, changed):
         hit = next((f for f in changed if under(f, staged())), None)
     if hit:
         return f'{hit} is its own (folder, install or staged copy)'
+    if job in PATHS_ONLY:
+        return None
     if tests is None:
         files = loads(job)
         if files is None:

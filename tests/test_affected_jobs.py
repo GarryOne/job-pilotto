@@ -128,13 +128,13 @@ class TheShapesItWasMeasuredOn(unittest.TestCase):
                         'desktop/e2e/pool-ci-summary.mjs', 'desktop/e2e/test/pool-ai-cost.test.mjs', 'site/src/jobcost.js'])
         self.assertIn('harness', ran)
 
-    def test_a_desktop_lib_change_runs_only_the_harness_tests_it_reaches(self):
-        # Owner, 13 Oct 2026, on #553 (desktop/lib/analytics.js): "why we run on such changes, harness tests?" One guard test scans desktop/lib; the job ran all of them.
-        picked = jobs.tests_reached('harness', ['desktop/lib/analytics.js', 'desktop/lib/telemetry-handlers.js', 'desktop/test/analytics.test.js'])
-        self.assertIsNotNone(picked, 'a list, not "all"')
-        self.assertIn('test/app-log.test.mjs', picked, 'the guard that scans desktop/lib')
-        self.assertLess(len(picked), len(list((ROOT / 'desktop/e2e/test').glob('*.test.mjs'))) // 2, picked)   # 50 of 190 on 13 Oct 2026: the offline app loads desktop/lib by path, so its tests count the folder
-        self.assertTrue(all(name.startswith('test/') and name.endswith('.test.mjs') for name in picked), 'paths as the job runs them, from desktop/e2e')
+    def test_the_harness_runs_on_a_pull_request_only_for_its_own_paths(self):
+        # Owner, 14 Oct 2026: it ran on ~91% of PRs, mostly because a test names or reads a file elsewhere; its 17 failures on PRs since 12 Oct were all
+        # on PRs touching its own paths (3 more touched only Python tests: not theirs). "can't we just use 'paths'": a product change elsewhere skips it.
+        for f in ('desktop/lib/analytics.js', 'extension/page/coverage.js', 'docs/HOW-IT-RUNS.md', 'site/src/aicost.js', 'something/new.bin'):
+            self.assertIsNone(jobs.reason('harness', [f]), f)
+        for f in ('desktop/e2e/lib/forms.mjs', 'desktop/scripts/stage.mjs', 'desktop/package.json', 'tools/ci-needed.sh', '.github/workflows/pr-gate.yml', 'package.json'):
+            self.assertTrue(jobs.reason('harness', [f]), f)
 
     def test_a_harness_lib_change_or_plumbing_runs_every_harness_test(self):
         self.assertIsNone(jobs.tests_reached('harness', ['desktop/e2e/lib/smoke.mjs']), 'its own folder: all of them')
@@ -154,7 +154,8 @@ class WhenInDoubtItRuns(unittest.TestCase):
         for f in ('tools/affected-jobs.py', 'tools/affected-tests.py', 'tools/replay-files.mjs', 'tools/ci-needed.sh', 'tools/check.py', '.github/workflows/build.yml',
                   '.github/workflows/pr-gate.yml', '.github/workflows/recorded-pages.yml', '.github/workflows/widget-zoo.yml', 'package.json', 'requirements.txt',
                   'eslint.config.mjs', 'something/new.bin', '.claude/settings.json'):
-            self.assertTrue(all(why for job, why in jobs.reasons([f]).items() if job not in jobs.OWN_ONLY), f)   # OWN_ONLY: only what they load (the flow e2e)
+            unknown = f in ('something/new.bin', '.claude/settings.json')   # an unknown file: not a PATHS_ONLY job's
+            self.assertTrue(all(why for job, why in jobs.reasons([f]).items() if job not in jobs.OWN_ONLY and not (unknown and job in jobs.PATHS_ONLY)), f)
 
     def test_a_test_that_lists_the_whole_repo_runs_its_job_for_any_file(self):
         self.assertIn('lists the whole repo', jobs.reasons(['site/public/robots.txt'])['desktop'])   # file-size.test.js: git ls-files, no folder
@@ -190,22 +191,6 @@ class WhenInDoubtItRuns(unittest.TestCase):
             self.assertIn(path, replays, path)
         self.assertIn('desktop/e2e/widget-zoo/', jobs.loads('zoo'))
         self.assertIsNone(jobs.reasons(['desktop/renderer/pages/activity.js'])['replays'], 'the window\'s pages are no part of a replay')
-
-    def test_every_file_a_harness_test_reads_runs_the_harness(self):
-        # The brief's guard: a harness test that reads a product file the pick does not map to it would let a PR skip the harness and break main.
-        missed = []
-        for test in sorted((ROOT / 'desktop/e2e/test').glob('*.test.mjs')):
-            text = test.read_text(errors='replace')
-            for literal in set(re.findall(r"""['"`]([\w@.-]*/[\w@./-]+\.(?:m?js|json|ya?ml|md|py|sh|html|css))['"`]""", text)):
-                for base in (test.parent, ROOT):
-                    target = (base / literal).resolve()
-                    if target.is_file() and target.is_relative_to(ROOT) and 'node_modules' not in target.parts:
-                        file = target.relative_to(ROOT).as_posix()
-                        if not jobs.reason('harness', [file]):
-                            missed.append(f'{test.name} reads {file}')
-                        break
-        self.assertEqual(missed, [])
-
 
 class TheStepInTheJob(unittest.TestCase):
     """tools/ci-needed.sh in a throwaway repo, with a stand-in pick: the verdict it writes for each situation."""
