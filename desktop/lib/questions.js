@@ -52,9 +52,9 @@ const hintOf = answer => answer.replace(/^❓\s*/, '').replace(/^(to confirm|opt
 export async function list(storage, fetcher) {
   const page = answersPage(storage, fetcher);
   const blocks = await page.blocks();
-  const lines = blocks.filter(block => block.text.includes('❓') && isQuestionLine(block.text)).map(parseLine).filter(q => q.question && !isFileQuestion(q.question));
+  const lines = blocks.filter(block => block.text.includes('❓') && isQuestionLine(block.text)).map(parseLine).filter(q => q.question && !unanswerable(q.question));
   const rows = openRows(await page.outline()).map(({row, cells}) =>
-    ({key: row.id, question: unmarked(cells[0].replace(/❓/g, '')), company: '', hint: hintOf(cells[1])})).filter(q => !isFileQuestion(q.question));
+    ({key: row.id, question: unmarked(cells[0].replace(/❓/g, '')), company: '', hint: hintOf(cells[1])})).filter(q => !unanswerable(q.question));
   return [...lines, ...rows];
 }
 
@@ -68,6 +68,12 @@ export const CONTACT = /first\s*name|given\s*name|vorname|prénom|last\s*name|fa
 // had one), or a fill that found "Resume/CV" unanswered, must not become a question (2 Oct 2026: a user was asked to type one).
 export const isFileQuestion = text => /^\s*(cv|c\.v\.|resume|r[ée]sum[ée]|curriculum vitae|lebenslauf)(\s*[/&,]\s*(cv|resume|r[ée]sum[ée]|cover letter))?(\s+(file|document|upload|attachment|pdf))?\s*[*:]*\s*$/i.test(unmarked(text));
 
+// A password, a captcha or a one-time code is never an answer to keep (owner, 13 Oct 2026: "Captcha", "Your password" and
+// "Repeat Password" were listed): a safety floor, for the labels as forms write them in any language.
+export const isSecretQuestion = text => /pass\s*-?\s*(word|wort|phrase|code)|kennwort|mot de passe|contrase[ñn]a|senha|palavra-passe|password|passwort|passwd|\bpin\b|captcha|not a robot|kein roboter|security (code|question)|verification code|one[- ]time (code|password)|\botp\b|2fa|two[- ]factor|sms code|bot check/i.test(unmarked(text));
+// Never listed in Answer once, from the page or from a fill.
+const unanswerable = text => isFileQuestion(text) || isSecretQuestion(text);
+
 // Required fields a fill couldn't answer -> new ❓ lines (skipping any question the page already has, and contact
 // fields, which come from the Profile).
 export async function collect(storage, run, company = '', fetcher) {
@@ -75,7 +81,7 @@ export async function collect(storage, run, company = '', fetcher) {
   const aliases = await sharedMeanings.lookup(storage).catch(() => []);
   const byMeaning = label => !!aliasKey(unmarked(label), aliases) || !!fileKind(unmarked(label), aliases);
   const wanted = (run.trace || []).filter(field => field.required && field.reason === NO_ANSWER && key(field.label) && (asksQuestion(field.label) || !CONTACT.test(unmarked(field.label)))
-    && !isFileQuestion(field.label) && !byMeaning(field.label));
+    && !unanswerable(field.label) && !byMeaning(field.label));
   if (!wanted.length) return 0;
   const page = answersPage(storage, fetcher);
   const fresh = [];
@@ -125,11 +131,12 @@ export async function standardAnswers(storage, fetcher) {
       current().table = true;
       for (const row of block.rows.slice(block.header ? 1 : 0)) {
         const [question = '', answer = ''] = row.cells;
-        if (question.trim()) current().items.push({question: question.trim(), answer: answer.trim(), open: answer.trim().startsWith('❓')});
+        const open = answer.trim().startsWith('❓');
+        if (question.trim() && !(open && unanswerable(question))) current().items.push({question: question.trim(), answer: answer.trim(), open});
       }
     } else if (text && isQuestionLine(text)) {
       const {question, company} = parseLine({id: block.id, text});
-      current().items.push({question, answer: company ? `Asked by ${company}` : '', open: true});
+      if (!unanswerable(question)) current().items.push({question, answer: company ? `Asked by ${company}` : '', open: true});
     } else if (text && group && /list_item|paragraph|quote|callout/.test(block.type)) {
       group.notes.push(text);
     }
