@@ -6,7 +6,7 @@
 > It fixes the root of the post-upload miss (17 of 39 CI rows), the re-render/late wipe and the menus the live run typed into.
 > The scrollbar (Linux vs Mac) is a separate small PR 0 for any option; real-site pages stay out of CI cases.
 >
-> Status: **proposal, for cc and the owner.** No build before the owner's yes. Session job-pilotto-replay-design, coordinator job-pilotto-cc.
+> Status: **⏸ PARKED (owner, 13 Oct 2026).** See "Parked" below for what brings it back. No build before the owner's yes. Session job-pilotto-replay-design, coordinator job-pilotto-cc.
 
 - **Why:** owner, 13 Oct 2026: "a much deeper/broader solution, or many little steps?" Control runs 1-2 of `npm run measure` failed on the
   page's own state after a CV upload (cause 4, [capture spec](2026-10-13-capture-once-measure-many.md)): 17 of 39 CI rows upload a CV and
@@ -195,6 +195,22 @@ Fixture: React 18 + react-dropzone 14 (vendored); a CV upload → the site's par
 - **PR 3:** P1's rows and the positive control; lift "unverified".
 - Captures made before PR 1 have no record: they replay static and are "not measured" until a live visit refreshes them (the 30-day library turns over).
 - Files: job-pilotto-capture owns capture-*, measure* and row-replay.mjs today; PRs 1-2 are agreed with it first (it builds them or hands them over).
+
+## Parked (owner, 13 Oct 2026)
+> ⏸ **Parked.** B changes how well a fix is measured offline, not what users get (the fill rate on real sites). The owner chose a bake-off first:
+> our extension vs other form-filling agents on 10 live rows. The bake-off does not need replay.
+
+- **Comes back when:** the bake-off says keep investing in our own extension. Then the first step is P1, before any build PR.
+- **P1:** 3 real CI rows that upload a CV, recorded live once and replayed offline. About $0.17 of AI ($0.056/row), 3 site visits, about 2-3 h.
+  It needs the owner's yes (through cc) and decision 1 (where CI records live).
+- **Build B only if, on all 3 rows:**
+  - every ask the live run made hits in the replay;
+  - extra asks (the replay asked, live did not) stay within the live-vs-live spread, measured on 2 live runs of the same row;
+  - the page's own after-upload state (the chip, the questions it reveals) appears 3/3;
+  - no first-party request is "not recorded".
+- **Drop B if:** any row misses a first-party request or the after-upload state, or extra asks exceed the live spread.
+  The likely cause would be pace, not the page: the extension's first pass ended at +13 s offline vs +48 s live in P0b. That gap would then be its own item, not part of B.
+- **Not done:** P0c (replay at the app's own pace), PRs 0-3. The prototype is scratch only; nothing of it is in the repo.
 
 ## Progress
 - [x] History read; options A, B, C compared; B chosen (proof: none: this spec)
