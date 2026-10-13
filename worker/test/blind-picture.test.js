@@ -16,7 +16,7 @@ test('a blind page is looked at with its picture only under the test switch; the
 
 test('every closer look logs whether it had a picture and what it cost', () => {
   const look = read('extension/ladder/rung4-picture.js');
-  assert.match(look, /decide\('fill', `closer look: \$\{action\}`, \{reason, by: answer\?\.by \|\| '', picture: !!image, usd: Number\(answer\?\.usd\) \|\| 0, why:/);
+  assert.match(look, /decide\('fill', `closer look: \$\{action\}`, \{reason, by: answer\?\.by \|\| '', picture: !!image, usd: Number\(answer\?\.usd\) \|\| 0, \.\.\.viewOf\(answer\), why:/);
 });
 
 test('the app prices the look from its own usage and returns it, never more than the answer\'s own fields', async () => {

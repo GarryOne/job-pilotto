@@ -92,6 +92,10 @@
   {
    "date": "2026-10-12",
    "reason": "rung 3 prompt: the not_listed answer (spec one-next-move box 6, owner OK 13 Oct); no stored answer is a digest answer (page_kind answers are rung 2), so none re-recorded"
+  },
+  {
+   "date": "2026-10-13",
+   "reason": "rung 4 schema gained shown (the picture counts the buttons and links it shows, box 6 cross-check); no fixture answers depend on rung 4 (the picture rung is not scored here); no fixture changed"
   }
  ],
  "promptFingerprint": {
@@ -102,7 +106,7 @@
   "form-judge": "09fcc69c9a99924a",
   "fill-verify": "fe0e393f3680f14e",
   "fill-repair": "b9110b61a1151dbe",
-  "rung4": "b69068d6b5b1a559"
+  "rung4": "20b3ddfcca2ce90f"
  },
  "fixtures": {
   "acc-ready-de-code-empty": {
