@@ -14,7 +14,7 @@ test('the free-credit card is its own single-card group, shown under every famil
   assert.ok(free, 'the trial card is still offered');
   assert.doesNotMatch(src.slice(src.indexOf('const free'), src.indexOf('free?.classList')), /family === 'claude'/, 'it shows under OpenAI too');
   assert.match(src, /classList\.add\('is-single'\)/);
-  assert.match(read('../renderer/components.css'), /\.ui-choices\.is-single \{ grid-template-columns: 1fr; \}/);
+  assert.match(read('../renderer/components.css'), /\.ui-choices\.is-single \{ grid-template-columns: minmax\(0, 1fr\); \}/);
 });
 
 test('with the free credit picked, no Claude Code or Codex status block is drawn', () => {
