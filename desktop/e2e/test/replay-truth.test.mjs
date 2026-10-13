@@ -120,3 +120,16 @@ test('the fill record is the /extension/run as the extension later corrected it:
   assert.equal(recordsOf([run, log([updated('filled')]), log([updated('left')])]).run.trace[0].outcome, 'left', 'the last one wins');
   assert.equal(recordsOf([log([updated('filled')])]).run, null, 'no record, nothing to correct');
 });
+
+test('a fill record from ANOTHER page than the panel reports on is not compared with it (a two-page case: the login page\'s record is not the apply page\'s)', () => {
+  const body = value => JSON.stringify(value);
+  const kind = url => ({route: '/extension/page-kind', body: body({url})});
+  const run = {route: '/extension/run', body: body({url: 'job', trace: [{label: 'Email', required: true, outcome: 'filled', source: 'your details'}]})};
+  const review = url => ({route: '/extension/review', body: body({url: `${url}#jobpilotto-fill`, missing: ['Phone']})});
+  assert.equal(recordsOf([kind('https://a.example/login'), run, kind('https://a.example/apply'), review('https://a.example/apply')]).run, null, 'the record was written on the login page');
+  assert.equal(recordsOf([kind('https://a.example/login'), run, kind('https://a.example/apply'), review('https://a.example/apply')]).stale, true, 'never a silent pass: the page\'s own record is awaited, and its absence fails');
+  assert.equal(recordsOf([kind('https://a.example/apply'), run, review('https://a.example/apply')]).run.trace[0].label, 'Email', 'the same page: the record stays');
+  assert.equal(recordsOf([kind('https://a.example/apply'), run, review('https://a.example/apply')]).stale, false);
+  assert.equal(recordsOf([run, review('https://a.example/apply')]).run.trace[0].label, 'Email', 'no page-kind ask before it: nothing to tell it from, kept');
+  assert.equal(recordsOf([kind('https://a.example/login'), run]).run.trace[0].label, 'Email', 'no panel report: kept');
+});
