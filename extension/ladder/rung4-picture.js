@@ -6,6 +6,7 @@ import {decide} from '../log.js';
 import {sketchOf} from '../judge-sketch.js';
 import {hideValues, showValues} from './rung4-page-picture.js';
 import {pressRegister} from '../account-fill.js';
+import {notePress} from '../tabs.js';
 import {chooseOption, fillControl} from '../account-act.js';
 import {pressInPage} from '../next-step.js';
 import {viewOf} from './picture-view.js';
@@ -65,6 +66,7 @@ export async function closerLook(tab, frameId, reason, {kind = 'account', pictur
   decide('fill', `closer look: ${action}`, {reason, by: answer?.by || '', picture: !!image, usd: Number(answer?.usd) || 0, ...viewOf(answer), why: String(answer?.why || '').slice(0, 80)});
   if (action === 'click' && answer.control) {
     // An application page is pressed with the next-step press (never a control that submits or reads like Submit); an account page with the register press.
+    notePress(tab.id, tab.url);   // the click below is ours: a tab it opens joins the application (tabs.js followOpener)
     const result = kind === 'form' || kind === 'page'
       ? ((await chrome.scripting.executeScript({target: {tabId: tab.id, frameIds: [frameId ?? 0]}, world: 'MAIN', func: pressInPage, args: [answer.control]}).then(rows => rows?.[0]?.result).catch(() => null))?.pressed ? 'pressed' : 'refused')
       : await run(tab, frameId, pressRegister, [answer.control]);

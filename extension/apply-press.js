@@ -10,6 +10,7 @@ import {decide} from './log.js';
 import {NAMED_BUTTONS, pickApplyButton, pickNamedButton} from './tab-pages.js';
 import {behindAStep, whyNotPressed} from './ladder/press-why.js';
 import {sameControl} from './no-effect.js';
+import {notePress} from './tabs.js';
 
 // The posting before its form: a page with no form and one "Apply" button (chosen by rule: tab-pages.js pickApplyButton).
 const PAGE_BUTTONS = 'a[href], button, [role="button"], input[type="button"]';
@@ -69,6 +70,7 @@ export async function pressApply(tabId, phrases = [], named = '', want = '', noE
       .filter(text => text && text.length <= 40))].slice(0, 25);
     return {pressed: null, via: '', buttons: seen, why};   // why: flags of the control the AI named (ladder/press-why.js), for the log
   }
+  notePress(tabId);   // right before the click: a tab this press opens joins the application, any other tab never does (tabs.js followOpener)
   const done = await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: (selector, index) => {   // MAIN: the page's own window.open, below
     const el = document.querySelectorAll(selector)[index];
     if (!el) return false;
