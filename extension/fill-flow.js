@@ -31,6 +31,7 @@ import {deadEnd, useFallback, useReporter} from './ladder/dead-end.js';
 import {notePage, noteProgress, useProgressLog} from './ladder/progress.js';
 import {onTop} from './on-top.js';
 import {labelReaderIn, pageShape, pageSketchOf} from './page-reads.js';
+import {beginRead, isCurrent} from './read-gen.js';
 import {blindOr, candidatesOf, claimFrame, climbOnStall, confirmedBody, digestAsked, frameBecameCandidate, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, notePressed, noteSignal, otherReport, takePressed, toldReport, verifiedBody} from './ladder/climb.js';
 
 let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true, fillsNow = new Set(), arm = async () => {}, progress = async () => {};
@@ -194,11 +195,14 @@ function brokenPage(tab, jobUrl, key, counts) {
 }
 // One page of an armed tab. A form is filled. A password page and a page with no form are left for Claude,
 // and the page says which, so Claude does not wait for a fill that will not come.
+// An answer that arrives after a newer read of the tab began is about a page this tab has moved past: dropped and logged, the newer read decides (read-gen.js).
+const late = (tab, gen, what) => { if (isCurrent(tab.id, gen)) return false; decide('fill', 'late answer dropped: a newer read of this tab answered', {what, host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()}); return true; };
 export async function consider(tab, jobUrl) {
   const key = fillKey(tab.id, tab.url);
   if (started.has(key)) return;
   started.add(key);
   notePage(tab.id, key, {job: jobUrl || tab.url, page: tab.url});   // a new page in the tab is progress, for this application (ladder/progress.js)
+  const gen = beginRead(tab.id);
   await pageStill(tab.id, {maxMs: 1500});   // the form renders after the load event: read once the page has been still 0.5 s, at most the old 1.5 s (page-still.js)
   const live = await chrome.tabs.get(tab.id).catch(() => null);
   if (!live || pageKey(live.url) !== pageKey(tab.url)) { started.delete(key); return; }
@@ -240,10 +244,12 @@ export async function consider(tab, jobUrl) {
   sayStep(tab.id, 'Reading this page…');
   const kindAsk = askKind(tab), outcomeLook = accountOutcome(tab).catch(() => {});
   const asked = (await kindAsk) || await climbOnUnsure(tab, askKind);   // unsure: the numbered digest (rung 3), not the structure rule
+  if (late(tab, gen, 'page kind')) return;
   // The application form: fill it now; what became of the sign-up before it is the account AI's word a moment later, for the card only (owner, 9 Oct 2026: the fill
   // waited 40 s on it on Migros while the page was already the form). Any other page (an account page, a posting, nothing known) waits for it, as the sign-in →
   // sign-up switch and the account step go by it. Guard: worker/test/account-step.test.js.
   if (asked?.role !== 'form') await outcomeLook;
+  if (late(tab, gen, 'account outcome')) return;
   const outcomeMs = Date.now() - lookedAt;   // what the fill waited before it could go on
   // What kind of page this is: the AI's word for this site and page shape (asked once, kept), in any language; the structure rule when
   // there is none (no AI, unsure). Every flow below goes by the role either one gives (docs/flows/applying.md).
@@ -254,7 +260,7 @@ export async function consider(tab, jobUrl) {
   const controls = (Number(counts.fields) || 0) + (Number(counts.files) || 0) + (Number(counts.textareas) || 0) + (Number(counts.passwords) || 0);
   if (kind && role === 'form' && controls === 0) {
     await forgetKind(tab, kind, 'a form with no fields'); role = ruled;
-    if (role === 'no-form') { noteSignal(tab.id, {rung: kind.rung ?? 2, signal: 'contradicted'}, controlsOf(tab.id)); kind = (await climbOnUnsure(tab, askKind)) || kind; role = kind?.role === 'no-form' ? 'no-form' : role; }   // the page contradicts the kept answer: a signal, so the ladder climbs (ladder/climb.js)
+    if (role === 'no-form') { noteSignal(tab.id, {rung: kind.rung ?? 2, signal: 'contradicted'}, controlsOf(tab.id)); kind = (await climbOnUnsure(tab, askKind)) || kind; if (late(tab, gen, 'contradicted page')) return; role = kind?.role === 'no-form' ? 'no-form' : role; }   // the page contradicts the kept answer: a signal, so the ladder climbs (ladder/climb.js)
   }
   // Every account page gets the normal fill: its fields are judged by meaning (any language) and your details go in, whatever step the AI named or did not
   // (owner, 12 Oct 2026: "we see an email, the AI judges, we fill"; a remembered answer with no step left the page to Claude and the email box empty).
@@ -327,6 +333,7 @@ export async function consider(tab, jobUrl) {
   let stall = null;
   if (role === 'no-form' && kind?.botCheck !== true && !emailReport(kind) && !toldReport(kind)) {
     stall = await climbOnStall(tab, askKind, key, kind);
+    if (late(tab, gen, 'stall climb')) return;
     if (stall?.applyButton) {
       applyPressed.set(tab.id, {at: Date.now(), url: tab.url});
       const attempt = await pressApply(tab.id, [{key: 'apply_button', phrase: stall.applyButton}], stall.applyButton, '', noEffectOf(key));
