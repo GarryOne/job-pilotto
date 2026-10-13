@@ -17,6 +17,7 @@ CLASSIFIED = {
     'CI · Pull request': 'ignored: runs on pull requests only, never on main; its checks gate the merge',
     'CI · Flow e2e (apply + applyflows, optional)': 'ignored: runs on pull requests only (an optional check), never on main',
     'CI · Replay vs live (offline)': 'ignored: pull requests only, informational, never required',
+    'CI · Replay gate (PR, 10 rows)': 'ignored: pull requests only, report only, never required',
     'CI · End-to-end on Mac + Linux': 'ignored: the e2e suites run on schedule and by hand with live-site and AI flakiness; a red one is an issue, not a block on every landing',
     'CI · End-to-end on Windows': 'ignored: same, slower and by schedule', 'CI · Python tests on Windows (by hand)': 'ignored: started by hand',
     'CI · Mac smoke (by hand)': 'ignored: by hand', 'CI · Pool smoke (by hand)': 'ignored: by hand, live sites', 'CI · Edge check (Windows, by hand)': 'ignored: by hand', 'CI · Windows smoke (weekly)': 'ignored: weekly',

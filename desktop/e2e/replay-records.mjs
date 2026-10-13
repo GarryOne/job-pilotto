@@ -38,7 +38,7 @@ export const deferredRows = (file = new URL('./replay-deferred.json', import.met
 export function fidelityRecord({name, dir = '', record}, replay, {sha = '', branch = '', at = new Date().toISOString(), deferred = {}} = {}) {
   const host = new URL(record.url).host.replace(/^www\./, '');
   const own = (replay?.counts?.notRecorded || []).filter(line => { try { return new URL(line.split(' ')[1]).host.endsWith(host); } catch { return false; } }).length;
-  return {name, sha, branch, at, outcome: replay?.outcome || null, liveOutcome: replay?.liveOutcome || null, live: {asks: replay?.liveAsks ?? 0}, recording: {where: whereOf(record, dir), at: Number.isFinite(record.startMs) ? new Date(record.startMs).toISOString() : null}, deferred: deferred[name] || null,
+  return {name, sha, branch, at, seconds: Number.isFinite(replay?.seconds) ? Math.round(replay.seconds) : null, site: host.split('.').slice(-2).join('.'), outcome: replay?.outcome || null, liveOutcome: replay?.liveOutcome || null, live: {asks: replay?.liveAsks ?? 0}, recording: {where: whereOf(record, dir), at: Number.isFinite(record.startMs) ? new Date(record.startMs).toISOString() : null}, deferred: deferred[name] || null,
     network: replay ? {hit: replay.liveHit, extra: replay.misses, notRecorded: own, orderMatched: replay.counts?.order || 0, echoed: replay.counts?.echoed || 0} : null};
 }
 

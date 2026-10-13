@@ -34,7 +34,7 @@ export function judge(records, baseline = {}, retry = []) {
         if (second && !retried) { verdict = 'noise'; why = `${down}; the retry matched the baseline`; } else { verdict = 'worse'; why = down; }
       } else if (!same) { verdict = 'different'; why = `${rose(before.outcome, outcome) ? 'further than the baseline' : 'other asks, same outcome'}: re-record to confirm`; }
     }
-    rows[record.name] = {same, outcome, counted, verdict, why};
+    rows[record.name] = {same, outcome, counted, verdict, why, seconds: record.seconds ?? null, site: record.site || ''};   // seconds, site: the PR gate's pick (replay-pick.mjs)
   }
   const list = Object.values(rows), worse = list.filter(row => row.verdict === 'worse').length;
   return {rows, counted: list.filter(row => row.counted).length, total: list.length, worse, red: worse > 0};
