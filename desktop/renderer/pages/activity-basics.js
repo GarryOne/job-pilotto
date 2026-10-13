@@ -15,7 +15,7 @@ import {parseKitsReady} from '../kits-ready.js';
 import {openSetting} from './settings.js';
 import {$} from './core.js';
 import {lastAnswered, pendingMailQuestions} from './focus.js';
-import {keepPress, setPress, pressWhile, claudeReadButton, renderVisitsCard} from './activity-visits.js';
+import {keepPress, setPress, pressWhile, claudeReadButton, renderVisitsCard, viewJobsButton} from './activity-visits.js';
 import {lastActivity, renderActivity} from './activity-render.js';
 import {renderRunCard} from './activity-run-card.js';
 import {renderMailCard} from './activity-mail.js';
@@ -142,12 +142,14 @@ function siteAction(site) {
 // live: the run is going. A finished run keeps its rows and marks (owner, 7 Oct 2026: "keep the ticks and crosses after the task completes"),
 // without the links that act on a running tab; a site the run left mid-way reads as stopped there, not as still going.
 const settled = site => (['done', 'stopped', 'closed'].includes(site.state) ? site : {...site, state: 'stopped', words: `${site.words.replace(/…$/, '')}: the run ended here`});
-export function siteRow(site, live = true) {
+export function siteRow(site, live = true, since = '') {
   if (!live) site = settled(site);
   const li = el('li', `${SITE_MARK[site.state] || 'todo'} site-row`);
   const words = el('div', 'site-words', site.name);
   words.append(el('span', 'phase-note', capital(site.words)));
   li.append(words);
+  const viewJobs = site.state === 'done' && viewJobsButton(site, site.words, since);   // more than one new job: Jobs filtered to them
+  if (viewJobs) li.append(viewJobs);
   // A finished run keeps only what still makes sense: the site itself, or the extension check (not a running tab's actions).
   // A finished run's stopped site: Read with Claude beside Open in Chrome (= Open it myself), as the result card's row had them.
   const finishedMiss = !live && ['stopped', 'closed'].includes(site.state);
@@ -266,7 +268,7 @@ export function cardFor(run, text) {
   const kits = KITS_CARD.has(kindOf(run)) ? parseKitsReady(text) : null;
   if (kits) return target => renderKitsCard(kits, target);
   const sites = parseVisits(text);
-  if (sites) return target => renderVisitsCard(sites, target);
+  if (sites) return target => renderVisitsCard({...sites, since: run?.startedAt}, target);
   return null;
 }
 
