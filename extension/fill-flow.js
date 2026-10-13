@@ -339,8 +339,10 @@ export async function consider(tab, jobUrl) {
   }
   // Self-correction: called a posting, but there was no Apply to press and the page has an application form's fields: it is the form.
   // Never for an "other", at any confidence: fields do not make a page a job page (13 Oct 2026, the owner's Chrome: a pull request was filled); the AI's answer stands, a weak one is asked again next visit (page-kind-final.js).
-  if (kind?.role === 'no-form' && !pressed && ruled === 'form' && noJobPage(kind)) decide('fill', 'the AI says this is no job page: its fields do not make it a form', {host, confidence: kind.confidence});
-  else if (kind?.role === 'no-form' && !pressed && ruled === 'form') { await forgetKind(tab, kind, 'a posting with no Apply but a form\'s fields'); role = 'form'; await noteRole(tab.id, tab.url, role); }
+  if (kind?.role === 'no-form' && !pressed && ruled === 'form') {
+    if (noJobPage(kind)) decide('fill', 'the AI says this is no job page: its fields do not make it a form', {host, confidence: kind.confidence});
+    else { await forgetKind(tab, kind, 'a posting with no Apply but a form\'s fields'); role = 'form'; await noteRole(tab.id, tab.url, role); }
+  }
   // The application form is inside a frame of this page (Datadog, 10 Oct 2026): the page-kind AI named it by index; its stored address is opened in this same tab, https only, once per tab and page.
   if (role === 'no-form' && Number.isInteger(kind?.form_frame) && kind.form_frame >= 0) {
     const src = frameSrcOf(tab.id, kind.form_frame);
