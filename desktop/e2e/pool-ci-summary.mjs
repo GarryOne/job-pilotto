@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {summary} from './lib/pool-ci.mjs';
 import {liveKeyName} from './lib/engine.mjs';
+import {pictureAsksOf} from './lib/picture-asks.mjs';
 
 const dir = process.argv[2] || '';
 const days = (() => { try { return fs.readdirSync(dir).filter(name => /^\d{4}-\d\d-\d\d\.json$/.test(name)).sort(); } catch { return []; } })();
@@ -13,5 +14,7 @@ const baseline = (() => { try { return JSON.parse(fs.readFileSync(process.argv[3
 // A PR's live proof (JOB_PILOTTO_VISIT_KIND=proof) that could not visit its row is not red: a reason outside the PR never blocks its merge; the NOT RUN line goes to the PR.
 const {markdown, red, notRun} = summary(JSON.parse(fs.readFileSync(path.join(dir, days.at(-1)), 'utf8')), {baseline, proof: process.env.JOB_PILOTTO_VISIT_KIND === 'proof', keyName: liveKeyName(process.env)});
 process.stdout.write(markdown);
+const pictures = pictureAsksOf(dir);   // the screenshot step is ON in CI pool runs only (owner, 13 Oct 2026): its asks and cost on their own line, beside the AI spend
+if (pictures) process.stdout.write(`\n${pictures}\n`);
 if (notRun && process.env.NOT_RUN_FILE) fs.writeFileSync(process.env.NOT_RUN_FILE, `${notRun}\n`);   // the workflow comments it on the PR
 process.exit(red.length ? 1 : 0);

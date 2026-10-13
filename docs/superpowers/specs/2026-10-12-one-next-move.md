@@ -223,7 +223,8 @@ PR by PR. Order: the account page with no step (10 of 75 pool rows), the posting
 - [x] the dead-end detector measured: recall and false fires on the pool's ground truth (T 30 s with asks out: recall 1/1, false fires 0/9 on 12 rows; wall time 1/9) (proof: desktop/e2e/test/pool-gaps.test.mjs)
 - [x] the one question at each dead end, in shadow, logged beside what happened ("dead end fallback (shadow)" lines on the pool: asked, asked already, picture_off) (proof: worker/test/fallback.test.js @dc5d06f)
 - [x] the next move checked: numbered answers, two agreeing asks for a press, an expected effect per verb (ladder/next-move.js: logged in shadow; the effect is checked when the CI pool acts, box 8) (proof: worker/test/next-move.test.js)
-- [ ] not_listed / blind and the picture cross-check (a new signal: the owner's OK)
+- [x] not_listed / blind, and the picture confirms it in CI pool runs (the owner's OK for the signal and for the screenshot step in CI only; the stop stays `other`/unresolved unless the control the picture names leads to a form) (proof: worker/test/blind-picture.test.js)
+- [ ] the picture-vs-sketch cross-check (more controls shown than listed: a partial view flagged) and the blind spots recorded as data for universal perception fixes
 - [x] fixtures with an expected move, labelled only from a pool run that pressed a listed control and then reached a form; `npm run ladder-score -- --moves` both ways (10 fixtures: the digest right on 10, 4 of them unsure, 0 wrong-and-confident) (proof: desktop/test/ladder-move-score.test.js)
 - [ ] the dead-end fixtures' moves: from the replays, a dead end the person or the takeover resolved, the row-to-case cases of dead-end rows; dead-end fixtures counted per source (the pool source has 1)
 - [ ] the CI pool acting: unblock rate per dead-end row; time and $ per page and per application

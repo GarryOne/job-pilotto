@@ -10,6 +10,8 @@ import {automationOf} from '../site-accounts.js';
 import {validateAlias} from '../../shared/alias-schema.js';
 
 export const MODEL = 'claude-opus-5-5';
+const PRICE = {input: 4, output: 20};   // USD per million tokens, claude-opus-5-5 (e2e/lib/vision.mjs PRICES)
+const usdOf = usage => (usage?.billing === 'subscription' ? 0 : Math.round(((usage?.input_tokens || 0) * PRICE.input + (usage?.output_tokens || 0) * PRICE.output) / 1e2) / 1e4);   // four places
 export const CAPS = {perShape: 2, perDay: 10};
 export const ACTIONS = ['click', 'fill', 'choose', 'wait', 'ask_person'];
 export const DETAILS = ['email', 'first_name', 'last_name', 'full_name', 'phone'];   // the only details a closer look may put in a box: the person's contact details an account asks for, never a password
@@ -127,6 +129,6 @@ export async function escalate(storage, body, {client, now = Date.now()} = {}) {
     const found = JSON.parse(response.content?.find(block => block.type === 'text')?.text || '');
     if (!ACTIONS.includes(found?.action)) return {ok: true, action: 'none', why: 'not an action'};
     const checked = (page ? vetPage : form ? vetForm : vet)(found, sketch, settings);
-    return {...checked, by: 'ai', why: checked.why || String(found.why || '').replace(/\s+/g, ' ').slice(0, 120)};
+    return {...checked, by: 'ai', usd: usdOf(response.usage), why: checked.why || String(found.why || '').replace(/\s+/g, ' ').slice(0, 120)};
   } catch (error) { return {ok: true, action: 'none', why: String(error?.message || 'AI failed').replace(/\s+/g, ' ').slice(0, 120)}; }
 }

@@ -32,7 +32,7 @@ import {notePage, noteProgress, useProgressLog} from './ladder/progress.js';
 import {onTop} from './on-top.js';
 import {labelReaderIn, pageShape, pageSketchOf} from './page-reads.js';
 import {beginRead, isCurrent} from './read-gen.js';
-import {blindOr, candidatesOf, claimFrame, climbOnStall, confirmedBody, digestAsked, frameBecameCandidate, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, notePressed, noteSignal, otherReport, takePressed, toldReport, verifiedBody} from './ladder/climb.js';
+import {blindOn, blindOr, candidatesOf, claimFrame, climbOnStall, confirmedBody, digestAsked, frameBecameCandidate, climbOnUnsure, controlsOf, forgetClimb, frameSketch, frameSrcOf, framesOf, noteFrames, notePressed, noteSignal, otherReport, takePressed, toldReport, verifiedBody} from './ladder/climb.js';
 
 let started = new Set(), fillOpenedTab = async () => null, reportFlow = async () => {}, onPage = async () => true, fillsNow = new Set(), arm = async () => {}, progress = async () => {};
 export function initFillFlow(shared) {
@@ -197,6 +197,9 @@ function brokenPage(tab, jobUrl, key, counts) {
 // and the page says which, so Claude does not wait for a fill that will not come.
 // An answer that arrives after a newer read of the tab began is about a page this tab has moved past: dropped and logged, the newer read decides (read-gen.js).
 const late = (tab, gen, what) => { if (isCurrent(tab.id, gen)) return false; decide('fill', 'late answer dropped: a newer read of this tab answered', {what, host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()}); return true; };
+// What the picture's look said about a blind page (the digest: the way on is not in its list): confirmed when the control it named led to a form, which the list lacked (the CI pool's daily rate:
+// e2e/lib/picture-asks.mjs). Kept out of consider(): a verdict is a log line, not a decision (tools/decision-branches.mjs).
+const blindVerdict = (blindLook, look, led) => { if (blindLook) decide('fill', led ? "blind spot confirmed: the picture's control led to a form" : 'blind spot not confirmed: the picture found no way on', {look}); };
 export async function consider(tab, jobUrl) {
   const key = fillKey(tab.id, tab.url);
   if (started.has(key)) return;
@@ -349,12 +352,17 @@ export async function consider(tab, jobUrl) {
   // The ladder ended at the person with nothing to say (the digest answered nothing usable): the picture rung looks once at the posting, from the sketch alone. It may press ONE control the page lists that the AI
   // calls Apply and the Apply floor accepts (desktop/lib/ladder/rung4-picture.js vetPage); the press is the next-step press, which never presses a control that submits.
   if (role === 'no-form' && kind?.botCheck !== true && !emailReport(stall || kind) && !toldReport(stall || kind) && otherReport(stall || kind, tab.id)) {
-    const look = await closerLook(tab, 0, 'the ladder ended at the person', {kind: 'page', picture: false}).catch(() => 'none');
+    // A blind page (the digest said the way on is not in its list) is looked at with its PICTURE, in test runs only (the harness's ladderAct switch: the CI pool; owner, 13 Oct 2026, users keep it off);
+    // the log says whether the picture confirmed the blind spot: the control it named led to a form, which the numbered list lacked.
+    const blindLook = blindOn(tab.id) && (await settings().catch(() => null))?.ladderAct === true;
+    const look = await closerLook(tab, 0, 'the ladder ended at the person', {kind: 'page', picture: blindLook}).catch(() => 'none');
+    let led = false;
     if (look === 'click') {
       const afterLook = await formAfterPress(tab.id, tab.url);
-      if (afterLook === 'navigated') { started.delete(key); return; }
-      if (afterLook) { role = 'form'; pressed = true; await noteRole(tab.id, tab.url, role); }
+      if (afterLook === 'navigated') { blindVerdict(blindLook, look, true); started.delete(key); return; }
+      if (afterLook) { role = 'form'; pressed = true; led = true; await noteRole(tab.id, tab.url, role); }
     }
+    blindVerdict(blindLook, look, led);
   }
   if (role !== 'form') {
     await progress(tab.id, '');   // no fill here: the panel's "Starting…" ends now, not after its 20 s (owner, 9 Oct 2026: it spun on a sign-in page left to them)
