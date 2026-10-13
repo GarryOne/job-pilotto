@@ -42,7 +42,7 @@ export function importsOf(source) {
 // A relative import resolved to a repo path; a bare specifier (node:fs) stays as it is.
 const resolveFrom = (file, from) => from.startsWith('.') ? path.posix.normalize(path.posix.join(path.posix.dirname(file), from)) : from;
 
-const EXTENSION_PLUMBING = ['extension/flow.js', 'extension/log.js', 'extension/account-fill.js', 'extension/judge-sketch.js', 'extension/ladder/rung4-page-picture.js', 'extension/account-act.js', 'extension/next-step.js'];
+const EXTENSION_PLUMBING = ['extension/flow.js', 'extension/log.js', 'extension/account-fill.js', 'extension/judge-sketch.js', 'extension/ladder/rung4-page-picture.js', 'extension/ladder/picture-view.js', 'extension/account-act.js', 'extension/next-step.js'];
 // file -> the exact set of things it imports. `only`: for a cross-rung edge, the one binding set it may take.
 export const EDGES = {
   'extension/tab-pages.js': {allow: ['extension/alias-schema.js']},
