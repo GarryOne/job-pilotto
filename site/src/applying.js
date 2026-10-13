@@ -12,6 +12,7 @@ import {topCauses} from './applying-cause.js';
 import {readReplays, replayCases} from './applying-replays.js';
 import {CASES_SCRIPT} from './applying-cases.js';
 import {RESOLUTION_CSS, RESOLUTION_SCRIPT, endingWord, readEndings, resolution as resolutionOf} from './applying-resolution.js';
+import {FIDELITY_SCRIPT, fidelity as fidelityOf, readFidelity} from './applying-fidelity.js';
 import {nextToAdd} from './nextsites.js';
 import {platformScorecard} from './scorecard.js';
 import {displayName, flowOf, platformLabel, SIGNATURE, signatureHost} from './platform.js';
@@ -125,7 +126,7 @@ export async function data(db, now = new Date(), slow = (key, fn) => fn()) {
       sites: sites.length, sitesRecent: sites.filter(site => site.day >= tenDays).length,
       reachedForm: live.length ? Math.round((100 * live.filter(site => ['form', 'ready'].includes(site.reached)).length) / live.length) : null,
       needFix: sites.filter(needsFix).length, regressions: sites.filter(site => site.regression).length, gone: sites.filter(site => site.note && !site.hold).length, held: sites.filter(site => site.hold).length, dropped: dropped.length},
-    resolution, sites, pool, fixed, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, now: now.toISOString()};
+    resolution, fidelity: fidelityOf(await readFidelity(db).catch(() => [])), sites, pool, fixed, next, scorecard, platforms: counts(pool, 'platform', 'flow'), flows: counts(pool, 'flow', 'platform').filter(item => item.name !== '—'), cases, nights, dropped, steps: STEPS, now: now.toISOString()};
 }
 
 // "Greenhouse: 4 sites, 3 flows": each group's size and how many different flows (or platforms) it holds.
@@ -218,14 +219,14 @@ fetch('?json', {headers: {'X-Caller': 'page-tab'}}).then(r => r.json()).then(d =
   const app = document.getElementById('app'); app.textContent = '';
   const legend = el('div', {hidden: true}, ...d.steps.map(step => pill(step))); app.append(legend);
   const t = d.tiles;
-${RESOLUTION_SCRIPT}
+${RESOLUTION_SCRIPT}${FIDELITY_SCRIPT}
   app.append(el('div', {className: 'tiles'}, resolutionTile(d.resolution),
     tile(t.sites ? t.sitesRecent + ' / ' + t.sites : 0, 'Smoke sites tested', '', 'Last 10 nights', 'Smoke sites run in the last 10 nights'),
     tile(t.reachedForm == null ? '–' : t.reachedForm + '%', 'Reached the form', t.reachedForm >= 70 ? 'good' : '', 'Of live smoke sites', 'Sites that reached the application form'),
     tile(t.regressions, 'Open regressions', t.regressions ? 'bad' : 'good', t.gone ? t.gone + ' posting(s) gone' : 'Reached less than before', 'A site that reached less than its last run' + (t.gone ? '; ' + t.gone + ' posting(s) are gone' : '')),
     tile(t.needFix, 'Sites needing a fix', t.needFix ? 'bad' : 'good', 'Stopped early, unexplained fields, or a regression', 'Stopped early, unexplained fields, or a regression'),
     tile(t.dropped, 'Boards dropped', t.dropped ? 'bad' : 'good', 'Fleet · layer 4', 'Boards dropped in the fleet (layer 4)')));
-  const resolutionBox = el('section', {className: 'resolution'}); app.append(resolutionBox);   // the headline under the tiles, filled below once the table helpers exist (src/applying-resolution.js)
+  const resolutionBox = el('section', {className: 'resolution'}); app.append(resolutionBox); const fidelityBox = el('section', {className: 'fidelity'}); app.append(fidelityBox);   // the headline under the tiles, filled below once the table helpers exist (src/applying-resolution.js)
   const tabs = el('nav', {className: 'tabs', role: 'tablist', 'aria-label': 'Applying results'}), fixBox = el('section', {className: 'fix'}), fixedBox = el('section', {className: 'fixed'}), causeBox = el('section', {className: 'bycause'}); app.append(tabs, fixBox, fixedBox, causeBox);   // Needs a fix: right under the tiles, drawn once block() exists (drawFix)
   // Nights · where each site got to (owner, 10 Oct 2026: more readable, at the top): one bar per night, newest first, every site of that night split by the step it reached
   // (the segment's width is its share, its number the count), then how many sites ran and the share that reached the form.
@@ -392,7 +393,7 @@ ${RESOLUTION_SCRIPT}
   app.append(el('section', {}, el('h2', {textContent: 'Platform scorecard · real use against the tests'}),
     el('p', {className: 'muted', textContent: 'Per platform: its share of the matched jobs and how well real forms are filled (the form-filling page), against the pool sites on it and how many reached the form. Verdicts, in the order to act: not in the pool; weak in both; blind spot (tests reach the form, real users do not fill it); test failing (real use is fine). Under 5 real forms is no evidence.'}), scoreBox)); drawScore();
 ${FIXED_SCRIPT}
-  drawFix(); drawFixed(); drawCauses(); showTab(); drawResolution(resolutionBox, d.resolution);
+  drawFix(); drawFixed(); drawCauses(); showTab(); drawResolution(resolutionBox, d.resolution); drawFidelity(fidelityBox, d.fidelity);
 ${CASES_SCRIPT}  app.append(el('section', {}, el('h2', {textContent: 'The pool · every smoke site'}), d.pool.length ? el('div', {}, filters, table, colorLegend)
     : el('p', {className: 'muted', textContent: 'No pool uploaded yet: cd desktop/e2e && npm run smoke'}))); if (d.pool.length) draw();
   // Fetch again every 5 minutes while the tab is visible (and once when it becomes visible after longer), so the spinner and the times follow a run without a reload.
