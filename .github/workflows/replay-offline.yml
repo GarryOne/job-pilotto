@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   replay:
-    runs-on: ubuntu-24.04
+    runs-on: macos-latest   # the records are made on the owner's Mac (records-publish.mjs): the same fonts and scrollbar as the live page
     timeout-minutes: 45
     env:
       JOB_PILOTTO_HEAVY: '0'   # the heavy lock is a Mac's machine-wide queue; this runner is its own machine
@@ -45,8 +45,7 @@ jobs:
         run: |
           (cd desktop && npm ci) && (cd desktop/e2e && (npm ci || npm install))
           pip install --quiet -r requirements.txt
-          (cd desktop/e2e && npx playwright-core install --with-deps chromium)
-          sudo apt-get install -y -qq xvfb >/dev/null
+          (cd desktop/e2e && npx playwright-core install chromium)
       - name: The pool's newest records (14 days), decrypted on the runner only
         if: steps.key.outputs.ok == '1'
         env:
@@ -55,7 +54,13 @@ jobs:
         run: |
           mkdir -p records "$RUNNER_TEMP/enc"
           umask 077 && printf '%s' "$NET_RECORD_KEY" | base64 -d > "$RUNNER_TEMP/key.pem"
-          since=$(date -u -d '14 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          # the Mac's records (records-publish.mjs, the release net-records), then the CI pool runs' (14 days); the newest record of each row is replayed
+          if gh release download net-records --pattern 'net-records.*' --dir "$RUNNER_TEMP/enc/mac" >/dev/null 2>&1; then
+            openssl pkeyutl -decrypt -inkey "$RUNNER_TEMP/key.pem" -pkeyopt rsa_padding_mode:oaep -in "$RUNNER_TEMP/enc/mac/net-records.k.enc" -out "$RUNNER_TEMP/k" \
+              && mkdir -p records/mac && openssl enc -d -aes-256-cbc -pbkdf2 -in "$RUNNER_TEMP/enc/mac/net-records.tgz.enc" -pass "file:$RUNNER_TEMP/k" | tar xz -C records/mac || true
+            rm -f "$RUNNER_TEMP/k"
+          fi
+          since=$(date -u -d '14 days ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-14d +%Y-%m-%dT%H:%M:%SZ)
           gh run list --workflow pool-smoke.yml --limit 60 --json databaseId,createdAt --jq ".[] | select(.createdAt >= \"$since\") | .databaseId" | while read -r id; do
             gh run download "$id" --name "net-records-$id" --dir "$RUNNER_TEMP/enc/$id" >/dev/null 2>&1 || continue
             openssl pkeyutl -decrypt -inkey "$RUNNER_TEMP/key.pem" -pkeyopt rsa_padding_mode:oaep -in "$RUNNER_TEMP/enc/$id/k.enc" -out "$RUNNER_TEMP/k" || continue
@@ -69,7 +74,7 @@ jobs:
         working-directory: desktop/e2e
         run: |
           set -o pipefail
-          xvfb-run -a --server-args='-screen 0 1440x900x24' node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/replay-out" | tee -a "$GITHUB_STEP_SUMMARY"
+          node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/replay-out" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Send the rows to /admin/applying "Replay vs live"
         if: steps.key.outputs.ok == '1' && github.event.pull_request.head.repo.full_name == github.repository
         working-directory: desktop/e2e
