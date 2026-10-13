@@ -1,0 +1,12 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Apply</title>
+<style>body{font:15px system-ui;margin:24px;max-width:640px} .field{margin:14px 0} label.q{display:block;font-weight:600;margin-bottom:4px} .required::after{content:" *";color:#c00}</style></head><body>
+<form id="application">
+<div class="field"><label class="q required" for="first">First name</label><input id="first" name="first" required></div>
+<div class="field"><label class="q required" for="email">Email</label><input id="email" name="email" type="email" required></div>
+<div class="field"><label class="q required" for="city">City</label><input id="city" name="city" required></div>
+<div class="field"><span class="q required">Which of these describes you?</span>
+  <div><input type="checkbox" id="opt_1" name="question_100[]" value="1" required><label for="opt_1">Option one</label></div>
+  <div><input type="checkbox" id="opt_2" name="question_100[]" value="2" required><label for="opt_2">Option two</label></div>
+  <div><input type="checkbox" id="opt_3" name="question_100[]" value="3" required><label for="opt_3">Option three</label></div></div>
+<button type="submit">Submit application</button>
+</form></body></html>
