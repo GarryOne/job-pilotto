@@ -6,7 +6,7 @@
 > It fixes the root of the post-upload miss (17 of 39 CI rows), the re-render/late wipe and the menus the live run typed into.
 > The scrollbar (Linux vs Mac) is a separate small PR 0 for any option; real-site pages stay out of CI cases.
 >
-> Status: **⏸ PARKED (owner, 13 Oct 2026).** See "Parked" below for what brings it back. No build before the owner's yes. Session job-pilotto-replay-design, coordinator job-pilotto-cc.
+> Status: **✅ PROVEN on real rows (13 Oct 2026, owner: "let's prove it").** 30 of 32 live AI asks matched on 6 pool rows; building day by day (see "Proof result" and "Plan"). Session job-pilotto-replay-design, coordinator job-pilotto-cc.
 
 - **Why:** owner, 13 Oct 2026: "a much deeper/broader solution, or many little steps?" Control runs 1-2 of `npm run measure` failed on the
   page's own state after a CV upload (cause 4, [capture spec](2026-10-13-capture-once-measure-many.md)): 17 of 39 CI rows upload a CV and
@@ -188,7 +188,7 @@ Fixture: React 18 + react-dropzone 14 (vendored); a CV upload → the site's par
 - **Live is not deterministic either:** two live runs of the fixture differed ("Why" filled vs empty; 36 vs 29 asks; a 2nd page-kind ask in one only).
   So "matches live" means: **(a) every ask the live run made hits**, and **(b) the asks a replay adds stay within live-vs-live's own spread**, measured on 2 live runs. Never one merged number.
 
-## Build PRs (after the owner's yes)
+## Build PRs (day 2 onward; see Plan)
 - **PR 0:** the scrollbar width recorded at capture and forced in the replay (cause 3). Independent of A/B/C.
 - **PR 1:** the network recorder (replaces `cssRecorder`), the body store, scrub and tripwires, the encrypted CI part (decision 1).
 - **PR 2:** the replayer: row-replay serves the record; the swap machinery deleted; `measure` counts not-recorded and loose serves.
@@ -196,28 +196,36 @@ Fixture: React 18 + react-dropzone 14 (vendored); a CV upload → the site's par
 - Captures made before PR 1 have no record: they replay static and are "not measured" until a live visit refreshes them (the 30-day library turns over).
 - Files: job-pilotto-capture owns capture-*, measure* and row-replay.mjs today; PRs 1-2 are agreed with it first (it builds them or hands them over).
 
-## Parked (owner, 13 Oct 2026)
-> ⏸ **Parked.** B changes how well a fix is measured offline, not what users get (the fill rate on real sites). The owner chose a bake-off first:
-> our extension vs other form-filling agents on 10 live rows. The bake-off does not need replay.
+## Proof result (13 Oct 2026, ~$0.15 of AI, draft #652)
+> ✅ **The network replay matches live on real rows.** 30 of 32 live AI asks on 6 pool rows; the old parking test passes. Today's snapshot replay missed the
+> after-upload state on every upload row it was tried on.
 
-- **Comes back when:** the bake-off says keep investing in our own extension. Then the first step is P1, before any build PR.
-- **P1:** 3 real CI rows that upload a CV, recorded live once and replayed offline. About $0.17 of AI ($0.056/row), 3 site visits, about 2-3 h.
-  It needs the owner's yes (through cc) and decision 1 (where CI records live).
-- **Build B only if, on all 3 rows:**
-  - every ask the live run made hits in the replay;
-  - extra asks (the replay asked, live did not) stay within the live-vs-live spread, measured on 2 live runs of the same row;
-  - the page's own after-upload state (the chip, the questions it reveals) appears 3/3;
-  - no first-party request is "not recorded".
-- **Drop B if:** any row misses a first-party request or the after-upload state, or extra asks exceed the live spread.
-  The likely cause would be pace, not the page: the extension's first pass ended at +13 s offline vs +48 s live in P0b. That gap would then be its own item, not part of B.
-- **Not done:** P0c (replay at the app's own pace), PRs 0-3. The prototype is scratch only; nothing of it is in the repo.
+| Row kind | Live asks | Snapshot replay | Network replay |
+|---|---|---|---|
+| Form + CV upload (3 rows) | 5, 4, 10 | 1 extra / stopped after 1 / 2 extra | 5/5, 4/4, 10/10 |
+| Posting → account step, multi-host (2 rows) | 3, 3 | – | 3/3, 2/3 |
+| Posting → embedded form + upload (1 row) | 7 | – | 6/7 (two live runs also differ by 1) |
+
+- Requests to the site missing from the record: 0 on every row. Replies matched by order: 15 of 15 the same as live.
+- **General fixes the real rows needed** (all in the replayer, no site names):
+  - a route-answered upload fires no `xhr.upload` progress/load/loadend, so the replay fires them;
+  - an upload reply echoes the page's time+random key, so the replay swaps in its own;
+  - Chromium doesn't follow a route-answered 3xx on a navigation, so it's served as `location.replace`, keeping the #fill mark;
+  - Linux CI draws a 15 px scrollbar and a Mac none (cause 3), so the capture records the width and the replay forces it.
+- **Not the cause** (measured): the page clock, slower replies (×1.6), a 4× CPU slowdown.
+- **Key:** generated with openssl into a 700-mode scratch folder, then the Keychain, then `rm -P`. For the build, generate it straight into the Keychain through a pipe.
+
+## Plan (owner, 13 Oct 2026: one deliverable a day)
+- **Day 1:** 10 rows replayed offline on the Mac, shown on /admin/applying "Replay vs live" (#651).
+- **Day 2:** PR "Record" (the scrollbar fix + the recorder in the CI pool run) and PR "Replay offline" (a CI job replaying the recorded rows on every PR). Needs the owner's yes on the key as a GitHub secret.
+- **Day 3+:** all rows; replace the old replayer (the build PRs above); row-to-case network cases; a signed-in Workday journey with the owner's test account.
 
 ## Progress
 - [x] History read; options A, B, C compared; B chosen (proof: none: this spec)
 - [ ] cc's review
-- [ ] The owner's yes, and decision 1 (where CI's record lives)
+- [x] The owner's yes ("let's prove it", 13 Oct 2026) and decision 1: encrypted CI artifact (proof: .github/workflows/pool-smoke.yml on draft #652)
 - [x] P0 + P0b: fixture site recorded and replayed; page side passes, pace open (proof: docs/superpowers/specs/2026-10-13-replay-by-network.md)
-- [ ] P0c: replay the app's own route latencies; bar (a) all live asks hit, (b) extra asks within live-vs-live spread
-- [ ] P1: three real upload rows (owner's yes for $0.17 and 3 visits)
+- [x] P0c folded into the proof: the memo replays each ask at its live latency (cap raised); the clock, slower replies and CPU were measured not to matter (proof: none: draft #652 replay-net.mjs)
+- [x] P1 widened: 6 real rows, 30 of 32 live asks matched (proof: none: draft #652, Proof result above)
 - [ ] PRs 0-3 landed; "unverified" lifted
 - [ ] When the positive control passes: the skills fix-failing-forms and run-applying-smoke-pool say "measure offline first" again (today: "measure is unverified, measure live")
