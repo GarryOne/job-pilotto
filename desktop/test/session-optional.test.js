@@ -17,9 +17,9 @@ test('the card lists the empty optional questions, once each, none on a closed t
 });
 
 test('the panel reports optional empty fields apart from the required ones, never a consent, and offers their proposals', () => {
-  const panel = read('extension/review.js');
-  assert.match(panel, /optional: state\.list\.filter\(f => !f\.required && !f\.ai && !f\.filled && !\(AGREE\.test\(f\.label\) \|\| f\.category === 'legal'\)\)/);
-  assert.match(panel, /proposals: state\.list\.filter\(f => !f\.filled && \(f\.suggested \|\| f\.wants\) && \(f\.required \|\| f\.ai \|\| !\(AGREE\.test\(f\.label\) \|\| f\.category === 'legal'\)\)\)/);
+  const panel = read('extension/page/review-payload.js');   // the report moved out of review.js (E, 13 Oct 2026)
+  assert.match(panel, /optional: state\.list\.filter\(f => !f\.required && !f\.ai && !f\.filled && !\(agree\.test\(f\.label\) \|\| f\.category === 'legal'\)\)/);
+  assert.match(panel, /proposals: state\.list\.filter\(f => !f\.filled && \(f\.suggested \|\| f\.wants\) && \(f\.required \|\| f\.ai \|\| !\(agree\.test\(f\.label\) \|\| f\.category === 'legal'\)\)\)/);
   assert.match(panel, /pending: state\.list\.filter\(f => \(f\.required \|\| f\.ai\) && !f\.filled\)/, 'what is left stays required-only');
 });
 
