@@ -1,6 +1,6 @@
 // When the pool's smoke may run on CI (owner: 11 Oct 2026 "by hand only"; 12 Oct 2026 also on a GitHub runner, by hand; 12 Oct 2026 v2: the live proof of ONE row a
-// PR names). A workflow that runs the smoke starts by hand (workflow_dispatch) or is called (workflow_call); the only caller is the PR proof (pull_request:
-// opened, synchronize, reopened, labeled). Never a schedule or a push. A new trigger or a new caller fails here, with the workflow's name.
+// PR names). A workflow that runs the smoke starts by hand (workflow_dispatch) or is called (workflow_call); the only callers are the PR proof and the flow
+// canary, each on its PR label only (13 Oct 2026). Never a schedule or a push. A new trigger or a new caller fails here, with the workflow's name.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -18,13 +18,15 @@ test('a workflow that runs the pool smoke starts by hand or is called: never a s
   for (const name of runners) assert.deepEqual(triggersOf(workflows[name]), ['workflow_dispatch', 'workflow_call'], `${name}: ${triggersOf(workflows[name]).join(', ')}`);
 });
 
-test('the only callers are the PR live proof and the flow canary (owner, 13 Oct 2026), on a pull request only: never a schedule or a push to a branch', () => {
+// Owner, 13 Oct 2026 ("let's disable that", ~25 automatic live runs a day on the Tests key): both callers run on a PR LABEL only, never on open or push.
+test('the only callers are the PR live proof and the flow canary, on a pull request label only: never on open, a push, a schedule', () => {
   const callers = Object.keys(workflows).filter(name => /uses: \.\/\.github\/workflows\/pool-smoke\.yml/.test(workflows[name]));
   assert.deepEqual(callers, ['flow-canary.yml', 'pool-proof.yml']);
-  assert.deepEqual(triggersOf(workflows['flow-canary.yml']), ['pull_request']);
-  assert.deepEqual(typesOf(workflows['flow-canary.yml']), [], 'the default types: opened, synchronize, reopened');
-  assert.deepEqual(triggersOf(workflows['pool-proof.yml']), ['pull_request']);
-  assert.deepEqual(typesOf(workflows['pool-proof.yml']), ['opened', 'synchronize', 'reopened', 'labeled']);
+  for (const [name, label] of [['flow-canary.yml', 'flow-canary'], ['pool-proof.yml', 'live-proof']]) {
+    assert.deepEqual(triggersOf(workflows[name]), ['pull_request'], name);
+    assert.deepEqual(typesOf(workflows[name]), ['labeled'], `${name}: on its label only`);
+    assert.match(workflows[name], new RegExp(`^ {4}if: [^\\n]*github\\.event\\.label\\.name == '${label}'`, 'm'), `${name}: its pick runs only for the "${label}" label`);
+  }
 });
 
 test('the trigger reader sees a trigger added to either file (positive control)', () => {
