@@ -41,3 +41,18 @@ export function keepCapture({root = capturesRoot(), day, shape, result, output =
   pruneCaptures(root, {today: day});
   return folder;
 }
+
+// A downloaded CI artifact (pool-captures-<run>: <day>/<row>/ with capture.json) merged into the library: a capture already there is kept as it is. -> the rows added (<day>/<row>)
+export function mergePulled(from, root = capturesRoot()) {
+  const added = [];
+  let days = [];
+  try { days = fs.readdirSync(from).filter(name => /^\d{4}-\d\d-\d\d$/.test(name)); } catch { return added; }
+  for (const day of days) for (const name of fs.readdirSync(path.join(from, day))) {
+    const source = path.join(from, day, name), target = path.join(root, day, name);
+    if (!fs.existsSync(path.join(source, 'capture.json')) || fs.existsSync(target)) continue;
+    fs.mkdirSync(path.dirname(target), {recursive: true});
+    fs.cpSync(source, target, {recursive: true});
+    added.push(`${day}/${name}`);
+  }
+  return added;
+}

@@ -102,6 +102,6 @@ The acting batch's **effect** column therefore still needs live visits, but only
 ## Progress
 - [x] Owner decisions 1 (artifact, 30 days) and 2 (30 days on the Mac) (proof: none: the owner's answers in session job-pilotto-capture, 13 Oct 2026)
 - [x] Spec approved by cc (13 Oct 2026, + notes: new asks are misses, --ask capped; live visits refresh) (proof: none: cc's message to job-pilotto-capture, 13 Oct 2026)
-- [ ] PR 1: every live row keeps its capture (Mac + CI artifact), build stamp, result row
+- [x] PR 1: every live row keeps its capture (Mac + CI artifact), build stamp, result row, #601 (proof: desktop/e2e/test/capture-library.test.mjs)
 - [ ] PR 2: `npm run measure` + `captures pull/list`, the tables on a replay folder, safeguards 1-3 + 5 with a test each
 - [ ] PR 3: positive control on one CI batch (numbers here) lifts "unverified"; skills: measure first, live proves (safeguard 4)

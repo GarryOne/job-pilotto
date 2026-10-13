@@ -1,0 +1,72 @@
+// npm run measure's safeguards (lib/measure.mjs; spec 2026-10-13-capture-once-measure-many.md): offline numbers are labelled and never share a table with live ones, a row the
+// capture did not cover is not measured, a press no capture saw is unseen, and every output says "unverified" until the positive control passed.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {test} from 'node:test';
+import {MISS_LIMIT, VERIFIED, capturesOf, measuredRow, offlineLabel, pressesOf, readingOf, tableLines, tablesOf} from '../lib/measure.mjs';
+
+const acted = (at, why, effect) => `2026-10-13T06:00:${at}.000Z [extension] fill: dead end fallback (acted) {"door":${Number(at)},"why":"${why}","effect":"${effect}"}`;
+const kind = (at, what) => `2026-10-13T06:00:${at}.000Z [extension] fill: page kind: ${what} {"by":"ai"}`;
+function capture(root, {day = '2026-10-13', name = 'lever-060000', row = 'Lever: single page', kept = 10, log = ''} = {}) {
+  const dir = path.join(root, day, name);
+  fs.mkdirSync(path.join(dir, 'pages'), {recursive: true});
+  fs.writeFileSync(path.join(dir, 'case.json'), JSON.stringify({pages: [{url: 'https://jobs.example.org/a', file: 'pages/1.html'}]}));
+  fs.writeFileSync(path.join(dir, 'capture.json'), JSON.stringify({row, build: {commit: 'abc', extension: '0.9.300'}}));
+  fs.writeFileSync(path.join(dir, 'model-memo.json'), JSON.stringify(Object.fromEntries(Array.from({length: kept}, (_, i) => [[`k${i}`, {}], [`k${i}#ms`, 1]]).flat())));
+  fs.writeFileSync(path.join(dir, 'app.log'), log);
+  return dir;
+}
+const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'jp-measure-'));
+
+test('1: every line is labelled offline (memo), "unverified" until the positive control passed; offline and live are separate tables', () => {
+  assert.equal(VERIFIED, false, 'the positive control (spec PR 3) has not passed yet');
+  assert.equal(offlineLabel(), 'offline (memo), unverified');
+  assert.equal(offlineLabel({ask: true, verified: true}), 'offline (plan)');
+  const dir = capture(tmp(), {log: kind('01', 'form')});
+  const row = measuredRow(dir, {appLog: kind('01', 'form'), misses: 0});
+  const lines = tableLines(tablesOf([row], 'offline'), offlineLabel());
+  assert.ok(lines.every(line => line.startsWith('[offline (memo), unverified] ')), lines.join('\n'));
+  assert.ok(tableLines(tablesOf([row], 'live'), 'live').every(line => line.startsWith('[live] ')));
+});
+
+test('2: a row whose capture missed more than 10 % of its asks is NOT MEASURED, never "no change"', () => {
+  assert.equal(MISS_LIMIT, 0.1);
+  const dir = capture(tmp(), {kept: 10});
+  assert.equal(measuredRow(dir, {appLog: '', misses: 1}).measured, true);   // 10 %: at the limit
+  const over = measuredRow(dir, {appLog: '', misses: 2});
+  assert.equal(over.measured, false);
+  assert.match(over.why, /2 of 10 kept asks \(20 %\) missed: not measured/);
+  const tables = tablesOf([over], 'offline');
+  assert.equal(tables.rows, 0);
+  assert.match(tableLines(tables, 'x').join('\n'), /1 NOT MEASURED[\s\S]*not measured: Lever: single page/);
+  assert.equal(measuredRow(dir, {error: 'the browser closed'}).measured, false);   // a failed replay is not measured either
+});
+
+test('3: a press no capture saw is unseen, never worked or failed', () => {
+  const live = acted('01', 'no_route', 'worked');
+  const replay = [acted('01', 'no_route', 'worked'), acted('05', 'no_route', 'worked'), acted('07', 'silent', 'failed')].join('\n');
+  assert.deepEqual(pressesOf(replay, live).map(press => press.effect), ['worked', 'unseen', 'unseen']);
+  const dir = capture(tmp(), {log: live});
+  const tables = tablesOf([measuredRow(dir, {appLog: replay, misses: 0})], 'offline');
+  assert.deepEqual(tables.acted, {acted: 3, worked: 1, failed: 0, unseen: 2});
+});
+
+test('the live and the offline side read an app log the same way (the positive control compares like with like)', () => {
+  const log = [kind('01', 'posting'), kind('03', 'form')].join('\n');
+  const dir = capture(tmp(), {log});
+  const row = measuredRow(dir, {appLog: log, misses: 0});
+  assert.deepEqual(tablesOf([row], 'offline').perRow, tablesOf([row], 'live').perRow);
+  assert.equal(readingOf(log, 'https://jobs.example.org/a').result.reached, 'form');
+});
+
+test('the library gives each row\'s newest capture of the days asked (a live visit refreshes the row)', () => {
+  const root = tmp();
+  capture(root, {day: '2026-10-12', name: 'lever-090000'});
+  const newest = capture(root, {day: '2026-10-13', name: 'lever-060000'});
+  const other = capture(root, {day: '2026-10-13', name: 'recruitee-070000', row: 'Recruitee: one-page form'});
+  assert.deepEqual(capturesOf(root, {days: 2, today: '2026-10-13'}).sort(), [newest, other].sort());
+  assert.equal(capturesOf(root, {days: 2, today: '2026-10-13', every: true}).length, 3);
+  assert.deepEqual(capturesOf(root, {days: 1, today: '2026-10-14'}), []);
+});

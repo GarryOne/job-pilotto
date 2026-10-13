@@ -24,6 +24,8 @@
     "all": "node run-all.mjs",
     "row": "bash ../../tools/heavy-lock.sh row-replay node row.mjs",
     "rows": "bash ../../tools/heavy-lock.sh row-replay node row.mjs --all",
+    "measure": "bash ../../tools/heavy-lock.sh row-replay node measure.mjs",
+    "captures": "node captures.mjs",
     "row-to-case": "bash ../../tools/heavy-lock.sh row-replay node row-to-case.mjs",
     "live": "bash live.sh",
     "widget-zoo": "JP_REPLAY=1 bash ../../tools/heavy-lock.sh widget-zoo node widget-zoo.mjs"

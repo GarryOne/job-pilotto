@@ -6,8 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {keepCapture} from './lib/capture-library.mjs';
 import {runLiveRow} from './lib/live-row.mjs';
-import {PAGE_LINE} from './lib/live-still.mjs';
-import {fieldLines} from './lib/smoke.mjs';
+import {outputOfLog} from './lib/smoke.mjs';
 
 const args = process.argv.slice(2), flag = name => { const at = args.indexOf(`--${name}`); return at >= 0 ? args[at + 1] : ''; };
 const url = args.find(arg => /^https?:\/\//.test(arg));
@@ -20,8 +19,7 @@ console.log(`live: ${result.seconds} s${result.tripped ? `; ${result.tripped}` :
 if (result.ai) console.log(`live: AI spend $${result.ai.usd.toFixed(4)} on the CI key (${result.ai.calls} calls, ${result.ai.input} in / ${result.ai.output} out tokens)`);   // lib/smoke.mjs parseLive -> the pool's dollar cap
 if (result.ai?.refused) console.log(`live: AI refused ${result.ai.refused} call(s): ${result.ai.why}`);   // the row ran without AI: the pool stops and goes red (lib/pool-ci.mjs)
 // The lines a smoke run reads (lib/smoke.mjs parseLive, evidence-bundle.mjs runFinished), as lib/apply-live.mjs prints them: the press, the app's own page lines, each field.
-if (result.opened) console.log(`  live +  0s: Apply pressed on ${url}`);
-for (const line of (result.appLog || '').split('\n').filter(one => PAGE_LINE.test(one))) { console.log(`      log ${line.slice(11, 230)}`); for (const text of fieldLines(line)) console.log(text); }
+{ const output = outputOfLog(result.appLog || '', result.opened ? url : ''); if (output) console.log(output); }   // lib/smoke.mjs: the same shape npm run measure reads
 console.log(`  live +${String(Math.round(result.seconds)).padStart(3)}s: watched ${Math.round(result.seconds)}s; frames in ${captureDir}`);
 for (const [part, lines] of Object.entries(result.evidence)) console.log(`${part}:\n${lines.length ? lines.map(line => `  ${line}`).join('\n') : '  (none in the app log)'}`);
 if (!result.tripped && !args.includes('--no-library')) {   // capture once, measure many: npm run measure re-runs a build on it offline
