@@ -7,6 +7,7 @@
 import {openStore} from './store/index.js';
 import {aliasKey, fileKind} from '../shared/alias-schema.js';
 import * as sharedMeanings from './aliases.js';
+import {asksQuestion} from './label-shape.js';
 
 export const NO_ANSWER = 'no answer in the kit, Profile or your details';
 export const key = question => String(question || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -73,7 +74,7 @@ export async function collect(storage, run, company = '', fetcher) {
   // A contact or file field by the shared label meanings too (any language: "Nome", "Currículo"), not only these words.
   const aliases = await sharedMeanings.lookup(storage).catch(() => []);
   const byMeaning = label => !!aliasKey(unmarked(label), aliases) || !!fileKind(unmarked(label), aliases);
-  const wanted = (run.trace || []).filter(field => field.required && field.reason === NO_ANSWER && key(field.label) && !CONTACT.test(unmarked(field.label))
+  const wanted = (run.trace || []).filter(field => field.required && field.reason === NO_ANSWER && key(field.label) && (asksQuestion(field.label) || !CONTACT.test(unmarked(field.label)))
     && !isFileQuestion(field.label) && !byMeaning(field.label));
   if (!wanted.length) return 0;
   const page = answersPage(storage, fetcher);

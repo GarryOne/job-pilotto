@@ -14,6 +14,9 @@
   const once = text => clean(text).replace(/^(.+?)\s+\1$/i, '$1');
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const visible = el => !!(el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
+  // A label that is a sentence asking something (ends in a question mark after four words or more, or runs past eight words) is a question for the AI, never a contact detail's
+  // box: a built-in pattern read inside it put a phone number into "Have you automated mobile (iOS/Android) ... workflows?" (13 Oct 2026). By shape, no words.
+  const asksQuestion = text => { const words = String(text || '').replace(/[\s*]+$/, '').split(/\s+/).filter(Boolean); return words.length >= 4 && /[?？]$/.test(words.at(-1)) || words.length > 8; };
 
   // A field's own title when nothing ties it to the field (Ashby's location: <label for="…"> naming no element): the one label
   // tied to no control in the field's entry, within three levels; never two (that is a group's title, not this field's).
@@ -61,6 +64,6 @@
   const comboControl = el => el.closest('[class*=control]') || el;
   const comboValue = el => window.__jobPilottoReadBack.comboValue(el);   // react-select's chip or a labelled hidden input: the one reading of a control (page/read-back.js, injected first)
   const radioOps = window.__jobPilottoRadios({clean, norm, labelOf, questionOf, LEGAL, visible});   // page/radios.js, injected first
-  window.__jobPilottoFillKit = {LEGAL, clean, norm, once, sleep, visible, looseLabel, labelOf, fieldsetTitle, titleRequired, questionOf,
+  window.__jobPilottoFillKit = {LEGAL, asksQuestion, clean, norm, once, sleep, visible, looseLabel, labelOf, fieldsetTitle, titleRequired, questionOf,
     isCombo, comboControl, comboValue, radioOps};
 })();

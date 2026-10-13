@@ -1,0 +1,27 @@
+{
+ "origin": "hand-cut",
+ "shape": "open text boxes whose question only names a contact detail (\"mobile (iOS/Android) ... workflows?\", \"your e-mail\"), beside the real phone and name boxes",
+ "why": "13 Oct 2026, a pool row on a careers form (Recruitee-built): the fill's phone pattern read the word \"mobile\" inside a yes/no question and typed the applicant's phone number into it; the row counted as filled and no check flagged it. A label that is a sentence asking something is a question for the AI, never a contact detail's box; the real Phone and name boxes are still filled.",
+ "control": {
+  "build": "0.9.456",
+  "failed": "empty: #mobile_q (the phone number was typed into the question about mobile builds)"
+ },
+ "sample": "an application form whose question text names a contact detail (hosts and text invented)",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/question-naming-mobile/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {"ok": true, "kind": "form", "role": "form", "by": "ai", "confidence": 0.99},
+  "/extension/answer": {"ok": true, "eligible": true, "answers": []}
+ },
+ "expect": {
+  "empty": ["#mobile_q", "#mail_q"],
+  "kept": ["#email"],
+  "notTold": ["pressed the submit"],
+  "seconds": 30
+ },
+ "start": "panel"
+}

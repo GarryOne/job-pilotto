@@ -5,6 +5,7 @@
 //   - anything else short -> 🧠 Form knowledge (Notion) as an "answer"/"option" note for every site, which the extension
 //     uses on the next form that asks the same question (lib/server.js me() -> extension/flow.js).
 // Nothing leaves your Notion. You can read, fix or delete every line there.
+import {asksQuestion} from './label-shape.js';
 import {aliasKey} from '../shared/alias-schema.js';
 import * as sharedMeanings from './aliases.js';
 import * as contactDetails from './contact.js';
@@ -25,7 +26,7 @@ const clean = text => String(text || '').replace(/\s*\*+\s*$/, '').replace(/[:"\
 const PERSONAL_KEYS = PERSONAL.map(([key]) => key), CONTACT_KEYS = ['first_name', 'last_name', 'full_name', 'email', 'phone', 'linkedin', 'github', 'website'];
 export const personalKey = (label, aliases = []) => (key => (PERSONAL_KEYS.includes(key) ? key : ''))(aliasKey(clean(label), aliases))
   || PERSONAL.find(([, pattern]) => pattern.test(clean(label)))?.[0] || '';
-const known = (label, aliases = []) => KNOWN.test(label) || CONTACT_KEYS.includes(aliasKey(label, aliases));
+const known = (label, aliases = []) => (!asksQuestion(label) && KNOWN.test(label)) || CONTACT_KEYS.includes(aliasKey(label, aliases));
 
 // items [{label, value, kind}] -> {details: {street: ...}, notes: [...]}; what is already known is left out.
 export function plan(items, {contact = {}, notes = [], aliases = []} = {}) {
