@@ -28,5 +28,4 @@ jobs:
         env:
           AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
           ANTHROPIC_ADMIN_KEY: ${{ secrets.ANTHROPIC_ADMIN_KEY }}
-          AI_COST_KEYS: job-pilotto-*,!job-pilotto-private*,!job-pilotto-desktop-app-*   # every product key by name (a new job-pilotto-<job> key shows up by itself), not the owner's personal keys (Always-on, the desktop app); also summed per workspace (names only; owner, 14 Oct 2026)
         run: node desktop/e2e/ai-cost-report.mjs --billed --days 31

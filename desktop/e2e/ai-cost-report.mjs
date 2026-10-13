@@ -2,7 +2,7 @@
 // a missing key, an unreadable record or an unreachable site only prints a line.
 //   node ai-cost-report.mjs --job <id> (--execution <claude-code-action output> | --file <{usd, calls}> | --usd <n> [--calls <n>]) [--suffix <matrix key>] [--provider anthropic|openai]
 //   node ai-cost-report.mjs --billed [--days 7]     what Anthropic itself billed per day (Admin API, ANTHROPIC_ADMIN_KEY), to see what the jobs miss;
-//                                                    with AI_COST_KEYS=<name,name> also what each of those API keys cost per day (sent by NAME only)
+//                                                    also what every API key of the organization cost per day, and per workspace (sent by NAME only; AI_COST_KEYS=<name,prefix*,!name> narrows it)
 // Env: AI_COST_PUBLISH_KEY; GITHUB_RUN_ID / GITHUB_RUN_ATTEMPT / GITHUB_REPOSITORY (set by Actions).
 import fs from 'node:fs';
 import {pathToFileURL} from 'node:url';
@@ -140,10 +140,10 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
       if (!process.env.ANTHROPIC_ADMIN_KEY) console.log('Billed cost not fetched: ANTHROPIC_ADMIN_KEY is not set.');
       else {
         const days = Number(at('--days')) || 7, billed = await fetchBilled(days);
-        const tracked = String(process.env.AI_COST_KEYS || '').split(',').map(name => name.trim()).filter(Boolean);
-        const keys = tracked.length ? await fetchKeyDays(days, tracked).catch(error => { console.log(`Per-key cost not fetched: ${error.message}`); return []; }) : [];
+        const named = String(process.env.AI_COST_KEYS || '').split(',').map(name => name.trim()).filter(Boolean), tracked = named.length ? named : ['*'];   // every key of the organization unless a list narrows it
+        const keys = await fetchKeyDays(days, tracked).catch(error => { console.log(`Per-key cost not fetched: ${error.message}`); return []; });
         await put({billed, keys});
-        console.log(`Billed cost published for ${billed.length} day(s): $${billed.reduce((s, d) => s + d.usd, 0).toFixed(2)}${tracked.length ? `; ${describeKeys(keys)}` : ''}.`);
+        console.log(`Billed cost published for ${billed.length} day(s): $${billed.reduce((s, d) => s + d.usd, 0).toFixed(2)}; ${describeKeys(keys)}.`);
       }
     } else {
       const job = at('--job'), figures = spent({execution: read('--execution'), file: read('--file'), usd: at('--usd'), calls: at('--calls')});
