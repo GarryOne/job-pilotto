@@ -1,5 +1,6 @@
 // Replay only: a request answered from the record fires no upload progress/load/loadend (Playwright's route.fulfill); a live upload does. Fire them, with the
 // body's full size, when the answer's headers arrive (before the page's own load handlers see the response).
+/* global window, ProgressEvent */
 (() => {
   const Xhr = window.XMLHttpRequest, send = Xhr.prototype.send;
   Xhr.prototype.send = function (body) {

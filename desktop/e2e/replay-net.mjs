@@ -3,6 +3,7 @@
 // The row runs exactly as live (lib/live-row.mjs runLiveRow: the app, Apply, the real extension), but its browser resolves no host (offline) and every
 // request is served from the record; the AI answers only from the live run's kept answers, at their live latency; a miss is refused and counted.
 // Writes <out>/replay.json (requests by rule, not recorded, misses by step) beside the run's own end.png and step-*.png.
+/* global document, navigator */
 import fs from 'node:fs';
 import path from 'node:path';
 import {runLiveRow} from './lib/live-row.mjs';
@@ -19,7 +20,7 @@ process.env.JOB_PILOTTO_SITE_LEDGER_DIR = path.join(out, 'ledger');   // no site
 delete process.env.JP_NET_RECORD_DIR;
 process.env.JP_PROOF_HITS = path.join(out, 'hits.txt');   // each kept answer the replay used (lib/ai/model-memo.js, proof only): test (a), every live ask hits
 process.env.JP_PROOF_LATENCY_CAP_MS ||= '20000';   // the live AI's own time, not capped at 3 s: the replay keeps the live pace (P0b's gap)
-const SW_BLOCK = () => { if (navigator.serviceWorker) navigator.serviceWorker.register = async () => {}; };   // eslint-disable-line no-undef
+const SW_BLOCK = () => { if (navigator.serviceWorker) navigator.serviceWorker.register = async () => {}; };
 
 let replay = null;
 const browser = async options => {
@@ -27,7 +28,7 @@ const browser = async options => {
   await run.context.addInitScript(SW_BLOCK);
   await run.context.addInitScript({path: path.join(path.dirname(new URL(import.meta.url).pathname), 'lib', 'upload-events.js')});   // a fulfilled upload fires no upload events (lib/upload-events.js)
   // --linux-scrollbar: a CI runner (Linux) draws a 15 px classic scrollbar, a Mac none: the page is 15 px narrower live (the capture spec's cause 3)
-  if (SCROLLBAR) await run.context.addInitScript(() => { const style = () => { const s = document.createElement('style'); s.textContent = '::-webkit-scrollbar{width:15px;height:15px}::-webkit-scrollbar-thumb{background:#c1c1c1}'; (document.head || document.documentElement).appendChild(s); }; if (document.documentElement) style(); else document.addEventListener('DOMContentLoaded', style); });   // eslint-disable-line no-undef
+  if (SCROLLBAR) await run.context.addInitScript(() => { const style = () => { const s = document.createElement('style'); s.textContent = '::-webkit-scrollbar{width:15px;height:15px}::-webkit-scrollbar-thumb{background:#c1c1c1}'; (document.head || document.documentElement).appendChild(s); }; if (document.documentElement) style(); else document.addEventListener('DOMContentLoaded', style); });
   if (!NO_CLOCK) await run.context.clock.install({time: record.startMs});
   if (CPU > 1) await (await run.context.newCDPSession(run.page)).send('Emulation.setCPUThrottlingRate', {rate: CPU});   // a CI runner is slower than a Mac: --cpu=4 slows this browser to about its pace
   const pageLog = page => { page.on('pageerror', error => fs.appendFileSync(path.join(out, 'page-errors.txt'), `pageerror ${String(error.message).slice(0, 300)}\n`)); page.on('console', message => { if (['error', 'warning'].includes(message.type())) fs.appendFileSync(path.join(out, 'page-errors.txt'), `${message.type()} ${message.text().slice(0, 300)}\n`); }); };
