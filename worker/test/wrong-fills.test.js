@@ -55,7 +55,7 @@ test('a link the AI typed that no saved link of the field\'s kind backs is propo
   assert.equal(floorLinkKind({...typed('https://ada.dev'), use: 'propose'}, 'Link to your GitHub', given).use, 'propose');
 });
 
-test('the fill check is asked when a contact-kind value sits in a question, and its question says the kind must fit', async () => {
+test('the fill check is asked when a contact-kind value sits in a question', async () => {
   const {wantsFillCheck} = await import('../../extension/form-ready.js');
   const phoneInQuestion = {label: 'Have you automated mobile (iOS/Android) or desktop build and publication workflows?', match: 'yes', answer: 'phone'};
   assert.equal(wantsFillCheck({controls: [phoneInQuestion]}, {answer: 'needs_person'}), true);
