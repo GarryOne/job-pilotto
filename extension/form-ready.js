@@ -42,7 +42,10 @@ export const formNext = (tab, frameId = 0) => askForm(tab, frameId);
 // The fill ladder's fill_verify in SHADOW (spec docs/superpowers/specs/2026-10-12-fill-ladder.md, PR 3; owner, 12 Oct 2026: one zoo pass + one pool pass, then repair goes live): asked
 // on the same settled sketch when a control did not keep what the fill gave it (match "no"), or the judge names as missing a control the fill's match says it kept. Its verdicts are only
 // logged; nothing acts on them. Not awaited: the panel never waits for it. Guard: worker/test/form-ready.test.js.
-export const wantsFillCheck = (sketch, answer) => (sketch?.controls || []).some(item => item.match === 'no')
+// The kinds of value that are contact details: one that sits in a sentence asking something (a phone number in a yes/no question) is asked about too, though the box holds it (13 Oct 2026).
+const CONTACT_KINDS = ['phone', 'email_shaped', 'dial_code'];
+const asksQuestion = label => { const words = String(label || '').replace(/[\s*]+$/, '').split(/\s+/).filter(Boolean); return words.length >= 4 && /[?？]$/.test(words.at(-1)) || words.length > 8; };
+export const wantsFillCheck = (sketch, answer) => (sketch?.controls || []).some(item => item.match === 'no' || item.match === 'yes' && CONTACT_KINDS.includes(item.answer) && asksQuestion(item.label))
   || (!!answer?.needs && (sketch?.controls || []).some(item => item.match === 'yes' && item.label === answer.needs));
 function shadowCheck(tab, config, sketch, answer, host) {
   if (!wantsFillCheck(sketch, answer)) return;

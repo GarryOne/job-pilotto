@@ -54,3 +54,7 @@ test('the shadow route logs and returns the verdicts; it never asks for an actio
   assert.deepEqual(answer.counts, {ok: 0, empty: 1, wrong: 0, unreachable: 0, unsure: 0});
   assert.ok(!('action' in answer) && !('needs' in answer));
 });
+
+test('the instructions name a phone number in a question as a kind that does not fit (13 Oct 2026, a pool row typed a phone number into a yes/no question)', () => {
+  assert.match(INSTRUCTIONS, /kind of value entered does not fit[^.]*phone number in a yes\/no question/i);
+});

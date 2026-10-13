@@ -4,7 +4,7 @@
 (() => {
   if (window.__jobPilottoFillReadLoaded) return;
   window.__jobPilottoFillReadLoaded = true;
-  const {LEGAL, clean, labelOf, questionOf, fieldsetTitle, titleRequired, visible, isCombo, radioOps} = window.__jobPilottoFillKit;
+  const {LEGAL, asksQuestion, clean, labelOf, questionOf, fieldsetTitle, titleRequired, visible, isCombo, radioOps} = window.__jobPilottoFillKit;
 
   const PROFILE_LABELS = [
     ['first_name', /first\s*name|given\s*name|vorname|prénom/i],
@@ -40,6 +40,7 @@
     window.__jobPilottoAliasUsed = {};   // field -> the phrase that placed it (reported as counts, never the answer)
     for (const row of rows) {
       if (row.filled || row.legal || used.has(row.field) || !TEXT_TYPES.includes(row.type)) continue;
+      if (asksQuestion(row.label)) continue;   // a sentence is a question for the AI, whatever detail it names
       if (/middle|maiden|nick/i.test(row.label || '')) continue;  // "Preferred first name" = your first name
       const match = PROFILE_LABELS.find(([key, pattern]) => profile[key] && pattern.test(row.label || row.field));
       const alias = match ? null : aliasFor(row.label);

@@ -36,3 +36,18 @@ export function floorUngrounded(answer, given, { test = false } = {}) {
   const grounded = asPhone ? phones.includes(digits.slice(-9)) : wordsOf(value).every((word) => words.has(word));
   return grounded ? answer : { ...answer, use: 'propose' };
 }
+
+// The link floor (13 Oct 2026, a careers form: a LinkedIn address typed into "Useful links (e.g. GitHub)"): a link the AI types must be backed by a saved link of the
+// kind the field asks for. The saved link's own line (its label and address) has to share a word of four letters or more with the field's label, by shape: no site names,
+// no list. Otherwise it is only proposed, and the applicant confirms it once (a wrong typed answer is worse than an empty one). Not a link, or already proposed: untouched.
+const GENERIC = new Set(['link', 'links', 'url', 'urls', 'profile', 'page', 'your', 'useful', 'other', 'additional', 'https', 'http', 'www', 'com']);
+const linkWords = (text) => wordsOf(text).filter((word) => word.length >= 4 && !GENERIC.has(word));
+export function floorLinkKind(answer, label, given, { test = false } = {}) {
+  const value = String(answer.value || '').trim();
+  if (test || answer.use !== 'fill' || !/^(https?:\/\/|www\.)\S+$/i.test(value)) return answer;
+  const key = plain(value).replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
+  const lines = plain(given).split('\n').filter((line) => line.includes(key));
+  const wanted = new Set(linkWords(label));
+  const backed = lines.some((line) => linkWords(line).some((word) => wanted.has(word)));
+  return backed ? answer : { ...answer, use: 'propose' };
+}
