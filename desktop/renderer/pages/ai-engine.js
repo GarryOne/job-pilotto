@@ -1,5 +1,5 @@
 // The AI engine chooser, one component for the setup wizard's AI step and Settings → Connections → AI: a Claude | OpenAI switch, then that
-// family's two cards (API key / its own CLI: Claude Code or Codex; the wizard adds $1 of free AI under Claude), the CLI's status block with Verify,
+// family's two cards (API key / its own CLI: Claude Code or Codex; the wizard adds $1 of free AI as a third, full-width card under either family), the CLI's status block with Verify,
 // the in-family plan-limit fallback and the note.
 // The user picks; in the wizard nothing is pre-selected, in Settings the choice is remembered and switching is instant.
 import {refreshClaudeHelp} from '../claude-help.js';
@@ -43,8 +43,11 @@ export function mountEngine(box, {context = 'settings', onChange = () => {}} = {
     const cards = choiceCards([
       ...FAMILY_CARDS[family].map(id => ({id, icon: ICONS[id], title: TEXT[id].title, text: context === 'settings' ? TEXT[id].short : TEXT[id].text,
         note: id === CLI_OF[family] && status && !status.installed ? 'Not found on this Mac' : ''})),
-      ...(context === 'wizard' && family === 'claude' ? [{id: 'trial', icon: 'sparkle', title: TEXT.trial.title, text: TEXT.trial.text}] : []),   // $1 free AI: Claude only
     ], {selected: picked, onPick: pick, label: TEXT.title});
+    // $1 of free AI: its own full-width card under either family, not one of the engine cards (owner, 13 Oct 2026).
+    const free = context === 'wizard' ? choiceCards([{id: 'trial', icon: 'sparkle', title: TEXT.trial.title, text: TEXT.trial.text}],
+      {selected: picked, onPick: pick, label: TEXT.trial.title}) : null;
+    free?.classList.add('is-single');
     // Settings: the key box under the chooser follows the family shown (Anthropic or OpenAI), and is hidden while that family's CLI is the engine.
     if (context === 'settings') for (const foot of document.querySelectorAll('#setting-ai [data-family]')) foot.hidden = foot.dataset.family !== family || picked === CLI_OF[family];
     const head = el('div', 'engine-head');
@@ -52,9 +55,10 @@ export function mountEngine(box, {context = 'settings', onChange = () => {}} = {
     const parts = [head];
     if (context === 'settings' && family === 'claude' && showOffer(shared.state?.settings, hasKey(), status)) parts.push(offerCard());
     parts.push(familySwitch(), cards);
+    if (free) parts.push(free);
     if (notice) parts.push(notice);
     // The wizard shows the family CLI's status and billing only for its card (picked, or nothing picked in this family yet); Settings always.
-    const aboutCli = context === 'settings' || !picked || picked === CLI_OF[family] || familyOf(picked) !== family;
+    const aboutCli = context === 'settings' || (picked !== 'trial' && (!picked || picked === CLI_OF[family] || familyOf(picked) !== family));
     if (aboutCli) parts.push(statusBlock(cli));
     if (problem) parts.push(el('p', 'message error', problem));
     const fallback = showFallback(picked, hasKey(), hasOpenAiKey()) && familyOf(picked) === family;
