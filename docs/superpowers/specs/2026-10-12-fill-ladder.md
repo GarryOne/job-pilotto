@@ -253,11 +253,12 @@ Shadow (owner): one zoo pass + one pool pass with `fill_verify` logging, then re
 - [x] `choose_option(i)` validated locally (the option holds the answer's words, a calling code's digits, or the dial code's country; none or two fitting: nothing; option 0 = found on the page) (PR C2) (proof: worker/test/repair-act.test.js)
 - [x] Executor over existing primitives (page verbs choose_option / retype / commit in `page/repair-act.js`, a trusted click, the layer closer only when its own pick is the named button, wait; open_section and upload logged as not done yet); cap 3 per page; floors on both ends (legal, password, button) (PR C2) (proof: desktop/e2e/recorded/dial-code-in-country-1/case.json)
 - [x] Repair ACTS in test runs only (the e2e harness's storage switch `ladderAct`: CI pool, replays, zoo; no model call added for a person) (PR C2) (proof: worker/test/fill-climb.test.js)
-- [ ] intl-tel-input and flatpickr real-library pages (amendment 6), popup-over-form page; the unblock rate measured end to end in the CI pool (amendment 7) (C3)
+- [x] intl-tel-input and flatpickr real-library pages (amendment 6), popup-over-form page (C3) (proof: desktop/e2e/recorded/phone-country-real-library-1/case.json passes on main, so no phone fix; desktop/e2e/recorded/flatpickr-real-library-1/case.json fails on main: a date picker's read-only box was skipped, now takes a whole date; popup-over-form: the dialog-* recorded cases)
+- [ ] The unblock rate measured end to end in the CI pool (amendment 7), after C3 lands: the ~$0.30 measuring run with the #507 rows
 - [x] Wiring in `extension/ladder/fill-climb.js`, one call in flow.js; the record takes rung 0's last read after a repair or a late retype, so the pool's endings read what the page holds (cc) (PR C2) (proof: worker/test/read-back.test.js)
 - [ ] The door record `{level: 'control', ...}` joining next-move's `deadEnd()`; a journey scenario
 ### 5. Remember (PR D)
-- [ ] Local kept repair per fingerprint, one miss drops
+- [x] Local kept repair per fingerprint, one miss drops (D1, #579) (proof: desktop/lib/ladder/repair-kept.js)
 - [ ] Evidence (fingerprint, verb, worked) in next-move's feed: `repairs` array to `/api/controls` (real use + CI pool + replays), site stores it
 ### 6. Picture and the person (PR E)
 - [ ] Rung 4 scope `verify` for unreadable widgets, capped

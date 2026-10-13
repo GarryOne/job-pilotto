@@ -1,0 +1,53 @@
+{
+ "origin": "hand-cut",
+ "shape": "the REAL intl-tel-input (19.5.6, vendored): a country picker beside a number box that starts on its own country's dial code (Israel +972); the answer is the applicant's Swiss number",
+ "why": "13 Oct 2026, C3 (spec amendment 6): the owner's case c and the phone-widget cases were imitations; the pool's saved pages carry intl-tel-input on 4 hosts. The same checks on the real library: the number is typed whole, the picker follows it to Switzerland, the box does not go back to the first country's code",
+ "control": {
+  "build": "0.9.268",
+  "failed": "to be measured on main"
+ },
+ "sample": "intl-tel-input 19.5.6 as a hosted application form initialises it (names and values removed)",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/acme/phone-library/application",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "contact_no",
+     "question": "Number to reach you",
+     "value": "0041795550123",
+     "confidence": "high",
+     "note": "",
+     "category": "contact",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "attached": [
+   "#resume"
+  ],
+  "valueHas": [
+   "#contact_no|795550123"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 40
+ },
+ "start": "panel"
+}

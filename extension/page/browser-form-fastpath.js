@@ -9,8 +9,11 @@
   };
   const visible = element => !!(element.getClientRects().length &&
     getComputedStyle(element).visibility !== 'hidden');
-  const writable = element => {
-    if (!element || !visible(element) || element.disabled || element.readOnly) return false;
+  // A box a date picker keeps read-only (the page opens a calendar on it) takes a date written whole while it is still empty: the value is all the form
+  // sends; any other answer, and any read-only box that already holds something, stays untouched.
+  const dateInReadOnly = (element, value) => element.readOnly && !element.value && window.__jobPilottoValueClass?.of(value) === 'date';
+  const writable = (element, value) => {
+    if (!element || !visible(element) || element.disabled || (element.readOnly && !dateInReadOnly(element, value))) return false;
     if (forbidden.test(label(element))) return false;
     if (element.matches('textarea, select')) return true;
     return element.matches('input:not([type]), input[type="text"], input[type="email"], input[type="tel"], input[type="url"], input[type="number"]');
@@ -80,7 +83,7 @@
     for (const item of entries) {
       const key = String(item.field || '');
       const element = byField(key);
-      if (!element || !writable(element) || typeof item.value !== 'string') {
+      if (!element || !writable(element, item.value) || typeof item.value !== 'string') {
         skipped.push(key);
         continue;
       }
