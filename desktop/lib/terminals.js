@@ -27,6 +27,7 @@ import os from 'node:os';
 
 import {log as appLog} from './log.js';
 import path from 'node:path';
+import {writePrivate} from './private-file.js';
 
 let Headless = null;  // {Terminal, SerializeAddon}; without it the log falls back to the raw output
 try {
@@ -291,7 +292,7 @@ export function saveNow() {
     fs.mkdirSync(path.dirname(saveFile), {recursive: true});
     const next = [...sessions.values()].map(saved);
     keepPrevious(next);
-    fs.writeFileSync(saveFile + '.tmp', JSON.stringify(next), {mode: 0o600});  // output can hold form answers
+    writePrivate(saveFile + '.tmp', JSON.stringify(next));  // output can hold form answers
     fs.renameSync(saveFile + '.tmp', saveFile);
   } catch { /* not saved this time; the next change tries again */ }
 }

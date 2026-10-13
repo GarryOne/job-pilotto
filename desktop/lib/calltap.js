@@ -31,6 +31,7 @@ export function start(id, file, onLevel = () => {}, run = spawn, exe = binary())
   return new Promise((resolve, reject) => {
     const child = run(exe, ['--sample-rate', '16000', '--chunk-duration', '0.2'], {stdio: ['ignore', 'pipe', 'pipe']});
     const out = fs.createWriteStream(file, {mode: 0o600});
+    out.on('open', () => { try { fs.chmodSync(file, 0o600); } catch { /* the mode above then holds for a new file */ } });   // {mode} applies only to a new file (lib/private-file.js)
     const tap = {child, out, startedAt: null, errors: []};
     taps.set(id, tap);
     child.stdout.on('data', chunk => {

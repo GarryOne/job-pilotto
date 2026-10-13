@@ -48,8 +48,10 @@ def _isolated_save(path, items):
     if not path:
         return  # an isolated run without its own file keeps nothing, and never the real store
     os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
-    with open(path, 'w', encoding='utf-8') as handle:
+    # Private to this user (13 Oct 2026: the file holds job-site passwords and was written 0644, readable by every account on the computer).
+    with open(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), 'w', encoding='utf-8') as handle:
         json.dump(items, handle)
+    os.chmod(path, 0o600)  # a file made earlier keeps its old mode otherwise
 
 
 # What a live-test twin may READ from the owner's real store (owner, 10 Oct 2026: "let the twin use the original app Gmail connection"): the Google

@@ -10,6 +10,7 @@ import {anthropicApi} from './ai/anthropic-api.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import {writePrivate} from './private-file.js';
 
 export const MODEL = process.env.JOB_PILOTTO_MODEL_OVERRIDE || 'claude-sonnet-5-5';
 const PRICE = {input: 2, output: 10};  // USD per million tokens
@@ -209,6 +210,6 @@ export function save(storage, patch) {
   const current = saved(storage) || {hash: hashOf(storage)};
   const data = {...current, ...patch, hash: hashOf(storage), at: new Date().toISOString()};
   fs.mkdirSync(path.dirname(file(storage)), {recursive: true});
-  fs.writeFileSync(file(storage), JSON.stringify(data, null, 1), {mode: 0o600});
+  writePrivate(file(storage), JSON.stringify(data, null, 1));
   return data;
 }

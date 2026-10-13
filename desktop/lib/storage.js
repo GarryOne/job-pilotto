@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {twinSecret} from './twin.js';
+import {writePrivate} from './private-file.js';
 
 export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'NOTION_TOKEN', 'TELEGRAM_BOT_TOKEN', 'SERPAPI_API_KEY', 'BRAVE_SEARCH_API_KEY', 'ADZUNA_APP_ID', 'ADZUNA_APP_KEY', 'JOOBLE_API_KEY', 'EXTENSION_TOKEN', 'GITHUB_TOKEN', 'REPORT_TOKEN', 'CLOUDFLARE_API_TOKEN'];
 
@@ -15,7 +16,7 @@ export function createStorage(dir, crypto) {
   const readJson = (name, fallback) => {
     try { return JSON.parse(fs.readFileSync(file(name), 'utf8')); } catch { return fallback; }
   };
-  const writeJson = (name, value) => fs.writeFileSync(file(name), JSON.stringify(value, null, 2) + '\n', {mode: 0o600});
+  const writeJson = (name, value) => writePrivate(file(name), JSON.stringify(value, null, 2) + '\n');
   // A secret this computer can no longer decrypt (6 Oct 2026: on Windows the app was killed soon after saving a key, Chromium's key file was never written,
   // and every start threw on decrypt: the window never appeared). It counts as missing, so the app opens and asks for it again; main.js logs which.
   const unreadable = new Set();
@@ -51,7 +52,7 @@ export function createStorage(dir, crypto) {
     readText: name => { try { return fs.readFileSync(file(name), 'utf8'); } catch { return ''; } },
     writeText: (name, text) => {
       fs.mkdirSync(path.dirname(file(name)), {recursive: true});
-      fs.writeFileSync(file(name), text, {mode: 0o600});
+      writePrivate(file(name), text);
     },
   };
 }

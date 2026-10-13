@@ -13,6 +13,7 @@ import * as runHistory from './run-history.js';
 import * as schema from './schema.js';
 import * as pipeline from './pipeline.js';
 import * as strategy from './strategy.js';
+import {writePrivate} from './private-file.js';
 
 // onMac: why the step does not run while the data lives on this Mac (the rule in run(): nothing in migrate runs unless Notion is the store).
 // 'data': it moves (or deletes) this Mac's data into Notion, or fills Notion's rows: "Move my data to Notion" (lib/store-move.js) copies and
@@ -55,7 +56,7 @@ export const STEPS = [
     } else if (files.length) {
       const folder = storage.path(`backup/before-notion-${new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 13)}`);
       fs.mkdirSync(folder, {recursive: true});
-      for (const [name, text] of files) fs.writeFileSync(path.join(folder, name), text, {mode: 0o600});
+      for (const [name, text] of files) writePrivate(path.join(folder, name), text);
       storage.saveSettings({notionKeptFolder: folder});
     }
     strategy.dropLocalCopies(storage);

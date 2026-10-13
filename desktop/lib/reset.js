@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {tar} from './tar.js';
 import * as tracker from './tracker-snapshot.js';
+import {writePrivate} from './private-file.js';
 
 const MARKER = 'reset-pending.json';
 export const KEYS_FILE = 'keys.json';  // an export's keys, in plain text (only when the user asked for them)
@@ -49,7 +50,7 @@ export function exportTo(dir, file, {keys = null, version = ''} = {}, now = new 
   fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify({app: 'Job Pilotto', version, exportedAt: now.toISOString(),
     keys: !!keys}, null, 1));
   extra.push('manifest.json');
-  if (keys) { fs.writeFileSync(path.join(dir, KEYS_FILE), JSON.stringify(keys), {mode: 0o600}); extra.push(KEYS_FILE); }
+  if (keys) { writePrivate(path.join(dir, KEYS_FILE), JSON.stringify(keys)); extra.push(KEYS_FILE); }
   // The SQLite store's records go in as one consistent copy, never the live file and its WAL (lib/tracker-snapshot.js).
   const snapshot = tracker.take(dir);
   const skip = [...LEFT_OUT_INSIDE, ...(snapshot ? tracker.LIVE_FILES : [])];
@@ -152,7 +153,7 @@ export function adoptBackupKeys(storage) {
   const sealed = read(from, 'secrets.json'), mine = read(storage.dir, 'secrets.json');
   const wanted = Object.keys(sealed).filter(name => !mine[name]);
   if (!wanted.length) return null;
-  fs.writeFileSync(storage.path('secrets.json'), JSON.stringify({...mine, ...Object.fromEntries(wanted.map(name => [name, sealed[name]]))}, null, 2) + '\n', {mode: 0o600});
+  writePrivate(storage.path('secrets.json'), JSON.stringify({...mine, ...Object.fromEntries(wanted.map(name => [name, sealed[name]]))}, null, 2) + '\n');
   const names = wanted.filter(name => storage.secret(name) || (storage.setSecret(name, ''), false));
   return names.length ? {from, names} : null;
 }

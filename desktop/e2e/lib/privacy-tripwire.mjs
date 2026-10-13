@@ -101,8 +101,9 @@ export function coverageLine(values) {
 }
 
 // source: {typed(), clear?(labels)}; saved: the run's folders to delete on a match. -> {ok, checked, missing, reason?}
-export async function tripwire(source, {values = ownerValues(), saved = []} = {}) {
-  const typed = await source.typed(), hits = matchesOwner(typed, values), {missing} = coverage(values);
+// allow: values a listed test account brings (lib/test-accounts.mjs allowedValues: its email), never a trip.
+export async function tripwire(source, {values = ownerValues(), saved = [], allow = []} = {}) {
+  const typed = (await source.typed()).filter(({value}) => !allow.includes(String(value || '').trim().toLowerCase())), hits = matchesOwner(typed, values), {missing} = coverage(values);
   if (!hits.length) return {ok: true, checked: typed.length, missing};
   for (const dir of saved.filter(Boolean)) fs.rmSync(dir, {recursive: true, force: true});
   await source.clear?.([...new Set(hits.map(hit => hit.label))]);

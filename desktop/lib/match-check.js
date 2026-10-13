@@ -9,6 +9,7 @@ import {anthropicApi} from './ai/anthropic-api.js';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import {writePrivate} from './private-file.js';
 
 export const MODEL = process.env.JOB_PILOTTO_MODEL_OVERRIDE || 'claude-sonnet-5-5';
 const PRICE = {input: 2, output: 10};  // USD per million tokens
@@ -88,6 +89,6 @@ export function saved(storage, code, cv) {
 export function save(storage, code, cv, job, result) {
   fs.mkdirSync(folder(storage), {recursive: true});
   const data = {at: new Date().toISOString(), cvHash: cvHash(cv), job: {title: job.title, company: job.company}, result};
-  fs.writeFileSync(path.join(folder(storage), `${safe(code)}.json`), JSON.stringify(data, null, 1), {mode: 0o600});
+  writePrivate(path.join(folder(storage), `${safe(code)}.json`), JSON.stringify(data, null, 1));
   return data;
 }

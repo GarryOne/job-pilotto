@@ -29,6 +29,7 @@ import {startRealExtension} from './real-extension.mjs';
 import {livePresses} from './replay-candidate.mjs';
 import {blockVerdict, guardLiveVisit, markBlocked} from './site-ledger.mjs';
 import {startAiProxy} from './ai-proxy.mjs';
+import {allowedValues, seedTestAccounts, testAccounts} from './test-accounts.mjs';
 import {apiErrors, usage} from './ai-meter.mjs';
 import {appKey, isCi, keySecret, testKey} from './engine.mjs';
 import {keepRecord, netRecorder} from './net-record.mjs';
@@ -55,6 +56,8 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
       refused: refused.reduce((sum, [, count]) => sum + count, 0), why: refused[0]?.[0] || ''};
   };
   const app = await startOfflineApp({ask, captureDir, memo: path.join(captureDir, 'model-memo.json'), ...(proxy ? {api: {url: proxy.url, key: appKey(testKey())}} : {})}).catch(async error => { if (proxy && !aiProxy) await proxy.close(); throw error; });
+  const accounts = testAccounts(), seeded = seedTestAccounts(app.dir, accounts);   // a listed test account's saved password (docs/rules/applying.md "Signing in"); hosts only, never a value
+  if (seeded.length) say(`live: test account for ${seeded.join(', ')} (the product's saved-password sign-in; never Submit)`);
   const front = await frontOf(app);
   const run = await browser({extensionDir, appPort: front.port, allowAllSites: true});
   const owner = ownerValues();
@@ -74,7 +77,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
   }, 200);
   const trip = async () => {
     for (const tab of run.context.pages().filter(page => /^https?:/.test(page.url()))) {
-      const check = await tripwire(pageFields(tab), {values: owner, saved: [captureDir]});
+      const check = await tripwire(pageFields(tab), {values: owner, saved: [captureDir], allow: allowedValues(accounts)});
       if (!check.ok) return check.reason;
     }
     return '';

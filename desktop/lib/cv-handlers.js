@@ -18,6 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {log as appLog} from './log.js';
 import {configForPrompt} from './config-text.js';
+import {writePrivate} from './private-file.js';
 
 export function registerCvAndLettersHandlers(ctx) {
   const {BrowserWindow, DEMO, cvOf, handleImportant, ipcMain, keepLook, openTailoredCv, printPdf, shell, storage, tailorCv, tailoring, toWindow} = ctx;
@@ -90,7 +91,7 @@ export function registerCvAndLettersHandlers(ctx) {
     if (!base) return {ok: false, error: 'No base CV yet.'};
     const {pdf, overflow} = await printPdf(cvlib.writeHtml(storage, base, 'base.html'));
     const target = path.join(cvlib.dir(storage), 'base.pdf');
-    fs.writeFileSync(target, pdf, {mode: 0o600});
+    writePrivate(target, pdf);
     shell.openPath(target);
     return {ok: true, overflow};
   });
@@ -124,7 +125,7 @@ export function registerCvAndLettersHandlers(ctx) {
       const contact = await contactDetails.read(storage).catch(() => ({}));
       fs.mkdirSync(letters.dir(storage), {recursive: true});
       const page = path.join(letters.dir(storage), 'letter.html');
-      fs.writeFileSync(page, letters.html(record.text, contact, cvlib.baseCv(storage)), {mode: 0o600});
+      writePrivate(page, letters.html(record.text, contact, cvlib.baseCv(storage)));
       letters.approve(storage, (await printPdf(page)).pdf);
       appLog('cover-letter', 'approved; PDF written for form uploads', {words: record.text.split(/\s+/).length});
       // Notion too (the source of truth): best effort, the PDF is on this Mac either way.
