@@ -461,7 +461,7 @@ export async function init() {
   $('ext-open-page').addEventListener('click', async () => {
     const result = await window.pilot.extensionPage().catch(() => null);
     message('ext-message', inBrowser(result?.opened
-      ? osText('Chrome should be opening its extensions page. If it doesn\'t: chrome://extensions is on your clipboard (⌘L, ⌘V, ⏎).')
+      ? osText('Asked Chrome to open its extensions page. If nothing appears: chrome://extensions is on your clipboard (⌘L, ⌘V, ⏎).')
       : osText('chrome://extensions is on your clipboard: in Chrome press ⌘L, then ⌘V and ⏎.'), browserApp), result?.opened ? 'ok' : 'error');
   });
   // The folder in front of the user and its path on the clipboard. The Mac's dialog takes ⌘⇧G (Go to Folder), ⌘V,
