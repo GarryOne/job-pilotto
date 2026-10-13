@@ -7,7 +7,14 @@
   "url": "https://suisse.fnac.ch/jobs/offers/CDDVendeurProduitsEditoriauxHF80du1erau31dcembre2026/?id=236"
  },
  "expect": {
-  "outcome": "posting"
+  "outcome": "posting",
+  "verb": "not_listed",
+  "candidates": [],
+  "confirmed": {
+   "by": "pool",
+   "run": "2026-10-12/fnac-suisse-jobs-french",
+   "version": "0.9.229"
+  }
  },
  "lang": "fr",
  "sketch": {

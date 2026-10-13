@@ -14,7 +14,7 @@ const fixtures = loadFixtures();
 const runs = evidenceDirs(roots).map(dir => ({run: runName(dir), presses: confirmedPresses(dir)})).filter(item => item.presses.length);
 const {labels, unlisted} = labelMoves(fixtures, runs);
 console.log(`${runs.length} runs with a press that reached a form; ${labels.length} fixtures labelled, ${unlisted.length} presses on a fixture's page that no candidate lists`);
-for (const label of labels) console.log(`  ${label.id.padEnd(40)} press ${JSON.stringify(label.candidates).padEnd(8)} confirmed by ${label.confirmed.by} ${label.confirmed.run} ${label.confirmed.version}`);
+for (const label of labels) console.log(`  ${label.id.padEnd(40)} ${label.verb} ${JSON.stringify(label.candidates).padEnd(8)} confirmed by ${label.confirmed.by} ${label.confirmed.run} ${label.confirmed.version}`);
 if (unlisted.length) console.log('Pressed, then a form, but not in the numbered list (a blind spot to confirm with the picture):');
 for (const item of unlisted) console.log(`  ${item.id.padEnd(40)} "${item.label}" (${item.run})`);
 if (!args.includes('--write')) { console.log('(dry run: --write stores the labels)'); process.exit(0); }

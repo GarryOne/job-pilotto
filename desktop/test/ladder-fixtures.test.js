@@ -43,7 +43,7 @@ test('an expected move is a confirmed one: its verb, the fixture\'s own candidat
     const {verb, candidates, confirmed} = f.expect;
     if (verb === undefined && candidates === undefined && confirmed === undefined) continue;
     assert.ok(MOVE_VERBS.includes(verb), `${f.id}: expect.verb ${verb} is not one of ${MOVE_VERBS.join('|')}`);
-    assert.ok(Array.isArray(candidates) && candidates.length && candidates.every(n => (f.candidates || []).some(item => item.n === n)), `${f.id}: expect.candidates must be numbers of its own candidates`);
+    assert.ok(Array.isArray(candidates) && (verb === 'not_listed' ? candidates.length === 0 : candidates.length) && candidates.every(n => (f.candidates || []).some(item => item.n === n)), `${f.id}: expect.candidates must be numbers of its own candidates (none for not_listed)`);
     assert.ok(CONFIRMED_BY.includes(confirmed?.by) && typeof confirmed.run === 'string' && confirmed.run.length > 3, `${f.id}: expect.confirmed {by: ${CONFIRMED_BY.join('|')}, run} names what confirmed the move`);
   }
   assert.ok(fixtures.filter(f => f.expect.verb).length >= 10, 'the confirmed moves stay in the set');

@@ -33,3 +33,13 @@ test('with the fallback only today\'s stops change, and a sure wrong move counts
   assert.deepEqual(summary.bySource.invented, {fixtures: 1, deadEnds: 1, today: {stop: 1}, fallback: {unsure: 1}, both: {stop: 1}});
   assert.deepEqual(summary.wrongConfident, ['b']);
 });
+
+test('a page whose pressed control the list lacked: the right fallback move is not_listed; a sure press of another control is wrong-and-confident', () => {
+  const hidden = {id: 'h', source: 'captured', candidates: [{n: 1, text: 'About us'}], expect: {outcome: 'posting', verb: 'not_listed', candidates: []}};
+  assert.equal(todayMove(hidden, 'POSTULER'), 'right', 'rung 2 names the control by its own words');
+  assert.equal(todayMove(hidden, ''), 'stop');
+  assert.equal(fallbackMove(hidden, {verb: 'not_listed', numbers: [], confidence: 0.85}), 'right');
+  assert.equal(fallbackMove(hidden, {verb: 'not_listed', numbers: [], confidence: 0.6}), 'unsure');
+  assert.equal(fallbackMove(hidden, {verb: 'press', numbers: [1], confidence: 0.9}), 'wrong-confident');
+  assert.equal(fallbackMove(hidden, {verb: 'tell_person', numbers: [], confidence: 0.5}), 'wrong');
+});

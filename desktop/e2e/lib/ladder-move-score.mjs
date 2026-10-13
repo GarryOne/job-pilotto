@@ -11,13 +11,14 @@ const sameVerb = (said, want) => said === want || (ACTS.includes(said) && ACTS.i
 
 export function todayMove(fixture, applyButton) {
   if (!applyButton) return 'stop';
+  if (fixture.expect.verb === 'not_listed') return 'right';   // rung 2 named a control by its own words (the page's buttons, not the numbered list), and the run's press of it reached the form
   const numbers = (fixture.candidates || []).filter(item => textKey(item.text) === textKey(applyButton)).map(item => item.n);
   return numbers.some(n => fixture.expect.candidates.includes(n)) ? 'right' : 'wrong';
 }
 
 export function fallbackMove(fixture, answer = {}) {
   const numbers = Array.isArray(answer.numbers) ? answer.numbers : [];
-  const right = !answer.error && sameVerb(answer.verb, fixture.expect.verb) && numbers.length > 0 && numbers.every(n => fixture.expect.candidates.includes(n));
+  const right = !answer.error && (fixture.expect.verb === 'not_listed' ? answer.verb === 'not_listed' : sameVerb(answer.verb, fixture.expect.verb) && numbers.length > 0 && numbers.every(n => fixture.expect.candidates.includes(n)));
   const sure = !answer.error && (answer.confidence ?? 0) >= SURE;
   if (right) return sure ? 'right' : 'unsure';
   return sure && ACTS.includes(answer.verb) ? 'wrong-confident' : 'wrong';

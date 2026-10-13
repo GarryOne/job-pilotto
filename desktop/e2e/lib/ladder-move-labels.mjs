@@ -63,11 +63,13 @@ export function labelMoves(fixtures, runs) {
     const fixture = byPage.get(pageKey(press.url));
     if (!fixture) continue;
     const numbers = numbersFor(fixture.candidates, press.label);
-    if (!numbers.length) { unlisted.push({id: fixture.id, label: press.label, run}); continue; }
+    if (!numbers.length) { unlisted.push({id: fixture.id, label: press.label, run, version: press.version}); continue; }
     const label = labels.get(fixture.id) || {id: fixture.id, verb: 'press', candidates: [], confirmed: {by: 'pool', run, version: press.version}};
     label.candidates = [...new Set([...label.candidates, ...numbers])].sort((a, b) => a - b);
     labels.set(fixture.id, label);
   }
+  // A page whose pressed control no candidate carries (and no listed control was pressed on it in another run): the move the list could not name is `not_listed`, confirmed by the run that pressed it.
+  for (const item of unlisted) if (!labels.has(item.id)) labels.set(item.id, {id: item.id, verb: 'not_listed', candidates: [], confirmed: {by: 'pool', run: item.run, version: item.version || ''}});
   return {labels: [...labels.values()].sort((a, b) => a.id.localeCompare(b.id)), unlisted};
 }
 

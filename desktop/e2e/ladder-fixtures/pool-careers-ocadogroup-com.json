@@ -7,7 +7,14 @@
   "url": "https://careers.ocadogroup.com/jobs/details?gh_jid=4892147101&gh_jid=4892147101"
  },
  "expect": {
-  "outcome": "posting"
+  "outcome": "posting",
+  "verb": "not_listed",
+  "candidates": [],
+  "confirmed": {
+   "by": "pool",
+   "run": "2026-10-11/ocado-technology-found-2026-10-10",
+   "version": "0.9.209"
+  }
  },
  "lang": "en",
  "sketch": {
