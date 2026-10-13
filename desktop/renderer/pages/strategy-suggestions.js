@@ -7,7 +7,7 @@ import {bone} from './focus.js';
 import {openView} from './nav.js';
 import {toastMessage} from './startup.js';
 import {coverageCard, employersCard, filtersCard, ideasCard, placesCard, sourcesCard, visitCard} from '../coverage-card.js';
-import {adviceEvent} from '../coverage-actions.js';
+import {adviceEvent, readSiteInChrome} from '../coverage-actions.js';
 import {byOpenings, hostOf, sitesByName} from '../strategy-parts.js';
 import {openSetting} from './settings.js';
 import {startSearch} from './jobs.js';
@@ -293,8 +293,9 @@ const paintCoverage = verdict => {
     const sites = sitesByName(visits.chips);
     const openPage = chip => async () => {
       adviceEvent('taken', 'visit', 'strategy');
-      const opened = await window.pilot.openVisit(chip.url, {read: true}).catch(error => ({ok: false, error: error.message}));
-      toastMessage(opened.ok ? 'Opened in Chrome' : 'Not opened', opened.ok ? `Job Pilotto reads its jobs there by itself; the tab closes when done.${chip.note ? ` ${chip.note}.` : ''}` : opened.error);
+      const opened = await readSiteInChrome(window.pilot, chip.url);
+      if (opened.started) toastMessage('Reading in Chrome', `Job Pilotto reads its jobs there by itself; follow it in Recent activity.${chip.note ? ` ${chip.note}.` : ''}`);
+      else toastMessage(opened.ok ? 'Opened in Chrome' : 'Not opened', opened.ok ? `${opened.why || 'It could not start the read.'} Click the Job Pilotto icon there, then "Read the jobs on this page".` : opened.error);
     };
     // By company (owner mockup, 7 Oct 2026): a letter tile, the name, how many pages, each page's own link (its real address), Open for the first.
     const TINTS = ['info', 'teal', 'violet', 'good'];
@@ -324,7 +325,7 @@ const paintCoverage = verdict => {
       list.push(all);
     }
     rows.visits = suggestionRow({kind: 'visit', id: 'visits', glyph: 'external', title: 'Browse sites manually', count: sites.length,
-      summary: 'Open a site in Chrome: Job Pilotto reads its jobs there by itself.', text: '', body: list,
+      summary: 'Open a site: Job Pilotto reads its jobs in Chrome by itself.', text: '', body: list,
       brief: {title: `${sites.length} site${sites.length === 1 ? ' needs' : 's need'} manual browsing`, text: 'Use the Chrome extension', cta: 'View sites'},
       menu: [hideItem('visit', 'visits', VISITS_DISMISSED, visits.at)]});
   } else rows.visits = null;

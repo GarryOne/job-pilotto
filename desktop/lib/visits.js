@@ -243,14 +243,12 @@ export function again(url) {
 // brought forward, else a new one (owner, 8 Oct 2026: it opened another tab rather than the open one). Its reading tab by id while a run
 // reads it, else a tab at the last page read there or at its address.
 const seenPages = new Map();   // start address -> the last page read there; kept after the run, for this
-// read: the site is opened marked to be read (#jp-read-filter, no ticket): the extension reads its jobs by itself, as the "Browse sites manually" cards promise.
-export const READ_MARK = '#jp-read-filter';
-export async function openYourself(url, {focusById = focusTabById, focusAt = focusTabAt, opener = open, read = false} = {}) {
+export async function openYourself(url, {focusById = focusTabById, focusAt = focusTabAt, opener = open} = {}) {
   const tab = tabOf.get(active?.tickets.get(key(url)));
   const pages = [...new Set([active?.lastPage.get(key(url)), seenPages.get(key(url)), key(url)].filter(Boolean))];
   let how = tab != null && await focusById(tab) ? 'tab id' : '';
   for (const page of pages) if (!how && await focusAt(page)) how = 'address';
-  if (!how) return opener(read ? `${String(url).split('#')[0]}${READ_MARK}` : url);
+  if (!how) return opener(url);
   log('visit', 'brought forward the tab you have for a site', {host: new URL(key(url)).hostname, how, decidedBy: 'user click'});
   return {ok: true, focused: true};
 }

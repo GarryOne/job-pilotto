@@ -338,19 +338,18 @@ test('opening a site you have open brings its tab forward, by the page last read
   assert.deepEqual([none.ok, opened], [true, ['https://www.omega.example']], 'no tab: a new one');
 });
 
-test('Open on a "Browse sites manually" card marks the tab to be read; an open tab is only brought forward', async () => {
-  const {openYourself} = await import('../lib/visits.js');
-  const opened = [];
-  const opener = url => { opened.push(url); return {ok: true}; };
-  const none = {focusById: async () => false, focusAt: async () => false, opener};
-  await openYourself('https://www.msc.example/careers', {...none, read: true});
-  await openYourself('https://www.msc.example/careers#old', {...none, read: true});
-  await openYourself('https://www.msc.example/careers', none);
-  assert.deepEqual(opened, ['https://www.msc.example/careers#jp-read-filter', 'https://www.msc.example/careers#jp-read-filter', 'https://www.msc.example/careers'], 'read marks it; plain Open stays plain');
-  const {readFileSync} = await import('node:fs');
-  for (const file of ['../renderer/pages/strategy-suggestions.js', '../renderer/coverage-actions.js']) {   // the class: every manual-browse opener asks for the read
-    const calls = readFileSync(new URL(file, import.meta.url), 'utf8').match(/openVisit\([^)]*\)/g) || [];
-    assert.ok(calls.length && calls.every(call => /read: true/.test(call)), `${file}: ${calls.join(' ')}`);
+test('Open on a "Browse sites manually" card starts the tracked read; a site it cannot take opens plain', async () => {
+  const {readSiteInChrome} = await import('../renderer/coverage-actions.js');
+  const calls = [];
+  const pilot = answer => ({visitsRun: async arg => { calls.push(['run', arg.urls]); return answer; }, openVisit: async url => { calls.push(['open', url]); return {ok: true}; }});
+  const started = await readSiteInChrome(pilot({started: true}), 'https://www.msc.example/careers');
+  const refused = await readSiteInChrome(pilot({text: 'Tick at least one site or job to read.'}), 'https://www.msc.example/careers');
+  assert.deepEqual(calls, [['run', ['https://www.msc.example/careers']], ['run', ['https://www.msc.example/careers']], ['open', 'https://www.msc.example/careers']]);
+  assert.deepEqual([started.started, refused.started, refused.ok, refused.why], [true, false, true, 'Tick at least one site or job to read.']);
+  const {readFileSync} = await import('node:fs');   // the class: no manual-browse opener calls the bare openVisit
+  for (const file of ['../renderer/pages/strategy-suggestions.js', '../renderer/coverage-actions.js']) {
+    const text = readFileSync(new URL(file, import.meta.url), 'utf8');
+    assert.ok(/readSiteInChrome/.test(text) && !/pilot\.openVisit\((chip\.url|action\.value)\)/.test(text), file);
   }
 });
 
