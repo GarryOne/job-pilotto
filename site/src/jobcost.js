@@ -3,6 +3,7 @@
 import {viewer} from './auth.js';   // admins (invited) read this page too
 import {isOwner, esc, remember} from './stats.js';
 import {equal} from './guard.js';
+import {filterLinks} from './admin.js';
 
 export const JOBS = {   // job id -> [label, group]; an unknown id still shows, under "other"
   'central-scout': ['Central scout', 'Discovery'],
@@ -23,6 +24,11 @@ export const JOBS = {   // job id -> [label, group]; an unknown id still shows, 
   'pr-live-proof': ['PR live proof', 'Live tests'],   // one pool row on a PR's own build (.github/workflows/pool-proof.yml)
 };
 const day = at => String(at).slice(0, 10);
+// The range filter (?range=): runs keep their full timestamp, so every range is exact for them. The per-key and billed figures are stored per UTC day:
+// a 6 h / 24 h range reads them as today + yesterday (`dayFrom`), and the page says so.
+export const RANGES = {'6h': {label: '6 hours', hours: 6}, '24h': {label: '24 hours', hours: 24}, '7d': {label: '7 days', hours: 168}, '30d': {label: '30 days', hours: 720}};
+export const rangeOf = value => (Object.hasOwn(RANGES, value) ? value : '30d');
+const dayFrom = (now, range) => new Date(now.getTime() - (RANGES[range].hours <= 24 ? 1 : RANGES[range].hours / 24 - 1) * 86400000).toISOString().slice(0, 10);
 const money = n => `$${(Number(n) || 0).toFixed(2)}`;
 
 // Pure: the page's figures from the run rows and the billed days.
@@ -30,54 +36,56 @@ const money = n => `$${(Number(n) || 0).toFixed(2)}`;
 export const PROVIDERS = {anthropic: 'Claude (Anthropic)', openai: 'OpenAI'};
 const providerOf = row => (row.provider === 'openai' ? 'openai' : 'anthropic');
 
-export function summarize(rows, billed = [], now = new Date()) {
-  const today = now.toISOString().slice(0, 10), from = new Date(now.getTime() - 29 * 86400000).toISOString().slice(0, 10);
-  const recent = rows.filter(row => row.day >= from);
+export function summarize(rows, billed = [], now = new Date(), range = '30d') {
+  const today = now.toISOString().slice(0, 10), from = dayFrom(now, range), since = now.getTime() - RANGES[range].hours * 3600000;
+  const month = new Date(now.getTime() - 29 * 86400000).toISOString().slice(0, 10);
+  const thirty = rows.filter(row => row.day >= month);   // today and the day table do not follow the range
+  const recent = rows.filter(row => (RANGES[range].hours < 168 ? Date.parse(row.at) >= since : row.day >= from));
   const jobs = {}, days = {}, providers = Object.fromEntries(Object.keys(PROVIDERS).map(id => [id, {id, today: 0, usd: 0, runs: 0}]));
   for (const row of recent) {
     const provider = providers[providerOf(row)];
     provider.usd += row.usd; provider.runs += 1; if (row.day === today) provider.today += row.usd;
     const job = jobs[row.job] ||= {job: row.job, runs: 0, usd: 0, calls: 0, last: ''};
     job.runs += 1; job.usd += row.usd; job.calls += row.calls; if (row.at > job.last) job.last = row.at;
-    days[row.day] = (days[row.day] || 0) + row.usd;
   }
+  for (const row of thirty) days[row.day] = (days[row.day] || 0) + row.usd;
   const billedByDay = Object.fromEntries(billed.map(item => [item.day, item.usd]));
   const total = recent.reduce((sum, row) => sum + row.usd, 0);
-  const span = Math.max(1, Math.round((Date.parse(today) - Date.parse(recent.reduce((min, row) => (row.day < min ? row.day : min), today))) / 86400000) + 1);
+  const span = RANGES[range].hours < 24 + 1 ? RANGES[range].hours / 24 : Math.max(1, Math.round((Date.parse(today) - Date.parse(recent.reduce((min, row) => (row.day < min ? row.day : min), today))) / 86400000) + 1);
   const billedTotal = Object.entries(billedByDay).filter(([d]) => d >= from).reduce((sum, [, usd]) => sum + usd, 0);
   const overlap = Object.keys(billedByDay).filter(d => d >= from && days[d] !== undefined);   // compare only days where both sides exist
   const trackedOnBilledDays = overlap.reduce((sum, d) => sum + days[d], 0), billedOnTrackedDays = overlap.reduce((sum, d) => sum + billedByDay[d], 0);
   return {
-    today: days[today] || 0, total, perDay: total / span, span, runs: recent.length,
+    range, today: days[today] || 0, total, perDay: total / span, span, runs: recent.length,
     jobs: Object.values(jobs).sort((a, b) => b.usd - a.usd),
     providers: Object.values(providers),   // Claude and OpenAI separately; their sum is `total`
-    days: [...new Set([...Object.keys(days), ...Object.keys(billedByDay).filter(d => d >= from)])].sort().reverse().map(d => ({day: d, tracked: days[d] || 0, billed: billedByDay[d] ?? null})),
+    days: [...new Set([...Object.keys(days), ...Object.keys(billedByDay).filter(d => d >= month)])].sort().reverse().map(d => ({day: d, tracked: days[d] || 0, billed: billedByDay[d] ?? null})),
     billedTotal, covered: billedOnTrackedDays > 0 ? Math.round(100 * trackedOnBilledDays / billedOnTrackedDays) : null,
   };
 }
 
 // Pure: per tracked API key, its cost today, over 7 and over 30 days (rows: {day, key, usd}).
-export function byKey(rows, now = new Date()) {
-  const day = n => new Date(now.getTime() - n * 86400000).toISOString().slice(0, 10), today = day(0), week = day(6), month = day(29);
+export function byKey(rows, now = new Date(), range = '30d') {
+  const day = n => new Date(now.getTime() - n * 86400000).toISOString().slice(0, 10), today = day(0), week = day(6), month = day(29), from = dayFrom(now, range);
   const keys = {};
   for (const row of rows) {
     if (row.day < month) continue;
-    const k = keys[row.key] ||= {key: row.key, today: 0, week: 0, month: 0, last: ''};
-    k.month += row.usd; if (row.day >= week) k.week += row.usd; if (row.day === today) k.today += row.usd; if (row.day > k.last) k.last = row.day;
+    const k = keys[row.key] ||= {key: row.key, today: 0, week: 0, month: 0, range: 0, last: ''};
+    k.month += row.usd; if (row.day >= from) k.range += row.usd; if (row.day >= week) k.week += row.usd; if (row.day === today) k.today += row.usd; if (row.day > k.last) k.last = row.day;
   }
-  return Object.values(keys).sort((a, b) => b.month - a.month);
+  return Object.values(keys).filter(k => k.range > 0 || RANGES[range].hours >= 720).sort((a, b) => b.range - a.range);
 }
 
-export function page(rows, billed = [], keyRows = [], start = '', now = new Date()) {
-  const s = summarize(rows, billed, now), keys = byKey(keyRows, now);
-  const fresh = start && start > new Date(now.getTime() - 29 * 86400000).toISOString().slice(0, 10);   // the start date is inside the 30 days: say so
+export function page(rows, billed = [], keyRows = [], start = '', now = new Date(), range = '30d') {
+  const s = summarize(rows, billed, now, range), keys = byKey(keyRows, now, range), r = RANGES[range], last = `Last ${r.label}`, daily = r.hours <= 24;
+  const fresh = range === '30d' && start && start > new Date(now.getTime() - 29 * 86400000).toISOString().slice(0, 10);   // the start date is inside the 30 days: say so
   const groups = {};
   for (const job of s.jobs) { const group = (JOBS[job.job] || [])[1] || 'Other'; groups[group] = (groups[group] || 0) + job.usd; }
   const tiles = [
-    [fresh ? `💸 Since ${start}` : '💸 Last 30 days', money(s.total), `${s.runs} runs reported`],
+    [fresh ? `💸 Since ${start}` : `💸 ${last}`, money(s.total), `${s.runs} runs reported`],
     ['📅 Today', money(s.today), 'UTC'],
-    ['📈 Per day', money(s.perDay), `average over ${s.span} day${s.span === 1 ? '' : 's'}`],
-    ['🧾 Billed by Anthropic', billed.length ? money(s.billedTotal) : '–', billed.length ? `the jobs explain ${s.covered === null ? '–' : s.covered + '%'} of it` : 'no billing report yet (ANTHROPIC_ADMIN_KEY)'],
+    ['📈 Per day', money(s.perDay), daily ? `rate over the last ${r.label}` : `average over ${s.span} day${s.span === 1 ? '' : 's'}`],
+    ['🧾 Billed by Anthropic', billed.length ? money(s.billedTotal) : '–', billed.length ? `${daily ? 'today + yesterday (daily figure); ' : ''}the jobs explain ${s.covered === null ? '–' : s.covered + '%'} of it` : 'no billing report yet (ANTHROPIC_ADMIN_KEY)'],
   ];
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>AI cost · Admin</title><link rel="icon" href="/favicon-32.png">
@@ -92,27 +100,27 @@ a{color:var(--amber)}.muted{color:var(--muted)}header{display:flex;justify-conte
 .wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;margin-top:8px}th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:6px 4px}
 td{padding:6px 4px;border-top:1px solid var(--line)}td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}tr.total td{font-weight:700}
 </style></head><body><main>
-<header><h1>💸 AI cost</h1><span class="muted">scheduled jobs of the product</span></header>
+<header><h1>💸 AI cost</h1><span class="muted">${filterLinks(Object.entries(RANGES).map(([id, item]) => [id, item.label, `?range=${id}`]), range)}</span></header>
 <div class="tiles">${tiles.map(([label, value, note]) => `<div class="card tile"><span class="muted">${label}</span><b>${esc(value)}</b><small class="muted">${esc(note)}</small></div>`).join('')}</div>
-<section class="card"><h2>🏷️ By provider</h2><small class="muted">Claude and OpenAI separately, and together</small><div class="wrap"><table><tr><th>Provider</th><th>Today</th><th>Last 30 days</th><th>Share</th><th>Runs</th></tr>
+<section class="card"><h2>🏷️ By provider</h2><small class="muted">Claude and OpenAI separately, and together</small><div class="wrap"><table><tr><th>Provider</th><th>Today</th><th>${last}</th><th>Share</th><th>Runs</th></tr>
 ${s.providers.map(p => `<tr><td>${esc(PROVIDERS[p.id])}</td><td class="n">${money(p.today)}</td><td class="n">${money(p.usd)}</td><td class="n">${s.total ? Math.round(100 * p.usd / s.total) : 0}%</td><td class="n">${p.runs}</td></tr>`).join('')}
 <tr class="total"><td>Total</td><td class="n">${money(s.today)}</td><td class="n">${money(s.total)}</td><td class="n">${s.total ? '100%' : '–'}</td><td class="n">${s.runs}</td></tr>
 </table></div></section>
 <div class="grid">
-<section class="card"><h2>🧩 By group</h2><div class="wrap"><table><tr><th>Group</th><th>Last 30 days</th></tr>
+<section class="card"><h2>🧩 By group</h2><div class="wrap"><table><tr><th>Group</th><th>${last}</th></tr>
 ${Object.entries(groups).sort((a, b) => b[1] - a[1]).map(([group, usd]) => `<tr><td>${esc(group)}</td><td class="n">${money(usd)}</td></tr>`).join('') || '<tr><td colspan="2" class="muted">Nothing reported yet: each job reports at the end of its run.</td></tr>'}
 </table></div></section>
-<section class="card"><h2>📅 By day</h2><small class="muted">Jobs = reported by the jobs · Billed = Anthropic's cost report</small><div class="wrap"><table><tr><th>Day</th><th>Jobs</th><th>Billed</th></tr>
+<section class="card"><h2>📅 By day</h2><small class="muted">Always the last 30 days · Jobs = reported by the jobs · Billed = Anthropic's cost report</small><div class="wrap"><table><tr><th>Day</th><th>Jobs</th><th>Billed</th></tr>
 ${s.days.slice(0, 30).map(d => `<tr><td>${esc(d.day)}</td><td class="n">${money(d.tracked)}</td><td class="n">${d.billed === null ? '–' : money(d.billed)}</td></tr>`).join('')}
 </table></div></section></div>
-<section class="card"><h2>🔑 By API key</h2><small class="muted">Anthropic's usage per key, priced and scaled to the day's bill (lags a few hours)</small><div class="wrap"><table><tr><th>Key</th><th>Today</th><th>Last 7 days</th><th>Last 30 days</th><th>Last used</th></tr>
-${keys.map(k => `<tr><td>${esc(k.key)}</td><td class="n">${money(k.today)}</td><td class="n">${money(k.week)}</td><td class="n">${money(k.month)}</td><td class="muted">${esc(k.last)}</td></tr>`).join('') || '<tr><td colspan="5" class="muted">No key figures yet: ai-cost-billed.yml sends them every 6 hours (ANTHROPIC_ADMIN_KEY).</td></tr>'}
+<section class="card"><h2>🔑 By API key</h2><small class="muted">Anthropic's usage per key, priced and scaled to the day's bill (lags a few hours)${daily ? '; stored per UTC day, so this range shows today + yesterday' : ''}</small><div class="wrap"><table><tr><th>Key</th><th>Today</th><th>${daily ? 'Today + yesterday' : last}</th><th>Last used</th></tr>
+${keys.map(k => `<tr><td>${esc(k.key)}</td><td class="n">${money(k.today)}</td><td class="n">${money(k.range)}</td><td class="muted">${esc(k.last)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No key figures yet: ai-cost-billed.yml sends them every 6 hours (ANTHROPIC_ADMIN_KEY).</td></tr>'}
 </table></div></section>
 <section class="card"><h2>⚙️ By job</h2><div class="wrap"><table><tr><th>Job</th><th>Group</th><th>Runs</th><th>Calls</th><th>Cost</th><th>Per run</th><th>Last run (UTC)</th></tr>
 ${s.jobs.map(job => `<tr><td>${esc((JOBS[job.job] || [job.job])[0])}</td><td class="muted">${esc((JOBS[job.job] || [])[1] || 'Other')}</td><td class="n">${job.runs}</td><td class="n">${job.calls}</td><td class="n">${money(job.usd)}</td><td class="n">$${(job.usd / job.runs).toFixed(3)}</td><td class="muted">${esc(job.last.slice(0, 16).replace('T', ' '))}</td></tr>`).join('')}
 <tr class="total"><td>Total</td><td></td><td class="n">${s.runs}</td><td class="n">${s.jobs.reduce((sum, job) => sum + job.calls, 0)}</td><td class="n">${money(s.total)}</td><td></td><td></td></tr>
 </table></div>
-<small class="muted">Not counted: the users' Always-on runs (their own keys), and any job that does not report. A growing gap between Jobs and Billed means a job is missing.</small></section>
+<small class="muted">${last}: runs reported by the jobs (a local run that does not report, e.g. a bake-off on the Tests key, is missing). Billed fills about a day later. Not counted: the users' Always-on runs (their own keys), and any job that does not report. A growing gap between Jobs and Billed means a job is missing.</small></section>
 </main></body></html>`;
 }
 
@@ -176,5 +184,5 @@ export async function view(request, env) {
   const url = new URL(request.url);
   if (url.searchParams.has('key')) return remember(url, env, request);
   const {runs, billed, keys} = env.STATS ? await read(env) : {runs: [], billed: [], keys: []};
-  return new Response(page(runs, billed, keys, since(env)), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
+  return new Response(page(runs, billed, keys, since(env), new Date(), rangeOf(url.searchParams.get('range'))), {headers: {'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex'}});
 }
