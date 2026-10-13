@@ -2,9 +2,9 @@
 <style>body{font-family:sans-serif;margin:0}main{padding:24px;max-width:420px}label{display:block;margin-top:12px}input{width:100%;padding:6px}</style></head>
 <body>
 <!-- Hand-cut (13 Oct 2026): an EMAIL-FIRST sign-in step (no password box until the email is sent on). The person signs in, then the site opens its form. Here the page's own script stands in for
-     the person: 4 s after the load it goes to the form's address. -->
+     the person: 12 s after the load it goes to the form's address. -->
 <main><h1>Sign in to apply</h1><p>Enter your email to sign in and continue your application.</p>
 <form id="signin" onsubmit="return false"><label for="email">Email</label><input id="email" name="email" type="email" required>
 <button type="submit" id="signin-button">Continue</button></form><p><a href="#" id="create">Create an account</a></p></main>
-<script>setTimeout(function () { location.href = '/apply'; }, 4000);</script>
+<script>setTimeout(function () { location.href = '/apply'; }, 12000);</script>
 </body></html>
