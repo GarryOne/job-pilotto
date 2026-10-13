@@ -9,7 +9,7 @@ import {runLiveRow} from './lib/live-row.mjs';
 import {startRealExtension} from './lib/real-extension.mjs';
 import {netReplay} from './lib/net-record.mjs';
 
-const [recordDir, out] = process.argv.slice(2), SLOW = process.argv.includes('--slow'), NO_CLOCK = process.argv.includes('--no-clock');
+const [recordDir, out] = process.argv.slice(2), SLOW = process.argv.includes('--slow'), NO_CLOCK = process.argv.includes('--no-clock'), SCROLLBAR = process.argv.includes('--linux-scrollbar'), CPU = Number((process.argv.find(arg => arg.startsWith('--cpu=')) || '').slice(6)) || 0;
 if (!recordDir || !out) { console.error('usage: node replay-net.mjs <record dir> <out dir> [--slow] [--no-clock]'); process.exit(2); }
 const record = JSON.parse(fs.readFileSync(path.join(recordDir, 'record.json'), 'utf8'));
 const bodies = new Map(fs.readdirSync(path.join(recordDir, 'bodies')).map(hash => [hash, fs.readFileSync(path.join(recordDir, 'bodies', hash))]));
@@ -25,7 +25,13 @@ let replay = null;
 const browser = async options => {
   const run = await startRealExtension({...options, offline: true});
   await run.context.addInitScript(SW_BLOCK);
+  await run.context.addInitScript({path: path.join(path.dirname(new URL(import.meta.url).pathname), 'lib', 'upload-events.js')});   // a fulfilled upload fires no upload events (lib/upload-events.js)
+  // --linux-scrollbar: a CI runner (Linux) draws a 15 px classic scrollbar, a Mac none: the page is 15 px narrower live (the capture spec's cause 3)
+  if (SCROLLBAR) await run.context.addInitScript(() => { const style = () => { const s = document.createElement('style'); s.textContent = '::-webkit-scrollbar{width:15px;height:15px}::-webkit-scrollbar-thumb{background:#c1c1c1}'; (document.head || document.documentElement).appendChild(s); }; if (document.documentElement) style(); else document.addEventListener('DOMContentLoaded', style); });   // eslint-disable-line no-undef
   if (!NO_CLOCK) await run.context.clock.install({time: record.startMs});
+  if (CPU > 1) await (await run.context.newCDPSession(run.page)).send('Emulation.setCPUThrottlingRate', {rate: CPU});   // a CI runner is slower than a Mac: --cpu=4 slows this browser to about its pace
+  const pageLog = page => { page.on('pageerror', error => fs.appendFileSync(path.join(out, 'page-errors.txt'), `pageerror ${String(error.message).slice(0, 300)}\n`)); page.on('console', message => { if (['error', 'warning'].includes(message.type())) fs.appendFileSync(path.join(out, 'page-errors.txt'), `${message.type()} ${message.text().slice(0, 300)}\n`); }); };
+  run.context.pages().forEach(pageLog); run.context.on('page', pageLog);
   replay = await netReplay(run.context, {entries: record.entries, bodies}, {slow: SLOW, say: line => console.log(`replay: ${line}`)});
   return run;
 };
