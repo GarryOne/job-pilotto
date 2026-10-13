@@ -9,6 +9,7 @@ import {test} from 'node:test';
 import * as engineLog from '../lib/engine-log.js';
 import {logTo} from '../lib/log.js';
 import * as pipeline from '../lib/pipeline.js';
+import {logText} from './log-text.mjs';
 
 test('a run is written down: engine.log takes its output, app.log its two markers', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-run-'));
@@ -19,12 +20,12 @@ test('a run is written down: engine.log takes its output, app.log its two marker
   const {code, runId} = await pipeline.run(storage, ['no_such_module_for_this_test']);
   assert.notEqual(code, 0);
   assert.match(runId, /^[0-9a-f]+$/);
-  const engine = fs.readFileSync(path.join(dir, 'engine.log'), 'utf8');
+  const engine = logText(path.join(dir, 'engine.log'));
   assert.match(engine, new RegExp(`---- python -m no_such_module_for_this_test run_id=${runId}\\n`));  // the header, before the output
   assert.match(engine, /No module named no_such_module_for_this_test/);           // the engine's own words
   assert.match(engine, new RegExp(`---- exit \\d+ after \\d+s run_id=${runId}`));  // and the exit line, same id
   assert.ok(engine.indexOf('---- python -m') < engine.indexOf('No module named'));
-  const app = fs.readFileSync(path.join(dir, 'app.log'), 'utf8');
+  const app = logText(path.join(dir, 'app.log'));
   assert.match(app, new RegExp(`\\[run\\] start: python -m no_such_module_for_this_test \\{"run_id":"${runId}"\\}`));
   assert.match(app, new RegExp(`\\[run\\] end: python -m no_such_module_for_this_test -> exit \\d+ in \\d+s \\{"run_id":"${runId}"`));
   logTo(null);
@@ -50,7 +51,7 @@ test('a run that stops talking is stopped, says so, and is reported as a failed 
   assert.match(timedOut, /no output for/);
   assert.ok(lines.some(line => /Stopped by Job Pilotto: no output for/.test(line)), 'the log says why');
   assert.match(ended.at(-1).timedOut, /no output for/);                                    // the technical report gets the reason
-  assert.match(fs.readFileSync(path.join(dir, 'app.log'), 'utf8'), /\[run\] watchdog: python -m http\.server/);
+  assert.match(logText(path.join(dir, 'app.log')), /\[run\] watchdog: python -m http\.server/);
   logTo(null);
   engineLog.setFile(null);
 });

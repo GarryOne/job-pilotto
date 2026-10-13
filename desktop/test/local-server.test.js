@@ -7,6 +7,7 @@ import path from 'node:path';
 import {test} from 'node:test';
 import * as server from '../lib/server.js';
 import * as terminals from '../lib/terminals.js';
+import {logText} from './log-text.mjs';
 
 function fakePty() {
   const spawned = [];
@@ -33,7 +34,7 @@ test('the extension\'s decisions land in the app log', async () => {
     {at: '2026-10-01T08:00:00.000Z', kind: 'submitted?', text: 'looks like a confirmation URL, but no submit press was seen: not marked',
       fields: {job: 'https://job-boards.greenhouse.io/anthropic/jobs/5114768008', version: '0.8.26'}},
   ]);
-  const written = fs.readFileSync(path.join(dir, 'app.log'), 'utf8').trim().split('\n');
+  const written = logText(path.join(dir, 'app.log')).trim().split('\n');
   assert.match(written.at(-1), /\[extension\] submitted\?: looks like a confirmation URL, but no submit press was seen: not marked/);
   assert.match(written.at(-1), /"version":"0\.8\.26"/);
   log.logTo(null);
@@ -49,7 +50,7 @@ test('a reported submit is logged with its evidence, before the job is marked', 
   const env = server.localEnv(storage, undefined, {find: async () => null});  // the job isn't in the list
   const result = await env.markApplied('https://jobs.test/acme/1', 'applied submit press seen 3s before (submit on jobs.test, extension 0.8.24)');
   assert.equal(result.ok, false);
-  const written = fs.readFileSync(path.join(dir, 'app.log'), 'utf8').trim().split('\n');
+  const written = logText(path.join(dir, 'app.log')).trim().split('\n');
   assert.match(written.at(-1), /\[extension\] mark Applied: https:\/\/jobs\.test\/acme\/1 — applied submit press seen 3s before/);
   assert.match(written.at(-1), /extension 0\.8\.24/);
   log.logTo(null);  // the app log goes quiet again for the rest of the suite

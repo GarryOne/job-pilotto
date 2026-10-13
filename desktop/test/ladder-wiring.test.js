@@ -9,6 +9,7 @@ import {test} from 'node:test';
 import {decidePageKind} from '../lib/server-pages.js';
 import {createReporter} from '../lib/recipes.js';
 import {logTo} from '../lib/log.js';
+import {logText} from './log-text.mjs';
 
 const newStorage = () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-ladder-wire-'));
@@ -122,7 +123,7 @@ test('a verified decision of the fast tier is counted and said in the log, never
   assert.deepEqual([reply.ok, reply.confirmed], [true, true]);
   await decidePageKind(storage, {...form, url: 'https://jobs.wire.test/careers/2000'}, noAi);   // another posting of the shape: a second hit
   assert.equal((await decidePageKind(storage, page(3), noAi)).kind, '', 'a count never answers a page');
-  const line = fs.readFileSync(path.join(logs, 'app.log'), 'utf8').split('\n').filter(text => text.includes('ladder: confirmed by rung 2'));
+  const line = logText(path.join(logs, 'app.log')).split('\n').filter(text => text.includes('ladder: confirmed by rung 2'));
   assert.equal(line.length, 2);
   assert.deepEqual(JSON.parse(line[0].slice(line[0].indexOf('{'))), {shape: 'jobs.wire.test/careers/*|1-2', kind: 'form', outcome: 'form'});
   const sent = [];
@@ -137,7 +138,7 @@ test('a confirmed learned answer is said in the log (a hit), with its shape only
   logTo(logs);
   await decidePageKind(storage, verified(1), noAi);
   await decidePageKind(storage, {...page(2), confirmed: true}, noAi);
-  const text = fs.readFileSync(path.join(logs, 'app.log'), 'utf8');
+  const text = logText(path.join(logs, 'app.log'));
   assert.match(text, /ladder: learned by rung 3 \{"shape":"jobs\.wire\.test\/careers\/\*\|1-2","kind":"posting","outcome":"form"\}/);
   assert.match(text, /ladder: learned answer confirmed \{"shape":"jobs\.wire\.test\/careers\/\*\|1-2"\}/);
   logTo(path.join(logs, 'off'));
