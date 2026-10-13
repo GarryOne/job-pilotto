@@ -20,6 +20,7 @@ export function stopsOf(appLog = '') {
     if (look) { const fields = parsed(look[2]); if (Number.isInteger(fields.door)) looks.set(fields.door, String(fields.look || '')); }
     if (kind) page = kind[2].startsWith('account') ? 'account' : kind[2];
     // a stop the run admitted, or a silent one SEEN in shadow (it has a door id once the question is asked at it: a seen notice without one is not a stop)
+    if (stop && parsed(stop[3]).level === 'control') continue;   // a control's door (ladder/control-door.js): no page question is asked there
     if (stop) { const fields = parsed(stop[3]); if (fields.shadow !== true || Number.isInteger(fields.door)) stops.push({door: fields.door, why: stop[2], ending: fields.ending || '', host: fields.host || '', page}); }
     else if (ask) { const fields = parsed(ask[3]); if (Number.isInteger(fields.door)) asks.set(fields.door, {note: ask[2] || '', fields}); }
   }

@@ -68,6 +68,7 @@ forgotten` in the log).
 | The person submits → Applied, session leaves the list | the page after Submit is read; Applied in Notion | `background.js` watchSubmission | e2e: person submits a form |
 | Claude takes over an account page; the unfilled tab closes | stuck `account` → Claude starts; the form tab closes if nothing was filled there | `lib/session-flow.js` stuck/handOver, `apply.js` accountTakeOver/formTabsAtHandOver | `apply-form-session.test.js`, `session-flow.test.js` |
 | Start-up "Checking…", then "Chrome isn't reporting" | no stale state while unknown; Open Chrome when the extension is silent | `renderer/session-state.js` checkingTabs/chromeSilent | `session-state.test.js` |
+| A control the fill could not settle opens a control-level door record; the row's page ending never reads it | a control that used its tries, or a verify/repair that did not settle it, logs `dead end: <signal>` with `level: control` and its own door id; the page's ending, the shadow table and the silence clock skip it by that field | `ladder/control-door.js`, `ladder/dead-end.js` | `journeys.test.js` |
 | Never submits, never contacts another host | across every step above | the whole suite | e2e: through all of it |
 
 ## Never fix the same website twice (10 Oct 2026)

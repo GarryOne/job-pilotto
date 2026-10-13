@@ -16,6 +16,9 @@ import {decidePageKind} from '../lib/server-pages.js';
 import {resolveSession} from '../lib/journey-identity.js';
 import * as pipeline from '../lib/pipeline.js';
 import {sharedRead} from '../lib/shared-read.js';
+import {endingOf} from '../e2e/lib/ending.mjs';
+import {stopsOf} from '../e2e/lib/pool-shadow.mjs';
+import {doorLines, runEvents} from '../e2e/lib/pool-gaps.mjs';
 
 const POSTING = 'https://www.jobs.ch/en/vacancies/detail/12181ac1/', SIGNIN = 'https://auth.jobs.ch/u/login/identifier', FORM = 'https://apply.example/form';
 function journeyOf(id = 'f1') {
@@ -317,4 +320,22 @@ test('scenario: the uploader emptied its input and shows the CV as a chip: the p
   // The same page read as before the one reader (the panel saw no file in the input): the card follows the panel, word for word.
   review.report(sessions, {session: 'c1', tab: 3, url: FORM_URL, total: 4, left: 1, pending: ['Resume'], missing: ['Resume'], filled: ['First name', 'Last name', 'Email'], watch: []});
   assert.deepEqual(review.allStates().find(item => item.id === 'c1').pending, ['Resume']);
+});
+
+// The control level of the one door (extension/ladder/control-door.js, spec fill-ladder 5): a row whose log holds control doors (a control that used its tries, a verify that called one wrong, a
+// repair left to the person) beside the page's own stop. The page's ending, the shadow table, the door counts and the silence clock read only the page's stop, by the `level` field.
+test('scenario: control doors in a row\'s log never become the page\'s stop, its shadow question or the end of the silence clock', () => {
+  const at = n => `2026-10-14T10:00:${String(n).padStart(2, '0')}.000Z [extension] fill: `;
+  const log = [
+    `${at(1)}progress: first_fill {}`,
+    `${at(2)}dead end: stalled {"door":1,"host":"jobs.example","level":"control","reason":"tries","rung":0,"signal":"stalled","tried":3}`,
+    `${at(3)}dead end: contradicted {"door":2,"host":"jobs.example","level":"control","reason":"verify","rung":4,"signal":"contradicted"}`,
+    `${at(4)}dead end: refused {"door":3,"host":"jobs.example","level":"control","reason":"repair left","rung":3,"signal":"refused"}`,
+    `${at(5)}dead end: other {"door":4,"ending":"unresolved","host":"jobs.example","named":false}`,
+  ].join('\n');
+  assert.deepEqual(stopsOf(log).map(stop => [stop.door, stop.why]), [[4, 'other']], 'one page stop; the control doors ask no question');
+  assert.deepEqual(doorLines(log), {stops: 1, seen: 0});
+  assert.equal(runEvents(log).filter(event => event.type === 'end').length, 1, 'only the page stop ends the silence clock');
+  const control = [at(2) + 'dead end: stalled {"door":1,"level":"control","signal":"stalled"}'].join('\n');
+  assert.equal(endingOf({reached: 'form', fieldList: []}, control).why === 'dead end: stalled', false, 'a control door is never the row\'s stop');
 });

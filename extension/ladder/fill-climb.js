@@ -14,6 +14,7 @@ import {sketchOf} from '../judge-sketch.js';
 import {onTop} from '../on-top.js';
 import {closeLayer} from '../consent.js';
 import {runRepairs} from './fill-repair.js';
+import {repairDoors} from './control-door.js';
 
 const inPage = (tabId, func, args = []) => chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func, args}).then(([row]) => row?.result);
 
@@ -41,6 +42,7 @@ async function repairPage(tab, config, turn) {
   for (const row of results) if (row.ok !== undefined) decide('fill', `fill: ${row.verb} on control ${row.n}`, {worked: row.ok, fp: sketch.controls[row.n - 1]?.fp || ''}).catch(() => {});   // spec "Caps and floors": the verb and the control's structural fingerprint (the CI pool's feed reads them: lib/ladder-moves.mjs repairsFromLog), never a label
   const done = results.filter(row => row.ok !== undefined).map(row => { const asked = found.repairs.find(one => one.n === row.n) || {}; return {fp: sketch.controls[row.n - 1]?.fp || '', verb: row.verb, widget: asked.widget || 'other', option: asked.option || 0, ok: !!row.ok}; }).filter(row => row.fp);
   if (done.length) apiFor(tab.id, config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase: 'repair-result', results: done})}).catch(() => {});   // kept per fingerprint, or dropped (desktop/lib/ladder/repair-kept.js): fixed values only
+  repairDoors({sketch, verdicts: verified?.verdicts, results}, decide);   // each control the check or the repair could not settle: a door record at control level (ladder/control-door.js)
   decide('fill', 'fill repair', {asked: found.repairs.length, tried: results.filter(row => row.ok !== undefined).length, worked: results.filter(row => row.ok).length}).catch(() => {});
   return {repairs: found.repairs, results};
 }

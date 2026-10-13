@@ -62,6 +62,7 @@ const lastStop = appLog => {
     if (door) {
       let data = {};
       try { data = JSON.parse(door[2]); } catch { /* a cut line: no need named */ }
+      if (data.level === 'control') continue;   // a control's door (ladder/control-door.js): the page's ending is its own, never a control's
       if (data.shadow === true) continue;   // a dead end SEEN in shadow (extension/ladder/dead-end.js seenDeadEnd): never a stop, skipped by its field, never by its words (cc, 13 Oct 2026)
       found = {why: door[1], named: data.named === true, door: true};
       continue;

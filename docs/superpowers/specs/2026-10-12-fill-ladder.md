@@ -256,7 +256,7 @@ Shadow (owner): one zoo pass + one pool pass with `fill_verify` logging, then re
 - [x] intl-tel-input and flatpickr real-library pages (amendment 6), popup-over-form page (C3): the real phone widget passes on main (no phone fix, kept as a guard); the real flatpickr case fails on main (a date picker's read-only box was skipped) and passes now; popup-over-form is covered by the dialog-* recorded cases (proof: desktop/e2e/recorded/flatpickr-real-library-1/case.json)
 - [ ] The unblock rate measured end to end in the CI pool (amendment 7), after C3 lands: the ~$0.30 measuring run with the #507 rows
 - [x] Wiring in `extension/ladder/fill-climb.js`, one call in flow.js; the record takes rung 0's last read after a repair or a late retype, so the pool's endings read what the page holds (cc) (PR C2) (proof: worker/test/read-back.test.js)
-- [ ] The door record `{level: 'control', ...}` joining next-move's `deadEnd()`; a journey scenario
+- [x] The door record `{level: 'control', ...}` joining next-move's `deadEnd()`; a journey scenario (PR door) (proof: worker/test/control-door.test.js)
 ### 5. Remember (PR D)
 - [x] Local kept repair per fingerprint, one miss drops (D1, #579) (proof: desktop/lib/ladder/repair-kept.js @0dec01f)
 - [x] Evidence (fingerprint, verb, worked) in next-move's feed: `repairs` array to `/api/controls` (real use + CI pool + replays), site stores it (PR D2) (proof: site/test/repair-evidence.test.js)
