@@ -1,10 +1,10 @@
 {
  "origin": "hand-cut",
- "shape": "a form whose file upload starts the page's own autofill-from-resume, which empties the name and link boxes and keeps them read-only while it works: the fill's record is sent with those boxes empty, and they are typable again only after it",
- "why": "13 Oct 2026, the fill ladder's record update: the record is sent once, so a box emptied by the page and typed again by the retype watcher AFTER that stayed 'left' in the record (the pool's endings read it). Seeded: the boxes are locked from the page's autofill (2.5 s after the upload) until 10 s after it, so the record is always read while they are empty, then the retype types them and the record is updated once",
+ "shape": "a form whose file upload starts the page's own autofill-from-resume, which at once empties the name boxes and keeps them read-only until 10 s after the upload: the fill's record is sent with those boxes empty, and they are typable again only after it",
+ "why": "13 Oct 2026, the fill ladder's record update: the record is sent once, so a box emptied by the page and typed again by the retype watcher AFTER that stayed 'left' in the record (the pool's endings read it). Seeded: the boxes are emptied and locked at the upload until 10 s after it, so the record is always read while they are empty, then the retype types them and the record is updated once",
  "control": {
   "build": "0.9.263",
-  "failed": "told: fields (updated after a late retype)"
+  "failed": "told: fields (updated after a late retype); told: \"update\":\"e2e-run\" (no update of the run's row)"
  },
  "sample": "structure of a hosted job board's application form with an 'Autofill from resume' upload, rebuilt small (names and values removed)",
  "pages": [
@@ -44,7 +44,8 @@
    "#email"
   ],
   "told": [
-   "fields (updated after a late retype)"
+   "fields (updated after a late retype)",
+   "\"update\":\"e2e-run\""
   ],
   "notTold": [
    "pressed the submit"

@@ -352,6 +352,20 @@ class StoreContract:
         with self.assertRaises(KeyError):
             self.s.agent_runs.update(run['id'], {'fields': {'not a column': 1}})
 
+    def test_an_extension_run_is_corrected_in_place_and_never_added_twice(self):
+        # extension/ladder/record-update.js: a box the page emptied after the fill's record was sent and typed again corrects THAT row (agent_runs.update with the whole `fields`
+        # column: the row's own job and start are kept by the caller), in every adapter.
+        record = {'job': 'SRE', 'agent': 'Extension', 'status': 'Needs input', 'started': '2026-10-13T00:00:00.000Z', 'field_count': 3, 'unfilled_required': 2}
+        run = self.s.agent_runs.add({'url': JOB['url'], 'ats': 'greenhouse', 'outcome': 'Needs input', 'fields': record})
+        self.s.agent_runs.add({'url': JOB['url'], 'ats': 'workday', 'outcome': 'Ready'})
+        self.s.agent_runs.update(run['id'], {'outcome': 'Ready', 'learnings': '', 'fields': {**record, 'status': 'Ready', 'field_count': 5, 'unfilled_required': 0}})
+        rows = self.s.agent_runs.list(ats='greenhouse')
+        self.assertEqual(len(rows), 1, 'one row, corrected: never a second one')
+        got = self.s.agent_runs.get(run['id'])
+        self.assertEqual((got['outcome'], got['fields']['status'], got['fields']['field_count'], got['fields']['unfilled_required']), ('Ready', 'Ready', 5, 0))
+        self.assertEqual((got['fields']['job'], got['fields']['started']), ('SRE', '2026-10-13T00:00:00.000Z'))
+        self.assertEqual(len(self.s.agent_runs.list()), 2)
+
     def test_a_cron_run_begins_reports_progress_and_finishes(self):
         run = self.s.cron_runs.begin('search', 'mac')
         self.assertRecord(run, base.CRON_RUN_FIELDS)

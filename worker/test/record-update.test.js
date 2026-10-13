@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
-import {armRecordUpdate, disarmRecordUpdate, noteLateRetype, MAX_UPDATES} from '../../extension/ladder/record-update.js';
+import {armRecordUpdate, disarmRecordUpdate, noteLateRetype, runUpdateBody, MAX_UPDATES} from '../../extension/ladder/record-update.js';
 import {onPageProgress} from '../../extension/ladder/progress.js';
 
 const TRACE = [
@@ -81,4 +81,20 @@ test('the ends of the record: flow.js arms after it sends the run; every reader 
   assert.match(read('extension/ladder/progress.js'), /noteLateRetype\(/);
   const smoke = read('desktop/e2e/lib/smoke.mjs');
   assert.ok(!/fields: \(\\d\+\) filled/.test(smoke) && !/fill: fields: \\d\+ filled/.test(smoke), 'smoke.mjs reads the fields line through FIELDS_LINE, never its own copy of the words');
+});
+
+test('the run row\'s update: the same run with the counts of the new record, never a new run', () => {
+  const body = {url: 'https://jobs.example.com/apply', started: '2026-10-13T00:00:00.000Z', ended: '2026-10-13T00:00:05.000Z', fields: 2, unfilled: 1, usd: 0, kit: true, todo: [], trace: TRACE, debug: {steps: []}};
+  const next = TRACE.map(row => ({...row, outcome: 'filled', reason: ''}));
+  const update = runUpdateBody(body, TRACE, next, 'r1');
+  assert.deepEqual([update.update, update.url, update.started, update.fields, update.unfilled], ['r1', body.url, body.started, 3, 0]);
+  assert.equal(update.trace, next);
+  assert.deepEqual([body.fields, body.unfilled], [2, 1], 'the first record is not changed');
+  assert.equal(runUpdateBody(body, next, TRACE, 'r1').unfilled, 1, 'and back: a box emptied again');
+});
+
+test('flow.js sends the update to the run it logged (its id), and only when the store gave one', () => {
+  const flow = fs.readFileSync(new URL('../../extension/flow.js', import.meta.url), 'utf8');
+  assert.match(flow, /runUpdateBody\(/);
+  assert.match(flow, /\(await logged\)\?\.id/);
 });

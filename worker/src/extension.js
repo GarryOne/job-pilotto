@@ -369,6 +369,10 @@ export async function handleExtension(request, env) {
     }
     if (request.method === 'POST' && url.pathname === '/extension/run') {
       const run = await request.json().catch(() => ({}));
+      // An update of a run already logged (extension/ladder/record-update.js: a box emptied after the record was sent and typed again): that run's row is corrected through the store;
+      // never a second row, so with no store to place it (the Cloudflare worker's Notion pages) it is skipped. Not collected again: its questions were counted with the first record.
+      if (run.update !== undefined) return json(env.store?.updateRun && /^[\w-]{1,64}$/.test(String(run.update)) && typeof run.update === 'string'
+        ? await env.store.updateRun(run).catch((error) => ({ ok: false, error: error.message })) : { ok: false, skipped: true });
       await env.onRun?.(run);  // desktop app: collects the questions nothing could answer
       if (run.url && env.store) return json(await env.store.logRun(run).catch((error) => ({ ok: false, error: error.message })));
       if (!run.url || !env.NOTION_TOKEN || !env.NOTION_AGENT_RUNS_DB) return json({ ok: false, skipped: true });

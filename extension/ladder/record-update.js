@@ -11,6 +11,13 @@ const armed = new Map();   // tabId -> {page, trace, sent, ...}: the fill whose 
 
 const outcomes = trace => loggedFields(trace).map(row => `${row.label}:${row.outcome}`).join('|');
 
+// The run row's update (POST /extension/run with `update: <the run's id>`): the first record's body with the counts of the new trace. fields moves by what changed in the filled rows
+// (the page's own count of what the fill typed stays as it was), unfilled is the required rows left.
+const filledCount = trace => (trace || []).filter(row => row.outcome === 'filled').length;
+export const runUpdateBody = (body, before, next, id) => ({...body, update: id, trace: next,
+  fields: Math.max(0, (Number(body.fields) || 0) + filledCount(next) - filledCount(before)),
+  unfilled: (next || []).filter(row => row.required && row.outcome !== 'filled').length});
+
 // Called once the fill's record was sent. trace: the settled trace it carried; inPage(tabId, func): runs in the page's own world (flow.js).
 export function armRecordUpdate(tabId, {page, trace, resumeName = '', inPage, decide, onUpdate = null, quietMs = QUIET_MS}) {
   disarmRecordUpdate(tabId);
