@@ -138,6 +138,20 @@ const readRequiredInPage = cvName => {
     const type = (el.getAttribute('type') || '').toLowerCase(), name = (el.getAttribute('aria-label') || labelled || forLabel || el.closest('label')?.textContent || el.getAttribute('name') || el.id || el.closest('[class*=field], [class*=question], fieldset')?.querySelector('label, legend')?.textContent || el.tagName.toLowerCase()).replace(/\s+/g, ' ').trim().slice(0, 60);
     if (['hidden', 'submit', 'button', 'reset', 'image'].includes(type) || el.getAttribute('role') === 'combobox' || el.hasAttribute('aria-autocomplete')) continue;
     const role = el.getAttribute('role') || '';
+    // One question is one control, however its options are named (NICE's Greenhouse form, pool run 38325149096: a required fieldset of required checkboxes with their own
+    // ids and a []-name read as 1 + every option, 16 against the panel's 8): options join by the box holding only options (fieldset, ARIA group), else by a shared name.
+    const choice = ['checkbox', 'radio'].includes(type), onlyOptions = box => box && !box.querySelector('input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textarea');
+    const set = choice ? el.closest('fieldset, [role=radiogroup], [role=group]') : el.querySelector('input[type=checkbox], input[type=radio]') && el;
+    const shared = choice && el.name && document.querySelectorAll(`input[name="${CSS.escape(el.name)}"]`).length > 1 ? el.name : '';
+    if (onlyOptions(set) || shared) {
+      const key = onlyOptions(set) ? set : `options:${shared}`;
+      if (groups.has(key)) continue;
+      groups.add(key);
+      const options = key === set ? set.querySelectorAll('input[type=checkbox], input[type=radio]') : document.querySelectorAll(`input[name="${CSS.escape(shared)}"]`);
+      const title = key === set ? (set.querySelector('legend')?.textContent || set.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().slice(0, 60) : '';
+      out.push({name: title || name, empty: ![...options].some(one => one.checked) && !(key === set && set.querySelector(on))});
+      continue;
+    }
     if (['radio', 'checkbox', 'option', 'switch'].includes(role)) { const group = el.closest('[role=radiogroup], [role=group], [role=listbox]') || el.parentElement; const key = group?.id || name; if (groups.has(key)) continue; groups.add(key); out.push({name, empty: !(el.matches(on) || group?.querySelector(on))}); continue; }
     // An upload slot: a file box, a group holding one, or a required group with no control of its own (Greenhouse's resume group: a chip with the file's name, no file input in the
     // captured page): read by the file it holds or the name it shows (chosen-picklist-judged-1, found by fill-ladder 13 Oct 2026).
