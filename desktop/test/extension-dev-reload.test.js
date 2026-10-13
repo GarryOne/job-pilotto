@@ -26,7 +26,8 @@ test('the newest file of a folder, 0 when it cannot be read', () => {
   fs.mkdirSync(path.join(dir, 'sub'));
   fs.writeFileSync(path.join(dir, 'a.js'), 'a');
   fs.writeFileSync(path.join(dir, 'sub', 'b.js'), 'b');
-  fs.utimesSync(path.join(dir, 'sub', 'b.js'), new Date(5e12), new Date(5e12));
-  assert.equal(newestExtensionFile(dir), 5e12);
+  fs.utimesSync(path.join(dir, 'a.js'), new Date(1e12), new Date(1e12));   // 2001 and 2017: dates every file system keeps (Windows CI dropped 2128)
+  fs.utimesSync(path.join(dir, 'sub', 'b.js'), new Date(1.5e12), new Date(1.5e12));
+  assert.equal(Math.round(newestExtensionFile(dir)), 1.5e12);
   assert.equal(newestExtensionFile(path.join(dir, 'missing')), 0);
 });
