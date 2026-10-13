@@ -194,7 +194,15 @@ export function recordsOf(requests) {
   const runs = requests.filter(request => request.route === '/extension/run'), reviews = requests.filter(request => request.route === '/extension/review');
   const run = runs.length ? parsed(runs.at(-1)) : null;
   const later = run && lateRows(requests, runs.at(-1));
-  return {run: later ? {...run, trace: later} : run, cut: runs.length > 0 && !run, review: reviews.length ? parsed(reviews.at(-1)) : null};
+  const review = reviews.length ? parsed(reviews.at(-1)) : null;
+  // The record belongs to the page the fill ran on: the page the last page-kind ask BEFORE it named. A panel that reports on another page (a two-page case: the login page was filled and recorded, the apply page
+  // is filled but its record is still on its way: the extension posts it after the 15 s the page is watched for a late retype) is not compared with the other page's record. That is `stale`, never a pass:
+  // falseReadings waits for the page's own record and fails when none comes (13 Oct 2026, email-first-no-password-1).
+  const pageOf = url => String(url || '').split('#')[0];
+  const before = runs.length ? requests.slice(0, requests.indexOf(runs.at(-1))).filter(request => request.route === '/extension/page-kind').at(-1) : null;
+  const ranOn = pageOf(before && parsed(before)?.url), reportedOn = pageOf(review?.url);
+  const stale = !!(run && ranOn && reportedOn && ranOn !== reportedOn);
+  return {run: stale ? null : later ? {...run, trace: later} : run, cut: runs.length > 0 && !run, stale, review};
 }
 const UPDATED_LINE = /^fields \(updated after a late retype\)/;
 function lateRows(requests, lastRun) {
@@ -212,9 +220,12 @@ export async function falseReadings(item, {page, mine}, {deadline = Date.now() +
   const filling = () => page().evaluate(() => { try { return JSON.parse(document.documentElement.dataset.jobpilottoFill || '{}').state === 'running'; } catch { return false; } }).catch(() => false);
   while (Date.now() < deadline && await filling()) await wait(300);
   await wait(settleMs);   // the panel reports on its own beat (review.js sync): its report after the fill's end
-  const expected = expectedAnswers(item), tab = await readTab(page(), [...expected.keys()]), records = recordsOf(mine());
+  const expected = expectedAnswers(item);
+  let tab = await readTab(page(), [...expected.keys()]), records = recordsOf(mine());
+  while (records.stale && Date.now() < deadline) { await wait(500); records = recordsOf(mine()); tab = await readTab(page(), [...expected.keys()]); }   // the page's own record is on its way
   const truth = truthFailures(expected, tab.read, pickedChoices(item));
   const failures = [...truth.failures];
+  if (records.stale) failures.push(`agreement: the page was filled (${named((records.review?.filled || []).map(String))}) but its own fill record never reached the app; the record on file is another page's`);
   if (records.cut) failures.push('agreement: the fill record reached the stand-in cut short (real-extension.mjs keeps too little of /extension/run)');
   failures.push(...agreementFailures({trace: records.run?.trace || null, review: records.review, panel: tab.panel, required: tab.required, files: tab.files, slots: tab.slots}));
   const judged = againstLedger(item.name, failures);

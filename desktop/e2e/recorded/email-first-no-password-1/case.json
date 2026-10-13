@@ -1,7 +1,7 @@
 {
  "origin": "hand-cut",
  "shape": "an email-first sign-in step before the application form (no password box on the page yet), no password saved for the site: the run names what the person must do at once, and fills the form by itself once the person has signed in",
- "why": "14 Oct 2026, spec 2026-10-12-one-next-move.md prerequisite B: 6 of 11 silent stops in the 13 Oct pool were account pages that ask for the email first; the account step named the need only when an empty password box existed.",
+ "why": "13 Oct 2026, spec 2026-10-12-one-next-move.md prerequisite B: 6 of 11 silent stops in the 13 Oct pool were account pages that ask for the email first; the account step named the need only when an empty password box existed.",
  "control": {
   "build": "0.9.442",
   "failed": "told: Sign in with your password for this site; stuck: account|Sign in with your password (no report: an email-first sign-in page with no saved password stopped silently)"
@@ -65,7 +65,11 @@
    }
   ],
   "/extension/site-password": {
-   "ok": false
+   "ok": true,
+   "email": "test.candidate@example.com",
+   "mode": "sign-in",
+   "automation": "assist",
+   "session": ""
   }
  },
  "expect": {
