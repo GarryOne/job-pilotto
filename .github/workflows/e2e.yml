@@ -411,6 +411,33 @@ jobs:
         if: steps.merge.outputs.made == '1'
         run: echo "## 📊 [Open the HTML report](https://www.jobpilotto.top/admin/e2e/run/${{ github.run_id }}/report) · every suite, its steps with a screenshot each, the failure and its trace (admins)" >> "$GITHUB_STEP_SUMMARY"
 
+  # Telegram (owner, 14 Oct 2026): a scheduled or gate run that failed sends 🔴 with the failed suites; the first green one after a failure sends 🟢
+  # (desktop/e2e/ci-alert.mjs, bot @jobpilotto_ci_alerts_bot). Not for runs by hand of other kinds (a mutant, a canary, a soak).
+  alert:
+    name: Telegram alert
+    needs: [plan, suite]
+    if: always() && github.ref == 'refs/heads/main' && (inputs.scheduled || inputs.gate_tag || github.event_name == 'schedule')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: desktop/e2e
+      - name: Tell the owner (a failure, or back to green)
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_ALERTS_TELEGRAM_BOT_TOKEN: ${{ secrets.CI_ALERTS_TELEGRAM_BOT_TOKEN }}
+          CI_ALERTS_TELEGRAM_CHAT_ID: ${{ secrets.CI_ALERTS_TELEGRAM_CHAT_ID }}
+          RESULT: ${{ needs.plan.result == 'success' && needs.suite.result || needs.plan.result }}
+        run: |
+          if [ "$RESULT" = failure ] || [ "$RESULT" = cancelled ]; then
+            failed=$(gh run view "$GITHUB_RUN_ID" -R "$GITHUB_REPOSITORY" --json jobs --jq '[.jobs[] | select(.conclusion == "failure") | .name] | join(", ")' 2>/dev/null || true)
+            node ci-alert.mjs failure "Failed: ${failed:-the run (see the link)}"
+          else node ci-alert.mjs success; fi
+
   # The release step of a gate by hand (gh workflow run e2e.yml -f gate_tag=<tag>): beta-approve.yml, the same job the release run (desktop.yml) shows as its own
   # "Release · Mac beta" step after "E2E · Mac + Linux" (release_run: not here, so it is not done twice).
   promote:
