@@ -604,10 +604,10 @@
     }, 2500);
   };
   const noteSubmit = () => { noteLearned(); noteMissed(); send({type: 'submitted', url: location.href, snapshot: snapshot(), account: accountNow()}).catch(() => {}); };
-  document.addEventListener('submit', () => noteSubmit(), true);
+  document.addEventListener('submit', event => { if (window.__jobPilottoSubmitPress?.person(event) !== false) noteSubmit(); }, true);   // a form the extension's own press submitted is not the person's submit
   document.addEventListener('click', event => {
     const button = event.target?.closest?.('button, input[type=submit], [role=button]');
-    if (!button) return;
+    if (window.__jobPilottoSubmitPress?.person(event) === false || !button) return;   // a script's click is the extension's own press, never the person's
     const words = `${button.textContent || ''} ${button.getAttribute?.('aria-label') || ''} ${button.name || ''} ${button.value || ''}`;
     if (window.__jobPilottoSubmitPress?.counts(button, words)) noteSubmit();   // page/submit-press.js: written type=submit, or the Submit floor; never the typeless default
   }, true);
