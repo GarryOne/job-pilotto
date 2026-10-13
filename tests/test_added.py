@@ -151,6 +151,23 @@ class DailyAddTests(unittest.TestCase):
         self.assertEqual((seen['title'], seen['company'], seen['description']), ('Senior SRE', 'Acme', POSTING.strip()))
         self.assertIn('fit 81/100, tier A', printed.call_args_list[-1].args[0])
 
+    def test_a_page_whose_text_was_not_read_says_it_is_not_scored_instead_of_staying_silent(self):
+        from src import daily, daily_modes, ledger_store
+        from src.notion import ledger
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        argv = ['daily', '--mode', 'add', '--job', 'https://careers.example.test/job/1', '--note', 'today',
+                '--db', str(Path(tmp.name) / 'j.sqlite')]
+        tracker = SimpleNamespace(query_database=lambda *a, **k: [])
+        with mock.patch.object(sys, 'argv', argv), mock.patch.object(daily.notion.Tracker, 'from_env', lambda: tracker), \
+                mock.patch.object(ledger, 'page_meta', lambda url: {'title': 'Controller'}), \
+                mock.patch.object(added, 'process', lambda *a, **k: None), \
+                mock.patch.object(ledger_store, 'add_application', lambda *a, **k: 'Tracked: Controller'), \
+                mock.patch.object(ledger_store, 'company_for', lambda s, u, m: ''), \
+                mock.patch.object(daily_modes, 'queue_mail_check', lambda: False), mock.patch('builtins.print') as printed:
+            self.assertEqual(daily.main(), 0)
+        self.assertIn('not scored yet', printed.call_args_list[-1].args[0])
+
 
 class AddApplicationColumnsTests(unittest.TestCase):
     def test_add_writes_the_fit_columns_and_the_frozen_record_reads_them_without_a_job_matches_row(self):

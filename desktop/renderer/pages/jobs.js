@@ -11,6 +11,7 @@ import {toastMessage} from './startup.js';
 import {hostStats, snapshot} from '../intel.js';
 import {searchSelect} from '../search-select.js';
 import {jobsState, MORE, fullKey} from './jobs-state.js';
+import {openJobPanel} from './job-panel.js';
 import {TALKING_OPEN, renderJobs, renderStuck, showLoading} from './jobs-render.js';
 export {renderJobs} from './jobs-render.js';
 window.addEventListener('claude-help', () => renderJobs());   // Settings' Claude switch: the job menus follow it (claude-help.js)
@@ -28,6 +29,20 @@ const writes = jobWrites({read: options => window.pilot.jobs(options), paint: fr
 export const jobsChanged = (job = null, patch = {}) => writes.changed(job, patch);
 
 // Sites that often show a sign-in page instead of the posting (src/notion/ledger.py WALLED): read like any page, with fields for the text in case.
+// After "Add a job" / "Applied elsewhere" worked: the result line gets an "Open job" link that closes the dialog and opens that job's drawer.
+// The list is read again first, so the drawer gets the row the list shows; a job past the list's limit opens from the result alone.
+async function linkToJob(dialogId, messageId, result) {
+  const added = result.job;
+  await loadJobs();
+  if (!added?.jobUrl) return;
+  const job = (shared.allJobs || []).find(row => row.url === added.jobUrl || (added.url && row.notion_url === added.url))
+    || {url: added.jobUrl, title: added.title, notion_url: added.url};
+  const open = document.createElement('button');
+  open.type = 'button'; open.className = 'link'; open.textContent = 'Open job →';
+  open.addEventListener('click', () => { $(dialogId).close(); openJobPanel(job); });
+  $(messageId).append(' ', open);
+}
+
 const WALLED = /(^|\.)(linkedin\.com|glassdoor\.[a-z.]+|indeed\.[a-z.]+|levels\.fyi|reddit\.com)$/i;
 
 // List density: Comfortable (columns) or Compact (one block per job); remembered on this computer.
@@ -233,7 +248,7 @@ export async function init() {
     if (!result.ok) return;
     $('import-url').value = '';
     $('filter-status').value = 'open';
-    loadJobs();
+    await linkToJob('import-dialog', 'import-message', result);
   });
   // Applied elsewhere: tracked in Notion like /add, then shown in the list as Applied.
   const setAppliedOrigin = value => $('applied-origin').querySelectorAll('button').forEach(b => b.classList.toggle('is-active', b.dataset.origin === value));
@@ -269,11 +284,17 @@ export async function init() {
     $('applied-go').disabled = false;
     message('applied-message', result.text, result.ok ? 'ok' : 'error');
     if (!result.ok) return;
+    if (/not scored yet/.test(result.text)) {   // the page's text was not read: ask for it here, the same Track it adds the fit score
+      $('applied-manual').hidden = false;
+      message('applied-message', result.text, 'ok');
+      await linkToJob('applied-dialog', 'applied-message', result);
+      return;
+    }
     $('applied-url').value = ''; $('applied-approx').checked = false; setAppliedOrigin('outbound');
     ['applied-title', 'applied-company', 'applied-text'].forEach(id => { $(id).value = ''; });
     $('applied-manual').hidden = true;
     $('filter-status').value = 'applied';  // show it where it now is
-    loadJobs();
+    await linkToJob('applied-dialog', 'applied-message', result);
   });
   wireLead();
   document.querySelectorAll('[data-density]').forEach(button => button.addEventListener('click', () => setDensity(button.dataset.density)));
