@@ -22,7 +22,7 @@ export function start(storage, licenseState, env = process.env) {
   const key = storage.settings().license?.key;
   if (!state.licensed || !key) return {ok: false, error: 'The free credit is for invited testers: paste your founder or friend key first (Settings → License).'};
   storage.setSecret('ANTHROPIC_API_KEY', key);
-  storage.saveSettings({aiTrial: true});
+  storage.saveSettings({aiTrial: true, aiEngine: 'api'});   // the credit IS the Anthropic API engine: an earlier Codex/OpenAI/CLI pick must not stay in charge
   apply(storage.settings(), env);
   return {ok: true};
 }

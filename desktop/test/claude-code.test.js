@@ -203,6 +203,9 @@ test('Always on (GitHub) never gets the Claude Code engine: it runs on the API k
 test('free credit card: chosen when on (wizard only), Continue with a founder key', () => {
   assert.equal(view.chosen({aiTrial: true}, true, 'wizard'), 'trial');
   assert.equal(view.chosen({aiTrial: true}, true, 'settings'), 'api');
+  // The credit is an Anthropic API engine: a later pick of another engine wins over a leftover aiTrial flag.
+  for (const aiEngine of ['cli', 'codex', 'openai']) assert.equal(view.chosen({aiTrial: true, aiEngine}, true, 'wizard'), aiEngine);
+  assert.equal(view.chosen({aiTrial: true, aiEngine: 'api'}, true, 'wizard'), 'trial');
   assert.equal(view.canContinue({picked: 'trial'}), false);
   assert.equal(view.canContinue({picked: 'trial', keyTyped: true}), true);
   assert.equal(view.canContinue({picked: 'trial', licensed: true}), false);   // the founder key is always asked

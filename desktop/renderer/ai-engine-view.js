@@ -41,7 +41,7 @@ export const CLI_OF = {claude: 'cli', openai: 'codex'};
 // The chosen engine: 'api', 'cli', 'openai', 'codex' or null. In Settings an install that had a key before the choice existed shows 'api'
 // (it keeps running on the key); the wizard shows nothing chosen until the user picks.
 export function chosen(settings = {}, hasKey = false, context = 'settings') {
-  if (context === 'wizard' && settings.aiTrial) return 'trial';
+  if (context === 'wizard' && settings.aiTrial && (!settings.aiEngine || settings.aiEngine === 'api')) return 'trial';   // a later pick of another engine wins
   if (['api', 'cli', 'openai', 'codex'].includes(settings.aiEngine)) return settings.aiEngine;
   return context === 'settings' && hasKey ? 'api' : null;
 }
