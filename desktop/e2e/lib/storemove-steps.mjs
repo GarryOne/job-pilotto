@@ -43,7 +43,7 @@ async function named(page, selector, {timeout = 30000, want = 1, exact = false} 
 export async function screens(page, {jobs: expectedJobs = COMPANIES.length} = {}) {
   const go = async view => { await page.click(`.nav[data-view="${view}"]`); await page.waitForSelector(`.view[data-view="${view}"]:not([hidden])`); await settled(page); };
   await go('jobs');
-  await page.selectOption('#filter-status', 'all');   // the default shows new matches only; the applications are under All
+  await page.selectOption('#filter-status', 'everything');   // the default shows new matches only; All matches leaves applied jobs out (76d1cdd), Everything keeps the applications
   const jobs = await named(page, 'article.job-row', {want: expectedJobs, exact: true});
   await go('focus');
   const focus = await named(page, '#focus-list .focus-item', {timeout: 8000});
