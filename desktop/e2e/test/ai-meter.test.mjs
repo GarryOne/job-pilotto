@@ -150,6 +150,22 @@ test('fetchKeyDays asks for the default and archived workspaces, so every key la
   assert.equal(by['ws.job-pilotto-tests'] + by['ws.old-tests'], by['job-pilotto-e2e-testing'], 'the workspaces add up to the keys');
 });
 
+test('the billed days and key days go up in batches the site accepts (at most 400 key rows a call)', async () => {
+  const {putBilled} = await import('../ai-cost-report.mjs');
+  process.env.AI_COST_PUBLISH_KEY = 'test-publish';
+  const sent = [];
+  const fetcher = async (url, init) => { sent.push(JSON.parse(init.body)); return {ok: true, text: async () => ''}; };
+  const keys = Array.from({length: 750}, (_, i) => ({day: '2026-10-05', key: `k${i}`, usd: 1}));
+  await putBilled([{day: '2026-10-05', usd: 9}], keys, fetcher);
+  assert.deepEqual(sent.map(body => body.keys.length), [300, 300, 150]);
+  assert.ok(sent.every(body => body.keys.length <= 400));
+  assert.equal(sent[0].billed.length, 1, 'the billed days go with the first batch');
+  assert.ok(sent.slice(1).every(body => body.billed.length === 0));
+  sent.length = 0;
+  await putBilled([{day: '2026-10-05', usd: 9}], [], fetcher);
+  assert.equal(sent.length, 1, 'no keys: the billed days still go up');
+});
+
 test('a refused call is recorded with the API\'s status, type and message', async t => {
   const {apiErrors, resetUsage: reset, writeUsage: write} = await import('../lib/ai-meter.mjs');
   const server = http.createServer((req, res) => { req.resume(); req.on('end', () => { res.writeHead(400, {'content-type': 'application/json'}); res.end(JSON.stringify({type: 'error', error: {type: 'invalid_request_error', message: 'You have reached your specified API usage limits.'}})); }); });

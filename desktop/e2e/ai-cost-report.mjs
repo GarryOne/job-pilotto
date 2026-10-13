@@ -115,7 +115,13 @@ export async function fetchKeyDays(days, tracked, fetcher = fetch, now = new Dat
 
 async function put(body, fetcher = fetch) {
   const response = await fetcher(`${SITE}/ai-cost/data`, {method: 'PUT', headers: {Authorization: `Bearer ${process.env.AI_COST_PUBLISH_KEY}`, 'Content-Type': 'application/json'}, body: JSON.stringify(body)});
-  if (!response.ok) throw new Error(`site answered ${response.status}`);
+  if (!response.ok) throw new Error(`site answered ${response.status}: ${String(await response.text().catch(() => '')).slice(0, 80)}`);
+}
+
+// The billed days and the key days: the site takes at most 400 key rows in one PUT (site/src/jobcost.js ingest), and every key of the organization over 31 days, with its
+// workspace, can pass that. So the keys go in batches of 300, the billed days with the first.
+export async function putBilled(billed, keys, fetcher = fetch) {
+  for (let i = 0; i === 0 || i < keys.length; i += 300) await put({billed: i === 0 ? billed : [], keys: keys.slice(i, i + 300)}, fetcher);
 }
 
 export async function fetchBilled(days, fetcher = fetch, now = new Date()) {
@@ -145,7 +151,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
         const days = Number(at('--days')) || 7, billed = await fetchBilled(days);
         const named = String(process.env.AI_COST_KEYS || '').split(',').map(name => name.trim()).filter(Boolean), tracked = named.length ? named : ['*'];   // every key of the organization unless a list narrows it
         const keys = await fetchKeyDays(days, tracked).catch(error => { console.log(`Per-key cost not fetched: ${error.message}`); return []; });
-        await put({billed, keys});
+        await putBilled(billed, keys);
         console.log(`Billed cost published for ${billed.length} day(s): $${billed.reduce((s, d) => s + d.usd, 0).toFixed(2)}; ${describeKeys(keys)}.`);
       }
     } else {
