@@ -3,15 +3,21 @@
 // Runs with every e2e suite (the release and beta gates, schedules, a gate by hand) and on a push that touches extension/ or e2e/recorded/ (lib/plan.mjs).
 // Guarded by test/recorded-pages.test.mjs (the same replay locally: npm run recorded).
 import {loadCases, runCase} from '../lib/page-replay.mjs';
+import {parseShard, shardOf} from '../lib/replay-shard.mjs';
 
 export const name = 'recorded';
-export const minutes = 28;   // the CI job's limit: setup + the 11-minute budget, and the same again for the "once more" run after a red one. 63 cases took 5-6 min in CI, 75 over 8 on Windows (12 Oct 2026); the cases keep coming, so the day it nears 11 min, shard it in the gate like recorded-pages.yml
+export const minutes = 28;   // the CI job's limit: setup + the 11-minute budget, and the same again for the "once more" run after a red one. 63 cases took 5-6 min in CI, 75 over 8 on Windows (12 Oct 2026)
+// The gates run it as slices (lib/suite-shards.mjs; JP_REPLAY_SHARD=i/n, the same cut as recorded-pages.yml): 95 steps in one job ran out of the 11 minutes at 46 on Windows
+// (beta run 38376802269, 13 Oct 2026). Raise `shards`, never the budget, when test/suite-shards.test.mjs says a slice is too full.
+export const shards = 4;
+export const secondsPerCaseOnWindows = 15;   // 46 cases in the 11 minutes of that run
 export const budgetMinutes = 11;   // the suite's own step budget (lib/runner.mjs budgetMsOf); the default 7 min cut 24 of 75 cases on Windows
 export const light = true;
 export const needsChromium = true;   // CI installs Chromium for it (.github/workflows/e2e.yml)
 export const keepGoing = true;
 
-const cases = loadCases();
+const slice = parseShard(process.env.JP_REPLAY_SHARD || '');   // a gate job: one slice; a run by hand: every case
+const cases = slice ? shardOf(loadCases(), slice.index, slice.count) : loadCases();
 export const STEPS = cases.map(item => `${item.name}: ${item.shape}`);
 
 export async function run(ctx) {

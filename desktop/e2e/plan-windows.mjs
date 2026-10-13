@@ -6,13 +6,14 @@
 //   node plan-windows.mjs     (GH_TOKEN, REPO, MAC_RUN, SHA, REVIEW from e2e.yml; or ONLY=<suites> for a run by hand) -> GITHUB_OUTPUT lines
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
+import {suiteOfKey, windowsMatrix} from './lib/suite-shards.mjs';
 
 const NOT_SUITES = new Set(['plan', 'promote', 'promote-dry-run', 'Windows follows']);
 
 // The Mac run's jobs -> the suites that ran there (not skipped or cancelled).
 export function macSuites(jobs) {
   return [...new Set(jobs.filter(job => !NOT_SUITES.has(job.name) && !['skipped', 'cancelled'].includes(job.conclusion))
-    .map(job => job.name.replace(/ \(.*\)$/, '')))].sort();
+    .map(job => suiteOfKey(job.name.replace(/ \(.*\)$/, ''))))].sort();   // a slice's job (recorded-2of4) is its suite: the Windows plan slices it again
 }
 
 // Earlier Windows runs (title "Windows <sha>") that already tested this commit: finished, not cancelled, with at least one suite run.
@@ -52,7 +53,9 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
     result.suites = result.suites.filter(suite => !same.includes(suite));
   }
   console.error(result.why || `Windows runs ${result.suites.length} suite(s)${mac ? ` after Mac run ${id}, commit ${sha.slice(0, 7)}` : ''}: ${result.suites.join(', ') || 'none'}; AI review: ${result.review ? 'yes' : 'no'}`);
-  console.log(`matrix=${JSON.stringify({suite: result.suites})}`);
+  const shards = {};   // a suite with `shards` runs as one job per slice here too (lib/suite-shards.mjs)
+  for (const suite of result.suites) { const count = (await import(`./suites/${suite}.mjs`).catch(() => ({}))).shards; if (count > 1) shards[suite] = count; }
+  console.log(`matrix=${JSON.stringify(windowsMatrix(result.suites, shards))}`);
   console.log(`count=${result.suites.length}`);
   console.log(`review=${result.review ? '1' : '0'}`);
 }

@@ -39,7 +39,7 @@ export function wantedWords(words, stepNeeds = {}) {
 }
 
 // A whole suite has a budget too (owner, 6 Oct 2026: no suite over 5-7 minutes). Past it, the steps left are recorded as not run and the suite fails, naming its
-// slowest steps; a running step is cut at the budget's end. A suite that truly needs more says so (`export const budgetMinutes`): a manual suite, or the recorded replay (it grows a case at a time; sharded in recorded-pages.yml).
+// slowest steps; a running step is cut at the budget's end. A suite that truly needs more says so (`export const budgetMinutes`): a manual suite, or the recorded replay (it grows a case at a time; sharded in recorded-pages.yml and, by its `shards`, in the gates: lib/suite-shards.mjs).
 export const SUITE_BUDGET_MS = Number(process.env.E2E_SUITE_BUDGET_MS) || 7 * 60000;
 // A suite's own budget (`export const budgetMinutes`), else the default: the runner (lib/context.mjs) and the force-stop (suite.mjs) both read it here, and the CI step and job limits must stay above it + 3 min.
 export const budgetMsOf = suite => (suite?.budgetMinutes ? suite.budgetMinutes * 60000 : SUITE_BUDGET_MS);
