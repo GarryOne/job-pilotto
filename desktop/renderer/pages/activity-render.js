@@ -324,7 +324,7 @@ export function renderActivity(fresh) {
   // read from the result message, which has every site (the kept log is cut to its last 400 lines).
   const tabs = run?.live && kindOf(run) === 'visits' ? parseSiteRows(lines) : null;
   const shownTabs = tabs && !run.live ? {...tabs, done: tabs.total, percent: 100} : tabs;   // a finished run: every site is settled (settled())
-  if (tabs) $('activity-phases').replaceChildren(runProgress(shownTabs, 'sites'), ...tabs.sites.map(site => siteRow(site, !!run.live)));
+  if (tabs) $('activity-phases').replaceChildren(runProgress(shownTabs, 'sites'), ...tabs.sites.map(site => siteRow(site, !!run.live, run.startedAt)));
   const counted = run?.live && !tabs ? stepCount(run.step) : null;   // any other running task whose step counts
   // Over a search's steps; alone for any other task (the steps listed above are a search's only).
   if (counted) { if (at >= 0 || updates.length) $('activity-phases').prepend(runProgress(counted, COUNT_NOUN[kindOf(run)])); else $('activity-phases').replaceChildren(runProgress(counted, COUNT_NOUN[kindOf(run)])); }
@@ -357,7 +357,7 @@ export function renderActivity(fresh) {
   else if (weekly) renderWeeklyCard(weekly);
   else if (review) renderInterviewCard(review);
   else if (kits) renderKitsCard(kits);
-  else if (sites) renderVisitsCard(sites, undefined, {list: !tabs});   // the step card above has the sites (parseSiteRows)
+  else if (sites) renderVisitsCard({...sites, since: run.startedAt}, undefined, {list: !tabs});   // the step card above has the sites (parseSiteRows)
   else if (reading) renderCardSkeleton();
   if (card || insight || weekly || mail || review || kits || sites) show($('activity-result'), false);  // the card shows the same, laid out
   show($('activity-card'), !!card || !!mail || !!insight || !!weekly || !!review || !!kits || !!sites || reading);

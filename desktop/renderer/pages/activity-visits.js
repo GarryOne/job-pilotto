@@ -6,6 +6,9 @@ import {shared} from './shared.js';
 import {$} from './core.js';
 import {toastMessage} from './startup.js';
 import {plural, runButton} from './activity-basics.js';
+import {showJobsIn} from './jobs.js';
+import {openView} from './nav.js';
+import {openActivity} from './activity-panel.js';
 // A button on a card Recent activity redraws (on every log line and refresh): what it is doing lives here by key, not on the button, so a redraw
 // keeps "Starting Claude…" or its "✓", and the outcome lands on the button now on screen (7 Oct 2026: Read with Claude, then the few-jobs box,
 // showed no loading: the busy button was replaced by a fresh one). Every such button goes through keepPress + pressWhile (a test checks).
@@ -76,6 +79,27 @@ export function claudeReadButton(site, words) {
   return claude;
 }
 
+// "View jobs" on a site that read more than one new job (owner, 13 Oct 2026): Jobs filtered to what this run added from that site (its company, first
+// seen since the run started). Shared by the result card's rows and the step card's site rows. Only jobs that fit the search reach Jobs, so it
+// says so when none did. `text`: the row's own words ("50 jobs (50 new), 1 matching your search").
+const sameCompany = (a, b) => { const x = String(a || '').toLowerCase().trim(), y = String(b || '').toLowerCase().trim(); return !!x && !!y && (x === y || x.includes(y) || y.includes(x)); };
+export function viewJobsButton(site, text, since) {
+  const fresh = Number(/(\d+) new/.exec(text || '')?.[1] || 0);
+  if (fresh < 2) return null;
+  const button = el('button', 'link item-action', 'View jobs');
+  button.type = 'button';
+  button.title = `Opens Jobs, only what this run added from ${site.name}`;
+  button.addEventListener('click', () => {
+    const from = Date.parse(since || '') || 0;
+    const urls = (shared.allJobs || []).filter(job => sameCompany(job.company, site.name) && (!from || Date.parse(job.first_seen_at) >= from - 60000)).map(job => job.url);
+    if (!urls.length) { toastMessage(`No new job from ${site.name} in Jobs`, `${fresh} were read, but none fit your search and profile, so none joined your Jobs list.`); return; }
+    openActivity(false);
+    openView('jobs');
+    showJobsIn(`New from ${site.name}`, urls, 'activity');
+  });
+  return button;
+}
+
 // "Find jobs using your browser" (renderer/visits-card.js): the counts, a row per site read, and a stopped site's ways on (owner's mockup,
 // 7 Oct 2026): Read with Claude (a Claude in Chrome session, when the extension could not) and Open it myself.
 // list: false when the run's step card already lists the sites with their marks and buttons (Recent activity), so they are not shown twice
@@ -144,7 +168,7 @@ export function renderVisitsCard(card, target = $('activity-card'), {list: withL
       const myself = el('button', 'link item-action', 'Open it myself');
       myself.type = 'button';
       myself.addEventListener('click', () => window.pilot.openVisit(site.url));
-      row.append(myself);
+      row.append(...[viewJobsButton(site, site.detail, card.since), myself].filter(Boolean));
     }
     list.append(row);
   }
