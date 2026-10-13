@@ -6,6 +6,8 @@ import {band} from '../jobs-view.js';
 // Match analysis (the panel a score ring opens): the score's four parts as bars, risk on its own line (lower is
 // better), then what speaks for the job and what against. Notion Job Matches keeps all of it.
 const PARTS = [['role_fit', 'Role fit'], ['location', 'Location'], ['compensation', 'Pay fit'], ['growth', 'Growth']];
+// The parts the AI may leave out (src/ai/score.py UNKNOWN_OK): shown as N/A, never dropped.
+const UNKNOWN_OK = ['compensation', 'growth'];
 const FIT_LISTS = [['good', 'Why it fits', 'strengths'], ['warn', 'What to check', 'gaps']];
 // One of those two lists: a circled tick (or bang) and a line each, on the tone's soft background.
 function fitCard(tone, title, text) {
@@ -45,9 +47,9 @@ export function fitDetail(job, close = null, full = null) {
   lead.append(head);
   if (job.reason) lead.append(el('p', 'fit-summary', job.reason));
   box.append(lead);
-  // A part the AI left out (Pay fit with no salary stated) reads N/A, with an empty bar: unknown, not a middling 50.
+  // A part the AI left out (Pay fit with no salary, Growth with no level to judge) reads N/A, with an empty bar: unknown, not a middling 50.
   const any = PARTS.some(([key]) => parts[key] != null);
-  const metrics = PARTS.filter(([key]) => any && (parts[key] != null || key === 'compensation')).map(([key, label]) => {
+  const metrics = PARTS.filter(([key]) => any && (parts[key] != null || UNKNOWN_OK.includes(key))).map(([key, label]) => {
     const known = parts[key] != null;
     const cell = el('div', `fit-metric ${known ? band(parts[key]) : 'unknown'}`);
     cell.style.setProperty('--p', known ? parts[key] : 0);
