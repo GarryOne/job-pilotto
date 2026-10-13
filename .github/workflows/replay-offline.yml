@@ -1,12 +1,12 @@
-# Replay vs live on every PR (owner, 13 Oct 2026, the replay-by-network plan's day 2): the pool rows' newest network records (the by-hand pool run keeps them
-# encrypted 14 days as net-records-<run>; the Mac's go to the release net-records) are replayed offline with this PR's build (desktop/e2e/replay-records.mjs: the site's own scripts from the record,
+# Replay vs live (owner, 13 Oct 2026, the replay-by-network plan's day 2): the pool rows' newest network records (the by-hand pool run keeps them
+# encrypted 14 days as net-records-<run>; the Mac's go to the release net-records) are replayed offline with this build (desktop/e2e/replay-records.mjs: the site's own scripts from the record,
 # the AI only from the live run's kept answers, never a site, never a model call), and "N of M rows same as live" goes to the job summary and to
 # /admin/applying "Replay vs live". Informational, never required. No key (NET_RECORD_KEY, the owner's Keychain job-pilotto.capture.key): it says so and stops.
 name: CI · Replay vs live (offline)
 
+# Not on PRs (owner, 14 Oct 2026: 15+ minutes of macOS queue on every PR): by hand for now; the schedule and the nightly gate come next (spec
+# docs/superpowers/specs/2026-10-13-replay-by-network.md "Schedule, gate and alerts").
 on:
-  pull_request:
-    paths: ['desktop/**', 'extension/**', 'worker/**', '.github/workflows/replay-offline.yml']
   workflow_dispatch:
 
 permissions:
@@ -14,7 +14,7 @@ permissions:
   actions: read   # the pool runs' encrypted records
 
 concurrency:
-  group: replay-offline-${{ github.event.pull_request.number || github.ref }}
+  group: replay-offline-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -75,8 +75,8 @@ jobs:
         run: |
           set -o pipefail
           node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/replay-out" | tee -a "$GITHUB_STEP_SUMMARY"
-      - name: Send the rows to /admin/applying "Replay vs live"
-        if: steps.key.outputs.ok == '1' && github.event.pull_request.head.repo.full_name == github.repository
+      - name: Send the rows to /admin/applying "Replay vs live" (main only)
+        if: steps.key.outputs.ok == '1' && github.ref == 'refs/heads/main'
         working-directory: desktop/e2e
         env:
           REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}
