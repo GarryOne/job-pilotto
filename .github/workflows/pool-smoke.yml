@@ -18,6 +18,8 @@
 #   for a row that did not finish (a harness error), the tripwire, a refused AI, or a row reaching less than its last CI run on main or on this
 #   PR (lib/pool-ci-state.mjs); never for a bot wall, a refusal or a gone posting.
 # Result: the job summary table and the artifact (the day report, smoke.log, evidence/<day>/<row>/: end.png, step-*.png, app.log, run.log, evidence.md).
+# Captures: every row's journey (scrubbed pages, styles, AI answers, app.log, build) as pool-captures-<run>, 30 days (owner, 13 Oct 2026; spec
+# 2026-10-13-capture-once-measure-many.md); `npm run captures -- pull` keeps them on the Mac, `npm run measure` re-runs a build on them with no site visit.
 name: CI · Pool smoke (by hand)
 
 on:
@@ -75,6 +77,7 @@ jobs:
       SMOKE_PAIRED: '0'
       SMOKE_REPORTS: ${{ github.workspace }}/pool-smoke-out/smoke-reports
       SMOKE_CANDIDATES: ${{ github.workspace }}/pool-smoke-out/replay-candidates
+      SMOKE_CAPTURES: ${{ github.workspace }}/pool-smoke-out/captures   # every row's whole journey (lib/capture-library.mjs): npm run measure re-runs a build on it offline
       SMOKE_SITES: ${{ github.workspace }}/pool-smoke-out/no-mac-list.json   # never present: the Mac's own rows stay on the Mac
     steps:
       - uses: actions/checkout@v5
@@ -174,6 +177,14 @@ jobs:
           # shellcheck disable=SC2016  # the backticks are Markdown code in the comment, not a shell expansion
           printf '%s\n\nRun it again when the visit is possible: `gh run rerun %s`, or remove and add the `live-proof` label. Run: %s\n' "$(cat "$NOT_RUN_FILE")" "$GITHUB_RUN_ID" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > "$RUNNER_TEMP/not-run-comment.md"
           gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/not-run-comment.md" || echo "pool-smoke: could not comment on the PR"
+      - name: Every row's capture (capture once, measure many)
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: pool-captures-${{ github.run_id }}
+          path: pool-smoke-out/captures/
+          retention-days: 30
+          if-no-files-found: ignore
       - name: The day report, the log and each row's evidence
         if: always()
         uses: actions/upload-artifact@v6

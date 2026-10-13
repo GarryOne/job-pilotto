@@ -1,0 +1,107 @@
+# Capture once, measure many: pool measurements without live visits
+
+> ✅ **Verdict:** every live pool visit keeps its whole journey; one command re-measures any build on saved journeys, offline, $0, unlimited.
+> Live visits stay for a row's first capture and a change's final proof. The per-site limit is unchanged; no proxy, no rotation, no override.
+
+- **Why:** 13 Oct 2026, 10 paid dispatches refused in one night by the per-site limit: every measuring run (dead-end acting batch, fill-ladder's
+  measuring run, before/after of a fix) re-visited the same hosts. Owner: "This is not sustainable. I want us to not be blocked."
+- **Owner:** session job-pilotto-capture, coordinator job-pilotto-cc.
+
+## What exists (git history, read 13 Oct 2026)
+
+| Piece | State |
+|---|---|
+| Whole-journey capture (`lib/capture-journey.mjs`, every page/frame/state, CSS, model answers, presses) | ✅ since 11 Oct (speed-5x, e68d362, c0932ab) |
+| Offline replay of one row / a day (`npm run row/rows`, `lib/row-replay.mjs`), memo-only by default ($0) | ✅ since 11 Oct (2e9fa3f, 78e3fcd) |
+| Captures kept for **every** row | ❌ failing rows only (`worthSaving`); passing rows only with `SMOKE_KEEP_CANDIDATES=1` |
+| CI keeps captures | ❌ `SMOKE_CANDIDATES` is written on the runner and **not uploaded**; only app.log, ai-calls, pictures |
+| Tables on a replay (`pool-shadow.mjs`, `pool-acted.mjs`, ending, fill numbers) | ❌ they read live report folders only |
+| A positive control (replay on the capturing build = the live numbers) | ❌ only per-row evidence lines (speed-5x trust check, 3 rows) |
+
+So the gap is three things: keep every capture, keep CI's, and a `measure` command whose output is a report folder of the **same shape**
+the tables already read (`<day>.json` + `<row>.app.log`), so `pool-shadow`, `pool-acted`, `pool-endings`, fill counts run on it unchanged.
+
+## Design
+
+1. **Keep every row's capture** (smoke.mjs, Mac and CI): `saveCandidate(..., always: true)` into a captures library, beside today's
+   failing-only candidates (unchanged, fix-failing-forms reads them). Each capture also records the build that made it (commit, extension version),
+   the run's result row (reached / filled / left / usd / ending) and its app.log: the positive control's "live" side.
+   - Mac: `<QA folder>/captures/<day>/<row>/` (outside the repo, as today).
+   - CI: an artifact `pool-captures-<run id>` (see **Owner decision 1**).
+2. **Pull CI captures to the Mac library:** `npm run captures -- pull [--days 7]` (gh run download of the `pool-captures-*` artifacts into
+   `<QA folder>/captures/`; idempotent, by run id). `npm run captures -- list` shows rows × days × build.
+3. **`npm run measure -- [--days N | --run <id> | <capture dirs>] [--old <ext dir>] [--ask]`:** replays each capture with the CURRENT build
+   (`replayRows`, 4 tabs, one browser), turns each replay's app log into the live run's output shape (as `lib/bare-capture.mjs` does) and
+   `parseLive`s it, then writes `<out>/<day>.json` + `<out>/<day>-<row>.app.log`. Then prints, from that folder, the same tables:
+   shadow (agree / would_act / worse), acted (worked / failed / worse), endings per row, fill (filled / left / tries per control), AI asks
+   (kept-answer hits, misses) and tokens per row.
+   - **AI: memo-only by default** ($0): an ask the capture never made is counted as a miss, never answered. `--ask` answers misses through the
+     plan's `claude -p` (Mac only, the identity tripwire on, $0 on the plan). CI never asks: no paid call from `measure`, ever, without the owner.
+   - **Memo-only measures "same decisions, new code"** (cc, 13 Oct 2026): every NEW AI question a build adds (a silent ask, a picture climb) is a
+     miss offline and is listed by route, never guessed. `--ask` spends the owner's Claude plan quota ($0 money, not free of limits): it is capped
+     (`--ask-max`, default 20 asks a run) and the count is printed.
+   - **`--compare`:** the captures' own live tables beside the replay's, row by row, with each difference named (the positive control).
+4. **Nothing reaches a site:** an address the capture never recorded is a 404 and a counted "route not recorded" (as `npm run row` today).
+
+### What a replay can and cannot measure (said up front)
+
+| Measure | Offline? |
+|---|---|
+| Page kind, every judge's answer, shadow question (agree / would act / worse) | ✅ decision on the recorded page |
+| Fill: which fields read, filled, left, tries per control, tokens | ✅ on recorded forms |
+| Endings | ✅ where the run follows recorded states |
+| **Effect** of a press the capturing run never made (acted "worked") | ❌ the page after it was never seen: counted "unseen", needs one live proof |
+
+The acting batch's **effect** column therefore still needs live visits, but only for doors whose press is new; the rest of its numbers
+(how many it would press, where, at what cost) come offline. Every live visit (a measuring run's, a proof's) also refreshes that row's capture, so the library follows site changes (cc, 13 Oct 2026);
+`measure` uses each row's newest capture unless `--days` asks for more.
+
+### Safeguards: offline numbers never pass for live ones (owner via cc, 13 Oct 2026; a test each in PR 2)
+
+| # | Rule |
+|---|---|
+| 1 | Every line `measure` prints is labelled **`offline (memo)`** or **`offline (plan)`**; an offline and a live number never share a table (`--compare` prints two tables side by side, each labelled). |
+| 2 | **Misses:** each row and table prints the share of asks its capture did not cover. Above **10 %** of asks the row (or table) is **"not measured"**, never "no change". |
+| 3 | A press no capture saw is **"unseen"**, never "worked" or "failed". |
+| 4 | **A fix is "proven" only by a live run** (Pool-row / live-proof, as today). Offline numbers decide what to try, never what is done (this spec + skills fix-failing-forms, run-applying-smoke-pool). |
+| 5 | **Gate:** until the positive control (PR 3) passes, every `measure` output carries **"unverified"**. |
+
+## Owner decisions (13 Oct 2026)
+
+- ✅ **1 → A:** a 30-day `pool-captures-<run>` artifact, pulled to the Mac library.
+- ✅ **2 → 30 days** on the Mac, older days pruned.
+
+<details><summary>The options as asked</summary>
+
+
+1. **Where CI captures live.** They are scrubbed (structure, no values, fake applicant, no owner identity: CI uses the API key, not `claude -p`)
+   and today's public artifact already holds the same rows' app.log, AI calls and step pictures. Options:
+   - **A (recommended):** a `pool-captures-<run>` artifact, retention 30 days, pulled to the Mac library for keeps. No new store, no new secret.
+   - B: pushed to the private `job-pilotto-internal` repo (a deploy key secret; durable, unreadable to the public).
+   - C: Cloudflare R2 behind the narrow key (durable, new code on the worker).
+2. **Library retention on the Mac:** keep 30 days of captures (~5-17 MB a row; ~3 rows a CI run) — or keep all.
+
+</details>
+
+## Success measure
+
+- **Positive control:** `npm run measure -- --compare` on the CI captures of one pool batch, on the build that captured them, gives the same
+  per-row ending and the same shadow / acted / fill tables as the live run. Target: identical aggregate tables; per row ≥ 9 of 10 identical,
+  each difference named (row-to-case showed real-page interleaving can differ: see memory project-row-to-case-state).
+- **The point:** the dead-end acting table (minus the effect column of new presses) and fill-ladder's measuring numbers re-computed for a new build
+  on yesterday's captures with **0 live visits, $0**, in minutes.
+
+## PRs (2-3)
+
+1. **Keep every capture** (smoke.mjs + pool-smoke.yml artifact + build stamp + result row in the capture); test: a passing row keeps its capture.
+2. **`npm run measure`** (+ `captures pull/list`), reusing `replayRows` (lib/row-replay.mjs) and `parseLive` (lib/smoke.mjs) as they are, no second replayer: replay → report folder of the live shape → the existing tables; tests on a fixture capture
+   (a fake site, memo-only) that measure writes the same `<day>.json` keys the tables read, and that a miss is counted, never asked.
+3. **Positive control** on one CI batch, numbers in this spec; skill steps (fix-failing-forms, run-applying-smoke-pool, fill-ladder's
+   measuring) say "measure offline first, one live visit for the proof".
+
+## Progress
+- [x] Owner decisions 1 (artifact, 30 days) and 2 (30 days on the Mac) (proof: none: the owner's answers in session job-pilotto-capture, 13 Oct 2026)
+- [x] Spec approved by cc (13 Oct 2026, + notes: new asks are misses, --ask capped; live visits refresh) (proof: none: cc's message to job-pilotto-capture, 13 Oct 2026)
+- [ ] PR 1: every live row keeps its capture (Mac + CI artifact), build stamp, result row
+- [ ] PR 2: `npm run measure` + `captures pull/list`, the tables on a replay folder, safeguards 1-3 + 5 with a test each
+- [ ] PR 3: positive control on one CI batch (numbers here) lifts "unverified"; skills: measure first, live proves (safeguard 4)

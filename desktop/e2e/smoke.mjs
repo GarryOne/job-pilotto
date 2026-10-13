@@ -20,6 +20,7 @@ import {poolCard, sendPoolCard} from './lib/pool-card.mjs';
 import {earlierReports, recordSite} from './lib/smoke-record.mjs';
 import {evidenceLines, runFinished, saveElectronLeg, writeBundle} from './lib/evidence-bundle.mjs';
 import {dropCandidate, saveCandidate} from './lib/replay-candidate.mjs';
+import {keepCapture} from './lib/capture-library.mjs';
 import {fetchWanted, wantedFirst} from './lib/wanted-hosts.mjs';
 import {heavy, yieldHeavy} from './lib/heavy.mjs';
 import {runArtifacts} from './lib/run-artifacts.mjs';
@@ -57,7 +58,7 @@ function liveRun(posting, seconds, captureDir = '', engine = smokeEngine()) {
     const started = Date.now();
     // The default (lib/smoke.mjs smokeEngine): the row on the app's own path without Electron (live.mjs), printing the same lines parseLive reads.
     if (engine === 'node') {
-      const child = spawn('node', ['live.mjs', posting.url, '--title', posting.title || '', '--company', posting.company || '', ...(captureDir ? ['--capture', captureDir] : [])],
+      const child = spawn('node', ['live.mjs', posting.url, '--title', posting.title || '', '--company', posting.company || '', ...(captureDir ? ['--capture', captureDir, '--no-library'] : [])],
         {cwd: here, env: {...poolEnv(), LIVE_SECONDS: String(seconds)}});
       let output = '';
       child.stdout.on('data', chunk => { output += chunk; }); child.stderr.on('data', chunk => { output += chunk; });
@@ -223,6 +224,8 @@ async function main() {
     console.log(`smoke: ${shape}: evidence ${path.join(REPORTS, results[shape].evidence, 'evidence.md')}`);
     const kept = saveCandidate({dir: CANDIDATES, day, shape, result: results[shape], html, output: run.output, aiCalls, captureDir, appLog, always: process.env.SMOKE_KEEP_CANDIDATES === '1'});   // with the journey, the sheets and the model answers (lib/capture-journey.mjs)
     if (kept) console.log(`smoke: ${shape}: replay candidate saved in ${kept}`); else dropCandidate({dir: CANDIDATES, day, shape});
+    const library = results[shape].tripped ? null : keepCapture({day, shape, result: results[shape], output: run.output, aiCalls, captureDir, appLog});   // every row, passing or not: npm run measure re-runs a build on it offline (lib/capture-library.mjs)
+    if (library) console.log(`smoke: ${shape}: capture kept in ${library}`);
     fs.rmSync(captureDir, {recursive: true, force: true});
     console.log(`smoke: ${shape}: reached ${results[shape].reached}${results[shape].filled != null ? `, ${results[shape].filled} filled, ${results[shape].left} left` : ''} (${run.seconds}s)`);
     if (results[shape].marksBlind) console.log(`smoke: ${shape}: MARKS BLIND ${results[shape].marksBlind.starred} labels marked "*", ${results[shape].marksBlind.required} counted required: the required rule missed a layout`);
