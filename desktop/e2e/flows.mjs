@@ -30,7 +30,7 @@ export const MATRIX = [
   {scenario: 'Posting → Apply link or form into a new tab → same tab, posted data kept', e2e: ['Apply opens a new tab'], unit: ['test/extension-same-tab.test.js']},
   {scenario: 'Apply opens its form from the page\'s script (`window.open`): opened in the same tab', e2e: ['side by side'], unit: ['test/extension-same-tab.test.js']},
   {scenario: 'A tab the person opens is the person\'s: it joins an application only through the extension\'s own press on its opener', e2e: [], unit: ['test/extension-tab-adoption.test.js']},
-  {scenario: 'A page the AI is sure is not a job page is never turned into the form by its fields', e2e: [], unit: ['test/page-kind-final.test.js']},
+  {scenario: 'A page the AI judged \'other\' is never turned into the form by its fields', e2e: [], unit: ['test/page-kind-final.test.js']},
   {scenario: 'Two applications side by side: one tab and its own kit each', e2e: ['side by side'], unit: ['test/review.test.js']},
   {scenario: 'Sign-up page before the form: account step kept apart', e2e: ['sign-up page'], unit: ['test/extension-tab-pages.test.js', 'test/review.test.js', 'test/session-flow.test.js']},
   {scenario: 'Sign-in page before the form with a saved password: filled, pressed once, the form behind it filled; a refused sign-in never retried', e2e: ['sign-in page'], unit: []},
