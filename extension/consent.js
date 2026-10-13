@@ -6,7 +6,22 @@ import {api, settings} from './flow.js';
 import {closeConsent} from './visit-page.js';
 import {findPopup} from './popup-page.js';
 import {onTop} from './on-top.js';
+import {decide} from './log.js';
 
+// A press that closes a layer leaves the tab on the same page. Some closers navigate by script (a button that calls the router: no link or form to see beforehand): the address
+// is read before and after, and a press that moved the tab is undone (back) and logged, so the page is never judged as the job's (Duolingo, 13 Oct 2026: "BACK TO HOME" of a layer
+// sent the tab to the careers home). Every press below goes through it. Guard: worker/test/popup-press-stays.test.js.
+const MOVED_MS = 900;
+const here = url => String(url || '').split('#')[0];
+export const pressStays = async (tabId, press, {wait = ms => new Promise(resolve => setTimeout(resolve, ms)), onMoved = () => {}} = {}) => {
+  const before = here((await chrome.tabs.get(tabId).catch(() => null))?.url);
+  const pressed = await press();
+  if (!pressed || !before) return pressed;
+  await wait(MOVED_MS);
+  const after = here((await chrome.tabs.get(tabId).catch(() => null))?.url);
+  if (after && after !== before) { decide('fill', 'popup: the press left the page, went back', {label: String(pressed).slice(0, 40)}); await chrome.tabs.goBack(tabId).catch(() => {}); onMoved(); return ''; }   // onMoved: the app forgets the pick, or the same press is made again on the next look
+  return pressed;
+};
 // cookiesOnly (the application flow): the free word rule only a box that speaks of cookies or tracking, never a privacy or terms box of the form itself.
 const STILL_THERE_MS = 1500;   // a closed banner is gone by then; one still listed after it contradicts the answer that was pressed
 const inFrames = async (tabId, args = []) => (await chrome.scripting.executeScript({target: {tabId, allFrames: true}, func: closeConsent, args}).catch(() => []))
@@ -20,7 +35,8 @@ export const closePopup = async tabId => {
   const config = await settings().catch(() => null);
   const choice = config && (await api(config, '/extension/dismiss-popup', {method: 'POST', body: JSON.stringify(seen)}).catch(() => null))?.button;
   if (!choice) return '';
-  const pressed = (await popupIn(tabId, [{press: choice}])).find(Boolean) || '';
+  const forgetPick = () => api(config, '/extension/dismiss-popup', {method: 'POST', body: JSON.stringify({...seen, forget: true})}).catch(() => {});
+  const pressed = await pressStays(tabId, async () => (await popupIn(tabId, [{press: choice}])).find(Boolean) || '', {onMoved: forgetPick});
   // The page contradicts the kept answer when the same popup is still there after its button: the app forgets it (desktop/lib/kept-decisions.js).
   if (pressed) setTimeout(async () => {
     const still = (await popupIn(tabId, [{list: true}])).find(found => found?.text === seen.text);
@@ -36,7 +52,8 @@ export const closeLayer = async (tabId, {want = ''} = {}) => {   // want: the fi
   if (!layer?.buttons?.length) return '';
   const config = await settings().catch(() => null);
   const choice = config && (await api(config, '/extension/dismiss-popup', {method: 'POST', body: JSON.stringify({text: layer.text, buttons: layer.buttons})}).catch(() => null))?.button;
-  return choice && (!want || choice === want) ? (await run([{press: choice}]))?.pressed || '' : '';
+  const forgetPick = () => api(config, '/extension/dismiss-popup', {method: 'POST', body: JSON.stringify({text: layer.text, buttons: layer.buttons, forget: true})}).catch(() => {});
+  return choice && (!want || choice === want) ? pressStays(tabId, async () => (await run([{press: choice}]))?.pressed || '', {onMoved: forgetPick}) : '';
 };
 export const closePopupOrLayer = async tabId => (await closePopup(tabId)) || closeLayer(tabId);
 export const closeConsentEverywhere = async (tabId, {cookiesOnly = false} = {}) => {
@@ -45,7 +62,7 @@ export const closeConsentEverywhere = async (tabId, {cookiesOnly = false} = {}) 
 };
 const closeCookies = async (tabId, {cookiesOnly = false} = {}) => {
   const only = cookiesOnly ? {cookiesOnly: true} : {};
-  const pressed = (await inFrames(tabId, [only])).find(Boolean);
+  const pressed = await pressStays(tabId, async () => (await inFrames(tabId, [only])).find(Boolean));
   if (pressed) return pressed;
   const buttons = [...new Set((await inFrames(tabId, [{list: true, ...only}])).flatMap(found => (Array.isArray(found) ? found : [])))].slice(0, 20);
   if (!buttons.length) return '';
@@ -53,7 +70,8 @@ const closeCookies = async (tabId, {cookiesOnly = false} = {}) => {
   for (const value of ['Reject all cookies that are not necessary', 'Accept cookies']) {
     const choice = config && (await api(config, '/extension/pick-choice', {method: 'POST', body: JSON.stringify({label: 'A cookie banner', value, options: buttons})}).catch(() => null))?.choice;
     if (!choice) continue;
-    const pressed = (await inFrames(tabId, [{press: choice, ...only}])).find(Boolean) || '';
+    const forgetPick = () => api(config, '/extension/pick-choice', {method: 'POST', body: JSON.stringify({label: 'A cookie banner', value, options: buttons, forget: true})}).catch(() => {});
+    const pressed = await pressStays(tabId, async () => (await inFrames(tabId, [{press: choice, ...only}])).find(Boolean) || '', {onMoved: forgetPick});
     // Still offered after the press: the banner did not close, so the kept answer is dropped (desktop/lib/kept-decisions.js).
     if (pressed) setTimeout(async () => {
       const left = (await inFrames(tabId, [{list: true, ...only}])).flatMap(found => (Array.isArray(found) ? found : []));
