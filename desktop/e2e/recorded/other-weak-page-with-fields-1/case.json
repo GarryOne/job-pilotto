@@ -1,0 +1,60 @@
+{
+ "origin": "hand-cut",
+ "shape": "the same page when the page-kind AI is only half sure it is 'other' (0.7, under the line an answer is kept from): the fields still never turn it into the application form; nothing is filled, the page is asked again next visit",
+ "why": "13 Oct 2026 (cc, from the owner's rule: a weak answer is asked again or climbs, fields alone never decide): a correction that applied only to a sure 'other' would fill the same pull request judged at 0.7. Same hand-built page as other-page-with-fields-1",
+ "control": {
+  "build": "0.9.267",
+  "failed": "notTold: page kind corrected (an 'other' under 0.8 was overridden by the page's fields)"
+ },
+ "rung": 2,
+ "sample": "hand-built from the shape of the page the owner's fill ran on (hosts and text invented)",
+ "pages": [
+  {
+   "url": "https://code.example.test/acme/widgets/pull/620",
+   "file": "page.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "forget": true
+    },
+    "answer": {
+     "ok": true,
+     "forgotten": true
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "other",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.7,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "",
+     "applyRoute": "",
+     "applyBy": "",
+     "applyEmail": ""
+    }
+   }
+  ]
+ },
+ "expect": {
+  "told": [
+   "page kind: other"
+  ],
+  "notTold": [
+   "page kind corrected",
+   "\"filling\"",
+   "pressed the Apply button"
+  ],
+  "empty": [
+   "#comment"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 25
+ }
+}
