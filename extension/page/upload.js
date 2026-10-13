@@ -117,7 +117,7 @@
     if (params.trigger) { try { trigger = slot.el.querySelector(params.trigger) || trigger; } catch { /* a recipe's selector is data: ignore a bad one */ } }
     if (!trigger || trigger.type === 'submit') return null;
     const before = new Set(document.querySelectorAll('input[type=file]'));
-    trigger.click();
+    (globalThis.__jobPilottoPress?.(trigger) || trigger.click());
     for (let tries = 0; tries < 10; tries++) {
       await sleep(150);
       // The input the page creates, or one it already had and SHOWS now, empty and not another slot's (a choice among ways to give the CV: Upload / Paste / Later

@@ -1,0 +1,45 @@
+{
+ "origin": "hand-cut",
+ "shape": "a styled Send control whose own script clicks a hidden submit button: the site's click is the person's submit and is noted, unlike the extension's own press",
+ "why": "13 Oct 2026, cc's review of #622: only the presses the extension itself makes are marked; a script click from the site stays the person's, or a real submission would never be noted (the panel never says submitted).",
+ "sample": "invented page (host and text); a timer stands in for the person pressing the styled control",
+ "rung": 2,
+ "pages": [
+  {
+   "url": "https://careers.hidden.example/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   }
+  ],
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  }
+ },
+ "expect": {
+  "told": [
+   "submit pressed"
+  ],
+  "filled": [
+   "#first",
+   "#last",
+   "#mail"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 45
+ }
+}

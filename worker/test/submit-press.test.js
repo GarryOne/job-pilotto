@@ -101,7 +101,7 @@ async function sentAfterOwnPress(markup) {
   window.eval(read('extension/review.js'));
   await new Promise((resolve) => setTimeout(resolve, 50));
   window.document.addEventListener('submit', (event) => event.preventDefault());
-  window.document.getElementById('x').click();   // the extension's own press: a script's click, never trusted
+  window.__jobPilottoPress(window.document.getElementById('x'));   // the extension's own press (every press site goes through this helper)
   await new Promise((resolve) => setTimeout(resolve, 50));
   window.close();
   return sent.filter((message) => message.type === 'submitted').length;
@@ -120,7 +120,7 @@ test('the person pressing right after the extension still counts (the own press 
   window.eval(read('extension/review.js'));
   await new Promise((resolve) => setTimeout(resolve, 50));
   window.document.addEventListener('submit', (event) => event.preventDefault());
-  window.document.getElementById('closer').click();
+  window.__jobPilottoPress(window.document.getElementById('closer'));
   await new Promise((resolve) => setTimeout(resolve, 50));
   assert.equal(sent.filter((message) => message.type === 'submitted').length, 0);
   const click = new window.MouseEvent('click', { bubbles: true, cancelable: true });
@@ -129,4 +129,65 @@ test('the person pressing right after the extension still counts (the own press 
   await new Promise((resolve) => setTimeout(resolve, 50));
   window.close();
   assert.ok(sent.filter((message) => message.type === 'submitted').length >= 1);
+});
+
+// The SITE's scripts click too: a styled "Send application" div whose handler clicks a hidden submit button is the person's submit, however that click was made (cc's review of #622).
+test('a click the site\'s own script makes after the person pressed still counts as the submit', { skip: !JSDOM }, async () => {
+  const { window } = openPage(JSDOM, '<form id="f"><input id="n" value="Ada"><div id="styled" role="button">Send</div><button id="hidden" type="submit" style="display:none">Go</button></form>');
+  const siteClick = window.HTMLElement.prototype.click;   // what a page script calls: the page's own click, never the extension's press helper
+  const sent = [];
+  window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
+  window.eval(read('extension/page/skeleton.js'));
+  window.eval(read('extension/page/submit-press.js'));
+  window.eval(read('extension/review.js'));
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  window.document.addEventListener('submit', (event) => event.preventDefault());
+  window.document.getElementById('styled').addEventListener('click', () => siteClick.call(window.document.getElementById('hidden')));
+  const click = new window.MouseEvent('click', { bubbles: true, cancelable: true });
+  click.__jpTrusted = true;
+  window.document.getElementById('styled').dispatchEvent(click);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  window.close();
+  assert.ok(sent.filter((message) => message.type === 'submitted').length >= 1, 'the site\'s own hidden-submit click was swallowed');
+});
+
+// The class: every click the extension makes goes through the marked press, so a new `.click()` added without it fails here.
+test('no extension file clicks a control without the marked press', () => {
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => (entry.isDirectory() ? walk(`${dir}/${entry.name}`) : [`${dir}/${entry.name}`]));
+  const root = new URL('../../extension', import.meta.url).pathname;
+  const bare = [];
+  for (const file of walk(root).filter((name) => name.endsWith('.js') && !/\/(review|page\/submit-press)\.js$/.test(name))) {
+    fs.readFileSync(file, 'utf8').split('\n').forEach((line, i) => { if (/\.click\(\)/.test(line.replace(/\/\/.*$/, '')) && !line.includes('__jobPilottoPress?.(')) bare.push(`${file.slice(root.length)}:${i + 1}`); });
+  }
+  assert.deepEqual(bare, [], 'a press without globalThis.__jobPilottoPress?.(el) || el.click()');
+});
+
+// The extension's debugger presses are trusted clicks at a point: the element there is marked first (markAt), the click that arrives is the extension's own, and the person's next one counts.
+test('a debugger press the extension marked first never counts, the person\'s next click does', { skip: !JSDOM }, async () => {
+  const { window } = openPage(JSDOM, '<form><input id="n" value="Ada"><button id="x" type="submit">Reject all</button></form>');
+  const sent = [];
+  window.chrome = { runtime: { id: 'test', sendMessage: async (message) => { sent.push(message); return message.type === 'panelAllowed' ? { ok: true } : {}; }, onMessage: { addListener() {} } } };
+  window.document.elementFromPoint = () => window.document.getElementById('x');   // jsdom has no layout
+  window.eval(read('extension/page/skeleton.js'));
+  window.eval(read('extension/page/submit-press.js'));
+  window.eval(read('extension/review.js'));
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  window.document.addEventListener('submit', (event) => event.preventDefault());
+  const trusted = () => { const click = new window.MouseEvent('click', { bubbles: true, cancelable: true }); click.__jpTrusted = true; return click; };
+  window.__jobPilottoSubmitPress.markAt(5, 5);
+  await new Promise((resolve) => setTimeout(resolve, 100));   // the debugger click crosses processes: the mark waits for it
+  window.document.getElementById('x').dispatchEvent(trusted());
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(sent.filter((message) => message.type === 'submitted').length, 0, 'the extension\'s own debugger press counted');
+  window.document.getElementById('x').dispatchEvent(trusted());   // the person, afterwards
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  window.close();
+  assert.ok(sent.filter((message) => message.type === 'submitted').length >= 1, 'the person\'s click after it was muted');
+});
+
+test('every debugger press in the extension marks its element first', () => {
+  const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => (entry.isDirectory() ? walk(`${dir}/${entry.name}`) : [`${dir}/${entry.name}`]));
+  const root = new URL('../../extension', import.meta.url).pathname;
+  const unmarked = walk(root).filter((name) => name.endsWith('.js') && fs.readFileSync(name, 'utf8').includes('Input.dispatchMouseEvent') && !fs.readFileSync(name, 'utf8').includes('markAt('));
+  assert.deepEqual(unmarked.map((name) => name.slice(root.length)), [], 'a debugger click without __jobPilottoSubmitPress.markAt(x, y) first');
 });

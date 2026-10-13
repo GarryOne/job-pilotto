@@ -12,7 +12,7 @@
   window.__jobPilottoMenuPick = async ({el, option, control, readValue}) => {
     const selected = () => !!readValue?.(el) || (option.isConnected && option.getAttribute('aria-selected') === 'true') ||
       (norm(el.value) === norm(option.textContent) && el.getAttribute('aria-expanded') !== 'true');
-    option.click();
+    (globalThis.__jobPilottoPress?.(option) || option.click());
     await sleep(200);
     if (selected()) return {selectedAfter: true, trusted: false};
     option.scrollIntoView({block: 'nearest'});

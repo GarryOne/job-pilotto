@@ -105,7 +105,7 @@ export async function pressApply(tabId, phrases = [], named = '', want = '', noE
     const counting = function () { noted(); return open.apply(this, arguments); };   // after the redirect window: the page's own behaviour, only counted
     setTimeout(() => { if (window.open !== open) window.open = counting; }, 5000);
     setTimeout(() => { if (window.open === counting) window.open = open; }, 25000);
-    el.click();
+    (globalThis.__jobPilottoPress?.(el) || el.click());
     return {same, tag: el.tagName.toLowerCase(), aimed};
   }, args: [listed, pick.index]}).then(rows => rows?.[0]?.result || null).catch(error => ({error: String(error?.message || error).slice(0, 120)}));
   if (done?.error) { decide('fill', 'the Apply button could not be pressed', {error: done.error}); return {pressed: null, via: '', buttons: []}; }

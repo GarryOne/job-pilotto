@@ -78,7 +78,7 @@ export function pressAccountButton(named = '') {
   const lone = buttons.length === 1 ? buttons[0] : null;
   if (!lone) return buttons.length ? 'several-buttons' : 'no-button';
   document.documentElement.setAttribute('data-jobpilotto-account-pressed', '1');
-  lone.click();
+  (globalThis.__jobPilottoPress?.(lone) || lone.click());
   return 'pressed';
 }
 
@@ -153,7 +153,7 @@ export function pressRegister(named) {
   const exact = all.filter(el => text(el) === wanted), near = all.filter(el => text(el).length >= 3 && wanted.length >= 3 && (text(el).includes(wanted) || wanted.includes(text(el))));
   const found = exact.length ? exact : near;
   if (found.length !== 1) return found.length ? 'several' : 'not-found';
-  found[0].click();
+  (globalThis.__jobPilottoPress?.(found[0]) || found[0].click());
   return 'pressed';
 }
 
@@ -177,7 +177,7 @@ export function pressConsent(named) {
     const needed = box.required || box.getAttribute('aria-required') === 'true' || !!(button && button.disabled);
     if (!needed) return 'optional-box';
   }
-  el.click();
+  (globalThis.__jobPilottoPress?.(el) || el.click());
   return 'pressed';
 }
 

@@ -53,7 +53,7 @@ async function clickCombosNow(tabId) {
   await chrome.debugger.attach(target, '1.3');
   const mouse = (type, x, y) => chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent',
     {type, x, y, button: 'left', clickCount: 1});
-  const click = async (x, y) => { await mouse('mouseMoved', x, y); await mouse('mousePressed', x, y); await mouse('mouseReleased', x, y); };
+  const click = async (x, y) => { await page((px, py) => globalThis.__jobPilottoSubmitPress?.markAt(px, py), [x, y]).catch(() => {}); await mouse('mouseMoved', x, y); await mouse('mousePressed', x, y); await mouse('mouseReleased', x, y); };   // the extension's own press: marked first (page/submit-press.js markAt)
   // A type-to-search box (page/fill-menus.js typeToSearch): the text typed over the box's content for real, and the AI's pick by meaning among the options it showed.
   const type = async text => {
     await chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {type: 'rawKeyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 4, commands: ['selectAll']});
