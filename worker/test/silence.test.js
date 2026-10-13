@@ -82,19 +82,51 @@ test('an ask to the app in flight is a wait, not a stall: the clock stands still
   fired.length = 0;
   silenceTab(5, 'https://jobs.example/5');
   restartSilence(5, 'navigated', {now: 100000, host: 'jobs.example'});
-  askStarted(110000);   // the fill asks the app for 15 answers: 40 s
+  const app5 = askStarted(5, 110000);   // the fill asks the app for 15 answers: 40 s
   assert.equal(checkSilence(5, 100000 + T), false, 'T after the note, but an ask is out: not silent');
   assert.equal(timers.at(-1).ms, 20000, 'looked at again when the rest of T would be up (10 s were quiet before the ask)');
-  askEnded(150000);
-  assert.equal(askTime(150000), 40000);
+  askEnded(app5, 150000);
+  assert.equal(askTime(app5, 150000), 40000);
   assert.equal(checkSilence(5, 150000 + T - 10000 - 1), false, '30 s of quiet are not there yet: 10 s before the ask, 19.999 s after it');
   assert.equal(checkSilence(5, 150000 + T - 10000), true, 'T of quiet, the ask excluded');
   assert.deepEqual(fired, [{host: 'jobs.example', evidence: {kind: 'navigated', silentMs: T}}], 'the notice names the quiet time, not the wall time');
   assert.equal(isSilent({at: 0, ended: false, noticed: false}, T), true, 'the offline measurement\'s plain clocks keep their meaning');
 });
 
-test('class: every call to the app is bracketed as an ask (flow.js api), whatever the call', () => {
-  const flow = fs.readFileSync(new URL('../../extension/flow.js', import.meta.url), 'utf8');
-  assert.match(flow, /export async function api\(config, path, init = \{\}, retry = true\) \{\s*askStarted\(\);[^\n]*\n\s*try \{ return await apiCall\(config, path, init, retry\); \} finally \{ askEnded\(\); \}/);
+test('an ask out on one tab pauses that tab\'s application only: another application\'s clock keeps running (T = 30 s)', () => {
+  fired.length = 0;
+  silenceTab(6, 'https://jobs.example/6'); silenceTab(7, 'https://jobs.example/7');
+  restartSilence(6, 'navigated', {now: 200000, host: 'a.example'});
+  restartSilence(7, 'navigated', {now: 200000, host: 'b.example'});
+  const ask = askStarted(6, 205000);   // tab A's fill waits 40 s for the AI
+  assert.equal(checkSilence(6, 200000 + T), false, 'A\'s own clock stands still');
+  assert.equal(checkSilence(7, 200000 + T), true, 'B\'s clock is not paused by A\'s ask');
+  assert.deepEqual(fired, [{host: 'b.example', evidence: {kind: 'navigated', silentMs: T}}]);
+  askEnded(ask, 245000);
+  assert.equal(askTime(ask, 245000), 40000);
+  assert.equal(askTime(askStarted(null), 245000), 0, 'a tab-less ask pauses nothing');
+  askEnded(null);
+});
+
+test('two tabs of one application share its pause: the time with any ask out counts once', () => {
+  silenceTab(8, 'https://jobs.example/8'); silenceTab(9, 'https://jobs.example/8#apply');
+  const a = askStarted(8, 1000), b = askStarted(9, 2000);
+  assert.equal(a, b, 'one application');
+  askEnded(a, 3000);
+  assert.equal(askTime(a, 4000), 3000, 'still out (the second ask): 1000 to 4000');
+  askEnded(b, 5000);
+  assert.equal(askTime(a, 9000), 4000);
+});
+
+test('class: every call to the app is bracketed as an ask of its tab (flow.js apiFor) or is explicitly tab-less (api); the fill path never uses the tab-less one', () => {
+  const read = file => fs.readFileSync(new URL(`../../extension/${file}`, import.meta.url), 'utf8');
+  const flow = read('flow.js');
+  assert.match(flow, /export async function api\(config, path, init = \{\}, retry = true, tabId = null\) \{\s*const ask = askStarted\(tabId\);[^\n]*\n\s*try \{ return await apiCall\(config, path, init, retry\); \} finally \{ askEnded\(ask\); \}/);
+  assert.match(flow, /export const apiFor = \(tabId, config, path, init = \{\}\) => api\(config, path, init, true, tabId\);/);
   assert.match(flow, /return apiCall\(Object\.assign\(config, fresh\), path, init, false\)/, 'the retry after a 401 is inside the same bracket');
+  // The fill path: files that work on a tab. A plain api( in them is a new ask that would not pause its own tab's clock.
+  for (const file of ['flow.js', 'fill-flow.js', 'account-step.js', 'form-ready.js', 'format-retry.js', 'consent.js', 'submit-watch.js', 'ladder/fill-climb.js', 'ladder/rung4-picture.js']) {
+    const plain = read(file).split('\n').filter(line => /(?<![\w.])api\(/.test(line) && !/^export (async function api\(|const apiFor = )/.test(line));
+    assert.deepEqual(plain, [], `${file}: use apiFor(tabId, ...)`);
+  }
 });

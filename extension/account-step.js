@@ -4,7 +4,7 @@
 // The app says whether THIS email has an account on the host (mode). The code only executes the validated answers and keeps its floors: one register press and one submit
 // press per tab (a failed sign-in reloads the page, so the extension remembers), nothing pressed when the AI is absent, unsure, or sees a bot check.
 // Scenarios owned: "Sign-up page before the form", "Sign-in page where we have no account". Guards: worker/test/account-step.test.js, account-fill.test.js, npm run live.
-import {api, settings} from './flow.js';
+import {apiFor, settings} from './flow.js';
 import {decide} from './log.js';
 import {askKind, sayStep} from './fill-flow.js';
 import {deadEnd} from './ladder/dead-end.js';
@@ -120,7 +120,7 @@ async function judge(tab, frameId, phase, config, fromPath = '', formBefore = ''
   const key = `${tab.id} ${phase}`, sig = signature(sketch);
   if (judged.get(key)?.sig === sig) return judged.get(key).answer;   // the page is as it was: the same answer, no new call
   const askedAt = Date.now();
-  const answer = await api(config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase, sketch})}).catch(() => null);
+  const answer = await apiFor(tab.id, config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase, sketch})}).catch(() => null);
   const kept = answer?.answer ? answer : null;
   decide('fill', `account judge ${phase}: ${kept?.answer || 'no answer'}`, {ms: Date.now() - askedAt});
   if (kept) judged.set(key, {sig, answer: kept});
@@ -146,18 +146,18 @@ async function outcomeOnce(tab, frameId, memo) {
     await chrome.storage.session.remove(memoKey(tab)).catch(() => {});
     const id = await identityOf(tab);
     decide('fill', 'sign-in refused: sign-up next', {host});
-    api(config, '/extension/event', {method: 'POST', body: JSON.stringify({type: 'account-pressed', host, url: id.url, job: id.job, state: 'refused', session: id.session})}).catch(() => {});
+    apiFor(tab.id, config, '/extension/event', {method: 'POST', body: JSON.stringify({type: 'account-pressed', host, url: id.url, job: id.job, state: 'refused', session: id.session})}).catch(() => {});
     return;
   }
   if (action === 'flag') { await flag(tab, frameId, result.needs || ''); await giveUp(tab, host, 'the site did not accept it', result.needs || ''); return; }   // the form stays: the person finishes it, and the memo stays for the next look
   if (action === 'none') return;
   await chrome.storage.session.remove(memoKey(tab)).catch(() => {});
   const id = await identityOf(tab);
-  api(config, '/extension/event', {method: 'POST', body: JSON.stringify({type: 'account-pressed', host, url: id.url, job: id.job, state: action, session: id.session})}).catch(() => {});
+  apiFor(tab.id, config, '/extension/event', {method: 'POST', body: JSON.stringify({type: 'account-pressed', host, url: id.url, job: id.job, state: action, session: id.session})}).catch(() => {});
   // The page asks for the code the site mailed (owner, 10 Oct 2026): in "Do it for me" the app reads it from Gmail (the AI picks it) and this types it into the box
   // the account AI named, then presses the form's button once (pressAccountButton's floors). The code is never logged; "Let me check each step": the person types it.
   if (result?.answer === 'needs_code') {
-    const got = await api(config, '/extension/account-code', {method: 'POST', body: JSON.stringify({host, needs: result.needs || '', ...id})}).catch(() => null);
+    const got = await apiFor(tab.id, config, '/extension/account-code', {method: 'POST', body: JSON.stringify({host, needs: result.needs || '', ...id})}).catch(() => null);
     if (!got?.code) { decide('fill', `account code: left to the person (${got?.why || 'no answer'})`, {host}); return; }
     const filled = await run(tab, frameId, fillCodeBox, [result.needs || '', got.code]);
     decide('fill', filled ? 'account code: typed from the mail' : 'account code: no box to type it in', {host});
@@ -167,7 +167,7 @@ async function outcomeOnce(tab, frameId, memo) {
 
 // What the extension did on the account page, for the session card's record (lib/application-journey.js invariant 6): a consent accepted (its wording) or a code typed (never its value).
 function tellFact(config, tab, host, fact, text = '') {
-  identityOf(tab).then(id => api(config, '/extension/event', {method: 'POST', body: JSON.stringify({type: 'account-fact', fact, text: String(text).slice(0, 80), host, url: id.url, job: id.job, session: id.session})})).catch(() => {});
+  identityOf(tab).then(id => apiFor(tab.id, config, '/extension/event', {method: 'POST', body: JSON.stringify({type: 'account-fact', fact, text: String(text).slice(0, 80), host, url: id.url, job: id.job, session: id.session})})).catch(() => {});
 }
 
 export async function accountStep(tab, frameId) {
@@ -190,7 +190,7 @@ async function accountStepOnce(tab, frameId) {
   stepOf.set(tab.id, step);
   if (work && !step && !work.empty) return {filled: 0};   // no step the AI knows: the password only, and every box already has one
   const id = await identityOf(tab);
-  const answer = await api(config, '/extension/site-password', {method: 'POST', body: JSON.stringify({host, session: id.session, job: id.job, url: id.url})});
+  const answer = await apiFor(tab.id, config, '/extension/site-password', {method: 'POST', body: JSON.stringify({host, session: id.session, job: id.job, url: id.url})});
   await bindSession(tab.id, answer?.session, id.session);   // the app resolved which application this tab is (by its job): kept for the next report
   if (!answer?.ok || !answer.password) {
     // No password saved for this site: the person signs in, or chooses one to create the account. The run names that need once, never a silent stop (the outcome contract's

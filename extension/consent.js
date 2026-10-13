@@ -2,7 +2,7 @@
 // behind one). Its words first (free); a banner in another language: the app picks, from the banner's own buttons, the one that refuses what is not
 // necessary, else the one that accepts (desktop/lib/server-pages.js pickChoice, by meaning, kept), and that one is pressed. The page-side half is
 // closeConsent in visit-page.js. Guards: worker/test (extension consent tests), desktop/e2e/test/consent.test.mjs.
-import {api, settings} from './flow.js';
+import {apiFor, settings} from './flow.js';
 import {closeConsent} from './visit-page.js';
 import {findPopup} from './popup-page.js';
 import {onTop} from './on-top.js';
@@ -33,14 +33,14 @@ export const closePopup = async tabId => {
   const seen = (await popupIn(tabId, [{list: true}])).find(found => found?.buttons?.length);
   if (!seen) return '';
   const config = await settings().catch(() => null);
-  const choice = config && (await api(config, '/extension/dismiss-popup', {method: 'POST', body: JSON.stringify(seen)}).catch(() => null))?.button;
+  const choice = config && (await apiFor(tabId, config, '/extension/dismiss-popup', {method: 'POST', body: JSON.stringify(seen)}).catch(() => null))?.button;
   if (!choice) return '';
-  const forgetPick = () => api(config, '/extension/dismiss-popup', {method: 'POST', body: JSON.stringify({...seen, forget: true})}).catch(() => {});
+  const forgetPick = () => apiFor(tabId, config, '/extension/dismiss-popup', {method: 'POST', body: JSON.stringify({...seen, forget: true})}).catch(() => {});
   const pressed = await pressStays(tabId, async () => (await popupIn(tabId, [{press: choice}])).find(Boolean) || '', {onMoved: forgetPick});
   // The page contradicts the kept answer when the same popup is still there after its button: the app forgets it (desktop/lib/kept-decisions.js).
   if (pressed) setTimeout(async () => {
     const still = (await popupIn(tabId, [{list: true}])).find(found => found?.text === seen.text);
-    if (still) api(config, '/extension/dismiss-popup', {method: 'POST', body: JSON.stringify({...seen, forget: true})}).catch(() => {});
+    if (still) apiFor(tabId, config, '/extension/dismiss-popup', {method: 'POST', body: JSON.stringify({...seen, forget: true})}).catch(() => {});
   }, STILL_THERE_MS);
   return pressed;
 };
@@ -51,8 +51,8 @@ export const closeLayer = async (tabId, {want = ''} = {}) => {   // want: the fi
   const layer = await run([]);
   if (!layer?.buttons?.length) return '';
   const config = await settings().catch(() => null);
-  const choice = config && (await api(config, '/extension/dismiss-popup', {method: 'POST', body: JSON.stringify({text: layer.text, buttons: layer.buttons})}).catch(() => null))?.button;
-  const forgetPick = () => api(config, '/extension/dismiss-popup', {method: 'POST', body: JSON.stringify({text: layer.text, buttons: layer.buttons, forget: true})}).catch(() => {});
+  const choice = config && (await apiFor(tabId, config, '/extension/dismiss-popup', {method: 'POST', body: JSON.stringify({text: layer.text, buttons: layer.buttons})}).catch(() => null))?.button;
+  const forgetPick = () => apiFor(tabId, config, '/extension/dismiss-popup', {method: 'POST', body: JSON.stringify({text: layer.text, buttons: layer.buttons, forget: true})}).catch(() => {});
   return choice && (!want || choice === want) ? pressStays(tabId, async () => (await run([{press: choice}]))?.pressed || '', {onMoved: forgetPick}) : '';
 };
 export const closePopupOrLayer = async tabId => (await closePopup(tabId)) || closeLayer(tabId);
@@ -68,14 +68,14 @@ const closeCookies = async (tabId, {cookiesOnly = false} = {}) => {
   if (!buttons.length) return '';
   const config = await settings().catch(() => null);
   for (const value of ['Reject all cookies that are not necessary', 'Accept cookies']) {
-    const choice = config && (await api(config, '/extension/pick-choice', {method: 'POST', body: JSON.stringify({label: 'A cookie banner', value, options: buttons})}).catch(() => null))?.choice;
+    const choice = config && (await apiFor(tabId, config, '/extension/pick-choice', {method: 'POST', body: JSON.stringify({label: 'A cookie banner', value, options: buttons})}).catch(() => null))?.choice;
     if (!choice) continue;
-    const forgetPick = () => api(config, '/extension/pick-choice', {method: 'POST', body: JSON.stringify({label: 'A cookie banner', value, options: buttons, forget: true})}).catch(() => {});
+    const forgetPick = () => apiFor(tabId, config, '/extension/pick-choice', {method: 'POST', body: JSON.stringify({label: 'A cookie banner', value, options: buttons, forget: true})}).catch(() => {});
     const pressed = await pressStays(tabId, async () => (await inFrames(tabId, [{press: choice, ...only}])).find(Boolean) || '', {onMoved: forgetPick});
     // Still offered after the press: the banner did not close, so the kept answer is dropped (desktop/lib/kept-decisions.js).
     if (pressed) setTimeout(async () => {
       const left = (await inFrames(tabId, [{list: true, ...only}])).flatMap(found => (Array.isArray(found) ? found : []));
-      if (left.includes(choice)) api(config, '/extension/pick-choice', {method: 'POST', body: JSON.stringify({label: 'A cookie banner', value, options: buttons, forget: true})}).catch(() => {});
+      if (left.includes(choice)) apiFor(tabId, config, '/extension/pick-choice', {method: 'POST', body: JSON.stringify({label: 'A cookie banner', value, options: buttons, forget: true})}).catch(() => {});
     }, STILL_THERE_MS);
     return pressed;
   }

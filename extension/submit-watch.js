@@ -5,7 +5,7 @@ import {KEY} from './tab-identity.js';
 import {LATE_CONFIRMATION_MS} from './tab-pages.js';
 import {SUBMIT_WAIT_MS} from './tab-pages.js';
 import {accountOutcomePending} from './account-step.js';
-import {api} from './flow.js';
+import {apiFor} from './flow.js';
 import {confirmationOf} from './tab-pages.js';
 import {decide} from './log.js';
 import {forJob} from './tab-pages.js';
@@ -54,7 +54,7 @@ export function createSubmitWatch(ctx) {
     decide('submitted?', `submit, then the page changed (${gate.why}): asking whether it confirms`, {host: gate.host, path: gate.path});
     try {
       const config = await settings();
-      const verdict = await api(config, '/extension/confirmation', {method: 'POST', body: JSON.stringify({
+      const verdict = await apiFor(tabId, config, '/extension/confirmation', {method: 'POST', body: JSON.stringify({
         job, page: pageKey(tab.url), title: reading?.title || '', headings: reading?.headings || [], text: reading?.text || '', inputs: reading?.inputs || 0,
       })});
       if (!verdict.confirmation) {
