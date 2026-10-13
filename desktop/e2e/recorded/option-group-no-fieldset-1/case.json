@@ -1,0 +1,42 @@
+{
+ "shape": "a required group of checkboxes with a shared []-name and no fieldset: one question, three options with their own ids",
+ "origin": "hand-cut",
+ "why": "13 Oct 2026, the NICE form (Greenhouse, pool run 38325149096): the page counted 16 required controls empty, the panel 8: a []-named checkbox group with no fieldset was one row per option in the panel (review.js grouped checkboxes only inside a fieldset) and 1 + every option in the replay's reader. One shared grouping rule (page/option-groups.js) now: one question is one row",
+ "control": {
+  "build": "0.9.268",
+  "failed": "the panel lists 3 rows for the one question (each option its own)"
+ },
+ "sample": "a hosted application form whose demographic question is a group of checkboxes named question_<id>[] (labels and values removed)",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/autofill-and-cv/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": false,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  }
+ },
+ "expect": {
+  "traced": [],
+  "pending": [
+   "Which of these describes you?"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 30
+ },
+ "start": "panel"
+}

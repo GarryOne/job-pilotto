@@ -10,6 +10,10 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import {FALSE_READINGS} from './recorded-false-readings.mjs';
 
+// The extension's one grouping rule (page/option-groups.js), injected into the page before the required controls are read: readRequiredInPage runs in the page's MAIN world, where the
+// extension's own content scripts are not (and a plain page has none: e2e/test/replay-truth-page.test.mjs).
+const OPTION_GROUPS = fs.readFileSync(new URL('../../../extension/page/option-groups.js', import.meta.url), 'utf8');
+
 // The file the stand-in app gives as the CV (real-extension.mjs pdf('cv.pdf')), named here, not imported: that file loads playwright, and lib/smoke.mjs (desktop's unit
 // tests import it) reaches this file through lib/live-readings.mjs (test/unit-tests-no-playwright.test.js).
 const CV_NAME = 'cv.pdf';
@@ -146,21 +150,11 @@ const readRequiredInPage = cvName => {
     const type = (el.getAttribute('type') || '').toLowerCase(), name = (el.getAttribute('aria-label') || labelled || forLabel || el.closest('label')?.textContent || el.getAttribute('name') || el.id || el.closest('[class*=field], [class*=question], fieldset')?.querySelector('label, legend')?.textContent || el.tagName.toLowerCase()).replace(/\s+/g, ' ').trim().slice(0, 60);
     if (['hidden', 'submit', 'button', 'reset', 'image'].includes(type) || el.getAttribute('role') === 'combobox' || el.hasAttribute('aria-autocomplete')) continue;
     const role = el.getAttribute('role') || '';
-    // One question is one control, however its options are named (NICE's Greenhouse form, pool run 38325149096: a required fieldset of required checkboxes with their own
-    // ids and a []-name read as 1 + every option, 16 against the panel's 8): options join by the box holding only options (fieldset, ARIA group), else by a shared name.
-    const choice = ['checkbox', 'radio'].includes(type), onlyOptions = box => box && !box.querySelector('input:not([type=checkbox]):not([type=radio]):not([type=hidden]), select, textarea');
-    const set = choice ? el.closest('fieldset, [role=radiogroup], [role=group]') : !['radio', 'checkbox', 'option', 'switch'].includes(role) && el.querySelector('input[type=checkbox], input[type=radio]') && el;   // an option role is read below
-    const shared = choice && el.name && document.querySelectorAll(`input[name="${CSS.escape(el.name)}"]`).length > 1 ? el.name : '';
-    if (onlyOptions(set) || shared) {
-      const key = onlyOptions(set) ? set : `options:${shared}`;
-      if (groups.has(key)) continue;
-      groups.add(key);
-      const options = key === set ? set.querySelectorAll('input[type=checkbox], input[type=radio]') : document.querySelectorAll(`input[name="${CSS.escape(shared)}"]`);
-      const title = key === set ? (set.querySelector('legend')?.textContent || set.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().slice(0, 60) : '';
-      out.push({name: title || name, empty: ![...options].some(one => one.checked) && !(key === set && (set.matches(on) || set.querySelector(on)))});
-      continue;
-    }
-    if (['radio', 'checkbox', 'option', 'switch'].includes(role)) { const group = el.closest('[role=radiogroup], [role=group], [role=listbox]') || el.parentElement; const key = group || name; if (groups.has(key)) continue; groups.add(key); out.push({name, empty: !(el.matches(on) || group?.querySelector(on))}); continue; }
+    // One question is one control, however its options are named (NICE's Greenhouse form, pool run 38325149096): options join into ONE group by the one rule the panel uses too
+    // (extension/page/option-groups.js, injected into the page in readTab): the box holding only options (fieldset, ARIA group), else a shared name; answered when any option is ticked.
+    const choice = ['checkbox', 'radio'].includes(type), og = window.__jobPilottoOptionGroups;
+    const group = choice || ['radio', 'checkbox', 'option', 'switch'].includes(role) ? og.groupOf(el) : og.groupOfBox(el);
+    if (group) { if (groups.has(group.key)) continue; groups.add(group.key); out.push({name: group.title || name, empty: !og.answered(group)}); continue; }
     // An upload slot: a file box, a group holding one, or a required group with no control of its own (Greenhouse's resume group: a chip with the file's name, no file input in the
     // captured page): read by the file it holds or the name it shows (chosen-picklist-judged-1, found by fill-ladder 13 Oct 2026).
     const noControl = !('value' in el) && !el.querySelector('input, select, textarea, [role=radio], [role=checkbox], [role=option], [role=switch]');
@@ -183,6 +177,7 @@ export async function readTab(page, keys, cvName = CV_NAME) {
   for (const frame of page.frames()) {
     const fields = await frame.evaluate(readFieldsInPage, keys).catch(() => ({}));
     for (const [key, value] of Object.entries(fields)) if (!read.has(key)) read.set(key, value);
+    await frame.evaluate(OPTION_GROUPS).catch(() => {});   // an expression: Chrome's evaluate is not held by the page's CSP
     const found = await frame.evaluate(readRequiredInPage, cvName).catch(() => ({required: [], files: 0}));
     required.push(...found.required);
     files += found.files;
