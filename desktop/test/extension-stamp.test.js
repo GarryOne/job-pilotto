@@ -6,6 +6,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {LAST_COMMITTED, count, forBuild, newer, stamp, version} from '../scripts/extension-stamp.mjs';
 
 function repo() {
@@ -60,7 +61,7 @@ test('the stamp goes into a copy, never the repo\'s own extension folder', () =>
   fs.cpSync(path.join(dir, 'extension'), copy, {recursive: true});
   stamp(copy, '0.9.301');
   assert.equal(JSON.parse(fs.readFileSync(path.join(copy, 'manifest.json'), 'utf8')).version, '0.9.301');
-  assert.throws(() => stamp(new URL('../../extension', import.meta.url).pathname, '0.9.301'), /a copy/);
+  assert.throws(() => stamp(fileURLToPath(new URL('../../extension', import.meta.url)), '0.9.301'), /a copy/);
 });
 
 test('this repo\'s own stamp is above the last committed version (installed copies keep rising at the switch)', t => {
