@@ -206,6 +206,14 @@ class StoreContract:
         with self.assertRaises(KeyError):
             self.s.events.update(event['id'], {'not_a_field': 1})
 
+    def test_a_question_on_no_job_is_found_by_its_source_id_and_listed_under_no_job(self):
+        app = self.s.applications.create(JOB, 'Applied')
+        self.s.events.add(app['id'], 'Applied', '2026-10-01')
+        first = self.s.events.add('', 'Interview invite', '2026-10-03', source='Gmail', source_id='mail-9', needs_you=True)
+        again = self.s.events.add('', 'Interview invite', '2026-10-03', source='Gmail', source_id='mail-9', needs_you=True)
+        self.assertEqual(first['id'], again['id'])
+        self.assertEqual([e['id'] for e in self.s.events.list(app_id='')], [first['id']])
+
     def test_an_event_is_read_by_its_id_and_a_missing_or_archived_one_is_none(self):
         app = self.s.applications.create(JOB, 'Applied')
         asked = self.s.events.add('', 'Interview invite', '2026-10-03T09:00:00+00:00', source='Gmail', source_id='mail-4', needs_you=True,

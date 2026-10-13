@@ -333,7 +333,7 @@ class Events(_Database):
 
     def list(self, app_id=None, kind=None, source_id=None):
         parts = [part for part in (
-            app_id is not None and {'property': 'Application', 'relation': {'contains': app_id}},
+            app_id is not None and {'property': 'Application', 'relation': {'contains': app_id} if app_id else {'is_empty': True}},
             kind is not None and {'property': 'Kind', 'select': {'equals': kind}},
             source_id is not None and {'property': 'Source ID', 'rich_text': {'equals': source_id}}) if part]
         filter_ = {'and': parts} if len(parts) > 1 else (parts[0] if parts else None)
