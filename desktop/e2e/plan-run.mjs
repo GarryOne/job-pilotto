@@ -7,11 +7,12 @@ import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 import {autoSuites, exploreDecision, runnerOf, noiseTripped, reviewNeeded, suitesFor, suitesNamed, waitingFindings} from './lib/plan.mjs';
 import {asIssues, REGISTER_LIST, registerEntries} from './lib/prejudge.mjs';
+import {shardLegs, suiteOfKey, windowsMatrix} from './lib/suite-shards.mjs';
 
 const realGh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 20 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe']});   // gh's own error text stays out of the step summary (a failed call falls back below)
 
 // all: every suite; cadence / watches: what each suite exports (lib/plan.mjs says what they mean).
-export async function planRun({env, gh = realGh, all, minutes, os = async () => 'macos-latest', cadence = {}, watches = {}, varies = [], sameOnEveryOs = [], storeless = []}) {
+export async function planRun({env, gh = realGh, all, minutes, os = async () => 'macos-latest', cadence = {}, watches = {}, varies = [], sameOnEveryOs = [], storeless = [], shards = {}}) {
   const {EVENT: event, REPO: repo, SHA: sha} = env;
   // TARGET_REF (the gate, the soak top-ups and the stable canary): test THAT release's commit, with this workflow file. The workflow file of an old tag does not know newer
   // inputs (canary, soak), so the run is started on main and told which tag to check out.
@@ -82,20 +83,21 @@ export async function planRun({env, gh = realGh, all, minutes, os = async () => 
   // GATE_STORE_LEGS=one (the release run, desktop.yml): ONE job per suite. Its copy of the Mac job never passed `E2E_STORE` from the leg, so both legs ran the SAME store (the one the
   // run number picks): a duplicate that waited on its twin in the suite's group, and a third contender for GitHub's single waiting slot there when the Windows job of the suite
   // arrived (15 of 41 Mac jobs cancelled, 10 Oct 2026). Both stores in one job is the next step; until then one leg loses nothing the duplicate covered.
-  const legs = suite => (env.GATE_TAG && env.GATE_STORE_LEGS !== 'one' && !storeless.includes(suite) ? [{store: 'sqlite', key: suite}, {store: 'standin', key: `${suite}-standin`}] : [{store: '', key: suite}]);
+  const legs = key => (env.GATE_TAG && env.GATE_STORE_LEGS !== 'one' && !storeless.includes(suiteOfKey(key)) ? [{store: 'sqlite', key}, {store: 'standin', key: `${key}-standin`}] : [{store: '', key}]);
+  // A suite with `shards` is one job per slice (lib/suite-shards.mjs), on both lanes: the recorded replay outgrew one job's budget (13 Oct 2026).
   const include = [];
-  for (const suite of suites) for (const leg of legs(suite)) include.push({suite, ...leg, minutes: await minutes(suite), os: await os(suite)});
+  for (const suite of suites) for (const slice of shardLegs(suite, shards[suite])) for (const leg of legs(slice.key)) include.push({suite, ...leg, shard: slice.shard, minutes: await minutes(suite), os: await os(suite)});
   // Windows runs the same suites, less those that judge what is the same on every OS (quality: the AI's answers; owner, 7 Oct 2026: Windows paid $1.36 a day for it).
   const windows = suites.filter(suite => !sameOnEveryOs.includes(suite));
-  return {matrix: JSON.stringify({include}), count: String(include.length), suites: suites.join(','), windows_suites: windows.join(','), ref, tag, review: review ? '1' : '0', why};
+  return {matrix: JSON.stringify({include}), count: String(include.length), suites: suites.join(','), windows_suites: windows.join(','), windows_matrix: JSON.stringify(windowsMatrix(windows, shards)), ref, tag, review: review ? '1' : '0', why};
 }
 
 // What every suite says about itself (cadence, watches, varies, minutes, runner): planRun's inputs from the real suites. plan-windows.mjs plans the Windows gate with it too.
 export async function suiteFacts() {
   const {SUITES} = await import('./lib/context.mjs');
-  const cadence = {}, watches = {}, varies = [], sameOnEveryOs = [], storeless = [];
-  for (const suite of SUITES) { const module = await import(`./suites/${suite}.mjs`); if (module.cadence) cadence[suite] = module.cadence; if (module.watches) watches[suite] = module.watches; if (module.varies) varies.push(suite); if (module.sameOnEveryOs) sameOnEveryOs.push(suite); if (module.notion === false || module.light || module.store) storeless.push(suite); }   // storeless: no store to vary (no Notion part, a model-only eval, or a store of its own)
-  return {all: SUITES, cadence, watches, varies, sameOnEveryOs, storeless, minutes: async suite => (await import(`./suites/${suite}.mjs`)).minutes || 15,
+  const cadence = {}, watches = {}, varies = [], sameOnEveryOs = [], storeless = [], shards = {};
+  for (const suite of SUITES) { const module = await import(`./suites/${suite}.mjs`); if (module.cadence) cadence[suite] = module.cadence; if (module.watches) watches[suite] = module.watches; if (module.varies) varies.push(suite); if (module.shards > 1) shards[suite] = module.shards; if (module.sameOnEveryOs) sameOnEveryOs.push(suite); if (module.notion === false || module.light || module.store) storeless.push(suite); }   // storeless: no store to vary (no Notion part, a model-only eval, or a store of its own)
+  return {all: SUITES, cadence, watches, varies, sameOnEveryOs, storeless, shards, minutes: async suite => (await import(`./suites/${suite}.mjs`)).minutes || 15,
     os: async suite => runnerOf(await import(`./suites/${suite}.mjs`))};
 }
 

@@ -107,7 +107,7 @@ jobs:
         run: node plan-windows.mjs 2>> "$GITHUB_STEP_SUMMARY" >> "$GITHUB_OUTPUT"
 
   suite:
-    name: ${{ matrix.suite }} (Windows)
+    name: ${{ matrix.key }} (Windows)
     needs: plan
     if: needs.plan.outputs.count != '0'
     runs-on: windows-latest
@@ -121,7 +121,7 @@ jobs:
     concurrency:
       # The suite owns one Notion page: never together with the same suite on the Mac (e2e.yml uses the same group). A NEW pending job cancels an
       # older pending one in the group, so start a by-hand Windows run only when no e2e.yml job of that suite is still queued.
-      group: e2e-${{ matrix.suite }}
+      group: e2e-${{ matrix.key }}
       cancel-in-progress: false
     env:
       E2E_ANTHROPIC_KEY: ${{ secrets.E2E_ANTHROPIC_KEY }}
@@ -145,7 +145,8 @@ jobs:
       E2E_NOTION_TOKEN_WANDER: ${{ secrets.E2E_NOTION_TOKEN_WANDER }}
       E2E_FULL: ${{ inputs.full }}   # the paid AI judge steps, as on the Mac run it follows (a nightly gate or a run by hand)
       E2E_SEED: ${{ inputs.fixed && '0' || inputs.mac_run || github.run_id }}   # after a Mac run: the Mac's own seed, the same path on both   # printed and saved in seed.json: E2E_SEED=<n> node suite.mjs <suite> replays it
-      E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts-windows/${{ matrix.suite }}
+      E2E_ARTIFACTS: ${{ github.workspace }}/e2e-artifacts-windows/${{ matrix.key }}
+      JP_REPLAY_SHARD: ${{ matrix.shard }}   # a sharded suite's slice (lib/suite-shards.mjs: the recorded replay, 13 Oct 2026); empty: the whole suite
       # AI cost: as e2e.yml. A Windows run follows a Mac run that already asked live, so it always replays what it has seen (its own cache: paths differ).
       E2E_AI_CACHE: ${{ github.workspace }}/desktop/e2e/.ai-cache
       E2E_AI_REPLAY: '1'
@@ -185,8 +186,8 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: desktop/e2e/.ai-cache
-          key: ai-answers-windows-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: ai-answers-windows-${{ matrix.suite }}-
+          key: ai-answers-windows-${{ matrix.key }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ai-answers-windows-${{ matrix.key }}-
       - name: Run the ${{ matrix.suite }} suite on Windows
         working-directory: desktop/e2e
         timeout-minutes: 15   # the suite stops itself at its budget (7 min, recorded 11), and by force 3 min later (suite.mjs)
@@ -213,7 +214,7 @@ jobs:
               tag=""; case "$dir" in *rerun*) tag="-rerun";; *apply-edge*) tag="-edge";; esac
               job="e2e-$kind"; provider=anthropic
               if [ "$kind" = app-openai ]; then job=e2e-app; provider=openai; tag="$tag-openai"; fi
-              node desktop/e2e/ai-cost-report.mjs --job "$job" --suffix "windows-${{ matrix.suite }}$tag" --file "$file" --provider "$provider"
+              node desktop/e2e/ai-cost-report.mjs --job "$job" --suffix "windows-${{ matrix.key }}$tag" --file "$file" --provider "$provider"
             done
           done
       - name: Keep the AI answers for the next run
@@ -223,14 +224,14 @@ jobs:
         uses: actions/cache/save@v5
         with:
           path: desktop/e2e/.ai-cache
-          key: ai-answers-windows-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: ai-answers-windows-${{ matrix.key }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Earlier AI reviews (an unchanged screenshot is not asked again)
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1'
         uses: actions/cache/restore@v5
         with:
           path: desktop/e2e/.review-cache
-          key: ai-review-windows-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: ai-review-windows-${{ matrix.suite }}-
+          key: ai-review-windows-${{ matrix.key }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ai-review-windows-${{ matrix.key }}-
       - name: AI review of the screenshots
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1'   # only when the Mac run had it (the UI or its tests changed, or a finding waits)
         working-directory: desktop/e2e
@@ -244,18 +245,18 @@ jobs:
           AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
         run: |
           node -e 'const fs=require("fs"); const u=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); fs.writeFileSync(process.argv[2], JSON.stringify({job: "review", usd: Number(u.usd)||0, turns: Number(u.calls)||0, at: new Date().toISOString(), limit: false}))' "$E2E_ARTIFACTS/ai-review-usage.json" "$RUNNER_TEMP/ai-cost.json"
-          node desktop/e2e/ai-cost-report.mjs --job e2e-screenshot-review --suffix "windows-${{ matrix.suite }}" --file "$RUNNER_TEMP/ai-cost.json"
+          node desktop/e2e/ai-cost-report.mjs --job e2e-screenshot-review --suffix "windows-${{ matrix.key }}" --file "$RUNNER_TEMP/ai-cost.json"
       - name: Keep the AI reviews for the next run
         if: always() && env.E2E_ANTHROPIC_KEY != '' && needs.plan.outputs.review == '1' && hashFiles('desktop/e2e/.review-cache/*.json') != ''
         uses: actions/cache/save@v5
         with:
           path: desktop/e2e/.review-cache
-          key: ai-review-windows-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: ai-review-windows-${{ matrix.key }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: The suite's part of the HTML report
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: blob-windows-${{ matrix.suite }}
+          name: blob-windows-${{ matrix.key }}
           path: blob-report
           if-no-files-found: ignore
           retention-days: 3
@@ -264,18 +265,18 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: e2e-view-windows-${{ matrix.suite }}
+          name: e2e-view-windows-${{ matrix.key }}
           path: |
-            e2e-artifacts-windows/${{ matrix.suite }}/steps.json
-            e2e-artifacts-windows/${{ matrix.suite }}/trace-*.zip
+            e2e-artifacts-windows/${{ matrix.key }}/steps.json
+            e2e-artifacts-windows/${{ matrix.key }}/trace-*.zip
           compression-level: 0
           if-no-files-found: ignore
       - name: Screenshots and logs
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: e2e-artifacts-windows-${{ matrix.suite }}
-          path: e2e-artifacts-windows/${{ matrix.suite }}
+          name: e2e-artifacts-windows-${{ matrix.key }}
+          path: e2e-artifacts-windows/${{ matrix.key }}
           if-no-files-found: ignore
 
   # One Playwright HTML report for the run (6 Oct 2026): every suite wrote a blob (desktop/e2e/report/playwright.config.mjs); merged here, uploaded as e2e-report

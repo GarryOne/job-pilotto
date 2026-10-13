@@ -17,6 +17,7 @@ import {pathSummary, replayFromSeed} from './lib/replay.mjs';
 import {staleComment, staleSighting} from './lib/stale.mjs';
 import {holdFinding, holdReason} from './lib/freshness.mjs';
 import {breakerState, trippedSources} from './lib/breaker.mjs';
+import {suiteOfKey} from './lib/suite-shards.mjs';
 import {judgedSeverity} from './lib/severity.mjs';
 import {learnSignatures, SIGNATURE_LABEL, signaturesBody, signaturesFromBody} from './lib/signatures.mjs';
 import {verdictComment} from './lib/verdict-comment.mjs';
@@ -36,7 +37,7 @@ export function filesNamed(folder) {
 const realGh = args => execFileSync('gh', args, {encoding: 'utf8', maxBuffer: 20 * 1024 * 1024});
 
 // e2e-artifacts-<suite>, e2e-artifacts-windows-<suite> (e2e-windows.yml), or a gate's second store, e2e-artifacts-<suite>-standin (plan-run.mjs legs): the suite.
-export const suiteOf = dir => path.basename(dir || '').replace(/^e2e-artifacts-(windows-)?/, '').replace(/-(standin|sqlite)$/, '');
+export const suiteOf = dir => suiteOfKey(path.basename(dir || '').replace(/^e2e-artifacts-(windows-)?/, ''));   // and a slice's, e2e-artifacts-recorded-2of4 (lib/suite-shards.mjs)
 // Which platform an issue is about: its platform: label (issues filed before 3 Oct 2026 have none and are all from the Mac).
 export const platformOf = issue => ((issue.labels || []).map(item => item.name || item).find(name => name.startsWith('platform:')) || 'platform:mac').slice(9);
 const tail = (file, lines = 25, chars = 3500) => { try { return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).slice(-lines).join('\n').slice(-chars); } catch { return ''; } };
