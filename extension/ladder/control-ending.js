@@ -10,7 +10,7 @@ export const REASON_ENDING = {no_answer: 'data_missing', unread: 'blind', tries:
 export const REASONS = Object.keys(REASON_ENDING);
 // Each fill cause (fill-card.js CAUSES) lands in one reason class; a cause added there without a line here fails the test. No import: the app stages this file beside endings.js (desktop/scripts/stage.mjs).
 export const CAUSE_REASON = {proposed: 'no_answer', no_data: 'no_answer', ai_declined: 'no_answer', ai_unsure: 'no_answer', ai_off: 'no_answer', ai_error: 'no_answer',
-  not_taken: 'not_kept', no_option: 'not_kept', menu_not_clicked: 'not_kept', menu_not_opened: 'not_kept', menu_not_selected: 'not_kept', menu_not_read: 'not_kept', real_click: 'not_kept',
+  not_taken: 'not_kept', no_option: 'not_kept', menu_not_clicked: 'not_kept', menu_not_opened: 'not_kept', menu_not_selected: 'not_kept', menu_not_read: 'not_kept', menu_other_choice: 'not_kept', not_kept_after_tries: 'not_kept', real_click: 'not_kept',
   unread: 'unread', other: 'unknown'};
 export const isReason = value => REASONS.includes(value);
 // entry: what the panel knows of one control: the fill's cause (data-jobpilotto-cause), the attempt log's give-up (data-jobpilotto-gaveup), the page's unread mark, a proposal or a contact key.

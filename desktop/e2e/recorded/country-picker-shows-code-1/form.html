@@ -1,0 +1,29 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Application: Support Engineer</title>
+<style>body{font:15px system-ui;margin:24px;max-width:640px} .field{margin:14px 0} label.q{display:block;font-weight:600;margin-bottom:4px} .req::after{content:" *";color:#c00}
+.select__control{border:1px solid #888;padding:6px;display:flex;gap:6px} .select__menu{border:1px solid #888;position:absolute;background:#fff} .select__option{padding:6px} [hidden]{display:none!important}</style></head><body>
+<h1>Your application</h1>
+<!-- A react-select-shaped country picker beside the phone: the options name country and calling code ("Switzerland +41"); once one is picked the box shows a flag and the code only ("+41"), as a phone country picker does. Hand-made. -->
+<form id="application" onsubmit="return false">
+<div class="field"><label class="req" for="first">First name</label><input id="first" name="first_name" required></div>
+<div class="field"><label class="req" for="mail">Email</label><input id="mail" name="email" type="email" required></div>
+<div class="field"><label class="req" id="cc-label" for="cc">Country</label>
+<div class="select__container" id="cc-box" data-opens="0"><div class="select__control"><div class="select__value-container"><div class="select__placeholder">Select...</div><input id="cc" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-labelledby="cc-label" required></div></div><div class="select__menu" role="listbox" hidden></div></div></div>
+<button type="submit">Send application</button>
+</form>
+<script>
+const box = document.getElementById('cc-box'), control = box.querySelector('.select__control'), menu = box.querySelector('.select__menu'), input = document.getElementById('cc'), values = box.querySelector('.select__value-container');
+const options = [['Germany', '+49', '🇩🇪'], ['Israel', '+972', '🇮🇱'], ['Switzerland', '+41', '🇨🇭']];
+control.addEventListener('mousedown', () => {
+  box.dataset.opens = String(Number(box.dataset.opens) + 1);
+  menu.innerHTML = options.map(([name, code]) => `<div class="select__option" role="option" aria-selected="false">${name} ${code}</div>`).join('');
+  menu.hidden = false; input.setAttribute('aria-expanded', 'true');
+});
+menu.addEventListener('mousedown', event => {
+  const option = event.target.closest('[role=option]'); if (!option) return;
+  const [, code, flag] = options.find(([name]) => option.textContent.startsWith(name));
+  values.querySelector('.select__placeholder')?.remove();
+  values.querySelector('.select__single-value')?.remove();
+  values.insertAdjacentHTML('afterbegin', `<div class="select__single-value"><span>${flag}</span> ${code}</div>`);
+  menu.hidden = true; input.setAttribute('aria-expanded', 'false');
+});
+</script></body></html>

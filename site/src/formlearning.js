@@ -26,6 +26,8 @@ export const REASONS = [
   ['menu_not_opened', 'Menu clicked, it did not open', 'widget'],
   ['menu_not_selected', 'Option clicked, the field stayed empty', 'widget'],
   ['menu_not_read', 'Selected, but the reader cannot see it', 'blind spot'],
+  ['menu_other_choice', 'Menu took another choice than the answer', 'widget'],
+  ['not_kept_after_tries', 'The site did not keep it after the tries', 'widget'],
   ['real_click', 'Menu left empty (older version: cause not observed)', 'widget'],
   ['no_option', 'Dropdown opened, no option matched', 'widget'],
   ['other', 'Other', 'other'],

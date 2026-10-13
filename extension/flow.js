@@ -72,7 +72,7 @@ async function clickCombosNow(tabId) {
       const started = Date.now();
       const {picked, last} = await clickCombo({page, click, spot, skip, type, choose});
       // Did the page pick what it was asked for? (8 Oct 2026: an automatic click selected the item after "Suisse".) A yes/no, never the value.
-      const matched = !picked || !last ? null : String(last.asked).trim().toLowerCase() === String(last.got).trim().toLowerCase();
+      const matched = !picked || !last ? null : last.same === true || String(last.asked).trim().toLowerCase() === String(last.got).trim().toLowerCase();
       // What was observed for this menu (fill card reasons: opened, found, selectedAfter, trusted), never assumed.
       results.push({label: spot.label, picked, matched, ms: Date.now() - started, opened: last?.opened ?? null, found: last?.found ?? null, selectedAfter: last?.selectedAfter ?? null, trusted: last?.trusted ?? null});
       if (!picked && last && last.found === false) decide('fill', 'a menu showed no choice that matched', {field: spot.label.slice(0, 60), choices: last.choices || [], peek: last.peek || ''}).catch(() => {});   // the form's wording, not the answer

@@ -7,7 +7,7 @@ import { snapshotFromReport } from './snapshot.js';
 
 const MECHANICAL = [   // the menu reasons: extension/menu-reason.js (desktop/test/menu-reason-copies.test.js keeps them equal)
   'dropdown not clicked', 'dropdown clicked, but its menu did not open', 'dropdown clicked, but no option matched',
-  'dropdown option clicked, but not selected', 'dropdown selected, but the reader cannot see it', 'dropdown that opens only on a real click',
+  'dropdown option clicked, but not selected', 'dropdown selected, but the reader cannot see it', 'dropdown clicked, but it selected another choice', 'dropdown that opens only on a real click',
   'answer given, but the field did not take it',
   'question text not found on the page',
   'question on the page not read',

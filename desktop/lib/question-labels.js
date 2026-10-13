@@ -35,7 +35,7 @@ export function flowState(flow) {
 // unread: a required question the page shows that the reader did not read (extension/page/coverage.js). by_you / by_you_unread:
 // at Submit, a question the person answered themselves that the fill left / never read (extension/review.js): what the fill missed.
 // page_error: a question the page flagged (missing or invalid) after the Submit press.
-export const LEFT_REASONS = ['proposed', 'no_answer', 'not_taken', 'menu_not_clicked', 'menu_not_opened', 'menu_not_selected', 'menu_not_read', 'real_click', 'no_option', 'unread', 'by_you', 'by_you_unread', 'page_error', 'other'];
+export const LEFT_REASONS = ['proposed', 'no_answer', 'not_taken', 'menu_not_clicked', 'menu_not_opened', 'menu_not_selected', 'menu_not_read', 'menu_other_choice', 'not_kept_after_tries', 'real_click', 'no_option', 'unread', 'by_you', 'by_you_unread', 'page_error', 'other'];
 export function leftReason(reason) {
   const text = String(reason || '');
   if (/^(legal|no CV)/.test(text)) return '';
@@ -48,6 +48,8 @@ export function leftReason(reason) {
   if (text.startsWith('dropdown clicked, but its menu did not open')) return 'menu_not_opened';
   if (text.startsWith('dropdown option clicked, but not selected')) return 'menu_not_selected';
   if (text.startsWith('dropdown selected, but the reader cannot see it')) return 'menu_not_read';
+  if (text.startsWith('dropdown clicked, but it selected another choice')) return 'menu_other_choice';
+  if (text.startsWith('the site did not keep it after its tries')) return 'not_kept_after_tries';
   if (text.startsWith('dropdown that opens')) return 'real_click';
   if (text.startsWith('dropdown clicked')) return 'no_option';
   return 'other';

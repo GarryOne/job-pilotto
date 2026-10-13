@@ -2,7 +2,7 @@
 // (9 Oct 2026: the digest ranked real_click first, while on Migros the menu opened and the option was found, but a scripted click did not select).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MENU_REASONS, OLD_MENU_REASON, menuCause, menuReason } from '../../extension/menu-reason.js';
+import { MENU_REASONS, OLD_MENU_REASON, SETTLE_REASONS, menuCause, menuReason } from '../../extension/menu-reason.js';
 import { CAUSES, causeOf, cleanCard, fillCard } from '../../extension/fill-card.js';
 
 test('each observation of the pick gives its own reason', () => {
@@ -53,4 +53,16 @@ test('both passes of the fill flow write the clicks\' observations onto the rows
   const { readFileSync } = await import('node:fs');
   const source = readFileSync(new URL('../../extension/flow.js', import.meta.url), 'utf8');
   assert.equal(source.split('applyCombos(summary.trace, combos)').length - 1, 2);
+});
+
+// The class: a reason the fill's end writes for any control (not only a menu) is a cause the card counts, the site keeps and the endings read, like a menu's (13 Oct 2026: "selected another
+// choice" and "did not keep it after its tries" fell to 'other' and were the pool's biggest unnamed cause).
+test('every settle-time reason is counted by the fill card, and the one the fill writes is the one that is named', async () => {
+  const { CAUSE_REASON } = await import('../../extension/ladder/control-ending.js');
+  for (const { text, cause } of SETTLE_REASONS) {
+    assert.ok(CAUSES.includes(cause), cause);
+    assert.equal(causeOf({ field: 'f', reason: `${text}: left for you` }), cause);
+    assert.ok(cause in CAUSE_REASON, `control-ending.js CAUSE_REASON names ${cause}`);
+  }
+  assert.equal(causeOf({ field: 'f', reason: 'dropdown clicked, but it selected another choice (0.9 s)' }), 'menu_other_choice');
 });

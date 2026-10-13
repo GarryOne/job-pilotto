@@ -17,7 +17,7 @@
 //   unread        a required question on the page the reader did not read
 //   other         anything else (its first words go nowhere: only this word is counted)
 import {menuCause} from './menu-reason.js';
-export const CAUSES = ['proposed', 'no_data', 'ai_declined', 'ai_unsure', 'ai_off', 'ai_error', 'not_taken', 'menu_not_clicked', 'menu_not_opened', 'menu_not_selected', 'menu_not_read', 'real_click', 'no_option', 'unread', 'other'];
+export const CAUSES = ['proposed', 'no_data', 'ai_declined', 'ai_unsure', 'ai_off', 'ai_error', 'not_taken', 'menu_not_clicked', 'menu_not_opened', 'menu_not_selected', 'menu_not_read', 'menu_other_choice', 'not_kept_after_tries', 'real_click', 'no_option', 'unread', 'other'];
 const NO_ANSWER = 'no answer in the kit, Profile or your details';
 
 export function causeOf(row, {sent = new Set(), ai = null, aiError = '', useAI = true} = {}) {

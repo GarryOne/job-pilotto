@@ -79,7 +79,7 @@
   // The fill picked one option (data-jobpilotto-picked: its letters and digits, page/browser-form-fastpath.js, page/fill-menus.js) and the menu shows another: the page set it
   // back to its own (cc's review of #507: a country menu on the page's default read as answered).
   const alnum = text => String(text ?? '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
-  const pickedOther = (el, shown) => { const picked = el.getAttribute('data-jobpilotto-picked'); return !!picked && alnum(shown) !== picked; };
+  const pickedOther = (el, shown) => { const picked = el.getAttribute('data-jobpilotto-picked'), now = alnum(shown); return !!picked && now !== picked && !(/^\d{1,4}$/.test(now) && picked.endsWith(now)); };   // a picker that shows the picked option's calling code only ("Switzerland +41" -> "+41") is that option
   const stateOf = el => {
     if (!el) return 'empty';
     if (el.type === 'file') return fileState(el);
