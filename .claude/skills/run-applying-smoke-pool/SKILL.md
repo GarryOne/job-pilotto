@@ -23,9 +23,8 @@ Whoever owns the pool and its run queue writes its own session name into `~/Libr
   Nothing uploaded; the result is the job summary table and the artifact (day report, `smoke.log`, `evidence/<day>/<row>/`). Red for a row that did not finish, the tripwire,
   a refused AI (`live: AI refused`), or a row below its last CI run on main or on this PR. Each dispatch spends money: on the owner's or coordinator's ask.
 - **Proven live** (owner, 12 Oct 2026): each CI pool run that REALLY ran a row (reached a page; not skipped, NOT RUN, a bot wall) sends one record (`lib/pool-proven.mjs`, the narrow `REPLAYS_PUBLISH_KEY`, `PUT /applying/proven`); /admin/applying's Fixed tab shows "Proven live <when> - run N (main | PR #n)" or "Not proven live" under each fix: main at or after the landing, or the PR's own build matched by commit subject AND row. `node tools/unproven-fixes.mjs` prints one ready-to-dispatch line per unproven fix (run them the next day, when a site's CI visits are back).
-- **The live proof on a PR** (v2, owner 12 Oct 2026; `.github/workflows/pool-proof.yml`, NOT required): ONE pool row on the PR's own build. It runs ONLY when the PR gets the
-  `live-proof` label (on demand since 13 Oct 2026: owner, the automatic runs' spend); the row is the first `Pool-row: <row>` commit line; a `live-row: <row words>` line in the PR body names the row and wins
-  (`lib/pool-proof.mjs`). A row not in the repo's list, a fork or no row named: a neutral line in the "pick" job, nothing runs. ~$0.06 a run on the Tests key.
+- **No live run on a PR** (owner, 13 Oct 2026: "I don't want PR to generate an AI cost"): the PR live proof (`pool-proof.yml`) and the flow canary were removed;
+  a live CI run is `pool-smoke.yml` started by hand only (`only` = row words), on any branch: `gh workflow run pool-smoke.yml --ref <branch> -f only="<row>"`.
 - **The pool is ONE list in the repo:** `desktop/e2e/smoke-sites.json` (owner, 12 Oct 2026: job postings are public pages, so every row lives here and CI runs it;
   the old rule "never commit a posting taken from a profile" is RETIRED). What stays private is the owner's own details, CV and answers: no run ever holds them
   (fake applicant, privacy tripwire), and they never enter a commit, an artifact or a log. A posting address carries no query part that could carry a person

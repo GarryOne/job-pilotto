@@ -23,7 +23,7 @@ OWN_DECIDE = {'hole3': 'tools/recorded-fails-on-old.mjs lists the cases a PR bri
 FOLLOWS = {'report': "needs.replay.outputs.ran != 'false'"}   # replays to /admin/applying: runs when the replay shards ran, skipped (= passed) otherwise
 NEEDED = "steps.needed.outputs.run == 'true'"
 # Jobs of the pick no required check asks yet: each says why, and a pull request workflow still asks it first (test_an_optional_job_is_asked_by_a_pull_request_workflow).
-OPTIONAL = {'e2e-flow': 'the live canary on flow PRs (.github/workflows/flow-canary.yml); the apply + applyflows suites left PRs (owner, 13 Oct 2026): main\'s schedule and the release gate run them'}
+OPTIONAL = {}   # 13 Oct 2026: the flow e2e's pick left with the PR live canary (owner: no AI cost from a PR)
 
 
 def required():
@@ -190,27 +190,6 @@ class WhenInDoubtItRuns(unittest.TestCase):
             self.assertIn(path, replays, path)
         self.assertIn('desktop/e2e/widget-zoo/', jobs.loads('zoo'))
         self.assertIsNone(jobs.reasons(['desktop/renderer/pages/activity.js'])['replays'], 'the window\'s pages are no part of a replay')
-
-    def test_the_flow_e2e_runs_for_the_extension_the_flow_files_and_its_suites_only(self):
-        flow = jobs.loads('e2e-flow')
-        self.assertTrue(flow, 'node lists what the flow suites load')
-        for path in ('extension/', 'desktop/lib/apply.js', 'desktop/lib/session-flow.js', 'desktop/e2e/suites/apply.mjs', 'desktop/e2e/suites/applyflows.mjs', 'desktop/e2e/lib/apply-cv-steps.mjs', 'desktop/e2e/fixtures/real-forms/'):
-            self.assertIn(path, flow, path)
-        self.assertTrue(jobs.reasons(['extension/fill-flow.js'])['e2e-flow'])
-        self.assertTrue(jobs.reasons(['.github/workflows/e2e.yml'])['e2e-flow'], 'the workflow it calls')
-        for f in ('docs/rules/applying.md', 'desktop/renderer/pages/activity.js', 'worker/src/index.js', 'desktop/e2e/suites/jobs.mjs'):
-            self.assertIsNone(jobs.reasons([f])['e2e-flow'], f)
-
-    def test_the_flow_e2e_runs_only_where_it_is_really_relevant(self):
-        # Owner, 13 Oct 2026 (#558, a pick-only PR, ran both suites: "NOT ACCEPTABLE"): the plumbing, root dependencies, lock files, unknown files and the app's
-        # other modules run the required jobs, never the flow e2e and its live canary; main's schedule is their backstop.
-        for f in ('tools/affected-jobs.py', 'tools/ci-needed.sh', '.github/workflows/pr-gate.yml', 'tests/test_affected_jobs.py', 'package.json', 'requirements.txt',
-                  'desktop/package-lock.json', 'desktop/e2e/package-lock.json', 'some-new-folder/x.txt', 'desktop/lib/server.js', 'desktop/lib/notion.js'):
-            self.assertIsNone(jobs.reasons([f])['e2e-flow'], f)
-        self.assertEqual(jobs.reasons(['tools/affected-jobs.py'])['desktop'], 'tools/affected-jobs.py runs every job', 'the required jobs still run whole on a plumbing change')
-        for f in ('extension/fill-flow.js', 'desktop/lib/apply.js', 'desktop/e2e/suites/applyflows.mjs', 'desktop/e2e/lib/apply-journeys.mjs', 'desktop/e2e/fixtures/real-forms/x.html',
-                  '.github/workflows/e2e.yml', '.github/workflows/flow-canary.yml'):
-            self.assertTrue(jobs.reasons([f])['e2e-flow'], f)
 
     def test_every_file_a_harness_test_reads_runs_the_harness(self):
         # The brief's guard: a harness test that reads a product file the pick does not map to it would let a PR skip the harness and break main.

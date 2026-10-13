@@ -1,6 +1,6 @@
-// When the pool's smoke may run on CI (owner: 11 Oct 2026 "by hand only"; 12 Oct 2026 also on a GitHub runner, by hand; 12 Oct 2026 v2: the live proof of ONE row a
-// PR names). A workflow that runs the smoke starts by hand (workflow_dispatch) or is called (workflow_call); the only callers are the PR proof and the flow
-// canary, each on its PR label only (13 Oct 2026). Never a schedule or a push. A new trigger or a new caller fails here, with the workflow's name.
+// When the pool's smoke may run on CI (owner: 11 Oct 2026 "by hand only"; 12 Oct 2026 also on a GitHub runner, by hand). 13 Oct 2026 (owner: "I don't want
+// PR to generate an AI cost"): the PR live proof and the flow canary that called it were removed; it starts BY HAND only, and no pull request workflow can
+// reach an AI key or the pool run. A new trigger, a caller or a PR workflow with an AI key fails here, with the workflow's name.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -12,52 +12,32 @@ const workflows = Object.fromEntries(fs.readdirSync(DIR).filter(name => /\.ya?ml
 export const triggersOf = text => [...(text.match(/^on:\n((?:[ \t]+.*\n|\n)*)/m)?.[1] || '').matchAll(/^ {2}([a-z_]+):/gm)].map(match => match[1]);
 const typesOf = text => (text.match(/^ {2}pull_request:\n {4}types: \[([^\]]*)\]/m)?.[1] || '').split(',').map(type => type.trim()).filter(Boolean);
 
-test('a workflow that runs the pool smoke starts by hand or is called: never a schedule, a push or a PR of its own', () => {
+test('a workflow that runs the pool smoke starts by hand only: never a schedule, a push, a call or a PR', () => {
   const runners = Object.keys(workflows).filter(name => /(^|[\s/'"])smoke\.mjs\b|npm run smoke\b/m.test(workflows[name]));
   assert.deepEqual(runners, ['pool-smoke.yml']);
-  for (const name of runners) assert.deepEqual(triggersOf(workflows[name]), ['workflow_dispatch', 'workflow_call'], `${name}: ${triggersOf(workflows[name]).join(', ')}`);
+  assert.deepEqual(triggersOf(workflows['pool-smoke.yml']), ['workflow_dispatch']);
+  const callers = Object.keys(workflows).filter(name => /uses: \.\/\.github\/workflows\/pool-smoke\.yml/.test(workflows[name]));
+  assert.deepEqual(callers, [], 'no workflow calls the pool run');
 });
 
-// Owner, 13 Oct 2026 ("let's disable that", ~25 automatic live runs a day on the Tests key): both callers run on a PR LABEL only, never on open or push.
-test('the only callers are the PR live proof and the flow canary, on a pull request label only: never on open, a push, a schedule', () => {
-  const callers = Object.keys(workflows).filter(name => /uses: \.\/\.github\/workflows\/pool-smoke\.yml/.test(workflows[name]));
-  assert.deepEqual(callers, ['flow-canary.yml', 'pool-proof.yml']);
-  for (const [name, label] of [['flow-canary.yml', 'flow-canary'], ['pool-proof.yml', 'live-proof']]) {
-    assert.deepEqual(triggersOf(workflows[name]), ['pull_request'], name);
-    assert.deepEqual(typesOf(workflows[name]), ['labeled'], `${name}: on its label only`);
-    assert.match(workflows[name], new RegExp(`^ {4}if: [^\\n]*github\\.event\\.label\\.name == '${label}'`, 'm'), `${name}: its pick runs only for the "${label}" label`);
+// The class (owner, 13 Oct 2026): no workflow a pull request starts can spend AI: no AI key, no live pool run, no claude CLI.
+test('no pull request workflow can reach an AI key or the live pool', () => {
+  const onPr = Object.keys(workflows).filter(name => triggersOf(workflows[name]).some(t => t === 'pull_request' || t === 'pull_request_target'));
+  assert.ok(onPr.length > 0, 'the reader finds the PR workflows (positive control)');
+  for (const name of onPr) {
+    assert.doesNotMatch(workflows[name], /secrets\.[A-Z_]*(ANTHROPIC|OPENAI)[A-Z_]*|secrets: inherit|pool-smoke\.yml|\bclaude -p\b/, `${name}: a PR workflow must not spend AI`);
   }
 });
 
 test('the trigger reader sees a trigger added to either file (positive control)', () => {
   const smoke = workflows['pool-smoke.yml'];
-  assert.deepEqual(triggersOf(smoke.replace('on:\n', 'on:\n  schedule:\n    - cron: "0 3 * * *"\n')), ['schedule', 'workflow_dispatch', 'workflow_call']);
-  assert.deepEqual(triggersOf(workflows['pool-proof.yml'].replace('on:\n', 'on:\n  push:\n    branches: [main]\n')), ['push', 'pull_request']);
-});
-
-// Owner, 12 Oct 2026: every PR that gets a CI live run carries the "live-proof" label ("label:live-proof" lists them all), whether a Pool-row line or the label
-// started it. The pick job adds it when it names a row; GitHub starts no new run for a label its own token adds, so this never runs the row twice.
-test('the flow canary labels its PR "live-proof" whenever its rows run, with the right to write it', () => {
-  const canary = workflows['flow-canary.yml'];
-  const step = canary.match(/- name: [^\n]*live-proof[^\n]*\n(?: {8}.*\n)+/)?.[0] || '';
-  assert.match(step, /if: steps\.needed\.outputs\.run == 'true'/, 'only when the canary runs');
-  assert.match(step, /labels\[\]=live-proof/, 'adds the live-proof label');
-  assert.match(canary, /pull-requests: write/);
-});
-
-test('the PR proof labels its PR "live-proof" whenever it names a row, with the right to write it', () => {
-  const proof = workflows['pool-proof.yml'];
-  const step = proof.match(/- name: [^\n]*live-proof[^\n]*\n(?: {8}.*\n)+/)?.[0] || '';
-  assert.match(step, /if: steps\.pick\.outputs\.row != ''/, 'only when a row runs');
-  assert.match(step, /labels\[\]=live-proof|--add-label live-proof/, 'adds the live-proof label');
-  assert.match(step, /GH_TOKEN: \$\{\{ github\.token \}\}/, 'with the run\'s own token (no new run from the label)');
-  assert.match(proof, /^ {2}pull-requests: write\b/m);
+  assert.deepEqual(triggersOf(smoke.replace('on:\n', 'on:\n  schedule:\n    - cron: "0 3 * * *"\n')), ['schedule', 'workflow_dispatch']);
 });
 
 // 12 Oct 2026: two dispatches in the same second, and GitHub's shared concurrency group cancelled the older pending one (Ocado). The queue never drops a run.
 test('no pool run is dropped: no concurrency group (GitHub cancels a pending run in it); a queue step waits for earlier runs before anything else is read', () => {
-  const smoke = workflows['pool-smoke.yml'], proof = workflows['pool-proof.yml'];
-  for (const [name, text] of [['pool-smoke.yml', smoke], ['pool-proof.yml', proof]]) assert.doesNotMatch(text, /^\s*concurrency:/m, `${name}: a concurrency group cancels a waiting run`);
+  const smoke = workflows['pool-smoke.yml'];
+  assert.doesNotMatch(smoke, /^\s*concurrency:/m, 'pool-smoke.yml: a concurrency group cancels a waiting run');
   const wait = smoke.indexOf('pool-ci-wait.mjs'), states = smoke.indexOf('pool-ci-state.mjs prepare');
   assert.ok(wait > 0 && wait < states, 'the queue step runs before the earlier runs\' states are read');
   assert.ok(Number(smoke.match(/timeout-minutes: (\d+)/)?.[1]) >= 75, 'the job has time to wait its turn');
@@ -74,9 +54,8 @@ test('a PR whose row did not run gets the NOT RUN line as a comment, with how to
   assert.match(smoke, /^ {2}pull-requests: write\b/m);
 });
 
-test('the PR proof hands its applicant to the pool run, which sets JP_APPLICANT (thin when started by hand)', () => {
-  assert.match(workflows['pool-proof.yml'], /applicant: \$\{\{ needs\.pick\.outputs\.applicant \}\}/);
-  assert.match(workflows['pool-smoke.yml'], /JP_APPLICANT: \$\{\{ inputs\.applicant \|\| 'thin' \}\}/);
+test('the pool run sets JP_APPLICANT (thin when started by hand)', () => {
+  assert.match(workflows['pool-smoke.yml'], /^ +JP_APPLICANT: thin\b/m);
 });
 
 // Owner, 12 Oct 2026: a by-hand run keeps a host's last CI visit of the day for a PR proof (lib/site-ledger.mjs JOB_PILOTTO_SITE_RESERVE).
@@ -97,20 +76,6 @@ test('the pool run sends its proven-live records and its ladder moves with the n
   assert.match(step, /node desktop\/e2e\/pool-endings\.mjs/);   // each row's ending (lib/pool-endings.mjs)
   assert.equal((smoke.match(/REPLAYS_PUBLISH_KEY: \$\{\{/g) || []).length, 1, 'the key sits on that one step');
   assert.doesNotMatch(smoke, /STATS_API_KEY|STATS_KEY|site\.api_key/);
-});
-
-// Owner, 12 Oct 2026 (via job-pilotto-cc): every PR check required, so the proof is SKIPPED, never red, when its row's site cannot be visited today.
-test('the PR proof checks the site before it starts: today\'s CI ledger only when a row is named, the run\'s own rule, a skip with a PR comment', () => {
-  const proof = workflows['pool-proof.yml'];
-  const at = name => proof.indexOf(`- name: ${name}`);
-  assert.ok(at('Which pool row this PR names') > 0 && at('Which pool row this PR names') < at('Earlier CI runs -> today\'s site ledger') && at('Earlier CI runs -> today\'s site ledger') < at('Which pool row this PR proves live'), 'name the row, prepare the ledger, then pick');
-  assert.match(proof, /- name: Earlier CI runs -> today's site ledger[^\n]*\n {8}if: steps\.named\.outputs\.row != ''/, 'the ledger only when a row is named');
-  assert.match(proof, /pool-ci-state\.mjs prepare/, 'prepared as the run prepares it');
-  assert.match(proof, /JOB_PILOTTO_SITE_LEDGER_DIR: \$\{\{ steps\.named\.outputs\.row != '' && format\('\{0\}\/site-ledger', runner\.temp\) \|\| '' \}\}/, 'the pick asks the site rule only with a ledger');
-  assert.match(proof, /JOB_PILOTTO_SITE_LIMIT: '2'/); assert.match(proof, /JOB_PILOTTO_VISIT_KIND: proof/);
-  assert.match(proof, /if: steps\.pick\.outputs\.skipped != ''[\s\S]*?gh pr comment "\$PR_NUMBER"/, 'a skipped proof says so on the PR, with when to retry');
-  assert.match(proof, /^ {2}proof:\n {4}needs: pick\n {4}if: needs\.pick\.outputs\.row != ''/m, 'no row: the proof job is skipped (a skipped required check never blocks a merge)');
-  assert.match(workflows['pool-smoke.yml'], /pool-ci-summary\.mjs/);   // a NOT RUN at run time on a proof is not red: lib/pool-ci.mjs summary({proof}), from JOB_PILOTTO_VISIT_KIND
 });
 
 // Owner, 12 Oct 2026 (cost safety): live CI has its own Anthropic key with its own limit; the Tests key until it exists. Every run reports its spend to /admin/ai-cost.
