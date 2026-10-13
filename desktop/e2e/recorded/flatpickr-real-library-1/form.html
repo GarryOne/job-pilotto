@@ -1,0 +1,17 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Application: Data Analyst</title>
+<link rel="stylesheet" href="vendor:flatpickr.min.css">
+<style>body{font:15px system-ui;margin:24px;max-width:640px} .field{margin:14px 0} label.q{display:block;font-weight:600;margin-bottom:4px} .required::after{content:" *";color:#c00}</style></head><body>
+<h1>Your application</h1>
+<!-- The REAL flatpickr 4.6.13 (vendored, desktop/e2e/vendor/): a date box that opens a calendar and keeps itself read-only. -->
+<form id="application" onsubmit="return false">
+<div class="field"><label class="q required" for="first">First name</label><input id="first" name="first_name" required></div>
+<div class="field"><label class="q required" for="mail">Email</label><input id="mail" name="email" type="email" required></div>
+<div class="field"><label class="q required" for="start_on">Earliest start</label><input id="start_on" name="start_on" required></div>
+<div class="field"><label class="q required" for="resume">CV</label><input id="resume" name="resume" type="file" required></div>
+<button type="submit">Send application</button>
+</form>
+<script src="vendor:flatpickr.min.js"></script>
+<script>
+window.fp = flatpickr(document.getElementById('start_on'), {dateFormat: 'd.m.Y'});
+</script>
+</body></html>

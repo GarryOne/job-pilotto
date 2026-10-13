@@ -88,3 +88,33 @@ test('fast path types fields for the Chrome extension, which switches the guard 
   assert.deepEqual(Array.from(outcome.filled), ['first_name']);
   assert.equal(first.value, 'Ada');
 });
+
+test('a read-only box (a date picker keeps its box so) takes a date while empty; nothing else read-only is written', () => {
+  class HTMLInputElement {
+    constructor(id) { this.id = id; this.name = id; this.type = 'text'; this.tagName = 'INPUT'; this.labels = []; this.disabled = false; this.readOnly = true; }
+    getClientRects() { return [1]; }
+    getAttribute() { return null; }
+    matches(selector) { return selector.includes('input[type="text"]'); }
+    dispatchEvent() {}
+    addEventListener() {}
+    focus() {}
+    blur() {}
+    setAttribute() {}
+  }
+  Object.defineProperty(HTMLInputElement.prototype, 'value', {get() { return this._value || ''; }, set(value) { this._value = value; }});
+  const start = new HTMLInputElement('start_on'), name = new HTMLInputElement('full_name'), taken = new HTMLInputElement('ends_on');
+  taken.value = '01.01.2027';
+  const elements = [start, name, taken];
+  const window = {__jobPilottoGuardActive: true, __jobPilottoValueClass: {of: value => (/^\d\d\.\d\d\.\d{4}$/.test(value) ? 'date' : 'free_text')}};
+  const context = vm.createContext({window, document: {querySelectorAll: () => elements}, HTMLInputElement, HTMLTextAreaElement: class {}, getComputedStyle: () => ({visibility: 'visible'}), Event: class {}});
+  for (const file of ['../../extension/page/typed-check.js', '../../extension/page/read-back.js']) vm.runInContext(fs.readFileSync(new URL(file, import.meta.url), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(new URL('../../tools/browser-form-fastpath.js', import.meta.url), 'utf8'), context);
+  const outcome = window.__jobPilottoFillKnownFields([
+    {field: 'start_on', value: '14.11.2026'}, {field: 'full_name', value: 'Sample Person'}, {field: 'ends_on', value: '02.02.2027'},
+  ]);
+  assert.deepEqual(Array.from(outcome.filled), ['start_on']);
+  assert.deepEqual(Array.from(outcome.skipped), ['full_name', 'ends_on']);
+  assert.equal(start.value, '14.11.2026');
+  assert.equal(name.value, '');
+  assert.equal(taken.value, '01.01.2027');
+});

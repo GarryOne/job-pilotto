@@ -36,7 +36,10 @@ export function answerFor(item) {
 export const caseHosts = item => [...new Set(item.pages.map(page => new URL(page.url).host))];
 // A page may load a REAL widget library, pinned in desktop/e2e/vendor/ (VERSIONS.md), as <script src="vendor:<file>"></script>: it is served inline, so a replay needs no network.
 export const VENDOR_DIR = path.join(E2E, 'vendor');
-export const inlineVendor = html => html.replace(/<script src="vendor:([\w.-]+\.js)"><\/script>/g, (tag, name) => `<script>${fs.readFileSync(path.join(VENDOR_DIR, name), 'utf8')}</script>`);
+// A library's stylesheet the same way: <link rel="stylesheet" href="vendor:<file>.css"> becomes an inline <style> (its image urls point at nothing offline, as a blocked sprite would).
+export const inlineVendor = html => html
+  .replace(/<script src="vendor:([\w.-]+\.js)"><\/script>/g, (tag, name) => `<script>${fs.readFileSync(path.join(VENDOR_DIR, name), 'utf8')}</script>`)
+  .replace(/<link rel="stylesheet" href="vendor:([\w.-]+\.css)">/g, (tag, name) => `<style>${fs.readFileSync(path.join(VENDOR_DIR, name), 'utf8')}</style>`);
 export const caseFiles = item => new Map(item.pages.map(page => [pathKey(page.url), inlineVendor(fs.readFileSync(path.join(item.dir, page.file), 'utf8'))]));
 // A page's HTTP status per load, in turn (case.json pages[].status: 503 or [503, 200]; the last repeats; 200 when absent): a site that errors, then answers (the site_broken
 // ending, extension/ladder/site-broken.js). answerPage serves a case page with it: a status that is not 2xx gets a bare error page, as a site's server sends.

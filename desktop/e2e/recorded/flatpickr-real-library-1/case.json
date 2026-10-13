@@ -1,0 +1,53 @@
+{
+ "origin": "hand-cut",
+ "shape": "the REAL flatpickr (4.6.13, vendored): a date box that opens a calendar and is read-only; the answer is a date in the box's own format",
+ "why": "13 Oct 2026, C3 (spec amendment 6): date pickers are imitations in the zoo; the same check on the real library: the box holds the date, the calendar does not stay open over the form",
+ "control": {
+  "build": "0.9.268",
+  "failed": "to be measured on main"
+ },
+ "sample": "flatpickr 4.6.13 as a hosted application form initialises it (names and values removed)",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/acme/date-library/application",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "start_on",
+     "question": "Earliest start",
+     "value": "14.11.2026",
+     "confidence": "high",
+     "note": "",
+     "category": "availability",
+     "use": "fill"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "attached": [
+   "#resume"
+  ],
+  "valueHas": [
+   "#start_on|14112026"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 40
+ },
+ "start": "panel"
+}
