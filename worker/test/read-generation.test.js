@@ -30,6 +30,25 @@ test('class: every ask consider() waits on is checked right after, and the read 
   }
 });
 
+// beta run 38383983490 (13 Oct 2026, Windows applyflows): a sign-up page's read waited 6 s on the app (identityOf + the site-password peek), the person pressed
+// "Create account" meanwhile and the form's own read began; the stale read then wrote "running" with its token on the form and its fill's "done" was refused.
+test('class: a read writes the page\'s state only while it is current (no await between the check and the write)', () => {
+  const writes = [...consider.matchAll(/writeState\(tab\.id, \{state: (?!result)/g)];
+  assert.ok(writes.length >= 2, `${writes.length} page-state writes found in consider(): update this test`);
+  for (const write of writes) {
+    const before = consider.slice(0, write.index), lastCheck = before.lastIndexOf('late(tab, gen,');
+    assert.ok(lastCheck >= 0, 'no late() check before a page-state write');
+    const between = before.slice(lastCheck).replace(/late\(tab, gen,[^)]*\)\) return;/, '').replace(/await\s*$/, '');   // the write's own await
+    assert.doesNotMatch(between, /\bawait\b/, `an await sits between the last late() check and the write at "${consider.slice(write.index, write.index + 50)}"`);
+  }
+});
+
+test('class: the app asks of the account block are checked right after', () => {
+  const block = consider.slice(consider.indexOf("if (role === 'account') {"), consider.indexOf("decide('fill', `page kind:"));
+  assert.match(block, /await apiFor\(tab\.id, await settings\(\), '\/extension\/site-password'/, 'the account block changed: update this test');
+  assert.match(consider.slice(consider.indexOf("if (role === 'account') {")), /^[\s\S]*?\n {2}\}\n {2}if \(late\(tab, gen, /, 'the account block is not followed by late(tab, gen, ...)');
+});
+
 test('the late answer is logged, not silent, and the tab\'s reads are forgotten with the tab', () => {
   assert.match(flow, /const late = \(tab, gen, what\) => \{[^}]*decide\('fill', 'late answer dropped: a newer read of this tab answered'/);
   assert.match(fs.readFileSync(new URL('../../extension/read-gen.js', import.meta.url), 'utf8'), /tabs\?\.onRemoved\?\.addListener\(forgetReads\)/);

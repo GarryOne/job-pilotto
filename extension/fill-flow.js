@@ -285,6 +285,7 @@ export async function consider(tab, jobUrl) {
     await bindSession(tab.id, peek?.session, id.session);
     if (peek?.mode !== 'confirm') { role = 'form'; noted = 'account'; decide('fill', `account page${kind?.accountStep ? ` (${kind.accountStep})` : ''}: filled with your details`, {host: host0}); }   // 'confirm': waiting for its mail, nothing typed again
   }
+  if (late(tab, gen, 'account details')) return;   // the peek waits on the app: the person may have pressed on meanwhile (beta run 38383983490: a sign-up's read filled the form after it)
   decide('fill', `page kind: ${kind?.kind || ruled}`, {by: kind ? kind.by : 'structure rule', confidence: kind?.confidence ?? null, ms: Date.now() - lookedAt, outcomeMs,
     ...(kind && kind.role !== ruled ? {rule: ruled} : {}), host: (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })()});
   const carried = takePressed(tab.id);   // the Apply press that brought the tab here: confirmed below only if this page takes the fill (ladder/climb.js)
@@ -380,6 +381,7 @@ export async function consider(tab, jobUrl) {
     // minutes and filled once it shows (SmartRecruiters, 9 Oct 2026: the check was read as an empty page, "no form", and nobody was told).
     const botCheck = role === 'no-form' && kind?.botCheck === true;
     if (botCheck || (role === 'no-form' && counts && emptyShape(counts))) watchForFields(tab, jobUrl, undefined, botCheck ? 60 : 10, counts?.frameHosts || []).catch(() => {});   // judged while still empty: look again if fields come
+    if (late(tab, gen, 'page state')) return;   // a stale read never writes the page's state (worker/test/read-generation.test.js)
     await writeState(tab.id, {state: role});
     const said = stall || kind;   // the digest's answer at a stall, else what the page-kind said
     const email = role === 'no-form' ? emailReport(said) : null, told = role === 'no-form' && !email ? toldReport(said) : null, other = role === 'no-form' && !email && !told ? otherReport(said, tab.id) : null;   // the page asks for email (ladder/outcomes.js) or tells what to do (ladder/climb.js)
@@ -391,6 +393,7 @@ export async function consider(tab, jobUrl) {
     return;
   }
   decide('fill', 'filling', {host, job: new URL(String(jobUrl || tab.url)).pathname, page: new URL(tab.url).pathname});   // which posting's kit this page uses
+  if (late(tab, gen, 'fill start')) return;   // the closer looks above wait too: only the tab's current read fills it
   const fillToken = crypto.randomUUID(); await writeState(tab.id, {state: 'running'}, fillToken);
   const result = await fillOpenedTab(live, String(jobUrl || tab.url).split('#')[0], false, {fast: true, quiet: true});
   // The end state is this page's: a tab that moved on during the fill (the person pressed the page's own "Create account") shows another page, which writes its own
