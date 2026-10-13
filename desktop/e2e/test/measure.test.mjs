@@ -5,7 +5,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
-import {VERIFIED, capturesOf, measuredRow, missesIn, offlineLabel, pressesOf, readingOf, tableLines, tablesOf} from '../lib/measure.mjs';
+import {RUN_SETTINGS} from '../lib/capture-library.mjs';
+import {VERIFIED, capturesOf, measuredRow, missesIn, settingsOf, unreplayedRow, offlineLabel, pressesOf, readingOf, tableLines, tablesOf} from '../lib/measure.mjs';
 
 const acted = (at, why, effect) => `2026-10-13T06:00:${at}.000Z [extension] fill: dead end fallback (acted) {"door":${Number(at)},"why":"${why}","effect":"${effect}"}`;
 const kind = (at, what) => `2026-10-13T06:00:${at}.000Z [extension] fill: page kind: ${what} {"by":"ai"}`;
@@ -81,5 +82,27 @@ test('the library gives each row\'s newest capture of the days asked (a live vis
 
 test('measure replays one row at a time: side by side, the app\'s miss lines (no host) left a row\'s log and its misses went uncounted', () => {
   const source = fs.readFileSync(new URL('../measure.mjs', import.meta.url), 'utf8');
-  assert.match(source, /replayRows\(todo, \{[^\n]*tabs: 1\}\)/);
+  assert.match(source, /replayRows\(dirs, \{[^\n]*tabs: 1\}\)/);
+});
+
+// The class, not the case (cc, 13 Oct 2026: a grown-applicant capture replayed as the thin one): EVERY recorded run setting is either set for the replay or checked, and a capture
+// missing any one is not measured. A new setting in RUN_SETTINGS is covered here without a new test.
+test('every recorded run setting: replayed as recorded, and a capture missing it is not measured, never guessed', () => {
+  const full = {settings: {applicant: 'grown', model: 'claude-haiku-5-5', engine: 'api', store: 'sqlite'}};
+  assert.deepEqual(Object.keys(full.settings).sort(), Object.keys(RUN_SETTINGS).sort(), 'the test names every setting');
+  const ok = settingsOf(full);
+  assert.equal(ok.why, '');
+  for (const [name, setting] of Object.entries(RUN_SETTINGS)) {
+    if (setting.replayEnv) assert.equal(ok.env[setting.replayEnv], full.settings[name], `${name} is set for the replay`);
+    const {[name]: _gone, ...rest} = full.settings;
+    const missing = settingsOf({settings: rest});
+    assert.equal(missing.why, name === 'applicant' ? 'applicant not recorded' : `${name} not recorded`);
+  }
+  assert.equal(settingsOf({settings: {...full.settings, model: 'default'}}).env.JOB_PILOTTO_MODEL_OVERRIDE, '', 'the default model: the variable is cleared');
+  assert.match(settingsOf({settings: {...full.settings, store: 'notion'}}).why, /store notion is not replayed offline/);
+  const {applicant: _applicant, ...noApplicant} = full.settings;
+  assert.equal(settingsOf({settings: noApplicant, result: {applicant: 'grown'}}).env.JP_APPLICANT, 'grown', 'an older capture kept its applicant in its result');
+  const refused = unreplayedRow(capture(tmp()), 'engine not recorded');
+  assert.equal(refused.measured, false);
+  assert.equal(tablesOf([refused], 'offline').reasons['engine not recorded'], 1);
 });

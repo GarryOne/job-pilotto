@@ -32,12 +32,22 @@ export function pruneCaptures(root, {today = new Date().toISOString().slice(0, 1
 }
 
 // One live visit's capture into the library, whatever its result. -> the folder, or null when the run kept no page.
-export function keepCapture({root = capturesRoot(), day, shape, result, output = '', aiCalls = '', captureDir, appLog = '', build = buildStamp(), at = new Date().toISOString()}) {
+// The run settings a live visit is made with: a replay must use the same ones to give the same asks (13 Oct 2026: a grown-applicant capture replayed as the thin one missed
+// its form answer). Each: how a live run's env records it, and the env a replay sets from it (null: shown only, a kept answer stands for it; `only`: the one value a replay can use).
+export const RUN_SETTINGS = {
+  applicant: {recorded: env => env.JP_APPLICANT || 'thin', replayEnv: 'JP_APPLICANT'},
+  model: {recorded: env => env.JOB_PILOTTO_MODEL_OVERRIDE || 'default', replayEnv: 'JOB_PILOTTO_MODEL_OVERRIDE'},
+  engine: {recorded: env => env.LIVE_ENGINE || (env.CI ? 'api' : 'cli'), replayEnv: null},
+  store: {recorded: env => env.JOB_PILOTTO_STORE || 'sqlite', replayEnv: null, only: 'sqlite'},
+};
+export const runSettings = (env = process.env) => Object.fromEntries(Object.entries(RUN_SETTINGS).map(([name, setting]) => [name, setting.recorded(env)]));
+
+export function keepCapture({root = capturesRoot(), day, shape, result, output = '', aiCalls = '', captureDir, appLog = '', build = buildStamp(), settings = runSettings(), at = new Date().toISOString()}) {
   // Each visit its own folder (<row>-<hhmmss>): a row visited twice in a day keeps both (saveCandidate empties a folder it writes again).
   const folder = saveCandidate({dir: root, day, shape: `${slug(shape).slice(0, 50)}-${at.slice(11, 19).replace(/:/g, '')}`, result, html: '', output, aiCalls, captureDir, appLog, always: true});
   if (!folder) return null;
   if (appLog) fs.writeFileSync(path.join(folder, 'app.log'), appLog);   // the live side of the positive control: measure parses it as it parses a replay's
-  fs.writeFileSync(path.join(folder, 'capture.json'), `${JSON.stringify({row: shape, at, build, result: result || null}, null, 1)}\n`);
+  fs.writeFileSync(path.join(folder, 'capture.json'), `${JSON.stringify({row: shape, at, build, settings, result: result || null}, null, 1)}\n`);
   pruneCaptures(root, {today: day});
   return folder;
 }
