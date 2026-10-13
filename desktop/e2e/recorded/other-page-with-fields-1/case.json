@@ -1,0 +1,27 @@
+{
+ "origin": "hand-cut",
+ "shape": "a page that is no job page at all (a code host's pull request) which the page-kind AI calls 'other' with confidence 0.97, and which has an input, a comment box and an upload: the fields never turn it into the application form",
+ "why": "13 Oct 2026, the owner's own Chrome: a tab the person opened beside the form tab was adopted, the AI said other (0.97), then 'page kind corrected: a posting with no Apply but a form's fields' made the fill run on a pull request (24 collapsed sections opened, a box ticked). The AI's sure 'other' is final; the structure rule never overrides it. Hand-built page (host and text invented)",
+ "control": {
+  "build": "0.9.267",
+  "failed": "notTold: page kind corrected (the fields of the page overrode the AI's sure 'other')"
+ },
+ "rung": 2,
+ "sample": "hand-built from the shape of the page the owner's fill ran on (hosts and text invented)",
+ "pages": [
+  {"url": "https://code.example.test/acme/widgets/pull/620", "file": "page.html"}
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {"when": {"forget": true}, "answer": {"ok": true, "forgotten": true}},
+   {"answer": {"ok": true, "kind": "other", "role": "no-form", "by": "ai", "confidence": 0.97, "rung": 2, "signal": "confident", "applyButton": "", "applyRoute": "", "applyBy": "", "applyEmail": ""}}
+  ]
+ },
+ "expect": {
+  "told": ["page kind: other"],
+  "notTold": ["page kind corrected", "\"filling\"", "pressed the Apply button"],
+  "empty": ["#comment"],
+  "maxNewTabs": 0,
+  "seconds": 25
+ }
+}

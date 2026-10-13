@@ -15,6 +15,7 @@ import {fillAccountBoxes, fillAccountEmail, fillCodeBox, flagAccount, markAccoun
 import {sketchOf} from './judge-sketch.js';
 import {closerLook, unsureTwice} from './ladder/rung4-picture.js';
 import {pageStill} from './page-still.js';
+import {notePress} from './tabs.js';
 
 // -> 'register' | 'switch' | 'fill-press' | 'fill' | 'leave'. step: the AI's account step ('' when it gave none); mode: the app's 'sign-in' | 'sign-up' | 'confirm'.
 export function accountMove({step, mode, hasEmail, registerControl, signinControl}) {
@@ -84,6 +85,7 @@ const signature = sketch => JSON.stringify([sketch.controls, sketch.buttons, ske
 // The form's outline (its controls' types and labels, never their values or states): kept at the press, so the result look can say whether the SAME form is back.
 // Many sites keep one address for every step (SuccessFactors: /career?career_ns=…), so the address alone told the AI a successful sign-in was the form again (9 Oct 2026, account eval).
 export const formOutline = sketch => (sketch?.controls || []).map(item => `${item.type}:${item.label}`).join('|').slice(0, 1500);
+const press = (tab, frameId, func, args = []) => { notePress(tab.id, tab.url); return run(tab, frameId, func, args); };   // a click of ours: a tab it opens joins the application (tabs.js followOpener)
 const run = (tab, frameId, func, args = []) => chrome.scripting.executeScript({target: {tabId: tab.id, frameIds: [frameId ?? 0]}, func, args}).then(rows => rows?.[0]?.result).catch(() => undefined);
 const memoKey = tab => `accountForm:${tab.id}`;
 // A sign-up or sign-in this extension filled (or the person pressed) whose outcome the account AI has not yet given: for two minutes the page after it is the account's, so the submit watch
@@ -161,7 +163,7 @@ async function outcomeOnce(tab, frameId, memo) {
     if (!got?.code) { decide('fill', `account code: left to the person (${got?.why || 'no answer'})`, {host}); return; }
     const filled = await run(tab, frameId, fillCodeBox, [result.needs || '', got.code]);
     decide('fill', filled ? 'account code: typed from the mail' : 'account code: no box to type it in', {host});
-    if (filled) { tellFact(config, tab, host, 'code'); decide('fill', `account code: button ${await run(tab, frameId, pressAccountButton, [''])}`, {host}); }   // the record says a code came from the mail, never the code
+    if (filled) { tellFact(config, tab, host, 'code'); decide('fill', `account code: button ${await press(tab, frameId, pressAccountButton, [''])}`, {host}); }   // the record says a code came from the mail, never the code
   }
 }
 
@@ -209,7 +211,7 @@ async function accountStepOnce(tab, frameId) {
   }
   if (move === 'register' || move === 'switch') {   // the page's own way to the other form: to create an account (no account of ours here), or to sign in (we have one)
     if (!(await alreadyTried(tab, move))) {
-      const result = await run(tab, frameId, pressRegister, [move === 'register' ? kind.registerControl : kind.signinControl]);
+      const result = await press(tab, frameId, pressRegister, [move === 'register' ? kind.registerControl : kind.signinControl]);
       if (result === 'pressed') await markTried(tab, move);
       sayOnce(tab, 'control', `${move} control: ${result}`, {host});
       if (result === 'not-found') await closerLook(tab, frameId, `the ${move} control the AI named was not found`);   // opt-in (lib/ladder/rung4-picture.js)
@@ -229,7 +231,7 @@ async function accountStepOnce(tab, frameId) {
       const accept = ready && !ready.botCheck && ready.answer === 'needs_person' && consentMove({automation: answer.automation, needsKind: ready.needsKind, consentRequired: ready.consentRequired, needs: ready.needs, presses}) === 'accept';
       if (accept) {   // the owner's setting: the extension accepts the account's consent itself (link, dialog, checkbox), then looks again
         await chrome.storage.session.set({[key]: presses + 1}).catch(() => {});
-        const pressed = await run(tab, frameId, pressConsent, [ready.needs]);
+        const pressed = await press(tab, frameId, pressConsent, [ready.needs]);
         decide('fill', `consent accepted: ${pressed}`, {host, press: presses + 1});
         if (pressed === 'pressed') tellFact(config, tab, host, 'terms', ready.needs);   // the session card's record: which terms were accepted, in the page's own words
       } else {
@@ -242,7 +244,7 @@ async function accountStepOnce(tab, frameId) {
       sayStep(tab.id, 'Creating your account…');
       const form = formOutline(await sketchOf(tab.id, frameId));   // the form as it is pressed
       await pageStill(tab.id, {maxMs: 800});   // the form settles after its fill (page-still.js), at most the old 0.8 s
-      const result = await run(tab, frameId, pressAccountButton, [kind?.accountButton || '']);
+      const result = await press(tab, frameId, pressAccountButton, [kind?.accountButton || '']);
       sayOnce(tab, 'button', `account button: ${result || 'not run'}`, {host});
       if (result === 'bot-check') { const need = botCheckNeed(kind?.accountButton); await flag(tab, frameId, need); await giveUp(tab, host, 'a bot check', need); }   // the floor's word: the person solves it and presses the button
       else if (pressMove(result) === 'person') { await flag(tab, frameId, kind?.accountButton || ''); await giveUp(tab, host, PRESS_REASONS[result] || 'the account button was not pressed', kind?.accountButton || ''); }   // the floor refused: the page is the person's, with why

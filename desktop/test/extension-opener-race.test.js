@@ -16,7 +16,7 @@ globalThis.chrome = {runtime: {getManifest: () => ({version: 'test'}), sendMessa
   async set(items) { Object.assign(store, items); },
   async remove(keys) { for (const key of [].concat(keys)) delete store[key]; },
 }}};
-const {claimAppTab, followOpener} = await import('../../extension/tabs.js');
+const {claimAppTab, followOpener, notePress} = await import('../../extension/tabs.js');
 
 const A = 'https://e2e.recruitee.com/real/other-9b0bc5b0', B = 'https://jobs.lever.co/e2e/b/apply';
 
@@ -37,8 +37,9 @@ test('the app opens a tab for job B while job A\'s tab is in front: the tab stay
   assert.equal(store['job:2'], undefined);
 });
 
-test('a tab an application\'s own page opens (no mark): it still follows its opener', async () => {
+test('a tab an application\'s own page opens after the extension\'s press (no mark): it still follows its opener', async () => {
   Object.assign(store, {'armed:3': true, 'session:3': 'session-C', 'from:3': A});
+  notePress(3, A);   // a tab the person opens is not followed (extension-tab-adoption.test.js)
   assert.equal(await followOpener({id: 4, openerTabId: 3, url: '', pendingUrl: ''}), true);
   assert.equal(store['session:4'], 'session-C');
   assert.equal(store['from:4'], A);

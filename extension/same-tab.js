@@ -16,6 +16,13 @@ export function postingToClose(tab, pressed, postingUrl, now = Date.now(), key =
   return key(postingUrl) === key(press.url) ? opener : null;
 }
 
+// Did the extension itself press something on tab `openerId` a moment ago? `presses`: tab id → {at}. The only thing that lets a new tab join an application
+// (tabs.js followOpener): a tab the person opens, even from the application's tab, is theirs (13 Oct 2026: GitHub pages were adopted and filled).
+export const pressedLately = (openerId, presses, now = Date.now()) => {
+  const press = openerId == null ? null : presses.get(openerId);
+  return !!press && now - press.at <= FOLD_MS;
+};
+
 // The tab that really created `tab`: the one webNavigation names as its source (the page that called window.open or opened the link), else
 // Chrome's openerTabId. That one is the tab in FRONT when a page in the background opens a tab (8 Oct 2026, e2e, two applications side by
 // side: the scripted posting's form got the other job's kit, and the posting never closed). `sources`: tab id -> source tab id.

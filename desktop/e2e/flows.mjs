@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 export const FLOW_FILES = [
   'extension/background.js', 'extension/tab-pages.js', 'extension/same-tab.js', 'extension/review.js', 'extension/page/submit-press.js', 'extension/flow.js', 'extension/page-reads.js',
   'extension/tabs.js', 'extension/account.js', 'extension/account-step.js', 'extension/form-ready.js', 'extension/on-top.js', 'extension/next-step.js', 'extension/ladder/rung4-picture.js', 'extension/account-fill.js', 'extension/log.js', 'extension/tab-memory.js', 'extension/fill-flow.js', 'extension/page-still.js', 'extension/early-answers.js', 'extension/apply-press.js', 'extension/start-route.js', 'extension/ladder/outcomes.js', 'extension/ladder/core.js',
-  'extension/messages-learning.js', 'extension/messages-panel.js', 'extension/messages-app.js', 'extension/submit-watch.js', 'extension/tab-report.js',
+  'extension/page-kind-final.js', 'extension/messages-learning.js', 'extension/messages-panel.js', 'extension/messages-app.js', 'extension/submit-watch.js', 'extension/tab-report.js',
   'desktop/lib/review.js', 'desktop/lib/terminals.js', 'desktop/lib/application-journey.js', 'desktop/lib/journey-identity.js', 'extension/tab-identity.js', 'desktop/lib/apply.js', 'desktop/lib/session-handlers.js', 'desktop/lib/form-tab.js',
   'desktop/lib/session-flow.js', 'desktop/lib/ladder/rung1-kept.js', 'desktop/lib/ladder/rung2-sketch.js', 'desktop/lib/apply-handlers.js', 'desktop/lib/browser-handlers.js', 'desktop/lib/kit-handlers.js', 'desktop/lib/ext-server-handlers.js',
 ];
@@ -29,6 +29,8 @@ export const MATRIX = [
   {scenario: 'Upload slots of any shape (input, hidden input, drop zone, + that creates the input): CV and cover letter by meaning, a miss reported by fingerprint', e2e: ['appears only when + is pressed'], unit: ['e2e/test/upload-slot.test.mjs']},
   {scenario: 'Posting → Apply link or form into a new tab → same tab, posted data kept', e2e: ['Apply opens a new tab'], unit: ['test/extension-same-tab.test.js']},
   {scenario: 'Apply opens its form from the page\'s script (`window.open`): opened in the same tab', e2e: ['side by side'], unit: ['test/extension-same-tab.test.js']},
+  {scenario: 'A tab the person opens is the person\'s: it joins an application only through the extension\'s own press on its opener', e2e: [], unit: ['test/extension-tab-adoption.test.js']},
+  {scenario: 'A page the AI is sure is not a job page is never turned into the form by its fields', e2e: [], unit: ['test/page-kind-final.test.js']},
   {scenario: 'Two applications side by side: one tab and its own kit each', e2e: ['side by side'], unit: ['test/review.test.js']},
   {scenario: 'Sign-up page before the form: account step kept apart', e2e: ['sign-up page'], unit: ['test/extension-tab-pages.test.js', 'test/review.test.js', 'test/session-flow.test.js']},
   {scenario: 'Sign-in page before the form with a saved password: filled, pressed once, the form behind it filled; a refused sign-in never retried', e2e: ['sign-in page'], unit: []},
