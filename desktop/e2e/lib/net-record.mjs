@@ -36,14 +36,16 @@ export function netRecorder(context, {startedAt = Date.now()} = {}) {
   context.on('request', request => { if (recordable(request.url())) t0.set(request, Date.now()); });
   const done = async (request, failed) => {
     if (!recordable(request.url())) return;
-    const began = t0.get(request) ?? Date.now(), ended = Date.now(), response = failed ? null : await request.response().catch(() => null);
+    // A request reported failed AFTER its reply came (the page stopped reading it, e.g. a CV upload to storage: Ashby, 14 Oct 2026) keeps that reply: replayed as failed, the
+    // site shows "failed to upload" where live went on. Only a request with no reply at all is replayed as failed.
+    const began = t0.get(request) ?? Date.now(), ended = Date.now(), response = await request.response().catch(() => null);
     let body = null;
     try { body = response ? await response.body() : null; } catch { body = null; }
     const headers = response ? await response.allHeaders().catch(() => response.headers()) : {}, sent = await request.allHeaders().catch(() => request.headers());
     const hash = body ? sha(body) : '';
     if (body) bodies.set(hash, body);
     entries.push({method: request.method(), url: request.url(), type: request.resourceType(), mode: sent['sec-fetch-mode'] || '', startMs: began - startedAt, waitMs: ended - began,
-      bodyKey: bodyKey(request.postDataBuffer(), sent['content-type'] || ''), status: response?.status() ?? 0, failed: !!failed || !response,
+      bodyKey: bodyKey(request.postDataBuffer(), sent['content-type'] || ''), status: response?.status() ?? 0, failed: !response, ...(failed ? {error: String(request.failure()?.errorText || '').slice(0, 80)} : {}),
       headers: Object.fromEntries(Object.entries(headers).filter(([name]) => KEEP_HEADER.test(name))), hadCookie: 'set-cookie' in headers, hash, size: body?.length || 0});
   };
   const track = promise => { pending.add(promise); promise.finally(() => pending.delete(promise)); };

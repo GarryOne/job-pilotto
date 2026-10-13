@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {seedRandom, sequence} from '../lib/seeded-random.mjs';
-import {bodyKey, echo, keepRecord, normUrl, recordable} from '../lib/net-record.mjs';
+import {bodyKey, echo, keepRecord, netRecorder, normUrl, recordable} from '../lib/net-record.mjs';
 
 const png = (width, height) => { const buf = Buffer.alloc(33); buf.writeUInt32BE(0x89504e47, 0); buf.writeUInt32BE(width, 16); buf.writeUInt32BE(height, 20); return buf; };
 const entry = (over = {}) => ({method: 'GET', url: 'https://jobs.example.test/apply', type: 'document', mode: 'navigate', startMs: 0, waitMs: 10, bodyKey: '', status: 200, failed: false, headers: {'content-type': 'text/html'}, hadCookie: false, hash: 'h1', size: 3, ...over});
@@ -65,4 +65,20 @@ test('the page draws the same random numbers from the same seed, in [0, 1); no s
   assert.equal(await seedRandom({addInitScript: async (fn, arg) => { added = arg; }}, 1791920352178), true);
   assert.equal(added, 1791920352178 % 4294967296);
   assert.equal(await seedRandom({addInitScript: async () => { throw new Error('never'); }}, undefined), false);
+});
+
+test('a request reported failed after its reply came keeps that reply (an upload the page stopped reading); one with no reply is failed', async () => {
+  const {EventEmitter} = await import('node:events');
+  const context = new EventEmitter(), rec = netRecorder(context, {startedAt: 0});
+  const request = (url, response) => ({url: () => url, method: () => 'POST', resourceType: () => 'fetch', postDataBuffer: () => null, allHeaders: async () => ({}), headers: () => ({}),
+    response: async () => response, failure: () => ({errorText: 'net::ERR_ABORTED'})});
+  const reply = {status: () => 204, body: async () => { throw new Error('no body'); }, allHeaders: async () => ({'access-control-allow-origin': '*'}), headers: () => ({})};
+  for (const req of [request('https://files.example.test/', reply), request('https://files.example.test/none', null)]) { context.emit('request', req); context.emit('requestfailed', req); }
+  await rec.flush();
+  const [kept, lost] = rec.result().entries.sort((a, b) => a.url.localeCompare(b.url));
+  assert.equal(kept.status, 204);
+  assert.equal(kept.failed, false, 'a reply that came is replayed as that reply');
+  assert.equal(kept.error, 'net::ERR_ABORTED');
+  assert.equal(lost.failed, true);
+  assert.equal(lost.status, 0);
 });
