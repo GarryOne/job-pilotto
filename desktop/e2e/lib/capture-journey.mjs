@@ -30,7 +30,9 @@ export function journeyRecorder(context, {scrub = html => html} = {}) {
     const parent = frame === page.mainFrame() ? '' : addressOf(frame.parentFrame()?.url());
     // The window size (a frame's size is in the AI's sketch) and which document this is (its start time): a new state in the same document is a script's change
     // (a single-page app's route, a dialog), a new document a load; the replay plays each back the same way (lib/row-replay.mjs).
-    const view = parent ? null : await frame.evaluate(() => ({width: window.innerWidth, height: window.innerHeight, doc: Math.round(performance.timeOrigin)})).catch(() => null);
+    // scrollbar: the width this browser draws a scrollbar (a hidden probe, so a page too short to scroll still tells) (Linux Chrome 15 px, a Mac's overlay 0): a replay on the other system forces it (lib/scrollbar.mjs), else
+    // every frame and control sits 15 px elsewhere and the AI's sketch differs (13 Oct 2026, the capture spec's cause 3: a frame 1185 vs 1200 px wide).
+    const view = parent ? null : await frame.evaluate(() => ({width: window.innerWidth, height: window.innerHeight, doc: Math.round(performance.timeOrigin), scrollbar: (() => { const probe = document.createElement('div'); probe.style.cssText = 'position:absolute;top:-999px;width:100px;height:100px;overflow:scroll'; document.documentElement.appendChild(probe); const width = probe.offsetWidth - probe.clientWidth; probe.remove(); return width; })()})).catch(() => null);
     list.push({url: address, html: scrub(html), at: Date.now(), state, ...(ask ? {ask: true, ...(typeof ask === 'string' ? {askRoute: ask} : {})} : {}), ...(view ? {view} : {}), ...(parent ? {frameOf: parent} : {})});
     states.set(address, state + 1); keptShape.set(address, shape);
   };

@@ -17,6 +17,7 @@ import {applyPoolEligibility} from './pool-eligibility.mjs';
 import {CONTACT} from './apply-fixtures.mjs';
 import {startOfflineApp} from './offline-app.mjs';
 import {startRealExtension} from './real-extension.mjs';
+import {forceScrollbar} from './scrollbar.mjs';
 import {shotTab} from './end-shot.mjs';
 import {kindFromLog, stepShooter} from './step-shots.mjs';
 
@@ -194,7 +195,8 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
     if (blank) { await blank.close().catch(() => {}); blank = null; }
     try {
       const view = states[0]?.view?.width ? states[0].view : LIVE_WINDOW;
-      await tab.setViewportSize({width: view.width, height: view.height}).catch(() => {});   // the live run's window size (a frame's size is in the AI's sketch)
+      await tab.setViewportSize({width: view.width, height: view.height}).catch(() => {});
+      if (await forceScrollbar(tab, states[0]?.view?.scrollbar)) say(`row: ${name}: the live page's scrollbar forced: ${states[0].view.scrollbar} px (lib/scrollbar.mjs)`);   // the live run's window size (a frame's size is in the AI's sketch)
       say(`row: ${name}: ${row.documents.size} pages, ${row.sheets.size} stylesheets, ${presses.length} live presses`);
       await tab.goto(`${start.url.replace(/#.*$/, '')}#jobpilotto-fill`, {waitUntil: 'domcontentloaded'}).catch(() => {});
       const clock = stillClock({seconds: stillSeconds, startedAt: Date.now()});
