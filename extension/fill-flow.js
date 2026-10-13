@@ -148,7 +148,7 @@ const actOnMove = async (tab, move) => {
   if (after === 'navigated') { const live = await chrome.tabs.get(tab.id).catch(() => null); const counts = live ? await pageShape(tab.id) : null; return {navigated: true, fields: (counts?.fields || 0) + (counts?.textareas || 0)}; }
   return after ? {form: true} : {};
 };
-useFallback({ask: askKind, floor: wouldPress, asked: digestAsked, log: decide, acts: async () => (await settings().catch(() => null))?.ladderAct === true, act: actOnMove});   // the one question at each dead end, in shadow; acting only in the CI pool (ladder/fallback.js)
+useFallback({ask: askKind, floor: wouldPress, asked: digestAsked, log: decide, acts: async () => (await settings().catch(() => null))?.ladderAct === true, act: actOnMove, look: (tab, why) => closerLook(tab, 0, `dead end (${why}): the digest was asked, no way on found`, {kind: 'page', picture: true})});   // the one question at each dead end, in shadow; acting only in the CI pool (ladder/fallback.js)
 useProgressLog(decide);   // the run's progress, in shadow (ladder/progress.js): the silent dead-end rule's T is measured from these lines
 // A give-up on this page: the one door (ladder/dead-end.js), with what led here as fixed values.
 const deadEndHere = (tab, jobUrl, host, why, needs, evidence) => deadEnd({job: String(jobUrl || tab.url).split('#')[0], host, why, tabId: tab.id, page: tab.url, needs}, evidence, decide);
