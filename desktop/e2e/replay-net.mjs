@@ -10,6 +10,7 @@ import {runLiveRow} from './lib/live-row.mjs';
 import {startRealExtension} from './lib/real-extension.mjs';
 import {netReplay} from './lib/net-record.mjs';
 import {forceScrollbar} from './lib/scrollbar.mjs';
+import {seedRandom} from './lib/seeded-random.mjs';
 
 const [recordDir, out] = process.argv.slice(2), SLOW = process.argv.includes('--slow'), NO_CLOCK = process.argv.includes('--no-clock'), SCROLLBAR = process.argv.includes('--linux-scrollbar'), CPU = Number((process.argv.find(arg => arg.startsWith('--cpu=')) || '').slice(6)) || 0;
 if (!recordDir || !out) { console.error('usage: node replay-net.mjs <record dir> <out dir> [--slow] [--no-clock]'); process.exit(2); }
@@ -27,6 +28,7 @@ let replay = null;
 const browser = async options => {
   const run = await startRealExtension({...options, offline: true});
   await run.context.addInitScript(SW_BLOCK);
+  await seedRandom(run.context, record.seed);   // the live run's own seed (a record made before it: the page's own random)
   await run.context.addInitScript({path: path.join(path.dirname(new URL(import.meta.url).pathname), 'lib', 'upload-events.js')});   // a fulfilled upload fires no upload events (lib/upload-events.js)
   // The live browser's scrollbar width (the record's own, else --linux-scrollbar for a record made before it: a CI runner draws 15 px, a Mac none)
   await forceScrollbar(run.context, Number.isFinite(record.scrollbar) ? record.scrollbar : SCROLLBAR ? 15 : undefined);

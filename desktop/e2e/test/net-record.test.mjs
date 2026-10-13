@@ -2,6 +2,7 @@
 // images blanked to their size, request bodies kept only as a key. Pure: no browser.
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
+import {seedRandom, sequence} from '../lib/seeded-random.mjs';
 import {bodyKey, echo, keepRecord, normUrl, recordable} from '../lib/net-record.mjs';
 
 const png = (width, height) => { const buf = Buffer.alloc(33); buf.writeUInt32BE(0x89504e47, 0); buf.writeUInt32BE(width, 16); buf.writeUInt32BE(height, 20); return buf; };
@@ -54,4 +55,14 @@ test('a recorded reply that echoes the page\'s time+random upload key gets the k
   assert.match(out, /<Key>stash\/r\/1791920362778-zzp4hhc0ymk-07ea<\/Key>/);
   assert.match(out, /stash%2Fr%2F1791920362778-zzp4hhc0ymk-07ea/);
   assert.equal(echo(reply, ['short-1']), reply, 'a short or plain value is never swapped');
+});
+
+test('the page draws the same random numbers from the same seed, in [0, 1); no seed sets nothing', async () => {
+  const a = sequence(1791920352178 % 4294967296), b = sequence(1791920352178 % 4294967296), draws = Array.from({length: 5}, a);
+  assert.deepEqual(draws, Array.from({length: 5}, b));
+  assert.ok(draws.every(x => x >= 0 && x < 1) && new Set(draws).size === 5);
+  let added = null;
+  assert.equal(await seedRandom({addInitScript: async (fn, arg) => { added = arg; }}, 1791920352178), true);
+  assert.equal(added, 1791920352178 % 4294967296);
+  assert.equal(await seedRandom({addInitScript: async () => { throw new Error('never'); }}, undefined), false);
 });
