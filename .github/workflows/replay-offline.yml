@@ -6,7 +6,7 @@
 name: CI · Replay vs live (offline)
 run-name: ${{ inputs.scheduled && 'Replay check · on time (Worker cron)' || 'Replay check' }}
 
-# When (owner, 14 Oct 2026): 02:30 Zurich as the nightly's gate and beside each e2e run (11:47, 15:47, 19:47), started on time by the Worker (worker/src/scheduler.js);
+# When (owner, 14 Oct 2026): 02:00 Zurich as the nightly's gate and beside each e2e run (11:47, 15:47, 19:47), started on time by the Worker (worker/src/scheduler.js);
 # GitHub's schedule is the backup. A scheduled run with nothing changed since the last green replay stops at once (as the e2e schedule). Never on a PR (15+ min of macOS queue each).
 on:
   workflow_dispatch:

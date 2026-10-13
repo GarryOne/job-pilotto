@@ -5,19 +5,20 @@
 //   desktop.yml  -nightly: true    the nightly build, at 04:00 Zurich (the build runs only when the app changed since the last release)
 //   e2e.yml      -scheduled: true  the three-a-day journey runs, planned exactly as the schedule event plans them
 //   self-heal-stats.yml            the numbers on the owner's /self-heal page, every 3 hours (GitHub's schedule left them 5-6 hours old on 5 Oct 2026)
-//   replay-offline.yml -scheduled  the pool rows replayed offline (owner, 14 Oct 2026): 02:30 Zurich as the nightly beta's gate, and beside each e2e run
-// One trigger for both nightly hours (02:00 and 03:00 UTC): Cloudflare's free plan allows 5 cron triggers per account, and the sixth could not be registered (5 Oct 2026).
-export const CRONS = ['0 2,3 * * *', '47 9,13,17 * * *', '40 */3 * * *', '30 0,1 * * *'];
+//   replay-offline.yml -scheduled  the pool rows replayed offline (owner, 14 Oct 2026): 02:00 Zurich as the nightly beta's gate, and beside each e2e run
+// One trigger for the night's four UTC hours (00-03): Cloudflare's free plan allows 5 cron triggers per ACCOUNT (other Workers hold 2), a sixth could not be registered
+// (5 Oct 2026), and a 4th trigger for this Worker was refused (14 Oct 2026): the hour that is 02:00 in Zurich starts the replay gate, the one that is 04:00 the nightly.
+export const CRONS = ['0 0,1,2,3 * * *', '47 9,13,17 * * *', '40 */3 * * *'];
 
 // The hour in Zurich (0-23) at this moment: 04:00 all year, whether UTC+1 or UTC+2.
 export const zurichHour = date => Number(new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Zurich', hour: '2-digit', hourCycle: 'h23'}).format(date));
 
 export function jobsFor(cron, now = new Date()) {
-  if (cron === '0 2,3 * * *' || cron === '0 2 * * *' || cron === '0 3 * * *') {   // both UTC hours are scheduled; only the one that is 04:00 in Zurich starts the build
-    return zurichHour(now) === 4 ? [{workflow: 'desktop.yml', inputs: {nightly: 'true'}}] : [];
+  if (cron === '0 0,1,2,3 * * *' || cron === '0 2,3 * * *' || cron === '0 2 * * *' || cron === '0 3 * * *') {   // the night's UTC hours: 02:00 Zurich = the replay gate, 04:00 = the nightly
+    const hour = zurichHour(now);
+    return hour === 4 ? [{workflow: 'desktop.yml', inputs: {nightly: 'true'}}] : hour === 2 ? [{workflow: 'replay-offline.yml', inputs: {scheduled: 'true'}}] : [];
   }
   if (cron === '47 9,13,17 * * *') return [{workflow: 'e2e.yml', inputs: {scheduled: 'true'}}, {workflow: 'replay-offline.yml', inputs: {scheduled: 'true'}}];
-  if (cron === '30 0,1 * * *') return zurichHour(now) === 2 ? [{workflow: 'replay-offline.yml', inputs: {scheduled: 'true'}}] : [];   // 02:30 Zurich all year: the nightly's gate
   if (cron === '40 */3 * * *') return [{workflow: 'self-heal-stats.yml', inputs: {scheduled: 'true'}}];
   return [];
 }
