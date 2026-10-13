@@ -90,7 +90,7 @@
     if (refuses(target)) return REFUSED;
     const on = button => (params.onAttr ? button.getAttribute(params.onAttr) === (params.onValue ?? 'true')
       : button.getAttribute('aria-pressed') === 'true' || button.getAttribute('aria-checked') === 'true');
-    if (!on(target)) target.click();
+    if (!on(target)) (globalThis.__jobPilottoPress?.(target) || target.click());
     await wait(120);
     return on(target) ? {ok: true} : {ok: false, why: 'the option did not stay selected'};
   }
@@ -111,7 +111,7 @@
     const wanted = norm(value);
     const opener = (params.trigger && trigger.querySelector?.(params.trigger)) || trigger;
     if (refuses(opener)) return REFUSED;
-    opener.click();
+    (globalThis.__jobPilottoPress?.(opener) || opener.click());
     let options = [];
     for (let i = 0; i < 8 && !options.length; i++) {
       await wait(100);
@@ -120,8 +120,8 @@
     }
     const pick = options.find(option => norm(option.textContent) === wanted) || options.find(option => norm(option.textContent).startsWith(wanted));
     if (pick && refuses(pick)) return REFUSED;
-    if (!pick) { opener.click(); return {ok: false, why: options.length ? `no option "${clean(value)}"` : 'the list did not open'}; }
-    pick.click();
+    if (!pick) { (globalThis.__jobPilottoPress?.(opener) || opener.click()); return {ok: false, why: options.length ? `no option "${clean(value)}"` : 'the list did not open'}; }
+    (globalThis.__jobPilottoPress?.(pick) || pick.click());
     await wait(150);
     return norm(trigger.textContent || trigger.value).includes(norm(pick.textContent)) ? {ok: true} : {ok: false, why: 'the choice did not show'};
   }

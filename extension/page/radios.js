@@ -21,7 +21,7 @@
     const pickRadio = (name, answer) => {
       const match = optionFor(Array.from(document.querySelectorAll(`input[type=radio][name="${CSS.escape(name)}"]`)), answer, labelOf);
       if (!match || LEGAL.test(`${questionOf(match)} ${labelOf(match)}`)) return false;
-      if (!match.checked) match.click();
+      if (!match.checked) (globalThis.__jobPilottoPress?.(match) || match.click());
       return match.checked;
     };
     const groupOf = key => document.getElementById(key) || document.querySelector(`[data-jobpilotto-group="${CSS.escape(key)}"]`);
@@ -42,7 +42,7 @@
       const steps = [centre && centre !== option ? centre : null, option.querySelector?.('input[type=radio], input[type=checkbox]'), option];
       for (const target of steps) {
         if (!target) continue;
-        target.click();
+        (globalThis.__jobPilottoPress?.(target) || target.click());
         if (isOn(option)) return true;
       }
       return isOn(option);

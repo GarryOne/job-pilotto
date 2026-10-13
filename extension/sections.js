@@ -26,7 +26,7 @@ export function openClosedSections() {
     if (controlled.some(region => region.querySelector('[type=submit], input[type=image]'))) continue;
     if (!heading(el) && controlled.length === 0) continue;   // not a disclosure: a button that happens to say "expanded false"
     el.setAttribute('data-jobpilotto-opened', '1');
-    el.click();
+    (globalThis.__jobPilottoPress?.(el) || el.click());
     opened++;
   }
   for (const details of document.querySelectorAll('details:not([open])')) {

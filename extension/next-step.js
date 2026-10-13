@@ -14,7 +14,7 @@ export function pressInPage(text) {
   if (!el) return {pressed: false, why: 'not on the page'};
   if ((el.tagName === 'INPUT' && el.type === 'submit') || (el.tagName === 'BUTTON' && el.type === 'submit' && el.form)) return {pressed: false, why: 'it submits a form'};
   if (/(^|\b)(submit|send application|apply now|complete application|finish application)(\b|$)/i.test(el.textContent || el.value || '')) return {pressed: false, why: 'it reads like Submit'};
-  el.click();
+  (globalThis.__jobPilottoPress?.(el) || el.click());
   return {pressed: true};
 }
 

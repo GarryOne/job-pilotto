@@ -127,11 +127,11 @@ export function nextByRecipe(recipe) {
     const current = document.querySelector('[aria-current="page"], [aria-current="true"]');
     const number = Number((current?.innerText || '').trim());
     const following = number && controls.find(node => (node.innerText || '').trim() === String(number + 1));
-    if (following) { following.click(); return 'page number'; }
+    if (following) { (globalThis.__jobPilottoPress?.(following) || following.click()); return 'page number'; }
     return 'none';
   }
   const target = controls.find(node => labels(node).includes(recipe.next));
-  if (target) { target.click(); return 'recipe'; }
+  if (target) { (globalThis.__jobPilottoPress?.(target) || target.click()); return 'recipe'; }
   return 'none';
 }
 
@@ -156,11 +156,11 @@ export function closeConsent(want = null) {   // want: {list: true} -> the box's
   const stays = node => !leavesPage(node);
   const buttonsOf = box => [...box.querySelectorAll('button, a, [role=button], input[type=button], input[type=submit]')].filter(node => visible(node) && stays(node) && words(node) && words(node).length < 60);
   if (want?.list) return [...new Set(boxes.flatMap(box => buttonsOf(box).map(words)))].slice(0, 20);
-  if (want?.press) { const button = boxes.flatMap(buttonsOf).find(node => words(node) === want.press); if (button) button.click(); return button ? words(button) : ''; }
+  if (want?.press) { const button = boxes.flatMap(buttonsOf).find(node => words(node) === want.press); if (button) (globalThis.__jobPilottoPress?.(button) || button.click()); return button ? words(button) : ''; }
   for (const pattern of [least, any]) {
     for (const box of boxes) {
       const button = [...box.querySelectorAll('button, a, [role=button], input[type=button], input[type=submit]')].find(node => visible(node) && stays(node) && pattern.test(words(node)) && words(node).length < 60);
-      if (button) { button.click(); return words(button); }
+      if (button) { (globalThis.__jobPilottoPress?.(button) || button.click()); return words(button); }
     }
   }
   return '';
@@ -280,6 +280,7 @@ export async function applyFilters(steps) {
         node.dispatchEvent(new Event('input', {bubbles: true}));
       }
       if (option) {
+        globalThis.__jobPilottoSubmitPress?.mark(option);
         for (const type of ['mousedown', 'mouseup', 'click']) option.dispatchEvent(new MouseEvent(type, {bubbles: true, cancelable: true}));
         return (option.innerText || option.textContent).replace(/\s+/g, ' ').trim().slice(0, 80);
       }
@@ -314,7 +315,7 @@ export async function applyFilters(steps) {
       node.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));
       node.form?.requestSubmit?.();
     } else {
-      node.click();
+      (globalThis.__jobPilottoPress?.(node) || node.click());
     }
     done.push({control: step.control, ok: true});
   }
@@ -328,19 +329,19 @@ export function goNext() {
     && !/\$\{|\{\{|%7B/i.test(node.getAttribute('href') || '');   // a link to template code (DHL's "${getUrl(") goes nowhere
   const labels = node => [node.innerText, node.getAttribute('aria-label'), node.getAttribute('title')].map(text => (text || '').trim()).filter(Boolean);
   const rel = document.querySelector('a[rel="next"], link[rel="next"]');
-  if (rel?.href && rel.tagName === 'A' && visible(rel)) { rel.click(); return 'next link'; }
+  if (rel?.href && rel.tagName === 'A' && visible(rel)) { (globalThis.__jobPilottoPress?.(rel) || rel.click()); return 'next link'; }
   const NEXT = /^(next|suivant|weiter|nächste|siguiente|successivo|›|»|>)$|next page|page suivante|nächste seite/i;
   const controls = [...document.querySelectorAll('a, button, [role="button"]')].filter(visible);
   const next = controls.find(node => labels(node).some(text => NEXT.test(text)));
-  if (next) { next.click(); return 'next button'; }
+  if (next) { (globalThis.__jobPilottoPress?.(next) || next.click()); return 'next button'; }
   const current = document.querySelector('[aria-current="page"], [aria-current="true"], .active > a, li.selected');
   const number = Number((current?.innerText || '').trim());
   if (number) {
     const following = controls.find(node => (node.innerText || '').trim() === String(number + 1));
-    if (following) { following.click(); return 'page number'; }
+    if (following) { (globalThis.__jobPilottoPress?.(following) || following.click()); return 'page number'; }
   }
   const more = controls.find(node => labels(node).some(text => /^(see more jobs|show more|load more|more jobs|afficher plus|plus d'offres|mehr anzeigen|weitere jobs)/i.test(text)));
-  if (more) { more.click(); return 'more button'; }
+  if (more) { (globalThis.__jobPilottoPress?.(more) || more.click()); return 'more button'; }
   const before = document.documentElement.scrollHeight;
   window.scrollTo(0, before);
   return before > window.innerHeight + 50 ? 'scroll' : 'none';

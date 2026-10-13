@@ -14,7 +14,7 @@
     const score = b => { const l = norm(labelOf(b)); return l === want ? 3 : (l.includes(want) || want.includes(l)) ? 2 : words.some(w => l.includes(w)) ? 1 : 0; };
     const best = boxes.reduce((a, b) => (score(b) > score(a) ? b : a), boxes[0]);
     if (!score(best)) return false;
-    if (!best.checked) best.click();
+    if (!best.checked) (globalThis.__jobPilottoPress?.(best) || best.click());
     return best.checked;
   };
 
@@ -22,7 +22,7 @@
     const box = document.getElementById(field) || document.querySelector(`input[type=checkbox][name="${CSS.escape(field)}"]`);
     if (!box || LEGAL.test(`${questionOf(box)} ${labelOf(box)}`)) return false;
     const want = /^(checked|yes|true)$/i.test(answer);
-    if (box.checked !== want) box.click();
+    if (box.checked !== want) (globalThis.__jobPilottoPress?.(box) || box.click());
     return box.checked === want;
   };
 
@@ -35,8 +35,8 @@
       // Sites often hide the real checkbox behind a drawn one: then its label is what's on screen.
       const label = box.labels?.[0] || box.closest('label');
       if (box.checked || !LEGAL.test(text) || !(visible(box) || (label && visible(label)))) continue;
-      (visible(box) ? box : label).click();
-      if (!box.checked && label && visible(box)) label.click();
+      (globalThis.__jobPilottoPress?.((visible(box) ? box : label)) || (visible(box) ? box : label).click());
+      if (!box.checked && label && visible(box)) (globalThis.__jobPilottoPress?.(label) || label.click());
       if (box.checked) ticked.push(clean(String(questionOf(box) || labelOf(box)).replace(/\S*(_|\[\])\S*/g, ' ')).slice(0, 90));
     }
     return ticked;

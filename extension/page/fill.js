@@ -20,7 +20,7 @@
       const scope = heading?.parentElement || document;
       const manual = Array.from(scope.querySelectorAll('button, a')).find(el => /enter manually|type it|paste/i.test(el.textContent || ''));
       if (!manual) return false;
-      manual.click();
+      (globalThis.__jobPilottoPress?.(manual) || manual.click());
       for (let i = 0; i < 10 && !box; i++) { await sleep(150); box = find(); }
     }
     if (!box || String(box.value || '').trim()) return false;

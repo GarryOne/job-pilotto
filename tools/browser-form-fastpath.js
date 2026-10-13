@@ -282,7 +282,7 @@
         options: options.map(el => el.textContent.trim().slice(0, 60)).slice(0, 40)};
     }
     const box = exact[0].getBoundingClientRect();
-    exact[0].click();
+    (globalThis.__jobPilottoPress?.(exact[0]) || exact[0].click());
     return {ok: true, x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2)};
   };
 })();

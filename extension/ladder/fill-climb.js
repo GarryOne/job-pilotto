@@ -24,7 +24,7 @@ async function withClicks(tabId, work) {
   await chrome.debugger.attach(target, '1.3');
   try {
     const mouse = (type, x, y) => chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', {type, x, y, button: 'left', clickCount: 1});
-    return await work(async (x, y) => { for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await mouse(type, x, y); });
+    return await work(async (x, y) => { await chrome.scripting.executeScript({target: {tabId}, world: 'MAIN', func: (px, py) => globalThis.__jobPilottoSubmitPress?.markAt(px, py), args: [x, y]}).catch(() => {}); for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await mouse(type, x, y); });   // marked first: the extension's own press (page/submit-press.js markAt)
   } finally { await chrome.debugger.detach(target).catch(() => {}); }
 }
 
