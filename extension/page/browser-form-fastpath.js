@@ -245,7 +245,7 @@
     window.__jobPilottoStep('audit');
     const rows = Array.from(document.querySelectorAll('input, textarea, select'))
       // aria-hidden inputs are react-select's hidden "required" helpers, not fields.
-      .filter(el => visible(el) && !el.disabled && el.getAttribute('aria-hidden') !== 'true'
+      .filter(el => visible(el) && !el.disabled && !window.__jobPilottoReadBack.hiddenAway(el)
         && !['hidden', 'submit', 'button', 'reset', 'search'].includes(el.type))
       .map(el => ({field: el.id || el.name || label(el), label: label(el),
         type: isCombo(el) ? 'combobox' : el.type || el.tagName.toLowerCase(),

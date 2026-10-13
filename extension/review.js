@@ -59,7 +59,7 @@
   function fields() {
     const groups = new Map();
     for (const el of document.querySelectorAll('input, textarea, select')) {
-      const slot = el.type === 'file' && !visible(el) ? window.__jobPilottoReadBack.shownSlot(el) : null; if (SKIP.includes(el.type) || el.disabled || el.getAttribute('aria-hidden') === 'true' || !(visible(el) || slot)) continue;   // a CV slot whose input the page hides counts by its visible zone (page/read-back.js)
+      const slot = el.type === 'file' && !visible(el) ? window.__jobPilottoReadBack.shownSlot(el) : null; if (SKIP.includes(el.type) || el.disabled || window.__jobPilottoReadBack.hiddenAway(el) || !(visible(el) || slot)) continue;   // a CV slot whose input the page hides counts by its visible zone (page/read-back.js)
       const group = ['checkbox', 'radio'].includes(el.type) ? window.__jobPilottoOptionGroups.groupOf(el) : null;   // one question is one row, however its options are named (page/option-groups.js, shared with the replay's truth reader)
       const key = group ? group.key : el;
       const filled = window.__jobPilottoReadBack.holds(el);   // the one reading (page/read-back.js): a box holding only a country code is empty, an upload slot by the file it shows

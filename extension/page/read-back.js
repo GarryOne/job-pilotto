@@ -10,6 +10,8 @@
   if (window.__jobPilottoReadBack) return;
   const visible = el => !!(el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
   const textOf = el => el?.innerText ?? el?.textContent ?? '';
+  // aria-hidden marks a helper input (react-select's "required" input) that is no field; a select that still holds choices is the field a menu library hides beside its own box (Select2).
+  const hiddenAway = el => el.getAttribute('aria-hidden') === 'true' && !(el.tagName === 'SELECT' && el.options.length > 1);
   const own = el => !!el.closest?.('[id^=jobpilotto], [id^=job-pilotto]');   // the extension's own panel
   // A file name: a stem that starts with a letter or digit, then its extension ("cv.pdf"); a format hint ("(.pdf, .docx, max 5 MB)") holds no name.
   const FILE_NAMES = /[\p{L}\p{N}][^\s\\/]*\.(?:pdf|docx?|rtf|txt|odt)\b/giu;
@@ -124,5 +126,5 @@
     return rows;
   };
   window.__jobPilottoChosen = chosen;   // the name the audit and coverage.js call it by
-  window.__jobPilottoReadBack = {stateOf, holds: el => stateOf(el) === 'committed', chosen, comboValue, fileState, baseline, namesIn, shownSlot, pass};
+  window.__jobPilottoReadBack = {stateOf, holds: el => stateOf(el) === 'committed', chosen, hiddenAway, comboValue, fileState, baseline, namesIn, shownSlot, pass};
 })();
