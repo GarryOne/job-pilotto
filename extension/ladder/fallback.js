@@ -4,9 +4,9 @@
 // computed from the row's real ending (cc, 13 Oct 2026). Nothing acts: no press, no kept answer, no climb signal (askKind's shadow option). Fixed values only, never page text.
 // Not asked again where the stop came from the digest itself (its next rung, the picture, is off), nor when the tab left the stop's page. Whether the move WOULD act is the one rule of
 // ladder/next-move.js (box 5): a sure press past the floors is asked a second time, and acts only when both name the same control. Guard: worker/test/fallback.test.js.
-import {mayAct, needsSecondAsk} from './next-move.js';
+import {effectOf, mayAct, needsSecondAsk} from './next-move.js';
 
-let ask = async () => null, floor = async () => ({press: false, why: null}), log = () => {}, digestAsked = () => false;
+let ask = async () => null, floor = async () => ({press: false, why: null}), log = () => {}, digestAsked = () => false, acts = async () => false, act = async () => null;
 // parts: {ask(tab, {digest, shadow}) (fill-flow.js askKind), floor(tabId, named) (apply-press.js wouldPress), asked(tabId, page) (climb.js digestAsked: a climb asked the digest
 // on that page already), log (the decide log)}; tests also pass {tab(tabId)}.
 let tabOf = tabId => globalThis.chrome?.tabs?.get(tabId).catch(() => null) ?? Promise.resolve(null);
@@ -16,6 +16,8 @@ export function useFallback(parts = {}) {
   if (parts.log) log = parts.log;
   if (parts.asked) digestAsked = parts.asked;
   if (parts.tab) tabOf = parts.tab;
+  if (parts.acts) acts = parts.acts;   // acts(): the harness's test switch (the CI pool); act(tab, move): press the move through the live press path, -> what the page showed after (next-move.js effectOf's facts)
+  if (parts.act) act = parts.act;
 }
 
 const WORD = /^[a-z_-]{1,24}$/;   // our own fixed words (a stop reason, an outcome, a verb): never page text
@@ -39,8 +41,16 @@ export async function askAtDeadEnd({door, tabId, page, why, rung} = {}) {
   if (!tab || pageOf(tab.url) !== pageOf(page)) { log('fill', 'dead end fallback (shadow): the page moved on', base); return null; }
   const first = await moveOf(tab), second = needsSecondAsk(first) ? await moveOf(tab) : null;
   const decided = mayAct(first, second);
-  const fields = {...base, ...first, usd: first.usd + (second?.usd || 0), ...(second ? {agree: decided.why !== 'disagree'} : {}), wouldAct: decided.act, actWhy: decided.why};
+  const {named, ...logged} = first;   // the control's own words stay out of the log: fixed values only
+  const fields = {...base, ...logged, usd: first.usd + (second?.usd || 0), ...(second ? {agree: decided.why !== 'disagree'} : {}), wouldAct: decided.act, actWhy: decided.why};
   log('fill', 'dead end fallback (shadow)', fields);
+  // Box 8: in the CI pool only (the harness's test switch), a move the one rule lets act is pressed through the live press path and its effect is checked right after; once per page, never repeated.
+  if (decided.act && await acts().catch(() => false)) {
+    const from = Date.now(), observed = await act(tab, {...first, named}).catch(() => null);
+    const effect = effectOf(first, observed || {});
+    log('fill', 'dead end fallback (acted)', {shadow: false, door, why: base.why, number: first.number, pressKind: first.pressKind, effect, ms: Date.now() - from});
+    return {...fields, acted: effect};
+  }
   return fields;
 }
 
@@ -52,6 +62,6 @@ async function moveOf(tab) {
   const press = ['press', 'open'].includes(said.verb);
   const check = !press ? {floor: 'none'} : !answer?.applyButton ? {floor: 'refused', floorWhy: 'not_apply'}
     : await floor(tab.id, answer.applyButton).then(found => (found?.press ? {floor: 'ok'} : {floor: 'refused', floorWhy: floorWord(found?.why)})).catch(() => ({floor: 'refused', floorWhy: 'unreadable'}));
-  return {signal: word(answer?.signal) || 'none', outcome: word(said.outcome), verb: word(said.verb), number: Number.isInteger(said.numbers?.[0]) ? said.numbers[0] : -1,
+  return {named: answer?.applyButton || '', signal: word(answer?.signal) || 'none', outcome: word(said.outcome), verb: word(said.verb), number: Number.isInteger(said.numbers?.[0]) ? said.numbers[0] : -1,
     pressKind: word(said.pressKind), confidence: Number.isFinite(answer?.confidence) ? answer.confidence : -1, usd: Number.isFinite(answer?.usd) ? answer.usd : 0, ...check};
 }

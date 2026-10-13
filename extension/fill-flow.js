@@ -138,7 +138,16 @@ export async function stuck(job, host, why, tabId = null, page = '', needs = '',
   try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why, needs: String(needs || '').slice(0, 80), accountStep: String(accountStep || '').slice(0, 16), tab: tabId, session, page: String(page || '').split('#')[0]})}); } catch { /* the app is closed */ }
 }
 useReporter(stuck);   // the only way to it: every give-up goes through ladder/dead-end.js deadEnd (worker/test/dead-end.test.js)
-useFallback({ask: askKind, floor: wouldPress, asked: digestAsked, log: decide});   // the one question at each dead end, in shadow (ladder/fallback.js)
+// In the CI pool only (the harness's ladderAct switch), the move the one rule lets act is pressed through the live Apply press and its effect checked: a form on the page, or a new page with fields.
+const actOnMove = async (tab, move) => {
+  applyPressed.set(tab.id, {at: Date.now(), url: tab.url});
+  const attempt = await pressApply(tab.id, [{key: 'apply_button', phrase: move.named}], move.named, '', noEffectOf(fillKey(tab.id, tab.url)));
+  if (!attempt.pressed) { applyPressed.delete(tab.id); return {}; }
+  const after = await formAfterPress(tab.id, tab.url);
+  if (after === 'navigated') { const live = await chrome.tabs.get(tab.id).catch(() => null); const counts = live ? await pageShape(tab.id) : null; return {navigated: true, fields: (counts?.fields || 0) + (counts?.textareas || 0)}; }
+  return after ? {form: true} : {};
+};
+useFallback({ask: askKind, floor: wouldPress, asked: digestAsked, log: decide, acts: async () => (await settings().catch(() => null))?.ladderAct === true, act: actOnMove});   // the one question at each dead end, in shadow; acting only in the CI pool (ladder/fallback.js)
 useProgressLog(decide);   // the run's progress, in shadow (ladder/progress.js): the silent dead-end rule's T is measured from these lines
 // A give-up on this page: the one door (ladder/dead-end.js), with what led here as fixed values.
 const deadEndHere = (tab, jobUrl, host, why, needs, evidence) => deadEnd({job: String(jobUrl || tab.url).split('#')[0], host, why, tabId: tab.id, page: tab.url, needs}, evidence, decide);
