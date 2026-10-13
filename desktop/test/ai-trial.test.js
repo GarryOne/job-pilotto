@@ -36,3 +36,12 @@ test('the end-to-end journey sends the app\'s own AI calls to its test proxy, an
   apply({}, real);
   assert.equal(real.ANTHROPIC_BASE_URL, undefined);
 });
+
+// Bug (13 Oct 2026): the free credit was switched on but an earlier Codex/OpenAI/Claude Code pick stayed the engine, so AI steps still ran there.
+test('start: the credit is the Anthropic API engine, whatever engine was picked before', () => {
+  for (const before of ['cli', 'codex', 'openai', 'api', undefined]) {
+    const st = storage({license: {key: 'JP1.abc.def'}, aiEngine: before});
+    assert.deepEqual(start(st, () => ({licensed: true}), {}), {ok: true});
+    assert.equal(st.settings().aiEngine, 'api', `was ${before}`);
+  }
+});
