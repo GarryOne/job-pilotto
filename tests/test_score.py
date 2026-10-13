@@ -16,6 +16,22 @@ def fit(value, reason='Kubernetes + Datadog match; salary not stated'):
             'strengths': ['Kubernetes'], 'gaps': ['salary not stated'], 'confidence': 'medium'}
 
 
+class PayUnknownTest(unittest.TestCase):
+    def test_schema_allows_null_pay_and_clamp_keeps_it(self):
+        pay = score.SCHEMA['properties']['components']['properties']['compensation']
+        self.assertIn('null', pay['type'])
+        # only pay may be unknown; the other parts stay whole numbers
+        for key in ('role_fit', 'location', 'growth'):
+            self.assertEqual(score.SCHEMA['properties']['components']['properties'][key]['type'], 'integer')
+        data = {**fit(70), 'components': {**fit(70)['components'], 'compensation': None}}
+        client = FakeClient()
+        client.create = lambda **p: SimpleNamespace(stop_reason='end_turn', content=[SimpleNamespace(type='text', text=json.dumps(data))],
+                                                    usage=SimpleNamespace(input_tokens=1, output_tokens=1, cache_read_input_tokens=0))
+        out, _ = score.score_one(client, 'm', {'title': 't', 'company': 'c', 'description': 'd'}, 'Profile')
+        self.assertIsNone(out['components']['compensation'])
+        self.assertNotIn('give 50', score.SYSTEM)
+
+
 class FakeClient:
     def __init__(self, value=80):
         self.value, self.requests = value, []

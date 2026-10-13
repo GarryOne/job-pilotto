@@ -45,11 +45,14 @@ export function fitDetail(job, close = null, full = null) {
   lead.append(head);
   if (job.reason) lead.append(el('p', 'fit-summary', job.reason));
   box.append(lead);
-  const metrics = PARTS.filter(([key]) => parts[key] != null).map(([key, label]) => {
-    const cell = el('div', `fit-metric ${band(parts[key])}`);
-    cell.style.setProperty('--p', parts[key]);
+  // A part the AI left out (Pay fit with no salary stated) reads N/A, with an empty bar: unknown, not a middling 50.
+  const any = PARTS.some(([key]) => parts[key] != null);
+  const metrics = PARTS.filter(([key]) => any && (parts[key] != null || key === 'compensation')).map(([key, label]) => {
+    const known = parts[key] != null;
+    const cell = el('div', `fit-metric ${known ? band(parts[key]) : 'unknown'}`);
+    cell.style.setProperty('--p', known ? parts[key] : 0);
     const value = el('span', 'fit-metric-value');
-    value.append(el('b', '', String(parts[key])), el('span', 'muted', '/ 100'));
+    value.append(...(known ? [el('b', '', String(parts[key])), el('span', 'muted', '/ 100')] : [el('b', '', 'N/A')]));
     const track = el('span', 'fit-bar');
     track.append(el('span', 'fit-bar-fill'));
     cell.append(el('span', 'fit-metric-label', label), value, track);
