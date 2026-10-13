@@ -6,6 +6,7 @@
 // CLI: measure.mjs (npm run measure). Guard: e2e/test/measure.test.mjs.
 import fs from 'node:fs';
 import path from 'node:path';
+import {RUN_SETTINGS} from './capture-library.mjs';
 import {endingOf} from './ending.mjs';
 import {actedOf} from './pool-acted.mjs';
 import {personPrecision, shadowTable} from './pool-shadow.mjs';
@@ -29,6 +30,26 @@ export function capturesOf(root, {days = 1, today = new Date().toISOString().sli
     if (every) found.push(dir); else newest.set(meta.row, dir);   // days and times ascend: the last one kept is the newest
   }
   return every ? found : [...newest.values()];
+}
+
+// A capture's run settings (lib/capture-library.mjs RUN_SETTINGS) -> {settings, env: what the replay sets, why: '' or why it cannot be replayed}. A setting not recorded is never
+// guessed (a capture before 13 Oct 2026 knew its applicant only in its result).
+export function settingsOf(meta = {}) {
+  const settings = {}, env = {};
+  for (const [name, setting] of Object.entries(RUN_SETTINGS)) {
+    const value = meta.settings?.[name] ?? (name === 'applicant' ? meta.result?.applicant : undefined);
+    if (value == null || value === '') return {settings, env, why: `${name} not recorded`};
+    if (setting.only && value !== setting.only) return {settings, env, why: `${name} ${value} is not replayed offline (only ${setting.only})`};
+    settings[name] = value;
+    if (setting.replayEnv) env[setting.replayEnv] = name === 'model' && value === 'default' ? '' : value;
+  }
+  return {settings, env, why: ''};
+}
+// A capture refused before its replay -> a row that is not measured, its live side still read
+export function unreplayedRow(captureDir, why) {
+  const meta = readJson(path.join(captureDir, 'capture.json'), {}), item = readJson(path.join(captureDir, 'case.json'), {});
+  const url = (item.pages || []).find(page => !page.frameOf)?.url || '';
+  return {row: meta.row || path.basename(captureDir), capture: captureDir, build: meta.build || {}, live: readingOf(read(path.join(captureDir, 'app.log')), url), measured: false, reasons: [why], why: `not measured: ${why}`};
 }
 
 // One row's reading from an app log, the same for the capture's own (live) log and a replay's: -> {result (parseLive), ending, log}

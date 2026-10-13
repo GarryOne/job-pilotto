@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';
-import {buildStamp, keepCapture, pruneCaptures} from '../lib/capture-library.mjs';
+import {buildStamp, keepCapture, pruneCaptures, runSettings} from '../lib/capture-library.mjs';
 import {rowFiles} from '../lib/row-replay.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -21,11 +21,11 @@ const appLog = '2026-10-13T06:00:02.500Z [extension] page kind: form {"by":"ai"}
 test('a PASSING row is kept too, readable by npm run row, with its app log, build and live result', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-captures-'));
   const result = {url: 'https://jobs.example.org/a', reached: 'ready', filled: 6, left: 0};
-  const folder = keepCapture({root, day: '2026-10-13', shape: 'Lever: single page', result, captureDir: fakeCapture(), appLog, build: {commit: 'abc', extension: '0.9.300'}, at: '2026-10-13T06:00:00.000Z'});
+  const folder = keepCapture({root, day: '2026-10-13', shape: 'Lever: single page', result, captureDir: fakeCapture(), appLog, build: {commit: 'abc', extension: '0.9.300'}, settings: runSettings({JP_APPLICANT: 'grown', CI: '1'}), at: '2026-10-13T06:00:00.000Z'});
   assert.ok(folder, 'a row that passed still keeps its capture');
   assert.equal(fs.readFileSync(path.join(folder, 'app.log'), 'utf8'), appLog);
   const meta = JSON.parse(fs.readFileSync(path.join(folder, 'capture.json'), 'utf8'));
-  assert.deepEqual(meta, {row: 'Lever: single page', at: '2026-10-13T06:00:00.000Z', build: {commit: 'abc', extension: '0.9.300'}, result});
+  assert.deepEqual(meta, {row: 'Lever: single page', at: '2026-10-13T06:00:00.000Z', build: {commit: 'abc', extension: '0.9.300'}, settings: {applicant: 'grown', model: 'default', engine: 'api', store: 'sqlite'}, result});
   assert.equal(rowFiles(folder).start.url, 'https://jobs.example.org/a');   // the same format the row replay reads: no second reader
 });
 

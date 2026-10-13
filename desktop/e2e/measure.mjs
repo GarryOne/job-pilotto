@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {capturesRoot} from './lib/capture-library.mjs';
-import {capturesOf, measuredRow, offlineLabel, tableLines, tablesOf} from './lib/measure.mjs';
+import {capturesOf, measuredRow, offlineLabel, settingsOf, tableLines, tablesOf, unreplayedRow} from './lib/measure.mjs';
 import {replayRows, staleCapture} from './lib/row-replay.mjs';
 import {slug} from './lib/replay-candidate.mjs';
 
@@ -22,10 +22,26 @@ if (!todo.length) { console.error(`measure: no capture to measure in ${root} (np
 const label = offlineLabel();
 console.log(`measure: ${todo.length} captures, ${label}; nothing reaches a site`);
 const started = Date.now();
-// One row at a time: side by side, a row's log keeps only the lines naming its host (lib/row-replay.mjs `mine`), and the app's own miss lines name none: a missed answer ask went
-// uncounted and the row passed as measured (13 Oct 2026 positive control: Personio 2 misses alone, 0 side by side).
-const results = await replayRows(todo, {extensionDir: flag('old') ? path.resolve(flag('old')) : undefined, tabs: 1});
-const rows = todo.map((dir, at) => measuredRow(dir, results[at]));
+// Each capture replays with the run settings it was made with (lib/capture-library.mjs RUN_SETTINGS: the applicant, the model): a group per setting set, its env set for that
+// group's offline app; a capture missing one is not measured, never replayed with a guess. One row at a time: side by side, a row's log keeps only the lines naming its host
+// (lib/row-replay.mjs `mine`) and the app's own miss lines name none: a missed answer ask went uncounted (13 Oct 2026 positive control: Personio 2 misses alone, 0 side by side).
+const byDir = new Map(), groups = new Map();
+for (const dir of todo) {
+  const {env, why} = settingsOf(JSON.parse(fs.readFileSync(path.join(dir, 'capture.json'), 'utf8')));
+  if (why) { byDir.set(dir, unreplayedRow(dir, why)); continue; }
+  const key = JSON.stringify(env);
+  groups.set(key, [...(groups.get(key) || []), dir]);
+}
+for (const [key, dirs] of groups) {
+  const env = JSON.parse(key), before = Object.fromEntries(Object.keys(env).map(name => [name, process.env[name]]));
+  for (const [name, value] of Object.entries(env)) { if (value) process.env[name] = value; else delete process.env[name]; }
+  console.log(`measure: ${dirs.length} capture${dirs.length > 1 ? 's' : ''} as ${Object.entries(env).map(([name, value]) => `${name}=${value || '(default)'}`).join(' ')}`);
+  try {
+    const results = await replayRows(dirs, {extensionDir: flag('old') ? path.resolve(flag('old')) : undefined, tabs: 1});
+    dirs.forEach((dir, at) => byDir.set(dir, measuredRow(dir, results[at])));
+  } finally { for (const [name, value] of Object.entries(before)) { if (value == null) delete process.env[name]; else process.env[name] = value; } }
+}
+const rows = todo.map(dir => byDir.get(dir));
 for (const row of rows) if (row.offline) console.log(`[${label}] ${row.row}: ${row.offline.misses ? `${row.offline.misses} asks with no kept answer` : 'every ask had its kept answer'}${row.offline.divergence ? `, diverged: ${row.offline.divergence}` : ''}${row.offline.unrecorded.length ? `, ${row.offline.unrecorded.length} addresses not recorded` : ''}`);
 for (const line of tableLines(tablesOf(rows, 'offline'), label)) console.log(line);
 if (has('compare')) {   // the positive control's other side: the captures' own app logs, read the same way, in their own table
