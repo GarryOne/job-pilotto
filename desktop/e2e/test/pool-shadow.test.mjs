@@ -1,0 +1,38 @@
+// The shadow question's agree / better / worse table (lib/pool-shadow.mjs; spec 2026-10-12-one-next-move.md switch-on criteria): a real stop joined by its door id to the question asked at it, judged from the stop's
+// own ending; silent shadow notices are not stops; a stop with no question line is "not asked", never a guess.
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {shadowTable, stopsOf, verdictOf} from '../lib/pool-shadow.mjs';
+
+const at = '2026-10-13T00:00:00.000Z';
+const stop = (why, fields) => `${at} [extension] fill: dead end: ${why} ${JSON.stringify(fields)}`;
+const asked = (fields, note = '') => `${at} [extension] fill: dead end fallback (shadow)${note ? `: ${note}` : ''} ${JSON.stringify({shadow: true, ...fields})}`;
+
+test('a stop is joined to its question by the door id, never by order or words', () => {
+  const log = [stop('account', {door: 1, ending: 'unresolved', host: 'a.example'}), stop('other', {door: 2, ending: 'unresolved'}),
+    asked({door: 2, actWhy: 'agreed', wouldAct: true, agree: true, confidence: 0.9, verb: 'press', number: 3, usd: 0.0008}), asked({door: 1, actWhy: 'person', wouldAct: false, confidence: -1, usd: 0.0004})].join('\n');
+  const found = stopsOf(log);
+  assert.deepEqual(found.map(item => [item.door, item.why, item.asked, item.wouldAct, item.actWhy]), [[1, 'account', 'asked', false, 'person'], [2, 'other', 'asked', true, 'agreed']]);
+});
+
+test('the verdicts: not asked, agree, better (a move where the stop made none), worse (a move where the page was handed to the person)', () => {
+  const base = {asked: 'asked', wouldAct: false, ending: 'unresolved'};
+  assert.equal(verdictOf({...base, asked: 'asked already'}), 'not_asked');
+  assert.equal(verdictOf({...base, asked: 'missing'}), 'not_asked');
+  assert.equal(verdictOf(base), 'agree');
+  assert.equal(verdictOf({...base, wouldAct: true}), 'better');
+  assert.equal(verdictOf({...base, wouldAct: true, ending: 'handed'}), 'worse');
+  assert.equal(verdictOf({...base, ending: 'handed'}), 'agree', 'not acting where a person is needed is the stop\'s own answer');
+});
+
+test('the table: silent shadow notices are not stops; a stop with no question line is not asked; worse rows are named', () => {
+  const rows = [{row: 'r1', log: [stop('no-form', {door: 1, ending: 'handed'}), asked({door: 1, wouldAct: true, actWhy: 'agreed', usd: 0.001}),
+    `${at} [extension] fill: dead end: silent ${JSON.stringify({shadow: true, silentMs: 30000})}`].join('\n')},
+  {row: 'r2', log: [stop('account', {door: 1, ending: 'unresolved'}), asked({door: 1, wouldAct: true, actWhy: 'agreed', usd: 0.0004}), stop('account', {door: 2, ending: 'unresolved'})].join('\n')}];
+  const table = shadowTable(rows);
+  assert.equal(table.total, 3);
+  assert.deepEqual(table.byWhy, {'no-form': {agree: 0, better: 0, worse: 1, not_asked: 0}, account: {agree: 0, better: 1, worse: 0, not_asked: 1}});
+  assert.deepEqual(table.worse, [{row: 'r1', door: 1, why: 'no-form'}]);
+  assert.deepEqual(table.better, [{row: 'r2', door: 1, why: 'account'}]);
+  assert.equal(table.usd, 0.0014);
+});
