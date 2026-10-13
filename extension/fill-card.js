@@ -57,6 +57,7 @@ export function fillCard({id, trace = [], form = [], sent = [], ai = null, aiErr
     causes, kinds: count(left, row => String(row.type || 'other').replace(/[^a-z-]/g, '').slice(0, 20) || 'other'),
     ai: aiError ? 'error' : ai ? 'used' : useAI ? 'none' : 'off', kit: !!kit,
     seconds: startedAt ? Math.max(0, Math.round((endedAt - new Date(startedAt)) / 1000)) : 0,
+    marks: left.filter(row => row.field).map(row => ({field: row.field, cause: causeOf(row, context)})),   // the worker writes each onto its control and drops this (ladder/control-marks.js): the panel's reason per left control
   };
 }
 

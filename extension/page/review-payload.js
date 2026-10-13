@@ -1,0 +1,17 @@
+// The panel's report to the app (review.js sends it; lib/review.js reads it): what is left, filled, proposed and optional, as labels and fixed words only, never an answer the person typed.
+// A pure move out of review.js (E, 13 Oct 2026) so the file shrinks; `why` is new: one fixed cause per left control (extension/ladder/control-ending.js turns it into a reason class and an ending).
+// Page world, loaded with the panel (background.js). Guard: worker/test/review-payload.test.js.
+(() => {
+  window.__jobPilottoReviewPayload = (state, watch, {agree, find}) => {
+    return {url: location.href, title: document.title, left: state.left, total: state.total, needs: document.documentElement.getAttribute('data-jobpilotto-needs') || '',   // the AI's veto of "ready" (form-ready.js)
+        missing: state.list.filter(f => f.required && !f.filled).slice(0, 30).map(f => String(f.label || 'A required field').slice(0, 120)),
+        // What is filled, so the app can tick each field off as it happens (it keeps the time it first saw each one).
+        // What is left, counted as the ring counts it: required, or an answer Claude wrote that is empty again.
+        pending: state.list.filter(f => (f.required || f.ai) && !f.filled).slice(0, 30).map(f => String(f.label || 'A required field').slice(0, 120)),
+        busy: !!state.busy, over: !!state.over, account: !!state.account, /* optional: the session page's "Optional questions" card, never a consent (owner, 9 Oct 2026) */ optional: state.list.filter(f => !f.required && !f.ai && !f.filled && !(agree.test(f.label) || f.category === 'legal')).slice(0, 30).map(f => String(f.label || '').slice(0, 120)).filter(Boolean), proposals: state.list.filter(f => !f.filled && (f.suggested || f.wants) && (f.required || f.ai || !(agree.test(f.label) || f.category === 'legal'))).slice(0, 30).map(f => ({label: String(f.label || '').slice(0, 120), value: String(f.suggested || '').slice(0, 200), key: f.wants || '', guess: !!f.guess, options: (() => { try { return JSON.parse(f.options || '[]').slice(0, 60).map(o => String(o).slice(0, 80)); } catch { return []; } })()})),
+        filled: state.list.filter(f => (f.required || f.ai) && f.filled).slice(0, 40).map(f => String(f.label || 'A required field').slice(0, 120)), ours: state.list.filter(f => (f.required || f.ai) && f.filled && f.byUs).slice(0, 40).map(f => String(f.label || 'A required field').slice(0, 120)), knockouts: state.list.filter(f => f.category === 'knockout').slice(0, 30).map(f => String(f.label || '').slice(0, 120)),   // ours: what the extension filled itself, whenever (the account step's passwords come after the fill); knockouts: the AI's reading, any language
+        watch: watch.map(({id, label}) => { const field = find(label, state.list); return {id, filled: field ? field.filled : null}; }),
+      // Why each left control is left, as fixed words: the fill's cause (page/ marks it, ladder/control-marks.js), the attempt log's give-up, an unread question; the app turns them into the reason class (lib/review.js).
+      why: state.list.filter(f => (f.required || f.ai) && !f.filled).slice(0, 30).map(f => ({label: String(f.label || 'A required field').slice(0, 120), cause: f.cause || '', tries: !!f.gaveUp, unread: !!f.unread}))};
+  };
+})();

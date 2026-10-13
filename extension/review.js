@@ -66,7 +66,7 @@
       const entry = groups.get(key) || {el: slot || el, label: group && !group.box ? clean(window.__jobPilottoTitleAbove(el, 'label, legend, [class*=label], [class*=question]', 4)?.textContent) || question(el) : question(el), required: false, filled: false, ai: false, byUs: false};   // the zone is what a person sees and is shown
       entry.required ||= required(el);
       entry.ai ||= el.hasAttribute('data-jobpilotto-ai'); entry.suggested ||= el.dataset.jobpilottoSuggested || ''; entry.guess ||= !!el.dataset.jobpilottoGuess; entry.wants ||= el.dataset.jobpilottoWants || ''; entry.options ||= el.dataset.jobpilottoOptions || '';   // page/propose.js: proposals, reported with what is left (the app's rows)
-      entry.byUs ||= el.hasAttribute('data-jobpilotto-filled') || el.hasAttribute('data-jobpilotto-ai'); entry.category ||= el.dataset.jobpilottoCategory || '';   // the AI's reading, any language (page/categories.js)
+      entry.cause ||= el.dataset.jobpilottoCause || ''; entry.gaveUp ||= el.getAttribute('data-jobpilotto-gaveup') || ''; entry.byUs ||= el.hasAttribute('data-jobpilotto-filled') || el.hasAttribute('data-jobpilotto-ai'); entry.category ||= el.dataset.jobpilottoCategory || '';   // the AI's reading, any language (page/categories.js)
       entry.changed ||= !!window.__jobPilottoTypedChanged?.(el); entry.filled ||= filled && !entry.changed;   // a box the page changed after we typed it is not filled (page/typed-check.js)
       groups.set(key, entry);
     }
@@ -469,14 +469,7 @@
     reportMisses(state.list);
     busy = true;
     try {
-      const payload = {url: location.href, title: document.title, left: state.left, total: state.total, needs: document.documentElement.getAttribute('data-jobpilotto-needs') || '',   // the AI's veto of "ready" (form-ready.js)
-        missing: state.list.filter(f => f.required && !f.filled).slice(0, 30).map(f => String(f.label || 'A required field').slice(0, 120)),
-        // What is filled, so the app can tick each field off as it happens (it keeps the time it first saw each one).
-        // What is left, counted as the ring counts it: required, or an answer Claude wrote that is empty again.
-        pending: state.list.filter(f => (f.required || f.ai) && !f.filled).slice(0, 30).map(f => String(f.label || 'A required field').slice(0, 120)),
-        busy: !!state.busy, over: !!state.over, account: !!state.account, /* optional: the session page's "Optional questions" card, never a consent (owner, 9 Oct 2026) */ optional: state.list.filter(f => !f.required && !f.ai && !f.filled && !(AGREE.test(f.label) || f.category === 'legal')).slice(0, 30).map(f => String(f.label || '').slice(0, 120)).filter(Boolean), proposals: state.list.filter(f => !f.filled && (f.suggested || f.wants) && (f.required || f.ai || !(AGREE.test(f.label) || f.category === 'legal'))).slice(0, 30).map(f => ({label: String(f.label || '').slice(0, 120), value: String(f.suggested || '').slice(0, 200), key: f.wants || '', guess: !!f.guess, options: (() => { try { return JSON.parse(f.options || '[]').slice(0, 60).map(o => String(o).slice(0, 80)); } catch { return []; } })()})),
-        filled: state.list.filter(f => (f.required || f.ai) && f.filled).slice(0, 40).map(f => String(f.label || 'A required field').slice(0, 120)), ours: state.list.filter(f => (f.required || f.ai) && f.filled && f.byUs).slice(0, 40).map(f => String(f.label || 'A required field').slice(0, 120)), knockouts: state.list.filter(f => f.category === 'knockout').slice(0, 30).map(f => String(f.label || '').slice(0, 120)),   // ours: what the extension filled itself, whenever (the account step's passwords come after the fill); knockouts: the AI's reading, any language
-        watch: watch.map(({id, label}) => { const field = find(label, state.list); return {id, filled: field ? field.filled : null}; })};
+      const payload = window.__jobPilottoReviewPayload(state, watch, {agree: AGREE, find});
       const reply = await send({type: 'review', payload});
       moved = !!reply?.moved;
       session = reply?.session || null; claudeAsk = {help: !!reply?.claudeHelp, always: !!reply?.claudeAlways, auto: !!reply?.claudeAuto, consent: !!reply?.claudeConsent};   // the app's Claude readiness and choices (lib/claude-ready.js)

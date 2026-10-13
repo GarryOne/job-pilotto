@@ -7,6 +7,7 @@ import {KNOCKOUT} from '../knockout.js';
 import {shared} from './shared.js';
 import {$, show} from './core.js';
 import {openMatchCheck} from './match-check.js';
+import {reasonFor} from '../reason-words.js';
 import {formGone} from './session-needs.js';  // cycle by design: used inside functions only
 
 // "Form completion", as on the website: where, "16 / 17 required fields" and the bar always; the fields folded under
@@ -98,7 +99,7 @@ export function showFormCard(item, state) {
     return li;
   };
   $('ss-form-fields').replaceChildren(
-    ...left.map((label, index) => row('is-left', '', '○', label, account && index === 0 && state.needs ? 'for you' : '')),
+    ...left.map((label, index) => { const li = row('is-left', '', '○', label, account && index === 0 && state.needs ? 'for you' : ''); li.title = reasonFor(state, label) || ''; return li; }),   // why the fill left it (reason-words.js)
     ...filled.map(field => row(field.by === 'you' ? 'is-filled is-yours' : 'is-filled', field.at ? clock(Math.max(0, field.at - start)) : '', '✓', field.label,
       field.by === 'you' ? 'you' : '')));
 }
