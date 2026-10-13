@@ -68,6 +68,15 @@ export function keyDays(usage, names, lines, tracked, workspaces = {}) {
   return Object.entries(out).map(([k, usd]) => { const [day, key] = k.split('|'); return {day, key, usd: Math.round(usd * 1e6) / 1e6}; });
 }
 
+// The log line for the published key days: each key and each workspace (`ws.` rows) with its total, so a run shows what the page will list.
+export function describeKeys(keys) {
+  const total = {};
+  for (const row of keys) total[row.key] = (total[row.key] || 0) + row.usd;
+  const part = rows => rows.map(([name, usd]) => `${name.replace(/^ws\./, '')} $${usd.toFixed(2)}`).join(', ') || 'none';
+  const entries = Object.entries(total);
+  return `${entries.filter(([name]) => !name.startsWith('ws.')).length} key(s): ${part(entries.filter(([name]) => !name.startsWith('ws.')))}; ${entries.filter(([name]) => name.startsWith('ws.')).length} workspace(s): ${part(entries.filter(([name]) => name.startsWith('ws.')))}`;
+}
+
 const admin = (path, fetcher) => fetcher(`https://api.anthropic.com${path}`, {headers: {'x-api-key': process.env.ANTHROPIC_ADMIN_KEY, 'anthropic-version': '2023-06-01'}})
   .then(async response => { if (!response.ok) throw new Error(`Anthropic answered ${response.status}`); return response.json(); });
 // Every page of a report: -> [{day, ...row}].
@@ -133,7 +142,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
         const tracked = String(process.env.AI_COST_KEYS || '').split(',').map(name => name.trim()).filter(Boolean);
         const keys = tracked.length ? await fetchKeyDays(days, tracked).catch(error => { console.log(`Per-key cost not fetched: ${error.message}`); return []; }) : [];
         await put({billed, keys});
-        console.log(`Billed cost published for ${billed.length} day(s): $${billed.reduce((s, d) => s + d.usd, 0).toFixed(2)}${tracked.length ? `; ${tracked.map(name => `${name} $${keys.filter(k => k.key === name).reduce((s, k) => s + k.usd, 0).toFixed(2)}`).join(', ')}` : ''}.`);
+        console.log(`Billed cost published for ${billed.length} day(s): $${billed.reduce((s, d) => s + d.usd, 0).toFixed(2)}${tracked.length ? `; ${describeKeys(keys)}` : ''}.`);
       }
     } else {
       const job = at('--job'), figures = spent({execution: read('--execution'), file: read('--file'), usd: at('--usd'), calls: at('--calls')});
