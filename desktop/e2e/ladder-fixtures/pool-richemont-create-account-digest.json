@@ -1,0 +1,167 @@
+{
+ "schemaVersion": 1,
+ "source": "captured",
+ "lang": "en",
+ "capture": {
+  "url": "https://richemont.wd3.myworkdayjobs.com/en-US/richemont/job/GENEVA/Sales-Associate---60-_JR134503/apply/applyManually"
+ },
+ "id": "pool-richemont-create-account-digest",
+ "why": "pool 13 Oct: the same page as the numbered digest saw it (12 candidates, none a sign-in or create-account control): login_wall with no verb is right, and its late answer must not replace rung 2's read (extension/read-gen.js guard)",
+ "expect": {
+  "outcome": "login_wall",
+  "accept": [
+   "login_wall",
+   "account",
+   "other"
+  ],
+  "accept_reasons": {
+   "account": "To rung 2 a sign-in or create-account page is kind account.",
+   "other": "Rung 2 has no `login_wall` kind: a page that needs nothing from the candidate is `other`; the numbered digest names login_wall."
+  }
+ },
+ "sketch": {
+  "url": "https://richemont.wd3.myworkdayjobs.com/en-US/richemont/job/GENEVA/Sales-Associate---60-_JR134503/apply/applyManually",
+  "title": "Create Account",
+  "headings": [
+   "Sales Associate - 60%",
+   "Create Account"
+  ],
+  "controls": [
+   {
+    "label": "Email Address*",
+    "required": true,
+    "type": "text"
+   },
+   {
+    "label": "Password*",
+    "required": true,
+    "type": "password"
+   },
+   {
+    "label": "Verify New Password*",
+    "required": true,
+    "type": "password"
+   },
+   {
+    "label": "I consent to the Talent Privacy Policy given.",
+    "required": false,
+    "type": "checkbox"
+   },
+   {
+    "label": "Enter website. This input is for robots only, do not enter if you're human.",
+    "required": false,
+    "type": "text"
+   }
+  ],
+  "buttons": [
+   "Skip to main content",
+   "Cookie Policy",
+   "Decline",
+   "Accept Cookies",
+   "English",
+   "Sign In",
+   "Learn more about our Group",
+   "Spontaneous Application",
+   "Back to Job Posting",
+   "Read More",
+   "Create Account",
+   "Forgot your password?",
+   "Talent Privacy Policy"
+  ],
+  "frames": [],
+  "mails": []
+ },
+ "answer": {
+  "kind": "other",
+  "confidence": 0.5,
+  "apply_button": "",
+  "apply_button_kind": "",
+  "apply_route": "",
+  "apply_by": "",
+  "apply_email": "",
+  "form_frame": -1,
+  "account_step": "",
+  "register_control": "",
+  "signin_control": "",
+  "account_button": "",
+  "bot_check": false
+ },
+ "candidates": [
+  {
+   "kind": "button",
+   "n": 1,
+   "position": "main",
+   "text": "Back to Job Posting"
+  },
+  {
+   "kind": "button",
+   "n": 2,
+   "position": "main",
+   "text": "Read More"
+  },
+  {
+   "kind": "button",
+   "n": 3,
+   "position": "main",
+   "text": "Forgot your password?"
+  },
+  {
+   "kind": "sentence",
+   "n": 4,
+   "position": "main",
+   "text": "Sales Associate - 60%"
+  },
+  {
+   "kind": "sentence",
+   "n": 5,
+   "position": "main",
+   "text": "Create Account"
+  },
+  {
+   "kind": "sentence",
+   "n": 6,
+   "position": "main",
+   "text": "Password Requirements:"
+  },
+  {
+   "kind": "sentence",
+   "n": 7,
+   "position": "main",
+   "text": "A lowercase character"
+  },
+  {
+   "kind": "sentence",
+   "n": 8,
+   "position": "main",
+   "text": "An uppercase character"
+  },
+  {
+   "kind": "sentence",
+   "n": 9,
+   "position": "main",
+   "text": "A numeric character"
+  },
+  {
+   "kind": "sentence",
+   "n": 10,
+   "position": "main",
+   "text": "A special character"
+  },
+  {
+   "host": "richemont.wd3.myworkdayjobs.com",
+   "kind": "link",
+   "n": 11,
+   "position": "other",
+   "text": "Skip to main content"
+  },
+  {
+   "host": "www.richemont.com",
+   "kind": "link",
+   "n": 12,
+   "position": "other",
+   "text": "Cookie Policy"
+  }
+ ],
+ "answer_path": "app",
+ "note": "Offline this scores a miss on purpose: the stored answer is rung 2's real one (unsure at 0.5, before the page drew); the numbered digest (rung 3) decides this page and is scored live by ladder-digest-score, not here."
+}

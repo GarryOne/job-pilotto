@@ -14,6 +14,7 @@ import {expandSections} from './sections.js';
 import {PAGE_FILES} from './page-files.js';
 import {hasEarly, keepEarly, takeEarly} from './early-answers.js';
 import {decide} from './log.js';
+import {guarded} from './read-gen.js';   // the one guard for every AI answer applied to a page (a newer judgment of the same page, a page left)
 import {closePopupOrLayer} from './consent.js';   // a cycle again (consent.js uses api and settings from here at run time)
 import {HELD, clearBeforeFill, layerOnTop} from './dialog-after-fill.js';
 import './popup-guard.js';   // the worker's answer to the page's gate (page/guard-gate.js)
@@ -118,7 +119,7 @@ export async function pair() {
 // tabId: the tab whose silent dead-end clock stands still while this ask is out (ladder/silence.js); none: a tab-less ask pauses nothing. Use apiFor on the fill path.
 export async function api(config, path, init = {}, retry = true, tabId = null) {
   const ask = askStarted(tabId);
-  try { return await apiCall(config, path, init, retry); } finally { askEnded(ask); }
+  try { return await guarded(tabId, path, init, () => apiCall(config, path, init, retry), (what, fields) => decide('fill', what, fields)); } finally { askEnded(ask); }
 }
 export const apiFor = (tabId, config, path, init = {}) => api(config, path, init, true, tabId);
 async function apiCall(config, path, init, retry) {
