@@ -215,6 +215,33 @@ Fixture: React 18 + react-dropzone 14 (vendored); a CV upload → the site's par
 - **Not the cause** (measured): the page clock, slower replies (×1.6), a 4× CPU slowdown.
 - **Key:** generated with openssl into a 700-mode scratch folder, then the Keychain, then `rm -P`. For the build, generate it straight into the Keychain through a pipe.
 
+## Schedule, gate and alerts (owner, 14 Oct 2026, via cc: "an E2E-like schedule, 4 times a day, once before the nightly beta as a gate"; Telegram on every failure)
+
+```
+Worker cron (on time) ── 02:30 Zurich ──► replay-offline.yml on main ──► green on commit X? ──► 04:00 nightly beta builds X
+                      └─ 11:47 15:47 19:47 (beside E2E) ──► replay-offline.yml          red / missing ──► no beta (as a red E2E)
+GitHub schedule = backup only.  PRs: no run (frees the macOS queue).   every failure of e2e.yml or replay-offline.yml ──► Telegram 🔴; first green after ──► 🟢
+```
+
+| Piece | Decision |
+|---|---|
+| Triggers | `workflow_dispatch` from the Worker (`worker/src/scheduler.js`): a 4th cron `30 0,1 * * *` (only the UTC hour that is 02:30 in Zurich starts it, as 04:00 does), and the E2E cron `47 9,13,17` starts it too. GitHub `schedule:` as backup. No `pull_request`, no `push` (supersedes #675). |
+| What it measures | Each row's newest recording replayed with main. Per row, the **outcome**: live asks answered, extra asks, furthest step, filled / left. |
+| Counted rows | Owner, 14 Oct 2026: "only count/consider the 100% same as live". A row **counts** only when its replay is 100% same as live **on this runner** (every live ask answered, 0 extra, 0 site requests unrecorded) in the baseline run: recordings are made from main, so the first run after a recording is that recording's own build. Every other row shows "not counted: replay not faithful (why)" and can never turn the run red. The run's line: "N of M rows counted · K worse". |
+| Worse | A **counted** row whose outcome is below **the baseline**: the last green run (same recordings, same runner), never live. A worse row is replayed once more; if the retry equals the baseline, it is **noise** and never counts. |
+| Baseline | A green run becomes the baseline; per-row results are kept with the run (artifact) and on /admin/applying. A red run keeps the old baseline until the row is fixed (a later green run) or the owner accepts it. A new live recording of a row resets that row's baseline (logged). |
+| The one human decision | A worse row → Telegram (row, what got worse, run link, commits since the last green run) → a fixer, or the owner presses **"Accept as new baseline"** on /admin/applying (owner-only, reason required) → stored in the site's D1 (who, when, reason, run) → the next run reads it. No gh label, no committed baseline file. |
+| Three questions | (1) **Worse?** each scheduled run vs the last green run, counted rows only. (2) **Faithful?** once per recording: replayed with the recording's own build (the record keeps its commit), 100% same as live → a "counted" flag stored with the recording. Until that exists, "counted" = same as live in the baseline run. (3) **Values right?** typed values vs the fake applicant's known answers (a repo file): later. |
+| PRs | **A:** schedule (Worker cron + backup), compare with retry, nightly gate, Telegram for e2e + replay. **B:** the site's Accept button + D1 table + API, the per-recording faithful flag. (3) after B. |
+| Red | At least one counted row worse after its retry, or the job broke. "Same as live" over all rows stays the tool's health number on /admin/applying. |
+| Gate | `desktop.yml`'s plan (the nightly only) builds **the newest commit of main with a green `replay-offline.yml` run** (normally the 02:30 run's): a merge after 02:30 waits for the next night. The newest run red or missing = no build, the reason in the summary and on Telegram. A beta by hand is not gated. |
+| Alerts | One step shared by `e2e.yml` (scheduled and gate runs) and `replay-offline.yml`: bot `@jobpilotto_ci_alerts_bot`, secrets `CI_ALERTS_TELEGRAM_BOT_TOKEN` + `CI_ALERTS_TELEGRAM_CHAT_ID` (no chat id: the step says so and skips). Text: `🔴 <workflow> failed · main <sha> · <time>`, what failed (suite + test, or rows worse with why), the run link; `🟢 <workflow> back to green` after a failure. Never the token in a log; no AI. |
+| Time | ~94 s a row on one macOS runner (10 rows: 938 s, run of #657): 50 rows ≈ 78 min, hence 02:30 for a 04:00 gate. |
+
+**Open (Progress):**
+- Positive control: replaying old `62dad23` and main `9a0416d` on the Teamtailor recording must say "worse" for main (the combobox stall, memory project-teamtailor-combobox-stall). Not proven: the snapshot replay did not reproduce that stall, and the Teamtailor recording replays 2/6 tonight (CV-upload gap, the next day's first task). Until it passes, a green run proves only "no row got worse that the replay can see".
+- The macOS runner disagrees with the Mac on some rows (Datadog 9/9 on the Mac, 0/9 on the runner). Not a gate risk: such a row is not counted ("not faithful on this runner"); it lowers the tool's health number and is fixed as that, which then lets it count.
+
 ## Plan (owner, 13 Oct 2026: one deliverable a day)
 - **Day 1:** 10 rows replayed offline on the Mac, shown on /admin/applying "Replay vs live" (#651).
 - **Day 2:** PR "Record" (the scrollbar fix + the recorder in the CI pool run) and PR "Replay offline" (a CI job replaying the recorded rows on every PR). Needs the owner's yes on the key as a GitHub secret.
@@ -228,4 +255,7 @@ Fixture: React 18 + react-dropzone 14 (vendored); a CV upload → the site's par
 - [x] P0c folded into the proof: the memo replays each ask at its live latency (cap raised); the clock, slower replies and CPU were measured not to matter (proof: none: draft #652 replay-net.mjs)
 - [x] P1 widened: 6 real rows, 30 of 32 live asks matched (proof: none: draft #652, Proof result above)
 - [ ] PRs 0-3 landed; "unverified" lifted
+- [x] Schedule, gate and alerts: sketch agreed (owner "yes", 14 Oct 2026); PR A built: Worker cron 02:30 + beside e2e, replay-gate.mjs (outcome vs last green, retry), nightly waits for a green replay, Telegram for e2e + replay (proof: none: PR A, first scheduled run after merge)
+- [ ] PR B: the site's "Accept as new baseline" (D1 + API + button), the per-recording faithful flag; then (3) values right
+- [ ] Positive control: old 62dad23 vs main 9a0416d on the Teamtailor recording says worse (needs the CV-upload fix and a Mac re-record)
 - [ ] When the positive control passes: the skills fix-failing-forms and run-applying-smoke-pool say "measure offline first" again (today: "measure is unverified, measure live")

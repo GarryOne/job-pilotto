@@ -1,26 +1,36 @@
-# Replay vs live (owner, 13 Oct 2026, the replay-by-network plan's day 2): the pool rows' newest network records (the by-hand pool run keeps them
-# encrypted 14 days as net-records-<run>; the Mac's go to the release net-records) are replayed offline with this build (desktop/e2e/replay-records.mjs: the site's own scripts from the record,
-# the AI only from the live run's kept answers, never a site, never a model call), and "N of M rows same as live" goes to the job summary and to
-# /admin/applying "Replay vs live". Informational, never required. No key (NET_RECORD_KEY, the owner's Keychain job-pilotto.capture.key): it says so and stops.
+# The pool rows replayed offline (owner, 13-14 Oct 2026; spec docs/superpowers/specs/2026-10-13-replay-by-network.md "Schedule, gate and alerts"): each row's newest
+# network record (the Mac's on the release net-records, the by-hand pool runs' 14 days as net-records-<run>) replayed with main (replay-records.mjs: the site's own
+# scripts from the record, the AI only from the live run's kept answers, never a site, never a model call). replay-gate.mjs then compares each row with the last
+# green run (same recordings, same runner): only rows 100% same as live there count, and a counted row whose outcome fell is worse (after one retry). Red = a counted
+# row worse; that run never becomes the baseline. The nightly beta (desktop.yml) builds only a commit with a green run. No key (NET_RECORD_KEY): it says so and stops.
 name: CI · Replay vs live (offline)
+run-name: ${{ inputs.scheduled && 'Replay check · on time (Worker cron)' || 'Replay check' }}
 
-# Not on PRs (owner, 14 Oct 2026: 15+ minutes of macOS queue on every PR): by hand for now; the schedule and the nightly gate come next (spec
-# docs/superpowers/specs/2026-10-13-replay-by-network.md "Schedule, gate and alerts").
+# When (owner, 14 Oct 2026): 02:30 Zurich as the nightly's gate and beside each e2e run (11:47, 15:47, 19:47), started on time by the Worker (worker/src/scheduler.js);
+# GitHub's schedule is the backup. A scheduled run with nothing changed since the last green replay stops at once (as the e2e schedule). Never on a PR (15+ min of macOS queue each).
 on:
   workflow_dispatch:
+    inputs:
+      scheduled:
+        description: 'Started on time by the Worker cron'
+        type: boolean
+        default: false
+  schedule:
+    - cron: '50 0 * * *'
+    - cron: '17 10,14,18 * * *'
 
 permissions:
   contents: read
-  actions: read   # the pool runs' encrypted records
+  actions: read   # the pool runs' encrypted records, the baseline run's results
 
-concurrency:
-  group: replay-offline-${{ github.ref }}
-  cancel-in-progress: true
+concurrency:   # each commit keeps its own run (tests/test_main_runs_finish.py)
+  group: replay-offline-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   replay:
     runs-on: macos-latest   # the records are made on the owner's Mac (records-publish.mjs): the same fonts and scrollbar as the live page
-    timeout-minutes: 45
+    timeout-minutes: 120   # ~94 s a row: 50 rows ~78 min
     env:
       JOB_PILOTTO_HEAVY: '0'   # the heavy lock is a Mac's machine-wide queue; this runner is its own machine
     steps:
@@ -32,22 +42,43 @@ jobs:
           if [ -z "$NET_RECORD_KEY" ]; then echo "replay-offline: key not set (NET_RECORD_KEY): nothing replayed" | tee -a "$GITHUB_STEP_SUMMARY"; echo "ok=0" >> "$GITHUB_OUTPUT"; else echo "ok=1" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/checkout@v5
         if: steps.key.outputs.ok == '1'
-      - uses: actions/setup-node@v5
+        with:
+          fetch-depth: 0
+      - name: Anything changed since the last green replay?
+        # Owner, 14 Oct 2026: as the e2e schedule, a scheduled run replays only when something it replays changed: the app and extension code (not their tests),
+        # this workflow, or the recordings (the release net-records). Nothing changed: it stops, green (the nightly gate then passes). A run by hand always runs.
         if: steps.key.outputs.ok == '1'
+        id: dup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BY_HAND: ${{ github.event_name == 'workflow_dispatch' && !inputs.scheduled }}
+        run: |
+          [ "$BY_HAND" = true ] && { echo "replay-offline: started by hand: replaying"; exit 0; }
+          last=$(gh run list -R "$GITHUB_REPOSITORY" --workflow replay-offline.yml --branch main --status success --limit 20 --json databaseId,headSha,createdAt \
+            --jq "[.[] | select(.databaseId != $GITHUB_RUN_ID)][0] | \"\(.headSha) \(.createdAt)\"" 2>/dev/null || true)
+          read -r sha at <<< "${last:-}"
+          [ -z "${sha:-}" ] && { echo "replay-offline: no green run yet: replaying"; exit 0; }
+          records=$(gh release view net-records -R "$GITHUB_REPOSITORY" --json assets --jq '[.assets[].updatedAt] | max // ""' 2>/dev/null || true)
+          if git cat-file -e "$sha" 2>/dev/null && git diff --quiet "$sha" HEAD -- desktop extension worker/src .github/workflows/replay-offline.yml ':!desktop/test' ':!desktop/e2e/test' \
+             && { [ -z "$records" ] || [[ "$records" < "$at" ]]; }; then
+            echo "replay-offline: nothing changed since the last green replay (${sha::7}, $at): nothing to do" | tee -a "$GITHUB_STEP_SUMMARY"; echo "skip=1" >> "$GITHUB_OUTPUT"
+          else echo "replay-offline: changed since ${sha::7}: replaying"; fi
+      - uses: actions/setup-node@v5
+        if: steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1'
         with:
           node-version: '22'
       - uses: actions/setup-python@v6
-        if: steps.key.outputs.ok == '1'
+        if: steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1'
         with:
           python-version: '3.12'
       - name: Install the app, the tests and the browser
-        if: steps.key.outputs.ok == '1'
+        if: steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1'
         run: |
           (cd desktop && npm ci) && (cd desktop/e2e && (npm ci || npm install))
           pip install --quiet -r requirements.txt
           (cd desktop/e2e && npx playwright-core install chromium)
       - name: The pool's newest records (14 days), decrypted on the runner only
-        if: steps.key.outputs.ok == '1'
+        if: steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1'
         env:
           GH_TOKEN: ${{ github.token }}
           NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
@@ -70,13 +101,43 @@ jobs:
           rm -f "$RUNNER_TEMP/key.pem"; rm -rf "$RUNNER_TEMP/enc"
           echo "replay-offline: $(find records -name record.json | wc -l) records from the pool runs"
       - name: Replay each row offline with this build
-        if: steps.key.outputs.ok == '1'
+        if: steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1'
         working-directory: desktop/e2e
         run: |
           set -o pipefail
           node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/replay-out" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Compare with the last green run (the baseline)
+        id: gate
+        if: steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1'
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          out="$GITHUB_WORKSPACE/replay-out"; mkdir -p "$out/baseline"
+          baseline=-   # the newest green run that kept results (one that stopped on "nothing changed" kept none)
+          for base in $(gh run list -R "$GITHUB_REPOSITORY" --workflow replay-offline.yml --branch main --status success --limit 20 --json databaseId --jq ".[] | select(.databaseId != $GITHUB_RUN_ID) | .databaseId"); do
+            if gh run download "$base" -R "$GITHUB_REPOSITORY" --name "replay-results-$base" --dir "$out/baseline" >/dev/null 2>&1; then baseline="$out/baseline/results.json"; echo "baseline: run $base"; break; fi
+          done
+          [ "$baseline" = - ] && echo "baseline: none yet (this run becomes the first)"
+          set +e
+          node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" > "$out/gate.md"; code=$?
+          if [ "$code" = 1 ] && [ -s "$out/results.json.worse" ]; then
+            echo "retry: $(tr '\n' ',' < "$out/results.json.worse")"
+            JP_REPLAY_ONLY="$(cat "$out/results.json.worse")" node replay-records.mjs "$GITHUB_WORKSPACE/records" "$out/retry" > /dev/null
+            node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" --retry "$out/retry/step4" > "$out/gate.md"; code=$?
+          fi
+          set -e
+          cat "$out/gate.md" | tee -a "$GITHUB_STEP_SUMMARY"
+          { echo "red=$([ "$code" = 0 ] && echo 0 || echo 1)"; echo "what<<EOF"; grep -E '\| worse \|' "$out/gate.md" | head -10 | sed -E 's/^\| ([^|]+) \| worse \| ([^|]+) \|$/\1: \2/'; echo EOF; } >> "$GITHUB_OUTPUT"
+      - name: Keep this run's results (the next run's baseline when green)
+        if: always() && steps.gate.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        with:
+          name: replay-results-${{ github.run_id }}
+          path: replay-out/results.json
+          retention-days: 90
       - name: Send the rows to /admin/applying "Replay vs live" (main only)
-        if: steps.key.outputs.ok == '1' && github.ref == 'refs/heads/main'
+        if: steps.key.outputs.ok == '1' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         working-directory: desktop/e2e
         env:
           REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}
@@ -93,3 +154,19 @@ jobs:
             replay-out/replays/*/app.log
           retention-days: 7
           if-no-files-found: ignore
+      - name: Tell the owner on Telegram (a failure, or back to green)
+        if: always() && steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1' && github.ref == 'refs/heads/main'
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_ALERTS_TELEGRAM_BOT_TOKEN: ${{ secrets.CI_ALERTS_TELEGRAM_BOT_TOKEN }}
+          CI_ALERTS_TELEGRAM_CHAT_ID: ${{ secrets.CI_ALERTS_TELEGRAM_CHAT_ID }}
+          RED: ${{ steps.gate.outputs.red }}
+          WHAT: ${{ steps.gate.outputs.what }}
+        run: |
+          if [ "$RED" = 1 ]; then node ci-alert.mjs failure "Rows worse than the last green run: ${WHAT:-see the run}"
+          elif [ "${{ job.status }}" != success ]; then node ci-alert.mjs failure "The replay job broke before its verdict"
+          else node ci-alert.mjs success; fi
+      - name: Red when a counted row got worse
+        if: steps.gate.outputs.red == '1'
+        run: echo "::error::a counted row got worse than the last green run (see the summary)" && exit 1

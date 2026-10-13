@@ -29,5 +29,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
     try { gh(['release', 'view', TAG]); } catch { gh(['release', 'create', TAG, '--prerelease', '--title', 'Pool network records (encrypted)', '--notes', 'Encrypted pool network records for the PR replay (desktop/e2e/records-publish.mjs). Not an app build.']); }
     gh(['release', 'upload', TAG, path.join(work, BUNDLE), path.join(work, KEY), '--clobber']);
     console.log(`records-publish: ${rows.length} rows uploaded to release ${TAG}`);
+    // New recordings: main's replay runs again at once, so /admin/applying shows them (the workflow publishes from main only).
+    try { gh(['workflow', 'run', 'CI · Replay vs live (offline)', '--ref', 'main']); console.log('records-publish: replay on main started'); } catch { console.log('records-publish: start the replay on main by hand (gh workflow run "CI · Replay vs live (offline)" --ref main)'); }
   } finally { fs.rmSync(work, {recursive: true, force: true}); }
 }

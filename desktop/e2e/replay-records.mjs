@@ -38,17 +38,20 @@ export const deferredRows = (file = new URL('./replay-deferred.json', import.met
 export function fidelityRecord({name, dir = '', record}, replay, {sha = '', branch = '', at = new Date().toISOString(), deferred = {}} = {}) {
   const host = new URL(record.url).host.replace(/^www\./, '');
   const own = (replay?.counts?.notRecorded || []).filter(line => { try { return new URL(line.split(' ')[1]).host.endsWith(host); } catch { return false; } }).length;
-  return {name, sha, branch, at, live: {asks: replay?.liveAsks ?? 0}, recording: {where: whereOf(record, dir), at: Number.isFinite(record.startMs) ? new Date(record.startMs).toISOString() : null}, deferred: deferred[name] || null,
+  return {name, sha, branch, at, outcome: replay?.outcome || null, liveOutcome: replay?.liveOutcome || null, live: {asks: replay?.liveAsks ?? 0}, recording: {where: whereOf(record, dir), at: Number.isFinite(record.startMs) ? new Date(record.startMs).toISOString() : null}, deferred: deferred[name] || null,
     network: replay ? {hit: replay.liveHit, extra: replay.misses, notRecorded: own, orderMatched: replay.counts?.order || 0, echoed: replay.counts?.echoed || 0} : null};
 }
 
-// The summary line a PR reads: "N of M rows same as live".
-export const sameAsLive = rows => rows.filter(row => row.network && row.network.hit === row.live.asks && row.network.extra === 0 && row.network.notRecorded === 0).length;
+// One row 100% the same as live: every live ask answered, no extra ask, no site request missing. The summary line: "N of M rows same as live".
+export const isSame = row => !!(row.network && row.network.hit === row.live.asks && row.network.extra === 0 && row.network.notRecorded === 0);
+export const sameAsLive = rows => rows.filter(isSame).length;
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
   const [root, out] = process.argv.slice(2);
   if (!root || !out) { console.error('usage: node replay-records.mjs <records dir> <out dir>'); process.exit(2); }
-  const here = path.dirname(new URL(import.meta.url).pathname), rows = newestPerRow(root), records = [], deferred = deferredRows();
+  // JP_REPLAY_ONLY: row names, one a line (the gate's retry of the rows that came out worse).
+  const only = new Set(String(process.env.JP_REPLAY_ONLY || '').split('\n').map(line => line.trim()).filter(Boolean));
+  const here = path.dirname(new URL(import.meta.url).pathname), rows = newestPerRow(root).filter(row => !only.size || only.has(row.name)), records = [], deferred = deferredRows();
   fs.mkdirSync(path.join(out, 'step4'), {recursive: true});
   for (const row of rows) {
     const work = path.join(out, 'replays', slug(row.name));
