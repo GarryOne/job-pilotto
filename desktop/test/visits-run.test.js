@@ -338,6 +338,22 @@ test('opening a site you have open brings its tab forward, by the page last read
   assert.deepEqual([none.ok, opened], [true, ['https://www.omega.example']], 'no tab: a new one');
 });
 
+test('Open on a "Browse sites manually" card marks the tab to be read; an open tab is only brought forward', async () => {
+  const {openYourself} = await import('../lib/visits.js');
+  const opened = [];
+  const opener = url => { opened.push(url); return {ok: true}; };
+  const none = {focusById: async () => false, focusAt: async () => false, opener};
+  await openYourself('https://www.msc.example/careers', {...none, read: true});
+  await openYourself('https://www.msc.example/careers#old', {...none, read: true});
+  await openYourself('https://www.msc.example/careers', none);
+  assert.deepEqual(opened, ['https://www.msc.example/careers#jp-read-filter', 'https://www.msc.example/careers#jp-read-filter', 'https://www.msc.example/careers'], 'read marks it; plain Open stays plain');
+  const {readFileSync} = await import('node:fs');
+  for (const file of ['../renderer/pages/strategy-suggestions.js', '../renderer/coverage-actions.js']) {   // the class: every manual-browse opener asks for the read
+    const calls = readFileSync(new URL(file, import.meta.url), 'utf8').match(/openVisit\([^)]*\)/g) || [];
+    assert.ok(calls.length && calls.every(call => /read: true/.test(call)), `${file}: ${calls.join(' ')}`);
+  }
+});
+
 test('a site whose list has none in your places today counts as read, not failed (owner, 8 Oct 2026: Jaeger-LeCoultre was a red ✗)', async () => {
   const openTab = url => { const ticket = /-([a-z0-9]+)$/.exec(url)[1];
     setTimeout(() => done({url: url.split('#')[0], ticket, jobs: 0, added: 0, pages: 1, empty: true, stopped: 'its job list has no jobs here today (filtered to your places)'}), 5);

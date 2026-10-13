@@ -80,7 +80,7 @@ export function wordRow(action) {
 // One action, done: the same calls the Strategy cards make (lib/strategy.js through main.js), or the source's panel in Settings.
 export function runAction(action, {pilot, openSetting}) {
   if (action.kind === 'source') { openSetting(action.value); return Promise.resolve({ok: true, opened: true}); }
-  if (action.kind === 'visit') return pilot.openVisit(action.value).then(result => ({...result, opened: !!result?.ok}));
+  if (action.kind === 'visit') return pilot.openVisit(action.value, {read: true}).then(result => ({...result, opened: !!result?.ok}));
   if (action.kind === 'role') return pilot.addRoles([action.value]);
   if (action.kind === 'place') return pilot.addPlaces([action.value]);
   return pilot.loosenSearch(action.kind === 'exclude' ? {excludes: [action.value]} : {languages: [action.value]});
