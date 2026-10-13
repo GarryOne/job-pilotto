@@ -29,7 +29,7 @@ export function extensionStore(storage, {call = engine.call} = {}) {
       const id = String(run.update), was = await store('agent_runs', 'get', {run_id: id});
       if (!was) return {ok: false, skipped: true};
       const {outcome, learnings, fields} = runRecord(run, {});
-      const {job, company, started, ...changed} = fields;
+      const changed = Object.fromEntries(Object.entries(fields).filter(([key]) => !['job', 'company', 'started'].includes(key)));   // the row keeps its own
       await store('agent_runs', 'update', {run_id: id, fields: {outcome, learnings, fields: {...(was.fields || {}), ...changed}}});
       return {ok: true, id};
     },
