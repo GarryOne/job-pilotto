@@ -130,6 +130,25 @@ test('the log line lists each key and each workspace with its total', async () =
   assert.equal(describeKeys([]), '0 key(s): none; 0 workspace(s): none');
 });
 
+test('fetchKeyDays asks for the default and archived workspaces, so every key lands in one', async () => {
+  const {fetchKeyDays} = await import('../ai-cost-report.mjs');
+  process.env.ANTHROPIC_ADMIN_KEY = 'test-admin';
+  const asked = [];
+  const answer = {
+    '/v1/organizations/workspaces': {data: [{id: 'wrkspc_default', name: 'Default'}, {id: 'wrkspc_old', name: 'Old Tests'}, {id: 'wrkspc_tests', name: 'Job Pilotto Tests'}]},
+    '/v1/organizations/api_keys': {data: [{id: 'k1', name: 'job-pilotto-e2e-testing', scope: {workspace_id: 'wrkspc_tests'}}, {id: 'k2', name: 'job-pilotto-e2e-testing', scope: {workspace_id: 'wrkspc_old'}},
+      {id: 'k3', name: 'job-pilotto-desktop-app-1', scope: {workspace_id: 'wrkspc_default'}}], has_more: false},
+    '/v1/organizations/usage_report/messages': {data: [{starting_at: '2026-10-05T00:00:00Z', results: ['k1', 'k2', 'k3'].map(id => ({api_key_id: id, model: 'claude-haiku-4-5-20251001', service_tier: 'standard', uncached_input_tokens: 1e6}))}]},
+    '/v1/organizations/cost_report': {data: [{starting_at: '2026-10-05T00:00:00Z', results: [{model: 'claude-haiku-4-5-20251001', service_tier: 'standard', token_type: 'uncached_input_tokens', amount: '600'}]}]},
+  };
+  const fetcher = async url => { asked.push(url); const path = new URL(url).pathname; return {ok: true, json: async () => answer[path]}; };
+  const rows = await fetchKeyDays(3, ['job-pilotto-*'], fetcher, new Date('2026-10-07T00:00:00Z'));
+  assert.match(asked.find(url => url.includes('/workspaces')), /include_archived=true&include_default=true/);
+  const by = Object.fromEntries(rows.map(row => [row.key, row.usd]));
+  assert.deepEqual(by, {'job-pilotto-e2e-testing': 4, 'job-pilotto-desktop-app-1': 2, 'ws.job-pilotto-tests': 2, 'ws.old-tests': 2, 'ws.default': 2});
+  assert.equal(by['ws.job-pilotto-tests'] + by['ws.old-tests'] + by['ws.default'], 6, 'the workspaces add up to the keys');
+});
+
 test('a refused call is recorded with the API\'s status, type and message', async t => {
   const {apiErrors, resetUsage: reset, writeUsage: write} = await import('../lib/ai-meter.mjs');
   const server = http.createServer((req, res) => { req.resume(); req.on('end', () => { res.writeHead(400, {'content-type': 'application/json'}); res.end(JSON.stringify({type: 'error', error: {type: 'invalid_request_error', message: 'You have reached your specified API usage limits.'}})); }); });
