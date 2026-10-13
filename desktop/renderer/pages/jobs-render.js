@@ -7,7 +7,7 @@ import {isInbound} from '../origin.js';
 import {looksLikeLink, matches} from '../filter.js';
 import {fitRing} from '../fit-ring.js';
 import {icon} from '../icons.js';
-import {ago, avatar, band, byFilter, byStat, inConversation, inStatus, isStuck, fitTooltip, matchesOnly, matchLabel, PLACE_UNCLEAR, placeAndMode, prepareState, preparing, shortPlace, sorted, statPressed, statusPill, tags, unscoredWhy, workMode} from '../jobs-view.js';
+import {ago, avatar, band, byFilter, byStat, inConversation, inStatus, isStuck, fitTooltip, matchLabel, openMatches, PLACE_UNCLEAR, placeAndMode, prepareState, preparing, shortPlace, sorted, statPressed, statusPill, tags, unscoredWhy, workMode} from '../jobs-view.js';
 import {shared} from './shared.js';
 import {openActivity} from './activity.js';
 import {$, show} from './core.js';
@@ -92,7 +92,7 @@ export function renderJobs() {
   const counted = jobsState.view ? shared.allJobs.filter(job => inView(job, jobsState.view))
     : jobsState.statFilter === 'stuck' ? shared.allJobs.filter(stuck)
     : jobsState.statFilter?.urls ? shared.allJobs.filter(job => jobsState.statFilter.urls.has(fullKey(job.url)))
-    : jobsState.statFilter ? byStat(COUNTS_ALL.has(jobsState.statFilter) ? shared.allJobs : matchesOnly(shared.allJobs), jobsState.statFilter) : null;
+    : jobsState.statFilter ? byStat(COUNTS_ALL.has(jobsState.statFilter) ? shared.allJobs : openMatches(shared.allJobs), jobsState.statFilter) : null;
   const by = $('sort-by').value;
   const rows = sorted((counted || (anyStatus ? shared.allJobs : byFilter(shared.allJobs, filter)))
     .filter(job => (!counted || anyStatus || inStatus(job, filter)) && matches(job, text)),

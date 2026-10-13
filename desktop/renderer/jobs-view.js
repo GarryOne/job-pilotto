@@ -54,6 +54,9 @@ export const inProcess = jobs => ({screening: jobs.filter(job => SCREENING.has(j
 // the application counters above and a pasted link still reach them), and the active ones are "In conversation" above.
 const OVER = new Set([...ENDED, 'Dismissed', 'Closed']);
 export const matchesOnly = jobs => jobs.filter(job => !isInbound(job));
+// The matches still to decide on: an applied job is an application (the Applied counters and menu list it), so Total
+// matches, High fit, New this week, Companies and All matches leave it out.
+export const openMatches = jobs => matchesOnly(jobs).filter(job => job.status !== 'applied');
 // The list's "Show" menu: New matches (value open), Saved, Applied, Dismissed = job matches with that status; All
 // matches (value all) = every job match, whatever its status; Inbound = every opportunity that found you, whatever
 // its stage (they are not matches, so no match list shows them); Everything (value everything) = the two sets together,
@@ -71,7 +74,7 @@ export function statClick(kind, active, filter) {
   return {stat: kind === 'total' || kind === active ? null : kind, filter: 'all'};
 }
 export const statPressed = (kind, active, filter) => kind === active || (!active && kind === {all: 'total', inbound: 'inbound'}[filter]);
-export const byFilter = (jobs, filter) => (filter === 'inbound' || filter === 'everything' ? jobs : matchesOnly(jobs))
+export const byFilter = (jobs, filter) => (filter === 'inbound' || filter === 'everything' ? jobs : filter === 'all' ? openMatches(jobs) : matchesOnly(jobs))
   .filter(job => inStatus(job, filter));
 // The list as it opens (the menu's "New matches"): the jobs waiting for a first look. The Jobs menu item carries this
 // count — the same number the list bar shows under the page title, whatever the list is later filtered to.

@@ -167,6 +167,13 @@ test('the Show menu: matches by status, every match under All matches, inbound u
   // All matches = every job match, whatever its status: exactly the set the Total matches card counts, so clicking that
   // card lists the number it shows. The opportunities that found you are Inbound's alone.
   assert.deepEqual(urls('all'), ['m-new', 'm-saved', 'm-gone']);
+  // An applied job match is an application, not a match to decide on: every match list and counter leaves it out.
+  const withApplied = [...jobs, {url: 'm-applied', status: 'applied', stage: 'Applied', fit: 90, first_seen_at: '2026-10-12'}];
+  assert.deepEqual(byFilter(withApplied, 'all').map(job => job.url), ['m-new', 'm-saved', 'm-gone']);
+  assert.deepEqual(byFilter(withApplied, 'applied').map(job => job.url), ['m-applied']);
+  const {openMatches, stats: countStats} = await import('../renderer/jobs-view.js');
+  assert.deepEqual(openMatches(withApplied).map(job => job.url), ['m-new', 'm-saved', 'm-gone']);
+  assert.equal(countStats(openMatches(withApplied)).high, 0);
   // Everything = All matches + Inbound, every status: the one list that holds both kinds (no card counts it).
   assert.deepEqual(urls('everything'), jobs.map(job => job.url));
   assert.deepEqual(order(byFilter(jobs, 'inbound'), 'activity').map(job => job.url), ['i-talk', 'i-over', 'i-new', 'i-lead']);
