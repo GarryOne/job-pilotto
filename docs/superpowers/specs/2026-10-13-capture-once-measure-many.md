@@ -52,6 +52,9 @@ the tables already read (`<day>.json` + `<row>.app.log`), so `pool-shadow`, `poo
 | Endings | ✅ where the run follows recorded states |
 | **Effect** of a press the capturing run never made (acted "worked") | ❌ the page after it was never seen: counted "unseen", needs one live proof |
 
+**A prompt or schema change makes its rows "not measured" offline** until a live visit (or a capped plan-path re-ask: `--ask`, in the
+gaps file) refreshes their captures. **Code-only changes are fully measurable.** (cc + owner, 13 Oct 2026)
+
 The acting batch's **effect** column therefore still needs live visits, but only for doors whose press is new; the rest of its numbers
 (how many it would press, where, at what cost) come offline. Every live visit (a measuring run's, a proof's) also refreshes that row's capture, so the library follows site changes (cc, 13 Oct 2026);
 `measure` uses each row's newest capture unless `--days` asks for more.
@@ -61,7 +64,7 @@ The acting batch's **effect** column therefore still needs live visits, but only
 | # | Rule |
 |---|---|
 | 1 | Every line `measure` prints is labelled **`offline (memo)`** or **`offline (plan)`**; an offline and a live number never share a table (`--compare` prints two tables side by side, each labelled). |
-| 2 | **Misses:** each row and table prints the share of asks its capture did not cover. Above **10 %** of asks the row (or table) is **"not measured"**, never "no change". |
+| 2 | **Any miss = not measured** (changed 13 Oct 2026 from "over 10 % of asks": HelloFresh's ONE missed page-kind ask of 16 took the fill from 5 to 1). The row names the step and the differing part; the top line counts the reasons (`page kind: use differs x4`), so a prompt change shows at once. |
 | 3 | A press no capture saw is **"unseen"**, never "worked" or "failed". |
 | 4 | **A fix is "proven" only by a live run** (Pool-row / live-proof, as today). Offline numbers decide what to try, never what is done (this spec + skills fix-failing-forms, run-applying-smoke-pool). |
 | 5 | **Gate:** until the positive control (PR 3) passes, every `measure` output carries **"unverified"**. |
