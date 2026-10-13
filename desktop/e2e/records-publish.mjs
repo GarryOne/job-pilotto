@@ -1,0 +1,32 @@
+// Publishes this Mac's pool network records for the PR replay (.github/workflows/replay-offline.yml): the newest record per row in <records dir> is packed,
+// encrypted with the repo's public key (desktop/e2e/net-record.pub.pem: only the owner's Keychain key and the NET_RECORD_KEY secret open it) and put on the
+// GitHub release `net-records` (a pre-release like pr-assets-*, never an app build), replacing the last set. Re-recording is by hand on the Mac (owner, 13 Oct 2026).
+//   node records-publish.mjs <records dir> [--dry]      (record a row: JP_NET_RECORD_DIR=<records dir> npm run smoke -- --only "<row>")
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {newestPerRow} from './replay-records.mjs';
+
+export const TAG = 'net-records', BUNDLE = 'net-records.tgz.enc', KEY = 'net-records.k.enc';
+
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
+  const [root] = process.argv.slice(2), dry = process.argv.includes('--dry');
+  if (!root) { console.error('usage: node records-publish.mjs <records dir> [--dry]'); process.exit(2); }
+  const rows = newestPerRow(root), here = path.dirname(new URL(import.meta.url).pathname), work = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-records-'));
+  try {
+    const stage = path.join(work, 'net-records');
+    for (const row of rows) fs.cpSync(row.dir, path.join(stage, path.basename(row.dir)), {recursive: true});
+    console.log(`records-publish: ${rows.length} rows: ${rows.map(row => row.name).join(', ')}`);
+    if (dry || !rows.length) process.exit(0);
+    const run = (cmd, args) => execFileSync(cmd, args, {cwd: work, stdio: ['ignore', 'pipe', 'inherit']});
+    run('tar', ['czf', 'net.tgz', 'net-records']);
+    run('openssl', ['rand', '-out', 'k', '32']);
+    run('openssl', ['enc', '-aes-256-cbc', '-pbkdf2', '-salt', '-in', 'net.tgz', '-out', BUNDLE, '-pass', 'file:k']);
+    run('openssl', ['pkeyutl', '-encrypt', '-pubin', '-inkey', path.join(here, 'net-record.pub.pem'), '-pkeyopt', 'rsa_padding_mode:oaep', '-in', 'k', '-out', KEY]);
+    fs.rmSync(path.join(work, 'k')); fs.rmSync(path.join(work, 'net.tgz'));
+    try { run('gh', ['release', 'view', TAG]); } catch { run('gh', ['release', 'create', TAG, '--prerelease', '--title', 'Pool network records (encrypted)', '--notes', 'Encrypted pool network records for the PR replay (desktop/e2e/records-publish.mjs). Not an app build.']); }
+    run('gh', ['release', 'upload', TAG, BUNDLE, KEY, '--clobber']);
+    console.log(`records-publish: ${rows.length} rows uploaded to release ${TAG}`);
+  } finally { fs.rmSync(work, {recursive: true, force: true}); }
+}
