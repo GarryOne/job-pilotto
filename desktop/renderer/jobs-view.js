@@ -33,7 +33,7 @@ export function stats(jobs, total, now = Date.now()) {
 // The funnel counts what each application ever reached; these count where it stands now.
 export const SENT = new Set(['Applied', 'Confirmation received', 'Screening', 'Interview scheduled', 'Interviewing', 'Offer',
   'Rejected', 'Withdrawn', 'No response']);
-const ENDED = new Set(['Rejected', 'Withdrawn', 'No response']);
+export const ENDED = new Set(['Rejected', 'Withdrawn', 'No response']);
 export const SCREENING = new Set(['Screening', 'Interview scheduled']);
 export const INTERVIEWS = new Set(['Interviewing', 'Offer']);
 const TALKING = new Set([...SCREENING, ...INTERVIEWS]);

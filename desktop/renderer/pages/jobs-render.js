@@ -15,7 +15,7 @@ import {openSession} from './session-log.js';
 import {SESSION_PILL, refreshSessions, sessionFor, sessionList, sessionsLoaded} from './sessions.js';
 import {toastMessage} from './startup.js';
 import {openFeedback} from './feedback.js';
-import {outcomeChoices} from '../outcome-tap.js';
+import {outcomeChoices, reopenable} from '../outcome-tap.js';
 import {scoreBucket} from '../intel.js';
 import {askWhy} from './dismiss-reason.js';
 import {openMatchCheck} from './match-check.js';
@@ -369,6 +369,7 @@ export function renderJobs() {
         toastMessage('Back to Applying', `The Applied record was removed${result.events ? ` (${result.events} ${byStore('Notion ', '')}event${result.events === 1 ? '' : 's'})` : ''}.`);
         renderJobs();
       }});
+    if (reopenable(job.stage)) menu.push({icon: 'undo', label: 'Reopen', run: setStatus('applied'), title: `Back to Applied: waiting for a reply again (recorded in ${storeName()})`});
     if (job.status !== 'dismissed') menu.push({icon: 'close', label: 'Dismiss', run: setStatus('dismissed'), title: 'Not interested: hide this job', danger: true});
     // A dismissed job can go for good (owner, 7 Oct 2026): its Notion pages to the trash (30 days there), and no search brings it back.
     else menu.push({icon: 'trash', label: 'Delete', danger: true, title: byStore('Remove this job: its Notion pages go to the trash, and searches will not show it again', 'Remove this job for good: searches will not show it again'),

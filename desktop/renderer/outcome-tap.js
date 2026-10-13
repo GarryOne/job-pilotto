@@ -1,4 +1,6 @@
 // The "How did it go?" choices on a job's menu: which outcomes make sense for the stage it is at (desktop/lib/outcomes.js writes them).
+import {ENDED} from './jobs-view.js';
+
 const WAITING = new Set(['Applied', 'Confirmation received']);
 const TALKING = new Set(['Screening', 'Interview scheduled', 'Interviewing']);
 // where: the store's name (renderer/store-words.js storeName(), passed in: this module stays free of the window's state for its tests).
@@ -16,3 +18,6 @@ export function outcomeChoices(stage, where = 'your data') {
   if (TALKING.has(stage)) return [all.offer, all.rejected];
   return [];
 }
+
+// A closed application (rejected, withdrawn, no answer) can be put back to Applied: a mistaken or changed outcome, a late reply.
+export const reopenable = stage => ENDED.has(stage);
