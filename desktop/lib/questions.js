@@ -70,7 +70,7 @@ export const isFileQuestion = text => /^\s*(cv|c\.v\.|resume|r[ée]sum[ée]|curr
 
 // A password, a captcha or a one-time code is never an answer to keep (owner, 13 Oct 2026: "Captcha", "Your password" and
 // "Repeat Password" were listed): a safety floor, for the labels as forms write them in any language.
-export const isSecretQuestion = text => /pass\s*-?\s*(word|wort|phrase|code)|kennwort|mot de passe|contrase[ñn]a|senha|palavra-passe|password|passwort|passwd|\bpin\b|captcha|not a robot|kein roboter|security (code|question)|verification code|one[- ]time (code|password)|\botp\b|2fa|two[- ]factor|sms code|bot check/i.test(unmarked(text));
+export const isSecretQuestion = text => /pass\s*-?\s*(word|wort|phrase|code)|kennwort|mot de passe|contrase[ñn]a|senha|palavra-passe|password|passwort|passwd|\bpin\b|captcha|not a robot|kein roboter|security (code|question)|verification code|one[- ]time (code|password)|\botp\b|2fa|two[- ]factor|sms code|bot check/i.test(unmarked(text));   // words-ok: a safety floor that only removes a question from the Answer once list (never decides a page, never fills a field); a missed label is just listed
 // Never listed in Answer once, from the page or from a fill.
 const unanswerable = text => isFileQuestion(text) || isSecretQuestion(text);
 
