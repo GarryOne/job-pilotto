@@ -2,7 +2,7 @@
 # will run on a schedule"; "parallelize them as much as possible, to get them in 2-3 mins"). A PR that changes the apply flow's code replays at most 10 pool rows offline
 # (desktop/e2e/replay-pick.mjs: the rows 100% same as live in the last green scheduled run, quickest, one per site first) on up to 5 macOS runners at once, then judges
 # them against that run (replay-gate.mjs: a counted row whose outcome fell is worse). REPORT ONLY for now: never required, never red (owner: required once its controls
-# pass). $0: no AI key, no site visit (the records and the live run's kept answers). The full pool: replay-offline.yml on its schedule. Guard: e2e/test/replay-pick.test.mjs.
+# pass). A second, late-answer pass delays every kept answer 4 s and fails no row but says which lost Claude's answers (lib/lost-answers.mjs). $0: no AI key, no site visit (the records and the live run's kept answers). The full pool: replay-offline.yml on its schedule. Guard: e2e/test/replay-pick.test.mjs.
 name: CI · Replay gate (PR, 10 rows)
 
 on:
@@ -93,6 +93,17 @@ jobs:
         env:
           JP_REPLAY_ONLY: ${{ matrix.group }}
         run: node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/replay-out"
+      # The late-answer pass (owner, 14 Oct 2026, after 5afa5a8 lost Claude's answers only when they came after the fill started): the same rows again with every
+      # kept answer delayed 4 s; judged only by "no answer lost" (lib/lost-answers.mjs), never against live. Report only.
+      - name: Late-answer pass (answers delayed 4 s)
+        if: steps.key.outputs.ok == '1'
+        working-directory: desktop/e2e
+        env:
+          JP_REPLAY_ONLY: ${{ matrix.group }}
+          JOB_PILOTTO_MODEL_MEMO_LATENCY_PAD_MS: '4000'
+        run: |
+          node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/replay-late" > /dev/null || true
+          node replay-late.mjs "$GITHUB_WORKSPACE/replay-late/replays" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: This runner's rows (for the verdict; no record, no key)
         if: always() && steps.key.outputs.ok == '1'
         uses: actions/upload-artifact@v6
@@ -103,6 +114,8 @@ jobs:
             replay-out/replays/*/end.png
             replay-out/replays/*/replay.json
             replay-out/replays/*/app.log
+            replay-late/replays/*/app.log
+            replay-late/replays/*/end.png
           retention-days: 7
           if-no-files-found: ignore
 
