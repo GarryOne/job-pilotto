@@ -80,7 +80,7 @@ jobs:
         if: steps.range.outputs.range != ''
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_api_key: ${{ secrets.CODE_REVIEW_ANTHROPIC_KEY || secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
           claude_args: >-
             --model claude-sonnet-5-5 --max-turns 100

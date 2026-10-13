@@ -92,7 +92,7 @@ jobs:
         continue-on-error: true   # no verdict: the findings are filed as before and judged later (ui-verdict.yml)
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_api_key: ${{ secrets.UI_FINDINGS_ANTHROPIC_KEY || secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
           claude_args: >-
             --model claude-sonnet-5-5 --max-turns 30

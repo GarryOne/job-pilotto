@@ -93,7 +93,7 @@ jobs:
         if: env.STEP == 'brief' || env.STEP == 'another'
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_api_key: ${{ secrets.PRODUCT_BRAIN_ANTHROPIC_KEY || secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
           # Read the repository, the signals and the screenshots, write one file. No shell, no gh.
           claude_args: >-
@@ -107,7 +107,7 @@ jobs:
         if: env.STEP == 'review'
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_api_key: ${{ secrets.PRODUCT_BRAIN_ANTHROPIC_KEY || secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
           claude_args: >-
             --model claude-opus-5-5 --max-turns 30
@@ -130,7 +130,7 @@ jobs:
         if: env.STEP == 'explore'
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_api_key: ${{ secrets.PRODUCT_BRAIN_ANTHROPIC_KEY || secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
           claude_args: >-
             --model claude-opus-5-5 --max-turns 30

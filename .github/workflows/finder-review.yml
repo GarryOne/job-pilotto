@@ -52,7 +52,7 @@ jobs:
         # Trial: if the runs of 17, 24 and 31 Oct open no PR the owner merges, this workflow is removed.
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_api_key: ${{ secrets.FINDER_REVIEW_ANTHROPIC_KEY || secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
           claude_args: >-
             --model claude-sonnet-5-5 --max-turns 50
