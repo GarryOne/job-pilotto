@@ -7,10 +7,13 @@ import {test} from 'node:test';
 const read = path => fs.readFileSync(new URL(path, import.meta.url), 'utf8');
 const profile = read('../renderer/pages/profile.js'), form = read('../renderer/pages/profile-form.js');
 
-test('the Profile text tab opens the form, and the form keeps the plain editor and the read-only view', () => {
+test('the Preferences tab opens the form: this Mac saves the text, Notion saves one cell or bullet, and the plain editor stays', () => {
+  assert.match(read('../renderer/index.html'), /data-profile-tab="profiletext">Preferences</);
   assert.match(profile, /name === 'profiletext'\) loadProfileForm\(\)/);
   assert.match(form, /textSave\('profile'/);
-  assert.match(form, /if \(!result\.editable\) return loadTextEditor\('profile'\)/);
+  assert.match(form, /profileFormSave\(changes\(\)\)/);
+  assert.match(form, /if \(!notion\.ok\) return loadTextEditor\('profile'\)/, 'no form data: the plain read-only view');
+  assert.match(read('../preload.cjs'), /profileForm: call\('profileForm'\), profileFormSave: call\('profileFormSave'\)/);
   assert.match(form, /'Edit as text'/);
   assert.match(form, /'Save changes'/);
   assert.match(form, /Saved ✓ The next kits and form fills use it\./);

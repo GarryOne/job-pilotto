@@ -5,6 +5,7 @@
 import * as engine from './store/engine.js';
 import * as store from './store/index.js';
 import {TEXT_FILES} from './store/text-files.js';
+import {registerProfileFormHandlers} from './profile-form-handlers.js';
 
 export const MAX_CHARS = 200000;   // a text is a few pages; a paste of a whole book is refused, not saved half
 
@@ -30,6 +31,7 @@ export async function saveText(storage, name, markdown, {open = store.openStore}
 }
 
 export function registerTextHandlers({ipcMain, storage, DEMO, log, call = engine.call, open = store.openStore}) {
+  registerProfileFormHandlers({ipcMain, storage, DEMO, log, open});   // the Profile form on Notion: one cell at a time
   ipcMain.handle('textGet', async (_, name) => {
     try {
       if (DEMO) return {ok: known(name), markdown: known(name) ? storage.readText(TEXT_FILES[name]) || '' : '', editable: !open(storage).caps.has(store.LINKS)};
