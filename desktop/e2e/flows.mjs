@@ -42,6 +42,7 @@ export const MATRIX = [
   {scenario: 'The person submits → Applied, session leaves the list', e2e: ['person submits a form'], unit: []},
   {scenario: 'Claude takes over an account page; the unfilled tab closes', e2e: [], unit: ['test/apply-form-session.test.js', 'test/session-flow.test.js']},
   {scenario: 'Start-up "Checking…", then "Chrome isn\'t reporting"', e2e: [], unit: ['test/session-state.test.js']},
+  {scenario: 'A control the fill could not settle opens a control-level door record; the row\'s page ending never reads it', e2e: [], unit: ['test/journeys.test.js']},
   {scenario: 'Never submits, never contacts another host', e2e: ['through all of it'], unit: []},
 ];
 

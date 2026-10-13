@@ -18,6 +18,7 @@ import {guarded} from './read-gen.js';   // the one guard for every AI answer ap
 import {closePopupOrLayer} from './consent.js';   // a cycle again (consent.js uses api and settings from here at run time)
 import {HELD, clearBeforeFill, layerOnTop} from './dialog-after-fill.js';
 import {markCauses} from './ladder/control-marks.js';
+import {controlDoor} from './ladder/control-door.js';
 import './popup-guard.js';   // the worker's answer to the page's gate (page/guard-gate.js)
 import {verdictFields} from './eligibility-verdict.js';   // a cycle (log.js reads settings from here) that ES modules allow: both use the other only at run time
 export const JOB_SITES = [
@@ -418,7 +419,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   // Rung 0 of the fill ladder: the one read of every control once the page settled (page/read-back.js), written on each control; the trace takes it, so it says what the panel says.
   const settleStart = Date.now(), readBack = (await inPage(tab.id, () => window.__jobPilottoReadBack?.pass() || []).catch(() => [])) || [];   // null: the page went away (a press during the fill)
   if (readBack.length) decide('fill', 'read back after the page settled', {...readBackCounts(readBack), ms: Date.now() - settleStart}).catch(() => {});   // ms: what the settle wait costs (spec budget: <= +1 s on a clean page)
-  for (const spent of await inPage(tab.id, () => window.__jobPilottoAttempts?.drain() || []).catch(() => []) || []) decide('fill', 'a control used its tries: left for the person', {kind: spent.kind, tries: spent.tries}).catch(() => {});   // once per control (page/attempts.js)
+  for (const spent of await inPage(tab.id, () => window.__jobPilottoAttempts?.drain() || []).catch(() => []) || []) { decide('fill', 'a control used its tries: left for the person', {kind: spent.kind, tries: spent.tries}).catch(() => {}); controlDoor({rung: 0, signal: 'stalled', reason: 'tries', tried: spent.tries}, decide); }   // once per control (page/attempts.js)
   const tries = await inPage(tab.id, () => window.__jobPilottoAttempts?.summary() || null).catch(() => null);
   if (tries && Object.keys(tries.byTries).length) decide('fill', 'tries per control', tries).catch(() => {});   // measures the attempt log's cap (spec amendment 1): counts only
   const lastRead = (await climbFill(tab, config, {turn: debuggerTurn}).catch(() => null))?.readBack || readBack;   // the fill ladder's repair (test switch only) and the read after a late retype (ladder/fill-climb.js)

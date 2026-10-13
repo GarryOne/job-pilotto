@@ -34,7 +34,7 @@ export const progressOf = (appLog = '') => String(appLog).split('\n').map(text =
 // The door's lines (extension/ladder/dead-end.js), told apart by their shadow field (never their words): -> {stops, seen} (seen: the silent rule's shadow notices).
 export function doorLines(appLog = '') {
   let stops = 0, seen = 0;
-  for (const found of String(appLog).split('\n').map(text => DOOR.exec(text)).filter(Boolean)) if (parsed(found[2]).shadow === true) seen++; else stops++;
+  for (const found of String(appLog).split('\n').map(text => DOOR.exec(text)).filter(Boolean)) { const fields = parsed(found[2]); if (fields.level === 'control') continue; if (fields.shadow === true) seen++; else stops++; }   // a control's door (ladder/control-door.js) is neither: it ends nothing
   return {stops, seen};
 }
 
@@ -59,7 +59,7 @@ export function runEvents(appLog = '') {
   for (const text of String(appLog).split('\n')) {
     const note = PROGRESS_LINE.exec(text), door = DOOR.exec(text), judge = JUDGE.exec(text);
     if (note && PROGRESS_KINDS.includes(note[2])) events.push({at: Date.parse(note[1]), type: 'progress', kind: note[2]});
-    else if (door && parsed(door[2]).shadow !== true) events.push({at: Date.parse(door[1]), type: 'end', why: 'door'});
+    else if (door && parsed(door[2]).shadow !== true && parsed(door[2]).level !== 'control') events.push({at: Date.parse(door[1]), type: 'end', why: 'door'});
     else if (judge && handedToPerson({answer: judge[2], step: parsed(judge[3]).step})) events.push({at: Date.parse(judge[1]), type: 'end', why: 'handed'});
   }
   return events;
