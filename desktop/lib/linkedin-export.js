@@ -37,10 +37,26 @@ const BULLET = /^[\s•·▪●◦\-*–]+/;
 export const bulletsOf = text => String(text || '').split(/\r?\n|\s[•·▪●◦]\s/).map(line => line.replace(BULLET, '').trim()).filter(Boolean);
 const period = (from, to) => [from, to || (from ? 'Present' : '')].filter(Boolean).join(' – ');
 
-// {Positions.csv, Education.csv, …} text by file name -> a CV, or an error naming what is missing.
+// The rows of the table with the wanted columns: the file of that name first, else (when `anywhere`) any CSV with those headers, so a
+// renamed, moved or translated file still reads by structure.
+function table(files, name, wanted, anywhere = true) {
+  const named = files[name] ? records(files[name], wanted) : null;
+  if (named || !anywhere) return named;
+  for (const [other, text] of Object.entries(files)) {
+    const found = other === name ? null : records(text, wanted);
+    if (found) return found;
+  }
+  return null;
+}
+
+// {Positions.csv, Education.csv, …} text by file name -> a CV, or an error naming what is missing and what the export did hold.
 export function toCv(files) {
-  const positions = files['Positions.csv'] ? records(files['Positions.csv'], ['Company Name', 'Title']) : null;
-  if (!positions) throw new Error('No Positions.csv found in this export. In LinkedIn choose "Positions" (or the whole profile) when you ask for your data.');
+  const positions = table(files, 'Positions.csv', ['Company Name', 'Title']);
+  if (!positions) {
+    const held = Object.keys(files).map(name => path.posix.basename(name));
+    throw new Error(`No work positions found in this export (it holds: ${held.join(', ') || 'no CSV files'}). ` +
+      'On LinkedIn: Settings → Data privacy → Get a copy of your data → "Want something in particular?" → tick Positions, Profile, Skills, Education (not only Connections) → Request archive.');
+  }
   const jobs = [];
   for (const p of positions) {
     if (!p['Company Name'] && !p['Title']) continue;
@@ -49,29 +65,29 @@ export function toCv(files) {
     if (last && last.company.toLowerCase() === p['Company Name'].toLowerCase()) last.roles.push(role); else jobs.push({company: p['Company Name'], roles: [role]});
   }
   const cv = {jobs};
-  const profile = files['Profile.csv'] ? records(files['Profile.csv'], ['First Name', 'Last Name'])?.[0] : null;
+  const profile = table(files, 'Profile.csv', ['First Name', 'Last Name'])?.[0];
   if (profile) {
     cv.name = [profile['First Name'], profile['Last Name']].filter(Boolean).join(' ');
     if (profile['Summary']) cv.summary = profile['Summary'];
     if (profile['Geo Location']) cv.location = profile['Geo Location'];
   }
-  const skills = files['Skills.csv'] ? records(files['Skills.csv'], ['Name']) : null;
+  const skills = table(files, 'Skills.csv', ['Name'], false);
   if (skills?.length) cv.skills = skills.map(s => s['Name']).filter(Boolean).join(', ');
-  const education = files['Education.csv'] ? records(files['Education.csv'], ['School Name']) : null;
+  const education = table(files, 'Education.csv', ['School Name']);
   if (education?.length) cv.education = education.map(e => ({school: e['School Name'], degree: e['Degree Name'] || '', period: period(e['Start Date'], e['End Date'])}));
-  const languages = files['Languages.csv'] ? records(files['Languages.csv'], ['Name']) : null;
+  const languages = table(files, 'Languages.csv', ['Name'], false);
   if (languages?.length) cv.languages = languages.map(l => l['Proficiency'] ? `${l['Name']} (${l['Proficiency']})` : l['Name']).join(', ');
   return cv;
 }
 
-const WANTED = ['Positions.csv', 'Profile.csv', 'Skills.csv', 'Education.csv', 'Languages.csv'];
+const MAX_CSV_BYTES = 5 * 1024 * 1024;   // Connections can be large; the profile tables are kilobytes
 // The export file (a .zip, or one of its CSVs) -> a CV.
 export function readExport(file) {
   const files = {};
   if (/\.zip$/i.test(file)) {
     for (const entry of listZip(file)) {
       const name = path.posix.basename(entry.name);
-      if (WANTED.includes(name) && !(name in files)) files[name] = readEntry(file, entry).toString('utf8');
+      if (/\.csv$/i.test(name) && entry.size <= MAX_CSV_BYTES && !(name in files)) files[name] = readEntry(file, entry).toString('utf8');
     }
   } else throw new Error('Choose the .zip file LinkedIn sent you.');
   return toCv(files);

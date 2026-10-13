@@ -46,7 +46,7 @@ export function registerExperienceHandlers({DEMO, dialog, getWindow, ipcMain, sh
   ipcMain.handle('experienceAddLinkedin', async () => {
     if (noAi()) return {ok: false, error: 'Choose your AI in Settings → Connections → AI first.'};
     if (!experience.view(storage).main) return {ok: false, error: 'Read your main CV first (CV & details → Read my CV PDF): LinkedIn is compared with it.'};
-    const picked = await dialog.showOpenDialog(getWindow(), {title: 'Choose the .zip LinkedIn sent you', filters: [{name: 'ZIP', extensions: ['zip']}], properties: ['openFile']});
+    const picked = await dialog.showOpenDialog(getWindow(), {title: 'Choose the .zip LinkedIn sent you, or your profile saved as PDF', filters: [{name: 'LinkedIn data (.zip) or profile (.pdf)', extensions: ['zip', 'pdf']}], properties: ['openFile']});
     if (picked.canceled || !picked.filePaths[0]) return {ok: false, cancelled: true};
     try {
       const before = experience.view(storage);
