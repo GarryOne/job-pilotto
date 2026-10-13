@@ -63,6 +63,15 @@ MAX_FAILURE_NO_BASELINE = 0.10   # stable with fewer than MIN_RUNS_OK counted ru
 MAX_SILENCE = timedelta(hours=24)  # its last report
 
 
+
+def commit_count(response):
+    """The number of commits in a one-per-page GitHub listing (`gh api -i ...per_page=1`): its last page's number, or 1 with no Link."""
+    match = re.search(r'[?&]page=(\d+)[^>]*>;\s*rel="last"', response)
+    if match:
+        return int(match.group(1))
+    body = response.split('\r\n\r\n', 1)[-1].split('\n\n', 1)[-1]
+    return 1 if body.strip().startswith('[{') else 0
+
 class EvidenceUnavailable(Exception):
     """The app reports couldn't be read: no key, or the site didn't answer."""
 
@@ -403,9 +412,13 @@ class GitHub:
         return self._issues('fill-failure', 'open')
 
     def extension_version(self, tag):
+        """The version the build of `tag` stamped (desktop/scripts/extension-stamp.mjs): the manifest's base + the extension's commit count."""
         try:
             data = json.loads(self._gh('api', f'repos/{self.repo}/contents/extension/manifest.json?ref={tag}'))
-            return json.loads(base64.b64decode(data['content']))['version']
+            base = '.'.join(json.loads(base64.b64decode(data['content']))['version'].split('.')[:2])
+            head = self._gh('api', '-i', f'repos/{self.repo}/commits?sha={tag}&path=extension&per_page=1')
+            count = commit_count(head)
+            return f'{base}.{count}' if count else ''
         except (subprocess.CalledProcessError, KeyError, ValueError):
             return ''
 
