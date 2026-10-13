@@ -9,7 +9,7 @@ import {climbFill} from './ladder/fill-climb.js';
 import {kitStance} from './tab-pages.js';
 import {fillCard} from './fill-card.js';
 import {readBackCounts, settleTrace} from './trace-settle.js';
-import {armRecordUpdate} from './ladder/record-update.js';
+import {armRecordUpdate, runUpdateBody} from './ladder/record-update.js';
 import {expandSections} from './sections.js';
 import {PAGE_FILES} from './page-files.js';
 import {hasEarly, keepEarly, takeEarly} from './early-answers.js';
@@ -426,10 +426,16 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   await inPage(tab.id, id => { document.documentElement.dataset.jobpilottoFill = id; }, [summary.card.id]).catch(() => {});
   event('fill-done', {filled: summary.filled || 0, left: (summary.todo || []).length});
   // One row in 🎏 Job Apply — Agent Runs (Agent = Extension), comparable with the agent runs there.
-  api(config, '/extension/run', {method: 'POST', body: JSON.stringify({url: job, started: startedAt.toISOString(),
+  const runBody = {url: job, started: startedAt.toISOString(),
     ended: new Date().toISOString(), fields: summary.filled || 0, unfilled: summary.unfilledRequired || 0, usd: ai?.usd || 0, billed_to: ai?.billed_to || '',
-    kit: withKit, todo: (summary.todo || []).slice(0, 8), trace: summary.trace || [], snapshots: snapshots || {}, debug: {...debug, aiUsd: ai?.usd || 0}})})
-    .then(logged => logged?.url && chrome.storage.session.set({[`run:${tab.id}`]: logged.url})).catch(() => {});
-  armRecordUpdate(tab.id, {page: tab.url, trace: summary.trace || [], resumeName: (me?.resume || config.resume)?.name || '', inPage, decide});   // the record was sent: a box the page empties after this and the retype types again updates it once (ladder/record-update.js)
+    kit: withKit, todo: (summary.todo || []).slice(0, 8), trace: summary.trace || [], snapshots: snapshots || {}, debug: {...debug, aiUsd: ai?.usd || 0}};
+  const logged = api(config, '/extension/run', {method: 'POST', body: JSON.stringify(runBody)})
+    .then(done => { if (done?.url) chrome.storage.session.set({[`run:${tab.id}`]: done.url}); return done; }).catch(() => null);
+  // The record was sent: a box the page empties after this and the retype types again updates it once (ladder/record-update.js): the log line, and that run's row when the store gave an id.
+  let sentTrace = runBody.trace;
+  armRecordUpdate(tab.id, {page: tab.url, trace: sentTrace, resumeName: (me?.resume || config.resume)?.name || '', inPage, decide, onUpdate: async next => {
+    const id = (await logged)?.id, before = sentTrace; sentTrace = next;
+    if (id) api(config, '/extension/run', {method: 'POST', body: JSON.stringify(runUpdateBody({...runBody, snapshots: {}}, before, next, String(id)))}).catch(() => {});
+  }});
   return {...summary, usd: ai?.usd, aiError, coverLetter: ai?.cover_letter, ...verdictFields({ai, askedAnyway, kit: withKit || kitSkips, checkOff: config.checkEligibility === false})};
 }

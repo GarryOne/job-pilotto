@@ -34,6 +34,7 @@ export async function startRealExtension({extensionDir = EXTENSION_DIR, cv = tru
   }
   const requests = [];
   const answers = {'/extension/pair': () => ({url: `http://127.0.0.1:${port}`, token: 'e2e'}),
+    '/extension/run': () => ({ok: true, id: 'e2e-run'}),   // the app's store answers with the run's id: the extension's record update is sent to that run (extension/ladder/record-update.js)
     '/extension/me': () => ({contact, contactSource: 'e2e', ...(cv ? {resume: pdf('cv.pdf')} : {}), ...(letter ? {coverLetterFile: pdf('letter.pdf')} : {})})};
   const stub = appPort ? null : http.createServer((request, response) => {
     const headers = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Content-Type': 'application/json'};

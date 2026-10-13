@@ -11,11 +11,12 @@
   <button type="submit">Submit Application</button>
 </form>
 <script>
-// The page's own "autofill from resume": once a file is chosen it empties the name and link boxes after 2.5 s and keeps them read-only while it works, until 10 s after the upload
-// (a slow reader): the fill's record is read while they are empty. They are typable again after that (the retype watcher then types them, page/browser-form-fastpath.js).
-const boxes = () => ['first_name', 'last_name', 'profile_link'].map(id => document.getElementById(id));
+// The page's own "autofill from resume": the moment a file is chosen it empties the name boxes and keeps them read-only while it works, until 10 s after the upload (a slow
+// reader). The fill's record is therefore always read while they are empty, however fast the fill; they are typable again after that (the retype watcher then types them,
+// page/browser-form-fastpath.js).
+const boxes = () => ['first_name', 'last_name'].map(id => document.getElementById(id));
 document.getElementById('resume').addEventListener('change', () => {
-  setTimeout(() => { for (const box of boxes()) { box.value = ''; box.readOnly = true; } }, 2500);
+  for (const box of boxes()) { box.value = ''; box.readOnly = true; }
   setTimeout(() => { for (const box of boxes()) box.readOnly = false; }, 10000);
 });
 </script></body></html>

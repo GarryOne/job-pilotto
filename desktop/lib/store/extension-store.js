@@ -23,5 +23,15 @@ export function extensionStore(storage, {call = engine.call} = {}) {
       const made = await store('agent_runs', 'add', {run: runRecord(run, job || {})});
       return {ok: true, id: made?.id || null};
     },
+    // The same run's row corrected (the record after a late retype): what changed is what a fill's end says; the row's own job, company and start stay (agent_runs.update replaces
+    // the `fields` column, so the row's own values are read and kept). A row that is gone is no update, never a new row.
+    async updateRun(run) {
+      const id = String(run.update), was = await store('agent_runs', 'get', {run_id: id});
+      if (!was) return {ok: false, skipped: true};
+      const {outcome, learnings, fields} = runRecord(run, {});
+      const {job, company, started, ...changed} = fields;
+      await store('agent_runs', 'update', {run_id: id, fields: {outcome, learnings, fields: {...(was.fields || {}), ...changed}}});
+      return {ok: true, id};
+    },
   };
 }

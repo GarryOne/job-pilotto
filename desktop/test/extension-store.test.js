@@ -27,15 +27,17 @@ function notionEnv() {
   return {env: {EXTENSION_TOKEN: 't', NOTION_TOKEN: 'n', NOTION_APPLICATIONS_DB: 'apps', NOTION_AGENT_RUNS_DB: 'runs', notionCall}, pages};
 }
 function storeEnv() {
-  const added = [];
+  const added = [], updated = [];
   const call = async (_, entity, method, kwargs) => {
     if (entity === 'applications' && method === 'get') return kwargs.url === URL_ ? {id: 'a1', url: URL_, title: 'SRE', company: 'Acme', stage: 'Kit ready'} : null;
     if (entity === 'applications' && method === 'list') return [];
     if (entity === 'applications' && method === 'section') return kwargs.name === KIT_SECTION ? `## ${KIT_SECTION}\n\n\`\`\`json\n${JSON.stringify(KIT)}\n\`\`\`\n` : null;
     if (entity === 'agent_runs' && method === 'add') { added.push(kwargs.run); return {id: 'r1', ...kwargs.run}; }
+    if (entity === 'agent_runs' && method === 'get') return kwargs.run_id === 'r1' ? {id: 'r1', fields: {job: 'SRE', company: 'Acme', started: RUN.started, field_count: 12}} : null;
+    if (entity === 'agent_runs' && method === 'update') { updated.push(kwargs); return {id: kwargs.run_id}; }
     throw new Error(`unexpected ${entity}.${method}`);
   };
-  return {env: {EXTENSION_TOKEN: 't', store: extensionStore({}, {call})}, added};
+  return {env: {EXTENSION_TOKEN: 't', store: extensionStore({}, {call})}, added, updated};
 }
 const ask = (env, path, body) => handleExtension(new Request(`http://127.0.0.1/extension/${path}`, body
   ? {method: 'POST', headers: {Authorization: 'Bearer t', 'Content-Type': 'application/json'}, body: JSON.stringify(body)}
@@ -80,4 +82,30 @@ test('the shared kit sample reads the same in JS as in Python (tests/fixtures/st
   assert.equal(kit.version, 1);
   assert.equal(kit.url, 'https://jobs.example.com/sre-1');
   assert.equal(kit.answers[1].needs_review, true);
+});
+
+// The record update (extension/ladder/record-update.js): a box the page emptied after the record was sent and the retype typed again corrects THAT run's row, through the store
+// interface (agent_runs.update, every adapter); it never adds a second row, and an update the store cannot place is dropped, never added.
+test('a run update replaces the row of that run (same values as a new row would carry), never adds one', async () => {
+  const mac = storeEnv();
+  const update = {...RUN, update: 'r1', fields: 14, unfilled: 0, trace: [{label: 'First name', required: true, source: 'your details', outcome: 'filled', reason: ''}]};
+  assert.deepEqual(await ask(mac.env, 'run', update), {ok: true, id: 'r1'});
+  assert.equal(mac.added.length, 0, 'no second row');
+  assert.equal(mac.updated.length, 1);
+  const [{run_id: id, fields}] = mac.updated, row = {...fields, fields: {...fields.fields}};
+  assert.equal(id, 'r1');
+  assert.deepEqual([fields.outcome, fields.fields.field_count, fields.fields.unfilled_required, fields.fields.status], ['Ready', 14, 0, 'Ready']);
+  assert.equal(fields.fields.data.fields[0].outcome, 'filled');
+  assert.equal(row.url, undefined, 'the url never changes');
+  assert.deepEqual([fields.fields.job, fields.fields.company, fields.fields.started], ['SRE', 'Acme', RUN.started], 'the row keeps its own job, company and start');
+});
+
+test('an update with no store to place it (the Cloudflare worker) is skipped: no row is added', async () => {
+  const notion = notionEnv();
+  assert.deepEqual(await ask(notion.env, 'run', {...RUN, update: 'r1'}), {ok: false, skipped: true});
+  assert.equal(notion.pages.length, 0);
+  assert.equal((await ask(storeEnv().env, 'run', {...RUN, update: 7})).skipped, true, 'an id that is not a plain id is no update');
+  const gone = storeEnv();
+  assert.deepEqual(await ask(gone.env, 'run', {...RUN, update: 'zz'}), {ok: false, skipped: true});   // the row is gone: no update, no new row
+  assert.deepEqual([gone.added.length, gone.updated.length], [0, 0]);
 });
