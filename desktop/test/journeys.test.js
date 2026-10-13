@@ -16,6 +16,8 @@ import path from 'node:path';
 import {decidePageKind} from '../lib/server-pages.js';
 import {resolveSession} from '../lib/journey-identity.js';
 import * as pipeline from '../lib/pipeline.js';
+import * as questions from '../lib/questions.js';
+import {createStorage} from '../lib/storage.js';
 import {sharedRead} from '../lib/shared-read.js';
 import {endingOf} from '../e2e/lib/ending.mjs';
 import {stopsOf} from '../e2e/lib/pool-shadow.mjs';
@@ -357,3 +359,14 @@ test('scenario: the person presses Stop mid-application (an account page, a fill
   assert.equal(terminals.get('f2').stuck, 'stopped', 'only the reopened one starts');
 });
 
+
+test('scenario: a sign-up fill leaves Captcha, Your password and Repeat Password unanswered: none becomes an "Answer once" question, a real one still does (13 Oct 2026)', async () => {
+  const storage = createStorage(path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jp-')), 'x'), {encrypt: v => v, decrypt: v => v});
+  storage.setSecret('NOTION_TOKEN', 'ntn');
+  storage.saveSettings({notionIds: {NOTION_PROFILE_PAGE_ID: 'profile', NOTION_ANSWERS_PAGE_ID: 'answers'}, telemetry: false});
+  const added = [];
+  const fetcher = async (url, init = {}) => { if (init.method === 'PATCH') added.push(JSON.parse(init.body)); return {ok: true, json: async () => ({results: [], has_more: false})}; };
+  const trace = ['Captcha', 'Your password', 'Repeat Password', 'Visa sponsorship?'].map(label => ({required: true, reason: questions.NO_ANSWER, label}));
+  assert.equal(await questions.collect(storage, {trace}, 'Move UP SA', fetcher), 1);
+  assert.doesNotMatch(JSON.stringify(added), /captcha|password/i);
+});
