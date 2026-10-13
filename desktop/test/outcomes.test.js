@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {DAY_BUCKETS, OUTCOMES, STAGES, anonymous, daysBucket} from '../lib/outcomes.js';
-import {outcomeChoices} from '../renderer/outcome-tap.js';
+import {outcomeChoices, reopenable} from '../renderer/outcome-tap.js';
 
 const NOW = Date.parse('2026-10-20T12:00:00Z');
 
@@ -55,4 +55,9 @@ test('job boards and aggregators are source kinds of their own, with jobs scored
   const out = sourceStats([{host: 'www.arbeitnow.com', seen: 4, good: 2, hours: [30, 10, 50]}, {host: 'www.jobs.ch', seen: 3, good: 1, hours: [5]},
     {host: 'jobicy.com', seen: 1}, {host: 'recruitingapp-2824.umantis.com', seen: 2}], boardName);
   assert.deepEqual(out.map(o => [o.board, o.good, o.hours]), [['arbeitnow', 2, 30], ['jobsch', 1, 5], ['jobicy', 0, null], ['umantis', 0, null]]);
+});
+
+test('every closed stage can be reopened, and no other stage offers it', () => {
+  for (const stage of ['Rejected', 'Withdrawn', 'No response']) assert.equal(reopenable(stage), true, stage);
+  for (const stage of ['Saved', 'Kit ready', 'Applying', 'Applied', 'Confirmation received', 'Screening', 'Interviewing', 'Offer', 'Closed', 'Dismissed', '']) assert.equal(reopenable(stage), false, stage);
 });

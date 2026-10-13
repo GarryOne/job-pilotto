@@ -50,6 +50,12 @@ class RulesCase:
             self.assertEqual(rules.mark(self.s, JOB, soft)[1], base.UNCHANGED, soft)
         self.assertEqual(self.s.applications.get(JOB['url'])['applied_on'], '2026-10-09')
 
+    def test_a_closed_application_can_be_reopened_to_applied(self):
+        for closed in ('Rejected', 'Withdrawn', 'No response'):   # the app's Reopen action (desktop/renderer/outcome-tap.js)
+            self.s.applications.set_stage(JOB, closed, '2026-10-09')
+            row, outcome = rules.mark(self.s, JOB, 'Applied')
+            self.assertEqual((outcome, row['stage']), (rules.UPDATED, 'Applied'), closed)
+
     def test_kit_ready_lands_only_on_a_new_row_and_a_star_can_still_be_dismissed(self):
         rules.mark(self.s, JOB, 'Saved')
         self.assertEqual(rules.mark(self.s, JOB, 'Kit ready')[1], base.UNCHANGED)
