@@ -41,5 +41,8 @@
   ],
   "maxNewTabs": 0,
   "seconds": 45
+ },
+ "control": {
+  "guard": "new case 13 Oct 2026, a pin: fails on #622's build (the site script's click was muted as the extension's own: told 'submit pressed' missing), passes on main before #622 and on the marked-press fix"
  }
 }
