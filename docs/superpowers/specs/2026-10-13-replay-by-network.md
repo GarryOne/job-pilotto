@@ -173,6 +173,21 @@ First party = a host whose registrable domain (public suffix list) served a docu
 - Cost: ~$0.06 a row in AI (pool measured $0.056) ≈ **$0.17**, and 3 of the per-site daily visits (2 a day a host).
 - Measures: real size a row, not-recorded and loose counts, asks hit against control run 2 (3 of 4).
 
+## Prototype results (13 Oct 2026, $0, a fixture site, the real extension)
+
+Fixture: React 18 + react-dropzone 14 (vendored); a CV upload → the site's parse → file chip, autofill, a new question, the name boxes redrawn at +2.5 s and +7 s.
+
+| Run | Chip + new question | Site timeline (+2.5 / +7.0 s) | Requests not recorded | Memo misses |
+|---|---|---|---|---|
+| Snapshot replay (today) | ❌ | ❌ | | |
+| Network replay, stub app (P0, ×5 + slow) | ✅ 6/6 | | 0 | (not measured) |
+| Network replay, offline app + memo (P0b, ×3 + no clock + slow) | ✅ 5/5 | ✅ exact 5/5, with or without `clock.install` | 0 (12 exact, 3 normalised) | 6, 8, 6, 8; **2 under --slow** |
+
+- **The page side works:** the site's own script redraws from the record at the live times, every run. Today's replay fails the same fixture (positive control).
+- **The rest is pace, not page:** the misses are asks live never made at that moment (repair, closer look, account judgment). Offline, the extension's first pass ended at +13 s vs +48 s live; slowing the replay cut misses 6-8 → 2.
+- **Live is not deterministic either:** two live runs of the fixture differed ("Why" filled vs empty; 36 vs 29 asks; a 2nd page-kind ask in one only).
+  So "matches live" means: **(a) every ask the live run made hits**, and **(b) the asks a replay adds stay within live-vs-live's own spread**, measured on 2 live runs. Never one merged number.
+
 ## Build PRs (after the owner's yes)
 - **PR 0:** the scrollbar width recorded at capture and forced in the replay (cause 3). Independent of A/B/C.
 - **PR 1:** the network recorder (replaces `cssRecorder`), the body store, scrub and tripwires, the encrypted CI part (decision 1).
@@ -185,7 +200,8 @@ First party = a host whose registrable domain (public suffix list) served a docu
 - [x] History read; options A, B, C compared; B chosen (proof: none: this spec)
 - [ ] cc's review
 - [ ] The owner's yes, and decision 1 (where CI's record lives)
-- [ ] P0: fixture site recorded and replayed; pass criteria above
+- [x] P0 + P0b: fixture site recorded and replayed; page side passes, pace open (proof: docs/superpowers/specs/2026-10-13-replay-by-network.md)
+- [ ] P0c: replay the app's own route latencies; bar (a) all live asks hit, (b) extra asks within live-vs-live spread
 - [ ] P1: three real upload rows (owner's yes for $0.17 and 3 visits)
 - [ ] PRs 0-3 landed; "unverified" lifted
 - [ ] When the positive control passes: the skills fix-failing-forms and run-applying-smoke-pool say "measure offline first" again (today: "measure is unverified, measure live")
