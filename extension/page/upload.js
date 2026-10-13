@@ -45,7 +45,7 @@
       const hints = slot.input ? `${slot.input.getAttribute('aria-label') || ''} ${slot.input.name || ''} ${slot.input.id || ''}` : '';
       // Holds a file: the one reading (page/read-back.js): the input's file, or a file name the slot shows; this extension's own mark alone is not a file (one truth with the panel).
       const holds = slot.input ? window.__jobPilottoReadBack?.fileState(slot.input) === 'committed'
-        : !!slot.el.dataset.jobpilottoFile && textOf(slot.el).includes(slot.el.dataset.jobpilottoFile);   // a slot that is only a button: it shows the file we attached
+        : [slot.el.dataset.jobpilottoFile, ...(window.__jobPilottoAttached || [])].some(name => !!name && textOf(slot.el).includes(name));   // a slot that is only a button: it shows a file we attached (by name: the page may have redrawn the field and lost our mark on it)
       return {...slot, title: title.slice(0, 160), hints, fp: fingerprintOf(slot.el), filled: holds,
         required: /\*/.test(title) || !!slot.input?.required || slot.input?.getAttribute('aria-required') === 'true' || slot.trigger?.getAttribute('aria-required') === 'true'};
     });
@@ -142,6 +142,7 @@
     input.files = transfer.files;
     input.dataset.jobPilottoFile = file.name;
     slot.el.dataset.jobpilottoFile = file.name;
+    (window.__jobPilottoAttached ||= new Set()).add(file.name);   // by name, for a field the page redraws (the mark above is lost with the element)
     input.dispatchEvent(new Event('input', {bubbles: true}));
     input.dispatchEvent(new Event('change', {bubbles: true}));
     await sleep(revealed ? 800 : 150);
@@ -172,6 +173,8 @@
       if (!meaning) { results.push({...base, why: 'wording unknown'}); continue; }
       if (!file?.data) { results.push({...base, why: 'no file for it'}); continue; }
       if (given.has(meaning)) { results.push({...base, why: 'already given through another slot'}); continue; }
+      // A slot of buttons only that already shows a file (the chip a page draws after an attach): its button is the remove button, never pressed again (a second pass found "no place to attach it").
+      if (!slot.input && slot.filled) { given.add(meaning); results.push({...base, ok: true, why: 'already holds a file'}); continue; }
       // A file input on the page already holds a file (the person chose one, or an earlier pass attached it) and belongs to this meaning or to no known one: a trigger is NOT pressed again,
       // since pressing it opens the system's file dialog over the person's page (owner, 9 Oct 2026: "I uploaded the CV, but then it opened again").
       if (!slot.input && all.some(item => item.input?.files?.length && (named(item, aliases, all) || meaning) === meaning)) { given.add(meaning); results.push({...base, ok: true, why: 'already holds a file'}); continue; }

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Application: Example role</title>
+<style>body{font:15px system-ui;margin:24px;max-width:640px} .field{margin:14px 0} .label{display:block;font-weight:600;margin-bottom:4px} .req{color:#c00} button{margin:2px 4px 2px 0;padding:6px 12px} .chip{display:flex;gap:8px;align-items:center;padding:6px 8px;border:1px solid #ccc;width:fit-content} .hint{color:#666;font-size:13px}</style></head><body>
+<h1>Apply for this job</h1>
+<!-- Recorded case upload-buttons-replaced-by-chip-1: a file field that is three buttons (Attach, Dropbox, Enter manually) and no input until Attach is pressed; the page makes its own hidden input, takes the file from it, removes the input, and
+     replaces the whole field's content with a chip (file name and a remove button). The shape of a hosted application form's resume field, rebuilt small. Hand-made, no real site, no personal data. -->
+<form id="application" onsubmit="return false">
+<div class="field"><label class="label" for="first_name">First Name <span class="req">*</span></label><input id="first_name" name="first_name" required></div>
+<div class="field"><label class="label" for="last_name">Last Name <span class="req">*</span></label><input id="last_name" name="last_name" required></div>
+<div class="field"><label class="label" for="email">Email <span class="req">*</span></label><input id="email" name="email" type="email" required></div>
+<div class="field" id="resume-field">
+  <div class="label" id="resume-label">Resume/CV <span class="req">*</span></div>
+  <div class="upload" role="group" aria-labelledby="resume-label" data-kind="resume">
+    <div class="actions"><button type="button" data-act="attach">Attach</button><button type="button" data-act="dropbox">Dropbox</button><button type="button" data-act="manual">Enter manually</button></div>
+    <div class="hint">Accepted file types: pdf, doc, docx, txt, rtf</div>
+  </div>
+</div>
+<div class="field" id="cover-field">
+  <div class="label" id="cover-label">Cover Letter</div>
+  <div class="upload" role="group" aria-labelledby="cover-label" data-kind="cover">
+    <div class="actions"><button type="button" data-act="attach">Attach</button><button type="button" data-act="dropbox">Dropbox</button><button type="button" data-act="manual">Enter manually</button></div>
+    <div class="hint">Accepted file types: pdf, doc, docx, txt, rtf</div>
+  </div>
+</div>
+</form>
+<script>
+// Attach: the page makes its own file input, takes the file from its change event, drops the input, and draws a chip where the buttons were.
+document.addEventListener('click', event => {
+  const attach = event.target.closest('button[data-act=attach]');
+  if (!attach) return;
+  const box = attach.closest('.upload');
+  const input = document.createElement('input');
+  input.type = 'file'; input.hidden = true; input.accept = '.pdf,.doc,.docx,.txt,.rtf';
+  document.body.append(input);
+  input.addEventListener('change', () => {
+    const file = input.files[0];
+    input.remove();
+    if (!file) return;
+    box.innerHTML = '';
+    const chip = document.createElement('div'); chip.className = 'chip file-chip';
+    chip.innerHTML = '<span class="name"></span><button type="button" class="remove" aria-label="Remove file">&times;</button>';
+    chip.querySelector('.name').textContent = file.name;
+    box.append(chip);
+  });
+  input.click();
+});
+</script>
+</body></html>

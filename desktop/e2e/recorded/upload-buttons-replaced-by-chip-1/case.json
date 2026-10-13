@@ -1,0 +1,44 @@
+{
+ "shape": "a resume field that is three buttons (Attach, Dropbox, Enter manually) and no file input until Attach is pressed: the page makes its own input, takes the file, removes the input and replaces the buttons with a chip (the file's name and a remove button)",
+ "origin": "hand-cut",
+ "why": "13 Oct 2026, measuring run 38377619987 / 38377636685: the CV was attached (the page showed the chip, the panel said 5 of 13) yet the fill record kept two required rows for the one slot: a file row 'no file for this question' and an unread question row. 3 of 5 rows (6 of 58 left fields) were false lefts.",
+ "control": {
+  "build": "0.9.456",
+  "failed": "agreement: the fill record leaves 0 required, the panel 1 (the field's title read as an unread question); a second pass pressed the chip's remove button (CV left: no place to attach it was found)"
+ },
+ "sample": "a hosted application form's resume field (Attach / Dropbox / Enter manually, then a file chip), rebuilt small",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/upload-buttons-chip/apply",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  }
+ },
+ "expect": {
+  "present": [
+   ".file-chip"
+  ],
+  "traced": [
+   "CV:filled"
+  ],
+  "notTold": [
+   "pressed the submit",
+   "no place to attach it was found"
+  ],
+  "seconds": 40
+ },
+ "start": "panel"
+}
