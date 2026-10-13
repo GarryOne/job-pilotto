@@ -27,7 +27,7 @@ test('a stop after the first pass logs the fields that pass filled', () => {
   const stops = [...flow.matchAll(/return \{([^}]*)ineligible: true([^}]*)\}/g)];
   for (const [whole] of stops.filter(([whole]) => /partly: true/.test(whole))) assert.match(whole, /^return \{\.\.\.summary, /, `a partly stop without the first pass's rows: ${whole}`);
   assert.ok(stops.some(([whole]) => /partly: true/.test(whole)), 'the partly stop is found');
-  const logged = background.indexOf('const fields = loggedFields(result.trace)'), told = background.indexOf("decide('fill', result.ineligible ?");
+  const logged = background.indexOf('logFieldsLine(decide, result.trace'), told = background.indexOf("decide('fill', result.ineligible ?");
   assert.ok(told > 0 && logged > told, 'background.js logs the fields after the stop too, from result.trace');
 });
 
