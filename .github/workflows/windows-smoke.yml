@@ -25,6 +25,8 @@ jobs:
         shell: bash   # `npm test` globs test/*.test.js, which pwsh would hand to node unexpanded
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # stage.mjs counts the extension's commits for its version (desktop/scripts/extension-stamp.mjs)
       - uses: actions/setup-node@v5
         with:
           node-version: '22'

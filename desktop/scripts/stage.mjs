@@ -9,6 +9,7 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {forBuild, stamp} from './extension-stamp.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const desktop = path.resolve(here, '..');
@@ -48,6 +49,10 @@ if (process.argv.includes('--app')) {
   fs.rmSync(pilot, {recursive: true, force: true});
   fs.mkdirSync(pilot, {recursive: true});
   for (const item of ['src', 'config', 'tools', 'extension', 'templates', 'requirements.txt', 'requirements-transcribe.txt']) copy(item, path.join(pilot, item));
+  // The extension's version is stamped here, never in a PR (scripts/extension-stamp.mjs): a shallow clone without EXTENSION_VERSION fails the build.
+  const extensionVersion = forBuild();
+  stamp(path.join(pilot, 'extension'), extensionVersion);
+  console.log(`Extension version ${extensionVersion}`);
   for (const doc of ['notion-profile-template.md', 'job-pilotto-guide.md']) copy(`docs/${doc}`, path.join(pilot, 'docs', doc));
   // The skill Apply with Claude sessions follow: they start in this folder, where Claude Code finds .claude/skills.
   copy('.claude/skills/apply-to-job', path.join(pilot, '.claude', 'skills', 'apply-to-job'));

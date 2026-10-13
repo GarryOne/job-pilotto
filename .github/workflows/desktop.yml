@@ -56,6 +56,7 @@ jobs:
     outputs:
       build: ${{ steps.diff.outputs.build }}
       version: ${{ steps.version.outputs.version }}     # the release both lanes add their files to
+      extension_version: ${{ steps.version.outputs.extension_version }}   # stamped into the app's extension copy (desktop/scripts/extension-stamp.mjs): counted here, on the full clone
       released: ${{ steps.release.outputs.released }}
       gate: ${{ steps.plan.outputs.gate }}                 # a nightly or a beta by hand that released: both lanes test it
       mac_matrix: ${{ steps.plan.outputs.matrix }}
@@ -119,6 +120,9 @@ jobs:
           version=$(scripts/next-version.sh)
           echo "Releasing $version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          extension=$(node scripts/extension-stamp.mjs)
+          echo "Extension version $extension"
+          echo "extension_version=$extension" >> "$GITHUB_OUTPUT"
       - name: Tag this build now (its workflows still match main's)
         if: steps.diff.outputs.build == 'true'
         # GitHub refuses (HTTP 403) to let this run's token create a tag on a commit whose workflow files differ from main's. Tagged here, at the
@@ -220,6 +224,7 @@ jobs:
     timeout-minutes: 30
     env:
       VERSION: ${{ needs.changes.outputs.version }}
+      EXTENSION_VERSION: ${{ needs.changes.outputs.extension_version }}   # the build checkouts are shallow: stage.mjs refuses to count there
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -319,6 +324,7 @@ jobs:
         shell: bash
     env:
       VERSION: ${{ needs.changes.outputs.version }}
+      EXTENSION_VERSION: ${{ needs.changes.outputs.extension_version }}   # the build checkouts are shallow: stage.mjs refuses to count there
     steps:
       # Windows Defender scans every file the install and the build write; excluding the working folders takes the installer from ~75 s down (owner, 10 Oct 2026:
       # "no build over 3-4 minutes"). Never fails the build: without it the build is only slower.

@@ -359,6 +359,19 @@ if __name__ == '__main__':
     unittest.main()
 
 
+class ExtensionVersionAtATag(unittest.TestCase):
+    """The stamped extension version of a build (desktop/scripts/extension-stamp.mjs) = base + the extension's commit count at its tag."""
+
+    def test_the_count_is_the_last_page_of_a_one_per_page_listing(self):
+        head = ('HTTP/2.0 200 OK\r\nLink: <https://api.github.com/repositories/1/commits?sha=t&path=extension&per_page=1&page=2>; rel="next", '
+                '<https://api.github.com/repositories/1/commits?sha=t&path=extension&per_page=1&page=431>; rel="last"\r\n\r\n[{"sha": "a"}]')
+        self.assertEqual(canary.commit_count(head), 431)
+
+    def test_one_commit_has_no_link_and_none_has_an_empty_list(self):
+        self.assertEqual(canary.commit_count('HTTP/2.0 200 OK\r\n\r\n[{"sha": "a"}]'), 1)
+        self.assertEqual(canary.commit_count('HTTP/2.0 200 OK\r\n\r\n[]'), 0)
+
+
 class SoakOnlyApprovedTests(unittest.TestCase):
     def test_the_approved_build_is_the_candidate_not_an_older_one_that_failed_its_gate(self):
         releases = [release(3, 100, pre=False, latest=True), release(4, 60), release(5, 50)]
