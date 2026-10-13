@@ -59,7 +59,7 @@ async function clickCombosNow(tabId) {
   };
   const choose = async ({label, asked, choices}) => {
     const config = await settings().catch(() => null);
-    return config ? (await api(config, '/extension/pick-choice', {method: 'POST', body: JSON.stringify({label, value: asked, options: choices})}).catch(() => null))?.choice || '' : '';
+    return config ? (await apiFor(tabId, config, '/extension/pick-choice', {method: 'POST', body: JSON.stringify({label, value: asked, options: choices})}).catch(() => null))?.choice || '' : '';
   };
   let skip = 0;
   try {
@@ -115,10 +115,12 @@ export async function pair() {
 
 // A call to the app (or your own Worker). The app's token changes when it's reinstalled, reset or switched to
 // another Notion workspace: a 401 from the app reconnects once and retries, so the user never has to.
-export async function api(config, path, init = {}, retry = true) {
-  askStarted();   // the silent dead-end clock stands still while an ask is out (ladder/silence.js)
-  try { return await apiCall(config, path, init, retry); } finally { askEnded(); }
+// tabId: the tab whose silent dead-end clock stands still while this ask is out (ladder/silence.js); none: a tab-less ask pauses nothing. Use apiFor on the fill path.
+export async function api(config, path, init = {}, retry = true, tabId = null) {
+  const ask = askStarted(tabId);
+  try { return await apiCall(config, path, init, retry); } finally { askEnded(ask); }
 }
+export const apiFor = (tabId, config, path, init = {}) => api(config, path, init, true, tabId);
 async function apiCall(config, path, init, retry) {
   if (usesApp(config) && !config.token) Object.assign(config, await pair());
   const response = await fetch(`${config.workerUrl.replace(/\/$/, '')}${path}`, {
@@ -170,20 +172,20 @@ async function openQuestions(tab, form, kitAnswers, me, config) {
     !PERSONAL.test(f.field)).map(({field, label, type, required, options}) => ({field, label, type, required, options}));
   return {fromKit, open};
 }
-const askAnswers = async (tab, config, open) => api(config, '/extension/answer', {method: 'POST',
+const askAnswers = async (tab, config, open) => apiFor(tab.id, config, '/extension/answer', {method: 'POST',
   body: JSON.stringify({url: tab.url, fields: open, page_text: await inPage(tab.id, () => window.__jobPilottoPageText()), test: !!config.testMode})});
 // A page that already shows a form (fill-flow.js consider): its open questions go to the AI now, beside the page-kind ask; the fill takes the answer
 // if this page is filled as a form with the same questions (early-answers.js). Not with a kit (Claude answers after that fill) or a cached answer.
 export async function askEarly(tab, config, jobUrl = '') {
   if (hasEarly(tab.id, tab.url) || await cachedAI(tab)) return false;
   const job = (jobUrl || tab.url).split('#')[0];
-  const [kit, me] = await Promise.all([api(config, `/extension/kit?url=${encodeURIComponent(job)}`).catch(() => ({})),
-    api(config, `/extension/me?url=${encodeURIComponent(job)}`).catch(() => null)]);
+  const [kit, me] = await Promise.all([apiFor(tab.id, config, `/extension/kit?url=${encodeURIComponent(job)}`).catch(() => ({})),
+    apiFor(tab.id, config, `/extension/me?url=${encodeURIComponent(job)}`).catch(() => null)]);
   if (kitStance({kitAnswers: kit?.kit?.answers || [], hasKit: !!kit?.kit}).withKit) return false;
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', func: () => { window.__jobPilottoNoGuard = true; }});
   await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', files: PAGE_FILES});
   try {   // the label meanings, as the fill loads them, so both read the form alike
-    const packs = await api(config, '/extension/aliases', {method: 'POST', body: '{}'});
+    const packs = await apiFor(tab.id, config, '/extension/aliases', {method: 'POST', body: '{}'});
     await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', args: [Array.isArray(packs?.aliases) ? packs.aliases.slice(0, 2000) : []], func: aliases => { window.__jobPilottoAliases = aliases; }});
   } catch { /* aliases are a bonus */ }
   const {open} = await openQuestions(tab, await readForm(tab), [], me, config);
@@ -202,7 +204,7 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   let kitSkips = false;
   const job = (jobUrl || tab.url).split('#')[0];
   chrome.storage.session.set({[KEY.job(tab.id)]: job, [KEY.from(tab.id)]: job});
-  const event = (type, extra = {}) => api(config, '/extension/event', {method: 'POST',
+  const event = (type, extra = {}) => apiFor(tab.id, config, '/extension/event', {method: 'POST',
     body: JSON.stringify({type, url: job, ...extra})}).catch(() => {});
   event('fill-started');
   // A kit exists for this job (drafted when it was prepared, its eligibility already judged) even when none of its answers
@@ -229,28 +231,28 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
     const prints = await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', func: () => window.__jobPilottoControls?.fingerprints?.() || []})
       .then(rows => rows?.[0]?.result || []);
     if (prints.length) {
-      const found = await api(config, '/extension/recipes', {method: 'POST', body: JSON.stringify({fingerprints: prints})});
+      const found = await apiFor(tab.id, config, '/extension/recipes', {method: 'POST', body: JSON.stringify({fingerprints: prints})});
       await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', args: [found?.recipes || {}], func: recipes => { window.__jobPilottoRecipes = recipes; }});
     }
   } catch { /* recipes are a bonus: the operators work without them */ }
   // Label meanings from the service (extension/alias-schema.js), asked of the app which asks the site and remembers: the filler uses them
   // only for a question no built-in pattern placed. No answer, and the built-in patterns work as before.
   try {
-    const packs = await api(config, '/extension/aliases', {method: 'POST', body: '{}'});
+    const packs = await apiFor(tab.id, config, '/extension/aliases', {method: 'POST', body: '{}'});
     await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', args: [Array.isArray(packs?.aliases) ? packs.aliases.slice(0, 2000) : []], func: aliases => { window.__jobPilottoAliases = aliases; }});
   } catch { /* aliases are a bonus */ }
   // Two or more upload slots that could take the CV (the page's own "import my details from my CV" feature has a file input of its own): the app's AI names the one that takes the
   // CV as a document, from their titles, kept (upload-pick.js). No answer: the operator behaves as before. page/upload.js reads window.__jobPilottoUploadChoice.
   try {
     const titles = await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', func: () => window.__jobPilottoUpload?.cvCandidates?.() || []}).then(rows => rows?.[0]?.result || []);
-    const picked = titles.length > 1 ? (await api(config, '/extension/pick-upload', {method: 'POST', body: JSON.stringify({titles})}))?.title : '';
+    const picked = titles.length > 1 ? (await apiFor(tab.id, config, '/extension/pick-upload', {method: 'POST', body: JSON.stringify({titles})}))?.title : '';
     await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', args: [picked || ''], func: title => { window.__jobPilottoUploadChoice = title ? {resume: title} : null; }});
   } catch { /* the choice is a bonus: the operator works without it */ }
   let answers = kitAnswers.map(a => ({field: a.field, value: a.answer, question: a.question, source: 'kit',
     confidence: a.needs_review ? 'low' : 'high', category: a.category || ''}));
   let ai = null, aiError = null, later = [], pendingAI = null;   // pendingAI: Claude's answers on their way while the known fields fill (below)
   // Contact details and CV come from the Job Pilotto app each time (it's the one place they live).
-  const me = early || await api(config, `/extension/me?url=${encodeURIComponent(job)}`).catch(error => {
+  const me = early || await apiFor(tab.id, config, `/extension/me?url=${encodeURIComponent(job)}`).catch(error => {
     // No app or no connection: stop, rather than fill a form without your name and CV.
     if (usesApp(config) && (!error.status || error.status === 401)) throw new Error(error.status ? NOT_CONNECTED : NO_APP);
     debug.errors.push(`details from the app: ${error.message}`);
@@ -429,13 +431,13 @@ export async function fillTab(tab, config, {useAI = true, force = false, kitAnsw
   const runBody = {url: job, started: startedAt.toISOString(),
     ended: new Date().toISOString(), fields: summary.filled || 0, unfilled: summary.unfilledRequired || 0, usd: ai?.usd || 0, billed_to: ai?.billed_to || '',
     kit: withKit, todo: (summary.todo || []).slice(0, 8), trace: summary.trace || [], snapshots: snapshots || {}, debug: {...debug, aiUsd: ai?.usd || 0}};
-  const logged = api(config, '/extension/run', {method: 'POST', body: JSON.stringify(runBody)})
+  const logged = apiFor(tab.id, config, '/extension/run', {method: 'POST', body: JSON.stringify(runBody)})
     .then(done => { if (done?.url) chrome.storage.session.set({[`run:${tab.id}`]: done.url}); return done; }).catch(() => null);
   // The record was sent: a box the page empties after this and the retype types again updates it once (ladder/record-update.js): the log line, and that run's row when the store gave an id.
   let sentTrace = runBody.trace;
   armRecordUpdate(tab.id, {page: tab.url, trace: sentTrace, resumeName: (me?.resume || config.resume)?.name || '', inPage, decide, onUpdate: async next => {
     const id = (await logged)?.id, before = sentTrace; sentTrace = next;
-    if (id) api(config, '/extension/run', {method: 'POST', body: JSON.stringify(runUpdateBody({...runBody, snapshots: {}}, before, next, String(id)))}).catch(() => {});
+    if (id) apiFor(tab.id, config, '/extension/run', {method: 'POST', body: JSON.stringify(runUpdateBody({...runBody, snapshots: {}}, before, next, String(id)))}).catch(() => {});
   }});
   return {...summary, usd: ai?.usd, aiError, coverLetter: ai?.cover_letter, ...verdictFields({ai, askedAnyway, kit: withKit || kitSkips, checkOff: config.checkEligibility === false})};
 }

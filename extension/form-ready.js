@@ -2,7 +2,7 @@
 // everything is filled, the AI reads the page's real state (a consent that is a link, a custom picklist, an error shown) and may say "needs you: <label>"; the worker then sets the page's
 // data-jobpilotto-needs, which the panel shows instead of "Ready". It only ever VETOES a ready claim: it never accepts a consent, never presses Submit, and without AI nothing changes.
 // The answer is kept per tab for the sketch it was given (asked again only when the page changed), one look at a time. Guards: worker/test/form-ready.test.js, desktop/test/form-judge.test.js.
-import {api, settings} from './flow.js';
+import {apiFor, settings} from './flow.js';
 import {decide} from './log.js';
 import {flagAccount} from './account-fill.js';
 import {sketchOf} from './judge-sketch.js';
@@ -44,9 +44,9 @@ export const formNext = (tab, frameId = 0) => askForm(tab, frameId);
 // logged; nothing acts on them. Not awaited: the panel never waits for it. Guard: worker/test/form-ready.test.js.
 export const wantsFillCheck = (sketch, answer) => (sketch?.controls || []).some(item => item.match === 'no')
   || (!!answer?.needs && (sketch?.controls || []).some(item => item.match === 'yes' && item.label === answer.needs));
-function shadowCheck(config, sketch, answer, host) {
+function shadowCheck(tab, config, sketch, answer, host) {
   if (!wantsFillCheck(sketch, answer)) return;
-  api(config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase: 'fill', sketch})}).then(found => {
+  apiFor(tab.id, config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase: 'fill', sketch})}).then(found => {
     if (found?.counts) decide('fill', 'fill check (shadow)', {host, ...found.counts, contradiction: !!answer?.needs});
   }).catch(() => {});
 }
@@ -62,12 +62,12 @@ async function askForm(tab, frameId, again = false) {
     sketch.onTop = await run(tab, frameId, onTop, [], 'MAIN') || null;   // what sits on top of the form, by structure (on-top.js)
     const sig = JSON.stringify([sketch.controls, sketch.buttons, sketch.texts, sketch.frames, sketch.onTop]);
     if (judged.get(tab.id) === sig) return;   // the page is as it was when it was judged: the flag stays as it is
-    const answer = await api(config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase: 'form', sketch})}).catch(() => null);
+    const answer = await apiFor(tab.id, config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase: 'form', sketch})}).catch(() => null);
     if (!answer?.answer) return;   // no AI or no answer: the panel keeps its own count
     judged.set(tab.id, sig);
     let host = ''; try { host = new URL(tab.url).hostname; } catch { /* no address */ }
     decide('panel', `application form ready?: ${answer.answer}`, {host, step: answer.step || '', ...(answer.answer === 'blocked' ? {blocked: answer.blockedKind || 'overlay'} : {}), ...(answer.needs ? {needs: answer.needs.slice(0, 60), seen: sketch.controls.filter(item => item.required).map(item => `${item.type}:${item.state}`).join(',').slice(0, 120)} : {})});   // seen: what the AI was shown of the required controls (types and states, never labels or values)
-    shadowCheck(config, sketch, answer, host);   // the fill ladder's fill_verify, logged only (below)
+    shadowCheck(tab, config, sketch, answer, host);   // the fill ladder's fill_verify, logged only (below)
     if (handedToPerson(answer)) endSilence(tab.id);   // handed to the person: Submit or their choice is next (ladder/silence.js)
     await run(tab, frameId, flagAccount, [answer.answer === 'blocked' ? blockedWords(answer.blockedKind) : answer.answer === 'needs_person' ? answer.needs || '' : null]);
     if (answer.answer === 'blocked') decide('fill', `the page is blocked after the fill: ${answer.blockedKind || 'overlay'}`, {host});   // the fill log and the smoke verdict read this line

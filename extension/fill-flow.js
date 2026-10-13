@@ -8,7 +8,7 @@
 //  2. A popup is closed before the page is read, and a link that leaves the page is never pressed (fdd9638; worker/test/visit-consent.test.js, worker/test/popup-page.test.js).
 //  3. A fill that put nothing in climbs the closer-look ladder, then reports 'incomplete', kept until something is filled (c1a2fcc; desktop/test/session-flow.test.js).
 //  4. After a fill the AI is asked what the page needs next; a middle step's Next is pressed under the Submit floors, Submit never (worker/test/form-ready.test.js).
-import {PAGE_FILES, api, askEarly, clickCombos, settings} from './flow.js';
+import {PAGE_FILES, apiFor, askEarly, clickCombos, settings} from './flow.js';
 import {decide} from './log.js';
 import {noteRole} from './account.js';
 import {expandSections} from './sections.js';
@@ -81,7 +81,7 @@ async function forgetKind(tab, kind, reason) {
   try {
     const config = await settings();
     if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return;
-    await api(config, '/extension/page-kind', {method: 'POST', body: JSON.stringify({forget: true, reason, kind: kind?.kind || '', url: tab.url.split('#')[0], ...(sketch || {})})});
+    await apiFor(tab.id, config, '/extension/page-kind', {method: 'POST', body: JSON.stringify({forget: true, reason, kind: kind?.kind || '', url: tab.url.split('#')[0], ...(sketch || {})})});
   } catch { /* the app is closed: asked again once it is back */ }
 }
 // What the person sees while the app waits for the AI (the panel's step line; nothing is drawn when the tab has no panel yet). Never throws.
@@ -98,7 +98,7 @@ export async function askKind(tab, {fresh = false, digest = false, shadow = fals
   try {
     const config = await settings();
     if (config.workerUrl && !config.workerUrl.startsWith('http://127.0.0.1')) return null;   // your own Worker: no app to ask
-    const answer = await Promise.race([api(config, '/extension/page-kind', {method: 'POST', body: JSON.stringify({url: tab.url.split('#')[0], ...(fresh ? {fresh: true} : {}), ...(noEffectOf(fillKey(tab.id, tab.url)).length ? {noEffect: noEffectOf(fillKey(tab.id, tab.url))} : {}), ...(digest ? {digest: true, candidates: await candidatesOf(tab.id)} : {}), ...sketch})}),
+    const answer = await Promise.race([apiFor(tab.id, config, '/extension/page-kind', {method: 'POST', body: JSON.stringify({url: tab.url.split('#')[0], ...(fresh ? {fresh: true} : {}), ...(noEffectOf(fillKey(tab.id, tab.url)).length ? {noEffect: noEffectOf(fillKey(tab.id, tab.url))} : {}), ...(digest ? {digest: true, candidates: await candidatesOf(tab.id)} : {}), ...sketch})}),
       new Promise(resolve => setTimeout(() => resolve(null), 40000))]);   // a first visit asks the AI cold (the app's AI is the `claude` command: 5-25 s); the structure rule decides only after this, and a wrong rule costs more than the wait
     if (answer == null) decide('fill', 'page kind: the app gave no answer in time', {ms: Date.now() - askedAt, digest});   // an answer WITH an error is the app's own line (server-pages.js)
     if (shadow) return answer;   // the dead-end question in shadow: no climb signal, any answer (an unsure or failed one too) goes to its log
@@ -135,7 +135,7 @@ export async function stuck(job, host, why, tabId = null, page = '', needs = '',
   if (tabId != null && page && !(await onPage(tabId, page))) { decide('fill', 'the page moved on: no "can\'t reach" report for it', {host, why}); return; }
   if (tabId != null) await sweepConsent(tabId, 'reporting the form as out of reach');   // a hold or error never leaves a cookie layer open
   const session = await sessionOf(tabId);
-  try { await api(await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why, needs: String(needs || '').slice(0, 80), accountStep: String(accountStep || '').slice(0, 16), tab: tabId, session, page: String(page || '').split('#')[0]})}); } catch { /* the app is closed */ }
+  try { await apiFor(tabId, await settings(), '/extension/event', {method: 'POST', body: JSON.stringify({type: 'stuck', url: job, host, why, needs: String(needs || '').slice(0, 80), accountStep: String(accountStep || '').slice(0, 16), tab: tabId, session, page: String(page || '').split('#')[0]})}); } catch { /* the app is closed */ }
 }
 useReporter(stuck);   // the only way to it: every give-up goes through ladder/dead-end.js deadEnd (worker/test/dead-end.test.js)
 // In the CI pool only (the harness's ladderAct switch), the move the one rule lets act is pressed through the live Apply press and its effect checked: a form on the page, or a new page with fields.
@@ -281,7 +281,7 @@ export async function consider(tab, jobUrl) {
   if (role === 'account') {
     const host0 = (() => { try { return new URL(tab.url).hostname; } catch { return ''; } })();
     const id = await identityOf(tab);
-    const peek = await api(await settings(), '/extension/site-password', {method: 'POST', body: JSON.stringify({host: host0, peek: true, session: id.session, job: id.job, url: id.url})}).catch(() => null);
+    const peek = await apiFor(tab.id, await settings(), '/extension/site-password', {method: 'POST', body: JSON.stringify({host: host0, peek: true, session: id.session, job: id.job, url: id.url})}).catch(() => null);
     await bindSession(tab.id, peek?.session, id.session);
     if (peek?.mode !== 'confirm') { role = 'form'; noted = 'account'; decide('fill', `account page${kind?.accountStep ? ` (${kind.accountStep})` : ''}: filled with your details`, {host: host0}); }   // 'confirm': waiting for its mail, nothing typed again
   }
@@ -316,7 +316,7 @@ export async function consider(tab, jobUrl) {
       if (attempt.via) reportFlow(tab, null, {aliasUse: [{phrase: attempt.via, ok: after !== null}]});   // did a phrase from the service open the form?
       if (after === 'navigated') { started.delete(key); return; }   // the next page decides for itself (onUpdated); if it takes the fill, this press is confirmed (notePressed above)
       notePressed(tab.id, null);   // no other page: a form here is confirmed just below, no form is nothing
-      if (after) { role = 'form'; await noteRole(tab.id, tab.url, role); const proof = verifiedBody(kind, tab.url, controlsOf(tab.id)) || confirmedBody(kind, tab.url, controlsOf(tab.id), 'pressed'); if (proof) api(await settings(), '/extension/page-kind', {method: 'POST', body: JSON.stringify(proof)}).catch(() => {}); }   // the press led to a form: a digest's answer may be kept, the fast tier's is counted (ladder/learning.js)
+      if (after) { role = 'form'; await noteRole(tab.id, tab.url, role); const proof = verifiedBody(kind, tab.url, controlsOf(tab.id)) || confirmedBody(kind, tab.url, controlsOf(tab.id), 'pressed'); if (proof) apiFor(tab.id, await settings(), '/extension/page-kind', {method: 'POST', body: JSON.stringify(proof)}).catch(() => {}); }   // the press led to a form: a digest's answer may be kept, the fast tier's is counted (ladder/learning.js)
       else {
         noteNoEffect(key, label);   // pressed, nothing came: never pressed again on this page, and the AI's next look is told so (no-effect.js)
         // No form and the page did not move: it may be a step that offers several ways to start (Workday's dialog). The AI names the route of its button; only the manual one is pressed (start-route.js).
@@ -384,7 +384,7 @@ export async function consider(tab, jobUrl) {
     const said = stall || kind;   // the digest's answer at a stall, else what the page-kind said
     const email = role === 'no-form' ? emailReport(said) : null, told = role === 'no-form' && !email ? toldReport(said) : null, other = role === 'no-form' && !email && !told ? otherReport(said, tab.id) : null;   // the page asks for email (ladder/outcomes.js) or tells what to do (ladder/climb.js)
     decide('fill', role === 'account' ? 'account page left for Claude' : botCheck ? 'a bot check in front of the page: handed to the person' : email ? 'the posting asks for the application by email: reported to the app' : told ? 'the page tells what to do: reported to the app' : other ? 'the ladder ended at the person: reported as other' : 'no form on this page', {host, role, ...(kind?.applyBy ? {applyBy: kind.applyBy} : {})});
-    if (other) api(await settings(), '/extension/page-kind', {method: 'POST', body: JSON.stringify({why: 'other', url: tab.url.split('#')[0], controls: controlsOf(tab.id)})}).catch(() => {});   // the shape is counted by the app (no text): the ladder ended at the person
+    if (other) apiFor(tab.id, await settings(), '/extension/page-kind', {method: 'POST', body: JSON.stringify({why: 'other', url: tab.url.split('#')[0], controls: controlsOf(tab.id)})}).catch(() => {});   // the shape is counted by the app (no text): the ladder ended at the person
     if (email || told || other) deadEndHere(tab, jobUrl, host, (email || told || other).why, (email || told || other).needs, {role, rung: said?.rung, signal: blindOr(tab.id, said?.signal)});   // the address is the need: the card says where to send it
     else if (!(role === 'account' && kind?.accountStep)) deadEndHere(tab, jobUrl, host, role === 'account' ? 'account' : 'no-form', botCheck ? BOT_CHECK_NEED : '', {role, botCheck, pressed: !!pressed, rung: kind?.rung, signal: kind?.signal});   // tier 3: the app offers Apply with Claude; an account page the AI has a step for is the account step's (it reports when it cannot finish)
     reportFlow(tab, {role, pressed}, {buttons: pressed ? [] : buttonsSeen});
@@ -402,7 +402,7 @@ export async function consider(tab, jobUrl) {
   reportFlow(tab, {role: 'form', ok: !result?.error});
   const requiredIn = (result?.trace || []).filter(row => row.required && row.outcome === 'filled').length; if (!result?.error && requiredIn) noteProgress(tab.id, 'required_down', {filled: requiredIn});
   const filledProof = !result?.error && result?.filled > 0 && !pressed && !noted ? confirmedBody(kind?.role === 'form' ? kind : null, tab.url, controlsOf(tab.id), 'filled') : null;   // the page took the fill: the decision that called it a form is counted (a kind the structure overrode is the rule's, rung 0)
-  for (const proof of filledProof ? [filledProof, carried].filter(Boolean) : []) api(await settings(), '/extension/page-kind', {method: 'POST', body: JSON.stringify(proof)}).catch(() => {});
+  for (const proof of filledProof ? [filledProof, carried].filter(Boolean) : []) apiFor(tab.id, await settings(), '/extension/page-kind', {method: 'POST', body: JSON.stringify(proof)}).catch(() => {});
   // A fill that put nothing in and left required fields open has no next move of its own (Deloitte's "how will you give your CV" step, 9 Oct 2026: "Form open",
   // 0 filled, 2 left, nobody told): the session says what is left and offers Claude. Counted from the fill's own rows, no word of any page.
   const open = (result?.trace || []).filter(row => row.required && row.outcome === 'left').map(row => String(row.label || '').replace(/\s+/g, ' ').trim()).filter(Boolean);

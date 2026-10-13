@@ -11,13 +11,24 @@
 export const SILENT_AFTER_MS = 30000;
 
 // An ask to the app in flight is a wait, never a stall (13 Oct 2026, cc: the pool's slowest "gap" was a fill waiting 30 s for the AI's answers to 15 questions): the clock stands still while
-// one is out. flow.js api() brackets every call with askStarted / askEnded; the time with at least one ask out is summed (any application's: api() knows no tab, and a miss is today's behaviour).
-const asks = {count: 0, since: 0, total: 0};
-export function askStarted(now = Date.now()) { if (asks.count++ === 0) asks.since = now; }
-export function askEnded(now = Date.now()) { if (asks.count > 0 && --asks.count === 0) asks.total += now - asks.since; }
-export const askTime = (now = Date.now()) => asks.total + (asks.count ? now - asks.since : 0);
-// The silence's length: the time since the last progress that was not spent waiting on an ask (clock.waited: askTime at the note; none: the plain time, as the offline measurement keeps it).
-export const quietFor = (clock, now) => now - clock.at - (clock.waited == null ? 0 : askTime(now) - clock.waited);
+// one is out. The pause belongs to the application of the tab whose ask is out (14 Oct 2026: it was summed across tabs, so an ask on one application also paused another's clock): flow.js
+// apiFor(tabId, ...) brackets the call with askStarted(tabId) / askEnded(what it returned); the time with at least one ask of that application out is summed. A tab-less ask (api()) pauses nothing:
+// a miss is today's behaviour.
+const asks = new Map();   // application -> {count, since, total}
+export function askStarted(tabId, now = Date.now()) {
+  if (tabId == null) return null;
+  const app = appOf(tabId), ask = asks.get(app) || {count: 0, since: 0, total: 0};
+  if (ask.count++ === 0) ask.since = now;
+  asks.set(app, ask);
+  return app;   // askEnded gets it back: the tab may be given its job while the ask is out
+}
+export function askEnded(app, now = Date.now()) {
+  const ask = asks.get(app);
+  if (ask && ask.count > 0 && --ask.count === 0) ask.total += now - ask.since;
+}
+export const askTime = (app, now = Date.now()) => { const ask = asks.get(app); return ask ? ask.total + (ask.count ? now - ask.since : 0) : 0; };
+// The silence's length: the time since the last progress that was not spent waiting on an ask (clock.waited: the application's askTime at the note; none: the plain time, as the offline measurement keeps it).
+export const quietFor = (clock, now) => now - clock.at - (clock.waited == null ? 0 : askTime(clock.app, now) - clock.waited);
 
 // The rule: a clock {at, ended, noticed} is silent at `now` when nothing ended it, it was not noted yet, and its quiet time (the time since its last progress, asks excluded) is T.
 export const isSilent = (clock, now, T = SILENT_AFTER_MS) => !!clock && !clock.ended && !clock.noticed && quietFor(clock, now) >= T;
@@ -35,7 +46,7 @@ export function useSilence(parts = {}) {
   if (parts.timer) timer = parts.timer;
   if (parts.cancel) cancel = parts.cancel;
 }
-const appOf = tabId => jobs.get(tabId) || `tab ${tabId}`;
+function appOf(tabId) { return jobs.get(tabId) || `tab ${tabId}`; }
 const stop = clock => { if (clock?.timer != null) cancel(clock.timer); if (clock) clock.timer = null; };
 
 // Which application a tab works on (progress.js, at each page the fill flow considers).
@@ -61,7 +72,7 @@ export function restartSilence(tabId, kind, {now = Date.now(), host = ''} = {}) 
   if (tabId == null) return;
   const app = appOf(tabId), before = clocks.get(app);
   stop(before);
-  const clock = {at: now, waited: askTime(now), kind, host: host || before?.host || '', ended: false, noticed: false, timer: null};
+  const clock = {at: now, app, waited: askTime(app, now), kind, host: host || before?.host || '', ended: false, noticed: false, timer: null};
   clocks.set(app, clock);
   clock.timer = timer(() => check(app, Date.now()), SILENT_AFTER_MS);
 }

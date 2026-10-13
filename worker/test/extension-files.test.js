@@ -129,7 +129,7 @@ test('a kit fill starts at once: kit and contact details prefetched, no fixed wa
   // Your CV is read again when the prefetch is a few seconds old: a CV tailored after the form was first seen must be the one attached.
   assert.match(background, /Date\.now\(\) - ready\.meAt > ME_FRESH_MS/);
   const flow = read('extension/flow.js');
-  assert.match(flow, /const me = early \|\| await api\(/);
+  assert.match(flow, /const me = early \|\| await apiFor\(tab\.id, /);
   assert.match(read('extension/combo-click.js'), /limit = PATIENCE\.first; waited < limit; waited \+= 100/);   // the quick wait moved with the menu click (combo-click.js)
 });
 

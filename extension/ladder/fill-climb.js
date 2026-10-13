@@ -8,7 +8,7 @@
 //     when that or a repair changed anything the page is read again, so the fill's record (flow.js settleTrace, read by the replays' agreement check and the pool's endings,
 //     desktop/e2e/lib/ending.mjs) says what the page holds after the last action (cc, 13 Oct 2026).
 // Log lines: counts and verbs only, never a label or a value. Guard: worker/test/fill-climb.test.js.
-import {api} from '../flow.js';
+import {apiFor} from '../flow.js';
 import {decide} from '../log.js';
 import {sketchOf} from '../judge-sketch.js';
 import {onTop} from '../on-top.js';
@@ -32,15 +32,15 @@ async function repairPage(tab, config, turn) {
   const sketch = await sketchOf(tab.id, 0, 'MAIN').catch(() => null);
   if (!sketch?.controls?.some(item => item.match === 'no')) return null;
   sketch.onTop = await inPage(tab.id, onTop).catch(() => null) || null;
-  const verified = await api(config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase: 'fill', sketch})}).catch(() => null);
-  const found = await api(config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase: 'repair', sketch, verdicts: verified?.verdicts || []})}).catch(() => null);
+  const verified = await apiFor(tab.id, config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase: 'fill', sketch})}).catch(() => null);
+  const found = await apiFor(tab.id, config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase: 'repair', sketch, verdicts: verified?.verdicts || []})}).catch(() => null);
   if (!Array.isArray(found?.repairs) || !found.repairs.length) return null;
   const clicks = found.repairs.some(row => ['trusted_click', 'toggle'].includes(row.verb) && !row.refused);
   const run = click => runRepairs(found.repairs, {page: (func, args) => inPage(tab.id, func, args), click, closeLayer: ({want}) => closeLayer(tab.id, {want})}, sketch.onTop);
   const results = await turn(() => (clicks ? withClicks(tab.id, run) : run(async () => {}))).catch(() => []);
   for (const row of results) if (row.ok !== undefined) decide('fill', `fill: ${row.verb} on control ${row.n}`, {worked: row.ok}).catch(() => {});   // spec "Caps and floors": the verb, never a label
   const done = results.filter(row => row.ok !== undefined).map(row => { const asked = found.repairs.find(one => one.n === row.n) || {}; return {fp: sketch.controls[row.n - 1]?.fp || '', verb: row.verb, widget: asked.widget || 'other', option: asked.option || 0, ok: !!row.ok}; }).filter(row => row.fp);
-  if (done.length) api(config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase: 'repair-result', results: done})}).catch(() => {});   // kept per fingerprint, or dropped (desktop/lib/ladder/repair-kept.js): fixed values only
+  if (done.length) apiFor(tab.id, config, '/extension/account-judge', {method: 'POST', body: JSON.stringify({phase: 'repair-result', results: done})}).catch(() => {});   // kept per fingerprint, or dropped (desktop/lib/ladder/repair-kept.js): fixed values only
   decide('fill', 'fill repair', {asked: found.repairs.length, tried: results.filter(row => row.ok !== undefined).length, worked: results.filter(row => row.ok).length}).catch(() => {});
   return {repairs: found.repairs, results};
 }

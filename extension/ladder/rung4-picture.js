@@ -1,7 +1,7 @@
 // The closer look (spec: docs/superpowers/specs/2026-10-08-ai-escalation.md; owner, 8 Oct 2026: off until he turns it on, account pages first). When the account AI is unsure twice about a page, or a control it
 // named cannot be found, the worker takes a screenshot of the tab (typed values hidden for the capture), asks the app (lib/ladder/rung4-picture.js: opt-in, capped, validated, remembered per page shape) and carries out
 // ONE action: click a control the page lists, wait, or ask the person. A click that moved the page on is reported back so the app remembers it. Only a tab in front can be photographed. Guard: worker/test/escalate.test.js.
-import {api, settings} from '../flow.js';
+import {apiFor, settings} from '../flow.js';
 import {decide} from '../log.js';
 import {sketchOf} from '../judge-sketch.js';
 import {hideValues, showValues} from './rung4-page-picture.js';
@@ -59,7 +59,7 @@ export async function closerLook(tab, frameId, reason, {kind = 'account', pictur
   const image = sketch && withPicture ? await picture(tab, frameId) : null;
   if (!sketch || (withPicture && !image)) { decide('fill', 'closer look: no picture (not in front, or no sketch)', {}); return 'none'; }
   const url = tab.url.split('#')[0];
-  const answer = await api(config, '/extension/escalate', {method: 'POST', body: JSON.stringify({url, kind, sketch, image: image || '', reason})}).catch(() => null);
+  const answer = await apiFor(tab.id, config, '/extension/escalate', {method: 'POST', body: JSON.stringify({url, kind, sketch, image: image || '', reason})}).catch(() => null);
   const action = answer?.action || 'none';
   lastLook.set(tab.id, {action, control: String(answer?.control || ''), why: String(answer?.why || '')});
   decide('fill', `closer look: ${action}`, {reason, by: answer?.by || '', picture: !!image, usd: Number(answer?.usd) || 0, ...viewOf(answer), why: String(answer?.why || '').slice(0, 80)});
@@ -73,14 +73,14 @@ export async function closerLook(tab, frameId, reason, {kind = 'account', pictur
       await new Promise(resolve => setTimeout(resolve, 3000));
       const after = await sketchOf(tab.id, frameId);
       const worked = !!after && JSON.stringify([after.controls.map(item => item.label), after.buttons]) !== JSON.stringify([sketch.controls.map(item => item.label), sketch.buttons]);
-      api(config, '/extension/escalate', {method: 'POST', body: JSON.stringify({url, feedback: {kind, action: 'click', control: answer.control, worked}})}).catch(() => {});
+      apiFor(tab.id, config, '/extension/escalate', {method: 'POST', body: JSON.stringify({url, feedback: {kind, action: 'click', control: answer.control, worked}})}).catch(() => {});
     }
   }
   // fill: the app resolved the value from the person's contact details (never logged, never sent to the model); choose: one of the dropdown's own options. Both only when the app allowed them (full).
   if ((action === 'fill' && answer.control && answer.value) || (action === 'choose' && answer.control && answer.option)) {
     const result = action === 'fill' ? await run(tab, frameId, fillControl, [answer.control, answer.value]) : await run(tab, frameId, chooseOption, [answer.control, answer.option]);
     decide('fill', `closer look: ${action} (${result})`, {detail: answer.detail || '', ...(action === 'choose' ? {option: String(answer.option).slice(0, 40)} : {})});
-    if (result === 'filled' || result === 'chosen') api(config, '/extension/escalate', {method: 'POST', body: JSON.stringify({url, feedback: {action, control: answer.control, detail: answer.detail, option: answer.option, worked: true}})}).catch(() => {});
+    if (result === 'filled' || result === 'chosen') apiFor(tab.id, config, '/extension/escalate', {method: 'POST', body: JSON.stringify({url, feedback: {action, control: answer.control, detail: answer.detail, option: answer.option, worked: true}})}).catch(() => {});
   }
   return action;
 }
