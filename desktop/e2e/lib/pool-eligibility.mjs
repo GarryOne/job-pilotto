@@ -24,3 +24,8 @@ export async function applyPoolEligibility(worker, {env = process.env, say = () 
   say(POOL_LINE);
   return true;
 }
+
+// Whether a recorded live row ran with the stop off (14 Oct 2026: the offline replay ran with it ON, so the kept "not a fit" answer stopped the fill and every later
+// ask differed: Teamtailor 2/6, then 6/6 with it off). The record's own word (live-row.mjs, since 14 Oct), else the live run's log: the pool line or a fill "check off".
+export const recordedEligibility = (record = {}, liveLog = '') => (['on', 'off'].includes(record.eligibility) ? record.eligibility
+  : String(liveLog).includes(POOL_LINE) || /"forced":"check off"/.test(String(liveLog)) ? 'off' : 'on');

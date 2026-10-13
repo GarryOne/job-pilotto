@@ -12,6 +12,7 @@ import {netReplay} from './lib/net-record.mjs';
 import {forceScrollbar} from './lib/scrollbar.mjs';
 import {seedRandom} from './lib/seeded-random.mjs';
 import {outputOfLog, parseLive} from './lib/smoke.mjs';
+import {ELIGIBILITY_ENV, recordedEligibility} from './lib/pool-eligibility.mjs';
 
 const [recordDir, out] = process.argv.slice(2), SLOW = process.argv.includes('--slow'), NO_CLOCK = process.argv.includes('--no-clock'), SCROLLBAR = process.argv.includes('--linux-scrollbar'), CPU = Number((process.argv.find(arg => arg.startsWith('--cpu=')) || '').slice(6)) || 0;
 if (!recordDir || !out) { console.error('usage: node replay-net.mjs <record dir> <out dir> [--slow] [--no-clock]'); process.exit(2); }
@@ -41,13 +42,15 @@ const browser = async options => {
   return run;
 };
 const first = record.entries.find(entry => entry.type === 'document')?.url || record.url;
+const liveLog = (() => { try { return fs.readFileSync(path.join(recordDir, 'app.log'), 'utf8'); } catch { return ''; } })();
+// The eligibility stop as the live run had it (a pool run turns it off: lib/pool-eligibility.mjs); left on, the kept "not a fit" answer ends the fill early.
+if (recordedEligibility(record, liveLog) === 'off') process.env[ELIGIBILITY_ENV] = 'off';
 const result = await runLiveRow({posting: {url: first, title: '', company: ''}, captureDir: out, ask: false, browser, say: console.log});
 const log = result.appLog || '', misses = log.split('\n').filter(line => /not in the row's kept answers/.test(line));
 const live = Object.keys(JSON.parse(fs.readFileSync(path.join(out, 'model-memo.json'), 'utf8'))).filter(key => !key.includes('#'));
 const hits = new Set((() => { try { return fs.readFileSync(path.join(out, 'hits.txt'), 'utf8').split('\n').filter(Boolean); } catch { return []; } })());
 // The row's outcome, read as a live row is (lib/smoke.mjs parseLive): the step reached, boxes filled and left; the live run's from the record's own app log.
 const outcomeOf = text => { const r = parseLive(outputOfLog(text, text.trim() ? first : '')); return {reached: r.reached, filled: r.filled, left: r.left}; };
-const liveLog = (() => { try { return fs.readFileSync(path.join(recordDir, 'app.log'), 'utf8'); } catch { return ''; } })();
 const summary = {outcome: outcomeOf(log), liveOutcome: liveLog ? outcomeOf(liveLog) : null, liveAsks: live.length, liveHit: live.filter(key => hits.has(key)).length, liveNotAsked: live.filter(key => !hits.has(key)).length, seconds: result.seconds, counts: replay?.counts, misses: misses.length, missLines: misses.map(line => line.slice(24, 200)), tripped: result.tripped};
 fs.writeFileSync(path.join(out, 'replay.json'), `${JSON.stringify(summary, null, 1)}\n`);
 console.log(`replay-net: done ${JSON.stringify({...summary, missLines: undefined})}`);
