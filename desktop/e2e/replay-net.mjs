@@ -17,7 +17,7 @@ if (!recordDir || !out) { console.error('usage: node replay-net.mjs <record dir>
 const record = JSON.parse(fs.readFileSync(path.join(recordDir, 'record.json'), 'utf8'));
 const bodies = new Map(fs.readdirSync(path.join(recordDir, 'bodies')).map(hash => [hash, fs.readFileSync(path.join(recordDir, 'bodies', hash))]));
 fs.mkdirSync(out, {recursive: true});
-fs.copyFileSync(path.join(recordDir, 'model-memo.json'), path.join(out, 'model-memo.json'));   // a copy: the live run's kept answers stay as they were
+if (fs.existsSync(path.join(recordDir, 'model-memo.json'))) fs.copyFileSync(path.join(recordDir, 'model-memo.json'), path.join(out, 'model-memo.json')); else fs.writeFileSync(path.join(out, 'model-memo.json'), '{}');   // a live run whose AI was refused kept no answers: every ask is reported missing   // a copy: the live run's kept answers stay as they were
 process.env.JOB_PILOTTO_SITE_LEDGER_DIR = path.join(out, 'ledger');   // no site is visited: never a visit in the Mac's ledger
 delete process.env.JP_NET_RECORD_DIR;
 process.env.JOB_PILOTTO_MODEL_MEMO_HITS = path.join(out, 'hits.txt');   // each kept answer the replay used (lib/ai/model-memo.js): test (a), every live ask hits
@@ -42,7 +42,7 @@ const browser = async options => {
 const first = record.entries.find(entry => entry.type === 'document')?.url || record.url;
 const result = await runLiveRow({posting: {url: first, title: '', company: ''}, captureDir: out, ask: false, browser, say: console.log});
 const log = result.appLog || '', misses = log.split('\n').filter(line => /not in the row's kept answers/.test(line));
-const live = Object.keys(JSON.parse(fs.readFileSync(path.join(recordDir, 'model-memo.json'), 'utf8'))).filter(key => !key.includes('#'));
+const live = Object.keys(JSON.parse(fs.readFileSync(path.join(out, 'model-memo.json'), 'utf8'))).filter(key => !key.includes('#'));
 const hits = new Set((() => { try { return fs.readFileSync(path.join(out, 'hits.txt'), 'utf8').split('\n').filter(Boolean); } catch { return []; } })());
 const summary = {liveAsks: live.length, liveHit: live.filter(key => hits.has(key)).length, liveNotAsked: live.filter(key => !hits.has(key)).length, seconds: result.seconds, counts: replay?.counts, misses: misses.length, missLines: misses.map(line => line.slice(24, 200)), tripped: result.tripped};
 fs.writeFileSync(path.join(out, 'replay.json'), `${JSON.stringify(summary, null, 1)}\n`);
