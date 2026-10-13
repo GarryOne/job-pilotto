@@ -2,7 +2,7 @@
 // the fill record and the page's own read-back (no "ready" with a required field left, no CV counted in with no file).
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {againstLedger, agreementFailures, expectedAnswers, pickedChoices, sameAnswer, truthFailures} from '../lib/replay-truth.mjs';
+import {againstLedger, agreementFailures, expectedAnswers, pickedChoices, recordsOf, sameAnswer, truthFailures} from '../lib/replay-truth.mjs';
 
 test('a case\'s answers: one body, a list of variants, per host; a field given two values is not judged', () => {
   const one = {ai: {'/extension/answer': {answers: [{field: 'country', value: 'Switzerland'}, {field: 'why', value: ''}]}}};
@@ -106,4 +106,17 @@ test('every ledger line names a recorded case and one of the checks', async () =
     assert.ok(names.has(name), `${name}: no such recorded case`);
     for (const line of lines) assert.match(line, /^(truth|agreement|ready|cv): /, `${name}: ${line}`);
   }
+});
+
+test('the fill record is the /extension/run as the extension later corrected it: the last updated fields line replaces its trace', () => {
+  const body = value => JSON.stringify(value);
+  const row = outcome => ({label: 'First name', type: 'text', required: true, outcome, source: 'your details', reason: ''});
+  const log = entries => ({route: '/extension/log', body: body({entries})});
+  const updated = outcome => ({text: 'fields (updated after a late retype): 1 filled, 0 left', fields: {fields: [row(outcome)]}});
+  const run = {route: '/extension/run', body: body({url: 'u', trace: [row('left')]})};
+  assert.equal(recordsOf([run]).run.trace[0].outcome, 'left', 'no update: the record as sent');
+  assert.equal(recordsOf([run, log([updated('filled')])]).run.trace[0].outcome, 'filled');
+  assert.equal(recordsOf([log([updated('filled')]), run]).run.trace[0].outcome, 'left', 'an update from before this record is not its correction');
+  assert.equal(recordsOf([run, log([updated('filled')]), log([updated('left')])]).run.trace[0].outcome, 'left', 'the last one wins');
+  assert.equal(recordsOf([log([updated('filled')])]).run, null, 'no record, nothing to correct');
 });

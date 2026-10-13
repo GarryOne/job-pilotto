@@ -17,6 +17,17 @@ test('a form filled to the end is ready; one with fields left is form', () => {
   assert.deepEqual(parseLive('Apply pressed on u\n[extension] fill: fields: 6 filled, 3 left').reached, 'form');
 });
 
+test('a record updated after a late retype replaces the run\'s count and its field list (the later fields line is the ending)', () => {
+  const rows = outcome => JSON.stringify({fields: [{label: 'First name', type: 'text', outcome, required: true, reason: ''}, {label: 'Email', type: 'email', outcome: 'filled', required: true, reason: ''}]});
+  const first = `2026-10-13T00:00:01Z [extension] fill: fields: 1 filled, 1 left ${rows('left')}`;
+  const later = `2026-10-13T00:00:09Z [extension] fill: fields (updated after a late retype): 2 filled, 0 left ${rows('filled')}`;
+  const output = ['Apply pressed on u', '[extension] page kind: form {}', first, ...fieldLines(first), later, ...fieldLines(later)].join('\n');
+  const run = parseLive(output);
+  assert.deepEqual([run.filled, run.left, run.reached], [2, 0, 'ready']);
+  assert.deepEqual(run.fieldList.map(item => [item.label, item.outcome]), [['First name', 'filled'], ['Email', 'filled']], 'the field list is the updated one, not both');
+  assert.equal(parseLive(['Apply pressed on u', '[extension] page kind: form {}', first, ...fieldLines(first)].join('\n')).left, 1, 'without the update the first line stands');
+});
+
 test('a regression: an earlier step than last time, or fewer fields on the same posting; a new shape is not one', () => {
   const before = {signin: {reached: 'code/bot', url: 'a'}, form: {reached: 'form', filled: 9, url: 'b'}};
   const now = {signin: {reached: 'posting', url: 'a'}, form: {reached: 'form', filled: 7, url: 'b'}, fresh: {reached: 'none', url: 'c'}};

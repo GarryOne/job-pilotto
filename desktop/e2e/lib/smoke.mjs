@@ -34,6 +34,8 @@ const DIGEST_HOLD = {refused: SITE_REFUSED, login_wall: LOGIN_WALL};
 // The page a fill's report line belongs to (its "url", cut by the app's log): the path, or '' when the line has none.
 const reportPage = line => { const url = (line.match(/"url":"([^"]*)"/) || [])[1] || ''; return url.replace(/^https?:\/\/[^/]*/, '').split(/[?#]/)[0]; };
 const samePage = (open, page) => !!page && (open === page || (page.length > 1 && open.startsWith(page)));
+// The fill's fields line, in both wordings (extension/fill-fields.js logFieldsLine): a record updated after a late retype follows the first and replaces it (the later one is the run's ending).
+export const FIELDS_LINE = String.raw`fields(?: \(updated after a late retype\))?: (\d+) filled, (\d+) left`;
 export function parseLive(output) {
   const readings = parseReadings(output);   // the false readings at the row's end (lib/live-readings.mjs)
   const lines = String(output || '').split('\n');
@@ -70,14 +72,14 @@ export function parseLive(output) {
     if (ladder && Number(ladder[1]) <= 6) told = {rung: Number(ladder[1]), signal: SIGNALS.includes(ladder[2]) ? ladder[2] : null};
     const markLine = line.match(/fill: marks: (\d+) starred, (\d+) required/);
     if (markLine && !onAccount && !/account page/.test(line)) marks = {starred: Number(markLine[1]), required: Number(markLine[2])};
-    const fields = line.match(/fields: (\d+) filled, (\d+) left/);
+    const fields = line.match(new RegExp(FIELDS_LINE));
     const field = line.match(/^\s+field (filled|left) (\S+) "(.*)" required=(true|false|\?) reason=(.*)$/);
     if (field && !onAccount) fieldList.push({outcome: field[1], type: field[2], label: field[3], required: field[4] === 'true' ? true : field[4] === 'false' ? false : null, reason: field[5]});
     if (fields && !onAccount && !/account page/.test(line)) { fieldList = []; filled = Number(fields[1]); left = Number(fields[2]); countPage = reportPage(line) || lastReport; countAt = index; reach('form'); digestHold = ''; if (left === 0 && filled > 0) reach('ready'); }
     // Each fill opens on its page ("fill: filling {page}") and closes with its own report (filled the form / did not fill / fields: the line's url) or a hold.
     const opened = !onAccount && line.match(/fill: filling \{.*?"page":"([^"]*)"/);
     if (opened) openFills.set(opened[1], index);
-    if (/fill: (filled the form|did not fill|fields: \d+ filled)/.test(line)) { const page = reportPage(line); if (page) lastReport = page;   // the fields line is cut before its url: it follows its page's "filled the form"
+    if (new RegExp(`fill: (filled the form|did not fill|${FIELDS_LINE})`).test(line)) { const page = reportPage(line); if (page) lastReport = page;   // the fields line is cut before its url: it follows its page's "filled the form"
       for (const open of [...openFills.keys()]) if (samePage(open, page)) openFills.delete(open); }
     if (/fill: held: a dialog covers the form/.test(line)) openFills.clear();
     // The form came after the Apply press (the same page drew it): reached, whatever the fill did next (Teamtailor, 11 Oct 2026: scored "posting").
@@ -233,7 +235,7 @@ export function shortfall(result, {aiOff = result?.aiOff} = {}) {
 // parseLive reads them back. An account page's fields are not the form's, and a line that is not whole JSON gives none.
 export function fieldLines(line) {
   const at = String(line).indexOf('{"fields":');
-  if (at < 0 || !/fill: fields: \d+ filled/.test(line) || /account page/.test(line)) return [];
+  if (at < 0 || !new RegExp(`fill: ${FIELDS_LINE}`).test(line) || /account page/.test(line)) return [];
   try {
     return JSON.parse(line.slice(at, line.lastIndexOf('}') + 1)).fields.slice(0, 40).map(item => `      field ${item.outcome} ${item.type} "${String(item.label || '').replace(/\s+/g, ' ').slice(0, 60)}" required=${item.required === undefined ? '?' : item.required} reason=${String(item.reason || item.source || '').replace(/\s+/g, ' ').slice(0, 160)}`);
   } catch { return []; }

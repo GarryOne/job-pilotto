@@ -3,7 +3,7 @@
 // fill shows in a panel on the page and in the icon badge.
 import {NO_APP, api, fillTab, settings} from './flow.js';
 import {decide, pushDecisions} from './log.js';
-import {loggedFields} from './fill-fields.js';
+import {logFieldsLine} from './fill-fields.js';
 import {createLearningMessages} from './messages-learning.js';
 import {createSubmitWatch} from './submit-watch.js';
 import {createTabReport} from './tab-report.js';
@@ -361,8 +361,7 @@ async function fillOpenedTabNow(tab, url, force = false, {fast = false, quiet = 
       {url: page, ineligible: !!result.ineligible, aiEligible: result.aiEligible ?? null, forced: result.forced || ''});   // the AI's own verdict and who passed a "no" (eligibility-verdict.js)
     // How each field was handled, so "what happened to <field>?" is answered from the log (8 Oct 2026: it took page probes). Labels and kinds, never a value.
     // One row per field: a later pass (Claude on the page) wins.
-    const fields = loggedFields(result.trace);   // with `required`, so an optional field left empty is not a failure (extension/fill-fields.js)
-    if (fields.length) decide('fill', `fields: ${fields.filter(row => row.outcome === 'filled').length} filled, ${fields.filter(row => row.outcome !== 'filled').length} left`, {url: page, fields, recipes: sharedFixes(result.operated).count});   // did the learned layer act (fix-live-applying-in-twin, 9 Oct 2026)
+    logFieldsLine(decide, result.trace, {page, recipes: sharedFixes(result.operated).count});   // with `required`, so an optional field left empty is not a failure (extension/fill-fields.js); recipes: did the learned layer act (fix-live-applying-in-twin, 9 Oct 2026)
     chrome.action.setBadgeText({tabId: tab.id, text: result.ineligible ? '!' : '✓'}).catch(() => {});  // the tab may already be closed
     return result;
   } catch (error) {

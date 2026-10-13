@@ -20,7 +20,7 @@ test('the logged fill line says which fields are required and which are optional
 
 test('background.js logs the fill line through loggedFields, never its own copy of the rows', () => {
   const source = fs.readFileSync(new URL('../../extension/background.js', import.meta.url), 'utf8');
-  assert.match(source, /const fields = loggedFields\(result\.trace\)/);
+  assert.match(source, /logFieldsLine\(decide, result\.trace/);
 });
 
 // The LAST layer the evidence reaches (11 Oct 2026, Datadog round 2): c67f153 kept `required` in the extension's line, but the log boundary

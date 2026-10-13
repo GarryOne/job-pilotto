@@ -193,11 +193,22 @@ export async function readTab(page, keys, cvName = CV_NAME) {
 }
 
 const parsed = request => { try { return JSON.parse(request.body); } catch { return null; } };
-// The case's last fill record and the panel's last report from the requests the case's tab sent the stand-in app.
+// The case's last fill record and the panel's last report from the requests the case's tab sent the stand-in app. The record is the fill's /extension/run, as the extension LATER corrected it:
+// the rows of its last "fields (updated after a late retype)" log line (extension/ladder/record-update.js; the same rows the pool's ending takes, lib/smoke.mjs) replace its trace.
 export function recordsOf(requests) {
   const runs = requests.filter(request => request.route === '/extension/run'), reviews = requests.filter(request => request.route === '/extension/review');
   const run = runs.length ? parsed(runs.at(-1)) : null;
-  return {run, cut: runs.length > 0 && !run, review: reviews.length ? parsed(reviews.at(-1)) : null};
+  const later = run && lateRows(requests, runs.at(-1));
+  return {run: later ? {...run, trace: later} : run, cut: runs.length > 0 && !run, review: reviews.length ? parsed(reviews.at(-1)) : null};
+}
+const UPDATED_LINE = /^fields \(updated after a late retype\)/;
+function lateRows(requests, lastRun) {
+  let rows = null;
+  for (const request of requests.slice(requests.indexOf(lastRun) + 1)) {
+    if (request.route !== '/extension/log') continue;
+    for (const entry of parsed(request)?.entries || []) if (UPDATED_LINE.test(String(entry?.text || '')) && Array.isArray(entry.fields?.fields)) rows = entry.fields.fields;
+  }
+  return rows;
 }
 
 // The whole check at a case's end. scope: judgeCase's (page(), mine()). Waits for the fill's own record (until the case's deadline), then for the panel's next report.
