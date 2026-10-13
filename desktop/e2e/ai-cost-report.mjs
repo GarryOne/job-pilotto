@@ -106,7 +106,10 @@ export async function fetchKeyDays(days, tracked, fetcher = fetch, now = new Dat
   const start = encodeURIComponent(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days)).toISOString());
   const usage = await report(`/v1/organizations/usage_report/messages?starting_at=${start}&bucket_width=1d&limit=31&group_by[]=api_key_id&group_by[]=model&group_by[]=service_tier`, fetcher);
   const lines = await report(`/v1/organizations/cost_report?starting_at=${start}&bucket_width=1d&limit=31&group_by[]=description`, fetcher);
-  for (const [id, space] of Object.entries(spaceOf)) if (spaceNames[space]) workspaces[id] = spaceNames[space];
+  for (const [id, space] of Object.entries(spaceOf)) {
+    if (spaceNames[space] === 'Default') delete names[id];   // the Default workspace holds the owner's personal keys (Always-on, finance monitor): not product spend, whatever they are called
+    else if (spaceNames[space]) workspaces[id] = spaceNames[space];
+  }
   return keyDays(usage, names, lines, tracked, workspaces);
 }
 
