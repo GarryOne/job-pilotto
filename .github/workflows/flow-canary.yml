@@ -3,8 +3,11 @@ name: CI · Flow canary (3 live rows, optional)
 # Recruitee: no bot wall in the runs of 10-12 Oct 2026) run on the PR's own build through pool-smoke.yml (its 3-row and $0.50 caps, CI's site ledger shared with
 # pool-proof.yml, never Submit, the fake applicant). Red for a fall below a row's last CI run, the tripwire, a refused AI, or a false reading at a row's end
 # (desktop/e2e/lib/live-readings.mjs). A site out of visits today is skipped, never red. The pick is the flow e2e's (tools/affected-jobs.py e2e-flow).
+# On demand only since 13 Oct 2026 (owner: "let's disable that", after ~25 automatic live runs a day on the Tests key): it runs when the PR gets the
+# "flow-canary" label, never on open or push.
 on:
   pull_request:
+    types: [labeled]
     branches: [main]
 
 concurrency:
@@ -19,6 +22,7 @@ permissions:
 jobs:
   pick:
     name: flow canary needed?
+    if: github.event.label.name == 'flow-canary'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
