@@ -72,7 +72,7 @@ jobs:
       JOB_PILOTTO_SESSION: pool-smoke CI run ${{ github.run_id }}
       JOB_PILOTTO_SITE_LIMIT: '2'
       JOB_PILOTTO_VISIT_KIND: ${{ github.event_name == 'pull_request' && 'proof' || 'hand' }}   # each visit says its kind (lib/site-ledger.mjs)
-      JOB_PILOTTO_SITE_RESERVE: '0'   # PROOF ONLY (branch replay-proof): 2 live runs per row on one build, both of the day's CI visits (owner OK, 13 Oct 2026)
+      JOB_PILOTTO_SITE_RESERVE: '1'   # a by-hand run leaves a host's last visit of the day to a PR proof (owner, 12 Oct 2026)
       JP_NET_RECORD_DIR: ${{ github.workspace }}/net-records   # PROOF ONLY: the network record, uploaded encrypted below, never in the plain captures   # a by-hand run leaves a host's last visit of the day to a PR proof (owner, 12 Oct 2026)
       JOB_PILOTTO_SITE_LEDGER_DIR: ${{ github.workspace }}/pool-smoke-out/site-ledger
       SMOKE_PAIRED: '0'
