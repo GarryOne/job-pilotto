@@ -123,6 +123,13 @@ test('keys are tracked by family, and each workspace is the sum of its tracked k
   assert.equal(rows.filter(item => item.key.startsWith('ws.')).reduce((sum, item) => sum + item.usd, 0), 8, 'the workspaces add up to the tracked keys');
 });
 
+test('the log line lists each key and each workspace with its total', async () => {
+  const {describeKeys} = await import('../ai-cost-report.mjs');
+  const keys = [{day: 'a', key: 'job-pilotto-ui-fix', usd: 1}, {day: 'b', key: 'job-pilotto-ui-fix', usd: 0.5}, {day: 'a', key: 'ws.job-pilotto-self-heal', usd: 1.5}];
+  assert.equal(describeKeys(keys), '1 key(s): job-pilotto-ui-fix $1.50; 1 workspace(s): job-pilotto-self-heal $1.50');
+  assert.equal(describeKeys([]), '0 key(s): none; 0 workspace(s): none');
+});
+
 test('a refused call is recorded with the API\'s status, type and message', async t => {
   const {apiErrors, resetUsage: reset, writeUsage: write} = await import('../lib/ai-meter.mjs');
   const server = http.createServer((req, res) => { req.resume(); req.on('end', () => { res.writeHead(400, {'content-type': 'application/json'}); res.end(JSON.stringify({type: 'error', error: {type: 'invalid_request_error', message: 'You have reached your specified API usage limits.'}})); }); });
