@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {test} from 'node:test';
-import {outcomes, splitPinned, unreadKeys, verdict} from '../../tools/recorded-fails-on-old.mjs';
+import {outcomes, splitPinned, unreadKeys, verdict, withoutRemoved} from '../../tools/recorded-fails-on-old.mjs';
 
 const commit = (files, message = '') => ({files, message});
 
@@ -52,4 +52,13 @@ test('a check the PR adds to the replay is named when main\'s replay cannot read
   assert.match(why, /main's replay cannot check: ending, stuck/);
   assert.match(why, /add a check it knows/);
   assert.doesNotMatch(verdict({passed: ['a-1'], missing: []}, {}), /cannot check/, 'no note when every key is read');
+});
+
+test('a case the push removed or parked has nothing to replay on the old code; every case still there is kept', () => {
+  const here = new Set(['kept-1', 'also-kept-2']);
+  assert.deepEqual(withoutRemoved(['kept-1', 'parked-1', 'also-kept-2', 'gone-3'], name => here.has(name)), {kept: ['kept-1', 'also-kept-2'], removed: ['parked-1', 'gone-3']});
+  assert.deepEqual(withoutRemoved([], () => false), {kept: [], removed: []});
+  // The class: a removal reaches splitPinned as a changed file, and the folder check drops it before any copy.
+  const split = splitPinned([commit(['desktop/e2e/recorded/parked-1/case.json'], 'Park it')]);
+  assert.deepEqual(withoutRemoved(split.check, name => here.has(name)).kept, []);
 });
