@@ -32,6 +32,7 @@ import {startAiProxy} from './ai-proxy.mjs';
 import {apiErrors, usage} from './ai-meter.mjs';
 import {appKey, isCi, keySecret, testKey} from './engine.mjs';
 import {keepRecord, netRecorder} from './net-record.mjs';
+import {seedRandom} from './seeded-random.mjs';
 
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -61,6 +62,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
   const values = personalValues([`Name: ${CONTACT.full_name}\nEmail: ${CONTACT.email}\nPhone: ${CONTACT.phone}`]);
   const journey = journeyRecorder(run.context, {scrub: html => scrubPage(html, values)}), styles = cssRecorder(run.context);
   const net = process.env.JP_NET_RECORD_DIR ? netRecorder(run.context, {startedAt: Date.now()}) : null, netStart = Date.now();   // the network record (CI: encrypted, .github/workflows/pool-smoke.yml)
+  if (net) await seedRandom(run.context, netStart);   // the replay draws the same random numbers (lib/seeded-random.mjs)
   const workerConsole = keepWorkerConsole(run.context);   // the extension's own console, beside app.log (lib/worker-console.mjs)
   const steps = stepShooter({tabOf: () => run.context.pages().filter(page => /^https?:/.test(page.url())).at(-1), kindOf: () => kindFromLog(app.logText()), dir: captureDir});   // one full-page picture per page or step reached (lib/step-shots.mjs)
   let asksSeen = 0, tripped = '';
@@ -134,7 +136,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
       fs.mkdirSync(path.join(dir, 'bodies'), {recursive: true});
       for (const [hash, body] of kept.bodies) fs.writeFileSync(path.join(dir, 'bodies', hash), body);
       const scrollbar = await run.page.evaluate(() => { const probe = document.createElement('div'); probe.style.cssText = 'position:absolute;top:-999px;width:100px;height:100px;overflow:scroll'; document.documentElement.appendChild(probe); const width = probe.offsetWidth - probe.clientWidth; probe.remove(); return width; }).catch(() => null);   // the replay draws the same (lib/scrollbar.mjs)
-      fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({name: process.env.JP_ROW_NAME || posting.title || '', startMs: netStart, url, scrollbar, entries: kept.entries, stats: kept.stats}));
+      fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({name: process.env.JP_ROW_NAME || posting.title || '', startMs: netStart, seed: netStart, url, scrollbar, entries: kept.entries, stats: kept.stats}));
       for (const name of ['model-memo.json', 'app.log', 'asks.jsonl']) { try { fs.copyFileSync(path.join(captureDir, name), path.join(dir, name)); } catch { /* not written */ } }
       say(`live: network record kept: ${kept.stats.requests} requests, ${(kept.stats.keptBytes / 1e6).toFixed(2)} MB`);
     }
