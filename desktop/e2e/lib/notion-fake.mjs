@@ -142,6 +142,7 @@ export function createNotionFake() {
       case 'url.ends_with': return String(value || '').toLowerCase().endsWith(String(wanted).toLowerCase());
       case 'url.is_empty': return !value;
       case 'url.is_not_empty': return !!value;
+      case 'relation.is_empty': return !(value || []).length;
       case 'relation.contains': return (value || []).some(link => link.id.replace(/-/g, '') === String(wanted).replace(/-/g, ''));
       case 'rich_text.equals': case 'title.equals': return text === wanted;
       case 'rich_text.contains': case 'title.contains': return String(text || '').toLowerCase().includes(String(wanted).toLowerCase());
