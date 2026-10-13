@@ -1,7 +1,7 @@
 // lib/log.js keeps each app.log line short: a run's output tail (116 KB of job JSON) once filled the 1 MB log in a minute.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {format, FIELD_MAX, LINE_MAX} from '../lib/log.js';
+import {format, FIELD_MAX, LINE_MAX, FIELDS_LINE_MAX} from '../lib/log.js';
 
 const at = new Date('2026-10-07T21:12:16.620Z');
 const fields = line => JSON.parse(line.slice(line.indexOf(' {') + 1));
@@ -25,6 +25,16 @@ test('a line never passes LINE_MAX, whatever its fields', () => {
   const many = Object.fromEntries(Array.from({length: 100}, (_, i) => [`k${i}`, 'z'.repeat(FIELD_MAX)]));
   assert.ok(format('run', 'many', many, at).length <= LINE_MAX + 40);
   assert.equal(format('run', 'plain', undefined, at), '2026-10-07T21:12:16.620Z [run] plain');
+});
+
+test('the fill\'s fields line (both wordings) keeps its 40 rows whole; any other line stays at LINE_MAX', () => {
+  const rows = Array.from({length: 40}, (_, i) => ({label: `Question number ${i} `.padEnd(50, 'x'), type: 'combobox', outcome: 'left', source: 'Claude (on the page)', reason: 'dropdown clicked, but it selected another choice (0.4 s)'.padEnd(80, '.'), required: true}));
+  for (const message of ['fill: fields: 0 filled, 40 left', 'fill: fields (updated after a late retype): 0 filled, 40 left']) {
+    const line = format('extension', message, {url: 'https://jobs.example.com/apply', fields: rows}, at);
+    assert.ok(line.length > LINE_MAX && line.length <= FIELDS_LINE_MAX + 40, `${message}: ${line.length}`);
+    assert.equal(JSON.parse(line.slice(line.indexOf('{"url"'))).fields.length, 40);
+  }
+  assert.ok(format('extension', 'fill: a menu showed no choice', {fields: rows}, at).length <= LINE_MAX + 40);
 });
 
 // electron-log's own file transport (its Node build: the same code as in the app) writes our lines as they are;

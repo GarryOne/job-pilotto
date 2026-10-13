@@ -6,3 +6,12 @@
 export const loggedFields = trace => [...new Map((trace || []).map(row => [row.label, row])).values()].slice(0, 40).map(row => ({
   label: String(row.label || '').slice(0, 50), type: row.type || '', ...(typeof row.required === 'boolean' ? {required: row.required} : {}),
   outcome: row.outcome, source: row.source || '', reason: row.reason || '', ...(row.alias ? {alias: String(row.alias).slice(0, 30)} : {})}));   // alias: the pack meaning's field key, never a value
+
+// The one writer of the fields line (background.js after a fill; ladder/record-update.js after a late retype): "fields: N filled, M left" with the rows. updated: the record was settled
+// again after the page emptied a box once more and the retype typed it back; every reader of the line (desktop/e2e/lib/smoke.mjs FIELDS_LINE) takes the later one. -> the rows.
+export const UPDATED_WORDS = 'updated after a late retype';
+export function logFieldsLine(decide, trace, {page, recipes = 0, updated = false} = {}) {
+  const fields = loggedFields(trace);
+  if (fields.length) decide('fill', `fields${updated ? ` (${UPDATED_WORDS})` : ''}: ${fields.filter(row => row.outcome === 'filled').length} filled, ${fields.filter(row => row.outcome !== 'filled').length} left`, {url: page, fields, recipes});
+  return fields;
+}

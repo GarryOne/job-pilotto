@@ -1,0 +1,56 @@
+{
+ "origin": "hand-cut",
+ "shape": "a form whose file upload starts the page's own autofill-from-resume, which empties the name and link boxes and keeps them read-only while it works: the fill's record is sent with those boxes empty, and they are typable again only after it",
+ "why": "13 Oct 2026, the fill ladder's record update: the record is sent once, so a box emptied by the page and typed again by the retype watcher AFTER that stayed 'left' in the record (the pool's endings read it). Seeded: the boxes are locked from the page's autofill (2.5 s after the upload) until 10 s after it, so the record is always read while they are empty, then the retype types them and the record is updated once",
+ "control": {
+  "build": "0.9.263",
+  "failed": "told: fields (updated after a late retype)"
+ },
+ "sample": "structure of a hosted job board's application form with an 'Autofill from resume' upload, rebuilt small (names and values removed)",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/acme/00000000-0000-0000-0000-000000000000/application",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": [
+    {
+     "field": "profile_link",
+     "question": "Linkedin",
+     "value": "https://www.linkedin.com/in/ada-tester"
+    }
+   ]
+  }
+ },
+ "expect": {
+  "attached": [
+   "#resume"
+  ],
+  "kept": [
+   "#first_name",
+   "#last_name",
+   "#profile_link",
+   "#email"
+  ],
+  "told": [
+   "fields (updated after a late retype)"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 50,
+  "keptAfter": 12000
+ },
+ "start": "panel"
+}

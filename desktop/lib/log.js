@@ -29,13 +29,16 @@ function newDay(now) {
 export const logFile = () => file;
 // A field is evidence, not a dump: each string is cut to FIELD_MAX and the line to LINE_MAX. 7 Oct 2026: every job-list
 // run logged its last 3 output lines, 116 KB of job JSON each, so the 1 MB log held about a minute of history.
-export const FIELD_MAX = 300, LINE_MAX = 4000;
+// The fill's own "fields:" line (extension/fill-fields.js logFieldsLine: up to 40 rows of labels and fixed words) is the one line that is evidence by design: the pool's report reads
+// every field from it, and a form of 36 fields went past 4000 (13 Oct 2026: 3 fields of one row could not be named); it gets FIELDS_LINE_MAX.
+export const FIELD_MAX = 300, LINE_MAX = 4000, FIELDS_LINE_MAX = 12000;
+const FIELDS_LINE = /^fill: fields\b/;
 const cut = (text, max) => (text.length > max ? `${text.slice(0, max)}… (+${text.length - max} chars)` : text);
 const shorten = value => (typeof value === 'string' ? cut(value, FIELD_MAX)
   : Array.isArray(value) ? value.map(shorten)
     : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, shorten(item)])) : value);
 export function format(area, message, data, at = new Date()) {
-  return cut(`${at.toISOString()} [${area}] ${message}${data === undefined ? '' : ` ${JSON.stringify(shorten(data))}`}`, LINE_MAX);
+  return cut(`${at.toISOString()} [${area}] ${message}${data === undefined ? '' : ` ${JSON.stringify(shorten(data))}`}`, FIELDS_LINE.test(message) ? FIELDS_LINE_MAX : LINE_MAX);
 }
 export function log(area, message, data) {
   const line = format(area, message, data);

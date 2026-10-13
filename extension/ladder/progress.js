@@ -6,6 +6,7 @@
 // goes through the door with {shadow: true}). Guard: worker/test/progress.test.js.
 import {evidenceOf, seenDeadEnd} from './dead-end.js';
 import {forgetSilence, restartSilence, silenceTab, useSilence} from './silence.js';
+import {disarmRecordUpdate, noteLateRetype} from './record-update.js';
 
 export const PROGRESS_KINDS = ['navigated', 'new_controls', 'required_down', 'value_stayed'];
 export const PAGE_KINDS = ['value_stayed'];   // the only kinds a page script may send
@@ -28,16 +29,21 @@ export function noteProgress(tabId, kind, data = {}, now = Date.now(), host = ''
 export function notePage(tabId, key, where = {}, now = Date.now()) {
   if (pages.get(tabId) === key) return false;
   pages.set(tabId, key);
+  disarmRecordUpdate(tabId);   // a new page: the record of the one before is not this tab's any more
   silenceTab(tabId, where.job);
   let host = '';
   try { host = new URL(where.page).hostname; } catch { /* no address */ }
   return noteProgress(tabId, 'navigated', {}, now, host);
 }
 export const lastProgress = tabId => last.get(tabId) || null;
-export const forgetProgress = tabId => { last.delete(tabId); pages.delete(tabId); };
+export const forgetProgress = tabId => { last.delete(tabId); pages.delete(tabId); disarmRecordUpdate(tabId); };
 
 // A page script's report (only PAGE_KINDS), and a closed tab forgotten. Registered here, at the worker's start; another message is left to the other handlers (no reply).
-globalThis.chrome?.runtime?.onMessage?.addListener((message, sender) => {
-  if (message?.type === 'progress' && sender?.tab?.id != null && PAGE_KINDS.includes(message.kind)) noteProgress(sender.tab.id, message.kind, {});
-});
+// -> a promise of true when the report made the fill's record update (ladder/record-update.js: a retype after the record was sent), else false.
+export async function onPageProgress(message, sender) {
+  if (message?.type !== 'progress' || sender?.tab?.id == null || !PAGE_KINDS.includes(message.kind)) return false;
+  noteProgress(sender.tab.id, message.kind, {});
+  return message.kind === 'value_stayed' ? noteLateRetype(sender.tab.id) : false;
+}
+globalThis.chrome?.runtime?.onMessage?.addListener((message, sender) => { onPageProgress(message, sender).catch(() => {}); });
 globalThis.chrome?.tabs?.onRemoved?.addListener(tabId => { forgetProgress(tabId); forgetSilence(tabId); });
