@@ -1,0 +1,131 @@
+# The replay's quick PR gate (owner, 14 Oct 2026: "on the PR we can keep only 10, most relevant, or the most quick ... as a quick safety gate. Then the full 50 rows
+# will run on a schedule"; "parallelize them as much as possible, to get them in 2-3 mins"). A PR that changes the apply flow's code replays at most 10 pool rows offline
+# (desktop/e2e/replay-pick.mjs: the rows 100% same as live in the last green scheduled run, quickest, one per site first) on up to 5 macOS runners at once, then judges
+# them against that run (replay-gate.mjs: a counted row whose outcome fell is worse). REPORT ONLY for now: never required, never red (owner: required once its controls
+# pass). $0: no AI key, no site visit (the records and the live run's kept answers). The full pool: replay-offline.yml on its schedule. Guard: e2e/test/replay-pick.test.mjs.
+name: CI · Replay gate (PR, 10 rows)
+
+on:
+  pull_request:
+    paths: ['extension/**', 'desktop/lib/**', 'desktop/e2e/replay-*.mjs', 'desktop/e2e/replay-baseline.sh', 'desktop/e2e/net-records-fetch.sh', 'desktop/e2e/lib/net-record.mjs',
+      'desktop/e2e/lib/live-row.mjs', 'desktop/e2e/lib/live-still.mjs', '.github/workflows/replay-pr.yml']
+
+permissions:
+  contents: read
+  actions: read   # the pool runs' encrypted records, the baseline run's results
+
+concurrency:
+  group: replay-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true   # a newer push replaces the run: the macOS runners are few (5 at once)
+
+jobs:
+  pick:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      groups: ${{ steps.pick.outputs.groups }}
+      count: ${{ steps.pick.outputs.count }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: The rows (from the last green scheduled replay)
+        id: pick
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          base="$(bash replay-baseline.sh "$RUNNER_TEMP/baseline")"
+          node replay-pick.mjs "$base" > "$RUNNER_TEMP/pick.json"
+          jq -r .line "$RUNNER_TEMP/pick.json" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "groups=$(jq -c .groups "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
+          echo "count=$(jq '.groups | length' "$RUNNER_TEMP/pick.json")" >> "$GITHUB_OUTPUT"
+
+  replay:
+    needs: pick
+    if: needs.pick.outputs.count != '0'
+    runs-on: macos-latest   # the records are made on the owner's Mac: the same fonts and scrollbar as the live page
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        group: ${{ fromJSON(needs.pick.outputs.groups) }}
+    env:
+      JOB_PILOTTO_HEAVY: '0'   # the heavy lock is a Mac's machine-wide queue; this runner is its own machine
+    steps:
+      - name: The record key is set
+        id: key
+        env:
+          NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+        run: |
+          if [ -z "$NET_RECORD_KEY" ]; then echo "replay-pr: key not set (NET_RECORD_KEY): nothing replayed" | tee -a "$GITHUB_STEP_SUMMARY"; echo "ok=0" >> "$GITHUB_OUTPUT"; else echo "ok=1" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v5
+        if: steps.key.outputs.ok == '1'
+      - uses: actions/setup-node@v5
+        if: steps.key.outputs.ok == '1'
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            desktop/package-lock.json
+            desktop/e2e/package-lock.json
+      - uses: actions/setup-python@v6
+        if: steps.key.outputs.ok == '1'
+        with:
+          python-version: '3.12'
+      - name: Install the app, the tests and the browser
+        if: steps.key.outputs.ok == '1'
+        run: |
+          (cd desktop && npm ci) && (cd desktop/e2e && (npm ci || npm install))
+          pip install --quiet -r requirements.txt
+          (cd desktop/e2e && npx playwright-core install chromium)
+      - name: The pool's newest records, decrypted on the runner only
+        if: steps.key.outputs.ok == '1'
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+        run: bash net-records-fetch.sh "$GITHUB_WORKSPACE/records"
+      - name: Replay this runner's rows with the PR's build
+        if: steps.key.outputs.ok == '1'
+        working-directory: desktop/e2e
+        env:
+          JP_REPLAY_ONLY: ${{ matrix.group }}
+        run: node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/replay-out"
+      - name: This runner's rows (for the verdict; no record, no key)
+        if: always() && steps.key.outputs.ok == '1'
+        uses: actions/upload-artifact@v6
+        with:
+          name: replay-pr-${{ github.run_id }}-${{ strategy.job-index }}
+          path: |
+            replay-out/step4/*.json
+            replay-out/replays/*/end.png
+            replay-out/replays/*/replay.json
+            replay-out/replays/*/app.log
+          retention-days: 7
+          if-no-files-found: ignore
+
+  verdict:
+    needs: [pick, replay]
+    if: always() && needs.pick.outputs.count != '0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: replay-pr-${{ github.run_id }}-*
+          path: ${{ runner.temp }}/shards
+      - name: Judge the rows against the last green scheduled run (report only)
+        working-directory: desktop/e2e
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/step4" && find "$RUNNER_TEMP/shards" -path '*step4/*.json' -exec cp {} "$RUNNER_TEMP/step4/" \;
+          base="$(bash replay-baseline.sh "$RUNNER_TEMP/baseline")"
+          node replay-gate.mjs "$RUNNER_TEMP/step4" "$base" "$RUNNER_TEMP/results.json" | tee -a "$GITHUB_STEP_SUMMARY" || true
+          echo "Report only: this check never fails a PR yet (owner, 14 Oct 2026)." | tee -a "$GITHUB_STEP_SUMMARY"

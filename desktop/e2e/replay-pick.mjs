@@ -1,0 +1,37 @@
+// The PR replay gate's rows (owner, 14 Oct 2026: "on the PR we can keep only 10, most relevant, or the most quick ... as a quick safety gate. Then the full 50 rows
+// will run on a schedule"). From the baseline (the last green scheduled run's results, replay-gate.mjs) only the rows 100% same as live there (only those can be judged
+// worse), quickest first, one per posting site before a second from the same site, at most MAX; split into GROUPS runner groups (newline-joined names: JP_REPLAY_ONLY).
+// No baseline yet: no rows (the PR gate says so; the first scheduled run makes one). Guard: e2e/test/replay-pick.test.mjs.
+//   node replay-pick.mjs <baseline results.json | ->   -> {"groups": ["name\nname", ...], "line": "..."}
+import fs from 'node:fs';
+import path from 'node:path';
+
+export const MAX = 10, GROUPS = 5;
+
+// baseline: {rows: {name: {same, seconds, site}}} -> the names, in pick order.
+export function pickRows(baseline = {}, {max = MAX} = {}) {
+  const rows = baseline?.rows || {};
+  const counted = Object.keys(rows).filter(name => rows[name]?.same === true)
+    .sort((a, b) => (rows[a].seconds ?? Infinity) - (rows[b].seconds ?? Infinity) || a.localeCompare(b));
+  const seen = new Set(), first = [], again = [];
+  for (const name of counted) { const site = rows[name].site || name; (seen.has(site) ? again : first).push(name); seen.add(site); }
+  return [...first, ...again].slice(0, max);
+}
+
+// names -> at most `groups` groups, round robin (the quickest rows spread over the runners).
+export function split(names, groups = GROUPS) {
+  const out = Array.from({length: Math.min(groups, names.length)}, () => []);
+  names.forEach((name, index) => out[index % out.length].push(name));
+  return out;
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
+  const file = process.argv[2];
+  if (!file) { console.error('usage: node replay-pick.mjs <baseline results.json | ->'); process.exit(2); }
+  let baseline = {};
+  try { baseline = file === '-' ? {} : JSON.parse(fs.readFileSync(file, 'utf8')); } catch { baseline = {}; }
+  const names = pickRows(baseline), groups = split(names);
+  const line = names.length ? `## Replay gate (PR): ${names.length} rows on ${groups.length} runners: ${names.join(', ')}`
+    : '## Replay gate (PR): no baseline with rows 100% same as live yet: nothing to replay (the scheduled run makes one)';
+  process.stdout.write(`${JSON.stringify({groups: groups.map(group => group.join('\n')), line})}\n`);
+}
