@@ -95,7 +95,34 @@ test('the deciding signal: the panel button busy or the floating step box, nothi
 test('live-row waits for the decision (the limit is the cap), uses the cli window, and live.mjs says "ended while deciding" as an error', () => {
   const row = fs.readFileSync(new URL('../lib/live-row.mjs', import.meta.url), 'utf8'), cli = fs.readFileSync(new URL('../live.mjs', import.meta.url), 'utf8');
   assert.match(row, /isDeciding\(/);
-  assert.match(row, /clock\.over\(Date\.now\(\), \{opened: true, deciding\}\)/);
+  assert.match(row, /clock\.over\(Date\.now\(\), \{opened: true, deciding, quiet: quietSeconds\(stillSeconds, app\.logText\(\)\)\}\)/);
   assert.match(row, /stillSecondsFor\(process\.env, 'cli'\)/);
   assert.match(cli, /ended while deciding[\s\S]*process\.exit\(1\)/);
+});
+
+// 14 Oct 2026: ~45 of a replayed row's ~93 s was the quiet window after the extension's last line. Once it says "run ended" (extension/ladder/progress.js) the window is AFTER_END_SECONDS.
+test('after the extension says its run ended, the quiet window shrinks; a progress note after it brings the full window back', async () => {
+  const {AFTER_END_SECONDS, quietSeconds, runEnded} = await import('../lib/live-still.mjs');
+  const ended = '[extension] fill: progress: navigated {}\n[extension] fill: run ended {}\n[extension] fill verify (shadow) {}';
+  assert.equal(runEnded(ended), true);
+  assert.equal(runEnded(`${ended}\n[extension] fill: progress: navigated {}`), false, 'the run went on: a new page');
+  assert.equal(runEnded('[extension] fill: progress: navigated {}'), false);
+  assert.equal(quietSeconds(45, ended, {}), AFTER_END_SECONDS);
+  assert.equal(quietSeconds(45, 'nothing ended', {}), 45);
+  assert.equal(quietSeconds(10, ended, {}), 10, 'never longer than the window asked for');
+  assert.equal(quietSeconds(0, ended, {}), 0, 'LIVE_STILL_SECONDS=0 still watches to the limit');
+  assert.equal(quietSeconds(45, ended, {LIVE_AFTER_END_SECONDS: '30'}), 30);
+  const clock = stillClock({seconds: 45, startedAt: 0});
+  clock.see('a', 0);
+  assert.equal(clock.over(25000, {opened: true}), false);
+  assert.equal(clock.over(25000, {opened: true, quiet: AFTER_END_SECONDS}), true);
+  assert.equal(clock.over(25000, {opened: true, deciding: true, quiet: AFTER_END_SECONDS}), false, 'still deciding: never ends');
+  assert.ok(AFTER_END_SECONDS >= 20, 'a shadow check\'s AI ask after the end: a replay keeps the live AI\'s time, capped at 20 s (replay-net.mjs)');
+});
+
+test('every still-clock watch (live row, live e2e, row replay) uses the shorter window after the run ended', () => {
+  for (const file of ['live-row.mjs', 'apply-live.mjs', 'row-replay.mjs']) {
+    const source = fs.readFileSync(new URL(`../lib/${file}`, import.meta.url), 'utf8');
+    if (/stillClock\(/.test(source)) assert.match(source, /quietSeconds\(/, `${file} watches with stillClock but ignores the run's end`);
+  }
 });

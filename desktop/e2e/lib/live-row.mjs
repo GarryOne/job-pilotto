@@ -19,7 +19,7 @@ import {cssRecorder, personalValues, scrubPage} from './capture-page.mjs';
 import {journeyRecorder} from './capture-journey.mjs';
 import {evidenceLines} from './evidence-bundle.mjs';
 import {isDeciding} from './deciding.mjs';
-import {PAGE_LINE, stillClock, stillSeconds as stillSecondsFor} from './live-still.mjs';
+import {PAGE_LINE, quietSeconds, stillClock, stillSeconds as stillSecondsFor} from './live-still.mjs';
 import {startOfflineApp} from './offline-app.mjs';
 import {coverageLine, ownerValues, pageFields, tripwire} from './privacy-tripwire.mjs';
 import {applyPoolEligibility} from './pool-eligibility.mjs';
@@ -106,7 +106,7 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
       const shape = await run.context.pages().filter(page => /^https?:/.test(page.url())).at(-1)?.evaluate(() => `${location.href.split('#')[0]}|${document.querySelectorAll('input, select, textarea, button, a').length}`).catch(() => '');
       clock.see(JSON.stringify([lines, shape]), Date.now());
       deciding = await isDeciding(run.context.pages().filter(page => /^https?:/.test(page.url())).at(-1) || run.page);   // the extension's step line is up: wait for its decision (the limit is the cap)
-      if (clock.over(Date.now(), {opened: true, deciding})) break;
+      if (clock.over(Date.now(), {opened: true, deciding, quiet: quietSeconds(stillSeconds, app.logText())})) break;
       await journey.tick();
       await steps.tick();
       if (turn % 4 === 0 && (tripped = await trip())) break;
