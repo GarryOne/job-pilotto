@@ -10,6 +10,7 @@ import {digestLine} from '../lib/ladder/rung3-digest.js';
 import {pageKind, pageKindCache} from '../lib/page-kind.js';
 import {decidePageKind} from '../lib/server-pages.js';
 import {logTo} from '../lib/log.js';
+import {logText} from './log-text.mjs';
 
 const fake = answer => ({messages: {create: async () => ({stop_reason: 'end_turn', usage: {input_tokens: 10, output_tokens: 5}, content: [{type: 'text', text: JSON.stringify(answer)}]})}});
 const page = {url: 'https://jobs.example.test/detail/9/', title: 'Engineer', headings: ['Engineer'], controls: [], buttons: ['Apply now'], frames: [],
@@ -39,7 +40,7 @@ test('the endpoint writes the digest line to the app log, next to the page-kind 
   const storage = {path: name => path.join(dir, name), settings: () => ({})};
   const decide = async () => ({kind: 'posting', role: 'no-form', by: 'digest', rung: 3, signal: 'confident', confidence: 0.9, shape: 'jobs.example.test/detail/*|0', digestSaid: {outcome: 'form', verb: 'press', numbers: [1], pressKind: 'apply', dropped: ''}});
   await decidePageKind(storage, {url: page.url, digest: true, controls: [], buttons: ['Apply now'], candidates: page.candidates}, {decide, client: null});
-  const log = fs.readFileSync(path.join(dir, 'app.log'), 'utf8');
+  const log = logText(path.join(dir, 'app.log'));
   assert.match(log, /\[extension\] digest: outcome=form verb=press numbers=\[1\] press_kind=apply dropped=-/);
   logTo(path.join(os.tmpdir(), 'jp-digest-log-off'));
 });

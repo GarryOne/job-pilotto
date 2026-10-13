@@ -10,6 +10,7 @@ import * as engineLog from '../lib/engine-log.js';
 import {logTo} from '../lib/log.js';
 import * as pipelineRun from '../lib/pipeline-run.js';
 import * as engine from '../lib/store/engine.js';
+import {logText} from './log-text.mjs';
 
 test('a store call\'s arguments and answer never reach engine.log, app.log or a report', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-store-private-'));
@@ -24,7 +25,7 @@ test('a store call\'s arguments and answer never reach engine.log, app.log or a 
   const marker = `private-${process.pid}-${Date.now()}`;
   const answer = await engine.call(storage, 'applications', 'set_stage', {job: {url: `https://x.example/${marker}`, title: marker}, stage: 'Saved'}, {run});
   assert.ok(JSON.stringify(answer).includes(marker), 'the caller still gets the answer (proves the marker was in stdout)');
-  const engineText = fs.readFileSync(path.join(dir, 'engine.log'), 'utf8'), appText = fs.readFileSync(path.join(dir, 'app.log'), 'utf8');
+  const engineText = logText(path.join(dir, 'engine.log')), appText = logText(path.join(dir, 'app.log'));
   assert.ok(!engineText.includes(marker), 'engine.log has no argument or answer');
   assert.ok(!appText.includes(marker), 'app.log has no argument or answer');
   const mine = ended.find(r => r.args.join(' ') === 'src.stores call applications set_stage');

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import {test} from 'node:test';
 import {loggedFields} from '../../extension/fill-fields.js';
 import {fieldLines} from '../e2e/lib/smoke.mjs';
+import {logText} from './log-text.mjs';
 
 const TRACE = [
   {label: 'First Name', type: 'text', required: true, outcome: 'filled', source: 'your details', reason: ''},
@@ -38,7 +39,7 @@ test('required reaches the app log and the smoke report\'s field list, through t
     const response = await handleExtension(new Request('http://127.0.0.1/extension/log', {method: 'POST', headers: {Authorization: 'Bearer t', 'Content-Type': 'application/json'},
       body: JSON.stringify(body)}), server.localEnv(storage));
     assert.equal(response.status, 200);
-    const line = fs.readFileSync(path.join(dir, 'app.log'), 'utf8').trim().split('\n').find(text => text.includes('fill: fields:'));
+    const line = logText(path.join(dir, 'app.log')).trim().split('\n').find(text => text.includes('fill: fields:'));
     assert.ok(line, 'the fill line is in app.log');
     assert.deepEqual(fieldLines(line).map(text => text.match(/"(.*)" required=(\S+)/).slice(1)), [['First Name', 'true'], ['Website', 'false']]);
   } finally { log.logTo(null); }
