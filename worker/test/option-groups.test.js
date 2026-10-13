@@ -30,6 +30,13 @@ test('a fieldset-less []-name checkbox group joins by its shared name; a lone bo
   assert.equal(groups.groupOf(q(doc, '#terms')), null, 'a lone checkbox is one control on its own');
 });
 
+test('radios with no name join by the container that holds only them; a lone nameless radio is no group', { skip: !JSDOM }, () => {
+  const { doc, groups } = page(`<div id="d"><input type="radio" id="p4"><label for="p4">4</label><input type="radio" id="p6"><label for="p6">6</label></div><div><input type="radio" id="lone"></div>`);
+  assert.equal(groups.groupOf(q(doc, '#p4')).key, q(doc, '#d'));
+  assert.equal(groups.groupOf(q(doc, '#p6')).key, q(doc, '#d'));
+  assert.equal(groups.groupOf(q(doc, '#lone')), null);
+});
+
 test('a fieldset (or group) that also holds text boxes is not a box of options: a form wrapped in a fieldset never merges its checkboxes', { skip: !JSDOM }, () => {
   const { doc, groups } = page(`<fieldset id="whole"><input id="name" name="name"><input type="checkbox" id="a" name="x"><input type="checkbox" id="b" name="y"></fieldset>`);
   assert.equal(groups.groupOf(q(doc, '#a')), null);

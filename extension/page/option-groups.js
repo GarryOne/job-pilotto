@@ -3,7 +3,7 @@
 // file's source into the page) take their groups from here, so they cannot drift apart. Read only: it never changes the page. Guard: worker/test/option-groups.test.js.
 //   groupOf(el) -> {key, box, options, title} | null: the group an option belongs to, null for a control that is not an option of a group (a lone box, a text field).
 //     Options join by the box that holds ONLY options (a fieldset, an ARIA group): a box that also holds a text box, a select or a textarea (hidden inputs ignored) never merges its
-//     checkboxes (a fieldset wrapping the whole form). Else by a shared name. An element with an option role that wraps a hidden native radio is not a box of options: it joins its radiogroup.
+//     checkboxes (a fieldset wrapping the whole form). Else by a shared name (radios with no name: by the container that holds only them). An element with an option role that wraps a hidden native radio is not a box of options: it joins its radiogroup.
 //     key: the group ELEMENT on both paths (the native inputs and the option-role elements dedupe against each other), `options:<name>` for a shared name.
 //   groupOfBox(box) -> the same, for a container that holds only options and is itself marked (a fieldset or div with aria-required).
 //   answered(group) -> true when any option is checked, or the box itself, or something inside it, holds the ARIA state (Workable sets aria-checked on the wrapper).
@@ -23,6 +23,9 @@
       if (onlyOptions(box)) return {key: box, box, options: [...box.querySelectorAll(NATIVE)], title: titleOf(box)};
       const name = el.name && doc.querySelectorAll(`input[name="${CSS.escape(el.name)}"]`);
       if (name && name.length > 1) return {key: `options:${el.name}`, box: null, options: [...name], title: ''};
+      // Radios with no name at all are exclusive by nature, and a page's script groups them as it likes: they join by the container that holds only them (two or more).
+      const parent = type === 'radio' && !el.name ? el.parentElement : null;
+      if (parent && onlyOptions(parent) && parent.querySelectorAll(NATIVE).length > 1) return {key: parent, box: parent, options: [...parent.querySelectorAll(NATIVE)], title: ''};
       return null;
     }
     if (OPTION_ROLES.includes(el.getAttribute('role') || '')) {
