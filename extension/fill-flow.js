@@ -140,8 +140,9 @@ export async function stuck(job, host, why, tabId = null, page = '', needs = '',
 useReporter(stuck);   // the only way to it: every give-up goes through ladder/dead-end.js deadEnd (worker/test/dead-end.test.js)
 // In the CI pool only (the harness's ladderAct switch), the move the one rule lets act is pressed through the live Apply press and its effect checked: a form on the page, or a new page with fields.
 const actOnMove = async (tab, move) => {
+  const key = fillKey(tab.id, tab.url);
   applyPressed.set(tab.id, {at: Date.now(), url: tab.url});
-  const attempt = await pressApply(tab.id, [{key: 'apply_button', phrase: move.named}], move.named, '', noEffectOf(fillKey(tab.id, tab.url)));
+  const attempt = await pressApply(tab.id, [{key: 'apply_button', phrase: move.named}], move.named, '', noEffectOf(key));
   if (!attempt.pressed) { applyPressed.delete(tab.id); return {}; }
   const after = await formAfterPress(tab.id, tab.url);
   if (after === 'navigated') { const live = await chrome.tabs.get(tab.id).catch(() => null); const counts = live ? await pageShape(tab.id) : null; return {navigated: true, fields: (counts?.fields || 0) + (counts?.textareas || 0)}; }
