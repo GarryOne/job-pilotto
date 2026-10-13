@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import {SILENT_AFTER_MS, checkSilence, endSilence, forgetSilence, handedToPerson, isSilent, restartSilence, silenceOf, silenceTab, useSilence} from '../../extension/ladder/silence.js';
+import {SILENT_AFTER_MS, askEnded, askStarted, askTime, checkSilence, endSilence, forgetSilence, handedToPerson, isSilent, restartSilence, silenceOf, silenceTab, useSilence} from '../../extension/ladder/silence.js';
 
 const T = SILENT_AFTER_MS, fired = [], timers = [];
 useSilence({notice: (host, evidence) => fired.push({host, evidence}), timer: (fn, ms) => timers.push({fn, ms, cancelled: false}), cancel: id => { timers[id - 1].cancelled = true; }});
@@ -76,4 +76,25 @@ test('wired where the spec says: every progress note restarts it, a new page nam
   assert.match(read('form-ready.js'), /if \(handedToPerson\(answer\)\) endSilence\(tab\.id\);/);
   assert.match(read('fill-flow.js'), /notePage\(tab\.id, key, \{job: jobUrl \|\| tab\.url, page: tab\.url\}\)/);
   assert.doesNotMatch(read('fill-flow.js'), /restartSilence|endSilence/, 'the flow never touches the clock but through a note or the door');
+});
+
+test('an ask to the app in flight is a wait, not a stall: the clock stands still, and the notice comes T of quiet later', () => {
+  fired.length = 0;
+  silenceTab(5, 'https://jobs.example/5');
+  restartSilence(5, 'navigated', {now: 100000, host: 'jobs.example'});
+  askStarted(110000);   // the fill asks the app for 15 answers: 40 s
+  assert.equal(checkSilence(5, 100000 + T), false, 'T after the note, but an ask is out: not silent');
+  assert.equal(timers.at(-1).ms, 20000, 'looked at again when the rest of T would be up (10 s were quiet before the ask)');
+  askEnded(150000);
+  assert.equal(askTime(150000), 40000);
+  assert.equal(checkSilence(5, 150000 + T - 10000 - 1), false, '30 s of quiet are not there yet: 10 s before the ask, 19.999 s after it');
+  assert.equal(checkSilence(5, 150000 + T - 10000), true, 'T of quiet, the ask excluded');
+  assert.deepEqual(fired, [{host: 'jobs.example', evidence: {kind: 'navigated', silentMs: T}}], 'the notice names the quiet time, not the wall time');
+  assert.equal(isSilent({at: 0, ended: false, noticed: false}, T), true, 'the offline measurement\'s plain clocks keep their meaning');
+});
+
+test('class: every call to the app is bracketed as an ask (flow.js api), whatever the call', () => {
+  const flow = fs.readFileSync(new URL('../../extension/flow.js', import.meta.url), 'utf8');
+  assert.match(flow, /export async function api\(config, path, init = \{\}, retry = true\) \{\s*askStarted\(\);[^\n]*\n\s*try \{ return await apiCall\(config, path, init, retry\); \} finally \{ askEnded\(\); \}/);
+  assert.match(flow, /return apiCall\(Object\.assign\(config, fresh\), path, init, false\)/, 'the retry after a 401 is inside the same bracket');
 });

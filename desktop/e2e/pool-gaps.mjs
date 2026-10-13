@@ -19,6 +19,7 @@ for (const dir of process.argv.slice(2)) {
   runs.push({report, logs});
 }
 const sum = gapSummary(rows);
+console.log(`slowest gap with the asks subtracted: ${s(sum.quietMax)} s`);
 console.log(`rows ${sum.measured} measured (${sum.notMeasured} without progress notes), gaps ${sum.gaps}: p50 ${s(sum.p50)} s, p90 ${s(sum.p90)} s, p95 ${s(sum.p95)} s, p99 ${s(sum.p99)} s, max ${s(sum.max)} s; slowest on rows that reached the form ${s(sum.maxReady)} s`);
 // The pool ends a row after STILL_SECONDS of total quiet (lib/live-still.mjs): a stall with nothing happening is cut there, so a gap or tail above it is activity without progress.
 console.log(`censored: a fully quiet stall is cut by the pool at ${STILL_SECONDS} s (lib/live-still.mjs); above ${STILL_SECONDS} s the pool measures activity without progress only`);
@@ -27,8 +28,11 @@ for (const row of rows.filter(row => row.measured).sort((a, b) => b.maxGapMs - a
   console.log(`${s(row.maxGapMs).padStart(6)} s slowest (then ${slowest?.kind || '-'}) · ${String(row.events).padStart(3)} notes · tail ${s(row.tailMs).padStart(6)} s · ${(row.ending || '-').padEnd(12)} ${row.deadEnd ? 'door' : '    '} ${row.silent ? `silent x${row.silent}` : '         '} · ${row.run} · ${row.row}`);
 }
 // The detector at each candidate T, summed over the runs: the same rule the extension runs (ladder/silence.js), applied to the logs.
-for (const T of [15000, 20000, 30000, 45000, 60000]) {
-  const all = runs.map(run => detectorAt(run.report, run.logs, T, STILL_SECONDS * 1000));
-  const sum = key => all.reduce((n, one) => n + one[key], 0), list = key => all.flatMap(one => one[key]);
-  console.log(`T ${T / 1000} s: recall ${sum('detected')}/${sum('stopped')} (silent rule alone ${sum('silentOnly')}), missed ${list('missed').length} (cut by the pool while silent ${sum('censored')}), false fires ${list('falseFires').length}/${sum('reached')}${list('falseFires').length ? `: ${list('falseFires').join(', ')}` : ''}`);
+for (const asks of [false, true]) {   // asks: the silent clock stands still while an ask to the app is out (the spans the logs show: lib/pool-gaps.mjs askSpans)
+  console.log(asks ? 'With the asks the logs show subtracted (what the extension now does):' : 'Wall time (no pause):');
+  for (const T of [15000, 20000, 30000, 45000, 60000]) {
+    const all = runs.map(run => detectorAt(run.report, run.logs, T, STILL_SECONDS * 1000, {asks}));
+    const sum = key => all.reduce((n, one) => n + one[key], 0), list = key => all.flatMap(one => one[key]);
+    console.log(`T ${T / 1000} s: recall ${sum('detected')}/${sum('stopped')} (silent rule alone ${sum('silentOnly')}), missed ${list('missed').length} (cut by the pool while silent ${sum('censored')}), false fires ${list('falseFires').length}/${sum('reached')}${list('falseFires').length ? `: ${list('falseFires').join(', ')}` : ''}`);
+  }
 }

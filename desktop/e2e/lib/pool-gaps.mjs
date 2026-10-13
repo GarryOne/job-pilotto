@@ -4,13 +4,27 @@
 // end. Activity without progress (presses, judgments) counts as silence. The silent rule is applied to the same lines with the extension's own rule (ladder/silence.js isSilent,
 // handedToPerson), so the detector's recall and false fires are measured offline on any run (phase 2 box 3). Pure: the caller reads the files (pool-gaps.mjs). Guard: e2e/test/pool-gaps.test.mjs.
 import {PROGRESS_KINDS} from '../../../extension/ladder/progress.js';
-import {SILENT_AFTER_MS, handedToPerson, isSilent} from '../../../extension/ladder/silence.js';
+import {SILENT_AFTER_MS, handedToPerson} from '../../../extension/ladder/silence.js';
 import {STEPS} from './smoke.mjs';
 
 const PROGRESS_LINE = /^(\S+Z) \[extension\] fill: progress: (\w+)(?: \{.*\})?$/;
 const ANY_LINE = /^(\S+Z) \[/;
 const DOOR = /^(\S+Z) \[extension\] fill: dead end: [a-z_-]+ (\{.*\})\s*$/;
 const JUDGE = /^(\S+Z) \[extension\] panel: application form ready\?: ([a-z_]+) (\{.*\})\s*$/;   // form-ready.js's line (the test reads that it still writes it)
+// The asks to the app that a log shows, as spans [from, to] ms: a line that reports how long the answer took ends at its own time (the AI's answers to a form's questions, the page-kind ask). The
+// silent clock stands still during an ask (extension/ladder/silence.js askStarted); the extension logs no ask start, so these spans are the lower bound of what it excludes.
+const ASK_LINE = /^(\S+Z) \[(?:fill\] Claude answered|extension\] fill: page kind:)[^{]*(\{.*\})\s*$/;
+export function askSpans(appLog = '') {
+  const spans = [];
+  for (const text of String(appLog).split('\n')) {
+    const found = ASK_LINE.exec(text), ms = found ? Number(parsed(found[2]).ms) : NaN;
+    if (found && ms > 0) { const to = Date.parse(found[1]); spans.push([to - ms, to]); }
+  }
+  return spans;
+}
+const overlap = (spans, from, to) => spans.reduce((sum, [a, b]) => sum + Math.max(0, Math.min(b, to) - Math.max(a, from)), 0);
+// The time between two instants that was not spent waiting on an ask.
+export const quietBetween = (spans, from, to) => Math.max(0, to - from - overlap(spans, from, to));
 const parsed = text => { try { return JSON.parse(text); } catch { return {}; } };   // a cut line: no field
 
 // appLog -> [{at, kind}], in the log's order
@@ -28,9 +42,10 @@ export function doorLines(appLog = '') {
 // considered); deadEnd: the door reported a stop; silent: how many times the silent rule noted the application in shadow.
 export function rowGaps(appLog = '') {
   const notes = progressOf(appLog);
-  const gaps = notes.slice(1).map((note, i) => ({ms: note.at - notes[i].at, kind: note.kind}));
+  const spans = askSpans(appLog);
+  const gaps = notes.slice(1).map((note, i) => ({ms: note.at - notes[i].at, quietMs: quietBetween(spans, notes[i].at, note.at), kind: note.kind}));
   const end = logEnd(appLog), door = doorLines(appLog);
-  return {events: notes.length, gaps, maxGapMs: Math.max(0, ...gaps.map(gap => gap.ms)), tailMs: notes.length && end != null ? end - notes.at(-1).at : null, deadEnd: door.stops > 0, silent: door.seen};
+  return {events: notes.length, gaps, maxGapMs: Math.max(0, ...gaps.map(gap => gap.ms)), maxQuietMs: Math.max(0, ...gaps.map(gap => gap.quietMs)), tailMs: notes.length && end != null ? end - notes.at(-1).at : null, deadEnd: door.stops > 0, silent: door.seen};
 }
 
 const logEnd = appLog => {
@@ -52,28 +67,34 @@ export function runEvents(appLog = '') {
 
 // The silent rule at T over a row's log: -> {fires: [{afterMs: since the first note, kind: the last note before the silence}], openTailMs: the silence at the log's end while the run
 // had not ended and the rule had not fired (the pool cut the row before T: censored)}.
-export function silentFires(appLog = '', T = SILENT_AFTER_MS) {
-  const fires = [];
+export function silentFires(appLog = '', T = SILENT_AFTER_MS, {asks = true} = {}) {
+  const fires = [], spans = asks ? askSpans(appLog) : [];
   let clock = null, first = null;
-  const check = at => { if (isSilent(clock, at, T)) { clock.noticed = true; fires.push({afterMs: clock.at + T - first, kind: clock.kind}); } };
+  const check = at => {
+    if (!clock || clock.ended || clock.noticed || quietBetween(spans, clock.at, at) < T) return;
+    clock.noticed = true;
+    let due = clock.at + T;   // the instant its quiet time reached T: the asks inside the wait push it later
+    for (let again = 0; again < 8; again++) due = clock.at + T + overlap(spans, clock.at, due);
+    fires.push({afterMs: Math.min(at, due) - first, kind: clock.kind});
+  };
   for (const event of runEvents(appLog)) {
     check(event.at);
     if (event.type === 'progress') { first ??= event.at; clock = {at: event.at, kind: event.kind, ended: false, noticed: false}; } else if (clock) clock.ended = true;
   }
   const end = logEnd(appLog);
   if (end != null) check(end);
-  return {fires, openTailMs: clock && !clock.ended && !clock.noticed && end != null ? end - clock.at : null};
+  return {fires, openTailMs: clock && !clock.ended && !clock.noticed && end != null ? quietBetween(spans, clock.at, end) : null};
 }
 
 // The dead-end detector on the pool's ground truth (spec phase 2 box 3), at T: rows that stopped before the form vs rows that reached it; the test's own holds and rows with no ending
 // are not outcomes. Detected = the door spoke or the silent rule fired. censored: a stopped row the pool cut while silent for at least stillMs but less than T.
 const FORM_STEP = STEPS.indexOf('form');
-export function detectorAt(report = {}, logs = {}, T = SILENT_AFTER_MS, stillMs = 20000) {
+export function detectorAt(report = {}, logs = {}, T = SILENT_AFTER_MS, stillMs = 20000, opts = {}) {
   const ran = Array.isArray(report.thisRun?.ran) ? new Set(report.thisRun.ran) : null;
   const out = {T, stopped: 0, detected: 0, silentOnly: 0, missed: [], censored: 0, reached: 0, falseFires: []};
   for (const [row, item] of Object.entries(report.results || {})) {
     if ((ran && !ran.has(row)) || !item?.ending || item.ending === 'held' || !progressOf(logs[row]).length) continue;
-    const {fires, openTailMs} = silentFires(logs[row], T), door = doorLines(logs[row]).stops > 0;
+    const {fires, openTailMs} = silentFires(logs[row], T, opts), door = doorLines(logs[row]).stops > 0;
     if (STEPS.indexOf(item.reached) >= FORM_STEP) { out.reached++; if (fires.length) out.falseFires.push(row); continue; }
     out.stopped++;
     if (door || fires.length) out.detected++;
@@ -105,5 +126,5 @@ export function gapSummary(rows = []) {
   const measured = rows.filter(row => row.measured), all = measured.flatMap(row => row.gaps.map(gap => gap.ms));
   const ready = measured.filter(row => row.ending === 'ready').flatMap(row => row.gaps.map(gap => gap.ms));
   return {measured: measured.length, notMeasured: rows.length - measured.length, gaps: all.length,
-    p50: quantile(all, 0.5), p90: quantile(all, 0.9), p95: quantile(all, 0.95), p99: quantile(all, 0.99), max: all.length ? Math.max(...all) : null, maxReady: ready.length ? Math.max(...ready) : null};
+    p50: quantile(all, 0.5), p90: quantile(all, 0.9), p95: quantile(all, 0.95), p99: quantile(all, 0.99), max: all.length ? Math.max(...all) : null, quietMax: measured.flatMap(row => row.gaps.map(gap => gap.quietMs)).reduce((a, b) => Math.max(a, b), 0), maxReady: ready.length ? Math.max(...ready) : null};
 }
