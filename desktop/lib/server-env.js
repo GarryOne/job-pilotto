@@ -3,6 +3,7 @@
 // Guarded by desktop/test/local-server.test.js, automation.test.js, app.test.js and cover-letter.test.js.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import path from 'node:path';
 import * as claudeCode from './claude-code.js';
 import * as cvlib from './cv.js';
 import * as pipeline from './pipeline.js';
@@ -210,6 +211,26 @@ async function judgeNotes(storage, run, known) {
 // The extension version in the app's folder (the one Chrome loads unpacked): an older one in Chrome reloads itself.
 export function latestExtension(read = fs.readFileSync) {
   try { return JSON.parse(read(`${pipeline.REPO}/extension/manifest.json`, 'utf8')).version || ''; } catch { return ''; }
+}
+
+// A development copy (npm start from a checkout) has Chrome load the repo's extension/ itself, and since 13 Oct 2026 its version stays the base ("0.9"):
+// the build stamps the rest (desktop/scripts/extension-stamp.mjs), so after a pull the extension cannot tell it changed. Said once per extension start,
+// when a file there is newer than that start. A packaged app's copy never changes while it runs (an update brings a new stamped version).
+export const developmentCopy = () => fs.existsSync(path.join(pipeline.REPO, '.git'));
+export function newestExtensionFile(dir = path.join(pipeline.REPO, 'extension')) {
+  let newest = 0;
+  const walk = at => { for (const entry of fs.readdirSync(at, {withFileTypes: true})) {
+    const file = path.join(at, entry.name);
+    if (entry.isDirectory()) walk(file); else newest = Math.max(newest, fs.statSync(file).mtimeMs);
+  } };
+  try { walk(dir); } catch { return 0; }
+  return newest;
+}
+export const EXTENSION_CHANGED = 'extension changed: reload it (chrome://extensions → ↻ on Job Pilotto); a development copy does not reload itself';
+export function extensionChangedNote({boot, version, at}, state, {latest, newest}) {
+  const next = state && state.boot === boot ? state : {boot, at, told: false};
+  if (next.told || !version || version !== latest || !(newest() > next.at)) return {state: next, note: ''};
+  return {state: {...next, told: true}, note: EXTENSION_CHANGED};
 }
 
 // The sentence a stale copy deserves, or '' when the two agree (or either is unknown). One wording for the two

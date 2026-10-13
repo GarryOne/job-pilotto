@@ -27,8 +27,7 @@ Why each rule exists: [why.md](why.md#change-loop).
    architecture tests) exist BEFORE the change.
 3. **Three speeds:** each edit runs only the touched test (seconds); each finished slice runs the gate and the replays it touches (1-2 min); the
    FULL suites, all replays, real-extension and the old-build controls run ONCE per landing, in the background (`run_in_background` + Monitor).
-   Extension version, fingerprint and codemap are written once, at landing (a second write at the same version is refused:
-   `git checkout origin/main -- extension/fingerprint.json`, then write).
+   The codemap is written once, at landing. The extension's version is never written: the build stamps it (`desktop/scripts/extension-stamp.mjs`).
 4. **Commits:** small local commits are free; what lands is 1-3 squashed commits by concern.
 5. **Parallel sessions by file ownership, not by task:** one session owns the flow core; others get new files, tests, the site, measurement
    (brief + own worktree + commit only + report; the coordinator lands). Fix the landing order and any freeze window up front; message every peer (the flow core needs no claim message: an open PR is the claim).

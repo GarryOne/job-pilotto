@@ -14,7 +14,7 @@ answer with its source, dropdown attempts, step timings, errors, extension versi
 
 1. **Collect**: `python3 tools/fill-failures.py --days 14` (add `--json` for details). It groups every
    field left unfilled by reason and job site, most frequent first, with links to example runs.
-   Ignore groups whose latest version is older than the current `extension/manifest.json` version
+   Ignore groups whose latest version is older than main's stamped version (`node desktop/scripts/extension-stamp.mjs --at origin/main`)
    unless they still occur in the newest runs.
 2. **Diagnose** the top groups: open 1–2 example runs (fetch the page's code blocks) and compare the
    form as read (`debug.form`: label, type, options, filled) with the answers (`debug.answers`) and
@@ -41,9 +41,7 @@ answer with its source, dropdown attempts, step timings, errors, extension versi
       reproduce the failure: fix the fixture or the expectation first, not the code.
    3. **Fix** `extension/page/fill.js` (or `__jobPilottoDescribeForm`), until the fixture passes and every other
       fixture still does. Unit tests for helpers can go in `worker/test/extension*.test.js` too.
-   4. Commit the fixture with the fix. Bump `extension/manifest.json`'s version and run
-      `node desktop/scripts/extension-fingerprint.mjs --write` (desktop/test/extension-version.test.js checks it), so
-      new runs are distinguishable. If `tools/browser-*.js` or `extension/page/snapshot.js`'s scrubber changed, run
+   4. Commit the fixture with the fix (the build stamps a new extension version from the commit: never write it). If `tools/browser-*.js` or `extension/page/snapshot.js`'s scrubber changed, run
       `extension/sync.sh`.
    Privacy: fixtures are public. Never paste anything from Notion's run records or the user's form into a fixture by
    hand; only the issue's scrubbed snapshot or public form structure (`worker/test/fill-replay.test.js` rejects

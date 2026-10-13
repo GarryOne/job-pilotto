@@ -18,6 +18,10 @@ npm start
 It runs the Python pipeline from this repo (`../src`, with `../.venv` when present, else `python3`
 with `pip install -r requirements.txt`).
 
+Chrome loads this repo's `extension/` itself; its version stays the base (`"0.9"`, the release build stamps the rest), so after a
+`git pull` the extension does not reload itself: press ↻ on Job Pilotto in `chrome://extensions`. The app's log says
+`extension changed: reload it` when it is due.
+
 ## What's in it
 
 | Screen | What it does |

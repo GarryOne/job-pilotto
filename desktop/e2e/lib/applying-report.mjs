@@ -3,24 +3,22 @@
 // old build (REAL_EXTENSION_DIR: its failures are on purpose). The recorded replays are the other way round: only CI on a push to main sends them (uploadReplays,
 // replays-report.mjs), never a local run. Guard: e2e/test/applying-report.test.mjs.
 import {execFileSync} from 'node:child_process';
-import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {hash} from '../../scripts/extension-fingerprint.mjs';
+import {stampedAt} from '../../scripts/extension-stamp.mjs';
 
 export const SITE = 'https://www.jobpilotto.top/admin/applying';
 export const REPLAYS = 'https://www.jobpilotto.top/applying/replays';
 export const PROVEN = 'https://www.jobpilotto.top/applying/proven';
 // desktop/e2e (not imported from app.mjs: that pulls playwright-core into the desktop unit job, which does not install it; main was red 11 Oct 2026).
 const E2E = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const extensionVersion = () => { try { return JSON.parse(fs.readFileSync(path.join(E2E, '..', '..', 'extension', 'manifest.json'), 'utf8')).version; } catch { return ''; } };
-// Whether the build that ran is main's (cc's review, 12 Oct 2026): the extension's fingerprint (its files, the version left out: desktop/scripts/extension-fingerprint.mjs) equals
-// the one main records, AND the checkout's own commit is on main with no uncommitted change to the app or the extension (the fingerprint covers extension/ only: a branch that
-// changes desktop/lib alone would pass it). A fixer's branch, an unlanded change, an unknown main or a git error is not main: its runs stay out of the Resolution tile
-// (site/src/applying-resolution.js), as a PR's run does.
-export function buildOnMain({git = args => execFileSync('git', args, {cwd: E2E, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}), local = hash} = {}) {
+export const extensionVersion = () => stampedAt();   // the version this checkout's build stamps (scripts/extension-stamp.mjs)
+// Whether the build that ran is main's (cc's review, 12 Oct 2026): the checkout's extension/ equals main's, AND its own commit is on main with no uncommitted
+// change to the app or the extension (the extension check alone would pass a branch that changes desktop/lib only). A fixer's branch, an unlanded change, an
+// unknown main or a git error is not main: its runs stay out of the Resolution tile (site/src/applying-resolution.js), as a PR's run does.
+export function buildOnMain({git = args => execFileSync('git', args, {cwd: E2E, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']})} = {}) {
   try {
-    if (JSON.parse(git(['show', 'origin/main:extension/fingerprint.json'])).hash !== local()) return false;
+    git(['diff', '--quiet', 'HEAD', 'origin/main', '--', '../../extension']);   // throws when the committed extension differs from main's
     git(['merge-base', '--is-ancestor', 'HEAD', 'origin/main']);   // throws when HEAD has commits main does not
     git(['diff', '--quiet', 'HEAD', '--', '../lib', '../renderer', '../main.js', '../../extension']);   // throws on an uncommitted change (paths from desktop/e2e)
     return true;

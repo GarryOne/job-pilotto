@@ -142,10 +142,6 @@ for repo in "${repos[@]}"; do
     code="$(cat "$logs/$s.code")"
     if [ "$code" = 124 ] || [ "$code" = 137 ]; then timeouts+="$s in $repo took over ${limit}s (not counted as a failure). "; continue; fi
     [ "$code" = 0 ] && continue
-    # The extension fingerprint test fails by design until tools/ship.sh takes the new version after its rebase (a hand-made bump collides with other sessions): expected, not a failure to fix.
-    if [ "$s" = desktop ] && [ "$(failing_files "$logs/$s.log")" = "test/extension-version.test.js" ]; then   # either reporter's shape (tools/test-log-failures.sh)
-      notes+="desktop: only test/extension-version.test.js fails in $repo (the extension fingerprint): expected before landing, tools/ship.sh takes the version and fingerprint after its rebase. Do not bump it by hand."$'\n'; continue
-    fi
     case "$s" in
       python) how="JOB_PILOTTO_DISABLE=mail,notion,telegram,google_jobs $py -m unittest discover -s tests" ;;
       codemap) how="cd desktop && node --test test/codemap.test.js (a new file needs a one-line header saying what it does)" ;;

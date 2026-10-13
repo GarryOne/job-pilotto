@@ -68,7 +68,7 @@ The twin is for looking at the REAL app on a REAL site while you build. The loop
    of its own (`tools/worktree.sh twin-<topic>`, then `cd desktop && npm run twin` in the background, a Monitor on its log for `^twin: (running|refresh)`). Say in one line what its window will do
    and what is held back (never Submit, no password values). It sits on a blank tab until the first press: that is the twin waiting, not a stall.
 2. **Never edit in the twin's worktree.** Edit in your own worktree, land with `tools/ship.sh`, then `npm run twin:drive -- refresh` (about 9 s). Do not stop and restart the twin to pick up a change:
-   that loses the browser's tabs, the signed-in sessions and the half-filled form. Read what refresh printed: `extension reloaded (x.y.z)` must show the new version; `NOT running` is a bug to report.
+   that loses the browser's tabs, the signed-in sessions and the half-filled form. Read what refresh printed: `extension reloaded (x.y.z)` must show the new version (the copy is stamped: `desktop/scripts/extension-stamp.mjs`); `NOT running` is a bug to report.
    Restart the twin only when `e2e/twin.mjs` itself changed, or when the owner asks.
 3. **It shows main, not your branch.** Refresh fast-forwards to `origin/main`. An unpushed change is looked at with `npm run shot -- <page> --js ...` (one screen, 5 s) or `npm run real-extension`;
    the twin is for the pushed one, on the real site.

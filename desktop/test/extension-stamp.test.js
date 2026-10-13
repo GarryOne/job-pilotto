@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {LAST_COMMITTED, count, forBuild, newer, stamp, version} from '../scripts/extension-stamp.mjs';
+import {LAST_COMMITTED, count, forBuild, newer, stamp, stampedAt, version} from '../scripts/extension-stamp.mjs';
 
 function repo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-stamp-'));
@@ -35,8 +35,8 @@ test('a later extension commit stamps a higher version; a commit elsewhere keeps
 });
 
 test('every stamp is above the last version committed by hand', () => {
-  assert.throws(() => version({manifestVersion: '0.9', commits: 100}), /not above 0\.9\.265/);
-  assert.ok(newer(version({manifestVersion: '0.9.265', commits: 266}), LAST_COMMITTED));
+  assert.throws(() => version({manifestVersion: '0.9', commits: 100}), /not above 0\.9\.268/);
+  assert.ok(newer(version({manifestVersion: '0.9.268', commits: 269}), LAST_COMMITTED));
   assert.throws(() => forBuild({repo: repo().dir, env: {EXTENSION_VERSION: '0.9.12'}}), /not a version above/);
 });
 
@@ -68,4 +68,22 @@ test('this repo\'s own stamp is above the last committed version (installed copi
   let stamped;
   try { stamped = forBuild({env: {}}); } catch (error) { if (/shallow clone/.test(error.message)) return t.skip('shallow checkout: CI counts on a full clone'); throw error; }
   assert.ok(newer(stamped, LAST_COMMITTED), `${stamped} > ${LAST_COMMITTED}`);
+});
+
+test('a copy reports the stamp at a commit; a shallow CI clone fetches the history first, elsewhere the manifest\'s version', () => {
+  const {dir, commit} = repo();
+  commit('extension/fill.js', 'later\n');
+  assert.equal(stampedAt(dir), '0.9.3');
+  assert.equal(stampedAt(dir, 'HEAD~1'), '0.9.2');
+  const shallow = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-stamp-shallow-'));
+  execFileSync('git', ['clone', '-q', '--depth', '1', `file://${dir.split(path.sep).join('/')}`, shallow], {stdio: 'ignore'});
+  assert.equal(stampedAt(shallow, 'HEAD', {}), '0.9', 'off CI: the manifest\'s version, nothing fetched');
+  assert.equal(stampedAt(shallow, 'HEAD', {CI: 'true'}), '0.9.3', 'on CI: the history is fetched, then counted');
+  assert.equal(stampedAt(path.join(os.tmpdir(), 'no-such-repo-ext-stamp')), '');
+});
+
+test('the repo\'s manifest holds only the base: no PR writes the extension\'s version (each one made every other extension PR conflict)', () => {
+  const manifest = JSON.parse(fs.readFileSync(new URL('../../extension/manifest.json', import.meta.url), 'utf8'));
+  assert.match(manifest.version, /^\d+\.\d+$/, 'extension/manifest.json "version" is the base ("0.9"); the build stamps the rest (scripts/extension-stamp.mjs)');
+  assert.ok(!fs.existsSync(new URL('../../extension/fingerprint.json', import.meta.url)), 'extension/fingerprint.json is gone: the stamp replaced it');
 });

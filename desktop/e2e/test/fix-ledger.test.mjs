@@ -19,6 +19,13 @@ const fakeGit = (...args) => {
   throw new Error('unexpected git ' + args.join(' '));
 };
 
+test('a fix landed after the switch gets the version its build stamped: the base + the extension\'s commit count at that commit', () => {
+  const stamped = (...args) => (args[0] === 'show' && !args.includes('--name-only') ? JSON.stringify({version: '0.9'})
+    : args[0] === 'rev-list' ? '431\n' : fakeGit(...args));
+  const ledger = buildLedger({git: stamped, fixes: [{commit: 'fdbdc23', site: 'Hornbach SuccessFactors'}]});
+  assert.ok(ledger.length && ledger.every(entry => entry.extensionVersion === '0.9.431'), JSON.stringify(ledger.map(entry => entry.extensionVersion)));
+});
+
 test('the ledger joins the data file and the Pool-row trailers: version from the commit, guard from its Fixture trailer and the recorded cases it adds', () => {
   const ledger = buildLedger({git: fakeGit, fixes: [{commit: 'fdbdc23', site: 'Hornbach SuccessFactors'}, {commit: 'nothere', site: 'Gone'}]});
   assert.deepEqual(ledger.map(item => [item.site, item.commit, item.extensionVersion, item.rung, item.guard]), [
