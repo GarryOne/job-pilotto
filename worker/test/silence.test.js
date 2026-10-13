@@ -139,3 +139,23 @@ test('the silence notice names the tab of the application, so the shadow questio
   assert.equal(checkSilence(9, 31000), true);
   assert.deepEqual(notes, [{host: 'jobs.example', tabId: 9}]);
 });
+
+test('the run ending is said once per clock (the door and the form judge may both speak); a new progress note starts a fresh clock that can end again', () => {
+  const ends = [];
+  useSilence({ended: (host, tabId) => ends.push({host, tabId})});
+  silenceTab(7, 'https://jobs.example/7');
+  restartSilence(7, 'navigated', {now: 1000, host: 'jobs.example'});
+  endSilence(7);
+  endSilence(7);
+  assert.deepEqual(ends, [{host: 'jobs.example', tabId: 7}]);
+  restartSilence(7, 'required_down', {now: 5000});
+  endSilence(7);
+  assert.equal(ends.length, 2);
+  endSilence(99);   // no clock: nothing to say
+  assert.equal(ends.length, 2);
+});
+
+test('progress.js logs the run ending as one fixed line, never page text', () => {
+  const source = fs.readFileSync(new URL('../../extension/ladder/progress.js', import.meta.url), 'utf8');
+  assert.match(source, /ended: \(\) => log\('fill', 'run ended', \{\}\)/);
+});

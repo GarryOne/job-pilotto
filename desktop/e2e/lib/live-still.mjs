@@ -5,6 +5,16 @@ export const STILL_SECONDS = 20;
 export const STILL_SECONDS_CLI = 45;   // plan-path (claude -p) asks take 5-12 s each: 20 s of quiet ended runs while the AI was still thinking, a false "form empty" (11 Oct 2026)
 export const stillSeconds = (env = process.env, engine = '') => (env.LIVE_STILL_SECONDS === undefined || env.LIVE_STILL_SECONDS === '' ? (engine === 'cli' ? STILL_SECONDS_CLI : STILL_SECONDS) : Math.max(0, Number(env.LIVE_STILL_SECONDS) || 0));
 
+// After the extension says its run ended for the application (extension/ladder/progress.js: "fill: run ended", from ladder/silence.js endSilence: the door spoke or the page was
+// handed to the person) the quiet window is shorter: what may still come is a shadow check's one AI ask (an offline replay keeps the live AI's time, capped at 20 s). Measured
+// 14 Oct 2026 on the first CI replay run: ~45 of a row's ~93 s was this window after the last line. A progress note after the end means the run went on: the full window again.
+export const AFTER_END_SECONDS = 25;   // 20 s (the replayed AI's cap) + a margin for the watch's own 1.5 s turns
+export const runEnded = (logText = '') => { const text = String(logText); return text.lastIndexOf('fill: run ended') > text.lastIndexOf('fill: progress:'); };
+export const quietSeconds = (seconds, logText = '', env = process.env) => {
+  const after = env.LIVE_AFTER_END_SECONDS === undefined || env.LIVE_AFTER_END_SECONDS === '' ? AFTER_END_SECONDS : Math.max(0, Number(env.LIVE_AFTER_END_SECONDS) || 0);
+  return seconds > 0 && runEnded(logText) ? Math.min(seconds, after) : seconds;
+};
+
 // What the clock watches: the tabs and fill states, the session's stage, the page's visible shape (url, title, how many controls and buttons), how many log lines the app wrote.
 export const signature = ({states = [], stage = '-', status = '-', shape = '', logLines = 0} = {}) => JSON.stringify([states, stage, status, shape, logLines]);
 
@@ -14,7 +24,7 @@ export function stillClock({seconds = STILL_SECONDS, startedAt = 0} = {}) {
   return {
     see(sig, at) { if (sig !== last) { last = sig; changedAt = at; return true; } return false; },
     stillFor: at => at - changedAt,
-    over: (at, {opened = false, deciding = false} = {}) => seconds > 0 && opened && !deciding && at - changedAt >= seconds * 1000,   // deciding: the extension's own step line is up (lib/deciding.mjs): the limit, not the quiet window, ends the run
+    over: (at, {opened = false, deciding = false, quiet = seconds} = {}) => quiet > 0 && opened && !deciding && at - changedAt >= quiet * 1000,   // quiet: this turn's window (quietSeconds: shorter once the run ended)   // deciding: the extension's own step line is up (lib/deciding.mjs): the limit, not the quiet window, ends the run
   };
 }
 

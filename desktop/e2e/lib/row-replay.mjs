@@ -9,7 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {evidenceLines} from './evidence-bundle.mjs';
 import {nextRunnable} from './replay-browser.mjs';
-import {PAGE_LINE, stillClock} from './live-still.mjs';
+import {PAGE_LINE, quietSeconds, stillClock} from './live-still.mjs';
 import {bindToEvents, followDelayMs, keptPresses, laterStates, replayPresses, samePress, stateAfter, swapInPage} from './row-follow.mjs';
 import {frontOf} from './app-front.mjs';
 import {activityOf, mayEnd} from './row-end.mjs';
@@ -211,7 +211,7 @@ export async function openReplay(caseDirs, {extensionDir, ask = false, loose = f
         }
         clock.see(JSON.stringify([activityOf(requests()), log().split('\n').filter(line => PAGE_LINE.test(line)).length, [...rows.values()].filter(one => one === row).length]), Date.now());
         if (firstMissMs == null && /not in the row's kept answers/.test(log())) firstMissMs = Date.now();
-        const why = mayEnd({quietMs: clock.stillFor(Date.now()), stillMs: stillSeconds * 1000, followed, livePresses: presses.length, firstMissMs, nowMs: Date.now()});
+        const why = mayEnd({quietMs: clock.stillFor(Date.now()), stillMs: quietSeconds(stillSeconds, log()) * 1000, followed, livePresses: presses.length, firstMissMs, nowMs: Date.now()});
         if (why) { endedBy = why; break; }
         await steps.tick();
         await wait(500);

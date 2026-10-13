@@ -38,11 +38,13 @@ export const handedToPerson = answer => answer?.answer === 'needs_person' || (an
 const jobs = new Map();   // tabId -> the application (its job, without the #part) the tab works on
 const clocks = new Map();   // application -> {at, kind, host, ended, noticed, timer}
 let notice = () => {};
+let ended = () => {};   // the run said its last word for an application (endSilence): progress.js logs "run ended", which ends a test run's quiet watch early (desktop/e2e/lib/live-still.mjs)
 let timer = (fn, ms) => { const id = setTimeout(fn, ms); id?.unref?.(); return id; };
 let cancel = id => clearTimeout(id);
-// parts: {notice(host, evidence, tabId)} (progress.js: the door), and for the tests {timer, cancel}.
+// parts: {notice(host, evidence, tabId)} (progress.js: the door), {ended(host, tabId)} (progress.js: the "run ended" line), and for the tests {timer, cancel}.
 export function useSilence(parts = {}) {
   if (parts.notice) notice = parts.notice;
+  if (parts.ended) ended = parts.ended;
   if (parts.timer) timer = parts.timer;
   if (parts.cancel) cancel = parts.cancel;
 }
@@ -79,7 +81,11 @@ export function restartSilence(tabId, kind, {now = Date.now(), host = ''} = {}) 
 // The run ended for this tab's application (the door spoke, or the page was handed to the person): the silence from here on is expected.
 export function endSilence(tabId) {
   const clock = clocks.get(appOf(tabId));
-  if (clock) { clock.ended = true; stop(clock); }
+  if (!clock) return;
+  const first = !clock.ended;
+  clock.ended = true;
+  stop(clock);
+  if (first) ended(clock.host, tabId);   // once per clock: the door and the form judge may both speak
 }
 // A closed tab: its application's clock goes once no other tab works on it.
 export function forgetSilence(tabId) {

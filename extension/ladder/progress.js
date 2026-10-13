@@ -15,7 +15,7 @@ export const useProgressLog = fn => { log = fn; };
 useSilence({notice: (host, evidence, tabId) => {   // the stop is logged once the tab's address is known (the shadow question joins by door id; the tab may be gone: then it is logged without the question)
   const open = page => seenDeadEnd('silent', host, evidence, log, {tabId, page});
   Promise.resolve(globalThis.chrome?.tabs?.get(tabId)).then(tab => open(tab?.url || ''), () => open('')).catch(() => {});
-}});
+}, ended: () => log('fill', 'run ended', {})});   // no page text: the line only says the application's run has nothing left to do (a test run's watch may end sooner)
 const last = new Map();   // tabId -> {at, kind}
 const pages = new Map();   // tabId -> the page key last considered
 
