@@ -3,8 +3,8 @@
 //   not_asked  the question did not run (the digest was asked already, the page moved on, or the line is missing)
 //   agree      the fallback would not act (a person is needed, the way is not listed, unsure, a floor refused, one ask, two asks disagreed): it says what the stop said
 //   better     the fallback would act (sure, past the floors, two agreeing asks) where the stop was unresolved: a move the stop did not make; a candidate until the CI pool acts (box 8)
-//   worse      the fallback would act where the stop handed the page to the person (ending handed), or on an account page (a login wall or a password step): any such row blocks the switch-on
-// A silent stop (seen in shadow, `shadow: true` plus a door id) is a stop of its own kind ('silent'): the question is asked at it too (owner, 14 Oct 2026); a seen notice with no door id is not a stop. An account page is the page kind the run judged last. Pure: the caller reads the logs (pool-shadow.mjs). Guard: e2e/test/pool-shadow.test.mjs.
+//   worse      the fallback would act where the stop handed the page to the person (ending handed): any such row blocks the switch-on
+// A silent stop (seen in shadow, `shadow: true` plus a door id) is a stop of its own kind ('silent'): the question is asked at it too (owner, 14 Oct 2026); a seen notice with no door id is not a stop. The page kind the run judged last is kept on the stop (an account page is told apart for the acting run's judgement). Pure: the caller reads the logs (pool-shadow.mjs). Guard: e2e/test/pool-shadow.test.mjs.
 const STOP = /^(\S+Z) \[extension\] fill: dead end: ([a-z_-]+) (\{.*\})\s*$/;
 const KIND = /^(\S+Z) \[extension\] fill: page kind: ([a-z_-]+) /;   // the page kind the run judged last: an account page is any kind that starts with "account"
 const ASKED = /^(\S+Z) \[extension\] fill: dead end fallback \(shadow\)(?:: ([a-z ]+))? (\{.*\})\s*$/;
@@ -31,8 +31,7 @@ export function stopsOf(appLog = '') {
 // One stop -> 'not_asked' | 'agree' | 'better' | 'worse'
 export function verdictOf(stop) {
   if (stop.asked !== 'asked') return 'not_asked';
-  if (!stop.wouldAct) return 'agree';   // at an account page, handing the page to the person (sign in / create account) is agree
-  if (stop.page === 'account') return 'worse';   // a press at an account page can get past a login wall or into a password step: worse even if a form follows (owner, 14 Oct 2026)
+  if (!stop.wouldAct) return 'agree';   // at an account page, handing the page to the person (sign in / create account) is agree; a move that would act there is NOT judged here: the floors already refuse sign-in, register, create-account and "apply with" (tab-pages.js NOT_APPLY), the one press that passes (guest / without an account) is judged by its effect in the acting run (worse = it led to a sign-in or password page, or left the application; owner, 14 Oct 2026)
   return stop.ending === 'handed' ? 'worse' : 'better';
 }
 
