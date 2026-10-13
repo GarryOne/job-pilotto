@@ -81,6 +81,8 @@ test('the app stores its first run once, keeps the most applications it ever saw
   assert.equal(license.blocked(), null);
   applied = FREE_APPLICATIONS;
   assert.equal(license.blocked().ended, true);
+  assert.equal(license.key(), '');
   assert.equal(license.set('nonsense').ok, false);
+  assert.equal(license.key(), '');
   assert.equal(license.blocked().ended, true);
 });
