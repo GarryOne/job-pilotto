@@ -101,8 +101,8 @@ test('the two pages open in Chrome itself, on the Mac and on the PC', async () =
   const record = (file, args, done) => { opened.push([file, args.join(' ')]); done(null, ''); };
   // The Mac: `open -a`, which is what knows Chrome's name whatever folder it was installed into.
   const chromeApp = file => file === '/Applications/Google Chrome.app';
-  assert.equal(await ext.openExtensionsPage({exec: record, platform: 'darwin', exists: chromeApp}), true);
-  assert.equal(await ext.openOptionsPage(path.join(repo, 'extension'), {exec: record, platform: 'darwin', exists: chromeApp}), true);
+  assert.equal(await ext.openExtensionsPage({exec: record, platform: 'darwin', env: {HOME: '/h'}, exists: chromeApp}), true);
+  assert.equal(await ext.openOptionsPage(path.join(repo, 'extension'), {exec: record, platform: 'darwin', env: {HOME: '/h'}, exists: chromeApp}), true);
   assert.deepEqual(opened, [['open', '-a Google Chrome chrome://extensions'], ['open', '-a Google Chrome ' + options]]);
   // Windows: chrome.exe itself, from where its installer puts it — no shell, so a URL's & stays in the URL.
   const chrome = path.win32.join('C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe');

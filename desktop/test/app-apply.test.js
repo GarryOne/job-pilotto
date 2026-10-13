@@ -6,6 +6,11 @@ import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
 import * as apply from '../lib/apply.js';
+
+// The launcher reads the browser's last-used profile from HOME / LOCALAPPDATA: point both at an empty folder so no test reads the owner's real browser.
+const emptyHome = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-home-'));
+process.env.HOME = emptyHome;
+process.env.LOCALAPPDATA = emptyHome;
 import * as strategy from '../lib/strategy.js';
 import {createStorage} from '../lib/storage.js';
 

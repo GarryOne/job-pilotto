@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {hiddenRun} from './e2e-hidden.js';
+import {lastUsedProfile} from './browser-profile.js';
 
 // scheme: how that browser spells its own pages (chrome://extensions, edge://extensions).
 // win: the folder below Program Files / Program Files (x86) / %LOCALAPPDATA% where the installer puts the exe.
@@ -21,7 +22,7 @@ export const schemeOf = app => (find(app) || LAUNCH[0]).scheme;
 // installer puts it. null on Windows when none is installed. On the Mac a browser counts as installed when its .app is
 // in /Applications or ~/Applications; with none found it still says Chrome, as before, and `open` explains.
 // Returns [command, args, app] ... callers spread the first two.
-export function browserCommand(urls, platform = process.platform, env = process.env, exists = fs.existsSync, prefer = '') {
+export function browserCommand(urls, platform = process.platform, env = process.env, exists = fs.existsSync, prefer = '', read = fs.readFileSync) {
   // The end-to-end journey on Windows: no `open` to put a stand-in for on PATH, so node runs its stand-in script (never for a user: needs JOB_PILOTTO_E2E).
   if (env.JOB_PILOTTO_E2E && env.JOB_PILOTTO_E2E_OPENER) return ['node', [env.JOB_PILOTTO_E2E_OPENER, ...urls]];
   const order = [find(prefer), ...LAUNCH].filter(Boolean).filter((browser, i, all) => all.indexOf(browser) === i);
@@ -30,12 +31,13 @@ export function browserCommand(urls, platform = process.platform, env = process.
     const there = browser => [`/Applications/${browser.app}.app`, home && path.join(home, 'Applications', `${browser.app}.app`)]
       .filter(Boolean).some(file => exists(file));
     const browser = order.find(there) || LAUNCH[0];
-    return ['open', [...(hiddenRun(env) ? ['-g'] : []), '-a', browser.app, ...urls]];   // -g: an e2e run opens tabs in the background
+    const profile = lastUsedProfile(browser.app, platform, env, read);   // no flag = the browser may ask "who is using Chrome?" and lose the URL
+    return ['open', [...(hiddenRun(env) ? ['-g'] : []), '-a', browser.app, ...urls, ...(profile ? ['--args', `--profile-directory=${profile}`] : [])]];   // -g: an e2e run opens tabs in the background
   }
   for (const browser of order) {
     const exe = [env.ProgramFiles, env['ProgramFiles(x86)'], env.LOCALAPPDATA].filter(Boolean)
       .map(dir => path.win32.join(dir, ...browser.win)).find(file => exists(file));
-    if (exe) return [exe, urls];
+    if (exe) { const profile = lastUsedProfile(browser.app, platform, env, read); return [exe, [...(profile ? [`--profile-directory=${profile}`] : []), ...urls]]; }
   }
   return null;
 }
