@@ -195,8 +195,9 @@ async function accountStepOnce(tab, frameId) {
   if (!answer?.ok || !answer.password) {
     // No password saved for this site: the person signs in, or chooses one to create the account. The run names that need once, never a silent stop (the outcome contract's
     // 'handed', spec docs/superpowers/specs/2026-10-12-one-next-move.md phase 1a; recorded case sign-in-then-form-1). Only the need, never a password value; an account just made
-    // waits for its mail ('confirm'): nothing to name. Once the person has signed in, the next page is judged and filled as any other.
-    if (answer?.ok && answer.mode !== 'confirm' && NO_PASSWORD_NEED[step] && work?.empty > 0) await giveUp(tab, host, 'no saved password', NO_PASSWORD_NEED[step]);
+    // waits for its mail ('confirm'): nothing to name. An app that answered "no" (ok false: nothing saved or readable) leaves the same need, and an email-first page (the password box comes only after the email:
+    // no box at all yet, work.boxes 0) names it too: never a silent stop (13 Oct pool: 6 of 11 silent stops; recorded case email-first-no-password-1). Once the person has signed in, the next page is judged and filled as any other.
+    if (answer && answer.mode !== 'confirm' && NO_PASSWORD_NEED[step] && (work?.empty > 0 || work?.boxes === 0)) await giveUp(tab, host, 'no saved password', NO_PASSWORD_NEED[step]);
     return {filled: 0};
   }
   const move = accountMove({step, mode: answer.mode, hasEmail: !!answer.email, registerControl: kind?.registerControl, signinControl: kind?.signinControl});

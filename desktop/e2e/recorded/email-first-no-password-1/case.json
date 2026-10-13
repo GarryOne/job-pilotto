@@ -1,0 +1,88 @@
+{
+ "origin": "hand-cut",
+ "shape": "an email-first sign-in step before the application form (no password box on the page yet), no password saved for the site: the run names what the person must do at once, and fills the form by itself once the person has signed in",
+ "why": "14 Oct 2026, spec 2026-10-12-one-next-move.md prerequisite B: 6 of 11 silent stops in the 13 Oct pool were account pages that ask for the email first; the account step named the need only when an empty password box existed.",
+ "control": {
+  "build": "0.9.442",
+  "failed": "told: Sign in with your password for this site; stuck: account|Sign in with your password (no report: an email-first sign-in page with no saved password stopped silently)"
+ },
+ "rung": 2,
+ "sample": "hand-cut pages of the shape (invented host and text); the page's own script stands in for the person who signs in",
+ "pages": [
+  {
+   "url": "https://careers.signin.example/login",
+   "file": "login.html"
+  },
+  {
+   "url": "https://careers.signin.example/apply",
+   "file": "apply.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://careers.signin.example/apply"
+    },
+    "answer": {
+     "ok": true,
+     "by": "ai",
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "",
+     "applyRoute": "",
+     "applyBy": "",
+     "applyEmail": "",
+     "registerControl": "",
+     "signinControl": "",
+     "form_frame": -1,
+     "kind": "form",
+     "role": "form",
+     "confidence": 0.95,
+     "accountStep": "",
+     "accountButton": ""
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "by": "ai",
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "",
+     "applyRoute": "",
+     "applyBy": "",
+     "applyEmail": "",
+     "registerControl": "",
+     "signinControl": "",
+     "form_frame": -1,
+     "kind": "account",
+     "role": "account",
+     "confidence": 0.95,
+     "accountStep": "sign_in",
+     "accountButton": "Sign in"
+    }
+   }
+  ],
+  "/extension/site-password": {
+   "ok": false
+  }
+ },
+ "expect": {
+  "told": [
+   "Sign in with your password for this site"
+  ],
+  "stuck": [
+   "account|Sign in with your password"
+  ],
+  "ending": [
+   "handed"
+  ],
+  "filled": [
+   "#first_name",
+   "#last_name"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 60
+ }
+}
