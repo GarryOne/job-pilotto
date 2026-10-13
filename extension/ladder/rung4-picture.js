@@ -61,7 +61,7 @@ export async function closerLook(tab, frameId, reason, {kind = 'account', pictur
   const answer = await api(config, '/extension/escalate', {method: 'POST', body: JSON.stringify({url, kind, sketch, image: image || '', reason})}).catch(() => null);
   const action = answer?.action || 'none';
   lastLook.set(tab.id, {action, control: String(answer?.control || ''), why: String(answer?.why || '')});
-  decide('fill', `closer look: ${action}`, {reason, by: answer?.by || '', why: String(answer?.why || '').slice(0, 80)});
+  decide('fill', `closer look: ${action}`, {reason, by: answer?.by || '', picture: !!image, usd: Number(answer?.usd) || 0, why: String(answer?.why || '').slice(0, 80)});
   if (action === 'click' && answer.control) {
     // An application page is pressed with the next-step press (never a control that submits or reads like Submit); an account page with the register press.
     const result = kind === 'form' || kind === 'page'
