@@ -161,8 +161,9 @@ machine_ready() {  # sets $why when not
   [ "$load_gave_up" = 1 ] && return 0
   is_replay "$what" && [ "${JOB_PILOTTO_HEAVY_REPLAY_LOAD:-0}" != 1 ] && return 0   # replays wait for the memory gate, not the load
   if machine_calm; then load_began=""; return 0; fi
-  [ -n "$load_began" ] || load_began=$(date +%s)
-  if [ $(( $(date +%s) - load_began )) -ge "$load_wait" ]; then say "the machine is still busy ($signal_text) after ${load_wait}s: running $what anyway"; load_gave_up=1; return 0; fi
+  # The first busy reading always waits once (and says why): giving up on it could skip the wait line when the clock's second ticks between the two reads (main red, 13 Oct 2026)
+  if [ -z "$load_began" ]; then load_began=$(date +%s)
+  elif [ $(( $(date +%s) - load_began )) -ge "$load_wait" ]; then say "the machine is still busy ($signal_text) after ${load_wait}s: running $what anyway"; load_gave_up=1; return 0; fi
   why="the machine is busy: $signal_text (up to ${load_wait}s); using the CPU: $(top_cpu ' ' ', ')"; return 1
 }
 while :; do

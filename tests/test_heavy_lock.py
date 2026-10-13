@@ -75,6 +75,15 @@ class HeavyLockTest(HeavyLockFixture):
         self.assertIn('waits for the machine, holding no slot: the machine is busy: 1-minute load 99 is above 8', result.stderr)
         self.assertIn('running browser suite anyway', result.stderr)
 
+    def test_the_first_busy_reading_always_says_it_waits_before_giving_up(self):
+        # 13 Oct 2026 main red: with a 1 s wait, the clock's second ticking between two reads gave up on the first reading, with no wait line.
+        # A 0 s wait makes that race certain: the first reading must still wait once and say why.
+        result = self.run_lock('browser suite', 'echo', 'ran', **self.busy_machine(),
+                               JOB_PILOTTO_HEAVY_LOAD='8', JOB_PILOTTO_HEAVY_SIGNAL='load', JOB_PILOTTO_HEAVY_LOAD_WAIT='0')
+        self.assertEqual(result.stdout.strip(), 'ran')
+        self.assertIn('waits for the machine, holding no slot: the machine is busy', result.stderr)
+        self.assertIn('running browser suite anyway', result.stderr)
+
     def busy_machine(self, load=99):
         bin_dir = self.tmp / f'busy-{load}'
         bin_dir.mkdir(exist_ok=True)
