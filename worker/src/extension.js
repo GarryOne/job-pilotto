@@ -10,6 +10,7 @@
 // origin, so the extension needs no host permission for the Worker; the token is the access control.
 
 import { anthropicClient, priceOf } from './ai.js';
+import { cleanFields } from './extension-log.js';
 import { askAgainForGaps, unanswered } from './answer-missing.js';
 import { BILLED, billedTo, learnings, runBlocks, runData, runRecord } from './extension-run-record.js';
 export { BILLED, billedTo, learnings, runData, runRecord };
@@ -382,10 +383,7 @@ export async function handleExtension(request, env) {
         at: typeof entry?.at === 'string' ? entry.at.slice(0, 30) : '',
         kind: String(entry?.kind || 'note').slice(0, 24),
         text: String(entry?.text || '').slice(0, 300),
-        fields: Object.fromEntries(Object.entries(entry?.fields && typeof entry.fields === 'object' ? entry.fields : {})
-          .slice(0, 8).map(([key, value]) => [String(key).slice(0, 24),
-            key === 'fields' && Array.isArray(value) ? fieldRows(value)
-              : typeof value === 'string' ? value.slice(0, 60) : typeof value === 'number' || typeof value === 'boolean' ? value : ''])),
+        fields: cleanFields(entry?.fields),
       }));
       if (env.onLog) await env.onLog(clean);
       else console.log(`extension log: ${clean.map((entry) => `${entry.kind}: ${entry.text}`).join(' | ')}`);
@@ -415,17 +413,4 @@ export async function handleExtension(request, env) {
   } catch (error) {
     return json({ error: error.message }, 502);
   }
-}
-
-// A fill's per-field outcomes (extension/background.js "fields: …"): the one list the log boundary lets through, row by row and only these
-// keys, each a short string (and the required flag): the form's wording and kinds, never an answer (8 Oct 2026: "what happened to this field?" needed page probes).
-function fieldRows(rows) {
-  const keep = {label: 50, type: 16, outcome: 12, source: 30, reason: 80};
-  return rows.slice(0, 40).filter(row => row && typeof row === 'object')
-    .map(row => ({...Object.fromEntries(Object.entries(keep).map(([key, max]) => [key, typeof row[key] === 'string' ? row[key].slice(0, max) : ''])),
-      // Whether the page marks it required (a boolean, never a value): without it the smoke report counted an optional field left empty as a failure
-      // on every site (11 Oct 2026, Datadog "Website"; the extension kept it since c67f153, this boundary dropped it).
-      ...(typeof row.required === 'boolean' ? {required: row.required} : {}),
-      // The pack meaning that placed the field (a field key such as "location", never a value), only when there was one (fix-live-applying-in-twin, 9 Oct 2026).
-      ...(typeof row.alias === 'string' && /^[a-z_]{1,30}$/.test(row.alias) ? {alias: row.alias} : {})}));
 }

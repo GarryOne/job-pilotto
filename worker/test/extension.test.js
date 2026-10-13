@@ -111,7 +111,8 @@ test("the extension's decisions reach the app, cleaned and bounded", async () =>
   assert.equal(seen[1].text.length, 300);                 // truncated, not stored whole
   assert.equal(seen[1].fields.big.length, 60);
   assert.equal(seen[1].fields[('k').repeat(60)], undefined); // a property name is bounded too
-  assert.equal(seen[1].fields.nested, '');                 // only scalars survive
+  assert.equal(seen[1].fields.nested, '');                 // only scalars (and count maps) survive
+  assert.equal(seen[1].fields.dropped, 'nested', 'and the cut says which key it was');
   assert.equal(seen[1].fields.ok, true);
   // Without an app (a Cloudflare Worker), nothing is lost: the same entries are printed to its log.
   const many = Array.from({length: 80}, (_, i) => ({kind: 'fill', text: `fill ${i}`}));
