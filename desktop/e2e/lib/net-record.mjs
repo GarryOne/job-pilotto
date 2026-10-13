@@ -1,10 +1,12 @@
-// The network recorder of a live row (spec docs/superpowers/specs/2026-10-13-replay-by-network.md): every response the browser got, never cookies, request
-// headers or request bodies (a body is kept only as a key). keepRecord drops beacons, blanks images to same-size SVGs. Guard: e2e/test/net-record.test.mjs.
+// The network recorder and replayer of a live row (spec docs/superpowers/specs/2026-10-13-replay-by-network.md): the recorder keeps every response the browser
+// got (never cookies, request headers or request bodies); the replayer serves it back by the spec's rules. Guard: e2e/test/net-record.test.mjs.
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import {normalise} from '../../lib/ai/model-memo.js';
 
 const LOOP = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//;
 export const recordable = url => /^https?:/.test(url) && !LOOP.test(url);
+const pathOf = url => { const u = new URL(url); return `${u.protocol}//${u.host}${normalise(u.pathname)}`; };
 const siteOf = host => host.split('.').slice(-2).join('.');   // prototype: the last two labels (the build: the public suffix list)
 const NONCE = /^(?=.*\d)(?=.*[a-z])[a-z0-9_-]{8,}$/i;
 const sha = buf => crypto.createHash('sha256').update(buf).digest('hex');
@@ -87,4 +89,72 @@ export function keepRecord({entries, bodies}) {
     out.push({...entry, headers, hash});
   }
   return {entries: out, bodies: kept, stats};
+}
+
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+// The echo rule: a reply that echoes a per-run value the page sent (an upload key built from the time and a random number) gets the replay's own value in place of
+// the live one. A value is per-run when it is long and mixes digits and letters; its live twin in the reply has the same shape (each run of letters/digits the same length,
+// the same punctuation between). -> the reply body, rewritten when exactly one twin is found per value.
+const parts = (buf, contentType) => {
+  const boundary = /boundary=([^;]+)/i.exec(contentType || '')?.[1];
+  if (!buf || !boundary) return [];
+  return buf.toString('latin1').split(`--${boundary}`).slice(1, -1).map(part => { const at = part.indexOf('\r\n\r\n'), head = part.slice(0, at); return /filename="/.test(head) ? '' : part.slice(at + 4).replace(/\r\n$/, ''); }).filter(Boolean);
+};
+const escape = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+export function echo(body, sentValues) {
+  let text = body.toString('utf8'), changed = 0;
+  for (const value of sentValues) {
+    if (value.length < 16 || !/\d/.test(value) || !/[a-z]/i.test(value) || text.includes(value)) continue;
+    const shape = new RegExp(value.split(/([^A-Za-z0-9]+)/).map((run, i) => (i % 2 ? escape(run) : `[A-Za-z0-9]{${run.length}}`)).join(''), 'g');
+    const twins = [...new Set(text.match(shape) || [])];
+    if (twins.length !== 1) continue;
+    for (const [from, to] of [[twins[0], value], [encodeURIComponent(twins[0]), encodeURIComponent(value)]]) if (text.includes(from)) { text = text.split(from).join(to); changed += 1; }
+  }
+  return changed ? Buffer.from(text) : body;
+}
+const netLog = line => { if (process.env.JP_NET_LOG) try { fs.appendFileSync(process.env.JP_NET_LOG, `${Date.now()} ${line}\n`); } catch { /* a report only */ } };
+// The replay side (§2-§7): one route serves the record. -> {counts}
+export async function netReplay(context, {entries, bodies}, {slow = false, say = () => {}} = {}) {
+  const counts = {exact: 0, normalised: 0, order: 0, notRecorded: [], thirdPartyMisses: 0, sockets: 0, dropped: 0};
+  const firstParty = new Set(entries.filter(entry => entry.type === 'document').map(entry => siteOf(new URL(entry.url).host)));
+  const group = keyOf => { const map = new Map(); for (const entry of entries) { const key = keyOf(entry); if (!map.has(key)) map.set(key, []); map.get(key).push(entry); } return map; };
+  const byExact = group(entry => `${entry.method} ${entry.url} ${entry.bodyKey}`), byNorm = group(entry => `${entry.method} ${normUrl(entry.url)} ${entry.bodyKey}`), byPath = group(entry => `${entry.method} ${pathOf(entry.url)}`);
+  const used = new Set();
+  const take = (list, method) => { if (!list?.length) return null; const next = list.find(entry => !used.has(entry)); if (next) { used.add(next); return next; } return method === 'GET' ? list.at(-1) : null; };
+  await context.routeWebSocket(/.*/, ws => { counts.sockets += 1; ws.close(); });
+  await context.route('**/*', async route => {
+    const request = route.request(), url = request.url();
+    if (!recordable(url)) return route.continue();
+    const method = request.method(), sent0 = await request.allHeaders().catch(() => request.headers()), key = bodyKey(request.postDataBuffer(), sent0['content-type'] || '');
+    if (process.env.JP_NET_LOG && method !== 'GET') { const raw = (request.postDataBuffer() || Buffer.alloc(0)).toString('latin1'); netLog(`body ${method} ${url.slice(0, 80)}: ${(raw.match(/name="key"\r\n\r\n[^\r]*/) || [''])[0].replace(/\r\n/g, ' ')}`); }
+    let entry = take(byExact.get(`${method} ${url} ${key}`), method), rule = 'exact';
+    if (!entry) { entry = take(byNorm.get(`${method} ${normUrl(url)} ${key}`), method); rule = 'normalised'; }
+    if (!entry) { entry = take(byPath.get(`${method} ${pathOf(url)}`), method); rule = 'order'; }
+    if (!entry) {
+      const first = firstParty.has(siteOf(new URL(url).host)) && ['document', 'script', 'fetch', 'xhr'].includes(request.resourceType());
+      if (first) counts.notRecorded.push(`${method} ${pathOf(url)} (${request.resourceType()})`); else counts.thirdPartyMisses += 1;
+      netLog(`404 ${method} ${url.slice(0, 160)} key=${key.slice(0, 40)} type=${request.resourceType()}`);
+      return route.fulfill({status: 404, body: ''});
+    }
+    counts[rule] += 1;
+    netLog(`${rule} ${method} ${url.slice(0, 160)} key=${key.slice(0, 40)} -> ${entry.status}${entry.failed ? ' failed' : ''} wait=${entry.waitMs} served=${entry.method} ${entry.url.slice(0, 160)} @${entry.startMs} hash=${(entry.hash || '').slice(0, 12)}`);
+    if (rule === 'order') say(`loose: ${method} ${url} served the recording of ${entry.url}`);
+    await wait(Math.min(8000, entry.waitMs) * (slow ? 1.6 : 1));
+    if (entry.dropped) { counts.dropped += 1; return route.fulfill({status: 404, body: ''}); }
+    if (entry.failed) return route.abort().catch(() => {});
+    // A recorded redirect of a page load: Chromium does not follow a fulfilled 3xx on a navigation (the load fails, the page is loaded again), so it is
+    // served as a page that moves on at once, keeping the address's #fragment (the fill mark) as a real redirect does.
+    const to = entry.headers?.location;
+    if (to && entry.status >= 300 && entry.status < 400 && request.isNavigationRequest()) {
+      counts.redirects = (counts.redirects || 0) + 1;
+      return route.fulfill({status: 200, contentType: 'text/html', body: `<!doctype html><script>location.replace(${JSON.stringify(new URL(to, url).href)} + location.hash)</script>`}).catch(() => {});
+    }
+    let body = bodies.get(entry.hash) || Buffer.alloc(0), headers = entry.headers;
+    if (method !== 'GET' && body.length && body.length < 1e5) {
+      const sent = parts(request.postDataBuffer(), sent0['content-type']), echoed = echo(body, sent);
+      if (echoed !== body) { counts.echoed = (counts.echoed || 0) + 1; netLog(`echo ${method} ${url.slice(0, 80)}`); body = echoed; headers = Object.fromEntries(Object.entries(headers).map(([name, v]) => [name, echo(Buffer.from(String(v)), sent).toString()])); }
+    }
+    return route.fulfill({status: entry.status, headers, body}).catch(() => {});
+  });
+  return {counts};
 }

@@ -132,7 +132,8 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
       const kept = keepRecord(net.result()), dir = path.join(process.env.JP_NET_RECORD_DIR, `${(posting.title || new URL(url).host).replace(/\W+/g, '-')}-${Date.now()}`);
       fs.mkdirSync(path.join(dir, 'bodies'), {recursive: true});
       for (const [hash, body] of kept.bodies) fs.writeFileSync(path.join(dir, 'bodies', hash), body);
-      fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({startMs: netStart, url, entries: kept.entries, stats: kept.stats}));
+      const scrollbar = await run.page.evaluate(() => { const probe = document.createElement('div'); probe.style.cssText = 'position:absolute;top:-999px;width:100px;height:100px;overflow:scroll'; document.documentElement.appendChild(probe); const width = probe.offsetWidth - probe.clientWidth; probe.remove(); return width; }).catch(() => null);   // the replay draws the same (lib/scrollbar.mjs)
+      fs.writeFileSync(path.join(dir, 'record.json'), JSON.stringify({startMs: netStart, url, scrollbar, entries: kept.entries, stats: kept.stats}));
       for (const name of ['model-memo.json', 'app.log', 'asks.jsonl']) { try { fs.copyFileSync(path.join(captureDir, name), path.join(dir, name)); } catch { /* not written */ } }
       say(`live: network record kept: ${kept.stats.requests} requests, ${(kept.stats.keptBytes / 1e6).toFixed(2)} MB`);
     }
