@@ -1,5 +1,7 @@
 # A dead end's resolution: who moved the page on, and with which move
 
+**Status: deferred until installs exist (owner, 13 Oct 2026).** The CI pool has no person and starts no takeover, so none of the three steps gives data before real installs report; the design below is kept as it was agreed. Nothing here is on the one-next-move list.
+
 Owner, 13 Oct 2026: the dead-end resolution is **one more field on fill-ladder's door record**, not a separate store. Direction OK'd by the owner (cc's relay, 13 Oct): one record in the log, joined by door, no store.
 Agreed with job-pilotto-fill-ladder (13 Oct): the record is today a log line, `decide('fill', 'dead end: <why>', {host, ending, named, door, …evidenceOf})` (`extension/ladder/dead-end.js`); fill-ladder adds `level` ('control' | page) in its own PR (5th in its queue, not built). `resolved` is one more optional key, owned here; nothing in its record says who moved the page on.
 
