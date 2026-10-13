@@ -107,6 +107,22 @@ test('per-key cost: each key\'s tokens at the day\'s billed price per token; onl
   assert.deepEqual(rows.sort((x, y) => x.key.localeCompare(y.key)), [{day: '2026-10-05', key: 'job-pilotto-e2e-testing', usd: 2.5}, {day: '2026-10-05', key: 'job-pilotto-in-house-credit', usd: 4}]);
 });
 
+// 14 Oct 2026 (owner): "report per API key, then per workspace". A family `job-pilotto-*` is tracked by itself, `!name` leaves one out, and each workspace
+// gets one row (`ws.<slug>`) that is the sum of its tracked keys.
+test('keys are tracked by family, and each workspace is the sum of its tracked keys', async () => {
+  const {isTracked, keyDays, slug} = await import('../ai-cost-report.mjs');
+  const tracked = ['job-pilotto-*', '!job-pilotto-private'];
+  for (const [name, yes] of [['job-pilotto-ui-fix', true], ['job-pilotto-pool-new', true], ['job-pilotto-private', false], ['personal-finance-monitor', false], [undefined, false]]) assert.equal(isTracked(name, tracked), yes, String(name));
+  assert.equal(slug('Job Pilotto Self-heal'), 'job-pilotto-self-heal');
+  const row = (key, tokens) => ({day: '2026-10-05', api_key_id: key, model: 'claude-haiku-4-5-20251001', service_tier: 'standard', uncached_input_tokens: tokens});
+  const lines = [{day: '2026-10-05', model: 'claude-haiku-4-5-20251001', service_tier: 'standard', token_type: 'uncached_input_tokens', amount: '1000'}];   // $10 for 5M tokens
+  const rows = keyDays([row('a', 1e6), row('b', 2e6), row('c', 1e6), row('d', 1e6)], {a: 'job-pilotto-ui-fix', b: 'job-pilotto-ui-verdict', c: 'job-pilotto-e2e-testing', d: 'job-pilotto-private'},
+    lines, tracked, {a: 'Job Pilotto Self-heal', b: 'Job Pilotto Self-heal', c: 'Job Pilotto Tests', d: 'Default'});
+  const by = Object.fromEntries(rows.map(item => [item.key, item.usd]));
+  assert.deepEqual(by, {'job-pilotto-ui-fix': 2, 'job-pilotto-ui-verdict': 4, 'job-pilotto-e2e-testing': 2, 'ws.job-pilotto-self-heal': 6, 'ws.job-pilotto-tests': 2});
+  assert.equal(rows.filter(item => item.key.startsWith('ws.')).reduce((sum, item) => sum + item.usd, 0), 8, 'the workspaces add up to the tracked keys');
+});
+
 test('a refused call is recorded with the API\'s status, type and message', async t => {
   const {apiErrors, resetUsage: reset, writeUsage: write} = await import('../lib/ai-meter.mjs');
   const server = http.createServer((req, res) => { req.resume(); req.on('end', () => { res.writeHead(400, {'content-type': 'application/json'}); res.end(JSON.stringify({type: 'error', error: {type: 'invalid_request_error', message: 'You have reached your specified API usage limits.'}})); }); });

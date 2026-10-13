@@ -41,8 +41,14 @@ const LIST = {uncached_input_tokens: 1, output_tokens: 0, cache_read_input_token
 const listPrice = (model, type) => { const price = PRICES[modelOf(model)]; return price ? (type === 'output_tokens' ? price.output : price.input * LIST[type]) / 1e6 : 0; };   // only when the bill lacks the line
 
 // usage: [{day, api_key_id, model, service_tier, ...tokens}] of EVERY key; names: {id: name}; lines: cost report rows [{day, model, service_tier, token_type, amount (cents)}];
-// tracked: key names -> [{day, key, usd}].
-export function keyDays(usage, names, lines, tracked) {
+// tracked: key names, `prefix*` for a family, `!name` to leave one out -> [{day, key, usd}], one row per tracked key and per day, plus one per workspace
+// (`ws.<workspace name as a slug>`, the sum of its tracked keys) when `workspaces` ({key id: workspace name}) is given.
+export const slug = text => String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+export function isTracked(name, tracked) {
+  const hit = pattern => (pattern.endsWith('*') ? String(name).startsWith(pattern.slice(0, -1)) : pattern === name);
+  return Boolean(name) && tracked.some(pattern => !pattern.startsWith('!') && hit(pattern)) && !tracked.some(pattern => pattern.startsWith('!') && hit(pattern.slice(1)));
+}
+export function keyDays(usage, names, lines, tracked, workspaces = {}) {
   const id = (day, model, tier, type) => `${day}|${modelOf(model)}|${tier || 'standard'}|${type}`;
   const billedAmount = {}, used = {};
   for (const line of lines) if (TYPES.includes(line.token_type)) { const k = id(line.day, line.model, line.service_tier, line.token_type); billedAmount[k] = (billedAmount[k] || 0) + (Number(line.amount) || 0) / 100; }
@@ -50,12 +56,13 @@ export function keyDays(usage, names, lines, tracked) {
   const out = {};
   for (const row of usage) {
     const name = names[row.api_key_id];
-    if (!tracked.includes(name)) continue;
+    if (!isTracked(name, tracked)) continue;
+    const space = workspaces[row.api_key_id] ? `ws.${slug(workspaces[row.api_key_id])}` : '';
     for (const type of TYPES) {
       const n = tokensOf(row, type);
       if (!n) continue;
       const k = id(row.day, row.model, row.service_tier, type), rate = billedAmount[k] !== undefined && used[k] > 0 ? billedAmount[k] / used[k] : listPrice(row.model, type);
-      out[`${row.day}|${name}`] = (out[`${row.day}|${name}`] || 0) + n * rate;
+      for (const key of space ? [name, space] : [name]) out[`${row.day}|${key}`] = (out[`${row.day}|${key}`] || 0) + n * rate;
     }
   }
   return Object.entries(out).map(([k, usd]) => { const [day, key] = k.split('|'); return {day, key, usd: Math.round(usd * 1e6) / 1e6}; });
@@ -77,18 +84,20 @@ async function report(path, fetcher) {
 }
 
 export async function fetchKeyDays(days, tracked, fetcher = fetch, now = new Date()) {
-  const names = {};
+  const names = {}, spaceOf = {}, spaceNames = {default: 'Default'}, workspaces = {};
+  for (const space of (await admin('/v1/organizations/workspaces?limit=100', fetcher).catch(() => ({}))).data || []) spaceNames[space.id] = space.name;
   let after = '';
   for (let i = 0; i < 10; i++) {
     const page = await admin(`/v1/organizations/api_keys?limit=100${after ? `&after_id=${after}` : ''}`, fetcher);
-    for (const key of page.data || []) names[key.id] = key.name;
+    for (const key of page.data || []) { names[key.id] = key.name; spaceOf[key.id] = key.scope?.workspace_id || key.workspace_id || 'default'; }
     if (!page.has_more) break;
     after = page.last_id;
   }
   const start = encodeURIComponent(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - days)).toISOString());
   const usage = await report(`/v1/organizations/usage_report/messages?starting_at=${start}&bucket_width=1d&limit=31&group_by[]=api_key_id&group_by[]=model&group_by[]=service_tier`, fetcher);
   const lines = await report(`/v1/organizations/cost_report?starting_at=${start}&bucket_width=1d&limit=31&group_by[]=description`, fetcher);
-  return keyDays(usage, names, lines, tracked);
+  for (const [id, space] of Object.entries(spaceOf)) if (spaceNames[space]) workspaces[id] = spaceNames[space];
+  return keyDays(usage, names, lines, tracked, workspaces);
 }
 
 async function put(body, fetcher = fetch) {

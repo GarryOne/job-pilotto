@@ -150,3 +150,18 @@ test('keys are daily: 6h and 24h show today + yesterday and say so; Billed too',
   for (const id of ['6h', '24h']) assert.match(page([], [{day: '2026-10-06', usd: 1}], keyRows, '', at, id), /stored per UTC day[\s\S]*today \+ yesterday/);
   assert.doesNotMatch(page([], [], keyRows, '', at, '7d'), /stored per UTC day/);
 });
+
+// 14 Oct 2026 (owner): per API key, then per workspace. Workspace rows come as keys named `ws.<slug>` and never show in the key table.
+test('the page lists the API keys first and the workspaces after, each from its own rows', () => {
+  const at = new Date('2026-10-07T12:00:00Z');
+  const keyRows = [{day: '2026-10-07', key: 'job-pilotto-ui-fix', usd: 1}, {day: '2026-10-07', key: 'job-pilotto-ui-verdict', usd: 2}, {day: '2026-10-07', key: 'ws.job-pilotto-self-heal', usd: 3}];
+  const html = page([], [], keyRows, '', at);
+  const keysAt = html.indexOf('By API key'), spacesAt = html.indexOf('By workspace'), jobsAt = html.indexOf('By job');
+  assert.ok(keysAt > 0 && keysAt < spacesAt && spacesAt < jobsAt, 'API keys, then workspaces, then jobs');
+  const keysPart = html.slice(keysAt, spacesAt), spacesPart = html.slice(spacesAt, jobsAt);
+  assert.match(keysPart, /job-pilotto-ui-fix/);
+  assert.doesNotMatch(keysPart, /ws\.|self-heal/, 'a workspace row is not a key');
+  assert.match(spacesPart, /<td>job-pilotto-self-heal<\/td><td class="n">\$3\.00/);
+  assert.doesNotMatch(spacesPart, /ui-fix/);
+  for (const id of Object.keys(RANGES)) assert.match(page([], [], keyRows, '', at, id), /By workspace/, id);
+});

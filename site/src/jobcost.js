@@ -77,7 +77,8 @@ export function byKey(rows, now = new Date(), range = '30d') {
 }
 
 export function page(rows, billed = [], keyRows = [], start = '', now = new Date(), range = '30d') {
-  const s = summarize(rows, billed, now, range), keys = byKey(keyRows, now, range), r = RANGES[range], last = `Last ${r.label}`, daily = r.hours <= 24;
+  const spaceRows = keyRows.filter(row => String(row.key).startsWith('ws.')).map(row => ({...row, key: row.key.slice(3)}));   // a workspace's days: the sum of its keys (ai-cost-report.mjs)
+  const s = summarize(rows, billed, now, range), keys = byKey(keyRows.filter(row => !String(row.key).startsWith('ws.')), now, range), spaces = byKey(spaceRows, now, range), r = RANGES[range], last = `Last ${r.label}`, daily = r.hours <= 24;
   const fresh = range === '30d' && start && start > new Date(now.getTime() - 29 * 86400000).toISOString().slice(0, 10);   // the start date is inside the 30 days: say so
   const groups = {};
   for (const job of s.jobs) { const group = (JOBS[job.job] || [])[1] || 'Other'; groups[group] = (groups[group] || 0) + job.usd; }
@@ -115,6 +116,9 @@ ${s.days.slice(0, 30).map(d => `<tr><td>${esc(d.day)}</td><td class="n">${money(
 </table></div></section></div>
 <section class="card"><h2>🔑 By API key</h2><small class="muted">Anthropic's usage per key, priced and scaled to the day's bill (lags a few hours)${daily ? '; stored per UTC day, so this range shows today + yesterday' : ''}</small><div class="wrap"><table><tr><th>Key</th><th>Today</th><th>${daily ? 'Today + yesterday' : last}</th><th>Last used</th></tr>
 ${keys.map(k => `<tr><td>${esc(k.key)}</td><td class="n">${money(k.today)}</td><td class="n">${money(k.range)}</td><td class="muted">${esc(k.last)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No key figures yet: ai-cost-billed.yml sends them every 6 hours (ANTHROPIC_ADMIN_KEY).</td></tr>'}
+</table></div></section>
+<section class="card"><h2>🗂️ By workspace</h2><small class="muted">The sum of each workspace's keys; a workspace's monthly limit is shared by all its keys</small><div class="wrap"><table><tr><th>Workspace</th><th>Today</th><th>${daily ? 'Today + yesterday' : last}</th><th>Last used</th></tr>
+${spaces.map(k => `<tr><td>${esc(k.key)}</td><td class="n">${money(k.today)}</td><td class="n">${money(k.range)}</td><td class="muted">${esc(k.last)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No workspace figures yet: they arrive with the key figures.</td></tr>'}
 </table></div></section>
 <section class="card"><h2>⚙️ By job</h2><div class="wrap"><table><tr><th>Job</th><th>Group</th><th>Runs</th><th>Calls</th><th>Cost</th><th>Per run</th><th>Last run (UTC)</th></tr>
 ${s.jobs.map(job => `<tr><td>${esc((JOBS[job.job] || [job.job])[0])}</td><td class="muted">${esc((JOBS[job.job] || [])[1] || 'Other')}</td><td class="n">${job.runs}</td><td class="n">${job.calls}</td><td class="n">${money(job.usd)}</td><td class="n">$${(job.usd / job.runs).toFixed(3)}</td><td class="muted">${esc(job.last.slice(0, 16).replace('T', ' '))}</td></tr>`).join('')}
