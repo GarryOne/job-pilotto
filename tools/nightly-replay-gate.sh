@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The nightly beta's replay gate (owner, 14 Oct 2026; spec docs/superpowers/specs/2026-10-13-replay-by-network.md "Schedule, gate and alerts"): the commit the nightly
-# builds needs a green run of the offline replay (replay-offline.yml). None yet (a merge after the 02:30 run): it starts one and waits for it (~80 min, the beta
+# builds needs a green run of the offline replay (replay-offline.yml). None yet (a merge after the 02:00 run): it starts one and waits for it (~80 min, the beta
 # comes later), never builds without it. Prints "pass" or "fail: <why>" on its last line. Used by .github/workflows/desktop.yml (Anything new?).
 #   GH_TOKEN, GITHUB_REPOSITORY, GITHUB_SHA from the runner; REPLAY_GATE_WAIT_MIN (default 110).
 set -u
@@ -9,7 +9,7 @@ latest() { gh run list -R "$repo" --workflow replay-offline.yml --commit "$sha" 
   --jq 'if length == 0 then "" else (.[0] | "\(.databaseId) \(.status) \(.conclusion // "-")") end' 2>/dev/null || true; }
 run=$(latest)
 if [ -z "$run" ]; then
-  echo "replay gate: no replay run on ${sha::7} yet (a merge after 02:30): starting one and waiting for it" >&2
+  echo "replay gate: no replay run on ${sha::7} yet (a merge after 02:00): starting one and waiting for it" >&2
   gh workflow run replay-offline.yml -R "$repo" --ref main -f scheduled=true >&2 || { echo "fail: could not start the replay"; exit 0; }
 fi
 deadline=$(( $(date +%s) + wait_min * 60 ))
