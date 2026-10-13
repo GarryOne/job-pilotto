@@ -19,7 +19,11 @@ export const JUDGE_SKETCH_FIELDS = ['title', 'headings', 'controls', 'buttons', 
 // admin page; `expect` may later carry form_frame (an index into frameCandidates) and a closed verb with candidate numbers (slice B).
 export const FIELDS = ['schemaVersion', 'id', 'question', 'source', 'lang', 'why', 'note', 'trap', 'url', 'capture', 'sketch', 'candidates', 'expect', 'answer', 'answer_path', 'rung', 'signal', 'file', 'misses'];   // misses: fill_repair's input, the fill check's verdicts [{n, verdict, reason}]
 // `apply_route` (manual | reuse_previous | third_party_account) and `digest` (not_asked: rung 2 names the manual route and its button, so the numbered digest is not needed; asked: it is) are for start dialogs.
-export const EXPECT_FIELDS = ['outcome', 'accept', 'accept_reasons', 'apply_route', 'digest', 'form_frame', 'verb', 'candidates', 'control', 'option'];   // control: fill_verify's scored control number (1-based)
+export const EXPECT_FIELDS = ['outcome', 'accept', 'accept_reasons', 'apply_route', 'digest', 'form_frame', 'verb', 'candidates', 'control', 'option', 'confirmed'];   // control: fill_verify's scored control number (1-based)
+// The expected MOVE (spec 2026-10-12-one-next-move.md, box 7): `verb` (one of MOVE_VERBS) on `candidates` (numbers of the fixture's own candidates; any of them is right), and ONLY with
+// `confirmed`: {by, run, version}, the run whose page confirmed it (by: a pool run, a recorded replay, the person, the takeover). Never a label by hand or by a model: e2e/ladder-label-moves.mjs writes it.
+export const MOVE_VERBS = ['press', 'open', 'tell_person'];
+export const CONFIRMED_BY = ['pool', 'replay', 'person', 'takeover'];
 export const LANGS = ['de', 'fr', 'en', 'it'];
 export const SOURCES = ['recorded', 'captured', 'reconstructed', 'invented'];
 

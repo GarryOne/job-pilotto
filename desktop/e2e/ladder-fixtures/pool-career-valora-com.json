@@ -7,7 +7,16 @@
   "url": "https://career.valora.com/de/job/3706/verkaufer-press-books-teilzeit-w-m-d"
  },
  "expect": {
-  "outcome": "posting"
+  "outcome": "posting",
+  "verb": "press",
+  "candidates": [
+   5
+  ],
+  "confirmed": {
+   "by": "pool",
+   "run": "2026-10-11/valora-careers-german",
+   "version": "0.9.224"
+  }
  },
  "lang": "de",
  "sketch": {

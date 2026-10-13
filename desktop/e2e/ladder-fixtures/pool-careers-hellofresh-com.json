@@ -7,7 +7,16 @@
   "url": "https://careers.hellofresh.com/global/en/job/6190849?gh_jid=6190849"
  },
  "expect": {
-  "outcome": "posting"
+  "outcome": "posting",
+  "verb": "press",
+  "candidates": [
+   4
+  ],
+  "confirmed": {
+   "by": "pool",
+   "run": "2026-10-11/hellofresh-careers-greenhouse-behind-its-own-site",
+   "version": "0.9.224"
+  }
  },
  "lang": "en",
  "sketch": {

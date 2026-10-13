@@ -3,7 +3,7 @@ import {REASONS as FILL_REASONS, VERDICTS as FILL_VERDICTS, schema as fillSchema
 import {VERBS as REPAIR_VERBS, WIDGETS as REPAIR_WIDGETS, schema as repairSchema} from '../lib/ladder/fill-repair.js';
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {EXPECT_FIELDS, FIELDS, JUDGE_SKETCH_FIELDS, LANGS, OUTCOMES_BY_QUESTION, QUESTIONS, SCHEMA_VERSION, SOURCES, loadFixtures, questionOf} from '../e2e/lib/ladder-fixtures.mjs';
+import {CONFIRMED_BY, EXPECT_FIELDS, FIELDS, JUDGE_SKETCH_FIELDS, LANGS, MOVE_VERBS, OUTCOMES_BY_QUESTION, QUESTIONS, SCHEMA_VERSION, SOURCES, loadFixtures, questionOf} from '../e2e/lib/ladder-fixtures.mjs';
 import {SKETCH_FIELDS} from '../lib/page-kind.js';
 import {SCHEMA} from '../lib/ladder/rung2-sketch.js';
 import {schema as accountSchema, READY, RESULT} from '../lib/account-judge.js';
@@ -35,6 +35,18 @@ test('every fixture has its sketch, an expected outcome and a source', () => {
     if (questionOf(f) !== 'page_kind') for (const control of f.sketch.controls) assert.ok(!('value' in control) && !('at' in control), `${f.id}: a judge control carries only type, label, required, state, options`);
     assert.ok(typeof f.why === 'string' && f.why.length > 10, `${f.id}: say why it is in the set`);
   }
+});
+
+// Box 7 of spec 2026-10-12-one-next-move.md: a label comes only from a confirmed outcome (e2e/ladder-label-moves.mjs), never by hand or by a model.
+test('an expected move is a confirmed one: its verb, the fixture\'s own candidates, and the run that confirmed it', () => {
+  for (const f of fixtures) {
+    const {verb, candidates, confirmed} = f.expect;
+    if (verb === undefined && candidates === undefined && confirmed === undefined) continue;
+    assert.ok(MOVE_VERBS.includes(verb), `${f.id}: expect.verb ${verb} is not one of ${MOVE_VERBS.join('|')}`);
+    assert.ok(Array.isArray(candidates) && candidates.length && candidates.every(n => (f.candidates || []).some(item => item.n === n)), `${f.id}: expect.candidates must be numbers of its own candidates`);
+    assert.ok(CONFIRMED_BY.includes(confirmed?.by) && typeof confirmed.run === 'string' && confirmed.run.length > 3, `${f.id}: expect.confirmed {by: ${CONFIRMED_BY.join('|')}, run} names what confirmed the move`);
+  }
+  assert.ok(fixtures.filter(f => f.expect.verb).length >= 10, 'the confirmed moves stay in the set');
 });
 
 test('the pool\'s shapes are all in the set, and the four languages, with traps', () => {

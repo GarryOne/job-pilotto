@@ -7,7 +7,16 @@
   "url": "https://jobs.techtree.dev/job/57d72ba1-9ee2-4c75-88c0-3e10fda33886"
  },
  "expect": {
-  "outcome": "posting"
+  "outcome": "posting",
+  "verb": "press",
+  "candidates": [
+   1
+  ],
+  "confirmed": {
+   "by": "pool",
+   "run": "2026-10-11/techtree-job-board",
+   "version": "0.9.201"
+  }
  },
  "lang": "en",
  "sketch": {

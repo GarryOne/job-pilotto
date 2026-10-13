@@ -7,7 +7,17 @@
   "url": "https://autonomous-teaming.jobs.personio.de/job/2639174"
  },
  "expect": {
-  "outcome": "posting"
+  "outcome": "posting",
+  "verb": "press",
+  "candidates": [
+   2,
+   3
+  ],
+  "confirmed": {
+   "by": "pool",
+   "run": "2026-10-12/autonomous-teaming-found-2026-10-10",
+   "version": "0.9.241"
+  }
  },
  "lang": "en",
  "sketch": {

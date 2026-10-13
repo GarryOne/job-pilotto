@@ -7,7 +7,17 @@
   "url": "https://www.arbeitnow.ch/jobs/companies/destinusgroup/accounts-payable-accountant-zurich-326977"
  },
  "expect": {
-  "outcome": "posting"
+  "outcome": "posting",
+  "verb": "press",
+  "candidates": [
+   6,
+   7
+  ],
+  "confirmed": {
+   "by": "pool",
+   "run": "2026-10-11/arbeitnow-ch-board-employer",
+   "version": "0.9.224"
+  }
  },
  "lang": "en",
  "sketch": {
