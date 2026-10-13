@@ -73,7 +73,7 @@ test('wired: the door asks after today\'s report with its id and the stop\'s run
   const read = file => fs.readFileSync(new URL(`../../extension/${file}`, import.meta.url), 'utf8');
   assert.match(read('ladder/dead-end.js'), /const sent = report\([^;]*;\n\s*Promise\.resolve\(sent\)\.catch\(\(\) => \{\}\)\.then\(\(\) => askAtDeadEnd\(\{door, tabId: stop\.tabId, page: stop\.page, why, rung: evidence\?\.rung\}\)\);[^\n]*\n\s*return sent;/);
   const flow = read('fill-flow.js');
-  assert.match(flow, /useFallback\(\{ask: askKind, floor: wouldPress, asked: digestAsked, log: decide\}\)/);
+  assert.match(flow, /useFallback\(\{ask: askKind, floor: wouldPress, asked: digestAsked, log: decide, acts: [^\n]*act: actOnMove\}\)/);
   const climb = read('ladder/climb.js');
   assert.equal((climb.match(/await askDigest\(tab, ask\)/g) || []).length, 2, 'both climbs record the page they asked the digest on');
   assert.doesNotMatch(climb, /await ask\(tab, \{digest: true\}\)/, 'no climb asks the digest unrecorded');
