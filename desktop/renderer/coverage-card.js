@@ -58,7 +58,7 @@ export function visitCard(verdict, dismissedAt = '') {
   if (!list.length || (dismissedAt && verdict.at && dismissedAt === verdict.at)) return null;
   return {
     title: 'Sites only you can open',
-    text: 'These refuse automated visitors or have no other way in. Open one in Chrome: Job Pilotto reads its jobs there by itself:',
+    text: 'These refuse automated visitors or have no other way in. Open one: Job Pilotto reads its jobs in Chrome by itself:',
     chips: list.map(item => ({url: item.url, label: `Open ${item.name}`, note: item.note || '',
       title: `${item.kind === 'portal' ? `${item.name}: ${item.why}` : `${item.name} ${item.why}`}${item.last_read ? `; last read ${item.last_read.slice(0, 10)}` : ''}${item.note ? `. ${item.note}` : ''}`})),
     at: verdict.at || '',

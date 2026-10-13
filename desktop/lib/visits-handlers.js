@@ -13,7 +13,7 @@ import {log as appLog} from './log.js';
 export function registerVisitsHandlers(ctx) {
   const {DEMO, allowanceBlock, here, ipcMain, log, readSites, shell, storage} = ctx;
   ipcMain.handle('openExternal', (_, url) => shell.openExternal(url));
-  ipcMain.handle('openVisit', (_, url, opts) => visits.openYourself(url, {read: !!opts?.read}));   // the tab you already have for the site, else a new one
+  ipcMain.handle('openVisit', (_, url) => visits.openYourself(url));   // the tab you already have for the site, else a new one
   ipcMain.handle('focusBrowser', () => visits.focusBrowser());
   ipcMain.handle('visitShowTab', (_, url) => visits.showTab(url));   // Find jobs using your browser' rows (Recent activity): the tab reading this site
   ipcMain.handle('visitAgain', (_, url) => visits.again(url));        // ... and a site whose tab you closed, back in the run

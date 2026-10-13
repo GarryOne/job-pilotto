@@ -77,10 +77,19 @@ export function wordRow(action) {
   return {glyph: 'sliders', title: what, sub: `${jobs(action.count, 'matching job')} hidden by this filter`, button: 'Review filter', review: 'filters'};
 }
 
+// Open on a "Browse sites manually" card (owner, 13 Oct 2026: opening a site did not read it): the tracked "Find jobs using your browser" task for that
+// one site (its tab, banner, Recent activity row, scoring). A site the task cannot take, or no answer, is opened plain, as before.
+export async function readSiteInChrome(pilot, url) {
+  const run = await pilot.visitsRun({urls: [url], atOnce: 1, filter: true}).catch(error => ({text: error.message}));
+  if (run?.started) return {ok: true, started: true};
+  const opened = await pilot.openVisit(url).catch(error => ({ok: false, error: error.message}));
+  return {...opened, started: false, why: run?.text || ''};
+}
+
 // One action, done: the same calls the Strategy cards make (lib/strategy.js through main.js), or the source's panel in Settings.
 export function runAction(action, {pilot, openSetting}) {
   if (action.kind === 'source') { openSetting(action.value); return Promise.resolve({ok: true, opened: true}); }
-  if (action.kind === 'visit') return pilot.openVisit(action.value, {read: true}).then(result => ({...result, opened: !!result?.ok}));
+  if (action.kind === 'visit') return readSiteInChrome(pilot, action.value).then(result => ({...result, opened: !!result?.ok}));
   if (action.kind === 'role') return pilot.addRoles([action.value]);
   if (action.kind === 'place') return pilot.addPlaces([action.value]);
   return pilot.loosenSearch(action.kind === 'exclude' ? {excludes: [action.value]} : {languages: [action.value]});
