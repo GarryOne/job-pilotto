@@ -39,13 +39,14 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 // aiProxy: a started lib/ai-proxy.mjs (a test's canned one). On CI one is started here: the runner has no Claude Code, so the app's API engine asks through it on the
 // test key (.github/workflows/pool-smoke.yml) and the row's spend is metered (-> ai). A Mac without aiProxy: the plan's claude -p, no spend line.
 export async function runLiveRow({posting, captureDir, extensionDir, ask = true, seconds = 120, stillSeconds = stillSecondsFor(process.env, 'cli'), browser = startRealExtension, say = () => {}, aiProxy = null} = {}) {
-  if (isCi() && !aiProxy && !testKey()) throw new Error(`live row on CI: no ${keySecret('api')} (the Tests key); the app has no other way to ask the AI on a runner`);
+  if (ask && isCi() && !aiProxy && !testKey()) throw new Error(`live row on CI: no ${keySecret('api')} (the Tests key); the app has no other way to ask the AI on a runner`);
   guardLiveVisit(posting.url, {who: process.env.JOB_PILOTTO_SESSION || 'live row'});   // the per-site daily limit (lib/site-ledger.mjs): refused before anything starts
   ensureStagedWorker({say});   // a worker edit since the last staging would run the old prompt
   const started = Date.now();
   let shotAsked = false;
   fs.mkdirSync(captureDir, {recursive: true});
-  const proxy = aiProxy || (isCi() ? await startAiProxy() : null), before = {...usage().app};
+  const proxy = aiProxy || (ask && isCi() ? await startAiProxy() : null),   // a replay never asks: no proxy
+    before = {...usage().app};
   const errorsBefore = {...apiErrors()};   // calls Anthropic refused (no credit, a limit, a bad key): the row then ran without AI, which the run must say
   const spend = () => {
     const now = usage().app, refused = Object.entries(apiErrors()).map(([why, count]) => [why, count - (errorsBefore[why] || 0)]).filter(([, count]) => count > 0);

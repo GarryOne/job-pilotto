@@ -44,7 +44,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
     const work = path.join(out, 'replays', slug(row.name));
     const ran = spawnSync(process.execPath, [path.join(here, 'replay-net.mjs'), row.dir, work], {encoding: 'utf8', timeout: 6 * 60 * 1000});
     const replay = json(path.join(work, 'replay.json'));
-    if (!replay) console.error(`replay-records: ${row.name}: no result (${(ran.stderr || ran.error?.message || '').trim().split('\n').at(-1)?.slice(0, 160)})`);
+    if (!replay) console.error(`replay-records: ${row.name}: no result (${(ran.stderr || ran.error?.message || '').trim().split('\n').filter(line => /error|Error|throw/.test(line)).slice(-2).join(' | ').slice(0, 300)})`);
     const record = fidelityRecord(row, replay, {sha: process.env.GITHUB_SHA?.slice(0, 7) || '', branch: process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME || ''});
     records.push(record);
     if (record.network) fs.writeFileSync(path.join(out, 'step4', `${slug(row.name)}.json`), `${JSON.stringify(record, null, 1)}\n`);
