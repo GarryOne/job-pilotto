@@ -131,7 +131,7 @@ test('the log line lists each key and each workspace with its total', async () =
   assert.equal(describeKeys([]), '0 key(s): none; 0 workspace(s): none');
 });
 
-test('fetchKeyDays asks for the default and archived workspaces, so every key lands in one', async () => {
+test('fetchKeyDays asks for the default and archived workspaces, so every key lands in one, and the Default workspace keys are left out', async () => {
   const {fetchKeyDays} = await import('../ai-cost-report.mjs');
   process.env.ANTHROPIC_ADMIN_KEY = 'test-admin';
   const asked = [];
@@ -146,8 +146,8 @@ test('fetchKeyDays asks for the default and archived workspaces, so every key la
   const rows = await fetchKeyDays(3, ['job-pilotto-*'], fetcher, new Date('2026-10-07T00:00:00Z'));
   assert.match(asked.find(url => url.includes('/workspaces')), /include_archived=true&include_default=true/);
   const by = Object.fromEntries(rows.map(row => [row.key, row.usd]));
-  assert.deepEqual(by, {'job-pilotto-e2e-testing': 4, 'job-pilotto-desktop-app-1': 2, 'ws.job-pilotto-tests': 2, 'ws.old-tests': 2, 'ws.default': 2});
-  assert.equal(by['ws.job-pilotto-tests'] + by['ws.old-tests'] + by['ws.default'], 6, 'the workspaces add up to the keys');
+  assert.deepEqual(by, {'job-pilotto-e2e-testing': 4, 'ws.job-pilotto-tests': 2, 'ws.old-tests': 2}, 'a key in the Default workspace (the owner\'s personal ones) is not counted');
+  assert.equal(by['ws.job-pilotto-tests'] + by['ws.old-tests'], by['job-pilotto-e2e-testing'], 'the workspaces add up to the keys');
 });
 
 test('a refused call is recorded with the API\'s status, type and message', async t => {
