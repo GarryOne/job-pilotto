@@ -1,6 +1,6 @@
 /* global document, location */
 // Fills the `sketch` of each ladder fixture (desktop/e2e/ladder-fixtures/<id>.json) with the page sketch exactly as the extension builds it: it runs the extension's OWN builder functions
-// (extension/fill-flow.js pageSketchOf, extension/ladder/outcomes.js mailsOf, read from their source) in a bare headless Chromium, with no extension, no profile and no app.
+// (extension/page-reads.js pageSketchOf, extension/ladder/outcomes.js mailsOf, read from their source) in a bare headless Chromium, with no extension, no profile and no app.
 //   capture.page: a page of this repo (relative to desktop/e2e/), loaded from disk with the network blocked.
 //   capture.url:  a public posting, read once (a plain GET, nothing pressed, nothing typed); the sketch is stored without its query string, with any email turned into contact@example.com.
 //                 A page with another host's iframe waits (<= 20 s) for one to pass the frame finder's floor and lists it in frameCandidates (extension/ladder/rung3-frames.js + climb.js frameSketch);
@@ -70,7 +70,7 @@ export async function grownFramesOf(page, {waitMs = 20000, stepMs = 500} = {}) {
 }
 
 export async function sketchOf(page) {
-  const sketch = await page.evaluate(builderSource('fill-flow.js', 'function pageSketchOf'));
+  const sketch = await page.evaluate(builderSource('page-reads.js', 'function pageSketchOf'));
   sketch.mails = await page.evaluate(builderSource('ladder/outcomes.js', 'export function mailsOf'));
   return sketch;
 }

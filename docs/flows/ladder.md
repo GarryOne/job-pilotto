@@ -21,7 +21,7 @@ The router (which rung to ask next, from a rung's signal): `extension/ladder/cor
 
 **What a page confirmed is learned per shape** (`desktop/lib/ladder/learning.js`): a rung 3+ answer is kept (the next visit's answer, `by: learned`, one miss drops it); the fast tier's (0-2: Apply pressed → a form came, a form took the fill) is only counted. Fed by real use, the CI pool (`desktop/e2e/pool-moves.mjs`) and the recorded replays on main, each marked (`user` / `ci` / `replay`) in the site's `ladder_moves` (`site/src/ladder-moves.js`; the owner reads `GET /api/ladder-moves`). Spec: `docs/superpowers/specs/2026-10-12-one-next-move.md`.
 
-The sketch every rung reads is one list: `SKETCH_FIELDS` in `desktop/lib/ladder/rung2-sketch.js` (extension builds it in `fill-flow.js` `pageSketchOf` + `extension/ladder/outcomes.js` `mailsOf`).
+The sketch every rung reads is one list: `SKETCH_FIELDS` in `desktop/lib/ladder/rung2-sketch.js` (extension builds it in `page-reads.js` `pageSketchOf` + `extension/ladder/outcomes.js` `mailsOf`).
 
 ## Where a fix lives (owner, 12 Oct 2026)
 | What went wrong | Its home | Never |
