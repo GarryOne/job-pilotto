@@ -20,13 +20,14 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
     console.log(`records-publish: ${rows.length} rows: ${rows.map(row => row.name).join(', ')}`);
     if (dry || !rows.length) process.exit(0);
     const run = (cmd, args) => execFileSync(cmd, args, {cwd: work, stdio: ['ignore', 'pipe', 'inherit']});
+    const gh = args => execFileSync('gh', args, {cwd: here, stdio: ['ignore', 'pipe', 'inherit']});   // from the repo: gh finds which repo the release is on
     run('tar', ['czf', 'net.tgz', 'net-records']);
     run('openssl', ['rand', '-out', 'k', '32']);
     run('openssl', ['enc', '-aes-256-cbc', '-pbkdf2', '-salt', '-in', 'net.tgz', '-out', BUNDLE, '-pass', 'file:k']);
     run('openssl', ['pkeyutl', '-encrypt', '-pubin', '-inkey', path.join(here, 'net-record.pub.pem'), '-pkeyopt', 'rsa_padding_mode:oaep', '-in', 'k', '-out', KEY]);
     fs.rmSync(path.join(work, 'k')); fs.rmSync(path.join(work, 'net.tgz'));
-    try { run('gh', ['release', 'view', TAG]); } catch { run('gh', ['release', 'create', TAG, '--prerelease', '--title', 'Pool network records (encrypted)', '--notes', 'Encrypted pool network records for the PR replay (desktop/e2e/records-publish.mjs). Not an app build.']); }
-    run('gh', ['release', 'upload', TAG, BUNDLE, KEY, '--clobber']);
+    try { gh(['release', 'view', TAG]); } catch { gh(['release', 'create', TAG, '--prerelease', '--title', 'Pool network records (encrypted)', '--notes', 'Encrypted pool network records for the PR replay (desktop/e2e/records-publish.mjs). Not an app build.']); }
+    gh(['release', 'upload', TAG, path.join(work, BUNDLE), path.join(work, KEY), '--clobber']);
     console.log(`records-publish: ${rows.length} rows uploaded to release ${TAG}`);
   } finally { fs.rmSync(work, {recursive: true, force: true}); }
 }
