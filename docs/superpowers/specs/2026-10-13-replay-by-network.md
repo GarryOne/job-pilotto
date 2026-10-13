@@ -188,3 +188,4 @@ First party = a host whose registrable domain (public suffix list) served a docu
 - [ ] P0: fixture site recorded and replayed; pass criteria above
 - [ ] P1: three real upload rows (owner's yes for $0.17 and 3 visits)
 - [ ] PRs 0-3 landed; "unverified" lifted
+- [ ] When the positive control passes: the skills fix-failing-forms and run-applying-smoke-pool say "measure offline first" again (today: "measure is unverified, measure live")
