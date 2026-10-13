@@ -44,3 +44,17 @@ class ReplayOfflineWorkflow(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ReplayOfflineShards(unittest.TestCase):
+    """Owner, 14 Oct 2026 ("can we add more parallelization here? It runs for 25m already"): the rows go to 5 macOS runners at once, one gate after them."""
+
+    def test_five_shards_then_one_gate_that_merges_them(self):
+        self.assertRegex(WORKFLOW, r'matrix:\n\s+shard: \[0, 1, 2, 3, 4\]')
+        self.assertIn('JP_REPLAY_SHARD: ${{ matrix.shard }}/5', WORKFLOW)
+        self.assertRegex(WORKFLOW, r'gate:\n\s+needs: \[check, replay\]\n\s+if: always\(\)')
+        self.assertIn('pattern: replay-shard-${{ github.run_id }}-*', WORKFLOW)
+        self.assertIn('rows from the shards', WORKFLOW)
+
+    def test_a_broken_shard_is_told_on_telegram(self):
+        self.assertIn("needs.replay.result }}\" != success", WORKFLOW)

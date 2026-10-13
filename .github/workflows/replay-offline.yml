@@ -2,7 +2,7 @@
 # network record (the Mac's on the release net-records, the by-hand pool runs' 14 days as net-records-<run>) replayed with main (replay-records.mjs: the site's own
 # scripts from the record, the AI only from the live run's kept answers, never a site, never a model call). replay-gate.mjs then compares each row with the last
 # green run (same recordings, same runner): only rows 100% same as live there count, and a counted row whose outcome fell is worse (after one retry). Red = a counted
-# row worse; that run never becomes the baseline. The nightly beta (desktop.yml) builds only a commit with a green run. No key (NET_RECORD_KEY): it says so and stops.
+# row worse; that run never becomes the baseline. The rows run on 5 macOS runners at once (JP_REPLAY_SHARD, owner 14 Oct 2026: one runner took 25+ min), one gate job after them. The nightly beta (desktop.yml) builds only a commit with a green run. No key (NET_RECORD_KEY): it says so and stops.
 name: CI · Replay vs live (offline)
 run-name: ${{ inputs.scheduled && 'Replay check · on time (Worker cron)' || 'Replay check' }}
 
@@ -28,11 +28,11 @@ concurrency:   # each commit keeps its own run (tests/test_main_runs_finish.py)
   cancel-in-progress: false
 
 jobs:
-  replay:
-    runs-on: macos-latest   # the records are made on the owner's Mac (records-publish.mjs): the same fonts and scrollbar as the live page
-    timeout-minutes: 120   # ~94 s a row: 50 rows ~78 min
-    env:
-      JOB_PILOTTO_HEAVY: '0'   # the heavy lock is a Mac's machine-wide queue; this runner is its own machine
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      go: ${{ steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1' && '1' || '0' }}
     steps:
       - name: The record key is set
         id: key
@@ -63,22 +63,31 @@ jobs:
              && { [ -z "$records" ] || [[ "$records" < "$at" ]]; }; then
             echo "replay-offline: nothing changed since the last green replay (${sha::7}, $at): nothing to do" | tee -a "$GITHUB_STEP_SUMMARY"; echo "skip=1" >> "$GITHUB_OUTPUT"
           else echo "replay-offline: changed since ${sha::7}: replaying"; fi
+  replay:
+    needs: check
+    if: needs.check.outputs.go == '1'
+    runs-on: macos-latest   # the records are made on the owner's Mac (records-publish.mjs): the same fonts and scrollbar as the live page
+    timeout-minutes: 45   # a fifth of the rows each (5 runners: the free macOS cap); ~80-150 s a row
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4]
+    env:
+      JOB_PILOTTO_HEAVY: '0'   # the heavy lock is a Mac's machine-wide queue; this runner is its own machine
+    steps:
+      - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
-        if: steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1'
         with:
           node-version: '22'
       - uses: actions/setup-python@v6
-        if: steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1'
         with:
           python-version: '3.12'
       - name: Install the app, the tests and the browser
-        if: steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1'
         run: |
           (cd desktop && npm ci) && (cd desktop/e2e && (npm ci || npm install))
           pip install --quiet -r requirements.txt
           (cd desktop/e2e && npx playwright-core install chromium)
       - name: The pool's newest records (14 days), decrypted on the runner only
-        if: steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1'
         env:
           GH_TOKEN: ${{ github.token }}
           NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
@@ -101,19 +110,55 @@ jobs:
           rm -f "$RUNNER_TEMP/key.pem"; rm -rf "$RUNNER_TEMP/enc"
           echo "replay-offline: $(find records -name record.json | wc -l) records from the pool runs"
       - name: Replay each row offline with this build
-        if: steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1'
         working-directory: desktop/e2e
+        env:
+          JP_REPLAY_SHARD: ${{ matrix.shard }}/5
         run: |
           set -o pipefail
           node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/replay-out" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: This shard's rows (for the gate; no record, no key)
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: replay-shard-${{ github.run_id }}-${{ matrix.shard }}
+          path: |
+            replay-out/step4/*.json
+            replay-out/replays/*/end.png
+            replay-out/replays/*/step-*.png
+            replay-out/replays/*/replay.json
+            replay-out/replays/*/app.log
+          retention-days: 7
+          if-no-files-found: ignore
+  gate:
+    needs: [check, replay]
+    if: always() && needs.check.outputs.go == '1'
+    runs-on: macos-latest   # a worse row is replayed once more here (the same runner kind as the baseline)
+    timeout-minutes: 30
+    env:
+      JOB_PILOTTO_HEAVY: '0'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: replay-shard-${{ github.run_id }}-*
+          path: ${{ runner.temp }}/shards
       - name: Compare with the last green run (the baseline)
         id: gate
-        if: steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1'
         working-directory: desktop/e2e
         env:
           GH_TOKEN: ${{ github.token }}
+          NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
         run: |
-          out="$GITHUB_WORKSPACE/replay-out"; mkdir -p "$out/baseline"
+          out="$GITHUB_WORKSPACE/replay-out"; mkdir -p "$out/baseline" "$out/step4" "$out/replays"
+          # the shards' rows, merged (each shard's artifact: step4/*.json and replays/<row>/)
+          for d in "$RUNNER_TEMP"/shards/*/; do cp "$d"step4/*.json "$out/step4/" 2>/dev/null || true; cp -R "$d"replays/. "$out/replays/" 2>/dev/null || true; done
+          echo "replay-offline: $(ls "$out/step4" | wc -l | tr -d ' ') rows from the shards"
           baseline=-   # the newest green run that kept results (one that stopped on "nothing changed" kept none)
           for base in $(gh run list -R "$GITHUB_REPOSITORY" --workflow replay-offline.yml --branch main --status success --limit 20 --json databaseId --jq ".[] | select(.databaseId != $GITHUB_RUN_ID) | .databaseId"); do
             if gh run download "$base" -R "$GITHUB_REPOSITORY" --name "replay-results-$base" --dir "$out/baseline" >/dev/null 2>&1; then baseline="$out/baseline/results.json"; echo "baseline: run $base"; break; fi
@@ -123,6 +168,8 @@ jobs:
           node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" > "$out/gate.md"; code=$?
           if [ "$code" = 1 ] && [ -s "$out/results.json.worse" ]; then
             echo "retry: $(tr '\n' ',' < "$out/results.json.worse")"
+            (cd "$GITHUB_WORKSPACE/desktop" && npm ci) && (cd "$GITHUB_WORKSPACE/desktop/e2e" && (npm ci || npm install)) && pip install --quiet -r "$GITHUB_WORKSPACE/requirements.txt" && npx playwright-core install chromium
+            bash "$GITHUB_WORKSPACE/.github/replay-records-fetch.sh"
             JP_REPLAY_ONLY="$(cat "$out/results.json.worse")" node replay-records.mjs "$GITHUB_WORKSPACE/records" "$out/retry" > /dev/null
             node replay-gate.mjs "$out/step4" "$baseline" "$out/results.json" --retry "$out/retry/step4" > "$out/gate.md"; code=$?
           fi
@@ -137,13 +184,13 @@ jobs:
           path: replay-out/results.json
           retention-days: 90
       - name: Send the rows to /admin/applying "Replay vs live" (main only)
-        if: steps.key.outputs.ok == '1' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         working-directory: desktop/e2e
         env:
           REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}
         run: '[ -d "$GITHUB_WORKSPACE/replay-out/step4" ] && node fidelity-report.mjs "$GITHUB_WORKSPACE/replay-out/step4" || echo "replay-offline: nothing to send"'
       - name: Each row's replay (pictures, app log; no record, no key)
-        if: always() && steps.key.outputs.ok == '1'
+        if: always()
         uses: actions/upload-artifact@v6
         with:
           name: replay-offline-${{ github.run_id }}
@@ -155,7 +202,7 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
       - name: Tell the owner on Telegram (a failure, or back to green)
-        if: always() && steps.key.outputs.ok == '1' && steps.dup.outputs.skip != '1' && github.ref == 'refs/heads/main'
+        if: always() && github.ref == 'refs/heads/main'
         working-directory: desktop/e2e
         env:
           GH_TOKEN: ${{ github.token }}
@@ -165,7 +212,7 @@ jobs:
           WHAT: ${{ steps.gate.outputs.what }}
         run: |
           if [ "$RED" = 1 ]; then node ci-alert.mjs failure "Rows worse than the last green run: ${WHAT:-see the run}"
-          elif [ "${{ job.status }}" != success ]; then node ci-alert.mjs failure "The replay job broke before its verdict"
+          elif [ "${{ job.status }}" != success ] || [ "${{ needs.replay.result }}" != success ]; then node ci-alert.mjs failure "The replay job broke before its verdict"
           else node ci-alert.mjs success; fi
       - name: Red when a counted row got worse
         if: steps.gate.outputs.red == '1'

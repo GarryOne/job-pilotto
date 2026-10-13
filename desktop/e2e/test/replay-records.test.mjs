@@ -43,3 +43,12 @@ test('every deferred row names a real pool row', () => {
   const shapes = new Set(JSON.parse(fs.readFileSync(new URL('../smoke-sites.json', import.meta.url), 'utf8')).shapes.map(site => site.shape));
   for (const name of Object.keys(deferredRows())) assert.ok(shapes.has(name), `replay-deferred.json: "${name}" is not a pool row`);
 });
+
+test('a shard "k/n" takes every n-th row from the k-th; no or a bad spec takes all (the scheduled replay\'s 5 runners)', async () => {
+  const {shardOf} = await import('../replay-records.mjs');
+  const rows = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+  assert.deepEqual(shardOf(rows, '0/5'), ['a', 'f']);
+  assert.deepEqual(shardOf(rows, '4/5'), ['e']);
+  assert.deepEqual([0, 1, 2, 3, 4].flatMap(k => shardOf(rows, `${k}/5`)).sort(), rows, 'every row once');
+  for (const spec of ['', '5/5', 'x', '1/0']) assert.deepEqual(shardOf(rows, spec), rows);
+});
