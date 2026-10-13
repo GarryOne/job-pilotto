@@ -63,7 +63,7 @@ test('every evidence key a caller passes is listed', () => {
   const passed = new Set();
   for (const [, object] of read('fill-flow.js').matchAll(/\b(?:deadEndHere|noteProgress)\([^;]*?(\{[^{}]*\})\)/g)) keysOf(object).forEach(key => passed.add(key));
   for (const [, object] of read('account-step.js').matchAll(/\bdeadEnd\(\{[^{}]*\}, (\{[^{}]*\})/g)) keysOf(object).forEach(key => passed.add(key));
-  for (const [, object] of read('ladder/silence.js').matchAll(/\bnotice\(clock\.host, (\{[^{}]*\})\)/g)) keysOf(object).forEach(key => passed.add(key));   // the silent rule's notice
+  for (const [, object] of read('ladder/silence.js').matchAll(/\bnotice\(clock\.host, (\{[^{}]*\})(?:, clock\.tab)?\)/g)) keysOf(object).forEach(key => passed.add(key));   // the silent rule's notice
   assert.ok(passed.has('role') && passed.has('status') && passed.has('reason') && passed.has('fields') && passed.has('silentMs'), [...passed].join(', '));
   assert.deepEqual([...passed].filter(key => !EVIDENCE_KEYS.includes(key)), [], 'add the key to EVIDENCE_KEYS (extension/ladder/dead-end.js), numbers or our own words only');
 });
@@ -75,7 +75,10 @@ test('a dead end seen in shadow (the silent rule) is logged at the door with its
   assert.deepEqual(SEEN_REASONS, ['silent']);
   assert.equal(seenDeadEnd('silent', 'jobs.example', {kind: 'navigated', silentMs: 31000, label: 'First name'}, decide), true);
   assert.equal(seenDeadEnd('no-form', 'jobs.example', {}, decide), false, 'only a seen reason: a stop goes through deadEnd');
-  assert.deepEqual(logged, [{area: 'fill', what: 'dead end: silent', data: {host: 'jobs.example', shadow: true, ending: 'unresolved', kind: 'navigated', silentMs: 31000}}]);
+  assert.equal(logged.length, 1);
+  assert.deepEqual({...logged[0].data, door: undefined}, {host: 'jobs.example', shadow: true, ending: 'unresolved', kind: 'navigated', silentMs: 31000, door: undefined});
+  assert.ok(Number.isInteger(logged[0].data.door), 'a seen stop has its door id: the shadow question joins by it (pool-shadow.mjs)');
+  assert.equal(logged[0].what, 'dead end: silent');
   assert.deepEqual(sent, [], 'nothing is reported: nothing changes for the person');
   silenceTab(7, 'https://jobs.example/7');
   restartSilence(7, 'navigated', {now: 0});

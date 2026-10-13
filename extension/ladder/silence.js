@@ -40,7 +40,7 @@ const clocks = new Map();   // application -> {at, kind, host, ended, noticed, t
 let notice = () => {};
 let timer = (fn, ms) => { const id = setTimeout(fn, ms); id?.unref?.(); return id; };
 let cancel = id => clearTimeout(id);
-// parts: {notice(host, evidence)} (progress.js: the door), and for the tests {timer, cancel}.
+// parts: {notice(host, evidence, tabId)} (progress.js: the door), and for the tests {timer, cancel}.
 export function useSilence(parts = {}) {
   if (parts.notice) notice = parts.notice;
   if (parts.timer) timer = parts.timer;
@@ -62,7 +62,7 @@ function check(app, now) {
     return false;
   }
   clock.noticed = true;
-  notice(clock.host, {kind: clock.kind, silentMs: quietFor(clock, now)});
+  notice(clock.host, {kind: clock.kind, silentMs: quietFor(clock, now)}, clock.tab);
   return true;
 }
 export const checkSilence = (tabId, now = Date.now()) => check(appOf(tabId), now);
@@ -72,7 +72,7 @@ export function restartSilence(tabId, kind, {now = Date.now(), host = ''} = {}) 
   if (tabId == null) return;
   const app = appOf(tabId), before = clocks.get(app);
   stop(before);
-  const clock = {at: now, app, waited: askTime(app, now), kind, host: host || before?.host || '', ended: false, noticed: false, timer: null};
+  const clock = {at: now, app, tab: tabId, waited: askTime(app, now), kind, host: host || before?.host || '', ended: false, noticed: false, timer: null};
   clocks.set(app, clock);
   clock.timer = timer(() => check(app, Date.now()), SILENT_AFTER_MS);
 }

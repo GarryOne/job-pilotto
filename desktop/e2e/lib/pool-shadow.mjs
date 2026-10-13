@@ -3,18 +3,22 @@
 //   not_asked  the question did not run (the digest was asked already, the page moved on, or the line is missing)
 //   agree      the fallback would not act (a person is needed, the way is not listed, unsure, a floor refused, one ask, two asks disagreed): it says what the stop said
 //   better     the fallback would act (sure, past the floors, two agreeing asks) where the stop was unresolved: a move the stop did not make; a candidate until the CI pool acts (box 8)
-//   worse      the fallback would act where the stop handed the page to the person (ending handed): acting there would be wrong; any such row blocks the switch-on
-// Silent stops (shadow notices, `shadow: true` on the stop line itself) are counted apart: the question is not asked at them. Pure: the caller reads the logs (pool-shadow.mjs). Guard: e2e/test/pool-shadow.test.mjs.
+//   worse      the fallback would act where the stop handed the page to the person (ending handed), or on an account page (a login wall or a password step): any such row blocks the switch-on
+// A silent stop (seen in shadow, `shadow: true` plus a door id) is a stop of its own kind ('silent'): the question is asked at it too (owner, 14 Oct 2026); a seen notice with no door id is not a stop. An account page is the page kind the run judged last. Pure: the caller reads the logs (pool-shadow.mjs). Guard: e2e/test/pool-shadow.test.mjs.
 const STOP = /^(\S+Z) \[extension\] fill: dead end: ([a-z_-]+) (\{.*\})\s*$/;
+const KIND = /^(\S+Z) \[extension\] fill: page kind: ([a-z_-]+) /;   // the page kind the run judged last: an account page is any kind that starts with "account"
 const ASKED = /^(\S+Z) \[extension\] fill: dead end fallback \(shadow\)(?:: ([a-z ]+))? (\{.*\})\s*$/;
 const parsed = text => { try { return JSON.parse(text); } catch { return {}; } };
 
 // appLog -> [{door, why, ending, host, asked: 'fields' | 'asked already' | 'the page moved on' | '', actWhy, wouldAct, agree, confidence, verb, number, usd}], one per real stop, in log order
 export function stopsOf(appLog = '') {
   const stops = [], asks = new Map();
+  let page = '';
   for (const text of String(appLog).split('\n')) {
-    const stop = STOP.exec(text), ask = ASKED.exec(text);
-    if (stop) { const fields = parsed(stop[3]); if (fields.shadow !== true) stops.push({door: fields.door, why: stop[2], ending: fields.ending || '', host: fields.host || ''}); }
+    const stop = STOP.exec(text), ask = ASKED.exec(text), kind = KIND.exec(text);
+    if (kind) page = kind[2].startsWith('account') ? 'account' : kind[2];
+    // a stop the run admitted, or a silent one SEEN in shadow (it has a door id once the question is asked at it: a seen notice without one is not a stop)
+    if (stop) { const fields = parsed(stop[3]); if (fields.shadow !== true || Number.isInteger(fields.door)) stops.push({door: fields.door, why: stop[2], ending: fields.ending || '', host: fields.host || '', page}); }
     else if (ask) { const fields = parsed(ask[3]); if (Number.isInteger(fields.door)) asks.set(fields.door, {note: ask[2] || '', fields}); }
   }
   return stops.map(stop => {
@@ -27,7 +31,8 @@ export function stopsOf(appLog = '') {
 // One stop -> 'not_asked' | 'agree' | 'better' | 'worse'
 export function verdictOf(stop) {
   if (stop.asked !== 'asked') return 'not_asked';
-  if (!stop.wouldAct) return 'agree';
+  if (!stop.wouldAct) return 'agree';   // at an account page, handing the page to the person (sign in / create account) is agree
+  if (stop.page === 'account') return 'worse';   // a press at an account page can get past a login wall or into a password step: worse even if a form follows (owner, 14 Oct 2026)
   return stop.ending === 'handed' ? 'worse' : 'better';
 }
 

@@ -43,10 +43,12 @@ export function deadEnd(stop, evidence = {}, decide = () => {}) {
 }
 
 // A dead end the run did not admit, SEEN in shadow (ladder/silence.js: no progress for T): logged at this door with {shadow: true} and never reported, so nothing changes for the
-// person. A reader of the door's lines skips it by that field, never by its wording (cc, 13 Oct 2026: desktop/e2e/lib/ending.mjs). -> whether it was logged.
+// person; the shadow question is asked at it like at any stop (owner, 14 Oct 2026: the silent dead ends are evaluated first). A reader of the door's lines skips it by that field, never by its wording (cc, 13 Oct 2026: desktop/e2e/lib/ending.mjs). -> whether it was logged.
 export const SEEN_REASONS = ['silent'];
-export function seenDeadEnd(why, host, evidence = {}, decide = () => {}) {
+export function seenDeadEnd(why, host, evidence = {}, decide = () => {}, where = {}) {
   if (!SEEN_REASONS.includes(why)) return false;
-  decide('fill', `dead end: ${why}`, {host: host || '', shadow: true, ending: UNRESOLVED, ...evidenceOf(evidence)});
+  const door = ++doors;   // a seen stop has its door id too: the one shadow question is asked at it, and joins it by that id (where: {tabId, page}, the tab and the address it stood on)
+  decide('fill', `dead end: ${why}`, {host: host || '', shadow: true, door, ending: UNRESOLVED, ...evidenceOf(evidence)});
+  if (where.tabId != null && where.page) askAtDeadEnd({door, tabId: where.tabId, page: where.page, why});   // shadow only: no report, no press (acting is the CI pool's switch)
   return true;
 }
