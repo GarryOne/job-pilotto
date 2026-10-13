@@ -72,7 +72,8 @@ jobs:
       JOB_PILOTTO_SESSION: pool-smoke CI run ${{ github.run_id }}
       JOB_PILOTTO_SITE_LIMIT: '2'
       JOB_PILOTTO_VISIT_KIND: ${{ github.event_name == 'pull_request' && 'proof' || 'hand' }}   # each visit says its kind (lib/site-ledger.mjs)
-      JOB_PILOTTO_SITE_RESERVE: '1'   # a by-hand run leaves a host's last visit of the day to a PR proof (owner, 12 Oct 2026)
+      JOB_PILOTTO_SITE_RESERVE: '0'   # PROOF ONLY (branch replay-proof): 2 live runs per row on one build, both of the day's CI visits (owner OK, 13 Oct 2026)
+      JP_NET_RECORD_DIR: ${{ github.workspace }}/net-records   # PROOF ONLY: the network record, uploaded encrypted below, never in the plain captures   # a by-hand run leaves a host's last visit of the day to a PR proof (owner, 12 Oct 2026)
       JOB_PILOTTO_SITE_LEDGER_DIR: ${{ github.workspace }}/pool-smoke-out/site-ledger
       SMOKE_PAIRED: '0'
       SMOKE_REPORTS: ${{ github.workspace }}/pool-smoke-out/smoke-reports
@@ -127,6 +128,23 @@ jobs:
           only=${ONLY:-$DEFAULT_ROWS}
           echo "pool-smoke: rows matching \"$only\", at most $rows, AI cap \$$MAX_USD; CI's site limit $JOB_PILOTTO_SITE_LIMIT a host a day"
           SMOKE_MAX_ROWS=$rows SMOKE_MAX_USD=$MAX_USD xvfb-run -a --server-args='-screen 0 1440x900x24' node smoke.mjs --only "$only" 2>&1 | tee "$GITHUB_WORKSPACE/pool-smoke-out/smoke.log"
+      - name: PROOF ONLY - encrypt the network records (RSA public key in the repo; the private key only in the owner's Keychain)
+        if: always()
+        run: |
+          [ -d net-records ] && [ -n "$(ls -A net-records)" ] || { echo "no network record"; exit 0; }
+          mkdir -p net-out && tar czf "$RUNNER_TEMP/net.tgz" net-records && rm -rf net-records
+          openssl rand -out "$RUNNER_TEMP/k" 32
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in "$RUNNER_TEMP/net.tgz" -out net-out/net.tgz.enc -pass "file:$RUNNER_TEMP/k"
+          openssl pkeyutl -encrypt -pubin -inkey desktop/e2e/net-record.pub.pem -pkeyopt rsa_padding_mode:oaep -in "$RUNNER_TEMP/k" -out net-out/k.enc
+          rm -f "$RUNNER_TEMP/k" "$RUNNER_TEMP/net.tgz"; ls -la net-out
+      - name: PROOF ONLY - the encrypted network records
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: net-records-${{ github.run_id }}
+          path: net-out/
+          retention-days: 14
+          if-no-files-found: ignore
       - name: Hand this run's state to the next runs (its ledger and rows)
         if: always()
         run: node desktop/e2e/pool-ci-state.mjs save "$SMOKE_REPORTS" pool-smoke-out/state/state.json
