@@ -23,7 +23,7 @@ OWN_DECIDE = {'hole3': 'tools/recorded-fails-on-old.mjs lists the cases a PR bri
 FOLLOWS = {'report': "needs.replay.outputs.ran != 'false'"}   # replays to /admin/applying: runs when the replay shards ran, skipped (= passed) otherwise
 NEEDED = "steps.needed.outputs.run == 'true'"
 # Jobs of the pick no required check asks yet: each says why, and a pull request workflow still asks it first (test_an_optional_job_is_asked_by_a_pull_request_workflow).
-OPTIONAL = {'e2e-flow': 'apply + applyflows on flow PRs (.github/workflows/e2e-flow.yml): optional until it proves itself on the SQLite store (owner, 13 Oct 2026)'}
+OPTIONAL = {'e2e-flow': 'the live canary on flow PRs (.github/workflows/flow-canary.yml); the apply + applyflows suites left PRs (owner, 13 Oct 2026): main\'s schedule and the release gate run them'}
 
 
 def required():
