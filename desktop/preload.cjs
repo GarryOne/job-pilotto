@@ -10,6 +10,8 @@ const call = name => (...args) => ipcRenderer.invoke(name, ...args).then(result 
   if (result && result.needsNotion) { need = {name, args, reason: result.reason}; window.dispatchEvent(new Event('pilot-needs-notion')); }
   // The data is on this Mac and the action runs off it (Always on): the window offers the move (Connect and move), then runs the same action again.
   if (result && result.needsMove) { need = {name, args, reason: result.reason}; window.dispatchEvent(new CustomEvent('pilot-needs-move', {detail: {reason: result.reason, text: result.text}})); }
+  // Apply with no Chrome extension to fill the form (lib/extension-gate.js): the window explains why and guides the install.
+  if (result && result.needsExtension) window.dispatchEvent(new CustomEvent('pilot-needs-extension', {detail: {state: result.state, text: result.text}}));
   return result;
 }, error => {
   if (/No handler registered/.test(String(error?.message))) window.dispatchEvent(new Event('pilot-outdated'));

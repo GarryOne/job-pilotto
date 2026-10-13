@@ -21,6 +21,7 @@ import {GOOGLE_KEYCHAIN} from './google-keys.js';
 import {log as appLog} from './log.js';
 import {createTakeOver} from './ladder/rung5-takeover.js';
 import {pageKeyOf, startRun} from './ladder/rung5-takeover-teach.js';
+import {extensionGate as installedGate} from './extension-gate.js';
 import {listTabs, openFormTab} from './form-tab.js';
 import {sessionsNamedIn, sessionsWithTab} from './session-tab.js';
 import {sharedCheck} from './shared-check.js';
@@ -28,14 +29,21 @@ import {withAccounts, withCompanies, withoutHost} from './site-accounts.js';
 import {isTwin} from './twin.js';
 import {OUTCOME_STAGES as BOARD_STAGES} from '../renderer/jobs-board-rules.js';
 
+export const extensionGate = installedGate;   // what main.js hands to every handler that opens a Chrome form
 export function registerApplyHandlers(ctx) {
-  const {DEMO, allowanceBlock, claudeConsent, cloud, here, ipcMain, log, needsNotion, prepareKitFor, getRecipeReporter, startClaude, storage, toWindow, track} = ctx;
-  ipcMain.handle('apply', async (_, options) => needsNotion('apply') || allowanceBlock() || (options?.mode === 'agents' && !(await claudeConsent())
-    ? {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'} : apply.start(storage, options, undefined, undefined, undefined, undefined, (code, name) => prepareKitFor(code, name, {quiet: true}), text => toWindow('applyProgress', text))));
+  const {DEMO, extensionGate = () => null, allowanceBlock, claudeConsent, cloud, here, ipcMain, log, needsNotion, prepareKitFor, getRecipeReporter, startClaude, storage, toWindow, track} = ctx;
+  const needExtension = () => (DEMO ? null : extensionGate());   // a Chrome form with no extension to fill it: install it first (lib/extension-gate.js)
+  ipcMain.handle('apply', async (_, options) => {
+    const agents = options?.mode === 'agents';
+    const blocked = needsNotion('apply') || allowanceBlock() || (agents ? null : needExtension());   // (an earlier one-line form sent these answers through the "Claude is off" branch)
+    if (blocked) return blocked;
+    if (agents && !(await claudeConsent())) return {ok: false, error: 'Apply with Claude is off. Use Fill in Chrome, or allow it next time.'};
+    return apply.start(storage, options, undefined, undefined, undefined, undefined, (code, name) => prepareKitFor(code, name, {quiet: true}), text => toWindow('applyProgress', text));
+  });
   ipcMain.handle('applyOne', async (_, url, details) => {
     const gate = needsNotion('apply');
     if (gate) return gate;
-    const blocked = allowanceBlock();
+    const blocked = allowanceBlock() || needExtension();
     if (blocked) return blocked;
     const result = await (DEMO ? apply.openOne(url, {session: 'demo'}) : apply.applyOne(storage, url, details || {}));
     if (result?.ok) track('apply_started', {how: 'extension'});

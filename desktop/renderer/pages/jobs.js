@@ -332,6 +332,7 @@ export async function init() {
         await refreshSessions();
         return;
       }
+      if (result.needsExtension) { $('apply-dialog').close(); return; }   // the install dialog opens (extension-needed.js)
       message('apply-message', result.ok ? result.message : result.error, result.ok ? 'ok' : 'error');
     } finally {
       $('apply-go').disabled = false;
