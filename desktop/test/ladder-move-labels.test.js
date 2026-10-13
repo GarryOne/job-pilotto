@@ -38,8 +38,10 @@ test('the label is every candidate whose own text is the pressed one; a press no
   assert.deepEqual(labels, [{id: 'example-posting', verb: 'press', candidates: [2, 3], confirmed: {by: 'pool', run: '2026-10-13/example-row', version: '0.9.300'}}]);
   assert.deepEqual(unlisted, []);
   const missing = labelMoves([posting], [{run: '2026-10-13/example-row', presses: [{url: POSTING, label: 'Postuler', version: '0.9.300'}]}]);
-  assert.deepEqual(missing.labels, []);
-  assert.deepEqual(missing.unlisted, [{id: 'example-posting', label: 'Postuler', run: '2026-10-13/example-row'}]);
+  assert.deepEqual(missing.labels, [{id: 'example-posting', verb: 'not_listed', candidates: [], confirmed: {by: 'pool', run: '2026-10-13/example-row', version: '0.9.300'}}], 'the move the list could not name is not_listed');
+  assert.deepEqual(missing.unlisted, [{id: 'example-posting', label: 'Postuler', run: '2026-10-13/example-row', version: '0.9.300'}]);
+  const both = labelMoves([posting], [{run: 'r1', presses: [{url: POSTING, label: 'Postuler', version: '1'}, {url: POSTING, label: 'Apply now', version: '2'}]}]);
+  assert.equal(both.labels[0].verb, 'press', 'a listed control pressed on the same page wins over a not_listed one');
   const notPosting = labelMoves([{...posting, expect: {outcome: 'form_in_frame'}}], [{run: 'r', presses}]);
   assert.deepEqual(notPosting, {labels: [], unlisted: []}, 'only a posting\'s move is a press');
 });

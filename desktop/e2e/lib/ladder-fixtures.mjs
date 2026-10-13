@@ -22,7 +22,7 @@ export const FIELDS = ['schemaVersion', 'id', 'question', 'source', 'lang', 'why
 export const EXPECT_FIELDS = ['outcome', 'accept', 'accept_reasons', 'apply_route', 'digest', 'form_frame', 'verb', 'candidates', 'control', 'option', 'confirmed'];   // control: fill_verify's scored control number (1-based)
 // The expected MOVE (spec 2026-10-12-one-next-move.md, box 7): `verb` (one of MOVE_VERBS) on `candidates` (numbers of the fixture's own candidates; any of them is right), and ONLY with
 // `confirmed`: {by, run, version}, the run whose page confirmed it (by: a pool run, a recorded replay, the person, the takeover). Never a label by hand or by a model: e2e/ladder-label-moves.mjs writes it.
-export const MOVE_VERBS = ['press', 'open', 'tell_person'];
+export const MOVE_VERBS = ['press', 'open', 'tell_person', 'not_listed'];   // not_listed: the run pressed a control the numbered list lacked (candidates: [])
 export const CONFIRMED_BY = ['pool', 'replay', 'person', 'takeover'];
 export const LANGS = ['de', 'fr', 'en', 'it'];
 export const SOURCES = ['recorded', 'captured', 'reconstructed', 'invented'];
