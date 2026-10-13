@@ -4,6 +4,7 @@
 // like Submit, never the last step. Logged with the control's own wording, never a value. Guarded by worker/test/next-step.test.js.
 import {decide} from './log.js';
 import {notePress} from './tabs.js';
+import {mayAct} from './stop-state.js';
 
 // In the page: find the named control among the visible buttons and links and press it, unless it would submit. Exported for the tests.
 export function pressInPage(text) {
@@ -24,6 +25,7 @@ export async function pressNext(tab, frameId, answer, sig) {
   const done = (await chrome.storage.session.get(key).catch(() => ({})))[key] || [];
   if (done.includes(sig)) return false;   // this page state was pressed on already
   await chrome.storage.session.set({[key]: [...done, sig].slice(-20)}).catch(() => {});
+  if (!mayAct()) return false;   // stopped by the person (stop.js)
   notePress(tab.id, tab.url);   // a press of ours: a tab it opens joins the application (tabs.js followOpener)
   const result = await chrome.scripting.executeScript({target: {tabId: tab.id, frameIds: [frameId ?? 0]}, world: 'MAIN', func: pressInPage, args: [answer.nextControl]})
     .then(rows => rows?.[0]?.result || {pressed: false, why: 'no answer from the page'}).catch(error => ({pressed: false, why: String(error?.message || error).slice(0, 80)}));

@@ -7,7 +7,8 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 // → [{tone: 'done'|'warn'|'now', text}], oldest first. Pure: the test feeds it sessions and form reports.
 export function sessionSteps(item, state = null, {submitted = false, time = at => at} = {}) {
   const steps = [{tone: 'done', text: `Opened the job in Chrome${item.startedAt ? ` · ${time(item.startedAt)}` : ''}`}];
-  if (item.stuck === 'account') steps.push({tone: 'warn', text: item.note || 'This site needs an account'});
+  if (item.stuck === 'stopped') steps.push({tone: 'warn', text: item.note || 'Stopped by you'});
+  else if (item.stuck === 'account') steps.push({tone: 'warn', text: item.note || 'This site needs an account'});
   else if (item.stuck === 'incomplete') steps.push({tone: 'warn', text: item.note || 'Nothing could be filled; required fields are empty'});
   else if (INFORM_STUCK.includes(item.stuck)) steps.push({tone: 'warn', text: item.note || (item.stuck === 'site_broken' ? 'The site did not answer' : 'The page says what to do')});   // the address is in the note: nothing is sent for you
   else if (item.stuck === 'no-form') steps.push({tone: 'warn', text: /^Needs you:/.test(item.note || '') ? item.note : 'No application form found on the page yet'});   // a bot check in front of the form says so

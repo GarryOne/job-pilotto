@@ -9,6 +9,7 @@
   const watch = typeof MutationObserver === 'function' ? new MutationObserver(() => { dirty = true; }) : {observe() {}, takeRecords: () => []};
   try { watch.observe(document.documentElement, {childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'open', 'hidden', 'aria-hidden', 'aria-modal']}); } catch { /* no page to watch */ }
   window.__jobPilottoGate = () => {
+    if (window.__jobPilottoStopped) return Promise.resolve(false);   // Stop (extension/stop.js): the fill is held and types nothing more
     if (watch.takeRecords().length) dirty = true;
     if (!document.documentElement.hasAttribute('data-jobpilotto-gate')) return Promise.resolve(true);   // no bridge on this page (the isolated-world script marks it): nobody to ask, never wait
     const every = window.__jobPilottoGateEveryMs ?? 400, wait = window.__jobPilottoGateWaitMs ?? 12000;

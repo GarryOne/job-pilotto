@@ -7,6 +7,7 @@ import {accountStep} from './account-step.js';
 import {formReady} from './form-ready.js';
 import {roleOf} from './account.js';
 import {settings} from './flow.js';
+import {isStopped, stopFromApp} from './stop.js';
 
 export function createAppMessages(ctx) {
   const {bootId, jobOf} = ctx;
@@ -14,6 +15,7 @@ export function createAppMessages(ctx) {
     // A sign-in or sign-up page in a tab the app opened: its empty password boxes are filled from the Keychain (owner, 8 Oct 2026),
     // as a browser's password manager would. The site is Chrome's own tab address, not the page's word; the value goes into the
     // boxes only, never back to the page's scripts or the panel.
+    if (isStopped() && (message?.type === 'sitePassword' || message?.type === 'review')) { reply({filled: 0, matched: null, stopped: true}); return true; }   // stopped by the person (stop.js): no password typed, no judgment, no report
     if (message?.type === 'sitePassword' && sender.tab) {
       accountStep(sender.tab, sender.frameId).then(reply, () => reply({filled: 0}));
       return true;
@@ -28,6 +30,7 @@ export function createAppMessages(ctx) {
         const answer = await api(config, '/extension/review', {method: 'POST', body: JSON.stringify({...(message.payload || {}), tab: sender.tab.id, boot: await bootId(), job: await jobOf(sender.tab), session: carried,
           role: await roleOf(sender.tab.id, sender.tab.url)})});   // the page type by the one rule (an account page never counts as the form's progress)
         await bindSession(sender.tab.id, answer?.matched, carried);
+        await stopFromApp(answer);   // the app's Stop button: its answer to any report carries the request (stop.js)
         return answer;
       })().then(reply, () => reply({matched: null}));
       return true;  // the reply comes later

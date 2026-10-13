@@ -206,6 +206,8 @@ export function startForm({id, url, title = '', company = '', location = '', wor
 export function noteStuck(id, why, host = '', needs = '', accountStep = '') {
   return applyJourney(id, {type: 'stuck', why, host, needs, accountStep});
 }
+// The person pressed Stop: the form session says so, whatever step it was at (lib/stop-all.js).
+export const noteStopped = id => applyJourney(id, {type: 'stop'});
 // Where the application is, from what the extension sees in its tab: 'account' (a sign-in or sign-up page, on `host`) or 'form'
 // (the application form, its fields reported). The account's site is kept, so the form step can say it is step 2 of 2.
 export function setStage(id, stage, host = '') {

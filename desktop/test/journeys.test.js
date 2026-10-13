@@ -7,7 +7,8 @@ import * as terminals from '../lib/terminals.js';
 import * as apply from '../lib/apply.js';
 import {createSessionFlow} from '../lib/session-flow.js';
 import {createAccountCheck} from '../lib/account-check.js';
-import {journeyStep} from '../lib/application-journey.js';
+import {STOPPED, journeyStep} from '../lib/application-journey.js';
+import {stopLiveForms} from '../lib/stop-all.js';
 import {accountRecordLine} from '../renderer/session-state.js';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -339,3 +340,20 @@ test('scenario: control doors in a row\'s log never become the page\'s stop, its
   const control = [at(2) + 'dead end: stalled {"door":1,"level":"control","signal":"stalled"}'].join('\n');
   assert.equal(endingOf({reached: 'form', fieldList: []}, control).why === 'dead end: stalled', false, 'a control door is never the row\'s stop');
 });
+
+test('scenario: the person presses Stop mid-application (an account page, a filled form): every live application says Stopped, a late report changes nothing, the next fill\'s report starts it again (13 Oct 2026)', () => {
+  const {flow, card} = journeyOf('f1');
+  terminals.startForm({id: 'f2', url: 'https://apply.example/other', company: 'Other'});
+  flow.reported({id: 'f1', url: SIGNIN, total: 1, left: 1, account: true});
+  flow.reported({id: 'f2', url: FORM, total: 9, left: 4});
+  assert.equal(stopLiveForms(terminals), 2);
+  assert.equal(terminals.get('f1').stuck, 'stopped');
+  assert.equal(terminals.get('f2').stuck, 'stopped');
+  assert.equal(card().needs, STOPPED);
+  flow.stuck({url: POSTING, host: 'www.jobs.ch', why: 'no-form', session: 'f1'});   // a report still on its way from a tab that has since been stopped
+  assert.equal(terminals.get('f1').stuck, 'stopped');
+  terminals.clearStuck('f1');   // Reopen form: the application is started again by the person
+  assert.equal(terminals.get('f1').stuck, '');
+  assert.equal(terminals.get('f2').stuck, 'stopped', 'only the reopened one starts');
+});
+

@@ -10,7 +10,7 @@
 //   3     desktop/lib/ladder/rung3-digest.js          ./ai/models.js          (neither page-kind nor escalate)
 //   3     extension/ladder/rung3-candidates.js   nothing                 (a classic page script)
 //   4     desktop/lib/ladder/rung4-picture.js        node:fs, ./account-judge.js (accountSketch, listed), ./site-accounts.js, ./rung1-kept.js (pageShape only), ../../shared/alias-schema.js (the Apply floor of the posting scope: a shared format, not a rung)
-//   4     extension/ladder/rung4-picture.js          extension plumbing only (flow, log, account-fill, judge-sketch, page-picture, account-act, next-step, tabs (notePress: its click's new tab joins the application)): no decision rung
+//   4     extension/ladder/rung4-picture.js          extension plumbing only (flow, log, account-fill, judge-sketch, page-picture, account-act, next-step, tabs (notePress: its click's new tab joins the application), stop-state (the person's Stop: no press, no debugger while stopped)): no decision rung
 //   5     desktop/lib/ladder/rung5-takeover.js       nothing                 (no decision module)
 //   router extension/ladder/core.js      nothing
 //   climb  extension/ladder/climb.js           ladder-core.js only     (the file does not exist yet: pinned for when it does)
@@ -42,7 +42,7 @@ export function importsOf(source) {
 // A relative import resolved to a repo path; a bare specifier (node:fs) stays as it is.
 const resolveFrom = (file, from) => from.startsWith('.') ? path.posix.normalize(path.posix.join(path.posix.dirname(file), from)) : from;
 
-const EXTENSION_PLUMBING = ['extension/flow.js', 'extension/log.js', 'extension/account-fill.js', 'extension/judge-sketch.js', 'extension/ladder/rung4-page-picture.js', 'extension/ladder/picture-view.js', 'extension/account-act.js', 'extension/next-step.js', 'extension/tabs.js'];
+const EXTENSION_PLUMBING = ['extension/flow.js', 'extension/log.js', 'extension/account-fill.js', 'extension/judge-sketch.js', 'extension/ladder/rung4-page-picture.js', 'extension/ladder/picture-view.js', 'extension/account-act.js', 'extension/next-step.js', 'extension/tabs.js', 'extension/stop-state.js'];
 // file -> the exact set of things it imports. `only`: for a cross-rung edge, the one binding set it may take.
 export const EDGES = {
   'extension/tab-pages.js': {allow: ['extension/alias-schema.js']},

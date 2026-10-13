@@ -22,6 +22,8 @@
   .visit { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
   .visit small { color: var(--muted); font-size: 11px; }
   button.quiet { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+  button.stop { background: #b42318; }
+  .stopped { color: var(--ink); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -38,6 +40,8 @@
     <small id="visit-note"></small>
     <small id="visit-progress"></small>
   </section>
+  <button id="stop" class="stop" title="Stops everything Job Pilotto does, on every tab">■ Stop everything</button>
+  <small id="stop-note"></small>
   <div class="status" id="status">Checking the connection…</div>
 </main>
 <script type="module" src="popup.js"></script>

@@ -1,0 +1,82 @@
+// Stop (owner, 13 Oct 2026: "a major bug, I want a stop button"): ONE switch that halts everything the extension does, on every tab, at once. The extension had acted on
+// a tab that was no application (a debugging bar, 24 sections opened, a box filled) and nothing but turning it off in chrome://extensions stopped it.
+// Stopped means: no press, no typing, the debugger detached, the fill marks and the tabs' application state cleared, every read still on its way late (read-gen.js),
+// and nothing starts again until the person presses Apply again (the app opens a tab with the fill mark, the panel's Fill, the popup's "Apply on this page").
+// Who asks: the popup's and the panel's Stop button, the app (its answer to any report carries `stop`), Chrome's own "Cancel" on the debugging bar (watchDebugger).
+// Every way the extension acts checks it here: attachDebugger (the one place the debugger is attached, only to a tab the app opened), mayAct (before a press), isStopped (the
+// fill's entry, the worker's messages, a tab joining an application). Guard: desktop/test/extension-stop.test.js (it fails when a press or an attach skips these).
+import {IDENTITY_KEYS} from './tab-identity.js';
+import {decide} from './log.js';
+import {isStopped, markStopped, restart as restartState} from './stop-state.js';
+
+export {attachDebugger, isStopped, mayAct} from './stop-state.js';
+let lastRequest = '';
+const told = [];   // what to do once stopped, besides the above: tell the app (stop-messages.js registers it; this file owns no network)
+export const onStopped = fn => { told.push(fn); };
+
+// The state after a worker restart: still stopped, and the app's request already answered stays answered.
+export const restored = (async () => {
+  const {stopped, stopReq} = await chrome.storage.session.get(['stopped', 'stopReq']).catch(() => ({}));
+  if (stopped?.at && !isStopped()) markStopped(stopped.at);
+  if (stopReq) lastRequest = stopReq;
+})();
+
+// The person starts it again (the one door back): Apply in the app, the panel's Fill, the popup's Apply on this page. -> whether it was stopped.
+export function restart(who) {
+  const was = restartState();
+  if (was) decide('stop', 'started again by the person', {who});
+  return was;
+}
+
+// What a stopped tab shows: the page-side fill sees the flag between its stages (page/guard-gate.js) and at its start (page/fill.js); the mark goes off the address, the panel off the page.
+function stoppedPage() {
+  window.__jobPilottoStopped = true;
+  try { const clean = location.href.replace(/#jobpilotto-fill(=[A-Za-z0-9_-]{1,64})?$/, ''); if (clean !== location.href) history.replaceState(history.state, '', clean); } catch { /* sandboxed page */ }
+  for (const id of ['jobpilotto-review-host', 'jobpilotto-progress', 'jobpilotto-note', 'jobpilotto-stop-host']) document.getElementById(id)?.remove();
+  if (!document.documentElement) return;
+  document.documentElement.dataset.jobpilottoFill = JSON.stringify({state: 'stopped'});
+  if (window.top !== window) return;
+  const box = document.createElement('div');
+  box.id = 'jobpilotto-note';
+  box.style.cssText = 'position:fixed;top:12px;right:12px;z-index:2147483647;max-width:320px;background:#132439;color:#fff;border-radius:10px;padding:12px 14px;font:13px/1.45 system-ui,sans-serif;box-shadow:0 6px 24px #0008';
+  box.textContent = 'Job Pilotto is stopped on this page. Press Apply in the app to start again.';
+  box.onclick = () => box.remove();
+  document.documentElement.append(box);
+}
+
+// Stop everything. -> {tabs}: how many tabs were cleared.
+export async function stopAll(reason = 'the person pressed Stop') {
+  const at = Date.now();
+  markStopped(at);
+  await chrome.storage.session.set({stopped: {at, reason: String(reason).slice(0, 80)}}).catch(() => {});
+  decide('stop', 'stopped: nothing more is done on any tab', {reason: String(reason).slice(0, 80)});
+  const stored = await chrome.storage.session.get(null).catch(() => ({}));
+  const ids = new Set(Object.keys(stored).filter(key => key.startsWith('armed:') && stored[key]).map(key => Number(key.slice(6))).filter(Number.isInteger));
+  for (const tab of await chrome.tabs.query({}).catch(() => [])) if (tab.id != null && String(tab.url || '').includes('#jobpilotto-fill')) ids.add(tab.id);
+  const held = new Set(ids);
+  for (const target of await chrome.debugger.getTargets().catch(() => [])) if (target.attached && Number.isInteger(target.tabId)) held.add(target.tabId);
+  for (const tabId of held) await chrome.debugger.detach({tabId}).catch(() => {});   // only ours detaches; any other client's attach refuses and is left alone
+  for (const tabId of ids) {
+    await chrome.storage.session.remove([...IDENTITY_KEYS(tabId), `role:${tabId}`, `armed:${tabId}`, `carried:${tabId}`, `submit:${tabId}`, `judged:${tabId}`, `read:${tabId}`, `next:${tabId}`]).catch(() => {});
+    await chrome.scripting.executeScript({target: {tabId, allFrames: true}, world: 'MAIN', func: stoppedPage}).catch(() => {});
+    chrome.tabs.sendMessage(tabId, {type: 'stopped'}).catch(() => {});
+  }
+  for (const fn of told) await Promise.resolve(fn(reason, ids.size)).catch(() => {});
+  return {tabs: ids.size};
+}
+
+// Chrome's own "Cancel" on its "started debugging this browser" bar is the person's Stop too (a closed tab or DevTools taking over is not).
+export function watchDebugger() {
+  chrome.debugger?.onDetach?.addListener((_, why) => { if (why === 'canceled_by_user') stopAll('Cancel on Chrome\'s debugging bar'); });
+}
+
+// The app's answer to a report carries `stop: <request id>` until it hears the extension stopped: each request stops once (a request answered before a restart is not asked again).
+export async function stopFromApp(answer) {
+  const request = typeof answer?.stop === 'string' ? answer.stop : '';
+  await restored;
+  if (!request || request === lastRequest) return false;
+  lastRequest = request;
+  await chrome.storage.session.set({stopReq: request}).catch(() => {});
+  await stopAll('Stop pressed in the app');
+  return true;
+}

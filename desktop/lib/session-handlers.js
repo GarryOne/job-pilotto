@@ -18,6 +18,7 @@ export async function closeSessionTab({review, closeTab}, old) {
 
 import {cleanUse} from './proposal-use.js';
 import {boardName} from './control-events.js';
+import {stopLiveForms} from './stop-all.js';
 export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, dialog, nativeImage, here,
   DEMO, extensionGate = () => null, apply, pipeline, review, server, claudeConsent, getRecipeReporter = () => null, version = '',
   closeTab = closeFormTab}) {
@@ -103,6 +104,14 @@ export function registerSessionHandlers({ipcMain, appLog, storage, getWindow, di
     if (!use) return {ok: false};
     if (act !== 'shown') appLog('review', `proposed answer ${act}`, {id, source, board: use.board});   // the decision, never the value
     getRecipeReporter()?.proposalUse(use);
+    return {ok: true};
+  });
+  // The Stop button (owner, 13 Oct 2026): the extension is asked to stop everything it does (it hears it in the answer to its next report, extension/stop.js), and the live forms say
+  // "Stopped" at once; the extension's own word that it stopped (its popup, its page button, Chrome's Cancel on the debugging bar) marks them the same way. Reopen form starts one again.
+  checkedSessions.handle('sessionsStopExtension', () => {
+    const request = server.requestStop();
+    const marked = stopLiveForms(terminals);
+    appLog('extension', 'Stop pressed in the app: the extension is asked to stop, live forms say Stopped', {request, marked});
     return {ok: true};
   });
   checkedSessions.handle('sessionReopen', async (_, id, stale) => {

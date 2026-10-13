@@ -7,6 +7,15 @@ const $ = id => document.getElementById(id);
 $('settings').addEventListener('click', event => { event.preventDefault(); chrome.runtime.openOptionsPage(); });
 const LINKEDIN = 'LinkedIn forbids reading its pages with an extension and may restrict accounts that do. Reading page by page with pauses keeps that small, not zero.';
 
+// Stop: whatever the tab is, one press halts the extension everywhere (stop.js). Before anything below, so a failed connection check never hides it.
+$('stop').addEventListener('click', () => {
+  $('stop').disabled = true;
+  chrome.runtime.sendMessage({type: 'stop', reason: 'the Stop button in the toolbar popup'}, answer => {
+    $('stop-note').className = 'stopped';
+    $('stop-note').textContent = answer?.ok ? 'Stopped. Nothing runs until you press Apply in the app.' : 'Could not reach the extension: turn it off in chrome://extensions.';
+  });
+});
+
 (async () => {
   const config = await settings();
   const app = !config.workerUrl || config.workerUrl.startsWith('http://127.0.0.1');

@@ -6,6 +6,7 @@
 import {api, settings} from './flow.js';
 import {ALL_SITES, openAllowPage} from './site-allow.js';
 import {closeConsentEverywhere} from './consent.js';
+import {mayAct} from './stop-state.js';
 
 export const MAX_PAGES = 20;
 const PAUSE_MS = [1800, 3200];   // between pages, like a person reading: not to look like one, to be gentle with the site
@@ -284,7 +285,7 @@ export const readingNow = () => started.size;
 export async function autoRead(tabId, url) {
   const posting = POSTING_MARK.exec(String(url));
   const found = posting || MARK.exec(String(url));
-  if (!found || started.has(tabId)) return;
+  if (!found || started.has(tabId) || !mayAct()) return;   // stopped by the person: no read starts (stop.js); the next load of the tab asks again
   started.add(tabId);   // at once: the page-ready and page-complete events can both arrive while the next line waits
   const mark = found[0], filter = !posting && !!found[2], ticket = (posting ? found[1] : found[3]) || '';
   if (!(await chrome.permissions.contains(ALL_SITES))) {
