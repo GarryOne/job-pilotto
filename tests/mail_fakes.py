@@ -85,6 +85,8 @@ def _matches_filter(page, filter_):
         return any(_matches_filter(page, part) for part in filter_['or'])
     prop = page['properties'].get(filter_['property']) or {}
     if 'relation' in filter_:
+        if filter_['relation'].get('is_empty'):
+            return not prop.get('relation')
         return any(link['id'].replace('-', '') == filter_['relation']['contains'].replace('-', '')
                    for link in prop.get('relation') or [])
     kind = next(k for k in filter_ if k != 'property')
