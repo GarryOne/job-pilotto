@@ -18,17 +18,17 @@ def fit(value, reason='Kubernetes + Datadog match; salary not stated'):
 
 class PayUnknownTest(unittest.TestCase):
     def test_schema_allows_null_pay_and_clamp_keeps_it(self):
-        pay = score.SCHEMA['properties']['components']['properties']['compensation']
-        self.assertIn('null', pay['type'])
-        # only pay may be unknown; the other parts stay whole numbers
-        for key in ('role_fit', 'location', 'growth'):
-            self.assertEqual(score.SCHEMA['properties']['components']['properties'][key]['type'], 'integer')
-        data = {**fit(70), 'components': {**fit(70)['components'], 'compensation': None}}
+        props = score.SCHEMA['properties']['components']['properties']
+        # only the parts in UNKNOWN_OK may be unknown; the others stay whole numbers
+        for key in ('role_fit', 'location', 'compensation', 'growth'):
+            self.assertEqual('null' in props[key]['type'], key in score.UNKNOWN_OK, key)
+        data = {**fit(70), 'components': {**fit(70)['components'], 'compensation': None, 'growth': None}}
         client = FakeClient()
         client.create = lambda **p: SimpleNamespace(stop_reason='end_turn', content=[SimpleNamespace(type='text', text=json.dumps(data))],
                                                     usage=SimpleNamespace(input_tokens=1, output_tokens=1, cache_read_input_tokens=0))
         out, _ = score.score_one(client, 'm', {'title': 't', 'company': 'c', 'description': 'd'}, 'Profile')
         self.assertIsNone(out['components']['compensation'])
+        self.assertIsNone(out['components']['growth'])
         self.assertNotIn('give 50', score.SYSTEM)
 
 

@@ -49,8 +49,10 @@ CREATE TABLE IF NOT EXISTS scores (
 """
 
 _component = {'type': 'integer', 'description': '0-100'}
-# Pay fit is null when the posting states no salary: an unknown is shown as N/A and counts for nothing in the overall score.
-_pay_component = {'type': ['integer', 'null'], 'description': '0-100, or null when the posting states no salary'}
+# Pay fit and Growth are null when the posting gives no basis (no salary stated, no scope or level to judge): an unknown is shown as
+# N/A and counts for nothing in the overall score.
+UNKNOWN_OK = ('compensation', 'growth')
+_open_component = {'type': ['integer', 'null'], 'description': '0-100, or null when the posting gives no basis (no salary stated; scope and level unreadable)'}
 SCHEMA = {
     'type': 'object',
     'additionalProperties': False,
@@ -63,8 +65,8 @@ SCHEMA = {
             'type': 'object', 'additionalProperties': False,
             'required': ['role_fit', 'location', 'compensation', 'growth', 'risk'],
             'properties': {
-                'role_fit': _component, 'location': _component, 'compensation': _pay_component,
-                'growth': _component,
+                'role_fit': _component, 'location': _component, 'compensation': _open_component,
+                'growth': _open_component,
                 'risk': {'type': 'integer', 'description': '0-100, higher = more risk or uncertainty'},
             },
         },
@@ -94,7 +96,8 @@ and list it as a gap; the overall score then ignores pay entirely, as if it were
 figures: say which one you compare with. Do not compute percentages or convert currencies; say "below your \
 minimum" or "above your target" and quote the posting's own numbers. Call a salary "in the target range" only \
 when it lies between the profile's own figures.
-- Growth covers scope, technical depth and seniority relative to the candidate's level.
+- Growth covers scope, technical depth and seniority relative to the candidate's level. If the posting gives no basis \
+(no scope or level you can read), give null (shown as N/A), never a middling number; the overall score then ignores it.
 - Risk rises for recruiter listings, vague employers, junior or unrelated roles, heavy on-call, \
 missing information.
 - Missing information lowers confidence; it is not evidence against the job.
