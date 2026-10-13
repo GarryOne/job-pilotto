@@ -109,7 +109,7 @@
       const read = [...groups.values()].map(entry => entry.label);
       for (const item of cover.unread(document, read, visible)) {   // an ARIA radio group is read by the fill (page/radios.js): not unread, and its marks count
         const aria = item.area.matches?.('[role=radiogroup]') ? item.area : item.area.querySelector?.('[role=radiogroup]');
-        groups.set(item.area, {el: item.area, label: item.question, required: true, filled: cover.answered(item.area), ai: false, unread: !aria, suggested: aria?.dataset.jobpilottoSuggested || '', guess: !!aria?.dataset.jobpilottoGuess, options: aria?.dataset.jobpilottoOptions || ''});
+        groups.set(item.area, {el: item.area, label: item.question, required: true, filled: !item.shared && cover.answered(item.area), ai: false, unread: !aria, suggested: aria?.dataset.jobpilottoSuggested || '', guess: !!aria?.dataset.jobpilottoGuess, options: aria?.dataset.jobpilottoOptions || ''});
       }
     }
     return [...groups.values()];

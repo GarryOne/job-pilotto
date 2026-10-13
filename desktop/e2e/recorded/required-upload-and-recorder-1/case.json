@@ -1,0 +1,50 @@
+{
+ "shape": "a required file question that is not the CV (a motivation letter) and a required video-recorder widget (a group with a button and no input of its own)",
+ "origin": "hand-cut",
+ "why": "13 Oct 2026, the Recruitee form (Channable) in the #507 after-run 38325169221: the page had 6 required controls empty, the fill record and the panel left 4: a required upload slot other than the CV and a required recorder widget had no row in the fill record, the same class as the Ashby undercount (a110501). Every required control the page has is a row: left, with its own reason",
+ "control": {
+  "build": "0.9.264",
+  "failed": "traced: Can you please attach your motivational letter?:left (the fill's record says nothing)"
+ },
+ "sample": "a recruitment form with a required CV, a required motivation-letter upload and a required video recorder (names and values removed)",
+ "pages": [
+  {
+   "url": "https://jobs.example.com/autofill-and-cv/apply",
+   "file": "form.html"
+  }
+ ],
+ "cv": true,
+ "ai": {
+  "/extension/page-kind": {
+   "ok": true,
+   "kind": "form",
+   "role": "form",
+   "by": "ai",
+   "confidence": 0.99
+  },
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  }
+ },
+ "expect": {
+  "attached": [
+   "#resume"
+  ],
+  "traced": [
+   "CV:filled",
+   "Can you please attach your motivational letter?:left",
+   "Tell us about yourself in a short video:left"
+  ],
+  "pending": [
+   "Can you please attach your motivational letter?",
+   "Tell us about yourself in a short video"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "seconds": 30
+ },
+ "start": "panel"
+}

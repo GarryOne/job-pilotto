@@ -1,0 +1,11 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Apply</title>
+<style>body{font:15px system-ui;margin:24px;max-width:640px} .field{margin:14px 0} label,h3{display:block;font-weight:600;margin-bottom:4px}
+.drop{border:1px dashed #999;padding:14px;border-radius:6px} .required::after{content:" *";color:#c00}</style></head><body>
+<form id="application">
+<div class="field"><label class="required" for="first">First name</label><input id="first" name="first" required></div>
+<div class="field"><label class="required" for="email">Email</label><input id="email" name="email" type="email" required></div>
+<div class="field"><label class="required" for="resume">CV</label><div class="drop"><input type="file" id="resume" required accept=".pdf,.doc,.docx"></div></div>
+<div class="field"><label class="required" for="letter">Can you please attach your motivational letter?</label><div class="drop"><input type="file" id="letter" required accept=".pdf,.doc,.docx"></div></div>
+<div class="field" id="intro" role="group" aria-required="true" aria-labelledby="intro-title"><h3 class="required" id="intro-title">Tell us about yourself in a short video</h3><div class="drop"><button type="button">Record video</button></div></div>
+<button type="submit">Submit application</button>
+</form></body></html>

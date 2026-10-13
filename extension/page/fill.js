@@ -172,7 +172,7 @@
         const same = after.find(row => norm(row.label) === norm(item.question));
         if (same) Object.assign(same, {required: true, unread: true});
         else after.push({field: `unread:${item.question}`, label: item.question, type: item.kinds[0] || '', required: true,
-          filled: window.__jobPilottoCoverage.answered(item.area), legal: LEGAL.test(item.question), unread: true});
+          filled: !item.shared && window.__jobPilottoCoverage.answered(item.area), legal: LEGAL.test(item.question), unread: true});
       }
     }
     const open = after.filter(row => row.required && !row.filled);
@@ -216,13 +216,14 @@
     const answerOf = Object.fromEntries(answers.map(a => [a.field, a]));
     const knownKey = row => (PROFILE_LABELS.find(([, pattern]) => pattern.test(clean(row.label || ''))) || [])[0] || aliasFor(row.label || '')?.key || '';
     // Upload widgets' own buttons (Attach, Dropbox, Enter manually…) aren't questions: not in the log.
-    const trace = after.filter(row => row.field !== 'resume' && row.type !== 'file' && !/^(attach|dropbox|google drive|enter manually)$/i.test(clean(row.label))).map(row => {
+    const trace = after.filter(row => row.field !== 'resume' && !/^(attach|dropbox|google drive|enter manually)$/i.test(clean(row.label))).map(row => {
       const label = rowOf[row.field]?.label || clean(row.label).replace(row.field, '').trim() || row.field;
       const answer = answerOf[row.field];
       const source = contactFields.has(row.field) ? 'your details' : answer ? (answer.source || 'kit') : '';
       let outcome = row.filled ? 'filled' : 'left';
       let reason = '';
-      if (row.legal) { outcome = 'left'; reason = 'legal/consent: always your choice'; }
+      if (row.type === 'file') { if (!row.filled) reason = 'upload: no file for this question'; }   // an upload slot that is not the CV (the CV has its own row below): counted like any required control, left unless it holds a file
+      else if (row.legal) { outcome = 'left'; reason = 'legal/consent: always your choice'; }
       else if (row.written && !row.filled && !answer && !proposedOf[row.field]) { outcome = 'left'; reason = 'written: your own words to write'; }   // the AI's reading (category written), any language
       else if (row.demographic && !row.filled && !answer && !proposedOf[row.field]) { outcome = 'left'; reason = 'demographic: your own choice'; }   // a salutation or gender nothing given states: never guessed
       else if (row.unanswered && !row.filled && !answer && !proposedOf[row.field]) { outcome = 'left'; reason = 'the AI gave no answer'; }
@@ -241,7 +242,7 @@
       else if (!row.filled) { reason = 'answer given, but the field did not take it'; window.__jobPilottoNoteNotTaken?.(row.field, answer?.value); }   // typed again for real after the fill (page/fill-verify.js)
       if (outcome === 'filled' && source && row.type !== 'file') watchCorrection(row.field, label);
       if (outcome === 'filled' && source) markFilled(row.field); else window.__jobPilottoMarkProposal?.({...row, options: rowOf[row.field]?.options || row.options}, answer || proposedOf[row.field], (PROFILE_LABELS.find(([, pattern]) => pattern.test(label)) || [])[0] || aliasFor(label)?.key || '');   // page/propose.js: what the app's row proposes
-      return {label: label.slice(0, 120), required: !!row.required, type: rowOf[row.field]?.type || '', source, outcome, reason,
+      return {label: label.slice(0, 120), required: !!row.required, type: rowOf[row.field]?.type || (row.type === 'file' ? 'file' : ''), source, outcome, reason,
         alias: (window.__jobPilottoAliasUsed || {})[row.field] || '',
         low: answer && answer.confidence && answer.confidence !== 'high' ? (answer.note || 'low confidence') : ''};
     });

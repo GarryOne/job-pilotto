@@ -35,7 +35,7 @@
   const kindsIn = area => [...new Set([...area.querySelectorAll(CONTROL)].map(el => el.getAttribute('role') || (el.tagName === 'INPUT' ? el.type || 'text' : el.tagName.toLowerCase())))].slice(0, 4);
 
   // read: the labels the reader has for this form (field labels, group questions). shown(el): is it visible. Returns
-  // [{question, kinds, area}] for each required-marked question with a control near it that no read label names.
+  // [{question, kinds, area, title, shared}] for each required-marked question with a control near it that no read label names.
   const unread = (doc, read, shown) => audit(doc, read, shown).filter(item => !item.read);
   // Every required-marked question with a control near it, each with read: true/false. The share read is the reader's coverage
   // (the form lab reports it per board, day by day: the number that shows whether reading gets better).
@@ -43,7 +43,7 @@
     const view = doc.defaultView || globalThis;
     const labels = (read || []).map(norm).filter(Boolean);
     const claimed = q => labels.some(l => l === q || (q.length >= 8 && l.length >= 8 && (l.includes(q) || q.includes(l))));
-    const out = [], areas = new Set(), seen = new Set();
+    const out = [], areas = new Set(), seen = new Set(), titles = [];
     for (const title of doc.querySelectorAll(TITLE)) {
       if (title.closest('#jobpilotto-review-host, .job-pilotto-badge, [id^=jobpilotto]')) continue;
       // A label wrapping its own control ("I agree *") is that control's label, read with it.
@@ -51,15 +51,19 @@
       const question = clean(title.textContent);
       const q = norm(question);
       if (q.length < 3 || question.length > 200 || seen.has(q)) continue;
+      titles.push(title);
       const area = areaOf(title);
       const live = area ? [...area.querySelectorAll(CONTROL)].filter(shown) : [];
       // An upload alone (the CV, a cover letter file) is the CV step's, listed by the panel on its own.
       if (!live.length || areas.has(area) || live.every(el => el.type === 'file')) continue;
       seen.add(q);
       areas.add(area);
-      out.push({question: question.slice(0, 120), kinds: kindsIn(area), area, read: claimed(q)});
+      out.push({question: question.slice(0, 120), kinds: kindsIn(area), area, title, read: claimed(q)});
       if (out.length >= 40) break;
     }
+    // An area that holds another required question's title is shared (a recorder's title with no control of its own climbs to the form): its controls answer THEIR questions, so
+    // whether this one is answered is unknown, never "yes" (13 Oct 2026: a required recorder was traced filled because the form's first name box held a value).
+    for (const item of out) item.shared = titles.some(other => other !== item.title && item.area.contains(other));
     return out;
   }
   // Is the question in this area answered now: a ticked choice, a typed value, a pressed button, a picked option.
