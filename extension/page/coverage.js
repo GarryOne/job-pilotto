@@ -34,6 +34,14 @@
   }
   const kindsIn = area => [...new Set([...area.querySelectorAll(CONTROL)].map(el => el.getAttribute('role') || (el.tagName === 'INPUT' ? el.type || 'text' : el.tagName.toLowerCase())))].slice(0, 4);
 
+  // An upload field that shows its file: the page drew a chip (a file name and a remove button) where its buttons were and dropped its own input, so the title has no control near it and its
+  // area would climb to the whole form. The field is the widest box around the title (up to 5 levels) that holds no control; one that shows a file name is the upload step's slot
+  // (page/upload.js reads it, by the file it shows), never a question the reader missed. A title with a control in its own field never gets here.
+  function showsFile(title) {
+    let box = title.parentElement, field = null;
+    for (let up = 0; box && up < 5 && !box.querySelector(CONTROL); box = box.parentElement, up++) field = box;
+    return !!field && !!window.__jobPilottoReadBack?.namesIn?.(field.innerText ?? field.textContent ?? '').length;
+  }
   // read: the labels the reader has for this form (field labels, group questions). shown(el): is it visible. Returns
   // [{question, kinds, area, title, shared}] for each required-marked question with a control near it that no read label names.
   const unread = (doc, read, shown) => audit(doc, read, shown).filter(item => !item.read);
@@ -52,6 +60,7 @@
       const q = norm(question);
       if (q.length < 3 || question.length > 200 || seen.has(q)) continue;
       titles.push(title);
+      if (showsFile(title)) continue;
       const area = areaOf(title);
       const live = area ? [...area.querySelectorAll(CONTROL)].filter(shown) : [];
       // An upload alone (the CV, a cover letter file) is the CV step's, listed by the panel on its own.
