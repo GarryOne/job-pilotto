@@ -1,6 +1,7 @@
 // One fill run on a tab: read the form, get answers (AI and/or the drafted kit), fill, report.
 // Shared by the popup (the tab you're on) and the background worker (tabs the app opens to fill).
 import {KEY} from './tab-identity.js';
+import {askEnded, askStarted} from './ladder/silence.js';
 import {MENU_REASONS, OLD_MENU_REASON, applyCombos} from './menu-reason.js';
 import {clickCombo} from './combo-click.js';
 import {typeNotTakenOnTab} from './fill-verify.js';
@@ -115,13 +116,17 @@ export async function pair() {
 // A call to the app (or your own Worker). The app's token changes when it's reinstalled, reset or switched to
 // another Notion workspace: a 401 from the app reconnects once and retries, so the user never has to.
 export async function api(config, path, init = {}, retry = true) {
+  askStarted();   // the silent dead-end clock stands still while an ask is out (ladder/silence.js)
+  try { return await apiCall(config, path, init, retry); } finally { askEnded(); }
+}
+async function apiCall(config, path, init, retry) {
   if (usesApp(config) && !config.token) Object.assign(config, await pair());
   const response = await fetch(`${config.workerUrl.replace(/\/$/, '')}${path}`, {
     ...init, headers: {Authorization: `Bearer ${config.token}`, 'Content-Type': 'application/json', ...(init.headers || {})},
   });
   if (response.status === 401 && retry && usesApp(config)) {
     const fresh = await pair().catch(() => null);
-    if (fresh && fresh.token !== config.token) return api(Object.assign(config, fresh), path, init, false);
+    if (fresh && fresh.token !== config.token) return apiCall(Object.assign(config, fresh), path, init, false);
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw Object.assign(new Error(response.status === 401 ? NOT_CONNECTED : data.error || `HTTP ${response.status}`), {status: response.status, data});

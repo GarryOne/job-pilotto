@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
-import {appLogName, detectorAt, doorLines, gapRows, gapSummary, progressOf, quantile, rowGaps, runEvents, silentFires} from '../lib/pool-gaps.mjs';
+import {askSpans, quietBetween, appLogName, detectorAt, doorLines, gapRows, gapSummary, progressOf, quantile, rowGaps, runEvents, silentFires} from '../lib/pool-gaps.mjs';
 import {PROGRESS_KINDS} from '../../../extension/ladder/progress.js';
 
 const line = (at, text) => `2026-10-13T00:00:${String(at).padStart(2, '0')}.000Z ${text}`;
@@ -29,8 +29,8 @@ test('only the extension\'s progress lines of a listed kind count', () => {
 });
 
 test('a row is one application: its gaps (wall-clock between notes in any tab, so a new tab never leaves the posting tab "silent"), the slowest, the silence after the last note to the log\'s end, and the door\'s lines told apart by their shadow field', () => {
-  assert.deepEqual(rowGaps(log), {events: 3, gaps: [{ms: 4000, kind: 'navigated'}, {ms: 4000, kind: 'required_down'}], maxGapMs: 4000, tailMs: 31000, deadEnd: true, silent: 1});
-  assert.deepEqual(rowGaps(line(0, '[extension] fill: page kind: other {}')), {events: 0, gaps: [], maxGapMs: 0, tailMs: null, deadEnd: false, silent: 0}, 'a build without progress notes is not measured');
+  assert.deepEqual(rowGaps(log), {events: 3, gaps: [{ms: 4000, quietMs: 4000, kind: 'navigated'}, {ms: 4000, quietMs: 4000, kind: 'required_down'}], maxGapMs: 4000, maxQuietMs: 4000, tailMs: 31000, deadEnd: true, silent: 1});
+  assert.deepEqual(rowGaps(line(0, '[extension] fill: page kind: other {}')), {events: 0, gaps: [], maxGapMs: 0, maxQuietMs: 0, tailMs: null, deadEnd: false, silent: 0}, 'a build without progress notes is not measured');
   assert.deepEqual(doorLines(line(1, '[extension] fill: dead end: silent {"shadow":true}')), {stops: 0, seen: 1}, 'a shadow notice alone is no stop');
 });
 
@@ -39,7 +39,7 @@ test('one row per row the run ran, with its ending; the summary: quantiles of ev
   const slow = [line(0, '[extension] fill: progress: navigated {}'), line(20, '[extension] fill: progress: new_controls {"sinceMs":20000}')].join('\n');
   const rows = gapRows(report, {A: log, B: slow, Old: log});
   assert.deepEqual(rows.map(row => [row.row, row.ending, row.maxGapMs, row.measured]), [['A', 'ready', 4000, true], ['B', 'unresolved', 20000, true], ['C', 'held', 0, false]]);
-  assert.deepEqual(gapSummary(rows), {measured: 2, notMeasured: 1, gaps: 3, p50: 4000, p90: 20000, p95: 20000, p99: 20000, max: 20000, maxReady: 4000});
+  assert.deepEqual(gapSummary(rows), {measured: 2, notMeasured: 1, gaps: 3, p50: 4000, p90: 20000, p95: 20000, p99: 20000, max: 20000, quietMax: 20000, maxReady: 4000});
   assert.equal(quantile([], 0.5), null);
   assert.equal(quantile([1000, 2000, 3000, 4000], 0.5), 3000);
 });
@@ -81,4 +81,17 @@ test('the detector on the pool\'s ground truth: recall on rows stopped before th
 test('the form judge still writes the line the offline rule reads (a rename fails here, never silently)', () => {
   const ready = fs.readFileSync(new URL('../../../extension/form-ready.js', import.meta.url), 'utf8');
   assert.match(ready, /decide\('panel', `application form ready\?: \$\{answer\.answer\}`, \{host, step: answer\.step \|\| ''/);
+});
+
+test('asks to the app are a wait: the spans the log shows are taken out of a gap and of the silence, and a fire comes T of quiet later', () => {
+  const answered = `${at(40)} [fill] Claude answered 7 of 15 question(s) {"fields":15,"ms":29000}`;   // asked at 11 s, answered at 40 s
+  const spans = askSpans([note(0), answered, `${at(45)} [extension] fill: page kind: form {"ms":1500}`, `${at(50)} [fill] no ms here {}`].join('\n'));
+  assert.deepEqual(spans, [[Date.parse(at(11)), Date.parse(at(40))], [Date.parse(at(45)) - 1500, Date.parse(at(45))]]);
+  assert.equal(quietBetween(spans, Date.parse(at(0)), Date.parse(at(50))), 50000 - 29000 - 1500);
+  const slow = [note(0), answered, note(52, 'required_down')].join('\n');
+  assert.equal(rowGaps(slow).gaps[0].ms, 52000);
+  assert.equal(rowGaps(slow).gaps[0].quietMs, 23000, 'the gap a normal run spent mostly waiting on the AI is 23 s of quiet');
+  assert.deepEqual(silentFires(slow, T).fires, [], 'the wall-time rule would fire at 30 s; with the ask taken out it does not');
+  assert.equal(silentFires(slow, T, {asks: false}).fires.length, 1);
+  assert.deepEqual(silentFires([note(0), answered, other(90)].join('\n'), T).fires, [{afterMs: 59000, kind: 'navigated'}], '30 s of quiet + the 29 s ask');
 });

@@ -5,12 +5,22 @@
 // In SHADOW: a silence is noted once (progress.js hands the notice to the door, {shadow: true}); nothing else happens. The clock lives in the worker: a worker that sleeps forgets it
 // (a miss is today's behaviour). Pure apart from its timer, so the CI pool's logs are read with the same rule. Guard: worker/test/silence.test.js.
 
-// T, PROVISIONAL: 30 s (the spec's start ~20 s, above the old coarse baseline's p95 of 22 s) until the CI pool's gaps between progress notes set it
-// (desktop/e2e/pool-gaps.mjs): it must sit above the slowest normal gap.
+// T = 30 s, measured on the CI pool (13 Oct 2026: 4 runs, 12 rows, 43 gaps between progress notes; desktop/e2e/pool-gaps.mjs) WITH the asks to the app taken out (the clock stands still while one is
+// out, below): the slowest normal quiet gap is 18.8 s (it was 51.5 s in wall time: a fill waiting for the AI's answers to 15 questions). On the 9 rows that reached the form: false fires 0 at 30 s
+// (1 at 20 s, 4 at 15 s); recall 1/1 (the one true stall). Censoring: the pool cuts a quiet stall at 20 s, so a stall's length above that is not measured. A miss is today's behaviour.
 export const SILENT_AFTER_MS = 30000;
 
-// The rule: a clock {at, ended, noticed} is silent at `now` when nothing ended it, it was not noted yet, and its last progress is T old.
-export const isSilent = (clock, now, T = SILENT_AFTER_MS) => !!clock && !clock.ended && !clock.noticed && now - clock.at >= T;
+// An ask to the app in flight is a wait, never a stall (13 Oct 2026, cc: the pool's slowest "gap" was a fill waiting 30 s for the AI's answers to 15 questions): the clock stands still while
+// one is out. flow.js api() brackets every call with askStarted / askEnded; the time with at least one ask out is summed (any application's: api() knows no tab, and a miss is today's behaviour).
+const asks = {count: 0, since: 0, total: 0};
+export function askStarted(now = Date.now()) { if (asks.count++ === 0) asks.since = now; }
+export function askEnded(now = Date.now()) { if (asks.count > 0 && --asks.count === 0) asks.total += now - asks.since; }
+export const askTime = (now = Date.now()) => asks.total + (asks.count ? now - asks.since : 0);
+// The silence's length: the time since the last progress that was not spent waiting on an ask (clock.waited: askTime at the note; none: the plain time, as the offline measurement keeps it).
+export const quietFor = (clock, now) => now - clock.at - (clock.waited == null ? 0 : askTime(now) - clock.waited);
+
+// The rule: a clock {at, ended, noticed} is silent at `now` when nothing ended it, it was not noted yet, and its quiet time (the time since its last progress, asks excluded) is T.
+export const isSilent = (clock, now, T = SILENT_AFTER_MS) => !!clock && !clock.ended && !clock.noticed && quietFor(clock, now) >= T;
 // The form judge's answer that hands the page to the person (desktop/lib/form-judge.js): their choice is needed, or the form is ready on its final step (Submit is theirs).
 export const handedToPerson = answer => answer?.answer === 'needs_person' || (answer?.answer === 'ready' && answer?.step === 'final');
 
@@ -36,9 +46,12 @@ export function silenceTab(tabId, job) {
 
 function check(app, now) {
   const clock = clocks.get(app);
-  if (!isSilent(clock, now)) return false;
+  if (!isSilent(clock, now)) {   // not yet: an ask was out, so the clock stood still; looked at again when the rest of T would be up
+    if (clock && !clock.ended && !clock.noticed) { stop(clock); clock.timer = timer(() => check(app, Date.now()), Math.max(1000, SILENT_AFTER_MS - quietFor(clock, now))); }
+    return false;
+  }
   clock.noticed = true;
-  notice(clock.host, {kind: clock.kind, silentMs: now - clock.at});
+  notice(clock.host, {kind: clock.kind, silentMs: quietFor(clock, now)});
   return true;
 }
 export const checkSilence = (tabId, now = Date.now()) => check(appOf(tabId), now);
@@ -48,7 +61,7 @@ export function restartSilence(tabId, kind, {now = Date.now(), host = ''} = {}) 
   if (tabId == null) return;
   const app = appOf(tabId), before = clocks.get(app);
   stop(before);
-  const clock = {at: now, kind, host: host || before?.host || '', ended: false, noticed: false, timer: null};
+  const clock = {at: now, waited: askTime(now), kind, host: host || before?.host || '', ended: false, noticed: false, timer: null};
   clocks.set(app, clock);
   clock.timer = timer(() => check(app, Date.now()), SILENT_AFTER_MS);
 }

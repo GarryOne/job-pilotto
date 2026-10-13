@@ -219,9 +219,9 @@ PR by PR. Order: the account page with no step (10 of 75 pool rows), the posting
 - [x] site_broken: an error page is retried, then reported as site_broken; its page-level ending test (#524)
 ### 5. Phase 2: the fallback at each dead end, in shadow
 - [x] one dead-end door: every give-up in `consider()` goes through `deadEnd(reason, evidence)`; a guard test (#525)
-- [ ] silent dead ends: the one progress rule, its T measured on the CI pool
-- [ ] the dead-end detector measured: recall and false fires on the pool's ground truth
-- [ ] the one question at each dead end, in shadow, logged beside what happened
+- [x] silent dead ends: the one progress rule, its T measured on the CI pool: 30 s with the asks to the app taken out (slowest quiet gap 18.8 s; 0 false fires of 9 rows, recall 1/1; the pool cuts a quiet stall at 20 s) (proof: worker/test/silence.test.js)
+- [x] the dead-end detector measured: recall and false fires on the pool's ground truth (T 30 s with asks out: recall 1/1, false fires 0/9 on 12 rows; wall time 1/9) (proof: desktop/e2e/test/pool-gaps.test.mjs)
+- [x] the one question at each dead end, in shadow, logged beside what happened ("dead end fallback (shadow)" lines on the pool: asked, asked already, picture_off) (proof: worker/test/fallback.test.js @dc5d06f)
 - [x] the next move checked: numbered answers, two agreeing asks for a press, an expected effect per verb (ladder/next-move.js: logged in shadow; the effect is checked when the CI pool acts, box 8) (proof: worker/test/next-move.test.js)
 - [ ] not_listed / blind and the picture cross-check (a new signal: the owner's OK)
 - [x] fixtures with an expected move, labelled only from a pool run that pressed a listed control and then reached a form; `npm run ladder-score -- --moves` both ways (10 fixtures: the digest right on 10, 4 of them unsure, 0 wrong-and-confident) (proof: desktop/test/ladder-move-score.test.js)
