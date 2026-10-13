@@ -28,5 +28,5 @@ jobs:
         env:
           AI_COST_PUBLISH_KEY: ${{ secrets.AI_COST_PUBLISH_KEY }}
           ANTHROPIC_ADMIN_KEY: ${{ secrets.ANTHROPIC_ADMIN_KEY }}
-          AI_COST_KEYS: job-pilotto-e2e-testing,job-pilotto-in-house-credit,job-pilotto-self-heal,job-pilotto-internal   # the product's own keys, shown per key on /ai-cost (names only; owner, 7 Oct 2026)
+          AI_COST_KEYS: job-pilotto-*,!job-pilotto-private   # every product key by name (a new job-pilotto-<job> key shows up by itself), except the owner's own Always-on key; also summed per workspace (names only; owner, 14 Oct 2026)
         run: node desktop/e2e/ai-cost-report.mjs --billed --days 31
