@@ -208,6 +208,9 @@ def add_link_mode(args, stores=None):
             if ledger.walled(args.job) and not meta.get('description'):
                 reply += ('\nℹ️ That page showed a sign-in page instead of the posting. For the fit score and facts, send me a screenshot of '
                           'the job posting too, or add it in the app with its text.')
+            elif not fit and not (meta.get('description') or '').strip():
+                reply += ('\nℹ️ The posting text could not be read, so it is not scored yet. Add its text (the app asks for it) '
+                          'for the fit score and facts.')
             # The app's Jobs list shows it too, as Applied (the local cache of the Applications row just written).
             store.track_applied(db, args.job, meta)
         queue_mail_check()
