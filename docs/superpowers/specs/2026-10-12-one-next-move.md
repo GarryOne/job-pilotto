@@ -224,7 +224,8 @@ PR by PR. Order: the account page with no step (10 of 75 pool rows), the posting
 - [ ] the one question at each dead end, in shadow, logged beside what happened
 - [x] the next move checked: numbered answers, two agreeing asks for a press, an expected effect per verb (ladder/next-move.js: logged in shadow; the effect is checked when the CI pool acts, box 8) (proof: worker/test/next-move.test.js)
 - [ ] not_listed / blind and the picture cross-check (a new signal: the owner's OK)
-- [ ] fixtures with an expected move; `npm run ladder-score` both ways
+- [x] fixtures with an expected move, labelled only from a pool run that pressed a listed control and then reached a form; `npm run ladder-score -- --moves` both ways (10 fixtures: the digest right on 10, 4 of them unsure, 0 wrong-and-confident) (proof: desktop/test/ladder-move-score.test.js)
+- [ ] the dead-end fixtures' moves: from the replays, a dead end the person or the takeover resolved, the row-to-case cases of dead-end rows; dead-end fixtures counted per source (the pool source has 1)
 - [ ] the CI pool acting: unblock rate per dead-end row; time and $ per page and per application
 ### 6. Phase 3: switch on per dead end, the ratchet, the fix rule
 - [ ] switched on at the account page with no step: its criteria hold, the owner OKs it

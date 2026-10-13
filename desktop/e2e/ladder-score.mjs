@@ -6,6 +6,7 @@
 //   --missing   (with --record) only the fixtures that have no stored answer yet, so a new fixture does not re-record the others
 //   --offline   replay the stored answers through the real pageKind, no model: deterministic, seconds (the gate: test/ladder-ratchet.test.js)
 //   --update-baseline "<why>"   (with --offline) rewrite e2e/ladder-baseline.json from this score and add the dated reason: the ratchet's only way to accept a change
+//   --moves     the next move, both ways, on the fixtures with a confirmed expected move (e2e/ladder-moves-score.mjs; --offline: today only)
 //   --only <id> | --source <recorded|captured|reconstructed|invented> | --question <page_kind|fill_verify|fill_repair|…> | --json
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,6 +16,8 @@ import {BASELINE_FILE, nextBaseline, readBaseline} from './lib/ladder-baseline.m
 import {DIR, loadFixtures} from './lib/ladder-fixtures.mjs';
 import {assertNoApiSpend, scoreFixtures, summarize} from './lib/ladder-score.mjs';
 import {answerPathNote, scoringClient} from './lib/ladder-score-path.mjs';
+
+if (process.argv.includes('--moves')) { await import('./ladder-moves-score.mjs'); process.exit(0); }   // the next move both ways (box 7 of spec 2026-10-12-one-next-move.md)
 
 const args = process.argv.slice(2), arg = name => (args.includes(name) ? args[args.indexOf(name) + 1] : '');
 const offline = args.includes('--offline'), record = args.includes('--record');

@@ -7,7 +7,16 @@
   "url": "https://bulgari.recruitmentplatform.com/FO/PCAFK026203F3VBQB798N7V11/details.html?jobId=1091811"
  },
  "expect": {
-  "outcome": "posting"
+  "outcome": "posting",
+  "verb": "press",
+  "candidates": [
+   1
+  ],
+  "confirmed": {
+   "by": "pool",
+   "run": "2026-10-11/bulgari-recruitmentplatform-com",
+   "version": "0.9.224"
+  }
  },
  "lang": "en",
  "sketch": {

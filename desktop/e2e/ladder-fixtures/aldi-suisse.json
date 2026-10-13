@@ -7,7 +7,16 @@
   "url": "https://www.jobs.aldi.ch/job/1421220233"
  },
  "expect": {
-  "outcome": "posting"
+  "outcome": "posting",
+  "verb": "press",
+  "candidates": [
+   2
+  ],
+  "confirmed": {
+   "by": "pool",
+   "run": "2026-10-11/aldi-suisse-jobs",
+   "version": "0.9.201"
+  }
  },
  "sketch": {
   "url": "https://www.jobs.aldi.ch/job/1421220233",

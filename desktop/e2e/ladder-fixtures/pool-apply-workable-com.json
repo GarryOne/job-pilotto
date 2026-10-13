@@ -7,7 +7,16 @@
   "url": "https://apply.workable.com/j/288875C2F2"
  },
  "expect": {
-  "outcome": "posting"
+  "outcome": "posting",
+  "verb": "press",
+  "candidates": [
+   5
+  ],
+  "confirmed": {
+   "by": "pool",
+   "run": "2026-10-12/starling-bank-found-2026-10-10",
+   "version": "0.9.241"
+  }
  },
  "lang": "en",
  "sketch": {

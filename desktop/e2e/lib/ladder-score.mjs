@@ -71,7 +71,7 @@ export async function scoreFixtures(fixtures, {clientFor} = {}) {
     const needsNoDigest = outcome === 'posting' && route === 'manual' && !!button;
     const digestOk = !digest && !wantRoute ? null : (digest === 'not_asked' ? needsNoDigest : digest === 'asked' ? !needsNoDigest : true) && (!wantRoute || route === wantRoute);
     const status = pending ? 'pending' : statusOf(fixture.expect, outcome, confidence);
-    rows.push({...base, outcome, confidence, rung: rungOf(result), route, digestOk, status: digestOk === false && (status === 'exact' || status === 'ok') ? 'miss' : status, note: fixture.note || '', answer: captured || fixture.answer || null});
+    rows.push({...base, outcome, confidence, rung: rungOf(result), route, button, digestOk, status: digestOk === false && (status === 'exact' || status === 'ok') ? 'miss' : status, note: fixture.note || '', answer: captured || fixture.answer || null});
   }
   return rows;
 }

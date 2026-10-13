@@ -7,7 +7,16 @@
   "url": "https://www.jobs.ch/en/vacancies/detail/014cc98e-d541-41d4-82fd-8a21e7d257dc/"
  },
  "expect": {
-  "outcome": "posting"
+  "outcome": "posting",
+  "verb": "press",
+  "candidates": [
+   2
+  ],
+  "confirmed": {
+   "by": "pool",
+   "run": "2026-10-11/posting-www-jobs-ch-found-2026-10-10",
+   "version": "0.9.193"
+  }
  },
  "lang": "en",
  "sketch": {
