@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
 import {test} from 'node:test';
-import {byKey, ingest, page, read, since, spent, summarize, view} from '../src/jobcost.js';
+import {RANGES, byKey, ingest, page, rangeOf, read, since, spent, summarize, view} from '../src/jobcost.js';
 
 const now = new Date('2026-10-04T12:00:00Z');
 const rows = [
@@ -60,7 +60,7 @@ test('per-key rows: stored by name, a real key is refused, and the card shows to
   assert.match(stored[0].sql, /INSERT INTO ai_cost_keys[^]*WHERE usd IS NOT excluded\.usd/);
   const now = new Date('2026-10-07T12:00:00Z');
   const keys = byKey([{day: '2026-10-07', key: 'e2e', usd: 1}, {day: '2026-10-02', key: 'e2e', usd: 2}, {day: '2026-09-20', key: 'e2e', usd: 4}, {day: '2026-08-01', key: 'e2e', usd: 100}], now);
-  assert.deepEqual(keys, [{key: 'e2e', today: 1, week: 3, month: 7, last: '2026-10-07'}]);
+  assert.deepEqual(keys, [{key: 'e2e', today: 1, week: 3, month: 7, range: 7, last: '2026-10-07'}]);
   assert.match(page([], [], [{day: '2026-10-07', key: 'job-pilotto-e2e-testing', usd: 1}]), /By API key[\s\S]*job-pilotto-e2e-testing/);
 });
 
@@ -108,4 +108,45 @@ test('Claude and OpenAI separately and together: a run says its provider (none: 
   assert.equal((await put({runs: [{job: 'e2e-app', run_id: '1', at: '2026-10-04T01:00:00Z', usd: 0.1, provider: 'gemini'}]})).status, 400);
   assert.equal((await put({runs: [{job: 'e2e-app', run_id: '1', at: '2026-10-04T01:00:00Z', usd: 0.1, provider: 'openai'}, {job: 'ui-fix', run_id: '2', at: '2026-10-04T01:00:00Z', usd: 0.1}]})).status, 200);
   assert.deepEqual(stored.map(row => row.args.at(-1)), ['openai', 'anthropic']);
+});
+
+// The range filter (owner, 13 Oct 2026): every range cuts the cards, providers, groups, jobs and keys by the same rule; Today and the day table never move.
+test('?range= picks 6h / 24h / 7d / 30d; anything else is 30d', () => {
+  assert.deepEqual(Object.keys(RANGES), ['6h', '24h', '7d', '30d']);
+  assert.equal(rangeOf('6h'), '6h');
+  for (const bad of [null, '', '1y', '__proto__', 'constructor']) assert.equal(rangeOf(bad), '30d');
+});
+
+test('every range counts the runs inside it by their timestamp, and Today stays today', () => {
+  const at = new Date('2026-10-04T12:00:00Z');
+  const runs = [
+    {job: 'central-scout', run_id: 'a', day: '2026-10-04', at: '2026-10-04T10:00:00Z', usd: 1, calls: 1},   // 2 h ago
+    {job: 'central-scout', run_id: 'b', day: '2026-10-04', at: '2026-10-04T03:00:00Z', usd: 2, calls: 1},   // 9 h ago
+    {job: 'ui-fix', run_id: 'c', day: '2026-10-03', at: '2026-10-03T08:00:00Z', usd: 4, calls: 1},   // 28 h ago
+    {job: 'ui-fix', run_id: 'd', day: '2026-09-30', at: '2026-09-30T08:00:00Z', usd: 8, calls: 1},   // 4 days ago
+    {job: 'ui-fix', run_id: 'e', day: '2026-09-10', at: '2026-09-10T08:00:00Z', usd: 16, calls: 1},   // 24 days ago
+  ];
+  const expected = {'6h': 1, '24h': 3, '7d': 15, '30d': 31};
+  for (const id of Object.keys(RANGES)) {
+    const s = summarize(runs, [], at, id);
+    assert.equal(s.total, expected[id], id);
+    assert.equal(s.providers.reduce((sum, p) => sum + p.usd, 0), s.total, `${id}: providers add up`);
+    assert.equal(s.jobs.reduce((sum, job) => sum + job.usd, 0), s.total, `${id}: jobs add up`);
+    assert.equal(s.today, 3, `${id}: Today (UTC) does not follow the range`);
+    assert.equal(s.days.length, 4, `${id}: the day table stays 30 days`);
+    const html = page(runs, [], [], '', at, id);
+    assert.match(html, new RegExp(`Last ${RANGES[id].label}`), `${id}: the cards and tables say the range`);
+    assert.match(html, new RegExp(`class="filter on"[^>]*>${RANGES[id].label}<`), `${id}: the chip is marked`);
+  }
+});
+
+test('keys are daily: 6h and 24h show today + yesterday and say so; Billed too', () => {
+  const at = new Date('2026-10-07T12:00:00Z');
+  const keyRows = [{day: '2026-10-07', key: 'a', usd: 1}, {day: '2026-10-06', key: 'a', usd: 2}, {day: '2026-10-03', key: 'a', usd: 4}, {day: '2026-10-03', key: 'b', usd: 8}];
+  assert.equal(byKey(keyRows, at, '24h')[0].range, 3);
+  assert.deepEqual(byKey(keyRows, at, '6h').map(k => k.key), ['a'], 'a key with nothing in the window is not listed');
+  assert.equal(byKey(keyRows, at, '7d').find(k => k.key === 'a').range, 7);
+  assert.equal(byKey(keyRows, at, '30d').length, 2);
+  for (const id of ['6h', '24h']) assert.match(page([], [{day: '2026-10-06', usd: 1}], keyRows, '', at, id), /stored per UTC day[\s\S]*today \+ yesterday/);
+  assert.doesNotMatch(page([], [], keyRows, '', at, '7d'), /stored per UTC day/);
 });
