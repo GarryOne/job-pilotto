@@ -93,8 +93,9 @@ async function report(path, fetcher) {
 }
 
 export async function fetchKeyDays(days, tracked, fetcher = fetch, now = new Date()) {
+  // the default and the archived workspaces too: a key in either still belongs to one
   const names = {}, spaceOf = {}, spaceNames = {default: 'Default'}, workspaces = {};
-  for (const space of (await admin('/v1/organizations/workspaces?limit=100', fetcher).catch(() => ({}))).data || []) spaceNames[space.id] = space.name;
+  for (const space of (await admin('/v1/organizations/workspaces?limit=1000&include_archived=true&include_default=true', fetcher).catch(() => ({}))).data || []) spaceNames[space.id] = space.name;
   let after = '';
   for (let i = 0; i < 10; i++) {
     const page = await admin(`/v1/organizations/api_keys?limit=100${after ? `&after_id=${after}` : ''}`, fetcher);
