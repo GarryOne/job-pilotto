@@ -12,7 +12,7 @@ import {fileURLToPath} from 'node:url';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 // The last version a PR committed by hand: every stamp must be above it, or installed copies would stop updating.
-export const LAST_COMMITTED = '0.9.268';
+export const LAST_COMMITTED = '0.9.270';
 
 export function newer(a, b) {   // the extension's own comparison (extension/background.js)
   const [x, y] = [a, b].map(v => String(v || '0').split('.').map(Number));

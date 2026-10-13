@@ -35,8 +35,8 @@ test('a later extension commit stamps a higher version; a commit elsewhere keeps
 });
 
 test('every stamp is above the last version committed by hand', () => {
-  assert.throws(() => version({manifestVersion: '0.9', commits: 100}), /not above 0\.9\.268/);
-  assert.ok(newer(version({manifestVersion: '0.9.268', commits: 269}), LAST_COMMITTED));
+  assert.throws(() => version({manifestVersion: '0.9', commits: 100}), /not above 0\.9\.270/);
+  assert.ok(newer(version({manifestVersion: '0.9.270', commits: 271}), LAST_COMMITTED));
   assert.throws(() => forBuild({repo: repo().dir, env: {EXTENSION_VERSION: '0.9.12'}}), /not a version above/);
 });
 
