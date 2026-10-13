@@ -59,7 +59,7 @@ function liveRun(posting, seconds, captureDir = '', engine = smokeEngine()) {
     // The default (lib/smoke.mjs smokeEngine): the row on the app's own path without Electron (live.mjs), printing the same lines parseLive reads.
     if (engine === 'node') {
       const child = spawn('node', ['live.mjs', posting.url, '--title', posting.title || '', '--company', posting.company || '', ...(captureDir ? ['--capture', captureDir, '--no-library'] : [])],
-        {cwd: here, env: {...poolEnv(), LIVE_SECONDS: String(seconds)}});
+        {cwd: here, env: {...poolEnv(), LIVE_SECONDS: String(seconds), ...(posting.row ? {JP_ROW_NAME: posting.row} : {})}});   // the pool row's name: its network record carries it (lib/live-row.mjs)
       let output = '';
       child.stdout.on('data', chunk => { output += chunk; }); child.stderr.on('data', chunk => { output += chunk; });
       child.on('close', (code, signal) => resolve({output, code, signal, seconds: Math.round((Date.now() - started) / 1000)}));
@@ -176,7 +176,7 @@ async function main() {
     console.log(`smoke: ${shape}: ${posting.url} (HELD: no account button, never Submit; ~${seconds}s)`);
     await ping(shape, 'start');
     const captureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'jp-capture-'));
-    const run = await liveRun(posting, seconds, captureDir).finally(() => ping(shape, 'end'));
+    const run = await liveRun({...posting, row: shape}, seconds, captureDir).finally(() => ping(shape, 'end'));
     if (!runFinished(run)) {   // killed or cut short (eb's 23 s Datadog row, 11 Oct 2026): nothing is recorded, uploaded or saved as a candidate
       fs.rmSync(captureDir, {recursive: true, force: true});
       thisRun.unfinished.push({shape, why: run.signal ? `killed by ${run.signal}` : `no end of the watch, exit ${run.code}`});

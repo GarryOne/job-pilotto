@@ -1,0 +1,90 @@
+# Replay vs live on every PR (owner, 13 Oct 2026, the replay-by-network plan's day 2): the pool rows' newest network records (pool-smoke.yml keeps them
+# encrypted 14 days as net-records-<run>) are replayed offline with this PR's build (desktop/e2e/replay-records.mjs: the site's own scripts from the record,
+# the AI only from the live run's kept answers, never a site, never a model call), and "N of M rows same as live" goes to the job summary and to
+# /admin/applying "Replay vs live". Informational, never required. No key (NET_RECORD_KEY, the owner's Keychain job-pilotto.capture.key): it says so and stops.
+name: CI · Replay vs live (offline)
+
+on:
+  pull_request:
+    paths: ['desktop/**', 'extension/**', 'worker/**', '.github/workflows/replay-offline.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read   # the pool runs' encrypted records
+
+concurrency:
+  group: replay-offline-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      JOB_PILOTTO_HEAVY: '0'   # the heavy lock is a Mac's machine-wide queue; this runner is its own machine
+    steps:
+      - name: The record key is set
+        id: key
+        env:
+          NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+        run: |
+          if [ -z "$NET_RECORD_KEY" ]; then echo "replay-offline: key not set (NET_RECORD_KEY): nothing replayed" | tee -a "$GITHUB_STEP_SUMMARY"; echo "ok=0" >> "$GITHUB_OUTPUT"; else echo "ok=1" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v5
+        if: steps.key.outputs.ok == '1'
+      - uses: actions/setup-node@v5
+        if: steps.key.outputs.ok == '1'
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v6
+        if: steps.key.outputs.ok == '1'
+        with:
+          python-version: '3.12'
+      - name: Install the app, the tests and the browser
+        if: steps.key.outputs.ok == '1'
+        run: |
+          (cd desktop && npm ci) && (cd desktop/e2e && (npm ci || npm install))
+          pip install --quiet -r requirements.txt
+          (cd desktop/e2e && npx playwright-core install --with-deps chromium)
+          sudo apt-get install -y -qq xvfb >/dev/null
+      - name: The pool's newest records (14 days), decrypted on the runner only
+        if: steps.key.outputs.ok == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NET_RECORD_KEY: ${{ secrets.NET_RECORD_KEY }}
+        run: |
+          mkdir -p records "$RUNNER_TEMP/enc"
+          umask 077 && printf '%s' "$NET_RECORD_KEY" | base64 -d > "$RUNNER_TEMP/key.pem"
+          since=$(date -u -d '14 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          gh run list --workflow pool-smoke.yml --limit 60 --json databaseId,createdAt --jq ".[] | select(.createdAt >= \"$since\") | .databaseId" | while read -r id; do
+            gh run download "$id" --name "net-records-$id" --dir "$RUNNER_TEMP/enc/$id" >/dev/null 2>&1 || continue
+            openssl pkeyutl -decrypt -inkey "$RUNNER_TEMP/key.pem" -pkeyopt rsa_padding_mode:oaep -in "$RUNNER_TEMP/enc/$id/k.enc" -out "$RUNNER_TEMP/k" || continue
+            mkdir -p "records/$id" && openssl enc -d -aes-256-cbc -pbkdf2 -in "$RUNNER_TEMP/enc/$id/net.tgz.enc" -pass "file:$RUNNER_TEMP/k" | tar xz -C "records/$id" || true
+            rm -f "$RUNNER_TEMP/k"
+          done
+          rm -f "$RUNNER_TEMP/key.pem"; rm -rf "$RUNNER_TEMP/enc"
+          echo "replay-offline: $(find records -name record.json | wc -l) records from the pool runs"
+      - name: Replay each row offline with this build
+        if: steps.key.outputs.ok == '1'
+        working-directory: desktop/e2e
+        run: |
+          set -o pipefail
+          xvfb-run -a --server-args='-screen 0 1440x900x24' node replay-records.mjs "$GITHUB_WORKSPACE/records" "$GITHUB_WORKSPACE/replay-out" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Send the rows to /admin/applying "Replay vs live"
+        if: steps.key.outputs.ok == '1' && github.event.pull_request.head.repo.full_name == github.repository
+        working-directory: desktop/e2e
+        env:
+          REPLAYS_PUBLISH_KEY: ${{ secrets.REPLAYS_PUBLISH_KEY }}
+        run: '[ -d "$GITHUB_WORKSPACE/replay-out/step4" ] && node fidelity-report.mjs "$GITHUB_WORKSPACE/replay-out/step4" || echo "replay-offline: nothing to send"'
+      - name: Each row's replay (pictures, app log; no record, no key)
+        if: always() && steps.key.outputs.ok == '1'
+        uses: actions/upload-artifact@v6
+        with:
+          name: replay-offline-${{ github.run_id }}
+          path: |
+            replay-out/replays/*/end.png
+            replay-out/replays/*/step-*.png
+            replay-out/replays/*/replay.json
+            replay-out/replays/*/app.log
+          retention-days: 7
+          if-no-files-found: ignore
