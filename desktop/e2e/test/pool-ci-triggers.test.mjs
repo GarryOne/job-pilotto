@@ -10,7 +10,6 @@ import {fileURLToPath} from 'node:url';
 const DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '.github', 'workflows');
 const workflows = Object.fromEntries(fs.readdirSync(DIR).filter(name => /\.ya?ml$/.test(name)).map(name => [name, fs.readFileSync(path.join(DIR, name), 'utf8')]));
 export const triggersOf = text => [...(text.match(/^on:\n((?:[ \t]+.*\n|\n)*)/m)?.[1] || '').matchAll(/^ {2}([a-z_]+):/gm)].map(match => match[1]);
-const typesOf = text => (text.match(/^ {2}pull_request:\n {4}types: \[([^\]]*)\]/m)?.[1] || '').split(',').map(type => type.trim()).filter(Boolean);
 
 test('a workflow that runs the pool smoke starts by hand only: never a schedule, a push, a call or a PR', () => {
   const runners = Object.keys(workflows).filter(name => /(^|[\s/'"])smoke\.mjs\b|npm run smoke\b/m.test(workflows[name]));
