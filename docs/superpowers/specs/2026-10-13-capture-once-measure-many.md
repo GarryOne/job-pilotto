@@ -110,7 +110,10 @@ The acting batch's **effect** column therefore still needs live visits, but only
 - [ ] PR 3: positive control on one CI batch (numbers here) lifts "unverified"; skills: measure first, live proves (safeguard 4)
   - [x] Control run 1, 13 Oct 2026, CI run 38382905555 (artifact `pool-captures-38382905555`, build 97d37ab, ext 0.9.457), replayed on 97d37ab: FAILED. Lever not measured (a page-kind ask missed); Personio offline data_missing 5/8 vs live ready 7/7 (proof: none: numbers above, logs in session job-pilotto-capture)
   - [x] Causes found (proof: desktop/test/kept-answer-client.test.js)
-  - [ ] Control run 2 on a capture made with the fixes (the PR's live proof of the Personio row), then lift "unverified" only if every measured row matches
+  - [x] Control run 2, 13 Oct 2026, #612's live proof of Personio (run 38385564241, grown applicant, live 12 filled / 2 left): the capture keeps the form answer (5 kept answers, was 4). Replayed as thin, 2 of 4 asks hit; as its own applicant (grown), **3 of 4 (75 %)**: the one miss is the account judgment after the CV upload (cause 4). Not measured, so "unverified" stays (proof: desktop/e2e/test/measure.test.mjs @e7ae589)
+  - [x] Each capture replays with its recorded run settings (applicant, model, engine, store); a missing one = not measured, #617 (proof: desktop/e2e/test/measure.test.mjs @5836747)
+  - [x] Cause 4's reach (CI pool runs to 13 Oct 2026, 73 row visits with an AI ask): **17 of 39 distinct rows (35 of 73 visits) upload a CV, and all ask the AI after it** (the form answer and the account judgment). Until cause 4 is fixed, whole-row numbers are measurable offline on at most 22 of 39 rows (proof: none: counted from the CI runs' app logs in session job-pilotto-capture)
+  - [ ] Causes 3-4 and the replay's next step (network record + the site's own scripts, or per-action snapshots): session job-pilotto-replay-design, Discussion #615
 
 ### Control run 1: causes (13 Oct 2026)
 
