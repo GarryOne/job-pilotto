@@ -1,6 +1,6 @@
 // Replays ONE planned row for "Confirmed offline" (verify-plan.mjs job; .github/workflows/fix-verdicts.yml) and writes its verdict: the recording on its own build (the control), then on
-// the build to judge (main for a fix, the older build for a regression), twice. A build other than this checkout is a git worktree of that commit with THIS harness laid over desktop/e2e
-// (an older commit may predate it); any step that fails leaves a missing replay, which the judge reads as "Needs live". Never a site, never a model call.
+// the build to judge (main for a fix, the older build for a regression), twice. A build other than this checkout is a worktree of this one with that commit's extension/ laid over it;
+// any step that fails leaves a missing replay, which the judge reads as "Needs live". Never a site, never a model call.
 // Run: node verify-row.mjs <records dir> <job json> <out dir>. Guard: e2e/test/verify-judge.test.mjs (the verdicts), the workflow run (the replays).
 import fs from 'node:fs';
 import path from 'node:path';
@@ -12,16 +12,18 @@ const HERE = path.dirname(new URL(import.meta.url).pathname), ROOT = path.resolv
 const git = (cwd, ...args) => execFileSync('git', args, {cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']}).trim();
 const json = (file, fallback = null) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return fallback; } };
 
-// The tree of a commit: this checkout for HEAD, else a worktree with this harness over desktop/e2e and its dependencies installed.
+// The tree of a build: this checkout for HEAD, else a worktree of HEAD with the EXTENSION of that commit laid over it (the apply flow's code). The app's own code and this harness stay
+// main's: laying the harness over an old commit failed on files the old commit lacks (the first run, 14 Oct 2026: desktop/lib/private-file.js), and the flow is what a regression is about.
+// Dependencies are linked from this checkout. A change in desktop/lib or src between the two builds is not seen (the page says "extension of the older build").
 export function treeAt(commit, work) {
   const head = git(ROOT, 'rev-parse', 'HEAD');
   if (!commit || head.startsWith(commit) || commit.startsWith(head)) return ROOT;
   const dir = path.join(work, `tree-${commit.slice(0, 10)}`);
   if (fs.existsSync(dir)) return dir;
-  git(ROOT, 'worktree', 'add', '--detach', dir, commit);
-  fs.rmSync(path.join(dir, 'desktop', 'e2e'), {recursive: true, force: true});
-  fs.cpSync(path.join(ROOT, 'desktop', 'e2e'), path.join(dir, 'desktop', 'e2e'), {recursive: true, filter: file => !file.includes('node_modules')});
-  for (const folder of ['desktop', 'desktop/e2e']) spawnSync('npm', ['ci', '--no-audit', '--no-fund'], {cwd: path.join(dir, folder), stdio: 'inherit'});
+  git(ROOT, 'worktree', 'add', '--detach', dir, head);
+  fs.rmSync(path.join(dir, 'extension'), {recursive: true, force: true});
+  git(dir, 'checkout', commit, '--', 'extension');
+  for (const folder of ['desktop', 'desktop/e2e']) fs.symlinkSync(path.join(ROOT, folder, 'node_modules'), path.join(dir, folder, 'node_modules'), 'dir');
   return dir;
 }
 
