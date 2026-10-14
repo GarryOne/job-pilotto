@@ -13,7 +13,7 @@ class WidgetZooWorkflowTests(unittest.TestCase):
     def test_a_pull_request_runs_it_only_for_its_paths_and_main_always(self):
         on = self.text[self.text.index('\non:'):self.text.index('\nconcurrency:')]
         pr = on[on.index('  pull_request:'):on.index('\n  push:')]
-        for path in ('extension/**', 'desktop/e2e/widget-zoo/**', 'desktop/e2e/lib/**'):
+        for path in ('extension/**', 'desktop/e2e/widget-zoo/**', 'desktop/e2e/widget-zoo.mjs'):
             self.assertIn(f"- '{path}'", pr)
         self.assertNotRegex(on[on.index('\n  push:'):], r'(?m)^\s+paths', 'main runs it on every push')
 
