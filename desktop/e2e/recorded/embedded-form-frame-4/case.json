@@ -1,0 +1,85 @@
+{
+ "origin": "hand-cut",
+ "shape": "a posting whose Apply press loads the applicant form into an iframe of the same page: the first read lists no frame, the fresh look after the press names it (form_frame)",
+ "why": "14 Oct 2026, a careers page with an embedded applicant form: the first ask saw frames: 0, Apply loaded the frame, the fresh look after the press named it (formFrame 0) but only the digest rung opened it, ~35 s later. The frame the fresh look names is opened at once.",
+ "control": {
+  "build": "0.9.490",
+  "failed": "filled: #first_name"
+ },
+ "sample": "a careers page whose Apply button loads job-boards.greenhouse.io/embed/job_app into an iframe (structure recorded 14 Oct 2026; the frame address here has no query string or token)",
+ "pages": [
+  {
+   "url": "https://careers.example.com/detail/2",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://job-boards.example-ats.io/embed/job_app",
+   "file": "form.html"
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": {
+   "byHost": {
+    "careers.example.com": [
+     {
+      "when": {
+       "fresh": true
+      },
+      "answer": {
+       "ok": true,
+       "kind": "posting",
+       "role": "no-form",
+       "by": "ai",
+       "confidence": 0.7,
+       "rung": 2,
+       "signal": "confident",
+       "applyButton": "",
+       "applyRoute": "",
+       "applyBy": "form",
+       "applyEmail": "",
+       "form_frame": 0
+      }
+     },
+     {
+      "answer": {
+       "ok": true,
+       "kind": "posting",
+       "role": "no-form",
+       "by": "ai",
+       "confidence": 0.85,
+       "rung": 2,
+       "signal": "confident",
+       "applyButton": "Apply",
+       "applyRoute": "",
+       "applyBy": "form",
+       "applyEmail": "",
+       "form_frame": -1
+      }
+     }
+    ],
+    "job-boards.example-ats.io": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.99,
+     "form_frame": -1
+    }
+   }
+  }
+ },
+ "expect": {
+  "filled": [
+   "#first_name",
+   "#email"
+  ],
+  "attached": [
+   "#resume"
+  ],
+  "notTold": [
+   "pressed the submit"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 60
+ }
+}

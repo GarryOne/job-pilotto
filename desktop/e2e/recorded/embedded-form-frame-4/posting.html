@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Platform Engineer | Example Careers</title></head>
+<body>
+<!-- Structure of a company careers page whose Apply button does not navigate: it loads the applicant form from another site into an iframe on the same page
+     (hand-cut from the shape of a 14 Oct 2026 recording, scrubbed: no query string or token, no links). The frame is not on the page when the page is first read. -->
+<header><nav><span>Careers</span> <span>All jobs</span></nav></header>
+<main>
+  <h1>Platform Engineer</h1>
+  <p>About the team. We run the platform that moves groceries from warehouse to doorstep and are growing our engineering organisation.</p>
+  <h2>The role</h2>
+  <ul><li>Build and run internal services</li><li>Improve reliability</li><li>Work across product teams</li></ul>
+  <div id="apply-slot"><button type="button" id="apply" class="btn">Apply</button></div>
+</main>
+<script>
+document.getElementById('apply').addEventListener('click', function () {
+  setTimeout(function () {
+    var f = document.createElement('iframe');
+    f.id = 'grnhse_iframe'; f.title = 'Job application';
+    f.src = 'https://job-boards.example-ats.io/embed/job_app';
+    f.style.cssText = 'width: 650px; height: 900px; border: 0';
+    document.getElementById('apply-slot').appendChild(f);
+  }, 600);
+});
+</script>
+<footer><p>Candidate legal notices · Applicant privacy notice</p></footer>
+</body></html>
