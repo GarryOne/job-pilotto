@@ -127,7 +127,9 @@ class TheShapes(unittest.TestCase):
     def test_the_harness_code_starts_the_harness(self):
         started = self.started(['desktop/e2e/lib/forms.mjs'])
         self.assertLessEqual({'harness.yml', 'tests-desktop.yml', 'page-cases.yml', 'control-tests.yml'}, started)
-        self.assertNotIn('site-replays-pr.yml', started, 'only the apply flow\'s code (extension/, desktop/lib/) starts the PR replay gate')
+        self.assertIn('site-replays-pr.yml', started, 'owner, 14 Oct 2026: the replay machinery starts the PR site replays too')
+        self.assertIn('site-replays-pr.yml', self.started(['desktop/e2e/replay-gate.mjs']))
+        self.assertNotIn('site-replays-pr.yml', self.started(['desktop/e2e/smoke.mjs']), 'the recorder is not a replay')
 
     def test_a_worker_or_site_change_starts_only_its_suite(self):
         self.assertEqual(self.started(['worker/src/index.js']), {'tests-worker.yml'})

@@ -20,9 +20,10 @@ test('the rows spread round robin over at most 5 runners', () => {
   assert.deepEqual(split([]), []);
 });
 
-test('the PR workflow: starts only when extension/ or desktop/lib/ changed (GitHub paths), red when worse or unfinished, no AI key', () => {
+test('the PR workflow: starts for the apply flow\'s code and the replay machinery (GitHub paths), red when worse or unfinished, no AI key', () => {
   const flow = fs.readFileSync(new URL('../../../.github/workflows/site-replays-pr.yml', import.meta.url), 'utf8');
-  assert.match(flow, /on:\n  pull_request:\n    paths:.*\n      - 'desktop\/lib\/\*\*'\n      - 'extension\/\*\*'\n(      - 'worker\/src\/[\w.-]+'\n)+\n/, 'owner, 14 Oct 2026: only the apply flow\'s code (with the worker files the app copies in), decided by GitHub');
+  for (const entry of ['desktop/lib/**', 'extension/**', 'desktop/e2e/lib/net-record.mjs', 'desktop/e2e/replay-gate.mjs']) assert.ok(flow.includes(`      - '${entry}'\n`), `owner, 14 Oct 2026: ${entry} starts the PR replays`);
+  assert.doesNotMatch(flow, /- 'desktop\/e2e\/\*\*'/, 'never the whole harness');
   assert.doesNotMatch(flow, /ci-needed/, 'no shared pick');
   assert.match(flow, /name: site replays gate/);
   assert.match(flow, /a replay runner did not finish/);

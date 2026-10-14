@@ -53,27 +53,26 @@ export function jobFiles(job, root = ROOT) {
   const loaded = ['extension/', ...replayFiles(root)];
   if (job === 'replays') return new Set([...loaded, 'desktop/e2e/recorded/', ...harnessFiles('desktop/e2e/test/recorded-pages.test.mjs', root)]);
   if (job === 'zoo') return new Set([...loaded, 'desktop/e2e/widget-zoo/', ...harnessFiles('desktop/e2e/widget-zoo.mjs', root)]);
-  throw new Error(`no replay job ${job}: replays or zoo`);
+  if (job === 'sites') return new Set(loaded);   // the recordings come from the release, not the repo; the steps' scripts are added below
+  throw new Error(`no replay job ${job}: replays, zoo or sites`);
 }
 
 // A replay workflow's files (owner, 14 Oct 2026: a PR that changed the recorder and the upload ran every page case, `desktop/e2e/**`): its job's files plus every script
 // its steps start with `node` (read from the workflow, in the step's working-directory). Its `on: pull_request: paths:` lists exactly these, as written by pathEntries.
-export const WORKFLOW_JOB = {'page-cases.yml': 'replays', 'control-tests.yml': 'zoo'};
+// The PR site replays too (owner, 14 Oct 2026: a PR that changes the replay machinery, e.g. net-record.mjs or replay-gate.mjs, starts them as well as the apply flow's code).
+export const WORKFLOW_JOB = {'page-cases.yml': 'replays', 'control-tests.yml': 'zoo', 'site-replays-pr.yml': 'sites'};
 export function workflowFiles(workflow, root = ROOT) {
   const files = new Set(jobFiles(WORKFLOW_JOB[workflow], root));
   let dir = '';
   for (const line of fs.readFileSync(path.join(root, '.github/workflows', workflow), 'utf8').split('\n')) {
     const at = line.match(/working-directory:\s*(\S+)/);
     if (at) dir = at[1];
-    const run = !line.includes('replay-files.mjs --check') && line.match(/\bnode (?:--\S+\s+)*([\w./-]+\.mjs)\b/);   // its own list check is not what it replays
+    const run = !line.includes('replay-files.mjs --check') && line.match(/\b(?:node (?:--\S+\s+)*([\w./-]+\.mjs)|bash ([\w./-]+\.sh))\b/);   // its own list check is not what it replays
+    if (run) run[1] ||= run[2];
     if (run) for (const file of harnessFiles(path.posix.join(dir, run[1]), root)) files.add(file);
   }
   return withSharedSources(files, root);
 }
-
-// The apply flow's own code (the PR site replays, owner 14 Oct 2026: "only if we touched the apply flow logic code"): the extension, the app, and the worker
-// files the app copies in (#778 changed the answer prompt in worker/src and started no replay).
-export const appFiles = (root = ROOT) => withSharedSources(replayFiles(root), root);
 
 // desktop/shared is generated (stage.mjs, gitignored): present in CI, maybe not here. Its sources stand in: shared/worker/<f> is worker/src/<f> (and what it imports),
 // the rest are extension files (extension/** is listed whole).
@@ -101,7 +100,7 @@ export function listedPaths(workflow, root = ROOT) {
 
 const [flag, value] = process.argv.slice(2);
 const MAIN = Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href;   // run directly (a file URL, so Windows paths compare too)
-const entries = workflow => (workflow === 'site-replays-pr.yml' ? pathEntries(appFiles()) : pathEntries(workflowFiles(workflow)));
+const entries = workflow => pathEntries(workflowFiles(workflow));
 if (MAIN && flag === '--job') console.log([...jobFiles(value)].sort().join('\n'));
 // --check <workflow>: the workflow's first step (owner, 14 Oct 2026: "wouldn't we miss newly added modules?"). A new file loads only through an edit to a
 // listed one, which starts the workflow, which then checks its own list: missing or extra entries fail with the line to run.
