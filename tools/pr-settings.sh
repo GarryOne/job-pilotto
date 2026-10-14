@@ -5,12 +5,12 @@
 # No "require up to date": parallel PRs merge at once; CI on main (build.yml, recorded-pages.yml) still catches a rare clash and the red-main rule applies as before.
 # The repository admin role bypasses the ruleset only through a pull request (bypass_mode "pull_request", 12 Oct 2026, once every worktree had the PR ship): nobody pushes to main.
 # "cases fail before the fix" (was "hole 3", renamed 12 Oct 2026) is required since 12 Oct 2026 (owner): it caught 4 cases that passed on the old code; a follow-up names its fix with "Fix-commit: <sha>".
-# The required checks are the jobs of pr-gate.yml that start on EVERY pull request: "pr gates", "flow-fresh", "cases fail before the fix", "replay gate status" (the replay gate's result: tools/replay-gate-status.sh) (owner, 14 Oct 2026:
+# The required checks are the jobs of pr-gate.yml that start on EVERY pull request: "pr gates", "flow-fresh", "cases fail before the fix", "all checks green" (every other PR workflow's result: tools/all-checks-green.sh) (owner, 14 Oct 2026:
 # "drop your shared pick logic, rely fully on gh workflow paths"). Every other PR workflow starts only when GitHub's `on: paths:` says the PR changed its area, and a workflow
 # that paths skip never reports, so none of them can be required; their red shows on the PR. Main runs them all on every push (tests/test_workflow_paths.py).
 set -euo pipefail
 repo="${PR_REPO:-GarryOne/job-pilotto}"
-checks='pr\ gates flow-fresh cases\ fail\ before\ the\ fix replay\ gate\ status'
+checks='pr\ gates flow-fresh cases\ fail\ before\ the\ fix all\ checks\ green'
 ruleset="$(python3 - "$checks" <<'PY'
 import json, shlex, sys
 names = shlex.split(sys.argv[1])
