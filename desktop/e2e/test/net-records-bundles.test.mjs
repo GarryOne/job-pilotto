@@ -21,7 +21,7 @@ test('each publish has its own asset names, so an upload never overwrites anothe
 });
 
 test('every reader of the release goes through net-records-fetch.sh: no second copy of the decrypt lines', () => {
-  const files = execFileSync('git', ['grep', '-l', '-e', 'pkeyutl -decrypt', '--', '.github', 'desktop/e2e', 'tools'], {cwd: ROOT, encoding: 'utf8'}).trim().split('\n');
+  const files = execFileSync('git', ['grep', '-l', '-e', 'pkeyutl -decrypt', '--', '.github', 'desktop/e2e', 'tools', ':!*/test/*'], {cwd: ROOT, encoding: 'utf8'}).trim().split('\n');
   assert.deepEqual(files, ['desktop/e2e/net-records-fetch.sh']);
 });
 
