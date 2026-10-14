@@ -19,7 +19,7 @@ import {cssRecorder, personalValues, scrubPage} from './capture-page.mjs';
 import {journeyRecorder} from './capture-journey.mjs';
 import {evidenceLines} from './evidence-bundle.mjs';
 import {isDeciding} from './deciding.mjs';
-import {PAGE_LINE, quietSeconds, stillClock, stillSeconds as stillSecondsFor} from './live-still.mjs';
+import {PAGE_LINE, quietSeconds, runEnded, stillClock, stillSeconds as stillSecondsFor} from './live-still.mjs';
 import {startOfflineApp} from './offline-app.mjs';
 import {coverageLine, ownerValues, pageFields, tripwire} from './privacy-tripwire.mjs';
 import {applyPoolEligibility, eligibilityOff} from './pool-eligibility.mjs';
@@ -100,14 +100,16 @@ export async function runLiveRow({posting, captureDir, extensionDir, ask = true,
     await run.page.setViewportSize({width: 1200, height: 818}).catch(() => {});
     await run.page.goto(url, {waitUntil: 'domcontentloaded'}).catch(() => {});
     const clock = stillClock({seconds: stillSeconds, startedAt: Date.now()});
-    let deciding = false;
+    let deciding = false, tabsAtEnd = null;
     for (let turn = 0; Date.now() - started < seconds * 1000; turn++) {
       const lines = app.logText().split('\n').filter(line => PAGE_LINE.test(line)).length;
       // Still = the page and its decisions stopped changing (as lib/apply-live.mjs: the extension's own check-ins to the app every few seconds are no news).
       const shape = await run.context.pages().filter(page => /^https?:/.test(page.url())).at(-1)?.evaluate(() => `${location.href.split('#')[0]}|${document.querySelectorAll('input, select, textarea, button, a').length}`).catch(() => '');
       clock.see(JSON.stringify([lines, shape]), Date.now());
       deciding = await isDeciding(run.context.pages().filter(page => /^https?:/.test(page.url())).at(-1) || run.page);   // the extension's step line is up: wait for its decision (the limit is the cap)
-      if (clock.over(Date.now(), {opened: true, deciding, quiet: quietSeconds(stillSeconds, app.logText())})) break;
+      const logText = app.logText(), open = run.context.pages().filter(page => /^https?:/.test(page.url())).length;
+      tabsAtEnd = runEnded(logText) ? tabsAtEnd ?? open : null;   // the tab count when the end was first seen: a tab opened after it keeps the full window (live-still.mjs)
+      if (clock.over(Date.now(), {opened: true, deciding, quiet: quietSeconds(stillSeconds, logText, process.env, {now: open, atEnd: tabsAtEnd})})) break;
       await journey.tick();
       await steps.tick();
       if (turn % 4 === 0 && (tripped = await trip())) break;

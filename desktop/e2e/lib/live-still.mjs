@@ -14,9 +14,12 @@ export const AFTER_END_SECONDS = 25;   // 20 s (the replayed AI's cap) + a margi
 const MOVED_ON = /fill: progress:|panel: mark carried|panel: panel on a tab|\] page kind: |fill: page kind: /g;
 const lastMove = text => { let at = -1; for (const found of text.matchAll(MOVED_ON)) at = found.index; return at; };
 export const runEnded = (logText = '') => { const text = String(logText); return text.lastIndexOf('fill: run ended') > lastMove(text); };
-export const quietSeconds = (seconds, logText = '', env = process.env) => {
+// tabs: {now, atEnd} the application's open tabs this turn and when its end was first seen (apply-live.mjs): a tab opened after the end (an Apply that
+// opened the employer's page) gives the full window back even before that page writes a line (cc's review of #739, 14 Oct 2026).
+export const quietSeconds = (seconds, logText = '', env = process.env, tabs = null) => {
   const after = env.LIVE_AFTER_END_SECONDS === undefined || env.LIVE_AFTER_END_SECONDS === '' ? AFTER_END_SECONDS : Math.max(0, Number(env.LIVE_AFTER_END_SECONDS) || 0);
-  return seconds > 0 && runEnded(logText) ? Math.min(seconds, after) : seconds;
+  const newTab = tabs && Number.isFinite(tabs.atEnd) && tabs.now > tabs.atEnd;
+  return seconds > 0 && runEnded(logText) && !newTab ? Math.min(seconds, after) : seconds;
 };
 
 // What the clock watches: the tabs and fill states, the session's stage, the page's visible shape (url, title, how many controls and buttons), how many log lines the app wrote.
