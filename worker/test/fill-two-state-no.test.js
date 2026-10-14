@@ -31,3 +31,20 @@ test('a box answered yes that stays unchecked is still "did not take it"', {skip
   const summary = await window.__jobPilottoExtensionFill([{field: 'emp', value: 'yes', question: 'I am an employee of the group', source: 'kit'}], {}, null, '', false);
   assert.match((summary.trace || []).find(item => /employee/.test(item.label)).reason, /did not take/);
 });
+
+const answered = async (html, value, tweak) => {
+  const window = openPage(JSDOM, `<form>${html}</form>`, {url: 'https://example.com/apply'});
+  tweak?.(window.document.getElementById('emp'));
+  const summary = await window.__jobPilottoExtensionFill([{field: 'emp', value, question: 'I am an employee of the group', source: 'Claude (on the page)'}], {}, null, '', false);
+  return (summary.trace || []).find(item => /employee/.test(item.label)).reason;
+};
+
+test('a pre-ticked box answered no is never reported as "answered no: left unchecked"', {skip: !JSDOM}, async () => {
+  // The fill reads a ticked box as filled and skips it (page/fill.js), so the new reason must not claim the state it never checked.
+  const reason = await answered(KINDS.checkbox.replace('required', 'required checked'), 'unchecked', box => box.addEventListener('click', event => event.preventDefault()));
+  assert.doesNotMatch(reason, /answered no/);
+});
+
+test('an empty or unknown answer is never read as no', {skip: !JSDOM}, async () => {
+  for (const value of ['', 'Ja', 'Oui', 'maybe']) assert.doesNotMatch(await answered(KINDS.checkbox, value), /answered no/, `"${value}"`);
+});
