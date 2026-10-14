@@ -38,7 +38,9 @@ Skill name: verb + object + where. `run-applying-smoke-pool` no longer fits (it 
 1. **Installs' outcomes.** Installs already report `flow_outcomes` (day, board, state, ai_family, n: `site/src/knowledge.js`, `formlearning.js`). A board whose reach drops against its own previous 14 days (e.g. filled share down by a stated amount, k ≥ 3 installs) raises "site may have changed" on `/admin/applying`; the coordinator re-records that board's pool rows (bounded: 3 live visits a host a day).
    - Counts and board names only; a host is never named from installs (k-anonymity: hosts listed from 3 installs). Board, not host, is the unit: say so on the page.
 2. **A person's report** (the owner opens a row and sees a different page): a row's "Re-record" is a by-hand decision.
-3. **Not a signal:** a replay that differs. Offline, a replay cannot see the site; it differs only when OUR build changed (8e's verdict "Our build"). The owner's wording "a replay that suddenly differs" is covered by that verdict; the "Site changed" half needs signal 1 or 2. **Question for cc/owner:** is one cheap live structural check (a single GET, no AI, a visit in the ledger) per site on signal 1 allowed? Proposal: no, signal 1 goes straight to a re-record.
+   - Decided (cc, 15 Oct): signal 1 goes **straight to a re-record** (a recording is one visit; a GET first adds a second).
+   - k ≥ 3 per board covers few pool rows at first: `/admin/applying` shows **"no install signal"** on a row without one, so silence is never read as healthy; signal 2 (a person's report) stays visible there.
+3. **Not a signal:** a replay that differs. Offline, a replay cannot see the site; it differs only when OUR build changed (8e's verdict "Our build"). The owner's wording "a replay that suddenly differs" is covered by that verdict; the "Site changed" half needs signal 1 or 2. 
 
 ## Part B: what still requires a live proof (list, keep/retire)
 
@@ -78,6 +80,7 @@ The gap: the harness presses nothing, so a route the extension did not take (or 
 **Recommendation:** Step 0, then **(a) as the default**, with the fake applicant, at most once per row (the takeover floor), and **(b) when (a) hits a wall** (login, captcha: stop, never go past) or the owner wants a specific route. One record format for both: same `netRecorder`, flagged `drive: extension | claude | person` in the record's `replay.json` so the replay and the verdict know which build's moves are in it.
 
 Rules for both: never Submit, never captcha/bot check/login wall, never read a password field; 3 live visits a host a day (a recording is one visit); AI spend asked through cc with a measured cost; no site names or hosts in code, tests or fixtures.
+**When the tripwire trips during (a):** the capture is deleted, the row keeps its old record, and it falls back to (b) (a person's click-through). Plan-path `claude -p` knows the owner's identity even with the fake applicant, so a trip is expected sometimes, not an outage.
 **Safety floor for (a):** an owner value anywhere in a field → tripwire deletes the capture (exists: `privacy-tripwire.mjs`); the record is refused if the run used a profile that is not the fake applicant.
 
 ### First case: the Aldi row
@@ -90,14 +93,12 @@ Record it to its form (Step 0, then (a)); then replay old and new build offline 
 4. **PR 4, Part B** (after 8e lands): the retire list, the class test, memories.
 5. The Aldi recording and the offline A/B (needs the owner's yes on the cost, via cc).
 
-## Open questions for cc
-- Signal 1: one live structural check before a re-record, or straight to the re-record? (proposal: straight)
-- (a) AI cost for a recording: ask for a measured number after PR 2; OK to proceed to PR 2 on the fixture alone, $0?
-- Skill name `record-applying-sites`.
+## Decisions (cc, 15 Oct 2026)
+- Signal 1: straight to a re-record. PR 1-2 on fixtures at $0; a measured cost is asked before the real Aldi recording. Skill name `record-applying-sites`. PR 4 lands after 8e's PR is merged by the owner.
 
 ## Progress
 - [x] History read; options weighed (proof: none: this spec)
-- [ ] cc's review and go
+- [x] cc's go (15 Oct 2026: spec PR + PR 1; PR 2 on fixtures) (proof: none: this spec)
 - [ ] PR 1: Aldi record measured; settle before ending a recording
 - [ ] PR 2: record-time takeover driver, flagged, tripwire kept
 - [ ] PR 3: skill renamed (RETIRED entry), signal 1 on /admin/applying
