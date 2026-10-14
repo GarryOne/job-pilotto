@@ -8,6 +8,7 @@ digest and never apply to anything.
 """
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
+import copy
 import hashlib
 import json
 import time
@@ -248,12 +249,14 @@ def unread_parts(components, facts):
 
 
 def score_one(client, model, job, profile, effort=None):
-    data, usage = _ask(client, model, job, profile, effort, '')
+    data, usage = _ask(client, model, job, profile, effort, '', SCHEMA)
     missing = unread_parts(data['components'], job.get('ai'))
-    if missing:   # never kept as sure: ask again once, naming the parts, with a number each
+    if missing:   # never kept as sure: ask again once, naming the parts, and the answer's shape no longer allows null for them
         data, again = _ask(client, model, job, profile, effort,
-                           f"\n\nYour last answer left {', '.join(missing)} empty, but the posting and the extracted facts give a basis for "
-                           f"{'it' if len(missing) == 1 else 'them'}. Give a whole number 0-100 for {'it' if len(missing) == 1 else 'each'}.")
+                           f"\n\nYour last answer left {', '.join(missing)} unknown, but the posting and the extracted facts give a basis for "
+                           f"{'it' if len(missing) == 1 else 'them'} (a stated salary in another currency is still a stated salary: judge it from the "
+                           f"posting's own figures, without converting). Give a whole number 0-100 for {'it' if len(missing) == 1 else 'each'}.",
+                           _whole(missing))
         usage = _sum_usage(usage, again)
     return data, usage
 
@@ -263,7 +266,15 @@ def _sum_usage(first, second):
     return SimpleNamespace(**{f: (getattr(first, f, 0) or 0) + (getattr(second, f, 0) or 0) for f in fields})
 
 
-def _ask(client, model, job, profile, effort, note):
+def _whole(parts):
+    """SCHEMA with the given parts as whole numbers only (null no longer allowed)."""
+    schema = copy.deepcopy(SCHEMA)
+    for part in parts:
+        schema['properties']['components']['properties'][part] = dict(_component)
+    return schema
+
+
+def _ask(client, model, job, profile, effort, note, schema):
     facts = json.dumps(job.get('ai') or {}, ensure_ascii=False)
     params = dict(
         model=model,
@@ -273,7 +284,7 @@ def _ask(client, model, job, profile, effort, note):
         messages=[{'role': 'user', 'content': (
             f"Title: {job['title']}\nCompany: {job['company']}\nLocation: {job.get('location') or ''}\n"
             f"Extracted facts (stage 1): {facts}\n\nPosting:\n{job['description']}{note}")}],
-        output_config=engine.structured(SCHEMA, model, effort or EFFORT),
+        output_config=engine.structured(schema, model, effort or EFFORT),
     )
     response = client.messages.create(**params)
     if response.stop_reason != 'end_turn':

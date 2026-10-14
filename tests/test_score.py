@@ -34,14 +34,16 @@ class PayUnknownTest(unittest.TestCase):
 
 class UnreadPartTest(unittest.TestCase):
     """A part the posting gives a basis for is never saved empty: the scorer asks again, naming it."""
-    FACTS = {'salary': {'stated': True, 'text': 'CHF 100k'}, 'seniority': {'value': 'senior', 'evidence': 'Senior'}}
+    FACTS = {'salary': {'stated': True, 'text': 'EUR 95,000 - 120,000'}, 'seniority': {'value': 'senior', 'evidence': 'Senior'}, 'work_mode': {'value': 'remote'}}
 
     def client(self, first_empty):
         answers = []
         def create(**params):
             answers.append(params)
             comps = dict(fit(70)['components'])
-            if len(answers) == 1:
+            schema = params['output_config']['format']['schema']
+            allowed = 'null' in schema['properties']['components']['properties'][first_empty]['type']
+            if allowed:   # the model answers null whenever the answer's shape lets it (a EUR range against a CHF target)
                 comps[first_empty] = None
             data = {**fit(70), 'components': comps}
             return SimpleNamespace(stop_reason='end_turn', content=[SimpleNamespace(type='text', text=json.dumps(data))],
@@ -58,6 +60,7 @@ class UnreadPartTest(unittest.TestCase):
                 data, _ = score.score_one(client, 'm', {'title': 't', 'company': 'c', 'description': 'd', 'ai': self.FACTS}, 'p')
                 self.assertEqual(2, len(client.requests))
                 self.assertIn(part, client.requests[1]['messages'][0]['content'])
+                self.assertNotIn('null', client.requests[1]['output_config']['format']['schema']['properties']['components']['properties'][part]['type'])
                 self.assertEqual(fit(70)['components'][part], data['components'][part])
 
     def test_a_part_with_no_basis_stays_unknown_without_a_second_call(self):
