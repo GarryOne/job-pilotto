@@ -61,8 +61,7 @@ class LockTestScope(unittest.TestCase):
         self.assertTrue(shards.lock_tests_needed([]))   # a diff that could not be read is never a reason to skip
 
     def test_the_pr_job_passes_the_changed_files(self):
-        job = (ROOT / '.github/workflows/build.yml').read_text()
-        python = job[job.index('  python:'):job.index('\n  worker:')]
+        python = (ROOT / '.github/workflows/tests-python.yml').read_text()   # the PR's python suite (14 Oct 2026: build.yml runs on main and calls it)
         self.assertIn('JOB_PILOTTO_PY_CHANGED_FILE', python)
         self.assertIn('github.event.pull_request.base.sha', python)
         self.assertIn('fetch-depth: 0', python)
