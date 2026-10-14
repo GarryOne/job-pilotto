@@ -42,6 +42,19 @@ class ReplayOfflineWorkflow(unittest.TestCase):
         self.assertIn('No nightly beta:', desktop)
 
 
+    def test_the_mac_records_come_from_the_private_repo_with_a_read_only_token(self):
+        # owner, 14 Oct 2026: the encrypted recordings move to job-pilotto-internal; one fetch script for both replay workflows
+        fetch = (ROOT / 'desktop' / 'e2e' / 'net-records-fetch.sh').read_text()
+        self.assertIn('GarryOne/job-pilotto-internal', fetch)
+        self.assertIn('NET_RECORDS_READ_TOKEN', fetch)
+        for name in ('replay-offline.yml', 'replay-pr.yml'):
+            flow = (ROOT / '.github' / 'workflows' / name).read_text()
+            self.assertIn('bash net-records-fetch.sh', flow, name)
+            self.assertIn('secrets.NET_RECORDS_READ_TOKEN', flow, name)
+            self.assertNotIn('gh release download net-records', flow, f'{name}: one fetch, in net-records-fetch.sh')
+        self.assertIn("'GarryOne/job-pilotto-internal'", (ROOT / 'desktop' / 'e2e' / 'records-publish.mjs').read_text())
+
+
 if __name__ == '__main__':
     unittest.main()
 

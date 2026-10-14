@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
-# The pool's newest network records, decrypted on the CI runner only (the Mac's on the release net-records, records-publish.mjs; then the by-hand pool runs' of 14 days,
-# net-records-<run>): bash net-records-fetch.sh <records dir>. Needs NET_RECORD_KEY and GH_TOKEN. Used by .github/workflows/replay-pr.yml (the same steps as replay-offline.yml's).
+# The pool's newest network records, decrypted on the CI runner only (the Mac's on the release net-records of the PRIVATE repo job-pilotto-internal (owner, 14 Oct 2026),
+# read with NET_RECORDS_READ_TOKEN, the public repo's old release as a fallback; records-publish.mjs; then the by-hand pool runs' of 14 days,
+# net-records-<run>): bash net-records-fetch.sh <records dir>. Needs NET_RECORD_KEY, GH_TOKEN and NET_RECORDS_READ_TOKEN. Used by replay-pr.yml and replay-offline.yml.
 set -u
 out="${1:?usage: net-records-fetch.sh <records dir>}"; enc="${RUNNER_TEMP:-/tmp}/enc"; key="${RUNNER_TEMP:-/tmp}/key.pem"
 mkdir -p "$out" "$enc"
 umask 077 && printf '%s' "$NET_RECORD_KEY" | base64 -d > "$key"
-if gh release download net-records --pattern 'net-records.*' --dir "$enc/mac" >/dev/null 2>&1; then
+mac_records() {   # the private repo first (its read-only token), then this repo's old public release
+  [ -n "${NET_RECORDS_READ_TOKEN:-}" ] && GH_TOKEN="$NET_RECORDS_READ_TOKEN" gh release download net-records -R "${NET_RECORDS_REPO:-GarryOne/job-pilotto-internal}" --pattern 'net-records.*' --dir "$enc/mac" >/dev/null 2>&1 && { echo "net-records-fetch: Mac records from ${NET_RECORDS_REPO:-GarryOne/job-pilotto-internal}"; return 0; }
+  gh release download net-records --pattern 'net-records.*' --dir "$enc/mac" >/dev/null 2>&1 && { echo "net-records-fetch: Mac records from this repo's release (fallback)"; return 0; }
+  echo "net-records-fetch: no Mac records"; return 1
+}
+if mac_records; then
   openssl pkeyutl -decrypt -inkey "$key" -pkeyopt rsa_padding_mode:oaep -in "$enc/mac/net-records.k.enc" -out "$enc/k" \
     && mkdir -p "$out/mac" && openssl enc -d -aes-256-cbc -pbkdf2 -in "$enc/mac/net-records.tgz.enc" -pass "file:$enc/k" | tar xz -C "$out/mac" || true
   rm -f "$enc/k"
