@@ -7,6 +7,7 @@ import {api, settings} from './flow.js';
 import {ALL_SITES, openAllowPage} from './site-allow.js';
 import {closeConsentEverywhere} from './consent.js';
 import {mayAct} from './stop-state.js';
+import {moveTab} from './tabs.js';
 
 export const MAX_PAGES = 20;
 const PAUSE_MS = [1800, 3200];   // between pages, like a person reading: not to look like one, to be gentle with the site
@@ -109,7 +110,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
       if (found?.url && found.url.split('#')[0] !== first.url.split('#')[0]) {
         state.jobpage = found.url;
         await tellStep(tabId, config, ticket, `going to its job list: ${found.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60)}`);
-        await chrome.tabs.update(tabId, {url: found.url});
+        await moveTab(tabId, found.url);
         await pause();
         await waitForPage(tabId).catch(() => {});
         await consent();
@@ -161,7 +162,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
         const frame = await run(tabId, jobFrame).catch(() => '');
         if (frame) {
           await tellStep(tabId, config, ticket, `its job list is in a frame from ${new URL(frame).host}: opening it`);
-          await chrome.tabs.update(tabId, {url: frame});
+          await moveTab(tabId, frame);
           await pause();
           await waitForPage(tabId).catch(() => {});
           await consent();
@@ -182,7 +183,7 @@ async function readSiteAwake(tabId, {pages, filter, ticket = ''}) {
         if (way?.needs_person) { state.stopped = `the site needs you: ${way.needs_person}`; break; }
         if (way?.steps?.length) {
           for (const step of way.steps) {
-            if (step.action === 'open') { if (/^https:\/\//.test(step.href || '') && !TEMPLATE.test(step.href)) await chrome.tabs.update(tabId, {url: step.href}); }
+            if (step.action === 'open') { if (/^https:\/\//.test(step.href || '') && !TEMPLATE.test(step.href)) await moveTab(tabId, step.href); }
             else await run(tabId, applyFilters, [[step]]).catch(() => null);
           }
           await tellStep(tabId, config, ticket, `Claude: ${String(way.why || 'trying a way to the jobs').slice(0, 120)}`);

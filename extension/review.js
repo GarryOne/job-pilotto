@@ -7,7 +7,7 @@
 // The panel itself never types, ticks or clicks anything in the form: filling goes through the extension's fill.
 (() => {
   // Once per page, but a copy left behind by an extension reload (its chrome.runtime is gone) gives way to the new one.
-  if (window.__jobPilottoReviewAlive?.()) return;
+  if (window.__jobPilottoReviewAlive?.() || ['Required', 'ReadBack', 'TitleAbove', 'GroupTitle', 'ReviewPayload'].some(name => !window['__jobPilotto' + name] && (console.warn('Job Pilotto panel: helper script missing:', name), true))) return;   // only some helper scripts ran (a reload with the tab open): draw nothing, say which, the next full injection mounts; the option grouping alone is soft
   window.__jobPilottoReviewAlive = () => !!chrome.runtime?.id;
   let askedPassword = 0;
   const send = message => (chrome.runtime?.id ? chrome.runtime.sendMessage(message) : Promise.reject(new Error('reloaded')));
@@ -60,7 +60,7 @@
     const groups = new Map();
     for (const el of document.querySelectorAll('input, textarea, select')) {
       const slot = el.type === 'file' && !visible(el) ? window.__jobPilottoReadBack.shownSlot(el) : null; if (SKIP.includes(el.type) || el.disabled || window.__jobPilottoReadBack.hiddenAway(el) || !(visible(el) || slot)) continue;   // a CV slot whose input the page hides counts by its visible zone (page/read-back.js)
-      const group = ['checkbox', 'radio'].includes(el.type) ? window.__jobPilottoOptionGroups.groupOf(el) : null;   // one question is one row, however its options are named (page/option-groups.js, shared with the replay's truth reader)
+      const group = ['checkbox', 'radio'].includes(el.type) ? window.__jobPilottoOptionGroups?.groupOf(el) : null;   // one question is one row, however its options are named (page/option-groups.js, shared with the replay's truth reader)
       const key = group ? group.key : el;
       const filled = window.__jobPilottoReadBack.holds(el);   // the one reading (page/read-back.js): a box holding only a country code is empty, an upload slot by the file it shows
       const entry = groups.get(key) || {el: slot || el, label: group && !group.box ? clean(window.__jobPilottoTitleAbove(el, 'label, legend, [class*=label], [class*=question]', 4)?.textContent) || question(el) : question(el), required: false, filled: false, ai: false, byUs: false};   // the zone is what a person sees and is shown

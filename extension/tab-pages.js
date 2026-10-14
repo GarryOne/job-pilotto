@@ -238,8 +238,11 @@ export function reportedIds({jobSiteIds = [], armedIds = [], existingIds = []} =
 // address bar, using a bookmark or the start page leaves the application ('by-hand'); a link, a form, a reload or a redirect is
 // the page moving on by itself ('page'). The mark in the URL follows the page, never a person who walked away.
 const BY_HAND = new Set(['typed', 'generated', 'auto_bookmark', 'start_page', 'keyword', 'keyword_generated']);
-export function navigationKind({transitionType = '', transitionQualifiers = []} = {}) {
-  return BY_HAND.has(transitionType) || (transitionQualifiers || []).includes('from_address_bar') ? 'by-hand' : 'page';
+// from_api is an address handed to the tab from outside the page (another app's link, chrome.tabs.update): by hand too, unless the extension itself moved the tab (`ours`, tabs.js moveTab).
+// A page's own link, redirect, form post and reload never carry it. 14 Oct 2026: a GitHub PR page opened in an armed tab got the fill mark and the panel.
+export function navigationKind({transitionType = '', transitionQualifiers = []} = {}, ours = false) {
+  const qualifiers = transitionQualifiers || [];
+  return BY_HAND.has(transitionType) || qualifiers.includes('from_address_bar') || (qualifiers.includes('from_api') && !ours) ? 'by-hand' : 'page';
 }
 // The address with the fill mark, kept on every page of the application. Pages that use their own #fragment are left alone.
 export function withMark(url, mark = 'jobpilotto-fill') {
