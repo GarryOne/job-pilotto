@@ -27,6 +27,24 @@ export function imageSize(buf) {
   return null;
 }
 
+// A text reply with no charset in its Content-Type reaches the recorder as Chrome's inspector read it, bytes taken as windows-1252 and re-encoded as UTF-8 (Aldi, 15 Oct 2026:
+// a server-action reply held "dÃ©tail â€“", the replayed page title turned to mojibake where live read "détail –"). The real bytes are those characters mapped back through
+// windows-1252, kept only when they are valid UTF-8 with non-ASCII in them (the image of a double encoding; a genuinely Latin-1 reply, a labeled one, a binary one and a clean
+// one are left as they are; a second repair finds nothing). Shared by the recorder, the replay and the pre-publish check. -> Buffer (the same one when nothing changes)
+const UNLABELED_TEXT = /^(text\/|application\/(json|[\w.+-]*\+json|javascript|x-javascript|ecmascript|xml|[\w.+-]*\+xml)\b)/i;
+const CP1252 = new Map(Array.from({length: 256}, (_, byte) => [new TextDecoder('windows-1252').decode(Uint8Array.of(byte)), byte]));
+const UTF8_STRICT = new TextDecoder('utf-8', {fatal: true});
+export function repairUnlabeledText(body, contentType = '') {
+  if (!body?.length || !UNLABELED_TEXT.test(contentType) || /charset\s*=/i.test(contentType)) return body;
+  const text = body.toString('utf8');
+  if (!/[^\u0000-\u007f]/.test(text)) return body;
+  const bytes = [];
+  for (const char of text) { const byte = CP1252.get(char); if (byte === undefined) return body; bytes.push(byte); }
+  const real = Buffer.from(bytes);
+  try { UTF8_STRICT.decode(real); } catch { return body; }
+  return /[^\u0000-\u007f]/.test(real.toString('utf8')) ? real : body;
+}
+
 // A GET whose reply is code (JavaScript, CSS, a font) by its content type or its file name, with a body.
 export const prefetchedCode = entry => entry.method === 'GET' && entry.size > 0 && entry.status >= 200 && entry.status < 300
   && (/javascript|ecmascript|text\/css|font\//i.test(entry.headers?.['content-type'] || '') || /\.(m?js|css|woff2?|ttf|otf)(\?|$)/i.test(new URL(entry.url).pathname));

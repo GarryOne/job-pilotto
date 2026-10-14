@@ -2,8 +2,8 @@
 // got (never cookies, request headers or request bodies); the replayer serves it back by the spec's rules. Guard: e2e/test/net-record.test.mjs.
 import fs from 'node:fs';
 import {normalise} from '../../lib/ai/model-memo.js';
-import {KEEP_HEADER, keepRecord, normUrl, prefetchedCode, recordable, sha, siteOf} from '../../lib/net-keep.js';
-export {keepRecord, normUrl, prefetchedCode, recordable};   // the keep rules live in desktop/lib/net-keep.js (shared with the product's report)
+import {KEEP_HEADER, keepRecord, normUrl, prefetchedCode, recordable, repairUnlabeledText, sha, siteOf} from '../../lib/net-keep.js';
+export {keepRecord, normUrl, prefetchedCode, recordable, repairUnlabeledText};   // the keep rules live in desktop/lib/net-keep.js (shared with the product's report)
 const pathOf = url => { const u = new URL(url); return `${u.protocol}//${u.host}${normalise(u.pathname)}`; };
 // The request body as a key, never the body: multipart parts by name (a file part by its bytes' hash, text normalised), a binary body by hash, text normalised.
 export function bodyKey(buf, contentType = '') {
@@ -40,6 +40,7 @@ export function netRecorder(context, {startedAt = Date.now()} = {}) {
     let body = null;
     try { body = response ? await response.body() : null; } catch { body = null; }
     const headers = response ? await response.allHeaders().catch(() => response.headers()) : {}, sent = await request.allHeaders().catch(() => request.headers());
+    body = repairUnlabeledText(body, headers['content-type']);   // the inspector's double-encoded unlabeled text, back to the bytes the browser read
     const hash = body ? sha(body) : '';
     if (body) bodies.set(hash, body);
     entries.push({method: request.method(), url: request.url(), type: request.resourceType(), mode: sent['sec-fetch-mode'] || '', startMs: began - startedAt, waitMs: ended - began,
@@ -139,6 +140,8 @@ export async function netReplay(context, {entries, bodies}, {slow = false, say =
       if (entry.failed) return route.abort().catch(() => {});
     }
     let body = bodies.get(entry.hash) || Buffer.alloc(0), headers = entry.headers?.location ? {...entry.headers, location: headerText(entry.headers.location)} : entry.headers;
+    const real = repairUnlabeledText(body, headers?.['content-type']);   // an older record holds the inspector's double encoding: served as the bytes the live page read
+    if (real !== body) { counts.repaired = (counts.repaired || 0) + 1; netLog(`repaired unlabeled text replies: ${counts.repaired} (${url.slice(0, 100)})`); body = real; }
     if (method !== 'GET' && body.length && body.length < 1e5) {
       const sent = parts(request.postDataBuffer(), sent0['content-type']), echoed = echo(body, sent);
       if (echoed !== body) { counts.echoed = (counts.echoed || 0) + 1; netLog(`echo ${method} ${url.slice(0, 80)}`); body = echoed; headers = Object.fromEntries(Object.entries(headers).map(([name, v]) => [name, echo(Buffer.from(String(v)), sent).toString()])); }
