@@ -112,6 +112,7 @@ jobs:
             replay-out/replays/*/step-*.png
             replay-out/replays/*/replay.json
             replay-out/replays/*/app.log
+            replay-out/replays/*/misses.jsonl
           retention-days: 7
           if-no-files-found: ignore
   gate:
