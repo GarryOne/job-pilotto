@@ -5,7 +5,8 @@ import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import {familyOf, familyOfInstall, installsByEngine} from '../src/engines.js';
 import {store} from '../src/knowledge.js';
-import {page, report} from '../src/formlearning.js';
+import {report} from '../src/formlearning.js';
+import {page} from '../src/form-page.js';
 
 function d1() {
   const db = new DatabaseSync(':memory:');
