@@ -5,7 +5,8 @@ import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
 import worker from '../src/index.js';
 import {digest, markdown} from '../src/digest.js';
-import {page, report} from '../src/formlearning.js';
+import {report} from '../src/formlearning.js';
+import {page} from '../src/form-page.js';
 import {MIN_INSTALLS, sampleOf} from '../src/thin-data.js';
 
 function d1() {

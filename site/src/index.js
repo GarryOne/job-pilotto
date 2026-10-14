@@ -18,7 +18,7 @@ import {view as intelligenceView} from './intelligence.js';
 import {view as scoutingView} from './scoutingadmin.js';
 import {ingest as selfHealIngest, view as selfHealView} from './selfheal.js';
 import {ingest as jobCostIngest, spent as jobCostSpent, view as jobCostView} from './jobcost.js';
-import {digestView, view as formLearningView} from './formlearning.js';
+import {digestView, view as formLearningView} from './form-page.js';
 import {adminPage, redirectOld} from './admin.js';
 import {reportFile as e2eReportFile, view as e2eView} from './e2e.js';
 import {view as applyingView} from './applying.js';

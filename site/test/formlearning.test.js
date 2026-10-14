@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {test} from 'node:test';
-import {page, report, resultsFrom, view} from '../src/formlearning.js';
+import {report, resultsFrom} from '../src/formlearning.js';
+import {page, view} from '../src/form-page.js';
 import {FLOW_STATES} from '../src/knowledge.js';
 
 function d1() {
@@ -73,7 +74,7 @@ test('the results block is honest when nothing was reported yet, and the site ac
 });
 
 test('the page links to the applying scorecard, where real use meets the pool\'s tests', () => {
-  assert.match(readFileSync(new URL('../src/formlearning.js', import.meta.url), 'utf8'), /href="\/admin\/applying">Applying tests → platform scorecard/);
+  assert.match(readFileSync(new URL('../src/form-page.js', import.meta.url), 'utf8'), /href="\/admin\/applying">Applying tests → platform scorecard/);
 });
 
 test('the "*" cross-check flags a board whose marks far exceed the required count', async () => {
