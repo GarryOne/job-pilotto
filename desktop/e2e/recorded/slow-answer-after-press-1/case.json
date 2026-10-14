@@ -1,0 +1,70 @@
+{
+ "origin": "hand-cut",
+ "shape": "a single-page posting whose Apply press is answered by the site 20 s later: the request stays open, then the form appears in the same page",
+ "why": "15 Oct 2026, record-once spec: a pool row stopped at a spinning Apply press. Hypothesis: the extension gives up after its 8 s wait (\"no form came\") and misses a form the site inserts later. FALSIFIED here: on the build before any change (0.9.481) this case, whose press is answered 20 s late and then inserts the form in the same page, still fills it. A guard: a late answer to a press stays handled (pages[].delayMs holds the site's answer open).",
+ "control": {
+  "guard": "a guard for behaviour that already works: main fills a form inserted after a press answered 20 s late (checked 15 Oct 2026 against 0.9.481)"
+ },
+ "sample": "hand-made: a button whose click fetches a slow address, then moves to the form",
+ "rung": 3,
+ "pages": [
+  {
+   "url": "https://emplois.exemple.example.ch/emplois/apprenti-4711",
+   "file": "posting.html"
+  },
+  {
+   "url": "https://emplois.exemple.example.ch/api/start/4711",
+   "file": "start.txt",
+   "delayMs": 20000
+  }
+ ],
+ "ai": {
+  "/extension/page-kind": [
+   {
+    "when": {
+     "url": "https://emplois.exemple.example.ch/postuler/4711"
+    },
+    "answer": {
+     "ok": true,
+     "kind": "form",
+     "role": "form",
+     "by": "ai",
+     "confidence": 0.95,
+     "rung": 2,
+     "signal": "confident"
+    }
+   },
+   {
+    "answer": {
+     "ok": true,
+     "kind": "posting",
+     "role": "no-form",
+     "by": "ai",
+     "confidence": 0.7,
+     "rung": 2,
+     "signal": "confident",
+     "applyButton": "",
+     "applyRoute": "",
+     "applyBy": "other",
+     "applyEmail": "",
+     "accountStep": "",
+     "registerControl": "",
+     "signinControl": "",
+     "accountButton": ""
+    }
+   }
+  ],
+  "/extension/answer": {
+   "ok": true,
+   "eligible": true,
+   "answers": []
+  }
+ },
+ "expect": {
+  "filled": [
+   "#first"
+  ],
+  "maxNewTabs": 0,
+  "seconds": 60
+ }
+}
