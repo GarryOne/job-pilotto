@@ -57,3 +57,9 @@ test('the Fixed tab carries a fix\'s offline verdict beside proven live, and a p
   assert.equal(fixed.rows[0].proven, null, 'a replay never becomes "proven live"');
   assert.equal(pool[0].offline.verdict, 'site');
 });
+
+test('the page draws the offline verdict on a Fixed row and on a regression row of Needs a fix', async () => {
+  const {FIXED_SCRIPT} = await import('../src/applying-fixed.js'), {PAGE} = await import('../src/applying.js');
+  assert.match(FIXED_SCRIPT, /const offlineLine = r =>/);
+  assert.match(PAGE, /s\.regression \? el\('span', \{className: 'stack muted', textContent: offlineLine\(s\)\}\)/);
+});
