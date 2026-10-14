@@ -18,6 +18,7 @@ import {hostOnly, ping, poolRows, upload} from './lib/applying-report.mjs';
 import {uploadLedger} from './lib/fix-ledger.mjs';
 import {poolCard, sendPoolCard} from './lib/pool-card.mjs';
 import {earlierReports, recordSite} from './lib/smoke-record.mjs';
+import {keepsSteps, removeOldEvidence} from './lib/evidence-clean.mjs';
 import {evidenceLines, runFinished, saveElectronLeg, writeBundle} from './lib/evidence-bundle.mjs';
 import {dropCandidate, saveCandidate} from './lib/replay-candidate.mjs';
 import {keepCapture} from './lib/capture-library.mjs';
@@ -125,6 +126,7 @@ async function discover(limit) {
 
 async function main() {
   ensureStagedWorker();   // a worker edit since the last staging would run the old prompt (lib/staged-worker.mjs)
+  removeOldEvidence(path.join(REPORTS, 'evidence'));   // day folders older than 14 days (lib/evidence-clean.mjs)
   if (process.argv.includes('--discover')) return discover(Number(process.argv[process.argv.indexOf('--limit') + 1]) || 30);
   const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : '';
   const seconds = Number(process.env.SMOKE_SECONDS || 90);
@@ -220,7 +222,7 @@ async function main() {
     try { fs.writeFileSync(path.join(REPORTS, `${day}-${shape.replace(/\W+/g, '-')}.app.log`), fs.readFileSync(path.join(captureDir, 'app.log'), 'utf8')); } catch { /* no app log kept: the run did not get that far */ }
     const aiCalls = (() => { try { return fs.readFileSync(path.join(captureDir, 'ai-calls.json'), 'utf8'); } catch { return ''; } })();   // the app's live page-kind calls (desktop/lib/live-capture.js)
     const appLog = (() => { try { return fs.readFileSync(path.join(captureDir, 'app.log'), 'utf8'); } catch { return ''; } })();
-    results[shape].evidence = path.relative(REPORTS, writeBundle({dir: path.join(REPORTS, 'evidence'), day, shape, output: run.output, appLog, aiCalls, result: results[shape], captureDir}));   // one bundle per shape (lib/evidence-bundle.mjs)
+    results[shape].evidence = path.relative(REPORTS, writeBundle({dir: path.join(REPORTS, 'evidence'), day, shape, output: run.output, appLog, aiCalls, result: results[shape], captureDir, keepSteps: keepsSteps({...results[shape], regression: Boolean(fell)})}));   // one bundle per shape (lib/evidence-bundle.mjs)
     results[shape].lines = evidenceLines(appLog);   // the four lines that matter, quoted in the day's report
     console.log(`smoke: ${shape}: evidence ${path.join(REPORTS, results[shape].evidence, 'evidence.md')}`);
     const kept = saveCandidate({dir: CANDIDATES, day, shape, result: results[shape], html, output: run.output, aiCalls, captureDir, appLog, always: process.env.SMOKE_KEEP_CANDIDATES === '1'});   // with the journey, the sheets and the model answers (lib/capture-journey.mjs)

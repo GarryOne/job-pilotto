@@ -7,6 +7,7 @@ import path from 'node:path';
 import {stepFilesIn} from './step-shots.mjs';
 import {slug} from './replay-candidate.mjs';
 import {WORKER_CONSOLE} from './worker-console.mjs';
+import {dropSteps} from './evidence-clean.mjs';
 
 // The capture files a fixer reads, kept by both bundle writers (the plain run's and the Electron leg's): the app's log, its AI calls, the extension's console.
 export const CAPTURE_FILES = ['app.log', 'ai-calls.json', WORKER_CONSOLE];
@@ -33,12 +34,12 @@ export function evidenceLines(appLog) {
 const section = (title, list) => `## ${title}\n${list.length ? list.map(line => `- ${line}`).join('\n') : '- (none in the app log)'}\n`;
 
 // -> the folder. A part that is missing (no app log, no AI calls) is skipped, never an empty file.
-export function writeBundle({dir, day, shape, output = '', appLog = '', aiCalls = '', result = {}, captureDir = ''}) {
+export function writeBundle({dir, day, shape, output = '', appLog = '', aiCalls = '', result = {}, captureDir = '', keepSteps = true}) {
   const folder = path.join(dir, day, slug(shape)), lines = evidenceLines(appLog);
   fs.mkdirSync(folder, {recursive: true});
   const shot = captureDir && fs.existsSync(path.join(captureDir, 'end.png')) ? path.join(captureDir, 'end.png') : '';   // the last picture of the application tab (apply-live.mjs): fake applicant only, local, never uploaded
   const step = `reached ${result.reached || 'none'}${result.filled != null ? `, ${result.filled} filled, ${result.left} left` : ''}`;
-  const stepShots = captureDir ? stepFilesIn(captureDir) : [];
+  const stepShots = captureDir && keepSteps ? stepFilesIn(captureDir) : [];   // a run that works or is held keeps end.png only (lib/evidence-clean.mjs)
   const pictures = `${shot ? `Pictures are full page (the whole page, also a panel that scrolls inside it; a cut says "cut at <n> px" in run.log), local only, with the extension's own panel in them as the person sees it. ${stepShots.length ? `Look at ${stepShots.join(', ')} in order, then end.png (where it stopped).` : 'end.png is the last picture of the application tab: look at it first.'}` : ''}`;
   const text = [`# ${shape}: ${day}`, '', `${step}. Files here: run.log (the run's output), app.log (the app's whole log), ai-calls.json (the page-kind asks and answers, and which fields the AI was asked to answer). ${pictures}`.trim(), '',
     section('Page kind (what was asked, with frames and the digest flag)', lines.pageKind), section('The digest\'s validated answer', lines.digest),
@@ -51,6 +52,7 @@ export function writeBundle({dir, day, shape, output = '', appLog = '', aiCalls 
   if (captureDir) for (const name of CAPTURE_FILES.filter(name => !fs.existsSync(path.join(folder, name)))) { try { fs.copyFileSync(path.join(captureDir, name), path.join(folder, name)); } catch { /* the run did not leave it */ } }
   if (shot) fs.copyFileSync(shot, path.join(folder, 'end.png'));
   for (const name of stepShots) fs.copyFileSync(path.join(captureDir, name), path.join(folder, name));
+  if (!keepSteps) dropSteps(folder);   // the Electron leg was saved before the verdict was known: its step pictures go here, once
   return folder;
 }
 
