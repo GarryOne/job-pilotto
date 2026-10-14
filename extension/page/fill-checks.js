@@ -18,10 +18,12 @@
     return best.checked;
   };
 
+  // The one reading of a two-state control's answer: ticked for yes/checked/true, anything else is "leave it unticked".
+  const wantsChecked = answer => /^(checked|yes|true)$/i.test(answer);
   const setCheckbox = (field, answer) => {
     const box = document.getElementById(field) || document.querySelector(`input[type=checkbox][name="${CSS.escape(field)}"]`);
     if (!box || LEGAL.test(`${questionOf(box)} ${labelOf(box)}`)) return false;
-    const want = /^(checked|yes|true)$/i.test(answer);
+    const want = wantsChecked(answer);
     if (box.checked !== want) (globalThis.__jobPilottoPress?.(box) || box.click());
     return box.checked === want;
   };
@@ -41,5 +43,5 @@
     }
     return ticked;
   };
-  Object.assign(window.__jobPilottoFillKit, {pickCheckboxOption, setCheckbox, tickConsents});
+  Object.assign(window.__jobPilottoFillKit, {pickCheckboxOption, setCheckbox, wantsChecked, tickConsents});
 })();
