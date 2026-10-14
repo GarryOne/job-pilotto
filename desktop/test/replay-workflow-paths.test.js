@@ -3,6 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import {WORKFLOW_JOB, workflowFiles, pathEntries, appFiles, listedPaths as prPaths, INSTALL} from '../../tools/replay-files.mjs';
 for (const workflow of Object.keys(WORKFLOW_JOB)) test(`${workflow}: a PR starts it for exactly the files it loads`, () => {
   const listed = prPaths(workflow), wanted = pathEntries(workflowFiles(workflow));
@@ -23,7 +24,7 @@ test('site-replays-pr.yml: a PR starts it for the apply flow\'s code only: the e
 
 test('each replay workflow checks its own paths first, so a new import cannot slip past a PR that does not run this suite (a worker-only PR)', () => {
   for (const workflow of [...Object.keys(WORKFLOW_JOB), 'site-replays-pr.yml']) {
-    const out = execFileSync(process.execPath, [new URL('../../tools/replay-files.mjs', import.meta.url).pathname, '--check', workflow], {encoding: 'utf8'});
+    const out = execFileSync(process.execPath, [fileURLToPath(new URL('../../tools/replay-files.mjs', import.meta.url)), '--check', workflow], {encoding: 'utf8'});
     assert.match(out, /list everything it loads/, workflow);
   }
 });
