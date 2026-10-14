@@ -86,3 +86,21 @@ test('both admin pages show the section: Real Form Filling its real-use column, 
   assert.doesNotMatch(lab.leftEmpty, /no_answer <span/, 'real use never shows on the lab page');
   assert.doesNotMatch(lab.leftEmpty, /<section class="card">/, 'the lab page boxes its own sections');
 });
+
+test('every meaning word has a title and a bucket; the split reads the card counts for real use and the lab apart, with the thin rule', async () => {
+  const {MEANINGS} = await import('../../extension/fill-meaning.js');
+  const {MEANING_TITLE, bucketOf, splitGaps} = await import('../src/answer-gaps.js');
+  assert.deepEqual(MEANINGS.filter(word => !MEANING_TITLE[word]), [], 'add the word to MEANING_TITLE in src/answer-gaps.js');
+  assert.deepEqual([bucketOf('salary:proposed:gap'), bucketOf('work_permit:proposed:design'), bucketOf('legal:other:design'), bucketOf('salary:no_data:gap')], ['suggested', 'suggested', 'purpose', 'gap']);
+  const split = splitGaps({'salary:proposed:gap': 3, 'legal:other:design': 5, 'salary:no_data:gap': 2, 'work_permit:ai_declined:gap': 1, 'made_up:other:gap': 9});
+  assert.deepEqual(split.buckets.map(b => [b.key, b.count]), [['suggested', 3], ['purpose', 5], ['gap', 3]]);
+  assert.deepEqual(split.buckets[2].meanings.map(m => [m.meaning, m.count]), [['salary', 2], ['work_permit', 1]]);
+  const e = d1();
+  const withGaps = (id, gaps, source, install = '') => e.db.prepare(`INSERT INTO fill_cards (id, day, board, version, required, filled, left_n, unread, causes, gaps, kinds, seconds, source, install) VALUES (?, '2026-10-10', 'ashby', '0.9.1', 5, 3, 2, 0, '{}', ?, '{}', 30, ?, ?)`).run(id, JSON.stringify(gaps), source, install);
+  withGaps('u1', {'salary:proposed:gap': 4}, 'user', 'a'); withGaps('p1', {'salary:no_data:gap': 7}, 'pool');
+  const real = await leftEmpty(e, now, 'real'), lab = await leftEmpty(e, now, 'lab');
+  assert.deepEqual([real.gaps.total, lab.gaps.total], [4, 7]);
+  assert.match(leftEmptySection(real), /What the unanswered fields were about/);
+  assert.doesNotMatch(leftEmptySection(real), /\d+%/, 'one install: counts only');
+  assert.match(leftEmptySection(lab), /True gap/);
+});

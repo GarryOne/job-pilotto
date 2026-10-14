@@ -53,6 +53,8 @@ export function fillCard({id, trace = [], form = [], sent = [], ai = null, aiErr
   const causes = count(left, row => causeOf(row, context));
   // What each left field was about and whether it was left on purpose (fill-meaning.js): fixed words only, "meaning:cause:design|gap".
   const gaps = count(left, row => { const cause = causeOf(row, context), meaning = meaningOf(row); return gapKey(meaning, cause, designOf(row, meaning, cause)); });
+  // Consent, own-words and demographic fields are not in the counts above (left on purpose), but the meaning counts show them: "legal:other:design".
+  for (const row of trace.filter(one => one?.required && one.outcome !== 'filled' && /^(legal|written|demographic)/.test(String(one.reason || '')))) { const key = gapKey(meaningOf(row), 'other', 'design'); gaps[key] = (gaps[key] || 0) + 1; }   // words-ok: our own trace reasons
   return {
     id: String(id || ''), v: String(version || '').slice(0, 20),
     required: required.length, filled: required.length - left.length, left: left.length, unread: causes.unread || 0,

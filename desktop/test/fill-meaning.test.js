@@ -28,11 +28,12 @@ test('each kind of left field gets its meaning word and the right design flag', 
   }
 });
 
-test('the card (legal, written and demographic rows are not on it at all: fill-card.js) carries meaning:cause:design counts, only fixed words, and cleanCard drops anything else', () => {
+test('the card carries meaning:cause:design counts, only fixed words, and cleanCard drops anything else', () => {
   const trace = [row('a', {reason: 'proposed for you to confirm', fact: 'salary'}), row('b', {reason: 'proposed for you to confirm', fact: 'salary'}), row('c', {type: 'password', reason: 'password: never typed, yours to set'}),
-    row('d', {outcome: 'filled', reason: ''})];
+    row('d', {outcome: 'filled', reason: ''}), row('e', {reason: 'legal/consent: always your choice'}), row('f', {reason: 'written: your own words to write'})];
   const card = fillCard({id: 'card-12345678', trace, useAI: true});
-  assert.deepEqual(card.gaps, {'salary:proposed:gap': 2, 'password:other:design': 1});
+  assert.equal(card.left, 3, 'consent and own-words rows stay out of the counts');
+  assert.deepEqual(card.gaps, {'salary:proposed:gap': 2, 'password:other:design': 1, 'legal:other:design': 1, 'written:other:design': 1});
   const clean = cleanCard({...card, gaps: {...card.gaps, 'What is your salary:proposed:gap': 3, 'salary:made_up:gap': 1, 'salary:proposed:maybe': 1, 'nothing:proposed:gap': 1}});
   assert.deepEqual(clean.gaps, card.gaps);
 });
