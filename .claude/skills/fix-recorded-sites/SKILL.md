@@ -49,6 +49,7 @@ Detail moved to files here: [reproduce.md](reproduce.md) (decisions made, how to
 ## 4. Land and confirm (all offline)
 - Commit trailer `Pool-row: <the row's exact pool name>` (it fills the Fixed tab; the commit hook suggests the closest). A push changing how the extension acts on pages needs the recorded page (or `Recorded-unneeded: <why>` only when no real site's failure is fixed).
 - `tools/ship.sh --background --body=<file>` (never from the twin's worktree); open PR with the replay gate (`site-replays-pr.yml`), then watch the PR's "N of M rows same as live": **your row reaches further and no "same as live" row drops.**
+- **A before/after over many rows is CI's** (owner, 15 Oct 2026): `gh workflow run site-replays.yml --ref <branch>` and `--ref main`, both at once (~14 min on 5 runners, $0); compare the two runs' rows. On the Mac replay only the 1-3 rows the fix is about (`JP_REPLAY_ONLY`); `replay-records.mjs` refuses more outside CI (`lib/wide-local.mjs`).
 - **"Confirmed offline"** on the Fixed tab (after merge, from the row's recording, 2 agreeing replays) closes a fix; a "regression" row is read through its "Our build" / "Site changed" verdict first. Until then say "landed, unconfirmed", never "done".
 - Report one line per shape: shape, mechanism part, reached before → after, commit **on origin/main**, siblings helped.
 

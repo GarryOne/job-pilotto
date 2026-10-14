@@ -66,6 +66,7 @@ on:
       - 'desktop/e2e/lib/store-call.mjs'
       - 'desktop/e2e/lib/test-accounts.mjs'
       - 'desktop/e2e/lib/vision.mjs'
+      - 'desktop/e2e/lib/wide-local.mjs'
       - 'desktop/e2e/lib/worker-console.mjs'
       - 'desktop/e2e/lib/wrong-values.mjs'
       - 'desktop/e2e/net-records-fetch.sh'
