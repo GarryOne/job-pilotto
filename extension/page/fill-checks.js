@@ -18,10 +18,13 @@
     return best.checked;
   };
 
-  // The one reading of a two-state control's answer: ticked for yes/checked/true, anything else is "leave it unticked".
+  // The fixed answer of a two-state control is "checked" or "unchecked" (worker/src/extension.js); yes/true and no/false are the same two, spelled the other way.
+  // Anything else (empty, another language) is neither: it is never read as "no".
   const wantsChecked = answer => /^(checked|yes|true)$/i.test(answer);
+  const wantsUnchecked = answer => /^(unchecked|no|false)$/i.test(answer);
+  const boxOf = field => document.getElementById(field) || document.querySelector(`input[type=checkbox][name="${CSS.escape(field)}"]`);
   const setCheckbox = (field, answer) => {
-    const box = document.getElementById(field) || document.querySelector(`input[type=checkbox][name="${CSS.escape(field)}"]`);
+    const box = boxOf(field);
     if (!box || LEGAL.test(`${questionOf(box)} ${labelOf(box)}`)) return false;
     const want = wantsChecked(answer);
     if (box.checked !== want) (globalThis.__jobPilottoPress?.(box) || box.click());
@@ -43,5 +46,5 @@
     }
     return ticked;
   };
-  Object.assign(window.__jobPilottoFillKit, {pickCheckboxOption, setCheckbox, wantsChecked, tickConsents});
+  Object.assign(window.__jobPilottoFillKit, {pickCheckboxOption, setCheckbox, wantsChecked, wantsUnchecked, boxOf, tickConsents});
 })();
